@@ -43,7 +43,7 @@ import { createContext, type Context } from '../context.ts';
 import { movedPath, planShip } from '../delivery/ship.ts';
 import { findOutboxViolations } from '../outbox/check-outbox.ts';
 import { settleAtMerge } from '../outbox/settle-merge.ts';
-import { askModel, NO_KEY, REFUSED } from '../openrouter.ts';
+import { askModel, NO_KEY, REFUSED, type OpenRouterSettings } from '../openrouter.ts';
 import { gradeKnowledge } from './check-knowledge.ts';
 import {
   allowedKinds,
@@ -227,12 +227,13 @@ export function prepareHarvest({ ctx, prd, merge }: { ctx: Context; prd: PrdNumb
 export async function classifyCandidate({
   candidate,
   summary,
-  env,
+  openrouter,
   fetch,
 }: {
   candidate: PromptCandidate;
   summary: KnowledgeSummary;
-  env?: Record<string, string | undefined> | undefined;
+  /** OpenRouter's settings, as the runtime's env module reads them; `null` when it is off. */
+  openrouter: OpenRouterSettings | null;
   fetch?: typeof globalThis.fetch | undefined;
 }): Promise<Classification> {
   if (allowedKinds(summary.places).every((kind) => kind === 'covered' || kind === 'stays-here')) {
@@ -244,7 +245,7 @@ export async function classifyCandidate({
     user: classificationPrompt({ candidate, summary }),
     check,
     schema: { name: 'classification', schema: classificationJsonSchema(summary) },
-    env,
+    openrouter,
     fetch,
     title: 'omni harvest',
   });

@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, it, expect } from 'vitest';
 import { z } from 'zod';
+import { readEnv } from '../env';
 import { settled } from '../stages/settled';
 import type { ReleaseRow } from './row';
 import { missingVariables, releasesSync, syncReleases } from './sync-run';
@@ -129,19 +130,21 @@ describe('syncReleases — one run', () => {
 
 describe('the credentials', () => {
   it('are SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY: each one unset or empty is named', () => {
-    expect(missingVariables({ SUPABASE_URL: 'http://127.0.0.1:54321', SUPABASE_SERVICE_ROLE_KEY: 'key' })).toEqual([]);
-    expect(missingVariables({ SUPABASE_URL: 'http://127.0.0.1:54321' })).toEqual(['SUPABASE_SERVICE_ROLE_KEY']);
-    expect(missingVariables({ SUPABASE_SERVICE_ROLE_KEY: 'key', NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321' })).toEqual(['SUPABASE_URL']);
-    expect(missingVariables({ SUPABASE_URL: ' ', SUPABASE_SERVICE_ROLE_KEY: '' })).toEqual(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
+    const service = (source: Record<string, string>) => readEnv(source).serviceRole;
+    expect(missingVariables(service({ SUPABASE_URL: 'http://127.0.0.1:54321', SUPABASE_SERVICE_ROLE_KEY: 'key' }))).toEqual([]);
+    expect(() => service({ SUPABASE_URL: 'http://127.0.0.1:54321' })).toThrow(/SUPABASE_SERVICE_ROLE_KEY is not set while SUPABASE_URL is/);
+    const publicPair = { NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon' };
+    expect(missingVariables(service({ SUPABASE_SERVICE_ROLE_KEY: 'key', ...publicPair }))).toEqual(['SUPABASE_URL']);
+    expect(missingVariables(service({ SUPABASE_URL: ' ', SUPABASE_SERVICE_ROLE_KEY: '' }))).toEqual(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
   });
 
   it('stop the run before it connects when one is missing', async () => {
     const { err, print } = streams();
     let connected = false;
-    const code = await releasesSync({ env: { SUPABASE_URL: 'http://127.0.0.1:54321' }, root: '/nowhere', connect: () => { connected = true; return memoryTable([]).table; }, ...print });
+    const code = await releasesSync({ service: readEnv({ SUPABASE_SERVICE_ROLE_KEY: 'key' }).serviceRole, root: '/nowhere', connect: () => { connected = true; return memoryTable([]).table; }, ...print });
     expect(code).toBe(1);
     expect(connected).toBe(false);
-    expect(err).toEqual(['releases:sync needs SUPABASE_SERVICE_ROLE_KEY: set it (locally, `npx supabase status` prints it; in Actions, the releases workflow sets it)']);
+    expect(err).toEqual(['releases:sync needs SUPABASE_URL: set it (locally, `npx supabase status` prints it; in Actions, the releases workflow sets it)']);
   });
 });
 

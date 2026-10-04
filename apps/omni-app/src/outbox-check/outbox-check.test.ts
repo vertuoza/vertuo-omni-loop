@@ -8,7 +8,12 @@ import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import { checkRunAt, fakeGitHub } from './fake-github.ts';
 import { startCheck } from '../publish/publish.ts';
-import { DEBOUNCE, FUNCTION_ID, createFailureHandler, createOutboxCheck, outboxCheck } from './outbox-check.ts';
+import { DEBOUNCE, FUNCTION_ID, createFailureHandler, createOutboxCheck } from './outbox-check.ts';
+import { appFunctions } from '../functions.ts';
+import { readEnv } from '../env.ts';
+
+/** The functions the app serves, bound to an empty environment. */
+const { outboxCheck } = appFunctions(readEnv({}));
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
 const fixture = (name: string) => join(FIXTURES, name);

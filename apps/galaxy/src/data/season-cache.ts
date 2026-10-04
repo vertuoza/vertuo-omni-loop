@@ -4,6 +4,7 @@ import { unstable_cache } from 'next/cache';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { GalaxyView, Projects } from '@omni/galaxy';
+import { serverEnv } from '../env';
 
 // The season, cached per workspace (PRD 657, s8). Folding the whole ledger through buildGalaxy on every
 // page view pages the history; the fold is kept in Next's data cache, which Vercel shares across
@@ -40,8 +41,9 @@ const nextCache: SeasonCache = (key, compute) => unstable_cache(compute, key, { 
 let live: SeasonDeps | undefined;
 export function liveSeason(): SeasonDeps {
   if (live !== undefined) return live;
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const { supabase, serviceRole } = serverEnv();
+  const url = serviceRole?.url ?? supabase?.url;
+  const key = serviceRole?.key;
   if (!url || !key) return (live = null);
   const service = createClient<Database>(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
   return (live = { cache: nextCache, service });

@@ -27,9 +27,8 @@ import { type Inngest, NonRetriableError } from 'inngest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { classifyCandidate, finishHarvest, noEdits, prepareHarvest } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import { addCommit, branchHead, refuseDefault, upsertPull } from '../git-write/git-write.ts';
-import { HARVEST_EVENT, inngest } from '../inngest-client.ts';
+import { HARVEST_EVENT } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
-import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import { qualify } from '../retro/qualify.ts';
 import { firstLine } from '../outbox-check/github-schema.ts';
 import { commentOnFailure, FailureCommentSchema, upsertComment } from '../verdict-comment/verdict-comment.ts';
@@ -49,6 +48,7 @@ import {
   WrittenSchema,
 } from './schema.ts';
 import { savedStep, type StepRun } from '../saved-step.ts';
+import type { OpenRouterEnv } from '../env.ts';
 import type { z } from 'zod';
 
 /** What the "qualify" step decides: a skip, or the merged feature PR's config, PRD and merge. */
@@ -74,11 +74,14 @@ export const nothingNewText = (count: number) =>
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-/** The function, bound to its client, GitHub, the environment and fetch; `now` gives the harvest's day, for `Proposed:`. */
-export function createKnowledgeHarvest({ client, octokitFor, env = process.env, fetch = globalThis.fetch, now = today }: {
+/**
+ * The function, bound to its client, GitHub, OpenRouter (from the app's environment, ../env.ts; `null`:
+ * every candidate is not placed) and fetch; `now` gives the harvest's day, for `Proposed:`.
+ */
+export function createKnowledgeHarvest({ client, octokitFor, openrouter, fetch = globalThis.fetch, now = today }: {
   client: Inngest.Any;
   octokitFor: OctokitFor<RequestOctokit>;
-  env?: Record<string, string | undefined>;
+  openrouter: OpenRouterEnv | null;
   fetch?: typeof globalThis.fetch;
   now?: () => string;
 }) {
@@ -134,7 +137,7 @@ export function createKnowledgeHarvest({ client, octokitFor, env = process.env, 
       const classified: Classification[] = [];
       for (const candidate of prepared.candidates) {
         classified.push(
-          await savedStep(step, `classify:${candidate.id}`, ClassificationOutSchema, () => classifyCandidate({ candidate, summary: prepared.summary, env, fetch })),
+          await savedStep(step, `classify:${candidate.id}`, ClassificationOutSchema, () => classifyCandidate({ candidate, summary: prepared.summary, openrouter, fetch })),
         );
       }
 
@@ -239,5 +242,3 @@ export function createHarvestFailureHandler({ octokitFor }: { octokitFor: Octoki
     });
   };
 }
-
-export const knowledgeHarvest = createKnowledgeHarvest({ client: inngest, octokitFor: installationOctokit });

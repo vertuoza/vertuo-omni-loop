@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { sure } from '../arcade/sure';
 import { item } from '../ask/test-item';
 
@@ -16,7 +16,19 @@ const afterSignIn = vi.hoisted(() => vi.fn(() => Promise.resolve(['signed_in', '
 // The high scores as the build would count them: two counters read, one out of reach.
 const highScores = vi.hoisted(() => vi.fn(() => ({ prdsShipped: 21, slicesMerged: 134, decisionsAdopted: '—' as const })));
 
+// The environment HOME is rendered in: a plain object, handed to the server's and the browser's env
+// modules alike, never written into the process's.
+const environment = vi.hoisted(() => ({ source: {} }));
+
 vi.mock('server-only', () => ({}));
+vi.mock('../env', async (actual) => {
+  const env = await actual<typeof import('../env')>();
+  return { ...env, serverEnv: () => env.readEnv(environment.source) };
+});
+vi.mock('../env.client', async (actual) => {
+  const env = await actual<typeof import('../env.client')>();
+  return { ...env, clientEnv: () => env.readClientEnv(environment.source) };
+});
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: supabase.env,
   supabaseServer: async () => { await supabase.server(); return { auth: { exchangeCodeForSession: supabase.exchange } }; },
@@ -31,16 +43,10 @@ vi.mock('../data/workspace', () => ({ joinByDomain: () => { throw new Error('not
 vi.mock('./scores', async (actual) => ({ ...(await actual<typeof import('./scores')>()), countHighScores: highScores }));
 vi.mock('../ask/cli-code-live', () => ({ cliCallbackDeps: () => { throw new Error('not in this test'); } }));
 
-const ENV = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'OMNI_LOOP_DEMO'] as const;
-const saved = Object.fromEntries(ENV.map((k) => [k, process.env[k]]));
-
 beforeEach(() => {
-  for (const k of ENV) Reflect.deleteProperty(process.env, k);
+  environment.source = {};
   supabase.env.mockReturnValue(null);
   supabase.server.mockClear();
-});
-afterEach(() => {
-  for (const k of ENV) if (saved[k] === undefined) Reflect.deleteProperty(process.env, k); else process.env[k] = saved[k];
 });
 
 const text = (html: string) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -74,8 +80,7 @@ describe('HOME at /', () => {
   });
 
   it('renders the same in a build that has Supabase settings', async () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321';
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon';
+    environment.source = { NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon' };
     supabase.env.mockReturnValue({ url: 'http://127.0.0.1:54321', key: 'anon' });
     expect(text(await render())).toContain('AGENTS SHIP. YOU STEER.');
     expect(supabase.server).not.toHaveBeenCalled();

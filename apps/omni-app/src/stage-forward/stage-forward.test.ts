@@ -2,6 +2,7 @@ import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import { readEnv } from '../env.ts';
 import { forwardStageEvent, signStageEvent, STAGE_SIGNATURE_HEADER, stageEventUrl, toStageEvent, type StageEvent } from './stage-forward.ts';
 
 const REPOSITORY: Record<string, unknown> = { name: 'widgets', full_name: 'acme/widgets', owner: { login: 'acme' }, default_branch: 'main' };
@@ -106,11 +107,11 @@ describe('signStageEvent', () => {
 
 describe('stageEventUrl', () => {
   it('is galaxy’s event route, on GALAXY_URL when set', () => {
-    expect(stageEventUrl({ GALAXY_URL: 'https://galaxy.example/' })).toBe('https://galaxy.example/api/stages/event');
+    expect(stageEventUrl(readEnv({ GALAXY_URL: 'https://galaxy.example/' }).galaxyUrl)).toBe('https://galaxy.example/api/stages/event');
   });
 
   it('is on galaxy’s own domain when GALAXY_URL is unset (PRD 983)', () => {
-    expect(stageEventUrl({})).toBe('https://www.omni-loop.xyz/api/stages/event');
+    expect(stageEventUrl(readEnv({}).galaxyUrl)).toBe('https://www.omni-loop.xyz/api/stages/event');
   });
 });
 

@@ -24,6 +24,7 @@ import {
 import { createRetro } from './retro.ts';
 import type { NarrateInput, NarrateSheet } from './narrate.ts';
 import { LIMITS } from './rules.ts';
+import { readEnv } from '../env.ts';
 
 const RUN = (n: number) => `https://github.com/acme/widgets/actions/runs/${n}`;
 const PRD = { title: 'Widgets that remember their colour', problem: 'A widget forgets its colour when the page reloads.' };
@@ -147,12 +148,12 @@ const parsedJson = (text: string): unknown => JSON.parse(text);
 const NO_VERDICT = { summary: REPLY.summary, findings: REPLY.findings, lessons: REPLY.lessons };
 
 const noSleep = vi.fn<(ms: number) => Promise<void>>(() => Promise.resolve());
-const ask = (fetch: typeof globalThis.fetch, over: Partial<NarrateInput> = {}) => narrate({ sheet: sheetOf(), prd: PRD, env: KEY, fetch, sleep: noSleep, ...over });
+const ask = (fetch: typeof globalThis.fetch, over: Partial<NarrateInput> = {}) => narrate({ sheet: sheetOf(), prd: PRD, openrouter: readEnv(KEY).openrouter, fetch, sleep: noSleep, ...over });
 
 describe('narrate — no key', () => {
   it('asks no model without OPENROUTER_API_KEY, and says so', async () => {
     const fetch = stubFetch(streamed(JSON.stringify(REPLY)));
-    expect(await narrate({ sheet: sheetOf(), prd: PRD, env: {}, fetch })).toEqual({ model: null, reply: null, reason: NO_MODEL_KEY });
+    expect(await narrate({ sheet: sheetOf(), prd: PRD, openrouter: readEnv({}).openrouter, fetch })).toEqual({ model: null, reply: null, reason: NO_MODEL_KEY });
     expect(fetch).not.toHaveBeenCalled();
   });
 });
@@ -176,7 +177,7 @@ describe('narrate — one call to OpenRouter', () => {
 
   it('asks the model OPENROUTER_MODEL names instead', async () => {
     const fetch = stubFetch(streamed(JSON.stringify(REPLY)));
-    const out = await ask(fetch, { env: { ...KEY, OPENROUTER_MODEL: 'anthropic/claude-sonnet-5' } });
+    const out = await ask(fetch, { openrouter: readEnv({ ...KEY, OPENROUTER_MODEL: 'anthropic/claude-sonnet-5' }).openrouter });
     expect(out.model).toBe('anthropic/claude-sonnet-5');
     expect(callOf(fetch, 0).body.model).toBe('anthropic/claude-sonnet-5');
   });
@@ -395,7 +396,7 @@ describe('narrate — what the model is given', () => {
       evidence: [{ label: 'run 7001', url: RUN(7001), excerpt: `curl -H "Authorization: Bearer abc.def-ghi" ${secrets.join(' ')}` }],
     };
     const fetch = stubFetch(streamed(JSON.stringify(REPLY)));
-    await narrate({ sheet: sheetOf([leaky]), prd: { ...PRD, problem: `token ${secrets[0]}` }, env: KEY, fetch, sleep: noSleep });
+    await narrate({ sheet: sheetOf([leaky]), prd: { ...PRD, problem: `token ${secrets[0]}` }, openrouter: readEnv(KEY).openrouter, fetch, sleep: noSleep });
     const sent = callOf(fetch, 0).init.body;
     for (const secret of [...secrets, 'abc.def-ghi']) expect(sent).not.toContain(secret);
     expect(sent).toContain('Bearer [masked]');
@@ -474,7 +475,7 @@ describe('narrate and guard in the retro function', () => {
   /** Runs the real function against the stubbed GitHub, with `fetch` stubbed; the pauses between tries skipped. */
   async function runRetro(fetch: typeof globalThis.fetch) {
     const scenario = widgetScenario();
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: KEY });
+    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, openrouter: readEnv(KEY).openrouter });
     vi.stubGlobal('fetch', fetch);
     vi.useFakeTimers({ toFake: ['setTimeout'] });
     try {

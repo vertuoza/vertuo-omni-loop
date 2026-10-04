@@ -1,5 +1,6 @@
 import type { Claim, ClaimKind } from './model';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { OpenRouterEnv } from '../env';
 
 // Suggested rivals (PRD 748 s3, decision 4): once offering, trade and region are picked, one call to
 // the existing small model through OpenRouter (the shape of src/ask/classify.ts) for up to five rival
@@ -113,7 +114,6 @@ export async function suggestRivals(input: SuggestInput, { apiKey, fetch = globa
 export type Suggester = (input: SuggestInput) => Promise<string[] | null>;
 
 /** The suggester when OPENROUTER_API_KEY is set, and null otherwise: then no guess is ever shown. */
-export function suggesterFromEnv(env: Record<string, string | undefined>): Suggester | null {
-  const apiKey = env.OPENROUTER_API_KEY?.trim();
-  return apiKey ? (input) => suggestRivals(input, { apiKey }) : null;
+export function suggesterFromEnv(openrouter: OpenRouterEnv | null): Suggester | null {
+  return openrouter ? (input) => suggestRivals(input, { apiKey: openrouter.key }) : null;
 }

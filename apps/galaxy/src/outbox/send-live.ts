@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { supabaseEnv, supabaseServer } from '../data/supabase-server';
 import { serviceDb } from '../data/sign-in-live';
+import { serverEnv, type GithubOAuthEnv } from '../env';
 import { dossierGithub } from '../dossier/github/server';
 import { recountLive } from '../stages/outbox/live';
 import { sendOpen } from './open';
@@ -86,11 +87,17 @@ async function recountDossier(dossierId: string): Promise<void> {
   await recountLive(row.workspace_id, [{ repository: row.home_repo, prd: parsePrd(row.prd), id: dossierId }]);
 }
 
+/** The App's OAuth client while this deployment may send (./open.ts), or none. */
+function sendClient(): GithubOAuthEnv | null {
+  return sendOpen() ? serverEnv().githubOAuth : null;
+}
+
+const NO_CLIENT: GithubOAuthEnv = { clientId: '', clientSecret: '' };
+
 export function sendDeps(): SendDeps {
-  const clientId = process.env.GITHUB_APP_CLIENT_ID?.trim() || null;
-  const clientSecret = process.env.GITHUB_APP_CLIENT_SECRET?.trim() || '';
+  const client = sendClient();
   return {
-    clientId: sendOpen() && supabaseEnv() ? clientId : null,
+    clientId: client?.clientId ?? null,
     async store() {
       if (!supabaseEnv()) return null;
       const db = await supabaseServer();
@@ -98,7 +105,7 @@ export function sendDeps(): SendDeps {
       return user ? sendStore(db) : null;
     },
     outbox: outboxSource(),
-    github: () => githubUser({ clientId: clientId ?? '', clientSecret, fetch }),
+    github: () => githubUser({ ...(client ?? NO_CLIENT), fetch }),
     recount: recountDossier,
   };
 }

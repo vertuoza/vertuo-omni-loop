@@ -41,7 +41,7 @@ import { forgetDraft, mainCheckout, markNumbered, readDossiers, recordDraft } fr
 import type { IssueNumber, PrdNumber } from '../../lib/ids.ts';
 import { isOneOf } from '../../lib/narrow.ts';
 import { issueArg, parseArgs, prdArg, println, usageError } from '../args.ts';
-import type { Env, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
+import type { Exec, FreeCommand, FreeIo, Out, Vars } from '../io.ts';
 
 /** What a test hands `omni dossier` beyond `main()`'s own. */
 type DossierOptions = {
@@ -72,8 +72,8 @@ const ISSUE_TITLE_MS = 5000;
 const NO_SIGN_IN = 'no sign-in (omni signin)';
 
 /** The Claude session id this terminal runs in, or null: sent only when it could be a real one. */
-function claudeSessionOf(env: Env | undefined): string | null {
-  const id = typeof env?.CLAUDE_CODE_SESSION_ID === 'string' ? env.CLAUDE_CODE_SESSION_ID.trim() : '';
+function claudeSessionOf(session: Vars['claudeSession']): string | null {
+  const id = session?.id.trim() ?? '';
   return id.length >= 1 && id.length <= TITLE_MAX ? id : null;
 }
 
@@ -251,7 +251,7 @@ export const dossier = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, stderr, exec, env, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }: FreeIo & DossierOptions,
+    { cwd, stdout, stderr, exec, vars, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }: FreeIo & DossierOptions,
   ) {
     const { positional, flags } = parseArgs('dossier', args, { values: ['kind'] });
     const [verb = '', ...rest] = positional;
@@ -282,7 +282,7 @@ export const dossier = {
       println(stderr, NO_SIGN_IN);
       return 1;
     }
-    const options: VerbIo = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
+    const options: VerbIo = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(vars.claudeSession), stdout, stderr, now };
     // `named` is set for `push` and `link`, the two verbs that read a number, and null for `open`.
     if (named === null) return open(title, options);
     if (verb === 'link') return link(named.kind === 'prd' ? named.prd : named.issue, named.kind, options);

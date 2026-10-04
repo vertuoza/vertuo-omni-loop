@@ -9,7 +9,6 @@ import {
   PullDetailSchema,
   PullsUpdatedSchema,
   RateLimited,
-  StoreEnvSchema,
   TrackedRepositoriesSchema,
   TrackedRowSchema,
 } from './schema.ts';
@@ -59,11 +58,6 @@ describe('the collector answer schemas', () => {
     expect(FailureSchema.parse(failure)).toMatchObject({ message: 'Not Found', status: 404 });
     expect(FailureSchema.parse({ errors: 'not a list' })).toEqual({ errors: undefined });
     expect(FailureSchema.safeParse('a string').success).toBe(false);
-  });
-
-  it('read the store environment, and refuse a key that is not text', () => {
-    expect(StoreEnvSchema.parse({ SUPABASE_URL: 'https://db.example', HOME: '/root' })).toMatchObject({ SUPABASE_URL: 'https://db.example' });
-    expect(StoreEnvSchema.safeParse({ SUPABASE_SERVICE_ROLE_KEY: 7 }).error?.issues[0]?.path).toEqual(['SUPABASE_SERVICE_ROLE_KEY']);
   });
 
   it('read back a step "list-repositories" as Inngest saved it, and refuse a repository missing its installation, of another type or null', () => {

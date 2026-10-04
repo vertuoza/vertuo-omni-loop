@@ -1,5 +1,5 @@
 import { loadKnowledge } from '../../src/data/load-knowledge';
-import { arcadeMode } from '../../src/data/mode';
+import { serverEnv } from '../../src/env';
 import { supabaseEnv, supabaseServer } from '../../src/data/supabase-server';
 import { memberGithub, memberWorkspace } from '../../src/data/workspace';
 import { knowledgeAccess, type KnowledgeView, type Viewer } from '../../src/knowledge/access';
@@ -38,7 +38,7 @@ export default async function KnowledgePage({ searchParams }: Props) {
 
   let view: KnowledgeView;
   try {
-    view = await knowledgeAccess(arcadeMode(process.env), {
+    view = await knowledgeAccess(serverEnv().mode, {
       viewer,
       load: () => loadKnowledge(),
       repos: () => installedRepos(knowledgeGithub(), workspaces),

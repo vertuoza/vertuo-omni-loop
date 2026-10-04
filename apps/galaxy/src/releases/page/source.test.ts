@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { DEMO_RELEASES } from '../demo';
 import type { ReleaseRow } from '../row';
+import { readEnv } from '../../env';
 import { releasesView } from './source';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
@@ -23,7 +24,7 @@ describe('in development, or a build that asks for the demo', () => {
   it('shows the demo sample and reads nothing', async () => {
     for (const env of [{ NODE_ENV: 'development' }, { NODE_ENV: 'production', OMNI_LOOP_DEMO: '1' }]) {
       const read = reads(ROWS);
-      expect(await releasesView(env, read)).toEqual({ kind: 'releases', rows: DEMO_RELEASES });
+      expect(await releasesView(readEnv(env), read)).toEqual({ kind: 'releases', rows: DEMO_RELEASES });
       expect(read).not.toHaveBeenCalled();
     }
   });
@@ -32,8 +33,8 @@ describe('in development, or a build that asks for the demo', () => {
 describe('in a build with no Supabase', () => {
   it('is closed: the unavailable line, and nothing read', async () => {
     const read = reads(ROWS);
-    expect(await releasesView({ NODE_ENV: 'production' }, read)).toEqual({ kind: 'unavailable' });
-    expect(await releasesView({ NODE_ENV: 'production', ...BUILDING }, read)).toEqual({ kind: 'unavailable' });
+    expect(await releasesView(readEnv({ NODE_ENV: 'production' }), read)).toEqual({ kind: 'unavailable' });
+    expect(await releasesView(readEnv({ NODE_ENV: 'production', ...BUILDING }), read)).toEqual({ kind: 'unavailable' });
     expect(read).not.toHaveBeenCalled();
   });
 });
@@ -41,21 +42,21 @@ describe('in a build with no Supabase', () => {
 describe('with Supabase', () => {
   it('shows what public.releases holds, read with the publishable key', async () => {
     const read = reads(ROWS);
-    expect(await releasesView(SUPABASE, read)).toEqual({ kind: 'releases', rows: ROWS });
+    expect(await releasesView(readEnv(SUPABASE), read)).toEqual({ kind: 'releases', rows: ROWS });
     expect(read).toHaveBeenCalledWith({ url: SUPABASE.NEXT_PUBLIC_SUPABASE_URL, key: SUPABASE.NEXT_PUBLIC_SUPABASE_ANON_KEY });
   });
 
   it('shows an empty table as it is: no release yet', async () => {
-    expect(await releasesView(SUPABASE, reads([]))).toEqual({ kind: 'releases', rows: [] });
+    expect(await releasesView(readEnv(SUPABASE), reads([]))).toEqual({ kind: 'releases', rows: [] });
   });
 
   it('never fails the build on a failed read: the page is built with the unavailable line, and the reason logged', async () => {
-    expect(await releasesView({ ...SUPABASE, ...BUILDING }, fails())).toEqual({ kind: 'unavailable' });
+    expect(await releasesView(readEnv({ ...SUPABASE, ...BUILDING }), fails())).toEqual({ kind: 'unavailable' });
     expect(String(logged.mock.calls[0])).toMatch(/project paused/);
   });
 
   it('never replaces a good page on a failed read after the build: it throws, so the last good render stays', async () => {
-    await expect(releasesView(SUPABASE, fails())).rejects.toThrow(/releases could not be read/);
+    await expect(releasesView(readEnv(SUPABASE), fails())).rejects.toThrow(/releases could not be read/);
     expect(String(logged.mock.calls[0])).toMatch(/project paused/);
   });
 });

@@ -2,6 +2,7 @@ import 'server-only';
 import { serviceDb } from '../../data/sign-in-live';
 import { listOf, numberOf } from '../../data/unparsed';
 import type { FixRef } from '../../dossier/github/reader';
+import { serverEnv, type ArcadeEnv } from '../../env';
 import { dossierGithub } from '../../dossier/github/server';
 import { fixFactsStore } from '../../fixes/facts/store';
 import { knowledgeReader, type KnowledgeReader } from '../../knowledge/github';
@@ -74,9 +75,9 @@ function fixDeps(): FixSyncDeps {
   };
 }
 
-export function syncDeps(env: Record<string, string | undefined> = process.env): SyncDeps {
+export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv()): SyncDeps {
   return {
-    secret: env.STAGES_SYNC_SECRET?.trim() || undefined,
+    secret: env.stagesSyncSecret ?? undefined,
     async workspaces() {
       const { data, error } = await serviceDb().from('workspaces').select('id, slug, github_org, github_installation_id').order('slug');
       if (error) throw new Error(`Supabase refused to read the workspaces: ${error.message}`);

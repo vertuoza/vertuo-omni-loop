@@ -16,6 +16,14 @@ Hall of Heroes issue, and a weekly backup kept as a workflow artifact. Delete `g
 The commands read and write Supabase: set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (locally,
 `npx supabase status` prints both; `apps/galaxy/.env.local` is read if it exists).
 
+The game's variables, read in `kit/lib/env/read.ts` (ADR-0057):
+
+<!-- omni:env-variables -->
+- `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`, the arcade's public address) and
+  `SUPABASE_SERVICE_ROLE_KEY`: required by every command, which stops naming them before any work.
+- `OMNI_LOOP_WORKSPACE`: the workspace, when `--workspace` names none.
+<!-- /omni:env-variables -->
+
 Each command plays for one **workspace** (`public.workspaces`), and reads and writes nothing of
 another. Name it with `--workspace <slug>`, or set `OMNI_LOOP_WORKSPACE`; the flag wins. There is no
 default: with neither, or with a slug no workspace has, the command stops and says so. Vertuoza is

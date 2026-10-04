@@ -63,7 +63,7 @@ function checkPlan(prd: PrdNumber, { ctx }: { ctx: Context }) {
 }
 
 /** `omni plan moved <prd> [--json]`: one row per target, exit 0 in a plan repository. */
-function moved(rest: string[], { ctx, stdout, exec, env }: Omit<CommandIo, 'stderr'>): number {
+function moved(rest: string[], { ctx, stdout, exec, env }: Pick<CommandIo, 'ctx' | 'stdout' | 'exec' | 'env'>): number {
   const { positional, flags } = parseArgs('plan moved', rest, { booleans: ['json'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const prd = prdArg('plan moved', '<prd>', positional[0]);

@@ -77,6 +77,15 @@ describe('the game scripts name their workspace', () => {
     expect(server.calls).toEqual([]);
   });
 
+  it('each one stops before any work, naming the variables, when the Supabase pair is half set', async () => {
+    const runs = await Promise.all(EVERY.map(([script, args]) => game(script, [...args, '--workspace', 'vertuoza'], { SUPABASE_SERVICE_ROLE_KEY: '' })));
+    for (const run of runs) {
+      expect(run.code).toBe(2);
+      expect(run.stderr).toMatch(/SUPABASE_SERVICE_ROLE_KEY is not set while SUPABASE_URL \(or NEXT_PUBLIC_SUPABASE_URL\) is/);
+    }
+    expect(server.calls).toEqual([]);
+  });
+
   it('each one stops, naming the slug, when the workspace is unknown; --workspace beats the variable', async () => {
     const runs = await Promise.all(EVERY.map(([script, args]) => game(script, [...args, '--workspace', 'ghost'], { OMNI_LOOP_WORKSPACE: 'vertuoza' })));
     for (const run of runs) {

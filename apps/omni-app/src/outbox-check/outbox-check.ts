@@ -18,16 +18,15 @@
 // repository without the loop's config gets no check run and no comment, not even a `skipped` one.
 //
 // `createOutboxCheck` takes the Inngest client and `octokitFor(installationId)`, so a test runs the
-// real function against a stubbed GitHub; `outboxCheck` is the one the app serves, wired to the app's
-// client and to installation tokens signed with the app's private key.
+// real function against a stubbed GitHub; the app serves it wired to its client and to installation
+// tokens signed with the GitHub App's private key (`installationOctokitFor`, ../octokit-for.ts).
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { App } from '@octokit/app';
 import { NonRetriableError, type Inngest } from 'inngest';
 import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { NOT_ACTIVE_ON_REPO, evaluate, type Verdict } from '../evaluate/evaluate.ts';
-import { CheckRequestDataSchema, FailureEventDataSchema, inngest, OUTBOX_CHECK_EVENT, type CheckRequestData } from '../inngest-client.ts';
+import { CheckRequestDataSchema, FailureEventDataSchema, OUTBOX_CHECK_EVENT, type CheckRequestData } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { DEFAULT_CHECK_NAME, publish, startCheck } from '../publish/publish.ts';
 import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.ts';
@@ -220,24 +219,3 @@ export function onFailedRun(octokitFor: OctokitFor<GitHubClient>, work: (failed:
     return step?.run ? step.run('complete-as-failure', complete) : complete();
   };
 }
-
-/**
- * An installation's Octokit, signed with the app's private key (`GITHUB_APP_ID`,
- * `GITHUB_APP_PRIVATE_KEY`). A key pasted with literal `\n` sequences is accepted.
- */
-let app: App | undefined;
-export function installationOctokit(installationId: number) {
-  app ??= new App({
-    appId: requiredEnv('GITHUB_APP_ID'),
-    privateKey: requiredEnv('GITHUB_APP_PRIVATE_KEY').replace(/\\n/g, '\n'),
-  });
-  return app.getInstallationOctokit(installationId);
-}
-
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set.`);
-  return value;
-}
-
-export const outboxCheck = createOutboxCheck({ client: inngest, octokitFor: installationOctokit });

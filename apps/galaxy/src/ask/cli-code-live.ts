@@ -7,6 +7,7 @@ import { installUrl } from '../signup/github-app';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { CODE_TTL_MS, type CliCallbackDeps, type CliSession, type Placement, type TokenClient, type TokenDeps } from './cli-code';
 import type { Database } from '../../../../supabase/database.types';
+import { serverEnv } from '../env';
 
 // The terminal's sign-in, wired to the real Supabase (src/ask/cli-code.ts says what each step does).
 // The callback acts as the sign-in it just made, and /api/ask/token trades codes and tokens acting as
@@ -109,7 +110,7 @@ export function tokenDeps(): TokenDeps {
     },
     revoke: (accessToken) => revokeToken(env, accessToken),
     place: placeRepo,
-    installLink: installUrl(process.env.GITHUB_APP_SLUG),
+    installLink: installUrl(serverEnv().githubAppSlug),
   };
 }
 

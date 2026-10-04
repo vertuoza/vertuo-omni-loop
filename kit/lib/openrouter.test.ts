@@ -15,7 +15,7 @@ import {
 import { assertDefined } from '../test/assert.ts';
 import { dig } from '../bin/dig.ts';
 
-const KEY = { OPENROUTER_API_KEY: 'sk-or-v1-test-key-not-real-0000000000' };
+const KEY = { key: 'sk-or-v1-test-key-not-real-0000000000' };
 const REPLY = { kind: 'adr', statement: 'The outbox check reads two snapshots.' };
 const SCHEMA = {
   name: 'classification',
@@ -82,18 +82,18 @@ function stubFetch(...answers: Answer[]) {
 
 const noSleep = vi.fn<(ms: number) => Promise<void>>(() => Promise.resolve());
 const ask = (fetch: unknown, over: Partial<AskInput> = {}) =>
-  askModel({ system: 'You classify.', user: 'The item.', check, schema: SCHEMA, env: KEY, fetch: fetch as typeof globalThis.fetch, sleep: noSleep, ...over });
+  askModel({ system: 'You classify.', user: 'The item.', check, schema: SCHEMA, openrouter: KEY, fetch: fetch as typeof globalThis.fetch, sleep: noSleep, ...over });
 
 describe('askModel — no key', () => {
   it('returns an error naming OPENROUTER_API_KEY, before any request', async () => {
     const fetch = stubFetch(plain(JSON.stringify(REPLY)));
-    const out = await askModel({ system: 's', user: 'u', check, env: {}, fetch: fetch as unknown as typeof globalThis.fetch });
+    const out = await askModel({ system: 's', user: 'u', check, openrouter: null, fetch: fetch as unknown as typeof globalThis.fetch });
     expect(out).toEqual({ ok: false, error: NO_KEY, model: null, reply: null, reason: 'OPENROUTER_API_KEY is not set' });
     expect(fetch).not.toHaveBeenCalled();
   });
 
   it('never reaches the network: fetch is injected, and a missing one is refused', async () => {
-    const out = await askModel({ system: 's', user: 'u', check, env: KEY, fetch: undefined });
+    const out = await askModel({ system: 's', user: 'u', check, openrouter: KEY, fetch: undefined });
     expect(out.ok).toBe(false);
     expect(out.reason).toMatch(/fetch/);
   });
@@ -112,7 +112,7 @@ describe('askModel — the request', () => {
     expect(url).toBe(OPENROUTER_URL);
     expect(OPENROUTER_URL).toBe('https://openrouter.ai/api/v1/chat/completions');
     expect(init.method).toBe('POST');
-    expect(dig(init.headers, 'authorization')).toBe(`Bearer ${KEY.OPENROUTER_API_KEY}`);
+    expect(dig(init.headers, 'authorization')).toBe(`Bearer ${KEY.key}`);
     expect(init.signal).toBeInstanceOf(AbortSignal);
     expect(body).toMatchObject({
       model: DEFAULT_MODEL,
@@ -128,7 +128,7 @@ describe('askModel — the request', () => {
 
   it('asks the model OPENROUTER_MODEL names instead', async () => {
     const fetch = stubFetch(plain(JSON.stringify(REPLY)));
-    const out = await ask(fetch, { env: { ...KEY, OPENROUTER_MODEL: 'anthropic/claude-sonnet-5' } });
+    const out = await ask(fetch, { openrouter: { ...KEY, model: 'anthropic/claude-sonnet-5' } });
     expect(out.model).toBe('anthropic/claude-sonnet-5');
     expect(dig(fetch.calls, 0, 'body', 'model')).toBe('anthropic/claude-sonnet-5');
   });

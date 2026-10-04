@@ -12,18 +12,22 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ConfigError } from '../lib/config.ts';
 import { loadContext } from '../lib/context.ts';
+import { processEnv, readEnv } from '../lib/env/read.ts';
 import type { PrdNumber } from '../lib/ids.ts';
 import { propertyOf } from '../lib/narrow.ts';
 import { handOver, planLaunch } from '../lib/launch/launch.ts';
 import { recordSession } from '../lib/statusline/sessions.ts';
 import { prdArg } from './args.ts';
 import { COMMAND_TABLE } from './commands/index.ts';
-import type { Env, Exec, Out } from './io.ts';
+import type { Env, Exec, Out, Vars } from './io.ts';
 
 const USAGE = `usage: omni <command> [args]\ncommands: ${Object.keys(COMMAND_TABLE).join(', ')}\nomni help: what each command does\n`;
 // `omni --help` and `omni -h` are `omni help`; `omni --version` is `omni version`.
 const HELP_FLAGS = ['--help', '-h'];
 const VERSION_FLAG = '--version';
+// The errors a command stops on with their first line and exit 2, by name: a bundle's copy of a class
+// is not the source's.
+const STOPPING_ERRORS = ['ConfigError', 'UsageError', 'EnvError'];
 
 // The commands that name their PRD by position: the argument right after the command, or right after
 // the subcommand listed here (`omni prd 7`, `omni dossier push 7`). Any command names one with
@@ -68,10 +72,10 @@ export function prdNamedBy(argv: readonly string[]): PrdNumber | null {
 }
 
 /** Records the PRD `argv` names for the Claude session `env` names; never throws, never prints. */
-function recordPrd(argv: readonly string[], { cwd, env, exec }: { cwd: string; env: Env; exec: Exec }): void {
+function recordPrd(argv: readonly string[], { cwd, vars, exec }: { cwd: string; vars: Vars; exec: Exec }): void {
   try {
     const prd = prdNamedBy(argv);
-    if (prd !== null) recordSession({ cwd, exec, sessionId: env.CLAUDE_CODE_SESSION_ID, prd, now: Date.now() });
+    if (prd !== null) recordSession({ cwd, exec, sessionId: vars.claudeSession?.id, prd, now: Date.now() });
   } catch {
     // A record that cannot be written changes nothing: the command runs as it does without one.
   }
@@ -84,7 +88,7 @@ export async function main(
     stdout = process.stdout,
     stderr = process.stderr,
     exec = execFileSync,
-    env = process.env,
+    env = processEnv(),
     ...more
   }: { cwd?: string; stdout?: Out; stderr?: Out; exec?: Exec; env?: Env; [option: string]: unknown } = {},
 ): Promise<number> {
@@ -95,15 +99,18 @@ export async function main(
     stderr.write(USAGE);
     return 2;
   }
-  recordPrd(argv, { cwd, env, exec });
   try {
+    // The environment is read once, here: a half-set or malformed setting stops every command with
+    // one `EnvError` line, naming each variable concerned and never a value, before any work.
+    const vars = readEnv(env);
+    recordPrd(argv, { cwd, vars, exec });
     // `init` runs before a config exists: it finds the root itself. `more` is its injected stdin,
     // bundle and prompt; an option left out keeps the command's own default.
-    if (command.withoutContext) return await command.run(rest, { cwd, stdout, stderr, exec, env, ...more });
+    if (command.withoutContext) return await command.run(rest, { cwd, stdout, stderr, exec, env, vars, ...more });
     const ctx = loadContext(cwd, { exec });
-    return await command.run(rest, { ctx, stdout, stderr, exec, env });
+    return await command.run(rest, { ctx, stdout, stderr, exec, env, vars });
   } catch (error) {
-    if (error instanceof ConfigError || (error instanceof Error && (error.name === 'ConfigError' || error.name === 'UsageError'))) {
+    if (error instanceof ConfigError || (error instanceof Error && STOPPING_ERRORS.includes(error.name))) {
       stderr.write(`${error.message.split('\n')[0]}\n`);
       return 2;
     }

@@ -4,8 +4,12 @@ import type { Database } from '../../../../supabase/database.types.ts';
 
 vi.mock('server-only', () => ({}));
 // The page reads the season as the viewer, uncached: the season cache (season-cache.test.ts) needs a
-// service key, and none reaches this test even when the shell holds one.
-vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');
+// service key, and none reaches this test even when the shell holds one: the server's environment is
+// an empty one.
+vi.mock('../env', async (actual) => {
+  const env = await actual<typeof import('../env')>();
+  return { ...env, serverEnv: () => env.readEnv({}) };
+});
 
 import { present } from '../ask/test-item';
 import type { DossierListRow } from '../dossier/store';

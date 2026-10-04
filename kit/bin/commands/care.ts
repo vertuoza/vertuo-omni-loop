@@ -129,7 +129,8 @@ function replyBodyOf(flags: ReplyFlags, ctx: Context): string {
   return careReplyBody(text, flags.verdict ?? '');
 }
 
-function runReply(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number {
+function runReply(args: string[], io: CommandIo): number {
+  const { ctx, stdout } = io;
   const { positional, flags } = parseArgs('care', args, { values: ['verdict', 'body', 'file', 'thread', 'repo'] });
   if (positional.length) throw usageError(USAGE);
   const body = replyBodyOf(flags, ctx);
@@ -137,7 +138,7 @@ function runReply(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo)
     println(stdout, body);
     return 0;
   }
-  return postReply({ thread: flags.thread, verdict: flags.verdict ?? '', body }, { ctx, stdout, stderr, exec, env });
+  return postReply({ thread: flags.thread, verdict: flags.verdict ?? '', body }, io);
 }
 
 /** Posts the reply on its thread and resolves it unless asked; prints what it did as JSON. */
@@ -158,10 +159,10 @@ function postReply({ thread, verdict, body }: { thread: string; verdict: string;
 }
 
 export const care: Command = {
-  run: synchronous((args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number => {
+  run: synchronous((args: string[], io: CommandIo): number => {
     const [sub, ...rest] = args;
-    if (sub === 'state') return runState(rest, { ctx, stdout, stderr, exec, env });
-    if (sub === 'reply') return runReply(rest, { ctx, stdout, stderr, exec, env });
+    if (sub === 'state') return runState(rest, io);
+    if (sub === 'reply') return runReply(rest, io);
     throw usageError(USAGE);
   }),
 };

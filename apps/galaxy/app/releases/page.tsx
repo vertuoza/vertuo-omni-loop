@@ -1,5 +1,6 @@
 import { ReleasesPage } from '../../src/releases/page/ReleasesPage';
 import { releasesView } from '../../src/releases/page/source';
+import { serverEnv } from '../../src/env';
 
 // /releases (PRD 262): every release of Omni Loop, week by week, newest first, for anyone. It reads
 // public.releases as nobody (the publishable key, no session, no cookie), so it is rendered once and
@@ -9,5 +10,5 @@ import { releasesView } from '../../src/releases/page/source';
 export const revalidate = 300;
 
 export default async function ReleasesRoute() {
-  return <ReleasesPage view={await releasesView(process.env)} />;
+  return <ReleasesPage view={await releasesView(serverEnv())} />;
 }

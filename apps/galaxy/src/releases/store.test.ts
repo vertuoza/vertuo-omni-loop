@@ -3,7 +3,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { ReleaseRow } from './row';
-import { readReleases, releasesEnv } from './store';
+import { readEnv } from '../env';
+import { readReleases } from './store';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const ROW: ReleaseRow = { prd: parsePrd(262), release: 2, released_at: '2026-09-28T09:12:00+00:00', title: 'Everything we ship, in plain words', description: 'A public page lists every release.' };
@@ -31,14 +32,14 @@ function recording(rows: unknown[], refuse: { message: string } | null = null) {
 
 describe('where the page reads', () => {
   it('is the project the two public variables name: its URL and its publishable key', () => {
-    expect(releasesEnv({ NEXT_PUBLIC_SUPABASE_URL: 'https://ref.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_x' }))
+    expect(readEnv({ NEXT_PUBLIC_SUPABASE_URL: 'https://ref.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_x' }).supabase)
       .toEqual({ url: 'https://ref.supabase.co', key: 'sb_publishable_x' });
   });
 
-  it('is nowhere while either is unset, and never the service role\'s key', () => {
-    expect(releasesEnv({ NEXT_PUBLIC_SUPABASE_URL: 'https://ref.supabase.co' })).toBeNull();
-    expect(releasesEnv({ NEXT_PUBLIC_SUPABASE_ANON_KEY: 'k' })).toBeNull();
-    expect(releasesEnv({ SUPABASE_URL: 'https://ref.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'secret' })).toBeNull();
+  it('is nowhere while both are unset, refused while one is, and never the service role\'s key', () => {
+    expect(() => readEnv({ NEXT_PUBLIC_SUPABASE_URL: 'https://ref.supabase.co' })).toThrow(/NEXT_PUBLIC_SUPABASE_ANON_KEY is not set/);
+    expect(() => readEnv({ NEXT_PUBLIC_SUPABASE_ANON_KEY: 'k' })).toThrow(/NEXT_PUBLIC_SUPABASE_URL is not set/);
+    expect(readEnv({ SUPABASE_URL: 'https://ref.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'secret' }).supabase).toBeNull();
   });
 });
 

@@ -11,16 +11,8 @@ import type { Database } from '../../../../supabase/database.types.ts';
 import type { ReleaseRow } from './row.ts';
 import { releasesTable } from './sync-table.ts';
 
+/** Where the page reads: the project the two public variables name (the env module's public pair). */
 export type ReleasesEnv = { url: string; key: string };
-
-type Env = Record<string, string | undefined>;
-
-/** Where the page reads: the project the two public variables name, or null while either is unset. */
-export function releasesEnv(env: Env): ReleasesEnv | null {
-  const url = env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return url && key ? { url, key } : null;
-}
 
 /** No session: nothing stored, nothing refreshed, nothing read from the address. */
 const NO_SESSION = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } } as const;

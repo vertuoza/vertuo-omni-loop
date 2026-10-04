@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { JUDGE_NOT_CONFIGURED, type JudgeRequest } from './canon.ts';
+import { readEnv } from '../env.ts';
 import { constituentJudge, judgeUrl } from './judge.ts';
 
 type Recorded = { url: string; method: string | undefined; body: string; headers: Headers };
@@ -38,8 +39,8 @@ const ASKED: JudgeRequest = Object.freeze({
 
 describe('judgeUrl — galaxy\'s judge route', () => {
   it('on GALAXY_URL when set, else galaxy\'s production host', () => {
-    expect(judgeUrl({ GALAXY_URL: 'https://preview.example/' })).toBe('https://preview.example/api/constituents/judge');
-    expect(judgeUrl({})).toBe('https://www.omni-loop.xyz/api/constituents/judge');
+    expect(judgeUrl(readEnv({ GALAXY_URL: 'https://preview.example/' }).galaxyUrl)).toBe('https://preview.example/api/constituents/judge');
+    expect(judgeUrl(readEnv({}).galaxyUrl)).toBe('https://www.omni-loop.xyz/api/constituents/judge');
   });
 });
 

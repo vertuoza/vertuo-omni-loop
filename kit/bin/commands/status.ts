@@ -31,7 +31,7 @@ function overview({ ctx, stdout, exec, fetch }: Pick<CommandIo, 'ctx' | 'stdout'
 }
 
 export const status: Command = {
-  run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
+  run: synchronous((args: string[], { ctx, stdout, exec, vars }: CommandIo): number => {
     const { positional, flags } = parseArgs('status', args, { values: ['labels', 'base'], booleans: ['changes', 'fetch'] });
     const gateFlags = flags.labels !== undefined || flags.base !== undefined || flags.changes === true;
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true });
@@ -53,15 +53,16 @@ export const status: Command = {
     println(stdout, report);
 
     // In the outbox workflow the runner sets these; unset everywhere else, where this is a no-op.
-    if (env.GITHUB_OUTPUT) {
+    const actions = vars.githubActions;
+    if (actions?.output) {
       const lines = [
         `open_items=${result.items.length > 0}`,
         `unreworked=${result.unreworked.length > 0}`,
         `unaccounted=${(result.unaccounted ?? []).length > 0}`,
       ];
-      appendFileSync(env.GITHUB_OUTPUT, `${lines.join('\n')}\n`);
+      appendFileSync(actions.output, `${lines.join('\n')}\n`);
     }
-    if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${report}\n`);
+    if (actions?.summary) appendFileSync(actions.summary, `${report}\n`);
 
     return result.ok ? 0 : 1;
   }),

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { CATEGORIES, classifierFromEnv, isCategory, openRouterClassifier, readCategory, type ClassifyInput } from './classify';
+import { readEnv } from '../env';
 import { item } from './test-item';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
@@ -144,11 +145,11 @@ describe('the OpenRouter classifier', () => {
 
 describe('the classifier from the environment', () => {
   it('is there with OPENROUTER_API_KEY', () => {
-    expect(classifierFromEnv({ OPENROUTER_API_KEY: 'sk-or-test' })).toBeTypeOf('function');
+    expect(classifierFromEnv(readEnv({ OPENROUTER_API_KEY: 'sk-or-test' }).openrouter)).toBeTypeOf('function');
   });
 
   it('is not there without it, so rounds stay unsorted', () => {
-    expect(classifierFromEnv({})).toBeNull();
-    expect(classifierFromEnv({ OPENROUTER_API_KEY: '  ' })).toBeNull();
+    expect(classifierFromEnv(readEnv({}).openrouter)).toBeNull();
+    expect(classifierFromEnv(readEnv({ OPENROUTER_API_KEY: '  ' }).openrouter)).toBeNull();
   });
 });

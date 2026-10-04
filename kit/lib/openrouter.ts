@@ -16,7 +16,7 @@
  *   `call.budgetMs`.
  *
  * It never throws. The contract:
- *   in:  { system, user, check, schema?, env, fetch, sleep?, call?, title?, stream? }
+ *   in:  { system, user, check, schema?, openrouter, fetch, sleep?, call?, title?, stream? }
  *   out: { ok, error, model, reply, reason }
  *        `ok` true: `reply` is what the check kept. Otherwise `error` is `NO_KEY` (no request was
  *        made, `model` null), `UNAVAILABLE` or `REFUSED`, and `reason` says why in words.
@@ -79,12 +79,16 @@ type SafeParsed =
 /** The failures a call returns in `error`. */
 export type ModelFailure = typeof NO_KEY | typeof UNAVAILABLE | typeof REFUSED;
 
+/** OpenRouter's key, and the model when one is named. */
+export type OpenRouterSettings = { key: string; model?: string | undefined };
+
 export type AskInput = {
   system: string;
   user: string;
   check: ReplyCheck;
   schema?: { name: string; schema: object } | undefined;
-  env?: Record<string, string | undefined> | undefined;
+  /** OpenRouter's key and model, as the runtime's env module reads them; `null` when it is off. */
+  openrouter: OpenRouterSettings | null;
   fetch?: typeof fetch | undefined;
   sleep?: ((ms: number) => Promise<void>) | undefined;
   call?: ModelCall | undefined;
@@ -106,16 +110,16 @@ export async function askModel({
   user,
   check,
   schema,
-  env = {},
+  openrouter,
   fetch,
   sleep = wait,
   call = MODEL_CALL,
   title = 'omni loop',
   stream = false,
 }: AskInput): Promise<AskResult> {
-  const key = env[KEY_VAR];
+  const key = openrouter?.key;
   if (!key) return failure(NO_KEY, null, `${KEY_VAR} is not set`);
-  const model = env[MODEL_VAR] || DEFAULT_MODEL;
+  const model = openrouter.model || DEFAULT_MODEL;
   if (typeof fetch !== 'function') return failure(UNAVAILABLE, model, 'model unavailable (no fetch given)');
 
   const messages: Message[] = [

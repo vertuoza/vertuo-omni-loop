@@ -1,5 +1,6 @@
 import 'server-only';
 import { serviceDb } from '../../data/sign-in-live';
+import { serverEnv, type ArcadeEnv } from '../../env';
 import { runDeps } from '../draft/live';
 import { runDraft } from '../draft/run';
 import { draftStore } from '../draft/store';
@@ -16,9 +17,9 @@ const claimsOf = (db: ReturnType<typeof serviceDb>): ClaimsDb => ({
   from: (table) => ({ select: (columns) => ({ eq: (column, value) => db.from(table).select(columns).eq(column, value) }) }),
 });
 
-export function recheckDeps(env: Record<string, string | undefined> = process.env): RecheckDeps {
+export function recheckDeps(env: Pick<ArcadeEnv, 'businessRecheckSecret'> = serverEnv()): RecheckDeps {
   return {
-    secret: env.BUSINESS_RECHECK_SECRET?.trim() || undefined,
+    secret: env.businessRecheckSecret ?? undefined,
     businesses: () => rechecked(claimsOf(serviceDb())),
     start: (workspace) => draftStore(serviceDb()).start(workspace, 'recheck'),
     run: (workspace, draft) => runDraft(runDeps(serviceDb()), workspace, draft),

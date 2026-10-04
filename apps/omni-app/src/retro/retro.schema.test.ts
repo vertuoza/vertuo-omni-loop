@@ -24,6 +24,7 @@ import {
   QualifiedSchema,
   RunRecordSchema,
 } from './retro.schema.ts';
+import { readEnv } from '../env.ts';
 
 /** Every value a retro's steps saved, by step id, as Inngest reads them back: JSON, and back. */
 type Saved = Map<string, unknown>;
@@ -38,7 +39,7 @@ async function savedValues({ env = JUDGE_ENV }: { env?: Record<string, string | 
   scenario.github.state.issues.push(...structuredClone(ISSUES));
   const values: Saved = new Map();
   const keep = (id: string, value: unknown) => (values.set(id, value), value);
-  const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env, fetch: judge(), followUp: true });
+  const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, openrouter: readEnv(env).openrouter, fetch: judge(), followUp: true });
   // A wait, if the clock asks for one, ends on the tick of the fourteenth day.
   const tick = { name: DAY_EVENT, data: {}, id: 'tick', ts: Date.parse(DAY_14) };
   const transformCtx = (ctx: Parameters<typeof mockCtx>[0]) => {

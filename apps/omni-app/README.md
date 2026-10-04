@@ -261,6 +261,7 @@ None of these is taken by the code; a person does each once.
    drawn from `@omni/sprites`) and set the badge background colour to `#07061c`.
 2. **Create the Vercel project** for `apps/omni-app` (root directory `apps/omni-app`, its own project,
    separate from the galaxy) and set these environment variables:
+   <!-- omni:env-variables -->
    - `GITHUB_APP_ID`
    - `GITHUB_APP_PRIVATE_KEY` — the PEM; a value pasted with literal `\n` sequences is accepted
    - `GITHUB_WEBHOOK_SECRET` — the same secret as in the app's settings
@@ -274,6 +275,22 @@ None of these is taken by the code; a person does each once.
    - `CONSTITUENT_JUDGE_SECRET` — the secret the canon gate signs its call to galaxy's constituent
      judge with (PRD 871), the same value as in galaxy's project. Unset, a product with constituents
      gets a neutral canon gate, "judge not configured".
+   - `OPENROUTER_MODEL`, optional — another model than the default for the retro and the harvest
+     (below).
+   - `STAGE_EVENT_SECRET` — the secret stage events are signed with on their way to galaxy
+     ([Stage events](#stage-events-prd-587)), the same value as in galaxy's project.
+   - `GALAXY_URL`, optional — galaxy's host for the stage events and the judge, when it is not
+     `https://www.omni-loop.xyz`.
+   - `INNGEST_DEV`, locally only — `1` points the Inngest SDK at the Inngest dev server; never set
+     on Vercel.
+   <!-- /omni:env-variables -->
+
+   The app reads these once, when a function starts (`src/env.ts`, PRD 1059). A pair half set (one
+   of `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, or `OPENROUTER_MODEL` without
+   `OPENROUTER_API_KEY`), a malformed value (a URL that is not a URL, an app id that is not a
+   number), or in production (`VERCEL_ENV=production`) a missing `GITHUB_WEBHOOK_SECRET`,
+   `GITHUB_APP_ID` or `GITHUB_APP_PRIVATE_KEY` fails the start with one error naming every variable
+   concerned, never a value. A preview requires none of them.
 
    The private key lives only there. To rotate it, generate a new key in the app's settings, replace
    the Vercel variable, redeploy, then delete the old key.

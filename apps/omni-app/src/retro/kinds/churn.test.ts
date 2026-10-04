@@ -25,6 +25,7 @@ import {
   short,
 } from './churn.fixtures/delivery.ts';
 import type { ChurnMissing } from './churn.fixtures/delivery.ts';
+import { readEnv } from '../../env.ts';
 
 const { gather, detect, section } = handles(churn);
 
@@ -328,7 +329,7 @@ describe('churn — in the retro', () => {
       subPulls: [UNMERGED, ...SUB_PULLS],
       recording,
     });
-    const fn = retroFunction({ client: inngest, octokitFor: () => widget.github.octokit, env: JUDGE_ENV, fetch: judge() });
+    const fn = retroFunction({ client: inngest, octokitFor: () => widget.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge() });
     const { result, error } = await new InngestTestEngine({ function: fn, events: [widget.event] }).execute();
     expect(error).toBeUndefined();
     expect((result as { findings: number }).findings).toBe(4);

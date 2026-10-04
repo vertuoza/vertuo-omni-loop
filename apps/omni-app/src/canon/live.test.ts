@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
-import { CANON_MODEL, businessReader, canonFromEnv, constituentsReader } from './live.ts';
+import { readEnv } from '../env.ts';
+import { CANON_MODEL, businessReader, liveCanon, constituentsReader } from './live.ts';
 
 type Recorded = { url: URL; method: string; body: { model?: string | undefined } | null; headers: Headers };
 
@@ -59,10 +60,10 @@ describe('businessReader — the service-role read by repository', () => {
   });
 });
 
-describe('canonFromEnv — the gate bound to the environment', () => {
+describe('liveCanon — the gate bound to the environment', () => {
   it('without SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY it is neutral and asks nothing', async () => {
     const calls = recordingFetch(() => json({}));
-    const canon = canonFromEnv({ OPENROUTER_API_KEY: 'k' }, { fetch: calls.fetch });
+    const canon = liveCanon(readEnv({ OPENROUTER_API_KEY: 'k' }), { fetch: calls.fetch });
     const gate = await canon.grade({ repo: 'acme/widgets', spec: 'x' });
     expect(gate).toMatchObject({ neutral: true, reason: 'no business: the App cannot read businesses here' });
     expect(calls.requests).toEqual([]);
@@ -70,7 +71,7 @@ describe('canonFromEnv — the gate bound to the environment', () => {
 
   it('without OPENROUTER_API_KEY it is neutral, "model not configured"', async () => {
     const calls = recordingFetch(() => json(BUSINESS));
-    const canon = canonFromEnv({ SUPABASE_URL: 'https://db.example', SUPABASE_SERVICE_ROLE_KEY: 's' }, { fetch: calls.fetch });
+    const canon = liveCanon(readEnv({ SUPABASE_URL: 'https://db.example', SUPABASE_SERVICE_ROLE_KEY: 's' }), { fetch: calls.fetch });
     const gate = await canon.grade({ repo: 'acme/widgets', spec: 'We build for groups of companies.' });
     expect(gate).toMatchObject({ neutral: true, reason: 'model not configured (OPENROUTER_API_KEY is not set)' });
   });
@@ -81,7 +82,7 @@ describe('canonFromEnv — the gate bound to the environment', () => {
       url.hostname === 'openrouter.ai' ? json({ choices: [{ message: { content: JSON.stringify(reply) } }] }) : json(BUSINESS),
     );
     const env = { SUPABASE_URL: 'https://db.example', SUPABASE_SERVICE_ROLE_KEY: 's', OPENROUTER_API_KEY: 'k', OPENROUTER_MODEL: 'anthropic/claude-opus-5.5' };
-    const gate = await canonFromEnv(env, { fetch: calls.fetch }).grade({ repo: 'acme/widgets', spec: 'We build for groups of companies.' });
+    const gate = await liveCanon(readEnv(env), { fetch: calls.fetch }).grade({ repo: 'acme/widgets', spec: 'We build for groups of companies.' });
     expect(gate).toMatchObject({ ok: false, reason: 'canon ✗ 1' });
     const model = calls.requests.find((request) => request.url.hostname === 'openrouter.ai');
     expect(model?.body?.model).toBe(CANON_MODEL);
@@ -122,10 +123,10 @@ describe('constituentsReader — the service-role read by repository', () => {
   });
 });
 
-describe('canonFromEnv — the constituents judged through galaxy', () => {
+describe('liveCanon — the constituents judged through galaxy', () => {
   it('a spec quoting a real API call against never#1 is red, naming the quote and the line, judged on GALAXY_URL', async () => {
     const calls = world();
-    const gate = await canonFromEnv({ ...ENV, CONSTITUENT_JUDGE_SECRET: 'j' }, { fetch: calls.fetch }).grade({ repo: 'acme/ux', spec: API_SPEC });
+    const gate = await liveCanon(readEnv({ ...ENV, CONSTITUENT_JUDGE_SECRET: 'j' }), { fetch: calls.fetch }).grade({ repo: 'acme/ux', spec: API_SPEC });
     expect(gate).toMatchObject({ ok: false, reason: 'canon ✗ 1' });
     expect(gate.details[0]).toBe(`never#1 "Calls real Vertuoza data or real Vertuoza APIs" — the spec: "fetch('/api/v1/projects')"`);
     const judged = calls.requests.find((request) => request.url.pathname === '/api/constituents/judge');
@@ -136,14 +137,14 @@ describe('canonFromEnv — the constituents judged through galaxy', () => {
 
   it('without CONSTITUENT_JUDGE_SECRET it is neutral, never red, and galaxy is not called', async () => {
     const calls = world();
-    const gate = await canonFromEnv(ENV, { fetch: calls.fetch }).grade({ repo: 'acme/ux', spec: API_SPEC });
+    const gate = await liveCanon(readEnv(ENV), { fetch: calls.fetch }).grade({ repo: 'acme/ux', spec: API_SPEC });
     expect(gate).toMatchObject({ ok: true, neutral: true, reason: 'judge not configured (CONSTITUENT_JUDGE_SECRET is not set)' });
     expect(calls.requests.some((request) => request.url.pathname === '/api/constituents/judge')).toBe(false);
   });
 
   it('a refused judge call (no Jev key, a Jev error) is neutral, never red', async () => {
     const calls = world({ judge: () => json({ error: 'The workspace of this repository could not be looked up. Try again.' }, 500) });
-    const gate = await canonFromEnv({ ...ENV, CONSTITUENT_JUDGE_SECRET: 'j' }, { fetch: calls.fetch }).grade({ repo: 'acme/ux', spec: API_SPEC });
+    const gate = await liveCanon(readEnv({ ...ENV, CONSTITUENT_JUDGE_SECRET: 'j' }), { fetch: calls.fetch }).grade({ repo: 'acme/ux', spec: API_SPEC });
     expect(gate).toMatchObject({ ok: true, neutral: true });
     expect(gate.reason).toMatch(/^judge error: galaxy answered 500/);
   });
