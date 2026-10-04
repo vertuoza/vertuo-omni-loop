@@ -7465,7 +7465,7 @@ init_define_OMNI_BUNDLE();
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync14 } from "node:child_process";
 import { realpathSync as realpathSync5 } from "node:fs";
-import { fileURLToPath as fileURLToPath4 } from "node:url";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // kit/lib/config.ts
 init_define_OMNI_BUNDLE();
@@ -42869,7 +42869,6 @@ init_define_OMNI_BUNDLE();
 import { randomUUID as randomUUID2 } from "node:crypto";
 import { closeSync, existsSync as existsSync47, mkdirSync as mkdirSync15, openSync, readFileSync as readFileSync50, renameSync as renameSync3, rmSync as rmSync9, statSync as statSync11, writeFileSync as writeFileSync23 } from "node:fs";
 import { join as join59 } from "node:path";
-import { fileURLToPath as fileURLToPath3 } from "node:url";
 var prop2 = (value, key) => typeof value === "object" && value !== null ? Reflect.get(value, key) : void 0;
 var BOARD_DIR = join59(LOCAL_DIR, "statusline");
 var REFRESH_AFTER_MS = 60 * 1e3;
@@ -42884,9 +42883,6 @@ function attempt7(fn, fallback2) {
   } catch {
     return fallback2;
   }
-}
-function omniScript() {
-  return runningBundle() ?? fileURLToPath3(new URL("../../bin/omni.ts", import.meta.url));
 }
 function readBoard(root, prd2) {
   const value = attempt7(() => JSON.parse(readFileSync50(boardFile(root, prd2), "utf8")), null);
@@ -42941,8 +42937,8 @@ function startRefresh({ spawn: spawn2, script, cwd, prd: prd2, env }) {
 }
 function cachedSlices({ root, prd: prd2, now, cwd, spawn: spawn2 = null, script, env }) {
   const board2 = attempt7(() => readBoard(root, prd2), null);
-  if (spawn2 && refreshDue(board2, now) && !attempt7(() => lockHeld(root, prd2, now), true)) {
-    startRefresh({ spawn: spawn2, script: script ?? omniScript(), cwd, prd: prd2, env });
+  if (spawn2 && script && refreshDue(board2, now) && !attempt7(() => lockHeld(root, prd2, now), true)) {
+    startRefresh({ spawn: spawn2, script, cwd, prd: prd2, env });
   }
   return shownSlices(board2, now);
 }
@@ -43178,11 +43174,11 @@ function featureFacts(ctx, { base, topic, folder }, exec) {
     openItems: openItemCount(treeFiles(ctx, feature, `${ctx.layout.dirs.outbox}/${folder}`, exec))
   };
 }
-function boardSlices({ folder, prd: prd2, now, spawn: spawn2, env }, exec) {
+function boardSlices({ folder, prd: prd2, now, spawn: spawn2, script, env }, exec) {
   const root = attempt8(() => mainCheckout(folder, exec), null);
-  return root ? cachedSlices({ root, prd: prd2, now, cwd: folder, spawn: spawn2, env }) : null;
+  return root ? cachedSlices({ root, prd: prd2, now, cwd: folder, spawn: spawn2, script, env }) : null;
 }
-function readPrd(ctx, { folder, sessionId, now, spawn: spawn2, env }, exec) {
+function readPrd(ctx, { folder, sessionId, now, spawn: spawn2, script, env }, exec) {
   const branch = branchOf(folder, exec);
   const { branches } = ctx.config;
   const recorded = recordedPrd({ cwd: folder, exec, sessionId });
@@ -43195,7 +43191,7 @@ function readPrd(ctx, { folder, sessionId, now, spawn: spawn2, env }, exec) {
   if (!found) return null;
   const feature = base ? featureFacts(ctx, { base, topic: found.topic, folder: found.folder }, exec) : null;
   const inBaseInbox = Boolean(onBase?.inbox.includes(found.folder) && !onBase.shipped.includes(found.folder));
-  const slices = inBaseInbox ? boardSlices({ folder, prd: found.prd, now, spawn: spawn2, env }, exec) : null;
+  const slices = inBaseInbox ? boardSlices({ folder, prd: found.prd, now, spawn: spawn2, script, env }, exec) : null;
   return {
     number: found.prd,
     topic: found.topic,
@@ -43205,13 +43201,13 @@ function readPrd(ctx, { folder, sessionId, now, spawn: spawn2, env }, exec) {
     slices
   };
 }
-function readFacts2(input2, { cwd, exec, now = Date.now(), spawn: spawn2 = null, env }) {
+function readFacts2(input2, { cwd, exec, now = Date.now(), spawn: spawn2 = null, script, env }) {
   const folder = input2.currentDir ?? cwd;
   const ctx = checkoutContext(folder, exec);
   return {
     installed: ctx !== null,
     askOn: askModeOn(input2.projectDir),
-    prd: ctx ? readPrd(ctx, { folder, sessionId: input2.sessionId, now, spawn: spawn2, env }, exec) : null
+    prd: ctx ? readPrd(ctx, { folder, sessionId: input2.sessionId, now, spawn: spawn2, script, env }, exec) : null
   };
 }
 
@@ -43366,6 +43362,7 @@ async function statusLines({
   exec,
   env,
   terminal,
+  script,
   stdin,
   now,
   readFacts: readFacts3,
@@ -43377,7 +43374,7 @@ async function statusLines({
     let facts = null;
     if (input2) {
       try {
-        facts = readFacts3(input2, { cwd, exec, now: instant2, spawn: spawn2, env });
+        facts = readFacts3(input2, { cwd, exec, now: instant2, spawn: spawn2, script, env });
       } catch {
         facts = null;
       }
@@ -43415,12 +43412,12 @@ function refresh(value, { cwd, exec, env, now }) {
 }
 var statusline = {
   withoutContext: true,
-  async run(args, { cwd, stdout, exec, env, vars, stdin = process.stdin, now = Date.now, readFacts: readFacts3 = readFacts2, spawn: spawn2 = spawnProcess }) {
+  async run(args, { cwd, stdout, exec, env, vars, script, stdin = process.stdin, now = Date.now, readFacts: readFacts3 = readFacts2, spawn: spawn2 = spawnProcess }) {
     if (args[0] === REFRESH_FLAG) {
       refresh(args[1], { cwd, exec, env, now });
       return 0;
     }
-    const lines = await statusLines({ cwd, exec, env, terminal: vars.terminal, stdin, now, readFacts: readFacts3, spawn: spawn2 });
+    const lines = await statusLines({ cwd, exec, env, terminal: vars.terminal, script, stdin, now, readFacts: readFacts3, spawn: spawn2 });
     try {
       stdout.write(`${lines.join("\n")}
 `);
@@ -43630,6 +43627,7 @@ var PRD_BY_POSITION = Object.freeze({
   rework: ["plan"]
 });
 var PRD_FLAG = "--prd";
+var self = fileURLToPath3(import.meta.url);
 function prdNumber2(value) {
   try {
     return prdArg("record", "<prd>", value);
@@ -43673,7 +43671,7 @@ async function main(argv, {
   try {
     const vars = readEnv(env);
     recordPrd(argv, { cwd, vars, exec });
-    if (command.withoutContext) return await command.run(rest, { cwd, stdout, stderr, exec, env, vars, ...more });
+    if (command.withoutContext) return await command.run(rest, { cwd, stdout, stderr, exec, env, vars, script: self, ...more });
     const ctx = loadContext(cwd, { exec });
     return await command.run(rest, { ctx, stdout, stderr, exec, env, vars });
   } catch (error62) {
@@ -43685,7 +43683,6 @@ async function main(argv, {
     throw error62;
   }
 }
-var self = fileURLToPath4(import.meta.url);
 var invoked = process.argv[1] && realpathSync5(process.argv[1]) === realpathSync5(self);
 if (invoked) {
   const argv = process.argv.slice(2);
