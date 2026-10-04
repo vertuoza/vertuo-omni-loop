@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MASCOTS } from '@omni/design';
 import { motif, unlock, writtenMotif } from './sound';
-import { sure } from './sure';
+import { sure } from './test/sure';
 
 // A fleet's motif is keyed by its mascot, never by its name (PRD 400): a workspace names its own
 // fleets, and the mascot is what the motif was written for.

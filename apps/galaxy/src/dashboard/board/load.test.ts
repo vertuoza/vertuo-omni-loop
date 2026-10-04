@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeStageStore } from '../../stages/store.fake';
 import { loadBoard, supabaseReads, type BoardReads, type BoardRequest } from './load';
 import type { Activity, Member, PrdNow } from './tally';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The board's loader on fake reads (PRD 572): the Paul case (a member with no player row and no

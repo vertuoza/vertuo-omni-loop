@@ -3,7 +3,7 @@ import type { ClaimKind, StoredClaim } from '../model';
 import type { Candidate } from './verify';
 import { DraftStoreError, runDraft, type DraftCounts, type DraftDeps, type DraftStore, type Receipt, type Scanned } from './run';
 import type { RepoListing } from './sources';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // One run of the draft with fakes for the store, GitHub, the page fetch and the model: never Supabase,
 // GitHub or OpenRouter. It reads each source, keeps only quoted candidates, merges them as decision 9

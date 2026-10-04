@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { demoAccount } from './account-demo';
-import { sure } from './sure';
+import { sure } from './test/sure';
 
 // The demo keeps everything in this browser's storage: here, a map standing in for localStorage.
 let storage: Map<string, string>;

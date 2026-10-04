@@ -19,7 +19,7 @@ import {
   type AskQuestion,
   type Shot,
 } from './answer-model';
-import { item } from './test-item';
+import { item } from './test/test-item';
 
 // AskUserQuestion's input, as Claude sends it and s2 stores it.
 const STORAGE = {

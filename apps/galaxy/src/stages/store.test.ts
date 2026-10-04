@@ -1,7 +1,7 @@
 // The stored PRD stages (PRD 587): the store's rules on its fake, and its Supabase calls on a recording
 // client. No test reaches Supabase.
 import { describe, expect, it } from 'vitest';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 import { fakeStageStore } from './store.fake';
 import { brokenRows } from '../data/broken-rows.fake';
 import { countStages, currentOf, noCounts, stageStore, StoredStageRow, type StageRecord } from './store';

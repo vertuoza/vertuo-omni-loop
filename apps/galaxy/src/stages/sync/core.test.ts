@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { item } from '../../ask/test-item';
+import { item } from '../../ask/test/test-item';
 import { stagesOfRepo, syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 

@@ -5,7 +5,7 @@ import {
   INK, LOGO_DRAWINGS, OMNI_LOOP, OMNI_POSES, POSTER_MAX_SCALE, SPRITE_DEFS, TYPE_SCALE, contrast,
 } from '@omni/design';
 import { DEMO_PROJECTS } from '@omni/galaxy';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { DesignScreen } from './DesignScreen';
 import { ICONS, LOGO_SCALES, POSTER_SCALE } from './catalogue';
 

@@ -12,7 +12,7 @@ import type { Database } from '../../../../supabase/database.types.ts';
 import { UNREADABLE } from '../dashboard/part';
 import { peopleOf } from '../people/load';
 import { loadEngineering, loadEngineeringBoard, loadEngineeringRepository, loadEngineeringRepositoryBoard, supabaseEngineeringReads, type EngineeringReads } from './load';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // /app/engineering's read (PRD 612 s3), on fakes: no test calls Supabase.
 

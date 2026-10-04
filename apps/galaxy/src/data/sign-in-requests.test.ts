@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Installation } from '../signup/installation';
 import { signupWorld } from '../signup/signup.fake';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 import { afterSignIn } from './sign-in';
 
 // MIA asked acme's owner to install Omni Loop (a sign-up request); the owner has since installed it.

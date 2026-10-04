@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { PERSONA_TRADES, validPersonaAvatar } from '@omni/design';
 import { describe, expect, it } from 'vitest';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 import { Customers, EXAMPLE_BUSINESS, STANCES } from './Customers';
 import { heading, html, text } from './render';
 

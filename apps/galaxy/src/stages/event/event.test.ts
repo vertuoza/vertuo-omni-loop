@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { item } from '../../ask/test-item';
+import { item } from '../../ask/test/test-item';
 import type { GithubSummary } from '../../dossier/github/summary';
 import { recountOutboxes } from '../outbox/recount';
 import { fakePrdOutboxStore } from '../outbox/store.fake';

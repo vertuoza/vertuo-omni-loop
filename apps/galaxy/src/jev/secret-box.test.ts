@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { MASTER_KEY_VAR, SecretBoxError, lastFour, masterKey, openSecret, sealSecret } from './secret-box';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The secret box (PRD 812 s1, decision 7): a workspace's TypeSafe key, sealed with AES-256-GCM under
 // the deployment's SECRETS_MASTER_KEY (32 bytes, base64), its last four kept in the clear.

@@ -5,7 +5,7 @@ import type { JevDecisionEntry } from './decisions';
 import { decide, openKey, resolve, type JevAttempt, type JevDecideDeps, type JevKey } from './resolve';
 import { sealSecret } from './secret-box';
 import type { JevCall, JevDecisionSettings, JevMode } from './store';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The resolver (PRD 812 s2): every mode × every outcome gives the answer that counts, who decided, and
 // the one log row (Off logs nothing: Jev is not called). Decisions 4 and 6: On replaces in both

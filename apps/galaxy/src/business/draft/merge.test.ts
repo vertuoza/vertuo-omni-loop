@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ClaimKind, ClaimState, StoredClaim } from '../model';
 import { mergeOf, snapSize } from './merge';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // Decision 9 of PRD 774 as a table: what a verified candidate becomes against what the business holds,
 // and a size snapped to the slider's stops before it is compared.

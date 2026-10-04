@@ -10,7 +10,7 @@ import { ScreenContext } from './Screen';
 import { hudOf, newGame, press, step, type Game } from './games/invaders';
 import { LEAVE, leaveKey, leaveMove, openOver, pauseFirst } from './leave.ts';
 import { LeaveOverlay } from './leave.tsx';
-import { sure } from './sure';
+import { sure } from './test/sure';
 
 // The confirm before the arcade is left for the app (PRD 238): OPEN THE APP?, over whatever scene is
 // showing. While it is open, A and START go, B stays, and nothing else is read; a game in play is

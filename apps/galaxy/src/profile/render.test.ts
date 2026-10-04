@@ -7,7 +7,7 @@ import type { DossierListRow } from '../dossier/store';
 import type { PullRequestRow } from '../engineering/tally';
 import { profileOf, type ProfileRead } from './load';
 import { ProfileScreen, type ProfileView } from './ProfileScreen';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { previewGif, registerRun, requestUploads, type ProofDeps } from './api';
 import { FakeProofWorld } from './store.fake';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The routes' answers, read as they came: the run and its signed links, or a refusal's words.

@@ -5,7 +5,7 @@ import { fakeGitHub, fakeOutboxSource, fakeSendStore } from './send.fake';
 import {
   finishSend, githubUser, NONCE_COOKIE, questionsOf, readSend, sendCallbackPath, startSend, type SendDeps,
 } from './send';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { sentView, UNCOUNTED } from './sent';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 

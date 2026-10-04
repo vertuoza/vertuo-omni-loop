@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   categoryChip, contextParts, entry, HOOK_WAIT_MS, screenshotsNote, keepSent, minutesLeft, sessionView, tabWorking, withCategory, withPageAnswer, type RoundRow, type SessionState,
 } from './view';
-import { item } from '../test-item';
+import { item } from '../test/test-item';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');

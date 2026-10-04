@@ -5,7 +5,7 @@ import {
 } from './alerts';
 import type { DocumentGroup } from './documents';
 import type { WaitingItem, WaitingOutbox, WaitingQuestion } from './waiting';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // Alerts for what is new (PRD 499, s5), as pure functions over fakes: what a read announces, the two

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { present } from '../../ask/test-item';
+import { present } from '../../ask/test/test-item';
 import type { FixSummary } from '../../dossier/github/fix';
 import type { DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
 import type { GithubSummary } from '../../dossier/github/summary';

@@ -4,7 +4,7 @@ import {
   OMNI_MAN, durationWords, engineeringOf, isBot, median, sortOf, topFive,
   type EngineeringRead, type PullRequestRow, type ReviewRow,
 } from './tally';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The Engineering board's math (PRD 612 s3), pure: the spec's counting rules over the rows the
 // collector wrote, for tracked repositories only, within a period's window.

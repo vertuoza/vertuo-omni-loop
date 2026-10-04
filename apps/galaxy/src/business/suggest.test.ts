@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Claim } from './model';
 import { MAX_GUESSES, readRivals, suggestInput, suggestKey, suggestRivals, SUGGEST_MODEL, type SuggestInput } from './suggest';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { sentOf } from './json.fake';
 import { z } from 'zod';
 

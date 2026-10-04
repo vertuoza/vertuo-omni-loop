@@ -4,7 +4,7 @@ import { foundRows, thatsUs } from './reveal';
 import {
   additionText, checkRows, FADE_MS, isFaded, lastSeenOf, seenSince, settled, stillTrue,
 } from './check';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // What the weekly recheck leaves to check (PRD 774 s4), as pure data: an addition (a new value of a kind
 // that holds several, beside confirmed ones), a replacement (a new offering or size that would replace a

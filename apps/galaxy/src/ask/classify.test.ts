@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { CATEGORIES, classifierFromEnv, isCategory, openRouterClassifier, readCategory, type ClassifyInput } from './classify';
 import { readEnv } from '../env';
-import { item } from './test-item';
+import { item } from './test/test-item';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The classifier (PRD 144's spec, "Six categories"): one call to OpenRouter, stubbed here, and a reply

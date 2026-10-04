@@ -6,7 +6,7 @@ import { HOUSE_BRAND } from '../brand';
 import { markFor } from '../mark';
 import { DEFAULT_THEME } from '../theme';
 import type { FleetRow } from '../types';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 
 // Every scene the arcade can open, each listed once: a scene missing here fails the typecheck.
 const SCENES: Record<SceneName, true> = {

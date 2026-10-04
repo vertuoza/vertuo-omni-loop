@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { finishSetup, readSetup, setupReturn, type Setup } from './installed';
 import { signupWorld } from './signup.fake';
 import type { Installation } from './installation';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 
 // People: OWEN administers the acme org on GitHub; SOLO has no org; MIA belongs to acme but does not
 // administer it; ZED belongs to nothing Omni Loop knows.

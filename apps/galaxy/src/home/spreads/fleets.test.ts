@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MASCOTS, spritePixels } from '@omni/design';
 import { RULE_BY_MASCOT } from './cards';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 import { EXAMPLE_FLEETS } from './fleets';
 
 // HOME's own example fleets (PRD 971, s4): invented for the page, none of them the demo galaxy's,

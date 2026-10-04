@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { XP_LINE } from '../arcade/games/room';
 import { backFromGame, DOCK_KEY, DOCK_MIN_WIDTH, DOCK_TITLE, dockDoor, dockStart, dockView, pickerPress, readDock, readOpen, writeDock, writeOpen, type DockInput } from './dock';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 const PLAYER = { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } };
 const BOTH = { linked: true, xp: { xp: 400, level: 2, unlocked: ['invaders', 'platformer'] } };

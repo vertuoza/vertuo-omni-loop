@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { freqOf, parseSong, SONGS, stepSeconds, type Song } from './score';
 import { motifNotes } from './sound';
-import { sure } from './sure';
+import { sure } from './test/sure';
 
 describe('freqOf', () => {
   it('tunes A4 to 440 Hz and reads sharps and flats', () => {

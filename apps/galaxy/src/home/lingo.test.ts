@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { Home } from './Home';
 import { BANNED_WORDS, bannedWords, LINGO, lingoFindings, LOOP_TERMS, unglossedTerms, unusedGlosses } from './lingo';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 
 // LOOP LINGO (PRD 285, s3; trimmed by PRD 971, s2): the loop terms HOME glosses, the loop words it never says, and the
 // checks that keep a text to them.

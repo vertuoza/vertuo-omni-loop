@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { peopleOf } from '../people/load';
 import { loginsShown, withPeople } from './faced';
 import type { EngineeringValue } from './tally';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The face beside a login in the Engineering board's top-people lists (PRD 652 s3): resolved by
 // login through the workspace's people directory, so a member's hero (or photo) shows, and a login

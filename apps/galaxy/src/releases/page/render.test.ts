@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { DEMO_RELEASES } from '../demo';
 import { RELEASES } from '../words';
 import { ReleasesPage } from './ReleasesPage';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // /releases as the server renders it (PRD 262), from the demo sample: what a visitor and a search
 // engine read, with no script run. The tests run in the demo's mode (no Supabase, not production).

@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { pixelSvg } from '../design/pixel-svg';
 import { GAME_MODE } from '../switch/switch';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 
 // The app's top bar (PRD 438) as the server renders it: the section's sprite in its tile and the trail
 // to the page (issue 704) on the left, then the theme switch (Omni, Light, Dark) and Game mode,

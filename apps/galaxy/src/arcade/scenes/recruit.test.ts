@@ -11,7 +11,7 @@ import type { FleetRow } from '../types';
 import { TALL, WIDE, type Grid } from './common.ts';
 import { cardRow, TALL_SCENES } from './recruit.ts';
 import { BuilderOverlay, NameOverlay, SelectOverlay } from './recruit.tsx';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 
 const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .map(([name, t]) => ({ name, ...lookOf(name, t) }))

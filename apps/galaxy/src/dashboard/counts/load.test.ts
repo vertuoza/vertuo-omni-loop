@@ -8,7 +8,7 @@ import { fakeCountsDb, type AskTables } from './ask.fake';
 import { ASK, FOR_ME } from './counts';
 import { loadWaiting, waitingOfQuestions } from './load';
 import { readWaitingQuestions } from '../../waiting/source';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // Waiting for you's read (PRD 328, kept on Home by PRD 572), on the in-memory fake database
 // (src/data/galaxy.fake.ts, with the ask tables beside it: ./ask.fake.ts), read as one signed-in

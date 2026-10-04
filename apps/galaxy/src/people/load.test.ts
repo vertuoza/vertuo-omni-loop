@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { loadPeople, peopleOf } from './load';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The people directory (PRD 652), on a fake client: one roster read and one fleets read per page, then
 // every person a screen names resolves by account id or by GitHub login, with their face and fleet.

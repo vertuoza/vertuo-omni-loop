@@ -4,7 +4,7 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_WORKSPACE, fakeSupabase } from '../dossier/store.fake';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { settled as answering } from '../stages/settled';
 import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 

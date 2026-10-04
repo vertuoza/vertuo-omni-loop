@@ -2,7 +2,7 @@ import { STAGE_PALETTES, TILES, woundTint } from '@omni/design';
 import { describe, expect, it } from 'vitest';
 import { enemyTint, SKY, tileData, tileFrame } from './art';
 import { STAGES } from './stages';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 
 // What Super Omni World draws each stage with (PRD 817): the tile each cell wears, the sky, and the
 // blobs' colour, one look per stage. The canvases themselves are drawn in the browser.

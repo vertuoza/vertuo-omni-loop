@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // Each part's view, as the dashboard places it: a marker of its own, carrying what it was given, so
 // these tests hold whatever the parts become (counts/ and board/ test their own views; home/ renders

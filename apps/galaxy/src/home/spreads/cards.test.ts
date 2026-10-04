@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
 import type { FleetRow } from '../../arcade/types';
-import { item, present } from '../../ask/test-item';
+import { item, present } from '../../ask/test/test-item';
 
 vi.mock('server-only', () => ({}));
 

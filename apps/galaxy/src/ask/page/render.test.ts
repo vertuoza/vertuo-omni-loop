@@ -13,7 +13,7 @@ import { AnswerList, History } from './History';
 import { RoundForm } from './RoundForm';
 import { rowOf, startPage } from './tabs';
 import { contextParts, type HistoryEntry } from './view';
-import { item } from '../test-item';
+import { item } from '../test/test-item';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 type Asked = ReturnType<typeof readQuestions>[number];

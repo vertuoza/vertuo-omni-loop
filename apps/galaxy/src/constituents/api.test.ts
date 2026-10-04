@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { constituentsReader, readConstituents, type ConstituentsDeps } from './api';
 
 // GET /api/constituents (PRD 871 s1) against a fake database of one workspace, Acme (GitHub org acme):

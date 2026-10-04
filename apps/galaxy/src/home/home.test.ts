@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { sure } from '../arcade/sure';
-import { item } from '../ask/test-item';
+import { sure } from '../arcade/test/sure';
+import { item } from '../ask/test/test-item';
 
 // HOME at `/`, and the game moved to `/play` (PRD 261). HOME is rendered as the server renders it,
 // with every Supabase door stubbed to fail loudly: it must open none of them.

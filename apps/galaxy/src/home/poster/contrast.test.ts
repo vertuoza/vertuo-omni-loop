@@ -5,7 +5,7 @@ import { COLOURS, contrast } from '@omni/design';
 import { describe, expect, it } from 'vitest';
 import { SELECTOR_BACKGROUND, SELECTOR_TEXT } from '../selector/look';
 import { POSTER_BACKGROUND, POSTER_TEXT } from './Poster';
-import { present } from '../../ask/test-item';
+import { present } from '../../ask/test/test-item';
 
 const css = readFileSync(new URL('../home.css', import.meta.url), 'utf8');
 const colours = COLOURS as Record<string, string>;

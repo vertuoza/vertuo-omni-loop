@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TALL, WIDE } from '../grid';
 import { failedPress, NOT_LOADED, ScreenNotice, startPlatformer, worldScenes, type ScreenDeps, type ScreenStatus } from './PlatformerScreen';
 import type { SceneOptions } from './scene';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 
 // The one way into Super Omni World (PRD 817), with Phaser replaced by a stub module: nothing here
 // loads Phaser. The controller is what the component runs on mount (start), on its props (pause,

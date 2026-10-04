@@ -7,7 +7,7 @@ import { Dashboard } from '../Dashboard';
 import type { DashboardData } from '../load';
 import { seasonBounds } from '../season';
 import { homeRequest, type HomeViewer } from './team';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // Home as the server renders it (PRD 572), with the real board: the hero block, Waiting for you, then
 // the board with scope *you*, whose People table is **Your fleet** and your fleet's chip (PRD 652), every member of your fleet with 0s

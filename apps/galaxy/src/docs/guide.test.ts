@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { diagramsNamed } from './diagrams';
 import { commandsNamed, guideProblems, parsePage, readGuide, skillsNamed } from './guide';
 import { pageUrl } from './paths';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The docs guard (PRD 346): docs/guide/ holds its pages in order, each with a title and a Next link
 // to the page to read next, the last one back to Getting started; every /omni:<skill> and

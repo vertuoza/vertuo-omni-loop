@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lastUsedLabel, makerLabel, mcpUrlOf, nameOf, setupsOf, tokenOf, type AgentToken } from './model';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // What Connect an agent shows of a link, and the setup a person pastes (PRD 855 s1).
 

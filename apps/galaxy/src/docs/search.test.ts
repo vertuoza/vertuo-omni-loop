@@ -2,7 +2,7 @@ import { initAdvancedSearch } from 'fumadocs-core/search/server';
 import { describe, expect, it } from 'vitest';
 import { guideSearchIndexes, searchIndexes, skillSearchIndexes, type GuideSearchPage } from './search';
 import { skillNames, type SkillEntry } from './skills';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The docs' search index (PRD 580): the guide's pages and, beside them, one index per skill page, so
 // the search box finds /docs/skills/<name> by its slash command, its summary and its sentences.

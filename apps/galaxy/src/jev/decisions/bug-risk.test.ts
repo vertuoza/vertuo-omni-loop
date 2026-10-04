@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BUG_RISK_LEVELS, bugRisk } from './bug-risk';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // The bug risk's registry entry (PRD 812 s5): a Score over low, medium, high and critical (lowest
 // first, as the client reads a Score), each level worded as the bug-fixing form defines it; what it

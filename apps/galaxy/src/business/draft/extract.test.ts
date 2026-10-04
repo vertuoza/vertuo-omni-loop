@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { extractCandidates, extractorFromEnv, readCandidates } from './extract';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 import { readEnv } from '../../env';
 import { sentOf } from '../json.fake';
 import { z } from 'zod';

@@ -10,7 +10,7 @@ import { hrefWith } from './links';
 import { boardOf, type BoardRequest } from './load';
 import { WorkspaceScreen, type WorkspaceView } from './WorkspaceScreen';
 import type { Member } from './tally';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // A board and /app/workspace as the server renders them (PRD 572), to static markup: what a person
 // sees before any script runs.

@@ -15,7 +15,7 @@ import { readGuide } from './guide';
 import { skillNames, skillPage, skillsOverview } from './skills';
 import { SkillBody, SkillsOverview, skillSidebar, skillToc } from './skills-view';
 import { guideLoader, sidebarItems } from './tree';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The guide's pages as /docs serves them (PRD 346): fumadocs-core's loader over docs/guide/, in
 // meta.json's order, each page drawn by DocsPage with the sidebar, its title, its body and its table

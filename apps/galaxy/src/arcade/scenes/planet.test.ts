@@ -13,8 +13,8 @@ import type { DossiersRead, FleetRow, PlanetDossier } from '../types';
 import { TALL, WIDE, type FrameState, type Grid } from './common.ts';
 import { drawPlanetScene, planetStage, TALL_BAND, TALL_SCENES } from './planet.ts';
 import { DOSSIER_TAB, dossierLink, dossierOf, PLANET_TABS, PlanetOverlay, statusRows, type DossierShown } from './planet.tsx';
-import { twinEvents, twinGalaxy } from '../twins.fake';
-import { sure } from '../sure';
+import { twinEvents, twinGalaxy } from '../test/twins.fake';
+import { sure } from '../test/sure';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 const now = new Date('2026-09-25T10:00:00Z');
