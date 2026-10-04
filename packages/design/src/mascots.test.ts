@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { MASCOTS, SPRITE_DEFS } from './sprites.ts';
 import { spritePixels } from './draw.ts';
-import { assertDefined } from '../../../kit/test/assert.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // The mascot library (PRD 517): the keys an owner may pick for a fleet, in the order the picker shows
 // them. The database holds the same list in public.fleet_mascots(), and these tests keep the two in step.

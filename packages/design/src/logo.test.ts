@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { INK } from './palette.ts';
 import { drawLogo, LOGO_DRAWINGS, LOGO_FORMS, logoPixels, logoSvg } from './logo.ts';
 import type { LogoArt, LogoDrawing } from './logo.ts';
-import { assertDefined } from '../../../kit/test/assert.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 /** A pixel of a drawing: its column, its row, its colour. */
 type Cell = [number, number, string | null];

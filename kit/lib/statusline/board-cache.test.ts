@@ -12,7 +12,6 @@ import {
   cachedSlices,
   lockFile,
   lockHeld,
-  omniScript,
   readBoard,
   refreshBoard,
   refreshDue,
@@ -247,8 +246,11 @@ describe('the status line starts the refresh', () => {
     expect(() => listeners[0]?.[1](new Error('ENOENT'))).not.toThrow();
   });
 
-  it('runs this omni.mjs: the kit source entry, when not bundled', () => {
-    expect(omniScript()).toMatch(/kit[\\/]bin[\\/]omni\.ts$/);
+  it('starts nothing without the script its caller names: the library never names the command line itself', () => {
+    const root = tempRoot();
+    const { calls, spawn } = fakeSpawn();
+    expect(cachedSlices({ root, prd: parsePrd(7), now: NOW, cwd: SESSION, spawn })).toBeNull();
+    expect(calls).toEqual([]);
   });
 });
 

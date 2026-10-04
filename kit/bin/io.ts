@@ -24,8 +24,12 @@ export type Exec = ExecText & ExecRaw;
 /** What a command that runs inside a repository is handed. */
 export type CommandIo = { ctx: Context; stdout: Out; stderr: Out; exec: Exec; env: Env; vars: Vars };
 
-/** What a command marked `withoutContext` is handed, before its own injected options. */
-export type FreeIo = { cwd: string; stdout: Out; stderr: Out; exec: Exec; env: Env; vars: Vars };
+/**
+ * What a command marked `withoutContext` is handed, before its own injected options. `script` is the
+ * file that runs this `omni` (the bundle, or the kit source's entry), for a command that starts
+ * `omni` again in the background; `main()` names it, so that no library module names the command line.
+ */
+export type FreeIo = { cwd: string; stdout: Out; stderr: Out; exec: Exec; env: Env; vars: Vars; script?: string | undefined };
 
 /** A command that runs inside a repository: `omni config`, `omni prd`, … */
 export type Command = { withoutContext?: false; run(args: string[], io: CommandIo): Promise<number> };

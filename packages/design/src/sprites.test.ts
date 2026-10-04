@@ -9,7 +9,7 @@ import type { SpriteLook } from './draw.ts';
 import { heroLook, heroPose, OMNI_POSES } from './heroes.ts';
 import type { Hero } from './heroes.ts';
 import { WOUND_KINDS as KINDS } from '../../../game/events.ts';
-import { assertDefined } from '../../../kit/test/assert.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // The forge's ramps, read loosely: a test looks any pixel, empty or not, up in the ramps it names.
 const RAMPS = FORGE_RAMPS as unknown as Readonly<Record<'W' | 'N' | 'Z' | 'P' | 'Y' | 'A' | 'O' | 'g', readonly (string | null)[]>>;

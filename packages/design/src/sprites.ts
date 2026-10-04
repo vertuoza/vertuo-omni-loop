@@ -5,7 +5,7 @@
 
 import { RAMPS } from './forge.ts';
 import type { Painter, Tint } from './forge.ts';
-import { at, defined } from '../../../kit/lib/narrow.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** A sprite's recipe: its size, how to paint frame `f` (0 or 1), and whether the forge outlines it. */
 export interface SpriteDef { w: number; h: number; draw(d: Painter, f: number): void; outline?: boolean }

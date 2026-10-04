@@ -3,7 +3,7 @@
 // declares them, and names the type scale as :root custom properties. Change a face or a step here,
 // then run `pnpm --filter @omni/design fonts`: fonts.test.mjs fails while the committed fonts.css
 // differs from what this writes.
-import { at, defined } from '../../../kit/lib/narrow.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export type FontRole = 'display' | 'pixel' | 'body' | 'mono';
 export type FontStyle = 'normal' | 'italic';
