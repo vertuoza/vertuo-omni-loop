@@ -2,9 +2,10 @@
 // own config, one tree listing read as PRD folders, a spec's title, and the hash git gives a file.
 // Reads no file and calls nothing: game/dossiers/github.ts fetches, game/dossiers/sync.ts decides.
 //
-// The game never imports the kit (README: delete game/ and the delivery layer is untouched), but for
-// its ID brands (kit/lib/ids.ts, PRD 1049), so the rules the kit already holds are mirrored here, and
-// must stay the same as the kit's:
+// The game imports two parts of the kit only (README: delete game/ and the delivery layer is
+// untouched): its ID brands (`ids`, kit/lib/ids.ts, PRD 1049) and its parsed environment (`env`,
+// kit/lib/env/read.ts, PRD 1059). So the rules the kit already holds are mirrored here, and must stay
+// the same as the kit's:
 //   - the switch: `dossier.enabled` is true and `ask.url` is set (kit/lib/config.ts › dossierSwitch);
 //   - a PRD folder: `<delivery>/{inbox,shipped}/<nnnn>-<topic>/`, the inbox before shipped and the
 //     first name before the next (kit/lib/layout.ts);

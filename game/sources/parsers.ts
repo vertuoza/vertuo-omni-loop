@@ -1,9 +1,10 @@
 // Readers for the delivery layer's file formats. They read; they never grade — the guards in the
 // engineering repositories do that (spec §8).
 //
-// The game never imports the kit (README: delete game/ and the delivery layer is untouched), but for
-// its ID brands (kit/lib/ids.ts, PRD 1049), so the kit's rules these readers need are mirrored here,
-// and must stay the same as the kit's (PRD 728):
+// The game imports two parts of the kit only (README: delete game/ and the delivery layer is
+// untouched): its ID brands (`ids`, kit/lib/ids.ts, PRD 1049) and its parsed environment (`env`,
+// kit/lib/env/read.ts, PRD 1059). So the kit's rules these readers need are mirrored here, and must
+// stay the same as the kit's (PRD 728):
 //   - the delivery folder: `paths.delivery` of `.omni-loop/config.yml`, else `.omni-loop/delivery`
 //     (kit/lib/config.ts, as game/dossiers/folders.ts mirrors it);
 //   - a PRD folder's name: `<nnnn>-<topic>` (kit/lib/layout.ts);
