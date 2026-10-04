@@ -1,11 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readGuide } from '../docs/guide';
 import { pageUrl } from '../docs/paths';
 import { skillNames, SKILLS_PATH } from '../docs/skills';
 import { SITE } from '../releases/page/address';
 import { docsMetadata, docsPaths, PUBLIC_PATHS, robotsRules, siteUrl, sitemapEntries } from './seo';
+
+vi.mock('server-only', () => ({}));
 
 // One address for the public pages (PRD 983, s1): galaxy answers on two hosts, and every canonical
 // address, Open Graph url, robots line and sitemap entry it prints names www.omni-loop.xyz, whichever

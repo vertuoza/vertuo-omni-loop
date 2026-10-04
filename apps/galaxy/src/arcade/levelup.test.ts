@@ -3,7 +3,7 @@ import { XP_RULES, type XpRules } from '@omni/galaxy';
 import { GAMES, type Game } from './games';
 import { xpStatus } from './games/room';
 import { createSeen, eyebrowOf, fanfareOf, LEVEL_SEEN_PREFIX, levelSeenKey, levelUpFor, readSeen, saveSeen, xpLineOf, type Local } from './levelup';
-import { sure } from './sure';
+import { sure } from './test/sure';
 
 const row = (xp: number, level: number, unlocked: string[] = level >= 1 ? ['invaders'] : []) => ({ xp, level, unlocked });
 /** A player whose GitHub is linked, with their player_xp row. */

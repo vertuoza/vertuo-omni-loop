@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
-import { present } from '../ask/test-item';
+import { present } from '../ask/test/test-item';
 import type { DossierListRow, DossierRoundRow } from '../dossier/store';
 import { demoDossiers, planetDossier, readDossiers, workspaceDossiers } from './dossiers';
 import { withDossiers, type FakeDossier } from './dossiers.fake';

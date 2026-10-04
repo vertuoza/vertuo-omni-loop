@@ -1,3 +1,4 @@
+import 'server-only';
 import { notFound } from 'next/navigation';
 import { AskQuestion } from '../../../../src/ask/page/AskQuestion';
 import { DEMO_MEMBERS, DEMO_TEAMMATE, demoQuestion } from '../../../../src/ask/page/demo';

@@ -2,7 +2,7 @@ import { SPRITE_DEFS } from '@omni/design';
 import { describe, expect, it, vi } from 'vitest';
 import { OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, pageTrail, type SidebarItem } from './sidebar';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
-import { present } from '../ask/test-item';
+import { present } from '../ask/test/test-item';
 
 // /app/settings' page only redirects: next/navigation's redirect, recorded instead of thrown.
 const redirected = vi.hoisted((): string[] => []);

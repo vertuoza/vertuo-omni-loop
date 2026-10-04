@@ -1,3 +1,4 @@
+import 'server-only';
 import type { Metadata } from 'next';
 import '../../../../src/jev/settings/jev.css';
 import { memberSession } from '../../../../src/data/member-session';

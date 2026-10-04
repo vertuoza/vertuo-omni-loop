@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { readBusiness, type BusinessDeps } from '../../business-api/api';
 import { hashToken } from '../tokens/token';
 import { handleMcp, LINK_REFUSED, REPORTED, type McpDeps } from './server';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // The MCP link (PRD 855 s2) driven by the SDK's own client, against a fake store that plays
 // business_for_token() as supabase/migrations/20261028090000_agent_tokens.sql writes it: a live token's

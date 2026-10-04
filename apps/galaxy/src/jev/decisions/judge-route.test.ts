@@ -1,9 +1,11 @@
 import { createHmac } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { JevOutcome } from '../client';
 import type { JevDecideDeps } from '../resolve';
 import type { JevCall, JevDecisionSettings, JevMode } from '../store';
 import { JUDGE_SIGNATURE_HEADER, judgeRoute, placedWorkspace, type JudgeRouteDeps } from './judge-route';
+
+vi.mock('server-only', () => ({}));
 
 // `POST /api/constituents/judge` (PRD 871 s4): the App's canon gate asks the workspace's
 // `constituent-break` decision, signed with an HMAC over the body under CONSTITUENT_JUDGE_SECRET. A fake

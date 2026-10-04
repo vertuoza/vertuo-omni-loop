@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 
 // `server-only` refuses to load outside a server bundle; the loader is exercised here on plain Node.
 vi.mock('server-only', () => ({}));

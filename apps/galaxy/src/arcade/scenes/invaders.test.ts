@@ -14,7 +14,7 @@ import type { FleetRow, ScoreLine } from '../types';
 import { failed, saved, SEND_TRIES, sending, type ScoreSend } from './invaders-score';
 import type { FrameState } from './common.ts';
 import { layoutMap } from './map.ts';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 
 // Every sprite the scene draws, by name, with its tint and where it lands.
 const drawn = vi.hoisted(() => [] as { name: string; x: number; y: number; tint: unknown }[]);

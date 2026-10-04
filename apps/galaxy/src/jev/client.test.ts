@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { JEV_MODEL, JEV_TIMEOUT_MS, JEV_URL, askJev, type JevQuestion } from './client';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The Jev client (PRD 812 s1, decisions 6 and 8): one POST to TypeSafe's systemone endpoint with the
 // pinned model, a 5 s timeout and no retry. Every failure is an outcome, never a throw.

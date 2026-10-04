@@ -9,7 +9,7 @@ import {
   CHART_LINES, chartKey, chartStep, layoutChart, layoutSystem, orbitStep, sunAt, SYSTEM_LINES, worldAt,
   type ChartCursor, type ChartLayout, type Dir, type SystemLayout,
 } from './chart-layout.ts';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // This repository's own knowledge, read through the kit as the app reads it on the server.

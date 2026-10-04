@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { foldSummary, LONG_QUESTION, longQuestion } from './long-question';
-import { present } from './test-item';
+import { present } from './test/test-item';
 
 // A long question on the ask page (PRD 752): a lead in bold, the rest folded under "Read the full
 // question · N steps · N words", inline steps as a numbered list. A short one stays as it is.

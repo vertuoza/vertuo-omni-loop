@@ -8,7 +8,7 @@ import { FixList } from './FixList';
 import type { FixFilters, FixItem, FixKind } from './list';
 import { TimelinePane } from './TimelinePane';
 import type { FixPageView } from './timeline';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The fix screens' faces (PRD 652, s6): "asked by @author" on /visual and /bugs, and every "by @login"
 // on a fix's Timeline, each a person chip beside the unchanged text, resolved by login.

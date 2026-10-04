@@ -17,7 +17,7 @@ import { BusinessScreen, DEMO_CLAIMS, DEMO_CONSTITUENTS, DEMO_PRODUCTS } from '.
 import { BusinessView } from './BusinessView';
 import type { Claim } from './model';
 import { initialBusinessState } from './state';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // Settings › Business's Constituents panel (PRD 871 s2): an owner adds a Statement and two Never lines,
 // edits the Statement and removes never#2, through the store's rules (the demo port, the functions'

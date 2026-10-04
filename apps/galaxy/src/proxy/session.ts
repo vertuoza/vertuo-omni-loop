@@ -1,3 +1,4 @@
+import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient, type CookieMethodsServer } from '@supabase/ssr';
 import type { Database } from '../../../../supabase/database.types';

@@ -6,7 +6,7 @@ import {
 import { questionView } from './question';
 import { firstTab, needsYou, rowOf, tabsOf } from './tabs';
 import { sessionView } from './view';
-import { item, present } from '../test-item';
+import { item, present } from '../test/test-item';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 

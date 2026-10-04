@@ -11,8 +11,10 @@
  *
  * The browser's two public values are read in `./env.client.ts`, where Next inlines them.
  *
- * Plain Node loads this module (`scripts/releases-sync.ts`): it names its imports with their extension.
+ * Plain Node loads this module (`scripts/releases-sync.ts`): it names its imports with their extension,
+ * and the script resolves its `server-only` marker as the server does (`scripts/server-only.ts`).
  */
+import 'server-only';
 import { z } from 'zod';
 import { envGroup, envReader, variablesOf, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';
 import { arcadeMode } from './data/mode.ts';

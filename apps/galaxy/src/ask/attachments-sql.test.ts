@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ATTACHMENTS_BUCKET } from './store';
-import { present } from './test-item';
+import { present } from './test/test-item';
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261010090000_ask_attachments.sql', import.meta.url)), 'utf8');
 const oneLine = MIGRATION.replace(/\s+/g, ' ');

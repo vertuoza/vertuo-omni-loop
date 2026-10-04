@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { addressAt, DEEP_LINKS, landing, readHash } from './deep-link';
-import { twinEvents, twinGalaxy } from './twins.fake';
+import { twinEvents, twinGalaxy } from './test/twins.fake';
 import type { Session } from './types';
-import { sure } from './sure';
+import { sure } from './test/sure';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // The arcade's deep links (moved out of ArcadeApp.tsx; PRD 238 adds #menu): the screen an address's

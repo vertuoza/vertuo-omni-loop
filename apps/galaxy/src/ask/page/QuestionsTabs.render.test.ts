@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { WaitingProvider } from '../../waiting/WaitingProvider';
 import type { WaitingQuestion } from '../../waiting/waiting';
 import { QuestionsTabs } from './QuestionsTabs';
-import { item } from '../test-item';
+import { item } from '../test/test-item';
 
 // The Questions pages' tab row (PRD 733), as the server renders it inside the app shell's waiting
 // provider: Open questions · Shared with me · History, the page's own tab marked, Open questions

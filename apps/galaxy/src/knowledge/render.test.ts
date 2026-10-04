@@ -10,7 +10,7 @@ import { KnowledgeScreen } from './KnowledgeScreen';
 import { OrreryDiagram } from './OrreryDiagram';
 import { repoHref } from './RepoPicker';
 import { select, tabEntries } from './view';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The /knowledge page as the server renders it: what a person sees before any script runs.
 

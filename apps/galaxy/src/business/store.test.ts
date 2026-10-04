@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { planPick, type Claim } from './model';
 import { callsOf, confirmCalls, COULD_NOT_SAVE, databaseBusiness, demoBusinessPort, INVALID, NOT_MEMBER, refusalOf, run, type Step } from './store';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { sentOf } from './json.fake';
 
 // Settings → Business's calls (PRD 748 s2): claim_pick() and claim_set_state(), as the signed-in

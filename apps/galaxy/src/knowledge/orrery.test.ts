@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { KINDS, type EntryKind, type KnowledgeEntry } from '../data/knowledge';
 import { entry } from './fixture';
 import { orrery, ORRERY } from './orrery';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The page's diagram: the domain's sun in the middle, principles on the inner orbit, rules on the
 // middle one, invariants outside, every entry seated, nothing overlapping.

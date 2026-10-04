@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { LINGO } from '../lingo';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 import { heading, html, text } from './render';
 import { KNOWLEDGE, LOOP, MOVERS, StrategyGuide } from './StrategyGuide';
 

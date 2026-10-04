@@ -8,7 +8,7 @@ import { demoEngineeringBoard } from './demo';
 import { EngineeringScreen, type EngineeringView } from './EngineeringScreen';
 import { faceOf, type Face } from '../people/face';
 import { engineeringOf, OMNI_MAN, type PullRequestRow } from './tally';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // /app/engineering as the server renders it (PRD 612 s3), to static markup: what a person sees
 // before any script runs.

@@ -4,7 +4,7 @@ import {
   canUndo, initialPersonasState, personaOf, personasReducer, pickerOf, sameAvatar, UNDO_MS, viewPersonas,
   type Persona, type PersonasAction, type PersonasState,
 } from './personas';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // Settings → Business → Personas' state (PRD 799 s3): add, edit, delete and Undo within 5 s, the
 // drawer and its portrait picker, and each product's cast.

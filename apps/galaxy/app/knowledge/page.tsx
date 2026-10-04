@@ -1,3 +1,4 @@
+import 'server-only';
 import { loadKnowledge } from '../../src/data/load-knowledge';
 import { serverEnv } from '../../src/env';
 import { supabaseEnv, supabaseServer } from '../../src/data/supabase-server';

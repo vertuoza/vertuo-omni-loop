@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { present } from '../ask/test-item';
+import { present } from '../ask/test/test-item';
 import { loadScores, readScores, submitScore } from './scores';
 import { ACME, fakeGalaxyDb, PEOPLE, score, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 

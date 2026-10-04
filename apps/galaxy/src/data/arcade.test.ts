@@ -11,7 +11,7 @@ vi.mock('../env', async (actual) => {
   return { ...env, serverEnv: () => env.readEnv({}) };
 });
 
-import { present } from '../ask/test-item';
+import { present } from '../ask/test/test-item';
 import type { DossierListRow } from '../dossier/store';
 import { arcadeFor, OUT_OF_REACH } from './arcade';
 import { withDossiers, type FakeDossier } from './dossiers.fake';

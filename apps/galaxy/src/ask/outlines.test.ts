@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { item, present } from './test-item';
+import { item, present } from './test/test-item';
 
 // PRD 476: on every page drawn in Ask's colours, what the eye must find (a chip, a badge, a card or
 // panel, a control, a tab) is outlined with --ask-line-strong, at 3:1 against what it sits on.

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 import { EXAMPLE_FLEETS } from './fleets';
 import { Game } from './Game';
 import { heading, html, text } from './render';

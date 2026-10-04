@@ -19,6 +19,7 @@
 // /bugs and /visual never read GitHub. A released fix is final and is not read again. A refresh that
 // fails, or a workspace whose fixes cannot be listed, is logged; the stages still land and the run
 // answers 200.
+import 'server-only';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FixReader, FixRef } from '../../dossier/github/reader';
 import { isFinal, refreshFixFacts } from '../../fixes/facts/refresh';

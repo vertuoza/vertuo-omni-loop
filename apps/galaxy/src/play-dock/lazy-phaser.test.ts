@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The lazy loading guard (PRD 817): Phaser is about 350 KB gzipped, and only SUPER OMNI WORLD needs
 // it. It is fetched with a dynamic import('phaser') by the platformer's one way in

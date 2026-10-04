@@ -7,6 +7,8 @@ import { fakeSupabase as askFake } from '../../ask/store.fake';
 import { answerQuick, deleteDraft, readContent, readDossier, readHistory, readPlanSlices, readPulse, readSandboxed } from './source';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
+vi.mock('server-only', () => ({}));
+
 // Where /prd/<id> reads: straight from the database as the viewer (the stubbed client of
 // ../store.fake.ts, which keeps the migration's access rules), so a member of the dossier's workspace
 // reads it and anyone else reads nothing, exactly as if it never was.

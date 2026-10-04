@@ -17,7 +17,7 @@ import {
 import { dayLabel, type AgentToken } from '../agent-connect/tokens/model';
 import { initialTokensState, tokensReducer, type TokensAction } from '../agent-connect/tokens/state';
 import { ADD_PRODUCT, ADD_RIVAL, BusinessView, PRODUCT_NAME, SKIP, SKIPPED, TRY_LINE } from './BusinessView';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // Settings → Business as the server renders it (PRD 748 s2): the empty page (the sentence with its
 // blanks, the picks, Skip), a filled one (the sentence as the title, a row per claim with its id,

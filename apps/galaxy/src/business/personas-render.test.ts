@@ -10,7 +10,7 @@ import { ADD_PERSONA, NO_PERSONAS, PersonasSection, SHUFFLE, UNDO } from './Pers
 import { BusinessScreen, DEMO_CLAIMS, DEMO_PERSONAS, DEMO_PRODUCTS } from './BusinessScreen';
 import { businessReducer, initialBusinessState } from './state';
 import { BusinessView } from './BusinessView';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // Settings → Business → Personas as the server renders it (PRD 799 s3): the empty section, the card
 // grid, the drawer with its fields and portrait picker, two products each with its own cast, no

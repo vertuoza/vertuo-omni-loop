@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardScreenProps } from './DashboardScreen';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // /app (app/app/page.tsx), called as the server calls it, with its data sources stubbed (PRD 328):
 // it reads the period from the query (PRD 572), decides the situation once, top to bottom, and hands

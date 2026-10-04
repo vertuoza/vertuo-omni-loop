@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RoundRow, SessionRow } from './view';
 import { historyChoices, historyList, readHistoryFilters, type HistoryRow } from './workspace-history';
-import { present } from '../test-item';
+import { present } from '../test/test-item';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The workspace's history (PRD 144), as a pure function of the rows the caller may read, the

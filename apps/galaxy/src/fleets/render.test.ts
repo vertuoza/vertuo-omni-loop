@@ -7,7 +7,7 @@ import { FleetsScreen, type FleetsScreenView } from './FleetsScreen';
 import { FleetsView, ONLY_OWNER } from './FleetsView';
 import { fleetsReducer, initialState, type FleetsAction, type FleetsState } from './model';
 import { MASCOTS } from './store';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // /app/settings/fleets as the server renders it (PRD 400 s3): the owner's view (New fleet, the form with its
 // live preview, Edit, Retire confirmed on the page, the retired fleets under a fold with Restore), a

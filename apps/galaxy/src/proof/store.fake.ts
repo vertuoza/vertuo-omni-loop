@@ -6,7 +6,7 @@
 // caller reads and of a run not yet registered, as the bucket's insert rule says. That the database
 // holds those rules is proved against a real database, not here.
 import { proofPath, ProofStoreError, type ProofPublic, type ProofRunNew, type ProofRunRow, type ProofStore, isVerdict, PROOF_FILE_NAME } from './store';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { settled } from '../stages/settled';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 

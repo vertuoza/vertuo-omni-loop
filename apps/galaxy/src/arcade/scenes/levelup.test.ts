@@ -15,7 +15,7 @@ import { levelUpFor, type LevelUp } from '../levelup';
 import type { FleetRow } from '../types';
 import type { FrameState } from './common.ts';
 import { layoutMap } from './map.ts';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 
 // Every sprite the scene draws, by name, with its tint, its scale and where it lands.
 const drawn = vi.hoisted(() => [] as { name: string; x: number; y: number; tint: unknown; scale: number }[]);

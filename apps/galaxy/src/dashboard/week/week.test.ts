@@ -8,7 +8,7 @@ import { chartDays, weekDays, weekTotal, type ChartDay } from './chart';
 import { demoWeek } from './demo';
 import type { WeekValue } from './load';
 import { barHeight, CHART, Week } from './Week';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // The week of merges as the server draws it (PRD 328), to static markup: a heading, the week's total
 // at its top right, seven bars in inline SVG (no chart library, no script), today last, each under its

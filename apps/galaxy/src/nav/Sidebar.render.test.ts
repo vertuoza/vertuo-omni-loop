@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WaitingView } from '../waiting/view';
 import type { WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 import { z } from 'zod';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 

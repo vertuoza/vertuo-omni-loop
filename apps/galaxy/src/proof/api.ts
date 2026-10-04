@@ -18,6 +18,7 @@
 // the three, a file not uploaded), 401 no valid sign-in, 403 the database's refusal by membership, 404 a
 // PRD without a dossier the caller may read (or, for the GIF, no such run or no GIF), 409 a run registered
 // already, 413 a body over its cap or a file over 50 MB, 503 no database here.
+import 'server-only';
 import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { randomUUID } from 'node:crypto';
 import { authenticate, callerOrigin as origin, type TokenCheck } from '../ask/auth';

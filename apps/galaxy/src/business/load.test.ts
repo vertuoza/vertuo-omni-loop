@@ -9,7 +9,7 @@ vi.mock('../data/workspace', () => ({ memberWorkspace: () => read.workspace() })
 
 import type { User } from '@supabase/supabase-js';
 import { loadBusinessPage } from './load';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // Settings → Business's read (PRD 748 s2): the business opened with business_open(), its first
 // product, the claims of the region and of that product, and the citation log counted per claim, all

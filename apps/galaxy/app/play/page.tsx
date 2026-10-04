@@ -1,3 +1,4 @@
+import 'server-only';
 import { ArcadeClient } from '../../src/arcade/ArcadeClient';
 import { arcadeFor } from '../../src/data/arcade';
 import { demoDossiers } from '../../src/data/dossiers';

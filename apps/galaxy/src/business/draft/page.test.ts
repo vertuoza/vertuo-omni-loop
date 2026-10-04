@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { checkUrl, fetchPage, htmlText, MAX_PAGE_BYTES, PageRefused, privateAddress, type Lookup } from './page';
+
+vi.mock('server-only', () => ({}));
 
 // The URL guard (PRD 774, decision 11), with a stubbed resolver and fetch: `http:`, private, loopback
 // and link-local hosts are refused, and a redirect to one; a page over 1 MB is cut. Nothing leaves.

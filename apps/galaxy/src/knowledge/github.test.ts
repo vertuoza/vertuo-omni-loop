@@ -2,7 +2,9 @@ import { generateKeyPairSync } from 'node:crypto';
 import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { CONFIG_BATCH, configQuery, GRAPH_TTL_MS, knowledgeReader, LISTING_TTL_MS } from './github';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
+
+vi.mock('server-only', () => ({}));
 
 // The knowledge map's GitHub reader, against a stubbed `fetch`: never GitHub itself. A small fake
 // GitHub answers the App's token route, an installation's repository listing and the two GraphQL

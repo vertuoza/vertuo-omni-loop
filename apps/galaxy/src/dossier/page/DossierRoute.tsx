@@ -1,3 +1,4 @@
+import 'server-only';
 import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { serviceDb } from '../../data/sign-in-live';

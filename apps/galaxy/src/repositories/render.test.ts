@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { initialState, repositoriesReducer, type RepositoriesAction, type RepositoryRow } from './model';
 import { RepositoriesScreen, type RepositoriesScreenView } from './RepositoriesScreen';
 import { MISSING_ONE, NO_ACCESS, ONLY_OWNER, RepositoriesView, type Access } from './RepositoriesView';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // Settings → Repositories as the server renders it (PRD 612 s1): the owner's view (Add repository,
 // the switches), a member's read-only view, the empty list, a workspace with no App installation (the

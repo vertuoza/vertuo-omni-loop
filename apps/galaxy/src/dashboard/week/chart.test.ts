@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { axisTicks, brusselsDay, chartDays, dayName, weekDays, weekTotal, type Merge } from './chart';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // The week's days (PRD 328): seven Brussels days, the six before today and today, today last; each
 // counts your pull requests merged into main on it. A person reads "today" in their own time, so the

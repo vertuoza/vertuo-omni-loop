@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import { parse } from 'yaml';
 import { z } from 'zod';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // A workflow, read for what these tests check: its triggers, and each job's condition, settings and steps.
 const Step = z.looseObject({ uses: z.string().optional(), run: z.string().optional(), name: z.string().optional(), with: z.record(z.string(), z.unknown()).optional() });

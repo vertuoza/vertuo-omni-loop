@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 import { byId, cited, entriesOf, lanes, matches, orbits, servedBy, serving, systems, type KnowledgeEntry, type KnowledgeGraph } from './knowledge';
 
 const entry = (id: string, kind: KnowledgeEntry['kind'], domain: string | null, over: Partial<KnowledgeEntry> = {}): KnowledgeEntry => ({

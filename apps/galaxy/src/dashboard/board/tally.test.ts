@@ -5,7 +5,7 @@ import {
   circleOf, eventCounts, groupsOf, inCircle, inPeriod, mergesPerDay, openedBy, peopleRows, perStage, prdEventsPerDay, prdsNow, repositoriesOf, stageTally, tilesOf,
   type Activity, type Member, type PrdNow,
 } from './tally';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The board's pure functions (PRD 572): who is in the scope, what of the workspace's contributions

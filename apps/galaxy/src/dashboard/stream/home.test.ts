@@ -1,7 +1,7 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 vi.mock('server-only', () => ({}));
 

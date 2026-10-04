@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { HOOK_WAIT_MS, type SessionRow } from './view';
 import { ageLabel, askTitle, firstTab, needsYou, pageTabs, pageWithList, pageWithPane, pickTab, startPage, tabsOf, tabsTitle, toggleList, type TabRow } from './tabs';
-import { item } from '../test-item';
+import { item } from '../test/test-item';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const MIN = 60_000;

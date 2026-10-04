@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { extractCandidates, extractorFromEnv, readCandidates } from './extract';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 import { readEnv } from '../../env';
 import { sentOf } from '../json.fake';
 import { z } from 'zod';
+
+vi.mock('server-only', () => ({}));
 
 // What the model was sent, parsed: the fields a test reads.
 const Sent = z.object({ model: z.string(), messages: z.array(z.object({ role: z.string(), content: z.string() })) });

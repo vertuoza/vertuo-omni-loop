@@ -1,3 +1,4 @@
+import 'server-only';
 import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import { serverEnv } from '../../env';

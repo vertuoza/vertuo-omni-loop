@@ -8,7 +8,7 @@
 // single ink. Whole-number scales only: the logo is never smoothed.
 /// <reference lib="dom" />
 import { INK } from './palette.ts';
-import { at, defined } from '../../../kit/lib/narrow.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** The logo's forms: OMNI LOOP, a big O leading MNI LOOP, and the O alone. */
 export type LogoForm = 'full' | 'lockup' | 'mark';

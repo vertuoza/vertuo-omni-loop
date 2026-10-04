@@ -1,3 +1,4 @@
+import 'server-only';
 import { installUrl } from '../../src/signup/github-app';
 import { readView, SignupScreen } from '../../src/signup/SignupScreen';
 import { serverEnv } from '../../src/env';

@@ -3,7 +3,7 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { GameModeButton } from './GameModeButton';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({ usePathname: () => '/app' }));
 

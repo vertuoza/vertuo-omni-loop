@@ -8,7 +8,7 @@ import type { JevCallRow, JevDecisionSettings, JevKeyStatus } from '../store';
 import { initialState, jevReducer, type JevAction } from './model';
 import { JevScreen, NOT_AVAILABLE_TITLE, type JevScreenView } from './JevScreen';
 import { ONLY_OWNER, SENDS, SWITCH_OFF, JevView } from './JevView';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // Settings › Jev as the server renders it (PRD 812 s1): the owner's view with and without a key, the
 // key field, a refused test call, a member's view (no key field, no last four), and each situation of
