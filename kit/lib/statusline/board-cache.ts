@@ -10,8 +10,10 @@
 //   cannot be read, as an error.
 // - **Refreshed** when the file is missing or its `at` is 60 seconds old or more (a time after now
 //   counts as old), and no refresh holds the lock: the status line starts
-//   `node <this omni.mjs> statusline --refresh <n>` detached, its output ignored, in the session's
-//   folder, and never waits for it. The spawn is injected; without one, nothing starts.
+//   `node <script> statusline --refresh <n>` detached, its output ignored, in the session's folder,
+//   and never waits for it. The spawn and the script are injected: the script is the file that runs
+//   this `omni`, which only the command line knows (`kit/bin`, handed it by `main()`); this library
+//   never names the command line. Without either, nothing starts.
 // - **The refresh** takes the lock `board-<n>.lock`, created exclusively. One 2 minutes old or more
 //   is abandoned and taken over; a younger one means another refresh is running, and this one
 //   writes nothing. It builds the board, writes the file to a temporary name and renames it into
@@ -21,9 +23,7 @@ import type { SpawnOptions } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { LOCAL_DIR } from '../ask/local-state.ts';
-import { runningBundle } from '../init/bundle.ts';
 import { BoardFileSchema, LockFileSchema } from './schema.ts';
 import type { CachedSlice } from './schema.ts';
 import type { PrdNumber } from '../ids.ts';
@@ -65,11 +65,6 @@ function attempt<T, F>(fn: () => T, fallback: F): T | F {
   } catch {
     return fallback;
   }
-}
-
-/** The `.omni-loop` file that runs this `omni`: the bundle when bundled, else the kit source's entry. */
-export function omniScript(): string {
-  return runningBundle() ?? fileURLToPath(new URL('../../bin/omni.ts', import.meta.url));
 }
 
 /** PRD `prd`'s board in the checkout at `root`: `{ at, slices }` or `{ at, error }` (`at` in
@@ -146,8 +141,9 @@ export function startRefresh({ spawn, script, cwd, prd, env }: { spawn: Spawn; s
 /**
  * What the status line shows of PRD `prd`'s board in the main checkout at `root`: the slices of a
  * board under 10 minutes old, else `null`. When the board is missing or 60 seconds old and no
- * refresh holds the lock, it starts one in `cwd` (the session's folder) with `spawn`, never waiting;
- * without `spawn`, nothing starts. Writes nothing, never throws.
+ * refresh holds the lock, it starts one in `cwd` (the session's folder) with `spawn`, running
+ * `script` (the file that runs this `omni`), never waiting; without `spawn` or `script`, nothing
+ * starts. Writes nothing, never throws.
  */
 export function cachedSlices({ root, prd, now, cwd, spawn = null, script, env }: {
   root: string;
@@ -155,12 +151,12 @@ export function cachedSlices({ root, prd, now, cwd, spawn = null, script, env }:
   now: number;
   cwd: string;
   spawn?: Spawn | null;
-  script?: string;
+  script?: string | undefined;
   env?: NodeJS.ProcessEnv | undefined;
 }): CachedSlice[] | null {
   const board = attempt(() => readBoard(root, prd), null);
-  if (spawn && refreshDue(board, now) && !attempt(() => lockHeld(root, prd, now), true)) {
-    startRefresh({ spawn, script: script ?? omniScript(), cwd, prd, env });
+  if (spawn && script && refreshDue(board, now) && !attempt(() => lockHeld(root, prd, now), true)) {
+    startRefresh({ spawn, script, cwd, prd, env });
   }
   return shownSlices(board, now);
 }

@@ -45,6 +45,11 @@ const PRD_BY_POSITION: Readonly<Record<string, readonly string[]>> = Object.free
 });
 const PRD_FLAG = '--prd';
 
+// The file that runs this `omni`: the bundle when bundled (the build inlines this module into it),
+// else this, the kit source's entry. `main()` hands it to the commands that start `omni` again, so
+// that no library module names the command line by its path.
+const self = fileURLToPath(import.meta.url);
+
 /** `value` as a PRD number, read as the commands read it (`prdArg`), or `null`. */
 function prdNumber(value: string | undefined): PrdNumber | null {
   try {
@@ -105,8 +110,9 @@ export async function main(
     const vars = readEnv(env);
     recordPrd(argv, { cwd, vars, exec });
     // `init` runs before a config exists: it finds the root itself. `more` is its injected stdin,
-    // bundle and prompt; an option left out keeps the command's own default.
-    if (command.withoutContext) return await command.run(rest, { cwd, stdout, stderr, exec, env, vars, ...more });
+    // bundle and prompt; an option left out keeps the command's own default. `script` is this
+    // `omni`'s own file, which the status line's background refresh runs.
+    if (command.withoutContext) return await command.run(rest, { cwd, stdout, stderr, exec, env, vars, script: self, ...more });
     const ctx = loadContext(cwd, { exec });
     return await command.run(rest, { ctx, stdout, stderr, exec, env, vars });
   } catch (error) {
@@ -122,7 +128,6 @@ export async function main(
 // launcher (PRD 420, `../lib/launch/launch.ts`): a checkout with its own bin runs that bin instead,
 // and outside a repository with the kit only the commands that need none run. `main()` never
 // launches, so a repository's bin, which calls it, runs exactly as before.
-const self = fileURLToPath(import.meta.url);
 const invoked = process.argv[1] && realpathSync(process.argv[1]) === realpathSync(self);
 if (invoked) {
   const argv = process.argv.slice(2);

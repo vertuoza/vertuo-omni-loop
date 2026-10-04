@@ -236,6 +236,7 @@ describe('readFacts: the board (slice s6)', () => {
   const NOW = Date.parse('2026-09-28T12:00:00Z');
   const SECOND = 1000;
   const MINUTE = 60 * SECOND;
+  const SCRIPT = '/work/repo/.omni-loop/bin/omni.mjs';
   const IN_FLIGHT = [{ id: 's1', wave: 1, state: 'in-flight' }, { id: 's2', wave: 2, state: 'blocked' }];
 
   /** A board file in the checkout at `root`, written `age` milliseconds before `NOW`. */
@@ -258,7 +259,7 @@ describe('readFacts: the board (slice s6)', () => {
   function read(folder: string, more: Partial<SessionInput> = {}) {
     const { calls, exec } = recordingExec();
     const spawned = fakeSpawn();
-    const facts = readFacts(input({ currentDir: folder, ...more }), { cwd: folder, exec, now: NOW, spawn: spawned.spawn });
+    const facts = readFacts(input({ currentDir: folder, ...more }), { cwd: folder, exec, now: NOW, spawn: spawned.spawn, script: SCRIPT });
     expect(calls.some((call) => /\bfetch\b/.test(call) || call.startsWith('gh '))).toBe(false);
     return { prd: facts.prd, spawns: spawned.calls };
   }
@@ -279,7 +280,7 @@ describe('readFacts: the board (slice s6)', () => {
     expect(prd).toMatchObject({ number: 7, stage: 'inbox', slices: null });
     expect(spawns).toHaveLength(1);
     assertDefined(spawns[0], 'spawns[0]');
-    expect(spawns[0].args.slice(1)).toEqual(['statusline', '--refresh', '7']);
+    expect(spawns[0].args).toEqual([SCRIPT, 'statusline', '--refresh', '7']);
     assertDefined(spawns[0], 'spawns[0]');
     expect(spawns[0].options).toMatchObject({ cwd: root, detached: true, stdio: 'ignore' });
   });
