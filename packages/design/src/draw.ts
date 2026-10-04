@@ -4,7 +4,7 @@
 import { forge } from './forge.ts';
 import type { Flat, Pixels, Tint } from './forge.ts';
 import { SPRITE_DEFS } from './sprites.ts';
-import { at, defined } from '../../../kit/lib/narrow.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** A 2D context the helpers draw on: a page's canvas or an offscreen one. */
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;

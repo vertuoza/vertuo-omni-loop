@@ -3,7 +3,7 @@
 // (light, base, shade, dark) and is lit from the top left per connected shape, and the silhouette
 // gets a coloured outline — the material's own darkest tone on the lit side, near-black on the
 // shadow side. Pure: the result is a grid of hex colours, drawn to canvas by draw.mjs.
-import { at, defined } from '../../../kit/lib/narrow.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export const RAMPS: Readonly<Record<string, readonly string[]>> = Object.freeze({
   W: ['#ffffff', '#e4e8ff', '#b3bbe6', '#7880bc'], // suit white

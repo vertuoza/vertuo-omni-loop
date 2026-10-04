@@ -4,7 +4,7 @@
 // ranges in the database (supabase/migrations/*_fleets_and_players.sql).
 import type { Tint } from './forge.ts';
 import { SPRITE_DEFS } from './sprites.ts';
-import { at, defined } from '../../../kit/lib/narrow.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** A stored hero: preset numbers into HERO_PRESETS, the body a girl's or a boy's. */
 export interface Hero { v: 1; body: 'girl' | 'boy'; skin: number; hair: number; suit: number; cape: number }

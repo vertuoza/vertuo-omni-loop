@@ -6,7 +6,7 @@
 import { forge } from './forge.ts';
 import type { Painter, Pixels } from './forge.ts';
 import { rampFrom } from './heroes.ts';
-import { at, defined } from '../../../kit/lib/narrow.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export type PersonaTrade =
   | 'builder' | 'plumber' | 'heating' | 'electrician' | 'carpenter' | 'roofer' | 'painter' | 'foreman'

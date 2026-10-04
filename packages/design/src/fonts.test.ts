@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FACES, ROLES, TYPE_SCALE, fontFaceCss, fontFiles, fontsCss } from './fonts.ts';
-import { assertDefined } from '../../../kit/test/assert.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 const pkg = join(dirname(fileURLToPath(import.meta.url)), '..');
 const committed = readFileSync(join(pkg, 'fonts.css'), 'utf8');

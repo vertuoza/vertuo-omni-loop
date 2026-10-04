@@ -4,7 +4,7 @@ import { HERO_PRESETS, rampFrom, heroLook, heroPose, OMNI_POSES, validHero, rand
 import type { Hero, OmniPose } from './heroes.ts';
 import { spritePixels } from './draw.ts';
 import { RAMPS } from './forge.ts';
-import { assertDefined } from '../../../kit/test/assert.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 const every = (): Hero[] => {
   const out: Hero[] = [];
