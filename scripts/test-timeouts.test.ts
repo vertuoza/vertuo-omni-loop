@@ -7,10 +7,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import config, { TEST_TIMEOUT_MS } from '../../vitest.config.ts';
+import config, { TEST_TIMEOUT_MS } from '../vitest.config.ts';
 
-const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
-const SELF = 'kit/test/test-timeouts.test.ts';
+const repoRoot = fileURLToPath(new URL('..', import.meta.url));
+const SELF = 'scripts/test-timeouts.test.ts';
 
 // A test's own limit: a number of 1000 or more after an `it`/`test` body (`}, 20_000);`, while a timer's
 // short delay, `}, 50);`, is not one), a `{ timeout: … }` option on a `describe`, `it` or `test`, or
