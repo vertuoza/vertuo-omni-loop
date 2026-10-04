@@ -18,6 +18,7 @@ import { join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { afterAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -288,7 +289,9 @@ describe('the import guard, on fixtures: the arcade on the client and on the ser
 
 describe('the import guard, on fixtures: the cycle gate', () => {
   const dir = mkdtempSync(join(tmpdir(), 'import-guard-'));
-  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
 
   it('reads a cycle fallow finds', () => {
     writeFileSync(join(dir, 'package.json'), '{ "name": "cycle", "private": true, "type": "module", "main": "a.ts" }\n');
@@ -502,6 +505,23 @@ function complete(path: string, known: ReadonlySet<string>): string {
 // ---------------------------------------------------------------------------------------------
 // Reading a file's imports from its syntax tree.
 
+/** One node's module specifier, and whether only types cross. */
+type ImportRead = { literal: ts.Node; typeOnly: boolean } | undefined;
+
+/** Each way a node names a module, one check per kind of node. */
+const IMPORT_READS: readonly ((node: ts.Node) => ImportRead)[] = [
+  // `import … from 'x'`, `import type … from 'x'`, `import 'x'`
+  (node) => (ts.isImportDeclaration(node) ? { literal: node.moduleSpecifier, typeOnly: node.importClause?.phaseModifier === ts.SyntaxKind.TypeKeyword } : undefined),
+  // `export … from 'x'`, `export type … from 'x'`
+  (node) => (ts.isExportDeclaration(node) && node.moduleSpecifier !== undefined ? { literal: node.moduleSpecifier, typeOnly: node.isTypeOnly } : undefined),
+  // `import x = require('x')`
+  (node) => (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference) ? { literal: node.moduleReference.expression, typeOnly: node.isTypeOnly } : undefined),
+  // `import('x')`
+  (node) => (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] !== undefined ? { literal: node.arguments[0], typeOnly: false } : undefined),
+  // `typeof import('x')`
+  (node) => (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) ? { literal: node.argument.literal, typeOnly: true } : undefined),
+];
+
 function importsOf(file: File): Parsed {
   const kind = file.path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
   const source = ts.createSourceFile(file.path, file.text, ts.ScriptTarget.Latest, true, kind);
@@ -511,11 +531,8 @@ function importsOf(file: File): Parsed {
     imports.push({ specifier: literal.text, line: source.getLineAndCharacterOfPosition(literal.getStart(source)).line + 1, typeOnly });
   };
   const visit = (node: ts.Node): void => {
-    if (ts.isImportDeclaration(node)) add(node.moduleSpecifier, node.importClause?.isTypeOnly ?? false);
-    else if (ts.isExportDeclaration(node) && node.moduleSpecifier !== undefined) add(node.moduleSpecifier, node.isTypeOnly);
-    else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) add(node.moduleReference.expression, node.isTypeOnly);
-    else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] !== undefined) add(node.arguments[0], false);
-    else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) add(node.argument.literal, true);
+    const read = IMPORT_READS.map((reads) => reads(node)).find((found) => found !== undefined);
+    if (read !== undefined) add(read.literal, read.typeOnly);
     ts.forEachChild(node, visit);
   };
   visit(source);
@@ -554,26 +571,30 @@ type Finding = { line: number; rule: string };
 function tableFindings(path: string, parsed: Parsed, known: ReadonlySet<string>): Finding[] {
   const zone = zoneOf(path);
   if (zone === undefined) return [];
-  const row = TABLE[zone];
-  const out: Finding[] = [];
-  for (const imp of parsed.imports) {
+  return parsed.imports.flatMap((imp) => {
     const target = resolve(path, imp.specifier, known);
-    if (target === undefined) continue;
-    const owner = packageOf(path);
-    if (target.byName !== undefined && owner !== undefined && owner !== target.byName && !owner.declares.has(target.byName.name)) {
-      out.push({ line: imp.line, rule: `${owner.dir || 'the root package'} does not declare ${target.byName.name}` });
-    }
-    if (row.may === 'anything') continue;
-    const targetZone = zoneOf(target.path);
-    if (targetZone === zone) continue;
-    const reaches = isTest(path) ? [...row.may, ...TEST_ALSO] : row.may;
-    const allowed = reaches.some((r) => r.zone === targetZone && (r.only === undefined || r.only.pattern.test(target.path)) && (r.byName === undefined || target.byName !== undefined));
-    if (allowed) continue;
-    const named = targetZone ?? target.path;
-    const spelling = targetZone !== undefined && reaches.some((r) => r.zone === targetZone && r.byName === true && (r.only === undefined || r.only.pattern.test(target.path)));
-    out.push({ line: imp.line, rule: `${zone} may import ${mayLabel(row.may, isTest(path))}, not ${named}${spelling ? ' by a relative path' : ''}` });
-  }
-  return out;
+    if (target === undefined) return [];
+    return [declaredRule(path, target), zoneRule(path, zone, target)].flatMap((rule) => (rule === undefined ? [] : [{ line: imp.line, rule }]));
+  });
+}
+
+/** An import by package name names a package the importing package declares. */
+function declaredRule(path: string, target: Resolved): string | undefined {
+  const owner = packageOf(path);
+  if (target.byName === undefined || owner === undefined || owner === target.byName || owner.declares.has(target.byName.name)) return undefined;
+  return `${owner.dir || 'the root package'} does not declare ${target.byName.name}`;
+}
+
+/** The zone's row of the table, and a test's allowance, decide whether `path` may import `target`. */
+function zoneRule(path: string, zone: Zone, target: Resolved): string | undefined {
+  const row = TABLE[zone];
+  const targetZone = zoneOf(target.path);
+  if (row.may === 'anything' || targetZone === zone) return undefined;
+  const reaches = isTest(path) ? [...row.may, ...TEST_ALSO] : row.may;
+  const covering = reaches.filter((r) => r.zone === targetZone && (r.only === undefined || r.only.pattern.test(target.path)));
+  if (covering.some((r) => r.byName === undefined || target.byName !== undefined)) return undefined;
+  const spelling = covering.length > 0 ? ' by a relative path' : '';
+  return `${zone} may import ${mayLabel(row.may, isTest(path))}, not ${targetZone ?? target.path}${spelling}`;
 }
 
 function mayLabel(may: readonly Reach[], test: boolean): string {
@@ -603,18 +624,24 @@ function clientFindings(root: string, parsed: ReadonlyMap<string, { parsed: Pars
   const cameFrom = new Map<string, { from: string; line: number }>([[root, { from: '', line: 0 }]]);
   const queue = [root];
   for (let at = queue.shift(); at !== undefined; at = queue.shift()) {
-    for (const imp of parsed.get(at)?.parsed.imports ?? []) {
-      if (imp.typeOnly) continue;
-      const next = resolve(at, imp.specifier, known)?.path;
-      if (next === undefined || cameFrom.has(next)) continue;
-      const target = parsed.get(next)?.parsed;
-      if (target === undefined || target.directives.has('use server')) continue;
-      cameFrom.set(next, { from: at, line: imp.line });
-      if (target.serverOnly) out.push(chainFinding(next, cameFrom));
-      else queue.push(next);
+    for (const step of clientSteps(at, parsed, known)) {
+      if (cameFrom.has(step.next)) continue;
+      cameFrom.set(step.next, { from: at, line: step.line });
+      if (step.serverOnly) out.push(chainFinding(step.next, cameFrom));
+      else queue.push(step.next);
     }
   }
   return out;
+}
+
+/** The modules one file brings to the client: its runtime imports of repository files, server actions left out. */
+function clientSteps(at: string, parsed: ReadonlyMap<string, { parsed: Parsed }>, known: ReadonlySet<string>): { next: string; line: number; serverOnly: boolean }[] {
+  return (parsed.get(at)?.parsed.imports ?? []).flatMap((imp) => {
+    const next = imp.typeOnly ? undefined : resolve(at, imp.specifier, known)?.path;
+    const target = next === undefined ? undefined : parsed.get(next)?.parsed;
+    if (next === undefined || target === undefined || target.directives.has('use server')) return [];
+    return [{ next, line: imp.line, serverOnly: target.serverOnly }];
+  });
 }
 
 function chainFinding(end: string, cameFrom: ReadonlyMap<string, { from: string; line: number }>): Finding {
@@ -640,11 +667,10 @@ function cycles(root: string): string[][] {
     // fallow exits non-zero when it finds one; its report is still on stdout.
     stdout = error instanceof Error && 'stdout' in error && typeof error.stdout === 'string' ? error.stdout : '';
   }
-  const report: unknown = JSON.parse(stdout);
-  const found = typeof report === 'object' && report !== null && 'circular_dependencies' in report && Array.isArray(report.circular_dependencies) ? report.circular_dependencies : [];
-  const reExports = typeof report === 'object' && report !== null && 're_export_cycles' in report && Array.isArray(report.re_export_cycles) ? report.re_export_cycles : [];
-  return [...found, ...reExports].map((cycle: unknown) => {
-    const files = typeof cycle === 'object' && cycle !== null && 'files' in cycle && Array.isArray(cycle.files) ? cycle.files : [];
-    return files.map((file: unknown) => String(file)).sort();
-  });
+  const report = FallowReport.parse(JSON.parse(stdout));
+  return [...report.circular_dependencies, ...report.re_export_cycles].map((cycle) => [...cycle.files].sort());
 }
+
+/** The part of fallow's JSON report the gate reads: each cycle, import or re-export, as its files. */
+const Cycle = z.object({ files: z.array(z.string()) });
+const FallowReport = z.object({ circular_dependencies: z.array(Cycle), re_export_cycles: z.array(Cycle) });
