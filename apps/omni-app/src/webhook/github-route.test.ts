@@ -79,7 +79,7 @@ describe('/api/github', () => {
       headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(merged) },
     }));
     expect(response.status).toBe(200);
-    expect(post.mock.calls.map(([url]) => String(url))).toEqual(['https://galaxy.example/api/stages/event', 'https://galaxy.example/api/github/touched']);
+    expect(post.mock.calls.map(([url]) => url)).toEqual(['https://galaxy.example/api/stages/event', 'https://galaxy.example/api/github/touched']);
     const [stageCall, touchCall] = post.mock.calls;
     assertDefined(stageCall, 'the stage event POST');
     const init = StagePostSchema.parse(stageCall[1]);
@@ -107,7 +107,7 @@ describe('/api/github', () => {
     expect(post).toHaveBeenCalledTimes(1);
     const call = post.mock.calls[0];
     assertDefined(call, 'the touch POST');
-    expect(String(call[0])).toBe('https://galaxy.example/api/github/touched');
+    expect(call[0]).toBe('https://galaxy.example/api/github/touched');
     expect(JSON.parse(StagePostSchema.parse(call[1]).body)).toEqual({ repository: 'o/r', issue: 9 });
   });
 

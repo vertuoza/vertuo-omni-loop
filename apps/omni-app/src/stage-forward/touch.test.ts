@@ -88,7 +88,7 @@ describe('forwardTouch', () => {
   const touch: Touch = { repository: 'acme/widgets', issue: parseIssue(902) };
 
   it('POSTs the touch to galaxy\'s /api/github/touched, signed with the stage event\'s HMAC', async () => {
-    const post = vi.fn((_url: string, _init: RequestInit) => Promise.resolve(new Response('ok', { status: 200 })));
+    const post = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() => Promise.resolve(new Response('ok', { status: 200 })));
     await forwardTouch(touch, { url: touchedUrl('https://galaxy.example/'), secret: 'stage-secret', fetch: post });
     const call = post.mock.calls[0];
     assertDefined(call, 'the touch POST');
