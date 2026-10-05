@@ -71,12 +71,27 @@ jobs:
         with:
           pattern: mutation-*
           path: shards
-      # One report from the shards': each mutates its own files, so their `files` never overlap.
+      # One report from the shards': each mutates its own files, so their `files` never overlap. The
+      # merged HTML page is a shard's page with its one `app.report = {…};` line filled with the merged
+      # report; each shard's own page is kept beside it.
       - name: Merge the shards' reports
         run: |
           mkdir -p reports/mutation
-          jq -s '.[0] + { files: (map(.files) | add), testFiles: (map(.testFiles // {}) | add) }' shards/*/mutation.json > reports/mutation/mutation.json
-          for shard in shards/*/; do cp "$shard/mutation.html" "reports/mutation/$(basename "$shard").html"; done
+          node --input-type=module -e '
+            import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+            const shards = readdirSync("shards").sort();
+            const reports = shards.map((s) => JSON.parse(readFileSync(`shards/${s}/mutation.json`, "utf8")));
+            const merged = { ...reports[0], files: Object.assign({}, ...reports.map((r) => r.files)), testFiles: Object.assign({}, ...reports.map((r) => r.testFiles ?? {})) };
+            writeFileSync("reports/mutation/mutation.json", JSON.stringify(merged));
+            const page = readFileSync(`shards/${shards[0]}/mutation.html`, "utf8");
+            const marker = /^(\s*app\.report = ).*;$/m;
+            if (marker.test(page)) {
+              const json = JSON.stringify(merged).replace(/</g, "\\u003c");
+              writeFileSync("reports/mutation/mutation.html", page.replace(marker, (_, lead) => `${lead}${json};`));
+            } else console.log("::warning::the HTML report has no app.report line to fill: only the shards pages are uploaded");
+            console.log(`merged ${String(shards.length)} shards: ${String(Object.keys(merged.files).length)} files`);
+          '
+          for shard in shards/*/; do cp "${shard}mutation.html" "reports/mutation/$(basename "$shard").html"; done
       - name: Score against the floors
         run: |
           set +e
@@ -84,7 +99,7 @@ jobs:
           status=$?
           set -e
           cat score.md
-          { echo '## Mutation score'; echo; cat score.md; echo; echo 'The HTML report of each shard is in the `mutation-report` artifact.'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo '## Mutation score'; echo; cat score.md; echo; echo 'The HTML report, `mutation.html`, and each shard page are in the `mutation-report` artifact.'; } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
       - uses: actions/upload-artifact@v4
         if: always()
