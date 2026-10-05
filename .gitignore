@@ -2,3 +2,7 @@ node_modules/
 supabase/.temp/
 supabase/.branches/
 .env*.local
+
+# Mutation testing (PRD 1072): Stryker's reports and its sandboxes.
+/reports/
+/.stryker-tmp/

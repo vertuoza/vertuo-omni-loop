@@ -19,6 +19,7 @@
     "lint": "pnpm --filter @omni/galaxy-app exec fumadocs-mdx && node --max-old-space-size=8192 scripts/lint.ts",
     "fallow:audit": "fallow audit",
     "check:changed": "node scripts/check-changed.ts",
+    "mutation": "stryker run stryker.config.ts",
     "game:project": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/project.ts",
     "game:score": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/score.ts",
     "game:xp": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/xp.ts",
@@ -37,6 +38,9 @@
   },
   "devDependencies": {
     "@playwright/test": "~1.56.1",
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/typescript-checker": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/node": "^22.20.4",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "esbuild": "^0.28.1",
