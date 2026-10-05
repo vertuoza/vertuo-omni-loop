@@ -159,3 +159,159 @@ One line: the `include` of `stryker.config.vitest.ts`. Adding the command tests 
 ```
 
 <!-- /omni-outbox-settled: s1-02-mutation-test-set -->
+
+<!-- omni-outbox-settled: s2-01-mutation-changed-summary -->
+
+## s2-01-mutation-changed-summary — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-05
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-05
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-mutation-changed-summary
+prd: 1072
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-05
+wave: 2
+---
+
+## The question, in plain words
+
+The last line of a mutation run on changed code says how many changes were caught and how many slipped through. Do changes that made the tests hang, or that no test ran at all, belong in those numbers?
+
+## The decision, in plain words
+
+A change that made the tests hang counts as caught, and one no test ran counts as slipped through, the same way the module score counts them, so the line and the score always agree.
+
+## The intro, for fun
+
+Some changes get caught red-handed, some make the tests freeze, and some nobody even looks at.
+
+## The punchline, for fun
+
+The summary line sorts them into two piles, the same two the score uses.
+
+## The options, in plain words
+
+A. A. Two numbers, timeouts in killed and no coverage in survived, as the score counts them, the option built.
+B. B. Four numbers: killed, timed out, survived, no coverage.
+C. C. Killed and survived as Stryker names them, timeouts and no coverage left out of the line.
+
+## What I had to decide
+
+Whether the summary's two numbers should split out timeouts and uncovered mutants instead of folding them in.
+
+## What I did meanwhile
+
+`pnpm mutation:changed` ends with `mutation: <k> killed, <s> survived in <files>`, where k is killed plus timed out, s is survived plus no coverage, and the files are the mutated files, comma-separated. Mutants that do not compile are left out. Before that line it lists each survivor and uncovered mutant with its file, line, mutator and replacement.
+
+## What it costs to change later
+
+One function, `changedSummary` in `scripts/mutation-changed-plan.ts`, and its test; bug records written before a change keep the old shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether the bug-fix skill parses the two numbers or only records the line
+
+```
+
+<!-- /omni-outbox-settled: s2-01-mutation-changed-summary -->
+
+<!-- omni-outbox-settled: s2-02-floor-guard-shallow-clone -->
+
+## s2-02-floor-guard-shallow-clone — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-05
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-05
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-floor-guard-shallow-clone
+prd: 1072
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-05
+wave: 2
+---
+
+## The question, in plain words
+
+The check that refuses lowering a quality floor compares with the main branch. Where the main branch is not downloaded, as in the pull request test job, what should it do?
+
+## The decision, in plain words
+
+It skips there and holds everywhere the main branch is present: on every agent's copy and in the preflight. A lowered floor can only reach main if nobody ran the tests locally.
+
+## The intro, for fun
+
+A guard that compares with the main branch needs the main branch in the room.
+
+## The punchline, for fun
+
+In the test job it is not invited, so the guard waits by the door.
+
+## The options, in plain words
+
+A. A. Skip the check where the main branch is not downloaded, the option built: it holds on every copy and in the preflight, not in the pull request tests.
+B. B. Download the main branch in the pull request test job with one more step, so the check runs on every pull request too.
+C. C. Fail the check where the main branch is not downloaded, which turns the pull request tests red until B is done.
+
+## What I had to decide
+
+Whether the pull request test job should also fetch the main branch so the floor guard runs there too.
+
+## What I did meanwhile
+
+`scripts/mutation-floor.test.ts` reads `origin/main:mutation/floor.json` and compares; when `origin/main` is not a known ref (the `checks` workflow's test shards use a depth-1 checkout), that one test is skipped, visibly, by `it.skipIf`. When main has no floor file yet (this feature branch), it passes: the first floors. A second test, always run, holds that the floor file names exactly the core's modules.
+
+## What it costs to change later
+
+One step in `.github/workflows/checks.yml` (outside this slice's territory): `git fetch --depth=1 origin main` before the tests, or `fetch-depth: 0` on the test job's checkout. No change in the guard.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether the test job's checkout depth is a deliberate speed choice; the fallow job already uses `fetch-depth: 0`
+
+```
+
+<!-- /omni-outbox-settled: s2-02-floor-guard-shallow-clone -->
