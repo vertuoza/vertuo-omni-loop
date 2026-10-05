@@ -154,12 +154,16 @@ describe('a refresh', () => {
     const store = fakeSnapshotStore();
     const { deps } = depsWith([summary()], { store });
     keep(store, summary(), { staleSince: '2026-10-05T09:10:00Z' });
-    const read = deps.reader.summary;
-    deps.reader.summary = async (ref, options) => {
-      const row = store.rows.get(DOSSIER.id);
-      if (row) row.staleSince = new Date(NOW + 1000).toISOString();
-      return read(ref, options);
+    const reader = deps.reader;
+    const markedWhileReading: typeof reader = {
+      ...reader,
+      summary: (ref, options) => {
+        const row = store.rows.get(DOSSIER.id);
+        if (row) row.staleSince = new Date(NOW + 1000).toISOString();
+        return reader.summary(ref, options);
+      },
     };
+    deps.reader = markedWhileReading;
     await refreshSnapshot(DOSSIER, 'background', deps);
     expect(store.rows.get(DOSSIER.id)?.staleSince).toBe(new Date(NOW + 1000).toISOString());
   });
@@ -223,7 +227,12 @@ describe('a stored summary', () => {
   it('reads back exactly as it was written, and a summary made before a part leaves it out', () => {
     const full = summary({ outbox: { open: [], settled: [] }, care: UNREAD });
     expect(StoredSummary.parse(JSON.parse(JSON.stringify(full)))).toEqual(full);
-    const { outbox: _o, replies: _r, retroText: _t, care: _c, outboxComment: _m, ...older } = full;
+    const older: Partial<typeof full> = { ...full };
+    delete older.outbox;
+    delete older.replies;
+    delete older.retroText;
+    delete older.care;
+    delete older.outboxComment;
     expect(StoredSummary.parse(older)).toEqual(older);
   });
 
