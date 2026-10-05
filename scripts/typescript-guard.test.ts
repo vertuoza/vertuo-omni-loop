@@ -42,6 +42,7 @@ describe('the guard, on fixtures', () => {
     expect(rules('kit/lib/a.mjs', 'export const a = 1;\n')).toEqual(['javascript']);
     expect(rules('game/b.js', 'export const a = 1;\n')).toEqual(['javascript']);
     expect(rules('kit/dist/omni.mjs', 'export const a = 1;\n')).toEqual([]);
+    expect(rules('apps/omni-app/api/github.mjs', 'export const a = 1;\n')).toEqual([]);
     expect(rules('.omni-loop/bin/omni.mjs', 'export const a = 1;\n')).toEqual([]);
     expect(rules('scripts/ts-rename.mjs', 'export const a = 1;\n')).toEqual([]);
   });
@@ -149,7 +150,7 @@ type Violation = { path: string; line: number; rule: Rule; text: string };
 type File = { path: string; text: string };
 
 /** The JavaScript files that stay: the bundle, this repository's shim onto the source, and the rename. */
-const JAVASCRIPT_KEPT = [/^kit\/dist\//, /^\.omni-loop\/bin\//, /^scripts\/ts-rename\.mjs$/];
+const JAVASCRIPT_KEPT = [/^kit\/dist\//, /^apps\/omni-app\/api\//, /^\.omni-loop\/bin\//, /^scripts\/ts-rename\.mjs$/];
 
 /** Files no person writes: their casts are the generator's. */
 const GENERATED = [/^supabase\/database\.types\.ts$/];

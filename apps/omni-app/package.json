@@ -17,6 +17,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@inngest/test": "^1.0.0"
+    "@inngest/test": "^1.0.0",
+    "esbuild": "^0.28.1"
   }
 }

@@ -3,7 +3,7 @@
   // `.omni-loop/` holds one script, the shim onto `kit/bin/omni.ts` (an entry below), and
   // fallow never walks a hidden directory, even when named as an entry: listed here so the run
   // says so once, in this file, instead of warning on every audit.
-  "ignorePatterns": [".omni-loop/**"],
+  "ignorePatterns": [".omni-loop/**", "apps/omni-app/api/**"],
   // Files run by path — from a package.json script, a workflow step or a Vercel route —
   // that no import statement names. Listed so no finding exists only because fallow cannot see
   // their caller (PRD 598).
@@ -22,8 +22,11 @@
     "apps/galaxy/scripts/*.ts",
     // The arcade's artifact build, run by path from the galaxy app's `artifact` script.
     "apps/galaxy/artifact/build.ts",
-    // The GitHub App's Vercel functions: Vercel routes `api/*` by file name.
-    "apps/omni-app/api/*.ts",
+    // The GitHub App's Vercel functions: Vercel routes `api/*.mjs` by file name, and those are bundles
+    // of these entries that `apps/omni-app/build.ts` writes (#1084), ignored above as generated.
+    "apps/omni-app/entries/*.ts",
+    // Run by path to rebuild those bundles: `node apps/omni-app/build.ts`.
+    "apps/omni-app/build.ts",
     // The database's types (PRD 725): `supabase gen types --local` writes them, and the clients
     // that open Supabase import what they need, so not every export is named by an import.
     "supabase/database.types.ts",
