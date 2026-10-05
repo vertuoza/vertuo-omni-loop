@@ -13,7 +13,14 @@ terraformed: 2026-09-25
 Use this page when naming things, formatting files, or shaping commits.
 
 ## Naming
-<!-- slot: naming · optional -->
+<!-- slot: naming · optional · by: human -->
+- **A new migration takes the next free version.** Supabase keys applied migrations by version, so
+  `supabase/migrations/<version>_<name>.sql` takes a version after the latest one on both the branch
+  and `main`, never one a plan names without checking: two files on one version cannot both apply.
+  Before it reaches production a clash is a rename; after, it is a new migration (PRD 902, s1-01).
+- **A new database check runs in CI.** Each file under `supabase/checks/` is its own named step in
+  the `supabase` workflow's `check` job, added in the pull request that adds the check; a check CI
+  does not run proves nothing (PRD 902, s1-02).
 
 ## Formatting
 <!-- slot: formatting · optional · by: terraform -->

@@ -138,6 +138,10 @@ jobs:
         # terminal's read; the App's read is the service role's. The move turns confirmed `never`
         # claims into Never lines and leaves the claims rejected.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql
+      - name: Who may read and write the GitHub budget
+        # The service role keeps ETags and budgets, refreshes them in place, keeps a pause through a
+        # refresh and drops old ETags. Nobody signed in, nor signed out, reads or writes either table.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/github_budget.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
