@@ -4,13 +4,15 @@ import { listOf, numberOf } from '../../data/unparsed';
 import type { FixRef } from '../../dossier/github/reader';
 import { serverEnv, type ArcadeEnv } from '../../env';
 import { dossierGithub, githubStore } from '../../dossier/github/server';
+import { liveRecountSummary } from '../../dossier/snapshot/live';
 import { fixFactsStore } from '../../fixes/facts/store';
 import { knowledgeReader, type KnowledgeReader } from '../../knowledge/github';
 import { appCredentials } from '../../signup/github-app';
 import { outboxDeps } from '../outbox/live';
 import { stageStore, type StageStore } from '../store';
 import { stagesReader, type StagesReader } from './github';
-import type { FixSyncDeps, SyncDeps, SyncWorkspace } from './sync';
+import { syncSnapshotStore } from './snapshots';
+import type { FixSyncDeps, SnapshotSyncDeps, SyncDeps, SyncWorkspace } from './sync';
 import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The stages sync's real deps (PRD 587, s2): the bearer secret (STAGES_SYNC_SECRET), the service role's
@@ -23,6 +25,10 @@ import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // (its 60-second cache shared with the fix pages) and stored in fix_facts, as the service role.
 // PRD 902 (s1): every read the sync makes of GitHub, its snapshots, its recounts and its fix refreshes, is
 // `background`: it spends the installation's budget only above its 20% floor, and never while paused.
+// PRD 902 (s4): the sync is the snapshots' safety net. It marks stale the snapshots of the PRDs whose issue
+// or pull requests it saw change, and any read over 6 hours ago, refreshes only the stale ones through the
+// snapshot (under its lease), recounts from the snapshots (../outbox/live.ts), and drops the ETags nobody
+// read for 7 days.
 
 let knowledge: KnowledgeReader | undefined;
 let reader: StagesReader | undefined;
@@ -77,6 +83,18 @@ function fixDeps(): FixSyncDeps {
   };
 }
 
+/** The snapshots on the service role's client, each refreshed through the snapshot's own recount read. */
+function snapshotDeps(): SnapshotSyncDeps {
+  const store = () => syncSnapshotStore(serviceDb());
+  return {
+    markChanged: (workspace, repository, prds, at) => store().markChanged(workspace.id, repository, prds, at),
+    markOld: (workspace, before, at) => store().markOld(workspace.id, before, at),
+    stale: (workspace, repository) => store().stale(workspace.id, repository),
+    refresh: async (workspace, dossier) => { await liveRecountSummary(workspace.id, dossier); },
+    dropEtags: (before) => store().dropEtags(before),
+  };
+}
+
 export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv()): SyncDeps {
   return {
     secret: env.stagesSyncSecret ?? undefined,
@@ -94,8 +112,9 @@ export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv())
     repositories: async (workspace) => github().repos(await installationOf(workspace)),
     snapshot: async (workspace, repository, since) => stages().snapshot(await installationOf(workspace), repository, since),
     store: lazyStore(),
-    outbox: { ...outboxDeps(), summary: async (ref) => (await dossierGithub()?.summary(ref, { priority: 'background' })) ?? null },
+    outbox: outboxDeps(),
     fixes: fixDeps(),
+    snapshots: snapshotDeps(),
     now: () => new Date().toISOString(),
     log: (line) => { console.error(line); },
   };
