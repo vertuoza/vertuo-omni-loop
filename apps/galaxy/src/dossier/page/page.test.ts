@@ -4,8 +4,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { fakeStageStore } from '../../stages/store.fake';
+import { fakeSnapshotStore } from '../snapshot/store.fake';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { signature } from './live';
+import { StoredSummary } from '../snapshot/schema';
 import { LiveRefresh } from './live-refresh';
 import { SANDBOX_CSP } from './sandbox';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -30,6 +32,10 @@ const given = vi.hoisted(() => ({
   summary: null as unknown as import('vitest').Mock,
   // The stored stages (PRD 587), in memory.
   stages: null as unknown as import('../../stages/store.fake').FakeStageStore,
+  // The GitHub snapshots (PRD 902, s2), in memory, the installation's pause, and the work after the response.
+  snapshots: null as unknown as import('../snapshot/store.fake').FakeSnapshotStore,
+  paused: null as number | null,
+  later: [] as (() => Promise<void>)[],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -40,6 +46,26 @@ vi.mock('next/navigation', async (original) => ({
   usePathname: () => given.path,
 }));
 vi.mock('../github/server', () => ({ dossierGithub: () => ({ summary: given.summary }) }));
+// The page's snapshot (PRD 902, s2): the real one, on the fake store and the stubbed reader.
+vi.mock('../snapshot/live', async () => {
+  const { pageSnapshot } = await import('../snapshot/snapshot');
+  const { StoredSummary } = await import('../snapshot/schema');
+  return {
+    livePageSnapshot: (dossier: import('../snapshot/snapshot').SnapshotDossier) => pageSnapshot(dossier, {
+      store: given.snapshots,
+      reader: {
+        summary: async (ref) => {
+          const answer: unknown = await given.summary(ref);
+          return answer === null ? null : StoredSummary.parse(answer);
+        },
+        forget: () => {},
+      },
+      pausedUntil: () => Promise.resolve(given.paused),
+      now: Date.now,
+      later: (task) => { given.later.push(task); },
+    }),
+  };
+});
 vi.mock('../../stages/store', async (original) => ({
   ...(await original<typeof import('../../stages/store')>()),
   stageStore: () => given.stages,
@@ -85,6 +111,9 @@ beforeEach(async () => {
   numbered = (pushed.data as { id: string }).id;
   given.summary = vi.fn(() => Promise.resolve(null));
   given.stages = fakeStageStore();
+  given.snapshots = fakeSnapshotStore();
+  given.paused = null;
+  given.later = [];
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -230,6 +259,8 @@ describe('the page to share', () => {
         player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: BOB.id, workspace: FAKE_WORKSPACE,
         answerHref: `/prd/${numbered}?tab=questions`,
       },
+      // PRD 902, s2: a numbered PRD's page also watches when its GitHub snapshot is read again.
+      github: true,
     });
     const markup = renderToStaticMarkup(page);
     expect(markup).not.toContain('Cannot reach the server');
@@ -328,7 +359,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     given.token = 'bob';
     const page = (await Page({ params: Promise.resolve({ id: numbered }), searchParams: Promise.resolve({}) })) as ReactElement;
     expect(page.type).toBe(DossierStream);
-    expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 });
+    await vi.waitFor(() => { expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 }); });
   });
 
   it('reads the stored stage and GitHub for a signed-in member on a numbered dossier, and shows its stage and button', async () => {
@@ -360,6 +391,53 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     const page = await html(numbered);
     expect(page).toContain('<strong>Syncing…</strong>');
     expect(page).toContain('PRD #7 ↗');
+  });
+
+  const keepSnapshot = (summary: object, staleSince: string | null = null) => {
+    given.snapshots.rows.set(numbered, {
+      workspaceId: FAKE_WORKSPACE, summary: StoredSummary.parse(summary), readAt: '2026-10-05T09:15:00Z', staleSince, refreshingUntil: null,
+    });
+  };
+
+  it('fresh: renders from the stored snapshot without calling GitHub, and says when GitHub was read (PRD 902, s2)', async () => {
+    keepSnapshot(inbox);
+    await stored('inbox');
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(given.summary).not.toHaveBeenCalled();
+    expect(page).toContain('>phase-0 #12</a>');
+    expect(page).toContain('<p class="ask-hint github-as-of">GitHub as of 09:15 UTC</p>');
+    expect(given.later).toEqual([]);
+  });
+
+  it('stale: renders the stored snapshot at once, then refreshes it after the response', async () => {
+    keepSnapshot(inbox, '2026-10-05T09:20:00Z');
+    given.summary.mockResolvedValue({ ...inbox, mergedSlices: 2 });
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(page).toContain('GitHub as of 09:15 UTC');
+    expect(given.summary).not.toHaveBeenCalled();
+    for (const task of given.later.splice(0)) await task();
+    expect(given.summary).toHaveBeenCalledTimes(1);
+    expect(given.snapshots.rows.get(numbered)).toMatchObject({ staleSince: null, summary: { mergedSlices: 2 } });
+  });
+
+  it('none: a first visit reads GitHub once, renders it and stores it after the response', async () => {
+    given.summary.mockResolvedValue(inbox);
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(given.summary).toHaveBeenCalledTimes(1);
+    expect(page).toContain('>phase-0 #12</a>');
+    expect(page).toContain('GitHub as of');
+    for (const task of given.later.splice(0)) await task();
+    expect(given.snapshots.rows.get(numbered)?.summary.phase0).toMatchObject({ number: 12 });
+  });
+
+  it('paused: keeps the snapshot and says when GitHub resumes', async () => {
+    keepSnapshot(inbox);
+    given.paused = Date.parse('2099-01-01T10:00:00Z');
+    given.token = 'bob';
+    expect(await html(numbered)).toContain('GitHub as of 09:15 UTC · <strong>GitHub resumes at 10:00 UTC</strong>');
   });
 
   it('makes no GitHub call for a signed-out visitor, a draft, or demo mode', async () => {

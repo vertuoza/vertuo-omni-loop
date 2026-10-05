@@ -1,6 +1,7 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
 import { describe, expect, it, vi } from 'vitest';
+import { GithubDeferred, GithubPaused, memoryGithubStore, type GithubStore, type Priority } from '@omni/github';
 import { CONFIG_BATCH, configQuery, GRAPH_TTL_MS, knowledgeReader, LISTING_TTL_MS } from './github';
 import { sure } from '../arcade/test/sure';
 
@@ -95,11 +96,12 @@ function fakeGithub(repos: Repo[], { fail }: { fail?: RegExp } = {}) {
   return { fetchImpl, calls, tokens: () => tokens };
 }
 
-function reader(repos: Repo[], options: { fail?: RegExp } = {}) {
+function reader(repos: Repo[], options: { fail?: RegExp; store?: GithubStore; priority?: Priority } = {}) {
   const github = fakeGithub(repos, options);
   const clock = { now: NOW };
   const log = vi.fn();
-  return { ...github, clock, log, read: knowledgeReader(CREDS, github.fetchImpl, () => clock.now, log) };
+  const budget = { store: options.store ?? null, ...(options.priority ? { priority: options.priority } : {}) };
+  return { ...github, clock, log, read: knowledgeReader(CREDS, github.fetchImpl, () => clock.now, log, budget) };
 }
 
 describe('the repositories an installation offers the knowledge map', () => {
@@ -228,5 +230,43 @@ describe('the installation a workspace owns', () => {
     expect(await read.installationFor({ github_org: 'solo', github_installation_id: null })).toBe(777);
     expect(await read.installationFor({ github_org: 'nobody', github_installation_id: null })).toBeNull();
     expect(await read.installationFor({ github_org: null, github_installation_id: null })).toBeNull();
+  });
+});
+
+describe('the knowledge reader and the budget (PRD 902, s6)', () => {
+  const RESET = NOW + 30 * 60_000;
+  const installationCalls = (calls: string[]) => calls.filter((c) => !c.includes('/access_tokens') && !c.endsWith('/installation'));
+
+  it('sends nothing while the installation is paused, and says so', async () => {
+    const store = memoryGithubStore();
+    await store.pause(INSTALLATION, 'core', RESET, NOW);
+    const { read, calls } = reader([{ name: 'acme/widgets', config: CONFIG }], { store });
+    await expect(read.repos(INSTALLATION)).rejects.toBeInstanceOf(GithubPaused);
+    expect(installationCalls(calls)).toEqual([]);
+  });
+
+  it('steps back below 20% of the limit by default, a background reader', async () => {
+    const store = memoryGithubStore();
+    await store.saveBudget(INSTALLATION, 'core', { limit: 5000, remaining: 999, resetAt: RESET, at: NOW });
+    const { read, calls } = reader([{ name: 'acme/widgets', config: CONFIG }], { store });
+    await expect(read.repos(INSTALLATION)).rejects.toBeInstanceOf(GithubDeferred);
+    expect(installationCalls(calls)).toEqual([]);
+  });
+
+  it('reads below the floor when a person waits on it, an interactive reader', async () => {
+    const store = memoryGithubStore();
+    await store.saveBudget(INSTALLATION, 'core', { limit: 5000, remaining: 999, resetAt: RESET, at: NOW });
+    const { read } = reader([{ name: 'acme/widgets', config: CONFIG }], { store, priority: 'interactive' });
+    expect(await read.repos(INSTALLATION)).toEqual(['acme/widgets']);
+  });
+
+  it('does not let a paused GraphQL budget into a knowledge read', async () => {
+    const store = memoryGithubStore();
+    const { read, calls, log, clock } = reader([{ name: 'acme/widgets', config: CONFIG, files: FILES }], { store, priority: 'interactive' });
+    await read.repos(INSTALLATION);
+    await store.pause(INSTALLATION, 'graphql', RESET, clock.now);
+    expect(await read.graph(INSTALLATION, 'acme/widgets')).toBeNull();
+    expect(calls.some((c) => c.startsWith('graphql knowledge'))).toBe(false);
+    expect(log).toHaveBeenCalledWith(expect.stringMatching(/^knowledge map: acme\/widgets could not be read from GitHub — GitHub paused until /));
   });
 });

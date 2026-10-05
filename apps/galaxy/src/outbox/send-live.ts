@@ -6,6 +6,7 @@ import { serviceDb } from '../data/sign-in-live';
 import { serverEnv, type GithubOAuthEnv } from '../env';
 import { dossierGithub } from '../dossier/github/server';
 import { recountLive } from '../stages/outbox/live';
+import { liveSendSnapshot, liveStaleSnapshot } from '../dossier/snapshot/live';
 import { sendOpen } from './open';
 import { githubUser, type OutboxSource, type SendDeps, type SendStore } from './send';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -19,7 +20,9 @@ import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // App, read fresh for a send and cleared once it is posted; and GitHub, as the omni-loop App's user
 // authorisation — GITHUB_APP_CLIENT_ID and GITHUB_APP_CLIENT_SECRET, both server-only. Without them,
 // Send is off; without a database, nobody is signed in. PRD 657 (s5): once a reply is posted, its PRD's
-// open questions are recounted into prd_outbox as the service role (src/stages/outbox/live.ts).
+// open questions are recounted into prd_outbox as the service role (src/stages/outbox/live.ts). PRD 902
+// (s2): the fresh read is `interactive` and stored as the dossier's GitHub snapshot, which a posted reply
+// marks stale before the recount.
 
 const SEND_COLUMNS = 'id, dossier_id, pr_number, reply, nonce_hash, created_at, posted_at, comment_url, login, counted, error';
 
@@ -63,14 +66,23 @@ export function sendStore(db: Db): SendStore {
   };
 }
 
-/** The server's one reader, read fresh: its cached summary cleared first, so the fresh one is kept. */
+/** The dossier's workspace, as the service role reads it; null when there is no such dossier. */
+async function workspaceOf(dossierId: string): Promise<string | null> {
+  const { data, error } = await serviceDb().from('dossiers').select('workspace_id').eq('id', dossierId).maybeSingle();
+  if (error) throw new SendStoreError('read the dossier\'s workspace', error.code, error.message);
+  return data?.workspace_id ?? null;
+}
+
+/** The server's one reader, read fresh and `interactive` (PRD 902, s2): stored as the dossier's GitHub
+ * snapshot, its cached summary cleared first. */
 function outboxSource(): OutboxSource {
   return {
     async fresh(dossier) {
       const reader = dossierGithub();
       if (!reader) return null;
-      reader.forget(dossier.id);
-      return reader.summary(dossier);
+      const workspace = await workspaceOf(dossier.id);
+      if (workspace === null) return null;
+      return liveSendSnapshot({ ...dossier, workspace_id: workspace });
     },
     forget(dossierId) {
       dossierGithub()?.forget(dossierId);
@@ -78,8 +90,10 @@ function outboxSource(): OutboxSource {
   };
 }
 
-/** Recounts the dossier's PRD, found as the service role; a draft, or no dossier, recounts nothing. */
+/** Recounts the dossier's PRD, found as the service role, its GitHub snapshot marked stale first so the
+ * recount reads the reply just posted; a draft, or no dossier, recounts nothing. */
 async function recountDossier(dossierId: string): Promise<void> {
+  await liveStaleSnapshot(dossierId);
   const { data, error } = await serviceDb().from('dossiers').select('workspace_id, home_repo, prd').eq('id', dossierId).maybeSingle();
   if (error) throw new SendStoreError('read the dossier to recount', error.code, error.message);
   const row = data;

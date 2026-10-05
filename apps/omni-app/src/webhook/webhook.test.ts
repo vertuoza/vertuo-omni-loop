@@ -17,6 +17,7 @@ import {
   toRetroRequests,
 } from './webhook.ts';
 import type { StageEvent } from '../stage-forward/stage-forward.ts';
+import type { Touch } from '../stage-forward/touch.ts';
 import { appFunctions } from '../functions.ts';
 import { readEnv } from '../env.ts';
 
@@ -404,6 +405,39 @@ describe('webhook — the stage events (PRD 587)', () => {
     const forward = vi.fn<(event: StageEvent) => Promise<unknown>>(() => Promise.reject(new Error('galaxy down')));
     const response = await receive(cases[0]?.[1], { forward });
     expect(response.status).toBe(200);
+  });
+});
+
+describe('webhook — touches (PRD 902, s3)', () => {
+  const deliver = (event: string, payload: unknown, touch: (touch: Touch) => Promise<unknown>, signature?: string) => {
+    const body = JSON.stringify(payload);
+    return receiveWebhook({
+      body,
+      headers: { 'x-github-event': event, 'x-hub-signature-256': signature ?? sign(body) },
+      secret: SECRET,
+      send: sending(),
+      forward: forwarding(),
+      touch,
+    });
+  };
+
+  it('hands every touch of a signed delivery to `touch`, whether or not it becomes an event', async () => {
+    const touch = vi.fn<(touch: Touch) => Promise<unknown>>(() => Promise.resolve());
+    const push = { ref: 'refs/heads/feat/x', installation: INSTALLATION, repository: REPOSITORY, commits: [] };
+    expect(await deliver('push', push, touch)).toEqual({ status: 200, body: 'ignored' });
+    expect(touch.mock.calls.map(([one]) => one)).toEqual([{ repository: 'vertuoza/vertuo-omni-loop', branch: 'feat/x' }]);
+  });
+
+  it('hands nothing on a bad signature, and never fails the reply when a touch throws', async () => {
+    const refused = vi.fn<(touch: Touch) => Promise<unknown>>(() => Promise.resolve());
+    const issue = { action: 'opened', installation: INSTALLATION, repository: REPOSITORY, issue: { number: 902 } };
+    expect((await deliver('issues', issue, refused, sign('x'))).status).toBe(401);
+    expect(refused).not.toHaveBeenCalled();
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const failing = vi.fn<(touch: Touch) => Promise<unknown>>(() => Promise.reject(new Error('galaxy down')));
+    expect((await deliver('issues', issue, failing)).status).toBe(200);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('galaxy down'));
+    log.mockRestore();
   });
 });
 

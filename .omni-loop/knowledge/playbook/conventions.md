@@ -18,7 +18,7 @@ terraformed: 2026-09-25
 Use this page when naming things, formatting files, or shaping commits.
 
 ## Naming
-<!-- slot: naming · optional -->
+<!-- slot: naming · optional · by: human -->
 An ID is parsed into its brand from `kit/lib/ids.ts` where it enters (an argument, a folder name, a
 plan table, front matter, a GitHub payload, a stored row, a route) with its `parse…` function or its
 schema, and never declared bare: `prd: PrdNumber`, `pr: PrNumber`, `issue: IssueNumber`,
@@ -41,6 +41,14 @@ comment escape, and the docs check (`kit/lib/env/docs.ts`, run by each runtime's
 fails when `apps/galaxy/.env.example` or a README's marked list (the names between its
 `omni:env-variables` comments) and the module's `VARIABLES` differ, either way: add the variable to
 the list in the same change. ADR-0057 records the rule.
+
+- **A new migration takes the next free version.** Supabase keys applied migrations by version, so
+  `supabase/migrations/<version>_<name>.sql` takes a version after the latest one on both the branch
+  and `main`, never one a plan names without checking: two files on one version cannot both apply.
+  Before it reaches production a clash is a rename; after, it is a new migration (PRD 902, s1-01).
+- **A new database check runs in CI.** Each file under `supabase/checks/` is its own named step in
+  the `supabase` workflow's `check` job, added in the pull request that adds the check; a check CI
+  does not run proves nothing (PRD 902, s1-02).
 
 ## Formatting
 <!-- slot: formatting · optional · by: terraform -->

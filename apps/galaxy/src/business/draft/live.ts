@@ -2,6 +2,7 @@ import 'server-only';
 import { after } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAs, supabaseEnv, supabaseServer } from '../../data/supabase-server';
+import { githubStore } from '../../dossier/github/server';
 import { knowledgeReader, type KnowledgeReader } from '../../knowledge/github';
 import { appCredentials } from '../../signup/github-app';
 import type { DraftRouteDeps, SourcesRouteDeps } from './api';
@@ -22,8 +23,8 @@ import { serverEnv } from '../../env';
 
 let knowledge: KnowledgeReader | undefined;
 let reader: RepoReader | undefined;
-const github = () => (knowledge ??= knowledgeReader(appCredentials()));
-const repos = () => (reader ??= repoReader(appCredentials()));
+const github = () => (knowledge ??= knowledgeReader(appCredentials(), fetch, Date.now, console.error, { store: githubStore() }));
+const repos = () => (reader ??= repoReader(appCredentials(), fetch, Date.now, githubStore()));
 
 /** The signed-in person's session, with its access token; null when nobody is signed in. */
 async function signedIn(): Promise<{ db: SupabaseClient; token: string } | null> {

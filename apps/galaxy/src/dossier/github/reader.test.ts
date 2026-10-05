@@ -1,5 +1,6 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { memoryGithubStore } from '@omni/github';
 import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { githubReader, latestPull, SUMMARY_TTL_MS } from './reader';
 import { UNREAD } from './summary';
@@ -566,5 +567,74 @@ describe('a fix, through the same reader (PRD 627, s5)', () => {
   it('is null when the App is not installed, and when GitHub is unreachable', async () => {
     expect(await githubReader(CREDS, fakeGithub({ installed: false }).fetchImpl, () => NOW).fix(FIX)).toBeNull();
     expect(await githubReader(CREDS, () => Promise.reject(new TypeError('fetch failed')), () => NOW).fix(FIX)).toBeNull();
+  });
+});
+
+describe('the budget (PRD 902, s1)', () => {
+  const RESET = NOW + 30 * 60_000;
+  /** The repository's calls only: the App's own (JWT) calls spend another budget. */
+  const repoCalls = (gh: ReturnType<typeof fakeGithub>) => gh.calls.filter((c) => c.startsWith('/repos/acme/widgets/') && !c.endsWith('/installation'));
+  const low = async () => {
+    const store = memoryGithubStore();
+    await store.saveBudget(5001, 'core', { limit: 5000, remaining: 100, resetAt: RESET, at: NOW });
+    return store;
+  };
+
+  it('reads through the shared client: a page\'s read is interactive and spends a low budget', async () => {
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    const summary = await githubReader(CREDS, gh.fetchImpl, () => NOW, await low()).summary(DOSSIER);
+    expect(summary).toMatchObject({ issue: { number: 426 } });
+  });
+
+  it('defers a recount\'s background read below the floor: nothing is sent, nothing logged, nothing kept', async () => {
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    const reader = githubReader(CREDS, gh.fetchImpl, () => NOW, await low());
+    expect(await reader.summary(DOSSIER, { priority: 'background' })).toBeNull();
+    expect(repoCalls(gh)).toEqual([]);
+    expect(console.error).not.toHaveBeenCalled();
+    expect(await reader.summary(DOSSIER)).toMatchObject({ issue: { number: 426 } });
+  });
+
+  it('sends nothing to the repository while the installation is paused, at either priority, and logs nothing per read', async () => {
+    const store = memoryGithubStore();
+    await store.pause(5001, 'core', RESET, NOW);
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    const reader = githubReader(CREDS, gh.fetchImpl, () => NOW, store);
+    expect(await reader.summary(DOSSIER)).toBeNull();
+    expect(await reader.fix({ ...DOSSIER, id: 'd-fix' }, { priority: 'background' })).toBeNull();
+    expect(repoCalls(gh)).toEqual([]);
+    expect(console.error).not.toHaveBeenCalled();
+  });
+
+  it('keeps no summary whose parts the budget refused, so the next read asks again', async () => {
+    let now = NOW;
+    const store = memoryGithubStore();
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    const reader = githubReader(CREDS, gh.fetchImpl, () => now, store);
+    await reader.summary({ ...DOSSIER, id: 'd-warm' }); // the repository's config, kept for 60 s
+    await store.pause(5001, 'core', RESET, now);
+    expect(await reader.summary(DOSSIER)).toMatchObject({ issue: UNREAD });
+    now = RESET;
+    expect(await reader.summary(DOSSIER)).toMatchObject({ issue: { number: 426 } });
+  });
+
+  it('sends the stored ETag again, and reads a 304 as the stored answer', async () => {
+    let now = NOW;
+    const store = memoryGithubStore();
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    const sentEtags: (string | undefined)[] = [];
+    const withEtags = vi.fn(async (href: string, init: RequestInit) => {
+      if (!href.endsWith('/issues/426')) return gh.fetchImpl(href, init);
+      const asked = (init.headers as Record<string, string>)['if-none-match'];
+      sentEtags.push(asked);
+      if (asked === '"i1"') return new Response(null, { status: 304 });
+      const answer = await gh.fetchImpl(href, init);
+      return new Response(await answer.text(), { status: 200, headers: { etag: '"i1"', 'content-type': 'application/json' } });
+    });
+    const reader = githubReader(CREDS, withEtags, () => now, store);
+    await reader.summary(DOSSIER);
+    now += SUMMARY_TTL_MS;
+    expect(await reader.summary(DOSSIER)).toMatchObject({ issue: { number: 426, state: 'open' } });
+    expect(sentEtags).toEqual([undefined, '"i1"']);
   });
 });
