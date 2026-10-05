@@ -36,7 +36,7 @@ How long a mutant may run beyond its tests' measured time before Stryker counts 
 
 ## What I did meanwhile
 
-timeoutMS is 5 000 in stryker.config.mjs (10 000 at first; the person asked for a faster run after the first full run crawled): one constant, no migration.
+timeoutMS is 5 000 in stryker.config.ts (10 000 at first; the person asked for a faster run after the first full run crawled): one constant, no migration.
 
 ## What it costs to change later
 

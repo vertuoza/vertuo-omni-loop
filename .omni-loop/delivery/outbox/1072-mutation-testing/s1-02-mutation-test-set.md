@@ -36,7 +36,7 @@ The spec's design said a mutant runs the tests that reach it, "those under `kit/
 
 ## What I did meanwhile
 
-`stryker.config.vitest.ts` runs the repository's vitest settings on `kit/lib/**/*.test.ts` only; `stryker.config.mjs` points the runner at it. On `kit/lib/ids.ts` the run went from over 5 minutes to 135 s.
+`stryker.config.vitest.ts` runs the repository's vitest settings on `kit/lib/**/*.test.ts` only; `stryker.config.ts` points the runner at it. On `kit/lib/ids.ts` the run went from over 5 minutes to 135 s.
 
 ## What it costs to change later
 
