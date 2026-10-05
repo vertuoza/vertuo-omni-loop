@@ -1,7 +1,8 @@
 // GitHub as the omni-loop App sees it (PRD 359): a JWT signed with the App's private key, then three
 // reads, an installation by id, an org's installation and a person's own account's installation. The
 // PRD page (PRD 426) adds two: a repository's installation, and an installation access token for it. Settings → Repositories (PRD 612) adds the
-// repositories an installation reaches, and where its access is changed on GitHub. galaxy's server holds the App's id and key
+// repositories an installation reaches, read with that token through the fetch its caller hands in (the
+// shared client's, PRD 902), and where its access is changed on GitHub. galaxy's server holds the App's id and key
 // (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, server only: never a NEXT_PUBLIC_ variable, never imported
 // by a client component); the install link needs only the App's public slug (GITHUB_APP_SLUG).
 import 'server-only';
@@ -68,8 +69,9 @@ export const REPO = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
 /** Every repository an installation token reaches, as GitHub spells it, archived ones left out.
- * Throws when GitHub answers an error or an odd shape. Shared with the knowledge reader. */
-export async function reachedRepositories(token: string, fetchImpl: Fetch = fetch): Promise<string[]> {
+ * Throws when GitHub answers an error or an odd shape. Read by the knowledge reader and Settings ›
+ * Repositories, each handing it the shared client's fetch, bound to the installation's budget (PRD 902). */
+export async function reachedRepositories(token: string, fetchImpl: Fetch): Promise<string[]> {
   const names: string[] = [];
   for (let page = 1; page <= MAX_REPOSITORY_PAGES; page += 1) {
     const path = `/installation/repositories?per_page=100&page=${page}`;
@@ -131,11 +133,5 @@ export function githubApp(creds: AppCredentials, fetchImpl: Fetch = fetch, clock
       return read(`/repos/${repo}/installation`);
     },
     installationToken,
-    /** Every repository installation `id` reaches, as GitHub spells it, archived ones left out (PRD
-     * 612). Read with a fresh installation token. Throws when GitHub answers an error or an odd shape. */
-    async installationRepositories(id: number): Promise<string[]> {
-      const { token } = await installationToken(id);
-      return reachedRepositories(token, fetchImpl);
-    },
   };
 }
