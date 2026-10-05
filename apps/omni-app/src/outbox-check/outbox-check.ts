@@ -17,13 +17,19 @@
 // The app is public (PRD 359): it is installed on repositories that never asked for the loop, so a
 // repository without the loop's config gets no check run and no comment, not even a `skipped` one.
 //
+// The installation's GitHub budget is shared with galaxy (PRD 902): a call the budget refuses, paused
+// or deferred, is never sent. A step refused so logs one line and waits for the budget, retried once
+// the pause or the floor's window ends, so nothing new is posted meanwhile.
+//
 // `createOutboxCheck` takes the Inngest client and `octokitFor(installationId)`, so a test runs the
 // real function against a stubbed GitHub; the app serves it wired to its client and to installation
-// tokens signed with the GitHub App's private key (`installationOctokitFor`, ../octokit-for.ts).
+// tokens signed with the GitHub App's private key, its calls through the shared budget-aware client
+// (`installationOctokitFor`, ../octokit-for.ts).
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NonRetriableError, type Inngest } from 'inngest';
+import { NonRetriableError, RetryAfterError, type Inngest } from 'inngest';
+import { GithubDeferred, GithubPaused } from '@omni/github';
 import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { NOT_ACTIVE_ON_REPO, evaluate, type Verdict } from '../evaluate/evaluate.ts';
 import { CheckRequestDataSchema, FailureEventDataSchema, OUTBOX_CHECK_EVENT, type CheckRequestData } from '../inngest-client.ts';
@@ -67,7 +73,15 @@ export const DEBOUNCE = Object.freeze({
   timeout: '1m',
 });
 
-export function createOutboxCheck({ client, octokitFor }: { client: Inngest; octokitFor: OctokitFor<GitHubClient> }) {
+export function createOutboxCheck({
+  client,
+  octokitFor,
+  log = (line) => { console.error(line); },
+}: {
+  client: Inngest;
+  octokitFor: OctokitFor<GitHubClient>;
+  log?: (line: string) => void;
+}) {
   return client.createFunction(
     {
       id: FUNCTION_ID,
@@ -79,8 +93,9 @@ export function createOutboxCheck({ client, octokitFor }: { client: Inngest; oct
     },
     async ({ event, step }) => {
       const { installationId, owner, repo, prNumber, headSha } = CheckRequestDataSchema.parse(event.data);
+      const budgeted = <T>(work: () => Promise<T>) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log, work);
 
-      const started = await step.run('in-progress', async () => {
+      const started = await step.run('in-progress', () => budgeted(async () => {
         const octokit = await octokitFor(installationId);
         const { active, name, gated, reason } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
         if (!active) return null;
@@ -90,15 +105,15 @@ export function createOutboxCheck({ client, octokitFor }: { client: Inngest; oct
         }
         const checkRunId = await startCheck(octokit, { owner, repo, headSha, name });
         return { checkRunId, name, skipped: false as const };
-      });
+      }));
       if (!started) return { ...SILENT };
       if (started.skipped) return { checkRunId: started.checkRunId, name: started.name, conclusion: 'skipped' };
 
       const verdict = await step.run('evaluate', () =>
-        notRetriedPastBound(async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha })),
+        budgeted(() => notRetriedPastBound(async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha }))),
       );
 
-      const published = await step.run('publish', async () => {
+      const published = await step.run('publish', () => budgeted(async () => {
         const octokit = await octokitFor(installationId);
         return publish(octokit, {
           owner,
@@ -108,7 +123,7 @@ export function createOutboxCheck({ client, octokitFor }: { client: Inngest; oct
           headSha,
           verdict,
         });
-      });
+      }));
 
       return { checkRunId: published.checkRunId, name: started.name, conclusion: verdict.conclusion, comment: published.comment };
     },
@@ -125,6 +140,31 @@ export async function notRetriedPastBound<T>(evaluation: () => Promise<T>): Prom
   } catch (error) {
     if (error instanceof SnapshotBoundError) throw new NonRetriableError(error.message, { cause: error });
     throw error;
+  }
+}
+
+/** The budget's refusal behind `error`, however deep Octokit wrapped it; null when there is none. */
+function budgetRefusal(error: unknown): GithubPaused | GithubDeferred | null {
+  let cause = error;
+  for (let depth = 0; cause instanceof Error && depth < 4; depth += 1) {
+    if (cause instanceof GithubPaused || cause instanceof GithubDeferred) return cause;
+    cause = cause.cause;
+  }
+  return null;
+}
+
+/**
+ * Runs a step of the check: a call the installation's budget refused (PRD 902) logs one line for the
+ * pull request `where`, and the step is retried once the budget allows it, never sooner.
+ */
+async function waitingOnBudget<T>(where: string, log: (line: string) => void, work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (error) {
+    const refused = budgetRefusal(error);
+    if (!refused) throw error;
+    log(`outbox check of ${where} waits for the GitHub budget: ${refused.message}`);
+    throw new RetryAfterError(refused.message, new Date(refused.until), { cause: refused });
   }
 }
 
