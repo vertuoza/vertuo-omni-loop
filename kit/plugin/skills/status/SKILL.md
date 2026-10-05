@@ -12,7 +12,9 @@ is `omni status` given one PRD's number: the skills that ship run that one.
 
 The overview reads git only, on this computer: the default branch as it was last fetched, and the
 feature and phase-0 branches fetched beside it. It never calls GitHub, and its header says when the
-last fetch was.
+last fetch was. A PRD of several landings gets one line per landing under its row, each `merged`,
+`open` or `not started`, and the landing it waits for: git cannot tell a draft pull request from a
+ready one, and the overview never guesses.
 
 ## Input
 

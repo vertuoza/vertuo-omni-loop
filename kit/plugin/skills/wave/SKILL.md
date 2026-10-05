@@ -46,6 +46,15 @@ dispatch.
 Find the feature PR: `gh pr list --head <feature branch> --base <repo.defaultBranch> --state open
 --json number,body`. No feature branch or no feature PR: stop, and say to follow `/omni:plan` first.
 
+**A PRD of several landings.** When `node .omni-loop/bin/omni.mjs board <prd> --json` carries a
+`landings` array, the wave builds the **current landing** only, the one its `currentLanding` names:
+the lowest-numbered landing whose slices are not all merged. Throughout this skill, "the feature
+branch" is that landing's `branch`, and "the feature PR" is that landing's PR (its `pr.number`; find
+it with `gh pr list --head <landing branch> --state open --json number,body`, whatever its base).
+The board's frontier already holds that landing's slices and no other: a slice of a later landing
+is never claimed early, even when it reads `runnable`. `currentLanding` null means every landing's
+slices are merged: print the board and stop.
+
 ## 1. The board
 
 ```bash
@@ -188,7 +197,9 @@ sits beside a merged slice, never instead of it.
 
 ## Guardrails
 
-- Merge only into the feature branch, never into `repo.defaultBranch`. Check the base before every merge.
+- Merge only into the feature branch (the current landing's branch, for a PRD of several
+  landings), never into `repo.defaultBranch`, and never a landing PR. Check the base before every
+  merge.
 - Subagents never merge. One slice per worktree, branch and sub-PR.
 - Claim before you dispatch; take the board's frontier as it is.
 - A question never takes the wave down: only `stopped` and `blocked` hold a slice, and only that one.

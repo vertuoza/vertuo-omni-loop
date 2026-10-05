@@ -59,3 +59,23 @@ describe('omni status facts — a concept in the inbox (PRD 686)', () => {
     expect(phase0.touched.map((touch) => touch.prd)).toEqual([42]);
   });
 });
+
+describe('omni status facts — a PRD of several landings', () => {
+  it('reads each landing branch of an inbox PRD as one of its feature branches, with where it sits', () => {
+    const { root, ctx, write } = repoWithConcept();
+    git(root, 'switch', '-q', '-c', 'feat/topic-1of2-expand');
+    write('db/migrations/0001.sql', 'create table t ();\n');
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'feat: expand');
+    git(root, 'update-ref', 'refs/remotes/origin/feat/topic-1of2-expand', 'HEAD');
+    git(root, 'update-ref', 'refs/remotes/origin/feat/topic-2of2-code', 'HEAD');
+    git(root, 'update-ref', 'refs/remotes/origin/feat/other-1of2-expand', 'HEAD');
+
+    const read = readFacts({ ctx });
+    assertDefined(read, 'the facts');
+    expect(read.features.map(({ branch, landing, forked }) => ({ branch, landing, forked }))).toEqual([
+      { branch: 'feat/topic-1of2-expand', landing: { landing: 1, landings: 2, name: 'expand' }, forked: ['db/migrations/0001.sql'] },
+      { branch: 'feat/topic-2of2-code', landing: { landing: 2, landings: 2, name: 'code' }, forked: ['db/migrations/0001.sql'] },
+    ]);
+  });
+});

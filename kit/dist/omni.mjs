@@ -29998,8 +29998,8 @@ function openingClause(text7) {
   return (first ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function markerFound(haystack, marker) {
-  const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(^|[^a-z0-9'])${escaped}([^a-z0-9']|$)`).test(haystack);
+  const escaped2 = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9'])${escaped2}([^a-z0-9']|$)`).test(haystack);
 }
 function judgeAnswer({
   choice,
@@ -32084,8 +32084,8 @@ function readTranscript(text7) {
   return { skill, model, tokens };
 }
 function branchPattern(template) {
-  const escaped = template.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
-  return new RegExp(`^${escaped.replace(/\{topic\}/, "(.+?)").replace(/\{slice\}/, "[^/]+")}$`);
+  const escaped2 = template.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${escaped2.replace(/\{topic\}/, "(.+?)").replace(/\{slice\}/, "[^/]+")}$`);
 }
 function prdOfBranch(branch, { branches, folders }) {
   if (typeof branch !== "string" || !branch) return null;
@@ -33067,14 +33067,14 @@ function collisions(slices) {
 }
 function sameWaveCollisions(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
-  const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
-  return collisions(slices).filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf.get(left) === landingOf.get(right)).map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
+  const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
+  return collisions(slices).filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf2.get(left) === landingOf2.get(right)).map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
 }
 function collisionRows(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
-  const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
+  const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
   const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
-  const at2 = (id) => `${landed ? `l${landingOf.get(id)}` : ""}w${waveOf.get(id)}`;
+  const at2 = (id) => `${landed ? `l${landingOf2.get(id)}` : ""}w${waveOf.get(id)}`;
   return collisions(slices).map(({ left, right, shared }) => ({
     pair: `${left} \xB7 ${right}`,
     shared: shared.map((ground) => `\`${ground}\``).join(", "),
@@ -33275,7 +33275,7 @@ function duplicateIds(slices) {
 }
 function blockedByViolations(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
-  const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing]));
+  const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing]));
   const violations = [];
   for (const slice of slices) {
     for (const blocker of slice.blockedBy) {
@@ -33283,7 +33283,7 @@ function blockedByViolations(slices) {
         violations.push(`${slice.id} is blocked by "${blocker}", which names no slice in this plan.`);
         continue;
       }
-      const blockerLanding = landingOf.get(blocker);
+      const blockerLanding = landingOf2.get(blocker);
       if (blockerLanding !== slice.landing) {
         violations.push(
           `blocked by: ${slice.id} (landing ${slice.landing}) is blocked by ${blocker} (landing ${blockerLanding}) \u2014 a landing waits for the one before it by its order alone, never by a blocker.`
@@ -34714,8 +34714,8 @@ function findLayoutViolations(ctx, knowledge2, { glossaryText = "" } = {}) {
   return violations;
 }
 function glossaryHolds(glossaryText, term) {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(^|[^\\w])${escaped}([^\\w]|$)`, "i").test(glossaryText);
+  const escaped2 = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^\\w])${escaped2}([^\\w]|$)`, "i").test(glossaryText);
 }
 function findCrossDomainFileViolations(knowledge2) {
   const known = new Set(knowledge2.domains.map((domain2) => domain2.name));
@@ -38443,8 +38443,8 @@ function attempt4(fn) {
 }
 function topicOf(template, branch) {
   if (typeof template !== "string" || !template.includes("{topic}")) return null;
-  const escaped = template.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`^${escaped.replace(/\{topic\}/, "(.+?)").replace(/\{slice\}/, "[^/]+")}$`);
+  const escaped2 = template.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`^${escaped2.replace(/\{topic\}/, "(.+?)").replace(/\{slice\}/, "[^/]+")}$`);
   return pattern.exec(branch)?.[1] ?? null;
 }
 function numberOf(topic, folders) {
@@ -42778,25 +42778,52 @@ function unlessUnreadable(read2) {
 function featuresOf(ctx, exec, base, inbox, remote) {
   const out = [];
   for (const { prd: prd2, topic, name } of inbox) {
-    const branch = fillBranch(ctx.config.branches.feature, { topic });
-    const ref = remote.get(branch);
-    if (!ref) continue;
-    const feature = unlessUnreadable(() => {
-      const beyond = commitsIn(ctx, exec, `${base}..${ref}`);
-      return {
-        branch,
-        topic,
-        forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
-        differs: changedOutside(ctx, exec, [base, ref]),
-        outbox: filesUnder2(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`),
-        ships: foldersAt(ctx, exec, ref, ctx.layout.dirs.shipped).some((folder) => folder.prd === prd2),
-        authors: authorsOf(beyond),
-        touched: touchedBy(ctx, beyond)
-      };
-    });
-    if (feature) out.push(feature);
+    const feature = fillBranch(ctx.config.branches.feature, { topic });
+    const branches = [{ branch: feature }];
+    for (const branch of remote.keys()) {
+      const landing = landingOf(branch, ctx.config.branches.landing, topic);
+      if (landing && branch !== feature) branches.push({ branch, landing });
+    }
+    for (const { branch, landing } of branches) {
+      const ref = remote.get(branch);
+      if (!ref) continue;
+      const facts = unlessUnreadable(() => {
+        const beyond = commitsIn(ctx, exec, `${base}..${ref}`);
+        return {
+          branch,
+          topic,
+          ...landing ? { landing } : {},
+          forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
+          differs: changedOutside(ctx, exec, [base, ref]),
+          outbox: filesUnder2(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`),
+          ships: foldersAt(ctx, exec, ref, ctx.layout.dirs.shipped).some((folder) => folder.prd === prd2),
+          authors: authorsOf(beyond),
+          touched: touchedBy(ctx, beyond)
+        };
+      });
+      if (facts) out.push(facts);
+    }
   }
   return out;
+}
+var escaped = (text7) => text7.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function landingOf(branch, template, topic) {
+  const keys = [];
+  const source = template.split(/(\{(?:topic|landings|landing|name)\})/).map((part) => {
+    if (part === "{topic}") return escaped(topic);
+    if (part === "{landing}" || part === "{landings}" || part === "{name}") {
+      keys.push(part);
+      return part === "{name}" ? "([a-z0-9]+(?:-[a-z0-9]+)*)" : "(\\d+)";
+    }
+    return escaped(part);
+  }).join("");
+  const match = new RegExp(`^${source}$`).exec(branch);
+  if (!match) return null;
+  const value = (key) => match[keys.indexOf(key) + 1];
+  const landing = Number(value("{landing}"));
+  const landings = Number(value("{landings}"));
+  if (!Number.isInteger(landing) || !Number.isInteger(landings) || landing < 1 || landing > landings) return null;
+  return { landing, landings, name: value("{name}") ?? `landing-${landing}` };
 }
 function phase0Of(ctx, exec, base, remote) {
   const out = [];
@@ -42874,10 +42901,36 @@ function buildingAndOutboxOf(inbox, features) {
     const mine = features.filter((feature) => feature.topic === topic);
     if (mine.length === 0) continue;
     const openItems2 = mine.reduce((sum, feature) => sum + feature.outbox.filter(isOpenItem).length, 0);
-    if (mine.some((feature) => feature.ships)) out.outbox.push({ prd: prd2, topic, openItems: openItems2 });
-    else if (openItems2 > 0 || mine.some(isBuilt)) out.building.push({ prd: prd2, topic, openItems: openItems2 });
+    const landings = landingsOf(mine);
+    const entry = { prd: prd2, topic, openItems: openItems2, ...landings ? { landings } : {} };
+    if (mine.some((feature) => feature.ships)) out.outbox.push(entry);
+    else if (openItems2 > 0 || mine.some(isBuilt)) out.building.push(entry);
   }
   return out;
+}
+function landingsOf(features) {
+  const landed = features.filter((feature) => feature.landing !== void 0);
+  if (landed.length === 0) return void 0;
+  const count3 = Math.max(...landed.map((feature) => feature.landing?.landings ?? 0));
+  const statuses = [];
+  for (let landing = 1; landing <= count3; landing += 1) {
+    const own2 = landed.find((feature) => feature.landing?.landing === landing);
+    const later = landed.some((feature) => (feature.landing?.landing ?? 0) > landing);
+    const before = statuses.at(-1);
+    statuses.push({
+      landing,
+      landings: count3,
+      name: own2?.landing?.name ?? `landing-${landing}`,
+      state: landingState(own2, later),
+      waitsFor: before !== void 0 && before.state !== "merged" ? before.landing : null
+    });
+  }
+  return statuses;
+}
+function landingState(own2, later) {
+  if (own2 === void 0) return later ? "merged" : "not started";
+  if (own2.ships || isBuilt(own2)) return "open";
+  return own2.forked.length > 0 ? "merged" : "not started";
 }
 function prdOf2(phase02, taken) {
   const held = phase02.flatMap(({ topic, inbox }) => inbox.filter((folder) => folder.topic === topic));
@@ -43017,7 +43070,16 @@ function rows(entries3) {
   const wordsWidth = Math.max(...lines.map(({ words }) => words.length));
   const room = WIDTH - UNDER_BAR.length - numberWidth - TOPIC_GAP.length - wordsWidth;
   const topicWidth = Math.min(Math.max(...lines.map(({ topic }) => topic.length)), Math.max(1, room));
-  return lines.map(({ stage: stage2, number: number4, topic, words }) => `${stage2}${number4.padEnd(numberWidth)}${cut2(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words}`);
+  return lines.flatMap(({ stage: stage2, number: number4, topic, words }, index) => [
+    `${stage2}${number4.padEnd(numberWidth)}${cut2(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words}`,
+    ...landingLines(entries3[index]?.landings ?? [])
+  ]);
+}
+function landingLines(landings) {
+  return landings.map(({ landing, landings: count3, name, state, waitsFor }) => {
+    const waits = waitsFor === null ? "" : `, waits for landing ${waitsFor} to merge`;
+    return cut2(`${UNDER_BAR}landing ${landing}/${count3} ${name}: ${state}${waits}`, WIDTH);
+  });
 }
 function shippedEntry({ prd: prd2, topic }, width) {
   const number4 = `#${prd2} `;

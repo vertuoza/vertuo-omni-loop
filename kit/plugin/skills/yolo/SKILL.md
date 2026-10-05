@@ -52,6 +52,49 @@ Read the same way every later `omni prd <n>` of this run (step 1, item 3, reads 
 branch, where the plan lives): a `repos:` line there stops the run with the same line, before any
 plan, claim or wave.
 
+## Landings
+
+A PRD whose plan has more than one landing (`node .omni-loop/bin/omni.mjs plan landings <n> --json`
+lists more than one, read on landing 1's branch, where the plan lives) reaches the default branch in
+one pull request per landing, stacked, and this run builds them **in order**. For each landing, the
+steps below run as written, with "the feature branch" meaning that landing's `branch` and "the
+feature PR" that landing's PR. A PRD of one landing runs every step exactly as it always has, and
+this section does not apply.
+
+1. **The current landing** is the board's `currentLanding` (`omni board <prd> --json`): the first
+   whose slices are not all merged. Build it through step 3. Before its first wave, when the landing
+   before it is still open, bring that landing's finished work in: in a detached worktree of this
+   landing's branch, `git merge <remote>/<previous landing branch>`, push it to this landing's
+   branch, and remove the worktree. A conflict there takes the **Stuck** path of step 4, item 1.
+2. **Finish it** (step 4) on its branch. Item 1 meets **its base**, not always the default branch:
+   landing n-1's branch while that landing's PR is open, the default branch once it is merged
+   (`gh pr view <previous PR> --json state --jq .state` prints `MERGED`).
+3. **The gate runs per landing**: `omni status <prd>` on that landing's branch, with that landing's
+   outbox comment on that landing's PR. A red gate ends the run as it does today (steps 5 and 6),
+   on this landing: a later landing is built on this one's code, so it waits for the answers.
+4. **`omni ship` runs on the last landing only.** It moves the PRD's folder to the shipped folder,
+   which can happen once: an earlier landing goes from a green gate straight to the ready rule, and
+   the last one ships first, as step 5 says.
+5. **The ready rule.** Mark landing n's PR ready (`gh pr ready`, step 5 item 4) only when every
+   slice of landing n is merged into its branch, its gate is green (and, for the last landing,
+   `omni ship` ran), its CI is green, **and** landing n-1's PR is merged, checked through GitHub
+   (`gh pr view <previous PR> --json state --jq .state` prints `MERGED`), never assumed. Landing 1
+   has no previous landing. Its CI runs once it leaves draft: for landing n > 1 whose previous
+   landing is open, the PR stays in draft, its status comment says
+   `waits for the merge of landing <n-1> (#<previous PR>)`, and the run **carries on** to the next
+   landing without waiting for a person.
+6. **The body.** Landing n's body carries, under the link line, its `mergeAfterLine`
+   (`Merge after landing <n-1> (<name>) is deployed.`) and landing 1's carries none; its
+   **Slices** are that landing's only, and its `## Landings` overview lists every landing PR with
+   its state, rewritten each time a landing changes state (`/omni:pr`'s **Landing PR** shape).
+7. **The end.** The run stops when every landing is finished, or at the first held or red landing.
+   A landing finished while the one before it is not yet merged is left in draft, and the hand-off
+   says which merge it waits for. Re-running resumes from GitHub: the board names the current
+   landing, and a finished landing whose previous one has merged since is marked ready then.
+
+The hand-off (step 7) lists every landing PR, in order, with its state (`ready`, `draft`, `merged`)
+and the merge it waits for, and "the feature PR" there is the last landing's.
+
 ## 1. Find the PRD, the plan and the feature PR
 
 1. `git fetch <remote>`, then
