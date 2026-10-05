@@ -119,6 +119,21 @@ function folderStages(config: SyncConfig, pulls: readonly SnapshotPull[], { topi
   ];
 }
 
+/** The PRDs whose GitHub the snapshot saw move (PRD 902, s4): each issue read, and each folder that a pull
+ * request read belongs to by its topic (its phase-0, slice, feature or retro branch), in PRD order. Read
+ * since the last sync, these are the PRDs that changed; nothing without a config. */
+export function changedPrds(snapshot: RepoSnapshot): PrdNumber[] {
+  const { config } = snapshot;
+  if (!config) return [];
+  const changed = new Set<PrdNumber>(snapshot.issues.map((issue) => issue.number));
+  const shapes = [config.branches.phase0, config.branches.slice, config.branches.feature, config.branches.retro];
+  for (const { prd, topic } of foldersOf(snapshot)) {
+    const patterns = shapes.map((shape) => branchPattern(shape, topic));
+    if (snapshot.pulls.some((pull) => patterns.some((pattern) => pattern.test(pull.head)))) changed.add(prd);
+  }
+  return [...changed].sort((a, b) => a - b);
+}
+
 /** Every stage and topic the repository shows; nothing without a config. */
 export function stagesOfRepo(snapshot: RepoSnapshot, syncedAt: string): { stages: SeenStage[]; topics: SeenTopic[] } {
   const { config } = snapshot;

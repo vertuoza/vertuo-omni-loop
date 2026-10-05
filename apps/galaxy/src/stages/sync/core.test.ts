@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { item } from '../../ask/test/test-item';
-import { stagesOfRepo, syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
+import { changedPrds, stagesOfRepo, syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The sync's core (PRD 587, s2): a repository's snapshot in, the stages and topics it shows out. Pure:
@@ -124,5 +124,29 @@ describe('the stages a repository shows', () => {
 
   it('refuses a config that is not a valid Omni Loop config, naming the repository', () => {
     expect(() => syncConfig('kit: [', 'acme/widgets')).toThrow(/acme\/widgets/);
+  });
+});
+
+describe('the PRDs a sync saw change (PRD 902, s4)', () => {
+  it('names each PRD whose issue changed, and each folder a changed pull request of its topic belongs to', () => {
+    const snap = snapshot({
+      inbox: ['0007-teeth', '0009-gears'],
+      shipped: ['0042-dark-mode', '0050-quiet', '0051-calm'],
+      issues: [{ number: parsePrd(12), created_at: '2026-09-18T00:00:00Z' }, { number: parsePrd(7), created_at: '2026-09-18T00:00:00Z' }],
+      pulls: [
+        pull(1, 'feat/teeth--s2', { base: 'feature/teeth' }),
+        pull(2, 'feature/dark-mode'),
+        pull(3, 'docs/phase-0-gears'),
+        pull(4, 'docs/retro-quiet'),
+        pull(5, 'feature/calmer'),
+        pull(6, 'fix/something'),
+      ],
+    });
+    expect(changedPrds(snap)).toEqual([7, 9, 12, 42, 50]);
+  });
+
+  it('names none when nothing changed, or the repository has no config', () => {
+    expect(changedPrds(snapshot({ inbox: ['0007-teeth'] }))).toEqual([]);
+    expect(changedPrds(snapshot({ config: null, issues: [{ number: parsePrd(7), created_at: '2026-09-18T00:00:00Z' }] }))).toEqual([]);
   });
 });
