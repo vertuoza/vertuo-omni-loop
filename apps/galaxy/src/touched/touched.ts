@@ -139,24 +139,32 @@ export async function refreshAfterTouch(dossier: SnapshotDossier, deps: Snapshot
   if (await stale()) await refreshSnapshot(dossier, 'background', deps);
 }
 
+/** The signed body's touch, or the reply that refuses it: 401 unsigned, 400 when it is no touch. */
+function signedTouch({ body, headers }: { body: string; headers: Headers }, secret: string, log: (line: string) => void): Touch | Reply {
+  const refused = (status: number, error: string): Reply => ({ status, body: { error } });
+  if (!verifySignature(secret, body, headers.get(STAGE_SIGNATURE_HEADER))) return refused(401, 'bad signature');
+  const json = ((): { ok: true; value: unknown } | { ok: false } => {
+    try {
+      return { ok: true, value: JSON.parse(body) };
+    } catch {
+      return { ok: false };
+    }
+  })();
+  if (!json.ok) return refused(400, 'the body is not JSON');
+  const touch = parseTouch(json.value);
+  if (touch) return touch;
+  log('touch: a signed body is not a touch');
+  return refused(400, 'the body is not a touch');
+}
+
 export async function receiveTouch(request: { body: string; headers: Headers }, deps: TouchedDeps): Promise<Reply> {
   const log = deps.log ?? console.error;
   if (!deps.secret) {
     log('touch: STAGE_EVENT_SECRET is not set on this deployment, every touch is refused');
     return { status: 401, body: { error: 'touches are not accepted here' } };
   }
-  if (!verifySignature(deps.secret, request.body, request.headers.get(STAGE_SIGNATURE_HEADER))) {
-    return { status: 401, body: { error: 'bad signature' } };
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(request.body);
-  } catch {
-    return { status: 400, body: { error: 'the body is not JSON' } };
-  }
-  const touch = parseTouch(parsed);
-  if (!touch) return { status: 400, body: { error: 'the body is not a touch' } };
+  const touch = signedTouch(request, deps.secret, log);
+  if ('status' in touch) return touch;
 
   const what = `${touch.repository}${touch.issue ? ` issue #${touch.issue}` : ''}${touch.pr ? ` pull request #${touch.pr}` : ''}${touch.branch ? ` on ${touch.branch}` : ''}`;
   try {

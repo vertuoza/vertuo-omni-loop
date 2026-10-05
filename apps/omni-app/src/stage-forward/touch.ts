@@ -74,21 +74,25 @@ function isFeatureOrPhase0(branch: string): boolean {
   return Boolean(match(branches.feature, branch) ?? match(branches.phase0, branch));
 }
 
+/** The PRDs whose folders `paths` change in the delivery folder (`<delivery>/<state>/<nnnn-topic>/…`). */
+function prdsIn(paths: string[]): IssueNumber[] {
+  const prds = paths.flatMap((path) => {
+    const [, folder, ...file] = path.slice(DEFAULTS.delivery.length + 1).split('/');
+    const prd = file.length > 0 ? parseFolderName(folder ?? '')?.prd : undefined;
+    return prd === undefined ? [] : [prd];
+  });
+  return [...new Set(prds)];
+}
+
 const pushTouches: Reader = (repository, payload) => {
   const read = PushEvent.safeParse(payload);
   if (!read.success || !read.data.ref.startsWith('refs/heads/')) return [];
   const branch = read.data.ref.slice('refs/heads/'.length);
   const inDelivery = (read.data.commits ?? [])
-    .flatMap((commit) => [...(commit.added ?? []), ...(commit.modified ?? []), ...(commit.removed ?? [])])
+    .flatMap(({ added, modified, removed }) => [added, modified, removed].flatMap((files) => files ?? []))
     .filter((path) => path.startsWith(`${DEFAULTS.delivery}/`));
-  const prds = new Set<IssueNumber>();
-  for (const path of inDelivery) {
-    // <delivery>/<state>/<nnnn-topic>/…
-    const folder = path.slice(DEFAULTS.delivery.length + 1).split('/');
-    const prd = folder.length > 2 ? parseFolderName(folder[1] ?? '')?.prd : undefined;
-    if (prd !== undefined) prds.add(prd);
-  }
-  if (prds.size > 0) return [...prds].map((issue) => ({ repository, issue, branch }));
+  const prds = prdsIn(inDelivery);
+  if (prds.length > 0) return prds.map((issue) => ({ repository, issue, branch }));
   return inDelivery.length > 0 || isFeatureOrPhase0(branch) ? [{ repository, branch }] : [];
 };
 
