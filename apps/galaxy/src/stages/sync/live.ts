@@ -32,7 +32,7 @@ import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 let knowledge: KnowledgeReader | undefined;
 let reader: StagesReader | undefined;
-const github = () => (knowledge ??= knowledgeReader(appCredentials()));
+const github = () => (knowledge ??= knowledgeReader(appCredentials(), fetch, Date.now, console.error, { store: githubStore() }));
 const stages = () => (reader ??= stagesReader(appCredentials(), fetch, Date.now, githubStore()));
 
 async function installationOf(workspace: SyncWorkspace): Promise<number> {
