@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · offering#36 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-05",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "check:changed and PR CI are unchanged. A changed file is checked in minutes.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The nightly goes red on env and outbox from night one. Nobody owns that yet.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Two floors fail on CI from the start. I wanted nothing blocking on day one.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Seventy minutes became a nightly in shards. Bug fixes now record their mutation line.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Still nothing customers see.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · offering#36 ✓"
     }
   ]
 }
