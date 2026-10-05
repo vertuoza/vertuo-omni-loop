@@ -97,7 +97,7 @@ export function survivorsOf(report: Report, files: readonly string[]): Survivor[
   );
 }
 
-export type Verdict = 'pass' | 'below' | 'no floor';
+type Verdict = 'pass' | 'below' | 'no floor';
 
 type Row = ModuleScore & { floor: number | null; verdict: Verdict };
 
