@@ -53,12 +53,14 @@ function setUp(summaries: Record<number, GithubSummary | null | Error>) {
   const stages = fakeStageStore(() => '2026-09-29T10:00:00Z');
   const store = fakePrdOutboxStore(() => '2026-09-29T10:00:00Z');
   const asked: DossierRef[] = [];
+  const workspaces: string[] = [];
   const logs: string[] = [];
   const deps = {
     stages,
     store,
-    summary: (ref: DossierRef) => settled(() => {
+    summary: (ref: DossierRef, workspace: string) => settled(() => {
       asked.push(ref);
+      workspaces.push(workspace);
       const answer = summaries[ref.prd];
       if (answer instanceof Error) throw answer;
       return answer ?? null;
@@ -67,7 +69,7 @@ function setUp(summaries: Record<number, GithubSummary | null | Error>) {
   };
   const at = (prd: number, stage: 'prd' | 'inbox' | 'building' | 'outbox' | 'shipped') =>
     stages.recordStages([{ workspace_id: W, repository: REPO, prd: parsePrd(prd), stage, reached_at: '2026-09-01T00:00:00Z' }]);
-  return { stages, store, asked, logs, deps, at };
+  return { stages, store, asked, workspaces, logs, deps, at };
 }
 
 describe('recountOutboxes', () => {
@@ -104,8 +106,8 @@ describe('recountOutboxes', () => {
     expect(logs.join('\n')).toContain(`${REPO}#8`);
   });
 
-  it('asks the summary by the dossier id given, or else by a key of its own', async () => {
-    const { asked, deps, at } = setUp({ 7: summary(7), 8: summary(8) });
+  it('asks the summary by the dossier id given, or else by a key of its own, of the workspace recounted', async () => {
+    const { asked, workspaces, deps, at } = setUp({ 7: summary(7), 8: summary(8) });
     await at(7, 'outbox');
     await at(8, 'outbox');
     await recountOutboxes(W, [{ repository: REPO, prd: parsePrd(7), id: 'd-7' }, { repository: 'Vertuoza/Vertuo-Omni-Loop', prd: parsePrd(8) }], deps);
@@ -113,6 +115,7 @@ describe('recountOutboxes', () => {
       { id: 'd-7', home_repo: REPO, prd: parsePrd(7) },
       { id: `prd-outbox ${W} ${REPO}#8`, home_repo: REPO, prd: parsePrd(8) },
     ]);
+    expect(workspaces).toEqual([W, W]);
   });
 
   it('records nothing for no PRD', async () => {
