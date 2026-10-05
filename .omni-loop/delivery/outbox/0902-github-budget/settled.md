@@ -556,3 +556,316 @@ A constant change in the outbox check: retry later, or stop without retrying. No
 ```
 
 <!-- /omni-outbox-settled: s5-02-refused-check-waits-for-budget -->
+
+<!-- omni-outbox-settled: s3-01-touch-during-refresh -->
+
+## s3-01-touch-during-refresh — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-05
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-05
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-touch-during-refresh
+prd: 902
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-05
+wave: 3
+---
+
+## The question, in plain words
+
+When GitHub says something changed while a page is already being refreshed, how do we make sure that change is not forgotten once the refresh ends?
+
+## The decision, in plain words
+
+A change that arrives during a refresh pushes the page's 'out of date' time forward, so the refresh cannot clear it, and the refresh a change started reads GitHub once more at its end.
+
+## The intro, for fun
+
+Ten pull requests merged while the page was still reading the first one.
+
+## The punchline, for fun
+
+So the page reads again once, instead of ten times, or zero.
+
+## The options, in plain words
+
+A. A. Re-stamp the mark in the touched route with the store's existing methods, and follow up once from the touch's own refresh.
+B. B. Move the re-stamp into the snapshot store's own stale mark, as one atomic update, so every caller gets it.
+C. C. Have every refresh, page-started included, follow up once when still stale at its end.
+
+## What I had to decide
+
+The snapshot store marks a dossier stale only when it is not stale already, and a refresh clears every mark set before it started. A touch landing during a refresh found the earlier mark, kept it, and the refresh's end cleared it: the touch was lost until the next sync. In the touched route (`apps/galaxy/src/touched/touched.ts`), a touch on a snapshot whose lease is held first clears the old mark (`store.current(id, now)`), then marks it stale at now through `staleSnapshot`, so the mark is later than the refresh's start and survives it. The refresh a touch starts (`refreshAfterTouch`) then reads once more when the snapshot is still stale; a refresh started by a page view does not follow up, and the open page's poll sees `read_at` move and renders again, which refreshes a stale snapshot.
+
+## What I did meanwhile
+
+Built it as described, with only the snapshot store's existing methods (no change to `apps/galaxy/src/dossier/snapshot/`, which is s2's territory). Tested with a stubbed clock: three touches during one read lead to exactly one follow-up read.
+
+## What it costs to change later
+
+A constant change: the re-stamp is two lines in `markTouched`; moving it into the store's `markStale` (an atomic update setting `stale_since` to now while `refreshing_until` is in the future) is a small change to one store method and its fake, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says touches during a refresh leave stale_since set, but the store s2 built keeps the first mark; it does not say whether the fix belongs in the store or in the route.
+- (author) The two-step re-stamp is not atomic: a refresh ending between its two steps is harmless (the mark is set after), and two concurrent touches each clearing and setting it still leave it set.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-touch-during-refresh -->
+
+<!-- omni-outbox-settled: s4-01-etag-cleanup-in-sync -->
+
+## s4-01-etag-cleanup-in-sync — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-05
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-05
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-etag-cleanup-in-sync
+prd: 902
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-05
+wave: 3
+---
+
+## The question, in plain words
+
+Old saved GitHub answers must be thrown away after a week of not being used. Should the shared GitHub helper learn to do that itself, or may the regular sync clean them up on its own?
+
+## The decision, in plain words
+
+The regular sync throws away saved answers nobody used for a week, by itself, without changing the shared GitHub helper that another part of the work owns.
+
+## The intro, for fun
+
+The fridge of saved GitHub answers was getting crowded.
+
+## The punchline, for fun
+
+The night cleaner now bins anything untouched for a week.
+
+## The options, in plain words
+
+A. A. Keep the cleanup in the sync; the shared GitHub helper stays as it was built.
+B. B. Teach the shared GitHub helper to throw away old answers, and have the sync ask it to.
+C. C. Leave the cleanup to a scheduled job in the database instead of the sync.
+
+## What I had to decide
+
+Whether the delete of idle ETag rows stays in the sync's own store or moves behind the GithubStore port in packages/github.
+
+## What I did meanwhile
+
+apps/galaxy/src/stages/sync/snapshots.ts deletes github_etags rows whose read_at is more than 7 days old, once per sync run, as the service role (the s1 migration already grants it delete and indexes read_at). The GithubStore port, memoryGithubStore and supabaseGithubStore are unchanged, so packages/github (s1's ground) is untouched.
+
+## What it costs to change later
+
+Moving it behind the port later is one method on GithubStore, its two stores and one call in the sync: an hour, no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether s1 meant supabaseGithubStore to be the only code that writes github_etags: the spec says only that the sync may delete rows unread for 7 days.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-etag-cleanup-in-sync -->
+
+<!-- omni-outbox-settled: s6-01-installation-listing-outside-territory -->
+
+## s6-01-installation-listing-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-05
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-05
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-installation-listing-outside-territory
+prd: 902
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-05
+wave: 3
+---
+
+## The question, in plain words
+
+The App's way of listing the repositories it reaches went around the shared GitHub budget, and it sits in the sign-up code, outside what this slice may change. Should the slice reach in and close it?
+
+## The decision, in plain words
+
+I closed it: that listing now always uses the budget-aware door its caller hands it, and the one older shortcut that skipped the door is gone, since nothing used it any more.
+
+## The intro, for fun
+
+A side door in the sign-up hallway let one GitHub question skip the queue.
+
+## The punchline, for fun
+
+The door is now a wall, and the queue is one line again.
+
+## The options, in plain words
+
+A. A. Close the side door in the sign-up module, outside the slice's territory (built).
+B. B. Leave the sign-up module untouched and list its plain listing as a known exception in the call-site test.
+C. C. Leave it to a follow-up slice that owns the sign-up module.
+
+## What I had to decide
+
+Whether to change the sign-up module's GitHub helper, outside the slice's territory, so the repositories listing cannot go around the shared client.
+
+## What I did meanwhile
+
+Removed githubApp().installationRepositories (only its own test used it once Settings > Repositories read through the client), made reachedRepositories take its fetch from its caller, and moved its tests onto reachedRepositories directly.
+
+## What it costs to change later
+
+A constant: putting the method back is a few lines in apps/galaxy/src/signup/github-app.ts; no stored shape, no contract.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the plan left the sign-up module out of s6 on purpose (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-01-installation-listing-outside-territory -->
+
+<!-- omni-outbox-settled: s6-02-readers-without-shared-store -->
+
+## s6-02-readers-without-shared-store — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-05
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-05
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-readers-without-shared-store
+prd: 902
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-05
+wave: 3
+---
+
+## The question, in plain words
+
+The background sync and the business draft build their own copies of these GitHub readers, in files this slice may not change, so their calls go through the budget-aware door without the shared record of the budget. Who connects them to that record?
+
+## The decision, in plain words
+
+I let each reader take the shared record as an option and gave it to the knowledge map's reader; the sync and the draft keep a door with no shared record until their own files are changed.
+
+## The intro, for fun
+
+Two readers came through the new turnstile without a ticket.
+
+## The punchline, for fun
+
+The turnstile counted them anyway, just in its own head.
+
+## The options, in plain words
+
+A. A. Connect the record where this slice may, and connect the sync and the draft in a small follow-up (built).
+B. B. Connect the sync and the draft in this slice too, outside its ground, racing another slice of the same wave.
+C. C. Make the readers find the shared record themselves, so no caller can forget it.
+
+## What I had to decide
+
+How the sync's and the draft's own knowledgeReader and repoReader instances, built in apps/galaxy/src/stages/sync/live.ts and apps/galaxy/src/business/draft/live.ts (outside s6's territory; the first is s4's in this same wave), get the shared store.
+
+## What I did meanwhile
+
+knowledgeReader and repoReader take an optional store (default none) and the knowledge reader a priority (default background). knowledge/github-server.ts passes githubStore() and interactive. The two live.ts files are unchanged, so their calls go through githubClient with no store: no shared ETags, budget or pause for them.
+
+## What it costs to change later
+
+One line in each live.ts: pass githubStore() (sync/live.ts already imports it). No stored shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether s4 wires the sync's knowledge reader while it is in stages/sync/ (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-02-readers-without-shared-store -->
