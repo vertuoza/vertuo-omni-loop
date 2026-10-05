@@ -179,6 +179,14 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nacceptance:\n  enabled: true\n')).toThrow(/acceptance\.dir/);
   });
 
+  it('reads pr.openWith as the name of a skill, null by default, and refuses one that is not text', () => {
+    expect(parseConfig('kit: 1\n').pr).toEqual({ openWith: null });
+    expect(parseConfig('kit: 1\npr:\n  openWith: /create-pr\n').pr.openWith).toBe('/create-pr');
+    expect(() => parseConfig('kit: 1\npr:\n  openWith: 3\n')).toThrow(/pr\.openWith/);
+    expect(() => parseConfig('kit: 1\npr:\n  openWith: [/create-pr]\n')).toThrow(/pr\.openWith/);
+    expect(() => parseConfig("kit: 1\npr:\n  openWith: ''\n")).toThrow(/pr\.openWith/);
+  });
+
   it('names each landing branch from branches.landing, filled with {topic}, {landing}, {landings} and {name}', () => {
     expect(parseConfig('kit: 1\n').branches.landing).toBe('feat/{topic}-{landing}of{landings}-{name}');
     expect(parseConfig("kit: 1\nbranches:\n  landing: 'land/{topic}/{landing}'\n").branches.landing).toBe('land/{topic}/{landing}');
@@ -417,7 +425,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     const config = parseConfig('kit: 1\n');
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
-      'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'board', 'ci', 'commands',
+      'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
       'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'markers', 'signature',
     ]);
   });

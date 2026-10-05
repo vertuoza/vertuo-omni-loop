@@ -27502,6 +27502,10 @@ var ConfigSchema = external_exports.object({
     sub: text.default("Part of #{prd}"),
     phase0: text.default("Refs #{prd}")
   }),
+  // How a pull request into the default branch or a landing branch is opened: `openWith` names a
+  // slash skill of this repository (`/create-pr`, say) that `/omni:pr` runs with `--base`,
+  // `--draft` and `--non-interactive`; `null` keeps the kit's own `gh pr create`. Sub-PRs never use it.
+  pr: section({ openWith: nullableText.default(null) }),
   board: section({ matchBy: external_exports.enum(["base", "label"]).default("base") }),
   ci: section({
     outboxContext: text.default("outbox"),
