@@ -128,7 +128,7 @@ describe('/api/github — the environment, read when the route loads (PRD 1059)'
   async function loadOver(source: Record<string, string>) {
     vi.resetModules();
     vi.doMock('../env.ts', async (importOriginal) => ({ ...(await importOriginal<object>()), processEnv: () => source }));
-    return import('../../api/github.ts');
+    return import('../../entries/github.ts');
   }
 
   it('fails to load in production without the webhook secret and the GitHub App, naming them and never a value', async () => {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { functions, GET, POST, PUT } from '../../api/inngest.ts';
+import { functions, GET, POST, PUT } from '../../entries/inngest.ts';
 import { EnvError } from '../env.ts';
 import { FUNCTION_ID } from './outbox-check.ts';
 import { INBOX_FUNCTION_ID } from '../inbox-check/inbox-check.ts';
@@ -50,7 +50,7 @@ describe('/api/inngest — the environment, read when the route loads (PRD 1059)
   async function loadOver(source: Record<string, string>) {
     vi.resetModules();
     vi.doMock('../env.ts', async (importOriginal) => ({ ...(await importOriginal<object>()), processEnv: () => source }));
-    return import('../../api/inngest.ts');
+    return import('../../entries/inngest.ts');
   }
 
   it('fails to load in production without the webhook secret and the GitHub App, naming them', async () => {

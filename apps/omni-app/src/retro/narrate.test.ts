@@ -452,9 +452,9 @@ describe('narrate — what the model is given', () => {
 });
 
 describe('the function’s time limit', () => {
-  it('gives api/inngest.ts a maxDuration above a minute, with room for the model’s whole budget', () => {
+  it('gives api/inngest.mjs a maxDuration above a minute, with room for the model’s whole budget', () => {
     const vercel = vercelJson(new URL('../../vercel.json', import.meta.url));
-    const seconds = defined(vercel.functions['api/inngest.ts'], 'api/inngest.ts in vercel.json').maxDuration;
+    const seconds = defined(vercel.functions['api/inngest.mjs'], 'api/inngest.mjs in vercel.json').maxDuration;
     expect(seconds).toBeGreaterThan(60);
     expect(MODEL_CALL.budgetMs).toBeLessThan(seconds * 1000);
   });
@@ -462,9 +462,9 @@ describe('the function’s time limit', () => {
   it('names every function under api/, so none falls back to the platform’s default', () => {
     const app = new URL('../../', import.meta.url);
     const vercel = vercelJson(new URL('vercel.json', app));
-    const files = readdirSync(fileURLToPath(new URL('api/', app))).filter((name) => name.endsWith('.ts') && !name.includes('.test.'));
+    const files = readdirSync(fileURLToPath(new URL('api/', app))).filter((name) => name.endsWith('.mjs'));
     expect(Object.keys(vercel.functions).sort()).toEqual(files.map((name) => `api/${name}`).sort());
-    expect(vercel.functions['api/github.ts']?.maxDuration).toBe(60);
+    expect(vercel.functions['api/github.mjs']?.maxDuration).toBe(60);
   });
 });
 

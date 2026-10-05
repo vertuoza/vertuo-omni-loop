@@ -1,7 +1,7 @@
 /**
  * **The GitHub App's environment** (PRD 1059): the one module of `apps/omni-app` that reads
  * `process.env`. `readEnv(source)` gives its feature groups, each complete or `null` (the feature is
- * off); `api/github.ts` and `api/inngest.ts` read them once, when they load, and hand each group to the
+ * off); `entries/github.ts` and `entries/inngest.ts` read them once, when they load, and hand each group to the
  * code that needs it. A half-set group, a malformed value, or in production a missing webhook secret
  * or GitHub App, throws one `EnvError` there, naming every variable and never a value.
  *
@@ -12,7 +12,7 @@
  *
  * **Not read here:** `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY` and `INNGEST_DEV`. The Inngest SDK
  * reads them from the process itself, in `new Inngest()` and `serve()` (`src/inngest-client.ts`,
- * `api/inngest.ts`); passing them would duplicate the SDK's own reading and its rules for each.
+ * `entries/inngest.ts`); passing them would duplicate the SDK's own reading and its rules for each.
  */
 import { z } from 'zod';
 import { envGroup, envReader, variablesOf, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';

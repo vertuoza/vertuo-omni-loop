@@ -35,6 +35,8 @@ const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const APPS = ['apps/galaxy', 'apps/omni-app'];
 /** Folders that hold no source of the apps: dependencies, builds, and the tests' fixtures. */
 const SKIPPED = new Set(['node_modules', '.next', '.vercel', 'dist', 'coverage', 'test', 'fixtures']);
+/** omni-app's committed function bundles, built from the sources this test reads (#1084). */
+const BUNDLES = 'apps/omni-app/api';
 const SOURCE = /\.(ts|tsx|mts|cts|js|mjs|cjs)$/;
 const TEST = /\.test\.[cm]?[jt]sx?$|\.fixtures\//;
 /** Calling GitHub's REST or GraphQL API, or building an Octokit (an App's or an installation's). */
@@ -45,7 +47,7 @@ const REACHES_CLIENT = /from '@omni\/github'/;
 function sourcesOf(dir: string): string[] {
   return readdirSync(join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {
     const path = `${dir}/${entry.name}`;
-    if (entry.isDirectory()) return SKIPPED.has(entry.name) || entry.name.endsWith('.fixtures') ? [] : sourcesOf(path);
+    if (entry.isDirectory()) return SKIPPED.has(entry.name) || entry.name.endsWith('.fixtures') || path === BUNDLES ? [] : sourcesOf(path);
     return SOURCE.test(entry.name) && !TEST.test(path) ? [path] : [];
   });
 }
