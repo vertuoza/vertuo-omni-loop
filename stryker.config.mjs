@@ -16,9 +16,9 @@ export default {
   // Named, not globbed: under pnpm, Stryker's own folder cannot see its sibling plugins.
   plugins: ['@stryker-mutator/vitest-runner', '@stryker-mutator/typescript-checker'],
   testRunner: 'vitest',
-  // The repository's own vitest config; `related` (the runner's default) runs only the test files
-  // that import a mutated file, those under `kit/bin` and `scripts/` included.
-  vitest: { configFile: 'vitest.config.ts', related: true },
+  // The kit library's own tests (`stryker.config.vitest.ts`), and of them, through `related` (the
+  // runner's default), only the files that import a mutated file.
+  vitest: { configFile: 'stryker.config.vitest.ts', related: true },
   // Per test: a mutant runs only the tests that reach it.
   coverageAnalysis: 'perTest',
   // A mutant that does not compile is left out of the score, never counted as survived.
@@ -33,7 +33,11 @@ export default {
   htmlReporter: { fileName: 'reports/mutation/mutation.html' },
   tempDirName: '.stryker-tmp',
   cleanTempDir: 'always',
-  // The tests spawn git and node, so their time varies with the machine's load: a mutant gets 10 s
+  // The tests spawn git and node, so their time varies with the machine's load: a mutant gets 5 s
   // beyond its tests' measured time before it counts as timed out.
-  timeoutMS: 10_000,
+  timeoutMS: 5_000,
+  // Results are kept and reused: a run of one module (`--mutate`) keeps the others' results, and an
+  // unchanged file is not mutated again.
+  incremental: true,
+  incrementalFile: 'reports/mutation/incremental.json',
 };
