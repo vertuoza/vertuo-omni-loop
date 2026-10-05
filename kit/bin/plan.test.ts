@@ -109,6 +109,49 @@ describe('omni plan check', () => {
     expect(s.out.join('')).toMatch(/id "s1" is used by more than one slice row/);
   });
 
+  it('prints one line per landing for a plan of more than one landing, and refuses a cross-landing blocker', async () => {
+    const plan = [
+      '# A plan',
+      '',
+      '| id | slice | territory | blocked by | wave | landing |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| s1 | Expand | `db/` | — | 1 | 1 |',
+      '| s2 | Code | `src/` | — | 1 | 2 |',
+      '| s3 | Screen | `app/` | s2 | 2 | 2 |',
+      '',
+      '## Landings',
+      '',
+      '| landing | name | merge when |',
+      '| --- | --- | --- |',
+      '| 1 | expand | — |',
+      '| 2 | code | landing 1 is deployed |',
+      '',
+    ].join('\n');
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+    const s = io();
+    expect(await main(['plan', 'check', '7'], { cwd: root, ...s })).toBe(0);
+    const out = s.out.join('');
+    expect(out).toMatch(/2 landings, merged in order:/);
+    expect(out).toMatch(/ {2}landing 1 \(expand\): wave\(s\) 1 — s1\n/);
+    expect(out).toMatch(/ {2}landing 2 \(code\): wave\(s\) 1, 2 — s2, s3 — merge when landing 1 is deployed\n/);
+
+    const crossed = makeRepo({
+      git: true,
+      files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan.replace('| s2 | Code | `src/` | — |', '| s2 | Code | `src/` | s1 |') },
+    });
+    const t = io();
+    expect(await main(['plan', 'check', '7'], { cwd: crossed.root, ...t })).toBe(1);
+    expect(t.out.join('')).toMatch(/blocked by: s2 \(landing 2\) is blocked by s1 \(landing 1\)/);
+  });
+
+  it('prints no landing line for a plan of one landing', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |']);
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+    const s = io();
+    expect(await main(['plan', 'check', '7'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).not.toMatch(/landing/);
+  });
+
   it('passes on this repository\'s own PRD 7 plan', async () => {
     const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
     const s = io();

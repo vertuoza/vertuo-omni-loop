@@ -45,6 +45,10 @@ export type { Slice };
 /** One row of a plan's `## Repositories` table. */
 export type PlanRepository = { repo: string; role: string; readAt: string; knowledge: string };
 
+/** One row of a plan's `## Landings` table: the landing's number, its kebab-case name and what must
+ * be true before its pull request merges (`''` when the row leaves it empty). */
+export type PlanLanding = { landing: number; name: string; mergeWhen: string };
+
 /** Two slices whose declarations intersect, and the ground they share. */
 export type Collision = { left: WorkSliceId; right: WorkSliceId; shared: string[] };
 
@@ -62,7 +66,7 @@ export type TerritoryVerdict = {
 type Declared = Pick<Slice, 'territory'>;
 
 /** What the collision matrix reads of a slice: `repo` may be absent on a hand-built row. */
-type CollidingSlice = Pick<Slice, 'id' | 'territory'> & { repo?: string | null; wave?: number | null };
+type CollidingSlice = Pick<Slice, 'id' | 'territory'> & { repo?: string | null; wave?: number | null; landing?: number };
 
 /** A cell that declares nothing: an em dash, or nothing at all. */
 const NOTHING = /^[—–-]?$/;
@@ -191,12 +195,19 @@ export function parsePlanSlices(markdown: string): Slice[] {
       territory: territoryPrefixes(row[column('territory')]),
       blockedBy: column('blocked by') === -1 ? [] : blockedByCell(row[column('blocked by')]),
       wave: column('wave') === -1 ? null : Number(row[column('wave')]),
+      landing: column('landing') === -1 ? 1 : landingCell(row[column('landing')]),
     });
   }
   if (slices.length === 0) {
     throw new Error('The slice table holds no slice; there is nothing to grade.');
   }
   return slices;
+}
+
+/** A `landing` cell: a number, 1 for an empty cell (the plan's one landing), `NaN` for anything else. */
+function landingCell(cell: string | undefined): number {
+  const text = plainCell(cell);
+  return NOTHING.test(text) ? 1 : Number(text);
 }
 
 /** A cell's text with its backticks stripped: `''` for an empty cell, never `null`. */
@@ -211,12 +222,41 @@ function plainCell(cell: string | undefined): string {
  * under it — an ordinary plan names no repository.
  */
 export function parsePlanRepositories(markdown: string): PlanRepository[] {
+  const rows: PlanRepository[] = [];
+  for (const at of sectionTable(markdown, 'repositories')) {
+    const repo = at('repo');
+    if (!repo) continue;
+    rows.push({ repo, role: at('role'), readAt: at('read at'), knowledge: at('knowledge') });
+  }
+  return rows;
+}
+
+/**
+ * The rows of a plan's `## Landings` table, in the order they are written: each landing's number
+ * (`NaN` for a cell that is no number), its `name` and what must be true before it is merged
+ * (`merge when`, `''` for an em dash). `[]` when the plan has no such heading, or no table under it: its landings are then
+ * named `landing-<n>`, with no merge condition.
+ */
+export function parsePlanLandings(markdown: string): PlanLanding[] {
+  const rows: PlanLanding[] = [];
+  for (const at of sectionTable(markdown, 'landings')) {
+    const landing = at('landing');
+    if (!landing) continue;
+    const mergeWhen = at('merge when');
+    rows.push({ landing: Number(landing), name: at('name'), mergeWhen: NOTHING.test(mergeWhen) ? '' : mergeWhen });
+  }
+  return rows;
+}
+
+/** Each row of the first table under the `## <heading>` of `markdown`, as a reader of its cells by
+ * column name (`''` for a column the table lacks). `[]` without the heading or a table under it. */
+function sectionTable(markdown: string, heading: string): ((name: string) => string)[] {
   const lines = markdown.split('\n');
-  const heading = lines.findIndex((line) => /^##\s+repositories\s*$/i.test(line.trim()));
-  if (heading === -1) return [];
+  const start = lines.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, 'i').test(line.trim()));
+  if (start === -1) return [];
 
   let headerIndex = -1;
-  for (let i = heading + 1; i < lines.length; i += 1) {
+  for (let i = start + 1; i < lines.length; i += 1) {
     const line = lines[i] ?? '';
     if (/^#{1,2}\s/.test(line.trim())) break;
     if (isTableRow(line)) {
@@ -227,14 +267,9 @@ export function parsePlanRepositories(markdown: string): PlanRepository[] {
   if (headerIndex === -1) return [];
 
   const header = cells(lines[headerIndex] ?? '').map((name) => name.toLowerCase());
-  const at = (row: string[], name: string): string => (header.indexOf(name) === -1 ? '' : plainCell(row[header.indexOf(name)]));
-  const rows: PlanRepository[] = [];
-  for (const row of bodyRows(lines, headerIndex)) {
-    const repo = at(row, 'repo');
-    if (!repo) continue;
-    rows.push({ repo, role: at(row, 'role'), readAt: at(row, 'read at'), knowledge: at(row, 'knowledge') });
-  }
-  return rows;
+  return bodyRows(lines, headerIndex).map(
+    (row) => (name: string) => (header.indexOf(name) === -1 ? '' : plainCell(row[header.indexOf(name)])),
+  );
 }
 
 /** True when one of the declared prefixes owns this path. */
@@ -278,23 +313,31 @@ export function collisions(slices: readonly CollidingSlice[]): Collision[] {
 }
 
 /**
- * The pairs a plan may not contain: intersecting territories in one wave. Siblings in a wave merge
- * one after another, so shared ground turns the second into a conflict.
+ * The pairs a plan may not contain: intersecting territories in one wave of one landing. Siblings in
+ * a wave merge one after another, so shared ground turns the second into a conflict. Waves are
+ * counted within a landing, and a landing starts only once the one before it is merged, so two
+ * slices of different landings never meet, whatever their wave numbers. A slice with no `landing`
+ * sits in landing 1.
  */
 export function sameWaveCollisions(slices: readonly CollidingSlice[]): (Collision & { wave: number | null | undefined })[] {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
+  const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
   return collisions(slices)
-    .filter(({ left, right }) => waveOf.get(left) === waveOf.get(right))
+    .filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf.get(left) === landingOf.get(right))
     .map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
 }
 
-/** The collision matrix a plan prints, computed from the declarations rather than asserted. */
+/** The collision matrix a plan prints, computed from the declarations rather than asserted. In a plan
+ * of more than one landing, each side's wave is written with its landing (`s1 l1w2`). */
 export function collisionRows(slices: readonly CollidingSlice[]): { pair: string; shared: string; resolved: string }[] {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
+  const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
+  const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
+  const at = (id: WorkSliceId) => `${landed ? `l${landingOf.get(id)}` : ''}w${waveOf.get(id)}`;
   return collisions(slices).map(({ left, right, shared }) => ({
     pair: `${left} · ${right}`,
     shared: shared.map((ground) => `\`${ground}\``).join(', '),
-    resolved: `${left} w${waveOf.get(left)} · ${right} w${waveOf.get(right)}`,
+    resolved: `${left} ${at(left)} · ${right} ${at(right)}`,
   }));
 }
 

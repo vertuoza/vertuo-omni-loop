@@ -9,10 +9,16 @@
 // repository it lands in, in a `repo` column, and a `## Repositories` table records each one: this
 // grades both, every refusal naming its field first, and gives the collision matrix per repository.
 // Outside one, either table is refused.
+//
+// A plan may deliver its PRD in several landings: a `landing` column puts each slice in one, and a
+// `## Landings` table may name each landing and say what must be true before it is merged. Waves
+// are counted within a landing, a slice is never blocked by a slice of another landing (the landing
+// order carries that), and landing numbers run from 1 with no gap. A plan with no `landing` column
+// has one landing and grades as it always did.
 import { defined, messageOf } from '../narrow.ts';
 import type { Config, Slice } from '../types.ts';
-import { collisionRows, parsePlanRepositories, parsePlanSlices, sameWaveCollisions } from './territory.ts';
-import type { Collision, PlanRepository } from './territory.ts';
+import { collisionRows, parsePlanLandings, parsePlanRepositories, parsePlanSlices, sameWaveCollisions } from './territory.ts';
+import type { Collision, PlanLanding, PlanRepository } from './territory.ts';
 
 /** What the grading reads of a config: its `plan` section, when it is a plan repository, and its slug. */
 export type GradeConfig = Pick<Config, 'plan' | 'repo'>;
@@ -20,10 +26,17 @@ export type GradeConfig = Pick<Config, 'plan' | 'repo'>;
 /** One repository's collision matrix: `repo` is `null` for an ordinary plan. */
 export type CollisionMatrix = { repo: string | null; rows: ReturnType<typeof collisionRows> };
 
+/** One landing of a plan, as the grading reads it: its number, its name (`landing-<n>` when the
+ * plan has no `## Landings` row for it), what must be true before it is merged (`null` when nothing
+ * says), the ids of its slices in plan order, and its waves. */
+export type GradedLanding = { landing: number; name: string; mergeWhen: string | null; slices: string[]; waves: (number | null)[] };
+
 /** A plan's grading, as `gradePlan` returns it. */
 export type PlanGrade = {
   slices: Slice[];
   repositories: PlanRepository[];
+  /** Every landing in order: one, landing 1, for a plan with no `landing` column. */
+  landings: GradedLanding[];
   waves: (number | null)[];
   multi: boolean;
   collisions: (Collision & { wave: number | null | undefined })[];
@@ -46,15 +59,24 @@ function duplicateIds(slices: readonly Slice[]): string[] {
   return [...counts.entries()].filter(([, count]) => count > 1).map(([id]) => id);
 }
 
-/** Every `blocked by` violation: an id naming no slice in this plan, or a blocker in the same wave
- * or a later one than the slice it blocks. A blocker may sit in another repository. */
+/** Every `blocked by` violation: an id naming no slice in this plan, a blocker in another landing,
+ * or a blocker in the same wave or a later one than the slice it blocks. A blocker may sit in another
+ * repository. */
 function blockedByViolations(slices: readonly Slice[]): string[] {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
+  const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing]));
   const violations: string[] = [];
   for (const slice of slices) {
     for (const blocker of slice.blockedBy) {
       if (!waveOf.has(blocker)) {
         violations.push(`${slice.id} is blocked by "${blocker}", which names no slice in this plan.`);
+        continue;
+      }
+      const blockerLanding = landingOf.get(blocker);
+      if (blockerLanding !== slice.landing) {
+        violations.push(
+          `blocked by: ${slice.id} (landing ${slice.landing}) is blocked by ${blocker} (landing ${blockerLanding}) — a landing waits for the one before it by its order alone, never by a blocker.`,
+        );
         continue;
       }
       const blockerWave = waveOf.get(blocker);
@@ -67,6 +89,72 @@ function blockedByViolations(slices: readonly Slice[]): string[] {
     }
   }
   return violations;
+}
+
+/** A landing number a plan may use: a whole number from 1. */
+function isLandingNumber(value: number): boolean {
+  return Number.isInteger(value) && value >= 1;
+}
+
+/** A landing's name: one kebab-case word or more, as a branch and a title carry it. */
+const LANDING_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** What a plan gets wrong about its landings, each line naming its field first: a `landing` cell
+ * that is no whole number from 1, a gap in the numbers, and a `## Landings` table that does not name
+ * exactly the landings the slice table uses. */
+function landingViolations(slices: readonly Slice[], rows: readonly PlanLanding[]): string[] {
+  const used = [...new Set(slices.map((slice) => slice.landing).filter(isLandingNumber))].sort((a, b) => a - b);
+  return [
+    ...slices
+      .filter((slice) => !isLandingNumber(slice.landing))
+      .map((slice) => `landing: ${slice.id} reads "${slice.landing}", not a whole number from 1.`),
+    ...gapViolations(used),
+    ...(rows.length === 0 ? [] : landingTableViolations(rows, used)),
+  ];
+}
+
+/** Each landing number missing below the highest one the slice table uses. */
+function gapViolations(used: readonly number[]): string[] {
+  const missing = Array.from({ length: used.at(-1) ?? 0 }, (_, index) => index + 1).filter((landing) => !used.includes(landing));
+  return missing.map((landing) => `landing: no slice sits in landing ${landing} — landings run from 1 with no gap, and this plan uses ${used.join(', ')}.`);
+}
+
+/** What a `## Landings` table gets wrong against the landings the slice table uses. */
+function landingTableViolations(rows: readonly PlanLanding[], used: readonly number[]): string[] {
+  const violations: string[] = [];
+  const seen = new Set<number>();
+  for (const row of rows) {
+    if (!isLandingNumber(row.landing)) {
+      violations.push(`## Landings: a row reads "${row.landing}", not a whole number from 1.`);
+      continue;
+    }
+    if (seen.has(row.landing)) violations.push(`## Landings: landing ${row.landing} has more than one row.`);
+    seen.add(row.landing);
+    if (!used.includes(row.landing)) violations.push(`## Landings: landing ${row.landing} has a row and holds no slice.`);
+    if (!LANDING_NAME.test(row.name)) violations.push(`## Landings: landing ${row.landing} is named "${row.name}", not one kebab-case name.`);
+  }
+  return [...violations, ...used.filter((landing) => !seen.has(landing)).map((landing) => `## Landings: landing ${landing} holds slices and has no row.`)];
+}
+
+/** The distinct waves of `slices`, in order. */
+function wavesOf(slices: readonly Slice[]): (number | null)[] {
+  return [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
+}
+
+/** Every landing the slice table uses, in order, with its row's name and merge condition. */
+function gradedLandings(slices: readonly Slice[], rows: readonly PlanLanding[]): GradedLanding[] {
+  const numbers = [...new Set(slices.map((slice) => slice.landing))].sort((a, b) => a - b);
+  return numbers.map((landing) => {
+    const row = rows.find((candidate) => candidate.landing === landing);
+    const members = slices.filter((slice) => slice.landing === landing);
+    return {
+      landing,
+      name: row?.name || `landing-${landing}`,
+      mergeWhen: row?.mergeWhen || null,
+      slices: members.map((slice) => slice.id),
+      waves: wavesOf(members),
+    };
+  });
 }
 
 /** The part of an `owner/name` slug after the `/`: the name a plan's `repo` column uses. */
@@ -173,7 +261,7 @@ function byRepository(slices: readonly Slice[]): Map<string | null, Slice[]> {
 }
 
 /**
- * Grades one plan. Returns `{ slices, repositories, waves, multi, collisions, matrices, violations,
+ * Grades one plan. Returns `{ slices, repositories, landings, waves, multi, collisions, matrices, violations,
  * parseError }`: `parseError` is `null`, or the reason the slice table could not be read, which is
  * then the only violation. Never throws on a plan's content.
  *
@@ -188,6 +276,7 @@ export function gradePlan(markdown: string, { config }: { config: GradeConfig })
     return {
       slices: [],
       repositories: [],
+      landings: [],
       waves: [],
       multi: false,
       collisions: [],
@@ -197,26 +286,30 @@ export function gradePlan(markdown: string, { config }: { config: GradeConfig })
     };
   }
   const repositories = parsePlanRepositories(markdown);
+  const landingRows = parsePlanLandings(markdown);
   const planSection = config.plan ?? null;
   const multi = planSection !== null && slices.some((slice) => slice.repo !== null);
   const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
   const collisions = sameWaveCollisions(slices);
+  const landings = gradedLandings(slices, landingRows);
+  const ofLanding = (id: string) => (landings.length > 1 ? ` of landing ${slices.find((slice) => slice.id === id)?.landing}` : '');
 
   const violations = [
     ...(planSection === null
       ? notPlanRepositoryViolations(slices, repositories)
       : repositoryViolations(slices, repositories, { planSlug: defined(config.repo.slug, "the plan repository's repo.slug"), targets: planSection.targets })), // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
+    ...landingViolations(slices, landingRows),
     ...blockedByViolations(slices),
     ...collisions.map(
       (collision) =>
-        `${collision.left} and ${collision.right} share ${collision.shared.join(', ')} and both sit in wave ${collision.wave}${multi ? ` of ${repoOf.get(collision.left)}` : ''} — two slices in one wave may never share territory.`,
+        `${collision.left} and ${collision.right} share ${collision.shared.join(', ')} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf.get(collision.left)}` : ''} — two slices in one wave may never share territory.`,
     ),
   ];
 
-  const waves = [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
+  const waves = wavesOf(slices);
   const matrices = multi
     ? [...byRepository(slices)].map(([repo, group]) => ({ repo, rows: collisionRows(group) }))
     : [{ repo: null, rows: collisionRows(slices) }];
-  return { slices, repositories, waves, multi, collisions, matrices, violations, parseError: null };
+  return { slices, repositories, landings, waves, multi, collisions, matrices, violations, parseError: null };
 }

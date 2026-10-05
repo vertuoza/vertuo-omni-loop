@@ -128,6 +128,37 @@ require. These four parts are the whole shape:
 4. `## Per slice: done when`: for each slice (or group of like slices), the observable conditions,
    as a bullet list.
 
+**Landings.** A PRD reaches the default branch in one pull request unless something in it must be
+deployed apart from the rest: a database migration the code needs in place first, or a contract
+step that drops what the old code still reads. Then the plan cuts it into **landings**, built and
+merged in order, each one its own pull request into the default branch. Give the slice table a
+`landing` column, a whole number from 1, and, after the table, a `## Landings` table naming each
+landing and what must be true before it is merged:
+
+```markdown
+| id | slice | territory | blocked by | wave | landing |
+| --- | --- | --- | --- | --- | --- |
+| s1 | <the column exists> | `<migrations dir>/` | — | 1 | 1 |
+| s2 | <the code reads it> | `<dir>/` | — | 1 | 2 |
+
+## Landings
+
+| landing | name | merge when |
+| --- | --- | --- |
+| 1 | expand | — |
+| 2 | code | landing 1 is deployed |
+```
+
+- Landing numbers run from 1 with no gap. A plan with no `landing` column, or with every value at
+  1, has one landing and is built exactly as a plan always was: write no column then.
+- A `name` is one kebab-case word or a few (it goes into the branch and the title); without the
+  table each landing is named `landing-<n>`. When the table is there, it names exactly the landings
+  the slice table uses.
+- **Waves are counted within a landing.** A slice's wave is `1` with no blockers, else one more than
+  its highest blocker's wave, and every blocker sits in the **same** landing: a landing waits for
+  the one before it by its order alone, never by a `blocked by`. Two slices of different landings
+  never share a wave, so their territories never collide.
+
 **In a plan repository** (the config has a `plan` section; `/omni:mega-brainstorm` runs this skill
 there), a slice lands in one repository, so the slice table gains a `repo` column, and a
 `## Repositories` table comes before `## Slices`. Anywhere else, never write either: `omni plan
@@ -168,8 +199,10 @@ check` refuses a `repo` column outside a plan repository.
 node .omni-loop/bin/omni.mjs plan check <n>
 ```
 
-It prints the waves and the collision matrix, then every violation: a duplicate id, a blocker that
-names no slice or sits in the same or a later wave, and two slices sharing ground in one wave. Fix
+It prints the waves and the collision matrix (and, for more than one landing, a line per landing),
+then every violation: a duplicate id, a blocker that names no slice, sits in another landing, or sits
+in the same or a later wave, two slices sharing ground in one wave of one landing, landing numbers
+with a gap, and a `## Landings` table that does not match the slice table. Fix
 the plan and rerun until it exits `0`. A same-wave collision is resolved by moving one slice to a
 later wave (and every slice it blocks with it), or by narrowing a territory so the two no longer
 meet. Merging the two into one slice is also allowed. **Never** leave the check red, and never

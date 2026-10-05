@@ -1,7 +1,9 @@
 // `omni plan check <prd>` — grades a PRD's own `plan.md` before anyone builds off it, through
 // `gradePlan` (`kit/lib/inbox/plan-grade.ts`, which says what it checks). Prints the slice count,
 // the waves and the collision matrix, then every violation; exits 1 on any. In a plan repository
-// (PRD 549) it prints the waves and the collision matrix per repository.
+// (PRD 549) it prints the waves and the collision matrix per repository. A plan of more than one
+// landing gets one line per landing, its name, its waves and its slices; a plan of one prints as it
+// always did.
 //
 // `omni plan moved <prd> [--json]` (PRD 563) reads, for each target row of a plan repository's
 // `## Repositories`, what changed on the target's default branch since `read at` under the
@@ -91,12 +93,19 @@ export const plan: Command = {
     if (positional.length !== 1) throw usageError(USAGE);
     const prd = prdArg('plan check', '<prd>', positional[0]);
 
-    const { planPath, slices, waves, multi, matrices, violations } = checkPlan(prd, { ctx });
+    const { planPath, slices, landings, waves, multi, matrices, violations } = checkPlan(prd, { ctx });
 
     println(
       stdout,
       `omni plan check — PRD ${prd}: ${slices.length} slice(s) across wave(s) ${waves.join(', ')} (${planPath}).`,
     );
+    if (landings.length > 1) {
+      println(stdout, `omni plan check — ${counted(landings.length, 'landing', 'landings')}, merged in order:`);
+      for (const { landing, name, mergeWhen, slices: members, waves: landingWaves } of landings) {
+        const when = mergeWhen === null ? '' : ` — merge when ${mergeWhen}`;
+        println(stdout, `  landing ${landing} (${name}): wave(s) ${landingWaves.join(', ')} — ${members.join(', ')}${when}`);
+      }
+    }
     if (multi) {
       const repos = new Set(slices.map((slice) => slice.repo)).size;
       println(
