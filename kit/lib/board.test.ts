@@ -539,3 +539,42 @@ describe('landingBranches', () => {
     ).toEqual(['feat/widgets-1of2-expand', 'feat/widgets-2of2-code']);
   });
 });
+
+describe('landings in a plan repository: one chain per target', () => {
+  const REPOS: BoardRepos = { api: { slug: 'acme/api', readable: true }, web: { slug: 'acme/web', readable: true } };
+  // Landing 1 (the migrations) lands in the back-end only; landing 2 in both.
+  const SLICES = [
+    slice({ id: parseWorkSliceId('s1'), territory: ['db/'], landing: 1, repo: 'api' }),
+    slice({ id: parseWorkSliceId('s2'), territory: ['src/'], landing: 2, repo: 'api' }),
+    slice({ id: parseWorkSliceId('s3'), territory: ['app/'], landing: 2, repo: 'web' }),
+  ];
+  const LANDINGS: BoardLanding[] = [
+    { landing: 1, name: 'expand', branch: 'feat/widgets-1of2-expand', repo: 'api' },
+    { landing: 2, name: 'code', branch: 'feat/widgets-2of2-code', repo: 'api' },
+    { landing: 2, name: 'code', branch: 'feat/widgets', repo: 'web' },
+  ];
+  const run = (prs: BoardPr[]) => boardFor({ slices: SLICES, prs, now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, repos: REPOS, landings: LANDINGS });
+
+  it("takes a target's landing 2 only once that target's landing 1 is merged, and never holds one target on another", () => {
+    const first = run([]);
+    expect(first.frontier.takeable).toEqual(['s1', 's3']);
+    expect(first.landings?.map(({ repo, landing, current }) => [repo, landing, current])).toEqual([
+      ['api', 1, true],
+      ['api', 2, false],
+      ['web', 2, true],
+    ]);
+
+    const merged = run([pr({ headRefName: 'feat/widgets--s1', baseRefName: 'feat/widgets-1of2-expand', state: 'MERGED', mergedAt: '2026-09-25T10:00:00Z', slug: 'acme/api' })]);
+    expect(merged.frontier.takeable).toEqual(['s2', 's3']);
+  });
+
+  it("matches a sub-PR to its own repository's landing branch, and a landing PR by its repository", () => {
+    const result = run([
+      pr({ number: parsePr(3), headRefName: 'feat/widgets--s3', baseRefName: 'feat/widgets', slug: 'acme/web' }),
+      pr({ number: parsePr(9), headRefName: 'feat/widgets', baseRefName: 'main', isDraft: true, slug: 'acme/web' }),
+      pr({ number: parsePr(8), headRefName: 'feat/widgets', baseRefName: 'main', slug: 'acme/api' }),
+    ]);
+    expect(rowOf(result, 's3').state).toBe('in-flight');
+    expect(result.landings?.find((row) => row.repo === 'web')?.pr).toEqual({ number: 9, state: 'draft', base: 'main' });
+  });
+});

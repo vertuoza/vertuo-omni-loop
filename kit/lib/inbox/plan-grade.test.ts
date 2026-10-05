@@ -206,3 +206,25 @@ describe('gradePlan — landings.alone', () => {
     expect(graded.violations).toEqual([]);
   });
 });
+
+describe('gradePlan — landings in a plan repository', () => {
+  it('grades landings that span targets, counting collisions per repository and landing', () => {
+    const header = '| id | repo | slice | territory | blocked by | wave | landing |';
+    const markdown = [
+      '## Repositories',
+      '',
+      '| repo | role | read at | knowledge |',
+      '| --- | --- | --- | --- |',
+      `| api | back-end | ${'a'.repeat(40)} | own |`,
+      '| plan | plan | — | own |',
+      '',
+      '## Slices',
+      '',
+      planMd(['| s1 | api | expand | `src/db/` | — | 1 | 1 |', '| s2 | api | code | `src/` | — | 1 | 2 |', '| s3 | plan | docs | `src/` | — | 1 | 2 |'], header),
+    ].join('\n');
+    const graded = gradePlan(markdown, { config: PLAN_REPO });
+    expect(graded.violations).toEqual([]);
+    expect(graded.landings.map(({ landing, slices }) => [landing, slices])).toEqual([[1, ['s1']], [2, ['s2', 's3']]]);
+    expect(graded.collisions).toEqual([]);
+  });
+});

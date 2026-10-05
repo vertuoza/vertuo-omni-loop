@@ -344,20 +344,23 @@ describe('omni board — a plan repository (PRD 563)', () => {
     { failing = [], commitsByNumber = {} }: { failing?: string[]; commitsByNumber?: Record<string, unknown[]> } = {},
   ) {
     const calls: ExecCall[] = [];
-    const exec = (file: string, args: readonly string[], options: unknown = {}) => {
-      calls.push({ file, args, options });
-      if (file === 'git' && args[0] === 'rev-parse') return `${root}\n`;
+    const gh = (args: readonly string[]) => {
       const slug = String(args[args.indexOf('--repo') + 1]);
-      if (file === 'gh' && args[0] === 'pr' && failing.includes(slug)) {
+      if (failing.includes(slug)) {
         const error: Error & { stderr?: string } = new Error('gh: Could not resolve to a Repository');
         error.stderr = 'GraphQL: Could not resolve to a Repository';
         throw error;
       }
-      if (file === 'gh' && args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prsBySlug[slug] ?? []);
-      if (file === 'gh' && args[0] === 'pr' && args[1] === 'view') {
-        return JSON.stringify({ commits: commitsByNumber[`${slug}#${args[2]}`] ?? [] });
-      }
-      throw new Error(`fakeMultiExec: unexpected call ${file} ${args.join(' ')}`);
+      if (args[1] === 'list') return JSON.stringify(prsBySlug[slug] ?? []);
+      if (args[1] === 'view') return JSON.stringify({ commits: commitsByNumber[`${slug}#${args[2]}`] ?? [] });
+      return null;
+    };
+    const exec = (file: string, args: readonly string[], options: unknown = {}) => {
+      calls.push({ file, args, options });
+      if (file === 'git' && args[0] === 'rev-parse') return `${root}\n`;
+      const answer = file === 'gh' && args[0] === 'pr' ? gh(args) : null;
+      if (answer === null) throw new Error(`fakeMultiExec: unexpected call ${file} ${args.join(' ')}`);
+      return answer;
     };
     return { exec, calls };
   }

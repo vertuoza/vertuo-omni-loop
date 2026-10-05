@@ -4,7 +4,7 @@ import { parsePr } from '../ids.ts';
 import { landingChain, landingPrToWatch } from './chain.ts';
 
 function landing(n: number, pr: LandingRow['pr']): LandingRow {
-  return { landing: n, name: `l${n}`, branch: `feat/w-${n}of3-l${n}`, slices: [], merged: 0, open: 0, notStarted: 0, complete: false, pr };
+  return { landing: n, name: `l${n}`, branch: `feat/w-${n}of3-l${n}`, slices: [], merged: 0, open: 0, notStarted: 0, complete: false, current: false, pr };
 }
 
 describe('landingChain', () => {
