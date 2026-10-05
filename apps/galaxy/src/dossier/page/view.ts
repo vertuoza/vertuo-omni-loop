@@ -80,6 +80,7 @@ import { stageView, type StageView } from './stage';
 import { kindOf, WORK_NAMES, workPath } from './work';
 import { reworkCommand } from './voice';
 import { pad, shortDay, stamp } from './dates';
+import type { GithubAt } from '../snapshot/snapshot';
 import { proofView, runsBadge, type ProofRead, type ProofView } from './proof';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
@@ -199,6 +200,8 @@ export type DossierRead = {
   /** The proof runs (PRD 798): null when they could not be read, left out when not asked for; the
    * Proof tab shows only with one. */
   proofs?: ProofRead | null | undefined;
+  /** When the GitHub summary was read, and when GitHub resumes (PRD 902, s2); null or left out when not known. */
+  githubAt?: GithubAt | null | undefined;
 };
 
 /** Nobody known: every face is the GitHub photo of a login, or the name's initial (PRD 652). */
@@ -295,6 +298,16 @@ export type DossierView = {
   rework: string | null;
   /** The Proof tab's run (PRD 798): null with no run, and on a fix. */
   proof: ProofView | null;
+  /** `GitHub as of 09:15 UTC`, when the PRD's GitHub snapshot was read (PRD 902, s2); null when it was not. */
+  githubAsOf: string | null;
+  /** `GitHub resumes at 10:00 UTC`, while the installation's budget is paused; null otherwise. */
+  githubResumes: string | null;
+};
+
+/** `09:15 UTC`: the time of day, in UTC like every date on the page. */
+const timeOfDay = (iso: string) => {
+  const at = new Date(iso);
+  return `${pad(at.getUTCHours())}:${pad(at.getUTCMinutes())} UTC`;
 };
 
 /** One option of a question, as it was offered: its label without "(Recommended)", which becomes a
@@ -710,6 +723,8 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
     fix: page.work === 'prd' ? null : read.fix ?? null,
     rework: page.work === 'prd' && read.dossier.prd !== null ? reworkCommand(read.dossier.prd) : null,
     proof: runs && read.proofs ? proofView(read.proofs, page.tab === 'proof' ? pick.version : null, (n) => page.href('proof', n), read.members) : null,
+    githubAsOf: read.githubAt ? `GitHub as of ${timeOfDay(read.githubAt.readAt)}` : null,
+    githubResumes: read.githubAt?.resumesAt ? `GitHub resumes at ${timeOfDay(read.githubAt.resumesAt)}` : null,
   };
 }
 

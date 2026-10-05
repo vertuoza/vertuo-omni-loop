@@ -7,7 +7,7 @@ import { poll } from '../../ask/page/poll';
 import { PlayDock } from '../../play-dock/PlayDock';
 import type { WorkingState } from '../../working/state';
 import type { DockSetup } from './dock-player';
-import { watchNewWork } from './live-refresh-watch';
+import { readGithubReadAt, watchNewWork, withGithubReadAt } from './live-refresh-watch';
 import { readPulse } from './source';
 import { readWorking, withWorking } from './working';
 
@@ -23,6 +23,7 @@ import { readWorking, withWorking } from './working';
 // dossier, asks on it, or neither. With `dock`, the play dock sits in the page's corner with that
 // state: the pill while Claude works, the game paused on an open round, leading to the Questions tab.
 // It starts idle, so nothing shows before the first read.
+// PRD 902, s2: on a numbered PRD's page, it also refreshes when its GitHub snapshot is read again.
 
 type Props = {
   supabase: { url: string; key: string };
@@ -31,9 +32,11 @@ type Props = {
   signature: string | null;
   /** The play dock's player and where its question button leads; none, no dock. */
   dock?: (DockSetup & { answerHref: string }) | null;
+  /** A numbered PRD: also watch when its GitHub snapshot was read (PRD 902, s2). */
+  github?: boolean;
 };
 
-export function LiveRefresh({ supabase, id, signature, dock = null }: Props) {
+export function LiveRefresh({ supabase, id, signature, dock = null, github = false }: Props) {
   const router = useRouter();
   const [problem, setProblem] = useState<string | null>(null);
   const [working, setWorking] = useState<WorkingState>('idle');
@@ -43,13 +46,14 @@ export function LiveRefresh({ supabase, id, signature, dock = null }: Props) {
   useEffect(() => {
     const db = createBrowserClient<Database>(supabase.url, supabase.key);
     const pulse = () => readPulse(db, id);
+    const read = docked ? withWorking(pulse, (p) => readWorking(db, id, p), setWorking) : pulse;
     return poll(watchNewWork({
       initial: rendered.current,
-      read: docked ? withWorking(pulse, (p) => readWorking(db, id, p), setWorking) : pulse,
+      read: github ? withGithubReadAt(read, () => readGithubReadAt(db, id)) : read,
       onChange: () => { router.refresh(); },
       onProblem: setProblem,
     }), document);
-  }, [supabase.url, supabase.key, id, router, docked]);
+  }, [supabase.url, supabase.key, id, router, docked, github]);
 
   return (
     <>

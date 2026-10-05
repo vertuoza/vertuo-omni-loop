@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { GithubSummary } from '../github/summary';
-import type { DossierListRow, DossierPulse } from '../store';
+import type { DossierPulse } from '../store';
 import {
-  FAILURES_BEFORE_PROBLEM, GITHUB_EVERY_MS, LIVE_PROBLEM, everyFew, githubPulse, liveGithub, pulseOf, signature, watchChanges,
+  FAILURES_BEFORE_PROBLEM, LIVE_PROBLEM, githubPulse, pulseOf, signature, watchChanges,
 } from './live';
 import type { DossierRead } from './view';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -89,57 +89,6 @@ describe('the GitHub part of the signature', () => {
   it('keeps the counts\' signature as it was when there is no GitHub part', () => {
     expect(signature({ ...PULSE, github: undefined })).toBe(signature(PULSE));
     expect(signature({ ...PULSE, github: githubPulse(parsePrd(7), OUTBOX) })).not.toBe(signature(PULSE));
-  });
-});
-
-describe('the GitHub part, read for the open page', () => {
-  const row = (prd: number | null) => ({ id: 'd-1', home_repo: 'acme/widgets', prd }) as DossierListRow;
-
-  it('reads the cached summary of a numbered dossier the viewer may read', async () => {
-    const summary = vi.fn(() => Promise.resolve(OUTBOX));
-    expect(await liveGithub(row(7), { summary })).toEqual({ stage: 'outbox', open: 1, answers: null });
-    expect(summary).toHaveBeenCalledWith({ id: 'd-1', home_repo: 'acme/widgets', prd: parsePrd(7) });
-  });
-
-  it('asks GitHub nothing for a dossier the viewer may not read, or a draft', async () => {
-    const summary = vi.fn(() => Promise.resolve(OUTBOX));
-    expect(await liveGithub(null, { summary })).toBeUndefined();
-    expect(await liveGithub(row(null), { summary })).toBeUndefined();
-    expect(summary).not.toHaveBeenCalled();
-  });
-
-  it('reads a summary that failed, or no reader at all, as the stage unknown', async () => {
-    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(await liveGithub(row(7), { summary: () => Promise.reject(new Error('down')) })).toEqual({ stage: 'unknown', open: null, answers: null });
-    expect(await liveGithub(row(7), null)).toEqual({ stage: 'unknown', open: null, answers: null });
-    quiet.mockRestore();
-  });
-});
-
-describe('asking the server only every few seconds', () => {
-  it('reads again only once the period is over, and gives the last answer in between', async () => {
-    expect(GITHUB_EVERY_MS).toBe(15_000);
-    let now = 0;
-    const answers = ['a', 'b'];
-    const read = vi.fn(() => Promise.resolve(answers.shift()));
-    const ask = everyFew(read, 15_000, () => now);
-    expect(await ask()).toBe('a');
-    now = 14_999;
-    expect(await ask()).toBe('a');
-    now = 15_000;
-    expect(await ask()).toBe('b');
-    expect(read).toHaveBeenCalledTimes(2);
-  });
-
-  it('keeps the last answer when a read fails, and tries again at the next tick', async () => {
-    let now = 0;
-    const reads: Array<string | Error> = ['a', new Error('down'), 'c'];
-    const ask = everyFew(() => { const next = reads.shift(); if (next instanceof Error) return Promise.reject(next); return Promise.resolve(next); }, 10, () => now);
-    expect(await ask()).toBe('a');
-    now = 10;
-    expect(await ask()).toBe('a');
-    now = 11;
-    expect(await ask()).toBe('c');
   });
 });
 
