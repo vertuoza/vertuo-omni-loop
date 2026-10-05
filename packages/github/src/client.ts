@@ -93,17 +93,41 @@ function budgetOf(headers: Headers): { limit: number; remaining: number; resetAt
   return { limit, remaining, resetAt: reset * 1000 };
 }
 
-/** When a refused answer says the limit is spent, until when to pause; null when it is not a rate limit. */
+/** The pause a 403 or 429 asks for, when it says the limit is spent; null when it is not a rate limit. */
 async function pauseOf(res: Response, now: number): Promise<number | null> {
   if (res.status !== 403 && res.status !== 429) return null;
   const retryAfter = Number(res.headers.get('retry-after'));
   if (res.headers.has('retry-after') && Number.isFinite(retryAfter)) return now + retryAfter * 1000;
-  const reset = Number(res.headers.get('x-ratelimit-reset')) * 1000;
-  const until = Number.isFinite(reset) && reset > now ? reset : now + DEFAULT_PAUSE_MS;
-  if (res.headers.get('x-ratelimit-remaining') === '0') return until;
-  const text = await res.clone().text().catch(() => '');
-  if (SECONDARY.test(text)) return until;
-  return res.status === 429 ? until : null;
+  const until = resetOf(res.headers, now);
+  return (await saysSpent(res)) ? until : null;
+}
+
+/** When the window resets, or a short pause from now when the answer does not say. */
+function resetOf(headers: Headers, now: number): number {
+  const reset = Number(headers.get('x-ratelimit-reset')) * 1000;
+  return Number.isFinite(reset) && reset > now ? reset : now + DEFAULT_PAUSE_MS;
+}
+
+/** A refused answer that is a rate limit: nothing remaining, a 429, or the secondary-limit message. */
+async function saysSpent(res: Response): Promise<boolean> {
+  if (res.headers.get('x-ratelimit-remaining') === '0' || res.status === 429) return true;
+  return SECONDARY.test(await res.clone().text().catch(() => ''));
+}
+
+/** Refused unsent: a pause on the resource, or a background call below the floor of a window not yet reset. */
+function refusal(budget: StoredBudget | null, priority: Priority, now: number): Error | null {
+  if (!budget) return null;
+  if (budget.pausedUntil !== null && budget.pausedUntil > now) return new GithubPaused(budget.pausedUntil);
+  const belowFloor = budget.resetAt > now && budget.remaining < budget.limit * BACKGROUND_FLOOR;
+  return priority === 'background' && belowFloor ? new GithubDeferred(budget.resetAt) : null;
+}
+
+/** The stored body answering a 304, as the 200 it stands for. */
+function fromStore(res: Response, kept: StoredEtag): Response {
+  const out = new Headers(res.headers);
+  out.set('content-type', kept.contentType ?? 'application/json');
+  out.set('etag', kept.etag);
+  return new Response(kept.body, { status: 200, headers: out });
 }
 
 export function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url, init), clock = Date.now, log = (line) => { console.error(line); } }: GithubClientDeps): GithubClient {
@@ -122,52 +146,52 @@ export function githubClient({ store, fetch: send = (url, init) => globalThis.fe
     }
   }
 
+  /** What an answer says of the budget, stored; the pause it asks for, if any, stored and thrown. */
+  async function record(installation: number, resource: Resource, res: Response, at: number): Promise<void> {
+    const reported = budgetOf(res.headers);
+    const answeredResource = res.headers.get('x-ratelimit-resource') || resource;
+    if (reported?.limit) await stored((s) => s.saveBudget(installation, answeredResource, { ...reported, at }));
+    const pauseUntil = await pauseOf(res, at);
+    if (pauseUntil === null) return;
+    await stored((s) => s.pause(installation, answeredResource, pauseUntil, at));
+    log(`GitHub paused installation ${installation} (${answeredResource}) until ${new Date(pauseUntil).toISOString()}: answered ${res.status}, rate limit spent`);
+    throw new GithubPaused(pauseUntil);
+  }
+
+  /** A GET of the core resource goes out with its stored ETag, when there is one. */
+  async function conditionalOf(installation: number, url: string, resource: Resource, method: string | undefined) {
+    const conditional = (method ?? 'GET').toUpperCase() === 'GET' && resource === 'core';
+    return { conditional, kept: conditional ? await stored((s) => s.etag(installation, url)) : null };
+  }
+
+  /** The answer the caller gets: a 304 as the stored 200, and a new 200 with an ETag kept for next time. */
+  async function answerOf(installation: number, url: string, res: Response, { conditional, kept }: { conditional: boolean; kept: StoredEtag | null }, at: number): Promise<Response> {
+    if (res.status === 304 && kept) {
+      await stored((s) => s.touchEtag(installation, url, at));
+      return fromStore(res, kept);
+    }
+    const etag = res.headers.get('etag');
+    if (!conditional || res.status !== 200 || !etag) return res;
+    const body = await res.clone().text();
+    await stored((s) => s.saveEtag(installation, url, { etag, body, contentType: res.headers.get('content-type'), at }));
+    return res;
+  }
+
   async function githubFetch(url: string, init: GithubInit): Promise<Response> {
     const { installation, priority, ...rest } = init;
     if (!Number.isInteger(installation) || installation < 1) throw new Error(`githubFetch needs the installation whose budget it spends, not ${JSON.stringify(installation)}`);
-    const method = (rest.method ?? 'GET').toUpperCase();
     const resource = resourceOf(url);
-    const now = clock();
+    const refused = refusal(await stored((s) => s.budget(installation, resource)), priority, clock());
+    if (refused) throw refused;
 
-    const budget = await stored((s) => s.budget(installation, resource));
-    if (budget?.pausedUntil && budget.pausedUntil > now) throw new GithubPaused(budget.pausedUntil);
-    if (priority === 'background' && budget && budget.resetAt > now && budget.remaining < budget.limit * BACKGROUND_FLOOR) {
-      throw new GithubDeferred(budget.resetAt);
-    }
-
-    const conditional = method === 'GET' && resource === 'core';
-    const kept = conditional ? await stored((s) => s.etag(installation, url)) : null;
+    const etag = await conditionalOf(installation, url, resource, rest.method);
     // The caller's headers go out as given; a stored ETag adds one, as a plain object of lowercase names.
-    const headers = kept
-      ? { ...Object.fromEntries(new Headers(rest.headers)), 'if-none-match': kept.etag }
-      : rest.headers;
+    const headers = etag.kept ? { ...Object.fromEntries(new Headers(rest.headers)), 'if-none-match': etag.kept.etag } : rest.headers;
     const res = await send(url, headers === undefined ? rest : { ...rest, headers });
 
     const answered = clock();
-    const reported = budgetOf(res.headers);
-    const spent = reported?.limit ? reported : null;
-    const pauseUntil = await pauseOf(res, answered);
-    const answeredResource = res.headers.get('x-ratelimit-resource') || resource;
-    if (spent) await stored((s) => s.saveBudget(installation, answeredResource, { ...spent, at: answered }));
-    if (pauseUntil !== null) {
-      await stored((s) => s.pause(installation, answeredResource, pauseUntil, answered));
-      log(`GitHub paused installation ${installation} (${answeredResource}) until ${new Date(pauseUntil).toISOString()}: answered ${res.status}, rate limit spent`);
-      throw new GithubPaused(pauseUntil);
-    }
-
-    if (res.status === 304 && kept) {
-      await stored((s) => s.touchEtag(installation, url, answered));
-      const out = new Headers(res.headers);
-      out.set('content-type', kept.contentType ?? 'application/json');
-      out.set('etag', kept.etag);
-      return new Response(kept.body, { status: 200, headers: out });
-    }
-    const etag = res.headers.get('etag');
-    if (conditional && res.status === 200 && etag) {
-      const body = await res.clone().text();
-      await stored((s) => s.saveEtag(installation, url, { etag, body, contentType: res.headers.get('content-type'), at: answered }));
-    }
-    return res;
+    await record(installation, resource, res, answered);
+    return answerOf(installation, url, res, etag, answered);
   }
 
   /** A plain init without the browser's own `priority`, which the budget's takes the place of. */
