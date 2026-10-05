@@ -20,6 +20,7 @@
     "fallow:audit": "fallow audit",
     "check:changed": "node scripts/check-changed.ts",
     "mutation": "stryker run stryker.config.ts",
+    "mutation:changed": "node scripts/mutation-changed.ts",
     "game:project": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/project.ts",
     "game:score": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/score.ts",
     "game:xp": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/xp.ts",
