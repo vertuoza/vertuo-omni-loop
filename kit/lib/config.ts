@@ -105,6 +105,10 @@ export const ConfigSchema = z
       fix: branchTemplate.default('fix/{topic}'),
       phase0: branchTemplate.default('docs/phase-0-{topic}'),
       slice: branchTemplate.default('feat/{topic}--{slice}'),
+      // Landings: the branch of each landing of a PRD of more than one, stacked on the one before;
+      // `{landing}` and `{landings}` are its number and the count, `{name}` its plan's name for it.
+      // A PRD of one landing keeps `feature`.
+      landing: branchTemplate.default('feat/{topic}-{landing}of{landings}-{name}'),
       rework: branchTemplate.default('fix-{item}'),
       retro: branchTemplate.default('docs/retro-{topic}'),
       knowledge: branchTemplate.default('docs/knowledge-{topic}'),

@@ -179,6 +179,12 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nacceptance:\n  enabled: true\n')).toThrow(/acceptance\.dir/);
   });
 
+  it('names each landing branch from branches.landing, filled with {topic}, {landing}, {landings} and {name}', () => {
+    expect(parseConfig('kit: 1\n').branches.landing).toBe('feat/{topic}-{landing}of{landings}-{name}');
+    expect(parseConfig("kit: 1\nbranches:\n  landing: 'land/{topic}/{landing}'\n").branches.landing).toBe('land/{topic}/{landing}');
+    expect(() => parseConfig("kit: 1\nbranches:\n  landing: ''\n")).toThrow(/branches\.landing/);
+  });
+
   it('reads landings.alone as regex sources, empty by default, and refuses one that is no regular expression', () => {
     expect(parseConfig('kit: 1\n').landings).toEqual({ alone: [] });
     const config = parseConfig("kit: 1\nlandings:\n  alone: ['^kernel-migrations/database/migrations/', '/db/migrations/']\n");

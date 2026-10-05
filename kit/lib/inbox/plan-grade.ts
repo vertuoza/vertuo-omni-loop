@@ -179,8 +179,9 @@ function wavesOf(slices: readonly Slice[]): (number | null)[] {
   return [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
 }
 
-/** Every landing the slice table uses, in order, with its row's name and merge condition. */
-function gradedLandings(slices: readonly Slice[], rows: readonly PlanLanding[]): GradedLanding[] {
+/** Every landing the slice table uses, in order, with its row's name and merge condition. Exported
+ * for the board, which reads a plan's landings without grading it. */
+export function gradedLandings(slices: readonly Slice[], rows: readonly PlanLanding[]): GradedLanding[] {
   const numbers = [...new Set(slices.map((slice) => slice.landing))].sort((a, b) => a - b);
   return numbers.map((landing) => {
     const row = rows.find((candidate) => candidate.landing === landing);

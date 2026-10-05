@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { boardFor, fillBranch, isClaimedStale, runnableFrontier } from './board.ts';
-import type { BoardPr, BoardRepos, BoardSlice, FrontierRow } from './board.ts';
+import { boardFor, fillBranch, isClaimedStale, landingBranches, runnableFrontier } from './board.ts';
+import type { BoardLanding, BoardPr, BoardRepos, BoardSlice, FrontierRow } from './board.ts';
 import { assertDefined } from '../test/assert.ts';
 import { parsePr, parseWorkSliceId } from './ids.ts';
 
@@ -439,5 +439,103 @@ describe('boardFor — a plan repository (PRD 563)', () => {
     expect(result.slices[0]).not.toHaveProperty('repo');
     expect(result.slices[0]).not.toHaveProperty('slug');
     expect(firstRow(result).state).toBe('in-flight');
+  });
+});
+
+describe('landings: the board reads a PRD per landing', () => {
+  const LANDINGS: BoardLanding[] = [
+    { landing: 1, name: 'expand', branch: 'feat/widgets-1of3-expand' },
+    { landing: 2, name: 'code', branch: 'feat/widgets-2of3-code' },
+    { landing: 3, name: 'contract', branch: 'feat/widgets-3of3-contract' },
+  ];
+  const SLICES = [
+    slice({ id: parseWorkSliceId('s1'), territory: ['db/'], landing: 1 }),
+    slice({ id: parseWorkSliceId('s2'), territory: ['src/'], landing: 2 }),
+    slice({ id: parseWorkSliceId('s3'), territory: ['app/'], landing: 2, wave: 2, blockedBy: [parseWorkSliceId('s2')] }),
+    slice({ id: parseWorkSliceId('s4'), territory: ['db/'], landing: 3 }),
+  ];
+  const sub = (id: string, landing: number, overrides: Partial<BoardPr> = {}) =>
+    pr({ number: parsePr(10 + Number(id.slice(1))), headRefName: `feat/widgets--${id}`, baseRefName: LANDINGS[landing - 1]?.branch, ...overrides });
+  const MERGED = { state: 'MERGED', mergedAt: '2026-09-25T10:00:00Z' };
+  const run = (prs: BoardPr[], config = CONFIG) =>
+    boardFor({ slices: SLICES, prs, now: NOW, limits: LIMITS, config, prd: PRD, landings: LANDINGS });
+
+  it('attributes every sub-PR to its landing by base branch', () => {
+    const result = run([sub('s1', 1, MERGED), sub('s2', 2), sub('s4', 3)]);
+    expect(result.slices.map((row) => [row.id, row.state, row.pr?.number ?? null])).toEqual([
+      ['s1', 'merged', 11],
+      ['s2', 'in-flight', 12],
+      ['s3', 'blocked', null],
+      ['s4', 'in-flight', 14],
+    ]);
+    // A sub-PR into another landing's branch is not its slice's.
+    expect(rowOf(run([sub('s2', 1)]), 's2').state).toBe('runnable');
+  });
+
+  it('in label mode, counts a labelled PR into its landing branch and no labelled PR into another', () => {
+    const config = { ...CONFIG, board: { matchBy: 'label' } };
+    const labels = [{ name: 'omni:sub' }];
+    expect(rowOf(run([sub('s2', 2, { labels })], config), 's2').state).toBe('in-flight');
+    expect(rowOf(run([sub('s2', 2, { labels, baseRefName: 'main' })], config), 's2').state).toBe('runnable');
+    expect(rowOf(run([sub('s2', 2)], config), 's2').state).toBe('runnable');
+  });
+
+  it('names the current landing: the first whose slices are not all merged, and none at the end', () => {
+    const first = run([]);
+    expect(first.currentLanding).toBe(1);
+    expect(first.frontier.takeable).toEqual(['s1']);
+
+    const second = run([sub('s1', 1, MERGED)]);
+    expect(second.currentLanding).toBe(2);
+    expect(second.frontier.takeable).toEqual(['s2']);
+
+    const done = run([sub('s1', 1, MERGED), sub('s2', 2, MERGED), sub('s3', 2, MERGED), sub('s4', 3, MERGED)]);
+    expect(done.currentLanding).toBeNull();
+    expect(done.frontier.wave).toBeNull();
+  });
+
+  it("reports each landing's counts and its own pull request's state", () => {
+    const own = (landing: number, overrides: Partial<BoardPr>) =>
+      pr({ number: parsePr(100 + landing), headRefName: LANDINGS[landing - 1]?.branch, baseRefName: 'main', ...overrides });
+    const result = run([
+      sub('s1', 1, MERGED),
+      sub('s2', 2),
+      own(1, MERGED),
+      own(2, { isDraft: false }),
+      own(3, { isDraft: true }),
+    ]);
+    expect(result.landings?.map(({ landing, merged, open, notStarted, complete, pr: landingPr }) => ({ landing, merged, open, notStarted, complete, pr: landingPr }))).toEqual([
+      { landing: 1, merged: 1, open: 0, notStarted: 0, complete: true, pr: { number: 101, state: 'merged' } },
+      { landing: 2, merged: 0, open: 1, notStarted: 1, complete: false, pr: { number: 102, state: 'ready' } },
+      { landing: 3, merged: 0, open: 0, notStarted: 1, complete: false, pr: { number: 103, state: 'draft' } },
+    ]);
+    expect(run([]).landings?.map((landing) => landing.pr)).toEqual([
+      { number: null, state: 'absent' },
+      { number: null, state: 'absent' },
+      { number: null, state: 'absent' },
+    ]);
+  });
+
+  it('gives a PRD of one landing the board it always had, with no landings key', () => {
+    const result = board([slice()], [pr()]);
+    expect(Object.keys(result)).toEqual(['prd', 'slices', 'frontier']);
+    const one = boardFor({ slices: [slice()], prs: [pr()], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, landings: [{ landing: 1, name: 'x', branch: 'feat/widgets' }] });
+    expect(one).toEqual(result);
+  });
+});
+
+describe('landingBranches', () => {
+  const BRANCHES = { feature: 'feat/{topic}', landing: 'feat/{topic}-{landing}of{landings}-{name}' };
+
+  it('keeps the feature branch for a PRD of one landing', () => {
+    expect(landingBranches(BRANCHES, { topic: 'widgets', landings: [{ landing: 1, name: 'landing-1' }] })).toEqual([
+      { landing: 1, name: 'landing-1', branch: 'feat/widgets' },
+    ]);
+  });
+
+  it('fills branches.landing for each landing of more than one', () => {
+    expect(
+      landingBranches(BRANCHES, { topic: 'widgets', landings: [{ landing: 1, name: 'expand' }, { landing: 2, name: 'code' }] }).map((entry) => entry.branch),
+    ).toEqual(['feat/widgets-1of2-expand', 'feat/widgets-2of2-code']);
   });
 });

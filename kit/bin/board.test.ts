@@ -253,6 +253,45 @@ describe('omni board — table and --json output', () => {
     expect(s.out.join('')).toMatch(/s1\s+w1\s+in-flight/);
   });
 
+  it('reads a PRD of two landings per landing: one list per landing branch, one per landing PR, a line per landing', async () => {
+    const plan = [
+      '# A plan',
+      '',
+      '| id | slice | territory | blocked by | wave | landing |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| s1 | Expand | `db/` | — | 1 | 1 |',
+      '| s2 | Code | `src/` | — | 1 | 2 |',
+      '',
+      '## Landings',
+      '',
+      '| landing | name | merge when |',
+      '| --- | --- | --- |',
+      '| 1 | expand | — |',
+      '| 2 | code | landing 1 is deployed |',
+      '',
+    ].join('\n');
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan } });
+    const { exec, calls } = fakeExec(root, [
+      pr({ number: 1, baseRefName: 'feat/widgets-1of2-expand', state: 'MERGED', mergedAt: new Date().toISOString() }),
+      pr({ number: 5, headRefName: 'feat/widgets-1of2-expand', baseRefName: 'main', isDraft: true }),
+    ]);
+    const s = io();
+    expect(await main(['board', '7'], { cwd: root, exec, ...s })).toBe(0);
+
+    const narrowed = calls.filter((call) => call.file === 'gh' && call.args[1] === 'list').map((call) => call.args.slice(-2).join(' '));
+    expect(narrowed).toEqual([
+      '--base feat/widgets-1of2-expand',
+      '--base feat/widgets-2of2-code',
+      '--head feat/widgets-1of2-expand',
+      '--head feat/widgets-2of2-code',
+    ]);
+    const text = s.out.join('');
+    expect(text).toMatch(/landing 1 \(expand\) feat\/widgets-1of2-expand — 1\/1 merged, 0 open, 0 not started — #5 draft\n/);
+    expect(text).toMatch(/s1\s+w1\s+merged/);
+    expect(text).toMatch(/landing 2 \(code\) feat\/widgets-2of2-code — 0\/1 merged, 0 open, 1 not started — no PR — current\n/);
+    expect(text).toMatch(/runnable frontier: wave 1 of landing 2 — takeable: s2/);
+  });
+
   it('fails usage with no PRD argument', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG } });
     const s = io();

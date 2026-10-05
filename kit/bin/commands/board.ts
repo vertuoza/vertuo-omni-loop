@@ -12,16 +12,21 @@
 // per repository a slice names (its `plan.targets` entry, or `repo.slug` for the plan repository),
 // and a repository `gh` cannot read makes its own slices `unreadable` instead of failing the board.
 //
+// A PRD whose plan has more than one landing (`landing` column) is read per landing: one `gh pr list`
+// per landing branch (`branches.landing`) for its sub-PRs, and one by head for the landing's own
+// pull request; the board then names the current landing and prints a line per landing.
+//
 // `buildBoard` is that whole building part, exported so that the status line's background refresh
 // (`omni statusline --refresh <n>`, PRD 324) builds the board exactly as `omni board` does; the
 // command itself only prints what it returns.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardFor, fillBranch } from '../../lib/board.ts';
-import type { BoardPr, BoardRepos, BoardRow } from '../../lib/board.ts';
+import { boardFor, fillBranch, landingBranches } from '../../lib/board.ts';
+import type { BoardLanding, BoardPr, BoardRepos, BoardRow, LandingRow } from '../../lib/board.ts';
+import { gradedLandings } from '../../lib/inbox/plan-grade.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Slice } from '../../lib/inbox/territory.ts';
-import { parsePlanSlices } from '../../lib/inbox/territory.ts';
+import { parsePlanLandings, parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { githubEnv } from '../github.ts';
 import { errorCode, errorMessage, parseArgs, prdArg, println, repoSlug, usageError } from '../args.ts';
@@ -71,8 +76,9 @@ function narrowingArgs({ matchBy, featureBranch, subLabel }: Narrowing): string[
   return matchBy === 'label' ? ['--label', subLabel] : ['--base', featureBranch];
 }
 
-/** Every pull request of this feature — never the whole repository's. */
-function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel }: { repo: string; exec: Exec; env: Env | undefined } & Narrowing): BoardPr[] {
+/** Every pull request of this feature — never the whole repository's. With `head`, the pull
+ * requests whose head is that branch instead: a landing's own. */
+function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel, head = null }: { repo: string; exec: Exec; env: Env | undefined; head?: string | null } & Narrowing): BoardPr[] {
   const options: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', ...(env ? { env } : {}) };
   const raw = exec(
     'gh',
@@ -87,7 +93,7 @@ function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel }: { re
       'all',
       '--limit',
       '200',
-      ...narrowingArgs({ matchBy, featureBranch, subLabel }),
+      ...(head === null ? narrowingArgs({ matchBy, featureBranch, subLabel }) : ['--head', head]),
     ],
     options,
   );
@@ -138,6 +144,14 @@ function tableLine(row: BoardRow<Slice>, repoWidth: number): string {
   return `  ${row.id.padEnd(6)} ${repoCol}w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
 }
 
+/** A landing's header line: its number, name and branch, its counts, its pull request's state, and
+ * whether it is the landing a wave takes from now. */
+function landingLine(landing: LandingRow, current: number | null): string {
+  const pr = landing.pr.number === null ? 'no PR' : `#${landing.pr.number} ${landing.pr.state}`;
+  const counts = `${landing.merged}/${landing.slices.length} merged, ${landing.open} open, ${landing.notStarted} not started`;
+  return ` landing ${landing.landing} (${landing.name}) ${landing.branch} — ${counts} — ${pr}${landing.landing === current ? ' — current' : ''}`;
+}
+
 /**
  * PRD `prd`'s board, built as `omni board` builds it: the plan's slices, this feature's own pull
  * requests from `gh pr list` (with a head commit date for each that could be `claimed-stale`), and
@@ -154,7 +168,7 @@ function tableLine(row: BoardRow<Slice>, repoWidth: number): string {
 export function buildBoard(
   prd: PrdNumber,
   { ctx, exec, env, repo: repoFlag, now = Date.now() }: { ctx: Context; exec: Exec; env?: Env | undefined; repo?: string | undefined; now?: number },
-): { slices: Slice[]; result: ReturnType<typeof boardFor<Slice>>; unreadable: Unreadable[] } {
+): { slices: Slice[]; result: ReturnType<typeof boardFor<Slice>>; unreadable: Unreadable[]; landings: BoardLanding[] } {
   const { markdown } = readPlan(prd, { ctx });
   let slices: Slice[];
   try {
@@ -164,20 +178,31 @@ export function buildBoard(
   }
   const topic = topicFor(prd, { ctx });
   const featureBranch = fillBranch(ctx.config.branches.feature, { topic });
+  const landings = landingBranches(ctx.config.branches, { topic, landings: gradedLandings(slices, parsePlanLandings(markdown)) });
+  const landed = landings.length > 1 ? landings : null;
   const repo = repoSlug('board', ctx, repoFlag);
   const ghEnv = githubEnv(ctx, { exec, env });
   const matchBy = ctx.config.board.matchBy;
   const subLabel = ctx.config.labels.sub;
   const staleMinutes = ctx.config.limits.claimStaleMinutes;
-  const read = (slug: string) => {
-    const listed = fetchPrList({ repo: slug, exec, env: ghEnv, matchBy, featureBranch, subLabel });
-    return fetchHeadCommitDates(listed, { repo: slug, exec, env: ghEnv, now, staleMinutes });
+  const list = (slug: string): BoardPr[] => {
+    if (landed === null) return fetchPrList({ repo: slug, exec, env: ghEnv, matchBy, featureBranch, subLabel });
+    // One list of sub-PRs per landing branch (once, by label, in `label` mode), then each landing's own.
+    const subs =
+      matchBy === 'label'
+        ? fetchPrList({ repo: slug, exec, env: ghEnv, matchBy, featureBranch, subLabel })
+        : landed.flatMap(({ branch }) => fetchPrList({ repo: slug, exec, env: ghEnv, matchBy, featureBranch: branch, subLabel }));
+    const own = landed.flatMap(({ branch }) => fetchPrList({ repo: slug, exec, env: ghEnv, matchBy, featureBranch, subLabel, head: branch }));
+    const byNumber = new Map<number | undefined, BoardPr>();
+    for (const pr of [...subs, ...own]) if (!byNumber.has(pr.number)) byNumber.set(pr.number, pr);
+    return [...byNumber.values()];
   };
+  const read = (slug: string) => fetchHeadCommitDates(list(slug), { repo: slug, exec, env: ghEnv, now, staleMinutes });
 
   if (slices.every((slice) => slice.repo === null)) {
     const prs = read(repo);
-    const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic } });
-    return { slices, result, unreadable: [] };
+    const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, landings: landed });
+    return { slices, result, unreadable: [], landings };
   }
 
   // A plan repository (PRD 563): one pull-request list per repository a slice names, each pull
@@ -203,8 +228,8 @@ export function buildBoard(
       unreadable.push({ repo: name, slug, reason: ghReason(error) });
     }
   }
-  const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, repos });
-  return { slices, result, unreadable };
+  const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, repos, landings: landed });
+  return { slices, result, unreadable, landings };
 }
 
 /** The part of an `owner/name` slug after the `/`: the name a plan's `repo` column uses. */
@@ -248,24 +273,34 @@ export const board: Command = {
 
     println(stdout, `omni board — PRD ${prd}: ${slices.length} slice(s).`);
     const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? '').length));
-    for (const row of result.slices) println(stdout, tableLine(row, repoWidth));
+    if (result.landings === undefined) {
+      for (const row of result.slices) println(stdout, tableLine(row, repoWidth));
+    } else {
+      for (const landing of result.landings) {
+        println(stdout, landingLine(landing, result.currentLanding ?? null));
+        for (const row of result.slices.filter((candidate) => landing.slices.includes(candidate.id))) println(stdout, tableLine(row, repoWidth));
+      }
+    }
     for (const { repo, slug, reason } of unreadable) {
       println(stdout, `omni board — cannot read ${slug ?? repo}: ${reason} — its slices are unreadable.`);
     }
 
-    printFrontier(stdout, result.frontier);
+    printFrontier(stdout, result);
     return 0;
   }),
 };
 
 /** The runnable frontier's lines: its wave, what is takeable and runnable, and what a collision deferred. */
-function printFrontier(stdout: CommandIo['stdout'], frontier: ReturnType<typeof boardFor>['frontier']): void {
+function printFrontier(stdout: CommandIo['stdout'], result: ReturnType<typeof boardFor<Slice>>): void {
+  const { frontier } = result;
   if (frontier.wave === null) {
     println(stdout, 'omni board — runnable frontier: none — nothing is takeable right now.');
+    if (result.landings !== undefined && result.currentLanding === null) println(stdout, 'omni board — every landing has all its slices merged.');
     return;
   }
   const takeable = frontier.takeable.join(', ') || '(none — every candidate collides with another)';
-  println(stdout, `omni board — runnable frontier: wave ${frontier.wave} — takeable: ${takeable}`);
+  const where = result.currentLanding === undefined ? '' : ` of landing ${result.currentLanding}`;
+  println(stdout, `omni board — runnable frontier: wave ${frontier.wave}${where} — takeable: ${takeable}`);
   println(stdout, `omni board — of which runnable (unclaimed): ${frontier.runnable.join(', ') || '(none)'}`);
   if (frontier.excluded.length > 0) {
     println(
