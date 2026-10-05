@@ -25,6 +25,19 @@
       ],
       "objection": null,
       "fit": "fits persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · offering#36 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-05",
+      "personas": [
+        { "name":  "F-E Developer", "stance":  "skeptical", "score":  4, "reaction":  "The page shows when GitHub was read and when it resumes, instead of tabs going blank. A failed refresh keeps the last good copy, which is what I asked for.", "citations":  ["persona:F-E Developer"] },
+        { "name":  "B-E DEv", "stance":  "skeptical", "score":  5, "reaction":  "One typed client, ETags in Supabase, a shared pause and a background floor, with omni-app on the same door. It shipped the way I would have built it.", "citations":  ["persona:B-E DEv"] },
+        { "name":  "Paul - Product Manager", "stance":  "excited", "score":  4, "reaction":  "The board stops breaking when GitHub pushes back, and the pages say how fresh they are. Five webhook events still need ticking in the App settings before it is instant.", "citations":  ["persona:Paul - Product Manager"] },
+        { "name":  "Lead Engineer", "stance":  "neutral", "score":  4, "reaction":  "A test now lists every place both apps call GitHub, so a new plain call cannot slip in. One gap remains: a PRD with no page is still read on each sync.", "citations":  ["persona:Lead Engineer"] },
+        { "name":  "Irisa", "stance":  "neutral", "score":  3, "reaction":  "Nothing my customers see changes, but the board I show them no longer goes blank in the morning.", "citations":  ["persona:Irisa"] }
+      ],
+      "objection": { "persona": "Paul - Product Manager", "text": "Freshness within seconds depends on an admin ticking five webhook events after the merge; until then pages lag by up to 15 minutes.", "citations": ["persona:Paul - Product Manager"], "settled": "none" },
+      "fit": "fits persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · offering#36 ✓"
     }
   ]
 }
