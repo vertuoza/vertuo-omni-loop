@@ -123,7 +123,7 @@ describe('the repositories an installation reaches (PRD 612)', () => {
 
   it('lists every page of an installation token\'s repositories, archived ones left out, through the fetch it is handed', async () => {
     const page1 = Array.from({ length: 100 }, (_, i) => repo(`Acme/r${i}`));
-    const fetchImpl = vi.fn((url: string, _init: RequestInit) => {
+    const fetchImpl = vi.fn<(url: string, init: RequestInit) => Promise<Response>>((url) => {
       if (url.endsWith('page=1')) return Promise.resolve(answer(200, { total_count: 102, repositories: page1 }));
       return Promise.resolve(answer(200, { total_count: 102, repositories: [repo('Acme/last'), repo('Acme/old', true)] }));
     });

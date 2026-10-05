@@ -42,17 +42,10 @@ export function repoReader(
   /** A contents answer, raw text or JSON; null on 404. */
   async function contents(installation: number, repository: string, path: string, raw: boolean): Promise<unknown> {
     if (!REPO.test(repository)) throw new Error(`${repository} is not a repository name`);
-    const token = await tokenFor(installation);
-    const res = await github.fetch(`${GITHUB}/repos/${repository}/contents/${encoded(path)}`, {
-      installation,
-      priority: 'background',
-      headers: {
-        authorization: `Bearer ${token}`,
-        accept: raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json',
-        'x-github-api-version': '2022-11-28',
-      },
-      cache: 'no-store',
-    });
+    const authorization = `Bearer ${await tokenFor(installation)}`;
+    const accept = raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json';
+    const url = `${GITHUB}/repos/${repository}/contents/${encoded(path)}`;
+    const res = await github.fetch(url, { installation, priority: 'background', headers: { authorization, accept, 'x-github-api-version': '2022-11-28' }, cache: 'no-store' });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`GitHub answered ${res.status} to ${repository}/${path}`);
     return raw ? res.text() : res.json();
