@@ -108,6 +108,18 @@ refuses a PRD whose folder has no note (`no release note: <path>`) or whose note
 (`release note: <rule>`). The note's voice is the optional `notes` slot of the `releasing` form, which
 `omni kb show releasing` prints.
 
+**Landings** let a PRD reach the default branch in several ordered pull requests, so that what
+must be deployed apart (a database migration, a contract step) ships alone. A plan opts in with a
+`landing` column in its slice table and an optional `## Landings` table (number, kebab-case name,
+`merge when`); `omni plan check` counts waves within each landing, refuses landing numbers with a
+gap, a slice blocked by a slice of another landing, and a `## Landings` table that does not match the
+slice table. A plan without the column has one landing and is built as it always was. A repository
+makes the cut a rule with `landings: { alone: [<regex>, …] }` in its config (empty by default,
+validated like `risk.storedShape`): a slice whose territory touches a path one pattern matches must
+touch nothing else, and a landing holding such a slice holds only such slices. The back-end, for
+instance, lists its migrations directories there (`^kernel-migrations/database/migrations/` and
+`/db/migrations/`), so a migration always travels in a landing of its own.
+
 **The knowledge graph** is the knowledge registers read as one map: `omni kb graph` prints a summary
 (a line per domain with its principles, rules, invariants, laws and proposals, then the principles
 nothing serves and the rules and invariants that serve no principle), and `omni kb graph --json` the

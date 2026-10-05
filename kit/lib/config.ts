@@ -190,6 +190,10 @@ export const ConfigSchema = z
       storedShape: z.array(regexSource).default([]),
       sharedContract: z.array(text).default([]),
     }),
+    // Landings: the paths that must reach the default branch in a landing of their own (a
+    // repository's migrations directories, say). Regex sources over repository paths, compiled once
+    // by `omni plan check`; empty, no plan is refused for what it puts together.
+    landings: section({ alone: z.array(regexSource).default([]) }),
     notify: section({
       slack: z
         .object({ channelVar: text.default('OMNI_SLACK_CHANNEL'), tokenSecret: text.default('SLACK_BOT_TOKEN') })

@@ -27532,6 +27532,10 @@ var ConfigSchema = external_exports.object({
     storedShape: external_exports.array(regexSource).default([]),
     sharedContract: external_exports.array(text).default([])
   }),
+  // Landings: the paths that must reach the default branch in a landing of their own (a
+  // repository's migrations directories, say). Regex sources over repository paths, compiled once
+  // by `omni plan check`; empty, no plan is refused for what it puts together.
+  landings: section({ alone: external_exports.array(regexSource).default([]) }),
   notify: section({
     slack: external_exports.object({ channelVar: text.default("OMNI_SLACK_CHANNEL"), tokenSecret: text.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
   }),
@@ -41014,6 +41018,35 @@ function landingTableViolations(rows2, used) {
   }
   return [...violations, ...used.filter((landing) => !seen.has(landing)).map((landing) => `## Landings: landing ${landing} holds slices and has no row.`)];
 }
+function aloneSplit(slice, alone) {
+  const matches = (prefix) => alone.some((pattern) => pattern.test(prefix));
+  return { alone: slice.territory.filter(matches), other: slice.territory.filter((prefix) => !matches(prefix)) };
+}
+function landAloneViolations(slices, patterns) {
+  if (patterns.length === 0) return [];
+  const alone = patterns.map((source) => new RegExp(source));
+  const split = new Map(slices.map((slice) => [slice.id, aloneSplit(slice, alone)]));
+  const violations = [];
+  for (const slice of slices) {
+    const { alone: aloneGround, other } = split.get(slice.id) ?? { alone: [], other: [] };
+    if (aloneGround.length > 0 && other.length > 0) {
+      violations.push(
+        `landing: ${slice.id} (landing ${slice.landing}) touches ${aloneGround.join(", ")}, which lands alone, and also ${other.join(", ")} \u2014 a slice touching a land-alone path touches nothing else.`
+      );
+    }
+  }
+  for (const landing of new Set(slices.map((slice) => slice.landing))) {
+    const members2 = slices.filter((slice) => slice.landing === landing);
+    const lone = members2.filter((slice) => split.get(slice.id)?.other.length === 0 && slice.territory.length > 0);
+    const rest = members2.filter((slice) => split.get(slice.id)?.alone.length === 0);
+    if (lone.length > 0 && rest.length > 0) {
+      violations.push(
+        `landing: landing ${landing} holds ${lone.map((slice) => slice.id).join(", ")}, which land alone, and ${rest.map((slice) => slice.id).join(", ")}, which do not \u2014 a landing holding a land-alone slice holds only land-alone slices.`
+      );
+    }
+  }
+  return violations;
+}
 function wavesOf(slices) {
   return [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
 }
@@ -41128,6 +41161,7 @@ function gradePlan(markdown, { config: config3 }) {
     // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...landingViolations(slices, landingRows),
+    ...landAloneViolations(slices, config3.landings.alone),
     ...blockedByViolations2(slices),
     ...collisions2.map(
       (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`

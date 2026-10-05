@@ -159,6 +159,13 @@ landing and what must be true before it is merged:
   the one before it by its order alone, never by a `blocked by`. Two slices of different landings
   never share a wave, so their territories never collide.
 
+**Paths that land alone.** When `landings.alone` in the config lists patterns, `omni plan check`
+enforces the repository's own rule: a slice whose territory touches a path one pattern matches
+touches nothing else, and a landing holding such a slice holds only such slices. Put the migrations
+in their own landing before the code that reads them (an expand landing), and what drops the old
+shape in a landing after it (a contract landing). Read `omni kb show releasing` for how this
+repository advises cutting them. A PRD whose every slice lands alone needs only one landing.
+
 **In a plan repository** (the config has a `plan` section; `/omni:mega-brainstorm` runs this skill
 there), a slice lands in one repository, so the slice table gains a `repo` column, and a
 `## Repositories` table comes before `## Slices`. Anywhere else, never write either: `omni plan
@@ -202,7 +209,8 @@ node .omni-loop/bin/omni.mjs plan check <n>
 It prints the waves and the collision matrix (and, for more than one landing, a line per landing),
 then every violation: a duplicate id, a blocker that names no slice, sits in another landing, or sits
 in the same or a later wave, two slices sharing ground in one wave of one landing, landing numbers
-with a gap, and a `## Landings` table that does not match the slice table. Fix
+with a gap, a `## Landings` table that does not match the slice table, and, with `landings.alone`
+set, a land-alone path sharing a slice or a landing with anything else. Fix
 the plan and rerun until it exits `0`. A same-wave collision is resolved by moving one slice to a
 later wave (and every slice it blocks with it), or by narrowing a territory so the two no longer
 meet. Merging the two into one slice is also allowed. **Never** leave the check red, and never

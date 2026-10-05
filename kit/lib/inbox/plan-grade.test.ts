@@ -171,3 +171,38 @@ describe('gradePlan — landings', () => {
     expect(graded.matrices[0]?.rows).toEqual([{ pair: 's1 · s2', shared: '`a/`', resolved: 's1 w1 · s2 w2' }]);
   });
 });
+
+const ALONE = parseConfig("kit: 1\nrepo:\n  slug: acme/widgets\nlandings:\n  alone: ['^db/migrations/', '/db/migrations/']\n");
+
+describe('gradePlan — landings.alone', () => {
+  it('refuses a slice touching a land-alone path and another, naming the slice, its landing and the other prefix', () => {
+    const graded = gradePlan(planMd(['| s1 | A | `db/migrations/` `src/total/` | — | 1 |']), { config: ALONE });
+    expect(graded.violations).toEqual([expect.stringMatching(/^landing: s1 \(landing 1\) touches db\/migrations\/, which lands alone, and also src\/total\/ — /)]);
+  });
+
+  it('refuses a landing holding a land-alone slice and one that is not, naming both', () => {
+    const graded = gradePlan(planMd(['| s1 | A | `db/migrations/` | — | 1 |', '| s2 | B | `src/` | — | 1 |']), { config: ALONE });
+    expect(graded.violations).toEqual([expect.stringMatching(/^landing: landing 1 holds s1, which land alone, and s2, which do not — /)]);
+  });
+
+  it('accepts a PRD whose every slice lands alone, in one landing', () => {
+    const graded = gradePlan(
+      planMd(['| s1 | A | `db/migrations/2026_add_total` | — | 1 |', '| s2 | B | `services/quote/db/migrations/` | — | 1 |']),
+      { config: ALONE },
+    );
+    expect(graded.violations).toEqual([]);
+  });
+
+  it('accepts landing 1 of migrations only and landing 2 of code only', () => {
+    const graded = gradePlan(
+      planMd(['| s1 | A | `db/migrations/` | — | 1 | 1 |', '| s2 | B | `src/` | — | 1 | 2 |', '| s3 | C | `app/` | s2 | 2 | 2 |'], LANDED),
+      { config: ALONE },
+    );
+    expect(graded.violations).toEqual([]);
+  });
+
+  it('refuses nothing new when the config declares no pattern', () => {
+    const graded = gradePlan(planMd(['| s1 | A | `db/migrations/` `src/` | — | 1 |', '| s2 | B | `app/` | — | 1 |']), { config: CONFIG });
+    expect(graded.violations).toEqual([]);
+  });
+});
