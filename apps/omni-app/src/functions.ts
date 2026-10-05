@@ -2,14 +2,17 @@
 // installation tokens signed with the GitHub App's key, and to the groups of the app's environment it
 // needs (./env.ts): the outbox check (PRD 28), the inbox check (PRD 675) with its canon gate (PRD 839),
 // the retro with its day-14 run (PRD 72), the knowledge harvest (PRD 82), the pr-stats collector
-// (PRD 612) and the canon buttons (PRD 839). A test hands `octokitFor` a stubbed GitHub.
+// (PRD 612) and the canon buttons (PRD 839). Every installation call spends the installation's budget
+// through the shared client (PRD 902), on the store galaxy writes too. A test hands `octokitFor` a
+// stubbed GitHub.
+import { githubClient } from '@omni/github';
 import type { AppEnv } from './env.ts';
 import { liveCanon } from './canon/live.ts';
 import { createCanonAction } from './inbox-check/canon-action.ts';
 import { createInboxCheck } from './inbox-check/inbox-check.ts';
 import { inngest } from './inngest-client.ts';
 import { createKnowledgeHarvest } from './knowledge-harvest/knowledge-harvest.ts';
-import { installationOctokitFor } from './octokit-for.ts';
+import { githubStoreOf, installationOctokitFor } from './octokit-for.ts';
 import { createOutboxCheck } from './outbox-check/outbox-check.ts';
 import { createPrStats } from './pr-stats/pr-stats.ts';
 import { createRetro } from './retro/retro.ts';
@@ -18,7 +21,10 @@ import { createRetro } from './retro/retro.ts';
 type AppOctokitFor = ReturnType<typeof installationOctokitFor>;
 
 /** The functions, by name, in the order they are served, bound to `env`. */
-export function appFunctions(env: AppEnv, { octokitFor = installationOctokitFor(env.githubApp) }: { octokitFor?: AppOctokitFor } = {}) {
+export function appFunctions(
+  env: AppEnv,
+  { octokitFor = installationOctokitFor(env.githubApp, githubClient({ store: githubStoreOf(env.supabase) })) }: { octokitFor?: AppOctokitFor } = {},
+) {
   return {
     outboxCheck: createOutboxCheck({ client: inngest, octokitFor }),
     inboxCheck: createInboxCheck({ client: inngest, octokitFor, canon: liveCanon(env) }),
