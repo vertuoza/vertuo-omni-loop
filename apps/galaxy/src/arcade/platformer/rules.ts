@@ -3,6 +3,7 @@
 // how long A is held. Phaser does the gravity, the collisions and the drawing; each frame the scene
 // asks these rules how fast the hero runs and whether the jump still lifts.
 import type { Action } from '../keys';
+import { at, positionOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /**
  * What the scene reports to the rules: the only things that happen in the game. `second` is the
@@ -35,8 +36,8 @@ export const WORLD = Object.freeze(['1-1', '1-2', '1-3'] as const);
 
 /** The stage played after `stage`; none after the last. */
 export function nextStage(stage: string): string | null {
-  const i = WORLD.indexOf(stage as (typeof WORLD)[number]);
-  return i >= 0 && i < WORLD.length - 1 ? WORLD[i + 1] : null;
+  const i = positionOf(WORLD, stage);
+  return i >= 0 && i < WORLD.length - 1 ? at(WORLD, i + 1, 'the next stage') : null;
 }
 
 /**

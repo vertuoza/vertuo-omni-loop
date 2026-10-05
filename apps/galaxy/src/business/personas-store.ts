@@ -1,5 +1,8 @@
 import { validPersonaAvatar } from '@omni/design';
-import { NAME_MAX, personaOf, STANCES, TEXT_MAX, type Persona, type PersonaFields, type StoredPersona } from './personas';
+import { NAME_MAX, personaOf, STANCES, StoredPersona, TEXT_MAX, type Persona, type PersonaFields } from './personas';
+import { parseRow } from '../data/parse-rows';
+import { COULD_NOT_SAVE } from './store';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings → Business → Personas' calls (PRD 799 s3). In production, the functions of
 // supabase/migrations/20261022090000_personas.sql, called as the signed-in person: persona_add(),
@@ -17,12 +20,11 @@ export interface PersonaPort {
   restore(persona: string): Promise<SavedPersona>;
 }
 
-export const NOT_MEMBER = 'Only a member of the workspace can change its personas.';
-export const GONE = 'That persona is no longer here. Reload the page.';
-export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
+export const PERSONA_NOT_MEMBER = 'Only a member of the workspace can change its personas.';
+export const PERSONA_GONE = 'That persona is no longer here. Reload the page.';
 
 /** What a 22023 says, by the field its `hint` names. */
-export const INVALID_FIELD: Readonly<Record<string, string>> = {
+export const INVALID_PERSONA_FIELD: Readonly<Record<string, string>> = {
   name: `A name: 1 to ${NAME_MAX} characters, on one line.`,
   stance: 'Pick a stance: excited, neutral or skeptical.',
   trade: 'Pick a trade from the list.',
@@ -35,10 +37,11 @@ const INVALID = 'That can’t be saved. Check each field.';
 
 /** An error as PostgREST answers it, or anything thrown, as the section says it. */
 export function personaRefusalOf(error: unknown): string {
-  const { code, hint } = (error ?? {}) as { code?: unknown; hint?: unknown };
-  if (code === '42501') return NOT_MEMBER;
-  if (code === 'P0002') return GONE;
-  if (code === '22023') return INVALID_FIELD[String(hint)] ?? INVALID;
+  const code = propertyOf(error, 'code');
+  const hint = propertyOf(error, 'hint');
+  if (code === '42501') return PERSONA_NOT_MEMBER;
+  if (code === 'P0002') return PERSONA_GONE;
+  if (code === '22023') return INVALID_PERSONA_FIELD[String(hint)] ?? INVALID;
   return COULD_NOT_SAVE;
 }
 
@@ -53,7 +56,8 @@ export function databasePersonas(db: Rpc, workspace: string): PersonaPort {
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return { ok: false, message: personaRefusalOf(error) };
-      return { ok: true, persona: personaOf(data as StoredPersona) };
+      const row = parseRow(StoredPersona, data, `business/personas-store: ${fn}`);
+      return row.ok ? { ok: true, persona: personaOf(row.value) } : { ok: false, message: COULD_NOT_SAVE };
     } catch (err) {
       return { ok: false, message: personaRefusalOf(err) };
     }
@@ -91,38 +95,38 @@ export function demoPersonasPort(initial: readonly Persona[] = []): PersonaPort 
   let personas = [...initial];
   const deleted = new Map<string, Persona>();
   let next = Math.max(0, ...initial.map((p) => p.ordinal)) + 1;
-  const refused = (field: string): SavedPersona => ({ ok: false, message: INVALID_FIELD[field] ?? INVALID });
+  const refused = (field: string): SavedPersona => ({ ok: false, message: INVALID_PERSONA_FIELD[field] ?? INVALID });
   return {
-    async add(product, fields) {
+    add(product, fields) {
       const bad = invalidField(fields);
-      if (bad) return refused(bad);
+      if (bad) return Promise.resolve(refused(bad));
       const persona: Persona = { id: `demo-persona-${next}`, product, ordinal: next, ...trimmed(fields) };
       next += 1;
       personas = [...personas, persona];
-      return { ok: true, persona };
+      return Promise.resolve({ ok: true, persona });
     },
-    async edit(id, fields) {
+    edit(id, fields) {
       const bad = invalidField(fields);
-      if (bad) return refused(bad);
+      if (bad) return Promise.resolve(refused(bad));
       const kept = personas.find((p) => p.id === id);
-      if (!kept) return { ok: false, message: GONE };
+      if (!kept) return Promise.resolve({ ok: false, message: PERSONA_GONE });
       const persona = { ...kept, ...trimmed(fields) };
       personas = personas.map((p) => (p.id === id ? persona : p));
-      return { ok: true, persona };
+      return Promise.resolve({ ok: true, persona });
     },
-    async remove(id) {
+    remove(id) {
       const kept = personas.find((p) => p.id === id);
-      if (!kept) return { ok: false, message: GONE };
+      if (!kept) return Promise.resolve({ ok: false, message: PERSONA_GONE });
       personas = personas.filter((p) => p.id !== id);
       deleted.set(id, kept);
-      return { ok: true, persona: kept };
+      return Promise.resolve({ ok: true, persona: kept });
     },
-    async restore(id) {
+    restore(id) {
       const kept = deleted.get(id);
-      if (!kept) return { ok: false, message: GONE };
+      if (!kept) return Promise.resolve({ ok: false, message: PERSONA_GONE });
       deleted.delete(id);
       personas = [...personas, kept];
-      return { ok: true, persona: kept };
+      return Promise.resolve({ ok: true, persona: kept });
     },
   };
 }

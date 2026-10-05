@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { SUGGEST_MODEL } from '../suggest';
 import { maxValue, type ClaimKind } from '../model';
+import type { OpenRouterEnv } from '../../env';
 import type { Candidate } from './verify';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The extraction of a draft (PRD 774, spec step 2): one call per source to the small model already
 // used for suggested rivals (../suggest.ts, through OpenRouter), which answers candidate claims of the
@@ -20,7 +22,7 @@ const MAX_SOURCE_CHARS = 24_000;
 const MAX_CANDIDATES = 20;
 const KINDS = ['region', 'offering', 'size', 'trade', 'rival'] as const satisfies readonly ClaimKind[];
 
-const Answer = z.array(z.object({ kind: z.string(), value: z.string(), quote: z.string() }).passthrough());
+const Answer = z.array(z.looseObject({ kind: z.string(), value: z.string(), quote: z.string() }));
 
 const SYSTEM = [
   'You read one document of a software company and find what it says about the company\'s business.',
@@ -86,8 +88,9 @@ export async function extractCandidates(text: string, where: string, { apiKey, f
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) return [];
-    const body = (await response.json()) as { choices?: Array<{ message?: { content?: unknown } }> };
-    return readCandidates(body?.choices?.[0]?.message?.content);
+    const body: unknown = await response.json();
+    const message = propertyOf(propertyOf(propertyOf(body, 'choices'), '0'), 'message');
+    return readCandidates(propertyOf(message, 'content'));
   } catch {
     return [];
   }
@@ -96,7 +99,6 @@ export async function extractCandidates(text: string, where: string, { apiKey, f
 export type Extractor = (text: string, where: string) => Promise<Candidate[]>;
 
 /** The extractor when OPENROUTER_API_KEY is set, and null otherwise: then a draft finds nothing. */
-export function extractorFromEnv(env: Record<string, string | undefined>): Extractor | null {
-  const apiKey = env.OPENROUTER_API_KEY?.trim();
-  return apiKey ? (text, where) => extractCandidates(text, where, { apiKey }) : null;
+export function extractorFromEnv(openrouter: OpenRouterEnv | null): Extractor | null {
+  return openrouter ? (text, where) => extractCandidates(text, where, { apiKey: openrouter.key }) : null;
 }

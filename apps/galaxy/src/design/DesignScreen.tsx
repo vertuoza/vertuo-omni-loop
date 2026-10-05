@@ -1,9 +1,9 @@
-import type { CSSProperties } from 'react';
 import { OMNI_LOOP, logoSvg, spritePixels, type FontRole, type Tint } from '@omni/design';
 import {
   CAST, COLOURS, FLEETS, FRAMES, ICONS, LOGOS, LOGO_NOTES, LOGO_SCALES, LOGO_SHOWINGS, POSES, POSTER_SCALE,
   TYPE_STEPS, fleetHero, ratio,
 } from './catalogue';
+import { cssVars } from '../arcade/css-vars';
 import { pixelSvg } from './pixel-svg';
 
 // /design: the Omni Loop design system, rendered on the server straight from @omni/design: every
@@ -29,7 +29,7 @@ const SAMPLE: Record<FontRole, string> = {
 const Svg = ({ svg }: { svg: string }) => <span className="ds-svg" dangerouslySetInnerHTML={{ __html: svg }} />;
 
 function SpriteFrame({ name, frame, scale, tint, label }: { name: string; frame: number; scale: number; tint?: Tint; label?: string }) {
-  return <Svg svg={pixelSvg(spritePixels(name, { frame, tint }), { scale, title: `${label ?? name}, frame ${frame + 1}` })} />;
+  return <Svg svg={pixelSvg(spritePixels(name, { frame, tint: tint ?? null }), { scale, title: `${label ?? name}, frame ${frame + 1}` })} />;
 }
 
 function Section({ id, title, lede, children }: { id: string; title: string; lede: string; children: React.ReactNode }) {
@@ -105,8 +105,8 @@ export function DesignScreen() {
                     fontFamily: `var(--type-${step.name}-family)`,
                     fontSize: `var(--type-${step.name}-size)`,
                     lineHeight: `var(--type-${step.name}-line)`,
-                    '--slant': `var(--type-${step.name}-slant)`,
-                  } as CSSProperties}
+                    ...cssVars({ '--slant': `var(--type-${step.name}-slant)` }),
+                  }}
                 >
                   {SAMPLE[step.role]}
                 </p>

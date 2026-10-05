@@ -14,6 +14,7 @@ import { UNREAD, type GithubSummary } from '../github/summary';
 import { isPulseKind, PULSE_KINDS, type DossierListRow, type DossierPulse, type PulseKind } from '../store';
 import { stageOf, type StageId } from './stage';
 import type { DossierRead } from './view';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** How many failed reads in a row before the page says so. */
 export const FAILURES_BEFORE_PROBLEM = 3;
@@ -35,11 +36,11 @@ function answersOf(github: GithubSummary | null): string | null {
 }
 
 /** The dossier's pulse, and its GitHub part when there is one (a numbered dossier whose summary was read). */
-export type LivePulse = DossierPulse & { github?: GithubPulse };
+export type LivePulse = DossierPulse & { github?: GithubPulse | undefined };
 
 /** The GitHub part of a dossier's pulse: its stage and open outbox count, unknown when the summary
  * could not be read; none for a draft, or when the summary was not asked for (undefined). */
-export function githubPulse(prd: number | null, github: GithubSummary | null | undefined): GithubPulse | undefined {
+export function githubPulse(prd: PrdNumber | null, github: GithubSummary | null | undefined): GithubPulse | undefined {
   if (prd === null || github === undefined) return undefined;
   const outbox = github?.outbox ?? null;
   return { stage: stageOf(prd, github).id, open: outbox && outbox !== UNREAD ? outbox.open.length : null, answers: answersOf(github) };
@@ -79,7 +80,7 @@ export function pulseOf(read: DossierRead): LivePulse | null {
 }
 
 /** The server's one GitHub reader, as the live check needs it; null when the server has none. */
-export type LiveReader = { summary: (dossier: { id: string; home_repo: string; prd: number }) => Promise<GithubSummary | null> } | null;
+export type LiveReader = { summary: (dossier: { id: string; home_repo: string; prd: PrdNumber }) => Promise<GithubSummary | null> } | null;
 
 /** The GitHub part for the open page, from the dossier as the viewer may read it (null: they may not,
  * or it is gone) through the server's cached reader. A draft asks nothing; a failed read, or no

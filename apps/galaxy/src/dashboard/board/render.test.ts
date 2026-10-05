@@ -1,4 +1,5 @@
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -9,6 +10,7 @@ import { hrefWith } from './links';
 import { boardOf, type BoardRequest } from './load';
 import { WorkspaceScreen, type WorkspaceView } from './WorkspaceScreen';
 import type { Member } from './tally';
+import { sure } from '../../arcade/test/sure';
 
 // A board and /app/workspace as the server renders them (PRD 572), to static markup: what a person
 // sees before any script runs.
@@ -90,7 +92,7 @@ describe('a board', () => {
 
   it('lists every member in People: 0s kept, the viewer marked, SOLO with no fleet, dashes with no login', () => {
     const html = render();
-    const rows = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => text(m[1]));
+    const rows = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => text(sure(m[1], 'm[1]')));
     expect(rows).toContain('Name Fleet Points PRs PRDs open · building · shipped Questions');
     expect(rows).toContain('Paul Etienne SOLO 0 1 0 · 0 · 0 9');
     expect(rows).toContain('ADA ◀ (you) OCTO 40 0 0 · 1 · 2 0');
@@ -104,7 +106,7 @@ describe('a board', () => {
         { ...member('u-paul', 'paetienne', null, 'Paul Etienne'), avatarUrl: 'https://a.test/paul.png' }, member('u-nog', null, null, 'NOGIT')],
     }, {}, {}, false);
     const people = html.slice(html.indexOf('board-people'), html.indexOf('board-repos'));
-    const names = [...people.matchAll(/<th scope="row" class="board-name">([\s\S]*?)<\/th>/g)].map((m) => m[1]);
+    const names = [...people.matchAll(/<th scope="row" class="board-name">([\s\S]*?)<\/th>/g)].map((m) => sure(m[1], 'm[1]'));
     expect(names.find((n) => n.includes('ADA'))).toMatch(/^<a class="person-chip is-table" href="\/app\/people\/ada-gh"><span class="person-face is-hero" aria-hidden="true"><svg /);
     expect(names.find((n) => n.includes('Paul'))).toContain('<img class="person-face is-photo" src="https://a.test/paul.png" alt=""');
     expect(names.find((n) => n.includes('NOGIT'))).toContain('data-initial="N"');
@@ -127,6 +129,38 @@ describe('a board', () => {
     const fleets = html.slice(html.indexOf('board-fleets'));
     expect(fleets).toMatch(/<th scope="row" class="board-name"><a class="fleet-chip is-table" href="\/app\/fleet\?fleet=octo" style="--fleet:#3355ff"><span class="fleet-chip-mascot" aria-hidden="true"><svg [\s\S]*?<span class="fleet-chip-label">OCTO<\/span><\/a><span class="board-you">/);
     expect(text(fleets)).toContain('1 OCTO ◀ (your fleet) 40');
+  });
+
+  it('ranks the top three with a pixel medal in a narrow column, the rank still read aloud (issue 958)', () => {
+    const fleets = render().slice(render().indexOf('board-fleets'));
+    expect(fleets).toMatch(/<th scope="col" class="board-rank">Rank<\/th>/);
+    expect(fleets).toMatch(/<td class="board-rank"><span class="board-medal" aria-hidden="true"><svg [^>]*shape-rendering="crispEdges"[\s\S]*?<\/svg><\/span><span class="ask-sr">1<\/span><\/td>/);
+  });
+
+  it('draws every panel in the shared card: both charts, People, Repositories and Fleets (PRD 962)', () => {
+    const sections = (html: string) => [...html.matchAll(/<section class="([^"]*)"/g)].map((m) => sure(m[1], 'a section\'s classes').split(' '));
+    for (const html of [render(), render({ activity: 'unreadable', roster: 'unreadable' })]) {
+      const panels = sections(html);
+      const kinds = panels.map((c) => c.find((k) => /^board-(chart|people|repos|fleets)$/.test(k)));
+      expect(kinds).toEqual(['board-chart', 'board-chart', 'board-people', 'board-repos', 'board-fleets']);
+      for (const classes of panels) expect(classes, classes.join(' ')).toContain('board-card');
+    }
+  });
+
+  it('frames a panel with the one .board-card rule only; tile figures end on one baseline (PRD 962)', () => {
+    const css = readFileSync(new URL('./board.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: sure(sure(m[1], 'a selector').trim().split('\n').pop(), 'a selector\'s last line').trim(), body: sure(m[2], 'a rule\'s body') }));
+    const card = rules.filter((r) => r.selector === '.board-card');
+    const first = sure(card[0], 'the first .board-card rule');
+    expect(first.body).toMatch(/border: 1px solid var\(--ask-line-strong\)/);
+    expect(first.body).toMatch(/border-radius: 12px/);
+    expect(first.body).toMatch(/background: var\(--ask-surface\)/);
+    expect(first.body).toMatch(/padding: 18px/);
+    expect(card.map((r) => r.body.trim())).toContain('padding: 12px;');
+    expect(card.map((r) => r.body.trim())).toContain('border-color: CanvasText;');
+    const framing = rules.filter((r) => /\.board-(chart|people|repos|fleets)\b(?![-\w])/.test(r.selector) && /(^|[;\s])(border|border-radius|background):/.test(r.body));
+    expect(framing.map((r) => r.selector)).toEqual([]);
+    expect(sure(rules.find((r) => r.selector === '.board-tile'), 'the .board-tile rule').body).toMatch(/align-content: space-between/);
   });
 
   it('says so where a read failed, and draws the rest', () => {
@@ -160,7 +194,7 @@ describe('/app/workspace', () => {
       expect(t).toContain(part);
     }
     expect(t).toMatch(/NEWBIE SOLO 0 0 0 · 0 · 0 0/);
-    expect(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)![1]).toBe('Demo workspace');
+    expect(sure(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/), 'the match')[1]).toBe('Demo workspace');
   });
 
   it('closed, signed out and in no workspace each say so', () => {

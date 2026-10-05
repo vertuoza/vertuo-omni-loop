@@ -9,7 +9,9 @@
 // - `ProofPublic`, as the service role: the one read without sign-in, the GIF's stable link (GitHub's
 //   image proxy cannot sign in). It reads only a run's GIF path and signs a 5-minute link to it.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { listOf } from '../data/unparsed';
 import { dossierReader } from '../dossier/store';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The bucket, private (the migration's). */
 const PROOF_BUCKET = 'proof-videos';
@@ -38,7 +40,7 @@ export const PROOF_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
 export const VERDICTS = ['pass', 'fail', 'unfilmable'] as const;
 export type Verdict = (typeof VERDICTS)[number];
-export const isVerdict = (value: unknown): value is Verdict => VERDICTS.includes(value as Verdict);
+export const isVerdict = (value: unknown): value is Verdict => VERDICTS.some((verdict) => verdict === value);
 
 /** One criterion of a run: its text, verdict, the note (a fail's first error line, an unfilmable's
  * reason), and the names of its clip and script in the run's folder. */
@@ -78,8 +80,12 @@ export const proofPath = (dossierId: string, runId: string, name: string) => `${
  * registered already.
  */
 export class ProofStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, readonly reason: string) {
+  readonly code: string | undefined;
+  readonly reason: string;
+  constructor(what: string, code: string | undefined, reason: string) {
     super(`${what}: ${reason}`);
+    this.code = code;
+    this.reason = reason;
   }
 }
 
@@ -88,7 +94,7 @@ export type SignedUpload = { name: string; path: string; url: string };
 
 export type ProofStore = {
   /** The id of PRD `prd`'s dossier in `repo` the caller may read, or null. */
-  dossierOf(repo: string, prd: number): Promise<string | null>;
+  dossierOf(repo: string, prd: PrdNumber): Promise<string | null>;
   /** One signed upload link per name, under the run's folder, in order. */
   signUploads(dossierId: string, runId: string, names: string[]): Promise<SignedUpload[]>;
   /** The names of the files the run's folder holds. */
@@ -119,9 +125,10 @@ async function signedLinks(db: Pick<SupabaseClient, 'storage'>, paths: string[],
   if (paths.length === 0) return [];
   try {
     const { data, error } = await db.storage.from(PROOF_BUCKET).createSignedUrls(paths, seconds);
-    if (error || !data) return paths.map(() => null);
+    if (error) return paths.map(() => null);
+    const links = listOf(data);
     return paths.map((path, i) => {
-      const signed = data.find((d) => d.path === path) ?? data[i];
+      const signed = links.find((d) => d.path === path) ?? links[i];
       return signed && !signed.error && signed.signedUrl ? signed.signedUrl : null;
     });
   } catch {
@@ -139,15 +146,17 @@ export function proofStore(db: Pick<SupabaseClient, 'rpc' | 'from' | 'storage'>)
       return Promise.all(names.map(async (name) => {
         const path = proofPath(dossierId, runId, name);
         const { data, error } = await bucket.createSignedUploadUrl(path);
-        if (error || !data) throw new ProofStoreError('sign the upload', '42501', error?.message ?? 'no link came back');
-        return { name, path, url: data.signedUrl };
+        // The link as it came: nothing parsed it, so an answer with none is refused.
+        const link: { signedUrl: string } | null = data;
+        if (error || !link) throw new ProofStoreError('sign the upload', '42501', error?.message ?? 'no link came back');
+        return { name, path, url: link.signedUrl };
       }));
     },
 
     async uploaded(dossierId, runId) {
       const { data, error } = await db.storage.from(PROOF_BUCKET).list(`${dossierId}/${runId}`, { limit: 100 });
       if (error) throw new ProofStoreError('list the run', undefined, error.message);
-      return (data ?? []).map((file) => file.name);
+      return listOf(data).map((file) => file.name);
     },
 
     async register(run) {

@@ -29,14 +29,17 @@
 //
 // The comment is the person's own, so `omni replies` counts it like any other when GitHub lists them as
 // OWNER, MEMBER or COLLABORATOR; otherwise the send is recorded as uncounted and the tab says so.
+import 'server-only';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import { writeReply } from 'vertuo-omni-plan/kit/lib/outbox/answers.mjs';
-import { WRITER_ASSOCIATIONS } from 'vertuo-omni-plan/kit/lib/outbox/replies.mjs';
+import { writeReply } from 'vertuo-omni-plan/kit/lib/outbox/answers.ts';
+import { WRITER_ASSOCIATIONS } from 'vertuo-omni-plan/kit/lib/outbox/replies.ts';
+import { defined, group, messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { requestOrigin } from '../ask/page/sign-in';
 import type { DossierRef } from '../dossier/github/reader';
 import { UNREAD, type GithubSummary } from '../dossier/github/summary';
 import { sentView, type SendErrorCode, type SendRow } from './sent';
+import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export type { SendRow } from './sent';
 
@@ -54,7 +57,7 @@ const API = 'https://api.github.com';
 // ── The ports ──────────────────────────────────────────────────────────────────
 
 /** A dossier as the signed-in person reads it: its home repository and its PRD (null on a draft). */
-export type SendTarget = { dossierId: string; homeRepo: string; prd: number | null };
+export type SendTarget = { dossierId: string; homeRepo: string; prd: PrdNumber | null };
 
 export type SendOutcome = { commentUrl: string; login: string; counted: boolean } | { error: string };
 
@@ -63,7 +66,7 @@ export type SendStore = {
   /** The dossier, or null when the caller is no member of its workspace (or it never was). */
   target(dossierId: string): Promise<SendTarget | null>;
   /** Records a send; its id. */
-  create(send: { dossierId: string; prNumber: number; reply: string; nonceHash: string }): Promise<string>;
+  create(send: { dossierId: string; prNumber: PrNumber; reply: string; nonceHash: string }): Promise<string>;
   /** The caller's own send, or null. */
   read(sendId: string): Promise<SendRow | null>;
   /** Records its outcome, once (outbox_send_done()). */
@@ -80,8 +83,12 @@ export type OutboxSource = {
 
 /** Why GitHub posted nothing: the kind decides the words the send records. */
 export class GitHubError extends Error {
-  constructor(readonly kind: 'refused' | 'down' | 'no-access' | 'gone', readonly status: number | null) {
+  readonly kind: 'refused' | 'down' | 'no-access' | 'gone';
+  readonly status: number | null;
+  constructor(kind: 'refused' | 'down' | 'no-access' | 'gone', status: number | null) {
     super(`GitHub: ${kind}${status === null ? '' : ` (${status})`}`);
+    this.kind = kind;
+    this.status = status;
   }
 }
 
@@ -90,7 +97,7 @@ export type GitHubUser = {
   /** A user token for the code GitHub sent back. */
   exchange(code: string): Promise<string>;
   /** Posts `body` on the pull request as the token's person. */
-  comment(token: string, repo: string, number: number, body: string): Promise<{ url: string; login: string; association: string }>;
+  comment(token: string, repo: string, number: PrNumber, body: string): Promise<{ url: string; login: string; association: string }>;
 };
 
 export type SendDeps = {
@@ -106,6 +113,16 @@ export type SendDeps = {
 };
 
 // ── GitHub, over fetch ─────────────────────────────────────────────────────────
+
+/** GitHub's answer to the code: a user token, never empty. */
+const TokenReply = z.object({ access_token: z.string().min(1) });
+
+/** GitHub's answer to the comment: its address, and who posted it as GitHub says, blank when it does not. */
+const CommentReply = z.object({
+  html_url: z.string(),
+  user: z.object({ login: z.string().catch('') }).catch({ login: '' }),
+  author_association: z.string().catch(''),
+});
 
 /** GitHub's side of a send: the code traded for a user token, then the comment. Errors carry a kind and
  * a status, never the token. */
@@ -125,9 +142,9 @@ export function githubUser({ clientId, clientSecret, fetch }: { clientId: string
         body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code }),
       });
       if (response.status >= 500) throw new GitHubError('down', response.status);
-      const body = (await response.json().catch(() => null)) as { access_token?: unknown } | null;
-      if (!response.ok || typeof body?.access_token !== 'string' || !body.access_token) throw new GitHubError('refused', response.status);
-      return body.access_token;
+      const body = TokenReply.safeParse(await response.json().catch(() => null));
+      if (!response.ok || !body.success) throw new GitHubError('refused', response.status);
+      return body.data.access_token;
     },
     async comment(token, repo, number, text) {
       const response = await call(`${API}/repos/${repo}/issues/${number}/comments`, {
@@ -141,13 +158,9 @@ export function githubUser({ clientId, clientSecret, fetch }: { clientId: string
       if (response.status === 404 || response.status === 410) throw new GitHubError('gone', response.status);
       if (response.status === 401 || response.status === 403 || response.status === 422) throw new GitHubError('no-access', response.status);
       if (!response.ok) throw new GitHubError('down', response.status);
-      const body = (await response.json().catch(() => null)) as { html_url?: unknown; user?: { login?: unknown }; author_association?: unknown } | null;
-      if (typeof body?.html_url !== 'string') throw new GitHubError('down', response.status);
-      return {
-        url: body.html_url,
-        login: typeof body.user?.login === 'string' ? body.user.login : '',
-        association: typeof body.author_association === 'string' ? body.author_association : '',
-      };
+      const body = CommentReply.safeParse(await response.json().catch(() => null));
+      if (!body.success) throw new GitHubError('down', response.status);
+      return { url: body.data.html_url, login: body.data.user.login, association: body.data.author_association };
     },
   };
 }
@@ -170,7 +183,7 @@ export type SendBody = z.infer<typeof SendBody>;
 export type Question = { number: number; rank: string; options: Array<{ letter: string; text: string }> };
 
 export type Questions =
-  | { ok: true; prd: number; prNumber: number; questions: Question[] }
+  | { ok: true; prd: PrdNumber; prNumber: PrNumber; questions: Question[] }
   | { ok: false; status: number; error: string };
 
 const UNREACHABLE = 'GitHub did not answer, so nothing was sent. Try again in a moment.';
@@ -199,14 +212,14 @@ export type BuiltReply = { ok: true; reply: string; dropped: number[] } | { ok: 
 
 /** The reply the picks write: every question still open or adopted may be answered; a pick on any other
  * was settled meanwhile and is dropped. Pure. */
-export function buildReply(questions: Question[], prd: number, picks: SendBody['picks']): BuiltReply {
+export function buildReply(questions: Question[], prd: PrdNumber, picks: SendBody['picks']): BuiltReply {
   const known = new Set(questions.map((q) => q.number));
   const dropped = picks.filter((p) => !known.has(p.number)).map((p) => p.number).sort((a, b) => a - b);
   const kept = picks.filter((p) => known.has(p.number)).map(({ number, pick, reason }) => (reason?.trim() ? { number, pick, reason } : { number, pick }));
   if (kept.length === 0) {
     return { ok: false, reason: 'Every question you answered was settled meanwhile: nothing is left to send.', dropped };
   }
-  const written = writeReply({ prd, door: 'page', questions, picks: kept }) as { ok: true; reply: string } | { ok: false; reason: string };
+  const written = writeReply({ prd, door: 'page', questions, picks: kept });
   return written.ok ? { ok: true, reply: written.reply, dropped } : { ok: false, reason: written.reason, dropped };
 }
 
@@ -235,7 +248,7 @@ export async function startSend(request: Request, deps: SendDeps): Promise<Respo
   }
   const parsed = SendBody.safeParse(sent);
   if (!parsed.success) {
-    const [issue] = parsed.error.issues;
+    const issue = defined(parsed.error.issues[0], 'the failed parse\'s first issue');
     return refuse(400, `The answers are malformed: ${issue.path.join('.') || 'the body'}: ${issue.message}.`);
   }
   const { dossier, picks } = parsed.data;
@@ -281,13 +294,13 @@ function sameNonce(given: string, cookie: string | null, hash: string): boolean 
 }
 
 /** The words a send records when GitHub posted nothing. */
-export function failureWords(error: GitHubError, repo: string | null, number: number): string {
+export function failureWords(error: GitHubError, repo: string | null, number: PrNumber): string {
   const pr = repo ? `pull request #${number} of ${repo}` : `pull request #${number}`;
   switch (error.kind) {
     case 'refused': return "GitHub's authorisation was refused, so nothing was posted.";
     case 'down': return 'GitHub did not answer, so nothing was posted. Try again in a moment.';
     case 'no-access': return `Your GitHub account may not comment on ${pr}, so nothing was posted.`;
-    case 'gone': return `${pr[0].toUpperCase()}${pr.slice(1)} is gone, or your GitHub account cannot see it, so nothing was posted.`;
+    case 'gone': return `${pr.charAt(0).toUpperCase()}${pr.slice(1)} is gone, or your GitHub account cannot see it, so nothing was posted.`;
   }
 }
 
@@ -306,7 +319,8 @@ export async function finishSend(request: Request, deps: SendDeps): Promise<Resp
   const store = await deps.store();
   if (!store) return refused('signin', null);
   if (!state) return refused('state', null);
-  const [, sendId, nonce] = state;
+  const sendId = group(state, 1);
+  const nonce = group(state, 2);
 
   // Someone else's send reads as none: nothing is posted, nothing recorded.
   const send = await store.read(sendId);
@@ -340,13 +354,13 @@ export async function finishSend(request: Request, deps: SendDeps): Promise<Resp
     try {
       await deps.recount?.(send.dossier_id);
     } catch (error) {
-      console.error(`outbox send ${send.id}: the PRD's open questions could not be recounted: ${(error as Error).message}`);
+      console.error(`outbox send ${send.id}: the PRD's open questions could not be recounted: ${messageOf(error)}`);
     }
   }
   try {
     await store.done(send.id, outcome);
   } catch (error) {
-    console.error(`outbox send ${send.id}: the outcome could not be recorded: ${(error as Error).message}`);
+    console.error(`outbox send ${send.id}: the outcome could not be recorded: ${messageOf(error)}`);
   }
   return tab(send.dossier_id, send.id);
 }

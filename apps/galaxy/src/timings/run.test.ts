@@ -1,7 +1,8 @@
-// One run of `node apps/galaxy/scripts/timings.mjs` (PRD 657), on a fake fetch and a fake clock: what
+// One run of `node apps/galaxy/scripts/timings.ts` (PRD 657), on a fake fetch and a fake clock: what
 // it asks for, what it prints, and when it stops. No test reaches the network.
 import { describe, expect, it } from 'vitest';
 import { PAGES, parseArgs, timings, type Deps } from './run';
+import { sure } from '../arcade/test/sure';
 
 /** A clock that moves `step` ms each time it is read, and a fetch that answers `status` to every page. */
 function fakes({ status = 200, cookie = 'sb-abc-auth-token=xyz', body = '<html></html>' }: { status?: number; cookie?: string | null; body?: string } = {}) {
@@ -10,9 +11,9 @@ function fakes({ status = 200, cookie = 'sb-abc-auth-token=xyz', body = '<html><
   const out: string[] = [];
   const err: string[] = [];
   const deps: Deps = {
-    fetch: async (url, init) => {
-      calls.push({ url: String(url), init: init ?? {} });
-      return new Response(body, { status, headers: status >= 300 && status < 400 ? { location: '/signin' } : {} });
+    fetch: (url, init) => {
+      calls.push({ url, init: init ?? {} });
+      return Promise.resolve(new Response(body, { status, headers: status >= 300 && status < 400 ? { location: '/signin' } : {} }));
     },
     readFile: (path) => {
       if (cookie === null) throw new Error(`ENOENT: ${path}`);
@@ -33,7 +34,7 @@ describe('parseArgs', () => {
   });
 
   it('defaults to production and ten runs', () => {
-    expect(parseArgs(['--cookie', 'c.txt'])).toEqual({ cookie: 'c.txt', base: 'https://vertuo-omni-loop-galaxy.vercel.app', runs: 10 });
+    expect(parseArgs(['--cookie', 'c.txt'])).toEqual({ cookie: 'c.txt', base: 'https://www.omni-loop.xyz', runs: 10 });
   });
 });
 
@@ -60,8 +61,8 @@ describe('timings', () => {
     expect(await timings(['--cookie', 'c.txt', '--base', 'https://example.test', '--runs', '2'], deps)).toBe(0);
     expect(PAGES).toEqual(['/prd', '/app', '/app/workspace', '/app/fleet']);
     expect(calls.map((c) => c.url)).toEqual(PAGES.flatMap((p) => [`https://example.test${p}`, `https://example.test${p}`]));
-    expect(new Headers(calls[0].init.headers).get('cookie')).toBe('sb-abc-auth-token=xyz');
-    expect(calls[0].init.redirect).toBe('manual');
+    expect(new Headers(sure(calls[0], 'calls[0]').init.headers).get('cookie')).toBe('sb-abc-auth-token=xyz');
+    expect(sure(calls[0], 'calls[0]').init.redirect).toBe('manual');
     const rows = out.filter((line) => line.startsWith('| /'));
     expect(rows).toHaveLength(4);
     // The clock moves 10 ms per read: start, first byte, end, so 10 ms to the first byte, 20 ms in all.

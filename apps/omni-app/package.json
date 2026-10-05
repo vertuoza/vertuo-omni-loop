@@ -13,7 +13,8 @@
     "@omni/github": "workspace:*",
     "@supabase/supabase-js": "^2.117.1",
     "inngest": "^4.21.0",
-    "vertuo-omni-plan": "workspace:*"
+    "vertuo-omni-plan": "workspace:*",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@inngest/test": "^1.0.0"

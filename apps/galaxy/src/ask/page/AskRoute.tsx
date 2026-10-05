@@ -1,6 +1,7 @@
+import 'server-only';
 import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
-import { arcadeMode } from '../../data/mode';
+import { serverEnv } from '../../env';
 import { supabaseEnv, supabaseServer } from '../../data/supabase-server';
 import { AskPage } from './AskPage';
 import { AskSession } from './AskSession';
@@ -39,7 +40,7 @@ const tabbed = (node: ReactNode) => (
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
 export async function AskRoute({ id, query }: { id: string | null; query: AskQuery }) {
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
   const now = Date.now();
 
   if (mode === 'demo') {

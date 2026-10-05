@@ -9,7 +9,9 @@ import { extractorFromEnv } from './extract';
 import { repoReader, type RepoReader } from './github';
 import { checkUrl, fetchPage } from './page';
 import { runDraft, type DraftDeps } from './run';
-import { draftStore } from './store';
+import { draftStore, WORKSPACE_COLUMNS, WorkspaceRow } from './store';
+import { orNull, parseRow } from '../../data/parse-rows';
+import { serverEnv } from '../../env';
 
 // The draft routes' real dependencies (./api.ts, PRD 774 s2). The store is the signed-in person's own
 // Supabase session, so row-level security and the migration's functions decide who may read and write.
@@ -30,10 +32,10 @@ async function signedIn(): Promise<{ db: SupabaseClient; token: string } | null>
   const { data: { user } } = await db.auth.getUser();
   if (!user) return null;
   const { data: { session } } = await db.auth.getSession();
-  return session ? { db: db as unknown as SupabaseClient, token: session.access_token } : null;
+  return session ? { db, token: session.access_token } : null;
 }
 
-type WorkspaceRow = { github_org: string | null; github_installation_id: number | string | null };
+
 
 /** A workspaces row as the installation lookup reads it: the installation id as a number. */
 const installationRow = (row: WorkspaceRow) => ({
@@ -49,8 +51,9 @@ export function runDeps(db: Pick<SupabaseClient, 'from' | 'rpc'>): DraftDeps {
     store: draftStore(db),
     async installation(workspace) {
       try {
-        const { data } = await db.from('workspaces').select('github_org, github_installation_id').eq('id', workspace).maybeSingle();
-        return data ? await github().installationFor(installationRow(data as WorkspaceRow)) : null;
+        const { data } = await db.from('workspaces').select(WORKSPACE_COLUMNS).eq('id', workspace).maybeSingle();
+        const row = data ? orNull(parseRow(WorkspaceRow, data, 'business/draft/live: workspaces')) : null;
+        return row ? await github().installationFor(installationRow(row)) : null;
       } catch (error) {
         console.error(`business draft: no GitHub installation for ${workspace} (${why(error)})`);
         return null;
@@ -61,8 +64,8 @@ export function runDeps(db: Pick<SupabaseClient, 'from' | 'rpc'>): DraftDeps {
       file: (installation, repository, path) => repos().file(installation, repository, path),
     },
     page: (url) => fetchPage(url),
-    extract: extractorFromEnv(process.env),
-    log: (line) => console.error(line),
+    extract: extractorFromEnv(serverEnv().openrouter),
+    log: (line) => { console.error(line); },
   };
 }
 

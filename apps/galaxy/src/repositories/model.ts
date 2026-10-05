@@ -4,6 +4,7 @@
 // can see, minus what is listed); which listed repositories the App cannot read; and the page's state
 // through its actions. GitHub spells a repository in any case; the list keeps it in lower case, so
 // every comparison ignores case.
+import { z } from 'zod';
 
 export interface RepositoryRow {
   /** `owner/name`, in lower case. */
@@ -25,6 +26,19 @@ export interface StoredRepository {
   collect_error?: string | null;
   product_id?: string | null;
 }
+
+/** The whole public.repositories row the owner's functions answer (`returns public.repositories`). */
+export const SavedRepository = z.strictObject({
+  workspace_id: z.string(),
+  full_name: z.string(),
+  tracked: z.boolean(),
+  added_at: z.string(),
+  added_by: z.string().nullable(),
+  collected_at: z.string().nullable(),
+  collected_until: z.string().nullable(),
+  collect_error: z.string().nullable(),
+  product_id: z.string().nullable(),
+});
 
 export const rowOf = (r: StoredRepository): RepositoryRow => ({
   fullName: r.full_name,

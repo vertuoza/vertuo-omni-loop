@@ -61,8 +61,8 @@ function JevBody({ view }: { view: JevScreenView }) {
         </Notice>
       );
     case 'jev': {
-      const { kind: _, ...props } = view;
-      return <JevPage {...props} />;
+      const { source, owner, keyStatus, decisions, records } = view;
+      return <JevPage source={source} owner={owner} keyStatus={keyStatus} decisions={decisions} records={records} />;
     }
   }
 }

@@ -1,10 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeGalaxyDb, PEOPLE, twoWorkspaces } from './galaxy.fake';
 import { landingAfterSignIn } from './workspace';
 
 const as = (person: (typeof PEOPLE)[keyof typeof PEOPLE]) =>
-  fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE)).client(person) as unknown as SupabaseClient;
+  fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE)).client(person) as unknown as SupabaseClient<Database>;
 
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -19,7 +20,7 @@ describe('where a sign-in lands', () => {
 
   it('lands in the arcade when the workspaces cannot be read', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const broken = { from: () => ({ select: () => ({ eq: async () => ({ data: null, error: { message: 'timeout' } }) }) }) };
-    expect(await landingAfterSignIn(broken as unknown as SupabaseClient, PEOPLE.eve.id)).toBe('/play');
+    const broken = { from: () => ({ select: () => ({ eq: () => Promise.resolve({ data: null, error: { message: 'timeout' } }) }) }) };
+    expect(await landingAfterSignIn(broken as unknown as SupabaseClient<Database>, PEOPLE.eve.id)).toBe('/play');
   });
 });

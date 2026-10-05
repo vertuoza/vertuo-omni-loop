@@ -3,13 +3,19 @@
 // the person's GitHub orgs and sends them on (app/auth/callback/route.ts). HOME stays static: the
 // button is a plain button marked with SIGN_UP_ATTR, and Controls answers a click on it. The browser
 // is reached through small ports, so the order is tested on its own.
-import { PLAY_HREF } from './start';
+// SELECT YOUR APP (PRD 932): the sign-up carries the app the person picked. The Omni app puts
+// `next=app` on the callback address, and the callback lands them on /app; the Arcade adds nothing,
+// and lands on /play as before (appLanding() in src/data/sign-in.ts).
+import { APP_HREF, PLAY_HREF } from './start';
 
 /** Marks an element SIGN UP WITH GITHUB: `Controls` makes a click on it start the sign-in. */
 export const SIGN_UP_ATTR = 'data-sign-up';
 
 /** Where GitHub sends the visitor back, on the galaxy's own origin. */
 export const CALLBACK_PATH = '/auth/callback';
+
+/** The two apps a person can pick at sign-up: the Omni app (the board, on /app) or the Arcade. */
+export type AppPick = 'app' | 'arcade';
 
 export interface SignUpPorts {
   /** The galaxy's Supabase, as the browser reads it; null on the demo, which has none. */
@@ -22,14 +28,16 @@ export interface SignUpPorts {
 }
 
 /**
- * Starts the sign-up: the GitHub sign-in, back to the callback. Resolves with what to show when it
- * could not start, or null while the page leaves. Without Supabase there is nobody to sign up with:
- * the game opens instead, as PRESS START would.
+ * Starts the sign-up for the app picked: the GitHub sign-in, back to the callback, with `next=app`
+ * for the Omni app. Resolves with what to show when it could not start, or null while the page
+ * leaves. Without Supabase there is nobody to sign up with: the picked app opens instead, the game
+ * as PRESS START would. With no pick, it is the Arcade, as before the pick existed.
  */
-export async function signUp(ports: SignUpPorts): Promise<string | null> {
+export async function signUp(ports: SignUpPorts, pick: AppPick = 'arcade'): Promise<string | null> {
   if (!ports.supabase) {
-    ports.go(PLAY_HREF);
+    ports.go(pick === 'app' ? APP_HREF : PLAY_HREF);
     return null;
   }
-  return ports.start(ports.supabase, `${ports.origin}${CALLBACK_PATH}`);
+  const back = pick === 'app' ? `${CALLBACK_PATH}?next=app` : CALLBACK_PATH;
+  return ports.start(ports.supabase, `${ports.origin}${back}`);
 }

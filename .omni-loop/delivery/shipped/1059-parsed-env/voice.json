@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-03",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The demo still works with nothing set, so my local loop stays the same. The client reads stay literal for Next.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A startup throw in production takes the whole function down for one typo. The error must name the variable.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "A broken deploy says which setting is wrong. That saves an afternoon of guessing.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "One env module per runtime and a guard with no escape. The docs check stops the drift.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Customers see nothing, unless a silent misconfiguration was hurting them already.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "A startup check that throws in production means a typo in one variable takes the whole function down, not just one feature. I'd want the error to name the variable and the deploy to show it, not a blank 500.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✗ · offering#36 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-03",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Tests pass plain objects, and arcadeMode's cases are pinned. Nothing in my day changes.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Only broken config fails, the error names every variable and no value. Settings get checked before merge.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "The acceptance criteria are checkable, and nothing customers use changes.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Feature groups make off a type, not a convention. The ADR tells every agent.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Still invisible to customers, and that's fine.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · offering#36 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-03",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The demo still runs with nothing set, and the client build inlines what it did. My local loop is unchanged.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The error names every variable and never a value. Previews need no production secrets, which is what I asked for.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "A half-set deploy now says which setting is missing. The docs finally list every variable.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Four env modules, a guard with no escape, a docs check and an ADR. The rule holds for every agent.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Customers see nothing. Fewer silent misconfigurations is still worth it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · offering#36 ✓"
+    }
+  ]
+}

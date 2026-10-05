@@ -1,7 +1,10 @@
 import { generateKeyPairSync } from 'node:crypto';
-import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.mjs';
+import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { CONFIG_BATCH, configQuery, GRAPH_TTL_MS, knowledgeReader, LISTING_TTL_MS } from './github';
+import { sure } from '../arcade/test/sure';
+
+vi.mock('server-only', () => ({}));
 
 // The knowledge map's GitHub reader, against a stubbed `fetch`: never GitHub itself. A small fake
 // GitHub answers the App's token route, an installation's repository listing and the two GraphQL
@@ -22,14 +25,14 @@ const FILES = {
   [`${K}/cross-domain/product--quote.md`]: '# Between\n\n## X-PRODUCT-QUOTE-1\n\nA quote needs a review.\n\nKind: rule\nServes: P-QUOTE-1\n',
 };
 
-type Repo = { name: string; archived?: boolean; config?: string; files?: Record<string, string>; truncated?: string };
+type Repo = { name: string; archived?: boolean; config?: string | undefined; files?: Record<string, string>; truncated?: string };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 /** The folder under `dir` as the `files` fragment reads it, or null when nothing sits there. */
 function folder(files: Record<string, string>, dir: string, truncated?: string) {
   const under = Object.keys(files).filter((path) => path.startsWith(`${dir}/`)).map((path) => path.slice(dir.length + 1));
   if (!under.length) return null;
-  const names = [...new Set(under.map((rest) => rest.split('/')[0]))].sort();
+  const names = [...new Set(under.map((rest) => sure(rest.split('/')[0], 'rest.split(\'/\')[0]')))].sort();
   return {
     entries: names.map((name) => (under.includes(name)
       ? { name, type: 'blob', object: { text: files[`${dir}/${name}`], isTruncated: `${dir}/${name}` === truncated } }
@@ -41,34 +44,34 @@ function fakeGithub(repos: Repo[], { fail }: { fail?: RegExp } = {}) {
   const calls: string[] = [];
   let tokens = 0;
   const byName = new Map(repos.map((r) => [r.name.toLowerCase(), r]));
-  const fetchImpl = vi.fn(async (href: string, init: RequestInit) => {
+  const fetchImpl = vi.fn((href: string, init: RequestInit) => {
     const url = new URL(href);
-    const body = init.body ? (JSON.parse(String(init.body)) as { query: string; variables: Record<string, string> }) : null;
+    const body = typeof init.body === 'string' && init.body !== '' ? (JSON.parse(init.body) as { query: string; variables: Record<string, string> }) : null;
     const what = body ? (body.query.includes('fragment files') ? `graphql knowledge ${body.variables.owner}/${body.variables.name}` : 'graphql configs') : `${init.method ?? 'GET'} ${url.pathname}${url.search}`;
     calls.push(what);
-    if (fail?.test(what)) return json({ message: 'boom' }, 502);
+    if (fail?.test(what)) return Promise.resolve(json({ message: 'boom' }, 502));
     if (url.pathname === `/app/installations/${INSTALLATION}/access_tokens` && init.method === 'POST') {
       tokens += 1;
-      return json({ token: `ghs_${tokens}`, expires_at: new Date(NOW + 60 * 60_000).toISOString() }, 201);
+      return Promise.resolve(json({ token: `ghs_${tokens}`, expires_at: new Date(NOW + 60 * 60_000).toISOString() }, 201));
     }
-    if (url.pathname === '/orgs/acme/installation') return json({ id: INSTALLATION, account: { login: 'acme', type: 'Organization' } });
-    if (url.pathname === '/orgs/solo/installation') return json({ message: 'Not Found' }, 404);
-    if (url.pathname === '/users/solo/installation') return json({ id: 777, account: { login: 'solo', type: 'User' } });
-    if (url.pathname.endsWith('/installation')) return json({ message: 'Not Found' }, 404);
+    if (url.pathname === '/orgs/acme/installation') return Promise.resolve(json({ id: INSTALLATION, account: { login: 'acme', type: 'Organization' } }));
+    if (url.pathname === '/orgs/solo/installation') return Promise.resolve(json({ message: 'Not Found' }, 404));
+    if (url.pathname === '/users/solo/installation') return Promise.resolve(json({ id: 777, account: { login: 'solo', type: 'User' } }));
+    if (url.pathname.endsWith('/installation')) return Promise.resolve(json({ message: 'Not Found' }, 404));
     if (url.pathname === '/installation/repositories') {
       expect((init.headers as Record<string, string>).authorization).toMatch(/^Bearer ghs_/);
       const page = Number(url.searchParams.get('page'));
       const slice = repos.slice((page - 1) * 100, page * 100);
-      return json({ total_count: repos.length, repositories: slice.map((r) => ({ full_name: r.name, archived: r.archived ?? false })) });
+      return Promise.resolve(json({ total_count: repos.length, repositories: slice.map((r) => ({ full_name: r.name, archived: r.archived ?? false })) }));
     }
     if (url.pathname === '/graphql' && body) {
       if (body.query.includes('fragment files')) {
         const repo = byName.get(`${body.variables.owner}/${body.variables.name}`.toLowerCase());
-        if (!repo) return json({ data: { repository: null }, errors: [{ message: 'Could not resolve to a Repository' }] });
+        if (!repo) return Promise.resolve(json({ data: { repository: null }, errors: [{ message: 'Could not resolve to a Repository' }] }));
         const files = repo.files ?? {};
-        const at = (expression: string) => expression.replace(/^HEAD:/, '');
+        const at = (expression: string | undefined) => sure(expression, 'expression').replace(/^HEAD:/, '');
         const domains = folder(files, at(body.variables.domains));
-        return json({
+        return Promise.resolve(json({
           data: {
             repository: {
               product: folder(files, at(body.variables.product), repo.truncated),
@@ -78,16 +81,16 @@ function fakeGithub(repos: Repo[], { fail }: { fail?: RegExp } = {}) {
               cross: folder(files, at(body.variables.cross), repo.truncated),
             },
           },
-        });
+        }));
       }
       const data: Record<string, unknown> = {};
       for (const m of body.query.matchAll(/(r\d+): repository\(owner: "([^"]+)", name: "([^"]+)"\) \{ object\(expression: "HEAD:\.omni-loop\/config\.yml"\)/g)) {
         const repo = byName.get(`${m[2]}/${m[3]}`.toLowerCase());
-        data[m[1]] = repo ? { object: repo.config === undefined ? null : { text: repo.config } } : null;
+        data[sure(m[1], 'm[1]')] = repo ? { object: repo.config === undefined ? null : { text: repo.config } } : null;
       }
-      return json({ data });
+      return Promise.resolve(json({ data }));
     }
-    return json({ message: `no route for ${what}` }, 500);
+    return Promise.resolve(json({ message: `no route for ${what}` }, 500));
   });
   return { fetchImpl, calls, tokens: () => tokens };
 }
@@ -96,7 +99,7 @@ function reader(repos: Repo[], options: { fail?: RegExp } = {}) {
   const github = fakeGithub(repos, options);
   const clock = { now: NOW };
   const log = vi.fn();
-  return { ...github, clock, log, read: knowledgeReader(CREDS, github.fetchImpl as never, () => clock.now, log) };
+  return { ...github, clock, log, read: knowledgeReader(CREDS, github.fetchImpl, () => clock.now, log) };
 }
 
 describe('the repositories an installation offers the knowledge map', () => {
@@ -173,7 +176,7 @@ describe('a repository\'s knowledge, read from GitHub', () => {
     const graph = await read.graph(INSTALLATION, 'ACME/anvils');
     expect(graph?.repo).toBe('acme/Anvils');
     expect(graph?.entries).toHaveLength(4);
-    expect(graph?.entries[0].file).toBe('docs/kb/product/principles.md');
+    expect(sure(graph?.entries[0], 'graph?.entries[0]').file).toBe('docs/kb/product/principles.md');
     expect(calls).toContain('graphql knowledge acme/Anvils');
   });
 

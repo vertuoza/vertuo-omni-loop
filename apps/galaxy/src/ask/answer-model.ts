@@ -176,8 +176,9 @@ export function pickByKey(questions: AskQuestion[], draft: Draft, index: number,
  * that has one. Null for a question without previews. */
 export function shownPreview(question: AskQuestion, pick: Pick, focusedOption: number | null): { option: number; text: string } | null {
   const at = (i: number | null | undefined) => {
-    const preview = i === null || i === undefined || i < 0 ? null : question.options[i]?.preview;
-    return preview ? { option: i as number, text: preview } : null;
+    if (i === null || i === undefined || i < 0) return null;
+    const preview = question.options[i]?.preview;
+    return preview ? { option: i, text: preview } : null;
   };
   const picked = pick.labels.length ? question.options.findIndex((o) => o.label === pick.labels[pick.labels.length - 1]) : -1;
   return at(focusedOption) ?? at(picked) ?? at(question.options.findIndex((o) => o.preview !== null));

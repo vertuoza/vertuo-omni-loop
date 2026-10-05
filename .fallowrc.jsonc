@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/fallow/schema.json",
-  // `.omni-loop/` holds one script, the shim onto `kit/bin/omni.mjs` (an entry below), and
+  // `.omni-loop/` holds one script, the shim onto `kit/bin/omni.ts` (an entry below), and
   // fallow never walks a hidden directory, even when named as an entry: listed here so the run
   // says so once, in this file, instead of warning on every audit.
   "ignorePatterns": [".omni-loop/**"],
@@ -10,21 +10,42 @@
   "entry": [
     // The kit's CLI: `.omni-loop/bin/omni.mjs` (the shim every skill runs) and the bundle both
     // start here.
-    "kit/bin/omni.mjs",
+    "kit/bin/omni.ts",
     // `pnpm kit:build` runs it by path.
-    "kit/build.mjs",
-    // The `release` workflow runs it by path (`node kit/release/release.mjs`).
-    "kit/release/release.mjs",
+    "kit/build.ts",
+    // The `release` workflow runs it by path (`node kit/release/release.ts`).
+    "kit/release/release.ts",
     // The game's commands, each run by path from a `game:*` script of the root package.json.
-    "game/cli/*.mjs",
+    "game/cli/*.ts",
     // The arcade's scripts, run by path from `releases:sync` and the galaxy app's `seed` and
     // `shots` scripts.
-    "apps/galaxy/scripts/*.mjs",
+    "apps/galaxy/scripts/*.ts",
     // The arcade's artifact build, run by path from the galaxy app's `artifact` script.
-    "apps/galaxy/artifact/build.mjs",
+    "apps/galaxy/artifact/build.ts",
     // The GitHub App's Vercel functions: Vercel routes `api/*` by file name.
-    "apps/omni-app/api/*.mjs",
+    "apps/omni-app/api/*.ts",
+    // The database's types (PRD 725): `supabase gen types --local` writes them, and the clients
+    // that open Supabase import what they need, so not every export is named by an import.
+    "supabase/database.types.ts",
+    // `pnpm schemas:verify` runs it by path (PRD 1030).
+    "scripts/schemas-verify.ts",
+    // Stryker's vitest runner loads it by path, named in `stryker.config.ts` (PRD 1072).
+    "stryker.config.vitest.ts",
   ],
+  // `pnpm schemas:verify` loads every `*.boundary.ts` by path, and its fixtures when named (PRD 1030):
+  // no import statement names them.
+  "dynamicallyLoaded": ["**/*.boundary.ts", "scripts/schemas-verify.fixtures/*.ts"],
+  // Each of those files exports its reads as `boundaries`, the one name the script reads: the same
+  // export in many files by design, not an ambiguous re-export.
+  "ignoreExports": [
+    { "file": "**/*.boundary.ts", "exports": ["boundaries"] },
+    { "file": "scripts/schemas-verify.fixtures/*.ts", "exports": ["boundaries", "reads"] },
+  ],
+  // The generated database types repeat one shape per table and function by design: not copy-paste
+  // anyone can extract (PRD 725).
+  "duplicates": {
+    "ignore": ["supabase/database.types.ts"],
+  },
   "ignoreUnresolvedImports": [
     // fumadocs-mdx writes `apps/galaxy/.source/` at build time and it is gitignored, so on a
     // fresh checkout (the one CI audits) `src/docs/source.ts`'s import of it never resolves.

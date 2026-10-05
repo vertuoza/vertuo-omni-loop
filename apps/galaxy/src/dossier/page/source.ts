@@ -19,7 +19,8 @@ import {
   dossierList, dossierPulse, dossierReader, dossierRounds, type DossierListRow, type DossierPulse, type DossierRoundRow,
   type DossierVersionRow,
 } from '../store';
-import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.mjs';
+import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.ts';
+import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { DossierRead } from './view';
 
 export type Db = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -78,7 +79,7 @@ export async function readDossier(db: Db, id: string, me: string | null = null):
   if (!dossier) return null;
   const [versions, members, rounds, repos, people] = await Promise.all([
     reader.versions(id), readMembers(db, dossier.workspace_id), readRounds(db, id), readRepos(db, id),
-    loadPeople(db as SupabaseClient, dossier.workspace_id),
+    loadPeople(db, dossier.workspace_id),
   ]);
   return { dossier, versions, members, rounds, repos, answerable: await readAnswerable(db, rounds, me), people };
 }
@@ -96,8 +97,10 @@ export async function answerQuick(db: Pick<Db, 'from'>, roundId: string, questio
   if ((await sendAnswers(db, roundId, { [question]: value })) === 'answered') return { kind: 'answered' };
   const { data, error } = await db.from('ask_rounds').select('status, answered_by, answered_via').eq('id', roundId).maybeSingle();
   if (error) throw new Error(`read the round: ${error.message}`);
-  const row = data as Pick<DossierRoundRow, 'status' | 'answered_by' | 'answered_via'> | null;
-  return { kind: 'taken', by: row?.answered_by ?? null, via: row?.answered_via ?? null, moved: row?.status !== 'answered' };
+  // The round as it came, unparsed: each column is checked as it is read.
+  const by = propertyOf(data, 'answered_by');
+  const via = propertyOf(data, 'answered_via');
+  return { kind: 'taken', by: typeof by === 'string' ? by : null, via: isOneOf(['page', 'terminal'] as const, via) ? via : null, moved: propertyOf(data, 'status') !== 'answered' };
 }
 
 /** The dossier's pulse, for the change check (PRD 384): one small read, as the viewer, from the browser;

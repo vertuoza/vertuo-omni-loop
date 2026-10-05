@@ -1,5 +1,6 @@
 import type { DocumentGroup, DocumentKind } from './documents';
 import type { WaitingItem } from './waiting';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Alerts for what is new (PRD 499, s5), as pure functions over the browser's parts, each passed in so
 // the tests hand fakes. New is an item, by its id, in a read's result that was not in the list before
@@ -36,8 +37,8 @@ export function announce(seen: ReadonlySet<string> | null, items: readonly Waiti
 
 export function readSwitches(store: () => Store): AlertSwitches {
   try {
-    const raw = JSON.parse(store().getItem(ALERTS_KEY) ?? 'null') as Partial<AlertSwitches> | null;
-    return { desktop: raw?.desktop === true, chime: raw?.chime === true };
+    const raw: unknown = JSON.parse(store().getItem(ALERTS_KEY) ?? 'null');
+    return { desktop: propertyOf(raw, 'desktop') === true, chime: propertyOf(raw, 'chime') === true };
   } catch {
     return ALERTS_OFF;
   }
@@ -94,7 +95,9 @@ export function playChime(Audio: AudioCtor | null | undefined): void {
     tone.onended = () => void ctx.close().catch(() => {});
     tone.start(t);
     tone.stop(t + 0.32);
-    void ctx.resume?.().catch(() => {});
+    // An older AudioContext has no resume: then the tone plays as the context allows.
+    const resumable: { resume?: () => Promise<void> } = ctx;
+    void resumable.resume?.().catch(() => {});
   } catch {
     /* no sound */
   }
@@ -104,7 +107,7 @@ export function playChime(Audio: AudioCtor | null | undefined): void {
 export type NotificationApi = {
   readonly permission: NotificationPermission;
   requestPermission(): Promise<NotificationPermission>;
-  new (title: string, options?: NotificationOptions): { onclick: ((this: unknown, ev: Event) => unknown) | null; close?(): void };
+  new (title: string, options?: NotificationOptions): { onclick: ((ev: Event) => unknown) | null; close?(): void };
 };
 
 /** The Desktop alerts switch: on, off, or blocked by the browser (it cannot be turned on from the page). */

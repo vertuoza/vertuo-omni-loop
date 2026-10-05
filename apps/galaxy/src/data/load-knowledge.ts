@@ -1,9 +1,10 @@
 import 'server-only';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { CONFIG_FILE, loadConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.mjs';
-import { readGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph.mjs';
+import { CONFIG_FILE, loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
+import { readGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
+import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { KnowledgeGraph } from './knowledge';
 
 // The knowledge map's data (PRD 149): the knowledge of the checkout the app is deployed from, read at
@@ -30,8 +31,11 @@ export function loadKnowledge({ cwd = process.cwd(), log = console.error }: { cw
     // repository. next.config.mjs traces the files the kit reads here.
     const folder = join(/*turbopackIgnore: true*/ root, ctx.layout.knowledgeRoot);
     if (!existsSync(/*turbopackIgnore: true*/ folder)) return outOfReach(`${ctx.layout.knowledgeRoot} is missing in ${root}`);
-    return readGraph({ ctx }) as KnowledgeGraph;
+    // The kit's one parser reads the folder; the map reads the version it knows, and nothing else.
+    const { version, ...graph } = readGraph({ ctx });
+    if (version !== 1) return outOfReach(`the kit's graph is version ${version}, the map reads version 1`);
+    return { ...graph, version };
   } catch (err) {
-    return outOfReach(err instanceof Error ? err.message.split('\n')[0] : String(err));
+    return outOfReach(err instanceof Error ? firstPart(err.message, '\n') : String(err));
   }
 }

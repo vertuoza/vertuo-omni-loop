@@ -19,6 +19,7 @@ import {
   type AskQuestion,
   type Shot,
 } from './answer-model';
+import { item } from './test/test-item';
 
 // AskUserQuestion's input, as Claude sends it and s2 stores it.
 const STORAGE = {
@@ -84,13 +85,13 @@ describe('the Recommended badge', () => {
 
 describe('an answer', () => {
   it('is the chosen label exactly, "(Recommended)" included, for a single choice', () => {
-    const pick = pickOption(storage, emptyDraft([storage])[0], 'Postgres (Recommended)');
+    const pick = pickOption(storage, item(emptyDraft([storage]), 0), 'Postgres (Recommended)');
     expect(answerOf(storage, pick)).toBe('Postgres (Recommended)');
     expect(answerOf(storage, pickOption(storage, pick, 'Memory'))).toBe('Memory');
   });
 
   it('joins a multi-select with ", " in the order the options are listed', () => {
-    let pick = emptyDraft([checks])[0];
+    let pick = item(emptyDraft([checks]), 0);
     pick = pickOption(checks, pick, 'Hooks');
     pick = pickOption(checks, pick, 'RLS');
     expect(answerOf(checks, pick)).toBe('RLS, Hooks');
@@ -102,7 +103,7 @@ describe('an answer', () => {
 
   it('sends Other verbatim, and Other replaces the pick of a single choice', () => {
     const typed = '  Neither: keep it in Redis, "for now"\nand revisit  ';
-    let pick = pickOption(storage, emptyDraft([storage])[0], 'Memory');
+    let pick = pickOption(storage, item(emptyDraft([storage]), 0), 'Memory');
     pick = typeOther(storage, pick, typed);
     expect(answerOf(storage, pick)).toBe(typed);
     pick = pickOption(storage, pick, 'Files');
@@ -112,7 +113,7 @@ describe('an answer', () => {
   });
 
   it('adds Other after the chosen labels of a multi-select', () => {
-    let pick = pickOption(checks, emptyDraft([checks])[0], 'Handlers');
+    let pick = pickOption(checks, item(emptyDraft([checks]), 0), 'Handlers');
     pick = typeOther(checks, pick, 'A live run');
     expect(answerOf(checks, pick)).toBe('Handlers, A live run');
     pick = toggleOther(checks, pick);
@@ -123,8 +124,8 @@ describe('an answer', () => {
   });
 
   it('is no answer while Other is chosen but empty', () => {
-    expect(answerOf(storage, toggleOther(storage, emptyDraft([storage])[0]))).toBeNull();
-    expect(answerOf(storage, typeOther(storage, emptyDraft([storage])[0], ' \n '))).toBeNull();
+    expect(answerOf(storage, toggleOther(storage, item(emptyDraft([storage]), 0)))).toBeNull();
+    expect(answerOf(storage, typeOther(storage, item(emptyDraft([storage]), 0), ' \n '))).toBeNull();
   });
 });
 
@@ -133,9 +134,9 @@ describe('Send', () => {
     const questions = [storage, checks];
     let draft = emptyDraft(questions);
     expect(roundAnswers(questions, draft)).toBeNull();
-    draft = [pickOption(storage, draft[0], 'Postgres (Recommended)'), draft[1]];
+    draft = [pickOption(storage, item(draft, 0), 'Postgres (Recommended)'), item(draft, 1)];
     expect(roundAnswers(questions, draft)).toBeNull();
-    draft = [draft[0], pickOption(checks, pickOption(checks, draft[1], 'RLS'), 'Handlers')];
+    draft = [item(draft, 0), pickOption(checks, pickOption(checks, item(draft, 1), 'RLS'), 'Handlers')];
     expect(roundAnswers(questions, draft)).toEqual({
       'Which storage should the sessions use?': 'Postgres (Recommended)',
       'Which checks run?': 'RLS, Handlers',
@@ -174,15 +175,15 @@ describe('the keyboard', () => {
     let draft = emptyDraft(questions);
     expect(activeQuestion(questions, draft, null)).toBe(0);
     draft = pickByKey(questions, draft, activeQuestion(questions, draft, null), 2);
-    expect(answerOf(storage, draft[0])).toBe('Files');
+    expect(answerOf(storage, item(draft, 0))).toBe('Files');
     expect(activeQuestion(questions, draft, null)).toBe(1);
     draft = pickByKey(questions, draft, 1, 1);
     draft = pickByKey(questions, draft, 1, 0);
-    expect(answerOf(checks, draft[1])).toBe('RLS, Handlers');
+    expect(answerOf(checks, item(draft, 1))).toBe('RLS, Handlers');
     expect(activeQuestion(questions, draft, null)).toBe(1);
     expect(activeQuestion(questions, draft, 0)).toBe(0);
     draft = pickByKey(questions, draft, 0, 1);
-    expect(answerOf(storage, draft[0])).toBe('Memory');
+    expect(answerOf(storage, item(draft, 0))).toBe('Memory');
   });
 
   it('ignores a key past the last option', () => {
@@ -193,19 +194,19 @@ describe('the keyboard', () => {
 
 describe('the preview', () => {
   it('shows the option in focus, else the one picked, else the first that has one', () => {
-    const pick = emptyDraft([storage])[0];
-    expect(shownPreview(storage, pick, null)).toEqual({ option: 0, text: STORAGE.options[0].preview });
+    const pick = item(emptyDraft([storage]), 0);
+    expect(shownPreview(storage, pick, null)).toEqual({ option: 0, text: item(STORAGE.options, 0).preview });
     expect(shownPreview(storage, pickOption(storage, pick, 'Files'), null)).toEqual({ option: 2, text: '{ "id": "…" }' });
-    expect(shownPreview(storage, pickOption(storage, pick, 'Files'), 0)).toEqual({ option: 0, text: STORAGE.options[0].preview });
+    expect(shownPreview(storage, pickOption(storage, pick, 'Files'), 0)).toEqual({ option: 0, text: item(STORAGE.options, 0).preview });
   });
 
   it('keeps the last preview while an option without one is in focus or picked', () => {
-    const pick = pickOption(storage, emptyDraft([storage])[0], 'Memory');
-    expect(shownPreview(storage, pick, 1)).toEqual({ option: 0, text: STORAGE.options[0].preview });
+    const pick = pickOption(storage, item(emptyDraft([storage]), 0), 'Memory');
+    expect(shownPreview(storage, pick, 1)).toEqual({ option: 0, text: item(STORAGE.options, 0).preview });
   });
 
   it('is none for a question without previews', () => {
-    expect(shownPreview(checks, emptyDraft([checks])[0], 0)).toBeNull();
+    expect(shownPreview(checks, item(emptyDraft([checks]), 0), 0)).toBeNull();
   });
 });
 
@@ -218,7 +219,7 @@ describe('screenshots on Other (PRD 620)', () => {
     const { draft: next, refused } = addShots([storage], draft, 0, [shot('a'), shot('b', 'image/jpeg'), shot('c', 'image/gif'), shot('d', 'image/webp')]);
     expect(refused).toEqual([]);
     expect(next[0]).toMatchObject({ labels: [], otherOn: true });
-    expect(ids(next[0].shots)).toEqual(['a', 'b', 'c', 'd']);
+    expect(ids(item(next, 0).shots)).toEqual(['a', 'b', 'c', 'd']);
   });
 
   it('keeps the options already ticked in a multi-select', () => {
@@ -231,7 +232,7 @@ describe('screenshots on Other (PRD 620)', () => {
     const { draft: next, refused } = addShots([storage], draft, 0, [
       shot('a'), shot('pdf', 'application/pdf'), shot('big', 'image/png', SHOT_MAX_BYTES + 1), shot('b'), shot('c'), shot('d'), shot('e'), shot('f'),
     ]);
-    expect(ids(next[0].shots)).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(ids(item(next, 0).shots)).toEqual(['a', 'b', 'c', 'd', 'e']);
     expect(refused).toEqual(['PNG, JPEG, GIF or WebP only', '5 MB max', '5 screenshots max']);
     expect(addShots([storage], draft, 0, [shot('ok', 'image/png', SHOT_MAX_BYTES)]).refused).toEqual([]);
   });
@@ -247,20 +248,20 @@ describe('screenshots on Other (PRD 620)', () => {
     const questions = [storage, checks];
     const draft = addShots(questions, emptyDraft(questions), 0, [shot('a'), shot('b'), shot('c')]).draft;
     const { draft: next, refused } = addShots(questions, draft, 1, [shot('d'), shot('e'), shot('f')]);
-    expect(ids(next[1].shots)).toEqual(['d', 'e']);
+    expect(ids(item(next, 1).shots)).toEqual(['d', 'e']);
     expect(refused).toEqual(['5 screenshots max']);
   });
 
   it('removes a screenshot by its ×', () => {
     const { draft } = addShots([storage], emptyDraft([storage]), 0, [shot('a'), shot('b')]);
-    expect(ids(removeShot(draft, 0, 'a')[0].shots)).toEqual(['b']);
+    expect(ids(item(removeShot(draft, 0, 'a'), 0).shots)).toEqual(['b']);
   });
 
   it('sends "(see screenshots)" for screenshots and no text, and the text when there is some', () => {
     const questions = [storage, checks];
     const { draft } = addShots(questions, emptyDraft(questions), 0, [shot('a')]);
-    expect(answerOf(storage, draft[0])).toBe('(see screenshots)');
-    expect(answerOf(storage, typeOther(storage, draft[0], 'The red one'))).toBe('The red one');
+    expect(answerOf(storage, item(draft, 0))).toBe('(see screenshots)');
+    expect(answerOf(storage, typeOther(storage, item(draft, 0), 'The red one'))).toBe('The red one');
     const ticked = addShots(questions, pickByKey(questions, draft, 1, 0), 1, [shot('b')]).draft;
     expect(roundAnswers(questions, ticked)).toEqual({ [storage.question]: '(see screenshots)', [checks.question]: 'RLS, (see screenshots)' });
   });
@@ -271,7 +272,7 @@ describe('screenshots on Other (PRD 620)', () => {
     draft = addShots(questions, draft, 1, [shot('c')]).draft;
     const named = (d: typeof draft) => Object.fromEntries(Object.entries(roundShots(questions, d)).map(([q, s]) => [q, ids(s)]));
     expect(named(draft)).toEqual({ [storage.question]: ['a', 'b'], [checks.question]: ['c'] });
-    draft = [pickOption(storage, draft[0], 'Memory'), toggleOther(checks, draft[1])];
+    draft = [pickOption(storage, item(draft, 0), 'Memory'), toggleOther(checks, item(draft, 1))];
     expect(named(draft)).toEqual({});
     expect(roundShots([storage], emptyDraft([storage]))).toEqual({});
   });

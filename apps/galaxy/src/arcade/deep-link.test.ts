@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { addressAt, DEEP_LINKS, landing, readHash } from './deep-link';
-import { twinEvents, twinGalaxy } from './twins.fake';
+import { twinEvents, twinGalaxy } from './test/twins.fake';
 import type { Session } from './types';
+import { sure } from './test/sure';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // The arcade's deep links (moved out of ArcadeApp.tsx; PRD 238 adds #menu): the screen an address's
 // hash opens, past the boot and the title, through the one door every route goes through; and the
@@ -11,6 +13,7 @@ import type { Session } from './types';
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
 const planet = view.planets[2];
+assertDefined(planet, 'planet');
 const crew: Session = { id: 'u1', email: 'ada@vertuoza.com', givenName: 'Ada', crew: true, github: 'ada-gh' };
 const outsider: Session = { ...crew, email: 'eve@elsewhere.example', crew: false, github: null };
 
@@ -131,8 +134,12 @@ describe('a planet named by its home (PRD 728)', () => {
   });
 
   it('names a planet with no home by its number alone, as before', () => {
-    const bare = twinGalaxy(twinEvents('acme/plan', 'beaver', 'bob').map(({ home: _home, ...e }) => e));
-    expect(bare.planets[0].home).toBeNull();
+    const bare = twinGalaxy(twinEvents('acme/plan', 'beaver', 'bob').map((event) => {
+      const e = { ...event };
+      delete e.home;
+      return e;
+    }));
+    expect(sure(bare.planets[0], 'bare.planets[0]').home).toBeNull();
     expect(addressAt('/', { scene: 'planet', sel: 0 }, bare)).toBe('/#planet-88');
     expect(readHash('#planet-88', bare)).toEqual({ scene: 'planet', sel: 0 });
   });

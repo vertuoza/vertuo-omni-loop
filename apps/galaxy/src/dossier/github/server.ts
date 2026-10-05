@@ -1,6 +1,7 @@
 import 'server-only';
 import { supabaseGithubStore, type GithubStore } from '@omni/github';
 import { serviceDb } from '../../data/sign-in-live';
+import { serverEnv, type GithubAppEnv } from '../../env';
 import { appCredentials } from '../../signup/github-app';
 import { githubReader, type FixReader, type GithubReader } from './reader';
 
@@ -18,7 +19,12 @@ let store: GithubStore | undefined;
 export function githubStore(): GithubStore {
   if (store) return store;
   let made: GithubStore | undefined;
-  const db = () => (made ??= supabaseGithubStore(serviceDb()));
+  const db = () => {
+    if (made) return made;
+    const client = serviceDb();
+    made = supabaseGithubStore({ etags: () => client.from('github_etags'), budget: () => client.from('github_budget') });
+    return made;
+  };
   store = {
     etag: (...args) => db().etag(...args),
     saveEtag: (...args) => db().saveEtag(...args),
@@ -30,10 +36,10 @@ export function githubStore(): GithubStore {
   return store;
 }
 
-export function dossierGithub(env: Record<string, string | undefined> = process.env): (GithubReader & FixReader) | null {
+export function dossierGithub(app: GithubAppEnv | null = serverEnv().githubApp): (GithubReader & FixReader) | null {
   if (reader !== undefined) return reader;
   try {
-    reader = githubReader(appCredentials(env), fetch, Date.now, githubStore());
+    reader = githubReader(appCredentials(app), fetch, Date.now, githubStore());
   } catch (error) {
     console.error(`PRD page: ${error instanceof Error ? error.message : String(error)}`);
     reader = null;

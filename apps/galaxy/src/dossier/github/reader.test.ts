@@ -1,8 +1,12 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryGithubStore } from '@omni/github';
+import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { githubReader, latestPull, SUMMARY_TTL_MS } from './reader';
 import { UNREAD } from './summary';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 // The PRD page's GitHub reader (PRD 426, part 1), against a stubbed `fetch`: never GitHub itself.
 // A small fake GitHub answers by route; each test says what the repository holds.
@@ -10,14 +14,14 @@ import { UNREAD } from './summary';
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const CREDS = { appId: '123456', privateKey: privateKey.export({ type: 'pkcs1', format: 'pem' }).toString() };
 const NOW = Date.parse('2026-09-28T10:00:00Z');
-const DOSSIER = { id: 'd-426', home_repo: 'acme/widgets', prd: 426 };
+const DOSSIER = { id: 'd-426', home_repo: 'acme/widgets', prd: parsePrd(426) };
 
 const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n  defaultBranch: trunk\nbranches:\n  feature: feature/{topic}\npaths:\n  delivery: loop/delivery\n';
 
 type Route = (url: URL, init: RequestInit) => Response | Promise<Response> | undefined;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const pull = (number: number, head: string, more: Record<string, unknown> = {}) => ({
-  number, html_url: `https://github.com/acme/widgets/pull/${number}`, state: 'open' as 'open' | 'closed', draft: false, merged_at: null as string | null,
+  number: parsePr(number), html_url: `https://github.com/acme/widgets/pull/${number}`, state: 'open' as 'open' | 'closed', draft: false, merged_at: null as string | null,
   created_at: `2026-09-${String(10 + (number % 18)).padStart(2, '0')}T00:00:00Z`, head: { ref: head }, body: null, ...more,
 });
 const merged = (number: number, head: string, more: Record<string, unknown> = {}) =>
@@ -31,7 +35,7 @@ function fakeGithub(repo: {
   issue?: unknown;
   pulls?: ReturnType<typeof pull>[];
   installed?: boolean;
-  fail?: RegExp;
+  fail?: RegExp | undefined;
   /** Files by `<ref>:<path>`; a directory lists the files and folders right under it. */
   files?: Record<string, string>;
   /** The comments of each issue or pull request, by number. */
@@ -70,7 +74,7 @@ function fakeGithub(repo: {
       }
       const under = Object.keys(files).filter((k) => k.startsWith(`${key}/`)).map((k) => k.slice(key.length + 1));
       if (!under.length) return json({ message: 'Not Found' }, 404);
-      const names = [...new Set(under.map((rest) => rest.split('/')[0]))];
+      const names = [...new Set(under.map((rest) => firstPart(rest, '/')))];
       return json(names.map((name) => ({ name, type: under.includes(name) ? 'file' : 'dir' })));
     },
     (url) => {
@@ -79,7 +83,8 @@ function fakeGithub(repo: {
     },
     (url, init) => {
       if (url.pathname !== '/graphql' || init.method !== 'POST') return undefined;
-      const { variables } = JSON.parse(String(init.body)) as { variables: Record<string, unknown> };
+      if (typeof init.body !== 'string') throw new Error('a GraphQL call sends its query as text');
+      const { variables } = JSON.parse(init.body) as { variables: { owner: string; name: string; number: number } };
       calls.push(`graphql ${variables.owner}/${variables.name}#${variables.number}`);
       return json({ data: repo.care ?? { repository: { pullRequest: {
         mergeable: 'MERGEABLE', baseRefName: 'trunk', commits: { nodes: [] }, reviewThreads: { nodes: [] }, comments: { nodes: [] },
@@ -188,7 +193,7 @@ describe('the GitHub summary of a numbered dossier', () => {
   it('is null when the App is not installed on the repository, when it has no config, and when GitHub is unreachable', async () => {
     expect(await githubReader(CREDS, fakeGithub({ installed: false }).fetchImpl, () => NOW).summary(DOSSIER)).toBeNull();
     expect(await githubReader(CREDS, fakeGithub({ config: null }).fetchImpl, () => NOW).summary(DOSSIER)).toBeNull();
-    expect(await githubReader(CREDS, async () => { throw new TypeError('fetch failed'); }, () => NOW).summary(DOSSIER)).toBeNull();
+    expect(await githubReader(CREDS, () => Promise.reject(new TypeError('fetch failed')), () => NOW).summary(DOSSIER)).toBeNull();
   });
 
   it('never puts an odd repository in a GitHub address', async () => {
@@ -242,12 +247,12 @@ describe('the cache and the token', () => {
     const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
     const reader = githubReader(CREDS, gh.fetchImpl, () => now);
     const configReads = () => gh.calls.filter((c) => c.includes('/contents/.omni-loop/config.yml')).length;
-    await Promise.all([reader.summary(DOSSIER), reader.summary({ ...DOSSIER, id: 'd-427', prd: 427 })]);
-    await reader.summary({ ...DOSSIER, id: 'd-428', prd: 428 });
-    await reader.fix({ ...DOSSIER, id: 'd-fix', prd: 429 });
+    await Promise.all([reader.summary(DOSSIER), reader.summary({ ...DOSSIER, id: 'd-427', prd: parsePrd(427) })]);
+    await reader.summary({ ...DOSSIER, id: 'd-428', prd: parsePrd(428) });
+    await reader.fix({ ...DOSSIER, id: 'd-fix', prd: parseIssue(429) });
     expect(configReads()).toBe(1);
     now += SUMMARY_TTL_MS;
-    await reader.summary({ ...DOSSIER, id: 'd-430', prd: 430 });
+    await reader.summary({ ...DOSSIER, id: 'd-430', prd: parsePrd(430) });
     expect(configReads()).toBe(2);
   });
 
@@ -259,7 +264,7 @@ describe('the cache and the token', () => {
     const reader = githubReader(CREDS, flaky, () => NOW);
     expect(await reader.summary(DOSSIER)).toBeNull();
     broken = false;
-    expect(await reader.summary({ ...DOSSIER, id: 'd-427', prd: 427 })).not.toBeNull();
+    expect(await reader.summary({ ...DOSSIER, id: 'd-427', prd: parsePrd(427) })).not.toBeNull();
   });
 
   it('a forget while a read is in flight makes the next read fresh (PRD 657, s6)', async () => {
@@ -294,7 +299,7 @@ describe('the cache and the token', () => {
     await reader.summary(DOSSIER);
     expect(gh.tokens()).toBe(2);
     const authorizations = gh.fetchImpl.mock.calls
-      .filter(([href]) => String(href).includes('/issues/426'))
+      .filter(([href]) => href.includes('/issues/426'))
       .map(([, init]) => (init.headers as Record<string, string>).authorization);
     expect(authorizations).toEqual(['Bearer ghs_1', 'Bearer ghs_1', 'Bearer ghs_2']);
   });
@@ -538,7 +543,7 @@ describe('the numbering and the pending answers (PRD 251, s9)', () => {
 });
 
 describe('a fix, through the same reader (PRD 627, s5)', () => {
-  const FIX = { id: 'd-fix-426', home_repo: 'acme/widgets', prd: 426 };
+  const FIX = { id: 'd-fix-426', home_repo: 'acme/widgets', prd: parseIssue(426) };
 
   it('reads the fix PR on the config\'s fix branch shape, cached 60 s like the PRD summary', async () => {
     let now = NOW;
@@ -561,7 +566,7 @@ describe('a fix, through the same reader (PRD 627, s5)', () => {
 
   it('is null when the App is not installed, and when GitHub is unreachable', async () => {
     expect(await githubReader(CREDS, fakeGithub({ installed: false }).fetchImpl, () => NOW).fix(FIX)).toBeNull();
-    expect(await githubReader(CREDS, async () => { throw new TypeError('fetch failed'); }, () => NOW).fix(FIX)).toBeNull();
+    expect(await githubReader(CREDS, () => Promise.reject(new TypeError('fetch failed')), () => NOW).fix(FIX)).toBeNull();
   });
 });
 

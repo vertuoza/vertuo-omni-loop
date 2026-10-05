@@ -5,7 +5,7 @@
 # On a repository without `.omni-loop/config.yml` the app posts nothing.
 #
 # Least privilege: these permissions and events are what the outbox check and the retro use, nothing
-# more. `test/app-yml.test.mjs` fails on any permission or event beyond them. The retro (PRD 72)
+# more. `test/app-yml.test.ts` fails on any permission or event beyond them. The retro (PRD 72)
 # widened them once: `contents: write` (was `read`) to write its own `branches.retro` branch,
 # `issues: write` for its retro issues and `actions: read` for failed jobs' logs. The actions the app
 # acts on (pull_request: opened, synchronize, reopened, ready_for_review, labeled, unlabeled, edited,
@@ -18,7 +18,7 @@ name: omni-loop
 description: Posts the omni-loop outbox check on every pull request, and a retro after every feature pull request merges.
 url: https://omni-loop.vercel.app
 public: true
-setup_url: https://vertuo-omni-loop-galaxy.vercel.app/signup/installed
+setup_url: https://www.omni-loop.xyz/signup/installed
 hook_attributes:
   url: https://omni-loop.vercel.app/api/github
   active: true

@@ -1,12 +1,14 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { supabaseEnv, supabaseServer } from '../data/supabase-server';
 import { serviceDb } from '../data/sign-in-live';
+import { serverEnv, type GithubOAuthEnv } from '../env';
 import { dossierGithub } from '../dossier/github/server';
 import { recountLive } from '../stages/outbox/live';
 import { sendOpen } from './open';
 import { githubUser, type OutboxSource, type SendDeps, type SendStore } from './send';
-import type { SendRow } from './sent';
+import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // Ported from archive/outbox-answers-v1:apps/galaxy/src/outbox/send-live.ts (PRD 251, s11); the outbox
 // is read through PRD 426's GitHub reader, not a stored copy.
@@ -21,12 +23,14 @@ import type { SendRow } from './sent';
 
 const SEND_COLUMNS = 'id, dossier_id, pr_number, reply, nonce_hash, created_at, posted_at, comment_url, login, counted, error';
 
-type Db = Pick<SupabaseClient, 'from' | 'rpc'>;
+type Db = Pick<SupabaseClient<Database>, 'from' | 'rpc'>;
 
 /** A store call that failed: which, and the database's code. Never the row. */
 export class SendStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, message: string) {
+  readonly code: string | undefined;
+  constructor(what: string, code: string | undefined, message: string) {
     super(`Could not ${what}: ${message}`);
+    this.code = code;
   }
 }
 
@@ -36,19 +40,19 @@ export function sendStore(db: Db): SendStore {
       const { data, error } = await db.from('dossiers').select('id, home_repo, prd').eq('id', dossierId).maybeSingle();
       if (error) throw new SendStoreError('read the dossier', error.code, error.message);
       if (!data) return null;
-      const row = data as { id: string; home_repo: string; prd: number | null };
-      return { dossierId: row.id, homeRepo: row.home_repo, prd: row.prd };
+      const row = data;
+      return { dossierId: row.id, homeRepo: row.home_repo, prd: row.prd === null ? null : parsePrd(row.prd) };
     },
     async create({ dossierId, prNumber, reply, nonceHash }) {
       const { data, error } = await db.from('outbox_sends')
         .insert({ dossier_id: dossierId, pr_number: prNumber, reply, nonce_hash: nonceHash }).select('id').single();
       if (error) throw new SendStoreError('record the send', error.code, error.message);
-      return (data as { id: string }).id;
+      return data.id;
     },
     async read(sendId) {
       const { data, error } = await db.from('outbox_sends').select(SEND_COLUMNS).eq('id', sendId).maybeSingle();
       if (error) throw new SendStoreError('read the send', error.code, error.message);
-      return (data as SendRow | null) ?? null;
+      return data ? { ...data, pr_number: parsePr(data.pr_number) } : null;
     },
     async done(sendId, outcome) {
       const { error } = await db.rpc('outbox_send_done', 'error' in outcome
@@ -78,16 +82,22 @@ function outboxSource(): OutboxSource {
 async function recountDossier(dossierId: string): Promise<void> {
   const { data, error } = await serviceDb().from('dossiers').select('workspace_id, home_repo, prd').eq('id', dossierId).maybeSingle();
   if (error) throw new SendStoreError('read the dossier to recount', error.code, error.message);
-  const row = data as { workspace_id: string; home_repo: string; prd: number | null } | null;
+  const row = data;
   if (!row || row.prd === null) return;
-  await recountLive(row.workspace_id, [{ repository: row.home_repo, prd: row.prd, id: dossierId }]);
+  await recountLive(row.workspace_id, [{ repository: row.home_repo, prd: parsePrd(row.prd), id: dossierId }]);
 }
 
+/** The App's OAuth client while this deployment may send (./open.ts), or none. */
+function sendClient(): GithubOAuthEnv | null {
+  return sendOpen() ? serverEnv().githubOAuth : null;
+}
+
+const NO_CLIENT: GithubOAuthEnv = { clientId: '', clientSecret: '' };
+
 export function sendDeps(): SendDeps {
-  const clientId = process.env.GITHUB_APP_CLIENT_ID?.trim() || null;
-  const clientSecret = process.env.GITHUB_APP_CLIENT_SECRET?.trim() || '';
+  const client = sendClient();
   return {
-    clientId: sendOpen() && supabaseEnv() ? clientId : null,
+    clientId: client?.clientId ?? null,
     async store() {
       if (!supabaseEnv()) return null;
       const db = await supabaseServer();
@@ -95,7 +105,7 @@ export function sendDeps(): SendDeps {
       return user ? sendStore(db) : null;
     },
     outbox: outboxSource(),
-    github: () => githubUser({ clientId: clientId ?? '', clientSecret, fetch }),
+    github: () => githubUser({ ...(client ?? NO_CLIENT), fetch }),
     recount: recountDossier,
   };
 }

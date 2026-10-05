@@ -19,6 +19,7 @@
 // /bugs and /visual never read GitHub. A released fix is final and is not read again. A refresh that
 // fails, or a workspace whose fixes cannot be listed, is logged; the stages still land and the run
 // answers 200.
+import 'server-only';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FixReader, FixRef } from '../../dossier/github/reader';
 import { isFinal, refreshFixFacts } from '../../fixes/facts/refresh';
@@ -26,6 +27,7 @@ import type { FixFactsStore } from '../../fixes/facts/store';
 import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
 import { stagesOfRepo, type RepoSnapshot } from './core';
+import { firstPart, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** A workspace, and where its repositories are found on GitHub. */
 export type SyncWorkspace = { id: string; slug: string; github_org: string | null; github_installation_id: number | null };
@@ -62,7 +64,7 @@ type SkippedRepo = { workspace: string; repository: string | null; reason: strin
 type SyncReply = { synced_at: string; repositories: SyncedRepo[]; skipped: SkippedRepo[] };
 
 const json = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
-const why = (error: unknown) => (error instanceof Error ? error.message.split('\n')[0] : String(error));
+const why = (error: unknown) => (error instanceof Error ? firstPart(error.message, '\n') : String(error));
 const digest = (text: string) => createHash('sha256').update(text).digest();
 
 /** How far before the last sync a repository is read again, for clocks that disagree. */
@@ -80,7 +82,7 @@ function bearerMatches(request: Request, secret: string | undefined): boolean {
   const header = request.headers.get('authorization') ?? '';
   const match = /^Bearer (.+)$/.exec(header);
   if (!match) return false;
-  return timingSafeEqual(digest(match[1]), digest(secret));
+  return timingSafeEqual(digest(group(match, 1)), digest(secret));
 }
 
 /** Reads and records one repository; its counts, or throws with why it was skipped. */
@@ -100,7 +102,7 @@ async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: st
   if (deps.outbox) {
     const prds = [...new Set([...stages, ...topics].map((s) => s.prd))].sort((a, b) => a - b).map((prd) => ({ repository, prd }));
     try {
-      await recountOutboxes(workspace.id, prds, { ...deps.outbox, stages: deps.store, log: deps.log }, syncedAt);
+      await recountOutboxes(workspace.id, prds, { ...deps.outbox, stages: deps.store, log: (line) => { deps.log(line); } }, syncedAt);
     } catch (error) {
       deps.log(`stages sync: the outboxes of ${repository} were not recounted — ${why(error)}`);
     }
@@ -111,13 +113,14 @@ async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: st
 /** Reads and stores the facts of the workspace's fixes that have no stored release; logs, never throws. */
 async function refreshFixes(deps: SyncDeps, workspace: SyncWorkspace, syncedAt: string): Promise<void> {
   if (!deps.fixes) return;
-  const { dossiers, reader, store } = deps.fixes;
+  const fixDeps = deps.fixes;
+  const { reader, store } = fixDeps;
   try {
-    const fixes = await dossiers(workspace);
+    const fixes = await fixDeps.dossiers(workspace);
     if (fixes.length === 0) return;
     const stored = await store.readFacts(workspace.id, fixes.map((f) => f.id));
     const unreleased = fixes.filter((f) => !isFinal(stored.get(f.id)));
-    const log = (error: unknown) => deps.log(`stages sync: a fix of ${workspace.slug} was not read — ${why(error)}`);
+    const log = (error: unknown) => { deps.log(`stages sync: a fix of ${workspace.slug} was not read — ${why(error)}`); };
     await refreshFixFacts(workspace.id, unreleased, { reader, store, now: () => syncedAt, log });
   } catch (error) {
     deps.log(`stages sync: the fix facts of ${workspace.slug} were not refreshed — ${why(error)}`);

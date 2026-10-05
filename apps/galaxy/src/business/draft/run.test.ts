@@ -3,6 +3,7 @@ import type { ClaimKind, StoredClaim } from '../model';
 import type { Candidate } from './verify';
 import { DraftStoreError, runDraft, type DraftCounts, type DraftDeps, type DraftStore, type Receipt, type Scanned } from './run';
 import type { RepoListing } from './sources';
+import { sure } from '../../arcade/test/sure';
 
 // One run of the draft with fakes for the store, GitHub, the page fetch and the model: never Supabase,
 // GitHub or OpenRouter. It reads each source, keeps only quoted candidates, merges them as decision 9
@@ -16,22 +17,22 @@ const PRICING = 'Pricing for contractors in France.';
 function fakeStore(held: StoredClaim[] = [], { failPropose }: { failPropose?: string } = {}) {
   const proposed: Proposed[] = [];
   const progress: Array<{ counts: DraftCounts; scanned: Scanned[] }> = [];
-  const finished: Array<{ state: string; counts: DraftCounts; scanned: Scanned[]; reason?: string }> = [];
+  const finished: Array<{ state: string; counts: DraftCounts; scanned: Scanned[]; reason?: string | undefined }> = [];
   const store: DraftStore = {
-    running: async () => null,
-    start: async () => { throw new Error('not here'); },
-    async progress(_ws, _d, counts, scanned) { progress.push({ counts: { ...counts }, scanned: [...scanned] }); },
-    async finish(_ws, _d, state, counts, scanned, reason) { finished.push({ state, counts: { ...counts }, scanned: [...scanned], reason }); },
-    repositories: async () => [{ full_name: 'acme/app', product_id: 'p-1' }],
-    webPages: async () => ['https://acme.com/pricing'],
-    firstProduct: async () => 'p-1',
-    claims: async () => held,
-    async propose(_ws, product, kind, value, receipts) {
-      if (failPropose) throw new DraftStoreError('propose', failPropose, 'no');
+    running: () => Promise.resolve(null),
+    start: () => Promise.reject(new Error('not here')),
+    progress(_ws, _d, counts, scanned) { progress.push({ counts: { ...counts }, scanned: [...scanned] }); return Promise.resolve(); },
+    finish(_ws, _d, state, counts, scanned, reason) { finished.push({ state, counts: { ...counts }, scanned: [...scanned], reason }); return Promise.resolve(); },
+    repositories: () => Promise.resolve([{ full_name: 'acme/app', product_id: 'p-1' }]),
+    webPages: () => Promise.resolve(['https://acme.com/pricing']),
+    firstProduct: () => Promise.resolve('p-1'),
+    claims: () => Promise.resolve(held),
+    propose(_ws, product, kind, value, receipts) {
+      if (failPropose) return Promise.reject(new DraftStoreError('propose', failPropose, 'no'));
       proposed.push({ product, kind, value, receipts });
       const there = held.find((c) => c.kind === kind && c.value.toLowerCase() === value.toLowerCase());
-      if (there) return there.state === 'rejected' ? 'rejected' : 'seen';
-      return 'added';
+      if (there) return Promise.resolve(there.state === 'rejected' ? 'rejected' : 'seen');
+      return Promise.resolve('added');
     },
   };
   return { store, proposed, progress, finished };
@@ -42,13 +43,13 @@ const LISTING: RepoListing = { root: ['README.md'], docs: ['gone.md'], delivery:
 function deps(store: DraftStore, answers: Record<string, Candidate[]>, over: Partial<DraftDeps> = {}): DraftDeps {
   return {
     store,
-    installation: async () => 11,
+    installation: () => Promise.resolve(11),
     github: {
-      listing: async () => LISTING,
-      file: async (_i, _r, path) => (path === 'README.md' ? README : null),
+      listing: () => Promise.resolve(LISTING),
+      file: (_i, _r, path) => Promise.resolve(path === 'README.md' ? README : null),
     },
-    page: async () => PRICING,
-    extract: async (_text, where) => answers[where] ?? [],
+    page: () => Promise.resolve(PRICING),
+    extract: (_text, where) => Promise.resolve(answers[where] ?? []),
     log: () => undefined,
     ...over,
   };
@@ -81,9 +82,9 @@ describe('runDraft', () => {
       { product: null, kind: 'region', value: 'France', receipts: [{ kind: 'link', where: 'https://acme.com/pricing', quote: 'contractors in France' }] },
     ]);
     expect(finished).toHaveLength(1);
-    expect(finished[0].state).toBe('done');
-    expect(finished[0].counts).toMatchObject({ readmes: 1, docs: 0, prds: 0, pages: 1, skipped: 1, found: 6, kept: 5, added: 4, rejected: 1 });
-    expect(finished[0].scanned).toEqual([
+    expect(sure(finished[0], 'finished[0]').state).toBe('done');
+    expect(sure(finished[0], 'finished[0]').counts).toMatchObject({ readmes: 1, docs: 0, prds: 0, pages: 1, skipped: 1, found: 6, kept: 5, added: 4, rejected: 1 });
+    expect(sure(finished[0], 'finished[0]').scanned).toEqual([
       { source: 'app · README.md', state: 'read' },
       { source: 'app · docs/gone.md', state: 'skipped', why: 'nothing there' },
       { source: 'acme.com/pricing', state: 'read' },
@@ -93,22 +94,22 @@ describe('runDraft', () => {
 
   it('skips a page it may not read and carries on', async () => {
     const { store, finished } = fakeStore();
-    await runDraft(deps(store, ANSWERS, { page: async () => { throw new Error('That address is not on the public internet.'); } }), 'ws-1', 'd-1');
-    expect(finished[0].state).toBe('done');
-    expect(finished[0].scanned.at(-1)).toEqual({ source: 'acme.com/pricing', state: 'skipped', why: 'That address is not on the public internet.' });
+    await runDraft(deps(store, ANSWERS, { page: () => Promise.reject(new Error('That address is not on the public internet.')) }), 'ws-1', 'd-1');
+    expect(sure(finished[0], 'finished[0]').state).toBe('done');
+    expect(sure(finished[0], 'finished[0]').scanned.at(-1)).toEqual({ source: 'acme.com/pricing', state: 'skipped', why: 'That address is not on the public internet.' });
   });
 
   it('skips every repository when the App is not installed', async () => {
     const { store, finished } = fakeStore();
-    await runDraft(deps(store, ANSWERS, { installation: async () => null }), 'ws-1', 'd-1');
-    expect(finished[0].scanned[0]).toEqual({ source: 'app', state: 'skipped', why: 'The Omni Loop App is not installed here.' });
-    expect(finished[0].counts.pages).toBe(1);
+    await runDraft(deps(store, ANSWERS, { installation: () => Promise.resolve(null) }), 'ws-1', 'd-1');
+    expect(sure(finished[0], 'finished[0]').scanned[0]).toEqual({ source: 'app', state: 'skipped', why: 'The Omni Loop App is not installed here.' });
+    expect(sure(finished[0], 'finished[0]').counts.pages).toBe(1);
   });
 
   it('reads nothing and finds nothing with the model key unset', async () => {
     const { store, proposed, finished } = fakeStore();
     let listed = 0;
-    await runDraft(deps(store, ANSWERS, { extract: null, github: { listing: async () => { listed += 1; return LISTING; }, file: async () => null } }), 'ws-1', 'd-1');
+    await runDraft(deps(store, ANSWERS, { extract: null, github: { listing: () => { listed += 1; return Promise.resolve(LISTING); }, file: () => Promise.resolve(null) } }), 'ws-1', 'd-1');
     expect(listed).toBe(0);
     expect(proposed).toEqual([]);
     expect(finished[0]).toMatchObject({ state: 'done', scanned: [], counts: { kept: 0, added: 0 } });
@@ -117,7 +118,7 @@ describe('runDraft', () => {
   it('drops a candidate the database finds invalid, and ends failed when the store refuses', async () => {
     const invalid = fakeStore([], { failPropose: '22023' });
     await runDraft(deps(invalid.store, ANSWERS), 'ws-1', 'd-1');
-    expect(invalid.finished[0].state).toBe('done');
+    expect(sure(invalid.finished[0], 'invalid.finished[0]').state).toBe('done');
 
     const refused = fakeStore([], { failPropose: '42501' });
     await runDraft(deps(refused.store, ANSWERS), 'ws-1', 'd-1');
@@ -129,9 +130,9 @@ describe('runDraft', () => {
     const { store, proposed, finished } = fakeStore();
     const page = 'Pricing for contractors in France. We don\'t answer public tenders.';
     const answers = { 'https://acme.com/pricing': [{ kind: 'never' as const, value: 'Answer public tenders', quote: 'we don\'t answer public tenders' }] };
-    await runDraft(deps(store, answers, { page: async () => page }), 'ws-1', 'd-1');
+    await runDraft(deps(store, answers, { page: () => Promise.resolve(page) }), 'ws-1', 'd-1');
     expect(proposed.filter((p) => p.kind === 'never')).toEqual([]);
-    expect(finished[0].counts).toMatchObject({ kept: 0, added: 0 });
+    expect(sure(finished[0], 'finished[0]').counts).toMatchObject({ kept: 0, added: 0 });
   });
 
   it('proposes a value found twice once as new, then as seen', async () => {
@@ -139,6 +140,6 @@ describe('runDraft', () => {
     const both = { ...ANSWERS, 'https://acme.com/pricing': [{ kind: 'offering' as const, value: 'erp', quote: 'Pricing for contractors' }] };
     await runDraft(deps(store, both), 'ws-1', 'd-1');
     expect(proposed.filter((p) => p.kind === 'offering')).toHaveLength(2);
-    expect(finished[0].counts.added).toBe(3);
+    expect(sure(finished[0], 'finished[0]').counts.added).toBe(3);
   });
 });

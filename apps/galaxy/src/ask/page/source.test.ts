@@ -7,6 +7,7 @@ import {
 } from './source';
 import { stageShots, type Bucket } from './attachments';
 import { peopleOf } from '../../people/load';
+import { item, present } from '../test/test-item';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
@@ -27,11 +28,11 @@ async function world() {
       const query = fake.client(token).from(table as 'ask_sessions');
       const proxy: unknown = new Proxy(query, {
         get(target, prop, receiver) {
-          const value = Reflect.get(target, prop, receiver);
+          const value: unknown = Reflect.get(target, prop, receiver);
           if (typeof value !== 'function' || !['select', 'eq', 'in', 'update'].includes(String(prop))) return value;
           return (...args: unknown[]) => {
             calls.push(`${table}.${String(prop)}(${args.map((a) => JSON.stringify(a)).join(', ')})`);
-            value.apply(target, args);
+            Reflect.apply(value, target, args);
             return proxy;
           };
         },
@@ -141,12 +142,12 @@ describe('whether the tab\'s terminal is working (PRD 757)', () => {
   function pings() {
     const asked: string[] = [];
     const rows: Record<string, typeof FRESH> = { 'claude-this-tab': FRESH, 'claude-other-tab': OTHER };
-    return { asked, read: async (id: string) => { asked.push(id); return rows[id] ?? null; } };
+    return { asked, read: (id: string) => { asked.push(id); return Promise.resolve(rows[id] ?? null); } };
   }
 
   it('each poll carries the heartbeat of this tab\'s Claude session, and of no other terminal', async () => {
     const w = await world();
-    w.fake.tables.ask_sessions[0].claude_session_id = 'claude-this-tab';
+    item(w.fake.tables.ask_sessions, 0).claude_session_id = 'claude-this-tab';
     const p = pings();
     const read = sessionReader(w.recording('ada'), w.sessionId, null, p.read);
     expect((await read())?.ping).toEqual(FRESH);
@@ -156,7 +157,7 @@ describe('whether the tab\'s terminal is working (PRD 757)', () => {
 
   it('the first read carries it too, so the server renders the tab as it stands', async () => {
     const w = await world();
-    w.fake.tables.ask_sessions[0].claude_session_id = 'claude-this-tab';
+    item(w.fake.tables.ask_sessions, 0).claude_session_id = 'claude-this-tab';
     const p = pings();
     expect((await readSession(w.recording('ada'), w.sessionId, p.read))?.ping).toEqual(FRESH);
   });
@@ -171,8 +172,8 @@ describe('whether the tab\'s terminal is working (PRD 757)', () => {
   it('a heartbeat out of reach reads as none, and the session is still read', async () => {
     const w = await world();
     await w.ask();
-    w.fake.tables.ask_sessions[0].claude_session_id = 'claude-this-tab';
-    const state = await sessionReader(w.recording('ada'), w.sessionId, null, async () => { throw new Error('connection lost'); })();
+    item(w.fake.tables.ask_sessions, 0).claude_session_id = 'claude-this-tab';
+    const state = await sessionReader(w.recording('ada'), w.sessionId, null, () => Promise.reject(new Error('connection lost')))();
     expect(state?.ping).toBeNull();
     expect(state?.rounds).toHaveLength(1);
   });
@@ -189,7 +190,7 @@ describe('sending the answers', () => {
   it('never answers a round the terminal took over, or one already answered', async () => {
     const w = await world();
     const id = await w.ask();
-    w.fake.tables.ask_rounds[0].status = 'abandoned';
+    item(w.fake.tables.ask_rounds, 0).status = 'abandoned';
     expect(await sendAnswers(w.as('ada'), id, ANSWERS)).toBe('taken');
     expect(w.fake.tables.ask_rounds[0]).toMatchObject({ status: 'abandoned', answers: null });
 
@@ -214,13 +215,13 @@ describe('sending with screenshots (PRD 620)', () => {
     const uploads: string[] = [];
     const removed: string[][] = [];
     const bucket: Bucket = {
-      async upload(path) {
+      upload(path) {
         uploads.push(path);
-        return { error: null };
+        return Promise.resolve({ error: null });
       },
-      async remove(paths) {
+      remove(paths) {
         removed.push(paths);
-        return { error: null };
+        return Promise.resolve({ error: null });
       },
     };
     const client = w.fake.client(token) as unknown as Db;
@@ -243,7 +244,7 @@ describe('sending with screenshots (PRD 620)', () => {
   it('deletes the uploads of a round the terminal answered first', async () => {
     const w = await world();
     const id = await w.ask();
-    w.fake.tables.ask_rounds[0].status = 'abandoned';
+    item(w.fake.tables.ask_rounds, 0).status = 'abandoned';
     stageShots(id, { 'Which storage?': [png('a')] });
     const { db, removed } = withBucket(w, 'ada');
     expect(await sendAnswers(db, id, ANSWERS)).toBe('taken');
@@ -311,7 +312,7 @@ describe('sharing a round, and the rounds shared with me (PRD 144)', () => {
     expect(await shareRound(both(w, 'ada'), id, CARL.id)).toBe(false);
     expect(await shareRound(both(w, 'ada'), id, BOB.id)).toBe(true);
     const state = await readSession(w.as('ada'), w.sessionId);
-    expect(await databasePort(both(w, 'ada'), state!).share(id, BOB.id)).toBe(true);
+    expect(await databasePort(both(w, 'ada'), present(state, 'state')).share(id, BOB.id)).toBe(true);
     expect(w.fake.tables.ask_shares).toHaveLength(1);
   });
 
@@ -356,16 +357,16 @@ describe('sharing a round, and the rounds shared with me (PRD 144)', () => {
   it('lists the members of my workspace, and nobody for a workspace I am not in or none', async () => {
     const w = await world();
     const state = await readSession(w.as('ada'), w.sessionId);
-    const members = await readMembers(both(w, 'bob'), state!.session.workspace_id);
+    const members = await readMembers(both(w, 'bob'), present(state, 'state').session.workspace_id);
     expect(members.map((m) => m.email).sort()).toEqual(['ada@vertuoza.com', 'bob@vertuoza.com']);
-    expect(await readMembers(both(w, 'carl'), state!.session.workspace_id)).toEqual([]);
+    expect(await readMembers(both(w, 'carl'), present(state, 'state').session.workspace_id)).toEqual([]);
     expect(await readMembers(both(w, 'bob'), null)).toEqual([]);
   });
 
   it('gives each member a face; with no people directory to read, the initial of their name (PRD 652)', async () => {
     const w = await world();
     const state = await readSession(w.as('ada'), w.sessionId);
-    const members = await readMembers(both(w, 'bob'), state!.session.workspace_id);
+    const members = await readMembers(both(w, 'bob'), present(state, 'state').session.workspace_id);
     expect(members.map((m) => m.face).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))))
       .toEqual([{ kind: 'initial', letter: 'A' }, { kind: 'initial', letter: 'B' }]);
   });
@@ -392,7 +393,11 @@ describe('members\' faces (PRD 652)', () => {
 
   it('keeps every member, named as before, when the directory could not be read', () => {
     const faced = withFaces(members, peopleOf([], []));
-    expect(faced.map(({ face: _face, ...m }) => m)).toEqual(members);
+    expect(faced.map((member) => {
+      const m = { ...member };
+      delete m.face;
+      return m;
+    })).toEqual(members);
     expect(faced.map((m) => m.face)).toEqual([{ kind: 'initial', letter: 'A' }, { kind: 'initial', letter: 'B' }, { kind: 'initial', letter: 'C' }]);
   });
 });
@@ -410,7 +415,7 @@ describe('the workspace history (PRD 144)', () => {
     for (const token of ['ada', 'bob']) {
       const rows = await readHistory(w.as(token));
       expect(rows.map((r) => [r.round.id, r.session.id]), token).toEqual([[second, w.sessionId], [first, w.sessionId]]);
-      expect(rows[0].round).not.toHaveProperty('session_id');
+      expect(item(rows, 0).round).not.toHaveProperty('session_id');
     }
     expect((await readHistory(w.as('carl'))).map((r) => r.session.title)).toEqual(['elsewhere']);
   });
@@ -461,9 +466,9 @@ describe('reading the tab list', () => {
     const newest = await w.askIn(w.sessionId, 'Access');
     const rows = await readTabs(w.recording('ada'), ADA.id, w.clock.now);
     expect(rows.map((r) => r.session.id).sort()).toEqual([w.sessionId, w.second].sort());
-    const first = rows.find((r) => r.session.id === w.sessionId)!;
+    const first = present(rows.find((r) => r.session.id === w.sessionId), 'rows.find((r) => r.session.id === w.sessionId)');
     expect(first.newest).toMatchObject({ id: newest, status: 'open', header: 'Access' });
-    expect(rows.find((r) => r.session.id === w.second)!.newest).toBeNull();
+    expect(present(rows.find((r) => r.session.id === w.second), 'rows.find((r) => r.session.id === w.second)').newest).toBeNull();
   });
 
   it('asks the database for open sessions only, and never reads another person\'s, even a teammate\'s (PRD 144)', async () => {

@@ -1,4 +1,5 @@
 import 'server-only';
+import { serverEnv, type GithubAppEnv } from '../env';
 import { appCredentials } from '../signup/github-app';
 import { knowledgeReader, type KnowledgeReader } from './github';
 
@@ -8,10 +9,10 @@ import { knowledgeReader, type KnowledgeReader } from './github';
 
 let reader: KnowledgeReader | null | undefined;
 
-export function knowledgeGithub(env: Record<string, string | undefined> = process.env): KnowledgeReader | null {
+export function knowledgeGithub(app: GithubAppEnv | null = serverEnv().githubApp): KnowledgeReader | null {
   if (reader !== undefined) return reader;
   try {
-    reader = knowledgeReader(appCredentials(env));
+    reader = knowledgeReader(appCredentials(app));
   } catch (error) {
     console.error(`knowledge map: only this deployment's repository is offered — ${error instanceof Error ? error.message : String(error)}`);
     reader = null;

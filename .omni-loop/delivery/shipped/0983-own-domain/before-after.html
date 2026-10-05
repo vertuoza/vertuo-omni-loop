@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 983 · Own domain</title>
+<style>
+  :root { --bg: #f7f7f5; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e2dc; --bad: #b42318; --good: #157f3d; --code: #f0f0eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141413; --card: #1e1e1c; --ink: #ecece8; --muted: #a3a39c; --line: #33332f; --bad: #f97066; --good: #4ade80; --code: #262623; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lede { color: var(--muted); margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 12px; color: var(--muted); }
+  h3 { font-size: 15px; margin: 18px 0 6px; }
+  h3:first-of-type { margin-top: 0; }
+  pre { background: var(--code); border-radius: 6px; padding: 10px 12px; margin: 0; overflow-x: auto; font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+  .bad { color: var(--bad); } .good { color: var(--good); } .muted { color: var(--muted); }
+  .same { margin-top: 20px; }
+  ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>PRD 983 · Omni Loop on its own domain</h1>
+  <p class="lede">Nothing on screen changes. What changes is the address everything names: search engines, signatures, new installs and the GitHub App all say <code>www.omni-loop.xyz</code>, and the vercel.app address keeps working.</p>
+  <div class="grid">
+    <section>
+      <h2>Today</h2>
+      <h3>/releases, on either host</h3>
+<pre>&lt;link rel="canonical"
+  href="<span class="bad">https://vertuo-omni-loop-galaxy.vercel.app</span>/releases"&gt;
+<span class="muted">home and docs: no canonical at all</span></pre>
+      <h3>Robots and sitemap</h3>
+<pre>GET https://www.omni-loop.xyz/robots.txt   <span class="bad">404</span>
+GET https://www.omni-loop.xyz/sitemap.xml  <span class="bad">404</span></pre>
+      <h3>A signed pull request</h3>
+<pre>🦸 Omni-man by [Omni Loop](<span class="bad">https://vertuo-omni-loop-galaxy.vercel.app</span>) ©</pre>
+      <h3>omni init writes</h3>
+<pre>ask:
+  url: <span class="bad">https://vertuo-omni-loop-galaxy.vercel.app</span></pre>
+      <h3>Sign-in on www.omni-loop.xyz</h3>
+<pre><span class="bad">bounced: the domain is not on Supabase's
+redirect list nor the GitHub App's callbacks</span></pre>
+    </section>
+    <section>
+      <h2>After</h2>
+      <h3>/releases, on either host</h3>
+<pre>&lt;link rel="canonical"
+  href="<span class="good">https://www.omni-loop.xyz</span>/releases"&gt;
+<span class="good">home and every docs page: canonical on the same host</span></pre>
+      <h3>Robots and sitemap</h3>
+<pre>GET https://www.omni-loop.xyz/robots.txt   <span class="good">200</span>
+  Allow: /  /releases  /docs
+  Disallow: /app /prd /ask /api …
+  Sitemap: https://www.omni-loop.xyz/sitemap.xml
+GET https://www.omni-loop.xyz/sitemap.xml  <span class="good">200</span></pre>
+      <h3>A signed pull request</h3>
+<pre>🦸 Omni-man by [Omni Loop](<span class="good">https://www.omni-loop.xyz</span>) ©</pre>
+      <h3>omni init writes</h3>
+<pre>ask:
+  url: <span class="good">https://www.omni-loop.xyz</span></pre>
+      <h3>Sign-in on www.omni-loop.xyz</h3>
+<pre><span class="good">works, once the Supabase and GitHub App
+human steps add the domain (README)</span></pre>
+    </section>
+  </div>
+  <section class="same">
+    <h2>What stays the same</h2>
+    <ul>
+      <li><code>https://vertuo-omni-loop-galaxy.vercel.app</code> serves every page, sign-in included, with no redirect.</li>
+      <li>Repositories already installed keep their <code>ask.url</code>. It still works, and the guide says how to switch.</li>
+      <li>Shipped PRD folders keep the address they were written with.</li>
+      <li>The kit's own <code>ask.url</code> default stays <code>null</code> (ADR-0047, decision 5).</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

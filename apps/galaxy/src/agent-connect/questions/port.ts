@@ -1,6 +1,7 @@
 import { NEVER_INVALID, refusalOf } from '../../business/store';
 import type { ClaimKind } from '../../business/model';
 import type { AgentQuestion } from './model';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The questions' calls from the browser (PRD 855 s3). In production, the functions of
 // supabase/migrations/20261028100000_agent_questions.sql, called as the signed-in person like the rest of
@@ -27,18 +28,19 @@ type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data:
 
 /** A refusal as the card says it: the product to pick, a Never line's own length, or the business's words. */
 function said(error: unknown, kind: ClaimKind | null): string {
-  const { code, hint } = (error ?? {}) as { code?: unknown; hint?: unknown };
+  const code = propertyOf(error, 'code');
+  const hint = propertyOf(error, 'hint');
   if (code === '22023' && hint === 'product') return PICK_PRODUCT;
   if (code === '22023' && kind === 'never') return NEVER_INVALID;
   return refusalOf(error);
 }
 
 export function databaseQuestions(db: Rpc, workspace: string): QuestionsPort {
-  type Called = { ok: true; data: { claim?: unknown } } | { ok: false; message: string };
+  type Called = { ok: true; data: unknown } | { ok: false; message: string };
   const call = async (fn: string, args: Record<string, unknown>, kind: ClaimKind | null): Promise<Called> => {
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
-      return error || !data ? { ok: false, message: said(error, kind) } : { ok: true, data: data as { claim?: unknown } };
+      return error || !data ? { ok: false, message: said(error, kind) } : { ok: true, data };
     } catch (err) {
       return { ok: false, message: said(err, kind) };
     }
@@ -46,7 +48,7 @@ export function databaseQuestions(db: Rpc, workspace: string): QuestionsPort {
   return {
     async answer(question, kind, value, product) {
       const got = await call('agent_question_answer', { p_question: question.id, p_kind: kind, p_value: value, p_product: product }, kind);
-      return got.ok ? { ok: true, claim: String(got.data.claim) } : got;
+      return got.ok ? { ok: true, claim: String(propertyOf(got.data, 'claim')) } : got;
     },
     async dismiss(question) {
       const got = await call('agent_question_dismiss', { p_question: question.id }, null);
@@ -63,16 +65,16 @@ export function databaseQuestions(db: Rpc, workspace: string): QuestionsPort {
 export function demoQuestions(seq: number): QuestionsPort {
   let last = seq;
   return {
-    async answer(_question, kind, value) {
-      if (value.trim() === '') return { ok: false, message: kind === 'never' ? NEVER_INVALID : refusalOf({ code: '22023' }) };
+    answer(_question, kind, value) {
+      if (value.trim() === '') return Promise.resolve({ ok: false, message: kind === 'never' ? NEVER_INVALID : refusalOf({ code: '22023' }) });
       last += 1;
-      return { ok: true, claim: `${kind}#${last}` };
+      return Promise.resolve({ ok: true, claim: `${kind}#${last}` });
     },
-    async dismiss() {
-      return { ok: true };
+    dismiss() {
+      return Promise.resolve({ ok: true });
     },
-    async bringBack() {
-      return { ok: true };
+    bringBack() {
+      return Promise.resolve({ ok: true });
     },
   };
 }

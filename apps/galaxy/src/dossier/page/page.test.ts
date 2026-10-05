@@ -2,11 +2,13 @@ import { readFileSync } from 'node:fs';
 import { createElement, Fragment, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { fakeStageStore } from '../../stages/store.fake';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { signature } from './live';
 import { LiveRefresh } from './live-refresh';
 import { SANDBOX_CSP } from './sandbox';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd/<id> and its sandboxed route (PRD 216), called as the server calls them, reading as the viewer
 // through the stubbed client of ../store.fake.ts (the migration's access rules): a member reads the
@@ -20,7 +22,7 @@ const SPEC = '---\nprd: 7\ntitle: Team inbox\n---\n\n# Team inbox\n\n<b>raw</b>\
 const PAGE = '<!doctype html><title>After</title><script>document.title = "ran"</script>';
 
 const given = vi.hoisted(() => ({
-  mode: 'supabase' as 'demo' | 'closed' | 'supabase',
+  mode: 'supabase',
   token: null as string | null,
   fake: null as unknown as ReturnType<typeof import('../store.fake').fakeSupabase>,
   path: '/prd',
@@ -42,11 +44,14 @@ vi.mock('../../stages/store', async (original) => ({
   ...(await original<typeof import('../../stages/store')>()),
   stageStore: () => given.stages,
 }));
-vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
+vi.mock('../../env', async (actual) => {
+  const env = await actual<typeof import('../../env')>();
+  return { ...env, serverEnv: () => ({ ...env.readEnv({}), mode: given.mode }) };
+});
 // Who plays in the dock (PRD 757, s4): the fake database keeps no player rows, so the read is given.
 vi.mock('./dock-player', () => ({
-  readDockPlayer: async (_db: unknown, user: { id: string }, workspace: string) =>
-    ({ player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: user.id, workspace }),
+  readDockPlayer: (_db: unknown, user: { id: string }, workspace: string) =>
+    Promise.resolve({ player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: user.id, workspace }),
 }));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
@@ -54,7 +59,7 @@ vi.mock('../../data/supabase-server', () => ({
     const client = given.fake.client(given.token ?? 'signed-out');
     const user = given.token ? await client.auth.getUser(given.token) : { data: { user: null } };
     const claims = user.data.user ? { claims: { sub: user.data.user.id, email: user.data.user.email } } : null;
-    return { ...client, auth: { getUser: async () => user, getClaims: async () => ({ data: claims, error: null }) } };
+    return { ...client, auth: { getUser: () => Promise.resolve(user), getClaims: () => Promise.resolve({ data: claims, error: null }) } };
   },
 }));
 
@@ -62,7 +67,7 @@ const { default: Page } = await import('../../../app/prd/[id]/page.tsx');
 const { default: HistoryPage } = await import('../../../app/prd/page.tsx');
 const { default: Layout } = await import('../../../app/prd/layout.tsx');
 const { GET: sandboxRoute } = await import('../../../app/prd/[id]/v/[version]/page/route.ts');
-const { settled } = await import('./stream/settled');
+const { settledPage } = await import('./stream/settled');
 const { DossierStream } = await import('./stream/DossierStream');
 
 let numbered = '';
@@ -78,7 +83,7 @@ beforeEach(async () => {
     p_artifacts: [{ kind: 'spec', content: SPEC }, { kind: 'before-after', content: PAGE }],
   });
   numbered = (pushed.data as { id: string }).id;
-  given.summary = vi.fn(async () => null);
+  given.summary = vi.fn(() => Promise.resolve(null));
   given.stages = fakeStageStore();
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -90,15 +95,16 @@ const HERO = { v: 1, body: 'girl', skin: 2, hair: 3, suit: 0, cape: 8 };
 
 // A PRD's page streams (PRD 657 s4): these tests read what it ends as, once its reads have resolved.
 const open = async (id: string, query: Record<string, string> = {}) =>
-  settled(await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) }));
+  settledPage(await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) }));
 const html = async (id: string, query: Record<string, string> = {}) => renderToStaticMarkup(await open(id, query));
 /** The change check of an opened page: beside a streamed PRD page (bug #782), else the page's own. */
 const liveOf = (page: ReactElement): ReactElement | undefined => {
-  const props = page.props as { live?: ReactElement; children?: ReactElement | ReactElement[] };
+  const props = page.props as { live?: ReactElement; children?: ReactElement | null | (ReactElement | null)[] };
   if (page.type !== Fragment) return props.live;
-  return [props.children ?? []].flat().find((child) => child?.type === LiveRefresh);
+  return [props.children ?? []].flat().find((child) => child?.type === LiveRefresh) ?? undefined;
 };
-const notFound = { digest: expect.stringContaining('404') };
+const SAYS_404: unknown = expect.stringContaining('404');
+const notFound = { digest: SAYS_404 };
 
 describe('the page to share', () => {
   it('shows a member of the workspace the dossier', async () => {
@@ -130,7 +136,7 @@ describe('the page to share', () => {
   });
 
   it('chips every repository of the dossier: its home, and for a PRD of the plan repository its planet\'s regions', async () => {
-    given.fake.seedPlanet({ planRepo: 'widgets', prd: 7, regions: ['core', 'web'] });
+    given.fake.seedPlanet({ planRepo: 'widgets', prd: parsePrd(7), regions: ['core', 'web'] });
     given.token = 'bob';
     expect(await html(numbered)).toContain(
       '<ul class="dossier-repos" aria-label="Repositories"><li class="dossier-repo">acme/widgets</li><li class="dossier-repo">acme/core</li><li class="dossier-repo">acme/web</li></ul>',
@@ -148,9 +154,9 @@ describe('the page to share', () => {
   it('shows a member the questions asked while the PRD was delivered, answered out of asked in the tab', async () => {
     const later = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
     given.fake.seedAsk({ owner: ADA.id, repo: 'Acme/Widgets', branch: 'feat/team-inbox--s2' }, [
-      { created_at: later(1), prd: 7, status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: later(3) },
-      { created_at: later(4), prd: 7 },
-      { created_at: later(5), prd: 8 },
+      { created_at: later(1), prd: parsePrd(7), status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: later(3) },
+      { created_at: later(4), prd: parsePrd(7) },
+      { created_at: later(5), prd: parsePrd(8) },
     ]);
     given.token = 'bob';
     const page = await html(numbered, { tab: 'questions' });
@@ -165,8 +171,9 @@ describe('the page to share', () => {
   it('decides on the server who may answer a quick round on the list: its owner and a member it is shared with (PRD 384)', async () => {
     const quick = [{ question: 'Ship it?', header: '', multiSelect: false, options: [{ label: 'Yes', description: '' }, { label: 'No', description: '' }] }];
     const { rounds: [round] } = given.fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
-      { created_at: new Date(Date.now() - 60_000).toISOString(), prd: 7, questions: quick },
+      { created_at: new Date(Date.now() - 60_000).toISOString(), prd: parsePrd(7), questions: quick },
     ]);
+    assertDefined(round, 'the quick round');
     const buttons = (page: string) => [...page.matchAll(/class="dossier-quick-choice"[^>]*><span class="dossier-option-label">([^<]+)/g)].map((m) => m[1]);
 
     given.token = 'ada';
@@ -196,7 +203,7 @@ describe('the page to share', () => {
   it('still shows the dossier when its questions cannot be read', async () => {
     const client = given.fake.client('bob');
     given.fake = { ...given.fake, client: () => ({ ...client, rpc: (name: string, args: Record<string, unknown>) =>
-      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) } as never;
+      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) };
     given.token = 'bob';
     const page = await html(numbered, { tab: 'questions' });
     expect(page).toContain('PRD #7');
@@ -205,8 +212,8 @@ describe('the page to share', () => {
 
   it('refreshes itself: a member\'s page carries the change check, starting from the signature it was rendered with', async () => {
     given.fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
-      { created_at: new Date(Date.now() + 60_000).toISOString(), prd: 7, status: 'answered', answered_at: new Date(Date.now() + 120_000).toISOString() },
-      { created_at: new Date(Date.now() + 180_000).toISOString(), prd: 7 },
+      { created_at: new Date(Date.now() + 60_000).toISOString(), prd: parsePrd(7), status: 'answered', answered_at: new Date(Date.now() + 120_000).toISOString() },
+      { created_at: new Date(Date.now() + 180_000).toISOString(), prd: parsePrd(7) },
     ]);
     given.token = 'bob';
     const page = await open(numbered, { tab: 'spec', v: '1' });
@@ -231,7 +238,7 @@ describe('the page to share', () => {
   it('starts the change check with no signature when the questions could not be read: its first read sets it', async () => {
     const client = given.fake.client('bob');
     given.fake = { ...given.fake, client: () => ({ ...client, rpc: (name: string, args: Record<string, unknown>) =>
-      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) } as never;
+      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) };
     given.token = 'bob';
     const live = liveOf(await open(numbered)) as ReactElement<{ signature: string | null }> | undefined;
     expect(live?.props.signature).toBeNull();
@@ -314,7 +321,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
   };
 
   const stored = (stage: 'inbox' | 'shipped') =>
-    given.stages.recordStages([{ workspace_id: FAKE_WORKSPACE, repository: 'acme/widgets', prd: 7, stage, reached_at: '2026-09-28T10:00:00Z' }], '2026-09-29T09:15:00Z');
+    given.stages.recordStages([{ workspace_id: FAKE_WORKSPACE, repository: 'acme/widgets', prd: parsePrd(7), stage, reached_at: '2026-09-28T10:00:00Z' }], '2026-09-29T09:15:00Z');
 
   it('never waits for GitHub before the page: a numbered PRD\'s page streams while the summary is read (PRD 657 s4)', async () => {
     given.summary.mockReturnValue(new Promise(() => {}));
@@ -368,7 +375,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
 
 describe('the history', () => {
   const list = async (query: Record<string, string> = {}) =>
-    renderToStaticMarkup(await settled(await HistoryPage({ searchParams: Promise.resolve(query) })));
+    renderToStaticMarkup(await settledPage(await HistoryPage({ searchParams: Promise.resolve(query) })));
   const rows = (page: string) => [...page.matchAll(/<a class="dossier-history-row" href="\/prd\/([^"]+)">/g)].map((m) => m[1]);
 
   it('lists every dossier of a member\'s workspace under All, newest activity first, each opening its page', async () => {
@@ -381,7 +388,7 @@ describe('the history', () => {
   });
 
   it('filters by a repository: a dossier with three shows under each', async () => {
-    given.fake.seedPlanet({ planRepo: 'widgets', prd: 7, regions: ['core', 'web'] });
+    given.fake.seedPlanet({ planRepo: 'widgets', prd: parsePrd(7), regions: ['core', 'web'] });
     given.token = 'bob';
     for (const repo of ['acme/core', 'acme/web']) expect(rows(await list({ repo, who: 'all' })), repo).toEqual([numbered]);
     expect(rows(await list({ repo: 'acme/widgets', who: 'all' }))).toEqual([numbered, draft]);
@@ -514,6 +521,7 @@ describe('the stylesheet', () => {
     const declarations = [...css.matchAll(painted)];
     expect(declarations.length).toBeGreaterThan(10);
     for (const [, declaration, value] of declarations) {
+      assertDefined(value, `the value of ${declaration ?? 'a declaration'}`);
       expect(value.trim(), declaration).toMatch(/var\(--ask-|\btransparent\b|^none$|^inherit$|^0$/);
     }
   });

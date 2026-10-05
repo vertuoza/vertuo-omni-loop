@@ -11,10 +11,11 @@
 // so it steps back first when the installation's budget runs low, and stops while GitHub has paused it.
 import { githubClient, type GithubStore } from '@omni/github';
 import { z } from 'zod';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
+import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import { githubApp, REPO, type AppCredentials } from '../../signup/github-app';
 import { keptInstallationTokens } from '../../signup/installation-tokens';
 import { syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
+import { PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -24,13 +25,14 @@ const CONFIG_PATH = '.omni-loop/config.yml';
 const MAX_PAGES = 20;
 
 const Entries = z.array(z.object({ name: z.string(), type: z.string() }));
+// The `labels.prd` issues: each one's number is its PRD's.
 const Issues = z.array(z.object({
-  number: z.number().int().positive(),
+  number: PrdNumberSchema,
   created_at: z.string(),
   pull_request: z.unknown().optional(),
 }));
 const Pulls = z.array(z.object({
-  number: z.number().int().positive(),
+  number: PrNumberSchema,
   state: z.enum(['open', 'closed']),
   draft: z.boolean().optional().default(false),
   merged_at: z.string().nullable().optional().default(null),
@@ -104,14 +106,14 @@ export function stagesReader(
       )).filter((i) => i.pull_request === undefined).map(({ number, created_at }) => ({ number, created_at }));
 
       // Since a sync: most recently updated first, up to the first one updated before it.
-      const before = (p: { updated_at?: string }) => since !== null && Date.parse(p.updated_at ?? '') < Date.parse(since);
+      const before = (p: { updated_at?: string | undefined }) => since !== null && Date.parse(p.updated_at ?? '') < Date.parse(since);
       const listed = (await pages(
         (page) => `/pulls?${new URLSearchParams({ state: 'all', sort: since ? 'updated' : 'created', direction: 'desc', per_page: '100', page: String(page) })}`,
         (data) => Pulls.parse(data),
         (found) => found.some(before),
       )).filter((p) => !before(p));
       const features = new Set([...inbox, ...shipped]
-        .map((name) => (parseFolderName(name) as { topic: string } | null)?.topic)
+        .map((name) => parseFolderName(name)?.topic)
         .filter((t): t is string => Boolean(t))
         .map((topic) => config.branches.feature.replace('{topic}', topic)));
       const pulls: SnapshotPull[] = await Promise.all(listed.map(async (p) => {
