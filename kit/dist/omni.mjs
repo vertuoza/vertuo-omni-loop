@@ -33744,7 +33744,9 @@ init_define_OMNI_BUNDLE();
 // kit/lib/care/chain.ts
 init_define_OMNI_BUNDLE();
 function openLandings(landings) {
-  return landings.filter((row) => (row.pr.state === "draft" || row.pr.state === "ready") && row.pr.number !== null).map((row) => ({ landing: row.landing, pr: row.pr.number ?? 0, branch: row.branch }));
+  return landings.flatMap(
+    (row) => (row.pr.state === "draft" || row.pr.state === "ready") && row.pr.number !== null ? [{ landing: row.landing, pr: row.pr.number, branch: row.branch }] : []
+  );
 }
 function landingChain(landings, defaultBranch) {
   for (const [index, row] of landings.entries()) {

@@ -154,4 +154,4 @@ It reads your answers on the plan pull request and reworks each decision you cha
 repository it was taken in**: a sub-pull request into that target's feature branch. Then it runs the
 same gate again, and marks the plan pull request ready once no question is left.
 
-[Next → Use cases](/docs/use-cases)
+[Next → Landings](/docs/landings)
