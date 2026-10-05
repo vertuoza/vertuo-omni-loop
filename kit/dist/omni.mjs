@@ -33255,7 +33255,7 @@ function landingRow(entry, { rows: rows2, slices, live }) {
     open: open3,
     notStarted: own2.length - merged - open3,
     complete: merged === own2.length,
-    pr: { number: pr?.number ?? null, state: landingPrState(pr) }
+    pr: { number: pr?.number ?? null, state: landingPrState(pr), base: pr?.baseRefName ?? null }
   };
 }
 function landingPrState(pr) {
@@ -33677,12 +33677,42 @@ function printFrontier(stdout, result) {
 // kit/bin/commands/care.ts
 init_define_OMNI_BUNDLE();
 
+// kit/lib/care/chain.ts
+init_define_OMNI_BUNDLE();
+function openLandings(landings) {
+  return landings.filter((row) => (row.pr.state === "draft" || row.pr.state === "ready") && row.pr.number !== null).map((row) => ({ landing: row.landing, pr: row.pr.number ?? 0, branch: row.branch }));
+}
+function landingChain(landings, defaultBranch) {
+  for (const [index, row] of landings.entries()) {
+    const before = landings[index - 1];
+    if (before === void 0 || before.pr.state !== "merged" || before.pr.number === null) continue;
+    if (row.pr.state !== "draft" && row.pr.state !== "ready" || row.pr.number === null) continue;
+    return [
+      {
+        landing: row.landing,
+        pr: row.pr.number,
+        branch: row.branch,
+        base: row.pr.base,
+        retarget: row.pr.base !== defaultBranch,
+        after: { landing: before.landing, pr: before.pr.number, branch: before.branch },
+        later: openLandings(landings.slice(index + 1))
+      }
+    ];
+  }
+  return [];
+}
+function landingPrToWatch(landings) {
+  const open3 = openLandings(landings)[0];
+  if (open3) return open3.pr;
+  return [...landings].reverse().find((row) => row.pr.number !== null)?.pr.number ?? null;
+}
+
 // kit/lib/care/decide.ts
 init_define_OMNI_BUNDLE();
 function decideRound(state) {
   if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
   if (state.wave?.holdsClaims !== false) return { mode: "report-only", actions: [{ kind: "status" }] };
-  const actions = [];
+  const actions = (state.chain ?? []).map((link2) => ({ kind: "restack", ...link2 }));
   if (state.mergeable === "CONFLICTING") actions.push({ kind: "merge-base", base: state.pr.base });
   const { checks } = state;
   if (checks.state === "red" && checks.fixable && !checks.stuck) actions.push({ kind: "fix-ci", failed: checks.failed });
@@ -33919,10 +33949,17 @@ function waveClaims(prd2, { ctx, exec, env, repo }) {
   try {
     const { result } = buildBoard(prd2, { ctx, exec, env, repo });
     const claimed2 = result.slices.filter((row) => CLAIM_STATES.has(row.state)).map((row) => row.id);
-    return { holdsClaims: claimed2.length > 0, claimed: claimed2 };
+    return { wave: { holdsClaims: claimed2.length > 0, claimed: claimed2 }, landings: result.landings ?? null };
   } catch (error62) {
-    return { holdsClaims: null, claimed: [], unreadable: String(propertyOf(error62, "message") ?? error62).split("\n")[0] ?? "" };
+    return {
+      wave: { holdsClaims: null, claimed: [], unreadable: String(propertyOf(error62, "message") ?? error62).split("\n")[0] ?? "" },
+      landings: null
+    };
   }
+}
+function watchedPr({ flag, landed, find }) {
+  if (flag !== void 0) return prArg("care", "--pr", flag);
+  return landed === null ? find() : landingPrToWatch(landed);
 }
 function runState(args, { ctx, stdout, stderr, exec, env }) {
   const { positional, flags } = parseArgs("care", args, { values: ["pr", "repo"] });
@@ -33931,9 +33968,12 @@ function runState(args, { ctx, stdout, stderr, exec, env }) {
   const repo = repoSlug("care", ctx, flags.repo);
   const branch = featureBranchFor(prd2, ctx);
   const ghEnv = githubEnv(ctx, { exec, env });
-  const number4 = flags.pr !== void 0 ? prArg("care", "--pr", flags.pr) : findFeaturePr({ repo, branch, exec, env: ghEnv });
+  const { wave, landings } = waveClaims(prd2, { ctx, exec, env, repo: flags.repo });
+  const landed = landings !== null && landings.length > 1 ? landings : null;
+  const number4 = watchedPr({ flag: flags.pr, landed, find: () => findFeaturePr({ repo, branch, exec, env: ghEnv }) });
   if (number4 === null) {
-    println(stderr, `omni care: PRD ${prd2} has no feature PR yet (no pull request from ${branch}).`);
+    const from = landed === null ? branch : landed.map((landing) => landing.branch).join(", ");
+    println(stderr, `omni care: PRD ${prd2} has no feature PR yet (no pull request from ${from}).`);
     return 1;
   }
   const [owner, name] = repo.split("/");
@@ -33943,8 +33983,8 @@ function runState(args, { ctx, stdout, stderr, exec, env }) {
     needsFixLabel: ctx.config.labels.needsFix,
     gateContexts: [ctx.config.ci.outboxContext, ctx.config.ci.inboxContext].filter(Boolean)
   });
-  const wave = waveClaims(prd2, { ctx, exec, env, repo: flags.repo });
-  const full = { prd: prd2, ...state, wave };
+  const chain = landed === null ? [] : landingChain(landed, ctx.config.repo.defaultBranch);
+  const full = { prd: prd2, ...state, wave, ...landed === null ? {} : { landings: landed, chain } };
   println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
   return 0;
 }

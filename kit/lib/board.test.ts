@@ -505,14 +505,14 @@ describe('landings: the board reads a PRD per landing', () => {
       own(3, { isDraft: true }),
     ]);
     expect(result.landings?.map(({ landing, merged, open, notStarted, complete, pr: landingPr }) => ({ landing, merged, open, notStarted, complete, pr: landingPr }))).toEqual([
-      { landing: 1, merged: 1, open: 0, notStarted: 0, complete: true, pr: { number: 101, state: 'merged' } },
-      { landing: 2, merged: 0, open: 1, notStarted: 1, complete: false, pr: { number: 102, state: 'ready' } },
-      { landing: 3, merged: 0, open: 0, notStarted: 1, complete: false, pr: { number: 103, state: 'draft' } },
+      { landing: 1, merged: 1, open: 0, notStarted: 0, complete: true, pr: { number: 101, state: 'merged', base: 'main' } },
+      { landing: 2, merged: 0, open: 1, notStarted: 1, complete: false, pr: { number: 102, state: 'ready', base: 'main' } },
+      { landing: 3, merged: 0, open: 0, notStarted: 1, complete: false, pr: { number: 103, state: 'draft', base: 'main' } },
     ]);
     expect(run([]).landings?.map((landing) => landing.pr)).toEqual([
-      { number: null, state: 'absent' },
-      { number: null, state: 'absent' },
-      { number: null, state: 'absent' },
+      { number: null, state: 'absent', base: null },
+      { number: null, state: 'absent', base: null },
+      { number: null, state: 'absent', base: null },
     ]);
   });
 

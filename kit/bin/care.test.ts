@@ -195,6 +195,42 @@ describe('omni care state', () => {
     expect(dig(state, 'round')).toEqual({ mode: 'report-only', actions: [{ kind: 'status' }] });
   });
 
+  it('for a PRD of two landings, looks after the first open landing PR and restacks it once landing 1 merged', async () => {
+    const plan = [
+      '| id | slice | territory | blocked by | wave | landing |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| s1 | Expand | `db/` | — | 1 | 1 |',
+      '| s2 | Code | `src/` | — | 1 | 2 |',
+      '',
+    ].join('\n');
+    const root = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan } }).root;
+    const landingPr = (number: number, head: string, over = {}) => subPr('s9', { number, headRefName: head, baseRefName: 'main', ...over });
+    const fake = fakeExec(root, {
+      subPrs: [subPr('s1', { baseRefName: 'feat/widgets-1of2-landing-1' }), subPr('s2', { baseRefName: 'feat/widgets-2of2-landing-2' })],
+      featurePrs: [
+        landingPr(11, 'feat/widgets-1of2-landing-1'),
+        landingPr(12, 'feat/widgets-2of2-landing-2', { state: 'OPEN', mergedAt: null, isDraft: true, baseRefName: 'feat/widgets-1of2-landing-1' }),
+      ],
+    });
+    const { code, out } = await run(['care', 'state', '7'], root, fake);
+    expect(code).toBe(0);
+    const read = fake.calls.find((c) => c.args[1] === 'graphql');
+    expect(dig(sentJson(read), 'variables')).toEqual({ owner: 'acme', name: 'widgets', number: 12 });
+    const state: unknown = JSON.parse(out);
+    expect(dig(state, 'chain')).toEqual([
+      {
+        landing: 2,
+        pr: 12,
+        branch: 'feat/widgets-2of2-landing-2',
+        base: 'feat/widgets-1of2-landing-1',
+        retarget: true,
+        after: { landing: 1, pr: 11, branch: 'feat/widgets-1of2-landing-1' },
+        later: [],
+      },
+    ]);
+    expect(dig(state, 'round')).toMatchObject({ actions: [{ kind: 'restack' }, { kind: 'merge-base' }, { kind: 'fix-ci' }, { kind: 'judge' }, { kind: 'status' }] });
+  });
+
   it('takes --pr instead of looking the feature PR up', async () => {
     const root = repo();
     const fake = fakeExec(root);

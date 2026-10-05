@@ -70,3 +70,25 @@ describe('decideRound', () => {
     expect(decideRound(state({ pr: { ...state().pr, state: prState }, threads: [thread('T1')] }))).toEqual({ mode: 'stop', actions: [] });
   });
 });
+
+describe('decideRound — a landing chain', () => {
+  const LINK = {
+    landing: 2,
+    pr: 12,
+    branch: 'feat/w-2of2-code',
+    base: 'feat/w-1of2-expand',
+    retarget: true,
+    after: { landing: 1, pr: 11, branch: 'feat/w-1of2-expand' },
+    later: [],
+  };
+
+  it('restacks first, before a conflict, red CI and reviews', () => {
+    const round = decideRound(state({ chain: [LINK], mergeable: 'CONFLICTING', checks: RED }));
+    expect(kinds(round)).toEqual(['restack', 'merge-base', 'fix-ci', 'status']);
+    expect(round.actions[0]).toEqual({ kind: 'restack', ...LINK });
+  });
+
+  it('restacks nothing while a wave holds claims', () => {
+    expect(decideRound(state({ chain: [LINK], wave: { holdsClaims: true, claimed: ['s3'] } }))).toEqual({ mode: 'report-only', actions: [{ kind: 'status' }] });
+  });
+});

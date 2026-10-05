@@ -118,7 +118,8 @@ export type LandingRow = BoardLanding & {
   open: number;
   notStarted: number;
   complete: boolean;
-  pr: { number: number | null; state: LandingPrState };
+  /** Its own pull request: its number, its state and the branch it targets now (`null` when absent). */
+  pr: { number: PrNumber | null; state: LandingPrState; base: string | null };
 };
 
 /** A slice's state on the board, in the order it is decided. */
@@ -448,7 +449,7 @@ function landingRow<S extends BoardSlice>(
     open,
     notStarted: own.length - merged - open,
     complete: merged === own.length,
-    pr: { number: pr?.number ?? null, state: landingPrState(pr) },
+    pr: { number: pr?.number ?? null, state: landingPrState(pr), base: pr?.baseRefName ?? null },
   };
 }
 
