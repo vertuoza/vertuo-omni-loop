@@ -38884,9 +38884,9 @@ var ENTRIES = deepFreeze([
     name: "plan",
     kind: "command",
     who: "skills",
-    usage: ["omni plan check <prd>", "omni plan moved <prd> [--json]"],
-    summary: "grade a PRD's plan, or see what moved in its targets",
-    detail: "check grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the same plan in an earlier wave, no id is used twice, and no two slices of one wave share ground. It prints the slices, the waves and where they meet, then every violation; exit 1 on any. moved, in a plan repository, compares each target's read at with its default branch today: moved with the files changed under its slices' territories, ok, or unreachable; exit 0 whatever the states, 1 with not a plan repository."
+    usage: ["omni plan check <prd>", "omni plan moved <prd> [--json]", "omni plan landings <prd> [--json] [--repo <name>]"],
+    summary: "grade a PRD's plan, see what moved in its targets, or list its landings",
+    detail: "check grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the same plan in an earlier wave of the same landing, no id is used twice, no two slices of one wave share ground, landings run from 1 with no gap, and paths that land alone travel alone. It prints the slices, the waves and where they meet, then every violation; exit 1 on any. moved, in a plan repository, compares each target's read at with its default branch today: moved with the files changed under its slices' territories, ok, or unreachable; exit 0 whatever the states, 1 with not a plan repository. landings prints the chain of landing branches the PRD is opened as: each branch, the branch it is cut from, its title suffix, the landing it is merged after and its slices; --repo keeps one target of a plan repository."
   },
   {
     name: "rework",
@@ -41247,6 +41247,44 @@ init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync43 } from "node:fs";
 import { join as join54 } from "node:path";
 
+// kit/lib/landings/landing-plan.ts
+init_define_OMNI_BUNDLE();
+function landingPlan({
+  landings,
+  slices,
+  branches,
+  defaultBranch,
+  topic,
+  repo = null
+}) {
+  const mine = slices.filter((slice) => repo === null || slice.repo === repo);
+  const kept = landings.filter((landing) => mine.some((slice) => slice.landing === landing.landing));
+  const chain = landingBranches(branches, {
+    topic,
+    landings: kept.map((landing, index) => ({ landing: index + 1, name: landing.name }))
+  });
+  return kept.map((landing, index) => ({
+    landing: index + 1,
+    planLanding: landing.landing,
+    count: kept.length,
+    name: landing.name,
+    mergeWhen: landing.mergeWhen,
+    branch: chain[index]?.branch ?? "",
+    base: index === 0 ? defaultBranch : chain[index - 1]?.branch ?? defaultBranch,
+    titleSuffix: kept.length > 1 ? ` (${index + 1}/${kept.length})` : "",
+    mergeAfter: mergeAfterOf(kept, index),
+    slices: mine.filter((slice) => slice.landing === landing.landing).map(({ id, title }) => ({ id, title }))
+  }));
+}
+function mergeAfterOf(kept, index) {
+  const before = kept[index - 1];
+  return index === 0 || before === void 0 ? null : { landing: index, name: before.name };
+}
+function mergeAfterLine(step) {
+  if (step.mergeAfter === null) return null;
+  return `Merge after landing ${step.mergeAfter.landing} (${step.mergeAfter.name}) is deployed.`;
+}
+
 // kit/lib/plan-repo/moved.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync12 } from "node:child_process";
@@ -41310,7 +41348,7 @@ function movedTable(rows2) {
 }
 
 // kit/bin/commands/plan.ts
-var USAGE16 = "usage: omni plan check <prd> | omni plan moved <prd> [--json]";
+var USAGE16 = "usage: omni plan check <prd> | omni plan moved <prd> [--json] | omni plan landings <prd> [--json] [--repo <name>]";
 function counted2(count3, singular, pluralForm) {
   return `${count3} ${count3 === 1 ? singular : pluralForm}`;
 }
@@ -41358,10 +41396,42 @@ function moved(rest, { ctx, stdout, exec, env }) {
   else for (const line of movedTable(rows2)) println(stdout, line);
   return 0;
 }
+function landingsCommand(rest, { ctx, stdout }) {
+  const { positional, flags } = parseArgs("plan landings", rest, { values: ["repo"], booleans: ["json"] });
+  if (positional.length !== 1) throw usageError(USAGE16);
+  const prd2 = prdArg("plan landings", "<prd>", positional[0]);
+  const { planPath, slices, landings, violations } = checkPlan(prd2, { ctx });
+  if (violations.length > 0) {
+    println(stdout, `omni plan landings \u2014 PRD ${prd2}: ${planPath} does not pass omni plan check: ${violations[0]}`);
+    return 1;
+  }
+  const where = ctx.layout.whereIs(prd2);
+  const topic = where ? parseFolderName(where.name)?.topic : void 0;
+  if (topic === void 0) throw usageError(`omni plan landings: cannot read a topic for PRD ${prd2}.`);
+  const chain = landingPlan({
+    landings,
+    slices,
+    branches: ctx.config.branches,
+    defaultBranch: ctx.config.repo.defaultBranch,
+    topic,
+    repo: flags.repo ?? null
+  });
+  if (flags.json) {
+    println(stdout, JSON.stringify(chain.map((step) => ({ ...step, mergeAfterLine: mergeAfterLine(step) })), null, 2));
+    return 0;
+  }
+  println(stdout, `omni plan landings \u2014 PRD ${prd2}: ${counted2(chain.length, "landing", "landings")}.`);
+  for (const step of chain) {
+    const ids = step.slices.map((slice) => slice.id).join(", ");
+    println(stdout, `  ${step.landing}/${step.count} ${step.name}: ${step.branch} \u2190 ${step.base} \u2014 ${ids}`);
+  }
+  return 0;
+}
 var plan = {
   run: synchronous((args, { ctx, stdout, exec, env }) => {
     const [sub, ...rest] = args;
     if (sub === "moved") return moved(rest, { ctx, stdout, exec, env });
+    if (sub === "landings") return landingsCommand(rest, { ctx, stdout });
     if (sub !== "check") throw usageError(USAGE16);
     const { positional } = parseArgs("plan check", rest);
     if (positional.length !== 1) throw usageError(USAGE16);

@@ -509,15 +509,18 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'plan',
     kind: 'command',
     who: 'skills',
-    usage: ['omni plan check <prd>', 'omni plan moved <prd> [--json]'],
-    summary: "grade a PRD's plan, or see what moved in its targets",
+    usage: ['omni plan check <prd>', 'omni plan moved <prd> [--json]', 'omni plan landings <prd> [--json] [--repo <name>]'],
+    summary: "grade a PRD's plan, see what moved in its targets, or list its landings",
     detail:
       "check grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the " +
-      'same plan in an earlier wave, no id is used twice, and no two slices of one wave share ground. ' +
+      'same plan in an earlier wave of the same landing, no id is used twice, no two slices of one ' +
+      'wave share ground, landings run from 1 with no gap, and paths that land alone travel alone. ' +
       'It prints the slices, the waves and where they meet, then every violation; exit 1 on any. ' +
       "moved, in a plan repository, compares each target's read at with its default branch today: " +
       'moved with the files changed under its slices\' territories, ok, or unreachable; exit 0 ' +
-      'whatever the states, 1 with not a plan repository.',
+      'whatever the states, 1 with not a plan repository. landings prints the chain of landing ' +
+      'branches the PRD is opened as: each branch, the branch it is cut from, its title suffix, the ' +
+      'landing it is merged after and its slices; --repo keeps one target of a plan repository.',
   },
   {
     name: 'rework',
