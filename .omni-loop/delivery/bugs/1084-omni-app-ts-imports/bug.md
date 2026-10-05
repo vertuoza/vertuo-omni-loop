@@ -21,4 +21,4 @@ Vercel compiles a TypeScript function file by file and keeps every `import './x.
 
 ## Mutation
 
-not set here: the fix changes no file under the delivery core `pnpm mutation:changed` mutates
+mutation: no changed core file against origin/main (ee11bcb3): nothing to mutate
