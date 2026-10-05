@@ -9,7 +9,7 @@ import { fakePrdOutboxStore } from '../outbox/store.fake';
 import { settled } from '../settled';
 import { fakeStageStore } from '../store.fake';
 import { syncConfig, type RepoSnapshot } from './core';
-import { syncStages, type SyncDeps, type SyncWorkspace } from './sync';
+import { syncStages, type SnapshotSyncDeps, type SyncDeps, type SyncWorkspace } from './sync';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
@@ -324,5 +324,111 @@ describe('the fix facts (PRD 691, s2)', () => {
     await syncStages(post(`Bearer ${SECRET}`), d);
     expect(facts.rows.find((r) => r.dossier_id === 'f2')).toMatchObject({ synced_at: '2026-09-28T00:00:00Z' });
     expect(lines.some((l) => l.includes('502'))).toBe(true);
+  });
+});
+
+describe('the sync is the safety net (PRD 902, s4)', () => {
+  type Row = { id: string; workspace: string; repo: string; prd: number; readAt: string; staleSince: string | null };
+  const HOUR = 3_600_000;
+  const ago = (ms: number) => new Date(Date.parse(NOW) - ms).toISOString();
+
+  /** The snapshots of acme: #42 of acme/widgets, #7 of acme/gears; of globex: #3 of globex/core. Each was read `readAgo` ago. */
+  function withSnapshots(readAgo = HOUR) {
+    const setup = deps();
+    const rows: Row[] = [
+      { id: 'd42', workspace: 'w-acme', repo: 'acme/widgets', prd: 42, readAt: ago(readAgo), staleSince: null },
+      { id: 'd7', workspace: 'w-acme', repo: 'acme/gears', prd: 7, readAt: ago(readAgo), staleSince: null },
+      { id: 'd3', workspace: 'w-globex', repo: 'globex/core', prd: 3, readAt: ago(readAgo), staleSince: null },
+    ];
+    const refreshed: string[] = [];
+    const dropped: string[] = [];
+    const events: string[] = [];
+    const net: SnapshotSyncDeps = {
+      markChanged: (w, repo, prds, at) => settled(() => {
+        for (const row of rows) if (row.workspace === w.id && row.repo === repo && prds.includes(parsePrd(row.prd)) && row.staleSince === null) row.staleSince = at;
+      }),
+      markOld: (w, before, at) => settled(() => {
+        for (const row of rows) if (row.workspace === w.id && row.readAt < before && row.staleSince === null) row.staleSince = at;
+      }),
+      stale: (w, repo) => settled(() => rows.filter((r) => r.workspace === w.id && r.repo === repo && r.staleSince !== null)
+        .map((r) => ({ id: r.id, home_repo: r.repo, prd: parsePrd(r.prd) }))),
+      refresh: (_w, dossier) => settled(() => {
+        refreshed.push(dossier.id);
+        events.push(`refresh ${dossier.id}`);
+        const row = rows.find((r) => r.id === dossier.id);
+        if (row) Object.assign(row, { staleSince: null, readAt: NOW });
+      }),
+      dropEtags: (before) => settled(() => { dropped.push(before); }),
+    };
+    setup.d.snapshots = net;
+    // Nothing changed on GitHub since the last sync: no issue and no pull request read.
+    setup.snapshots['acme/widgets'] = snap('acme/widgets', { shipped: ['0042-dark-mode'] });
+    setup.snapshots['globex/core'] = snap('globex/core');
+    return { ...setup, rows, refreshed, dropped, events, net };
+  }
+
+  it('refreshes no snapshot when nothing changed on GitHub (acceptance 9)', async () => {
+    const { d, refreshed, rows } = withSnapshots();
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(refreshed).toEqual([]);
+    expect(rows.every((r) => r.staleSince === null)).toBe(true);
+  });
+
+  it('marks stale and refreshes the dossier whose issue or pull request changed, and only it', async () => {
+    const { d, refreshed, events } = withSnapshots();
+    const teeth = { number: parsePr(5), head: 'feat/teeth--s1', base: 'feat/teeth', state: 'closed' as const, draft: false, merged_at: '2026-09-29T11:59:30Z', created_at: '2026-09-29T11:59:00Z', ready_at: null };
+    d.snapshot = (_w, repo) => Promise.resolve(repo === 'acme/gears'
+      ? snap(repo, { inbox: ['0007-teeth'], pulls: [teeth] })
+      : repo === 'globex/core' ? snap(repo, { issues: [{ number: parsePrd(3), created_at: '2026-09-27T00:00:00Z' }] }) : snap(repo, { shipped: ['0042-dark-mode'] }));
+    const outbox = fakePrdOutboxStore(() => NOW);
+    d.outbox = { store: outbox, summary: (ref) => { events.push(`recount ${ref.home_repo}#${ref.prd}`); return Promise.resolve(null); } };
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(refreshed).toEqual(['d7', 'd3']);
+    expect(events.indexOf('refresh d7')).toBeLessThan(events.indexOf('recount acme/gears#7'));
+  });
+
+  it('marks stale and refreshes every snapshot older than six hours, and none younger', async () => {
+    const old = withSnapshots(6 * HOUR + 1);
+    await syncStages(post(`Bearer ${SECRET}`), old.d);
+    expect(old.refreshed).toEqual(['d42', 'd7', 'd3']);
+    const young = withSnapshots(6 * HOUR - 1);
+    await syncStages(post(`Bearer ${SECRET}`), young.d);
+    expect(young.refreshed).toEqual([]);
+  });
+
+  it('refreshes a snapshot left stale, by a webhook whose refresh failed', async () => {
+    const { d, rows, refreshed } = withSnapshots();
+    const row = rows.find((r) => r.id === 'd42');
+    if (row) row.staleSince = ago(HOUR);
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(refreshed).toEqual(['d42']);
+  });
+
+  it('drops the ETags unread for seven days, once a run', async () => {
+    const { d, dropped } = withSnapshots();
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(dropped).toEqual([ago(7 * 24 * HOUR)]);
+  });
+
+  it('logs each step the store refuses, and still records the stages and refreshes what it can', async () => {
+    const { d, net: s, snapshots, store, lines, refreshed, rows } = withSnapshots();
+    snapshots['globex/core'] = snap('globex/core', { issues: [{ number: parsePrd(3), created_at: '2026-09-27T00:00:00Z' }] });
+    const row = rows.find((r) => r.id === 'd7');
+    if (row) row.staleSince = ago(HOUR);
+    const refused = (what: string) => () => Promise.reject(new Error(`Supabase refused: ${what}`));
+    d.snapshots = {
+      ...s,
+      markOld: refused('old'),
+      markChanged: refused('changed'),
+      dropEtags: refused('etags'),
+      stale: (w, repo) => (repo === 'acme/widgets' ? refused('stale')() : s.stale(w, repo)),
+      refresh: (w, dossier) => (dossier.id === 'd7' ? refused('refresh')() : s.refresh(w, dossier)),
+    };
+    const res = await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(res.status).toBe(200);
+    expect((await answerOf(res)).skipped).toEqual([]);
+    expect(store.stages.map((s) => `${s.repository}#${s.prd} ${s.stage}`).sort()).toEqual(['acme/gears#7 inbox', 'acme/widgets#42 shipped', 'globex/core#3 prd']);
+    expect(refreshed).toEqual([]);
+    for (const what of ['old', 'changed', 'etags', 'stale', 'refresh']) expect(lines.some((l) => l.includes(`Supabase refused: ${what}`))).toBe(true);
   });
 });
