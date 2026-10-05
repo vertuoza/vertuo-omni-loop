@@ -56,6 +56,12 @@ into `main`), run the full `pnpm test` (the preflight, unchanged) and the full `
 sub-pull request runs no CI, so these are its only grade: `check:changed` is for iterating and
 never stands in for them, since a break in a file the change did not touch slips past it.
 
+**Mutation, when the change touches the delivery core** (PRD 1072, ADR-0059): after writing its
+tests, and in a bug fix, run `pnpm mutation:changed --base origin/<feature branch>` (a few minutes per
+file) and add or tighten a test for each survivor in the code you changed. A pull request never lowers a
+floor in `mutation/floor.json`; the `mutation` workflow runs the whole core every night at 02:00 UTC and on
+demand, outside the required checks, and shows a module below its floor in its job summary.
+
 A commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of
 skipping it, and then it protects nothing. So a green commit is not a green branch. Never skip a
 hook.

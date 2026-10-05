@@ -26,6 +26,18 @@ Use this page when adding, changing, or choosing tests.
 |---|---|
 | everything | `pnpm test` (runs `vitest run` over the whole workspace) |
 | one file | `pnpm vitest run kit/lib/config.test.ts` |
+| mutation, the changed core files | `pnpm mutation:changed [--base <ref>]` (the default base is the merge-base with `origin/main`) |
+| mutation, the whole delivery core | `pnpm mutation`, then `pnpm mutation:score` (about 70 minutes on a laptop: the nightly runs it) |
+
+**Mutation testing** (PRD 1072, ADR-0059) proves the tests catch bugs, not only run lines: Stryker changes
+the delivery core's code (`kit/lib/outbox/`, `kit/lib/policy/`, `kit/lib/inbox/`, `kit/lib/env/`,
+`kit/lib/board.ts`, `kit/lib/config.ts`, `kit/lib/layout.ts`, `kit/lib/ids.ts`) one mutant at a time and
+runs the kit library's own tests against each. After writing or changing tests for core code, and in
+every bug fix that touches it, run `pnpm mutation:changed` from the worktree, passing
+`--base origin/<feature branch>` in a slice: it mutates only the changed core files and ends with
+`mutation: <k> killed, <s> survived in <files>`, listing each survivor's file, line and mutation before
+it. A survivor in the code you wrote is a test to add or tighten. It never runs in `check:changed`, the
+preflight or pull request CI.
 
 ## Where tests live
 <!-- slot: layout · required · by: terraform -->
@@ -46,6 +58,9 @@ A test outside them never runs.
 <!-- slot: never · required · by: terraform -->
 - A test never calls GitHub or Supabase: everything runs on fixtures, and the GitHub App's tests
   run against a stubbed GitHub.
+- A floor in `mutation/floor.json` never goes down, and no module leaves it:
+  `scripts/mutation-floor.test.ts` refuses either against `origin/main`'s copy. Raising one to a
+  module's new score, rounded down, is an ordinary edit.
 
 ## Test data
 <!-- slot: data · optional -->

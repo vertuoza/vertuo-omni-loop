@@ -12,6 +12,9 @@ commands:
   preflight: pnpm test
   preflightFull: pnpm test
   test: pnpm test
+  # PRD 1072: mutation testing of the delivery core files changed against origin/main (PRD 556's
+  # meaning), run by the bug-fix skill after a fix. Never in the preflight or pull request CI.
+  mutation: pnpm mutation:changed
 laws:
   source: none
 # Ask mode (PRD #71, ADR-0002): questions answered on the page the galaxy app serves. The Vercel
