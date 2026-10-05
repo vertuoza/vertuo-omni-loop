@@ -866,6 +866,48 @@ export type Database = {
           },
         ]
       }
+      dossier_github: {
+        Row: {
+          dossier_id: string
+          read_at: string
+          refreshing_until: string | null
+          stale_since: string | null
+          summary: Json
+          workspace_id: string
+        }
+        Insert: {
+          dossier_id: string
+          read_at?: string
+          refreshing_until?: string | null
+          stale_since?: string | null
+          summary: Json
+          workspace_id: string
+        }
+        Update: {
+          dossier_id?: string
+          read_at?: string
+          refreshing_until?: string | null
+          stale_since?: string | null
+          summary?: Json
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossier_github_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: true
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dossier_github_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dossier_versions: {
         Row: {
           bytes: number
