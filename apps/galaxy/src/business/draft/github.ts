@@ -1,3 +1,4 @@
+import { githubClient, type GithubStore } from '@omni/github';
 import { z } from 'zod';
 import { githubApp, REPO, type AppCredentials } from '../../signup/github-app';
 import { keptInstallationTokens } from '../../signup/installation-tokens';
@@ -9,7 +10,9 @@ import type { RepoListing } from './sources';
 // three or four calls (the root, `docs/`, and with the kit layout its config and `<delivery>/shipped`);
 // ./sources.ts then picks at most twelve files, one call each. A folder or a file that is not there is
 // empty or null; any other failure throws, and the draft skips the repository or the file. The
-// installation token is kept in server memory and never leaves this module.
+// installation token is kept in server memory and never leaves this module. Every call made with it goes
+// through the shared, budget-aware client (packages/github, PRD 902, s6) at `background` priority: the
+// draft runs after the answer, nobody waits on it, so it steps back first when the budget runs low.
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -29,15 +32,20 @@ export type RepoReader = {
   file(installation: number, repository: string, path: string): Promise<string | null>;
 };
 
-export function repoReader(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): RepoReader {
+export function repoReader(
+  creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now, store: GithubStore | null = null,
+): RepoReader {
   const app = githubApp(creds, fetchImpl, clock);
+  const github = githubClient({ store, fetch: fetchImpl, clock });
   const tokenFor = keptInstallationTokens((id) => app.installationToken(id), clock);
 
   /** A contents answer, raw text or JSON; null on 404. */
   async function contents(installation: number, repository: string, path: string, raw: boolean): Promise<unknown> {
     if (!REPO.test(repository)) throw new Error(`${repository} is not a repository name`);
     const token = await tokenFor(installation);
-    const res = await fetchImpl(`${GITHUB}/repos/${repository}/contents/${encoded(path)}`, {
+    const res = await github.fetch(`${GITHUB}/repos/${repository}/contents/${encoded(path)}`, {
+      installation,
+      priority: 'background',
       headers: {
         authorization: `Bearer ${token}`,
         accept: raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json',

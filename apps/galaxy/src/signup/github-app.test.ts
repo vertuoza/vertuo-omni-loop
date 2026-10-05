@@ -1,7 +1,7 @@
 import { createVerify, generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { readEnv } from '../env';
-import { appCredentials, appJwt, githubApp, installationSettingsUrl, installUrl } from './github-app';
+import { appCredentials, appJwt, githubApp, installationSettingsUrl, installUrl, reachedRepositories } from './github-app';
 import { item, present } from '../ask/test/test-item';
 
 vi.mock('server-only', () => ({}));
@@ -119,30 +119,28 @@ describe('what the App reads from GitHub', () => {
 
 describe('the repositories an installation reaches (PRD 612)', () => {
   const answer = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
-  const TOKEN = { token: 'ghs_abc', expires_at: '2026-09-28T11:00:00Z' };
   const repo = (full_name: string, archived = false) => ({ full_name, archived });
 
-  it('takes an installation token, then lists every page of its repositories, archived ones left out', async () => {
+  it('lists every page of an installation token\'s repositories, archived ones left out, through the fetch it is handed', async () => {
     const page1 = Array.from({ length: 100 }, (_, i) => repo(`Acme/r${i}`));
-    const fetchImpl = vi.fn((url: string) => {
-      if (url.endsWith('/access_tokens')) return Promise.resolve(answer(201, TOKEN));
+    const fetchImpl = vi.fn((url: string, _init: RequestInit) => {
       if (url.endsWith('page=1')) return Promise.resolve(answer(200, { total_count: 102, repositories: page1 }));
       return Promise.resolve(answer(200, { total_count: 102, repositories: [repo('Acme/last'), repo('Acme/old', true)] }));
     });
-    const names = await githubApp(CREDS, fetchImpl, () => NOW).installationRepositories(5001);
+    const names = await reachedRepositories('ghs_abc', fetchImpl);
     expect(names).toHaveLength(101);
     expect(names).toContain('Acme/last');
     expect(names).not.toContain('Acme/old');
-    const [url, init] = fetchImpl.mock.calls[1] as unknown as [string, RequestInit];
+    const [url, init] = present(fetchImpl.mock.calls[0], 'the first call');
     expect(url).toBe('https://api.github.com/installation/repositories?per_page=100&page=1');
-    expect((init.headers as Record<string, string>).authorization).toBe('Bearer ghs_abc');
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(new Headers(init.headers).get('authorization')).toBe('Bearer ghs_abc');
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it('throws when GitHub answers an error or an odd shape', async () => {
-    const failing = (status: number, body: unknown) => (url: string) => Promise.resolve(url.endsWith('/access_tokens') ? answer(201, TOKEN) : answer(status, body));
-    await expect(githubApp(CREDS, failing(500, {})).installationRepositories(5001)).rejects.toThrow(/500/);
-    await expect(githubApp(CREDS, failing(200, { repositories: 'x' })).installationRepositories(5001)).rejects.toThrow(/shape/);
+    const failing = (status: number, body: unknown) => () => Promise.resolve(answer(status, body));
+    await expect(reachedRepositories('ghs_abc', failing(500, {}))).rejects.toThrow(/500/);
+    await expect(reachedRepositories('ghs_abc', failing(200, { repositories: 'x' }))).rejects.toThrow(/shape/);
   });
 });
 
