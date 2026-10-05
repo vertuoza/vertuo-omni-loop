@@ -117,25 +117,37 @@ export function stageEventUrl(galaxyUrl: string): string {
   return `${galaxyUrl.replace(/\/+$/, '')}/api/stages/event`;
 }
 
+/** Where a signed POST goes, and how it is sent: `fetch` and `log` are the platform's unless given. */
+export type SignedPost = {
+  url: string;
+  secret: string | undefined;
+  fetch?: (url: string, init: RequestInit) => Promise<Response>;
+  log?: (line: string) => void;
+};
+
 /**
  * POSTs one stage event to galaxy, signed. Never throws: a missing secret, a refusal or a network
  * failure is one line in the log.
  */
-export async function forwardStageEvent(
-  stageEvent: StageEvent,
-  { url, secret, fetch: post = fetch, log = console.error }: {
-    url: string;
-    secret: string | undefined;
-    fetch?: (url: string, init: RequestInit) => Promise<Response>;
-    log?: (line: string) => void;
-  },
-): Promise<void> {
+export function forwardStageEvent(stageEvent: StageEvent, post: SignedPost): Promise<void> {
   const what = `${stageEvent.stage} of ${stageEvent.repository} ${stageEvent.prd ? `#${stageEvent.prd}` : stageEvent.topic}`;
+  return postSigned(stageEvent, post, { name: 'stage event', what });
+}
+
+/**
+ * POSTs `payload` as JSON to `url`, signed with an HMAC-SHA256 over the body under `secret`. Never
+ * throws: a missing secret, a refusal or a network failure is one line in the log, naming `what`.
+ */
+export async function postSigned(
+  payload: unknown,
+  { url, secret, fetch: post = fetch, log = console.error }: SignedPost,
+  { name, what }: { name: string; what: string },
+): Promise<void> {
   if (!secret) {
-    log(`stage event: STAGE_EVENT_SECRET is not set, the ${what} is left to the sync`);
+    log(`${name}: STAGE_EVENT_SECRET is not set, the ${what} is left to the sync`);
     return;
   }
-  const body = JSON.stringify(stageEvent);
+  const body = JSON.stringify(payload);
   try {
     const response = await post(url, {
       method: 'POST',
@@ -143,9 +155,9 @@ export async function forwardStageEvent(
       headers: { 'content-type': 'application/json', [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) },
       signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) log(`stage event: galaxy answered ${response.status} to the ${what}`);
+    if (!response.ok) log(`${name}: galaxy answered ${response.status} to the ${what}`);
   } catch (error) {
-    log(`stage event: the ${what} could not be sent — ${String(messageOf(error))}`);
+    log(`${name}: the ${what} could not be sent — ${String(messageOf(error))}`);
   }
 }
 
@@ -163,7 +175,7 @@ function prdOf(body: unknown, prLinks: Record<string, string>): PrdNumber | null
 }
 
 /** The placeholders a branch shape fills from a branch name; null when it does not match. */
-function match(template: string | undefined, ref: string): Record<string, string | undefined> | null {
+export function match(template: string | undefined, ref: string): Record<string, string | undefined> | null {
   if (!template?.includes('{topic}')) return null;
   const names: string[] = [];
   const pattern = template.split(/(\{topic\}|\{slice\})/).map((part) => {

@@ -20,6 +20,11 @@
 // one stage event (src/stage-forward/). The app's `forward` (./github-route.ts) POSTs it to galaxy,
 // signed with `STAGE_EVENT_SECRET`. It never changes the reply: a failure is logged.
 //
+// Every delivery of an event a touch is read from (PRD 902, s3) — issues, comments, every pull request
+// action, reviews, check suites and pushes — is handed to `touch` as its touches
+// (src/stage-forward/touch.ts), whether or not it also becomes an event. The app's `touch` POSTs each to
+// galaxy's `/api/github/touched`, signed as the stage event is. It never changes the reply either.
+//
 // The delivery is read through one schema: a delivery whose fields are of another type than GitHub
 // sends becomes no event at all.
 import { Webhooks } from '@octokit/webhooks';
@@ -40,6 +45,7 @@ import {
 import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
 import { toStageEvent, type StageEvent } from '../stage-forward/stage-forward.ts';
+import { TOUCH_EVENTS, toTouches, type Touch } from '../stage-forward/touch.ts';
 
 /** Events to the actions handled on each. */
 type ActionTable = Readonly<Record<string, readonly string[]>>;
@@ -68,6 +74,9 @@ export const HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run]),
 });
+
+/** Every event the app subscribes to: the ones it acts on, and the ones a touch is read from. */
+export const SUBSCRIBED = Object.freeze([...new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
 
 const PullRefSchema = z.looseObject({
   number: PrNumberSchema.nullish(),
@@ -115,12 +124,15 @@ export async function receiveWebhook({
   secret,
   send,
   forward,
+  touch = () => Promise.resolve(),
 }: {
   body: string;
   headers: HeadersIn;
   secret: string | undefined;
   send: (events: AppEvent[]) => Promise<unknown>;
   forward: (stageEvent: StageEvent) => Promise<unknown>;
+  /** Forwards one touch; none given, touches go nowhere. */
+  touch?: (touch: Touch) => Promise<unknown>;
 }): Promise<WebhookResponse> {
   if (!secret) return reply(500, 'webhook secret is not configured');
 
@@ -143,6 +155,13 @@ export async function receiveWebhook({
       console.error(`stage event: could not forward — ${String(messageOf(error))}`);
     }
   }
+  await Promise.all(toTouches(event, payload).map(async (one) => {
+    try {
+      await touch(one);
+    } catch (error) {
+      console.error(`touch: could not forward — ${String(messageOf(error))}`);
+    }
+  }));
 
   const events = toEvents(event, payload);
   if (events.length === 0) return reply(200, 'ignored');

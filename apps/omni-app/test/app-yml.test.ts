@@ -3,14 +3,16 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 import { z } from 'zod';
-import { HANDLED } from '../src/webhook/webhook.ts';
+import { HANDLED, SUBSCRIBED } from '../src/webhook/webhook.ts';
 
 // The GitHub App manifest the org admin registers the app from (PRD 28, "The app's manifest").
 // Least privilege (decision 9): exactly these permissions and events, nothing more. PRD 72 widens
 // the permissions once, for the retro (its decision 11): `contents: write`, `issues: write` and
 // `actions: read`; the events stay the same. PRD 359 makes the app public, so anyone can install it
 // and a workspace is born from the installation (its decision 4): `public: true` and a `setup_url`
-// at galaxy's `/signup/installed`, permissions and events unchanged.
+// at galaxy's `/signup/installed`, permissions and events unchanged. PRD 902 (s3) adds five events, all
+// within those permissions, so a webhook says what changed: `issues`, `issue_comment`, `push`,
+// `check_suite` and `pull_request_review`; the permissions stay the same.
 // Read as far as these tests need it: every other key kept, for the last test to see.
 const Manifest = z.looseObject({
   name: z.unknown(),
@@ -47,12 +49,12 @@ describe('app.yml — the GitHub App manifest', () => {
     });
   });
 
-  it('subscribes to exactly the spec’s events', () => {
-    expect([...manifest.default_events].sort()).toEqual(['check_run', 'pull_request']);
+  it('subscribes to exactly the spec’s events: the checks’ two, and the five a touch is read from (PRD 902)', () => {
+    expect([...manifest.default_events].sort()).toEqual(['check_run', 'check_suite', 'issue_comment', 'issues', 'pull_request', 'pull_request_review', 'push']);
   });
 
-  it('subscribes to exactly the events the webhook handles', () => {
-    expect([...manifest.default_events].sort()).toEqual(Object.keys(HANDLED).sort());
+  it('subscribes to exactly the events the webhook handles or reads a touch from', () => {
+    expect([...manifest.default_events].sort()).toEqual([...SUBSCRIBED].sort());
   });
 
   it('the webhook handles exactly the spec’s actions, `closed` for the retro and the canon buttons’ `requested_action` (PRD 839)', () => {
