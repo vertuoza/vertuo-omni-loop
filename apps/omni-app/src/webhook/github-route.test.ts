@@ -79,14 +79,36 @@ describe('/api/github', () => {
       headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(merged) },
     }));
     expect(response.status).toBe(200);
-    expect(post).toHaveBeenCalledTimes(1);
-    const call = post.mock.calls[0];
-    assertDefined(call, 'the stage event POST');
-    const [url, sent] = call;
-    expect(url).toBe('https://galaxy.example/api/stages/event');
-    const init = StagePostSchema.parse(sent);
+    expect(post.mock.calls.map(([url]) => String(url))).toEqual(['https://galaxy.example/api/stages/event', 'https://galaxy.example/api/github/touched']);
+    const [stageCall, touchCall] = post.mock.calls;
+    assertDefined(stageCall, 'the stage event POST');
+    const init = StagePostSchema.parse(stageCall[1]);
     expect(JSON.parse(init.body)).toEqual({ repository: 'o/r', topic: 'x', prd: 9, stage: 'inbox', at: '2026-09-29T10:00:00Z' });
     expect(init.headers['x-omni-signature-256']).toBe(`sha256=${createHmac('sha256', 'stage-secret').update(init.body).digest('hex')}`);
+    // PRD 902 (s3): the same pull request is a touch, POSTed to /api/github/touched, signed the same way.
+    assertDefined(touchCall, 'the touch POST');
+    const touch = StagePostSchema.parse(touchCall[1]);
+    expect(JSON.parse(touch.body)).toEqual({ repository: 'o/r', pr: 4, branch: 'docs/phase-0-x' });
+    expect(touch.headers['x-omni-signature-256']).toBe(`sha256=${createHmac('sha256', 'stage-secret').update(touch.body).digest('hex')}`);
+  });
+
+  it('forwards a touch for an event that becomes no Inngest event, an issue comment (PRD 902)', async () => {
+    const post = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok', { status: 200 }));
+    const comment = JSON.stringify({ action: 'created', installation: { id: 7 }, repository: { name: 'r', full_name: 'o/r', owner: { login: 'o' } }, issue: { number: 9 } });
+    const touchRoute = route({ GITHUB_WEBHOOK_SECRET: SECRET, STAGE_EVENT_SECRET: 'stage-secret', GALAXY_URL: 'https://galaxy.example' });
+    const response = await touchRoute.POST(new Request('https://omni-loop.example/api/github', {
+      method: 'POST',
+      body: comment,
+      headers: { 'x-github-event': 'issue_comment', 'x-hub-signature-256': sign(comment) },
+    }));
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('ignored');
+    expect(send).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledTimes(1);
+    const call = post.mock.calls[0];
+    assertDefined(call, 'the touch POST');
+    expect(String(call[0])).toBe('https://galaxy.example/api/github/touched');
+    expect(JSON.parse(StagePostSchema.parse(call[1]).body)).toEqual({ repository: 'o/r', issue: 9 });
   });
 
   it('answers 405 to anything but POST', () => {
