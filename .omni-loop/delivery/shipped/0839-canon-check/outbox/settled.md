@@ -97,7 +97,7 @@ Changing the pick is one line in the read's ordering, in a follow-up migration; 
 - Raised: 2026-09-30
 - Slice: s3
 - Wave: 2
-- Became: ADR-0060
+- Became: ADR-0066
 
 ### The answer, as it was given
 

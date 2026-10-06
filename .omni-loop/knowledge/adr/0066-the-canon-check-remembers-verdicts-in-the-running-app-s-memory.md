@@ -1,4 +1,4 @@
-# ADR-0060 — The canon check remembers verdicts in the running App's memory only, lost on a cold start
+# ADR-0066 — The canon check remembers verdicts in the running App's memory only, lost on a cold start
 
 **Status:** adopted · **Date:** 2026-09-30 · **PRD:** #839 · **Decided:** nobody — adopted when raised (medium), 2026-09-30 · **Merged:** @pierrederval, 2026-09-30, PR #840
 
