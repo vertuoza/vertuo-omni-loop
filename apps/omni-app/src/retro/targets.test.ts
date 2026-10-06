@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { planTargets } from './targets.ts';
+import { planTargets, type PlanTarget } from './targets.ts';
+import { readTarget } from './targets.read.ts';
+import type { Octokit } from './retro.types.ts';
 
 const PLAN_CONFIG = parseConfig(
   [
@@ -67,5 +69,29 @@ describe('planTargets — the targets a retro reads', () => {
     expect(planTargets({ config: single, plan: PLAN, planSlug: 'acme/plan', topic: 'widget' })).toEqual([]);
     expect(planTargets({ config: PLAN_CONFIG, plan: null, planSlug: 'acme/plan', topic: 'widget' })).toEqual([]);
     expect(planTargets({ config: PLAN_CONFIG, plan: '# Plan\n\n| id | slice | territory |\n| --- | --- | --- |\n| s1 | x | `a` |\n', planSlug: 'acme/plan', topic: 'widget' })).toEqual([]);
+  });
+});
+
+describe('readTarget — a target the retro cannot read', () => {
+  const target: PlanTarget = { name: 'backend', slug: 'acme/backend', branches: ['feat/widget'] };
+  const refusing = (status: number): Octokit => ({ request: () => Promise.reject(Object.assign(new Error('refused'), { status })) });
+  const app: Octokit = { request: () => Promise.resolve({ data: { id: 21 } }) };
+  const empty: Octokit = { request: () => Promise.resolve({ data: [] }) };
+
+  it('says why, each in one line: not in the config, no App client, not installed, a lookup or a read refused, no feature PR', async () => {
+    const reasonOf = async (over: Partial<Parameters<typeof readTarget>[0]>, one = target) => {
+      const read = await readTarget({ appOctokit: () => app, octokitFor: () => empty, ...over }, one);
+      return read.read ? null : read.reason;
+    };
+    expect(await reasonOf({}, { ...target, slug: null })).toBe('not a target in the plan section of the config');
+    expect(await reasonOf({ appOctokit: null })).toBe('the App cannot look up its installations here');
+    expect(await reasonOf({ appOctokit: () => refusing(404) })).toBe('the App is not installed there');
+    expect(await reasonOf({ appOctokit: () => refusing(403) })).toBe("GitHub refused the App's lookup (403)");
+    expect(await reasonOf({ octokitFor: () => refusing(403) })).toBe('GitHub refused the read (403)');
+    expect(await reasonOf({})).toBe('no pull request from `feat/widget`');
+  });
+
+  it('fails, to be retried, on any other error', async () => {
+    await expect(readTarget({ appOctokit: () => refusing(502), octokitFor: () => empty }, target)).rejects.toThrow('refused');
   });
 });

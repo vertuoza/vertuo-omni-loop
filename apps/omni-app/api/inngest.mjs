@@ -3825,6 +3825,7 @@ var PullSchema2 = z18.object({
 var ListSchema = z18.array(z18.unknown());
 var PullsSchema2 = z18.array(PullSchema2.extend({ state: z18.string(), created_at: z18.string() }));
 var RetroPullsSchema = z18.array(z18.object({ number: PrNumberSchema, state: z18.string(), html_url: z18.string() }));
+var InstallationSchema = z18.object({ id: z18.number() });
 var TreeSchema2 = z18.object({
   tree: z18.array(z18.object({ path: z18.string(), type: z18.string(), sha: z18.string() }))
 });
@@ -3913,6 +3914,13 @@ async function listPullsInto(octokit, { owner, repo, base }) {
     mergedAt: data.merged_at ?? null,
     labels: labelNames(data.labels)
   })).sort((a, b) => a.openedAt.localeCompare(b.openedAt) || a.number - b.number);
+}
+async function listPullsFrom(octokit, { owner, repo, branch }) {
+  const pulls = await paginate(
+    (page) => octokit.request(PULLS, { owner, repo, head: `${owner}:${branch}`, state: "all", per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(PullsSchema2, data, PULLS))
+  );
+  const merged = pulls.filter((pull) => pull.merged_at);
+  return (merged.length > 0 ? merged : pulls).sort((a, b) => b.created_at.localeCompare(a.created_at)).map((pull) => pull.number);
 }
 async function listFolder(octokit, { owner, repo, ref, path }) {
   let data = parseGitHub(TreeSchema2, (await octokit.request(TREE2, { owner, repo, tree_sha: ref })).data, TREE2);
@@ -5261,7 +5269,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
   const landingRows = parsePlanLandings(markdown);
   const planSection2 = config.plan ?? null;
   const multi = planSection2 !== null && slices.some((slice) => slice.repo !== null);
-  const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
+  const repoOf2 = new Map(slices.map((slice) => [slice.id, slice.repo]));
   const collisions2 = sameWaveCollisions(slices);
   const landings = gradedLandings(slices, landingRows);
   const ofLanding = (id) => landings.length > 1 ? ` of landing ${slices.find((slice) => slice.id === id)?.landing}` : "";
@@ -5273,7 +5281,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
     ...multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config)),
     ...blockedByViolations2(slices),
     ...collisions2.map(
-      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
+      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf2.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
     )
   ];
   const waves = wavesOf(slices);
@@ -8050,6 +8058,14 @@ function installationOctokitFor(githubApp, github) {
       options.request = { ...options.request, fetch: fetch2 };
     });
     return octokit;
+  };
+}
+function appOctokitFor(githubApp) {
+  let app;
+  return () => {
+    const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, "the app looks up its installations as the App");
+    app ??= new App({ appId: id, privateKey });
+    return app.octokit;
   };
 }
 function githubStoreOf(supabase) {
@@ -11032,7 +11048,27 @@ var QualifiedSchema2 = z30.union([
 var PullsIntoSchema = z30.array(PullIntoSchema);
 var EvidenceSchema = z30.object({ label: text6, url: maybeText2, excerpt: text6.exactOptional() });
 var FindingSchema2 = z30.object({ id: text6, kind: text6, title: text6, happened: text6, evidence: z30.array(EvidenceSchema) });
-var SheetFindingSchema = z30.object({ ...FindingSchema2.shape, source: text6, ref: text6 });
+var SheetFindingSchema = z30.object({ ...FindingSchema2.shape, source: text6, ref: text6, repo: text6.exactOptional() });
+var TargetReadSchema = z30.discriminatedUnion("read", [
+  z30.object({
+    name: text6,
+    repo: text6,
+    read: z30.literal(true),
+    installationId: z30.number(),
+    featurePrs: z30.array(FeaturePullSchema).min(1),
+    pulls: z30.array(PullIntoSchema)
+  }),
+  z30.object({ name: text6, repo: text6, read: z30.literal(false), reason: text6 })
+]);
+var RepositoryFactsSchema = z30.object({
+  repo: text6,
+  name: text6,
+  plan: z30.boolean(),
+  read: z30.boolean(),
+  reason: text6.exactOptional(),
+  featurePrs: z30.array(z30.object({ number: PrNumberSchema, url: maybeText2 })),
+  kinds: z30.record(z30.string(), z30.unknown()).exactOptional()
+});
 var RulesSheetSchema = z30.object({
   version: z30.number(),
   findingOrder: z30.array(z30.array(text6)),
@@ -11064,7 +11100,9 @@ var factSheetFields = {
   featurePr: z30.object({ number: PrNumberSchema, title: text6, url: maybeText2, openedAt: maybeText2, mergedAt: maybeText2, mergeSha: text6 }),
   /** Each kind's facts, by its id; a reader parses the facts it reads with that kind's schema. */
   kinds: z30.record(z30.string(), z30.unknown()),
-  findings: z30.array(SheetFindingSchema)
+  findings: z30.array(SheetFindingSchema),
+  /** Every repository of a multi-repository PRD (PRD 1130); absent for a PRD of one repository. */
+  repositories: z30.array(RepositoryFactsSchema).exactOptional()
 };
 var FactSheetSchema = z30.object(factSheetFields);
 var DroppedSchema = z30.object({ dropped: text6 });
@@ -11430,6 +11468,8 @@ function render({
   if (!latest) throw new Error(`render: retro.json holds no run of #${featurePr}.`);
   const findings = uniqueFindings(runs);
   const issues = Object.fromEntries(runs.flatMap((run) => Object.entries(run.issues ?? {})));
+  const repositories = [...runs].reverse().find((run) => run.repositories)?.repositories ?? null;
+  const shown = { runs, findings, prose, issues, repositories };
   const lines = [
     "---",
     `prd: ${latest.prd.number}`,
@@ -11445,9 +11485,10 @@ function render({
     "",
     summary(prose, latest),
     "",
+    ...repositoriesSection(repositories),
     "## Findings",
     "",
-    ...findings.length === 0 ? ["None: nothing crossed a threshold of the rules.", ""] : findings.flatMap((finding) => findingBlock(finding, prose, issues)),
+    ...findingsSection(shown),
     "## Proposed lessons",
     "",
     ...lessons(prose, findings),
@@ -11455,7 +11496,8 @@ function render({
   ];
   const byRun = (run) => kinds.filter((kind) => kind.runs.includes(run));
   const sectionOf2 = (kind) => kindSection(kind, runs, findings, prose, issues);
-  lines.push(...byRun("merge").flatMap(sectionOf2));
+  const mergeSectionOf = (kind) => repositories ? groupedSection(kind, shown) : sectionOf2(kind);
+  lines.push(...byRun("merge").flatMap(mergeSectionOf));
   lines.push(...rulesSection2(latest.rules));
   lines.push(...kinds.filter((kind) => !kind.runs.includes("merge")).flatMap(sectionOf2));
   return {
@@ -11489,11 +11531,11 @@ function issueLink(issue) {
   if (!issue) return null;
   return `[#${issue.number}](${issue.url})${issue.state === "closed" ? " (closed)" : ""}`;
 }
-function findingBlock(finding, prose, issues) {
+function findingBlock(finding, prose, issues, level = "###") {
   const words = prose?.findings[finding.id] ?? {};
   const issue = issueLink(issues[finding.id]);
   const droppedTitle = typeof words.title === "object" ? field2(words.title) : null;
-  const heading = [`### ${finding.ref} \xB7 ${titleOf3(finding, prose)} \u2014 \`${finding.id}\``, issue].filter(Boolean).join(" \xB7 ");
+  const heading = [`${level} ${finding.ref} \xB7 ${titleOf3(finding, prose)} \u2014 \`${finding.id}\``, issue].filter(Boolean).join(" \xB7 ");
   const lines = [heading, ""];
   if (droppedTitle) lines.push(`- **Title:** ${droppedTitle}`);
   lines.push(`- **What happened:** ${finding.happened}`);
@@ -11523,11 +11565,50 @@ function kindSection(kind, runs, findings, prose, issues) {
   if ((!described || described.length === 0) && own.length === 0) return [];
   const lines = [`## ${kind.section}`, ""];
   if (described && described.length > 0) lines.push(...described, "");
-  if (own.length > 0) {
-    const refs = own.map((finding) => [`${finding.ref} \xB7 ${titleOf3(finding, prose)}`, issueLink(issues[finding.id])].filter(Boolean).join(" \xB7 "));
-    lines.push(`Findings: ${refs.join("; ")}`, "");
-  }
+  lines.push(...findingsLine(own, prose, issues));
   return lines;
+}
+function repositoriesSection(repositories) {
+  if (!repositories) return [];
+  const line = (one) => {
+    if (!one.read) return `- ${one.repo}: not read \u2014 ${one.reason ?? "no reason given"}`;
+    const pulls = one.featurePrs.map((pull) => pull.url ? `[#${pull.number}](${pull.url})` : `#${pull.number}`).join(", ");
+    return `- ${one.repo}${one.plan ? " (plan repository)" : ""}: feature PR ${pulls}`;
+  };
+  return ["## Repositories", "", ...repositories.map(line), ""];
+}
+function repoOf(finding, repositories) {
+  return finding.repo ?? repositories.find((one) => one.plan)?.repo;
+}
+function findingsSection({ findings, prose, issues, repositories }) {
+  if (findings.length === 0) return ["None: nothing crossed a threshold of the rules.", ""];
+  if (!repositories) return findings.flatMap((finding) => findingBlock(finding, prose, issues));
+  return repositories.flatMap((one) => {
+    const own = findings.filter((finding) => repoOf(finding, repositories) === one.repo);
+    return own.length === 0 ? [] : [`### ${one.repo}`, "", ...own.flatMap((finding) => findingBlock(finding, prose, issues, "####"))];
+  });
+}
+function repositoryFacts(kind, runs, one) {
+  for (const run of [...runs].reverse()) {
+    const facts = one.plan ? keptFacts(run, kind.id) : run.repositories?.find((other) => other.repo === one.repo)?.kinds?.[kind.id];
+    if (facts !== null && facts !== void 0) return facts;
+  }
+  return null;
+}
+function groupedSection(kind, { runs, findings, prose, issues, repositories }) {
+  const parts = (repositories ?? []).filter((one) => one.read).flatMap((one) => {
+    const own = findings.filter((finding) => finding.source === kind.id && repoOf(finding, repositories ?? []) === one.repo);
+    const facts = repositoryFacts(kind, runs, one);
+    const described = facts === null ? null : kind.describe(facts);
+    if ((!described || described.length === 0) && own.length === 0) return [];
+    return [`### ${one.repo}`, "", ...described && described.length > 0 ? [...described, ""] : [], ...findingsLine(own, prose, issues)];
+  });
+  return parts.length === 0 ? [] : [`## ${kind.section}`, "", ...parts];
+}
+function findingsLine(own, prose, issues) {
+  if (own.length === 0) return [];
+  const refs = own.map((finding) => [`${finding.ref} \xB7 ${titleOf3(finding, prose)}`, issueLink(issues[finding.id])].filter(Boolean).join(" \xB7 "));
+  return [`Findings: ${refs.join("; ")}`, ""];
 }
 function rulesSection2(rules) {
   const t = rules.thresholds;
@@ -11663,6 +11744,186 @@ function withRuns(existing, records) {
   return defined(doc, "the retro.json of the records published");
 }
 
+// kit/lib/board.ts
+function fillBranch(template, values) {
+  return template.replace(/\{(topic|slice|landings|landing|name)\}/g, (whole, key) => {
+    const value = values[key];
+    return value === void 0 ? whole : String(value);
+  });
+}
+function landingBranches(branches, { topic, landings }) {
+  if (landings.length <= 1) {
+    return [{ landing: 1, name: landings[0]?.name ?? "landing-1", branch: fillBranch(branches.feature, { topic }) }];
+  }
+  return landings.map(({ landing, name }) => ({
+    landing,
+    name,
+    branch: fillBranch(branches.landing, { topic, landing, landings: landings.length, name })
+  }));
+}
+
+// kit/lib/landings/landing-plan.ts
+function landingPlan({
+  landings,
+  slices,
+  branches,
+  defaultBranch,
+  topic,
+  repo = null
+}) {
+  const mine = slices.filter((slice) => repo === null || slice.repo === repo);
+  const kept2 = landings.filter((landing) => mine.some((slice) => slice.landing === landing.landing));
+  const chain = landingBranches(branches, {
+    topic,
+    landings: kept2.map((landing, index) => ({ landing: index + 1, name: landing.name }))
+  });
+  return kept2.map((landing, index) => ({
+    landing: index + 1,
+    planLanding: landing.landing,
+    count: kept2.length,
+    name: landing.name,
+    mergeWhen: landing.mergeWhen,
+    branch: chain[index]?.branch ?? "",
+    base: index === 0 ? defaultBranch : chain[index - 1]?.branch ?? defaultBranch,
+    titleSuffix: kept2.length > 1 ? ` (${index + 1}/${kept2.length})` : "",
+    mergeAfter: mergeAfterOf(kept2, index),
+    slices: mine.filter((slice) => slice.landing === landing.landing).map(({ id, title }) => ({ id, title }))
+  }));
+}
+function mergeAfterOf(kept2, index) {
+  const before2 = kept2[index - 1];
+  return index === 0 || before2 === void 0 ? null : { landing: index, name: before2.name };
+}
+
+// apps/omni-app/src/retro/targets.ts
+var shortName3 = (slug) => slug.split("/").at(-1) ?? slug;
+function planTargets({ config, plan, planSlug, topic }) {
+  const targets = config.plan?.targets ?? [];
+  if (targets.length === 0 || plan === null) return [];
+  const own = shortName3(planSlug);
+  return parsePlanRepositories(plan).filter((row) => shortName3(row.repo) !== own).map((row) => {
+    const name = shortName3(row.repo);
+    const slug = targets.find((target2) => target2.repo === row.repo || shortName3(target2.repo) === name)?.repo ?? null;
+    return { name, slug, branches: featureBranches({ config, plan, topic, name }) };
+  });
+}
+function featureBranches({ config, plan, topic, name }) {
+  const slices = slicesOf(plan);
+  const named = parsePlanLandings(plan);
+  const numbers = [...new Set(slices.map((slice) => slice.landing))].sort((a, b) => a - b);
+  const landings = numbers.map((landing) => ({
+    landing,
+    name: named.find((row) => row.landing === landing)?.name ?? `landing-${landing}`,
+    mergeWhen: null,
+    slices: [],
+    waves: []
+  }));
+  const chain = landingPlan({ landings, slices, branches: config.branches, defaultBranch: config.repo.defaultBranch, topic, repo: name });
+  const fallback = config.branches.feature.replace("{topic}", topic);
+  return chain.length > 0 ? chain.map((step) => step.branch) : [fallback];
+}
+function slicesOf(plan) {
+  try {
+    return parsePlanSlices(plan);
+  } catch {
+    return [];
+  }
+}
+
+// apps/omni-app/src/retro/targets.read.ts
+var INSTALLATION = "GET /repos/{owner}/{repo}/installation";
+async function readTargets({ step, appOctokit, octokitFor, planSlug, scope }) {
+  const targets = planTargets({ config: scope.config, plan: scope.prd.plan, planSlug, topic: scope.prd.topic });
+  const read = [];
+  for (const target2 of targets) {
+    read.push(await savedStep(step, `target-${target2.name}`, TargetReadSchema, () => readTarget({ appOctokit, octokitFor }, target2)));
+  }
+  return read;
+}
+var notRead = (target2, reason2) => ({ name: target2.name, repo: target2.slug ?? target2.name, read: false, reason: reason2 });
+async function readTarget({ appOctokit, octokitFor }, target2) {
+  if (target2.slug === null) return notRead(target2, "not a target in the plan section of the config");
+  if (appOctokit === null) return notRead(target2, "the App cannot look up its installations here");
+  const [owner = "", repo = ""] = target2.slug.split("/");
+  const installation = await refusedAs(async () => (await appOctokit()).request(INSTALLATION, { owner, repo }));
+  if ("status" in installation) {
+    return notRead(target2, installation.status === 404 ? "the App is not installed there" : `GitHub refused the App's lookup (${installation.status})`);
+  }
+  const installationId = parseGitHub(InstallationSchema, installation.value.data, INSTALLATION).id;
+  const pulls = await refusedAs(async () => featurePulls(await octokitFor(installationId), { owner, repo, branches: target2.branches }));
+  if ("status" in pulls) return notRead(target2, `GitHub refused the read (${pulls.status})`);
+  if (pulls.value.featurePrs.length === 0) return notRead(target2, `no pull request from \`${target2.branches.join("`, `")}\``);
+  return { name: target2.name, repo: target2.slug, read: true, installationId, ...pulls.value };
+}
+async function featurePulls(octokit, { owner, repo, branches }) {
+  const featurePrs = [];
+  const pulls = [];
+  for (const branch of branches) {
+    const [number] = await listPullsFrom(octokit, { owner, repo, branch });
+    if (number === void 0) continue;
+    const pull = await readPull(octokit, { owner, repo, prNumber: number });
+    featurePrs.push({ ...pull, mergeSha: pull.mergeSha ?? pull.headSha });
+    pulls.push(...await listPullsInto(octokit, { owner, repo, base: branch }));
+  }
+  pulls.sort((a, b) => a.openedAt.localeCompare(b.openedAt) || a.number - b.number);
+  return { featurePrs, pulls };
+}
+async function refusedAs(read) {
+  try {
+    return { value: await read() };
+  } catch (error) {
+    const status = typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
+    if (status === 401 || status === 403 || status === 404) return { status };
+    throw error;
+  }
+}
+function targetScope(target2, scope) {
+  const [owner = "", repo = ""] = target2.repo.split("/");
+  const pr = target2.featurePrs.at(-1) ?? scope.pr;
+  return { owner, repo, mergeSha: pr.mergeSha, mergedAt: pr.mergedAt, pr, prd: { ...scope.prd, settled: null }, config: scope.config, pulls: target2.pulls };
+}
+async function gatherTarget({ step, octokitFor, kinds, scope }, target2) {
+  const own = targetScope(target2, scope);
+  const records = {};
+  for (const kind of kinds) {
+    records[kind.id] = await savedStep(
+      step,
+      `gather-${kind.id}-${target2.name}`,
+      kind.records.nullable(),
+      async () => await kind.gather(await octokitFor(target2.installationId), own) ?? null
+    );
+  }
+  return records;
+}
+
+// apps/omni-app/src/retro/targets.detect.ts
+function withTargets(sheet, { planSlug, targets, run, kinds, scope }) {
+  if (targets.length === 0) return sheet;
+  const plan = { repo: planSlug, name: shortName3(planSlug), plan: true, read: true, featurePrs: [{ number: sheet.featurePr.number, url: sheet.featurePr.url }] };
+  const repositories = [plan];
+  const findings = sheet.findings.map((finding) => ({ ...finding, repo: planSlug }));
+  for (const { target: target2, records } of targets) {
+    const one = targetSheet(target2, records, { run, kinds, scope });
+    repositories.push(one.repository);
+    findings.push(...one.findings);
+  }
+  return { ...sheet, findings: ranked(findings), repositories };
+}
+function targetSheet(target2, records, { run, kinds, scope }) {
+  const base = { repo: target2.repo, name: target2.name, plan: false };
+  if (!target2.read) return { repository: { ...base, read: false, reason: target2.reason, featurePrs: [] }, findings: [] };
+  const own = targetScope(target2, scope);
+  const sheet = detect({ run, pr: own.pr, prd: own.prd, config: own.config, pulls: own.pulls, records: records ?? {}, kinds });
+  const featurePrs = target2.featurePrs.map((pull) => ({ number: pull.number, url: pull.url }));
+  return {
+    repository: { ...base, read: true, featurePrs, kinds: sheet.kinds },
+    findings: sheet.findings.map((finding) => ({ ...finding, id: `${target2.name}/${finding.id}`, title: `${target2.repo}: ${finding.title}`, repo: target2.repo }))
+  };
+}
+function ranked(findings) {
+  return findings.map((finding, index) => ({ finding, index })).sort((a, b) => rankOf(a.finding.kind) - rankOf(b.finding.kind) || a.index - b.index).map(({ finding }, index) => ({ ...finding, ref: `F${index + 1}` }));
+}
+
 // apps/omni-app/src/retro/retro.ts
 var RETRO_FUNCTION_ID = "retro";
 var MERGE_RUN = "merge";
@@ -11697,7 +11958,7 @@ var FailedEventSchema = z32.object({
   prNumber: PrNumberSchema.optional().catch(void 0)
 }).catch({});
 var TickSchema = z32.looseObject({ ts: z32.number().exactOptional() }).nullable();
-function createRetro({ client, octokitFor, openrouter, fetch: fetch2, kinds = KINDS, followUp = false }) {
+function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch: fetch2, kinds = KINDS, followUp = false }) {
   return client.createFunction(
     {
       id: RETRO_FUNCTION_ID,
@@ -11718,8 +11979,9 @@ function createRetro({ client, octokitFor, openrouter, fetch: fetch2, kinds = KI
       if (qualified.skip !== null) return { skipped: qualified.skip };
       const { pr, prd, config } = qualified;
       const pulls = await savedStep(step, "gather-pulls", PullsIntoSchema, async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
-      const scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls };
-      const context = { step, github, openrouter, fetch: fetch2, owner, repo, pr, prd, config, pulls };
+      const targets = await readTargets({ step, appOctokit, octokitFor, planSlug: `${owner}/${repo}`, scope: { config, prd } });
+      const scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls, ...targets.length > 0 ? { targets } : {} };
+      const context = { step, github, octokitFor, openrouter, fetch: fetch2, owner, repo, pr, prd, config, pulls };
       const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsIn(MERGE_RUN, kinds), scope });
       const result = { prd: prd.number, ...outcome(first) };
       const laterKinds = kindsIn(FOLLOW_UP_RUN2, kinds);
@@ -11758,18 +12020,27 @@ async function runRetro(input) {
   const judged2 = await judgeSheet(input, id, sheet);
   return judged2.verdict.worthIt ? publishRun(input, id, folder, sheet, judged2) : commentRun(input, id, sheet, judged2);
 }
-async function factSheet({ step, github, pr, prd, config, pulls, run, kinds, scope, earlier }, id, folder) {
+async function factSheet(input, id, folder) {
+  const { step, github, owner, repo, pr, prd, config, pulls, run, kinds, scope, earlier } = input;
   const records = {};
   for (const kind of kinds) {
     records[kind.id] = await savedStep(step, id(`gather-${kind.id}`), kind.records.nullable(), async () => await kind.gather(await github(), scope) ?? null);
   }
+  const targets = await targetRecords(input);
   const before2 = earlier?.sheet.findings ?? [];
-  return savedStep(
-    step,
-    id("facts"),
-    FactSheetSchema,
-    () => inFolder2(numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before2.length), folder)
-  );
+  return savedStep(step, id("facts"), FactSheetSchema, () => {
+    const own = detect({ run, pr, prd, config, pulls, records, kinds });
+    const whole = withTargets(own, { planSlug: `${owner}/${repo}`, targets, run, kinds, scope });
+    return inFolder2(numberedAfter(whole, before2.length), folder);
+  });
+}
+async function targetRecords({ step, octokitFor, run, kinds, scope }) {
+  if (run !== MERGE_RUN) return [];
+  const out = [];
+  for (const target2 of scope.targets ?? []) {
+    out.push({ target: target2, records: target2.read ? await gatherTarget({ step, octokitFor, kinds, scope }, target2) : null });
+  }
+  return out;
 }
 async function judgeSheet({ step, github, openrouter, fetch: fetch2, owner, repo, prd, config, scope, earlier }, id, sheet) {
   const whole = earlier ? { ...sheet, findings: [...earlier.sheet.findings, ...sheet.findings] } : sheet;
@@ -11942,7 +12213,7 @@ function appFunctions(env, { octokitFor = installationOctokitFor(env.githubApp, 
   return {
     outboxCheck: createOutboxCheck({ client: inngest, octokitFor }),
     inboxCheck: createInboxCheck({ client: inngest, octokitFor, canon: liveCanon(env) }),
-    retro: createRetro({ client: inngest, octokitFor, openrouter: env.openrouter, followUp: true }),
+    retro: createRetro({ client: inngest, octokitFor, appOctokit: appOctokitFor(env.githubApp), openrouter: env.openrouter, followUp: true }),
     knowledgeHarvest: createKnowledgeHarvest({ client: inngest, octokitFor, openrouter: env.openrouter }),
     prStats: createPrStats({ client: inngest, octokitFor, supabase: env.supabase }),
     canonAction: createCanonAction({ client: inngest, octokitFor, galaxyUrl: env.galaxyUrl })
