@@ -23,7 +23,7 @@ import type { Moment, Moments, Walk, WalkStep } from './moments.ts';
 import type { Exec } from './providers/types.ts';
 
 /** The signed-in session the walk-through loads when the run holds one (`omni proof session`). */
-export const STORAGE_STATE = 'storage-state.json';
+const STORAGE_STATE = 'storage-state.json';
 const FILM_DIR = 'film';
 /** How long a step waits for its element, and pauses after it when it names no pause. */
 const WAIT_MS = 10_000;
@@ -212,21 +212,27 @@ function readWalk(dir: string): Walk {
 
 const isLauncher = (value: unknown): value is { launch(): Promise<FilmBrowser> } => typeof propertyOf(value, 'launch') === 'function';
 
+/** The file a package resolves to from `from`, or null when it is not installed there. */
+function resolvedFrom(from: string, name: string): string | null {
+  try {
+    return createRequire(from).resolve(name);
+  } catch {
+    return null;
+  }
+}
+
+/** The Playwright entries to try: the repository's at `cwd` first, then the one beside the kit. */
+const playwrightEntries = (cwd: string): string[] =>
+  [join(cwd, 'package.json'), import.meta.url].flatMap((from) => ['playwright', '@playwright/test'].map((name) => resolvedFrom(from, name))).filter((file) => file !== null);
+
 /** Chromium from the Playwright the repository at `cwd` installed, else the one beside the kit. */
 export function repositoryBrowser(cwd: string): FilmLaunch {
   return async () => {
-    for (const from of [join(cwd, 'package.json'), import.meta.url]) {
-      for (const name of ['playwright', '@playwright/test']) {
-        let resolved: string;
-        try {
-          resolved = createRequire(from).resolve(name);
-        } catch {
-          continue;
-        }
-        const loaded: unknown = await import(pathToFileURL(resolved).href);
-        const chromium = propertyOf(loaded, 'chromium') ?? propertyOf(propertyOf(loaded, 'default'), 'chromium');
-        if (isLauncher(chromium)) return chromium.launch();
-      }
+    for (const entry of playwrightEntries(cwd)) {
+      // A CommonJS entry, imported, holds its exports under the namespace's default.
+      const namespace: unknown = await import(pathToFileURL(entry).href);
+      const launcher = [namespace, propertyOf(namespace, 'default')].map((value) => propertyOf(value, 'chromium')).find(isLauncher);
+      if (launcher !== undefined) return launcher.launch();
     }
     throw new FilmRefused(['Playwright is needed to film the walk-through: install playwright in the repository']);
   };

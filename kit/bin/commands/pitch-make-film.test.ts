@@ -137,64 +137,98 @@ async function magentaAt(page: Page, tools: Page, frame: number) {
   return MagentaSchema.parse(await tools.evaluate(`(${MAGENTA})(${JSON.stringify(shot)})`));
 }
 
+/** The intro's title at frame 15, mid-build: its font, whether that font loaded, each word and its opacity. */
+async function titleAt(page: Page) {
+  await page.evaluate('window.__pitchSeek(15)');
+  return TitleSchema.parse(await page.evaluate(`(() => {
+    const h1 = document.querySelector('h1');
+    const words = [...h1.querySelectorAll('span > span')].map((word) => [word.textContent, Number(getComputedStyle(word).opacity)]);
+    return { font: getComputedStyle(h1).fontFamily, loaded: document.fonts.check('400 64px "anton"'), words };
+  })()`));
+}
+
+/** The opacity of each word of the intro's title once it has settled. */
+async function settledTitle(page: Page): Promise<unknown> {
+  await page.evaluate('window.__pitchSeek(80)');
+  return page.evaluate("[...document.querySelector('h1').querySelectorAll('span > span')].map((word) => Number(getComputedStyle(word).opacity))");
+}
+
+/** The centre of the surface the camera moves over, as 0..1 of the frame, or null. */
+async function surfaceCentre(page: Page) {
+  return SurfaceSchema.parse(await page.evaluate(`(() => {
+    const moved = [...document.querySelectorAll('div')].find((div) => div.style.transform.startsWith('translate(') && div.style.transform.includes(') scale('));
+    if (!moved) return null;
+    const box = moved.parentElement.getBoundingClientRect();
+    return { x: (box.left + box.width / 2) / innerWidth, y: (box.top + box.height / 2) / innerHeight };
+  })()`));
+}
+
+type Magenta = z.infer<typeof MagentaSchema>;
+/** What the studio's page showed: the title mid-build and settled, and the feature's magenta before and at the zoom's peak. */
+type Seen = { title: z.infer<typeof TitleSchema>; settled: unknown; before: Magenta; peak: Magenta; surface: z.infer<typeof SurfaceSchema> };
+
+/** Opens the studio's page at `url` and measures it. */
+async function measure(url: string, opened: Browser): Promise<Seen> {
+  const tools = await opened.newPage();
+  const page = await opened.newPage({ viewport: { width: 1920, height: 1080 } });
+  await page.goto(url);
+  const title = await titleAt(page);
+  const settled = await settledTitle(page);
+  const feature = InfoSchema.parse(await page.evaluate('window.__pitchInfo()')).scenes[1]?.from ?? 0;
+  const before = await magentaAt(page, tools, feature + 3);
+  const peak = await magentaAt(page, tools, feature + 75);
+  const surface = await surfaceCentre(page);
+  await page.close();
+  await tools.close();
+  return { title, settled, before, peak, surface };
+}
+
 describe.skipIf(!toolsHere)('omni pitch film, then the storyboard from its moments (acceptance 7)', () => {
-  it('films the walk-through, and the video zooms on the element its moment names, after the title built word by word in the Heading font', async () => {
-    const dir = run();
-    const filmed = await omni(['film', '.'], { dir });
+  let dir = '';
+  let filmed = { code: -1, out: '', err: '' };
+  let checked = { code: -1, out: '', err: '' };
+  let studio = { code: -1, out: '', err: '' };
+  let seen: Seen | undefined;
+
+  beforeAll(async () => {
+    dir = run();
+    filmed = await omni(['film', '.'], { dir });
+    const moment = parseMoments(JSON.parse(readFileSync(join(dir, 'moments.json'), 'utf8')))?.steps[0];
+    if (moment === undefined) throw new Error(`film wrote no moment: ${filmed.err}`);
+    writeFileSync(join(dir, 'storyboard.json'), JSON.stringify(storyboardOn(moment)));
+    checked = await omni(['check', '.'], { dir });
+    const opened = await chromium.launch();
+    browser = opened;
+    studio = await omni(['studio', '.', '--no-open'], { dir, studioUntil: async (url) => { seen = await measure(url, opened); } });
+  });
+
+  it('films the walk-through: walk.webm, moments.json, and a line per moment with its box and camera', () => {
     expect({ code: filmed.code, err: filmed.err }).toEqual({ code: 0, err: '' });
     const lines = filmed.out.trim().split('\n');
     expect(lines.slice(0, 2)).toEqual([join(dir, 'walk.webm'), join(dir, 'moments.json')]);
     expect(lines[2]).toMatch(/^filter: hover at [\d.]+ s, box x 0\.52\d* y 0\.37\d* w 0\.125 h 0\.074\d*, camera zoom 3 on x 0\.58\d* y 0\.40\d*$/);
     expect(lines[3]).toMatch(/^[\d.]+ s$/);
-    const moment = parseMoments(JSON.parse(readFileSync(join(dir, 'moments.json'), 'utf8')))?.steps[0];
-    if (moment === undefined) throw new Error('film wrote no moment');
-
-    writeFileSync(join(dir, 'storyboard.json'), JSON.stringify(storyboardOn(moment)));
-    const checked = await omni(['check', '.'], { dir });
     expect(checked.code, checked.err).toBe(0);
-
-    browser = await chromium.launch();
-    const tools = await browser.newPage();
-    const seen: { title?: z.infer<typeof TitleSchema>; settled?: unknown; before?: z.infer<typeof MagentaSchema>; peak?: z.infer<typeof MagentaSchema>; surface?: z.infer<typeof SurfaceSchema> } = {};
-    const studio = await omni(['studio', '.', '--no-open'], {
-      dir,
-      studioUntil: async (url) => {
-        const page = await (browser ?? (await chromium.launch())).newPage({ viewport: { width: 1920, height: 1080 } });
-        await page.goto(url);
-        await page.evaluate('window.__pitchSeek(15)');
-        seen.title = TitleSchema.parse(await page.evaluate(`(() => {
-          const h1 = document.querySelector('h1');
-          const words = [...h1.querySelectorAll('span > span')].map((word) => [word.textContent, Number(getComputedStyle(word).opacity)]);
-          return { font: getComputedStyle(h1).fontFamily, loaded: document.fonts.check('400 64px "anton"'), words };
-        })()`));
-        await page.evaluate('window.__pitchSeek(80)');
-        seen.settled = await page.evaluate("[...document.querySelector('h1').querySelectorAll('span > span')].map((word) => Number(getComputedStyle(word).opacity))");
-        const feature = InfoSchema.parse(await page.evaluate('window.__pitchInfo()')).scenes[1]?.from ?? 0;
-        seen.before = await magentaAt(page, tools, feature + 3);
-        seen.peak = await magentaAt(page, tools, feature + 75);
-        seen.surface = SurfaceSchema.parse(await page.evaluate(`(() => {
-          const moved = [...document.querySelectorAll('div')].find((div) => div.style.transform.startsWith('translate(') && div.style.transform.includes(') scale('));
-          if (!moved) return null;
-          const box = moved.parentElement.getBoundingClientRect();
-          return { x: (box.left + box.width / 2) / innerWidth, y: (box.top + box.height / 2) / innerHeight };
-        })()`));
-        await page.close();
-      },
-    });
     expect(studio.code, studio.err).toBe(0);
+  });
 
-    expect(seen.title?.font).toMatch(/^"?anton"?,/);
-    expect(seen.title?.loaded).toBe(true);
-    expect(seen.title?.words.map(([word]) => word)).toEqual(TITLE.split(' '));
-    expect(seen.title?.words[0]?.[1]).toBeGreaterThan(0.5);
-    expect(seen.title?.words[3]?.[1]).toBe(0);
-    expect(seen.settled).toEqual([1, 1, 1, 1]);
+  it("builds the PRD's title word by word in the Heading font the product uploaded", () => {
+    if (seen === undefined) throw new Error('the studio page was not measured');
+    const { title, settled } = seen;
+    expect(title.font).toMatch(/^"?anton"?,/);
+    expect(title.loaded).toBe(true);
+    expect(title.words.map(([word]) => word)).toEqual(TITLE.split(' '));
+    expect(title.words[0]?.[1]).toBeGreaterThan(0.5);
+    expect(title.words[3]?.[1]).toBe(0);
+    expect(settled).toEqual([1, 1, 1, 1]);
+  });
 
-    const [before, peak, surface] = [seen.before, seen.peak, seen.surface];
-    if (before === undefined || peak === undefined || surface === undefined || surface === null) throw new Error('the studio page was not measured');
+  it('zooms the feature scene on the element its moment names: the button fills the middle of the media', () => {
+    if (seen === undefined) throw new Error('the studio page was not measured');
+    const { before, peak, surface } = seen;
     expect(peak.share).toBeGreaterThan(before.share * 4);
     expect(peak.share).toBeGreaterThan(0.03);
-    expect(Math.abs(peak.x - surface.x)).toBeLessThan(0.06);
-    expect(Math.abs(peak.y - surface.y)).toBeLessThan(0.06);
-  }, 180_000);
+    expect(Math.abs(peak.x - (surface?.x ?? 0))).toBeLessThan(0.06);
+    expect(Math.abs(peak.y - (surface?.y ?? 0))).toBeLessThan(0.06);
+  });
 });

@@ -43387,20 +43387,20 @@ function readWalk(dir) {
   return parsed.walk;
 }
 var isLauncher = (value) => typeof propertyOf(value, "launch") === "function";
+function resolvedFrom(from, name2) {
+  try {
+    return createRequire(from).resolve(name2);
+  } catch {
+    return null;
+  }
+}
+var playwrightEntries = (cwd) => [join61(cwd, "package.json"), import.meta.url].flatMap((from) => ["playwright", "@playwright/test"].map((name2) => resolvedFrom(from, name2))).filter((file2) => file2 !== null);
 function repositoryBrowser(cwd) {
   return async () => {
-    for (const from of [join61(cwd, "package.json"), import.meta.url]) {
-      for (const name2 of ["playwright", "@playwright/test"]) {
-        let resolved;
-        try {
-          resolved = createRequire(from).resolve(name2);
-        } catch {
-          continue;
-        }
-        const loaded = await import(pathToFileURL(resolved).href);
-        const chromium = propertyOf(loaded, "chromium") ?? propertyOf(propertyOf(loaded, "default"), "chromium");
-        if (isLauncher(chromium)) return chromium.launch();
-      }
+    for (const entry of playwrightEntries(cwd)) {
+      const namespace = await import(pathToFileURL(entry).href);
+      const launcher = [namespace, propertyOf(namespace, "default")].map((value) => propertyOf(value, "chromium")).find(isLauncher);
+      if (launcher !== void 0) return launcher.launch();
     }
     throw new FilmRefused(["Playwright is needed to film the walk-through: install playwright in the repository"]);
   };

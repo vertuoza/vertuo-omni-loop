@@ -12,6 +12,7 @@ import { chromium } from '@playwright/test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { FilmRefused, filmRun, remuxArgs } from './moments-film.ts';
 import { parseMoments } from './moments.ts';
+import type { Moment, Moments } from './moments.ts';
 
 const hasTool = (name: string): boolean => {
   try {
@@ -93,9 +94,24 @@ describe('filmRun: what stops it, before a browser opens', () => {
   });
 });
 
+/** A moment the film wrote, by name. */
+function momentOf(moments: Moments, name: string): Moment {
+  const found = moments.steps.find((step) => step.name === name);
+  if (found === undefined) throw new Error(`no moment ${name}`);
+  return found;
+}
+
+/** Each corner of `box` within two hundredths of `expected`'s. */
+function expectNear(box: Moment['box'], expected: Moment['box']): void {
+  for (const key of ['x', 'y', 'w', 'h'] as const) expect(box[key], key).toBeCloseTo(expected[key], 2);
+}
+
 describe.skipIf(!toolsHere)('filmRun on a local test page', () => {
-  it('writes moments.json whose boxes match the elements, and a walk.webm that seeks', async () => {
-    const dir = runWith({
+  let dir = '';
+  let moments: Moments = { moments: 1, clip: 'walk.webm', width: 1920, height: 1080, seconds: 1, steps: [] };
+
+  beforeAll(async () => {
+    dir = runWith({
       walk: 1,
       url: `${origin}/`,
       steps: [
@@ -104,33 +120,42 @@ describe.skipIf(!toolsHere)('filmRun on a local test page', () => {
         { do: 'scroll', moment: 'totals', target: '#totals', pause: 0.5 },
       ],
     });
-    const moments = await filmRun(dir, tools());
-    expect(parseMoments(JSON.parse(readFileSync(join(dir, 'moments.json'), 'utf8')))).toEqual(moments);
-    const [filter, search, totals] = moments.steps;
-    expect(moments.steps.map((step) => [step.name, step.do])).toEqual([['filter', 'hover'], ['search', 'type'], ['totals', 'scroll']]);
-    const near = (box: object | undefined, expected: { x: number; y: number; w: number; h: number }) => {
-      for (const [key, value] of Object.entries(expected)) expect(box?.[key as keyof typeof box], key).toBeCloseTo(value, 2);
-    };
-    near(filter?.box, { x: 1000 / 1920, y: 400 / 1080, w: 240 / 1920, h: 80 / 1080 });
-    near(search?.box, { x: 200 / 1920, y: 160 / 1080, w: 400 / 1920, h: 40 / 1080 });
-    expect(totals?.box.w).toBeCloseTo(600 / 1920, 2);
-    expect(totals?.box.y).toBeGreaterThan(0);
-    expect((totals?.box.y ?? 1) + (totals?.box.h ?? 1)).toBeLessThan(1);
-    expect(filter?.focus.x).toBeCloseTo(1120 / 1920, 2);
-    expect(filter?.focus.y).toBeCloseTo(440 / 1080, 2);
-    expect(filter?.at).toBeLessThan(search?.at ?? 0);
-    expect(search?.at).toBeLessThan(totals?.at ?? 0);
+    moments = await filmRun(dir, tools());
+  });
 
+  it('writes moments.json, one moment per step that acts on an element, in order', () => {
+    expect(parseMoments(JSON.parse(readFileSync(join(dir, 'moments.json'), 'utf8')))).toEqual(moments);
+    expect(moments.steps.map((step) => [step.name, step.do])).toEqual([['filter', 'hover'], ['search', 'type'], ['totals', 'scroll']]);
+    const times = moments.steps.map((step) => step.at);
+    expect([...times].sort((a, b) => a - b)).toEqual(times);
+    expect(moments.seconds).toBeGreaterThan(momentOf(moments, 'totals').at);
+    expect(existsSync(join(dir, 'film'))).toBe(false);
+  });
+
+  it("gives each moment its element's box, and the camera on its centre", () => {
+    expectNear(momentOf(moments, 'filter').box, { x: 1000 / 1920, y: 400 / 1080, w: 240 / 1920, h: 80 / 1080 });
+    expectNear(momentOf(moments, 'search').box, { x: 200 / 1920, y: 160 / 1080, w: 400 / 1920, h: 40 / 1080 });
+    const { focus } = momentOf(moments, 'filter');
+    expect(focus.x).toBeCloseTo(1120 / 1920, 2);
+    expect(focus.y).toBeCloseTo(440 / 1080, 2);
+  });
+
+  it('boxes an element it scrolled to where the clip shows it, within the frame', () => {
+    const { box } = momentOf(moments, 'totals');
+    expect(box.w).toBeCloseTo(600 / 1920, 2);
+    expect(box.y).toBeGreaterThan(0);
+    expect(box.y + box.h).toBeLessThan(1);
+  });
+
+  it('writes walk.webm with a keyframe every half second, showing the element where its box says', () => {
     const clip = join(dir, 'walk.webm');
-    expect(moments.seconds).toBeGreaterThan(totals?.at ?? 0);
     const keyframes = execFileSync('ffprobe', ['-v', 'error', '-skip_frame', 'nokey', '-select_streams', 'v', '-show_entries', 'frame=pts_time', '-of', 'csv=p=0', clip], { encoding: 'utf8' }).trim().split('\n');
     expect(keyframes.length).toBeGreaterThanOrEqual(Math.floor(moments.seconds * 2) - 1);
-    const [r, g, b] = pixelAt(clip, (filter?.at ?? 0) + 0.4, 1030, 420);
+    const [r = 0, g = 255, b = 0] = pixelAt(clip, momentOf(moments, 'filter').at + 0.4, 1030, 420);
     expect(r).toBeGreaterThan(200);
     expect(g).toBeLessThan(60);
     expect(b).toBeGreaterThan(200);
-    expect(existsSync(join(dir, 'film'))).toBe(false);
-  }, 60_000);
+  });
 
   it.each([
     ['#save', 'its words say "save"'],
@@ -142,11 +167,11 @@ describe.skipIf(!toolsHere)('filmRun on a local test page', () => {
     expect(existsSync(join(dir, 'moments.json'))).toBe(false);
     expect(existsSync(join(dir, 'walk.webm'))).toBe(false);
     expect(existsSync(join(dir, 'film'))).toBe(false);
-  }, 60_000);
+  });
 
   it('names a step whose element is not on the page', async () => {
     const dir = runWith({ walk: 1, url: `${origin}/`, steps: [{ do: 'hover', moment: 'gone', target: '#nowhere' }] });
     const error: unknown = await filmRun(dir, { ...tools(), now: Date.now }).catch((caught: unknown) => caught);
     expect(error instanceof FilmRefused ? error.lines : error).toEqual(['step 1 (hover #nowhere): no visible element matches #nowhere']);
-  }, 60_000);
+  });
 });
