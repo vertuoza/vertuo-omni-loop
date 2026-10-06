@@ -39555,10 +39555,15 @@ var ENTRIES = deepFreeze([
     name: "flow",
     kind: "command",
     who: "you",
-    usage: ["omni flow show [<point>] [--json]", "  [--prd <n> --slice <id> | --path <p>]", "omni flow verdict <point> --from <file>"],
+    usage: [
+      "omni flow show [<point>] [--json] [--repo <target>]",
+      "  [--prd <n> --slice <id> | --path <p>]",
+      "omni flow verdict <point> --from <file>",
+      "omni flow check merge --pr <n> [--repo <target>] [--json]"
+    ],
     label: "omni flow show",
     summary: "this repository's areas, rules and hooks",
-    detail: "The repository's flow, the rules, areas and hooks its config declares. show with a point (do-work.test, pr.open\u2026) prints the hooks to follow there, every before, the replace and every after, each with its area, its text with the inputs filled in and the verdict line it ends with, then kitStep: run, or replaced when a hook takes the kit's place; --prd and --slice read the slice's territory from its plan, --path takes one path. A hook file that is not there is a not ok line and exit 1. show --path prints the area a path belongs to, with every rule and hook there; show alone, what this repository changes from the kit's defaults, area by area. verdict reads a hook's output: ok, or not ok with the point and why, exit 1, and not ok \u2026 no verdict when its last line is not the verdict."
+    detail: "The repository's flow, the rules, areas and hooks its config declares. show with a point (do-work.test, pr.open\u2026) prints the hooks to follow there, every before, the replace and every after, each with its area, its text with the inputs filled in and the verdict line it ends with, then kitStep: run, or replaced when a hook takes the kit's place; --prd and --slice read the slice's territory from its plan, --path takes one path. A hook file that is not there is a not ok line and exit 1. show --path prints the area a path belongs to, with every rule and hook there; show alone, what this repository changes from the kit's defaults, area by area. --repo reads a target's flow from its imported copy. verdict reads a hook's output: ok, or not ok with the point and why, exit 1, and not ok \u2026 no verdict when its last line is not the verdict. check merge reads a sub-PR's checks, reviews and diff and applies the sub-PR rules of its areas: ok and the merge command to run, or a not ok line per reason, exit 1."
   },
   {
     name: "kb",
