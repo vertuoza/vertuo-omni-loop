@@ -14,7 +14,8 @@ describe('wordState', () => {
   const at = (frame: number, index: number) => wordState(frame, index, 30, { delay: 0.3 });
 
   it('hides a word, blurred and lowered, before its turn', () => {
-    expect(at(0, 0)).toEqual({ progress: 0, opacity: 0, rise: expect.closeTo(0.42, 6), blur: 14 });
+    expect(at(0, 0)).toMatchObject({ progress: 0, opacity: 0, blur: 14 });
+    expect(at(0, 0).rise).toBeCloseTo(0.42, 6);
     expect(at(9, 0).opacity).toBe(0);
   });
 

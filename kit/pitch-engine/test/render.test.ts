@@ -11,12 +11,16 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import type { Browser, Page } from '@playwright/test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { presetLook } from '../../lib/pitch/settings.ts';
 import type { PitchLook } from '../../lib/pitch/settings.ts';
 import { fixtureStoryboard } from '../../lib/pitch/storyboard.fixture.ts';
 import { buildTimeline, stillFrame } from '../timeline.ts';
 import { REFERENCE, TEST_CLIP, TEST_FONTS, colourCounts, difference, imagePage, pageUrl, scaled, serve } from './harness.ts';
 import type { Served } from './harness.ts';
+
+/** What the page reads of its intro title: its font, whether that font loaded, and each word with its opacity. */
+const TitleSchema = z.object({ font: z.string(), loaded: z.boolean(), words: z.array(z.tuple([z.string(), z.number()])) });
 
 const REFERENCES = fileURLToPath(new URL('references/', import.meta.url));
 
@@ -149,16 +153,17 @@ describe.skipIf(!browserHere)('the engine page in a browser', () => {
   it('builds the intro title word by word in the Heading font', async () => {
     const page = await open('keynote');
     await page.evaluate('window.__pitchSeek(15)');
-    const title = await page.evaluate(`(() => {
+    const title = TitleSchema.parse(await page.evaluate(`(() => {
       const h1 = document.querySelector('h1');
       const words = [...h1.querySelectorAll('span > span')].map((word) => [word.textContent, Number(getComputedStyle(word).opacity)]);
       return { font: getComputedStyle(h1).fontFamily, loaded: document.fonts.check('400 64px "Anton"'), words };
-    })()`);
+    })()`));
     await page.evaluate('window.__pitchSeek(80)');
     const settled = await page.evaluate("[...document.querySelector('h1').querySelectorAll('span > span')].map((word) => Number(getComputedStyle(word).opacity))");
     await page.close();
-    expect(title).toMatchObject({ font: expect.stringMatching(/^"?Anton"?,/), loaded: true });
-    const words = (title as { words: [string, number][] }).words;
+    expect(title.font).toMatch(/^"?Anton"?,/);
+    expect(title.loaded).toBe(true);
+    const words = title.words;
     expect(words.map(([word]) => word)).toEqual(['Quotes', 'that', 'send', 'themselves']);
     expect(words[0]?.[1]).toBeGreaterThan(0.5);
     expect(words[3]?.[1]).toBe(0);

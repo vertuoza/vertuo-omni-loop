@@ -28,7 +28,10 @@ describe('sampleCamera', () => {
       { at: 0, zoom: 2, focus: { x: 0.2, y: 0.2 } },
       { at: 1, zoom: 2, focus: { x: 0.8, y: 0.6 } },
     ];
-    expect(sampleCamera(moving, 0.5)).toEqual({ zoom: 2, x: expect.closeTo(0.5, 6), y: expect.closeTo(0.4, 6) });
+    const middle = sampleCamera(moving, 0.5);
+    expect(middle.zoom).toBeCloseTo(2, 6);
+    expect(middle.x).toBeCloseTo(0.5, 6);
+    expect(middle.y).toBeCloseTo(0.4, 6);
     expect(sampleCamera(moving, 0.1).x).toBeLessThan(0.2 + 0.6 * 0.1);
   });
 });
@@ -88,7 +91,8 @@ describe('cursorAt', () => {
   });
 
   it('moves between keys, eased, and rests on the last', () => {
-    expect(cursorAt(cursor, 1.5)).toMatchObject({ x: expect.closeTo(0.4, 6), y: expect.closeTo(0.3, 6) });
+    expect(cursorAt(cursor, 1.5)?.x).toBeCloseTo(0.4, 6);
+    expect(cursorAt(cursor, 1.5)?.y).toBeCloseTo(0.3, 6);
     expect(cursorAt(cursor, 4)).toMatchObject({ x: 0.6, y: 0.4 });
   });
 
