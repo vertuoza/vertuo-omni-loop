@@ -250,9 +250,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     usage: [
       'omni pitch start <n> --for customers|inside',
       'omni pitch check <dir>',
-      'omni pitch slide <dir> --frame <png>',
-      'omni pitch music <dir> --for customers|inside',
-      'omni pitch video <dir>',
+      'omni pitch render <dir> [--stills]',
+      'omni pitch studio <dir> [--no-open]',
       'omni pitch push <n> <dir>',
     ],
     summary: "makes a shipped PRD's pitch, and sends it to its Pitch tab",
@@ -263,9 +262,12 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'storyboard.json and stops, naming each with its path, a field the schema refuses, a media file ' +
       'missing, an intro that is not first or an outro that is not last; it warns on words over their ' +
       'count, words that take longer to read than their scene lasts and a length outside 15 to 60 ' +
-      's, and writes the warnings to pitch.json. slide renders the wedge slide in that ' +
-      "look, 16:9 and 1:1, from a real frame; music writes the audience's default music, the same every " +
-      'time; video makes pitch.mp4, pitch-square.mp4 and pitch.gif with ffmpeg. push ' +
+      's, and writes the warnings to pitch.json. render --stills draws one image per scene and a ' +
+      'contact sheet of them in stills/; render draws every frame in the browser and makes pitch.mp4 ' +
+      '(1920×1080), pitch-square.mp4 (1080×1080) and pitch.gif (8 s at most, 640 px wide) with ffmpeg, ' +
+      "the music its provider picks under them, and the intro's still as slide.png and slide-square.png. " +
+      'studio serves the storyboard on a local page with play, frame and scene keys, opens it unless ' +
+      '--no-open, and reloads it when the storyboard changes. push ' +
       "sends a pitch /omni:pitch made of shipped PRD n to its dossier on the Omni page, and prints its " +
       "Pitch tab's link, then the GIF's link that opens without signing in. It reads pitch.json in the " +
       'folder and refuses, before sending anything, a run missing one of its five files ' +
