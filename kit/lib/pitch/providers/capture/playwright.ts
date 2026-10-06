@@ -24,7 +24,9 @@ function repositoryChromium(cwd: string): Launch {
       } catch {
         continue;
       }
-      const chromium = propertyOf(await import(pathToFileURL(resolved).href), 'chromium');
+      // The resolved file is the package's CommonJS entry: imported, its exports are the namespace's default.
+      const loaded: unknown = await import(pathToFileURL(resolved).href);
+      const chromium = propertyOf(loaded, 'chromium') ?? propertyOf(propertyOf(loaded, 'default'), 'chromium');
       if (isLauncher(chromium)) return chromium.launch();
     }
     throw new Error('Playwright is needed to capture frames: install playwright in the repository');

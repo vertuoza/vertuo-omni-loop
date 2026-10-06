@@ -1,8 +1,8 @@
-// `omni pitch start|check|slide|music|video` (PRD 859 s4, PRD 1108 s3), through `main()` on fixture
+// `omni pitch start|check|render|studio` (PRD 859 s4, PRD 1108 s3 and s6), through `main()` on fixture
 // repositories: each refusal prints its line and writes nothing; start opens the run folder with the
-// product's look; check names what stops a storyboard and writes its warnings to pitch.json; slide renders
-// its five cards through an injected screenshot; music writes the audience's WAV; video refuses without
-// ffmpeg. The sign-in is an in-memory token store and the Omni page a stubbed fetch.
+// product's look; check names what stops a storyboard and writes its warnings to pitch.json; render refuses
+// what check refuses, and without ffmpeg. The sign-in is an in-memory token store and the Omni page a
+// stubbed fetch. The render and the studio on a real run are ./pitch-make-render.test.ts.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -11,7 +11,6 @@ import { makeRepo, realExec } from '../../test/fixture.ts';
 import { FIXTURE_MEDIA, changedStoryboard, fixtureStoryboard } from '../../lib/pitch/storyboard.fixture.ts';
 import { main } from '../omni.ts';
 import type { Tokens } from '../../lib/ask/schema.ts';
-import type { Screenshot } from '../../lib/pitch/run.ts';
 import type { FakeExec, FetchInit } from '../../test/fixture.ts';
 
 const BASE = 'https://omni.example';
@@ -52,19 +51,18 @@ type Fetched = (url: string, init: FetchInit) => Promise<Response>;
 
 async function omni(
   args: string[],
-  { root, cwd = root, tokens = signedIn(), fetch = () => Promise.resolve(json(200, { look: 'keynote' })), exec = withFfmpeg, screenshot }: {
+  { root, cwd = root, tokens = signedIn(), fetch = () => Promise.resolve(json(200, { look: 'keynote' })), exec = withFfmpeg }: {
     root: string;
     cwd?: string;
     tokens?: ReturnType<typeof memoryTokens>;
     fetch?: Fetched;
     exec?: FakeExec;
-    screenshot?: Screenshot;
   },
 ) {
   const out: string[] = [];
   const err: string[] = [];
   const code = await main(['pitch', ...args], {
-    cwd, tokens, env: {}, fetch, exec, screenshot, now: () => new Date(2026, 9, 1, 9, 5, 7),
+    cwd, tokens, env: {}, fetch, exec, now: () => new Date(2026, 9, 1, 9, 5, 7),
     stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) },
   });
   return { code, out: out.join(''), err: err.join('') };
@@ -142,80 +140,13 @@ describe('omni pitch start', () => {
   });
 });
 
-/** A run folder holding pitch.json with `words`, and a frame beside it. */
+/** A run folder holding pitch.json with `words`. */
 function runFolder(root: string, words: Record<string, string> = { kicker: 'NEW IN WIDGETS', hook: 'Answer from your phone', benefit: 'Every question waits on one page.', closing: 'Widgets · https://widgets.example' }) {
   const dir = join(root, RUN);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'pitch.json'), JSON.stringify({ prd: 7, audience: 'customers', look: 'arcade', commit: 'abcdef1234', ...words }));
-  writeFileSync(join(root, 'frame-in.png'), 'png bytes');
   return dir;
 }
-
-describe('omni pitch slide', () => {
-  it('copies the frame beside the cards, writes each card page and renders its PNG at its shape', async () => {
-    const root = checkout();
-    const dir = runFolder(root);
-    const shots: [string, string, number, number][] = [];
-    const screenshot: Screenshot = ({ html, png, width, height }) => { shots.push([html.slice(dir.length + 1), png.slice(dir.length + 1), width, height]); writeFileSync(png, 'png'); };
-    const { code, out } = await omni(['slide', RUN, '--frame', 'frame-in.png'], { root, screenshot });
-    expect(code).toBe(0);
-    expect(shots).toEqual([
-      ['slide.html', 'slide.png', 1920, 1080],
-      ['slide-square.html', 'slide-square.png', 1080, 1080],
-      ['close.html', 'close.png', 1920, 1080],
-      ['close-square.html', 'close-square.png', 1080, 1080],
-      ['backdrop-square.html', 'backdrop-square.png', 1080, 1080],
-    ]);
-    expect(out.trim().split('\n')).toEqual(shots.map(([, png]) => join(dir, png)));
-    expect(readFileSync(join(dir, 'frame.png'), 'utf8')).toBe('png bytes');
-    expect(readFileSync(join(dir, 'slide.html'), 'utf8')).toContain('Answer from your phone');
-  });
-
-  it('refuses a run whose words are not written yet, and says which', async () => {
-    const root = checkout();
-    runFolder(root, { kicker: 'NEW IN WIDGETS' });
-    const { code, err } = await omni(['slide', RUN, '--frame', 'frame-in.png'], { root, screenshot: () => {} });
-    expect(code).toBe(2);
-    expect(err).toMatch(/pitch\.json has no hook yet/);
-  });
-
-  it('a render that fails is one line, exit 1', async () => {
-    const root = checkout();
-    runFolder(root);
-    const screenshot: Screenshot = () => { throw Object.assign(new Error('x'), { stderr: 'browserType.launch: Executable does not exist\nmore' }); };
-    expect(await omni(['slide', RUN, '--frame', 'frame-in.png'], { root, screenshot })).toEqual({
-      code: 1, out: '', err: 'slide render failed: browserType.launch: Executable does not exist\n',
-    });
-  });
-});
-
-describe('omni pitch music', () => {
-  it("writes the audience's music.wav in the run folder", async () => {
-    const root = checkout();
-    const dir = runFolder(root);
-    const { code, out } = await omni(['music', RUN, '--for', 'inside'], { root });
-    expect({ code, out }).toEqual({ code: 0, out: `${join(dir, 'music.wav')}\n` });
-    expect(readFileSync(join(dir, 'music.wav')).toString('ascii', 0, 4)).toBe('RIFF');
-  });
-});
-
-describe('omni pitch video', () => {
-  it('refuses without ffmpeg, with its line, and writes nothing', async () => {
-    const root = checkout();
-    const dir = runFolder(root);
-    const before = readdirSync(dir).sort();
-    expect(await omni(['video', RUN], { root, exec: withoutFfmpeg })).toEqual({ code: 1, out: '', err: 'ffmpeg is needed for a pitch: brew install ffmpeg\n' });
-    expect(readdirSync(dir).sort()).toEqual(before);
-  });
-
-  it('names what the folder still lacks', async () => {
-    const root = checkout();
-    runFolder(root);
-    const { code, err } = await omni(['video', RUN], { root });
-    expect(code).toBe(2);
-    expect(err).toMatch(/has no walk\.webm yet/);
-  });
-});
 
 /** A run folder holding pitch.json, `storyboard` as storyboard.json, and the media named in `media`. */
 function storyboardFolder(root: string, storyboard: unknown, media: readonly string[] = FIXTURE_MEDIA) {
@@ -285,6 +216,9 @@ describe('omni pitch check (PRD 1108, acceptance 4)', () => {
     const code = await main(['help', 'pitch'], { cwd: root, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
     expect(code).toBe(0);
     expect(out.join('')).toContain('omni pitch check <dir>');
+    expect(out.join('')).toContain('omni pitch render <dir> [--stills]');
+    expect(out.join('')).toContain('omni pitch studio <dir> [--no-open]');
+    expect(out.join('')).not.toMatch(/omni pitch (slide|music|video)\b/);
   });
 
   it('a folder with no storyboard.json is a usage error', async () => {
@@ -301,6 +235,45 @@ describe('omni pitch', () => {
     const root = checkout();
     const { code, err } = await omni(['film', '7'], { root });
     expect(code).toBe(2);
-    expect(err).toMatch(/start\|check\|slide\|music\|video\|push/);
+    expect(err).toMatch(/start\|check\|render\|studio\|push/);
+  });
+});
+
+describe('omni pitch render and studio: what stops them before anything is drawn (PRD 1108 s6)', () => {
+  it('render refuses a storyboard the check refuses, naming each error, exit 1', async () => {
+    const root = checkout();
+    storyboardFolder(root, changedStoryboard('scenes.5.type', 'statement'));
+    const { code, out, err } = await omni(['render', RUN, '--stills'], { root });
+    expect({ code, out }).toEqual({ code: 1, out: '' });
+    expect(err).toMatch(/^error: .*outro/m);
+  });
+
+  it('render without --stills refuses without ffmpeg, with its line', async () => {
+    const root = checkout();
+    const dir = storyboardFolder(root, fixtureStoryboard());
+    const before = readdirSync(dir).sort();
+    expect(await omni(['render', RUN], { root, exec: withoutFfmpeg })).toEqual({ code: 1, out: '', err: 'ffmpeg is needed for a pitch: brew install ffmpeg\n' });
+    expect(readdirSync(dir).sort()).toEqual(before);
+  });
+
+  it('render and studio need a folder with a storyboard, and take one folder', async () => {
+    const root = checkout();
+    runFolder(root);
+    for (const verb of ['render', 'studio']) {
+      const { code, err } = await omni([verb, RUN], { root });
+      expect(code, verb).toBe(2);
+      expect(err, verb).toMatch(/holds no storyboard\.json yet/);
+    }
+    expect((await omni(['render'], { root })).err).toMatch(/usage: omni pitch render <dir> \[--stills\]/);
+    expect((await omni(['studio', RUN, RUN], { root })).err).toMatch(/usage: omni pitch studio <dir> \[--no-open\]/);
+  });
+
+  it('the verbs PRD 859 had are gone', async () => {
+    const root = checkout();
+    for (const verb of ['slide', 'music', 'video']) {
+      const { code, err } = await omni([verb, RUN], { root });
+      expect(code, verb).toBe(2);
+      expect(err, verb).toMatch(/usage: omni pitch start\|check\|render\|studio\|push/);
+    }
   });
 });
