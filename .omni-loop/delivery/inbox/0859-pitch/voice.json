@@ -4,27 +4,167 @@
       "stage": "design",
       "date": "2026-10-01",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "It films production and asserts nothing, so it cannot break anything I ship. I still want the slide to show the real screen, not a drawing.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "A music video per feature looks like the fluff I already think this tool is. Only worth it if every frame is real.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "One command after ship and I have a launch video for every repository's features. That is exactly the speed I want.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 3, "reaction": "Fine as long as it is opt-in per shipped PRD and adds no step to delivery. I would read the Pitch tab, not make one.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 5, "reaction": "I can send the customer who asked for a quick win a 25-second video of it the day it ships. The Customers choice is the one I would use.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "It films production and asserts nothing, so it cannot break anything I ship. I still want the slide to show the real screen, not a drawing.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A music video per feature looks like the fluff I already think this tool is. Only worth it if every frame is real.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "One command after ship and I have a launch video for every repository's features. That is exactly the speed I want.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Fine as long as it is opt-in per shipped PRD and adds no step to delivery. I would read the Pitch tab, not make one.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "I can send the customer who asked for a quick win a 25-second video of it the day it ships. The Customers choice is the one I would use.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
-      "objection": { "persona": "B-E DEv", "text": "A music video per feature is exactly the fluff I already think this tool is. If the slide shows a screen or a number that isn't really in production, I'll never trust a pitch again.", "citations": ["persona:B-E DEv"], "settled": "accepted" },
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "A music video per feature is exactly the fluff I already think this tool is. If the slide shows a screen or a number that isn't really in production, I'll never trust a pitch again.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ~ · offering#36 ✓"
     },
     {
       "stage": "spec",
       "date": "2026-10-01",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "The slide uses a real frame and the walk-through may not save anything on production. That settles my worry.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "No invented numbers and words only from the spec makes it honest. Still not something I would run myself.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Per-product looks mean each product announces in its own style. I want the voices PRD right after.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Shipped and retro only, checked in the database too, so it never leaks into delivery. Good.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 5, "reaction": "Copy one command and get a slide and a video for my customer. I do not need to understand the harness to use it.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The slide uses a real frame and the walk-through may not save anything on production. That settles my worry.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "No invented numbers and words only from the spec makes it honest. Still not something I would run myself.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Per-product looks mean each product announces in its own style. I want the voices PRD right after.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Shipped and retro only, checked in the database too, so it never leaks into delivery. Good.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Copy one command and get a slide and a video for my customer. I do not need to understand the harness to use it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
       "objection": null,
       "fit": "fits persona:Irisa ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · offering#36 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-06",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The plumbing is clean and typed, but the video is a still slide and a screen recording: it does not look like a launch yet.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A slide, a scroll and generated music: fun, but I would not post that to customers.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "A button on a shipped PRD that gives me a video to share is what I wanted; the look can get better next.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Opt-in per PRD and stored on the PRD's page; nothing changes for teams that never press it.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Announcing a quick win to customers without an afternoon of video editing helps me show what we ship.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ~ · persona:F-E Developer ~ · persona:B-E DEv ✗"
     }
   ]
 }
