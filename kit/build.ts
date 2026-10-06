@@ -10,14 +10,22 @@
 // `node kit/build.ts [outfile] [package.json]`: the outfile defaults to `kit/dist/omni.mjs`, which is
 // committed and kept equal to a fresh build by kit/test/dist.test.ts — so the output never depends
 // on the cwd. The package.json defaults to the repository's own; a test names another.
+//
+// It first builds the pitch engine (PRD 1108 s4): `kit/pitch-engine/page.tsx` and React bundled for the
+// browser into `pitch-engine/engine.js` beside the outfile, with the `index.html` that loads it — a
+// static page, so a repository using the kit needs no React and no bundler to render a pitch. The CLI
+// bundle then carries that page as `__OMNI_PITCH_ENGINE__` (PRD 1108 s6, see lib/pitch/render-page.ts):
+// a repository holds only its copy of the bundle, and `omni pitch render` and `studio` serve the page
+// from it.
 import { build } from 'esbuild';
 import { z } from 'zod';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { slugFromRemote } from './lib/context.ts';
 import { readTemplates } from './lib/playbook/templates.ts';
+import { readEnginePage } from './lib/pitch/render-page.ts';
 
 // The CLI, and the templates loader beside it: an entry that exists only here, named after this
 // file in the bundle's module comments. Its hashbang leads the bundle.
@@ -41,6 +49,34 @@ try {
 } catch {
   home = null;
 }
+
+/** The engine page's HTML: a stage for React, and the bundle. */
+const ENGINE_PAGE = [
+  '<!doctype html>',
+  '<html lang="en">',
+  '<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pitch</title></head>',
+  '<body style="margin: 0"><div id="root"></div><script src="engine.js"></script></body>',
+  '</html>',
+  '',
+].join('\n');
+
+const engineDir = join(dirname(outfile), 'pitch-engine');
+mkdirSync(engineDir, { recursive: true });
+await build({
+  entryPoints: [`${kit}pitch-engine/page.tsx`],
+  outfile: join(engineDir, 'engine.js'),
+  absWorkingDir: fileURLToPath(new URL('..', import.meta.url)),
+  bundle: true,
+  platform: 'browser',
+  format: 'iife',
+  target: 'chrome120',
+  jsx: 'automatic',
+  minify: true,
+  legalComments: 'none',
+  define: { 'process.env.NODE_ENV': '"production"' },
+});
+writeFileSync(join(engineDir, 'index.html'), ENGINE_PAGE);
+
 await build({
   stdin: { contents: ENTRY, resolveDir: kit, sourcefile: 'build.mjs', loader: 'js' },
   outfile,
@@ -54,5 +90,9 @@ await build({
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
   legalComments: 'none',
   // A string, parsed once where it is read: an object here would be initialised in every module.
-  define: { __OMNI_BUNDLE__: JSON.stringify({ home, version }), __OMNI_TEMPLATES__: JSON.stringify(JSON.stringify(readTemplates())) },
+  define: {
+    __OMNI_BUNDLE__: JSON.stringify({ home, version }),
+    __OMNI_TEMPLATES__: JSON.stringify(JSON.stringify(readTemplates())),
+    __OMNI_PITCH_ENGINE__: JSON.stringify(JSON.stringify(readEnginePage(engineDir))),
+  },
 });

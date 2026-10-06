@@ -1,21 +1,41 @@
 // The verbs of `omni pitch` that make a pitch on the person's computer, for `/omni:pitch` (PRD 859's spec,
-// "/omni:pitch"); `push` sends it (`./pitch.ts`).
+// "/omni:pitch", and PRD 1108's); `push` sends it (`./pitch.ts`).
 //
 //   omni pitch start <n> --for customers|inside   refuses, or opens the run's folder and prints it
-//   omni pitch slide <dir> --frame <png>           the slide, the closing card and the backdrop, each shape
-//   omni pitch music <dir> --for customers|inside  the audience's default music, music.wav
-//   omni pitch video <dir>                         pitch.mp4, pitch-square.mp4 and pitch.gif, with ffmpeg
+//   omni pitch film <dir>                          films walk.json into walk.webm and moments.json
+//   omni pitch check <dir>                         checks storyboard.json before it is rendered
+//   omni pitch render <dir> [--stills]             the stills and contact sheet, or the three videos
+//   omni pitch studio <dir> [--no-open]            the storyboard on a local page that reloads on change
 //
 // `start` refuses with one line and exit 1, writing nothing, when the PRD is not shipped, when proof.url
 // is not a fixed URL, when ffmpeg is not on the PATH, or with no sign-in, in that order. Otherwise it makes
-// `<worktrees>/pitch-<n>/<audience>-<time>/`, writes `pitch.json` there with the PRD, the audience, the
-// product's look and the commit, and prints `{dir, look, url, commit}` as JSON: `url` is where the
-// walk-through is filmed. A look the Omni page cannot answer is arcade, said in one line on stderr.
+// `<worktrees>/pitch-<n>/<audience>-<time>/`, writes the product's Pitch settings there as `settings.json`
+// (filled from their preset) and `pitch.json` with the PRD, the audience, the look's preset and the
+// commit, and prints `{dir, look, url, commit}` as JSON: `url` is where the walk-through is filmed.
+// Settings the Omni page cannot answer are the default preset's (arcade), said in one line on stderr; each
+// file the settings point at (a logo, an uploaded font, a music file) is one line saying the run's
+// `assets/` does not hold it yet.
 //
-// The other three read and write the run folder only. `video` refuses without ffmpeg as `start` does, and
-// records the five files of the pitch in `pitch.json`. A tool that fails (the browser or ffmpeg) is exit 1
-// with one line; a folder missing what the verb reads is exit 2.
-import { existsSync, mkdirSync } from 'node:fs';
+// `film` (`../../lib/pitch/moments-film.ts`) plays the run's `walk.json` in the browser, read-only, and
+// writes `walk.webm` and `moments.json`; it prints both, then one line per moment with its time, its box
+// and the camera that shows it, then the clip's length. A step it refuses (a click that would change
+// production, an element not on the page) or a walk.json out of shape is exit 1, each line on stderr,
+// nothing written; without ffmpeg it refuses as `start` does.
+//
+// `check` reads `storyboard.json` (`../../lib/pitch/check.ts`): each error and each warning is one line on
+// stderr, `error: <path>: <why>` or `warning: <path>: <why>`. An error is exit 1 and writes nothing;
+// otherwise it prints the scenes and the length, writes the warnings to `pitch.json` under `warnings`, and
+// exits 0. A folder with no storyboard.json is exit 2.
+//
+// `render` (`../../lib/pitch/render.ts`) refuses as `check` does a storyboard with an error, and, without
+// `--stills`, refuses without ffmpeg as `start` does. It prints each file it wrote, then the length and the
+// music's provider; a fallback (a provider not registered, a font or a track that cannot be had) is one line
+// on stderr. A tool that fails (the browser, ffmpeg) is exit 1 with one line.
+//
+// `studio` (`../../lib/pitch/studio.ts`) prints the page's address, opens it in the browser (not with
+// `--no-open`), and serves it until it is stopped (Ctrl-C), reloading the page when the storyboard or the
+// settings change.
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { askClient, AskCallError } from '../../lib/ask/client.ts';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
@@ -25,17 +45,23 @@ import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { whereIs } from '../../lib/delivery/prd.ts';
 import { isOneOf, propertyOf } from '../../lib/narrow.ts';
-import { PITCH_INPUTS } from '../../lib/pitch/ffmpeg.ts';
-import {
-  AUDIENCES, REFUSAL, hasFfmpeg, makeVideos, pitchRefusal, pitchRunDir, playwrightScreenshot, readPitchJson,
-  renderSlides, wordsOf, writeMusic, writePitchJson,
-} from '../../lib/pitch/run.ts';
-import type { Audience, Screenshot } from '../../lib/pitch/run.ts';
-import { LOOKS } from '../../lib/pitch/slide.ts';
-import type { Look } from '../../lib/pitch/slide.ts';
+import { checkRunFolder, findingLine } from '../../lib/pitch/check.ts';
+import type { Launch, ProviderFetch } from '../../lib/pitch/providers/types.ts';
+import { MOMENTS_FILE, WALK_CLIP } from '../../lib/pitch/moments.ts';
+import type { Moments } from '../../lib/pitch/moments.ts';
+import { FilmRefused, filmRun, repositoryBrowser } from '../../lib/pitch/moments-film.ts';
+import type { FilmLaunch } from '../../lib/pitch/moments-film.ts';
+import { RUN_SETTINGS } from '../../lib/pitch/render-input.ts';
+import { RenderRefused, renderRun } from '../../lib/pitch/render.ts';
+import { AUDIENCES, REFUSAL, assetsOf, hasFfmpeg, pitchRefusal, pitchRunDir, readPitchJson, startSettings, writePitchJson } from '../../lib/pitch/run.ts';
+import type { Audience, StartSettings } from '../../lib/pitch/run.ts';
+import type { PitchSettings } from '../../lib/pitch/settings.ts';
+import { STORYBOARD_FILE } from '../../lib/pitch/storyboard.ts';
+import { openStudio } from '../../lib/pitch/studio.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { Exec, Out } from '../io.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
+import { openInBrowser } from './signin.ts';
 
 /** What a making verb is handed: the streams, the process runner, and what a test injects. */
 export type MakerIo = {
@@ -48,20 +74,25 @@ export type MakerIo = {
   fetch: Fetch;
   callMs: number | undefined;
   now: (() => Date) | undefined;
-  screenshot: Screenshot | undefined;
+  /** Opens the browser the render captures with: the repository's Playwright, unless a test hands one. */
+  launch: Launch | undefined;
+  /** Opens the browser the walk-through is filmed in: the repository's Playwright, unless a test hands one. */
+  film: FilmLaunch | undefined;
+  /** Opens the studio's page: the person's browser, unless a test hands another. */
+  openBrowser: ((url: string) => unknown) | undefined;
+  /** Resolves when the studio should stop: Ctrl-C, unless a test hands another. */
+  studioUntil: ((url: string) => Promise<void>) | undefined;
 };
 
-type Verb = 'start' | 'slide' | 'music' | 'video';
+type Verb = 'start' | 'film' | 'check' | 'render' | 'studio';
 
 const USAGE: Readonly<Record<Verb, string>> = {
   start: 'usage: omni pitch start <n> --for customers|inside',
-  slide: 'usage: omni pitch slide <dir> --frame <png>',
-  music: 'usage: omni pitch music <dir> --for customers|inside',
-  video: 'usage: omni pitch video <dir>',
+  film: 'usage: omni pitch film <dir>',
+  check: 'usage: omni pitch check <dir>',
+  render: 'usage: omni pitch render <dir> [--stills]',
+  studio: 'usage: omni pitch studio <dir> [--no-open]',
 };
-
-/** The five files of every pitch, as `pitch.json` lists them once the videos are made. */
-const PITCH_FILES = Object.freeze(['slide.png', 'slide-square.png', 'pitch.mp4', 'pitch-square.mp4', 'pitch.gif']);
 
 /** The one positional and the flags of a verb, or a usage error. */
 function oneArg<V extends string = never>(verb: Verb, args: string[], values: readonly V[] = []): { arg: string; flags: { [K in V]: string } } {
@@ -103,21 +134,19 @@ function signedInStore(askUrl: string | null, { tokens, home }: { tokens: TokenS
   return store.read(credentialsHost(askUrl)) ? store : null;
 }
 
-/** The look of the repository's product, or arcade with the line saying why. */
-async function lookOf({ askUrl, store, repo, fetch, callMs }: {
+/** The Pitch settings of the repository's product, or the default preset's with the line saying why. */
+async function settingsOf({ askUrl, store, repo, fetch, callMs }: {
   askUrl: string;
   store: TokenStore;
   repo: string;
   fetch: Fetch;
   callMs: number | undefined;
-}): Promise<{ look: Look; why?: string }> {
+}): Promise<StartSettings> {
   try {
     const client = askClient({ baseUrl: askUrl, host: credentialsHost(askUrl), tokens: store, fetch, ...(callMs ? { callMs } : {}) });
-    const look = propertyOf(await client.readPitchLook(repo), 'look');
-    if (isOneOf(LOOKS, look)) return { look };
-    return { look: 'arcade', why: `an unknown look ${String(look)}` };
+    return startSettings({ reply: await client.readPitchSettings(repo) });
   } catch (error) {
-    return { look: 'arcade', why: error instanceof AskCallError && error.status ? `refused (${error.status})` : 'unreachable' };
+    return startSettings({ failure: error instanceof AskCallError && error.status ? `refused (${error.status})` : 'unreachable' });
   }
 }
 
@@ -132,14 +161,16 @@ function refusalHere(ctx: Context, prd: PrdNumber, { exec, store }: { exec: Exec
   });
 }
 
-/** Makes the run folder with its first `pitch.json`; what `start` prints. */
+/** Makes the run folder with its settings and its first `pitch.json`; what `start` prints. */
 function openRun(
   ctx: Context,
-  { prd, audience, look, exec, now }: { prd: PrdNumber; audience: Audience; look: Look; exec: Exec; now: () => Date },
-): { dir: string; look: Look; url: string | null; commit: string } {
+  { prd, audience, settings, exec, now }: { prd: PrdNumber; audience: Audience; settings: PitchSettings; exec: Exec; now: () => Date },
+): { dir: string; look: string; url: string | null; commit: string } {
   const commit = exec('git', ['rev-parse', 'HEAD'], { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   const dir = pitchRunDir(join(ctx.root, ctx.config.worktrees), prd, audience, now());
-  mkdirSync(dir, { recursive: true });
+  mkdirSync(join(dir, 'assets'), { recursive: true });
+  writeFileSync(join(dir, RUN_SETTINGS), `${JSON.stringify(settings, null, 2)}\n`);
+  const look = settings.look.preset;
   writePitchJson(dir, { prd, audience, look, commit });
   return { dir, look, url: ctx.config.proof.url, commit };
 }
@@ -158,63 +189,140 @@ async function start(args: string[], { cwd, stdout, stderr, exec, tokens, home, 
   }
   const repo = ctx.config.repo.slug;
   if (!repo) throw usageError('omni pitch: no repository slug — set repo.slug in the config.');
-  const { look, why } = await lookOf({ askUrl, store, repo, fetch, callMs });
-  if (why) println(stderr, `look: arcade (the product's look could not be read: ${why})`);
-  println(stdout, JSON.stringify(openRun(ctx, { prd, audience, look, exec, now })));
+  const { settings, why } = await settingsOf({ askUrl, store, repo, fetch, callMs });
+  if (why !== null) println(stderr, why);
+  const opened = openRun(ctx, { prd, audience, settings, exec, now });
+  for (const name of assetsOf(settings)) println(stderr, `asset: the settings name ${name}; put it in the run's assets/ folder, or the video goes without it`);
+  println(stdout, JSON.stringify(opened));
   return 0;
 }
 
-function slide(args: string[], { cwd, stdout, stderr, exec, screenshot }: MakerIo): Promise<number> {
-  const { arg, flags } = oneArg('slide', args, ['frame']);
-  const dir = runFolder('slide', cwd, arg);
-  const frame = folderOf(cwd, flags.frame);
-  if (!existsSync(frame)) throw usageError(`omni pitch slide: no frame at ${flags.frame}.`);
-  const pitch = readPitchJson(dir);
-  const look = pitch?.look;
-  if (!pitch || !isOneOf(LOOKS, look)) throw usageError(`omni pitch slide: ${arg} holds no pitch.json with a look — run omni pitch start first.`);
-  const { words, missing } = wordsOf(pitch);
-  if (missing) throw usageError(`omni pitch slide: pitch.json has no ${missing} yet.`);
-  let files;
-  try {
-    files = renderSlides({ dir, look, words, frame, screenshot: screenshot ?? playwrightScreenshot(exec, { cwd: dir }) });
-  } catch (error) {
-    println(stderr, `slide render failed: ${firstLine(error)}`);
-    return Promise.resolve(1);
-  }
-  for (const file of files) println(stdout, join(dir, file));
-  return Promise.resolve(0);
-}
+/** One moment as `film` prints it: its time, its box and the camera that shows it. */
+const momentLine = ({ name, do: act, at, box, focus, zoom }: Moments['steps'][number]): string =>
+  `${name}: ${act} at ${String(at)} s, box x ${String(box.x)} y ${String(box.y)} w ${String(box.w)} h ${String(box.h)}, camera zoom ${String(zoom)} on x ${String(focus.x)} y ${String(focus.y)}`;
 
-function music(args: string[], { cwd, stdout }: MakerIo): Promise<number> {
-  const { arg, flags } = oneArg('music', args, ['for']);
-  const audience = audienceOf('music', flags.for);
-  const dir = runFolder('music', cwd, arg);
-  println(stdout, join(dir, writeMusic(dir, audience)));
-  return Promise.resolve(0);
-}
-
-function video(args: string[], { cwd, stdout, stderr, exec }: MakerIo): Promise<number> {
-  const { arg } = oneArg('video', args);
-  const dir = runFolder('video', cwd, arg);
+async function film(args: string[], { cwd, stdout, stderr, exec, film: launch }: MakerIo): Promise<number> {
+  const { arg } = oneArg('film', args);
+  const dir = runFolder('film', cwd, arg);
   if (!hasFfmpeg(exec)) {
     println(stderr, REFUSAL.noFfmpeg);
-    return Promise.resolve(1);
+    return 1;
   }
-  const needed = [PITCH_INPUTS.walk, PITCH_INPUTS.music, PITCH_INPUTS.slide, PITCH_INPUTS.slideSquare, PITCH_INPUTS.close, PITCH_INPUTS.closeSquare, PITCH_INPUTS.backdropSquare];
-  const missing = needed.find((name) => !existsSync(join(dir, name)));
-  if (missing) throw usageError(`omni pitch video: ${arg} has no ${missing} yet.`);
-  let made;
+  let moments: Moments;
   try {
-    made = makeVideos({ dir, exec });
+    moments = await filmRun(dir, { exec, launch: launch ?? repositoryBrowser(cwd) });
   } catch (error) {
-    println(stderr, `ffmpeg failed: ${firstLine(error)}`);
-    return Promise.resolve(1);
+    for (const line of error instanceof FilmRefused ? error.lines : [`film failed: ${firstLine(error)}`]) println(stderr, line);
+    return 1;
   }
-  writePitchJson(dir, { ...readPitchJson(dir), files: PITCH_FILES });
-  for (const file of made.files) println(stdout, join(dir, file));
-  println(stdout, `${made.cut.total} s: slide ${made.cut.slide} s, walk-through ${made.cut.walk} s, closing ${made.cut.close} s`);
+  println(stdout, join(dir, WALK_CLIP));
+  println(stdout, join(dir, MOMENTS_FILE));
+  for (const moment of moments.steps) println(stdout, momentLine(moment));
+  println(stdout, `${String(moments.seconds)} s`);
+  return 0;
+}
+
+function check(args: string[], { cwd, stdout, stderr }: MakerIo): Promise<number> {
+  const { arg } = oneArg('check', args);
+  const dir = runFolder('check', cwd, arg);
+  if (!existsSync(join(dir, STORYBOARD_FILE))) throw usageError(`omni pitch check: ${arg} holds no ${STORYBOARD_FILE} yet.`);
+  const { errors, warnings, scenes, seconds } = checkRunFolder(dir);
+  for (const finding of errors) println(stderr, `error: ${findingLine(finding)}`);
+  for (const finding of warnings) println(stderr, `warning: ${findingLine(finding)}`);
+  if (errors.length) return Promise.resolve(1);
+  writePitchJson(dir, { ...readPitchJson(dir), warnings: warnings.map(findingLine) });
+  println(stdout, `storyboard: ${scenes} scenes, ${seconds} s, ${warnings.length} warning${warnings.length === 1 ? '' : 's'}`);
   return Promise.resolve(0);
+}
+
+/** The run folder `dir` holding a storyboard, or a usage error. */
+function storyboardFolder(verb: Verb, cwd: string, dir: string): string {
+  const folder = runFolder(verb, cwd, dir);
+  if (!existsSync(join(folder, STORYBOARD_FILE))) throw usageError(`omni pitch ${verb}: ${dir} holds no ${STORYBOARD_FILE} yet.`);
+  return folder;
+}
+
+/** The network as the providers ask it: the same fetch, with no options when they give none. */
+const providerFetch = (fetch: Fetch): ProviderFetch => (url, init) => fetch(url, { ...init });
+
+/** Says each error the check finds in the run's storyboard; whether there was none. */
+function checked(dir: string, stderr: Out): boolean {
+  const { errors } = checkRunFolder(dir);
+  for (const finding of errors) println(stderr, `error: ${findingLine(finding)}`);
+  return errors.length === 0;
+}
+
+/** The one line a render that failed is reported with, or each line of a refusal. */
+function failureLines(error: unknown): string[] {
+  if (error instanceof RenderRefused) return error.lines.map((line) => `error: ${line}`);
+  return [`render failed: ${firstLine(error)}`];
+}
+
+/** The one folder and the one switch a verb takes, or a usage error. */
+function folderAndSwitch(verb: 'render' | 'studio', args: string[], name: string): { arg: string; on: boolean } {
+  const { positional, flags } = parseArgs('pitch', args, { booleans: [name] });
+  const [arg] = positional;
+  if (positional.length !== 1 || arg === undefined) throw usageError(USAGE[verb]);
+  return { arg, on: flags[name] === true };
+}
+
+async function render(args: string[], { cwd, stdout, stderr, exec, fetch, launch }: MakerIo): Promise<number> {
+  const { arg, on: stills } = folderAndSwitch('render', args, 'stills');
+  const dir = storyboardFolder('render', cwd, arg);
+  if (!checked(dir, stderr)) return 1;
+  if (!stills && !hasFfmpeg(exec)) {
+    println(stderr, REFUSAL.noFfmpeg);
+    return 1;
+  }
+  let rendered;
+  try {
+    rendered = await renderRun(dir, { stills }, { cwd, exec, fetch: providerFetch(fetch), launch, warn: (line) => { println(stderr, line); } });
+  } catch (error) {
+    for (const line of failureLines(error)) println(stderr, line);
+    return 1;
+  }
+  for (const file of rendered.files) println(stdout, join(dir, file));
+  println(stdout, `${String(rendered.seconds)} s, music: ${rendered.music.provider}${rendered.music.licence === null ? '' : ` (${rendered.music.licence})`}`);
+  return 0;
+}
+
+/** Resolves on Ctrl-C or a termination signal. */
+const untilStopped = (): Promise<void> =>
+  new Promise((done) => {
+    const stop = (): void => {
+      process.off('SIGINT', stop);
+      process.off('SIGTERM', stop);
+      done();
+    };
+    process.on('SIGINT', stop);
+    process.on('SIGTERM', stop);
+  });
+
+async function studio(args: string[], { cwd, stdout, stderr, fetch, openBrowser = openInBrowser, studioUntil = untilStopped }: MakerIo): Promise<number> {
+  const { arg, on: noOpen } = folderAndSwitch('studio', args, 'no-open');
+  const dir = storyboardFolder('studio', cwd, arg);
+  let opened;
+  try {
+    opened = await openStudio(dir, { fetch: providerFetch(fetch), warn: (line) => { println(stderr, line); } });
+  } catch (error) {
+    if (!(error instanceof RenderRefused)) throw error;
+    for (const line of error.lines) println(stderr, line);
+    return 1;
+  }
+  println(stdout, opened.url);
+  println(stdout, 'space plays, the arrows step a frame, page up and page down jump a scene; Ctrl-C stops');
+  try {
+    if (!noOpen) await openBrowser(opened.url);
+  } catch {
+    // The address is printed: a browser that does not open is no failure.
+  }
+  try {
+    await studioUntil(opened.url);
+  } finally {
+    await opened.close();
+  }
+  return 0;
 }
 
 /** The making verbs of `omni pitch`, by name. */
-export const PITCH_MAKERS: Readonly<Record<Verb, (args: string[], io: MakerIo) => Promise<number>>> = Object.freeze({ start, slide, music, video });
+export const PITCH_MAKERS: Readonly<Record<Verb, (args: string[], io: MakerIo) => Promise<number>>> = Object.freeze({ start, film, check, render, studio });

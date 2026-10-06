@@ -1,4 +1,4 @@
-// `omni pitch start|slide|music|video` make a pitch on the person's computer (`./pitch-make.ts`);
+// `omni pitch start|film|check|render|studio` make a pitch on the person's computer (`./pitch-make.ts`);
 // `omni pitch push <n> <dir>` — sends a pitch run `/omni:pitch` made of shipped PRD n to its dossier on
 // the Omni page (PRD 859's spec, "Push"), and prints the Pitch tab's link, then the GIF's stable link (the
 // one that opens without signing in) on a second line.
@@ -28,27 +28,20 @@ import { isOneOf, keysOf } from '../../lib/narrow.ts';
 import { PitchReplyError, pushPitch } from '../../lib/pitch/push.ts';
 import { PITCH_RUN_FILE, PitchRunRefused, readPitchRun } from '../../lib/pitch/push-run.ts';
 import type { PitchRun } from '../../lib/pitch/push-run.ts';
-import type { Screenshot } from '../../lib/pitch/run.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo, Out } from '../io.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 import { PITCH_MAKERS } from './pitch-make.ts';
+import type { MakerIo } from './pitch-make.ts';
 
-/** What a test hands `omni pitch` beyond `main()`'s own. */
-type PitchOptions = {
-  tokens?: TokenStore | undefined;
-  home?: string | undefined;
-  fetch?: Fetch;
-  callMs?: number | undefined;
-  now?: (() => Date) | undefined;
-  screenshot?: Screenshot | undefined;
-};
+/** What a test hands `omni pitch` beyond `main()`'s own: what a making verb is handed, each optional. */
+type PitchOptions = { [K in Exclude<keyof MakerIo, keyof FreeIo>]?: MakerIo[K] };
 
 /** What a call is handed: the streams and the options. */
 type CallIo = { stdout: Out; stderr: Out; tokens: TokenStore | undefined; home: string | undefined; fetch: Fetch; callMs: number | undefined };
 
 const USAGE = 'usage: omni pitch push <n> <dir>';
-const VERBS = 'usage: omni pitch start|slide|music|video|push …';
+const VERBS = 'usage: omni pitch start|film|check|render|studio|push …';
 const NO_SIGN_IN = 'no sign-in (omni signin)';
 
 /** The one line a failed call is reported with, as `omni proof push` words it. */
@@ -123,9 +116,9 @@ function pushable(
 
 export const pitch = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs, now, screenshot }: FreeIo & PitchOptions) {
+  async run(args: string[], { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs, now, launch, film, openBrowser, studioUntil }: FreeIo & PitchOptions) {
     const [verb, ...rest] = args;
-    if (isOneOf(keysOf(PITCH_MAKERS), verb)) return PITCH_MAKERS[verb](rest, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now, screenshot });
+    if (isOneOf(keysOf(PITCH_MAKERS), verb)) return PITCH_MAKERS[verb](rest, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now, launch, film, openBrowser, studioUntil });
     if (verb !== 'push') throw usageError(VERBS);
     const { prd, dir } = argsOf(args);
     const ctx = loadContext(cwd, { exec });

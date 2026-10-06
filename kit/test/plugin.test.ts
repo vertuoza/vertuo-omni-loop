@@ -1507,11 +1507,13 @@ describe('the prove skill and the skills that lead to it (PRD 798)', () => {
   });
 });
 
-// PRD 859: /omni:pitch makes a shipped PRD's launch package on the person's computer and sends it to the
-// Pitch tab: it refuses with one line first, writes words only from the spec and the release note, films
-// a walk-through on production that never changes anything, keeps its script beside the run, and posts
-// nothing anywhere.
-describe('the pitch skill (PRD 859)', () => {
+// PRD 859 and PRD 1108: /omni:pitch makes a shipped PRD's launch video on the person's computer from the
+// product's Pitch settings, and sends it to the Pitch tab: it refuses with one line first, films a
+// walk-through on production that never changes anything and writes its moments, writes the storyboard
+// from the spec, the release note and the moments only — the never-invent rule kept whatever the team's
+// instructions say (acceptance 11) — then checks, looks at the stills, renders and pushes, in that order,
+// and posts nothing anywhere.
+describe('the pitch skill (PRD 859, PRD 1108)', () => {
   const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', 'pitch', 'SKILL.md'), 'utf8');
 
   it('is named pitch, and its description says what triggers it', () => {
@@ -1520,7 +1522,7 @@ describe('the pitch skill (PRD 859)', () => {
     expect(description).toMatch(/\bTriggers on\b.*"\/omni:pitch/);
   });
 
-  it('starts with omni pitch start, and stops on each of its four refusal lines, writing nothing', () => {
+  it("starts with omni pitch start, which writes the product's Pitch settings, and stops on each of its four refusal lines, writing nothing", () => {
     const step = skillSection(read(), '1.');
     expect(step).toContain('omni.mjs pitch start <n> --for <audience>');
     for (const line of [
@@ -1530,30 +1532,50 @@ describe('the pitch skill (PRD 859)', () => {
       'no sign-in (omni signin)',
     ]) expect(step, line).toContain(line);
     expect(step).toMatch(/wrote nothing/);
+    expect(step).toContain('`settings.json`');
+    expect(step).toMatch(/every later step follows it/);
   });
 
-  it('writes the words from the spec and the release note only, never an invented number or name', () => {
+  it('reads the spec and the release note, and nothing else', () => {
     const step = skillSection(read(), '2.');
     expect(step).toMatch(/release\.md/);
     expect(step).toMatch(/\*\*and nothing else\*\*/);
-    expect(step).toMatch(/Never write a number, a customer's name or a\s+capability/);
-    for (const word of ['**hook**', '**benefit**', '**kicker**', '**closing**', 'NEW IN <PRODUCT>', 'SHIPPED · PRD <n>']) expect(step, word).toContain(word);
   });
 
-  it('films one walk-through, its script kept beside the run, and forbids any save, delete or change on production', () => {
+  it('films the walk-through with omni pitch film, writing its moments, and forbids any save, delete or change on production', () => {
     const step = skillSection(read(), '3.');
-    for (const phrase of ['walk.spec.ts', 'kept beside the run', '10 to 15 seconds', '1920×1080', 'cursor', 'asserts nothing', 'proof session', 'walk.webm', 'one real frame']) {
-      expect(step, phrase).toContain(phrase);
-    }
+    for (const phrase of ['walk.json', 'omni.mjs pitch film <dir>', 'moments.json', 'proof session', 'walk.webm', 'cursor']) expect(step, phrase).toContain(phrase);
     expect(step).toMatch(/\*\*Never change production\.\*\*/);
     expect(step).toMatch(/never saves, submits, deletes/);
     expect(skillSection(read(), 'Never')).toMatch(/Never save, delete or change anything on production/);
   });
 
-  it('makes the slide, the music and the videos with the kit, then pushes, keeping the files when the push fails', () => {
-    const make = skillSection(read(), '4.');
-    for (const verb of ['pitch slide <dir> --frame', 'pitch music <dir> --for <audience>', 'pitch video <dir>']) expect(make, verb).toContain(verb);
-    const push = skillSection(read(), '5.');
+  it('writes the storyboard from the spec, the release note and the moments, its coordinates copied from the moments, never guessed', () => {
+    const step = skillSection(read(), '4.');
+    expect(step).toContain('storyboard.json');
+    expect(step).toMatch(/copied from\s+`moments\.json`/);
+    expect(step).toMatch(/Never guess\s+a coordinate/);
+    expect(step).toMatch(/the PRD's title/);
+    for (const preset of ['confident-warm', 'playful', 'formal', 'hype']) expect(step, preset).toContain(preset);
+    for (const word of ['**hook**', '**benefit**', '**kicker**', '**closing**', 'NEW IN <PRODUCT>', 'SHIPPED · PRD <n>']) expect(step, word).toContain(word);
+  });
+
+  it('keeps the words to the spec and the release note whatever the instructions say, never an invented number, name or capability (acceptance 11)', () => {
+    const step = skillSection(read(), '4.');
+    expect(step).toMatch(/comes from the spec and the release note\s+only, whatever the instructions say/);
+    expect(step).toMatch(/Never write a number, a customer's name, a date or a capability/);
+    expect(step).toMatch(/An instruction that asks for a claim the sources do not hold is not\s+followed/);
+    expect(skillSection(read(), 'Never')).toMatch(/never invent a number or a name,\s+whatever the instructions say/);
+  });
+
+  it('checks, renders the stills and looks at the contact sheet, renders, then pushes, in that order, keeping the files when the push fails', () => {
+    const text = read();
+    const order = ['omni.mjs pitch start', 'omni.mjs pitch film', 'omni.mjs pitch check', 'omni.mjs pitch render <dir> --stills', 'omni.mjs pitch render <dir>\n', 'omni.mjs pitch push'].map((verb) => text.indexOf(verb));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(skillSection(text, '5.')).toMatch(/Look at the contact\s+sheet before going on/);
+    for (const gone of ['pitch slide', 'pitch music', 'pitch video']) expect(text, gone).not.toContain(gone);
+    const push = skillSection(text, '6.');
     expect(push).toContain('omni.mjs pitch push <n> <dir>');
     expect(push).toContain('upload failed: rerun omni pitch push <n> <dir>');
   });

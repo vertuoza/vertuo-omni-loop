@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defaultPitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
 import type { MemberSession } from '../data/member-session';
 import type { ProductLoad } from './load';
 import { DEMO_PRODUCTS } from './ProductsScreen';
@@ -12,9 +13,11 @@ const SIGNED_IN = { kind: 'signed-in', db: {}, user: { id: 'u-1' }, env: { url: 
 const never = (): Promise<ProductLoad> => Promise.reject(new Error('read for a reader who is not signed in'));
 
 describe('productViewOf', () => {
-  it('draws the demo product by its id, and no such product for another', async () => {
-    const demo = sure(DEMO_PRODUCTS[0], 'the first demo product');
-    expect(await productViewOf({ kind: 'demo' }, demo.id, never)).toEqual({ kind: 'product', source: { kind: 'demo' }, editable: true, product: demo });
+  it('draws the demo product by its id, its Pitch settings its look\'s preset, and no such product for another', async () => {
+    const demo = sure(DEMO_PRODUCTS[1], 'the second demo product');
+    expect(await productViewOf({ kind: 'demo' }, demo.id, never)).toEqual({
+      kind: 'product', source: { kind: 'demo' }, editable: true, product: { ...demo, pitch: defaultPitchSettings('keynote') },
+    });
     expect(await productViewOf({ kind: 'demo' }, 'nope', never)).toEqual({ kind: 'not-found' });
   });
 
