@@ -1,4 +1,4 @@
-# ADR-0061 — An editor with a missing, wrong or revoked link still connects and answers each tool call with the make-a-new-link line
+# ADR-0067 — An editor with a missing, wrong or revoked link still connects and answers each tool call with the make-a-new-link line
 
 **Status:** adopted · **Date:** 2026-10-01 · **PRD:** #855 · **Decided:** nobody — adopted when raised (medium), 2026-10-01 · **Merged:** @pierrederval, 2026-10-01, PR #856
 

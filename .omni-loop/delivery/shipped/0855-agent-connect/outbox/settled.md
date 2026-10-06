@@ -175,7 +175,7 @@ One condition in the list's database function and one line on the card.
 - Raised: 2026-10-01
 - Slice: s2
 - Wave: 2
-- Became: ADR-0061
+- Became: ADR-0067
 
 ### The answer, as it was given
 
