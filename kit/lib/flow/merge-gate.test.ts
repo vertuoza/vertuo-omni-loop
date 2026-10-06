@@ -114,6 +114,18 @@ describe('mergeGate', () => {
     expect(gate(yaml, pr(), { open: open.filter(({ number }) => number !== 13) }).ok).toBe(true);
   });
 
+  it("leaves the PRD's outbox out of the areas and the territory: a recorded decision changes no rule", () => {
+    const item = '.omni-loop/delivery/outbox/0912-bus/s1-01-shape.md';
+    const sub = pr({ files: ['src/kernel/Bus/Dispatcher.php', item] });
+    const verdict = gate(`${KERNEL}  \n`.replace('rules:\n    subPr: { requireChecks: [phpunit] }', 'rules:\n    subPr: { territory: block }'), sub, {
+      ground: ['.omni-loop/delivery/outbox/0912-bus/'],
+    });
+    expect(verdict.ok).toBe(true);
+    expect(verdict.method).toBe('rebase');
+    expect(verdict.areas).toEqual(['kernel']);
+    expect(verdict.reported).toEqual([]);
+  });
+
   it('refuses two merge methods on one slice', () => {
     const yaml = "flow:\n  areas:\n    kernel:\n      paths: ['^src/kernel/']\n      rules:\n        subPr: { merge: rebase }\n    web:\n      paths: ['^web/']\n      rules:\n        subPr: { merge: merge }\n";
     const verdict = gate(yaml, pr({ files: ['src/kernel/a', 'web/b'] }), { territory: ['src/kernel/', 'web/'] });

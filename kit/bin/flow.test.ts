@@ -247,6 +247,13 @@ describe('omni flow check merge', () => {
     expect(blocked.out).toBe("not ok default: territory block — README.md is outside the slice's territory\n");
   });
 
+  it("counts the PRD's outbox folder as the slice's ground, as the wave's territory check does", async () => {
+    const files = ['src/kernel/Bus/Dispatcher.php', '.omni-loop/delivery/outbox/0912-bus/s1-01-shape.md'];
+    const blocked = await checkMerge(['--pr', '12'], { flow: 'flow:\n  rules:\n    subPr: { territory: block }\n', gh: { files } });
+    expect(blocked.code).toBe(0);
+    expect(blocked.out).toBe('ok\ngh pr merge 12 --squash --delete-branch\n');
+  });
+
   it('refuses past maxOpen, counting the open sub-PRs of the slices the plan names', async () => {
     const flow = "flow:\n  areas:\n    kernel:\n      paths: ['^src/kernel/']\n      rules:\n        subPr: { maxOpen: 1 }\n";
     const open = [

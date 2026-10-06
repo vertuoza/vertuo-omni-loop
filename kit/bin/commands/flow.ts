@@ -182,13 +182,19 @@ function repoArg(ctx: Context, value: string | undefined): string | null {
 
 /** Every slice of every PRD in the inbox, by its slice branch, with its territory. */
 function sliceTerritories(ctx: Context): Map<string, string[]> {
-  const byBranch = new Map<string, string[]>();
+  return new Map([...sliceGround(ctx)].map(([branch, { territory }]) => [branch, territory]));
+}
+
+/** Every slice of every PRD in the inbox, by its slice branch: its territory, and its PRD's outbox
+ * folder, the ground every slice writes its decisions in (as `/omni:wave`'s territory check reads it). */
+function sliceGround(ctx: Context): Map<string, { territory: string[]; outbox: string }> {
+  const byBranch = new Map<string, { territory: string[]; outbox: string }>();
   for (const { name } of prdFoldersIn(join(ctx.root, ctx.layout.dirs.inbox))) {
     const topic = parseFolderName(name)?.topic;
     const plan = join(ctx.root, ctx.layout.dirs.inbox, name, 'plan.md');
     if (topic === undefined || !existsSync(plan)) continue;
     for (const { id, territory } of parsePlanSlices(readFileSync(plan, 'utf8'))) {
-      byBranch.set(fillBranch(ctx.config.branches.slice, { topic, slice: id }), territory);
+      byBranch.set(fillBranch(ctx.config.branches.slice, { topic, slice: id }), { territory, outbox: `${ctx.layout.dirs.outbox}/${name}/` });
     }
   }
   return byBranch;
@@ -212,7 +218,16 @@ function checkMerge(args: string[], { ctx, stdout, exec, env }: CommandIo): numb
         return territory === undefined ? [] : [{ number: n, territory }];
       })
     : [];
-  const verdict = mergeGate({ flow: resolved, pr, territory: slices.get(pr.head) ?? null, defaultBranch: ctx.config.repo.defaultBranch, open, repo });
+  const own = sliceGround(ctx).get(pr.head);
+  const verdict = mergeGate({
+    flow: resolved,
+    pr,
+    territory: own?.territory ?? null,
+    defaultBranch: ctx.config.repo.defaultBranch,
+    open,
+    repo,
+    ground: own === undefined ? [] : [own.outbox],
+  });
   if (flags.json) {
     println(stdout, JSON.stringify(verdict, null, 2));
   } else {

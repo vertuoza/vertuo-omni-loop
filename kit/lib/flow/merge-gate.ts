@@ -49,7 +49,9 @@ export type MergeVerdict = {
 /**
  * Whether sub-PR `pr` merges: `territory` is its slice's (`null` when its head is no slice of a
  * plan), `open` every open sub-PR into the same base with its territory, `repo` the slug the
- * command names when the sub-PR lives in another repository.
+ * command names when the sub-PR lives in another repository. `ground` is the loop's own ground the
+ * slice writes besides its territory (its PRD's outbox folder): a path under it is neither compared
+ * with the territory nor met by an area, so a decision a slice records never changes its rules.
  */
 export function mergeGate({
   flow,
@@ -58,6 +60,7 @@ export function mergeGate({
   defaultBranch,
   open,
   repo = null,
+  ground = [],
 }: {
   flow: ResolvedFlow;
   pr: SubPr;
@@ -65,8 +68,10 @@ export function mergeGate({
   defaultBranch: string;
   open: readonly OpenSubPr[];
   repo?: string | null;
+  ground?: readonly string[];
 }): MergeVerdict {
-  const met = resolveTerritory(flow, [...(territory ?? []), ...pr.files]);
+  const files = pr.files.filter((file) => !covers(ground, file));
+  const met = resolveTerritory(flow, [...(territory ?? []), ...files]);
   const method = met.rules.subPr.merge ?? 'squash';
   const reasons: string[] = [];
   const reported: string[] = [];
@@ -96,7 +101,7 @@ export function mergeGate({
     if (block) reasons.push(`${blocking}#${pr.number}'s head ${pr.head} is no slice of a plan here, so its territory is not known`);
     else reported.push(`#${pr.number}'s head ${pr.head} is no slice of a plan here: its diff was not compared with a territory`);
   } else {
-    for (const path of pr.files.filter((file) => !covers(territory, file))) {
+    for (const path of files.filter((file) => !covers(territory, file))) {
       (block ? reasons : reported).push(`${blocking}${path} is outside the slice's territory`);
     }
   }

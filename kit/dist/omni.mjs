@@ -32047,9 +32047,11 @@ function mergeGate({
   territory,
   defaultBranch,
   open: open3,
-  repo = null
+  repo = null,
+  ground = []
 }) {
-  const met = resolveTerritory(flow2, [...territory ?? [], ...pr.files]);
+  const files = pr.files.filter((file2) => !covers(ground, file2));
+  const met = resolveTerritory(flow2, [...territory ?? [], ...files]);
   const method = met.rules.subPr.merge ?? "squash";
   const reasons = [];
   const reported = [];
@@ -32074,7 +32076,7 @@ function mergeGate({
     if (block) reasons.push(`${blocking}#${pr.number}'s head ${pr.head} is no slice of a plan here, so its territory is not known`);
     else reported.push(`#${pr.number}'s head ${pr.head} is no slice of a plan here: its diff was not compared with a territory`);
   } else {
-    for (const path of pr.files.filter((file2) => !covers(territory, file2))) {
+    for (const path of files.filter((file2) => !covers(territory, file2))) {
       (block ? reasons : reported).push(`${blocking}${path} is outside the slice's territory`);
     }
   }
@@ -38124,13 +38126,16 @@ function repoArg(ctx, value) {
   return target3.repo;
 }
 function sliceTerritories(ctx) {
+  return new Map([...sliceGround(ctx)].map(([branch, { territory }]) => [branch, territory]));
+}
+function sliceGround(ctx) {
   const byBranch = /* @__PURE__ */ new Map();
   for (const { name } of prdFoldersIn(join39(ctx.root, ctx.layout.dirs.inbox))) {
     const topic = parseFolderName(name)?.topic;
     const plan2 = join39(ctx.root, ctx.layout.dirs.inbox, name, "plan.md");
     if (topic === void 0 || !existsSync30(plan2)) continue;
     for (const { id, territory } of parsePlanSlices(readFileSync28(plan2, "utf8"))) {
-      byBranch.set(fillBranch(ctx.config.branches.slice, { topic, slice: id }), territory);
+      byBranch.set(fillBranch(ctx.config.branches.slice, { topic, slice: id }), { territory, outbox: `${ctx.layout.dirs.outbox}/${name}/` });
     }
   }
   return byBranch;
@@ -38151,7 +38156,16 @@ function checkMerge(args, { ctx, stdout, exec, env }) {
     const territory = slices.get(head);
     return territory === void 0 ? [] : [{ number: n, territory }];
   }) : [];
-  const verdict2 = mergeGate({ flow: resolved, pr, territory: slices.get(pr.head) ?? null, defaultBranch: ctx.config.repo.defaultBranch, open: open3, repo });
+  const own2 = sliceGround(ctx).get(pr.head);
+  const verdict2 = mergeGate({
+    flow: resolved,
+    pr,
+    territory: own2?.territory ?? null,
+    defaultBranch: ctx.config.repo.defaultBranch,
+    open: open3,
+    repo,
+    ground: own2 === void 0 ? [] : [own2.outbox]
+  });
   if (flags.json) {
     println(stdout, JSON.stringify(verdict2, null, 2));
   } else {
