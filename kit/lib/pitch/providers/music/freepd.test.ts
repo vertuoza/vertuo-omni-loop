@@ -61,6 +61,7 @@ describe('freepdMusic.pick', () => {
   });
 
   it('accepts an MP3 that opens on a frame, with no ID3 tag', async () => {
-    await expect(pick(fakeFetch([[ARCHIVE, new Uint8Array([0xff, 0xfb, 0x90, 0x64])]]).fetch).track).resolves.toMatchObject({ credit: expect.stringContaining('Advertime') });
+    const track = await pick(fakeFetch([[ARCHIVE, new Uint8Array([0xff, 0xfb, 0x90, 0x64])]]).fetch).track;
+    expect(track.credit).toContain('Advertime');
   });
 });

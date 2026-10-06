@@ -71,7 +71,10 @@ export function fakeBrowser(): { launch: () => Promise<CaptureBrowser>; log: str
       return Promise.resolve({
         goto: (url) => Promise.resolve(log.push(`goto ${url}`)),
         evaluate: (expression) => Promise.resolve(log.push(`evaluate ${expression}`)),
-        screenshot: ({ path }) => Promise.resolve(writeFileSync(path, '')),
+        screenshot: ({ path }) => {
+          writeFileSync(path, '');
+          return Promise.resolve();
+        },
       });
     },
     close: () => Promise.resolve(void log.push('close')),
