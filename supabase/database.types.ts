@@ -1616,6 +1616,7 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch: Json
           pitch_look: string
           workspace_id: string
         }
@@ -1626,6 +1627,7 @@ export type Database = {
           id?: string
           name: string
           ordinal?: never
+          pitch?: Json
           pitch_look?: string
           workspace_id: string
         }
@@ -1636,6 +1638,7 @@ export type Database = {
           id?: string
           name?: string
           ordinal?: never
+          pitch?: Json
           pitch_look?: string
           workspace_id?: string
         }
@@ -2480,6 +2483,7 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch: Json
           pitch_look: string
           workspace_id: string
         }
@@ -3082,11 +3086,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      pitch_asset_product: { Args: { path: string }; Returns: string }
       pitch_dossier_shipped: { Args: { p_dossier: string }; Returns: boolean }
       pitch_files: { Args: never; Returns: string[] }
+      pitch_from_look: { Args: { p_look: string }; Returns: Json }
       pitch_look_for_repo: { Args: { p_repo: string }; Returns: string }
       pitch_path_dossier: { Args: { path: string }; Returns: string }
       pitch_path_run: { Args: { path: string }; Returns: string }
+      pitch_refusal: { Args: { p_pitch: Json }; Returns: string }
       pitch_run_add: {
         Args: {
           p_audience: string
@@ -3102,6 +3109,7 @@ export type Database = {
         }
         Returns: string
       }
+      pitch_settings_for_repo: { Args: { p_repo: string }; Returns: Json }
       product_add: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
@@ -3111,6 +3119,7 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch: Json
           pitch_look: string
           workspace_id: string
         }
@@ -3130,6 +3139,7 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch: Json
           pitch_look: string
           workspace_id: string
         }
@@ -3269,6 +3279,27 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch: Json
+          pitch_look: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_pitch_settings: {
+        Args: { p_pitch: Json; p_product: string; p_workspace: string }
+        Returns: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          ordinal: number
+          pitch: Json
           pitch_look: string
           workspace_id: string
         }
