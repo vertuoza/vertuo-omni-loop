@@ -1798,6 +1798,6 @@ A name in one list of the import check and a line of the decision record; droppi
 
 ```
 
-- Became: adr/0058
+- Became: ADR-0058
 
 <!-- /omni-outbox-settled: s4-03-engine-zone-browser-packages -->
