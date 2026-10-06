@@ -6,15 +6,19 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
 import { messageOf } from './narrow.ts';
+import { FlowSchema, hooksByMode, regexSource } from './flow/schema.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
 export const CONFIG_FILE = '.omni-loop/config.yml';
 export const CONFIG_VERSION = 1;
 
 export class ConfigError extends Error {
-  constructor(message: string) {
+  /** True when the file was read and does not hold a valid config, false when there is no file to read. */
+  readonly invalid: boolean;
+  constructor(message: string, { invalid = false }: { invalid?: boolean } = {}) {
     super(message);
     this.name = 'ConfigError';
+    this.invalid = invalid;
   }
 }
 
@@ -25,9 +29,6 @@ const nullableText = text.nullable();
 // so they keep those names; the values are no IDs, and are never branded (ADR-0056).
 const branchTemplate = z.string().min(1);
 const labelName = z.string().min(1);
-const regexSource = z.string().refine((source) => {
-  try { new RegExp(source); return true; } catch { return false; }
-}, 'not a valid regular expression');
 // A section every key of which has a default: absent, it parses as `{}` would, defaults filled in.
 const section = <Shape extends z.ZodRawShape>(shape: Shape) =>
   z.preprocess((value) => (value === undefined ? {} : value), z.object(shape).strict());
@@ -214,6 +215,9 @@ export const ConfigSchema = z
       attempts: z.number().int().positive().default(3),
       claimStaleMinutes: z.number().int().positive().default(60),
       beforeAfterMaxBytes: z.number().int().positive().default(512000),
+      // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
+      // and a config that does not set it parses exactly as before.
+      hookMaxBytes: z.number().int().positive().optional(),
     }),
     ask: section({ url: askUrl.nullable().default(null) }),
     // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
@@ -254,8 +258,22 @@ export const ConfigSchema = z
       .nullable()
       .prefault({}),
     plan: planSection.optional(),
+    // PRD 1089: the repository's flow — its rules, its areas and its hooks (`kit/lib/flow/`).
+    // Optional: a config without it runs the loop as the kit defines it, and parses with no `flow` key.
+    flow: FlowSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(({ pr, flow }, issues) => {
+    // `pr.openWith` reads as the default area's `pr.open` replace hook: two of them is one too many.
+    const hooks = flow?.hooks?.['pr.open'];
+    if (pr.openWith !== null && hooks !== undefined && hooksByMode(hooks).replace !== null) {
+      issues.addIssue({
+        code: 'custom',
+        path: ['flow', 'hooks', 'pr.open', 'replace'],
+        message: 'pr.openWith already replaces how a pull request opens — keep one of the two',
+      });
+    }
+  });
 
 /**
  * Whether dossiers are on in a repository (PRD 216): `dossier.enabled` is true and `ask.url` is set.
@@ -320,19 +338,19 @@ export function parseConfig(source: string, file: string = CONFIG_FILE, { migrat
   try {
     raw = parse(source) ?? {};
   } catch (error) {
-    throw new ConfigError(`${file}: not valid YAML — ${messageOf(error).split('\n')[0]}`);
+    throw new ConfigError(`${file}: not valid YAML — ${messageOf(error).split('\n')[0]}`, { invalid: true });
   }
   if (migrate) raw = migrateConfig(raw);
   const renamed = renamedKey(raw);
   if (renamed) {
     const { section: name, from, to } = renamed;
-    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed — call it ${name}.${to}`);
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed — call it ${name}.${to}`, { invalid: true });
   }
   const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
     const more = others.length ? `\n${others.map((line) => `  - ${line}`).join('\n')}` : '';
-    throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`);
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
   }
   return result.data;
 }

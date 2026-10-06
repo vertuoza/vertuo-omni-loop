@@ -310,13 +310,13 @@ var FailureEventDataSchema = z5.looseObject({
 
 // apps/omni-app/src/stage-forward/stage-forward.ts
 import { createHmac } from "node:crypto";
-import { z as z8 } from "zod";
+import { z as z9 } from "zod";
 
 // kit/lib/config.ts
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync as existsSync2, readFileSync } from "node:fs";
+import { join as join2 } from "node:path";
 import { parse } from "yaml";
-import { z as z6 } from "zod";
+import { z as z7 } from "zod";
 
 // kit/lib/narrow.ts
 function propertyOf(value, key) {
@@ -327,19 +327,41 @@ function messageOf(error) {
   return typeof message === "string" ? message : String(error);
 }
 
-// kit/lib/config.ts
-var CONFIG_FILE = ".omni-loop/config.yml";
-var CONFIG_VERSION = 1;
-var ConfigError = class extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "ConfigError";
-  }
-};
+// kit/lib/flow/schema.ts
+import { existsSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { z as z6 } from "zod";
+
+// kit/lib/flow/points.ts
+var HOOK_MODES = Object.freeze(["before", "after", "replace"]);
+var EXTEND = Object.freeze(["before", "after"]);
+var ANY = HOOK_MODES;
+var SLICE_INPUTS = Object.freeze(["prd", "slice", "territory", "branch"]);
+var FLOW_POINTS = Object.freeze([
+  { point: "plan.slice", skills: ["plan", "mega-brainstorm"], modes: EXTEND, inputs: ["prd", "slice", "territory"], outputs: [] },
+  { point: "plan.done", skills: ["plan"], modes: EXTEND, inputs: ["prd", "plan"], outputs: [] },
+  { point: "do-work.start", skills: ["do-work"], modes: EXTEND, inputs: SLICE_INPUTS, outputs: [] },
+  { point: "do-work.test", skills: ["do-work"], modes: ANY, inputs: SLICE_INPUTS, outputs: ["the verdict line"] },
+  { point: "do-work.review", skills: ["do-work"], modes: EXTEND, inputs: SLICE_INPUTS, outputs: [] },
+  { point: "do-work.ready", skills: ["do-work"], modes: EXTEND, inputs: SLICE_INPUTS, outputs: [] },
+  {
+    point: "pr.open",
+    skills: ["pr"],
+    modes: ANY,
+    inputs: ["base", "head", "title", "body", "draft"],
+    outputs: ["the PR's URL as its last line before the verdict", "the verdict line"]
+  },
+  { point: "wave.merge", skills: ["wave", "ultra-wave"], modes: ANY, inputs: ["prd", "slice", "pr"], outputs: ["the merged PR's number in the verdict"] },
+  { point: "yolo.ready", skills: ["yolo", "ultra-yolo"], modes: EXTEND, inputs: ["prd", "pr"], outputs: [] }
+]);
+function flowPoint(name) {
+  return FLOW_POINTS.find(({ point }) => point === name);
+}
+
+// kit/lib/flow/schema.ts
+var CLAUDE_ALIAS = "claude";
+var DEFAULT_AREA = "default";
 var text = z6.string().min(1);
-var nullableText = text.nullable();
-var branchTemplate = z6.string().min(1);
-var labelName = z6.string().min(1);
 var regexSource = z6.string().refine((source) => {
   try {
     new RegExp(source);
@@ -348,9 +370,117 @@ var regexSource = z6.string().refine((source) => {
     return false;
   }
 }, "not a valid regular expression");
-var section = (shape) => z6.preprocess((value) => value === void 0 ? {} : value, z6.object(shape).strict());
-var trailerPart = text.regex(/^[^<>\r\n]+$/, "one line, with no < or >");
-var askUrl = z6.string().refine((value) => {
+var hookRef = z6.union([text, z6.object({ path: text, alias: z6.literal(CLAUDE_ALIAS) }).strict()]);
+var hookRefs = z6.union([hookRef, z6.array(hookRef).min(1)]);
+var pointHooks = z6.union([
+  hookRef,
+  z6.object({ before: hookRefs.optional(), after: hookRefs.optional(), replace: hookRef.optional() }).strict()
+]);
+function hookRefProblem(ref) {
+  const path = typeof ref === "string" ? ref : ref.path;
+  const claude = typeof ref !== "string";
+  if (claude && /^\/[\w.:-]+$/.test(path)) return null;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(path)) return `${path} is a URL \u2014 name a file of this repository by its path`;
+  if (path.startsWith("/") || path.startsWith("\\")) return `${path} is an absolute path \u2014 name a file of this repository by its path from the root`;
+  if (path.split(/[\\/]/).includes("..")) return `${path} holds .. \u2014 name a file of this repository by its path from the root`;
+  if (!claude && (path === ".claude" || path.startsWith(".claude/"))) {
+    return `${path} sits under .claude/ \u2014 mark it { path: ${path}, alias: claude }, or move it out of .claude/`;
+  }
+  return null;
+}
+var asList = (refs) => refs === void 0 ? [] : Array.isArray(refs) ? refs : [refs];
+var isBare = (value) => typeof value === "string" || "path" in value;
+function hooksByMode(value) {
+  if (typeof value === "string" || "path" in value) return { before: [], after: [value], replace: null };
+  return { before: asList(value.before), after: asList(value.after), replace: value.replace ?? null };
+}
+function eachHook(point, value) {
+  const { before, after, replace } = hooksByMode(value);
+  const one = (mode, ref) => ({ key: isBare(value) ? [point] : [point, mode], mode, ref });
+  return [
+    ...before.map((ref) => one("before", ref)),
+    ...replace === null ? [] : [one("replace", replace)],
+    ...after.map((ref) => one("after", ref))
+  ];
+}
+var KNOWN_POINTS = FLOW_POINTS.map(({ point }) => point).join(", ");
+var hooksSection = z6.record(z6.string(), pointHooks).superRefine((hooks, issues) => {
+  for (const [name, value] of Object.entries(hooks)) {
+    const point = flowPoint(name);
+    if (!point) {
+      issues.addIssue({ code: "custom", path: [name], message: `not a point of the catalog (${KNOWN_POINTS})` });
+      continue;
+    }
+    for (const { key, mode, ref } of eachHook(name, value)) {
+      if (mode === "replace" && !point.modes.includes("replace")) {
+        issues.addIssue({ code: "custom", path: key, message: `${name} takes before and after hooks only: its act is never replaced` });
+      }
+      const problem = hookRefProblem(ref);
+      if (problem) issues.addIssue({ code: "custom", path: key, message: problem });
+    }
+  }
+});
+var planRule = z6.union([
+  z6.object({ slice: z6.object({ alone: z6.boolean().optional(), maxFiles: z6.number().int().positive().optional() }).strict() }).strict(),
+  z6.object({ wave: z6.literal("first") }).strict(),
+  z6.object({ blocks: z6.literal("all") }).strict(),
+  z6.object({ landing: z6.literal("alone") }).strict()
+]);
+var MERGE_METHODS = Object.freeze(["squash", "merge", "rebase"]);
+var subPrRules = z6.object({
+  merge: z6.enum(MERGE_METHODS).optional(),
+  requireChecks: z6.array(text).optional(),
+  approval: z6.literal("person").optional(),
+  territory: z6.enum(["report", "block"]).optional(),
+  maxOpen: z6.number().int().positive().optional()
+}).strict();
+var rulesSection = z6.object({ plan: z6.array(planRule).optional(), subPr: subPrRules.optional() }).strict();
+var area = z6.object({
+  paths: z6.array(regexSource).min(1, "at least one path pattern"),
+  knowledge: text.optional(),
+  inherit: z6.boolean().optional(),
+  rules: rulesSection.optional(),
+  hooks: hooksSection.optional()
+}).strict();
+var AREA_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+var FlowSchema = z6.object({
+  rules: rulesSection.optional(),
+  hooks: hooksSection.optional(),
+  areas: z6.record(z6.string(), area).optional(),
+  // Reserved for events, which a later PRD defines: refused until then, never read.
+  on: z6.unknown().optional()
+}).strict().superRefine((flow, issues) => {
+  if (flow.on !== void 0) {
+    issues.addIssue({ code: "custom", path: ["on"], message: "reserved for events, which a later PRD defines \u2014 remove it" });
+  }
+  for (const name of Object.keys(flow.areas ?? {})) {
+    if (name === DEFAULT_AREA) {
+      issues.addIssue({ code: "custom", path: ["areas", name], message: `${DEFAULT_AREA} names the root of flow \u2014 call this area something else` });
+    } else if (!AREA_NAME.test(name)) {
+      issues.addIssue({ code: "custom", path: ["areas", name], message: "an area is named by one kebab-case word, such as kernel" });
+    }
+  }
+});
+
+// kit/lib/config.ts
+var CONFIG_FILE = ".omni-loop/config.yml";
+var CONFIG_VERSION = 1;
+var ConfigError = class extends Error {
+  /** True when the file was read and does not hold a valid config, false when there is no file to read. */
+  invalid;
+  constructor(message, { invalid = false } = {}) {
+    super(message);
+    this.name = "ConfigError";
+    this.invalid = invalid;
+  }
+};
+var text2 = z7.string().min(1);
+var nullableText = text2.nullable();
+var branchTemplate = z7.string().min(1);
+var labelName = z7.string().min(1);
+var section = (shape) => z7.preprocess((value) => value === void 0 ? {} : value, z7.object(shape).strict());
+var trailerPart = text2.regex(/^[^<>\r\n]+$/, "one line, with no < or >");
+var askUrl = z7.string().refine((value) => {
   let url;
   try {
     url = new URL(value);
@@ -359,7 +489,7 @@ var askUrl = z6.string().refine((value) => {
   }
   return url.protocol === "https:" || url.protocol === "http:" && url.hostname === "127.0.0.1";
 }, "an https URL, or http on 127.0.0.1");
-var httpsUrl = z6.string().refine((value) => {
+var httpsUrl = z7.string().refine((value) => {
   if (/\s/.test(value)) return false;
   try {
     return new URL(value).protocol === "https:";
@@ -368,7 +498,7 @@ var httpsUrl = z6.string().refine((value) => {
   }
 }, "an absolute https URL");
 var PROOF_GITHUB_DEPLOYMENT = "github-deployment";
-var proofUrl = z6.string().refine((value) => {
+var proofUrl = z7.string().refine((value) => {
   if (value === PROOF_GITHUB_DEPLOYMENT) return true;
   if (/\s/.test(value)) return false;
   try {
@@ -377,17 +507,17 @@ var proofUrl = z6.string().refine((value) => {
     return false;
   }
 }, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
-var envName = z6.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
+var envName = z7.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
-var target = z6.object({
-  repo: z6.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
-  role: z6.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "one kebab-case word, such as back-end"),
-  knowledge: z6.enum(TARGET_KNOWLEDGE),
-  readAt: z6.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null)
+var target = z7.object({
+  repo: z7.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
+  role: z7.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "one kebab-case word, such as back-end"),
+  knowledge: z7.enum(TARGET_KNOWLEDGE),
+  readAt: z7.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null)
 }).strict();
-var planSection = z6.object({
+var planSection = z7.object({
   guide: nullableText.default(null),
-  targets: z6.array(target).min(1, "at least one target")
+  targets: z7.array(target).min(1, "at least one target")
 }).strict().superRefine(({ targets }, issues) => {
   const seen = /* @__PURE__ */ new Set();
   targets.forEach(({ repo, knowledge, readAt }, index) => {
@@ -401,12 +531,12 @@ var planSection = z6.object({
     }
   });
 });
-var ConfigSchema = z6.object({
-  kit: z6.literal(CONFIG_VERSION),
+var ConfigSchema = z7.object({
+  kit: z7.literal(CONFIG_VERSION),
   repo: section({
-    slug: z6.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null),
-    remote: text.default("origin"),
-    defaultBranch: text.default("main")
+    slug: z7.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null),
+    remote: text2.default("origin"),
+    defaultBranch: text2.default("main")
   }),
   github: section({ user: nullableText.default(null) }),
   branches: section({
@@ -429,14 +559,14 @@ var ConfigSchema = z6.object({
     // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
     concept: branchTemplate.default("docs/concept-{topic}")
   }),
-  worktrees: text.default(".claude/worktrees"),
+  worktrees: text2.default(".claude/worktrees"),
   paths: section({
-    delivery: text.default(".omni-loop/delivery"),
-    knowledge: text.default(".omni-loop/knowledge"),
-    adr: text.default(".omni-loop/knowledge/adr"),
-    playbook: text.default(".omni-loop/knowledge/playbook"),
+    delivery: text2.default(".omni-loop/delivery"),
+    knowledge: text2.default(".omni-loop/knowledge"),
+    adr: text2.default(".omni-loop/knowledge/adr"),
+    playbook: text2.default(".omni-loop/knowledge/playbook"),
     glossary: nullableText.default(null),
-    context: z6.array(text).default(["CLAUDE.md"])
+    context: z7.array(text2).default(["CLAUDE.md"])
   }),
   labels: section({
     prd: labelName.default("omni:prd"),
@@ -458,36 +588,36 @@ var ConfigSchema = z6.object({
     riskLow: labelName.default("omni:risk-low"),
     // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
     concept: labelName.default("omni:concept"),
-    autoCreate: z6.boolean().default(false)
+    autoCreate: z7.boolean().default(false)
   }),
   prLinks: section({
-    feature: text.default("Closes #{prd}"),
-    sub: text.default("Part of #{prd}"),
-    phase0: text.default("Refs #{prd}")
+    feature: text2.default("Closes #{prd}"),
+    sub: text2.default("Part of #{prd}"),
+    phase0: text2.default("Refs #{prd}")
   }),
   // How a pull request into the default branch or a landing branch is opened: `openWith` names a
   // slash skill of this repository (`/create-pr`, say) that `/omni:pr` runs with `--base`,
   // `--draft` and `--non-interactive`; `null` keeps the kit's own `gh pr create`. Sub-PRs never use it.
   pr: section({ openWith: nullableText.default(null) }),
-  board: section({ matchBy: z6.enum(["base", "label"]).default("base") }),
+  board: section({ matchBy: z7.enum(["base", "label"]).default("base") }),
   ci: section({
-    outboxContext: text.default("outbox"),
+    outboxContext: text2.default("outbox"),
     // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
-    inboxContext: text.default("inbox"),
+    inboxContext: text2.default("inbox"),
     aggregateCheck: nullableText.default(null),
-    branchProtection: z6.boolean().default(false),
-    runner: text.default("ubuntu-latest")
+    branchProtection: z7.boolean().default(false),
+    runner: text2.default("ubuntu-latest")
   }),
   commands: section({
     preflight: nullableText.default(null),
     preflightFull: nullableText.default(null),
-    checks: z6.array(text).default([]),
+    checks: z7.array(text2).default([]),
     test: nullableText.default(null),
     // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
     mutation: nullableText.default(null)
   }),
-  acceptance: z6.object({
-    enabled: z6.boolean().default(false),
+  acceptance: z7.object({
+    enabled: z7.boolean().default(false),
     dir: nullableText.default(null),
     pendingSuffix: nullableText.default(null),
     run: nullableText.default(null)
@@ -496,38 +626,41 @@ var ConfigSchema = z6.object({
     path: ["dir"]
   }).prefault({}),
   laws: section({
-    source: z6.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
-    claudeMdHeading: text.default("## Invariants")
+    source: z7.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
+    claudeMdHeading: text2.default("## Invariants")
   }),
   risk: section({
-    storedShape: z6.array(regexSource).default([]),
-    sharedContract: z6.array(text).default([])
+    storedShape: z7.array(regexSource).default([]),
+    sharedContract: z7.array(text2).default([])
   }),
   // Landings: the paths that must reach the default branch in a landing of their own (a
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
-  landings: section({ alone: z6.array(regexSource).default([]) }),
+  landings: section({ alone: z7.array(regexSource).default([]) }),
   notify: section({
-    slack: z6.object({ channelVar: text.default("OMNI_SLACK_CHANNEL"), tokenSecret: text.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
+    slack: z7.object({ channelVar: text2.default("OMNI_SLACK_CHANNEL"), tokenSecret: text2.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
   }),
   limits: section({
-    stallDays: z6.number().int().positive().default(5),
-    attempts: z6.number().int().positive().default(3),
-    claimStaleMinutes: z6.number().int().positive().default(60),
-    beforeAfterMaxBytes: z6.number().int().positive().default(512e3)
+    stallDays: z7.number().int().positive().default(5),
+    attempts: z7.number().int().positive().default(3),
+    claimStaleMinutes: z7.number().int().positive().default(60),
+    beforeAfterMaxBytes: z7.number().int().positive().default(512e3),
+    // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
+    // and a config that does not set it parses exactly as before.
+    hookMaxBytes: z7.number().int().positive().optional()
   }),
   ask: section({ url: askUrl.nullable().default(null) }),
   // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
   // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
-  dossier: section({ enabled: z6.boolean().default(false) }),
+  dossier: section({ enabled: z7.boolean().default(false) }),
   // PRD 262: whether a PRD ships with a release note (`<folder>/release.md`, `kit/lib/releases/`).
   // Off by default: a repository opts in. When it is on, `omni ship` refuses a PRD whose folder has
   // no note, or whose note `omni check releases` would fail.
-  releaseNotes: section({ enabled: z6.boolean().default(false) }),
+  releaseNotes: section({ enabled: z7.boolean().default(false) }),
   // PRD 251: whether an outbox may be answered outside the pull request — at the end of
   // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
   // opts out. The pull request takes replies either way.
-  answers: section({ enabled: z6.boolean().default(true) }),
+  answers: section({ enabled: z7.boolean().default(true) }),
   // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
   // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
   // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
@@ -537,21 +670,33 @@ var ConfigSchema = z6.object({
     deployment: nullableText.default(null),
     setup: nullableText.default(null),
     bypassEnv: envName.nullable().default(null),
-    maxSeconds: z6.number().int().positive().default(60)
+    maxSeconds: z7.number().int().positive().default(60)
   }),
-  markers: section({ prefix: z6.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
+  markers: section({ prefix: z7.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
   // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
   // template: `{name}` and `{home}` are filled from the keys they name, anything else is printed
   // as written. `home` defaults to the Omni Loop home page (ADR-0047, ADR-0055).
-  signature: z6.object({
+  signature: z7.object({
     name: trailerPart.default("Omni-man"),
     email: trailerPart.default("333776611+omni-loop-invader[bot]@users.noreply.github.com"),
     home: httpsUrl.default("https://www.omni-loop.xyz"),
-    footer: text.default("\u{1F9B8} {name} by [Omni Loop]({home}) \xA9")
+    footer: text2.default("\u{1F9B8} {name} by [Omni Loop]({home}) \xA9")
   }).strict().nullable().prefault({}),
-  plan: planSection.optional()
-}).strict();
+  plan: planSection.optional(),
+  // PRD 1089: the repository's flow — its rules, its areas and its hooks (`kit/lib/flow/`).
+  // Optional: a config without it runs the loop as the kit defines it, and parses with no `flow` key.
+  flow: FlowSchema.optional()
+}).strict().superRefine(({ pr, flow }, issues) => {
+  const hooks = flow?.hooks?.["pr.open"];
+  if (pr.openWith !== null && hooks !== void 0 && hooksByMode(hooks).replace !== null) {
+    issues.addIssue({
+      code: "custom",
+      path: ["flow", "hooks", "pr.open", "replace"],
+      message: "pr.openWith already replaces how a pull request opens \u2014 keep one of the two"
+    });
+  }
+});
 var isRecord = (value) => value !== null && typeof value === "object";
 var RENAMED = Object.freeze([{ section: "branches", from: "terraform", to: "invade" }]);
 function renamedKey(raw) {
@@ -578,71 +723,71 @@ function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}) {
   try {
     raw = parse(source) ?? {};
   } catch (error) {
-    throw new ConfigError(`${file}: not valid YAML \u2014 ${messageOf(error).split("\n")[0]}`);
+    throw new ConfigError(`${file}: not valid YAML \u2014 ${messageOf(error).split("\n")[0]}`, { invalid: true });
   }
   if (migrate) raw = migrateConfig(raw);
   const renamed = renamedKey(raw);
   if (renamed) {
     const { section: name, from, to } = renamed;
-    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed \u2014 call it ${name}.${to}`);
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed \u2014 call it ${name}.${to}`, { invalid: true });
   }
   const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
     const more = others.length ? `
 ${others.map((line) => `  - ${line}`).join("\n")}` : "";
-    throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`);
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
   }
   return result.data;
 }
 
 // apps/omni-app/src/outbox-check/github-schema.ts
-import { z as z7 } from "zod";
-var Label = z7.union([z7.string(), z7.looseObject({ name: z7.string().nullish() })]);
-var PullSchema = z7.looseObject({
-  base: z7.looseObject({ ref: z7.string(), sha: z7.string() }),
-  head: z7.looseObject({ ref: z7.string(), sha: z7.string() }),
-  labels: z7.array(Label).nullish()
+import { z as z8 } from "zod";
+var Label = z8.union([z8.string(), z8.looseObject({ name: z8.string().nullish() })]);
+var PullSchema = z8.looseObject({
+  base: z8.looseObject({ ref: z8.string(), sha: z8.string() }),
+  head: z8.looseObject({ ref: z8.string(), sha: z8.string() }),
+  labels: z8.array(Label).nullish()
 });
-var PullHeadSchema = z7.looseObject({ head: z7.looseObject({ sha: z7.string() }) });
-var IssueSchema = z7.looseObject({
-  state: z7.string(),
-  labels: z7.array(Label).nullish(),
-  pull_request: z7.unknown().optional()
+var PullHeadSchema = z8.looseObject({ head: z8.looseObject({ sha: z8.string() }) });
+var IssueSchema = z8.looseObject({
+  state: z8.string(),
+  labels: z8.array(Label).nullish(),
+  pull_request: z8.unknown().optional()
 });
-var CreatedSchema = z7.looseObject({ id: z7.number() });
-var CommentWrittenSchema = z7.looseObject({ id: CommentIdSchema });
-var CommentsPageSchema = z7.array(z7.looseObject({ id: CommentIdSchema, body: z7.string().nullish() }));
-var ComparePageSchema = z7.looseObject({
-  files: z7.array(z7.looseObject({ filename: z7.string(), status: z7.string() })).nullish(),
-  commits: z7.array(z7.looseObject({ sha: z7.string(), commit: z7.looseObject({ message: z7.string().nullish() }).nullish() })).nullish()
+var CreatedSchema = z8.looseObject({ id: z8.number() });
+var CommentWrittenSchema = z8.looseObject({ id: CommentIdSchema });
+var CommentsPageSchema = z8.array(z8.looseObject({ id: CommentIdSchema, body: z8.string().nullish() }));
+var ComparePageSchema = z8.looseObject({
+  files: z8.array(z8.looseObject({ filename: z8.string(), status: z8.string() })).nullish(),
+  commits: z8.array(z8.looseObject({ sha: z8.string(), commit: z8.looseObject({ message: z8.string().nullish() }).nullish() })).nullish()
 });
-var CheckRunsSchema = z7.looseObject({
-  check_runs: z7.array(z7.looseObject({ id: z7.number(), status: z7.string().nullish() })).nullish()
+var CheckRunsSchema = z8.looseObject({
+  check_runs: z8.array(z8.looseObject({ id: z8.number(), status: z8.string().nullish() })).nullish()
 });
-var TreeEntrySchema = z7.looseObject({
-  path: z7.string(),
-  mode: z7.string(),
-  type: z7.string(),
-  sha: z7.string(),
-  size: z7.number().nullish()
+var TreeEntrySchema = z8.looseObject({
+  path: z8.string(),
+  mode: z8.string(),
+  type: z8.string(),
+  sha: z8.string(),
+  size: z8.number().nullish()
 });
-var TreeSchema = z7.looseObject({ truncated: z7.boolean().nullish(), tree: z7.array(TreeEntrySchema) });
-var BlobSchema = z7.looseObject({ content: z7.string(), encoding: z7.string().nullish() });
-var RefSchema = z7.looseObject({ object: z7.looseObject({ sha: z7.string() }) });
-var GitCommitSchema = z7.looseObject({ tree: z7.looseObject({ sha: z7.string() }) });
-var ShaSchema = z7.looseObject({ sha: z7.string() });
-var PullWrittenSchema = z7.looseObject({ number: PrNumberSchema, html_url: z7.string() });
-var PullsSchema = z7.array(
-  z7.looseObject({
+var TreeSchema = z8.looseObject({ truncated: z8.boolean().nullish(), tree: z8.array(TreeEntrySchema) });
+var BlobSchema = z8.looseObject({ content: z8.string(), encoding: z8.string().nullish() });
+var RefSchema = z8.looseObject({ object: z8.looseObject({ sha: z8.string() }) });
+var GitCommitSchema = z8.looseObject({ tree: z8.looseObject({ sha: z8.string() }) });
+var ShaSchema = z8.looseObject({ sha: z8.string() });
+var PullWrittenSchema = z8.looseObject({ number: PrNumberSchema, html_url: z8.string() });
+var PullsSchema = z8.array(
+  z8.looseObject({
     number: PrNumberSchema,
-    html_url: z7.string(),
-    state: z7.string(),
-    merged_at: z7.string().nullish(),
-    head: z7.looseObject({ sha: z7.string().nullish() }).nullish()
+    html_url: z8.string(),
+    state: z8.string(),
+    merged_at: z8.string().nullish(),
+    head: z8.looseObject({ sha: z8.string().nullish() }).nullish()
   })
 );
-var FailureSchema = z7.looseObject({ status: z7.unknown(), message: z7.unknown() }).partial();
+var FailureSchema = z8.looseObject({ status: z8.unknown(), message: z8.unknown() }).partial();
 function messageField(error) {
   const read = FailureSchema.safeParse(error);
   return read.success ? read.data.message : void 0;
@@ -657,17 +802,17 @@ var DEFAULT_SHAPES = (() => {
   const { branches, prLinks } = parseConfig("kit: 1");
   return Object.freeze({ branches, prLinks });
 })();
-var PullEventSchema = z8.looseObject({
-  action: z8.unknown(),
-  repository: z8.looseObject({ full_name: z8.string().min(1), default_branch: z8.string().nullish() }),
-  pull_request: z8.looseObject({
-    head: z8.looseObject({ ref: z8.string() }),
-    base: z8.looseObject({ ref: z8.string() }),
-    merged: z8.unknown(),
-    merged_at: z8.string().nullish(),
-    created_at: z8.string().nullish(),
-    updated_at: z8.string().nullish(),
-    body: z8.unknown()
+var PullEventSchema = z9.looseObject({
+  action: z9.unknown(),
+  repository: z9.looseObject({ full_name: z9.string().min(1), default_branch: z9.string().nullish() }),
+  pull_request: z9.looseObject({
+    head: z9.looseObject({ ref: z9.string() }),
+    base: z9.looseObject({ ref: z9.string() }),
+    merged: z9.unknown(),
+    merged_at: z9.string().nullish(),
+    created_at: z9.string().nullish(),
+    updated_at: z9.string().nullish(),
+    body: z9.unknown()
   })
 });
 function toStageEvent(event, payload, shapes = DEFAULT_SHAPES) {
@@ -764,23 +909,23 @@ function match(template, ref) {
 function fill(template, topic) {
   return template.replace("{topic}", String(topic));
 }
-function escape(text2) {
-  return text2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape(text3) {
+  return text3.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/stage-forward/touch.ts
 import { posix as posix2 } from "node:path";
-import { z as z10 } from "zod";
+import { z as z11 } from "zod";
 
 // kit/lib/layout.ts
-import { existsSync as existsSync3, readdirSync } from "node:fs";
-import { join as join3, posix } from "node:path";
+import { existsSync as existsSync4, readdirSync } from "node:fs";
+import { join as join4, posix } from "node:path";
 
 // kit/lib/playbook/forms.ts
-import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
-import { join as join2 } from "node:path";
+import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
+import { join as join3 } from "node:path";
 import { parse as parse2 } from "yaml";
-import { z as z9 } from "zod";
+import { z as z10 } from "zod";
 var req = (id) => Object.freeze({ id, required: true });
 var opt = (id) => Object.freeze({ id, required: false });
 var form = (id, kind, slots, { pointerOnly = false } = {}) => Object.freeze({ id, kind, pointerOnly, slots: Object.freeze(slots) });
@@ -805,15 +950,15 @@ var FORM_STATES = ["blank", "filled", "pointer"];
 var OLD_DATE_KEY = "terraformed";
 var DATE = /^\d{4}-\d{2}-\d{2}$/;
 var EVIDENCE = /^(.+)@([0-9a-f]{7,40})$/;
-var FrontMatterSchema = z9.object({
-  form: z9.enum(FORM_IDS),
-  "form-version": z9.number().int().positive(),
-  state: z9.enum(FORM_STATES),
-  "points-to": z9.string().min(1).nullable(),
-  evidence: z9.array(z9.string().regex(EVIDENCE, "each entry is <path>@<hex>, the file at its git hash-object")).nullable(),
-  invaded: z9.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
-  [OLD_DATE_KEY]: z9.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
-  index: z9.string().min(1).optional()
+var FrontMatterSchema = z10.object({
+  form: z10.enum(FORM_IDS),
+  "form-version": z10.number().int().positive(),
+  state: z10.enum(FORM_STATES),
+  "points-to": z10.string().min(1).nullable(),
+  evidence: z10.array(z10.string().regex(EVIDENCE, "each entry is <path>@<hex>, the file at its git hash-object")).nullable(),
+  invaded: z10.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
+  [OLD_DATE_KEY]: z10.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
+  index: z10.string().min(1).optional()
 }).strict().superRefine((fm, context) => {
   if (fm.invaded === void 0 && fm[OLD_DATE_KEY] === void 0) {
     context.addIssue({ code: "custom", path: ["invaded"], message: "missing \u2014 a YYYY-MM-DD date, or null" });
@@ -849,16 +994,16 @@ var DEFAULTS = (() => {
   const { paths, branches } = parseConfig("kit: 1");
   return Object.freeze({ delivery: posix2.normalize(paths.delivery).replace(/\/+$/, ""), branches });
 })();
-var Repository = z10.looseObject({ repository: z10.looseObject({ full_name: z10.string().min(1) }) });
-var IssueEvent = z10.looseObject({ issue: z10.looseObject({ number: IssueNumberSchema, pull_request: z10.unknown().optional() }) });
-var PullEvent = z10.looseObject({ pull_request: z10.looseObject({ number: PrNumberSchema, head: z10.looseObject({ ref: z10.string().min(1) }) }) });
-var CheckSuiteEvent = z10.looseObject({
-  check_suite: z10.looseObject({ head_branch: z10.string().min(1).nullish(), pull_requests: z10.array(z10.looseObject({ number: PrNumberSchema })).nullish() })
+var Repository = z11.looseObject({ repository: z11.looseObject({ full_name: z11.string().min(1) }) });
+var IssueEvent = z11.looseObject({ issue: z11.looseObject({ number: IssueNumberSchema, pull_request: z11.unknown().optional() }) });
+var PullEvent = z11.looseObject({ pull_request: z11.looseObject({ number: PrNumberSchema, head: z11.looseObject({ ref: z11.string().min(1) }) }) });
+var CheckSuiteEvent = z11.looseObject({
+  check_suite: z11.looseObject({ head_branch: z11.string().min(1).nullish(), pull_requests: z11.array(z11.looseObject({ number: PrNumberSchema })).nullish() })
 });
-var Files = z10.array(z10.string()).nullish();
-var PushEvent = z10.looseObject({
-  ref: z10.string(),
-  commits: z10.array(z10.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
+var Files = z11.array(z11.string()).nullish();
+var PushEvent = z11.looseObject({
+  ref: z11.string(),
+  commits: z11.array(z11.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
 });
 var issueTouches = (repository, payload) => {
   const read = IssueEvent.safeParse(payload);
@@ -925,14 +1070,14 @@ function forwardTouch(touch, post) {
 
 // apps/omni-app/src/webhook/webhook.ts
 import { Webhooks } from "@octokit/webhooks";
-import { z as z12 } from "zod";
+import { z as z13 } from "zod";
 
 // apps/omni-app/src/inbox-check/canon-actions.ts
-import { z as z11 } from "zod";
+import { z as z12 } from "zod";
 var CANON_ACTION_EVENT = "omni-loop/canon.action.requested";
 var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
 var FACTS = /<!--\s*omni-canon\s+(\{[^\n]*?\})\s*-->/;
-var MarkerSchema = z11.looseObject({ prd: z11.unknown(), persona: z11.unknown(), claims: z11.unknown() });
+var MarkerSchema = z12.looseObject({ prd: z12.unknown(), persona: z12.unknown(), claims: z12.unknown() });
 function readCanonMarker(summary) {
   const match2 = FACTS.exec(summary === void 0 || summary === null ? "" : printed(summary));
   if (!match2) return null;
@@ -972,32 +1117,32 @@ var HANDLED = Object.freeze({
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
-var PullRefSchema = z12.looseObject({
+var PullRefSchema = z13.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z12.looseObject({ sha: z12.string().nullish() }).nullish()
+  head: z13.looseObject({ sha: z13.string().nullish() }).nullish()
 });
-var PayloadSchema = z12.looseObject({
-  action: z12.unknown(),
+var PayloadSchema = z13.looseObject({
+  action: z13.unknown(),
   number: PrNumberSchema.nullish(),
-  installation: z12.looseObject({ id: z12.number().nullish() }).nullish(),
-  repository: z12.looseObject({
-    name: z12.string(),
-    full_name: z12.string().nullish(),
-    owner: z12.looseObject({ login: z12.string().nullish() }).nullish()
+  installation: z13.looseObject({ id: z13.number().nullish() }).nullish(),
+  repository: z13.looseObject({
+    name: z13.string(),
+    full_name: z13.string().nullish(),
+    owner: z13.looseObject({ login: z13.string().nullish() }).nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    merged: z12.boolean().nullish(),
-    merge_commit_sha: z12.string().nullish(),
-    merged_at: z12.string().nullish()
+    merged: z13.boolean().nullish(),
+    merge_commit_sha: z13.string().nullish(),
+    merged_at: z13.string().nullish()
   }).nullish(),
-  check_run: z12.looseObject({
-    id: z12.number().nullish(),
-    external_id: z12.string().nullish(),
-    head_sha: z12.string().nullish(),
-    pull_requests: z12.array(PullRefSchema).nullish(),
-    output: z12.looseObject({ summary: z12.unknown() }).nullish()
+  check_run: z13.looseObject({
+    id: z13.number().nullish(),
+    external_id: z13.string().nullish(),
+    head_sha: z13.string().nullish(),
+    pull_requests: z13.array(PullRefSchema).nullish(),
+    output: z13.looseObject({ summary: z13.unknown() }).nullish()
   }).nullish(),
-  requested_action: z12.looseObject({ identifier: z12.unknown() }).nullish()
+  requested_action: z13.looseObject({ identifier: z13.unknown() }).nullish()
 });
 async function receiveWebhook({
   body,
