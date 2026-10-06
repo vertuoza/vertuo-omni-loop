@@ -428,6 +428,44 @@ describe('retro — a multi-repository PRD (PRD 1130)', () => {
     const { ctx } = await engine(scenario).execute();
     expect(ranSteps(ctx).filter((id) => id.startsWith('target-'))).toEqual([]);
   });
+
+  /** The comments carrying the target marker in one stubbed repository, by the PR they are on. */
+  const targetComments = (github: Stub) =>
+    github.state.comments.filter((comment) => comment.body.startsWith('<!-- omni-outbox-retro-target -->')).map((comment) => [comment.issue, comment.body]);
+
+  it("comments once on each read target's merged feature PR, with the retro PR's link and that repository's findings", async () => {
+    const scenario = megaScenario();
+    const { ctx, result, error } = await megaEngine(scenario).execute();
+    expect(error).toBeUndefined();
+    expect(ranSteps(ctx).filter((id) => id.startsWith('comment-target-'))).toEqual(['comment-target-backend', 'comment-target-frontend']);
+    const retroPr = z.object({ pr: z.object({ url: z.string() }) }).parse(result).pr.url;
+
+    const [backend, ...more] = targetComments(scenario.github.backend);
+    expect(more).toEqual([]);
+    expect(backend?.[0]).toBe(40);
+    expect(backend?.[1]).toContain(`(${retroPr})`);
+    expect(backend?.[1]).toContain('- F1 · Lines 5-8 of `src/store/colour.js` were rewritten again and again · [#900](https://github.com/acme/plan/issues/900)');
+    expect(backend?.[1]).toContain('- F2 · Slice s3 took far longer than the others');
+    expect(targetComments(scenario.github.frontend)).toEqual([[50, expect.stringContaining('\nNo finding for this repository.\n')]]);
+    expect(targetComments(scenario.github.plan)).toEqual([]);
+  });
+
+  it('rewrites each target comment in place on a replay, never a second one', async () => {
+    const scenario = megaScenario();
+    await megaEngine(scenario).execute();
+    const { error } = await megaEngine(scenario).execute();
+    expect(error).toBeUndefined();
+    expect(targetComments(scenario.github.backend).map(([pr]) => pr)).toEqual([40]);
+    expect(targetComments(scenario.github.frontend).map(([pr]) => pr)).toEqual([50]);
+    expect(scenario.github.backend.state.requests.filter((r) => r.route === 'PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}')).toHaveLength(1);
+  });
+
+  it('comments on no pull request of a PRD of one repository', async () => {
+    const scenario = widgetScenario();
+    const { ctx } = await engine(scenario).execute();
+    expect(ranSteps(ctx).filter((id) => id.startsWith('comment-target-'))).toEqual([]);
+    expect(targetComments(scenario.github)).toEqual([]);
+  });
 });
 
 describe('retro — judged worth a pull request', () => {

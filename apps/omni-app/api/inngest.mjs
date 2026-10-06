@@ -11659,7 +11659,7 @@ function renderIssue({
     `evidence: [${evidence.map((item) => scalar(item.url)).join(", ")}]`,
     "```"
   ];
-  return { title: `retro(PRD ${prd}): ${titleOf2(finding, words)}`, body: `${lines.join("\n")}
+  return { title: `retro(PRD ${prd}): ${namedFor(sheet, finding, titleOf2(finding, words))}`, body: `${lines.join("\n")}
 ` };
 }
 function lessonOf(finding, words, prose) {
@@ -11671,6 +11671,11 @@ function lessonOf(finding, words, prose) {
 }
 function titleOf2(finding, words) {
   return typeof words.title === "string" && words.title ? words.title : finding.title;
+}
+function namedFor(sheet, finding, title) {
+  const target2 = sheet.repositories?.find((one) => !one.plan && one.repo === finding.repo);
+  if (!target2 || title.startsWith(`${target2.repo}: `)) return title;
+  return `${target2.repo}: ${title}`;
 }
 function field(value) {
   if (value === void 0 || value === null || value === "") return null;
@@ -12112,6 +12117,70 @@ function ranked(findings) {
   return findings.map((finding, index) => ({ finding, index })).sort((a, b) => rankOf(a.finding.kind) - rankOf(b.finding.kind) || a.index - b.index).map(({ finding }, index) => ({ ...finding, ref: `F${index + 1}` }));
 }
 
+// apps/omni-app/src/retro/target-comment.ts
+import { z as z32 } from "zod";
+var targetMarker = (prefix) => `<!-- ${prefix}-retro-target -->`;
+var TargetCommentedSchema = z32.union([
+  z32.object({ comments: z32.array(z32.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z32.boolean() })) }),
+  z32.object({ refused: z32.number() })
+]);
+function targetComment({
+  prd,
+  repo,
+  link,
+  findings,
+  issues
+}) {
+  const own = findings.filter((finding) => finding.repo === repo);
+  const where = link.url ? `[${link.label}](${link.url})` : link.label;
+  const lines = own.map((finding) => {
+    const issue = issues[finding.id];
+    const title = finding.title.startsWith(`${repo}: `) ? finding.title.slice(repo.length + 2) : finding.title;
+    return `- ${finding.ref} \xB7 ${title}${issue ? ` \xB7 [#${issue.number}](${issue.url})` : ""}`;
+  });
+  return [
+    `**Retro of PRD ${prd.number}** \xB7 ${prd.title}`,
+    "",
+    `The whole retro, across every repository of the PRD: ${where}.`,
+    "",
+    `### Findings in ${repo}`,
+    "",
+    ...lines.length > 0 ? lines : ["No finding for this repository."]
+  ].join("\n");
+}
+async function commentTargets({ step, octokitFor, id, targets, prefix, ...text7 }) {
+  const out = {};
+  for (const target2 of targets) {
+    if (!target2.read) continue;
+    const [owner = "", repo = ""] = target2.repo.split("/");
+    const body = targetComment({ ...text7, repo: target2.repo });
+    out[target2.name] = await savedStep(
+      step,
+      id(`comment-target-${target2.name}`),
+      TargetCommentedSchema,
+      () => refusedAs2(async () => {
+        const octokit = await octokitFor(target2.installationId);
+        const comments = [];
+        for (const pull of target2.featurePrs.filter((one) => one.merged)) {
+          const written = await upsertComment(octokit, { owner, repo, prNumber: pull.number, marker: targetMarker(prefix), text: body });
+          comments.push({ prNumber: pull.number, ...written });
+        }
+        return { comments };
+      })
+    );
+  }
+  return out;
+}
+async function refusedAs2(write) {
+  try {
+    return await write();
+  } catch (error) {
+    const status = typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
+    if (status === 401 || status === 403 || status === 404) return { refused: status };
+    throw error;
+  }
+}
+
 // apps/omni-app/src/retro/retro.ts
 var RETRO_FUNCTION_ID = "retro";
 var MERGE_RUN = "merge";
@@ -12206,7 +12275,15 @@ async function runRetro(input) {
   const folder = retroFolder(input.prd, input.config);
   const sheet = await factSheet(input, id, folder);
   const judged2 = await judgeSheet(input, id, sheet);
-  return judged2.verdict.worthIt ? publishRun(input, id, folder, sheet, judged2) : commentRun(input, id, sheet, judged2);
+  const result = judged2.verdict.worthIt ? await publishRun(input, id, folder, sheet, judged2) : await commentRun(input, id, sheet, judged2);
+  await commentOnTargets(input, id, judged2.whole, result);
+  return result;
+}
+async function commentOnTargets({ step, octokitFor, owner, repo, pr, prd, config, scope, earlier }, id, whole, result) {
+  const retroPr = result.published?.pr ?? earlier?.published?.pr ?? null;
+  const link = retroPr ? { label: `retro PR #${retroPr.number}`, url: retroPr.url } : { label: `the verdict on ${owner}/${repo}#${pr.number}`, url: pr.url };
+  const issues = { ...earlier?.record.issues, ...result.record.issues };
+  await commentTargets({ step, octokitFor, id, targets: scope.targets ?? [], prefix: config.markers.prefix, prd, link, findings: whole.findings, issues });
 }
 async function factSheet(input, id, folder) {
   const { step, github, owner, repo, pr, prd, config, pulls, run, kinds, scope, earlier } = input;

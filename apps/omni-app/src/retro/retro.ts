@@ -18,6 +18,8 @@
 //   or else — not worth it, or not judged (no verdict, or one `guard` refused):
 //   step "verdict"          no branch, no file, no PR, no issue: one comment on the merged feature PR,
 //                           marked `<markers.prefix>-retro-verdict` and rewritten in place on a replay
+//   steps "comment-target-<name>"  a multi-repository PRD's read targets: one comment on each one's
+//                           merged feature PR, the retro's link and its findings (`target-comment.ts`)
 //   step "clock-day-14"     the time, once the merge run is out
 //   "wait-day-14-<n>"       a day at a time, until the merge plus `THRESHOLDS.afterMergeDays` days:
 //                           each wait ends on the tick of the function's own daily schedule, or after
@@ -93,6 +95,7 @@ import { qualify } from './qualify.ts';
 import { withTargets, type TargetRecords } from './targets.detect.ts';
 import { gatherTarget, readTargets, type AppOctokit } from './targets.read.ts';
 import { verdictComment } from './render.ts';
+import { commentTargets } from './target-comment.ts';
 import type { OpenRouterEnv } from '../env.ts';
 import type {
   Config,
@@ -321,7 +324,21 @@ async function runRetro(input: RunInput): Promise<RunResult> {
   const folder = retroFolder(input.prd, input.config);
   const sheet = await factSheet(input, id, folder);
   const judged = await judgeSheet(input, id, sheet);
-  return judged.verdict.worthIt ? publishRun(input, id, folder, sheet, judged) : commentRun(input, id, sheet, judged);
+  const result = judged.verdict.worthIt ? await publishRun(input, id, folder, sheet, judged) : await commentRun(input, id, sheet, judged);
+  await commentOnTargets(input, id, judged.whole, result);
+  return result;
+}
+
+/**
+ * One comment on each read target's merged feature PR (PRD 1130, `target-comment.ts`): the retro's
+ * link, its PR when one was published, else the plan PR its verdict is on, and that repository's
+ * findings of both runs, with the issues either opened. Nothing for a PRD of one repository.
+ */
+async function commentOnTargets({ step, octokitFor, owner, repo, pr, prd, config, scope, earlier }: RunInput, id: StepId, whole: FactSheet, result: RunResult) {
+  const retroPr = result.published?.pr ?? earlier?.published?.pr ?? null;
+  const link = retroPr ? { label: `retro PR #${retroPr.number}`, url: retroPr.url } : { label: `the verdict on ${owner}/${repo}#${pr.number}`, url: pr.url };
+  const issues = { ...earlier?.record.issues, ...result.record.issues };
+  await commentTargets({ step, octokitFor, id, targets: scope.targets ?? [], prefix: config.markers.prefix, prd, link, findings: whole.findings, issues });
 }
 
 /** The id of a step of one run: the merge run's as named, the day-14 run's with its run after it. */
