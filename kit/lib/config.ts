@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
 import { messageOf } from './narrow.ts';
+import { FlowSchema, hooksByMode } from './flow/schema.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
 export const CONFIG_FILE = '.omni-loop/config.yml';
@@ -214,6 +215,9 @@ export const ConfigSchema = z
       attempts: z.number().int().positive().default(3),
       claimStaleMinutes: z.number().int().positive().default(60),
       beforeAfterMaxBytes: z.number().int().positive().default(512000),
+      // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
+      // and a config that does not set it parses exactly as before.
+      hookMaxBytes: z.number().int().positive().optional(),
     }),
     ask: section({ url: askUrl.nullable().default(null) }),
     // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
@@ -254,8 +258,22 @@ export const ConfigSchema = z
       .nullable()
       .prefault({}),
     plan: planSection.optional(),
+    // PRD 1089: the repository's flow — its rules, its areas and its hooks (`kit/lib/flow/`).
+    // Optional: a config without it runs the loop as the kit defines it, and parses with no `flow` key.
+    flow: FlowSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(({ pr, flow }, issues) => {
+    // `pr.openWith` reads as the default area's `pr.open` replace hook: two of them is one too many.
+    const hooks = flow?.hooks?.['pr.open'];
+    if (pr.openWith !== null && hooks !== undefined && hooksByMode(hooks).replace !== null) {
+      issues.addIssue({
+        code: 'custom',
+        path: ['flow', 'hooks', 'pr.open', 'replace'],
+        message: 'pr.openWith already replaces how a pull request opens — keep one of the two',
+      });
+    }
+  });
 
 /**
  * Whether dossiers are on in a repository (PRD 216): `dossier.enabled` is true and `ask.url` is set.

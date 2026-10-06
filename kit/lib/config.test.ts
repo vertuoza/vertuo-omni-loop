@@ -535,3 +535,22 @@ describe('the proof section (PRD 798)', () => {
     expect(JSON.parse(out.join(''))).toEqual({ url: null, deployment: null, setup: null, bypassEnv: null, maxSeconds: 60 });
   });
 });
+
+describe('the flow section (PRD 1089)', () => {
+  it('leaves a config with no flow exactly as it parses today: no flow key, no hookMaxBytes', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(Object.hasOwn(config, 'flow')).toBe(false);
+    expect(Object.hasOwn(config.limits, 'hookMaxBytes')).toBe(false);
+  });
+
+  it('reads a flow and a hook size limit, and refuses a limit that is not a positive whole number', () => {
+    const config = parseConfig("kit: 1\nlimits:\n  hookMaxBytes: 4096\nflow:\n  areas:\n    kernel:\n      paths: ['^src/kernel/']\n");
+    expect(config.limits.hookMaxBytes).toBe(4096);
+    expect(config.flow?.areas?.kernel?.paths).toEqual(['^src/kernel/']);
+    expect(() => parseConfig('kit: 1\nlimits:\n  hookMaxBytes: 0\n', 'c.yml')).toThrow(/c\.yml.*limits\.hookMaxBytes/);
+  });
+
+  it('refuses an unknown key under flow, naming it', () => {
+    expect(() => parseConfig('kit: 1\nflow:\n  steps: {}\n', 'c.yml')).toThrow(/c\.yml.*flow.*steps/);
+  });
+});
