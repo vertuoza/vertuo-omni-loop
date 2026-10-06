@@ -193,6 +193,68 @@ describe('omni plan check', () => {
   });
 });
 
+// PRD 1089: the flow's areas and their plan rules.
+const FLOW_CONFIG = {
+  '.omni-loop/config.yml': `kit: 1
+repo:
+  slug: acme/widgets
+flow:
+  areas:
+    kernel:
+      paths: ['^src/kernel/']
+      rules:
+        plan:
+          - slice: { alone: true, maxFiles: 5 }
+          - wave: first
+          - blocks: all
+    migrations:
+      paths: ['^database/migrations/']
+      rules:
+        plan:
+          - slice: { alone: true, maxFiles: 1 }
+          - landing: alone
+`,
+};
+
+describe('omni plan check — flow (PRD 1089)', () => {
+  async function check(plan: string) {
+    const { root } = makeRepo({ git: true, files: { ...FLOW_CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+    const s = io();
+    const code = await main(['plan', 'check', '7'], { cwd: root, ...s });
+    return { code, out: s.out.join('') };
+  }
+
+  it('refuses a plan that breaks the kernel and migrations rules, naming slice, area and rule', async () => {
+    const { code, out } = await check(
+      planMd([
+        '| s1 | Code | `src/Invoice.php` | — | 1 |',
+        '| s2 | Kernel | `src/kernel/Bus/` | s1 | 2 |',
+        '| s3 | Migration | `database/migrations/x.sql` `src/Total.php` | — | 1 |',
+      ]),
+    );
+    expect(code).toBe(1);
+    expect(out).toMatch(/flow: s2 \(wave 2\) touches area kernel .* — kernel: wave first/);
+    expect(out).toMatch(/flow: s3 touches database\/migrations\/x\.sql \(area migrations\) .* — migrations: slice alone/);
+  });
+
+  it('passes the corrected plan: the kernel first, the migration alone in a landing after it', async () => {
+    const { code, out } = await check(
+      [
+        '# A plan',
+        '',
+        '| id | slice | territory | blocked by | wave | landing |',
+        '| --- | --- | --- | --- | --- | --- |',
+        '| s1 | Kernel | `src/kernel/Bus/` | — | 1 | 1 |',
+        '| s2 | Code | `src/Invoice.php` | s1 | 2 | 1 |',
+        '| s3 | Migration | `database/migrations/x.sql` | — | 1 | 2 |',
+        '',
+      ].join('\n'),
+    );
+    expect(out).toMatch(/all territories and blocks well-formed/);
+    expect(code).toBe(0);
+  });
+});
+
 // PRD 549: a plan repository's plan names a repository per slice.
 const SHA_BACK = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
 const SHA_APPS = '9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921';
@@ -343,6 +405,43 @@ describe('omni plan check — in a plan repository (PRD 549)', () => {
     const { code, out } = await check(planRepoConfig(), multiPlan({ slices: reverse }));
     expect(code).toBe(1);
     expect(out).toMatch(/s1 \(wave 1\) is blocked by s2 \(wave 2\)/);
+  });
+});
+
+describe("omni plan check — each target's imported flow (PRD 1089, s6)", () => {
+  const config = {
+    '.omni-loop/config.yml': [
+      'kit: 1',
+      'repo:',
+      '  slug: vertuoza/vertuo-automation-plan',
+      'plan:',
+      '  targets:',
+      '    - repo: vertuoza/vertuo-backend-php',
+      '      role: back-end',
+      '      knowledge: imported',
+      `      readAt: ${SHA_BACK}`,
+      '    - repo: vertuoza/vertuo-apps',
+      '      role: front-end',
+      '      knowledge: imported',
+      `      readAt: ${SHA_APPS}`,
+      '',
+    ].join('\n'),
+    '.omni-loop/knowledge/repos/vertuo-backend-php/flow/config.yml':
+      "flow:\n  areas:\n    migrations:\n      paths: ['^database/migrations/']\n      rules:\n        plan:\n          - slice: { alone: true }\n",
+    '.omni-loop/knowledge/repos/vertuo-apps/flow/config.yml': 'flow:\n  rules:\n    plan:\n      - slice: { maxFiles: 1 }\n',
+  };
+  const repos = [`| vertuo-backend-php | back-end | ${SHA_BACK} | imported |`, `| vertuo-apps | front-end | ${SHA_APPS} | imported |`];
+
+  it('grades a back-end row against the back end\'s copy and a front-end row against the front end\'s (acceptance 12)', async () => {
+    const slices = [
+      '| s1 | vertuo-backend-php | mixed | `database/migrations/x.sql` `src/` | — | 1 |',
+      '| s2 | vertuo-apps | mixed | `database/migrations/x.sql` `src/` | — | 1 |',
+    ];
+    const { code, out } = await check(config, multiPlan({ repos, slices }));
+    expect(code).toBe(1);
+    expect(out).toMatch(/flow \(vertuo-backend-php\): s1 touches database\/migrations\/x\.sql \(area migrations\) .* — migrations: slice alone/);
+    expect(out).toMatch(/flow \(vertuo-apps\): s2 touches 2 paths — default: slice maxFiles 1/);
+    expect(out).not.toMatch(/flow \(vertuo-apps\): s2 touches database/);
   });
 });
 

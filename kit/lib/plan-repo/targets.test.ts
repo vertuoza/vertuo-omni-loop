@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { formText, makeRepo } from '../../test/fixture.ts';
 import { copyEvidence, readTarget, readTargets, targetsTable } from './targets.ts';
 import type { ExecRaw } from '../context.ts';
-import type { Target, TargetRow } from './targets.ts';
+import type { CopyFlow, Target, TargetRow } from './targets.ts';
+import { parseFlowConfig } from './copy-flow.ts';
 import { assertDefined } from '../../test/assert.ts';
 import { firstPart } from '../narrow.ts';
 
@@ -18,6 +19,32 @@ const FILLED = '---\nform: testing\nstate: filled\n---\n\n# Testing\n';
 const BLANK = '---\nform: testing\nstate: blank\n---\n\n# Testing\n';
 
 const notFound = () => Object.assign(new Error('Command failed: gh api …\ngh: Not Found (HTTP 404)'), { stderr: 'gh: Not Found (HTTP 404)\n' });
+
+/** gh's answer for a repository it cannot read. */
+const unresolved = () =>
+  Object.assign(new Error('Command failed: gh api\ngh: Could not resolve to a Repository (HTTP 404)'), {
+    stderr: 'gh: Could not resolve to a Repository with the name. (HTTP 404)\n',
+  });
+
+/** A `compare` endpoint's answer: a 404 when the repository has no comparison. */
+function compareAnswer(repo: FakeRepo): string {
+  if (!repo.compare) throw notFound();
+  return JSON.stringify({
+    ahead_by: repo.compare.ahead,
+    files: repo.compare.files.map((filename) => ({ filename })),
+  });
+}
+
+/** A `contents` endpoint's answer: the file's text, a directory's listing, or a 404. */
+function contentAnswer(repo: FakeRepo, rest: readonly string[]): string {
+  const files = repo.files ?? {};
+  const path = rest.map(decodeURIComponent).join('/');
+  const content = repo.files?.[path];
+  if (content !== undefined && Object.hasOwn(files, path)) return content;
+  const under = Object.keys(files).filter((f) => f.startsWith(`${path}/`) && !f.slice(path.length + 1).includes('/'));
+  if (under.length) return JSON.stringify(under.map((f) => ({ type: 'file', name: f.split('/').pop(), path: f })));
+  throw notFound();
+}
 
 /**
  * A fake `execFileSync` for one or more repositories. `world[slug]` is `null` for a repository `gh`
@@ -33,25 +60,9 @@ function fakeGh(world: World): { exec: ExecRaw; calls: string[] } {
     calls.push(endpoint);
     const [, owner, name, kind, ...rest] = firstPart(endpoint, '?').split('/');
     const repo = world[`${owner}/${name}`];
-    if (!repo) {
-      throw Object.assign(new Error('Command failed: gh api\ngh: Could not resolve to a Repository (HTTP 404)'), {
-        stderr: 'gh: Could not resolve to a Repository with the name. (HTTP 404)\n',
-      });
-    }
+    if (!repo) throw unresolved();
     if (kind === undefined) return JSON.stringify({ default_branch: repo.branch ?? 'main' });
-    if (kind === 'compare') {
-      if (!repo.compare) throw notFound();
-      return JSON.stringify({
-        ahead_by: repo.compare.ahead,
-        files: repo.compare.files.map((filename) => ({ filename })),
-      });
-    }
-    const path = rest.map(decodeURIComponent).join('/');
-    const content = repo.files?.[path];
-    if (content !== undefined && Object.hasOwn(repo.files ?? {}, path)) return content;
-    const under = Object.keys(repo.files ?? {}).filter((f) => f.startsWith(`${path}/`) && !f.slice(path.length + 1).includes('/'));
-    if (under.length) return JSON.stringify(under.map((f) => ({ type: 'file', name: f.split('/').pop(), path: f })));
-    throw notFound();
+    return kind === 'compare' ? compareAnswer(repo) : contentAnswer(repo, rest);
   };
   return { exec, calls };
 }
@@ -181,6 +192,58 @@ describe('readTargets', () => {
     };
     const rows = readTargets([OWN, { ...OWN, repo: 'acme/typo' }, IMPORTED], { ctx, exec: fakeGh(world).exec });
     expect(rows.map((row) => [row.repo, row.state])).toEqual([['acme/front', 'ok'], ['acme/typo', 'unreachable'], ['acme/back', 'stale']]);
+  });
+});
+
+describe("readTarget — an imported target's flow (PRD 1089, s6)", () => {
+  const FLOW = "flow:\n  areas:\n    kernel:\n      paths: ['^src/kernel/']\n      hooks:\n        do-work.test: { replace: .omni-loop/flow/kernel/tests.md }\n";
+  const HOOK = 'omni-hook: do-work.test\n\nRun phpunit.\n';
+  const HOOK_PATH = '.omni-loop/flow/kernel/tests.md';
+  const still = { ahead: 0, files: [] };
+  const target = (config: string, hook = HOOK) => ({ 'acme/back': { files: { '.omni-loop/config.yml': `kit: 1\n${config}`, [HOOK_PATH]: hook }, compare: still } });
+  const copied = (config: string, hook: string | null = HOOK) => ({ config: parseFlowConfig(config, 'copy'), readHook: (path: string) => (path === HOOK_PATH ? hook : null) });
+  const readWith = (world: World, copyFlow: CopyFlow) => readTarget(IMPORTED, { exec: fakeGh(world).exec, copyFlow });
+  const MOVED = `flow moved since read at ${SHA.slice(0, 7)}`;
+
+  it('reads a target whose flow and hooks are the copy\'s as ok', () => {
+    expect(readWith(target(FLOW), copied(FLOW))).toMatchObject({ state: 'ok', detail: null });
+  });
+
+  it('reads a target whose flow section changed as stale, naming the flow', () => {
+    const moved = FLOW.replace('^src/kernel/', '^src/core/');
+    expect(readWith(target(moved), copied(FLOW))).toMatchObject({ state: 'stale', detail: `${MOVED}: its flow section differs from the copy` });
+  });
+
+  it('reads a target whose hook file changed as stale, naming the hook', () => {
+    expect(readWith(target(FLOW, `${HOOK}And phpstan.\n`), copied(FLOW))).toMatchObject({
+      state: 'stale',
+      detail: `${MOVED}: hook ${HOOK_PATH} differs from the copy`,
+    });
+  });
+
+  it('reads a flow the copy lacks, or one the target dropped, as stale', () => {
+    expect(readWith(target(FLOW), null)).toMatchObject({ state: 'stale', detail: `${MOVED}: the target has a flow its copy lacks` });
+    expect(readWith(target(''), copied(FLOW))).toMatchObject({ state: 'stale', detail: `${MOVED}: the target has no flow any more` });
+    expect(readWith(target(''), null)).toMatchObject({ state: 'ok' });
+  });
+
+  it("reads a copy's flow that cannot be read as stale, saying why", () => {
+    expect(readWith(target(FLOW), { error: 'not valid YAML' })).toMatchObject({ state: 'stale', detail: `${MOVED}: the copy's flow cannot be read — not valid YAML` });
+  });
+
+  it('joins a moved flow to changed evidence, and compares nothing when no copied flow is given', () => {
+    const world = { 'acme/back': { files: { '.omni-loop/config.yml': `kit: 1\n${FLOW}` }, compare: { ahead: 3, files: ['composer.json'] } } };
+    const row = readTarget(IMPORTED, { exec: fakeGh(world).exec, evidence: new Set(['composer.json']), copyFlow: null });
+    expect(row).toMatchObject({ state: 'stale', detail: `3 commits, 1 evidence file changed; ${MOVED}: the target has a flow its copy lacks` });
+    expect(read(IMPORTED, target(FLOW))).toMatchObject({ state: 'ok' });
+  });
+
+  it("compares each imported target's copy through readTargets", () => {
+    const { ctx } = makeRepo({ files: { '.omni-loop/knowledge/repos/back/flow/config.yml': FLOW, [`.omni-loop/knowledge/repos/back/flow/${HOOK_PATH}`]: HOOK } });
+    expect(readTargets([IMPORTED], { ctx, exec: fakeGh(target(FLOW)).exec }).map(({ state }) => state)).toEqual(['ok']);
+    expect(readTargets([IMPORTED], { ctx, exec: fakeGh(target(FLOW, 'changed\n')).exec }).map(({ detail }) => detail)).toEqual([
+      `${MOVED}: hook ${HOOK_PATH} differs from the copy`,
+    ]);
   });
 });
 

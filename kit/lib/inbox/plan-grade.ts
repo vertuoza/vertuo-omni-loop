@@ -14,17 +14,32 @@
 // `## Landings` table may name each landing and say what must be true before it is merged. Waves
 // are counted within a landing, a slice is never blocked by a slice of another landing (the landing
 // order carries that), and landing numbers run from 1 with no gap. A plan with no `landing` column
-// has one landing and grades as it always did. When the config declares `landings.alone` patterns,
-// a slice touching a path one of them matches touches nothing else, and a landing holding such a
-// slice holds only such slices: a migration reaches the default branch in a pull request of its own.
+// has one landing and grades as it always did.
+//
+// Then the `rules.plan` of the repository's flow (PRD 1089, `../flow/plan-rules.ts`): per area,
+// `slice.alone`, `slice.maxFiles`, `wave: first`, `blocks: all` and `landing: alone`, and a slice
+// meeting two `merge` methods or two `replace` hooks. `landings.alone` patterns read as an area that
+// lands alone: a slice touching a path one of them matches touches nothing else, and a landing
+// holding such a slice holds only such slices, so a migration reaches the default branch in a pull
+// request of its own. With no `flow` and no `landings.alone`, nothing more is refused.
+//
+// In a plan repository (PRD 1089, s6) each repository's rows are graded together, against that
+// repository's flow: the plan repository's own for its rows, a target's imported copy
+// (`targets`, read by `../plan-repo/copy-flow.ts`) for that target's rows, and the kit's defaults for a
+// target with no copied flow. So the same path meets different rules in two repositories, and a rule
+// across slices (`wave: first`, `blocks: all`, `landing: alone`) reads the slices of one repository.
+import { planRuleViolations } from '../flow/plan-rules.ts';
+import { resolveFlow } from '../flow/resolve.ts';
+import { NO_FLOW } from '../plan-repo/copy-flow.ts';
+import type { FlowConfig, TargetFlow } from '../plan-repo/copy-flow.ts';
 import { defined, messageOf } from '../narrow.ts';
 import type { Config, Slice } from '../types.ts';
 import { collisionRows, parsePlanLandings, parsePlanRepositories, parsePlanSlices, sameWaveCollisions } from './territory.ts';
 import type { Collision, PlanLanding, PlanRepository } from './territory.ts';
 
 /** What the grading reads of a config: its `plan` section, when it is a plan repository, its slug,
- * and the paths that land alone. */
-export type GradeConfig = Pick<Config, 'plan' | 'repo' | 'landings'>;
+ * the paths that land alone, and its flow (`pr` for the flow's aliases). */
+export type GradeConfig = Pick<Config, 'plan' | 'repo' | 'landings' | 'flow' | 'pr'>;
 
 /** One repository's collision matrix: `repo` is `null` for an ordinary plan. */
 export type CollisionMatrix = { repo: string | null; rows: ReturnType<typeof collisionRows> };
@@ -139,41 +154,6 @@ function landingTableViolations(rows: readonly PlanLanding[], used: readonly num
   return [...violations, ...used.filter((landing) => !seen.has(landing)).map((landing) => `## Landings: landing ${landing} holds slices and has no row.`)];
 }
 
-/** A slice's territory split by `alone`: the prefixes a land-alone pattern matches, and the rest. */
-function aloneSplit(slice: Slice, alone: readonly RegExp[]): { alone: string[]; other: string[] } {
-  const matches = (prefix: string) => alone.some((pattern) => pattern.test(prefix));
-  return { alone: slice.territory.filter(matches), other: slice.territory.filter((prefix) => !matches(prefix)) };
-}
-
-/** The land-alone rule, when the config declares patterns: a slice touching a land-alone path touches
- * nothing else, and a landing holding a land-alone slice holds no slice that touches none. A slice
- * that mixes the two is refused once, by the first rule. `[]` with no pattern. */
-function landAloneViolations(slices: readonly Slice[], patterns: readonly string[]): string[] {
-  if (patterns.length === 0) return [];
-  const alone = patterns.map((source) => new RegExp(source));
-  const split = new Map(slices.map((slice) => [slice.id, aloneSplit(slice, alone)]));
-  const violations: string[] = [];
-  for (const slice of slices) {
-    const { alone: aloneGround, other } = split.get(slice.id) ?? { alone: [], other: [] };
-    if (aloneGround.length > 0 && other.length > 0) {
-      violations.push(
-        `landing: ${slice.id} (landing ${slice.landing}) touches ${aloneGround.join(', ')}, which lands alone, and also ${other.join(', ')} — a slice touching a land-alone path touches nothing else.`,
-      );
-    }
-  }
-  for (const landing of new Set(slices.map((slice) => slice.landing))) {
-    const members = slices.filter((slice) => slice.landing === landing);
-    const lone = members.filter((slice) => split.get(slice.id)?.other.length === 0 && slice.territory.length > 0);
-    const rest = members.filter((slice) => split.get(slice.id)?.alone.length === 0);
-    if (lone.length > 0 && rest.length > 0) {
-      violations.push(
-        `landing: landing ${landing} holds ${lone.map((slice) => slice.id).join(', ')}, which land alone, and ${rest.map((slice) => slice.id).join(', ')}, which do not — a landing holding a land-alone slice holds only land-alone slices.`,
-      );
-    }
-  }
-  return violations;
-}
-
 /** The distinct waves of `slices`, in order. */
 function wavesOf(slices: readonly Slice[]): (number | null)[] {
   return [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
@@ -193,6 +173,25 @@ export function gradedLandings(slices: readonly Slice[], rows: readonly PlanLand
       slices: members.map((slice) => slice.id),
       waves: wavesOf(members),
     };
+  });
+}
+
+/**
+ * The flow's plan rules in a plan repository: each repository's rows against its own flow (see the
+ * module note), every line naming the repository after its field. A target whose copied flow cannot
+ * be read is refused once, and its rows meet the kit's defaults.
+ */
+function repositoryFlowViolations(
+  slices: readonly Slice[],
+  { config, targets }: { config: GradeConfig; targets: ReadonlyMap<string, TargetFlow> },
+): string[] {
+  const planName = config.repo.slug === null ? null : shortName(config.repo.slug);
+  return [...byRepository(slices)].flatMap(([repo, group]) => {
+    const found = repo === null ? undefined : targets.get(repo);
+    const unreadable = found !== undefined && !found.ok ? [`flow: ${repo}'s imported flow at ${found.file} cannot be read — ${found.reason}`] : [];
+    const own: FlowConfig = repo === planName ? config : found?.ok ? found.config : NO_FLOW;
+    const named = planRuleViolations(group, resolveFlow(own)).map((line) => line.replace(/^(\w+): /, `$1 (${repo}): `));
+    return [...unreadable, ...named];
   });
 }
 
@@ -305,9 +304,14 @@ function byRepository(slices: readonly Slice[]): Map<string | null, Slice[]> {
  * then the only violation. Never throws on a plan's content.
  *
  * @param {string} markdown   the plan's `plan.md`
- * @param {{ config: object }} options   the parsed config (`plan`, `repo.slug` and `landings.alone` are read)
+ * @param {{ config: object, targets?: Map }} options   the parsed config (`plan`, `repo.slug`, `landings.alone`
+ *   and `flow` are read), and in a plan repository each target's copied flow by its short name
+ *   (`targetFlows`): a target absent from it meets the kit's defaults
  */
-export function gradePlan(markdown: string, { config }: { config: GradeConfig }): PlanGrade {
+export function gradePlan(
+  markdown: string,
+  { config, targets = new Map() }: { config: GradeConfig; targets?: ReadonlyMap<string, TargetFlow> },
+): PlanGrade {
   let slices: Slice[];
   try {
     slices = parsePlanSlices(markdown);
@@ -339,7 +343,7 @@ export function gradePlan(markdown: string, { config }: { config: GradeConfig })
       : repositoryViolations(slices, repositories, { planSlug: defined(config.repo.slug, "the plan repository's repo.slug"), targets: planSection.targets })), // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...landingViolations(slices, landingRows),
-    ...landAloneViolations(slices, config.landings.alone),
+    ...(multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config))),
     ...blockedByViolations(slices),
     ...collisions.map(
       (collision) =>

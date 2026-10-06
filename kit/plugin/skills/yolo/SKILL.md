@@ -22,6 +22,18 @@ nothing.
 feature PR, on the Omni page, or, when the gate ends red and `answers.enabled` is on, here in the
 terminal (the end of step 6). Only `stopped` and `blocked` hold a slice, and only that one.
 
+**Flow points.** A repository may hook the loop at named points (the `flow` of its config). This
+skill has one, `yolo.ready` (step 5, item 4). At it, run
+`node .omni-loop/bin/omni.mjs flow show yolo.ready` and follow what it prints: every `before` hook,
+then the kit's step, then every `after` hook (`yolo.ready` takes no `replace`). A hook is Markdown to
+follow; an input it leaves as `{name}` is filled from this step. Following a hook ends on its verdict
+line (`omni-hook yolo.ready: pass`, or `omni-hook yolo.ready: fail <why>`): write what it produced,
+that line last, to a scratch file and run
+`node .omni-loop/bin/omni.mjs flow verdict yolo.ready --from <file>`. `ok` carries on; `not ok` stops
+the point as a failing kit step would, and so does `flow show` exiting 1 (a hook file missing). A
+hook never loosens a guard: the gate, `omni ship` and the stacked base's check run whatever it says.
+With no `flow`, `flow show` prints `hooks none` and `kitStep: run`: the step runs as written.
+
 ## Input
 
 A PRD number. Re-running is safe: the board is rebuilt from GitHub every time, `/omni:wave` resumes
@@ -98,7 +110,9 @@ and the merge it waits for, and "the feature PR" there is the last landing's.
 ## 1. Find the PRD, the plan and the feature PR
 
 1. `git fetch <remote>`, then
-   `gh pr list --head <feature branch> --base <repo.defaultBranch> --state open --json number,isDraft,labels`.
+   `gh pr list --head <feature branch> --state open --json number,isDraft,labels,baseRefName`. The
+   feature PR is found by its head, whatever its base: its `baseRefName` is **its base**, which is
+   `repo.defaultBranch` unless the PR is stacked (**A stacked feature PR**, below).
 2. The plan and the PRD's outbox live on the feature branch, so read them there: when the branch
    exists, `git switch --detach <remote>/<feature branch>`. First the checkout must be clean: no
    tracked changes (`git status --porcelain --untracked-files=no` prints nothing). Otherwise stop in
@@ -111,6 +125,28 @@ and the merge it waits for, and "the feature PR" there is the last landing's.
 4. No feature branch, no feature PR, or no `plan.md` in the PRD's files: follow `/omni:plan` first.
    It may return `needs clarification`: stop, and say what the PRD must answer. Otherwise go back to
    item 1 with its feature PR.
+
+### A stacked feature PR
+
+A feature PR whose base is not `repo.defaultBranch` is **stacked** on another branch, usually the
+head of another PRD's open PR. Landing n > 1 of a PRD of several landings is stacked on landing n-1
+by **Landings**, which says how; this part is about a feature PR (or landing 1) stacked on a branch
+outside its PRD. A PR whose base is `repo.defaultBranch` skips it: every step runs as written.
+
+1. **The base PR** is the PR whose head is its base:
+   `gh pr list --head <base> --state all --json number,state --limit 1`.
+2. **Its base merged.** When the base PR's state is `MERGED`, the feature PR is no longer stacked:
+   `gh pr edit <feature PR> --base <repo.defaultBranch>` (GitHub may have done it already), and its
+   base is `repo.defaultBranch` from here on.
+3. **Its base moved under it.** Otherwise run
+   `git merge-base --is-ancestor <remote>/<base> <remote>/<feature branch>`. When it fails, stop with
+   the one line `<feature branch> is not on <base>'s head: rebase it onto <remote>/<base>, then
+   /omni:yolo <n>`, before any claim or wave: the base was rewritten or moved on, and which commits
+   to keep is a person's call. When it passes, keep `<remote>/<base>`'s commit as **the base head**
+   this run saw.
+4. **Everywhere below, its base stands in for the default branch:** step 4 meets it, the release
+   note is the diff against it, and step 5 never marks the feature PR ready while the base PR is
+   open, or when no PR heads the base (a branch no PR brings to the default branch).
 
 ## 2. Pick up the feature PR
 
@@ -148,8 +184,11 @@ line step 5 opens with, leave the feature PR in draft, and go to step 6.
 Work in a detached worktree: `git fetch <remote>`, then
 `git worktree add --detach <path> <remote>/<feature branch>` (`<path>` under `worktrees`).
 
-1. **Meet the default branch.** If `git merge-base --is-ancestor <remote>/<repo.defaultBranch> HEAD`
-   fails, run `git merge <remote>/<repo.defaultBranch>`. A conflict you cannot resolve with
+1. **Meet its base:** `repo.defaultBranch`, or the branch a stacked feature PR is based on. If
+   `git merge-base --is-ancestor <remote>/<base> HEAD` fails, run `git merge <remote>/<base>`. For a
+   stacked base, merge only when the base moved forward, that is when **the base head** step 1 kept
+   is an ancestor of `<remote>/<base>`; when it is not, the base was rewritten: remove the worktree
+   and stop with step 1's one line. A conflict you cannot resolve with
    confidence: `git merge --abort`, and take `/omni:pr`'s **Stuck** path for the feature PR, naming
    the conflicting files as what a person should look at. Post the outbox (the `omni comment` line
    step 5 opens with), remove the worktree, and go to step 7.
@@ -191,7 +230,7 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
    - **None there:** write it. What it holds and how it reads are the **Release notes** section of
      `node .omni-loop/bin/omni.mjs kb show releasing`: follow it, and never restate it here. Write
      it from the spec and from what the feature branch actually built
-     (`git diff <remote>/<repo.defaultBranch>...HEAD`), never from the plan: a slice that was not
+     (`git diff <remote>/<base>...HEAD`, its base being `repo.defaultBranch` unless it is stacked), never from the plan: a slice that was not
      built, or a decision a person reversed, is not in the note.
    - **One there** (a person wrote or edited it on the branch, or an earlier run did): keep its
      words, and change only what the check below refuses.
@@ -218,7 +257,19 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
    the `omni sign trailer` line, and `git push <remote> HEAD:<feature branch>`. When item 2 wrote a
    shipped round, follow `/omni:dossier-push <prd>` from the worktree, so the PRD's User voice tab
    ends on what shipped; whatever it prints, carry on.
-4. Only now, `gh pr ready <feature PR>`. **This is the only place in this skill a feature PR is
+4. Only now, `gh pr ready <feature PR>`, once a stacked feature PR's base allows it, at **point
+   `yolo.ready`**: once the base allows it, run `node .omni-loop/bin/omni.mjs flow show yolo.ready`
+   and follow every `before` hook (`{prd}` the PRD, `{pr}` the feature PR), then `gh pr ready`, then
+   every `after` hook (**Flow points**). A `not ok` from a `before` hook leaves the feature PR in
+   draft: name the hook and its reason in step 6 as `stuck`, and skip the rest of this item. **A stacked
+   feature PR waits for its base:** when its base is not `repo.defaultBranch`, first read the base
+   PR again through GitHub, never from memory
+   (`gh pr list --head <base> --state all --json number,state --limit 1`). `MERGED`: retarget it
+   (**A stacked feature PR**, item 2) and carry on. Open, or no PR heads the base: leave the feature
+   PR in draft, write its status comment with `waits for the merge of #<base PR>` (or `waits for
+   <base> to reach <repo.defaultBranch>`), skip the rest of this item and item 5, and end the run
+   **held** (step 6, then step 7's held ending, whose one thing to do is that merge): re-running
+   `/omni:yolo <n>` once it merged resumes here. **This is the only place in this skill a feature PR is
    marked ready**; `/omni:yolo-fix` follows this same green path after its own ship. CI runs on it
    once: follow `/omni:pr`'s lifecycle for the feature PR until its checks are green or it is stuck.
 5. **The proof,** only when the spec's front matter says `proof: video` (PRD 798): follow
@@ -455,4 +506,6 @@ keeps its one line: nothing was built, so there is nothing to hand off.
 - **Never add `labels.outboxGo`.** It is a person's override, not this skill's way out.
 - **Never mark the feature PR ready while the gate is red**, and never before `omni ship` is
   committed and pushed.
+- **Never mark a stacked feature PR ready while the PR of its base is open**, and never meet a base
+  that was rewritten: stop with the line that names it.
 - One PRD per run, no issues filed; slices live in the plan.

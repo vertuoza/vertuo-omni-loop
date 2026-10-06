@@ -20,6 +20,7 @@ import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { inboxViolationsFor } from 'vertuo-omni-plan/kit/lib/inbox/check-inbox.ts';
 import { gradePlan } from 'vertuo-omni-plan/kit/lib/inbox/plan-grade.ts';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { targetFlows } from 'vertuo-omni-plan/kit/lib/plan-repo/copy-flow.ts';
 import { phase0Verdict } from 'vertuo-omni-plan/kit/lib/policy/phase-0.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { CANON_GATE, neutral } from '../canon/canon.ts';
@@ -229,7 +230,7 @@ function planGate({ ctx, prd, head }: { ctx: Context; prd: PrdNumber; head: stri
   if (!existsSync(absolute)) {
     return { name: 'plan', ok: false, reason: `no plan.md in ${placeOf(ctx, prd).dir}` };
   }
-  const graded = gradePlan(readFileSync(absolute, 'utf8'), { config: ctx.config });
+  const graded = gradePlan(readFileSync(absolute, 'utf8'), { config: ctx.config, targets: targetFlows({ root: head, config: ctx.config }) });
   if (graded.violations.length > 0) return { name: 'plan', ok: false, reason: graded.violations.join('; ') };
   const slices = graded.slices.length;
   const waves = graded.waves.length;

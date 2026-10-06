@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from '../config.ts';
+import { parseFlowConfig, type TargetFlow } from '../plan-repo/copy-flow.ts';
 import { gradePlan } from './plan-grade.ts';
 
 const CONFIG = parseConfig('kit: 1\nrepo:\n  slug: acme/widgets\n');
@@ -226,5 +227,153 @@ describe('gradePlan — landings in a plan repository', () => {
     expect(graded.violations).toEqual([]);
     expect(graded.landings.map(({ landing, slices }) => [landing, slices])).toEqual([[1, ['s1']], [2, ['s2', 's3']]]);
     expect(graded.collisions).toEqual([]);
+  });
+});
+
+// The spec's Solution example (PRD 1089), its hook files never read by the grading.
+const FLOW = parseConfig(`kit: 1
+repo:
+  slug: acme/widgets
+flow:
+  rules:
+    plan:
+      - slice: { maxFiles: 15 }
+    subPr: { merge: squash, requireChecks: [phpunit] }
+  hooks:
+    do-work.test:
+      after: .omni-loop/flow/contract-tests.md
+  areas:
+    kernel:
+      paths: ['^src/kernel/']
+      rules:
+        plan:
+          - slice: { alone: true, maxFiles: 5 }
+          - wave: first
+          - blocks: all
+        subPr: { requireChecks: [phpunit, phpstan-max], approval: person }
+      hooks:
+        do-work.test: { replace: .omni-loop/flow/kernel/tests.md }
+    migrations:
+      paths: ['^database/migrations/']
+      rules:
+        plan:
+          - slice: { alone: true, maxFiles: 1 }
+          - landing: alone
+`);
+
+describe('gradePlan — flow rules (PRD 1089)', () => {
+  it('refuses a slice mixing a migration and code, naming the slice, the area and slice alone (acceptance 2)', () => {
+    const graded = gradePlan(planMd(['| s1 | A | `database/migrations/x.sql` `src/Invoice.php` | — | 1 |']), { config: FLOW });
+    expect(graded.violations).toContainEqual(expect.stringMatching(/^flow: s1 touches database\/migrations\/x\.sql \(area migrations\) .* — migrations: slice alone/));
+  });
+
+  it('refuses a kernel slice behind another slice, and passes it moved to the first wave (acceptance 3)', () => {
+    const behind = gradePlan(planMd(['| s1 | A | `src/Invoice.php` | — | 1 |', '| s2 | B | `src/kernel/Bus/` | s1 | 2 |']), { config: FLOW });
+    expect(behind.violations).toContainEqual(expect.stringMatching(/^flow: s2 \(wave 2\) touches area kernel .* — kernel: wave first/));
+    const first = gradePlan(planMd(['| s1 | B | `src/kernel/Bus/` | — | 1 |', '| s2 | A | `src/Invoice.php` | s1 | 2 |']), { config: FLOW });
+    expect(first.violations).toEqual([]);
+  });
+
+  it('refuses what landings.alone refuses, naming the same slices (acceptance 10)', () => {
+    const alias = parseConfig("kit: 1\nrepo:\n  slug: acme/widgets\nlandings:\n  alone: ['^database/migrations/']\n");
+    const area = parseConfig(
+      "kit: 1\nrepo:\n  slug: acme/widgets\nflow:\n  areas:\n    migrations:\n      paths: ['^database/migrations/']\n      rules:\n        plan:\n          - landing: alone\n",
+    );
+    const named = (lines: string[]) => lines.map((line) => line.replace(/ \(area migrations\)/, ''));
+    for (const markdown of [
+      planMd(['| s1 | A | `database/migrations/` `src/` | — | 1 |']),
+      planMd(['| s1 | A | `database/migrations/` | — | 1 |', '| s2 | B | `src/` | — | 1 |']),
+      planMd(['| s1 | A | `database/migrations/` | — | 1 | 1 |', '| s2 | B | `src/` | — | 1 | 2 |'], LANDED),
+    ]) {
+      expect(named(gradePlan(markdown, { config: area }).violations)).toEqual(gradePlan(markdown, { config: alias }).violations);
+    }
+  });
+});
+
+describe('gradePlan — each target against its own flow (PRD 1089, s6)', () => {
+  const MULTI = parseConfig(`kit: 1
+repo:
+  slug: acme/plan
+plan:
+  targets:
+    - repo: acme/back
+      role: back-end
+      knowledge: imported
+      readAt: ${'b'.repeat(40)}
+    - repo: acme/web
+      role: front-end
+      knowledge: imported
+      readAt: ${'c'.repeat(40)}
+    - repo: acme/legacy
+      role: legacy
+      knowledge: none
+flow:
+  areas:
+    docs:
+      paths: ['^docs/']
+      rules:
+        plan:
+          - slice: { maxFiles: 1 }
+`);
+  const back = parseFlowConfig(
+    "flow:\n  areas:\n    migrations:\n      paths: ['^src/db/']\n      rules:\n        plan:\n          - slice: { alone: true }\n",
+    'back',
+  );
+  const web = parseFlowConfig("flow:\n  areas:\n    kernel:\n      paths: ['^src/']\n      rules:\n        plan:\n          - wave: first\n", 'web');
+  const TARGETS = new Map<string, TargetFlow>([
+    ['back', { ok: true, config: back }],
+    ['web', { ok: true, config: web }],
+  ]);
+  const header = '| id | repo | slice | territory | blocked by | wave |';
+  const plan = (rows: string[], names: string[]) =>
+    [
+      '## Repositories',
+      '',
+      '| repo | role | read at | knowledge |',
+      '| --- | --- | --- | --- |',
+      ...names.map((name) => (name === 'plan' ? '| plan | plan | — | own |' : `| ${name} | x | ${'a'.repeat(40)} | imported |`)),
+      '',
+      '## Slices',
+      '',
+      planMd(rows, header),
+    ].join('\n');
+
+  it("grades a back row against back's flow and a web row against web's: one path, two rules (acceptance 12)", () => {
+    const graded = gradePlan(
+      plan(
+        [
+          '| s1 | back | mixed | `src/db/x.sql` `src/Invoice.php` | — | 1 |',
+          '| s2 | web | mixed | `src/db/x.sql` `src/Invoice.php` | — | 1 |',
+          '| s3 | web | late | `lib/` | — | 1 |',
+        ],
+        ['back', 'web'],
+      ),
+      { config: MULTI, targets: TARGETS },
+    );
+    expect(graded.violations).toEqual([
+      expect.stringMatching(/^flow \(back\): s1 touches src\/db\/x\.sql \(area migrations\) .* — migrations: slice alone/),
+      expect.stringMatching(/^flow \(web\): s2 \(wave 1\) touches area kernel and does not sit before s3 .* — kernel: wave first/),
+    ]);
+  });
+
+  it("grades the plan repository's own rows against its own flow, and a target with no copied flow against the kit's defaults", () => {
+    const graded = gradePlan(
+      plan(['| s1 | plan | docs | `docs/a.md` `docs/b.md` | — | 1 |', '| s2 | legacy | docs | `docs/a.md` `docs/b.md` | — | 2 |'], ['legacy', 'plan']),
+      { config: MULTI, targets: TARGETS },
+    );
+    expect(graded.violations).toEqual([expect.stringMatching(/^flow \(plan\): s1 touches 2 paths — docs: slice maxFiles 1/)]);
+  });
+
+  it("meets the kit's defaults for every target when no copied flow is given", () => {
+    const graded = gradePlan(plan(['| s1 | back | mixed | `src/db/x.sql` `src/Invoice.php` | — | 1 |'], ['back']), { config: MULTI });
+    expect(graded.violations).toEqual([]);
+  });
+
+  it('refuses a copied flow that cannot be read, once, naming the target and the file', () => {
+    const graded = gradePlan(plan(['| s1 | back | a | `src/` | — | 1 |'], ['back']), {
+      config: MULTI,
+      targets: new Map<string, TargetFlow>([['back', { ok: false, file: '.omni-loop/knowledge/repos/back/flow/config.yml', reason: 'not valid YAML' }]]),
+    });
+    expect(graded.violations).toEqual(["flow: back's imported flow at .omni-loop/knowledge/repos/back/flow/config.yml cannot be read — not valid YAML"]);
   });
 });

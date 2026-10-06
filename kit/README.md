@@ -131,6 +131,34 @@ line, the slices, the landings overview, the acceptance) above what the skill wr
 last. Sub-PRs never go through it. In target mode the target's own `pr.openWith` decides, and the
 skill runs in the target's clone. The back-end sets it to `/create-pr`.
 
+**Repository flow** is where a repository says how the loop differs on it, in a `flow` section of the
+config (none by default, which changes nothing): **rules** the CLI checks, **areas** that give a part
+of the code its own rules, and **hooks**, Markdown files an agent follows at a named point of a
+skill. None of it is code. `flow.rules.plan` (`slice: { alone, maxFiles }`, `wave: first`,
+`blocks: all`, `landing: alone`) is graded by `omni plan check` on each slice's territory;
+`flow.rules.subPr` (`merge`, `requireChecks`, `approval: person`, `territory: report | block`,
+`maxOpen`) by `omni flow check merge --pr <n>`, which prints `ok` and the one merge command
+`/omni:wave` runs, or a `not ok` line per reason. `flow.areas.<name>` holds `paths` (regular
+expressions; a path belongs to the first area that matches, else to the default area, the root of
+`flow`), its own `rules` and `hooks`, an optional `knowledge` domain and `inherit` (true by default:
+limits keep the strictest value, `requireChecks` is the union). `flow.hooks` and each area's `hooks`
+map a point of the catalog (`kit/lib/flow/points.ts`: `plan.slice`, `plan.done`, `do-work.start`,
+`do-work.test`, `do-work.review`, `do-work.ready`, `pr.open`, `wave.merge`, `yolo.ready`) to
+`{ before, after, replace }` hook paths, a bare path being `after`. Every skill the catalog lists
+runs `omni flow show <point>` there and follows each `before`, then the kit's step or the `replace`
+hook, then each `after`, and hands the hook's output to `omni flow verdict <point> --from <file>`;
+a hook ends with `omni-hook <point>: pass` or `… fail <why>`, and a missing verdict fails. `replace`
+is allowed only at `do-work.test`, `pr.open` and `wave.merge`, and swaps the act, never a guard
+(ADR-0069). `omni flow show` alone prints what the repository changes from the kit's defaults, area
+by area; `--path <p>` one path's area with its rules and hooks; `--repo <target>` a target's flow,
+from the copy `/omni:mega-invade` keeps at `repos/<name>/flow/` in the knowledge folder. `omni check
+config` refuses a pattern that does not compile, an unknown point, a `replace` the catalog does not
+allow, a hook path that is absolute, holds `..`, is a URL, is missing, is over `limits.hookMaxBytes`
+(20480 by default) or sits under `.claude/` without `{ path, alias: claude }`, and `flow.on`,
+reserved for events. **The aliases:** `landings.alone` reads as one more area, after every named
+one, with `landing: alone`; `pr.openWith` reads as the default area's `pr.open` `replace` hook,
+marked `alias: claude`. The walk-through is `docs/guide/flow.md`.
+
 **The knowledge graph** is the knowledge registers read as one map: `omni kb graph` prints a summary
 (a line per domain with its principles, rules, invariants, laws and proposals, then the principles
 nothing serves and the rules and invariants that serve no principle), and `omni kb graph --json` the

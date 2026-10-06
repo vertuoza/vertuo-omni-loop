@@ -129,6 +129,29 @@ describe('omni targets', () => {
     expect(code).toBe(1);
   });
 
+  it("reads an imported target stale, naming the flow, when its committed flow is not its copy's (PRD 1089, s6)", async () => {
+    const config = `${PLAN}    - repo: acme/back
+      role: back-end
+      knowledge: imported
+      readAt: ${SHA}
+`;
+    const copied = "flow:\n  areas:\n    kernel:\n      paths: ['^src/kernel/']\n";
+    const world = { ...ALL_OK, 'acme/back': { '.omni-loop/config.yml': `kit: 1\n${copied.replace('kernel/', 'core/')}` } };
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/knowledge/repos/back/flow/config.yml': copied } });
+    const { exec } = fakeGh(world);
+    const faked = (file: string, args: readonly string[], options?: ExecFileSyncOptions): string => {
+      const endpoint = String(args[args.length - 1]);
+      if (endpoint === `repos/acme/back/compare/${SHA}...main`) return JSON.stringify({ ahead_by: 1, files: [{ filename: '.omni-loop/config.yml' }] });
+      return exec(file, args, options);
+    };
+    const out: string[] = [];
+    const code = await main(['targets'], { cwd: root, exec: faked, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
+    expect(out.join('').split('\n')[3]).toMatch(
+      new RegExp(`^acme/back\\s+back-end\\s+imported\\s+installed\\s+stale \\(flow moved since read at ${SHA.slice(0, 7)}: its flow section differs from the copy\\)$`),
+    );
+    expect(code).toBe(1);
+  });
+
   it('says not a plan repository, exit 1, when the config has no plan section, and asks GitHub nothing', async () => {
     for (const args of [[], ['--json']]) {
       const { code, out, calls } = await targets(args, { config: 'kit: 1\nrepo:\n  slug: acme/widgets\n' });

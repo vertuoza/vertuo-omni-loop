@@ -36,6 +36,15 @@ from its `.omni-loop/config.yml` on its default branch, as `/omni:do-work`'s
 **Under `--target <name>`** reads it). A target without one runs nothing locally: its target feature
 PR's CI is the check. Never an install, a script, or a command from an imported copy's playbook.
 
+**Flow points,** as `/omni:yolo` follows them: its one point, `yolo.ready`, fires before each
+`gh pr ready` this skill runs, with `flow show yolo.ready` and `flow verdict yolo.ready`. For the plan
+PR it reads the plan repository's flow. For a target PR it reads **that target's own committed
+flow**, as `/omni:ultra-wave`'s **A target's flow** reads it:
+`(cd <clone> && node <plan repository root>/.omni-loop/bin/omni.mjs flow show yolo.ready)`, the
+plan repository's `omni` reading the target's config and hook files in its clone. A target's hooks
+are followed only in its worktree (the clone), never from the imported copy; a target without a
+committed `.omni-loop/config.yml` has no flow, and the kit's step runs alone.
+
 ## Input
 
 A PRD number, in a plan repository. Re-running is safe: the board is rebuilt from GitHub every time,
@@ -82,6 +91,14 @@ lists the changed files it printed. A moved target is never a stop. Adopt it
 `chore(delivery): PRD <n> — <k> targets moved since the plan was read`, and push. An `unreachable`
 target is held (step 2). A re-run that finds the item already there raises none again.
 
+**A target whose flow moved** is reported as one that moved. Run
+`node .omni-loop/bin/omni.mjs targets --json`: each imported target whose `state` is `stale` and whose
+`detail` starts with `flow moved since read at` gets the same medium item, slug
+`<target>-flow-moved`: the question is whether the plan still meets that target's rules, the
+decision is that the build goes on under the target's committed flow (which every point in that
+target reads), and `gaps` holds the detail. It is adopted and committed with the moved targets'
+items, and is never a stop.
+
 ## 2. The targets
 
 Read `## Repositories` from the plan, and each target's `owner/name` from the board
@@ -125,7 +142,7 @@ target feature PR per landing: base its `base`, title the PRD's title with its `
 `Part of <plan slug>#<n>`, then its `mergeAfterLine` when it has one, then the **Slices** of that
 landing in that target, then the `## Landings` overview of that target's chain, then the
 `omni sign footer` line. Each is opened through `/omni:pr --repo <slug>`, so the target's own
-`pr.openWith`, read in its clone, decides how it opens. A re-run reuses every branch and PR.
+`pr.open` point (its flow, `pr.openWith` included), read in its clone, decides how it opens. A re-run reuses every branch and PR.
 
 A target that cannot be cloned, fetched or pushed to, or whose pull request cannot open, is
 **held**: name it and the reason, and carry on. Its slices are not claimed; they and what they block
@@ -155,7 +172,9 @@ For each target with a slice merged into its feature branch, in a detached workt
    result, or `none — CI is the check`), **Risk and rollback** and **Reviewer focus**, in the shape
    `/omni:pr` owns (`gh pr edit <n> --repo <slug> --body-file <file>`), keeping the
    `Part of` line first and the `omni sign footer` line last.
-5. **Ready:** `gh pr ready <n> --repo <slug>`, then follow `/omni:pr --repo <slug>`'s lifecycle until
+5. **Ready,** at point `yolo.ready` read in the target's clone (**Flow points**): every `before`
+   hook, then `gh pr ready <n> --repo <slug>`, then every `after` hook; a `not ok` leaves the target
+   PR in draft and the target **stuck**, naming the hook. Then follow `/omni:pr --repo <slug>`'s lifecycle until
    its CI is green or it is stuck. This is the only place a target feature PR is marked ready.
 
 **Landings in a target.** Each landing of a target's chain is finished on its own branch, items 1
@@ -191,7 +210,8 @@ In a detached worktree of the plan feature branch:
 
 - **Green, and every target PR ready with green CI** (for a plan of several landings: every
   target landing PR ready with green CI, or already merged): `/omni:yolo` step 5's green path, as written:
-  the release note, `omni ship`, commit, push, then `gh pr ready <plan PR>`. **This is the only
+  the release note, `omni ship`, commit, push, then `gh pr ready <plan PR>` at point `yolo.ready`,
+  the plan repository's, as `/omni:yolo` step 5 item 4 runs it. **This is the only
   place the plan PR is marked ready,** and always after every target PR.
 - **Green, but a target PR is not ready or its CI is not green:** the plan PR stays draft; do not
   ship. The run is **held** by that target.
@@ -250,7 +270,8 @@ plan PR keeps its one line and prints no hand-off.
 - **Never create a label in a target,** whatever `labels.autoCreate` says: a missing one is a human
   step.
 - **Never run a command in a target other than its own committed preflight** (beyond `git` and
-  `gh`), and never one from an imported copy's playbook.
+  `gh`, the plan repository's own `omni` reading its flow, and its own hooks, followed only in its
+  worktree), and never one from an imported copy's playbook.
 - **Never mark the plan PR ready** while the gate is red, before `omni ship` is committed and pushed,
   or before every target PR is ready with green CI.
 - **Never ask along the way.** One outbox, in the plan repository; the one question is step 5's last
