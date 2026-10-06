@@ -4,24 +4,164 @@
       "stage": "design",
       "date": "2026-10-06",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 2, "reaction": "A bot that follows a back-end review comment by pushing into my front-end PR is code in my repo I never asked for.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "Holding a red front-end PR instead of hacking it green while my PR is open is the first thing here that is not fluff.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "One command after ultra-yolo keeps every repository's PR green, and one line fixes a bug across back-end and front-end.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Each repository's own review rules and a stated merge order keep the teams' conventions intact across repositories.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "I can report a customer bug once, in the plan repository, without knowing which repository holds it.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A bot that follows a back-end review comment by pushing into my front-end PR is code in my repo I never asked for.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Holding a red front-end PR instead of hacking it green while my PR is open is the first thing here that is not fluff.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "One command after ultra-yolo keeps every repository's PR green, and one line fixes a bug across back-end and front-end.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Each repository's own review rules and a stated merge order keep the teams' conventions intact across repositories.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I can report a customer bug once, in the plan repository, without knowing which repository holds it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
-      "objection": { "persona": "F-E Developer", "text": "If a reviewer comments on the back-end PR and the bot quietly pushes a change into my front-end PR to follow it, I get code in my repo I never asked for — exactly the slop I'm afraid of.", "citations": ["persona:F-E Developer"], "settled": "none" },
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "If a reviewer comments on the back-end PR and the bot quietly pushes a change into my front-end PR to follow it, I get code in my repo I never asked for — exactly the slop I'm afraid of.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "none"
+      },
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ · persona:F-E Developer ✗"
     },
     {
       "stage": "spec",
       "date": "2026-10-06",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "A cross-repository fix is bounded to an open PR inside the PRD's slices and names its commit, and a provider change must keep my front-end working as it is.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "Nothing runs in my repository but my own preflight, and red is proven before any fix. Fine.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Linked bug fixes join the same care run with --prd: one watcher for everything my PRD touches.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Merge after lines on every consumer PR and the record PR merged last make the order explicit for whoever merges.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "One issue, one fix plan, one record: I can follow a customer bug to the end without reading three repositories.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A cross-repository fix is bounded to an open PR inside the PRD's slices and names its commit, and a provider change must keep my front-end working as it is.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Nothing runs in my repository but my own preflight, and red is proven before any fix. Fine.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Linked bug fixes join the same care run with --prd: one watcher for everything my PRD touches.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Merge after lines on every consumer PR and the record PR merged last make the order explicit for whoever merges.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One issue, one fix plan, one record: I can follow a customer bug to the end without reading three repositories.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ · persona:F-E Developer ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-06",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A cross-repository fix still lands in my PR, but only inside the PRD and with its commit named, and a back-end fix must keep my front-end working as it is.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Nothing runs in my repository but my own preflight, and the waits-on hold is decided by tested code, not by the model guessing each round.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "After ultra-yolo one command watches every repository's PR, and one line fixes a bug across back-end and front-end.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Each repository's own review rules and explicit Merge after lines keep the teams' conventions and the merge order visible.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I report a customer bug once in the plan repository and follow it to one record that closes it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ · persona:F-E Developer ~"
