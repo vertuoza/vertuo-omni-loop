@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mega PR care and mega bug fix</title>
+<style>
+/* Layout: three moments (after ultra-yolo, a review thread on a target PR, a bug across repositories), each today | after side by side, stacking at phone width. Look: the PRD page's own tokens, as PRD 790's page. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --red:#b3122f;--redSoft:#fbe8ec;--amber:#8a5a00;--amberSoft:#fdf1d8;--green:#15703f;--greenSoft:#e4f4ea;
+ --term:#14132e;--termInk:#e7e8ff;--termMuted:#9a9cc9;--termGreen:#5fe39a;--termAmber:#ffc865;--termRed:#ff7d93;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+ --display:Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
+ --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#07061c;--termInk:#e7e8ff;--termMuted:#8d90c4;--termGreen:#5fe39a;--termAmber:#ffc865;--termRed:#ff7d93;
+ color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#07061c;--termInk:#e7e8ff;--termMuted:#8d90c4;--termGreen:#5fe39a;--termAmber:#ffc865;--termRed:#ff7d93;
+ color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.55 var(--body)}
+main{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:32px 56px;display:grid;gap:40px}
+header{display:grid;gap:8px}
+h1{font:400 clamp(30px,5vw,46px)/1 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance}
+.lede{color:var(--muted);max-width:68ch;margin:0}
+section{display:grid;gap:14px}
+h2{font:400 24px/1.1 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+.why{color:var(--muted);margin:0;max-width:72ch}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{min-width:0;display:grid;gap:8px;align-content:start}
+.tag{font:700 11px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tag.after{color:var(--plasma)}
+.term{background:var(--term);color:var(--termInk);border-radius:10px;padding:14px 16px;font:12.5px/1.6 var(--mono);overflow-x:auto;white-space:pre;margin:0}
+.term .m{color:var(--termMuted)}.term .g{color:var(--termGreen)}.term .a{color:var(--termAmber)}.term .r{color:var(--termRed)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:10px;min-width:0}
+.who{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.who b{color:var(--ink)}
+.av{width:22px;height:22px;border-radius:50%;background:var(--sunk);display:inline-grid;place-items:center;font:700 11px var(--body);color:var(--muted)}
+.av.bot{background:var(--plasmaSoft);color:var(--plasma)}
+.reply{border-left:2px solid var(--line);padding-left:12px;display:grid;gap:6px}
+.chip{display:inline-block;font:700 11px/1 var(--body);padding:5px 8px;border-radius:999px;letter-spacing:.03em}
+.chip.red{background:var(--redSoft);color:var(--red)}.chip.amber{background:var(--amberSoft);color:var(--amber)}.chip.green{background:var(--greenSoft);color:var(--green)}.chip.grey{background:var(--sunk);color:var(--muted)}
+code{font:12.5px var(--mono);background:var(--sunk);padding:1px 5px;border-radius:4px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:700 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.empty{color:var(--muted);font-style:italic}
+.same{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 18px}
+.same ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
+</style>
+</head>
+<body>
+<main>
+<header>
+ <h1>Mega PR care and mega bug fix</h1>
+ <p class="lede">PRD #1118. Two commands for a plan repository: <code>/omni:mega-pr-care &lt;n&gt;</code> looks after every pull request of a multi-repository PRD, and <code>/omni:mega-bug-fix</code> fixes a bug across the targets that hold it. The example: plan repository <code>vertuo-automation-plan</code>, targets <code>vertuo-backend-php</code> (back-end) and <code>vertuo-apps</code> (front-end).</p>
+</header>
+
+<section>
+ <h2>After /omni:ultra-yolo</h2>
+ <p class="why">Ultra-yolo leaves one PR per target plus the plan PR. Today nobody looks after them; the front-end PR burns its fix attempts on a red caused by the back-end PR not being merged yet.</p>
+ <div class="pair">
+  <div class="side">
+   <span class="tag">Today</span>
+<pre class="term"><span class="m">$ /omni:pr-care 1200</span>
+Looking after #88 (PRD 1200)   <span class="m"># the plan PR only</span>
+
+<span class="m">vertuo-apps#212  nobody watching</span>
+  fixing <span class="r">typecheck</span> (attempt 1)
+  fixing <span class="r">typecheck</span> (attempt 2)
+  fixing <span class="r">typecheck</span> (attempt 3)
+  <span class="r">Stuck after 3 attempts</span> · omni:needs-fix
+<span class="m">vertuo-backend-php#41  nobody watching</span>
+  3 review threads open, unanswered</pre>
+  </div>
+  <div class="side">
+   <span class="tag after">After</span>
+<pre class="term"><span class="m">$ /omni:mega-pr-care 1200</span>
+Looking after 3 PRs of PRD 1200, in merge order.
+
+round 14:05Z
+  vertuo-backend-php#41  <span class="g">act</span>   2 threads: 1 fixed, 1 pushed back
+  vertuo-apps#212        <span class="a">waits on vertuo-backend-php#41</span>
+                         <span class="m">no attempt spent</span>
+  vertuo-automation-plan#88  <span class="g">act</span>   targets table updated
+
+round 14:40Z  <span class="m"># #41 merged</span>
+  vertuo-apps#212        rerun typecheck → <span class="g">green</span></pre>
+  </div>
+ </div>
+</section>
+
+<section>
+ <h2>A review thread on a target PR</h2>
+ <p class="why">Judged against the target's own review form, read in its clone. A fix that belongs in another open PR of the PRD may land there, and the reply names the commit.</p>
+ <div class="pair">
+  <div class="side">
+   <span class="tag">Today</span>
+   <div class="card">
+    <div class="who"><span class="av">LM</span><b>lmartin</b> on <code>vertuo-apps#212</code> · src/invoice/Total.tsx</div>
+    <div>The total should come rounded from the API, not be rounded here.</div>
+    <div class="reply"><span class="empty">No reply. The fix belongs in the back-end PR, and nobody is watching either.</span></div>
+   </div>
+  </div>
+  <div class="side">
+   <span class="tag after">After</span>
+   <div class="card">
+    <div class="who"><span class="av">LM</span><b>lmartin</b> on <code>vertuo-apps#212</code> · src/invoice/Total.tsx</div>
+    <div>The total should come rounded from the API, not be rounded here.</div>
+    <div class="reply">
+     <div class="who"><span class="av bot">Ω</span><b>Omni-man</b> <span class="chip green">fixed · resolved</span></div>
+     <div>Fixed in <code>vertuo-backend-php@4c1e9a2</code>: the invoice total is rounded in <code>InvoiceTotal</code>; the client rounding is removed in <code>vertuo-apps@b72d0f1</code>.</div>
+    </div>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section>
+ <h2>A bug across repositories</h2>
+ <p class="why">The front-end shows it, the cause is in the back-end. One issue in the plan repository, one fix plan, the provider first, one linked PR per target, and one record PR that closes the bug, merged last.</p>
+ <div class="pair">
+  <div class="side">
+   <span class="tag">Today</span>
+<pre class="term"><span class="m">$ cd ~/src</span>
+<span class="m">$ git clone …/vertuo-backend-php && git clone …/vertuo-apps</span>
+<span class="m"># read both, guess where the cause is</span>
+<span class="m">$ cd vertuo-apps && /omni:bug-fix 'invoice total off by one cent'</span>
+  fix PR vertuo-apps#230   <span class="r">rounds on the client</span>
+<span class="m"># the real cause, in the back-end, stays</span>
+<span class="m"># two repositories, no link, no merge order</span></pre>
+  </div>
+  <div class="side">
+   <span class="tag after">After</span>
+   <div class="card">
+    <div class="who"><b>vertuo-automation-plan#1301</b> <span class="chip grey">omni:bug</span> <span class="chip amber">risk medium</span></div>
+    <div><b>Fix plan</b> <span class="who">· back-end towards front-end</span></div>
+    <div class="tbl"><table>
+     <thead><tr><th>order</th><th>repository</th><th>pull request</th><th>what changes</th></tr></thead>
+     <tbody>
+      <tr><td>1</td><td>vertuo-backend-php</td><td>#57</td><td>rounds the total once, adds <code>totalRounded</code></td></tr>
+      <tr><td>2</td><td>vertuo-apps</td><td>#231 · Merge after #57</td><td>reads <code>totalRounded</code></td></tr>
+     </tbody>
+    </table></div>
+    <div class="who">Record PR <b>vertuo-automation-plan#1302</b> · <code>bugs/1301-invoice-rounding/bug.md</code> · Closes #1301 · merged last</div>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section class="same">
+ <h2>What stays the same</h2>
+ <ul>
+  <li><code>/omni:pr-care</code> and <code>/omni:bug-fix</code> are unchanged, and so is the PRD page: it reads the plan PR's care line.</li>
+  <li>In a target, nothing runs but its own committed preflight. No label is ever created there.</li>
+  <li>Nothing merges by itself, and nothing is marked ready. A person merges every PR.</li>
+  <li>A fix that would break today's front-end, a database change or a new screen still goes to <code>/omni:mega-brainstorm</code>.</li>
+ </ul>
+</section>
+</main>
+</body>
+</html>
