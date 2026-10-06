@@ -75,10 +75,15 @@ const isNotFound = (error: unknown): boolean => /HTTP 404/.test(ghText(error));
 
 export class Unreachable extends Error {}
 
+/** The bytes one `gh api` answer may carry. Node's default is 1 MiB, and a target's `.omni-loop/bin/omni.mjs` passed
+ * it at v0.0.15x: read with the default, every such target came back `unreachable (spawnSync gh ENOBUFS)`. */
+export const GH_MAX_BUFFER = 64 * 1024 * 1024;
+
 /** The `gh api` readings one target needs. A missing file or directory is `null`; any other failure throws
  * `Unreachable`. Shared with `omni plan moved` (`./moved.ts`). */
 export function ghReader({ exec, env }: { exec: ExecRaw; env?: NodeJS.ProcessEnv | undefined }): GhReader {
-  const api = (args: string[]): string => String(exec('gh', ['api', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...(env ? { env } : {}) }));
+  const api = (args: string[]): string =>
+    String(exec('gh', ['api', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: GH_MAX_BUFFER, ...(env ? { env } : {}) }));
   const call = (args: string[]): string | null => {
     try {
       return api(args);

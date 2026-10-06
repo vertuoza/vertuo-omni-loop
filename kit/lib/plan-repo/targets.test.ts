@@ -2,8 +2,9 @@
 // GitHub: `fakeGh` answers each call by its endpoint, and a missing file is GitHub's 404.
 import { describe, expect, it } from 'vitest';
 import { formText, makeRepo } from '../../test/fixture.ts';
-import { copyEvidence, readTarget, readTargets, targetsTable } from './targets.ts';
+import { GH_MAX_BUFFER, copyEvidence, ghReader, readTarget, readTargets, targetsTable } from './targets.ts';
 import type { ExecRaw } from '../context.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
 import type { CopyFlow, Target, TargetRow } from './targets.ts';
 import { parseFlowConfig } from './copy-flow.ts';
 import { assertDefined } from '../../test/assert.ts';
@@ -79,6 +80,20 @@ const NONE = { repo: 'acme/legacy', role: 'legacy', knowledge: 'none', readAt: n
 const IMPORTED = { repo: 'acme/back', role: 'back-end', knowledge: 'imported', readAt: SHA };
 
 const read = (target: Target, world: World, evidence: string[] = []) => readTarget(target, { exec: fakeGh(world).exec, evidence: new Set(evidence) });
+
+describe('ghReader', () => {
+  it('reads every gh api answer with a buffer wide enough for a target bundle over 1 MiB', () => {
+    const options: ExecFileSyncOptions[] = [];
+    const exec: ExecRaw = (_file, _args, opts) => {
+      options.push(opts);
+      return JSON.stringify({ default_branch: 'main' });
+    };
+    ghReader({ exec }).repository('acme/front');
+    expect(options).toHaveLength(1);
+    expect(options[0]?.maxBuffer).toBe(GH_MAX_BUFFER);
+    expect(GH_MAX_BUFFER).toBeGreaterThan(1024 * 1024);
+  });
+});
 
 describe('readTarget', () => {
   it('reads an own target with the loop and a filled form as ok, its loop as the installed version', () => {
