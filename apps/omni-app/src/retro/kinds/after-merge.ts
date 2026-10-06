@@ -21,29 +21,40 @@
 import { IssueNumberSchema, type IssueNumber, type PrNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, MAX_PAGES, paginate } from '../github.ts';
-import { changeBlocks } from './churn-lines.ts';
 import { runJobs } from './jobs.ts';
 import type { Block } from './churn-lines.ts';
 import type { Evidence, Kind, KindContext, KindScope, Octokit } from './index.ts';
-import { ChangedFileSchema, ClosedPullSchema, IssueSchema, WorkflowRunsPageSchema } from './schema.ts';
-import type { ChangedFile, ClosedPull, Issue, Job, WorkflowRun } from './schema.ts';
+import { ClosedPullSchema, IssueSchema, WorkflowRunsPageSchema } from './schema.ts';
+import type { ClosedPull, Issue, Job, WorkflowRun } from './schema.ts';
+import { listFiles, readOrRefused, within, type Repo } from './after-merge.reads.ts';
 import { AfterMergeRecordsSchema, ChurnAtMergeSchema } from './records.ts';
+import { gatherMega, megaUnreadLines, MegaRecordsSchema, placeOf, plannedFor, refOf, type MegaUnread, type PlannedFact } from './after-merge.mega.ts';
 import type { z } from 'zod';
 import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
 
-type Records = z.infer<typeof AfterMergeRecordsSchema>;
+/** The after-merge kind's records: the plan repository's, and what a multi-repository PRD adds (PRD 1130). */
+const RecordsSchema = AfterMergeRecordsSchema.extend({ mega: MegaRecordsSchema.exactOptional() });
+
+type Records = z.infer<typeof RecordsSchema>;
 type Bug = Records['bugs'][number];
 type Fix = Records['fixes'][number];
-type FixFile = NonNullable<Fix['files']>[number];
 type MergeJob = Records['checks']['jobs'][number];
 type MergeChecks = Records['checks'];
 type ChurnRange = Records['ranges'][number];
 type Unread = Records['unread'][number];
-type Window = Records['window'];
-type Repo = { owner: string | undefined; repo: string | undefined };
 
-type Link = { fix: PrNumber; path: string; from: number; to: number; finding: string; byFile: boolean };
-type BugFacts = { number: IssueNumber; url: string; daysAfterMerge: number; closed: boolean; fixes: PrNumber[]; linked: Link[] };
+/** A fix placed against a churn range; `repo` names a fix read in a repository of its own (PRD 1130). */
+type Link = { fix: PrNumber; repo?: string; path: string; from: number; to: number; finding: string; byFile: boolean };
+type BugFacts = {
+  number: IssueNumber;
+  url: string;
+  daysAfterMerge: number;
+  closed: boolean;
+  fixes: PrNumber[];
+  /** A `For PRD #<n>` bug's fixes, as its fix plan names them (PRD 1130); absent for any other bug. */
+  planned?: PlannedFact[];
+  linked: Link[];
+};
 type Facts = {
   prd: PrdNumber | null;
   days: number;
@@ -56,23 +67,19 @@ type Facts = {
   fixes: { number: PrNumber; url: string; mergedAt: string }[];
   checks: { commit: string; read: boolean; status: number | null; total: number; green: number; red: number; other: number; jobs: MergeJob[] };
   unread: Unread[];
+  /** A multi-repository PRD's: how many bugs carry `For PRD #<n>`, and what was not read. */
+  mega?: { bugs: number; unread: MegaUnread[] };
 };
-
-/** What `readOrRefused` gives: the value read, or the status GitHub refused it with. */
-type Read<T> = { value: T; status: null } | { value: null; status: number };
 
 /** The label a bug report carries, as GitHub names it in every new repository. */
 export const BUG_LABEL = 'bug';
 
 const ISSUES = 'GET /repos/{owner}/{repo}/issues';
 const PULLS = 'GET /repos/{owner}/{repo}/pulls';
-const FILES = 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files';
 const RUNS = 'GET /repos/{owner}/{repo}/actions/runs';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SHORT = 7;
-/** What GitHub answers for what it will not let the app read, or no longer has. */
-const UNREADABLE: ReadonlySet<unknown> = new Set([403, 404, 410]);
 const GREEN: ReadonlySet<string | null> = new Set(['success']);
 const RED: ReadonlySet<string | null> = new Set(['failure', 'timed_out', 'startup_failure']);
 /** GitHub's closing words, then the issue: `#40`, `owner/repo#40` or its URL. */
@@ -85,15 +92,14 @@ export function followUpAt(mergedAt: string | null): string {
 
 export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
   id: 'after-merge',
-  records: AfterMergeRecordsSchema.nullable(),
+  records: RecordsSchema.nullable(),
   section: 'After merge',
   runs: Object.freeze(['day-14'] as const),
 
-  async gather(octokit: Octokit, { owner, repo, mergeSha, mergedAt, pr, prd, config, atMerge }: Partial<KindScope> = {}) {
+  async gather(octokit: Octokit, { owner, repo, mergeSha, mergedAt, pr, prd, config, atMerge, targets }: Partial<KindScope> = {}) {
     if (!mergedAt || !mergeSha || !prd?.number || !config) return null;
     const window = { from: new Date(mergedAt).toISOString(), to: followUpAt(mergedAt) };
     const unread: Unread[] = [];
-    const names = namesPrd(prd.number, `${owner}/${repo}`);
 
     const listed = await readOrRefused((): Promise<Issue[]> =>
       paginate((page: number) =>
@@ -103,76 +109,36 @@ export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
       ),
     );
     if (listed.status) unread.push({ read: 'bugs', status: listed.status });
-    const bugs: Bug[] = (listed.value ?? [])
-      .filter((issue) => !issue.pull_request && within(window, issue.created_at) && names(`${issue.title ?? ''}\n${issue.body ?? ''}`))
-      .map((issue) => ({ number: issue.number, url: issue.html_url, createdAt: issue.created_at, closedAt: issue.closed_at ?? null }))
-      .sort((a, b) => a.number - b.number);
+    const megaScope = { owner: owner ?? '', repo: repo ?? '', prd: prd.number, config, window, targets: targets ?? [], atMerge, listed: listed.value ?? [], label: BUG_LABEL };
+    const mega = await gatherMega(octokit, megaScope);
+    const bugs = withMegaBugs(bugsNaming(listed.value ?? [], { window, names: namesPrd(prd.number, `${owner}/${repo}`) }), mega?.bugs ?? []);
 
-    const fixes: Fix[] = [];
-    if (bugs.length > 0) {
-      const wanted = new Set(bugs.map((bug) => bug.number));
-      const merged = await readOrRefused(() => mergedSince(octokit, { owner, repo, base: config.repo.defaultBranch, since: window.from }));
-      if (merged.status) unread.push({ read: 'fixes', status: merged.status });
-      const found = (merged.value ?? [])
-        .filter((pull): pull is ClosedPull & { merged_at: string } => pull.number !== pr?.number && within(window, pull.merged_at))
-        .map((pull) => ({ pull, closes: closedBy(`${pull.title ?? ''}\n${pull.body ?? ''}`, `${owner}/${repo}`).filter((n) => wanted.has(n)) }))
-        .filter(({ closes }) => closes.length > 0)
-        .sort((a, b) => a.pull.merged_at.localeCompare(b.pull.merged_at) || a.pull.number - b.pull.number);
-      for (const { pull, closes } of found) {
-        const files = await readOrRefused(() => listFiles(octokit, { owner, repo, number: pull.number }));
-        if (files.status) unread.push({ read: 'files', pr: pull.number, status: files.status });
-        fixes.push({ number: pull.number, url: pull.html_url, mergedAt: pull.merged_at, closes, files: files.value });
-      }
-    }
-
+    const fixes = await closingFixes(octokit, { owner, repo, base: config.repo.defaultBranch, window, featurePr: pr?.number, bugs, unread });
     const checks = await mergeJobs(octokit, { owner, repo, mergeSha, unread });
     const churnAtMerge = parseOrThrow(ChurnAtMergeSchema, atMerge?.kinds.churn, "The merge run's churn facts are of an unexpected shape");
     const ranges = (churnAtMerge?.ranges ?? []).map(({ path, from, to }) => ({ path, from, to }));
-    return { window, bugs, fixes, checks, ranges, unread };
+    return { window, bugs, fixes, checks, ranges, unread, ...(mega ? { mega: mega.mega } : {}) };
   },
 
   detect(records, { prd }: Partial<KindContext> = {}) {
     if (!records) return { facts: null, findings: [] };
     const { window } = records;
     const fixes = records.fixes.filter((fix) => within(window, fix.mergedAt));
-    const { ranges } = records;
+    const bugs = records.bugs.filter((bug) => within(window, bug.createdAt)).map((bug) => bugFacts(bug, { records, fixes }));
 
-    const bugs = records.bugs
-      .filter((bug) => within(window, bug.createdAt))
-      .map((bug) => {
-        const own = fixes.filter((fix) => fix.closes.includes(bug.number));
-        return {
-          number: bug.number,
-          url: bug.url,
-          daysAfterMerge: Math.floor((Date.parse(bug.createdAt) - Date.parse(window.from)) / DAY_MS),
-          closed: within(window, bug.closedAt),
-          fixes: own.map((fix) => fix.number),
-          linked: own.flatMap((fix) => linksOf(fix, ranges)),
-        };
-      });
-
-    const { jobs } = records.checks;
     const facts: Facts = {
       prd: prd?.number ?? null,
       days: THRESHOLDS.afterMergeDays,
       from: window.from,
       to: window.to,
       total: bugs.length,
-      fixed: bugs.filter((bug) => bug.fixes.length > 0).length,
+      fixed: bugs.filter((bug) => bug.fixes.length + (bug.planned?.length ?? 0) > 0).length,
       linked: bugs.filter((bug) => bug.linked.length > 0).length,
       bugs,
       fixes: fixes.filter((fix) => bugs.some((bug) => bug.fixes.includes(fix.number))).map(({ number, url, mergedAt }) => ({ number, url, mergedAt })),
-      checks: {
-        commit: records.checks.commit.slice(0, SHORT),
-        read: !records.checks.status,
-        status: records.checks.status ?? null,
-        total: jobs.length,
-        green: jobs.filter((job) => GREEN.has(job.conclusion)).length,
-        red: jobs.filter((job) => RED.has(job.conclusion)).length,
-        other: jobs.filter((job) => !GREEN.has(job.conclusion) && !RED.has(job.conclusion)).length,
-        jobs,
-      },
+      checks: checkFacts(records.checks),
       unread: records.unread,
+      ...(records.mega ? { mega: { bugs: bugs.filter((bug) => bug.planned).length, unread: records.mega.unread } } : {}),
     };
 
     const urlOf = new Map(fixes.map((fix) => [fix.number, fix.url]));
@@ -181,7 +147,11 @@ export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
       kind: 'bug',
       title: `Bug #${bug.number} was reported against the PRD after the merge`,
       happened: happened(bug, facts),
-      evidence: [{ label: `Bug #${bug.number}`, url: bug.url }, ...bug.fixes.map((n): Evidence => ({ label: `Fix #${n}`, url: urlOf.get(n) ?? null }))],
+      evidence: [
+        { label: `Bug #${bug.number}`, url: bug.url },
+        ...bug.fixes.map((n): Evidence => ({ label: `Fix #${n}`, url: urlOf.get(n) ?? null })),
+        ...(bug.planned ?? []).map((fix): Evidence => ({ label: `Fix ${refOf(fix)}`, url: fix.url })),
+      ],
     }));
     return { facts, findings };
   },
@@ -189,84 +159,179 @@ export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
   describe(facts) {
     if (!facts) return null;
     const refused = (read: Unread['read']) => facts.unread.find((entry) => entry.read === read);
-    const lines: string[] = [];
-    const bugsUnread = refused('bugs');
-    if (bugsUnread) {
-      lines.push(`- The \`${BUG_LABEL}\` issues were not read (GitHub answered ${bugsUnread.status}).`);
-    } else if (facts.total === 0) {
-      lines.push(`- No \`${BUG_LABEL}\` issue naming #${facts.prd} was opened within ${facts.days} days of the merge.`);
-    } else {
-      const issues = facts.total === 1 ? `1 \`${BUG_LABEL}\` issue naming #${facts.prd} was` : `${facts.total} \`${BUG_LABEL}\` issues naming #${facts.prd} were`;
-      lines.push(`- ${issues} opened within ${facts.days} days of the merge: ${facts.fixed} fixed within those days, ${facts.linked} linked to churn.`);
-    }
+    const lines = [...bugLines(facts, refused('bugs')), ...megaLine(facts)];
 
     const fixUrl = new Map(facts.fixes.map((fix) => [fix.number, fix.url]));
-    for (const bug of facts.bugs) {
-      const parts = [`opened ${daysText(bug.daysAfterMerge)} after the merge, ${bug.closed ? 'closed' : 'still open'}`];
-      parts.push(bug.fixes.length > 0 ? `fixed by ${and(bug.fixes.map((n) => `[#${n}](${fixUrl.get(n)})`))}` : 'no fix merged');
-      if (bug.linked.length > 0) {
-        parts.push(`linked to ${and(bug.linked.map((link) => `\`${link.finding}\` (#${link.fix}${link.byFile ? ', by its file' : ''})`))}`);
-      }
-      lines.push(`- [#${bug.number}](${bug.url}): ${parts.join('; ')}.`);
-    }
+    for (const bug of facts.bugs) lines.push(bugLine(bug, fixUrl));
 
     const fixesUnread = refused('fixes');
     if (fixesUnread) lines.push(`- The pull requests merged after the merge were not read (GitHub answered ${fixesUnread.status}), so no fix is counted.`);
 
-    const { checks } = facts;
-    if (!checks.read) {
-      lines.push(
-        `- The jobs on the merge commit \`${checks.commit}\` were not read (GitHub answered ${checks.status}). The app reads them with the \`actions: read\` permission.`,
-      );
-    } else if (checks.total === 0) {
-      lines.push(`- No GitHub Actions job ran on the merge commit \`${checks.commit}\`.`);
-    } else {
-      const red = checks.jobs.filter((job) => RED.has(job.conclusion)).map((job) => `\`${job.name}\``);
-      const counts = [`${checks.green} green`, `${checks.red} red${red.length > 0 ? ` (${red.join(', ')})` : ''}`];
-      if (checks.other > 0) counts.push(`${checks.other} neither`);
-      lines.push(`- ${plural(checks.total, 'GitHub Actions job')} ran on the merge commit \`${checks.commit}\`: ${counts.join(', ')}.`);
-    }
+    lines.push(...checkLines(facts.checks));
     for (const entry of facts.unread.filter((item) => item.read === 'jobs')) {
       lines.push(`- The jobs of workflow run ${entry.run} were not read (GitHub answered ${entry.status}).`);
     }
     for (const entry of facts.unread.filter((item) => item.read === 'files')) {
       lines.push(`- The files of #${entry.pr} were not read (GitHub answered ${entry.status}), so it is not placed against the churn ranges.`);
     }
+    lines.push(...megaUnreadLines(facts.mega?.unread ?? []));
     return lines;
   },
 });
 
+/** The `bug` issues naming the PRD, opened within the window, by number. */
+function bugsNaming(listed: readonly Issue[], { window, names }: { window: Records['window']; names: (text: string) => boolean }): Bug[] {
+  return listed
+    .filter((issue) => !issue.pull_request && within(window, issue.created_at) && names(`${issue.title ?? ''}\n${issue.body ?? ''}`))
+    .map((issue) => ({ number: issue.number, url: issue.html_url, createdAt: issue.created_at, closedAt: issue.closed_at ?? null }))
+    .sort((a, b) => a.number - b.number);
+}
+
+/** The bugs naming the PRD and the `For PRD #<n>` ones, each once, by number. */
+function withMegaBugs(bugs: readonly Bug[], mega: readonly Bug[]): Bug[] {
+  const known = new Set(bugs.map((bug) => bug.number));
+  return [...bugs, ...mega.filter((bug) => !known.has(bug.number))].sort((a, b) => a.number - b.number);
+}
+
+type FixesInput = Repo & { base: string; window: Records['window']; featurePr: PrNumber | undefined; bugs: readonly Bug[]; unread: Unread[] };
+
+/** The pull requests merged into the default branch within the window that close one of the bugs, with their files. */
+async function closingFixes(octokit: Octokit, { owner, repo, base, window, featurePr, bugs, unread }: FixesInput): Promise<Fix[]> {
+  const fixes: Fix[] = [];
+  if (bugs.length === 0) return fixes;
+  const wanted = new Set(bugs.map((bug) => bug.number));
+  const merged = await readOrRefused(() => mergedSince(octokit, { owner, repo, base, since: window.from }));
+  if (merged.status) unread.push({ read: 'fixes', status: merged.status });
+  const found = (merged.value ?? [])
+    .filter((pull): pull is ClosedPull & { merged_at: string } => pull.number !== featurePr && within(window, pull.merged_at))
+    .map((pull) => ({ pull, closes: closedBy(`${pull.title ?? ''}\n${pull.body ?? ''}`, `${owner}/${repo}`).filter((n) => wanted.has(n)) }))
+    .filter(({ closes }) => closes.length > 0)
+    .sort((a, b) => a.pull.merged_at.localeCompare(b.pull.merged_at) || a.pull.number - b.pull.number);
+  for (const { pull, closes } of found) {
+    const files = await readOrRefused(() => listFiles(octokit, { owner, repo, number: pull.number }));
+    if (files.status) unread.push({ read: 'files', pr: pull.number, status: files.status });
+    fixes.push({ number: pull.number, url: pull.html_url, mergedAt: pull.merged_at, closes, files: files.value });
+  }
+  return fixes;
+}
+
+/** One bug's facts: its fixes in the plan repository, a `For PRD #<n>` bug's planned fixes, and the churn each touched. */
+function bugFacts(bug: Bug, { records, fixes }: { records: Records; fixes: readonly Fix[] }): BugFacts {
+  const { window, ranges, mega } = records;
+  const own = fixes.filter((fix) => fix.closes.includes(bug.number));
+  const facts: BugFacts = {
+    number: bug.number,
+    url: bug.url,
+    daysAfterMerge: Math.floor((Date.parse(bug.createdAt) - Date.parse(window.from)) / DAY_MS),
+    closed: within(window, bug.closedAt),
+    fixes: own.map((fix) => fix.number),
+    linked: own.flatMap((fix) => linksOf(fix, ranges)),
+  };
+  if (!mega?.bugs.includes(bug.number)) return facts;
+  const planned = plannedFor(mega, { bug: bug.number, window, counted: facts.fixes });
+  facts.planned = planned.map(({ repo, number, url }) => ({ repo, number, url }));
+  for (const fix of planned) {
+    const place = placeOf(mega, fix.repo, ranges);
+    facts.linked.push(...linksOf(fix, place.ranges, { repo: fix.repo, prefix: place.prefix }));
+  }
+  return facts;
+}
+
+/** The merge commit's jobs, counted. */
+function checkFacts(checks: MergeChecks): Facts['checks'] {
+  const { jobs } = checks;
+  return {
+    commit: checks.commit.slice(0, SHORT),
+    read: !checks.status,
+    status: checks.status ?? null,
+    total: jobs.length,
+    green: jobs.filter((job) => GREEN.has(job.conclusion)).length,
+    red: jobs.filter((job) => RED.has(job.conclusion)).length,
+    other: jobs.filter((job) => !GREEN.has(job.conclusion) && !RED.has(job.conclusion)).length,
+    jobs,
+  };
+}
+
+/** The section's first line: the bugs counted, or why none were. */
+function bugLines(facts: Facts, bugsUnread: Unread | undefined): string[] {
+  if (bugsUnread) return [`- The \`${BUG_LABEL}\` issues were not read (GitHub answered ${bugsUnread.status}).`];
+  if (facts.total === 0) return [`- No \`${BUG_LABEL}\` issue naming #${facts.prd} was opened within ${facts.days} days of the merge.`];
+  const issues = facts.total === 1 ? `1 \`${BUG_LABEL}\` issue naming #${facts.prd} was` : `${facts.total} \`${BUG_LABEL}\` issues naming #${facts.prd} were`;
+  return [`- ${issues} opened within ${facts.days} days of the merge: ${facts.fixed} fixed within those days, ${facts.linked} linked to churn.`];
+}
+
+/** How many of the bugs carry `For PRD #<n>`, when any does. */
+function megaLine(facts: Facts): string[] {
+  const count = facts.mega?.bugs ?? 0;
+  if (count === 0) return [];
+  const which = count === 1 ? '1 of them carries' : `${count} of them carry`;
+  const plans = count === 1 ? 'its fix plan' : 'their fix plans';
+  return [`- ${which} \`For PRD #${facts.prd}\`: the pull requests of ${plans} were read in their own repositories.`];
+}
+
+/** One bug's line: when it was opened, its fixes and the churn they touched. */
+function bugLine(bug: BugFacts, fixUrl: ReadonlyMap<PrNumber, string>): string {
+  const parts = [`opened ${daysText(bug.daysAfterMerge)} after the merge, ${bug.closed ? 'closed' : 'still open'}`];
+  const fixed = [...bug.fixes.map((n) => `[#${n}](${fixUrl.get(n)})`), ...(bug.planned ?? []).map((fix) => `[${refOf(fix)}](${fix.url})`)];
+  parts.push(fixed.length > 0 ? `fixed by ${and(fixed)}` : 'no fix merged');
+  if (bug.linked.length > 0) {
+    parts.push(`linked to ${and(bug.linked.map((link) => `\`${link.finding}\` (${refOf({ repo: link.repo, number: link.fix })}${link.byFile ? ', by its file' : ''})`))}`);
+  }
+  return `- [#${bug.number}](${bug.url}): ${parts.join('; ')}.`;
+}
+
+/** The merge commit's jobs, in one line, or why they were not read. */
+function checkLines(checks: Facts['checks']): string[] {
+  if (!checks.read) {
+    return [`- The jobs on the merge commit \`${checks.commit}\` were not read (GitHub answered ${checks.status}). The app reads them with the \`actions: read\` permission.`];
+  }
+  if (checks.total === 0) return [`- No GitHub Actions job ran on the merge commit \`${checks.commit}\`.`];
+  const red = checks.jobs.filter((job) => RED.has(job.conclusion)).map((job) => `\`${job.name}\``);
+  const counts = [`${checks.green} green`, `${checks.red} red${red.length > 0 ? ` (${red.join(', ')})` : ''}`];
+  if (checks.other > 0) counts.push(`${checks.other} neither`);
+  return [`- ${plural(checks.total, 'GitHub Actions job')} ran on the merge commit \`${checks.commit}\`: ${counts.join(', ')}.`];
+}
+
 /** What happened to one bug, every number from its facts or the rules. */
 function happened(bug: BugFacts, facts: Facts): string {
+  const opened = `was opened ${daysText(bug.daysAfterMerge)} after the merge.`;
   const sentences = [
-    `Issue #${bug.number}, labelled \`${BUG_LABEL}\`, names #${facts.prd} and was opened ${daysText(bug.daysAfterMerge)} after the merge.`,
+    bug.planned
+      ? `Issue #${bug.number} carries \`For PRD #${facts.prd}\` and ${opened}`
+      : `Issue #${bug.number}, labelled \`${BUG_LABEL}\`, names #${facts.prd} and ${opened}`,
   ];
   const state = bug.closed ? `It was closed within ${facts.days} days of the merge` : `It was still open ${facts.days} days after the merge`;
-  sentences.push(
-    bug.fixes.length > 0
-      ? `${state}, fixed by ${and(bug.fixes.map((n) => `#${n}`))}.`
-      : `${state}; no pull request closing it was merged by then.`,
-  );
+  const fixed = [...bug.fixes.map((n) => `#${n}`), ...(bug.planned ?? []).map(refOf)];
+  sentences.push(fixed.length > 0 ? `${state}, fixed by ${and(fixed)}.` : `${state}; no pull request closing it was merged by then.`);
   if (bug.linked.length > 0) {
-    const links = bug.linked.map((link) =>
-      link.byFile
-        ? `#${link.fix} changed \`${link.path}\`, which holds \`${link.finding}\`, without a patch to place its lines`
-        : `#${link.fix} touched \`${link.finding}\``,
-    );
+    const links = bug.linked.map((link) => {
+      const fix = refOf({ repo: link.repo, number: link.fix });
+      return link.byFile
+        ? `${fix} changed \`${link.path}\`, which holds \`${link.finding}\`, without a patch to place its lines`
+        : `${fix} touched \`${link.finding}\``;
+    });
     sentences.push(`A fix touched code rewritten again and again before the merge, so the bug is linked to that churn: ${and(links, ', and ')}.`);
   }
   return sentences.join(' ');
 }
 
-/** The churn ranges one fix touched: by its change blocks, or by its file when GitHub sent no patch. */
-function linksOf(fix: Fix, ranges: readonly ChurnRange[]): Link[] {
+/**
+ * The churn ranges one fix touched: by its change blocks, or by its file when GitHub sent no patch. A
+ * fix read in a repository of its own names it (`repo`), and its findings carry that repository's prefix.
+ */
+function linksOf(
+  fix: { number: PrNumber; files: Fix['files'] },
+  ranges: readonly ChurnRange[],
+  { repo, prefix = '' }: { repo?: string; prefix?: string } = {},
+): Link[] {
   const links: Link[] = [];
   for (const range of ranges) {
     const file = (fix.files ?? []).find((candidate) => candidate.path === range.path || candidate.previous === range.path);
     if (!file) continue;
     const byFile = file.blocks === null;
     if (file.blocks !== null && !file.blocks.some((block) => overlaps(block, range))) continue;
-    links.push({ fix: fix.number, path: range.path, from: range.from, to: range.to, finding: `churn:${range.path}:${range.from}-${range.to}`, byFile });
+    const finding = `${prefix}churn:${range.path}:${range.from}-${range.to}`;
+    links.push({ fix: fix.number, ...(repo ? { repo } : {}), path: range.path, from: range.from, to: range.to, finding, byFile });
   }
   return links;
 }
@@ -277,12 +342,6 @@ function overlaps([oldStart, oldCount]: Block, { from, to }: ChurnRange): boolea
   return oldStart <= to && oldStart + oldCount - 1 >= from;
 }
 
-/** Whether `at` falls within the window, its ends included. */
-function within(window: Window, at: string | null | undefined): at is string {
-  if (!at) return false;
-  const time = Date.parse(at);
-  return time >= Date.parse(window.from) && time <= Date.parse(window.to);
-}
 
 /** Whether a text names `#<prd>`, or `<owner>/<repo>#<prd>`: not `#70` for `#7`, nor an HTML entity. */
 function namesPrd(prd: PrdNumber, slug: string): (text: string) => boolean {
@@ -319,17 +378,6 @@ async function mergedSince(octokit: Octokit, { owner, repo, base, since }: Repo 
   return all;
 }
 
-/** A pull request's files, each patch reduced to its change blocks (`null` when GitHub sent none). */
-async function listFiles(octokit: Octokit, { owner, repo, number }: Repo & { number: PrNumber }): Promise<FixFile[]> {
-  const files: ChangedFile[] = await paginate((page: number) =>
-    octokit.request(FILES, { owner, repo, pull_number: number, per_page: PER_PAGE, page }).then(({ data }) => ChangedFileSchema.array().parse(data)),
-  );
-  return files.map((file) => ({
-    path: file.filename,
-    previous: file.previous_filename ?? null,
-    blocks: typeof file.patch === 'string' ? changeBlocks(file.patch) : null,
-  }));
-}
 
 /** The latest jobs of every workflow run on the merge commit, or the status GitHub refused them with. */
 async function mergeJobs(
@@ -355,16 +403,6 @@ async function mergeJobs(
   return { commit: mergeSha, status: null, jobs };
 }
 
-/** What `read` returns, or the status when GitHub will not let the app read it. Anything else is thrown, so Inngest retries. */
-async function readOrRefused<T>(read: () => Promise<T>): Promise<Read<T>> {
-  try {
-    return { value: await read(), status: null };
-  } catch (error) {
-    const status = statusOf(error);
-    if (typeof status === 'number' && UNREADABLE.has(status)) return { value: null, status };
-    throw error;
-  }
-}
 
 function daysText(days: number): string {
   if (days < 1) return 'less than a day';
@@ -384,7 +422,3 @@ function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** The HTTP status a failed request carries, when it carries one. */
-function statusOf(error: unknown): unknown {
-  return typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;
-}
