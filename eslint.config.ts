@@ -1,6 +1,6 @@
 // The linter (PRD 976): typescript-eslint's strictTypeChecked over every TypeScript file git tracks,
 // tests linted the same as source, with two tunings — numbers print correctly in a template string,
-// and React's hooks rules run on the arcade. An `eslint-disable` comment changes nothing
+// and React's hooks rules run on the arcade and the pitch engine. An `eslint-disable` comment changes nothing
 // (`noInlineConfig`), and scripts/typescript-guard.test.ts refuses one. `pnpm lint` runs it
 // (scripts/lint.ts), which loads this file through Node's own type stripping.
 import { defineConfig } from 'eslint/config';
@@ -27,7 +27,7 @@ export default defineConfig(
     },
   },
   {
-    files: ['apps/galaxy/**/*.{ts,tsx}'],
+    files: ['apps/galaxy/**/*.{ts,tsx}', 'kit/pitch-engine/**/*.{ts,tsx}'],
     // The plugin's own rules only: its `configs` do not meet ESLint's `Plugin` type.
     plugins: { 'react-hooks': { meta: reactHooks.meta, rules: reactHooks.rules } },
     rules: {

@@ -1,6 +1,6 @@
 # ADR-0058 — Each zone imports only what the rule table allows, checked by the import guard
 
-**Status:** accepted · **Date:** 2026-10-04 · **PRD:** #1066
+**Status:** accepted · **Date:** 2026-10-04 · **PRD:** #1066 · **Amended:** 2026-10-06, PRD #1108 (the `kit/pitch-engine` zone)
 
 ## Context
 
@@ -15,8 +15,8 @@ PRD 1066 fixed the breaches and wrote the rules down as one table that a test en
 
 ## Decision
 
-1. **Zones,** from where a file sits: `kit/lib`, `kit/bin`, `kit/test`, the kit's build scripts
-   (`kit/build.ts`, `kit/release/`), `game`, `scripts`, `apps/galaxy`, `apps/omni-app`,
+1. **Zones,** from where a file sits: `kit/lib`, `kit/bin`, `kit/test`, `kit/pitch-engine`, the kit's
+   build scripts (`kit/build.ts`, `kit/release/`), `game`, `scripts`, `apps/galaxy`, `apps/omni-app`,
    `packages/design`, `packages/galaxy`, the generated `supabase` types, the root manifest, and the
    repository's config (`eslint.config.ts`, `vitest.config.ts`, `.claude/`).
 2. **The rule table:** what a file may import beyond its own zone, Node built-ins and npm packages.
@@ -28,6 +28,7 @@ PRD 1066 fixed the breaches and wrote the rules down as one table that a test en
    | `kit/bin` | `kit/lib` |
    | the kit's build scripts | `kit/lib`, `kit/bin` |
    | `kit/test` | `kit/lib`, `kit/bin` |
+   | `kit/pitch-engine` | `kit/lib`; of npm packages only React, React DOM and zod, and no Node built-in |
    | `game` | `kit/lib/ids`, `kit/lib/env`, the `supabase` types |
    | `packages/galaxy` | `game`, `@omni/design`, `kit/lib/ids` |
    | `packages/design` | `kit/lib`, by package name |
@@ -40,6 +41,11 @@ PRD 1066 fixed the breaches and wrote the rules down as one table that a test en
    import by package name (`vertuo-omni-plan/…`, `@omni/*`) names a package the importing package
    declares. The `kit/test`, config and `game`-to-`supabase` rows are beyond PRD 1066's spec (items
    s3-01 and s3-03).
+   `kit/pitch-engine` (PRD 1108) is the pitch's render engine, a React page `pnpm kit:build` bundles for
+   the browser into `kit/dist/pitch-engine/`: its source runs in a browser, so beyond `kit/lib` it may
+   import only React, React DOM and zod (the kit's schemas), and no Node built-in. Its tests run under
+   Node and are free of that narrower rule; every other rule holds for them. Nothing imports it: the
+   build reaches its entry by path.
 3. **The kit's public surface is `kit/lib`:** apps, packages, the game and scripts import `kit/lib`,
    never `kit/bin` or `kit/test` from source. No `exports` map.
 4. **The arcade's client and server.** A module the client can reach (a `'use client'` file and every

@@ -249,18 +249,32 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'skills',
     usage: [
       'omni pitch start <n> --for customers|inside',
-      'omni pitch slide <dir> --frame <png>',
-      'omni pitch music <dir> --for customers|inside',
-      'omni pitch video <dir>',
+      'omni pitch film <dir>',
+      'omni pitch check <dir>',
+      'omni pitch render <dir> [--stills]',
+      'omni pitch studio <dir> [--no-open]',
       'omni pitch push <n> <dir>',
     ],
     summary: "makes a shipped PRD's pitch, and sends it to its Pitch tab",
     detail:
       'The verbs /omni:pitch runs. start refuses with one line, writing nothing, a PRD not shipped, a ' +
       'proof.url that is not a fixed URL, no ffmpeg or no sign-in; otherwise it opens the run folder ' +
-      "under the worktrees with the product's look and prints it. slide renders the wedge slide in that " +
-      "look, 16:9 and 1:1, from a real frame; music writes the audience's default music, the same every " +
-      'time; video makes pitch.mp4, pitch-square.mp4 and pitch.gif with ffmpeg. push ' +
+      "under the worktrees, writes the product's Pitch settings there as settings.json (the Arcade " +
+      'preset, said in one line, when the Omni page cannot answer them), names each file they point at ' +
+      "that the run's assets/ folder must hold, and prints the folder. film plays the folder's " +
+      'walk.json in the browser at 1920×1080, signed in with its storage-state.json, and writes ' +
+      'walk.webm and moments.json, each moment with its time, the box of its element and the camera ' +
+      'that shows it; it only looks, refusing a click on a submit button or on words that save, send, ' +
+      "delete or change anything, and writing nothing then. check reads the folder's " +
+      'storyboard.json and stops, naming each with its path, a field the schema refuses, a media file ' +
+      'missing, an intro that is not first or an outro that is not last; it warns on words over their ' +
+      'count, words that take longer to read than their scene lasts and a length outside 15 to 60 ' +
+      's, and writes the warnings to pitch.json. render --stills draws one image per scene and a ' +
+      'contact sheet of them in stills/; render draws every frame in the browser and makes pitch.mp4 ' +
+      '(1920×1080), pitch-square.mp4 (1080×1080) and pitch.gif (8 s at most, 640 px wide) with ffmpeg, ' +
+      "the music its provider picks under them, and the intro's still as slide.png and slide-square.png. " +
+      'studio serves the storyboard on a local page with play, frame and scene keys, opens it unless ' +
+      '--no-open, and reloads it when the storyboard changes. push ' +
       "sends a pitch /omni:pitch made of shipped PRD n to its dossier on the Omni page, and prints its " +
       "Pitch tab's link, then the GIF's link that opens without signing in. It reads pitch.json in the " +
       'folder and refuses, before sending anything, a run missing one of its five files ' +
@@ -1114,20 +1128,21 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'you',
     usage: ['/omni:pitch <n> --for customers|inside'],
     label: '/omni:pitch <n>',
-    summary: 'a slide, video and GIF announcing a shipped PRD',
+    summary: 'an animated video and GIF announcing a shipped PRD',
     detail:
-      'Makes a launch package for shipped PRD n, for customers or for inside: a hook, a benefit, a ' +
-      'kicker and a closing line written from the spec and the release note only, one slow ' +
-      'walk-through filmed on production that never saves, deletes or changes anything, the wedge slide ' +
-      "in the product's look from a real frame, generated music, and pitch.mp4, pitch-square.mp4 and " +
-      "pitch.gif made with ffmpeg. It sends them to the PRD's Pitch tab with omni pitch push. It refuses " +
-      'with one line a PRD not shipped, a proof.url that is not fixed, no ffmpeg or no sign-in, and ' +
-      'posts no comment.',
+      "Makes a launch video for shipped PRD n, for customers or for inside, from the product's Pitch " +
+      'settings (look, voice, intro and outro, music, length): a walk-through filmed on production that ' +
+      'never saves, deletes or changes anything, writing the moments it acts on; a storyboard written ' +
+      'from the spec, the release note and those moments only, in the voice the settings ask for, never ' +
+      'inventing a number, a name or a capability whatever the instructions say; then omni pitch check, ' +
+      'one still per scene looked at before the render, pitch.mp4, pitch-square.mp4 and pitch.gif, sent ' +
+      "to the PRD's Pitch tab with omni pitch push. It refuses with one line a PRD not shipped, a " +
+      'proof.url that is not fixed, no ffmpeg or no sign-in, and posts no comment.',
     group: 'everyday',
     when: 'Use it when a PRD has shipped and you want to announce it to customers or at an all-hands.',
     example: {
       type: '/omni:pitch 859 --for customers',
-      result: "slide.png, a 20 to 30 second pitch.mp4 with music and pitch.gif, on the PRD's Pitch tab",
+      result: "a 20 to 40 second pitch.mp4 in the product's look, pitch-square.mp4 and pitch.gif, on the PRD's Pitch tab",
     },
   },
 

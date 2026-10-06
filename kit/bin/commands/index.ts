@@ -3,7 +3,7 @@
 // gets `{ cwd, stdout, stderr, exec, env }` instead, plus whatever a caller injects (init's `stdin`, `bundle`
 // and `ask`; ask's `stdin`, `tokens` and `limits`; heartbeat's `stdin`, `tokens`, `fetch` and `now`; signin's `home`, `openBrowser`, `fetch` and `waitMs`;
 // signout's and whoami's `home`; dossier's `tokens`, `home`, `fetch`, `callMs` and `now`; proof's `tokens`, `home`, `fetch` and `callMs`;
-// pitch's `tokens`, `home`, `fetch`, `callMs`, `now` and `screenshot`;
+// pitch's `tokens`, `home`, `fetch`, `callMs`, `now`, `launch`, `openBrowser` and `studioUntil`;
 // business's and decide's `tokens`, `home`, `fetch` and `callMs`; constituents' `tokens`, `home`, `fetch`, `now` and `budgetMs`;
 // version's `kit`; update's `kit` and `bundle`; statusline's `stdin`, `now`, `readFacts` and `spawn`).
 import type { Command, FreeCommand } from '../io.ts';

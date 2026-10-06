@@ -1,10 +1,6 @@
-// A pitch's default music (PRD 859 s4): the same audience gives the same bytes, and the WAV is 30 s,
-// 44.1 kHz, stereo.
-import { createHash } from 'node:crypto';
+// Silence as a WAV (PRD 1108 s5), what the `none` music provider writes.
 import { describe, expect, it } from 'vitest';
-import { MUSIC, pitchMusic } from './music.ts';
-
-const sha = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex');
+import { silenceWav } from './music.ts';
 
 /** The fields of a PCM WAV header. */
 function header(wav: Buffer) {
@@ -19,29 +15,17 @@ function header(wav: Buffer) {
   };
 }
 
-describe('pitchMusic', () => {
-  it('gives the same bytes every time for an audience, and different music for each', () => {
-    const inside = pitchMusic('inside');
-    const customers = pitchMusic('customers');
-    expect(sha(pitchMusic('inside'))).toBe(sha(inside));
-    expect(sha(pitchMusic('customers'))).toBe(sha(customers));
-    expect(sha(inside)).not.toBe(sha(customers));
+describe('silenceWav (PRD 1108 s5)', () => {
+  it('is a WAV of the asked length, every sample zero', () => {
+    const wav = silenceWav(2.5);
+    const fields = header(wav);
+    expect(fields).toEqual({ riff: 'RIFF', wave: 'WAVE', format: 1, channels: 2, rate: 44100, bits: 16, data: Math.round(2.5 * 44100) * 4 });
+    expect(wav.length).toBe(44 + fields.data);
+    expect(wav.subarray(44).every((byte) => byte === 0)).toBe(true);
   });
 
-  it('is a 30-second, 44.1 kHz, 16-bit stereo PCM WAV, never silent', () => {
-    for (const audience of ['inside', 'customers']) {
-      const wav = pitchMusic(audience);
-      const fields = header(wav);
-      expect(fields, audience).toEqual({ riff: 'RIFF', wave: 'WAVE', format: 1, channels: 2, rate: 44100, bits: 16, data: 30 * 44100 * 4 });
-      expect(fields.data / (fields.rate * fields.channels * 2), audience).toBe(MUSIC.seconds);
-      expect(wav.length, audience).toBe(44 + fields.data);
-      let loudest = 0;
-      for (let at = 44; at < wav.length; at += 2000) loudest = Math.max(loudest, Math.abs(wav.readInt16LE(at)));
-      expect(loudest, audience).toBeGreaterThan(3000);
-    }
-  });
-
-  it('refuses an audience other than customers or inside', () => {
-    expect(() => pitchMusic('investors')).toThrow(/customers or inside/);
+  it('refuses a length that is not positive', () => {
+    expect(() => silenceWav(0)).toThrow(/silence needs a length/);
+    expect(() => silenceWav(Number.NaN)).toThrow(/silence needs a length/);
   });
 });
