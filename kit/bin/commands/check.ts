@@ -1,4 +1,4 @@
-// `omni check [inbox|outbox|knowledge|kb|releases|coverage|all]` — the repository's guards. Each
+// `omni check [config|inbox|outbox|knowledge|kb|releases|coverage|all]` — the repository's guards. Each
 // prints its violations (or its one pass line); exit 1 on any violation. `all` (the default) runs
 // every guard, and skips `coverage` — never fails on it — when the default branch's remote ref is
 // absent.
@@ -25,13 +25,15 @@ import { riskyChanges } from '../../lib/outbox/decision-coverage.ts';
 import { outboxItemFiles } from '../../lib/outbox/outbox.ts';
 import { gradePlaybook } from '../../lib/playbook/check-playbook.ts';
 import { findReleaseViolations, releaseNoteFiles } from '../../lib/releases/check-releases.ts';
+import { CONFIG_FILE, ConfigError } from '../../lib/config.ts';
+import { DEFAULT_HOOK_MAX_BYTES, hookFileViolations } from '../../lib/flow/schema.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
-import type { Command, CommandIo, Exec, Out } from '../io.ts';
-import type { Context } from '../../lib/context.ts';
+import type { CommandIo, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
+import { loadContext, type Context } from '../../lib/context.ts';
 import { synchronous } from '../synchronous.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 
-const USAGE = 'usage: omni check [inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]';
+const USAGE = 'usage: omni check [config|inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]';
 
 /** Prints a guard's result; `true` when it is green. */
 function report(stdout: Out, title: string, violations: readonly string[], passLine: string): boolean {
@@ -166,14 +168,46 @@ function checkCoverage({ ctx, stdout, exec }: CommandIo, { base, prd }: { base: 
   return ok;
 }
 
-const GUARDS: readonly string[] = ['inbox', 'outbox', 'knowledge', 'kb', 'releases', 'coverage', 'all'];
+// PRD 1089: the config itself, its flow included, and the hook files the flow names.
+function checkConfig({ ctx, stdout }: CommandIo): boolean {
+  const { flow, limits } = ctx.config;
+  const areas = Object.keys(flow?.areas ?? {}).length;
+  return report(
+    stdout,
+    CONFIG_TITLE,
+    hookFileViolations(ctx.root, flow, limits.hookMaxBytes ?? DEFAULT_HOOK_MAX_BYTES),
+    `check config — ${CONFIG_FILE} is valid; ${flow ? `flow: ${areas} area(s), every hook file present` : 'no flow'}.`,
+  );
+}
 
-export const check: Command = {
-  run: synchronous((args: string[], io: CommandIo): number => {
-    const { ctx, stdout, exec } = io;
+const CONFIG_TITLE = 'check config — the config does not hold what it claims:';
+
+/** The repository's context; for `check config`, an invalid config is a red guard, never a stop. */
+function contextFor(guard: string, cwd: string, exec: Exec, stdout: Out): Context | null {
+  try {
+    return loadContext(cwd, { exec });
+  } catch (error) {
+    if (guard !== 'config' || !(error instanceof ConfigError) || !error.invalid) throw error;
+    const [first = '', ...others] = error.message.split('\n');
+    report(stdout, CONFIG_TITLE, [first, ...others.map((line) => line.replace(/^\s*- /, ''))], '');
+    return null;
+  }
+}
+
+const GUARDS: readonly string[] = ['config', 'inbox', 'outbox', 'knowledge', 'kb', 'releases', 'coverage', 'all'];
+
+// A command without context, so that `check config` reads the config itself and turns an invalid one
+// into a red guard (exit 1); every other guard still stops on it with exit 2, as before.
+export const check: FreeCommand = {
+  withoutContext: true,
+  run: synchronous((args: string[], free: FreeIo): number => {
+    const { cwd, stdout, stderr, exec, env, vars } = free;
     const { positional, flags } = parseArgs('check', args, { values: ['base', 'prd'] });
     if (positional.length > 1 || (positional[0] && !GUARDS.includes(positional[0]))) throw usageError(USAGE);
     const guard = positional[0] ?? 'all';
+    const ctx = contextFor(guard, cwd, exec, stdout);
+    if (ctx === null) return 1;
+    const io: CommandIo = { ctx, stdout, stderr, exec, env, vars };
     const prd = flags.prd === undefined ? null : prdArg('check', '--prd', flags.prd);
     const base = flags.base ?? defaultBase(ctx);
     const baseKnown = refExists(ctx, base, exec);
@@ -184,6 +218,7 @@ export const check: Command = {
     const coverageRuns = guard === 'coverage' || (guard === 'all' && baseKnown);
     if (prd !== null && !coverageRuns) println(io.stderr, `omni check: --prd ${prd} ignored — the coverage guard did not run.`);
 
+    if (guard === 'config') return checkConfig(io) ? 0 : 1;
     if (guard === 'inbox') return checkInbox(io) ? 0 : 1;
     if (guard === 'outbox') return checkOutbox(io) ? 0 : 1;
     if (guard === 'knowledge') return checkKnowledge(io) ? 0 : 1;
@@ -194,7 +229,7 @@ export const check: Command = {
       return checkCoverage(io, { base, prd }) ? 0 : 1;
     }
 
-    const results = [checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io)];
+    const results = [checkConfig(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io)];
     if (baseKnown) results.push(checkCoverage(io, { base, prd }));
     else println(stdout, `coverage: skipped — no ${base}`);
     return results.every(Boolean) ? 0 : 1;

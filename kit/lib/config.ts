@@ -13,9 +13,12 @@ export const CONFIG_FILE = '.omni-loop/config.yml';
 export const CONFIG_VERSION = 1;
 
 export class ConfigError extends Error {
-  constructor(message: string) {
+  /** True when the file was read and does not hold a valid config, false when there is no file to read. */
+  readonly invalid: boolean;
+  constructor(message: string, { invalid = false }: { invalid?: boolean } = {}) {
     super(message);
     this.name = 'ConfigError';
+    this.invalid = invalid;
   }
 }
 
@@ -338,19 +341,19 @@ export function parseConfig(source: string, file: string = CONFIG_FILE, { migrat
   try {
     raw = parse(source) ?? {};
   } catch (error) {
-    throw new ConfigError(`${file}: not valid YAML — ${messageOf(error).split('\n')[0]}`);
+    throw new ConfigError(`${file}: not valid YAML — ${messageOf(error).split('\n')[0]}`, { invalid: true });
   }
   if (migrate) raw = migrateConfig(raw);
   const renamed = renamedKey(raw);
   if (renamed) {
     const { section: name, from, to } = renamed;
-    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed — call it ${name}.${to}`);
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed — call it ${name}.${to}`, { invalid: true });
   }
   const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
     const more = others.length ? `\n${others.map((line) => `  - ${line}`).join('\n')}` : '';
-    throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`);
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
   }
   return result.data;
 }
