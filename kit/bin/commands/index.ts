@@ -1,8 +1,9 @@
 // Every `omni` subcommand, by name. Each is `{ run(args, { ctx, stdout, stderr, exec, env }) → exit code }`;
-// one marked `withoutContext` (init, ask, heartbeat, signin, signout, whoami, dossier, proof, business, constituents, decide, version, update, help, statusline)
+// one marked `withoutContext` (init, ask, heartbeat, signin, signout, whoami, dossier, proof, pitch, business, constituents, decide, version, update, help, statusline)
 // gets `{ cwd, stdout, stderr, exec, env }` instead, plus whatever a caller injects (init's `stdin`, `bundle`
 // and `ask`; ask's `stdin`, `tokens` and `limits`; heartbeat's `stdin`, `tokens`, `fetch` and `now`; signin's `home`, `openBrowser`, `fetch` and `waitMs`;
 // signout's and whoami's `home`; dossier's `tokens`, `home`, `fetch`, `callMs` and `now`; proof's `tokens`, `home`, `fetch` and `callMs`;
+// pitch's `tokens`, `home`, `fetch`, `callMs`, `now` and `screenshot`;
 // business's and decide's `tokens`, `home`, `fetch` and `callMs`; constituents' `tokens`, `home`, `fetch`, `now` and `budgetMs`;
 // version's `kit`; update's `kit` and `bundle`; statusline's `stdin`, `now`, `readFacts` and `spawn`).
 import type { Command, FreeCommand } from '../io.ts';
@@ -32,6 +33,7 @@ import { knowledge } from './knowledge.ts';
 import { phase0 } from './phase0.ts';
 import { plan } from './plan.ts';
 import { prd } from './prd.ts';
+import { pitch } from './pitch.ts';
 import { proof } from './proof.ts';
 import { replies } from './replies.ts';
 import { rework } from './rework.ts';
@@ -46,4 +48,4 @@ import { update } from './update.ts';
 import { version } from './version.ts';
 import { visual } from './visual.ts';
 
-export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, sign, credits, dossier, flow, proof, business, constituents, decide, version, update, help, statusline, targets });
+export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, sign, credits, dossier, flow, proof, pitch, business, constituents, decide, version, update, help, statusline, targets });

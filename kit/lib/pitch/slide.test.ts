@@ -5,8 +5,9 @@ import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from '@playwright/test';
+import type { Browser } from '@playwright/test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { FRAME_FILE, LOOKS, SHAPES, SLIDE_FILES, slideHtml } from './slide.mjs';
+import { FRAME_FILE, LOOKS, SHAPES, SLIDE_FILES, slideHtml } from './slide.ts';
 
 /** Words at the spec's longest: a 10-word hook, a 25-word benefit. */
 const WORDS = {
@@ -51,14 +52,37 @@ const browserHere = (() => {
   }
 })();
 
+/** What a rendered card shows, as the page reads it. */
+type Seen = { size: [number, number]; boxes: { name: string; text: string; fits: boolean }[]; frame: boolean | null };
+
+/**
+ * Read in the page (the kit's TypeScript has no DOM): its size, its words, the frame, and whether each
+ * box's text fits inside it and inside the page.
+ */
+const SEEN = `(() => {
+  const inside = (rect) => rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth + 0.5 && rect.bottom <= innerHeight + 0.5;
+  const boxes = [...document.querySelectorAll('[data-box]')].map((box) => {
+    const text = box.firstElementChild;
+    const fits = text.scrollWidth <= box.clientWidth && text.offsetHeight <= box.clientHeight && inside(box.getBoundingClientRect());
+    return { name: text.className, text: text.textContent, fits };
+  });
+  const image = document.querySelector('.frame img');
+  return {
+    size: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
+    boxes,
+    frame: image ? image.naturalWidth > 0 && inside(image.getBoundingClientRect()) : null,
+  };
+})()`;
+
 describe.skipIf(!browserHere)('the cards in a browser', () => {
-  let browser;
-  let dir;
+  let browser: Browser | undefined;
+  let dir = '';
 
   beforeAll(async () => {
-    browser = await chromium.launch();
+    const launched = await chromium.launch();
+    browser = launched;
     dir = mkdtempSync(join(tmpdir(), 'pitch-slide-'));
-    const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+    const page = await launched.newPage({ viewport: { width: 1600, height: 900 } });
     await page.setContent('<body style="margin:0;background:linear-gradient(90deg,#246,#8ac)"><h1 style="color:#fff;font:64px sans-serif">A real frame</h1></body>');
     writeFileSync(join(dir, FRAME_FILE), await page.screenshot());
     await page.close();
@@ -69,35 +93,23 @@ describe.skipIf(!browserHere)('the cards in a browser', () => {
   });
 
   /** What a rendered card shows: its size, its words, the frame, and every box that overflows. */
-  async function render(look, card, shape) {
+  async function render(look: (typeof LOOKS)[number], card: 'wedge' | 'close', shape: keyof typeof SHAPES) {
     const { width, height } = SHAPES[shape];
     const file = join(dir, `${look}-${card}-${shape}.html`);
     writeFileSync(file, slideHtml({ look, card, shape, words: WORDS }));
+    if (!browser) throw new Error('no browser');
     const page = await browser.newPage({ viewport: { width, height } });
     // The fonts come from the network; the fit is checked on the fallbacks, offline.
     await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
     await page.goto(`file://${file}`);
     await page.waitForSelector('body[data-fit="done"]', { timeout: 20_000 });
-    const seen = await page.evaluate(() => {
-      const inside = (rect) => rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth + 0.5 && rect.bottom <= innerHeight + 0.5;
-      const boxes = [...document.querySelectorAll('[data-box]')].map((box) => {
-        const text = box.firstElementChild;
-        const fits = text.scrollWidth <= box.clientWidth && text.offsetHeight <= box.clientHeight && inside(box.getBoundingClientRect());
-        return { name: text.className, text: text.textContent, fits };
-      });
-      const image = document.querySelector('.frame img');
-      return {
-        size: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
-        boxes,
-        frame: image ? image.naturalWidth > 0 && inside(image.getBoundingClientRect()) : null,
-      };
-    });
+    const seen = await page.evaluate<Seen>(SEEN);
     await page.close();
     return { width, height, ...seen };
   }
 
   for (const look of LOOKS) {
-    for (const shape of Object.keys(SHAPES)) {
+    for (const shape of ['wide', 'square'] as const) {
       it(`${look}, ${shape}: the slide draws the kicker, hook, benefit and frame, and nothing overflows`, async () => {
         const seen = await render(look, 'wedge', shape);
         expect(seen.size).toEqual([seen.width, seen.height]);

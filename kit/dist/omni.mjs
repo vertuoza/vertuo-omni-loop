@@ -1142,18 +1142,18 @@ ${indent}${text8.slice(fold + 1, end2)}`;
     }
     function consumeMoreIndentedLines(text8, i, indent) {
       let end = i;
-      let start = i + 1;
-      let ch = text8[start];
+      let start2 = i + 1;
+      let ch = text8[start2];
       while (ch === " " || ch === "	") {
-        if (i < start + indent) {
+        if (i < start2 + indent) {
           ch = text8[++i];
         } else {
           do {
             ch = text8[++i];
           } while (ch && ch !== "\n");
           end = i;
-          start = i + 1;
-          ch = text8[start];
+          start2 = i + 1;
+          ch = text8[start2];
         }
       }
       return end;
@@ -1185,12 +1185,12 @@ var require_stringifyString = __commonJS({
       const strLen = str.length;
       if (strLen <= limit)
         return false;
-      for (let i = 0, start = 0; i < strLen; ++i) {
+      for (let i = 0, start2 = 0; i < strLen; ++i) {
         if (str[i] === "\n") {
-          if (i - start > limit)
+          if (i - start2 > limit)
             return true;
-          start = i + 1;
-          if (strLen - start <= limit)
+          start2 = i + 1;
+          if (strLen - start2 <= limit)
             return false;
         }
       }
@@ -1204,19 +1204,19 @@ var require_stringifyString = __commonJS({
       const minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength;
       const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
       let str = "";
-      let start = 0;
+      let start2 = 0;
       for (let i = 0, ch = json2[i]; ch; ch = json2[++i]) {
         if (ch === " " && json2[i + 1] === "\\" && json2[i + 2] === "n") {
-          str += json2.slice(start, i) + "\\ ";
+          str += json2.slice(start2, i) + "\\ ";
           i += 1;
-          start = i;
+          start2 = i;
           ch = "\\";
         }
         if (ch === "\\")
           switch (json2[i + 1]) {
             case "u":
               {
-                str += json2.slice(start, i);
+                str += json2.slice(start2, i);
                 const code = json2.substr(i + 2, 4);
                 switch (code) {
                   case "0000":
@@ -1250,14 +1250,14 @@ var require_stringifyString = __commonJS({
                       str += json2.substr(i, 6);
                 }
                 i += 5;
-                start = i + 1;
+                start2 = i + 1;
               }
               break;
             case "n":
               if (implicitKey || json2[i + 2] === '"' || json2.length < minMultiLineLength) {
                 i += 1;
               } else {
-                str += json2.slice(start, i) + "\n\n";
+                str += json2.slice(start2, i) + "\n\n";
                 while (json2[i + 2] === "\\" && json2[i + 3] === "n" && json2[i + 4] !== '"') {
                   str += "\n";
                   i += 2;
@@ -1266,14 +1266,14 @@ var require_stringifyString = __commonJS({
                 if (json2[i + 2] === " ")
                   str += "\\";
                 i += 1;
-                start = i + 1;
+                start2 = i + 1;
               }
               break;
             default:
               i += 1;
           }
       }
-      str = start ? str + json2.slice(start) : json2;
+      str = start2 ? str + json2.slice(start2) : json2;
       return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
     }
     function singleQuotedString(value, ctx) {
@@ -1352,10 +1352,10 @@ ${indent}`) + "'";
         else
           break;
       }
-      let start = value.substring(0, startNlPos < startEnd ? startNlPos + 1 : startEnd);
-      if (start) {
-        value = value.substring(start.length);
-        start = start.replace(/\n+/g, `$&${indent}`);
+      let start2 = value.substring(0, startNlPos < startEnd ? startNlPos + 1 : startEnd);
+      if (start2) {
+        value = value.substring(start2.length);
+        start2 = start2.replace(/\n+/g, `$&${indent}`);
       }
       const indentSize = indent ? "2" : "1";
       let header2 = (startWithSpace ? indentSize : "") + chomp;
@@ -1373,14 +1373,14 @@ ${indent}`) + "'";
             literalFallback = true;
           };
         }
-        const body = foldFlowLines.foldFlowLines(`${start}${foldedValue}${end}`, indent, foldFlowLines.FOLD_BLOCK, foldOptions);
+        const body2 = foldFlowLines.foldFlowLines(`${start2}${foldedValue}${end}`, indent, foldFlowLines.FOLD_BLOCK, foldOptions);
         if (!literalFallback)
           return `>${header2}
-${indent}${body}`;
+${indent}${body2}`;
       }
       value = value.replace(/\n+/g, `$&${indent}`);
       return `|${header2}
-${indent}${start}${value}${end}`;
+${indent}${start2}${value}${end}`;
     }
     function plainString(item2, ctx, onComment, onChompKeep) {
       const { type, value } = item2;
@@ -2018,23 +2018,23 @@ ${indent}${line}` : "\n";
         lines.push(str);
         linesAtValue = lines.length;
       }
-      const { start, end } = flowChars;
+      const { start: start2, end } = flowChars;
       if (lines.length === 0) {
-        return start + end;
+        return start2 + end;
       } else {
         if (!reqNewline) {
           const len = lines.reduce((sum, line) => sum + line.length + 2, 2);
           reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
         }
         if (reqNewline) {
-          let str = start;
+          let str = start2;
           for (const line of lines)
             str += line ? `
 ${indentStep}${indent}${line}` : "\n";
           return `${str}
 ${indent}${end}`;
         } else {
-          return `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
+          return `${start2}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
         }
       }
     }
@@ -3423,13 +3423,13 @@ var require_stringifyDocument = __commonJS({
           contentComment = doc.contents.comment;
         }
         const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
-        let body = stringify4.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        let body2 = stringify4.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
         if (contentComment)
-          body += stringifyComment.lineComment(body, "", commentString(contentComment));
-        if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
-          lines[lines.length - 1] = `--- ${body}`;
+          body2 += stringifyComment.lineComment(body2, "", commentString(contentComment));
+        if ((body2[0] === "|" || body2[0] === ">") && lines[lines.length - 1] === "---") {
+          lines[lines.length - 1] = `--- ${body2}`;
         } else
-          lines.push(body);
+          lines.push(body2);
       } else {
         lines.push(stringify4.stringify(doc.contents, ctx));
       }
@@ -3856,7 +3856,7 @@ var require_resolve_props = __commonJS({
       let newlineAfterProp = null;
       let comma = null;
       let found = null;
-      let start = null;
+      let start2 = null;
       for (const token of tokens) {
         if (reqSpace) {
           if (token.type !== "space" && token.type !== "newline" && token.type !== "comma")
@@ -3908,7 +3908,7 @@ var require_resolve_props = __commonJS({
             if (token.source.endsWith(":"))
               onError(token.offset + token.source.length - 1, "BAD_ALIAS", "Anchor ending in : is ambiguous", true);
             anchor2 = token;
-            start ?? (start = token.offset);
+            start2 ?? (start2 = token.offset);
             atNewline = false;
             hasSpace = false;
             reqSpace = true;
@@ -3917,7 +3917,7 @@ var require_resolve_props = __commonJS({
             if (tag)
               onError(token, "MULTIPLE_TAGS", "A node can have at most one tag");
             tag = token;
-            start ?? (start = token.offset);
+            start2 ?? (start2 = token.offset);
             atNewline = false;
             hasSpace = false;
             reqSpace = true;
@@ -3965,7 +3965,7 @@ var require_resolve_props = __commonJS({
         tag,
         newlineAfterProp,
         end,
-        start: start ?? end
+        start: start2 ?? end
       };
     }
     exports.resolveProps = resolveProps;
@@ -4071,8 +4071,8 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep: sep2, value } = collItem;
-        const keyProps = resolveProps.resolveProps(start, {
+        const { start: start2, key, sep: sep2, value } = collItem;
+        const keyProps = resolveProps.resolveProps(start2, {
           indicator: "explicit-key-ind",
           next: key ?? sep2?.[0],
           offset,
@@ -4099,14 +4099,14 @@ var require_resolve_block_map = __commonJS({
             continue;
           }
           if (keyProps.newlineAfterProp || utilContainsNewline.containsNewline(key)) {
-            onError(key ?? start[start.length - 1], "MULTILINE_IMPLICIT_KEY", "Implicit keys need to be on a single line");
+            onError(key ?? start2[start2.length - 1], "MULTILINE_IMPLICIT_KEY", "Implicit keys need to be on a single line");
           }
         } else if (keyProps.found?.indent !== bm.indent) {
           onError(offset, "BAD_INDENT", startColMsg);
         }
         ctx.atKey = true;
         const keyStart = keyProps.end;
-        const keyNode = key ? composeNode(ctx, key, keyProps, onError) : composeEmptyNode(ctx, keyStart, start, null, keyProps, onError);
+        const keyNode = key ? composeNode(ctx, key, keyProps, onError) : composeEmptyNode(ctx, keyStart, start2, null, keyProps, onError);
         if (ctx.schema.compat)
           utilFlowIndentCheck.flowIndentCheck(bm.indent, key, onError);
         ctx.atKey = false;
@@ -4177,8 +4177,8 @@ var require_resolve_block_seq = __commonJS({
         ctx.atKey = false;
       let offset = bs.offset;
       let commentEnd = null;
-      for (const { start, value } of bs.items) {
-        const props = resolveProps.resolveProps(start, {
+      for (const { start: start2, value } of bs.items) {
+        const props = resolveProps.resolveProps(start2, {
           indicator: "seq-item-ind",
           next: value,
           offset,
@@ -4199,7 +4199,7 @@ var require_resolve_block_seq = __commonJS({
             continue;
           }
         }
-        const node2 = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, start, null, props, onError);
+        const node2 = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, start2, null, props, onError);
         if (ctx.schema.compat)
           utilFlowIndentCheck.flowIndentCheck(bs.indent, value, onError);
         offset = node2.range[2];
@@ -4285,8 +4285,8 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep: sep2, value } = collItem;
-        const props = resolveProps.resolveProps(start, {
+        const { start: start2, key, sep: sep2, value } = collItem;
+        const props = resolveProps.resolveProps(start2, {
           flow: fcName,
           indicator: "explicit-key-ind",
           next: key ?? sep2?.[0],
@@ -4326,7 +4326,7 @@ var require_resolve_flow_collection = __commonJS({
             onError(props.start, "MISSING_CHAR", `Missing , between ${fcName} items`);
           if (props.comment) {
             let prevItemComment = "";
-            loop: for (const st of start) {
+            loop: for (const st of start2) {
               switch (st.type) {
                 case "comma":
                 case "space":
@@ -4359,7 +4359,7 @@ var require_resolve_flow_collection = __commonJS({
         } else {
           ctx.atKey = true;
           const keyStart = props.end;
-          const keyNode = key ? composeNode(ctx, key, props, onError) : composeEmptyNode(ctx, keyStart, start, null, props, onError);
+          const keyNode = key ? composeNode(ctx, key, props, onError) : composeEmptyNode(ctx, keyStart, start2, null, props, onError);
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
@@ -4524,10 +4524,10 @@ var require_resolve_block_scalar = __commonJS({
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
     function resolveBlockScalar(ctx, scalar, onError) {
-      const start = scalar.offset;
+      const start2 = scalar.offset;
       const header2 = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
       if (!header2)
-        return { value: "", type: null, comment: "", range: [start, start, start] };
+        return { value: "", type: null, comment: "", range: [start2, start2, start2] };
       const type = header2.mode === ">" ? Scalar.Scalar.BLOCK_FOLDED : Scalar.Scalar.BLOCK_LITERAL;
       const lines = scalar.source ? splitLines(scalar.source) : [];
       let chompStart = lines.length;
@@ -4540,10 +4540,10 @@ var require_resolve_block_scalar = __commonJS({
       }
       if (chompStart === 0) {
         const value2 = header2.chomp === "+" && lines.length > 0 ? "\n".repeat(Math.max(1, lines.length - 1)) : "";
-        let end2 = start + header2.length;
+        let end2 = start2 + header2.length;
         if (scalar.source)
           end2 += scalar.source.length;
-        return { value: value2, type, comment: header2.comment, range: [start, end2, end2] };
+        return { value: value2, type, comment: header2.comment, range: [start2, end2, end2] };
       }
       let trimIndent = scalar.indent + header2.indent;
       let offset = scalar.offset + header2.length;
@@ -4624,8 +4624,8 @@ var require_resolve_block_scalar = __commonJS({
         default:
           value += "\n";
       }
-      const end = start + header2.length + scalar.source.length;
-      return { value, type, comment: header2.comment, range: [start, end, end] };
+      const end = start2 + header2.length + scalar.source.length;
+      return { value, type, comment: header2.comment, range: [start2, end, end] };
     }
     function parseBlockScalarHeader({ offset, props }, strict, onError) {
       if (props[0].type !== "block-scalar-header") {
@@ -5152,7 +5152,7 @@ var require_compose_doc = __commonJS({
     var composeNode = require_compose_node();
     var resolveEnd = require_resolve_end();
     var resolveProps = require_resolve_props();
-    function composeDoc(options, directives, { offset, start, value, end }, onError) {
+    function composeDoc(options, directives, { offset, start: start2, value, end }, onError) {
       const opts = Object.assign({ _directives: directives }, options);
       const doc = new Document.Document(void 0, opts);
       const ctx = {
@@ -5162,7 +5162,7 @@ var require_compose_doc = __commonJS({
         options: doc.options,
         schema: doc.schema
       };
-      const props = resolveProps.resolveProps(start, {
+      const props = resolveProps.resolveProps(start2, {
         indicator: "doc-start",
         next: value ?? end?.[0],
         offset,
@@ -5175,7 +5175,7 @@ var require_compose_doc = __commonJS({
         if (value && (value.type === "block-map" || value.type === "block-seq") && !props.hasNewline)
           onError(props.end, "MISSING_CHAR", "Block collection cannot start on same line with directives-end marker");
       }
-      doc.contents = value ? composeNode.composeNode(ctx, value, props, onError) : composeNode.composeEmptyNode(ctx, props.end, start, null, props, onError);
+      doc.contents = value ? composeNode.composeNode(ctx, value, props, onError) : composeNode.composeEmptyNode(ctx, props.end, start2, null, props, onError);
       const contentEnd = doc.contents.range[2];
       const re = resolveEnd.resolveEnd(end, contentEnd, false, onError);
       if (re.comment)
@@ -5441,13 +5441,13 @@ var require_cst_scalar = __commonJS({
         case ">": {
           const he = source.indexOf("\n");
           const head = source.substring(0, he);
-          const body = source.substring(he + 1) + "\n";
+          const body2 = source.substring(he + 1) + "\n";
           const props = [
             { type: "block-scalar-header", offset, indent, source: head }
           ];
           if (!addEndtoBlockProps(props, end))
             props.push({ type: "newline", offset: -1, indent, source: "\n" });
-          return { type: "block-scalar", offset, indent, props, source: body };
+          return { type: "block-scalar", offset, indent, props, source: body2 };
         }
         case '"':
           return { type: "double-quoted-scalar", offset, indent, source, end };
@@ -5504,13 +5504,13 @@ var require_cst_scalar = __commonJS({
     function setBlockScalarValue(token, source) {
       const he = source.indexOf("\n");
       const head = source.substring(0, he);
-      const body = source.substring(he + 1) + "\n";
+      const body2 = source.substring(he + 1) + "\n";
       if (token.type === "block-scalar") {
         const header2 = token.props[0];
         if (header2.type !== "block-scalar-header")
           throw new Error("Invalid block scalar header");
         header2.source = head;
-        token.source = body;
+        token.source = body2;
       } else {
         const { offset } = token;
         const indent = "indent" in token ? token.indent : -1;
@@ -5522,7 +5522,7 @@ var require_cst_scalar = __commonJS({
         for (const key of Object.keys(token))
           if (key !== "type" && key !== "offset")
             delete token[key];
-        Object.assign(token, { type: "block-scalar", indent, props, source: body });
+        Object.assign(token, { type: "block-scalar", indent, props, source: body2 });
       }
     }
     function addEndtoBlockProps(props, end) {
@@ -5627,9 +5627,9 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep: sep2, value }) {
+    function stringifyItem({ start: start2, key, sep: sep2, value }) {
       let res = "";
-      for (const st of start)
+      for (const st of start2)
         res += st.source;
       if (key)
         res += stringifyToken(key);
@@ -6423,8 +6423,8 @@ var require_line_counter = __commonJS({
             return { line: low + 1, col: 1 };
           if (low === 0)
             return { line: 0, col: offset };
-          const start = this.lineStarts[low - 1];
-          return { line: low, col: offset - start + 1 };
+          const start2 = this.lineStarts[low - 1];
+          return { line: low, col: offset - start2 + 1 };
         };
       }
     };
@@ -6805,7 +6805,7 @@ var require_parser = __commonJS({
       *scalar(scalar) {
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
-          const start = getFirstKeyStartProps(prev);
+          const start2 = getFirstKeyStartProps(prev);
           let sep2;
           if (scalar.end) {
             sep2 = scalar.end;
@@ -6817,7 +6817,7 @@ var require_parser = __commonJS({
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start, key: scalar, sep: sep2 }]
+            items: [{ start: start2, key: scalar, sep: sep2 }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map2;
@@ -6892,7 +6892,7 @@ var require_parser = __commonJS({
         if (this.indent >= map2.indent) {
           const atMapIndent = !this.onKeyLine && this.indent === map2.indent;
           const atNextItem = atMapIndent && (it.sep || it.explicitKey) && this.type !== "seq-item-ind";
-          let start = [];
+          let start2 = [];
           if (atNextItem && it.sep && !it.value) {
             const nl = [];
             for (let i = 0; i < it.sep.length; ++i) {
@@ -6912,14 +6912,14 @@ var require_parser = __commonJS({
               }
             }
             if (nl.length >= 2)
-              start = it.sep.splice(nl[1]);
+              start2 = it.sep.splice(nl[1]);
           }
           switch (this.type) {
             case "anchor":
             case "tag":
               if (atNextItem || it.value) {
-                start.push(this.sourceToken);
-                map2.items.push({ start });
+                start2.push(this.sourceToken);
+                map2.items.push({ start: start2 });
                 this.onKeyLine = true;
               } else if (it.sep) {
                 it.sep.push(this.sourceToken);
@@ -6932,8 +6932,8 @@ var require_parser = __commonJS({
                 it.start.push(this.sourceToken);
                 it.explicitKey = true;
               } else if (atNextItem || it.value) {
-                start.push(this.sourceToken);
-                map2.items.push({ start, explicitKey: true });
+                start2.push(this.sourceToken);
+                map2.items.push({ start: start2, explicitKey: true });
               } else {
                 this.stack.push({
                   type: "block-map",
@@ -6950,12 +6950,12 @@ var require_parser = __commonJS({
                   if (includesToken(it.start, "newline")) {
                     Object.assign(it, { key: null, sep: [this.sourceToken] });
                   } else {
-                    const start2 = getFirstKeyStartProps(it.start);
+                    const start3 = getFirstKeyStartProps(it.start);
                     this.stack.push({
                       type: "block-map",
                       offset: this.offset,
                       indent: this.indent,
-                      items: [{ start: start2, key: null, sep: [this.sourceToken] }]
+                      items: [{ start: start3, key: null, sep: [this.sourceToken] }]
                     });
                   }
                 } else if (it.value) {
@@ -6965,10 +6965,10 @@ var require_parser = __commonJS({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start, key: null, sep: [this.sourceToken] }]
+                    items: [{ start: start2, key: null, sep: [this.sourceToken] }]
                   });
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
-                  const start2 = getFirstKeyStartProps(it.start);
+                  const start3 = getFirstKeyStartProps(it.start);
                   const key = it.key;
                   const sep2 = it.sep;
                   sep2.push(this.sourceToken);
@@ -6978,10 +6978,10 @@ var require_parser = __commonJS({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep: sep2 }]
+                    items: [{ start: start3, key, sep: sep2 }]
                   });
-                } else if (start.length > 0) {
-                  it.sep = it.sep.concat(start, this.sourceToken);
+                } else if (start2.length > 0) {
+                  it.sep = it.sep.concat(start2, this.sourceToken);
                 } else {
                   it.sep.push(this.sourceToken);
                 }
@@ -6989,7 +6989,7 @@ var require_parser = __commonJS({
                 if (!it.sep) {
                   Object.assign(it, { key: null, sep: [this.sourceToken] });
                 } else if (it.value || atNextItem) {
-                  map2.items.push({ start, key: null, sep: [this.sourceToken] });
+                  map2.items.push({ start: start2, key: null, sep: [this.sourceToken] });
                 } else if (includesToken(it.sep, "map-value-ind")) {
                   this.stack.push({
                     type: "block-map",
@@ -7009,7 +7009,7 @@ var require_parser = __commonJS({
             case "double-quoted-scalar": {
               const fs = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map2.items.push({ start, key: fs, sep: [] });
+                map2.items.push({ start: start2, key: fs, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
                 this.stack.push(fs);
@@ -7033,7 +7033,7 @@ var require_parser = __commonJS({
                     return;
                   }
                 } else if (atMapIndent) {
-                  map2.items.push({ start });
+                  map2.items.push({ start: start2 });
                 }
                 this.stack.push(bv);
                 return;
@@ -7170,7 +7170,7 @@ var require_parser = __commonJS({
             yield* this.step();
           } else if (this.type === "map-value-ind" && parent.type !== "flow-collection") {
             const prev = getPrevProps(parent);
-            const start = getFirstKeyStartProps(prev);
+            const start2 = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
             const sep2 = fc.end.splice(1, fc.end.length);
             sep2.push(this.sourceToken);
@@ -7178,7 +7178,7 @@ var require_parser = __commonJS({
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep: sep2 }]
+              items: [{ start: start2, key: fc, sep: sep2 }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map2;
@@ -7237,35 +7237,35 @@ var require_parser = __commonJS({
           case "explicit-key-ind": {
             this.onKeyLine = true;
             const prev = getPrevProps(parent);
-            const start = getFirstKeyStartProps(prev);
-            start.push(this.sourceToken);
+            const start2 = getFirstKeyStartProps(prev);
+            start2.push(this.sourceToken);
             return {
               type: "block-map",
               offset: this.offset,
               indent: this.indent,
-              items: [{ start, explicitKey: true }]
+              items: [{ start: start2, explicitKey: true }]
             };
           }
           case "map-value-ind": {
             this.onKeyLine = true;
             const prev = getPrevProps(parent);
-            const start = getFirstKeyStartProps(prev);
+            const start2 = getFirstKeyStartProps(prev);
             return {
               type: "block-map",
               offset: this.offset,
               indent: this.indent,
-              items: [{ start, key: null, sep: [this.sourceToken] }]
+              items: [{ start: start2, key: null, sep: [this.sourceToken] }]
             };
           }
         }
         return null;
       }
-      atIndentedComment(start, indent) {
+      atIndentedComment(start2, indent) {
         if (this.type !== "comment")
           return false;
         if (this.indent <= indent)
           return false;
-        return start.every((st) => st.type === "newline" || st.type === "space");
+        return start2.every((st) => st.type === "newline" || st.type === "space");
       }
       *documentEnd(docEnd) {
         if (this.type !== "doc-mode") {
@@ -8191,9 +8191,9 @@ function nullish(input2) {
   return input2 === null || input2 === void 0;
 }
 function cleanRegex(source) {
-  const start = source.startsWith("^") ? 1 : 0;
+  const start2 = source.startsWith("^") ? 1 : 0;
   const end = source.endsWith("$") ? source.length - 1 : source.length;
-  return source.slice(start, end);
+  return source.slice(start2, end);
 }
 function floatSafeRemainder(val, step) {
   const ratio = val / step;
@@ -8652,9 +8652,9 @@ function prefixIssues(path, issues) {
 function unwrapMessage(message) {
   return typeof message === "string" ? message : message?.message;
 }
-function attachSchema(issues, start, inst) {
+function attachSchema(issues, start2, inst) {
   var _a3;
-  for (let i = start; i < issues.length; i++) {
+  for (let i = start2; i < issues.length; i++) {
     (_a3 = issues[i]).schema ?? (_a3.schema = inst);
   }
 }
@@ -12522,7 +12522,7 @@ var recursive = /* @__PURE__ */ new WeakMap();
 var NONE = 0;
 var ASSUMED = 1;
 var PROVEN = 2;
-function isRecursive(inst, stack, resolve5) {
+function isRecursive(inst, stack, resolve7) {
   const cached2 = recursive.get(inst);
   if (cached2 !== void 0)
     return cached2 ? PROVEN : NONE;
@@ -12532,7 +12532,7 @@ function isRecursive(inst, stack, resolve5) {
   let result = NONE;
   const check3 = (child) => {
     if (result !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve5);
+      const answer = isRecursive(child, stack, resolve7);
       if (answer > result)
         result = answer;
     }
@@ -12543,7 +12543,7 @@ function isRecursive(inst, stack, resolve5) {
       const desc = Object.getOwnPropertyDescriptor(sh, key);
       if (spread && !desc.enumerable)
         continue;
-      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve5) : NONE;
+      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve7) : NONE;
       if (child > answer)
         answer = child;
     }
@@ -12607,7 +12607,7 @@ function isRecursive(inst, stack, resolve5) {
       break;
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
-      const inner = def._cachedInner ?? (resolve5 ? inst._zod.innerType : void 0);
+      const inner = def._cachedInner ?? (resolve7 ? inst._zod.innerType : void 0);
       merge2(inner ? isRecursive(inner, stack, false) : ASSUMED);
       break;
     }
@@ -21876,7 +21876,7 @@ function generateRecordCheck(doc, ctx, schema, accessor) {
   }, `return INVALID;`);
   return outputVar;
 }
-function emitOwnKeys(doc, ctx, accessor, kVar, body, onSymbol) {
+function emitOwnKeys(doc, ctx, accessor, kVar, body2, onSymbol) {
   const propIsEnumerableConst = addConstant(ctx, Object.prototype.propertyIsEnumerable);
   const symsVar = newVar(ctx);
   const keysVar = newVar(ctx);
@@ -21887,7 +21887,7 @@ function emitOwnKeys(doc, ctx, accessor, kVar, body, onSymbol) {
   doc.indented((d) => {
     d.write(`const ${kVar} = ${keysVar}[${iVar}];`);
     d.write(`if (${kVar} === "__proto__" || !${propIsEnumerableConst}.call(${accessor}, ${kVar})) continue;`);
-    body(d);
+    body2(d);
   });
   doc.write(`}`);
   doc.write(`for (let ${iVar} = 0; ${iVar} < ${symsVar}.length; ${iVar}++) {`);
@@ -21897,7 +21897,7 @@ function emitOwnKeys(doc, ctx, accessor, kVar, body, onSymbol) {
     if (onSymbol)
       d.write(onSymbol);
     else
-      body(d);
+      body2(d);
   });
   doc.write(`}`);
 }
@@ -28033,11 +28033,11 @@ function readSlots(sections, { file: file2, errors, oldSpellings }) {
 function parseForm(text8, { file: file2 = null } = {}) {
   const block = text8.match(FRONT_MATTER_BLOCK);
   if (!block) return { ok: false, errors: [withFile(file2, 'missing its front matter (a "---" fenced header)')] };
-  const [, rawFrontMatter, body] = block;
+  const [, rawFrontMatter, body2] = block;
   const errors = [];
   const { data, errors: frontMatterErrors = [] } = readFrontMatter(rawFrontMatter ?? "");
   errors.push(...frontMatterErrors.map((message) => withFile(file2, message)));
-  const { head, sections } = splitSections((body ?? "").split(/\r?\n/));
+  const { head, sections } = splitSections((body2 ?? "").split(/\r?\n/));
   const oldSpellings = [];
   if (data?.[OLD_DATE_KEY] !== void 0) oldSpellings.push({ where: "front matter", old: `${OLD_DATE_KEY}:`, now: "invaded:" });
   const { slots, unmarked } = readSlots(sections, { file: file2, errors, oldSpellings });
@@ -28818,12 +28818,12 @@ function repoLabel(slot) {
 }
 function resolveSlot(kitSlot, repoSlot, { ctx, formId, file: file2, problems }) {
   const base = { slot: kitSlot.id, heading: kitSlot.heading };
-  const body = repoSlot?.body ?? null;
-  if (repoSlot !== null && body?.kind === "text") {
-    return { ...base, source: "repo", label: repoLabel(repoSlot), text: body.text, questions: body.questions };
+  const body2 = repoSlot?.body ?? null;
+  if (repoSlot !== null && body2?.kind === "text") {
+    return { ...base, source: "repo", label: repoLabel(repoSlot), text: body2.text, questions: body2.questions };
   }
-  if (repoSlot !== null && body?.kind === "pointer") {
-    const { path, anchor: anchor2 } = body.see;
+  if (repoSlot !== null && body2?.kind === "pointer") {
+    const { path, anchor: anchor2 } = body2.see;
     const target3 = readTarget(path, null, { ctx });
     if (target3.missing) problems.push(`${file2}: "## ${repoSlot.heading}" See: ${path} does not exist`);
     const pointer = anchor2 ? `${path}#${anchor2}` : path;
@@ -28833,8 +28833,8 @@ function resolveSlot(kitSlot, repoSlot, { ctx, formId, file: file2, problems }) 
   for (const { key, reason: reason2 } of kit.unresolved) {
     problems.push(`kit default ${formId}#${kitSlot.id}: {config:${key}} ${reason2}`);
   }
-  if (body?.kind === "holes") {
-    return { ...base, source: "hole", label: "[hole]", text: kit.text, questions: body.questions };
+  if (body2?.kind === "holes") {
+    return { ...base, source: "hole", label: "[hole]", text: kit.text, questions: body2.questions };
   }
   return { ...base, source: "kit", label: "[kit default]", text: kit.text, questions: [] };
 }
@@ -28967,8 +28967,8 @@ function footerLine(signature) {
   });
   return `${footer} ${SIGNED_MARKER}`;
 }
-function isSignedBody(body) {
-  return typeof body === "string" && body.includes(SIGNED_MARKER);
+function isSignedBody(body2) {
+  return typeof body2 === "string" && body2.includes(SIGNED_MARKER);
 }
 function carriesTrailer(message, signature) {
   const trailer = trailerLine(signature);
@@ -29085,7 +29085,7 @@ function changesLink({ home, from, to }) {
   return from ? `https://github.com/${home}/compare/v${from}...v${to}` : `https://github.com/${home}/releases/tag/v${to}`;
 }
 function updateBody({ lines, home, from, to, footer }) {
-  const body = [
+  const body2 = [
     `Brings this repository to the Omni Loop kit v${to}, from ${tagOf(from)}. \`config.yml\` is kept as it was.`,
     "",
     "```text",
@@ -29094,8 +29094,8 @@ function updateBody({ lines, home, from, to, footer }) {
     "",
     `What changed in the kit: ${changesLink({ home, from, to })}`
   ];
-  if (footer) body.push("", footer);
-  return `${body.join("\n")}
+  if (footer) body2.push("", footer);
+  return `${body2.join("\n")}
 `;
 }
 
@@ -29182,8 +29182,8 @@ function applyUpdate({ root, bundle, version: version3, from, home, exec, printl
 
 ${trailer}` : updateTitle(version3)], worktree);
     git6(["push", "-q", "-u", remote, branch], worktree);
-    const body = updateBody({ lines, home, from, to: version3, footer: footerLine(branchConfig.signature) });
-    const url2 = gh(["pr", "create", ...repoFlag, "--base", defaultBranch, "--head", branch, "--title", updateTitle(version3), "--body", body]).trim();
+    const body2 = updateBody({ lines, home, from, to: version3, footer: footerLine(branchConfig.signature) });
+    const url2 = gh(["pr", "create", ...repoFlag, "--base", defaultBranch, "--head", branch, "--title", updateTitle(version3), "--body", body2]).trim();
     println2(`PR: ${url2}`);
     return 0;
   } finally {
@@ -29786,10 +29786,10 @@ var SECTION_FIELD = {
 };
 var FRONT_MATTER_BLOCK2 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 var HEADING_LINE = /^##\s+(.+?)\s*$/;
-function parseHeadingSections(body) {
+function parseHeadingSections(body2) {
   const sections = [];
   let current = null;
-  for (const line of body.split("\n")) {
+  for (const line of body2.split("\n")) {
     const match = line.match(HEADING_LINE);
     if (match) {
       if (current) sections.push(current);
@@ -29804,8 +29804,8 @@ function parseHeadingSections(body) {
     content: section4.lines.join("\n").trim()
   }));
 }
-function validateSections(body) {
-  const found = parseHeadingSections(body);
+function validateSections(body2) {
+  const found = parseHeadingSections(body2);
   const foundHeadings = found.map((section4) => section4.heading);
   const errors = [];
   const presentPlain = PLAIN_SECTIONS.filter((heading) => foundHeadings.includes(heading));
@@ -29918,14 +29918,14 @@ function readFrontMatterBlock(text8, file2, schema) {
   if (!blockMatch) {
     return { body: null, errors: [withFile2(file2, 'missing a front-matter block (a "---" fenced header)')], data: null };
   }
-  const [, rawFrontMatter = "", body = ""] = blockMatch;
+  const [, rawFrontMatter = "", body2 = ""] = blockMatch;
   const lines = parseFrontMatterLines(rawFrontMatter);
   const checked = schema.safeParse(lines.data, { error: KIT_MESSAGES });
   const refusals = checked.success ? [] : checked.error.issues.map(
     (issue2) => `${issue2.path.length > 0 ? issue2.path.join(".") : "(front matter)"}: ${issue2.message}`
   );
   return {
-    body,
+    body: body2,
     errors: [...lines.errors, ...refusals].map((message) => withFile2(file2, message)),
     data: checked.success ? checked.data : null
   };
@@ -30328,10 +30328,10 @@ function rawSettledEntries(text8, markers) {
     const fenceMatch = line.match(/^(`{3,})text$/);
     if (fenceMatch) {
       const fence = fenceMatch[1];
-      const start = index + 1;
-      let end = start;
+      const start2 = index + 1;
+      let end = start2;
       while (end < lines.length && lines[end] !== fence) end += 1;
-      current.blocks.push(lines.slice(start, end).join("\n"));
+      current.blocks.push(lines.slice(start2, end).join("\n"));
       index = end;
       continue;
     }
@@ -30451,8 +30451,8 @@ function adoptItem({
 // kit/bin/synchronous.ts
 init_define_OMNI_BUNDLE();
 function synchronous(run) {
-  return (...args) => new Promise((resolve5) => {
-    resolve5(run(...args));
+  return (...args) => new Promise((resolve7) => {
+    resolve7(run(...args));
   });
 }
 
@@ -30672,8 +30672,8 @@ function parseEntries(content) {
   }
   return { errors, entries: entries3 };
 }
-function validateBody(body) {
-  const found = parseHeadingSections(body);
+function validateBody(body2) {
+  const found = parseHeadingSections(body2);
   if (found.length === 0) {
     return { errors: [`missing section: "## ${RISKY_CHANGES_HEADING}"`], entries: [] };
   }
@@ -30967,9 +30967,9 @@ function announcedKeys({
 function formatAnnouncedMarker(keys, markers) {
   return `${markers.announcedPrefix}${keys.join(",")}${markers.announcedSuffix}`;
 }
-function parseAnnouncedMarker(body, markers) {
-  if (typeof body !== "string") return [];
-  const match = body.match(markers.announcedRe);
+function parseAnnouncedMarker(body2, markers) {
+  if (typeof body2 !== "string") return [];
+  const match = body2.match(markers.announcedRe);
   if (!match) return [];
   const value = (match[1] ?? "").trim();
   return value === "" ? [] : value.split(",");
@@ -31043,12 +31043,12 @@ function findPrMarkerComment(comments, markers) {
   return findCommentByMarker(comments, markers.prComment);
 }
 function formatNumbersMarker(numbering, markers) {
-  const body = [...numbering].sort((a, b) => a.number - b.number).map((entry) => `${entry.number}=${entry.id}@${entry.since}`).join(",");
-  return `${markers.numbersPrefix}${body}${markers.numbersSuffix}`;
+  const body2 = [...numbering].sort((a, b) => a.number - b.number).map((entry) => `${entry.number}=${entry.id}@${entry.since}`).join(",");
+  return `${markers.numbersPrefix}${body2}${markers.numbersSuffix}`;
 }
-function parseNumbersMarker(body, markers) {
-  if (typeof body !== "string") return [];
-  const match = body.match(markers.numbersRe);
+function parseNumbersMarker(body2, markers) {
+  if (typeof body2 !== "string") return [];
+  const match = body2.match(markers.numbersRe);
   if (!match) return [];
   const value = (match[1] ?? "").trim();
   if (value === "") return [];
@@ -31386,7 +31386,7 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
     comments.filter((comment2) => comment2.id !== existing?.id),
     ctx.markers
   );
-  const body = formatOutboxPrComment({
+  const body2 = formatOutboxPrComment({
     items,
     adopted,
     answered,
@@ -31396,22 +31396,22 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
     ctx
   });
   if (existing) {
-    const updated = client.updateComment(existing.id, body);
+    const updated = client.updateComment(existing.id, body2);
     return {
       action: "updated",
       id: existing.id,
       htmlUrl: updated?.html_url ?? existing.html_url ?? null,
       ...counted3,
-      body
+      body: body2
     };
   }
-  const created = client.createComment(body);
+  const created = client.createComment(body2);
   return {
     action: "created",
     id: created?.id ?? null,
     htmlUrl: created?.html_url ?? null,
     ...counted3,
-    body
+    body: body2
   };
 }
 function countsByRank(items) {
@@ -31522,7 +31522,7 @@ function upsertOutboxComment({
   const items = openItemsForPrd(prd2, { ctx });
   const unaccounted = unaccountedChanges(prd2, changes, { ctx });
   const unreworked = unreworkedDrift(prd2, { ctx });
-  const body = formatOutboxComment({ prd: prd2, owner, repo, branch, ref, items, unaccounted, unreworked, labels, ctx });
+  const body2 = formatOutboxComment({ prd: prd2, owner, repo, branch, ref, items, unaccounted, unreworked, labels, ctx });
   const counts2 = countsByRank(items);
   const adoptedCount = adoptedEntriesForPrd(prd2, { ctx }).length;
   const existing = findMarkerComment(client.listComments(), ctx.markers);
@@ -31537,7 +31537,7 @@ function upsertOutboxComment({
       newCount: 0,
       counts: counts2,
       adoptedCount,
-      body
+      body: body2
     };
   }
   const previousKeys = new Set(existing ? parseAnnouncedMarker(existing.body, ctx.markers) : []);
@@ -31547,7 +31547,7 @@ function upsertOutboxComment({
   });
   const newCount = newKeys.filter((key) => !previousKeys.has(key)).length;
   if (existing) {
-    const updated = client.updateComment(existing.id, body);
+    const updated = client.updateComment(existing.id, body2);
     return {
       action: "updated",
       id: existing.id,
@@ -31557,10 +31557,10 @@ function upsertOutboxComment({
       newCount,
       counts: counts2,
       adoptedCount,
-      body
+      body: body2
     };
   }
-  const created = client.createComment(body);
+  const created = client.createComment(body2);
   return {
     action: "created",
     id: created?.id ?? null,
@@ -31570,7 +31570,7 @@ function upsertOutboxComment({
     newCount,
     counts: counts2,
     adoptedCount,
-    body
+    body: body2
   };
 }
 
@@ -31706,8 +31706,8 @@ function askBatches({ numbering, items }) {
     };
   });
   const batches = [];
-  for (let start = 0; start < asked.length; start += ASK_BATCH_SIZE) {
-    batches.push(asked.slice(start, start + ASK_BATCH_SIZE));
+  for (let start2 = 0; start2 < asked.length; start2 += ASK_BATCH_SIZE) {
+    batches.push(asked.slice(start2, start2 + ASK_BATCH_SIZE));
   }
   return batches;
 }
@@ -31831,10 +31831,10 @@ function parsePlanLandings(markdown) {
 }
 function sectionTable(markdown, heading) {
   const lines = markdown.split("\n");
-  const start = lines.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line.trim()));
-  if (start === -1) return [];
+  const start2 = lines.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line.trim()));
+  if (start2 === -1) return [];
   let headerIndex = -1;
-  for (let i = start + 1; i < lines.length; i += 1) {
+  for (let i = start2 + 1; i < lines.length; i += 1) {
     const line = lines[i] ?? "";
     if (/^#{1,2}\s/.test(line.trim())) break;
     if (isTableRow(line)) {
@@ -32215,18 +32215,18 @@ function ghClient({
   });
   return {
     listComments: () => GhCommentsSchema.parse(JSON.parse(exec("gh", ["api", `repos/${repoSlug2}/issues/${issue2}/comments`, "--paginate"], options()))),
-    createComment: (body) => GhWrittenCommentSchema.parse(JSON.parse(
+    createComment: (body2) => GhWrittenCommentSchema.parse(JSON.parse(
       exec(
         "gh",
         ["api", `repos/${repoSlug2}/issues/${issue2}/comments`, "--input", "-"],
-        options({ input: JSON.stringify({ body }) })
+        options({ input: JSON.stringify({ body: body2 }) })
       )
     )),
-    updateComment: (id, body) => GhWrittenCommentSchema.parse(JSON.parse(
+    updateComment: (id, body2) => GhWrittenCommentSchema.parse(JSON.parse(
       exec(
         "gh",
         ["api", "-X", "PATCH", `repos/${repoSlug2}/issues/comments/${id}`, "--input", "-"],
-        options({ input: JSON.stringify({ body }) })
+        options({ input: JSON.stringify({ body: body2 }) })
       )
     ))
   };
@@ -32251,8 +32251,8 @@ function githubClientFor(ctx, { repo = ctx.config.repo.slug, issue: issue2, exec
   const client = () => ghClient({ owner, repo: name, issue: issue2, exec, env: lazyEnv() });
   return {
     listComments: () => client().listComments(),
-    createComment: (body) => client().createComment(body),
-    updateComment: (id, body) => client().updateComment(id, body)
+    createComment: (body2) => client().createComment(body2),
+    updateComment: (id, body2) => client().updateComment(id, body2)
   };
 }
 function pullRequestFor(ctx, { repo = ctx.config.repo.slug, number: number4, exec = execFileSync6, env = processEnv() }) {
@@ -32445,8 +32445,8 @@ var AskCallError = class extends Error {
     this.reason = reason2;
   }
 };
-var reasonOf = (body) => {
-  const error62 = jsonObject(body)?.error;
+var reasonOf = (body2) => {
+  const error62 = jsonObject(body2)?.error;
   const text8 = typeof error62 === "string" ? error62.replace(/\s+/g, " ").trim() : "";
   return text8 || null;
 };
@@ -32455,24 +32455,24 @@ var renewed = (current, fresh) => ({
   ...current,
   ...Object.fromEntries(SIGN_IN_FIELDS.filter((key) => fresh[key] !== void 0).map((key) => [key, fresh[key]]))
 });
-var withContext = (body, context) => context && typeof context === "object" ? { ...body, context } : body;
-var withLead = (body, lead) => typeof lead === "string" && lead !== "" ? { ...body, lead } : body;
-function freshTokens(body) {
-  const fresh = jsonObject(body);
+var withContext = (body2, context) => context && typeof context === "object" ? { ...body2, context } : body2;
+var withLead = (body2, lead) => typeof lead === "string" && lead !== "" ? { ...body2, lead } : body2;
+function freshTokens(body2) {
+  const fresh = jsonObject(body2);
   return fresh && TokenReplySchema.shape.access_token.safeParse(fresh.access_token).success ? fresh : null;
 }
 function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS }) {
   const root = baseUrl.replace(/\/+$/, "");
   const segment = (value) => encodeURIComponent(value);
-  async function send2(method, path, { body, token, timeoutMs }) {
+  async function send3(method, path, { body: body2, token, timeoutMs }) {
     const headers = { accept: "application/json" };
-    if (body !== void 0) headers["content-type"] = "application/json";
+    if (body2 !== void 0) headers["content-type"] = "application/json";
     if (token) headers.authorization = `Bearer ${token}`;
     try {
       return await fetch(`${root}${path}`, {
         method,
         headers,
-        ...body === void 0 ? {} : { body: JSON.stringify(body) },
+        ...body2 === void 0 ? {} : { body: JSON.stringify(body2) },
         signal: AbortSignal.timeout(timeoutMs)
       });
     } catch (error62) {
@@ -32494,7 +32494,7 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     if (!current.refresh_token) return null;
     let response;
     try {
-      response = await send2("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
+      response = await send3("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
     } catch {
       return null;
     }
@@ -32505,14 +32505,14 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     tokens.write(host, kept);
     return kept;
   }
-  async function call(method, path, { body, timeoutMs = callMs } = {}) {
+  async function call(method, path, { body: body2, timeoutMs = callMs } = {}) {
     const current = tokens.read(host);
     if (!current?.access_token) throw new AskCallError(`not signed in to ${host}`);
-    let response = await send2(method, path, { body, token: current.access_token, timeoutMs });
+    let response = await send3(method, path, { body: body2, token: current.access_token, timeoutMs });
     if (response.status === 401) {
       const fresh = await refresh2(current);
       if (!fresh) throw new AskCallError(`${method} ${path}: sign-in refused`, { status: 401 });
-      response = await send2(method, path, { body, token: fresh.access_token, timeoutMs });
+      response = await send3(method, path, { body: body2, token: fresh.access_token, timeoutMs });
     }
     if (!response.ok) {
       const reason2 = reasonOf(await bodyOf2(response));
@@ -32525,7 +32525,7 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     if (!current?.refresh_token) return "refused";
     let response;
     try {
-      response = await send2("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
+      response = await send3("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
     } catch {
       return "unreachable";
     }
@@ -32607,6 +32607,15 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     /** PRD 798: stores a proof run once its files are up, and answers the Proof tab's link.
      * @returns {Promise<{ url: string }>} */
     registerProof: ({ repo, prd: prd2, run, commit, url: url2, criteria }) => call("POST", "/api/proofs", { body: { repo, prd: prd2, run, commit, url: url2, criteria } }),
+    /** PRD 859: a new pitch run's id and one signed upload link per file of the five; a 404 when PRD `prd`
+     * has no dossier, a 422 when it is not shipped. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
+    requestPitchUploads: ({ repo, prd: prd2, files }) => call("POST", "/api/pitches/uploads", { body: { repo, prd: prd2, files } }),
+    /** PRD 859: stores a pitch once its five files are up, and answers the Pitch tab's link and the GIF's
+     * stable link. @returns {Promise<{ url: string, gif: string }>} */
+    registerPitch: ({ repo, prd: prd2, run, audience, look, commit, hook, benefit, kicker, closing }) => call("POST", "/api/pitches", { body: { repo, prd: prd2, run, audience, look, commit, hook, benefit, kicker, closing } }),
+    /** PRD 859: the pitch look of the product `repo` (owner/name) belongs to; arcade when it has none.
+     * @returns {Promise<{ look: 'arcade' | 'keynote' }>} */
+    readPitchLook: (repo) => call("GET", `/api/pitch-look?${new URLSearchParams({ repo })}`),
     /** PRD 748: the confirmed claims of the business agents in `repo` (owner/name) read.
      * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
      *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */
@@ -33266,16 +33275,16 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
   let settle3 = { resolve: () => {
   }, reject: () => {
   } };
-  const code = new Promise((resolve5, reject) => {
-    settle3 = { resolve: resolve5, reject };
+  const code = new Promise((resolve7, reject) => {
+    settle3 = { resolve: resolve7, reject };
   });
   code.catch(() => {
   });
   let done = false;
   const server = createServer((request, response) => {
-    const answer = (status3, body, type = "text/html; charset=utf-8") => {
+    const answer = (status3, body2, type = "text/html; charset=utf-8") => {
       response.writeHead(status3, { "content-type": type, "cache-control": "no-store", connection: "close" });
-      response.end(body);
+      response.end(body2);
     };
     const url2 = new URL(request.url ?? "/", `http://${HOST}`);
     if (request.method !== "GET" || url2.pathname !== PATH || done) {
@@ -33301,8 +33310,8 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
   });
   let closedResolve = () => {
   };
-  const closed = new Promise((resolve5) => {
-    closedResolve = resolve5;
+  const closed = new Promise((resolve7) => {
+    closedResolve = resolve7;
   });
   let timer = void 0;
   function finish(outcome) {
@@ -33314,11 +33323,11 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
     });
     server.closeAllConnections();
   }
-  await new Promise((resolve5, reject) => {
+  await new Promise((resolve7, reject) => {
     server.once("error", reject);
     server.listen(0, HOST, () => {
       server.off("error", reject);
-      resolve5();
+      resolve7();
     });
   });
   const listening = server.address();
@@ -34466,8 +34475,8 @@ function careReplyBody(text8, verdict2) {
 
 ${marker}`;
 }
-function readCareVerdict(body) {
-  const found = [...(body ?? "").matchAll(MARKER_RE)];
+function readCareVerdict(body2) {
+  const found = [...(body2 ?? "").matchAll(MARKER_RE)];
   const last = found.at(-1)?.[1];
   return isVerdict(last) ? last : null;
 }
@@ -34578,8 +34587,8 @@ function readComment(node2) {
     verdict: readCareVerdict(node2.body)
   };
 }
-function reasonOf2(body) {
-  return body.replace(/\s*<!-- omni-care: [\w-]+ -->\s*$/, "").trim();
+function reasonOf2(body2) {
+  return body2.replace(/\s*<!-- omni-care: [\w-]+ -->\s*$/, "").trim();
 }
 function threadBase(node2, comments, resolved) {
   return { id: node2.id, url: comments[0]?.url ?? null, path: node2.path ?? null, line: node2.line ?? null, resolved, comments };
@@ -34724,21 +34733,21 @@ function runReply(args, io) {
   const { ctx, stdout } = io;
   const { positional, flags } = parseArgs("care", args, { values: ["verdict", "body", "file", "thread", "repo"] });
   if (positional.length) throw usageError(USAGE4);
-  const body = replyBodyOf(flags, ctx);
+  const body2 = replyBodyOf(flags, ctx);
   if (flags.thread === void 0) {
-    println(stdout, body);
+    println(stdout, body2);
     return 0;
   }
-  return postReply({ thread: flags.thread, verdict: flags.verdict ?? "", body }, io);
+  return postReply({ thread: flags.thread, verdict: flags.verdict ?? "", body: body2 }, io);
 }
-function postReply({ thread, verdict: verdict2, body }, { ctx, stdout, stderr, exec, env }) {
+function postReply({ thread, verdict: verdict2, body: body2 }, { ctx, stdout, stderr, exec, env }) {
   const ghEnv = githubEnv(ctx, { exec, env });
   try {
-    const posted = GhReplyMutationSchema.parse(graphql({ query: REPLY_MUTATION, variables: { thread, body } }, { exec, env: ghEnv }));
-    const resolve5 = verdict2 !== "asked";
-    if (resolve5) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, { exec, env: ghEnv });
+    const posted = GhReplyMutationSchema.parse(graphql({ query: REPLY_MUTATION, variables: { thread, body: body2 } }, { exec, env: ghEnv }));
+    const resolve7 = verdict2 !== "asked";
+    if (resolve7) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, { exec, env: ghEnv });
     const url2 = posted.data?.addPullRequestReviewThreadReply?.comment?.url ?? null;
-    println(stdout, JSON.stringify({ thread, verdict: verdict2, url: url2, resolved: resolve5 }));
+    println(stdout, JSON.stringify({ thread, verdict: verdict2, url: url2, resolved: resolve7 }));
     return 0;
   } catch (error62) {
     if (!(error62 instanceof Error) || error62.name !== "GitHubError") throw error62;
@@ -34834,8 +34843,8 @@ function stopped(error62) {
   const why2 = error62.reason ? `: ${error62.reason}` : "";
   return { state: "refused", line: `refused (${error62.status})${why2} ${CARRY_ON}` };
 }
-function print({ json: json2, stdout }, body, lines) {
-  if (json2) println(stdout, JSON.stringify(body));
+function print({ json: json2, stdout }, body2, lines) {
+  if (json2) println(stdout, JSON.stringify(body2));
   else for (const line of lines) println(stdout, line);
   return 0;
 }
@@ -35017,8 +35026,8 @@ function parseSections(text8) {
   }
   return new Map([...sections].map(([name, lines]) => [name, lines.join("\n").trim()]));
 }
-function field2(body, key) {
-  const match = new RegExp(`^\\s*(?:[-*]\\s+)?\\*\\*${key}:\\*\\*(.*)$`, "m").exec(body);
+function field2(body2, key) {
+  const match = new RegExp(`^\\s*(?:[-*]\\s+)?\\*\\*${key}:\\*\\*(.*)$`, "m").exec(body2);
   return match ? (match[1] ?? "").trim() : void 0;
 }
 function isFile(ctx, path) {
@@ -35028,16 +35037,16 @@ function isFile(ctx, path) {
     return false;
   }
 }
-function triageViolations(record2, body) {
-  const risk = field2(body, "Risk");
+function triageViolations(record2, body2) {
+  const risk = field2(body2, "Risk");
   if (risk === void 0 || risk === "") return [`${record2}: the Triage has no **Risk:** line.`];
   const level = (risk.split(/[\s—–-]/)[0] ?? "").replace(/[^a-z]/gi, "").toLowerCase();
   if (RISK_LEVELS.includes(level)) return [];
   return [`${record2}: the Triage names risk "${risk.split(/\s/)[0]}"; it is one of critical, high, medium or low.`];
 }
-function reproductionViolations(ctx, record2, body, changed) {
+function reproductionViolations(ctx, record2, body2, changed) {
   const violations = [];
-  const file2 = field2(body, "File");
+  const file2 = field2(body2, "File");
   if (file2 === void 0 || file2 === "") {
     violations.push(`${record2}: the Reproduction has no **File:** line naming the test or scenario.`);
   } else {
@@ -35048,7 +35057,7 @@ function reproductionViolations(ctx, record2, body, changed) {
       violations.push(`${record2}: the reproduction ${path} is not changed on this branch.`);
     }
   }
-  const red = field2(body, "Red");
+  const red = field2(body2, "Red");
   if (red === void 0) violations.push(`${record2}: the Reproduction has no **Red:** line.`);
   else if (red === "") violations.push(`${record2}: the Reproduction has an empty **Red:** line.`);
   return violations;
@@ -35725,8 +35734,8 @@ function findEntryViolations(ctx, entries3) {
   }
   return violations;
 }
-function findUnresolvedCitations(file2, text8, resolve5) {
-  return idsCitedIn(text8).filter((id) => !resolve5(id)).map((id) => violation(file2, id, `is cited in ${file2} but does not resolve to any entry.`));
+function findUnresolvedCitations(file2, text8, resolve7) {
+  return idsCitedIn(text8).filter((id) => !resolve7(id)).map((id) => violation(file2, id, `is cited in ${file2} but does not resolve to any entry.`));
 }
 function findWishes(entries3) {
   return entries3.filter((entry) => entry.kind === "principle" && servedBy(entries3, entry.id).length === 0).map(
@@ -35748,7 +35757,7 @@ function gradeKnowledge({
   glossaryText
 }) {
   const knowledge2 = readKnowledge({ ctx });
-  const resolve5 = (id) => knowledge2.entries.find((entry) => entry.id === id);
+  const resolve7 = (id) => knowledge2.entries.find((entry) => entry.id === id);
   const text8 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
   const violations = [
     ...findLayoutViolations(ctx, knowledge2, { glossaryText: text8 }),
@@ -35756,7 +35765,7 @@ function gradeKnowledge({
     ...findCrossDomainFileViolations(knowledge2),
     ...findReusedIds(knowledge2.entries),
     ...findEntryViolations(ctx, knowledge2.entries),
-    ...files.flatMap((file2) => findUnresolvedCitations(file2, readRepoFile(ctx, file2), resolve5))
+    ...files.flatMap((file2) => findUnresolvedCitations(file2, readRepoFile(ctx, file2), resolve7))
   ];
   return {
     violations: violations.map(formatViolation),
@@ -35936,11 +35945,11 @@ import { join as join31 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
 function invariantAdrs(text8, heading) {
   const lines = text8.split("\n");
-  const start = lines.findIndex((line) => line.trim() === heading.trim());
-  if (start === -1) return /* @__PURE__ */ new Set();
+  const start2 = lines.findIndex((line) => line.trim() === heading.trim());
+  if (start2 === -1) return /* @__PURE__ */ new Set();
   const level = group(/^#+/.exec(heading.trim()), 0).length;
   const ids = /* @__PURE__ */ new Set();
-  for (const line of lines.slice(start + 1)) {
+  for (const line of lines.slice(start2 + 1)) {
     const next = line.match(/^(#+)\s/);
     if (next?.[1] !== void 0 && next[1].length <= level) break;
     for (const match of line.matchAll(/ADR-\d{4}/g)) ids.add(match[0]);
@@ -35963,7 +35972,7 @@ function lawsFor(ctx) {
     }
     return invariants;
   };
-  function resolve5(bearsOn) {
+  function resolve7(bearsOn) {
     if (bearsOn === "none") return { ok: true };
     const adr = ADR_ID.exec(bearsOn);
     if (adr) {
@@ -35986,7 +35995,7 @@ function lawsFor(ctx) {
     if (source === "claudeMdInvariants") return invariantSet().has(bearsOn);
     return false;
   }
-  return Object.freeze({ source, resolve: resolve5, floorsHigh });
+  return Object.freeze({ source, resolve: resolve7, floorsHigh });
 }
 
 // kit/lib/outbox/check-outbox.ts
@@ -36181,8 +36190,8 @@ function splitNote(text8) {
   const match = text8.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK4);
   return match ? { front: match[1] ?? "", body: match[2] ?? "" } : null;
 }
-function bodyLines(body) {
-  const lines = body.split("\n").map((line) => line.trim());
+function bodyLines(body2) {
+  const lines = body2.split("\n").map((line) => line.trim());
   while (lines.length && lines[0] === "") lines.shift();
   while (lines.length && lines.at(-1) === "") lines.pop();
   return lines;
@@ -36682,14 +36691,14 @@ var constituents = {
   async run(args, { cwd, stdout, exec, tokens, home, fetch = globalThis.fetch, now = Date.now, budgetMs = CONSTITUENTS_BUDGET_MS }) {
     const { positional, flags } = parseArgs("constituents", args, { booleans: ["json"] });
     if (positional.length > 0) throw usageError(USAGE8);
-    let body;
+    let body2;
     let lines;
     try {
-      [body, lines] = await sync({ cwd, exec, tokens, home, fetch, now, budgetMs });
+      [body2, lines] = await sync({ cwd, exec, tokens, home, fetch, now, budgetMs });
     } catch {
-      [body, lines] = [bodyOf("unreachable"), [`no constituents: the read failed ${CARRY_ON2}`]];
+      [body2, lines] = [bodyOf("unreachable"), [`no constituents: the read failed ${CARRY_ON2}`]];
     }
-    if (flags.json === true) println(stdout, JSON.stringify(body));
+    if (flags.json === true) println(stdout, JSON.stringify(body2));
     else for (const line of lines) println(stdout, line);
     return 0;
   }
@@ -36745,10 +36754,10 @@ function frontMatter(raw) {
   for (const field3 of FRONT_FIELDS.filter((name) => faulty.has(name))) errors.push(`front matter: ${fieldFault(field3, data[field3])}`);
   return { data: null, errors, scale };
 }
-function sectionsOf(body) {
+function sectionsOf(body2) {
   const sections = [];
   let current = null;
-  for (const line of body.split(/\r?\n/)) {
+  for (const line of body2.split(/\r?\n/)) {
     const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
     if (heading && !line.startsWith("###")) {
       current = { name: group(heading, 1), lines: [] };
@@ -36784,10 +36793,10 @@ function cells2(line) {
   return inner.split(/(?<!\\)\|/).map((cell2) => cell2.trim().replace(/\\\|/g, "|"));
 }
 function firstTable(lines) {
-  const start = lines.findIndex((line) => line.trim().startsWith("|"));
-  if (start === -1) return null;
+  const start2 = lines.findIndex((line) => line.trim().startsWith("|"));
+  if (start2 === -1) return null;
   const block = [];
-  for (const line of lines.slice(start)) {
+  for (const line of lines.slice(start2)) {
     if (!line.trim().startsWith("|")) break;
     block.push(line.trim());
   }
@@ -36838,9 +36847,9 @@ function conceptArea({ id, area: area2, brief, prd: prd2 }) {
 function parseConcept(text8) {
   const block = FRONT_MATTER_BLOCK5.exec(text8);
   if (!block) return { ok: false, errors: ['no front matter: a concept.md opens with a "---" fenced header.'] };
-  const [, raw = "", body = ""] = block;
+  const [, raw = "", body2 = ""] = block;
   const front = frontMatter(raw);
-  const sections = sectionsOf(body);
+  const sections = sectionsOf(body2);
   const errors = [...front.errors, ...sectionFaults(sections)];
   const areasSection = sections.find((section4) => section4.name === "Areas");
   const { areas, faults } = areasSection ? areasOf(areasSection.lines, front.scale) : { areas: [], faults: [] };
@@ -36948,8 +36957,8 @@ function folderEntries(ctx, folder) {
 function roundFaults(folder, rounds) {
   const last = rounds.at(-1)?.k ?? 0;
   if (last === 0) return [`${folder}/board-r1.html: missing.`];
-  const shown3 = new Set(rounds.map((round) => round.k));
-  return Array.from({ length: last - 1 }, (_, index) => index + 1).filter((k) => !shown3.has(k)).map((k) => `${folder}/board-r${k}.html: missing; the rounds are numbered from 1 with no gap.`);
+  const shown4 = new Set(rounds.map((round) => round.k));
+  return Array.from({ length: last - 1 }, (_, index) => index + 1).filter((k) => !shown4.has(k)).map((k) => `${folder}/board-r${k}.html: missing; the rounds are numbered from 1 with no gap.`);
 }
 function folderFaults(ctx, folder, concept2) {
   const { present, rounds, misnamed, others } = folderEntries(ctx, folder);
@@ -37475,8 +37484,8 @@ function readArgs(args) {
 }
 function report2({ stdout, stderr, decision, read: read2, json: json2 }) {
   if (json2) {
-    const shown3 = read2.answer !== void 0 ? { decision, answer: read2.answer, confidence: read2.confidence, decidedBy: "jev", reason: null } : { decision, answer: null, confidence: null, decidedBy: "old", reason: read2.reason };
-    println(stdout, JSON.stringify(shown3));
+    const shown4 = read2.answer !== void 0 ? { decision, answer: read2.answer, confidence: read2.confidence, decidedBy: "jev", reason: null } : { decision, answer: null, confidence: null, decidedBy: "old", reason: read2.reason };
+    println(stdout, JSON.stringify(shown4));
   } else {
     println(stdout, read2.answer !== void 0 ? `${read2.answer} ${read2.confidence.toFixed(2)}` : UNSET);
   }
@@ -37689,17 +37698,17 @@ async function push(prd2, { ctx, repo, client, home, claudeSessionId, stdout, st
   if (!folder) throw usageError(`omni dossier push: PRD ${prd2} has no inbox or shipped folder.`);
   const where = home ?? ctx.root;
   const draft = chooseDraft(readDossiers(where), { prd: prd2, claudeSessionId });
-  const body = { repo, prd: prd2, title: folder.title, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) };
+  const body2 = { repo, prd: prd2, title: folder.title, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) };
   let result;
   try {
-    result = await client.pushDossier({ ...body, draftId: draft?.id ?? null });
+    result = await client.pushDossier({ ...body2, draftId: draft?.id ?? null });
   } catch (error62) {
     if (!(draft && error62 instanceof AskCallError && error62.status === 404)) {
       println(stderr, skipLine(error62));
       return 1;
     }
     try {
-      result = await client.pushDossier({ ...body, draftId: null });
+      result = await client.pushDossier({ ...body2, draftId: null });
     } catch (again) {
       println(stderr, skipLine(again));
       return 1;
@@ -37851,18 +37860,18 @@ function showPoint(flow2, point, { territory, values = {}, readHook }) {
   const problems = [];
   const verdict2 = expectedVerdict(point.point);
   const show4 = (mode, hook) => {
-    const shown3 = { area: hook.area, mode, path: hook.path, alias: hook.alias, inputs, text: null, verdict: verdict2 };
-    if (hook.alias !== null && hook.path.startsWith("/")) return shown3;
+    const shown4 = { area: hook.area, mode, path: hook.path, alias: hook.alias, inputs, text: null, verdict: verdict2 };
+    if (hook.alias !== null && hook.path.startsWith("/")) return shown4;
     const where = `${hook.path} (${hook.area}, ${mode})`;
     const raw = readHook(hook.path);
     if (raw === null) {
       problems.push(`${where} does not exist`);
-      return shown3;
+      return shown4;
     }
     const file2 = parseHookFile(raw);
     if (file2.omniHook !== null && file2.omniHook !== point.point) problems.push(`${where} says omni-hook: ${file2.omniHook}, not ${point.point}`);
     const declared = file2.inputs ?? point.inputs;
-    return { ...shown3, inputs: Object.fromEntries(declared.map((name) => [name, values[name] ?? null])), text: fill(file2.body, values) };
+    return { ...shown4, inputs: Object.fromEntries(declared.map((name) => [name, values[name] ?? null])), text: fill(file2.body, values) };
   };
   const before2 = hooks.before.map((hook) => show4("before", hook));
   const replace = hooks.replace === null ? null : show4("replace", hooks.replace);
@@ -38041,9 +38050,9 @@ function pointGround(ctx, flags, bySlice) {
     ...slice === null ? {} : { values: slice.values }
   };
 }
-function showOnePoint({ ctx, stdout }, shown3, name, { flags, bySlice, print: print2 }) {
+function showOnePoint({ ctx, stdout }, shown4, name, { flags, bySlice, print: print2 }) {
   const point = pointArg("show", name);
-  const view = showPoint(shown3.flow, point, { ...pointGround(ctx, flags, bySlice), readHook: shown3.readHook });
+  const view = showPoint(shown4.flow, point, { ...pointGround(ctx, flags, bySlice), readHook: shown4.readHook });
   print2(view, pointText(view));
   for (const problem of view.problems) println(stdout, `not ok ${point.point} ${problem}`);
   return view.problems.length > 0 ? 1 : 0;
@@ -38051,14 +38060,14 @@ function showOnePoint({ ctx, stdout }, shown3, name, { flags, bySlice, print: pr
 function show2(args, io) {
   const { positional, flags } = parseArgs("flow show", args, { values: ["prd", "slice", "path", "repo"], booleans: ["json"] });
   if (positional.length > 1) throw usageError(USAGE12);
-  const shown3 = shownFlow(io.ctx, flags.repo);
+  const shown4 = shownFlow(io.ctx, flags.repo);
   const [name] = positional;
   const bySlice = bySliceOf(flags);
   const print2 = (json2, text8) => {
     println(io.stdout, flags.json ? JSON.stringify(json2, null, 2) : text8);
   };
-  if (name === void 0) return showWhole(shown3.flow, flags, bySlice, print2);
-  return showOnePoint(io, shown3, name, { flags, bySlice, print: print2 });
+  if (name === void 0) return showWhole(shown4.flow, flags, bySlice, print2);
+  return showOnePoint(io, shown4, name, { flags, bySlice, print: print2 });
 }
 function verdict(args, { ctx, stdout }) {
   const { positional, flags } = parseArgs("flow verdict", args, { values: ["from"] });
@@ -38196,7 +38205,7 @@ async function askModel({
     { role: "user", content: maskSecrets(user) }
   ];
   const deadline = Date.now() + call.budgetMs;
-  const body = (conversation) => ({
+  const body2 = (conversation) => ({
     model,
     temperature: 0,
     max_tokens: call.maxTokens,
@@ -38204,7 +38213,7 @@ async function askModel({
     ...schema ? { response_format: { type: "json_schema", json_schema: { name: schema.name, strict: true, schema: schema.schema } } } : {},
     messages: conversation
   });
-  const request = (conversation) => ask4({ fetch, sleep, call, deadline, key, title, body: body(conversation) });
+  const request = (conversation) => ask4({ fetch, sleep, call, deadline, key, title, body: body2(conversation) });
   const first = await request(messages);
   if (!first.ok) return failure2(UNAVAILABLE, model, unavailable(first.status));
   const checked = runCheck(check3, parseJson(first.content));
@@ -38247,12 +38256,12 @@ function runCheck(check3, value) {
     return { errors: [`the reply could not be checked: ${String(messageOf2(error62))}`], reply: null };
   }
 }
-async function ask4({ fetch, sleep, call, deadline, key, title, body }) {
+async function ask4({ fetch, sleep, call, deadline, key, title, body: body2 }) {
   let outcome = { ok: false, status: "timeout", retry: false };
   for (let attempt9 = 1; attempt9 <= call.attempts; attempt9 += 1) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) return { ok: false, status: "timeout" };
-    outcome = await once({ fetch, key, title, body, signal: AbortSignal.timeout(remaining) });
+    outcome = await once({ fetch, key, title, body: body2, signal: AbortSignal.timeout(remaining) });
     if (outcome.ok || !outcome.retry || attempt9 === call.attempts) return outcome;
     const pause = call.backoffMs[attempt9 - 1] ?? call.backoffMs.at(-1) ?? 0;
     if (Date.now() + pause >= deadline) return outcome;
@@ -38264,14 +38273,14 @@ async function once({
   fetch,
   key,
   title,
-  body,
+  body: body2,
   signal
 }) {
   try {
     const response = await fetch(OPENROUTER_URL, {
       method: "POST",
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json", "x-title": title },
-      body: JSON.stringify(body),
+      body: JSON.stringify(body2),
       signal
     });
     if (!response.ok) {
@@ -38362,17 +38371,17 @@ async function readContent(response) {
   return content;
 }
 function parseJson(text8) {
-  const start = text8.indexOf("{");
+  const start2 = text8.indexOf("{");
   const end = text8.lastIndexOf("}");
-  if (start === -1 || end < start) return void 0;
+  if (start2 === -1 || end < start2) return void 0;
   try {
-    return JSON.parse(text8.slice(start, end + 1));
+    return JSON.parse(text8.slice(start2, end + 1));
   } catch {
     return void 0;
   }
 }
 function wait(ms) {
-  return new Promise((resolve5) => setTimeout(resolve5, ms));
+  return new Promise((resolve7) => setTimeout(resolve7, ms));
 }
 
 // kit/lib/knowledge/pipeline.ts
@@ -38724,8 +38733,8 @@ function classificationJsonSchema(summary) {
     }
   };
 }
-function section2(heading, body) {
-  const text8 = plainText(body).trim();
+function section2(heading, body2) {
+  const text8 = plainText(body2).trim();
   if (text8 === "") return [];
   return [`### ${heading}`, "", text8, ""];
 }
@@ -38941,11 +38950,11 @@ function appendEntry(text8, entry, { heading }) {
 `;
   if (!/^## /m.test(base)) {
     const lines = base.split("\n");
-    const start = lines.findIndex((line) => NONE_YET.test(line));
-    if (start !== -1) {
-      let end = start;
+    const start2 = lines.findIndex((line) => NONE_YET.test(line));
+    if (start2 !== -1) {
+      let end = start2;
       while (end < lines.length && (lines[end] ?? "").trim() !== "") end += 1;
-      lines.splice(start, end - start);
+      lines.splice(start2, end - start2);
       base = lines.join("\n");
     }
   }
@@ -39671,6 +39680,20 @@ var ENTRIES = deepFreeze([
     detail: "Sends a proof run /omni:prove recorded to PRD n's dossier on the Omni page and prints its Proof tab's link. It reads run.json in the folder, and refuses before sending anything a file that is not .webm, .gif, .ts or .txt, or one over 50 MB. Then it uploads each clip and script, and registers the run. It never holds up the skill that runs it: anything that stops it exits 1 with one line, as omni dossier link does. omni proof session writes the signed-in browser session a run films with, from your omni signin, to <file> or PROOF_STORAGE_STATE: set proof.setup to it."
   },
   {
+    name: "pitch",
+    kind: "command",
+    who: "skills",
+    usage: [
+      "omni pitch start <n> --for customers|inside",
+      "omni pitch slide <dir> --frame <png>",
+      "omni pitch music <dir> --for customers|inside",
+      "omni pitch video <dir>",
+      "omni pitch push <n> <dir>"
+    ],
+    summary: "makes a shipped PRD's pitch, and sends it to its Pitch tab",
+    detail: "The verbs /omni:pitch runs. start refuses with one line, writing nothing, a PRD not shipped, a proof.url that is not a fixed URL, no ffmpeg or no sign-in; otherwise it opens the run folder under the worktrees with the product's look and prints it. slide renders the wedge slide in that look, 16:9 and 1:1, from a real frame; music writes the audience's default music, the same every time; video makes pitch.mp4, pitch-square.mp4 and pitch.gif with ffmpeg. push sends a pitch /omni:pitch made of shipped PRD n to its dossier on the Omni page, and prints its Pitch tab's link, then the GIF's link that opens without signing in. It reads pitch.json in the folder and refuses, before sending anything, a run missing one of its five files (slide.png, slide-square.png, pitch.mp4, pitch-square.mp4, pitch.gif) or one over 50 MB. A PRD that is not shipped prints not shipped. It never retries, and never holds up the skill that runs it: anything that stops it exits 1 with one line, as omni proof push does, and keeps every file."
+  },
+  {
     name: "business",
     kind: "command",
     who: "you",
@@ -40252,6 +40275,21 @@ var ENTRIES = deepFreeze([
     example: {
       type: "/omni:prove 798",
       result: "a comment on the feature PR with a \u2713, \u2717 or \u2014 line per criterion, and the Proof tab full of clips"
+    }
+  },
+  {
+    name: "pitch",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:pitch <n> --for customers|inside"],
+    label: "/omni:pitch <n>",
+    summary: "a slide, video and GIF announcing a shipped PRD",
+    detail: "Makes a launch package for shipped PRD n, for customers or for inside: a hook, a benefit, a kicker and a closing line written from the spec and the release note only, one slow walk-through filmed on production that never saves, deletes or changes anything, the wedge slide in the product's look from a real frame, generated music, and pitch.mp4, pitch-square.mp4 and pitch.gif made with ffmpeg. It sends them to the PRD's Pitch tab with omni pitch push. It refuses with one line a PRD not shipped, a proof.url that is not fixed, no ffmpeg or no sign-in, and posts no comment.",
+    group: "everyday",
+    when: "Use it when a PRD has shipped and you want to announce it to customers or at an all-hands.",
+    example: {
+      type: "/omni:pitch 859 --for customers",
+      result: "slide.png, a 20 to 30 second pitch.mp4 with music and pitch.gif, on the PRD's Pitch tab"
     }
   },
   // Skills other skills run.
@@ -42529,8 +42567,8 @@ function detailOf(row) {
     const count3 = `${row.files.length} ${row.files.length === 1 ? "file" : "files"}`;
     const owners = row.slices.map((id) => `${id}'s`).join(", ");
     const where = row.slices.length === 1 ? "territory" : "territories";
-    const shown3 = row.files.slice(0, SHOWN).join(", ") + (row.files.length > SHOWN ? ", \u2026" : "");
-    return `${count3} under ${owners} ${where} (${shown3})`;
+    const shown4 = row.files.slice(0, SHOWN).join(", ") + (row.files.length > SHOWN ? ", \u2026" : "");
+    return `${count3} under ${owners} ${where} (${shown4})`;
   }
   return row.detail ?? "";
 }
@@ -42752,16 +42790,753 @@ var prd = {
   })
 };
 
+// kit/bin/commands/pitch.ts
+init_define_OMNI_BUNDLE();
+import { isAbsolute as isAbsolute6, resolve as resolve4 } from "node:path";
+
+// kit/lib/pitch/push.ts
+init_define_OMNI_BUNDLE();
+import { readFileSync as readFileSync47 } from "node:fs";
+var PitchReplyError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "PitchReplyError";
+  }
+};
+var isRecord4 = (value) => typeof value === "object" && value !== null;
+var isText5 = (value) => typeof value === "string" && value.length > 0;
+function linksOf(reply, files) {
+  const run = isRecord4(reply) ? reply.run : void 0;
+  if (!isRecord4(reply) || !isText5(run)) throw new PitchReplyError("no run in the reply");
+  const given = Array.isArray(reply.files) ? reply.files : [];
+  const byName2 = new Map(given.map((file2) => isRecord4(file2) ? [file2.name, file2.url] : [void 0, void 0]));
+  const links = files.map(({ name }) => {
+    const url2 = byName2.get(name);
+    if (!isText5(url2)) throw new PitchReplyError(`no upload link for ${name} in the reply`);
+    return url2;
+  });
+  return { runId: run, links };
+}
+async function pushPitch({
+  client,
+  repo,
+  prd: prd2,
+  run,
+  read: read2 = readFileSync47
+}) {
+  const reply = await client.requestPitchUploads({ repo, prd: prd2, files: run.files.map(({ name, bytes, type }) => ({ name, bytes, type })) });
+  const { runId, links } = linksOf(reply, run.files);
+  for (const [index, file2] of run.files.entries()) await client.upload(at(links, index, `the upload link of ${file2.name}`), read2(file2.path), file2.type);
+  const { audience, look, commit, hook, benefit, kicker, closing } = run;
+  const registered = await client.registerPitch({ repo, prd: prd2, run: runId, audience, look, commit, hook, benefit, kicker, closing });
+  const tab = isRecord4(registered) ? registered.url : void 0;
+  const gif = isRecord4(registered) ? registered.gif : void 0;
+  if (!isText5(tab)) throw new PitchReplyError("no link in the reply");
+  if (!isText5(gif)) throw new PitchReplyError("no GIF link in the reply");
+  return { tab, gif };
+}
+
+// kit/lib/pitch/push-run.ts
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync48, readFileSync as readFileSync48, statSync as statSync12 } from "node:fs";
+import { join as join59 } from "node:path";
+var PITCH_RUN_FILE = "pitch.json";
+var PITCH_FILE_MAX_BYTES = 50 * 1024 * 1024;
+var PITCH_FILES = Object.freeze({
+  "slide.png": "image/png",
+  "slide-square.png": "image/png",
+  "pitch.mp4": "video/mp4",
+  "pitch-square.mp4": "video/mp4",
+  "pitch.gif": "image/gif"
+});
+var AUDIENCES = Object.freeze(["customers", "inside"]);
+var LOOKS = Object.freeze(["arcade", "keynote"]);
+var WORD_MAX = Object.freeze({ hook: 200, benefit: 400, kicker: 100, closing: 300 });
+var COMMIT2 = /^[0-9a-f]{7,64}$/;
+var PitchRunRefused = class extends Error {
+  status;
+  constructor(status3, message) {
+    super(message);
+    this.name = "PitchRunRefused";
+    this.status = status3;
+  }
+};
+var refuse = (message, status3 = 400) => {
+  throw new PitchRunRefused(status3, message);
+};
+var isRecord5 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var shown3 = (value) => String(value);
+function parsedOrNull(text8) {
+  try {
+    return JSON.parse(text8);
+  } catch {
+    return null;
+  }
+}
+function fileOf(dir, name) {
+  const path = join59(dir, name);
+  if (!existsSync48(path) || !statSync12(path).isFile()) refuse(`${name}: not in the run folder`);
+  const { size } = statSync12(path);
+  if (size > PITCH_FILE_MAX_BYTES) refuse(`${name}: over ${PITCH_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
+  return { name, path, bytes: size, type: PITCH_FILES[name] };
+}
+function wordsOf(sent) {
+  const word = (key) => {
+    const value = sent[key];
+    const max = WORD_MAX[key];
+    if (typeof value !== "string" || !value.trim() || value.trim().length > max) return refuse(`${PITCH_RUN_FILE}: ${key} is 1 to ${max} characters`);
+    return value.trim();
+  };
+  return { hook: word("hook"), benefit: word("benefit"), kicker: word("kicker"), closing: word("closing") };
+}
+function readPitchRun(dir, prd2) {
+  const file2 = join59(dir, PITCH_RUN_FILE);
+  if (!existsSync48(file2)) return null;
+  const sent = parsedOrNull(readFileSync48(file2, "utf8"));
+  if (!isRecord5(sent)) return refuse(`${PITCH_RUN_FILE} is not a JSON object`);
+  const { audience, look, commit } = sent;
+  if (sent.prd !== void 0 && sent.prd !== prd2) refuse(`${PITCH_RUN_FILE} is for PRD ${shown3(sent.prd)}, not ${prd2}`);
+  if (!isOneOf(AUDIENCES, audience)) return refuse(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(audience)}`);
+  if (!isOneOf(LOOKS, look)) return refuse(`${PITCH_RUN_FILE}: look is arcade or keynote, not ${String(look)}`);
+  if (typeof commit !== "string" || !COMMIT2.test(commit)) return refuse(`${PITCH_RUN_FILE}: commit is the hash of the commit the pitch was made at`);
+  const words = wordsOf(sent);
+  const files = keysOf(PITCH_FILES).map((name) => fileOf(dir, name));
+  return { audience, look, commit, ...words, files };
+}
+
+// kit/bin/commands/pitch-make.ts
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync50, mkdirSync as mkdirSync15 } from "node:fs";
+import { isAbsolute as isAbsolute5, join as join61, resolve as resolve3 } from "node:path";
+
+// kit/lib/pitch/ffmpeg.ts
+init_define_OMNI_BUNDLE();
+var CARD_SECONDS = 3;
+var FADE_SECONDS = 1;
+var VIDEO_MIN_SECONDS = 20;
+var VIDEO_MAX_SECONDS = 30;
+var GIF_MAX_SECONDS = 8;
+var GIF_WIDTH = 640;
+var FPS = 30;
+var PITCH_INPUTS = Object.freeze({
+  slide: "slide.png",
+  slideSquare: "slide-square.png",
+  close: "close.png",
+  closeSquare: "close-square.png",
+  backdropSquare: "backdrop-square.png",
+  walk: "walk.webm",
+  walkNormal: "walk.mp4",
+  music: "music.wav"
+});
+var OUTPUTS = Object.freeze({ wide: "pitch.mp4", square: "pitch-square.mp4", gif: "pitch.gif" });
+var seconds = (value) => String(Math.round(value * 1e3) / 1e3);
+function pitchCut(walkSeconds) {
+  if (!(walkSeconds > 0)) throw new RangeError(`the walk-through has no length (${String(walkSeconds)} s)`);
+  const walk = Math.min(walkSeconds, VIDEO_MAX_SECONDS - 2 * CARD_SECONDS);
+  const close = Math.max(CARD_SECONDS, VIDEO_MIN_SECONDS - CARD_SECONDS - walk);
+  return { slide: CARD_SECONDS, walk, close, total: CARD_SECONDS + walk + close };
+}
+var card = (input2, width, height, out) => `[${input2}:v]scale=${width}:${height},setsar=1,fps=${FPS},format=yuv420p[${out}]`;
+var music = (input2, total) => `[${input2}:a]atrim=0:${seconds(total)},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=${FADE_SECONDS},afade=t=out:st=${seconds(total - FADE_SECONDS)}:d=${FADE_SECONDS}[m]`;
+var encode3 = (total, output2) => [
+  "-map",
+  "[v]",
+  "-map",
+  "[m]",
+  "-c:v",
+  "libx264",
+  "-pix_fmt",
+  "yuv420p",
+  "-r",
+  String(FPS),
+  "-c:a",
+  "aac",
+  "-b:a",
+  "160k",
+  "-t",
+  seconds(total),
+  "-movflags",
+  "+faststart",
+  output2
+];
+var still = (file2, length) => ["-loop", "1", "-t", seconds(length), "-i", file2];
+function wideArgs(files, cut3) {
+  const walk = `[1:v]trim=0:${seconds(cut3.walk)},setpts=PTS-STARTPTS,scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${FPS},format=yuv420p[b]`;
+  const graph2 = [card(0, 1920, 1080, "a"), walk, card(2, 1920, 1080, "c"), "[a][b][c]concat=n=3:v=1:a=0[v]", music(3, cut3.total)].join(";");
+  return [
+    "-y",
+    ...still(files.slide, cut3.slide),
+    "-i",
+    files.walkNormal,
+    ...still(files.close, cut3.close),
+    "-i",
+    files.music,
+    "-filter_complex",
+    graph2,
+    ...encode3(cut3.total, OUTPUTS.wide)
+  ];
+}
+function squareArgs(files, cut3) {
+  const walk = [
+    `[1:v]trim=0:${seconds(cut3.walk)},setpts=PTS-STARTPTS,scale=1080:-2,setsar=1[w]`,
+    "[3:v]scale=1080:1080,setsar=1[bg]",
+    `[bg][w]overlay=(W-w)/2:(H-h)/2:shortest=1,fps=${FPS},format=yuv420p[b]`
+  ];
+  const graph2 = [card(0, 1080, 1080, "a"), ...walk, card(2, 1080, 1080, "c"), "[a][b][c]concat=n=3:v=1:a=0[v]", music(4, cut3.total)].join(";");
+  return [
+    "-y",
+    ...still(files.slideSquare, cut3.slide),
+    "-i",
+    files.walkNormal,
+    ...still(files.closeSquare, cut3.close),
+    ...still(files.backdropSquare, cut3.walk),
+    "-i",
+    files.music,
+    "-filter_complex",
+    graph2,
+    ...encode3(cut3.total, OUTPUTS.square)
+  ];
+}
+function gifArgs(files, cut3) {
+  const graph2 = `fps=12,scale=${GIF_WIDTH}:-1:flags=lanczos,split[x][y];[x]palettegen[p];[y][p]paletteuse`;
+  return ["-y", "-t", seconds(Math.min(cut3.walk, GIF_MAX_SECONDS)), "-i", files.walkNormal, "-filter_complex", graph2, "-an", "-loop", "0", OUTPUTS.gif];
+}
+function normaliseArgs(files = PITCH_INPUTS) {
+  const graph2 = `scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${FPS},format=yuv420p`;
+  return ["-y", "-i", files.walk, "-vf", graph2, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", files.walkNormal];
+}
+function pitchRecipe({ walkSeconds, files = PITCH_INPUTS }) {
+  const cut3 = pitchCut(walkSeconds);
+  return { cut: cut3, wide: wideArgs(files, cut3), square: squareArgs(files, cut3), gif: gifArgs(files, cut3) };
+}
+var PITCH_VIDEOS = Object.freeze(Object.values(OUTPUTS));
+
+// kit/lib/pitch/run.ts
+init_define_OMNI_BUNDLE();
+import { copyFileSync as copyFileSync3, existsSync as existsSync49, readFileSync as readFileSync49, writeFileSync as writeFileSync19 } from "node:fs";
+import { join as join60 } from "node:path";
+
+// kit/lib/pitch/music.ts
+init_define_OMNI_BUNDLE();
+var MUSIC = Object.freeze({ seconds: 30, rate: 44100, channels: 2 });
+var PROGRESSION = Object.freeze([
+  [48, 52, 55],
+  [43, 47, 50],
+  [45, 48, 52],
+  [41, 45, 48]
+]);
+var hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
+var phase = (t, freq) => t * freq % 1;
+var square = (t, freq, duty = 0.5) => phase(t, freq) < duty ? 1 : -1;
+var triangle = (t, freq) => 4 * Math.abs(phase(t, freq) - 0.5) - 1;
+var saw = (t, freq) => 2 * phase(t, freq) - 1;
+var sine = (t, freq) => Math.sin(2 * Math.PI * freq * t);
+function grid(t, bpm, steps) {
+  const beat2 = 60 / bpm;
+  const step = beat2 / steps;
+  const index = Math.floor(t / step);
+  return { chord: at(PROGRESSION, Math.floor(t / (beat2 * 4)) % PROGRESSION.length, "the chord"), index, at: t - index * step, beatAt: t % beat2 };
+}
+function noiseTable(length) {
+  const out = new Float32Array(length);
+  let register = 16385;
+  for (let index = 0; index < length; index += 1) {
+    const bit = (register ^ register >> 1) & 1;
+    register = register >> 1 | bit << 14;
+    out[index] = register & 1 ? 1 : -1;
+  }
+  return out;
+}
+function chiptune(noise) {
+  return (t, n) => {
+    const sixteenth = grid(t, 150, 4);
+    const tones = sixteenth.chord;
+    const arp = hz(at(tones, sixteenth.index % tones.length, "the note") + 24);
+    const lead = square(t, arp, 0.25) * Math.exp(-sixteenth.at * 9) * 0.22;
+    const eighth = grid(t, 150, 2);
+    const bass = triangle(t, hz(at(eighth.chord, 0, "the root") - 12)) * 0.3;
+    const offBeat = eighth.index % 2 === 1;
+    const hat = offBeat ? (noise[Math.floor(n / 4) % noise.length] ?? 0) * Math.exp(-eighth.at * 60) * 0.12 : 0;
+    const pan = sixteenth.index % 2 === 0 ? 0.65 : 0.35;
+    return [lead * pan + bass + hat, lead * (1 - pan) + bass + hat];
+  };
+}
+function synth() {
+  return (t) => {
+    const eighth = grid(t, 112, 2);
+    const tones = eighth.chord;
+    const padL = tones.reduce((sum, note) => sum + saw(t, hz(note + 12) * 0.997), 0) * 0.045;
+    const padR = tones.reduce((sum, note) => sum + saw(t, hz(note + 12) * 1.003), 0) * 0.045;
+    const pluck = sine(t, hz(at(tones, eighth.index % tones.length, "the note") + 24)) * Math.exp(-eighth.at * 7) * 0.2;
+    const bass = sine(t, hz(at(tones, 0, "the root") - 12)) * (0.5 + 0.5 * Math.exp(-eighth.at * 5)) * 0.22;
+    const sweep = 50 + 90 * Math.exp(-eighth.beatAt * 30);
+    const kick = Math.sin(2 * Math.PI * sweep * eighth.beatAt) * Math.exp(-eighth.beatAt * 12) * 0.3;
+    const pan = eighth.index % 2 === 0 ? 0.7 : 0.3;
+    return [padL + pluck * pan + bass + kick, padR + pluck * (1 - pan) + bass + kick];
+  };
+}
+var VOICES = Object.freeze({ inside: () => chiptune(noiseTable(32767)), customers: () => synth() });
+function wavHeader(frames) {
+  const { rate, channels } = MUSIC;
+  const data = frames * channels * 2;
+  const header2 = Buffer.alloc(44);
+  header2.write("RIFF", 0, "ascii");
+  header2.writeUInt32LE(36 + data, 4);
+  header2.write("WAVEfmt ", 8, "ascii");
+  header2.writeUInt32LE(16, 16);
+  header2.writeUInt16LE(1, 20);
+  header2.writeUInt16LE(channels, 22);
+  header2.writeUInt32LE(rate, 24);
+  header2.writeUInt32LE(rate * channels * 2, 28);
+  header2.writeUInt16LE(channels * 2, 32);
+  header2.writeUInt16LE(16, 34);
+  header2.write("data", 36, "ascii");
+  header2.writeUInt32LE(data, 40);
+  return header2;
+}
+var toInt16 = (value) => Math.round(Math.max(-1, Math.min(1, value)) * 32767);
+function pitchMusic(audience) {
+  const audiences = keysOf(VOICES);
+  if (!isOneOf(audiences, audience)) throw new RangeError(`music is for customers or inside, not ${audience}`);
+  const sample = VOICES[audience]();
+  const frames = MUSIC.seconds * MUSIC.rate;
+  const body2 = Buffer.alloc(frames * MUSIC.channels * 2);
+  for (let n = 0; n < frames; n += 1) {
+    const [left, right] = sample(n / MUSIC.rate, n);
+    body2.writeInt16LE(toInt16(left), n * 4);
+    body2.writeInt16LE(toInt16(right), n * 4 + 2);
+  }
+  return Buffer.concat([wavHeader(frames), body2]);
+}
+
+// kit/lib/pitch/slide.ts
+init_define_OMNI_BUNDLE();
+var SHAPES = Object.freeze({ wide: { width: 1920, height: 1080 }, square: { width: 1080, height: 1080 } });
+var LOOKS2 = Object.freeze(["arcade", "keynote"]);
+var CARDS = Object.freeze(["wedge", "close", "backdrop"]);
+var SHAPE_NAMES = Object.freeze(["wide", "square"]);
+var FRAME_FILE = "frame.png";
+var SLIDE_FILES = Object.freeze([
+  { card: "wedge", shape: "wide", file: "slide.png" },
+  { card: "wedge", shape: "square", file: "slide-square.png" },
+  { card: "close", shape: "wide", file: "close.png" },
+  { card: "close", shape: "square", file: "close-square.png" },
+  { card: "backdrop", shape: "square", file: "backdrop-square.png" }
+]);
+var FONTS = "https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@500;800;900&family=Press+Start+2P&display=block";
+var ENTITIES = Object.freeze({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" });
+var escape2 = (text8) => text8.replace(/[&<>"']/g, (c) => ENTITIES[c] ?? c);
+function starfield(width, height) {
+  let seed = 859;
+  const next = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  const stars = [];
+  for (let index = 0; index < 140; index += 1) {
+    const size = next() < 0.85 ? 2 : 4;
+    const shade = next() < 0.8 ? "rgba(255,255,255,0.7)" : "#ffd23f";
+    stars.push(`${Math.round(next() * width)}px ${Math.round(next() * height)}px 0 ${size / 2}px ${shade}`);
+  }
+  return stars.join(",");
+}
+var LOOK_CSS = {
+  arcade: ({ width, height }) => `
+    body { background: radial-gradient(ellipse at 30% 20%, #1b1450 0%, #07071a 60%, #030310 100%); color: #fff; }
+    .stars { position: absolute; left: 0; top: 0; width: 1px; height: 1px; box-shadow: ${starfield(width, height)}; }
+    .kicker { font-family: 'Press Start 2P', monospace; color: #4ee1ff; letter-spacing: 2px; text-shadow: 3px 3px 0 #e8323c; }
+    .hook, .closing { font-family: Anton, Impact, sans-serif; font-style: italic; color: #ffd23f; text-transform: uppercase;
+      text-shadow: 6px 6px 0 #e8323c; line-height: 1.02; }
+    .benefit { font-family: Inter, Arial, sans-serif; font-weight: 500; color: #e7e7ff; line-height: 1.3; }
+    .frame img { border: 6px solid #fff; box-shadow: 14px 14px 0 #e8323c; border-radius: 0; }`,
+  keynote: () => `
+    body { background: linear-gradient(180deg, #fbfbfd 0%, #eef0f5 100%); color: #111; }
+    .stars { display: none; }
+    .kicker-box { align-items: flex-start; }
+    .kicker { display: inline-block; font-family: Inter, Arial, sans-serif; font-weight: 800; color: #fff; letter-spacing: 1px;
+      background: linear-gradient(90deg, #6d28d9, #db2777, #f59e0b); border-radius: 999px; padding: 0.45em 1.1em; }
+    .hook, .closing { font-family: Inter, Arial, sans-serif; font-weight: 900; color: #0b0b12; letter-spacing: -0.02em; line-height: 1.04; }
+    .benefit { font-family: Inter, Arial, sans-serif; font-weight: 500; color: #4a4a57; line-height: 1.35; }
+    .frame img { border-radius: 22px; box-shadow: 0 50px 90px rgba(20, 20, 40, 0.22), 0 8px 20px rgba(20, 20, 40, 0.12);
+      transform: translateY(-8px); }`
+};
+var LAYOUT = {
+  "wedge/wide": `
+    .card { display: grid; grid-template-columns: 760px 1fr; gap: 64px; padding: 96px 96px 96px 112px; align-items: center; }
+    .words { display: flex; flex-direction: column; gap: 36px; height: 888px; justify-content: center; }
+    .kicker-box { height: 72px; } .kicker { font-size: 26px; }
+    .hook-box { height: 430px; } .hook { font-size: 108px; }
+    .benefit-box { height: 230px; } .benefit { font-size: 40px; }
+    .frame { height: 888px; display: flex; align-items: center; justify-content: center; }
+    .frame img { max-width: 100%; max-height: 760px; }`,
+  "wedge/square": `
+    .card { display: flex; flex-direction: column; gap: 28px; padding: 72px; }
+    .words { display: flex; flex-direction: column; gap: 22px; }
+    .kicker-box { height: 56px; } .kicker { font-size: 22px; }
+    .hook-box { height: 230px; } .hook { font-size: 84px; }
+    .benefit-box { height: 110px; } .benefit { font-size: 32px; }
+    .frame { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+    .frame img { max-width: 100%; max-height: 100%; }`,
+  "close/wide": `
+    .card { display: flex; flex-direction: column; gap: 48px; padding: 160px; justify-content: center; align-items: center; text-align: center; }
+    .kicker-box { height: 72px; width: 1600px; align-items: center; } .kicker { font-size: 28px; }
+    .closing-box { height: 420px; width: 1600px; } .closing { font-size: 104px; }`,
+  "close/square": `
+    .card { display: flex; flex-direction: column; gap: 40px; padding: 96px; justify-content: center; align-items: center; text-align: center; }
+    .kicker-box { height: 64px; width: 888px; align-items: center; } .kicker { font-size: 24px; }
+    .closing-box { height: 520px; width: 888px; } .closing { font-size: 92px; }`,
+  "backdrop/wide": "",
+  "backdrop/square": ""
+};
+var FIT_SCRIPT = `
+(async () => {
+  try { await document.fonts.ready; } catch {}
+  for (const box of document.querySelectorAll('[data-box]')) {
+    const text = box.firstElementChild;
+    let size = parseFloat(getComputedStyle(text).fontSize);
+    const fits = () => text.scrollWidth <= box.clientWidth && text.offsetHeight <= box.clientHeight;
+    while (!fits() && size > 8) { size -= 2; text.style.fontSize = size + 'px'; }
+  }
+  const image = document.querySelector('.frame img');
+  if (image && !image.complete) await new Promise((done) => { image.onload = done; image.onerror = done; });
+  document.body.dataset.fit = 'done';
+})();`;
+var box = (name, text8) => `<div class="${name}-box" data-box><div class="${name}">${escape2(text8)}</div></div>`;
+function body(card2, words) {
+  if (card2 === "backdrop") return "";
+  const kicker = box("kicker", words.kicker);
+  if (card2 === "close") return `<main class="card">${kicker}${box("closing", words.closing)}</main>`;
+  const text8 = `<section class="words">${kicker}${box("hook", words.hook)}${box("benefit", words.benefit)}</section>`;
+  return `<main class="card">${text8}<div class="frame"><img src="${FRAME_FILE}" alt=""></div></main>`;
+}
+function slideHtml({ look, card: card2, shape, words }) {
+  if (!isOneOf(LOOKS2, look)) throw new RangeError(`a look is arcade or keynote, not ${look}`);
+  if (!isOneOf(CARDS, card2)) throw new RangeError(`a card is wedge, close or backdrop, not ${card2}`);
+  if (!isOneOf(SHAPE_NAMES, shape)) throw new RangeError(`a shape is wide or square, not ${shape}`);
+  const size = SHAPES[shape];
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="${FONTS}">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: ${size.width}px; height: ${size.height}px; overflow: hidden; }
+  body { position: relative; }
+  .card { position: relative; width: ${size.width}px; height: ${size.height}px; }
+  [data-box] { overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+  ${LOOK_CSS[look](size)}
+  ${LAYOUT[`${card2}/${shape}`]}
+</style></head>
+<body><div class="stars"></div>${body(card2, words)}
+<script>${FIT_SCRIPT}</script></body></html>
+`;
+}
+
+// kit/lib/pitch/run.ts
+var AUDIENCES2 = Object.freeze(["customers", "inside"]);
+var REFUSAL = Object.freeze({
+  notShipped: (prd2) => `PRD ${prd2} is not shipped: a pitch is for shipped PRDs`,
+  proofOff: "proof is not configured here: run /omni:invade --refresh, or set proof.url in .omni-loop/config.yml",
+  proofNotFixed: "proof.url is github-deployment: a merged PRD has no preview to film; set a fixed proof.url",
+  noFfmpeg: "ffmpeg is needed for a pitch: brew install ffmpeg",
+  noSignIn: "no sign-in (omni signin)"
+});
+function pitchRefusal({ prd: prd2, shipped, proofUrl: proofUrl2, ffmpeg, signedIn }) {
+  if (!shipped) return REFUSAL.notShipped(prd2);
+  if (proofUrl2 === null) return REFUSAL.proofOff;
+  if (proofUrl2 === "github-deployment") return REFUSAL.proofNotFixed;
+  if (!ffmpeg()) return REFUSAL.noFfmpeg;
+  if (!signedIn()) return REFUSAL.noSignIn;
+  return null;
+}
+function hasFfmpeg(exec) {
+  try {
+    exec("ffmpeg", ["-version"], { stdio: ["ignore", "ignore", "ignore"] });
+    return true;
+  } catch {
+    return false;
+  }
+}
+var pad = (value) => String(value).padStart(2, "0");
+function pitchRunDir(worktrees, prd2, audience, now = /* @__PURE__ */ new Date()) {
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return join60(worktrees, `pitch-${prd2}`, `${audience}-${stamp}`);
+}
+var PITCH_JSON = "pitch.json";
+var isRecord6 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+function readPitchJson(dir) {
+  const file2 = join60(dir, PITCH_JSON);
+  if (!existsSync49(file2)) return null;
+  try {
+    const value = JSON.parse(readFileSync49(file2, "utf8"));
+    return isRecord6(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+function writePitchJson(dir, value) {
+  writeFileSync19(join60(dir, PITCH_JSON), `${JSON.stringify(value, null, 2)}
+`);
+}
+function wordsOf2(pitch2) {
+  const words = { kicker: "", hook: "", benefit: "", closing: "" };
+  for (const key of ["kicker", "hook", "benefit", "closing"]) {
+    const value = pitch2[key];
+    if (typeof value !== "string" || !value.trim()) return { missing: key };
+    words[key] = value.trim();
+  }
+  return { words };
+}
+function playwrightScreenshot(exec, { cwd }) {
+  return ({ html, png, width, height }) => exec("npx", ["playwright", "screenshot", "--viewport-size", `${width}, ${height}`, "--wait-for-selector", 'body[data-fit="done"]', `file://${html}`, png], {
+    cwd,
+    stdio: ["ignore", "ignore", "pipe"]
+  });
+}
+function renderSlides({ dir, look, words, frame, screenshot }) {
+  copyFileSync3(frame, join60(dir, FRAME_FILE));
+  return SLIDE_FILES.map(({ card: card2, shape, file: file2 }) => {
+    const html = join60(dir, file2.replace(/\.png$/, ".html"));
+    writeFileSync19(html, slideHtml({ look, card: card2, shape, words }));
+    screenshot({ html, png: join60(dir, file2), ...SHAPES[shape] });
+    return file2;
+  });
+}
+function writeMusic(dir, audience) {
+  writeFileSync19(join60(dir, PITCH_INPUTS.music), pitchMusic(audience));
+  return PITCH_INPUTS.music;
+}
+function probeSeconds(exec, dir, file2) {
+  const out = exec("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", file2], {
+    cwd: dir,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  return Number.parseFloat(String(out).trim());
+}
+function makeVideos({ dir, exec }) {
+  const run = (args) => exec("ffmpeg", ["-hide_banner", "-loglevel", "error", ...args], { cwd: dir, stdio: ["ignore", "ignore", "pipe"] });
+  run(normaliseArgs());
+  const recipe = pitchRecipe({ walkSeconds: probeSeconds(exec, dir, PITCH_INPUTS.walkNormal) });
+  for (const args of [recipe.wide, recipe.square, recipe.gif]) run(args);
+  return { files: [...PITCH_VIDEOS], cut: recipe.cut };
+}
+
+// kit/bin/commands/pitch-make.ts
+var USAGE18 = {
+  start: "usage: omni pitch start <n> --for customers|inside",
+  slide: "usage: omni pitch slide <dir> --frame <png>",
+  music: "usage: omni pitch music <dir> --for customers|inside",
+  video: "usage: omni pitch video <dir>"
+};
+var PITCH_FILES2 = Object.freeze(["slide.png", "slide-square.png", "pitch.mp4", "pitch-square.mp4", "pitch.gif"]);
+function oneArg(verb2, args, values = []) {
+  const { positional, flags } = parseArgs("pitch", args, { values });
+  const [arg] = positional;
+  const given = flags;
+  if (positional.length !== 1 || arg === void 0 || !hasAll(given, values)) throw usageError(USAGE18[verb2]);
+  return { arg, flags: given };
+}
+function hasAll(flags, values) {
+  return values.every((name) => flags[name] !== void 0);
+}
+function audienceOf(verb2, value) {
+  if (!isOneOf(AUDIENCES2, value)) throw usageError(`${USAGE18[verb2]} \u2014 --for is customers or inside, not ${value}`);
+  return value;
+}
+var folderOf = (cwd, dir) => isAbsolute5(dir) ? dir : resolve3(cwd, dir);
+function runFolder(verb2, cwd, dir) {
+  const folder = folderOf(cwd, dir);
+  if (!existsSync50(folder)) throw usageError(`omni pitch ${verb2}: ${dir} is not a run folder.`);
+  return folder;
+}
+function firstLine4(error62) {
+  const text8 = String(propertyOf(error62, "stderr") ?? propertyOf(error62, "message") ?? error62).trim();
+  return text8.split("\n").find((line) => line.trim()) ?? "failed";
+}
+function signedInStore(askUrl2, { tokens, home }) {
+  if (!askUrl2) return null;
+  const store = tokens ?? homeTokens(home ? { home } : void 0);
+  return store.read(credentialsHost(askUrl2)) ? store : null;
+}
+async function lookOf({ askUrl: askUrl2, store, repo, fetch, callMs }) {
+  try {
+    const client = askClient({ baseUrl: askUrl2, host: credentialsHost(askUrl2), tokens: store, fetch, ...callMs ? { callMs } : {} });
+    const look = propertyOf(await client.readPitchLook(repo), "look");
+    if (isOneOf(LOOKS2, look)) return { look };
+    return { look: "arcade", why: `an unknown look ${String(look)}` };
+  } catch (error62) {
+    return { look: "arcade", why: error62 instanceof AskCallError && error62.status ? `refused (${error62.status})` : "unreachable" };
+  }
+}
+function refusalHere(ctx, prd2, { exec, store }) {
+  return pitchRefusal({
+    prd: prd2,
+    shipped: whereIs(ctx, prd2)?.state === "shipped",
+    proofUrl: ctx.config.proof.url,
+    ffmpeg: () => hasFfmpeg(exec),
+    signedIn: () => store !== null
+  });
+}
+function openRun(ctx, { prd: prd2, audience, look, exec, now }) {
+  const commit = exec("git", ["rev-parse", "HEAD"], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  const dir = pitchRunDir(join61(ctx.root, ctx.config.worktrees), prd2, audience, now());
+  mkdirSync15(dir, { recursive: true });
+  writePitchJson(dir, { prd: prd2, audience, look, commit });
+  return { dir, look, url: ctx.config.proof.url, commit };
+}
+async function start(args, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now = () => /* @__PURE__ */ new Date() }) {
+  const { arg, flags } = oneArg("start", args, ["for"]);
+  const prd2 = prdArg("pitch start", "<n>", arg);
+  const audience = audienceOf("start", flags.for);
+  const ctx = loadContext(cwd, { exec });
+  const askUrl2 = ctx.config.ask.url;
+  const store = signedInStore(askUrl2, { tokens, home });
+  const refusal = refusalHere(ctx, prd2, { exec, store });
+  if (refusal !== null || store === null || !askUrl2) {
+    println(stderr, refusal ?? REFUSAL.noSignIn);
+    return 1;
+  }
+  const repo = ctx.config.repo.slug;
+  if (!repo) throw usageError("omni pitch: no repository slug \u2014 set repo.slug in the config.");
+  const { look, why: why2 } = await lookOf({ askUrl: askUrl2, store, repo, fetch, callMs });
+  if (why2) println(stderr, `look: arcade (the product's look could not be read: ${why2})`);
+  println(stdout, JSON.stringify(openRun(ctx, { prd: prd2, audience, look, exec, now })));
+  return 0;
+}
+function slide(args, { cwd, stdout, stderr, exec, screenshot }) {
+  const { arg, flags } = oneArg("slide", args, ["frame"]);
+  const dir = runFolder("slide", cwd, arg);
+  const frame = folderOf(cwd, flags.frame);
+  if (!existsSync50(frame)) throw usageError(`omni pitch slide: no frame at ${flags.frame}.`);
+  const pitch2 = readPitchJson(dir);
+  const look = pitch2?.look;
+  if (!pitch2 || !isOneOf(LOOKS2, look)) throw usageError(`omni pitch slide: ${arg} holds no pitch.json with a look \u2014 run omni pitch start first.`);
+  const { words, missing } = wordsOf2(pitch2);
+  if (missing) throw usageError(`omni pitch slide: pitch.json has no ${missing} yet.`);
+  let files;
+  try {
+    files = renderSlides({ dir, look, words, frame, screenshot: screenshot ?? playwrightScreenshot(exec, { cwd: dir }) });
+  } catch (error62) {
+    println(stderr, `slide render failed: ${firstLine4(error62)}`);
+    return Promise.resolve(1);
+  }
+  for (const file2 of files) println(stdout, join61(dir, file2));
+  return Promise.resolve(0);
+}
+function music2(args, { cwd, stdout }) {
+  const { arg, flags } = oneArg("music", args, ["for"]);
+  const audience = audienceOf("music", flags.for);
+  const dir = runFolder("music", cwd, arg);
+  println(stdout, join61(dir, writeMusic(dir, audience)));
+  return Promise.resolve(0);
+}
+function video(args, { cwd, stdout, stderr, exec }) {
+  const { arg } = oneArg("video", args);
+  const dir = runFolder("video", cwd, arg);
+  if (!hasFfmpeg(exec)) {
+    println(stderr, REFUSAL.noFfmpeg);
+    return Promise.resolve(1);
+  }
+  const needed = [PITCH_INPUTS.walk, PITCH_INPUTS.music, PITCH_INPUTS.slide, PITCH_INPUTS.slideSquare, PITCH_INPUTS.close, PITCH_INPUTS.closeSquare, PITCH_INPUTS.backdropSquare];
+  const missing = needed.find((name) => !existsSync50(join61(dir, name)));
+  if (missing) throw usageError(`omni pitch video: ${arg} has no ${missing} yet.`);
+  let made;
+  try {
+    made = makeVideos({ dir, exec });
+  } catch (error62) {
+    println(stderr, `ffmpeg failed: ${firstLine4(error62)}`);
+    return Promise.resolve(1);
+  }
+  writePitchJson(dir, { ...readPitchJson(dir), files: PITCH_FILES2 });
+  for (const file2 of made.files) println(stdout, join61(dir, file2));
+  println(stdout, `${made.cut.total} s: slide ${made.cut.slide} s, walk-through ${made.cut.walk} s, closing ${made.cut.close} s`);
+  return Promise.resolve(0);
+}
+var PITCH_MAKERS = Object.freeze({ start, slide, music: music2, video });
+
+// kit/bin/commands/pitch.ts
+var USAGE19 = "usage: omni pitch push <n> <dir>";
+var VERBS = "usage: omni pitch start|slide|music|video|push \u2026";
+var NO_SIGN_IN2 = "no sign-in (omni signin)";
+function skipLine2(error62) {
+  if (error62 instanceof PitchReplyError) return `refused (${error62.message})`;
+  if (!(error62 instanceof AskCallError)) throw error62;
+  if (error62.status === null) return "unreachable";
+  if (error62.status === 404) return "none";
+  if (error62.status === 422) return "not shipped";
+  return error62.status === 403 && error62.reason ? `refused (403): ${error62.reason}` : `refused (${error62.status})`;
+}
+function argsOf(args) {
+  const { positional } = parseArgs("pitch", args);
+  const [verb2, first, second, ...rest] = positional;
+  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE19);
+  return { prd: prdArg("pitch push", "<n>", first), dir: second };
+}
+function localRun(cwd, dir, prd2) {
+  const folder = isAbsolute6(dir) ? dir : resolve4(cwd, dir);
+  let run;
+  try {
+    run = readPitchRun(folder, prd2);
+  } catch (error62) {
+    if (!(error62 instanceof PitchRunRefused)) throw error62;
+    return { line: `refused (${error62.status}): ${error62.message}` };
+  }
+  if (!run) throw usageError(`omni pitch push: ${dir} holds no ${PITCH_RUN_FILE}.`);
+  return { run };
+}
+async function send({ askUrl: askUrl2, repo, prd: prd2, run }, { stdout, stderr, tokens, home, fetch, callMs }) {
+  const client = signedInClient({ askUrl: askUrl2, tokens, home, fetch, callMs });
+  if (!client) {
+    println(stderr, NO_SIGN_IN2);
+    return 1;
+  }
+  let pushed;
+  try {
+    pushed = await pushPitch({ client, repo, prd: prd2, run });
+  } catch (error62) {
+    println(stderr, skipLine2(error62));
+    return 1;
+  }
+  println(stdout, pushed.tab);
+  println(stdout, pushed.gif);
+  return 0;
+}
+function pushable(ctx, cwd, dir, prd2) {
+  const toggle = dossierSwitch(ctx.config);
+  if (!toggle.on) return { line: "off" };
+  const repo = ctx.config.repo.slug;
+  if (!repo) throw usageError("omni pitch: no repository slug \u2014 set repo.slug in the config.");
+  const local = localRun(cwd, dir, prd2);
+  if (local.run === void 0) return { line: local.line };
+  return { askUrl: toggle.askUrl, repo, run: local.run };
+}
+var pitch = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs, now, screenshot }) {
+    const [verb2, ...rest] = args;
+    if (isOneOf(keysOf(PITCH_MAKERS), verb2)) return PITCH_MAKERS[verb2](rest, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now, screenshot });
+    if (verb2 !== "push") throw usageError(VERBS);
+    const { prd: prd2, dir } = argsOf(args);
+    const ctx = loadContext(cwd, { exec });
+    const ready = pushable(ctx, cwd, dir, prd2);
+    if (ready.line !== void 0) {
+      println(stderr, ready.line);
+      return 1;
+    }
+    return send({ askUrl: ready.askUrl, repo: ready.repo, prd: prd2, run: ready.run }, { stdout, stderr, tokens, home, fetch, callMs });
+  }
+};
+
 // kit/bin/commands/proof.ts
 init_define_OMNI_BUNDLE();
-import { writeFileSync as writeFileSync19 } from "node:fs";
-import { isAbsolute as isAbsolute5, resolve as resolve3 } from "node:path";
+import { writeFileSync as writeFileSync20 } from "node:fs";
+import { isAbsolute as isAbsolute7, resolve as resolve5 } from "node:path";
 
 // kit/lib/proof/push.ts
 init_define_OMNI_BUNDLE();
 import { randomUUID } from "node:crypto";
-import { readFileSync as readFileSync47 } from "node:fs";
-var isRecord4 = (value) => typeof value === "object" && value !== null;
+import { readFileSync as readFileSync50 } from "node:fs";
+var isRecord7 = (value) => typeof value === "object" && value !== null;
 var GIF = "preview.gif";
 var ProofReplyError = class extends Error {
   constructor(message) {
@@ -42769,15 +43544,15 @@ var ProofReplyError = class extends Error {
     this.name = "ProofReplyError";
   }
 };
-var isText5 = (value) => typeof value === "string" && value.length > 0;
-function linksOf(reply, files) {
-  const run = isRecord4(reply) ? reply.run : void 0;
-  if (!isRecord4(reply) || !isText5(run)) throw new ProofReplyError("no run in the reply");
+var isText6 = (value) => typeof value === "string" && value.length > 0;
+function linksOf2(reply, files) {
+  const run = isRecord7(reply) ? reply.run : void 0;
+  if (!isRecord7(reply) || !isText6(run)) throw new ProofReplyError("no run in the reply");
   const given = Array.isArray(reply.files) ? reply.files : [];
   const links = files.map(({ name }) => {
-    const found = given.find((file2) => isRecord4(file2) && file2.name === name);
-    const url2 = isRecord4(found) ? found.url : void 0;
-    if (!isText5(url2)) throw new ProofReplyError(`no upload link for ${name} in the reply`);
+    const found = given.find((file2) => isRecord7(file2) && file2.name === name);
+    const url2 = isRecord7(found) ? found.url : void 0;
+    if (!isText6(url2)) throw new ProofReplyError(`no upload link for ${name} in the reply`);
     return url2;
   });
   return { runId: run, links };
@@ -42787,29 +43562,29 @@ async function pushProof({
   repo,
   prd: prd2,
   run,
-  read: read2 = readFileSync47,
+  read: read2 = readFileSync50,
   newRunId = randomUUID
 }) {
   let runId;
   if (run.files.length) {
     const reply = await client.requestProofUploads({ repo, prd: prd2, files: run.files.map(({ name, bytes, type }) => ({ name, bytes, type })) });
-    const given = linksOf(reply, run.files);
+    const given = linksOf2(reply, run.files);
     for (const [index, file2] of run.files.entries()) await client.upload(at(given.links, index, `the upload link of ${file2.name}`), read2(file2.path), file2.type);
     runId = given.runId;
   } else {
     runId = newRunId();
   }
   const registered = await client.registerProof({ repo, prd: prd2, run: runId, commit: run.commit, url: run.url, criteria: run.criteria });
-  const tab = isRecord4(registered) ? registered.url : void 0;
-  if (!isText5(tab)) throw new ProofReplyError("no link in the reply");
+  const tab = isRecord7(registered) ? registered.url : void 0;
+  if (!isText6(tab)) throw new ProofReplyError("no link in the reply");
   if (!run.files.some(({ name }) => name === GIF)) return { tab };
   return { tab, gif: `${new URL(tab).origin}/api/proofs/${runId}/${GIF}` };
 }
 
 // kit/lib/proof/run.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync48, readFileSync as readFileSync48, statSync as statSync12 } from "node:fs";
-import { join as join59 } from "node:path";
+import { existsSync as existsSync51, readFileSync as readFileSync51, statSync as statSync13 } from "node:fs";
+import { join as join62 } from "node:path";
 var RUN_FILE = "run.json";
 var PROOF_GIF_NAME = "preview.gif";
 var PROOF_FILE_MAX_BYTES = 50 * 1024 * 1024;
@@ -42818,7 +43593,7 @@ var PROOF_CRITERIA_MAX = 10;
 var VERDICTS2 = Object.freeze(["pass", "fail", "unfilmable"]);
 var TYPES = Object.freeze({ webm: "video/webm", gif: "image/gif", ts: "text/plain", txt: "text/plain" });
 var FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
-var COMMIT2 = /^[0-9a-f]{7,64}$/;
+var COMMIT3 = /^[0-9a-f]{7,64}$/;
 var TEXT_MAX = 2e3;
 var NOTE_MAX = 1e3;
 var URL_MAX = 2e3;
@@ -42830,10 +43605,10 @@ var ProofRunRefused = class extends Error {
     this.status = status3;
   }
 };
-var refuse = (message, status3 = 400) => {
+var refuse2 = (message, status3 = 400) => {
   throw new ProofRunRefused(status3, message);
 };
-var isRecord5 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isRecord8 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 function isHttpUrl(value) {
   if (typeof value !== "string" || value.length > URL_MAX) return false;
   try {
@@ -42846,26 +43621,26 @@ var KNOWN_VERDICTS2 = VERDICTS2;
 var isVerdict2 = (value) => KNOWN_VERDICTS2.includes(value);
 var isBlank = (value) => value === void 0 || value === null;
 function textOf4(item2, at2) {
-  const text8 = isRecord5(item2) ? item2.text : void 0;
-  const valid = isRecord5(item2) && typeof text8 === "string" && text8.trim() && text8.length <= TEXT_MAX;
-  if (!valid) return refuse(`${at2}: its text is 1 to ${TEXT_MAX} characters`);
+  const text8 = isRecord8(item2) ? item2.text : void 0;
+  const valid = isRecord8(item2) && typeof text8 === "string" && text8.trim() && text8.length <= TEXT_MAX;
+  if (!valid) return refuse2(`${at2}: its text is 1 to ${TEXT_MAX} characters`);
   return { text: text8.trim(), sent: item2 };
 }
 function verdictOf(item2, at2) {
   const { verdict: verdict2 } = item2;
-  if (!isVerdict2(verdict2)) return refuse(`${at2}: a verdict is ${VERDICTS2.slice(0, -1).join(", ")} or ${VERDICTS2.at(-1)}, not ${String(item2.verdict)}`);
+  if (!isVerdict2(verdict2)) return refuse2(`${at2}: a verdict is ${VERDICTS2.slice(0, -1).join(", ")} or ${VERDICTS2.at(-1)}, not ${String(item2.verdict)}`);
   return verdict2;
 }
 function extrasOf(item2, at2, criterion) {
   const { note } = item2;
   if (!isBlank(note)) {
-    if (typeof note !== "string" || note.length > NOTE_MAX) return refuse(`${at2}: its note is at most ${NOTE_MAX} characters`);
+    if (typeof note !== "string" || note.length > NOTE_MAX) return refuse2(`${at2}: its note is at most ${NOTE_MAX} characters`);
     criterion.note = note;
   }
   for (const key of ["video", "script"]) {
     const name = item2[key];
     if (isBlank(name)) continue;
-    if (typeof name !== "string" || !FILE_NAME.test(name)) return refuse(`${at2}: its ${key} is a file name in the run folder`);
+    if (typeof name !== "string" || !FILE_NAME.test(name)) return refuse2(`${at2}: its ${key} is a file name in the run folder`);
     criterion[key] = name;
   }
   return criterion;
@@ -42875,36 +43650,36 @@ function criterionOf(item2, index) {
   const { text: text8, sent } = textOf4(item2, at2);
   return extrasOf(sent, at2, { text: text8, verdict: verdictOf(sent, at2) });
 }
-function fileOf(dir, name) {
-  const path = join59(dir, name);
-  if (!existsSync48(path) || !statSync12(path).isFile()) refuse(`${name}: not in the run folder`);
+function fileOf2(dir, name) {
+  const path = join62(dir, name);
+  if (!existsSync51(path) || !statSync13(path).isFile()) refuse2(`${name}: not in the run folder`);
   const type = TYPES[name.slice(name.lastIndexOf(".") + 1).toLowerCase()];
-  if (!type) return refuse(`${name}: a proof takes .webm, .gif, .ts or .txt files`);
-  const { size } = statSync12(path);
-  if (size > PROOF_FILE_MAX_BYTES) refuse(`${name}: over ${PROOF_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
+  if (!type) return refuse2(`${name}: a proof takes .webm, .gif, .ts or .txt files`);
+  const { size } = statSync13(path);
+  if (size > PROOF_FILE_MAX_BYTES) refuse2(`${name}: over ${PROOF_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
   return { name, path, bytes: size, type };
 }
 function readRun(dir) {
-  const file2 = join59(dir, RUN_FILE);
-  if (!existsSync48(file2)) return null;
+  const file2 = join62(dir, RUN_FILE);
+  if (!existsSync51(file2)) return null;
   let sent;
   try {
-    sent = JSON.parse(readFileSync48(file2, "utf8"));
+    sent = JSON.parse(readFileSync51(file2, "utf8"));
   } catch {
     sent = null;
   }
-  if (!isRecord5(sent)) return refuse(`${RUN_FILE} is not a JSON object`);
+  if (!isRecord8(sent)) return refuse2(`${RUN_FILE} is not a JSON object`);
   const { commit, url: url2, criteria: given } = sent;
-  if (typeof commit !== "string" || !COMMIT2.test(commit)) return refuse(`${RUN_FILE}: commit is the hash of the commit the run proved`);
-  if (!isHttpUrl(url2)) return refuse(`${RUN_FILE}: url is the http(s) address the run was recorded on`);
+  if (typeof commit !== "string" || !COMMIT3.test(commit)) return refuse2(`${RUN_FILE}: commit is the hash of the commit the run proved`);
+  if (!isHttpUrl(url2)) return refuse2(`${RUN_FILE}: url is the http(s) address the run was recorded on`);
   if (!Array.isArray(given) || given.length === 0 || given.length > PROOF_CRITERIA_MAX) {
-    return refuse(`${RUN_FILE}: criteria is a list of 1 to ${PROOF_CRITERIA_MAX} {text, verdict, note?, video?, script?}`);
+    return refuse2(`${RUN_FILE}: criteria is a list of 1 to ${PROOF_CRITERIA_MAX} {text, verdict, note?, video?, script?}`);
   }
   const criteria = given.map(criterionOf);
   const names = [...new Set(criteria.flatMap((c) => [c.video, c.script]).filter((name) => Boolean(name)))];
-  if (existsSync48(join59(dir, PROOF_GIF_NAME)) && !names.includes(PROOF_GIF_NAME)) names.push(PROOF_GIF_NAME);
-  if (names.length > PROOF_FILES_MAX) refuse(`a run uploads ${PROOF_FILES_MAX} files at most: this one has ${names.length}`);
-  const files = names.map((name) => fileOf(dir, name));
+  if (existsSync51(join62(dir, PROOF_GIF_NAME)) && !names.includes(PROOF_GIF_NAME)) names.push(PROOF_GIF_NAME);
+  if (names.length > PROOF_FILES_MAX) refuse2(`a run uploads ${PROOF_FILES_MAX} files at most: this one has ${names.length}`);
+  const files = names.map((name) => fileOf2(dir, name));
   return { commit, url: url2, criteria, files };
 }
 
@@ -42970,28 +43745,28 @@ function storageState(accessToken, { host, now = Date.now() }) {
 }
 
 // kit/bin/commands/proof.ts
-var USAGE18 = "usage: omni proof push <n> <dir> | omni proof session [<file>]";
-var NO_SIGN_IN2 = "no sign-in (omni signin)";
-function skipLine2(error62) {
+var USAGE20 = "usage: omni proof push <n> <dir> | omni proof session [<file>]";
+var NO_SIGN_IN3 = "no sign-in (omni signin)";
+function skipLine3(error62) {
   if (error62 instanceof ProofReplyError) return `refused (${error62.message})`;
   if (!(error62 instanceof AskCallError)) throw error62;
   if (error62.status === null) return "unreachable";
   if (error62.status === 404) return "none";
   return error62.status === 403 && error62.reason ? `refused (403): ${error62.reason}` : `refused (${error62.status})`;
 }
-function argsOf(args, proof2) {
+function argsOf2(args, proof2) {
   const { positional } = parseArgs("proof", args);
   const [verb2, first, second, ...rest] = positional;
   if (verb2 === "session") {
     const file2 = first ?? proof2?.storageState;
-    if (!file2 || second !== void 0) throw usageError(`${USAGE18} (session needs <file> or PROOF_STORAGE_STATE)`);
+    if (!file2 || second !== void 0) throw usageError(`${USAGE20} (session needs <file> or PROOF_STORAGE_STATE)`);
     return { verb: verb2, file: file2 };
   }
-  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE18);
+  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE20);
   return { verb: verb2, prd: prdArg("proof push", "<n>", first), dir: second };
 }
-function localRun(cwd, dir) {
-  const folder = isAbsolute5(dir) ? dir : resolve3(cwd, dir);
+function localRun2(cwd, dir) {
+  const folder = isAbsolute7(dir) ? dir : resolve5(cwd, dir);
   let run;
   try {
     run = readRun(folder);
@@ -43002,31 +43777,31 @@ function localRun(cwd, dir) {
   if (!run) throw usageError(`omni proof push: ${dir} holds no ${RUN_FILE}.`);
   return { run };
 }
-async function send({ toggle, repo, prd: prd2, run }, { stdout, stderr, tokens, home, fetch, callMs }) {
+async function send2({ toggle, repo, prd: prd2, run }, { stdout, stderr, tokens, home, fetch, callMs }) {
   const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
   if (!client) {
-    println(stderr, NO_SIGN_IN2);
+    println(stderr, NO_SIGN_IN3);
     return 1;
   }
   let pushed;
   try {
     pushed = await pushProof({ client, repo, prd: prd2, run });
   } catch (error62) {
-    println(stderr, skipLine2(error62));
+    println(stderr, skipLine3(error62));
     return 1;
   }
   println(stdout, pushed.tab);
   if (pushed.gif) println(stdout, pushed.gif);
   return 0;
 }
-var clock = (seconds) => new Date(seconds * 1e3).toTimeString().slice(0, 5);
+var clock = (seconds2) => new Date(seconds2 * 1e3).toTimeString().slice(0, 5);
 async function renewedToken(askUrl2, { tokens, home, fetch, callMs }) {
   const host = credentialsHost(askUrl2);
   const store = tokens ?? homeTokens(home ? { home } : void 0);
-  if (!store.read(host)) return { line: NO_SIGN_IN2 };
+  if (!store.read(host)) return { line: NO_SIGN_IN3 };
   const outcome = await askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...callMs ? { callMs } : {} }).renew();
   if (outcome === "renewed") return { host, token: defined(store.read(host), `the sign-in of ${host}`).access_token };
-  return { line: outcome === "refused" ? NO_SIGN_IN2 : "unreachable" };
+  return { line: outcome === "refused" ? NO_SIGN_IN3 : "unreachable" };
 }
 function sessionFor(token, host) {
   try {
@@ -43043,22 +43818,22 @@ async function writeSession({ askUrl: askUrl2, file: file2, target: target3 }, {
   const renewed2 = await renewedToken(askUrl2, io);
   const made = renewed2.token ? sessionFor(renewed2.token, target3 ?? renewed2.host) : null;
   if (!made) {
-    println(stderr, renewed2.line ?? NO_SIGN_IN2);
+    println(stderr, renewed2.line ?? NO_SIGN_IN3);
     return 1;
   }
-  writeFileSync19(file2, JSON.stringify(made.state), { mode: 384 });
+  writeFileSync20(file2, JSON.stringify(made.state), { mode: 384 });
   println(stdout, `signed in as ${made.email ?? "you"} until ${clock(made.expiresAt)}`);
   return 0;
 }
 var proof = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, vars, tokens, home, fetch = globalThis.fetch, callMs }) {
-    const parsed = argsOf(args, vars.proof);
+    const parsed = argsOf2(args, vars.proof);
     const ctx = loadContext(cwd, { exec });
     if (parsed.verb === "session") {
       const askUrl2 = ctx.config.ask.url;
       if (!askUrl2) throw usageError("omni proof session: no sign-in server here \u2014 set ask.url in the config.");
-      const file2 = isAbsolute5(parsed.file) ? parsed.file : resolve3(cwd, parsed.file);
+      const file2 = isAbsolute7(parsed.file) ? parsed.file : resolve5(cwd, parsed.file);
       return writeSession({ askUrl: askUrl2, file: file2, target: targetHost(vars.proof?.url) }, { stdout, stderr, tokens, home, fetch, callMs });
     }
     const { prd: prd2, dir } = parsed;
@@ -43069,12 +43844,12 @@ var proof = {
     }
     const repo = ctx.config.repo.slug;
     if (!repo) throw usageError("omni proof: no repository slug \u2014 set repo.slug in the config.");
-    const local = localRun(cwd, dir);
+    const local = localRun2(cwd, dir);
     if (local.run === void 0) {
       println(stderr, local.line);
       return 1;
     }
-    return send({ toggle, repo, prd: prd2, run: local.run }, { stdout, stderr, tokens, home, fetch, callMs });
+    return send2({ toggle, repo, prd: prd2, run: local.run }, { stdout, stderr, tokens, home, fetch, callMs });
   }
 };
 
@@ -43083,8 +43858,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/outbox/replies.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync49, readFileSync as readFileSync49, writeFileSync as writeFileSync20 } from "node:fs";
-import { join as join60 } from "node:path";
+import { existsSync as existsSync52, readFileSync as readFileSync52, writeFileSync as writeFileSync21 } from "node:fs";
+import { join as join63 } from "node:path";
 var ReplyCommentSchema = external_exports.object({
   id: CommentIdSchema,
   body: external_exports.string().nullish(),
@@ -43111,9 +43886,9 @@ var APPROVE_ALL_TEXT = "approve all";
 var RECOMMENDATION_TEXT = "go with recommendation";
 var LETTER_ANSWER = /^([A-Za-z])(?:\s*[.,:;)\-—–]?\s*because\b\s*(.*?))?[\s.!]*$/is;
 var RANK_PLAIN_LABEL = { "human-action": "needs a person", high: "high", medium: "medium" };
-function parseReplyLines(body) {
+function parseReplyLines(body2) {
   const lines = [];
-  for (const line of plainText(body).split(/\r?\n/)) {
+  for (const line of plainText(body2).split(/\r?\n/)) {
     if (APPROVE_ALL_LINE.test(line)) {
       lines.push({ kind: "approve-all", text: APPROVE_ALL_TEXT });
       continue;
@@ -43312,11 +44087,11 @@ function appendObjection({
   const parsedAnswer = AnswerSchema.safeParse(answer);
   if (!parsedAnswer.success) return { ok: false, errors: answerErrors(parsedAnswer.error) };
   const settledFile = `${ctx.layout.outboxDir(prd2)}/${SETTLED_FILE}`;
-  const absoluteSettled = join60(ctx.root, settledFile);
-  if (!existsSync49(absoluteSettled)) {
+  const absoluteSettled = join63(ctx.root, settledFile);
+  if (!existsSync52(absoluteSettled)) {
     return { ok: false, errors: [`${settledFile}: no ledger holds the adopted item ${item2.id}.`] };
   }
-  const existing = readFileSync49(absoluteSettled, "utf8");
+  const existing = readFileSync52(absoluteSettled, "utf8");
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
   const entry = renderSettledEntry({
     item: item2,
@@ -43325,7 +44100,7 @@ function appendObjection({
     judgement,
     markers: ctx.markers
   });
-  writeFileSync20(absoluteSettled, `${existing}${separator}${entry}`);
+  writeFileSync21(absoluteSettled, `${existing}${separator}${entry}`);
   return { ok: true, settledFile };
 }
 function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
@@ -43364,13 +44139,13 @@ function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
   }
   let round = null;
   if (plan2.round) {
-    const body = formatRoundComment({
+    const body2 = formatRoundComment({
       round: plan2.round.number,
       questions: plan2.round.questions,
       markers: ctx.markers
     });
-    const posted = post2 ? client.createComment(body) : null;
-    round = { number: plan2.round.number, body, posted: posted ?? null };
+    const posted = post2 ? client.createComment(body2) : null;
+    round = { number: plan2.round.number, body: body2, posted: posted ?? null };
   }
   return {
     settled,
@@ -43439,8 +44214,8 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
 
 // kit/bin/commands/rework.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync50, writeFileSync as writeFileSync21 } from "node:fs";
-import { join as join61 } from "node:path";
+import { readFileSync as readFileSync53, writeFileSync as writeFileSync22 } from "node:fs";
+import { join as join64 } from "node:path";
 
 // kit/lib/policy/rework.ts
 init_define_OMNI_BUNDLE();
@@ -43614,10 +44389,10 @@ function closeDriftedEntry(settledText, { id, pullRequest: pullRequest2, markers
   const open3 = markers.settledOpen(id);
   const close = markers.settledClose(id);
   const lines = settledText.split("\n");
-  const start = lines.lastIndexOf(open3);
-  const end = lines.indexOf(close, start);
+  const start2 = lines.lastIndexOf(open3);
+  const end = lines.indexOf(close, start2);
   const closedIndex = lines.findIndex(
-    (line, index) => index > start && index < end && line.startsWith("- Closed: ")
+    (line, index) => index > start2 && index < end && line.startsWith("- Closed: ")
   );
   if (closedIndex === -1) {
     throw new Error(`${id}: this entry carries no "Closed:" line to amend.`);
@@ -43630,12 +44405,12 @@ function reworkPullRequest(entry) {
 }
 
 // kit/bin/commands/rework.ts
-var USAGE19 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
+var USAGE21 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
 var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync50(join61(ctx.root, path), "utf8");
+    return readFileSync53(join64(ctx.root, path), "utf8");
   } catch (error62) {
     if (errorCode(error62) === "ENOENT") return "";
     throw error62;
@@ -43712,7 +44487,7 @@ function runClose(args, { ctx, stdout }) {
   } catch (error62) {
     throw usageError(errorMessage(error62).split("\n")[0] ?? "");
   }
-  writeFileSync21(join61(ctx.root, settledFile), closedText);
+  writeFileSync22(join64(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
@@ -43724,21 +44499,21 @@ var rework = {
     const [sub, ...rest] = args;
     if (sub === "plan") return runPlan(rest, io);
     if (sub === "close") return runClose(rest, io);
-    throw usageError(USAGE19);
+    throw usageError(USAGE21);
   })
 };
 
 // kit/bin/commands/settle.ts
 init_define_OMNI_BUNDLE();
 import { relative as relative3 } from "node:path";
-var USAGE20 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
+var USAGE22 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
 var settle2 = {
   run: synchronous((args, { ctx, stdout, stderr }) => {
     const { positional, flags } = parseArgs("settle", args, {
       values: ["by", "at", "channel", "number", "answer", "answer-file", "url", "verdict"]
     });
     const [path] = positional;
-    if (positional.length !== 1 || path === void 0) throw usageError(USAGE20);
+    if (positional.length !== 1 || path === void 0) throw usageError(USAGE22);
     if (flags.answer !== void 0 && flags["answer-file"] !== void 0) {
       throw usageError("omni settle: give --answer or --answer-file, not both.");
     }
@@ -43798,13 +44573,13 @@ var ship = {
 
 // kit/bin/commands/sign.ts
 init_define_OMNI_BUNDLE();
-var USAGE21 = "usage: omni sign trailer|footer";
+var USAGE23 = "usage: omni sign trailer|footer";
 var LINES2 = { trailer: trailerLine, footer: footerLine };
 var sign = {
   run: synchronous((args, { ctx, stdout }) => {
     const { positional } = parseArgs("sign", args);
     const [which = ""] = positional;
-    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE21);
+    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE23);
     const line = LINES2[which](ctx.config.signature);
     if (line !== null) println(stdout, line);
     return 0;
@@ -43818,8 +44593,8 @@ import { appendFileSync } from "node:fs";
 // kit/lib/status/facts.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync13 } from "node:child_process";
-import { readFileSync as readFileSync51, rmSync as rmSync8, statSync as statSync13, utimesSync, writeFileSync as writeFileSync22 } from "node:fs";
-import { resolve as resolve4 } from "node:path";
+import { readFileSync as readFileSync54, rmSync as rmSync8, statSync as statSync14, utimesSync, writeFileSync as writeFileSync23 } from "node:fs";
+import { resolve as resolve6 } from "node:path";
 function fieldOf(error62, key) {
   return typeof error62 === "object" && error62 !== null ? Reflect.get(error62, key) : void 0;
 }
@@ -43864,7 +44639,7 @@ function retroAt(ctx, exec, ref, dir) {
 }
 function gitPath(ctx, exec, args) {
   try {
-    return resolve4(ctx.root, git4(ctx, exec, ["rev-parse", ...args]).trim());
+    return resolve6(ctx.root, git4(ctx, exec, ["rev-parse", ...args]).trim());
   } catch {
     return null;
   }
@@ -43873,7 +44648,7 @@ var fetchHeadPath = (ctx, exec) => gitPath(ctx, exec, ["--git-path", "FETCH_HEAD
 function fetchTime(path) {
   if (path === null) return null;
   try {
-    const stat = statSync13(path);
+    const stat = statSync14(path);
     return stat.size > 0 ? stat.mtimeMs : null;
   } catch {
     return null;
@@ -43881,14 +44656,14 @@ function fetchTime(path) {
 }
 function fetchedAt(ctx, exec) {
   const common = gitPath(ctx, exec, ["--git-common-dir"]);
-  const times = [fetchHeadPath(ctx, exec), common && resolve4(common, "FETCH_HEAD")].map(fetchTime).filter((time5) => time5 !== null);
+  const times = [fetchHeadPath(ctx, exec), common && resolve6(common, "FETCH_HEAD")].map(fetchTime).filter((time5) => time5 !== null);
   return times.length ? Math.max(...times) : null;
 }
 function snapshot(path) {
   if (path === null) return null;
   try {
-    const stat = statSync13(path);
-    return { path, bytes: readFileSync51(path), atime: stat.atime, mtime: stat.mtime };
+    const stat = statSync14(path);
+    return { path, bytes: readFileSync54(path), atime: stat.atime, mtime: stat.mtime };
   } catch {
     return { path, bytes: null };
   }
@@ -43899,7 +44674,7 @@ function putBack(saved) {
     if (saved.bytes === null) {
       rmSync8(saved.path, { force: true });
     } else {
-      writeFileSync22(saved.path, saved.bytes);
+      writeFileSync23(saved.path, saved.bytes);
       utimesSync(saved.path, saved.atime, saved.mtime);
     }
   } catch {
@@ -44330,7 +45105,7 @@ function formatOverview(overview2, { now }) {
 }
 
 // kit/bin/commands/status.ts
-var USAGE22 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
+var USAGE24 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 function overview({ ctx, stdout, exec, fetch }) {
   if (fetch) {
     const failure3 = fetchRemote({ ctx, exec });
@@ -44349,7 +45124,7 @@ var status2 = {
     const { positional, flags } = parseArgs("status", args, { values: ["labels", "base"], booleans: ["changes", "fetch"] });
     const gateFlags = flags.labels !== void 0 || flags.base !== void 0 || flags.changes === true;
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true });
-    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE22);
+    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE24);
     const prd2 = prdArg("status", "<prd>", positional[0]);
     const labels = list(flags.labels);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
@@ -44382,11 +45157,11 @@ var status2 = {
 
 // kit/bin/commands/targets.ts
 init_define_OMNI_BUNDLE();
-var USAGE23 = "usage: omni targets [--json]";
+var USAGE25 = "usage: omni targets [--json]";
 var targets = {
   run: synchronous((args, { ctx, stdout, exec, env }) => {
     const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
-    if (positional.length) throw usageError(USAGE23);
+    if (positional.length) throw usageError(USAGE25);
     const plan2 = ctx.config.plan;
     if (!plan2) {
       println(stdout, "not a plan repository");
@@ -44406,16 +45181,16 @@ import { spawn as spawnProcess } from "node:child_process";
 // kit/lib/statusline/board-cache.ts
 init_define_OMNI_BUNDLE();
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { closeSync, existsSync as existsSync50, mkdirSync as mkdirSync15, openSync, readFileSync as readFileSync52, renameSync as renameSync3, rmSync as rmSync9, statSync as statSync14, writeFileSync as writeFileSync23 } from "node:fs";
-import { join as join62 } from "node:path";
+import { closeSync, existsSync as existsSync53, mkdirSync as mkdirSync16, openSync, readFileSync as readFileSync55, renameSync as renameSync3, rmSync as rmSync9, statSync as statSync15, writeFileSync as writeFileSync24 } from "node:fs";
+import { join as join65 } from "node:path";
 var prop2 = (value, key) => typeof value === "object" && value !== null ? Reflect.get(value, key) : void 0;
-var BOARD_DIR = join62(LOCAL_DIR, "statusline");
+var BOARD_DIR = join65(LOCAL_DIR, "statusline");
 var REFRESH_AFTER_MS = 60 * 1e3;
 var SHOWN_UNDER_MS = 10 * 60 * 1e3;
 var LOCK_ABANDONED_MS = 2 * 60 * 1e3;
 var UNREADABLE = "the board file holds no slices it can read";
-var boardFile = (root, prd2) => join62(root, BOARD_DIR, `board-${prd2}.json`);
-var lockFile = (root, prd2) => join62(root, BOARD_DIR, `board-${prd2}.lock`);
+var boardFile = (root, prd2) => join65(root, BOARD_DIR, `board-${prd2}.json`);
+var lockFile = (root, prd2) => join65(root, BOARD_DIR, `board-${prd2}.lock`);
 function attempt7(fn, fallback2) {
   try {
     return fn();
@@ -44424,7 +45199,7 @@ function attempt7(fn, fallback2) {
   }
 }
 function readBoard(root, prd2) {
-  const value = attempt7(() => JSON.parse(readFileSync52(boardFile(root, prd2), "utf8")), null);
+  const value = attempt7(() => JSON.parse(readFileSync55(boardFile(root, prd2), "utf8")), null);
   const parsed = BoardFileSchema.safeParse(value);
   if (!parsed.success) return null;
   const at2 = Date.parse(parsed.data.at);
@@ -44447,13 +45222,13 @@ function refreshDue(board2, now) {
   return age === null || age >= REFRESH_AFTER_MS;
 }
 function readLock(path) {
-  const parsed = LockFileSchema.safeParse(JSON.parse(readFileSync52(path, "utf8")));
+  const parsed = LockFileSchema.safeParse(JSON.parse(readFileSync55(path, "utf8")));
   return parsed.success ? parsed.data : null;
 }
 function lockedAt(path) {
-  if (!existsSync50(path)) return null;
+  if (!existsSync53(path)) return null;
   const at2 = attempt7(() => Date.parse(readLock(path)?.at ?? ""), Number.NaN);
-  return Number.isNaN(at2) ? attempt7(() => statSync14(path).mtimeMs, null) : at2;
+  return Number.isNaN(at2) ? attempt7(() => statSync15(path).mtimeMs, null) : at2;
 }
 function lockHeld(root, prd2, now) {
   const at2 = lockedAt(lockFile(root, prd2));
@@ -44482,16 +45257,16 @@ function cachedSlices({ root, prd: prd2, now, cwd, spawn: spawn2 = null, script,
   return shownSlices(board2, now);
 }
 function ensureBoardDir(root) {
-  mkdirSync15(join62(root, BOARD_DIR), { recursive: true });
-  const ignore = join62(root, LOCAL_DIR, ".gitignore");
-  if (!existsSync50(ignore)) writeFileSync23(ignore, "*\n");
+  mkdirSync16(join65(root, BOARD_DIR), { recursive: true });
+  const ignore = join65(root, LOCAL_DIR, ".gitignore");
+  if (!existsSync53(ignore)) writeFileSync24(ignore, "*\n");
 }
 function writeBoard(root, prd2, entry) {
   ensureBoardDir(root);
   const path = boardFile(root, prd2);
   const temporary = `${path}.${process.pid}.${randomUUID2()}.tmp`;
   try {
-    writeFileSync23(temporary, `${JSON.stringify(entry)}
+    writeFileSync24(temporary, `${JSON.stringify(entry)}
 `);
     renameSync3(temporary, path);
   } finally {
@@ -44508,7 +45283,7 @@ function createLock(path, now) {
     throw error62;
   }
   try {
-    writeFileSync23(fd, `${JSON.stringify({ at: new Date(now).toISOString(), owner })}
+    writeFileSync24(fd, `${JSON.stringify({ at: new Date(now).toISOString(), owner })}
 `);
   } finally {
     closeSync(fd);
@@ -44550,7 +45325,7 @@ function refreshBoard({ root, prd: prd2, now, build }) {
 // kit/lib/statusline/facts.ts
 init_define_OMNI_BUNDLE();
 import { readdirSync as readdirSync23 } from "node:fs";
-import { join as join63 } from "node:path";
+import { join as join66 } from "node:path";
 
 // kit/lib/statusline/stage.ts
 init_define_OMNI_BUNDLE();
@@ -44692,7 +45467,7 @@ function treeFiles(ctx, ref, dir, exec) {
 }
 function checkoutFolders(ctx, dir) {
   return attempt8(
-    () => readdirSync23(join63(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
+    () => readdirSync23(join66(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
     []
   );
 }
@@ -44805,10 +45580,10 @@ function contextColour(percent) {
 }
 function contextPart(percent, { color = false } = {}) {
   if (typeof percent !== "number" || !Number.isFinite(percent)) return "context \u2014";
-  const shown3 = Math.floor(percent);
-  const filled = Math.max(0, Math.min(BAR_CELLS2, Math.floor(shown3 / 10)));
+  const shown4 = Math.floor(percent);
+  const filled = Math.max(0, Math.min(BAR_CELLS2, Math.floor(shown4 / 10)));
   const bar2 = FILLED.repeat(filled) + EMPTY.repeat(BAR_CELLS2 - filled);
-  return `context ${paint(`${bar2} ${shown3}%`, contextColour(shown3), color)}`;
+  return `context ${paint(`${bar2} ${shown4}%`, contextColour(shown4), color)}`;
 }
 function resetIn(ms) {
   const minutes = Math.ceil(ms / MINUTE3);
@@ -44830,7 +45605,7 @@ function visibleLength(line) {
 function fit(line, width) {
   if (visibleLength(line) <= width) return line;
   let out = "";
-  let shown3 = 0;
+  let shown4 = 0;
   let open3 = false;
   for (const [token] of line.matchAll(TOKEN)) {
     if (SGR.test(token)) {
@@ -44838,9 +45613,9 @@ function fit(line, width) {
       open3 = token !== RESET;
       continue;
     }
-    if (shown3 === width - 1) break;
+    if (shown4 === width - 1) break;
     out += token;
-    shown3 += 1;
+    shown4 += 1;
   }
   return `${out}${open3 ? RESET : ""}${CUT}`;
 }
@@ -44866,9 +45641,9 @@ function slicesPart(slices, { color = false } = {}) {
 var cutTo = (text8, length) => `${Array.from(text8).slice(0, length - 1).join("")}${CUT}`;
 function prdLine({ number: number4, topic, slice, stage: stage2, openItems: openItems2, slices = null }, width = Number.POSITIVE_INFINITY, { color = false } = {}) {
   const inOutbox2 = stage2 === OUTBOX;
-  const draw = (shown3) => {
-    if (stage2 === SHIPPED) return `PRD ${number4} ${shown3}${SEPARATOR2}${SHIPPED}`;
-    return [`PRD ${number4} ${shown3}`, slice, stage2, inOutbox2 ? slicesPart(slices, { color }) : null, inOutbox2 ? itemsPart(openItems2) : null].filter(Boolean).join(SEPARATOR2);
+  const draw = (shown4) => {
+    if (stage2 === SHIPPED) return `PRD ${number4} ${shown4}${SEPARATOR2}${SHIPPED}`;
+    return [`PRD ${number4} ${shown4}`, slice, stage2, inOutbox2 ? slicesPart(slices, { color }) : null, inOutbox2 ? itemsPart(openItems2) : null].filter(Boolean).join(SEPARATOR2);
   };
   const line = draw(topic);
   const over = visibleLength(line) - width;
@@ -44970,7 +45745,7 @@ var statusline = {
 init_define_OMNI_BUNDLE();
 import { mkdtempSync as mkdtempSync2, rmSync as rmSync10 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join64 } from "node:path";
+import { join as join67 } from "node:path";
 
 // kit/lib/update/plugin.ts
 init_define_OMNI_BUNDLE();
@@ -44990,9 +45765,9 @@ function updatePlugin({ version: version3 = null, exec, println: println2 }) {
 }
 
 // kit/bin/commands/update.ts
-var USAGE24 = "usage: omni update [--to <version>]";
+var USAGE26 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
-  const dir = mkdtempSync2(join64(tmpdir2(), "omni-update-"));
+  const dir = mkdtempSync2(join67(tmpdir2(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home: defined(home, "the kit home"), version: target3, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
@@ -45042,7 +45817,7 @@ var update = {
   withoutContext: true,
   run: synchronous((args, { cwd, stdout, stderr, exec, kit, bundle }) => {
     const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
-    if (positional.length) throw usageError(USAGE24);
+    if (positional.length) throw usageError(USAGE26);
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
@@ -45089,8 +45864,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/visual/verdict.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync51, readdirSync as readdirSync24, readFileSync as readFileSync53 } from "node:fs";
-import { join as join65 } from "node:path";
+import { existsSync as existsSync54, readdirSync as readdirSync24, readFileSync as readFileSync56 } from "node:fs";
+import { join as join68 } from "node:path";
 var PAGE = "before-after.html";
 var ROUND3 = /^variations-r([1-9]\d*)\.html$/;
 var ROUND_LIKE2 = /^variations/i;
@@ -45098,18 +45873,18 @@ function visualRoot(ctx) {
   return `${ctx.config.paths.delivery}/visual`;
 }
 function pageViolations(ctx, page2) {
-  if (!existsSync51(join65(ctx.root, page2))) return [`${page2}: missing.`];
+  if (!existsSync54(join68(ctx.root, page2))) return [`${page2}: missing.`];
   const violations = [];
   const size = beforeAfterViolation(page2, ctx);
   if (size) violations.push(size);
-  violations.push(...rasterFaults(page2, readFileSync53(join65(ctx.root, page2), "utf8")));
+  violations.push(...rasterFaults(page2, readFileSync56(join68(ctx.root, page2), "utf8")));
   return violations;
 }
 function folderViolations(ctx, folder) {
   const rounds = [];
   const misnamed = [];
   const others = [];
-  for (const entry of readdirSync24(join65(ctx.root, folder), { withFileTypes: true })) {
+  for (const entry of readdirSync24(join68(ctx.root, folder), { withFileTypes: true })) {
     const { name } = entry;
     const round = entry.isFile() ? ROUND3.exec(name) : null;
     if (round) rounds.push({ name, k: Number(round[1]) });
@@ -45144,10 +45919,10 @@ var visual = branchVerdictCommand({
 });
 
 // kit/bin/commands/index.ts
-var COMMAND_TABLE = Object.freeze({ config: config2, prd, status: status2, settle: settle2, adopt, replies, answers, comment, ship, harvest, check: check2, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask: ask2, heartbeat, signin, signout, whoami, sign, credits, dossier, flow, proof, business, constituents, decide, version: version2, update, help, statusline, targets });
+var COMMAND_TABLE = Object.freeze({ config: config2, prd, status: status2, settle: settle2, adopt, replies, answers, comment, ship, harvest, check: check2, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask: ask2, heartbeat, signin, signout, whoami, sign, credits, dossier, flow, proof, pitch, business, constituents, decide, version: version2, update, help, statusline, targets });
 
 // kit/bin/omni.ts
-var USAGE25 = `usage: omni <command> [args]
+var USAGE27 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -45204,7 +45979,7 @@ async function main(argv, {
   const name = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command = Object.hasOwn(COMMAND_TABLE, name) ? COMMAND_TABLE[name] : void 0;
   if (!command) {
-    stderr.write(USAGE25);
+    stderr.write(USAGE27);
     return 2;
   }
   try {

@@ -1,5 +1,5 @@
 // The verbs of `omni pitch` that make a pitch on the person's computer, for `/omni:pitch` (PRD 859's spec,
-// "/omni:pitch"); `push` sends it (`./pitch.mjs`).
+// "/omni:pitch"); `push` sends it (`./pitch.ts`).
 //
 //   omni pitch start <n> --for customers|inside   refuses, or opens the run's folder and prints it
 //   omni pitch slide <dir> --frame <png>           the slide, the closing card and the backdrop, each shape
@@ -17,20 +17,43 @@
 // with one line; a folder missing what the verb reads is exit 2.
 import { existsSync, mkdirSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
-import { askClient } from '../../lib/ask/client.mjs';
-import { homeTokens } from '../../lib/ask/client-tokens.mjs';
-import { credentialsHost } from '../../lib/ask/credentials.mjs';
-import { loadContext } from '../../lib/context.mjs';
-import { whereIs } from '../../lib/delivery/prd.mjs';
-import { PITCH_INPUTS } from '../../lib/pitch/ffmpeg.mjs';
+import { askClient, AskCallError } from '../../lib/ask/client.ts';
+import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
+import { homeTokens } from '../../lib/ask/client-tokens.ts';
+import { credentialsHost } from '../../lib/ask/credentials.ts';
+import { loadContext } from '../../lib/context.ts';
+import type { Context } from '../../lib/context.ts';
+import { whereIs } from '../../lib/delivery/prd.ts';
+import { isOneOf, propertyOf } from '../../lib/narrow.ts';
+import { PITCH_INPUTS } from '../../lib/pitch/ffmpeg.ts';
 import {
   AUDIENCES, REFUSAL, hasFfmpeg, makeVideos, pitchRefusal, pitchRunDir, playwrightScreenshot, readPitchJson,
   renderSlides, wordsOf, writeMusic, writePitchJson,
-} from '../../lib/pitch/run.mjs';
-import { LOOKS } from '../../lib/pitch/slide.mjs';
-import { parseArgs, positiveInt, println, usageError } from '../args.mjs';
+} from '../../lib/pitch/run.ts';
+import type { Audience, Screenshot } from '../../lib/pitch/run.ts';
+import { LOOKS } from '../../lib/pitch/slide.ts';
+import type { Look } from '../../lib/pitch/slide.ts';
+import { parseArgs, prdArg, println, usageError } from '../args.ts';
+import type { Exec, Out } from '../io.ts';
+import type { PrdNumber } from '../../lib/ids.ts';
 
-const USAGE = {
+/** What a making verb is handed: the streams, the process runner, and what a test injects. */
+export type MakerIo = {
+  cwd: string;
+  stdout: Out;
+  stderr: Out;
+  exec: Exec;
+  tokens: TokenStore | undefined;
+  home: string | undefined;
+  fetch: Fetch;
+  callMs: number | undefined;
+  now: (() => Date) | undefined;
+  screenshot: Screenshot | undefined;
+};
+
+type Verb = 'start' | 'slide' | 'music' | 'video';
+
+const USAGE: Readonly<Record<Verb, string>> = {
   start: 'usage: omni pitch start <n> --for customers|inside',
   slide: 'usage: omni pitch slide <dir> --frame <png>',
   music: 'usage: omni pitch music <dir> --for customers|inside',
@@ -41,52 +64,65 @@ const USAGE = {
 const PITCH_FILES = Object.freeze(['slide.png', 'slide-square.png', 'pitch.mp4', 'pitch-square.mp4', 'pitch.gif']);
 
 /** The one positional and the flags of a verb, or a usage error. */
-function oneArg(verb, args, values = []) {
+function oneArg<V extends string = never>(verb: Verb, args: string[], values: readonly V[] = []): { arg: string; flags: { [K in V]: string } } {
   const { positional, flags } = parseArgs('pitch', args, { values });
-  if (positional.length !== 1 || values.some((name) => flags[name] === undefined)) throw usageError(USAGE[verb]);
-  return { arg: positional[0], flags };
+  const [arg] = positional;
+  const given: { [K in V]?: string } = flags;
+  if (positional.length !== 1 || arg === undefined || !hasAll(given, values)) throw usageError(USAGE[verb]);
+  return { arg, flags: given };
 }
 
-function audienceOf(verb, value) {
-  if (!AUDIENCES.includes(value)) throw usageError(`${USAGE[verb]} — --for is customers or inside, not ${value}`);
+/** Whether `flags` holds a value for every one of `values`. */
+function hasAll<V extends string>(flags: { [K in V]?: string }, values: readonly V[]): flags is { [K in V]: string } {
+  return values.every((name) => flags[name] !== undefined);
+}
+
+function audienceOf(verb: Verb, value: string): Audience {
+  if (!isOneOf(AUDIENCES, value)) throw usageError(`${USAGE[verb]} — --for is customers or inside, not ${value}`);
   return value;
 }
 
-const folderOf = (cwd, dir) => (isAbsolute(dir) ? dir : resolve(cwd, dir));
+const folderOf = (cwd: string, dir: string): string => (isAbsolute(dir) ? dir : resolve(cwd, dir));
 
 /** The run folder `dir`, which must exist, or a usage error. */
-function runFolder(verb, cwd, dir) {
+function runFolder(verb: Verb, cwd: string, dir: string): string {
   const folder = folderOf(cwd, dir);
   if (!existsSync(folder)) throw usageError(`omni pitch ${verb}: ${dir} is not a run folder.`);
   return folder;
 }
 
 /** The first line a failed tool wrote, for its one line. */
-function firstLine(error) {
-  const text = String(error?.stderr ?? error?.message ?? error).trim();
+function firstLine(error: unknown): string {
+  const text = String(propertyOf(error, 'stderr') ?? propertyOf(error, 'message') ?? error).trim();
   return text.split('\n').find((line) => line.trim()) ?? 'failed';
 }
 
-function signedInStore(askUrl, { tokens, home }) {
+function signedInStore(askUrl: string | null, { tokens, home }: { tokens: TokenStore | undefined; home: string | undefined }): TokenStore | null {
   if (!askUrl) return null;
   const store = tokens ?? homeTokens(home ? { home } : undefined);
   return store.read(credentialsHost(askUrl)) ? store : null;
 }
 
 /** The look of the repository's product, or arcade with the line saying why. */
-async function lookOf({ askUrl, store, repo, fetch, callMs }) {
+async function lookOf({ askUrl, store, repo, fetch, callMs }: {
+  askUrl: string;
+  store: TokenStore;
+  repo: string;
+  fetch: Fetch;
+  callMs: number | undefined;
+}): Promise<{ look: Look; why?: string }> {
   try {
     const client = askClient({ baseUrl: askUrl, host: credentialsHost(askUrl), tokens: store, fetch, ...(callMs ? { callMs } : {}) });
-    const { look } = await client.readPitchLook(repo);
-    if (LOOKS.includes(look)) return { look };
+    const look = propertyOf(await client.readPitchLook(repo), 'look');
+    if (isOneOf(LOOKS, look)) return { look };
     return { look: 'arcade', why: `an unknown look ${String(look)}` };
   } catch (error) {
-    return { look: 'arcade', why: error?.status ? `refused (${error.status})` : 'unreachable' };
+    return { look: 'arcade', why: error instanceof AskCallError && error.status ? `refused (${error.status})` : 'unreachable' };
   }
 }
 
 /** The four facts a pitch refuses on, read from this checkout and this computer. */
-function refusalHere(ctx, prd, { exec, store }) {
+function refusalHere(ctx: Context, prd: PrdNumber, { exec, store }: { exec: Exec; store: TokenStore | null }): string | null {
   return pitchRefusal({
     prd,
     shipped: whereIs(ctx, prd)?.state === 'shipped',
@@ -97,24 +133,27 @@ function refusalHere(ctx, prd, { exec, store }) {
 }
 
 /** Makes the run folder with its first `pitch.json`; what `start` prints. */
-function openRun(ctx, { prd, audience, look, exec, now }) {
-  const commit = String(exec('git', ['rev-parse', 'HEAD'], { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).trim();
+function openRun(
+  ctx: Context,
+  { prd, audience, look, exec, now }: { prd: PrdNumber; audience: Audience; look: Look; exec: Exec; now: () => Date },
+): { dir: string; look: Look; url: string | null; commit: string } {
+  const commit = exec('git', ['rev-parse', 'HEAD'], { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   const dir = pitchRunDir(join(ctx.root, ctx.config.worktrees), prd, audience, now());
   mkdirSync(dir, { recursive: true });
   writePitchJson(dir, { prd, audience, look, commit });
   return { dir, look, url: ctx.config.proof.url, commit };
 }
 
-async function start(args, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now = () => new Date() }) {
+async function start(args: string[], { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now = () => new Date() }: MakerIo): Promise<number> {
   const { arg, flags } = oneArg('start', args, ['for']);
-  const prd = positiveInt('pitch start', '<n>', arg);
+  const prd = prdArg('pitch start', '<n>', arg);
   const audience = audienceOf('start', flags.for);
   const ctx = loadContext(cwd, { exec });
   const askUrl = ctx.config.ask.url;
   const store = signedInStore(askUrl, { tokens, home });
   const refusal = refusalHere(ctx, prd, { exec, store });
-  if (refusal) {
-    println(stderr, refusal);
+  if (refusal !== null || store === null || !askUrl) {
+    println(stderr, refusal ?? REFUSAL.noSignIn);
     return 1;
   }
   const repo = ctx.config.repo.slug;
@@ -125,40 +164,41 @@ async function start(args, { cwd, stdout, stderr, exec, tokens, home, fetch, cal
   return 0;
 }
 
-function slide(args, { cwd, stdout, stderr, exec, screenshot }) {
+function slide(args: string[], { cwd, stdout, stderr, exec, screenshot }: MakerIo): Promise<number> {
   const { arg, flags } = oneArg('slide', args, ['frame']);
   const dir = runFolder('slide', cwd, arg);
   const frame = folderOf(cwd, flags.frame);
   if (!existsSync(frame)) throw usageError(`omni pitch slide: no frame at ${flags.frame}.`);
   const pitch = readPitchJson(dir);
-  if (!pitch || !LOOKS.includes(pitch.look)) throw usageError(`omni pitch slide: ${arg} holds no pitch.json with a look — run omni pitch start first.`);
+  const look = pitch?.look;
+  if (!pitch || !isOneOf(LOOKS, look)) throw usageError(`omni pitch slide: ${arg} holds no pitch.json with a look — run omni pitch start first.`);
   const { words, missing } = wordsOf(pitch);
   if (missing) throw usageError(`omni pitch slide: pitch.json has no ${missing} yet.`);
   let files;
   try {
-    files = renderSlides({ dir, look: pitch.look, words, frame, screenshot: screenshot ?? playwrightScreenshot(exec, { cwd: dir }) });
+    files = renderSlides({ dir, look, words, frame, screenshot: screenshot ?? playwrightScreenshot(exec, { cwd: dir }) });
   } catch (error) {
     println(stderr, `slide render failed: ${firstLine(error)}`);
-    return 1;
+    return Promise.resolve(1);
   }
   for (const file of files) println(stdout, join(dir, file));
-  return 0;
+  return Promise.resolve(0);
 }
 
-function music(args, { cwd, stdout }) {
+function music(args: string[], { cwd, stdout }: MakerIo): Promise<number> {
   const { arg, flags } = oneArg('music', args, ['for']);
   const audience = audienceOf('music', flags.for);
   const dir = runFolder('music', cwd, arg);
   println(stdout, join(dir, writeMusic(dir, audience)));
-  return 0;
+  return Promise.resolve(0);
 }
 
-function video(args, { cwd, stdout, stderr, exec }) {
+function video(args: string[], { cwd, stdout, stderr, exec }: MakerIo): Promise<number> {
   const { arg } = oneArg('video', args);
   const dir = runFolder('video', cwd, arg);
   if (!hasFfmpeg(exec)) {
     println(stderr, REFUSAL.noFfmpeg);
-    return 1;
+    return Promise.resolve(1);
   }
   const needed = [PITCH_INPUTS.walk, PITCH_INPUTS.music, PITCH_INPUTS.slide, PITCH_INPUTS.slideSquare, PITCH_INPUTS.close, PITCH_INPUTS.closeSquare, PITCH_INPUTS.backdropSquare];
   const missing = needed.find((name) => !existsSync(join(dir, name)));
@@ -168,13 +208,13 @@ function video(args, { cwd, stdout, stderr, exec }) {
     made = makeVideos({ dir, exec });
   } catch (error) {
     println(stderr, `ffmpeg failed: ${firstLine(error)}`);
-    return 1;
+    return Promise.resolve(1);
   }
   writePitchJson(dir, { ...readPitchJson(dir), files: PITCH_FILES });
   for (const file of made.files) println(stdout, join(dir, file));
   println(stdout, `${made.cut.total} s: slide ${made.cut.slide} s, walk-through ${made.cut.walk} s, closing ${made.cut.close} s`);
-  return 0;
+  return Promise.resolve(0);
 }
 
 /** The making verbs of `omni pitch`, by name. */
-export const PITCH_MAKERS = Object.freeze({ start, slide, music, video });
+export const PITCH_MAKERS: Readonly<Record<Verb, (args: string[], io: MakerIo) => Promise<number>>> = Object.freeze({ start, slide, music, video });

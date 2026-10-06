@@ -7,12 +7,12 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { CARD_SECONDS, FADE_SECONDS, PITCH_INPUTS, normaliseArgs, pitchCut, pitchRecipe } from './ffmpeg.mjs';
-import { pitchMusic } from './music.mjs';
-import { makeVideos } from './run.mjs';
+import { CARD_SECONDS, FADE_SECONDS, PITCH_INPUTS, normaliseArgs, pitchCut, pitchRecipe } from './ffmpeg.ts';
+import { pitchMusic } from './music.ts';
+import { makeVideos } from './run.ts';
 
-const graphOf = (args) => args[args.indexOf('-filter_complex') + 1];
-const inputs = (args) => args.flatMap((arg, index) => (arg === '-i' ? [args[index + 1]] : []));
+const graphOf = (args: string[]): string | undefined => args[args.indexOf('-filter_complex') + 1];
+const inputs = (args: string[]): (string | undefined)[] => args.flatMap((arg, index) => (arg === '-i' ? [args[index + 1]] : []));
 
 describe('pitchCut', () => {
   it('is the slide card, the walk-through and the closing card, 20 to 30 seconds in all', () => {
@@ -88,7 +88,7 @@ describe('pitchRecipe', () => {
   });
 });
 
-const hasTool = (name) => {
+const hasTool = (name: string): boolean => {
   try {
     execFileSync(name, ['-version'], { stdio: 'ignore' });
     return true;
@@ -99,19 +99,21 @@ const hasTool = (name) => {
 const ffmpegHere = hasTool('ffmpeg') && hasTool('ffprobe');
 
 /** The width, height, length and stream kinds ffprobe reads of `file`. */
-function probe(file) {
+type Probed = { streams: { codec_type: string; width?: number; height?: number }[]; format: { duration: string } };
+
+function probe(file: string) {
   const out = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,width,height:format=duration', '-of', 'json', file], { encoding: 'utf8' });
-  const { streams, format } = JSON.parse(out);
+  const { streams, format } = JSON.parse(out) as Probed;
   const video = streams.find((stream) => stream.codec_type === 'video');
-  return { width: video.width, height: video.height, seconds: Number(format.duration), kinds: streams.map((stream) => stream.codec_type).sort() };
+  return { width: video?.width, height: video?.height, seconds: Number(format.duration), kinds: streams.map((stream) => stream.codec_type).sort() };
 }
 
 describe.skipIf(!ffmpegHere)('a pitch made with ffmpeg on fixtures', () => {
   it('gives pitch.mp4, pitch-square.mp4 and pitch.gif in their shapes and lengths', () => {
     const dir = mkdtempSync(join(tmpdir(), 'pitch-video-'));
-    const ff = (args) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args], { cwd: dir });
+    const ff = (args: string[]) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args], { cwd: dir });
     ff(['-f', 'lavfi', '-i', 'testsrc=size=1280x720:rate=25:duration=12', '-c:v', 'libvpx', '-b:v', '300k', PITCH_INPUTS.walk]);
-    for (const [name, size] of [['slide.png', '1920x1080'], ['close.png', '1920x1080'], ['slide-square.png', '1080x1080'], ['close-square.png', '1080x1080'], ['backdrop-square.png', '1080x1080']]) {
+    for (const [name, size] of [['slide.png', '1920x1080'], ['close.png', '1920x1080'], ['slide-square.png', '1080x1080'], ['close-square.png', '1080x1080'], ['backdrop-square.png', '1080x1080']] as const) {
       ff(['-f', 'lavfi', '-i', `color=c=navy:size=${size}`, '-frames:v', '1', name]);
     }
     writeFileSync(join(dir, PITCH_INPUTS.music), pitchMusic('inside'));

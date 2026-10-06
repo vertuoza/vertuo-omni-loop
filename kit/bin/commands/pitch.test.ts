@@ -4,8 +4,10 @@
 import { existsSync, truncateSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { makeRepo } from '../../test/fixture.mjs';
-import { main } from '../omni.mjs';
+import { makeRepo } from '../../test/fixture.ts';
+import { main } from '../omni.ts';
+import type { Tokens } from '../../lib/ask/schema.ts';
+import type { FetchInit } from '../../test/fixture.ts';
 
 const BASE = 'https://omni.example';
 const HOST = 'omni.example';
@@ -15,9 +17,9 @@ const GIF = `${BASE}/api/pitches/${RUN_ID}/pitch.gif`;
 
 const config = ({ enabled = true } = {}) => `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${BASE}\ndossier:\n  enabled: ${enabled}\n`;
 
-function memoryTokens(entries = {}) {
-  const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+function memoryTokens(entries: Record<string, Tokens> = {}) {
+  const store: Record<string, Tokens> = { ...entries };
+  return { store, read: (host: string) => store[host] ?? null, write: (host: string, tokens: Tokens) => { store[host] = tokens; } };
 }
 const signedIn = () => memoryTokens({ [HOST]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
 
@@ -27,41 +29,45 @@ const PITCH = {
   hook: 'Answer from your phone', benefit: 'Every question waits on one page.', kicker: 'NEW IN WIDGETS',
   closing: 'Widgets · https://widgets.example', files: FIVE,
 };
-const RUN_FILES = { 'pitch.json': JSON.stringify(PITCH), ...Object.fromEntries(FIVE.map((name) => [name, `bytes of ${name}`])) };
+const RUN_FILES: Record<string, string> = { 'pitch.json': JSON.stringify(PITCH), ...Object.fromEntries(FIVE.map((name) => [name, `bytes of ${name}`])) };
 const DIR = '.claude/worktrees/pitch-7/customers';
 
 /** A fixture checkout holding a run folder with `files` (pitch.json and the rest). */
-function checkout({ enabled, files = RUN_FILES } = {}) {
+function checkout({ enabled, files = RUN_FILES }: { enabled?: boolean; files?: Record<string, string> } = {}) {
   return makeRepo({
     git: true,
     files: { '.omni-loop/config.yml': config({ enabled }), ...Object.fromEntries(Object.entries(files).map(([name, text]) => [`${DIR}/${name}`, text])) },
   });
 }
 
-const json = (status, body = {}) => new Response(JSON.stringify(body), { status });
+const json = (status: number, body = {}) => new Response(JSON.stringify(body), { status });
 
 /** A fetch that follows the contract, or answers `over(url, init)` when that gives a Response. */
-function fakeApp(over = () => null) {
-  const calls = [];
-  const fetch = async (url, init) => {
-    const href = String(url);
+function fakeApp(over: (url: string, init: FetchInit) => Response | null = () => null) {
+  const calls: { url: string; method?: string | undefined; authorization?: string | undefined; type?: string | undefined; body?: unknown }[] = [];
+  const answer = (href: string, init: FetchInit) => {
     calls.push({ url: href, method: init.method, authorization: init.headers.authorization, type: init.headers['content-type'], body: init.body });
     const replaced = over(href, init);
     if (replaced) return replaced;
     if (href === `${BASE}/api/pitches/uploads`) {
-      const { files } = JSON.parse(init.body);
+      const { files } = JSON.parse(String(init.body)) as { files: { name: string }[] };
       return json(200, { run: RUN_ID, files: files.map(({ name }) => ({ name, path: `d/${RUN_ID}/${name}`, url: `https://files.example/${name}?token=t` })) });
     }
     if (href.startsWith('https://files.example/')) return json(200, {});
     if (href === `${BASE}/api/pitches`) return json(200, { url: TAB, gif: GIF });
     return json(500);
   };
+  // A promise of the answer, rejected when answering throws, as the async fetch it fakes.
+  const fetch = (url: string, init: FetchInit) =>
+    new Promise<Response>((resolve) => {
+      resolve(answer(url, init));
+    });
   return { calls, fetch };
 }
 
-async function push(args, { root, tokens = signedIn(), fetch }) {
-  const out = [];
-  const err = [];
+async function push(args: string[], { root, tokens = signedIn(), fetch }: { root: string; tokens?: ReturnType<typeof memoryTokens>; fetch: unknown }) {
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await main(['pitch', 'push', ...args], {
     cwd: root, tokens, env: {}, fetch,
     stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) },
@@ -70,7 +76,7 @@ async function push(args, { root, tokens = signedIn(), fetch }) {
 }
 
 /** Every file of the run is still in its folder. */
-const kept = (root) => Object.keys(RUN_FILES).every((name) => existsSync(join(root, DIR, name)));
+const kept = (root: string) => Object.keys(RUN_FILES).every((name) => existsSync(join(root, DIR, name)));
 
 describe('omni pitch push', () => {
   it('uploads the five files to their signed links, registers the run, and prints the Pitch tab\'s link, then the GIF\'s', async () => {
@@ -87,12 +93,12 @@ describe('omni pitch push', () => {
       ['PUT', 'https://files.example/pitch.gif?token=t', null, 'image/gif'],
       ['POST', `${BASE}/api/pitches`, 'Bearer access-1', 'application/json'],
     ]);
-    expect(JSON.parse(calls[0].body)).toEqual({
+    expect(JSON.parse(calls[0]?.body as string)).toEqual({
       repo: 'acme/widgets', prd: 7,
-      files: FIVE.map((name) => ({ name, bytes: `bytes of ${name}`.length, type: { png: 'image/png', mp4: 'video/mp4', gif: 'image/gif' }[name.split('.').pop()] })),
+      files: FIVE.map((name) => ({ name, bytes: `bytes of ${name}`.length, type: ({ png: 'image/png', mp4: 'video/mp4', gif: 'image/gif' } as Record<string, string>)[name.split('.').pop() ?? ''] })),
     });
-    expect(Buffer.from(calls[3].body).toString()).toBe('bytes of pitch.mp4');
-    expect(JSON.parse(calls[6].body)).toEqual({
+    expect(Buffer.from(calls[3]?.body as Uint8Array).toString()).toBe('bytes of pitch.mp4');
+    expect(JSON.parse(calls[6]?.body as string)).toEqual({
       repo: 'acme/widgets', prd: 7, run: RUN_ID, audience: 'customers', look: 'arcade', commit: PITCH.commit,
       hook: PITCH.hook, benefit: PITCH.benefit, kicker: PITCH.kicker, closing: PITCH.closing,
     });
@@ -135,7 +141,7 @@ describe('omni pitch push', () => {
 
   it('the app out of reach: unreachable, exit 1, every file kept', async () => {
     const { root } = checkout();
-    const fetch = async () => { throw new TypeError('fetch failed'); };
+    const fetch = () => Promise.reject(new TypeError('fetch failed'));
     expect(await push(['7', DIR], { root, fetch })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
     expect(kept(root)).toBe(true);
   });
@@ -158,7 +164,7 @@ describe('omni pitch push', () => {
     truncateSync(join(big.root, DIR, 'pitch.mp4'), 60 * 1024 * 1024);
     const { calls, fetch } = fakeApp();
     expect(await push(['7', DIR], { root: big.root, fetch })).toEqual({ code: 1, out: '', err: 'refused (413): pitch.mp4: over 50 MB\n' });
-    const { 'pitch.gif': _gif, ...noGif } = RUN_FILES;
+    const noGif = Object.fromEntries(Object.entries(RUN_FILES).filter(([name]) => name !== 'pitch.gif'));
     expect(await push(['7', DIR], { root: checkout({ files: noGif }).root, fetch })).toEqual({ code: 1, out: '', err: 'refused (400): pitch.gif: not in the run folder\n' });
     const other = checkout({ files: { ...RUN_FILES, 'pitch.json': JSON.stringify({ ...PITCH, prd: 8 }) } });
     expect(await push(['7', DIR], { root: other.root, fetch })).toEqual({ code: 1, out: '', err: 'refused (400): pitch.json is for PRD 8, not 7\n' });

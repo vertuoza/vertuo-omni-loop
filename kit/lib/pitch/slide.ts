@@ -11,16 +11,27 @@
 //
 // No text box overflows: once the fonts load, each box's text shrinks until it fits, then the page marks
 // its body `data-fit="done"`, which the renderer waits for.
+import { isOneOf } from '../narrow.ts';
 
-export const SHAPES = Object.freeze({ wide: { width: 1920, height: 1080 }, square: { width: 1080, height: 1080 } });
-export const LOOKS = Object.freeze(['arcade', 'keynote']);
-const CARDS = Object.freeze(['wedge', 'close', 'backdrop']);
+/** A card's size in pixels. */
+type Size = { width: number; height: number };
+
+export const SHAPES: Readonly<Record<'wide' | 'square', Size>> = Object.freeze({ wide: { width: 1920, height: 1080 }, square: { width: 1080, height: 1080 } });
+export const LOOKS = Object.freeze(['arcade', 'keynote'] as const);
+const CARDS = Object.freeze(['wedge', 'close', 'backdrop'] as const);
+const SHAPE_NAMES = Object.freeze(['wide', 'square'] as const);
+
+export type Look = (typeof LOOKS)[number];
+export type Card = (typeof CARDS)[number];
+export type Shape = (typeof SHAPE_NAMES)[number];
+/** The words a card draws. */
+export type SlideWords = { kicker: string; hook: string; benefit: string; closing: string };
 
 /** The frame's name in the run folder, as `omni pitch slide` copies it there. */
 export const FRAME_FILE = 'frame.png';
 
 /** The card files of a run: each PNG `omni pitch slide` writes, by card and shape. */
-export const SLIDE_FILES = Object.freeze([
+export const SLIDE_FILES: readonly { card: Card; shape: Shape; file: string }[] = Object.freeze([
   { card: 'wedge', shape: 'wide', file: 'slide.png' },
   { card: 'wedge', shape: 'square', file: 'slide-square.png' },
   { card: 'close', shape: 'wide', file: 'close.png' },
@@ -31,17 +42,17 @@ export const SLIDE_FILES = Object.freeze([
 const FONTS =
   'https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@500;800;900&family=Press+Start+2P&display=block';
 
-const escape = (text) =>
-  String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const ENTITIES: Readonly<Record<string, string>> = Object.freeze({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' });
+const escape = (text: string): string => text.replace(/[&<>"']/g, (c) => ENTITIES[c] ?? c);
 
 /** A fixed starfield: the same stars on every arcade card, from a small fixed generator. */
-function starfield(width, height) {
+function starfield(width: number, height: number): string {
   let seed = 859;
   const next = () => {
     seed = (seed * 1103515245 + 12345) % 2147483648;
     return seed / 2147483648;
   };
-  const stars = [];
+  const stars: string[] = [];
   for (let index = 0; index < 140; index += 1) {
     const size = next() < 0.85 ? 2 : 4;
     const shade = next() < 0.8 ? 'rgba(255,255,255,0.7)' : '#ffd23f';
@@ -50,7 +61,7 @@ function starfield(width, height) {
   return stars.join(',');
 }
 
-const LOOK_CSS = {
+const LOOK_CSS: Readonly<Record<Look, (size: Size) => string>> = {
   arcade: ({ width, height }) => `
     body { background: radial-gradient(ellipse at 30% 20%, #1b1450 0%, #07071a 60%, #030310 100%); color: #fff; }
     .stars { position: absolute; left: 0; top: 0; width: 1px; height: 1px; box-shadow: ${starfield(width, height)}; }
@@ -59,7 +70,7 @@ const LOOK_CSS = {
       text-shadow: 6px 6px 0 #e8323c; line-height: 1.02; }
     .benefit { font-family: Inter, Arial, sans-serif; font-weight: 500; color: #e7e7ff; line-height: 1.3; }
     .frame img { border: 6px solid #fff; box-shadow: 14px 14px 0 #e8323c; border-radius: 0; }`,
-  keynote: () => `
+  keynote: (): string => `
     body { background: linear-gradient(180deg, #fbfbfd 0%, #eef0f5 100%); color: #111; }
     .stars { display: none; }
     .kicker-box { align-items: flex-start; }
@@ -72,7 +83,7 @@ const LOOK_CSS = {
 };
 
 /** Where each box sits, per card and shape, and the size its text starts at before it shrinks to fit. */
-const LAYOUT = {
+const LAYOUT: Readonly<Record<`${Card}/${Shape}`, string>> = {
   'wedge/wide': `
     .card { display: grid; grid-template-columns: 760px 1fr; gap: 64px; padding: 96px 96px 96px 112px; align-items: center; }
     .words { display: flex; flex-direction: column; gap: 36px; height: 888px; justify-content: center; }
@@ -116,9 +127,9 @@ const FIT_SCRIPT = `
   document.body.dataset.fit = 'done';
 })();`;
 
-const box = (name, text) => `<div class="${name}-box" data-box><div class="${name}">${escape(text)}</div></div>`;
+const box = (name: string, text: string): string => `<div class="${name}-box" data-box><div class="${name}">${escape(text)}</div></div>`;
 
-function body(card, shape, words) {
+function body(card: Card, words: SlideWords): string {
   if (card === 'backdrop') return '';
   const kicker = box('kicker', words.kicker);
   if (card === 'close') return `<main class="card">${kicker}${box('closing', words.closing)}</main>`;
@@ -128,15 +139,13 @@ function body(card, shape, words) {
 
 /**
  * One card of a pitch as an HTML page, for a browser to render at its shape's size. The frame is read
- * from `frame.png` beside the page.
- * @param {{ look: 'arcade' | 'keynote', card: 'wedge' | 'close' | 'backdrop', shape: 'wide' | 'square',
- *   words: { kicker: string, hook: string, benefit: string, closing: string } }} input
+ * from `frame.png` beside the page. A look, card or shape it does not know is refused.
  */
-export function slideHtml({ look, card, shape, words }) {
-  if (!LOOKS.includes(look)) throw new RangeError(`a look is arcade or keynote, not ${String(look)}`);
-  if (!CARDS.includes(card)) throw new RangeError(`a card is wedge, close or backdrop, not ${String(card)}`);
+export function slideHtml({ look, card, shape, words }: { look: string; card: string; shape: string; words: SlideWords }): string {
+  if (!isOneOf(LOOKS, look)) throw new RangeError(`a look is arcade or keynote, not ${look}`);
+  if (!isOneOf(CARDS, card)) throw new RangeError(`a card is wedge, close or backdrop, not ${card}`);
+  if (!isOneOf(SHAPE_NAMES, shape)) throw new RangeError(`a shape is wide or square, not ${shape}`);
   const size = SHAPES[shape];
-  if (!size) throw new RangeError(`a shape is wide or square, not ${String(shape)}`);
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <link rel="stylesheet" href="${FONTS}">
@@ -149,7 +158,7 @@ export function slideHtml({ look, card, shape, words }) {
   ${LOOK_CSS[look](size)}
   ${LAYOUT[`${card}/${shape}`]}
 </style></head>
-<body><div class="stars"></div>${body(card, shape, words)}
+<body><div class="stars"></div>${body(card, words)}
 <script>${FIT_SCRIPT}</script></body></html>
 `;
 }

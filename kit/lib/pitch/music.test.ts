@@ -2,12 +2,12 @@
 // 44.1 kHz, stereo.
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { MUSIC, pitchMusic } from './music.mjs';
+import { MUSIC, pitchMusic } from './music.ts';
 
-const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const sha = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex');
 
 /** The fields of a PCM WAV header. */
-function header(wav) {
+function header(wav: Buffer) {
   return {
     riff: wav.toString('ascii', 0, 4),
     wave: wav.toString('ascii', 8, 12),
