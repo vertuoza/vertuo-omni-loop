@@ -1018,3 +1018,393 @@ One line to remove or move in one settings file.
 ```
 
 <!-- /omni-outbox-settled: s4-04-dead-code-check-entry -->
+
+<!-- omni-outbox-settled: s6-01-engine-page-travels-in-the-bundle -->
+
+## s6-01-engine-page-travels-in-the-bundle — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-06
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-06
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-engine-page-travels-in-the-bundle
+prd: 1108
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-06
+wave: 3
+---
+
+## The question, in plain words
+
+A team that installed the kit holds a single copy of the command-line tool and nothing else. How does that copy reach the animation page it needs to film a pitch?
+
+## The decision, in plain words
+
+The tool carries the animation page inside itself, as text, and hands it out from a small local server while it films or previews. Nothing extra is installed or copied into the team's folder; the tool grows by about seven hundred kilobytes.
+
+## The intro, for fun
+
+One suitcase allowed on the plane, and the costume does not fit in the carry-on.
+
+## The punchline, for fun
+
+So we folded the costume into the suitcase lining.
+
+## The options, in plain words
+
+A. A. The tool carries the animation page inside itself and hands it out while it works (built).
+B. B. The page ships as its own folder beside the tool, copied in when the kit is installed or updated.
+C. C. The tool downloads the page from the kit's home the first time it needs it.
+
+## What I had to decide
+
+How the render and the studio reach the engine page in a repository that only carries the bundle.
+
+## What I did meanwhile
+
+kit/build.ts builds the engine first and defines __OMNI_PITCH_ENGINE__ with its two files' text; kit/lib/pitch/render-page.ts reads it (or kit/dist/pitch-engine/ from source) and render-server.ts serves it from memory. package.json files and kit/test/dist.test.ts are unchanged. A test runs omni pitch studio from a lone copy of the bundle and gets the page byte for byte.
+
+## What it costs to change later
+
+A few lines: the build's define and the page loader. Shipping the folder instead means adding it to package.json files, to the install that copies the bundle, and to kit/test/dist.test.ts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The bundle grows from 1.9 MB to 2.7 MB, in every repository that carries it; nobody stated a size limit.
+- (author) kit/build.ts lies outside this slice's territory; the build had to change for the bundle to carry the page.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-engine-page-travels-in-the-bundle -->
+
+<!-- omni-outbox-settled: s6-02-slide-images-are-the-intro-still -->
+
+## s6-02-slide-images-are-the-intro-still — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-06
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-06
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-slide-images-are-the-intro-still
+prd: 1108
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-06
+wave: 3
+---
+
+## The question, in plain words
+
+The Pitch tab still expects two pictures, a wide one and a square one, beside the videos. The old still slide that made them is gone, so where do they come from now?
+
+## The decision, in plain words
+
+Both pictures are the opening scene of the new video, taken once it has settled: the wide one at full size and the square one drawn for a square screen. The Pitch tab and the upload stay exactly as they were.
+
+## The intro, for fun
+
+The poster printer retired, but the cinema still has an empty frame by the door.
+
+## The punchline, for fun
+
+We hang the film's own opening shot in it.
+
+## The options, in plain words
+
+A. A. Both images are the intro scene's settled still, wide and square (built).
+B. B. Both images are the contact sheet of every scene.
+C. C. The push stops asking for the two images, and the Pitch tab shows a frame of the video instead.
+
+## What I had to decide
+
+What slide.png and slide-square.png hold now that PRD 859's still slide is removed, given that omni pitch push still requires the five files.
+
+## What I did meanwhile
+
+render captures the intro scene's still frame at 1920×1080 as slide.png and at 1080×1080 as slide-square.png, and records the five files in pitch.json under files, as before.
+
+## What it costs to change later
+
+One frame number and one name in the render; the push and the Pitch tab do not change either way.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec removes the still slide and keeps the push unchanged, but does not say what the two images the push requires should show.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-slide-images-are-the-intro-still -->
+
+<!-- omni-outbox-settled: s6-03-music-key-moment -->
+
+## s6-03-music-key-moment — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-06
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-06
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-music-key-moment
+prd: 1108
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-06
+wave: 3
+---
+
+## The question, in plain words
+
+The storyboard names the moment the music should hit, but a free track carries no marker saying where its own big moment is. How is the track lined up with the video?
+
+## The decision, in plain words
+
+Every track's big moment is taken to be eight seconds in, where free tracks have usually left their opening bars, and the track starts early enough for that moment to land on the storyboard's. Without a marked moment, the track starts at its beginning.
+
+## The intro, for fun
+
+The drummer counts in, but nobody wrote down which bar has the cymbal crash.
+
+## The punchline, for fun
+
+We bet on bar eight, like most free songs.
+
+## The options, in plain words
+
+A. A. A track's key moment is taken as eight seconds in (built).
+B. B. Each pinned free track records its own key moment, measured once by a person.
+C. C. The render finds the first strong beat of the track itself before lining it up.
+
+## What I had to decide
+
+How the music's sync point is placed when a provider gives a track with no beat or key-moment information.
+
+## What I did meanwhile
+
+The render starts the track at (8 s minus the sync point's time in the video), never before its start, and the encode normalises it, fades it in and out and cuts it to the video.
+
+## What it costs to change later
+
+One constant in the music step; a real beat finder or a per-track key moment replaces it without touching anything else.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec asks for the sync point to land on the storyboard's key moment but no provider says where a track's own key moment is; eight seconds is a guess at where pinned FreePD tracks leave their intro.
+
+```
+
+<!-- /omni-outbox-settled: s6-03-music-key-moment -->
+
+<!-- omni-outbox-settled: s6-04-changes-beyond-the-slice -->
+
+## s6-04-changes-beyond-the-slice — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-06
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-06
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-04-changes-beyond-the-slice
+prd: 1108
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-06
+wave: 3
+---
+
+## The question, in plain words
+
+Finishing this slice needed a few changes in files planned for other slices: removing the old generated music and the old video recipe, and fixing how the tool finds the browser it films with. Is it fine that this slice made them?
+
+## The decision, in plain words
+
+Yes: the old generated music and the old recipe that stitched a still slide to a clip are deleted, as the spec asks, and the browser lookup now works with the way the browser package is published. Nothing else in those files changed.
+
+## The intro, for fun
+
+Moving into the new flat meant taking out the neighbour's old sofa too.
+
+## The punchline, for fun
+
+We asked the sofa; it did not object.
+
+## The options, in plain words
+
+A. A. This slice removes the dead parts and fixes the browser lookup (built).
+B. B. The dead parts stay until a later clean-up, and the browser fix goes in its own fix.
+
+## What I had to decide
+
+Whether this slice may change kit/lib/pitch/music.ts, kit/lib/pitch/ffmpeg.ts and the playwright capture provider, which sit outside its territory.
+
+## What I did meanwhile
+
+music.ts keeps only silenceWav (the none provider's), ffmpeg.ts keeps only framesArgs (the encode provider's), their tests lose the parts that tested what was removed, and the playwright capture provider reads chromium from the default export when the package resolves to its CommonJS entry (without that no frame could be captured in this repository).
+
+## What it costs to change later
+
+Nothing to undo: the removed code had no caller left, and the fix is two lines.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan says the music and ffmpeg modules are used only through the registry, not changed, by this slice; the spec asks for the procedural music and the stitching to go away.
+
+```
+
+<!-- /omni-outbox-settled: s6-04-changes-beyond-the-slice -->
+
+<!-- omni-outbox-settled: s6-05-run-folder-holds-settings-and-assets -->
+
+## s6-05-run-folder-holds-settings-and-assets — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-06
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-06
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-05-run-folder-holds-settings-and-assets
+prd: 1108
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-06
+wave: 3
+---
+
+## The question, in plain words
+
+To film a pitch, the tool needs the product's Pitch settings and its uploaded logo and music on this computer. Where in the pitch's folder should it find them?
+
+## The decision, in plain words
+
+The settings sit in the pitch's folder as one settings file, and uploaded files sit in an assets folder beside it. A pitch with no settings file uses the look it was started with, and a missing logo is simply left out, said in one line.
+
+## The intro, for fun
+
+The film crew arrives on set and asks where the costumes are kept.
+
+## The punchline, for fun
+
+One wardrobe, one rack, both right by the door.
+
+## The options, in plain words
+
+A. A. One settings file and an assets folder inside the pitch's folder (built).
+B. B. The settings inside the pitch's record file, and the uploads fetched while the video is made.
+C. C. The settings read from the Omni page every time, with no copy in the folder.
+
+## What I had to decide
+
+The file names the render and the studio read the run's Pitch settings and uploaded files from, before the next slice writes them.
+
+## What I did meanwhile
+
+render and studio read settings.json (filled from its preset; out of shape stops the render, naming each field) and resolve asset:<name> to assets/<name>; without settings.json they read the preset pitch.json names. Fonts a product uploaded are not resolved yet: a font set to its uploaded file falls back to the system font with one line.
+
+## What it costs to change later
+
+Two names in one small module; the next slice writes whatever names are chosen.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan has the next slice write the settings into the run's folder but names no file; the settings' schema gives a font no uploaded-file field, so an uploaded font cannot be found yet.
+
+```
+
+<!-- /omni-outbox-settled: s6-05-run-folder-holds-settings-and-assets -->
