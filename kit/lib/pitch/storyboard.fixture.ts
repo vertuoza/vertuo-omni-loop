@@ -18,7 +18,7 @@ export function fixtureStoryboard(): Storyboard {
     },
     scenes: [
       { type: 'intro', duration: 3, eyebrow: 'New in Widgets', title: 'Quotes that send themselves', tag: 'PRD 7' },
-      { type: 'statement', duration: 3, text: 'A quote leaves the moment the last line is priced.' },
+      { type: 'statement', duration: 4, text: 'A quote leaves the moment the last line is priced.' },
       {
         type: 'feature',
         duration: 6,
@@ -67,7 +67,7 @@ function setField(parent: unknown, key: string, value: unknown): void {
     return;
   }
   if (!isObject(parent)) throw new Error(`no field ${key} to set`);
-  if (value === REMOVED) delete parent[key];
+  if (value === REMOVED) Reflect.deleteProperty(parent, key);
   else parent[key] = value;
 }
 

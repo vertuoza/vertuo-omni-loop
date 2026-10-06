@@ -249,6 +249,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'skills',
     usage: [
       'omni pitch start <n> --for customers|inside',
+      'omni pitch check <dir>',
       'omni pitch slide <dir> --frame <png>',
       'omni pitch music <dir> --for customers|inside',
       'omni pitch video <dir>',
@@ -258,7 +259,11 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       'The verbs /omni:pitch runs. start refuses with one line, writing nothing, a PRD not shipped, a ' +
       'proof.url that is not a fixed URL, no ffmpeg or no sign-in; otherwise it opens the run folder ' +
-      "under the worktrees with the product's look and prints it. slide renders the wedge slide in that " +
+      "under the worktrees with the product's look and prints it. check reads the folder's " +
+      'storyboard.json and stops, naming each with its path, a field the schema refuses, a media file ' +
+      'missing, an intro that is not first or an outro that is not last; it warns on words over their ' +
+      'count, words that take longer to read than their scene lasts and a length outside 15 to 60 ' +
+      's, and writes the warnings to pitch.json. slide renders the wedge slide in that ' +
       "look, 16:9 and 1:1, from a real frame; music writes the audience's default music, the same every " +
       'time; video makes pitch.mp4, pitch-square.mp4 and pitch.gif with ffmpeg. push ' +
       "sends a pitch /omni:pitch made of shipped PRD n to its dossier on the Omni page, and prints its " +

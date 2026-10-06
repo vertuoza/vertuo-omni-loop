@@ -1,4 +1,4 @@
-// `omni pitch start|slide|music|video` make a pitch on the person's computer (`./pitch-make.ts`);
+// `omni pitch start|check|slide|music|video` make a pitch on the person's computer (`./pitch-make.ts`);
 // `omni pitch push <n> <dir>` — sends a pitch run `/omni:pitch` made of shipped PRD n to its dossier on
 // the Omni page (PRD 859's spec, "Push"), and prints the Pitch tab's link, then the GIF's stable link (the
 // one that opens without signing in) on a second line.
@@ -48,7 +48,7 @@ type PitchOptions = {
 type CallIo = { stdout: Out; stderr: Out; tokens: TokenStore | undefined; home: string | undefined; fetch: Fetch; callMs: number | undefined };
 
 const USAGE = 'usage: omni pitch push <n> <dir>';
-const VERBS = 'usage: omni pitch start|slide|music|video|push …';
+const VERBS = 'usage: omni pitch start|check|slide|music|video|push …';
 const NO_SIGN_IN = 'no sign-in (omni signin)';
 
 /** The one line a failed call is reported with, as `omni proof push` words it. */

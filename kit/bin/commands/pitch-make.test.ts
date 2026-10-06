@@ -1,12 +1,14 @@
-// `omni pitch start|slide|music|video` (PRD 859 s4), through `main()` on fixture repositories: each refusal
-// prints its line and writes nothing; start opens the run folder with the product's look; slide renders
+// `omni pitch start|check|slide|music|video` (PRD 859 s4, PRD 1108 s3), through `main()` on fixture
+// repositories: each refusal prints its line and writes nothing; start opens the run folder with the
+// product's look; check names what stops a storyboard and writes its warnings to pitch.json; slide renders
 // its five cards through an injected screenshot; music writes the audience's WAV; video refuses without
 // ffmpeg. The sign-in is an in-memory token store and the Omni page a stubbed fetch.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo, realExec } from '../../test/fixture.ts';
+import { FIXTURE_MEDIA, changedStoryboard, fixtureStoryboard } from '../../lib/pitch/storyboard.fixture.ts';
 import { main } from '../omni.ts';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import type { Screenshot } from '../../lib/pitch/run.ts';
@@ -215,11 +217,90 @@ describe('omni pitch video', () => {
   });
 });
 
+/** A run folder holding pitch.json, `storyboard` as storyboard.json, and the media named in `media`. */
+function storyboardFolder(root: string, storyboard: unknown, media: readonly string[] = FIXTURE_MEDIA) {
+  const dir = runFolder(root);
+  writeFileSync(join(dir, 'storyboard.json'), typeof storyboard === 'string' ? storyboard : JSON.stringify(storyboard));
+  for (const file of media) {
+    mkdirSync(dirname(join(dir, file)), { recursive: true });
+    writeFileSync(join(dir, file), 'media');
+  }
+  return dir;
+}
+
+const pitchJsonOf = (dir: string): unknown => JSON.parse(readFileSync(join(dir, 'pitch.json'), 'utf8'));
+
+describe('omni pitch check (PRD 1108, acceptance 4)', () => {
+  it('passes a sound storyboard: exit 0, its length, and no warning written to pitch.json', async () => {
+    const root = checkout();
+    const dir = storyboardFolder(root, fixtureStoryboard());
+    expect(await omni(['check', RUN], { root })).toEqual({ code: 0, out: 'storyboard: 6 scenes, 23.5 s, 0 warnings\n', err: '' });
+    expect(pitchJsonOf(dir)).toMatchObject({ prd: 7, look: 'arcade', warnings: [] });
+  });
+
+  it('refuses a missing media file and a missing outro, naming each, exit 1, writing nothing', async () => {
+    const root = checkout();
+    const storyboard = fixtureStoryboard();
+    storyboard.scenes.pop();
+    const dir = storyboardFolder(root, storyboard, ['clips/walk.webm', 'shots/before.png']);
+    const before = readFileSync(join(dir, 'pitch.json'), 'utf8');
+    expect(await omni(['check', RUN], { root })).toEqual({
+      code: 1,
+      out: '',
+      err: 'error: scenes.4.after.file: shots/after.png is missing\nerror: scenes: no outro: the last scene is the outro\n',
+    });
+    expect(readFileSync(join(dir, 'pitch.json'), 'utf8')).toBe(before);
+  });
+
+  it('warns on a title over 9 words, exit 0, and writes its warnings to pitch.json', async () => {
+    const root = checkout();
+    const storyboard = fixtureStoryboard();
+    storyboard.scenes[0] = { type: 'intro', duration: 6, title: 'Quotes that send themselves the moment the last line is priced' };
+    const dir = storyboardFolder(root, storyboard);
+    const { code, out, err } = await omni(['check', RUN], { root });
+    expect({ code, out }).toEqual({ code: 0, out: 'storyboard: 6 scenes, 26.5 s, 1 warning\n' });
+    expect(err).toBe('warning: scenes.0.title: 11 words; a title holds at most 9\n');
+    expect(pitchJsonOf(dir)).toMatchObject({ prd: 7, warnings: ['scenes.0.title: 11 words; a title holds at most 9'] });
+  });
+
+  it('names each field the schema refuses, with its path', async () => {
+    const root = checkout();
+    storyboardFolder(root, changedStoryboard('scenes.2.layout', 'centre'));
+    const { code, err } = await omni(['check', RUN], { root });
+    expect(code).toBe(1);
+    expect(err).toMatch(/^error: scenes\.2\.layout: /);
+  });
+
+  it('refuses a storyboard.json that does not read as JSON', async () => {
+    const root = checkout();
+    storyboardFolder(root, '{ "storyboard": ');
+    const { code, err } = await omni(['check', RUN], { root });
+    expect(code).toBe(1);
+    expect(err).toMatch(/^error: storyboard\.json does not read as JSON: /);
+  });
+
+  it('omni help pitch names it', async () => {
+    const root = checkout();
+    const out: string[] = [];
+    const code = await main(['help', 'pitch'], { cwd: root, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
+    expect(code).toBe(0);
+    expect(out.join('')).toContain('omni pitch check <dir>');
+  });
+
+  it('a folder with no storyboard.json is a usage error', async () => {
+    const root = checkout();
+    runFolder(root);
+    const { code, err } = await omni(['check', RUN], { root });
+    expect(code).toBe(2);
+    expect(err).toMatch(/holds no storyboard\.json yet/);
+  });
+});
+
 describe('omni pitch', () => {
   it('a verb it does not know is a usage error naming its verbs', async () => {
     const root = checkout();
     const { code, err } = await omni(['film', '7'], { root });
     expect(code).toBe(2);
-    expect(err).toMatch(/start\|slide\|music\|video\|push/);
+    expect(err).toMatch(/start\|check\|slide\|music\|video\|push/);
   });
 });
