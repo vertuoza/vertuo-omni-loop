@@ -75,8 +75,7 @@ function ProductBody({ view }: { view: ProductScreenView }) {
     );
   }
   if (view.kind === 'product') {
-    const { kind: _, ...props } = view;
-    return <ProductPage {...props} />;
+    return <ProductPage source={view.source} editable={view.editable} product={view.product} />;
   }
   return <SituationNotice view={view} />;
 }

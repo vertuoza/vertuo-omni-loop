@@ -10,7 +10,10 @@
 // - `PitchPublic`, as the service role: the one read without sign-in, the GIF's stable link. It reads
 //   only a run's dossier and files and signs a 5-minute link to its GIF.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { listOf } from '../data/unparsed';
 import { dossierReader } from '../dossier/store';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The bucket, private (the migration's). */
 const PITCH_BUCKET = 'pitches';
@@ -29,18 +32,18 @@ export const PITCH_FILES = {
   'pitch.gif': 'image/gif',
 } as const;
 export type PitchFile = keyof typeof PITCH_FILES;
-export const PITCH_FILE_NAMES = Object.keys(PITCH_FILES) as PitchFile[];
+export const PITCH_FILE_NAMES: PitchFile[] = keysOf(PITCH_FILES);
 export const isPitchFile = (value: unknown): value is PitchFile => typeof value === 'string' && Object.hasOwn(PITCH_FILES, value);
 /** The GIF the stable link serves. */
 export const PITCH_GIF: PitchFile = 'pitch.gif';
 
 export const AUDIENCES = ['customers', 'inside'] as const;
 export type Audience = (typeof AUDIENCES)[number];
-export const isAudience = (value: unknown): value is Audience => AUDIENCES.includes(value as Audience);
+export const isAudience = (value: unknown): value is Audience => isOneOf(AUDIENCES, value);
 
 const LOOKS = ['arcade', 'keynote'] as const;
 export type Look = (typeof LOOKS)[number];
-export const isLook = (value: unknown): value is Look => LOOKS.includes(value as Look);
+export const isLook = (value: unknown): value is Look => isOneOf(LOOKS, value);
 
 /** The longest each of a pitch's words may be, as the table's checks say. */
 export const WORD_MAX = { hook: 200, benefit: 400, kicker: 100, closing: 300 } as const;
@@ -82,8 +85,12 @@ export const pitchPath = (dossierId: string, runId: string, name: string) => `${
  * did not upload, 23505 a run registered already.
  */
 export class PitchStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, readonly reason: string) {
+  readonly code: string | undefined;
+  readonly reason: string;
+  constructor(what: string, code: string | undefined, reason: string) {
     super(`${what}: ${reason}`);
+    this.code = code;
+    this.reason = reason;
   }
 }
 
@@ -92,7 +99,7 @@ export type SignedUpload = { name: string; path: string; url: string };
 
 export type PitchStore = {
   /** The id of PRD `prd`'s dossier in `repo` the caller may read, or null. */
-  dossierOf(repo: string, prd: number): Promise<string | null>;
+  dossierOf(repo: string, prd: PrdNumber): Promise<string | null>;
   /** Whether the dossier's PRD reached shipped or retro, as the caller reads its stages. */
   shipped(dossierId: string): Promise<boolean>;
   /** One signed upload link per name, under the run's folder, in order. */
@@ -127,7 +134,7 @@ async function signedByPath(db: Pick<SupabaseClient, 'storage'>, paths: string[]
   if (paths.length === 0) return signed;
   try {
     const { data } = await db.storage.from(PITCH_BUCKET).createSignedUrls(paths, seconds);
-    for (const entry of data ?? []) {
+    for (const entry of listOf(data)) {
       if (entry.path && !entry.error && entry.signedUrl) signed.set(entry.path, entry.signedUrl);
     }
   } catch (error) {
@@ -154,9 +161,11 @@ export function pitchStore(db: Pick<SupabaseClient, 'rpc' | 'from' | 'storage'>)
       const bucket = db.storage.from(PITCH_BUCKET);
       const signOne = async (name: string): Promise<SignedUpload> => {
         const path = pitchPath(dossierId, runId, name);
-        const signed = await bucket.createSignedUploadUrl(path);
-        if (!signed.data) throw new PitchStoreError('sign the upload', '42501', signed.error?.message ?? 'no link came back');
-        return { name, path, url: signed.data.signedUrl };
+        const { data, error } = await bucket.createSignedUploadUrl(path);
+        // The link as it came: nothing parsed it, so an answer with none is refused.
+        const link: { signedUrl: string } | null = data;
+        if (error || !link) throw new PitchStoreError('sign the upload', '42501', error?.message ?? 'no link came back');
+        return { name, path, url: link.signedUrl };
       };
       return Promise.all(names.map(signOne));
     },
@@ -164,7 +173,7 @@ export function pitchStore(db: Pick<SupabaseClient, 'rpc' | 'from' | 'storage'>)
     async uploaded(dossierId, runId) {
       const { data, error } = await db.storage.from(PITCH_BUCKET).list(`${dossierId}/${runId}`, { limit: 100 });
       if (error) throw new PitchStoreError('list the run', undefined, error.message);
-      return (data ?? []).map((file) => file.name);
+      return listOf(data).map((file) => file.name);
     },
 
     async register(run) {

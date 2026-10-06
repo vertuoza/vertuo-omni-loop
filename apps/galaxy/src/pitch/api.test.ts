@@ -1,6 +1,18 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pitchGif, registerPitch, requestPitchUploads, type PitchDeps } from './api';
 import { FakePitchWorld } from './store.fake';
+import { z } from 'zod';
+import { sure } from '../arcade/test/sure';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
+
+// The routes' answers, read as they came: the run and its signed links, or a refusal's words.
+const Links = z.looseObject({
+  run: z.string(),
+  files: z.array(z.looseObject({ name: z.string(), path: z.string(), url: z.unknown() })),
+});
+const Refusal = z.looseObject({ error: z.string() });
 
 const ORIGIN = 'https://omni.test';
 const SHIPPED = '00000000-0000-4000-8000-0000000000d1';
@@ -15,9 +27,9 @@ beforeEach(() => {
   world = new FakePitchWorld();
   world.account('tok-ada', 'ada', ['ws-acme']);
   world.account('tok-eve', 'eve', ['ws-other']);
-  world.dossier({ id: SHIPPED, workspace: 'ws-acme', repo: 'acme/widgets', prd: 859, shipped: true });
-  world.dossier({ id: BUILDING, workspace: 'ws-acme', repo: 'acme/widgets', prd: 860, shipped: false });
-  world.dossier({ id: OTHER, workspace: 'ws-other', repo: 'other/thing', prd: 5, shipped: true });
+  world.dossier({ id: SHIPPED, workspace: 'ws-acme', repo: 'acme/widgets', prd: parsePrd(859), shipped: true });
+  world.dossier({ id: BUILDING, workspace: 'ws-acme', repo: 'acme/widgets', prd: parsePrd(860), shipped: false });
+  world.dossier({ id: OTHER, workspace: 'ws-other', repo: 'other/thing', prd: parsePrd(5), shipped: true });
   deps = { connect: (token) => world.client(token), open: () => world.public() };
 });
 
@@ -43,7 +55,7 @@ const uploads = (files: unknown = FILES, extra: Record<string, unknown> = {}, to
 async function uploadAll(files = FILES): Promise<string> {
   const res = await uploads(files);
   expect(res.status).toBe(200);
-  const body = await res.json();
+  const body = Links.parse(await res.json());
   for (const f of body.files) world.put(f.path);
   return body.run;
 }
@@ -60,7 +72,7 @@ describe('POST /api/pitches/uploads', () => {
   it('gives one signed link per file, under a fresh run of the shipped PRD\'s dossier', async () => {
     const res = await uploads();
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = Links.parse(await res.json());
     expect(body.run).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(body.files.map((f: { name: string }) => f.name)).toEqual(FILES.map((f) => f.name));
     for (const f of body.files) expect(f.path).toBe(`${SHIPPED}/${body.run}/${f.name}`);
@@ -69,7 +81,7 @@ describe('POST /api/pitches/uploads', () => {
   it('refuses a PRD not shipped (422), before any link is signed', async () => {
     const res = await uploads(FILES, { prd: 860 });
     expect(res.status).toBe(422);
-    expect((await res.json()).error).toContain('not shipped');
+    expect(Refusal.parse(await res.json()).error).toContain('not shipped');
   });
 
   it('refuses anything but the five files, each of its own type (400)', async () => {
@@ -77,14 +89,14 @@ describe('POST /api/pitches/uploads', () => {
     expect((await uploads([...FILES, { name: 'notes.txt', bytes: 3, type: 'text/plain' }])).status).toBe(400);
     const wrongType = await uploads(FILES.map((f) => (f.name === 'pitch.mp4' ? { ...f, type: 'video/webm' } : f)));
     expect(wrongType.status).toBe(400);
-    expect((await wrongType.json()).error).toContain('pitch.mp4');
+    expect(Refusal.parse(await wrongType.json()).error).toContain('pitch.mp4');
     expect((await uploads([...FILES.slice(0, 4), FILES[0]])).status).toBe(400);
   });
 
   it('refuses a file over 50 MB (413), naming it', async () => {
     const res = await uploads(FILES.map((f) => (f.name === 'pitch.mp4' ? { ...f, bytes: 60 * MB } : f)));
     expect(res.status).toBe(413);
-    expect((await res.json()).error).toContain('pitch.mp4');
+    expect(Refusal.parse(await res.json()).error).toContain('pitch.mp4');
   });
 
   it('refuses a PRD without a dossier, or another workspace\'s (404), and a signed-out call (401)', async () => {
@@ -114,7 +126,7 @@ describe('POST /api/pitches', () => {
     world.files.delete(`${SHIPPED}/${run}/pitch.gif`);
     const res = await register({ run });
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toContain('pitch.gif');
+    expect(Refusal.parse(await res.json()).error).toContain('pitch.gif');
     expect(world.runs).toHaveLength(0);
   });
 
@@ -130,11 +142,11 @@ describe('POST /api/pitches', () => {
   });
 
   it('refuses a PRD not shipped (422)', async () => {
-    world.dossiers[1].shipped = true;
+    sure(world.dossiers[1], 'the building dossier').shipped = true;
     const res = await uploads(FILES, { prd: 860 });
-    const { run, files } = await res.json();
+    const { run, files } = Links.parse(await res.json());
     for (const f of files) world.put(f.path);
-    world.dossiers[1].shipped = false;
+    sure(world.dossiers[1], 'the building dossier').shipped = false;
     expect((await register({ run, prd: 860 })).status).toBe(422);
   });
 

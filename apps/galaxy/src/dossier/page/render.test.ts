@@ -798,11 +798,11 @@ describe('the Pitch panel (PRD 859)', () => {
   const html = (node: ReturnType<typeof createElement>) => renderToStaticMarkup(node);
   const noop = () => {};
   const panel = (more: Partial<Parameters<typeof PitchPanel>[0]> = {}) =>
-    html(createElement(PitchPanel, { prd: 216, audience: 'customers', disabled: false, copied: 'idle', onChoose: noop, onCopy: noop, ...more }));
+    html(createElement(PitchPanel, { prd: parsePrd(216), audience: 'customers', disabled: false, copied: 'idle', onChoose: noop, onCopy: noop, ...more }));
 
   it('reads /omni:pitch <n> --for <audience>', () => {
-    expect(pitchCommand(216, 'customers')).toBe('/omni:pitch 216 --for customers');
-    expect(pitchCommand(216, 'inside')).toBe('/omni:pitch 216 --for inside');
+    expect(pitchCommand(parsePrd(216), 'customers')).toBe('/omni:pitch 216 --for customers');
+    expect(pitchCommand(parsePrd(216), 'inside')).toBe('/omni:pitch 216 --for inside');
   });
 
   it('opens on Customers, selected first, with its command, Copy and the one line', () => {
@@ -843,16 +843,16 @@ describe('the Pitch panel (PRD 859)', () => {
   });
 
   it('the button opens nothing on the server: the panel is drawn once it is pressed', () => {
-    const closed = html(createElement(PitchAction, { prd: 216, disabled: false }));
+    const closed = html(createElement(PitchAction, { prd: parsePrd(216), disabled: false }));
     expect(closed).toContain(PITCH_BUTTON);
     expect(closed).not.toContain('pitch-panel');
   });
 
   it('the header passes the demo to the Pitch action, and only the Pitch action', () => {
-    const shipped = stageView({ prd: 216, rows: at('shipped') });
+    const shipped = stageView({ prd: parsePrd(216), rows: at('shipped') });
     expect(html(createElement(StageAction, { stage: shipped, demo: true }))).toContain('<span class="pitch-action" data-demo="true">');
     expect(html(createElement(StageAction, { stage: shipped }))).toContain('<span class="pitch-action">');
-    const inbox = stageView({ prd: 216, rows: at('inbox') });
+    const inbox = stageView({ prd: parsePrd(216), rows: at('inbox') });
     expect(html(createElement(StageAction, { stage: inbox, demo: true }))).toContain('<button type="button" class="ask-button stage-action" title="/omni:yolo 216">Build it</button>');
   });
 

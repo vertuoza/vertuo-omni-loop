@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 
 const read = vi.hoisted(() => ({
-  workspace: (async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} })) as () => Promise<unknown>,
+  workspace: (): Promise<unknown> => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} }),
 }));
 vi.mock('../data/workspace', () => ({ memberWorkspace: () => read.workspace() }));
 
@@ -36,7 +36,7 @@ function db(products: Answer = { data: STORED }) {
 const asDb = (d: ReturnType<typeof db>) => d as unknown as Parameters<typeof loadProducts>[0];
 
 beforeEach(() => {
-  read.workspace = async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
+  read.workspace = () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
 });
 
 describe('the products list', () => {
@@ -56,9 +56,9 @@ describe('the products list', () => {
   });
 
   it('says so for an account in no workspace, and for products that cannot be read', async () => {
-    read.workspace = async () => null;
+    read.workspace = () => Promise.resolve(null);
     expect(await loadProducts(asDb(db()), USER)).toEqual({ kind: 'no-workspace' });
-    read.workspace = async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
+    read.workspace = () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(await loadProducts(asDb(db({ error: { message: 'down' } })), USER)).toEqual({ kind: 'unreadable' });
   });

@@ -8,10 +8,10 @@ function db(answer: { data?: unknown; error?: unknown } | Error) {
   const calls: [string, unknown][] = [];
   return {
     calls,
-    rpc: async (fn: string, args: Record<string, unknown>) => {
+    rpc: (fn: string, args: Record<string, unknown>) => {
       calls.push([fn, args]);
-      if (answer instanceof Error) throw answer;
-      return { data: answer.data ?? null, error: answer.error ?? null };
+      if (answer instanceof Error) return Promise.reject(answer);
+      return Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null });
     },
   };
 }

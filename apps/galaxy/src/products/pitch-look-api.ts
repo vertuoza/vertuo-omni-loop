@@ -4,7 +4,7 @@
 //   GET /api/pitch-look?repo=<owner/name>   → 200 {look}   arcade | keynote
 //
 // The kit (`/omni:pitch`) calls it with the terminal's sign-in. The database's pitch_look_for_repo()
-// (supabase/migrations/20261029090000_products_pitch_look.sql), run as the caller, answers the look of
+// (supabase/migrations/20261101090000_products_pitch_look.sql), run as the caller, answers the look of
 // the repository's product, and `arcade` for a repository with no product. Refusals follow ADR-0029,
 // each `{error}` in plain words: 400 a malformed repository, 401 no valid bearer token, 403 a
 // repository outside the caller's workspaces (the database's reason, and the App's install link after
@@ -34,14 +34,16 @@ export async function readPitchLook(request: Request, deps: PitchLookDeps): Prom
   if (!auth.ok) return refuse(auth.status, auth.error);
   const repo = new URL(request.url).searchParams.get('repo') ?? '';
   if (!isRepo(repo)) return refuse(400, '`repo` must be the repository as owner/name.');
-  const { data, error } = await deps.connect(auth.caller.token).rpc('pitch_look_for_repo', { p_repo: repo });
+  const answer = await deps.connect(auth.caller.token).rpc('pitch_look_for_repo', { p_repo: repo });
+  const { error } = answer;
   if (error) {
-    const { code, message } = error as { code?: string; message?: string };
-    if (code === '42501') return refuse(403, withInstallLink(message ?? 'Not a member of the workspace that owns this repository.', deps.installLink));
-    if (code === '22023') return refuse(400, message ?? '`repo` must be the repository as owner/name.');
-    console.error(`pitch-look: ${message ?? code ?? 'the database failed'}`);
+    const { code, message } = error;
+    if (code === '42501') return refuse(403, withInstallLink(message || 'Not a member of the workspace that owns this repository.', deps.installLink));
+    if (code === '22023') return refuse(400, message || '`repo` must be the repository as owner/name.');
+    console.error(`pitch-look: ${message || code || 'the database failed'}`);
     return refuse(500, 'The pitch look could not be read. Try again.');
   }
+  const data: unknown = answer.data;
   if (!isPitchLook(data)) {
     console.error(`pitch-look: an unexpected answer ${JSON.stringify(data)}`);
     return refuse(500, 'The pitch look could not be read. Try again.');

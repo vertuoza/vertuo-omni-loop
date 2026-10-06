@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readPitchLook, type PitchLookDeps } from './pitch-look-api';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // GET /api/pitch-look?repo=<owner/name> (PRD 859 s1), with a stubbed Supabase client: the look of a
 // tracked repository's product, arcade for a repository with no product, as pitch_look_for_repo()
@@ -15,13 +16,13 @@ function world({ database = true, answer }: { database?: boolean; answer?: { dat
   const users: Record<string, typeof ADA> = { 'ada-token': ADA, 'carl-token': CARL };
   const client = (token: string) => ({
     auth: {
-      getUser: async (jwt: string) => ({ data: { user: users[jwt] ?? null }, error: users[jwt] ? null : { status: 401, message: 'bad jwt' } }),
+      getUser: (jwt: string) => Promise.resolve({ data: { user: users[jwt] ?? null }, error: users[jwt] ? null : { status: 401, message: 'bad jwt' } }),
     },
-    rpc: async (fn: string, args: { p_repo: string }) => {
+    rpc: (fn: string, args: { p_repo: string }) => {
       calls.push({ fn, args });
-      if (answer) return answer;
-      if (!users[token].member) return { data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } };
-      return { data: LOOKS[args.p_repo.toLowerCase()] ?? 'arcade', error: null };
+      if (answer) return Promise.resolve(answer);
+      if (!users[token]?.member) return Promise.resolve({ data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } });
+      return Promise.resolve({ data: LOOKS[args.p_repo.toLowerCase()] ?? 'arcade', error: null });
     },
   });
   const deps: PitchLookDeps = { connect: database ? (client as unknown as NonNullable<PitchLookDeps['connect']>) : null, installLink: INSTALL };
@@ -29,7 +30,8 @@ function world({ database = true, answer }: { database?: boolean; answer?: { dat
     const response = await readPitchLook(new Request(`https://omni.example/api/pitch-look${query}`, {
       headers: token ? { authorization: `Bearer ${token}` } : {},
     }), deps);
-    return { status: response.status, body: await response.json(), cache: response.headers.get('cache-control') };
+    const body: unknown = await response.json();
+    return { status: response.status, body, cache: response.headers.get('cache-control') };
   };
   return { calls, get };
 }
@@ -60,7 +62,7 @@ describe('GET /api/pitch-look', () => {
   it('refuses a repository outside the caller\'s workspaces with the database\'s reason', async () => {
     const got = await world().get('?repo=acme/widgets', 'carl-token');
     expect(got.status).toBe(403);
-    expect(got.body.error).toContain('you are not a member of Acme');
+    expect(propertyOf(got.body, 'error')).toContain('you are not a member of Acme');
   });
 
   it('answers 503 with no database here, and 500 when the database fails or answers a look it does not know', async () => {

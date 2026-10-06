@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { COPY_WORDS, copyCommand } from './StageHeaderCopy';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // Pitch (PRD 859): a shipped or retro PRD's one button. It opens a small panel with two choices,
 // Customers (selected first) and Inside, the command for the one chosen, `/omni:pitch <n> --for
@@ -17,13 +18,13 @@ const AUDIENCES: readonly { id: PitchAudience; label: string }[] = [
 export const PITCH_HINT = 'Run it in Claude Code, in this repository. The pitch shows on the Pitch tab.';
 
 /** `/omni:pitch 859 --for customers`. */
-export const pitchCommand = (prd: number, audience: PitchAudience) => `/omni:pitch ${prd} --for ${audience}`;
+export const pitchCommand = (prd: PrdNumber, audience: PitchAudience) => `/omni:pitch ${prd} --for ${audience}`;
 
 type Copied = 'idle' | 'copied' | 'refused';
 
 /** The panel as drawn for one choice: the radios, the command, Copy and its outcome, the one line. */
 export function PitchPanel({ prd, audience, disabled, copied, onChoose, onCopy }: {
-  prd: number; audience: PitchAudience; disabled: boolean; copied: Copied;
+  prd: PrdNumber; audience: PitchAudience; disabled: boolean; copied: Copied;
   onChoose: (audience: PitchAudience) => void; onCopy: () => void;
 }) {
   const command = pitchCommand(prd, audience);
@@ -33,7 +34,7 @@ export function PitchPanel({ prd, audience, disabled, copied, onChoose, onCopy }
         <legend className="ask-hint">Pitch for</legend>
         {AUDIENCES.map(({ id, label }) => (
           <label key={id} className="pitch-choice">
-            <input type="radio" name={`pitch-audience-${prd}`} value={id} checked={audience === id} onChange={() => onChoose(id)} />
+            <input type="radio" name={`pitch-audience-${prd}`} value={id} checked={audience === id} onChange={() => { onChoose(id); }} />
             {label}
           </label>
         ))}
@@ -49,7 +50,7 @@ export function PitchPanel({ prd, audience, disabled, copied, onChoose, onCopy }
   );
 }
 
-export function PitchAction({ prd, disabled }: { prd: number; disabled: boolean }) {
+export function PitchAction({ prd, disabled }: { prd: PrdNumber; disabled: boolean }) {
   const [open, setOpen] = useState(false);
   const [audience, setAudience] = useState<PitchAudience>('customers');
   const [copied, setCopied] = useState<Copied>('idle');
@@ -66,8 +67,8 @@ export function PitchAction({ prd, disabled }: { prd: number; disabled: boolean 
 
   return (
     <span className="pitch-action" data-demo={disabled ? 'true' : undefined}>
-      <button type="button" className="ask-button stage-action" aria-expanded={open} onClick={() => setOpen(!open)}>Pitch</button>
-      {open && <PitchPanel prd={prd} audience={audience} disabled={disabled} copied={copied} onChoose={choose} onCopy={copy} />}
+      <button type="button" className="ask-button stage-action" aria-expanded={open} onClick={() => { setOpen(!open); }}>Pitch</button>
+      {open && <PitchPanel prd={prd} audience={audience} disabled={disabled} copied={copied} onChoose={choose} onCopy={() => void copy()} />}
     </span>
   );
 }

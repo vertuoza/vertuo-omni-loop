@@ -1,5 +1,6 @@
 import 'server-only';
 import { supabaseAs, supabaseEnv } from '../data/supabase-server';
+import { serverEnv } from '../env';
 import { installUrl } from '../signup/github-app';
 import type { PitchLookDeps } from './pitch-look-api';
 
@@ -8,5 +9,5 @@ import type { PitchLookDeps } from './pitch-look-api';
 // Supabase configured (the demo galaxy, a closed build) every call answers 503.
 export function pitchLookDeps(): PitchLookDeps {
   if (!supabaseEnv()) return { connect: null };
-  return { connect: supabaseAs, installLink: installUrl(process.env.GITHUB_APP_SLUG) };
+  return { connect: supabaseAs, installLink: installUrl(serverEnv().githubAppSlug) };
 }

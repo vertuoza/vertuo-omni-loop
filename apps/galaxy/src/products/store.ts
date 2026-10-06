@@ -1,7 +1,8 @@
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { rowOf, type PitchLook, type ProductRow, type StoredProduct } from './model';
 
 // Settings › Products's one call (PRD 859 s1). In production, set_pitch_look() of
-// supabase/migrations/20261029090000_products_pitch_look.sql, called as the signed-in person: whoever
+// supabase/migrations/20261101090000_products_pitch_look.sql, called as the signed-in person: whoever
 // may edit Settings › Business may change a product's look, and it answers the products row it saved,
 // or refuses. In the demo, the same rule kept in memory, so the page can be tried with no database.
 
@@ -18,10 +19,19 @@ export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 
 /** An error as PostgREST answers it, or anything thrown, as the page says it. */
 export function refusalOf(error: unknown): string {
-  const { code } = (error ?? {}) as { code?: unknown };
+  const code = propertyOf(error, 'code');
   if (code === '42501') return NOT_EDITOR;
   if (code === 'P0002') return GONE;
   return COULD_NOT_SAVE;
+}
+
+/** The products row set_pitch_look() answered, read as it came, or null when it is not one. */
+function storedOf(data: unknown): StoredProduct | null {
+  const id = propertyOf(data, 'id');
+  const name = propertyOf(data, 'name');
+  const look = propertyOf(data, 'pitch_look');
+  if (typeof id !== 'string' || typeof name !== 'string') return null;
+  return { id, name, pitch_look: typeof look === 'string' ? look : null };
 }
 
 type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }> };
@@ -31,8 +41,9 @@ export function databaseProducts(db: Rpc, workspace: string): ProductsPort {
     async setLook(product, look) {
       try {
         const { data, error } = await db.rpc('set_pitch_look', { p_workspace: workspace, p_product: product, p_look: look });
-        if (error || !data) return { ok: false, message: refusalOf(error) };
-        return { ok: true, product: rowOf(data as StoredProduct) };
+        const stored = storedOf(data);
+        if (error || !stored) return { ok: false, message: refusalOf(error) };
+        return { ok: true, product: rowOf(stored) };
       } catch (err) {
         return { ok: false, message: refusalOf(err) };
       }
@@ -44,12 +55,12 @@ export function databaseProducts(db: Rpc, workspace: string): ProductsPort {
 export function demoProductsPort(initial: ProductRow[]): ProductsPort {
   let rows = [...initial];
   return {
-    async setLook(id, look) {
+    setLook(id, look) {
       const kept = rows.find((r) => r.id === id);
-      if (!kept) return { ok: false, message: GONE };
+      if (!kept) return Promise.resolve({ ok: false, message: GONE });
       const product = { ...kept, look };
       rows = rows.map((r) => (r === kept ? product : r));
-      return { ok: true, product };
+      return Promise.resolve({ ok: true, product });
     },
   };
 }

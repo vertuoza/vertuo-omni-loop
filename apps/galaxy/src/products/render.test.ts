@@ -1,6 +1,8 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { sure } from '../arcade/test/sure';
 import { initialProductState, productReducer, type ProductAction, type ProductRow } from './model';
 import { DEMO_PRODUCTS, ProductScreen, ProductsScreen, type ProductScreenView, type ProductsScreenView } from './ProductsScreen';
 import { LOOK_HINT, NO_PRODUCTS, ProductsView, ProductView, READ_ONLY } from './ProductsView';
@@ -14,8 +16,8 @@ const VERTUOZA: ProductRow = { id: 'p-1', name: 'Vertuoza', look: 'arcade' };
 const OMNI: ProductRow = { id: 'p-2', name: 'Omni Loop', look: 'keynote' };
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const links = (html: string) => [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => ({ href: m[1], text: text(m[2]) }));
-const options = (html: string) => [...html.matchAll(/<option ([^>]*)>([^<]*)<\/option>/g)].map((m) => ({ value: /value="([^"]*)"/.exec(m[1])?.[1], selected: m[1].includes('selected'), text: m[2] }));
+const links = (html: string) => [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => ({ href: m[1], text: text(group(m, 2)) }));
+const options = (html: string) => [...html.matchAll(/<option ([^>]*)>([^<]*)<\/option>/g)].map((m) => ({ value: /value="([^"]*)"/.exec(group(m, 1))?.[1], selected: group(m, 1).includes('selected'), text: m[2] }));
 const select = (html: string) => /<select ([^>]*)>/.exec(html)?.[1] ?? null;
 
 const product = (row: ProductRow, { editable = true, actions = [] as ProductAction[] } = {}) =>
@@ -91,11 +93,11 @@ describe('the screens', () => {
     ];
     const pages: ProductScreenView[] = [
       { kind: 'closed' }, { kind: 'sign-in' }, { kind: 'no-workspace' }, { kind: 'unreadable' }, { kind: 'not-found' },
-      { kind: 'product', source: { kind: 'demo' }, editable: true, product: DEMO_PRODUCTS[0] },
+      { kind: 'product', source: { kind: 'demo' }, editable: true, product: sure(DEMO_PRODUCTS[0], 'the first demo product') },
     ];
-    const htmls = [
-      ...lists.map((view) => [view.kind, renderToStaticMarkup(createElement(ProductsScreen, { view }))]),
-      ...pages.map((view) => [view.kind, renderToStaticMarkup(createElement(ProductScreen, { view }))]),
+    const htmls: [string, string][] = [
+      ...lists.map((view): [string, string] => [view.kind, renderToStaticMarkup(createElement(ProductsScreen, { view }))]),
+      ...pages.map((view): [string, string] => [view.kind, renderToStaticMarkup(createElement(ProductScreen, { view }))]),
     ];
     for (const [kind, html] of htmls) {
       expect(html.indexOf('class="section-tabs"'), kind).toBeGreaterThanOrEqual(0);

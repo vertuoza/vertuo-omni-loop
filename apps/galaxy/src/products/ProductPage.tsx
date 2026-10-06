@@ -13,8 +13,6 @@ export type ProductsSource =
   | { kind: 'demo' }
   | { kind: 'database'; url: string; key: string; workspace: string };
 
-type Rpc = Parameters<typeof databaseProducts>[0];
-
 export interface ProductPageProps {
   source: ProductsSource;
   editable: boolean;
@@ -26,7 +24,7 @@ export function ProductPage({ source, editable, product }: ProductPageProps) {
   const port = useRef<ProductsPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoProductsPort([product])
-    : databaseProducts(createBrowserClient(source.url, source.key) as unknown as Rpc, source.workspace));
+    : databaseProducts(createBrowserClient(source.url, source.key), source.workspace));
 
   const setLook = async (look: PitchLook) => {
     if (state.busy || look === state.product.look) return;

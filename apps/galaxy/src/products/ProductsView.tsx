@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { lookLabel, PITCH_LOOKS, productHref, PRODUCTS_HREF, type PitchLook, type ProductRow, type ProductState } from './model';
+import { lookLabel, lookOf, PITCH_LOOKS, productHref, PRODUCTS_HREF, type PitchLook, type ProductRow, type ProductState } from './model';
 
 // Settings › Products drawn (PRD 859 s1). The list: one row per product of the workspace's business,
 // first first, its name and its pitch look, each a link to its own page. A product's page: its name and
@@ -62,7 +62,7 @@ export function ProductView({ state, editable, onLook = () => {} }: ProductViewP
               className="products-look-select"
               aria-label={`Pitch look of ${product.name}`}
               value={product.look}
-              onChange={(e) => onLook(e.currentTarget.value as PitchLook)}
+              onChange={(e) => { onLook(lookOf(e.currentTarget.value)); }}
               disabled={state.busy}
             >
               {PITCH_LOOKS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}

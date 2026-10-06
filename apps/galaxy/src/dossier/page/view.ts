@@ -77,7 +77,7 @@ import {
   CONTEXT_LABELS, CONTEXTS, GITHUB_UNREAD, isContext, OUTBOX_EMPTY, outboxView, type ContextKind, type ContextView, type OutboxView,
 } from './outbox-view';
 import { isDossierId } from './source';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { GITHUB_PENDING } from './stream/pending';
 import type { StageRow } from '../../stages/stage';
 import { stageView, type StageView } from './stage';
@@ -134,7 +134,7 @@ const NOT_ARTIFACTS: readonly DossierTab[] = ['questions', 'outbox', 'care', 're
 export const isArtifactTab = (tab: DossierTab): tab is ArtifactKind => !NOT_ARTIFACTS.includes(tab);
 
 const isDossierTab = (value: unknown): value is DossierTab =>
-  (typeof value === 'string' && NOT_ARTIFACTS.includes(value as DossierTab)) || isArtifactKind(value);
+  isOneOf(NOT_ARTIFACTS, value) || isArtifactKind(value);
 
 /** An empty Retro tab says why. */
 export const RETRO_EMPTY = 'The retro is written when the feature PR merges.';

@@ -21,11 +21,11 @@ export function PitchPaneCopy({ path }: { path: string }) {
 
   return (
     <span className="dossier-copy">
-      <button type="button" className="ask-button quiet" onClick={copy}>Copy GIF link</button>
+      <button type="button" className="ask-button quiet" onClick={() => void copy()}>Copy GIF link</button>
       {state === 'copied' && <span className="ask-hint" role="status">Copied.</span>}
       {state === 'selected' && (
         <>
-          <input ref={field} className="ask-share-link" readOnly value={link()} aria-label="Link to the GIF" onFocus={(e) => e.target.select()} />
+          <input ref={field} className="ask-share-link" readOnly value={link()} aria-label="Link to the GIF" onFocus={(e) => { e.target.select(); }} />
           <span className="ask-hint" role="status">The link is selected: copy it with Ctrl+C, or ⌘C on a Mac.</span>
         </>
       )}

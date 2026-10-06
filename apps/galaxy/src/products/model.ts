@@ -1,6 +1,6 @@
 // Settings › Products as pure data (PRD 859 s1). A product of the workspace's business
 // (supabase/migrations/20261019090000_business_store.sql) with the look its pitches are drawn in
-// (20261029090000_products_pitch_look.sql): Arcade poster, the default, or Clean keynote. The look is
+// (20261101090000_products_pitch_look.sql): Arcade poster, the default, or Clean keynote. The look is
 // per product, never per workspace. A product's own page is /app/settings/products/<id>; the page's
 // state follows one change of its look at a time.
 
