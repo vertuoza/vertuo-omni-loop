@@ -1,8 +1,9 @@
 // `omni flow show` and `omni flow verdict` (PRD 1089, s4), through the CLI.
+import type { ExecFileSyncOptions } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { makeRepo } from '../test/fixture.ts';
+import { makeRepo, realExec } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
@@ -174,6 +175,125 @@ describe('omni flow verdict', () => {
     const { code, err } = await omni(args);
     expect(code).toBe(2);
     expect(err).toMatch(message);
+  });
+});
+
+// `omni flow check merge` (PRD 1089, s5): the sub-PR's facts come from a faked `gh`, git runs for real.
+const KERNEL_REBASE = SPEC_FLOW.replace(
+  'subPr: { requireChecks: [phpunit, phpstan-max], approval: person }',
+  'subPr: { merge: rebase, requireChecks: [phpunit, phpstan-max], approval: person }',
+);
+const GREEN = [
+  { __typename: 'CheckRun', name: 'phpunit', status: 'COMPLETED', conclusion: 'SUCCESS' },
+  { __typename: 'CheckRun', name: 'phpstan-max', status: 'COMPLETED', conclusion: 'SUCCESS' },
+];
+const APPROVED = [{ author: { login: 'ada' }, state: 'APPROVED' }];
+type Gh = { head?: string; reviews?: unknown[]; rollup?: unknown[]; files?: string[]; open?: { number: number; headRefName: string }[] };
+
+function fakeGh({ head = 'feat/bus--s1', reviews = [], rollup = GREEN, files = ['src/kernel/Bus/Dispatcher.php'], open = [] }: Gh, calls: string[]) {
+  return (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+    if (cmd !== 'gh') return realExec(cmd, args, options);
+    calls.push(args.join(' '));
+    if (args[1] === 'view') {
+      return JSON.stringify({ number: 12, state: 'OPEN', baseRefName: 'feat/bus', headRefName: head, reviews, statusCheckRollup: rollup });
+    }
+    if (args[1] === 'diff') return `${files.join('\n')}\n`;
+    if (args[1] === 'list') return JSON.stringify(open);
+    throw new Error(`unexpected gh ${args.join(' ')}`);
+  };
+}
+
+async function checkMerge(args: string[], { flow = SPEC_FLOW, gh = {} }: { flow?: string; gh?: Gh } = {}) {
+  const { root } = makeRepo({
+    git: true,
+    files: { '.omni-loop/config.yml': HEAD + flow, '.omni-loop/delivery/inbox/0912-bus/plan.md': PLAN, ...HOOK_FILES },
+  });
+  const s = io();
+  const calls: string[] = [];
+  const code = await main(['flow', 'check', 'merge', ...args], { cwd: root, exec: fakeGh(gh, calls), ...s });
+  return { code, out: s.out.join(''), err: s.err.join(''), calls };
+}
+
+describe('omni flow check merge', () => {
+  it('refuses a kernel sub-PR no person approved, naming kernel: approval person (spec acceptance 8)', async () => {
+    const { code, out } = await checkMerge(['--pr', '12']);
+    expect(code).toBe(1);
+    expect(out).toBe('not ok kernel: approval person — no person has approved #12\n');
+  });
+
+  it('prints ok and the rebase command once approved and green (spec acceptance 8)', async () => {
+    const { code, out } = await checkMerge(['--pr', '12'], { flow: KERNEL_REBASE, gh: { reviews: APPROVED } });
+    expect(code).toBe(0);
+    expect(out).toBe('ok\ngh pr merge 12 --rebase --delete-branch\n');
+  });
+
+  it("prints today's squash command with no flow", async () => {
+    const { code, out, calls } = await checkMerge(['--pr', '12'], { flow: '', gh: { rollup: [] } });
+    expect(code).toBe(0);
+    expect(out).toBe('ok\ngh pr merge 12 --squash --delete-branch\n');
+    expect(calls).toEqual([
+      'pr view 12 --repo acme/widgets --json number,state,baseRefName,headRefName,reviews,statusCheckRollup',
+      'pr diff 12 --repo acme/widgets --name-only',
+    ]);
+  });
+
+  it('reports a path outside the territory and merges, or refuses it under territory: block', async () => {
+    const files = ['src/kernel/Bus/Dispatcher.php', 'README.md'];
+    const reported = await checkMerge(['--pr', '12'], { flow: '', gh: { files } });
+    expect(reported.code).toBe(0);
+    expect(reported.out).toBe("ok\ngh pr merge 12 --squash --delete-branch\nreport README.md is outside the slice's territory\n");
+    const blocked = await checkMerge(['--pr', '12'], { flow: 'flow:\n  rules:\n    subPr: { territory: block }\n', gh: { files } });
+    expect(blocked.code).toBe(1);
+    expect(blocked.out).toBe("not ok default: territory block — README.md is outside the slice's territory\n");
+  });
+
+  it('refuses past maxOpen, counting the open sub-PRs of the slices the plan names', async () => {
+    const flow = "flow:\n  areas:\n    kernel:\n      paths: ['^src/kernel/']\n      rules:\n        subPr: { maxOpen: 1 }\n";
+    const open = [
+      { number: 12, headRefName: 'feat/bus--s1' },
+      { number: 13, headRefName: 'feat/bus--s2' },
+      { number: 14, headRefName: 'feat/other--s1' },
+    ];
+    const both = await checkMerge(['--pr', '12'], { flow: flow.replace("['^src/kernel/']", "['^src/kernel/', '^src/Invoice']"), gh: { open } });
+    expect(both.code).toBe(1);
+    expect(both.out).toBe('not ok kernel: maxOpen 1 — 2 of its sub-PRs are open: #12, #13\n');
+    expect((await checkMerge(['--pr', '12'], { flow, gh: { open } })).code).toBe(0);
+  });
+
+  it('prints the verdict as JSON', async () => {
+    const { code, out } = await checkMerge(['--pr', '12', '--json'], { flow: KERNEL_REBASE, gh: { reviews: APPROVED } });
+    expect(code).toBe(0);
+    expect(JSON.parse(out)).toEqual({
+      ok: true,
+      method: 'rebase',
+      command: ['gh', 'pr', 'merge', '12', '--rebase', '--delete-branch'],
+      areas: ['kernel'],
+      reasons: [],
+      reported: [],
+    });
+  });
+
+  it("asks a target's repository and names it in the command", async () => {
+    const { code, out, calls } = await checkMerge(['--pr', '12', '--repo', 'acme/back'], { flow: '', gh: { rollup: [] } });
+    expect(code).toBe(0);
+    expect(out).toBe('ok\ngh pr merge 12 --squash --delete-branch --repo acme/back\n');
+    expect(calls.every((call) => call.includes('--repo acme/back'))).toBe(true);
+  });
+
+  it.each([
+    [['--pr', 'x'], /--pr/],
+    [[], /usage: omni flow check merge --pr <n>/],
+    [['--pr', '12', '--repo', 'back'], /back is not a target/],
+  ])('refuses %j as a usage error', async (args, message) => {
+    const { code, err } = await checkMerge(args);
+    expect(code).toBe(2);
+    expect(err).toMatch(message);
+  });
+
+  it('names its check on a bad one', async () => {
+    const { code, err } = await omni(['flow', 'check', 'land']);
+    expect(code).toBe(2);
+    expect(err).toMatch(/usage: omni flow check merge/);
   });
 });
 

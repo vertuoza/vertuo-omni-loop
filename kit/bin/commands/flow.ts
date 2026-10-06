@@ -1,6 +1,7 @@
 // `omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--json]` and
-// `omni flow verdict <point> --from <file>` (PRD 1089) — the repository's flow, as an agent follows
-// it, through `kit/lib/flow/show.ts` and `kit/lib/flow/verdict.ts`.
+// `omni flow verdict <point> --from <file>` and `omni flow check merge --pr <n>` (PRD 1089) — the
+// repository's flow, as an agent follows it, through `kit/lib/flow/show.ts`, `verdict.ts` and
+// `merge-gate.ts`.
 //
 // - `show <point>` prints the point's resolved hooks — every `before`, the `replace`, every `after`,
 //   each with its area, its text with the inputs filled in and its verdict line — and `kitStep: run`
@@ -11,6 +12,10 @@
 // - `show` alone prints what this repository changes from the kit's defaults, area by area.
 // - `verdict <point> --from <file>` reads a hook's output: `ok`, exit 0, or `not ok <point> <why>`,
 //   exit 1; output that does not end with the point's verdict line is `not ok … no verdict`.
+// - `check merge --pr <n> [--repo <target>]` reads the sub-PR from GitHub (`../github.ts`), finds its
+//   slice by its head branch in the inbox's plans, and applies `rules.subPr` through
+//   `kit/lib/flow/merge-gate.ts`: `ok` and the merge command to run, exit 0, or one `not ok <area>:
+//   <rule> — <why>` line per reason, exit 1. What merges anyway is printed as `report` lines.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fillBranch } from '../../lib/board.ts';
@@ -19,13 +24,17 @@ import { FLOW_POINTS, flowPoint, type FlowPoint } from '../../lib/flow/points.ts
 import { resolveFlow } from '../../lib/flow/resolve.ts';
 import { flowDifferences, ruleLines, showPath, showPoint, type AreaDifference, type PathView, type PointView, type ShownHook } from '../../lib/flow/show.ts';
 import { readVerdict, verdictLine } from '../../lib/flow/verdict.ts';
+import { mergeGate } from '../../lib/flow/merge-gate.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
-import { parseFolderName } from '../../lib/layout.ts';
-import { parseArgs, prdArg, println, readUserFile, sliceArg, usageError } from '../args.ts';
+import { parseFolderName, prdFoldersIn } from '../../lib/layout.ts';
+import { parseArgs, prArg, prdArg, println, readUserFile, sliceArg, usageError } from '../args.ts';
+import { openPullRequestsInto, subPrFor } from '../github.ts';
 import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 
-const USAGE = 'usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--json] | omni flow verdict <point> --from <file>';
+const USAGE =
+  'usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--json] | omni flow verdict <point> --from <file>' +
+  ' | omni flow check merge --pr <n> [--repo <target>] [--json]';
 const KNOWN = FLOW_POINTS.map(({ point }) => point).join(', ');
 
 /** The point named `name`, or a usage error listing the catalog. */
@@ -160,11 +169,65 @@ function verdict(args: string[], { ctx, stdout }: CommandIo): number {
   return read.ok ? 0 : 1;
 }
 
+const MERGE_USAGE = 'usage: omni flow check merge --pr <n> [--repo <target>] [--json]';
+
+/** The slug `--repo` names: `owner/name` as it is, or a target's short name looked up in `plan.targets`. */
+function repoArg(ctx: Context, value: string | undefined): string | null {
+  if (value === undefined) return null;
+  if (value.includes('/')) return value;
+  const target = (ctx.config.plan?.targets ?? []).find(({ repo }) => repo.split('/')[1] === value);
+  if (!target) throw usageError(`omni flow check merge: ${value} is not a target of plan.targets — give owner/name.`);
+  return target.repo;
+}
+
+/** Every slice of every PRD in the inbox, by its slice branch, with its territory. */
+function sliceTerritories(ctx: Context): Map<string, string[]> {
+  const byBranch = new Map<string, string[]>();
+  for (const { name } of prdFoldersIn(join(ctx.root, ctx.layout.dirs.inbox))) {
+    const topic = parseFolderName(name)?.topic;
+    const plan = join(ctx.root, ctx.layout.dirs.inbox, name, 'plan.md');
+    if (topic === undefined || !existsSync(plan)) continue;
+    for (const { id, territory } of parsePlanSlices(readFileSync(plan, 'utf8'))) {
+      byBranch.set(fillBranch(ctx.config.branches.slice, { topic, slice: id }), territory);
+    }
+  }
+  return byBranch;
+}
+
+function checkMerge(args: string[], { ctx, stdout, exec, env }: CommandIo): number {
+  const [what, ...rest] = args;
+  if (what !== 'merge') throw usageError(MERGE_USAGE);
+  const { positional, flags } = parseArgs('flow check merge', rest, { values: ['pr', 'repo'], booleans: ['json'] });
+  if (positional.length > 0 || flags.pr === undefined) throw usageError(MERGE_USAGE);
+  const number = prArg('flow check merge', '--pr', flags.pr);
+  const repo = repoArg(ctx, flags.repo);
+  const resolved = resolveFlow(ctx.config);
+  const slug = repo ?? ctx.config.repo.slug;
+  const pr = subPrFor(ctx, { repo: slug, number, exec, env });
+  const slices = sliceTerritories(ctx);
+  const countsOpen = [resolved.defaultArea, ...resolved.areas].some(({ rules }) => rules.subPr.maxOpen !== null);
+  const open = countsOpen
+    ? openPullRequestsInto(ctx, { repo: slug, base: pr.base, exec, env }).flatMap(({ number: n, head }) => {
+        const territory = slices.get(head);
+        return territory === undefined ? [] : [{ number: n, territory }];
+      })
+    : [];
+  const verdict = mergeGate({ flow: resolved, pr, territory: slices.get(pr.head) ?? null, defaultBranch: ctx.config.repo.defaultBranch, open, repo });
+  if (flags.json) {
+    println(stdout, JSON.stringify(verdict, null, 2));
+  } else {
+    const lines = verdict.command === null ? verdict.reasons.map((reason) => `not ok ${reason}`) : ['ok', verdict.command.join(' ')];
+    println(stdout, [...lines, ...verdict.reported.map((line) => `report ${line}`)].join('\n'));
+  }
+  return verdict.ok ? 0 : 1;
+}
+
 export const flow: Command = {
   run: synchronous((args: string[], io: CommandIo): number => {
     const [sub, ...rest] = args;
     if (sub === 'show') return show(rest, io);
     if (sub === 'verdict') return verdict(rest, io);
+    if (sub === 'check') return checkMerge(rest, io);
     throw usageError(USAGE);
   }),
 };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ghClient, githubClientFor } from './github.ts';
+import { ghClient, githubClientFor, openPullRequestsInto, subPrFor } from './github.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { parseCommentId, parsePr } from '../lib/ids.ts';
 
@@ -75,5 +75,52 @@ describe('githubClientFor', () => {
     const { exec, calls } = fakeExec({ 'api': '[]' });
     githubClientFor(ctx(null), { repo: 'other/thing', issue: parsePr(1), exec }).listComments();
     expect(calls[0]?.args[1]).toBe('repos/other/thing/issues/1/comments');
+  });
+});
+
+describe('subPrFor', () => {
+  const ctx = { config: { repo: { slug: 'acme/widgets' }, github: { user: null } } };
+  const VIEW = JSON.stringify({
+    number: 12,
+    state: 'OPEN',
+    baseRefName: 'feat/bus',
+    headRefName: 'feat/bus--s1',
+    reviews: [{ author: { login: 'ada' }, state: 'APPROVED' }, { author: { login: 'ci[bot]' }, state: 'APPROVED' }],
+    statusCheckRollup: [
+      { __typename: 'CheckRun', name: 'phpunit', status: 'COMPLETED', conclusion: 'SUCCESS' },
+      { __typename: 'StatusContext', context: 'deploy', state: 'PENDING' },
+    ],
+  });
+
+  it('reads the sub-PR through gh pr view, and its whole diff through gh pr diff --name-only', () => {
+    const { exec, calls } = fakeExec({ 'pr view 12': VIEW, 'pr diff 12': 'src/kernel/Bus.php\nREADME.md\n' });
+    expect(subPrFor(ctx, { number: parsePr(12), exec })).toEqual({
+      number: 12,
+      state: 'OPEN',
+      base: 'feat/bus',
+      head: 'feat/bus--s1',
+      checks: [{ name: 'phpunit', state: 'pass' }, { name: 'deploy', state: 'pending' }],
+      approvedBy: ['ada'],
+      files: ['src/kernel/Bus.php', 'README.md'],
+    });
+    expect(calls.map(({ args }) => args.join(' '))).toEqual([
+      'pr view 12 --repo acme/widgets --json number,state,baseRefName,headRefName,reviews,statusCheckRollup',
+      'pr diff 12 --repo acme/widgets --name-only',
+    ]);
+  });
+
+  it('asks the repository --repo names', () => {
+    const { exec, calls } = fakeExec({ 'pr view': VIEW, 'pr diff': '' });
+    subPrFor(ctx, { repo: 'acme/back', number: parsePr(12), exec });
+    expect(calls.every(({ args }) => args.includes('acme/back'))).toBe(true);
+  });
+});
+
+describe('openPullRequestsInto', () => {
+  it('lists the open pull requests into a base', () => {
+    const ctx = { config: { repo: { slug: 'acme/widgets' }, github: { user: null } } };
+    const { exec, calls } = fakeExec({ 'pr list': '[{"number":3,"headRefName":"feat/bus--s2"}]' });
+    expect(openPullRequestsInto(ctx, { base: 'feat/bus', exec })).toEqual([{ number: 3, head: 'feat/bus--s2' }]);
+    expect(calls[0]?.args).toEqual(['pr', 'list', '--repo', 'acme/widgets', '--base', 'feat/bus', '--state', 'open', '--json', 'number,headRefName', '--limit', '200']);
   });
 });
