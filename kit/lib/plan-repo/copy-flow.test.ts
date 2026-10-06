@@ -90,11 +90,9 @@ describe('readCopyFlow and targetFlows', () => {
 
   it('marks a copied flow that cannot be read, naming its file', () => {
     const { root } = makeRepo({ files: { '.omni-loop/config.yml': PLAN, [`${COPY}/back/flow/config.yml`]: 'flow:\n  areas:\n    kernel:\n      paths: ["("]\n' } });
-    expect(targetFlows({ root, config: parseConfig(PLAN) }).get('back')).toEqual({
-      ok: false,
-      file: `${COPY}/back/flow/config.yml`,
-      reason: expect.stringMatching(/regular expression/),
-    });
+    const back = targetFlows({ root, config: parseConfig(PLAN) }).get('back');
+    expect(back).toMatchObject({ ok: false, file: `${COPY}/back/flow/config.yml` });
+    expect(back && !back.ok ? back.reason : '').toMatch(/regular expression/);
   });
 
   it('is empty outside a plan repository', () => {

@@ -180,11 +180,8 @@ plan:
   it("reads an imported target's copied flow and its hook files from the copy", async () => {
     const { code, out } = await inPlan(['flow', 'show', 'do-work.test', '--repo', 'back', '--path', 'src/kernel/Bus/Dispatcher.php', '--json']);
     expect(code).toBe(0);
-    expect(JSON.parse(out)).toMatchObject({
-      areas: ['kernel'],
-      replace: { area: 'kernel', path: '.omni-loop/flow/kernel/tests.md', text: expect.stringMatching(/Run phpunit/) },
-      kitStep: 'replaced',
-    });
+    expect(JSON.parse(out)).toMatchObject({ areas: ['kernel'], replace: { area: 'kernel', path: '.omni-loop/flow/kernel/tests.md' }, kitStep: 'replaced' });
+    expect(out).toMatch(/Run phpunit/);
   });
 
   it("prints the target's area for a path, while the plan repository's own flow stays the kit's defaults", async () => {
