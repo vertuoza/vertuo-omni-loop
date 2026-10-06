@@ -429,8 +429,8 @@ the verification form asks. Edit the config file (`.omni-loop/config.yml`), then
 so the pull request's diff is the proposal and a person can drop it alone. A key that turns
 `omni check all` red is left out, and named in the body.
 
-**A proposed flow.** The repository's flow (`docs/guide/flow.md`) is proposed from what the
-repository proves, never applied: it lands in the same config commit, a person merges or drops it.
+**A proposed flow.** The repository's flow (the `flow` section: rules, areas and hooks) is proposed
+from what the repository proves, never applied: it lands in the same config commit, a person merges or drops it.
 A migrations folder is one the enforced-truth facet reported as migrations (a `migrations` folder
 holding schema changes, a migration tool's configured directory), found in `git ls-files`. For
 `database/migrations/` it reads:
