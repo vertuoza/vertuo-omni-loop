@@ -534,3 +534,12 @@ Why: Every red can then be checked by a person against quoted text, rather than 
 Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s5-02-jev-broken-without-quote-is-not-red, PRD #871
 Merged: @pierrederval, 2026-10-01, PR #874
 Proposed: harvest 2026-10-01
+
+## P-PRODUCT-61
+
+A part of the code that others depend on is always built before them, never alongside or after the work that needs it.
+
+Why: Work that builds on a part that is not yet finished would rest on ground that may still change.
+Source: .omni-loop/delivery/shipped/1089-repo-flow/outbox/settled.md, entry s3-01-plan-rules-order-and-reach, PRD #1089
+Merged: @pierrederval, 2026-10-06, PR #1090
+Proposed: harvest 2026-10-06

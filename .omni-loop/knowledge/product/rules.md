@@ -807,3 +807,15 @@ Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #874
 Proposed: harvest 2026-10-01
+
+## BR-PRODUCT-69
+
+The plan check accepts a slice that must come first only when it sits strictly before every other slice, ordered by landing and then wave. A slice in a later landing already waits for it, the file limit counts the paths a slice lists, and every row is checked against this repository's rules.
+
+Serves: P-PRODUCT-61
+Source: .omni-loop/delivery/shipped/1089-repo-flow/outbox/settled.md, entry s3-01-plan-rules-order-and-reach, PRD #1089
+Enforced by: unenforced
+Stated: 2026-10-06
+Decided: nobody — adopted when raised (medium), 2026-10-06
+Merged: @pierrederval, 2026-10-06, PR #1090
+Proposed: harvest 2026-10-06
