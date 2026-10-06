@@ -215,8 +215,8 @@ var SECRETS = Object.freeze([
 ]);
 var BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
 var MASK = "[masked]";
-function maskSecrets(text7) {
-  let out = plainText(text7);
+function maskSecrets(text8) {
+  let out = plainText(text8);
   for (const pattern of SECRETS) out = out.replace(pattern, MASK);
   return out.replace(BEARER, `$1 ${MASK}`);
 }
@@ -372,9 +372,9 @@ async function readContent(response) {
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
-  const line = (text7) => {
-    if (!text7.startsWith("data:")) return false;
-    const data = text7.slice(5).trim();
+  const line = (text8) => {
+    if (!text8.startsWith("data:")) return false;
+    const data = text8.slice(5).trim();
     if (data === "[DONE]") return true;
     let raw;
     try {
@@ -393,9 +393,9 @@ async function readContent(response) {
     buffer += decoder.decode(value, { stream: true });
     let newline = buffer.indexOf("\n");
     while (newline !== -1) {
-      const text7 = buffer.slice(0, newline).replace(/\r$/, "");
+      const text8 = buffer.slice(0, newline).replace(/\r$/, "");
       buffer = buffer.slice(newline + 1);
-      if (line(text7)) {
+      if (line(text8)) {
         reader.cancel().catch(() => {
         });
         return content;
@@ -406,12 +406,12 @@ async function readContent(response) {
   line(buffer + decoder.decode());
   return content;
 }
-function parseJson(text7) {
-  const start = text7.indexOf("{");
-  const end = text7.lastIndexOf("}");
+function parseJson(text8) {
+  const start = text8.indexOf("{");
+  const end = text8.lastIndexOf("}");
   if (start === -1 || end < start) return void 0;
   try {
-    return JSON.parse(text7.slice(start, end + 1));
+    return JSON.parse(text8.slice(start, end + 1));
   } catch {
     return void 0;
   }
@@ -721,10 +721,10 @@ var CANON_SPEC_LIMIT = 4e4;
 var MAX_QUOTE = 300;
 var CACHE_LIMIT = 200;
 var JUDGE_NOT_CONFIGURED = "no-secret";
-var plain = (text7) => (text7 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
-function quoted2(text7, quote) {
+var plain = (text8) => (text8 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+function quoted2(text8, quote) {
   const q = plain(quote);
-  return q.length > 0 && plain(text7).includes(q);
+  return q.length > 0 && plain(text8).includes(q);
 }
 var SYSTEM = [
   "You check a product spec against the product's canon: its Statement (what the product is), its Never lines (what it must never become or do), the business claims its team confirmed, and its personas.",
@@ -1399,6 +1399,16 @@ var CommentIdSchema = z9.number().int().positive().brand();
 var WorkSliceIdSchema = z9.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
 var SliceIdSchema = z9.string().regex(/^s\d+$/).brand().brand();
 var OutboxItemIdSchema = z9.string().regex(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?s\d+-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
+var DIGITS = /^\d+$/;
+function numeric(value) {
+  return typeof value === "string" && DIGITS.test(value) ? Number(value) : value;
+}
+function parseId(schema, value, what, given) {
+  return parseOrThrow(schema, value, `${what} ${JSON.stringify(given)}`);
+}
+function parsePr(value) {
+  return parseId(PrNumberSchema, numeric(value), "pull request number", value);
+}
 
 // apps/omni-app/src/outbox-check/github-schema.ts
 import { z as z10 } from "zod";
@@ -1734,14 +1744,14 @@ function readHead(head) {
   return { title: head[at2]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 function readBody(raw) {
-  const text7 = raw.replace(COMMENT, "").trim();
-  const lines = text7.split("\n").map((line) => line.trim()).filter(Boolean);
+  const text8 = raw.replace(COMMENT, "").trim();
+  const lines = text8.split("\n").map((line) => line.trim()).filter(Boolean);
   const questions = lines.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
   if (lines.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
-  if (questions.length === lines.length) return { kind: "holes", text: text7, see: null, questions };
+  if (questions.length === lines.length) return { kind: "holes", text: text8, see: null, questions };
   const see = lines.length === 1 ? lines[0]?.match(SEE) ?? null : null;
-  if (see) return { kind: "pointer", text: text7, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
-  return { kind: "text", text: text7, see: null, questions };
+  if (see) return { kind: "pointer", text: text8, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
+  return { kind: "text", text: text8, see: null, questions };
 }
 function readSection(heading, lines) {
   const at2 = lines.findIndex((line) => line.trim() !== "");
@@ -1783,8 +1793,8 @@ function readSlots(sections, { file, errors, oldSpellings }) {
   }
   return { slots, unmarked };
 }
-function parseForm(text7, { file = null } = {}) {
-  const block = text7.match(FRONT_MATTER_BLOCK);
+function parseForm(text8, { file = null } = {}) {
+  const block = text8.match(FRONT_MATTER_BLOCK);
   if (!block) return { ok: false, errors: [withFile(file, 'missing its front matter (a "---" fenced header)')] };
   const [, rawFrontMatter, body] = block;
   const errors = [];
@@ -1920,7 +1930,7 @@ function foldersLayout(root, paths) {
 }
 
 // kit/lib/markers.ts
-var escape = (text7) => text7.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var escape = (text8) => text8.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function makeMarkers(prefix) {
   const p = escape(prefix);
   return Object.freeze({
@@ -2038,9 +2048,9 @@ var PUNCHLINES = Object.freeze([
   "Small print, big relief once it is settled."
 ]);
 var BANTER_POOL = Object.freeze({ intros: INTROS, punchlines: PUNCHLINES });
-function stableHash(text7) {
+function stableHash(text8) {
   let hash = 2166136261;
-  for (const byte of new TextEncoder().encode(text7)) {
+  for (const byte of new TextEncoder().encode(text8)) {
     hash ^= byte;
     hash = Math.imul(hash, 16777619);
   }
@@ -2291,8 +2301,8 @@ function validateSections(body) {
   );
   return { errors, sections };
 }
-function parseOutboxItem(text7, { file = null } = {}) {
-  const read = readFrontMatterBlock(text7, file, OutboxItemFrontMatterSchema);
+function parseOutboxItem(text8, { file = null } = {}) {
+  const read = readFrontMatterBlock(text8, file, OutboxItemFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const errors = [...read.errors];
   const { errors: sectionErrors, sections } = validateSections(read.body);
@@ -2324,8 +2334,8 @@ function parseOutboxItem(text7, { file = null } = {}) {
   };
   return { ok: true, item };
 }
-function readFrontMatterBlock(text7, file, schema) {
-  const blockMatch = text7.match(FRONT_MATTER_BLOCK2);
+function readFrontMatterBlock(text8, file, schema) {
+  const blockMatch = text8.match(FRONT_MATTER_BLOCK2);
   if (!blockMatch) {
     return { body: null, errors: [withFile2(file, 'missing a front-matter block (a "---" fenced header)')], data: null };
   }
@@ -2381,17 +2391,17 @@ var REGISTER_OR_ADR_ID = /\bN\d+\b|\bBR-[A-Z0-9]+-\d+\b|\bADR-\d{4}\b/g;
 var CAMEL_CASE_WORD = /\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b/g;
 var SCREAMING_CASE_WORD = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
 var BACKTICK_SPAN = /`[^`\n]+`/g;
-function countSentences(text7) {
-  const trimmed = (text7 ?? "").trim();
+function countSentences(text8) {
+  const trimmed = (text8 ?? "").trim();
   if (!trimmed) return 0;
   const matches = trimmed.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
   return matches.filter((sentence2) => sentence2.trim().length > 0).length;
 }
-function uniqueMatches(text7, pattern) {
-  return [...new Set(text7.match(pattern) ?? [])];
+function uniqueMatches(text8, pattern) {
+  return [...new Set(text8.match(pattern) ?? [])];
 }
-function plainWordsProblems(text7) {
-  const value = text7 ?? "";
+function plainWordsProblems(text8) {
+  const value = text8 ?? "";
   const problems = [];
   const backticks = uniqueMatches(value, BACKTICK_SPAN);
   if (backticks.length > 0) {
@@ -2428,8 +2438,8 @@ function plainWordsProblems(text7) {
   }
   return problems;
 }
-function funLineProblems(text7) {
-  const value = (text7 ?? "").trim();
+function funLineProblems(text8) {
+  const value = (text8 ?? "").trim();
   const problems = plainWordsProblems(value);
   const length = Array.from(value).length;
   if (length > FUN_LINE_MAX_LENGTH) {
@@ -2479,8 +2489,8 @@ function outboxItemFiles({ ctx }) {
 import { existsSync as existsSync6, mkdirSync, readFileSync as readFileSync4, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join as join7, relative } from "node:path";
 import { z as z16 } from "zod";
-function parseItem(text7, file) {
-  return parseOutboxItem(text7, { file });
+function parseItem(text8, file) {
+  return parseOutboxItem(text8, { file });
 }
 var VERDICTS = ["agreed", "drifted"];
 var ADOPTED_VERDICT = "adopted";
@@ -2581,8 +2591,8 @@ function renderSettledEntry({
   );
   return lines.join("\n");
 }
-function parseSettledEntries(text7, markers) {
-  return latestPerId(rawSettledEntries(text7, markers));
+function parseSettledEntries(text8, markers) {
+  return latestPerId(rawSettledEntries(text8, markers));
 }
 function latestPerId(entries) {
   const byId = /* @__PURE__ */ new Map();
@@ -2598,8 +2608,8 @@ function closedEntry({ id, fields, blocks }) {
   const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
 }
-function rawSettledEntries(text7, markers) {
-  const lines = text7.split("\n");
+function rawSettledEntries(text8, markers) {
+  const lines = text8.split("\n");
   const entries = [];
   let current = null;
   for (let index = 0; index < lines.length; index += 1) {
@@ -2714,8 +2724,8 @@ function validateBody(body) {
   errors.push(...entryErrors);
   return { errors, entries };
 }
-function parseAccount(text7, { file = null } = {}) {
-  const read = readFrontMatterBlock(text7, file, AccountFrontMatterSchema);
+function parseAccount(text8, { file = null } = {}) {
+  const read = readFrontMatterBlock(text8, file, AccountFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const { errors: bodyErrors, entries } = validateBody(read.body);
   const errors = [...read.errors, ...bodyErrors.map((message) => withFile2(file, message))];
@@ -2748,8 +2758,8 @@ function readAccounts(prd, { ctx }) {
   const names = readdirSync3(`${ctx.root}/${dir}`).filter((name) => name.endsWith(".md")).sort();
   return names.map((name) => {
     const file = `${dir}/${name}`;
-    const text7 = readRepoFile(ctx, file);
-    const parsed2 = parseAccount(text7, { file });
+    const text8 = readRepoFile(ctx, file);
+    const parsed2 = parseAccount(text8, { file });
     if (!parsed2.ok) return parsed2;
     const unresolved = parsed2.account.entries.flatMap(
       (entry) => entry.account.kind === "item" && !itemIds.has(entry.account.id) ? [entry.account.id] : []
@@ -2812,8 +2822,8 @@ var FIELD_KEY = {
   "Glossary term": "glossaryTerm"
 };
 var FIELD_NAMES = keysOf(FIELD_KEY);
-function idsCitedIn(text7) {
-  return [...new Set(text7.match(ID_TOKEN) ?? [])];
+function idsCitedIn(text8) {
+  return [...new Set(text8.match(ID_TOKEN) ?? [])];
 }
 function codeOf(name) {
   return name.replace(/-/g, "").toUpperCase();
@@ -2867,10 +2877,10 @@ function readProposed(file, id, value) {
     problems: [`${file}: ${id} \u2014 "Proposed: ${value}" is not "Proposed: <who> <YYYY-MM-DD>".`]
   };
 }
-function splitEntries(text7) {
+function splitEntries(text8) {
   const entries = [];
   let current = null;
-  for (const line of text7.split("\n")) {
+  for (const line of text8.split("\n")) {
     const match = line.match(ENTRY_HEADING);
     if (match) {
       if (current) entries.push(current);
@@ -2885,8 +2895,8 @@ function splitEntries(text7) {
   if (current) entries.push(current);
   return entries;
 }
-function parseEntryFile(file, text7, place) {
-  return splitEntries(text7).map(({ id, lines }) => {
+function parseEntryFile(file, text8, place) {
+  return splitEntries(text8).map(({ id, lines }) => {
     const { fields, counts, fieldAt } = readFields(lines);
     const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
@@ -2928,8 +2938,8 @@ function diskSource(root) {
     read: (file) => readFileSync5(join8(root, file), "utf8")
   };
 }
-function glossaryTermOf(text7) {
-  return readFields(text7.split("\n")).fields.glossaryTerm ?? null;
+function glossaryTermOf(text8) {
+  return readFields(text8.split("\n")).fields.glossaryTerm ?? null;
 }
 function productDir(ctx) {
   return `${ctx.layout.knowledgeRoot}/product`;
@@ -3077,8 +3087,8 @@ function openItemFiles(prd, { ctx }) {
   return outboxItemFiles({ ctx }).filter((file) => file.startsWith(prefix));
 }
 function describeItem(file, { ctx }) {
-  const text7 = readRepoFile(ctx, file);
-  const parsed2 = parseOutboxItem(text7, { file });
+  const text8 = readRepoFile(ctx, file);
+  const parsed2 = parseOutboxItem(text8, { file });
   return parsed2.ok ? { file, id: parsed2.item.id, rank: parsed2.item.rank } : { file, id: null, rank: null };
 }
 function openItems(prd, { ctx }) {
@@ -3234,8 +3244,8 @@ function readSettledEntries(prd, { ctx }) {
   if (!existsSync10(`${ctx.root}/${settledFile}`)) return [];
   return parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
 }
-function firstSentence(text7) {
-  const trimmed = (text7 ?? "").trim();
+function firstSentence(text8) {
+  const trimmed = (text8 ?? "").trim();
   const match = trimmed.match(/[^.!?]+(?:[.!?]+|$)/);
   return (match ? match[0] : trimmed).trim();
 }
@@ -3251,8 +3261,8 @@ function answeredOutcome(entry) {
   const reworkedBy = entry.closed ? (entry.fields?.Closed ?? "").match(REWORKED_BY)?.[1] : null;
   return reworkedBy ? `reworked in #${reworkedBy}` : "to be reworked";
 }
-function quoteReply(text7) {
-  const oneLine4 = (text7 ?? "").replace(/\s+/g, " ").trim();
+function quoteReply(text8) {
+  const oneLine4 = (text8 ?? "").replace(/\s+/g, " ").trim();
   const truncated = oneLine4.length > 120 ? `${oneLine4.slice(0, 117)}\u2026` : oneLine4;
   return `"${truncated}"`;
 }
@@ -3276,14 +3286,14 @@ function formatApprovedAt(approvedAt) {
   const [, , month, day3] = match;
   return `${Number(day3)} ${MONTH_NAMES[Number(month) - 1]}`;
 }
-function tableCell(text7) {
-  return (text7 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
+function tableCell(text8) {
+  return (text8 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
 }
-function quoted3(text7) {
-  return (text7 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
+function quoted3(text8) {
+  return (text8 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
 }
-function funLine(text7) {
-  return `_${(text7 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
+function funLine(text8) {
+  return `_${(text8 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
 }
 function formatOptionsTable(options, mark) {
   return [
@@ -3991,14 +4001,14 @@ async function readPull2(octokit, { owner, repo, prNumber }) {
 }
 async function readBaseConfig(octokit, { owner, repo, baseSha, dest }) {
   const folder = await snapshot(octokit, { owner, repo, ref: baseSha, paths: [CONFIG_FILE], dest });
-  let text7;
+  let text8;
   try {
-    text7 = readFileSync9(join12(folder, CONFIG_FILE), "utf8");
+    text8 = readFileSync9(join12(folder, CONFIG_FILE), "utf8");
   } catch {
     return { folder, config: null, error: null };
   }
   try {
-    return { folder, config: parseConfig(text7, CONFIG_FILE), error: null };
+    return { folder, config: parseConfig(text8, CONFIG_FILE), error: null };
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return { folder, config: null, error };
@@ -4378,8 +4388,8 @@ var VoiceRoundSchema = z20.object({
 var VoiceSchema = z20.object({ rounds: z20.array(VoiceRoundSchema) });
 var isRecord2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var isText = (value) => typeof value === "string" && value.trim().length > 0;
-function countSentences2(text7) {
-  return text7.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
+function countSentences2(text8) {
+  return text8.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
 }
 function citationProblems(citations, field3) {
   if (!Array.isArray(citations) || citations.length === 0) {
@@ -4389,9 +4399,9 @@ function citationProblems(citations, field3) {
     (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field3}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
   );
 }
-function lineProblems(text7, field3) {
-  if (!isText(text7)) return [`${field3} must be a sentence.`];
-  const count2 = countSentences2(text7);
+function lineProblems(text8, field3) {
+  if (!isText(text8)) return [`${field3} must be a sentence.`];
+  const count2 = countSentences2(text8);
   return count2 > MAX_SENTENCES ? [`${field3} holds ${count2} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
@@ -4435,10 +4445,10 @@ function roundProblems(round) {
     ...fitProblems(round.fit)
   ];
 }
-function parseVoice(text7) {
+function parseVoice(text8) {
   let voice;
   try {
-    voice = JSON.parse(text7);
+    voice = JSON.parse(text8);
   } catch {
     return { ok: false, voice: null, errors: ["not valid JSON."] };
   }
@@ -4475,8 +4485,8 @@ function unrecognizedKeyMessage(key) {
   const named = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` \u2014 an inbox spec names no ${key}` : "";
   return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas and proof`;
 }
-function parseSpec(text7, { file = null } = {}) {
-  const blockMatch = text7.match(FRONT_MATTER_BLOCK3);
+function parseSpec(text8, { file = null } = {}) {
+  const blockMatch = text8.match(FRONT_MATTER_BLOCK3);
   if (!blockMatch) {
     return {
       ok: false,
@@ -4522,8 +4532,8 @@ function knownAreas(ctx) {
     readdirSync6(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
   );
 }
-function violationsForFile(file, folder, text7, ctx) {
-  const parsed2 = parseSpec(text7, { file });
+function violationsForFile(file, folder, text8, ctx) {
+  const parsed2 = parseSpec(text8, { file });
   if (!parsed2.ok) {
     return { record: null, violations: parsed2.errors };
   }
@@ -4577,8 +4587,8 @@ function gradeFolder(specFile, ctx) {
   if (!existsSync13(join15(ctx.root, specFile))) {
     violations.push(`${specFile}: spec.md is missing.`);
   } else {
-    const text7 = readRepoFile(ctx, specFile);
-    const graded = violationsForFile(specFile, folder, text7, ctx);
+    const text8 = readRepoFile(ctx, specFile);
+    const graded = violationsForFile(specFile, folder, text8, ctx);
     violations.push(...graded.violations);
     if (graded.record) record = { ...graded.record, file: specFile, folder };
   }
@@ -4917,20 +4927,20 @@ function targetFlows({ root, config }) {
 
 // kit/lib/inbox/territory.ts
 var NOTHING = /^[—–-]?$/;
-function sliceIdOf(text7) {
-  const id = WorkSliceIdSchema.safeParse(text7);
-  if (!id.success) throw new Error(`This plan's slice table names "${text7}", which is no slice id like s1.`);
+function sliceIdOf(text8) {
+  const id = WorkSliceIdSchema.safeParse(text8);
+  if (!id.success) throw new Error(`This plan's slice table names "${text8}", which is no slice id like s1.`);
   return id.data;
 }
 function blockedByCell(cell3) {
-  const text7 = (cell3 ?? "").trim();
-  if (NOTHING.test(text7)) return [];
-  return text7.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
+  const text8 = (cell3 ?? "").trim();
+  if (NOTHING.test(text8)) return [];
+  return text8.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
 }
 function territoryPrefixes(cell3) {
-  const text7 = (cell3 ?? "").trim();
-  if (NOTHING.test(text7)) return [];
-  return [...text7.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
+  const text8 = (cell3 ?? "").trim();
+  if (NOTHING.test(text8)) return [];
+  return [...text8.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
 }
 function prefixOf(declaration) {
   return declaration.replace(/\*+$/, "");
@@ -4999,8 +5009,8 @@ function parsePlanSlices(markdown) {
   return slices;
 }
 function landingCell(cell3) {
-  const text7 = plainCell(cell3);
-  return NOTHING.test(text7) ? 1 : Number(text7);
+  const text8 = plainCell(cell3);
+  return NOTHING.test(text8) ? 1 : Number(text8);
 }
 function plainCell(cell3) {
   return (cell3 ?? "").replace(/`/g, "").trim();
@@ -5819,7 +5829,7 @@ var FORBIDDEN = [
   { pattern: /`/, what: () => "a backtick" },
   { pattern: new RegExp(KIT_FOLDER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), what: () => `a path under ${KIT_FOLDER}` }
 ];
-var characters = (text7) => Array.from(text7).length;
+var characters = (text8) => Array.from(text8).length;
 function unquote(value) {
   const trimmed = value.trim();
   const first = trimmed[0];
@@ -5847,8 +5857,8 @@ ${line.trim()}`;
   }
   return { fields, errors };
 }
-function splitNote(text7) {
-  const match = text7.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK4);
+function splitNote(text8) {
+  const match = text8.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK4);
   return match ? { front: match[1] ?? "", body: match[2] ?? "" } : null;
 }
 function bodyLines(body) {
@@ -5865,8 +5875,8 @@ function notePrd(fields, errors) {
   errors.push(`prd "${prd}" is not a PRD number`);
   return null;
 }
-function parseReleaseNote(text7) {
-  const parts = splitNote(text7);
+function parseReleaseNote(text8) {
+  const parts = splitNote(text8);
   if (!parts) return { ok: false, errors: ['no front matter \u2014 a release note opens with a "---" fenced header holding prd and title'] };
   const { fields, errors } = readFields2(parts.front);
   for (const key of Object.keys(fields)) {
@@ -5908,14 +5918,14 @@ function descriptionViolations(lines, description) {
   if (item) out.push(`description holds a list item ("${item}") \u2014 one paragraph of prose`);
   return out;
 }
-function contentViolations(name, text7) {
+function contentViolations(name, text8) {
   return FORBIDDEN.flatMap(({ pattern, what }) => {
-    const match = text7.match(pattern);
+    const match = text8.match(pattern);
     return match ? [`${name} holds ${what(match[0])}`] : [];
   });
 }
-function gradeReleaseNote(text7, { prd }) {
-  const parsed2 = parseReleaseNote(text7);
+function gradeReleaseNote(text8, { prd }) {
+  const parsed2 = parseReleaseNote(text8);
   if (!parsed2.ok) return parsed2.errors;
   const { note } = parsed2;
   const out = [];
@@ -5924,7 +5934,7 @@ function gradeReleaseNote(text7, { prd }) {
     out.push(`version ${note.version === "" ? '""' : note.version} is not ${INITIAL_VERSION} \u2014 only the initial release's notes carry a version`);
   }
   out.push(...titleViolations(note.title));
-  out.push(...descriptionViolations(bodyLines(splitNote(text7)?.body ?? ""), note.description));
+  out.push(...descriptionViolations(bodyLines(splitNote(text8)?.body ?? ""), note.description));
   out.push(...contentViolations("title", note.title), ...contentViolations("description", note.description));
   return out;
 }
@@ -5982,8 +5992,8 @@ import { join as join22 } from "node:path";
 import { existsSync as existsSync18, readdirSync as readdirSync8, readFileSync as readFileSync14 } from "node:fs";
 import { join as join21 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
-function invariantAdrs(text7, heading) {
-  const lines = text7.split("\n");
+function invariantAdrs(text8, heading) {
+  const lines = text8.split("\n");
   const start = lines.findIndex((line) => line.trim() === heading.trim());
   if (start === -1) return /* @__PURE__ */ new Set();
   const level = group(/^#+/.exec(heading.trim()), 0).length;
@@ -6050,8 +6060,8 @@ var FUN_SECTION_FIELDS = [
 function describe(file, detail) {
   return `${file}: ${detail}`;
 }
-function checkItemText(file, text7, { laws }) {
-  const parsed2 = parseItem(text7, file);
+function checkItemText(file, text8, { laws }) {
+  const parsed2 = parseItem(text8, file);
   if (!parsed2.ok) return parsed2.errors;
   const { item } = parsed2;
   const violations = [];
@@ -6260,8 +6270,8 @@ import { join as join24 } from "node:path";
 function violation(file, id, detail) {
   return { file, id, detail };
 }
-function formatViolation({ file, id, detail, text: text7 }) {
-  return text7 ?? `${file}: ${id} \u2014 ${detail}`;
+function formatViolation({ file, id, detail, text: text8 }) {
+  return text8 ?? `${file}: ${id} \u2014 ${detail}`;
 }
 var STATED_DATE = /^\d{4}-\d{2}-\d{2}$/;
 var PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:#\S*)?$/;
@@ -6412,11 +6422,11 @@ function idShapeViolations(entry) {
     )
   ];
 }
-function headingAnchors(text7) {
+function headingAnchors(text8) {
   const anchors = /* @__PURE__ */ new Set();
   const seen = /* @__PURE__ */ new Map();
   let fenced = false;
-  for (const line of text7.split("\n")) {
+  for (const line of text8.split("\n")) {
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     const match = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
@@ -6572,8 +6582,8 @@ function findEntryViolations(ctx, entries) {
   }
   return violations;
 }
-function findUnresolvedCitations(file, text7, resolve) {
-  return idsCitedIn(text7).filter((id) => !resolve(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
+function findUnresolvedCitations(file, text8, resolve) {
+  return idsCitedIn(text8).filter((id) => !resolve(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
 function findWishes(entries) {
   return entries.filter((entry) => entry.kind === "principle" && servedBy(entries, entry.id).length === 0).map(
@@ -6596,9 +6606,9 @@ function gradeKnowledge({
 }) {
   const knowledge = readKnowledge({ ctx });
   const resolve = (id) => knowledge.entries.find((entry) => entry.id === id);
-  const text7 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
+  const text8 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
   const violations = [
-    ...findLayoutViolations(ctx, knowledge, { glossaryText: text7 }),
+    ...findLayoutViolations(ctx, knowledge, { glossaryText: text8 }),
     ...findOwningLibraryViolations(ctx, knowledge),
     ...findCrossDomainFileViolations(knowledge),
     ...findReusedIds(knowledge.entries),
@@ -6693,13 +6703,13 @@ function knowledgeSummary({ ctx }) {
     knowledge: existsSync23(join26(ctx.root, ctx.layout.knowledgeRoot))
   };
   const knowledge = readKnowledge({ ctx });
-  const placeOf3 = (entry) => entry.scope === "product" ? PRODUCT_PLACE : entry.domain;
+  const placeOf4 = (entry) => entry.scope === "product" ? PRODUCT_PLACE : entry.domain;
   const domains = knowledge.domains.map((domain) => {
     const readme = join26(ctx.root, domainsDir(ctx), domain.name, "README.md");
     return { name: domain.name, firstLine: existsSync23(readme) ? firstLine2(readFileSync17(readme, "utf8")) : null };
   });
-  const principles = knowledge.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf3(entry), statement: entry.statement }));
-  const laws = knowledge.entries.filter((entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, kind: entry.kind, place: placeOf3(entry), statement: entry.statement }));
+  const principles = knowledge.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf4(entry), statement: entry.statement }));
+  const laws = knowledge.entries.filter((entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, kind: entry.kind, place: placeOf4(entry), statement: entry.statement }));
   const decisions = places.adr ? readDecisions({ ctx }).records.map((record) => ({ number: record.number, title: record.title })) : [];
   return { places, domains, principles, decisions, laws };
 }
@@ -6770,9 +6780,9 @@ function classificationJsonSchema(summary2) {
   };
 }
 function section2(heading, body) {
-  const text7 = plainText(body).trim();
-  if (text7 === "") return [];
-  return [`### ${heading}`, "", text7, ""];
+  const text8 = plainText(body).trim();
+  if (text8 === "") return [];
+  return [`### ${heading}`, "", text8, ""];
 }
 function itemSections(candidate) {
   const sections = candidate.item?.sections;
@@ -6870,8 +6880,8 @@ function toCandidate(entry, ledgerFile) {
     rank: entry.fields.Rank ?? (parsed2.ok ? parsed2.item.rank : null) ?? null
   };
 }
-function candidatesFromLedger(text7, { markers, ledgerFile = null }) {
-  const entries = parseSettledEntries(text7, markers);
+function candidatesFromLedger(text8, { markers, ledgerFile = null }) {
+  const entries = parseSettledEntries(text8, markers);
   return entries.filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
 }
 function harvestCandidates({ ctx, prd }) {
@@ -6969,8 +6979,8 @@ function makeFiles(ctx) {
       }
       return texts.get(path) ?? null;
     },
-    write(path, text7) {
-      texts.set(path, text7);
+    write(path, text8) {
+      texts.set(path, text8);
       this.changed.add(path);
     },
     changed: /* @__PURE__ */ new Set(),
@@ -6979,8 +6989,8 @@ function makeFiles(ctx) {
     }
   };
 }
-function appendEntry(text7, entry, { heading }) {
-  let base = text7 ?? `# ${heading}
+function appendEntry(text8, entry, { heading }) {
+  let base = text8 ?? `# ${heading}
 `;
   if (!/^## /m.test(base)) {
     const lines = base.split("\n");
@@ -7039,8 +7049,8 @@ function renderRecord({
     ""
   ].join("\n");
 }
-function addLedgerLine(text7, { id, line, markers }) {
-  const lines = text7.split("\n");
+function addLedgerLine(text8, { id, line, markers }) {
+  const lines = text8.split("\n");
   const open = lines.lastIndexOf(markers.settledOpen(id));
   if (open === -1) return null;
   const close = lines.indexOf(markers.settledClose(id), open);
@@ -7211,15 +7221,15 @@ function applyHarvestEdits({ root, edits }) {
     mkdirSync5(dirname8(join29(root, to)), { recursive: true });
     renameSync(join29(root, from), join29(root, to));
   }
-  for (const { path, text: text7 } of edits.writes) {
+  for (const { path, text: text8 } of edits.writes) {
     mkdirSync5(dirname8(join29(root, path)), { recursive: true });
-    writeFileSync6(join29(root, path), text7);
+    writeFileSync6(join29(root, path), text8);
   }
 }
 function mergeWrites(writes) {
   const byPath = /* @__PURE__ */ new Map();
   for (const write of writes) byPath.set(write.path, write.text);
-  return [...byPath].map(([path, text7]) => ({ path, text: text7 }));
+  return [...byPath].map(([path, text8]) => ({ path, text: text8 }));
 }
 function prepareHarvest({ ctx, prd, merge }) {
   const n = prd;
@@ -7240,7 +7250,7 @@ function prepareHarvest({ ctx, prd, merge }) {
       const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file) => readFileSync20(join29(scratch.root, file), "utf8") });
       if (!plan.ok) return { ok: false, errors: plan.reasons };
       moves = plan.moves;
-      rewrites = plan.rewrites.map(({ file, text: text7 }) => ({ path: movedPath(moves, file), text: text7 }));
+      rewrites = plan.rewrites.map(({ file, text: text8 }) => ({ path: movedPath(moves, file), text: text8 }));
       applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves, writes: rewrites } });
     }
     const edits = {
@@ -7576,9 +7586,9 @@ function parseSaved(schema, value, id) {
 
 // apps/omni-app/src/verdict-comment/verdict-comment.ts
 import { z as z23 } from "zod";
-async function upsertComment(octokit, { owner, repo, prNumber, marker, text: text7 }) {
+async function upsertComment(octokit, { owner, repo, prNumber, marker, text: text8 }) {
   const body = `${marker}
-${String(text7).trimEnd()}
+${String(text8).trimEnd()}
 `;
   const comments = await listComments(octokit, { owner, repo, prNumber });
   const existing = comments.find((comment) => comment.body.includes(marker));
@@ -7816,7 +7826,7 @@ ${commitMarker(merge.pr)} Merged by @${bare(merge.by)}.`;
 }
 var bare = (who) => (who ?? "").replace(/^@/, "");
 var day2 = (value) => (value ?? "").slice(0, 10);
-var cell = (text7) => (text7 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+var cell = (text8) => (text8 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
 function landedAs(entry) {
   if (entry.kind === "stays-here") return "stays here";
   if (entry.kind === "covered") return `covered by ${entry.landedAs.join(", ")}`;
@@ -7824,9 +7834,9 @@ function landedAs(entry) {
   return `${entry.landedAs.join(", ")} (new, ${standing})`;
 }
 function decidedShort(decided) {
-  const text7 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
-  if (text7.startsWith("nobody")) return "nobody \u2014 adopted";
-  return text7;
+  const text8 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
+  if (text8.startsWith("nobody")) return "nobody \u2014 adopted";
+  return text8;
 }
 function checkMark(name, violations) {
   return violations.length === 0 ? `omni check ${name} \u2713` : `omni check ${name} \u2717 (${violations.length})`;
@@ -7888,7 +7898,7 @@ function toCommit(edits, filesBefore) {
     }
   }
   return {
-    files: edits.writes.map(({ path, text: text7 }) => ({ path, content: text7 })),
+    files: edits.writes.map(({ path, text: text8 }) => ({ path, content: text8 })),
     moves,
     deletes
   };
@@ -8034,9 +8044,9 @@ function createHarvestFailureHandler({ octokitFor }) {
     const { installationId, owner, repo, prNumber } = failed2.success ? failed2.data : {};
     if (!installationId || !prNumber) return { skipped: "not a merge" };
     const reason2 = firstLine(error?.message ?? event.data.error?.message);
-    const text7 = `The knowledge harvest could not run: ${reason2}`;
+    const text8 = `The knowledge harvest could not run: ${reason2}`;
     return commentOnFailure(octokitFor, step, { installationId, owner, repo }, FailureCommentSchema, async (octokit, where) => {
-      const posted = await upsertComment(octokit, { ...where, prNumber, marker: FAILURE_MARKER, text: text7 });
+      const posted = await upsertComment(octokit, { ...where, prNumber, marker: FAILURE_MARKER, text: text8 });
       return { ...posted, reason: reason2 };
     });
   };
@@ -8538,7 +8548,7 @@ function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore,
 
 // apps/omni-app/src/retro/retro.ts
 import { internalEvents } from "inngest";
-import { z as z33 } from "zod";
+import { z as z34 } from "zod";
 
 // apps/omni-app/src/retro/rules.ts
 var RULES_VERSION = 1;
@@ -8736,8 +8746,8 @@ var REFUSED_PATTERNS = REFUSED_WORDS.map((word) => ({
   word,
   pattern: new RegExp(`\\b${word.replaceAll(" ", "[\\s-]*")}\\b`, "i")
 }));
-function refusedWordsIn(text7) {
-  return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text7)).map(({ word }) => word);
+function refusedWordsIn(text8) {
+  return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text8)).map(({ word }) => word);
 }
 function rankOf(kind) {
   const index = FINDING_ORDER.findIndex((rank) => rank.includes(kind));
@@ -8752,95 +8762,6 @@ function rulesSheet() {
     limits: { ...LIMITS },
     fieldCaps: { ...FIELD_CAPS }
   };
-}
-
-// apps/omni-app/src/retro/kinds/churn-lines.ts
-var HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
-function changeBlocks(patch) {
-  const blocks = [];
-  let inHunk = false;
-  let oldLine = 0;
-  let newLine = 0;
-  let open = null;
-  const close = () => {
-    if (open) blocks.push([open.oldStart, open.oldCount, open.newStart, open.newCount]);
-    open = null;
-  };
-  for (const line of patch.split("\n")) {
-    const header = HUNK.exec(line);
-    if (header) {
-      close();
-      const [oldStart = 1, oldCount = 1, newStart = 1, newCount = 1] = header.slice(1).map((n) => n === void 0 ? 1 : Number(n));
-      oldLine = oldCount === 0 ? oldStart + 1 : oldStart;
-      newLine = newCount === 0 ? newStart + 1 : newStart;
-      inHunk = true;
-      continue;
-    }
-    if (!inHunk) continue;
-    const mark = line[0];
-    if (mark === "-" || mark === "+") {
-      open ??= { oldStart: oldLine, oldCount: 0, newStart: newLine, newCount: 0 };
-      if (mark === "-") {
-        open.oldCount += 1;
-        oldLine += 1;
-      } else {
-        open.newCount += 1;
-        newLine += 1;
-      }
-    } else if (mark !== "\\") {
-      close();
-      oldLine += 1;
-      newLine += 1;
-    }
-  }
-  close();
-  return blocks;
-}
-function followLines(lines, blocks, commit) {
-  const next = /* @__PURE__ */ new Map();
-  const replaced = blocks.map(() => []);
-  let index = 0;
-  let shift = 0;
-  for (const [line, commits] of lines) {
-    let block = blocks[index];
-    while (block !== void 0 && block[0] + block[1] <= line) {
-      shift += block[3] - block[1];
-      index += 1;
-      block = blocks[index];
-    }
-    if (block !== void 0 && block[0] <= line) replaced[index]?.push(...commits);
-    else put(next, line + shift, commits);
-  }
-  blocks.forEach(([, , newStart, newCount], i) => {
-    const commits = unique([...replaced[i] ?? [], commit]);
-    for (let line = newStart; line < newStart + newCount; line += 1) put(next, line, commits);
-  });
-  return [...next.entries()].sort((a, b) => a[0] - b[0]);
-}
-function rewrittenRanges(lines, minCommits) {
-  const ranges = [];
-  let current = null;
-  for (const [line, commits] of lines) {
-    if (commits.length < minCommits) {
-      current = null;
-      continue;
-    }
-    if (current && line === current.to + 1) {
-      current.to = line;
-      current.commits = unique([...current.commits, ...commits]);
-    } else {
-      current = { from: line, to: line, commits: [...commits] };
-      ranges.push(current);
-    }
-  }
-  return ranges;
-}
-function put(map, line, commits) {
-  const known = map.get(line);
-  map.set(line, known !== void 0 ? unique([...known, ...commits]) : commits);
-}
-function unique(values) {
-  return [...new Set(values)];
 }
 
 // apps/omni-app/src/retro/kinds/schema.ts
@@ -8948,6 +8869,126 @@ function runJobs(octokit, { owner, repo, runId, filter }) {
   );
 }
 
+// apps/omni-app/src/retro/kinds/churn-lines.ts
+var HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
+function changeBlocks(patch) {
+  const blocks = [];
+  let inHunk = false;
+  let oldLine = 0;
+  let newLine = 0;
+  let open = null;
+  const close = () => {
+    if (open) blocks.push([open.oldStart, open.oldCount, open.newStart, open.newCount]);
+    open = null;
+  };
+  for (const line of patch.split("\n")) {
+    const header = HUNK.exec(line);
+    if (header) {
+      close();
+      const [oldStart = 1, oldCount = 1, newStart = 1, newCount = 1] = header.slice(1).map((n) => n === void 0 ? 1 : Number(n));
+      oldLine = oldCount === 0 ? oldStart + 1 : oldStart;
+      newLine = newCount === 0 ? newStart + 1 : newStart;
+      inHunk = true;
+      continue;
+    }
+    if (!inHunk) continue;
+    const mark = line[0];
+    if (mark === "-" || mark === "+") {
+      open ??= { oldStart: oldLine, oldCount: 0, newStart: newLine, newCount: 0 };
+      if (mark === "-") {
+        open.oldCount += 1;
+        oldLine += 1;
+      } else {
+        open.newCount += 1;
+        newLine += 1;
+      }
+    } else if (mark !== "\\") {
+      close();
+      oldLine += 1;
+      newLine += 1;
+    }
+  }
+  close();
+  return blocks;
+}
+function followLines(lines, blocks, commit) {
+  const next = /* @__PURE__ */ new Map();
+  const replaced = blocks.map(() => []);
+  let index = 0;
+  let shift = 0;
+  for (const [line, commits] of lines) {
+    let block = blocks[index];
+    while (block !== void 0 && block[0] + block[1] <= line) {
+      shift += block[3] - block[1];
+      index += 1;
+      block = blocks[index];
+    }
+    if (block !== void 0 && block[0] <= line) replaced[index]?.push(...commits);
+    else put(next, line + shift, commits);
+  }
+  blocks.forEach(([, , newStart, newCount], i) => {
+    const commits = unique([...replaced[i] ?? [], commit]);
+    for (let line = newStart; line < newStart + newCount; line += 1) put(next, line, commits);
+  });
+  return [...next.entries()].sort((a, b) => a[0] - b[0]);
+}
+function rewrittenRanges(lines, minCommits) {
+  const ranges = [];
+  let current = null;
+  for (const [line, commits] of lines) {
+    if (commits.length < minCommits) {
+      current = null;
+      continue;
+    }
+    if (current && line === current.to + 1) {
+      current.to = line;
+      current.commits = unique([...current.commits, ...commits]);
+    } else {
+      current = { from: line, to: line, commits: [...commits] };
+      ranges.push(current);
+    }
+  }
+  return ranges;
+}
+function put(map, line, commits) {
+  const known = map.get(line);
+  map.set(line, known !== void 0 ? unique([...known, ...commits]) : commits);
+}
+function unique(values) {
+  return [...new Set(values)];
+}
+
+// apps/omni-app/src/retro/kinds/after-merge.reads.ts
+var FILES = "GET /repos/{owner}/{repo}/pulls/{pull_number}/files";
+var UNREADABLE = /* @__PURE__ */ new Set([403, 404, 410]);
+function within(window, at2) {
+  if (!at2) return false;
+  const time = Date.parse(at2);
+  return time >= Date.parse(window.from) && time <= Date.parse(window.to);
+}
+async function listFiles(octokit, { owner, repo, number }) {
+  const files = await paginate(
+    (page) => octokit.request(FILES, { owner, repo, pull_number: number, per_page: PER_PAGE, page }).then(({ data }) => ChangedFileSchema.array().parse(data))
+  );
+  return files.map((file) => ({
+    path: file.filename,
+    previous: file.previous_filename ?? null,
+    blocks: typeof file.patch === "string" ? changeBlocks(file.patch) : null
+  }));
+}
+async function readOrRefused(read) {
+  try {
+    return { value: await read(), status: null };
+  } catch (error) {
+    const status = statusOf3(error);
+    if (typeof status === "number" && UNREADABLE.has(status)) return { value: null, status };
+    throw error;
+  }
+}
+function statusOf3(error) {
+  return typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
+}
+
 // apps/omni-app/src/retro/kinds/records.ts
 import { z as z28 } from "zod";
 var text5 = z28.string();
@@ -9045,15 +9086,240 @@ var AfterMergeRecordsSchema = z28.object({
 });
 var ChurnAtMergeSchema = z28.object({ ranges: z28.array(RangeSchema).exactOptional() }).nullish();
 
-// apps/omni-app/src/retro/kinds/after-merge.ts
-var BUG_LABEL = "bug";
+// apps/omni-app/src/retro/kinds/after-merge.mega.ts
+import { z as z29 } from "zod";
+
+// kit/lib/care/list.ts
+var FIX_PLAN_MARKER = "<!-- omni-bug:fix-plan -->";
+function linksPrd(body, prd) {
+  return new RegExp(`\\bFor PRD #${prd}(?!\\d)`).test(body ?? "");
+}
+var REFERENCE = /([\w.-]+\/[\w.-]+)#(\d+)|github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/;
+function rowPr(line) {
+  const match = line.match(REFERENCE);
+  const slug = match?.[1] ?? match?.[3];
+  const number = match?.[2] ?? match?.[4];
+  return slug && number ? { slug, pr: parsePr(number) } : null;
+}
+function fixPlanRows(body) {
+  const text8 = body ?? "";
+  if (!text8.includes(FIX_PLAN_MARKER)) return [];
+  const rows = [];
+  for (const line of text8.split("\n")) {
+    const found = line.trim().startsWith("|") ? rowPr(line) : null;
+    if (found && !rows.some((row) => row.slug === found.slug && row.pr === found.pr)) rows.push(found);
+  }
+  return rows;
+}
+
+// kit/lib/board.ts
+function fillBranch(template, values) {
+  return template.replace(/\{(topic|slice|landings|landing|name)\}/g, (whole, key) => {
+    const value = values[key];
+    return value === void 0 ? whole : String(value);
+  });
+}
+function landingBranches(branches, { topic, landings }) {
+  if (landings.length <= 1) {
+    return [{ landing: 1, name: landings[0]?.name ?? "landing-1", branch: fillBranch(branches.feature, { topic }) }];
+  }
+  return landings.map(({ landing, name }) => ({
+    landing,
+    name,
+    branch: fillBranch(branches.landing, { topic, landing, landings: landings.length, name })
+  }));
+}
+
+// kit/lib/landings/landing-plan.ts
+function landingPlan({
+  landings,
+  slices,
+  branches,
+  defaultBranch,
+  topic,
+  repo = null
+}) {
+  const mine = slices.filter((slice) => repo === null || slice.repo === repo);
+  const kept2 = landings.filter((landing) => mine.some((slice) => slice.landing === landing.landing));
+  const chain = landingBranches(branches, {
+    topic,
+    landings: kept2.map((landing, index) => ({ landing: index + 1, name: landing.name }))
+  });
+  return kept2.map((landing, index) => ({
+    landing: index + 1,
+    planLanding: landing.landing,
+    count: kept2.length,
+    name: landing.name,
+    mergeWhen: landing.mergeWhen,
+    branch: chain[index]?.branch ?? "",
+    base: index === 0 ? defaultBranch : chain[index - 1]?.branch ?? defaultBranch,
+    titleSuffix: kept2.length > 1 ? ` (${index + 1}/${kept2.length})` : "",
+    mergeAfter: mergeAfterOf(kept2, index),
+    slices: mine.filter((slice) => slice.landing === landing.landing).map(({ id, title }) => ({ id, title }))
+  }));
+}
+function mergeAfterOf(kept2, index) {
+  const before2 = kept2[index - 1];
+  return index === 0 || before2 === void 0 ? null : { landing: index, name: before2.name };
+}
+
+// apps/omni-app/src/retro/targets.ts
+var shortName3 = (slug) => slug.split("/").at(-1) ?? slug;
+function planTargets({ config, plan, planSlug, topic }) {
+  const targets = config.plan?.targets ?? [];
+  if (targets.length === 0 || plan === null) return [];
+  const own = shortName3(planSlug);
+  return parsePlanRepositories(plan).filter((row) => shortName3(row.repo) !== own).map((row) => {
+    const name = shortName3(row.repo);
+    const slug = targets.find((target2) => target2.repo === row.repo || shortName3(target2.repo) === name)?.repo ?? null;
+    return { name, slug, branches: featureBranches({ config, plan, topic, name }) };
+  });
+}
+function featureBranches({ config, plan, topic, name }) {
+  const slices = slicesOf(plan);
+  const named = parsePlanLandings(plan);
+  const numbers = [...new Set(slices.map((slice) => slice.landing))].sort((a, b) => a - b);
+  const landings = numbers.map((landing) => ({
+    landing,
+    name: named.find((row) => row.landing === landing)?.name ?? `landing-${landing}`,
+    mergeWhen: null,
+    slices: [],
+    waves: []
+  }));
+  const chain = landingPlan({ landings, slices, branches: config.branches, defaultBranch: config.repo.defaultBranch, topic, repo: name });
+  const fallback = config.branches.feature.replace("{topic}", topic);
+  return chain.length > 0 ? chain.map((step) => step.branch) : [fallback];
+}
+function slicesOf(plan) {
+  try {
+    return parsePlanSlices(plan);
+  } catch {
+    return [];
+  }
+}
+
+// apps/omni-app/src/retro/kinds/after-merge.mega.ts
+var text6 = z29.string();
+var BlockSchema2 = z29.tuple([z29.number(), z29.number(), z29.number(), z29.number()]);
+var RangeSchema2 = z29.object({ path: text6, from: z29.number(), to: z29.number() });
+var PlannedSchema = z29.object({
+  bug: IssueNumberSchema,
+  repo: text6,
+  number: PrNumberSchema,
+  url: text6,
+  mergedAt: z29.string().nullable(),
+  files: z29.array(z29.object({ path: text6, previous: z29.string().nullable(), blocks: z29.array(BlockSchema2).nullable() })).nullable()
+});
+var MegaUnreadSchema = z29.object({
+  read: z29.enum(["bugs", "fix-plan", "fix", "files"]),
+  repo: text6,
+  number: z29.number().exactOptional(),
+  status: z29.number()
+});
+var MegaRecordsSchema = z29.object({
+  plan: text6,
+  bugs: z29.array(IssueNumberSchema),
+  planned: z29.array(PlannedSchema),
+  targets: z29.array(z29.object({ repo: text6, name: text6, ranges: z29.array(RangeSchema2) })),
+  unread: z29.array(MegaUnreadSchema)
+});
 var ISSUES = "GET /repos/{owner}/{repo}/issues";
+var COMMENTS = "GET /repos/{owner}/{repo}/issues/{issue_number}/comments";
+var PULL2 = "GET /repos/{owner}/{repo}/pulls/{pull_number}";
+async function gatherMega(octokit, scope) {
+  if (scope.targets.length === 0) return null;
+  const plan = `${scope.owner}/${scope.repo}`;
+  const unread = [];
+  const issues = await megaIssues(octokit, scope, unread);
+  const bugs = issues.map((issue) => ({ number: issue.number, url: issue.html_url, createdAt: issue.created_at, closedAt: issue.closed_at ?? null }));
+  const planned = [];
+  for (const bug of bugs) planned.push(...await plannedFixes(octokit, { plan, bug: bug.number }, unread));
+  const targets = scope.targets.map((target2) => ({ repo: target2.repo, name: target2.name, ranges: targetRanges(scope.atMerge, target2.repo) }));
+  return { bugs, mega: { plan, bugs: bugs.map((bug) => bug.number), planned, targets, unread } };
+}
+async function megaIssues(octokit, scope, unread) {
+  const { owner, repo, config, window, prd, listed, label: label2 } = scope;
+  const found = new Map(listed.map((issue) => [issue.number, issue]));
+  if (config.labels.bug !== label2) {
+    const more = await readOrRefused(
+      () => paginate(
+        (page) => octokit.request(ISSUES, { owner, repo, labels: config.labels.bug, state: "all", since: window.from, per_page: PER_PAGE, page }).then(({ data }) => IssueSchema2.array().parse(data))
+      )
+    );
+    if (more.status) unread.push({ read: "bugs", repo: `${owner}/${repo}`, status: more.status });
+    for (const issue of more.value ?? []) found.set(issue.number, issue);
+  }
+  return [...found.values()].filter((issue) => !issue.pull_request && within(window, issue.created_at) && linksPrd(issue.body, prd)).sort((a, b) => a.number - b.number);
+}
+async function plannedFixes(octokit, { plan, bug }, unread) {
+  const [owner, repo] = plan.split("/");
+  const comments = await readOrRefused(
+    () => paginate(
+      (page) => octokit.request(COMMENTS, { owner, repo, issue_number: bug, per_page: PER_PAGE, page }).then(({ data }) => IssueCommentSchema.array().parse(data))
+    )
+  );
+  if (comments.status !== null) {
+    unread.push({ read: "fix-plan", repo: plan, number: bug, status: comments.status });
+    return [];
+  }
+  const fixPlan = comments.value.find((comment) => (comment.body ?? "").trimStart().startsWith(FIX_PLAN_MARKER));
+  const planned = [];
+  for (const row of fixPlanRows(fixPlan?.body)) {
+    const fix = await readFix(octokit, { bug, slug: row.slug, number: row.pr }, unread);
+    if (fix) planned.push(fix);
+  }
+  return planned;
+}
+async function readFix(octokit, { bug, slug, number }, unread) {
+  const [owner, repo] = slug.split("/");
+  const pull = await readOrRefused(async () => ClosedPullSchema.parse((await octokit.request(PULL2, { owner, repo, pull_number: number })).data));
+  if (pull.status !== null) {
+    unread.push({ read: "fix", repo: slug, number, status: pull.status });
+    return null;
+  }
+  const mergedAt = pull.value.merged_at ?? null;
+  let files = null;
+  if (mergedAt) {
+    const read = await readOrRefused(() => listFiles(octokit, { owner, repo, number }));
+    if (read.status) unread.push({ read: "files", repo: slug, number, status: read.status });
+    files = read.value;
+  }
+  return { bug, repo: slug, number, url: pull.value.html_url, mergedAt, files };
+}
+function targetRanges(atMerge, repo) {
+  const facts = atMerge?.repositories?.find((entry) => entry.repo === repo);
+  const churn2 = ChurnAtMergeSchema.safeParse(facts?.kinds?.churn);
+  return (churn2.success ? churn2.data?.ranges ?? [] : []).map(({ path, from, to }) => ({ path, from, to }));
+}
+function plannedFor(mega, { bug, window, counted: counted2 }) {
+  return mega.planned.filter((fix) => fix.bug === bug && within(window, fix.mergedAt) && !(fix.repo === mega.plan && counted2.includes(fix.number)));
+}
+function placeOf3(mega, repo, planRanges) {
+  if (repo === mega.plan) return { ranges: planRanges, prefix: "" };
+  const target2 = mega.targets.find((entry) => entry.repo === repo);
+  return { ranges: target2?.ranges ?? [], prefix: `${target2?.name ?? shortName3(repo)}/` };
+}
+function refOf(fix) {
+  return fix.repo ? `${fix.repo}#${fix.number}` : `#${fix.number}`;
+}
+function megaUnreadLines(unread) {
+  return unread.map((entry) => {
+    const ref = `${entry.repo}#${entry.number ?? ""}`;
+    if (entry.read === "bugs") return `- The bug issues of ${entry.repo} carrying \`For PRD\` were not read (GitHub answered ${entry.status}).`;
+    if (entry.read === "fix-plan") return `- The fix plan of ${ref} was not read (GitHub answered ${entry.status}), so its fixes are not counted.`;
+    if (entry.read === "fix") return `- ${ref} was not read (GitHub answered ${entry.status}), so it is not counted.`;
+    return `- The files of ${ref} were not read (GitHub answered ${entry.status}), so it is not placed against the churn ranges of ${entry.repo}.`;
+  });
+}
+
+// apps/omni-app/src/retro/kinds/after-merge.ts
+var RecordsSchema = AfterMergeRecordsSchema.extend({ mega: MegaRecordsSchema.exactOptional() });
+var BUG_LABEL = "bug";
+var ISSUES2 = "GET /repos/{owner}/{repo}/issues";
 var PULLS2 = "GET /repos/{owner}/{repo}/pulls";
-var FILES = "GET /repos/{owner}/{repo}/pulls/{pull_number}/files";
 var RUNS = "GET /repos/{owner}/{repo}/actions/runs";
 var DAY_MS2 = 24 * 60 * 60 * 1e3;
 var SHORT = 7;
-var UNREADABLE = /* @__PURE__ */ new Set([403, 404, 410]);
 var GREEN = /* @__PURE__ */ new Set(["success"]);
 var RED = /* @__PURE__ */ new Set(["failure", "timed_out", "startup_failure"]);
 var CLOSING = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)|([\w.-]+\/[\w.-]+)#(\d+)|#(\d+))(?!\d)/gi;
@@ -9062,78 +9328,46 @@ function followUpAt(mergedAt) {
 }
 var afterMerge = Object.freeze({
   id: "after-merge",
-  records: AfterMergeRecordsSchema.nullable(),
+  records: RecordsSchema.nullable(),
   section: "After merge",
   runs: Object.freeze(["day-14"]),
-  async gather(octokit, { owner, repo, mergeSha, mergedAt, pr, prd, config, atMerge } = {}) {
+  async gather(octokit, { owner, repo, mergeSha, mergedAt, pr, prd, config, atMerge, targets } = {}) {
     if (!mergedAt || !mergeSha || !prd?.number || !config) return null;
     const window = { from: new Date(mergedAt).toISOString(), to: followUpAt(mergedAt) };
     const unread = [];
-    const names = namesPrd(prd.number, `${owner}/${repo}`);
     const listed = await readOrRefused(
       () => paginate(
-        (page) => octokit.request(ISSUES, { owner, repo, labels: BUG_LABEL, state: "all", since: window.from, per_page: PER_PAGE, page }).then(({ data }) => IssueSchema2.array().parse(data))
+        (page) => octokit.request(ISSUES2, { owner, repo, labels: BUG_LABEL, state: "all", since: window.from, per_page: PER_PAGE, page }).then(({ data }) => IssueSchema2.array().parse(data))
       )
     );
     if (listed.status) unread.push({ read: "bugs", status: listed.status });
-    const bugs = (listed.value ?? []).filter((issue) => !issue.pull_request && within(window, issue.created_at) && names(`${issue.title ?? ""}
-${issue.body ?? ""}`)).map((issue) => ({ number: issue.number, url: issue.html_url, createdAt: issue.created_at, closedAt: issue.closed_at ?? null })).sort((a, b) => a.number - b.number);
-    const fixes = [];
-    if (bugs.length > 0) {
-      const wanted = new Set(bugs.map((bug) => bug.number));
-      const merged = await readOrRefused(() => mergedSince(octokit, { owner, repo, base: config.repo.defaultBranch, since: window.from }));
-      if (merged.status) unread.push({ read: "fixes", status: merged.status });
-      const found = (merged.value ?? []).filter((pull) => pull.number !== pr?.number && within(window, pull.merged_at)).map((pull) => ({ pull, closes: closedBy(`${pull.title ?? ""}
-${pull.body ?? ""}`, `${owner}/${repo}`).filter((n) => wanted.has(n)) })).filter(({ closes }) => closes.length > 0).sort((a, b) => a.pull.merged_at.localeCompare(b.pull.merged_at) || a.pull.number - b.pull.number);
-      for (const { pull, closes } of found) {
-        const files = await readOrRefused(() => listFiles(octokit, { owner, repo, number: pull.number }));
-        if (files.status) unread.push({ read: "files", pr: pull.number, status: files.status });
-        fixes.push({ number: pull.number, url: pull.html_url, mergedAt: pull.merged_at, closes, files: files.value });
-      }
-    }
+    const megaScope = { owner: owner ?? "", repo: repo ?? "", prd: prd.number, config, window, targets: targets ?? [], atMerge, listed: listed.value ?? [], label: BUG_LABEL };
+    const mega = await gatherMega(octokit, megaScope);
+    const bugs = withMegaBugs(bugsNaming(listed.value ?? [], { window, names: namesPrd(prd.number, `${owner}/${repo}`) }), mega?.bugs ?? []);
+    const fixes = await closingFixes(octokit, { owner, repo, base: config.repo.defaultBranch, window, featurePr: pr?.number, bugs, unread });
     const checks = await mergeJobs(octokit, { owner, repo, mergeSha, unread });
     const churnAtMerge = parseOrThrow(ChurnAtMergeSchema, atMerge?.kinds.churn, "The merge run's churn facts are of an unexpected shape");
     const ranges = (churnAtMerge?.ranges ?? []).map(({ path, from, to }) => ({ path, from, to }));
-    return { window, bugs, fixes, checks, ranges, unread };
+    return { window, bugs, fixes, checks, ranges, unread, ...mega ? { mega: mega.mega } : {} };
   },
   detect(records, { prd } = {}) {
     if (!records) return { facts: null, findings: [] };
     const { window } = records;
     const fixes = records.fixes.filter((fix) => within(window, fix.mergedAt));
-    const { ranges } = records;
-    const bugs = records.bugs.filter((bug) => within(window, bug.createdAt)).map((bug) => {
-      const own = fixes.filter((fix) => fix.closes.includes(bug.number));
-      return {
-        number: bug.number,
-        url: bug.url,
-        daysAfterMerge: Math.floor((Date.parse(bug.createdAt) - Date.parse(window.from)) / DAY_MS2),
-        closed: within(window, bug.closedAt),
-        fixes: own.map((fix) => fix.number),
-        linked: own.flatMap((fix) => linksOf(fix, ranges))
-      };
-    });
-    const { jobs } = records.checks;
+    const bugs = records.bugs.filter((bug) => within(window, bug.createdAt)).map((bug) => bugFacts(bug, { records, fixes }));
     const facts = {
       prd: prd?.number ?? null,
       days: THRESHOLDS.afterMergeDays,
       from: window.from,
       to: window.to,
       total: bugs.length,
-      fixed: bugs.filter((bug) => bug.fixes.length > 0).length,
+      fixed: bugs.filter((bug) => bug.fixes.length + (bug.planned?.length ?? 0) > 0).length,
       linked: bugs.filter((bug) => bug.linked.length > 0).length,
       bugs,
       fixes: fixes.filter((fix) => bugs.some((bug) => bug.fixes.includes(fix.number))).map(({ number, url, mergedAt }) => ({ number, url, mergedAt })),
-      checks: {
-        commit: records.checks.commit.slice(0, SHORT),
-        read: !records.checks.status,
-        status: records.checks.status ?? null,
-        total: jobs.length,
-        green: jobs.filter((job) => GREEN.has(job.conclusion)).length,
-        red: jobs.filter((job) => RED.has(job.conclusion)).length,
-        other: jobs.filter((job) => !GREEN.has(job.conclusion) && !RED.has(job.conclusion)).length,
-        jobs
-      },
-      unread: records.unread
+      checks: checkFacts(records.checks),
+      unread: records.unread,
+      ...records.mega ? { mega: { bugs: bugs.filter((bug) => bug.planned).length, unread: records.mega.unread } } : {}
     };
     const urlOf = new Map(fixes.map((fix) => [fix.number, fix.url]));
     const findings = bugs.map((bug) => ({
@@ -9141,80 +9375,147 @@ ${pull.body ?? ""}`, `${owner}/${repo}`).filter((n) => wanted.has(n)) })).filter
       kind: "bug",
       title: `Bug #${bug.number} was reported against the PRD after the merge`,
       happened: happened(bug, facts),
-      evidence: [{ label: `Bug #${bug.number}`, url: bug.url }, ...bug.fixes.map((n) => ({ label: `Fix #${n}`, url: urlOf.get(n) ?? null }))]
+      evidence: [
+        { label: `Bug #${bug.number}`, url: bug.url },
+        ...bug.fixes.map((n) => ({ label: `Fix #${n}`, url: urlOf.get(n) ?? null })),
+        ...(bug.planned ?? []).map((fix) => ({ label: `Fix ${refOf(fix)}`, url: fix.url }))
+      ]
     }));
     return { facts, findings };
   },
   describe(facts) {
     if (!facts) return null;
     const refused3 = (read) => facts.unread.find((entry) => entry.read === read);
-    const lines = [];
-    const bugsUnread = refused3("bugs");
-    if (bugsUnread) {
-      lines.push(`- The \`${BUG_LABEL}\` issues were not read (GitHub answered ${bugsUnread.status}).`);
-    } else if (facts.total === 0) {
-      lines.push(`- No \`${BUG_LABEL}\` issue naming #${facts.prd} was opened within ${facts.days} days of the merge.`);
-    } else {
-      const issues = facts.total === 1 ? `1 \`${BUG_LABEL}\` issue naming #${facts.prd} was` : `${facts.total} \`${BUG_LABEL}\` issues naming #${facts.prd} were`;
-      lines.push(`- ${issues} opened within ${facts.days} days of the merge: ${facts.fixed} fixed within those days, ${facts.linked} linked to churn.`);
-    }
+    const lines = [...bugLines(facts, refused3("bugs")), ...megaLine(facts)];
     const fixUrl = new Map(facts.fixes.map((fix) => [fix.number, fix.url]));
-    for (const bug of facts.bugs) {
-      const parts = [`opened ${daysText(bug.daysAfterMerge)} after the merge, ${bug.closed ? "closed" : "still open"}`];
-      parts.push(bug.fixes.length > 0 ? `fixed by ${and(bug.fixes.map((n) => `[#${n}](${fixUrl.get(n)})`))}` : "no fix merged");
-      if (bug.linked.length > 0) {
-        parts.push(`linked to ${and(bug.linked.map((link) => `\`${link.finding}\` (#${link.fix}${link.byFile ? ", by its file" : ""})`))}`);
-      }
-      lines.push(`- [#${bug.number}](${bug.url}): ${parts.join("; ")}.`);
-    }
+    for (const bug of facts.bugs) lines.push(bugLine(bug, fixUrl));
     const fixesUnread = refused3("fixes");
     if (fixesUnread) lines.push(`- The pull requests merged after the merge were not read (GitHub answered ${fixesUnread.status}), so no fix is counted.`);
-    const { checks } = facts;
-    if (!checks.read) {
-      lines.push(
-        `- The jobs on the merge commit \`${checks.commit}\` were not read (GitHub answered ${checks.status}). The app reads them with the \`actions: read\` permission.`
-      );
-    } else if (checks.total === 0) {
-      lines.push(`- No GitHub Actions job ran on the merge commit \`${checks.commit}\`.`);
-    } else {
-      const red = checks.jobs.filter((job) => RED.has(job.conclusion)).map((job) => `\`${job.name}\``);
-      const counts = [`${checks.green} green`, `${checks.red} red${red.length > 0 ? ` (${red.join(", ")})` : ""}`];
-      if (checks.other > 0) counts.push(`${checks.other} neither`);
-      lines.push(`- ${plural3(checks.total, "GitHub Actions job")} ran on the merge commit \`${checks.commit}\`: ${counts.join(", ")}.`);
-    }
+    lines.push(...checkLines(facts.checks));
     for (const entry of facts.unread.filter((item) => item.read === "jobs")) {
       lines.push(`- The jobs of workflow run ${entry.run} were not read (GitHub answered ${entry.status}).`);
     }
     for (const entry of facts.unread.filter((item) => item.read === "files")) {
       lines.push(`- The files of #${entry.pr} were not read (GitHub answered ${entry.status}), so it is not placed against the churn ranges.`);
     }
+    lines.push(...megaUnreadLines(facts.mega?.unread ?? []));
     return lines;
   }
 });
+function bugsNaming(listed, { window, names }) {
+  return listed.filter((issue) => !issue.pull_request && within(window, issue.created_at) && names(`${issue.title ?? ""}
+${issue.body ?? ""}`)).map((issue) => ({ number: issue.number, url: issue.html_url, createdAt: issue.created_at, closedAt: issue.closed_at ?? null })).sort((a, b) => a.number - b.number);
+}
+function withMegaBugs(bugs, mega) {
+  const known = new Set(bugs.map((bug) => bug.number));
+  return [...bugs, ...mega.filter((bug) => !known.has(bug.number))].sort((a, b) => a.number - b.number);
+}
+async function closingFixes(octokit, { owner, repo, base, window, featurePr, bugs, unread }) {
+  const fixes = [];
+  if (bugs.length === 0) return fixes;
+  const wanted = new Set(bugs.map((bug) => bug.number));
+  const merged = await readOrRefused(() => mergedSince(octokit, { owner, repo, base, since: window.from }));
+  if (merged.status) unread.push({ read: "fixes", status: merged.status });
+  const found = (merged.value ?? []).filter((pull) => pull.number !== featurePr && within(window, pull.merged_at)).map((pull) => ({ pull, closes: closedBy(`${pull.title ?? ""}
+${pull.body ?? ""}`, `${owner}/${repo}`).filter((n) => wanted.has(n)) })).filter(({ closes }) => closes.length > 0).sort((a, b) => a.pull.merged_at.localeCompare(b.pull.merged_at) || a.pull.number - b.pull.number);
+  for (const { pull, closes } of found) {
+    const files = await readOrRefused(() => listFiles(octokit, { owner, repo, number: pull.number }));
+    if (files.status) unread.push({ read: "files", pr: pull.number, status: files.status });
+    fixes.push({ number: pull.number, url: pull.html_url, mergedAt: pull.merged_at, closes, files: files.value });
+  }
+  return fixes;
+}
+function bugFacts(bug, { records, fixes }) {
+  const { window, ranges, mega } = records;
+  const own = fixes.filter((fix) => fix.closes.includes(bug.number));
+  const facts = {
+    number: bug.number,
+    url: bug.url,
+    daysAfterMerge: Math.floor((Date.parse(bug.createdAt) - Date.parse(window.from)) / DAY_MS2),
+    closed: within(window, bug.closedAt),
+    fixes: own.map((fix) => fix.number),
+    linked: own.flatMap((fix) => linksOf(fix, ranges))
+  };
+  if (!mega?.bugs.includes(bug.number)) return facts;
+  const planned = plannedFor(mega, { bug: bug.number, window, counted: facts.fixes });
+  facts.planned = planned.map(({ repo, number, url }) => ({ repo, number, url }));
+  for (const fix of planned) {
+    const place = placeOf3(mega, fix.repo, ranges);
+    facts.linked.push(...linksOf(fix, place.ranges, { repo: fix.repo, prefix: place.prefix }));
+  }
+  return facts;
+}
+function checkFacts(checks) {
+  const { jobs } = checks;
+  return {
+    commit: checks.commit.slice(0, SHORT),
+    read: !checks.status,
+    status: checks.status ?? null,
+    total: jobs.length,
+    green: jobs.filter((job) => GREEN.has(job.conclusion)).length,
+    red: jobs.filter((job) => RED.has(job.conclusion)).length,
+    other: jobs.filter((job) => !GREEN.has(job.conclusion) && !RED.has(job.conclusion)).length,
+    jobs
+  };
+}
+function bugLines(facts, bugsUnread) {
+  if (bugsUnread) return [`- The \`${BUG_LABEL}\` issues were not read (GitHub answered ${bugsUnread.status}).`];
+  if (facts.total === 0) return [`- No \`${BUG_LABEL}\` issue naming #${facts.prd} was opened within ${facts.days} days of the merge.`];
+  const issues = facts.total === 1 ? `1 \`${BUG_LABEL}\` issue naming #${facts.prd} was` : `${facts.total} \`${BUG_LABEL}\` issues naming #${facts.prd} were`;
+  return [`- ${issues} opened within ${facts.days} days of the merge: ${facts.fixed} fixed within those days, ${facts.linked} linked to churn.`];
+}
+function megaLine(facts) {
+  const count2 = facts.mega?.bugs ?? 0;
+  if (count2 === 0) return [];
+  const which = count2 === 1 ? "1 of them carries" : `${count2} of them carry`;
+  const plans = count2 === 1 ? "its fix plan" : "their fix plans";
+  return [`- ${which} \`For PRD #${facts.prd}\`: the pull requests of ${plans} were read in their own repositories.`];
+}
+function bugLine(bug, fixUrl) {
+  const parts = [`opened ${daysText(bug.daysAfterMerge)} after the merge, ${bug.closed ? "closed" : "still open"}`];
+  const fixed = [...bug.fixes.map((n) => `[#${n}](${fixUrl.get(n)})`), ...(bug.planned ?? []).map((fix) => `[${refOf(fix)}](${fix.url})`)];
+  parts.push(fixed.length > 0 ? `fixed by ${and(fixed)}` : "no fix merged");
+  if (bug.linked.length > 0) {
+    parts.push(`linked to ${and(bug.linked.map((link) => `\`${link.finding}\` (${refOf({ repo: link.repo, number: link.fix })}${link.byFile ? ", by its file" : ""})`))}`);
+  }
+  return `- [#${bug.number}](${bug.url}): ${parts.join("; ")}.`;
+}
+function checkLines(checks) {
+  if (!checks.read) {
+    return [`- The jobs on the merge commit \`${checks.commit}\` were not read (GitHub answered ${checks.status}). The app reads them with the \`actions: read\` permission.`];
+  }
+  if (checks.total === 0) return [`- No GitHub Actions job ran on the merge commit \`${checks.commit}\`.`];
+  const red = checks.jobs.filter((job) => RED.has(job.conclusion)).map((job) => `\`${job.name}\``);
+  const counts = [`${checks.green} green`, `${checks.red} red${red.length > 0 ? ` (${red.join(", ")})` : ""}`];
+  if (checks.other > 0) counts.push(`${checks.other} neither`);
+  return [`- ${plural3(checks.total, "GitHub Actions job")} ran on the merge commit \`${checks.commit}\`: ${counts.join(", ")}.`];
+}
 function happened(bug, facts) {
+  const opened = `was opened ${daysText(bug.daysAfterMerge)} after the merge.`;
   const sentences = [
-    `Issue #${bug.number}, labelled \`${BUG_LABEL}\`, names #${facts.prd} and was opened ${daysText(bug.daysAfterMerge)} after the merge.`
+    bug.planned ? `Issue #${bug.number} carries \`For PRD #${facts.prd}\` and ${opened}` : `Issue #${bug.number}, labelled \`${BUG_LABEL}\`, names #${facts.prd} and ${opened}`
   ];
   const state = bug.closed ? `It was closed within ${facts.days} days of the merge` : `It was still open ${facts.days} days after the merge`;
-  sentences.push(
-    bug.fixes.length > 0 ? `${state}, fixed by ${and(bug.fixes.map((n) => `#${n}`))}.` : `${state}; no pull request closing it was merged by then.`
-  );
+  const fixed = [...bug.fixes.map((n) => `#${n}`), ...(bug.planned ?? []).map(refOf)];
+  sentences.push(fixed.length > 0 ? `${state}, fixed by ${and(fixed)}.` : `${state}; no pull request closing it was merged by then.`);
   if (bug.linked.length > 0) {
-    const links = bug.linked.map(
-      (link) => link.byFile ? `#${link.fix} changed \`${link.path}\`, which holds \`${link.finding}\`, without a patch to place its lines` : `#${link.fix} touched \`${link.finding}\``
-    );
+    const links = bug.linked.map((link) => {
+      const fix = refOf({ repo: link.repo, number: link.fix });
+      return link.byFile ? `${fix} changed \`${link.path}\`, which holds \`${link.finding}\`, without a patch to place its lines` : `${fix} touched \`${link.finding}\``;
+    });
     sentences.push(`A fix touched code rewritten again and again before the merge, so the bug is linked to that churn: ${and(links, ", and ")}.`);
   }
   return sentences.join(" ");
 }
-function linksOf(fix, ranges) {
+function linksOf(fix, ranges, { repo, prefix = "" } = {}) {
   const links = [];
   for (const range of ranges) {
     const file = (fix.files ?? []).find((candidate) => candidate.path === range.path || candidate.previous === range.path);
     if (!file) continue;
     const byFile = file.blocks === null;
     if (file.blocks !== null && !file.blocks.some((block) => overlaps(block, range))) continue;
-    links.push({ fix: fix.number, path: range.path, from: range.from, to: range.to, finding: `churn:${range.path}:${range.from}-${range.to}`, byFile });
+    const finding = `${prefix}churn:${range.path}:${range.from}-${range.to}`;
+    links.push({ fix: fix.number, ...repo ? { repo } : {}, path: range.path, from: range.from, to: range.to, finding, byFile });
   }
   return links;
 }
@@ -9222,18 +9523,13 @@ function overlaps([oldStart, oldCount], { from, to }) {
   if (oldCount === 0) return from < oldStart && oldStart <= to;
   return oldStart <= to && oldStart + oldCount - 1 >= from;
 }
-function within(window, at2) {
-  if (!at2) return false;
-  const time = Date.parse(at2);
-  return time >= Date.parse(window.from) && time <= Date.parse(window.to);
-}
 function namesPrd(prd, slug) {
   const pattern = new RegExp(`(?:^|[^\\w&/.-]|${escape2(slug)})#${prd}(?!\\d)`, "i");
-  return (text7) => pattern.test(text7);
+  return (text8) => pattern.test(text8);
 }
-function closedBy(text7, slug) {
+function closedBy(text8, slug) {
   const numbers = [];
-  for (const match of text7.matchAll(CLOSING)) {
+  for (const match of text8.matchAll(CLOSING)) {
     const [, urlRepo, urlNumber, refRepo, refNumber, number] = match;
     const repo = urlRepo ?? refRepo;
     if (repo && repo.toLowerCase() !== slug.toLowerCase()) continue;
@@ -9253,16 +9549,6 @@ async function mergedSince(octokit, { owner, repo, base, since }) {
   }
   return all;
 }
-async function listFiles(octokit, { owner, repo, number }) {
-  const files = await paginate(
-    (page) => octokit.request(FILES, { owner, repo, pull_number: number, per_page: PER_PAGE, page }).then(({ data }) => ChangedFileSchema.array().parse(data))
-  );
-  return files.map((file) => ({
-    path: file.filename,
-    previous: file.previous_filename ?? null,
-    blocks: typeof file.patch === "string" ? changeBlocks(file.patch) : null
-  }));
-}
 async function mergeJobs(octokit, { owner, repo, mergeSha, unread }) {
   const runs = await readOrRefused(
     () => paginate(
@@ -9280,15 +9566,6 @@ async function mergeJobs(octokit, { owner, repo, mergeSha, unread }) {
   }
   return { commit: mergeSha, status: null, jobs };
 }
-async function readOrRefused(read) {
-  try {
-    return { value: await read(), status: null };
-  } catch (error) {
-    const status = statusOf3(error);
-    if (typeof status === "number" && UNREADABLE.has(status)) return { value: null, status };
-    throw error;
-  }
-}
 function daysText(days) {
   if (days < 1) return "less than a day";
   return days === 1 ? "1 day" : `${days} days`;
@@ -9299,11 +9576,8 @@ function plural3(count2, noun) {
 function and(items, last = " and ") {
   return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")}${last}${items.at(-1)}`;
 }
-function escape2(text7) {
-  return text7.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-function statusOf3(error) {
-  return typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
+function escape2(text8) {
+  return text8.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/retro/kinds/churn-generated.ts
@@ -9701,16 +9975,16 @@ var COUNT_KEYS = Object.freeze({
   errors: "errors",
   total: "total"
 });
-function cleanLog(text7) {
-  return plainText(text7).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
+function cleanLog(text8) {
+  return plainText(text8).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
 }
-function tailOf(text7, count2) {
-  const lines = plainText(text7).split("\n");
+function tailOf(text8, count2) {
+  const lines = plainText(text8).split("\n");
   if (lines.at(-1) === "") lines.pop();
   return lines.slice(-count2).join("\n");
 }
-function readTestLog(text7) {
-  const lines = cleanLog(text7).split("\n");
+function readTestLog(text8) {
+  const lines = cleanLog(text8).split("\n");
   for (const reader of READERS) {
     if (!reader.detects(lines)) continue;
     const { tests, counts } = reader.read(lines);
@@ -9812,13 +10086,13 @@ function vitestCrosses(lines) {
   return tests;
 }
 var READERS = Object.freeze([pytest, playwright, jest, vitest]);
-function countsIn(text7) {
+function countsIn(text8) {
   const counts = {};
-  for (const [, number, word] of text7.matchAll(/(\d+) ([a-z]+)/g)) {
+  for (const [, number, word] of text8.matchAll(/(\d+) ([a-z]+)/g)) {
     const key = word === void 0 ? void 0 : COUNT_KEYS[word];
     if (key && !(key in counts)) counts[key] = Number(number);
   }
-  const total = /\((\d+)\)\s*$/.exec(text7.trim());
+  const total = /\((\d+)\)\s*$/.exec(text8.trim());
   if (total && !("total" in counts)) counts.total = Number(total[1]);
   return Object.keys(counts).length > 0 ? counts : null;
 }
@@ -10102,8 +10376,8 @@ function short(sha) {
 function count(n, noun) {
   return `${n} ${n === 1 ? noun : `${noun}s`}`;
 }
-function cell2(text7) {
-  return text7.replaceAll("|", "\\|");
+function cell2(text8) {
+  return text8.replaceAll("|", "\\|");
 }
 function uniqueBy(items, key) {
   const seen = /* @__PURE__ */ new Set();
@@ -10785,22 +11059,22 @@ function detect({ run, pr, prd, config, pulls, records, kinds = kindsFor(run) })
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-import { z as z30 } from "zod";
+import { z as z31 } from "zod";
 
 // apps/omni-app/src/retro/narrate.ts
-import { z as z29 } from "zod";
-var ReplyFindingSchema = z29.object({
-  title: z29.string().exactOptional(),
-  whyItMatters: z29.string().exactOptional(),
-  lesson: z29.string().exactOptional(),
-  keep: z29.boolean().exactOptional(),
-  why: z29.string().exactOptional()
+import { z as z30 } from "zod";
+var ReplyFindingSchema = z30.object({
+  title: z30.string().exactOptional(),
+  whyItMatters: z30.string().exactOptional(),
+  lesson: z30.string().exactOptional(),
+  keep: z30.boolean().exactOptional(),
+  why: z30.string().exactOptional()
 });
-var ModelReplySchema = z29.object({
-  summary: z29.string(),
-  findings: z29.record(z29.string(), ReplyFindingSchema),
-  lessons: z29.array(z29.object({ text: z29.string(), findings: z29.array(z29.string()) })),
-  verdict: z29.object({ worthIt: z29.boolean(), reason: z29.string() }).nullable()
+var ModelReplySchema = z30.object({
+  summary: z30.string(),
+  findings: z30.record(z30.string(), ReplyFindingSchema),
+  lessons: z30.array(z30.object({ text: z30.string(), findings: z30.array(z30.string()) })),
+  verdict: z30.object({ worthIt: z30.boolean(), reason: z30.string() }).nullable()
 });
 var NO_MODEL_KEY = "no model key";
 var REPLY_INVALID = "model reply invalid";
@@ -10848,7 +11122,7 @@ function modelInput({
       }))
     })),
     knowledge: knowledgeLines(knowledge),
-    earlierLessons: (Array.isArray(lessons2) ? lessons2 : []).filter((text7) => typeof text7 === "string").map((text7) => maskSecrets(text7))
+    earlierLessons: (Array.isArray(lessons2) ? lessons2 : []).filter((text8) => typeof text8 === "string").map((text8) => maskSecrets(text8))
   };
   capInput(input, findings.map((finding) => finding.source), LIMITS.modelInputTokens * CHARS_PER_TOKEN - SYSTEM2.length);
   return { system: SYSTEM2, user: JSON.stringify(input) };
@@ -10863,8 +11137,8 @@ function knowledgeLines(summary2) {
   }));
   return [...entries, ...records].filter((entry) => typeof entry.id === "string" && typeof entry.line === "string").map((entry) => ({ id: maskSecrets(entry.id), line: maskSecrets(firstLineOf(entry.line)) }));
 }
-function firstLineOf(text7) {
-  return text7.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+function firstLineOf(text8) {
+  return text8.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
 }
 var EXCERPT_KEY = ',"excerpt":';
 var CUT_MARK = "[earlier lines cut]\n";
@@ -10873,7 +11147,7 @@ var HUNKS = "churn";
 function capInput(input, sources, budget) {
   let size = JSON.stringify(input).length;
   if (size <= budget) return;
-  const cost = (text7) => EXCERPT_KEY.length + JSON.stringify(text7).length;
+  const cost = (text8) => EXCERPT_KEY.length + JSON.stringify(text8).length;
   const excerpts = input.findings.flatMap(
     (finding, i) => finding.evidence.flatMap((item, j) => item.excerpt === void 0 ? [] : [{ i, j, item, source: sources[i] }])
   );
@@ -10892,14 +11166,14 @@ function capInput(input, sources, budget) {
   }
   for (const entry of [...latest].sort(leastSevereFirst)) {
     if (size <= budget) return;
-    const text7 = entry.item.excerpt ?? "";
-    let keep = Math.max(0, text7.length - (size - budget) - CUT_MARK.length);
-    let next = lastLines(text7, keep);
-    while (keep > 0 && size - cost(text7) + cost(next) > budget) {
-      keep = Math.max(0, keep - (size - cost(text7) + cost(next) - budget));
-      next = lastLines(text7, keep);
+    const text8 = entry.item.excerpt ?? "";
+    let keep = Math.max(0, text8.length - (size - budget) - CUT_MARK.length);
+    let next = lastLines(text8, keep);
+    while (keep > 0 && size - cost(text8) + cost(next) > budget) {
+      keep = Math.max(0, keep - (size - cost(text8) + cost(next) - budget));
+      next = lastLines(text8, keep);
     }
-    size += cost(next) - cost(text7);
+    size += cost(next) - cost(text8);
     entry.item.excerpt = next;
   }
   while (size > budget && input.earlierLessons.length > 0) {
@@ -10916,8 +11190,8 @@ function capInput(input, sources, budget) {
   }
   if (size > budget) input.prd.problem = input.prd.problem.slice(0, Math.max(0, input.prd.problem.length - (size - budget)));
 }
-function lastLines(text7, keep) {
-  let tail = keep > 0 ? text7.slice(-keep) : "";
+function lastLines(text8, keep) {
+  let tail = keep > 0 ? text8.slice(-keep) : "";
   const newline = tail.indexOf("\n");
   if (newline !== -1 && newline < tail.length - 1) tail = tail.slice(newline + 1);
   return `${CUT_MARK}${tail}`;
@@ -10937,9 +11211,9 @@ function checkReply2(value) {
       const kept2 = {};
       findings[id] = kept2;
       for (const name of ["title", "whyItMatters", "lesson"]) {
-        const text7 = words[name];
-        if (text7 === void 0) continue;
-        if (typeof text7 === "string") kept2[name] = text7;
+        const text8 = words[name];
+        if (text8 === void 0) continue;
+        if (typeof text8 === "string") kept2[name] = text8;
         else errors.push(`findings[${JSON.stringify(id)}].${name} must be a string`);
       }
       if (words.keep !== void 0) {
@@ -11000,153 +11274,153 @@ function isObject(value) {
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-var text6 = z30.string();
-var maybeText2 = z30.string().nullable();
-var RunSchema = z30.enum(["merge", "day-14"]);
+var text7 = z31.string();
+var maybeText2 = z31.string().nullable();
+var RunSchema = z31.enum(["merge", "day-14"]);
 var pullFields = {
   number: PrNumberSchema,
-  title: text6,
+  title: text7,
   url: maybeText2,
-  merged: z30.boolean(),
-  baseRef: text6,
-  headRef: text6,
-  headSha: text6,
+  merged: z31.boolean(),
+  baseRef: text7,
+  headRef: text7,
+  headSha: text7,
   openedAt: maybeText2,
   mergedAt: maybeText2,
   mergeSha: maybeText2,
-  labels: z30.array(text6)
+  labels: z31.array(text7)
 };
-var PullSchema3 = z30.object(pullFields);
-var FeaturePullSchema = z30.object({ ...pullFields, mergeSha: text6 });
-var PullIntoSchema = z30.object({
+var PullSchema3 = z31.object(pullFields);
+var FeaturePullSchema = z31.object({ ...pullFields, mergeSha: text7 });
+var PullIntoSchema = z31.object({
   number: PrNumberSchema,
-  title: text6,
+  title: text7,
   url: maybeText2,
-  state: text6,
-  draft: z30.boolean(),
-  headRef: text6,
-  headSha: text6,
-  openedAt: text6,
+  state: text7,
+  draft: z31.boolean(),
+  headRef: text7,
+  headSha: text7,
+  openedAt: text7,
   closedAt: maybeText2,
   mergedAt: maybeText2,
-  labels: z30.array(text6)
+  labels: z31.array(text7)
 });
-var PrdFactsSchema = z30.object({
+var PrdFactsSchema = z31.object({
   number: PrdNumberSchema,
-  topic: text6,
-  title: text6,
-  problem: text6,
-  state: z30.enum(["shipped", "inbox"]),
-  folder: text6,
+  topic: text7,
+  title: text7,
+  problem: text7,
+  state: z31.enum(["shipped", "inbox"]),
+  folder: text7,
   plan: maybeText2,
   settled: maybeText2
 });
-var QualifiedSchema2 = z30.union([
-  z30.object({ skip: z30.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
-  z30.object({ skip: text6, pr: PullSchema3.exactOptional() })
+var QualifiedSchema2 = z31.union([
+  z31.object({ skip: z31.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
+  z31.object({ skip: text7, pr: PullSchema3.exactOptional() })
 ]);
-var PullsIntoSchema = z30.array(PullIntoSchema);
-var EvidenceSchema = z30.object({ label: text6, url: maybeText2, excerpt: text6.exactOptional() });
-var FindingSchema2 = z30.object({ id: text6, kind: text6, title: text6, happened: text6, evidence: z30.array(EvidenceSchema) });
-var SheetFindingSchema = z30.object({ ...FindingSchema2.shape, source: text6, ref: text6, repo: text6.exactOptional() });
-var TargetReadSchema = z30.discriminatedUnion("read", [
-  z30.object({
-    name: text6,
-    repo: text6,
-    read: z30.literal(true),
-    installationId: z30.number(),
-    featurePrs: z30.array(FeaturePullSchema).min(1),
-    pulls: z30.array(PullIntoSchema)
+var PullsIntoSchema = z31.array(PullIntoSchema);
+var EvidenceSchema = z31.object({ label: text7, url: maybeText2, excerpt: text7.exactOptional() });
+var FindingSchema2 = z31.object({ id: text7, kind: text7, title: text7, happened: text7, evidence: z31.array(EvidenceSchema) });
+var SheetFindingSchema = z31.object({ ...FindingSchema2.shape, source: text7, ref: text7, repo: text7.exactOptional() });
+var TargetReadSchema = z31.discriminatedUnion("read", [
+  z31.object({
+    name: text7,
+    repo: text7,
+    read: z31.literal(true),
+    installationId: z31.number(),
+    featurePrs: z31.array(FeaturePullSchema).min(1),
+    pulls: z31.array(PullIntoSchema)
   }),
-  z30.object({ name: text6, repo: text6, read: z30.literal(false), reason: text6 })
+  z31.object({ name: text7, repo: text7, read: z31.literal(false), reason: text7 })
 ]);
-var RepositoryFactsSchema = z30.object({
-  repo: text6,
-  name: text6,
-  plan: z30.boolean(),
-  read: z30.boolean(),
-  reason: text6.exactOptional(),
-  featurePrs: z30.array(z30.object({ number: PrNumberSchema, url: maybeText2 })),
-  kinds: z30.record(z30.string(), z30.unknown()).exactOptional()
+var RepositoryFactsSchema = z31.object({
+  repo: text7,
+  name: text7,
+  plan: z31.boolean(),
+  read: z31.boolean(),
+  reason: text7.exactOptional(),
+  featurePrs: z31.array(z31.object({ number: PrNumberSchema, url: maybeText2 })),
+  kinds: z31.record(z31.string(), z31.unknown()).exactOptional()
 });
-var RulesSheetSchema = z30.object({
-  version: z30.number(),
-  findingOrder: z30.array(z30.array(text6)),
-  issuesPerRun: z30.number(),
-  thresholds: z30.object({
-    slowSliceFactor: z30.number(),
-    repeatedRedCommits: z30.number(),
-    repeatedRedSlices: z30.number(),
-    failingTestRuns: z30.number(),
-    churnRangeCommits: z30.number(),
-    churnFilePercent: z30.number(),
-    churnFileLines: z30.number(),
-    afterMergeDays: z30.number()
+var RulesSheetSchema = z31.object({
+  version: z31.number(),
+  findingOrder: z31.array(z31.array(text7)),
+  issuesPerRun: z31.number(),
+  thresholds: z31.object({
+    slowSliceFactor: z31.number(),
+    repeatedRedCommits: z31.number(),
+    repeatedRedSlices: z31.number(),
+    failingTestRuns: z31.number(),
+    churnRangeCommits: z31.number(),
+    churnFilePercent: z31.number(),
+    churnFileLines: z31.number(),
+    afterMergeDays: z31.number()
   }),
-  limits: z30.object({ logTailLines: z30.number(), modelInputTokens: z30.number() }),
-  fieldCaps: z30.object({
-    summary: z30.number(),
-    title: z30.number(),
-    whyItMatters: z30.number(),
-    lesson: z30.number(),
-    reason: z30.number(),
-    why: z30.number()
+  limits: z31.object({ logTailLines: z31.number(), modelInputTokens: z31.number() }),
+  fieldCaps: z31.object({
+    summary: z31.number(),
+    title: z31.number(),
+    whyItMatters: z31.number(),
+    lesson: z31.number(),
+    reason: z31.number(),
+    why: z31.number()
   })
 });
 var factSheetFields = {
   run: RunSchema,
   rules: RulesSheetSchema,
-  prd: z30.object({ number: PrdNumberSchema, title: text6, topic: text6, state: text6, folder: text6 }),
-  featurePr: z30.object({ number: PrNumberSchema, title: text6, url: maybeText2, openedAt: maybeText2, mergedAt: maybeText2, mergeSha: text6 }),
+  prd: z31.object({ number: PrdNumberSchema, title: text7, topic: text7, state: text7, folder: text7 }),
+  featurePr: z31.object({ number: PrNumberSchema, title: text7, url: maybeText2, openedAt: maybeText2, mergedAt: maybeText2, mergeSha: text7 }),
   /** Each kind's facts, by its id; a reader parses the facts it reads with that kind's schema. */
-  kinds: z30.record(z30.string(), z30.unknown()),
-  findings: z30.array(SheetFindingSchema),
+  kinds: z31.record(z31.string(), z31.unknown()),
+  findings: z31.array(SheetFindingSchema),
   /** Every repository of a multi-repository PRD (PRD 1130); absent for a PRD of one repository. */
-  repositories: z30.array(RepositoryFactsSchema).exactOptional()
+  repositories: z31.array(RepositoryFactsSchema).exactOptional()
 };
-var FactSheetSchema = z30.object(factSheetFields);
-var DroppedSchema = z30.object({ dropped: text6 });
-var ProseFieldSchema = z30.union([text6, DroppedSchema]);
-var ProseFindingSchema = z30.object({
+var FactSheetSchema = z31.object(factSheetFields);
+var DroppedSchema = z31.object({ dropped: text7 });
+var ProseFieldSchema = z31.union([text7, DroppedSchema]);
+var ProseFindingSchema = z31.object({
   title: ProseFieldSchema.exactOptional(),
   whyItMatters: ProseFieldSchema.exactOptional(),
   lesson: ProseFieldSchema.exactOptional(),
-  keep: z30.boolean().exactOptional(),
-  why: text6.exactOptional()
+  keep: z31.boolean().exactOptional(),
+  why: text7.exactOptional()
 });
-var LessonSchema = z30.object({ text: text6, findings: z30.array(text6) });
-var VerdictSchema2 = z30.union([z30.object({ worthIt: z30.boolean(), reason: text6 }), DroppedSchema]);
-var ProseSchema = z30.object({
+var LessonSchema = z31.object({ text: text7, findings: z31.array(text7) });
+var VerdictSchema2 = z31.union([z31.object({ worthIt: z31.boolean(), reason: text7 }), DroppedSchema]);
+var ProseSchema = z31.object({
   summary: ProseFieldSchema.exactOptional(),
-  findings: z30.record(z30.string(), ProseFindingSchema),
-  lessons: z30.array(LessonSchema),
+  findings: z31.record(z31.string(), ProseFindingSchema),
+  lessons: z31.array(LessonSchema),
   verdict: VerdictSchema2.optional()
 });
-var DroppedFieldSchema = z30.object({ field: text6, reason: text6 });
-var GuardedSchema = z30.object({ prose: ProseSchema.nullable(), dropped: z30.array(DroppedFieldSchema) });
-var NarratedSchema = z30.object({ model: maybeText2, reply: ModelReplySchema.nullable(), reason: maybeText2 });
-var NarrationSchema = z30.object({ model: maybeText2, reason: maybeText2, dropped: z30.array(DroppedFieldSchema) });
-var IssueLinkSchema = z30.object({ number: IssueNumberSchema, url: text6, state: z30.enum(["open", "closed"]) });
-var IssueLinksSchema = z30.record(z30.string(), IssueLinkSchema);
-var RunRecordSchema = z30.object({
+var DroppedFieldSchema = z31.object({ field: text7, reason: text7 });
+var GuardedSchema = z31.object({ prose: ProseSchema.nullable(), dropped: z31.array(DroppedFieldSchema) });
+var NarratedSchema = z31.object({ model: maybeText2, reply: ModelReplySchema.nullable(), reason: maybeText2 });
+var NarrationSchema = z31.object({ model: maybeText2, reason: maybeText2, dropped: z31.array(DroppedFieldSchema) });
+var IssueLinkSchema = z31.object({ number: IssueNumberSchema, url: text7, state: z31.enum(["open", "closed"]) });
+var IssueLinksSchema = z31.record(z31.string(), IssueLinkSchema);
+var RunRecordSchema = z31.object({
   ...factSheetFields,
   narration: NarrationSchema.exactOptional(),
   verdict: VerdictSchema2.nullable().exactOptional(),
-  lessons: z30.array(LessonSchema).exactOptional(),
+  lessons: z31.array(LessonSchema).exactOptional(),
   issues: IssueLinksSchema.exactOptional()
 });
-var KnownSchema = z30.object({
-  knowledge: z30.object({ principles: z30.array(z30.unknown()), laws: z30.array(z30.unknown()), decisions: z30.array(z30.unknown()) }),
-  lessons: z30.array(text6)
+var KnownSchema = z31.object({
+  knowledge: z31.object({ principles: z31.array(z31.unknown()), laws: z31.array(z31.unknown()), decisions: z31.array(z31.unknown()) }),
+  lessons: z31.array(text7)
 });
-var PublishedSchema2 = z30.object({
-  branch: text6,
-  committed: z30.boolean(),
-  commit: text6,
-  pr: z30.object({ number: PrNumberSchema, url: text6, created: z30.boolean() }).nullable()
+var PublishedSchema2 = z31.object({
+  branch: text7,
+  committed: z31.boolean(),
+  commit: text7,
+  pr: z31.object({ number: PrNumberSchema, url: text7, created: z31.boolean() }).nullable()
 });
-var CommentedSchema2 = z30.object({ commentId: CommentIdSchema, created: z30.boolean() });
-var ClockSchema = z30.number();
+var CommentedSchema2 = z31.object({ commentId: CommentIdSchema, created: z31.boolean() });
+var ClockSchema = z31.number();
 
 // apps/omni-app/src/retro/guard.ts
 var DROPPED = Object.freeze({
@@ -11265,15 +11539,15 @@ function refusal2(value, cap, evidence, { digits = false } = {}) {
   if (!digits && /\d/.test(setAside(value, evidence))) return DROPPED.digit;
   return null;
 }
-function setAside(text7, evidence) {
-  const spans = text7.replace(BACKTICK_SPAN2, (span, inner) => new RegExp("\\p{L}", "u").test(inner) && evidence.holds(inner) ? " " : span);
+function setAside(text8, evidence) {
+  const spans = text8.replace(BACKTICK_SPAN2, (span, inner) => new RegExp("\\p{L}", "u").test(inner) && evidence.holds(inner) ? " " : span);
   return spans.replace(LINK, (link) => evidence.urls.has(link.replace(TRAILING, "")) ? " " : link);
 }
-function linksIn(text7) {
-  return (text7.match(LINK) ?? []).map((link) => link.replace(TRAILING, ""));
+function linksIn(text8) {
+  return (text8.match(LINK) ?? []).map((link) => link.replace(TRAILING, ""));
 }
-function findingIdsIn(text7) {
-  return (text7.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ""));
+function findingIdsIn(text8) {
+  return (text8.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ""));
 }
 function evidenceOf(sheet) {
   const findings = isList(sheet?.findings) ? sheet.findings : [];
@@ -11283,20 +11557,20 @@ function evidenceOf(sheet) {
   for (const finding of findings) {
     for (const item of finding.evidence ?? []) {
       if (typeof item?.url === "string") urls.add(item.url);
-      for (const text7 of [item?.label, item?.url, item?.excerpt]) if (typeof text7 === "string") texts.push(text7);
+      for (const text8 of [item?.label, item?.url, item?.excerpt]) if (typeof text8 === "string") texts.push(text8);
     }
   }
-  return { ids, urls, holds: (span) => texts.some((text7) => text7.includes(span)) };
+  return { ids, urls, holds: (span) => texts.some((text8) => text8.includes(span)) };
 }
 function isObject2(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function escape4(text7) {
-  return text7.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape4(text8) {
+  return text8.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/retro/issues.ts
-var ISSUES2 = "GET /repos/{owner}/{repo}/issues";
+var ISSUES3 = "GET /repos/{owner}/{repo}/issues";
 var NEW_ISSUE = "POST /repos/{owner}/{repo}/issues";
 var PULLS3 = "GET /repos/{owner}/{repo}/pulls";
 async function publishIssues(octokit, { owner, repo, config, sheet, prose, retroPath }) {
@@ -11411,12 +11685,12 @@ function field(value) {
 var PLAIN = /^[A-Za-z0-9_./][A-Za-z0-9_./~+=%@-]*(?::[A-Za-z0-9_./~+=%@-]+)*$/;
 var RESERVED = /^(?:true|false|yes|no|on|off|null|[-+]?\.?\d|\.inf|\.nan)/i;
 function scalar(value) {
-  const text7 = String(value);
-  return PLAIN.test(text7) && !RESERVED.test(text7) ? text7 : JSON.stringify(text7);
+  const text8 = String(value);
+  return PLAIN.test(text8) && !RESERVED.test(text8) ? text8 : JSON.stringify(text8);
 }
 async function listLabelled(octokit, { owner, repo, label: label2 }) {
   const items = await paginate(
-    (page) => octokit.request(ISSUES2, { owner, repo, labels: label2, state: "all", per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(IssuesSchema, data, ISSUES2))
+    (page) => octokit.request(ISSUES3, { owner, repo, labels: label2, state: "all", per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(IssuesSchema, data, ISSUES3))
   );
   return items.filter((item) => !item.pull_request);
 }
@@ -11439,12 +11713,12 @@ async function findRetroPull(octokit, { owner, repo, branch }) {
 }
 
 // apps/omni-app/src/retro/render.ts
-import { z as z31 } from "zod";
+import { z as z32 } from "zod";
 var keptFacts = (run, id) => run.kinds?.[id];
-var TimelineFactsSchema = z31.object({
-  featurePr: z31.object({ minutes: z31.number().nullish() }).nullish(),
-  sliceCount: z31.number().exactOptional(),
-  waves: z31.object({ merged: z31.number(), planned: z31.number().nullable() })
+var TimelineFactsSchema = z32.object({
+  featurePr: z32.object({ minutes: z32.number().nullish() }).nullish(),
+  sliceCount: z32.number().exactOptional(),
+  waves: z32.object({ merged: z32.number(), planned: z32.number().nullable() })
 }).nullable();
 function mergeRuns(existing, record) {
   let doc = null;
@@ -11453,7 +11727,7 @@ function mergeRuns(existing, record) {
   } catch {
     doc = null;
   }
-  const runs = parseOrThrow(z31.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
+  const runs = parseOrThrow(z32.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
   const same = (run) => run.featurePr.number === record.featurePr.number && run.run === record.run;
   const index = runs.findIndex(same);
   const next = index === -1 ? [...runs, record] : runs.map((run, i) => i === index ? record : run);
@@ -11524,8 +11798,8 @@ function field2(value) {
   return value;
 }
 function summary(prose, latest) {
-  const text7 = field2(prose?.summary);
-  if (text7) return text7;
+  const text8 = field2(prose?.summary);
+  if (text8) return text8;
   return `Facts only: ${latest.narration?.reason ?? "no prose"}`;
 }
 function titleOf3(finding, prose) {
@@ -11557,9 +11831,9 @@ function findingBlock(finding, prose, issues, level = "###") {
 function lessons(prose, findings) {
   const given = (prose?.lessons ?? []).filter((lesson) => lesson.text);
   if (given.length === 0) return [prose ? "None proposed." : "None proposed: facts only."];
-  const refOf = new Map(findings.map((finding) => [finding.id, finding.ref]));
+  const refOf2 = new Map(findings.map((finding) => [finding.id, finding.ref]));
   return given.map((lesson) => {
-    const refs = lesson.findings.map((id) => refOf.get(id)).filter(Boolean);
+    const refs = lesson.findings.map((id) => refOf2.get(id)).filter(Boolean);
     return refs.length > 0 ? `- ${lesson.text} (${refs.join(", ")})` : `- ${lesson.text}`;
   });
 }
@@ -11676,8 +11950,8 @@ function minutesBetween2(from, to) {
   const ms2 = Date.parse(to) - Date.parse(from);
   return Number.isFinite(ms2) ? Math.round(ms2 / 6e4) : null;
 }
-function oneLine3(text7) {
-  return text7.replace(/\s+/g, " ").trim() || "no reason given";
+function oneLine3(text8) {
+  return text8.replace(/\s+/g, " ").trim() || "no reason given";
 }
 
 // apps/omni-app/src/retro/publish.ts
@@ -11740,99 +12014,13 @@ async function branchFor(octokit, { owner, repo, base, first, run, mergeSha }) {
   return { branch: `${first}${FOLLOW_UP_SUFFIX}`, from: parseGitHub(RefSchema2, data, REF).object.sha };
 }
 function withRuns(existing, records) {
-  let text7 = existing;
+  let text8 = existing;
   let doc = null;
   for (const record of records) {
-    doc = mergeRuns(text7, record);
-    text7 = JSON.stringify(doc);
+    doc = mergeRuns(text8, record);
+    text8 = JSON.stringify(doc);
   }
   return defined(doc, "the retro.json of the records published");
-}
-
-// kit/lib/board.ts
-function fillBranch(template, values) {
-  return template.replace(/\{(topic|slice|landings|landing|name)\}/g, (whole, key) => {
-    const value = values[key];
-    return value === void 0 ? whole : String(value);
-  });
-}
-function landingBranches(branches, { topic, landings }) {
-  if (landings.length <= 1) {
-    return [{ landing: 1, name: landings[0]?.name ?? "landing-1", branch: fillBranch(branches.feature, { topic }) }];
-  }
-  return landings.map(({ landing, name }) => ({
-    landing,
-    name,
-    branch: fillBranch(branches.landing, { topic, landing, landings: landings.length, name })
-  }));
-}
-
-// kit/lib/landings/landing-plan.ts
-function landingPlan({
-  landings,
-  slices,
-  branches,
-  defaultBranch,
-  topic,
-  repo = null
-}) {
-  const mine = slices.filter((slice) => repo === null || slice.repo === repo);
-  const kept2 = landings.filter((landing) => mine.some((slice) => slice.landing === landing.landing));
-  const chain = landingBranches(branches, {
-    topic,
-    landings: kept2.map((landing, index) => ({ landing: index + 1, name: landing.name }))
-  });
-  return kept2.map((landing, index) => ({
-    landing: index + 1,
-    planLanding: landing.landing,
-    count: kept2.length,
-    name: landing.name,
-    mergeWhen: landing.mergeWhen,
-    branch: chain[index]?.branch ?? "",
-    base: index === 0 ? defaultBranch : chain[index - 1]?.branch ?? defaultBranch,
-    titleSuffix: kept2.length > 1 ? ` (${index + 1}/${kept2.length})` : "",
-    mergeAfter: mergeAfterOf(kept2, index),
-    slices: mine.filter((slice) => slice.landing === landing.landing).map(({ id, title }) => ({ id, title }))
-  }));
-}
-function mergeAfterOf(kept2, index) {
-  const before2 = kept2[index - 1];
-  return index === 0 || before2 === void 0 ? null : { landing: index, name: before2.name };
-}
-
-// apps/omni-app/src/retro/targets.ts
-var shortName3 = (slug) => slug.split("/").at(-1) ?? slug;
-function planTargets({ config, plan, planSlug, topic }) {
-  const targets = config.plan?.targets ?? [];
-  if (targets.length === 0 || plan === null) return [];
-  const own = shortName3(planSlug);
-  return parsePlanRepositories(plan).filter((row) => shortName3(row.repo) !== own).map((row) => {
-    const name = shortName3(row.repo);
-    const slug = targets.find((target2) => target2.repo === row.repo || shortName3(target2.repo) === name)?.repo ?? null;
-    return { name, slug, branches: featureBranches({ config, plan, topic, name }) };
-  });
-}
-function featureBranches({ config, plan, topic, name }) {
-  const slices = slicesOf(plan);
-  const named = parsePlanLandings(plan);
-  const numbers = [...new Set(slices.map((slice) => slice.landing))].sort((a, b) => a - b);
-  const landings = numbers.map((landing) => ({
-    landing,
-    name: named.find((row) => row.landing === landing)?.name ?? `landing-${landing}`,
-    mergeWhen: null,
-    slices: [],
-    waves: []
-  }));
-  const chain = landingPlan({ landings, slices, branches: config.branches, defaultBranch: config.repo.defaultBranch, topic, repo: name });
-  const fallback = config.branches.feature.replace("{topic}", topic);
-  return chain.length > 0 ? chain.map((step) => step.branch) : [fallback];
-}
-function slicesOf(plan) {
-  try {
-    return parsePlanSlices(plan);
-  } catch {
-    return [];
-  }
 }
 
 // apps/omni-app/src/retro/targets.read.ts
@@ -11930,11 +12118,11 @@ function ranked(findings) {
 }
 
 // apps/omni-app/src/retro/target-comment.ts
-import { z as z32 } from "zod";
+import { z as z33 } from "zod";
 var targetMarker = (prefix) => `<!-- ${prefix}-retro-target -->`;
-var TargetCommentedSchema = z32.union([
-  z32.object({ comments: z32.array(z32.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z32.boolean() })) }),
-  z32.object({ refused: z32.number() })
+var TargetCommentedSchema = z33.union([
+  z33.object({ comments: z33.array(z33.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z33.boolean() })) }),
+  z33.object({ refused: z33.number() })
 ]);
 function targetComment({
   prd,
@@ -11960,12 +12148,12 @@ function targetComment({
     ...lines.length > 0 ? lines : ["No finding for this repository."]
   ].join("\n");
 }
-async function commentTargets({ step, octokitFor, id, targets, prefix, ...text7 }) {
+async function commentTargets({ step, octokitFor, id, targets, prefix, ...text8 }) {
   const out = {};
   for (const target2 of targets) {
     if (!target2.read) continue;
     const [owner = "", repo = ""] = target2.repo.split("/");
-    const body = targetComment({ ...text7, repo: target2.repo });
+    const body = targetComment({ ...text8, repo: target2.repo });
     out[target2.name] = await savedStep(
       step,
       id(`comment-target-${target2.name}`),
@@ -12012,21 +12200,21 @@ var verdictMarker2 = (prefix) => `<!-- ${prefix}-retro-verdict -->`;
 var VERDICT_MARKER2 = verdictMarker2(MARKER_PREFIX2);
 var NO_NEW_LESSON = "no new lesson";
 var NOT_JUDGED = "not judged";
-var RetroEventSchema = z33.object({
-  installationId: z33.number(),
-  owner: z33.string(),
-  repo: z33.string(),
+var RetroEventSchema = z34.object({
+  installationId: z34.number(),
+  owner: z34.string(),
+  repo: z34.string(),
   prNumber: PrNumberSchema,
-  mergeSha: z33.string(),
-  mergedAt: z33.string().nullish()
+  mergeSha: z34.string(),
+  mergedAt: z34.string().nullish()
 });
-var FailedEventSchema = z33.object({
-  installationId: z33.number().optional().catch(void 0),
-  owner: z33.string().optional().catch(void 0),
-  repo: z33.string().optional().catch(void 0),
+var FailedEventSchema = z34.object({
+  installationId: z34.number().optional().catch(void 0),
+  owner: z34.string().optional().catch(void 0),
+  repo: z34.string().optional().catch(void 0),
   prNumber: PrNumberSchema.optional().catch(void 0)
 }).catch({});
-var TickSchema = z33.looseObject({ ts: z33.number().exactOptional() }).nullable();
+var TickSchema = z34.looseObject({ ts: z34.number().exactOptional() }).nullable();
 function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch: fetch2, kinds = KINDS, followUp = false }) {
   return client.createFunction(
     {
@@ -12222,10 +12410,10 @@ async function retroFilesAt(octokit, { owner, repo, sha, dir }) {
 function lessonsIn(texts) {
   const seen = /* @__PURE__ */ new Set();
   const out = [];
-  for (const text7 of texts) {
+  for (const text8 of texts) {
     let doc = null;
     try {
-      doc = text7 ? JSON.parse(text7) : null;
+      doc = text8 ? JSON.parse(text8) : null;
     } catch {
       doc = null;
     }
