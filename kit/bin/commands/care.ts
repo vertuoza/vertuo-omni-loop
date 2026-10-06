@@ -341,7 +341,9 @@ function runList(args: string[], { ctx, stdout, exec, env }: CommandIo): number 
     return 0;
   }
   println(stdout, `omni care list — PRD ${prd}: ${entries.length} pull request${entries.length === 1 ? '' : 's'}, in merge order.`);
-  entries.forEach((entry, index) => println(stdout, listLine(entry, index)));
+  entries.forEach((entry, index) => {
+    println(stdout, listLine(entry, index));
+  });
   return 0;
 }
 

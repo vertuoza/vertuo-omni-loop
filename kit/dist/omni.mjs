@@ -34930,7 +34930,9 @@ function runList(args, { ctx, stdout, exec, env }) {
     return 0;
   }
   println(stdout, `omni care list \u2014 PRD ${prd2}: ${entries3.length} pull request${entries3.length === 1 ? "" : "s"}, in merge order.`);
-  entries3.forEach((entry, index) => println(stdout, listLine(entry, index)));
+  entries3.forEach((entry, index) => {
+    println(stdout, listLine(entry, index));
+  });
   return 0;
 }
 function replyBodyOf(flags, ctx) {
