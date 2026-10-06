@@ -6,7 +6,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { gradeReleaseNote, parseReleaseNote } from 'vertuo-omni-plan/kit/lib/releases/note.mjs';
+import { gradeReleaseNote, parseReleaseNote } from 'vertuo-omni-plan/kit/lib/releases/note.ts';
 import { DEMO_RELEASES } from './demo';
 import { INITIAL_RELEASE, ReleaseRow } from './row';
 import { OPEN_WEEKS, weeksOf } from './weeks';

@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { COLOURS, FLAT, spritePixels, tokensCss } from '@omni/design';
 import { markFor } from './mark';
 import { DEFAULT_THEME, parseTheme, resolveTheme, stripesOf, themeVars, TOKENS, type Token } from './theme';
+import { sure } from './test/sure';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const uncommented = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -30,21 +32,25 @@ const TODAY: Record<Token, string> = {
 /** The colour custom properties declared on a stylesheet's `:root`, name (without `--`) to value. */
 function rootColours(css: string): Record<string, string> {
   const root = /:root\s*\{([^}]*)\}/.exec(uncommented(css))?.[1] ?? '';
-  return Object.fromEntries([...root.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/g)]
-    .map(([, name, value]) => [name, value.trim()])
-    .filter(([, value]) => /^(#|rgba?\(|hsla?\()/.test(value)));
+  const colours: [string, string][] = [];
+  for (const [, name, value] of root.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+    const colour = sure(value, 'value').trim();
+    if (/^(#|rgba?\(|hsla?\()/.test(colour)) colours.push([sure(name, 'name'), colour]);
+  }
+  return Object.fromEntries(colours);
 }
 
 /** The token names `valid_theme()` accepts, in the latest migration that defines it. */
 function databaseTokens(): string[] {
   const dir = new URL('../../../../supabase/migrations/', import.meta.url);
-  const latest = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
+  const latest = sure(readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
     .map((f) => readFileSync(new URL(f, dir), 'utf8'))
     .filter((sql) => /function\s+public\.valid_theme\s*\(/.test(sql))
-    .at(-1)!;
+    .at(-1), 'readdirSync(dir).filter((f) => f.endsWith(".sql")).sort() .map((f) ...');
   const body = latest.slice(latest.search(/function\s+public\.valid_theme\s*\(/));
-  const list = /array\[([^\]]*)\]/.exec(body)![1];
-  return [...list.matchAll(/'([^']+)'/g)].map(([, name]) => name);
+  const list = sure(/array\[([^\]]*)\]/.exec(body), '/array\[([^\]]*)\]/.exec(body)')[1];
+  assertDefined(list, 'list');
+  return [...list.matchAll(/'([^']+)'/g)].map(([, name]) => sure(name, 'name'));
 }
 
 afterEach(() => { vi.restoreAllMocks(); });
@@ -95,8 +101,8 @@ describe('the theme\'s tokens', () => {
     const shell = uncommented(read('./shell.css'));
     expect(shell.match(/#[0-9a-f]{3,8}\b/gi) ?? []).toEqual([]);
     for (const [, name] of shell.matchAll(/var\(--([a-z0-9-]+)/g)) {
-      const layout = /^(gutter|safe-(top|right|bottom|left)|lens-[xy])$/.test(name);
-      expect(layout || name in TOKENS, `--${name} is a token or a length`).toBe(true);
+      const layout = /^(gutter|safe-(top|right|bottom|left)|lens-[xy])$/.test(sure(name, 'name'));
+      expect(layout || sure(name, 'name') in TOKENS, `--${name} is a token or a length`).toBe(true);
     }
   });
 
@@ -141,11 +147,11 @@ describe('a workspace\'s theme', () => {
     expect(flat).toEqual({ 1: '#010101', 2: '#020202', 3: '#030303', 4: '#040404' });
     const was = spritePixels('hero-girl').pixels;
     const now = spritePixels('hero-girl', { flat }).pixels;
-    const back = { [FLAT[1]]: '#010101', [FLAT[2]]: '#020202', [FLAT[3]]: '#030303', [FLAT[4]]: '#040404' } as Record<string, string>;
+    const back = { [sure(FLAT[1], 'FLAT[1]')]: '#010101', [sure(FLAT[2], 'FLAT[2]')]: '#020202', [sure(FLAT[3], 'FLAT[3]')]: '#030303', [sure(FLAT[4], 'FLAT[4]')]: '#040404' } as Record<string, string>;
     // A stripe's colour can be a shaded material's too (stripe-3 is the plasma ramp's base), so a
     // pixel either keeps its colour or was a stripe and takes that stripe's override.
     expect(now.some((c, i) => c !== was[i])).toBe(true);
-    now.forEach((c, i) => { if (c !== was[i]) expect(c, `pixel ${i}`).toBe(back[was[i]!]); });
+    now.forEach((c, i) => { if (c !== was[i]) expect(c, `pixel ${i}`).toBe(back[sure(was[i], 'was[i]')]); });
   });
 
   it('drops an unknown token, or a colour that is not lowercase #rrggbb, with a warning, and keeps its default', () => {

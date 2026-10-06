@@ -5,13 +5,14 @@
 // exactly like one that never was: not found. Signed out, the page's GitHub sign-in comes back to the
 // same short address through its own callback (atSignInReturn). Ported from the first build's s4
 // (tag archive/outbox-answers-v1), which found the dossier through a query this page no longer has.
-import type { Exchange } from '../../ask/page/sign-in';
+import type { Exchange, Join } from '../../ask/page/sign-in';
 import type { DossierListRow } from '../store';
-import { historySignInReturn, type Join } from './sign-in';
+import { historySignInReturn } from './sign-in';
 import { dossierPath } from './view';
+import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** A PRD of a repository, as the short address names it. */
-export type AtKey = { owner: string; repo: string; prd: number };
+export type AtKey = { owner: string; repo: string; prd: PrdNumber };
 
 const NAME = /^[\w.-]{1,100}$/;
 const PRD = /^[1-9]\d{0,8}$/;
@@ -29,7 +30,7 @@ export function readAt({ owner, repo, n }: { owner: string; repo: string; n: str
   const [o, r] = [decode(owner), decode(repo)];
   const named = (part: string) => NAME.test(part) && part !== '.' && part !== '..';
   if (!named(o) || !named(r) || !PRD.test(n)) return null;
-  return { owner: o, repo: r, prd: Number(n) };
+  return { owner: o, repo: r, prd: parsePrd(n) };
 }
 
 export const atPath = (key: AtKey) => `/prd/at/${encodeURIComponent(key.owner)}/${encodeURIComponent(key.repo)}/${key.prd}`;

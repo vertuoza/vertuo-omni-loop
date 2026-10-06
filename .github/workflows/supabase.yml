@@ -1,11 +1,22 @@
 # The galaxy database. On a pull request: every migration and the demo seed apply to an empty
-# database, and supabase/checks/access.sql proves who may read and write what. On main: the
+# database, supabase/database.types.ts is what they generate (PRD 725), every read a module registers
+# in a `*.boundary.ts` parses with its schema (PRD 1030), and supabase/checks/access.sql
+# proves who may read and write what. On main: the
 # migrations are applied to the production project. Off until the repository variable SUPABASE_PROJECT_ID is set.
 # Setup (project, secrets, variables): apps/galaxy/README.md, "Deploy to production".
 name: supabase
 on:
   pull_request:
-    paths: ['supabase/**', '.github/workflows/supabase.yml']
+    # The source of the arcade and the App too, where the schemas `pnpm schemas:verify` parses with
+    # live beside their modules: a change to a schema always runs it (PRD 1030).
+    paths:
+      - 'supabase/**'
+      - 'scripts/supabase-types.ts'
+      - 'scripts/schemas-verify.ts'
+      - '**/*.boundary.ts'
+      - 'apps/galaxy/src/**'
+      - 'apps/omni-app/src/**'
+      - '.github/workflows/supabase.yml'
   push:
     branches: [main]
     paths: ['supabase/migrations/**', '.github/workflows/supabase.yml']
@@ -16,12 +27,31 @@ jobs:
   check:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with: { version: 2.117.0 }   # pinned: `latest` asks the GitHub API, which rate-limits
-      - run: supabase db start      # applies supabase/migrations, then supabase/seed.sql
+      # Applies supabase/migrations, then supabase/seed.sql. The database, and the API in front of it
+      # with its keys (PostgREST, Kong, Auth), which `pnpm schemas:verify --local` reads through, and none
+      # of the services no step uses.
+      - run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }  # runs the scripts' TypeScript natively (Node >= 22.18)
+      - run: pnpm install --frozen-lockfile
+      - name: The database's types are what the migrations generate
+        # `supabase gen types --local`, by the pinned CLI above, against the database just started;
+        # fails, naming the first line, when the committed supabase/database.types.ts differs. To
+        # refresh it: `supabase db start`, then `node scripts/supabase-types.ts`, and commit the file.
+        run: node scripts/supabase-types.ts --check
+      - name: Every registered read parses with its module's schema
+        # `pnpm schemas:verify --local` (PRD 1030): each `*.boundary.ts` read, the module's own select
+        # or rpc, runs against the database just seeded and is parsed with the module's zod schema;
+        # it fails naming the module and the zod path of each mismatch, and names each read the seed
+        # leaves empty. It only reads.
+        run: pnpm schemas:verify --local
       - name: Who may sign up, and how a workspace is born
         # The hook: any GitHub account, with or without an email, and no other provider. Installing
         # the App makes one workspace per GitHub account, its installer the owner; a replay makes
@@ -131,6 +161,22 @@ jobs:
         # on the question's product, which the next read through the link carries, or dismisses it with no
         # claim; open questions are counted for the bell. Another workspace's member is refused (42501).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/agent_questions.sql
+      - name: Who may read and write the constituents
+        # Only a workspace's owner adds, edits and removes its products' Statement and Never lines; a
+        # member, another workspace's owner and anyone signed out are refused (42501). Each write logs
+        # exactly one event; a removed line keeps its row and id. Members read both tables and the
+        # terminal's read; the App's read is the service role's. The move turns confirmed `never`
+        # claims into Never lines and leaves the claims rejected.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql
+      - name: Who may read and write the GitHub budget
+        # The service role keeps ETags and budgets, refreshes them in place, keeps a pause through a
+        # refresh and drops old ETags. Nobody signed in, nor signed out, reads or writes either table.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/github_budget.sql
+      - name: Who may read and write the GitHub snapshots
+        # The service role stores a PRD's snapshot, marks it stale, leases its refresh and refreshes it
+        # in place. A member reads their own workspace's snapshots; nobody else reads, nobody signed in
+        # writes, and a snapshot goes with its dossier.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossier_github.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

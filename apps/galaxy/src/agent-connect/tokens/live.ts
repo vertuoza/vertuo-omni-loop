@@ -12,7 +12,7 @@ async function signedInStore() {
   if (!supabaseEnv()) return null;
   const db = await supabaseServer();
   const { data: { user } } = await db.auth.getUser();
-  return user ? agentTokenStore(db as unknown as Parameters<typeof agentTokenStore>[0]) : null;
+  return user ? agentTokenStore(db) : null;
 }
 
 export function tokenRouteDeps(): TokenRouteDeps {

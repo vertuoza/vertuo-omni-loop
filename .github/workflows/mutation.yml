@@ -1,0 +1,112 @@
+# The mutation nightly (PRD 1072, ADR-0059): every night at 02:00 UTC, and on demand, Stryker mutates the
+# kit's delivery core (`stryker.config.ts`) and `pnpm mutation:score` judges each module against its floor
+# in `mutation/floor.json`. Not a required check: a red night shows here, in Actions and in the job
+# summary, never on a pull request.
+#
+# The whole core takes 70 minutes on a 10-core laptop, outbox alone 40, so one job on a hosted runner
+# would take hours. `mutate` runs one shard per module side by side (outbox split in three, its largest
+# files apart, the third shard everything else in it so a new file is never missed), each with its own
+# timeout; `score` merges their JSON reports into one, writes the table to the job summary, uploads the
+# merged report and fails when a module is below its floor or a shard did not finish.
+name: mutation
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  mutate:
+    name: mutate ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { shard: ids, mutate: 'kit/lib/ids.ts' }
+          - { shard: layout, mutate: 'kit/lib/layout.ts' }
+          - { shard: board, mutate: 'kit/lib/board.ts' }
+          - { shard: config, mutate: 'kit/lib/config.ts' }
+          - { shard: env, mutate: 'kit/lib/env/**/*.ts' }
+          - { shard: inbox, mutate: 'kit/lib/inbox/**/*.ts' }
+          - { shard: policy, mutate: 'kit/lib/policy/**/*.ts' }
+          - { shard: outbox-comment, mutate: 'kit/lib/outbox/comment.ts' }
+          - { shard: outbox-settle, mutate: 'kit/lib/outbox/settle.ts,kit/lib/outbox/outbox.ts' }
+          - { shard: outbox-rest, mutate: 'kit/lib/outbox/**/*.ts,!kit/lib/outbox/comment.ts,!kit/lib/outbox/settle.ts,!kit/lib/outbox/outbox.ts' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Mutate ${{ matrix.shard }}
+        run: pnpm exec stryker run stryker.config.ts --mutate '${{ matrix.mutate }},!kit/lib/**/*.test.ts'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mutation-${{ matrix.shard }}
+          path: |
+            reports/mutation/mutation.json
+            reports/mutation/mutation.html
+          if-no-files-found: error
+          retention-days: 14
+
+  score:
+    needs: mutate
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: mutation-*
+          path: shards
+      # One report from the shards': each mutates its own files, so their `files` never overlap. The
+      # merged HTML page is a shard's page with its one `app.report = {…};` line filled with the merged
+      # report; each shard's own page is kept beside it.
+      - name: Merge the shards' reports
+        run: |
+          mkdir -p reports/mutation
+          node --input-type=module -e '
+            import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+            const shards = readdirSync("shards").sort();
+            const reports = shards.map((s) => JSON.parse(readFileSync(`shards/${s}/mutation.json`, "utf8")));
+            const merged = { ...reports[0], files: Object.assign({}, ...reports.map((r) => r.files)), testFiles: Object.assign({}, ...reports.map((r) => r.testFiles ?? {})) };
+            writeFileSync("reports/mutation/mutation.json", JSON.stringify(merged));
+            const page = readFileSync(`shards/${shards[0]}/mutation.html`, "utf8");
+            const marker = /^(\s*app\.report = ).*;$/m;
+            if (marker.test(page)) {
+              const json = JSON.stringify(merged).replace(/</g, "\\u003c");
+              writeFileSync("reports/mutation/mutation.html", page.replace(marker, (_, lead) => `${lead}${json};`));
+            } else console.log("::warning::the HTML report has no app.report line to fill: only the shards pages are uploaded");
+            console.log(`merged ${String(shards.length)} shards: ${String(Object.keys(merged.files).length)} files`);
+          '
+          for shard in shards/*/; do cp "${shard}mutation.html" "reports/mutation/$(basename "$shard").html"; done
+      - name: Score against the floors
+        run: |
+          set +e
+          pnpm --silent mutation:score > score.md
+          status=$?
+          set -e
+          cat score.md
+          { echo '## Mutation score'; echo; cat score.md; echo; echo 'The HTML report, `mutation.html`, and each shard page are in the `mutation-report` artifact.'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-report
+          path: reports/mutation/
+          retention-days: 30
+      - name: Every shard finished
+        if: always()
+        run: '[ "${{ needs.mutate.result }}" = "success" ] || { echo "a mutation shard did not finish: ${{ needs.mutate.result }}" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }'

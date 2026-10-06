@@ -27,7 +27,7 @@ describe('polling', () => {
   it('reads every 2 s while the tab is visible', async () => {
     expect(POLL_MS).toBe(2000);
     const p = page();
-    const tick = vi.fn(async () => true);
+    const tick = vi.fn(() => Promise.resolve(true));
     const stop = poll(tick, p.doc);
     await vi.advanceTimersByTimeAsync(1999);
     expect(tick).toHaveBeenCalledTimes(0);
@@ -40,7 +40,7 @@ describe('polling', () => {
 
   it('reads the waiting list every 5 s, and at once when the tab shows again (PRD 499)', async () => {
     const p = page();
-    const tick = vi.fn(async () => true);
+    const tick = vi.fn(() => Promise.resolve(true));
     const stop = poll(tick, p.doc, WAITING_MS);
     await vi.advanceTimersByTimeAsync(4999);
     expect(tick).toHaveBeenCalledTimes(0);
@@ -61,7 +61,7 @@ describe('polling', () => {
 
   it('rests while the tab is hidden, and reads at once when it shows again', async () => {
     const p = page();
-    const tick = vi.fn(async () => true);
+    const tick = vi.fn(() => Promise.resolve(true));
     const stop = poll(tick, p.doc);
     await vi.advanceTimersByTimeAsync(2000);
     p.show(false);
@@ -93,12 +93,12 @@ describe('polling', () => {
 
   it('stops when a read says there is nothing more to wait for, or when stopped', async () => {
     const p = page();
-    const done = vi.fn(async () => false);
+    const done = vi.fn(() => Promise.resolve(false));
     poll(done, p.doc);
     await vi.advanceTimersByTimeAsync(10_000);
     expect(done).toHaveBeenCalledTimes(1);
 
-    const tick = vi.fn(async () => true);
+    const tick = vi.fn(() => Promise.resolve(true));
     const stop = poll(tick, p.doc);
     await vi.advanceTimersByTimeAsync(2000);
     stop();
@@ -111,7 +111,7 @@ describe('polling', () => {
 
   it('keeps going after a read that failed', async () => {
     const p = page();
-    const tick = vi.fn(async () => { throw new Error('offline'); });
+    const tick = vi.fn(() => Promise.reject(new Error('offline')));
     const stop = poll(tick, p.doc);
     await vi.advanceTimersByTimeAsync(6000);
     expect(tick).toHaveBeenCalledTimes(3);
@@ -120,7 +120,7 @@ describe('polling', () => {
 
   it('waits for the tab to show before the first read', async () => {
     const p = page(false);
-    const tick = vi.fn(async () => true);
+    const tick = vi.fn(() => Promise.resolve(true));
     const stop = poll(tick, p.doc);
     await vi.advanceTimersByTimeAsync(10_000);
     expect(tick).toHaveBeenCalledTimes(0);

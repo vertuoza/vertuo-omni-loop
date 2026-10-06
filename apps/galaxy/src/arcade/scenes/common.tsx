@@ -4,10 +4,11 @@ import type { Planet } from '@omni/galaxy';
 import { STATE_LOOK } from '../fleets';
 import type { Player } from '../types';
 import './common.css';
+import { cssVars } from '../css-vars';
 
 export function StateChip({ planet }: { planet: Planet }) {
   const look = STATE_LOOK[planet.state];
-  return <span className={`chip ${look.blink ? 'pulse' : ''}`} style={{ ['--chip' as string]: look.color }}>{look.label}</span>;
+  return <span className={`chip ${look.blink ? 'pulse' : ''}`} style={cssVars({ '--chip': look.color })}>{look.label}</span>;
 }
 
 export function Pips({ value, max = 5, label }: { value: number; max?: number; label: string }) {
@@ -19,4 +20,4 @@ export function Pips({ value, max = 5, label }: { value: number; max?: number; l
 }
 
 /** The crew by GitHub login, lower-cased: who a fleet member or a hero on the board is. */
-export const byLogin = (crew: Player[]) => new Map(crew.filter((p) => p.github_login).map((p) => [p.github_login!.toLowerCase(), p]));
+export const byLogin = (crew: Player[]) => new Map(crew.flatMap((p) => (p.github_login ? [[p.github_login.toLowerCase(), p] as const] : [])));

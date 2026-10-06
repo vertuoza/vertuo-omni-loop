@@ -1,3 +1,4 @@
+import 'server-only';
 import type { Metadata } from 'next';
 import '../../../../src/repositories/repositories.css';
 import { memberSession } from '../../../../src/data/member-session';
@@ -5,6 +6,7 @@ import type { RepositoryRow } from '../../../../src/repositories/model';
 import { loadRepositoriesPage, type RepositoriesApp } from '../../../../src/repositories/load';
 import { RepositoriesScreen, type RepositoriesScreenView } from '../../../../src/repositories/RepositoriesScreen';
 import { appCredentials, githubApp, installUrl } from '../../../../src/signup/github-app';
+import { serverEnv } from '../../../../src/env';
 
 // /app/settings/repositories (PRD 612 s1): the workspace's repositories, under the app's shared top
 // bar (app/app/layout.tsx). Its owner adds one from the repositories the workspace's Omni App
@@ -44,7 +46,7 @@ async function viewOf(): Promise<RepositoriesScreenView> {
     };
   }
   if (session.kind !== 'signed-in') return session;
-  const load = await loadRepositoriesPage(session.db, session.user, appOrNull(), installUrl(process.env.GITHUB_APP_SLUG));
+  const load = await loadRepositoriesPage(session.db, session.user, appOrNull(), installUrl(serverEnv().githubAppSlug));
   if (load.kind !== 'repositories') return load;
   return {
     kind: 'repositories', source: { kind: 'database', ...session.env, workspace: load.workspace.id },

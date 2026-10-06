@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { unknownWorthAsking, type UnknownInput } from '../../jev/decisions/unknown-worth-asking';
 import { decide, type JevDecideDeps } from '../../jev/resolve';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Jev's Unknown worth asking after a report (PRD 855 s4, decision 13): once report_unknown has answered,
 // Jev reads the new question, its repository and file and the product's confirmed claims, and says whether
@@ -40,7 +41,7 @@ const CONTEXT = z.object({
   claims: z.array(z.string()),
 });
 
-const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err));
+const why = (err: unknown) => (err instanceof Error ? err.message : String(propertyOf(err, 'message') ?? err));
 
 async function call(on: Rpc, fn: string, args: Record<string, unknown>) {
   const { data, error } = await on.rpc(fn, args);
@@ -91,7 +92,7 @@ export async function judgeQuestion(deps: JudgeDeps, { question, link }: Reporte
     const found = await deps.context(question);
     if (!found || found.workspace !== workspace) return 'kept';
     const counted = await decide(deps.jev, {
-      workspace, entry: unknownWorthAsking, input: found.input, old: async () => true, ref: `agent question ${question}`,
+      workspace, entry: unknownWorthAsking, input: found.input, old: () => Promise.resolve(true), ref: `agent question ${question}`,
     });
     if (counted.decidedBy !== 'jev' || counted.value !== false) return 'kept';
     await deps.setAside(question);

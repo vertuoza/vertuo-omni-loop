@@ -1,3 +1,4 @@
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { GalaxyView } from '@omni/galaxy';
 import { validHero, type Hero } from '@omni/design';
 import type { User } from '@supabase/supabase-js';
@@ -56,12 +57,13 @@ export function scoreOf(galaxy: Pick<GalaxyView, 'heroes' | 'teams'>, login: str
 /** The GitHub login linked to this sign-in, if any (as src/data/arcade.ts reads it). */
 export function linkedLogin(user: Pick<User, 'identities'>): string | null {
   const d = user.identities?.find((i) => i.provider === 'github')?.identity_data ?? null;
-  const login = d?.user_name ?? d?.preferred_username;
+  const login: unknown = d?.user_name ?? d?.preferred_username;
   return typeof login === 'string' && login ? login : null;
 }
 
 /** The account's first name, for a heading when there is no player's name (as src/data/arcade.ts reads it). */
-export function firstName(user: Pick<User, 'user_metadata' | 'email'>): string {
+// user_metadata is widened to undefined: the Auth server's answer is read here unparsed.
+export function firstName(user: { user_metadata?: User['user_metadata']; email?: User['email'] }): string {
   const m = user.user_metadata ?? {};
   return String(m.given_name ?? m.full_name ?? m.name ?? user.email?.split('@')[0] ?? '').trim().split(/\s+/)[0] ?? '';
 }
@@ -70,7 +72,8 @@ export function firstName(user: Pick<User, 'user_metadata' | 'email'>): string {
 export const loginOf = (me: Player | null, user: Pick<User, 'identities'>) => lower(me?.github_login) ?? lower(linkedLogin(user));
 
 /** The block's heading: the player's name, else the account's first name. */
-export const nameOf = (me: Player | null, user: Pick<User, 'user_metadata' | 'email'>) => me?.display_name?.trim() || firstName(user);
+// display_name is widened to null: the player row is read unparsed.
+export const nameOf = (me: { display_name: Player['display_name'] | null } | null, user: Pick<User, 'user_metadata' | 'email'>) => me?.display_name?.trim() || firstName(user);
 
 /**
  * The hero block's read. `me` is your player row as load.ts read it: null with none, 'unreadable'
@@ -88,7 +91,7 @@ export async function loadYou(input: PartInput, me: Read<Player | null>, fleets:
   try {
     score = scoreOf(await input.galaxy(), input.login, me.team);
   } catch (error) {
-    console.error(`dashboard: your season could not be read (${(error as Error).message})`);
+    console.error(`dashboard: your season could not be read (${messageOf(error)})`);
     score = UNREADABLE;
   }
   return { kind: 'player', hero, fleet, score };

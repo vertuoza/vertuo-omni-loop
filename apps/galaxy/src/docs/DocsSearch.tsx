@@ -24,7 +24,7 @@ export function DocsSearch() {
         placeholder="Search"
         autoComplete="off"
         value={search}
-        onChange={(event) => setSearch(event.target.value)}
+        onChange={(event) => { setSearch(event.target.value); }}
       />
       {search ? (
         <ul className="docs-search-results" aria-live="polite">

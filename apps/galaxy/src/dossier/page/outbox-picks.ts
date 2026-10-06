@@ -11,6 +11,8 @@
 // a convenience only: what comes back is read defensively, and a pick on a question the tab no longer
 // shows is dropped.
 
+import { defined, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+
 export type Pick = { pick: string; reason: string };
 /** By question number. */
 export type Picks = Record<number, Pick>;
@@ -44,7 +46,8 @@ export function recommend(questions: Pickable[], picks: Picks): Picks {
   const next: Picks = { ...picks };
   for (const q of questions) {
     if (q.kind !== 'decision' || q.adopted || !q.letters.includes('A')) continue;
-    next[q.number] = picks[q.number]?.pick === 'A' ? picks[q.number] : { pick: 'A', reason: '' };
+    const kept = picks[q.number];
+    next[q.number] = kept?.pick === 'A' ? kept : { pick: 'A', reason: '' };
   }
   return next;
 }
@@ -65,11 +68,12 @@ export function readPicks(stored: string | null): Picks {
   }
   if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
   const picks: Picks = {};
-  for (const [number, value] of Object.entries(data as Record<string, unknown>)) {
+  const entries: Array<[string, unknown]> = Object.entries(data);
+  for (const [number, value] of entries) {
     const n = Number(number);
-    const v = value as Partial<Pick> | null;
-    if (!Number.isInteger(n) || n < 1 || !v || typeof v !== 'object' || typeof v.pick !== 'string') continue;
-    picks[n] = { pick: v.pick, reason: typeof v.reason === 'string' ? v.reason : '' };
+    const pick = propertyOf(value, 'pick'), reason = propertyOf(value, 'reason');
+    if (!Number.isInteger(n) || n < 1 || !value || typeof value !== 'object' || typeof pick !== 'string') continue;
+    picks[n] = { pick, reason: typeof reason === 'string' ? reason : '' };
   }
   return picks;
 }
@@ -80,7 +84,7 @@ export function answers(questions: Pickable[], picks: Picks): Array<{ number: nu
     .filter((q) => isAnswer(q, picks[q.number]))
     .sort((a, b) => a.number - b.number)
     .map(({ number }) => {
-      const { pick, reason } = picks[number];
+      const { pick, reason } = defined(picks[number], `the pick for question ${number}`);
       return reason.trim() ? { number, pick, reason } : { number, pick };
     });
 }

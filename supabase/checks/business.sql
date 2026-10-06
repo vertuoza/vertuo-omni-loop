@@ -25,9 +25,9 @@
 -- `voice` artifact, a version per change, and a `visual` or `bug` one refuses it.
 -- 20261025090000_business_to_check_answers.sql: the count to check holds a proposed answer claim too.
 --
--- PRD 839 (20261027090000_never_lines.sql): a `never` claim (a product's Never line) is picked `confirmed`
--- or proposed as evidence with its receipt, up to 200 characters (longer is 22023), never without a
--- product, suggested or answered; agents read and cite a confirmed one. business_for_repo_app(), the
+-- PRD 839 (20261027090000_never_lines.sql): a `never` claim (a product's Never line) is never suggested
+-- or answered, and since PRD 871 (20261029090000_constituents.sql) never picked or proposed as evidence
+-- either: Never lines are constituents now; agents read and cite a confirmed one held from before. business_for_repo_app(), the
 -- App's read, runs for the service role only and returns a tracked repository's confirmed claims (Never
 -- lines included) and personas, never a proposed or rejected claim, and nothing for a repository no
 -- workspace tracks.
@@ -787,55 +787,50 @@ begin
 end $$;
 reset role;
 
--- ── PRD 839: Never lines, a product's, picked confirmed or proposed as evidence ──
+-- ── PRD 839: Never lines, a product's, as claims ──
+-- PRD 871 (20261029090000_constituents.sql) moved Never lines to a product's constituents: claim_pick()
+-- and claim_propose_evidence() now refuse kind `never` (supabase/checks/constituents.sql proves the
+-- move). The claims below are what a business held before it, written directly as only a migration
+-- could now; agents and the App still read and cite a confirmed one like any claim.
+do $$
+declare
+  product uuid := (select r.product_id from public.repositories r where r.full_name = 'vertuoza/vertuo-apps');
+  biz uuid := (select b.id from public.businesses b where b.workspace_id = pg_temp.ws('vertuoza'));
+  next_seq integer := (select max(c.seq) from public.claims c where c.business_id = biz);
+  c public.claims;
+begin
+  insert into public.claims (workspace_id, business_id, product_id, seq, kind, value, source, state, created_by)
+  values (pg_temp.ws('vertuoza'), biz, product, next_seq + 1, 'never', 'Build for groups of companies', 'pick', 'confirmed',
+          '00000000-0000-4000-8000-0000000074a1')
+  returning * into c;
+  insert into made values ('never-groups', c.id);
+  insert into public.claims (workspace_id, business_id, product_id, seq, kind, value, source, state)
+  values (pg_temp.ws('vertuoza'), biz, product, next_seq + 2, 'never', 'Sell to accountants', 'evidence', 'proposed'),
+         (pg_temp.ws('vertuoza'), biz, product, next_seq + 3, 'never', 'Build a mobile game', 'evidence', 'rejected');
+end $$;
+
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
 do $$
 declare
   product uuid := (select r.product_id from public.repositories r where r.full_name = 'vertuoza/vertuo-apps');
-  c public.claims;
   got jsonb;
   stmt text;
-  long_line text := 'Build for groups of companies' || repeat('.', 171);
 begin
-  c := public.claim_pick(pg_temp.ws('vertuoza'), product, 'never', ' Build for groups of companies ', 'pick');
-  if c.kind <> 'never' or c.value <> 'Build for groups of companies' or c.source <> 'pick' or c.state <> 'confirmed'
-     or c.product_id is distinct from product then
-    raise exception 'FAIL: a picked Never line is not confirmed on the product: %', c;
-  end if;
-  insert into made values ('never-groups', c.id);
-  c := public.claim_pick(pg_temp.ws('vertuoza'), product, 'never', long_line, 'pick');
-  if char_length(c.value) <> 200 or c.state <> 'confirmed' then
-    raise exception 'FAIL: a Never line of 200 characters was not kept: %', c;
-  end if;
-
-  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), product, 'never', 'Sell to accountants',
-           '[{"kind": "link", "where": "https://vertuoza.com/about", "quote": "we don''t sell to accountants"}]');
-  select * into c from public.claims x where x.kind || '#' || x.seq = got->>'id';
-  if got->>'outcome' <> 'added' or c.kind <> 'never' or c.source <> 'evidence' or c.state <> 'proposed'
-     or not exists (select 1 from public.claim_receipts x where x.claim_id = c.id and x.quote = 'we don''t sell to accountants') then
-    raise exception 'FAIL: a Never line from evidence is not proposed with its receipt: % %', got, c;
-  end if;
-  insert into made values ('never-proposed', c.id);
-  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), product, 'never', 'Build a mobile game',
-           '[{"kind": "file", "where": "README.md", "quote": "not a game"}]');
-  select * into c from public.claims x where x.kind || '#' || x.seq = got->>'id';
-  c := public.claim_set_state(pg_temp.ws('vertuoza'), c.id, 'rejected');
-  insert into made values ('never-rejected', c.id);
-
   foreach stmt in array array[
-    format('select public.claim_pick(%L, %L, ''never'', %L, ''pick'')', pg_temp.ws('vertuoza'), product, long_line || 'x'),
-    format('select public.claim_pick(%L, %L, ''never'', %L, ''pick'')', pg_temp.ws('vertuoza'), product, E'two\nlines'),
-    format('select public.claim_pick(%L, null, ''never'', ''No product'', ''pick'')', pg_temp.ws('vertuoza')),
+    format('select public.claim_pick(%L, %L, ''never'', ''Build for groups of companies'', ''pick'')', pg_temp.ws('vertuoza'), product),
+    format('select public.claim_pick(%L, %L, ''never'', ''Picked'', ''pick'')', pg_temp.ws('vertuoza'), product),
     format('select public.claim_pick(%L, %L, ''never'', ''Suggested'', ''suggestion'')', pg_temp.ws('vertuoza'), product),
-    format('select public.claim_propose_evidence(%L, %L, ''never'', %L, ''[{"kind": "file", "where": "a", "quote": "b"}]'')',
-           pg_temp.ws('vertuoza'), product, long_line || 'x'),
+    format('select public.claim_propose_evidence(%L, %L, ''never'', ''Proposed'', ''[{"kind": "file", "where": "a", "quote": "b"}]'')',
+           pg_temp.ws('vertuoza'), product),
     format('select public.claim_pick(%L, %L, ''rival'', %L, ''pick'')', pg_temp.ws('vertuoza'), product, repeat('x', 81)),
     'select public.claim_answer(''vertuoza/vertuo-apps'', ''never'', ''Answered'', ''confirmed'', ''r'')'
   ] loop perform pg_temp.invalid(stmt); end loop;
-  if exists (select 1 from public.claims x where x.value in ('No product', 'Suggested', 'Answered') or char_length(x.value) > 200) then
+  if exists (select 1 from public.claims x where x.value in ('Picked', 'Suggested', 'Proposed', 'Answered'))
+     or (select count(*) from public.claims x where x.kind = 'never') <> 3 then
     raise exception 'FAIL: a refused Never line was stored';
   end if;
+
 
   -- Agents read and cite a confirmed Never line like any claim, never a proposed or rejected one.
   got := public.business_for_repo('vertuoza/vertuo-apps');

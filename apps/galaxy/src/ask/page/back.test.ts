@@ -17,10 +17,10 @@ const open: QuestionView = { kind: 'open', canAnswer: true, questions: [], moves
 
 function reader(rounds: BackRounds | Error) {
   const asked: string[] = [];
-  const read = async (id: string) => {
+  const read = (id: string) => {
     asked.push(id);
-    if (rounds instanceof Error) throw rounds;
-    return rounds;
+    if (rounds instanceof Error) return Promise.reject(rounds);
+    return Promise.resolve(rounds);
   };
   return { asked, read };
 }

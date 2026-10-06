@@ -43,23 +43,25 @@ export interface RepositoriesViewProps {
   /** The time the collection lines are read at (the server's, so both renders agree). */
   now: number;
   /** The business's products, first first (PRD 748 s4): each row has a select from the second on. */
-  products?: Product[];
+  products?: Product[] | undefined;
   on?: RepositoriesHandlers;
 }
 
 /** Which product the repository serves: any member's to change, from the business's products. */
 function ProductSelect({ row, products, busy, on }: { row: RepositoryRow; products: Product[]; busy: boolean; on: RepositoriesHandlers }) {
   return (
-    <select
-      className="repositories-product"
-      aria-label={`Product of ${row.fullName}`}
-      value={row.product ?? ''}
-      onChange={(e) => { if (e.currentTarget.value) on.setProduct(row.fullName, e.currentTarget.value); }}
-      disabled={busy}
-    >
-      {row.product === null && <option value="" disabled>Choose…</option>}
-      {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-    </select>
+    <span className="repositories-product-field">
+      <select
+        className="repositories-product"
+        aria-label={`Product of ${row.fullName}`}
+        value={row.product ?? ''}
+        onChange={(e) => { if (e.currentTarget.value) on.setProduct(row.fullName, e.currentTarget.value); }}
+        disabled={busy}
+      >
+        {row.product === null && <option value="" disabled>Choose…</option>}
+        {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+    </span>
   );
 }
 
@@ -74,12 +76,12 @@ function Picker({ state, access, on }: { state: RepositoriesState; access: Extra
         <ul className="repositories-offer">
           {offer.map((name) => (
             <li key={name}>
-              <button type="button" className="ask-button quiet" onClick={() => on.add(name)} disabled={state.busy}>{name}</button>
+              <button type="button" className="ask-button quiet" onClick={() => { on.add(name); }} disabled={state.busy}>{name}</button>
             </li>
           ))}
         </ul>
       )}
-      <button type="button" className="ask-button quiet" onClick={on.close} disabled={state.busy}>Close</button>
+      <button type="button" className="ask-button quiet" onClick={() => { on.close(); }} disabled={state.busy}>Close</button>
     </section>
   );
 }
@@ -95,7 +97,7 @@ function Row({ row, owner, access, now, busy, products, on }: { row: RepositoryR
         {noAccess && (
           <span className="repositories-no-access">
             {NO_ACCESS}
-            {access.kind === 'installed' && access.settingsUrl && <> · <a href={access.settingsUrl}>Give access on GitHub →</a></>}
+            {access.settingsUrl && <> · <a href={access.settingsUrl}>Give access on GitHub →</a></>}
           </span>
         )}
       </div>
@@ -108,7 +110,7 @@ function Row({ row, owner, access, now, busy, products, on }: { row: RepositoryR
           aria-checked={row.tracked}
           aria-label={label}
           className="repositories-toggle"
-          onClick={() => on.setTracked(row.fullName, !row.tracked)}
+          onClick={() => { on.setTracked(row.fullName, !row.tracked); }}
           disabled={!owner || busy}
         />
       </div>
@@ -128,7 +130,7 @@ export function RepositoriesView({ state, owner, access, now, products = [], on 
           : <p className="ask-muted">{ONLY_OWNER}</p>}
         {hasProducts(products) && <p className="ask-muted">{PRODUCTS_LINE}</p>}
         {state.refusal && <p className="repositories-refusal" role="alert">{state.refusal}</p>}
-        {canAdd && !state.picking && <button type="button" className="ask-button" onClick={on.pick} disabled={state.busy}>Add repository</button>}
+        {canAdd && !state.picking && <button type="button" className="ask-button" onClick={() => { on.pick(); }} disabled={state.busy}>Add repository</button>}
       </section>
 
       {access.kind === 'none' && (
@@ -139,7 +141,7 @@ export function RepositoriesView({ state, owner, access, now, products = [], on 
         </section>
       )}
 
-      {canAdd && state.picking && access.kind === 'installed' && <Picker state={state} access={access} on={on} />}
+      {canAdd && state.picking && <Picker state={state} access={access} on={on} />}
 
       <section className="repositories-list" aria-label="The workspace’s repositories">
         {rows.length === 0

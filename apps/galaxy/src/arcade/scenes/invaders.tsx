@@ -12,7 +12,7 @@ import { WOUND_LOOK } from '../fleets';
 import { Hint } from '../hint';
 import { rowKinds, type GameHud } from '../games/invaders';
 import type { ScoreLine } from '../types';
-import { canRetry, type ScoreSend } from './invaders-score';
+import { canRetry, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
 import './invaders.css';
 
@@ -99,7 +99,7 @@ export function InvadersOverlay({ hud, values, hero, team, hi = null, send = nul
         <div className="j-panel inv-panel inv-mid">
           <p className="inv-title">GAME OVER</p>
           <p className="inv-final"><b>SCORE</b><span>{scoreText(hud.score)}</span></p>
-          {line && <p className={`inv-send inv-${send!.state === 'saved' && send!.newBest ? 'best' : send!.state}`} role="status">{line}</p>}
+          {line && send && <p className={`inv-send inv-${sendTone(send)}`} role="status">{line}</p>}
           <p className="inv-sub">WAVE {hud.wave}</p>
           {canRetry(send)
             ? <p className="hint"><Hint k="A">RETRY</Hint> <Hint k="B">{back}</Hint></p>

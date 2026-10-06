@@ -58,19 +58,19 @@ export function longQuestion(question: string): LongQuestion | null {
   const words = text.split(/\s+/).filter(Boolean).length;
 
   if (BLANK_LINE.test(text)) {
-    const [first, ...others] = text.split(BLANK_LINE);
+    const [first = '', ...others] = text.split(BLANK_LINE);
     return { lead: first.trim(), ...restOf(others), words };
   }
 
   const sentences = sentencesOf(text);
   let asks = -1;
   for (let i = sentences.length - 1; i > 0; i--) {
-    if (sentences[i].endsWith('?')) {
+    if (sentences[i]?.endsWith('?')) {
       asks = i;
       break;
     }
   }
-  const lead = asks > 0 ? `${sentences[0]} ${sentences[asks]}` : sentences[0];
+  const lead = asks > 0 ? `${sentences[0]} ${sentences[asks]}` : (sentences[0] ?? '');
   const middle = sentences.filter((_, i) => i !== 0 && i !== asks).join(' ');
   return { lead, ...restOf([middle]), words };
 }

@@ -1,4 +1,5 @@
 'use client';
+import { positionOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { CLOSED, drawer, drawerKey, type DrawerEvent } from './drawer';
 
@@ -28,7 +29,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState(CLOSED);
   const button = useRef<HTMLButtonElement | null>(null);
   const panel = useRef<HTMLElement | null>(null);
-  const send = useCallback((event: DrawerEvent) => setState((now) => drawer(now, event)), []);
+  const send = useCallback((event: DrawerEvent) => { setState((now) => drawer(now, event)); }, []);
 
   useEffect(() => {
     if (state.focus === 'drawer') focusable(panel.current)[0]?.focus();
@@ -39,14 +40,14 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
     if (!state.open) return;
     const onKey = (event: KeyboardEvent) => {
       const items = focusable(panel.current);
-      const move = drawerKey(event.key, event.shiftKey, items.indexOf(document.activeElement as HTMLElement), items.length);
+      const move = drawerKey(event.key, event.shiftKey, positionOf(items, document.activeElement), items.length);
       if (move.kind === 'none') return;
       event.preventDefault();
       if (move.kind === 'close') send('escape');
       else items[move.index]?.focus();
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); };
   }, [state.open, send]);
 
   const value = useMemo(() => ({ open: state.open, send, button, panel }), [state.open, send]);

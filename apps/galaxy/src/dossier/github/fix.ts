@@ -7,6 +7,7 @@
 // cache; this module only reads through the `get` it is handed.
 import { z } from 'zod';
 import { readPart, UNREAD, type Read } from './summary';
+import { type IssueNumber, IssueNumberSchema, type PrNumber, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** A GitHub answer on the repository's route, as JSON; null on 404. Throws on any other failure. */
 export type FixGet = (route: string) => Promise<unknown>;
@@ -15,12 +16,12 @@ export type FixGet = (route: string) => Promise<unknown>;
 export type FixLabels = { risk: readonly string[]; regression: string };
 
 export type FixIssue = {
-  number: number; url: string; state: 'open' | 'closed'; author: string | null; createdAt: string;
+  number: IssueNumber; url: string; state: 'open' | 'closed'; author: string | null; createdAt: string;
   /** The first of the config's risk labels the issue carries; null when none. */
   risk: string | null;
   regression: boolean;
 };
-export type FixPull = { number: number; url: string; state: 'open' | 'merged'; mergedAt: string | null; mergedBy: string | null };
+export type FixPull = { number: PrNumber; url: string; state: 'open' | 'merged'; mergedAt: string | null; mergedBy: string | null };
 export type FixApproval = { login: string; at: string };
 export type FixRelease = { tag: string; url: string; at: string };
 
@@ -33,16 +34,16 @@ export type FixSummary = {
 };
 
 const Issue = z.object({
-  number: z.number().int().positive(),
-  html_url: z.string().url(),
+  number: IssueNumberSchema,
+  html_url: z.url(),
   state: z.enum(['open', 'closed']),
   created_at: z.string(),
   user: z.object({ login: z.string() }).nullable().optional(),
   labels: z.array(z.union([z.string(), z.object({ name: z.string().optional() })])).optional().default([]),
 });
 const Pulls = z.array(z.object({
-  number: z.number().int().positive(),
-  html_url: z.string().url(),
+  number: PrNumberSchema,
+  html_url: z.url(),
   state: z.enum(['open', 'closed']),
   merged_at: z.string().nullable().optional().default(null),
   created_at: z.string(),
@@ -56,7 +57,7 @@ const Reviews = z.array(z.object({
 }));
 const Releases = z.array(z.object({
   tag_name: z.string(),
-  html_url: z.string().url(),
+  html_url: z.url(),
   draft: z.boolean().optional().default(false),
   published_at: z.string().nullable().optional().default(null),
 }));
@@ -64,8 +65,8 @@ const Releases = z.array(z.object({
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** A branch of the fix: `branches.fix` with a topic starting `<n>-`. */
-function fixBranch(shape: string, n: number): RegExp {
-  const [before, after = ''] = shape.split('{topic}');
+function fixBranch(shape: string, n: IssueNumber): RegExp {
+  const [before = '', after = ''] = shape.split('{topic}');
   return new RegExp(`^${escape(before)}${n}-[a-z0-9-]+${escape(after)}$`);
 }
 
@@ -73,7 +74,7 @@ function fixBranch(shape: string, n: number): RegExp {
 const part = <T>(what: string, run: () => Promise<T>) => readPart('Fix page', what, run);
 
 /** Fix `n` of the repository `get` reads, its branches shaped as `fixShape`. */
-export async function readFix(get: FixGet, n: number, fixShape: string, labels: FixLabels): Promise<FixSummary> {
+export async function readFix(get: FixGet, n: IssueNumber, fixShape: string, labels: FixLabels): Promise<FixSummary> {
   const branch = fixBranch(fixShape, n);
   const [issue, found] = await Promise.all([
     part('the issue', async (): Promise<FixIssue | null> => {
@@ -102,15 +103,14 @@ export async function readFix(get: FixGet, n: number, fixShape: string, labels: 
   const [mergedBy, approvals, release] = await Promise.all([
     part('who merged the fix PR', async () => (mergedAt === null ? null : Merged.parse((await get(`/pulls/${found.number}`)) ?? {}).merged_by?.login ?? null)),
     part('the fix PR\'s reviews', async () => Reviews.parse((await get(`/pulls/${found.number}/reviews?per_page=100`)) ?? [])
-      .filter((r) => r.state === 'APPROVED' && r.user && r.submitted_at)
-      .map((r): FixApproval => ({ login: r.user!.login, at: r.submitted_at! }))),
+      .flatMap((r): FixApproval[] => (r.state === 'APPROVED' && r.user && r.submitted_at ? [{ login: r.user.login, at: r.submitted_at }] : []))),
     part('the releases', async (): Promise<FixRelease | null> => {
       if (mergedAt === null) return null;
       const after = Releases.parse((await get('/releases?per_page=100')) ?? [])
-        .filter((r) => !r.draft && r.published_at !== null && Date.parse(r.published_at) >= Date.parse(mergedAt))
-        .sort((a, b) => Date.parse(a.published_at!) - Date.parse(b.published_at!));
+        .flatMap((r) => (!r.draft && r.published_at !== null && Date.parse(r.published_at) >= Date.parse(mergedAt) ? [{ ...r, published_at: r.published_at }] : []))
+        .sort((a, b) => Date.parse(a.published_at) - Date.parse(b.published_at));
       const [first] = after;
-      return first ? { tag: first.tag_name, url: first.html_url, at: first.published_at! } : null;
+      return first ? { tag: first.tag_name, url: first.html_url, at: first.published_at } : null;
     }),
   ]);
   return {

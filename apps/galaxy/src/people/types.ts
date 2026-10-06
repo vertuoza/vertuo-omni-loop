@@ -15,5 +15,5 @@ export interface Person {
   /** Their GitHub login, in lower case, when they are a member who has one (PRD 698): their chip links to their profile. */
   login?: string | null;
   /** Their fleet: a FleetTag, SOLO, or null when not known (no player row, or outside the workspace). */
-  fleet?: FleetTag | typeof SOLO | null;
+  fleet?: FleetTag | typeof SOLO | null | undefined;
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DocsPage } from '../../../src/docs/DocsPage';
+import { docsMetadata } from '../../../src/seo/seo';
 import { guide } from '../../../src/docs/source';
 import { skillsOverview, SKILLS_PATH } from '../../../src/docs/skills';
 import { SkillsOverview, skillSidebar } from '../../../src/docs/skills-view';
@@ -12,7 +13,7 @@ import { sidebarItems } from '../../../src/docs/tree';
 const TITLE = 'Skills';
 const LEDE = 'Every skill of the Omni Loop, by what you want to do.';
 
-export const metadata: Metadata = { title: TITLE, description: LEDE };
+export const metadata: Metadata = docsMetadata(SKILLS_PATH, TITLE, LEDE);
 
 export default function SkillsRoute() {
   return (

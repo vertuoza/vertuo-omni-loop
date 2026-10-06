@@ -6,6 +6,7 @@
 // committer date, as the commit writes it (ISO 8601, with its offset).
 //
 // It reads the history of the checkout's HEAD: the releases workflow checks out main.
+import 'server-only';
 import { execFileSync } from 'node:child_process';
 
 /** The commit that first put a file on main, and its committer date. */
@@ -29,8 +30,10 @@ export function firstAdded(root: string, paths: string[], run: Git = git): Map<s
   const log = run(['log', '--first-parent', '--no-renames', '--diff-filter=A', `--format=${RECORD}%H %cI`, '--name-only', '--', ...paths], root);
   // Newest first: each older addition of a path replaces the one read before it.
   for (const record of log.split(RECORD).slice(1)) {
-    const [header, ...files] = record.split('\n');
+    const [header = '', ...files] = record.split('\n');
+    // The format writes the hash, a space and the date: a header without both is no addition.
     const [commit, date] = header.trim().split(' ');
+    if (!commit || !date) continue;
     // Git 2.50 and later print a UTC date as `Z`, earlier ones as `+00:00`: keep one form either way.
     const committedAt = date.replace(/Z$/, '+00:00');
     for (const file of files) if (file !== '') found.set(file, { commit, committedAt });

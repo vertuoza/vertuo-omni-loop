@@ -22,6 +22,7 @@ export function OrderForm() {
           <GettingStarted />
         </div>
         <p className="home-fine">Omni Loop runs on Claude Code. Free while in beta: sign up with GitHub.</p>
+        <p className="home-fine">Leave any time: delete one folder and commit. Nothing to migrate.</p>
       </div>
       <p className="home-psst">PSST: <kbd><span className="home-glyph">↑ ↑ ↓ ↓ ← → ← →</span> B A</kbd> FLASHES CHEAT ACTIVATED! AND DROPS YOU IN THE GAME.</p>
     </section>

@@ -1,10 +1,12 @@
 import { createElement } from 'react';
 import { prerender } from 'react-dom/static';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { GithubSummary } from '../../github/summary';
 import { DEMO_GITHUB, DEMO_VIEWER, demoDossier } from '../demo';
 import { DossierStream, type DossierReads } from './DossierStream';
 import { GITHUB_PENDING } from './pending';
+
+vi.mock('server-only', () => ({}));
 
 // A PRD's page streamed (PRD 657 s4): sent once the database has answered, the Outbox saying it is
 // being read while the GitHub summary is pending, then whole once it arrives. Bug #782: the change
@@ -27,7 +29,7 @@ const element = (github: Promise<GithubSummary | null>) => createElement('main',
 /** What the server has sent once the reads that resolve have: a pending summary keeps the page pending. */
 async function sentBy(github: Promise<GithubSummary | null>) {
   const stop = new AbortController();
-  setTimeout(() => stop.abort(), 30);
+  setTimeout(() => { stop.abort(); }, 30);
   return new Response((await prerender(element(github), { signal: stop.signal, onError: () => {} })).prelude).text();
 }
 

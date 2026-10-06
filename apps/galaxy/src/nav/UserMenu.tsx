@@ -1,6 +1,8 @@
 'use client';
+import { positionOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { buttonKey, initialOf, menuKey, profileHref, publicSupabase, signInFromBar, signOutAndLeave } from './user-menu';
 import type { ViewerView } from './viewer-view';
 import './user-menu.css';
@@ -39,10 +41,10 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
+      if (!(event.target instanceof Node) || !root.current?.contains(event.target)) setOpen(false);
     };
     document.addEventListener('pointerdown', outside);
-    return () => document.removeEventListener('pointerdown', outside);
+    return () => { document.removeEventListener('pointerdown', outside); };
   }, [open]);
 
   const onButtonKey = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -54,7 +56,7 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
 
   const onMenuKey = (event: KeyboardEvent<HTMLDivElement>) => {
     const list = items();
-    const move = menuKey(event.key, Math.max(0, list.indexOf(document.activeElement as HTMLElement)), list.length);
+    const move = menuKey(event.key, Math.max(0, positionOf(list, document.activeElement)), list.length);
     if (move.kind === 'none') return;
     if (move.kind === 'focus') {
       event.preventDefault();
@@ -68,7 +70,7 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
   async function signOut() {
     setBusy(true);
     const supabase = publicSupabase();
-    await signOutAndLeave(supabase && createBrowserClient(supabase.url, supabase.key), (to) => window.location.assign(to));
+    await signOutAndLeave(supabase && createBrowserClient<Database>(supabase.url, supabase.key), (to) => { window.location.assign(to); });
   }
 
   return (
@@ -81,7 +83,7 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
         aria-expanded={open}
         aria-controls={menuId}
         aria-label={`Your account, ${who}`}
-        onClick={() => (open ? close(false) : openAt(0))}
+        onClick={() => { if (open) close(false); else openAt(0); }}
         onKeyDown={onButtonKey}
       >
         {viewer.heroSvg
@@ -96,11 +98,11 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
           {viewer.login && <p className="user-menu-login">@{viewer.login}</p>}
         </div>
         {profile && (
-          <a href={profile} role="menuitem" tabIndex={-1} className="user-menu-item" onClick={() => setOpen(false)}>
+          <a href={profile} role="menuitem" tabIndex={-1} className="user-menu-item" onClick={() => { setOpen(false); }}>
             My profile
           </a>
         )}
-        <button type="button" role="menuitem" tabIndex={-1} className="user-menu-item" onClick={signOut} disabled={busy}>
+        <button type="button" role="menuitem" tabIndex={-1} className="user-menu-item" onClick={() => void signOut()} disabled={busy}>
           {busy ? 'Signing out…' : 'Sign out'}
         </button>
       </div>
@@ -125,7 +127,7 @@ export function SignInButton() {
 
   return (
     <>
-      <button type="button" className="ask-button app-bar-sign-in" onClick={signIn} disabled={busy}>
+      <button type="button" className="ask-button app-bar-sign-in" onClick={() => void signIn()} disabled={busy}>
         {busy ? 'Opening GitHub…' : 'Sign in with GitHub'}
       </button>
       {problem && <span className="app-bar-problem" role="alert">{problem}</span>}

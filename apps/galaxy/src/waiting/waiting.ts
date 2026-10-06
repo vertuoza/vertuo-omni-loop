@@ -4,6 +4,7 @@ import { tabsOf, type TabRow } from '../ask/page/tabs';
 import type { SessionRow } from '../ask/page/view';
 import { faceOf, type Face } from '../people/face';
 import type { People } from '../people/load';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The waiting list (PRD 499): what waits for the person looking, on every app-shell page, as pure
 // functions. Two parts: Questions, the open rounds of their own sessions and the ones shared with
@@ -39,7 +40,7 @@ export type WaitingQuestion = {
 export type WaitingOutbox = {
   kind: 'outbox';
   id: string;
-  prd: number;
+  prd: PrdNumber;
   dossierId: string;
   title: string;
   rank: 'human-action' | 'high';
@@ -54,7 +55,9 @@ export const EMPTY_WAITING: WaitingList = { questions: [], outbox: [] };
 
 export type WaitingCounts = { questions: number; shared: number; outbox: number; total: number };
 
-const sessionTitle = (session: SessionRow) => session.title?.trim() || session.repo?.trim() || 'A terminal';
+/** A session's text, trimmed; none when it has none (its row is read unparsed, so a title may be missing). */
+const trimmedOf = (text: string | null | undefined): string => text?.trim() ?? '';
+const sessionTitle = (session: SessionRow) => trimmedOf(session.title) || trimmedOf(session.repo) || 'A terminal';
 
 /** The person's own sessions whose newest round waits on the page. `texts` holds each round's first
  * question, by round id, once read; until then the header stands in. */

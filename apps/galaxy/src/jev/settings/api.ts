@@ -1,3 +1,4 @@
+import { isRecord } from '../is-record';
 import { refuse, reply } from '../../business-api/reply';
 import { askJev, type JevOutcome, type JevQuestion } from '../client';
 import { sealSecret } from '../secret-box';
@@ -46,7 +47,7 @@ const keyOf = (value: unknown) => {
 
 async function bodyOf(request: Request): Promise<Record<string, unknown> | null> {
   const sent: unknown = await request.json().catch(() => null);
-  return sent && typeof sent === 'object' && !Array.isArray(sent) ? (sent as Record<string, unknown>) : null;
+  return isRecord(sent) && !Array.isArray(sent) ? sent : null;
 }
 
 /** What the page says when the test call failed. */

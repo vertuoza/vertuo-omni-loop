@@ -8,7 +8,8 @@ what must stay true about your product. **Invading** is how it learns that. `/om
 your repository, asks you one round of questions, and writes what it learned in a pull request you
 review and merge. It changes no code.
 
-Do this once, after the kit is merged into your default branch ([Install](/docs/install)).
+Do this once, after the kit is merged into your default branch
+([Set up a repository](/docs/install#set-up-a-repository)).
 
 ## Run it
 

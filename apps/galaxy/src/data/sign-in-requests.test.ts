@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Installation } from '../signup/installation';
 import { signupWorld } from '../signup/signup.fake';
+import { item } from '../ask/test/test-item';
 import { afterSignIn } from './sign-in';
 
 // MIA asked acme's owner to install Omni Loop (a sign-up request); the owner has since installed it.
@@ -29,8 +30,8 @@ describe('after a sign-in, a pending sign-up request', () => {
   it('completes before GitHub is linked, so the new owner is a player at once', async () => {
     const w = world();
     await afterSignIn(w.db, w.session(MIA), w.deps, null);
-    const created = (w.signup.createWorkspace as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];
-    expect(w.linkGithub.mock.invocationCallOrder[0]).toBeGreaterThan(created);
+    const created = item((w.signup.createWorkspace as ReturnType<typeof vi.fn>).mock.invocationCallOrder, 0);
+    expect(item(w.linkGithub.mock.invocationCallOrder, 0)).toBeGreaterThan(created);
   });
 
   it('whose org still has no App stays pending', async () => {

@@ -3,6 +3,7 @@ import { supabaseEnv, supabaseServer } from '../../data/supabase-server';
 import { masterKey } from '../secret-box';
 import { jevStore } from '../store';
 import { keyCheck, type KeyRouteDeps } from './api';
+import { serverEnv } from '../../env';
 
 // Settings › Jev's key routes' real dependencies (./api.ts, PRD 812 s1). The store is the signed-in
 // person's own Supabase session, so the migration's owner-only functions decide who may save or remove
@@ -13,13 +14,13 @@ export async function signedInStore() {
   if (!supabaseEnv()) return null;
   const db = await supabaseServer();
   const { data: { user } } = await db.auth.getUser();
-  return user ? jevStore(db as unknown as Parameters<typeof jevStore>[0]) : null;
+  return user ? jevStore(db) : null;
 }
 
 export function keyRouteDeps(): KeyRouteDeps {
   return {
     store: signedInStore,
-    master: () => masterKey(process.env),
+    master: () => masterKey(serverEnv().secretsMasterKey),
     test: (key) => keyCheck(key, fetch),
   };
 }

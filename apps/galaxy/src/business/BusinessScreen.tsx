@@ -3,7 +3,8 @@ import { SectionTabs } from '../nav/SectionTabs';
 import { SETTINGS_TABS } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
 import type { Claim, Product } from './model';
-import { BusinessPage, type BusinessPageProps } from './BusinessPage';
+import { faceOf } from '../people/face';
+import { BusinessPage, type BusinessPageProps, type Constituents } from './BusinessPage';
 import type { Persona } from './personas';
 import { ConnectAgent, type ConnectAgentProps } from '../agent-connect/tokens/ConnectAgent';
 import type { AgentToken } from '../agent-connect/tokens/model';
@@ -34,8 +35,17 @@ export const DEMO_CLAIMS: Claim[] = [
   { id: 'demo-3', seq: 3, kind: 'trade', value: 'construction', source: 'pick', state: 'confirmed', cited: 2, lastBy: 'think-big concept #9' },
   { id: 'demo-4', seq: 4, kind: 'rival', value: 'Acme Build', source: 'pick', state: 'confirmed', cited: 1, lastBy: 'think-big concept #9' },
   { id: 'demo-5', seq: 5, kind: 'region', value: 'Belgium', source: 'pick', state: 'confirmed', cited: 0, lastBy: null },
-  { id: 'demo-6', seq: 6, kind: 'never', value: 'Build for groups of companies', source: 'pick', state: 'confirmed', cited: 1, lastBy: 'canon check #12' },
 ];
+
+/** The demo's account: the owner, so every control of the Constituents panel can be tried. */
+const DEMO_ME = 'demo-you';
+
+/** The demo's constituents (PRD 871 s2): none yet, as in every new workspace; what the demo's owner
+ * adds stays in the page, history included. */
+export const DEMO_CONSTITUENTS: Constituents = {
+  constituents: [], events: [], owner: true, me: DEMO_ME,
+  people: { [DEMO_ME]: { name: 'You', face: faceOf({ name: 'You' }) } },
+};
 
 /** The demo's one product (PRD 748 s4): "+ Add a product" adds a second, in the page only. */
 export const DEMO_PRODUCTS: Product[] = [{ id: 'demo-product-1', name: 'Acme ERP' }];
@@ -120,7 +130,7 @@ function BusinessBody({ view }: { view: BusinessScreenView }) {
         </Notice>
       );
     case 'business': {
-      const { kind: _, agents, questions, ...props } = view;
+      const { agents, questions, ...props } = view;
       return (
         <>
           <BusinessPage {...props} />

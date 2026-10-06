@@ -6,8 +6,9 @@
 // no round. Every other table and function is the galaxy fake's. It answers the query shapes
 // src/data/dossiers.ts sends, records every one, and nothing else; the functions' own rules are proved
 // by supabase/checks/dossiers.sql, not here.
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { DossierListRow, DossierRoundRow } from '../dossier/store';
-import type { fakeGalaxyDb, FakeUser } from './galaxy.fake';
+import { isFakeTable, type fakeGalaxyDb, type FakeUser } from './galaxy.fake';
 
 type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null };
@@ -20,7 +21,14 @@ export type DossierCall =
   | { kind: 'from'; table: 'dossiers'; eq: Record<string, unknown> }
   | { kind: 'rpc'; fn: 'dossier_list' | 'dossier_rounds'; args: Record<string, unknown> };
 
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+/** A copy of a value as JSON carries it, read back as unknown. */
+const copyOf = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+/** The arguments of a call, copied as JSON carries them. */
+const copyArgs = (args: Record<string, unknown>): Record<string, unknown> => {
+  const copy = copyOf(args);
+  return isRecord(copy) ? copy : {};
+};
 
 export function withDossiers(world: ReturnType<typeof fakeGalaxyDb>, dossiers: FakeDossier[] = []) {
   const calls: DossierCall[] = [];
@@ -28,7 +36,8 @@ export function withDossiers(world: ReturnType<typeof fakeGalaxyDb>, dossiers: F
    * `failOn`: the dossiers table, one function, or every call about one dossier (its id), out of reach.
    * `gone`: dossiers deleted between the table's read and the functions', which then find nothing.
    */
-  const state = { failOn: null as null | 'dossiers' | 'dossier_list' | 'dossier_rounds' | string, gone: new Set<string>() };
+  // failOn: 'dossiers', 'dossier_list', 'dossier_rounds', or a dossier's id.
+  const state: { failOn: string | null; gone: Set<string> } = { failOn: null, gone: new Set<string>() };
   const refused = (what: string): Result => ({ data: null, error: { message: `fake: ${what} is out of reach` } });
 
   function client(me: FakeUser | null) {
@@ -49,26 +58,30 @@ export function withDossiers(world: ReturnType<typeof fakeGalaxyDb>, dossiers: F
         const names = this.columns.split(',').map((c) => c.trim());
         const rows = dossiers
           .filter(readable)
-          .filter((d) => Object.entries(this.eqs).every(([column, value]) => (d.row as Record<string, unknown>)[column] === value))
-          .map((d) => Object.fromEntries(names.map((n) => [n, clone((d.row as Record<string, unknown>)[n])])));
+          .filter((d) => Object.entries(this.eqs).every(([column, value]) => propertyOf(d.row, column) === value))
+          .map((d) => Object.fromEntries(names.map((n) => [n, copyOf(propertyOf(d.row, n))])));
         return { data: rows, error: null };
       }
     }
 
     async function rpc(fn: string, args?: Record<string, unknown>): Promise<Result> {
       if (fn !== 'dossier_list' && fn !== 'dossier_rounds') return base.rpc(fn, args);
-      calls.push({ kind: 'rpc', fn, args: clone(args ?? {}) });
+      calls.push({ kind: 'rpc', fn, args: copyArgs(args ?? {}) });
       if (world.state.fail) return { data: null, error: world.state.fail };
       const id = args?.p_dossier;
       if (state.failOn === fn || (typeof id === 'string' && state.failOn === id)) return refused(fn);
       const mine = dossiers.filter(readable).filter((d) => !state.gone.has(d.row.id)).filter((d) => id === null || id === undefined || d.row.id === id)
         .filter((d) => typeof args?.p_workspace !== 'string' || d.row.workspace_id === args.p_workspace);
-      return { data: clone(fn === 'dossier_list' ? mine.map((d) => d.row) : mine.flatMap((d) => d.rounds)), error: null };
+      return { data: copyOf(fn === 'dossier_list' ? mine.map((d) => d.row) : mine.flatMap((d) => d.rounds)), error: null };
     }
 
     return {
       ...base,
-      from: (table: string) => (table === 'dossiers' ? new DossierQuery() : base.from(table as Parameters<typeof base.from>[0])),
+      from: (table: string) => {
+        if (table === 'dossiers') return new DossierQuery();
+        if (isFakeTable(table)) return base.from(table);
+        throw new Error(`fake: no table ${table}`);
+      },
       rpc,
     };
   }

@@ -6,6 +6,7 @@ import { nestedLinks } from '../../people/nested-links';
 import type { Member } from '../board/tally';
 import { fleetOf } from './load';
 import { FleetScreen, type FleetView } from './FleetScreen';
+import { sure } from '../../arcade/test/sure';
 
 vi.mock('server-only', () => ({}));
 const { demoFleetBoard } = await import('./fleet');
@@ -34,13 +35,13 @@ const READ = {
 const screen = (view: FleetView, query: Record<string, string> = {}, supabase: { url: string; key: string } | null = { url: 'http://x', key: 'anon' }) =>
   renderToStaticMarkup(createElement(FleetScreen, { view, supabase, signinError: null, query }));
 const fleet = (viewerId: string, asked: string | null = null, read: Record<string, unknown> = {}) =>
-  fleetOf({ ...READ, ...read } as never, { asked, viewerId, period: '30d', now: NOW });
+  fleetOf({ ...READ, ...read }, { asked, viewerId, period: '30d', now: NOW });
 
 describe('/app/fleet', () => {
   it('for a viewer in a fleet: the picker, the fleet\'s name and season place, its board', () => {
     const html = screen(fleet('u-ada'), { period: '30d' });
     const t = text(html);
-    expect(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)![1]).toContain('OCTO');
+    expect(sure(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/), 'the match')[1]).toContain('OCTO');
     expect(t).toContain('#2 of 2 fleets · September');
     expect(t).toContain('PRs merged 1');
     expect(t).toContain('Paul Etienne OCTO 0 1 0 · 0 · 0 9');
@@ -60,13 +61,13 @@ describe('/app/fleet', () => {
     expect(links[0]).toMatch(chip('BEAVER', '#8a5a2b'));
     expect(links[1]).toMatch(chip('OCTO', '#3355ff'));
     expect(links[1]).toContain('<span class="fleet-yours"><span aria-hidden="true"> ◀</span><span class="ask-sr"> (your fleet)</span></span>');
-    expect(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)![1]).toMatch(chip('OCTO', '#3355ff'));
+    expect(sure(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/), 'the match')[1]).toMatch(chip('OCTO', '#3355ff'));
   });
 
   it('keeps each picker chip plain inside its link, and the page\'s own header unlinked, while board chips link (PRD 698)', () => {
     const html = screen(fleet('u-ada'), { period: '30d' });
     expect(nestedLinks(html)).toBe(0);
-    expect(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)![1]).not.toContain('<a');
+    expect(sure(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/), 'the match')[1]).not.toContain('<a');
     expect(html).toMatch(/<a class="person-chip is-table" href="\/app\/people\/[^"]+">/);
   });
 

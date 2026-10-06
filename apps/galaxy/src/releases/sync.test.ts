@@ -3,14 +3,15 @@
 import { describe, it, expect } from 'vitest';
 import type { ReleaseRow } from './row';
 import { applySync, planSync, type ShippedPrd } from './sync';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** A shipped PRD as the repository reads it: its note (or its spec title), and when it reached main. */
 function shipped(prd: number, at: string, over: Partial<ShippedPrd> = {}): ShippedPrd {
-  return { prd, releasedAt: at, title: `Title of ${prd}`, description: `What ${prd} does.`, pinned: false, ...over };
+  return { prd: parsePrd(prd), releasedAt: at, title: `Title of ${prd}`, description: `What ${prd} does.`, pinned: false, ...over };
 }
 
 function row(prd: number, release: number, at: string, over: Partial<ReleaseRow> = {}): ReleaseRow {
-  return { prd, release, released_at: at, title: `Title of ${prd}`, description: `What ${prd} does.`, ...over };
+  return { prd: parsePrd(prd), release, released_at: at, title: `Title of ${prd}`, description: `What ${prd} does.`, ...over };
 }
 
 const MON = '2026-09-28T10:00:00+02:00';
@@ -42,7 +43,7 @@ describe('planSync — the rows a sync writes', () => {
 
   it('dates each new row by when its shipped folder first reached main, and carries its note', () => {
     const [inserted] = planSync([shipped(262, MON, { title: 'Release notes for everyone', description: 'A public page.' })], []).inserts;
-    expect(inserted).toEqual({ prd: 262, release: 2, released_at: MON, title: 'Release notes for everyone', description: 'A public page.' });
+    expect(inserted).toEqual({ prd: parsePrd(262), release: 2, released_at: MON, title: 'Release notes for everyone', description: 'A public page.' });
   });
 
   it('keeps an existing row\'s number and date forever, and refreshes only its title and description', () => {
@@ -53,8 +54,8 @@ describe('planSync — the rows a sync writes', () => {
     ], rows);
     expect(plan.inserts).toEqual([]);
     expect(plan.updates).toEqual([
-      { prd: 3, title: 'A fixed typo', description: 'What 3 does.' },
-      { prd: 262, title: 'Title of 262', description: 'A clearer line.' },
+      { prd: parsePrd(3), title: 'A fixed typo', description: 'What 3 does.' },
+      { prd: parsePrd(262), title: 'Title of 262', description: 'A clearer line.' },
     ]);
     expect(applySync(rows, plan)).toEqual([row(3, 1, '2026-09-24T10:00:00+02:00', { title: 'A fixed typo' }), row(262, 2, MON, { description: 'A clearer line.' })]);
   });
@@ -72,7 +73,7 @@ describe('planSync — the rows a sync writes', () => {
     // The repository reading hands such a PRD over as its spec title and '' (sync-shipped.ts); the
     // rules number it like any other.
     const plan = planSync([shipped(255, MON, { title: 'Ask tabs — one per terminal', description: '' })], []);
-    expect(plan.inserts).toEqual([{ prd: 255, release: 2, released_at: MON, title: 'Ask tabs — one per terminal', description: '' }]);
+    expect(plan.inserts).toEqual([{ prd: parsePrd(255), release: 2, released_at: MON, title: 'Ask tabs — one per terminal', description: '' }]);
   });
 
   it('never deletes a row, even one the repository no longer ships', () => {

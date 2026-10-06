@@ -7,26 +7,19 @@
 // a page at a time, each row checked against the row schema. A refusal or a row it cannot read
 // throws; the page decides what a visitor then sees (page/source.ts).
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { ReleaseRow } from './row.ts';
 import { releasesTable } from './sync-table.ts';
 
+/** Where the page reads: the project the two public variables name (the env module's public pair). */
 export type ReleasesEnv = { url: string; key: string };
-
-type Env = Record<string, string | undefined>;
-
-/** Where the page reads: the project the two public variables name, or null while either is unset. */
-export function releasesEnv(env: Env): ReleasesEnv | null {
-  const url = env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return url && key ? { url, key } : null;
-}
 
 /** No session: nothing stored, nothing refreshed, nothing read from the address. */
 const NO_SESSION = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } } as const;
 
-type Connect = (url: string, key: string, options: typeof NO_SESSION) => Pick<SupabaseClient, 'from'>;
+type Connect = (url: string, key: string, options: typeof NO_SESSION) => Pick<SupabaseClient<Database>, 'from'>;
 
-const anonymous: Connect = (url, key, options) => createClient(url, key, options);
+const anonymous: Connect = (url, key, options) => createClient<Database>(url, key, options);
 
 /** Every row of public.releases, by PRD, read with the publishable key. */
 export function readReleases({ url, key }: ReleasesEnv, connect: Connect = anonymous): Promise<ReleaseRow[]> {

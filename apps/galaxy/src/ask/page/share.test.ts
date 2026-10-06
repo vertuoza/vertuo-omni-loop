@@ -35,7 +35,7 @@ describe('the Share button', () => {
   it('selects the text instead when there is no clipboard, or it refuses', async () => {
     const select = vi.fn();
     expect(await copyLink('l', undefined, select)).toBe('selected');
-    expect(await copyLink('l', { writeText: async () => { throw new Error('denied'); } }, select)).toBe('selected');
+    expect(await copyLink('l', { writeText: () => Promise.reject(new Error('denied')) }, select)).toBe('selected');
     expect(select).toHaveBeenCalledTimes(2);
   });
 });
