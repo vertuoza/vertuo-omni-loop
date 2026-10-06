@@ -1,9 +1,10 @@
 import 'server-only';
 import { cache } from 'react';
-import type { JwtPayload, SupabaseClient, User } from '@supabase/supabase-js';
+import type { JwtPayload, User, UserIdentity } from '@supabase/supabase-js';
 import { readWaitingQuestions } from '../waiting/source';
 import type { WaitingQuestion } from '../waiting/waiting';
-import { arcadeMode, type ArcadeMode } from './mode';
+import type { ArcadeMode } from './mode';
+import { serverEnv } from '../env';
 import { supabaseEnv, supabaseServer } from './supabase-server';
 import { memberWorkspace, type Workspace } from './workspace';
 
@@ -50,26 +51,27 @@ const text = (value: unknown) => (typeof value === 'string' && value.trim() ? va
  * list, so a GitHub sign-in's login (its metadata's user_name, else preferred_username) stands in as
  * the one linked GitHub identity the app reads. */
 export function userOfClaims(claims: JwtPayload): User {
-  const meta = (claims.user_metadata ?? {}) as Record<string, unknown>;
-  const app = (claims.app_metadata ?? {}) as Record<string, unknown>;
+  const meta: Record<string, unknown> = claims.user_metadata ?? {};
+  const app: Record<string, unknown> = claims.app_metadata ?? {};
   const providers = Array.isArray(app.providers) ? app.providers : [app.provider];
   const userName = text(meta.user_name);
   const preferred = text(meta.preferred_username);
   const github = providers.includes('github') && (userName || preferred);
+  const identities: UserIdentity[] = github
+    ? [{ id: claims.sub, user_id: claims.sub, identity_id: claims.sub, provider: 'github', identity_data: { user_name: userName, preferred_username: preferred } }]
+    : [];
   return {
     id: claims.sub,
     aud: typeof claims.aud === 'string' ? claims.aud : 'authenticated',
-    email: claims.email,
-    phone: claims.phone,
+    ...(claims.email === undefined ? {} : { email: claims.email }),
+    ...(claims.phone === undefined ? {} : { phone: claims.phone }),
     role: claims.role,
-    is_anonymous: claims.is_anonymous,
+    ...(claims.is_anonymous === undefined ? {} : { is_anonymous: claims.is_anonymous }),
     app_metadata: app,
     user_metadata: meta,
     created_at: '',
-    identities: github
-      ? [{ id: claims.sub, user_id: claims.sub, provider: 'github', identity_data: { user_name: userName, preferred_username: preferred } }]
-      : [],
-  } as unknown as User;
+    identities,
+  };
 }
 
 /** A read started at most once: the first call's promise, every call after. */
@@ -100,7 +102,7 @@ export async function readViewing(deps: ViewerDeps): Promise<Viewing> {
   const user = userOfClaims(claims);
   return {
     kind: 'signed-in', db, env, user,
-    workspace: once(() => memberWorkspace(db as unknown as SupabaseClient, user.id)),
+    workspace: once(() => memberWorkspace(db, user.id)),
     questions: once(() => deps.questions(db, user.id, deps.now())),
   };
 }
@@ -111,7 +113,7 @@ type Memo = <T>(read: () => T) => () => T;
 export const viewerOf = (deps: ViewerDeps, memo: Memo) => memo(() => readViewing(deps));
 
 const LIVE: ViewerDeps = {
-  mode: () => arcadeMode(process.env),
+  mode: () => serverEnv().mode,
   env: supabaseEnv,
   client: supabaseServer,
   questions: (db, userId, now) => readWaitingQuestions(db, userId, now),

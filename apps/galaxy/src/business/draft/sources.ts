@@ -1,4 +1,4 @@
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
+import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 
 // What a draft reads in one repository (PRD 774, spec step 1 and decision 3): its README.md, its
 // top-level docs/*.md and, only when it has the kit layout (a `.omni-loop/config.yml` naming the
@@ -41,8 +41,8 @@ export function repoFiles(listing: RepoListing): RepoFile[] {
   for (const name of listing.docs.filter((n) => /\.md$/i.test(n)).sort(byName)) files.push({ path: `docs/${name}`, kind: 'doc' });
   if (listing.delivery !== null) {
     const shipped = listing.shipped
-      .map((name) => ({ name, parsed: parseFolderName(name) as { prd: number } | null }))
-      .filter((f): f is { name: string; parsed: { prd: number } } => f.parsed !== null)
+      .map((name) => ({ name, parsed: parseFolderName(name) }))
+      .filter((f): f is { name: string; parsed: NonNullable<typeof f.parsed> } => f.parsed !== null)
       .sort((a, b) => b.parsed.prd - a.parsed.prd)
       .slice(0, MAX_SPECS);
     for (const { name } of shipped) files.push({ path: `${listing.delivery}/shipped/${name}/spec.md`, kind: 'prd' });

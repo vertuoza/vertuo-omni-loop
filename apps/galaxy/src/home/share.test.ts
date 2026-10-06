@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { COLOURS, logoSvg } from '@omni/design';
 import { HOME_METADATA, SHARE_CARD, shareCard } from './share';
 
+const SAYS_THE_HEADLINE: unknown = expect.stringMatching(/AGENTS SHIP\. YOU STEER\./);
+
 // HOME shared as the ad (PRD 261, s6; reworded by PRD 285, s2): a link to `/` previews with the
 // page's title, its description and an Open Graph image showing the crest and AGENTS SHIP. YOU
 // STEER. on the starfield.
@@ -18,8 +20,12 @@ describe('HOME\'s metadata', () => {
 
   it('gives a shared link the same title and description, as a large image card', () => {
     expect(HOME_METADATA.openGraph).toMatchObject({ title: TITLE, description: DESCRIPTION, type: 'website' });
-    expect(HOME_METADATA.openGraph).not.toHaveProperty('url');
     expect(HOME_METADATA.twitter).toMatchObject({ card: 'summary_large_image', title: TITLE, description: DESCRIPTION });
+  });
+
+  it('names its canonical address and og:url on www.omni-loop.xyz, whichever host served it (PRD 983)', () => {
+    expect(HOME_METADATA.alternates).toEqual({ canonical: 'https://www.omni-loop.xyz/' });
+    expect(HOME_METADATA.openGraph).toMatchObject({ url: 'https://www.omni-loop.xyz/' });
   });
 
   it('no longer says JOIN THE LOOP! or hands a PRD to the loop', () => {
@@ -34,7 +40,7 @@ describe('the share card', () => {
   const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
   it('is the size every network previews without cropping, and its alt text says the headline', () => {
-    expect(SHARE_CARD).toEqual({ width: 1200, height: 630, alt: expect.stringMatching(/AGENTS SHIP\. YOU STEER\./) });
+    expect(SHARE_CARD).toEqual({ width: 1200, height: 630, alt: SAYS_THE_HEADLINE });
     expect(SHARE_CARD.alt).not.toContain('JOIN THE LOOP!');
   });
 

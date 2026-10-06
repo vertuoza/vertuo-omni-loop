@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { PersonChip } from '../../people/PersonChip';
 import { answerQuick, type QuickOutcome } from './source';
 import type { QuickRound } from './view';
@@ -41,12 +42,12 @@ export function QuickAnswer({ supabase, roundId, quick }: Props) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [sent, setSent] = useState<Sent>({ kind: 'idle' });
-  useEffect(() => setReady(true), []);
+  useEffect(() => { setReady(true); }, []);
 
   async function answer(value: string) {
     setSent({ kind: 'sending' });
     try {
-      const outcome = await answerQuick(createBrowserClient(supabase.url, supabase.key), roundId, quick.question, value);
+      const outcome = await answerQuick(createBrowserClient<Database>(supabase.url, supabase.key), roundId, quick.question, value);
       setSent(outcome);
       // Answered or moved: render the round as it now is. Answered first by someone: keep saying who
       // until the change check re-renders the page, which it does, the answered count having moved.

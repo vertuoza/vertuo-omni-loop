@@ -5,6 +5,8 @@ import {
   ANNOUNCED_KEPT, DOCS_ANNOUNCED_KEY, DOCS_DAYS, DOCS_LIMIT, DOCS_SEEN_KEY, documentsReader, groupDocuments, markSeen,
   noticeDocuments, readSeen, settled, SETTLE_MS, toAnnounce, type Announced, type DocumentGroup, type DocumentRow, type Seen,
 } from './documents';
+import { sure } from '../arcade/test/sure';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The waiting list's New documents part (PRD 579, s1): the spec, plan and before/after versions pushed
 // in the last 7 days to the numbered dossiers the person opened, one group per PRD, newest first, less
@@ -15,7 +17,7 @@ const MIN = 60_000;
 const at = (ms: number) => new Date(ms).toISOString();
 
 const row = (id: string, kind: DocumentRow['kind'], ago: number, prd = 572, dossier = `d-${prd}`): DocumentRow => ({
-  id, kind, created_at: at(NOW - ago), dossier: { id: dossier, prd, title: `PRD title ${prd}` },
+  id, kind, created_at: at(NOW - ago), dossier: { id: dossier, prd: parsePrd(prd), title: `PRD title ${prd}` },
 });
 
 const NEVER: Seen = { since: 0, dossiers: {} };
@@ -31,9 +33,9 @@ describe('grouping new documents per PRD', () => {
       row('v1', 'spec', 6 * MIN, 572),
     ];
     expect(groupDocuments(rows, NEVER)).toEqual([
-      { dossierId: 'd-572', prd: 572, title: 'PRD title 572', kinds: ['spec', 'plan', 'before-after'], newestId: 'v6', newestAt: NOW - 1 * MIN,
+      { dossierId: 'd-572', prd: parsePrd(572), title: 'PRD title 572', kinds: ['spec', 'plan', 'before-after'], newestId: 'v6', newestAt: NOW - 1 * MIN,
         kindsAt: { spec: NOW - 4 * MIN, plan: NOW - 1 * MIN, 'before-after': NOW - 2 * MIN } },
-      { dossierId: 'd-579', prd: 579, title: 'PRD title 579', kinds: ['spec', 'before-after'], newestId: 'v4', newestAt: NOW - 3 * MIN,
+      { dossierId: 'd-579', prd: parsePrd(579), title: 'PRD title 579', kinds: ['spec', 'before-after'], newestId: 'v4', newestAt: NOW - 3 * MIN,
         kindsAt: { spec: NOW - 3 * MIN, 'before-after': NOW - 5 * MIN } },
     ]);
   });
@@ -47,7 +49,7 @@ describe('grouping new documents per PRD', () => {
     const rows = [row('v3', 'plan', 1 * MIN), row('v2', 'before-after', 5 * MIN), row('v1', 'spec', 10 * MIN)];
     const seen: Seen = { since: 0, dossiers: { 'd-572': NOW - 5 * MIN } };
     expect(groupDocuments(rows, seen)).toEqual([
-      { dossierId: 'd-572', prd: 572, title: 'PRD title 572', kinds: ['plan'], newestId: 'v3', newestAt: NOW - MIN, kindsAt: { plan: NOW - MIN } },
+      { dossierId: 'd-572', prd: parsePrd(572), title: 'PRD title 572', kinds: ['plan'], newestId: 'v3', newestAt: NOW - MIN, kindsAt: { plan: NOW - MIN } },
     ]);
   });
 
@@ -156,8 +158,8 @@ describe('what this browser has seen', () => {
 
   it('with a storage that throws: `since` is the load time, and nothing throws', () => {
     expect(readSeen(throwing, NOW)).toEqual({ since: NOW, dossiers: {} });
-    expect(() => markSeen(throwing, 'd-572', NOW)).not.toThrow();
-    expect(() => markSeen(() => { throw new Error('no storage'); }, 'd-572', NOW)).not.toThrow();
+    expect(() => { markSeen(throwing, 'd-572', NOW); }).not.toThrow();
+    expect(() => { markSeen(() => { throw new Error('no storage'); }, 'd-572', NOW); }).not.toThrow();
   });
 });
 
@@ -165,8 +167,8 @@ describe('what this browser has seen', () => {
 
 const SEC = 1000;
 const g = (prd: number, newestId: string, ago: number, kindsAt: DocumentGroup['kindsAt'] = { spec: NOW - ago }): DocumentGroup => ({
-  dossierId: `d-${prd}`, prd, title: `PRD title ${prd}`,
-  kinds: (['spec', 'plan', 'before-after'] as const).filter((k) => kindsAt?.[k] !== undefined),
+  dossierId: `d-${prd}`, prd: parsePrd(prd), title: `PRD title ${prd}`,
+  kinds: (['spec', 'plan', 'before-after'] as const).filter((k) => kindsAt[k] !== undefined),
   newestId, newestAt: NOW - ago, kindsAt,
 });
 
@@ -205,14 +207,14 @@ describe('what to announce', () => {
   });
 
   it('names every kind of a group that carries no time per kind', () => {
-    const bare: DocumentGroup = { dossierId: 'd-1', prd: 1, title: 't', kinds: ['spec', 'plan'], newestId: 'v1', newestAt: NOW };
-    expect(toAnnounce([bare], [{ id: 'v0', dossierId: 'd-1', at: NOW - MIN }]).alerts[0].kinds).toEqual(['spec', 'plan']);
+    const bare: DocumentGroup = { dossierId: 'd-1', prd: parsePrd(1), title: 't', kinds: ['spec', 'plan'], newestId: 'v1', newestAt: NOW };
+    expect(sure(toAnnounce([bare], [{ id: 'v0', dossierId: 'd-1', at: NOW - MIN }]).alerts[0], 'toAnnounce([bare], [{ id: \'v0\', dossierId: \'d-1\', at:...').kinds).toEqual(['spec', 'plan']);
   });
 
   it('keeps the announced list at most 200 long', () => {
     expect(ANNOUNCED_KEPT).toBe(200);
     let announced: Announced = [];
-    for (let i = 0; i < 250; i++) announced = toAnnounce([g(i, `v${i}`, MIN)], announced).announced;
+    for (let i = 0; i < 250; i++) announced = toAnnounce([g(i + 1, `v${i}`, MIN)], announced).announced;
     expect(announced).toHaveLength(200);
     expect(announced.at(-1)?.id).toBe('v249');
   });
@@ -223,7 +225,7 @@ function notifier() {
   const raised: { title: string; options: NotificationOptions; onclick: (() => void) | null }[] = [];
   class Fake {
     static permission = 'granted';
-    static requestPermission = async () => 'granted';
+    static requestPermission = () => Promise.resolve('granted');
     onclick: (() => void) | null = null;
     constructor(title: string, options: NotificationOptions) {
       Object.assign(this, { title, options });
@@ -260,7 +262,7 @@ describe('announcing settled documents', () => {
       ['PRD 572: new spec', 'docs-d-572-v2'],
       ['PRD 579: new plan', 'docs-d-579-v4'],
     ]);
-    raised[1].onclick?.();
+    sure(raised[1], 'raised[1]').onclick?.();
     expect(opened).toEqual(['/prd/d-579']);
     expect(play).not.toHaveBeenCalled();
   });
@@ -292,7 +294,7 @@ describe('announcing settled documents', () => {
     // A reload: nothing held in memory, only what the browser stored.
     noticeDocuments({ ...input, chime: false, kept: [] });
     expect(raised).toHaveLength(2);
-    expect(JSON.parse(m.map.get(DOCS_ANNOUNCED_KEY)!)).toEqual(kept);
+    expect(JSON.parse(sure(m.map.get(DOCS_ANNOUNCED_KEY), 'm.map.get(DOCS_ANNOUNCED_KEY)'))).toEqual(kept);
   });
 
   it('with a storage that throws: remembers for the visit through what it returns, plays nothing, never throws', () => {

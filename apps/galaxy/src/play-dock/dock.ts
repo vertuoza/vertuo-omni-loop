@@ -4,6 +4,7 @@
 // door (games/room.ts): the dock never has a rule of its own on levels or XP. With more than one game
 // open (PRD 817: SUPER OMNI WORLD from LV 2), the device opens on a picker between them.
 import { GAMES } from '../arcade/games/index';
+import { at, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { cabinetDoor, cabinets, xpStatus } from '../arcade/games/room';
 import type { Action } from '../arcade/keys';
 import type { XpRead } from '../arcade/types';
@@ -19,9 +20,8 @@ const DOCK_GAMES = ['invaders', 'platformer'] as const;
 export type DockGameId = (typeof DOCK_GAMES)[number];
 
 /** Each game's name in the picker: its cabinet's marquee. */
-export const DOCK_TITLE = Object.fromEntries(
-  DOCK_GAMES.map((id) => [id, GAMES.find((g) => g.id === id)?.title ?? id.toUpperCase()]),
-) as Record<DockGameId, string>;
+const titleOf = (id: DockGameId): string => GAMES.find((g) => g.id === id)?.title ?? id.toUpperCase();
+export const DOCK_TITLE: Record<DockGameId, string> = { invaders: titleOf('invaders'), platformer: titleOf('platformer') };
 
 /** Who is at the page, as the dock needs it: whether GitHub is linked, and their XP. None: a visitor. */
 export interface DockPlayer { linked: boolean; xp: XpRead }
@@ -50,7 +50,7 @@ export type DockScreen = { kind: 'picker'; sel: number } | { kind: 'game'; game:
 
 /** Where the device opens: straight into the one game open, or the picker on the game chosen last. */
 export function dockStart(games: readonly DockGameId[], chosen: string | null): DockScreen {
-  if (games.length === 1) return { kind: 'game', game: games[0] };
+  if (games.length === 1) return { kind: 'game', game: at(games, 0, 'the one game open') };
   return { kind: 'picker', sel: Math.max(0, games.findIndex((g) => g === chosen)) };
 }
 
@@ -59,7 +59,7 @@ export function pickerPress(games: readonly DockGameId[], sel: number, action: A
   const n = games.length;
   if (action === 'up') return { sel: (sel + n - 1) % n };
   if (action === 'down') return { sel: (sel + 1) % n };
-  if (action === 'a' || action === 'start') return { play: games[sel] };
+  if (action === 'a' || action === 'start') return { play: at(games, sel, 'the game picked') };
   if (action === 'b') return { fold: true };
   return null;
 }
@@ -136,8 +136,9 @@ export function readDock(storage: () => Pick<Storage, 'getItem'>): DockKept {
   }
   if (raw === 'open' || raw === 'folded') return { open: raw === 'open', game: null }; // kept before the picker
   try {
-    const kept = JSON.parse(raw ?? 'null') as Partial<DockKept> | null;
-    return { open: kept?.open === true, game: typeof kept?.game === 'string' ? kept.game : null };
+    const kept: unknown = JSON.parse(raw ?? 'null');
+    const game = propertyOf(kept, 'game');
+    return { open: propertyOf(kept, 'open') === true, game: typeof game === 'string' ? game : null };
   } catch {
     return NOTHING_KEPT;
   }
@@ -154,4 +155,4 @@ export function writeDock(storage: () => Pick<Storage, 'getItem' | 'setItem'>, p
 export const readOpen = (storage: () => Pick<Storage, 'getItem'>): boolean => readDock(storage).open;
 
 /** Keeps the dock's open or folded state for the tab, and the game chosen last with it. */
-export const writeOpen = (storage: () => Pick<Storage, 'getItem' | 'setItem'>, open: boolean): void => writeDock(storage, { open });
+export const writeOpen = (storage: () => Pick<Storage, 'getItem' | 'setItem'>, open: boolean): void => { writeDock(storage, { open }); };

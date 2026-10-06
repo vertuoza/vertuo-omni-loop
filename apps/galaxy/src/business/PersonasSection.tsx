@@ -1,6 +1,7 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import { PERSONA_TRADES, personaGrid, type PersonaAvatar } from '@omni/design';
 import { pixelSvg } from '../design/pixel-svg';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { hasProducts, type Product } from './model';
 import {
   drawable, NAME_MAX, PICKER_SIZE, pickerOf, sameAvatar, STANCES, TEXT_MAX, tradeLabel, viewPersonas,
@@ -19,14 +20,14 @@ import {
 
 export interface PersonaHandlers {
   /** + Add a persona. */
-  open(): void;
-  edit(persona: Persona): void;
-  change(fields: Partial<PersonaFields>): void;
-  shuffle(): void;
-  close(): void;
-  save(): void;
-  remove(): void;
-  undo(): void;
+  open: () => void;
+  edit: (persona: Persona) => void;
+  change: (fields: Partial<PersonaFields>) => void;
+  shuffle: () => void;
+  close: () => void;
+  save: () => void;
+  remove: () => void;
+  undo: () => void;
 }
 
 const IDLE: PersonaHandlers = { open() {}, edit() {}, change() {}, shuffle() {}, close() {}, save() {}, remove() {}, undo() {} };
@@ -69,13 +70,13 @@ function Card({ persona, busy, on }: { persona: Persona; busy: boolean; on: Pers
       </div>
       {persona.who && <p className="business-persona-line"><span className="business-persona-label">Who</span> {persona.who}</p>}
       {persona.usage && <p className="business-persona-line"><span className="business-persona-label">Uses</span> {persona.usage}</p>}
-      <button type="button" className="ask-button quiet business-persona-edit" aria-label={`Edit ${persona.name}`} onClick={() => on.edit(persona)} disabled={busy}>Edit</button>
+      <button type="button" className="ask-button quiet business-persona-edit" aria-label={`Edit ${persona.name}`} onClick={() => { on.edit(persona); }} disabled={busy}>Edit</button>
     </li>
   );
 }
 
 function Picker({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
-  const drawer = state.drawer!;
+  const drawer = defined(state.drawer, 'the open drawer');
   const { trade, avatar } = drawer.fields;
   const label = tradeLabel(trade);
   return (
@@ -94,7 +95,7 @@ function Picker({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
               className="business-persona-variation"
               aria-pressed={chosen}
               aria-label={`${label}, variation ${drawer.page * PICKER_SIZE + i + 1}`}
-              onClick={() => on.change({ avatar: a })}
+              onClick={() => { on.change({ avatar: a }); }}
               disabled={state.busy}
             >
               <Portrait trade={trade} avatar={a} scale={1} title={`${label}, variation ${drawer.page * PICKER_SIZE + i + 1}`} />
@@ -107,11 +108,11 @@ function Picker({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
 }
 
 function Drawer({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
-  const drawer = state.drawer!;
+  const drawer = defined(state.drawer, 'the open drawer');
   const f = drawer.fields;
   const editing = drawer.editing !== null;
   const title = editing ? `Edit ${f.name.trim() || 'persona'}` : 'Add a persona';
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     on.save();
   };
@@ -124,13 +125,13 @@ function Drawer({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
         <h3>{title}</h3>
         <label className="business-persona-field">
           <span className="business-type-label">Name</span>
-          <input name="name" type="text" value={f.name} maxLength={NAME_MAX} required autoComplete="off" disabled={state.busy} onChange={(e) => on.change({ name: e.currentTarget.value })} />
+          <input name="name" type="text" value={f.name} maxLength={NAME_MAX} required autoComplete="off" disabled={state.busy} onChange={(e) => { on.change({ name: e.currentTarget.value }); }} />
         </label>
         <div className="business-persona-field" role="group" aria-labelledby="business-persona-stance">
           <span id="business-persona-stance" className="business-type-label">Stance</span>
           <div className="business-chips">
             {STANCES.map((s) => (
-              <button key={s} type="button" className="business-chip" data-stance={s} aria-pressed={f.stance === s} onClick={() => on.change({ stance: s })} disabled={state.busy}>
+              <button key={s} type="button" className="business-chip" data-stance={s} aria-pressed={f.stance === s} onClick={() => { on.change({ stance: s }); }} disabled={state.busy}>
                 {STANCE_LABEL[s]}
               </button>
             ))}
@@ -138,18 +139,18 @@ function Drawer({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
         </div>
         <label className="business-persona-field">
           <span className="business-type-label">Trade</span>
-          <select name="trade" value={f.trade} disabled={state.busy} onChange={(e) => on.change({ trade: e.currentTarget.value })}>
+          <select name="trade" value={f.trade} disabled={state.busy} onChange={(e) => { on.change({ trade: e.currentTarget.value }); }}>
             {!drawable(f.trade) && <option value={f.trade}>{f.trade}</option>}
             {PERSONA_TRADES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
           </select>
         </label>
         <label className="business-persona-field">
           <span className="business-type-label">Who they are</span>
-          <textarea name="who" rows={3} value={f.who} maxLength={TEXT_MAX} disabled={state.busy} onChange={(e) => on.change({ who: e.currentTarget.value })} />
+          <textarea name="who" rows={3} value={f.who} maxLength={TEXT_MAX} disabled={state.busy} onChange={(e) => { on.change({ who: e.currentTarget.value }); }} />
         </label>
         <label className="business-persona-field">
           <span className="business-type-label">How they use it</span>
-          <textarea name="usage" rows={2} value={f.usage} maxLength={TEXT_MAX} disabled={state.busy} onChange={(e) => on.change({ usage: e.currentTarget.value })} />
+          <textarea name="usage" rows={2} value={f.usage} maxLength={TEXT_MAX} disabled={state.busy} onChange={(e) => { on.change({ usage: e.currentTarget.value }); }} />
         </label>
         <Picker state={state} on={on} />
         {state.refusal && <p className="business-refusal" role="alert">{state.refusal}</p>}

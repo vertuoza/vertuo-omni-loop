@@ -32,10 +32,11 @@ export interface PlatformerOptions {
   onEvent: (e: PlatformerEvent) => void;
 }
 
-export interface ScreenDeps {
-  load: () => Promise<PhaserLike>;
+/** `M`: the module `load` answers, Phaser's own or a test's stand-in, which `scene` is made from. */
+export interface ScreenDeps<M extends PhaserLike = PhaserLike> {
+  load: () => Promise<M>;
   /** The scene the game plays, made from the module loaded. */
-  scene: (P: PhaserLike, o: PlatformerOptions) => unknown;
+  scene: (P: M, o: PlatformerOptions) => unknown;
   onStatus: (s: ScreenStatus) => void;
 }
 
@@ -51,21 +52,21 @@ export interface Platformer {
 }
 
 /** The real Phaser, fetched only when a platformer screen mounts. */
-const loadPhaser = () => import('phaser') as unknown as Promise<PhaserLike>;
+const loadPhaser = (): Promise<PhaserModule> => import('phaser');
 
 /**
  * The world's scenes, one per stage in the order they are played, each told the next one's key:
  * the game starts on the first, and each flag hands over to the next. `make` builds a scene.
  */
 export function worldScenes<T>(make: (so: SceneOptions) => T, o: Pick<PlatformerOptions, 'held' | 'onEvent'>, art: (palette: string) => SceneOptions['art']): T[] {
-  return STAGES.map((stage, i) => make({
-    stage, art: art(stage.palette), held: o.held, onEvent: o.onEvent,
-    next: STAGES[i + 1] ? sceneKey(STAGES[i + 1].id) : null,
-  }));
+  return STAGES.map((stage, i) => {
+    const after = STAGES[i + 1];
+    return make({ stage, art: art(stage.palette), held: o.held, onEvent: o.onEvent, next: after ? sceneKey(after.id) : null });
+  });
 }
 
 /** The real scenes: every stage, each drawn in its palette with the player's hero. */
-const realScene: ScreenDeps['scene'] = (P, o) => worldScenes((so) => makeScene(P as unknown as PhaserModule, so), o, (palette) => drawArt(o.hero, o.team, palette));
+const realScene: ScreenDeps<PhaserModule>['scene'] = (P, o) => worldScenes((so) => makeScene(P, so), o, (palette) => drawArt(o.hero, o.team, palette));
 
 /** What a press does on the failed screen: A imports again, B goes back (to the room, or the dock's picker). */
 export function failedPress(action: Action): 'retry' | 'back' | null {
@@ -73,7 +74,7 @@ export function failedPress(action: Action): 'retry' | 'back' | null {
 }
 
 /** Starts the game in `host`: what the screen runs on mount. */
-export function startPlatformer(host: HTMLElement, o: PlatformerOptions, deps: ScreenDeps): Platformer {
+export function startPlatformer<M extends PhaserLike>(host: HTMLElement, o: PlatformerOptions, deps: ScreenDeps<M>): Platformer {
   let status: ScreenStatus = 'loading';
   let game: GameLike | null = null;
   let paused = false;
@@ -146,7 +147,7 @@ export interface PlatformerScreenProps {
   onEvent?: (e: PlatformerEvent) => void;
   onStatus?: (s: ScreenStatus) => void;
   /** Where Phaser comes from; the real module unless a test says otherwise. */
-  load?: ScreenDeps['load'];
+  load?: ScreenDeps<PhaserModule>['load'];
 }
 
 export function PlatformerScreen({ grid, hero, team, held, paused, retry = 0, onEvent, onStatus, load = loadPhaser }: PlatformerScreenProps) {
@@ -157,12 +158,15 @@ export function PlatformerScreen({ grid, hero, team, held, paused, retry = 0, on
   const live = useRef({ held, onEvent, onStatus, paused });
   live.current = { held, onEvent, onStatus, paused };
   const heroKey = JSON.stringify(hero);
+  // The hero restarts the game only when it changes in value (heroKey), so the effect reads it here.
+  const heroRef = useRef(hero);
+  heroRef.current = hero;
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return undefined;
     const p = startPlatformer(host, {
-      grid, hero, team,
+      grid, hero: heroRef.current, team,
       held: () => live.current.held(),
       onEvent: (e) => live.current.onEvent?.(e),
     }, {
@@ -173,7 +177,6 @@ export function PlatformerScreen({ grid, hero, team, held, paused, retry = 0, on
     if (live.current.paused) p.pause();
     game.current = p;
     return () => { p.destroy(); game.current = null; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grid, heroKey, team, load]);
 
   useEffect(() => {

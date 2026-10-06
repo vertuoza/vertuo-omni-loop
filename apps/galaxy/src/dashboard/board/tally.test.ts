@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { STAGES } from '../../stages/stage';
 import { periodWindow } from './period';
 import {
-  circleOf, eventCounts, groupsOf, inCircle, inPeriod, mergesPerDay, openedBy, peopleRows, prdEventsPerDay, prdsNow, repositoriesOf, stageTally, tilesOf,
+  circleOf, eventCounts, groupsOf, inCircle, inPeriod, mergesPerDay, openedBy, peopleRows, perStage, prdEventsPerDay, prdsNow, repositoriesOf, stageTally, tilesOf,
   type Activity, type Member, type PrdNow,
 } from './tally';
+import { sure } from '../../arcade/test/sure';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The board's pure functions (PRD 572): who is in the scope, what of the workspace's contributions
 // falls in the period, and every number the tiles, the charts, the repositories and the People table
@@ -143,7 +146,7 @@ describe('peopleRows', () => {
 
   it('lists every member, 0s kept: Paul, with no points, has his 7 PRs and 9 answers', () => {
     const people = peopleRows(ROSTER, input(), 'u-ada');
-    const paul = people.find((p) => p.userId === 'u-paul')!;
+    const paul = sure(people.find((p) => p.userId === 'u-paul'), 'the item found');
     expect(paul).toMatchObject({ name: 'Paul Etienne', prs: 7, answered: 9, points: 0, fleet: { label: 'OCTO' }, you: false });
     expect(paul.prds).toEqual({ open: 0, building: 0, shipped: 0 });
     expect(people).toHaveLength(5);
@@ -158,15 +161,15 @@ describe('peopleRows', () => {
   it('marks the viewer, reads SOLO with no fleet, and dashes the GitHub-counted columns with no login', () => {
     const people = peopleRows(ROSTER, input(), 'u-ada');
     expect(people.filter((p) => p.you).map((p) => p.userId)).toEqual(['u-ada']);
-    expect(people.find((p) => p.userId === 'u-sol')!.fleet).toBe('solo');
+    expect(sure(people.find((p) => p.userId === 'u-sol'), 'the item found').fleet).toBe('solo');
     expect(people.find((p) => p.userId === 'u-nog')).toMatchObject({ prs: null, points: null, answered: 0 });
   });
 
   it('PRDs now: the PRDs each person opened, by login or by account, as open · building · shipped', () => {
     const people = peopleRows(ROSTER, input(), 'u-ada');
-    expect(people.find((p) => p.userId === 'u-ada')!.prds).toEqual({ open: 1, building: 1, shipped: 2 });
-    expect(people.find((p) => p.userId === 'u-nog')!.prds).toEqual({ open: 1, building: 0, shipped: 0 });
-    expect(people.find((p) => p.userId === 'u-bob')!.prds).toEqual({ open: 0, building: 0, shipped: 0 });
+    expect(sure(people.find((p) => p.userId === 'u-ada'), 'the item found').prds).toEqual({ open: 1, building: 1, shipped: 2 });
+    expect(sure(people.find((p) => p.userId === 'u-nog'), 'the item found').prds).toEqual({ open: 1, building: 0, shipped: 0 });
+    expect(sure(people.find((p) => p.userId === 'u-bob'), 'the item found').prds).toEqual({ open: 0, building: 0, shipped: 0 });
   });
 
   it('names a member by their name, else their login, else as a member', () => {
@@ -176,34 +179,34 @@ describe('peopleRows', () => {
 
   it('a fleet the galaxy does not know still shows, by its name in capitals', () => {
     const people = peopleRows([member('a', 'x-gh', 'ghost')], { activity: [], answered: new Map(), heroes: [], fleets: [], prds: [] }, null);
-    expect(people[0].fleet).toEqual({ name: 'ghost', label: 'GHOST', color: null, mascot: null });
+    expect(sure(people[0], 'people[0]').fleet).toEqual({ name: 'ghost', label: 'GHOST', color: null, mascot: null });
   });
 
   it('a column whose read failed reads unreadable for everyone, and the rest still count', () => {
     const people = peopleRows(ROSTER, input({ activity: 'unreadable', heroes: 'unreadable', prds: 'unreadable' }), null);
-    const paul = people.find((p) => p.userId === 'u-paul')!;
+    const paul = sure(people.find((p) => p.userId === 'u-paul'), 'the item found');
     expect(paul).toMatchObject({ prs: 'unreadable', prds: 'unreadable', points: 'unreadable', answered: 9 });
     expect(people.find((p) => p.userId === 'u-nog')).toMatchObject({ prs: null, points: null, prds: 'unreadable' });
   });
 
   it('the PRDs alone unreadable: only that column says so', () => {
-    const paul = peopleRows(ROSTER, input({ prds: 'unreadable' }), null).find((p) => p.userId === 'u-paul')!;
+    const paul = sure(peopleRows(ROSTER, input({ prds: 'unreadable' }), null).find((p) => p.userId === 'u-paul'), 'the item found');
     expect(paul).toMatchObject({ prs: 7, prds: 'unreadable' });
   });
 });
 
 describe('PRDs now (PRD 587): each PRD at its current stage, and who opened it', () => {
   const STAGES_READ = [
-    { repository: 'vertuoza/vertuo-omni-loop', prd: 12, stage: 'shipped' as const },
-    { repository: 'vertuoza/vertuo-omni-loop', prd: 13, stage: 'building' as const },
-    { repository: 'vertuoza/vertuo-core', prd: 4, stage: 'prd' as const },
+    { repository: 'vertuoza/vertuo-omni-loop', prd: parsePrd(12), stage: 'shipped' as const },
+    { repository: 'vertuoza/vertuo-omni-loop', prd: parsePrd(13), stage: 'building' as const },
+    { repository: 'vertuoza/vertuo-core', prd: parsePrd(4), stage: 'prd' as const },
   ];
   const OPENERS = [
     { repo: 'vertuo-omni-loop', number: 12, login: 'Ada-GH' },
     { repo: 'vertuo-core', number: 13, login: 'bob-gh' }, // another repository's #13
   ];
   const DOSSIERS = [
-    { home_repo: 'vertuoza/vertuo-omni-loop', prd: 13, opened_by: 'u-bob', answered: 2 },
+    { home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(13), opened_by: 'u-bob', answered: 2 },
     { home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-sol', answered: 1 },
     { home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-ada', answered: 0 },
   ];
@@ -224,9 +227,17 @@ describe('PRDs now (PRD 587): each PRD at its current stage, and who opened it',
   it('the tile\'s seven counts, by stage in track order; shipped and retro are never open', () => {
     const tally = stageTally(prdsNow({ stages: STAGES_READ, openers: OPENERS, dossiers: DOSSIERS }));
     expect(Object.keys(tally)).toEqual(['idea', 'prd', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
-    expect(tally).toEqual({ idea: 1, prd: 1, inbox: 0, building: 1, outbox: 0, shipped: 1, retro: 0 });
+    expect(tally).toEqual({ idea: 1, prd: parsePrd(1), inbox: 0, building: 1, outbox: 0, shipped: 1, retro: 0 });
     expect(groupsOf([{ stage: 'shipped', login: null, userId: null }, { stage: 'retro', login: null, userId: null }]))
       .toEqual({ open: 0, building: 0, shipped: 2 });
+  });
+
+  it('one value per stage, every stage in track order, each asked for once', () => {
+    const asked: string[] = [];
+    const record = perStage((stage) => { asked.push(stage); return stage.length; });
+    expect(Object.keys(record)).toEqual([...STAGES]);
+    expect(asked).toEqual([...STAGES]);
+    expect(record).toEqual({ idea: 4, prd: parsePrd(3), inbox: 5, building: 8, outbox: 6, shipped: 7, retro: 5 });
   });
 
   it('who opened a PRD: you by login or account, a fleet by its members\', the workspace every PRD', () => {

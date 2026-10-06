@@ -78,7 +78,10 @@ export function checkRows(claims: readonly Claim[], now: number): CheckRow[] {
     return before.length > 0 ? [{ kind: 'addition' as const, claim: c, before }] : [];
   });
   const answers: CheckRow[] = bySeq.flatMap((c) => (isAnswerToCheck(c) ? [{ kind: 'answer' as const, claim: c }] : []));
-  const faded: CheckRow[] = bySeq.flatMap((c) => (isFaded(c, now) ? [{ kind: 'faded' as const, claim: c, since: lastSeenOf(c) as string }] : []));
+  const faded: CheckRow[] = bySeq.flatMap((c) => {
+    const since = lastSeenOf(c);
+    return since !== null && isFaded(c, now) ? [{ kind: 'faded' as const, claim: c, since }] : [];
+  });
   return [...replacements, ...additions, ...answers, ...faded];
 }
 
@@ -104,7 +107,7 @@ export function settled(claims: readonly Claim[], saved: Claim): Claim[] {
 /** The saved row, with the receipts and citations the page read. */
 function keptAsRead(saved: Claim, was: Claim | undefined): Claim {
   if (!was) return saved;
-  return { ...saved, cited: was.cited ?? saved.cited, lastBy: was.lastBy ?? saved.lastBy, ...(was.receipts ? { receipts: was.receipts } : {}) };
+  return { ...saved, cited: was.cited, lastBy: was.lastBy ?? saved.lastBy, ...(was.receipts ? { receipts: was.receipts } : {}) };
 }
 
 /** The old side of an answered replacement takes the other state; any other claim stays as it is. */

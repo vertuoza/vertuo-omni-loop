@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-30
 - Slice: s1
 - Wave: 1
+- Stays here: This is a provisional guess, confined to one file and its test and changed cheaply once TypeSafe's reference is read. It sets no lasting product guarantee or architecture choice.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ One file and its test to adjust once TypeSafe's reference is read; no stored dat
 - Raised: 2026-09-30
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-59, P-PRODUCT-55
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ A separate on/off flag later is one column and a change to two database function
 - Raised: 2026-09-30
 - Slice: s1
 - Wave: 1
+- Stays here: A local navigation choice for one page, cheap to change (one test line); no lasting product guarantee or architectural decision to record.
 
 ### The answer, as it was given
 
@@ -249,6 +252,7 @@ One line in one test.
 - Raised: 2026-09-30
 - Slice: s2
 - Wave: 2
+- Became: ADR-0064
 
 ### The answer, as it was given
 
@@ -326,6 +330,7 @@ One branch in the resolver's decide step: run the old path after Jev instead of 
 - Raised: 2026-09-30
 - Slice: s3
 - Wave: 3
+- Stays here: A local file-placement and territory choice for this slice, cheap to move later, with no lasting product guarantee or architectural stance beyond existing patterns.
 
 ### The answer, as it was given
 
@@ -404,6 +409,7 @@ A file move and an import path each: no stored shape, no contract change.
 - Raised: 2026-09-30
 - Slice: s3
 - Wave: 3
+- Stays here: A local placement choice in skill wording, with no stored shape and nothing in the kit parsing it; it is cheap to change and holds no lasting product guarantee.
 
 ### The answer, as it was given
 
@@ -481,6 +487,7 @@ A skill wording change, or a new optional item field later: no stored shape.
 - Raised: 2026-09-30
 - Slice: s3
 - Wave: 3
+- Became: BR-PRODUCT-60
 
 ### The answer, as it was given
 
@@ -558,6 +565,7 @@ One check in the route: refuse when the repository's org matches no workspace.
 - Raised: 2026-09-30
 - Slice: s4
 - Wave: 3
+- Became: BR-PRODUCT-61, P-PRODUCT-56
 
 ### The answer, as it was given
 
@@ -636,6 +644,7 @@ Changing it is a one-line filter in the record module and its tests; nothing is 
 - Raised: 2026-09-30
 - Slice: s5
 - Wave: 4
+- Became: ADR-0065
 
 ### The answer, as it was given
 
@@ -713,6 +722,7 @@ A constant: sending the repository's own wording would mean the skill adds the f
 - Raised: 2026-09-30
 - Slice: s5
 - Wave: 4
+- Stays here: A one-off territory choice about two test assertions, cheap to revert; nothing lasting about product behaviour or build approach to record.
 
 ### The answer, as it was given
 

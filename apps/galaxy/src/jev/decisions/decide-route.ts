@@ -1,3 +1,5 @@
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isRecord } from '../is-record';
 import { authenticate, withInstallLink, type TokenCheck } from '../../ask/auth';
 import { refuse, reply } from '../../business-api/reply';
 import { decide, type JevDecideDeps } from '../resolve';
@@ -48,7 +50,7 @@ export type StateReader<I, V> = { input(state: unknown): I | null; old(text: str
 export function parsed(text: string): Record<string, unknown> | null {
   try {
     const value: unknown = JSON.parse(text);
-    return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+    return isRecord(value) && !Array.isArray(value) ? value : null;
   } catch {
     return null;
   }
@@ -89,9 +91,11 @@ function readAsked(text: string, decision: string, terminal: Terminal): Asked | 
 
 /** What repo_workspace() returned, as a workspace's id or the reason there is none. */
 export function placedFrom(data: unknown): { workspace: string | null; reason: string | null } {
-  const row = ((Array.isArray(data) ? data[0] : data) ?? {}) as { workspace_id?: string | null; refusal?: string | null };
-  if (row.workspace_id) return { workspace: row.workspace_id, reason: null };
-  return { workspace: null, reason: row.refusal ?? null };
+  const row: unknown = Array.isArray(data) ? data[0] : data;
+  const workspace = propertyOf(row, 'workspace_id');
+  if (typeof workspace === 'string' && workspace) return { workspace, reason: null };
+  const refusal = propertyOf(row, 'refusal');
+  return { workspace: null, reason: typeof refusal === 'string' ? refusal : null };
 }
 
 /** The workspace the caller's calls for `repo` go to, or the refusal that says why none. */
@@ -119,7 +123,7 @@ export async function decideRoute(request: Request, decision: string, deps: Deci
   const workspace = await placeOf(deps, auth.caller.id, asked.repo);
   if (workspace instanceof Response) return workspace;
 
-  const counted = await decide(deps.jev, { workspace, entry, input: asked.input, old: async () => asked.old, ref: asked.ref });
+  const counted = await decide(deps.jev, { workspace, entry, input: asked.input, old: () => Promise.resolve(asked.old), ref: asked.ref });
   if (counted.decidedBy !== 'jev' || counted.value === null) return reply(200, TODAY);
   return reply(200, { answer: entry.show(counted.value), confidence: counted.confidence, decidedBy: 'jev' });
 }

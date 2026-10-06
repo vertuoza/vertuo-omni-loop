@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { deleteDraft } from './source';
 import { dossierPath } from './view';
 
@@ -20,7 +21,7 @@ export function DeleteDraft({ supabase, id }: { supabase: Supabase; id: string }
     setBusy(true);
     setProblem(null);
     try {
-      if (await deleteDraft(createBrowserClient(supabase.url, supabase.key), id)) {
+      if (await deleteDraft(createBrowserClient<Database>(supabase.url, supabase.key), id)) {
         window.location.assign(`${dossierPath(id)}?deleted=1`);
         return;
       }
@@ -33,7 +34,7 @@ export function DeleteDraft({ supabase, id }: { supabase: Supabase; id: string }
 
   return (
     <span className="dossier-delete">
-      <button type="button" className="ask-button quiet" disabled={busy} onClick={remove}>{busy ? 'Deleting…' : 'Delete draft'}</button>
+      <button type="button" className="ask-button quiet" disabled={busy} onClick={() => void remove()}>{busy ? 'Deleting…' : 'Delete draft'}</button>
       {problem && <span className="ask-problem" role="alert">{problem}</span>}
     </span>
   );

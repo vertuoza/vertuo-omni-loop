@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { isAddition } from './check';
 import { byOrder, sentence, BLANK, type Claim, type ClaimReceipt, type SentencePart } from './model';
 
@@ -16,15 +17,14 @@ export interface DraftView {
   kind: 'draft' | 'recheck';
   state: 'running' | 'done' | 'failed';
   counts: Partial<Record<'readmes' | 'docs' | 'prds' | 'pages' | 'kept' | 'added' | 'seen', number>>;
-  scanned: Array<{ source: string; state: 'read' | 'skipped'; why?: string }>;
+  scanned: Array<{ source: string; state: 'read' | 'skipped'; why?: string | undefined }>;
   reason: string | null;
 }
 
-/** A web page pasted on the business (public.business_sources). */
-export interface WebPage {
-  id: string;
-  url: string;
-}
+/** A web page pasted on the business (public.business_sources), as a select of `id, url` answers it. */
+export const WebPage = z.object({ id: z.string(), url: z.string() });
+export type WebPage = z.infer<typeof WebPage>;
+export const PAGE_COLUMNS = 'id, url';
 
 /** The most web pages a business keeps (decision 3). */
 export const MAX_PAGES = 3;

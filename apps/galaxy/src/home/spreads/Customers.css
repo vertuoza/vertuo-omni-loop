@@ -1,0 +1,83 @@
+/* The customers spread (HOME, PRD 971): Business → Products → Personas, filled by one invented
+   company, then the agents reading them. Every colour and face is a variable from @omni/design;
+   nothing here is declared on :root. */
+
+/* The EXAMPLE tag and the invented company it labels. */
+.home-customers-company { margin: 0; color: var(--highlight); }
+.home-example {
+  display: inline-block;
+  padding: 3px 6px;
+  font: 8px/1.4 var(--font-pixel);
+  color: var(--void);
+  background: var(--yellow);
+  vertical-align: 2px;
+}
+
+/* The chain: three steps side by side, joined by arrows; one column below 720px. */
+.home-customers-chain {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 34px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: home-step;
+}
+.home-customers-step {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 16px;
+  background: var(--deep);
+  border: 2px solid var(--navy);
+  box-shadow: 4px 4px 0 var(--navy-dark);
+  counter-increment: home-step;
+  min-width: 0;
+}
+.home-customers-step + .home-customers-step::before {
+  content: '→';
+  position: absolute;
+  left: -28px;
+  top: 18px;
+  font: 700 20px/1 var(--font-body);
+  color: var(--yellow);
+}
+.home-customers-step-head { margin: 0; font: 400 10px/1.6 var(--font-pixel); color: var(--yellow); }
+.home-customers-step .home-customers-step-head::before { content: counter(home-step) '. '; }
+.home-customers-step .home-note { margin: 0; }
+
+.home-customers-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; margin: 0; }
+.home-customers-facts dt { font: 8px/1.8 var(--font-pixel); color: var(--dim); }
+.home-customers-facts dd { margin: 0; color: var(--white); }
+.home-customers-products { margin: 0; padding: 0; list-style: none; color: var(--white); }
+
+/* The personas: a portrait, a name, a trade and a stance chip each. */
+.home-personas { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.home-persona {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  column-gap: 12px;
+  align-items: center;
+}
+.home-persona .home-svg { grid-row: 1 / 4; line-height: 0; }
+.home-persona-name { font-weight: 700; color: var(--white); }
+.home-persona-trade { font-size: 13px; color: var(--dim); }
+.home-persona-stance { justify-self: start; padding: 2px 6px; font: 8px/1.6 var(--font-pixel); color: var(--void); background: var(--stance); }
+.home-persona[data-stance='EXCITED'] { --stance: var(--green); }
+.home-persona[data-stance='NEUTRAL'] { --stance: var(--cyan); }
+.home-persona[data-stance='SKEPTICAL'] { --stance: var(--plasma); }
+
+/* The closing step: one exchange, and the fact the agents keep from it. */
+.home-customers-run { display: grid; gap: 10px; }
+.home-customers-exchange { display: grid; gap: 8px; margin: 0; padding: 16px; border: 2px dashed var(--navy); }
+.home-customers-exchange blockquote { margin: 0; }
+.home-customers-exchange p { margin: 0; }
+.home-customers-exchange b { font: 400 8px/1.6 var(--font-pixel); color: var(--yellow); }
+.home-customers-fact { color: var(--green); }
+
+@media (max-width: 719px) {
+  .home-customers-chain { grid-template-columns: minmax(0, 1fr); gap: 30px; }
+  .home-customers-step + .home-customers-step::before { content: '↓'; left: 18px; top: -26px; }
+}

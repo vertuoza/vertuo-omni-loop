@@ -17,6 +17,7 @@ import {
 import { dayLabel, type AgentToken } from '../agent-connect/tokens/model';
 import { initialTokensState, tokensReducer, type TokensAction } from '../agent-connect/tokens/state';
 import { ADD_PRODUCT, ADD_RIVAL, BusinessView, PRODUCT_NAME, SKIP, SKIPPED, TRY_LINE } from './BusinessView';
+import { sure } from '../arcade/test/sure';
 
 // Settings → Business as the server renders it (PRD 748 s2): the empty page (the sentence with its
 // blanks, the picks, Skip), a filled one (the sentence as the title, a row per claim with its id,
@@ -42,8 +43,8 @@ const render = (claims: Claim[], { demo = false, actions = [] as BusinessAction[
   renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialBusinessState(claims)), demo }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const h1 = (html: string) => text(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1] ?? '').replace(/ (?=[,.-])/g, '').replace(/- /g, '-');
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
-const inputs = (html: string) => [...html.matchAll(/<input\b([^>]*)>/g)].map((m) => m[1]);
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(sure(m[2], 'm[2]')) }));
+const inputs = (html: string) => [...html.matchAll(/<input\b([^>]*)>/g)].map((m) => sure(m[1], 'm[1]'));
 const rowOf = (html: string, id: string) => {
   const from = html.indexOf(`data-claim="${id}"`);
   return from < 0 ? '' : html.slice(from, html.indexOf('</li>', from));
@@ -105,14 +106,14 @@ describe('a business being picked', () => {
   it('fills the title at once, and marks the picked chips', () => {
     const html = render([], { actions: [{ type: 'saved', claim: claim(1, 'offering', 'CRM') }, { type: 'saved', claim: claim(2, 'region', 'France') }] });
     expect(h1(html)).toBe('We sell a CRM to ___-person ___ in France, up against ___.');
-    const pressed = (kind: string) => buttons(groupOf(html, kind)).filter((b) => b.attrs.includes('aria-pressed="true"')).map((b) => b.text);
+    const pressed = (kind: string) => buttons(groupOf(html, kind)).filter((b) => sure(b.attrs, 'b.attrs').includes('aria-pressed="true"')).map((b) => b.text);
     expect(pressed('offering')).toEqual(['CRM']);
     expect(pressed('region')).toEqual(['France']);
   });
 
   it('shows a value typed under Other as a picked chip of its own', () => {
     const html = render([claim(1, 'trade', 'aerospace')]);
-    expect(buttons(groupOf(html, 'trade')).filter((b) => b.attrs.includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Aerospace']);
+    expect(buttons(groupOf(html, 'trade')).filter((b) => sure(b.attrs, 'b.attrs').includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Aerospace']);
   });
 
   it('says the size the slider sits on while it moves', () => {
@@ -147,9 +148,9 @@ describe('a filled business', () => {
     expect(text(rowOf(html, 'size#2'))).toContain('2–50 people');
     const verdict = buttons(erp);
     expect(verdict.map((b) => b.text)).toEqual(['✓', '✗']);
-    expect(verdict[0].attrs).toContain('aria-pressed="true"');
-    expect(verdict[1].attrs).toContain('aria-label="Wrong: ERP"');
-    expect(verdict[1].attrs).not.toContain('disabled');
+    expect(sure(verdict[0], 'verdict[0]').attrs).toContain('aria-pressed="true"');
+    expect(sure(verdict[1], 'verdict[1]').attrs).toContain('aria-label="Wrong: ERP"');
+    expect(sure(verdict[1], 'verdict[1]').attrs).not.toContain('disabled');
   });
 
   it('folds a claim marked wrong under "Marked wrong", out of the sentence, ✓ still offered', () => {
@@ -157,7 +158,7 @@ describe('a filled business', () => {
     const folded = html.slice(html.indexOf('<details'));
     expect(text(folded)).toContain('Marked wrong · 1');
     expect(text(rowOf(folded, 'rival#6'))).toContain('Old Co');
-    expect(buttons(rowOf(folded, 'rival#6'))[0].attrs).not.toContain('disabled');
+    expect(sure(buttons(rowOf(folded, 'rival#6'))[0], 'buttons(rowOf(folded, \'rival#6\'))[0]').attrs).not.toContain('disabled');
     expect(h1(html)).not.toContain('Old Co');
   });
 
@@ -193,7 +194,7 @@ describe('products (PRD 748 s4)', () => {
     claim(5, 'rival', 'Acme Build', { product: 'p-1' }),
   ];
   const tabs = (html: string) => [...html.matchAll(/<button\b([^>]*role="tab"[^>]*)>([\s\S]*?)<\/button>/g)]
-    .map((m) => [text(m[2]), m[1].includes('aria-selected="true"')]);
+    .map((m) => [text(sure(m[2], 'm[2]')), sure(m[1], 'm[1]').includes('aria-selected="true"')]);
 
   it('opens a name field on "+ Add a product", the only field then', () => {
     const html = renderProducts(FILLED, [VERTUOZA], [{ type: 'add-product' }]);
@@ -219,7 +220,7 @@ describe('products (PRD 748 s4)', () => {
     expect(h1(second)).toBe('We sell a developer tool to ___-person ___ in Belgium, up against ___.');
     expect(rowOf(second, 'offering#1')).toBe('');
     expect(text(rowOf(second, 'offering#4'))).toContain('Developer tool');
-    expect(buttons(groupOf(second, 'offering')).filter((b) => b.attrs.includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Developer tool']);
+    expect(buttons(groupOf(second, 'offering')).filter((b) => sure(b.attrs, 'b.attrs').includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Developer tool']);
   });
 
   it('keeps the region shared above the tabs, once', () => {
@@ -227,7 +228,7 @@ describe('products (PRD 748 s4)', () => {
     expect(html.match(/data-kind="region"/g)).toHaveLength(1);
     expect(html.indexOf('data-kind="region"')).toBeLessThan(html.indexOf('role="tablist"'));
     expect(html.indexOf('data-kind="offering"')).toBeGreaterThan(html.indexOf('role="tablist"'));
-    expect(buttons(groupOf(html, 'region')).filter((b) => b.attrs.includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Belgium']);
+    expect(buttons(groupOf(html, 'region')).filter((b) => sure(b.attrs, 'b.attrs').includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Belgium']);
   });
 
   it('folds the shared region away on Skip, with the picks', () => {
@@ -258,7 +259,7 @@ describe('suggested rivals', () => {
     expect(guesses).toEqual(['rival#4', 'rival#5']);
     expect(text(group)).toContain('Alpha guess');
     expect(buttons(group).map((b) => b.text)).toEqual(['✓ Right', '✗ Wrong', '✓ Right', '✗ Wrong', ADD_RIVAL]);
-    expect(buttons(group)[0].attrs).toContain('aria-label="Right: Alpha"');
+    expect(sure(buttons(group)[0], 'buttons(group)[0]').attrs).toContain('aria-label="Right: Alpha"');
   });
 
   it('keeps a guess out of the sentence until ✓, and shows no rejected one', () => {
@@ -424,7 +425,7 @@ describe('Connect an agent (PRD 855 s1)', () => {
     const at = html.indexOf('class="ask-card agent-connect"');
     expect(at).toBeGreaterThan(html.indexOf('<h1'));
     expect(text(html.slice(at))).toContain('Demo');
-    expect(rowOfToken(html, DEMO_TOKENS[0].id)).toContain(DEMO_TOKENS[0].name);
+    expect(rowOfToken(html, sure(DEMO_TOKENS[0], 'DEMO_TOKENS[0]').id)).toContain(sure(DEMO_TOKENS[0], 'DEMO_TOKENS[0]').name);
   });
 
   it('is not drawn when the page has no links to show', () => {
@@ -493,18 +494,18 @@ describe('Questions agents couldn’t answer (PRD 855 s3)', () => {
     expect(inputs(row).find((i) => i.includes('name="value"'))).toContain('maxLength="200"');
     expect(row).not.toContain('name="product"');
     expect(buttons(row).map((b) => b.text)).toEqual([SAVE_ANSWER, 'Cancel']);
-    expect(buttons(row)[0].attrs).not.toContain('disabled');
+    expect(sure(buttons(row)[0], 'buttons(row)[0]').attrs).not.toContain('disabled');
   });
 
   it('asks for the product when the question names none and the business has several, but never for a region', () => {
     const open: QuestionsAction[] = [{ type: 'answer', id: 'q-1' }, { type: 'kind', kind: 'trade' }, { type: 'value', value: 'plumbing' }];
     const html = rowOfQuestion(card([ask({ product: null })], open), 'q-1');
     expect(html).toContain('name="product"');
-    expect(buttons(html)[0].attrs).toContain('disabled');
+    expect(sure(buttons(html)[0], 'buttons(html)[0]').attrs).toContain('disabled');
     const picked = rowOfQuestion(card([ask({ product: null })], [...open, { type: 'product', product: 'p-2' }]), 'q-1');
-    expect(buttons(picked)[0].attrs).not.toContain('disabled');
+    expect(sure(buttons(picked)[0], 'buttons(picked)[0]').attrs).not.toContain('disabled');
     expect(rowOfQuestion(card([ask({ product: null })], [{ type: 'answer', id: 'q-1' }]), 'q-1')).not.toContain('name="product"');
-    expect(rowOfQuestion(card([ask({ product: null })], open, { products: [TWO[0]] }), 'q-1')).not.toContain('name="product"');
+    expect(rowOfQuestion(card([ask({ product: null })], open, { products: [sure(TWO[0], 'TWO[0]')] }), 'q-1')).not.toContain('name="product"');
   });
 
   it('after Answer once, the question is gone and the claim is named', () => {
@@ -534,7 +535,7 @@ describe('Questions agents couldn’t answer (PRD 855 s3)', () => {
     expect(at).toBeGreaterThan(html.indexOf('<h1'));
     expect(at).toBeLessThan(html.indexOf('class="ask-card agent-connect"'));
     expect(text(html.slice(at, html.indexOf('</section>', at)))).toContain('Demo');
-    expect(text(rowOfQuestion(html, DEMO_QUESTIONS[0].id))).toContain('asked 2×');
+    expect(text(rowOfQuestion(html, sure(DEMO_QUESTIONS[0], 'DEMO_QUESTIONS[0]').id))).toContain('asked 2×');
   });
 
   it('is not drawn when the page has no questions to show', () => {

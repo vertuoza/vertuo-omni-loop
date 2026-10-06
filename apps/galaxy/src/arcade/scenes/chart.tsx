@@ -3,6 +3,7 @@
 // lane's count and the dialog of the sun under the cursor; on `system`, the HUD, the panel of the
 // world under the cursor and the reading card A opens over it. Laid out for the grid the screen is
 // drawn on (chart.css places each for `.grid-wide` and `.grid-tall`). Without a graph, both say why.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { KnowledgeEntry, KnowledgeGraph } from '../../data/knowledge';
 import { cited, servedBy, serving } from '../../data/knowledge';
 import { Hint } from '../hint';
@@ -12,6 +13,7 @@ import { KIND_LOOK, kindCss } from './chart.ts';
 import type { GridName } from './common.ts';
 import './common.css';
 import './chart.css';
+import { cssVars } from '../css-vars';
 
 const plural = (n: number, one: string, many = `${one}S`) => `${n} ${n === 1 ? one : many}`;
 
@@ -60,7 +62,7 @@ export function ChartOverlay({ source, layout, sun, onEnter }: { source: ChartSo
         </span>
       ))}
       {layout.lanes.map((lane) => {
-        const a = layout.suns[lane.from], b = layout.suns[lane.to];
+        const a = defined(layout.suns[lane.from], "a lane's first sun"), b = defined(layout.suns[lane.to], "a lane's second sun");
         return (
           <span key={`${a.name}--${b.name}`} className="lane-label" style={{ left: Math.round((a.x + b.x) / 2), top: Math.round((a.y + b.y) / 2) }}>
             {lane.count}
@@ -72,7 +74,7 @@ export function ChartOverlay({ source, layout, sun, onEnter }: { source: ChartSo
           <>
             <div className="dialog-row">
               <span className="chart-name">{s.name.toUpperCase()}</span>
-              <span className="chip" style={{ ['--chip' as string]: s.scope === 'product' ? '#ffd84a' : '#a88cff' }}>{s.scope === 'product' ? 'PRODUCT' : 'DOMAIN'}</span>
+              <span className="chip" style={cssVars({ '--chip': s.scope === 'product' ? '#ffd84a' : '#a88cff' })}>{s.scope === 'product' ? 'PRODUCT' : 'DOMAIN'}</span>
             </div>
             <div className="dialog-row small">
               {(['principle', 'rule', 'invariant'] as const).map((kind) => (
@@ -179,8 +181,8 @@ export function cardPages(graph: KnowledgeGraph, entry: KnowledgeEntry, grid: Gr
 
 function StatusChip({ entry }: { entry: KnowledgeEntry }) {
   return entry.status === 'law'
-    ? <span className="chip" style={{ ['--chip' as string]: '#4ee08a' }}>LAW</span>
-    : <span className="chip" style={{ ['--chip' as string]: '#8a90d6' }}>PROPOSED</span>;
+    ? <span className="chip" style={cssVars({ '--chip': '#4ee08a' })}>LAW</span>
+    : <span className="chip" style={cssVars({ '--chip': '#8a90d6' })}>PROPOSED</span>;
 }
 
 function KindTag({ entry }: { entry: KnowledgeEntry }) {
@@ -200,14 +202,14 @@ export function ReadingCard({ graph, entry, page, onPage }: { graph: KnowledgeGr
         <StatusChip entry={entry} />
       </header>
       <div className="read-body">
-        {pages[at].map((line, i) => <p key={i} className={`read-${line.tone}`}>{line.text}</p>)}
+        {defined(pages[at], 'the card page').map((line, i) => <p key={i} className={`read-${line.tone}`}>{line.text}</p>)}
       </div>
       <footer className="read-foot">
         {pages.length > 1 ? (
           <span className="read-pages">
-            <button type="button" aria-label="Previous page" disabled={at === 0} onClick={() => onPage(at - 1)}>▲</button>
+            <button type="button" aria-label="Previous page" disabled={at === 0} onClick={() => { onPage(at - 1); }}>▲</button>
             {` PAGE ${at + 1}/${pages.length} `}
-            <button type="button" aria-label="Next page" disabled={at === pages.length - 1} onClick={() => onPage(at + 1)}>▼</button>
+            <button type="button" aria-label="Next page" disabled={at === pages.length - 1} onClick={() => { onPage(at + 1); }}>▼</button>
           </span>
         ) : <span />}
         <span className="hint"><Hint k="B"> CLOSE</Hint></span>

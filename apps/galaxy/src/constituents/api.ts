@@ -33,16 +33,20 @@ const isRepo = (repo: string) => repo.length <= 200 && REPO.test(repo);
 /** The database refused or failed; `code` is Postgres's (42501 not the caller's repository, 22023 a
  * malformed one), or undefined for an answer the schema refused. */
 class ConstituentsStoreError extends Error {
-  constructor(readonly code: string | undefined, readonly reason: string) {
+  readonly code: string | undefined;
+  readonly reason: string;
+  constructor(code: string | undefined, reason: string) {
     super(`read the constituents: ${reason}`);
+    this.code = code;
+    this.reason = reason;
   }
 }
 
 /** A read of the database function `fn` for `repo`, checked against the contract's schema. */
 async function readFor(db: Pick<SupabaseClient, 'rpc'>, fn: string, repo: string): Promise<ConstituentsRead> {
-  const { data, error } = await db.rpc(fn, { p_repo: repo });
-  if (error) throw new ConstituentsStoreError(error.code, error.message);
-  const read = constituentsReadSchema.safeParse(data);
+  const answer = await db.rpc(fn, { p_repo: repo });
+  if (answer.error) throw new ConstituentsStoreError(answer.error.code, answer.error.message);
+  const read = constituentsReadSchema.safeParse(answer.data);
   if (!read.success) throw new ConstituentsStoreError(undefined, `an unexpected answer: ${read.error.issues[0]?.message ?? 'malformed'}`);
   return read.data;
 }

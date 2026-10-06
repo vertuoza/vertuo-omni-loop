@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-30
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-62, P-PRODUCT-57
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ Changing the pick is one line in the read's ordering, in a follow-up migration; 
 - Raised: 2026-09-30
 - Slice: s3
 - Wave: 2
+- Became: ADR-0066
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ Moving it to a stored table is a small migration and a new read and write in the
 - Raised: 2026-09-30
 - Slice: s3
 - Wave: 2
+- Stays here: A local tuning choice, one constant to change later; no lasting product guarantee or architectural decision the knowledge base needs to keep.
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ One constant, or one new setting read from the environment.
 - Raised: 2026-09-30
 - Slice: s3
 - Wave: 2
+- Stays here: A local choice of answer shape, cheap to change with nothing stored; how many persona lines appear is presentation, not a lasting guarantee.
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ A change to the model's answer shape and the summary lines in the canon module; 
 - Raised: 2026-09-30
 - Slice: s4
 - Wave: 3
+- Stays here: A local structural choice, cheap to reverse, with no lasting product guarantee; no existing record covers it and it is not a rule or invariant.
 
 ### The answer, as it was given
 
@@ -407,6 +412,7 @@ Moving the clicks into the inbox check itself is a small change to two modules a
 - Raised: 2026-09-30
 - Slice: s4
 - Wave: 3
+- Stays here: A local choice for one feature: the link target is a one-line change once the page gains more anchors, and nothing in the knowledge base needs to hold it.
 
 ### The answer, as it was given
 

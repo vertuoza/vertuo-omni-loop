@@ -1,0 +1,460 @@
+import { describe, it, expect, vi } from 'vitest';
+import { createHash } from 'node:crypto';
+import { FLAT, RAMPS as FORGE_RAMPS, forge } from './forge.ts';
+import type { Painter } from './forge.ts';
+import { SPRITE_DEFS, MASCOTS, STAGE_PALETTES, TILES, WOUND_TINT, woundTint } from './sprites.ts';
+import type { WoundKind } from './sprites.ts';
+import { drawSprite, planetTexture, posterImage, posterPixels, spriteImage, spritePixels } from './draw.ts';
+import type { SpriteLook } from './draw.ts';
+import { heroLook, heroPose, OMNI_POSES } from './heroes.ts';
+import type { Hero } from './heroes.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+
+// The forge's ramps, read loosely: a test looks any pixel, empty or not, up in the ramps it names.
+const RAMPS = FORGE_RAMPS as unknown as Readonly<Record<'W' | 'N' | 'Z' | 'P' | 'Y' | 'A' | 'O' | 'g', readonly (string | null)[]>>;
+// The wound kinds the design tints. That they are the game's own, the arcade's test holds: the design
+// never imports the game (PRD 1066).
+const WOUND_KINDS = Object.keys(WOUND_TINT) as WoundKind[];
+const KNOWN = new Set<string | null>([...Object.values(RAMPS).flat(), ...Object.values(FLAT), '#0b0a26']);
+
+/** An image the fake canvases below hold: its size and the bytes put into it. */
+interface Held { width: number; height: number; data: Uint8ClampedArray }
+
+// Both frames of a sprite, forged, reduced to a short digest.
+const digest = (name: string, o: SpriteLook = {}): string => createHash('sha256')
+  .update(JSON.stringify([0, 1].map((frame) => spritePixels(name, { frame, ...o }))))
+  .digest('hex').slice(0, 16);
+
+// What every sprite forged to before the stripes became tintable (PRD 100, s3).
+const FORGED: Record<string, string> = {
+  omni: 'e1bddb628d6f1e89', beaver: 'ae4e1b6a90480c40', octopod: '936bcdcd823ea72b', picsou: 'a80e31cbf635ce92',
+  cia: '077ff18deb26a1d6', invincible: '0824c1604921ee22', pirate: '7915214f639b3720',
+  'hero-girl': 'b1019ef3265b2a8e', 'hero-boy': 'd6379f01321630b1', 'hero-girl-nc': '177bfbb578ac7273', 'hero-boy-nc': 'eb56b682e5c3615d',
+  entropy: 'a0e459224884c265', flag: '2e9eced9cda88223', hammer: '0ac43955ba2e3949', fire: '0401bb95ed1e5055',
+  lock: '2b6b3393eae8b4f6', skull: 'ab2e39696a26bb5a', beacon: 'a46810cc963139ab', coin: '1b58b50f666861b3',
+  check: 'f6ea65ad9194e380', open: 'e3b78dad19e1099c', star: '17cb38ff80c23c8f', ship: 'a77451377f2203c2',
+  cursor: '253d3264e5006812',
+  // OmniMan's poses (PRD 141, s4), pinned as first drawn.
+  'omni-point': '19419fc7bd1902f7', 'omni-cheer': 'ea66af00b11d0821', 'omni-run': '3c9651d4bb89d59d',
+  'omni-point-cape': '5eb31659af009eab', 'omni-cheer-cape': '82c1ed1e1605dd1f', 'omni-run-cape': '01ae4561e5f23ee0',
+  // Five more fleet mascots (PRD 517), pinned as first drawn.
+  'atom-eve': '1e42cfc26600f03d', shark: '495dd4fb409b4fc0', turtle: 'd28966aeb4de80a0', allen: '6badf132695634da',
+  robot: '8100607b943d962b',
+  // The app sidebar's section sprites (issue 653), pinned as first drawn.
+  'menu-home': 'b0b02506c51dff57', 'menu-fleet': '72d00a19163fbbc9', 'menu-workspace': 'ba0dcc44e8d776a9',
+  'menu-engineering': '902258f7ef9734b2', 'menu-prds': '0fdfcc7a20bdbc85', 'menu-bugs': '0754b2cdfb13f514',
+  'menu-visual': '3c58704c0f80c755', 'menu-questions': '808ea02264e853ae', 'menu-knowledge': '461492a56cc425b0',
+  // The foot's Settings entry (PRD 733), pinned as first drawn.
+  'menu-settings': '4d318dd6a80f7bbc',
+  // Super Omni World's tiles (PRD 817), pinned as first drawn.
+  'tile-ground': 'edf856e91ad82ad1', 'tile-soil': 'd30e24cd67c0e2c4', 'tile-brick': '4a7786aef594b279',
+  'tile-block': '069bbba61b3e2d1b', 'tile-block-empty': '03a9ee17e8723994', 'tile-pipe-top-l': '0763de80ab794672',
+  'tile-pipe-top-r': '99d97f7eb7ad0cd7', 'tile-pipe-l': 'b73278ee64ceefba', 'tile-pipe-r': 'ca8cb73824a059cd',
+  'tile-stone': 'dd2d27c6129a5003',
+  // SELECT YOUR APP's pedestals (PRD 932), pinned as first drawn.
+  'code-mark': 'ece31e0c07fdde23', 'arcade-cabinet': '7ccdd5e5b8ec8405',
+};
+const FORGED_WOUNDED: Record<string, string> = {
+  transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',
+  'fault-line': 'f94fa7e9bab65b49', 'under-fire': '1ad3f05ce152d3ed', aftershock: 'f1ad2dca0de3a274',
+};
+const FORGED_HEROES: [Hero, string, string][] = [
+  [{ v: 1, body: 'girl', skin: 3, hair: 6, suit: 2, cape: 8 }, '#ffd84a', '06f04d748c59abe8'],
+  [{ v: 1, body: 'boy', skin: 0, hair: 3, suit: 0, cape: 0 }, '#2fc6a4', '6803a12fcfdf85a9'],
+];
+
+describe('forge', () => {
+  it('lights a shape from the top left: several tones of one material, darkest bottom right', () => {
+    const { w, pixels } = forge(20, 20, (d) => d.ellipse(10, 10, 8, 8, 'W'));
+    const tones = new Set(pixels.filter((p) => RAMPS.W.includes(p)));
+    expect(tones.size).toBeGreaterThanOrEqual(3);
+    const lit = pixels[5 * w + 6], dark = pixels[14 * w + 14];
+    assertDefined(lit, 'the pixel at the top left');
+    assertDefined(dark, 'the pixel at the bottom right');
+    expect(RAMPS.W.indexOf(lit)).toBeLessThan(RAMPS.W.indexOf(dark));
+  });
+
+  it('outlines the silhouette: its own dark tone on the lit side, near-black on the shadow side', () => {
+    const { w, pixels } = forge(12, 12, (d) => d.rect(3, 3, 6, 6, 'N'));
+    expect(pixels[3 * w + 2]).toBe(RAMPS.N[3]);
+    expect(pixels[3 * w + 9]).toBe('#0b0a26');
+    expect(pixels[0]).toBeNull();
+  });
+
+  it('recolours a material through a tint, and keeps flat colours flat', () => {
+    const { pixels } = forge(8, 8, (d) => d.rect(2, 2, 4, 4, 'Z').px(3, 3, 'Q'), { tint: { Z: WOUND_TINT.beacon.ramp } });
+    expect(pixels.some((p) => p !== null && WOUND_TINT.beacon.ramp.includes(p))).toBe(true);
+    expect(pixels.some((p) => RAMPS.Z.includes(p))).toBe(false);
+    expect(pixels[3 * 8 + 3]).toBe('#ffffff');
+  });
+});
+
+describe('sprites', () => {
+  it.each(Object.keys(SPRITE_DEFS))('%s forges both frames from known colours only', (name) => {
+    for (const frame of [0, 1]) {
+      const { w, h, pixels } = spritePixels(name, { frame });
+      expect(pixels).toHaveLength(w * h);
+      const drawn = pixels.filter(Boolean);
+      expect(drawn.length).toBeGreaterThan(w * h * 0.08);
+      for (const p of drawn) expect(KNOWN.has(p), `${name}: ${p}`).toBe(true);
+    }
+  });
+
+  it('gives heroes GBA detail: 32 wide, with at least a dozen distinct colours', () => {
+    for (const name of ['omni', ...MASCOTS]) {
+      const { w, pixels } = spritePixels(name);
+      expect(w).toBe(32);
+      expect(new Set(pixels.filter(Boolean)).size, name).toBeGreaterThanOrEqual(12);
+    }
+  });
+
+  it('draws every mascot of the library, and a four-colour ramp for every wound kind', () => {
+    for (const sprite of MASCOTS) expect(SPRITE_DEFS[sprite]).toBeDefined();
+    for (const k of WOUND_KINDS) expect(woundTint(k).Z).toHaveLength(4);
+  });
+});
+
+describe('forging with no stripe override', () => {
+  it('forges every sprite exactly as before', () => {
+    expect(Object.keys(FORGED).sort()).toEqual(Object.keys(SPRITE_DEFS).sort());
+    for (const name of Object.keys(SPRITE_DEFS)) expect(digest(name), name).toBe(FORGED[name]);
+  });
+
+  it('forges wounded Entropy and recoloured heroes exactly as before', () => {
+    for (const kind of WOUND_KINDS) expect(digest('entropy', { tint: woundTint(kind) }), kind).toBe(FORGED_WOUNDED[kind]);
+    for (const [hero, color, was] of FORGED_HEROES) {
+      const { sprite, tint } = heroLook(hero, color);
+      expect(digest(sprite, { tint }), sprite).toBe(was);
+    }
+  });
+});
+
+describe('stripe override', () => {
+  // Colours no sprite draws today, so a pixel wearing one can only be a recoloured stripe.
+  const STRIPES = { 1: '#010203', 2: '#040506', 3: '#070809', 4: '#0a0b0c' };
+  const WAS: Record<string, string | undefined> = Object.fromEntries(Object.entries(STRIPES).map(([k, hex]) => [hex, FLAT[k]]));
+  const shows = (image: unknown, hex: string): boolean => {
+    const { data } = image as Held;
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    for (let k = 0; k < data.length; k += 4) if (data[k] === r && data[k + 1] === g && data[k + 2] === b) return true;
+    return false;
+  };
+
+  it('forge recolours a flat colour through `flat`, and nothing else', () => {
+    for (const hex of Object.values(STRIPES)) expect(KNOWN.has(hex)).toBe(false);
+    const draw = (d: Painter): Painter => d.rect(1, 1, 6, 6, 'W').px(2, 2, '1').px(4, 4, '1').px(3, 3, 'Q');
+    const plain = forge(8, 8, draw).pixels;
+    const striped = forge(8, 8, draw, { flat: { 1: STRIPES[1] } }).pixels;
+    expect(striped[2 * 8 + 2]).toBe(STRIPES[1]);
+    expect(striped[4 * 8 + 4]).toBe(STRIPES[1]);
+    expect(striped.filter((p, i) => p !== plain[i])).toEqual([STRIPES[1], STRIPES[1]]);
+  });
+
+  it('forge keeps the default of an override that is not a #rrggbb colour, as fleetSprite does', () => {
+    const draw = (d: Painter): Painter => d.px(1, 1, '1').px(2, 1, '2');
+    const { pixels } = forge(4, 4, draw, { flat: { 1: 'red', 2: '#abc', 3: null } as unknown as Record<string, string> });
+    expect(pixels).toEqual(forge(4, 4, draw).pixels);
+    expect(pixels[1 * 4 + 1]).toBe(FLAT[1]);
+  });
+
+  it.each(Object.keys(SPRITE_DEFS))('%s: with 1 to 4 overridden, only the stripe pixels change colour', (name) => {
+    for (const frame of [0, 1]) {
+      const plain = spritePixels(name, { frame }).pixels;
+      const striped = spritePixels(name, { frame, flat: STRIPES }).pixels;
+      expect(striped).toHaveLength(plain.length);
+      striped.forEach((p, i) => {
+        if (p !== plain[i]) expect(WAS[p as string], `${name} pixel ${i}: ${plain[i]} → ${p}`).toBe(plain[i]);
+      });
+    }
+  });
+
+  it('recolours all four stripes on every suit that wears them', () => {
+    for (const name of ['omni', 'beaver', 'hero-girl', 'hero-boy', 'hero-girl-nc', 'hero-boy-nc']) {
+      spritePixels(name);
+      const worn = new Set(spritePixels(name, { flat: STRIPES }).pixels);
+      for (const hex of Object.values(STRIPES)) expect(worn.has(hex), `${name} ${hex}`).toBe(true);
+    }
+    const [first] = FORGED_HEROES;
+    assertDefined(first, 'the first forged hero');
+    const { sprite, tint } = heroLook(first[0], first[1]);
+    expect(new Set(spritePixels(sprite, { tint, flat: STRIPES }).pixels).has(STRIPES[4])).toBe(true);
+  });
+
+  it('spriteImage and drawSprite draw the stripes in the override colours', () => {
+    class FakeCanvas {
+      width: number;
+      height: number;
+      data: Uint8ClampedArray | null;
+      constructor(w: number, h: number) { this.width = w; this.height = h; this.data = null; }
+      getContext() {
+        return {
+          createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+          putImageData: (img: { data: Uint8ClampedArray }) => { this.data = img.data; },
+        };
+      }
+    }
+    vi.stubGlobal('OffscreenCanvas', FakeCanvas);
+    try {
+      expect(shows(spriteImage('omni'), STRIPES[1])).toBe(false);
+      expect(shows(spriteImage('omni', { flat: STRIPES }), STRIPES[1])).toBe(true);
+      const drawn: unknown[] = [];
+      const ctx = { globalAlpha: 1, drawImage: (img: unknown) => drawn.push(img) } as unknown as CanvasRenderingContext2D;
+      drawSprite(ctx, 'beaver', 0, 0, { flat: STRIPES, glow: '#a45cff' });
+      expect(shows(drawn.at(-1), STRIPES[2])).toBe(true);
+      drawSprite(ctx, 'beaver', 0, 0);
+      expect(shows(drawn.at(-1), STRIPES[2])).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('OmniMan poses', () => {
+  const POSES = ['omni-point', 'omni-cheer', 'omni-run'];
+  const filled = (name: string, frame: number, test: (x: number, y: number) => boolean): boolean => {
+    const { w, pixels } = spritePixels(name, { frame });
+    return pixels.some((p, i) => p && test(i % w, Math.floor(i / w)));
+  };
+
+  it('names the three poses, each with a caped build', () => {
+    expect(OMNI_POSES).toEqual(POSES);
+    for (const pose of POSES) for (const name of [pose, `${pose}-cape`]) expect(SPRITE_DEFS[name], name).toBeDefined();
+  });
+
+  it.each(POSES.flatMap((p) => [p, `${p}-cape`]))('%s is 32×48 in both frames, in palette colours only', (name) => {
+    for (const frame of [0, 1]) {
+      const { w, h, pixels } = spritePixels(name, { frame });
+      expect([w, h]).toEqual([32, 48]);
+      const drawn = pixels.filter(Boolean);
+      expect(drawn.length).toBeGreaterThan(w * h * 0.3);
+      for (const p of drawn) expect(KNOWN.has(p), `${name}: ${p}`).toBe(true);
+    }
+  });
+
+  it('keeps the commander: the same head and the stripes as the idle body', () => {
+    const head = (name: string): string => spritePixels(name).pixels.filter((_, i) => i < 32 * 16 && i % 32 >= 8 && i % 32 < 24).join();
+    for (const name of POSES) if (name !== 'omni-run') expect(head(name), name).toBe(head('omni'));
+    const STRIPES = { 1: '#010203', 2: '#040506', 3: '#070809', 4: '#0a0b0c' };
+    for (const name of POSES) {
+      const worn = new Set(spritePixels(name, { flat: STRIPES }).pixels);
+      for (const hex of Object.values(STRIPES)) expect(worn.has(hex), `${name} ${hex}`).toBe(true);
+    }
+  });
+
+  it('points: an arm out to his left, the hand at the edge of the frame', () => {
+    const out = (name: string): boolean => filled(name, 0, (x, y) => x >= 30 && y >= 16 && y <= 24);
+    expect(out('omni-point')).toBe(true);
+    expect(out('omni')).toBe(false);
+  });
+
+  it('cheers: a fist raised beside his head, thumb up', () => {
+    const raised = (name: string): boolean => filled(name, 0, (x, y) => x >= 26 && y <= 15);
+    expect(raised('omni-cheer')).toBe(true);
+    expect(raised('omni')).toBe(false);
+  });
+
+  it('runs: two strides, the legs apart, different from each other', () => {
+    const legs = (frame: number): string => spritePixels('omni-run', { frame }).pixels.slice(32 * 32).join();
+    expect(legs(0)).not.toBe(legs(1));
+    const wide = (name: string, frame: number): boolean => filled(name, frame, (x, y) => y >= 40 && (x <= 6 || x >= 25));
+    expect(wide('omni-run', 0)).toBe(true);
+    expect(wide('omni', 0)).toBe(false);
+  });
+
+  it('draws each pose differently from the idle body and from the others', () => {
+    const all = ['omni', ...POSES].map((name) => spritePixels(name).pixels.join());
+    expect(new Set(all).size).toBe(all.length);
+  });
+
+  it('wears the cape only in the caped build', () => {
+    const plasma = (name: string): boolean => spritePixels(name).pixels.some((p) => p !== FLAT[3] && RAMPS.P.includes(p));
+    for (const pose of POSES) {
+      expect(plasma(pose), pose).toBe(false);
+      expect(plasma(`${pose}-cape`), pose).toBe(true);
+    }
+  });
+});
+
+describe('poster scale', () => {
+  it.each([1, 2, 3, 7, 16])('renders a sprite at %i× exactly that many times its size, each pixel a solid block', (k) => {
+    for (const name of ['omni-point', 'omni-run', 'beaver', 'coin']) {
+      for (const frame of [0, 1]) {
+        const src = spritePixels(name, { frame });
+        const big = posterPixels(name, k, { frame });
+        expect([big.w, big.h]).toEqual([src.w * k, src.h * k]);
+        const blocks = Array.from({ length: big.w * big.h }, (_, i) => src.pixels[Math.floor(Math.floor(i / big.w) / k) * src.w + Math.floor((i % big.w) / k)]);
+        expect(big.pixels).toEqual(blocks);
+      }
+    }
+  });
+
+  it('carries the tint and the stripes of the sprite it scales', () => {
+    const { sprite, tint } = heroPose({ v: 1, body: 'girl', skin: 3, hair: 6, suit: 2, cape: 8 }, 'omni-cheer', '#ffd84a');
+    const flat = { 1: '#010203' };
+    const small = new Set(spritePixels(sprite, { tint, flat }).pixels);
+    expect(new Set(posterPixels(sprite, 4, { tint, flat }).pixels)).toEqual(small);
+  });
+
+  it('refuses a scale that is not a whole number from 1 to 16', () => {
+    for (const k of [0, 17, 1.5, -2, NaN, '4']) expect(() => posterPixels('omni', k as number), String(k)).toThrow(/1 to 16/);
+    expect(() => posterPixels('nobody', 2)).toThrow(/unknown sprite/);
+  });
+
+  it('posterImage draws the blocks onto a canvas k times the sprite, flipped when asked', () => {
+    class FakeCanvas {
+      width: number;
+      height: number;
+      data: Uint8ClampedArray | null;
+      constructor(w: number, h: number) { this.width = w; this.height = h; this.data = null; }
+      getContext() {
+        return {
+          createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+          putImageData: (img: { data: Uint8ClampedArray }) => { this.data = img.data; },
+        };
+      }
+    }
+    vi.stubGlobal('OffscreenCanvas', FakeCanvas);
+    try {
+      const k = 16;
+      const img = posterImage('omni-point', { scale: k });
+      expect([img.width, img.height]).toEqual([32 * k, 48 * k]);
+      const big = posterPixels('omni-point', k);
+      const at = (canvas: unknown, x: number, y: number): number[] => {
+        const image = canvas as Held;
+        return Array.from(image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 4));
+      };
+      const hex = (rgba: number[]): string | null => (rgba[3] ? '#' + rgba.slice(0, 3).map((v) => v.toString(16).padStart(2, '0')).join('') : null);
+      for (let i = 0; i < big.pixels.length; i += 97) {
+        const x = i % big.w, y = Math.floor(i / big.w);
+        expect(hex(at(img, x, y))).toBe(big.pixels[i]);
+      }
+      const flipped = posterImage('omni-point', { scale: 2, flip: true });
+      const two = posterPixels('omni-point', 2);
+      expect(hex(at(flipped, 0, 40))).toBe(two.pixels[40 * two.w + two.w - 1]);
+      expect(posterImage('omni-point', { scale: k })).toBe(img);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('planetTexture', () => {
+  it('is deterministic per seed and ramps the terraform order over [0, 1)', () => {
+    const a = planetTexture(7, 128), b = planetTexture(7, 128);
+    expect(a).toBe(b);
+    const order = [...a.order];
+    expect(Math.min(...order)).toBe(0);
+    expect(Math.max(...order)).toBeLessThan(1);
+    const half = order.filter((o) => o < 0.5).length / order.length;
+    expect(half).toBeGreaterThan(0.4);
+    expect(half).toBeLessThan(0.6);
+  });
+});
+
+describe('the platformer\'s tiles (PRD 817)', () => {
+  it('draws every tile a 16×16 square with no hole, so a row of them tiles without a seam', () => {
+    expect(TILES).toEqual([
+      'tile-ground', 'tile-soil', 'tile-brick', 'tile-block', 'tile-block-empty',
+      'tile-pipe-top-l', 'tile-pipe-top-r', 'tile-pipe-l', 'tile-pipe-r', 'tile-stone',
+    ]);
+    for (const name of TILES) {
+      for (const frame of [0, 1]) {
+        const { w, h, pixels } = spritePixels(name, { frame });
+        expect([w, h], name).toEqual([16, 16]);
+        expect(pixels.every(Boolean), `${name} frame ${frame}`).toBe(true);
+      }
+    }
+  });
+
+  it('draws the tiles in each stage\'s palette (grass, underground, castle) from the forge\'s colours only', () => {
+    expect(Object.keys(STAGE_PALETTES)).toEqual(['grass', 'underground', 'castle']);
+    for (const [palette, tint] of Object.entries(STAGE_PALETTES)) {
+      for (const name of TILES) {
+        for (const frame of [0, 1]) {
+          const { w, h, pixels } = spritePixels(name, { tint, frame });
+          expect([w, h], `${palette} ${name}`).toEqual([16, 16]);
+          expect(pixels.every(Boolean), `${palette} ${name} frame ${frame}`).toBe(true);
+          for (const p of pixels) expect(KNOWN.has(p), `${palette} ${name}: ${p}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('recolours the tiles in the underground and the castle, so each stage has its own look: the ? block stays gold, and castle stone is drawn in the castle\'s own grey', () => {
+    for (const palette of ['underground', 'castle']) {
+      for (const name of TILES) {
+        if (palette === 'castle' && name === 'tile-stone') continue;
+        const tint = STAGE_PALETTES[palette];
+        assertDefined(tint, `the ${palette} palette`);
+        const own = spritePixels(name, { tint }).pixels;
+        const grass = spritePixels(name, { tint: STAGE_PALETTES.grass }).pixels;
+        if (name === 'tile-block') expect(own.filter((p) => RAMPS.Y.includes(p)).length, `${palette} ${name}`).toBe(grass.filter((p) => RAMPS.Y.includes(p)).length);
+        else expect(own, `${palette} ${name}`).not.toEqual(grass);
+      }
+    }
+    expect(spritePixels('tile-ground', { tint: STAGE_PALETTES.underground }).pixels).not.toEqual(spritePixels('tile-ground', { tint: STAGE_PALETTES.castle }).pixels);
+  });
+
+  it('draws castle stone as a block of stone, a colour of its own beside the brick', () => {
+    const stone = new Set(spritePixels('tile-stone').pixels);
+    expect([...stone].some((p) => RAMPS.A.includes(p))).toBe(true);
+    expect([...stone].some((p) => RAMPS.O.includes(p))).toBe(false);
+  });
+
+  it('keeps the grass on top of the ground and the ? block lit, so a stage reads at a glance', () => {
+    const ground = spritePixels('tile-ground').pixels;
+    expect(RAMPS.g).toContain(ground[0]);
+    expect(RAMPS.g).not.toContain(ground[15 * 16]);
+    const block = new Set(spritePixels('tile-block').pixels);
+    expect([...block].some((p) => RAMPS.Y.includes(p))).toBe(true);
+    const white = FLAT.Q;
+    assertDefined(white, 'the flat white');
+    expect(block.has(white)).toBe(true);
+    expect([...new Set(spritePixels('tile-block-empty').pixels)].some((p) => RAMPS.Y.includes(p))).toBe(false);
+  });
+});
+
+describe('the app selector\'s sprites (PRD 932)', () => {
+  const SIZES: Record<string, [number, number]> = { 'code-mark': [30, 17], 'arcade-cabinet': [18, 26] };
+  // The forge's own ramps, keyed by every material, for the colours these two sprites use.
+  const TONES = FORGE_RAMPS as unknown as Readonly<Record<string, readonly (string | null)[]>>;
+  const tone = (m: string): readonly (string | null)[] => TONES[m] ?? [];
+
+  it.each(Object.keys(SIZES))('%s has two frames of its declared size, in palette colours only', (name) => {
+    const def = SPRITE_DEFS[name];
+    expect(def, name).toBeDefined();
+    expect([def?.w, def?.h]).toEqual(SIZES[name]);
+    for (const frame of [0, 1]) {
+      const { w, h, pixels } = spritePixels(name, { frame });
+      expect([w, h]).toEqual(SIZES[name]);
+      const drawn = pixels.filter(Boolean);
+      expect(drawn.length).toBeGreaterThan(w * h * 0.3);
+      for (const p of drawn) expect(KNOWN.has(p), `${name}: ${p}`).toBe(true);
+    }
+  });
+
+  it('keeps the </> mark sober: at most two tones besides its outline, cyan on slate, and still', () => {
+    const def = SPRITE_DEFS['code-mark'];
+    expect(def).toBeDefined();
+    if (!def) return;
+    const { w, h } = def;
+    for (const frame of [0, 1]) {
+      const bare = forge(w, h, (d) => { def.draw(d, frame); }, { outline: false }).pixels;
+      expect(new Set(bare.filter(Boolean)).size, `frame ${frame}`).toBeLessThanOrEqual(2);
+    }
+    expect(spritePixels('code-mark', { frame: 1 }).pixels).toEqual(spritePixels('code-mark', { frame: 0 }).pixels);
+    const tones = new Set(spritePixels('code-mark').pixels);
+    expect(tones.has(tone('C')[1] ?? null), 'cyan').toBe(true);
+    expect([...tones].some((p) => RAMPS.A.includes(p)), 'slate').toBe(true);
+  });
+
+  it('draws the cabinet alive: its two frames differ, with a lit screen, a marquee and its lights', () => {
+    const a = spritePixels('arcade-cabinet', { frame: 0 }).pixels;
+    const b = spritePixels('arcade-cabinet', { frame: 1 }).pixels;
+    expect(a.join()).not.toBe(b.join());
+    const tones = new Set(a);
+    expect([...tones].some((p) => tone('C').includes(p)), 'screen glow').toBe(true);
+    expect([...tones].some((p) => tone('M').includes(p)), 'marquee').toBe(true);
+    expect([...tones].some((p) => RAMPS.Y.includes(p)), 'lights').toBe(true);
+  });
+});

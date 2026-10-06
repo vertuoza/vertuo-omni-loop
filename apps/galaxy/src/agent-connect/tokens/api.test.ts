@@ -19,18 +19,18 @@ function deps(fail?: AgentTokenStoreError) {
   const made: unknown[][] = [];
   const revoked: unknown[][] = [];
   const store = {
-    async make(...args: [string, string, string, string]) {
-      if (fail) throw fail;
+    make(...args: [string, string, string, string]) {
+      if (fail) return Promise.reject(fail);
       made.push(args);
-      return listed({ name: args[1] });
+      return Promise.resolve(listed({ name: args[1] }));
     },
-    async revoke(...args: [string, string]) {
-      if (fail) throw fail;
+    revoke(...args: [string, string]) {
+      if (fail) return Promise.reject(fail);
       revoked.push(args);
-      return listed();
+      return Promise.resolve(listed());
     },
   };
-  const d: TokenRouteDeps = { store: async () => store, draw: async () => MADE };
+  const d: TokenRouteDeps = { store: () => Promise.resolve(store), draw: () => Promise.resolve(MADE) };
   return { deps: d, made, revoked };
 }
 
@@ -51,15 +51,15 @@ describe('POST /api/agent-tokens', () => {
     expect(res.status).toBe(201);
     expect(made).toEqual([[W, 'Tom’s editor', MADE.hash, MADE.lastFour]]);
     expect(made.flat()).not.toContain(MADE.token);
-    const body = await res.json();
+    const body: unknown = await res.json();
     expect(body).toEqual({ token: MADE.token, url: 'https://galaxy.example/api/mcp', listed: listed() });
     expect(res.headers.get('cache-control')).toBe('no-store');
   });
 
   it('refuses the signed out, a malformed body and a bad name, drawing nothing', async () => {
-    const draw = vi.fn(async () => MADE);
+    const draw = vi.fn(() => Promise.resolve(MADE));
     const { deps: d } = deps();
-    expect((await makeTokenRoute(call('POST', { workspace: W, name: 'x' }), { ...d, store: async () => null, draw })).status).toBe(401);
+    expect((await makeTokenRoute(call('POST', { workspace: W, name: 'x' }), { ...d, store: () => Promise.resolve(null), draw })).status).toBe(401);
     expect((await makeTokenRoute(call('POST', 'not json'), { ...d, draw })).status).toBe(400);
     for (const name of ['', '   ', 'n'.repeat(41), 'two\nlines', 7]) {
       const res = await makeTokenRoute(call('POST', { workspace: W, name }), { ...d, draw });
@@ -96,7 +96,7 @@ describe('DELETE /api/agent-tokens', () => {
 
   it('refuses the signed out, a malformed body, someone else’s link and a link gone', async () => {
     const { deps: d } = deps();
-    expect((await revokeTokenRoute(call('DELETE', { workspace: W, token: 't-1' }), { store: async () => null })).status).toBe(401);
+    expect((await revokeTokenRoute(call('DELETE', { workspace: W, token: 't-1' }), { store: () => Promise.resolve(null) })).status).toBe(401);
     expect((await revokeTokenRoute(call('DELETE', { workspace: W }), d)).status).toBe(400);
     const notYours = await revokeTokenRoute(call('DELETE', { workspace: W, token: 't-1' }), deps(pgError('42501')).deps);
     expect([notYours.status, await notYours.json()]).toEqual([403, { error: ONLY_MAKER }]);

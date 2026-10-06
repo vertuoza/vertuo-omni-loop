@@ -13,6 +13,7 @@
 //
 // No markdown is rendered here: this module is safe in the browser. The tab renders item text on the
 // server (./OutboxPane.tsx), raw HTML off.
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { UNREAD, type GithubSummary, type OutboxItem, type PendingAnswer, type SettledItem } from '../github/summary';
 import { outboxAnswerUrl } from './stage';
 import type { Face } from '../../people/face';
@@ -38,7 +39,7 @@ export const NOT_NUMBERED = 'Not numbered yet: the outbox comment on the pull re
 export type ContextKind = 'before-after' | 'spec' | 'brainstorm';
 export const CONTEXTS: readonly ContextKind[] = ['before-after', 'spec', 'brainstorm'];
 export const CONTEXT_LABELS: Readonly<Record<ContextKind, string>> = { 'before-after': 'Before/after', spec: 'Spec', brainstorm: 'Brainstorm' };
-export const isContext = (value: unknown): value is ContextKind => CONTEXTS.includes(value as ContextKind);
+export const isContext = (value: unknown): value is ContextKind => isOneOf(CONTEXTS, value);
 
 /** One question the brainstorm asked, and its answer as given. */
 export type BrainstormAnswer = { question: string; answer: string | null };
@@ -180,7 +181,7 @@ function cardOf(item: OutboxItem, number: number | null, adopted: boolean, pendi
     options: action ? [] : item.options.map((o) => ({ letter: o.letter, text: o.text, built: o.letter === 'A' })),
     steps: action ? item.personSteps : null,
     bearsOn: chips(item.bearsOn),
-    details: DETAILS.flatMap(([key, label]) => (item.details?.[key]?.trim() ? [{ label, text: item.details[key]! }] : [])),
+    details: DETAILS.flatMap(([key, label]) => (item.details?.[key]?.trim() ? [{ label, text: item.details[key] }] : [])),
     pending: pending
       ? { text: pending.text, by: pending.by, where: WHERE[pending.door], when: when(pending.at), url: pending.url, counted: pending.counted, face: faceOf(pending.by) }
       : null,

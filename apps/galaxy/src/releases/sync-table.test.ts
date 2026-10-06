@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import type { ReleaseRow } from './row';
 import { releasesTable } from './sync-table';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 type Refusal = { message: string; code?: string } | null;
 
@@ -33,7 +34,7 @@ function recording(rows: unknown[], refuse: { select?: Refusal; insert?: Refusal
   return { calls, db: { from } as never };
 }
 
-const row = (prd: number, release = 1): ReleaseRow => ({ prd, release, released_at: '2026-09-27T10:00:00+00:00', title: `Title ${prd}`, description: '' });
+const row = (prd: number, release = 1): ReleaseRow => ({ prd: parsePrd(prd), release, released_at: '2026-09-27T10:00:00+00:00', title: `Title ${prd}`, description: '' });
 
 describe('releasesTable — the sync\'s reads and writes', () => {
   it('reads every row, a page of 1000 at a time, by PRD number', async () => {
@@ -60,7 +61,7 @@ describe('releasesTable — the sync\'s reads and writes', () => {
 
   it('refreshes only a row\'s title and description, by its PRD', async () => {
     const { calls, db } = recording([]);
-    await releasesTable(db).refresh({ prd: 262, title: 'New title', description: 'New line.' });
+    await releasesTable(db).refresh({ prd: parsePrd(262), title: 'New title', description: 'New line.' });
     expect(calls).toEqual([['update', 'releases', { title: 'New title', description: 'New line.' }, 'prd', 262]]);
   });
 
@@ -68,7 +69,7 @@ describe('releasesTable — the sync\'s reads and writes', () => {
     const refusal = { message: 'duplicate key value violates unique constraint "releases_release_idx"', code: '23505' };
     await expect(releasesTable(recording([], { insert: refusal }).db).insert([row(3)]))
       .rejects.toThrow('Supabase refused to add 1 release: duplicate key value violates unique constraint "releases_release_idx" (23505)');
-    await expect(releasesTable(recording([], { update: { message: 'permission denied for table releases' } }).db).refresh({ prd: 3, title: 't', description: '' }))
+    await expect(releasesTable(recording([], { update: { message: 'permission denied for table releases' } }).db).refresh({ prd: parsePrd(3), title: 't', description: '' }))
       .rejects.toThrow('Supabase refused to refresh the text of PRD 3: permission denied for table releases');
     await expect(releasesTable(recording([], { select: { message: 'JWT expired' } }).db).rows())
       .rejects.toThrow('Supabase refused to read the releases: JWT expired');

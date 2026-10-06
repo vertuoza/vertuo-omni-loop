@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { sure } from './arcade/test/sure';
 
 const sheet = (path: string) =>
   readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -56,7 +57,7 @@ function selectorList(prelude: string): string[] {
   const out: string[] = [];
   let depth = 0;
   let start = 0;
-  [...prelude].forEach((c, i) => {
+  Array.from(prelude).forEach((c, i) => {
     if (c === '(') depth += 1;
     if (c === ')') depth -= 1;
     if (c === ',' && depth === 0) { out.push(prelude.slice(start, i)); start = i + 1; }
@@ -68,8 +69,8 @@ function selectorList(prelude: string): string[] {
 /** Every declaration, as `property: value`, of the rules whose selector list names `selector`. */
 function declarations(css: string, selector: string): string[] {
   return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-    .filter(([, prelude]) => selectorList(prelude.split(';').pop() ?? '').includes(selector))
-    .flatMap(([, , body]) => body.split(';').map((d) => d.trim().replace(/\s+/g, ' ')).filter(Boolean));
+    .filter(([, prelude]) => selectorList(sure(prelude, 'prelude').split(';').pop() ?? '').includes(selector))
+    .flatMap(([, , body]) => sure(body, 'body').split(';').map((d) => d.trim().replace(/\s+/g, ' ')).filter(Boolean));
 }
 
 const has = (css: string, selector: string, property: string) =>

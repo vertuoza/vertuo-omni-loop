@@ -1,4 +1,5 @@
 import { tokenOf, tokensOf, type AgentToken } from './model';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The links' store (PRD 855 s1): the functions of supabase/migrations/20261028090000_agent_tokens.sql,
 // called as the signed-in person, so the database decides who may make, list and revoke. A refusal
@@ -6,22 +7,30 @@ import { tokenOf, tokensOf, type AgentToken } from './model';
 // (its field in the hint), 54000 the 21st live link, P0002 a link the workspace does not hold.
 
 export class AgentTokenStoreError extends Error {
-  constructor(readonly what: string, readonly code: string | undefined, readonly hint: string | undefined, readonly reason: string) {
+  readonly what: string;
+  readonly code: string | undefined;
+  readonly hint: string | undefined;
+  readonly reason: string;
+  constructor(what: string, code: string | undefined, hint: string | undefined, reason: string) {
     super(`${what}: ${reason}`);
+    this.what = what;
+    this.code = code;
+    this.hint = hint;
+    this.reason = reason;
   }
 }
 
 type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }> };
 
-type PgError = { code?: unknown; hint?: unknown; message?: unknown };
-
 function failed(what: string, error: unknown): AgentTokenStoreError {
-  const e = (error ?? {}) as PgError;
+  const code = propertyOf(error, 'code');
+  const hint = propertyOf(error, 'hint');
+  const message = propertyOf(error, 'message');
   return new AgentTokenStoreError(
     what,
-    typeof e.code === 'string' ? e.code : undefined,
-    typeof e.hint === 'string' ? e.hint : undefined,
-    typeof e.message === 'string' ? e.message : 'no answer',
+    typeof code === 'string' ? code : undefined,
+    typeof hint === 'string' ? hint : undefined,
+    typeof message === 'string' ? message : 'no answer',
   );
 }
 

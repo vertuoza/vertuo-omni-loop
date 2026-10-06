@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeStageStore } from '../../stages/store.fake';
 import { loadBoard, supabaseReads, type BoardReads, type BoardRequest } from './load';
 import type { Activity, Member, PrdNow } from './tally';
+import { sure } from '../../arcade/test/sure';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The board's loader on fake reads (PRD 572): the Paul case (a member with no player row and no
 // points, who merged seven PRs and answered nine questions, is a People row with 7, 9 and 0 points),
@@ -48,10 +50,10 @@ const GALAXY = {
 
 const reads = (fail: Partial<Record<keyof BoardReads, boolean>> = {}): BoardReads & { calls: Record<string, unknown[]> } => {
   const calls: Record<string, unknown[]> = {};
-  const read = <T>(name: keyof BoardReads, value: T) => async (...args: unknown[]) => {
+  const read = <T>(name: keyof BoardReads, value: T) => (...args: unknown[]) => {
     calls[name] = args;
-    if (fail[name]) throw new Error(`${name} is down`);
-    return value;
+    if (fail[name]) return Promise.reject(new Error(`${name} is down`));
+    return Promise.resolve(value);
   };
   return {
     calls,
@@ -77,12 +79,12 @@ describe('loadBoard', () => {
 
   it('carries each fleet\'s mascot to its People rows, and each member\'s face', async () => {
     const galaxy = { ...GALAXY, teams: GALAXY.teams.map((t) => ({ ...t, mascot: t.name === 'beaver' ? 'beaver' : null })) };
-    const board = await loadBoard({ ...reads(), galaxy: async () => galaxy }, WORKSPACE);
+    const board = await loadBoard({ ...reads(), galaxy: () => Promise.resolve(galaxy) }, WORKSPACE);
     if (board.people === 'unreadable') throw new Error('people unreadable');
-    const bob = board.people.find((p) => p.userId === 'u-bob')!;
+    const bob = sure(board.people.find((p) => p.userId === 'u-bob'), 'the item found');
     expect(bob.fleet).toEqual({ name: 'beaver', label: 'BEAVER', color: '#8a5a2b', mascot: 'beaver' });
     expect(bob.face).toEqual({ kind: 'photo', url: 'https://github.com/bob-gh.png?size=48' });
-    expect(board.people.find((p) => p.userId === 'u-ada')!.fleet).toMatchObject({ name: 'octo', mascot: null });
+    expect(sure(board.people.find((p) => p.userId === 'u-ada'), 'the item found').fleet).toMatchObject({ name: 'octo', mascot: null });
   });
 
   it('reads the period\'s window: its first Brussels midnight to the one after today', async () => {
@@ -136,7 +138,7 @@ describe('loadBoard', () => {
 
   it('the season\'s fleet ranking, the viewer\'s fleet marked, each with its colour and mascot (PRD 652)', async () => {
     const galaxy = { ...GALAXY, teams: GALAXY.teams.map((t) => ({ ...t, mascot: t.name === 'beaver' ? 'beaver' : null })) };
-    const board = await loadBoard({ ...reads(), galaxy: async () => galaxy }, WORKSPACE);
+    const board = await loadBoard({ ...reads(), galaxy: () => Promise.resolve(galaxy) }, WORKSPACE);
     expect(board.fleets).toEqual([
       { rank: 1, name: 'beaver', label: 'BEAVER', points: 300, yours: false, color: '#8a5a2b', mascot: 'beaver' },
       { rank: 2, name: 'octo', label: 'OCTO', points: 120, yours: true, color: '#3355ff', mascot: null },
@@ -165,8 +167,8 @@ describe('loadBoard, one read failing', () => {
     expect(board.tiles).toMatchObject({ prs: 'unreadable', repositories: 'unreadable', answered: 11 });
     expect(board.tiles.prds).toEqual(tallyOf({ idea: 1, inbox: 1, building: 1, shipped: 2, retro: 1 }));
     expect([board.merges, board.prdEvents, board.repositories]).toEqual(['unreadable', 'unreadable', 'unreadable']);
-    expect((board.people as { prs: unknown; prds: unknown }[])[0].prs).toBe('unreadable');
-    expect((board.people as { prs: unknown; prds: unknown }[])[0].prds).not.toBe('unreadable');
+    expect(sure((board.people as { prs: unknown; prds: unknown }[])[0], 'item 0').prs).toBe('unreadable');
+    expect(sure((board.people as { prs: unknown; prds: unknown }[])[0], 'item 0').prds).not.toBe('unreadable');
   });
 
   it('the PRDs now: only the PRDs tile and People\'s PRDs', async () => {
@@ -193,14 +195,14 @@ describe('loadBoard, one read failing', () => {
 });
 
 describe('supabaseReads', () => {
-  const galaxy = async () => { throw new Error('unused'); };
+  const galaxy = () => Promise.reject(new Error('unused'));
 
   it('reads the roster through workspace_roster, logins in lower case', async () => {
-    const rpc = vi.fn(async () => ({ data: [
+    const rpc = vi.fn(() => Promise.resolve({ data: [
       { user_id: 'u', name: null, github_login: 'PaEtienne', avatar_url: null, fleet: null, hero: null },
       { user_id: 'v', name: 'ADA', github_login: 'ada', avatar_url: null, fleet: 'octo', hero: { v: 1 } },
     ], error: null }));
-    const r = supabaseReads({ rpc } as never, 'w-1', galaxy as never);
+    const r = supabaseReads({ rpc } as never, 'w-1', galaxy);
     expect(await r.roster()).toEqual([
       { userId: 'u', name: null, login: 'paetienne', avatarUrl: null, fleet: null, hero: null },
       { userId: 'v', name: 'ADA', login: 'ada', avatarUrl: null, fleet: 'octo', hero: { v: 1 } },
@@ -209,15 +211,15 @@ describe('supabaseReads', () => {
   });
 
   it('reads the answered counts through answered_counts, for the window', async () => {
-    const rpc = vi.fn(async () => ({ data: [{ user_id: 'u', answered: '3' }], error: null }));
-    const r = supabaseReads({ rpc } as never, 'w-1', galaxy as never);
+    const rpc = vi.fn(() => Promise.resolve({ data: [{ user_id: 'u', answered: '3' }], error: null }));
+    const r = supabaseReads({ rpc } as never, 'w-1', galaxy);
     expect(await r.answered(new Date('2026-09-19T22:00:00Z'), new Date('2026-09-26T22:00:00Z'))).toEqual([{ user_id: 'u', answered: 3 }]);
     expect(rpc).toHaveBeenCalledWith('answered_counts', { workspace: 'w-1', from_at: '2026-09-19T22:00:00.000Z', to_at: '2026-09-26T22:00:00.000Z' });
   });
 
   it('throws when a function fails', async () => {
-    const rpc = vi.fn(async () => ({ data: null, error: { message: 'boom' } }));
-    const r = supabaseReads({ rpc } as never, 'w-1', galaxy as never);
+    const rpc = vi.fn(() => Promise.resolve({ data: null, error: { message: 'boom' } }));
+    const r = supabaseReads({ rpc } as never, 'w-1', galaxy);
     await expect(r.roster()).rejects.toThrow(/members.*boom/);
     await expect(r.answered(new Date(), new Date())).rejects.toThrow(/answered.*boom/);
   });
@@ -228,10 +230,10 @@ describe('supabaseReads', () => {
     const query = (): Record<string, unknown> => {
       const q: Record<string, unknown> = {};
       for (const m of ['select', 'eq', 'gte', 'lt', 'order']) q[m] = (...args: unknown[]) => { filters.push([m, ...args]); return q; };
-      q.range = async () => ({ data: pages.shift(), error: null });
+      q.range = () => Promise.resolve({ data: pages.shift(), error: null });
       return q;
     };
-    const r = supabaseReads({ from: () => query() } as never, 'w-1', galaxy as never);
+    const r = supabaseReads({ from: () => query() } as never, 'w-1', galaxy);
     const rows = await r.activity(new Date('2026-09-19T22:00:00Z'), new Date('2026-09-26T22:00:00Z'));
     expect(rows).toHaveLength(1001);
     expect(filters).toContainEqual(['eq', 'workspace_id', 'w-1']);
@@ -242,29 +244,34 @@ describe('supabaseReads', () => {
   it('reads PRDs now through the stage store, with who opened each from prd-opened rows and the dossiers', async () => {
     const store = fakeStageStore(() => '2026-09-29T10:00:00Z');
     await store.recordStages([
-      { workspace_id: 'w-1', repository: 'Vertuoza/Vertuo-Omni-Loop', prd: 12, stage: 'inbox', reached_at: '2026-09-01T00:00:00Z' },
-      { workspace_id: 'w-1', repository: 'vertuoza/vertuo-omni-loop', prd: 12, stage: 'shipped', reached_at: '2026-09-20T00:00:00Z' },
-      { workspace_id: 'w-1', repository: 'vertuoza/vertuo-core', prd: 3, stage: 'prd', reached_at: '2026-09-02T00:00:00Z' },
-      { workspace_id: 'w-2', repository: 'other/repo', prd: 1, stage: 'retro', reached_at: '2026-09-02T00:00:00Z' },
+      { workspace_id: 'w-1', repository: 'Vertuoza/Vertuo-Omni-Loop', prd: parsePrd(12), stage: 'inbox', reached_at: '2026-09-01T00:00:00Z' },
+      { workspace_id: 'w-1', repository: 'vertuoza/vertuo-omni-loop', prd: parsePrd(12), stage: 'shipped', reached_at: '2026-09-20T00:00:00Z' },
+      { workspace_id: 'w-1', repository: 'vertuoza/vertuo-core', prd: parsePrd(3), stage: 'prd', reached_at: '2026-09-02T00:00:00Z' },
+      { workspace_id: 'w-2', repository: 'other/repo', prd: parsePrd(1), stage: 'retro', reached_at: '2026-09-02T00:00:00Z' },
     ]);
     const filters: unknown[][] = [];
     const query = (): Record<string, unknown> => {
       const q: Record<string, unknown> = {};
       for (const m of ['select', 'eq', 'order']) q[m] = (...args: unknown[]) => { filters.push([m, ...args]); return q; };
-      q.range = async () => ({ data: [{ repo: 'vertuo-omni-loop', number: 12, login: 'Ada-GH' }], error: null });
+      q.range = () => Promise.resolve({ data: [{ repo: 'vertuo-omni-loop', number: 12, login: 'Ada-GH' }], error: null });
       return q;
     };
     // dossier_list(p_workspace) lists that workspace's dossiers alone: the database scopes, not the board.
+    // Each row with every column dossier_list() answers, as the read parses it.
+    const listed = (row: { id: string; workspace_id: string; home_repo: string; prd: number | null; opened_by: string; answered: number }) => ({
+      kind: 'prd', title: row.id, created_at: '2026-09-01T00:00:00Z', numbered_at: null, repos: [row.home_repo], latest: {}, asked: row.answered,
+      last_activity: '2026-09-01T00:00:00Z', ...row,
+    });
     const dossiers = [
-      { id: 'd1', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: 3, opened_by: 'u-bob', answered: 0 },
-      { id: 'd2', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-ada', answered: 2 },
-      { id: 'd3', workspace_id: 'w-2', home_repo: 'other/repo', prd: null, opened_by: 'u-x', answered: 5 },
+      listed({ id: 'd1', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: 3, opened_by: 'u-bob', answered: 0 }),
+      listed({ id: 'd2', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-ada', answered: 2 }),
+      listed({ id: 'd3', workspace_id: 'w-2', home_repo: 'other/repo', prd: null, opened_by: 'u-x', answered: 5 }),
     ];
-    const rpc = vi.fn(async (_fn: string, args: { p_workspace?: string }) => ({
+    const rpc = vi.fn((_fn: string, args: { p_workspace?: string }) => Promise.resolve({
       data: dossiers.filter((d) => d.workspace_id === args.p_workspace),
       error: null,
     }));
-    const r = supabaseReads({ from: () => query(), rpc } as never, 'w-1', galaxy as never, store);
+    const r = supabaseReads({ from: () => query(), rpc } as never, 'w-1', galaxy, store);
     const prds = await r.prds();
     expect(prds).toHaveLength(3);
     expect(prds).toEqual(expect.arrayContaining([
@@ -284,10 +291,10 @@ describe('supabaseReads', () => {
     const query = (): Record<string, unknown> => {
       const q: Record<string, unknown> = {};
       for (const m of ['select', 'eq', 'order']) q[m] = () => q;
-      q.range = async () => ({ data: [], error: null });
+      q.range = () => Promise.resolve({ data: [], error: null });
       return q;
     };
-    const r = supabaseReads({ from: () => query(), rpc: async () => ({ data: [], error: null }) } as never, 'w-1', galaxy as never, store);
+    const r = supabaseReads({ from: () => query(), rpc: () => Promise.resolve({ data: [], error: null }) } as never, 'w-1', galaxy, store);
     await expect(r.prds()).rejects.toThrow(/boom/);
   });
 });

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readBusiness, type BusinessDeps } from './api';
+import { sure } from '../arcade/test/sure';
+import { answerOf } from '../business/json.fake';
 
 // A fake database of one workspace, Acme (GitHub org acme), whose business holds claims in every
 // state. business_for_repo() is played as the migration writes it: 42501 outside the caller's
@@ -35,22 +37,22 @@ function world({ business = true, claims = CLAIMS, personas = [] as Persona[], d
   const users: Record<string, typeof ADA> = { 'ada-token': ADA, 'carl-token': CARL };
   const client = (token: string) => ({
     auth: {
-      getUser: async (jwt: string) => ({ data: { user: users[jwt] ?? null }, error: users[jwt] ? null : { status: 401, message: 'bad jwt' } }),
+      getUser: (jwt: string) => Promise.resolve({ data: { user: users[jwt] ?? null }, error: users[jwt] ? null : { status: 401, message: 'bad jwt' } }),
     },
-    rpc: async (fn: string, args: { p_repo: string }) => {
+    rpc: (fn: string, args: { p_repo: string }) => {
       calls.push({ fn, args });
-      if (answer !== undefined) return { data: answer, error: null };
-      if (!users[token].member && args.p_repo.toLowerCase().startsWith('acme/')) {
-        return { data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } };
+      if (answer !== undefined) return Promise.resolve({ data: answer, error: null });
+      if (!sure(users[token], 'users[token]').member && args.p_repo.toLowerCase().startsWith('acme/')) {
+        return Promise.resolve({ data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } });
       }
-      if (!users[token].member) {
-        return { data: null, error: { code: '42501', message: 'no workspace owns other/thing yet — install the Omni App' } };
+      if (!sure(users[token], 'users[token]').member) {
+        return Promise.resolve({ data: null, error: { code: '42501', message: 'no workspace owns other/thing yet — install the Omni App' } });
       }
-      if (!business) return { data: { state: 'none', business: null, product: null, claims: [], personas: [] }, error: null };
+      if (!business) return Promise.resolve({ data: { state: 'none', business: null, product: null, claims: [], personas: [] }, error: null });
       const listed = claims.filter((c) => c.state === 'confirmed' || c.state === 'contradicted').map((c) => ({
         id: `${c.kind}#${c.seq}`, kind: c.kind, value: c.value, source: c.source, state: c.state, receipt: null, lastSeen: null,
       }));
-      return { data: { state: listed.length ? 'ok' : 'none', business: { name: 'Acme' }, product: null, claims: listed, personas }, error: null };
+      return Promise.resolve({ data: { state: listed.length ? 'ok' : 'none', business: { name: 'Acme' }, product: null, claims: listed, personas }, error: null });
     },
   });
   const deps: BusinessDeps = { connect: database ? (client as unknown as NonNullable<BusinessDeps['connect']>) : null, installLink: INSTALL };
@@ -58,7 +60,7 @@ function world({ business = true, claims = CLAIMS, personas = [] as Persona[], d
     const response = await readBusiness(new Request(`https://omni.example/api/business${query}`, {
       headers: token ? { authorization: `Bearer ${token}` } : {},
     }), deps);
-    return { status: response.status, body: await response.json(), cache: response.headers.get('cache-control') };
+    return { status: response.status, body: await answerOf(response), cache: response.headers.get('cache-control') };
   };
   return { calls, get };
 }

@@ -3,6 +3,7 @@
 // and the hero builder, laid over the canvas in recruit.ts on the grid the scene is drawn on. The
 // classes place each part per grid (recruit.css, under `.grid-tall`); on the tall grid the parts that
 // sit side by side on the wide one stack, and nothing is left out.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { Fragment, type ReactNode } from 'react';
 import type { Hero } from '@omni/design';
 import { BUILDER_ROWS, rowValue, type BuilderRow } from '../builder';
@@ -16,6 +17,7 @@ import { RaiseOverlay } from './raise.tsx';
 import { cardRow } from './recruit.ts';
 import './common.css';
 import './recruit.css';
+import { cssVars } from '../css-vars';
 
 // Ends a sentence on a fleet's label without doubling its own full stop (a label like S.W.A.T.).
 const stop = (label: string) => (label.endsWith('.') ? '' : '.');
@@ -47,7 +49,7 @@ export function SelectOverlay({ fleets, pick, change, locked, confirm, current, 
   const { grid } = useScreen();
   if (!fleets.length) return <RaiseOverlay owner={owner} />;
   const solo = pick >= fleets.length;
-  const f = solo ? { ...SOLO, name: null } : fleets[pick];
+  const f = solo ? { ...SOLO, name: null } : defined(fleets[pick], 'the fleet picked');
   const from = crewLook(current);
   const count = f.name ? crew[f.name] ?? 0 : 0;
   const row = cardRow(fleets.length + 1, pick, grid);
@@ -73,7 +75,7 @@ export function SelectOverlay({ fleets, pick, change, locked, confirm, current, 
         {cards.slice(row.first, row.first + row.count).map((card, k) => {
           const i = row.first + k;
           return (
-            <button key={card.key} type="button" className="j-card" aria-label={card.label} aria-pressed={i === pick} onClick={() => onPick(i)}
+            <button key={card.key} type="button" className="j-card" aria-label={card.label} aria-pressed={i === pick} onClick={() => { onPick(i); }}
               style={{ left: row.x0 + k * (row.w + row.gap), top: row.y, width: row.w, height: row.h }} />
           );
         })}
@@ -81,7 +83,7 @@ export function SelectOverlay({ fleets, pick, change, locked, confirm, current, 
       <HintLine sep={[SPACED, SPACED]}>{[
         <Hint key="move" k="◀ ▶">MOVE</Hint>, <Hint key="a" k="A">LOCK IN</Hint>, <Hint key="b" k="B">BACK</Hint>,
       ]}</HintLine>
-      {locked && <div className="j-center j-zoom r-locked"><p className="j-big" style={{ ['--glow' as string]: f.color }}>{f.label}!</p></div>}
+      {locked && <div className="j-center j-zoom r-locked"><p className="j-big" style={cssVars({ '--glow': f.color })}>{f.label}!</p></div>}
       {confirm && (
         <div className="j-panel r-confirm" role="dialog" aria-label="Confirm the change of fleet">
           {solo
@@ -99,7 +101,7 @@ export function NameOverlay({ state, shake, team, error }: { state: NameState; s
   const tall = useScreen().grid.name === 'tall';
   const f = crewLook(team);
   const cur = state.cursor < NAME_MAX ? state.cursor : -1;
-  const badge = team && <span className="j-badge r-badge" style={{ ['--fc' as string]: f.color }}>{f.label}</span>;
+  const badge = team && <span className="j-badge r-badge" style={cssVars({ '--fc': f.color })}>{f.label}</span>;
   const alert = error && <p className="j-txt j-error" role="alert">{error}</p>;
   return (
     <>
@@ -151,14 +153,14 @@ export function BuilderOverlay({ hero, row, team, name, error, onRow }: {
           const on = row === i;
           if (r === 'RANDOM' || r === 'DONE') {
             return (
-              <button key={r} type="button" role="option" aria-selected={on} className={`j-row j-btn${on ? ' on' : ''}`} onClick={() => onRow(i)}>
+              <button key={r} type="button" role="option" aria-selected={on} className={`j-row j-btn${on ? ' on' : ''}`} onClick={() => { onRow(i); }}>
                 <span className="j-cur">{on ? '▶' : ''}</span><span className="j-lab">{r === 'RANDOM' ? `RANDOM (${hintKey('TAB', form)})` : 'DONE'}</span>
               </button>
             );
           }
           const v = rowValue(hero, r, f.color);
           return (
-            <button key={r} type="button" role="option" aria-selected={on} className={`j-row${on ? ' on' : ''}`} onClick={() => onRow(i)}>
+            <button key={r} type="button" role="option" aria-selected={on} className={`j-row${on ? ' on' : ''}`} onClick={() => { onRow(i); }}>
               <span className="j-cur">{on ? '▶' : ''}</span>
               <span className="j-lab">{r}</span>
               <span className="j-val"><span className="j-arr">◀</span>{v.swatches.map((c) => <span key={c} className="j-sw" style={{ background: c }} />)}{v.label}<span className="j-arr">▶</span></span>

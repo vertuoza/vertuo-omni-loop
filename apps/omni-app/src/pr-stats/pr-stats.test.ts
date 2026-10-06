@@ -1,0 +1,61 @@
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { InngestTestEngine } from '@inngest/test';
+import { internalEvents } from 'inngest';
+import { describe, expect, it, vi } from 'vitest';
+import { inngest } from '../inngest-client.ts';
+import { fakeGitHub, fakeStore, pull } from './fake.ts';
+import { readEnv } from '../env.ts';
+import { createPrStats, EVERY_15_MINUTES, PR_STATS_FUNCTION_ID } from './pr-stats.ts';
+
+const NOW = Date.parse('2026-09-29T12:00:00Z');
+const tick = { name: internalEvents.ScheduledTimer, data: { cron: EVERY_15_MINUTES } };
+const ENV = { SUPABASE_URL: 'https://db.example', SUPABASE_SERVICE_ROLE_KEY: 'service-key' };
+const SUPABASE = readEnv(ENV).supabase;
+
+function engine(fn: ConstructorParameters<typeof InngestTestEngine>[0]["function"]) {
+  return new InngestTestEngine({ function: fn, events: [tick] });
+}
+
+describe('prStats — the Inngest function', () => {
+  it('runs every 15 minutes, on no event', () => {
+    expect(EVERY_15_MINUTES).toBe('*/15 * * * *');
+    const prStats = createPrStats({ client: inngest, octokitFor: vi.fn(), supabase: null });
+    expect(prStats.id()).toBe(PR_STATS_FUNCTION_ID);
+    expect(prStats.opts.triggers).toEqual([{ cron: '*/15 * * * *' }]);
+  });
+
+  it('collects every tracked repository of every installed workspace, through each installation', async () => {
+    const github = fakeGitHub({ 'vertuoza/apps': { pulls: [pull(parsePr(1), { updated_at: '2026-09-28T10:00:00Z' })] }, 'acme/web': { pulls: [pull(parsePr(4), { updated_at: '2026-09-27T10:00:00Z' })] } });
+    const store = fakeStore([
+      { workspaceId: 'ws-vertuoza', installationId: 7, fullName: 'vertuoza/apps' },
+      { workspaceId: 'ws-acme', installationId: 9, fullName: 'acme/web' },
+    ]);
+    const octokitFor = vi.fn<(installationId: number) => Promise<typeof github.octokit>>(() => Promise.resolve(github.octokit));
+    const storeFor = vi.fn(() => store);
+    const fn = createPrStats({ client: inngest, octokitFor, supabase: SUPABASE, storeFor, clock: () => NOW });
+
+    const { result, error } = await engine(fn).execute();
+
+    expect(error).toBeUndefined();
+    expect(storeFor).toHaveBeenCalledWith({ url: ENV.SUPABASE_URL, key: ENV.SUPABASE_SERVICE_ROLE_KEY });
+    expect(octokitFor.mock.calls.map(([id]) => id).sort()).toEqual([7, 9]);
+    expect(result).toMatchObject({ repositories: 2, collected: 2, failed: 0, saved: 2 });
+    expect([...store.state.pulls.keys()].sort()).toEqual(['ws-acme|acme/web|4', 'ws-vertuoza|vertuoza/apps|1']);
+  });
+
+  it('logs one line and writes nothing when the Supabase pair is not set', async () => {
+    const log = vi.fn();
+    const storeFor = vi.fn();
+    const octokitFor = vi.fn();
+    const fn = createPrStats({ client: inngest, octokitFor, supabase: readEnv({}).supabase, storeFor, log });
+
+    const { result, error } = await engine(fn).execute();
+
+    expect(error).toBeUndefined();
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls[0]?.[0]).toMatch(/SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY/);
+    expect(storeFor).not.toHaveBeenCalled();
+    expect(octokitFor).not.toHaveBeenCalled();
+    expect(result).toEqual({ skipped: 'no store' });
+  });
+});

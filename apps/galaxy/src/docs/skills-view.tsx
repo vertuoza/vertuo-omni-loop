@@ -1,6 +1,7 @@
 import type { TOCItemType } from 'fumadocs-core/toc';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { badgeLabel } from './badges';
-import { skillNames, skillPage, SKILLS_PATH, type SkillGroup, type SkillLink, type SkillPageModel } from './skills';
+import { skillNames, skillPage, SKILLS_PATH, type SkillLink, type SkillPageModel, type SkillSection } from './skills';
 import type { SidebarItem } from './tree';
 
 // The skills pages as drawn inside DocsPage (PRD 580): the overview's sections and cards, one skill's
@@ -10,7 +11,7 @@ import type { SidebarItem } from './tree';
 /** The sidebar's links under All skills, in the overview's order. */
 export function skillSidebar(): SidebarItem[] {
   return skillNames().map((name) => {
-    const page = skillPage(name)!;
+    const page = defined(skillPage(name), `the page of the skill ${name}`);
     return { name: page.command, url: page.url };
   });
 }
@@ -45,7 +46,18 @@ export function skillToc(page: SkillPageModel): TOCItemType[] {
 function AgentBlock({ lines }: { lines: readonly string[] }) {
   return (
     <div className="docs-code">
-      <div className="docs-badges"><span className="docs-badge" data-kind="agent">{badgeLabel({ kind: 'agent' })}</span></div>
+      <div className="docs-badges">
+        <span className="docs-badge" data-kind="agent">{badgeLabel({ kind: 'agent' })}</span>
+        <button type="button" className="docs-copy" aria-label="Copy the code">
+          <svg className="docs-copy-icon" width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+            <rect x={5} y={5} width={9} height={9} rx={1.5} strokeWidth={1.5} />
+            <path d="M2 11V3a1 1 0 0 1 1-1h8" strokeWidth={1.5} />
+          </svg>
+          <svg className="docs-copy-done" width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M3 8.5l3.5 3.5L13 4" strokeWidth={2} />
+          </svg>
+        </button>
+      </div>
       <pre><code>{lines.join('\n')}</code></pre>
     </div>
   );
@@ -56,7 +68,7 @@ function Links({ skills }: { skills: readonly SkillLink[] }) {
 }
 
 /** /docs/skills: one section per group, one card per skill linking its page. */
-export function SkillsOverview({ groups }: { groups: readonly SkillGroup[] }) {
+export function SkillsOverview({ groups }: { groups: readonly SkillSection[] }) {
   return (
     <>
       {groups.map((group) => (

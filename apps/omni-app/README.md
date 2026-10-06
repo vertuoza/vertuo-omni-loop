@@ -52,7 +52,7 @@ When the product has constituents, whether they are broken is the workspace's `c
 decision's to say: the gate POSTs the spec, the constituents and the model's verdict to galaxy's
 `/api/constituents/judge` (on `GALAXY_URL` when set), signed with an HMAC-SHA256 of the body under
 `CONSTITUENT_JUDGE_SECRET` (header `x-omni-signature-256`), and reads the reply's `answer`
-(`src/canon/judge.mjs`). Off: the model's verdict. Shadow: the model's verdict, Jev's logged beside it.
+(`src/canon/judge.ts`). Off: the model's verdict. Shadow: the model's verdict, Jev's logged beside it.
 On: Jev's when it is at or above the decision's floor, else the model's. When the answer is not broken,
 the constituents' citations leave the findings; when it is broken, the findings that quote the spec
 stay, and with none the gate is not red.
@@ -216,9 +216,16 @@ Inngest ──▶ /api/inngest   function "pr-stats" (cron */15 * * * *, one run
               steps "collect <ws>/<repo> <n>" at most 50 pull requests each: details, reviews, commits
 ```
 
+Vercel serves the two functions from `api/github.mjs` and `api/inngest.mjs`: committed bundles of
+`entries/github.ts` and `entries/inngest.ts` with the app's code, the kit and the workspace packages
+inside, npm packages left as imports. Vercel compiles a TypeScript function file by file and keeps
+every `import './x.ts'` as written, so a function served from TypeScript fails to start (#1084).
+After changing anything the app runs, rebuild them with `node apps/omni-app/build.ts`;
+`src/vercel-functions.test.ts` fails while they are stale.
+
 | Unit | Where |
 |---|---|
-| `webhook` — verify and filter a delivery | `src/webhook/`, served at `api/github.mjs` |
+| `webhook` — verify and filter a delivery | `src/webhook/`, served at `api/github.mjs` (bundled from `entries/github.ts`) |
 | `stage-forward` — the stage a pull request shows, signed and POSTed to galaxy | `src/stage-forward/` |
 | `snapshot` — only the listed paths, at most 2,000 files and 20 MB | `src/snapshot/` |
 | `evaluate` — pure, reuses the kit's gate unchanged | `src/evaluate/` |
@@ -226,18 +233,18 @@ Inngest ──▶ /api/inngest   function "pr-stats" (cron */15 * * * *, one run
 | `outbox-check` — the Inngest function | `src/outbox-check/`, served at `api/inngest.mjs` |
 | `inbox-check` — the Inngest function, its GitHub reads and the pure `evaluateInbox` | `src/inbox-check/`, served at `api/inngest.mjs` |
 | `canon` — the inbox check's canon gate: the spec against the business, and its live ports | `src/canon/` |
-| `retro` — the Inngest function wiring the retro's units | `src/retro/retro.mjs`, served at `api/inngest.mjs` |
-| `qualify` — which merged PR gets a retro, and its PRD | `src/retro/qualify.mjs` |
-| the kinds of finding — each one's GitHub reads, detector and section | `src/retro/kinds/` (registry: `index.mjs`) |
-| `detect` — pure: plain records → the fact sheet | `src/retro/detect.mjs` |
-| `narrate` and `guard` — the model's prose, and what of it is kept | `src/retro/narrate.mjs`, `src/retro/guard.mjs` |
-| `render` — pure: `retro.md`, `retro.json`, the PR body | `src/retro/render.mjs` |
-| the issue publisher, and `publish` — the branch, the files, the PR | `src/retro/issues.mjs`, `src/retro/publish.mjs` |
-| `rules` — every threshold, the finding order, the words refused, a version | `src/retro/rules.mjs` |
+| `retro` — the Inngest function wiring the retro's units | `src/retro/retro.ts`, served at `api/inngest.mjs` |
+| `qualify` — which merged PR gets a retro, and its PRD | `src/retro/qualify.ts` |
+| the kinds of finding — each one's GitHub reads, detector and section | `src/retro/kinds/` (registry: `index.ts`) |
+| `detect` — pure: plain records → the fact sheet | `src/retro/detect.ts` |
+| `narrate` and `guard` — the model's prose, and what of it is kept | `src/retro/narrate.ts`, `src/retro/guard.ts` |
+| `render` — pure: `retro.md`, `retro.json`, the PR body | `src/retro/render.ts` |
+| the issue publisher, and `publish` — the branch, the files, the PR | `src/retro/issues.ts`, `src/retro/publish.ts` |
+| `rules` — every threshold, the finding order, the words refused, a version | `src/retro/rules.ts` |
 | `git-write` — the shared writer: a branch, one commit (moves reuse blobs), a PR | `src/git-write/` |
-| `knowledge-harvest` — the Inngest function wiring the kit's harvest pipeline | `src/knowledge-harvest/knowledge-harvest.mjs`, served at `api/inngest.mjs` |
-| the harvest's GitHub reads — the merge, the tip, the ids other knowledge PRs take | `src/knowledge-harvest/github.mjs` |
-| `render` — pure: the knowledge PR's title and body, the commit | `src/knowledge-harvest/render.mjs` |
+| `knowledge-harvest` — the Inngest function wiring the kit's harvest pipeline | `src/knowledge-harvest/knowledge-harvest.ts`, served at `api/inngest.mjs` |
+| the harvest's GitHub reads — the merge, the tip, the ids other knowledge PRs take | `src/knowledge-harvest/github.ts` |
+| `render` — pure: the knowledge PR's title and body, the commit | `src/knowledge-harvest/render.ts` |
 | `pr-stats` — the Engineering board's collector, its GitHub reads and its store | `src/pr-stats/`, served at `api/inngest.mjs` |
 
 The app only reads YAML, Markdown, JSON, patches and logs, as text; it never runs repository code. The
@@ -261,6 +268,7 @@ None of these is taken by the code; a person does each once.
    drawn from `@omni/sprites`) and set the badge background colour to `#07061c`.
 2. **Create the Vercel project** for `apps/omni-app` (root directory `apps/omni-app`, its own project,
    separate from the galaxy) and set these environment variables:
+   <!-- omni:env-variables -->
    - `GITHUB_APP_ID`
    - `GITHUB_APP_PRIVATE_KEY` — the PEM; a value pasted with literal `\n` sequences is accepted
    - `GITHUB_WEBHOOK_SECRET` — the same secret as in the app's settings
@@ -274,6 +282,22 @@ None of these is taken by the code; a person does each once.
    - `CONSTITUENT_JUDGE_SECRET` — the secret the canon gate signs its call to galaxy's constituent
      judge with (PRD 871), the same value as in galaxy's project. Unset, a product with constituents
      gets a neutral canon gate, "judge not configured".
+   - `OPENROUTER_MODEL`, optional — another model than the default for the retro and the harvest
+     (below).
+   - `STAGE_EVENT_SECRET` — the secret stage events are signed with on their way to galaxy
+     ([Stage events](#stage-events-prd-587)), the same value as in galaxy's project.
+   - `GALAXY_URL`, optional — galaxy's host for the stage events and the judge, when it is not
+     `https://www.omni-loop.xyz`.
+   - `INNGEST_DEV`, locally only — `1` points the Inngest SDK at the Inngest dev server; never set
+     on Vercel.
+   <!-- /omni:env-variables -->
+
+   The app reads these once, when a function starts (`src/env.ts`, PRD 1059). A pair half set (one
+   of `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, or `OPENROUTER_MODEL` without
+   `OPENROUTER_API_KEY`), a malformed value (a URL that is not a URL, an app id that is not a
+   number), or in production (`VERCEL_ENV=production`) a missing `GITHUB_WEBHOOK_SECRET`,
+   `GITHUB_APP_ID` or `GITHUB_APP_PRIVATE_KEY` fails the start with one error naming every variable
+   concerned, never a value. A preview requires none of them.
 
    The private key lives only there. To rotate it, generate a new key in the app's settings, replace
    the Vercel variable, redeploy, then delete the old key.
@@ -335,7 +359,7 @@ None of these is taken by the code. Until they are done, stages come from galaxy
 
 1. **Set `STAGE_EVENT_SECRET`** in this app's Vercel project, the same value as in galaxy's (galaxy's
    README says where). Optionally set `GALAXY_URL` when galaxy is not at
-   `https://vertuo-omni-loop-galaxy.vercel.app`.
+   `https://www.omni-loop.xyz`.
 2. **Redeploy this project.** A merge is not live here until it redeploys, and a new variable is read
    only by a new deployment. No Inngest Resync is needed.
 

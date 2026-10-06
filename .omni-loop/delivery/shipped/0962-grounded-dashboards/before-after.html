@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grounded dashboards · PRD 962</title>
+<style>
+/* Layout: the Engineering board drawn twice, today above after (side by side from 1100px), then a phone pair and what stays the same. Mockups use the galaxy app's light and dark tokens. */
+:root {
+  --bg: #eef0f5; --ground: #fbfaff; --surface: #ffffff; --ink: #1d1a33; --muted: #5d5a73;
+  --line: #e4e1ef; --line-strong: #c9c4dc; --plasma: #5b36d6; --green: #2f7a4a; --red: #b3232f;
+  --mark: #fff1c2;
+  --display: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e0d17; --ground: #15131f; --surface: #1d1a2b; --ink: #ecebf5; --muted: #a29fb8;
+  --line: #2b2840; --line-strong: #433f5e; --plasma: #9d85ff; --green: #5cc58a; --red: #ff6b74;
+  --mark: #4a3d12; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e0d17; --ground: #15131f; --surface: #1d1a2b; --ink: #ecebf5; --muted: #a29fb8;
+  --line: #2b2840; --line-strong: #433f5e; --plasma: #9d85ff; --green: #5cc58a; --red: #ff6b74;
+  --mark: #4a3d12; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--body); padding: 24px 16px 48px }
+main { max-width: 1240px; margin: 0 auto; display: grid; gap: 36px }
+h1 { font: 700 28px/1.15 var(--display); margin: 0; text-wrap: balance }
+h2 { font: 700 18px/1.3 var(--display); margin: 0 }
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 68ch }
+.pair { display: grid; gap: 20px }
+@media (min-width: 1100px) { .pair { grid-template-columns: 1fr 1fr } }
+.side { display: grid; gap: 10px; align-content: start; min-width: 0 }
+.tag { font: 700 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.tag.after { color: var(--plasma) }
+.note { margin: 0; color: var(--muted); font-size: 13px }
+.note b { color: var(--ink) }
+
+/* ── The mock board ── */
+.screen { background: var(--ground); border: 1px solid var(--line-strong); border-radius: 10px; padding: 18px; display: grid; gap: 16px; font-size: 12px; min-width: 0; overflow: hidden }
+.screen h3 { margin: 0; font: 700 18px/1.2 var(--display) }
+.period { display: flex; gap: 5px }
+.period span { border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 9px; font-weight: 700 }
+.period span:first-child { background: var(--plasma); border-color: var(--plasma); color: var(--ground) }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px }
+.tile { border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); padding: 9px 10px; display: grid; gap: 3px; align-content: start; min-height: 74px }
+.tile p { margin: 0; font-weight: 700; line-height: 1.25 }
+.tile b { font: 700 19px/1.1 var(--mono); font-variant-numeric: tabular-nums }
+.after .tile { align-content: space-between; min-height: 0 }
+.panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: start }
+.after .panels { align-items: stretch }
+.panel { display: grid; gap: 6px; align-content: start; min-width: 0 }
+.panel h4 { margin: 0; font-size: 13px }
+.panel p { margin: 0; color: var(--muted); overflow-wrap: anywhere }
+.panel p b { color: var(--ink) }
+.after .panel { border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); padding: 10px }
+.head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px }
+.after .head { border-bottom: 1px solid var(--line); padding-bottom: 6px }
+.sub { font: 700 10px/1 var(--body); letter-spacing: .05em; text-transform: uppercase; color: var(--muted) }
+.pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 0 4px; border: 1px solid currentColor; border-radius: 3px; margin-right: 4px }
+.held { color: var(--plasma) } .stuck { color: var(--red) }
+.row a { color: var(--ink); text-decoration: underline }
+svg.bars { width: 100%; height: 86px; display: block }
+.signed { fill: var(--green) } .rest { fill: var(--plasma) } .grid { stroke: var(--line); stroke-width: 1 }
+.people { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px }
+.top { display: grid; gap: 5px }
+.top div { display: grid; grid-template-columns: 1fr auto; gap: 2px 6px }
+.top i { grid-column: 1 / 3; height: 3px; border-radius: 2px; background: var(--line) }
+.top i span { display: block; height: 100%; border-radius: 2px; background: var(--plasma) }
+.drift { background: var(--mark); border-radius: 3px; padding: 0 2px }
+
+/* ── Phone ── */
+.phones { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)) }
+.phone { max-width: 260px; width: 100%; justify-self: center }
+.phone .screen { border-radius: 22px; padding: 14px 12px }
+.phone .tiles { grid-template-columns: 1fr 1fr }
+.phone .panels { grid-template-columns: 1fr }
+
+.same { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)) }
+.same div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0 }
+.same h3 { margin: 0 0 6px; font-size: 14px }
+.same ul { margin: 0; padding-left: 18px; color: var(--muted) }
+code { font-family: var(--mono); font-size: .92em }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Grounded dashboards</h1>
+    <p class="lede">PRD 962. The Engineering board below stands for all four boards (Home, Fleet, Workspace and Engineering). They share <code>board.css</code>, so the one <code>.board-card</code> rule reaches every panel. Nothing a panel shows changes: only its frame, its height in a row and where a tile's figure sits.</p>
+  </header>
+
+  <section class="side">
+    <h2>The Engineering board, at a desktop width</h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag">Today</span>
+        <div class="screen today">
+          <h3>Vertuoza</h3>
+          <div class="period"><span>7 days</span><span>30 days</span><span>Season</span></div>
+          <div class="tiles">
+            <div class="tile"><p>PRs opened</p><b>565</b></div>
+            <div class="tile"><p>PRs merged</p><b>483</b></div>
+            <div class="tile"><p>Median time to merge</p><b class="drift">1.4 h</b></div>
+          </div>
+          <div class="panels">
+            <div class="panel">
+              <h4>Omni Loop</h4>
+              <p><b>262 of 483</b> merged PRs signed by Omni-man <b>(54%)</b></p>
+              <p>Median: <b>26 min</b> signed vs <b>17.0 h</b></p>
+              <p><b>+ 510</b> sub-PRs merged</p>
+            </div>
+            <div class="panel">
+              <h4>Loop health</h4>
+              <span class="sub">Right now</span>
+              <p class="row"><span class="pill held">Held</span><a>omni-loop#860</a> 28.1 h</p>
+              <p class="row"><span class="pill held">Held</span><a>backend-php#6364</a></p>
+              <p class="row"><span class="pill held">Held</span><a>apps#381</a></p>
+              <p class="row"><span class="pill stuck">Stuck</span><a>ux-research#71</a></p>
+              <span class="sub">In the period</span>
+              <p><b>41 of 510</b> got needs-fix</p>
+            </div>
+            <div class="panel">
+              <div class="head"><h4>Merged per day</h4><p><b>483</b></p></div>
+              <svg class="bars" viewBox="0 0 140 86" aria-hidden="true">
+                <line class="grid" x1="0" y1="10" x2="140" y2="10"/><line class="grid" x1="0" y1="80" x2="140" y2="80"/>
+                <rect class="signed" x="4" y="72" width="14" height="8"/><rect class="rest" x="4" y="68" width="14" height="4"/>
+                <rect class="signed" x="24" y="71" width="14" height="9"/>
+                <rect class="signed" x="44" y="50" width="14" height="30"/><rect class="rest" x="44" y="22" width="14" height="28"/>
+                <rect class="signed" x="64" y="44" width="14" height="36"/><rect class="rest" x="64" y="12" width="14" height="32"/>
+                <rect class="signed" x="84" y="50" width="14" height="30"/><rect class="rest" x="84" y="20" width="14" height="30"/>
+                <rect class="signed" x="104" y="62" width="14" height="18"/><rect class="rest" x="104" y="32" width="14" height="30"/>
+                <rect class="rest" x="124" y="77" width="14" height="3"/>
+              </svg>
+            </div>
+          </div>
+          <div class="people">
+            <div class="top"><h4 style="margin:0">Most opened</h4><div>omni-man <b>262</b><i><span style="width:100%"></span></i></div><div>pierre <b>140</b><i><span style="width:53%"></span></i></div></div>
+            <div class="top"><h4 style="margin:0">Most merged</h4><div>pierre <b>201</b><i><span style="width:100%"></span></i></div></div>
+            <div class="top"><h4 style="margin:0">Most reviews</h4><div>lead <b>88</b><i><span style="width:100%"></span></i></div></div>
+          </div>
+        </div>
+        <p class="note">Only the tiles have a frame. The panels and lists are loose text on the page, each ends at a different height, and the wrapped label pushes <b>1.4 h</b> below its neighbours (highlighted).</p>
+      </div>
+
+      <div class="side">
+        <span class="tag after">After</span>
+        <div class="screen after">
+          <h3>Vertuoza</h3>
+          <div class="period"><span>7 days</span><span>30 days</span><span>Season</span></div>
+          <div class="tiles">
+            <div class="tile"><p>PRs opened</p><b>565</b></div>
+            <div class="tile"><p>PRs merged</p><b>483</b></div>
+            <div class="tile"><p>Median time to merge</p><b>1.4 h</b></div>
+          </div>
+          <div class="panels">
+            <div class="panel">
+              <h4>Omni Loop</h4>
+              <p><b>262 of 483</b> merged PRs signed by Omni-man <b>(54%)</b></p>
+              <p>Median: <b>26 min</b> signed vs <b>17.0 h</b></p>
+              <p><b>+ 510</b> sub-PRs merged</p>
+            </div>
+            <div class="panel">
+              <h4>Loop health</h4>
+              <span class="sub">Right now</span>
+              <p class="row"><span class="pill held">Held</span><a>omni-loop#860</a> 28.1 h</p>
+              <p class="row"><span class="pill held">Held</span><a>backend-php#6364</a></p>
+              <p class="row"><span class="pill held">Held</span><a>apps#381</a></p>
+              <p class="row"><span class="pill stuck">Stuck</span><a>ux-research#71</a></p>
+              <span class="sub">In the period</span>
+              <p><b>41 of 510</b> got needs-fix</p>
+            </div>
+            <div class="panel">
+              <div class="head"><h4>Merged per day</h4><p><b>483</b></p></div>
+              <svg class="bars" viewBox="0 0 140 86" aria-hidden="true">
+                <line class="grid" x1="0" y1="10" x2="140" y2="10"/><line class="grid" x1="0" y1="80" x2="140" y2="80"/>
+                <rect class="signed" x="4" y="72" width="14" height="8"/><rect class="rest" x="4" y="68" width="14" height="4"/>
+                <rect class="signed" x="24" y="71" width="14" height="9"/>
+                <rect class="signed" x="44" y="50" width="14" height="30"/><rect class="rest" x="44" y="22" width="14" height="28"/>
+                <rect class="signed" x="64" y="44" width="14" height="36"/><rect class="rest" x="64" y="12" width="14" height="32"/>
+                <rect class="signed" x="84" y="50" width="14" height="30"/><rect class="rest" x="84" y="20" width="14" height="30"/>
+                <rect class="signed" x="104" y="62" width="14" height="18"/><rect class="rest" x="104" y="32" width="14" height="30"/>
+                <rect class="rest" x="124" y="77" width="14" height="3"/>
+              </svg>
+            </div>
+          </div>
+          <div class="people panels">
+            <div class="top panel"><h4>Most opened</h4><div>omni-man <b>262</b><i><span style="width:100%"></span></i></div><div>pierre <b>140</b><i><span style="width:53%"></span></i></div></div>
+            <div class="top panel"><h4>Most merged</h4><div>pierre <b>201</b><i><span style="width:100%"></span></i></div></div>
+            <div class="top panel"><h4>Most reviews</h4><div>lead <b>88</b><i><span style="width:100%"></span></i></div></div>
+          </div>
+        </div>
+        <p class="note">Every panel sits in the tiles' card (<code>.board-card</code>). Cards in a row end on one line, the chart's header gets a hairline, and every tile figure sits at the bottom, on one baseline.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="side">
+    <h2>At 393 px, on a phone</h2>
+    <div class="phones">
+      <div class="side phone">
+        <span class="tag">Today</span>
+        <div class="screen today">
+          <div class="tiles">
+            <div class="tile"><p>Open now</p><b>150</b></div>
+            <div class="tile"><p>Median time to merge</p><b class="drift">1.4 h</b></div>
+          </div>
+          <div class="panels">
+            <div class="panel"><h4>Omni Loop</h4><p><b>262 of 483</b> signed <b>(54%)</b></p></div>
+            <div class="panel"><h4>Loop health</h4><p class="row"><span class="pill held">Held</span><a>omni-loop#860</a></p></div>
+          </div>
+        </div>
+      </div>
+      <div class="side phone">
+        <span class="tag after">After</span>
+        <div class="screen after">
+          <div class="tiles">
+            <div class="tile"><p>Open now</p><b>150</b></div>
+            <div class="tile"><p>Median time to merge</p><b>1.4 h</b></div>
+          </div>
+          <div class="panels">
+            <div class="panel"><h4>Omni Loop</h4><p><b>262 of 483</b> signed <b>(54%)</b></p></div>
+            <div class="panel"><h4>Loop health</h4><p class="row"><span class="pill held">Held</span><a>omni-loop#860</a></p></div>
+          </div>
+        </div>
+        <p class="note">Cards stack one per row with 12 px padding. Tables scroll inside their card, the pinned first column on the card's surface.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="side">
+    <h2>What stays the same</h2>
+    <div class="same">
+      <div><h3>Content</h3><ul><li>Every figure, list, chart and its order</li><li>Copy, links, sorting and the period switch</li></ul></div>
+      <div><h3>Structure</h3><ul><li>No data, route or API change</li><li>The empty and could-not-load states</li><li>The Waiting for you tile, the sidebar and the top bar</li></ul></div>
+      <div><h3>Themes</h3><ul><li>Only existing tokens: Omni, Light and Dark follow</li><li>A <code>CanvasText</code> border under forced colours</li></ul></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

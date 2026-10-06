@@ -2,6 +2,7 @@
 // and the Hall of Heroes, on the wide grid (640×360) and on the tall one (320×288).
 import { drawLogo, drawPlanet, logoPixels, spriteSize, WOUND_TINT, woundTint } from '@omni/design';
 import { fleet, MASCOTS } from '../fleets';
+import { defined, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { bootMark, frameOf, H, nebulaFor, plasmaTrail, RING, space, sprite, TALL, W, type FrameState, type Grid, type Pages, type SceneName } from './common.ts';
 
 /**
@@ -53,7 +54,7 @@ function bootCrest(ctx: CanvasRenderingContext2D, s: FrameState) {
 export function drawBoot(ctx: CanvasRenderingContext2D, s: FrameState) {
   // The house brand draws the crest's mark; a workspace's brand its letter.
   const draw = s.logo ? bootCrest : bootMark;
-  if (s.grid.name !== 'tall') return draw(ctx, s);
+  if (s.grid.name !== 'tall') { draw(ctx, s); return; }
   // The mark is drawn for the wide grid: moved onto the tall one, its black still reaches every edge.
   ctx.save();
   ctx.translate(BOOT_TALL.dx, BOOT_TALL.dy);
@@ -99,8 +100,8 @@ const TITLE: Record<Grid['name'], TitleLayout> = {
 export function drawTitle(ctx: CanvasRenderingContext2D, s: FrameState) {
   const at = TITLE[s.grid.name];
   space(ctx, s, 3);
-  ctx.drawImage(nebulaFor('title', 0, 400, 240), ...at.nebulae[0]);
-  ctx.drawImage(nebulaFor('title2', 2, 320, 200), ...at.nebulae[1]);
+  ctx.drawImage(nebulaFor('title', 0, 400, 240), ...defined(at.nebulae[0], 'the first nebula\'s place'));
+  ctx.drawImage(nebulaFor('title2', 2, 320, 200), ...defined(at.nebulae[1], 'the second nebula\'s place'));
   const rot = s.reduced ? 0.6 : s.t * 0.02;
   drawPlanet(ctx, { ...at.world, seed: 2332, rot, progress: 0.62, atmosphere: '#8fd8ff' });
   drawPlanet(ctx, { ...at.ringed, seed: 985, rot: rot * 3, progress: 0, ring: RING, atmosphere: '#7a64b8' });
@@ -113,7 +114,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, s: FrameState) {
     ? s.join.fleets.map((f) => fleet(f.name))
     : MASCOTS.map((m) => ({ sprite: m, tint: null }));
   flying.slice(0, at.spots.length).forEach((look, i) => {
-    const [x, y, rate, phase] = at.spots[i];
+    const [x, y, rate, phase] = defined(at.spots[i], "a fleet's spot");
     const k = at.fleetScale;
     sprite(ctx, s, look.sprite, x, y + bob(i + 1) - (spriteSize(look.sprite).h - 32) * k, { scale: k, tint: look.tint ?? undefined, flip: i === 4, frame: frameOf(s, rate, phase) });
   });
@@ -129,12 +130,12 @@ export function drawStory(ctx: CanvasRenderingContext2D, s: FrameState) {
   const { w, h } = s.grid;
   space(ctx, s, 1);
   // Entropy marches across the bottom of the screen, 80 px apart, one more than the screen holds.
-  const kinds = Object.keys(WOUND_TINT) as (keyof typeof WOUND_TINT)[];
+  const kinds = keysOf(WOUND_TINT);
   const lap = w + 80;
   for (let i = 0; i < lap / 80; i++) {
     const x = ((i * 80 - s.sceneT * 36) % lap + lap) % lap - 40;
     const y = h - 64 + (s.reduced ? 0 : Math.round(Math.sin(s.t * 3 + i) * 3));
-    sprite(ctx, s, 'entropy', x, y, { tint: woundTint(kinds[i % kinds.length]), frame: frameOf(s, 3, i * 0.5) });
+    sprite(ctx, s, 'entropy', x, y, { tint: woundTint(defined(kinds[i % kinds.length], 'a wound kind')), frame: frameOf(s, 3, i * 0.5) });
   }
   drawPlanet(ctx, { ...STORY_PLANET[s.grid.name], seed: 2410, rot: s.t * 0.06, progress: 0.15, atmosphere: '#7a64b8' });
 }

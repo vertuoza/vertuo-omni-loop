@@ -4,6 +4,7 @@
 // boot screen, and the intro's first bars, draw whichever letter they are given (`markFor`), in the
 // theme's `mark-1` to `mark-3` and `mark-shade-1` to `mark-shade-3` (theme.ts).
 import { DEFAULT_THEME, type Theme } from './theme';
+import { isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export const MARK_SIZE = 36;
 
@@ -82,7 +83,7 @@ const RUNS = new Map<Letter, readonly Run[]>();
  */
 export function letterOf(name: string): Letter {
   const first = name.normalize('NFD').charAt(0).toUpperCase();
-  return /^[A-Z]$/.test(first) ? (first as Letter) : 'O';
+  return isOneOf(keysOf(LETTERS), first) ? first : 'O';
 }
 
 /** The mark of a name: its letter, in the theme's gradient (`mark-1` to `mark-3`) and shade (`mark-shade-1` to `mark-shade-3`). */

@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { heartbeat, MAX_HEARTBEAT_BYTES, type WorkingDeps } from './api';
 import { fakeWorking, type FakeAccount } from './store.fake';
 import { workingReader } from './store';
 import { workingState } from './state';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+// What an answer of the heartbeat carries, checked as it is read.
+const Answer = z.looseObject({ error: z.string().optional() });
 
 const ACME = '00000000-0000-4000-8000-000000000ace';
 const OTHER = '00000000-0000-4000-8000-00000000beef';
@@ -24,9 +29,9 @@ function world({ database = true } = {}) {
   const fake = fakeWorking({ 'ada-token': ADA, 'bob-token': BOB, 'carl-token': CARL, 'nell-token': NELL }, { [ACME]: 'acme', [OTHER]: 'other' }, () => clock.now);
   fake.tables.dossiers.push(
     { id: DRAFT, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'prd', prd: null },
-    { id: PRD_7, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'prd', prd: 7 },
-    { id: VISUAL_12, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'visual', prd: 12 },
-    { id: BUG_13, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'bug', prd: 13 },
+    { id: PRD_7, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'prd', prd: parsePrd(7) },
+    { id: VISUAL_12, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'visual', prd: parsePrd(12) },
+    { id: BUG_13, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'bug', prd: parsePrd(13) },
   );
   // The stub answers only the calls the route makes, so it is not a whole Supabase client.
   const deps: WorkingDeps = { connect: database ? fake.client as unknown as WorkingDeps['connect'] : null };
@@ -37,7 +42,7 @@ function world({ database = true } = {}) {
       body: raw ?? JSON.stringify(body),
     }), deps);
     const text = await response.text();
-    return { status: response.status, body: text ? JSON.parse(text) : null };
+    return { status: response.status, body: text ? Answer.parse(JSON.parse(text)) : null };
   };
   const ping = (session = SESSION) => fake.tables.working_pings.find((p) => p.claude_session_id === session);
   return { clock, fake, deps, send, ping };
@@ -103,7 +108,7 @@ describe('the dossier a heartbeat resolves to', () => {
     await w.send({ ...BEAT, work: { kind: 'prd', number: 99 } });
     expect(w.ping()?.dossier_id).toBeNull();
     const later = '00000000-0000-4000-8000-00000000d099';
-    w.fake.tables.dossiers.push({ id: later, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'prd', prd: 99 });
+    w.fake.tables.dossiers.push({ id: later, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'prd', prd: parsePrd(99) });
     await w.send({ ...BEAT, work: { kind: 'prd', number: 99 } });
     expect(w.ping()?.dossier_id).toBe(later);
   });
@@ -115,7 +120,7 @@ describe('refusals', () => {
     for (const token of [null, 'forged-token']) {
       const { status, body } = await w.send(BEAT, { token });
       expect(status).toBe(401);
-      expect(body.error).toEqual(expect.any(String));
+      expect(body?.error).toEqual(expect.any(String));
     }
     expect(w.fake.tables.working_pings).toEqual([]);
   });
@@ -142,7 +147,7 @@ describe('refusals', () => {
       const w = world();
       const { status, body: answer } = await w.send(body);
       expect(status).toBe(400);
-      expect(answer.error).toEqual(expect.any(String));
+      expect(answer?.error).toEqual(expect.any(String));
       expect(w.fake.tables.working_pings).toEqual([]);
     });
   }
@@ -162,7 +167,7 @@ describe('refusals', () => {
     await w.send(BEAT);
     const { status, body } = await w.send({ ...BEAT, work: null }, { token: 'bob-token' });
     expect(status).toBe(403);
-    expect(body.error).toContain('another account');
+    expect(body?.error).toContain('another account');
     expect(w.ping()).toMatchObject({ user_id: ADA.id, work_kind: 'prd', work_number: 7 });
   });
 
@@ -170,14 +175,14 @@ describe('refusals', () => {
     const w = world();
     const { status, body } = await w.send({ ...BEAT, repo: 'nowhere/widgets' }, { token: 'nell-token' });
     expect(status).toBe(403);
-    expect(body.error).toContain('install the Omni App');
+    expect(body?.error).toContain('install the Omni App');
   });
 
   it('403 for a repository a workspace the caller is not in owns', async () => {
     const w = world();
     const { status, body } = await w.send(BEAT, { token: 'carl-token' });
     expect(status).toBe(403);
-    expect(body.error).toContain('not a member');
+    expect(body?.error).toContain('not a member');
     expect(w.fake.tables.working_pings).toEqual([]);
   });
 

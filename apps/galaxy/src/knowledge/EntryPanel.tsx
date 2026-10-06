@@ -13,7 +13,7 @@ type Links = { repo: string | null; onChoose: Choose };
 
 function EntryLink({ entry, repo, onChoose }: Links & { entry: KnowledgeEntry }) {
   return (
-    <a href={entryHref({ domain: tabOf(entry), entry: entry.id }, repo)} onClick={(event) => onChoose(entry.id, event)}>
+    <a href={entryHref({ domain: tabOf(entry), entry: entry.id }, repo)} onClick={(event) => { onChoose(entry.id, event); }}>
       <code>{entry.id}</code>
     </a>
   );
