@@ -2,6 +2,7 @@
 // "/omni:pitch"); `push` sends it (`./pitch.ts`).
 //
 //   omni pitch start <n> --for customers|inside   refuses, or opens the run's folder and prints it
+//   omni pitch check <dir>                         checks storyboard.json before it is rendered (PRD 1108)
 //   omni pitch slide <dir> --frame <png>           the slide, the closing card and the backdrop, each shape
 //   omni pitch music <dir> --for customers|inside  the audience's default music, music.wav
 //   omni pitch video <dir>                         pitch.mp4, pitch-square.mp4 and pitch.gif, with ffmpeg
@@ -11,6 +12,11 @@
 // `<worktrees>/pitch-<n>/<audience>-<time>/`, writes `pitch.json` there with the PRD, the audience, the
 // product's look and the commit, and prints `{dir, look, url, commit}` as JSON: `url` is where the
 // walk-through is filmed. A look the Omni page cannot answer is arcade, said in one line on stderr.
+//
+// `check` reads `storyboard.json` (`../../lib/pitch/check.ts`): each error and each warning is one line on
+// stderr, `error: <path>: <why>` or `warning: <path>: <why>`. An error is exit 1 and writes nothing;
+// otherwise it prints the scenes and the length, writes the warnings to `pitch.json` under `warnings`, and
+// exits 0. A folder with no storyboard.json is exit 2.
 //
 // The other three read and write the run folder only. `video` refuses without ffmpeg as `start` does, and
 // records the five files of the pitch in `pitch.json`. A tool that fails (the browser or ffmpeg) is exit 1
@@ -25,6 +31,7 @@ import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { whereIs } from '../../lib/delivery/prd.ts';
 import { isOneOf, propertyOf } from '../../lib/narrow.ts';
+import { checkRunFolder, findingLine } from '../../lib/pitch/check.ts';
 import { PITCH_INPUTS } from '../../lib/pitch/ffmpeg.ts';
 import {
   AUDIENCES, REFUSAL, hasFfmpeg, makeVideos, pitchRefusal, pitchRunDir, playwrightScreenshot, readPitchJson,
@@ -32,6 +39,7 @@ import {
 } from '../../lib/pitch/run.ts';
 import type { Audience, Screenshot } from '../../lib/pitch/run.ts';
 import { LOOKS } from '../../lib/pitch/slide.ts';
+import { STORYBOARD_FILE } from '../../lib/pitch/storyboard.ts';
 import type { Look } from '../../lib/pitch/slide.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { Exec, Out } from '../io.ts';
@@ -51,10 +59,11 @@ export type MakerIo = {
   screenshot: Screenshot | undefined;
 };
 
-type Verb = 'start' | 'slide' | 'music' | 'video';
+type Verb = 'start' | 'check' | 'slide' | 'music' | 'video';
 
 const USAGE: Readonly<Record<Verb, string>> = {
   start: 'usage: omni pitch start <n> --for customers|inside',
+  check: 'usage: omni pitch check <dir>',
   slide: 'usage: omni pitch slide <dir> --frame <png>',
   music: 'usage: omni pitch music <dir> --for customers|inside',
   video: 'usage: omni pitch video <dir>',
@@ -164,6 +173,19 @@ async function start(args: string[], { cwd, stdout, stderr, exec, tokens, home, 
   return 0;
 }
 
+function check(args: string[], { cwd, stdout, stderr }: MakerIo): Promise<number> {
+  const { arg } = oneArg('check', args);
+  const dir = runFolder('check', cwd, arg);
+  if (!existsSync(join(dir, STORYBOARD_FILE))) throw usageError(`omni pitch check: ${arg} holds no ${STORYBOARD_FILE} yet.`);
+  const { errors, warnings, scenes, seconds } = checkRunFolder(dir);
+  for (const finding of errors) println(stderr, `error: ${findingLine(finding)}`);
+  for (const finding of warnings) println(stderr, `warning: ${findingLine(finding)}`);
+  if (errors.length) return Promise.resolve(1);
+  writePitchJson(dir, { ...readPitchJson(dir), warnings: warnings.map(findingLine) });
+  println(stdout, `storyboard: ${scenes} scenes, ${seconds} s, ${warnings.length} warning${warnings.length === 1 ? '' : 's'}`);
+  return Promise.resolve(0);
+}
+
 function slide(args: string[], { cwd, stdout, stderr, exec, screenshot }: MakerIo): Promise<number> {
   const { arg, flags } = oneArg('slide', args, ['frame']);
   const dir = runFolder('slide', cwd, arg);
@@ -217,4 +239,4 @@ function video(args: string[], { cwd, stdout, stderr, exec }: MakerIo): Promise<
 }
 
 /** The making verbs of `omni pitch`, by name. */
-export const PITCH_MAKERS: Readonly<Record<Verb, (args: string[], io: MakerIo) => Promise<number>>> = Object.freeze({ start, slide, music, video });
+export const PITCH_MAKERS: Readonly<Record<Verb, (args: string[], io: MakerIo) => Promise<number>>> = Object.freeze({ start, check, slide, music, video });
