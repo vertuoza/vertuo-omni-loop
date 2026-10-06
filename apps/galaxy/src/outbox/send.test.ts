@@ -5,7 +5,11 @@ import { fakeGitHub, fakeOutboxSource, fakeSendStore } from './send.fake';
 import {
   finishSend, githubUser, NONCE_COOKIE, questionsOf, readSend, sendCallbackPath, startSend, type SendDeps,
 } from './send';
+import { sure } from '../arcade/test/sure';
 import { sentView, UNCOUNTED } from './sent';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 // Send (PRD 251, "Send posts the reply as you"; s11, ported from the first build's s5): the picks checked
 // against a fresh read of the outbox through PRD 426's GitHub reader, written by the kit's reply writer,
@@ -18,6 +22,11 @@ const ELSEWHERE = '00000000-0000-4000-8000-0000000000e2';
 const ORIGIN = 'https://omni.example';
 const NONCE = 'n0nce-n0nce-n0nce-n0nce-n0nce-n0nce-0000';
 const hash = (nonce: string) => createHash('sha256').update(nonce).digest('hex');
+const matching = (pattern: RegExp): unknown => expect.stringMatching(pattern);
+const A_STRING: unknown = expect.any(String);
+
+/** What POST /api/outbox/send answers: the authorisation to follow, the picks dropped, or why it refused. */
+type Started = { authorize?: string; dropped?: number[]; error?: string };
 
 const decision = (id: string, rank: OutboxItem['rank'], letters = ['A', 'B', 'C']): OutboxItem => ({
   id, rank, question: `${id}?`, decision: `${id}: A`, options: letters.map((letter) => ({ letter, text: `${letter} text` })), personSteps: null,
@@ -27,10 +36,10 @@ const ACTION: OutboxItem = { id: 's11-01-secret', rank: 'human-action', question
 /** PRD 7's summary: question 1 needs a person, 2 is high, 3 an adopted medium, 4 settled already. */
 function summary(over: Partial<GithubSummary> = {}): GithubSummary {
   return {
-    repo: 'acme/widgets', prd: 7, folder: '0007-widgets', topic: 'widgets',
-    issue: { number: 7, url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
+    repo: 'acme/widgets', prd: parsePrd(7), folder: '0007-widgets', topic: 'widgets',
+    issue: { number: parseIssue(7), url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
     phase0: null,
-    feature: { number: 12, url: 'https://github.com/acme/widgets/pull/12', state: 'open', draft: true, mergedAt: null },
+    feature: { number: parsePr(12), url: 'https://github.com/acme/widgets/pull/12', state: 'open', draft: true, mergedAt: null },
     retro: null,
     mergedSlices: 2,
     outbox: {
@@ -49,15 +58,17 @@ function summary(over: Partial<GithubSummary> = {}): GithubSummary {
   };
 }
 
-function world({ viewer = 'u-ada', read = summary() as GithubSummary | null, gh = fakeGitHub(), clientId = 'Iv1.client' as string | null } = {}) {
+function world({ viewer = 'u-ada', read = summary(), gh = fakeGitHub(), clientId = 'Iv1.client' }: {
+  viewer?: string; read?: GithubSummary | null; gh?: ReturnType<typeof fakeGitHub>; clientId?: string | null;
+} = {}) {
   const sends = fakeSendStore(viewer, [
-    { id: DOSSIER, homeRepo: 'acme/widgets', prd: 7, members: ['u-ada', 'u-bob'] },
-    { id: ELSEWHERE, homeRepo: 'other/place', prd: 9, members: ['u-eve'] },
+    { id: DOSSIER, homeRepo: 'acme/widgets', prd: parsePrd(7), members: ['u-ada', 'u-bob'] },
+    { id: ELSEWHERE, homeRepo: 'other/place', prd: parsePrd(9), members: ['u-eve'] },
   ]);
   const outbox = fakeOutboxSource(read);
   const deps: SendDeps = {
     clientId,
-    store: async () => sends.store,
+    store: () => Promise.resolve(sends.store),
     outbox: outbox.source,
     github: () => githubUser({ clientId: 'Iv1.client', clientSecret: 'shh-client-secret', fetch: gh.fetch }),
     nonce: () => NONCE,
@@ -66,7 +77,7 @@ function world({ viewer = 'u-ada', read = summary() as GithubSummary | null, gh 
     const response = await startSend(new Request(`${ORIGIN}/api/outbox/send`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
     }), deps);
-    return { status: response.status, body: await response.json(), cookie: response.headers.get('set-cookie') };
+    return { status: response.status, body: (await response.json()) as Started, cookie: response.headers.get('set-cookie') };
   };
   const back = async (query: Record<string, string>, cookie: string | null = NONCE) => {
     const url = new URL(`${ORIGIN}${sendCallbackPath}`);
@@ -88,7 +99,7 @@ describe('the questions a send may answer', () => {
   it('reads them off the fresh summary: every numbered open or adopted item, with its rank and letters', () => {
     const read = questionsOf(summary());
     expect(read).toEqual({
-      ok: true, prd: 7, prNumber: 12,
+      ok: true, prd: parsePrd(7), prNumber: 12,
       questions: [
         { number: 1, rank: 'human-action', options: [] },
         { number: 2, rank: 'high', options: [{ letter: 'A', text: 'A text' }, { letter: 'B', text: 'B text' }, { letter: 'C', text: 'C text' }] },
@@ -105,8 +116,8 @@ describe('the questions a send may answer', () => {
     expect(questionsOf(summary({ feature: null }))).toMatchObject({ ok: false, status: 404 });
     expect(questionsOf(summary({ outbox: null }))).toMatchObject({ ok: false, status: 404 });
     expect(questionsOf(summary({ replies: null }))).toMatchObject({ ok: false, status: 404 });
-    const merged = questionsOf(summary({ feature: { number: 12, url: 'https://x', state: 'merged', draft: false, mergedAt: '2026-09-28T00:00:00Z' } }));
-    expect(merged).toMatchObject({ ok: false, status: 409, error: expect.stringMatching(/merged/) });
+    const merged = questionsOf(summary({ feature: { number: parsePr(12), url: 'https://x', state: 'merged', draft: false, mergedAt: '2026-09-28T00:00:00Z' } }));
+    expect(merged).toMatchObject({ ok: false, status: 409, error: matching(/merged/) });
   });
 });
 
@@ -118,14 +129,14 @@ describe('POST /api/outbox/send: the reply, written once and recorded as a send'
     expect(status).toBe(200);
     expect(w.outbox.reads).toEqual([DOSSIER]);
     const [send] = w.sends.sends;
-    expect(send.reply).toBe('1: ok\n2: B because orange is softer sneaky\n\n_answered on the Omni page · PRD 7_');
+    expect(sure(send, 'send').reply).toBe('1: ok\n2: B because orange is softer sneaky\n\n_answered on the Omni page · PRD 7_');
     expect(send).toMatchObject({ owner: 'u-ada', dossier_id: DOSSIER, pr_number: 12, nonce_hash: hash(NONCE), posted_at: null });
     expect(body.dropped).toEqual([]);
-    const authorize = new URL(body.authorize);
+    const authorize = new URL(sure(body.authorize, 'body.authorize'));
     expect(authorize.origin + authorize.pathname).toBe('https://github.com/login/oauth/authorize');
     expect(authorize.searchParams.get('client_id')).toBe('Iv1.client');
     expect(authorize.searchParams.get('redirect_uri')).toBe(`${ORIGIN}/prd/github/callback`);
-    expect(authorize.searchParams.get('state')).toBe(`${send.id}.${NONCE}`);
+    expect(authorize.searchParams.get('state')).toBe(`${sure(send, 'send').id}.${NONCE}`);
     // The nonce rides in a short-lived, http-only cookie, only as far as the callback.
     expect(cookie).toContain(`${NONCE_COOKIE}=${NONCE}`);
     expect(cookie).toMatch(/HttpOnly/i);
@@ -138,7 +149,7 @@ describe('POST /api/outbox/send: the reply, written once and recorded as a send'
     const w = world();
     const { status } = await w.start({ dossier: DOSSIER, picks: [{ number: 3, pick: 'B', reason: 'too big' }] });
     expect(status).toBe(200);
-    expect(w.sends.sends[0].reply).toBe('3: B because too big\n\n_answered on the Omni page · PRD 7_');
+    expect(sure(w.sends.sends[0], 'the first send').reply).toBe('3: B because too big\n\n_answered on the Omni page · PRD 7_');
   });
 
   it('drops a pick whose question was settled meanwhile, and says so', async () => {
@@ -146,14 +157,14 @@ describe('POST /api/outbox/send: the reply, written once and recorded as a send'
     const { status, body } = await w.start({ dossier: DOSSIER, picks: [...PICKS, { number: 4, pick: 'A' }, { number: 9, pick: 'A' }] });
     expect(status).toBe(200);
     expect(body.dropped).toEqual([4, 9]);
-    expect(w.sends.sends[0].reply).not.toMatch(/^[49]:/m);
+    expect(sure(w.sends.sends[0], 'the first send').reply).not.toMatch(/^[49]:/m);
   });
 
   it('records nothing when every pick was settled meanwhile', async () => {
     const w = world();
     const { status, body } = await w.start({ dossier: DOSSIER, picks: [{ number: 4, pick: 'A' }] });
     expect(status).toBe(409);
-    expect(body).toMatchObject({ dropped: [4], error: expect.stringMatching(/settled meanwhile/) });
+    expect(body).toMatchObject({ dropped: [4], error: matching(/settled meanwhile/) });
     expect(w.sends.sends).toEqual([]);
   });
 
@@ -187,7 +198,7 @@ describe('POST /api/outbox/send: the reply, written once and recorded as a send'
   });
 
   it('refuses once the feature pull request merged, and while GitHub is out of reach, recording nothing', async () => {
-    const merged = world({ read: summary({ feature: { number: 12, url: 'https://x', state: 'merged', draft: false, mergedAt: '2026-09-28T00:00:00Z' } }) });
+    const merged = world({ read: summary({ feature: { number: parsePr(12), url: 'https://x', state: 'merged', draft: false, mergedAt: '2026-09-28T00:00:00Z' } }) });
     const one = await merged.start({ dossier: DOSSIER, picks: PICKS });
     expect(one.status).toBe(409);
     expect(one.body.error).toMatch(/merged/);
@@ -198,7 +209,7 @@ describe('POST /api/outbox/send: the reply, written once and recorded as a send'
 
   it('asks to sign in first, and is off without the App\'s client id', async () => {
     const signedOut = world();
-    signedOut.deps.store = async () => null;
+    signedOut.deps.store = () => Promise.resolve(null);
     expect((await signedOut.start({ dossier: DOSSIER, picks: PICKS })).status).toBe(401);
     expect((await world({ clientId: null }).start({ dossier: DOSSIER, picks: PICKS })).status).toBe(503);
   });
@@ -207,7 +218,7 @@ describe('POST /api/outbox/send: the reply, written once and recorded as a send'
 describe('/prd/github/callback: the reply posted once, as the person', () => {
   async function started(w = world()) {
     const { body } = await w.start({ dossier: DOSSIER, picks: PICKS });
-    return { w, state: new URL(body.authorize).searchParams.get('state')!, id: w.sends.sends[0].id };
+    return { w, state: sure(new URL(sure(body.authorize, 'body.authorize')).searchParams.get('state'), 'the state'), id: sure(w.sends.sends[0], 'the first send').id };
   }
 
   it('trades the code, posts the reply on the feature pull request, records its link and author, drops the token and clears the cache', async () => {
@@ -220,14 +231,14 @@ describe('/prd/github/callback: the reply posted once, as the person', () => {
     expect(status).toBe(303);
     expect(location).toBe(`${ORIGIN}/prd/${DOSSIER}?tab=outbox&send=${id}`);
     const [exchange, comment] = w.gh.calls;
-    expect(exchange.url).toBe('https://github.com/login/oauth/access_token');
-    expect(JSON.parse(exchange.body)).toEqual({ client_id: 'Iv1.client', client_secret: 'shh-client-secret', code: 'the-code' });
-    expect(comment.url).toBe('https://api.github.com/repos/acme/widgets/issues/12/comments');
-    expect(comment.method).toBe('POST');
-    expect(comment.headers.authorization).toBe(`Bearer ${w.gh.token}`);
-    expect(JSON.parse(comment.body)).toEqual({ body: w.sends.sends[0].reply });
+    expect(sure(exchange, 'exchange').url).toBe('https://github.com/login/oauth/access_token');
+    expect(JSON.parse(sure(exchange, 'exchange').body)).toEqual({ client_id: 'Iv1.client', client_secret: 'shh-client-secret', code: 'the-code' });
+    expect(sure(comment, 'comment').url).toBe('https://api.github.com/repos/acme/widgets/issues/12/comments');
+    expect(sure(comment, 'comment').method).toBe('POST');
+    expect(sure(comment, 'comment').headers.authorization).toBe(`Bearer ${w.gh.token}`);
+    expect(JSON.parse(sure(comment, 'comment').body)).toEqual({ body: sure(w.sends.sends[0], 'the first send').reply });
     expect(w.sends.sends[0]).toMatchObject({
-      posted_at: expect.any(String), comment_url: 'https://github.com/acme/widgets/pull/12#issuecomment-99', login: 'ada', counted: true, error: null,
+      posted_at: A_STRING, comment_url: 'https://github.com/acme/widgets/pull/12#issuecomment-99', login: 'ada', counted: true, error: null,
     });
     // The dossier's cached summary is cleared, so the answer shows as pending at once.
     expect(w.outbox.forgotten).toEqual([DOSSIER]);
@@ -241,13 +252,13 @@ describe('/prd/github/callback: the reply posted once, as the person', () => {
   it('recounts the PRD\'s open questions once the reply is posted, and never when nothing was posted (PRD 657, s5)', async () => {
     const { w, state } = await started();
     const recounted: string[] = [];
-    w.deps.recount = async (dossierId) => { recounted.push(dossierId); };
+    w.deps.recount = (dossierId) => { recounted.push(dossierId); return Promise.resolve(); };
     await w.back({ code: 'the-code', state });
     expect(recounted).toEqual([DOSSIER]);
 
     const refused = await started();
     const none: string[] = [];
-    refused.w.deps.recount = async (dossierId) => { none.push(dossierId); };
+    refused.w.deps.recount = (dossierId) => { none.push(dossierId); return Promise.resolve(); };
     await refused.w.back({ error: 'access_denied', state: refused.state });
     expect(none).toEqual([]);
   });
@@ -255,10 +266,10 @@ describe('/prd/github/callback: the reply posted once, as the person', () => {
   it('still lands on the tab when the recount fails, and logs it', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { w, state, id } = await started();
-    w.deps.recount = async () => { throw new Error('Supabase is down'); };
+    w.deps.recount = () => Promise.reject(new Error('Supabase is down'));
     const { location } = await w.back({ code: 'the-code', state });
     expect(location).toBe(`${ORIGIN}/prd/${DOSSIER}?tab=outbox&send=${id}`);
-    expect(w.sends.sends[0].posted_at).not.toBeNull();
+    expect(sure(w.sends.sends[0], 'the first send').posted_at).not.toBeNull();
     expect(log.mock.calls.flat().join('\n')).toContain('could not be recounted');
   });
 
@@ -298,7 +309,7 @@ describe('/prd/github/callback: the reply posted once, as the person', () => {
 
   it('signed out, posts nothing and asks to sign in', async () => {
     const { w, state } = await started();
-    w.deps.store = async () => null;
+    w.deps.store = () => Promise.resolve(null);
     const { location } = await w.back({ code: 'c', state });
     expect(location).toMatch(/send_error=signin/);
     expect(w.gh.calls).toEqual([]);
@@ -322,11 +333,11 @@ describe('/prd/github/callback: the reply posted once, as the person', () => {
   for (const [what, answers, error] of FAILURES) {
     it(`${what}: posts nothing, records the error, and keeps the cache`, async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
-      const { w, state, id } = await started(world({ gh: fakeGitHub(answers as Parameters<typeof fakeGitHub>[0]) }));
+      const { w, state, id } = await started(world({ gh: fakeGitHub(answers) }));
       const { location } = await w.back({ code: 'c', state });
       expect(location).toBe(`${ORIGIN}/prd/${DOSSIER}?tab=outbox&send=${id}`);
-      expect(w.sends.sends[0]).toMatchObject({ posted_at: null, comment_url: null, error: expect.stringMatching(error) });
-      expect(w.sends.sends[0].error).not.toContain('ghu_');
+      expect(w.sends.sends[0]).toMatchObject({ posted_at: null, comment_url: null, error: matching(error) });
+      expect(sure(w.sends.sends[0], 'the first send').error).not.toContain('ghu_');
       expect(w.outbox.forgotten).toEqual([]);
     });
   }
@@ -336,21 +347,21 @@ describe('/prd/github/callback: the reply posted once, as the person', () => {
     const { w, state } = await started();
     await w.back({ error: 'access_denied', error_description: 'The user has denied your application access.', state });
     expect(w.gh.calls).toEqual([]);
-    expect(w.sends.sends[0].error).toMatch(/authorisation was refused/);
+    expect(sure(w.sends.sends[0], 'the first send').error).toMatch(/authorisation was refused/);
   });
 });
 
 describe('GET /api/outbox/send: the result, for the tab', () => {
   const get = async (w: ReturnType<typeof world>, query: string) => {
     const response = await readSend(new Request(`${ORIGIN}/api/outbox/send?${query}`), w.deps);
-    return { status: response.status, body: await response.json() };
+    return { status: response.status, body: (await response.json()) as unknown };
   };
 
   it('the owner reads their send\'s outcome, with the next step', async () => {
     const w = world();
     const { body } = await w.start({ dossier: DOSSIER, picks: PICKS });
-    await w.back({ code: 'c', state: new URL(body.authorize).searchParams.get('state')! });
-    const { status, body: sent } = await get(w, `id=${w.sends.sends[0].id}`);
+    await w.back({ code: 'c', state: sure(new URL(sure(body.authorize, 'body.authorize')).searchParams.get('state'), 'the state') });
+    const { status, body: sent } = await get(w, `id=${sure(w.sends.sends[0], 'the first send').id}`);
     expect(status).toBe(200);
     expect(sent).toMatchObject({ state: 'posted', login: 'ada', next: '/omni:yolo-fix 7', counted: true });
     expect(JSON.stringify(sent)).not.toContain('nonce');
@@ -361,31 +372,31 @@ describe('GET /api/outbox/send: the result, for the tab', () => {
     await w.start({ dossier: DOSSIER, picks: PICKS });
     const bob = world({ viewer: 'u-bob' });
     (bob.sends.sends as unknown[]).push(...w.sends.sends);
-    expect((await get(bob, `id=${w.sends.sends[0].id}`)).status).toBe(404);
+    expect((await get(bob, `id=${sure(w.sends.sends[0], 'the first send').id}`)).status).toBe(404);
     expect((await get(w, 'id=nope')).status).toBe(400);
-    w.deps.store = async () => null;
-    expect((await get(w, `id=${w.sends.sends[0].id}`)).status).toBe(401);
+    w.deps.store = () => Promise.resolve(null);
+    expect((await get(w, `id=${sure(w.sends.sends[0], 'the first send').id}`)).status).toBe(401);
   });
 });
 
 describe('the result on the tab', () => {
   const row = {
-    id: 's1', dossier_id: DOSSIER, pr_number: 12, reply: '2: B\n\n_answered on the Omni page · PRD 7_', nonce_hash: 'h',
+    id: 's1', dossier_id: DOSSIER, pr_number: parsePr(12), reply: '2: B\n\n_answered on the Omni page · PRD 7_', nonce_hash: 'h',
     created_at: '2026-09-28T10:05:00Z', posted_at: null as string | null, comment_url: null as string | null,
     login: null as string | null, counted: null as boolean | null, error: null as string | null,
   };
 
   it('posted: sent as @login, its link, and the next step', () => {
-    expect(sentView({ ...row, posted_at: '2026-09-28T10:06:00Z', comment_url: 'https://x/1', login: 'ada', counted: true }, 7, null)).toEqual({
+    expect(sentView({ ...row, posted_at: '2026-09-28T10:06:00Z', comment_url: 'https://x/1', login: 'ada', counted: true }, parsePrd(7), null)).toEqual({
       state: 'posted', login: 'ada', url: 'https://x/1', counted: true, next: '/omni:yolo-fix 7', reply: row.reply, at: '2026-09-28T10:06:00Z',
     });
   });
 
   it('failed: the error; waiting: nothing recorded yet; a wrong state says why', () => {
-    expect(sentView({ ...row, error: 'GitHub did not answer.' }, 7, null)).toEqual({ state: 'failed', error: 'GitHub did not answer.' });
-    expect(sentView(row, 7, null)).toEqual({ state: 'waiting' });
-    expect(sentView(null, 7, 'state')).toMatchObject({ state: 'failed', error: expect.stringMatching(/did not match/) });
-    expect(sentView(null, 7, null)).toBeNull();
+    expect(sentView({ ...row, error: 'GitHub did not answer.' }, parsePrd(7), null)).toEqual({ state: 'failed', error: 'GitHub did not answer.' });
+    expect(sentView(row, parsePrd(7), null)).toEqual({ state: 'waiting' });
+    expect(sentView(null, parsePrd(7), 'state')).toMatchObject({ state: 'failed', error: matching(/did not match/) });
+    expect(sentView(null, parsePrd(7), null)).toBeNull();
   });
 
   it('an uncounted author is named, with what it means', () => {

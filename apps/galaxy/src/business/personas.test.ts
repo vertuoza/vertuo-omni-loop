@@ -4,6 +4,7 @@ import {
   canUndo, initialPersonasState, personaOf, personasReducer, pickerOf, sameAvatar, UNDO_MS, viewPersonas,
   type Persona, type PersonasAction, type PersonasState,
 } from './personas';
+import { sure } from '../arcade/test/sure';
 
 // Settings → Business → Personas' state (PRD 799 s3): add, edit, delete and Undo within 5 s, the
 // drawer and its portrait picker, and each product's cast.
@@ -37,14 +38,14 @@ describe('the cast of a tab', () => {
 describe('adding', () => {
   it('opens a blank drawer for the product, on the avatar its seed picks', () => {
     const s = after([{ type: 'new', product: 'p-1', seed: 'a' }]);
-    expect(s.drawer).toMatchObject({ editing: null, product: 'p-1', page: 0, fields: { name: '', stance: 'neutral', trade: PERSONA_TRADES[0].id } });
-    expect(s.drawer!.fields.avatar).toEqual(randomAvatar('a'));
-    expect(validPersonaAvatar(s.drawer!.fields.avatar)).toBe(true);
+    expect(s.drawer).toMatchObject({ editing: null, product: 'p-1', page: 0, fields: { name: '', stance: 'neutral', trade: sure(PERSONA_TRADES[0], 'PERSONA_TRADES[0]').id } });
+    expect(sure(s.drawer, 's.drawer').fields.avatar).toEqual(randomAvatar('a'));
+    expect(validPersonaAvatar(sure(s.drawer, 's.drawer').fields.avatar)).toBe(true);
   });
 
   it('starts on a random variation: two seeds, two avatars', () => {
-    const a = after([{ type: 'new', product: 'p-1', seed: 'a' }]).drawer!.fields.avatar;
-    const b = after([{ type: 'new', product: 'p-1', seed: 'b' }]).drawer!.fields.avatar;
+    const a = sure(after([{ type: 'new', product: 'p-1', seed: 'a' }]).drawer, 'after([{ type: \'new\', product: \'p-1\', seed: \'a\' }]).drawer').fields.avatar;
+    const b = sure(after([{ type: 'new', product: 'p-1', seed: 'b' }]).drawer, 'after([{ type: \'new\', product: \'p-1\', seed: \'b\' }]).drawer').fields.avatar;
     expect(sameAvatar(a, b)).toBe(false);
   });
 
@@ -66,13 +67,13 @@ describe('adding', () => {
 describe('the drawer', () => {
   it('changes its fields, and its trade', () => {
     const s = after([{ type: 'new', product: 'p-1', seed: 'a' }, { type: 'change', fields: { name: 'Marc', stance: 'skeptical', trade: 'plumber' } }]);
-    expect(s.drawer!.fields).toMatchObject({ name: 'Marc', stance: 'skeptical', trade: 'plumber' });
+    expect(sure(s.drawer, 's.drawer').fields).toMatchObject({ name: 'Marc', stance: 'skeptical', trade: 'plumber' });
   });
 
   it('shows 24 variations, and Shuffle shows 24 others', () => {
     const open = after([{ type: 'new', product: 'p-1', seed: 'a' }]);
-    const first = pickerOf(open.drawer!);
-    const next = pickerOf(after([{ type: 'shuffle' }], open).drawer!);
+    const first = pickerOf(sure(open.drawer, 'open.drawer'));
+    const next = pickerOf(sure(after([{ type: 'shuffle' }], open).drawer, 'after([{ type: \'shuffle\' }], open).drawer'));
     expect(first).toHaveLength(24);
     expect(next).toHaveLength(24);
     expect(next.some((a) => first.some((b) => sameAvatar(a, b)))).toBe(false);

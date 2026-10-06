@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home Knows You</title>
+<style>
+/* Layout: two arcade screens side by side (today | after), stacked on phones; then the four
+   states of a sign-up slot. One look, the home page's own: deep space, yellow frame, magenta drop. */
+:root {
+  --space: #0b0d24;
+  --deep: #161a3d;
+  --white: #f4f2ff;
+  --dim: #8f93c4;
+  --yellow: #ffd23f;
+  --magenta: #ff3fa4;
+  --cyan: #3ff2ff;
+  --pixel: "Press Start 2P", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--space); color: var(--white); font: 15px/1.55 var(--body); }
+.wrap { max-width: 1080px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 40px; }
+h1 { font: 18px/1.4 var(--pixel); color: var(--yellow); margin: 0; letter-spacing: .04em; text-wrap: balance; }
+h2 { font: 11px/1.5 var(--pixel); color: var(--cyan); margin: 0 0 12px; letter-spacing: .06em; }
+p { margin: 0; max-width: 65ch; }
+.lede { display: grid; gap: 12px; }
+.lede p { color: var(--dim); }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+.screen { min-width: 0; border: 2px solid var(--dim); background: var(--deep); padding: 20px; display: grid; gap: 14px; align-content: start; }
+.screen.after { border-color: var(--yellow); box-shadow: 4px 4px 0 var(--magenta); }
+.tag { font: 9px/1 var(--pixel); letter-spacing: .08em; color: var(--space); background: var(--dim); padding: 6px 8px; justify-self: start; }
+.after .tag { background: var(--yellow); }
+.kicker { font: 8px/1.6 var(--pixel); color: var(--dim); letter-spacing: .06em; }
+.head { font: 16px/1.4 var(--pixel); color: var(--white); }
+.quote { font: 9px/1.7 var(--pixel); color: var(--yellow); }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.omni { width: 40px; height: 40px; flex: none; }
+.signup, .pill { font: 9px/1.5 var(--pixel); letter-spacing: .04em; background: var(--space); border: 2px solid var(--yellow); box-shadow: 3px 3px 0 var(--magenta); padding: 10px 12px; color: var(--white); display: inline-flex; align-items: center; gap: 10px; min-height: 44px; }
+.pill { border-color: var(--cyan); }
+.pill .go { color: var(--cyan); }
+.av { width: 28px; height: 28px; flex: none; image-rendering: pixelated; display: block; }
+.ini { width: 28px; height: 28px; display: grid; place-items: center; background: var(--magenta); color: var(--space); font: 11px/1 var(--pixel); }
+.held { visibility: hidden; }
+.start { font: 10px/1 var(--pixel); color: var(--yellow); }
+.note { font-size: 13px; color: var(--dim); border-top: 1px dashed var(--dim); padding-top: 10px; }
+.states { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.state { min-width: 0; border: 1px solid var(--dim); padding: 14px; display: grid; gap: 12px; align-content: start; }
+.state b { font: 8px/1.5 var(--pixel); color: var(--yellow); letter-spacing: .06em; font-weight: 400; }
+.state p { font-size: 13px; color: var(--dim); }
+.box { min-height: 52px; display: flex; align-items: center; border: 1px dotted rgba(143,147,196,.4); padding: 4px; }
+ul.same { margin: 0; padding-left: 18px; color: var(--dim); display: grid; gap: 4px; max-width: 70ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="lede">
+    <h1>PRD 1006 · The home page knows you</h1>
+    <p>A visitor who is already signed in stops seeing SIGN UP WITH GITHUB. In both places it sits, the poster and the order form, they see their own avatar and CONTINUE YOUR GAME, a link to /play.</p>
+  </header>
+
+  <section class="pair" aria-label="The poster, today and after, for a signed-in player">
+    <div class="screen">
+      <span class="tag">TODAY · SIGNED IN</span>
+      <p class="kicker">THE DELIVERY FRAMEWORK FOR CODING AGENTS</p>
+      <p class="head">AGENTS SHIP.<br>YOU STEER.</p>
+      <p class="quote">“TO JOIN INSTANTLY,<br>SIGN UP WITH GITHUB!”</p>
+      <div class="row">
+        <svg class="omni" viewBox="0 0 8 8" aria-hidden="true"><rect width="8" height="8" fill="#161a3d"/><rect x="2" y="1" width="4" height="3" fill="#ffd23f"/><rect x="1" y="4" width="6" height="3" fill="#ff3fa4"/><rect x="3" y="2" width="1" height="1" fill="#0b0d24"/><rect x="5" y="2" width="1" height="1" fill="#0b0d24"/></svg>
+        <span class="signup">SIGN UP WITH GITHUB</span>
+      </div>
+      <p class="start">PRESS START</p>
+      <p class="note">Already signed in, and still asked to sign up. Nothing on the page shows who you are.</p>
+    </div>
+
+    <div class="screen after">
+      <span class="tag">AFTER · SIGNED IN</span>
+      <p class="kicker">THE DELIVERY FRAMEWORK FOR CODING AGENTS</p>
+      <p class="head">AGENTS SHIP.<br>YOU STEER.</p>
+      <p class="quote">“TO JOIN INSTANTLY,<br>SIGN UP WITH GITHUB!”</p>
+      <div class="row">
+        <svg class="omni" viewBox="0 0 8 8" aria-hidden="true"><rect width="8" height="8" fill="#161a3d"/><rect x="2" y="1" width="4" height="3" fill="#ffd23f"/><rect x="1" y="4" width="6" height="3" fill="#ff3fa4"/><rect x="3" y="2" width="1" height="1" fill="#0b0d24"/><rect x="5" y="2" width="1" height="1" fill="#0b0d24"/></svg>
+        <span class="pill" role="link" aria-label="Continue your game as Ada">
+          <svg class="av" viewBox="0 0 7 7" aria-hidden="true"><rect width="7" height="7" fill="#3ff2ff"/><rect x="2" y="1" width="3" height="3" fill="#ffd2a8"/><rect x="2" y="1" width="3" height="1" fill="#5a2d0c"/><rect x="2" y="2" width="1" height="1" fill="#0b0d24"/><rect x="4" y="2" width="1" height="1" fill="#0b0d24"/><rect x="1" y="4" width="5" height="3" fill="#ff3fa4"/></svg>
+          CONTINUE YOUR GAME <span class="go">▶</span>
+        </span>
+      </div>
+      <p class="start">PRESS START</p>
+      <p class="note">Your hero (or GitHub photo, or initial) in the same slot, and one click back to /play. The order form's slot changes the same way.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="states-h">
+    <h2 id="states-h">ONE SLOT, FOUR STATES</h2>
+    <div class="states">
+      <div class="state">
+        <b>NO SESSION COOKIE</b>
+        <div class="box"><span class="signup">SIGN UP WITH GITHUB</span></div>
+        <p>Never marked. Paints exactly as today.</p>
+      </div>
+      <div class="state">
+        <b>COOKIE · CHECKING</b>
+        <div class="box"><span class="signup held" aria-hidden="true">SIGN UP WITH GITHUB</span></div>
+        <p>Held before paint: same size, empty. Released after 3 seconds at most.</p>
+      </div>
+      <div class="state">
+        <b>SIGNED IN · NO HERO YET</b>
+        <div class="box"><span class="pill"><span class="ini" aria-hidden="true">A</span> CONTINUE YOUR GAME <span class="go">▶</span></span></div>
+        <p>GitHub photo, or the initial when there is none. /play starts onboarding.</p>
+      </div>
+      <div class="state">
+        <b>SIGNED IN · PLAYER</b>
+        <div class="box"><span class="pill"><svg class="av" viewBox="0 0 7 7" aria-hidden="true"><rect width="7" height="7" fill="#3ff2ff"/><rect x="2" y="1" width="3" height="3" fill="#ffd2a8"/><rect x="2" y="1" width="3" height="1" fill="#5a2d0c"/><rect x="2" y="2" width="1" height="1" fill="#0b0d24"/><rect x="4" y="2" width="1" height="1" fill="#0b0d24"/><rect x="1" y="4" width="5" height="3" fill="#ff3fa4"/></svg> CONTINUE YOUR GAME <span class="go">▶</span></span></div>
+        <p>Their hero replaces the photo once the player read returns. /play says WELCOME BACK.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="same-h">
+    <h2 id="same-h">WHAT STAYS THE SAME</h2>
+    <ul class="same">
+      <li>The page is built once and is the same for every visitor; the server reads no cookie.</li>
+      <li>Signed-out visitors, and the demo with no Supabase, see today's page.</li>
+      <li>PRESS START, the poster's quote, and the SELECT YOUR APP picker are unchanged.</li>
+      <li>A failed or slow session read gives back SIGN UP WITH GITHUB.</li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>

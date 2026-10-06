@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { badgeLabel, codeKinds, fenceProblem, rehypeCodeBadges, type HastElement, type HastNode } from './badges';
+import { sure } from '../arcade/test/sure';
 
 // Where a guide code block goes (PRD 373): the words after the language on its opening fence, read
 // into kinds when the guide is compiled, and turned into the arcade chips drawn above the code.
@@ -64,12 +65,21 @@ describe('the compile step', () => {
     const block = tree.children[0] as HastElement;
     expect(block).toMatchObject({ tagName: 'div', properties: { className: ['docs-code'] } });
     const [badges, code] = block.children as HastElement[];
-    expect(badges.properties).toEqual({ className: ['docs-badges'] });
-    expect(badges.children).toEqual([
+    expect(sure(badges, 'badges').properties).toEqual({ className: ['docs-badges'] });
+    expect(sure(badges, 'badges').children.slice(0, -1)).toEqual([
       { type: 'element', tagName: 'span', properties: { className: ['docs-badge'], dataKind: 'terminal' }, children: [text('TERMINAL')] },
       { type: 'element', tagName: 'span', properties: { className: ['docs-badge'], dataKind: 'agent' }, children: [text('CODING AGENT')] },
     ]);
-    expect(code.tagName).toBe('pre');
+    expect(sure(code, 'code').tagName).toBe('pre');
+  });
+
+  it('ends the badge row with a copy chip (issue #931)', () => {
+    const tree = root(pre('terminal'));
+    rehypeCodeBadges()(tree);
+    const [badges] = (tree.children[0] as HastElement).children as HastElement[];
+    const copy = sure(badges, 'badges').children.at(-1) as HastElement;
+    expect(copy).toMatchObject({ tagName: 'button', properties: { type: 'button', className: ['docs-copy'], ariaLabel: 'Copy the code' } });
+    expect((copy.children as HastElement[]).map((icon) => icon.properties.className)).toEqual([['docs-copy-icon'], ['docs-copy-done']]);
   });
 
   it('finds a block nested in a list, and leaves one with no meta alone', () => {

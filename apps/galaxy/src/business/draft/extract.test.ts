@@ -1,5 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { extractCandidates, extractorFromEnv, readCandidates } from './extract';
+import { sure } from '../../arcade/test/sure';
+import { readEnv } from '../../env';
+import { sentOf } from '../json.fake';
+import { z } from 'zod';
+
+vi.mock('server-only', () => ({}));
+
+// What the model was sent, parsed: the fields a test reads.
+const Sent = z.object({ model: z.string(), messages: z.array(z.object({ role: z.string(), content: z.string() })) });
 
 // The extraction (PRD 774, spec step 2) with a stubbed fetch: the model's JSON becomes candidates; a
 // failure, a broken reply or an unset key give none, never an error. Nothing calls OpenRouter.
@@ -11,9 +20,9 @@ const ITEMS = [
 
 function answering(content: unknown, status = 200) {
   const calls: Array<{ url: string; body: { model: string; messages: Array<{ role: string; content: string }> }; auth: string | null }> = [];
-  const fetch = (async (url: string, init: RequestInit) => {
-    calls.push({ url, body: JSON.parse(String(init.body)), auth: new Headers(init.headers).get('authorization') });
-    return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status });
+  const fetch = ((url: string, init: RequestInit) => {
+    calls.push({ url, body: Sent.parse(sentOf(init.body)), auth: new Headers(init.headers).get('authorization') });
+    return Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status }));
   }) as unknown as typeof globalThis.fetch;
   return { fetch, calls };
 }
@@ -27,9 +36,9 @@ describe('extractCandidates', () => {
       { kind: 'region', value: 'Belgium', quote: 'firms in Belgium' },
     ]);
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe('https://openrouter.ai/api/v1/chat/completions');
-    expect(calls[0].auth).toBe('Bearer k');
-    expect(calls[0].body.messages[1].content).toContain('acme/app/README.md');
+    expect(sure(calls[0], 'calls[0]').url).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect(sure(calls[0], 'calls[0]').auth).toBe('Bearer k');
+    expect(sure(sure(calls[0], 'calls[0]').body.messages[1], 'calls[0].body.messages[1]').content).toContain('acme/app/README.md');
   });
 
   it('finds none when the model answers an error', async () => {
@@ -38,7 +47,7 @@ describe('extractCandidates', () => {
   });
 
   it('finds none when the fetch throws', async () => {
-    const fetch = (async () => { throw new Error('offline'); }) as unknown as typeof globalThis.fetch;
+    const fetch = (() => Promise.reject(new Error('offline'))) as unknown as typeof globalThis.fetch;
     expect(await extractCandidates('text', 'x', { apiKey: 'k', fetch })).toEqual([]);
   });
 
@@ -46,8 +55,8 @@ describe('extractCandidates', () => {
     const { fetch, calls } = answering(JSON.stringify(ITEMS));
     expect(await extractCandidates('text', 'x', { apiKey: '  ', fetch })).toEqual([]);
     expect(calls).toHaveLength(0);
-    expect(extractorFromEnv({})).toBeNull();
-    expect(extractorFromEnv({ OPENROUTER_API_KEY: 'k' })).toBeTypeOf('function');
+    expect(extractorFromEnv(readEnv({}).openrouter)).toBeNull();
+    expect(extractorFromEnv(readEnv({ OPENROUTER_API_KEY: 'k' }).openrouter)).toBeTypeOf('function');
   });
 });
 
@@ -73,7 +82,7 @@ describe('readCandidates', () => {
   it('never asks the model for what the company says it does not do (PRD 871)', async () => {
     const { fetch, calls } = answering('[]');
     await extractCandidates('We don\'t answer public tenders.', 'x', { apiKey: 'k', fetch });
-    expect(calls[0].body.messages[0].content).not.toMatch(/"never"/);
+    expect(sure(sure(calls[0], 'calls[0]').body.messages[0], 'calls[0].body.messages[0]').content).not.toMatch(/"never"/);
   });
 
   it('finds none in a reply that holds no JSON array', () => {

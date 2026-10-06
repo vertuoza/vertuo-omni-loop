@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BUG_RISK_LEVELS, bugRisk } from './bug-risk';
+import { sure } from '../../arcade/test/sure';
 
 // The bug risk's registry entry (PRD 812 s5): a Score over low, medium, high and critical (lowest
 // first, as the client reads a Score), each level worded as the bug-fixing form defines it; what it
@@ -54,7 +55,7 @@ describe('bug-risk', () => {
   });
 
   it('reads a state from a terminal, and refuses a malformed one', () => {
-    const terminal = bugRisk.terminal!;
+    const terminal = sure(bugRisk.terminal, 'bugRisk.terminal');
     expect(terminal.input(STATE)).toEqual(STATE);
     expect(terminal.input({ title: 'Only a title.' })).toEqual({ title: 'Only a title.', body: '', reproduction: null, domain: null, risk: null });
     expect(terminal.input({ ...STATE, title: '' })).toBeNull();
@@ -65,7 +66,7 @@ describe('bug-risk', () => {
   });
 
   it('reads the agent\'s own level as the old answer', () => {
-    const terminal = bugRisk.terminal!;
+    const terminal = sure(bugRisk.terminal, 'bugRisk.terminal');
     for (const level of BUG_RISK_LEVELS) expect(terminal.old(level)).toBe(level);
     expect(terminal.old('severe')).toBeNull();
     expect(terminal.old('')).toBeNull();

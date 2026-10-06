@@ -16,7 +16,7 @@ export function DockPicker({ games, sel, onPick }: {
       <ul className="pd-pick-list">
         {games.map((g, i) => (
           <li key={g}>
-            <button type="button" className="pd-pick" aria-current={i === sel} onMouseDown={(e) => e.preventDefault()} onClick={() => onPick(g)}>
+            <button type="button" className="pd-pick" aria-current={i === sel} onMouseDown={(e) => { e.preventDefault(); }} onClick={() => { onPick(g); }}>
               {i === sel ? '▶ ' : '  '}{DOCK_TITLE[g]}
             </button>
           </li>

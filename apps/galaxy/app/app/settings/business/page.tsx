@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import '../../../../src/business/business.css';
 import '../../../../src/business/constituents.css';
 import '../../../../src/agent-connect/tokens/connect.css';
@@ -23,6 +24,11 @@ import {
 // s2), each product's Statement and Never list, their history, and whether the person owns the workspace.
 // In development (or OMNI_LOOP_DEMO=1), the demo: a filled business, whose changes stay in the page.
 
+/** The client, seen through the narrow rpc port the agent-connect loaders call. */
+const rpcPortOf = (db: Pick<SupabaseClient, 'rpc'>) => ({
+  rpc: (fn: string, args: Record<string, unknown>) => db.rpc(fn, args),
+});
+
 export const metadata: Metadata = { title: 'Business · OMNI LOOP' };
 
 async function viewOf(): Promise<BusinessScreenView> {
@@ -38,7 +44,7 @@ async function viewOf(): Promise<BusinessScreenView> {
   if (session.kind !== 'signed-in') return session;
   const load = await loadBusinessPage(session.db, session.user);
   if (load.kind !== 'business') return load;
-  const db = session.db as unknown as Parameters<typeof loadTokens>[0];
+  const db = rpcPortOf(session.db);
   const [tokens, questions, constituents] = await Promise.all([
     loadTokens(db, load.workspace.id),
     loadQuestions(db, load.workspace.id),

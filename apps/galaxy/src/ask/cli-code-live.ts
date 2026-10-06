@@ -1,10 +1,13 @@
 import 'server-only';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { serviceDb } from '../data/sign-in-live';
 import { supabaseEnv } from '../data/supabase-server';
 import { installUrl } from '../signup/github-app';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { CODE_TTL_MS, type CliCallbackDeps, type CliSession, type Placement, type TokenClient, type TokenDeps } from './cli-code';
+import type { Database } from '../../../../supabase/database.types';
+import { serverEnv } from '../env';
 
 // The terminal's sign-in, wired to the real Supabase (src/ask/cli-code.ts says what each step does).
 // The callback acts as the sign-in it just made, and /api/ask/token trades codes and tokens acting as
@@ -18,13 +21,13 @@ import { CODE_TTL_MS, type CliCallbackDeps, type CliSession, type Placement, typ
 
 type Env = { url: string; key: string };
 type Cookie = { name: string; value: string };
-type CookieToSet = Cookie & { options?: Record<string, unknown> };
+type CookieToSet = Cookie & { options: CookieOptions };
 
 const CODE_VERIFIER = /-code-verifier$/;
 
 /** A client that keeps nothing: acting as nobody, or as `accessToken`. */
 function detached({ url, key }: Env, accessToken?: string) {
-  return createClient(url, key, {
+  return createClient<Database>(url, key, {
     ...(accessToken ? { global: { headers: { Authorization: `Bearer ${accessToken}` } } } : {}),
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
@@ -48,7 +51,7 @@ export function cliCallbackDeps(cookies: Cookie[]): { deps: CliCallbackDeps; spe
   const deps: CliCallbackDeps = {
     exchange: env
       ? async (code) => {
-          const client = createServerClient(env.url, env.key, {
+          const client = createServerClient<Database>(env.url, env.key, {
             cookies: {
               getAll: () => verifier,
               setAll(list) {
@@ -56,8 +59,11 @@ export function cliCallbackDeps(cookies: Cookie[]): { deps: CliCallbackDeps; spe
               },
             },
           });
-          const { data, error } = await client.auth.exchangeCodeForSession(code);
-          return { session: (data?.session as CliSession | null) ?? null, error: error ? { message: error.message } : null };
+          // `data` is widened to null: the Auth server's answer is read here unparsed.
+          const exchanged: { data: { session: CliSession | null } | null; error: { message: string } | null } =
+            await client.auth.exchangeCodeForSession(code);
+          const { data, error } = exchanged;
+          return { session: data?.session ?? null, error: error ? { message: error.message } : null };
         }
       : null,
     async issue(session, codeHash) {
@@ -104,7 +110,7 @@ export function tokenDeps(): TokenDeps {
     },
     revoke: (accessToken) => revokeToken(env, accessToken),
     place: placeRepo,
-    installLink: installUrl(process.env.GITHUB_APP_SLUG),
+    installLink: installUrl(serverEnv().githubAppSlug),
   };
 }
 
@@ -113,9 +119,11 @@ async function placeRepo(userId: string, repo: string): Promise<Placement> {
   const db = serviceDb();
   const { data, error } = await db.rpc('repo_workspace', { person: userId, repo });
   if (error) throw new Error(`repo_workspace: ${error.message}`);
-  const row = (Array.isArray(data) ? data[0] : data) as { workspace_id?: string | null; refusal?: string | null } | null;
-  if (!row?.workspace_id) return { workspace: null, reason: row?.refusal ?? null };
-  const { data: found, error: readError } = await db.from('workspaces').select('slug, name').eq('id', row.workspace_id).maybeSingle();
+  const row: unknown = Array.isArray(data) ? data[0] : data;
+  const workspaceId = propertyOf(row, 'workspace_id');
+  const refusal = propertyOf(row, 'refusal');
+  if (typeof workspaceId !== 'string' || !workspaceId) return { workspace: null, reason: typeof refusal === 'string' ? refusal : null };
+  const { data: found, error: readError } = await db.from('workspaces').select('slug, name').eq('id', workspaceId).maybeSingle();
   if (readError || !found) throw new Error(`workspaces: ${readError?.message ?? 'not found'}`);
-  return { workspace: { slug: String(found.slug), name: String(found.name) }, reason: null };
+  return { workspace: { slug: found.slug, name: found.name }, reason: null };
 }

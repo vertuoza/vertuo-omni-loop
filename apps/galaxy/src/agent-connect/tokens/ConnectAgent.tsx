@@ -15,6 +15,9 @@ export interface ConnectAgentProps {
   tokens: AgentToken[];
 }
 
+/** The browser's clipboard, or none: a page served over plain http has no navigator.clipboard. */
+const clipboardOf = (nav: { clipboard?: Clipboard }): Clipboard | undefined => nav.clipboard;
+
 export function ConnectAgent({ source, tokens }: ConnectAgentProps) {
   const [state, act] = useReducer(tokensReducer, tokens, initialTokensState);
   const port = useRef<TokensPort | null>(null);
@@ -35,13 +38,13 @@ export function ConnectAgent({ source, tokens }: ConnectAgentProps) {
     act(gone.ok ? { type: 'revoked', id: token.id } : { type: 'refused', message: gone.message });
   };
   const on: TokensHandlers = {
-    name: (name) => act({ type: 'name', name }),
+    name: (name) => { act({ type: 'name', name }); },
     make: () => void make(),
     revoke: (token) => void revoke(token),
     copy: (label, text) => {
-      void navigator.clipboard?.writeText(text).then(() => act({ type: 'copied', label }), () => undefined);
+      void clipboardOf(navigator)?.writeText(text).then(() => { act({ type: 'copied', label }); }, () => undefined);
     },
-    done: () => act({ type: 'done' }),
+    done: () => { act({ type: 'done' }); },
   };
   return <ConnectAgentCard state={state} demo={source.kind === 'demo'} on={on} />;
 }

@@ -3,6 +3,8 @@
 // "answered" strip — while the phone view (under 720px) keeps the padding it had.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 const CSS = readFileSync(new URL('./dossier.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -49,12 +51,15 @@ function withoutMedia(css: string): string {
 function declarations(css: string, selector: string): string[] {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const rules = [...css.matchAll(new RegExp(`(?:^|[}{;])\\s*${escaped}\\s*\\{([^}]*)\\}`, 'g'))];
-  return rules.flatMap(([, body]) => body.split(';').map((d) => d.trim().replace(/\s+/g, ' ')).filter(Boolean));
+  return rules.flatMap(([, body]) => {
+    assertDefined(body, `the body of a ${selector} rule`);
+    return body.split(';').map((d) => d.trim().replace(/\s+/g, ' ')).filter(Boolean);
+  });
 }
 
 const valueIn = (css: string, selector: string, prop: string) =>
   declarations(css, selector)
-    .filter((d) => d.split(':')[0].trim() === prop)
+    .filter((d) => firstPart(d, ':').trim() === prop)
     .map((d) => d.slice(d.indexOf(':') + 1).trim());
 
 const BASE = withoutMedia(CSS);

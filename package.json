@@ -1,6 +1,6 @@
 {
   "name": "vertuo-omni-plan",
-  "version": "0.0.148",
+  "version": "0.0.197",
   "private": true,
   "type": "module",
   "bin": {
@@ -10,34 +10,51 @@
     "kit/dist/omni.mjs"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18"
   },
   "scripts": {
     "test": "vitest run",
+    "typecheck": "tsgo -p . && pnpm --filter @omni/galaxy-app typecheck",
+    "typecheck:tsc": "tsc -p . && pnpm --filter @omni/galaxy-app typecheck:tsc",
+    "lint": "pnpm --filter @omni/galaxy-app exec fumadocs-mdx && node --max-old-space-size=8192 scripts/lint.ts",
     "fallow:audit": "fallow audit",
-    "game:project": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/project.mjs",
-    "game:score": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/score.mjs",
-    "game:xp": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/xp.mjs",
-    "game:banner": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/banner.mjs",
-    "game:export": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/export.mjs",
-    "game:dossiers": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/dossiers.mjs",
-    "game:contributions": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/contributions.mjs",
-    "releases:sync": "node --env-file-if-exists=apps/galaxy/.env.local apps/galaxy/scripts/releases-sync.mjs",
-    "kit:build": "node kit/build.mjs",
+    "check:changed": "node scripts/check-changed.ts",
+    "mutation": "stryker run stryker.config.ts",
+    "mutation:changed": "node scripts/mutation-changed.ts",
+    "mutation:score": "node scripts/mutation-score.ts",
+    "game:project": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/project.ts",
+    "game:score": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/score.ts",
+    "game:xp": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/xp.ts",
+    "game:banner": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/banner.ts",
+    "game:export": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/export.ts",
+    "game:dossiers": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/dossiers.ts",
+    "game:contributions": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/contributions.ts",
+    "releases:sync": "node --env-file-if-exists=apps/galaxy/.env.local apps/galaxy/scripts/releases-sync.ts",
+    "kit:build": "node kit/build.ts",
     "galaxy:dev": "pnpm --filter @omni/galaxy-app dev",
     "galaxy:build": "pnpm --filter @omni/galaxy-app build",
     "galaxy:artifact": "pnpm --filter @omni/galaxy-app artifact",
     "galaxy:seed": "pnpm --filter @omni/galaxy-app seed",
-    "galaxy:shots": "pnpm --filter @omni/galaxy-app shots"
+    "galaxy:shots": "pnpm --filter @omni/galaxy-app shots",
+    "schemas:verify": "node --env-file-if-exists=apps/galaxy/.env.local scripts/schemas-verify.ts"
   },
   "devDependencies": {
     "@playwright/test": "~1.56.1",
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/typescript-checker": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
+    "@types/node": "^22.20.4",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "esbuild": "^0.28.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "fallow": "3.30.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.0",
     "vite": "^8.3.1",
     "vitest": "^4.1.11",
     "yaml": "^2.5.0",
-    "zod": "^3.23.8"
+    "zod": "^4.6.5"
   },
   "pnpm": {
     "ignoredOptionalDependencies": [

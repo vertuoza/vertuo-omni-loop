@@ -1,3 +1,4 @@
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 // The season (PRD 328): the calendar month in UTC, the one the game's economy scores (buildGalaxy
 // scores `now.toISOString().slice(0, 7)`). The dashboard's points, both rankings and its three season
 // counts read within the same bounds, so they reset together. The week of merges alone counts
@@ -20,7 +21,7 @@ export function seasonBounds(now: Date): Season {
   const year = now.getUTCFullYear(), month = now.getUTCMonth();
   const from = new Date(Date.UTC(year, month, 1));
   const to = new Date(Date.UTC(year, month + 1, 1));
-  return { from, to, name: MONTHS[month], key: from.toISOString().slice(0, 7) };
+  return { from, to, name: at(MONTHS, month, 'the month'), key: from.toISOString().slice(0, 7) };
 }
 
 /** Whether an instant (a Date, or an ISO string as a row holds it) falls in the season. */

@@ -1,8 +1,11 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { z } from 'zod';
 import { loadConstituents, type ConstituentsDb } from '../constituents/load';
 import type { Constituent, ConstituentEvent } from '../constituents/model';
-import { peopleOf, type FleetLookRow, type RosterRow } from '../people/load';
+import { peopleOf } from '../people/load';
+import { FLEET_COLUMNS, FleetLookRow, IsOwner, RosterRow } from './constituents-rows';
+import { parseRow, parseRows, type Parsed } from '../data/parse-rows';
 import type { Person } from '../people/types';
 
 // The Constituents panel's read for Settings › Business (PRD 871 s2), as the signed-in person: every
@@ -20,23 +23,35 @@ export type ConstituentsPanelData = {
   people: Record<string, Person>;
 };
 
-async function settled<T>(what: string, read: () => PromiseLike<{ data: unknown; error: { message: string } | null }>, none: T): Promise<T> {
+type Read = () => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+
+/** A read the panel can do without: its answer, or `none` (logged) on an error, a throw or an answer
+ * that does not parse. */
+async function settled<T>(what: string, where: string, read: Read, parse: (data: unknown, where: string) => Parsed<T>, none: T): Promise<T> {
   try {
     const { data, error } = await read();
     if (error) throw new Error(error.message);
-    return (data ?? none) as T;
+    const parsed = parse(data, where);
+    return parsed.ok ? parsed.value : none;
   } catch (err) {
     console.error(`business: could not read ${what} (${err instanceof Error ? err.message : String(err)})`);
     return none;
   }
 }
 
+const rows = <T>(schema: z.ZodType<T>) => (data: unknown, where: string) => parseRows(schema, data, where);
+
+/** The client, seen through the narrow port loadConstituents() calls. */
+const constituentsDbOf = (db: Pick<SupabaseClient, 'from'>): ConstituentsDb => ({
+  from: (table) => ({ select: (columns) => ({ in: (column, values) => db.from(table).select(columns).in(column, values) }) }),
+});
+
 export async function loadConstituentsPanel(db: SupabaseClient, workspace: string, products: readonly string[]): Promise<ConstituentsPanelData> {
   const [load, owner, roster, fleets] = await Promise.all([
-    loadConstituents(db as unknown as ConstituentsDb, products),
-    settled<unknown>('your role', () => db.rpc('is_owner', { workspace }), false),
-    settled<RosterRow[]>('the workspace\'s members', () => db.rpc('workspace_roster', { workspace }), []),
-    settled<FleetLookRow[]>('the fleets', () => db.from('teams').select('name, label, color, mascot').eq('workspace_id', workspace), []),
+    loadConstituents(constituentsDbOf(db), products),
+    settled('your role', 'business/constituents-load: is_owner', () => db.rpc('is_owner', { workspace }), (data, where) => parseRow(IsOwner, data, where), false),
+    settled('the workspace\'s members', 'business/constituents-load: workspace_roster', () => db.rpc('workspace_roster', { workspace }), rows(RosterRow), []),
+    settled('the fleets', 'business/constituents-load: teams', () => db.from('teams').select(FLEET_COLUMNS).eq('workspace_id', workspace), rows(FleetLookRow), []),
   ]);
   if (!load.ok) console.error(`business: ${load.reason}`);
   const events = load.ok ? load.events : [];
@@ -47,5 +62,5 @@ export async function loadConstituentsPanel(db: SupabaseClient, workspace: strin
     const name = names.get(by);
     if (name) people[by] = directory.byId(by, name);
   }
-  return { constituents: load.ok ? load.constituents : null, events, owner: owner === true, people };
+  return { constituents: load.ok ? load.constituents : null, events, owner, people };
 }

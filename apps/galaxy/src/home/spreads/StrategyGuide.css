@@ -1,23 +1,106 @@
-/* The strategy guide's spread (HOME, PRD 285). Every colour and face is a variable from
-   @omni/design; nothing here is declared on :root. */
+/* The strategy guide's spread (HOME, PRD 971): the loop, drawn after the docs' loop in the arcade's
+   skin. Every colour and face is a variable from @omni/design; nothing here is declared on :root. */
 
-/* The strategy guide: the loop's stages as a world map's levels, OmniMan running the path, and the
-   LOOP LINGO sidebar beside the map (under it on a phone). */
+/* The map and its legend, with the LOOP LINGO sidebar beside it (under it on a phone). */
 .home-guide {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
   gap: 16px;
   align-items: start;
 }
-.home-map {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
+.home-loop { display: grid; gap: 12px; min-width: 0; }
+.home-loop-board { position: relative; }
+
+/* The map: drawn wide from 720px, as one column below it. */
+.home-loop-map { display: block; width: 100%; height: auto; overflow: visible; }
+.home-loop-tall { display: none; max-width: 420px; margin: 0 auto; }
+.home-loop-shadow { fill: var(--navy-dark); }
+.home-loop-frame { fill: var(--deep); stroke: var(--navy); stroke-width: 2; }
+.home-loop-lv { font: 10px var(--font-pixel); fill: var(--yellow); }
+.home-loop-name { font: 400 17px var(--font-display); letter-spacing: 0.02em; fill: var(--white); }
+.home-loop-line { font: 12px var(--font-body); fill: var(--dim); }
+.home-loop-tag { font: 8px var(--font-pixel); }
+.home-loop-tag .home-glyph { font-size: 11px; }
+.home-loop-line-path { fill: none; stroke-width: 3; }
+.home-loop-arrow { --mover: var(--dim); }
+.home-loop-you { --mover: var(--plasma); }
+.home-loop-agents { --mover: var(--cyan); }
+.home-loop-app { --mover: var(--green); }
+.home-loop-knowledge { --mover: var(--yellow); }
+.home-loop-arrow .home-loop-line-path { stroke: var(--mover); }
+.home-loop-arrow .home-loop-head, .home-loop-arrow .home-loop-tag { fill: var(--mover); }
+.home-loop-knowledge .home-loop-line-path { stroke-dasharray: 6 5; }
+
+/* For a screen reader only: the stages and their lines. Hidden from the eye, never from the reader. */
+.home-loop-list {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Who moves the work on: three swatches. */
+.home-loop-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
   margin: 0;
   padding: 0;
   list-style: none;
+  font-size: 13px;
+  color: var(--dim);
 }
-.home-stage-line code { font-size: 12px; color: var(--white); overflow-wrap: anywhere; }
+.home-loop-legend li::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  vertical-align: -1px;
+  background: var(--mover);
+}
+.home-loop-legend b { font: 8px/1.6 var(--font-pixel); font-weight: 400; color: var(--mover); }
+.home-loop-legend .home-loop-you { --mover: var(--plasma); }
+.home-loop-legend .home-loop-agents { --mover: var(--cyan); }
+.home-loop-legend .home-loop-app { --mover: var(--green); }
+
+/* OmniMan runs the loop, standing on each level's box in turn (the boxes' top centres, as fractions
+   of the wide map's 800 × 460, then of the column's 360 × 1100). */
+.home-loop-runner {
+  position: absolute;
+  left: 15%;
+  top: 4.35%;
+  width: 32px;
+  transform: translate(-50%, -85%);
+  animation: home-loop-run 12s linear infinite;
+  pointer-events: none;
+}
+@keyframes home-loop-run {
+  0%, 8% { left: 15%; top: 4.35%; }
+  16%, 24% { left: 50%; top: 4.35%; }
+  32%, 40% { left: 85%; top: 4.35%; }
+  48%, 56% { left: 85%; top: 63.04%; }
+  64%, 72% { left: 50%; top: 63.04%; }
+  80%, 88% { left: 15%; top: 63.04%; }
+  100% { left: 15%; top: 4.35%; }
+}
+@keyframes home-loop-run-tall {
+  0%, 7% { left: 55.8%; top: 1.82%; }
+  13%, 20% { left: 55.8%; top: 17.27%; }
+  26%, 33% { left: 55.8%; top: 32.73%; }
+  39%, 46% { left: 55.8%; top: 48.18%; }
+  52%, 59% { left: 55.8%; top: 63.64%; }
+  65%, 72% { left: 55.8%; top: 79.09%; }
+  80% { left: 6.7%; top: 79.09%; }
+  95% { left: 6.7%; top: 1.82%; }
+  100% { left: 55.8%; top: 1.82%; }
+}
+.home-loop-runner .home-svg, .home-loop-runner svg { display: block; width: 100%; height: auto; }
+
 .home-lingo {
   background: var(--deep);
   border: 2px dashed var(--yellow);
@@ -32,28 +115,24 @@
 .home-lingo dl { margin: 0; display: grid; gap: 4px; }
 .home-lingo dt { font: 400 15px/1.1 var(--font-display); letter-spacing: 0.02em; color: var(--white); }
 .home-lingo dd { margin: 0 0 8px; font-size: 13px; line-height: 1.45; color: var(--dim); }
-.home-stage {
-  background: var(--deep);
-  border: 2px solid var(--navy-dark);
-  padding: 12px 10px;
-  display: grid;
-  gap: 6px;
-  align-content: start;
-}
-.home-stage-bonus { border-color: var(--yellow); }
-.home-stage-lv { font: 10px/1 var(--font-pixel); color: var(--yellow); }
-.home-stage b { font: 400 15px/1.1 var(--font-display); letter-spacing: 0.02em; }
-.home-stage-line { font-size: 13px; line-height: 1.45; color: var(--dim); }
 .home-walker {
-  display: flex;
-  align-items: end;
-  gap: 10px;
   font: 8px/1.6 var(--font-pixel);
   color: var(--dim);
 }
-.home-runner { width: 40px; flex: none; }
 
 @media (max-width: 760px) {
   .home-guide { grid-template-columns: minmax(0, 1fr); }
-  .home-map { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Below 720px the loop is one column, KNOWLEDGE running back up its left edge. */
+@media (max-width: 719px) {
+  .home-loop-wide { display: none; }
+  .home-loop-tall { display: block; }
+  .home-loop-board { max-width: 420px; width: 100%; margin: 0 auto; }
+  .home-loop-runner { left: 55.8%; top: 1.82%; width: 28px; animation-name: home-loop-run-tall; }
+}
+
+/* Under reduced motion OmniMan stands still on IDEA. */
+@media (prefers-reduced-motion: reduce) {
+  .home-loop-runner { animation: none; }
 }

@@ -4,6 +4,7 @@
 // others, most recently active first. The page opens on the first tab, or on the one its link names,
 // and never changes the selection by itself: a question arriving elsewhere only badges that tab. The
 // browser title's count is the waiting list's, prefixed on every app page alike (PRD 499).
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { readQuestions } from '../answer-model';
 import { sessionClosed, type AskRoundStatus } from '../store';
 import { HOOK_WAIT_MS, type SessionRow, type SessionState } from './view';
@@ -53,7 +54,7 @@ function tab({ session, newest }: TabRow, now: number): Tab {
     title: session.title,
     header: newest?.header ?? null,
     state: closed ? 'closed' : waiting ? 'needs-you' : 'working',
-    age: waiting ? ageLabel(Math.max(0, now - asked!)) : null,
+    age: waiting ? ageLabel(Math.max(0, now - asked)) : null,
     askedAt: waiting ? asked : null,
     activeAt: Math.max(time(session.last_seen_at), asked ?? 0),
   };
@@ -62,7 +63,7 @@ function tab({ session, newest }: TabRow, now: number): Tab {
 function order(a: Tab, b: Tab): number {
   const need = Number(b.state === 'needs-you') - Number(a.state === 'needs-you');
   if (need) return need;
-  if (a.state === 'needs-you') return a.askedAt! - b.askedAt! || a.id.localeCompare(b.id);
+  if (a.state === 'needs-you') return defined(a.askedAt, 'a waiting tab\'s question time') - defined(b.askedAt, 'a waiting tab\'s question time') || a.id.localeCompare(b.id);
   return b.activeAt - a.activeAt || a.id.localeCompare(b.id);
 }
 

@@ -15,10 +15,10 @@ function deps(viewer: Viewer, graph = GRAPH as KnowledgeGraph | null, others: In
   const calls = { viewer: 0, load: 0, repos: 0, loadRepo: [] as InstalledRepo[] };
   return {
     calls,
-    viewer: async () => { calls.viewer += 1; return viewer; },
+    viewer: () => { calls.viewer += 1; return Promise.resolve(viewer); },
     load: () => { calls.load += 1; return graph; },
-    repos: async () => { calls.repos += 1; return others; },
-    loadRepo: async (repo: InstalledRepo) => { calls.loadRepo.push(repo); return remote; },
+    repos: () => { calls.repos += 1; return Promise.resolve(others); },
+    loadRepo: (repo: InstalledRepo) => { calls.loadRepo.push(repo); return Promise.resolve(remote); },
   };
 }
 

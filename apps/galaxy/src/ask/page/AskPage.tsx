@@ -11,6 +11,7 @@ import { needsYou, pageTabs, pageWithList, pageWithPane, pickTab, tabsTitle, tog
 import type { Member } from './question';
 import type { SessionState } from './view';
 import type { AskDock } from './dock-player';
+import type { Database } from '../../../../../supabase/database.types';
 
 // The person's ask page (PRD 142): every open ask session they own as a tab, one per terminal, the
 // selected one's pane beside the list. The list is read again every 2 s while the page is visible;
@@ -38,8 +39,8 @@ type Props = {
 };
 
 function makeTabs(source: SourceConfig, page: Page, me: string): TabsPort {
-  if (source.kind === 'demo') return { list: async () => structuredClone(page.rows) };
-  return databaseTabs(createBrowserClient(source.url, source.key), me);
+  if (source.kind === 'demo') return { list: () => Promise.resolve(structuredClone(page.rows)) };
+  return databaseTabs(createBrowserClient<Database>(source.url, source.key), me);
 }
 
 function TabState({ tab }: { tab: Tab }) {
@@ -79,7 +80,9 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
     [getPort, offset],
   );
 
-  const onPane = useCallback((state: SessionState) => setPage((p) => pageWithPane(p, state)), []);
+  const onPane = useCallback((state: SessionState) => {
+    setPage((p) => pageWithPane(p, state));
+  }, []);
 
   if (tabs.length === 0) {
     return (
@@ -109,7 +112,9 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
           className="ask-tabs-fold"
           aria-expanded={page.listOpen}
           aria-controls="ask-tab-list"
-          onClick={() => setPage(toggleList)}
+          onClick={() => {
+            setPage(toggleList);
+          }}
         >
           <span>{head}</span>
           <span className="ask-tabs-chevron" aria-hidden="true" />
@@ -124,7 +129,9 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
                 className="ask-tab"
                 data-state={tab.state}
                 aria-current={tab.id === page.selected ? 'page' : undefined}
-                onClick={() => setPage(pickTab)}
+                onClick={() => {
+                  setPage(pickTab);
+                }}
               >
                 <span className="ask-tab-title">
                   {tab.state === 'needs-you' && <span className="ask-badge" aria-hidden="true" />}

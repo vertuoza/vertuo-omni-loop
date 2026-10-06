@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOME, before and after</title>
+<style>
+  /* Layout: two phone-sized page mockups side by side (stacked below 900px), HOME's arcade look, single dark world. */
+  :root {
+    --space: #07071a; --panel: #0e0e30; --line: #23236a; --ink: #e9e8ff; --muted: #9a9ad0;
+    --gold: #f5c842; --you: #b37cff; --agents: #6ff0ff; --app: #4ee08a; --gone: #ff6b7a;
+    --px: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --body: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--space); color: var(--ink); font: 15px/1.5 var(--body); padding: 32px 16px 64px; }
+  header, main { max-width: 1180px; margin: 0 auto; }
+  h1 { font: 700 26px/1.2 var(--px); letter-spacing: .04em; margin: 0 0 8px; text-wrap: balance; }
+  h1 em { color: var(--gold); font-style: normal; }
+  .intro { color: var(--muted); max-width: 68ch; margin: 0 0 28px; }
+  main { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .col { min-width: 0; }
+  .col > h2 { font: 700 13px var(--px); letter-spacing: .14em; color: var(--muted); margin: 0 0 10px; }
+  .page { border: 2px solid var(--line); background: var(--panel); display: grid; gap: 0; }
+  .spread { padding: 16px; border-top: 2px solid var(--line); min-width: 0; }
+  .spread:first-child { border-top: 0; }
+  .spread h3 { font: italic 800 17px/1.2 var(--body); margin: 0 0 8px; text-transform: none; }
+  .spread h3 em { color: var(--gold); }
+  .spread p { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+  .poster { font: 700 12px var(--px); letter-spacing: .1em; color: var(--muted); text-align: center; }
+  .poster b { display: block; color: var(--ink); font-size: 18px; margin-top: 4px; }
+  .cut { position: relative; opacity: .55; }
+  .cut::after { content: "REMOVED"; position: absolute; top: 12px; right: 12px; font: 700 11px var(--px); letter-spacing: .12em; color: var(--gone); border: 1px solid var(--gone); padding: 2px 6px; }
+  .cut h3 { text-decoration: line-through; text-decoration-color: var(--gone); }
+  .moved::after { content: "MOVED INTO THE GAME"; color: var(--gold); border-color: var(--gold); }
+  .new { box-shadow: inset 4px 0 0 var(--gold); }
+  .tag { display: inline-block; font: 700 10px var(--px); letter-spacing: .12em; color: var(--space); background: var(--gold); padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font: 11px var(--px); border: 1px solid var(--line); padding: 3px 6px; color: var(--ink); }
+  .grid7 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .grid7 .chip { text-align: center; }
+  svg { display: block; width: 100%; height: auto; }
+  .lbl { font: 700 11px var(--px); fill: var(--ink); }
+  .sub { font: 9px var(--body); fill: var(--muted); }
+  .chain { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .step { border: 1px solid var(--line); padding: 8px; font-size: 11px; color: var(--muted); min-width: 0; }
+  .step b { display: block; font: 700 11px var(--px); color: var(--gold); letter-spacing: .08em; margin-bottom: 4px; }
+  .quote { margin-top: 8px; font-size: 12px; border-left: 2px solid var(--you); padding-left: 8px; color: var(--ink); }
+  .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .card { border: 2px solid var(--c); padding: 6px 4px; text-align: center; font: 700 9px var(--px); color: var(--c); min-width: 0; }
+  .card svg { width: 32px; margin: 0 auto 4px; }
+  .card.empty svg { visibility: hidden; }
+  .beats { font: 700 11px var(--px); color: var(--gold); letter-spacing: .08em; margin: 10px 0 6px; }
+  table { width: 100%; border-collapse: collapse; font: 11px var(--px); font-variant-numeric: tabular-nums; }
+  td { padding: 3px 4px; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; color: var(--gold); }
+  .scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
+  .score { border: 1px solid var(--line); padding: 6px; font: 9px var(--px); color: var(--muted); }
+  .score b { display: block; font-size: 18px; color: var(--gold); }
+  .exit { font-size: 12px; color: var(--ink); border: 1px dashed var(--gold); padding: 6px 8px; margin-top: 8px; }
+  @media (max-width: 520px) { .chain, .grid7 { grid-template-columns: 1fr 1fr; } .cards { grid-template-columns: repeat(3, 1fr); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>HOME, <em>before and after</em> · PRD 971</h1>
+  <p class="intro">The front door at <code>/</code>. Today it spends seven spreads on how the loop works inside. After, it has four: the loop as the docs draw it, how the agents build for your customers, the fleet game with its real counts, and the order form. The poster above the fold does not change.</p>
+</header>
+<main>
+  <section class="col" aria-labelledby="before">
+    <h2 id="before">TODAY · 7 SPREADS</h2>
+    <div class="page">
+      <div class="spread poster">THE DELIVERY FRAMEWORK FOR CODING AGENTS<b>AGENTS SHIP. YOU STEER.</b></div>
+      <div class="spread cut"><h3>What's in it <em>for you?</em></h3><div class="row"><span class="chip">HEAD OF ENGINEERING</span><span class="chip">DEVELOPER</span><span class="chip">PRODUCT MANAGER</span></div></div>
+      <div class="spread"><h3>Strategy guide: <em>the loop, level by level</em></h3>
+        <p>Seven cards in a grid, read as a straight line. OmniMan is one still frame.</p>
+        <div class="grid7"><span class="chip">1-1 SET UP</span><span class="chip">1-2 BRAINSTORM</span><span class="chip">1-3 PLAN</span><span class="chip">1-4 BUILD</span><span class="chip">1-5 OUTBOX</span><span class="chip">1-6 SHIP</span><span class="chip">★ KNOWLEDGE</span></div>
+      </div>
+      <div class="spread cut"><h3>You see <em>everything</em></h3><p>The outbox · one page per feature · questions on a web page · a knowledge base · release notes · the galaxy</p></div>
+      <div class="spread cut"><h3>Easy in, <em>easy out</em></h3><p><code>omni init</code> · <code>.omni-loop/</code> · <code>statusLine</code> · <code>/omni:invade</code> · GitHub App</p></div>
+      <div class="spread cut moved"><h3>High scores: <em>the loop built this</em></h3><div class="scores"><div class="score">FEATURES SHIPPED<b>92</b></div><div class="score">SLICES MERGED<b>443</b></div><div class="score">DECISIONS ADOPTED<b>704</b></div></div></div>
+      <div class="spread"><h3>The game: <em>Entropy you can see</em></h3>
+        <p>The demo galaxy's fleets. NIGHT OWLS has no face.</p>
+        <div class="cards">
+          <div class="card" style="--c:#c9824a"><svg viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" fill="#c9824a"/></svg>BUILDERS</div>
+          <div class="card" style="--c:#a070f0"><svg viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" fill="#a070f0"/></svg>INKLINGS</div>
+          <div class="card" style="--c:#f5c842"><svg viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" fill="#f5c842"/></svg>COINERS</div>
+          <div class="card empty" style="--c:#8f9ac0"><svg viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" fill="#8f9ac0"/></svg>NIGHT OWLS</div>
+          <div class="card" style="--c:#35b89a"><svg viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" fill="#35b89a"/></svg>CORSAIRS</div>
+        </div>
+      </div>
+      <div class="spread"><h3>Join <em>the loop!</em></h3><p>Sign up with GitHub · PRESS START · GETTING STARTED</p></div>
+    </div>
+  </section>
+
+  <section class="col" aria-labelledby="after">
+    <h2 id="after">AFTER · 4 SPREADS</h2>
+    <div class="page">
+      <div class="spread poster">THE DELIVERY FRAMEWORK FOR CODING AGENTS<b>AGENTS SHIP. YOU STEER.</b></div>
+
+      <div class="spread new"><h3>Strategy guide: <em>the loop</em></h3>
+        <svg viewBox="0 0 520 250" role="img" aria-labelledby="loopt">
+          <title id="loopt">The loop: idea, PRD, inbox, outbox, shipped, retro, and knowledge back to the next idea</title>
+          <defs>
+            <marker id="ay" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="#b37cff"/></marker>
+            <marker id="aa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6ff0ff"/></marker>
+            <marker id="ap" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="#4ee08a"/></marker>
+            <marker id="ak" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="#9a9ad0"/></marker>
+          </defs>
+          <g fill="#07071a" stroke="#23236a" stroke-width="2">
+            <rect x="10" y="10" width="130" height="64"/><rect x="195" y="10" width="130" height="64"/><rect x="380" y="10" width="130" height="64"/>
+            <rect x="380" y="160" width="130" height="64"/><rect x="195" y="160" width="130" height="64"/><rect x="10" y="160" width="130" height="64"/>
+          </g>
+          <text x="20" y="30" class="sub">1-1</text><text x="20" y="46" class="lbl">IDEA</text><text x="20" y="62" class="sub">talked through with Claude</text>
+          <text x="205" y="30" class="sub">1-2</text><text x="205" y="46" class="lbl">PRD</text><text x="205" y="62" class="sub">brief + before/after</text>
+          <text x="390" y="30" class="sub">1-3</text><text x="390" y="46" class="lbl">INBOX</text><text x="390" y="62" class="sub">approved, ready to build</text>
+          <text x="390" y="180" class="sub">1-4</text><text x="390" y="196" class="lbl">OUTBOX</text><text x="390" y="212" class="sub">built; questions wait</text>
+          <text x="205" y="180" class="sub">1-5</text><text x="205" y="196" class="lbl">SHIPPED</text><text x="205" y="212" class="sub">a person merges</text>
+          <text x="20" y="180" class="sub">1-6</text><text x="20" y="196" class="lbl">RETRO</text><text x="20" y="212" class="sub">what it taught</text>
+          <path d="M142 42H192" stroke="#b37cff" stroke-width="3" marker-end="url(#ay)"/>
+          <path d="M327 42H377" stroke="#b37cff" stroke-width="3" marker-end="url(#ay)"/>
+          <path d="M445 76V157" stroke="#6ff0ff" stroke-width="3" marker-end="url(#aa)"/>
+          <path d="M378 192H328" stroke="#b37cff" stroke-width="3" marker-end="url(#ay)"/>
+          <path d="M193 192H143" stroke="#4ee08a" stroke-width="3" marker-end="url(#ap)"/>
+          <path d="M75 158V77" stroke="#9a9ad0" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ak)"/>
+          <text x="84" y="122" class="lbl" style="fill:#f5c842">★ KNOWLEDGE</text>
+          <text x="84" y="136" class="sub">back to the next idea</text>
+          <rect x="196" y="104" width="8" height="12" fill="#58a8f0"/><rect x="197" y="98" width="6" height="6" fill="#f0c8a0"/><text x="210" y="114" class="sub">OmniMan runs the loop</text>
+          <g class="sub"><rect x="250" y="236" width="8" height="8" fill="#b37cff"/><text x="262" y="244" class="sub">YOU</text><rect x="300" y="236" width="8" height="8" fill="#6ff0ff"/><text x="312" y="244" class="sub">AGENTS</text><rect x="365" y="236" width="8" height="8" fill="#4ee08a"/><text x="377" y="244" class="sub">OMNI APP</text></g>
+        </svg>
+        <p>Loop lingo stays beside the map. Below 720px the loop is one column.</p>
+      </div>
+
+      <div class="spread new"><h3>Built for <em>your customers</em><span class="tag">NEW</span></h3>
+        <p>The agents don't build for you. They build for your customers. Tell them who those are once, and every run reads it.</p>
+        <div class="chain">
+          <div class="step"><b>BUSINESS →</b>Renovation firms, 5–50 people, Europe. Up against the spreadsheet.</div>
+          <div class="step"><b>PRODUCTS →</b>A site diary app.</div>
+          <div class="step"><b>PERSONAS →</b>Site foreman · skeptical<br>Office manager · excited<br>Plumber · neutral</div>
+          <div class="step"><b>EVERY RUN</b>The agents read them before they design.</div>
+        </div>
+        <div class="quote">“My crews are five people, this screen is built for fifty.” Your answer becomes a fact the agents keep.</div>
+        <p style="margin-top:6px">EXAMPLE · Brick &amp; Bolt is invented.</p>
+      </div>
+
+      <div class="spread new"><h3>The game: <em>build your fleet</em></h3>
+        <p>Ship value to your customers, and score for your fleet while you do.</p>
+        <div class="beats">1 · CREATE YOUR FLEET</div>
+        <div class="cards">
+          <div class="card" style="--c:#c9824a"><svg viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" fill="#c9824a"/></svg>DAM BUSTERS</div>
+          <div class="card" style="--c:#a070f0"><svg viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" fill="#a070f0"/></svg>DEEP DIVERS</div>
+          <div class="card" style="--c:#f5c842"><svg viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" fill="#f5c842"/></svg>GOLD DIGGERS</div>
+          <div class="card" style="--c:#8f9ac0"><svg viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" fill="#8f9ac0"/></svg>SPY RING</div>
+          <div class="card" style="--c:#35b89a"><svg viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" fill="#35b89a"/></svg>SEA DOGS</div>
+        </div>
+        <div class="beats">2 · SHIP VALUE</div>
+        <p>Secured zones, rescues and closed Entropy score points. Every number comes from the game's rulebook.</p>
+        <div class="beats">3 · CLIMB THE LEADERBOARD <span class="tag">EXAMPLE</span></div>
+        <table><tbody><tr><td>1 · SEA DOGS</td><td>1 240</td></tr><tr><td>2 · DAM BUSTERS</td><td>1 105</td></tr><tr><td>3 · GOLD DIGGERS</td><td>980</td></tr></tbody></table>
+        <div class="beats">THE LOOP BUILT THIS</div>
+        <div class="scores"><div class="score">FEATURES SHIPPED<b>92</b></div><div class="score">SLICES MERGED<b>443</b></div><div class="score">DECISIONS ADOPTED<b>704</b></div></div>
+      </div>
+
+      <div class="spread"><h3>Join <em>the loop!</em></h3><p>Sign up with GitHub · PRESS START · GETTING STARTED</p>
+        <div class="exit">Leave any time: delete one folder and commit. Nothing to migrate.</div>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

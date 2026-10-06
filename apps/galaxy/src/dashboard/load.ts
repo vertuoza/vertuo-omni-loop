@@ -1,5 +1,7 @@
 import 'server-only';
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { Player } from '../arcade/types';
 import { loadFleets, loadGalaxy, loadMe } from '../data/load-galaxy';
 import { memberWorkspace, type Workspace } from '../data/workspace';
@@ -43,7 +45,7 @@ const NONE = { roster: UNREADABLE, activity: UNREADABLE, answered: UNREADABLE, g
  * PRD 657): Waiting for you is counted from it, not read again. Without it, Waiting for you reads the
  * ask tables itself. */
 export async function loadDashboard(
-  db: SupabaseClient, user: User, period: Period, now: Date, questions?: () => Promise<WaitingQuestion[]>,
+  db: SupabaseClient<Database>, user: User, period: Period, now: Date, questions?: () => Promise<WaitingQuestion[]>,
 ): Promise<DashboardLoad> {
   const season = seasonBounds(now);
   let workspace: Workspace | null;
@@ -52,7 +54,7 @@ export async function loadDashboard(
   } catch (error) {
     // Out of reach: whether they belong to a workspace is unknown, so nobody is turned away; every
     // part says it could not load.
-    console.error(`dashboard: your workspace could not be read (${(error as Error).message})`);
+    console.error(`dashboard: your workspace could not be read (${messageOf(error)})`);
     const home = homeRequest({ userId: user.id, login: loginOf(null, user), team: null });
     const board = boardOf(NONE, { scope: home.scope, people: home.people, viewerId: user.id, period, now });
     return { kind: 'dashboard', dashboard: { name: nameOf(null, user), season, you: UNREADABLE, waiting: UNREADABLE, board, solo: home.solo } };

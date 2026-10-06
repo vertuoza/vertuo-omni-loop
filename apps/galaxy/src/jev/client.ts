@@ -1,3 +1,4 @@
+import { defined, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { z } from 'zod';
 import { maskSecrets, maskState } from './mask';
 
@@ -62,19 +63,19 @@ export interface AskJev {
   now?: () => number;
 }
 
-const unit = z.number().finite().min(0).max(1);
+const unit = z.number().min(0).max(1);
 
 /** The name the one question is asked under; the model never reads it. */
 const Q = 'q';
 
-const probabilities = z.record(z.string(), z.number().finite().min(0)).optional().nullable();
+const probabilities = z.record(z.string(), z.number().min(0)).optional().nullable();
 
 const REPLY = z.object({
   model: z.string().min(1).optional().nullable(),
   answers: z.object({
     [Q]: z.discriminatedUnion('type', [
       z.object({ type: z.literal('choice'), choice: z.string(), confidence: unit, probabilities }),
-      z.object({ type: z.literal('score'), score: z.number().finite(), confidence: unit.optional().nullable(), probabilities }),
+      z.object({ type: z.literal('score'), score: z.number(), confidence: unit.optional().nullable(), probabilities }),
       z.object({ type: z.literal('noul'), noul: unit }),
     ]),
   }),
@@ -119,7 +120,7 @@ function byLevelOf(levels: JevOption[], probabilities: Record<string, number>): 
   for (const [name, p] of Object.entries(probabilities)) {
     const at = levelAt(levels, name);
     if (!(at >= 0 && at < levels.length)) return null;
-    byLevel[levels[at].key] = p;
+    byLevel[defined(levels[at], 'the level').key] = p;
   }
   return byLevel;
 }
@@ -130,7 +131,7 @@ function scoreByProbabilities(levels: JevOption[], answer: Extract<Answer, { typ
   if (!byLevel) return null;
   const values = levels.map((l) => byLevel[l.key] ?? 0);
   const index = values.indexOf(Math.max(...values));
-  return { answer: levels[index].key, confidence: answer.confidence ?? peakedness(values) ?? 0, probabilities: byLevel };
+  return { answer: defined(levels[index], 'the most probable level').key, confidence: answer.confidence ?? peakedness(values) ?? 0, probabilities: byLevel };
 }
 
 /** A Score read from its position, 0 the lowest level and 1 the highest, rounded to the nearest. */
@@ -138,7 +139,7 @@ function scoreByPosition(levels: JevOption[], answer: Extract<Answer, { type: 's
   if (answer.score < 0 || answer.score > 1) return null;
   const at = answer.score * (levels.length - 1);
   const index = Math.round(at);
-  return { answer: levels[index].key, confidence: answer.confidence ?? Math.max(0, 1 - 2 * Math.abs(at - index)), probabilities: null };
+  return { answer: defined(levels[index], 'the nearest level').key, confidence: answer.confidence ?? Math.max(0, 1 - 2 * Math.abs(at - index)), probabilities: null };
 }
 
 /** A Score's answer as a level: the most probable one, else its position from 0 to 1, rounded. */
@@ -166,9 +167,10 @@ async function reasonOf(response: Response): Promise<string> {
   const text = (await response.text().catch(() => '')).trim();
   if (text) {
     try {
-      const body = JSON.parse(text) as { error?: unknown; message?: unknown };
-      const error = body.error as { message?: unknown } | string | undefined;
-      const message = typeof error === 'string' ? error : typeof error?.message === 'string' ? error.message : body.message;
+      const body: unknown = JSON.parse(text);
+      const error = propertyOf(body, 'error');
+      const inner = propertyOf(error, 'message');
+      const message = typeof error === 'string' ? error : typeof inner === 'string' ? inner : propertyOf(body, 'message');
       if (typeof message === 'string' && message.trim()) return message.trim().slice(0, 300);
     } catch {
       return text.slice(0, 300);
@@ -182,7 +184,7 @@ export async function askJev({ key, state, question, fetch, timeoutMs = JEV_TIME
   const failed = (reason: Extract<JevOutcome, { kind: 'failed' }>['reason'], message: string, status: number | null = null): JevOutcome =>
     ({ kind: 'failed', reason, status, message, ms: now() - started });
   const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), timeoutMs);
+  const timer = setTimeout(() => { abort.abort(); }, timeoutMs);
   let response: Response;
   try {
     response = await fetch(JEV_URL, {

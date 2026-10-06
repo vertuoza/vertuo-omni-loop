@@ -17,6 +17,7 @@ import { BusinessScreen, DEMO_CLAIMS, DEMO_CONSTITUENTS, DEMO_PRODUCTS } from '.
 import { BusinessView } from './BusinessView';
 import type { Claim } from './model';
 import { initialBusinessState } from './state';
+import { sure } from '../arcade/test/sure';
 
 // Settings › Business's Constituents panel (PRD 871 s2): an owner adds a Statement and two Never lines,
 // edits the Statement and removes never#2, through the store's rules (the demo port, the functions'
@@ -32,12 +33,12 @@ let tick = 0;
 const now = () => new Date(Date.UTC(2026, 9, 1, 9, tick++)).toISOString();
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(sure(m[2], 'm[2]')) }));
 const history = (html: string) => {
   const from = html.indexOf('<details class="constituents-history"');
   return from < 0 ? '' : html.slice(from, html.indexOf('</details>', from));
 };
-const events = (html: string) => [...history(html).matchAll(/<li class="constituents-event"[^>]*>([\s\S]*?)<\/li>/g)].map((m) => text(m[1]));
+const events = (html: string) => [...history(html).matchAll(/<li class="constituents-event"[^>]*>([\s\S]*?)<\/li>/g)].map((m) => text(sure(m[1], 'm[1]')));
 
 const render = (state: ConstituentsState, { owner = true, unreadable = false } = {}) =>
   renderToStaticMarkup(createElement(ConstituentsPanel, { state, product: PRODUCT, owner, people: PEOPLE, unreadable }));
@@ -54,7 +55,7 @@ async function run(port: ConstituentPort, writes: Array<(s: ConstituentsState) =
 
 const save = (write: ConstituentWrite) => () => write;
 const statementOf = (s: ConstituentsState) => panelOf(s, PRODUCT).statement;
-const lineOf = (s: ConstituentsState, id: string) => s.constituents.find((c) => c.displayId === id && !c.removed)!;
+const lineOf = (s: ConstituentsState, id: string) => sure(s.constituents.find((c) => c.displayId === id && !c.removed), 's.constituents.find((c) => c.displayId === id && c.removed)');
 
 async function filled() {
   tick = 0;
@@ -63,7 +64,7 @@ async function filled() {
     save({ kind: 'save', product: PRODUCT, field: { kind: 'statement', id: null }, text: 'The component workshop', before: null }),
     save({ kind: 'save', product: PRODUCT, field: { kind: 'never' }, text: 'Calls real APIs', before: null }),
     save({ kind: 'save', product: PRODUCT, field: { kind: 'never' }, text: 'Holds business logic', before: null }),
-    (s) => ({ kind: 'save', product: PRODUCT, field: { kind: 'statement', id: statementOf(s)!.id }, text: 'The component workshop, with fixtures', before: statementOf(s)!.text }),
+    (s) => ({ kind: 'save', product: PRODUCT, field: { kind: 'statement', id: sure(statementOf(s), 'statementOf(s)').id }, text: 'The component workshop, with fixtures', before: sure(statementOf(s), 'statementOf(s)').text }),
     (s) => ({ kind: 'remove', line: lineOf(s, 'never#2') }),
   ]);
   return { port, state };
@@ -115,7 +116,7 @@ describe('an owner writing a product\'s constituents', () => {
 
   it('says a refusal, and keeps the field open', async () => {
     const refusing: ConstituentPort = {
-      add: async () => ({ ok: false, message: NOT_OWNER }), edit: async () => ({ ok: false, message: NOT_OWNER }), remove: async () => ({ ok: false, message: NOT_OWNER }),
+      add: () => Promise.resolve({ ok: false, message: NOT_OWNER }), edit: () => Promise.resolve({ ok: false, message: NOT_OWNER }), remove: () => Promise.resolve({ ok: false, message: NOT_OWNER }),
     };
     const open = constituentsReducer(initialConstituentsState([], []), { type: 'add-never' });
     const state = await run(refusing, [save({ kind: 'save', product: PRODUCT, field: { kind: 'never' }, text: 'x', before: null })], open);
@@ -150,7 +151,7 @@ describe('the vague-word hint', () => {
   it('shows under the Never line field on "world-class components", and Save stays enabled', () => {
     const html = render(typing('world-class components'));
     expect(text(html)).toContain('“world-class” names nothing a spec can break — say what it would look like.');
-    const saveButton = buttons(html).find((b) => b.text === SAVE)!;
+    const saveButton = sure(buttons(html).find((b) => b.text === SAVE), 'buttons(html).find((b) => b.text === SAVE)');
     expect(saveButton.attrs).not.toContain('disabled');
   });
 

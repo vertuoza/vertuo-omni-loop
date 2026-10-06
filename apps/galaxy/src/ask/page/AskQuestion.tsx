@@ -19,6 +19,7 @@ import { questionPort, type QuestionPort } from './source';
 import { askTitle } from './tabs';
 import { categoryChip, contextParts, minutesLeft, withCategory } from './view';
 import { QuestionList } from './QuestionText';
+import type { Database } from '../../../../../supabase/database.types';
 
 // One question, at /ask/q/<round> (PRD 144): the link a session's owner shares. While it is open, the
 // owner and the member it is shared with answer it here, with the session's earlier rounds below for
@@ -33,15 +34,15 @@ export type QuestionSource = { kind: 'database'; url: string; key: string } | { 
 type Props = {
   source: QuestionSource; initial: QuestionState; serverNow: number; me: string | null; members: Member[];
   /** The dossier the page was opened from (`?from=`), as given: back.ts ignores anything that is no dossier id. */
-  from?: string | null;
+  from?: string | null | undefined;
 };
 
 function makePort(source: QuestionSource, seed: QuestionState): QuestionPort {
-  return source.kind === 'demo' ? demoQuestionPort(seed) : questionPort(createBrowserClient(source.url, source.key), seed.round.id);
+  return source.kind === 'demo' ? demoQuestionPort(seed) : questionPort(createBrowserClient<Database>(source.url, source.key), seed.round.id);
 }
 
 const roundsOf = (source: QuestionSource) =>
-  source.kind === 'demo' ? noRounds : dossierRoundsReader(createBrowserClient(source.url, source.key));
+  source.kind === 'demo' ? noRounds : dossierRoundsReader(createBrowserClient<Database>(source.url, source.key));
 
 export function AskQuestion({ source, initial, serverNow, me, members, from = null }: Props) {
   const [state, setState] = useState(initial);
@@ -110,13 +111,17 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
       setSending(false);
     }
   }, [answers, sending, getPort, state.round.id, clock, me, members, from, source]);
+  // What RoundForm calls, stable while onSend is: its keyboard effect runs on the same changes as before.
+  const send = useCallback(() => {
+    void onSend();
+  }, [onSend]);
 
   const onSort = useCallback(async (category: Category | null) => {
     setSorting(true);
     setProblem(null);
     try {
       const set = await getPort().sort(state.round.id, category);
-      if (set) setState((s) => ({ ...s, round: withCategory({ session: s.session, rounds: [s.round] }, s.round.id, set).rounds[0] }));
+      if (set) setState((s) => ({ ...s, round: withCategory({ session: s.session, rounds: [s.round] }, s.round.id, set).rounds[0] ?? s.round }));
       else setProblem('This question could not be sorted: it is no longer in your workspace.');
     } catch {
       setProblem('The category was not saved. Check your connection and try again.');
@@ -145,7 +150,7 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
           onDraft={setDraft}
           canSend={answers !== null}
           sending={sending}
-          onSend={onSend}
+          onSend={send}
           minutesLeft={minutesLeft(view.movesAt, now)}
         />
       )}

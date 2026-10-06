@@ -3,6 +3,7 @@
 // `s` (snare), `h` (hat) and `c` (crash). Pure: sound.ts turns the parsed notes into Web Audio.
 // All of it is original, written for OMNI LOOP in an SNES style: two pulse leads, a triangle bass,
 // noise drums, and a shared echo added by the engine.
+import { defined, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export type Voice = 'lead' | 'harm' | 'bass' | 'drums';
 export interface Song {
@@ -24,7 +25,7 @@ const DRUMS = new Set(['k', 's', 'h', 'c']);
 export function freqOf(token: string): number | null {
   const m = NOTE.exec(token);
   if (!m) return null;
-  const n = SEMITONE[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+  const n = defined(SEMITONE[group(m, 1)], 'the note letter') + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
   return 440 * 2 ** ((12 * (Number(m[3]) + 1) + n - 69) / 12);
 }
 

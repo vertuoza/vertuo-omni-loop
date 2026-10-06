@@ -103,7 +103,8 @@ function fleetOf(member: Member, board: BoardRead): FleetTag | typeof SOLO {
 export function placeOf(heroes: readonly { name: string; points: number }[], login: string): Place | null {
   const ranked = [...heroes].sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
   const at = ranked.findIndex((h) => h.name.toLowerCase() === login);
-  if (at < 0 || ranked[at].points <= 0) return null;
+  const hero = ranked[at];
+  if (!hero || hero.points <= 0) return null;
   return { rank: at + 1, of: ranked.length };
 }
 

@@ -4,6 +4,7 @@ import type { JevDecisionEntry, JevDecisionRow } from './entry';
 import { outboxRisk } from './outbox-risk';
 import { questionCategory } from './question-category';
 import { unknownWorthAsking } from './unknown-worth-asking';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The registry of Jev decisions (PRD 812, decision 9): one file per decision, listed here. The five
 // rows (PRD 855 s4 added Unknown worth asking, PRD 871 s4 `constituent-break`) are the ones public.jev_decision_names() allows, in the page's order; a decision whose entry is
@@ -45,7 +46,8 @@ export const JEV_DECISIONS: readonly JevDecisionRow[] = Object.freeze([
   },
 ]);
 
-const REGISTRY: Readonly<Record<string, JevDecisionEntry<any, any>>> = Object.freeze({
+// Each entry has its own input and value types; the registry, and jevEntry, hand them out as unknown.
+const REGISTRY: Readonly<Record<string, JevDecisionEntry<unknown, unknown>>> = Object.freeze({
   [questionCategory.name]: questionCategory,
   [outboxRisk.name]: outboxRisk,
   [bugRisk.name]: bugRisk,
@@ -55,5 +57,5 @@ const REGISTRY: Readonly<Record<string, JevDecisionEntry<any, any>>> = Object.fr
 
 /** The decision's registry entry, or null when it has none (yet). */
 export function jevEntry(name: string): JevDecisionEntry<unknown, unknown> | null {
-  return Object.hasOwn(REGISTRY, name) ? REGISTRY[name] : null;
+  return Object.hasOwn(REGISTRY, name) ? defined(REGISTRY[name], `the ${name} decision`) : null;
 }

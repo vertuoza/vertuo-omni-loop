@@ -107,7 +107,9 @@ function marked(state: BusinessState, claim: string, mark: Mark): BusinessState 
   return { ...state, marks: was === mark ? rest : { ...rest, [claim]: mark } };
 }
 
-type Handlers = { [T in BusinessAction['type']]: (state: BusinessState, action: Extract<BusinessAction, { type: T }>) => BusinessState };
+/** Each action, by its type. */
+type ActionOf = { [T in BusinessAction['type']]: Extract<BusinessAction, { type: T }> };
+type Handlers = { [T in keyof ActionOf]: (state: BusinessState, action: ActionOf[T]) => BusinessState };
 
 /** One handler per action: what it changes of the page's state. */
 const HANDLERS: Handlers = {
@@ -141,7 +143,12 @@ const HANDLERS: Handlers = {
   'still-true': (state, action) => ({ ...state, claims: stillTrue(state.claims, action.claim, action.at), busy: false }),
 };
 
-export function businessReducer(state: BusinessState, action: BusinessAction): BusinessState {
-  const handle = HANDLERS[action.type] as (state: BusinessState, action: BusinessAction) => BusinessState;
+/** The handler of `type`, given the action of that type: the mapped type correlates the two. */
+function handleWith<T extends keyof ActionOf>(state: BusinessState, type: T, action: ActionOf[T]): BusinessState {
+  const handle: Handlers[T] = HANDLERS[type];
   return handle(state, action);
+}
+
+export function businessReducer(state: BusinessState, action: BusinessAction): BusinessState {
+  return handleWith(state, action.type, action);
 }

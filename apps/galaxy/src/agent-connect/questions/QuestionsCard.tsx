@@ -1,8 +1,9 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import { KIND_LABEL, KIND_ORDER, maxValue, type ClaimKind, type Product } from '../../business/model';
 import { dayLabel } from '../tokens/model';
 import type { AgentQuestion } from './model';
 import type { Answering, QuestionsState } from './state';
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings › Business › Questions agents couldn't answer, drawn from its state (PRD 855 s3). One row per
 // open question, the latest asked first: the question, the link that asked it, the repository and file,
@@ -51,7 +52,7 @@ export interface QuestionsCardProps {
 function AnswerForm({ answering, needsProduct, products, busy, on }: {
   answering: Answering; needsProduct: boolean; products: Product[]; busy: boolean; on: QuestionsHandlers;
 }) {
-  const submit = (e: FormEvent) => {
+  const submit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     on.save();
   };
@@ -60,14 +61,17 @@ function AnswerForm({ answering, needsProduct, products, busy, on }: {
     <form className="business-type agent-question-answer" onSubmit={submit}>
       <label>
         <span className="business-type-label">Kind</span>
-        <select name="kind" value={answering.kind} disabled={busy} onChange={(e) => on.kind(e.currentTarget.value as ClaimKind)}>
+        <select
+          name="kind" value={answering.kind} disabled={busy}
+          onChange={(e) => { const kind = e.currentTarget.value; if (isOneOf(KIND_ORDER, kind)) on.kind(kind); }}
+        >
           {KIND_ORDER.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
         </select>
       </label>
       {needsProduct && answering.kind !== 'region' && (
         <label>
           <span className="business-type-label">Product</span>
-          <select name="product" value={answering.product ?? ''} disabled={busy} onChange={(e) => on.product(e.currentTarget.value)}>
+          <select name="product" value={answering.product ?? ''} disabled={busy} onChange={(e) => { on.product(e.currentTarget.value); }}>
             <option value="" disabled>Pick one</option>
             {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -77,11 +81,11 @@ function AnswerForm({ answering, needsProduct, products, busy, on }: {
         <span className="business-type-label">The answer</span>
         <input
           type="text" name="value" maxLength={maxValue(answering.kind)} value={answering.value} disabled={busy}
-          placeholder={answering.kind === 'size' ? SIZE_HINT : undefined} onChange={(e) => on.value(e.target.value)}
+          placeholder={answering.kind === 'size' ? SIZE_HINT : undefined} onChange={(e) => { on.value(e.target.value); }}
         />
       </label>
       <button type="submit" className="ask-button" disabled={busy || blank}>{SAVE_ANSWER}</button>
-      <button type="button" className="ask-button quiet" onClick={on.cancel} disabled={busy}>{CANCEL}</button>
+      <button type="button" className="ask-button quiet" onClick={() => { on.cancel(); }} disabled={busy}>{CANCEL}</button>
     </form>
   );
 }
@@ -104,8 +108,8 @@ function QuestionRow({ question, state, products, on }: { question: AgentQuestio
         </div>
         {!answering && (
           <span className="agent-question-actions">
-            <button type="button" className="ask-button" onClick={() => on.answer(question)} disabled={state.busy}>{ANSWER_ONCE}</button>
-            <button type="button" className="ask-button quiet" aria-label={`${DISMISS}: ${question.question}`} onClick={() => on.dismiss(question)} disabled={state.busy}>{DISMISS}</button>
+            <button type="button" className="ask-button" onClick={() => { on.answer(question); }} disabled={state.busy}>{ANSWER_ONCE}</button>
+            <button type="button" className="ask-button quiet" aria-label={`${DISMISS}: ${question.question}`} onClick={() => { on.dismiss(question); }} disabled={state.busy}>{DISMISS}</button>
           </span>
         )}
       </div>
@@ -132,7 +136,7 @@ function SetAside({ questions, busy, on }: { questions: AgentQuestion[]; busy: b
                   <span>{dayLabel(q.lastAskedAt)}</span>
                 </span>
               </div>
-              <button type="button" className="ask-button quiet" aria-label={`${BRING_BACK}: ${q.question}`} onClick={() => on.bringBack(q)} disabled={busy}>{BRING_BACK}</button>
+              <button type="button" className="ask-button quiet" aria-label={`${BRING_BACK}: ${q.question}`} onClick={() => { on.bringBack(q); }} disabled={busy}>{BRING_BACK}</button>
             </div>
           </li>
         ))}

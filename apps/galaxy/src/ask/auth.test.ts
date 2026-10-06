@@ -44,7 +44,7 @@ describe('authenticate', () => {
   });
 
   it('lets through an account with no email, as GitHub allows', async () => {
-    const hidden = () => ({ auth: { getUser: async () => ({ data: { user: { id: EVE.id, email: null } }, error: null }) } });
+    const hidden = () => ({ auth: { getUser: () => Promise.resolve({ data: { user: { id: EVE.id, email: null } }, error: null }) } });
     expect(await authenticate('Bearer hidden-token', hidden)).toEqual({ ok: true, caller: { id: EVE.id, email: null, token: 'hidden-token' } });
   });
 
@@ -58,7 +58,7 @@ describe('authenticate', () => {
 
   it('answers 503, not 401, when the Auth server itself cannot answer', async () => {
     for (const status of [0, 502, 503]) {
-      const down = () => ({ auth: { getUser: async () => ({ data: { user: null }, error: { name: 'AuthRetryableFetchError', status, message: 'fetch failed' } }) } });
+      const down = () => ({ auth: { getUser: () => Promise.resolve({ data: { user: null }, error: { name: 'AuthRetryableFetchError', status, message: 'fetch failed' } }) } });
       expect(await authenticate('Bearer ada-token', down)).toMatchObject({ ok: false, status: 503 });
     }
   });

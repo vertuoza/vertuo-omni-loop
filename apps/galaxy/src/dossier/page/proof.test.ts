@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import type { ProofRunRow } from '../../proof/store';
 import type { DossierRow } from '../store';
 import { proofView, type ProofRead } from './proof';
 import { dossierView, readPick } from './view';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The Proof tab of /prd/<id> (PRD 798, s4), as pure functions of the runs the viewer reads: hidden with
 // no run; the newest run first, its commit, URL, date and ✓/✗/— counts, then one row per criterion with
@@ -12,7 +14,7 @@ const ID = '00000000-0000-4000-8000-0000000000d1';
 const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
 
 const numbered: DossierRow = {
-  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: 798, title: 'Proof video',
+  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(798), title: 'Proof video',
   opened_by: PIERRE.user_id, created_at: '2026-09-27T09:12:40Z', numbered_at: '2026-09-27T10:00:00Z',
 };
 
@@ -82,7 +84,9 @@ describe('the run shown', () => {
   });
 
   it('has one row per criterion: verdict, note, player and script', () => {
-    const [pass, fail, unfilmable] = proofView({ runs: RUNS, shown: signed(NEW.id) }, null, href, [PIERRE])!.criteria;
+    const view = proofView({ runs: RUNS, shown: signed(NEW.id) }, null, href, [PIERRE]);
+    assertDefined(view, 'the proof view');
+    const [pass, fail, unfilmable] = view.criteria;
     expect(pass).toMatchObject({
       text: 'The tab shows a player', verdict: 'pass', mark: '✓', note: null,
       video: `https://storage.test/sign/${NEW.id}/1-player.webm`, videoMissing: false,
@@ -90,13 +94,14 @@ describe('the run shown', () => {
     });
     // A clip whose link could not be signed says so; a script whose text could not be read keeps its link.
     expect(fail).toMatchObject({ verdict: 'fail', mark: '✗', note: 'expected ✗, got ✓', video: null, videoMissing: true });
-    expect(fail.script).toEqual({ name: '2-fail.spec.ts', text: null, href: `https://storage.test/sign/${NEW.id}/2-fail.spec.ts` });
+    expect(fail?.script).toEqual({ name: '2-fail.spec.ts', text: null, href: `https://storage.test/sign/${NEW.id}/2-fail.spec.ts` });
     // An unfilmable criterion has no clip and no script, and is not missing one.
     expect(unfilmable).toMatchObject({ verdict: 'unfilmable', mark: '—', note: 'a config key, not a screen', video: null, videoMissing: false, script: null });
   });
 
   it('lists every run in the picker, newest first, the shown one current', () => {
-    const v = proofView({ runs: RUNS, shown: signed(NEW.id) }, null, href, [PIERRE])!;
+    const v = proofView({ runs: RUNS, shown: signed(NEW.id) }, null, href, [PIERRE]);
+    assertDefined(v, 'the proof view');
     expect(v.versions.map((e) => [e.number, e.label, e.href, e.current])).toEqual([
       [2, 'Run 2 · 30 Sep · commit a1b2c3d · Pierre', href(2), true],
       [1, 'Run 1 · 29 Sep · commit 0000000 · Pierre', href(1), false],
@@ -104,7 +109,8 @@ describe('the run shown', () => {
   });
 
   it('is an older run when the picker names it', () => {
-    const v = proofView({ runs: RUNS, shown: { id: OLD.id, links: { '1-player.webm': 'https://storage.test/old.webm' }, scripts: {} } }, 1, href, [PIERRE])!;
+    const v = proofView({ runs: RUNS, shown: { id: OLD.id, links: { '1-player.webm': 'https://storage.test/old.webm' }, scripts: {} } }, 1, href, [PIERRE]);
+    assertDefined(v, 'the proof view');
     expect(v).toMatchObject({ number: 1, commit: '0000000', counts: { pass: 0, fail: 1, unfilmable: 0 } });
     expect(v.criteria).toHaveLength(1);
     expect(v.criteria[0]).toMatchObject({ verdict: 'fail', note: 'no player', video: 'https://storage.test/old.webm', script: null });
@@ -112,11 +118,12 @@ describe('the run shown', () => {
   });
 
   it('is the newest when the picker names a run that is not there', () => {
-    expect(proofView({ runs: RUNS, shown: signed(NEW.id) }, 9, href, [PIERRE])!.number).toBe(2);
+    expect(proofView({ runs: RUNS, shown: signed(NEW.id) }, 9, href, [PIERRE])?.number).toBe(2);
   });
 
   it('signs nothing for a run it was not read for: the rows still show, without a player', () => {
-    const v = proofView({ runs: RUNS, shown: null }, null, href, [PIERRE])!;
+    const v = proofView({ runs: RUNS, shown: null }, null, href, [PIERRE]);
+    assertDefined(v, 'the proof view');
     expect(v.criteria[0]).toMatchObject({ video: null, videoMissing: true, script: { name: '1-player.spec.ts', text: null, href: null } });
   });
 

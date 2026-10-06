@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import type { JevDecisionSettings, JevMode } from '../store';
 import { RECORD_DAYS, type DecisionRecord, type Disagreement, type JevRecords, type RefLink } from '../record/record';
 import { dayOf, decisionLines, maskedKey, MODE_LABELS, savedOn, tuningText, type DecisionLine, type JevState } from './model';
@@ -29,11 +29,11 @@ const RECORD_UNREADABLE = 'The record could not be read. Reload in a moment.';
 const MODES_HELP = 'Off: today’s path decides and Jev is not called. Shadow: today’s path decides and Jev’s answer is only logged. On: Jev decides, and today’s path whenever Jev cannot or answers under the floor.';
 
 export interface JevHandlers {
-  edit(): void;
-  cancel(): void;
-  save(key: string): void;
-  remove(): void;
-  saveDecision(settings: JevDecisionSettings): void;
+  edit: () => void;
+  cancel: () => void;
+  save: (key: string) => void;
+  remove: () => void;
+  saveDecision: (settings: JevDecisionSettings) => void;
 }
 
 const IDLE: JevHandlers = { edit() {}, cancel() {}, save() {}, remove() {}, saveDecision() {} };
@@ -43,11 +43,11 @@ export interface JevViewProps {
   owner: boolean;
   on?: JevHandlers;
   /** Each decision's record (PRD 812 s4); null when it could not be read, none in the demo. */
-  records?: JevRecords | null;
+  records?: JevRecords | null | undefined;
 }
 
 function KeyForm({ state, on }: { state: JevState; on: JevHandlers }) {
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = new FormData(event.currentTarget).get('key');
     if (typeof value === 'string' && value.trim()) on.save(value);
@@ -91,12 +91,14 @@ function DecisionForm({ line, state, on }: { line: DecisionLine; state: JevState
   const { settings } = line;
   const saving = state.savingDecision === settings.decision;
   const busy = state.savingDecision !== null;
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const mode = form.get('mode');
     on.saveDecision({
       decision: settings.decision,
-      mode: String(form.get('mode')) as JevMode,
+      // The select offers only MODES; readDecision checks the mode again on the server.
+      mode: MODES.find((m) => m === mode) ?? settings.mode,
       threshold: Number(form.get('threshold')),
       floor: Number(form.get('floor')),
     });

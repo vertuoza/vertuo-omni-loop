@@ -1,6 +1,7 @@
+import { parseRows } from '../data/parse-rows';
 import {
-  CONSTITUENT_COLUMNS, constituentOf, EVENT_COLUMNS, eventOf,
-  type Constituent, type ConstituentEvent, type StoredConstituent, type StoredConstituentEvent,
+  CONSTITUENT_COLUMNS, constituentOf, EVENT_COLUMNS, eventOf, StoredConstituent, StoredConstituentEvent,
+  type Constituent, type ConstituentEvent,
 } from './model';
 
 // The constituents' read for Settings › Business (PRD 871), as the signed-in person, so row-level
@@ -31,11 +32,11 @@ export async function loadConstituents(db: ConstituentsDb, products: readonly st
     ]);
     const error = rows.error ?? history.error;
     if (error) return { ok: false, reason: `Supabase: could not read the constituents (${error.message})` };
-    return {
-      ok: true,
-      constituents: ((rows.data ?? []) as StoredConstituent[]).map(constituentOf),
-      events: ((history.data ?? []) as StoredConstituentEvent[]).map(eventOf),
-    };
+    const constituents = parseRows(StoredConstituent, rows.data, 'constituents/load: constituents');
+    if (!constituents.ok) return { ok: false, reason: constituents.error };
+    const events = parseRows(StoredConstituentEvent, history.data, 'constituents/load: constituent_events');
+    if (!events.ok) return { ok: false, reason: events.error };
+    return { ok: true, constituents: constituents.value.map(constituentOf), events: events.value.map(eventOf) };
   } catch (err) {
     return { ok: false, reason: `Supabase: could not read the constituents (${err instanceof Error ? err.message : String(err)})` };
   }
