@@ -43084,25 +43084,27 @@ function overLimit({ path, text: text9, limit }) {
   const { max, name } = WORD_LIMITS[limit];
   return count3 > max ? [{ path, message: `${plural4(count3, "word")}; ${name} holds at most ${max}` }] : [];
 }
-function wordsOf2(scene2, at2) {
-  const piece = (key, text9, limit) => text9 === void 0 ? [] : [{ path: `${at2}.${key}`, text: text9, limit }];
-  switch (scene2.type) {
-    case "intro":
-      return [...piece("eyebrow", scene2.eyebrow, "eyebrow"), ...piece("title", scene2.title, "title"), ...piece("tag", scene2.tag, "tag")];
-    case "statement":
-      return piece("text", scene2.text, "text");
-    case "feature":
-      return [...piece("title", scene2.title, "title"), ...(scene2.bullets ?? []).flatMap((bullet, n) => piece(`bullets.${n}`, bullet, "bullet")), ...calloutWords(scene2.media, `${at2}.media`)];
-    case "steps":
-      return [...piece("title", scene2.title, "title"), ...scene2.steps.flatMap((step, n) => piece(`steps.${n}.label`, step.label, "step")), ...calloutWords(scene2.media, `${at2}.media`)];
-    case "beforeAfter":
-      return [...piece("title", scene2.title, "title"), ...piece("labels.before", scene2.labels?.before, "label"), ...piece("labels.after", scene2.labels?.after, "label")];
-    case "outro":
-      return [...piece("cta", scene2.cta, "cta"), ...piece("closing", scene2.closing, "closing")];
-  }
+var WORD_FIELDS = Object.freeze([
+  ["eyebrow", "eyebrow"],
+  ["title", "title"],
+  ["tag", "tag"],
+  ["text", "text"],
+  ["bullets.*", "bullet"],
+  ["steps.*.label", "step"],
+  ["labels.before", "label"],
+  ["labels.after", "label"],
+  ["media.callouts.*.label", "label"],
+  ["cta", "cta"],
+  ["closing", "closing"]
+]);
+function textsAt(value, path, at2) {
+  const [key, ...rest] = path;
+  if (key === void 0) return typeof value === "string" ? [{ path: at2, text: value }] : [];
+  if (key !== "*") return textsAt(propertyOf(value, key), rest, `${at2}.${key}`);
+  return Array.isArray(value) ? value.flatMap((item2, n) => textsAt(item2, rest, `${at2}.${n}`)) : [];
 }
-function calloutWords(media, at2) {
-  return (media.callouts ?? []).flatMap((callout2, n) => callout2.label === void 0 ? [] : [{ path: `${at2}.callouts.${n}.label`, text: callout2.label, limit: "label" }]);
+function wordsOf2(scene2, at2) {
+  return WORD_FIELDS.flatMap(([field3, limit]) => textsAt(scene2, field3.split("."), at2).map((piece) => ({ ...piece, limit })));
 }
 function lengthWarnings(seconds3) {
   if (seconds3 >= LENGTH_SECONDS.min && seconds3 <= LENGTH_SECONDS.max) return [];

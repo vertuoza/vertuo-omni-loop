@@ -8,7 +8,7 @@
 // seconds. Each finding names its path in the storyboard.
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
-import { messageOf } from '../narrow.ts';
+import { messageOf, propertyOf } from '../narrow.ts';
 import { STORYBOARD_FILE, mediaOf, parseStoryboard } from './storyboard.ts';
 import type { Media, Scene, Storyboard } from './storyboard.ts';
 
@@ -137,28 +137,35 @@ function overLimit({ path, text, limit }: Words): Finding[] {
   return count > max ? [{ path, message: `${plural(count, 'word')}; ${name} holds at most ${max}` }] : [];
 }
 
-/** Every piece of words a scene shows, with its path. */
-function wordsOf(scene: Scene, at: string): Words[] {
-  const piece = (key: string, text: string | undefined, limit: Limit): Words[] => (text === undefined ? [] : [{ path: `${at}.${key}`, text, limit }]);
-  switch (scene.type) {
-    case 'intro':
-      return [...piece('eyebrow', scene.eyebrow, 'eyebrow'), ...piece('title', scene.title, 'title'), ...piece('tag', scene.tag, 'tag')];
-    case 'statement':
-      return piece('text', scene.text, 'text');
-    case 'feature':
-      return [...piece('title', scene.title, 'title'), ...(scene.bullets ?? []).flatMap((bullet, n) => piece(`bullets.${n}`, bullet, 'bullet')), ...calloutWords(scene.media, `${at}.media`)];
-    case 'steps':
-      return [...piece('title', scene.title, 'title'), ...scene.steps.flatMap((step, n) => piece(`steps.${n}.label`, step.label, 'step')), ...calloutWords(scene.media, `${at}.media`)];
-    case 'beforeAfter':
-      return [...piece('title', scene.title, 'title'), ...piece('labels.before', scene.labels?.before, 'label'), ...piece('labels.after', scene.labels?.after, 'label')];
-    case 'outro':
-      return [...piece('cta', scene.cta, 'cta'), ...piece('closing', scene.closing, 'closing')];
-  }
+/**
+ * Where a scene's words are, by path: `*` stands for each item of a list. A scene of a type that has no
+ * such field simply holds nothing there. Callout labels are held to four words by the schema already.
+ */
+const WORD_FIELDS: readonly (readonly [string, Limit])[] = Object.freeze([
+  ['eyebrow', 'eyebrow'],
+  ['title', 'title'],
+  ['tag', 'tag'],
+  ['text', 'text'],
+  ['bullets.*', 'bullet'],
+  ['steps.*.label', 'step'],
+  ['labels.before', 'label'],
+  ['labels.after', 'label'],
+  ['media.callouts.*.label', 'label'],
+  ['cta', 'cta'],
+  ['closing', 'closing'],
+]);
+
+/** Every text at `path` of `value` (`*` expanding each item of a list), with its concrete path. */
+function textsAt(value: unknown, path: string[], at: string): { path: string; text: string }[] {
+  const [key, ...rest] = path;
+  if (key === undefined) return typeof value === 'string' ? [{ path: at, text: value }] : [];
+  if (key !== '*') return textsAt(propertyOf(value, key), rest, `${at}.${key}`);
+  return Array.isArray(value) ? value.flatMap((item, n) => textsAt(item, rest, `${at}.${n}`)) : [];
 }
 
-/** The labels a media's callouts show; the schema already holds each to four words. */
-function calloutWords(media: Media, at: string): Words[] {
-  return (media.callouts ?? []).flatMap((callout, n) => (callout.label === undefined ? [] : [{ path: `${at}.callouts.${n}.label`, text: callout.label, limit: 'label' as const }]));
+/** Every piece of words a scene shows, with its path. */
+function wordsOf(scene: Scene, at: string): Words[] {
+  return WORD_FIELDS.flatMap(([field, limit]) => textsAt(scene, field.split('.'), at).map((piece) => ({ ...piece, limit })));
 }
 
 function lengthWarnings(seconds: number): Finding[] {

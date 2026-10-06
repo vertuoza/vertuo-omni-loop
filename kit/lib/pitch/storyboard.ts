@@ -15,9 +15,9 @@
 import { z } from 'zod';
 
 export const STORYBOARD_FILE = 'storyboard.json';
-export const STORYBOARD_VERSION = 1;
+const STORYBOARD_VERSION = 1;
 export const SCENE_TYPES = Object.freeze(['intro', 'statement', 'feature', 'steps', 'beforeAfter', 'outro'] as const);
-export type SceneType = (typeof SCENE_TYPES)[number];
+type SceneType = (typeof SCENE_TYPES)[number];
 
 const text = z.string().trim().min(1);
 const unit = z.number().min(0).max(1);
@@ -82,7 +82,7 @@ const MetaSchema = z.strictObject({
   sources: z.array(text).min(1),
 });
 
-export const StoryboardSchema = z.strictObject({
+const StoryboardSchema = z.strictObject({
   storyboard: z.literal(STORYBOARD_VERSION),
   meta: MetaSchema,
   scenes: z.array(SceneSchema).min(1),
