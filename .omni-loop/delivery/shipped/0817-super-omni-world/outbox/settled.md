@@ -255,7 +255,7 @@ One line in the game's screen handling; nothing stored.
 - Raised: 2026-09-30
 - Slice: s2
 - Wave: 2
-- Became: ADR-0057
+- Became: ADR-0063
 
 ### The answer, as it was given
 

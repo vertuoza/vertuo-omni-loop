@@ -1,4 +1,4 @@
-# ADR-0057 — The stage clock is counted down by the scoring rules from a once-a-second report sent by the game engine
+# ADR-0063 — The stage clock is counted down by the scoring rules from a once-a-second report sent by the game engine
 
 **Status:** adopted · **Date:** 2026-09-30 · **PRD:** #817 · **Decided:** nobody — adopted when raised (medium), 2026-09-30 · **Merged:** @pierrederval, 2026-09-30, PR #818
 
