@@ -250,7 +250,11 @@ held or stuck with its reason.
 3. If the omni-loop app is installed, it then opens a retro PR and a knowledge PR in the plan
    repository: review and merge each.
 
-Nothing to run: merging the target PRs, then #<plan PR>, is yours.
+Merging the target PRs, then #<plan PR>, is yours. Until then, to keep every one of them green,
+conflict-free and its review comments handled while you do other things, type /clear (or open a
+new terminal), then run:
+
+/omni:mega-pr-care <n>
 ```
 
 **Red:** `/omni:yolo` step 7's red ending on the plan PR, its last line `/omni:ultra-yolo-fix <n>`.
@@ -258,7 +262,8 @@ Nothing to run: merging the target PRs, then #<plan PR>, is yours.
 **Held:** `/omni:yolo` step 7's held ending, the PR that holds it being the stuck sub-PR or target
 PR when there is one, the plan PR otherwise; its last line `/omni:ultra-yolo <n>`.
 
-The reply's last line is the ending's own, alone on it. A run that stops before step 1 picks up the
+The reply's last line is the ending's own, alone on it: `/omni:mega-pr-care <n>`,
+`/omni:ultra-yolo-fix <n>` or `/omni:ultra-yolo <n>`. A run that stops before step 1 picks up the
 plan PR keeps its one line and prints no hand-off.
 
 ## Guardrails
