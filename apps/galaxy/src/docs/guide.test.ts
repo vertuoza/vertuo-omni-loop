@@ -20,11 +20,11 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'several-repositories', 'landings', 'use-cases', 'troubleshooting',
+  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'several-repositories', 'landings', 'flow', 'use-cases', 'troubleshooting',
 ];
 const TITLES = [
   'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Several repositories',
-  'Landings', 'Use cases', 'When something goes wrong',
+  'Landings', 'Repository flow', 'Use cases', 'When something goes wrong',
 ];
 
 describe('docs/guide', () => {
@@ -32,7 +32,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its ten pages, in order, each with its title', () => {
+  it('holds its eleven pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -42,7 +42,7 @@ describe('docs/guide', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
       '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories',
-      '/docs/landings', '/docs/use-cases', '/docs/troubleshooting', '/docs',
+      '/docs/landings', '/docs/flow', '/docs/use-cases', '/docs/troubleshooting', '/docs',
     ]);
   });
 
@@ -74,6 +74,23 @@ describe('docs/guide', () => {
       expect(section, phrase).toContain(phrase);
     }
     expect(body('loop')).toMatch(/^\| `\/omni:think-big` \|/m);
+  });
+
+  it('walks the kernel and migrations example end to end on the flow page (PRD 1089)', () => {
+    const flow = readGuide(GUIDE).pages.find((page) => page.slug === 'flow')?.body ?? '';
+    for (const step of [
+      '```yaml file=.omni-loop/config.yml',
+      '```markdown file=.omni-loop/flow/kernel/tests.md',
+      'migrations: slice alone, a slice of this area touches no path outside it.',
+      'kernel: wave first',
+      'all territories and blocks well-formed.',
+      'omni flow show --path src/kernel/Bus/Dispatcher.php',
+      'kitStep: replaced',
+      'omni flow verdict do-work.test --from out.txt',
+      'not ok kernel: approval person',
+      'gh pr merge 12 --squash --delete-branch',
+      'ADR-0069',
+    ]) expect(flow, step).toContain(step);
   });
 
   it('draws the loop, its pull requests and its skills on the loop page', () => {
