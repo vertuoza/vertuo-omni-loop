@@ -79,6 +79,20 @@ describe('writePageInput', () => {
     expect(input.fonts.css).toContain('url(fonts/gantari-700-0.woff2)');
   });
 
+  it("draws a font uploaded to the product (the family asset:<file>) from the run's assets/<file> (PRD 1108 s7)", async () => {
+    const dir = scratch('input');
+    write(dir, 'assets/Brand Sans.woff2', 'wOF2');
+    const settings = runSettings(dir);
+    const look = { ...settings.look, heading: { provider: 'file', family: 'asset:Brand Sans.woff2', weight: 700 } };
+    const lines: string[] = [];
+    const { fetch } = contractNetwork();
+    const input = await writePageInput(dir, { storyboard: fixtureStoryboard(), settings: { ...settings, look }, credits: [], fetch, warn: (line) => lines.push(line) });
+    expect(lines).toEqual([]);
+    expect(input.fonts.heading).toMatch(/^"Brand Sans", /);
+    expect(input.fonts.css).toContain('font-family: "Brand Sans"; font-weight: 700');
+    expect(readFileSync(join(dir, 'fonts/brand-sans-700.woff2'), 'utf8')).toBe('wOF2');
+  });
+
   it("leaves out a logo the run does not hold, and a font that cannot be had falls back, each with one line", async () => {
     const dir = scratch('input');
     const settings = runSettings(dir);

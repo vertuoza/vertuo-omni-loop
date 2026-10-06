@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo, realExec } from '../../test/fixture.ts';
 import { FIXTURE_MEDIA, changedStoryboard, fixtureStoryboard } from '../../lib/pitch/storyboard.fixture.ts';
+import { defaultPitchSettings, parsePitchSettings } from '../../lib/pitch/settings.ts';
 import { main } from '../omni.ts';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import type { FakeExec, FetchInit } from '../../test/fixture.ts';
@@ -47,11 +48,14 @@ const withFfmpeg: FakeExec = (cmd, args, options) => (cmd === 'ffmpeg' ? '' : re
 
 const json = (status: number, body = {}) => new Response(JSON.stringify(body), { status });
 
+/** The product's stored Pitch settings: the Keynote look and an eyebrow of its own. */
+const KEYNOTE = { look: { preset: 'keynote' }, intro: { eyebrow: 'New in Widgets' } };
+
 type Fetched = (url: string, init: FetchInit) => Promise<Response>;
 
 async function omni(
   args: string[],
-  { root, cwd = root, tokens = signedIn(), fetch = () => Promise.resolve(json(200, { look: 'keynote' })), exec = withFfmpeg }: {
+  { root, cwd = root, tokens = signedIn(), fetch = () => Promise.resolve(json(200, { settings: KEYNOTE })), exec = withFfmpeg }: {
     root: string;
     cwd?: string;
     tokens?: ReturnType<typeof memoryTokens>;
@@ -116,10 +120,10 @@ describe('omni pitch start: the refusals, each one line, exit 1, nothing written
 });
 
 describe('omni pitch start', () => {
-  it("opens the run folder under worktrees with the product's look and the commit, and prints them", async () => {
+  it("opens the run folder under worktrees with the product's Pitch settings and the commit, and prints them", async () => {
     const root = checkout();
     const calls: (string | undefined)[][] = [];
-    const fetch = (url: string, init: FetchInit) => { calls.push([init.method, url, init.headers.authorization]); return Promise.resolve(json(200, { look: 'keynote' })); };
+    const fetch = (url: string, init: FetchInit) => { calls.push([init.method, url, init.headers.authorization]); return Promise.resolve(json(200, { settings: KEYNOTE })); };
     const { code, out, err } = await omni(['start', '7', '--for', 'customers'], { root, fetch });
     expect({ code, err }).toEqual({ code: 0, err: '' });
     const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
@@ -127,16 +131,40 @@ describe('omni pitch start', () => {
     const runDir: unknown = expect.stringMatching(/\.claude\/worktrees\/pitch-7\/customers-20261001-090507$/);
     expect(printed).toEqual({ dir: runDir, look: 'keynote', url: PRODUCTION, commit });
     expect(JSON.parse(readFileSync(join(printed.dir, 'pitch.json'), 'utf8'))).toEqual({ prd: 7, audience: 'customers', look: 'keynote', commit });
-    expect(calls).toEqual([['GET', `${BASE}/api/pitch-look?repo=acme%2Fwidgets`, 'Bearer access-1']]);
+    const settings = parsePitchSettings(JSON.parse(readFileSync(join(printed.dir, 'settings.json'), 'utf8')));
+    expect(settings.ok && settings.settings).toEqual({ ...defaultPitchSettings('keynote'), intro: { eyebrow: 'New in Widgets' } });
+    expect(existsSync(join(printed.dir, 'assets'))).toBe(true);
+    expect(calls).toEqual([['GET', `${BASE}/api/pitch-settings?repo=acme%2Fwidgets`, 'Bearer access-1']]);
     expect(execFileSync('git', ['status', '--porcelain', '--', '.omni-loop'], { cwd: root, encoding: 'utf8' })).toBe('');
   });
 
-  it('a look the Omni page cannot answer is arcade, said in one line', async () => {
+  it('settings the Omni page cannot answer are the default preset, Arcade, said in one line', async () => {
     const root = checkout();
     const { code, out, err } = await omni(['start', '7', '--for', 'inside'], { root, fetch: () => Promise.reject(new TypeError('fetch failed')) });
     expect(code).toBe(0);
-    expect((JSON.parse(out) as { look: string }).look).toBe('arcade');
-    expect(err).toBe("look: arcade (the product's look could not be read: unreachable)\n");
+    const printed = JSON.parse(out) as { dir: string; look: string };
+    expect(printed.look).toBe('arcade');
+    expect(JSON.parse(readFileSync(join(printed.dir, 'settings.json'), 'utf8'))).toEqual(defaultPitchSettings());
+    expect(err).toBe("settings: the arcade preset (the product's Pitch settings could not be read: unreachable)\n");
+  });
+
+  it('a refusal is the default preset too, with its status', async () => {
+    const root = checkout();
+    const { code, err } = await omni(['start', '7', '--for', 'inside'], { root, fetch: () => Promise.resolve(json(403, { error: 'Not a member.' })) });
+    expect(code).toBe(0);
+    expect(err).toBe("settings: the arcade preset (the product's Pitch settings could not be read: refused (403))\n");
+  });
+
+  it("names, one line each, the files the settings point at that the run's assets/ does not hold", async () => {
+    const root = checkout();
+    const withFiles = { ...KEYNOTE, look: { preset: 'keynote', logo: 'asset:logo.svg', heading: { provider: 'file', family: 'asset:brand.woff2', weight: 700 } } };
+    const { code, err } = await omni(['start', '7', '--for', 'customers'], { root, fetch: () => Promise.resolve(json(200, { settings: withFiles })) });
+    expect(code).toBe(0);
+    expect(err).toBe([
+      "asset: the settings name logo.svg; put it in the run's assets/ folder, or the video goes without it",
+      "asset: the settings name brand.woff2; put it in the run's assets/ folder, or the video goes without it",
+      '',
+    ].join('\n'));
   });
 });
 
@@ -233,9 +261,9 @@ describe('omni pitch check (PRD 1108, acceptance 4)', () => {
 describe('omni pitch', () => {
   it('a verb it does not know is a usage error naming its verbs', async () => {
     const root = checkout();
-    const { code, err } = await omni(['film', '7'], { root });
+    const { code, err } = await omni(['montage', '7'], { root });
     expect(code).toBe(2);
-    expect(err).toMatch(/start\|check\|render\|studio\|push/);
+    expect(err).toMatch(/start\|film\|check\|render\|studio\|push/);
   });
 });
 
@@ -275,7 +303,7 @@ describe('omni pitch render and studio: what stops them before anything is drawn
     for (const verb of ['slide', 'music', 'video']) {
       const { code, err } = await omni([verb, RUN], { root });
       expect(code, verb).toBe(2);
-      expect(err, verb).toMatch(/usage: omni pitch start\|check\|render\|studio\|push/);
+      expect(err, verb).toMatch(/usage: omni pitch start\|film\|check\|render\|studio\|push/);
     }
   });
 });

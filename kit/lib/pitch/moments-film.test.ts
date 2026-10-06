@@ -1,5 +1,5 @@
 // `omni pitch film`'s core (PRD 1108 s7, the spec's test seam 7): a walk-through of a local test page writes
-// moments.json whose boxes match its elements, and walk.mp4, remuxed so it carries its length and a
+// moments.json whose boxes match its elements, and walk.webm, encoded again so it carries its length and a
 // keyframe every half second. A click that would change something is refused, and nothing is written.
 // Runs in Playwright's Chromium with the computer's ffmpeg, where both are installed.
 import { execFileSync } from 'node:child_process';
@@ -70,13 +70,12 @@ function pixelAt(clip: string, seconds: number, x: number, y: number): number[] 
 }
 
 describe('remuxArgs', () => {
-  it('remuxes into H.264 with a keyframe every 15 frames, no sound, ready to stream', () => {
-    const args = remuxArgs('in.webm', 'walk.mp4');
-    expect(args.join(' ')).toContain('-c:v libx264');
-    expect(args.join(' ')).toContain('-g 15 -keyint_min 15 -sc_threshold 0');
+  it('encodes a VP8 WebM, which the Chromium the render draws in plays, with a keyframe every 15 frames and no sound', () => {
+    const args = remuxArgs('film/raw.webm', 'walk.webm');
+    expect(args.join(' ')).toContain('-i film/raw.webm -c:v libvpx');
+    expect(args.join(' ')).toContain('-g 15 -keyint_min 15');
     expect(args).toContain('-an');
-    expect(args.join(' ')).toContain('-movflags +faststart');
-    expect(args.at(-1)).toBe('walk.mp4');
+    expect(args.at(-1)).toBe('walk.webm');
   });
 });
 
@@ -95,7 +94,7 @@ describe('filmRun: what stops it, before a browser opens', () => {
 });
 
 describe.skipIf(!toolsHere)('filmRun on a local test page', () => {
-  it('writes moments.json whose boxes match the elements, and a walk.mp4 that seeks', async () => {
+  it('writes moments.json whose boxes match the elements, and a walk.webm that seeks', async () => {
     const dir = runWith({
       walk: 1,
       url: `${origin}/`,
@@ -117,11 +116,12 @@ describe.skipIf(!toolsHere)('filmRun on a local test page', () => {
     expect(totals?.box.w).toBeCloseTo(600 / 1920, 2);
     expect(totals?.box.y).toBeGreaterThan(0);
     expect((totals?.box.y ?? 1) + (totals?.box.h ?? 1)).toBeLessThan(1);
-    expect(filter?.focus).toEqual({ x: expect.closeTo(1120 / 1920, 2), y: expect.closeTo(440 / 1080, 2) });
+    expect(filter?.focus.x).toBeCloseTo(1120 / 1920, 2);
+    expect(filter?.focus.y).toBeCloseTo(440 / 1080, 2);
     expect(filter?.at).toBeLessThan(search?.at ?? 0);
     expect(search?.at).toBeLessThan(totals?.at ?? 0);
 
-    const clip = join(dir, 'walk.mp4');
+    const clip = join(dir, 'walk.webm');
     expect(moments.seconds).toBeGreaterThan(totals?.at ?? 0);
     const keyframes = execFileSync('ffprobe', ['-v', 'error', '-skip_frame', 'nokey', '-select_streams', 'v', '-show_entries', 'frame=pts_time', '-of', 'csv=p=0', clip], { encoding: 'utf8' }).trim().split('\n');
     expect(keyframes.length).toBeGreaterThanOrEqual(Math.floor(moments.seconds * 2) - 1);
@@ -140,7 +140,7 @@ describe.skipIf(!toolsHere)('filmRun on a local test page', () => {
     const error: unknown = await filmRun(dir, tools()).catch((caught: unknown) => caught);
     expect(error instanceof FilmRefused ? error.lines : error).toEqual([`step 2 (click ${target}): refused: the walk-through only looks, and this click would change production (${why})`]);
     expect(existsSync(join(dir, 'moments.json'))).toBe(false);
-    expect(existsSync(join(dir, 'walk.mp4'))).toBe(false);
+    expect(existsSync(join(dir, 'walk.webm'))).toBe(false);
     expect(existsSync(join(dir, 'film'))).toBe(false);
   }, 60_000);
 

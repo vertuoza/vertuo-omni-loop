@@ -1,13 +1,15 @@
 // `omni pitch film <dir>` (PRD 1108 s7): the run's `walk.json` played in Chromium at 1920×1080, filmed,
-// signed in with the run's `storage-state.json` when it holds one, and written as `walk.mp4` and
+// signed in with the run's `storage-state.json` when it holds one, and written as `walk.webm` and
 // `moments.json` (./moments.ts).
 //
 // - A visible cursor glides to each element before it acts, and each step pauses so the clip is easy to
 //   follow; each moment's time is when the cursor reaches its element.
 // - A click on an element whose words save, send, delete or change something, or on a submit button, is
 //   refused: the film stops there, nothing is written, and the one line says which step.
-// - The browser films WebM, which often carries no length and seeks poorly; ffmpeg remuxes it into an MP4
-//   with a keyframe every half second, so the engine's page can seek any frame of it.
+// - The browser films a WebM that often carries no length and seeks poorly; ffmpeg encodes it again, as a
+//   VP8 WebM with its length, its cues and a keyframe every half second, so the engine's page can seek any
+//   frame of it. WebM, not MP4: the Chromium Playwright ships plays no H.264, and it is the one the
+//   render draws the clip in.
 //
 // The browser is the repository's own Playwright, as for the render: the kit ships none.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -177,12 +179,12 @@ async function filmWalk(dir: string, walk: Walk, { launch, now }: { launch: Film
   }
 }
 
-/** The ffmpeg arguments that remux a WebM into an MP4 the page seeks well: H.264, a keyframe every half second, no sound. */
-export const remuxArgs = (webm: string, mp4: string): string[] => [
-  '-hide_banner', '-loglevel', 'error', '-y', '-i', webm,
-  '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p', '-r', '30',
-  '-g', String(KEYFRAMES), '-keyint_min', String(KEYFRAMES), '-sc_threshold', '0',
-  '-movflags', '+faststart', '-an', mp4,
+/** The ffmpeg arguments that make the browser's WebM one the page seeks well: VP8, a keyframe every half second, no sound. */
+export const remuxArgs = (filmed: string, clip: string): string[] => [
+  '-hide_banner', '-loglevel', 'error', '-y', '-i', filmed,
+  '-c:v', 'libvpx', '-deadline', 'realtime', '-cpu-used', '8', '-b:v', '6M', '-crf', '10', '-r', '30',
+  '-g', String(KEYFRAMES), '-keyint_min', String(KEYFRAMES), '-auto-alt-ref', '0',
+  '-an', clip,
 ];
 
 /** The length of a clip in seconds, as ffprobe reads it. */
@@ -233,7 +235,7 @@ export function repositoryBrowser(cwd: string): FilmLaunch {
 /** What filming reaches the world through: a child process, a browser and a clock. */
 export type FilmTools = { exec: Exec; launch: FilmLaunch; now?: () => number };
 
-/** Films the run in `dir`: writes `walk.mp4` and `moments.json`, and answers the moments. Throws `FilmRefused`, writing nothing. */
+/** Films the run in `dir`: writes `walk.webm` and `moments.json`, and answers the moments. Throws `FilmRefused`, writing nothing. */
 export async function filmRun(dir: string, { exec, launch, now = Date.now }: FilmTools): Promise<Moments> {
   const walk = readWalk(dir);
   const work = join(dir, FILM_DIR);

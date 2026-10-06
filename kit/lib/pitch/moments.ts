@@ -1,6 +1,6 @@
 // A pitch's filmed moments (PRD 1108's spec, "4. Filmed moments"). `/omni:pitch` writes the walk-through as
 // `walk.json` in the run's folder, a list of steps on production; `omni pitch film` plays it in a browser,
-// films it, and writes `moments.json`: for each step that acts on an element, its time in the clip and the
+// films it into `walk.webm`, and writes `moments.json`: for each step that acts on an element, its time in the clip and the
 // box of that element, as 0..1 of the clip. The storyboard's camera, callouts and cursor come from it,
 // never from guessed coordinates.
 //
@@ -12,7 +12,7 @@ import { z } from 'zod';
 export const WALK_FILE = 'walk.json';
 export const MOMENTS_FILE = 'moments.json';
 /** The walk-through's clip, remuxed so the engine's page seeks it frame by frame. */
-export const WALK_CLIP = 'walk.mp4';
+export const WALK_CLIP = 'walk.webm';
 /** The size the walk-through is filmed at: the video's own. */
 export const FILM_SIZE = Object.freeze({ width: 1920, height: 1080 });
 

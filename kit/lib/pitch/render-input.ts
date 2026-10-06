@@ -6,7 +6,8 @@
 //   Settings out of shape stop the render, naming each field.
 // - An uploaded file (`asset:<name>`: the logo, a music track) is the run's `assets/<name>`.
 // - The Heading and Text fonts are loaded through the provider each names, into the run's folder; one
-//   that cannot be had falls back to the system's font, with one line.
+//   that cannot be had falls back to the system's font, with one line. A font uploaded to the product
+//   (the family `asset:<file>`) is the run's `assets/<file>`.
 // - A logo the run does not hold is left out, with one line.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -15,7 +16,7 @@ import { loadFont } from './providers/registry.ts';
 import type { Warn } from './providers/registry.ts';
 import type { AssetResolver, Fetch } from './providers/types.ts';
 import { PAGE_INPUT } from './render-page.ts';
-import { readPitchJson } from './run.ts';
+import { fontRequestOf, readPitchJson } from './run.ts';
 import { PITCH_PRESETS, defaultPitchSettings, parsePitchSettings } from './settings.ts';
 import type { PitchSettings } from './settings.ts';
 import { parseStoryboard, STORYBOARD_FILE } from './storyboard.ts';
@@ -83,9 +84,9 @@ export type PageInput = {
 /** The run's Heading and Text fonts, each through its provider, written into the run's folder. */
 async function fontsOf(dir: string, look: PitchSettings['look'], { fetch, warn }: { fetch: Fetch; warn: Warn }): Promise<PageInput['fonts']> {
   const context = { dir, fetch, asset: runAssets(dir) };
-  const heading = await loadFont(look.heading, context, warn);
+  const heading = await loadFont(fontRequestOf(look.heading), context, warn);
   const same = look.text.provider === look.heading.provider && look.text.family === look.heading.family && look.text.weight === look.heading.weight;
-  const text = same ? heading : await loadFont(look.text, context, warn);
+  const text = same ? heading : await loadFont(fontRequestOf(look.text), context, warn);
   const css = same ? heading.css : `${heading.css}${text.css}`;
   return { css, heading: heading.stack, text: text.stack };
 }

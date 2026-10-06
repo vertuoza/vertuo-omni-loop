@@ -78,11 +78,11 @@ describe('changingClick', () => {
 });
 
 describe('parseMoments', () => {
-  const moments = { moments: 1, clip: 'walk.mp4', width: 1920, height: 1080, seconds: 9.5, steps: [{ name: 'a', do: 'click', at: 2.1, box: { x: 0.1, y: 0.1, w: 0.2, h: 0.1 }, focus: { x: 0.2, y: 0.15 }, zoom: 2.5 }] };
+  const moments = { moments: 1, clip: 'walk.webm', width: 1920, height: 1080, seconds: 9.5, steps: [{ name: 'a', do: 'click', at: 2.1, box: { x: 0.1, y: 0.1, w: 0.2, h: 0.1 }, focus: { x: 0.2, y: 0.15 }, zoom: 2.5 }] };
 
   it('reads what film writes, and refuses anything out of shape', () => {
     expect(parseMoments(moments)).toEqual(moments);
-    expect(parseMoments({ ...moments, clip: 'walk.webm' })).toBeNull();
+    expect(parseMoments({ ...moments, clip: 'walk.mp4' })).toBeNull();
     expect(parseMoments({ ...moments, steps: [{ ...moments.steps[0], zoom: 5 }] })).toBeNull();
   });
 });
