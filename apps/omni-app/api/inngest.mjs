@@ -8548,7 +8548,7 @@ function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore,
 
 // apps/omni-app/src/retro/retro.ts
 import { internalEvents } from "inngest";
-import { z as z33 } from "zod";
+import { z as z34 } from "zod";
 
 // apps/omni-app/src/retro/rules.ts
 var RULES_VERSION = 1;
@@ -12118,11 +12118,11 @@ function ranked(findings) {
 }
 
 // apps/omni-app/src/retro/target-comment.ts
-import { z as z32 } from "zod";
+import { z as z33 } from "zod";
 var targetMarker = (prefix) => `<!-- ${prefix}-retro-target -->`;
-var TargetCommentedSchema = z32.union([
-  z32.object({ comments: z32.array(z32.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z32.boolean() })) }),
-  z32.object({ refused: z32.number() })
+var TargetCommentedSchema = z33.union([
+  z33.object({ comments: z33.array(z33.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z33.boolean() })) }),
+  z33.object({ refused: z33.number() })
 ]);
 function targetComment({
   prd,
@@ -12148,12 +12148,12 @@ function targetComment({
     ...lines.length > 0 ? lines : ["No finding for this repository."]
   ].join("\n");
 }
-async function commentTargets({ step, octokitFor, id, targets, prefix, ...text7 }) {
+async function commentTargets({ step, octokitFor, id, targets, prefix, ...text8 }) {
   const out = {};
   for (const target2 of targets) {
     if (!target2.read) continue;
     const [owner = "", repo = ""] = target2.repo.split("/");
-    const body = targetComment({ ...text7, repo: target2.repo });
+    const body = targetComment({ ...text8, repo: target2.repo });
     out[target2.name] = await savedStep(
       step,
       id(`comment-target-${target2.name}`),
@@ -12200,21 +12200,21 @@ var verdictMarker2 = (prefix) => `<!-- ${prefix}-retro-verdict -->`;
 var VERDICT_MARKER2 = verdictMarker2(MARKER_PREFIX2);
 var NO_NEW_LESSON = "no new lesson";
 var NOT_JUDGED = "not judged";
-var RetroEventSchema = z33.object({
-  installationId: z33.number(),
-  owner: z33.string(),
-  repo: z33.string(),
+var RetroEventSchema = z34.object({
+  installationId: z34.number(),
+  owner: z34.string(),
+  repo: z34.string(),
   prNumber: PrNumberSchema,
-  mergeSha: z33.string(),
-  mergedAt: z33.string().nullish()
+  mergeSha: z34.string(),
+  mergedAt: z34.string().nullish()
 });
-var FailedEventSchema = z33.object({
-  installationId: z33.number().optional().catch(void 0),
-  owner: z33.string().optional().catch(void 0),
-  repo: z33.string().optional().catch(void 0),
+var FailedEventSchema = z34.object({
+  installationId: z34.number().optional().catch(void 0),
+  owner: z34.string().optional().catch(void 0),
+  repo: z34.string().optional().catch(void 0),
   prNumber: PrNumberSchema.optional().catch(void 0)
 }).catch({});
-var TickSchema = z33.looseObject({ ts: z33.number().exactOptional() }).nullable();
+var TickSchema = z34.looseObject({ ts: z34.number().exactOptional() }).nullable();
 function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch: fetch2, kinds = KINDS, followUp = false }) {
   return client.createFunction(
     {
