@@ -1026,10 +1026,10 @@ function hooksByMode(value) {
   return { before: asList(value.before), after: asList(value.after), replace: value.replace ?? null };
 }
 function eachHook(point, value) {
-  const { before, after, replace } = hooksByMode(value);
+  const { before: before2, after, replace } = hooksByMode(value);
   const one = (mode, ref) => ({ key: isBare(value) ? [point] : [point, mode], mode, ref });
   return [
-    ...before.map((ref) => one("before", ref)),
+    ...before2.map((ref) => one("before", ref)),
     ...replace === null ? [] : [one("replace", replace)],
     ...after.map((ref) => one("after", ref))
   ];
@@ -4582,6 +4582,270 @@ function inboxViolationsFor({ ctx, prd }) {
   return [...violations, ...blockedByViolations(record ? [record] : [], ctx)];
 }
 
+// kit/lib/flow/resolve.ts
+var LANDINGS_ALIAS_AREA = "landings.alone";
+var noRules = () => ({
+  plan: { alone: false, maxFiles: null, waveFirst: false, blocksAll: false, landingAlone: false },
+  subPr: { merge: null, requireChecks: [], approval: null, territory: null, maxOpen: null }
+});
+var stricter = (a, b) => a === null ? b : b === null ? a : Math.min(a, b);
+var stickier = (a, b) => a === "block" || b === "block" ? "block" : a ?? b;
+function combineRules(a, b) {
+  return {
+    plan: {
+      alone: a.plan.alone || b.plan.alone,
+      maxFiles: stricter(a.plan.maxFiles, b.plan.maxFiles),
+      waveFirst: a.plan.waveFirst || b.plan.waveFirst,
+      blocksAll: a.plan.blocksAll || b.plan.blocksAll,
+      landingAlone: a.plan.landingAlone || b.plan.landingAlone
+    },
+    subPr: {
+      merge: b.subPr.merge ?? a.subPr.merge,
+      requireChecks: [.../* @__PURE__ */ new Set([...a.subPr.requireChecks, ...b.subPr.requireChecks])],
+      approval: a.subPr.approval ?? b.subPr.approval,
+      territory: stickier(a.subPr.territory, b.subPr.territory),
+      maxOpen: stricter(a.subPr.maxOpen, b.subPr.maxOpen)
+    }
+  };
+}
+function withPlanRule(plan, rule) {
+  if ("slice" in rule) {
+    return { ...plan, alone: plan.alone || rule.slice.alone === true, maxFiles: stricter(plan.maxFiles, rule.slice.maxFiles ?? null) };
+  }
+  if ("wave" in rule) return { ...plan, waveFirst: true };
+  if ("blocks" in rule) return { ...plan, blocksAll: true };
+  return { ...plan, landingAlone: true };
+}
+function ownRules(rules) {
+  const { merge = null, requireChecks = [], approval = null, territory = null, maxOpen = null } = rules?.subPr ?? {};
+  return {
+    plan: (rules?.plan ?? []).reduce(withPlanRule, noRules().plan),
+    subPr: { merge, requireChecks: [...new Set(requireChecks)], approval, territory, maxOpen }
+  };
+}
+var toResolved = (area2, ref) => typeof ref === "string" ? { area: area2, path: ref, alias: null } : { area: area2, path: ref.path, alias: ref.alias };
+function ownHooks(area2, hooks) {
+  const resolved = {};
+  for (const [point, value] of Object.entries(hooks ?? {})) {
+    const { before: before2, after, replace } = hooksByMode(value);
+    resolved[point] = {
+      before: before2.map((ref) => toResolved(area2, ref)),
+      replace: replace === null ? null : toResolved(area2, replace),
+      after: after.map((ref) => toResolved(area2, ref))
+    };
+  }
+  return resolved;
+}
+function addHooks(a, b) {
+  const added = { ...a };
+  for (const [point, hooks] of Object.entries(b)) {
+    const before2 = a[point];
+    added[point] = before2 ? { before: [...before2.before, ...hooks.before], replace: hooks.replace ?? before2.replace, after: [...before2.after, ...hooks.after] } : hooks;
+  }
+  return added;
+}
+function resolveFlow(config) {
+  const flow = config.flow;
+  let defaultHooks = ownHooks(DEFAULT_AREA, flow?.hooks);
+  if (config.pr.openWith !== null) {
+    defaultHooks = addHooks(defaultHooks, {
+      "pr.open": { before: [], replace: { area: DEFAULT_AREA, path: config.pr.openWith, alias: CLAUDE_ALIAS }, after: [] }
+    });
+  }
+  const defaultArea = {
+    name: DEFAULT_AREA,
+    patterns: [],
+    knowledge: null,
+    inherit: false,
+    rules: ownRules(flow?.rules),
+    hooks: defaultHooks
+  };
+  const declared = Object.entries(flow?.areas ?? {}).map(([name, area2]) => {
+    const inherit = area2.inherit ?? true;
+    const rules = ownRules(area2.rules);
+    const hooks = ownHooks(name, area2.hooks);
+    return {
+      name,
+      patterns: area2.paths.map((source) => new RegExp(source)),
+      knowledge: area2.knowledge ?? null,
+      inherit,
+      rules: inherit ? combineRules(defaultArea.rules, rules) : rules,
+      hooks: inherit ? addHooks(defaultArea.hooks, hooks) : hooks
+    };
+  });
+  const aliased = config.landings.alone.length === 0 ? [] : [{
+    name: LANDINGS_ALIAS_AREA,
+    patterns: config.landings.alone.map((source) => new RegExp(source)),
+    knowledge: null,
+    inherit: true,
+    rules: combineRules(defaultArea.rules, { ...noRules(), plan: { ...noRules().plan, landingAlone: true } }),
+    hooks: defaultArea.hooks
+  }];
+  return { defaultArea, areas: [...declared, ...aliased] };
+}
+function areaOf(flow, path) {
+  return flow.areas.find(({ patterns }) => patterns.some((pattern) => pattern.test(path))) ?? flow.defaultArea;
+}
+function resolveTerritory(flow, territory) {
+  const order = [flow.defaultArea, ...flow.areas];
+  const pathsOf = /* @__PURE__ */ new Map();
+  for (const path of territory) {
+    const { name } = areaOf(flow, path);
+    pathsOf.set(name, [...pathsOf.get(name) ?? [], path]);
+  }
+  const touched = order.filter(({ name }) => pathsOf.has(name));
+  const areas = touched.map(({ name, rules }) => ({ name, paths: pathsOf.get(name) ?? [], rules }));
+  const merges = touched.flatMap(({ name, rules }) => rules.subPr.merge === null ? [] : [{ area: name, method: rules.subPr.merge }]);
+  const hooks = {};
+  const replace = [];
+  for (const { point } of FLOW_POINTS) {
+    const at2 = hooksAt(touched, point);
+    hooks[point] = at2.hooks;
+    if (at2.conflict.length > 0) replace.push({ point, hooks: at2.conflict });
+  }
+  return {
+    areas,
+    rules: combinedRules(touched),
+    hooks,
+    conflicts: { merge: new Set(merges.map(({ method }) => method)).size > 1 ? merges : [], replace }
+  };
+}
+function combinedRules(touched) {
+  return touched.reduce((combined, area2) => {
+    const next = combineRules(combined, area2.rules);
+    return { ...next, subPr: { ...next.subPr, merge: combined.subPr.merge ?? area2.rules.subPr.merge } };
+  }, noRules());
+}
+var uniqueHooks = (hooks) => hooks.filter((hook, index) => hooks.findIndex(({ area: area2, path }) => area2 === hook.area && path === hook.path) === index);
+function hooksAt(touched, point) {
+  const at2 = touched.flatMap(({ hooks }) => hooks[point] ?? []);
+  const replaces = uniqueHooks(at2.flatMap(({ replace }) => replace ? [replace] : []));
+  const own = replaces.filter(({ area: area2 }) => area2 !== DEFAULT_AREA);
+  return {
+    hooks: {
+      before: uniqueHooks(at2.flatMap(({ before: before2 }) => before2)),
+      replace: own[0] ?? replaces[0] ?? null,
+      after: uniqueHooks(at2.flatMap(({ after }) => after))
+    },
+    conflict: new Set(own.map(({ path }) => path)).size > 1 ? own : []
+  };
+}
+
+// kit/lib/flow/plan-rules.ts
+var LANDINGS_ALIAS_AREA2 = "landings.alone";
+function planRuleViolations(slices, flow) {
+  const graded = slices.map((slice) => ({ slice, territory: resolveTerritory(flow, slice.territory) }));
+  const areas = [flow.defaultArea, ...flow.areas];
+  return [
+    ...graded.flatMap(sliceViolations),
+    ...areas.filter(({ rules }) => rules.plan.waveFirst).flatMap(({ name }) => waveFirstViolations(graded, name)),
+    ...areas.filter(({ rules }) => rules.plan.blocksAll).flatMap(({ name }) => blocksAllViolations(graded, name)),
+    ...landingAloneViolations(slices, flow)
+  ];
+}
+function sliceViolations({ slice, territory }) {
+  const { id } = slice;
+  const violations = [];
+  for (const area2 of territory.areas) {
+    if (!area2.rules.plan.alone || territory.areas.length < 2) continue;
+    const other = territory.areas.filter(({ name }) => name !== area2.name).flatMap(({ paths }) => paths);
+    violations.push(
+      `flow: ${id} touches ${area2.paths.join(", ")} (area ${area2.name}) and also ${other.join(", ")} \u2014 ${area2.name}: slice alone, a slice of this area touches no path outside it.`
+    );
+  }
+  const max = territory.rules.plan.maxFiles;
+  if (max !== null && slice.territory.length > max) {
+    const setter = territory.areas.find(({ rules }) => rules.plan.maxFiles === max)?.name ?? "";
+    violations.push(`flow: ${id} touches ${slice.territory.length} paths \u2014 ${setter}: slice maxFiles ${max}, at most ${max} ${max === 1 ? "path" : "paths"} in a slice of this area.`);
+  }
+  const { merge, replace } = territory.conflicts;
+  if (merge.length > 0) {
+    const methods = merge.map(({ area: area2, method }) => `${area2}: merge ${method}`).join(", ");
+    violations.push(`flow: ${id} meets more than one merge method (${methods}) \u2014 split the slice so each part merges one way.`);
+  }
+  for (const { point, hooks } of replace) {
+    const named = hooks.map(({ area: area2, path }) => `${area2}: ${path}`).join(", ");
+    violations.push(`flow: ${id} meets more than one replace hook at ${point} (${named}) \u2014 split the slice so one hook replaces the step.`);
+  }
+  return violations;
+}
+var touches = ({ territory }, area2) => territory.areas.some(({ name }) => name === area2);
+function before(a, b) {
+  return a.landing < b.landing || a.landing === b.landing && Number(a.wave) < Number(b.wave);
+}
+function waveFirstViolations(graded, area2) {
+  const inside = graded.filter((one) => touches(one, area2)).map(({ slice }) => slice);
+  const outside = graded.filter((one) => !touches(one, area2)).map(({ slice }) => slice);
+  return inside.flatMap(
+    (slice) => outside.filter((other) => !before(slice, other)).map(
+      (other) => `flow: ${slice.id} (wave ${slice.wave}) touches area ${area2} and does not sit before ${other.id} (wave ${other.wave}), which does not \u2014 ${area2}: wave first, the area's slices sit in a wave before every other slice.`
+    )
+  );
+}
+function blockersOf(id, byId) {
+  const seen = /* @__PURE__ */ new Set();
+  const queue = [...byId.get(id)?.blockedBy ?? []];
+  for (let next = queue.shift(); next !== void 0; next = queue.shift()) {
+    if (seen.has(next)) continue;
+    seen.add(next);
+    queue.push(...byId.get(next)?.blockedBy ?? []);
+  }
+  return seen;
+}
+function blocksAllViolations(graded, area2) {
+  const inside = graded.filter((one) => touches(one, area2)).map(({ slice }) => slice);
+  if (inside.length === 0) return [];
+  const byId = new Map(graded.map(({ slice }) => [slice.id, slice]));
+  const ids = inside.map(({ id }) => id).join(", ");
+  return graded.filter((one) => !touches(one, area2)).map(({ slice }) => slice).filter((slice) => !inside.some((member) => member.landing < slice.landing)).filter((slice) => {
+    const waits = blockersOf(slice.id, byId);
+    return !inside.some(({ id }) => waits.has(id));
+  }).map((slice) => `flow: ${slice.id} is blocked by no slice of area ${area2} (${ids}), directly or through another \u2014 ${area2}: blocks all.`);
+}
+function aloneSplit(slice, flow) {
+  const split = { alone: [], other: [], areas: [] };
+  for (const path of slice.territory) {
+    const area2 = areaOf(flow, path);
+    if (!landsAlone(area2.rules)) {
+      split.other.push(path);
+      continue;
+    }
+    split.alone.push(path);
+    if (!split.areas.includes(area2.name)) split.areas.push(area2.name);
+  }
+  return split;
+}
+var landsAlone = (rules) => rules.plan.landingAlone;
+function areaNote(areas) {
+  const named = areas.filter((name) => name !== LANDINGS_ALIAS_AREA2);
+  if (named.length === 0) return "";
+  return ` (${named.length === 1 ? "area" : "areas"} ${named.join(", ")})`;
+}
+function landingAloneViolations(slices, flow) {
+  if (![flow.defaultArea, ...flow.areas].some(({ rules }) => landsAlone(rules))) return [];
+  const split = new Map(slices.map((slice) => [slice.id, aloneSplit(slice, flow)]));
+  const violations = [];
+  for (const slice of slices) {
+    const { alone, other, areas } = split.get(slice.id) ?? { alone: [], other: [], areas: [] };
+    if (alone.length > 0 && other.length > 0) {
+      violations.push(
+        `landing: ${slice.id} (landing ${slice.landing}) touches ${alone.join(", ")}, which lands alone${areaNote(areas)}, and also ${other.join(", ")} \u2014 a slice touching a land-alone path touches nothing else.`
+      );
+    }
+  }
+  for (const landing of new Set(slices.map((slice) => slice.landing))) {
+    const members2 = slices.filter((slice) => slice.landing === landing);
+    const lone = members2.filter((slice) => split.get(slice.id)?.other.length === 0 && slice.territory.length > 0);
+    const rest = members2.filter((slice) => split.get(slice.id)?.alone.length === 0);
+    if (lone.length > 0 && rest.length > 0) {
+      violations.push(
+        `landing: landing ${landing} holds ${lone.map((slice) => slice.id).join(", ")}, which land alone, and ${rest.map((slice) => slice.id).join(", ")}, which do not \u2014 a landing holding a land-alone slice holds only land-alone slices.`
+      );
+    }
+  }
+  return violations;
+}
+
 // kit/lib/inbox/territory.ts
 var NOTHING = /^[—–-]?$/;
 function sliceIdOf(text7) {
@@ -4821,35 +5085,6 @@ function landingTableViolations(rows, used) {
   }
   return [...violations, ...used.filter((landing) => !seen.has(landing)).map((landing) => `## Landings: landing ${landing} holds slices and has no row.`)];
 }
-function aloneSplit(slice, alone) {
-  const matches = (prefix) => alone.some((pattern) => pattern.test(prefix));
-  return { alone: slice.territory.filter(matches), other: slice.territory.filter((prefix) => !matches(prefix)) };
-}
-function landAloneViolations(slices, patterns) {
-  if (patterns.length === 0) return [];
-  const alone = patterns.map((source) => new RegExp(source));
-  const split = new Map(slices.map((slice) => [slice.id, aloneSplit(slice, alone)]));
-  const violations = [];
-  for (const slice of slices) {
-    const { alone: aloneGround, other } = split.get(slice.id) ?? { alone: [], other: [] };
-    if (aloneGround.length > 0 && other.length > 0) {
-      violations.push(
-        `landing: ${slice.id} (landing ${slice.landing}) touches ${aloneGround.join(", ")}, which lands alone, and also ${other.join(", ")} \u2014 a slice touching a land-alone path touches nothing else.`
-      );
-    }
-  }
-  for (const landing of new Set(slices.map((slice) => slice.landing))) {
-    const members2 = slices.filter((slice) => slice.landing === landing);
-    const lone = members2.filter((slice) => split.get(slice.id)?.other.length === 0 && slice.territory.length > 0);
-    const rest = members2.filter((slice) => split.get(slice.id)?.alone.length === 0);
-    if (lone.length > 0 && rest.length > 0) {
-      violations.push(
-        `landing: landing ${landing} holds ${lone.map((slice) => slice.id).join(", ")}, which land alone, and ${rest.map((slice) => slice.id).join(", ")}, which do not \u2014 a landing holding a land-alone slice holds only land-alone slices.`
-      );
-    }
-  }
-  return violations;
-}
 function wavesOf(slices) {
   return [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
 }
@@ -4964,7 +5199,7 @@ function gradePlan(markdown, { config }) {
     // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...landingViolations(slices, landingRows),
-    ...landAloneViolations(slices, config.landings.alone),
+    ...planRuleViolations(slices, resolveFlow(config)),
     ...blockedByViolations2(slices),
     ...collisions2.map(
       (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
@@ -5649,10 +5884,10 @@ function planShip(ctx, prd, { files, read }) {
   for (const file of files) {
     if (!REWRITTEN.test(file) || basename5(file) === SETTLED_FILE) continue;
     if (!existsSync16(join19(ctx.root, file))) continue;
-    const before = read(file);
-    let after = before.split(where.dir).join(shipped);
+    const before2 = read(file);
+    let after = before2.split(where.dir).join(shipped);
     if (hasOutbox) after = after.split(outbox).join(`${shipped}/outbox`);
-    if (after !== before) rewrites.push({ file, text: after });
+    if (after !== before2) rewrites.push({ file, text: after });
   }
   return { ok: true, moves, rewrites };
 }
@@ -6980,7 +7215,7 @@ function runChecks(ctx) {
   const outbox = findOutboxViolations({ ctx });
   return { knowledge, outbox };
 }
-var newOnes = (after, before) => after.filter((line) => !before.includes(line));
+var newOnes = (after, before2) => after.filter((line) => !before2.includes(line));
 var PROMOTIONS = Object.freeze(["adr", "rule", "invariant"]);
 function finishHarvest({
   ctx,
@@ -6992,7 +7227,7 @@ function finishHarvest({
 }) {
   return inScratch(ctx, (scratch) => {
     applyHarvestEdits({ root: scratch.root, edits: prepared.edits });
-    const before = runChecks(scratch);
+    const before2 = runChecks(scratch);
     const replies = new Map(classified.map((entry) => [entry.id, entry]));
     const candidates = harvestCandidates({ ctx: scratch, prd: prepared.prd });
     const dropped = /* @__PURE__ */ new Map();
@@ -7015,7 +7250,7 @@ function finishHarvest({
     const failures = (result2) => inScratch(scratch, (trial) => {
       applyHarvestEdits({ root: trial.root, edits: { deletes: [], moves: [], writes: result2.writes } });
       const after = runChecks(trial);
-      return [...newOnes(after.knowledge, before.knowledge), ...newOnes(after.outbox, before.outbox)];
+      return [...newOnes(after.knowledge, before2.knowledge), ...newOnes(after.outbox, before2.outbox)];
     });
     let result = attempt2(null);
     if (failures(result).length > 0) {
@@ -8101,12 +8336,12 @@ function outcomeOf(out, n) {
   if (!out.more) return "collected";
   return n === MAX_BATCHES ? "unfinished" : null;
 }
-async function collectBatch({ store, octokitFor, repository, cursor, nowIso, budget: before }) {
+async function collectBatch({ store, octokitFor, repository, cursor, nowIso, budget: before2 }) {
   const { workspaceId, fullName, installationId } = repository;
   const [owner, repo] = fullName.split("/");
   let reached = cursor;
   let saved = 0;
-  const budget = { ...before };
+  const budget = { ...before2 };
   try {
     const octokit = await octokitFor(installationId);
     const listed = await pullsUpdatedAfter(octokit, budget, { owner, repo, since: cursor });
@@ -9231,8 +9466,8 @@ function walk(records, { sliceOf: sliceOf2, leftOut }) {
         files.set(file.path, stats);
         if (file.status === "removed") lines.delete(file.path);
         else if (file.blocks !== null) {
-          const before = file.status === "added" ? [] : lines.get(file.path) ?? [];
-          lines.set(file.path, followLines(before, file.blocks, commit.sha));
+          const before2 = file.status === "added" ? [] : lines.get(file.path) ?? [];
+          lines.set(file.path, followLines(before2, file.blocks, commit.sha));
         } else if (file.additions + file.deletions > 0) {
           noPatch.push({ path: file.path, commit: short2, slice, additions: file.additions, deletions: file.deletions });
           lines.delete(file.path);
@@ -11457,12 +11692,12 @@ async function factSheet({ step, github, pr, prd, config, pulls, run, kinds, sco
   for (const kind of kinds) {
     records[kind.id] = await savedStep(step, id(`gather-${kind.id}`), kind.records.nullable(), async () => await kind.gather(await github(), scope) ?? null);
   }
-  const before = earlier?.sheet.findings ?? [];
+  const before2 = earlier?.sheet.findings ?? [];
   return savedStep(
     step,
     id("facts"),
     FactSheetSchema,
-    () => inFolder2(numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before.length), folder)
+    () => inFolder2(numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before2.length), folder)
   );
 }
 async function judgeSheet({ step, github, openrouter, fetch: fetch2, owner, repo, prd, config, scope, earlier }, id, sheet) {
