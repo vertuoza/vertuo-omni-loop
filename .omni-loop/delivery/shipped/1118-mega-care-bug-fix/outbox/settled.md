@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-06
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-71, P-PRODUCT-63
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A constant in one pure function: swapping either case is a one-line change with 
 - Raised: 2026-10-06
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-72, P-PRODUCT-64
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ One parser and one read in the care list: the bug-fix skill can match them, or t
 - Raised: 2026-10-06
 - Slice: s5
 - Wave: 1
+- Stays here: A one-off sequencing choice for documentation within this feature's build order; it is cheap to change and leaves no lasting rule or design to record.
 
 ### The answer, as it was given
 
@@ -253,6 +256,7 @@ Adding two table rows and two names in one picture caption: a few lines, no migr
 - Raised: 2026-10-06
 - Slice: s2
 - Wave: 2
+- Became: ADR-0079
 
 ### The answer, as it was given
 
