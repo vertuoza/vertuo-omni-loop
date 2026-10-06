@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LOOK, isPitchLook, lookLabel, lookOf, PITCH_LOOKS, productHref, productReducer, rowOf, type ProductRow } from './model';
+import { defaultPitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { DEFAULT_LOOK, isPitchLook, lookLabel, lookOf, PITCH_LOOKS, pitchedOf, pitchOf, productHref, rowOf, type ProductRow } from './model';
 
 // A product's pitch look as pure data (PRD 859 s1): the two looks, Arcade poster first and by default;
-// a stored row read as the page draws it; a product's own address; and the product page's state.
+// a stored row read as the page draws it, with its Pitch settings (PRD 1108 s2); a product's own address.
 
 const ROW: ProductRow = { id: 'p-1', name: 'Vertuoza', look: 'arcade' };
 
@@ -34,14 +35,20 @@ describe('a product', () => {
   });
 });
 
-describe('the product page\'s state', () => {
-  it('waits while a change is on its way, then shows the saved look', () => {
-    const busy = productReducer({ product: ROW, busy: false, refusal: null }, { type: 'busy' });
-    expect(busy).toEqual({ product: ROW, busy: true, refusal: null });
-    expect(productReducer(busy, { type: 'saved', product: { ...ROW, look: 'keynote' } })).toEqual({ product: { ...ROW, look: 'keynote' }, busy: false, refusal: null });
+describe('a product\'s Pitch settings', () => {
+  it('read as stored, filled from the preset and the defaults', () => {
+    const pitch = pitchOf({ id: 'p-1', name: 'Vertuoza', pitch_look: 'keynote', pitch: { look: { preset: 'keynote' }, voice: { preset: 'formal' } } });
+    expect(pitch).toEqual({ ...defaultPitchSettings('keynote'), voice: { preset: 'formal', instructions: '' } });
   });
 
-  it('keeps the look and says why when a change is refused', () => {
-    expect(productReducer({ product: ROW, busy: true, refusal: null }, { type: 'refused', message: 'No.' })).toEqual({ product: ROW, busy: false, refusal: 'No.' });
+  it('read as the look\'s preset when none is stored, or what is stored is out of shape', () => {
+    expect(pitchOf({ id: 'p-1', name: 'Vertuoza', pitch_look: 'keynote' })).toEqual(defaultPitchSettings('keynote'));
+    expect(pitchOf({ id: 'p-1', name: 'Vertuoza', pitch_look: 'keynote', pitch: null })).toEqual(defaultPitchSettings('keynote'));
+    expect(pitchOf({ id: 'p-1', name: 'Vertuoza', pitch_look: 'keynote', pitch: { length: { min: 3 } } })).toEqual(defaultPitchSettings('keynote'));
+    expect(pitchOf({ id: 'p-1', name: 'Vertuoza', pitch: {} })).toEqual(defaultPitchSettings('arcade'));
+  });
+
+  it('ride with the row on the product\'s own page', () => {
+    expect(pitchedOf({ id: 'p-1', name: 'Vertuoza', pitch_look: 'arcade', pitch: {} })).toEqual({ ...ROW, pitch: defaultPitchSettings('arcade') });
   });
 });

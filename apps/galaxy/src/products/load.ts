@@ -4,11 +4,11 @@ import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { listOf } from '../data/unparsed';
 import { memberWorkspace } from '../data/workspace';
-import { PRODUCT_COLUMNS, rowOf, type ProductRow } from './model';
+import { pitchedOf, PRODUCT_COLUMNS, rowOf, type PitchedProduct, type ProductRow, type StoredProduct } from './model';
 
 // Settings › Products's reads (PRD 859 s1), as the signed-in person, so row-level security decides
 // what they return: their workspace (the one joined first, as /app's) and its products, first first,
-// each with its pitch look; or one of them, by its id. The products are the ones Settings › Business
+// each with its pitch look; or one of them, by its id, with its Pitch settings (PRD 1108 s2). The products are the ones Settings › Business
 // already holds: reading them never opens the business. Whoever may edit Settings › Business may change
 // a look: today that is any member of the workspace (business_member_only() of
 // supabase/migrations/20261019090000_business_store.sql), so every member who reads the page edits it.
@@ -24,35 +24,42 @@ export type ProductLoad =
   | { kind: 'no-workspace' }
   | { kind: 'unreadable' }
   | { kind: 'not-found' }
-  | { kind: 'product'; workspace: Workspace; editable: boolean; product: ProductRow };
+  | { kind: 'product'; workspace: Workspace; editable: boolean; product: PitchedProduct };
 
 const why = (err: unknown) => (err instanceof Error ? err.message : String(propertyOf(err, 'message') ?? err));
 
-/** Whether a member may change a product's look: whoever may edit Settings › Business, any member. */
+/** Whether a member may change a product's Pitch settings: whoever may edit Settings › Business, any member. */
 const EDITABLE_BY_MEMBERS = true;
 
-async function productsOf(db: SupabaseClient<Database>, workspace: string): Promise<ProductRow[]> {
+async function productsOf(db: SupabaseClient<Database>, workspace: string): Promise<StoredProduct[]> {
   const { data, error } = await db.from('products').select(PRODUCT_COLUMNS).eq('workspace_id', workspace).order('ordinal');
   if (error) throw new Error(`Supabase: could not read the products (${why(error)})`);
-  return listOf(data).map(rowOf);
+  return listOf<StoredProduct>(data);
 }
 
-export async function loadProducts(db: SupabaseClient<Database>, user: User): Promise<ProductsLoad> {
+type StoredLoad = { kind: 'no-workspace' } | { kind: 'unreadable' } | { kind: 'stored'; workspace: Workspace; products: StoredProduct[] };
+
+async function storedProducts(db: SupabaseClient<Database>, user: User): Promise<StoredLoad> {
   try {
     const workspace = await memberWorkspace(db, user.id);
     if (!workspace) return { kind: 'no-workspace' };
-    const products = await productsOf(db, workspace.id);
-    return { kind: 'products', workspace: { id: workspace.id, name: workspace.name }, editable: EDITABLE_BY_MEMBERS, products };
+    return { kind: 'stored', workspace: { id: workspace.id, name: workspace.name }, products: await productsOf(db, workspace.id) };
   } catch (err) {
     console.error(`products: the page could not be read (${why(err)})`);
     return { kind: 'unreadable' };
   }
 }
 
+export async function loadProducts(db: SupabaseClient<Database>, user: User): Promise<ProductsLoad> {
+  const read = await storedProducts(db, user);
+  if (read.kind !== 'stored') return read;
+  return { kind: 'products', workspace: read.workspace, editable: EDITABLE_BY_MEMBERS, products: read.products.map(rowOf) };
+}
+
 export async function loadProduct(db: SupabaseClient<Database>, user: User, id: string): Promise<ProductLoad> {
-  const list = await loadProducts(db, user);
-  if (list.kind !== 'products') return list;
-  const product = list.products.find((p) => p.id === id);
-  if (!product) return { kind: 'not-found' };
-  return { kind: 'product', workspace: list.workspace, editable: list.editable, product };
+  const read = await storedProducts(db, user);
+  if (read.kind !== 'stored') return read;
+  const stored = read.products.find((p) => p.id === id);
+  if (!stored) return { kind: 'not-found' };
+  return { kind: 'product', workspace: read.workspace, editable: EDITABLE_BY_MEMBERS, product: pitchedOf(stored) };
 }
