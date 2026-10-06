@@ -118,6 +118,7 @@ describe('the top bar', () => {
     expect(tileOf(render('/ask/for-me'))).toBe(sprite('menu-questions'));
     expect(tileOf(render('/app/settings/fleets'))).toBe(sprite('menu-settings'));
     expect(tileOf(render('/app/settings/repositories'))).toBe(sprite('menu-settings'));
+    expect(tileOf(render('/app/settings/products/p-1'))).toBe(sprite('menu-settings'));
   });
 
   it('holds the OMNI LOOP mark in the tile on a path under no item', () => {
@@ -155,6 +156,8 @@ describe('the top bar', () => {
     ['/app/settings/fleets', 'Settings › Fleets'],
     ['/app/settings/repositories', 'Settings › Repositories'],
     ['/app/settings/business', 'Settings › Business'],
+    ['/app/settings/products', 'Settings › Products'],
+    ['/app/settings/products/p-1', 'Settings › Products'],
     ['/app/settings/jev', 'Settings › Jev'],
     ['/ask/for-me', 'Work › Questions › Shared with me'],
     ['/prd/3f2a', 'Work › PRDs'],

@@ -272,6 +272,18 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ url: string }>} */
     registerProof: ({ repo, prd, run, commit, url, criteria }: { repo: unknown; prd: unknown; run: unknown; commit: unknown; url: unknown; criteria: unknown }) =>
       call('POST', '/api/proofs', { body: { repo, prd, run, commit, url, criteria } }),
+    /** PRD 859: a new pitch run's id and one signed upload link per file of the five; a 404 when PRD `prd`
+     * has no dossier, a 422 when it is not shipped. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
+    requestPitchUploads: ({ repo, prd, files }: { repo: unknown; prd: unknown; files: unknown }) => call('POST', '/api/pitches/uploads', { body: { repo, prd, files } }),
+    /** PRD 859: stores a pitch once its five files are up, and answers the Pitch tab's link and the GIF's
+     * stable link. @returns {Promise<{ url: string, gif: string }>} */
+    registerPitch: ({ repo, prd, run, audience, look, commit, hook, benefit, kicker, closing }: {
+      repo: unknown; prd: unknown; run: unknown; audience: unknown; look: unknown; commit: unknown; hook: unknown; benefit: unknown; kicker: unknown; closing: unknown;
+    }) =>
+      call('POST', '/api/pitches', { body: { repo, prd, run, audience, look, commit, hook, benefit, kicker, closing } }),
+    /** PRD 859: the pitch look of the product `repo` (owner/name) belongs to; arcade when it has none.
+     * @returns {Promise<{ look: 'arcade' | 'keynote' }>} */
+    readPitchLook: (repo: string) => call('GET', `/api/pitch-look?${new URLSearchParams({ repo })}`),
     /** PRD 748: the confirmed claims of the business agents in `repo` (owner/name) read.
      * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
      *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */

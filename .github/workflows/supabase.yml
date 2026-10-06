@@ -177,6 +177,21 @@ jobs:
         # in place. A member reads their own workspace's snapshots; nobody else reads, nobody signed in
         # writes, and a snapshot goes with its dossier.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossier_github.sql
+      - name: Who may read and change a product's pitch look
+        # Every product starts in arcade. Any member of a workspace (whoever may edit Business) changes
+        # one product's look to keynote or back through set_pitch_look(), and its other products keep
+        # theirs; another workspace's member, a stranger and anyone signed out are refused (42501), any
+        # other look is refused (22023). pitch_look_for_repo() reads the repository's product's look,
+        # arcade for a repository with no product. Nobody writes the column directly.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/products_pitch_look.sql
+      - name: Who may upload, register and read a PRD's pitches
+        # A member of the dossier's workspace uploads a run's five files to the private pitches bucket and
+        # registers it through pitch_run_add(), for a PRD at shipped or retro only: an earlier stage and a
+        # fix are refused in the bucket and in the call (55000). A file not in the run's folder, another
+        # audience or look are refused (22023), a run twice (23505); another workspace's member and a
+        # stranger read nothing and register nothing, anyone signed out is refused, and nobody writes the
+        # table directly.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/pitch.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

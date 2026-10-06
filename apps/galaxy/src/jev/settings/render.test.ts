@@ -284,13 +284,13 @@ describe('the page\'s situations', () => {
     expect(html).not.toContain('role="switch"');
   });
 
-  it('starts with the Fleets · Repositories · Business · Jev tabs in every situation, Jev marked', () => {
+  it('starts with the Fleets · Repositories · Business · Products · Jev tabs in every situation, Jev marked', () => {
     for (const view of VIEWS) {
       const html = screen(view);
       expect(html.indexOf('class="section-tabs"'), view.kind).toBeGreaterThanOrEqual(0);
       expect(html.indexOf('class="section-tabs"'), view.kind).toBeLessThan(html.indexOf('<h1'));
       const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
-      expect(tabs, view.kind).toEqual([['Fleets', false], ['Repositories', false], ['Business', false], ['Jev', true]]);
+      expect(tabs, view.kind).toEqual([['Fleets', false], ['Repositories', false], ['Business', false], ['Products', false], ['Jev', true]]);
     }
   });
 });

@@ -91,6 +91,7 @@ export const SETTINGS: SidebarItem = {
     { label: 'Fleets', path: SETTINGS_LANDING },
     { label: 'Repositories', path: '/app/settings/repositories' },
     { label: 'Business', path: '/app/settings/business' },
+    { label: 'Products', path: '/app/settings/products' },
     { label: 'Jev', path: '/app/settings/jev' },
   ],
 };

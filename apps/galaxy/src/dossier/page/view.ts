@@ -58,6 +58,10 @@
 //
 // PRD 798, s4: a PRD's Proof tab (./proof.ts) sits between Outbox and Retro once the dossier holds a
 // proof run, and is not there before; `?tab=proof&v=1` picks an older run.
+//
+// PRD 859, s3: a PRD's Pitch tab (./pitch.ts) sits after Proof (after PR care when there is no proof)
+// once the dossier holds a pitch, and is not there before; `?tab=pitch&pitch=<id>` picks an older pitch
+// of its audience.
 import type { FixPageView } from '../../fixes/timeline';
 import type { Face } from '../../people/face';
 import { peopleOf, type People } from '../../people/load';
@@ -73,7 +77,7 @@ import {
   CONTEXT_LABELS, CONTEXTS, GITHUB_UNREAD, isContext, OUTBOX_EMPTY, outboxView, type ContextKind, type ContextView, type OutboxView,
 } from './outbox-view';
 import { isDossierId } from './source';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { GITHUB_PENDING } from './stream/pending';
 import type { StageRow } from '../../stages/stage';
 import { stageView, type StageView } from './stage';
@@ -82,12 +86,13 @@ import { reworkCommand } from './voice';
 import { pad, shortDay, stamp } from './dates';
 import type { GithubAt } from '../snapshot/snapshot';
 import { proofView, runsBadge, type ProofRead, type ProofView } from './proof';
+import { pitchesBadge, pitchView, type PitchRead, type PitchView } from './pitch';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export { GITHUB_UNREAD, OUTBOX_EMPTY, outboxView, type OutboxView };
 
 /** The page's tabs: an artifact's, the questions that shaped it, or the decisions taken while it was built. */
-export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'care' | 'retro' | 'timeline' | 'proof';
+export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'care' | 'retro' | 'timeline' | 'proof' | 'pitch';
 
 /** The tabs the dossier itself keeps, in the order a PRD is made (PRD 384): the questions first, then
  * the before/after, the spec and the plan. The history lists these. */
@@ -107,40 +112,57 @@ export const KIND_TABS: Readonly<Record<WorkKind, readonly DossierTab[]>> = {
 export const TAB_LABELS: Readonly<Record<DossierTab, string>> = {
   'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', outbox: 'Outbox', care: 'PR care', retro: 'Retro',
   variations: 'Variations', 'bug-record': 'Bug record', timeline: 'Timeline', voice: 'User voice', proof: 'Proof',
+  pitch: 'Pitch',
 };
 
 /** A PRD's tabs once it holds a proof run (PRD 798): Proof after Outbox, before Retro. */
 const withProof = (tabs: readonly DossierTab[]): DossierTab[] => tabs.flatMap((t) => (t === 'retro' ? ['proof', t] : [t]));
 
+/** A PRD's tabs once it holds a pitch (PRD 859): Pitch after Proof, before Retro. */
+const withPitch = (tabs: readonly DossierTab[]): DossierTab[] => tabs.flatMap((t) => (t === 'retro' ? ['pitch', t] : [t]));
+
+/** A PRD's tabs, with Proof and Pitch once it holds a proof run and a pitch. */
+function prdTabs(read: DossierRead): readonly DossierTab[] {
+  const proofed = read.proofs?.runs.length ? withProof(KIND_TABS.prd) : KIND_TABS.prd;
+  return read.pitches?.runs.length ? withPitch(proofed) : proofed;
+}
+
 /** The tabs that hold no artifact of the dossier's own. */
-const NOT_ARTIFACTS: readonly DossierTab[] = ['questions', 'outbox', 'care', 'retro', 'timeline', 'proof'];
+const NOT_ARTIFACTS: readonly DossierTab[] = ['questions', 'outbox', 'care', 'retro', 'timeline', 'proof', 'pitch'];
 
 /** Whether a tab shows versions of an artifact the dossier keeps. */
 export const isArtifactTab = (tab: DossierTab): tab is ArtifactKind => !NOT_ARTIFACTS.includes(tab);
 
 const isDossierTab = (value: unknown): value is DossierTab =>
-  value === 'questions' || value === 'outbox' || value === 'care' || value === 'retro' || value === 'timeline' || value === 'proof' || isArtifactKind(value);
+  isOneOf(NOT_ARTIFACTS, value) || isArtifactKind(value);
 
 /** An empty Retro tab says why. */
 export const RETRO_EMPTY = 'The retro is written when the feature PR merges.';
 
 /** What the address picks: a tab (null: none named, the page's default), a version of its artifact
  * (null: the latest), and on the Outbox tab what its context rail shows (left out: Before/after). */
-export type DossierPick = { tab: DossierTab | null; version: number | null; context?: ContextKind };
+export type DossierPick = {
+  tab: DossierTab | null; version: number | null; context?: ContextKind;
+  /** The pitch the Pitch tab's picker names (PRD 859): a run's id, shown in its audience's place. */
+  pitch?: string;
+};
 
 type Query = Record<string, string | string[] | undefined>;
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 const VERSION = /^[1-9]\d{0,8}$/;
+const RUN_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function readPick(query: Query): DossierPick {
   const tab = one(query.tab);
   const version = one(query.v);
   const context = one(query.context);
+  const pitch = one(query.pitch);
   return {
     tab: isDossierTab(tab) ? tab : null,
     version: version !== null && VERSION.test(version) ? Number(version) : null,
     ...(isContext(context) ? { context } : {}),
+    ...(pitch !== null && RUN_ID.test(pitch) ? { pitch: pitch.toLowerCase() } : {}),
   };
 }
 
@@ -200,6 +222,9 @@ export type DossierRead = {
   /** The proof runs (PRD 798): null when they could not be read, left out when not asked for; the
    * Proof tab shows only with one. */
   proofs?: ProofRead | null | undefined;
+  /** The pitches (PRD 859): null when they could not be read, left out when not asked for; the Pitch
+   * tab shows only with one. */
+  pitches?: PitchRead | null | undefined;
   /** When the GitHub summary was read, and when GitHub resumes (PRD 902, s2); null or left out when not known. */
   githubAt?: GithubAt | null | undefined;
 };
@@ -298,6 +323,10 @@ export type DossierView = {
   rework: string | null;
   /** The Proof tab's run (PRD 798): null with no run, and on a fix. */
   proof: ProofView | null;
+  /** The Pitch tab's pitches, one per audience (PRD 859): null with none, and on a fix. */
+  pitch: PitchView | null;
+  /** The demo dossier (PRD 859): its Pitch panel opens disabled. Left out on any other dossier. */
+  demo?: true;
   /** `GitHub as of 09:15 UTC`, when the PRD's GitHub snapshot was read (PRD 902, s2); null when it was not. */
   githubAsOf: string | null;
   /** `GitHub resumes at 10:00 UTC`, while the installation's budget is paused; null otherwise. */
@@ -562,7 +591,7 @@ type Page = {
 function pageOf(read: DossierRead, me: string | null, pick: DossierPick): Page {
   const work = kindOf(read.dossier);
   const numbered = read.dossier.prd === null ? undefined : read.github;
-  const kindTabs = work === 'prd' && read.proofs?.runs.length ? withProof(KIND_TABS.prd) : KIND_TABS[work];
+  const kindTabs = work === 'prd' ? prdTabs(read) : KIND_TABS[work];
   const tabs = kindTabs.filter((t) => t !== 'care' || !noFeature(read.dossier.prd, numbered));
   const fallback = work === 'prd' ? defaultTab(read.rounds) : at(tabs, 0, 'the first tab');
   const tab = pick.tab !== null && tabs.includes(pick.tab) ? pick.tab : fallback;
@@ -654,7 +683,7 @@ function headerOf(page: Page, questions: QuestionsView): DossierHeader {
  * versions each artifact has. */
 type Badges = {
   retro: string | null; care: string | null; outbox: OutboxView; counted: { badge: string | null; alert: string | null };
-  count: (kind: ArtifactKind) => number; runs: number;
+  count: (kind: ArtifactKind) => number; runs: number; pitches: number;
 };
 
 /** The Retro tab's badge: whether the retro PR is open or merged; null with none, or GitHub unread. */
@@ -672,6 +701,7 @@ function badgeOf(kind: DossierTab, badges: Badges): string | null {
   if (kind === 'care') return badges.care;
   if (kind === 'outbox') return outboxBadge(badges.outbox);
   if (kind === 'proof') return badges.runs ? runsBadge(badges.runs) : null;
+  if (kind === 'pitch') return badges.pitches ? pitchesBadge(badges.pitches) : null;
   if (kind === 'variations') return roundsBadge(badges.count(kind));
   if (kind === 'questions') return badges.counted.badge;
   if (!isArtifactTab(kind)) return null;
@@ -707,7 +737,8 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
   const care = careView(page.numbered, read.dossier.prd, page.people, now);
   const count = (kind: ArtifactKind) => read.versions.filter((v) => v.kind === kind).length;
   const runs = page.tabs.includes('proof') ? read.proofs?.runs.length ?? 0 : 0;
-  const badges: Badges = { retro: retroBadge(page.numbered), care: careBadge(care), outbox, counted: questionsCount(questions), count, runs };
+  const pitches = page.tabs.includes('pitch') ? read.pitches?.runs.length ?? 0 : 0;
+  const badges: Badges = { retro: retroBadge(page.numbered), care: careBadge(care), outbox, counted: questionsCount(questions), count, runs, pitches };
   const versions = versionEntries(page, pick.version);
   const railSpec = page.tab === 'outbox' && context === 'spec' ? railSpecOf(page) : null;
   return {
@@ -723,6 +754,8 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
     fix: page.work === 'prd' ? null : read.fix ?? null,
     rework: page.work === 'prd' && read.dossier.prd !== null ? reworkCommand(read.dossier.prd) : null,
     proof: runs && read.proofs ? proofView(read.proofs, page.tab === 'proof' ? pick.version : null, (n) => page.href('proof', n), read.members) : null,
+    pitch: pitches && read.pitches ? pitchView(read.pitches, pick.pitch ?? null, read.members) : null,
+    ...(read.demo ? { demo: true as const } : {}),
     githubAsOf: read.githubAt ? `GitHub as of ${timeOfDay(read.githubAt.readAt)}` : null,
     githubResumes: read.githubAt?.resumesAt ? `GitHub resumes at ${timeOfDay(read.githubAt.resumesAt)}` : null,
   };

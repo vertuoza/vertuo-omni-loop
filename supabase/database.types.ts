@@ -1367,6 +1367,59 @@ export type Database = {
           },
         ]
       }
+      pitch_runs: {
+        Row: {
+          audience: string
+          benefit: string
+          closing: string
+          commit_sha: string
+          created_at: string
+          created_by: string | null
+          dossier_id: string
+          files: string[]
+          hook: string
+          id: string
+          kicker: string
+          look: string
+        }
+        Insert: {
+          audience: string
+          benefit: string
+          closing: string
+          commit_sha: string
+          created_at?: string
+          created_by?: string | null
+          dossier_id: string
+          files: string[]
+          hook: string
+          id: string
+          kicker: string
+          look: string
+        }
+        Update: {
+          audience?: string
+          benefit?: string
+          closing?: string
+          commit_sha?: string
+          created_at?: string
+          created_by?: string | null
+          dossier_id?: string
+          files?: string[]
+          hook?: string
+          id?: string
+          kicker?: string
+          look?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pitch_runs_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_xp: {
         Row: {
           computed_at: string
@@ -1563,6 +1616,7 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch_look: string
           workspace_id: string
         }
         Insert: {
@@ -1572,6 +1626,7 @@ export type Database = {
           id?: string
           name: string
           ordinal?: never
+          pitch_look?: string
           workspace_id: string
         }
         Update: {
@@ -1581,6 +1636,7 @@ export type Database = {
           id?: string
           name?: string
           ordinal?: never
+          pitch_look?: string
           workspace_id?: string
         }
         Relationships: [
@@ -2424,6 +2480,7 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch_look: string
           workspace_id: string
         }
         SetofOptions: {
@@ -3025,6 +3082,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      pitch_dossier_shipped: { Args: { p_dossier: string }; Returns: boolean }
+      pitch_files: { Args: never; Returns: string[] }
+      pitch_look_for_repo: { Args: { p_repo: string }; Returns: string }
+      pitch_path_dossier: { Args: { path: string }; Returns: string }
+      pitch_path_run: { Args: { path: string }; Returns: string }
+      pitch_run_add: {
+        Args: {
+          p_audience: string
+          p_benefit: string
+          p_closing: string
+          p_commit: string
+          p_dossier: string
+          p_files: string[]
+          p_hook: string
+          p_kicker: string
+          p_look: string
+          p_run: string
+        }
+        Returns: string
+      }
       product_add: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
@@ -3034,6 +3111,7 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch_look: string
           workspace_id: string
         }
         SetofOptions: {
@@ -3052,6 +3130,7 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch_look: string
           workspace_id: string
         }
         SetofOptions: {
@@ -3180,6 +3259,25 @@ export type Database = {
           last_four: string
           set_at: string
         }[]
+      }
+      set_pitch_look: {
+        Args: { p_look: string; p_product: string; p_workspace: string }
+        Returns: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          ordinal: number
+          pitch_look: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_repository_tracked: {
         Args: { p_full_name: string; p_tracked: boolean; p_workspace: string }
