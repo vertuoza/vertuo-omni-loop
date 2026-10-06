@@ -26,6 +26,16 @@ nothing.
 **Code runs only from a target's own config,** as `/omni:ultra-yolo` says: in a target, beyond `git`
 and `gh`, only its own committed preflight ever runs, and a target without one runs nothing.
 
+**A target's flow** is its own committed one, read in its clone, never the plan repository's and
+never the imported copy (that copy is for planning only). Run the plan repository's `omni` with the
+target's clone as its working directory, detached at the target's feature branch (`git -C <clone>
+fetch <clone remote>`, then `git -C <clone> switch --detach <clone remote>/<feature branch>`):
+`(cd <clone> && node <plan repository root>/.omni-loop/bin/omni.mjs flow …)`. It reads the target's
+config and hook files there and runs no code of the target. A target without a committed
+`.omni-loop/config.yml` has no flow (the command says it is not installed): the kit's defaults
+apply. Its hooks are followed only in that target's worktree, as `/omni:wave`'s **Flow points**
+says.
+
 ## Input
 
 A PRD number, in a plan repository, whose targets `/omni:ultra-yolo` step 2 has cloned, with a
@@ -90,7 +100,24 @@ As `/omni:wave` step 4, with `--repo <slug>` on every `gh` call and git in the t
 3. **Mergeable.** A conflict is resolved in a detached worktree of the clone, as there; the
    preflight it runs is the target's own, or none.
 4. **Ready** through `/omni:pr --repo <slug>`'s sub-PR lifecycle; that skill owns `gh pr ready`.
-5. **Merge:** `gh pr merge <n> --repo <slug> --squash --delete-branch`.
+5. **Merge, through the gate,** as `/omni:wave` step 4 item 5, with the target's rules. In the
+   target's clone (**A target's flow**):
+
+   ```bash
+   (cd <clone> && node <plan repository root>/.omni-loop/bin/omni.mjs flow check merge --pr <n> --repo <slug>)
+   ```
+
+   `ok`: the merge command is its second line, which already carries `--repo <slug>`. `not ok`: do
+   not merge; the sub-PR is left open with each reason, and the wave carries on, as there. The
+   target holds no plan, so the gate reads the slice's territory as unknown: a `report` line says
+   so (item 2 has already graded it), and a target whose `rules.subPr` says `territory: block`
+   refuses it, which leaves it open for a person. A target with no committed config has no flow:
+   run the gate from the plan repository instead,
+   `node .omni-loop/bin/omni.mjs flow check merge --pr <n> --repo <slug>`.
+   Then **point `wave.merge`**, read the same way in the clone:
+   `(cd <clone> && node <plan repository root>/.omni-loop/bin/omni.mjs flow show wave.merge --path <p>)`,
+   once per territory entry, each hook followed once, and `flow verdict` run the same way. The
+   kit's step is the command the gate printed, never one written from memory.
 6. **Relay.** In one detached worktree of the plan feature branch, kept for the whole wave (step 5
    commits it), run from its root:
 
@@ -143,6 +170,9 @@ with its reason. This is what `/omni:ultra-yolo` reads.
 - **Never add `labels.outboxGo`,** and **never create a label in a target**: a missing one is a human
   step.
 - **Never run a command in a target other than its own committed preflight** (beyond `git` and
-  `gh`).
+  `gh`, the plan repository's own `omni` reading its flow, and its own hooks, followed only in its
+  worktree).
+- Merge only with the command `omni flow check merge` prints, after its `ok`: never a merge command
+  written by hand.
 - Every item ends up in the plan repository's outbox; a refused one is named, never dropped.
 - Subagents never merge; one slice per worktree, branch and sub-PR; claim before you dispatch.

@@ -160,6 +160,14 @@ For each target answered **import**, one at a time:
      carries no `verified:`.
    - A pointer (`points-to`, `See:`) names a path of the copy itself, never a target path: a page
      that answers a form in the target is summarised with its path under `evidence:` instead.
+   - **The flow,** only when the target's `.omni-loop/config.yml` has a `flow` key, a non-empty
+     `landings.alone` or a `pr.openWith`: `flow/config.yml` holds those keys, copied as the target
+     commits them and nothing else, and every hook file that flow names is copied byte for byte at
+     its own repository path under `flow/` (the target's `.omni-loop/flow/kernel/tests.md` is
+     `flow/.omni-loop/flow/kernel/tests.md`). A `pr.openWith` naming a skill copies no file. Then
+     `node .omni-loop/bin/omni.mjs flow show --repo <name>` must print the target's areas: a refusal
+     names the key to fix in the copy, never in the target. The copy is read for planning only:
+     its hooks are never followed from here.
 4. **Delete the clone** once its copy is written.
 
 Commit each copy as its own commit, so a person can drop one alone:
@@ -240,7 +248,9 @@ never an `own` one, and never a `none` one's knowledge.
   whose `evidence:` names one of them, and the register entries whose `Source:` or `Enforced by:`
   names one, are redrawn, by `/omni:invade --refresh`'s rules. **A section or an entry a person wrote
   or confirmed is never rewritten** (`by: human`, or an entry without its `Proposed:` line): a
-  conflict with it becomes a `TODO(human)` beside it. `readAt` moves to the clone's head, in the
+  conflict with it becomes a `TODO(human)` beside it. A target whose `detail` starts with
+  `flow moved since read at` gets its `flow/` folder redrawn whole from the clone, as step 3 writes
+  it (removed when the target no longer has a flow). `readAt` moves to the clone's head, in the
   config commit. Commit each copy as `docs(knowledge): sync <name>'s knowledge base, read at <first 7>`.
 - **Each `drifted` imported target that now has its own loop and a filled form:** propose switching
   it to `own` and deleting its copy, in their own commit

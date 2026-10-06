@@ -138,6 +138,16 @@ The draft feature PR opens in the plan repository. Its **Slices** checklist is g
 repository, a `**<name>** (<role>)` line above each group. It is the one pull request that closes the
 PRD: `/omni:ultra-yolo` hangs each target's pull request on it and runs its one gate there.
 
+**Point `plan.slice`, per repository.** `/omni:plan` runs its point `plan.slice` for each slice,
+with `flow show plan.slice` and `flow verdict plan.slice` as its **Flow points** say. A slice of the
+plan repository's own reads the plan repository's flow, as written. A target's slice reads **that
+target's** flow, from the copy step 1 read:
+`node .omni-loop/bin/omni.mjs flow show plan.slice --repo <name> --prd <n> --slice <id>`, the same
+copy `omni plan check` grades its rows against. Its hooks are followed as planning guidance only:
+they may reshape the slice's row, and no command they name is run (nothing runs in a clone or from a
+copy; a target's hooks run only in its worktree, when `/omni:ultra-wave` builds it). A target with no
+copied flow (`--repo` says so, exit 2) meets the kit's defaults: no hook.
+
 `/omni:plan` may return `needs clarification`: stop there, as `/omni:brainstorm` step 8 does.
 
 ## 9. One mega phase-0
