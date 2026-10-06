@@ -1,12 +1,14 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { UNREAD, type GithubSummary, type OutboxItem } from '../github/summary';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { peopleOf } from '../../people/load';
 import { REPLIES_UNREAD, SEND_OFF, SIGN_IN_TO_ANSWER } from './outbox-view';
 import type { CareState } from '../github/care';
 import { dossierView, GITHUB_UNREAD, isQuick, OUTBOX_EMPTY, readPick, RETRO_EMPTY, sandboxPath, shortDay, stamp, versionSource, watcherOf, wayBack } from './view';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd/<id> (PRD 216), as pure functions of the rows the viewer may read, the workspace's members and
 // what the address picks: the header, the tabs, each artifact's versions, newest first, and the
@@ -19,7 +21,7 @@ const MEMBERS = [PIERRE, MARIE];
 const ID = '00000000-0000-4000-8000-0000000000d1';
 
 const numbered: DossierRow = {
-  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: 216, title: 'PRD dossiers',
+  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), title: 'PRD dossiers',
   opened_by: PIERRE.user_id, created_at: '2026-09-27T09:12:40Z', numbered_at: '2026-09-27T10:00:00Z',
 };
 const draft: DossierRow = { ...numbered, prd: null, numbered_at: null, title: 'Offline quotes' };
@@ -60,7 +62,7 @@ function round(id: string, rule: DossierRoundRow['rule'], at: string, more: Part
 
 const rounds = [
   round('r3', 'delivery', '2026-09-28T08:00:00Z', {
-    status: 'abandoned', prd: 216, branch: 'feat/prd-dossiers--s3', skill: '/omni:do-work', asked_by: MARIE.user_id,
+    status: 'abandoned', prd: parsePrd(216), branch: 'feat/prd-dossiers--s3', skill: '/omni:do-work', asked_by: MARIE.user_id,
   }),
   round('r1', 'brainstorm', '2026-09-27T09:15:00Z', {
     status: 'answered', answers: { [SHAPE.question]: 'Square (Recommended)' }, answered_via: 'page', answered_by: MARIE.user_id,
@@ -70,7 +72,7 @@ const rounds = [
     questions: [CHECKS], status: 'answered', answers: { [CHECKS.question]: 'Unit, Access' }, answered_via: 'terminal',
     answered_by: PIERRE.user_id, answered_at: '2026-09-27T11:30:00Z', category: 'harness', category_by: PIERRE.user_id,
   }),
-  round('r4', 'delivery', '2026-09-28T09:00:00Z', { prd: 216, skill: null, branch: null }),
+  round('r4', 'delivery', '2026-09-28T09:00:00Z', { prd: parsePrd(216), skill: null, branch: null }),
 ];
 
 const view = (pick = readPick({}), dossier = numbered, me = PIERRE.user_id, rows = versions, asked: DossierRoundRow[] | null = rounds) =>
@@ -106,9 +108,9 @@ describe('the header', () => {
     expect(dossierView({ ...read, github: null, stages: [] }, null, readPick({})).stage).toMatchObject({ id: 'syncing', words: 'Syncing…' });
     expect(dossierView({ ...read, github: null, stages: null }, null, readPick({})).stage).toMatchObject({ id: 'syncing' });
     const github = {
-      repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
-      phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged' as const, draft: false },
-      feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open' as const, draft: true },
+      repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
+      phase0: { number: parsePr(220), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged' as const, draft: false },
+      feature: { number: parsePr(221), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open' as const, draft: true },
       mergedSlices: 1,
     };
     const building = [{ stage: 'building' as const, reached_at: '2026-09-28T10:00:00Z', synced_at: '2026-09-29T09:15:00Z' }];
@@ -161,7 +163,9 @@ describe('the tabs', () => {
   });
 
   it('opens on Questions when at least one round was asked, its link naming no tab', () => {
-    const one = view(readPick({}), numbered, PIERRE.user_id, versions, [rounds[3]]);
+    const fourth = rounds[3];
+    assertDefined(fourth, 'the fourth round');
+    const one = view(readPick({}), numbered, PIERRE.user_id, versions, [fourth]);
     expect(one.tab).toBe('questions');
     expect(one.tabs.find((t) => t.current)).toMatchObject({ kind: 'questions', href: `/prd/${ID}` });
   });
@@ -184,9 +188,13 @@ describe('the tabs', () => {
   });
 
   it('counts no question when none was asked, or when they could not be read', () => {
-    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs[0].badge).toBeNull();
-    expect(view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs[0].badge).toBeNull();
-    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs[0].alert).toBeNull();
+    const [none] = view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs;
+    const [unread] = view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs;
+    assertDefined(none, 'the first tab with no round');
+    assertDefined(unread, 'the first tab with the rounds unread');
+    expect(none.badge).toBeNull();
+    expect(unread.badge).toBeNull();
+    expect(none.alert).toBeNull();
   });
 
   it('counts questions, not rounds (PRD 498): 3 + 1 answered, 2 open and 1 moved read 4/7 · 2 to answer', () => {
@@ -240,9 +248,9 @@ describe('the Outbox tab (PRD 426)', () => {
   });
   const settled = (id: string, verdict: string) => ({ id, title: `${id}?`, verdict, answer: `Answer to ${id}.` });
   const github = (outbox: GithubSummary['outbox'], more: Partial<GithubSummary> = {}): GithubSummary => ({
-    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
-    phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
-    feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open', draft: true },
+    repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
+    phase0: { number: parsePr(220), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
+    feature: { number: parsePr(221), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open', draft: true },
     mergedSlices: 1, outbox, outboxComment: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7', ...more,
   });
   const outboxOf = (summary: GithubSummary | null | undefined, dossier = numbered) =>
@@ -350,6 +358,7 @@ describe('the Questions tab', () => {
 
   it('shows an answered question with only its chosen option, and the answer as given', () => {
     const [first] = questions().questions.rounds ?? [];
+    assertDefined(first, 'the first round');
     expect(first.questions).toEqual([{
       header: 'Shape', question: 'Square or hexagonal tiles?', multiSelect: false, shape: 'answered', answer: 'Square (Recommended)', written: null,
       options: [{ label: 'Square', recommended: true, description: 'cheaper', chosen: true }],
@@ -358,8 +367,10 @@ describe('the Questions tab', () => {
 
   it('shows each chosen option of a multi-select answer, and none it did not choose', () => {
     const [, second] = questions().questions.rounds ?? [];
-    expect(second.questions[0].options.map((o) => [o.label, o.description, o.chosen])).toEqual([['Unit', '', true], ['Access', 'two accounts', true]]);
-    expect(second.questions[0]).toMatchObject({ shape: 'answered', answer: 'Unit, Access', written: null });
+    const question = second?.questions[0];
+    assertDefined(question, 'the second round\'s question');
+    expect(question.options.map((o) => [o.label, o.description, o.chosen])).toEqual([['Unit', '', true], ['Access', 'two accounts', true]]);
+    expect(question).toMatchObject({ shape: 'answered', answer: 'Unit, Access', written: null });
   });
 
   it('shows an answer that matches no option as the text given, with no option', () => {
@@ -368,6 +379,7 @@ describe('the Questions tab', () => {
       answered_at: '2026-09-27T10:01:00Z',
     });
     const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [other]).questions.rounds ?? [];
+    assertDefined(only, 'the round');
     expect(only.questions[0]).toMatchObject({ shape: 'answered', options: [], written: 'Triangles, obviously' });
   });
 
@@ -377,18 +389,23 @@ describe('the Questions tab', () => {
       answered_by: PIERRE.user_id, answered_at: '2026-09-27T10:01:00Z',
     });
     const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [mixed]).questions.rounds ?? [];
-    expect(only.questions[0].options.map((o) => o.label)).toEqual(['Access']);
-    expect(only.questions[0].written).toBe('Load test');
+    const question = only?.questions[0];
+    assertDefined(question, 'the round\'s question');
+    expect(question.options.map((o) => o.label)).toEqual(['Access']);
+    expect(question.written).toBe('Load test');
   });
 
   it('shows every option of an open question, none chosen', () => {
     const [, , , fourth] = questions().questions.rounds ?? [];
-    expect(fourth.questions[0]).toMatchObject({ shape: 'open', answer: null, written: null });
-    expect(fourth.questions[0].options.map((o) => [o.label, o.chosen])).toEqual([['Square', false], ['Hexagonal', false]]);
+    const question = fourth?.questions[0];
+    assertDefined(question, 'the fourth round\'s question');
+    expect(question).toMatchObject({ shape: 'open', answer: null, written: null });
+    expect(question.options.map((o) => [o.label, o.chosen])).toEqual([['Square', false], ['Hexagonal', false]]);
   });
 
   it('shows no option for a question moved to the terminal', () => {
     const [, , third] = questions().questions.rounds ?? [];
+    assertDefined(third, 'the third round');
     expect(third.questions[0]).toMatchObject({ shape: 'moved', question: 'Square or hexagonal tiles?', options: [], answer: null, written: null });
     expect(third.outcome).toBe('moved to the terminal, no answer recorded');
   });
@@ -407,6 +424,8 @@ describe('the Questions tab', () => {
     expect(first).toMatchObject({ asked: 'asked by Pierre · 27 Sep 2026, 09:15 UTC', category: 'UX/UI', categoryValue: 'ux-ui', href: `/ask/q/r1?from=${ID}` });
     expect(second).toMatchObject({ category: 'Harness', categoryValue: 'harness' });
     expect(third).toMatchObject({ asked: 'asked by marie@vertuoza.com · 28 Sep 2026, 08:00 UTC', category: 'unsorted', categoryValue: null });
+    assertDefined(third, 'the third round');
+    assertDefined(fourth, 'the fourth round');
     expect(third.context).toEqual(['vertuoza/vertuo-omni-loop', 'feat/prd-dossiers--s3', 'PRD #216', '/omni:do-work']);
     expect(fourth.context).toEqual(['vertuoza/vertuo-omni-loop', 'PRD #216']);
   });
@@ -417,6 +436,7 @@ describe('the Questions tab', () => {
       answered_by: 'u-gone', answered_at: '2026-09-28T10:00:42Z',
     });
     const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [odd]).questions.rounds ?? [];
+    assertDefined(only, 'the round');
     expect(only.questions).toEqual([{ header: '', question: 'Asked in the terminal?', multiSelect: false, shape: 'answered', options: [], answer: 'Yes', written: 'Yes' }]);
     expect(only.outcome).toBe('answered by someone who left the workspace after 42 s, in the terminal');
   });
@@ -427,11 +447,11 @@ describe('the Questions tab', () => {
 });
 
 describe('the Retro tab (PRD 426, s3)', () => {
-  const RETRO_PR = { number: 230, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/230', draft: false };
+  const RETRO_PR = { number: parsePr(230), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/230', draft: false };
   const github = (more: Partial<GithubSummary>): GithubSummary => ({
-    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null,
-    phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
-    feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'merged', draft: false },
+    repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null,
+    phase0: { number: parsePr(220), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
+    feature: { number: parsePr(221), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'merged', draft: false },
     mergedSlices: 3, retro: null, retroText: null, ...more,
   });
   const retroOf = (summary: GithubSummary | null | undefined, dossier = numbered) =>
@@ -561,11 +581,17 @@ describe('a quick round, answered on the list (PRD 384)', () => {
     round('q1', 'brainstorm', AT),
     round('q2', 'brainstorm', '2026-09-28T09:00:30Z', { questions: [CHECKS] }),
   ];
-  const quickView = (me: string, answerable: string[]) =>
-    dossierView({ dossier: numbered, versions, members: MEMBERS, rounds: asked, answerable }, me, readPick({}), SOON).questions.rounds!;
+  const quickView = (me: string, answerable: string[]) => {
+    const shown = dossierView({ dossier: numbered, versions, members: MEMBERS, rounds: asked, answerable }, me, readPick({}), SOON).questions.rounds;
+    assertDefined(shown, 'the rounds');
+    return shown;
+  };
 
   it('gives a viewer who may answer a button per option, the answer exactly as offered, and the next open round', () => {
     const [answered, first, second] = quickView(PIERRE.user_id, ['q1', 'q2']);
+    assertDefined(answered, 'the answered round');
+    assertDefined(first, 'the first open round');
+    assertDefined(second, 'the second open round');
     expect(answered.quick).toBeNull();
     expect(second.quick).toBeNull();
     expect(first.quick).toEqual({
@@ -585,8 +611,11 @@ describe('a quick round, answered on the list (PRD 384)', () => {
 
   it('decides who may answer from what the server read, never from the viewer alone', () => {
     const [, first] = quickView(PIERRE.user_id, []);
+    const [, marie] = quickView(MARIE.user_id, ['q1']);
+    assertDefined(first, 'the first open round');
+    assertDefined(marie, 'the first open round, for Marie');
     expect(first.quick).toMatchObject({ canAnswer: false, owner: 'Pierre', names: {}, faces: {} });
-    expect(quickView(MARIE.user_id, ['q1'])[1].quick).toMatchObject({ canAnswer: true });
+    expect(marie.quick).toMatchObject({ canAnswer: true });
   });
 
   it('keeps each round id as the id the way back lands on', () => {
@@ -602,10 +631,10 @@ describe('the Outbox tab as the place to answer (PRD 251, s9)', () => {
     details: { decide: 'What to do.', meanwhile: 'Built A.', cost: 'A constant.', unknown: 'The traffic.' }, ...more,
   });
   const summary = (more: Partial<GithubSummary> = {}): GithubSummary => ({
-    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers',
-    issue: { number: 216, url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' }, retro: null,
-    phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
-    feature: { number: 221, url: PR, state: 'open', draft: true },
+    repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers',
+    issue: { number: parseIssue(216), url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' }, retro: null,
+    phase0: { number: parsePr(220), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
+    feature: { number: parsePr(221), url: PR, state: 'open', draft: true },
     mergedSlices: 1, outboxComment: `${PR}#issuecomment-7`,
     outbox: {
       open: [item('s2-01-h', 'high'), item('s2-02-p', 'human-action', { options: [], personSteps: 'Add the key.' }), item('s3-01-new', 'high')],
@@ -621,7 +650,7 @@ describe('the Outbox tab as the place to answer (PRD 251, s9)', () => {
     },
     ...more,
   });
-  const outboxOf = (github: GithubSummary | null | undefined, { me = PIERRE.user_id as string | null, query = {} as Record<string, string>, demo = false } = {}) =>
+  const outboxOf = (github: GithubSummary | null | undefined, { me = PIERRE.user_id, query = {}, demo = false }: { me?: string | null; query?: Record<string, string>; demo?: boolean } = {}) =>
     dossierView({ dossier: numbered, versions, members: MEMBERS, rounds, github, demo }, me, readPick({ tab: 'outbox', ...query }));
 
   it('numbers the cards as the pull request does, highest rank first, and puts the pending answer on its card', () => {
@@ -654,9 +683,9 @@ describe('the Outbox tab as the place to answer (PRD 251, s9)', () => {
   });
 
   it('is read-only once the feature PR merged, or the PRD closed, and says so', () => {
-    const merged = outboxOf(summary({ feature: { number: 221, url: PR, state: 'merged', draft: false, mergedAt: '2026-09-28T08:00:00Z' } })).outbox;
+    const merged = outboxOf(summary({ feature: { number: parsePr(221), url: PR, state: 'merged', draft: false, mergedAt: '2026-09-28T08:00:00Z' } })).outbox;
     expect(merged).toMatchObject({ readOnly: true, note: 'The feature pull request merged on 28 Sep 2026: what was still open was adopted.' });
-    const closed = outboxOf(summary({ feature: null, issue: { number: 216, url: 'x', state: 'closed' } })).outbox;
+    const closed = outboxOf(summary({ feature: null, issue: { number: parseIssue(216), url: 'x', state: 'closed' } })).outbox;
     expect(closed).toMatchObject({ readOnly: true, note: 'The feature pull request closed: what was still open was adopted.' });
   });
 
@@ -698,7 +727,7 @@ describe('the Outbox tab as the place to answer (PRD 251, s9)', () => {
   it('while the rail shows the spec, its latest version is the one shown, so the route renders it', () => {
     const v = outboxOf(summary(), { query: { context: 'spec' } });
     expect(v.outbox.context?.current).toBe('spec');
-    expect(v.shown).toMatchObject({ id: versions[3].id, number: 3, frame: null });
+    expect(v.shown).toMatchObject({ id: versions[3]?.id, number: 3, frame: null });
     expect(v.versions).toEqual([]);
     expect(readPick({ tab: 'outbox', context: 'elsewhere' })).toEqual({ tab: 'outbox', version: null });
   });
@@ -725,7 +754,7 @@ describe('the faces of the people it names (PRD 652)', () => {
   );
   const PR = 'https://github.com/vertuoza/vertuo-omni-loop/pull/221';
   const github = {
-    issue: { state: 'open' }, phase0: null, feature: { number: 221, url: PR, state: 'open', draft: true }, mergedSlices: 0, outboxComment: null,
+    issue: { state: 'open' }, phase0: null, feature: { number: parsePr(221), url: PR, state: 'open', draft: true }, mergedSlices: 0, outboxComment: null,
     outbox: {
       open: [{ id: 's1-01-h', rank: 'high', question: 'Q?', decision: 'D.', options: [{ letter: 'A', text: 'a' }, { letter: 'B', text: 'b' }], personSteps: null, bearsOn: null, intro: null, punchline: null }],
       adopted: [],
@@ -750,14 +779,17 @@ describe('the faces of the people it names (PRD 652)', () => {
   });
 
   it('names who asked each round and who answered it, by account id, the rest of the outcome after the name', () => {
-    const [first, , third] = dossierView(read(), PIERRE.user_id, readPick({})).questions.rounds!;
+    const [first, , third] = dossierView(read(), PIERRE.user_id, readPick({})).questions.rounds ?? [];
+    assertDefined(first, 'the first round');
+    assertDefined(third, 'the third round');
     expect(first.askedBy).toMatchObject({ name: 'Pierre', face: { kind: 'hero' } });
     expect(first.askedAt).toBe('27 Sep 2026, 09:15 UTC');
     expect(first.answeredBy).toEqual({
       person: { name: 'marie@vertuoza.com', face: { kind: 'photo', url: 'https://a.test/marie.png' }, fleet: 'solo', login: 'marie-gh' },
       rest: ' after 1 min 35 s, on the page',
     });
-    expect(`answered by ${first.answeredBy!.person.name}${first.answeredBy!.rest}`).toBe(first.outcome);
+    assertDefined(first.answeredBy, 'who answered the first round');
+    expect(`answered by ${first.answeredBy.person.name}${first.answeredBy.rest}`).toBe(first.outcome);
     expect(third.answeredBy).toBeNull();
   });
 
@@ -768,8 +800,8 @@ describe('the faces of the people it names (PRD 652)', () => {
 
   it('gives each @login the Outbox tab names its face, by login, ignoring case, and the viewer\'s face for a send', () => {
     const { outbox } = dossierView(read({ github }), MARIE.user_id, readPick({ tab: 'outbox' }));
-    expect(outbox.open[0].pending?.face).toEqual({ kind: 'photo', url: 'https://github.com/stranger.png?size=48' });
-    expect(outbox.settled[0].face).toEqual({ kind: 'photo', url: 'https://a.test/marie.png' });
+    expect(outbox.open[0]?.pending?.face).toEqual({ kind: 'photo', url: 'https://github.com/stranger.png?size=48' });
+    expect(outbox.settled[0]?.face).toEqual({ kind: 'photo', url: 'https://a.test/marie.png' });
     expect(outbox.sender).toEqual({ kind: 'photo', url: 'https://a.test/marie.png' });
     expect(dossierView(read({ github }), null, readPick({ tab: 'outbox' })).outbox.sender).toBeNull();
   });
@@ -777,7 +809,7 @@ describe('the faces of the people it names (PRD 652)', () => {
 
 describe('the PR care tab (PRD 790, s4)', () => {
   const NOW = Date.parse('2026-09-30T12:00:00Z');
-  const FEATURE = { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open' as const, draft: false };
+  const FEATURE = { number: parsePr(221), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open' as const, draft: false };
   const thread = (verdict: CareState['threads'][number]['verdict'], n: number, more: Partial<CareState['threads'][number]> = {}) => ({
     url: `https://github.com/vertuoza/vertuo-omni-loop/pull/221#discussion_r${n}`, login: `rev${n}`, avatar: null, firstLine: `Comment ${n}`,
     verdict, reason: verdict === 'open' ? null : `Reason ${n}`, resolved: verdict === 'fixed' || verdict === 'pushed-back', ...more,
@@ -788,7 +820,7 @@ describe('the PR care tab (PRD 790, s4)', () => {
     watchingSince: '2026-09-30T10:00:00Z', lastRound: '2026-09-30T11:57:00Z',
   };
   const github = (more: Partial<GithubSummary> = {}): GithubSummary => ({
-    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
+    repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
     phase0: null, feature: FEATURE, mergedSlices: 1, outbox: null, outboxComment: null, care: CARE, ...more,
   });
   const careOf = (summary: GithubSummary | null | undefined, dossier = numbered) =>
@@ -826,30 +858,31 @@ describe('the PR care tab (PRD 790, s4)', () => {
       conflict: { state: 'conflict', words: 'conflicting with main' },
       counts: { open: 1, fixed: 1, 'pushed-back': 1, asked: 1 },
     });
-    expect(care!.threads.map((t) => [t.login, t.firstLine, t.verdictWords, t.reason])).toEqual([
+    assertDefined(care, 'the care state');
+    expect(care.threads.map((t) => [t.login, t.firstLine, t.verdictWords, t.reason])).toEqual([
       ['rev1', 'Comment 1', 'asked: the PM decides', 'Reason 1'],
       ['rev2', 'Comment 2', 'not handled yet', null],
       ['rev3', 'Comment 3', 'fixed', 'Reason 3'],
       ['rev4', 'Comment 4', 'pushed back', 'Reason 4'],
     ]);
-    expect(care!.threads[0].person).toMatchObject({ name: 'rev1', face: { kind: 'photo', url: 'https://github.com/rev1.png?size=48' } });
-    const avatar = careOf(github({ care: { ...CARE, threads: [thread('open', 5, { avatar: 'https://a.test/5.png' })] } })).care!;
-    expect(avatar.threads[0].person.face).toEqual({ kind: 'photo', url: 'https://a.test/5.png' });
+    expect(care.threads[0]?.person).toMatchObject({ name: 'rev1', face: { kind: 'photo', url: 'https://github.com/rev1.png?size=48' } });
+    const avatar = careOf(github({ care: { ...CARE, threads: [thread('open', 5, { avatar: 'https://a.test/5.png' })] } })).care;
+    expect(avatar?.threads[0]?.person.face).toEqual({ kind: 'photo', url: 'https://a.test/5.png' });
   });
 
   it('reads CI green or running with no link, and no conflict, or GitHub still checking', () => {
     const green = careOf(github({ care: { ...CARE, ci: 'green', failedUrl: null, conflict: false, threads: [] } }));
     expect(green.care).toMatchObject({ ci: { state: 'green', words: 'green', href: null }, conflict: { state: 'none', words: 'none' } });
     expect(green.tabs.find((t) => t.kind === 'care')?.badge).toBeNull();
-    const running = careOf(github({ care: { ...CARE, ci: 'running', failedUrl: null, conflict: null } })).care!;
+    const { care: running } = careOf(github({ care: { ...CARE, ci: 'running', failedUrl: null, conflict: null } }));
     expect(running).toMatchObject({ ci: { state: 'running', href: null }, conflict: { state: 'unknown', words: 'GitHub is still checking' } });
   });
 
   it('says Claude is watching under 15 minutes after the last round, else nobody, with the command to start', () => {
-    expect(careOf(github()).care!.watcher).toEqual({ watching: true, words: 'Claude is watching · last round 3 min ago', command: '/omni:pr-care 216' });
-    expect(watcherOf('2026-09-30T11:45:01Z', 216, NOW)).toMatchObject({ watching: true, words: 'Claude is watching · last round 14 min ago' });
+    expect(careOf(github()).care?.watcher).toEqual({ watching: true, words: 'Claude is watching · last round 3 min ago', command: '/omni:pr-care 216' });
+    expect(watcherOf('2026-09-30T11:45:01Z', parsePrd(216), NOW)).toMatchObject({ watching: true, words: 'Claude is watching · last round 14 min ago' });
     for (const last of ['2026-09-30T11:45:00Z', '2026-09-29T11:57:00Z', null]) {
-      expect(watcherOf(last, 216, NOW)).toEqual({ watching: false, words: 'Nobody is watching', command: '/omni:pr-care 216' });
+      expect(watcherOf(last, parsePrd(216), NOW)).toEqual({ watching: false, words: 'Nobody is watching', command: '/omni:pr-care 216' });
     }
   });
 

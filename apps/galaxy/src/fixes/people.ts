@@ -7,4 +7,4 @@ import { peopleOf, type People } from '../people/load';
 export type PeopleIn = (workspace: string) => People;
 
 /** No directory: every login gets its public GitHub photo. */
-export const NOBODY = (_workspace?: string): People => peopleOf([], []);
+export const NOBODY = (): People => peopleOf([], []);

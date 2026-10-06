@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { brusselsDay } from './weeks';
 import { countsOf, dayOf, isoDateOf, prdOf, RELEASES, weekOf } from './words';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 describe('the page\'s words', () => {
   it('are the spec\'s', () => {
@@ -56,6 +57,6 @@ describe('a day, a week and its counts', () => {
   });
 
   it('name a PRD by its number, as plain words', () => {
-    expect(prdOf(262)).toBe('PRD 262');
+    expect(prdOf(parsePrd(262))).toBe('PRD 262');
   });
 });

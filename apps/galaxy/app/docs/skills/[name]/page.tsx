@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { DocsPage } from '../../../../src/docs/DocsPage';
+import { docsMetadata } from '../../../../src/seo/seo';
 import { guide } from '../../../../src/docs/source';
 import { skillNames, skillPage } from '../../../../src/docs/skills';
 import { SkillBody, skillSidebar, skillToc } from '../../../../src/docs/skills-view';
@@ -21,7 +22,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const page = skillPage((await params).name);
   if (!page) notFound();
-  return { title: page.command, description: page.summary };
+  return docsMetadata(page.url, page.command, page.summary);
 }
 
 export default async function SkillRoute({ params }: Params) {

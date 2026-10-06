@@ -38,9 +38,9 @@ describe('the menu cookie', () => {
     const attrs = new Map<string, string>();
     const shell = { setAttribute: (n: string, v: string) => void attrs.set(n, v), removeAttribute: (n: string) => void attrs.delete(n) };
     const refused = { get cookie() { return ''; }, set cookie(_: string) { throw new Error('SecurityError'); } };
-    expect(() => setMenu(shell, refused, 'rail')).not.toThrow();
+    expect(() => { setMenu(shell, refused, 'rail'); }).not.toThrow();
     expect(attrs.get(MENU_ATTR)).toBe('rail');
-    expect(() => setMenu(null, null, 'open')).not.toThrow();
+    expect(() => { setMenu(null, null, 'open'); }).not.toThrow();
   });
 });
 
@@ -63,9 +63,9 @@ describe('the script applied before the first paint', () => {
   it('never throws: no document.cookie, a cookie that throws, no parent, no document', () => {
     expect(boot(undefined)).toBeNull();
     const throwing = { get cookie(): string { throw new Error('SecurityError'); }, currentScript: null };
-    expect(() => runInNewContext(menuScript, { document: throwing })).not.toThrow();
-    expect(() => runInNewContext(menuScript, { document: { cookie: 'omni-menu=rail', currentScript: null } })).not.toThrow();
-    expect(() => runInNewContext(menuScript, {})).not.toThrow();
+    expect(() => { runInNewContext(menuScript, { document: throwing }); }).not.toThrow();
+    expect(() => { runInNewContext(menuScript, { document: { cookie: 'omni-menu=rail', currentScript: null } }); }).not.toThrow();
+    expect(() => { runInNewContext(menuScript, {}); }).not.toThrow();
   });
 
   it('is one small self-contained statement', () => {

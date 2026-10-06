@@ -7,6 +7,9 @@
 // Since PRD 627 a dossier has a kind — a PRD's, a visual fix's or a bug fix's — keyed with the repository
 // and the number (supabase/migrations/20261011090000_fix_dossiers.sql), each kind taking its own versions.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type Outcome, StoreError } from '../data/store-error';
 
 /** The three artifacts of a PRD's folder, in the order a push sends them. */
 export const DOSSIER_KINDS = ['spec', 'plan', 'before-after'] as const;
@@ -39,15 +42,16 @@ export const ARTIFACT_MAX_BYTES = 512 * 1024;
 /** The longest title a dossier takes. */
 export const TITLE_MAX = 200;
 
-export const isPulseKind = (value: unknown): value is PulseKind => PULSE_KINDS.includes(value as PulseKind);
-export const isArtifactKind = (value: unknown): value is ArtifactKind => ARTIFACT_KINDS.includes(value as ArtifactKind);
-export const isWorkKind = (value: unknown): value is WorkKind => WORK_KINDS.includes(value as WorkKind);
+export const isPulseKind = (value: unknown): value is PulseKind => isOneOf(PULSE_KINDS, value);
+export const isArtifactKind = (value: unknown): value is ArtifactKind => isOneOf(ARTIFACT_KINDS, value);
+export const isWorkKind = (value: unknown): value is WorkKind => isOneOf(WORK_KINDS, value);
 
 export type DossierArtifact = { kind: ArtifactKind; content: string };
 
 export type DossierPush = {
   repo: string;
-  prd: number;
+  /** A PRD's number; a fix's dossier is keyed by its issue's (PRD 627), so either fits. */
+  prd: PrdNumber | IssueNumber;
   /** What the dossier is of; a PRD's when not given. */
   kind?: WorkKind;
   title: string;
@@ -65,13 +69,7 @@ export type DossierPushed = { id: string; added: Array<{ kind: ArtifactKind; ver
  * P0002 no such draft for them, 22023 a draft of another repository or already another PRD, 54000 an
  * artifact over the cap.
  */
-export class DossierStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, readonly reason: string) {
-    super(`${what}: ${reason}`);
-  }
-}
-
-type Outcome<T> = { data: T | null; error: { code?: string; message: string } | null };
+export class DossierStoreError extends StoreError {}
 
 function settle<T>(what: string, { data, error }: Outcome<T>): T | null {
   if (error) throw new DossierStoreError(what, error.code, error.message);
@@ -92,7 +90,7 @@ export function dossierStore(db: Pick<SupabaseClient, 'rpc'>) {
     /** Sends a PRD folder's artifacts; the dossier they went to and which versions were added. */
     async push({ repo, prd, kind = 'prd', title, draftId, artifacts }: DossierPush): Promise<DossierPushed> {
       // A PRD's push names no kind, as before PRD 627: the function reads a missing one as prd.
-      const pushed = settle<DossierPushed>('push the dossier', await db.rpc('dossier_push', {
+      const pushed = settle<Partial<DossierPushed>>('push the dossier', await db.rpc('dossier_push', {
         p_repo: repo, p_prd: prd, p_title: title, p_draft: draftId, p_artifacts: artifacts, ...(kind === 'prd' ? {} : { p_kind: kind }),
       }));
       if (!pushed || typeof pushed.id !== 'string') throw new DossierStoreError('push the dossier', undefined, 'no dossier came back');
@@ -115,9 +113,9 @@ export type DossierRow = {
   workspace_id: string;
   home_repo: string;
   /** Null while a draft. For a fix, its issue's number. */
-  prd: number | null;
+  prd: PrdNumber | null;
   /** What it is of (PRD 627); a row read without it is a PRD's. */
-  kind?: WorkKind;
+  kind?: WorkKind | undefined;
   title: string;
   /** Null when the fallback created it, or its opener's account is gone. */
   opened_by: string | null;
@@ -164,7 +162,7 @@ export function dossierReader(db: Pick<SupabaseClient, 'from'>) {
     /** The id of dossier `prd` of `kind` (a PRD's when not given) in `repo` (compared lower-cased, as the
      * table keeps it), or null when the caller may read none. Two workspaces of the caller may each hold
      * one: the most recently numbered is the answer. */
-    async numbered(repo: string, prd: number, kind: WorkKind = 'prd'): Promise<string | null> {
+    async numbered(repo: string, prd: PrdNumber | IssueNumber, kind: WorkKind = 'prd'): Promise<string | null> {
       const rows = settle<Array<{ id: string }>>('find the dossier', await db.from('dossiers').select('id')
         .eq('home_repo', repo.toLowerCase()).eq('kind', kind).eq('prd', prd)
         .order('numbered_at', { ascending: false, nullsFirst: false }).order('id', { ascending: true }).limit(1));
@@ -209,7 +207,7 @@ export type DossierRoundRow = {
   answered_by: string | null;
   category: string | null;
   category_by: string | null;
-  prd: number | null;
+  prd: PrdNumber | null;
   skill: string | null;
   created_at: string;
   answered_at: string | null;
@@ -286,7 +284,8 @@ export type DossierPulse = { asked: number; answered: number; latest: Partial<Re
 
 /** The dossier's pulse, or null when the caller may not read it, or it is gone. */
 export async function dossierPulse(db: Pick<SupabaseClient, 'rpc'>, dossierId: string): Promise<DossierPulse | null> {
-  const row = (await dossierList(db, dossierId))[0];
+  // dossier_list()'s row as it came, unparsed: each field read is checked.
+  const row: Partial<Pick<DossierListRow, 'latest' | 'asked' | 'answered'>> | undefined = (await dossierList(db, dossierId))[0];
   if (!row) return null;
   const latest: Partial<Record<PulseKind, number>> = {};
   for (const kind of PULSE_KINDS) {

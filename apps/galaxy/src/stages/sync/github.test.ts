@@ -1,6 +1,10 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
+import { GithubDeferred, GithubPaused, memoryGithubStore } from '@omni/github';
+import { settled } from '../settled';
 import { stagesReader } from './github';
+
+vi.mock('server-only', () => ({}));
 
 // The stages sync's reader, against a stubbed `fetch`: never GitHub itself. A small fake GitHub answers
 // by route; each test says what the repository holds.
@@ -60,7 +64,7 @@ const ROUTES: readonly Route[] = [tokenRoute, configRoute, folderRoute, issuesRo
 
 function fakeGithub(repo: FakeRepo) {
   const calls: string[] = [];
-  const fetchImpl = vi.fn(async (href: string, init: RequestInit) => {
+  const fetchImpl = vi.fn((href: string, init: RequestInit) => settled(() => {
     const url = new URL(href);
     const at = `${url.pathname}${url.search}`;
     calls.push(at);
@@ -70,7 +74,7 @@ function fakeGithub(repo: FakeRepo) {
       if (answer) return answer;
     }
     throw new Error(`unexpected GitHub call ${href}`);
-  });
+  }));
   return { fetchImpl, calls };
 }
 
@@ -140,5 +144,40 @@ describe('the stages sync reader', () => {
   it('throws when GitHub fails, naming what it read', async () => {
     const reader = stagesReader(CREDS, fakeGithub({ fail: /\/pulls/ }).fetchImpl, () => NOW);
     await expect(reader.snapshot(11, 'acme/widgets')).rejects.toThrow(/502 to \/pulls/);
+  });
+});
+
+describe('the stages sync reader and the budget (PRD 902, s1)', () => {
+  const RESET = NOW + 30 * 60_000;
+  const repoCalls = (calls: string[]) => calls.filter((c) => c.startsWith('/repos/'));
+
+  it('reads in the background: below 20% of the installation\'s limit it sends nothing and throws GithubDeferred', async () => {
+    const store = memoryGithubStore();
+    await store.saveBudget(11, 'core', { limit: 5000, remaining: 999, resetAt: RESET, at: NOW });
+    const gh = fakeGithub({ inbox: ['0042-dark-mode'] });
+    await expect(stagesReader(CREDS, gh.fetchImpl, () => NOW, store).snapshot(11, 'acme/widgets')).rejects.toBeInstanceOf(GithubDeferred);
+    expect(repoCalls(gh.calls)).toEqual([]);
+  });
+
+  it('sends nothing while the installation is paused', async () => {
+    const store = memoryGithubStore();
+    await store.pause(11, 'core', RESET, NOW);
+    const gh = fakeGithub({ inbox: ['0042-dark-mode'] });
+    await expect(stagesReader(CREDS, gh.fetchImpl, () => NOW, store).snapshot(11, 'acme/widgets')).rejects.toBeInstanceOf(GithubPaused);
+    expect(repoCalls(gh.calls)).toEqual([]);
+  });
+
+  it('records the budget each answer reports, for the installation it reads as', async () => {
+    const store = memoryGithubStore();
+    const gh = fakeGithub({});
+    const reported = { 'x-ratelimit-limit': '5000', 'x-ratelimit-remaining': '4200', 'x-ratelimit-reset': String(RESET / 1000), 'x-ratelimit-resource': 'core' };
+    const limited = vi.fn(async (href: string, init: RequestInit) => {
+      const answer = await gh.fetchImpl(href, init);
+      const headers = new Headers(answer.headers);
+      for (const [name, value] of Object.entries(reported)) headers.set(name, value);
+      return new Response(await answer.text(), { status: answer.status, headers });
+    });
+    await stagesReader(CREDS, limited, () => NOW, store).snapshot(11, 'acme/widgets');
+    expect(await store.budget(11, 'core')).toMatchObject({ limit: 5000, remaining: 4200, resetAt: RESET });
   });
 });

@@ -1,8 +1,9 @@
 'use client';
 // The menu group's text layer: the menu (a visitor's and a player's) and How to play, laid out for
 // the grid the screen is drawn on (menu.css places each for `.grid-wide` and `.grid-tall`).
-import { xpForLevel, type GalaxyView, type WoundKind, type XpRules } from '@omni/galaxy';
+import { xpForLevel, type GalaxyView, type XpRules } from '@omni/galaxy';
 import { woundTint } from '@omni/design';
+import { defined, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { useScreen } from '../Screen';
 import { Sprite } from '../Sprite';
 import { crewLook, fleet, WOUND_LOOK } from '../fleets';
@@ -15,6 +16,7 @@ import { gamesHint, levelTag, type XpStatus } from '../games/room';
 import { GAMES, type Game } from '../games/index';
 import './common.css';
 import './menu.css';
+import { cssVars } from '../css-vars';
 
 function SourceChip({ view }: { view: GalaxyView }) {
   return view.source === 'supabase'
@@ -51,15 +53,18 @@ export function menuItems({ joined, signedIn, newGames = false, app = false, sol
 }): MenuItem[] {
   const change: MenuItem = { id: 'change', label: solo ? 'JOIN A FLEET' : 'CHANGE FLEET', fresh: true };
   const games: MenuItem = { id: 'games', label: 'GAMES', scene: 'games', ...(newGames ? { tag: 'NEW' as const } : {}) };
+  const play: MenuItem = { id: 'play', label: 'PLAY', fresh: true };
+  const myHero: MenuItem = { id: 'myhero', label: 'MY HERO', fresh: true };
+  const signOut: MenuItem = { id: 'signout', label: 'SIGN OUT' };
   return [
-    ...(signedIn && !joined ? [{ id: 'play', label: 'PLAY', fresh: true }] as MenuItem[] : []),
+    ...(signedIn && !joined ? [play] : []),
     ...GALAXY,
     ...(signedIn ? [games] : []),
     BRIEFING,
-    ...(signedIn && joined ? [{ id: 'myhero', label: 'MY HERO', fresh: true }] as MenuItem[] : []),
+    ...(signedIn && joined ? [myHero] : []),
     ...(signedIn && joined && fleets ? [change] : []),
     ...(app ? [APP] : []),
-    ...(signedIn ? [{ id: 'signout', label: 'SIGN OUT' }] as MenuItem[] : []),
+    ...(signedIn ? [signOut] : []),
   ];
 }
 
@@ -85,12 +90,12 @@ const UNKNOWN_XP: XpStatus = { kind: 'unreadable' };
 export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp = UNKNOWN_XP }: {
   view: GalaxyView | null; items: MenuItem[]; index: number; me: Player | null; onPick: (i: number) => void; chart?: ChartSource;
   /** The player's XP, for GAMES's hint and the level on their badge. */
-  xp?: XpStatus;
+  xp?: XpStatus | undefined;
 }) {
   const hint: Record<MenuId, string> = {
     map: view ? `${view.totals.planets} planets · ${view.totals.inDistress} in distress` : 'Out of reach',
     chart: chart === 'none' ? 'NOT IN THIS BUILD' : chart ? chartTally(chart) : 'OUT OF REACH',
-    fleets: !view ? 'Out of reach' : view.teams.length ? `${view.teams.length} fleets · ${fleet(view.teams[0].name).label} lead` : 'No fleets yet',
+    fleets: !view ? 'Out of reach' : view.teams.length ? `${view.teams.length} fleets · ${fleet(defined(view.teams[0], 'the lead fleet').name).label} lead` : 'No fleets yet',
     heroes: view ? `${view.heroes.length} heroes scored in ${view.season}` : 'Out of reach',
     games: gamesHint(xp),
     briefing: 'How points are won and lost',
@@ -105,12 +110,12 @@ export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp =
     <div className={`menu${items.length > 4 ? ' long' : ''}`}>
       <h2>SELECT MODE</h2>
       {me
-        ? <span className="j-badge" style={{ ['--fc' as string]: f.color }}>{badgeOf(me, xp)}</span>
-        : <span className="j-badge" style={{ ['--fc' as string]: '#8a90d6' }}>VISITOR</span>}
+        ? <span className="j-badge" style={cssVars({ '--fc': f.color })}>{badgeOf(me, xp)}</span>
+        : <span className="j-badge" style={cssVars({ '--fc': '#8a90d6' })}>VISITOR</span>}
       <ul>
         {items.map((m, i) => (
           <li key={m.id}>
-            <button type="button" className={`${i === index ? 'active' : ''}${m.id === 'play' ? ' nudge' : ''}`} onClick={() => onPick(i)}>
+            <button type="button" className={`${i === index ? 'active' : ''}${m.id === 'play' ? ' nudge' : ''}`} onClick={() => { onPick(i); }}>
               <span className="cursor" aria-hidden="true">{i === index ? '▶' : ''}</span>
               <span className="menu-label">{m.label}{m.tag && <i className="menu-tag">{m.tag}</i>}</span>
               <span className="menu-hint">{hint[m.id]}</span>
@@ -146,9 +151,11 @@ const CURVE_SHOWN = 5;
  * each game in `unlocks` opens at, lowest first, named by the game room's registry.
  */
 function briefingLevels(xp: XpRules, games: readonly Game[] = GAMES) {
+  // The rules come from the galaxy as it was read: a weight it does not carry counts 0.
+  const weights: Readonly<Partial<XpRules['weights']>> = xp.weights;
   const titleOf = (id: string) => games.find((g) => g.id === id)?.title ?? id.replace(/-/g, ' ').toUpperCase();
   return {
-    credits: (Object.keys(XP_CREDITS) as (keyof XpRules['weights'])[]).map((kind) => ({ kind, label: XP_CREDITS[kind], weight: xp.weights[kind] ?? 0 })),
+    credits: keysOf(XP_CREDITS).map((kind) => ({ kind, label: XP_CREDITS[kind], weight: weights[kind] ?? 0 })),
     curve: Array.from({ length: Math.min(CURVE_SHOWN, xp.cap) }, (_, i) => ({ level: i + 1, xp: xpForLevel(i + 1, xp) })),
     cap: xp.cap,
     unlocks: Object.entries(xp.unlocks).map(([id, level]) => ({ id, title: titleOf(id), level })).sort((a, b) => a.level - b.level),
@@ -166,7 +173,7 @@ const xpText = (n: number) => n.toLocaleString('en-US');
 export function BriefingOverlay({ view }: { view: GalaxyView }) {
   const { grid, page } = useScreen();
   const r = view.rules;
-  const kinds = Object.keys(WOUND_LOOK) as WoundKind[];
+  const kinds = keysOf(WOUND_LOOK);
   const lv = briefingLevels(r.xp);
   const sections: Record<BriefingPage, React.ReactNode> = {
     earn: (
@@ -230,7 +237,7 @@ export function BriefingOverlay({ view }: { view: GalaxyView }) {
       <h2>HOW TO PLAY</h2>
       {tall && <p className="brief-page"><span aria-hidden="true">◀</span> {`PAGE ${at + 1}/${BRIEFING_PAGES.length}`} <span aria-hidden="true">▶</span></p>}
       <div className="brief-cols">
-        {tall ? sections[BRIEFING_PAGES[at]] : BRIEFING_PAGES.map((p) => sections[p])}
+        {tall ? sections[defined(BRIEFING_PAGES[at], 'the briefing page')] : BRIEFING_PAGES.map((p) => sections[p])}
       </div>
       <p className="hint">RUN /omni-yolo &lt;prd&gt; TO LEND YOUR AGENT TO A PLANET · B · MENU</p>
     </div>

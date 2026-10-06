@@ -6,6 +6,7 @@ import { KIND_LABEL, valueLabel, type Claim } from './model';
 //   addition     a proposed evidence value of a kind that holds several (region, trade, rival), beside
 //                the confirmed ones of its kind: "Region: Belgium → Belgium + France". ✓ confirms it,
 //                ✗ rejects it. A first value of a kind is not an addition: it is a found row (./reveal.ts).
+//                A proposed Never line (PRD 839) is never one: it waits in the Never lines list.
 //   replacement  a proposed offering or size that `replaces` a confirmed one, now contradicted:
 //                "~~ERP~~ → CRM". ✓ confirms the new and rejects the old; ✗ the reverse
 //                (claim_set_state() settles it in the database).
@@ -29,7 +30,7 @@ const isAnswerToCheck = (c: Claim) => c.state === 'proposed' && c.source === 'an
 
 /** The confirmed claims an addition would join; none when `claim` is not an addition. */
 function joined(claim: Claim, claims: readonly Claim[]): Claim[] {
-  if (!waiting(claim) || claim.replaces || REPLACED.has(claim.kind)) return [];
+  if (!waiting(claim) || claim.replaces || REPLACED.has(claim.kind) || claim.kind === 'never') return [];
   return claims.filter((c) => c.state === 'confirmed' && c.kind === claim.kind && sameProduct(c, claim)).sort((a, b) => a.seq - b.seq);
 }
 
@@ -77,7 +78,10 @@ export function checkRows(claims: readonly Claim[], now: number): CheckRow[] {
     return before.length > 0 ? [{ kind: 'addition' as const, claim: c, before }] : [];
   });
   const answers: CheckRow[] = bySeq.flatMap((c) => (isAnswerToCheck(c) ? [{ kind: 'answer' as const, claim: c }] : []));
-  const faded: CheckRow[] = bySeq.flatMap((c) => (isFaded(c, now) ? [{ kind: 'faded' as const, claim: c, since: lastSeenOf(c) as string }] : []));
+  const faded: CheckRow[] = bySeq.flatMap((c) => {
+    const since = lastSeenOf(c);
+    return since !== null && isFaded(c, now) ? [{ kind: 'faded' as const, claim: c, since }] : [];
+  });
   return [...replacements, ...additions, ...answers, ...faded];
 }
 
@@ -103,7 +107,7 @@ export function settled(claims: readonly Claim[], saved: Claim): Claim[] {
 /** The saved row, with the receipts and citations the page read. */
 function keptAsRead(saved: Claim, was: Claim | undefined): Claim {
   if (!was) return saved;
-  return { ...saved, cited: was.cited ?? saved.cited, lastBy: was.lastBy ?? saved.lastBy, ...(was.receipts ? { receipts: was.receipts } : {}) };
+  return { ...saved, cited: was.cited, lastBy: was.lastBy ?? saved.lastBy, ...(was.receipts ? { receipts: was.receipts } : {}) };
 }
 
 /** The old side of an answered replacement takes the other state; any other claim stays as it is. */

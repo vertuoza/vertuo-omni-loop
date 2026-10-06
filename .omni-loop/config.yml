@@ -12,12 +12,15 @@ commands:
   preflight: pnpm test
   preflightFull: pnpm test
   test: pnpm test
+  # PRD 1072: mutation testing of the delivery core files changed against origin/main (PRD 556's
+  # meaning), run by the bug-fix skill after a fix. Never in the preflight or pull request CI.
+  mutation: pnpm mutation:changed
 laws:
   source: none
 # Ask mode (PRD #71, ADR-0002): questions answered on the page the galaxy app serves. The Vercel
 # project's default production address; `null` switches the mode off.
 ask:
-  url: https://vertuo-omni-loop-galaxy.vercel.app
+  url: https://www.omni-loop.xyz
 # PRD dossiers (PRD 216): `omni dossier` sends each PRD's spec, plan and before/after page to the same
 # app, which keeps every version. Off by default in the kit; `false` stops every upload from here.
 dossier:
@@ -26,10 +29,13 @@ dossier:
 # ship by /omni:yolo and /omni:yolo-fix; `omni ship` refuses one without it. Off by default in the kit.
 releaseNotes:
   enabled: true
-# Proof videos (PRD 798): /omni:prove films a PRD's acceptance criteria on this URL. Production for
-# now: the previews answer 401 until a Vercel bypass secret is set (proof.bypassEnv). Each run signs
-# its browser in from the person's own `omni signin` (`omni proof session`, #838): Google refuses a
-# browser login inside Playwright.
+# Proof videos (PRD 798): /omni:prove films a PRD's acceptance criteria on the feature PR's galaxy
+# preview. The previews sit behind Vercel's deployment protection: set VERCEL_AUTOMATION_BYPASS_SECRET
+# in your shell to the galaxy project's "Protection Bypass for Automation" secret (this repository's
+# only; other repositories name their own variable, or none). Each run signs its browser in from the
+# person's own `omni signin` (`omni proof session`): Google refuses a browser login inside Playwright.
 proof:
-  url: https://vertuo-omni-loop-galaxy.vercel.app
+  url: github-deployment
+  deployment: Preview – vertuo-omni-loop-galaxy
   setup: node .omni-loop/bin/omni.mjs proof session
+  bypassEnv: VERCEL_AUTOMATION_BYPASS_SECRET

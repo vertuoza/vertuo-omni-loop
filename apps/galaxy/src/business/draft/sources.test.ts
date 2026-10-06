@@ -30,7 +30,7 @@ describe('repoFiles', () => {
   it('caps a repository at twelve files: the README, then the docs, then the specs', () => {
     const files = repoFiles(listing({ docs: ['a.md', 'b.md', 'c.md'], delivery: 'loop', shipped: shipped(20) }));
     expect(files).toHaveLength(12);
-    expect(files.map((f) => f.kind)).toEqual(['readme', 'doc', 'doc', 'doc', ...Array(8).fill('prd')]);
+    expect(files.map((f) => f.kind)).toEqual(['readme', 'doc', 'doc', 'doc', ...Array<string>(8).fill('prd')]);
   });
 
   it('reads nothing in a repository with neither README nor docs nor kit layout', () => {

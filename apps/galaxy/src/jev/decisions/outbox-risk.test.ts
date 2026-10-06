@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { outboxRisk } from './outbox-risk';
+import { sure } from '../../arcade/test/sure';
 
 // The outbox item risk's registry entry (PRD 812 s3): a Noul "hard to revert?", mapped with the
 // decision's threshold; what it sends Jev (decision 10: the item's decision text and options, the
@@ -11,6 +12,10 @@ const STATE = {
   slice: 's3: sessions',
   paths: ['apps/galaxy/src/ask/store.ts', 'supabase/migrations/'],
 };
+
+/** The state as the decision reads it: the file's `slice` key, read as the label it holds. */
+const { slice, ...rest } = STATE;
+const INPUT = { ...rest, sliceLabel: slice };
 
 describe('outbox-risk', () => {
   it('asks a Noul whether the decision is hard to revert', () => {
@@ -40,7 +45,7 @@ describe('outbox-risk', () => {
   });
 
   it('gives Jev the decision, its options, the slice and the paths it touches', () => {
-    const state = outboxRisk.state(STATE);
+    const state = outboxRisk.state(INPUT);
     expect(typeof state).toBe('string');
     expect(state).toContain('Decision: Keep the sessions in Postgres rather than Redis.');
     expect(state).toContain('- A: Postgres, row-level security per owner');
@@ -49,9 +54,9 @@ describe('outbox-risk', () => {
   });
 
   it('reads a state from a terminal, and refuses a malformed one', () => {
-    const terminal = outboxRisk.terminal!;
-    expect(terminal.input(STATE)).toEqual(STATE);
-    expect(terminal.input({ decision: 'Only the decision.' })).toEqual({ decision: 'Only the decision.', options: [], slice: null, paths: [] });
+    const terminal = sure(outboxRisk.terminal, 'outboxRisk.terminal');
+    expect(terminal.input(STATE)).toEqual(INPUT);
+    expect(terminal.input({ decision: 'Only the decision.' })).toEqual({ decision: 'Only the decision.', options: [], sliceLabel: null, paths: [] });
     expect(terminal.input({ ...STATE, decision: '' })).toBeNull();
     expect(terminal.input({ ...STATE, paths: 'one/path' })).toBeNull();
     expect(terminal.input({ ...STATE, options: [1, 2] })).toBeNull();
@@ -61,7 +66,7 @@ describe('outbox-risk', () => {
   });
 
   it('reads the agent\'s own hardToRevert as the old answer', () => {
-    const terminal = outboxRisk.terminal!;
+    const terminal = sure(outboxRisk.terminal, 'outboxRisk.terminal');
     expect(terminal.old('true')).toBe(true);
     expect(terminal.old('false')).toBe(false);
     expect(terminal.old('yes')).toBeNull();

@@ -19,7 +19,7 @@ export function useDockKeys(act: (action: Action) => void, held: Held | null, fo
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === 'Escape') { e.preventDefault(); return fold(); }
+      if (e.key === 'Escape') { e.preventDefault(); fold(); return; }
       const action = keyAction(e.key);
       if (!action || action === 'select') return;
       e.preventDefault();

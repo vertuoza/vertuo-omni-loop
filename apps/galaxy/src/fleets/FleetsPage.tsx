@@ -1,6 +1,7 @@
 'use client';
 import { useReducer, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { FleetRow } from '../arcade/types';
 import { FleetsView, type FleetsHandlers } from './FleetsView';
 import { fleetsReducer, initialState } from './model';
@@ -14,8 +15,6 @@ export type FleetsSource =
   | { kind: 'demo' }
   | { kind: 'database'; url: string; key: string; workspace: string };
 
-type Rpc = Parameters<typeof databaseFleets>[0];
-
 export interface FleetsPageProps {
   source: FleetsSource;
   owner: boolean;
@@ -28,7 +27,7 @@ export function FleetsPage({ source, owner, fleets, mascots }: FleetsPageProps) 
   const port = useRef<FleetsPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoFleetsPort(fleets)
-    : databaseFleets(createBrowserClient(source.url, source.key) as unknown as Rpc, source.workspace));
+    : databaseFleets(createBrowserClient<Database>(source.url, source.key), source.workspace));
 
   const run = async (call: (p: FleetsPort) => Promise<Saved>) => {
     dispatch({ type: 'busy' });
@@ -37,18 +36,18 @@ export function FleetsPage({ source, owner, fleets, mascots }: FleetsPageProps) 
   };
 
   const on: FleetsHandlers = {
-    create: () => dispatch({ type: 'new' }),
-    edit: (name) => dispatch({ type: 'edit', name }),
-    change: (field, value) => dispatch({ type: 'change', field, value }),
-    cancel: () => dispatch({ type: 'cancel' }),
+    create: () => { dispatch({ type: 'new' }); },
+    edit: (name) => { dispatch({ type: 'edit', name }); },
+    change: (field, value) => { dispatch({ type: 'change', field, value }); },
+    cancel: () => { dispatch({ type: 'cancel' }); },
     save: () => {
       const draft = state.draft;
       if (!draft || state.busy) return;
       const { name, ...look } = draft;
       void run((p) => (name ? p.update(name, look) : p.create(look)));
     },
-    askRetire: (name) => dispatch({ type: 'ask-retire', name }),
-    keep: () => dispatch({ type: 'keep' }),
+    askRetire: (name) => { dispatch({ type: 'ask-retire', name }); },
+    keep: () => { dispatch({ type: 'keep' }); },
     retire: (name) => { if (!state.busy) void run((p) => p.retire(name)); },
     restore: (name) => { if (!state.busy) void run((p) => p.restore(name)); },
   };

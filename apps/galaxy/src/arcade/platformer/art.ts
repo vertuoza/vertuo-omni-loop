@@ -7,6 +7,7 @@ import type { WoundKind } from '@omni/galaxy';
 import { heroLook, heroPose, spriteImage, STAGE_PALETTES, TILES, woundTint, type Hero, type Tint } from '@omni/design';
 import { crewLook } from '../fleets';
 import type { Stage } from './stages';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** The sky behind each palette's stage: open blue, the cave's dark, the castle's night. */
 export const SKY: Readonly<Record<string, string>> = Object.freeze({ grass: '#6f9cff', underground: '#08070f', castle: '#1c1f31' });
@@ -15,7 +16,10 @@ export const SKY: Readonly<Record<string, string>> = Object.freeze({ grass: '#6f
 const ENEMY_KIND: Readonly<Record<string, WoundKind>> = Object.freeze({ underground: 'transmission', castle: 'beacon' });
 
 /** The blobs' tint in a palette's stage, none for Entropy's own colours. */
-export const enemyTint = (palette: string): Tint | null => (Object.hasOwn(ENEMY_KIND, palette) ? woundTint(ENEMY_KIND[palette]) : null);
+export const enemyTint = (palette: string): Tint | null => {
+  const kind = Object.hasOwn(ENEMY_KIND, palette) ? ENEMY_KIND[palette] : undefined;
+  return kind ? woundTint(kind) : null;
+};
 
 /** The hero's poses in the game: standing, the two strides of the run, and the jump. */
 export type Pose = 'stand' | 'run0' | 'run1' | 'jump';
@@ -50,11 +54,11 @@ export function tileFrame(stage: Stage, row: number, col: number): number {
     case 'stone': return at('tile-stone');
     case 'pipe': {
       let first = col;
-      while (stage.tiles[row][first - 1] === 'pipe') first -= 1;
+      while (defined(stage.tiles[row], 'the pipe\'s row')[first - 1] === 'pipe') first -= 1;
       const side = (col - first) % 2 ? 'r' : 'l';
       return at(above === 'pipe' ? `tile-pipe-${side}` : `tile-pipe-top-${side}`);
     }
-    default: return -1;
+    case 'empty': case undefined: return -1;
   }
 }
 
@@ -70,7 +74,7 @@ function canvas(w: number, h: number, paint: (ctx: CanvasRenderingContext2D) => 
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
-  const ctx = c.getContext('2d')!;
+  const ctx = defined(c.getContext('2d'), 'a 2D canvas context');
   ctx.imageSmoothingEnabled = false;
   paint(ctx);
   return c;
@@ -78,13 +82,13 @@ function canvas(w: number, h: number, paint: (ctx: CanvasRenderingContext2D) => 
 
 const sprite = (name: string, tint: Tint | null, frame = 0) => {
   const img = spriteImage(name, { tint, frame });
-  return canvas(img.width, img.height, (ctx) => ctx.drawImage(img, 0, 0));
+  return canvas(img.width, img.height, (ctx) => { ctx.drawImage(img, 0, 0); });
 };
 
 /** Draws the art for a stage's palette and the player's hero, in their fleet's colour. Browser only. */
 export function drawArt(hero: Hero, team: string | null, palette: string): Art {
   const tint = STAGE_PALETTES[palette] ?? STAGE_PALETTES.grass;
-  const tiles = canvas(16 * TILES.length, 16, (ctx) => TILES.forEach((name, i) => ctx.drawImage(spriteImage(name, { tint }), i * 16, 0)));
+  const tiles = canvas(16 * TILES.length, 16, (ctx) => { TILES.forEach((name, i) => { ctx.drawImage(spriteImage(name, { tint: tint ?? null }), i * 16, 0); }); });
   const color = crewLook(team).color;
   const look = heroLook(hero, color);
   const run = heroPose(hero, 'omni-run', color);
@@ -100,6 +104,6 @@ export function drawArt(hero: Hero, team: string | null, palette: string): Art {
     flag: [sprite('flag', null, 0), sprite('flag', null, 1)],
     coin: [sprite('coin', null, 0), sprite('coin', null, 1)],
     enemy: [sprite('entropy', enemyTint(palette), 0), sprite('entropy', enemyTint(palette), 1)],
-    sky: SKY[palette] ?? SKY.grass,
+    sky: SKY[palette] ?? defined(SKY.grass, 'the grass sky'),
   };
 }

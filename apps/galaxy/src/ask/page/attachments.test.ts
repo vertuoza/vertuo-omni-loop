@@ -18,15 +18,15 @@ function stubBucket(fail: (path: string, attempt: number) => { message: string; 
   const calls: Call[] = [];
   const attempts = new Map<string, number>();
   const bucket: Bucket = {
-    async upload(path, _file, options) {
+    upload(path, _file, options) {
       calls.push({ op: 'upload', path, contentType: options.contentType });
       const attempt = (attempts.get(path) ?? 0) + 1;
       attempts.set(path, attempt);
-      return { error: fail(path, attempt) };
+      return Promise.resolve({ error: fail(path, attempt) });
     },
-    async remove(paths) {
+    remove(paths) {
       calls.push({ op: 'remove', paths });
-      return { error: null };
+      return Promise.resolve({ error: null });
     },
   };
   return { bucket, calls };
@@ -38,10 +38,10 @@ function recorder(outcome: 'answered' | 'taken' = 'answered') {
   return {
     recorded,
     order,
-    record: async (attachments?: AskAttachments) => {
+    record: (attachments?: AskAttachments) => {
       recorded.push(attachments);
       order.push('record');
-      return outcome;
+      return Promise.resolve(outcome);
     },
   };
 }
@@ -95,7 +95,7 @@ describe('sending with screenshots', () => {
     const { bucket, calls } = stubBucket();
     const tray = newTray();
     tray.shots = { 'Which one?': [shot('a')] };
-    await expect(sendWithShots(bucket, ROUND, tray, async () => { throw new Error('offline'); }, () => {})).rejects.toThrow('offline');
+    await expect(sendWithShots(bucket, ROUND, tray, () => Promise.reject(new Error('offline')), () => {})).rejects.toThrow('offline');
     calls.length = 0;
     const r = recorder();
     expect(await sendWithShots(bucket, ROUND, tray, r.record, () => {})).toBe('answered');
@@ -104,7 +104,7 @@ describe('sending with screenshots', () => {
   });
 
   it('takes a file an earlier try stored without hearing back as uploaded', async () => {
-    const { bucket } = stubBucket((path, attempt) => (attempt === 1 ? { message: 'The resource already exists', statusCode: '409' } : null));
+    const { bucket } = stubBucket((_path, attempt) => (attempt === 1 ? { message: 'The resource already exists', statusCode: '409' } : null));
     const tray = newTray();
     tray.shots = { 'Which one?': [shot('a')] };
     const r = recorder();
@@ -146,7 +146,9 @@ describe('the round trays the form stages', () => {
     stageShots('r-tray', { 'Which one?': [shot('a')] });
     expect(trayOf('r-tray').shots).toEqual({ 'Which one?': [shot('a')] });
     const { bucket } = stubBucket();
-    await sendWithShots(bucket, ROUND, trayOf('r-tray'), recorder().record, (p) => trayOf('r-tray').setProgress(p));
+    await sendWithShots(bucket, ROUND, trayOf('r-tray'), recorder().record, (p) => {
+      trayOf('r-tray').setProgress(p);
+    });
     stop();
     expect(heard).toEqual(['Uploading 1 of 1…', 'idle']);
     expect(progressOf('never-staged')).toEqual({ kind: 'idle' });

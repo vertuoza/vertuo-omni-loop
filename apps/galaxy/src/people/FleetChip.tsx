@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { cssVars } from '../arcade/css-vars';
 import { mascotSvg } from '../fleets/FleetCard';
 import { NEUTRAL } from '../fleets/model';
 import { decorative } from './face';
@@ -23,7 +23,7 @@ export function FleetChip({ fleet, size = 'table', link = true }: { fleet: Fleet
   const color = fleet.color && HEX.test(fleet.color) ? fleet.color.toLowerCase() : null;
   const svg = decorative(mascotSvg(fleet.mascot, color ?? NEUTRAL, '', 1));
   const className = `fleet-chip is-${size}`;
-  const style = color ? ({ '--fleet': color } as CSSProperties) : undefined;
+  const style = color ? cssVars({ '--fleet': color }) : undefined;
   const inner = (
     <>
       <span className="fleet-chip-mascot" aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} />

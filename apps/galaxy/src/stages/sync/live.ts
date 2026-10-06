@@ -1,14 +1,19 @@
 import 'server-only';
 import { serviceDb } from '../../data/sign-in-live';
+import { listOf, numberOf } from '../../data/unparsed';
 import type { FixRef } from '../../dossier/github/reader';
-import { dossierGithub } from '../../dossier/github/server';
+import { serverEnv, type ArcadeEnv } from '../../env';
+import { dossierGithub, githubStore } from '../../dossier/github/server';
+import { liveRecountSummary } from '../../dossier/snapshot/live';
 import { fixFactsStore } from '../../fixes/facts/store';
 import { knowledgeReader, type KnowledgeReader } from '../../knowledge/github';
 import { appCredentials } from '../../signup/github-app';
 import { outboxDeps } from '../outbox/live';
 import { stageStore, type StageStore } from '../store';
 import { stagesReader, type StagesReader } from './github';
-import type { FixSyncDeps, SyncDeps, SyncWorkspace } from './sync';
+import { syncSnapshotStore } from './snapshots';
+import type { FixSyncDeps, SnapshotSyncDeps, SyncDeps, SyncWorkspace } from './sync';
+import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The stages sync's real deps (PRD 587, s2): the bearer secret (STAGES_SYNC_SECRET), the service role's
 // client (SUPABASE_SERVICE_ROLE_KEY) for the workspaces and the stage store, and GitHub as the Omni Loop
@@ -18,11 +23,17 @@ import type { FixSyncDeps, SyncDeps, SyncWorkspace } from './sync';
 // PRD 657 (s5): each PRD's open outbox questions are recounted into prd_outbox (../outbox/live.ts).
 // PRD 691 (s2): each workspace's numbered fix dossiers are read through the server's one dossier reader
 // (its 60-second cache shared with the fix pages) and stored in fix_facts, as the service role.
+// PRD 902 (s1): every read the sync makes of GitHub, its snapshots, its recounts and its fix refreshes, is
+// `background`: it spends the installation's budget only above its 20% floor, and never while paused.
+// PRD 902 (s4): the sync is the snapshots' safety net. It marks stale the snapshots of the PRDs whose issue
+// or pull requests it saw change, and any read over 6 hours ago, refreshes only the stale ones through the
+// snapshot (under its lease), recounts from the snapshots (../outbox/live.ts), and drops the ETags nobody
+// read for 7 days.
 
 let knowledge: KnowledgeReader | undefined;
 let reader: StagesReader | undefined;
-const github = () => (knowledge ??= knowledgeReader(appCredentials()));
-const stages = () => (reader ??= stagesReader(appCredentials()));
+const github = () => (knowledge ??= knowledgeReader(appCredentials(), fetch, Date.now, console.error, { store: githubStore() }));
+const stages = () => (reader ??= stagesReader(appCredentials(), fetch, Date.now, githubStore()));
 
 async function installationOf(workspace: SyncWorkspace): Promise<number> {
   const id = await github().installationFor(workspace);
@@ -61,9 +72,10 @@ function fixDeps(): FixSyncDeps {
       const { data, error } = await serviceDb().from('dossiers').select('id, home_repo, prd')
         .eq('workspace_id', workspace.id).in('kind', ['visual', 'bug']).not('prd', 'is', null);
       if (error) throw new Error(`Supabase refused to read the fix dossiers: ${error.message}`);
-      return ((data ?? []) as Record<string, unknown>[]).map((row): FixRef => ({ id: String(row.id), home_repo: String(row.home_repo), prd: Number(row.prd) }));
+      // Each row is read as PostgREST sent it, its columns unparsed.
+      return listOf(data).map((row: { id: unknown; home_repo: unknown; prd: unknown }): FixRef => ({ id: String(row.id), home_repo: String(row.home_repo), prd: parseIssue(numberOf(row.prd)) }));
     },
-    reader: { fix: (ref) => fixReader().fix(ref) },
+    reader: { fix: (ref) => fixReader().fix(ref, { priority: 'background' }) },
     store: {
       readFacts: (workspace, ids) => store().readFacts(workspace, ids),
       writeFacts: (rows, syncedAt) => store().writeFacts(rows, syncedAt),
@@ -71,13 +83,26 @@ function fixDeps(): FixSyncDeps {
   };
 }
 
-export function syncDeps(env: Record<string, string | undefined> = process.env): SyncDeps {
+/** The snapshots on the service role's client, each refreshed through the snapshot's own recount read. */
+function snapshotDeps(): SnapshotSyncDeps {
+  const store = () => syncSnapshotStore(serviceDb());
   return {
-    secret: env.STAGES_SYNC_SECRET?.trim() || undefined,
+    markChanged: (workspace, repository, prds, at) => store().markChanged(workspace.id, repository, prds, at),
+    markOld: (workspace, before, at) => store().markOld(workspace.id, before, at),
+    stale: (workspace, repository) => store().stale(workspace.id, repository),
+    refresh: async (workspace, dossier) => { await liveRecountSummary(workspace.id, dossier); },
+    dropEtags: (before) => store().dropEtags(before),
+  };
+}
+
+export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv()): SyncDeps {
+  return {
+    secret: env.stagesSyncSecret ?? undefined,
     async workspaces() {
       const { data, error } = await serviceDb().from('workspaces').select('id, slug, github_org, github_installation_id').order('slug');
       if (error) throw new Error(`Supabase refused to read the workspaces: ${error.message}`);
-      return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+      // Each row is read as PostgREST sent it, its columns unparsed.
+      return listOf(data).map((row: { id: unknown; slug: unknown; github_org: unknown; github_installation_id?: unknown }) => ({
         id: String(row.id),
         slug: String(row.slug),
         github_org: typeof row.github_org === 'string' ? row.github_org : null,
@@ -89,7 +114,8 @@ export function syncDeps(env: Record<string, string | undefined> = process.env):
     store: lazyStore(),
     outbox: outboxDeps(),
     fixes: fixDeps(),
+    snapshots: snapshotDeps(),
     now: () => new Date().toISOString(),
-    log: (line) => console.error(line),
+    log: (line) => { console.error(line); },
   };
 }

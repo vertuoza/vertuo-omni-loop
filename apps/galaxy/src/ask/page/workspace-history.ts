@@ -9,6 +9,7 @@ import { one, type Query } from '../../nav/query';
 import type { Face } from '../../people/face';
 import { faceOfMember, nameOf, type Member } from './question';
 import { contextParts, entry, type RoundRow, type SessionRow } from './view';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** A round and its session, as the history reads them. */
 export type HistoryRow = { round: RoundRow; session: SessionRow };
@@ -17,7 +18,7 @@ export type HistoryRow = { round: RoundRow; session: SessionRow };
 export type HistoryFilters = {
   category?: Category | 'unsorted';
   repo?: string;
-  prd?: number;
+  prd?: PrdNumber;
   skill?: string;
   askedBy?: string;
   answeredBy?: string;
@@ -55,8 +56,8 @@ export function readHistoryFilters(query: Query): HistoryFilters {
   if (category === 'unsorted' || isCategory(category)) filters.category = category;
   const repo = one(query.repo);
   if (repo) filters.repo = repo;
-  const prd = Number(one(query.prd));
-  if (Number.isInteger(prd) && prd > 0) filters.prd = prd;
+  const prd = PrdNumberSchema.safeParse(Number(one(query.prd)));
+  if (prd.success) filters.prd = prd.data;
   const skill = one(query.skill);
   if (skill) filters.skill = skill;
   const asked = one(query.asked);

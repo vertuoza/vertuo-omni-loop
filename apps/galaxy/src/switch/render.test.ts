@@ -3,6 +3,7 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { GameModeButton } from './GameModeButton';
+import { sure } from '../arcade/test/sure';
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({ usePathname: () => '/app' }));
 
@@ -54,7 +55,7 @@ describe('the Game mode button', () => {
 describe('/app', () => {
   it('sits in the app shell: the sidebar, Home marked current, then the top bar\'s trail to Home, the theme switch and Game mode', () => {
     const side = between(app, '<aside class="app-sidebar"', '</aside>');
-    expect(side).toMatch(/<a class="app-sidebar-crest" href="\/app">/);
+    expect(side).toMatch(/<a class="brand-logo app-sidebar-crest" href="\/app">/);
     // next/link (PRD 657) writes aria-current before href: read each link whatever its attributes' order.
     const marked = [...side.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]).filter((a) => a.includes('aria-current="page"'));
     expect(marked.map((a) => /href="([^"]+)"/.exec(a)?.[1])).toEqual(['/app']);
@@ -120,8 +121,8 @@ describe('the stylesheets', () => {
   it('dims the page behind the Game mode dialog with the ground\'s colour on Omni, as on dark', () => {
     const css = readFileSync(new URL('./switch.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     const onGround = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-      .filter((m) => m[2].includes('background: var(--ask-ground);'))
-      .flatMap((m) => m[1].split(',').map((one) => one.trim()));
+      .filter((m) => sure(m[2], 'group 2').includes('background: var(--ask-ground);'))
+      .flatMap((m) => sure(m[1], 'group 1').split(',').map((one) => one.trim()));
     for (const theme of ['omni', 'dark']) expect(onGround, theme).toContain(`.ask[data-ask-theme='${theme}'] .game-mode-dialog::backdrop`);
     expect(onGround.join()).not.toContain("data-ask-theme='light'");
   });

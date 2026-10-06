@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "**/*.mts", ".claude/hooks/**/*.ts"],
+  "exclude": ["node_modules", "**/node_modules", "apps/galaxy", "kit/dist", "apps/omni-app/api", ".omni-loop/bin", ".claude/worktrees"]
+}

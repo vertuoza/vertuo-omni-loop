@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   categoryChip, contextParts, entry, HOOK_WAIT_MS, screenshotsNote, keepSent, minutesLeft, sessionView, tabWorking, withCategory, withPageAnswer, type RoundRow, type SessionState,
 } from './view';
+import { item } from '../test/test-item';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const at = (msAgo: number) => new Date(NOW - msAgo).toISOString();
@@ -53,7 +55,7 @@ describe('an open round', () => {
 
   it('pairs each question with its answer in the history', () => {
     const view = sessionView(state([answered(MIN, 'page', { 'Which storage?': 'Postgres (Recommended)', 'Which checks?': 'RLS, Handlers' })]), NOW);
-    expect(view.history[0].lines).toEqual([
+    expect(item(view.history, 0).lines).toEqual([
       { header: 'Storage', question: 'Which storage?', answer: 'Postgres (Recommended)' },
       { header: 'Checks', question: 'Which checks?', answer: 'RLS, Handlers' },
     ]);
@@ -99,7 +101,7 @@ describe('the other states', () => {
   it('keeps older rounds that were never answered in the history, as such', () => {
     const view = sessionView(state([round({ ago: 30 * MIN, status: 'abandoned' }), round({ ago: 20 * MIN }), answered(10 * MIN, 'page')]), NOW);
     expect(view.history.map((h) => h.outcome)).toEqual(['answered', 'unanswered', 'moved']);
-    expect(view.history[1].lines.every((l) => l.answer === null)).toBe(true);
+    expect(item(view.history, 1).lines.every((l) => l.answer === null)).toBe(true);
   });
 
   it('is closed once the session closes or idles for 12 hours, even with a round open', () => {
@@ -123,7 +125,7 @@ describe('the other states', () => {
 
   it('keeps answers the questions do not name', () => {
     const view = sessionView(state([answered(MIN, 'terminal', { 'Which storage?': 'Memory', 'Something else?': 'Yes' })]), NOW);
-    expect(view.history[0].lines).toEqual([
+    expect(item(view.history, 0).lines).toEqual([
       { header: 'Storage', question: 'Which storage?', answer: 'Memory' },
       { header: 'Checks', question: 'Which checks?', answer: null },
       { header: '', question: 'Something else?', answer: 'Yes' },
@@ -165,7 +167,7 @@ describe('a read that crosses an answer sent from the page', () => {
 describe('the context line (PRD 144)', () => {
   const full = state([], { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/question-history--s1' }).session;
   const facts = {
-    prd: 144,
+    prd: parsePrd(144),
     skill: '/omni:brainstorm',
     model: 'claude-sonnet-4-6',
     tokens: { input: 1200, output: 300, cacheRead: 1_000_000, cacheWrite: 200_000 },
@@ -199,7 +201,7 @@ describe('the context line (PRD 144)', () => {
 
   it('rides along with each round of the history', () => {
     const view = sessionView(state([answered(MIN, 'page')], { repo: 'acme/widgets' }), NOW);
-    expect(view.history[0].context).toEqual(['acme/widgets', 'answered in 1 s']);
+    expect(item(view.history, 0).context).toEqual(['acme/widgets', 'answered in 1 s']);
   });
 });
 

@@ -1,8 +1,10 @@
 import type { Fleet, GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { allPages, type Page } from '../../data/all-pages';
+import type { Database } from '../../../../../supabase/database.types.ts';
+import { z } from 'zod';
+import { parsedPages } from '../../data/all-pages';
 import { workspaceDossiers } from '../../data/dossiers';
-import { STAGES, type StageId } from '../../stages/stage';
+import type { StageId } from '../../stages/stage';
 import { stageStore, type StageStore } from '../../stages/store';
 import { settle, UNREADABLE, type Read } from '../part';
 import { rankFleets, type FleetRank } from '../rankings/rank';
@@ -10,10 +12,11 @@ import { seasonBounds, type Season } from '../season';
 import { stageHref } from './links';
 import { periodWindow, type Period, type PeriodWindow } from './period';
 import {
-  answeredIn, circleOf, inCircle, SOLO, inPeriod, membersOf, MERGED, mergesPerDay, openedBy, peopleRows, prdEventsPerDay, prdsNow, repositoriesOf, stageTally,
+  answeredIn, circleOf, inCircle, perStage, SOLO, inPeriod, membersOf, MERGED, mergesPerDay, openedBy, peopleRows, prdEventsPerDay, prdsNow, repositoriesOf, stageTally,
   type Activity, type ChartDay, type Circle, type DayActivity, type EventDay, type FleetTag, type Member, type PersonRow, type PrdNow, type RepoRow, type Scope,
   type StageTally,
 } from './tally';
+import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The board's read (PRD 572): five reads, in parallel, as the signed-in person, each on its own. A
 // read that fails leaves only the parts drawn from it saying they could not load, its error logged
@@ -160,7 +163,7 @@ export function boardOf(read: BoardRead, request: BoardRequest): BoardValue {
       repositories: tally((rows) => repositoriesOf(rows).length),
       answered: counts === UNREADABLE || circle === UNREADABLE ? UNREADABLE : answeredIn(counts, circle),
     },
-    stageLinks: Object.fromEntries(STAGES.map((s) => [s, stageHref(request.scope, s)])) as Record<StageId, string>,
+    stageLinks: perStage((s) => stageHref(request.scope, s)),
     merges: tally((rows) => mergesPerDay(rows, window.days)),
     prdEvents: tally((rows) => prdEventsPerDay(rows, window.days)),
     repositories: tally(repositoriesOf),
@@ -190,41 +193,58 @@ export async function loadBoard(reads: BoardReads, request: BoardRequest): Promi
 
 // ── The reads, from Supabase ──────────────────────────────────────────────
 
+/** The columns of a contribution the board reads. */
+export const ACTIVITY_COLUMNS = 'kind, repo, number, login, at';
+
+/** A contribution as ACTIVITY_COLUMNS reads it. */
+export const StoredActivity: z.ZodType<Activity> = z.strictObject({
+  kind: z.string(), repo: z.string(), number: z.number(), login: z.string(), at: z.string(),
+});
+
+/** The columns of a prd-opened contribution, read for who opened each PRD. */
+export const OPENER_COLUMNS = 'repo, number, login';
+
+/** A prd-opened contribution as OPENER_COLUMNS reads it. */
+export const StoredOpener: z.ZodType<Pick<Activity, 'repo' | 'number' | 'login'>> = z.strictObject({
+  repo: z.string(), number: z.number(), login: z.string(),
+});
+
 type RosterRow = { user_id: string; name: string | null; github_login: string | null; avatar_url: string | null; fleet: string | null; hero?: unknown };
 
 /** A PRD's key in the stage store (`owner/name#7`) back to its repository and number. */
-function unkey(key: string): { repository: string; prd: number } {
+function unkey(key: string): { repository: string; prd: PrdNumber } {
   const at = key.lastIndexOf('#');
-  return { repository: key.slice(0, at), prd: Number(key.slice(at + 1)) };
+  return { repository: key.slice(0, at), prd: parsePrd(key.slice(at + 1)) };
 }
 
 /** The board's reads of one workspace, as the signed-in person. `galaxy` is the page's, read once;
  * the stored stages are read through the stage store, as that person. */
 export function supabaseReads(
-  db: SupabaseClient, workspace: string, galaxy: () => Promise<GalaxyView>, stages: Pick<StageStore, 'currentStages'> = stageStore(db),
+  db: Pick<SupabaseClient<Database>, 'rpc' | 'from'>, workspace: string, galaxy: () => Promise<GalaxyView>, stages: Pick<StageStore, 'currentStages'> = stageStore(db),
 ): BoardReads {
   function openers(): Promise<Pick<Activity, 'repo' | 'number' | 'login'>[]> {
-    return allPages('who opened the PRDs', (from, to) => db
+    return parsedPages('who opened the PRDs', StoredOpener, 'dashboard/board: contributions (prd-opened)', (from, to) => db
       .from('contributions')
-      .select('repo, number, login')
+      .select(OPENER_COLUMNS)
       .eq('workspace_id', workspace)
       .eq('kind', 'prd-opened')
       .order('repo', { ascending: true })
       .order('number', { ascending: true })
-      .range(from, to) as unknown as Page<Pick<Activity, 'repo' | 'number' | 'login'>>);
+      .range(from, to));
   }
   return {
     async roster() {
-      const { data, error } = await db.rpc('workspace_roster', { workspace });
+      // `data` is widened to null, and its columns to null: workspace_roster's rows are read here unparsed.
+      const { data, error }: { data: RosterRow[] | null; error: { message: string } | null } = await db.rpc('workspace_roster', { workspace });
       if (error) throw new Error(`Supabase: could not read the workspace's members (${error.message})`);
-      return ((data ?? []) as RosterRow[]).map((r) => ({
+      return (data ?? []).map((r) => ({
         userId: r.user_id, name: r.name, login: r.github_login?.toLowerCase() ?? null, avatarUrl: r.avatar_url, fleet: r.fleet, hero: r.hero ?? null,
       }));
     },
     activity(from, to) {
-      return allPages('the contributions', (first, last) => db
+      return parsedPages('the contributions', StoredActivity, 'dashboard/board: contributions', (first, last) => db
         .from('contributions')
-        .select('kind, repo, number, login, at')
+        .select(ACTIVITY_COLUMNS)
         .eq('workspace_id', workspace)
         .gte('at', from.toISOString())
         .lt('at', to.toISOString())
@@ -232,12 +252,14 @@ export function supabaseReads(
         .order('kind', { ascending: true })
         .order('repo', { ascending: true })
         .order('number', { ascending: true })
-        .range(first, last) as unknown as Page<Activity>);
+        .range(first, last));
     },
     async answered(from, to) {
-      const { data, error } = await db.rpc('answered_counts', { workspace, from_at: from.toISOString(), to_at: to.toISOString() });
+      // `data` is widened to null, and each count to text: PostgREST may send a bigint as a string, read here unparsed.
+      const { data, error }: { data: { user_id: string; answered: number | string }[] | null; error: { message: string } | null } =
+        await db.rpc('answered_counts', { workspace, from_at: from.toISOString(), to_at: to.toISOString() });
       if (error) throw new Error(`Supabase: could not read the questions answered (${error.message})`);
-      return ((data ?? []) as AnsweredCount[]).map((r) => ({ user_id: r.user_id, answered: Number(r.answered) }));
+      return (data ?? []).map((r) => ({ user_id: r.user_id, answered: Number(r.answered) }));
     },
     galaxy,
     async prds() {

@@ -47,7 +47,9 @@ export function setupQuery(setup: Setup): URLSearchParams {
 type Rpc = Parameters<typeof linkGithub>[0];
 type Deps = SignInDeps & { signup: SignupDeps };
 
-const log = (err: unknown) => console.error(`sign-up: ${err instanceof Error ? err.message : String(err)}`);
+const log = (err: unknown) => {
+  console.error(`sign-up: ${err instanceof Error ? err.message : String(err)}`);
+};
 const error = (reason: SetupError): SetupOutcome => ({ kind: 'error', reason });
 
 async function whoOnGithub(session: SignedIn, deps: Deps): Promise<GithubAccount | null> {

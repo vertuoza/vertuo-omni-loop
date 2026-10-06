@@ -5,6 +5,8 @@
 // workspace membership (PRD 459), and a refusal carries the database's reason. Asking needs no player
 // row and no GitHub link.
 
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+
 export type AskCaller = { id: string; email: string | null; token: string };
 
 export type AskAuth =
@@ -14,14 +16,15 @@ export type AskAuth =
 /** The one thing this module asks of a Supabase client: the Auth server's verdict on a token. */
 export type TokenCheck = {
   auth: {
-    getUser(jwt: string): Promise<{ data: { user: { id: string; email?: string | null } | null }; error: unknown }>;
+    // `data` is widened to null: the Auth server's answer is read here unparsed.
+    getUser(jwt: string): Promise<{ data: { user: { id: string; email?: string | null } | null } | null; error: unknown }>;
   };
 };
 
 /** The token of an `Authorization: Bearer <token>` header, or null for anything else. */
 export function bearerToken(header: string | null | undefined): string | null {
   const match = /^Bearer +(\S+)$/i.exec((header ?? '').trim());
-  return match ? match[1] : null;
+  return match?.[1] ?? null;
 }
 
 /** Where the caller reached this app, behind Vercel's proxy too: the links an API hands back
@@ -44,7 +47,7 @@ export function withInstallLink(reason: string, link: string | null | undefined)
 
 /** A failure of the Auth server itself (unreachable: status 0, or 5xx), not a verdict on the token. */
 function authDown(error: unknown) {
-  const status = (error as { status?: unknown } | null)?.status;
+  const status = propertyOf(error, 'status');
   return typeof status === 'number' && (status === 0 || status >= 500);
 }
 

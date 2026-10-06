@@ -7,9 +7,13 @@
 // GitHub's GraphQL API checks fifty repositories' configs in one call and reads a knowledge folder in
 // one more. An installation token is kept in server memory until a minute before it expires, and never
 // leaves this module. The listing is kept five minutes per installation, a graph one minute per
-// repository; a repository the installation's listing does not hold is never read.
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.mjs';
+// repository; a repository the installation's listing does not hold is never read. Every call made with
+// the installation's token goes through the shared, budget-aware client (packages/github, PRD 902, s6),
+// at the reader's priority: `background` unless a person waits on it (the knowledge map's own reader is
+// `interactive`). The App's JWT calls, the token's minting and finding an installation, go out plain.
+import { githubClient, type GithubStore, type Priority } from '@omni/github';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
 import { z } from 'zod';
 import type { KnowledgeGraph } from '../data/knowledge';
 import type { WorkspaceGithub } from '../data/workspace';
@@ -40,6 +44,14 @@ const Knowledge = z.object({
     cross: Folder,
   }).nullable(),
 });
+/** A GraphQL answer: its data, and the errors GitHub names, each with its message when it has one. */
+const GraphqlReply = z.object({
+  data: z.unknown(),
+  errors: z.array(z.object({ message: z.string().optional() }).catch({})).optional().catch(undefined),
+});
+/** The config batch's answer, `r<i>` for `repos[i]`; one repository's config, when it has one as text. */
+const ConfigAnswers = z.record(z.string(), z.unknown());
+const ConfigBlob = z.object({ object: z.object({ text: z.string() }) });
 
 const KNOWLEDGE_QUERY = `query($owner: String!, $name: String!, $product: String!, $domains: String!, $cross: String!) {
   repository(owner: $owner, name: $name) {
@@ -63,7 +75,7 @@ export function configQuery(repos: readonly string[]): string {
 
 /** Where a config puts the knowledge folder, as a path from the repository's root. */
 function knowledgeRootOf(text: string, repo: string): string {
-  const config = parseConfig(text, `${repo}:${CONFIG_PATH}`) as unknown as { paths: { knowledge: string } };
+  const config = parseConfig(text, `${repo}:${CONFIG_PATH}`);
   return config.paths.knowledge.replace(/^\.\/+/, '').replace(/\/+$/, '');
 }
 
@@ -86,8 +98,10 @@ export function knowledgeReader(
   fetchImpl: Fetch = fetch,
   clock: () => number = Date.now,
   log: (line: string) => void = console.error,
+  { store = null, priority = 'background' }: { store?: GithubStore | null; priority?: Priority } = {},
 ): KnowledgeReader {
   const app = githubApp(creds, fetchImpl, clock);
+  const github = githubClient({ store, fetch: fetchImpl, clock, log });
   const tokens = new Map<number, InstallationToken>();
   const accounts = new Map<string, { at: number; value: number | null }>();
   const listings = new Map<number, { at: number; value: Map<string, string> }>();
@@ -103,16 +117,20 @@ export function knowledgeReader(
 
   const headers = (token: string) => ({ authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' });
 
-  async function graphql(token: string, query: string, variables: Record<string, string> = {}): Promise<unknown> {
-    const res = await fetchImpl(`${GITHUB}/graphql`, {
+  async function graphql(installation: number, token: string, query: string, variables: Record<string, string> = {}): Promise<unknown> {
+    const res = await github.fetch(`${GITHUB}/graphql`, {
+      installation,
+      priority,
       method: 'POST',
       headers: { ...headers(token), 'content-type': 'application/json' },
       body: JSON.stringify({ query, variables }),
       cache: 'no-store',
     });
     if (!res.ok) throw new Error(`GitHub answered ${res.status} to a GraphQL query`);
-    const body = (await res.json()) as { data?: unknown; errors?: { message?: string }[] } | null;
-    if (!body?.data) throw new Error(`GitHub's GraphQL answer holds no data${body?.errors?.[0]?.message ? `: ${body.errors[0].message}` : ''}`);
+    const parsed = GraphqlReply.safeParse(await res.json());
+    const body = parsed.success ? parsed.data : null;
+    const message = body?.errors?.[0]?.message;
+    if (!body?.data) throw new Error(`GitHub's GraphQL answer holds no data${message ? `: ${message}` : ''}`);
     return body.data;
   }
 
@@ -121,14 +139,16 @@ export function knowledgeReader(
     const kept = listings.get(id);
     if (kept && clock() - kept.at < LISTING_TTL_MS) return kept.value;
     const token = await tokenFor(id);
-    const all = await reachedRepositories(token, fetchImpl);
+    const all = await reachedRepositories(token, github.bound({ installation: id, priority }));
     const found = new Map<string, string>();
     for (let from = 0; from < all.length; from += CONFIG_BATCH) {
       const batch = all.slice(from, from + CONFIG_BATCH);
-      const data = (await graphql(token, configQuery(batch))) as Record<string, { object?: { text?: string | null } | null } | null>;
+      const answered = ConfigAnswers.safeParse(await graphql(id, token, configQuery(batch)));
+      const data = answered.success ? answered.data : {};
       batch.forEach((repo, i) => {
-        const text = data[`r${i}`]?.object?.text;
-        if (typeof text !== 'string') return;
+        const config = ConfigBlob.safeParse(data[`r${i}`]);
+        if (!config.success) return;
+        const text = config.data.object.text;
         try {
           found.set(repo, knowledgeRootOf(text, repo));
         } catch (error) {
@@ -143,8 +163,8 @@ export function knowledgeReader(
 
   /** The texts of `repo`'s knowledge folder at `root`, by path from the repository's root. */
   async function texts(id: number, repo: string, root: string): Promise<Record<string, string>> {
-    const [owner, name] = repo.split('/');
-    const data = Knowledge.parse(await graphql(await tokenFor(id), KNOWLEDGE_QUERY, {
+    const [owner = '', name = ''] = repo.split('/');
+    const data = Knowledge.parse(await graphql(id, await tokenFor(id), KNOWLEDGE_QUERY, {
       owner,
       name,
       product: `HEAD:${root}/product`,
@@ -196,7 +216,10 @@ export function knowledgeReader(
           log(`knowledge map: ${repo} is not a repository of installation ${id} that carries ${CONFIG_PATH}`);
         } else {
           const [name, root] = listed;
-          value = graphOfTexts({ texts: await texts(id, name, root), knowledgeRoot: root, repo: name }) as KnowledgeGraph;
+          const graph = graphOfTexts({ texts: await texts(id, name, root), knowledgeRoot: root, repo: name });
+          // The map reads version 1 of the kit's graph: another version is left out, not misread.
+          if (graph.version === 1) value = { ...graph, version: 1 };
+          else log(`knowledge map: ${repo} is left out, its graph is version ${graph.version}, not 1`);
         }
       } catch (error) {
         log(`knowledge map: ${repo} could not be read from GitHub — ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`);

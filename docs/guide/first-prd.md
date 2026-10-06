@@ -16,10 +16,10 @@ Nothing reaches your default branch unless you merge it yourself.
 
 ## Before you start
 
-Your repository has the loop installed and invaded: you followed [Install](/docs/install) and
-[Invade](/docs/invade), and merged both pull requests, or you joined a team whose repository runs
-it and set up your laptop ([Join a team](/docs/join)). Bring your checkout up to date, then open
-Claude Code at the root of the repository:
+Your laptop is set up ([Install](/docs/install)), and your repository has the loop installed and
+invaded: you set it up and followed [Invade](/docs/invade), and merged both pull requests, or you
+joined a team whose repository runs it ([Join a team](/docs/join)). Bring your checkout up to date,
+then open Claude Code at the root of the repository:
 
 ```bash terminal
 git switch main
@@ -205,8 +205,8 @@ releaseNotes:
   enabled: true
 ```
 
-Dossiers need you signed in on this computer (see [Install](/docs/install)). To check what the loop
-sees, at any time:
+Dossiers need you signed in on this computer (step 3 of [Install](/docs/install#3-sign-in)). To
+check what the loop sees, at any time:
 
 ```bash terminal agent
 omni status

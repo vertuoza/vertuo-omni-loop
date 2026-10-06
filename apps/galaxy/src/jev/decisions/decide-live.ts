@@ -1,6 +1,7 @@
 import 'server-only';
 import { serviceDb } from '../../data/sign-in-live';
 import { supabaseAs, supabaseEnv } from '../../data/supabase-server';
+import { serverEnv, type ArcadeEnv } from '../../env';
 import { installUrl } from '../../signup/github-app';
 import { jevDecideDeps } from '../resolve-live';
 import { placedFrom, type DecideRouteDeps } from './decide-route';
@@ -9,13 +10,13 @@ import { placedFrom, type DecideRouteDeps } from './decide-route';
 // by the Auth server; the service role asks repo_workspace() where the caller's calls for the
 // repository go, which no signed-in role may call, and runs the resolver (../resolve-live.ts). Without
 // Supabase configured every call answers 503; without the service role every decision answers as Off.
-export function decideDeps(env: Record<string, string | undefined> = process.env): DecideRouteDeps {
+export function decideDeps(env: Pick<ArcadeEnv, 'githubAppSlug' | 'supabase' | 'serviceRole' | 'secretsMasterKey'> = serverEnv()): DecideRouteDeps {
   const configured = supabaseEnv() !== null;
   return {
     connect: configured ? supabaseAs : null,
     place: placeRepo,
     jev: configured ? jevDecideDeps(env) : null,
-    installLink: installUrl(env.GITHUB_APP_SLUG),
+    installLink: installUrl(env.githubAppSlug),
   };
 }
 

@@ -52,8 +52,7 @@ function FleetsBody({ view }: { view: FleetsScreenView }) {
         </Notice>
       );
     case 'fleets': {
-      const { kind: _, ...props } = view;
-      return <FleetsPage {...props} />;
+      return <FleetsPage source={view.source} owner={view.owner} fleets={view.fleets} mascots={view.mascots} />;
     }
   }
 }

@@ -8,6 +8,7 @@
 // close value as it is passed in: the view's `rules.woundClose`, the rulebook's own numbers.
 import type { WoundKind } from '@omni/galaxy';
 import type { Action } from '../keys';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export type Layout = 'wide' | 'tall';
 
@@ -145,9 +146,11 @@ export function marchEvery(g: Game): number {
 export function newGame({ layout, values, seed }: { layout: Layout; values: Readonly<Record<WoundKind, number>>; seed: number }): Game {
   const f = FIELDS[layout];
   const kinds = rowKinds(values);
+  // The galaxy's rules as they were read: a kind they carry no close value for pays 0.
+  const closes: Readonly<Partial<Record<WoundKind, number>>> = values;
   const g: Game = {
-    layout, rows: f.rows, cols: f.cols, kinds, values: kinds.map((k) => values[k] ?? 0),
-    alive: Array(f.rows * f.cols).fill(true), fx: 0, fy: 0, dir: 1, marchIn: 0, marchStep: 0,
+    layout, rows: f.rows, cols: f.cols, kinds, values: kinds.map((k) => closes[k] ?? 0),
+    alive: Array<boolean>(f.rows * f.cols).fill(true), fx: 0, fy: 0, dir: 1, marchIn: 0, marchStep: 0,
     heroX: Math.round((f.w - f.hero.w) / 2), lives: LIVES, hurtUntil: 0, bolt: null, bombs: [], bombIn: 1.2,
     shields: shieldsFor(f), wave: 1, score: 0, t: 0, readyLeft: READY_SECONDS, paused: false, over: false, overAt: 0,
     booms: [], seed: seed >>> 0, events: [],
@@ -240,7 +243,7 @@ export function step(game: Game, held: ReadonlySet<Action>, dt: number): Game {
       const row = Math.floor(hit / g.cols);
       const a = alienAt(g, row, hit % g.cols);
       g.alive[hit] = false;
-      g.score = Math.min(SCORE_CAP, g.score + g.values[row]);
+      g.score = Math.min(SCORE_CAP, g.score + at(g.values, row, "the hit alien's row value"));
       g.booms.push({ x: a.x + a.size / 2, y: a.y + a.size / 2, at: g.t });
       g.events.push('hit');
       g.bolt = null;
@@ -251,7 +254,7 @@ export function step(game: Game, held: ReadonlySet<Action>, dt: number): Game {
   // The last alien hit: the next wave lines up, faster.
   if (!g.alive.some(Boolean)) {
     g.wave += 1;
-    g.alive = Array(total).fill(true);
+    g.alive = Array<boolean>(total).fill(true);
     g.fx = 0; g.fy = 0; g.dir = 1;
     g.bolt = null; g.bombs = [];
     g.shields = shieldsFor(f);
@@ -290,7 +293,7 @@ export function step(game: Game, held: ReadonlySet<Action>, dt: number): Game {
     g.bombIn = (0.4 + wait * 1.1) * Math.max(0.5, 0.9 ** (g.wave - 1));
     if (g.bombs.length < f.bomb.max) {
       const cols = [...new Set(g.alive.flatMap((on, i) => (on ? [i % g.cols] : [])))];
-      const col = cols[Math.floor(pick * cols.length)];
+      const col = at(cols, Math.floor(pick * cols.length), 'the bombing column');
       let row = g.rows - 1;
       while (!g.alive[row * g.cols + col]) row--;
       const a = alienAt(g, row, col);

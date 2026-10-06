@@ -1,4 +1,5 @@
 import type { KnowledgeEntry, KnowledgeGraph } from '../data/knowledge';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // A small knowledge graph for the /knowledge page's tests: the product with two served principles,
 // an unserved one, a loose rule and a loose invariant; a billing domain whose rule serves a product
@@ -34,7 +35,7 @@ export const GRAPH: KnowledgeGraph = {
       statement: 'A slice is claimed before it is built.',
       why: 'Two waves building the same slice waste a day each.',
       status: 'law',
-      prd: 7,
+      prd: parsePrd(7),
       file: '.omni-loop/knowledge/product/principles.md',
     }),
     entry('P-PRODUCT-3', 'principle', 'product', { statement: 'A person always has the last word on a merge.' }),
@@ -44,7 +45,7 @@ export const GRAPH: KnowledgeGraph = {
       serves: 'P-PRODUCT-1',
       enforced: true,
       enforcedBy: 'kit/lib/claim.mjs',
-      prd: 7,
+      prd: parsePrd(7),
       file: '.omni-loop/knowledge/product/rules.md',
     }),
     entry('BR-PRODUCT-2', 'rule', 'product', { statement: 'The outbox check stays red while a question is open.', serves: 'P-PRODUCT-2' }),

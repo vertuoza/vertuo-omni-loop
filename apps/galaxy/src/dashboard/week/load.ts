@@ -1,3 +1,4 @@
+import { at, dateParts } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { PartLoader } from '../part';
 import { chartDays, weekDays, type ChartDay, type Merge } from './chart';
 
@@ -18,7 +19,7 @@ const HOUR = 3_600_000;
 /** An instant no later than the week's first midnight in Brussels, which is never more than two hours
  * ahead of UTC: the read starts there, and chartDays keeps only the rows of the week's days. */
 function weekStart(now: Date): string {
-  const [year, month, day] = weekDays(now)[0].split('-').map(Number);
+  const [year, month, day] = dateParts(at(weekDays(now), 0, "the week's first day"));
   return new Date(Date.UTC(year, month - 1, day) - 2 * HOUR).toISOString();
 }
 
@@ -30,7 +31,8 @@ function weekStart(now: Date): string {
  */
 export const loadWeek: PartLoader<WeekValue> = async ({ db, workspace, login, now }) => {
   if (!login) return { kind: 'no-github' };
-  const { data, error } = await db
+  // `data` is widened to null: the rows are read here unparsed.
+  const { data, error }: { data: Merge[] | null; error: { message: string } | null } = await db
     .from('contributions')
     .select('kind, login, at')
     .eq('workspace_id', workspace)
@@ -38,5 +40,5 @@ export const loadWeek: PartLoader<WeekValue> = async ({ db, workspace, login, no
     .ilike('login', login)
     .gte('at', weekStart(now));
   if (error) throw new Error(`contributions: ${error.message}`);
-  return { kind: 'week', days: chartDays((data ?? []) as Merge[], now, login) };
+  return { kind: 'week', days: chartDays(data ?? [], now, login) };
 };

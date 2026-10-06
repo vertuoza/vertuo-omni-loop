@@ -30,8 +30,8 @@ lives in one of three places: **own**, a knowledge base in the target itself, re
 
 ### Set it up
 
-Install the loop in the plan repository like any other repository ([Install](/docs/install)), then,
-at its root, type:
+Install the loop in the plan repository like any other repository
+([Set up a repository](/docs/install#set-up-a-repository)), then, at its root, type:
 
 ```text agent
 /omni:mega-invade

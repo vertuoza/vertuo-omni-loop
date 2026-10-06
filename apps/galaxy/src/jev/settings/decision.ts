@@ -1,3 +1,5 @@
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isRecord } from '../is-record';
 import { JEV_DECISIONS, jevEntry } from '../decisions';
 import { JevStoreError, type JevDecisionSettings, type JevMode, type JevStore } from '../store';
 import { ONLY_OWNER } from './api';
@@ -23,16 +25,17 @@ const tuning = (value: unknown): number | null => {
 
 /** A decision's settings as the page sent them, or why they are refused. */
 export function readDecision(sent: unknown): DecisionSaved {
-  const body = sent && typeof sent === 'object' ? (sent as Record<string, unknown>) : {};
+  const body = isRecord(sent) ? sent : {};
   const decision = typeof body.decision === 'string' ? body.decision : '';
   if (!JEV_DECISIONS.some((d) => d.name === decision)) return { ok: false, message: 'No such Jev decision.' };
   if (!jevEntry(decision)) return { ok: false, message: COMING };
-  if (!MODES.includes(body.mode as JevMode)) return { ok: false, message: 'Mode: Off, Shadow or On.' };
+  const { mode } = body;
+  if (!isOneOf(MODES, mode)) return { ok: false, message: 'Mode: Off, Shadow or On.' };
   const threshold = tuning(body.threshold);
   if (threshold === null) return { ok: false, message: 'Threshold: from 0 to 1.' };
   const floor = tuning(body.floor);
   if (floor === null) return { ok: false, message: 'Confidence floor: from 0 to 1.' };
-  return { ok: true, settings: { decision, mode: body.mode as JevMode, threshold, floor } };
+  return { ok: true, settings: { decision, mode, threshold, floor } };
 }
 
 /** The database's own reason for a refused value, without the store's wrapping. */

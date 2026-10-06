@@ -7,7 +7,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { WoundKind } from '@omni/galaxy';
 import type { Hero } from '@omni/design';
-import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.mjs';
+import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
 import { Press } from '../arcade/hint';
 import type { Action } from '../arcade/keys';
 import { supabaseAccount } from '../arcade/account-supabase';
@@ -22,7 +22,7 @@ const DEFAULT_HERO: Hero = { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape
 
 export interface DockGameProps {
   /** The games this player may play (dockDoor), Invaders alone when none is given. */
-  games?: readonly DockGameId[];
+  games?: readonly DockGameId[] | undefined;
   /** The game the picker chose last in this tab: its cursor starts there. */
   chosen?: string | null;
   /** A game was chosen on the picker: the dock keeps it for the tab. */
@@ -33,7 +33,7 @@ export interface DockGameProps {
   hero?: Hero | null;
   team?: string | null;
   /** Each alien's value: the galaxy's `rules.woundClose`, the rulebook's by default. */
-  values?: Readonly<Record<WoundKind, number>>;
+  values?: Readonly<Record<WoundKind, number>> | undefined;
   /** Where the score is saved: the arcade's Supabase account for the workspace, or one given. */
   supabase?: { url: string; key: string } | null;
   workspace?: string | null;
@@ -60,11 +60,11 @@ function PickerScreen({ games, sel, asking, onMove, onPlay, onFold }: {
     if (l.asking && action !== 'b') return; // the question comes first: ANSWER, or fold
     const r = pickerPress(l.games, l.sel, action);
     if (!r) return;
-    if ('fold' in r) return l.onFold();
-    if ('play' in r) return l.onPlay(r.play);
+    if ('fold' in r) { l.onFold(); return; }
+    if ('play' in r) { l.onPlay(r.play); return; }
     l.onMove(r.sel);
   }, []);
-  const fold = useCallback(() => live.current.onFold(), []);
+  const fold = useCallback(() => { live.current.onFold(); }, []);
   const nothing = useCallback(() => {}, []);
   useDockKeys(act, null, fold, nothing);
   return (
@@ -91,10 +91,10 @@ export default function DockGame({ games = INVADERS_ONLY, chosen = null, onChoos
   }, [games, onFold]);
 
   if (screen.kind === 'picker') {
-    return <PickerScreen games={games} sel={screen.sel} asking={asking} onMove={(sel) => setScreen({ kind: 'picker', sel })} onPlay={play} onFold={onFold} />;
+    return <PickerScreen games={games} sel={screen.sel} asking={asking} onMove={(sel) => { setScreen({ kind: 'picker', sel }); }} onPlay={play} onFold={onFold} />;
   }
   if (screen.game === 'platformer') {
-    return <DockPlatformer asking={asking} hero={ship} team={team} back={back} onBack={() => leave('platformer')} onFold={onFold} />;
+    return <DockPlatformer asking={asking} hero={ship} team={team} back={back} onBack={() => { leave('platformer'); }} onFold={onFold} />;
   }
-  return <DockInvaders asking={asking} hero={ship} team={team} values={values} scores={scores} back={back} onBack={() => leave('invaders')} onFold={onFold} />;
+  return <DockInvaders asking={asking} hero={ship} team={team} values={values} scores={scores} back={back} onBack={() => { leave('invaders'); }} onFold={onFold} />;
 }

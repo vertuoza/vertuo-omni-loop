@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { poll } from '../ask/page/poll';
 import {
   announce, claimChime, desktopAtLoad, playChime, raiseAlerts, readSwitches, switchDesktopOn, writeSwitches,
@@ -77,9 +78,13 @@ export const useAlerts = (): WaitingAlerts | undefined => useContext(AlertsConte
 
 const storage = (): Store => window.localStorage;
 const notifications = (): NotificationApi | null =>
-  typeof Notification === 'undefined' ? null : (Notification as unknown as NotificationApi);
-const audio = () =>
-  (window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext) ?? null;
+  typeof Notification === 'undefined' ? null : Notification;
+/** The window as sound is looked for on it: older Safari names its AudioContext webkitAudioContext, and some browsers have none. */
+type AudioWindow = { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
+const audio = () => {
+  const sound: AudioWindow = window;
+  return sound.AudioContext ?? sound.webkitAudioContext ?? null;
+};
 /** A notification clicked: this tab in front, on the item's page. */
 const openFromAlert = (href: string) => {
   window.focus();
@@ -156,7 +161,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
 
   useEffect(() => {
     if (!url || !key || !me) return;
-    const read = questionsReader(createBrowserClient(url, key), me);
+    const read = questionsReader(createBrowserClient<Database>(url, key), me);
     const log = onceEach();
     return pollQuestions(async () => {
       try {
@@ -205,7 +210,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
   // each read, so a PRD page opened in any tab clears its group at the next one.
   useEffect(() => {
     if (!url || !key || !me) return;
-    const read = documentsReader(createBrowserClient(url, key), me);
+    const read = documentsReader(createBrowserClient<Database>(url, key), me);
     const loadedAt = Date.now();
     const log = onceEach();
     // What this tab announced, standing in for storage that cannot be read (s2).
@@ -218,7 +223,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
         const { desktop, chime } = live.current;
         announced = noticeDocuments({
           groups, now: Date.now(), store: storage, kept: announced, desktop, chime,
-          notifications: notifications(), play: () => playChime(audio()), open: openFromAlert,
+          notifications: notifications(), play: () => { playChime(audio()); }, open: openFromAlert,
         });
       } catch (error) {
         log('documents', error);
@@ -255,7 +260,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
     // Next writes each page's title and icon on navigation, after this effect: apply them again.
     const watch = new MutationObserver(apply);
     watch.observe(document.head, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['href'] });
-    return () => watch.disconnect();
+    return () => { watch.disconnect(); };
   }, [total]);
 
   return (

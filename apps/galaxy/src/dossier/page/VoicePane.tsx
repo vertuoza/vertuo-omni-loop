@@ -1,4 +1,5 @@
 import { personaGrid } from '@omni/design';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { pixelSvg } from '../../design/pixel-svg';
 import { StageHeaderCopy } from './StageHeaderCopy';
 import type { VoiceCell, VoiceRow, VoiceView } from './voice';
@@ -70,7 +71,7 @@ function Grid({ view }: { view: VoiceView }) {
               </th>
               {row.cells.map((cell, i) => (
                 <td key={cell.stage} className={cell.objected ? 'voice-cell voice-objected' : 'voice-cell'}>
-                  <Score cell={cell} name={row.name} round={view.rounds[i].label} />
+                  <Score cell={cell} name={row.name} round={at(view.rounds, i, 'the round').label} />
                 </td>
               ))}
             </tr>

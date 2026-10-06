@@ -1,8 +1,9 @@
 // What the /design page shows, read straight from @omni/design: nothing here draws or names a
 // colour of its own, so a piece the package gains appears on the page without an edit here.
+import { keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
   HERO_PRESETS, INK, LOGO_DRAWINGS, OMNI_POSES, SPRITE_DEFS, TYPE_SCALE, contrast, heroLook,
-  type Hero, type LogoDrawing, type Tint, type TypeStep, type TypeStepName,
+  type Hero, type LogoDrawing, type Tint,
 } from '@omni/design';
 import { DEMO_PROJECTS } from '@omni/galaxy';
 
@@ -35,10 +36,10 @@ export const COLOURS = Object.entries(INK).map(([name, hex]) => ({
 
 export const ratio = (n: number) => `${n.toFixed(1)}:1`;
 
-export const TYPE_STEPS = (Object.entries(TYPE_SCALE) as [TypeStepName, TypeStep][]).map(([name, step]) => ({ name, ...step }));
+export const TYPE_STEPS = keysOf(TYPE_SCALE).map((name) => ({ name, ...TYPE_SCALE[name] }));
 
 /** The icons: the 16×16 sprites, and the cursor. */
-export const ICONS = Object.keys(SPRITE_DEFS).filter((name) => SPRITE_DEFS[name].w <= 16);
+export const ICONS = Object.entries(SPRITE_DEFS).filter(([, def]) => def.w <= 16).map(([name]) => name);
 /** The cast: every other sprite (OmniMan and his poses, the heroes, the fleet mascots, Entropy). */
 export const CAST = Object.keys(SPRITE_DEFS).filter((name) => !ICONS.includes(name));
 

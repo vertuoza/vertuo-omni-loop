@@ -1,4 +1,7 @@
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { validPersonaAvatar } from '@omni/design';
+import { z } from 'zod';
+import { orEmpty, parseRows } from '../../data/parse-rows';
 import type { Db } from './source';
 import { readVoice, voiceView, type VoiceCast, type VoiceView } from './voice';
 
@@ -7,24 +10,20 @@ import { readVoice, voiceView, type VoiceCast, type VoiceView } from './voice';
 // for the portraits. voice.json names a persona, never its row, so a portrait is the workspace's persona
 // of that name; one the cast does not hold, or a cast that cannot be read, draws the name's initial.
 
-type PersonasDb = {
-  from(table: 'personas'): {
-    select(columns: string): { eq(column: string, value: string): { order(column: string): PromiseLike<{ data: unknown; error: unknown }> } };
-  };
-};
-
-type Row = { name?: unknown; trade?: unknown; avatar?: unknown };
+/** What the portraits read of a persona; an avatar the design does not draw leaves that persona out. */
+export const PERSONA_COLUMNS = 'name, trade, avatar';
+export const VoicePersona = z.object({ name: z.string(), trade: z.string(), avatar: z.unknown() });
 
 /** The workspace's personas, in its order, as far as their portraits need; none when they cannot be read. */
 export async function readVoiceCast(db: Pick<Db, 'from'>, workspace: string): Promise<VoiceCast[]> {
   try {
-    const { data, error } = await (db as unknown as PersonasDb).from('personas').select('name, trade, avatar').eq('workspace_id', workspace).order('ordinal');
-    if (error) throw new Error(`read the personas: ${(error as { message?: string }).message ?? 'failed'}`);
-    return ((data ?? []) as Row[]).flatMap((row) =>
-      typeof row.name === 'string' && typeof row.trade === 'string' && validPersonaAvatar(row.avatar)
-        ? [{ name: row.name, trade: row.trade, avatar: row.avatar }]
-        : [],
-    );
+    const { data, error } = await db.from('personas').select(PERSONA_COLUMNS).eq('workspace_id', workspace).order('ordinal');
+    if (error) {
+      const message = propertyOf(error, 'message');
+      throw new Error(`read the personas: ${typeof message === 'string' ? message : 'failed'}`);
+    }
+    return orEmpty(parseRows(VoicePersona, data, 'dossier/voice-source: personas'))
+      .flatMap(({ name, trade, avatar }) => (validPersonaAvatar(avatar) ? [{ name, trade, avatar }] : []));
   } catch (error) {
     console.error(error);
     return [];

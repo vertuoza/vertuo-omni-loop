@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakePrdOutboxStore } from '../stages/outbox/store.fake';
 import type { OutboxCounts, WaitingQuestion } from '../stages/outbox/store';
 import { MAX_DOSSIERS, waitingItems, waitingOutbox, type WaitingDb, type WaitingDeps } from './outbox';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const ME = 'user-me';
 
@@ -20,7 +21,7 @@ type Row = Record<string, unknown>;
 function fakeDb(user: string | null, rows: Dossier[]) {
   const calls: string[] = [];
   const db: WaitingDb = {
-    auth: { getUser: async () => ({ data: { user: user ? { id: user } : null } }) },
+    auth: { getUser: () => Promise.resolve({ data: { user: user ? { id: user } : null } }) },
     from(table: string) {
       calls.push(`from ${table}`);
       let result: Row[] = [...rows];
@@ -53,20 +54,20 @@ function fakeDb(user: string | null, rows: Dossier[]) {
 /** The stored outboxes, with each PRD's counts given, and every read counted. */
 async function storeWith(counts: Record<number, OutboxCounts>, workspace = 'w-acme') {
   const store = fakePrdOutboxStore();
-  await store.record(Object.entries(counts).map(([prd, c]) => ({ workspace_id: workspace, repository: 'acme/widgets', prd: Number(prd), ...c })));
+  await store.record(Object.entries(counts).map(([prd, c]) => ({ workspace_id: workspace, repository: 'acme/widgets', prd: parsePrd(prd), ...c })));
   return store;
 }
 
-const deps = (db: WaitingDb, store: Awaited<ReturnType<typeof storeWith>> | null): WaitingDeps => ({ db: async () => db, outbox: () => store });
+const deps = (db: WaitingDb, store: Awaited<ReturnType<typeof storeWith>> | null): WaitingDeps => ({ db: () => Promise.resolve(db), outbox: () => store });
 
 const body = async (res: Response) => res.json() as Promise<{ items: Array<Record<string, unknown>>; unread: number; error?: string }>;
 
 describe('waitingItems', () => {
-  const d = { id: 'd7', prd: 7, title: 'PRD 7 title' };
+  const d = { id: 'd7', prd: parsePrd(7), title: 'PRD 7 title' };
   it('names each stored waiting question after its dossier, in the stored order', () => {
     expect(waitingItems(d, { open_questions: 3, waiting: [waiting('s1-01-a', 'human-action'), waiting('s2-01-c', 'high')] })).toEqual([
-      { id: 'd7:s1-01-a', prd: 7, dossierId: 'd7', title: 'PRD 7 title', rank: 'human-action', question: 'Question of s1-01-a?' },
-      { id: 'd7:s2-01-c', prd: 7, dossierId: 'd7', title: 'PRD 7 title', rank: 'high', question: 'Question of s2-01-c?' },
+      { id: 'd7:s1-01-a', prd: parsePrd(7), dossierId: 'd7', title: 'PRD 7 title', rank: 'human-action', question: 'Question of s1-01-a?' },
+      { id: 'd7:s2-01-c', prd: parsePrd(7), dossierId: 'd7', title: 'PRD 7 title', rank: 'high', question: 'Question of s2-01-c?' },
     ]);
   });
 
@@ -92,7 +93,7 @@ describe('GET /api/waiting/outbox (PRD 657, s5: read from prd_outbox, never GitH
 
   it('answers 401 when there is no database to sign in to', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const res = await waitingOutbox({ db: async () => { throw new Error('Supabase is not configured'); }, outbox: () => null });
+    const res = await waitingOutbox({ db: () => Promise.reject(new Error('Supabase is not configured')), outbox: () => null });
     expect(res.status).toBe(401);
   });
 
@@ -121,7 +122,7 @@ describe('GET /api/waiting/outbox (PRD 657, s5: read from prd_outbox, never GitH
     });
     const { items, unread } = await body(await waitingOutbox(deps(db, store)));
     expect(items.map((i) => i.id)).toEqual(['d3:a', 'd3:b', 'd5:e']);
-    expect(items[0]).toEqual({ id: 'd3:a', prd: 3, dossierId: 'd3', title: 'PRD 3 title', rank: 'human-action', question: 'Question of a?' });
+    expect(items[0]).toEqual({ id: 'd3:a', prd: parsePrd(3), dossierId: 'd3', title: 'PRD 3 title', rank: 'human-action', question: 'Question of a?' });
     expect(unread).toBe(0);
   });
 

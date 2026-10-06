@@ -5,12 +5,16 @@
 # On a repository without `.omni-loop/config.yml` the app posts nothing.
 #
 # Least privilege: these permissions and events are what the outbox check and the retro use, nothing
-# more. `test/app-yml.test.mjs` fails on any permission or event beyond them. The retro (PRD 72)
+# more. `test/app-yml.test.ts` fails on any permission or event beyond them. The retro (PRD 72)
 # widened them once: `contents: write` (was `read`) to write its own `branches.retro` branch,
 # `issues: write` for its retro issues and `actions: read` for failed jobs' logs. The actions the app
 # acts on (pull_request: opened, synchronize, reopened, ready_for_review, labeled, unlabeled, edited,
-# closed; check_run: rerequested) are filtered in `src/webhook/` — a manifest subscribes to whole
-# events.
+# closed; check_run: rerequested, and requested_action for the canon gate's two buttons, PRD 839) are
+# filtered in `src/webhook/` — a manifest subscribes to whole events. PRD 902 (s3) adds five events, all
+# within these permissions, so a webhook says what changed on GitHub: each of `issues`, `issue_comment`,
+# `push`, `check_suite` and `pull_request_review`, and every `pull_request` action, becomes a touch
+# forwarded to galaxy (`src/stage-forward/touch.ts`). A manifest is read only when an App is registered:
+# on the App already registered, an org admin ticks the five events in its settings.
 #
 # `url` and the webhook point at the app's Vercel project, `setup_url` at galaxy's; replace a host with
 # its project's production domain before registering if it differs.
@@ -18,7 +22,7 @@ name: omni-loop
 description: Posts the omni-loop outbox check on every pull request, and a retro after every feature pull request merges.
 url: https://omni-loop.vercel.app
 public: true
-setup_url: https://vertuo-omni-loop-galaxy.vercel.app/signup/installed
+setup_url: https://www.omni-loop.xyz/signup/installed
 hook_attributes:
   url: https://omni-loop.vercel.app/api/github
   active: true
@@ -32,3 +36,8 @@ default_permissions:
 default_events:
   - pull_request
   - check_run
+  - issues
+  - issue_comment
+  - push
+  - check_suite
+  - pull_request_review
