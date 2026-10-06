@@ -228,3 +228,63 @@ describe('gradePlan — landings in a plan repository', () => {
     expect(graded.collisions).toEqual([]);
   });
 });
+
+// The spec's Solution example (PRD 1089), its hook files never read by the grading.
+const FLOW = parseConfig(`kit: 1
+repo:
+  slug: acme/widgets
+flow:
+  rules:
+    plan:
+      - slice: { maxFiles: 15 }
+    subPr: { merge: squash, requireChecks: [phpunit] }
+  hooks:
+    do-work.test:
+      after: .omni-loop/flow/contract-tests.md
+  areas:
+    kernel:
+      paths: ['^src/kernel/']
+      rules:
+        plan:
+          - slice: { alone: true, maxFiles: 5 }
+          - wave: first
+          - blocks: all
+        subPr: { requireChecks: [phpunit, phpstan-max], approval: person }
+      hooks:
+        do-work.test: { replace: .omni-loop/flow/kernel/tests.md }
+    migrations:
+      paths: ['^database/migrations/']
+      rules:
+        plan:
+          - slice: { alone: true, maxFiles: 1 }
+          - landing: alone
+`);
+
+describe('gradePlan — flow rules (PRD 1089)', () => {
+  it('refuses a slice mixing a migration and code, naming the slice, the area and slice alone (acceptance 2)', () => {
+    const graded = gradePlan(planMd(['| s1 | A | `database/migrations/x.sql` `src/Invoice.php` | — | 1 |']), { config: FLOW });
+    expect(graded.violations).toContainEqual(expect.stringMatching(/^flow: s1 touches database\/migrations\/x\.sql \(area migrations\) .* — migrations: slice alone/));
+  });
+
+  it('refuses a kernel slice behind another slice, and passes it moved to the first wave (acceptance 3)', () => {
+    const behind = gradePlan(planMd(['| s1 | A | `src/Invoice.php` | — | 1 |', '| s2 | B | `src/kernel/Bus/` | s1 | 2 |']), { config: FLOW });
+    expect(behind.violations).toContainEqual(expect.stringMatching(/^flow: s2 \(wave 2\) touches area kernel .* — kernel: wave first/));
+    const first = gradePlan(planMd(['| s1 | B | `src/kernel/Bus/` | — | 1 |', '| s2 | A | `src/Invoice.php` | s1 | 2 |']), { config: FLOW });
+    expect(first.violations).toEqual([]);
+  });
+
+  it('refuses what landings.alone refuses, naming the same slices (acceptance 10)', () => {
+    const alias = parseConfig("kit: 1\nrepo:\n  slug: acme/widgets\nlandings:\n  alone: ['^database/migrations/']\n");
+    const area = parseConfig(
+      "kit: 1\nrepo:\n  slug: acme/widgets\nflow:\n  areas:\n    migrations:\n      paths: ['^database/migrations/']\n      rules:\n        plan:\n          - landing: alone\n",
+    );
+    const named = (lines: string[]) => lines.map((line) => line.replace(/ \(area migrations\)/, ''));
+    for (const markdown of [
+      planMd(['| s1 | A | `database/migrations/` `src/` | — | 1 |']),
+      planMd(['| s1 | A | `database/migrations/` | — | 1 |', '| s2 | B | `src/` | — | 1 |']),
+      planMd(['| s1 | A | `database/migrations/` | — | 1 | 1 |', '| s2 | B | `src/` | — | 1 | 2 |'], LANDED),
+    ]) {
+      expect(named(gradePlan(markdown, { config: area }).violations)).toEqual(gradePlan(markdown, { config: alias }).violations);
+    }
+  });
+});

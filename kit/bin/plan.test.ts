@@ -193,6 +193,68 @@ describe('omni plan check', () => {
   });
 });
 
+// PRD 1089: the flow's areas and their plan rules.
+const FLOW_CONFIG = {
+  '.omni-loop/config.yml': `kit: 1
+repo:
+  slug: acme/widgets
+flow:
+  areas:
+    kernel:
+      paths: ['^src/kernel/']
+      rules:
+        plan:
+          - slice: { alone: true, maxFiles: 5 }
+          - wave: first
+          - blocks: all
+    migrations:
+      paths: ['^database/migrations/']
+      rules:
+        plan:
+          - slice: { alone: true, maxFiles: 1 }
+          - landing: alone
+`,
+};
+
+describe('omni plan check — flow (PRD 1089)', () => {
+  async function check(plan: string) {
+    const { root } = makeRepo({ git: true, files: { ...FLOW_CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+    const s = io();
+    const code = await main(['plan', 'check', '7'], { cwd: root, ...s });
+    return { code, out: s.out.join('') };
+  }
+
+  it('refuses a plan that breaks the kernel and migrations rules, naming slice, area and rule', async () => {
+    const { code, out } = await check(
+      planMd([
+        '| s1 | Code | `src/Invoice.php` | — | 1 |',
+        '| s2 | Kernel | `src/kernel/Bus/` | s1 | 2 |',
+        '| s3 | Migration | `database/migrations/x.sql` `src/Total.php` | — | 1 |',
+      ]),
+    );
+    expect(code).toBe(1);
+    expect(out).toMatch(/flow: s2 \(wave 2\) touches area kernel .* — kernel: wave first/);
+    expect(out).toMatch(/flow: s3 touches database\/migrations\/x\.sql \(area migrations\) .* — migrations: slice alone/);
+  });
+
+  it('passes the corrected plan: the kernel first, the migration alone in a landing after it', async () => {
+    const { code, out } = await check(
+      [
+        '# A plan',
+        '',
+        '| id | slice | territory | blocked by | wave | landing |',
+        '| --- | --- | --- | --- | --- | --- |',
+        '| s1 | Kernel | `src/kernel/Bus/` | — | 1 | 1 |',
+        '| s2 | Code | `src/Invoice.php` | s1 | 2 | 1 |',
+        '| s3 | Migration | `database/migrations/x.sql` | — | 1 | 2 |',
+        '',
+      ].join('\n'),
+    );
+    expect(out).toMatch(/all territories and blocks well-formed/);
+    expect(code).toBe(0);
+  });
+});
+
 // PRD 549: a plan repository's plan names a repository per slice.
 const SHA_BACK = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
 const SHA_APPS = '9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921';
