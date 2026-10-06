@@ -1,0 +1,193 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`flowDifferences > names each difference from the kit's defaults, area by area (spec acceptance 5) 1`] = `
+[
+  {
+    "area": "default",
+    "hooks": [
+      {
+        "mode": "after",
+        "path": ".omni-loop/flow/contract-tests.md",
+        "point": "do-work.test",
+      },
+      {
+        "mode": "replace",
+        "path": ".omni-loop/flow/open-pr.md",
+        "point": "pr.open",
+      },
+    ],
+    "inherit": false,
+    "paths": [],
+    "rules": [
+      "slice maxFiles 15",
+      "requireChecks phpunit",
+    ],
+  },
+  {
+    "area": "kernel",
+    "hooks": [
+      {
+        "mode": "replace",
+        "path": ".omni-loop/flow/kernel/tests.md",
+        "point": "do-work.test",
+      },
+      {
+        "mode": "after",
+        "path": ".omni-loop/flow/contract-tests.md",
+        "point": "do-work.test",
+      },
+      {
+        "mode": "replace",
+        "path": ".omni-loop/flow/open-pr.md",
+        "point": "pr.open",
+      },
+      {
+        "mode": "before",
+        "path": ".omni-loop/flow/kernel/plan.md",
+        "point": "plan.slice",
+      },
+    ],
+    "inherit": true,
+    "paths": [
+      "^src/kernel/",
+    ],
+    "rules": [
+      "slice alone",
+      "slice maxFiles 5",
+      "wave first",
+      "blocks all",
+      "requireChecks phpunit, phpstan-max",
+      "approval person",
+    ],
+  },
+  {
+    "area": "migrations",
+    "hooks": [
+      {
+        "mode": "after",
+        "path": ".omni-loop/flow/contract-tests.md",
+        "point": "do-work.test",
+      },
+      {
+        "mode": "replace",
+        "path": ".omni-loop/flow/open-pr.md",
+        "point": "pr.open",
+      },
+    ],
+    "inherit": true,
+    "paths": [
+      "^database/migrations/",
+    ],
+    "rules": [
+      "slice alone",
+      "slice maxFiles 1",
+      "landing alone",
+      "requireChecks phpunit",
+    ],
+  },
+]
+`;
+
+exports[`showPath > prints the area of a kernel path, its rules and its hooks (spec acceptance 4) 1`] = `
+{
+  "area": "kernel",
+  "hooks": {
+    "do-work.test": {
+      "after": [
+        ".omni-loop/flow/contract-tests.md",
+      ],
+      "before": [],
+      "replace": ".omni-loop/flow/kernel/tests.md",
+    },
+    "plan.slice": {
+      "after": [],
+      "before": [
+        ".omni-loop/flow/kernel/plan.md",
+      ],
+      "replace": null,
+    },
+    "pr.open": {
+      "after": [],
+      "before": [],
+      "replace": ".omni-loop/flow/open-pr.md",
+    },
+  },
+  "knowledge": "kernel",
+  "path": "src/kernel/Bus/Dispatcher.php",
+  "paths": [
+    "^src/kernel/",
+  ],
+  "rules": {
+    "plan": {
+      "alone": true,
+      "blocksAll": true,
+      "landingAlone": false,
+      "maxFiles": 5,
+      "waveFirst": true,
+    },
+    "subPr": {
+      "approval": "person",
+      "maxOpen": null,
+      "merge": "squash",
+      "requireChecks": [
+        "phpunit",
+        "phpstan-max",
+      ],
+      "territory": null,
+    },
+  },
+}
+`;
+
+exports[`showPoint > returns a kernel slice's replace hook with its text, territory and verdict (spec acceptance 6) 1`] = `
+{
+  "after": [
+    {
+      "alias": null,
+      "area": "default",
+      "inputs": {
+        "branch": "feat/bus--s2",
+        "prd": "912",
+        "slice": "s2",
+        "territory": "src/kernel/Bus/",
+      },
+      "mode": "after",
+      "path": ".omni-loop/flow/contract-tests.md",
+      "text": "Run the contract tests for slice s2.
+",
+      "verdict": "omni-hook do-work.test: pass | omni-hook do-work.test: fail <why>",
+    },
+  ],
+  "areas": [
+    "kernel",
+  ],
+  "before": [],
+  "inputs": {
+    "branch": "feat/bus--s2",
+    "prd": "912",
+    "slice": "s2",
+    "territory": "src/kernel/Bus/",
+  },
+  "kitStep": "replaced",
+  "point": "do-work.test",
+  "problems": [],
+  "replace": {
+    "alias": null,
+    "area": "kernel",
+    "inputs": {
+      "territory": "src/kernel/Bus/",
+    },
+    "mode": "replace",
+    "path": ".omni-loop/flow/kernel/tests.md",
+    "text": "Run phpunit on src/kernel/Bus/ only.
+
+omni-hook do-work.test: pass
+",
+    "verdict": "omni-hook do-work.test: pass | omni-hook do-work.test: fail <why>",
+  },
+  "territory": [
+    "src/kernel/Bus/",
+  ],
+  "verdict": "omni-hook do-work.test: pass | omni-hook do-work.test: fail <why>",
+}
+`;
