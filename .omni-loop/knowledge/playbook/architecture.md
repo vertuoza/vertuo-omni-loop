@@ -28,7 +28,8 @@ layer (`game/`); `apps/*` and `packages/*` hold the rest. The README's layout ta
 workspace package but one: `apps/omni-app`, the GitHub App that posts the outbox check.
 
 - `kit/`: the `omni` CLI's source in `kit/bin` and `kit/lib`, the kit defaults in `kit/templates`,
-  the plugin's skills in `kit/plugin`, and the committed bundle `kit/dist/omni.mjs`, which
+  the plugin's skills in `kit/plugin`, the pitch's render engine in `kit/pitch-engine` (a React page,
+  PRD 1108), and the committed builds `kit/dist/omni.mjs` and `kit/dist/pitch-engine/`, which
   `pnpm kit:build` writes. This repository's own `.omni-loop/bin/omni.mjs` is a shim onto the
   source, not the bundle, so the skills run today's code here.
 - `.omni-loop/`: this repository's own loop: its config, its delivery folder (each PRD's spec,
@@ -45,6 +46,7 @@ Anything not listed is refused; a type-only import counts.
 | `kit/bin` | `kit/lib` |
 | the kit's build scripts (`kit/build.ts`, `kit/release/`) | `kit/lib`, `kit/bin` |
 | `kit/test` | `kit/lib`, `kit/bin` |
+| `kit/pitch-engine` | `kit/lib`; of npm packages only React, React DOM and zod, and no Node built-in (its source runs in a browser; its tests are free of that) |
 | `game` | `kit/lib/ids`, `kit/lib/env`, the `supabase` types |
 | `packages/galaxy` | `game`, `@omni/design`, `kit/lib/ids` |
 | `packages/design` | `kit/lib`, by package name |
@@ -73,6 +75,9 @@ Anything not listed is refused; a type-only import counts.
   `kit/test/no-literals.test.ts` scans `kit/lib`, `kit/bin`, `kit/plugin` and `kit/templates`.
 - `kit/dist/omni.mjs` is only ever a build of the source: `kit/test/dist.test.ts` fails when it
   differs from a fresh build.
+- `kit/dist/pitch-engine/` is only ever a build of `kit/pitch-engine`: its
+  `kit/pitch-engine/test/dist.test.ts` fails when it differs from a fresh build. React is a root
+  devDependency, bundled into that page: a repository using the kit installs none.
 - The GitHub App reuses the kit's gate unchanged and never runs repository code: it reads only YAML
   and Markdown, through the kit's schemas (apps/omni-app/README.md).
 - The GitHub App's Inngest plan caps how long a run may sleep at 7 days (answered on #75, PRD 72):
