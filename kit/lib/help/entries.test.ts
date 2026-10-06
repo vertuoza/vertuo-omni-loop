@@ -107,11 +107,25 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 42 commands and the 25 skills', () => {
+  it('holds the 42 commands and the 26 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(42);
-    expect(skillFolders()).toHaveLength(25);
+    expect(skillFolders()).toHaveLength(26);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(42);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(25);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(26);
+  });
+
+  it('lists /omni:mega-bug-fix for you under Several repositories, after /omni:mega-pr-care, with when and an example (PRD 1118)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const mega = skills.find((e) => e.name === 'mega-bug-fix');
+    assertDefined(mega, 'mega');
+    expect(mega).toMatchObject({ who: 'you', usage: ['/omni:mega-bug-fix <line or n> [--prd <prd>]'], label: '/omni:mega-bug-fix', group: 'multi-repo' });
+    expect(skills.indexOf(mega)).toBe(skills.findIndex((e) => e.name === 'mega-pr-care') + 1);
+    expect(mega.when).toMatch(/^Use it when\b/);
+    expect(mega.example).toEqual({ type: '/omni:mega-bug-fix the total is wrong on the invoice screen', result: anyText });
+    expect(mega.detail).toMatch(/\bplan repository\b/);
+    expect(mega.detail).toMatch(/\/omni:bug-fix\b/);
+    expect(mega.detail).toMatch(/\/omni:mega-brainstorm\b/);
+    expect(mega.detail).toMatch(/never merges/);
   });
 
   it('lists /omni:mega-pr-care for you under Several repositories, after /omni:ultra-yolo, with when and an example (PRD 1118)', () => {
@@ -270,7 +284,7 @@ describe('the help table in this repository', () => {
       start: ['brainstorm', 'bug-fix', 'think-big', 'visual-fix'],
       build: ['do-work', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
       setup: ['invade'],
-      'multi-repo': ['mega-brainstorm', 'mega-invade', 'mega-pr-care', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
+      'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-invade', 'mega-pr-care', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
       everyday: ['ask', 'help', 'pitch', 'prove', 'status'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
