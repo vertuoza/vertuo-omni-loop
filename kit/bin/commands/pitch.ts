@@ -1,4 +1,4 @@
-// `omni pitch start|check|render|studio` make a pitch on the person's computer (`./pitch-make.ts`);
+// `omni pitch start|film|check|render|studio` make a pitch on the person's computer (`./pitch-make.ts`);
 // `omni pitch push <n> <dir>` — sends a pitch run `/omni:pitch` made of shipped PRD n to its dossier on
 // the Omni page (PRD 859's spec, "Push"), and prints the Pitch tab's link, then the GIF's stable link (the
 // one that opens without signing in) on a second line.
@@ -41,7 +41,7 @@ type PitchOptions = { [K in Exclude<keyof MakerIo, keyof FreeIo>]?: MakerIo[K] }
 type CallIo = { stdout: Out; stderr: Out; tokens: TokenStore | undefined; home: string | undefined; fetch: Fetch; callMs: number | undefined };
 
 const USAGE = 'usage: omni pitch push <n> <dir>';
-const VERBS = 'usage: omni pitch start|check|render|studio|push …';
+const VERBS = 'usage: omni pitch start|film|check|render|studio|push …';
 const NO_SIGN_IN = 'no sign-in (omni signin)';
 
 /** The one line a failed call is reported with, as `omni proof push` words it. */
@@ -116,9 +116,9 @@ function pushable(
 
 export const pitch = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs, now, launch, openBrowser, studioUntil }: FreeIo & PitchOptions) {
+  async run(args: string[], { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs, now, launch, film, openBrowser, studioUntil }: FreeIo & PitchOptions) {
     const [verb, ...rest] = args;
-    if (isOneOf(keysOf(PITCH_MAKERS), verb)) return PITCH_MAKERS[verb](rest, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now, launch, openBrowser, studioUntil });
+    if (isOneOf(keysOf(PITCH_MAKERS), verb)) return PITCH_MAKERS[verb](rest, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now, launch, film, openBrowser, studioUntil });
     if (verb !== 'push') throw usageError(VERBS);
     const { prd, dir } = argsOf(args);
     const ctx = loadContext(cwd, { exec });

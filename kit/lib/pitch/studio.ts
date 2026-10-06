@@ -10,7 +10,7 @@ import { watch } from 'node:fs';
 import type { FSWatcher } from 'node:fs';
 import { checkRunFolder, findingLine } from './check.ts';
 import type { Warn } from './providers/registry.ts';
-import type { Fetch } from './providers/types.ts';
+import type { ProviderFetch } from './providers/types.ts';
 import { RUN_SETTINGS, RenderRefused, runSettings, runStoryboard, writePageInput } from './render-input.ts';
 import { serveRun } from './render-server.ts';
 import { STORYBOARD_FILE } from './storyboard.ts';
@@ -23,7 +23,7 @@ const WATCHED = Object.freeze([STORYBOARD_FILE, RUN_SETTINGS]);
 export type Studio = { url: string; close: () => Promise<void> };
 
 /** Writes the page's input from the run's storyboard and settings; false, with each error said, when they do not read. */
-async function refreshInput(dir: string, { fetch, warn }: { fetch: Fetch; warn: Warn }): Promise<boolean> {
+async function refreshInput(dir: string, { fetch, warn }: { fetch: ProviderFetch; warn: Warn }): Promise<boolean> {
   const { errors } = checkRunFolder(dir);
   for (const finding of errors) warn(`error: ${findingLine(finding)}`);
   if (errors.length > 0) return false;
@@ -47,7 +47,7 @@ function debounced(run: () => void, ms: number): () => void {
 }
 
 /** Serves the run in `dir` with the player's keys, reloading the page on each change; its address. */
-export async function openStudio(dir: string, { fetch, warn, onReload }: { fetch: Fetch; warn: Warn; onReload?: () => void }): Promise<Studio> {
+export async function openStudio(dir: string, { fetch, warn, onReload }: { fetch: ProviderFetch; warn: Warn; onReload?: () => void }): Promise<Studio> {
   if (!(await refreshInput(dir, { fetch, warn }))) throw new RenderRefused([`${STORYBOARD_FILE} cannot be shown yet: fix the errors above`]);
   const server = await serveRun({ dir });
   const reload = debounced(() => {

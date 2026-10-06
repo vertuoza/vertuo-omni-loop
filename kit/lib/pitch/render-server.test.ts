@@ -78,6 +78,22 @@ describe('serveRun', () => {
     expect((await fetch(`${served.origin}/run/shots/a.png`)).headers.get('content-type')).toBe('image/png');
   });
 
+  it("answers a byte range of a run's file, so the page can seek a clip it has not downloaded yet (PRD 1108 s7)", async () => {
+    const dir = runDir();
+    writeFileSync(join(dir, 'walk.webm'), '0123456789');
+    served = await serveRun({ dir, page: PAGE });
+    const whole = await fetch(`${served.origin}/run/walk.webm`);
+    expect([whole.status, whole.headers.get('accept-ranges'), await whole.text()]).toEqual([200, 'bytes', '0123456789']);
+    const part = await fetch(`${served.origin}/run/walk.webm`, { headers: { range: 'bytes=2-5' } });
+    expect([part.status, part.headers.get('content-range'), part.headers.get('content-type'), await part.text()]).toEqual([206, 'bytes 2-5/10', 'video/webm', '2345']);
+    const open = await fetch(`${served.origin}/run/walk.webm`, { headers: { range: 'bytes=7-' } });
+    expect([open.status, open.headers.get('content-range'), await open.text()]).toEqual([206, 'bytes 7-9/10', '789']);
+    const tail = await fetch(`${served.origin}/run/walk.webm`, { headers: { range: 'bytes=-3' } });
+    expect([tail.status, await tail.text()]).toEqual([206, '789']);
+    const past = await fetch(`${served.origin}/run/walk.webm`, { headers: { range: 'bytes=20-' } });
+    expect([past.status, past.headers.get('content-range')]).toEqual([416, 'bytes */10']);
+  });
+
   it('answers 404 outside the run, for a missing file, and for any other path', async () => {
     served = await serveRun({ dir: runDir(), page: PAGE });
     for (const path of ['/run/%2e%2e/pitch-serve-secret.txt', '/run/missing.png', '/elsewhere', '/engine/other.js']) {

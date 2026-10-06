@@ -4,7 +4,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FONTS_DIR, slugOf, stackOf } from './css.ts';
-import type { Fetch, FontRequest, FontsProvider } from '../types.ts';
+import type { ProviderFetch, FontRequest, FontsProvider } from '../types.ts';
 
 const API = 'https://fonts.googleapis.com/css2';
 /** Google Fonts answers WOFF2 files to a browser that says it reads them. */
@@ -15,7 +15,7 @@ const FONT_URL = /url\((https:\/\/fonts\.gstatic\.com\/[^)\s]+)\)/g;
 export const cssUrl = ({ family, weight }: FontRequest): string =>
   `${API}?family=${encodeURIComponent(family).replace(/%20/g, '+')}:wght@${String(weight)}&display=block`;
 
-async function answered(fetch: Fetch, url: string, what: string) {
+async function answered(fetch: ProviderFetch, url: string, what: string) {
   const answer = await fetch(url, { headers: { 'user-agent': BROWSER } });
   if (!answer.ok) throw new Error(`Google Fonts answered ${String(answer.status)} for ${what}`);
   return answer;

@@ -5,7 +5,9 @@
 //   itself does not read add a few lines to it: `frames=<a>,<b>,…` makes `__pitchSeek(n)` settle the nth
 //   frame of that list, so a capture of a few frames takes exactly the scenes' stills; `report` posts what
 //   `__pitchInfo()` answers to `/info`, so the render learns the video's length and stills from the page.
-// - `/run/<path>`: a file of the run's folder, never one outside it.
+// - `/run/<path>`: a file of the run's folder, never one outside it. A `Range` request is answered with
+//   those bytes: without it, the browser can seek a clip only as far as it has downloaded, and a frame
+//   past that shows the clip's start.
 // - `/contact.html?files=<a>,<b>,…`: the contact sheet, the run's images three to a row, each named.
 // - `/events`: an event stream the studio's page listens to; `notify()` sends it one message.
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -103,7 +105,7 @@ export function runFile(dir: string, path: string): string | null {
   return file;
 }
 
-type Answer = { status: number; type?: string; body?: string | Buffer };
+type Answer = { status: number; type?: string; body?: string | Buffer; headers?: Readonly<Record<string, string>> };
 
 const found = (body: string | Buffer, type: string): Answer => ({ status: 200, type, body });
 
@@ -116,19 +118,42 @@ const MADE: Readonly<Record<string, (page: EnginePage, params: URLSearchParams) 
   '/contact.html': (_, params) => found(contactHtml((params.get('files') ?? '').split(',').filter(Boolean)), HTML),
 });
 
+const RANGE = /^bytes=(\d*)-(\d*)$/;
+
+/** The first and last byte a `Range` header asks of `size` bytes, or null when it asks none it can give. */
+function rangeOf(range: string, size: number): { first: number; last: number } | null {
+  const [, from = '', to = ''] = RANGE.exec(range.trim()) ?? [];
+  if (from === '' && to === '') return null;
+  const first = from === '' ? Math.max(0, size - Number(to)) : Number(from);
+  const last = from === '' || to === '' ? size - 1 : Math.min(Number(to), size - 1);
+  return first <= last ? { first, last } : null;
+}
+
+/** A file's bytes: the range a `Range` header asks for, as a 206 (or 416); the whole file without one. */
+function ranged(body: Buffer, type: string, range: string | undefined): Answer {
+  if (range === undefined) return { ...found(body, type), headers: { 'accept-ranges': 'bytes' } };
+  const asked = rangeOf(range, body.length);
+  if (asked === null) return { status: 416, headers: { 'content-range': `bytes */${String(body.length)}` } };
+  const { first, last } = asked;
+  return { status: 206, type, body: body.subarray(first, last + 1), headers: { 'accept-ranges': 'bytes', 'content-range': `bytes ${String(first)}-${String(last)}/${String(body.length)}` } };
+}
+
 /** A file of the run, under `/run/`, or 404. */
-function runAnswer(dir: string, path: string): Answer {
+function runAnswer(dir: string, path: string, range: string | undefined): Answer {
   const file = path.startsWith('/run/') ? runFile(dir, path.slice('/run/'.length)) : null;
   if (file === null) return { status: 404 };
-  return found(readFileSync(file), TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream');
+  return ranged(readFileSync(file), TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream', range);
 }
 
 /** The answer to a GET of `url`, for the run in `dir`. */
-function answerGet(dir: string, page: EnginePage, url: URL): Answer {
+function answerGet(dir: string, page: EnginePage, url: URL, range: string | undefined): Answer {
   const path = decodeURIComponent(url.pathname);
   const made = Object.hasOwn(MADE, path) ? MADE[path] : undefined;
-  return made === undefined ? runAnswer(dir, path) : made(page, url.searchParams);
+  return made === undefined ? runAnswer(dir, path, range) : made(page, url.searchParams);
 }
+
+/** The headers an answer is sent with. */
+const headersOf = ({ type, headers }: Answer): Record<string, string> => ({ ...(type === undefined ? {} : { 'content-type': type, 'cache-control': 'no-store' }), ...headers });
 
 /** A promise and the function that settles it. */
 function deferred<T>(): { promise: Promise<T>; settle: (value: T) => void } {
@@ -178,8 +203,8 @@ export async function serveRun({ dir, page = enginePage() }: { dir: string; page
       request.on('close', () => listeners.delete(response));
       return;
     }
-    const answer = answerGet(dir, page, url);
-    response.writeHead(answer.status, answer.type === undefined ? {} : { 'content-type': answer.type, 'cache-control': 'no-store' }).end(answer.body);
+    const answer = answerGet(dir, page, url, request.headers.range);
+    response.writeHead(answer.status, headersOf(answer)).end(answer.body);
   });
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
   const address = server.address();

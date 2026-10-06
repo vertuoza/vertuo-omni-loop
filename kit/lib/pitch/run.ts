@@ -1,10 +1,15 @@
 // A pitch run on the person's computer (PRD 859's spec, "/omni:pitch"): the four refusals it starts with,
-// the run's folder and its `pitch.json`. What the run is made into is the render's business
-// (./render.ts, PRD 1108). Every outside tool is reached through an injected `exec`, so a test stubs it.
+// the run's folder and its `pitch.json`, and (PRD 1108) the product's Pitch settings the run is made with:
+// read from the Omni page when it starts, else the default preset's, said in one line. What the run is
+// made into is the render's business (./render.ts). Every outside tool is reached through an injected
+// `exec`, so a test stubs it.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import type { PrdNumber } from '../ids.ts';
+import { propertyOf } from '../narrow.ts';
+import { DEFAULT_PRESET, defaultPitchSettings, parsePitchSettings } from './settings.ts';
+import type { PitchSettings } from './settings.ts';
 
 export const AUDIENCES = Object.freeze(['customers', 'inside'] as const);
 export type Audience = (typeof AUDIENCES)[number];
@@ -77,5 +82,43 @@ export function readPitchJson(dir: string): Record<string, unknown> | null {
 /** Writes `pitch.json` of the run in `dir`. */
 export function writePitchJson(dir: string, value: Record<string, unknown>): void {
   writeFileSync(join(dir, PITCH_JSON), `${JSON.stringify(value, null, 2)}\n`);
+}
+
+/** The settings a run starts with, and the one line saying why they are not the product's, or null. */
+export type StartSettings = { settings: PitchSettings; why: string | null };
+
+/** The default preset's settings, with the line saying why the product's could not be had. */
+const fallback = (reason: string): StartSettings => ({
+  settings: defaultPitchSettings(),
+  why: `settings: the ${DEFAULT_PRESET} preset (the product's Pitch settings could not be read: ${reason})`,
+});
+
+/**
+ * The run's settings from what `GET /api/pitch-settings` answered (`{ settings }`), filled; or, when the
+ * call failed (`failure`, its reason) or the answer is out of shape, the default preset's with one line.
+ */
+export function startSettings(answer: { reply: unknown } | { failure: string }): StartSettings {
+  if ('failure' in answer) return fallback(answer.failure);
+  const parsed = parsePitchSettings(propertyOf(answer.reply, 'settings') ?? null);
+  return parsed.ok ? { settings: parsed.settings, why: null } : fallback(`out of shape, ${parsed.errors[0] ?? 'no settings'}`);
+}
+
+const ASSET = 'asset:';
+const assetName = (ref: string | null | undefined): string | null => (ref?.startsWith(ASSET) ? ref.slice(ASSET.length) : null);
+
+/** The names of the files the settings point at (`asset:<name>`): the logo, uploaded fonts, a music file. */
+export function assetsOf({ look, music }: PitchSettings): string[] {
+  const names = [look.logo, look.heading.family, look.text.family, music.file].map(assetName).filter((name) => name !== null);
+  return [...new Set(names)];
+}
+
+/**
+ * A Heading or Text font as the fonts provider is asked for it. A font uploaded to the product is stored
+ * as the family `asset:<file>`: it is asked as the file's name without its extension, from that file.
+ */
+export function fontRequestOf({ provider, family, weight }: PitchSettings['look']['heading']): { provider: string; family: string; weight: number; asset?: string } {
+  const file = assetName(family);
+  if (file === null) return { provider, family, weight };
+  return { provider, family: file.replace(/\.[^.]+$/, '') || file, weight, asset: family };
 }
 
