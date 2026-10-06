@@ -31,7 +31,7 @@ picks up a PR and watches it until it is done or stuck.
 
 | Kind | Base | Label | Link line | Graded by |
 |---|---|---|---|---|
-| **Feature PR**: the one PR a PRD sends to the default branch, or one **landing PR** of a PRD of several landings | `repo.defaultBranch`; for landing n > 1, landing n-1's branch while that landing is open | `labels.feature` | `prLinks.feature` | CI, once it leaves draft |
+| **Feature PR**: the one PR a PRD sends to the default branch, or one **landing PR** of a PRD of several landings | `repo.defaultBranch`; for landing n > 1, landing n-1's branch while that landing is open; for a **stacked** feature PR, the branch it is stacked on while that branch's PR is open | `labels.feature` | `prLinks.feature` | CI, once it leaves draft |
 | **Sub-PR**: one slice, on `branches.slice` | the feature branch (`branches.feature`), or its landing's branch | `labels.sub` | `prLinks.sub` | the preflight (below) |
 | **Standalone PR**: a fix or anything with no PRD | `repo.defaultBranch` | none | `Closes #<issue>` when there is one | CI |
 
@@ -39,6 +39,28 @@ A PRD whose plan has more than one landing has one branch and one feature-kind P
 stacked: `node .omni-loop/bin/omni.mjs plan landings <prd> --json` gives each landing's `branch`,
 `base`, `titleSuffix` and `mergeAfterLine`. Wherever this skill says "the feature branch" for such a
 PRD, it means the slice's landing's branch, and "the feature PR" means that landing's PR.
+
+**A stacked feature PR** is a feature PR (or landing 1) whose base is not `repo.defaultBranch`:
+the PRD was cut from another open PR's branch, and its PR targets that branch until that PR merges.
+
+- **Find it by its head**, whatever its base: `gh pr list --head <feature branch> --state open
+  --json number,isDraft,labels,baseRefName`, never with `--base <repo.defaultBranch>`. Its
+  `baseRefName` is **its base**.
+- **The base PR** is the PR whose head is its base:
+  `gh pr list --head <base> --state all --json number,state --limit 1`. Once it is `MERGED`, the
+  feature PR is retargeted, `gh pr edit <n> --base <repo.defaultBranch>` (GitHub may have done it
+  already), and is an ordinary feature PR from then on.
+- **Its base stands in for the default branch** wherever this skill meets one for a feature PR: a
+  conflict is resolved by merging `<remote>/<base>`, the diff is read against it, and `BEHIND` is
+  left alone as it is for the default branch. Before merging the base in, check
+  `git merge-base --is-ancestor <remote>/<base> HEAD`; when the branch already holds the base's
+  head there is nothing to meet, and when the base was rewritten (`git cherry HEAD <remote>/<base>`
+  prints a `-` line: a commit of the new base the branch already holds under another id) never
+  merge it: take the **Stuck**
+  path, naming `<feature branch> is not on <base>'s head: rebase it onto <remote>/<base>` as what a
+  person should do.
+- **It is never marked ready while the base PR is open**, or while no PR heads its base:
+  `/omni:yolo` checks that before its `gh pr ready`, as **Merging and ready** says.
 
 In a link line, `{prd}` is the PRD's issue number. Every PR an agent owns also carries
 `labels.inProgress` until the agent stops. A phase-0 PR is opened by `/omni:brainstorm`; it follows
@@ -109,9 +131,13 @@ differences.
 
 - **Never merge a PR whose base is `repo.defaultBranch`.** A feature PR or standalone PR is merged by
   a person. **Never merge a landing PR either**, whatever its base: landing n's base is landing
-  n-1's branch, not the default branch, and a person still merges it, in order.
+  n-1's branch, not the default branch, and a person still merges it, in order. **Nor a stacked
+  feature PR**: its base is another PR's branch, and a person merges it once that PR has merged and
+  it is retargeted. Whatever a PR's kind, a merge whose `baseRefName` is `repo.defaultBranch` is
+  refused.
 - **Never mark a feature PR ready.** `/omni:yolo` does that, after `omni ship` has run on the feature
-  branch. This skill leaves a feature PR in draft, however green it is.
+  branch, and, for a stacked feature PR, only once the PR of its base has merged. This skill leaves a
+  feature PR in draft, however green it is.
 - `/omni:pr` owns `gh pr ready` for a sub-PR, and runs it only once the preflight is green.
 - A **sub-PR** is merged into its feature branch by the orchestrator (`/omni:wave`), one at a time:
   check `baseRefName` is not the default branch and `headRefName` is a slice branch (`branches.slice`),
@@ -279,7 +305,7 @@ workflow; when the app is not installed, that check is simply absent.
 |---|---|
 | `mergeable: CONFLICTING` | `git fetch <remote> && git merge <remote>/<base>`, resolve, run the preflight, push. Not an attempt. |
 | `mergeable: UNKNOWN` | GitHub is still computing. Look again in a minute. |
-| `mergeStateStatus: BEHIND` only | Leave it. A person decides when a PR into the default branch is updated. |
+| `mergeStateStatus: BEHIND` only | Leave it. A person decides when a PR into the default branch, or a stacked feature PR into its base, is updated. |
 | checks pending | Watch in the background (below), then loop. |
 | a counted check red, other than `ci.outboxContext` | Fix it (below). |
 | only `ci.outboxContext` red | Not a failure to fix: run `node .omni-loop/bin/omni.mjs status <prd>`. Red only for items a person must answer is the gate doing its job; say so in the status comment and stop. Anything else, fix it through the outbox, never by adding `labels.outboxGo`. |
