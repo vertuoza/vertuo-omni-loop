@@ -137,15 +137,34 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'check',
     kind: 'command',
     who: 'you',
-    usage: ['omni check [inbox|outbox|knowledge|kb|releases|coverage|all]', '  [--base <ref>] [--prd <n>]'],
+    usage: ['omni check [config|inbox|outbox|knowledge|kb|releases|coverage|all]', '  [--base <ref>] [--prd <n>]'],
     label: 'omni check [all]',
     summary: "the repository's guards",
     detail:
-      "The repository's guards, each printing its violations or one line saying it passed: inbox " +
+      "The repository's guards, each printing its violations or one line saying it passed: config " +
+      '(the config file, its flow and every hook file the flow names, each refusal naming its key), inbox ' +
       '(the PRDs waiting to be built), outbox (the open items), knowledge (the registers), kb (the ' +
       "playbook's forms), releases (the release notes) and coverage (every risky change of a branch " +
       'accounted for, against --base). all, the default, runs every one, and skips coverage when ' +
       '{remote}/{defaultBranch} has not been fetched. Exit 1 on any violation.',
+  },
+  {
+    name: 'flow',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni flow show [<point>] [--json]', '  [--prd <n> --slice <id> | --path <p>]', 'omni flow verdict <point> --from <file>'],
+    label: 'omni flow show',
+    summary: "this repository's areas, rules and hooks",
+    detail:
+      "The repository's flow, the rules, areas and hooks its config declares. show with a point " +
+      '(do-work.test, pr.open…) prints the hooks to follow there, every before, the replace and ' +
+      'every after, each with its area, its text with the inputs filled in and the verdict line it ' +
+      'ends with, then kitStep: run, or replaced when a hook takes the kit\'s place; --prd and --slice ' +
+      "read the slice's territory from its plan, --path takes one path. A hook file that is not there " +
+      'is a not ok line and exit 1. show --path prints the area a path belongs to, with every rule ' +
+      "and hook there; show alone, what this repository changes from the kit's defaults, area by " +
+      "area. verdict reads a hook's output: ok, or not ok with the point and why, exit 1, and not ok " +
+      '… no verdict when its last line is not the verdict.',
   },
   {
     name: 'kb',

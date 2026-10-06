@@ -1,0 +1,112 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`omni flow show <point> > prints a slice's hooks as text, each with its text 1`] = `
+"point    do-work.test
+areas    kernel
+territory src/kernel/Bus/
+replace  .omni-loop/flow/kernel/tests.md  (kernel)
+after    .omni-loop/flow/contract-tests.md  (default)
+kitStep: replaced
+verdict  omni-hook do-work.test: pass | omni-hook do-work.test: fail <why>
+
+## replace .omni-loop/flow/kernel/tests.md (kernel)
+Run phpunit on src/kernel/Bus/ only.
+
+## after .omni-loop/flow/contract-tests.md (default)
+Run the contract tests of slice s1.
+"
+`;
+
+exports[`omni flow show <point> > returns a kernel slice's replace hook as JSON (spec acceptance 6) 1`] = `
+{
+  "after": [
+    {
+      "alias": null,
+      "area": "default",
+      "inputs": {
+        "branch": "feat/bus--s1",
+        "prd": "912",
+        "slice": "s1",
+        "territory": "src/kernel/Bus/",
+      },
+      "mode": "after",
+      "path": ".omni-loop/flow/contract-tests.md",
+      "text": "Run the contract tests of slice s1.
+",
+      "verdict": "omni-hook do-work.test: pass | omni-hook do-work.test: fail <why>",
+    },
+  ],
+  "areas": [
+    "kernel",
+  ],
+  "before": [],
+  "inputs": {
+    "branch": "feat/bus--s1",
+    "prd": "912",
+    "slice": "s1",
+    "territory": "src/kernel/Bus/",
+  },
+  "kitStep": "replaced",
+  "point": "do-work.test",
+  "problems": [],
+  "replace": {
+    "alias": null,
+    "area": "kernel",
+    "inputs": {
+      "territory": "src/kernel/Bus/",
+    },
+    "mode": "replace",
+    "path": ".omni-loop/flow/kernel/tests.md",
+    "text": "Run phpunit on src/kernel/Bus/ only.
+",
+    "verdict": "omni-hook do-work.test: pass | omni-hook do-work.test: fail <why>",
+  },
+  "territory": [
+    "src/kernel/Bus/",
+  ],
+  "verdict": "omni-hook do-work.test: pass | omni-hook do-work.test: fail <why>",
+}
+`;
+
+exports[`omni flow show > prints each difference from the kit's defaults, area by area (spec acceptance 5) 1`] = `
+"flow — what this repository changes from the kit's defaults
+
+default  every path no area claims
+  rule  slice maxFiles 15
+  rule  requireChecks phpunit
+  hook  do-work.test after .omni-loop/flow/contract-tests.md
+  hook  pr.open replace .omni-loop/flow/open-pr.md
+
+kernel  ^src/kernel/
+  rule  slice alone
+  rule  slice maxFiles 5
+  rule  wave first
+  rule  blocks all
+  rule  requireChecks phpunit, phpstan-max
+  rule  approval person
+  hook  do-work.test replace .omni-loop/flow/kernel/tests.md
+  hook  do-work.test after .omni-loop/flow/contract-tests.md
+  hook  pr.open replace .omni-loop/flow/open-pr.md
+  hook  plan.slice before .omni-loop/flow/kernel/plan.md
+
+migrations  ^database/migrations/
+  rule  slice alone
+  rule  slice maxFiles 1
+  rule  landing alone
+  rule  requireChecks phpunit
+  hook  do-work.test after .omni-loop/flow/contract-tests.md
+  hook  pr.open replace .omni-loop/flow/open-pr.md
+"
+`;
+
+exports[`omni flow show --path > prints a kernel path's area, rules and hooks (spec acceptance 4) 1`] = `
+"path     src/kernel/Bus/Dispatcher.php
+area     kernel  ^src/kernel/
+knowledge kernel
+rules    slice alone · slice maxFiles 5 · wave first · blocks all · requireChecks phpunit, phpstan-max · approval person
+hook     do-work.test replace .omni-loop/flow/kernel/tests.md
+hook     do-work.test after .omni-loop/flow/contract-tests.md
+hook     pr.open replace .omni-loop/flow/open-pr.md
+hook     plan.slice before .omni-loop/flow/kernel/plan.md
+"
+`;
