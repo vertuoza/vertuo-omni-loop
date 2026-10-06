@@ -10,6 +10,7 @@
 // The snapshot is bounded (decision 11): at most MAX_FILES files and MAX_BYTES bytes across every
 // listed path together, counted from the tree's sizes BEFORE any blob is fetched. Past either, it
 // throws SnapshotBoundError naming the bound, which the outbox check reports as its failure reason.
+// The blobs are then fetched BLOB_CONCURRENCY at a time (issue 1087).
 //
 // The Octokit seam is `octokit.request(route, params)` alone, which every Octokit — the installation
 // client `@octokit/app` hands out included — carries, so a test stubs one function.
@@ -20,6 +21,12 @@ import { BlobSchema, TreeSchema, type GitHubClient, type TreeEntry } from '../ou
 
 export const MAX_FILES = 2000;
 export const MAX_BYTES = 20 * 1024 * 1024;
+/**
+ * How many blobs are fetched at once (issue 1087). One after another, a delivery folder of 515 files
+ * outran the step's 300 seconds on Vercel; side by side it takes a sixteenth of that, and stays well
+ * inside GitHub's limit on concurrent requests.
+ */
+export const BLOB_CONCURRENCY = 16;
 
 const TREE = 'GET /repos/{owner}/{repo}/git/trees/{tree_sha}';
 const BLOB = 'GET /repos/{owner}/{repo}/git/blobs/{file_sha}';
@@ -79,13 +86,17 @@ export async function snapshot(
   }
 
   const folder = dest ?? mkdtempSync(join(tmpdir(), 'omni-snapshot-'));
-  for (const file of list) {
-    const { data: answer } = await octokit.request(BLOB, { owner, repo, file_sha: file.sha });
-    const data = BlobSchema.parse(answer);
-    const target = join(folder, ...repositoryPath(file.path));
-    mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, Buffer.from(data.content, data.encoding === 'base64' ? 'base64' : 'utf8'));
-  }
+  const queue = [...list];
+  const fetchNext = async (): Promise<void> => {
+    for (let file = queue.shift(); file; file = queue.shift()) {
+      const { data: answer } = await octokit.request(BLOB, { owner, repo, file_sha: file.sha });
+      const data = BlobSchema.parse(answer);
+      const target = join(folder, ...repositoryPath(file.path));
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, Buffer.from(data.content, data.encoding === 'base64' ? 'base64' : 'utf8'));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(BLOB_CONCURRENCY, queue.length) }, fetchNext));
   return folder;
 }
 
