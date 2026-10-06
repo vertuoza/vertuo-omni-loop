@@ -81,7 +81,7 @@ const PitchSettingsSchema = z.object(
 );
 
 export type PitchSettings = z.infer<typeof PitchSettingsSchema>;
-export type PitchLook = PitchSettings['look'];
+type PitchLook = PitchSettings['look'];
 
 const LOOKS: Readonly<Record<PitchPreset, PitchLook>> = Object.freeze({
   arcade: {
