@@ -2,7 +2,10 @@
 // carries no brand. Every colour a scene paints is one of the look's four tokens — the ground in
 // `paper`, the words in `ink`, highlights in `accent`, the call to action in `cta` — or a mix or a
 // shade of them.
-import type { PitchLook } from '../lib/pitch/settings.ts';
+import type { PitchSettings } from '../lib/pitch/settings.ts';
+
+/** The product's look, as its Pitch settings hold it. */
+export type PitchLook = PitchSettings['look'];
 
 type Rgb = readonly [number, number, number];
 

@@ -12,7 +12,7 @@
 //   (`{n}` in `frames` is the image's number, from 1); a clip not listed plays from its file.
 import { z } from 'zod';
 import { parsePitchSettings } from '../lib/pitch/settings.ts';
-import type { PitchLook } from '../lib/pitch/settings.ts';
+import type { PitchLook } from './palette.ts';
 import { parseStoryboard } from '../lib/pitch/storyboard.ts';
 import type { Storyboard } from '../lib/pitch/storyboard.ts';
 

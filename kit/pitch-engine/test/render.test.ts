@@ -13,7 +13,7 @@ import type { Browser, Page } from '@playwright/test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { presetLook } from '../../lib/pitch/settings.ts';
-import type { PitchLook } from '../../lib/pitch/settings.ts';
+import type { PitchLook } from '../palette.ts';
 import { fixtureStoryboard } from '../../lib/pitch/storyboard.fixture.ts';
 import { buildTimeline, stillFrame } from '../timeline.ts';
 import { REFERENCE, TEST_CLIP, TEST_FONTS, colourCounts, difference, imagePage, pageUrl, scaled, serve } from './harness.ts';
