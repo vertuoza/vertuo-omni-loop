@@ -28,7 +28,7 @@ import { movedTable, planMoved } from '../../lib/plan-repo/moved.ts';
 import { errorCode, errorMessage, parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { Context } from '../../lib/context.ts';
 import { githubEnv } from '../github.ts';
-import type { Command, CommandIo } from '../io.ts';
+import type { Command, CommandIo, Out } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 
@@ -126,55 +126,76 @@ function landingsCommand(rest: string[], { ctx, stdout }: Pick<CommandIo, 'ctx' 
   return 0;
 }
 
+type Checked = ReturnType<typeof checkPlan>;
+
+/** The landings, merged in order, when the plan has more than one. */
+function printLandings(stdout: Out, { landings }: Checked): void {
+  if (landings.length <= 1) return;
+  println(stdout, `omni plan check — ${counted(landings.length, 'landing', 'landings')}, merged in order:`);
+  for (const { landing, name, mergeWhen, slices: members, waves: landingWaves } of landings) {
+    const when = mergeWhen === null ? '' : ` — merge when ${mergeWhen}`;
+    println(stdout, `  landing ${landing} (${name}): wave(s) ${landingWaves.join(', ')} — ${members.join(', ')}${when}`);
+  }
+}
+
+/** A multi-repository plan's waves, each slice with its repository. */
+function printRepositories(stdout: Out, { multi, slices, waves }: Checked): void {
+  if (!multi) return;
+  const repos = new Set(slices.map((slice) => slice.repo)).size;
+  println(
+    stdout,
+    `omni plan check — ${counted(slices.length, 'slice', 'slices')} · ${counted(waves.length, 'wave', 'waves')} · ${counted(repos, 'repository', 'repositories')}:`,
+  );
+  for (const wave of waves) {
+    const members = slices.filter((slice) => slice.wave === wave).map((slice) => `${slice.id} (${slice.repo})`);
+    println(stdout, `  wave ${wave}: ${members.join(', ')}`);
+  }
+}
+
+/** Each collision matrix with a pair sharing ground. */
+function printMatrices(stdout: Out, { matrices }: Checked): void {
+  for (const { repo, rows } of matrices) {
+    if (rows.length === 0) continue;
+    const where = repo === null ? '' : `, ${repo}`;
+    println(stdout, `omni plan check — collision matrix${where} (${rows.length} pair(s) sharing ground):`);
+    for (const row of rows) println(stdout, `  ${row.pair}: ${row.shared} — ${row.resolved}`);
+  }
+}
+
+/** `omni plan check <prd>`: the plan's shape, then its violations (exit 1) or its pass line. */
+function checkCommand(rest: string[], { ctx, stdout }: Pick<CommandIo, 'ctx' | 'stdout'>): number {
+  const { positional } = parseArgs('plan check', rest);
+  if (positional.length !== 1) throw usageError(USAGE);
+  const prd = prdArg('plan check', '<prd>', positional[0]);
+
+  const checked = checkPlan(prd, { ctx });
+  const { planPath, slices, waves, violations } = checked;
+
+  println(
+    stdout,
+    `omni plan check — PRD ${prd}: ${slices.length} slice(s) across wave(s) ${waves.join(', ')} (${planPath}).`,
+  );
+  printLandings(stdout, checked);
+  printRepositories(stdout, checked);
+  printMatrices(stdout, checked);
+
+  if (violations.length > 0) {
+    println(stdout, formatFailure(`omni plan check — PRD ${prd}: violation(s):`, violations));
+    return 1;
+  }
+  println(
+    stdout,
+    formatPass(`omni plan check — PRD ${prd}: ${slices.length} slice(s), all territories and blocks well-formed.`),
+  );
+  return 0;
+}
+
 export const plan: Command = {
   run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
     const [sub, ...rest] = args;
     if (sub === 'moved') return moved(rest, { ctx, stdout, exec, env });
     if (sub === 'landings') return landingsCommand(rest, { ctx, stdout });
     if (sub !== 'check') throw usageError(USAGE);
-    const { positional } = parseArgs('plan check', rest);
-    if (positional.length !== 1) throw usageError(USAGE);
-    const prd = prdArg('plan check', '<prd>', positional[0]);
-
-    const { planPath, slices, landings, waves, multi, matrices, violations } = checkPlan(prd, { ctx });
-
-    println(
-      stdout,
-      `omni plan check — PRD ${prd}: ${slices.length} slice(s) across wave(s) ${waves.join(', ')} (${planPath}).`,
-    );
-    if (landings.length > 1) {
-      println(stdout, `omni plan check — ${counted(landings.length, 'landing', 'landings')}, merged in order:`);
-      for (const { landing, name, mergeWhen, slices: members, waves: landingWaves } of landings) {
-        const when = mergeWhen === null ? '' : ` — merge when ${mergeWhen}`;
-        println(stdout, `  landing ${landing} (${name}): wave(s) ${landingWaves.join(', ')} — ${members.join(', ')}${when}`);
-      }
-    }
-    if (multi) {
-      const repos = new Set(slices.map((slice) => slice.repo)).size;
-      println(
-        stdout,
-        `omni plan check — ${counted(slices.length, 'slice', 'slices')} · ${counted(waves.length, 'wave', 'waves')} · ${counted(repos, 'repository', 'repositories')}:`,
-      );
-      for (const wave of waves) {
-        const members = slices.filter((slice) => slice.wave === wave).map((slice) => `${slice.id} (${slice.repo})`);
-        println(stdout, `  wave ${wave}: ${members.join(', ')}`);
-      }
-    }
-    for (const { repo, rows } of matrices) {
-      if (rows.length === 0) continue;
-      const where = repo === null ? '' : `, ${repo}`;
-      println(stdout, `omni plan check — collision matrix${where} (${rows.length} pair(s) sharing ground):`);
-      for (const row of rows) println(stdout, `  ${row.pair}: ${row.shared} — ${row.resolved}`);
-    }
-
-    if (violations.length > 0) {
-      println(stdout, formatFailure(`omni plan check — PRD ${prd}: violation(s):`, violations));
-      return 1;
-    }
-    println(
-      stdout,
-      formatPass(`omni plan check — PRD ${prd}: ${slices.length} slice(s), all territories and blocks well-formed.`),
-    );
-    return 0;
+    return checkCommand(rest, { ctx, stdout });
   }),
 };

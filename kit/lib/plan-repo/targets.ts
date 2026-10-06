@@ -143,25 +143,81 @@ function staleness(gh: GhReader, { repo, readAt }: { repo: string; readAt: strin
 /** An imported target's copied flow, as `readTarget` compares it: `null` when the copy holds none. */
 export type CopyFlow = { config: FlowConfig; readHook: (path: string) => string | null } | null | { error: string };
 
+/** The target's committed flow, or why it cannot be read. */
+function targetFlow(repo: string, config: string | null): FlowConfig | { error: string } {
+  try {
+    return config === null ? NO_FLOW : parseFlowConfig(config, `${repo}:${CONFIG_PATH}`);
+  } catch (error) {
+    return { error: messageOf(error) };
+  }
+}
+
+/** Why the target's flow section is not its copy's, or `null` when they are the same. */
+function sectionMoved(target: FlowConfig, copied: FlowConfig): string | null {
+  if (flowKey(target) === flowKey(copied)) return null;
+  if (!hasFlow(copied)) return 'the target has a flow its copy lacks';
+  if (!hasFlow(target)) return 'the target has no flow any more';
+  return 'its flow section differs from the copy';
+}
+
+/** Which of the flow's hook files differ from the copy's, as a line, or `null` when none does. */
+function hooksMoved(gh: GhReader, repo: string, branch: string, target: FlowConfig, copy: { readHook: (path: string) => string | null } | null): string | null {
+  const changed = hookPaths(target).filter((path) => gh.file(repo, path, branch) !== (copy?.readHook(path) ?? null));
+  if (changed.length === 0) return null;
+  const one = changed.length === 1;
+  return `${one ? 'hook' : 'hooks'} ${changed.join(', ')} ${one ? 'differs' : 'differ'} from the copy`;
+}
+
 /** Why the target's committed flow is not its copy's, or `null` when they are the same. */
 function flowMoved(gh: GhReader, { repo, readAt }: { repo: string; readAt: string }, branch: string, config: string | null, copy: CopyFlow): string | null {
   const moved = (why: string) => `flow moved since read at ${readAt.slice(0, 7)}: ${why}`;
   if (copy !== null && 'error' in copy) return moved(`the copy's flow cannot be read — ${copy.error}`);
-  let target: FlowConfig;
-  try {
-    target = config === null ? NO_FLOW : parseFlowConfig(config, `${repo}:${CONFIG_PATH}`);
-  } catch (error) {
-    return moved(`the target's flow cannot be read — ${messageOf(error)}`);
-  }
-  const copied = copy?.config ?? NO_FLOW;
-  if (flowKey(target) !== flowKey(copied)) {
-    if (!hasFlow(copied)) return moved('the target has a flow its copy lacks');
-    if (!hasFlow(target)) return moved('the target has no flow any more');
-    return moved('its flow section differs from the copy');
-  }
-  const changed = hookPaths(target).filter((path) => gh.file(repo, path, branch) !== (copy?.readHook(path) ?? null));
-  if (changed.length === 0) return null;
-  return moved(`${changed.length === 1 ? 'hook' : 'hooks'} ${changed.join(', ')} ${changed.length === 1 ? 'differs' : 'differ'} from the copy`);
+  const target = targetFlow(repo, config);
+  if ('error' in target) return moved(`the target's flow cannot be read — ${target.error}`);
+  const why = sectionMoved(target, copy?.config ?? NO_FLOW) ?? hooksMoved(gh, repo, branch, target, copy);
+  return why === null ? null : moved(why);
+}
+
+/** What a target's default branch holds of the loop: whether it is installed, its version line, and a filled form. */
+type LoopFacts = { installed: boolean; loop: string; filled: boolean };
+
+function loopFacts(gh: GhReader, repo: string, branch: string, config: string | null): LoopFacts {
+  if (config === null) return { installed: false, loop: 'not installed', filled: false };
+  const version = bundleVersion(gh.file(repo, BIN_PATH, branch) ?? '');
+  return { installed: true, loop: version ? `v${version}` : 'installed', filled: hasFilledForm(gh, repo, playbookOf(config), branch) };
+}
+
+/** A target's state and its detail, `null` detail when there is none to give. */
+type Judged = [TargetState, string | null];
+
+/** A target whose knowledge is its own: the loop installed and a form filled. */
+function ownJudged({ installed, filled }: LoopFacts): Judged {
+  if (!installed) return ['drifted', 'the config says own, but the loop is not installed'];
+  if (!filled) return ['drifted', 'the config says own, but no form is filled'];
+  return ['ok', null];
+}
+
+/** Why an imported target is stale — its evidence or its flow moved since it was read — or `null`. */
+function importedStale(
+  gh: GhReader,
+  target: Target,
+  { branch, config, evidence, copyFlow }: { branch: string; config: string | null; evidence: ReadonlySet<string>; copyFlow: CopyFlow | undefined },
+): string | null {
+  const { repo } = target;
+  const read = { repo, readAt: defined(target.readAt, `the readAt of ${repo}`) }; // an imported target always has a readAt (the config refuses one without)
+  const stale = [staleness(gh, read, branch, evidence), copyFlow === undefined ? null : flowMoved(gh, read, branch, config, copyFlow)].filter(
+    (why): why is string => why !== null,
+  );
+  return stale.length > 0 ? stale.join('; ') : null;
+}
+
+/** A reachable target's state, from what its default branch holds. */
+function judged(gh: GhReader, target: Target, facts: LoopFacts, read: { branch: string; config: string | null; evidence: ReadonlySet<string>; copyFlow: CopyFlow | undefined }): Judged {
+  const { knowledge } = target;
+  if (knowledge === 'own') return ownJudged(facts);
+  if (facts.installed && facts.filled) return ['drifted', `the config says ${knowledge}, but it has the loop and a filled form`];
+  const stale = knowledge === 'imported' ? importedStale(gh, target, read) : null;
+  return stale === null ? ['ok', null] : ['stale', stale];
 }
 
 /**
@@ -184,25 +240,9 @@ export function readTarget(
   try {
     const branch = gh.repository(repo).default_branch;
     const config = gh.file(repo, CONFIG_PATH, branch);
-    const installed = config !== null;
-    const version = installed ? bundleVersion(gh.file(repo, BIN_PATH, branch) ?? '') : null;
-    const loop = installed ? (version ? `v${version}` : 'installed') : 'not installed';
-    const filled = installed && hasFilledForm(gh, repo, playbookOf(config), branch);
-
-    if (knowledge === 'own') {
-      if (!installed) return row(loop, 'drifted', 'the config says own, but the loop is not installed');
-      if (!filled) return row(loop, 'drifted', 'the config says own, but no form is filled');
-      return row(loop, 'ok');
-    }
-    if (installed && filled) return row(loop, 'drifted', `the config says ${knowledge}, but it has the loop and a filled form`);
-    if (knowledge === 'imported') {
-      const read = { repo, readAt: defined(target.readAt, `the readAt of ${repo}`) }; // an imported target always has a readAt (the config refuses one without)
-      const stale = [staleness(gh, read, branch, evidence), copyFlow === undefined ? null : flowMoved(gh, read, branch, config, copyFlow)].filter(
-        (why): why is string => why !== null,
-      );
-      if (stale.length > 0) return row(loop, 'stale', stale.join('; '));
-    }
-    return row(loop, 'ok');
+    const facts = loopFacts(gh, repo, branch, config);
+    const [state, detail] = judged(gh, target, facts, { branch, config, evidence, copyFlow });
+    return row(facts.loop, state, detail);
   } catch (error) {
     if (error instanceof Unreachable) return row('—', 'unreachable', error.message);
     throw error;

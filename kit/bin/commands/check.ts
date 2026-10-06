@@ -27,7 +27,7 @@ import { gradePlaybook } from '../../lib/playbook/check-playbook.ts';
 import { findReleaseViolations, releaseNoteFiles } from '../../lib/releases/check-releases.ts';
 import { CONFIG_FILE, ConfigError } from '../../lib/config.ts';
 import { DEFAULT_HOOK_MAX_BYTES, hookFileViolations } from '../../lib/flow/schema.ts';
-import { parseArgs, prdArg, println, usageError } from '../args.ts';
+import { parseArgs, prdArg, println, usageError, type Flags } from '../args.ts';
 import type { CommandIo, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { loadContext, type Context } from '../../lib/context.ts';
 import { synchronous } from '../synchronous.ts';
@@ -196,6 +196,64 @@ function contextFor(guard: string, cwd: string, exec: Exec, stdout: Out): Contex
 
 const GUARDS: readonly string[] = ['config', 'inbox', 'outbox', 'knowledge', 'kb', 'releases', 'coverage', 'all'];
 
+/** The guards that run alone and take nothing but the command's io. */
+const SINGLE_GUARDS: Readonly<Record<string, (io: CommandIo) => boolean>> = {
+  config: checkConfig,
+  inbox: checkInbox,
+  outbox: checkOutbox,
+  knowledge: checkKnowledge,
+  kb: checkKb,
+  releases: checkReleases,
+};
+
+/** The one guard named (`all` when none); a usage error for more than one or an unknown one. */
+function guardOf(positional: readonly string[]): string {
+  if (positional.length > 1 || (positional[0] && !GUARDS.includes(positional[0]))) throw usageError(USAGE);
+  return positional[0] ?? 'all';
+}
+
+interface Range {
+  base: string;
+  baseKnown: boolean;
+  prd: PrdNumber | null;
+}
+
+/** The coverage guard's range, from `--base` and `--prd`. */
+function rangeOf(guard: string, flags: Flags<'base' | 'prd', never>, io: CommandIo): Range {
+  const { ctx, exec } = io;
+  const prd = flags.prd === undefined ? null : prdArg('check', '--prd', flags.prd);
+  const base = flags.base ?? defaultBase(ctx);
+  const baseKnown = refExists(ctx, base, exec);
+  // An explicit --base is the user's own ref: when it does not resolve, say so rather than skip.
+  if (flags.base !== undefined && !baseKnown) {
+    throw usageError(`omni check: no ${base} — fetch it or pass another --base <ref>.`);
+  }
+  const coverageRuns = guard === 'coverage' || (guard === 'all' && baseKnown);
+  if (prd !== null && !coverageRuns) println(io.stderr, `omni check: --prd ${prd} ignored — the coverage guard did not run.`);
+  return { base, baseKnown, prd };
+}
+
+/** `omni check coverage` alone: a missing base is a usage error, not a skip. */
+function coverageOnly(io: CommandIo, { base, baseKnown, prd }: Range): boolean {
+  if (!baseKnown) throw usageError(`omni check coverage: no ${base} — fetch it or pass --base <ref>.`);
+  return checkCoverage(io, { base, prd });
+}
+
+/** `omni check all`: every guard, coverage skipped when the base is absent. */
+function allGuards(io: CommandIo, { base, baseKnown, prd }: Range): boolean {
+  const results = [checkConfig(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io)];
+  if (baseKnown) results.push(checkCoverage(io, { base, prd }));
+  else println(io.stdout, `coverage: skipped — no ${base}`);
+  return results.every(Boolean);
+}
+
+/** Runs the guard named; `true` when it is green. */
+function runGuard(guard: string, io: CommandIo, range: Range): boolean {
+  const single = SINGLE_GUARDS[guard];
+  if (single) return single(io);
+  return guard === 'coverage' ? coverageOnly(io, range) : allGuards(io, range);
+}
+
 // A command without context, so that `check config` reads the config itself and turns an invalid one
 // into a red guard (exit 1); every other guard still stops on it with exit 2, as before.
 export const check: FreeCommand = {
@@ -203,35 +261,10 @@ export const check: FreeCommand = {
   run: synchronous((args: string[], free: FreeIo): number => {
     const { cwd, stdout, stderr, exec, env, vars } = free;
     const { positional, flags } = parseArgs('check', args, { values: ['base', 'prd'] });
-    if (positional.length > 1 || (positional[0] && !GUARDS.includes(positional[0]))) throw usageError(USAGE);
-    const guard = positional[0] ?? 'all';
+    const guard = guardOf(positional);
     const ctx = contextFor(guard, cwd, exec, stdout);
     if (ctx === null) return 1;
     const io: CommandIo = { ctx, stdout, stderr, exec, env, vars };
-    const prd = flags.prd === undefined ? null : prdArg('check', '--prd', flags.prd);
-    const base = flags.base ?? defaultBase(ctx);
-    const baseKnown = refExists(ctx, base, exec);
-    // An explicit --base is the user's own ref: when it does not resolve, say so rather than skip.
-    if (flags.base !== undefined && !baseKnown) {
-      throw usageError(`omni check: no ${base} — fetch it or pass another --base <ref>.`);
-    }
-    const coverageRuns = guard === 'coverage' || (guard === 'all' && baseKnown);
-    if (prd !== null && !coverageRuns) println(io.stderr, `omni check: --prd ${prd} ignored — the coverage guard did not run.`);
-
-    if (guard === 'config') return checkConfig(io) ? 0 : 1;
-    if (guard === 'inbox') return checkInbox(io) ? 0 : 1;
-    if (guard === 'outbox') return checkOutbox(io) ? 0 : 1;
-    if (guard === 'knowledge') return checkKnowledge(io) ? 0 : 1;
-    if (guard === 'kb') return checkKb(io) ? 0 : 1;
-    if (guard === 'releases') return checkReleases(io) ? 0 : 1;
-    if (guard === 'coverage') {
-      if (!baseKnown) throw usageError(`omni check coverage: no ${base} — fetch it or pass --base <ref>.`);
-      return checkCoverage(io, { base, prd }) ? 0 : 1;
-    }
-
-    const results = [checkConfig(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io)];
-    if (baseKnown) results.push(checkCoverage(io, { base, prd }));
-    else println(stdout, `coverage: skipped — no ${base}`);
-    return results.every(Boolean) ? 0 : 1;
+    return runGuard(guard, io, rangeOf(guard, flags, io)) ? 0 : 1;
   }),
 };

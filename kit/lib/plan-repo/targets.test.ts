@@ -20,6 +20,32 @@ const BLANK = '---\nform: testing\nstate: blank\n---\n\n# Testing\n';
 
 const notFound = () => Object.assign(new Error('Command failed: gh api …\ngh: Not Found (HTTP 404)'), { stderr: 'gh: Not Found (HTTP 404)\n' });
 
+/** gh's answer for a repository it cannot read. */
+const unresolved = () =>
+  Object.assign(new Error('Command failed: gh api\ngh: Could not resolve to a Repository (HTTP 404)'), {
+    stderr: 'gh: Could not resolve to a Repository with the name. (HTTP 404)\n',
+  });
+
+/** A `compare` endpoint's answer: a 404 when the repository has no comparison. */
+function compareAnswer(repo: FakeRepo): string {
+  if (!repo.compare) throw notFound();
+  return JSON.stringify({
+    ahead_by: repo.compare.ahead,
+    files: repo.compare.files.map((filename) => ({ filename })),
+  });
+}
+
+/** A `contents` endpoint's answer: the file's text, a directory's listing, or a 404. */
+function contentAnswer(repo: FakeRepo, rest: readonly string[]): string {
+  const files = repo.files ?? {};
+  const path = rest.map(decodeURIComponent).join('/');
+  const content = repo.files?.[path];
+  if (content !== undefined && Object.hasOwn(files, path)) return content;
+  const under = Object.keys(files).filter((f) => f.startsWith(`${path}/`) && !f.slice(path.length + 1).includes('/'));
+  if (under.length) return JSON.stringify(under.map((f) => ({ type: 'file', name: f.split('/').pop(), path: f })));
+  throw notFound();
+}
+
 /**
  * A fake `execFileSync` for one or more repositories. `world[slug]` is `null` for a repository `gh`
  * cannot read, else `{ branch, files: { path: text }, compare: { ahead, files } }`: a file absent
@@ -34,25 +60,9 @@ function fakeGh(world: World): { exec: ExecRaw; calls: string[] } {
     calls.push(endpoint);
     const [, owner, name, kind, ...rest] = firstPart(endpoint, '?').split('/');
     const repo = world[`${owner}/${name}`];
-    if (!repo) {
-      throw Object.assign(new Error('Command failed: gh api\ngh: Could not resolve to a Repository (HTTP 404)'), {
-        stderr: 'gh: Could not resolve to a Repository with the name. (HTTP 404)\n',
-      });
-    }
+    if (!repo) throw unresolved();
     if (kind === undefined) return JSON.stringify({ default_branch: repo.branch ?? 'main' });
-    if (kind === 'compare') {
-      if (!repo.compare) throw notFound();
-      return JSON.stringify({
-        ahead_by: repo.compare.ahead,
-        files: repo.compare.files.map((filename) => ({ filename })),
-      });
-    }
-    const path = rest.map(decodeURIComponent).join('/');
-    const content = repo.files?.[path];
-    if (content !== undefined && Object.hasOwn(repo.files ?? {}, path)) return content;
-    const under = Object.keys(repo.files ?? {}).filter((f) => f.startsWith(`${path}/`) && !f.slice(path.length + 1).includes('/'));
-    if (under.length) return JSON.stringify(under.map((f) => ({ type: 'file', name: f.split('/').pop(), path: f })));
-    throw notFound();
+    return kind === 'compare' ? compareAnswer(repo) : contentAnswer(repo, rest);
   };
   return { exec, calls };
 }

@@ -35,31 +35,40 @@ export function planRuleViolations(slices: readonly Slice[], flow: ResolvedFlow)
 }
 
 /** What one slice breaks by itself: `slice.alone`, `slice.maxFiles`, and a merge or replace conflict. */
-function sliceViolations({ slice, territory }: Graded): string[] {
-  const { id } = slice;
-  const violations: string[] = [];
-  for (const area of territory.areas) {
-    if (!area.rules.plan.alone || territory.areas.length < 2) continue;
-    const other = territory.areas.filter(({ name }) => name !== area.name).flatMap(({ paths }) => paths);
-    violations.push(
-      `flow: ${id} touches ${area.paths.join(', ')} (area ${area.name}) and also ${other.join(', ')} — ${area.name}: slice alone, a slice of this area touches no path outside it.`,
-    );
-  }
+function sliceViolations(graded: Graded): string[] {
+  return [...aloneViolations(graded), ...maxFilesViolations(graded), ...conflictViolations(graded)];
+}
+
+/** `slice.alone`: one line per area that asks for it when the slice touches another area too. */
+function aloneViolations({ slice: { id }, territory }: Graded): string[] {
+  if (territory.areas.length < 2) return [];
+  return territory.areas
+    .filter((area) => area.rules.plan.alone)
+    .map((area) => {
+      const other = territory.areas.filter(({ name }) => name !== area.name).flatMap(({ paths }) => paths);
+      return `flow: ${id} touches ${area.paths.join(', ')} (area ${area.name}) and also ${other.join(', ')} — ${area.name}: slice alone, a slice of this area touches no path outside it.`;
+    });
+}
+
+/** `slice.maxFiles`: the strictest limit of the slice's areas, named by the area that sets it. */
+function maxFilesViolations({ slice, territory }: Graded): string[] {
   const max = territory.rules.plan.maxFiles;
-  if (max !== null && slice.territory.length > max) {
-    const setter = territory.areas.find(({ rules }) => rules.plan.maxFiles === max)?.name ?? '';
-    violations.push(`flow: ${id} touches ${slice.territory.length} paths — ${setter}: slice maxFiles ${max}, at most ${max} ${max === 1 ? 'path' : 'paths'} in a slice of this area.`);
-  }
+  if (max === null || slice.territory.length <= max) return [];
+  const setter = territory.areas.find(({ rules }) => rules.plan.maxFiles === max)?.name ?? '';
+  return [`flow: ${slice.id} touches ${slice.territory.length} paths — ${setter}: slice maxFiles ${max}, at most ${max} ${max === 1 ? 'path' : 'paths'} in a slice of this area.`];
+}
+
+/** Two `merge` methods, or two `replace` hooks at one point, on one slice. */
+function conflictViolations({ slice: { id }, territory }: Graded): string[] {
   const { merge, replace } = territory.conflicts;
-  if (merge.length > 0) {
-    const methods = merge.map(({ area, method }) => `${area}: merge ${method}`).join(', ');
-    violations.push(`flow: ${id} meets more than one merge method (${methods}) — split the slice so each part merges one way.`);
-  }
-  for (const { point, hooks } of replace) {
-    const named = hooks.map(({ area, path }) => `${area}: ${path}`).join(', ');
-    violations.push(`flow: ${id} meets more than one replace hook at ${point} (${named}) — split the slice so one hook replaces the step.`);
-  }
-  return violations;
+  const methods = merge.map(({ area, method }) => `${area}: merge ${method}`).join(', ');
+  return [
+    ...(merge.length > 0 ? [`flow: ${id} meets more than one merge method (${methods}) — split the slice so each part merges one way.`] : []),
+    ...replace.map(({ point, hooks }) => {
+      const named = hooks.map(({ area, path }) => `${area}: ${path}`).join(', ');
+      return `flow: ${id} meets more than one replace hook at ${point} (${named}) — split the slice so one hook replaces the step.`;
+    }),
+  ];
 }
 
 const touches = ({ territory }: Graded, area: string) => territory.areas.some(({ name }) => name === area);

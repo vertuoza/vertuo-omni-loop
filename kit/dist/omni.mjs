@@ -26409,39 +26409,39 @@ function resolveRef(ref, ctx) {
   }
   throw new Error(`Reference not found: ${ref}`);
 }
-function checkObjectGuards(objectSchema, guards) {
+function checkObjectGuards(objectSchema, guards2) {
   const guard = z.transform((value) => value).check((payload) => {
     const value = payload.value;
     if (typeof value !== "object" || value === null || Array.isArray(value))
       return;
     const keys = Object.getOwnPropertyNames(value);
-    if (guards.minProperties !== void 0 && keys.length < guards.minProperties) {
+    if (guards2.minProperties !== void 0 && keys.length < guards2.minProperties) {
       payload.issues.push({
         origin: "object",
         code: "too_small",
-        minimum: guards.minProperties,
+        minimum: guards2.minProperties,
         inclusive: true,
-        message: `Too small: expected object to have >=${guards.minProperties} properties`,
+        message: `Too small: expected object to have >=${guards2.minProperties} properties`,
         input: value,
         inst: objectSchema,
         continue: true
       });
     }
-    if (guards.maxProperties !== void 0 && keys.length > guards.maxProperties) {
+    if (guards2.maxProperties !== void 0 && keys.length > guards2.maxProperties) {
       payload.issues.push({
         origin: "object",
         code: "too_big",
-        maximum: guards.maxProperties,
+        maximum: guards2.maxProperties,
         inclusive: true,
-        message: `Too big: expected object to have <=${guards.maxProperties} properties`,
+        message: `Too big: expected object to have <=${guards2.maxProperties} properties`,
         input: value,
         inst: objectSchema,
         continue: true
       });
     }
-    if (guards.keySchema) {
+    if (guards2.keySchema) {
       for (const key of keys) {
-        const result = guards.keySchema.safeParse(key);
+        const result = guards2.keySchema.safeParse(key);
         if (result.success)
           continue;
         payload.issues.push({
@@ -26538,12 +26538,12 @@ function containsRef(value) {
 function plural(n) {
   return n === 1 ? "element" : "elements";
 }
-function checkArrayGuards(arraySchema, guards) {
+function checkArrayGuards(arraySchema, guards2) {
   const guard = z.transform((value) => value).check((payload) => {
     const items = payload.value;
     if (!Array.isArray(items))
       return;
-    if (guards.uniqueItems === true) {
+    if (guards2.uniqueItems === true) {
       const firstSeen = /* @__PURE__ */ new Map();
       for (let i = 0; i < items.length; i++) {
         const key = canonicalKey(items[i], /* @__PURE__ */ new Set());
@@ -26563,12 +26563,12 @@ function checkArrayGuards(arraySchema, guards) {
         });
       }
     }
-    if (guards.containsSchema) {
-      const minContains = guards.minContains ?? 1;
-      const ceiling = guards.maxContains !== void 0 ? guards.maxContains + 1 : Number.POSITIVE_INFINITY;
+    if (guards2.containsSchema) {
+      const minContains = guards2.minContains ?? 1;
+      const ceiling = guards2.maxContains !== void 0 ? guards2.maxContains + 1 : Number.POSITIVE_INFINITY;
       let matches = 0;
       for (const item2 of items) {
-        if (guards.containsSchema.safeParse(item2).success && ++matches >= ceiling)
+        if (guards2.containsSchema.safeParse(item2).success && ++matches >= ceiling)
           break;
       }
       if (matches < minContains) {
@@ -26579,10 +26579,10 @@ function checkArrayGuards(arraySchema, guards) {
           continue: true
         });
       }
-      if (guards.maxContains !== void 0 && matches > guards.maxContains) {
+      if (guards2.maxContains !== void 0 && matches > guards2.maxContains) {
         payload.issues.push({
           code: "custom",
-          message: `Array must contain at most ${guards.maxContains} matching ${plural(guards.maxContains)}`,
+          message: `Array must contain at most ${guards2.maxContains} matching ${plural(guards2.maxContains)}`,
           input: items,
           continue: true
         });
@@ -31926,10 +31926,10 @@ function withPlanRule(plan2, rule) {
   return { ...plan2, landingAlone: true };
 }
 function ownRules(rules) {
-  const { merge: merge2 = null, requireChecks = [], approval = null, territory = null, maxOpen = null } = rules?.subPr ?? {};
+  const { merge: merge2 = null, requireChecks = [], approval: approval2 = null, territory = null, maxOpen: maxOpen2 = null } = rules?.subPr ?? {};
   return {
     plan: (rules?.plan ?? []).reduce(withPlanRule, noRules().plan),
-    subPr: { merge: merge2, requireChecks: [...new Set(requireChecks)], approval, territory, maxOpen }
+    subPr: { merge: merge2, requireChecks: [...new Set(requireChecks)], approval: approval2, territory, maxOpen: maxOpen2 }
   };
 }
 var toResolved = (area2, ref) => typeof ref === "string" ? { area: area2, path: ref, alias: null } : { area: area2, path: ref.path, alias: ref.alias };
@@ -32041,6 +32041,57 @@ function hooksAt(touched, point) {
 }
 
 // kit/lib/flow/merge-gate.ts
+function firstAsking({ met }, asks) {
+  return met.areas.find(({ rules }) => asks(rules))?.name ?? "default";
+}
+function guards({ pr, defaultBranch }, { reasons }) {
+  if (pr.base === defaultBranch) reasons.push(`#${pr.number} targets ${pr.base}, the default branch: a person merges there`);
+  if (pr.state !== "OPEN") reasons.push(`#${pr.number} is not open (${pr.state})`);
+}
+function mergeConflicts({ met }, { reasons }) {
+  if (met.conflicts.merge.length === 0) return;
+  const named3 = met.conflicts.merge.map(({ area: area2, method: m }) => `${area2} ${m}`).join(", ");
+  reasons.push(`${met.conflicts.merge.map(({ area: area2 }) => area2).join(", ")}: merge \u2014 two merge methods on one slice (${named3}): split the slice`);
+}
+function checkWhy(states) {
+  if (states.length === 0) return "has not run";
+  if (states.includes("fail")) return "failed";
+  return states.includes("pending") ? "is pending" : null;
+}
+function requiredChecks(gate, { reasons }) {
+  const { met, pr } = gate;
+  for (const name of met.rules.subPr.requireChecks) {
+    const why2 = checkWhy(pr.checks.filter((check3) => check3.name === name).map(({ state }) => state));
+    if (why2 !== null) reasons.push(`${firstAsking(gate, (rules) => rules.subPr.requireChecks.includes(name))}: requireChecks ${name} \u2014 ${name} ${why2} on #${pr.number}`);
+  }
+}
+function approval(gate, { reasons }) {
+  const { met, pr } = gate;
+  if (met.rules.subPr.approval !== "person" || pr.approvedBy.length > 0) return;
+  reasons.push(`${firstAsking(gate, (rules) => rules.subPr.approval === "person")}: approval person \u2014 no person has approved #${pr.number}`);
+}
+function territoryRule(gate, findings) {
+  const { met, pr, territory, files } = gate;
+  const block = met.rules.subPr.territory === "block";
+  const blocking = block ? `${firstAsking(gate, (rules) => rules.subPr.territory === "block")}: territory block \u2014 ` : "";
+  const into = block ? findings.reasons : findings.reported;
+  if (territory === null) {
+    into.push(
+      block ? `${blocking}#${pr.number}'s head ${pr.head} is no slice of a plan here, so its territory is not known` : `#${pr.number}'s head ${pr.head} is no slice of a plan here: its diff was not compared with a territory`
+    );
+    return;
+  }
+  for (const path of files.filter((file2) => !covers(territory, file2))) into.push(`${blocking}${path} is outside the slice's territory`);
+}
+function maxOpen({ met, flow: flow2, open: open3 }, { reasons }) {
+  for (const { name, rules } of met.areas) {
+    const max = rules.subPr.maxOpen;
+    if (max === null) continue;
+    const ofArea = open3.filter((other) => resolveTerritory(flow2, other.territory).areas.some((area2) => area2.name === name));
+    if (ofArea.length > max) reasons.push(`${name}: maxOpen ${max} \u2014 ${ofArea.length} of its sub-PRs are open: ${ofArea.map(({ number: number4 }) => `#${number4}`).join(", ")}`);
+  }
+}
+var RULES2 = [guards, mergeConflicts, requiredChecks, approval, territoryRule, maxOpen];
 function mergeGate({
   flow: flow2,
   pr,
@@ -32053,58 +32104,32 @@ function mergeGate({
   const files = pr.files.filter((file2) => !covers(ground, file2));
   const met = resolveTerritory(flow2, [...territory ?? [], ...files]);
   const method = met.rules.subPr.merge ?? "squash";
-  const reasons = [];
-  const reported = [];
-  const firstAsking = (asks) => met.areas.find(({ rules }) => asks(rules))?.name ?? "default";
-  if (pr.base === defaultBranch) reasons.push(`#${pr.number} targets ${pr.base}, the default branch: a person merges there`);
-  if (pr.state !== "OPEN") reasons.push(`#${pr.number} is not open (${pr.state})`);
-  if (met.conflicts.merge.length > 0) {
-    const named3 = met.conflicts.merge.map(({ area: area2, method: m }) => `${area2} ${m}`).join(", ");
-    reasons.push(`${met.conflicts.merge.map(({ area: area2 }) => area2).join(", ")}: merge \u2014 two merge methods on one slice (${named3}): split the slice`);
-  }
-  for (const name of met.rules.subPr.requireChecks) {
-    const states = pr.checks.filter((check3) => check3.name === name).map(({ state }) => state);
-    const why2 = states.length === 0 ? "has not run" : states.includes("fail") ? "failed" : states.includes("pending") ? "is pending" : null;
-    if (why2 !== null) reasons.push(`${firstAsking((rules) => rules.subPr.requireChecks.includes(name))}: requireChecks ${name} \u2014 ${name} ${why2} on #${pr.number}`);
-  }
-  if (met.rules.subPr.approval === "person" && pr.approvedBy.length === 0) {
-    reasons.push(`${firstAsking((rules) => rules.subPr.approval === "person")}: approval person \u2014 no person has approved #${pr.number}`);
-  }
-  const block = met.rules.subPr.territory === "block";
-  const blocking = block ? `${firstAsking((rules) => rules.subPr.territory === "block")}: territory block \u2014 ` : "";
-  if (territory === null) {
-    if (block) reasons.push(`${blocking}#${pr.number}'s head ${pr.head} is no slice of a plan here, so its territory is not known`);
-    else reported.push(`#${pr.number}'s head ${pr.head} is no slice of a plan here: its diff was not compared with a territory`);
-  } else {
-    for (const path of files.filter((file2) => !covers(territory, file2))) {
-      (block ? reasons : reported).push(`${blocking}${path} is outside the slice's territory`);
-    }
-  }
-  for (const { name, rules } of met.areas) {
-    const max = rules.subPr.maxOpen;
-    if (max === null) continue;
-    const ofArea = open3.filter((other) => resolveTerritory(flow2, other.territory).areas.some((area2) => area2.name === name));
-    if (ofArea.length > max) reasons.push(`${name}: maxOpen ${max} \u2014 ${ofArea.length} of its sub-PRs are open: ${ofArea.map(({ number: number4 }) => `#${number4}`).join(", ")}`);
-  }
-  const ok = reasons.length === 0;
+  const gate = { flow: flow2, pr, territory, defaultBranch, open: open3, files, met };
+  const findings = { reasons: [], reported: [] };
+  for (const rule of RULES2) rule(gate, findings);
+  const ok = findings.reasons.length === 0;
   return {
     ok,
     method,
     command: ok ? ["gh", "pr", "merge", String(pr.number), `--${method}`, "--delete-branch", ...repo === null ? [] : ["--repo", repo]] : null,
     areas: met.areas.map(({ name }) => name),
-    reasons,
-    reported
+    ...findings
   };
 }
 var PASSING = /* @__PURE__ */ new Set(["SUCCESS", "NEUTRAL", "SKIPPED"]);
 var WORST = ["fail", "pending", "pass"];
+var WAITING = /* @__PURE__ */ new Set(["PENDING", "EXPECTED"]);
+function statusState(state) {
+  if (state === "SUCCESS") return "pass";
+  return WAITING.has(state) ? "pending" : "fail";
+}
+function runState({ status: status3, conclusion }) {
+  if (status3 !== "COMPLETED") return "pending";
+  return PASSING.has(conclusion ?? "") ? "pass" : "fail";
+}
 function entryState(entry) {
-  if (entry.__typename === "StatusContext" || entry.context !== void 0) {
-    const state = entry.state ?? "";
-    return state === "SUCCESS" ? "pass" : state === "PENDING" || state === "EXPECTED" ? "pending" : "fail";
-  }
-  if (entry.status !== "COMPLETED") return "pending";
-  return PASSING.has(entry.conclusion ?? "") ? "pass" : "fail";
+  const isStatus = entry.__typename === "StatusContext" || entry.context !== void 0;
+  return isStatus ? statusState(entry.state ?? "") : runState(entry);
 }
 function checkState(rollup) {
   const byName2 = /* @__PURE__ */ new Map();
@@ -33747,31 +33772,32 @@ function planRuleViolations(slices, flow2) {
     ...landingAloneViolations(slices, flow2)
   ];
 }
-function sliceViolations({ slice, territory }) {
-  const { id } = slice;
-  const violations = [];
-  for (const area2 of territory.areas) {
-    if (!area2.rules.plan.alone || territory.areas.length < 2) continue;
+function sliceViolations(graded) {
+  return [...aloneViolations(graded), ...maxFilesViolations(graded), ...conflictViolations(graded)];
+}
+function aloneViolations({ slice: { id }, territory }) {
+  if (territory.areas.length < 2) return [];
+  return territory.areas.filter((area2) => area2.rules.plan.alone).map((area2) => {
     const other = territory.areas.filter(({ name }) => name !== area2.name).flatMap(({ paths }) => paths);
-    violations.push(
-      `flow: ${id} touches ${area2.paths.join(", ")} (area ${area2.name}) and also ${other.join(", ")} \u2014 ${area2.name}: slice alone, a slice of this area touches no path outside it.`
-    );
-  }
+    return `flow: ${id} touches ${area2.paths.join(", ")} (area ${area2.name}) and also ${other.join(", ")} \u2014 ${area2.name}: slice alone, a slice of this area touches no path outside it.`;
+  });
+}
+function maxFilesViolations({ slice, territory }) {
   const max = territory.rules.plan.maxFiles;
-  if (max !== null && slice.territory.length > max) {
-    const setter = territory.areas.find(({ rules }) => rules.plan.maxFiles === max)?.name ?? "";
-    violations.push(`flow: ${id} touches ${slice.territory.length} paths \u2014 ${setter}: slice maxFiles ${max}, at most ${max} ${max === 1 ? "path" : "paths"} in a slice of this area.`);
-  }
+  if (max === null || slice.territory.length <= max) return [];
+  const setter = territory.areas.find(({ rules }) => rules.plan.maxFiles === max)?.name ?? "";
+  return [`flow: ${slice.id} touches ${slice.territory.length} paths \u2014 ${setter}: slice maxFiles ${max}, at most ${max} ${max === 1 ? "path" : "paths"} in a slice of this area.`];
+}
+function conflictViolations({ slice: { id }, territory }) {
   const { merge: merge2, replace } = territory.conflicts;
-  if (merge2.length > 0) {
-    const methods = merge2.map(({ area: area2, method }) => `${area2}: merge ${method}`).join(", ");
-    violations.push(`flow: ${id} meets more than one merge method (${methods}) \u2014 split the slice so each part merges one way.`);
-  }
-  for (const { point, hooks } of replace) {
-    const named3 = hooks.map(({ area: area2, path }) => `${area2}: ${path}`).join(", ");
-    violations.push(`flow: ${id} meets more than one replace hook at ${point} (${named3}) \u2014 split the slice so one hook replaces the step.`);
-  }
-  return violations;
+  const methods = merge2.map(({ area: area2, method }) => `${area2}: merge ${method}`).join(", ");
+  return [
+    ...merge2.length > 0 ? [`flow: ${id} meets more than one merge method (${methods}) \u2014 split the slice so each part merges one way.`] : [],
+    ...replace.map(({ point, hooks }) => {
+      const named3 = hooks.map(({ area: area2, path }) => `${area2}: ${path}`).join(", ");
+      return `flow: ${id} meets more than one replace hook at ${point} (${named3}) \u2014 split the slice so one hook replaces the step.`;
+    })
+  ];
 }
 var touches = ({ territory }, area2) => territory.areas.some(({ name }) => name === area2);
 function before(a, b) {
@@ -34656,7 +34682,7 @@ function watchedPr({ flag, landed, find }) {
   if (flag !== void 0) return prArg("care", "--pr", flag);
   return landed === null ? find() : landingPrToWatch(landed);
 }
-function runState(args, { ctx, stdout, stderr, exec, env }) {
+function runState2(args, { ctx, stdout, stderr, exec, env }) {
   const { positional, flags } = parseArgs("care", args, { values: ["pr", "repo"] });
   if (positional.length !== 1) throw usageError(USAGE4);
   const prd2 = prdArg("care", "<prd>", positional[0]);
@@ -34723,7 +34749,7 @@ function postReply({ thread, verdict: verdict2, body }, { ctx, stdout, stderr, e
 var care = {
   run: synchronous((args, io) => {
     const [sub, ...rest] = args;
-    if (sub === "state") return runState(rest, io);
+    if (sub === "state") return runState2(rest, io);
     if (sub === "reply") return runReply(rest, io);
     throw usageError(USAGE4);
   })
@@ -36385,38 +36411,55 @@ function contextFor(guard, cwd, exec, stdout) {
   }
 }
 var GUARDS = ["config", "inbox", "outbox", "knowledge", "kb", "releases", "coverage", "all"];
+var SINGLE_GUARDS = {
+  config: checkConfig2,
+  inbox: checkInbox,
+  outbox: checkOutbox,
+  knowledge: checkKnowledge,
+  kb: checkKb,
+  releases: checkReleases
+};
+function guardOf(positional) {
+  if (positional.length > 1 || positional[0] && !GUARDS.includes(positional[0])) throw usageError(USAGE6);
+  return positional[0] ?? "all";
+}
+function rangeOf(guard, flags, io) {
+  const { ctx, exec } = io;
+  const prd2 = flags.prd === void 0 ? null : prdArg("check", "--prd", flags.prd);
+  const base = flags.base ?? defaultBase(ctx);
+  const baseKnown = refExists2(ctx, base, exec);
+  if (flags.base !== void 0 && !baseKnown) {
+    throw usageError(`omni check: no ${base} \u2014 fetch it or pass another --base <ref>.`);
+  }
+  const coverageRuns = guard === "coverage" || guard === "all" && baseKnown;
+  if (prd2 !== null && !coverageRuns) println(io.stderr, `omni check: --prd ${prd2} ignored \u2014 the coverage guard did not run.`);
+  return { base, baseKnown, prd: prd2 };
+}
+function coverageOnly(io, { base, baseKnown, prd: prd2 }) {
+  if (!baseKnown) throw usageError(`omni check coverage: no ${base} \u2014 fetch it or pass --base <ref>.`);
+  return checkCoverage(io, { base, prd: prd2 });
+}
+function allGuards(io, { base, baseKnown, prd: prd2 }) {
+  const results = [checkConfig2(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io)];
+  if (baseKnown) results.push(checkCoverage(io, { base, prd: prd2 }));
+  else println(io.stdout, `coverage: skipped \u2014 no ${base}`);
+  return results.every(Boolean);
+}
+function runGuard(guard, io, range) {
+  const single = SINGLE_GUARDS[guard];
+  if (single) return single(io);
+  return guard === "coverage" ? coverageOnly(io, range) : allGuards(io, range);
+}
 var check2 = {
   withoutContext: true,
   run: synchronous((args, free) => {
     const { cwd, stdout, stderr, exec, env, vars } = free;
     const { positional, flags } = parseArgs("check", args, { values: ["base", "prd"] });
-    if (positional.length > 1 || positional[0] && !GUARDS.includes(positional[0])) throw usageError(USAGE6);
-    const guard = positional[0] ?? "all";
+    const guard = guardOf(positional);
     const ctx = contextFor(guard, cwd, exec, stdout);
     if (ctx === null) return 1;
     const io = { ctx, stdout, stderr, exec, env, vars };
-    const prd2 = flags.prd === void 0 ? null : prdArg("check", "--prd", flags.prd);
-    const base = flags.base ?? defaultBase(ctx);
-    const baseKnown = refExists2(ctx, base, exec);
-    if (flags.base !== void 0 && !baseKnown) {
-      throw usageError(`omni check: no ${base} \u2014 fetch it or pass another --base <ref>.`);
-    }
-    const coverageRuns = guard === "coverage" || guard === "all" && baseKnown;
-    if (prd2 !== null && !coverageRuns) println(io.stderr, `omni check: --prd ${prd2} ignored \u2014 the coverage guard did not run.`);
-    if (guard === "config") return checkConfig2(io) ? 0 : 1;
-    if (guard === "inbox") return checkInbox(io) ? 0 : 1;
-    if (guard === "outbox") return checkOutbox(io) ? 0 : 1;
-    if (guard === "knowledge") return checkKnowledge(io) ? 0 : 1;
-    if (guard === "kb") return checkKb(io) ? 0 : 1;
-    if (guard === "releases") return checkReleases(io) ? 0 : 1;
-    if (guard === "coverage") {
-      if (!baseKnown) throw usageError(`omni check coverage: no ${base} \u2014 fetch it or pass --base <ref>.`);
-      return checkCoverage(io, { base, prd: prd2 }) ? 0 : 1;
-    }
-    const results = [checkConfig2(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io)];
-    if (baseKnown) results.push(checkCoverage(io, { base, prd: prd2 }));
-    else println(stdout, `coverage: skipped \u2014 no ${base}`);
-    return results.every(Boolean) ? 0 : 1;
+    return runGuard(guard, io, rangeOf(guard, flags, io)) ? 0 : 1;
   })
 };
 
@@ -37973,39 +38016,49 @@ function shownFlow(ctx, repo) {
   }
   return { flow: resolveFlow(copy.config), readHook: copy.readHook };
 }
-function show2(args, { ctx, stdout }) {
-  const { positional, flags } = parseArgs("flow show", args, { values: ["prd", "slice", "path", "repo"], booleans: ["json"] });
-  if (positional.length > 1) throw usageError(USAGE12);
-  const { flow: flow2, readHook } = shownFlow(ctx, flags.repo);
-  const [name] = positional;
+function bySliceOf(flags) {
   const bySlice = flags.prd !== void 0 || flags.slice !== void 0;
   if (bySlice && (flags.prd === void 0 || flags.slice === void 0)) throw usageError("omni flow show: --prd and --slice go together.");
   if (bySlice && flags.path !== void 0) throw usageError("omni flow show: either --prd and --slice, or --path, not both.");
-  const print2 = (json2, text8) => {
-    println(stdout, flags.json ? JSON.stringify(json2, null, 2) : text8);
-  };
-  if (name === void 0) {
-    if (bySlice) throw usageError("omni flow show: --prd and --slice name a point's slice \u2014 give the point.");
-    if (flags.path !== void 0) {
-      const view2 = showPath(flow2, flags.path);
-      print2(view2, pathText(view2));
-      return 0;
-    }
-    const differences = flowDifferences(flow2);
-    print2(differences, differencesText(differences));
+  return bySlice;
+}
+function showWhole(flow2, flags, bySlice, print2) {
+  if (bySlice) throw usageError("omni flow show: --prd and --slice name a point's slice \u2014 give the point.");
+  if (flags.path !== void 0) {
+    const view = showPath(flow2, flags.path);
+    print2(view, pathText(view));
     return 0;
   }
-  const point = pointArg("show", name);
+  const differences = flowDifferences(flow2);
+  print2(differences, differencesText(differences));
+  return 0;
+}
+function pointGround(ctx, flags, bySlice) {
   const slice = bySlice ? sliceInputs(ctx, flags.prd ?? "", flags.slice ?? "") : null;
   const territory = slice?.territory ?? (flags.path === void 0 ? void 0 : [flags.path]);
-  const view = showPoint(flow2, point, {
+  return {
     ...territory === void 0 ? {} : { territory },
-    ...slice === null ? {} : { values: slice.values },
-    readHook
-  });
+    ...slice === null ? {} : { values: slice.values }
+  };
+}
+function showOnePoint({ ctx, stdout }, shown3, name, { flags, bySlice, print: print2 }) {
+  const point = pointArg("show", name);
+  const view = showPoint(shown3.flow, point, { ...pointGround(ctx, flags, bySlice), readHook: shown3.readHook });
   print2(view, pointText(view));
   for (const problem of view.problems) println(stdout, `not ok ${point.point} ${problem}`);
   return view.problems.length > 0 ? 1 : 0;
+}
+function show2(args, io) {
+  const { positional, flags } = parseArgs("flow show", args, { values: ["prd", "slice", "path", "repo"], booleans: ["json"] });
+  if (positional.length > 1) throw usageError(USAGE12);
+  const shown3 = shownFlow(io.ctx, flags.repo);
+  const [name] = positional;
+  const bySlice = bySliceOf(flags);
+  const print2 = (json2, text8) => {
+    println(io.stdout, flags.json ? JSON.stringify(json2, null, 2) : text8);
+  };
+  if (name === void 0) return showWhole(shown3.flow, flags, bySlice, print2);
+  return showOnePoint(io, shown3, name, { flags, bySlice, print: print2 });
 }
 function verdict(args, { ctx, stdout }) {
   const { positional, flags } = parseArgs("flow verdict", args, { values: ["from"] });
@@ -38039,22 +38092,35 @@ function sliceGround(ctx) {
   }
   return byBranch;
 }
-function checkMerge(args, { ctx, stdout, exec, env }) {
+function openSlices({ ctx, exec, env }, resolved, { slug, base }) {
+  const slices = sliceTerritories(ctx);
+  const countsOpen = [resolved.defaultArea, ...resolved.areas].some(({ rules }) => rules.subPr.maxOpen !== null);
+  if (!countsOpen) return [];
+  return openPullRequestsInto(ctx, { repo: slug, base, exec, env }).flatMap(({ number: n, head }) => {
+    const territory = slices.get(head);
+    return territory === void 0 ? [] : [{ number: n, territory }];
+  });
+}
+function verdictText(verdict2) {
+  const lines = verdict2.command === null ? verdict2.reasons.map((reason2) => `not ok ${reason2}`) : ["ok", verdict2.command.join(" ")];
+  return [...lines, ...verdict2.reported.map((line) => `report ${line}`)].join("\n");
+}
+function mergeArgs(ctx, args) {
   const [what, ...rest] = args;
   if (what !== "merge") throw usageError(MERGE_USAGE);
   const { positional, flags } = parseArgs("flow check merge", rest, { values: ["pr", "repo"], booleans: ["json"] });
   if (positional.length > 0 || flags.pr === void 0) throw usageError(MERGE_USAGE);
   const number4 = prArg("flow check merge", "--pr", flags.pr);
   const repo = flags.repo === void 0 ? null : repoArg(ctx, flags.repo, "flow check merge");
+  return { number: number4, repo, json: flags.json === true };
+}
+function checkMerge(args, io) {
+  const { ctx, stdout, exec, env } = io;
+  const { number: number4, repo, json: json2 } = mergeArgs(ctx, args);
   const resolved = resolveFlow(ctx.config);
   const slug = repo ?? ctx.config.repo.slug;
   const pr = subPrFor(ctx, { repo: slug, number: number4, exec, env });
-  const slices = sliceTerritories(ctx);
-  const countsOpen = [resolved.defaultArea, ...resolved.areas].some(({ rules }) => rules.subPr.maxOpen !== null);
-  const open3 = countsOpen ? openPullRequestsInto(ctx, { repo: slug, base: pr.base, exec, env }).flatMap(({ number: n, head }) => {
-    const territory = slices.get(head);
-    return territory === void 0 ? [] : [{ number: n, territory }];
-  }) : [];
+  const open3 = openSlices(io, resolved, { slug, base: pr.base });
   const own2 = sliceGround(ctx).get(pr.head);
   const verdict2 = mergeGate({
     flow: resolved,
@@ -38065,12 +38131,7 @@ function checkMerge(args, { ctx, stdout, exec, env }) {
     repo,
     ground: own2 === void 0 ? [] : [own2.outbox]
   });
-  if (flags.json) {
-    println(stdout, JSON.stringify(verdict2, null, 2));
-  } else {
-    const lines = verdict2.command === null ? verdict2.reasons.map((reason2) => `not ok ${reason2}`) : ["ok", verdict2.command.join(" ")];
-    println(stdout, [...lines, ...verdict2.reported.map((line) => `report ${line}`)].join("\n"));
-  }
+  println(stdout, json2 ? JSON.stringify(verdict2, null, 2) : verdictText(verdict2));
   return verdict2.ok ? 0 : 1;
 }
 var flow = {
@@ -42319,24 +42380,57 @@ function staleness(gh, { repo, readAt }, branch, evidence) {
   if (changed === 0) return null;
   return `${plural3(ahead, "commit", "commits")}, ${plural3(changed, "evidence file", "evidence files")} changed`;
 }
-function flowMoved(gh, { repo, readAt }, branch, config3, copy) {
-  const moved2 = (why2) => `flow moved since read at ${readAt.slice(0, 7)}: ${why2}`;
-  if (copy !== null && "error" in copy) return moved2(`the copy's flow cannot be read \u2014 ${copy.error}`);
-  let target3;
+function targetFlow(repo, config3) {
   try {
-    target3 = config3 === null ? NO_FLOW : parseFlowConfig(config3, `${repo}:${CONFIG_PATH}`);
+    return config3 === null ? NO_FLOW : parseFlowConfig(config3, `${repo}:${CONFIG_PATH}`);
   } catch (error62) {
-    return moved2(`the target's flow cannot be read \u2014 ${messageOf(error62)}`);
+    return { error: messageOf(error62) };
   }
-  const copied = copy?.config ?? NO_FLOW;
-  if (flowKey(target3) !== flowKey(copied)) {
-    if (!hasFlow(copied)) return moved2("the target has a flow its copy lacks");
-    if (!hasFlow(target3)) return moved2("the target has no flow any more");
-    return moved2("its flow section differs from the copy");
-  }
+}
+function sectionMoved(target3, copied) {
+  if (flowKey(target3) === flowKey(copied)) return null;
+  if (!hasFlow(copied)) return "the target has a flow its copy lacks";
+  if (!hasFlow(target3)) return "the target has no flow any more";
+  return "its flow section differs from the copy";
+}
+function hooksMoved(gh, repo, branch, target3, copy) {
   const changed = hookPaths(target3).filter((path) => gh.file(repo, path, branch) !== (copy?.readHook(path) ?? null));
   if (changed.length === 0) return null;
-  return moved2(`${changed.length === 1 ? "hook" : "hooks"} ${changed.join(", ")} ${changed.length === 1 ? "differs" : "differ"} from the copy`);
+  const one = changed.length === 1;
+  return `${one ? "hook" : "hooks"} ${changed.join(", ")} ${one ? "differs" : "differ"} from the copy`;
+}
+function flowMoved(gh, { repo, readAt }, branch, config3, copy) {
+  const moved2 = (why3) => `flow moved since read at ${readAt.slice(0, 7)}: ${why3}`;
+  if (copy !== null && "error" in copy) return moved2(`the copy's flow cannot be read \u2014 ${copy.error}`);
+  const target3 = targetFlow(repo, config3);
+  if ("error" in target3) return moved2(`the target's flow cannot be read \u2014 ${target3.error}`);
+  const why2 = sectionMoved(target3, copy?.config ?? NO_FLOW) ?? hooksMoved(gh, repo, branch, target3, copy);
+  return why2 === null ? null : moved2(why2);
+}
+function loopFacts(gh, repo, branch, config3) {
+  if (config3 === null) return { installed: false, loop: "not installed", filled: false };
+  const version3 = bundleVersion(gh.file(repo, BIN_PATH, branch) ?? "");
+  return { installed: true, loop: version3 ? `v${version3}` : "installed", filled: hasFilledForm(gh, repo, playbookOf(config3), branch) };
+}
+function ownJudged({ installed, filled }) {
+  if (!installed) return ["drifted", "the config says own, but the loop is not installed"];
+  if (!filled) return ["drifted", "the config says own, but no form is filled"];
+  return ["ok", null];
+}
+function importedStale(gh, target3, { branch, config: config3, evidence, copyFlow }) {
+  const { repo } = target3;
+  const read2 = { repo, readAt: defined(target3.readAt, `the readAt of ${repo}`) };
+  const stale = [staleness(gh, read2, branch, evidence), copyFlow === void 0 ? null : flowMoved(gh, read2, branch, config3, copyFlow)].filter(
+    (why2) => why2 !== null
+  );
+  return stale.length > 0 ? stale.join("; ") : null;
+}
+function judged(gh, target3, facts, read2) {
+  const { knowledge: knowledge2 } = target3;
+  if (knowledge2 === "own") return ownJudged(facts);
+  if (facts.installed && facts.filled) return ["drifted", `the config says ${knowledge2}, but it has the loop and a filled form`];
+  const stale = knowledge2 === "imported" ? importedStale(gh, target3, read2) : null;
+  return stale === null ? ["ok", null] : ["stale", stale];
 }
 function readTarget2(target3, {
   exec = execFileSync11,
@@ -42350,24 +42444,9 @@ function readTarget2(target3, {
   try {
     const branch = gh.repository(repo).default_branch;
     const config3 = gh.file(repo, CONFIG_PATH, branch);
-    const installed = config3 !== null;
-    const version3 = installed ? bundleVersion(gh.file(repo, BIN_PATH, branch) ?? "") : null;
-    const loop = installed ? version3 ? `v${version3}` : "installed" : "not installed";
-    const filled = installed && hasFilledForm(gh, repo, playbookOf(config3), branch);
-    if (knowledge2 === "own") {
-      if (!installed) return row(loop, "drifted", "the config says own, but the loop is not installed");
-      if (!filled) return row(loop, "drifted", "the config says own, but no form is filled");
-      return row(loop, "ok");
-    }
-    if (installed && filled) return row(loop, "drifted", `the config says ${knowledge2}, but it has the loop and a filled form`);
-    if (knowledge2 === "imported") {
-      const read2 = { repo, readAt: defined(target3.readAt, `the readAt of ${repo}`) };
-      const stale = [staleness(gh, read2, branch, evidence), copyFlow === void 0 ? null : flowMoved(gh, read2, branch, config3, copyFlow)].filter(
-        (why2) => why2 !== null
-      );
-      if (stale.length > 0) return row(loop, "stale", stale.join("; "));
-    }
-    return row(loop, "ok");
+    const facts = loopFacts(gh, repo, branch, config3);
+    const [state, detail] = judged(gh, target3, facts, { branch, config: config3, evidence, copyFlow });
+    return row(facts.loop, state, detail);
   } catch (error62) {
     if (error62 instanceof Unreachable) return row("\u2014", "unreachable", error62.message);
     throw error62;
@@ -42543,53 +42622,64 @@ function landingsCommand(rest, { ctx, stdout }) {
   }
   return 0;
 }
+function printLandings(stdout, { landings }) {
+  if (landings.length <= 1) return;
+  println(stdout, `omni plan check \u2014 ${counted2(landings.length, "landing", "landings")}, merged in order:`);
+  for (const { landing, name, mergeWhen, slices: members3, waves: landingWaves } of landings) {
+    const when = mergeWhen === null ? "" : ` \u2014 merge when ${mergeWhen}`;
+    println(stdout, `  landing ${landing} (${name}): wave(s) ${landingWaves.join(", ")} \u2014 ${members3.join(", ")}${when}`);
+  }
+}
+function printRepositories(stdout, { multi, slices, waves }) {
+  if (!multi) return;
+  const repos = new Set(slices.map((slice) => slice.repo)).size;
+  println(
+    stdout,
+    `omni plan check \u2014 ${counted2(slices.length, "slice", "slices")} \xB7 ${counted2(waves.length, "wave", "waves")} \xB7 ${counted2(repos, "repository", "repositories")}:`
+  );
+  for (const wave of waves) {
+    const members3 = slices.filter((slice) => slice.wave === wave).map((slice) => `${slice.id} (${slice.repo})`);
+    println(stdout, `  wave ${wave}: ${members3.join(", ")}`);
+  }
+}
+function printMatrices(stdout, { matrices }) {
+  for (const { repo, rows: rows2 } of matrices) {
+    if (rows2.length === 0) continue;
+    const where = repo === null ? "" : `, ${repo}`;
+    println(stdout, `omni plan check \u2014 collision matrix${where} (${rows2.length} pair(s) sharing ground):`);
+    for (const row of rows2) println(stdout, `  ${row.pair}: ${row.shared} \u2014 ${row.resolved}`);
+  }
+}
+function checkCommand(rest, { ctx, stdout }) {
+  const { positional } = parseArgs("plan check", rest);
+  if (positional.length !== 1) throw usageError(USAGE17);
+  const prd2 = prdArg("plan check", "<prd>", positional[0]);
+  const checked = checkPlan(prd2, { ctx });
+  const { planPath, slices, waves, violations } = checked;
+  println(
+    stdout,
+    `omni plan check \u2014 PRD ${prd2}: ${slices.length} slice(s) across wave(s) ${waves.join(", ")} (${planPath}).`
+  );
+  printLandings(stdout, checked);
+  printRepositories(stdout, checked);
+  printMatrices(stdout, checked);
+  if (violations.length > 0) {
+    println(stdout, formatFailure(`omni plan check \u2014 PRD ${prd2}: violation(s):`, violations));
+    return 1;
+  }
+  println(
+    stdout,
+    formatPass(`omni plan check \u2014 PRD ${prd2}: ${slices.length} slice(s), all territories and blocks well-formed.`)
+  );
+  return 0;
+}
 var plan = {
   run: synchronous((args, { ctx, stdout, exec, env }) => {
     const [sub, ...rest] = args;
     if (sub === "moved") return moved(rest, { ctx, stdout, exec, env });
     if (sub === "landings") return landingsCommand(rest, { ctx, stdout });
     if (sub !== "check") throw usageError(USAGE17);
-    const { positional } = parseArgs("plan check", rest);
-    if (positional.length !== 1) throw usageError(USAGE17);
-    const prd2 = prdArg("plan check", "<prd>", positional[0]);
-    const { planPath, slices, landings, waves, multi, matrices, violations } = checkPlan(prd2, { ctx });
-    println(
-      stdout,
-      `omni plan check \u2014 PRD ${prd2}: ${slices.length} slice(s) across wave(s) ${waves.join(", ")} (${planPath}).`
-    );
-    if (landings.length > 1) {
-      println(stdout, `omni plan check \u2014 ${counted2(landings.length, "landing", "landings")}, merged in order:`);
-      for (const { landing, name, mergeWhen, slices: members3, waves: landingWaves } of landings) {
-        const when = mergeWhen === null ? "" : ` \u2014 merge when ${mergeWhen}`;
-        println(stdout, `  landing ${landing} (${name}): wave(s) ${landingWaves.join(", ")} \u2014 ${members3.join(", ")}${when}`);
-      }
-    }
-    if (multi) {
-      const repos = new Set(slices.map((slice) => slice.repo)).size;
-      println(
-        stdout,
-        `omni plan check \u2014 ${counted2(slices.length, "slice", "slices")} \xB7 ${counted2(waves.length, "wave", "waves")} \xB7 ${counted2(repos, "repository", "repositories")}:`
-      );
-      for (const wave of waves) {
-        const members3 = slices.filter((slice) => slice.wave === wave).map((slice) => `${slice.id} (${slice.repo})`);
-        println(stdout, `  wave ${wave}: ${members3.join(", ")}`);
-      }
-    }
-    for (const { repo, rows: rows2 } of matrices) {
-      if (rows2.length === 0) continue;
-      const where = repo === null ? "" : `, ${repo}`;
-      println(stdout, `omni plan check \u2014 collision matrix${where} (${rows2.length} pair(s) sharing ground):`);
-      for (const row of rows2) println(stdout, `  ${row.pair}: ${row.shared} \u2014 ${row.resolved}`);
-    }
-    if (violations.length > 0) {
-      println(stdout, formatFailure(`omni plan check \u2014 PRD ${prd2}: violation(s):`, violations));
-      return 1;
-    }
-    println(
-      stdout,
-      formatPass(`omni plan check \u2014 PRD ${prd2}: ${slices.length} slice(s), all territories and blocks well-formed.`)
-    );
-    return 0;
+    return checkCommand(rest, { ctx, stdout });
   })
 };
 

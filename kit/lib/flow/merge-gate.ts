@@ -12,7 +12,7 @@
 // - The guards hold whatever the flow says: a sub-PR into the default branch, or one not open,
 //   never merges.
 import { covers } from '../inbox/territory.ts';
-import type { AreaRules, ResolvedFlow } from './resolve.ts';
+import type { AreaRules, ResolvedFlow, TerritoryFlow } from './resolve.ts';
 import { resolveTerritory } from './resolve.ts';
 
 export type CheckState = 'pass' | 'pending' | 'fail';
@@ -46,6 +46,92 @@ export type MergeVerdict = {
   reported: string[];
 };
 
+/** What the gate's rules read of one sub-PR: the facts, and the areas they meet. */
+type Gate = {
+  flow: ResolvedFlow;
+  pr: SubPr;
+  territory: readonly string[] | null;
+  defaultBranch: string;
+  open: readonly OpenSubPr[];
+  /** Its changed paths, the loop's own ground left out. */
+  files: string[];
+  met: TerritoryFlow;
+};
+
+/** What the rules find: why it does not merge, and what merges anyway but a person should see. */
+type Findings = { reasons: string[]; reported: string[] };
+
+/** The first met area whose rules ask for something, `default` when none does. */
+function firstAsking({ met }: Gate, asks: (rules: AreaRules) => boolean): string {
+  return met.areas.find(({ rules }) => asks(rules))?.name ?? 'default';
+}
+
+/** The guards the flow cannot lift: never into the default branch, never a sub-PR not open. */
+function guards({ pr, defaultBranch }: Gate, { reasons }: Findings): void {
+  if (pr.base === defaultBranch) reasons.push(`#${pr.number} targets ${pr.base}, the default branch: a person merges there`);
+  if (pr.state !== 'OPEN') reasons.push(`#${pr.number} is not open (${pr.state})`);
+}
+
+/** `merge`: two methods on one slice refuse. */
+function mergeConflicts({ met }: Gate, { reasons }: Findings): void {
+  if (met.conflicts.merge.length === 0) return;
+  const named = met.conflicts.merge.map(({ area, method: m }) => `${area} ${m}`).join(', ');
+  reasons.push(`${met.conflicts.merge.map(({ area }) => area).join(', ')}: merge — two merge methods on one slice (${named}): split the slice`);
+}
+
+/** Why the runs of one required check do not count as green, `null` when they do. */
+function checkWhy(states: readonly CheckState[]): string | null {
+  if (states.length === 0) return 'has not run';
+  if (states.includes('fail')) return 'failed';
+  return states.includes('pending') ? 'is pending' : null;
+}
+
+/** `requireChecks`: each check green, named by the first area that asks for it. */
+function requiredChecks(gate: Gate, { reasons }: Findings): void {
+  const { met, pr } = gate;
+  for (const name of met.rules.subPr.requireChecks) {
+    const why = checkWhy(pr.checks.filter((check) => check.name === name).map(({ state }) => state));
+    if (why !== null) reasons.push(`${firstAsking(gate, (rules) => rules.subPr.requireChecks.includes(name))}: requireChecks ${name} — ${name} ${why} on #${pr.number}`);
+  }
+}
+
+/** `approval: person`: a person, never a bot, approved. */
+function approval(gate: Gate, { reasons }: Findings): void {
+  const { met, pr } = gate;
+  if (met.rules.subPr.approval !== 'person' || pr.approvedBy.length > 0) return;
+  reasons.push(`${firstAsking(gate, (rules) => rules.subPr.approval === 'person')}: approval person — no person has approved #${pr.number}`);
+}
+
+/** `territory`: `block` refuses a changed path outside the territory, `report` names it and merges. */
+function territoryRule(gate: Gate, findings: Findings): void {
+  const { met, pr, territory, files } = gate;
+  const block = met.rules.subPr.territory === 'block';
+  const blocking = block ? `${firstAsking(gate, (rules) => rules.subPr.territory === 'block')}: territory block — ` : '';
+  const into = block ? findings.reasons : findings.reported;
+  if (territory === null) {
+    into.push(
+      block
+        ? `${blocking}#${pr.number}'s head ${pr.head} is no slice of a plan here, so its territory is not known`
+        : `#${pr.number}'s head ${pr.head} is no slice of a plan here: its diff was not compared with a territory`,
+    );
+    return;
+  }
+  for (const path of files.filter((file) => !covers(territory, file))) into.push(`${blocking}${path} is outside the slice's territory`);
+}
+
+/** `maxOpen`: no more of the area's sub-PRs open into the same base than the count. */
+function maxOpen({ met, flow, open }: Gate, { reasons }: Findings): void {
+  for (const { name, rules } of met.areas) {
+    const max = rules.subPr.maxOpen;
+    if (max === null) continue;
+    const ofArea = open.filter((other) => resolveTerritory(flow, other.territory).areas.some((area) => area.name === name));
+    if (ofArea.length > max) reasons.push(`${name}: maxOpen ${max} — ${ofArea.length} of its sub-PRs are open: ${ofArea.map(({ number }) => `#${number}`).join(', ')}`);
+  }
+}
+
+/** The gate's rules, in the order their reasons are listed. */
+const RULES: readonly ((gate: Gate, findings: Findings) => void)[] = [guards, mergeConflicts, requiredChecks, approval, territoryRule, maxOpen];
+
 /**
  * Whether sub-PR `pr` merges: `territory` is its slice's (`null` when its head is no slice of a
  * plan), `open` every open sub-PR into the same base with its territory, `repo` the slug the
@@ -73,54 +159,17 @@ export function mergeGate({
   const files = pr.files.filter((file) => !covers(ground, file));
   const met = resolveTerritory(flow, [...(territory ?? []), ...files]);
   const method = met.rules.subPr.merge ?? 'squash';
-  const reasons: string[] = [];
-  const reported: string[] = [];
-  const firstAsking = (asks: (rules: AreaRules) => boolean) => met.areas.find(({ rules }) => asks(rules))?.name ?? 'default';
+  const gate: Gate = { flow, pr, territory, defaultBranch, open, files, met };
+  const findings: Findings = { reasons: [], reported: [] };
+  for (const rule of RULES) rule(gate, findings);
 
-  if (pr.base === defaultBranch) reasons.push(`#${pr.number} targets ${pr.base}, the default branch: a person merges there`);
-  if (pr.state !== 'OPEN') reasons.push(`#${pr.number} is not open (${pr.state})`);
-
-  if (met.conflicts.merge.length > 0) {
-    const named = met.conflicts.merge.map(({ area, method: m }) => `${area} ${m}`).join(', ');
-    reasons.push(`${met.conflicts.merge.map(({ area }) => area).join(', ')}: merge — two merge methods on one slice (${named}): split the slice`);
-  }
-
-  for (const name of met.rules.subPr.requireChecks) {
-    const states = pr.checks.filter((check) => check.name === name).map(({ state }) => state);
-    const why = states.length === 0 ? 'has not run' : states.includes('fail') ? 'failed' : states.includes('pending') ? 'is pending' : null;
-    if (why !== null) reasons.push(`${firstAsking((rules) => rules.subPr.requireChecks.includes(name))}: requireChecks ${name} — ${name} ${why} on #${pr.number}`);
-  }
-
-  if (met.rules.subPr.approval === 'person' && pr.approvedBy.length === 0) {
-    reasons.push(`${firstAsking((rules) => rules.subPr.approval === 'person')}: approval person — no person has approved #${pr.number}`);
-  }
-
-  const block = met.rules.subPr.territory === 'block';
-  const blocking = block ? `${firstAsking((rules) => rules.subPr.territory === 'block')}: territory block — ` : '';
-  if (territory === null) {
-    if (block) reasons.push(`${blocking}#${pr.number}'s head ${pr.head} is no slice of a plan here, so its territory is not known`);
-    else reported.push(`#${pr.number}'s head ${pr.head} is no slice of a plan here: its diff was not compared with a territory`);
-  } else {
-    for (const path of files.filter((file) => !covers(territory, file))) {
-      (block ? reasons : reported).push(`${blocking}${path} is outside the slice's territory`);
-    }
-  }
-
-  for (const { name, rules } of met.areas) {
-    const max = rules.subPr.maxOpen;
-    if (max === null) continue;
-    const ofArea = open.filter((other) => resolveTerritory(flow, other.territory).areas.some((area) => area.name === name));
-    if (ofArea.length > max) reasons.push(`${name}: maxOpen ${max} — ${ofArea.length} of its sub-PRs are open: ${ofArea.map(({ number }) => `#${number}`).join(', ')}`);
-  }
-
-  const ok = reasons.length === 0;
+  const ok = findings.reasons.length === 0;
   return {
     ok,
     method,
     command: ok ? ['gh', 'pr', 'merge', String(pr.number), `--${method}`, '--delete-branch', ...(repo === null ? [] : ['--repo', repo])] : null,
     areas: met.areas.map(({ name }) => name),
-    reasons,
-    reported,
+    ...findings,
   };
 }
 
@@ -130,14 +179,24 @@ export type RollupEntry = { __typename?: string | undefined; name?: string | und
 const PASSING = new Set(['SUCCESS', 'NEUTRAL', 'SKIPPED']);
 const WORST: CheckState[] = ['fail', 'pending', 'pass'];
 
+const WAITING = new Set(['PENDING', 'EXPECTED']);
+
+/** A commit status's state. */
+function statusState(state: string): CheckState {
+  if (state === 'SUCCESS') return 'pass';
+  return WAITING.has(state) ? 'pending' : 'fail';
+}
+
+/** A check run's state. */
+function runState({ status, conclusion }: RollupEntry): CheckState {
+  if (status !== 'COMPLETED') return 'pending';
+  return PASSING.has(conclusion ?? '') ? 'pass' : 'fail';
+}
+
 /** One rollup entry's state. */
 function entryState(entry: RollupEntry): CheckState {
-  if (entry.__typename === 'StatusContext' || entry.context !== undefined) {
-    const state = entry.state ?? '';
-    return state === 'SUCCESS' ? 'pass' : state === 'PENDING' || state === 'EXPECTED' ? 'pending' : 'fail';
-  }
-  if (entry.status !== 'COMPLETED') return 'pending';
-  return PASSING.has(entry.conclusion ?? '') ? 'pass' : 'fail';
+  const isStatus = entry.__typename === 'StatusContext' || entry.context !== undefined;
+  return isStatus ? statusState(entry.state ?? '') : runState(entry);
 }
 
 /** The rollup as one state per check name, the worst of its runs, in first-seen order. */

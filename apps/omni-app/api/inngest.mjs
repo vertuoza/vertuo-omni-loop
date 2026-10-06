@@ -4748,31 +4748,32 @@ function planRuleViolations(slices, flow) {
     ...landingAloneViolations(slices, flow)
   ];
 }
-function sliceViolations({ slice, territory }) {
-  const { id } = slice;
-  const violations = [];
-  for (const area2 of territory.areas) {
-    if (!area2.rules.plan.alone || territory.areas.length < 2) continue;
+function sliceViolations(graded) {
+  return [...aloneViolations(graded), ...maxFilesViolations(graded), ...conflictViolations(graded)];
+}
+function aloneViolations({ slice: { id }, territory }) {
+  if (territory.areas.length < 2) return [];
+  return territory.areas.filter((area2) => area2.rules.plan.alone).map((area2) => {
     const other = territory.areas.filter(({ name }) => name !== area2.name).flatMap(({ paths }) => paths);
-    violations.push(
-      `flow: ${id} touches ${area2.paths.join(", ")} (area ${area2.name}) and also ${other.join(", ")} \u2014 ${area2.name}: slice alone, a slice of this area touches no path outside it.`
-    );
-  }
+    return `flow: ${id} touches ${area2.paths.join(", ")} (area ${area2.name}) and also ${other.join(", ")} \u2014 ${area2.name}: slice alone, a slice of this area touches no path outside it.`;
+  });
+}
+function maxFilesViolations({ slice, territory }) {
   const max = territory.rules.plan.maxFiles;
-  if (max !== null && slice.territory.length > max) {
-    const setter = territory.areas.find(({ rules }) => rules.plan.maxFiles === max)?.name ?? "";
-    violations.push(`flow: ${id} touches ${slice.territory.length} paths \u2014 ${setter}: slice maxFiles ${max}, at most ${max} ${max === 1 ? "path" : "paths"} in a slice of this area.`);
-  }
+  if (max === null || slice.territory.length <= max) return [];
+  const setter = territory.areas.find(({ rules }) => rules.plan.maxFiles === max)?.name ?? "";
+  return [`flow: ${slice.id} touches ${slice.territory.length} paths \u2014 ${setter}: slice maxFiles ${max}, at most ${max} ${max === 1 ? "path" : "paths"} in a slice of this area.`];
+}
+function conflictViolations({ slice: { id }, territory }) {
   const { merge, replace } = territory.conflicts;
-  if (merge.length > 0) {
-    const methods = merge.map(({ area: area2, method }) => `${area2}: merge ${method}`).join(", ");
-    violations.push(`flow: ${id} meets more than one merge method (${methods}) \u2014 split the slice so each part merges one way.`);
-  }
-  for (const { point, hooks } of replace) {
-    const named = hooks.map(({ area: area2, path }) => `${area2}: ${path}`).join(", ");
-    violations.push(`flow: ${id} meets more than one replace hook at ${point} (${named}) \u2014 split the slice so one hook replaces the step.`);
-  }
-  return violations;
+  const methods = merge.map(({ area: area2, method }) => `${area2}: merge ${method}`).join(", ");
+  return [
+    ...merge.length > 0 ? [`flow: ${id} meets more than one merge method (${methods}) \u2014 split the slice so each part merges one way.`] : [],
+    ...replace.map(({ point, hooks }) => {
+      const named = hooks.map(({ area: area2, path }) => `${area2}: ${path}`).join(", ");
+      return `flow: ${id} meets more than one replace hook at ${point} (${named}) \u2014 split the slice so one hook replaces the step.`;
+    })
+  ];
 }
 var touches = ({ territory }, area2) => territory.areas.some(({ name }) => name === area2);
 function before(a, b) {

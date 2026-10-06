@@ -24,17 +24,18 @@ import { join } from 'node:path';
 import { fillBranch } from '../../lib/board.ts';
 import type { Context } from '../../lib/context.ts';
 import { FLOW_POINTS, flowPoint, type FlowPoint } from '../../lib/flow/points.ts';
-import { resolveFlow } from '../../lib/flow/resolve.ts';
+import { resolveFlow, type ResolvedFlow } from '../../lib/flow/resolve.ts';
 import { flowDifferences, ruleLines, showPath, showPoint, type AreaDifference, type PathView, type PointView, type ShownHook } from '../../lib/flow/show.ts';
 import { readVerdict, verdictLine } from '../../lib/flow/verdict.ts';
-import { mergeGate } from '../../lib/flow/merge-gate.ts';
+import { mergeGate, type MergeVerdict } from '../../lib/flow/merge-gate.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { COPY_FLOW_FILE, copyFlowFolder, readCopyFlow } from '../../lib/plan-repo/copy-flow.ts';
 import { parseFolderName, prdFoldersIn } from '../../lib/layout.ts';
-import { errorMessage, parseArgs, prArg, prdArg, println, readUserFile, sliceArg, usageError } from '../args.ts';
+import { errorMessage, parseArgs, type Flags, prArg, prdArg, println, readUserFile, sliceArg, usageError } from '../args.ts';
 import { openPullRequestsInto, subPrFor } from '../github.ts';
 import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
+import type { PrNumber } from '../../lib/ids.ts';
 
 const USAGE =
   'usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--repo <target>] [--json] | omni flow verdict <point> --from <file>' +
@@ -141,41 +142,67 @@ function shownFlow(ctx: Context, repo: string | undefined): { flow: ReturnType<t
   return { flow: resolveFlow(copy.config), readHook: copy.readHook };
 }
 
-function show(args: string[], { ctx, stdout }: CommandIo): number {
-  const { positional, flags } = parseArgs('flow show', args, { values: ['prd', 'slice', 'path', 'repo'], booleans: ['json'] });
-  if (positional.length > 1) throw usageError(USAGE);
-  const { flow, readHook } = shownFlow(ctx, flags.repo);
-  const [name] = positional;
+type ShowFlags = Flags<'prd' | 'slice' | 'path' | 'repo', 'json'>;
+
+/** Prints a view: as JSON with `--json`, as text otherwise. */
+type Print = (json: unknown, text: string) => void;
+
+/** Whether `--prd` and `--slice` name a slice; each without the other, or with `--path`, is a usage error. */
+function bySliceOf(flags: ShowFlags): boolean {
   const bySlice = flags.prd !== undefined || flags.slice !== undefined;
   if (bySlice && (flags.prd === undefined || flags.slice === undefined)) throw usageError('omni flow show: --prd and --slice go together.');
   if (bySlice && flags.path !== undefined) throw usageError('omni flow show: either --prd and --slice, or --path, not both.');
-  const print = (json: unknown, text: string): void => {
-    println(stdout, flags.json ? JSON.stringify(json, null, 2) : text);
-  };
+  return bySlice;
+}
 
-  if (name === undefined) {
-    if (bySlice) throw usageError('omni flow show: --prd and --slice name a point\'s slice — give the point.');
-    if (flags.path !== undefined) {
-      const view = showPath(flow, flags.path);
-      print(view, pathText(view));
-      return 0;
-    }
-    const differences = flowDifferences(flow);
-    print(differences, differencesText(differences));
+/** `show` with no point: the path's area with `--path`, otherwise what the flow changes from the defaults. */
+function showWhole(flow: ResolvedFlow, flags: ShowFlags, bySlice: boolean, print: Print): number {
+  if (bySlice) throw usageError('omni flow show: --prd and --slice name a point\'s slice — give the point.');
+  if (flags.path !== undefined) {
+    const view = showPath(flow, flags.path);
+    print(view, pathText(view));
     return 0;
   }
+  const differences = flowDifferences(flow);
+  print(differences, differencesText(differences));
+  return 0;
+}
 
-  const point = pointArg('show', name);
+/** The ground a point is shown for: the slice's territory and inputs, `--path` alone, or neither. */
+function pointGround(ctx: Context, flags: ShowFlags, bySlice: boolean): { territory?: string[]; values?: Record<string, string> } {
   const slice = bySlice ? sliceInputs(ctx, flags.prd ?? '', flags.slice ?? '') : null;
   const territory = slice?.territory ?? (flags.path === undefined ? undefined : [flags.path]);
-  const view = showPoint(flow, point, {
+  return {
     ...(territory === undefined ? {} : { territory }),
     ...(slice === null ? {} : { values: slice.values }),
-    readHook,
-  });
+  };
+}
+
+/** `show <point>`: its resolved hooks for the slice's territory, `--path`'s, or the default area's. */
+function showOnePoint(
+  { ctx, stdout }: CommandIo,
+  shown: { flow: ResolvedFlow; readHook: (path: string) => string | null },
+  name: string,
+  { flags, bySlice, print }: { flags: ShowFlags; bySlice: boolean; print: Print },
+): number {
+  const point = pointArg('show', name);
+  const view = showPoint(shown.flow, point, { ...pointGround(ctx, flags, bySlice), readHook: shown.readHook });
   print(view, pointText(view));
   for (const problem of view.problems) println(stdout, `not ok ${point.point} ${problem}`);
   return view.problems.length > 0 ? 1 : 0;
+}
+
+function show(args: string[], io: CommandIo): number {
+  const { positional, flags } = parseArgs('flow show', args, { values: ['prd', 'slice', 'path', 'repo'], booleans: ['json'] });
+  if (positional.length > 1) throw usageError(USAGE);
+  const shown = shownFlow(io.ctx, flags.repo);
+  const [name] = positional;
+  const bySlice = bySliceOf(flags);
+  const print: Print = (json, text) => {
+    println(io.stdout, flags.json ? JSON.stringify(json, null, 2) : text);
+  };
+  if (name === undefined) return showWhole(shown.flow, flags, bySlice, print);
+  return showOnePoint(io, shown, name, { flags, bySlice, print });
 }
 
 function verdict(args: string[], { ctx, stdout }: CommandIo): number {
@@ -219,24 +246,41 @@ function sliceGround(ctx: Context): Map<string, { territory: string[]; outbox: s
   return byBranch;
 }
 
-function checkMerge(args: string[], { ctx, stdout, exec, env }: CommandIo): number {
+/** Every other open sub-PR into `base` that is a slice here, with its territory — only when an area counts them. */
+function openSlices({ ctx, exec, env }: CommandIo, resolved: ResolvedFlow, { slug, base }: { slug: string | null; base: string }) {
+  const slices = sliceTerritories(ctx);
+  const countsOpen = [resolved.defaultArea, ...resolved.areas].some(({ rules }) => rules.subPr.maxOpen !== null);
+  if (!countsOpen) return [];
+  return openPullRequestsInto(ctx, { repo: slug, base, exec, env }).flatMap(({ number: n, head }) => {
+    const territory = slices.get(head);
+    return territory === undefined ? [] : [{ number: n, territory }];
+  });
+}
+
+/** The verdict as text: `ok` and the command, or a `not ok` line per reason, then the `report` lines. */
+function verdictText(verdict: MergeVerdict): string {
+  const lines = verdict.command === null ? verdict.reasons.map((reason) => `not ok ${reason}`) : ['ok', verdict.command.join(' ')];
+  return [...lines, ...verdict.reported.map((line) => `report ${line}`)].join('\n');
+}
+
+/** `check merge`'s `--pr` and `--repo`, after its `merge` word. */
+function mergeArgs(ctx: Context, args: string[]): { number: PrNumber; repo: string | null; json: boolean } {
   const [what, ...rest] = args;
   if (what !== 'merge') throw usageError(MERGE_USAGE);
   const { positional, flags } = parseArgs('flow check merge', rest, { values: ['pr', 'repo'], booleans: ['json'] });
   if (positional.length > 0 || flags.pr === undefined) throw usageError(MERGE_USAGE);
   const number = prArg('flow check merge', '--pr', flags.pr);
   const repo = flags.repo === undefined ? null : repoArg(ctx, flags.repo, 'flow check merge');
+  return { number, repo, json: flags.json === true };
+}
+
+function checkMerge(args: string[], io: CommandIo): number {
+  const { ctx, stdout, exec, env } = io;
+  const { number, repo, json } = mergeArgs(ctx, args);
   const resolved = resolveFlow(ctx.config);
   const slug = repo ?? ctx.config.repo.slug;
   const pr = subPrFor(ctx, { repo: slug, number, exec, env });
-  const slices = sliceTerritories(ctx);
-  const countsOpen = [resolved.defaultArea, ...resolved.areas].some(({ rules }) => rules.subPr.maxOpen !== null);
-  const open = countsOpen
-    ? openPullRequestsInto(ctx, { repo: slug, base: pr.base, exec, env }).flatMap(({ number: n, head }) => {
-        const territory = slices.get(head);
-        return territory === undefined ? [] : [{ number: n, territory }];
-      })
-    : [];
+  const open = openSlices(io, resolved, { slug, base: pr.base });
   const own = sliceGround(ctx).get(pr.head);
   const verdict = mergeGate({
     flow: resolved,
@@ -247,12 +291,7 @@ function checkMerge(args: string[], { ctx, stdout, exec, env }: CommandIo): numb
     repo,
     ground: own === undefined ? [] : [own.outbox],
   });
-  if (flags.json) {
-    println(stdout, JSON.stringify(verdict, null, 2));
-  } else {
-    const lines = verdict.command === null ? verdict.reasons.map((reason) => `not ok ${reason}`) : ['ok', verdict.command.join(' ')];
-    println(stdout, [...lines, ...verdict.reported.map((line) => `report ${line}`)].join('\n'));
-  }
+  println(stdout, json ? JSON.stringify(verdict, null, 2) : verdictText(verdict));
   return verdict.ok ? 0 : 1;
 }
 

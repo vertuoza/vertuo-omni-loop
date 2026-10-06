@@ -19,7 +19,7 @@ import { at, messageOf } from '../narrow.ts';
 import type { Config } from '../types.ts';
 
 /** The folder, inside a copy, that holds the target's flow. */
-export const COPY_FLOW_DIR = 'flow';
+const COPY_FLOW_DIR = 'flow';
 /** The file, inside that folder, that holds the target's flow section. */
 export const COPY_FLOW_FILE = 'config.yml';
 
