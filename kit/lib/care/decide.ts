@@ -51,7 +51,7 @@ export type RoundAction =
 export type Round = { mode: 'stop' | 'report-only' | 'act'; actions: RoundAction[]; waitsOn?: string };
 
 /** Whether the named pull request still holds this one: open, or unreadable. */
-function holds(waiting: Waiting | null | undefined): waiting is Waiting {
+function holds(waiting: Waiting | null | undefined): boolean {
   return waiting?.state === 'open' || waiting?.state === 'unreadable';
 }
 
@@ -74,5 +74,5 @@ export function decideRound(state: RoundState): Round {
   }
   actions.push({ kind: 'status' });
   const { waitsOn } = state;
-  return holds(waitsOn) ? { mode: 'act', actions, waitsOn: `${waitsOn.slug}#${waitsOn.pr}` } : { mode: 'act', actions };
+  return waitsOn && holds(waitsOn) ? { mode: 'act', actions, waitsOn: `${waitsOn.slug}#${waitsOn.pr}` } : { mode: 'act', actions };
 }

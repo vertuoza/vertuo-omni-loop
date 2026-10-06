@@ -66,6 +66,7 @@ describe('foundEntry', () => {
     expect(foundEntry(base, pr(4, 'MERGED'))).toEqual({ ...base, number: 4, state: 'merged', url: 'https://github.com/x/y/pull/4' });
     expect(foundEntry(base, 'unreadable')).toEqual({ ...base, number: null, state: 'unreadable', url: null });
     expect(foundEntry(base, null)).toBeNull();
+    expect(foundEntry(base, 'unreadable', parsePr(46))).toEqual({ ...base, number: 46, state: 'unreadable', url: null });
   });
 });
 

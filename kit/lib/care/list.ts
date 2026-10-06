@@ -51,13 +51,15 @@ export type TargetStep = {
   found: Found;
 };
 
-/** The entry of what a read found, or `null` when no pull request was opened. */
+/** The entry of what a read found, or `null` when no pull request was opened. An unreadable one keeps
+ * the number it is `known` by, when it has one. */
 export function foundEntry<T extends Pick<CareListEntry, 'repo' | 'kind' | 'target'>>(
   base: T,
   found: Found,
+  known: PrNumber | null = null,
 ): (T & Pick<CareListEntry, 'number' | 'state' | 'url'>) | null {
   if (found === null) return null;
-  if (found === 'unreadable') return { ...base, number: null, state: 'unreadable', url: null };
+  if (found === 'unreadable') return { ...base, number: known, state: 'unreadable', url: null };
   return { ...base, number: found.number, state: found.state.toLowerCase(), url: found.url };
 }
 

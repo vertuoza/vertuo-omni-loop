@@ -9,7 +9,7 @@ const CLAIM_STATES = new Set(['in-flight', 'claimed-stale']);
 
 /** The ids of the slices a wave holds claims on: among the target `repo`'s own slices, or every
  * slice for `null` (a one-repository board, or the plan PR). */
-export function claimedIn(rows: readonly { id: string; state: string; repo?: string | null }[], repo: string | null): string[] {
+export function claimedIn(rows: readonly { id: string; state: string; repo?: string | null | undefined }[], repo: string | null): string[] {
   return rows.filter((row) => CLAIM_STATES.has(row.state) && (repo === null || row.repo === repo)).map((row) => row.id);
 }
 
