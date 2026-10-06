@@ -1,0 +1,174 @@
+// `omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--json]` and
+// `omni flow verdict <point> --from <file>` (PRD 1089) — the repository's flow, as an agent follows
+// it, through `kit/lib/flow/show.ts` and `kit/lib/flow/verdict.ts`.
+//
+// - `show <point>` prints the point's resolved hooks — every `before`, the `replace`, every `after`,
+//   each with its area, its text with the inputs filled in and its verdict line — and `kitStep: run`
+//   or `kitStep: replaced`. With `--prd` and `--slice` it reads the slice's territory from the plan;
+//   with `--path` the path is the territory; with neither, the default area's hooks. Exit 1, each
+//   problem on a `not ok` line, when a hook file is not there or names another point: fail closed.
+// - `show --path <p>` prints the path's area with every rule and hook that applies there.
+// - `show` alone prints what this repository changes from the kit's defaults, area by area.
+// - `verdict <point> --from <file>` reads a hook's output: `ok`, exit 0, or `not ok <point> <why>`,
+//   exit 1; output that does not end with the point's verdict line is `not ok … no verdict`.
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { fillBranch } from '../../lib/board.ts';
+import type { Context } from '../../lib/context.ts';
+import { FLOW_POINTS, flowPoint, type FlowPoint } from '../../lib/flow/points.ts';
+import { resolveFlow } from '../../lib/flow/resolve.ts';
+import { flowDifferences, ruleLines, showPath, showPoint, type AreaDifference, type PathView, type PointView, type ShownHook } from '../../lib/flow/show.ts';
+import { readVerdict, verdictLine } from '../../lib/flow/verdict.ts';
+import { parsePlanSlices } from '../../lib/inbox/territory.ts';
+import { parseFolderName } from '../../lib/layout.ts';
+import { parseArgs, prdArg, println, readUserFile, sliceArg, usageError } from '../args.ts';
+import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
+
+const USAGE = 'usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--json] | omni flow verdict <point> --from <file>';
+const KNOWN = FLOW_POINTS.map(({ point }) => point).join(', ');
+
+type ShowFlags = { prd?: string; slice?: string; path?: string; json?: true };
+
+/** The point named `name`, or a usage error listing the catalog. */
+function pointArg(verb: string, name: string): FlowPoint {
+  const point = flowPoint(name);
+  if (!point) throw usageError(`omni flow ${verb}: ${name} is not a point of the catalog (${KNOWN}).`);
+  return point;
+}
+
+/** A hook file's text, or `null` when the repository has no such file. */
+const hookReader = (root: string) => (path: string): string | null => {
+  const file = join(root, path);
+  return existsSync(file) && statSync(file).isFile() ? readFileSync(file, 'utf8') : null;
+};
+
+/** PRD n's slice: its territory, and the inputs it gives a hook. */
+function sliceInputs(ctx: Context, prdText: string, sliceText: string): { territory: string[]; values: Record<string, string> } {
+  const prd = prdArg('flow show', '--prd', prdText);
+  const slice = sliceArg('flow show', '--slice', sliceText);
+  const where = ctx.layout.whereIs(prd);
+  const planPath = ctx.layout.planPath(prd);
+  if (where === null || planPath === null) throw usageError(`omni flow show: PRD ${prd} has no inbox or shipped folder.`);
+  const file = join(ctx.root, planPath);
+  if (!existsSync(file)) throw usageError(`omni flow show: no plan at ${planPath}.`);
+  const row = parsePlanSlices(readFileSync(file, 'utf8')).find(({ id }) => id === slice);
+  if (!row) throw usageError(`omni flow show: PRD ${prd}'s plan has no slice ${slice}.`);
+  const topic = parseFolderName(where.name)?.topic;
+  return {
+    territory: row.territory,
+    values: {
+      prd: String(prd),
+      slice,
+      territory: row.territory.join(' '),
+      ...(topic === undefined ? {} : { branch: fillBranch(ctx.config.branches.slice, { topic, slice }) }),
+    },
+  };
+}
+
+/** One hook's line: its path, then its area. */
+const hookLine = ({ path, area, alias }: ShownHook) => `${path}  (${area}${alias === null ? '' : `, alias ${alias}`})`;
+
+/** A point's view as text: its areas, each hook by mode, `kitStep`, then each hook's text in the order it runs. */
+function pointText(view: PointView): string {
+  const lines = [`point    ${view.point}`, `areas    ${view.areas.join(', ')}`];
+  if (view.territory !== null) lines.push(`territory ${view.territory.join(' ')}`);
+  const hooks = [...view.before, ...(view.replace ? [view.replace] : []), ...view.after];
+  if (hooks.length === 0) lines.push('hooks    none');
+  for (const hook of hooks) lines.push(`${hook.mode.padEnd(8)} ${hookLine(hook)}`);
+  lines.push(`kitStep: ${view.kitStep}`);
+  if (hooks.length === 0) return lines.join('\n');
+  lines.push(`verdict  ${view.verdict}`);
+  for (const hook of hooks) {
+    lines.push('', `## ${hook.mode} ${hook.path} (${hook.area})`);
+    lines.push(hook.text === null ? `follow ${hook.path} as Claude Code resolves it.` : hook.text.trimEnd());
+  }
+  return lines.join('\n');
+}
+
+/** A path's view as text: its area and patterns, its rules, its hooks. */
+function pathText(view: PathView): string {
+  const rules = ruleLines(view.rules);
+  const lines = [`path     ${view.path}`, `area     ${view.area}${view.paths.length > 0 ? `  ${view.paths.join(' ')}` : ''}`];
+  if (view.knowledge !== null) lines.push(`knowledge ${view.knowledge}`);
+  lines.push(`rules    ${rules.length > 0 ? rules.join(' · ') : "the kit's defaults"}`);
+  const hooks = Object.entries(view.hooks).flatMap(([point, { before, replace, after }]) => [
+    ...before.map((path) => `${point} before ${path}`),
+    ...(replace === null ? [] : [`${point} replace ${replace}`]),
+    ...after.map((path) => `${point} after ${path}`),
+  ]);
+  lines.push(...(hooks.length > 0 ? hooks.map((hook) => `hook     ${hook}`) : ['hooks    none']));
+  return lines.join('\n');
+}
+
+/** The differences as text: one block per area. */
+function differencesText(differences: AreaDifference[]): string {
+  if (differences.length === 0) return "flow — none: this repository runs the kit's defaults.";
+  const lines = ["flow — what this repository changes from the kit's defaults"];
+  for (const { area, paths, inherit, rules, hooks } of differences) {
+    const where = paths.length === 0 ? 'every path no area claims' : paths.join(' ');
+    lines.push('', `${area}  ${where}${inherit || area === 'default' ? '' : '  (inherit: false)'}`);
+    lines.push(...rules.map((rule) => `  rule  ${rule}`));
+    lines.push(...hooks.map(({ point, mode, path }) => `  hook  ${point} ${mode} ${path}`));
+  }
+  return lines.join('\n');
+}
+
+function show(positional: string[], flags: ShowFlags, { ctx, stdout }: CommandIo): number {
+  if (positional.length > 1) throw usageError(USAGE);
+  const flow = resolveFlow(ctx.config);
+  const [name] = positional;
+  const bySlice = flags.prd !== undefined || flags.slice !== undefined;
+  if (bySlice && (flags.prd === undefined || flags.slice === undefined)) throw usageError('omni flow show: --prd and --slice go together.');
+  if (bySlice && flags.path !== undefined) throw usageError('omni flow show: either --prd and --slice, or --path, not both.');
+  const print = (json: unknown, text: string) => println(stdout, flags.json ? JSON.stringify(json, null, 2) : text);
+
+  if (name === undefined) {
+    if (bySlice) throw usageError('omni flow show: --prd and --slice name a point\'s slice — give the point.');
+    if (flags.path !== undefined) {
+      const view = showPath(flow, flags.path);
+      print(view, pathText(view));
+      return 0;
+    }
+    const differences = flowDifferences(flow);
+    print(differences, differencesText(differences));
+    return 0;
+  }
+
+  const point = pointArg('show', name);
+  const slice = bySlice ? sliceInputs(ctx, flags.prd ?? '', flags.slice ?? '') : null;
+  const territory = slice?.territory ?? (flags.path === undefined ? undefined : [flags.path]);
+  const view = showPoint(flow, point, {
+    ...(territory === undefined ? {} : { territory }),
+    ...(slice === null ? {} : { values: slice.values }),
+    readHook: hookReader(ctx.root),
+  });
+  print(view, pointText(view));
+  for (const problem of view.problems) println(stdout, `not ok ${point.point} ${problem}`);
+  return view.problems.length > 0 ? 1 : 0;
+}
+
+function verdict(positional: string[], from: string | undefined, { ctx, stdout }: CommandIo): number {
+  const [name] = positional;
+  if (positional.length !== 1 || name === undefined || from === undefined) throw usageError('usage: omni flow verdict <point> --from <file>');
+  const point = pointArg('verdict', name);
+  const read = readVerdict(point.point, readUserFile('flow verdict', ctx, from));
+  println(stdout, verdictLine(point.point, read));
+  return read.ok ? 0 : 1;
+}
+
+export const flow: Command = {
+  run: synchronous((args: string[], io: CommandIo): number => {
+    const { positional, flags } = parseArgs('flow', args, { values: ['prd', 'slice', 'path', 'from'], booleans: ['json'] });
+    const [sub, ...rest] = positional;
+    if (sub === 'show') {
+      if (flags.from !== undefined) throw usageError(USAGE);
+      return show(rest, flags, io);
+    }
+    if (sub === 'verdict') {
+      if (flags.prd !== undefined || flags.slice !== undefined || flags.path !== undefined || flags.json) throw usageError('usage: omni flow verdict <point> --from <file>');
+      return verdict(rest, flags.from, io);
+    }
+    throw usageError(USAGE);
+  }),
+};
