@@ -64,3 +64,14 @@ describe('landingPrToWatch', () => {
     expect(landingPrToWatch([landing(1, { number: null, state: 'absent', base: null })])).toBeNull();
   });
 });
+
+describe('landingChain — a target of a plan repository (PRD 1118)', () => {
+  it("restacks a target's landing onto the target's default branch, never the plan repository's", () => {
+    const rows = [
+      landing(1, { number: parsePr(1), state: 'merged', base: 'develop' }),
+      landing(2, { number: parsePr(2), state: 'draft', base: 'develop' }),
+    ];
+    expect(landingChain(rows, 'develop').map((link) => [link.landing, link.retarget])).toEqual([[2, false]]);
+    expect(landingChain(rows, 'main').map((link) => [link.landing, link.retarget])).toEqual([[2, true]]);
+  });
+});
