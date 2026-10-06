@@ -130,8 +130,16 @@ function run(): string {
   return dir;
 }
 
-/** Settles frame `frame` of the open page, and measures its magenta. */
+/** Whether the page holds a clip and every clip shows a frame. */
+const CLIPS_READY = "(() => { const clips = [...document.querySelectorAll('video')]; return clips.length > 0 && clips.every((clip) => clip.readyState >= 2); })()";
+
+/**
+ * Settles frame `frame` of the open page, and measures its magenta. On a loaded machine the clip may still
+ * be loading when the frame settles: wait until it shows a frame, then settle the frame again.
+ */
 async function magentaAt(page: Page, tools: Page, frame: number) {
+  await page.evaluate(`window.__pitchSeek(${String(frame)})`);
+  await page.waitForFunction(CLIPS_READY, undefined, { timeout: 60_000 });
   await page.evaluate(`window.__pitchSeek(${String(frame)})`);
   const shot = `data:image/png;base64,${(await page.screenshot()).toString('base64')}`;
   return MagentaSchema.parse(await tools.evaluate(`(${MAGENTA})(${JSON.stringify(shot)})`));
