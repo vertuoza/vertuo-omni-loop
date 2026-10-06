@@ -78,8 +78,41 @@ export const EvidenceSchema = z.object({ label: text, url: maybeText, excerpt: t
 /** A finding as a kind's detector gives it. */
 export const FindingSchema = z.object({ id: text, kind: text, title: text, happened: text, evidence: z.array(EvidenceSchema) });
 
-/** A finding on the fact sheet: the kind it came from (`source`) and its rank (`ref`, F1, F2…). */
-export const SheetFindingSchema = z.object({ ...FindingSchema.shape, source: text, ref: text });
+/**
+ * A finding on the fact sheet: the kind it came from (`source`) and its rank (`ref`, F1, F2…); in the
+ * retro of a multi-repository PRD (PRD 1130), the `owner/name` of the repository it is about.
+ */
+export const SheetFindingSchema = z.object({ ...FindingSchema.shape, source: text, ref: text, repo: text.exactOptional() });
+
+/**
+ * A target of a multi-repository PRD as its step "target-<name>" read it (PRD 1130): through the App's
+ * installation there, its feature PRs (one per landing) and the sub-PRs into them; or why not.
+ */
+export const TargetReadSchema = z.discriminatedUnion('read', [
+  z.object({
+    name: text,
+    repo: text,
+    read: z.literal(true),
+    installationId: z.number(),
+    featurePrs: z.array(FeaturePullSchema).min(1),
+    pulls: z.array(PullIntoSchema),
+  }),
+  z.object({ name: text, repo: text, read: z.literal(false), reason: text }),
+]);
+
+/**
+ * One repository of a multi-repository PRD's fact sheet, the plan repository first: its feature PRs
+ * and, for a target, its kinds' facts (the plan repository's are the sheet's own); or why it was not read.
+ */
+export const RepositoryFactsSchema = z.object({
+  repo: text,
+  name: text,
+  plan: z.boolean(),
+  read: z.boolean(),
+  reason: text.exactOptional(),
+  featurePrs: z.array(z.object({ number: PrNumberSchema, url: maybeText })),
+  kinds: z.record(z.string(), z.unknown()).exactOptional(),
+});
 
 /** The rules a run used (`rulesSheet`): their version, the finding order, and every threshold and cap. */
 export const RulesSheetSchema = z.object({
@@ -115,6 +148,8 @@ const factSheetFields = {
   /** Each kind's facts, by its id; a reader parses the facts it reads with that kind's schema. */
   kinds: z.record(z.string(), z.unknown()),
   findings: z.array(SheetFindingSchema),
+  /** Every repository of a multi-repository PRD (PRD 1130); absent for a PRD of one repository. */
+  repositories: z.array(RepositoryFactsSchema).exactOptional(),
 };
 
 /** The step "facts": the fact sheet `detect` makes, every number `retro.md` shows. */

@@ -1,5 +1,7 @@
 import { InngestTestEngine, mockCtx } from '@inngest/test';
 import { internalEvents } from 'inngest';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { type Mock, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { inngest, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
@@ -39,8 +41,11 @@ import {
   lessonsIn,
 } from './retro.ts';
 import type { Octokit } from './retro.types.ts';
+import { megaScenario } from './targets.fixtures/mega.ts';
 import { readEnv } from '../env.ts';
 import { appFunctions } from '../functions.ts';
+import { appOctokitFor } from '../octokit-for.ts';
+import { generateKeyPairSync } from 'node:crypto';
 
 /** The stubbed GitHub and the scenario, as the tests read them: their state open to look at. */
 type Scenario = ReturnType<typeof widgetScenario>;
@@ -313,6 +318,115 @@ describe('retro — a merged feature PR', () => {
     const scenario = widgetScenario();
     await engine(scenario).execute();
     expect(scenario.github.state.requests.filter((r) => r.route.includes('check-runs'))).toEqual([]);
+  });
+});
+
+describe('retro — a multi-repository PRD (PRD 1130)', () => {
+  /** The plan repository's retro, its targets read through the App's installation on each. */
+  const megaEngine = (scenario: ReturnType<typeof megaScenario>) =>
+    testEngine({
+      function: createRetro({ client: inngest, octokitFor: scenario.octokitFor, appOctokit: () => scenario.app, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge() }),
+      events: [scenario.event],
+    });
+  const GOLDEN = fileURLToPath(new URL('./render.golden/retro-repositories.md', import.meta.url));
+
+  it('reads each target in its own steps, one per target and kind, and none for a target not read', async () => {
+    const scenario = megaScenario();
+    const { ctx, error } = await megaEngine(scenario).execute();
+    expect(error).toBeUndefined();
+    expect(ranSteps(ctx).slice(0, 15)).toEqual([
+      'qualify',
+      'gather-pulls',
+      'target-backend',
+      'target-frontend',
+      'target-mobile',
+      'gather-timeline',
+      'gather-delivery',
+      'gather-ci',
+      'gather-churn',
+      'gather-timeline-backend',
+      'gather-delivery-backend',
+      'gather-ci-backend',
+      'gather-churn-backend',
+      'gather-timeline-frontend',
+      'gather-delivery-frontend',
+    ]);
+    expect(ranSteps(ctx).filter((id) => id.endsWith('-mobile'))).toEqual(['target-mobile']);
+  });
+
+  it("looks up each target's installation with the App's own call, then reads its feature PR and sub-PRs as that installation", async () => {
+    const scenario = megaScenario();
+    await megaEngine(scenario).execute();
+    expect(scenario.appCalls).toEqual(
+      ['backend', 'frontend', 'mobile'].map((repo) => ({ route: 'GET /repos/{owner}/{repo}/installation', owner: 'acme', repo })),
+    );
+    const pulls = scenario.github.backend.state.requests.filter((r) => r.route === 'GET /repos/{owner}/{repo}/pulls');
+    expect(pulls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ owner: 'acme', repo: 'backend', head: 'acme:feat/widget' }),
+        expect.objectContaining({ owner: 'acme', repo: 'backend', base: 'feat/widget' }),
+      ]),
+    );
+    expect(scenario.github.plan.state.requests.filter((r) => r.repo === 'backend' || r.repo === 'frontend')).toEqual([]);
+  });
+
+  it('says a target with no installation is not read, with its reason, and finishes the run', async () => {
+    const scenario = megaScenario();
+    const { result, error } = await megaEngine(scenario).execute();
+    expect(error).toBeUndefined();
+    expect(result).toMatchObject({ prd: 7, committed: true });
+    const md = fileAt(scenario.github.plan, BRANCH, MD);
+    expect(md).toContain('- acme/mobile: not read — the App is not installed there');
+    const doc = z
+      .object({ runs: z.array(z.object({ repositories: z.array(z.object({ repo: z.string(), read: z.boolean() })), findings: z.array(z.object({ id: z.string(), repo: z.string() })) })) })
+      .parse(parsedJson(fileAt(scenario.github.plan, BRANCH, JSON_PATH)));
+    const [run] = doc.runs;
+    expect(run?.repositories.map((one) => [one.repo, one.read])).toEqual([
+      ['acme/plan', true],
+      ['acme/backend', true],
+      ['acme/frontend', true],
+      ['acme/mobile', false],
+    ]);
+    expect(run?.findings).toEqual([
+      expect.objectContaining({ id: 'backend/churn:src/store/colour.js:5-8', repo: 'acme/backend' }),
+      expect.objectContaining({ id: 'backend/slow-slice:s3', repo: 'acme/backend' }),
+    ]);
+  });
+
+  it('publishes retro.md with Timeline, Checks, Churn and Findings grouped by repository, the plan repository first (golden)', async () => {
+    const scenario = megaScenario();
+    await megaEngine(scenario).execute();
+    const md = fileAt(scenario.github.plan, BRANCH, MD);
+    if (process.env.UPDATE_GOLDEN) writeFileSync(GOLDEN, md);
+    expect(md).toBe(readFileSync(GOLDEN, 'utf8'));
+    const timeline = md.slice(md.indexOf('## Timeline'), md.indexOf('## Rules'));
+    expect(timeline.indexOf('### acme/plan')).toBeLessThan(timeline.indexOf('### acme/backend'));
+    expect(timeline.indexOf('### acme/backend')).toBeLessThan(timeline.indexOf('### acme/frontend'));
+    expect(md).toContain('#### F2 · acme/backend: Slice s3 took far longer than the others — `backend/slow-slice:s3`');
+    for (const section of ['## Checks', '## Churn']) expect(md.slice(md.indexOf(section)).split('\n')[2]).toBe('### acme/backend');
+  });
+
+  it('signs the installation lookup as the App, with its JWT, and mints no installation token for it', async () => {
+    const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
+    const calls: { path: string; authorization: string | null }[] = [];
+    vi.stubGlobal('fetch', (url: string, init?: RequestInit) => {
+      calls.push({ path: new URL(url).pathname, authorization: new Headers(init?.headers).get('authorization') });
+      return Promise.resolve(Response.json({ id: 21 }));
+    });
+    try {
+      const { data } = await appOctokitFor({ id: '1', privateKey })().request('GET /repos/{owner}/{repo}/installation', { owner: 'acme', repo: 'backend' });
+      expect(data).toEqual({ id: 21 });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(calls.map((call) => call.path)).toEqual(['/repos/acme/backend/installation']);
+    expect(calls[0]?.authorization).toMatch(/^bearer [\w-]+\.[\w-]+\.[\w-]+$/);
+  });
+
+  it('opens no target step for a PRD of one repository', async () => {
+    const scenario = widgetScenario();
+    const { ctx } = await engine(scenario).execute();
+    expect(ranSteps(ctx).filter((id) => id.startsWith('target-'))).toEqual([]);
   });
 });
 

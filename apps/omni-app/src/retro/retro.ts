@@ -3,7 +3,10 @@
 //
 //   step "qualify"          the config at the merge SHA; a feature PR by the app's rule; its PRD folder
 //   step "gather-pulls"     the sub-PRs into the feature branch
-//   steps "gather-<kind>"   each kind's GitHub reads, one step per kind (`kinds/index.ts`)
+//   steps "target-<name>"   a multi-repository PRD's targets (PRD 1130, `targets.read.ts`): each one's
+//                           installation, looked up as the App, then its feature PRs and sub-PRs
+//   steps "gather-<kind>"   each kind's GitHub reads, one step per kind (`kinds/index.ts`), then
+//                           "gather-<kind>-<name>" for each target read, as its installation
 //   step "facts"            `detect`: the fact sheet — memoized, so a retry never changes a number
 //   step "gather-knowledge" what the judge compares with (PRD 487): the knowledge summary and the
 //                           lessons of the retros already merged, both at the merge commit
@@ -87,6 +90,8 @@ import { KINDS, type Kind } from './kinds/index.ts';
 import { narrate } from './narrate.ts';
 import { publishRetro } from './publish.ts';
 import { qualify } from './qualify.ts';
+import { withTargets, type TargetRecords } from './targets.detect.ts';
+import { gatherTarget, readTargets, type AppOctokit } from './targets.read.ts';
 import { verdictComment } from './render.ts';
 import type { OpenRouterEnv } from '../env.ts';
 import type {
@@ -189,6 +194,8 @@ const TickSchema = z.looseObject({ ts: z.number().exactOptional() }).nullable();
 export type RetroDeps = {
   client: Inngest.Any;
   octokitFor: OctokitFor<Octokit>;
+  /** The App's own client, which looks up its installation on each target of a multi-repository PRD (PRD 1130). */
+  appOctokit?: AppOctokit | null;
   /** OpenRouter, from the app's environment (../env.ts); `null`: every retro goes out facts only. */
   openrouter: OpenRouterEnv | null;
   /** The model call's fetch; the global one when not given. */
@@ -214,7 +221,7 @@ type RunResult = {
   verdict: VerdictOutcome;
 };
 
-export function createRetro({ client, octokitFor, openrouter, fetch, kinds = KINDS, followUp = false }: RetroDeps) {
+export function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch, kinds = KINDS, followUp = false }: RetroDeps) {
   return client.createFunction(
     {
       id: RETRO_FUNCTION_ID,
@@ -239,8 +246,9 @@ export function createRetro({ client, octokitFor, openrouter, fetch, kinds = KIN
 
       const pulls = await savedStep(step, 'gather-pulls', PullsIntoSchema, async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
 
-      const scope: Scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls };
-      const context = { step, github, openrouter, fetch, owner, repo, pr, prd, config, pulls };
+      const targets = await readTargets({ step, appOctokit, octokitFor, planSlug: `${owner}/${repo}`, scope: { config, prd } });
+      const scope: Scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls, ...(targets.length > 0 ? { targets } : {}) };
+      const context = { step, github, octokitFor, openrouter, fetch, owner, repo, pr, prd, config, pulls };
       const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsIn(MERGE_RUN, kinds), scope });
       const result = { prd: prd.number, ...outcome(first) };
 
@@ -288,6 +296,7 @@ async function waitForDay(step: RetroStep, due: string): Promise<void> {
 type RunInput = {
   step: RetroStep;
   github: () => Promise<Octokit>;
+  octokitFor: OctokitFor<Octokit>;
   openrouter: OpenRouterEnv | null;
   fetch: typeof fetch | undefined;
   owner: string;
@@ -322,15 +331,29 @@ type StepId = (name: string) => string;
 type Judged = { whole: FactSheet; prose: Prose | null; known: Known; verdict: VerdictOutcome; base: RunRecord };
 
 /** The run's fact sheet: each kind's records gathered, then detected, its findings numbered on from the run before. */
-async function factSheet({ step, github, pr, prd, config, pulls, run, kinds, scope, earlier }: RunInput, id: StepId, folder: string): Promise<FactSheet> {
+async function factSheet(input: RunInput, id: StepId, folder: string): Promise<FactSheet> {
+  const { step, github, owner, repo, pr, prd, config, pulls, run, kinds, scope, earlier } = input;
   const records: Record<string, unknown> = {};
   for (const kind of kinds) {
     records[kind.id] = await savedStep(step, id(`gather-${kind.id}`), kind.records.nullable(), async () => (await kind.gather(await github(), scope)) ?? null);
   }
+  const targets = await targetRecords(input);
   const before = earlier?.sheet.findings ?? [];
-  return savedStep(step, id('facts'), FactSheetSchema, () =>
-    inFolder(numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before.length), folder),
-  );
+  return savedStep(step, id('facts'), FactSheetSchema, () => {
+    const own = detect({ run, pr, prd, config, pulls, records, kinds });
+    const whole = withTargets(own, { planSlug: `${owner}/${repo}`, targets, run, kinds, scope });
+    return inFolder(numberedAfter(whole, before.length), folder);
+  });
+}
+
+/** What each target's kinds gathered, in the merge run only (PRD 1130); a target not read gathers nothing. */
+async function targetRecords({ step, octokitFor, run, kinds, scope }: RunInput): Promise<TargetRecords[]> {
+  if (run !== MERGE_RUN) return [];
+  const out: TargetRecords[] = [];
+  for (const target of scope.targets ?? []) {
+    out.push({ target, records: target.read ? await gatherTarget({ step, octokitFor, kinds, scope }, target) : null });
+  }
+  return out;
 }
 
 /** The model's words on the run, guarded, and the verdict they give. */

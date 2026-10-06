@@ -42,6 +42,22 @@ export function installationOctokitFor(githubApp: GithubAppEnv | null, github: G
 }
 
 /**
+ * The GitHub App's own Octokit, signed with its JWT (`GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`), never
+ * an installation's token: the retro looks up its installation on each target of a multi-repository
+ * PRD with it (`GET /repos/{owner}/{repo}/installation`, PRD 1130). Its calls go out plain, on the
+ * App's own budget, as the minting of an installation token does. Unset, the first call throws the
+ * `EnvError` naming both.
+ */
+export function appOctokitFor(githubApp: GithubAppEnv | null) {
+  let app: App | undefined;
+  return () => {
+    const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, 'the app looks up its installations as the App');
+    app ??= new App({ appId: id, privateKey });
+    return app.octokit;
+  };
+}
+
+/**
  * The client's store on the database, as the service role (`SUPABASE_URL`,
  * `SUPABASE_SERVICE_ROLE_KEY`): `github_etags` and `github_budget`, which galaxy writes too. Unset,
  * none: the client calls GitHub plain, with no shared budget.
