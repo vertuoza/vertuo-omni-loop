@@ -18,11 +18,11 @@ export const PITCH_HINT = 'How this product’s pitch videos look and sound. Eve
 export const READ_ONLY = 'Only someone who may edit the business changes these.';
 
 export interface PitchHandlers {
-  edit(draft: PitchSettings): void;
-  preset(preset: PitchPreset): void;
-  upload(target: AssetTarget, file: File): void;
-  save(): void;
-  reset(): void;
+  edit: (draft: PitchSettings) => void;
+  preset: (preset: PitchPreset) => void;
+  upload: (target: AssetTarget, file: File) => void;
+  save: () => void;
+  reset: () => void;
 }
 
 const IDLE: PitchHandlers = { edit: () => {}, preset: () => {}, upload: () => {}, save: () => {}, reset: () => {} };
