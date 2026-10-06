@@ -91,6 +91,17 @@ export async function listPullsInto(octokit: Octokit, { owner, repo, base }: Rep
     .sort((a, b) => a.openedAt.localeCompare(b.openedAt) || a.number - b.number);
 }
 
+/** The pull requests from `branch`, open or closed, newest first: a target's feature PR is among them (PRD 1130). */
+export async function listPullsFrom(octokit: Octokit, { owner, repo, branch }: Repo & { branch: string }): Promise<PrNumber[]> {
+  const pulls = await paginate((page) =>
+    octokit
+      .request(PULLS, { owner, repo, head: `${owner}:${branch}`, state: 'all', per_page: PER_PAGE, page })
+      .then(({ data }) => parseGitHub(PullsSchema, data, PULLS)),
+  );
+  const merged = pulls.filter((pull) => pull.merged_at);
+  return (merged.length > 0 ? merged : pulls).sort((a, b) => b.created_at.localeCompare(a.created_at)).map((pull) => pull.number);
+}
+
 /**
  * The entries of one folder at `ref`, walking the tree one segment at a time from the root, as
  * `snapshot` does; `null` when the ref holds no folder there.

@@ -3,7 +3,10 @@
 //
 //   step "qualify"          the config at the merge SHA; a feature PR by the app's rule; its PRD folder
 //   step "gather-pulls"     the sub-PRs into the feature branch
-//   steps "gather-<kind>"   each kind's GitHub reads, one step per kind (`kinds/index.ts`)
+//   steps "target-<name>"   a multi-repository PRD's targets (PRD 1130, `targets.read.ts`): each one's
+//                           installation, looked up as the App, then its feature PRs and sub-PRs
+//   steps "gather-<kind>"   each kind's GitHub reads, one step per kind (`kinds/index.ts`), then
+//                           "gather-<kind>-<name>" for each target read, as its installation
 //   step "facts"            `detect`: the fact sheet — memoized, so a retry never changes a number
 //   step "gather-knowledge" what the judge compares with (PRD 487): the knowledge summary and the
 //                           lessons of the retros already merged, both at the merge commit
@@ -15,6 +18,8 @@
 //   or else — not worth it, or not judged (no verdict, or one `guard` refused):
 //   step "verdict"          no branch, no file, no PR, no issue: one comment on the merged feature PR,
 //                           marked `<markers.prefix>-retro-verdict` and rewritten in place on a replay
+//   steps "comment-target-<name>"  a multi-repository PRD's read targets: one comment on each one's
+//                           merged feature PR, the retro's link and its findings (`target-comment.ts`)
 //   step "clock-day-14"     the time, once the merge run is out
 //   "wait-day-14-<n>"       a day at a time, until the merge plus `THRESHOLDS.afterMergeDays` days:
 //                           each wait ends on the tick of the function's own daily schedule, or after
@@ -87,7 +92,10 @@ import { KINDS, type Kind } from './kinds/index.ts';
 import { narrate } from './narrate.ts';
 import { publishRetro } from './publish.ts';
 import { qualify } from './qualify.ts';
+import { withTargets, type TargetRecords } from './targets.detect.ts';
+import { gatherTarget, readTargets, type AppOctokit } from './targets.read.ts';
 import { verdictComment } from './render.ts';
+import { commentTargets } from './target-comment.ts';
 import type { OpenRouterEnv } from '../env.ts';
 import type {
   Config,
@@ -189,6 +197,8 @@ const TickSchema = z.looseObject({ ts: z.number().exactOptional() }).nullable();
 export type RetroDeps = {
   client: Inngest.Any;
   octokitFor: OctokitFor<Octokit>;
+  /** The App's own client, which looks up its installation on each target of a multi-repository PRD (PRD 1130). */
+  appOctokit?: AppOctokit | null;
   /** OpenRouter, from the app's environment (../env.ts); `null`: every retro goes out facts only. */
   openrouter: OpenRouterEnv | null;
   /** The model call's fetch; the global one when not given. */
@@ -214,7 +224,7 @@ type RunResult = {
   verdict: VerdictOutcome;
 };
 
-export function createRetro({ client, octokitFor, openrouter, fetch, kinds = KINDS, followUp = false }: RetroDeps) {
+export function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch, kinds = KINDS, followUp = false }: RetroDeps) {
   return client.createFunction(
     {
       id: RETRO_FUNCTION_ID,
@@ -239,8 +249,9 @@ export function createRetro({ client, octokitFor, openrouter, fetch, kinds = KIN
 
       const pulls = await savedStep(step, 'gather-pulls', PullsIntoSchema, async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
 
-      const scope: Scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls };
-      const context = { step, github, openrouter, fetch, owner, repo, pr, prd, config, pulls };
+      const targets = await readTargets({ step, appOctokit, octokitFor, planSlug: `${owner}/${repo}`, scope: { config, prd } });
+      const scope: Scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls, ...(targets.length > 0 ? { targets } : {}) };
+      const context = { step, github, octokitFor, openrouter, fetch, owner, repo, pr, prd, config, pulls };
       const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsIn(MERGE_RUN, kinds), scope });
       const result = { prd: prd.number, ...outcome(first) };
 
@@ -288,6 +299,7 @@ async function waitForDay(step: RetroStep, due: string): Promise<void> {
 type RunInput = {
   step: RetroStep;
   github: () => Promise<Octokit>;
+  octokitFor: OctokitFor<Octokit>;
   openrouter: OpenRouterEnv | null;
   fetch: typeof fetch | undefined;
   owner: string;
@@ -312,7 +324,21 @@ async function runRetro(input: RunInput): Promise<RunResult> {
   const folder = retroFolder(input.prd, input.config);
   const sheet = await factSheet(input, id, folder);
   const judged = await judgeSheet(input, id, sheet);
-  return judged.verdict.worthIt ? publishRun(input, id, folder, sheet, judged) : commentRun(input, id, sheet, judged);
+  const result = judged.verdict.worthIt ? await publishRun(input, id, folder, sheet, judged) : await commentRun(input, id, sheet, judged);
+  await commentOnTargets(input, id, judged.whole, result);
+  return result;
+}
+
+/**
+ * One comment on each read target's merged feature PR (PRD 1130, `target-comment.ts`): the retro's
+ * link, its PR when one was published, else the plan PR its verdict is on, and that repository's
+ * findings of both runs, with the issues either opened. Nothing for a PRD of one repository.
+ */
+async function commentOnTargets({ step, octokitFor, owner, repo, pr, prd, config, scope, earlier }: RunInput, id: StepId, whole: FactSheet, result: RunResult) {
+  const retroPr = result.published?.pr ?? earlier?.published?.pr ?? null;
+  const link = retroPr ? { label: `retro PR #${retroPr.number}`, url: retroPr.url } : { label: `the verdict on ${owner}/${repo}#${pr.number}`, url: pr.url };
+  const issues = { ...earlier?.record.issues, ...result.record.issues };
+  await commentTargets({ step, octokitFor, id, targets: scope.targets ?? [], prefix: config.markers.prefix, prd, link, findings: whole.findings, issues });
 }
 
 /** The id of a step of one run: the merge run's as named, the day-14 run's with its run after it. */
@@ -322,15 +348,29 @@ type StepId = (name: string) => string;
 type Judged = { whole: FactSheet; prose: Prose | null; known: Known; verdict: VerdictOutcome; base: RunRecord };
 
 /** The run's fact sheet: each kind's records gathered, then detected, its findings numbered on from the run before. */
-async function factSheet({ step, github, pr, prd, config, pulls, run, kinds, scope, earlier }: RunInput, id: StepId, folder: string): Promise<FactSheet> {
+async function factSheet(input: RunInput, id: StepId, folder: string): Promise<FactSheet> {
+  const { step, github, owner, repo, pr, prd, config, pulls, run, kinds, scope, earlier } = input;
   const records: Record<string, unknown> = {};
   for (const kind of kinds) {
     records[kind.id] = await savedStep(step, id(`gather-${kind.id}`), kind.records.nullable(), async () => (await kind.gather(await github(), scope)) ?? null);
   }
+  const targets = await targetRecords(input);
   const before = earlier?.sheet.findings ?? [];
-  return savedStep(step, id('facts'), FactSheetSchema, () =>
-    inFolder(numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before.length), folder),
-  );
+  return savedStep(step, id('facts'), FactSheetSchema, () => {
+    const own = detect({ run, pr, prd, config, pulls, records, kinds });
+    const whole = withTargets(own, { planSlug: `${owner}/${repo}`, targets, run, kinds, scope });
+    return inFolder(numberedAfter(whole, before.length), folder);
+  });
+}
+
+/** What each target's kinds gathered, in the merge run only (PRD 1130); a target not read gathers nothing. */
+async function targetRecords({ step, octokitFor, run, kinds, scope }: RunInput): Promise<TargetRecords[]> {
+  if (run !== MERGE_RUN) return [];
+  const out: TargetRecords[] = [];
+  for (const target of scope.targets ?? []) {
+    out.push({ target, records: target.read ? await gatherTarget({ step, octokitFor, kinds, scope }, target) : null });
+  }
+  return out;
 }
 
 /** The model's words on the run, guarded, and the verdict they give. */

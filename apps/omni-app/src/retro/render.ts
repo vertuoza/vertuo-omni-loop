@@ -23,7 +23,7 @@ import { RetroDocSchema } from './github.schema.ts';
 import { RunRecordSchema } from './retro.schema.ts';
 import { KINDS, type Kind } from './kinds/index.ts';
 import { JUDGE_VERSION } from './narrate.ts';
-import type { Evidence, IssueLink, IssueLinks, Prose, ProseField, ProseFinding, RetroDoc, RulesSheet, Run, RunRecord, SheetFinding } from './retro.types.ts';
+import type { Evidence, IssueLink, IssueLinks, Prose, ProseField, ProseFinding, RepositoryFacts, RetroDoc, RulesSheet, Run, RunRecord, SheetFinding } from './retro.types.ts';
 
 export type { RetroDoc, RunRecord };
 
@@ -88,6 +88,8 @@ export function render({
   if (!latest) throw new Error(`render: retro.json holds no run of #${featurePr}.`);
   const findings = uniqueFindings(runs);
   const issues: IssueLinks = Object.fromEntries(runs.flatMap((run) => Object.entries(run.issues ?? {})));
+  const repositories = [...runs].reverse().find((run) => run.repositories)?.repositories ?? null;
+  const shown: Shown = { runs, findings, prose, issues, repositories };
 
   const lines = [
     '---',
@@ -104,11 +106,10 @@ export function render({
     '',
     summary(prose, latest),
     '',
+    ...repositoriesSection(repositories),
     '## Findings',
     '',
-    ...(findings.length === 0
-      ? ['None: nothing crossed a threshold of the rules.', '']
-      : findings.flatMap((finding) => findingBlock(finding, prose, issues))),
+    ...findingsSection(shown),
     '## Proposed lessons',
     '',
     ...lessons(prose, findings),
@@ -117,7 +118,8 @@ export function render({
 
   const byRun = (run: Run) => kinds.filter((kind) => kind.runs.includes(run));
   const sectionOf = (kind: Kind) => kindSection(kind, runs, findings, prose, issues);
-  lines.push(...byRun('merge').flatMap(sectionOf));
+  const mergeSectionOf = (kind: Kind) => (repositories ? groupedSection(kind, shown) : sectionOf(kind));
+  lines.push(...byRun('merge').flatMap(mergeSectionOf));
   lines.push(...rulesSection(latest.rules));
   lines.push(...kinds.filter((kind) => !kind.runs.includes('merge')).flatMap(sectionOf));
 
@@ -159,11 +161,11 @@ function issueLink(issue: IssueLink | undefined): string | null {
   return `[#${issue.number}](${issue.url})${issue.state === 'closed' ? ' (closed)' : ''}`;
 }
 
-function findingBlock(finding: SheetFinding, prose: Prose | null, issues: IssueLinks): string[] {
+function findingBlock(finding: SheetFinding, prose: Prose | null, issues: IssueLinks, level = '###'): string[] {
   const words: ProseFinding = prose?.findings[finding.id] ?? {};
   const issue = issueLink(issues[finding.id]);
   const droppedTitle = typeof words.title === 'object' ? field(words.title) : null;
-  const heading = [`### ${finding.ref} · ${titleOf(finding, prose)} — \`${finding.id}\``, issue].filter(Boolean).join(' · ');
+  const heading = [`${level} ${finding.ref} · ${titleOf(finding, prose)} — \`${finding.id}\``, issue].filter(Boolean).join(' · ');
   const lines = [heading, ''];
   if (droppedTitle) lines.push(`- **Title:** ${droppedTitle}`);
   lines.push(`- **What happened:** ${finding.happened}`);
@@ -196,11 +198,65 @@ function kindSection(kind: Kind, runs: readonly RunRecord[], findings: readonly 
   if ((!described || described.length === 0) && own.length === 0) return [];
   const lines: string[] = [`## ${kind.section}`, ''];
   if (described && described.length > 0) lines.push(...described, '');
-  if (own.length > 0) {
-    const refs = own.map((finding) => [`${finding.ref} · ${titleOf(finding, prose)}`, issueLink(issues[finding.id])].filter(Boolean).join(' · '));
-    lines.push(`Findings: ${refs.join('; ')}`, '');
-  }
+  lines.push(...findingsLine(own, prose, issues));
   return lines;
+}
+
+/** What a retro.md of several repositories reads beside its runs (PRD 1130); `repositories` is `null` for one repository. */
+type Shown = { runs: readonly RunRecord[]; findings: readonly SheetFinding[]; prose: Prose | null; issues: IssueLinks; repositories: readonly RepositoryFacts[] | null };
+
+/** The repositories a multi-repository PRD's retro read, the plan repository first: each one's feature PRs, or why it was not read. */
+function repositoriesSection(repositories: readonly RepositoryFacts[] | null): string[] {
+  if (!repositories) return [];
+  const line = (one: RepositoryFacts) => {
+    if (!one.read) return `- ${one.repo}: not read — ${one.reason ?? 'no reason given'}`;
+    const pulls = one.featurePrs.map((pull) => (pull.url ? `[#${pull.number}](${pull.url})` : `#${pull.number}`)).join(', ');
+    return `- ${one.repo}${one.plan ? ' (plan repository)' : ''}: feature PR ${pulls}`;
+  };
+  return ['## Repositories', '', ...repositories.map(line), ''];
+}
+
+/** The repository a finding is about: its own, else the plan repository's (a day-14 finding). */
+function repoOf(finding: SheetFinding, repositories: readonly RepositoryFacts[]): string | undefined {
+  return finding.repo ?? repositories.find((one) => one.plan)?.repo;
+}
+
+/** The Findings section: every finding, or, for several repositories, one subsection per repository with findings. */
+function findingsSection({ findings, prose, issues, repositories }: Shown): string[] {
+  if (findings.length === 0) return ['None: nothing crossed a threshold of the rules.', ''];
+  if (!repositories) return findings.flatMap((finding) => findingBlock(finding, prose, issues));
+  return repositories.flatMap((one) => {
+    const own = findings.filter((finding) => repoOf(finding, repositories) === one.repo);
+    return own.length === 0 ? [] : [`### ${one.repo}`, '', ...own.flatMap((finding) => findingBlock(finding, prose, issues, '####'))];
+  });
+}
+
+/** One kind's facts in one repository: the plan repository's are the runs' own, a target's its line of `repositories`. */
+function repositoryFacts(kind: Kind, runs: readonly RunRecord[], one: RepositoryFacts): unknown {
+  for (const run of [...runs].reverse()) {
+    const facts = one.plan ? keptFacts(run, kind.id) : run.repositories?.find((other) => other.repo === one.repo)?.kinds?.[kind.id];
+    if (facts !== null && facts !== undefined) return facts;
+  }
+  return null;
+}
+
+/** A merge kind's section for several repositories: one subsection per repository read, its lines then its findings. */
+function groupedSection(kind: Kind, { runs, findings, prose, issues, repositories }: Shown): string[] {
+  const parts = (repositories ?? []).filter((one) => one.read).flatMap((one) => {
+    const own = findings.filter((finding) => finding.source === kind.id && repoOf(finding, repositories ?? []) === one.repo);
+    const facts = repositoryFacts(kind, runs, one);
+    const described = facts === null ? null : kind.describe(facts);
+    if ((!described || described.length === 0) && own.length === 0) return [];
+    return [`### ${one.repo}`, '', ...(described && described.length > 0 ? [...described, ''] : []), ...findingsLine(own, prose, issues)];
+  });
+  return parts.length === 0 ? [] : [`## ${kind.section}`, '', ...parts];
+}
+
+/** The `Findings:` line under a kind's lines, or nothing when it has none. */
+function findingsLine(own: readonly SheetFinding[], prose: Prose | null, issues: IssueLinks): string[] {
+  if (own.length === 0) return [];
+  const refs = own.map((finding) => [`${finding.ref} · ${titleOf(finding, prose)}`, issueLink(issues[finding.id])].filter(Boolean).join(' · '));
+  return [`Findings: ${refs.join('; ')}`, ''];
 }
 
 function rulesSection(rules: RulesSheet): string[] {

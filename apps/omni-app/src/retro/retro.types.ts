@@ -23,10 +23,12 @@ import type {
   ProseSchema,
   PullIntoSchema,
   PullSchema,
+  RepositoryFactsSchema,
   RulesSheetSchema,
   RunRecordSchema,
   RunSchema,
   SheetFindingSchema,
+  TargetReadSchema,
   VerdictSchema,
 } from './retro.schema.ts';
 
@@ -63,7 +65,15 @@ export type Scope = DetectContext & {
   mergedAt: string | null;
   /** The merge run's fact sheet, given to the day-14 run's kinds. */
   atMerge?: FactSheet;
+  /** The targets of a multi-repository PRD, as the merge run read them (PRD 1130); absent for one repository. */
+  targets?: TargetRead[];
 };
+
+/** A target of a multi-repository PRD, as its step read it: its feature PRs and sub-PRs, or why not. */
+export type TargetRead = z.infer<typeof TargetReadSchema>;
+
+/** One repository of a multi-repository PRD's fact sheet. */
+export type RepositoryFacts = z.infer<typeof RepositoryFactsSchema>;
 
 /** One link a finding cites; a red run whose log was read also carries its last lines. */
 export type Evidence = z.infer<typeof EvidenceSchema>;
