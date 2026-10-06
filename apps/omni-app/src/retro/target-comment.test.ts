@@ -26,14 +26,29 @@ const FINDINGS = [
   finding('F3', 'backend/churn:src/a.ts:1-4', BACKEND, `${BACKEND}: Lines were rewritten again and again`),
 ];
 
-const feature = (number: number, merged: boolean): FeaturePull =>
-  ({ number: parsePr(number), title: 'feat', url: null, merged, baseRef: 'main', headRef: 'feat/widget', headSha: 'h', openedAt: null, mergedAt: null, mergeSha: 'm', labels: [] }) as FeaturePull;
+const feature = (number: number, merged: boolean): FeaturePull => ({
+  number: parsePr(number),
+  title: 'feat',
+  url: null,
+  merged,
+  baseRef: 'main',
+  headRef: 'feat/widget',
+  headSha: 'h',
+  openedAt: null,
+  mergedAt: null,
+  mergeSha: 'm',
+  labels: [],
+});
 const read = (name: string, featurePrs: FeaturePull[]): TargetRead => ({ name, repo: `acme/${name}`, read: true, installationId: 21, featurePrs, pulls: [] });
 
 /** The step tools, running each step at once and keeping its id. */
 function steps() {
   const ids: string[] = [];
-  return { ids, step: { run: async (id: string, fn: () => unknown) => (ids.push(id), fn()) } };
+  const run = (id: string, fn: () => unknown): Promise<unknown> => {
+    ids.push(id);
+    return Promise.resolve(fn());
+  };
+  return { ids, step: { run } };
 }
 
 describe('targetComment', () => {
@@ -72,7 +87,7 @@ describe('commentTargets', () => {
     const out = await commentTargets({ step, octokitFor: () => github.octokit, id: (name) => name, targets, prefix: 'omni-outbox', prd: PRD, link: LINK, findings: FINDINGS, issues: {} });
     expect(ids).toEqual(['comment-target-backend']);
     expect(github.state.comments.map((comment) => [comment.issue, comment.body.split('\n')[0]])).toEqual([[40, MARKER]]);
-    expect(out).toEqual({ backend: { comments: [{ prNumber: 40, commentId: expect.any(Number), created: true }] } });
+    expect(out).toEqual({ backend: { comments: [{ prNumber: 40, commentId: github.state.comments[0]?.id, created: true }] } });
   });
 
   it('rewrites the same comment in place on the day-14 run, never a second one', async () => {
@@ -85,7 +100,7 @@ describe('commentTargets', () => {
     expect(later.ids).toEqual(['comment-target-backend-day-14']);
     expect(github.state.comments).toHaveLength(1);
     expect(github.state.comments[0]?.body).toContain('[retro PR #930](https://github.com/acme/plan/pull/930)');
-    expect(out.backend).toEqual({ comments: [{ prNumber: 40, commentId: expect.any(Number), created: false }] });
+    expect(out.backend).toEqual({ comments: [{ prNumber: 40, commentId: github.state.comments[0]?.id, created: false }] });
   });
 
   it('saves a refused write with its status and goes on to the next target', async () => {
