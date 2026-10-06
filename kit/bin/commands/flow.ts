@@ -10,6 +10,9 @@
 //   problem on a `not ok` line, when a hook file is not there or names another point: fail closed.
 // - `show --path <p>` prints the path's area with every rule and hook that applies there.
 // - `show` alone prints what this repository changes from the kit's defaults, area by area.
+// - `show --repo <target>`, in a plan repository, reads an imported target's copied flow instead
+//   (`kit/lib/plan-repo/copy-flow.ts`), its hook files from the copy: what that target's flow is at
+//   planning time. A target with no copied flow is a usage error.
 // - `verdict <point> --from <file>` reads a hook's output: `ok`, exit 0, or `not ok <point> <why>`,
 //   exit 1; output that does not end with the point's verdict line is `not ok … no verdict`.
 // - `check merge --pr <n> [--repo <target>]` reads the sub-PR from GitHub (`../github.ts`), finds its
@@ -26,14 +29,15 @@ import { flowDifferences, ruleLines, showPath, showPoint, type AreaDifference, t
 import { readVerdict, verdictLine } from '../../lib/flow/verdict.ts';
 import { mergeGate } from '../../lib/flow/merge-gate.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
+import { COPY_FLOW_FILE, copyFlowFolder, readCopyFlow } from '../../lib/plan-repo/copy-flow.ts';
 import { parseFolderName, prdFoldersIn } from '../../lib/layout.ts';
-import { parseArgs, prArg, prdArg, println, readUserFile, sliceArg, usageError } from '../args.ts';
+import { errorMessage, parseArgs, prArg, prdArg, println, readUserFile, sliceArg, usageError } from '../args.ts';
 import { openPullRequestsInto, subPrFor } from '../github.ts';
 import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 
 const USAGE =
-  'usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--json] | omni flow verdict <point> --from <file>' +
+  'usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--repo <target>] [--json] | omni flow verdict <point> --from <file>' +
   ' | omni flow check merge --pr <n> [--repo <target>] [--json]';
 const KNOWN = FLOW_POINTS.map(({ point }) => point).join(', ');
 
@@ -121,10 +125,26 @@ function differencesText(differences: AreaDifference[]): string {
   return lines.join('\n');
 }
 
+/** The flow `show` reads, and where its hook files are: this repository's, or with `--repo` a target's copy. */
+function shownFlow(ctx: Context, repo: string | undefined): { flow: ReturnType<typeof resolveFlow>; readHook: (path: string) => string | null } {
+  if (repo === undefined) return { flow: resolveFlow(ctx.config), readHook: hookReader(ctx.root) };
+  const slug = repoArg(ctx, repo, 'flow show');
+  let copy;
+  try {
+    copy = readCopyFlow(slug, ctx);
+  } catch (error) {
+    throw usageError(`omni flow show: ${errorMessage(error)}`);
+  }
+  if (copy === null) {
+    throw usageError(`omni flow show: ${repo} has no copied flow at ${join(copyFlowFolder(slug, ctx), COPY_FLOW_FILE)} — /omni:mega-invade copies an imported target's flow there.`);
+  }
+  return { flow: resolveFlow(copy.config), readHook: copy.readHook };
+}
+
 function show(args: string[], { ctx, stdout }: CommandIo): number {
-  const { positional, flags } = parseArgs('flow show', args, { values: ['prd', 'slice', 'path'], booleans: ['json'] });
+  const { positional, flags } = parseArgs('flow show', args, { values: ['prd', 'slice', 'path', 'repo'], booleans: ['json'] });
   if (positional.length > 1) throw usageError(USAGE);
-  const flow = resolveFlow(ctx.config);
+  const { flow, readHook } = shownFlow(ctx, flags.repo);
   const [name] = positional;
   const bySlice = flags.prd !== undefined || flags.slice !== undefined;
   if (bySlice && (flags.prd === undefined || flags.slice === undefined)) throw usageError('omni flow show: --prd and --slice go together.');
@@ -151,7 +171,7 @@ function show(args: string[], { ctx, stdout }: CommandIo): number {
   const view = showPoint(flow, point, {
     ...(territory === undefined ? {} : { territory }),
     ...(slice === null ? {} : { values: slice.values }),
-    readHook: hookReader(ctx.root),
+    readHook,
   });
   print(view, pointText(view));
   for (const problem of view.problems) println(stdout, `not ok ${point.point} ${problem}`);
@@ -172,11 +192,10 @@ function verdict(args: string[], { ctx, stdout }: CommandIo): number {
 const MERGE_USAGE = 'usage: omni flow check merge --pr <n> [--repo <target>] [--json]';
 
 /** The slug `--repo` names: `owner/name` as it is, or a target's short name looked up in `plan.targets`. */
-function repoArg(ctx: Context, value: string | undefined): string | null {
-  if (value === undefined) return null;
+function repoArg(ctx: Context, value: string, verb: string): string {
   if (value.includes('/')) return value;
   const target = (ctx.config.plan?.targets ?? []).find(({ repo }) => repo.split('/')[1] === value);
-  if (!target) throw usageError(`omni flow check merge: ${value} is not a target of plan.targets — give owner/name.`);
+  if (!target) throw usageError(`omni ${verb}: ${value} is not a target of plan.targets — give owner/name.`);
   return target.repo;
 }
 
@@ -206,7 +225,7 @@ function checkMerge(args: string[], { ctx, stdout, exec, env }: CommandIo): numb
   const { positional, flags } = parseArgs('flow check merge', rest, { values: ['pr', 'repo'], booleans: ['json'] });
   if (positional.length > 0 || flags.pr === undefined) throw usageError(MERGE_USAGE);
   const number = prArg('flow check merge', '--pr', flags.pr);
-  const repo = repoArg(ctx, flags.repo);
+  const repo = flags.repo === undefined ? null : repoArg(ctx, flags.repo, 'flow check merge');
   const resolved = resolveFlow(ctx.config);
   const slug = repo ?? ctx.config.repo.slug;
   const pr = subPrFor(ctx, { repo: slug, number, exec, env });

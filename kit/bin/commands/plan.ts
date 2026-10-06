@@ -23,6 +23,7 @@ import { parsePlanRepositories, parsePlanSlices } from '../../lib/inbox/territor
 import { landingPlan, mergeAfterLine } from '../../lib/landings/landing-plan.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { defined } from '../../lib/narrow.ts';
+import { targetFlows } from '../../lib/plan-repo/copy-flow.ts';
 import { movedTable, planMoved } from '../../lib/plan-repo/moved.ts';
 import { errorCode, errorMessage, parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { Context } from '../../lib/context.ts';
@@ -66,7 +67,7 @@ function readPlan(prd: PrdNumber, { ctx, verb }: { ctx: Context; verb: string })
 /** PRD n's plan, graded; a slice table that cannot be read is a usage error, as it always was. */
 function checkPlan(prd: PrdNumber, { ctx }: { ctx: Context }) {
   const { planPath, markdown } = readPlanText(prd, { ctx, verb: 'check' });
-  const graded = gradePlan(markdown, { config: ctx.config });
+  const graded = gradePlan(markdown, { config: ctx.config, targets: targetFlows(ctx) });
   if (graded.parseError !== null) throw usageError(`omni plan check: ${planPath}: ${graded.parseError}`);
   return { planPath, ...graded };
 }

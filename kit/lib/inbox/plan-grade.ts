@@ -22,8 +22,16 @@
 // lands alone: a slice touching a path one of them matches touches nothing else, and a landing
 // holding such a slice holds only such slices, so a migration reaches the default branch in a pull
 // request of its own. With no `flow` and no `landings.alone`, nothing more is refused.
+//
+// In a plan repository (PRD 1089, s6) each repository's rows are graded together, against that
+// repository's flow: the plan repository's own for its rows, a target's imported copy
+// (`targets`, read by `../plan-repo/copy-flow.ts`) for that target's rows, and the kit's defaults for a
+// target with no copied flow. So the same path meets different rules in two repositories, and a rule
+// across slices (`wave: first`, `blocks: all`, `landing: alone`) reads the slices of one repository.
 import { planRuleViolations } from '../flow/plan-rules.ts';
 import { resolveFlow } from '../flow/resolve.ts';
+import { NO_FLOW } from '../plan-repo/copy-flow.ts';
+import type { FlowConfig, TargetFlow } from '../plan-repo/copy-flow.ts';
 import { defined, messageOf } from '../narrow.ts';
 import type { Config, Slice } from '../types.ts';
 import { collisionRows, parsePlanLandings, parsePlanRepositories, parsePlanSlices, sameWaveCollisions } from './territory.ts';
@@ -168,6 +176,25 @@ export function gradedLandings(slices: readonly Slice[], rows: readonly PlanLand
   });
 }
 
+/**
+ * The flow's plan rules in a plan repository: each repository's rows against its own flow (see the
+ * module note), every line naming the repository after its field. A target whose copied flow cannot
+ * be read is refused once, and its rows meet the kit's defaults.
+ */
+function repositoryFlowViolations(
+  slices: readonly Slice[],
+  { config, targets }: { config: GradeConfig; targets: ReadonlyMap<string, TargetFlow> },
+): string[] {
+  const planName = config.repo.slug === null ? null : shortName(config.repo.slug);
+  return [...byRepository(slices)].flatMap(([repo, group]) => {
+    const found = repo === null ? undefined : targets.get(repo);
+    const unreadable = found !== undefined && !found.ok ? [`flow: ${repo}'s imported flow at ${found.file} cannot be read — ${found.reason}`] : [];
+    const own: FlowConfig = repo === planName ? config : found?.ok ? found.config : NO_FLOW;
+    const named = planRuleViolations(group, resolveFlow(own)).map((line) => line.replace(/^(\w+): /, `$1 (${repo}): `));
+    return [...unreadable, ...named];
+  });
+}
+
 /** The part of an `owner/name` slug after the `/`: the name a plan's `repo` column uses. */
 function shortName(slug: string): string {
   return slug.slice(slug.indexOf('/') + 1);
@@ -277,9 +304,14 @@ function byRepository(slices: readonly Slice[]): Map<string | null, Slice[]> {
  * then the only violation. Never throws on a plan's content.
  *
  * @param {string} markdown   the plan's `plan.md`
- * @param {{ config: object }} options   the parsed config (`plan`, `repo.slug` and `landings.alone` are read)
+ * @param {{ config: object, targets?: Map }} options   the parsed config (`plan`, `repo.slug`, `landings.alone`
+ *   and `flow` are read), and in a plan repository each target's copied flow by its short name
+ *   (`targetFlows`): a target absent from it meets the kit's defaults
  */
-export function gradePlan(markdown: string, { config }: { config: GradeConfig }): PlanGrade {
+export function gradePlan(
+  markdown: string,
+  { config, targets = new Map() }: { config: GradeConfig; targets?: ReadonlyMap<string, TargetFlow> },
+): PlanGrade {
   let slices: Slice[];
   try {
     slices = parsePlanSlices(markdown);
@@ -311,7 +343,7 @@ export function gradePlan(markdown: string, { config }: { config: GradeConfig })
       : repositoryViolations(slices, repositories, { planSlug: defined(config.repo.slug, "the plan repository's repo.slug"), targets: planSection.targets })), // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...landingViolations(slices, landingRows),
-    ...planRuleViolations(slices, resolveFlow(config)),
+    ...(multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config))),
     ...blockedByViolations(slices),
     ...collisions.map(
       (collision) =>
