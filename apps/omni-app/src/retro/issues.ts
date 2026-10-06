@@ -98,7 +98,7 @@ export function renderIssue({
   retroPr,
   prefix,
 }: {
-  sheet: Pick<FactSheet, 'prd' | 'featurePr'>;
+  sheet: Pick<FactSheet, 'prd' | 'featurePr' | 'repositories'>;
   finding: SheetFinding;
   prose: Prose | null;
   retroPath: string;
@@ -139,7 +139,7 @@ export function renderIssue({
     `evidence: [${evidence.map((item) => scalar(item.url)).join(', ')}]`,
     '```',
   ];
-  return { title: `retro(PRD ${prd}): ${titleOf(finding, words)}`, body: `${lines.join('\n')}\n` };
+  return { title: `retro(PRD ${prd}): ${namedFor(sheet, finding, titleOf(finding, words))}`, body: `${lines.join('\n')}\n` };
 }
 
 /** The finding's own lesson, then the lessons citing it; or a line saying there is none. */
@@ -156,6 +156,16 @@ function lessonOf(finding: SheetFinding, words: ProseFinding, prose: Prose | nul
 /** A finding's title: the model's when it gave one and it was kept, else the detector's own. */
 function titleOf(finding: SheetFinding, words: ProseFinding): string {
   return typeof words.title === 'string' && words.title ? words.title : finding.title;
+}
+
+/**
+ * A title naming the target a finding is about (PRD 1130): `<owner/name>: <title>`, once, whoever wrote
+ * the title. A finding of the plan repository, or of a PRD of one repository, is titled as it is.
+ */
+function namedFor(sheet: Pick<FactSheet, 'repositories'>, finding: SheetFinding, title: string): string {
+  const target = sheet.repositories?.find((one) => !one.plan && one.repo === finding.repo);
+  if (!target || title.startsWith(`${target.repo}: `)) return title;
+  return `${target.repo}: ${title}`;
 }
 
 /** A prose field as written: its text, the line naming why it was dropped, or `null` when not given. */
