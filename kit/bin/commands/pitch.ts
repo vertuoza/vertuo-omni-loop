@@ -28,23 +28,14 @@ import { isOneOf, keysOf } from '../../lib/narrow.ts';
 import { PitchReplyError, pushPitch } from '../../lib/pitch/push.ts';
 import { PITCH_RUN_FILE, PitchRunRefused, readPitchRun } from '../../lib/pitch/push-run.ts';
 import type { PitchRun } from '../../lib/pitch/push-run.ts';
-import type { Launch } from '../../lib/pitch/providers/types.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo, Out } from '../io.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 import { PITCH_MAKERS } from './pitch-make.ts';
+import type { MakerIo } from './pitch-make.ts';
 
-/** What a test hands `omni pitch` beyond `main()`'s own. */
-type PitchOptions = {
-  tokens?: TokenStore | undefined;
-  home?: string | undefined;
-  fetch?: Fetch;
-  callMs?: number | undefined;
-  now?: (() => Date) | undefined;
-  launch?: Launch | undefined;
-  openBrowser?: ((url: string) => unknown) | undefined;
-  studioUntil?: ((url: string) => Promise<void>) | undefined;
-};
+/** What a test hands `omni pitch` beyond `main()`'s own: what a making verb is handed, each optional. */
+type PitchOptions = { [K in Exclude<keyof MakerIo, keyof FreeIo>]?: MakerIo[K] };
 
 /** What a call is handed: the streams and the options. */
 type CallIo = { stdout: Out; stderr: Out; tokens: TokenStore | undefined; home: string | undefined; fetch: Fetch; callMs: number | undefined };

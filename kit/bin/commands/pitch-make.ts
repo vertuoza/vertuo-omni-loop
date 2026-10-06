@@ -232,7 +232,7 @@ async function render(args: string[], { cwd, stdout, stderr, exec, fetch, launch
   }
   let rendered;
   try {
-    rendered = await renderRun(dir, { stills }, { cwd, exec, fetch: providerFetch(fetch), launch, warn: (line) => println(stderr, line) });
+    rendered = await renderRun(dir, { stills }, { cwd, exec, fetch: providerFetch(fetch), launch, warn: (line) => { println(stderr, line); } });
   } catch (error) {
     for (const line of failureLines(error)) println(stderr, line);
     return 1;
@@ -259,7 +259,7 @@ async function studio(args: string[], { cwd, stdout, stderr, fetch, openBrowser 
   const dir = storyboardFolder('studio', cwd, arg);
   let opened;
   try {
-    opened = await openStudio(dir, { fetch: providerFetch(fetch), warn: (line) => println(stderr, line) });
+    opened = await openStudio(dir, { fetch: providerFetch(fetch), warn: (line) => { println(stderr, line); } });
   } catch (error) {
     if (!(error instanceof RenderRefused)) throw error;
     for (const line of error.lines) println(stderr, line);

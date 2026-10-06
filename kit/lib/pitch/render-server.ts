@@ -36,7 +36,7 @@ const TYPES: Readonly<Record<string, string>> = Object.freeze({
 });
 
 /** The contact sheet's tiles: three to a row, each a third of the frame wide. */
-export const CONTACT = Object.freeze({ columns: 3, width: 640, height: 360 });
+const CONTACT = Object.freeze({ columns: 3, width: 640, height: 360 });
 
 /** How long the render waits for the page to report what the video is. */
 const INFO_WAIT_MS = 120_000;
@@ -107,16 +107,27 @@ type Answer = { status: number; type?: string; body?: string | Buffer };
 
 const found = (body: string | Buffer, type: string): Answer => ({ status: 200, type, body });
 
+const HTML = TYPES['.html'] ?? '';
+
+/** The pages the server makes, by path: the engine page with what its queries add, and the contact sheet. */
+const MADE: Readonly<Record<string, (page: EnginePage, params: URLSearchParams) => Answer>> = Object.freeze({
+  '/engine/index.html': (page, params) => found(pageHtml(page['index.html'], params), HTML),
+  '/engine/engine.js': (page) => found(page['engine.js'], TYPES['.js'] ?? ''),
+  '/contact.html': (_, params) => found(contactHtml((params.get('files') ?? '').split(',').filter(Boolean)), HTML),
+});
+
+/** A file of the run, under `/run/`, or 404. */
+function runAnswer(dir: string, path: string): Answer {
+  const file = path.startsWith('/run/') ? runFile(dir, path.slice('/run/'.length)) : null;
+  if (file === null) return { status: 404 };
+  return found(readFileSync(file), TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream');
+}
+
 /** The answer to a GET of `url`, for the run in `dir`. */
 function answerGet(dir: string, page: EnginePage, url: URL): Answer {
   const path = decodeURIComponent(url.pathname);
-  if (path === '/engine/index.html') return found(pageHtml(page['index.html'], url.searchParams), TYPES['.html'] ?? '');
-  if (path === '/engine/engine.js') return found(page['engine.js'], TYPES['.js'] ?? '');
-  if (path === '/contact.html') return found(contactHtml((url.searchParams.get('files') ?? '').split(',').filter(Boolean)), TYPES['.html'] ?? '');
-  if (!path.startsWith('/run/')) return { status: 404 };
-  const file = runFile(dir, path.slice('/run/'.length));
-  if (file === null) return { status: 404 };
-  return found(readFileSync(file), TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream');
+  const made = Object.hasOwn(MADE, path) ? MADE[path] : undefined;
+  return made === undefined ? runAnswer(dir, path) : made(page, url.searchParams);
 }
 
 /** A promise and the function that settles it. */

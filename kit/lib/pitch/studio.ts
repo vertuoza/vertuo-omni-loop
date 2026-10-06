@@ -23,7 +23,7 @@ const WATCHED = Object.freeze([STORYBOARD_FILE, RUN_SETTINGS]);
 export type Studio = { url: string; close: () => Promise<void> };
 
 /** Writes the page's input from the run's storyboard and settings; false, with each error said, when they do not read. */
-export async function refreshInput(dir: string, { fetch, warn }: { fetch: Fetch; warn: Warn }): Promise<boolean> {
+async function refreshInput(dir: string, { fetch, warn }: { fetch: Fetch; warn: Warn }): Promise<boolean> {
   const { errors } = checkRunFolder(dir);
   for (const finding of errors) warn(`error: ${findingLine(finding)}`);
   if (errors.length > 0) return false;

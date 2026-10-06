@@ -242,10 +242,12 @@ describe('omni pitch', () => {
 describe('omni pitch render and studio: what stops them before anything is drawn (PRD 1108 s6)', () => {
   it('render refuses a storyboard the check refuses, naming each error, exit 1', async () => {
     const root = checkout();
-    storyboardFolder(root, changedStoryboard('scenes.5.type', 'statement'));
+    const dir = storyboardFolder(root, fixtureStoryboard(), FIXTURE_MEDIA.filter((file) => file !== 'clips/walk.webm'));
+    const before = readdirSync(dir).sort();
     const { code, out, err } = await omni(['render', RUN, '--stills'], { root });
     expect({ code, out }).toEqual({ code: 1, out: '' });
-    expect(err).toMatch(/^error: .*outro/m);
+    expect(err).toMatch(/^error: scenes\.2\.media\.file: .*clips\/walk\.webm/m);
+    expect(readdirSync(dir).sort()).toEqual(before);
   });
 
   it('render without --stills refuses without ffmpeg, with its line', async () => {

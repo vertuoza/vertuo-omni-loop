@@ -9,10 +9,10 @@
     "sources": ["spec.md", "release-note.md"]
   },
   "scenes": [
-    { "type": "intro", "duration": 2.5, "eyebrow": "New in Widgets", "title": "Quotes that send themselves", "tag": "PRD 7" },
+    { "type": "intro", "duration": 4, "eyebrow": "New in Widgets", "title": "Quotes that send themselves", "tag": "PRD 7" },
     {
       "type": "feature",
-      "duration": 3,
+      "duration": 5.5,
       "title": "Send from the quote",
       "layout": "left",
       "bullets": ["One click to send", "Signed online"],
@@ -20,7 +20,7 @@
         "kind": "clip",
         "file": "clips/walk.webm",
         "start": 0.5,
-        "end": 3.5,
+        "end": 6,
         "device": "browser",
         "camera": [{ "at": 0, "zoom": 1, "focus": { "x": 0.5, "y": 0.5 } }, { "at": 1.5, "zoom": 1.8, "focus": { "x": 0.6, "y": 0.4 } }],
         "callouts": [{ "at": 1.5, "until": 2.8, "kind": "ring", "box": { "x": 0.5, "y": 0.3, "w": 0.2, "h": 0.15 }, "label": "Send" }],
@@ -29,11 +29,11 @@
     },
     {
       "type": "beforeAfter",
-      "duration": 2.5,
+      "duration": 4,
       "before": { "kind": "screenshot", "file": "shots/before.png" },
       "after": { "kind": "screenshot", "file": "shots/after.png" },
       "labels": { "before": "Before", "after": "Now" }
     },
-    { "type": "outro", "duration": 2.5, "cta": "Available now", "closing": "Every quote, on its way.", "credits": true }
+    { "type": "outro", "duration": 3.5, "cta": "Available now", "closing": "Every quote, on its way.", "credits": true }
   ]
 }
