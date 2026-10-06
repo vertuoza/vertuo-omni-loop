@@ -971,9 +971,17 @@ describe('the ultra skills in this repository', () => {
     expect(skillSection(text, '3.')).toContain('/omni:ultra-wave <n>');
     expect(skillSection(text, '5.')).toContain('/omni:ultra-yolo-fix` steps 2 to 7');
     const handOff = skillSection(text, '6. Hand off');
-    expect(handOff).toContain('Nothing to run: merging the target PRs, then #<plan PR>, is yours.');
+    expect(handOff).toContain('Merging the target PRs, then #<plan PR>, is yours.');
     expect(handOff).toContain('/omni:ultra-yolo-fix <n>');
     expect(handOff).toContain('/omni:ultra-yolo <n>');
+  });
+
+  // PRD 1118: the green hand-off ends with /omni:mega-pr-care <n>, as /omni:yolo's ends with /omni:pr-care <n>.
+  it("/omni:ultra-yolo's green hand-off ends with the /omni:mega-pr-care line", () => {
+    const handOff = skillSection(read('ultra-yolo'), '6. Hand off');
+    const green = handOff.slice(handOff.indexOf('**Green:**'), handOff.indexOf('**Red:**'));
+    expect(lastFencedLine(green)).toBe('/omni:mega-pr-care <n>');
+    expect(green).toContain('/clear');
   });
 
   it("/omni:ultra-wave builds through do-work --target and pr --repo, and relays each slice's items", () => {
@@ -989,6 +997,177 @@ describe('the ultra skills in this repository', () => {
     expect(skillSection(text, '4.')).toContain('`repo`');
     expect(skillSection(text, '5.')).toContain('/omni:do-work --in-wave --target <repo>');
     expect(skillSection(text, '8.')).toContain('/omni:ultra-yolo-fix <n>');
+  });
+});
+
+// PRD 1118: `/omni:mega-pr-care <n>` follows `/omni:pr-care` step for step from a plan repository,
+// over every pull request `omni care list <n>` names, in merge order: each target PR read with its own
+// state, a red that waits on another repository's PR held, each target's own review form, a bounded
+// cross-repository fix, the plan PR's target table and the care line on every PR.
+describe('the mega-pr-care skill in this repository', () => {
+  const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/mega-pr-care/SKILL.md'), 'utf8');
+  /** Each mention `text` lacks after the one before it, as `<mention> after <previous>`. */
+  const orderGaps = (text: string, mentions: string[]) => {
+    const out: string[] = [];
+    let from = 0;
+    mentions.forEach((mention: string, index: number) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+      else from = at + mention.length;
+    });
+    return out;
+  };
+
+  it('is named mega-pr-care, triggers on its slash command, and follows /omni:pr-care step for step', () => {
+    const text = read();
+    const { name, description } = frontmatter(text) ?? {};
+    expect(name).toBe('mega-pr-care');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:mega-pr-care"/);
+    expect(text).toContain('It follows `/omni:pr-care` **step for step**');
+    expect(orderGaps(text, ['## Step 0', '## 1. Start the watch', '## 2. A round', '## 3. Review threads',
+      '## 4. The status comment', '## 5. Wait for the next round', '## 6. Stop', '## Guardrails'])).toEqual([]);
+  });
+
+  it('refuses outside a plan repository with the one line naming /omni:pr-care', () => {
+    const step = skillSection(read(), 'Step 0');
+    expect(orderGaps(step, ['omni.mjs config', '`plan` section', 'not a plan repository: /omni:pr-care <n>', 'kb show briefing'])).toEqual([]);
+    expect(lastFencedLine(step)).toBe('not a plan repository: /omni:pr-care <n>');
+  });
+
+  it('reads omni care list each round, then each PR with --repo and --pr, in merge order', () => {
+    const text = read();
+    expect(skillSection(text, '1. Start the watch')).toContain('omni.mjs care list <n> --json');
+    expect(skillSection(text, '1. Start the watch')).toContain('<!-- omni-bug:fix-plan -->');
+    expect(skillSection(text, '1. Start the watch')).toContain('For PRD #<n>');
+    const round = skillSection(text, '2. A round');
+    expect(orderGaps(round, ['**in merge order**', 'omni.mjs care list <n> --json', 'omni.mjs care state <n> --repo <slug> --pr <pr>'])).toEqual([]);
+    expect(round).toContain('omni plan landings <n> --repo <name>');
+  });
+
+  it('holds a red that waits on another PR: the waits-on line, no attempt, one rerun once it merged', () => {
+    const round = skillSection(read(), '2. A round');
+    expect(orderGaps(round, ['**Waits on another repository.**', 'spend no attempt', 'waits on <slug>#<pr>', 'no `fix-ci`', '**`rerun`**'])).toEqual([]);
+    expect(skillSection(read(), '4. The status comment')).toContain('waits on <slug>#<pr>');
+  });
+
+  it("judges a target's threads against the target's own review form, never the imported copy", () => {
+    const threads = skillSection(read(), '3. Review threads');
+    expect(threads).toContain('(cd <clone> && node <plan repository root>/.omni-loop/bin/omni.mjs kb show review)');
+    expect(threads).toMatch(/Never the imported copy/);
+    expect(threads).toContain('omni.mjs care reply --verdict <verdict> --file <file> --thread <thread id> --repo <slug>');
+  });
+
+  it('bounds a cross-repository fix to an open PR of the list, replied Fixed in <slug>@<sha>, otherwise asked', () => {
+    const threads = skillSection(read(), '3. Review threads');
+    expect(orderGaps(threads, ['**A cross-repository fix.**', '**open**', "PRD n's slices", 'Fixed in <slug>@<sha>: <one line>', '**asked**'])).toEqual([]);
+  });
+
+  it("rewrites the plan PR's target table and keeps the care line on every PR", () => {
+    const status = skillSection(read(), '4. The status comment').replace(/\s+/g, ' ');
+    expect(status).toContain('**every** pull request');
+    expect(status).toContain('PR care: watching since <ISO 8601> · last round <ISO 8601>');
+    expect(status).toContain('**Target pull requests, in merge order**');
+    expect(status).toContain('<slug>#<n> — <state>, CI <green | red | running | waits on <slug>#<pr>>');
+    expect(status).toMatch(/--edit-last/);
+  });
+
+  it('runs nothing in a target but its committed preflight, and never merges, marks ready or creates a label there', () => {
+    const text = read();
+    expect(text).toContain('**Code runs only from a target\'s own config.**');
+    const guardrails = skillSection(text, 'Guardrails');
+    expect(guardrails).toMatch(/Never merge/);
+    expect(guardrails).toMatch(/never mark a pull request ready/);
+    expect(guardrails).toMatch(/Never add `labels\.outboxGo`/);
+    expect(guardrails).toMatch(/Never create a label in a target/);
+    expect(guardrails).toMatch(/other than its own committed preflight/);
+    expect(text).not.toMatch(/\bgh pr merge\b/);
+    expect(text).not.toMatch(/\bgh pr ready\b/);
+  });
+});
+
+// PRD 1118: `/omni:mega-bug-fix` follows `/omni:bug-fix` step for step from a plan repository: the
+// issue, triage and fix plan there, one fix PR per target in merge order, provider first, each saying
+// `Part of` and never closing the issue, and one record PR that closes it, merged last.
+describe('the mega-bug-fix skill in this repository', () => {
+  const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/mega-bug-fix/SKILL.md'), 'utf8');
+  /** Each mention `text` lacks after the one before it, as `<mention> after <previous>`. */
+  const orderGaps = (text: string, mentions: string[]) => {
+    const out: string[] = [];
+    let from = 0;
+    mentions.forEach((mention: string, index: number) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+      else from = at + mention.length;
+    });
+    return out;
+  };
+  /** The text from heading `from` to heading `to`: its fenced records hold `##` lines of their own. */
+  const between = (text: string, from: string, to: string) => text.slice(text.indexOf(`\n${from}`), text.indexOf(`\n${to}`));
+
+  it('is named mega-bug-fix, triggers on its slash command, and follows /omni:bug-fix step for step', () => {
+    const text = read();
+    const { name, description } = frontmatter(text) ?? {};
+    expect(name).toBe('mega-bug-fix');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:mega-bug-fix"/);
+    expect(text).toContain('It follows `/omni:bug-fix` **step for step**');
+    expect(orderGaps(text, ['## Step 0', '## 1. Issue', '## 2. Classify', '## 3. Triage', '## 4. Locate',
+      '## 5. The fix plan', '## 6. The boundary', '## 7. Each target', '## 8. The record',
+      '## 9. Ship the record', '## 10. Hand off', '## Never'])).toEqual([]);
+  });
+
+  it('refuses outside a plan repository with the one line naming /omni:bug-fix', () => {
+    const step = skillSection(read(), 'Step 0');
+    expect(orderGaps(step, ['omni.mjs config', '`plan` section', 'not a plan repository: /omni:bug-fix', 'kb show briefing'])).toEqual([]);
+    expect(lastFencedLine(step)).toBe('not a plan repository: /omni:bug-fix');
+  });
+
+  it('links the issue to a PRD with For PRD #<prd>, and names the repositories in the triage', () => {
+    const text = read();
+    expect(skillSection(text, '1. Issue')).toContain('For PRD #<prd>');
+    expect(skillSection(text, '3. Triage')).toContain('- **Repositories:** <name>, <name>');
+    expect(skillSection(text, '4. Locate')).toContain('<worktrees>/targets/<name>');
+  });
+
+  it('posts the fix plan under its marker, a table in merge order, provider first', () => {
+    const plan = between(read(), '## 5. The fix plan', '## 6. The boundary');
+    expect(orderGaps(plan, ['<!-- omni-bug:fix-plan -->', '| order | repository | pull request | what changes |',
+      '**the provider first**'])).toEqual([]);
+  });
+
+  it("allows a contract change only when today's consumer keeps working, else the /omni:mega-brainstorm line", () => {
+    const boundary = skillSection(read(), '6. The boundary').replace(/\s+/g, ' ');
+    expect(boundary).toContain('keeps the consumer working as it is on its default branch today');
+    expect(lastFencedLine(skillSection(read(), '6. The boundary'))).toBe("/omni:mega-brainstorm <the issue's line>");
+  });
+
+  it('proves red in each target before the fix, and opens a Part of PR, never Closes, with Merge after', () => {
+    const target = skillSection(read(), '7. Each target');
+    expect(orderGaps(target, ['**Prove red**', 'preflight', '**Without a preflight,**', 'failing CI run', '**before** the fix'])).toEqual([]);
+    expect(target).toContain('Mutation: not run in a target');
+    expect(target).toContain('Part of <plan slug>#<n>');
+    expect(target).toContain('Merge after <slug>#<pr>');
+    expect(target).toContain('**never a closing keyword**');
+    expect(target).not.toMatch(/\b(Closes|Fixes|Resolves) #/);
+  });
+
+  it('records the fix with a Fixes table, proven by omni bug, in a record PR that closes the issue last', () => {
+    const text = read();
+    const record = between(text, '## 8. The record', '## 9. Ship the record');
+    expect(orderGaps(record, ['## Fixes', '| order | repository | pull request | what changes |', '## Reproduction',
+      '- **<provider name>:**', '## Guard', '- **<provider name>:**'])).toEqual([]);
+    const ship = skillSection(text, '9. Ship the record');
+    expect(orderGaps(ship, ['omni.mjs bug <n>', '/omni:dossier-push <n> --kind bug', 'Closes #<n>', 'merges last'])).toEqual([]);
+    expect(ship).toContain('Merge after <slug>#<pr>');
+  });
+
+  it('is all or nothing across targets, and never merges', () => {
+    const text = read();
+    expect(text).toContain('**All or nothing across targets.**');
+    expect(text).toContain("**Code runs only from a target's own config.**");
+    const never = skillSection(text, 'Never');
+    expect(never).toMatch(/Never merge/);
+    expect(never).toMatch(/Never create a label in a target/);
+    expect(text).not.toMatch(/\bgh pr merge\b/);
   });
 });
 

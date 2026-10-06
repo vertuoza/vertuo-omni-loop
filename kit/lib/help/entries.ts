@@ -123,13 +123,16 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'skills',
     usage: [
       'omni care state <prd> [--pr <n>] [--repo <owner/name>]',
+      'omni care list <prd> [--json]',
       'omni care reply --verdict <v> --body <text> [--thread <id>]',
       'omni care reply --verdict <v> --file <path> [--thread <id>]',
     ],
     summary: "PRD n's feature PR as PR care sees it, and its marked replies",
     detail:
       "state prints PRD n's feature PR as one document: its checks, whether it conflicts, each review " +
-      'thread with its verdict, whether a wave holds claims, and the next actions of a round. reply ' +
+      'thread with its verdict, whether a wave holds claims, and the next actions of a round; with ' +
+      "--repo and --pr, in a plan repository, a target's PR read against that target. list, in a plan " +
+      'repository, names every pull request /omni:mega-pr-care looks after, in merge order. reply ' +
       'writes a reply ending with the care marker; with --thread it posts it and resolves the thread ' +
       'unless the verdict is asked. Needs gh logged in.',
   },
@@ -804,6 +807,47 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:ultra-yolo 600',
       result: 'a feature PR ready in each target, then the plan PR ready last, or a draft with the outbox questions',
+    },
+  },
+  {
+    name: 'mega-pr-care',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-pr-care <n>'],
+    label: '/omni:mega-pr-care <n>',
+    summary: 'look after every PR of a PRD across repositories',
+    detail:
+      'The /omni:pr-care of a plan repository: looks after the plan PR, every target and landing PR ' +
+      'and every bug-fix PR linked to PRD n, round by round in merge order, until each is merged or ' +
+      "closed or you stop it. Each target PR is read against the target's own default branch, " +
+      "landings, wave claims and review form; a red that waits on another repository's PR spends " +
+      'no attempt. In a target it runs only its own committed preflight, and it never merges.',
+    group: 'multi-repo',
+    when: "Use it when a multi-repository PRD's pull requests are open and you want CI, conflicts and review comments handled in every repository.",
+    example: {
+      type: '/omni:mega-pr-care 1200',
+      result: 'every target PR and the plan PR kept green, each review comment handled',
+    },
+  },
+  {
+    name: 'mega-bug-fix',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-bug-fix <line or n> [--prd <prd>]'],
+    label: '/omni:mega-bug-fix',
+    summary: 'a bug across repositories, to one PR per target',
+    detail:
+      'The /omni:bug-fix of a plan repository, for a bug that shows in one target while its cause ' +
+      'sits in another: the issue, its triage and a fix plan stay in the plan repository, provider ' +
+      'first. Each target gets one fix PR into its default branch, red proven by its own preflight ' +
+      'or its CI before the fix, saying which PR to merge first; a record PR closes the issue and is ' +
+      'merged last. --prd <n> links it to a PRD, so /omni:mega-pr-care looks after its PRs. A change ' +
+      "that would break today's consumer stops it, with the /omni:mega-brainstorm line. It never merges.",
+    group: 'multi-repo',
+    when: 'Use it when a bug shows in one target repository and its cause may sit in another.',
+    example: {
+      type: '/omni:mega-bug-fix the total is wrong on the invoice screen',
+      result: 'one bug issue with a fix plan, one fix PR per target in merge order, and a record PR',
     },
   },
   {
