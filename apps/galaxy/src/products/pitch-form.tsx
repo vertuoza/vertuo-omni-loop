@@ -227,7 +227,7 @@ function musicText(music: PitchSettings['music']): string {
 }
 
 /** Every value of the settings, as label and text, in the order the editor shows them. */
-export function pitchSummary(pitch: PitchSettings): [string, string][] {
+function pitchSummary(pitch: PitchSettings): [string, string][] {
   const { look } = pitch;
   return [
     ['Preset', lookLabel(look.preset)],
