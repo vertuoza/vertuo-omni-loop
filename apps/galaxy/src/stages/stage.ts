@@ -8,6 +8,8 @@
 // and before that lights nothing and reads Brainstorming. A numbered PRD with no row yet reads Syncing….
 // A PRD at building whose feature PR carries open outbox items (the red yolo gate) shows a badge,
 // N questions waiting, linking to where they are answered.
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export type StageId = 'idea' | 'prd' | 'inbox' | 'building' | 'outbox' | 'shipped' | 'retro';
 
@@ -18,8 +20,8 @@ export const STAGES: readonly StageId[] = ['idea', 'prd', 'inbox', 'building', '
 export type StoredStage = Exclude<StageId, 'idea'>;
 export const STORED_STAGES: readonly StoredStage[] = ['prd', 'inbox', 'building', 'outbox', 'shipped', 'retro'];
 
-export const isStoredStage = (value: unknown): value is StoredStage => STORED_STAGES.includes(value as StoredStage);
-export const isStage = (value: unknown): value is StageId => STAGES.includes(value as StageId);
+export const isStoredStage = (value: unknown): value is StoredStage => isOneOf(STORED_STAGES, value);
+export const isStage = (value: unknown): value is StageId => isOneOf(STAGES, value);
 
 export const STAGE_LABELS: Readonly<Record<StageId, string>> = {
   idea: 'idea', prd: 'PRD', inbox: 'inbox', building: 'building', outbox: 'outbox', shipped: 'shipped', retro: 'retro',
@@ -53,9 +55,10 @@ const SYNCING = 'Syncing…';
 
 /** The latest stage on the track among `rows`; null when there is none. */
 export function currentStage(rows: readonly Pick<StageRow, 'stage'>[]): StoredStage | null {
-  let at = -1;
-  for (const { stage } of rows) at = Math.max(at, STORED_STAGES.indexOf(stage));
-  return at === -1 ? null : STORED_STAGES[at];
+  const rank = (stage: StoredStage | null) => (stage === null ? -1 : STORED_STAGES.indexOf(stage));
+  let current: StoredStage | null = null;
+  for (const { stage } of rows) if (rank(stage) > rank(current)) current = stage;
+  return current;
 }
 
 function trackOf(current: StageId | null): TrackStop[] {
@@ -67,7 +70,7 @@ function trackOf(current: StageId | null): TrackStop[] {
 
 export type StageInput = {
   /** The PRD's number; null for a draft. */
-  prd: number | null;
+  prd: PrdNumber | null;
   /** A draft only: whether any of its questions was answered. */
   answered?: boolean;
   rows: readonly StageRow[];

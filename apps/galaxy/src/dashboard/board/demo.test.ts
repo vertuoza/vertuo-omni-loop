@@ -2,6 +2,7 @@ import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { describe, expect, it } from 'vitest';
 import { demoBoard, demoRoster, DEMO_VIEWER } from './demo';
 import type { PersonRow } from './tally';
+import { sure } from '../../arcade/test/sure';
 
 // The board in the demo (PRD 572): every part shows, with members at 0 among them.
 
@@ -16,10 +17,21 @@ describe('the demo board', () => {
     expect(roster.filter((m) => !galaxy.heroes.some((h) => h.name.toLowerCase() === m.login)).map((m) => m.fleet)).toEqual(['builders', null]);
   });
 
+  // Bug 864: a season is a calendar month, so on its first morning the demo's you has no point in it
+  // yet and is no hero; the demo's you is still a member, whatever the day.
+  it('keeps you on the roster, solo, on a season\'s first morning, before you score in it', () => {
+    for (const at of ['2026-10-01T00:30:00Z', '2026-10-01T08:00:00Z', '2026-11-01T06:00:00Z', '2027-01-01T09:00:00Z']) {
+      const now = new Date(at);
+      const roster = demoRoster(buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' }));
+      expect(roster.filter((m) => m.login === DEMO_VIEWER.login), at).toEqual([expect.objectContaining({ userId: DEMO_VIEWER.userId, fleet: null })]);
+    }
+  });
+
   for (const period of ['7d', '30d', 'season'] as const) {
     it(`shows every part of the workspace's board over ${period}`, () => {
       const board = demoBoard(galaxy, { scope: { kind: 'workspace' }, people: { kind: 'workspace' }, period, now: NOW });
-      for (const value of [board.merges, board.prdEvents, board.repositories, board.people, board.fleets, ...Object.values(board.tiles)]) {
+      const tiles: Record<string, unknown> = { ...board.tiles };
+      for (const value of [board.merges, board.prdEvents, board.repositories, board.people, board.fleets, ...Object.values(tiles)]) {
         expect(value).not.toBe('unreadable');
       }
       expect(board.tiles.prs).toBeGreaterThan(0);
@@ -27,7 +39,7 @@ describe('the demo board', () => {
       expect((board.repositories as unknown[]).length).toBeGreaterThan(1);
       const people = board.people as PersonRow[];
       expect(people.find((p) => p.login === 'paul-e')).toMatchObject({ points: 0, answered: 9 });
-      expect((people.find((p) => p.login === 'paul-e')!.prs as number)).toBeGreaterThan(0);
+      expect((sure(people.find((p) => p.login === 'paul-e'), 'the item found').prs as number)).toBeGreaterThan(0);
       expect(people.find((p) => p.login === 'new-hire')).toMatchObject({ points: 0, prs: 0, answered: 0, fleet: 'solo' });
       expect(people.filter((p) => p.you).map((p) => p.login)).toEqual([DEMO_VIEWER.login]);
     });

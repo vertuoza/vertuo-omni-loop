@@ -60,13 +60,6 @@
 /* ── The header: the crest, OMNI LOOP, the workspace ─────────────────────── */
 
 .app-sidebar-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; }
-.ask a.app-sidebar-crest {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-}
-.app-sidebar-logo { display: inline-flex; line-height: 0; }
 .app-sidebar-workspace {
   grid-column: 1 / -1;
   margin: 0;
@@ -176,7 +169,7 @@
   .app-shell[data-menu='rail'] > .app-sidebar { gap: 12px; padding: 12px 8px; }
 
   .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-head { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 10px; }
-  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-logo svg { width: 28px; height: auto; image-rendering: pixelated; }
+  .app-shell[data-menu='rail'] > .app-sidebar .brand-logo-crest svg { width: 28px; height: auto; image-rendering: pixelated; }
 
   /* The names, the group titles and OMNI LOOP: not drawn, still said. */
   .app-shell[data-menu='rail'] > .app-sidebar .ask-mark,

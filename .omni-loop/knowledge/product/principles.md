@@ -412,3 +412,125 @@ Why: A pick screen with nothing to pick is a dead end, and a fleet is optional, 
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
 Merged: @pierrederval, 2026-09-28, PR #403
 Proposed: harvest 2026-09-28
+
+## P-PRODUCT-47
+
+A count on the dashboard always agrees with the list it summarises, and each question counts once, however many ways it reaches a person.
+
+Why: A tile that disagrees with the list beside it, or counts one question twice, misleads a person about how much is waiting.
+Source: .omni-loop/delivery/shipped/0657-snappy-pages/outbox/settled.md, entry s2-02-waiting-count-from-the-shared-list, PRD #657
+Merged: @pierrederval, 2026-09-29, PR #664
+
+## P-PRODUCT-48
+
+The app never offers a link that leads only to a page with nothing to show.
+
+Why: A click that ends on an empty 'not in this workspace' page wastes the person's time and reads as a broken link.
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s1-01-chip-links-members-only, PRD #698
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## P-PRODUCT-49
+
+A count that is a link opens exactly the items it counted, never a wider or different set.
+
+Why: A person who follows a number should see what that number described, so the count and the list never tell different stories.
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s3-02-profile-stage-links, PRD #698
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## P-PRODUCT-50
+
+Narrowing a list to a person means the same thing whoever that person is, you included.
+
+Why: A filter that changes meaning with the person chosen would make the same list tell different stories about the same work.
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s4-01-prd-opener-rule, PRD #698
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## P-PRODUCT-51
+
+A person's profile shows the work that actually moved in the chosen period, not only the work begun in it.
+
+Why: Long-running work that moves this week is part of the person's recent contribution, and it matches how the lists already sort by latest activity.
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-01-profile-work-period-by-activity, PRD #698
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## P-PRODUCT-52
+
+A view about one workspace shows only that workspace's work; anything spanning more workspaces is reached deliberately.
+
+Why: So a workspace's profile stays consistent with its board and never mixes in work from other workspaces unasked.
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-02-profile-work-one-workspace, PRD #698
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## P-PRODUCT-53
+
+In the arcade games, play never resumes on its own after a setback; the player always chooses when to go again.
+
+Why: A player who just lost a life should never be thrown back into play before they are ready.
+Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s2-01-ready-screen-after-a-life-lost, PRD #817
+Merged: @pierrederval, 2026-09-30, PR #818
+Proposed: harvest 2026-09-30
+
+## P-PRODUCT-54
+
+In the arcade games, a run never ends by a route that loses its score; every way a game can end saves the score reached.
+
+Why: A player should never lose a score they earned because of the route they took out of a game.
+Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s3-01-stage-clear-goes-on, PRD #817
+Merged: @pierrederval, 2026-09-30, PR #818
+
+## P-PRODUCT-55
+
+Jev never appears switched on when it cannot run; its on state and every decision follow from whether a key is actually stored.
+
+Why: A separate switch could show Jev or a decision as on with no key behind it, telling owners and members something that is not true.
+Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s1-02-jev-on-means-key-stored, PRD #812
+Merged: @pierrederval, 2026-09-30, PR #814
+Proposed: harvest 2026-09-30
+
+## P-PRODUCT-56
+
+A call that produced no answer is never scored as agreement or disagreement; it is left out of the comparison, not counted against either side.
+
+Why: Counting failures as disagreements would make the agreement rate measure outages rather than judgement, misleading anyone comparing Jev with the old way.
+Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s4-01-agreement-counts-only-answered-calls, PRD #812
+Merged: @pierrederval, 2026-09-30, PR #814
+
+## P-PRODUCT-57
+
+A repository's spec is always judged against one workspace's business, chosen the same way every time.
+
+Why: Mixing or switching between workspaces' claims would make the check's verdict unpredictable and unfair to the repository's owners.
+Source: .omni-loop/delivery/shipped/0839-canon-check/outbox/settled.md, entry s1-01-app-read-workspace-choice, PRD #839
+Merged: @pierrederval, 2026-09-30, PR #840
+Proposed: harvest 2026-09-30
+
+## P-PRODUCT-58
+
+An agent's link never reaches further than the member's own read would; it grants no access the person does not already have.
+
+Why: So handing a link to an agent never widens what the workspace exposes, and the link and the member always see the same repositories.
+Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-01-token-repo-scope, PRD #855
+Merged: @pierrederval, 2026-10-01, PR #856
+
+## P-PRODUCT-59
+
+Each product owns its own Statement and Never list, and another product's lines never shift or claim its numbers.
+
+Why: People cite Never lines by number, so numbering must stay local to a product and stable once cited.
+Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s1-02-statement-shape-and-never-numbers, PRD #871
+Merged: @pierrederval, 2026-10-01, PR #874
+Proposed: harvest 2026-10-01
+
+## P-PRODUCT-60
+
+A check turns red only on a finding it can show. A model's judgement may confirm or clear that finding, but never raises one on its own.
+
+Why: Every red can then be checked by a person against quoted text, rather than taken on a model's word.
+Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s5-02-jev-broken-without-quote-is-not-red, PRD #871
+Merged: @pierrederval, 2026-10-01, PR #874
+Proposed: harvest 2026-10-01

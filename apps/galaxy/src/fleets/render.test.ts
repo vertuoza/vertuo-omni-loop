@@ -7,6 +7,7 @@ import { FleetsScreen, type FleetsScreenView } from './FleetsScreen';
 import { FleetsView, ONLY_OWNER } from './FleetsView';
 import { fleetsReducer, initialState, type FleetsAction, type FleetsState } from './model';
 import { MASCOTS } from './store';
+import { sure } from '../arcade/test/sure';
 
 // /app/settings/fleets as the server renders it (PRD 400 s3): the owner's view (New fleet, the form with its
 // live preview, Edit, Retire confirmed on the page, the retired fleets under a fold with Restore), a
@@ -22,7 +23,7 @@ const OLD = fleet('old', { label: 'OLD GUARD', retired: true, sort: 5 });
 const state = (...actions: FleetsAction[]): FleetsState => actions.reduce(fleetsReducer, initialState([BEAVER, OCTOPOD, OLD]));
 const render = (s: FleetsState, owner = true) => renderToStaticMarkup(createElement(FleetsView, { state: s, owner, mascots: MASCOTS }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const buttons = (html: string) => [...html.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)].map((m) => text(m[1]));
+const buttons = (html: string) => [...html.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)].map((m) => text(sure(m[1], 'group 1')));
 /** The markup of one field of the form: its label, its input and what is said about it. */
 const field = (html: string, name: string) => {
   const from = html.indexOf(`data-field="${name}"`);

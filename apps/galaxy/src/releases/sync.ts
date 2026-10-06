@@ -13,10 +13,11 @@
 //    description (the repository reading, sync-shipped.ts, hands it over that way).
 // 6. Nothing is ever deleted: a plan holds inserts and updates, and nothing else.
 import { INITIAL_RELEASE, type ReleaseRow } from './row.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** A PRD the repository has shipped, as the sync reads it. */
 export type ShippedPrd = {
-  prd: number;
+  prd: PrdNumber;
   /** When its shipped folder first reached main, ISO 8601. */
   releasedAt: string;
   /** Its note's title, or its spec's title when it has no note. */
@@ -32,7 +33,7 @@ export type ReleaseText = Pick<ReleaseRow, 'prd' | 'title' | 'description'>;
 /** What one sync writes: new rows, and new texts for rows already there. Never a deletion. */
 export type SyncPlan = { inserts: ReleaseRow[]; updates: ReleaseText[] };
 
-const byPrd = (a: { prd: number }, b: { prd: number }) => a.prd - b.prd;
+const byPrd = (a: { prd: PrdNumber }, b: { prd: PrdNumber }) => a.prd - b.prd;
 const firstOnMain = (a: ShippedPrd, b: ShippedPrd) => Date.parse(a.releasedAt) - Date.parse(b.releasedAt) || a.prd - b.prd;
 
 const toRow = (prd: ShippedPrd, release: number): ReleaseRow => ({

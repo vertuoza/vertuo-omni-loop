@@ -1,8 +1,10 @@
 import { faceOf, type Face } from '../../people/face';
 import { SOLO, type FleetTag } from '../../people/types';
-import { STAGES, type StageId, type StoredStage } from '../../stages/stage';
+import type { StageId, StoredStage } from '../../stages/stage';
 import { UNREADABLE, type Read } from '../part';
 import { brusselsDay, type PeriodWindow } from './period';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The board's numbers (PRD 572), in pure functions over what the loader read: the workspace's roster
 // (workspace_roster), its `contributions` over the period, the answered counts per member
@@ -117,8 +119,11 @@ export type EventDay = { date: string } & Events;
 
 export function mergesPerDay(rows: readonly DayActivity[], days: readonly string[]): ChartDay[] {
   const counts = new Map(days.map((d) => [d, 0]));
-  for (const r of rows) if (r.kind === MERGED && counts.has(r.day)) counts.set(r.day, counts.get(r.day)! + 1);
-  return days.map((date) => ({ date, count: counts.get(date)! }));
+  for (const r of rows) {
+    const count = counts.get(r.day);
+    if (r.kind === MERGED && count !== undefined) counts.set(r.day, count + 1);
+  }
+  return days.map((date) => ({ date, count: defined(counts.get(date), `the merges of ${date}`) }));
 }
 
 export function prdEventsPerDay(rows: readonly DayActivity[], days: readonly string[]): EventDay[] {
@@ -128,7 +133,7 @@ export function prdEventsPerDay(rows: readonly DayActivity[], days: readonly str
     const day = byDay.get(r.day);
     if (event && day) day[event] += 1;
   }
-  return days.map((date) => ({ date, ...byDay.get(date)! }));
+  return days.map((date) => ({ date, ...defined(byDay.get(date), `the PRD events of ${date}`) }));
 }
 
 export function eventCounts(rows: readonly Activity[]): Events {
@@ -153,12 +158,12 @@ export interface PrdNow {
 
 /** What PRDs now are made of: the stored current stages, the prd-opened rows and the dossiers. */
 export interface PrdsInput {
-  stages: readonly { repository: string; prd: number; stage: StoredStage }[];
+  stages: readonly { repository: string; prd: PrdNumber; stage: StoredStage }[];
   openers: readonly Pick<Activity, 'repo' | 'number' | 'login'>[];
-  dossiers: readonly { home_repo: string; prd: number | null; opened_by: string | null; answered: number }[];
+  dossiers: readonly { home_repo: string; prd: PrdNumber | null; opened_by: string | null; answered: number }[];
 }
 
-const repoName = (repository: string) => repository.toLowerCase().split('/').pop()!;
+const repoName = (repository: string) => at(repository.toLowerCase().split('/'), -1, `the name of ${repository}`);
 
 /** Each stored PRD at its current stage with who opened it, then each draft with an answered question
  * at idea. A prd-opened row names the repository as the workspace's sectors do (its name, no owner). */
@@ -183,8 +188,16 @@ export function openedBy(circle: Circle, prd: PrdNow): boolean {
 /** How many PRDs sit at each of the seven stages now, in track order. */
 export type StageTally = Record<StageId, number>;
 
+/** One value for each of the seven stages, in track order: a record the compiler holds to every stage. */
+export function perStage<T>(value: (stage: StageId) => T): Record<StageId, T> {
+  return {
+    idea: value('idea'), prd: value('prd'), inbox: value('inbox'), building: value('building'),
+    outbox: value('outbox'), shipped: value('shipped'), retro: value('retro'),
+  };
+}
+
 export function stageTally(prds: readonly PrdNow[]): StageTally {
-  const tally = Object.fromEntries(STAGES.map((s) => [s, 0])) as StageTally;
+  const tally = perStage(() => 0);
   for (const p of prds) tally[p.stage] += 1;
   return tally;
 }
@@ -273,7 +286,7 @@ export interface PeopleInput {
   prds: Read<readonly PrdNow[]>;
 }
 
-const rank = (n: PersonRow['prs'] | PersonRow['points']) => (typeof n === 'number' ? n : -1);
+const rank = (n: PersonRow['prs']) => (typeof n === 'number' ? n : -1);
 
 const nameOf = (m: Member) => m.name?.trim() || m.login || 'A member';
 
@@ -315,7 +328,7 @@ export function peopleRows(members: readonly Member[], input: PeopleInput, viewe
       avatarUrl: m.avatarUrl,
       face: faceOf({ name, login, avatarUrl: m.avatarUrl, hero: m.hero, color: fleet === SOLO ? null : fleet.color }),
       fleet,
-      points: byGithub(input.heroes === UNREADABLE, () => points.get(login!) ?? 0),
+      points: byGithub(input.heroes === UNREADABLE, () => points.get(defined(login, "the member's login")) ?? 0),
       prs: byGithub(input.activity === UNREADABLE, () => mine.filter((r) => r.kind === MERGED).length),
       prds: prdsOfMember(input.prds, login, m.userId),
       answered: answeredOf(input.answered, m.userId),

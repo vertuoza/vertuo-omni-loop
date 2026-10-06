@@ -153,6 +153,8 @@
   font-size: 13px;
 }
 .stage-links li + li::before { content: '·'; color: var(--ask-muted); margin-right: 12px; }
+/* When GitHub was last read, under the links (PRD 902, s2), and when it resumes while paused. */
+.github-as-of { margin: 4px 0 0; font-size: 12px; }
 /* The open feature PR's health chip (PRD 790, s2): green-edged when all is well, red on CI red or a
    conflict, grey while CI runs. */
 .care-chip {

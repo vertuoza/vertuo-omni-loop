@@ -23,13 +23,13 @@ function fakeClient(claims: Record<string, unknown> | null = CLAIMS) {
   const calls = { getClaims: 0, getUser: 0, workspaces: 0 };
   const client = {
     auth: {
-      async getClaims() {
+      getClaims() {
         calls.getClaims += 1;
-        return { data: claims ? { claims } : null, error: null };
+        return Promise.resolve({ data: claims ? { claims } : null, error: null });
       },
-      async getUser() {
+      getUser() {
         calls.getUser += 1;
-        return { data: { user: null }, error: null };
+        return Promise.resolve({ data: { user: null }, error: null });
       },
     },
     from(table: string) {
@@ -37,7 +37,7 @@ function fakeClient(claims: Record<string, unknown> | null = CLAIMS) {
       calls.workspaces += 1;
       return {
         select: () => ({
-          eq: async () => ({
+          eq: () => Promise.resolve({
             data: [{ joined_at: '2026-09-01T00:00:00Z', workspace: { id: 'w-1', slug: 'acme', name: 'Acme', theme: {} } }],
             error: null,
           }),
@@ -57,13 +57,13 @@ const perRequest = <T,>(read: () => T) => {
 const deps = (over: Partial<Deps> = {}) => {
   const { client, calls } = fakeClient();
   let clients = 0;
-  const questions = vi.fn(async () => []);
+  const questions = vi.fn(() => Promise.resolve([]));
   const d: Deps = {
     mode: () => 'supabase',
     env: () => ENV,
-    client: async () => {
+    client: () => {
       clients += 1;
-      return client as never;
+      return Promise.resolve(client as never);
     },
     questions,
     now: () => 1_000,
@@ -108,12 +108,12 @@ describe('viewer()', () => {
 
   it('is signed out when the claims are absent, or cannot be read', async () => {
     const empty = fakeClient(null);
-    expect(await readViewing(deps({ client: async () => empty.client as never }).d)).toMatchObject({ kind: 'sign-in', env: ENV });
-    const failing = { auth: { getClaims: async () => ({ data: null, error: new Error('bad jwt') }) } };
-    expect(await readViewing(deps({ client: async () => failing as never }).d)).toMatchObject({ kind: 'sign-in' });
-    const throwing = { auth: { getClaims: async () => { throw new Error('down'); } } };
+    expect(await readViewing(deps({ client: () => Promise.resolve(empty.client as never) }).d)).toMatchObject({ kind: 'sign-in', env: ENV });
+    const failing = { auth: { getClaims: () => Promise.resolve({ data: null, error: new Error('bad jwt') }) } };
+    expect(await readViewing(deps({ client: () => Promise.resolve(failing as never) }).d)).toMatchObject({ kind: 'sign-in' });
+    const throwing = { auth: { getClaims: () => Promise.reject(new Error('down')) } };
     vi.spyOn(console, 'error').mockImplementationOnce(() => {});
-    expect(await readViewing(deps({ client: async () => throwing as never }).d)).toMatchObject({ kind: 'sign-in' });
+    expect(await readViewing(deps({ client: () => Promise.resolve(throwing as never) }).d)).toMatchObject({ kind: 'sign-in' });
   });
 });
 

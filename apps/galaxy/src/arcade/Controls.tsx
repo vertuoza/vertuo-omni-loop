@@ -22,7 +22,9 @@ type Fire = (action: Action) => void;
 
 /** A 10 ms buzz where the browser offers one; iPhone Safari has none, and stays silent. */
 function buzz() {
-  try { navigator.vibrate?.(10); } catch { /* not offered */ }
+  // The DOM types promise vibrate on every navigator; Safari's has none.
+  const device: { vibrate?: (pattern: number) => boolean } = navigator;
+  try { device.vibrate?.(10); } catch { /* not offered */ }
 }
 
 // A pointer press fires on the way down, and the click the browser sends after it must not fire
@@ -65,9 +67,9 @@ function useButton(action: Action, onAction: Fire, held: HeldFingers | null = nu
   const fire = useRef(onAction);
   fire.current = onAction;
   const finger = held
-    ? { down: (id: number) => held.fingerDown(id, action), up: (id: number) => held.fingerUp(id), cancel: (id: number) => held.fingerCancel(id) }
+    ? { down: (id: number) => { held.fingerDown(id, action); }, up: (id: number) => { held.fingerUp(id); }, cancel: (id: number) => { held.fingerCancel(id); } }
     : undefined;
-  return usePress(() => fire.current(action), finger);
+  return usePress(() => { fire.current(action); }, finger);
 }
 
 export function FaceButton({ action, onAction }: { action: 'a' | 'b'; onAction: Fire }) {
@@ -97,7 +99,7 @@ export function Pill({ action, onAction }: { action: 'select' | 'start'; onActio
 export function Grille({ muted, onToggle }: { muted: boolean; onToggle: () => void }) {
   const toggle = useRef(onToggle);
   toggle.current = onToggle;
-  const press = usePress(() => toggle.current());
+  const press = usePress(() => { toggle.current(); });
   return (
     <button type="button" className="gb-grille" aria-label="Sound" aria-pressed={!muted} {...press}>
       <span className="gb-slots" aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
@@ -115,7 +117,7 @@ export function Grille({ muted, onToggle }: { muted: boolean; onToggle: () => vo
 export function AppSwitch({ leaving, onApp }: { leaving: boolean; onApp: () => void }) {
   const ask = useRef(onApp);
   ask.current = onApp;
-  const press = usePress(() => ask.current());
+  const press = usePress(() => { ask.current(); });
   return (
     <button type="button" className="gb-switch" aria-label="Switch to the app" data-side={leaving ? 'app' : 'game'} {...press}>
       <span className="gb-switch-word" aria-hidden="true">GAME</span>
@@ -144,7 +146,7 @@ export function DPad({ onAction }: { onAction: Fire }) {
   const held = useContext(HeldPad);
   const heldRef = useRef(held);
   heldRef.current = held;
-  const repeat = useMemo(() => holdToRepeat((a) => fire.current(a)), []);
+  const repeat = useMemo(() => holdToRepeat((a) => { fire.current(a); }), []);
   const cross = useRef<HTMLDivElement>(null);
   const finger = useRef<number | null>(null);
   const aimed = useRef<Direction | null>(null);

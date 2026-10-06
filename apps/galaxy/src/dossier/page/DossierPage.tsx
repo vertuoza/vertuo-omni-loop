@@ -49,6 +49,8 @@ import { VoicePane } from './VoicePane';
 // PRD 652: "opened by" draws the opener's face (PersonChip) before their name; the words are unchanged.
 // PRD 822: a PRD's User voice tab, after Plan, draws the shown version of its voice.json (VoicePane.tsx)
 // under its version picker; with none, it says so in the spec's words.
+// PRD 902, s2: a PRD's On GitHub cell says when GitHub was last read (`GitHub as of 09:15 UTC`), and
+// while the installation's budget is paused, when GitHub resumes.
 
 type Props = {
   view: DossierView;
@@ -59,7 +61,7 @@ type Props = {
   /** The change check (PRD 384), shown below the tabs; none in the demo. */
   live?: ReactNode;
   /** The shown version of the User voice, read (PRD 822); null off that tab, or when it could not be read. */
-  voice?: VoiceView | null;
+  voice?: VoiceView | null | undefined;
 };
 
 const EMPTY: Record<ArtifactKind, string> = {
@@ -190,10 +192,17 @@ export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
               <dd><StageLinks links={fix.links} /></dd>
             </div>
           )}
-          {stage && stage.links.length > 0 && (
+          {stage && (stage.links.length > 0 || view.githubAsOf) && (
             <div className="dossier-fact">
               <dt>On GitHub</dt>
-              <dd><StageLinks links={stage.links} /></dd>
+              <dd>
+                {stage.links.length > 0 && <StageLinks links={stage.links} />}
+                {view.githubAsOf && (
+                  <p className="ask-hint github-as-of">
+                    {view.githubAsOf}{view.githubResumes && <> · <strong>{view.githubResumes}</strong></>}
+                  </p>
+                )}
+              </dd>
             </div>
           )}
           <div className="dossier-fact">

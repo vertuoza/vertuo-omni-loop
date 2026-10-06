@@ -26,7 +26,8 @@ describe('the /design route', () => {
   });
 
   it('is titled and coloured by the Omni Loop brand', () => {
-    expect(String(metadata.title)).toContain(OMNI_LOOP.name.toUpperCase());
+    expect(metadata.title).toBeTypeOf('string');
+    expect(typeof metadata.title === 'string' ? metadata.title : '').toContain(OMNI_LOOP.name.toUpperCase());
     expect(viewport.themeColor).toBe(OMNI_LOOP.themeColor);
   });
 });

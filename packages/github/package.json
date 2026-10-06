@@ -1,0 +1,16 @@
+{
+  "name": "@omni/github",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The budget-aware GitHub client every installation-token call of galaxy and omni-app goes through: shared ETags, one budget per installation, priorities and one pause for everyone.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}

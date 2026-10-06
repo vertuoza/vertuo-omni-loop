@@ -21,6 +21,19 @@ Each slice is built by its own subagent in its own worktree and ends in its own 
 feature branch. You, the orchestrator, only ever hold each slice's short result; that is what keeps
 this conversation small. You merge; subagents never do.
 
+**Flow points.** A repository may hook the loop at named points (the `flow` of its config). At the
+point this skill names, run `node .omni-loop/bin/omni.mjs flow show <point> --prd <prd> --slice <id>`
+and follow what it prints: every `before` hook, then the kit's step (or, when it prints
+`kitStep: replaced`, the `replace` hook in its place), then every `after` hook. A hook is Markdown
+to follow; an input it leaves as `{name}` is filled from this step. Following a hook ends on its
+verdict line (`omni-hook <point>: pass`, or `omni-hook <point>: fail <why>`): write what it produced,
+that line last, to a scratch file and run
+`node .omni-loop/bin/omni.mjs flow verdict <point> --from <file>`. `ok` carries on; `not ok` stops the
+point as a failing kit step would, and so does `flow show` exiting 1 (a hook file missing). A
+`replace` swaps the act, never the guard: signing, labels, link lines, the base check (never into
+the default branch), the territory check, the merge gate and `omni plan check` run whatever a hook
+says. With no `flow`, `flow show` prints `hooks none` and `kitStep: run`: the step runs as written.
+
 ## Input
 
 A PRD number. Re-running on the same PRD picks up where the last run stopped: the board is rebuilt
@@ -43,8 +56,18 @@ never overrides this skill's rules.
 `PRD <prd> spans repositories: /omni:ultra-yolo <prd> builds it`, before any branch, claim or
 dispatch.
 
-Find the feature PR: `gh pr list --head <feature branch> --base <repo.defaultBranch> --state open
---json number,body`. No feature branch or no feature PR: stop, and say to follow `/omni:plan` first.
+Find the feature PR by its head, whatever its base (it may be stacked on another PR's branch, as
+`/omni:pr` says): `gh pr list --head <feature branch> --state open --json number,body,baseRefName`.
+No feature branch or no feature PR: stop, and say to follow `/omni:plan` first.
+
+**A PRD of several landings.** When `node .omni-loop/bin/omni.mjs board <prd> --json` carries a
+`landings` array, the wave builds the **current landing** only, the one its `currentLanding` names:
+the lowest-numbered landing whose slices are not all merged. Throughout this skill, "the feature
+branch" is that landing's `branch`, and "the feature PR" is that landing's PR (its `pr.number`; find
+it with `gh pr list --head <landing branch> --state open --json number,body`, whatever its base).
+The board's frontier already holds that landing's slices and no other: a slice of a later landing
+is never claimed early, even when it reads `runnable`. `currentLanding` null means every landing's
+slices are merged: print the board and stop.
 
 ## 1. The board
 
@@ -118,7 +141,23 @@ sub-PR afresh; never trust an earlier look.
    with confidence goes to one fresh subagent, given both slices' intent.
 4. **Ready.** Still a draft: follow `/omni:pr`'s **sub-PR lifecycle** for it; that skill owns
    `gh pr ready` and runs it once the preflight is green. It never becomes ready: do not merge it.
-5. **Merge.** `gh pr merge <n> --squash --delete-branch`.
+5. **Merge, through the gate.** First the gate, the repository's `rules.subPr` for the slice's
+   areas (merge method, required checks, a person's approval, territory, open sub-PRs):
+
+   ```bash
+   node .omni-loop/bin/omni.mjs flow check merge --pr <n>
+   ```
+
+   - `ok`: its second line is the merge command. Each `report` line under it goes in the report.
+   - `not ok`: do not merge. Each `not ok` line is a reason (`<area>: <rule> — <why>`); the sub-PR
+     is left open as it is, with its reason, and the wave carries on (**Not merged**).
+
+   Then **point `wave.merge`:** run
+   `node .omni-loop/bin/omni.mjs flow show wave.merge --prd <prd> --slice <id>` and follow it
+   (**Flow points**). The kit's step is the merge command the gate printed, run as printed, never
+   one written from memory. A `replace` hook merges its own way, only after an `ok` gate, and its
+   verdict carries the merged PR's number. A `not ok` from a hook leaves the sub-PR open, as a
+   `not ok` gate does.
 
 **A red slice** gets one look first. Read `omni kb show ci` once: which checks exist and gate, the
 known reds, and when a re-run is allowed. When a `red` slice's failing step matches a known red
@@ -133,11 +172,13 @@ Any other `red` slice is not merged.
 | `red`, or `done` but never ready or still conflicting after `limits.attempts` attempts | stuck. Make sure it carries `labels.needsFix` in place of `labels.inProgress` and `/omni:pr`'s stuck comment. |
 | `stopped` | leave the draft. Report the law or principles it named. Its siblings still merge. |
 | `blocked` | leave the draft. Report its human-action item. |
+| `omni flow check merge` prints `not ok`, or a `wave.merge` hook does | leave it open, ready as it is. Report each reason. A later run takes it as awaiting merge and asks the gate again. |
 
 For every slice not merged, you do this, not the subagent, which has already returned: remove
 `labels.inProgress` and rewrite its status comment through `/omni:pr`'s marker recipe with state
 `stuck` and the reason (the red step, the law or principles, or the human-action item). A stuck
-slice keeps `labels.needsFix`. A stopped or blocked one waits for a person and gets no label.
+slice keeps `labels.needsFix`. A stopped or blocked one, or one the merge gate refused, waits for
+a person and gets no label.
 
 A slice that is not merged holds only what depends on it; the rest of the wave goes on.
 
@@ -188,7 +229,11 @@ sits beside a merged slice, never instead of it.
 
 ## Guardrails
 
-- Merge only into the feature branch, never into `repo.defaultBranch`. Check the base before every merge.
+- Merge only into the feature branch (the current landing's branch, for a PRD of several
+  landings), never into `repo.defaultBranch`, and never a landing PR. Check the base before every
+  merge.
+- Merge only with the command `omni flow check merge` prints, after its `ok`, or through a
+  `wave.merge` `replace` hook after that same `ok`. Never a merge command written by hand.
 - Subagents never merge. One slice per worktree, branch and sub-PR.
 - Claim before you dispatch; take the board's frontier as it is.
 - A question never takes the wave down: only `stopped` and `blocked` hold a slice, and only that one.

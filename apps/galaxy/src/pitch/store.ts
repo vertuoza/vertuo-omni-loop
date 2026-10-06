@@ -1,4 +1,4 @@
-// The pitches of a shipped PRD (PRD 859 s3, supabase/migrations/20261029100000_pitch_runs.sql): what
+// The pitches of a shipped PRD (PRD 859 s3, supabase/migrations/20261101100000_pitch_runs.sql): what
 // /omni:pitch made on the person's computer — one row per pitch in `pitch_runs`, its five files in the
 // private `pitches` bucket under `<dossier id>/<run id>/<name>`.
 //

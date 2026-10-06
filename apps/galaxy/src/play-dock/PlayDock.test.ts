@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.mjs';
+import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
 import type { DockView } from './dock';
 
 // Which of the game's modules a render has evaluated: the dock's page must pull in none of them

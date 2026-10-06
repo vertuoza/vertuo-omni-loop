@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-03",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Faster is good, but a check scoped to the change can let a break elsewhere through.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Measured first, then built: a scoped check command and sharded CI are real tooling, not fluff.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Agents that check in seconds and more agents per wave means my features land sooner.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "One command every agent and every developer uses the same way, and CI in half the time.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Nothing my customers see changes, but quicker loops should mean quicker fixes for them.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "A check that only looks at what changed is exactly how a break in a file nobody touched slips through. I want the full suite to stay the gate, not the shortcut.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:F-E Developer ✗ · offering#36 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-03",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The spec keeps the full preflight before ready and the full CI, and the shard union is tested. My worry is covered.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "tsgo only when it agrees exactly with tsc: careful, the way I'd adopt a preview tool.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "About 20 s per check instead of about 2 minutes, in numbers I can show.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "The playbook tells every agent the same loop. That's cohesion.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Still invisible to customers, but faster fixes reach them sooner.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · offering#36 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-03",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The full suite still gates ready, and a test proves the lint shards cover every file once. Scoped checks while iterating don't worry me now.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "tsgo landed only after it matched tsc error for error, with typecheck:tsc kept and a fix that uses no cast. That's how I'd take a preview compiler.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "A leaf change checks in about 14 s, and typecheck dropped from 10 s to 4 s. I can show those numbers.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "One command, and a playbook that tells every agent the same loop. The audit gap is closed too.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Customers see nothing new, though faster checks mean fixes reach them sooner.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · offering#36 ✓"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
-import { PERSONA_TRADES, personaVariations, randomAvatar, type PersonaAvatar } from '@omni/design';
+import { z } from 'zod';
+import { PERSONA_TRADES, personaVariations, randomAvatar, validPersonaAvatar, type PersonaAvatar } from '@omni/design';
 import { hasProducts, type Product } from './model';
+import { at, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings → Business → Personas (PRD 799 s3): a product's cast, the team's own picture of its
 // customers. Each persona has a name, a stance, a trade, an avatar into that trade's sprite variations
@@ -36,18 +38,20 @@ export interface Persona extends PersonaFields {
   ordinal: number;
 }
 
-/** A public.personas row, as PostgREST answers it. */
-export interface StoredPersona {
-  id: string;
-  product_id: string;
-  ordinal: number | string;
-  name: string;
-  stance: string;
-  trade: string;
-  avatar: PersonaAvatar;
-  who: string | null;
-  usage: string | null;
-}
+/** A public.personas row, as PostgREST answers it: the columns of PERSONA_COLUMNS, or the whole row a
+ * persona function answers. Its avatar is one the database's valid_persona_avatar() let in (PRD 1030). */
+export const StoredPersona = z.object({
+  id: z.string(),
+  product_id: z.string(),
+  ordinal: z.union([z.number(), z.string()]),
+  name: z.string(),
+  stance: z.string(),
+  trade: z.string(),
+  avatar: z.custom<PersonaAvatar>(validPersonaAvatar, 'an avatar the presets can draw'),
+  who: z.string().nullable(),
+  usage: z.string().nullable(),
+});
+export type StoredPersona = z.infer<typeof StoredPersona>;
 
 export const PERSONA_COLUMNS = 'id, product_id, ordinal, name, stance, trade, avatar, who, usage';
 
@@ -58,7 +62,7 @@ export const PICKER_SIZE = 24;
 export const NAME_MAX = 40;
 export const TEXT_MAX = 400;
 
-const isStance = (s: unknown): s is Stance => STANCES.includes(s as Stance);
+const isStance = (s: unknown): s is Stance => isOneOf(STANCES, s);
 
 export function personaOf(row: StoredPersona): Persona {
   return {
@@ -80,8 +84,11 @@ export const tradeLabel = (trade: string) => PERSONA_TRADES.find((t) => t.id ===
 /** True when the page can draw the trade: the database takes any short lower-case word. */
 export const drawable = (trade: string) => PERSONA_TRADES.some((t) => t.id === trade);
 
+/** An avatar's version, read as a number: the type names one version, a stored row may hold another. */
+const versionOf = (avatar: PersonaAvatar): number => avatar.v;
+
 export const sameAvatar = (a: PersonaAvatar, b: PersonaAvatar) =>
-  a.v === b.v && a.skin === b.skin && a.hair === b.hair && a.hairColor === b.hairColor && a.outfit === b.outfit && a.accessory === b.accessory;
+  versionOf(a) === versionOf(b) && a.skin === b.skin && a.hair === b.hair && a.hairColor === b.hairColor && a.outfit === b.outfit && a.accessory === b.accessory;
 
 const byOrdinal = (a: Persona, b: Persona) => a.ordinal - b.ordinal;
 
@@ -139,7 +146,7 @@ export const initialPersonasState = (personas: Persona[] = []): PersonasState =>
 });
 
 /** The first trade: where a new persona starts. */
-const FIRST_TRADE = PERSONA_TRADES[0].id;
+const FIRST_TRADE = at(PERSONA_TRADES, 0, 'the first trade').id;
 
 const blankFields = (seed: string): PersonaFields => ({
   name: '', stance: 'neutral', trade: FIRST_TRADE, avatar: randomAvatar(seed), who: '', usage: '',
@@ -151,7 +158,9 @@ export const pickerOf = (drawer: PersonaDrawer): PersonaAvatar[] => personaVaria
 const withPersona = (personas: readonly Persona[], persona: Persona) =>
   [...personas.filter((p) => p.id !== persona.id), persona].sort(byOrdinal);
 
-type Handlers = { [T in PersonasAction['type']]: (state: PersonasState, action: Extract<PersonasAction, { type: T }>) => PersonasState };
+/** Each action, by its type. */
+type ActionOf = { [T in PersonasAction['type']]: Extract<PersonasAction, { type: T }> };
+type Handlers = { [T in keyof ActionOf]: (state: PersonasState, action: ActionOf[T]) => PersonasState };
 
 const HANDLERS: Handlers = {
   'new': (state, { product, seed }) => ({
@@ -177,9 +186,14 @@ const HANDLERS: Handlers = {
   'tick': (state, { at }) => (state.undo && at >= state.undo.until ? { ...state, undo: null } : state),
 };
 
-export function personasReducer(state: PersonasState, action: PersonasAction): PersonasState {
-  const handle = HANDLERS[action.type] as (state: PersonasState, action: PersonasAction) => PersonasState;
+/** The handler of `type`, given the action of that type: the mapped type correlates the two. */
+function handleWith<T extends keyof ActionOf>(state: PersonasState, type: T, action: ActionOf[T]): PersonasState {
+  const handle: Handlers[T] = HANDLERS[type];
   return handle(state, action);
+}
+
+export function personasReducer(state: PersonasState, action: PersonasAction): PersonasState {
+  return handleWith(state, action.type, action);
 }
 
 /** True while Undo may still bring the deleted persona back. */

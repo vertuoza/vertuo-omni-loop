@@ -1,6 +1,6 @@
 // The pitch store in memory, for the API's tests: the dossiers a test seeds (each readable by the
 // members of its workspace, each shipped or not), the bucket's files, and pitch_run_add() of
-// supabase/migrations/20261029100000_pitch_runs.sql written here as the migration writes it — the
+// supabase/migrations/20261101100000_pitch_runs.sql written here as the migration writes it — the
 // caller must read the dossier (P0002), its PRD must be shipped (55000), the run must be new (23505),
 // and each of the five files uploaded to the run's folder (22023). Uploads land only in a folder of a
 // shipped dossier the caller reads and of a run not yet registered, as the bucket's insert rule says.

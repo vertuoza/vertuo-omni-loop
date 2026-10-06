@@ -2,13 +2,17 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import type { DossierRow, DossierVersionRow } from '../store';
 import { DEMO_VIEWER, demoContent, demoDossier } from './demo';
 import { DossierPage } from './DossierPage';
 import { readVoice, voiceView, VOICE_EMPTY, type VoiceCast } from './voice';
 import { REWORK_LABEL } from './VoicePane';
 import { dossierView, type DossierRead } from './view';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 // The User voice tab as the server renders it (PRD 822, s3): its place beside Spec, Plan and
 // Before/after, the empty line, one round, three rounds with ▲ ▼ =, the outlined objection with how it
@@ -17,7 +21,7 @@ import { dossierView, type DossierRead } from './view';
 const ID = '00000000-0000-4000-8000-0000000000d1';
 const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
 const dossier: DossierRow = {
-  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: 822, title: 'The customer voice',
+  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(822), title: 'The customer voice',
   opened_by: PIERRE.user_id, created_at: '2026-09-30T09:00:00Z', numbered_at: '2026-09-30T10:00:00Z',
 };
 const version = (id: string, kind: DossierVersionRow['kind']): DossierVersionRow => ({
@@ -33,9 +37,16 @@ const EXAMPLE = readFileSync(fileURLToPath(new URL('../../../../../kit/lib/voice
 const persona = (name: string, score: number) => ({ name, stance: 'skeptical', score, reaction: `${name} gives ${score}.`, citations: [`persona:${name}`] });
 const round = (stage: string, personas: unknown[]) => ({ stage, date: '2026-09-30', personas, objection: null, fit: null });
 
+/** A voice.json version the test expects to read. */
+function voiceOf(text: string) {
+  const voice = readVoice(text);
+  assertDefined(voice, 'the voice file, read');
+  return voice;
+}
+
 function html(voiceText: string | null, versions = [version('v1', 'voice')], more: Partial<DossierRow> = {}) {
   const view = dossierView(read(versions, more), PIERRE.user_id, { tab: 'voice', version: null });
-  const voice = voiceText === null ? null : voiceView(readVoice(voiceText)!, CAST);
+  const voice = voiceText === null ? null : voiceView(voiceOf(voiceText), CAST);
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: null, voice, supabase: null }));
 }
 
@@ -43,7 +54,7 @@ describe('the User voice tab', () => {
   it('sits beside Spec, Plan and Before/after on a PRD, and on no fix', () => {
     const tabs = dossierView(read([]), PIERRE.user_id, { tab: null, version: null }).tabs.map((t) => t.label);
     expect(tabs.slice(0, 5)).toEqual(['Questions', 'Before/after', 'Spec', 'Plan', 'User voice']);
-    const bug = dossierView(read([], { kind: 'bug' } as Partial<DossierRow>), PIERRE.user_id, { tab: null, version: null });
+    const bug = dossierView(read([], { kind: 'bug' }), PIERRE.user_id, { tab: null, version: null });
     expect(bug.tabs.map((t) => t.kind)).not.toContain('voice');
   });
 
@@ -134,7 +145,8 @@ describe('demo mode', () => {
     const demo = demoDossier(Date.parse('2026-09-30T10:00:00Z'));
     const view = dossierView(demo, DEMO_VIEWER, { tab: 'voice', version: null });
     expect(view.tabs.find((t) => t.kind === 'voice')).toMatchObject({ empty: false, badge: 'v1' });
-    const text = demoContent(view.shown!.id);
+    assertDefined(view.shown, 'the shown version');
+    const text = demoContent(view.shown.id);
     const voice = readVoice(text ?? '');
     expect(voice?.rounds.length).toBeGreaterThanOrEqual(2);
     expect(view.rework).toBe('/omni:brainstorm --rework 71');

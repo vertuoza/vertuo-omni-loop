@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, vi } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { renderMarkdown } from '../markdown';
 import { UNREAD, type GithubSummary, type PullRef } from '../github/summary';
 import type { StageRow } from '../../stages/stage';
@@ -16,6 +17,9 @@ import { PitchAction, PitchPanel, pitchCommand, PITCH_HINT } from './PitchAction
 import { StageAction } from './StageHeader';
 import { stageView } from './stage';
 import { dossierView, readPick, type DossierPick } from './view';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 // A quick round's buttons (PRD 384) refresh through the app router, which a static render has none of.
 vi.mock('next/navigation', async (original) => ({
@@ -33,7 +37,7 @@ const MARIE = { user_id: 'u-marie', email: 'marie@vertuoza.com', name: 'Marie' }
 const SUPABASE = { url: 'http://127.0.0.1:54321', key: 'anon' };
 
 const numbered: DossierRow = {
-  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: 216, title: 'PRD dossiers',
+  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), title: 'PRD dossiers',
   opened_by: PIERRE.user_id, created_at: '2026-09-27T09:12:00Z', numbered_at: '2026-09-27T10:00:00Z',
 };
 const draft: DossierRow = { ...numbered, prd: null, numbered_at: null, title: 'Offline quotes on the site app' };
@@ -64,15 +68,22 @@ const rounds = [
     status: 'answered', answers: { [SHAPE.question]: 'Square (Recommended)' }, answered_via: 'page', answered_by: MARIE.user_id,
     answered_at: '2026-09-27T09:16:35Z', category: 'ux-ui', category_by: 'model',
   }),
-  asked('r2', 'delivery', '2026-09-28T08:00:00Z', { status: 'abandoned', prd: 216, branch: 'feat/prd-dossiers--s3', skill: '/omni:do-work' }),
+  asked('r2', 'delivery', '2026-09-28T08:00:00Z', { status: 'abandoned', prd: parsePrd(216), branch: 'feat/prd-dossiers--s3', skill: '/omni:do-work' }),
 ];
 
+type PageOptions = {
+  dossier?: DossierRow; rows?: typeof versions; pick?: DossierPick; me?: string; markdown?: string | null;
+  supabase?: typeof SUPABASE | null; questions?: DossierRoundRow[] | null;
+  answerable?: string[]; now?: number; github?: GithubSummary | null; slices?: number | null;
+  repos?: string[] | null; stages?: StageRow[] | null;
+};
+
 function page({
-  dossier = numbered, rows = versions, pick = readPick({}), me = MARIE.user_id, markdown = null as string | null,
-  supabase = SUPABASE as typeof SUPABASE | null, questions = rounds as DossierRoundRow[] | null,
-  answerable = [] as string[], now = Date.now(), github = undefined as GithubSummary | null | undefined, slices = null as number | null,
-  repos = null as string[] | null, stages = undefined as StageRow[] | null | undefined,
-} = {}) {
+  dossier = numbered, rows = versions, pick = readPick({}), me = MARIE.user_id, markdown = null,
+  supabase = SUPABASE, questions = rounds,
+  answerable = [], now = Date.now(), github, slices = null,
+  repos = null, stages,
+}: PageOptions = {}) {
   const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions, repos, answerable, github, slices, stages }, me, pick, now);
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: markdown === null ? null : renderMarkdown(markdown), supabase }));
 }
@@ -110,10 +121,10 @@ describe('the header', () => {
 
 describe('the stage header (PRD 426, PRD 587)', () => {
   const pr = (number: number, state: PullRef['state'], draft = false): PullRef =>
-    ({ number, url: `https://github.com/vertuoza/vertuo-omni-loop/pull/${number}`, state, draft });
+    ({ number: parsePr(number), url: `https://github.com/vertuoza/vertuo-omni-loop/pull/${number}`, state, draft });
   const summary = (more: Partial<GithubSummary> = {}): GithubSummary => ({
-    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers',
-    issue: { number: 216, url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' },
+    repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers',
+    issue: { number: parseIssue(216), url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' },
     phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
   });
   const track = (html: string) => [...html.matchAll(/<li class="stage-stop stage-(\w+)"[^>]*>([^<]+)<\/li>/g)]
@@ -151,7 +162,7 @@ describe('the stage header (PRD 426, PRD 587)', () => {
     expect(await copyCommand('/omni:yolo 216', { writeText })).toBe('copied');
     expect(writeText).toHaveBeenCalledWith('/omni:yolo 216');
     expect(COPY_WORDS.copied).toBe('Copied');
-    expect(await copyCommand('/omni:yolo 216', { writeText: async () => { throw new Error('denied'); } })).toBe('refused');
+    expect(await copyCommand('/omni:yolo 216', { writeText: () => Promise.reject(new Error('denied')) })).toBe('refused');
     expect(await copyCommand('/omni:yolo 216', undefined)).toBe('refused');
   });
 
@@ -181,7 +192,7 @@ describe('the stage header (PRD 426, PRD 587)', () => {
   });
 
   it('in the shipped stage, Pitch and the retro comes next; in the retro stage, Pitch, with the retro PR in the links (PRD 859)', () => {
-    const shipped = summary({ issue: { number: 216, url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'closed' }, phase0: pr(220, 'merged'), feature: pr(221, 'merged'), mergedSlices: 5 });
+    const shipped = summary({ issue: { number: parseIssue(216), url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'closed' }, phase0: pr(220, 'merged'), feature: pr(221, 'merged'), mergedSlices: 5 });
     const html = page({ github: shipped, stages: at('shipped') });
     expect(html).toContain('Shipped · the retro is written next');
     expect(button(html)).toBeNull();
@@ -233,10 +244,10 @@ describe('the stage header (PRD 426, PRD 587)', () => {
 
 describe('the header box (PRD 476)', () => {
   const pr = (number: number, state: PullRef['state'], draft = false): PullRef =>
-    ({ number, url: `https://github.com/vertuoza/vertuo-omni-loop/pull/${number}`, state, draft });
+    ({ number: parsePr(number), url: `https://github.com/vertuoza/vertuo-omni-loop/pull/${number}`, state, draft });
   const summary = (more: Partial<GithubSummary> = {}): GithubSummary => ({
-    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers',
-    issue: { number: 216, url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' },
+    repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers',
+    issue: { number: parseIssue(216), url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' },
     phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
   });
   /** The one header box: everything between its opening tag and its end. */
@@ -303,7 +314,9 @@ describe('the header box (PRD 476)', () => {
       expect(cell(html, 'Stage')).toContain(`<strong>${words}</strong>`);
       expect(cell(html, 'On GitHub')).toContain('<ul class="stage-links" aria-label="On GitHub">');
       expect(cell(html, 'Repo')).toContain('<li class="dossier-repo">vertuoza/vertuo-omni-loop</li>');
-      expect(textOf(cell(html, 'Opened')!)).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
+      const opened = cell(html, 'Opened');
+      assertDefined(opened, 'the Opened cell');
+      expect(textOf(opened)).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
     }
   });
 
@@ -351,7 +364,7 @@ describe('Delete', () => {
 
 describe('the tabs', () => {
   const tabsOf = (html: string) => [...html.matchAll(/<a class="dossier-tab( dossier-tab-empty)?" href="([^"]+)"( aria-current="page")?>([^<]+)(?:<small>([^<]+)<\/small>)?(?:<span class="dossier-left">([^<]+)<\/span>)?<\/a>/g)]
-    .map((m) => [m[4], m[6] ? `${m[5]} · ${m[6]}` : m[5] ?? null, m[2].replaceAll('&amp;', '&'), Boolean(m[3]), ...(m[1] ? ['dimmed'] : [])]);
+    .map((m) => [m[4], m[6] ? `${m[5]} · ${m[6]}` : m[5] ?? null, m[2]?.replaceAll('&amp;', '&'), Boolean(m[3]), ...(m[1] ? ['dimmed'] : [])]);
 
   it('reads Questions with answered out of asked, then Before/after, Spec and Plan with their latest versions, opening on Questions', () => {
     expect(tabsOf(page())).toEqual([
@@ -390,9 +403,9 @@ describe('the tabs', () => {
 
 describe('the Outbox tab (PRD 426)', () => {
   const outboxSummary = (outbox: GithubSummary['outbox'], outboxComment: GithubSummary['outboxComment'] = 'https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7'): GithubSummary => ({
-    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
-    phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
-    feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open', draft: false },
+    repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
+    phase0: { number: parsePr(220), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
+    feature: { number: parsePr(221), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open', draft: false },
     mergedSlices: 2, outbox, outboxComment,
   });
   const OPEN = [
@@ -442,12 +455,12 @@ describe('the Outbox tab (PRD 426)', () => {
 describe('the Retro tab (PRD 426, s3)', () => {
   const RETRO_URL = 'https://github.com/vertuoza/vertuo-omni-loop/pull/230';
   const retroSummary = (retro: GithubSummary['retro'], retroText: GithubSummary['retroText']): GithubSummary => ({
-    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null,
-    phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
-    feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'merged', draft: false },
+    repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null,
+    phase0: { number: parsePr(220), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
+    feature: { number: parsePr(221), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'merged', draft: false },
     mergedSlices: 3, retro, retroText,
   });
-  const pr = (state: PullRef['state']): PullRef => ({ number: 230, url: RETRO_URL, state, draft: false });
+  const pr = (state: PullRef['state']): PullRef => ({ number: parsePr(230), url: RETRO_URL, state, draft: false });
   const retro = (github: GithubSummary | null) => page({ pick: tab('retro'), github });
   const RETRO = '# How PRD 216 went\n\nThree waves, <script>alert(1)</script> one rework.\n';
 
@@ -491,7 +504,9 @@ describe('the Questions tab', () => {
   });
 
   it('folds an answered round: a closed <details> whose <summary> is its line (PRD 498)', () => {
-    const html = questions({ questions: [rounds[0]] });
+    const [answered] = rounds;
+    assertDefined(answered, 'the answered round');
+    const html = questions({ questions: [answered] });
     expect(html).toMatch(/<li id="r1" class="dossier-round" data-rule="brainstorm" data-state="answered"><details class="dossier-fold"><summary class="dossier-round-line">/);
     expect(html).not.toMatch(/<details[^>]* open/);
     const line = html.slice(html.indexOf('<summary'), html.indexOf('</summary>'));
@@ -557,7 +572,9 @@ describe('the Questions tab', () => {
   });
 
   it('folds a round moved to the terminal, its line saying so, with no option', () => {
-    const html = questions({ questions: [rounds[1]] });
+    const [, moved] = rounds;
+    assertDefined(moved, 'the moved round');
+    const html = questions({ questions: [moved] });
     expect(html).toMatch(/<li id="r2" class="dossier-round" data-rule="delivery" data-state="moved"><details class="dossier-fold"><summary class="dossier-round-line">/);
     const line = html.slice(html.indexOf('<summary'), html.indexOf('</summary>'));
     expect(line).toContain('<span class="dossier-round-count">moved to the terminal</span>');

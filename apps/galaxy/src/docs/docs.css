@@ -169,6 +169,23 @@
 .docs-badge[data-kind='file'] { color: var(--ask-muted); }
 .docs-badge[data-kind='github'] { color: var(--ask-green); }
 .docs-md .docs-code > pre { margin: 0; padding-top: 10px; background: none; border: 0; border-radius: 0; }
+/* The copy chip (issue #931) ends the badge row: an icon-only arcade chip in the muted colour, ink
+   on hover, a green tick for two seconds once copied. */
+.docs-copy {
+  display: grid;
+  place-items: center;
+  padding: 2px 4px;
+  color: var(--ask-muted);
+  background: var(--ask-sunk);
+  border: 2px solid currentColor;
+  box-shadow: 2px 2px 0 currentColor;
+  cursor: pointer;
+}
+.docs-copy:hover { color: var(--ask-ink); }
+.docs-copy[data-copied] { color: var(--ask-green); }
+.docs-copy-done,
+.docs-copy[data-copied] .docs-copy-icon { display: none; }
+.docs-copy[data-copied] .docs-copy-done { display: block; }
 .docs-md table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 15px; overflow-wrap: normal; }
 .docs-md th,
 .docs-md td { padding: 6px 10px; border: 1px solid var(--ask-line); text-align: left; vertical-align: top; }

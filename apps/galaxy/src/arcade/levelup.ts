@@ -2,7 +2,7 @@
 // the game it names under NEW GAME UNLOCKED, its words and its fanfare, and the level this device
 // last celebrated, kept in browser storage under `omni-loop:level-seen:<login>` (a per-device
 // courtesy: losing it only replays a fanfare). The unlock levels come from the rulebook's `xp`
-// block, through game/experience.mjs, and the games from the room's registry.
+// block, through game/experience.ts, and the games from the room's registry.
 import { XP_RULES, type XpRules } from '@omni/galaxy';
 import { GAMES, type Game } from './games/index';
 import type { XpStatus } from './games/room';

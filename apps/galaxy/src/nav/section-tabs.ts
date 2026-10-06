@@ -23,7 +23,10 @@ export const QUESTIONS_TABS: readonly SectionTab[] = [
  * the ones shared with them, on Open questions; the shared ones on Shared with me. */
 export function withCounts(tabs: readonly SectionTab[], { questions, shared }: { questions: number; shared: number }): SectionTab[] {
   const counts: Record<string, number> = { '/ask': Math.max(0, questions - shared), '/ask/for-me': shared };
-  return tabs.map((tab) => (tab.href in counts ? { ...tab, count: counts[tab.href] } : tab));
+  return tabs.map((tab) => {
+    const count = counts[tab.href];
+    return count === undefined ? tab : { ...tab, count };
+  });
 }
 
 /** A count as the tab shows it: only above 0. */

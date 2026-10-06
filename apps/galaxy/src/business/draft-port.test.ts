@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Claim } from './model';
-import { databaseDraft, demoDraftPort, DRAFT_ROUTE, SOURCES_ROUTE, type DraftDb } from './draft-port';
+import { databaseDraft, demoDraftPort, draftDbOver, DRAFT_ROUTE, SOURCES_ROUTE, type DraftDb } from './draft-port';
 import { COULD_NOT_SAVE, NOT_MEMBER } from './store';
+import { sure } from '../arcade/test/sure';
+import { sentOf } from './json.fake';
 
 // The draft's calls from Settings › Business (PRD 774 s3): start a draft through its route, read the
 // latest draft row and the claims with their receipts again, add and remove a web page through the
@@ -28,18 +30,18 @@ function db(tables: Record<string, Answer>, rpc: Answer = {}) {
     reads,
     calls,
     from: (table: string) => ({ select: (cols: string) => query(table, cols) }),
-    rpc: async (fn: string, args: Record<string, unknown>) => {
+    rpc: (fn: string, args: Record<string, unknown>) => {
       calls.push([fn, args]);
-      return { data: rpc.data ?? null, error: rpc.error ?? null };
+      return Promise.resolve({ data: rpc.data ?? null, error: rpc.error ?? null });
     },
   } as unknown as DraftDb & { reads: typeof reads; calls: typeof calls };
 }
 
 function fetcher(status: number, body: unknown) {
   const sent: Array<{ url: string; init: RequestInit }> = [];
-  const fetch = (async (url: string, init: RequestInit) => {
+  const fetch = ((url: string, init: RequestInit) => {
     sent.push({ url, init });
-    return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+    return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }));
   }) as unknown as typeof globalThis.fetch;
   return { sent, fetch };
 }
@@ -52,14 +54,14 @@ describe('starting a draft', () => {
     expect(await databaseDraft(db({}), 'ws-1', f.fetch).start()).toEqual({
       ok: true, draft: { id: 'd-1', kind: 'draft', state: 'running', counts: {}, scanned: [], reason: null },
     });
-    expect(f.sent[0].url).toBe(DRAFT_ROUTE);
-    expect(JSON.parse(String(f.sent[0].init.body))).toEqual({ workspace: 'ws-1' });
+    expect(sure(f.sent[0], 'f.sent[0]').url).toBe(DRAFT_ROUTE);
+    expect(sentOf(sure(f.sent[0], 'f.sent[0]').init.body)).toEqual({ workspace: 'ws-1' });
   });
 
   it('shows the route\'s refusal, and a plain one when the network fails', async () => {
     expect(await databaseDraft(db({}), 'ws-1', fetcher(403, { error: 'Only a member of the workspace can change its business.' }).fetch).start())
       .toEqual({ ok: false, message: 'Only a member of the workspace can change its business.' });
-    const broken = (async () => { throw new Error('offline'); }) as unknown as typeof globalThis.fetch;
+    const broken = (() => Promise.reject(new Error('offline'))) as unknown as typeof globalThis.fetch;
     expect(await databaseDraft(db({}), 'ws-1', broken).start()).toEqual({ ok: false, message: COULD_NOT_SAVE });
   });
 });
@@ -85,12 +87,52 @@ describe('reading the draft again', () => {
   });
 });
 
+describe('reading what does not parse (PRD 1030)', () => {
+  it('reads a draft row that is not one as none, and claims that are not claims as unreadable', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await databaseDraft(db({ business_drafts: { data: [{ ...DRAFT, scanned: [{ source: 'x', state: 'lost' }] }] } }), 'ws-1').latest()).toBeNull();
+    const claims = { data: [{ id: 'c-1', seq: '1', kind: 'region', value: 'France', source: 'evidence', state: 'proposed' }] };
+    expect(await databaseDraft(db({ claims }), 'ws-1').claims()).toBeNull();
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining('business/draft-port: claims: the answer does not parse: [0].seq invalid_type'));
+    logged.mockRestore();
+  });
+
+  it('answers could-not-save when the draft route answers no draft row', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { fetch } = fetcher(200, { draft: { id: 'd-1' } });
+    expect(await databaseDraft(db({}), 'ws-1', fetch).start()).toEqual({ ok: false, message: COULD_NOT_SAVE });
+    logged.mockRestore();
+  });
+});
+
+describe('the browser client as the draft\'s port', () => {
+  it('replays each select\'s chain on the client\'s own builder when it is awaited', async () => {
+    const steps: unknown[] = [];
+    const builder = {
+      eq: (c: string, v: unknown) => (steps.push(['eq', c, v]), builder),
+      order: (c: string, o?: unknown) => (steps.push(['order', c, o]), builder),
+      limit: (n: number) => (steps.push(['limit', n]), builder),
+      then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: [DRAFT], error: null }).then(ok),
+    };
+    const client = {
+      from: (table: string) => ({ select: (columns: string) => (steps.push(['from', table, columns]), builder) }),
+      rpc: (fn: string, args: unknown) => Promise.resolve({ data: { fn, args }, error: null }),
+    };
+    const port = draftDbOver(client as never);
+    const query = port.from('business_drafts').select('id').eq('workspace_id', 'ws-1').order('started_at', { ascending: false }).limit(1);
+    expect(steps).toEqual([]);
+    expect(await query).toEqual({ data: [DRAFT], error: null });
+    expect(steps).toEqual([['from', 'business_drafts', 'id'], ['eq', 'workspace_id', 'ws-1'], ['order', 'started_at', { ascending: false }], ['limit', 1]]);
+    expect(await port.rpc('claim_still_true', { p_claim: 'c-1' })).toEqual({ data: { fn: 'claim_still_true', args: { p_claim: 'c-1' } }, error: null });
+  });
+});
+
 describe('web pages', () => {
   it('adds one through the sources route, and shows its refusal', async () => {
     const f = fetcher(201, { source: { id: 'p-1', url: 'https://example.com/pricing', added_at: '2026-09-30T10:00:00Z' } });
     expect(await databaseDraft(db({}), 'ws-1', f.fetch).addPage('https://example.com/pricing')).toEqual({ ok: true, page: { id: 'p-1', url: 'https://example.com/pricing' } });
     expect(f.sent[0]).toMatchObject({ url: SOURCES_ROUTE, init: { method: 'POST' } });
-    expect(JSON.parse(String(f.sent[0].init.body))).toEqual({ workspace: 'ws-1', url: 'https://example.com/pricing' });
+    expect(sentOf(sure(f.sent[0], 'f.sent[0]').init.body)).toEqual({ workspace: 'ws-1', url: 'https://example.com/pricing' });
     expect(await databaseDraft(db({}), 'ws-1', fetcher(400, { error: 'Three web pages at most.' }).fetch).addPage('https://d.example'))
       .toEqual({ ok: false, message: 'Three web pages at most.' });
   });
@@ -99,7 +141,7 @@ describe('web pages', () => {
     const f = fetcher(200, { removed: 'p-1' });
     expect(await databaseDraft(db({}), 'ws-1', f.fetch).removePage('p-1')).toEqual({ ok: true });
     expect(f.sent[0]).toMatchObject({ url: SOURCES_ROUTE, init: { method: 'DELETE' } });
-    expect(JSON.parse(String(f.sent[0].init.body))).toEqual({ workspace: 'ws-1', source: 'p-1' });
+    expect(sentOf(sure(f.sent[0], 'f.sent[0]').init.body)).toEqual({ workspace: 'ws-1', source: 'p-1' });
   });
 });
 

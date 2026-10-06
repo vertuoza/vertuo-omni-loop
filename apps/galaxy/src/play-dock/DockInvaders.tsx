@@ -57,7 +57,7 @@ function useCanvasLoop(canvasRef: RefObject<HTMLCanvasElement | null>, tick: (dt
       drawInvaders(ctx, frameOf(tick(dt), lookRef.current, (now - start) / 1000, reduced.matches));
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => { cancelAnimationFrame(raf); };
   }, [canvasRef, tick, lookRef]);
 }
 
@@ -65,8 +65,9 @@ function useCanvasLoop(canvasRef: RefObject<HTMLCanvasElement | null>, tick: (dt
  * lets go of every button and pauses. */
 function useGameState(values: Readonly<Record<WoundKind, number>>, held: ReturnType<typeof createHeld>) {
   const fresh = useCallback(() => newGame({ layout: 'tall', values, seed: Math.floor(Math.random() * 2 ** 31) }), [values]);
-  const gameRef = useRef<Game>(null as unknown as Game);
-  if (!gameRef.current) gameRef.current = fresh();
+  // The first game is dealt once, on the first render, as the ref's start.
+  const [first] = useState(fresh);
+  const gameRef = useRef<Game>(first);
   const [hud, setHud] = useState<GameHud>(() => hudOf(gameRef.current));
   const hudRef = useRef(hud);
 
@@ -126,12 +127,12 @@ function useInvaders({ asking, values, scores, onBack, onFold }: {
       return;
     }
     const { game, leave } = press(g, action);
-    if (leave) return backRef.current();
+    if (leave) { backRef.current(); return; }
     gameRef.current = game;
     showHud(game);
   }, [gameRef, sendRef, scores, show, showHud]);
 
-  const fold = useCallback(() => foldRef.current(), []);
+  const fold = useCallback(() => { foldRef.current(); }, []);
   useDockKeys(act, held, fold, pauseGame);
 
   // The time since the last frame, played with the buttons held; the score is sent once, at game over.
@@ -175,7 +176,7 @@ export function DockInvaders({ asking, hero, team, values, scores, back, onBack,
   useCanvasLoop(canvasRef, tick, lookRef);
 
   return (
-    <Screen scene="invaders" frame={TALL} info={DOCK_INFO} canvasRef={canvasRef} onTap={() => act('a')}>
+    <Screen scene="invaders" frame={TALL} info={DOCK_INFO} canvasRef={canvasRef} onTap={() => { act('a'); }}>
       <Press.Provider value={act}>
         <InvadersOverlay hud={hud} values={values} hero={hero} team={team} send={send} back={back} />
       </Press.Provider>

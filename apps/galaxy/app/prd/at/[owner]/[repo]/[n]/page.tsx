@@ -1,6 +1,7 @@
+import 'server-only';
 import { notFound, redirect } from 'next/navigation';
 import { Notice } from '../../../../../../src/ask/page/Notice';
-import { arcadeMode } from '../../../../../../src/data/mode';
+import { serverEnv } from '../../../../../../src/env';
 import { viewer } from '../../../../../../src/data/viewer';
 import { demoHistory } from '../../../../../../src/dossier/page/demo';
 import { DossierSignIn } from '../../../../../../src/dossier/page/DossierSignIn';
@@ -23,7 +24,7 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
 export default async function AtRoute({ params, searchParams }: Props) {
   const [key, query] = await Promise.all([params.then(readAt), searchParams]);
   if (!key) notFound();
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
 
   if (mode === 'demo') {
     const id = findAt(demoHistory(Date.now()), key);

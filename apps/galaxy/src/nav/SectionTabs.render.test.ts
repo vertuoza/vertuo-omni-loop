@@ -3,6 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { SectionTabs } from './SectionTabs.tsx';
 import { QUESTIONS_TABS, SETTINGS_TABS, withCounts } from './section-tabs.ts';
+import { item } from '../ask/test/test-item';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // One row of section tabs (PRD 733): the Fleets · Repositories row on the settings pages and the Open
 // questions · Shared with me · History row on the Questions pages, as the server renders them. Each
@@ -12,10 +14,10 @@ import { QUESTIONS_TABS, SETTINGS_TABS, withCounts } from './section-tabs.ts';
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({
   attrs: m[1],
-  href: /href="([^"]*)"/.exec(m[1])?.[1],
-  current: /aria-current="page"/.test(m[1]),
-  name: /aria-label="([^"]*)"/.exec(m[1])?.[1] ?? text(m[2]),
-  text: text(m[2]),
+  href: /href="([^"]*)"/.exec(item(m, 1))?.[1],
+  current: /aria-current="page"/.test(item(m, 1)),
+  name: /aria-label="([^"]*)"/.exec(item(m, 1))?.[1] ?? text(item(m, 2)),
+  text: text(item(m, 2)),
 }));
 
 describe('the settings tabs', () => {
@@ -62,6 +64,9 @@ describe('the Questions tabs', () => {
 
   it('carry questions − shared on Open questions and shared on Shared with me, spoken with the name', () => {
     const [open, shared, history] = links(render('/ask', 5, 2));
+    assertDefined(open, 'the Open questions tab');
+    assertDefined(shared, 'the Shared with me tab');
+    assertDefined(history, 'the History tab');
     expect(open.text).toBe('Open questions 3');
     expect(open.name).toBe('Open questions: 3 waiting');
     expect(shared.text).toBe('Shared with me 2');
@@ -72,6 +77,8 @@ describe('the Questions tabs', () => {
 
   it('show no count at 0', () => {
     const [open, shared] = links(render('/ask', 2, 2));
+    assertDefined(open, 'the Open questions tab');
+    assertDefined(shared, 'the Shared with me tab');
     expect(open.text).toBe('Open questions');
     expect(open.attrs).not.toContain('aria-label');
     expect(shared.text).toBe('Shared with me 2');

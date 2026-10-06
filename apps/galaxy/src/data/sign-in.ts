@@ -16,15 +16,20 @@
 //   4. links GitHub (link_github()), so the account is a player at once.
 // All are best effort (ADR 0044): a failure is logged, and the sign-in carries on; what needs a
 // workspace then refuses with its own message.
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { CliCallbackDeps, CliSession } from '../ask/cli-code';
 import { belongsTo, type SignupDeps } from '../signup/installation';
 import { joinLogins, type GithubAccount } from './github-orgs';
+import type { SignedIn } from './session';
 
-type Rpc = Pick<SupabaseClient, 'rpc'>;
+/** The one call linking makes, link_github(), as the person: the real client and a test fake both satisfy it. */
+export interface LinkPort {
+  rpc(fn: 'link_github'): PromiseLike<{ data: unknown; error: { message: string } | null }>;
+}
+type Rpc = LinkPort;
 
-/** The new session, as far as joining needs it: whose it is, and GitHub's token when Supabase handed one. */
-export type SignedIn = { user: { id: string }; provider_token?: string | null };
+/** The new session, as far as joining needs it (src/data/session.ts). */
+export type { SignedIn } from './session';
 
 /** What joining reaches outside the person's own session: GitHub, and the service role's join; and,
  * to complete sign-up requests, the App's view of GitHub and the service role's sign-up writes. */
@@ -37,7 +42,9 @@ export interface SignInDeps {
 /** The query-string entry the arcade reads on its return (readReturn() in src/arcade/onboarding.ts). */
 export type SignInReturn = ['signin', 'ok'] | ['linked', string] | ['link_error', string];
 
-const log = (err: unknown) => console.error(`auth callback: ${err instanceof Error ? err.message : String(err)}`);
+const log = (err: unknown) => {
+  console.error(`auth callback: ${err instanceof Error ? err.message : String(err)}`);
+};
 
 async function bestEffort(run: () => Promise<unknown>) {
   try { await run(); } catch (err) { log(err); }
@@ -83,7 +90,8 @@ export async function linkGithub(db: Rpc): Promise<Linked> {
   try {
     const { data, error } = await db.rpc('link_github');
     if (error) return { login: null, error: error.message };
-    return { login: (data as { github_login?: string } | null)?.github_login ?? '', error: null };
+    const login = propertyOf(data, 'github_login');
+    return { login: typeof login === 'string' ? login : '', error: null };
   } catch (err) {
     return { login: null, error: err instanceof Error ? err.message : String(err) };
   }
@@ -117,6 +125,14 @@ export async function afterSignIn(db: Rpc, session: SignedIn | null, deps: SignI
   if (next === 'link') return linked.error === null ? ['linked', linked.login] : ['link_error', linked.error];
   if (linked.error !== null) log(linked.error);
   return ['signin', 'ok'];
+}
+
+/**
+ * Where a sign-in from HOME lands (PRD 932), allowlisted: `next` 'app' (the Omni app picked at
+ * SELECT YOUR APP) gives /app, and anything else gives /play. Never a path taken from the address.
+ */
+export function appLanding(next: string | null): '/app' | '/play' {
+  return next === 'app' ? '/app' : '/play';
 }
 
 /** Supabase's exchangeCodeForSession, as far as a page's callback reads it. */

@@ -1,7 +1,11 @@
 import 'server-only';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import { githubClient, type GithubClient } from '@omni/github';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { memberWorkspace } from '../data/workspace';
-import { installationSettingsUrl } from '../signup/github-app';
+import { githubStore } from '../dossier/github/server';
+import { installationSettingsUrl, reachedRepositories } from '../signup/github-app';
 import type { Installation } from '../signup/installation';
 import type { Product } from '../business/model';
 import { rowOf, type RepositoryRow, type StoredRepository } from './model';
@@ -15,15 +19,22 @@ import type { Access } from './RepositoriesView';
 // be read reads as a member's; an installation or a listing that cannot be read leaves the page
 // without Add repository's offer and without the no-access marks, never without its list. PRD 748 s4
 // adds each repository's product and the business's products, as the signed-in person too; products
-// that cannot be read leave the page without its product selects, never without its list.
+// that cannot be read leave the page without its product selects, never without its list. PRD 902 s6:
+// the repositories the installation reaches are read with its token through the shared, budget-aware
+// client, `interactive` (the person waits on the page), on the budget the whole server shares; a paused
+// budget reads as a listing that cannot be read.
 
-/** What the page asks GitHub, as the Omni App (src/signup/github-app.ts). */
+/** What the page asks GitHub as the Omni App, with its JWT (src/signup/github-app.ts). */
 export interface RepositoriesApp {
   installation(id: number): Promise<Installation | null>;
   orgInstallation(org: string): Promise<Installation | null>;
   userInstallation(login: string): Promise<Installation | null>;
-  installationRepositories(id: number): Promise<string[]>;
+  installationToken(id: number): Promise<{ token: string }>;
 }
+
+let shared: GithubClient | undefined;
+/** The server's client on the shared store, made at its first call. */
+const sharedGithub = (): GithubClient => (shared ??= githubClient({ store: githubStore() }));
 
 export type RepositoriesLoad =
   | { kind: 'no-workspace' }
@@ -38,13 +49,14 @@ export type RepositoriesLoad =
     access: Access;
   };
 
-async function ownerOf(db: SupabaseClient, workspace: string): Promise<boolean> {
-  const { data, error } = await db.rpc('is_owner', { workspace });
+async function ownerOf(db: SupabaseClient<Database>, workspace: string): Promise<boolean> {
+  // `data` is widened to unknown: is_owner's answer is read here unparsed, so only a true is an owner.
+  const { data, error }: { data: unknown; error: Error | null } = await db.rpc('is_owner', { workspace });
   if (error) throw error;
   return data === true;
 }
 
-const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err));
+const why = (err: unknown) => (err instanceof Error ? err.message : String(propertyOf(err, 'message') ?? err));
 
 /** A role that cannot be read reads as a member's. */
 function asMember(err: unknown): boolean {
@@ -52,28 +64,32 @@ function asMember(err: unknown): boolean {
   return false;
 }
 
-async function rowsOf(db: SupabaseClient, workspace: string): Promise<RepositoryRow[]> {
-  const { data, error } = await db
+async function rowsOf(db: SupabaseClient<Database>, workspace: string): Promise<RepositoryRow[]> {
+  // `data` is widened to null: the rows are read here unparsed.
+  const { data, error }: { data: StoredRepository[] | null; error: Error | null } = await db
     .from('repositories')
     .select('full_name, tracked, collected_at, collect_error, product_id')
     .eq('workspace_id', workspace);
   if (error) throw new Error(`Supabase: could not read the repositories (${error.message})`);
-  return ((data ?? []) as StoredRepository[]).map(rowOf);
+  return (data ?? []).map(rowOf);
 }
 
 type GithubOf = { github_org: string | null; github_installation_id: number | string | null };
 
-async function githubOf(db: SupabaseClient, workspace: string): Promise<GithubOf> {
-  const { data, error } = await db.from('workspaces').select('github_org, github_installation_id').eq('id', workspace).maybeSingle();
+async function githubOf(db: SupabaseClient<Database>, workspace: string): Promise<GithubOf> {
+  // `data` is widened to null: the row is read here unparsed.
+  const { data, error }: { data: GithubOf | null; error: Error | null } =
+    await db.from('workspaces').select('github_org, github_installation_id').eq('id', workspace).maybeSingle();
   if (error) throw new Error(`Supabase: could not read the workspace's GitHub installation (${error.message})`);
-  return (data as GithubOf | null) ?? { github_org: null, github_installation_id: null };
+  return data ?? { github_org: null, github_installation_id: null };
 }
 
 /** The business's products, first first (PRD 748 s4). None when there is no business yet. */
-async function productsOf(db: SupabaseClient, workspace: string): Promise<Product[]> {
-  const { data, error } = await db.from('products').select('id, name').eq('workspace_id', workspace).order('ordinal');
+async function productsOf(db: SupabaseClient<Database>, workspace: string): Promise<Product[]> {
+  // `data` is widened to null: the rows are read here unparsed.
+  const { data, error }: { data: Product[] | null; error: Error | null } = await db.from('products').select('id, name').eq('workspace_id', workspace).order('ordinal');
   if (error) throw error;
-  return ((data ?? []) as Product[]).map(({ id, name }) => ({ id, name }));
+  return (data ?? []).map(({ id, name }) => ({ id, name }));
 }
 
 /** Products that cannot be read: the page then shows no product select, never no list. */
@@ -90,9 +106,10 @@ async function installationOf(github: GithubOf, stored: number | null, app: Repo
 }
 
 /** The repositories the installation reaches, or null when GitHub could not say. */
-async function reachableOf(app: RepositoriesApp, installation: Installation): Promise<string[] | null> {
+async function reachableOf(app: RepositoriesApp, github: GithubClient, installation: Installation): Promise<string[] | null> {
   try {
-    return await app.installationRepositories(installation.id);
+    const { token } = await app.installationToken(installation.id);
+    return await reachedRepositories(token, github.bound({ installation: installation.id, priority: 'interactive' }));
   } catch (err) {
     console.error(`repositories: the Omni App's repositories could not be read (${why(err)})`);
     return null;
@@ -101,7 +118,7 @@ async function reachableOf(app: RepositoriesApp, installation: Installation): Pr
 
 const unreadInstalled = (): Access => ({ kind: 'installed', settingsUrl: null, reachable: null });
 
-async function accessOf(github: GithubOf, app: RepositoriesApp | null, installUrl: string | null): Promise<Access> {
+async function accessOf(github: GithubOf, app: RepositoriesApp | null, installUrl: string | null, client: GithubClient): Promise<Access> {
   const stored = github.github_installation_id === null ? null : Number(github.github_installation_id);
   if (!app) return stored ? unreadInstalled() : { kind: 'none', installUrl };
   let installation: Installation | null = null;
@@ -112,14 +129,15 @@ async function accessOf(github: GithubOf, app: RepositoriesApp | null, installUr
     if (stored) return unreadInstalled();
   }
   if (!installation) return { kind: 'none', installUrl };
-  return { kind: 'installed', settingsUrl: installationSettingsUrl(installation), reachable: await reachableOf(app, installation) };
+  return { kind: 'installed', settingsUrl: installationSettingsUrl(installation), reachable: await reachableOf(app, client, installation) };
 }
 
 export async function loadRepositoriesPage(
-  db: SupabaseClient,
+  db: SupabaseClient<Database>,
   user: User,
   app: RepositoriesApp | null,
   installUrl: string | null,
+  client: GithubClient = sharedGithub(),
 ): Promise<RepositoriesLoad> {
   let workspace;
   let repositories: RepositoryRow[];
@@ -136,6 +154,6 @@ export async function loadRepositoriesPage(
     console.error(`repositories: the page could not be read (${why(err)})`);
     return { kind: 'unreadable' };
   }
-  const access = await accessOf(github, app, installUrl);
+  const access = await accessOf(github, app, installUrl, client);
   return { kind: 'repositories', workspace: { id: workspace.id, name: workspace.name }, owner, repositories, access, products };
 }

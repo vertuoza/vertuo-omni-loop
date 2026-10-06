@@ -8,6 +8,7 @@ import { Hint } from '../hint';
 import type { FleetRow } from '../types';
 import './common.css';
 import './join.css';
+import { cssVars } from '../css-vars';
 
 export function CoinOverlay({ away, error, demo, closed }: { away: boolean; error: string | null; demo: boolean; closed: boolean }) {
   if (closed) {
@@ -90,12 +91,12 @@ export function IntroOverlay({ fleets }: { fleets: FleetRow[] }) {
     <div className="join join-intro">
       <div className="j-center j-intro">
         {lines.map((l) => (
-          <span key={l.text} className="j-type" style={{ ['--n' as string]: l.text.length, ['--at' as string]: `${l.at}s`, color: l.color }}>{l.text}</span>
+          <span key={l.text} className="j-type" style={{ ...cssVars({ '--n': l.text.length, '--at': `${l.at}s` }), color: l.color }}>{l.text}</span>
         ))}
       </div>
       <div className="j-intro-names" aria-hidden="true">
         {shown.map((f, i) => (
-          <span key={f.name} className="j-appear" style={{ ['--at' as string]: `${14 + i * 0.5}s`, color: f.color, left: `${((i + 0.5) / shown.length) * 100}%` }}>{f.label}</span>
+          <span key={f.name} className="j-appear" style={{ ...cssVars({ '--at': `${14 + i * 0.5}s` }), color: f.color, left: `${((i + 0.5) / shown.length) * 100}%` }}>{f.label}</span>
         ))}
       </div>
       <p className="j-hint j-right"><Hint k="START">SKIP</Hint></p>
@@ -108,10 +109,10 @@ export function ReadyOverlay({ name, team }: { name: string; team: string | null
   return (
     <div className="join join-ready">
       <div className="j-center">
-        <p className="j-h j-appear" style={{ ['--at' as string]: '1.1s' }}>PLAYER 1 READY</p>
-        <p className="j-sub j-appear" style={{ ['--at' as string]: '1.4s', color: f.color }}>{name} · {f.label}</p>
+        <p className="j-h j-appear" style={cssVars({ '--at': '1.1s' })}>PLAYER 1 READY</p>
+        <p className="j-sub j-appear" style={{ ...cssVars({ '--at': '1.4s' }), color: f.color }}>{name} · {f.label}</p>
       </div>
-      <p className="j-press j-bottom blink j-appear" style={{ ['--at' as string]: '1.8s' }}>PRESS ANY KEY</p>
+      <p className="j-press j-bottom blink j-appear" style={cssVars({ '--at': '1.8s' })}>PRESS ANY KEY</p>
     </div>
   );
 }

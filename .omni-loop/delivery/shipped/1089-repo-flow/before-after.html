@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repository flow</title>
+<style>
+/* Layout: a header, then one row per moment of the loop, today beside after; terminal panels carry the evidence. */
+:root {
+  --bg: #f5f6f3; --surface: #ffffff; --ink: #1d2320; --muted: #5d6862; --line: #d9ded9;
+  --term: #17201c; --term-ink: #dfe8e2; --term-dim: #8a9a91;
+  --bad: #b3402f; --good: #2e7d4f; --accent: #2f5d8a;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121614; --surface: #1a201d; --ink: #e3e9e5; --muted: #9aa69f; --line: #2c3530;
+  --term: #0b0f0d; --term-ink: #d6e2db; --term-dim: #7d8c84;
+  --bad: #e07a68; --good: #6cc392; --accent: #86b3df; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121614; --surface: #1a201d; --ink: #e3e9e5; --muted: #9aa69f; --line: #2c3530;
+  --term: #0b0f0d; --term-ink: #d6e2db; --term-dim: #7d8c84;
+  --bad: #e07a68; --good: #6cc392; --accent: #86b3df; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+main { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: grid; gap: 36px; }
+header { display: grid; gap: 8px; max-width: 70ch; }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+h1 { margin: 0; font-size: clamp(24px, 4vw, 32px); line-height: 1.15; text-wrap: balance; }
+h2 { margin: 0; font-size: 18px; text-wrap: balance; }
+p { margin: 0; color: var(--muted); }
+section { display: grid; gap: 12px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+.side { min-width: 0; display: grid; gap: 8px; align-content: start; }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.today .tag { color: var(--bad); }
+.after .tag { color: var(--good); }
+pre { margin: 0; background: var(--term); color: var(--term-ink); font: 12.5px/1.6 var(--mono);
+  padding: 14px 16px; border-radius: 6px; overflow-x: auto; }
+.d { color: var(--term-dim); }
+.x { color: #f08a78; }
+.k { color: #7fd3a0; }
+.note { font-size: 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--surface); }
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 12px/1.3 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+tr:last-child td { border-bottom: 0; }
+code { font: 13px var(--mono); }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <span class="eyebrow">PRD #1089 · before / after</span>
+  <h1>Repository flow: a repository tailors how the loop plans, tests, opens and merges</h1>
+  <p>Today every repository gets the same loop. After, a repository declares rules the CLI enforces, areas with their own rules, and Markdown hooks any agent follows: extending a step by default, replacing the act only where allowed, never the guard.</p>
+</header>
+
+<section>
+  <h2>1 · Planning a PRD that adds a column and the code that reads it</h2>
+  <div class="pair">
+    <div class="side today"><span class="tag">Today</span>
+<pre><span class="d">$ omni plan check 912</span>
+wave 1  s1  database/migrations/2026_10_add_due.sql
+            src/Invoice/DueDate.php
+            src/kernel/Bus/Dispatcher.php
+wave 1  s2  resources/js/invoice/DueDate.tsx
+<span class="k">ok</span>  2 slices, 1 wave, no collision</pre>
+      <p class="note">The plan passes. A person finds the mixed migration and the kernel change in review, after the slices are built.</p>
+    </div>
+    <div class="side after"><span class="tag">After</span>
+<pre><span class="d">$ omni plan check 912</span>
+<span class="x">✗ s1  crosses areas migrations + kernel + default</span>
+<span class="x">      (migrations: slice alone, max 1 file)</span>
+<span class="x">✗ s2  wave 1 beside kernel slice s1</span>
+<span class="x">      (kernel: wave first)</span>
+  → split s1: migration · kernel · invoice code
+<span class="d">$ omni plan check 912   # after the split</span>
+<span class="k">ok</span>  landing 1/2  s1 migration
+    landing 2/2  wave 1 s2 kernel · wave 2 s3 s4</pre>
+      <p class="note">The repository's rules shape the plan before a line is written.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>2 · Building and merging a kernel sub-PR</h2>
+  <div class="pair">
+    <div class="side today"><span class="tag">Today</span>
+<pre><span class="d"># /omni:do-work s2</span>
+pnpm test                 <span class="d"># commands.preflight, every slice</span>
+gh pr create …            <span class="d"># the kit's own</span>
+<span class="d"># /omni:wave</span>
+gh pr merge 1203 --squash --delete-branch</pre>
+      <p class="note">Same test command, same PR opening and same merge for every path in every repository.</p>
+    </div>
+    <div class="side after"><span class="tag">After</span>
+<pre><span class="d">$ omni flow show do-work.test --prd 912 --slice s2</span>
+area     kernel
+replace  .omni-loop/flow/kernel/tests.md
+after    .omni-loop/flow/contract-tests.md
+kit step replaced
+<span class="d">$ omni flow verdict do-work.test --from out.txt</span>
+<span class="k">ok</span>
+<span class="d">$ omni flow check merge --pr 1203</span>
+<span class="x">not ok  kernel: approval person</span>  <span class="d"># waits, wave moves on</span></pre>
+      <p class="note">The kernel's own test hook runs; a person approves before the wave merges it.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>3 · The flow, as the repository writes it</h2>
+  <div class="pair">
+    <div class="side today"><span class="tag">Today</span>
+<pre><span class="d"># .omni-loop/config.yml</span>
+commands:
+  preflight: pnpm test
+landings:                 <span class="d"># #1086</span>
+  alone: ['^database/migrations/']
+pr:
+  openWith: /create-pr    <span class="d"># Claude-only</span></pre>
+      <p class="note">Two one-off keys, and prose forms nothing checks.</p>
+    </div>
+    <div class="side after"><span class="tag">After</span>
+<pre><span class="d"># .omni-loop/config.yml</span>
+flow:
+  hooks:
+    pr.open: { replace: .omni-loop/flow/open-pr.md }
+  areas:
+    kernel:
+      paths: ['^src/kernel/']
+      rules:
+        plan: [ { slice: { alone: true, maxFiles: 5 } },
+                { wave: first } ]
+        subPr: { approval: person }
+      hooks:
+        do-work.test: { replace: .omni-loop/flow/kernel/tests.md }
+    migrations:
+      paths: ['^database/migrations/']
+      rules:
+        plan: [ { slice: { alone: true, maxFiles: 1 } },
+                { landing: alone } ]</pre>
+      <p class="note">Data and Markdown paths only: no repository code runs, and no Claude path is required.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>4 · Across repositories (mega-brainstorm, ultra-yolo)</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Step</th><th>Today</th><th>After</th></tr></thead>
+    <tbody>
+      <tr><td>Cut the slices</td><td>One generic rule set for every target</td><td>Each <code>repo: back</code> row graded by the back end's areas, each <code>repo: web</code> row by the web's</td></tr>
+      <tr><td>Test, open, merge in a target</td><td>The kit's defaults</td><td>The target's own committed hooks and rules, followed in its worktree</td></tr>
+      <tr><td>A target changed its flow</td><td>Unnoticed</td><td>Reported at the start, like a target that moved</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>What stays the same</h2>
+  <p>With no <code>flow</code> key, the loop behaves exactly as today. Signing, labels, PR links, the default-branch guard, the territory check, <code>omni plan check</code> and the outbox gate are never replaced by a hook.</p>
+</section>
+</main>
+</body>
+</html>

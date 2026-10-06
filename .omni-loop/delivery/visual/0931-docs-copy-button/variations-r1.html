@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Copy icon — round 1</title>
+<style>
+:root{--ground:#07061c;--sunk:#0e0d33;--line:#2a2f6e;--line-strong:#5a60c4;--ink:#f4f4ff;--muted:#8a90d6;--plasma:#ffd84a;--on-plasma:#07061c;--cyan:#7ff0ff;--green:#5dff9b;--px:'Press Start 2P',ui-monospace,monospace;--mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;--body:'Atkinson Hyperlegible Next',system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;padding:24px 16px 64px;background:var(--ground);color:var(--ink);font:17px/1.6 var(--body)}
+main{max-width:860px;margin:0 auto}
+h1{font:14px/1.4 var(--px);color:var(--plasma);margin:0 0 6px}
+h2{font:11px/1.4 var(--px);color:var(--plasma);margin:40px 0 4px}
+.note{color:var(--muted);margin:0 0 14px;font-size:15px}
+.code{position:relative;margin:0 0 14px;background:var(--sunk);border:1px solid var(--line-strong);border-radius:10px}
+.badges{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:6px;padding:10px 10px 0;user-select:none}
+.badge{font:8px/1 var(--px);padding:4px 6px;background:var(--sunk);border:2px solid currentColor;box-shadow:2px 2px 0 currentColor}
+.t{color:var(--cyan)}.a{color:var(--plasma)}
+pre{margin:0;padding:10px 16px 14px;font:14px/1.55 var(--mono);overflow-x:auto}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+svg{display:block}
+/* A: pixel COPY chip in the badge row */
+.vA .copy{font:8px/1 var(--px);padding:4px 6px;color:var(--muted);border:2px solid currentColor;box-shadow:2px 2px 0 currentColor;margin-left:6px}
+.vA .copy:hover{color:var(--ink)}
+.vA .copy.done{color:var(--green)}
+/* B: icon square in the badge row */
+.vB .copy{width:24px;height:24px;display:grid;place-items:center;color:var(--muted);border:2px solid currentColor;box-shadow:2px 2px 0 currentColor;margin-left:6px}
+.vB .copy:hover{color:var(--ink)}.vB .copy.done{color:var(--green)}
+/* C: icon on the code's line, right edge */
+.vC .row{display:flex;align-items:center}
+.vC pre{flex:1}
+.vC .copy{flex:none;margin:0 14px 4px 0;width:34px;height:34px;display:grid;place-items:center;color:var(--muted);border:1px solid var(--line-strong);border-radius:8px}
+.vC .copy:hover{color:var(--ink);border-color:var(--ink)}.vC .copy.done{color:var(--green);border-color:var(--green)}
+/* D: shown on hover or focus, bottom right; always shown on touch */
+.vD .copy{position:absolute;right:10px;bottom:10px;display:flex;gap:6px;align-items:center;font:600 13px/1 var(--body);padding:6px 9px;color:var(--ink);background:var(--line);border-radius:6px;opacity:0;transition:opacity .15s}
+.vD .code:hover .copy,.vD .copy:focus-visible,.vD .copy.done{opacity:1}
+.vD .copy.done{color:var(--green)}
+@media (hover:none){.vD .copy{opacity:1}}
+/* E: the signal — yellow COPY chip at the code's line end, with a $ prompt */
+.vE .row{display:flex;align-items:center;gap:10px;padding:0 14px 6px 0}
+.vE pre{flex:1}
+.vE pre::before{content:'$ ';color:var(--muted)}
+.vE .copy{flex:none;display:flex;gap:6px;align-items:center;font:8px/1 var(--px);padding:5px 7px;background:var(--plasma);color:var(--on-plasma);box-shadow:2px 2px 0 var(--muted)}
+.vE .copy.done{background:var(--green)}
+.cmp{display:grid;gap:4px}
+.lab{font:8px/1 var(--px);color:var(--muted);margin:8px 0 6px}
+</style></head><body><main>
+<h1>A copy icon on the guide's code blocks</h1>
+<p class="note">Issue #931 · round 1. Each variation shows its idle state, then the state just after a click (“copied”). Badges stay where they are today.</p>
+
+<h2>Today</h2>
+<p class="note">No way to copy but selecting the text.</p>
+<div class="code"><div class="badges"><span class="badge t">TERMINAL</span></div><pre><code>gh repo clone &lt;organization&gt;/&lt;repository&gt;</code></pre></div>
+<div class="code"><div class="badges"><span class="badge t">TERMINAL</span><span class="badge a">CODING AGENT</span></div><pre><code>omni signin</code></pre></div>
+
+<section class="vA"><h2>A · Pixel chip</h2>
+<p class="note">A <b>COPY</b> chip in the badge row, the arcade chip in the muted colour; it reads <b>COPIED</b> in green for two seconds.</p>
+<div class="code"><div class="badges"><span class="badge t">TERMINAL</span><button class="copy" aria-label="Copy the command">COPY</button></div><pre><code>gh repo clone &lt;organization&gt;/&lt;repository&gt;</code></pre></div>
+<div class="code"><div class="badges"><span class="badge t">TERMINAL</span><span class="badge a">CODING AGENT</span><button class="copy done">COPIED</button></div><pre><code>omni signin</code></pre></div>
+</section>
+
+<section class="vB"><h2>B · Icon chip</h2>
+<p class="note">An icon-only square, styled as a chip, ending the badge row; it turns into a green tick.</p>
+<div class="code"><div class="badges"><span class="badge t">TERMINAL</span><button class="copy" aria-label="Copy the command"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="3.5" width="7" height="7"/><path d="M1.5 8V1.5H8"/></svg></button></div><pre><code>gh repo clone &lt;organization&gt;/&lt;repository&gt;</code></pre></div>
+<div class="code"><div class="badges"><span class="badge t">TERMINAL</span><span class="badge a">CODING AGENT</span><button class="copy done" aria-label="Copied"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 6.5l3 3 6-7"/></svg></button></div><pre><code>omni signin</code></pre></div>
+</section>
+
+<section class="vC"><h2>C · Icon on the command's line</h2>
+<p class="note">A larger, quiet outlined icon button on the right of the command itself, where the eye already is; green tick once copied.</p>
+<div class="code"><div class="badges"><span class="badge t">TERMINAL</span></div><div class="row"><pre><code>gh repo clone &lt;organization&gt;/&lt;repository&gt;</code></pre><button class="copy" aria-label="Copy the command"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M2 11V3a1 1 0 0 1 1-1h8"/></svg></button></div></div>
+<div class="code"><div class="badges"><span class="badge t">TERMINAL</span><span class="badge a">CODING AGENT</span></div><div class="row"><pre><code>omni signin</code></pre><button class="copy done" aria-label="Copied"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8.5l3.5 3.5L13 4"/></svg></button></div></div>
+</section>
+
+<section class="vD"><h2>D · Appears on hover</h2>
+<p class="note">Nothing new at rest: an icon + “Copy” pill shows at the bottom right when the block is hovered or focused (always shown on a phone). Hover the first block.</p>
+<div class="code"><div class="badges"><span class="badge t">TERMINAL</span></div><pre><code>gh repo clone &lt;organization&gt;/&lt;repository&gt;</code></pre><button class="copy" aria-label="Copy the command"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M2 11V3a1 1 0 0 1 1-1h8"/></svg>Copy</button></div>
+<div class="code"><div class="badges"><span class="badge t">TERMINAL</span><span class="badge a">CODING AGENT</span></div><pre><code>omni signin</code></pre><button class="copy done"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8.5l3.5 3.5L13 4"/></svg>Copied</button></div>
+</section>
+
+<section class="vE"><h2>E · Yellow signal</h2>
+<p class="note">A loud yellow pixel chip with an icon and <b>COPY</b> at the command's line end, and a muted <code>$</code> prompt (not copied). Turns green once copied.</p>
+<div class="code"><div class="badges"><span class="badge t">TERMINAL</span></div><div class="row"><pre><code>gh repo clone &lt;organization&gt;/&lt;repository&gt;</code></pre><button class="copy" aria-label="Copy the command"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="3.5" width="7" height="7"/><path d="M1.5 8V1.5H8"/></svg>COPY</button></div></div>
+<div class="code"><div class="badges"><span class="badge t">TERMINAL</span><span class="badge a">CODING AGENT</span></div><div class="row"><pre><code>omni signin</code></pre><button class="copy done"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1.5 6.5l3 3 6-7"/></svg>COPIED</button></div></div>
+</section>
+</main></body></html>

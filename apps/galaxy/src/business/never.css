@@ -1,8 +1,0 @@
-/* Settings › Business's Never lines (PRD 839 s2): under the claims, one row per line. Each row is a
-   .business-row (business.css), which wraps and breaks a long line at 393 px. */
-.business-never { display: grid; gap: 12px; }
-.business-never h2 { margin: 0; }
-.business-never ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
-.business-never-line { scroll-margin-top: 80px; }
-.business-never-line:target { outline: 2px solid var(--ask-line-strong); outline-offset: 2px; }
-.business-never > .ask-button { justify-self: start; }

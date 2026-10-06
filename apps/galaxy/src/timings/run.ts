@@ -1,16 +1,17 @@
-// One run of `node apps/galaxy/scripts/timings.mjs` (PRD 657): load each slow page a number of times
+// One run of `node apps/galaxy/scripts/timings.ts` (PRD 657): load each slow page a number of times
 // with a session cookie a person pasted into a file, and print a Markdown table of the median and p75
 // time to first byte and to the full document, ready for the PRD's timings.md. Requests run one after
 // another, so each timing is one page load, not a share of a burst.
 //
 // The script calls timings() with the real fetch, file reader and clock; the test passes fakes. It
 // runs on plain Node, so this module's imports name their extension.
+import { SITE } from '../releases/page/address.ts';
 import { summarise, type Sample } from './summarise.ts';
 
 /** The pages PRD 657 set out to make fast, in the order the table lists them. */
 export const PAGES = ['/prd', '/app', '/app/workspace', '/app/fleet'] as const;
 
-const PRODUCTION = 'https://vertuo-omni-loop-galaxy.vercel.app';
+const PRODUCTION = SITE;
 const RUNS = 10;
 /** The heading every signed-out card carries (DashboardSignIn, DossierSignIn…): a signed-out page
  * answers 200 too, and timing it would measure the wrong page. */
@@ -31,7 +32,7 @@ const HOW_TO_COPY = [
   'To copy one: sign in on the site in your browser, open the developer tools, Network tab, reload the',
   'page, click the first (document) request, and under Request Headers copy the whole value of',
   '"cookie" into a file, on one line. Keep that file out of the repository: it signs in as you.',
-  'Then: node apps/galaxy/scripts/timings.mjs --cookie <file> [--base <url>] [--runs <n>]',
+  'Then: node apps/galaxy/scripts/timings.ts --cookie <file> [--base <url>] [--runs <n>]',
 ];
 
 export function parseArgs(argv: readonly string[]): Args {

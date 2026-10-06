@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { group, messageOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { HastElement, HastNode } from './badges';
 
 // A diagram of the guide: an SVG file beside the pages, under docs/guide/diagrams/, shown by a line of
@@ -34,7 +35,9 @@ export class DiagramError extends Error {}
  * other name as written, which the compiler reads as SVG's own. */
 function properties(attributes: string): Record<string, unknown> {
   const found: Record<string, unknown> = {};
-  for (const [, name, double, single] of attributes.matchAll(ATTRIBUTE)) {
+  for (const match of attributes.matchAll(ATTRIBUTE)) {
+    const [, , double, single] = match;
+    const name = group(match, 1);
     const value = decode(double ?? single ?? '');
     if (name === 'xmlns' || name.startsWith('xmlns:')) continue;
     found[name === 'class' ? 'className' : name] = name === 'class' ? value.split(/\s+/).filter(Boolean) : value;
@@ -68,10 +71,10 @@ export function readSvg(source: string): HastElement {
   };
 
   for (const match of source.matchAll(TOKEN)) {
-    const index = match.index ?? 0;
+    const index = match.index;
     text(source.slice(at, index), at);
     at = index + match[0].length;
-    const [whole, closing, name, attributes, selfClosing] = match;
+    const [whole, closing, , attributes, selfClosing] = match;
     if (whole.startsWith('<!') || whole.startsWith('<?')) continue;
     if (closing) {
       const top = open.pop();
@@ -80,6 +83,7 @@ export function readSvg(source: string): HastElement {
       else if (open.length === 0) root = top;
       continue;
     }
+    const name = group(match, 2);
     if (root || (open.length === 0 && name !== 'svg')) fail(index, `<${name}> outside the one <svg>`);
     const node: HastElement = { type: 'element', tagName: name, properties: properties(attributes ?? ''), children: [] };
     const parent = open.at(-1);
@@ -135,11 +139,12 @@ const IMAGE = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
 /** Every diagram a page's markdown shows. */
 export function diagramsNamed(markdown: string): DiagramLine[] {
   const lines = markdown.split('\n');
-  const blank = (i: number) => i < 0 || i >= lines.length || !lines[i].trim();
+  const blank = (i: number) => i < 0 || i >= lines.length || !lines[i]?.trim();
   return lines.flatMap((text, i) =>
     [...text.matchAll(IMAGE)]
-      .filter((m) => isDiagramPath(m[2]))
-      .map((m) => ({ line: i + 1, alt: m[1], src: m[2], alone: text.trim() === m[0] && blank(i - 1) && blank(i + 1) })));
+      .filter((m) => isDiagramPath(group(m, 2)))
+      .map((m) => ({ line: i + 1, alt: group(m, 1), src: group(m, 2),
+        alone: text.trim() === m[0] && blank(i - 1) && blank(i + 1) })));
 }
 
 /** The few mdast shapes the compile step reads and writes: no dependency on mdast's own types. */
@@ -148,7 +153,7 @@ interface MdNode {
   url?: string;
   alt?: string | null;
   value?: string;
-  children?: MdNode[];
+  children?: MdNode[] | undefined;
   data?: Record<string, unknown>;
 }
 
@@ -163,15 +168,18 @@ function diagramOf(node: MdNode): { url: string; alt: string } | null {
 /** The page being compiled, as the remark plugin sees it: fumadocs-mdx hands it the bundler's
  * dependency tracker, so a page is compiled again when a diagram it shows changes. */
 interface PageFile {
-  dirname?: string;
-  path?: string;
+  dirname?: string | undefined;
+  path?: string | undefined;
   /** VFile's data: fumadocs-mdx's `_compiler` is read from it, when there is one. */
-  data?: object;
+  data?: object | undefined;
 }
 
-/** The bundler's dependency tracker fumadocs-mdx leaves on the page's data, if any. */
-const tracker = (file: PageFile) =>
-  (file.data as { _compiler?: { addDependency?: (path: string) => void } } | undefined)?._compiler;
+/** Makes `path` one of the page's dependencies, through the tracker fumadocs-mdx leaves on the page's data, if any. */
+const addDependency = (file: PageFile, path: string): void => {
+  const compiler = propertyOf(file.data, '_compiler');
+  const add = propertyOf(compiler, 'addDependency');
+  if (typeof add === 'function') add.call(compiler, path);
+};
 
 /**
  * The compile step, a remark plugin run before fumadocs' own (source.config.ts), so its image step
@@ -191,12 +199,12 @@ export function remarkDiagrams() {
         }
         if (!dir) throw new Error(`the diagram ${diagram.url}: the page's folder is unknown`);
         const path = join(dir, diagram.url);
-        tracker(file)?.addDependency?.(path);
+        addDependency(file, path);
         let figure: HastElement;
         try {
           figure = diagramFigure(readSvg(readFileSync(path, 'utf8')), diagram.alt);
         } catch (error) {
-          throw new Error(`the diagram ${diagram.url} ${file.path ? `of ${file.path} ` : ''}does not read: ${(error as Error).message}`, { cause: error });
+          throw new Error(`the diagram ${diagram.url} ${file.path ? `of ${file.path} ` : ''}does not read: ${messageOf(error)}`, { cause: error });
         }
         const children: HastNode[] = figure.children;
         return { type: 'diagram', data: { hName: figure.tagName, hProperties: figure.properties, hChildren: children } };

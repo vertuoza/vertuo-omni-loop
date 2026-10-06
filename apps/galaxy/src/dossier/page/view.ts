@@ -77,14 +77,17 @@ import {
   CONTEXT_LABELS, CONTEXTS, GITHUB_UNREAD, isContext, OUTBOX_EMPTY, outboxView, type ContextKind, type ContextView, type OutboxView,
 } from './outbox-view';
 import { isDossierId } from './source';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { GITHUB_PENDING } from './stream/pending';
 import type { StageRow } from '../../stages/stage';
 import { stageView, type StageView } from './stage';
 import { kindOf, WORK_NAMES, workPath } from './work';
 import { reworkCommand } from './voice';
 import { pad, shortDay, stamp } from './dates';
+import type { GithubAt } from '../snapshot/snapshot';
 import { proofView, runsBadge, type ProofRead, type ProofView } from './proof';
 import { pitchesBadge, pitchView, type PitchRead, type PitchView } from './pitch';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export { GITHUB_UNREAD, OUTBOX_EMPTY, outboxView, type OutboxView };
 
@@ -168,7 +171,7 @@ export function readPick(query: Query): DossierPick {
 export const defaultTab = (rounds: readonly unknown[] | null): DossierTab => (rounds?.length ? 'questions' : 'before-after');
 
 /** A PRD's issue on GitHub: its number is the issue's. */
-export const issueUrl = (repo: string, prd: number) =>
+export const issueUrl = (repo: string, prd: PrdNumber) =>
   `https://github.com/${repo.split('/').map(encodeURIComponent).join('/')}/issues/${prd}`;
 
 /** The page's own address, the one Copy link gives: a PRD's, or a fix's on its kind's route (PRD 627). */
@@ -204,24 +207,26 @@ export type DossierRead = {
   dossier: DossierRow; versions: DossierVersionRow[]; members: Member[]; rounds: DossierRoundRow[] | null; repos?: string[] | null;
   answerable?: readonly string[];
   /** The GitHub summary (PRD 426): null when it could not be read, left out when it was not asked for. */
-  github?: GithubSummary | null;
+  github?: GithubSummary | null | undefined;
   /** The slices of the dossier's latest plan version; null or left out when not known. */
   slices?: number | null;
   /** The PRD's stored stages (PRD 587): none yet reads Syncing…; left out when they were not asked for. */
-  stages?: readonly StageRow[] | null;
+  stages?: readonly StageRow[] | null | undefined;
   /** The demo dossier (PRD 251, s9): its outbox cannot send. */
   demo?: boolean;
   /** A fix's state, links and Timeline (PRD 627, s5); left out for a PRD. */
-  fix?: FixPageView;
+  fix?: FixPageView | undefined;
   /** The workspace's people directory (PRD 652), for the faces; left out, everyone falls back to
    * their GitHub photo or their initial. */
-  people?: People;
+  people?: People | undefined;
   /** The proof runs (PRD 798): null when they could not be read, left out when not asked for; the
    * Proof tab shows only with one. */
-  proofs?: ProofRead | null;
+  proofs?: ProofRead | null | undefined;
   /** The pitches (PRD 859): null when they could not be read, left out when not asked for; the Pitch
    * tab shows only with one. */
-  pitches?: PitchRead | null;
+  pitches?: PitchRead | null | undefined;
+  /** When the GitHub summary was read, and when GitHub resumes (PRD 902, s2); null or left out when not known. */
+  githubAt?: GithubAt | null | undefined;
 };
 
 /** Nobody known: every face is the GitHub photo of a login, or the name's initial (PRD 652). */
@@ -322,6 +327,16 @@ export type DossierView = {
   pitch: PitchView | null;
   /** The demo dossier (PRD 859): its Pitch panel opens disabled. Left out on any other dossier. */
   demo?: true;
+  /** `GitHub as of 09:15 UTC`, when the PRD's GitHub snapshot was read (PRD 902, s2); null when it was not. */
+  githubAsOf: string | null;
+  /** `GitHub resumes at 10:00 UTC`, while the installation's budget is paused; null otherwise. */
+  githubResumes: string | null;
+};
+
+/** `09:15 UTC`: the time of day, in UTC like every date on the page. */
+const timeOfDay = (iso: string) => {
+  const at = new Date(iso);
+  return `${pad(at.getUTCHours())}:${pad(at.getUTCMinutes())} UTC`;
 };
 
 /** One option of a question, as it was offered: its label without "(Recommended)", which becomes a
@@ -455,8 +470,8 @@ const askedOrder = (a: Asked, b: Asked) =>
 export function isQuick(row: Pick<DossierRoundRow, 'status' | 'questions' | 'created_at'>, now: number): boolean {
   if (row.status !== 'open' || now >= Date.parse(row.created_at) + HOOK_WAIT_MS) return false;
   const asked = readQuestions(row.questions);
-  if (asked.length !== 1) return false;
   const [only] = asked;
+  if (asked.length !== 1 || !only) return false;
   return !only.multiSelect && only.options.length > 0 && only.options.every((o) => o.preview === null);
 }
 
@@ -479,6 +494,7 @@ function quickOf(
 ): QuickRound | null {
   if (!isQuick(row, now)) return null;
   const [only] = readQuestions(row.questions);
+  if (!only) return null;
   const canAnswer = answerable.includes(row.round_id);
   return {
     question: only.question,
@@ -577,7 +593,7 @@ function pageOf(read: DossierRead, me: string | null, pick: DossierPick): Page {
   const numbered = read.dossier.prd === null ? undefined : read.github;
   const kindTabs = work === 'prd' ? prdTabs(read) : KIND_TABS[work];
   const tabs = kindTabs.filter((t) => t !== 'care' || !noFeature(read.dossier.prd, numbered));
-  const fallback = work === 'prd' ? defaultTab(read.rounds) : tabs[0];
+  const fallback = work === 'prd' ? defaultTab(read.rounds) : at(tabs, 0, 'the first tab');
   const tab = pick.tab !== null && tabs.includes(pick.tab) ? pick.tab : fallback;
   const href = (to: DossierTab, version: number | null = null) => hrefOf(read.dossier.id, to, version, fallback, null, work);
   return { read, me, people: read.people ?? NOBODY, work, tabs, tab, fallback, href, numbered };
@@ -585,7 +601,7 @@ function pageOf(read: DossierRead, me: string | null, pick: DossierPick): Page {
 
 /** Whether the PRD is known to have no feature PR: a draft, or GitHub answered there is none. While
  * GitHub is being read, or could not be, the PR care tab stays, so the tab bar does not move. */
-const noFeature = (prd: number | null, github: GithubSummary | null | undefined) => prd === null || (!!github && github.feature === null);
+const noFeature = (prd: PrdNumber | null, github: GithubSummary | null | undefined) => prd === null || (!!github && github.feature === null);
 
 /** The PRD's feature PR, open or merged; null when it has none, or it could not be read. */
 function featureOf(github: GithubSummary | null | undefined) {
@@ -625,11 +641,11 @@ function versionEntries({ read, tab, work, href }: Page, version: number | null)
 function railSpecOf({ read, href }: Page): VersionEntry | null {
   const specs = read.versions.filter((v) => v.kind === 'spec');
   if (!specs.length) return null;
-  return { id: specs[specs.length - 1].id, number: specs.length, label: `v${specs.length}`, href: href('spec'), current: true, frame: null };
+  return { id: at(specs, -1, 'the latest spec').id, number: specs.length, label: `v${specs.length}`, href: href('spec'), current: true, frame: null };
 }
 
 /** `DRAFT`, `PRD #216`, or a fix's `#548`. */
-const headingOf = (prd: number | null, work: WorkKind) => (prd === null ? 'DRAFT' : `${work === 'prd' ? 'PRD ' : ''}#${prd}`);
+const headingOf = (prd: PrdNumber | null, work: WorkKind) => (prd === null ? 'DRAFT' : `${work === 'prd' ? 'PRD ' : ''}#${prd}`);
 
 /** A PRD's stage: a draft's from its questions, a numbered one's from its stored stages when they were
  * asked for; none for a fix. */
@@ -740,6 +756,8 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
     proof: runs && read.proofs ? proofView(read.proofs, page.tab === 'proof' ? pick.version : null, (n) => page.href('proof', n), read.members) : null,
     pitch: pitches && read.pitches ? pitchView(read.pitches, pick.pitch ?? null, read.members) : null,
     ...(read.demo ? { demo: true as const } : {}),
+    githubAsOf: read.githubAt ? `GitHub as of ${timeOfDay(read.githubAt.readAt)}` : null,
+    githubResumes: read.githubAt?.resumesAt ? `GitHub resumes at ${timeOfDay(read.githubAt.resumesAt)}` : null,
   };
 }
 
@@ -772,7 +790,7 @@ const VERDICT_WORDS: Record<CareVerdict, string> = { open: 'not handled yet', fi
 const careBadge = (care: CareView | null) => (care?.state === 'care' && care.counts.open + care.counts.asked ? `${care.counts.open + care.counts.asked} open` : null);
 
 /** The watcher line (PRD 790): `Claude is watching · last round 3 min ago` under 15 minutes, else nobody. */
-export function watcherOf(lastRound: string | null, prd: number, now: number): CareView['watcher'] {
+export function watcherOf(lastRound: string | null, prd: PrdNumber, now: number): CareView['watcher'] {
   const command = `/omni:pr-care ${prd}`;
   const ago = lastRound === null ? NaN : now - Date.parse(lastRound);
   if (!(ago < WATCH_FRESH_MS)) return { watching: false, words: 'Nobody is watching', command };
@@ -785,7 +803,7 @@ const NO_CARE = { ci: { state: 'none' as const, words: CI_WORDS.none, href: null
 
 /** The PR care tab, from the GitHub summary: null when the PRD is known to have no feature PR (the tab
  * is not shown); pending while GitHub was not asked, unread when it did not answer. */
-function careView(github: GithubSummary | null | undefined, prd: number | null, people: People, now: number): CareView | null {
+function careView(github: GithubSummary | null | undefined, prd: PrdNumber | null, people: People, now: number): CareView | null {
   if (prd === null || noFeature(prd, github)) return null;
   const watcher = watcherOf(null, prd, now);
   if (github === undefined) return { state: 'pending', words: GITHUB_PENDING, prUrl: null, ...NO_CARE, watcher };

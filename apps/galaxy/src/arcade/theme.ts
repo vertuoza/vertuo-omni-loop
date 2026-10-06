@@ -6,6 +6,7 @@
 // gradient from `mark-*` (mark.ts) and the sprite forge its stripes from `stripe-*` (`stripesOf`).
 // Adding a token means adding it to `valid_theme()` too, in a migration: theme.test.ts holds the two
 // lists equal. Fonts are not tokens.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { z } from 'zod';
 import { COLOURS, FLAT, type Flat } from '@omni/design';
 
@@ -21,19 +22,21 @@ const ARCADE_TOKENS = [
   'body-a-shine', 'body-b-shine', 'body-pill-1', 'body-pill-2', 'body-grille',
 ] as const;
 
-function fromPackage<T extends string>(names: readonly T[]): Record<T, string> {
-  return Object.fromEntries(names.map((name) => {
+/** The arcade's colours from @omni/design, one per name: a name it has no colour for throws. */
+function fromPackage(): Record<(typeof ARCADE_TOKENS)[number], string> {
+  const colours = Object.fromEntries(ARCADE_TOKENS.map((name) => {
     const colour = COLOURS[name];
     if (!colour) throw new Error(`theme: @omni/design has no colour "${name}"`);
     return [name, colour];
-  })) as Record<T, string>;
+  }));
+  return z.record(z.enum(ARCADE_TOKENS), z.string()).parse(colours);
 }
 
 /** Every token and its default. The arcade's colours and the stripes come from @omni/design; the
  * mark's gradient is the Vertuoza mark's own (mark.ts), a workspace's colours, not the product's. */
 export const TOKENS = Object.freeze({
   // The arcade's colours, declared on :root by @omni/design/tokens.css.
-  ...fromPackage(ARCADE_TOKENS),
+  ...fromPackage(),
   // The mark's gradient, left to right, and its shade (mark.ts).
   'mark-1': '#ff5f6d',
   'mark-2': '#a45cff',
@@ -42,10 +45,10 @@ export const TOKENS = Object.freeze({
   'mark-shade-2': '#6a2fd0',
   'mark-shade-3': '#2f3fc4',
   // The four stripes on every hero's suit: the sprite forge's flat colours 1 to 4.
-  'stripe-1': FLAT[1]!,
-  'stripe-2': FLAT[2]!,
-  'stripe-3': FLAT[3]!,
-  'stripe-4': FLAT[4]!,
+  'stripe-1': defined(FLAT[1], 'flat colour 1'),
+  'stripe-2': defined(FLAT[2], 'flat colour 2'),
+  'stripe-3': defined(FLAT[3], 'flat colour 3'),
+  'stripe-4': defined(FLAT[4], 'flat colour 4'),
 });
 
 export type Token = keyof typeof TOKENS;
@@ -54,14 +57,17 @@ export type Theme = Readonly<Record<Token, string>>;
 /** What a workspace stores: only the tokens it overrides. */
 export type Overrides = Partial<Record<Token, string>>;
 
-const NAMES = Object.keys(TOKENS) as [Token, ...Token[]];
+const isToken = (key: string): key is Token => Object.hasOwn(TOKENS, key);
+const [FIRST, ...REST] = Object.keys(TOKENS).filter(isToken);
+/** Every token, in TOKENS' order: TOKENS has at least the arcade's colours. */
+const NAMES: [Token, ...Token[]] = [defined(FIRST, 'a theme token'), ...REST];
 
 /** A theme's colour: lowercase `#rrggbb` only, as `valid_theme()` asks (item s1-02). */
 export const Colour = z.string().regex(/^#[0-9a-f]{6}$/, 'not a lowercase #rrggbb colour');
 /** One override: a known token and its colour. */
 export const Override = z.tuple([z.enum(NAMES), Colour]);
-/** A stored theme: an object of overrides. `valid_theme()` in the database, in zod. */
-export const ThemeSchema = z.record(z.enum(NAMES), Colour);
+/** A stored theme: an object of overrides, any token left out. `valid_theme()` in the database, in zod. */
+export const ThemeSchema = z.partialRecord(z.enum(NAMES), Colour);
 
 /** Today's arcade: every token at its default. */
 export const DEFAULT_THEME: Theme = TOKENS;
@@ -92,8 +98,8 @@ export function resolveTheme(raw: unknown): Theme {
 }
 
 /** The theme as CSS custom properties, one per token (`--plasma`), for the arcade's root element. */
-export function themeVars(theme: Theme): Record<`--${Token}`, string> {
-  return Object.fromEntries(NAMES.map((t) => [`--${t}`, theme[t]])) as Record<`--${Token}`, string>;
+export function themeVars(theme: Theme): Readonly<Record<`--${string}`, string>> {
+  return Object.fromEntries(NAMES.map((t) => [`--${t}`, theme[t]]));
 }
 
 const STRIPES = new WeakMap<Theme, Flat>();

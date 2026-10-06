@@ -4,9 +4,9 @@ import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { MetaData, Source } from 'fumadocs-core/source';
+import type { MetaData, StaticSource } from 'fumadocs-core/source';
 import type { TOCItemType } from 'fumadocs-core/toc';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { badgedBlock, codeKinds, type HastNode } from './badges';
 import { diagramFigure, isDiagramPath, readSvg } from './diagrams';
 import { DocsPage } from './DocsPage';
@@ -15,6 +15,9 @@ import { readGuide } from './guide';
 import { skillNames, skillPage, skillsOverview } from './skills';
 import { SkillBody, SkillsOverview, skillSidebar, skillToc } from './skills-view';
 import { guideLoader, sidebarItems } from './tree';
+import { sure } from '../arcade/test/sure';
+
+vi.mock('server-only', () => ({}));
 
 // The guide's pages as /docs serves them (PRD 346): fumadocs-core's loader over docs/guide/, in
 // meta.json's order, each page drawn by DocsPage with the sidebar, its title, its body and its table
@@ -35,28 +38,28 @@ const toHtml = (node: HastNode): string => {
     : ` ${/^data[A-Z]/.test(name) ? name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`) : name}="${markdown.utils.escapeHtml(String(value))}"`).join('');
   return `<${node.tagName}${attributes}>${node.children.map(toHtml).join('')}</${node.tagName}>`;
 };
-const fence = markdown.renderer.rules.fence!;
+const fence = sure(markdown.renderer.rules.fence, 'markdown.renderer.rules.fence');
 markdown.renderer.rules.fence = (tokens, i, options, env, self) => {
   const pre = fence(tokens, i, options, env, self);
-  const kinds = codeKinds(tokens[i].info.trim().split(/\s+/).slice(1).join(' '));
+  const kinds = codeKinds(sure(tokens[i], 'tokens[i]').info.trim().split(/\s+/).slice(1).join(' '));
   return kinds.length > 0 ? toHtml(badgedBlock(kinds, { type: 'raw', value: pre })) : pre;
 };
-const image = markdown.renderer.rules.image!;
+const image = sure(markdown.renderer.rules.image, 'markdown.renderer.rules.image');
 markdown.renderer.rules.image = (tokens, i, options, env, self) => {
-  const src = String(tokens[i].attrGet('src') ?? '');
+  const src = String(sure(tokens[i], 'tokens[i]').attrGet('src') ?? '');
   if (!isDiagramPath(src)) return image(tokens, i, options, env, self);
-  const alt = self.renderInlineAsText(tokens[i].children ?? [], options, env);
+  const alt = self.renderInlineAsText(sure(tokens[i], 'tokens[i]').children ?? [], options, env);
   return toHtml(diagramFigure(readSvg(readFileSync(join(GUIDE, src), 'utf8')), alt));
 };
 /** A page's body as the app compiles it: a diagram's figure in place of its paragraph. */
 const renderBody = (body: string) => markdown.render(body).replace(/<p>(<figure [\s\S]*?<\/figure>)<\/p>/g, '$1');
 
 /** A page as the test hands it to the loader: its body as markdown-it's HTML. */
-type TestPage = { title?: string; html: string; toc: TOCItemType[] };
+type TestPage = { title?: string | undefined; html: string; toc: TOCItemType[] };
 
 /** docs/guide/ as a fumadocs source: its meta.json, and each page with a body markdown-it renders. */
-function source(): Source<{ pageData: TestPage; metaData: MetaData }> {
-  const meta = JSON.parse(readFileSync(join(GUIDE, 'meta.json'), 'utf8'));
+function source(): StaticSource<{ pageData: TestPage; metaData: MetaData }> {
+  const meta = JSON.parse(readFileSync(join(GUIDE, 'meta.json'), 'utf8')) as MetaData;
   const pages = readGuide(GUIDE).pages.map((page) => ({
     type: 'page' as const,
     path: `${page.slug}.md`,
@@ -64,7 +67,7 @@ function source(): Source<{ pageData: TestPage; metaData: MetaData }> {
       title: page.title ?? undefined,
       html: renderBody(page.body),
       toc: [...page.body.matchAll(/^(#{2,4}) (.+)$/gm)].map(([, hashes, title]) => ({
-        title, url: `#${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, depth: hashes.length,
+        title, url: `#${sure(title, 'title').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, depth: sure(hashes, 'hashes').length,
       })),
     },
   }));
@@ -84,15 +87,17 @@ function render(slug: string[]) {
 }
 
 describe('the sidebar', () => {
-  it('lists the nine pages, in order, at /docs and under it', () => {
+  it('lists the eleven pages, in order, at /docs and under it', () => {
     expect(items).toEqual([
       { name: 'Getting started', url: '/docs' },
-      { name: 'Join a team', url: '/docs/join' },
       { name: 'Install', url: '/docs/install' },
+      { name: 'Join a team', url: '/docs/join' },
       { name: 'Invade', url: '/docs/invade' },
       { name: 'How the loop works', url: '/docs/loop' },
       { name: 'Your first PRD', url: '/docs/first-prd' },
       { name: 'Several repositories', url: '/docs/several-repositories' },
+      { name: 'Landings', url: '/docs/landings' },
+      { name: 'Repository flow', url: '/docs/flow' },
       { name: 'Use cases', url: '/docs/use-cases' },
       { name: 'When something goes wrong', url: '/docs/troubleshooting' },
     ]);
@@ -101,14 +106,16 @@ describe('the sidebar', () => {
   it('is what every page shows, the page shown marked current', () => {
     const html = render(['install']);
     expect(html).toContain('<nav class="docs-nav" aria-label="Guide">');
-    expect([...html.matchAll(/<nav class="docs-nav"[\s\S]*?<\/nav>/g)][0][0].match(/<a [^>]*>[^<]*<\/a>/g)).toEqual([
+    expect(sure([...html.matchAll(/<nav class="docs-nav"[\s\S]*?<\/nav>/g)][0], 'the docs nav')[0].match(/<a [^>]*>[^<]*<\/a>/g)).toEqual([
       '<a href="/docs">Getting started</a>',
-      '<a href="/docs/join">Join a team</a>',
       '<a href="/docs/install" aria-current="page">Install</a>',
+      '<a href="/docs/join">Join a team</a>',
       '<a href="/docs/invade">Invade</a>',
       '<a href="/docs/loop">How the loop works</a>',
       '<a href="/docs/first-prd">Your first PRD</a>',
       '<a href="/docs/several-repositories">Several repositories</a>',
+      '<a href="/docs/landings">Landings</a>',
+      '<a href="/docs/flow">Repository flow</a>',
       '<a href="/docs/use-cases">Use cases</a>',
       '<a href="/docs/troubleshooting">When something goes wrong</a>',
     ]);
@@ -118,19 +125,21 @@ describe('the sidebar', () => {
 describe('the pages', () => {
   it('serves Getting started at /docs, and each other page at /docs/<page>', () => {
     expect(guide.generateParams().map((p) => p.slug.join('/')).sort())
-      .toEqual(['', 'first-prd', 'install', 'invade', 'join', 'loop', 'several-repositories', 'troubleshooting', 'use-cases']);
+      .toEqual(['', 'first-prd', 'flow', 'install', 'invade', 'join', 'landings', 'loop', 'several-repositories', 'troubleshooting', 'use-cases']);
     expect(guide.getPage([])?.data.title).toBe('Getting started');
     expect(guide.getPage(['nope'])).toBeUndefined();
   });
 
   it.each([
-    [[], 'Getting started', '/docs/join'],
+    [[], 'Getting started', '/docs/install'],
+    [['install'], 'Install', '/docs/join'],
     [['join'], 'Join a team', '/docs/loop'],
-    [['install'], 'Install', '/docs/invade'],
     [['invade'], 'Invade', '/docs/loop'],
     [['loop'], 'How the loop works', '/docs/first-prd'],
     [['first-prd'], 'Your first PRD', '/docs/several-repositories'],
-    [['several-repositories'], 'Several repositories', '/docs/use-cases'],
+    [['several-repositories'], 'Several repositories', '/docs/landings'],
+    [['landings'], 'Landings', '/docs/flow'],
+    [['flow'], 'Repository flow', '/docs/use-cases'],
     [['use-cases'], 'Use cases', '/docs/troubleshooting'],
     [['troubleshooting'], 'When something goes wrong', '/docs'],
   ])('/docs/%s renders its title, its body and its Next link', (slug, title, next) => {
@@ -188,9 +197,9 @@ describe('the skills pages (PRD 580)', () => {
   };
   const navLinks = (html: string, label: string) => (new RegExp(`<nav class="docs-nav" aria-label="${label}">[\\s\\S]*?</nav>`).exec(html)?.[0] ?? '').match(/<a [^>]*>[^<]*<\/a>/g);
 
-  it('shows the guide\'s nine pages, then Skills › All skills, on a guide page', () => {
+  it('shows the guide\'s eleven pages, then Skills › All skills, on a guide page', () => {
     const html = render(['install']);
-    expect(navLinks(html, 'Guide')).toHaveLength(9);
+    expect(navLinks(html, 'Guide')).toHaveLength(11);
     expect(html).toMatch(/<\/nav><nav class="docs-nav" aria-label="Skills"><p class="docs-nav-head">Skills<\/p><ol><li><a href="\/docs\/skills">All skills<\/a><\/li><\/ol><\/nav>/);
   });
 
@@ -201,7 +210,7 @@ describe('the skills pages (PRD 580)', () => {
     const wave = navLinks(skills('wave'), 'Skills');
     expect(wave?.[0]).toBe('<a href="/docs/skills">All skills</a>');
     expect(wave?.filter((link) => link.includes('aria-current'))).toEqual(['<a href="/docs/skills/wave" aria-current="page">/omni:wave</a>']);
-    expect(navLinks(skills('wave'), 'Guide')).toHaveLength(9);
+    expect(navLinks(skills('wave'), 'Guide')).toHaveLength(11);
   });
 
   it('draws the overview: one section per group, a card per skill linking its page', () => {
@@ -213,8 +222,8 @@ describe('the skills pages (PRD 580)', () => {
     ]);
     const cards = [...html.matchAll(/<a class="docs-skill-card" href="([^"]*)"><code>([^<]*)<\/code><span>([^<]*)<\/span><\/a>/g)];
     expect(cards.map((m) => m[1])).toEqual(skillNames().map((name) => `/docs/skills/${name}`));
-    expect(cards[0].slice(1)).toEqual(['/docs/skills/think-big', '/omni:think-big', 'a vast idea, explored by a studio, to a concept PR']);
-    expect(cards[4].slice(2)).toEqual(['/omni:yolo', 'build a whole PRD: plan, waves, the outbox gate, ship']);
+    expect(sure(cards[0], 'cards[0]').slice(1)).toEqual(['/docs/skills/think-big', '/omni:think-big', 'a vast idea, explored by a studio, to a concept PR']);
+    expect(sure(cards[4], 'cards[4]').slice(2)).toEqual(['/omni:yolo', 'build a whole PRD: plan, waves, the outbox gate, ship']);
   });
 
   it('draws a skill page: its sections in order, its usage and example as code, and its SKILL.md', () => {
@@ -242,10 +251,10 @@ describe('the skills pages (PRD 580)', () => {
 describe('a code block', () => {
   /** Every code block of a page: its badges' text, then the start of its code. */
   const blocks = (html: string) => [...html.matchAll(/<div class="docs-code"><div class="docs-badges">([\s\S]*?)<\/div><pre><code[^>]*>([^\n]*)/g)]
-    .map(([, badges, code]) => [[...badges.matchAll(/<span class="docs-badge" data-kind="[a-z]+">([^<]*)<\/span>/g)].map((m) => m[1]).join(' + '), code]);
+    .map(([, badges, code]) => [[...sure(badges, 'badges').matchAll(/<span class="docs-badge" data-kind="[a-z]+">([^<]*)<\/span>/g)].map((m) => m[1]).join(' + '), code]);
 
   it('shows where it goes, as badge text above its code, on every page', () => {
-    for (const slug of [['join'], ['install'], ['invade'], ['loop'], ['first-prd'], ['several-repositories'], ['use-cases'], ['troubleshooting']]) {
+    for (const slug of [['join'], ['install'], ['invade'], ['loop'], ['first-prd'], ['several-repositories'], ['landings'], ['flow'], ['use-cases'], ['troubleshooting']]) {
       const html = render(slug);
       expect(html.match(/<pre>/g)?.length, slug.join()).toBe(blocks(html).length);
     }
@@ -257,7 +266,8 @@ describe('a code block', () => {
     expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni --version']);
     expect(install).toContainEqual(['TERMINAL', 'omni init']);
     expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'git switch main']);
-    expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni config']);
+    expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni signin']);
+    expect(install).toContainEqual(['CODING AGENT', '/omni:ask on']);
     expect(install).toContainEqual(['CODING AGENT', '/omni:help']);
     const troubleshooting = blocks(render(['troubleshooting']));
     expect(troubleshooting).toContainEqual(['TERMINAL + CODING AGENT', 'omni signin']);
@@ -268,11 +278,11 @@ describe('a code block', () => {
     expect(firstPrd).toContainEqual(['GITHUB COMMENT', '1: A']);
   });
 
-  it('shows the plugin a newcomer installs, from a terminal or from Claude Code', () => {
-    const join = blocks(render(['join']));
-    expect(join).toContainEqual(['TERMINAL', 'claude plugin marketplace add vertuoza/vertuo-omni-loop']);
-    expect(join).toContainEqual(['CODING AGENT', '/plugin marketplace add vertuoza/vertuo-omni-loop']);
-    expect(join).toContainEqual(['TERMINAL + CODING AGENT', 'omni signin']);
+  it('shows the plugin a newcomer installs, from a terminal or from Claude Code, on Install (#890)', () => {
+    const install = blocks(render(['install']));
+    expect(install).toContainEqual(['TERMINAL', 'claude plugin marketplace add vertuoza/vertuo-omni-loop']);
+    expect(install).toContainEqual(['TERMINAL', 'claude plugin install omni@omni-loop']);
+    expect(install).toContainEqual(['CODING AGENT', '/plugin marketplace add vertuoza/vertuo-omni-loop']);
   });
 
   it('shows a path that is neither run nor pasted as inline code, not as a block', () => {
@@ -284,9 +294,9 @@ describe('a diagram', () => {
   /** Every figure of a page: its drawing's accessible name, and the classes its shapes and words use. */
   const figures = (html: string) => [...html.matchAll(/<figure class="docs-figure"><svg ([^>]*)>([\s\S]*?)<\/svg><\/figure>/g)]
     .map(([, attributes, inside]) => ({
-      role: /role="([^"]*)"/.exec(attributes)?.[1],
-      name: /aria-label="([^"]*)"/.exec(attributes)?.[1],
-      classes: [...new Set([...inside.matchAll(/class="([^"]*)"/g)].flatMap((m) => m[1].split(' ')))].sort(),
+      role: /role="([^"]*)"/.exec(sure(attributes, 'attributes'))?.[1],
+      name: /aria-label="([^"]*)"/.exec(sure(attributes, 'attributes'))?.[1],
+      classes: [...new Set([...sure(inside, 'inside').matchAll(/class="([^"]*)"/g)].flatMap((m) => sure(m[1], 'm[1]').split(' ')))].sort(),
       inside,
     }));
 
@@ -329,7 +339,7 @@ describe('its stylesheet', () => {
     const used = new Set<string>();
     for (const file of readdirSync(join(GUIDE, 'diagrams'))) {
       for (const [, names] of readFileSync(join(GUIDE, 'diagrams', file), 'utf8').matchAll(/class="([^"]*)"/g)) {
-        for (const name of names.split(' ')) used.add(name);
+        for (const name of sure(names, 'names').split(' ')) used.add(name);
       }
     }
     for (const name of used) expect(rule(`.docs-figure .${name}`), name).toMatch(/var\(--ask-[a-z-]+\)|font-size|stroke-dasharray/);

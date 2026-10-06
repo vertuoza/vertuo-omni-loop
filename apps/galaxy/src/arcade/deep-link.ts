@@ -8,9 +8,11 @@
 // galaxy is there to show; a page that holds none (out of reach, or an account outside the crew)
 // starts at the boot, as `/` does.
 import type { GalaxyView } from '@omni/galaxy';
+import { at, group, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { allowed } from './onboarding';
 import type { SceneName } from './scenes';
 import type { Session } from './types';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The screens an address may name by their own name. */
 export const DEEP_LINKS: readonly SceneName[] = ['map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'menu'];
@@ -22,13 +24,11 @@ export interface Landing { scene: SceneName; sel?: number }
 // repositories' PRD 88 are two planets); a planet with no home, or an older link, names the number alone.
 const PLANET = /^planet-(?:([^/#]+\/[^/#]+)\/)?(\d+)$/;
 
-const named = (h: string): h is SceneName => (DEEP_LINKS as readonly string[]).includes(h);
-
 /** The planet a link names: its home and number, or its number alone when one planet holds it. */
-function planetIndex(view: GalaxyView, home: string | undefined, prd: number): number {
+function planetIndex(view: GalaxyView, home: string | undefined, prd: PrdNumber): number {
   if (home) return view.planets.findIndex((p) => p.prd === prd && p.home === home.toLowerCase());
   const holders = view.planets.flatMap((p, i) => (p.prd === prd ? [i] : []));
-  return holders.length === 1 ? holders[0] : -1;
+  return holders.length === 1 ? at(holders, 0, 'the planet the link names') : -1;
 }
 
 /**
@@ -37,10 +37,12 @@ function planetIndex(view: GalaxyView, home: string | undefined, prd: number): n
  */
 export function readHash(hash: string, view: GalaxyView | null): Landing | null {
   const h = hash.replace(/^#/, '');
-  if (named(h)) return { scene: h };
+  if (isOneOf(DEEP_LINKS, h)) return { scene: h };
   const m = PLANET.exec(h);
   if (m && view) {
-    const sel = planetIndex(view, m[1], Number(m[2]));
+    // A number no PRD has (`planet-0`) names no planet: the map.
+    const prd = PrdNumberSchema.safeParse(Number(group(m, 2)));
+    const sel = prd.success ? planetIndex(view, m[1], prd.data) : -1;
     return sel >= 0 ? { scene: 'planet', sel } : { scene: 'map' };
   }
   return null;
@@ -50,7 +52,7 @@ export function readHash(hash: string, view: GalaxyView | null): Landing | null 
 export function landing(hash: string, at: { view: GalaxyView | null; session: Session | null }): Landing | null {
   const link = readHash(hash, at.view);
   if (!link || (at.session && !at.view)) return null;
-  return { ...link, scene: allowed(link.scene, at.session) as SceneName };
+  return { ...link, scene: allowed(link.scene, at.session) };
 }
 
 /** The hash of the screen the arcade is on: a deep link's own, or none. */
@@ -60,7 +62,7 @@ function hashOf({ scene, sel }: { scene: SceneName; sel: number }, view: GalaxyV
     if (!p) return '';
     return p.home ? `#planet-${p.home}/${p.prd}` : `#planet-${p.prd}`;
   }
-  return named(scene) ? `#${scene}` : '';
+  return isOneOf(DEEP_LINKS, scene) ? `#${scene}` : '';
 }
 
 /** The address the arcade writes for the screen it is on: the page's own path, and the screen's hash. */

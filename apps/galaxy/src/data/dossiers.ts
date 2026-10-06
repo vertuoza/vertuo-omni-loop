@@ -15,16 +15,45 @@
 // demo world's planets (`demoDossiers`), shaped by the same function, and in the artifact, which has no
 // page to open, no link.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { readQuestions, shownLabel } from '../ask/answer-model';
 import { dossierPath } from '../dossier/page/view';
-import { dossierList, dossierRounds, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
-import type { DossierAnswer, DossiersRead, PlanetDossier, PlanetDossierRead } from '../arcade/types';
+import { ARTIFACT_KINDS, dossierList, dossierRounds, WORK_KINDS, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
+import type { DossierAnswer, DossierLatest, DossiersRead, PlanetDossier, PlanetDossierRead } from '../arcade/types';
+import { z } from 'zod';
+import { type PrdNumber, PrdNumberSchema, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { orThrow, parseRows } from './parse-rows';
+import { listOf, numberOf } from './unparsed';
 
 /** How many answered rounds the tab lists. */
 export const LAST_ANSWERS = 3;
 
-/** The artifacts, in the order the page to share shows them: the page to look at first, then what to read. */
-const ARTIFACTS: readonly DossierKind[] = ['before-after', 'spec', 'plan'];
+/** An artifact's latest version, as dossier_list() builds it in its `latest` JSON column. */
+const LatestVersionEntry = z.strictObject({
+  id: z.string(),
+  version: z.coerce.number(),
+  source: z.enum(['kit', 'github']),
+  created_at: z.string(),
+});
+
+/** A row of dossier_list(), as the dossier layer's DossierListRow names it (supabase/migrations/
+ * 20261011090000_fix_dossiers.sql). Its counts and versions are read as numbers on purpose. */
+export const DossierListEntry: z.ZodType<DossierListRow> = z.strictObject({
+  id: z.string(),
+  workspace_id: z.string(),
+  home_repo: z.string(),
+  prd: PrdNumberSchema.nullable(),
+  kind: z.enum(WORK_KINDS).optional(),
+  title: z.string(),
+  opened_by: z.string().nullable(),
+  created_at: z.string(),
+  numbered_at: z.string().nullable(),
+  repos: z.array(z.string()),
+  latest: z.partialRecord(z.enum(ARTIFACT_KINDS), LatestVersionEntry),
+  asked: z.coerce.number(),
+  answered: z.coerce.number(),
+  last_activity: z.string(),
+});
 
 /** A round's first question with its answer, as one line of the tab; null when it has no answer to show. */
 function answerOf(row: DossierRoundRow): DossierAnswer | null {
@@ -33,9 +62,10 @@ function answerOf(row: DossierRoundRow): DossierAnswer | null {
   // An answer to a question the round does not name (an older kit's) is still an answer.
   const questions = [...asked, ...Object.keys(answers).filter((q) => !asked.includes(q))];
   const first = questions.find((q) => typeof answers[q] === 'string');
-  if (first === undefined || !row.answered_at) return null;
+  const answer = first === undefined ? undefined : answers[first];
+  if (first === undefined || typeof answer !== 'string' || !row.answered_at) return null;
   const more = questions.filter((q) => q !== first && typeof answers[q] === 'string').length;
-  return { question: first, answer: shownLabel(answers[first]).text, more, at: row.answered_at };
+  return { question: first, answer: shownLabel(answer).text, more, at: row.answered_at };
 }
 
 /**
@@ -44,27 +74,28 @@ function answerOf(row: DossierRoundRow): DossierAnswer | null {
  * answered, newest answer first. `url` is the page START opens, or null where there is none.
  */
 export function planetDossier(row: DossierListRow, rounds: DossierRoundRow[], url: string | null): PlanetDossier {
-  const latest = Object.fromEntries(ARTIFACTS.map((kind) => {
+  const latestOf = (kind: DossierKind): DossierLatest | null => {
     const v = row.latest[kind];
-    return [kind, v ? { version: Number(v.version), at: v.created_at } : null];
-  })) as PlanetDossier['latest'];
+    return v ? { version: numberOf(v.version), at: v.created_at } : null;
+  };
+  const latest: PlanetDossier['latest'] = { 'before-after': latestOf('before-after'), spec: latestOf('spec'), plan: latestOf('plan') };
   const last = rounds
-    .filter((r) => r.status === 'answered' && r.answered_at)
-    .sort((a, b) => Date.parse(b.answered_at!) - Date.parse(a.answered_at!) || b.round_id.localeCompare(a.round_id))
+    .flatMap((r) => (r.status === 'answered' && r.answered_at ? [{ round: r, answeredAt: r.answered_at }] : []))
+    .sort((a, b) => Date.parse(b.answeredAt) - Date.parse(a.answeredAt) || b.round.round_id.localeCompare(a.round.round_id))
+    .map(({ round }) => round)
     .map(answerOf)
     .filter((a): a is DossierAnswer => a !== null)
     .slice(0, LAST_ANSWERS);
-  return { id: row.id, url, latest, asked: Number(row.asked), answered: Number(row.answered), last };
+  return { id: row.id, url, latest, asked: numberOf(row.asked), answered: numberOf(row.answered), last };
 }
 
-type Db = Pick<SupabaseClient, 'from' | 'rpc'>;
-type PlanRow = { github_org: string | null; plan_repo: string | null };
+type Db = Pick<SupabaseClient<Database>, 'from' | 'rpc'>;
 
 /** The workspace's plan repository as a dossier's home repository, or null when it has none. */
 async function planRepo(db: Db, workspace: string): Promise<string | null> {
   const { data, error } = await db.from('workspaces').select('github_org, plan_repo').eq('id', workspace).maybeSingle();
   if (error) throw new Error(`Supabase: could not read the workspace's plan repository (${error.message})`);
-  const row = data as PlanRow | null;
+  const row = data;
   return row?.github_org && row.plan_repo ? `${row.github_org}/${row.plan_repo}`.toLowerCase() : null;
 }
 
@@ -73,7 +104,7 @@ async function dossierIds(db: Db, workspace: string, home: string): Promise<Map<
   const { data, error } = await db.from('dossiers').select('id, prd').eq('workspace_id', workspace).eq('home_repo', home);
   if (error) throw new Error(`Supabase: could not read the dossiers (${error.message})`);
   const ids = new Map<number, string>();
-  for (const row of (data ?? []) as Array<{ id: string; prd: number | null }>) if (row.prd !== null) ids.set(Number(row.prd), row.id);
+  for (const row of listOf(data)) if (row.prd !== null) ids.set(numberOf(row.prd), row.id);
   return ids;
 }
 
@@ -100,7 +131,10 @@ export async function readDossiers(db: Db, workspace: string, prds: readonly num
     const home = await planRepo(db, workspace);
     if (!home) return {};
     const ids = await dossierIds(db, workspace, home);
-    const found = [...new Set(prds)].flatMap((prd) => (ids.has(prd) ? [[prd, ids.get(prd)!] as const] : []));
+    const found = [...new Set(prds)].flatMap((prd) => {
+      const id = ids.get(prd);
+      return id === undefined ? [] : [[prd, id] as const];
+    });
     const read = await Promise.all(found.map(async ([prd, id]) => [prd, await readOne(db, id)] as const));
     return Object.fromEntries(read.filter((e): e is readonly [number, PlanetDossierRead] => e[1] !== null));
   } catch (err) {
@@ -115,10 +149,10 @@ export async function readDossiers(db: Db, workspace: string, prds: readonly num
  * workspace, set-based, so a dashboard never reads every workspace of its viewer to keep one. Rejects
  * when the list cannot be read.
  */
-export async function workspaceDossiers(db: Pick<SupabaseClient, 'rpc'>, workspace: string): Promise<DossierListRow[]> {
+export async function workspaceDossiers(db: Pick<SupabaseClient<Database>, 'rpc'>, workspace: string): Promise<DossierListRow[]> {
   const { data, error } = await db.rpc('dossier_list', { p_workspace: workspace });
   if (error) throw new Error(`Supabase: could not read the workspace's dossiers (${error.message})`);
-  return (data ?? []) as DossierListRow[];
+  return orThrow(parseRows(DossierListEntry, data, 'data/dossiers: dossier_list'));
 }
 
 // ── The demo's dossiers ─────────────────────────────────────────────────────────
@@ -131,7 +165,7 @@ const HOUR = 3_600_000;
 
 type DemoRound = { question: string; answer: string | null; more?: Record<string, string>; hoursAgo: number };
 type DemoDossier = {
-  prd: number;
+  prd: PrdNumber;
   title: string;
   /** Each artifact's latest version, and how many hours ago it was added. */
   latest: Partial<Record<DossierKind, { version: number; hoursAgo: number; source?: 'kit' | 'github' }>>;
@@ -142,7 +176,7 @@ type DemoDossier = {
 
 const DEMO: DemoDossier[] = [
   {
-    prd: 2410, title: 'Peppol e-Invoicing',
+    prd: parsePrd(2410), title: 'Peppol e-Invoicing',
     latest: { 'before-after': { version: 1, hoursAgo: 70 }, spec: { version: 2, hoursAgo: 30 } },
     asked: 4, answered: 3,
     rounds: [
@@ -153,7 +187,7 @@ const DEMO: DemoDossier[] = [
     ],
   },
   {
-    prd: 2332, title: 'Generic Import Engine',
+    prd: parsePrd(2332), title: 'Generic Import Engine',
     latest: { 'before-after': { version: 1, hoursAgo: 400 }, spec: { version: 3, hoursAgo: 60 }, plan: { version: 2, hoursAgo: 58 } },
     asked: 12, answered: 11,
     rounds: [
@@ -164,7 +198,7 @@ const DEMO: DemoDossier[] = [
     ],
   },
   {
-    prd: 2520, title: 'Planning Drag & Drop',
+    prd: parsePrd(2520), title: 'Planning Drag & Drop',
     latest: { 'before-after': { version: 2, hoursAgo: 90 }, spec: { version: 1, hoursAgo: 200 }, plan: { version: 1, hoursAgo: 190 } },
     asked: 6, answered: 6,
     rounds: [
@@ -174,14 +208,14 @@ const DEMO: DemoDossier[] = [
     ],
   },
   {
-    prd: 985, title: 'Default Country per Company',
+    prd: parsePrd(985), title: 'Default Country per Company',
     latest: { spec: { version: 1, hoursAgo: 900, source: 'github' }, plan: { version: 1, hoursAgo: 900, source: 'github' } },
     asked: 0, answered: 0, rounds: [],
   },
 ];
 
 /** A demo dossier's id: a uuid of its own, so its link has the shape of a real one. */
-const demoId = (prd: number) => `00000000-0000-4000-8000-${String(prd).padStart(12, '0')}`;
+const demoId = (prd: PrdNumber) => `00000000-0000-4000-8000-${String(prd).padStart(12, '0')}`;
 
 function demoRow(d: DemoDossier, now: number): { row: DossierListRow; rounds: DossierRoundRow[] } {
   const at = (hoursAgo: number) => new Date(now - hoursAgo * HOUR).toISOString();

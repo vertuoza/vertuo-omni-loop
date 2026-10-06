@@ -9,7 +9,8 @@ description: Looks after one PRD's feature PR until it is merged or closed, or t
 branch shape or command you can read with `omni config <key>`. `<remote>` is `repo.remote`.
 
 This skill looks after the **feature PR** only: the one pull request PRD n sends to the default
-branch. Phase-0 PRs, sub-PRs, retro, knowledge and fix PRs are out of its scope. A person runs it in
+branch. For a PRD of several landings, that is the first **landing PR** still open (the one
+`care state` names), and the chain of landing PRs behind it, kept stacked as each one merges. Phase-0 PRs, sub-PRs, retro, knowledge and fix PRs are out of its scope. A person runs it in
 a terminal and leaves it running: it watches on this machine, needs no new secret or runner, and
 stops when the terminal does, which the PRD page's watcher line makes visible.
 
@@ -65,22 +66,29 @@ git -C <worktrees>/pr-care-<n> reset --hard <remote>/<pr.head>   # the worktree 
 node .omni-loop/bin/omni.mjs care state <n>
 ```
 
+When `pr.number` is not the one the last round looked after (a landing merged, and the next landing
+is now the one to watch), switch the worktree to its head first, as step 1 item 2 does.
+
 Its `round` is the pure decision the kit drew from the state: a `mode`, and the ordered `actions`.
 Carry them out in that order and do nothing it does not list.
 
 | `round.mode` | what the round does |
 |---|---|
-| `stop` | the PR is merged or closed: go to **6. Stop** |
+| `stop` | the PR is merged or closed: go to **6. Stop**. For a PRD of several landings, `care state` names the next landing's PR once one merges, so `stop` comes only after the last |
 | `report-only` | a wave holds claims on the feature branch (`wave.claimed` names the slices), or the board could not be read (`wave.holdsClaims` is `null`): push nothing, reply to nothing, resolve nothing; rewrite the status comment alone, saying so |
 | `act` | carry out every action below, in the order listed |
 
 The actions, in the order the decision always gives them:
 
-1. **`merge-base`**, the PR conflicts with its base: `/omni:pr`'s conflict step. Merge
+1. **`restack`**, only for a PRD of several landings: landing `after.landing`'s PR has merged, and
+   landing `landing`'s PR (`pr`, branch `branch`) is the next one. **The landing chain** (below) says
+   what to do. It comes first: it moves the base every later action reads. A PRD of one landing never
+   lists it.
+2. **`merge-base`**, the PR conflicts with its base: `/omni:pr`'s conflict step. Merge
    `<remote>/<base>` into the feature branch, resolve, run the preflight (`commands.preflightFull`,
    or `commands.preflight` when it is null), commit, push. This is not an attempt. A preflight that
    stays red after the merge is a red check: the next round's CI takes it, as below.
-2. **`fix-ci`**, CI is red on something the branch can fix (`checks.failed` names each failed run
+3. **`fix-ci`**, CI is red on something the branch can fix (`checks.failed` names each failed run
    and its link): `/omni:pr`'s fix loop, **On red** step for step: read the failing job, decide
    whether the branch caused it, re-run only when the `ci` form allows it, otherwise fix the cause,
    run the preflight, push, and bump the attempt in the status comment. The attempts are
@@ -90,13 +98,48 @@ The actions, in the order the decision always gives them:
    longer list `fix-ci`, and **the watch goes on** for conflicts and reviews. A person removing the
    label hands CI back to care. CI red only on the outbox or inbox gate is the gate doing its job:
    the kit does not list `fix-ci` for it.
-3. **`judge`**, one per review thread without a care reply: **3. Review threads**.
-4. **`mark-asked`**, one per thread a person wrote in after a care reply, or reopened after care
+4. **`judge`**, one per review thread without a care reply: **3. Review threads**.
+5. **`mark-asked`**, one per thread a person wrote in after a care reply, or reopened after care
    resolved it: **3. Review threads**, *The reviewer keeps the last word*.
-5. **`status`**, always last: **4. The status comment**.
+6. **`status`**, always last: **4. The status comment**.
 
 Running CI (`checks.state` `running`) lists no CI action: the round handles the rest and the next
 round reads it again.
+
+### The landing chain
+
+A `restack` action carries `landing`, `pr`, `branch`, `base` (what its PR targets now), `retarget`,
+`after` (the landing that merged: its `landing`, `pr` and `branch`) and `later` (every open landing
+after it, in order). Landing n is `after`, landing n+1 is the action's own.
+
+1. **The base.** GitHub retargets landing n+1's PR onto the default branch only when landing n's
+   branch was deleted with the merge. `retarget` false: it did, say so in the round line. `retarget`
+   true: do it, `gh pr edit <pr> --base <repo.defaultBranch>`, and read it again with
+   `gh pr view <pr> --json baseRefName`.
+2. **The branch.** Landing n's own commits are already in the default branch, squashed, so landing
+   n+1's branch drops them and keeps only its own:
+
+   ```bash
+   OLD=$(gh pr view <after.pr> --json headRefOid --jq .headRefOid)   # landing n's last commit
+   git -C <worktrees>/pr-care-<n> fetch <remote>
+   git -C <worktrees>/pr-care-<n> merge-base --is-ancestor "$OLD" <remote>/<branch>   # 0: still to rebase
+   git -C <worktrees>/pr-care-<n> switch -C <branch> <remote>/<branch>
+   git -C <worktrees>/pr-care-<n> rebase --onto <remote>/<repo.defaultBranch> "$OLD"
+   ```
+
+   When `merge-base --is-ancestor` exits non-zero, the branch was rebased already: skip to item 4.
+   Run the preflight, then `git push --force-with-lease <remote> <branch>`.
+3. **Down the chain.** For each landing of `later`, in order: its old base is the previous landing's
+   branch as it was before item 2 (keep `git rev-parse <remote>/<previous branch>` from before that
+   push), its new base the rebased previous branch. `git switch -C <its branch> <remote>/<its branch>`,
+   `git rebase --onto <rebased previous branch> <old previous tip>`, the preflight, then
+   `git push --force-with-lease <remote> <its branch>`. Its PR keeps the previous landing's branch as
+   its base: GitHub reads the new diff by itself.
+4. **A conflict** in any rebase: `git rebase --abort`, and stop the chain at that landing, never
+   resolving it blindly. It is a care finding: the round line says
+   `restack stopped at landing <k> (#<its pr>): <the conflicting files>`, and the status comment's
+   `human steps` names the landing and the files. The landings after it stay as they are.
+5. Then switch the worktree back to the PR care looks after (`pr.head`) before the next action.
 
 ## 3. Review threads
 
@@ -186,7 +229,9 @@ thread ended as: `#<pr.number>: merged. 4 fixed, 2 pushed back, 1 asked.`
 - **Never push while a wave holds claims.** `report-only` pushes, replies and resolves nothing; it
   rewrites the status comment alone.
 - **Never merge,** and never mark the feature PR ready or back to draft: merging is a person's, ready
-  is `/omni:yolo`'s.
+  is `/omni:yolo`'s. A landing PR is no different, whatever its base.
+- **Never force-push a landing branch** but through **The landing chain**, with
+  `--force-with-lease`, and never while a wave holds claims.
 - **Never add `labels.outboxGo`,** and never touch a PR other than PRD n's feature PR.
 - **Never resolve a thread without a reply** that says why, and never resolve an asked one.
 - **Never argue twice:** a person's word after a care reply sends the thread to the PM.

@@ -3,6 +3,7 @@
 // Entropy, log, and its PRD's dossier). On the wide grid the panel stands beside the planet; on the
 // tall grid it runs across the screen under the band the header and the planet share (TALL_BAND in
 // planet.ts), with the same rows.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import type { GalaxyView, Planet } from '@omni/galaxy';
 import { woundTint } from '@omni/design';
@@ -15,6 +16,7 @@ import { Pips, StateChip } from './common.tsx';
 import { TALL_BAND } from './planet.ts';
 import './common.css';
 import './planet.css';
+import { cssVars } from '../css-vars';
 
 function Bar({ value, segments = 10, label }: { value: number; segments?: number; label: string }) {
   const on = Math.round(value * segments);
@@ -100,7 +102,7 @@ function StatusTab({ p, view }: { p: Planet; view: GalaxyView }) {
   const tall = useScreen().grid.name === 'tall';
   const rows = statusRows(p, view);
   // On the tall grid a paired row shares its line with the row before it (planet.css places them).
-  const paired = (i: number) => (tall && rows[i].pair ? 'pair' : tall && rows[i + 1]?.pair ? 'before-pair' : '');
+  const paired = (i: number) => (tall && defined(rows[i], 'a status row').pair ? 'pair' : tall && rows[i + 1]?.pair ? 'before-pair' : '');
   return (
     <dl className="stats">
       {rows.map((r, i) => (
@@ -132,8 +134,8 @@ function ZonesTab({ p }: { p: Planet }) {
           <span className="wave-label">PHASE {w || '?'}</span>
           <div className="wave-tiles">
             {p.zones.filter((z) => (z.wave ?? 0) === w).map((z) => (
-              <span key={`${z.region}:${z.id}`} className={`tile tile-${z.state}`} title={`${z.id} · ${z.region} · ${ZONE_ICON[z.state].label}${z.contributor ? ` · @${z.contributor}` : ''}`}>
-                <Sprite name={ZONE_ICON[z.state].sprite} scale={1} animate={z.state !== 'secured'} />
+              <span key={`${z.region}:${z.id}`} className={`tile tile-${z.state}`} title={`${z.id} · ${z.region} · ${defined(ZONE_ICON[z.state], `the ${z.state} zone icon`).label}${z.contributor ? ` · @${z.contributor}` : ''}`}>
+                <Sprite name={defined(ZONE_ICON[z.state], `the ${z.state} zone icon`).sprite} scale={1} animate={z.state !== 'secured'} />
                 <span className="tile-id">{z.id}</span>
                 {z.team && <span className="tile-team" style={{ background: fleet(z.team).color }} />}
               </span>
@@ -233,7 +235,7 @@ export function PlanetOverlay({ view, planet: p, tab, onTab, dossier }: {
 }) {
   const { grid } = useScreen();
   return (
-    <div className="planet" style={grid.name === 'tall' ? { ['--band' as string]: `${TALL_BAND}px` } : undefined}>
+    <div className="planet" style={grid.name === 'tall' ? cssVars({ '--band': `${TALL_BAND}px` }) : undefined}>
       <header className="planet-head">
         <span className="dialog-prd">#{p.prd}</span>
         <h2>{p.title.toUpperCase()}</h2>
@@ -246,7 +248,7 @@ export function PlanetOverlay({ view, planet: p, tab, onTab, dossier }: {
         <div className="tabs" role="tablist">
           {PLANET_TABS.map((t, i) => (
             // No focus on click, as a key hint: Enter keeps meaning START (which opens the dossier's page).
-            <button key={t} type="button" role="tab" aria-selected={i === tab} className={i === tab ? 'active' : ''} onMouseDown={(e) => e.preventDefault()} onClick={() => onTab(i)}>
+            <button key={t} type="button" role="tab" aria-selected={i === tab} className={i === tab ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); }} onClick={() => { onTab(i); }}>
               {t}{t === 'ENTROPY' && p.openWounds.length ? ` ${p.openWounds.length}` : ''}
             </button>
           ))}

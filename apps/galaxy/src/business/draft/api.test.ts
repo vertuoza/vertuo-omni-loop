@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { addSourceRoute, draftRoute, removeSourceRoute, type SourcesStore, type WebPage } from './api';
 import { PageRefused } from './page';
 import { DraftStoreError, type DraftRow, type DraftStore } from './run';
+
+vi.mock('server-only', () => ({}));
 
 // The draft's routes with fakes (PRD 774, s2): a non-member is refused; a call starts a draft and runs
 // it after the answer; a second call while one runs answers the running one; the sources route adds a
@@ -16,13 +18,13 @@ const row = (over: Partial<DraftRow> = {}): DraftRow => ({
 function draftStore({ running = null, refuse }: { running?: DraftRow | null; refuse?: string } = {}) {
   const started: string[] = [];
   const store = {
-    async running() {
-      return running;
+    running() {
+      return Promise.resolve(running);
     },
-    async start(workspace: string) {
-      if (refuse) throw new DraftStoreError('start a draft', refuse, 'no');
+    start(workspace: string) {
+      if (refuse) return Promise.reject(new DraftStoreError('start a draft', refuse, 'no'));
       started.push(workspace);
-      return running && Date.parse(running.started_at) > NOW - 15 * 60_000 ? running : row({ id: 'd-new', started_at: new Date(NOW).toISOString() });
+      return Promise.resolve(running && Date.parse(running.started_at) > NOW - 15 * 60_000 ? running : row({ id: 'd-new', started_at: new Date(NOW).toISOString() }));
     },
   } as unknown as DraftStore;
   return { store, started };
@@ -33,7 +35,7 @@ const post = (body: unknown, method = 'POST') =>
 
 function routeDeps(store: DraftStore | null) {
   const ran: Array<[string, string]> = [];
-  return { deps: { store: async () => store, later: (_s: DraftStore, ws: string, d: DraftRow) => { ran.push([ws, d.id]); }, now: () => NOW }, ran };
+  return { deps: { store: () => Promise.resolve(store), later: (_s: DraftStore, ws: string, d: DraftRow) => { ran.push([ws, d.id]); }, now: () => NOW }, ran };
 }
 
 describe('POST /api/business/draft', () => {
@@ -85,31 +87,33 @@ describe('POST /api/business/draft', () => {
 
 function sourcesStore(pages: WebPage[] = []) {
   const store: SourcesStore = {
-    async add(workspace, url) {
-      if (workspace !== 'ws-1') throw new DraftStoreError('add a web page', '42501', 'no');
-      if (pages.length >= 3) throw new DraftStoreError('add a web page', '22023', 'Web page: three at most. Remove one first.');
+    add(workspace, url) {
+      if (workspace !== 'ws-1') return Promise.reject(new DraftStoreError('add a web page', '42501', 'no'));
+      if (pages.length >= 3) return Promise.reject(new DraftStoreError('add a web page', '22023', 'Web page: three at most. Remove one first.'));
       const page = { id: `s-${pages.length + 1}`, url, added_at: new Date(NOW).toISOString() };
       pages.push(page);
-      return page;
+      return Promise.resolve(page);
     },
-    async remove(_workspace, source) {
+    remove(_workspace, source) {
       const at = pages.findIndex((p) => p.id === source);
-      if (at < 0) throw new DraftStoreError('remove a web page', 'P0002', 'gone');
+      if (at < 0) return Promise.reject(new DraftStoreError('remove a web page', 'P0002', 'gone'));
       pages.splice(at, 1);
+      return Promise.resolve();
     },
   };
   return { store, pages };
 }
 
-const check = async (url: string) => {
-  if (!url.startsWith('https://')) throw new PageRefused('Only https:// pages can be read.');
-  if (url.includes('intranet')) throw new PageRefused('That address is not on the public internet.');
+const check = (url: string) => {
+  if (!url.startsWith('https://')) return Promise.reject(new PageRefused('Only https:// pages can be read.'));
+  if (url.includes('intranet')) return Promise.reject(new PageRefused('That address is not on the public internet.'));
+  return Promise.resolve();
 };
 
 describe('/api/business/sources', () => {
   it('adds a web page that may be read', async () => {
     const { store, pages } = sourcesStore();
-    const res = await addSourceRoute(post({ workspace: 'ws-1', url: ' https://acme.com/pricing ' }), { store: async () => store, check });
+    const res = await addSourceRoute(post({ workspace: 'ws-1', url: ' https://acme.com/pricing ' }), { store: () => Promise.resolve(store), check });
     expect(res.status).toBe(201);
     expect(await res.json()).toMatchObject({ source: { id: 's-1', url: 'https://acme.com/pricing' } });
     expect(pages).toHaveLength(1);
@@ -117,10 +121,10 @@ describe('/api/business/sources', () => {
 
   it('refuses http: and a private host before storing anything', async () => {
     const { store, pages } = sourcesStore();
-    const http = await addSourceRoute(post({ workspace: 'ws-1', url: 'http://acme.com' }), { store: async () => store, check });
+    const http = await addSourceRoute(post({ workspace: 'ws-1', url: 'http://acme.com' }), { store: () => Promise.resolve(store), check });
     expect(http.status).toBe(400);
     expect(await http.json()).toEqual({ error: 'Only https:// pages can be read.' });
-    const inside = await addSourceRoute(post({ workspace: 'ws-1', url: 'https://intranet.acme.com' }), { store: async () => store, check });
+    const inside = await addSourceRoute(post({ workspace: 'ws-1', url: 'https://intranet.acme.com' }), { store: () => Promise.resolve(store), check });
     expect(await inside.json()).toEqual({ error: 'That address is not on the public internet.' });
     expect(pages).toEqual([]);
   });
@@ -128,22 +132,22 @@ describe('/api/business/sources', () => {
   it('refuses a fourth web page, and a non-member', async () => {
     const three = ['a', 'b', 'c'].map((n) => ({ id: n, url: `https://acme.com/${n}`, added_at: '' }));
     const { store } = sourcesStore(three);
-    const fourth = await addSourceRoute(post({ workspace: 'ws-1', url: 'https://acme.com/d' }), { store: async () => store, check });
+    const fourth = await addSourceRoute(post({ workspace: 'ws-1', url: 'https://acme.com/d' }), { store: () => Promise.resolve(store), check });
     expect(fourth.status).toBe(400);
     expect(await fourth.json()).toEqual({ error: 'Web page: three at most. Remove one first.' });
-    expect((await addSourceRoute(post({ workspace: 'ws-2', url: 'https://acme.com/d' }), { store: async () => sourcesStore().store, check })).status).toBe(403);
+    expect((await addSourceRoute(post({ workspace: 'ws-2', url: 'https://acme.com/d' }), { store: () => Promise.resolve(sourcesStore().store), check })).status).toBe(403);
   });
 
   it('removes a web page, and says when it is gone', async () => {
     const { store, pages } = sourcesStore([{ id: 's-1', url: 'https://acme.com', added_at: '' }]);
-    const res = await removeSourceRoute(post({ workspace: 'ws-1', source: 's-1' }, 'DELETE'), { store: async () => store, check });
+    const res = await removeSourceRoute(post({ workspace: 'ws-1', source: 's-1' }, 'DELETE'), { store: () => Promise.resolve(store), check });
     expect(res.status).toBe(200);
     expect(pages).toEqual([]);
-    expect((await removeSourceRoute(post({ workspace: 'ws-1', source: 's-1' }, 'DELETE'), { store: async () => store, check })).status).toBe(404);
+    expect((await removeSourceRoute(post({ workspace: 'ws-1', source: 's-1' }, 'DELETE'), { store: () => Promise.resolve(store), check })).status).toBe(404);
   });
 
   it('refuses a signed-out caller', async () => {
-    expect((await addSourceRoute(post({ workspace: 'ws-1', url: 'https://acme.com' }), { store: async () => null, check })).status).toBe(401);
-    expect((await removeSourceRoute(post({ workspace: 'ws-1', source: 's-1' }, 'DELETE'), { store: async () => null, check })).status).toBe(401);
+    expect((await addSourceRoute(post({ workspace: 'ws-1', url: 'https://acme.com' }), { store: () => Promise.resolve(null), check })).status).toBe(401);
+    expect((await removeSourceRoute(post({ workspace: 'ws-1', source: 's-1' }, 'DELETE'), { store: () => Promise.resolve(null), check })).status).toBe(401);
   });
 });

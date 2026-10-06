@@ -18,6 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
 import { ANSWER_KINDS, ANSWER_STATES, businessReader, BusinessStoreError, type AnswerKind, type AnswerState } from './read';
 import { refuse, reply } from './reply';
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** A Supabase client acting as one access token: the Auth server's check and the functions. */
 export type BusinessClient = TokenCheck & Pick<SupabaseClient, 'rpc'>;
@@ -82,21 +83,14 @@ const isSkill = (by: unknown): by is string => typeof by === 'string' && by.trim
 const isRef = (ref: unknown): ref is string | null | undefined => ref === undefined || ref === null || typeof ref === 'string';
 const refOf = (ref: string | null | undefined) => (typeof ref === 'string' && ref.trim() ? ref : null);
 
-/** What is wrong with a citation's fields, or null when nothing is. The ids' own shape is the database's to judge. */
-function citationProblem({ repo, ids, by, ref }: Record<string, unknown>): string | null {
+/** The citation a call sent, or what is wrong with its fields. The ids' own shape is the database's to judge. */
+function citationOf(value: unknown): Citation | string {
+  if (!isRecord(value)) return 'The body must be a JSON object.';
+  const { repo, ids, by, ref } = value;
   if (!isRepo(repo)) return '`repo` must be the repository as owner/name.';
   if (!isIdList(ids)) return '`ids` must be 1 to 100 claim ids, like rival#4.';
   if (!isSkill(by)) return '`by` must name the skill that cited them.';
   if (!isRef(ref)) return '`ref`, when given, must be text.';
-  return null;
-}
-
-/** The citation a call sent, or the reason it is not one. */
-function citationOf(value: unknown): Citation | string {
-  if (!isRecord(value)) return 'The body must be a JSON object.';
-  const problem = citationProblem(value);
-  if (problem) return problem;
-  const { repo, ids, by, ref } = value as { repo: string; ids: string[]; by: string; ref?: string | null };
   return { repo, ids, by, ref: refOf(ref) };
 }
 
@@ -131,26 +125,19 @@ const isLine = (max: number) => (value: unknown): value is string =>
   typeof value === 'string' && value.trim() !== '' && value.length <= max && !/[\r\n]/.test(value);
 const isValue = isLine(80);
 const isReceipt = isLine(200);
-const isKind = (kind: unknown): kind is AnswerKind => (ANSWER_KINDS as readonly unknown[]).includes(kind);
-const isAnswerState = (state: unknown): state is AnswerState => (ANSWER_STATES as readonly unknown[]).includes(state);
+const isKind = (kind: unknown): kind is AnswerKind => isOneOf(ANSWER_KINDS, kind);
+const isAnswerState = (state: unknown): state is AnswerState => isOneOf(ANSWER_STATES, state);
 
-/** What is wrong with an answered claim's fields, or null when nothing is. A size's own shape is the database's to judge. */
-function answerProblem({ repo, kind, value, state, ref }: Record<string, unknown>): string | null {
+/** The answered claim a call sent, or what is wrong with its fields. A size's own shape is the database's to judge. */
+function answerOf(body: unknown): Answer | string {
+  if (!isRecord(body)) return 'The body must be a JSON object.';
+  const { repo, kind, value, state, ref } = body;
   if (!isRepo(repo)) return '`repo` must be the repository as owner/name.';
   if (!isKind(kind)) return `\`kind\` must be one of ${ANSWER_KINDS.join(', ')}.`;
   if (!isAnswerState(state)) return `\`state\` must be ${ANSWER_STATES.join(' or ')}.`;
   if (!isValue(value)) return '`value` must be 1 to 80 characters, on one line.';
   if (!isReceipt(ref)) return '`ref` must say which skill and run gave the answer, up to 200 characters on one line.';
-  return null;
-}
-
-/** The answered claim a call sent, or the reason it is not one. */
-function answerOf(value: unknown): Answer | string {
-  if (!isRecord(value)) return 'The body must be a JSON object.';
-  const problem = answerProblem(value);
-  if (problem) return problem;
-  const { repo, kind, value: text, state, ref } = value as Answer;
-  return { repo, kind, value: text.trim(), state, ref: ref.trim() };
+  return { repo, kind, value: value.trim(), state, ref: ref.trim() };
 }
 
 /** Stores a claim a person gave as an answer in a skill run in `repo` (PRD 822): `proposed` when it
