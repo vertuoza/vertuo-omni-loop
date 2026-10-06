@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.203" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.204" };
   }
 });
 
@@ -42325,8 +42325,9 @@ function ghLine(error62) {
 var isNotFound = (error62) => /HTTP 404/.test(ghText(error62));
 var Unreachable = class extends Error {
 };
+var GH_MAX_BUFFER = 64 * 1024 * 1024;
 function ghReader({ exec, env }) {
-  const api = (args) => String(exec("gh", ["api", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...env ? { env } : {} }));
+  const api = (args) => String(exec("gh", ["api", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: GH_MAX_BUFFER, ...env ? { env } : {} }));
   const call = (args) => {
     try {
       return api(args);
