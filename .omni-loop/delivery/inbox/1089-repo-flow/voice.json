@@ -4,24 +4,164 @@
       "stage": "design",
       "date": "2026-10-06",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Enforced rules beat prose an agent may skip: a plan that mixes a migration with code is refused before it ships slop.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "If I can plug my own phpunit filter and merge method in without forking the kit, it stops being a gimmick for my repo.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "Each repository's rules applied for me across every target is what lets me ship an idea everywhere.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 2, "reaction": "Every repository rewriting how its PRs open, get tested and merge breaks the one flow that keeps my teams cohesive.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "I don't write the rules, but fewer reworks from a wrong cut means my quick wins land sooner.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Enforced rules beat prose an agent may skip: a plan that mixes a migration with code is refused before it ships slop.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "If I can plug my own phpunit filter and merge method in without forking the kit, it stops being a gimmick for my repo.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Each repository's rules applied for me across every target is what lets me ship an idea everywhere.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 2,
+          "reaction": "Every repository rewriting how its PRs open, get tested and merge breaks the one flow that keeps my teams cohesive.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "I don't write the rules, but fewer reworks from a wrong cut means my quick wins land sooner.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
-      "objection": { "persona": "Lead Engineer", "text": "If each repository rewrites how its PRs open, get tested and merge, I lose the one thing that keeps teams cohesive: the same flow everywhere. I want to see at a glance what a repository changes from the default.", "citations": ["persona:Lead Engineer"], "settled": "accepted" },
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "If each repository rewrites how its PRs open, get tested and merge, I lose the one thing that keeps teams cohesive: the same flow everywhere. I want to see at a glance what a repository changes from the default.",
+        "citations": [
+          "persona:Lead Engineer"
+        ],
+        "settled": "accepted"
+      },
       "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ~ · persona:Lead Engineer ~"
     },
     {
       "stage": "spec",
       "date": "2026-10-06",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Fail closed everywhere: a missing hook or verdict stops the point instead of passing silently.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "Hooks are Markdown paths, not a Claude-only slash command, and replace never drops the guards. Fine.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "mega-brainstorm grading each target's rows by that target's rules is the missing piece for ultra-yolo.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 3, "reaction": "omni flow show prints the difference from the defaults, so I can audit each repository; I still need to review every flow change.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "Nothing changes for me unless the repository opts in, and the rules come from the people who know the code.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Fail closed everywhere: a missing hook or verdict stops the point instead of passing silently.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Hooks are Markdown paths, not a Claude-only slash command, and replace never drops the guards. Fine.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "mega-brainstorm grading each target's rows by that target's rules is the missing piece for ultra-yolo.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "omni flow show prints the difference from the defaults, so I can audit each repository; I still need to review every flow change.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Nothing changes for me unless the repository opts in, and the rules come from the people who know the code.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ~ · persona:Irisa ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-06",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A plan that breaks a rule is refused before anything is built, and the merge gate fails closed: fewer surprises in production.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Migrations alone and my own test hook, with no code to maintain and no fork of the kit: that is a tool, not a gimmick.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Each target's own flow graded and followed across repositories is what lets me ship one idea everywhere.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "flow show prints what each repository changes from the defaults, so I can audit it; repositories with their own knowledge still fall back to defaults when planned from a plan repository.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Nothing changes for my quick wins unless a repository opts in.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
       "objection": null,
       "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ~ · persona:Irisa ~"
