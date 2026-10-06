@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -106,6 +106,16 @@ describe('docs/guide', () => {
       ['diagrams/repositories.svg', true], ['diagrams/pull-requests-repositories.svg', true],
       ['diagrams/skills-repositories.svg', true],
     ]);
+  });
+
+  it('draws /omni:mega-pr-care and /omni:mega-bug-fix among what you type in the plan repository (PRD 1118)', () => {
+    const svg = readFileSync(join(GUIDE, 'diagrams/skills-repositories.svg'), 'utf8');
+    const desc = /<desc>([\s\S]*?)<\/desc>/.exec(svg)?.[1] ?? '';
+    const typed = [...svg.matchAll(/<text [^>]*class="dg-code dg-you"[^>]*>([^<]*)<\/text>/g)].map((m) => sure(m[1], 'm[1]'));
+    for (const skill of ['/omni:mega-pr-care', '/omni:mega-bug-fix']) {
+      expect(desc, `the <desc> names ${skill}`).toContain(skill);
+      expect(typed.some((text) => text.startsWith(skill)), `${skill} is drawn as a command you type`).toBe(true);
+    }
   });
 
   describe('getting started (#890)', () => {
