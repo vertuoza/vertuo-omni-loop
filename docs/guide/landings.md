@@ -166,4 +166,4 @@ landing **in that target** is merged; one target never waits on another's. Each 
 | `branches.landing` | `feat/{topic}-{landing}of{landings}-{name}` | the branch of each landing of a PRD of more than one |
 | `pr.openWith` | `null` | the skill that opens pull requests into the default branch; the back-end names `/create-pr` |
 
-[Next → Use cases](/docs/use-cases)
+[Next → Repository flow](/docs/flow)
