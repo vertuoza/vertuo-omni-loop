@@ -50,7 +50,7 @@ export const useFrame = (): number => useContext(FrameContext);
 export const useVideoFrame = (): number => useContext(VideoFrameContext);
 
 /** Shows `children` from frame `from` for `frames` frames of the enclosing time, which it shifts to start at 0. */
-export function Sequence({ from, frames, children }: { from: number; frames: number; children: ReactNode }): ReactNode {
+function Sequence({ from, frames, children }: { from: number; frames: number; children: ReactNode }): ReactNode {
   const local = useFrame() - from;
   if (local < 0 || local >= frames) return null;
   return <FrameContext value={local}>{children}</FrameContext>;

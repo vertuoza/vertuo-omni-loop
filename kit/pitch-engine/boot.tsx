@@ -43,11 +43,16 @@ function useFit(width: number, height: number): { scale: number; left: number; t
   return fitted;
 }
 
-/** The studio's line under the stage: the frame, the time, the scene and whether it plays. */
+/** The scene a frame belongs to, as the studio names it. */
+function sceneLabel(engine: Engine, frame: number): string {
+  const scene = engine.timeline.scenes.findLast((placed) => placed.from <= frame);
+  return scene === undefined ? '' : `scene ${scene.index + 1} ${scene.scene.type}`;
+}
+
+/** The studio's line under the stage: whether it plays, the frame, the time and the scene. */
 function Status({ engine, frame, playing }: { engine: Engine; frame: number; playing: boolean }): ReactNode {
   const { timeline, palette } = engine;
-  const scene = timeline.scenes.findLast((placed) => placed.from <= frame);
-  const text = `${playing ? '▶' : '❚❚'}  frame ${frame} / ${timeline.frames - 1} · ${(frame / timeline.fps).toFixed(2)} s · scene ${(scene?.index ?? 0) + 1} ${scene?.scene.type ?? ''}`;
+  const text = `${playing ? '▶' : '❚❚'}  frame ${frame} / ${timeline.frames - 1} · ${(frame / timeline.fps).toFixed(2)} s · ${sceneLabel(engine, frame)}`;
   return <div style={{ position: 'fixed', left: 12, bottom: 8, font: '14px ui-monospace, monospace', color: palette.paper, background: palette.shade, padding: '4px 8px', borderRadius: 6, opacity: 0.85 }}>{text}</div>;
 }
 
@@ -123,32 +128,51 @@ function showProblem(container: HTMLElement, message: string): void {
   container.replaceChildren(block);
 }
 
-/** Loads the page's input and draws it, or shows why it cannot. */
-export async function boot(page: string, container: HTMLElement): Promise<void> {
-  const params = new URL(page).searchParams;
-  const controller: Controller = { show: () => undefined };
-  const ready = (async (): Promise<Engine> => {
-    const url = inputUrl(page);
-    const input = await fetchInput(url);
-    const engine = engineOf(input, url);
-    await loadFonts(engine, input.fonts.css, url);
-    document.body.style.cssText = `margin: 0; overflow: hidden; background: ${engine.palette.shade}`;
-    flushSync(() => { createRoot(container).render(<Player engine={engine} controller={controller} studio={params.has('studio')} />); });
-    await settle();
-    return engine;
-  })();
+/** Loads the input, its fonts, and draws frame 0 once everything has settled. */
+async function draw(page: string, container: HTMLElement, controller: Controller): Promise<Engine> {
+  const url = inputUrl(page);
+  const input = await fetchInput(url);
+  const engine = engineOf(input, url);
+  await loadFonts(engine, input.fonts.css, url);
+  document.body.style.cssText = `margin: 0; overflow: hidden; background: ${engine.palette.shade}`;
+  const studio = new URL(page).searchParams.has('studio');
+  flushSync(() => {
+    createRoot(container).render(<Player engine={engine} controller={controller} studio={studio} />);
+  });
+  await settle();
+  return engine;
+}
+
+/** The page's hooks: seek a frame and wait for it to settle, and say what the video is. */
+function exposeHooks(ready: Promise<Engine>, controller: Controller): void {
   const seek = async (frame: number): Promise<void> => {
     const engine = await ready;
-    flushSync(() => { controller.show(clamp(Math.round(frame), 0, engine.timeline.frames - 1), false); });
+    flushSync(() => {
+      controller.show(clamp(Math.round(frame), 0, engine.timeline.frames - 1), false);
+    });
     await settle();
   };
   Object.assign(window, { [PAGE_SEEK]: seek, [PAGE_INFO]: async () => infoOf(await ready) });
+}
+
+/** In the studio, the keys drive the frame; with an event stream, a message reloads the page. */
+function follow(page: string, engine: Engine, controller: Controller): void {
+  const params = new URL(page).searchParams;
+  if (params.has('studio')) studioKeys(engine, controller);
+  const events = params.get('events');
+  if (events !== null) new EventSource(new URL(events, page)).onmessage = () => { window.location.reload(); };
+}
+
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+/** Loads the page's input and draws it, or shows why it cannot. */
+export async function boot(page: string, container: HTMLElement): Promise<void> {
+  const controller: Controller = { show: () => undefined };
+  const ready = draw(page, container, controller);
+  exposeHooks(ready, controller);
   try {
-    const engine = await ready;
-    if (params.has('studio')) studioKeys(engine, controller);
-    const events = params.get('events');
-    if (events !== null) new EventSource(new URL(events, page)).onmessage = () => { window.location.reload(); };
+    follow(page, await ready, controller);
   } catch (error) {
-    showProblem(container, error instanceof Error ? error.message : String(error));
+    showProblem(container, messageOf(error));
   }
 }

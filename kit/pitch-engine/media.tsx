@@ -4,56 +4,23 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { EASINGS, SPRINGS, interpolate, spring } from './animation.ts';
 import { ClipFrame, Picture, useMediaSize } from './assets.tsx';
-import type { Size } from './assets.tsx';
 import { calloutPresence, cameraTransform, cursorAt, sampleCamera } from './camera.ts';
 import type { CameraTransform } from './camera.ts';
 import { useEngine, useSceneTime } from './core.tsx';
+import { CHROME, FULL, fit, mediaSeconds } from './fit.ts';
+import type { Device, Fitted, Size } from './fit.ts';
 import { alpha } from './palette.ts';
 import type { Media } from '../lib/pitch/storyboard.ts';
 
-type Device = NonNullable<Media['device']>;
 type Callout = NonNullable<Media['callouts']>[number];
 
-const BROWSER_BAR = 52;
-const PHONE_BEZEL = 18;
-const LAPTOP_BEZEL = 16;
-const LAPTOP_BASE = 28;
-const FULL = Object.freeze({ x: 0, y: 0, w: 1, h: 1 });
-
-/** The device frame's padding around the media, in pixels: across and down. */
-function chromeOf(device: Device): { across: number; down: number } {
-  if (device === 'phone') return { across: PHONE_BEZEL * 2, down: PHONE_BEZEL * 2 };
-  if (device === 'browser') return { across: 0, down: BROWSER_BAR };
-  if (device === 'laptop') return { across: LAPTOP_BEZEL * 2, down: BROWSER_BAR + LAPTOP_BEZEL * 2 + LAPTOP_BASE };
-  return { across: 0, down: 0 };
-}
-
-/** The media's box once fitted in `room`, its device frame included: `width` × `height` of media, `outer` with the frame. */
-export type Fitted = Readonly<{ width: number; height: number; outer: Size }>;
-
-/** The largest box of the media's proportions that fits in `room` with its device frame around it. */
-export function fit(media: Media, size: Size, room: Size): Fitted {
-  const crop = media.crop ?? FULL;
-  const ratio = (size.width * crop.w) / (size.height * crop.h);
-  const chrome = chromeOf(media.device ?? 'none');
-  let width = room.width - chrome.across;
-  let height = width / ratio;
-  if (height + chrome.down > room.height) {
-    height = room.height - chrome.down;
-    width = height * ratio;
-  }
-  [width, height] = [Math.round(width), Math.round(height)];
-  return { width, height, outer: { width: width + chrome.across, height: height + chrome.down } };
-}
+const { browserBar: BROWSER_BAR, phoneBezel: PHONE_BEZEL, laptopBezel: LAPTOP_BEZEL, laptopBase: LAPTOP_BASE } = CHROME;
 
 /** The media fitted in `room`, once its size is known. */
 export function useFitted(media: Media, room: Size): Fitted | null {
   const size = useMediaSize(media);
   return size === null ? null : fit(media, size, room);
 }
-
-/** The second of the media's file a scene shows at `t` seconds: its start, at its rate, held at its end. */
-const mediaSeconds = (media: Media, t: number): number => Math.min((media.start ?? 0) + t * (media.rate ?? 1), media.end ?? Number.POSITIVE_INFINITY);
 
 /** The media itself, cropped and filmed by the camera, with its callouts and cursor over it. */
 export function Surface({ media, fitted }: { media: Media; fitted: Fitted }): ReactNode {
@@ -157,30 +124,63 @@ function BrowserBar(): ReactNode {
   );
 }
 
-/** The device around a media: none, a browser, a laptop or a phone, in the look's colours. */
-export function DeviceFrame({ device, children, style }: { device: Device; children: ReactNode; style?: CSSProperties }): ReactNode {
+type FrameProps = { children: ReactNode; style: CSSProperties | undefined; shadow: string };
+
+function PhoneFrame({ children, style, shadow }: FrameProps): ReactNode {
   const { palette } = useEngine();
-  const shadow = `0 40px 100px -30px ${alpha(palette.shade, palette.dark ? 0.8 : 0.45)}`;
-  if (device === 'phone') {
-    return (
-      <div style={{ padding: PHONE_BEZEL, borderRadius: 72, background: palette.shade, boxShadow: `${shadow}, inset 0 0 0 2px ${palette.hairline}`, ...style }}>
-        <div style={{ position: 'relative', borderRadius: 56, overflow: 'hidden' }}>{children}</div>
-      </div>
-    );
-  }
-  if (device === 'none') return <div style={{ borderRadius: 18, overflow: 'hidden', boxShadow: shadow, border: `1px solid ${palette.hairline}`, ...style }}>{children}</div>;
-  const browser = (
-    <div style={{ borderRadius: 20, overflow: 'hidden', boxShadow: device === 'browser' ? shadow : 'none', border: `1px solid ${palette.hairline}`, background: palette.surface }}>
+  return (
+    <div style={{ padding: PHONE_BEZEL, borderRadius: 72, background: palette.shade, boxShadow: `${shadow}, inset 0 0 0 2px ${palette.hairline}`, ...style }}>
+      <div style={{ position: 'relative', borderRadius: 56, overflow: 'hidden' }}>{children}</div>
+    </div>
+  );
+}
+
+function BareFrame({ children, style, shadow }: FrameProps): ReactNode {
+  const { palette } = useEngine();
+  return <div style={{ borderRadius: 18, overflow: 'hidden', boxShadow: shadow, border: `1px solid ${palette.hairline}`, ...style }}>{children}</div>;
+}
+
+/** A browser window: its bar, then the media. */
+function BrowserWindow({ children, shadow }: { children: ReactNode; shadow: string }): ReactNode {
+  const { palette } = useEngine();
+  return (
+    <div style={{ borderRadius: 20, overflow: 'hidden', boxShadow: shadow, border: `1px solid ${palette.hairline}`, background: palette.surface }}>
       <BrowserBar />
       {children}
     </div>
   );
-  if (device === 'browser') return <div style={style}>{browser}</div>;
+}
+
+function BrowserFrame({ children, style, shadow }: FrameProps): ReactNode {
+  return (
+    <div style={style}>
+      <BrowserWindow shadow={shadow}>{children}</BrowserWindow>
+    </div>
+  );
+}
+
+function LaptopFrame({ children, style, shadow }: FrameProps): ReactNode {
+  const { palette } = useEngine();
   return (
     <div style={{ ...style, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ padding: LAPTOP_BEZEL, borderRadius: 28, background: palette.shade, boxShadow: shadow }}>{browser}</div>
+      <div style={{ padding: LAPTOP_BEZEL, borderRadius: 28, background: palette.shade, boxShadow: shadow }}>
+        <BrowserWindow shadow="none">{children}</BrowserWindow>
+      </div>
       <div style={{ width: '112%', height: LAPTOP_BASE, borderRadius: '0 0 24px 24px', background: palette.hairline }} />
     </div>
+  );
+}
+
+const FRAMES: Readonly<Record<Device, (props: FrameProps) => ReactNode>> = { none: BareFrame, browser: BrowserFrame, laptop: LaptopFrame, phone: PhoneFrame };
+
+/** The device around a media: none, a browser, a laptop or a phone, in the look's colours. */
+export function DeviceFrame({ device, children, style }: { device: Device; children: ReactNode; style?: CSSProperties }): ReactNode {
+  const { palette } = useEngine();
+  const Frame = FRAMES[device];
+  return (
+    <Frame style={style} shadow={`0 40px 100px -30px ${alpha(palette.shade, palette.dark ? 0.8 : 0.45)}`}>
+      {children}
+    </Frame>
   );
 }
 

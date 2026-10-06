@@ -5,6 +5,7 @@ import { useLayoutEffect, useReducer, useRef } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { clamp } from './animation.ts';
 import { useEngine } from './core.tsx';
+import type { Size } from './fit.ts';
 import type { ClipFrames } from './input.ts';
 import type { Media } from '../lib/pitch/storyboard.ts';
 
@@ -30,8 +31,6 @@ export async function settle(): Promise<void> {
   }
   throw new Error('a frame never finished loading its media');
 }
-
-export type Size = Readonly<{ width: number; height: number }>;
 
 const sizes = new Map<string, Size>();
 const loading = new Map<string, Promise<Size>>();

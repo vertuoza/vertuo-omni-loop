@@ -1,77 +1,27 @@
 // The six scene templates (PRD 1108 s4): intro, statement, feature, steps, before/after and outro, each
-// laid out on the 1920×1080 frame in the look's colours and fonts. A media arrives as a 3D card that
-// settles slowly toward flat over its scene.
-import type { CSSProperties, ReactNode } from 'react';
-import { EASINGS, SPRINGS, clamp, interpolate, mix, spring } from './animation.ts';
-import { useEngine, useEntryFrame, useExit, useFrame, useScene, useSceneTime } from './core.tsx';
-import { DeviceFrame, MediaCard, Surface, useFitted } from './media.tsx';
-import type { Fitted } from './media.tsx';
+// laid out on the 1920×1080 frame in the look's colours and fonts.
+import type { ReactNode } from 'react';
+import { EASINGS, SPRINGS, interpolate, mix, spring } from './animation.ts';
+import { useEngine, useEntryFrame, useSceneTime } from './core.tsx';
+import { Column, FILL, GRID, MaybeTitle, PosedMedia, Slot, afterTitle, useCardPose } from './layout.tsx';
+import type { Region, Side } from './layout.tsx';
+import { DeviceFrame, Surface, useFitted } from './media.tsx';
+import type { Fitted } from './fit.ts';
 import { alpha } from './palette.ts';
 import { revealEnd } from './text.ts';
 import { Bullets, Eyebrow, Line, Pill, Title, useExitStyle } from './words.tsx';
-import type { Media, Scene } from '../lib/pitch/storyboard.ts';
+import type { Scene } from '../lib/pitch/storyboard.ts';
 
-type SceneOf<T extends Scene['type']> = Extract<Scene, { type: T }>;
-type Region = Readonly<{ x: number; y: number; width: number; height: number }>;
-
-/** The left edge every column of words starts on. */
-const GRID = 120;
-const FILL: CSSProperties = { position: 'absolute', inset: 0 };
-
-/** A column of words, centred down the frame. */
-function Column({ left, width, gap = 32, align = 'flex-start', children }: { left: number; width: number; gap?: number; align?: 'flex-start' | 'center'; children: ReactNode }): ReactNode {
-  return <div style={{ position: 'absolute', left, width, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: align, gap }}>{children}</div>;
-}
-
-type Side = 'left' | 'right' | 'center';
-
-/** A media card's pose: it arrives from its side, turned, then settles slowly toward flat over the scene. */
-function useCardPose(side: Side, delay = 0.15): CSSProperties {
-  const frame = useFrame();
-  const entry = useEntryFrame();
-  const scene = useScene();
-  const exit = useExit();
-  const { fps } = useEngine().timeline;
-  const p = spring(entry - delay * fps, fps, SPRINGS.smooth);
-  const settled = EASINGS.inOut(clamp(frame / scene.frames));
-  const direction = side === 'right' ? -1 : side === 'left' ? 1 : 0;
-  const turnY = direction * (mix(7, 2.5, settled) + (1 - p) * 22);
-  const turnX = side === 'center' ? mix(10, 2, settled) + (1 - p) * 12 : mix(4, 1.5, settled);
-  const moveX = -direction * (1 - p) * 240 - exit * 90 * (direction === 0 ? 1 : direction);
-  const moveY = side === 'center' ? (1 - p) * 120 : 0;
-  const scale = mix(0.94, 1, p) * mix(1, 1.025, settled);
-  return {
-    transform: `translate(${moveX}px, ${moveY}px) rotateY(${turnY}deg) rotateX(${turnX}deg) scale(${scale})`,
-    opacity: interpolate(p, [0, 0.35], [0, 1]) * (1 - exit),
-    filter: exit > 0 ? `blur(${exit * 8}px)` : 'none',
-    transformStyle: 'preserve-3d',
-  };
-}
-
-/** A region of the frame a media card is centred in, with perspective. */
-function Slot({ region, children }: { region: Region; children: ReactNode }): ReactNode {
-  return (
-    <div style={{ position: 'absolute', left: region.x, top: region.y, width: region.width, height: region.height, display: 'flex', alignItems: 'center', justifyContent: 'center', perspective: 2400 }}>
-      {children}
-    </div>
-  );
-}
-
-/** A media card in a region, posed from its side. */
-function PosedMedia({ media, region, side }: { media: Media; region: Region; side: Side }): ReactNode {
-  const fitted = useFitted(media, region);
-  const pose = useCardPose(side);
-  return <Slot region={region}>{fitted === null ? null : <MediaCard media={media} fitted={fitted} style={pose} />}</Slot>;
-}
+type SceneMap = { [K in Scene['type']]: Extract<Scene, { type: K }> };
+type SceneOf<K extends Scene['type']> = SceneMap[K];
 
 function Intro({ scene }: { scene: SceneOf<'intro'> }): ReactNode {
   const titleAt = scene.eyebrow === undefined ? 0.15 : 0.35;
-  const after = revealEnd(scene.title, titleAt);
   return (
     <Column left={GRID} width={1400} gap={40}>
       {scene.eyebrow === undefined ? null : <Eyebrow text={scene.eyebrow} delay={0.2} />}
       <Title text={scene.title} size={132} delay={titleAt} maxWidth={1400} />
-      {scene.tag === undefined ? null : <Pill text={scene.tag} delay={after + 0.1} />}
+      {scene.tag === undefined ? null : <Pill text={scene.tag} delay={revealEnd(scene.title, titleAt) + 0.1} />}
     </Column>
   );
 }
@@ -84,57 +34,58 @@ function Statement({ scene }: { scene: SceneOf<'statement'> }): ReactNode {
   );
 }
 
-const FEATURE_REGIONS: Readonly<Record<'left' | 'right' | 'full', Region>> = {
-  left: { x: 110, y: 140, width: 1020, height: 820 },
-  right: { x: 790, y: 140, width: 1060, height: 820 },
-  full: { x: 140, y: 330, width: 1640, height: 700 },
+type Layout = NonNullable<SceneOf<'feature'>['layout']>;
+
+/** Each feature layout: where the media goes and from which side it arrives, and where the words' column starts (none: a title on top). */
+const FEATURE_LAYOUTS: Readonly<Record<Layout, { region: Region; side: Side; column: number | null }>> = {
+  left: { region: { x: 110, y: 140, width: 1020, height: 820 }, side: 'left', column: 1210 },
+  right: { region: { x: 790, y: 140, width: 1060, height: 820 }, side: 'right', column: GRID },
+  full: { region: { x: 140, y: 330, width: 1640, height: 700 }, side: 'center', column: null },
 };
 
-function Feature({ scene }: { scene: SceneOf<'feature'> }): ReactNode {
-  const layout = scene.layout ?? 'right';
-  const title = scene.title ?? '';
-  const bulletsAt = title === '' ? 0.3 : revealEnd(title, 0.1);
-  const words =
-    layout === 'full' ? (
-      <div style={{ position: 'absolute', left: GRID, top: 150, width: 1500 }}>{title === '' ? null : <Title text={title} size={80} delay={0.1} maxWidth={1500} />}</div>
-    ) : (
-      <Column left={layout === 'left' ? 1210 : GRID} width={600} gap={36}>
-        {title === '' ? null : <Title text={title} size={84} delay={0.1} maxWidth={600} />}
-        {scene.bullets === undefined ? null : <Bullets items={scene.bullets} delay={bulletsAt} />}
-      </Column>
+/** A feature's words: its title and bullets beside the media, or its title alone above it. */
+function FeatureWords({ scene, column }: { scene: SceneOf<'feature'>; column: number | null }): ReactNode {
+  if (column === null) {
+    return (
+      <div style={{ position: 'absolute', left: GRID, top: 150, width: 1500 }}>
+        <MaybeTitle text={scene.title} size={80} width={1500} />
+      </div>
     );
+  }
+  return (
+    <Column left={column} width={600} gap={36}>
+      <MaybeTitle text={scene.title} size={84} width={600} />
+      {scene.bullets === undefined ? null : <Bullets items={scene.bullets} delay={afterTitle(scene.title)} />}
+    </Column>
+  );
+}
+
+function Feature({ scene }: { scene: SceneOf<'feature'> }): ReactNode {
+  const layout = FEATURE_LAYOUTS[scene.layout ?? 'right'];
   return (
     <div style={FILL}>
-      {words}
-      <PosedMedia media={scene.media} region={FEATURE_REGIONS[layout]} side={layout === 'full' ? 'center' : layout === 'left' ? 'left' : 'right'} />
+      <FeatureWords scene={scene} column={layout.column} />
+      <PosedMedia media={scene.media} region={layout.region} side={layout.side} />
     </div>
   );
 }
 
-const SIDE_REGION: Region = { x: 790, y: 140, width: 1060, height: 820 };
+const SIDE_REGION: Region = FEATURE_LAYOUTS.right.region;
 
-/** One step of a list: its number in a disc that fills with the accent while it is the step being shown. */
+/** The colours of a step's number: filled with the accent while it is the step being shown. */
+function useStepColours(active: number): { color: string; background: string; border: string } {
+  const { palette } = useEngine();
+  const on = active > 0.5;
+  return { color: on ? palette.onAccent : palette.accent, background: alpha(palette.accent, active), border: `2px solid ${on ? palette.accent : palette.hairline}` };
+}
+
+/** One step of a list: its number in a disc, and its label. */
 function Step({ label, index, active, done, arrived }: { label: string; index: number; active: number; done: number; arrived: number }): ReactNode {
   const { palette, fonts } = useEngine();
+  const colours = useStepColours(active);
   return (
     <div style={{ display: 'flex', gap: 24, alignItems: 'center', opacity: arrived * mix(0.42, 1, Math.max(active, done * 0.55)), transform: `translateX(${(1 - arrived) * -20}px)` }}>
-      <div
-        style={{
-          flex: 'none',
-          width: 60,
-          height: 60,
-          borderRadius: '50%',
-          display: 'grid',
-          placeItems: 'center',
-          fontFamily: fonts.text.stack,
-          fontWeight: 700,
-          fontSize: 24,
-          color: active > 0.5 ? palette.onAccent : palette.accent,
-          background: alpha(palette.accent, active),
-          border: `2px solid ${active > 0.5 ? palette.accent : palette.hairline}`,
-          transform: `scale(${mix(1, 1.08, active)})`,
-        }}
-      >
+      <div style={{ flex: 'none', width: 60, height: 60, borderRadius: '50%', display: 'grid', placeItems: 'center', fontFamily: fonts.text.stack, fontWeight: 700, fontSize: 24, transform: `scale(${mix(1, 1.08, active)})`, ...colours }}>
         {String(index + 1).padStart(2, '0')}
       </div>
       <div style={{ fontFamily: fonts.text.stack, fontWeight: 700, fontSize: 36, color: palette.ink, lineHeight: 1.15 }}>{label}</div>
@@ -143,28 +94,35 @@ function Step({ label, index, active, done, arrived }: { label: string; index: n
 }
 
 const STEP_FADE = Object.freeze({ before: 0.1, after: 0.25 });
+const STEP_STAGGER = 0.14;
 
-/** How much step `at` is lit at `t`: rising from its time, 0 to 1. */
+/** How much the step at `at` is lit at `t`: rising from its time, 0 to 1. */
 const lit = (t: number, at: number | undefined): number => (at === undefined ? 0 : interpolate(t, [at - STEP_FADE.before, at + STEP_FADE.after], [0, 1]));
 
-function Steps({ scene }: { scene: SceneOf<'steps'> }): ReactNode {
+/** The steps' list: each arrives in turn, lit while the media shows it, dimmed once done. */
+function StepList({ scene }: { scene: SceneOf<'steps'> }): ReactNode {
   const { timeline } = useEngine();
   const entry = useEntryFrame();
   const t = useSceneTime();
   const exit = useExitStyle();
-  const title = scene.title ?? '';
-  const listAt = title === '' ? 0.3 : revealEnd(title, 0.1);
+  const listAt = afterTitle(scene.title);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 28, ...exit }}>
+      {scene.steps.map((step, index) => {
+        const done = lit(t, scene.steps[index + 1]?.at);
+        const arrived = spring(entry - (listAt + index * STEP_STAGGER) * timeline.fps, timeline.fps, SPRINGS.smooth);
+        return <Step key={index} label={step.label} index={index} active={lit(t, step.at) * (1 - done)} done={done} arrived={arrived} />;
+      })}
+    </div>
+  );
+}
+
+function Steps({ scene }: { scene: SceneOf<'steps'> }): ReactNode {
   return (
     <div style={FILL}>
       <Column left={GRID} width={620} gap={36}>
-        {title === '' ? null : <Title text={title} size={80} delay={0.1} maxWidth={620} />}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 28, ...exit }}>
-          {scene.steps.map((step, index) => {
-            const done = lit(t, scene.steps[index + 1]?.at);
-            const arrived = spring(entry - (listAt + index * 0.14) * timeline.fps, timeline.fps, SPRINGS.smooth);
-            return <Step key={index} label={step.label} index={index} active={lit(t, step.at) * (1 - done)} done={done} arrived={arrived} />;
-          })}
-        </div>
+        <MaybeTitle text={scene.title} size={80} width={620} />
+        <StepList scene={scene} />
       </Column>
       <PosedMedia media={scene.media} region={SIDE_REGION} side="right" />
     </div>
@@ -174,25 +132,31 @@ function Steps({ scene }: { scene: SceneOf<'steps'> }): ReactNode {
 const WIPE_SECONDS = 1.4;
 const WIPE_STARTS = 0.35;
 
+/** The before and after markers above the card, the after taking over as the wipe passes. */
+function WipeLabels({ labels, p, start }: { labels: SceneOf<'beforeAfter'>['labels']; p: number; start: number }): ReactNode {
+  if (labels === undefined) return null;
+  return (
+    <div style={{ position: 'absolute', left: 0, bottom: '100%', marginBottom: 18 }}>
+      <div style={{ opacity: 1 - interpolate(p, [0, 0.12], [0, 1]) }}>
+        <Pill text={labels.before} delay={0.5} tone="outline" />
+      </div>
+      <div style={{ position: 'absolute', left: 0, top: 0, opacity: interpolate(p, [0.1, 0.3], [0, 1]) }}>
+        <Pill text={labels.after} delay={start} tone="accent" />
+      </div>
+    </div>
+  );
+}
+
 /** The before and after media, the after wiped in over the before with a glowing edge. */
 function Wipe({ scene, fitted }: { scene: SceneOf<'beforeAfter'>; fitted: Fitted }): ReactNode {
   const { palette } = useEngine();
   const t = useSceneTime();
   const start = scene.duration * WIPE_STARTS;
   const p = interpolate(t, [start, start + WIPE_SECONDS], [0, 1], { easing: EASINGS.inOut });
-  const labels = scene.labels;
+  const edge = { position: 'absolute', top: 0, bottom: 0, left: p * fitted.width - 2, width: 4, background: palette.accent, boxShadow: `0 0 24px 6px ${alpha(palette.accent, 0.6)}`, opacity: interpolate(p, [0, 0.06, 0.94, 1], [0, 1, 1, 0]) } as const;
   return (
     <div style={{ position: 'relative' }}>
-      {labels === undefined ? null : (
-        <div style={{ position: 'absolute', left: 0, bottom: '100%', marginBottom: 18 }}>
-          <div style={{ opacity: 1 - interpolate(p, [0, 0.12], [0, 1]) }}>
-            <Pill text={labels.before} delay={0.5} tone="outline" />
-          </div>
-          <div style={{ position: 'absolute', left: 0, top: 0, opacity: interpolate(p, [0.1, 0.3], [0, 1]) }}>
-            <Pill text={labels.after} delay={start} tone="accent" />
-          </div>
-        </div>
-      )}
+      <WipeLabels labels={scene.labels} p={p} start={start} />
       <DeviceFrame device={scene.before.device ?? 'none'}>
         <div style={{ position: 'relative', width: fitted.width, height: fitted.height }}>
           <div style={FILL}>
@@ -201,7 +165,7 @@ function Wipe({ scene, fitted }: { scene: SceneOf<'beforeAfter'>; fitted: Fitted
           <div style={{ ...FILL, clipPath: `inset(0 ${(1 - p) * 100}% 0 0)` }}>
             <Surface media={scene.after} fitted={fitted} />
           </div>
-          <div style={{ position: 'absolute', top: 0, bottom: 0, left: p * fitted.width - 2, width: 4, background: palette.accent, boxShadow: `0 0 24px 6px ${alpha(palette.accent, 0.6)}`, opacity: interpolate(p, [0, 0.06, 0.94, 1], [0, 1, 1, 0]) }} />
+          <div style={edge} />
         </div>
       </DeviceFrame>
     </div>
@@ -214,7 +178,7 @@ function BeforeAfter({ scene }: { scene: SceneOf<'beforeAfter'> }): ReactNode {
   return (
     <div style={FILL}>
       <Column left={GRID} width={600}>
-        {scene.title === undefined ? null : <Title text={scene.title} size={84} delay={0.1} maxWidth={600} />}
+        <MaybeTitle text={scene.title} size={84} width={600} />
       </Column>
       <Slot region={SIDE_REGION}>
         {fitted === null ? null : (
@@ -234,33 +198,37 @@ function CallToAction({ text }: { text: string }): ReactNode {
   return <Pill text={text} delay={0.15} tone="cta" size={34} glow={pulse} />;
 }
 
-function Outro({ scene }: { scene: SceneOf<'outro'> }): ReactNode {
+/** The credits the input gives, under the closing line, when the storyboard asks for them. */
+function Credits({ shown, delay }: { shown: boolean; delay: number }): ReactNode {
   const { credits } = useEngine();
-  const closingAt = 0.45;
-  const after = scene.closing === undefined ? closingAt : revealEnd(scene.closing, closingAt);
+  if (!shown || credits.length === 0) return null;
+  return <Line text={credits.join(' · ')} delay={delay} size={26} maxWidth={1300} />;
+}
+
+const CLOSING_AT = 0.45;
+
+function Outro({ scene }: { scene: SceneOf<'outro'> }): ReactNode {
+  const after = scene.closing === undefined ? CLOSING_AT : revealEnd(scene.closing, CLOSING_AT);
   return (
     <Column left={GRID} width={1300} gap={40}>
       <CallToAction text={scene.cta} />
-      {scene.closing === undefined ? null : <Title text={scene.closing} size={112} delay={closingAt} maxWidth={1300} />}
-      {scene.credits === true && credits.length > 0 ? <Line text={credits.join(' · ')} delay={after + 0.3} size={26} maxWidth={1300} /> : null}
+      {scene.closing === undefined ? null : <Title text={scene.closing} size={112} delay={CLOSING_AT} maxWidth={1300} />}
+      <Credits shown={scene.credits === true} delay={after + 0.3} />
     </Column>
   );
 }
 
-/** A scene's template. */
+type Templates = { [K in keyof SceneMap]: (props: { scene: SceneMap[K] }) => ReactNode };
+
+const TEMPLATES: Templates = { intro: Intro, statement: Statement, feature: Feature, steps: Steps, beforeAfter: BeforeAfter, outro: Outro };
+
+/** The template of a scene of type `type`. */
+const templateOf = <K extends keyof SceneMap>(type: K, scene: SceneMap[K]): ReactNode => {
+  const Template: (props: { scene: SceneMap[K] }) => ReactNode = TEMPLATES[type];
+  return <Template scene={scene} />;
+};
+
+/** A scene drawn by its template. */
 export function SceneView({ scene }: { scene: Scene }): ReactNode {
-  switch (scene.type) {
-    case 'intro':
-      return <Intro scene={scene} />;
-    case 'statement':
-      return <Statement scene={scene} />;
-    case 'feature':
-      return <Feature scene={scene} />;
-    case 'steps':
-      return <Steps scene={scene} />;
-    case 'beforeAfter':
-      return <BeforeAfter scene={scene} />;
-    case 'outro':
-      return <Outro scene={scene} />;
-  }
+  return templateOf(scene.type, scene);
 }
