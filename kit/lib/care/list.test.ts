@@ -1,6 +1,6 @@
 // PRD 1118, slice s1: the pull requests a mega care run looks after, in merge order.
 import { describe, expect, it } from 'vitest';
-import { parseIssue, parsePr } from '../ids.ts';
+import { parseIssue, parsePr, parsePrd } from '../ids.ts';
 import { FIX_PLAN_MARKER, foundEntry, fixPlanRows, linksPrd, mergeOrder } from './list.ts';
 import type { CareListEntry, TargetStep } from './list.ts';
 
@@ -72,10 +72,10 @@ describe('foundEntry', () => {
 
 describe('linksPrd', () => {
   it("reads a bug's For PRD line", () => {
-    expect(linksPrd('Total wrong.\n\nFor PRD #1200\n', 1200)).toBe(true);
-    expect(linksPrd('For PRD #12000', 1200)).toBe(false);
-    expect(linksPrd('For PRD #120', 1200)).toBe(false);
-    expect(linksPrd(null, 1200)).toBe(false);
+    expect(linksPrd('Total wrong.\n\nFor PRD #1200\n', parsePrd(1200))).toBe(true);
+    expect(linksPrd('For PRD #12000', parsePrd(1200))).toBe(false);
+    expect(linksPrd('For PRD #120', parsePrd(1200))).toBe(false);
+    expect(linksPrd(null, parsePrd(1200))).toBe(false);
   });
 });
 

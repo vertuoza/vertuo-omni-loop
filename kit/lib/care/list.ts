@@ -6,7 +6,7 @@
 //
 // A repository that could not be read is listed `unreadable`, never thrown; a target with no pull
 // request opened yet is left out.
-import type { IssueNumber, PrNumber } from '../ids.ts';
+import type { IssueNumber, PrNumber, PrdNumber } from '../ids.ts';
 import { parsePr } from '../ids.ts';
 
 /** The marker of the fix-plan comment `/omni:mega-bug-fix` keeps on a bug's issue. */
@@ -102,7 +102,7 @@ export function mergeOrder({
 }
 
 /** Whether a bug issue's body links it to PRD `prd` with its `For PRD #<prd>` line. */
-export function linksPrd(body: string | null | undefined, prd: number): boolean {
+export function linksPrd(body: string | null | undefined, prd: PrdNumber): boolean {
   return new RegExp(`\\bFor PRD #${prd}(?!\\d)`).test(body ?? '');
 }
 
