@@ -594,4 +594,63 @@ Enforced by: unenforced
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #664
+
+## BR-PRODUCT-51
+
+A person's name links to their profile page only when they are a member of the workspace; the name of someone outside it, such as an outside contributor, is shown without a link.
+
+Serves: P-PRODUCT-48
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s1-01-chip-links-members-only, PRD #698
+Enforced by: unenforced
+Stated: 2026-09-29
+Decided: nobody — adopted when raised (medium), 2026-09-29
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## BR-PRODUCT-52
+
+On a person's profile, each PRDs stage count opens the PRD list at that stage filtered to that person, never to everyone's or the viewer's own PRDs.
+
+Serves: P-PRODUCT-49
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s3-02-profile-stage-links, PRD #698
+Enforced by: unenforced
+Stated: 2026-09-29
+Decided: nobody — adopted when raised (medium), 2026-09-29
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## BR-PRODUCT-53
+
+When the PRD list is narrowed to one person, it shows only the PRDs that person started in the app, the same rule as for your own PRDs. Who opened the GitHub issue never counts, and a PRD with no recorded starter shows under nobody.
+
+Serves: P-PRODUCT-50
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s4-01-prd-opener-rule, PRD #698
+Enforced by: unenforced
+Stated: 2026-09-29
+Decided: nobody — adopted when raised (medium), 2026-09-29
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## BR-PRODUCT-54
+
+On a person's profile, a PRD, bug fix or visual update is listed for the chosen week, month or season when its latest activity falls within that period, even if it was started earlier; one started in the period with no activity since is judged by that latest activity.
+
+Serves: P-PRODUCT-51
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-01-profile-work-period-by-activity, PRD #698
+Enforced by: unenforced
+Stated: 2026-09-29
+Decided: nobody — adopted when raised (medium), 2026-09-29
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## BR-PRODUCT-55
+
+A person's profile lists only the PRDs and fixes of the workspace the profile is about, as its board does. See all opens the full list, covering every workspace the viewer and that person both belong to.
+
+Serves: P-PRODUCT-52
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-02-profile-work-one-workspace, PRD #698
+Enforced by: unenforced
+Stated: 2026-09-29
+Decided: nobody — adopted when raised (medium), 2026-09-29
+Merged: @pierrederval, 2026-09-29, PR #699
 Proposed: harvest 2026-09-29
