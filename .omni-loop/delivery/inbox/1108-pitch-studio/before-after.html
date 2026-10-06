@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pitch studio</title>
+<style>
+/* Layout: header, then today beside after for the video timeline, then for the settings, then the providers. */
+:root {
+  --bg: #f4f5f8; --surface: #ffffff; --ink: #141a33; --muted: #5b6380; --line: #d8dce8;
+  --today: #b3402f; --after: #2e7d4f; --accent: #3d5aff; --cta: #ff4217;
+  --scene-a: #e6e9ff; --scene-b: #fff1e6; --scene-c: #e8f6ee; --scene-d: #f3e8ff;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace; --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11131c; --surface: #191c28; --ink: #e5e8f3; --muted: #9aa1bd; --line: #2b3044;
+  --today: #e07a68; --after: #6cc392; --accent: #8ea0ff; --cta: #ff7a52;
+  --scene-a: #262c55; --scene-b: #3d2b1f; --scene-c: #1f3a2b; --scene-d: #33264a; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #11131c; --surface: #191c28; --ink: #e5e8f3; --muted: #9aa1bd; --line: #2b3044;
+  --today: #e07a68; --after: #6cc392; --accent: #8ea0ff; --cta: #ff7a52;
+  --scene-a: #262c55; --scene-b: #3d2b1f; --scene-c: #1f3a2b; --scene-d: #33264a; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+main { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: grid; gap: 36px; }
+header { display: grid; gap: 8px; max-width: 72ch; }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+h1 { margin: 0; font-size: clamp(24px, 4vw, 32px); line-height: 1.15; text-wrap: balance; }
+h2 { margin: 0; font-size: 18px; }
+p { margin: 0; color: var(--muted); }
+section { display: grid; gap: 12px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+.side { min-width: 0; display: grid; gap: 10px; align-content: start; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.today .tag { color: var(--today); } .after .tag { color: var(--after); }
+.track { display: flex; gap: 4px; height: 64px; }
+.track div { border-radius: 4px; padding: 6px 8px; font: 12px/1.3 var(--sans); color: var(--ink); overflow: hidden; }
+.s1 { background: var(--scene-a); } .s2 { background: var(--scene-b); } .s3 { background: var(--scene-c); } .s4 { background: var(--scene-d); }
+.flat { background: var(--line); }
+.track small { display: block; color: var(--muted); font-size: 11px; }
+ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+.form { display: grid; gap: 8px; font-size: 14px; }
+.row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: center; }
+.row span:first-child { color: var(--muted); font-size: 13px; }
+.field { border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; background: var(--bg); min-width: 0; overflow-wrap: anywhere; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 12px; }
+.chip.on { border-color: var(--accent); color: var(--accent); }
+.sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 2px; border: 1px solid var(--line); }
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--surface); }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 12px/1.3 var(--mono); color: var(--muted); text-transform: uppercase; }
+tr:last-child td { border-bottom: 0; }
+code { font: 13px var(--mono); }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <span class="eyebrow">PRD #1108 · before / after</span>
+  <h1>Pitch studio: a launch video, not a slide and a screen recording</h1>
+  <p>Today a pitch is a still slide, a scrolled recording and an end card. After, it is an animated storyboard in the product's own look, previewed in a studio, with every outside tool swappable. Everything stays free.</p>
+</header>
+
+<section>
+  <h2>1 · The video, second by second</h2>
+  <div class="pair">
+    <div class="side today"><span class="tag">Today · PRD 859</span>
+      <div class="track">
+        <div class="flat" style="flex:3">slide<small>still · 3 s</small></div>
+        <div class="flat" style="flex:14">screen recording<small>a scroll, no focus · 14 s</small></div>
+        <div class="flat" style="flex:3">end card<small>3 s</small></div>
+      </div>
+      <ul><li>Hard cuts, nothing moves on the slide</li><li>The feature shrunk into a frame, unreadable</li><li>Procedural music</li><li>Two fixed looks, no fonts, no tone</li></ul>
+    </div>
+    <div class="side after"><span class="tag">After</span>
+      <div class="track">
+        <div class="s1" style="flex:4">intro<small>title word by word</small></div>
+        <div class="s2" style="flex:4">statement<small>the description</small></div>
+        <div class="s3" style="flex:14">feature<small>3D card · zoom ×1.6 · callout · cursor</small></div>
+        <div class="s4" style="flex:5">outro<small>CTA · credits</small></div>
+      </div>
+      <ul><li>Crossfades and a drifting background</li><li>The camera pushes in on the element each filmed moment names</li><li>CC0 music, its peak on the key moment</li><li>Your colours, Heading and Text fonts, logo, tone</li></ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>2 · Settings › Products › Vertuoza</h2>
+  <div class="pair">
+    <div class="side today"><span class="tag">Today</span>
+      <div class="form">
+        <div class="row"><span>Pitch look</span><span class="field">Arcade poster ▾</span></div>
+      </div>
+      <p>One dropdown, two looks.</p>
+    </div>
+    <div class="side after"><span class="tag">After · Pitch</span>
+      <div class="form">
+        <div class="row"><span>Preset</span><span class="chips"><span class="chip">Arcade</span><span class="chip on">Keynote</span><span class="chip">Custom</span></span></div>
+        <div class="row"><span>Colours</span><span class="field"><i class="sw" style="background:#08104D"></i> ink <i class="sw" style="background:#FFFFFF"></i> paper <i class="sw" style="background:#3D5AFE"></i> accent <i class="sw" style="background:#FF4217"></i> CTA</span></div>
+        <div class="row"><span>Heading font</span><span class="field">Gantari 700 · Google Fonts</span></div>
+        <div class="row"><span>Text font</span><span class="field">Gantari 400 · Google Fonts</span></div>
+        <div class="row"><span>Logo</span><span class="field">logo.svg · uploaded</span></div>
+        <div class="row"><span>Voice</span><span class="chips"><span class="chip on">Confident &amp; warm</span><span class="chip">Playful</span><span class="chip">Formal</span><span class="chip">Hype</span></span></div>
+        <div class="row"><span>Instructions</span><span class="field">Customers' words: worksite, quote, invoice. No emojis.</span></div>
+        <div class="row"><span>Intro / outro</span><span class="field">"New in Vertuoza" · "Available now" · credits on</span></div>
+        <div class="row"><span>Music</span><span class="field">FreePD (CC0) · upbeat ▾</span></div>
+        <div class="row"><span>Length</span><span class="field">20 – 40 s</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>3 · Outside tools</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Kind</th><th>Today</th><th>After: a provider, one file each</th></tr></thead>
+    <tbody>
+      <tr><td>Music</td><td>procedural tone, hard-wired</td><td><code>none</code> · <code>freepd</code> (CC0) · <code>file</code></td></tr>
+      <tr><td>Fonts</td><td>Google Fonts, hard-wired in the slide</td><td><code>google-fonts</code> · <code>file</code></td></tr>
+      <tr><td>Capture</td><td><code>npx playwright screenshot</code> per card</td><td><code>playwright</code>, frame by frame, parallel pages</td></tr>
+      <tr><td>Encoding</td><td>ffmpeg calls inline</td><td><code>ffmpeg</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Adding a provider is one file and a registry line; removing one falls back to the kind's default with one line. No paid service, no API key.</p>
+</section>
+
+<section>
+  <h2>What stays the same</h2>
+  <p>The Pitch button on a shipped PRD, the two audiences, the Pitch tab and its downloads, <code>omni pitch push</code>, filming on production without changing anything, and words taken only from the spec and the release note.</p>
+</section>
+</main>
+</body>
+</html>
