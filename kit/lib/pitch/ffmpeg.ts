@@ -51,12 +51,9 @@ export function pitchCut(walkSeconds: number): PitchCut {
 /** A card, a looped still, scaled to `width`×`height` at the video's rate. */
 const card = (input: number, width: number, height: number, out: string): string => `[${input}:v]scale=${width}:${height},setsar=1,fps=${FPS},format=yuv420p[${out}]`;
 
-/** A track cut to `total` seconds, faded in and out. */
-const fades = (total: number): string =>
-  `atrim=0:${seconds(total)},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=${FADE_SECONDS},afade=t=out:st=${seconds(total - FADE_SECONDS)}:d=${FADE_SECONDS}`;
-
 /** The music under the whole, cut to `total` with its fades. */
-const music = (input: number, total: number): string => `[${input}:a]${fades(total)}[m]`;
+const music = (input: number, total: number): string =>
+  `[${input}:a]atrim=0:${seconds(total)},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=${FADE_SECONDS},afade=t=out:st=${seconds(total - FADE_SECONDS)}:d=${FADE_SECONDS}[m]`;
 
 /** The arguments every video ends with: its streams, codecs, length and file. */
 const encode = (total: number, output: string): string[] => [
@@ -135,14 +132,18 @@ export type FrameSequence = { pattern: string; count: number; fps: number };
 /** The three files a frame sequence is encoded into. */
 export type FramesShape = 'wide' | 'square' | 'gif';
 
-const SHAPE_OUTPUT: Readonly<Record<FramesShape, string>> = Object.freeze({ wide: OUTPUTS.wide, square: OUTPUTS.square, gif: OUTPUTS.gif });
+/** The file a shape is encoded into. A function, not a table, so the CLI's bundle drops it until a command uses it. */
+function outputOf(shape: FramesShape): string {
+  if (shape === 'gif') return OUTPUTS.gif;
+  return shape === 'square' ? OUTPUTS.square : OUTPUTS.wide;
+}
 
 /** Fits the frames inside `width`×`height`, centred, letterboxed. */
 const fit = (width: number, height: number): string =>
   `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p`;
 
 /** The music under a video of `total` seconds: normalised, cut and faded. */
-const underscore = (total: number): string => `[1:a]loudnorm=I=-16:TP=-1.5,${fades(total)}[m]`;
+const underscore = (total: number): string => music(1, total).replace('[1:a]', '[1:a]loudnorm=I=-16:TP=-1.5,');
 
 function videoArgs(frames: FrameSequence, audio: { file: string; start?: number } | null, shape: 'wide' | 'square', total: number): string[] {
   const [width, height] = shape === 'wide' ? [1920, 1080] : [1080, 1080];
@@ -154,7 +155,7 @@ function videoArgs(frames: FrameSequence, audio: { file: string; start?: number 
     '-y', '-framerate', String(frames.fps), '-i', frames.pattern, ...sound,
     '-filter_complex', graph, ...streams,
     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', String(FPS),
-    '-t', seconds(total), '-movflags', '+faststart', SHAPE_OUTPUT[shape],
+    '-t', seconds(total), '-movflags', '+faststart', outputOf(shape),
   ];
 }
 
@@ -168,5 +169,5 @@ export function framesArgs({ frames, audio, shape }: { frames: FrameSequence; au
   if (!(frames.count > 0 && frames.fps > 0)) throw new RangeError(`no frames to encode (${String(frames.count)} at ${String(frames.fps)} fps)`);
   const total = frames.count / frames.fps;
   const args = shape === 'gif' ? framesGifArgs(frames, total) : videoArgs(frames, audio, shape, total);
-  return { output: SHAPE_OUTPUT[shape], args };
+  return { output: outputOf(shape), args };
 }
