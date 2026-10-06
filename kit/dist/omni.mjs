@@ -37951,7 +37951,9 @@ function show2(args, { ctx, stdout }) {
   const bySlice = flags.prd !== void 0 || flags.slice !== void 0;
   if (bySlice && (flags.prd === void 0 || flags.slice === void 0)) throw usageError("omni flow show: --prd and --slice go together.");
   if (bySlice && flags.path !== void 0) throw usageError("omni flow show: either --prd and --slice, or --path, not both.");
-  const print2 = (json2, text8) => println(stdout, flags.json ? JSON.stringify(json2, null, 2) : text8);
+  const print2 = (json2, text8) => {
+    println(stdout, flags.json ? JSON.stringify(json2, null, 2) : text8);
+  };
   if (name === void 0) {
     if (bySlice) throw usageError("omni flow show: --prd and --slice name a point's slice \u2014 give the point.");
     if (flags.path !== void 0) {

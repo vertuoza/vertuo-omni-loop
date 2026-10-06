@@ -142,7 +142,7 @@ describe('omni flow show', () => {
 
   it('prints them as JSON', async () => {
     const { out } = await omni(['flow', 'show', '--json']);
-    expect(JSON.parse(out).map(({ area }: { area: string }) => area)).toEqual(['default', 'kernel', 'migrations']);
+    expect(JSON.parse(out)).toMatchObject([{ area: 'default' }, { area: 'kernel' }, { area: 'migrations' }]);
   });
 
   it('says the repository runs the defaults with no flow', async () => {

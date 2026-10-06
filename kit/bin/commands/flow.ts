@@ -120,7 +120,9 @@ function show(args: string[], { ctx, stdout }: CommandIo): number {
   const bySlice = flags.prd !== undefined || flags.slice !== undefined;
   if (bySlice && (flags.prd === undefined || flags.slice === undefined)) throw usageError('omni flow show: --prd and --slice go together.');
   if (bySlice && flags.path !== undefined) throw usageError('omni flow show: either --prd and --slice, or --path, not both.');
-  const print = (json: unknown, text: string) => println(stdout, flags.json ? JSON.stringify(json, null, 2) : text);
+  const print = (json: unknown, text: string): void => {
+    println(stdout, flags.json ? JSON.stringify(json, null, 2) : text);
+  };
 
   if (name === undefined) {
     if (bySlice) throw usageError('omni flow show: --prd and --slice name a point\'s slice — give the point.');
