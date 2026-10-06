@@ -15,9 +15,8 @@ import { join } from 'node:path';
 import { parse, stringify } from 'yaml';
 import { parseConfig } from '../config.ts';
 import { resolveFlow } from '../flow/resolve.ts';
-import { messageOf } from '../narrow.ts';
+import { at, messageOf } from '../narrow.ts';
 import type { Config } from '../types.ts';
-import { copyFolder } from './targets.ts';
 
 /** The folder, inside a copy, that holds the target's flow. */
 export const COPY_FLOW_DIR = 'flow';
@@ -80,6 +79,11 @@ export function hookPaths(config: FlowConfig): string[] {
 }
 
 type Where = { root: string; config: Pick<Config, 'paths'> };
+
+/** The folder holding a target's imported copy: `<paths.knowledge>/repos/<name>`. */
+export function copyFolder(repo: string, { ctx }: { ctx: { config: { paths: { knowledge: string } } } }): string {
+  return join(ctx.config.paths.knowledge, 'repos', at(repo.split('/'), 1, `the name of ${repo}`)); // a target's repo is an owner/name slug (the config checks it)
+}
 
 /** The folder holding `repo`'s copied flow: `<paths.knowledge>/repos/<name>/flow`. */
 export function copyFlowFolder(repo: string, { config }: Pick<Where, 'config'>): string {

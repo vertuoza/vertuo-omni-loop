@@ -8,7 +8,13 @@
 // - `state`, the worst that applies: `unreachable` (gh cannot read it), `drifted` (the config says
 //   own and the target lacks the loop or a filled form; it says imported or none and the target has
 //   both), `stale` (imported only: the default branch moved past `readAt` and changed at least one
-//   evidence file of the copy), else `ok`. `detail` says why, and is `null` for `ok`.
+//   evidence file of the copy, or its flow moved: see below), else `ok`. `detail` says why, and is
+//   `null` for `ok`.
+//
+// An imported target's flow (PRD 1089, s6) is compared too: the target's committed `flow` (with its
+// aliases) and each hook file it names, on its default branch, against the copy's `flow/`
+// (`./copy-flow.ts`). Any difference, a flow the copy lacks or one the target dropped included,
+// makes the target `stale`, its detail starting `flow moved since read at <commit>`.
 //
 // "A filled form" is a Markdown file under the target's `paths.playbook` (read from its own config,
 // the kit's default layout when unset) whose front matter says `state: filled` (playbook/filled.ts).
@@ -18,10 +24,12 @@ import { join } from 'node:path';
 import type { z } from 'zod';
 import type { Context, ExecRaw } from '../context.ts';
 import { isFilled, playbookOf } from '../playbook/filled.ts';
-import { at, defined, propertyOf } from '../narrow.ts';
+import { defined, messageOf, propertyOf } from '../narrow.ts';
 import { plainText } from '../outbox/plain-text.ts';
 import { parseForm } from '../playbook/forms.ts';
 import { bundleVersion } from '../update/installed.ts';
+import { copyFolder, flowKey, hasFlow, hookPaths, NO_FLOW, parseFlowConfig, readCopyFlow } from './copy-flow.ts';
+import type { FlowConfig } from './copy-flow.ts';
 import { firstIssue, GhCompareSchema, GhContentEntrySchema, GhRepositorySchema } from './gh-schema.ts';
 import type { GhCompare, GhContentEntry, GhRepository } from './gh-schema.ts';
 
@@ -132,9 +140,34 @@ function staleness(gh: GhReader, { repo, readAt }: { repo: string; readAt: strin
   return `${plural(ahead, 'commit', 'commits')}, ${plural(changed, 'evidence file', 'evidence files')} changed`;
 }
 
+/** An imported target's copied flow, as `readTarget` compares it: `null` when the copy holds none. */
+export type CopyFlow = { config: FlowConfig; readHook: (path: string) => string | null } | null | { error: string };
+
+/** Why the target's committed flow is not its copy's, or `null` when they are the same. */
+function flowMoved(gh: GhReader, { repo, readAt }: { repo: string; readAt: string }, branch: string, config: string | null, copy: CopyFlow): string | null {
+  const moved = (why: string) => `flow moved since read at ${readAt.slice(0, 7)}: ${why}`;
+  if (copy !== null && 'error' in copy) return moved(`the copy's flow cannot be read — ${copy.error}`);
+  let target: FlowConfig;
+  try {
+    target = config === null ? NO_FLOW : parseFlowConfig(config, `${repo}:${CONFIG_PATH}`);
+  } catch (error) {
+    return moved(`the target's flow cannot be read — ${messageOf(error)}`);
+  }
+  const copied = copy?.config ?? NO_FLOW;
+  if (flowKey(target) !== flowKey(copied)) {
+    if (!hasFlow(copied)) return moved('the target has a flow its copy lacks');
+    if (!hasFlow(target)) return moved('the target has no flow any more');
+    return moved('its flow section differs from the copy');
+  }
+  const changed = hookPaths(target).filter((path) => gh.file(repo, path, branch) !== (copy?.readHook(path) ?? null));
+  if (changed.length === 0) return null;
+  return moved(`${changed.length === 1 ? 'hook' : 'hooks'} ${changed.join(', ')} ${changed.length === 1 ? 'differs' : 'differ'} from the copy`);
+}
+
 /**
  * One target's row. `evidence` is the set of target paths the imported copy was drawn from (empty
- * for any other target). Never throws for what GitHub answers: a repository it cannot read is a row.
+ * for any other target); `copyFlow` an imported target's copied flow, compared with its committed one
+ * when given. Never throws for what GitHub answers: a repository it cannot read is a row.
  */
 export function readTarget(
   target: Target,
@@ -142,7 +175,8 @@ export function readTarget(
     exec = execFileSync,
     env,
     evidence = new Set(),
-  }: { exec?: ExecRaw; env?: NodeJS.ProcessEnv | undefined; evidence?: ReadonlySet<string> } = {},
+    copyFlow,
+  }: { exec?: ExecRaw; env?: NodeJS.ProcessEnv | undefined; evidence?: ReadonlySet<string>; copyFlow?: CopyFlow } = {},
 ): TargetRow {
   const { repo, role, knowledge } = target;
   const row = (loop: string, state: TargetState, detail: string | null = null): TargetRow => ({ repo, role, knowledge, loop, state, detail });
@@ -162,19 +196,17 @@ export function readTarget(
     }
     if (installed && filled) return row(loop, 'drifted', `the config says ${knowledge}, but it has the loop and a filled form`);
     if (knowledge === 'imported') {
-      const stale = staleness(gh, { repo, readAt: defined(target.readAt, `the readAt of ${repo}`) }, branch, evidence); // an imported target always has a readAt (the config refuses one without)
-      if (stale) return row(loop, 'stale', stale);
+      const read = { repo, readAt: defined(target.readAt, `the readAt of ${repo}`) }; // an imported target always has a readAt (the config refuses one without)
+      const stale = [staleness(gh, read, branch, evidence), copyFlow === undefined ? null : flowMoved(gh, read, branch, config, copyFlow)].filter(
+        (why): why is string => why !== null,
+      );
+      if (stale.length > 0) return row(loop, 'stale', stale.join('; '));
     }
     return row(loop, 'ok');
   } catch (error) {
     if (error instanceof Unreachable) return row('—', 'unreachable', error.message);
     throw error;
   }
-}
-
-/** The folder holding a target's imported copy: `<paths.knowledge>/repos/<name>`. */
-export function copyFolder(repo: string, { ctx }: { ctx: { config: { paths: { knowledge: string } } } }): string {
-  return join(ctx.config.paths.knowledge, 'repos', at(repo.split('/'), 1, `the name of ${repo}`)); // a target's repo is an owner/name slug (the config checks it)
 }
 
 /** Every target path the evidence of a copy's forms names; empty when the target has no copy. */
@@ -190,13 +222,24 @@ export function copyEvidence(repo: string, { ctx }: { ctx: Pick<Context, 'root' 
   return paths;
 }
 
-/** Every target's row, in config order. */
+/** `repo`'s copied flow, as `readTarget` compares it. */
+function copyFlowOf(repo: string, ctx: Pick<Context, 'root' | 'config'>): CopyFlow {
+  try {
+    return readCopyFlow(repo, ctx);
+  } catch (error) {
+    return { error: messageOf(error) };
+  }
+}
+
+/** Every target's row, in config order; an imported target's flow is compared with its copy's. */
 export function readTargets(
   targets: readonly Target[],
   { ctx, exec = execFileSync, env }: { ctx: Pick<Context, 'root' | 'config'>; exec?: ExecRaw; env?: NodeJS.ProcessEnv | undefined },
 ): TargetRow[] {
   return targets.map((target) =>
-    readTarget(target, { exec, env, evidence: target.knowledge === 'imported' ? copyEvidence(target.repo, { ctx }) : new Set() }),
+    target.knowledge === 'imported'
+      ? readTarget(target, { exec, env, evidence: copyEvidence(target.repo, { ctx }), copyFlow: copyFlowOf(target.repo, ctx) })
+      : readTarget(target, { exec, env }),
   );
 }
 
