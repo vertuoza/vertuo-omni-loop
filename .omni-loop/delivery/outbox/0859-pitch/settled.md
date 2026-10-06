@@ -390,3 +390,239 @@ Moving them later is moving two short functions and one help entry; nothing stor
 ```
 
 <!-- /omni-outbox-settled: s3-01-push-wiring-outside-territory -->
+
+<!-- omni-outbox-settled: s4-01-start-verb-and-look -->
+
+## s4-01-start-verb-and-look — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-start-verb-and-look
+prd: 859
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 3
+---
+
+## The question, in plain words
+
+The spec names four pitch commands; checking the four refusals and finding the product's look needed a fifth step at the start. Should it be its own command, and what happens when the look cannot be read?
+
+## The decision, in plain words
+
+A start command runs the four refusals, reads the product's look from the Omni page and opens the run's folder. When the look cannot be read, the pitch goes on in the arcade look and says so in one line.
+
+## The intro, for fun
+
+Four commands were invited to the pitch, and someone still had to open the door.
+
+## The punchline, for fun
+
+So a fifth one turned up early, checked every ticket and switched the lights on.
+
+## The options, in plain words
+
+A. A start command for the refusals, the look and the run folder; an unreadable look falls back to arcade (built).
+B. A start command, but an unreadable look stops the pitch with one line.
+C. No start command: each verb checks the refusals itself, and the skill reads the look on its own.
+
+## What I had to decide
+
+Keep omni pitch start (refusals, look, run folder) and the arcade fallback, or fold the refusals into each verb and stop when the look cannot be read.
+
+## What I did meanwhile
+
+omni pitch start <n> --for <audience> refuses with one line, or makes the run folder, writes pitch.json with the PRD, audience, look and commit, and prints them. The terminal's link to the Omni page gained readPitchLook, beside the other pitch calls. A look it cannot read is arcade, with one line on stderr.
+
+## What it costs to change later
+
+Folding the refusals into the other verbs later is moving one function call; removing the fallback is one line. Nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec lists the slide, music, video and push verbs only, and does not say what happens when the product's look cannot be read.
+- (author) The plan's territory for s4 does not name the terminal's shared link to the Omni page, where the look call sits beside the pitch calls s3 added.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-start-verb-and-look -->
+
+<!-- omni-outbox-settled: s4-02-short-walk-through-longer-ending -->
+
+## s4-02-short-walk-through-longer-ending — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-short-walk-through-longer-ending
+prd: 859
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 3
+---
+
+## The question, in plain words
+
+A pitch video is a 3-second slide, a 10 to 15 second walk-through and a 3-second ending, which makes 16 to 21 seconds, yet the spec wants 20 to 30. How does a short video reach 20 seconds?
+
+## The decision, in plain words
+
+The ending card stays on screen longer until the video reaches 20 seconds; a walk-through longer than 24 seconds is cut so the video never passes 30.
+
+## The intro, for fun
+
+The video came up four seconds short of the length it promised.
+
+## The punchline, for fun
+
+So the goodbye card learnt to linger, like a guest by the door.
+
+## The options, in plain words
+
+A. The ending card stays longer until the video reaches 20 seconds (built).
+B. The walk-through's last frame is held until the video reaches 20 seconds.
+C. Videos may be shorter than 20 seconds: the cards stay at 3 seconds each.
+
+## What I had to decide
+
+Keep the longer ending card, or reach 20 seconds another way: hold the walk-through's last frame, slow it down, or allow videos under 20 seconds.
+
+## What I did meanwhile
+
+The closing card lasts max(3, 20 - 3 - walk-through) seconds; a 10-second walk-through gives a 7-second ending and a 20-second video. A walk-through past 24 seconds is cut to 24.
+
+## What it costs to change later
+
+One line in the recipe's cut and its tests; no stored data, no pitch already made changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec states both a 10 to 15 second walk-through with two 3-second cards and a 20 to 30 second video, which cannot both hold.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-short-walk-through-longer-ending -->
+
+<!-- omni-outbox-settled: s4-03-slide-rendering-and-fonts -->
+
+## s4-03-slide-rendering-and-fonts — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-slide-rendering-and-fonts
+prd: 859
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 3
+---
+
+## The question, in plain words
+
+The slide is drawn as a web page and photographed by a browser. Which browser does it, and where do the looks' typefaces come from?
+
+## The decision, in plain words
+
+The repository's own Playwright photographs each card, the same tool the proof videos already use, and the typefaces load from Google Fonts at that moment. Without a network the card falls back to a similar system typeface and still fits.
+
+## The intro, for fun
+
+The arcade poster wanted its favourite poster lettering for the photo.
+
+## The punchline, for fun
+
+It borrows it from the internet each time, and wears a lookalike when offline.
+
+## The options, in plain words
+
+A. The repository's Playwright draws each card; typefaces from Google Fonts, a system lookalike offline (built).
+B. Ship the three typefaces inside the kit so every card looks the same with no network.
+C. Draw the cards with ffmpeg alone, with no browser, and fewer effects.
+
+## What I had to decide
+
+Keep loading the typefaces from Google Fonts when a card is drawn, or ship the typeface files inside the kit so a card always looks the same offline.
+
+## What I did meanwhile
+
+omni pitch slide runs npx playwright screenshot on each card page; the pages link the Anton, Inter and Press Start 2P typefaces from Google Fonts. The slide checks run in a browser where one is installed, and are skipped where none is.
+
+## What it costs to change later
+
+Shipping the typefaces later is adding the files and changing one link per page; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the looks' typefaces but not where they come from; the kit ships as one file, with no room for typeface files today.
+- (author) The test machines that check pull requests may have neither the browser nor ffmpeg, so the rendered slide and video checks may be skipped there.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-slide-rendering-and-fonts -->
