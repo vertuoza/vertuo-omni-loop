@@ -816,6 +816,27 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     },
   },
   {
+    name: 'mega-bug-fix',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-bug-fix <line or n> [--prd <prd>]'],
+    label: '/omni:mega-bug-fix',
+    summary: 'a bug across repositories, to one PR per target',
+    detail:
+      'The /omni:bug-fix of a plan repository, for a bug that shows in one target while its cause ' +
+      'sits in another: the issue, its triage and a fix plan stay in the plan repository, provider ' +
+      'first. Each target gets one fix PR into its default branch, red proven by its own preflight ' +
+      'or its CI before the fix, saying which PR to merge first; a record PR closes the issue and is ' +
+      'merged last. --prd <n> links it to a PRD, so /omni:mega-pr-care looks after its PRs. A change ' +
+      "that would break today's consumer stops it, with the /omni:mega-brainstorm line. It never merges.",
+    group: 'multi-repo',
+    when: 'Use it when a bug shows in one target repository and its cause may sit in another.',
+    example: {
+      type: '/omni:mega-bug-fix the total is wrong on the invoice screen',
+      result: 'one bug issue with a fix plan, one fix PR per target in merge order, and a record PR',
+    },
+  },
+  {
     name: 'yolo-fix',
     kind: 'skill',
     who: 'you',
