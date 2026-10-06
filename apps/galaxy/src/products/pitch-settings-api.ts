@@ -48,14 +48,21 @@ function refusalOf(error: { code?: string; message?: string }, named: Named, ins
   return notRead(named);
 }
 
+/** The caller's access token and the repository the request names, or the Response that refuses them. */
+async function callerAndRepo(request: Request, connect: (token: string) => TokenCheck): Promise<{ token: string; repo: string } | Response> {
+  const auth = await authenticate(request.headers.get('authorization'), connect);
+  if (!auth.ok) return refuse(auth.status, auth.error);
+  const repo = new URL(request.url).searchParams.get('repo') ?? '';
+  return isRepo(repo) ? { token: auth.caller.token, repo } : refuse(400, '`repo` must be the repository as owner/name.');
+}
+
 /** The settings of the request's repository's product, filled, or the Response that refuses it. */
 async function settingsFor(request: Request, deps: PitchSettingsDeps, named: Named): Promise<PitchSettings | Response> {
   if (!deps.connect) return refuse(503, `${named.absent}: this deployment has no database.`);
-  const auth = await authenticate(request.headers.get('authorization'), deps.connect);
-  if (!auth.ok) return refuse(auth.status, auth.error);
-  const repo = new URL(request.url).searchParams.get('repo') ?? '';
-  if (!isRepo(repo)) return refuse(400, '`repo` must be the repository as owner/name.');
-  const answer = await deps.connect(auth.caller.token).rpc('pitch_settings_for_repo', { p_repo: repo });
+  const asked = await callerAndRepo(request, deps.connect);
+  if (asked instanceof Response) return asked;
+  const { token, repo } = asked;
+  const answer = await deps.connect(token).rpc('pitch_settings_for_repo', { p_repo: repo });
   if (answer.error) return refusalOf(answer.error, named, deps.installLink);
   const parsed = parsePitchSettings(answer.data);
   if (!parsed.ok) {

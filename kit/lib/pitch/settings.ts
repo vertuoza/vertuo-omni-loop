@@ -61,7 +61,7 @@ const LookSchema = section({
 
 const OPTION = 'an option is at most 120 characters';
 
-export const PitchSettingsSchema = z.object(
+const PitchSettingsSchema = z.object(
   {
     look: LookSchema,
     voice: section({
