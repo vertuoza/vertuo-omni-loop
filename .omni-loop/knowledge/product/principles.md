@@ -534,3 +534,12 @@ Why: Every red can then be checked by a person against quoted text, rather than 
 Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s5-02-jev-broken-without-quote-is-not-red, PRD #871
 Merged: @pierrederval, 2026-10-01, PR #874
 Proposed: harvest 2026-10-01
+
+## P-PRODUCT-62
+
+Who may change how a product is presented always follows who may edit that product's business, never a separate grant.
+
+Why: One source of edit rights means presentation and business can never drift apart in who controls them.
+Source: .omni-loop/delivery/shipped/0859-pitch/outbox/settled.md, entry s1-02-every-member-edits-the-look, PRD #859
+Merged: @pierrederval, 2026-10-06, PR #860
+Proposed: harvest 2026-10-06
