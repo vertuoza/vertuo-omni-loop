@@ -499,4 +499,12 @@ A call that produced no answer is never scored as agreement or disagreement; it 
 Why: Counting failures as disagreements would make the agreement rate measure outages rather than judgement, misleading anyone comparing Jev with the old way.
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s4-01-agreement-counts-only-answered-calls, PRD #812
 Merged: @pierrederval, 2026-09-30, PR #814
+
+## P-PRODUCT-57
+
+A repository's spec is always judged against one workspace's business, chosen the same way every time.
+
+Why: Mixing or switching between workspaces' claims would make the check's verdict unpredictable and unfair to the repository's owners.
+Source: .omni-loop/delivery/shipped/0839-canon-check/outbox/settled.md, entry s1-01-app-read-workspace-choice, PRD #839
+Merged: @pierrederval, 2026-09-30, PR #840
 Proposed: harvest 2026-09-30

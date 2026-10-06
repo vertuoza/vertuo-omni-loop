@@ -724,4 +724,15 @@ Enforced by: unenforced
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
+
+## BR-PRODUCT-62
+
+When more than one workspace tracks a repository, the canon check reads the business of the workspace whose GitHub organisation owns the repository; when none does, it reads the workspace that started tracking it first.
+
+Serves: P-PRODUCT-57
+Source: .omni-loop/delivery/shipped/0839-canon-check/outbox/settled.md, entry s1-01-app-read-workspace-choice, PRD #839
+Enforced by: unenforced
+Stated: 2026-09-30
+Decided: nobody — adopted when raised (medium), 2026-09-30
+Merged: @pierrederval, 2026-09-30, PR #840
 Proposed: harvest 2026-09-30
