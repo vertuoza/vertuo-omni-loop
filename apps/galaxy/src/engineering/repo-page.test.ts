@@ -6,21 +6,27 @@ import type { EngineeringScreenProps } from './EngineeringScreen';
 // the server calls it, with its data sources stubbed: it reads the period from the query (7 days
 // otherwise) and decides the situation once, as the board does; a repository the workspace does not
 // track is not found.
-const given = vi.hoisted(() => ({
-  mode: 'supabase' as 'demo' | 'closed' | 'supabase',
-  user: null as null | { id: string },
-  load: { kind: 'no-workspace' } as unknown,
-  demo: null as unknown,
+const given = vi.hoisted((): { mode: 'demo' | 'closed' | 'supabase'; user: null | { id: string }; load: unknown; demo: unknown } => ({
+  mode: 'supabase',
+  user: null,
+  load: { kind: 'no-workspace' },
+  demo: null,
 }));
-const demoEngineeringBoard = vi.hoisted(() => vi.fn((..._args: unknown[]) => given.demo));
-const loadEngineeringRepositoryBoard = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => given.load));
-const getClaims = vi.hoisted(() => vi.fn(async () => ({ data: given.user ? { claims: { sub: given.user.id } } : null, error: null })));
+const demoEngineeringBoard = vi.hoisted(() => vi.fn<(...args: unknown[]) => unknown>(() => given.demo));
+const loadEngineeringRepositoryBoard = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve(given.load)));
+const getClaims = vi.hoisted(() => vi.fn(() => Promise.resolve({ data: given.user ? { claims: { sub: given.user.id } } : null, error: null })));
 
 vi.mock('server-only', () => ({}));
-vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
+
+const A_DATE: unknown = expect.any(Date);
+const A_404: unknown = expect.stringContaining('404');
+vi.mock('../env', async (actual) => {
+  const env = await actual<typeof import('../env')>();
+  return { ...env, serverEnv: () => ({ ...env.readEnv({}), mode: given.mode }) };
+});
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
-  supabaseServer: async () => ({ auth: { getClaims } }),
+  supabaseServer: () => Promise.resolve({ auth: { getClaims } }),
 }));
 vi.mock('./demo', () => ({ demoEngineeringBoard }));
 vi.mock('./load', () => ({ loadEngineeringRepositoryBoard }));
@@ -29,7 +35,7 @@ const { default: Page } = await import('../../app/app/engineering/[owner]/[repo]
 
 const open = async (owner: string, repo: string, query: Record<string, string> = {}) =>
   ((await Page({ params: Promise.resolve({ owner, repo }), searchParams: Promise.resolve(query) })) as ReactElement<EngineeringScreenProps>).props;
-const notFound = { digest: expect.stringContaining('404') };
+const notFound = { digest: A_404 };
 
 beforeEach(() => {
   Object.assign(given, { mode: 'supabase', user: null, load: { kind: 'no-workspace' }, demo: null });
@@ -46,6 +52,35 @@ describe('/app/engineering/<owner>/<repo> decides once', () => {
     expect(period).toBe('season');
     expect(demoEngineeringBoard).toHaveBeenCalledWith('season', 'merged', expect.any(Date), 'acme/gears');
     expect(getClaims).not.toHaveBeenCalled();
+  });
+
+  it('in the demo: counts only merges into main on that repository, its sub-PRs on the sub-PR line (PRD 714)', async () => {
+    given.mode = 'demo';
+    const actual = await vi.importActual<typeof import('./demo')>('./demo');
+    demoEngineeringBoard.mockImplementationOnce((...args: unknown[]) => (actual.demoEngineeringBoard as (...a: unknown[]) => unknown)(...args));
+    const { view } = await open('acme', 'gears', { period: '30d' });
+    const board = (view as { board: { kind: string; tiles: { merged: number }; omni: { of: number; subPrsMerged: number } } }).board;
+    expect(board.kind).toBe('board');
+    expect(board.omni.of).toBe(board.tiles.merged);
+    expect(board.omni.subPrsMerged).toBeGreaterThan(0);
+    const whole = actual.demoEngineeringBoard('30d', 'merged', new Date());
+    const all = (whole as { board: { omni: { subPrsMerged: number } } }).board.omni.subPrsMerged;
+    expect(board.omni.subPrsMerged).toBeLessThan(all);
+  });
+
+  it('in the demo: counts the needs-fix rate over that repository alone, and the whole board shows it (PRD 714 s4)', async () => {
+    given.mode = 'demo';
+    const actual = await vi.importActual<typeof import('./demo')>('./demo');
+    demoEngineeringBoard.mockImplementationOnce((...args: unknown[]) => (actual.demoEngineeringBoard as (...a: unknown[]) => unknown)(...args));
+    const { view } = await open('acme', 'gears', { period: '30d' });
+    type Rated = { board: { omni: { subPrsMerged: number }; needsFixRate: { got: number; of: number; share: number | null } } };
+    const one = (view as Rated).board;
+    const whole = (actual.demoEngineeringBoard('30d', 'merged', new Date()) as Rated).board;
+    expect(one.needsFixRate.of).toBe(one.omni.subPrsMerged);
+    expect(whole.needsFixRate.of).toBe(whole.omni.subPrsMerged);
+    expect(whole.needsFixRate.got).toBeGreaterThan(0);
+    expect(one.needsFixRate.got).toBeGreaterThan(0);
+    expect(one.needsFixRate.got).toBeLessThan(whole.needsFixRate.got);
   });
 
   it('in the demo, a repository it does not track: not found', async () => {
@@ -77,7 +112,7 @@ describe('/app/engineering/<owner>/<repo> decides once', () => {
     const { view, period } = await open('vertuoza', 'pdf-builder', { period: 'forever' });
     expect(view).toEqual(given.load);
     expect(period).toBe('7d');
-    expect(loadEngineeringRepositoryBoard).toHaveBeenCalledWith(expect.anything(), expect.objectContaining(given.user), 'vertuoza/pdf-builder', { period: '7d', sort: 'merged', now: expect.any(Date) });
+    expect(loadEngineeringRepositoryBoard).toHaveBeenCalledWith(expect.anything(), expect.objectContaining(given.user), 'vertuoza/pdf-builder', { period: '7d', sort: 'merged', now: A_DATE });
   });
 
   it('signed in, a repository the workspace does not track: not found', async () => {

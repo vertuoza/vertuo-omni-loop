@@ -18,6 +18,33 @@ describe('sessionClosed', () => {
   });
 });
 
+describe('addRound (PRD 752)', () => {
+  /** A client that records the one insert it is sent, and answers with an id. */
+  function recording() {
+    const sent: Array<Record<string, unknown>> = [];
+    const query = {
+      insert(values: Record<string, unknown>) { sent.push(values); return query; },
+      select() { return query; },
+      single: () => Promise.resolve({ data: { id: 'r1' }, error: null }),
+    };
+    return { sent, db: { from: () => query } as unknown as Parameters<typeof askStore>[0] };
+  }
+  const facts = { prd: null, skill: null, model: null, tokens: null, cost_usd: null };
+
+  it('sends the lead with the round', async () => {
+    const { sent, db } = recording();
+    await askStore(db).addRound('s1', [{ question: 'Q?' }], { ...facts, lead: '## The design' });
+    expect(sent).toEqual([{ session_id: 's1', questions: [{ question: 'Q?' }], lead: '## The design' }]);
+  });
+
+  it('sends no lead field for a round without one, so an older database takes it too', async () => {
+    const { sent, db } = recording();
+    await askStore(db).addRound('s1', [{ question: 'Q?' }], { ...facts, lead: null });
+    await askStore(db).addRound('s1', [{ question: 'Q?' }]);
+    expect(sent).toEqual([{ session_id: 's1', questions: [{ question: 'Q?' }] }, { session_id: 's1', questions: [{ question: 'Q?' }] }]);
+  });
+});
+
 describe('moveRound (PRD 620)', () => {
   /** A client that records the one update it is sent, and answers with the row. */
   function recording() {
@@ -27,7 +54,7 @@ describe('moveRound (PRD 620)', () => {
       eq() { return query; },
       in() { return query; },
       select() { return query; },
-      maybeSingle: async () => ({ data: { id: 'r1', ...sent[0] }, error: null }),
+      maybeSingle: () => Promise.resolve({ data: { id: 'r1', ...sent[0] }, error: null }),
     };
     return { sent, db: { from: () => query } as unknown as Parameters<typeof askStore>[0] };
   }
@@ -53,7 +80,7 @@ describe('askAttachments (PRD 620)', () => {
     const db = {
       storage: {
         from: (bucket: string) => ({
-          createSignedUrls: async (paths: string[], expiresIn: number) => { asked.push({ bucket, paths, expiresIn }); return reply; },
+          createSignedUrls: (paths: string[], expiresIn: number) => { asked.push({ bucket, paths, expiresIn }); return Promise.resolve(reply); },
         }),
       },
     } as unknown as Parameters<typeof askAttachments>[0];
@@ -92,16 +119,16 @@ describe('askAttachments.removeRounds (PRD 620)', () => {
     const db = {
       storage: {
         from: (name: string) => ({
-          async list(folder: string): Promise<Listed> {
+          list(folder: string): Promise<Listed> {
             calls.push({ bucket: name, op: 'list', arg: folder });
-            if (fail.list) return { data: null, error: { message: 'list is down' } };
-            return { data: objects.filter((o) => o.startsWith(`${folder}/`)).map((o) => ({ name: o.slice(folder.length + 1) })), error: null };
+            if (fail.list) return Promise.resolve({ data: null, error: { message: 'list is down' } });
+            return Promise.resolve({ data: objects.filter((o) => o.startsWith(`${folder}/`)).map((o) => ({ name: o.slice(folder.length + 1) })), error: null });
           },
-          async remove(paths: string[]) {
+          remove(paths: string[]) {
             calls.push({ bucket: name, op: 'remove', arg: paths });
-            if (fail.remove) return { data: null, error: { message: 'remove is down' } };
+            if (fail.remove) return Promise.resolve({ data: null, error: { message: 'remove is down' } });
             objects = objects.filter((o) => !paths.includes(o));
-            return { data: paths.map((p) => ({ name: p })), error: null };
+            return Promise.resolve({ data: paths.map((p) => ({ name: p })), error: null });
           },
         }),
       },

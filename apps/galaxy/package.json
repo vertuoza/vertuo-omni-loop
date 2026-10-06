@@ -8,31 +8,36 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "artifact": "node artifact/build.mjs",
-    "seed": "node scripts/seed.mjs",
-    "shots": "node scripts/shots.mjs"
+    "typecheck": "fumadocs-mdx && tsgo --noEmit",
+    "typecheck:tsc": "fumadocs-mdx && tsc --noEmit",
+    "artifact": "node artifact/build.ts",
+    "seed": "node scripts/seed.ts",
+    "shots": "node scripts/shots.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@omni/design": "workspace:*",
     "@omni/galaxy": "workspace:*",
+    "@omni/github": "workspace:*",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.1",
     "fumadocs-core": "^16.15.15",
     "fumadocs-mdx": "^15.4.5",
     "markdown-it": "^15.0.2",
     "next": "^16.3.6",
+    "phaser": "^4.2.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "server-only": "^0.0.1",
     "vertuo-omni-plan": "workspace:*",
-    "zod": "^3.25.76"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/mdx": "^2.0.14",
     "@types/node": "^22.10.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "esbuild": "^0.28.1",
     "playwright": "~1.56.1",
     "typescript": "^5.9.0"

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { afterGate, afterReturn, afterStart, allowed, arrive, backStep, isDisbanded, isPlayer, isReady, nextStep, readReturn } from './onboarding';
 import type { FleetRow, Player, Session } from './types';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { arcadeFor } from '../data/arcade';
 import { authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, type FakeUser } from '../data/galaxy.fake';
 
@@ -37,7 +38,7 @@ describe('crew is membership', () => {
   /** The session the page hands the arcade, for one person, from their workspaces. */
   const sessionOf = async (person: FakeUser) => {
     const world = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
-    return (await arcadeFor(world.client(person) as unknown as SupabaseClient, authUser(person) as unknown as User)).session;
+    return (await arcadeFor(world.client(person) as unknown as SupabaseClient<Database>, authUser(person) as unknown as User)).session;
   };
 
   it('lets a session with a workspace in, whatever its email\'s domain', async () => {
@@ -89,11 +90,9 @@ describe('PRESS START', () => {
 describe('the first visit', () => {
   it('runs straight to the fleet pick: intro → fleet → name → hero → ready → menu, no link step', () => {
     const route: string[] = [afterGate(null, FLEETS)];
-    let me: Player | null = null;
     while (route.at(-1) !== 'menu') {
       const step = route.at(-1) as never;
-      if (step === 'select') me = player();
-      route.push(nextStep(step, 'onboard', me, FLEETS));
+      route.push(nextStep(step, 'onboard', FLEETS));
     }
     expect(route).toEqual(['intro', 'select', 'name', 'hero', 'ready', 'menu']);
   });
@@ -116,7 +115,7 @@ describe('a fleet is optional (PRD 400)', () => {
       const step = route.at(-1) as never;
       if (step === 'select') me = player({ team: pick });
       if (step === 'name' && !me) me = player({ team: null });
-      route.push(nextStep(step, 'onboard', me, fleets));
+      route.push(nextStep(step, 'onboard', fleets));
     }
     return { route, me };
   };
@@ -159,9 +158,9 @@ describe('a fleet is optional (PRD 400)', () => {
 
 describe('menu flows', () => {
   it('returns to the menu when the one thing asked is done', () => {
-    expect(nextStep('select', 'change', player(), FLEETS)).toBe('menu');
-    expect(nextStep('name', 'myhero', player(), FLEETS)).toBe('hero');
-    expect(nextStep('hero', 'myhero', player(), FLEETS)).toBe('menu');
+    expect(nextStep('select', 'change', FLEETS)).toBe('menu');
+    expect(nextStep('name', 'myhero', FLEETS)).toBe('hero');
+    expect(nextStep('hero', 'myhero', FLEETS)).toBe('menu');
     expect(backStep('hero', 'myhero', FLEETS)).toBe('name');
     expect(backStep('name', 'myhero', FLEETS)).toBe('menu');
     expect(backStep('select', 'change', FLEETS)).toBe('menu');
@@ -182,9 +181,9 @@ describe('arriving at the menu', () => {
   });
 
   it('runs welcome back → level up → menu, and ready → level up → menu, once a level is due', () => {
-    expect(arrive(nextStep('welcome', 'onboard', player(), FLEETS), true)).toBe('levelup');
-    expect(arrive(nextStep('ready', 'onboard', player(), FLEETS), true)).toBe('levelup');
-    expect(arrive(nextStep('hero', 'myhero', player(), FLEETS), true)).toBe('levelup');
+    expect(arrive(nextStep('welcome', 'onboard', FLEETS), true)).toBe('levelup');
+    expect(arrive(nextStep('ready', 'onboard', FLEETS), true)).toBe('levelup');
+    expect(arrive(nextStep('hero', 'myhero', FLEETS), true)).toBe('levelup');
   });
 });
 
@@ -207,7 +206,7 @@ describe('returns from GitHub', () => {
 
 describe('the one door', () => {
   it('shows nothing past INSERT COIN without a session, whatever the route', () => {
-    for (const scene of ['gate', 'intro', 'select', 'name', 'hero', 'ready', 'welcome', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system', 'games', 'invaders', 'levelup']) {
+    for (const scene of ['gate', 'intro', 'select', 'name', 'hero', 'ready', 'welcome', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system', 'games', 'invaders', 'platformer', 'levelup']) {
       expect(allowed(scene, null), scene).toBe('coin');
       expect(allowed(scene, crew), scene).toBe(scene);
     }

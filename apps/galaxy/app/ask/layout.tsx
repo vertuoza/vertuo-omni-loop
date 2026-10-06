@@ -12,9 +12,9 @@ import { viewerLive } from '../../src/nav/viewer';
 // theme before anything in it is parsed, and before the first paint. The faces, all from
 // @omni/design's fonts.css and served from this origin: Atkinson Hyperlegible Next to read,
 // JetBrains Mono for previews, and the pixel face for the wordmark only. The page sits inside the app
-// shell (PRD 438): the sidebar holds Questions, For me, with how many questions a teammate shared that
-// still wait for the person looking, and History (PRD 144); the top bar the page's title, the theme
-// switch and Game mode.
+// shell (PRD 438): the sidebar holds Questions, with how many questions wait for the person looking;
+// each page but a single question starts with the Questions tabs, Open questions · Shared with me ·
+// History (PRD 733); the top bar the page's title, the theme switch and Game mode.
 
 export const metadata: Metadata = {
   title: 'Ask · OMNI LOOP',

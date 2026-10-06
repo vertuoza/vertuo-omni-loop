@@ -3,6 +3,7 @@ import { PersonChip } from '../../people/PersonChip';
 import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
+import { CarePane } from './CarePane';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
 import { MarkSeen } from './MarkSeen';
@@ -12,9 +13,12 @@ import { RetroPane } from './RetroPane';
 import { seenSignature } from './seen';
 import { FRAME_SANDBOX } from './sandbox';
 import { PinnedHead } from './PinnedHead';
+import { ProofPane } from './ProofPane';
 import { DossierTitle, StageAction, StageLinks, StageTrack } from './StageHeader';
 import { VersionPicker } from './VersionPicker';
-import { TAB_LABELS, type DossierView } from './view';
+import { isArtifactTab, TAB_LABELS, type DossierView } from './view';
+import { VOICE_EMPTY, type VoiceView } from './voice';
+import { VoicePane } from './VoicePane';
 
 // /prd/<id>, the page to share (PRD 216's spec, "The pages"): the header — PRD #n or DRAFT, the title,
 // the repository chips, who opened it and when, Copy link, and Delete draft for its opener — then a tab
@@ -31,14 +35,20 @@ import { TAB_LABELS, type DossierView } from './view';
 // 900 × 700 px the box is pinned while the page scrolls (PinnedHead.tsx measures it).
 // Its Outbox tab (OutboxPane.tsx) is where the decisions taken while it was built are answered, beside
 // the spec, the before/after page or the brainstorm (PRD 251, s9), and its Retro tab
-// (RetroPane.tsx) renders the retro once written; empty, each reads muted.
+// (RetroPane.tsx) renders the retro once written; empty, each reads muted. Between them, while the PRD has
+// a feature PR, its PR care tab (CarePane.tsx, PRD 790) shows that PR's health and who watches it.
 // PRD 579: opening the page marks its PRD seen in this browser (MarkSeen.tsx), and so does each new
 // version it renders while open, so the bell's New documents group drops it.
 // PRD 627: a fix's page is this page on its own route, `#n ↗` with its Visual or Bug badge, no stage,
 // and its kind's tabs: Variations frames the round picked, chosen as Round k; Bug record is markdown.
 // PRD 627, s5: a fix's page opens on its Timeline (fixes/Timeline.tsx), and its facts strip carries its
 // State pill (Asked, In review, Merged, or `—`) and, On GitHub, its issue and its fix PR.
+// PRD 798, s4: a PRD with a proof run has a Proof tab (ProofPane.tsx): the run, then a row per criterion.
 // PRD 652: "opened by" draws the opener's face (PersonChip) before their name; the words are unchanged.
+// PRD 822: a PRD's User voice tab, after Plan, draws the shown version of its voice.json (VoicePane.tsx)
+// under its version picker; with none, it says so in the spec's words.
+// PRD 902, s2: a PRD's On GitHub cell says when GitHub was last read (`GitHub as of 09:15 UTC`), and
+// while the installation's budget is paused, when GitHub resumes.
 
 type Props = {
   view: DossierView;
@@ -48,6 +58,8 @@ type Props = {
   supabase: { url: string; key: string } | null;
   /** The change check (PRD 384), shown below the tabs; none in the demo. */
   live?: ReactNode;
+  /** The shown version of the User voice, read (PRD 822); null off that tab, or when it could not be read. */
+  voice?: VoiceView | null | undefined;
 };
 
 const EMPTY: Record<ArtifactKind, string> = {
@@ -56,17 +68,41 @@ const EMPTY: Record<ArtifactKind, string> = {
   plan: 'The plan has no version yet.',
   variations: 'No round of variations yet.',
   'bug-record': 'The bug record has no version yet.',
+  voice: VOICE_EMPTY,
 };
 
-type PaneProps = Pick<Props, 'view' | 'markdown' | 'supabase'>;
+type PaneProps = Pick<Props, 'view' | 'markdown' | 'supabase' | 'voice'>;
 type Shown = NonNullable<DossierView['shown']>;
 
-function Pane({ view, markdown, supabase }: PaneProps) {
+/** The User voice tab (PRD 822): its picker and the shown version drawn, or the spec's empty line. */
+function VoiceTab({ view, voice = null }: PaneProps) {
+  const { shown } = view;
+  if (!shown) return <p className="dossier-empty">{VOICE_EMPTY}.</p>;
+  return (
+    <>
+      <VersionPicker action={view.link} tab="voice" versions={view.versions} shown={shown.number} noun="Version" />
+      <VoicePane view={voice} rework={view.rework} />
+    </>
+  );
+}
+
+/** The tabs drawn by a pane of their own, not as an artifact's versions. */
+const OWN_PANES: Partial<Record<DossierView['tab'], (props: PaneProps) => ReactNode>> = {
+  questions: ({ view, supabase }) => <QuestionsPane questions={view.questions} supabase={supabase} />,
+  outbox: ({ view, markdown }) => <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />,
+  care: ({ view }) => <CarePane care={view.care} />,
+  retro: ({ view }) => <RetroPane retro={view.retro} />,
+  timeline: ({ view }) => <TimelinePane fix={view.fix} />,
+  proof: ({ view }) => <ProofPane proof={view.proof} action={view.link} />,
+  voice: VoiceTab,
+};
+
+function Pane(props: PaneProps) {
+  const { view, markdown } = props;
   const { shown, tab } = view;
-  if (tab === 'questions') return <QuestionsPane questions={view.questions} supabase={supabase} />;
-  if (tab === 'outbox') return <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />;
-  if (tab === 'retro') return <RetroPane retro={view.retro} />;
-  if (tab === 'timeline') return <TimelinePane fix={view.fix} />;
+  const own = OWN_PANES[tab];
+  if (own) return own(props);
+  if (!isArtifactTab(tab)) return null;
   if (!shown) {
     return (
       <p className="dossier-empty">
@@ -113,7 +149,7 @@ function MarkdownVersion({ markdown }: { markdown: RenderedMarkdown | null }) {
   );
 }
 
-export function DossierPage({ view, markdown, supabase, live }: Props) {
+export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
   const { stage, fix } = view;
   return (
     <div className="dossier">
@@ -153,10 +189,17 @@ export function DossierPage({ view, markdown, supabase, live }: Props) {
               <dd><StageLinks links={fix.links} /></dd>
             </div>
           )}
-          {stage && stage.links.length > 0 && (
+          {stage && (stage.links.length > 0 || view.githubAsOf) && (
             <div className="dossier-fact">
               <dt>On GitHub</dt>
-              <dd><StageLinks links={stage.links} /></dd>
+              <dd>
+                {stage.links.length > 0 && <StageLinks links={stage.links} />}
+                {view.githubAsOf && (
+                  <p className="ask-hint github-as-of">
+                    {view.githubAsOf}{view.githubResumes && <> · <strong>{view.githubResumes}</strong></>}
+                  </p>
+                )}
+              </dd>
             </div>
           )}
           <div className="dossier-fact">
@@ -179,7 +222,7 @@ export function DossierPage({ view, markdown, supabase, live }: Props) {
       <MarkSeen id={view.id} signature={seenSignature(view.tabs)} />
       {live}
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>
-        <Pane view={view} markdown={markdown} supabase={supabase} />
+        <Pane view={view} markdown={markdown} supabase={supabase} voice={voice} />
       </section>
     </div>
   );

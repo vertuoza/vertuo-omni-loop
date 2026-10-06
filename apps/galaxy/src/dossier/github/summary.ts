@@ -3,18 +3,21 @@
 // (GitHub answered an error, or could not be reached), null when it answered that there is none yet.
 // A summary that could not be read at all (the App not installed, the config unreadable) is null
 // where it is used, and the page's stage is unknown.
+import { GithubDeferred, GithubPaused } from '@omni/github';
+import type { CareState } from './care';
+import type { IssueNumber, PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** A part of the summary whose read failed. Never guessed: the stage reads it as unknown. */
 export const UNREAD = 'unread' as const;
 export type Read<T> = T | typeof UNREAD;
 
 /** The PRD's issue: its number, its page and whether it is still open. */
-export type IssueRef = { number: number; url: string; state: 'open' | 'closed' };
+export type IssueRef = { number: IssueNumber; url: string; state: 'open' | 'closed' };
 
 /** A pull request of the PRD: the most recent one on its head branch that is open or merged (a
  * closed, unmerged one counts as absent). `draft` is GitHub's, and only means something while open. */
 export type PullRef = {
-  number: number; url: string; state: 'open' | 'merged'; draft: boolean;
+  number: PrNumber; url: string; state: 'open' | 'merged'; draft: boolean;
   /** When it merged (PRD 251, s9); null while open. Left out by a summary made before it. */
   mergedAt?: string | null;
 };
@@ -76,7 +79,7 @@ export type OutboxReplies = { numbering: QuestionNumber[]; pending: PendingAnswe
 export type GithubSummary = {
   /** The dossier's home repository, `owner/name`. */
   repo: string;
-  prd: number;
+  prd: PrdNumber;
   /** The PRD's folder, `<nnnn>-<topic>`, and its topic; null when none was found. */
   folder: string | null;
   topic: string | null;
@@ -87,23 +90,32 @@ export type GithubSummary = {
   /** The sub-PRs merged into the feature branch. */
   mergedSlices: Read<number>;
   /** The outbox (PRD 426, s2); null when there is none yet. Left out by a summary made before it. */
-  outbox?: Read<Outbox | null>;
+  outbox?: Read<Outbox | null> | undefined;
   /** The feature PR's outbox comment, found by its marker; null when there is none. */
   outboxComment?: Read<string | null>;
   /** The numbering and the pending answers, from the feature PR's comments (PRD 251, s9); null when
    * there is no feature PR. Left out by a summary made before it. */
-  replies?: Read<OutboxReplies | null>;
+  replies?: Read<OutboxReplies | null> | undefined;
   /** The retro, `retro.md` as markdown (PRD 426, s3): from the retro branch while its PR is open, from the
    * default branch once merged; null when there is no retro PR or no file yet. Left out by a summary made before it. */
-  retroText?: Read<string | null>;
+  retroText?: Read<string | null> | undefined;
+  /** The feature PR's care state (PRD 790, s2, ./care.ts), read while it is open; null when there is no
+   * open feature PR. Left out by a summary made before it. */
+  care?: Read<CareState | null> | undefined;
 };
 
-/** One GitHub read on its own, for `page`: its answer, or UNREAD (logged) when it failed. */
+/** A call the budget-aware client refused without sending it (PRD 902, s1): it said so once already. */
+export function isBudgetRefusal(error: unknown): error is GithubDeferred | GithubPaused {
+  return error instanceof GithubDeferred || error instanceof GithubPaused;
+}
+
+/** One GitHub read on its own, for `page`: its answer, or UNREAD when it failed, logged unless the
+ * budget refused it. */
 export async function readPart<T>(page: string, what: string, run: () => Promise<T>): Promise<Read<T>> {
   try {
     return await run();
   } catch (error) {
-    console.error(`${page}: ${what} could not be read from GitHub: ${error instanceof Error ? error.message : String(error)}`);
+    if (!isBudgetRefusal(error)) console.error(`${page}: ${what} could not be read from GitHub: ${error instanceof Error ? error.message : String(error)}`);
     return UNREAD;
   }
 }

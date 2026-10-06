@@ -8,6 +8,8 @@
 import { readQuestions, type AskQuestion } from '../answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../classify';
 import { sessionClosed, type AskRound, type AskSession } from '../store';
+import { workingState, type WorkingPing, type WorkingState } from '../../working/state';
+import { leadOf } from './lead';
 
 /** How long the hook waits for the page before the question goes to the terminal (the spec's
  * 540 s, within the hook's 600 s timeout). A round still open after that is no longer the page's. */
@@ -15,13 +17,17 @@ export const HOOK_WAIT_MS = 540_000;
 
 /** Where a session came from; missing on a row read before PRD 144's columns, or left out by a demo. */
 export type SessionPlace = Partial<Pick<AskSession, 'repo' | 'branch'>>;
+/** Each field of T optional, and undefined where it is not known. */
+type Unknown<T> = { [K in keyof T]?: T[K] | undefined };
 /** What a round records besides its questions (PRD 144), missing or null when unknown. */
-export type RoundFacts = Partial<Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd' | 'answered_by' | 'category' | 'category_by' | 'attachments'>>;
+export type RoundFacts = Unknown<Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd' | 'answered_by' | 'category' | 'category_by' | 'attachments' | 'lead'>>;
 
 export type SessionRow = Pick<AskSession, 'id' | 'owner' | 'title' | 'status' | 'created_at' | 'last_seen_at'> & SessionPlace
-  & Partial<Pick<AskSession, 'workspace_id'>>;
+  & Partial<Pick<AskSession, 'workspace_id' | 'claude_session_id'>>;
 export type RoundRow = Pick<AskRound, 'id' | 'questions' | 'answers' | 'answered_via' | 'status' | 'created_at' | 'answered_at'> & RoundFacts;
-export type SessionState = { session: SessionRow; rounds: RoundRow[] };
+/** `ping`: the latest heartbeat of the session's Claude session (PRD 757), null when there is none or
+ * it could not be read; left out by a read that does not ask for it. */
+export type SessionState = { session: SessionRow; rounds: RoundRow[]; ping?: WorkingPing | null | undefined };
 
 export type HistoryLine = {
   header: string; question: string; answer: string | null;
@@ -40,6 +46,8 @@ export type HistoryEntry = {
   /** The round's category and who set it (see categoryChip). */
   category?: Category | null;
   category_by?: string | null;
+  /** What Claude wrote before asking (PRD 752); left out when the round has none. */
+  lead?: string | undefined;
 };
 
 export type SessionView =
@@ -93,9 +101,10 @@ export function entry(round: RoundRow, session: SessionPlace = {}): HistoryEntry
     ...Object.entries(answers).filter(([question]) => !named.has(question)).map(([question, answer]) => line('', question, answer)),
   ];
   const outcome = round.status === 'answered' ? 'answered' : round.status === 'abandoned' ? 'moved' : 'unanswered';
+  const lead = leadOf(round);
   return {
     id: round.id, lines, outcome, via: round.answered_via, at: round.answered_at ?? round.created_at, context: contextParts(session, round),
-    category: round.category ?? null, category_by: round.category_by ?? null,
+    category: round.category ?? null, category_by: round.category_by ?? null, ...(lead ? { lead } : {}),
   };
 }
 
@@ -119,6 +128,16 @@ export function sessionView(state: SessionState, now: number): SessionView {
     return { kind: 'open', round: latest, questions, movesAt, history: earlier };
   }
   return { kind: 'moved', round: latest, questions, history: earlier };
+}
+
+/** Whether the tab's terminal is working, asking or idle (PRD 757), by the app's one rule
+ * (`workingState`): asking while a round of the session is open, working while its Claude session's
+ * heartbeat is fresh, idle otherwise, and always idle once the session is closed. The play dock reads
+ * it; the "Claude is working" card keeps reading `sessionView`. */
+export function tabWorking(state: SessionState, now: number): WorkingState {
+  if (sessionClosed(state.session, now)) return 'idle';
+  const open = state.rounds.filter((r) => r.status === 'open').length;
+  return workingState(state.ping ?? null, open, now);
 }
 
 /** Whole minutes left before `movesAt`, rounded up; 0 once it has passed. */

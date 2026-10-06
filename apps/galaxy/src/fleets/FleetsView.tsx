@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import type { FleetRow } from '../arcade/types';
 import { FleetCard, mascotSvg } from './FleetCard';
 import { activeFleets, previewOf, retiredFleets, SWATCHES, type Draft, type DraftField, type FleetsState } from './model';
@@ -18,15 +18,15 @@ const LIMITS = { label: 12, motto: 60 } as const;
 const MAX_ACTIVE = 12;
 
 export interface FleetsHandlers {
-  create(): void;
-  edit(name: string): void;
-  change(field: DraftField, value: string): void;
-  cancel(): void;
-  save(): void;
-  askRetire(name: string): void;
-  keep(): void;
-  retire(name: string): void;
-  restore(name: string): void;
+  create: () => void;
+  edit: (name: string) => void;
+  change: (field: DraftField, value: string) => void;
+  cancel: () => void;
+  save: () => void;
+  askRetire: (name: string) => void;
+  keep: () => void;
+  retire: (name: string) => void;
+  restore: (name: string) => void;
 }
 
 const IDLE: FleetsHandlers = { create() {}, edit() {}, change() {}, cancel() {}, save() {}, askRetire() {}, keep() {}, retire() {}, restore() {} };
@@ -49,7 +49,7 @@ const invalid = (refusal: Refusal | null, at: DraftField) =>
   refusal?.field === at ? { 'aria-invalid': true as const, 'aria-describedby': `fleets-refusal-${at}` } : {};
 
 function FleetForm({ draft, refusal, busy, mascots, on }: { draft: Draft; refusal: Refusal | null; busy: boolean; mascots: readonly string[]; on: FleetsHandlers }) {
-  const submit = (e: FormEvent) => { e.preventDefault(); on.save(); };
+  const submit = (e: SubmitEvent<HTMLFormElement>) => { e.preventDefault(); on.save(); };
   const color = draft.color.trim().toLowerCase();
   const preview = previewOf(draft);
   return (
@@ -60,7 +60,7 @@ function FleetForm({ draft, refusal, busy, mascots, on }: { draft: Draft; refusa
       <div className="fleets-field" data-field="label">
         <label htmlFor="fleets-label">Label</label>
         <input id="fleets-label" name="label" type="text" autoComplete="off" value={draft.label}
-          onChange={(e) => on.change('label', e.target.value)} {...invalid(refusal, 'label')} />
+          onChange={(e) => { on.change('label', e.target.value); }} {...invalid(refusal, 'label')} />
         <span className="fleets-count" aria-hidden="true">{draft.label.trim().length}/{LIMITS.label}</span>
         <Refused refusal={refusal} at="label" />
       </div>
@@ -71,12 +71,12 @@ function FleetForm({ draft, refusal, busy, mascots, on }: { draft: Draft; refusa
           <div className="fleets-swatches">
             {SWATCHES.map((s) => (
               <button key={s} type="button" className="fleets-swatch" data-swatch={s} style={{ background: s }}
-                aria-label={s} aria-pressed={color === s} onClick={() => on.change('color', s)} />
+                aria-label={s} aria-pressed={color === s} onClick={() => { on.change('color', s); }} />
             ))}
           </div>
           <label htmlFor="fleets-color">Hex</label>
           <input id="fleets-color" name="color" type="text" autoComplete="off" spellCheck={false} value={draft.color}
-            onChange={(e) => on.change('color', e.target.value)} {...invalid(refusal, 'color')} />
+            onChange={(e) => { on.change('color', e.target.value); }} {...invalid(refusal, 'color')} />
         </fieldset>
         <Refused refusal={refusal} at="color" />
       </div>
@@ -84,7 +84,7 @@ function FleetForm({ draft, refusal, busy, mascots, on }: { draft: Draft; refusa
       <div className="fleets-field" data-field="motto">
         <label htmlFor="fleets-motto">Motto</label>
         <input id="fleets-motto" name="motto" type="text" autoComplete="off" value={draft.motto}
-          onChange={(e) => on.change('motto', e.target.value)} {...invalid(refusal, 'motto')} />
+          onChange={(e) => { on.change('motto', e.target.value); }} {...invalid(refusal, 'motto')} />
         <span className="fleets-count" aria-hidden="true">{draft.motto.trim().length}/{LIMITS.motto}</span>
         <Refused refusal={refusal} at="motto" />
       </div>
@@ -94,13 +94,13 @@ function FleetForm({ draft, refusal, busy, mascots, on }: { draft: Draft; refusa
           <legend>Mascot</legend>
           <div className="fleets-mascots">
             <label className="fleets-mascot">
-              <input type="radio" name="mascot" value="" checked={draft.mascot === null} onChange={() => on.change('mascot', '')} />
+              <input type="radio" name="mascot" value="" checked={draft.mascot === null} onChange={() => { on.change('mascot', ''); }} />
               <span dangerouslySetInnerHTML={{ __html: mascotSvg(null, preview.color, 'A hero in the fleet’s colour') }} />
               <span>None</span>
             </label>
             {mascots.map((m) => (
               <label key={m} className="fleets-mascot">
-                <input type="radio" name="mascot" value={m} checked={draft.mascot === m} onChange={() => on.change('mascot', m)} />
+                <input type="radio" name="mascot" value={m} checked={draft.mascot === m} onChange={() => { on.change('mascot', m); }} />
                 <span dangerouslySetInnerHTML={{ __html: mascotSvg(m, preview.color, m) }} />
                 <span>{m}</span>
               </label>
@@ -130,15 +130,15 @@ function ActiveFleet({ fleet, state, owner, on }: { fleet: FleetRow; state: Flee
       <FleetCard fleet={fleet}>
         {owner && !asking && (
           <div className="fleets-card-actions">
-            <button type="button" className="ask-button quiet" onClick={() => on.edit(fleet.name)} disabled={state.busy}>Edit</button>
-            <button type="button" className="ask-button quiet" onClick={() => on.askRetire(fleet.name)} disabled={state.busy}>Retire</button>
+            <button type="button" className="ask-button quiet" onClick={() => { on.edit(fleet.name); }} disabled={state.busy}>Edit</button>
+            <button type="button" className="ask-button quiet" onClick={() => { on.askRetire(fleet.name); }} disabled={state.busy}>Retire</button>
           </div>
         )}
       </FleetCard>
       {asking && (
         <div className="fleets-confirm" role="group" aria-label={`Retire ${fleet.label}?`}>
           <p><b>Retire {fleet.label}?</b> It leaves the arcade’s fleet step. Its players and its history keep its look, and you can restore it.</p>
-          <button type="button" className="ask-button" onClick={() => on.retire(fleet.name)} disabled={state.busy}>Retire {fleet.label}</button>
+          <button type="button" className="ask-button" onClick={() => { on.retire(fleet.name); }} disabled={state.busy}>Retire {fleet.label}</button>
           <button type="button" className="ask-button quiet" onClick={on.keep} disabled={state.busy}>Keep it</button>
         </div>
       )}
@@ -180,7 +180,7 @@ export function FleetsView({ state, owner, mascots, on = IDLE }: FleetsViewProps
                 <FleetCard fleet={f}>
                   {owner && (
                     <div className="fleets-card-actions">
-                      <button type="button" className="ask-button quiet" onClick={() => on.restore(f.name)} disabled={state.busy}>Restore</button>
+                      <button type="button" className="ask-button quiet" onClick={() => { on.restore(f.name); }} disabled={state.busy}>Restore</button>
                     </div>
                   )}
                 </FleetCard>

@@ -7,6 +7,8 @@ import type { DocumentGroup } from '../waiting/documents';
 import { EMPTY_WAITING, type WaitingList, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
 import { BellView } from './Bell.tsx';
 import type { BellAlerts, BellUnread } from './bell';
+import { item } from '../ask/test/test-item';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The top bar's bell (PRD 499) as the server renders it: its count badge and accessible name, and its
 // panel, closed at first, listing the Questions and Outbox groups, or that nothing waits.
@@ -18,7 +20,7 @@ const q = (id: string, ago: number, sharedBy: string | null = null): WaitingQues
   kind: 'question', id, sessionTitle: `vertuo-omni-loop · ${id}`, question: `Which ${id}?`, askedAt: NOW - ago, sharedBy,
 });
 const o = (id: string, prd: number, rank: WaitingOutbox['rank']): WaitingOutbox => ({
-  kind: 'outbox', id, prd, dossierId: `d-${prd}`, title: `Gate ${prd}`, rank, question: `Keep ${id}?`,
+  kind: 'outbox', id, prd: parsePrd(prd), dossierId: `d-${prd}`, title: `Gate ${prd}`, rank, question: `Keep ${id}?`,
 });
 
 const render = (list: WaitingList, unread: BellUnread = {}) => renderToStaticMarkup(createElement(BellView, { list, unread, now: NOW }));
@@ -54,7 +56,7 @@ describe('the bell', () => {
     const body = panel(html);
     expect(body).toContain('>Questions<');
     expect(body).not.toContain('>Outbox<');
-    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(m[2])]);
+    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(item(m, 2))]);
     expect(links).toEqual([
       ['/ask/q/theirs', 'vertuo-omni-loop · theirs Which theirs? 2 h · shared by Bob'],
       ['/ask/q/mine', 'vertuo-omni-loop · mine Which mine? 3 min'],
@@ -78,7 +80,7 @@ describe('the bell', () => {
   it('lists each outbox item\'s PRD, title, question and rank, linking to its PRD\'s Outbox tab', () => {
     const body = panel(render({ questions: [q('a', MIN)], outbox: [o('i1', 459, 'human-action'), o('i2', 460, 'high')] }));
     expect(body.indexOf('>Questions<')).toBeLessThan(body.indexOf('>Outbox<'));
-    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1].replace(/&amp;/g, '&'), text(m[2])]);
+    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [item(m, 1).replace(/&amp;/g, '&'), text(item(m, 2))]);
     expect(links.slice(1)).toEqual([
       ['/prd/d-459?tab=outbox', 'PRD 459 · Gate 459 Keep i1? human-action'],
       ['/prd/d-460?tab=outbox', 'PRD 460 · Gate 460 Keep i2? high'],
@@ -97,14 +99,14 @@ describe('the bell', () => {
 });
 
 describe('its New documents group (PRD 579)', () => {
-  const doc: DocumentGroup = { dossierId: 'd-579', prd: 579, title: 'New documents alert', kinds: ['spec', 'before-after'], newestId: 'v9', newestAt: NOW - 3 * MIN };
+  const doc: DocumentGroup = { dossierId: 'd-579', prd: parsePrd(579), title: 'New documents alert', kinds: ['spec', 'before-after'], newestId: 'v9', newestAt: NOW - 3 * MIN };
   const withDocs = (list: WaitingList, documents: DocumentGroup[]) =>
     renderToStaticMarkup(createElement(BellView, { list, unread: {}, now: NOW, documents }));
 
   it('lists each PRD after Outbox, linking to its page, with the kinds and how long ago', () => {
     const body = panel(withDocs({ questions: [], outbox: [o('i1', 459, 'high')] }, [doc]));
     expect(body.indexOf('>Outbox<')).toBeLessThan(body.indexOf('>New documents<'));
-    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(m[2])]);
+    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(item(m, 2))]);
     expect(links.at(-1)).toEqual(['/prd/d-579', 'PRD 579 · New documents alert New spec, before/after 3 min']);
   });
 
@@ -112,13 +114,45 @@ describe('its New documents group (PRD 579)', () => {
     const none = button(withDocs(EMPTY_WAITING, [doc]));
     expect(none).toContain('aria-label="Nothing waiting for you"');
     expect(none).not.toContain('bell-badge');
-    const one = button(withDocs({ questions: [q('a', MIN)], outbox: [] }, [doc, { ...doc, dossierId: 'd-572', prd: 572 }]));
+    const one = button(withDocs({ questions: [q('a', MIN)], outbox: [] }, [doc, { ...doc, dossierId: 'd-572', prd: parsePrd(572) }]));
     expect(one).toContain('aria-label="Waiting for you: 1"');
     expect(one).toMatch(/<span class="bell-badge" aria-hidden="true">1<\/span>/);
   });
 
   it('with only new documents, does not say nothing waits', () => {
     expect(panel(withDocs(EMPTY_WAITING, [doc]))).not.toContain('Nothing waiting for you.');
+  });
+});
+
+describe('its Business group (PRD 774, s5)', () => {
+  const withBusiness = (list: WaitingList, business: number, unread: BellUnread = {}) =>
+    renderToStaticMarkup(createElement(BellView, { list, unread, now: NOW, business }));
+  const links = (html: string) => [...panel(html).matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(item(m, 2))]);
+
+  it('with things to check, shows one "Business · N to check" line linking to Settings › Business, last', () => {
+    const html = withBusiness({ questions: [], outbox: [o('i1', 459, 'high')] }, 2);
+    const body = panel(html);
+    expect(body.indexOf('>Outbox<')).toBeLessThan(body.indexOf('>Business<'));
+    expect(links(html).at(-1)).toEqual(['/app/settings/business', 'Business · 2 to check Proposed, disputed or fading claims']);
+    expect(text(panel(withBusiness(EMPTY_WAITING, 1)))).toContain('Business · 1 to check');
+  });
+
+  it('at zero shows no Business group', () => {
+    const html = withBusiness(EMPTY_WAITING, 0);
+    expect(html).not.toContain('Business');
+    expect(text(panel(html))).toBe('Nothing waiting for you.');
+  });
+
+  it('never adds to the bell\'s count or its name, and does not say nothing waits', () => {
+    const html = withBusiness(EMPTY_WAITING, 3);
+    expect(button(html)).toContain('aria-label="Nothing waiting for you"');
+    expect(button(html)).not.toContain('bell-badge');
+    expect(panel(html)).not.toContain('Nothing waiting for you.');
+  });
+
+  it('says so when its count could not be read, keeping the last one', () => {
+    expect(text(panel(withBusiness(EMPTY_WAITING, 0, { business: true })))).toContain("Business couldn't be read — retrying.");
+    expect(text(panel(withBusiness(EMPTY_WAITING, 2, { business: true })))).toMatch(/Business couldn't be read — retrying\. .*Business · 2 to check/);
   });
 });
 

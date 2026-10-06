@@ -1,9 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { initialState, repositoriesReducer, type RepositoriesAction, type RepositoryRow } from './model';
 import { RepositoriesScreen, type RepositoriesScreenView } from './RepositoriesScreen';
 import { MISSING_ONE, NO_ACCESS, ONLY_OWNER, RepositoriesView, type Access } from './RepositoriesView';
+import { sure } from '../arcade/test/sure';
 
 // Settings → Repositories as the server renders it (PRD 612 s1): the owner's view (Add repository,
 // the switches), a member's read-only view, the empty list, a workspace with no App installation (the
@@ -13,7 +16,7 @@ import { MISSING_ONE, NO_ACCESS, ONLY_OWNER, RepositoriesView, type Access } fro
 const NOW = Date.parse('2026-10-08T12:00:00Z');
 const SETTINGS = 'https://github.com/organizations/vertuoza/settings/installations/5001';
 const row = (fullName: string, over: Partial<RepositoryRow> = {}): RepositoryRow => ({
-  fullName, tracked: true, collectedAt: null, collectError: null, ...over,
+  fullName, tracked: true, collectedAt: null, collectError: null, product: null, ...over,
 });
 const APPS = row('vertuoza/vertuo-apps', { collectedAt: '2026-10-08T11:57:00Z' });
 const PDF = row('vertuoza/pdf-builder', { tracked: false, collectError: 'rate limited' });
@@ -21,11 +24,11 @@ const SECRET = row('vertuoza/secret');
 const INSTALLED: Access = { kind: 'installed', settingsUrl: SETTINGS, reachable: ['vertuoza/vertuo-apps', 'vertuoza/pdf-builder', 'vertuoza/new-one', 'Vertuoza/Another'] };
 
 const state = (rows: RepositoryRow[], ...actions: RepositoriesAction[]) => actions.reduce(repositoriesReducer, initialState(rows));
-const render = (rows: RepositoryRow[], { owner = true, access = INSTALLED as Access, actions = [] as RepositoriesAction[] } = {}) =>
+const render = (rows: RepositoryRow[], { owner = true, access = INSTALLED, actions = [] }: { owner?: boolean; access?: Access; actions?: RepositoriesAction[] } = {}) =>
   renderToStaticMarkup(createElement(RepositoriesView, { state: state(rows, ...actions), owner, access, now: NOW }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
-const switches = (html: string) => buttons(html).filter((b) => b.attrs.includes('role="switch"'));
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(sure(m[2], 'm[2]')) }));
+const switches = (html: string) => buttons(html).filter((b) => sure(b.attrs, 'b.attrs').includes('role="switch"'));
 const rowOf = (html: string, name: string) => {
   const from = html.indexOf(`data-repository="${name}"`);
   return from < 0 ? '' : html.slice(from, html.indexOf('</li>', from));
@@ -45,9 +48,9 @@ describe('the owner\'s repositories page', () => {
     expect(buttons(html).map((b) => b.text)).toContain('Add repository');
     const sw = switches(html);
     expect(sw).toHaveLength(2);
-    expect(sw.every((s) => !/disabled/.test(s.attrs))).toBe(true);
-    expect(sw.find((s) => s.attrs.includes('Track vertuoza/vertuo-apps'))?.attrs).toContain('aria-checked="true"');
-    expect(sw.find((s) => s.attrs.includes('Track vertuoza/pdf-builder'))?.attrs).toContain('aria-checked="false"');
+    expect(sw.every((s) => !/disabled/.test(sure(s.attrs, 's.attrs')))).toBe(true);
+    expect(sw.find((s) => sure(s.attrs, 's.attrs').includes('Track vertuoza/vertuo-apps'))?.attrs).toContain('aria-checked="true"');
+    expect(sw.find((s) => sure(s.attrs, 's.attrs').includes('Track vertuoza/pdf-builder'))?.attrs).toContain('aria-checked="false"');
   });
 
   it('links to the installation\'s settings on GitHub for a missing repository', () => {
@@ -106,7 +109,7 @@ describe('a member\'s repositories page', () => {
     expect(buttons(html).map((b) => b.text)).not.toContain('Add repository');
     const sw = switches(html);
     expect(sw).toHaveLength(2);
-    expect(sw.every((s) => /disabled=""/.test(s.attrs))).toBe(true);
+    expect(sw.every((s) => /disabled=""/.test(sure(s.attrs, 's.attrs')))).toBe(true);
   });
 
   it('says the owner adds them, when the list is empty', () => {
@@ -124,6 +127,54 @@ describe('a workspace with no App installation', () => {
   });
 });
 
+describe('products (PRD 748 s4)', () => {
+  const ERP = { id: 'p-1', name: 'Vertuoza' };
+  const LOOP = { id: 'p-2', name: 'Omni Loop' };
+  const withProducts = (rows: RepositoryRow[], products: { id: string; name: string }[], { owner = true, actions = [] as RepositoriesAction[] } = {}) =>
+    renderToStaticMarkup(createElement(RepositoriesView, { state: state(rows, ...actions), owner, access: INSTALLED, now: NOW, products }));
+  const selects = (html: string) => [...html.matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/g)].map((m) => ({
+    attrs: m[1],
+    options: [...sure(m[2], 'm[2]').matchAll(/<option\b([^>]*)>([^<]*)<\/option>/g)].map((o) => ({ value: /value="([^"]*)"/.exec(sure(o[1], 'o[1]'))?.[1], text: o[2], selected: sure(o[1], 'o[1]').includes('selected') })),
+  }));
+
+  it('shows no product select, and never says "Product", while the business has one or none', () => {
+    for (const products of [[], [ERP]]) {
+      const html = withProducts([APPS, PDF], products);
+      expect(selects(html)).toHaveLength(0);
+      expect(text(html)).not.toMatch(/product/i);
+    }
+  });
+
+  it('gives each row a product select once there are two, on the repository\'s product', () => {
+    const html = withProducts([row('vertuoza/vertuo-apps', { product: 'p-1' }), row('vertuoza/vertuo-omni-loop', { product: 'p-2' })], [ERP, LOOP]);
+    const all = selects(html);
+    expect(all).toHaveLength(2);
+    expect(sure(all[0], 'all[0]').attrs).toContain('aria-label="Product of vertuoza/vertuo-apps"');
+    expect(sure(all[0], 'all[0]').options.map((o) => o.text)).toEqual(['Vertuoza', 'Omni Loop']);
+    expect(sure(all[0], 'all[0]').options.find((o) => o.selected)?.text).toBe('Vertuoza');
+    expect(sure(selects(rowOf(html, 'vertuoza/vertuo-omni-loop'))[0], 'selects(rowOf(html, \'vertuoza/vertuo-omni-loop\'))[0]').options.find((o) => o.selected)?.text).toBe('Omni Loop');
+    expect(text(html)).toContain('Each repository’s agents read its product’s business.');
+  });
+
+  it('offers a repository with no product a disabled placeholder first', () => {
+    const [only] = selects(withProducts([APPS], [ERP, LOOP]));
+    expect(sure(only, 'only').options[0]).toEqual({ value: '', text: 'Choose…', selected: true });
+    expect(sure(only, 'only').options.slice(1).map((o) => o.text)).toEqual(['Vertuoza', 'Omni Loop']);
+  });
+
+  it('lets a member change it too, but not while a call is on its way', () => {
+    expect(sure(selects(withProducts([APPS], [ERP, LOOP], { owner: false }))[0], 'a member\'s first product select').attrs).not.toContain('disabled');
+    expect(sure(selects(withProducts([APPS], [ERP, LOOP], { actions: [{ type: 'busy' }] }))[0], 'the busy first product select').attrs).toContain('disabled');
+  });
+
+  it('wraps the select under the name at 393 px', () => {
+    const css = readFileSync(fileURLToPath(new URL('./repositories.css', import.meta.url)), 'utf8');
+    const at = css.lastIndexOf('.repositories-product {');
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(css.slice(at, css.indexOf('}', at))).toContain('max-width: 100%');
+  });
+});
+
 describe('the page\'s situations', () => {
   const screen = (view: RepositoriesScreenView) => text(renderToStaticMarkup(createElement(RepositoriesScreen, { view })));
 
@@ -136,5 +187,19 @@ describe('the page\'s situations', () => {
 
   it('draws the list otherwise', () => {
     expect(screen({ kind: 'repositories', source: { kind: 'demo' }, owner: true, repositories: [APPS], access: INSTALLED, now: NOW })).toContain('vertuoza/vertuo-apps');
+  });
+
+  it('starts with the Fleets · Repositories · Business · Jev tabs in every situation, Repositories marked (PRD 733)', () => {
+    const views: RepositoriesScreenView[] = [
+      { kind: 'closed' }, { kind: 'sign-in' }, { kind: 'no-workspace' }, { kind: 'unreadable' },
+      { kind: 'repositories', source: { kind: 'demo' }, owner: true, repositories: [APPS], access: INSTALLED, now: NOW },
+    ];
+    for (const view of views) {
+      const html = renderToStaticMarkup(createElement(RepositoriesScreen, { view }));
+      expect(html.indexOf('class="section-tabs"'), view.kind).toBeGreaterThanOrEqual(0);
+      expect(html.indexOf('class="section-tabs"'), view.kind).toBeLessThan(html.indexOf('<h1'));
+      const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
+      expect(tabs, view.kind).toEqual([['Fleets', false], ['Repositories', true], ['Business', false], ['Jev', false]]);
+    }
   });
 });

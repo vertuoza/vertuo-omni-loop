@@ -5,16 +5,19 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { z } from 'zod';
+import { item } from '../../ask/test/test-item';
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../../${path}`, import.meta.url)), 'utf8');
-const workflow = parse(read('.github/workflows/stages.yml'));
 
-type Step = { run?: string; uses?: string; env?: Record<string, string> };
-type Job = { if: string; concurrency: Record<string, unknown>; steps: Step[] };
+// The workflow, read through a schema that keeps every key it does not name.
+const Step = z.looseObject({ run: z.string().optional(), uses: z.string().optional(), env: z.record(z.string(), z.string()).optional() });
+const Job = z.looseObject({ if: z.string(), concurrency: z.record(z.string(), z.unknown()), steps: z.array(Step) });
+const Workflow = z.looseObject({ on: z.record(z.string(), z.unknown()), permissions: z.unknown(), jobs: z.record(z.string(), Job) });
+const workflow = Workflow.parse(parse(read('.github/workflows/stages.yml')));
 
 describe('the stages workflow', () => {
-  const jobs = Object.values(workflow.jobs) as Job[];
-  const [job] = jobs;
+  const jobs = Object.values(workflow.jobs);
 
   it('runs every 15 minutes and by hand', () => {
     expect(workflow.on.schedule).toEqual([{ cron: '*/15 * * * *' }]);
@@ -24,13 +27,15 @@ describe('the stages workflow', () => {
 
   it('is one job, off while GALAXY_URL is unset, one run at a time', () => {
     expect(jobs).toHaveLength(1);
+    const job = item(jobs, 0);
     expect(job.if).toBe("vars.GALAXY_URL != ''");
     expect(job.concurrency).toEqual({ group: 'stages-sync', 'cancel-in-progress': false });
   });
 
   it('calls POST /api/stages/sync with STAGES_SYNC_SECRET as a bearer, and fails on a reply that is not 2xx', () => {
+    const job = item(jobs, 0);
     expect(job.steps).toHaveLength(1);
-    const [step] = job.steps;
+    const step = item(job.steps, 0);
     expect(step.uses).toBeUndefined();
     expect(step.env).toEqual({ GALAXY_URL: '${{ vars.GALAXY_URL }}', STAGES_SYNC_SECRET: '${{ secrets.STAGES_SYNC_SECRET }}' });
     expect(step.run).toContain('-X POST "${GALAXY_URL%/}/api/stages/sync"');
@@ -40,7 +45,7 @@ describe('the stages workflow', () => {
 
   it('reads nothing of the repository', () => {
     expect(workflow.permissions).toEqual({ contents: 'read' });
-    expect(job.steps.some((s) => s.uses?.startsWith('actions/checkout'))).toBe(false);
+    expect(item(jobs, 0).steps.some((s) => s.uses?.startsWith('actions/checkout'))).toBe(false);
   });
 });
 

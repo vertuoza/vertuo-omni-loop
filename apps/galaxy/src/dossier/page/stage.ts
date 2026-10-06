@@ -2,12 +2,15 @@
 // track and the questions badge come from the PRD's stored stages alone (../../stages/stage.ts): the
 // header never waits on GitHub for them. The one button and the links line keep PRD 426's rules, read
 // from the GitHub summary when there is one: without it, a stage that needs GitHub for its button shows
-// none, and the links line is empty.
+// none, and the links line is empty. While the feature PR is open, its link carries the health chip
+// (PRD 790, s2), from the care state the summary read: none when that read failed.
 //
 // `stageOf` below is PRD 426's reading of the stage from the GitHub summary alone. Only the page's
 // pulse (./live.ts) still uses it, to notice that something moved on GitHub; nothing shows it.
+import { openThreads, type CareState } from '../github/care';
 import { UNREAD, type GithubSummary, type IssueRef, type PullRef, type Read } from '../github/summary';
 import { storedStageOf, type CurrentStage, type OpenOutbox, type StageId, type StageRow } from '../../stages/stage';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export { STAGES, STAGE_LABELS, type StageId } from '../../stages/stage';
 
@@ -38,7 +41,7 @@ function openOutboxOf(summary: GithubSummary | null | undefined): OpenOutbox {
 }
 
 /** The stage from the GitHub summary alone (PRD 426), for the page's pulse. `slices` is the plan's slice count. */
-export function stageOf(prd: number | null, summary: GithubSummary | null, slices: number | null = null): Stage {
+export function stageOf(prd: PrdNumber | null, summary: GithubSummary | null, slices: number | null = null): Stage {
   if (prd === null) return { id: 'idea', action: null, caption: 'Brainstorm in progress' };
   if (!summary) return unknown;
   const { retro, feature, mergedSlices, phase0 } = summary;
@@ -61,7 +64,7 @@ export function stageOf(prd: number | null, summary: GithubSummary | null, slice
 type Action = { action: NextAction | null; caption: string | null };
 const none: Action = { action: null, caption: null };
 
-type ActionInput = { prd: number | null; read: GithubSummary | null; slices: number | null };
+type ActionInput = { prd: PrdNumber | null; read: GithubSummary | null; slices: number | null };
 
 const caption = (text: string): Action => ({ action: null, caption: text });
 const link = (label: string, href: string): Action => ({ action: { kind: 'link', label, href }, caption: null });
@@ -118,12 +121,26 @@ const ACTIONS: Readonly<Record<CurrentStage['id'], (input: ActionInput) => Actio
 };
 
 /** The one button and the caption of a stage, by PRD 426's rules, from what the GitHub summary holds. */
-function actionOf(id: CurrentStage['id'], prd: number | null, summary: GithubSummary | null | undefined, slices: number | null = null): Action {
+function actionOf(id: CurrentStage['id'], prd: PrdNumber | null, summary: GithubSummary | null | undefined, slices: number | null = null): Action {
   return ACTIONS[id]({ prd, read: summary ?? null, slices });
 }
 
-/** One entry of the links line: `issue #426`, `phase-0 #431`…, done (✓) once merged or closed. */
-export type StageLink = { label: string; href: string; done: boolean };
+/** The feature PR's health chip (PRD 790, s2): `CI ✓ · no conflict · 2 open`, red on CI red or a
+ * conflict, grey while CI runs. */
+export type CareChip = { label: string; tone: 'ok' | 'red' | 'grey' };
+
+const CI_WORDS: Record<CareState['ci'], string> = { green: 'CI ✓', red: 'CI red', running: 'CI running', none: 'no CI' };
+
+export function careChipOf(care: CareState): CareChip {
+  const conflict = care.conflict === null ? [] : [care.conflict ? 'conflict' : 'no conflict'];
+  const label = [CI_WORDS[care.ci], ...conflict, `${openThreads(care)} open`].join(' · ');
+  const tone = care.ci === 'red' || care.conflict ? 'red' : care.ci === 'running' ? 'grey' : 'ok';
+  return { label, tone };
+}
+
+/** One entry of the links line: `issue #426`, `phase-0 #431`…, done (✓) once merged or closed. The open
+ * feature PR's carries its health chip when its care state was read. */
+export type StageLink = { label: string; href: string; done: boolean; chip?: CareChip };
 
 export type StageView = CurrentStage & Action & {
   links: StageLink[];
@@ -137,10 +154,19 @@ function linksOf(summary: GithubSummary | null | undefined): StageLink[] {
   const issue: Read<IssueRef | null> = summary.issue;
   if (known(issue) && issue) links.push({ label: `issue #${issue.number}`, href: issue.url, done: issue.state === 'closed' });
   const pulls: [string, Read<PullRef | null>][] = [['phase-0', summary.phase0], ['feature', summary.feature], ['retro', summary.retro]];
+  const care = summary.care ?? null;
   for (const [name, pull] of pulls) {
-    if (known(pull) && pull) links.push({ label: `${name} #${pull.number}`, href: pull.url, done: pull.state === 'merged' });
+    if (!known(pull) || !pull) continue;
+    links.push(pullLinkOf(name, pull, care));
   }
   return links;
+}
+
+/** One pull request's link; the open feature PR's carries its health chip when its care state was read. */
+function pullLinkOf(name: string, pull: PullRef, care: Read<CareState | null>): StageLink {
+  const link: StageLink = { label: `${name} #${pull.number}`, href: pull.url, done: pull.state === 'merged' };
+  if (name === 'feature' && pull.state === 'open' && known(care) && care) link.chip = careChipOf(care);
+  return link;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -154,13 +180,13 @@ export function syncedWords(iso: string | null): string {
 }
 
 export type StageViewInput = {
-  prd: number | null;
+  prd: PrdNumber | null;
   /** A draft only: whether any of its questions was answered. */
   answered?: boolean;
   /** The PRD's stored stages; none yet reads Syncing…. */
   rows: readonly StageRow[];
   /** The GitHub summary, for the button, the links and the badge only; null or left out when not read. */
-  github?: GithubSummary | null;
+  github?: GithubSummary | null | undefined;
   slices?: number | null;
 };
 

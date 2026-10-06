@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Super Omni World</title>
+<style>
+/* Layout: today beside after, one row per moment; stacks at phone width. Omni app look outside, arcade screens inside. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --display:Impact,"Arial Narrow Bold",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+ color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:36px}
+h1{font:400 clamp(30px,5vw,46px)/1.05 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{font:400 22px/1.2 var(--display);letter-spacing:.03em;margin:0;text-wrap:balance}
+.lead{color:var(--muted);max-width:68ch;margin:8px 0 0}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.row{display:grid;gap:14px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;min-width:0}
+.side.after{border-color:var(--plasma);box-shadow:0 0 0 1px var(--plasma)}
+.side .tag.now{color:var(--plasma)}
+.side p{margin:0;color:var(--muted);font-size:14px}
+svg{width:100%;height:auto;display:block;border-radius:6px;image-rendering:pixelated}
+svg text{font-family:var(--mono)}
+code{font:13px var(--mono);background:var(--plasmaSoft);padding:1px 5px;border-radius:4px}
+ul{margin:0;padding-left:18px;color:var(--muted);font-size:14px;display:grid;gap:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <div class="tag">PRD 817 · before / after</div>
+ <h1>SUPER OMNI WORLD</h1>
+ <p class="lead">An original SNES-style platformer that unlocks at LV 2. It has three stages, your own hero, entropy to stomp, coins and a flag. You can play it from the arcade room, and from the corner Game Boy while Claude works. It is built on Phaser 4 and uses no Nintendo assets.</p>
+</header>
+
+<section class="row" aria-labelledby="m1">
+ <h2 id="m1">The game room</h2>
+ <div class="pair">
+  <div class="side">
+   <div class="tag">Today</div>
+   <svg viewBox="0 0 640 300" role="img" aria-label="Game room today: Entropy Invaders, then two SOON cabinets">
+    <rect width="640" height="300" fill="#0b0a24"/>
+    <text x="24" y="34" fill="#f2f4ff" font-size="16">GAME ROOM</text><text x="540" y="34" fill="#ffd34d" font-size="16">LV 2</text>
+    <rect x="24" y="44" width="592" height="6" fill="#2f2c78"/><rect x="24" y="44" width="180" height="6" fill="#ffd34d"/>
+    <g transform="translate(40 76)"><rect width="164" height="196" rx="6" fill="#241f6e" stroke="#b37cff" stroke-width="3"/><rect x="14" y="16" width="136" height="24" fill="#6a2fd0"/><text x="82" y="33" fill="#fff" font-size="10" text-anchor="middle">ENTROPY INVADERS</text><rect x="22" y="54" width="120" height="90" fill="#050418"/><g fill="#4ee08a"><rect x="40" y="70" width="12" height="8"/><rect x="62" y="70" width="12" height="8"/><rect x="84" y="70" width="12" height="8"/><rect x="106" y="70" width="12" height="8"/></g><rect x="76" y="128" width="12" height="8" fill="#f2f4ff"/><text x="82" y="172" fill="#4ee08a" font-size="11" text-anchor="middle">A · PLAY</text></g>
+    <g transform="translate(238 76)" opacity=".55"><rect width="164" height="196" rx="6" fill="#1a1850" stroke="#3b3890" stroke-width="3"/><rect x="14" y="16" width="136" height="24" fill="#2f2c78"/><text x="82" y="33" fill="#a9aee6" font-size="11" text-anchor="middle">SOON</text><rect x="22" y="54" width="120" height="90" fill="#050418"/><text x="82" y="104" fill="#6d6acc" font-size="22" text-anchor="middle">?</text></g>
+    <g transform="translate(436 76)" opacity=".55"><rect width="164" height="196" rx="6" fill="#1a1850" stroke="#3b3890" stroke-width="3"/><rect x="14" y="16" width="136" height="24" fill="#2f2c78"/><text x="82" y="33" fill="#a9aee6" font-size="11" text-anchor="middle">SOON</text><rect x="22" y="54" width="120" height="90" fill="#050418"/><text x="82" y="104" fill="#6d6acc" font-size="22" text-anchor="middle">?</text></g>
+   </svg>
+   <p>One game. Reaching LV 2 opens nothing new.</p>
+  </div>
+  <div class="side after">
+   <div class="tag now">After</div>
+   <svg viewBox="0 0 640 300" role="img" aria-label="Game room after: Entropy Invaders, Super Omni World open at LV 2, then one SOON cabinet">
+    <rect width="640" height="300" fill="#0b0a24"/>
+    <text x="24" y="34" fill="#f2f4ff" font-size="16">GAME ROOM</text><text x="540" y="34" fill="#ffd34d" font-size="16">LV 2</text>
+    <rect x="24" y="44" width="592" height="6" fill="#2f2c78"/><rect x="24" y="44" width="180" height="6" fill="#ffd34d"/>
+    <g transform="translate(40 76)"><rect width="164" height="196" rx="6" fill="#241f6e" stroke="#3b3890" stroke-width="3"/><rect x="14" y="16" width="136" height="24" fill="#6a2fd0"/><text x="82" y="33" fill="#fff" font-size="10" text-anchor="middle">ENTROPY INVADERS</text><rect x="22" y="54" width="120" height="90" fill="#050418"/><g fill="#4ee08a"><rect x="40" y="70" width="12" height="8"/><rect x="62" y="70" width="12" height="8"/><rect x="84" y="70" width="12" height="8"/><rect x="106" y="70" width="12" height="8"/></g><rect x="76" y="128" width="12" height="8" fill="#f2f4ff"/></g>
+    <g transform="translate(238 76)"><rect width="164" height="196" rx="6" fill="#7a1d1d" stroke="#ffd34d" stroke-width="3"/><rect x="14" y="16" width="136" height="24" fill="#e0392b"/><text x="82" y="33" fill="#fff" font-size="10" text-anchor="middle">SUPER OMNI WORLD</text><rect x="22" y="54" width="120" height="90" fill="#6cc3ff"/><rect x="22" y="130" width="120" height="14" fill="#8a4b20"/><rect x="22" y="126" width="120" height="4" fill="#3fbf3f"/><rect x="50" y="104" width="10" height="22" fill="#1b2a8f"/><rect x="50" y="98" width="10" height="8" fill="#f3c48a"/><rect x="96" y="116" width="12" height="10" rx="4" fill="#b3122f"/><rect x="100" y="80" width="12" height="12" fill="#ffd34d" stroke="#8a5a00"/><rect x="132" y="70" width="2" height="56" fill="#f2f4ff"/><rect x="134" y="70" width="8" height="6" fill="#4ee08a"/><text x="82" y="172" fill="#ffd34d" font-size="11" text-anchor="middle">A · PLAY</text></g>
+    <g transform="translate(436 76)" opacity=".55"><rect width="164" height="196" rx="6" fill="#1a1850" stroke="#3b3890" stroke-width="3"/><rect x="14" y="16" width="136" height="24" fill="#2f2c78"/><text x="82" y="33" fill="#a9aee6" font-size="11" text-anchor="middle">SOON</text><rect x="22" y="54" width="120" height="90" fill="#050418"/><text x="82" y="104" fill="#6d6acc" font-size="22" text-anchor="middle">?</text></g>
+   </svg>
+   <p>The second cabinet is SUPER OMNI WORLD. It opens at LV 2. Below that it shows <code>REACH LV 2 TO PLAY</code>.</p>
+  </div>
+ </div>
+</section>
+
+<section class="row" aria-labelledby="m2">
+ <h2 id="m2">The corner Game Boy, while Claude works</h2>
+ <div class="pair">
+  <div class="side">
+   <div class="tag">Today</div>
+   <svg viewBox="0 0 320 300" role="img" aria-label="Dock today: opens straight into Entropy Invaders">
+    <rect width="320" height="300" fill="#dedad0"/><rect x="40" y="16" width="240" height="268" rx="14" fill="#c9c4b6" stroke="#85819f"/>
+    <rect x="64" y="36" width="192" height="150" fill="#050418"/>
+    <g fill="#4ee08a"><rect x="96" y="60" width="14" height="9"/><rect x="124" y="60" width="14" height="9"/><rect x="152" y="60" width="14" height="9"/><rect x="180" y="60" width="14" height="9"/><rect x="208" y="60" width="14" height="9"/><rect x="110" y="80" width="14" height="9"/><rect x="138" y="80" width="14" height="9"/><rect x="166" y="80" width="14" height="9"/><rect x="194" y="80" width="14" height="9"/></g>
+    <rect x="152" y="166" width="16" height="9" fill="#f2f4ff"/><text x="72" y="50" fill="#a9aee6" font-size="9">SCORE 120</text>
+    <rect x="84" y="210" width="36" height="12" fill="#2f2c78"/><rect x="96" y="198" width="12" height="36" fill="#2f2c78"/><circle cx="212" cy="224" r="12" fill="#b3122f"/><circle cx="240" cy="208" r="12" fill="#b3122f"/>
+   </svg>
+   <p>Straight into Entropy Invaders, whatever your level.</p>
+  </div>
+  <div class="side after">
+   <div class="tag now">After · LV 2 and above</div>
+   <svg viewBox="0 0 320 300" role="img" aria-label="Dock after: a picker with Entropy Invaders and Super Omni World">
+    <rect width="320" height="300" fill="#dedad0"/><rect x="40" y="16" width="240" height="268" rx="14" fill="#c9c4b6" stroke="#85819f"/>
+    <rect x="64" y="36" width="192" height="150" fill="#050418"/>
+    <text x="160" y="66" fill="#a9aee6" font-size="10" text-anchor="middle">PICK A GAME</text>
+    <text x="84" y="104" fill="#a9aee6" font-size="12">  ENTROPY INVADERS</text>
+    <rect x="72" y="118" width="176" height="22" fill="#6a2fd0"/><text x="84" y="134" fill="#fff" font-size="12">▶ SUPER OMNI WORLD</text>
+    <text x="160" y="172" fill="#6d6acc" font-size="9" text-anchor="middle">A PLAY · B FOLD</text>
+    <rect x="84" y="210" width="36" height="12" fill="#2f2c78"/><rect x="96" y="198" width="12" height="36" fill="#2f2c78"/><circle cx="212" cy="224" r="12" fill="#b3122f"/><circle cx="240" cy="208" r="12" fill="#b3122f"/>
+   </svg>
+   <p>A two-line picker. Below LV 2 the dock goes straight into Invaders, as today. A question from Claude pauses either game.</p>
+  </div>
+ </div>
+</section>
+
+<section class="row" aria-labelledby="m3">
+ <h2 id="m3">The game: stage 1-1 on the tall grid (320×288)</h2>
+ <div class="pair">
+  <div class="side">
+   <div class="tag">Today</div>
+   <svg viewBox="0 0 320 288" role="img" aria-label="No platformer today">
+    <rect width="320" height="288" fill="#050418"/><text x="160" y="148" fill="#6d6acc" font-size="12" text-anchor="middle">no platformer</text>
+   </svg>
+   <p>Nothing to run and jump in.</p>
+  </div>
+  <div class="side after">
+   <div class="tag now">After</div>
+   <svg viewBox="0 0 320 288" role="img" aria-label="Stage 1-1: hero, entropy blob, question blocks, coins, pipe, pit and flag">
+    <rect width="320" height="288" fill="#6cc3ff"/>
+    <g fill="#ffffff" opacity=".9"><rect x="40" y="48" width="40" height="10"/><rect x="48" y="40" width="24" height="8"/><rect x="200" y="36" width="48" height="10"/><rect x="210" y="28" width="28" height="8"/></g>
+    <g fill="#f2f4ff" font-size="9"><text x="8" y="14">SCORE 00320</text><text x="96" y="14">◎×12</text><text x="146" y="14">♥×3</text><text x="196" y="14">1-1</text><text x="244" y="14">TIME 241</text></g>
+    <rect x="0" y="240" width="176" height="48" fill="#8a4b20"/><rect x="0" y="240" width="176" height="6" fill="#3fbf3f"/>
+    <rect x="208" y="240" width="112" height="48" fill="#8a4b20"/><rect x="208" y="240" width="112" height="6" fill="#3fbf3f"/>
+    <g stroke="#6b3616" stroke-width="1" fill="none"><path d="M0 262h176M0 278h176M208 262h112M208 278h112"/></g>
+    <rect x="80" y="160" width="16" height="16" fill="#b25a2a" stroke="#6b3616"/><rect x="96" y="160" width="16" height="16" fill="#ffd34d" stroke="#8a5a00"/><text x="104" y="172" fill="#8a5a00" font-size="11" text-anchor="middle">?</text><rect x="112" y="160" width="16" height="16" fill="#b25a2a" stroke="#6b3616"/><rect x="128" y="160" width="16" height="16" fill="#ffd34d" stroke="#8a5a00"/><text x="136" y="172" fill="#8a5a00" font-size="11" text-anchor="middle">?</text>
+    <g fill="#ffd34d" stroke="#8a5a00"><rect x="186" y="170" width="8" height="12" rx="3"/><rect x="200" y="160" width="8" height="12" rx="3"/><rect x="214" y="170" width="8" height="12" rx="3"/></g>
+    <rect x="236" y="208" width="32" height="32" fill="#2fa34a" stroke="#156b2c"/><rect x="232" y="204" width="40" height="10" fill="#3fbf3f" stroke="#156b2c"/>
+    <rect x="302" y="112" width="3" height="128" fill="#f2f4ff"/><path d="M305 116h14l-6 7 6 7h-14z" fill="#4ee08a"/>
+    <g transform="translate(40 192)"><rect x="4" y="0" width="16" height="12" fill="#f3c48a"/><rect x="2" y="-2" width="20" height="6" fill="#4a2a14"/><rect x="0" y="12" width="24" height="24" fill="#1b2a8f"/><rect x="-6" y="12" width="6" height="22" fill="#b3122f"/><rect x="2" y="36" width="8" height="12" fill="#1b2a8f"/><rect x="14" y="36" width="8" height="12" fill="#1b2a8f"/><rect x="8" y="18" width="8" height="6" fill="#ffffff"/></g>
+    <g transform="translate(146 216)"><rect width="24" height="24" rx="9" fill="#b3122f"/><rect x="5" y="7" width="5" height="6" fill="#fff"/><rect x="14" y="7" width="5" height="6" fill="#fff"/><rect x="7" y="9" width="2" height="3" fill="#050418"/><rect x="16" y="9" width="2" height="3" fill="#050418"/></g>
+   </svg>
+   <ul>
+    <li>Your own hero (32×48, your colours). B runs, and A jumps higher the longer you hold it.</li>
+    <li>Stomp entropy for 50. A coin is 10. The flag adds 10 per second left.</li>
+    <li>3 lives. 1-1 grass, 1-2 underground, 1-3 castle, then <code>WORLD CLEAR</code>.</li>
+    <li>Phaser loads only when the game opens. If it fails: <code>GAME DID NOT LOAD · A TO RETRY</code>.</li>
+   </ul>
+  </div>
+ </div>
+</section>
+</div>
+</body>
+</html>

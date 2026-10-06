@@ -6,12 +6,13 @@ import { HOUSE_BRAND } from '../brand';
 import { markFor } from '../mark';
 import { DEFAULT_THEME } from '../theme';
 import type { FleetRow } from '../types';
+import { sure } from '../test/sure';
 
 // Every scene the arcade can open, each listed once: a scene missing here fails the typecheck.
 const SCENES: Record<SceneName, true> = {
   boot: true, title: true, menu: true, map: true, planet: true, fleets: true, heroes: true, briefing: true,
   coin: true, away: true, gate: true, intro: true, select: true, name: true, hero: true, ready: true,
-  welcome: true, outsider: true, chart: true, system: true, games: true, invaders: true, levelup: true,
+  welcome: true, outsider: true, chart: true, system: true, games: true, invaders: true, platformer: true, levelup: true,
 };
 
 // A 2D context that counts what is drawn on it, and the offscreen canvases the sprites render into.
@@ -33,7 +34,12 @@ function recorder() {
 }
 
 class FakeOffscreenCanvas {
-  constructor(public width: number, public height: number) {}
+  width: number;
+  height: number;
+  constructor(width: number, height: number) {
+    this.width = width;
+    this.height = height;
+  }
   getContext() { return recorder().ctx; }
 }
 
@@ -47,7 +53,7 @@ function frame(scene: SceneName, sceneT = 2, grid: Grid = WIDE): FrameState {
   return {
     scene, grid, page: 0, view, layout: layoutMap(view, grid), sel: 0, fleetSel: 0, t: 5, sceneT, reduced: false, mark: markFor(HOUSE_BRAND.name), theme: DEFAULT_THEME,
     join: {
-      fleets, pick: 1, lockedAt: null, team: fleets[1].name, away: false,
+      fleets, pick: 1, lockedAt: null, team: sure(fleets[1], 'fleets[1]').name, away: false,
       hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 },
     },
   };

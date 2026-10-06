@@ -1,5 +1,7 @@
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { Season } from './season';
 
 // The contract every part of the dashboard keeps (PRD 328). /app shows the hero block (you.ts), then
@@ -26,7 +28,7 @@ export type Read<T> = T | Unreadable;
 /** What every part's loader is given, the same for each: who is reading, in which workspace, when. */
 export interface PartInput {
   /** The database, as the signed-in person: row-level security decides what each read returns. */
-  db: SupabaseClient;
+  db: SupabaseClient<Database>;
   /** The id of the workspace shown: every read filters on it. */
   workspace: string;
   /** The signed-in person's id (auth.users; `answered_by`, `owner` and `user_id` hold it). */
@@ -80,7 +82,7 @@ export async function settle<T>(what: string, read: () => Promise<Read<T>>): Pro
   try {
     return await read();
   } catch (error) {
-    console.error(`dashboard: ${what} could not be read (${(error as Error).message})`);
+    console.error(`dashboard: ${what} could not be read (${messageOf(error)})`);
     return UNREADABLE;
   }
 }

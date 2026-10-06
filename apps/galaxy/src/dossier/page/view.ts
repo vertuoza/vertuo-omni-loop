@@ -38,6 +38,14 @@
 // branch while its PR is open, from the default branch once merged), with the retro PR on top. Its
 // badge says whether that PR is open or merged; with no retro.md yet, it is dimmed and says why.
 //
+// The PR care tab (PRD 790, s4) comes after Outbox, only while the PRD has a feature PR: its CI (with
+// the failed run's link while red), whether it conflicts with its base, the review threads counted by
+// verdict, then one line per thread (the reviewer's face and login, the comment's first line, the
+// verdict with Claude's reason, a link to it on GitHub), asked threads first. Under them, the watcher
+// line: `Claude is watching · last round N min ago` while the status comment's last round is under 15
+// minutes old, else `Nobody is watching`, with `/omni:pr-care <n>` to copy. All of it read from the
+// feature PR's care state (../github/care.ts); a merged feature PR has nothing left to watch.
+//
 // PRD 627: a fix is a dossier with a kind, read on its own route (./work.ts) by this same page, its tabs
 // chosen by its kind — a visual fix's Before/after, Variations (a round each, picked as *Round k*, each
 // on its own sandboxed route) and Questions; a bug fix's Bug record (markdown) and Questions — with no
@@ -47,6 +55,9 @@
 // PRD 627, s5: a fix's page opens on its Timeline — Asked, Picked (a visual fix only), Approved, Merged,
 // Released, each with who and when, read live from GitHub and the pick line (../../fixes/timeline.ts)
 // — and its header carries the fix's state (Asked, In review, Merged, or `—`) and its issue and PR.
+//
+// PRD 798, s4: a PRD's Proof tab (./proof.ts) sits between Outbox and Retro once the dossier holds a
+// proof run, and is not there before; `?tab=proof&v=1` picks an older run.
 import type { FixPageView } from '../../fixes/timeline';
 import type { Face } from '../../people/face';
 import { peopleOf, type People } from '../../people/load';
@@ -57,25 +68,34 @@ import { nameOf, type Member } from '../../ask/page/question';
 import { duration, HOOK_WAIT_MS } from '../../ask/page/view';
 import { isArtifactKind, type ArtifactKind, type DossierKind, type DossierRoundRow, type DossierRow, type DossierVersionRow, type RoundRule, type WorkKind } from '../store';
 import { UNREAD, type GithubSummary } from '../github/summary';
+import { WATCH_FRESH_MS, type CareCi, type CareVerdict } from '../github/care';
 import {
   CONTEXT_LABELS, CONTEXTS, GITHUB_UNREAD, isContext, OUTBOX_EMPTY, outboxView, type ContextKind, type ContextView, type OutboxView,
 } from './outbox-view';
 import { isDossierId } from './source';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { GITHUB_PENDING } from './stream/pending';
 import type { StageRow } from '../../stages/stage';
 import { stageView, type StageView } from './stage';
 import { kindOf, WORK_NAMES, workPath } from './work';
+import { reworkCommand } from './voice';
+import { pad, shortDay, stamp } from './dates';
+import type { GithubAt } from '../snapshot/snapshot';
+import { proofView, runsBadge, type ProofRead, type ProofView } from './proof';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export { GITHUB_UNREAD, OUTBOX_EMPTY, outboxView, type OutboxView };
 
 /** The page's tabs: an artifact's, the questions that shaped it, or the decisions taken while it was built. */
-export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'retro' | 'timeline';
+export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'care' | 'retro' | 'timeline' | 'proof';
 
 /** The tabs the dossier itself keeps, in the order a PRD is made (PRD 384): the questions first, then
  * the before/after, the spec and the plan. The history lists these. */
 export const TABS: readonly (DossierKind | 'questions')[] = ['questions', 'before-after', 'spec', 'plan'];
 
-/** Every tab of the page, in order: the dossier's, then what GitHub holds (PRD 426). */
-export const PAGE_TABS: readonly DossierTab[] = [...TABS, 'outbox', 'retro'];
+/** Every tab of the page, in order: the dossier's, the User voice beside them (PRD 822), then what
+ * GitHub holds (PRD 426). */
+export const PAGE_TABS: readonly DossierTab[] = [...TABS, 'voice', 'outbox', 'care', 'retro'];
 
 /** Each kind's tabs, in order (PRD 627): a PRD's every tab; a fix's own artifacts, then its questions. */
 export const KIND_TABS: Readonly<Record<WorkKind, readonly DossierTab[]>> = {
@@ -85,18 +105,21 @@ export const KIND_TABS: Readonly<Record<WorkKind, readonly DossierTab[]>> = {
 };
 
 export const TAB_LABELS: Readonly<Record<DossierTab, string>> = {
-  'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', outbox: 'Outbox', retro: 'Retro',
-  variations: 'Variations', 'bug-record': 'Bug record', timeline: 'Timeline',
+  'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', outbox: 'Outbox', care: 'PR care', retro: 'Retro',
+  variations: 'Variations', 'bug-record': 'Bug record', timeline: 'Timeline', voice: 'User voice', proof: 'Proof',
 };
 
+/** A PRD's tabs once it holds a proof run (PRD 798): Proof after Outbox, before Retro. */
+const withProof = (tabs: readonly DossierTab[]): DossierTab[] => tabs.flatMap((t) => (t === 'retro' ? ['proof', t] : [t]));
+
 /** The tabs that hold no artifact of the dossier's own. */
-const NOT_ARTIFACTS: readonly DossierTab[] = ['questions', 'outbox', 'retro', 'timeline'];
+const NOT_ARTIFACTS: readonly DossierTab[] = ['questions', 'outbox', 'care', 'retro', 'timeline', 'proof'];
 
 /** Whether a tab shows versions of an artifact the dossier keeps. */
 export const isArtifactTab = (tab: DossierTab): tab is ArtifactKind => !NOT_ARTIFACTS.includes(tab);
 
 const isDossierTab = (value: unknown): value is DossierTab =>
-  value === 'questions' || value === 'outbox' || value === 'retro' || value === 'timeline' || isArtifactKind(value);
+  value === 'questions' || value === 'outbox' || value === 'care' || value === 'retro' || value === 'timeline' || value === 'proof' || isArtifactKind(value);
 
 /** An empty Retro tab says why. */
 export const RETRO_EMPTY = 'The retro is written when the feature PR merges.';
@@ -126,7 +149,7 @@ export function readPick(query: Query): DossierPick {
 export const defaultTab = (rounds: readonly unknown[] | null): DossierTab => (rounds?.length ? 'questions' : 'before-after');
 
 /** A PRD's issue on GitHub: its number is the issue's. */
-export const issueUrl = (repo: string, prd: number) =>
+export const issueUrl = (repo: string, prd: PrdNumber) =>
   `https://github.com/${repo.split('/').map(encodeURIComponent).join('/')}/issues/${prd}`;
 
 /** The page's own address, the one Copy link gives: a PRD's, or a fix's on its kind's route (PRD 627). */
@@ -145,20 +168,7 @@ function hrefOf(id: string, tab: DossierTab, version: number | null, fallback: D
   return String(query) ? `${dossierPath(id, kind)}?${query}` : dossierPath(id, kind);
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const pad = (n: number) => String(n).padStart(2, '0');
-
-/** `27 Sep`, in UTC: the same on the server and in any browser. */
-export function shortDay(iso: string): string {
-  const at = new Date(iso);
-  return `${at.getUTCDate()} ${MONTHS[at.getUTCMonth()]}`;
-}
-
-/** `27 Sep 2026, 09:12 UTC`. */
-export function stamp(iso: string): string {
-  const at = new Date(iso);
-  return `${shortDay(iso)} ${at.getUTCFullYear()}, ${pad(at.getUTCHours())}:${pad(at.getUTCMinutes())} UTC`;
-}
+export { shortDay, stamp };
 
 /** Who sent a version: the member who pushed it (kit), or the commit the fallback read it at (github). */
 export function versionSource(version: Pick<DossierVersionRow, 'source' | 'uploaded_by' | 'commit_sha'>, members: Member[]): string {
@@ -175,18 +185,23 @@ export type DossierRead = {
   dossier: DossierRow; versions: DossierVersionRow[]; members: Member[]; rounds: DossierRoundRow[] | null; repos?: string[] | null;
   answerable?: readonly string[];
   /** The GitHub summary (PRD 426): null when it could not be read, left out when it was not asked for. */
-  github?: GithubSummary | null;
+  github?: GithubSummary | null | undefined;
   /** The slices of the dossier's latest plan version; null or left out when not known. */
   slices?: number | null;
   /** The PRD's stored stages (PRD 587): none yet reads Syncing…; left out when they were not asked for. */
-  stages?: readonly StageRow[] | null;
+  stages?: readonly StageRow[] | null | undefined;
   /** The demo dossier (PRD 251, s9): its outbox cannot send. */
   demo?: boolean;
   /** A fix's state, links and Timeline (PRD 627, s5); left out for a PRD. */
-  fix?: FixPageView;
+  fix?: FixPageView | undefined;
   /** The workspace's people directory (PRD 652), for the faces; left out, everyone falls back to
    * their GitHub photo or their initial. */
-  people?: People;
+  people?: People | undefined;
+  /** The proof runs (PRD 798): null when they could not be read, left out when not asked for; the
+   * Proof tab shows only with one. */
+  proofs?: ProofRead | null | undefined;
+  /** When the GitHub summary was read, and when GitHub resumes (PRD 902, s2); null or left out when not known. */
+  githubAt?: GithubAt | null | undefined;
 };
 
 /** Nobody known: every face is the GitHub photo of a login, or the name's initial (PRD 652). */
@@ -202,6 +217,30 @@ export type TabEntry = { kind: DossierTab; label: string; badge: string | null; 
 /** The Retro tab: retro.md as markdown (`text`), none yet (`empty`), or GitHub unread; `words` says why
  * it is empty, and `prUrl` is the retro PR (null when there is none). */
 export type RetroView = { state: 'text' | 'empty' | 'unread'; words: string | null; prUrl: string | null; text: string | null };
+
+/** One review thread on the PR care tab (PRD 790, s4): who wrote it, its first line, the verdict in
+ * words with Claude's reason (null before care replied), and its link on GitHub. */
+export type CareThreadView = {
+  login: string; person: Person; firstLine: string; verdict: CareVerdict; verdictWords: string; reason: string | null; url: string;
+};
+
+/** The PR care tab (PRD 790, s4): the feature PR's health (`care`), nothing left to watch once it is
+ * merged (`done`), GitHub not asked yet (`pending`), or GitHub unread; `words` says why when it
+ * is not `care`. */
+export type CareView = {
+  state: 'care' | 'done' | 'pending' | 'unread';
+  words: string | null;
+  /** The feature PR; null when it could not be read. */
+  prUrl: string | null;
+  ci: { state: CareCi; words: string; href: string | null };
+  conflict: { state: 'none' | 'conflict' | 'unknown'; words: string };
+  /** The threads by verdict: open (nobody handled it yet), fixed, pushed back, asked. */
+  counts: Record<CareVerdict, number>;
+  /** Asked first, then open, then the handled ones. */
+  threads: CareThreadView[];
+  /** The watcher line: whether a round ran under 15 minutes ago, its words, and the command to start one. */
+  watcher: { watching: boolean; words: string; command: string };
+};
 
 export type VersionEntry = {
   id: string;
@@ -251,8 +290,24 @@ export type DossierView = {
   outbox: OutboxView;
   /** The retro, once written (PRD 426, s3). */
   retro: RetroView;
+  /** The feature PR's care (PRD 790, s4); null when the PRD is known to have no feature PR. */
+  care: CareView | null;
   /** A fix's state, links and Timeline (PRD 627, s5); null for a PRD, and for a fix the route read none of. */
   fix: FixPageView | null;
+  /** What the User voice tab's Rework with this feedback copies (PRD 822); null for a draft or a fix. */
+  rework: string | null;
+  /** The Proof tab's run (PRD 798): null with no run, and on a fix. */
+  proof: ProofView | null;
+  /** `GitHub as of 09:15 UTC`, when the PRD's GitHub snapshot was read (PRD 902, s2); null when it was not. */
+  githubAsOf: string | null;
+  /** `GitHub resumes at 10:00 UTC`, while the installation's budget is paused; null otherwise. */
+  githubResumes: string | null;
+};
+
+/** `09:15 UTC`: the time of day, in UTC like every date on the page. */
+const timeOfDay = (iso: string) => {
+  const at = new Date(iso);
+  return `${pad(at.getUTCHours())}:${pad(at.getUTCMinutes())} UTC`;
 };
 
 /** One option of a question, as it was offered: its label without "(Recommended)", which becomes a
@@ -386,8 +441,8 @@ const askedOrder = (a: Asked, b: Asked) =>
 export function isQuick(row: Pick<DossierRoundRow, 'status' | 'questions' | 'created_at'>, now: number): boolean {
   if (row.status !== 'open' || now >= Date.parse(row.created_at) + HOOK_WAIT_MS) return false;
   const asked = readQuestions(row.questions);
-  if (asked.length !== 1) return false;
   const [only] = asked;
+  if (asked.length !== 1 || !only) return false;
   return !only.multiSelect && only.options.length > 0 && only.options.every((o) => o.preview === null);
 }
 
@@ -410,6 +465,7 @@ function quickOf(
 ): QuickRound | null {
   if (!isQuick(row, now)) return null;
   const [only] = readQuestions(row.questions);
+  if (!only) return null;
   const canAnswer = answerable.includes(row.round_id);
   return {
     question: only.question,
@@ -505,11 +561,23 @@ type Page = {
 
 function pageOf(read: DossierRead, me: string | null, pick: DossierPick): Page {
   const work = kindOf(read.dossier);
-  const tabs = KIND_TABS[work];
-  const fallback = work === 'prd' ? defaultTab(read.rounds) : tabs[0];
+  const numbered = read.dossier.prd === null ? undefined : read.github;
+  const kindTabs = work === 'prd' && read.proofs?.runs.length ? withProof(KIND_TABS.prd) : KIND_TABS[work];
+  const tabs = kindTabs.filter((t) => t !== 'care' || !noFeature(read.dossier.prd, numbered));
+  const fallback = work === 'prd' ? defaultTab(read.rounds) : at(tabs, 0, 'the first tab');
   const tab = pick.tab !== null && tabs.includes(pick.tab) ? pick.tab : fallback;
   const href = (to: DossierTab, version: number | null = null) => hrefOf(read.dossier.id, to, version, fallback, null, work);
-  return { read, me, people: read.people ?? NOBODY, work, tabs, tab, fallback, href, numbered: read.dossier.prd === null ? undefined : read.github };
+  return { read, me, people: read.people ?? NOBODY, work, tabs, tab, fallback, href, numbered };
+}
+
+/** Whether the PRD is known to have no feature PR: a draft, or GitHub answered there is none. While
+ * GitHub is being read, or could not be, the PR care tab stays, so the tab bar does not move. */
+const noFeature = (prd: PrdNumber | null, github: GithubSummary | null | undefined) => prd === null || (!!github && github.feature === null);
+
+/** The PRD's feature PR, open or merged; null when it has none, or it could not be read. */
+function featureOf(github: GithubSummary | null | undefined) {
+  const feature = github ? github.feature : null;
+  return feature && feature !== UNREAD ? feature : null;
 }
 
 /** The Outbox tab, with its context rail while it is the tab shown. */
@@ -544,11 +612,11 @@ function versionEntries({ read, tab, work, href }: Page, version: number | null)
 function railSpecOf({ read, href }: Page): VersionEntry | null {
   const specs = read.versions.filter((v) => v.kind === 'spec');
   if (!specs.length) return null;
-  return { id: specs[specs.length - 1].id, number: specs.length, label: `v${specs.length}`, href: href('spec'), current: true, frame: null };
+  return { id: at(specs, -1, 'the latest spec').id, number: specs.length, label: `v${specs.length}`, href: href('spec'), current: true, frame: null };
 }
 
 /** `DRAFT`, `PRD #216`, or a fix's `#548`. */
-const headingOf = (prd: number | null, work: WorkKind) => (prd === null ? 'DRAFT' : `${work === 'prd' ? 'PRD ' : ''}#${prd}`);
+const headingOf = (prd: PrdNumber | null, work: WorkKind) => (prd === null ? 'DRAFT' : `${work === 'prd' ? 'PRD ' : ''}#${prd}`);
 
 /** A PRD's stage: a draft's from its questions, a numbered one's from its stored stages when they were
  * asked for; none for a fix. */
@@ -584,7 +652,10 @@ function headerOf(page: Page, questions: QuestionsView): DossierHeader {
 
 /** What the tabs' badges read from: the retro PR's, the outbox, the questions' count, and how many
  * versions each artifact has. */
-type Badges = { retro: string | null; outbox: OutboxView; counted: { badge: string | null; alert: string | null }; count: (kind: ArtifactKind) => number };
+type Badges = {
+  retro: string | null; care: string | null; outbox: OutboxView; counted: { badge: string | null; alert: string | null };
+  count: (kind: ArtifactKind) => number; runs: number;
+};
 
 /** The Retro tab's badge: whether the retro PR is open or merged; null with none, or GitHub unread. */
 function retroBadge(github: GithubSummary | null | undefined): string | null {
@@ -598,14 +669,24 @@ const outboxBadge = ({ open, ledger }: OutboxView) => (open.length ? `${open.len
 
 function badgeOf(kind: DossierTab, badges: Badges): string | null {
   if (kind === 'retro') return badges.retro;
+  if (kind === 'care') return badges.care;
   if (kind === 'outbox') return outboxBadge(badges.outbox);
+  if (kind === 'proof') return badges.runs ? runsBadge(badges.runs) : null;
   if (kind === 'variations') return roundsBadge(badges.count(kind));
   if (kind === 'questions') return badges.counted.badge;
   if (!isArtifactTab(kind)) return null;
   return badges.count(kind) ? `v${badges.count(kind)}` : null;
 }
 
-function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: RetroView): TabEntry {
+/** The tabs drawn dimmed while they hold nothing; any other tab never is. */
+const EMPTY_WHEN: Partial<Record<DossierTab, (badges: Badges, retro: RetroView, care: CareView | null) => boolean>> = {
+  outbox: (badges) => badges.outbox.state !== 'items',
+  retro: (_badges, retro) => retro.state !== 'text',
+  care: (_badges, _retro, care) => care?.state !== 'care',
+  voice: (badges) => badges.count('voice') === 0,
+};
+
+function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: RetroView, care: CareView | null): TabEntry {
   return {
     kind,
     label: TAB_LABELS[kind],
@@ -613,7 +694,7 @@ function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: 
     alert: kind === 'questions' ? badges.counted.alert : null,
     href: href(kind),
     current: kind === tab,
-    empty: (kind === 'outbox' && badges.outbox.state !== 'items') || (kind === 'retro' && retro.state !== 'text'),
+    empty: EMPTY_WHEN[kind]?.(badges, retro, care) ?? false,
   };
 }
 
@@ -623,20 +704,27 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
   const context = pick.context ?? 'before-after';
   const outbox = outboxOf(page, questions, context);
   const retro = retroView(page.numbered);
+  const care = careView(page.numbered, read.dossier.prd, page.people, now);
   const count = (kind: ArtifactKind) => read.versions.filter((v) => v.kind === kind).length;
-  const badges: Badges = { retro: retroBadge(page.numbered), outbox, counted: questionsCount(questions), count };
+  const runs = page.tabs.includes('proof') ? read.proofs?.runs.length ?? 0 : 0;
+  const badges: Badges = { retro: retroBadge(page.numbered), care: careBadge(care), outbox, counted: questionsCount(questions), count, runs };
   const versions = versionEntries(page, pick.version);
   const railSpec = page.tab === 'outbox' && context === 'spec' ? railSpecOf(page) : null;
   return {
     ...headerOf(page, questions),
-    tabs: page.tabs.map((kind) => tabEntry(kind, page, badges, retro)),
+    tabs: page.tabs.map((kind) => tabEntry(kind, page, badges, retro, care)),
     tab: page.tab,
     versions,
     shown: railSpec ?? versions.find((e) => e.current) ?? null,
     questions,
     outbox,
     retro,
+    care,
     fix: page.work === 'prd' ? null : read.fix ?? null,
+    rework: page.work === 'prd' && read.dossier.prd !== null ? reworkCommand(read.dossier.prd) : null,
+    proof: runs && read.proofs ? proofView(read.proofs, page.tab === 'proof' ? pick.version : null, (n) => page.href('proof', n), read.members) : null,
+    githubAsOf: read.githubAt ? `GitHub as of ${timeOfDay(read.githubAt.readAt)}` : null,
+    githubResumes: read.githubAt?.resumesAt ? `GitHub resumes at ${timeOfDay(read.githubAt.resumesAt)}` : null,
   };
 }
 
@@ -657,6 +745,57 @@ function retroOf(pr: NonNullable<GithubSummary['retro']> | null, text: NonNullab
   if (text === UNREAD) return retroUnread(pr?.url ?? null);
   if (!pr || text === null) return { state: 'empty', words: RETRO_EMPTY, prUrl: pr?.url ?? null, text: null };
   return { state: 'text', words: null, prUrl: pr.url, text };
+}
+
+/** A merged feature PR's PR care tab says why it is empty. */
+const CARE_DONE = 'The feature PR is merged: nothing is left to look after.';
+
+const CI_WORDS: Record<CareCi, string> = { green: 'green', red: 'red', running: 'running', none: 'no check reported' };
+const VERDICT_WORDS: Record<CareVerdict, string> = { open: 'not handled yet', fixed: 'fixed', 'pushed-back': 'pushed back', asked: 'asked: the PM decides' };
+
+/** The PR care tab's badge: the threads still waiting, when there are any. */
+const careBadge = (care: CareView | null) => (care?.state === 'care' && care.counts.open + care.counts.asked ? `${care.counts.open + care.counts.asked} open` : null);
+
+/** The watcher line (PRD 790): `Claude is watching · last round 3 min ago` under 15 minutes, else nobody. */
+export function watcherOf(lastRound: string | null, prd: PrdNumber, now: number): CareView['watcher'] {
+  const command = `/omni:pr-care ${prd}`;
+  const ago = lastRound === null ? NaN : now - Date.parse(lastRound);
+  if (!(ago < WATCH_FRESH_MS)) return { watching: false, words: 'Nobody is watching', command };
+  const minutes = Math.max(0, Math.floor(ago / 60_000));
+  return { watching: true, words: `Claude is watching · last round ${minutes} min ago`, command };
+}
+
+const NO_CARE = { ci: { state: 'none' as const, words: CI_WORDS.none, href: null }, conflict: { state: 'unknown' as const, words: 'unknown' },
+  counts: { open: 0, fixed: 0, 'pushed-back': 0, asked: 0 }, threads: [] };
+
+/** The PR care tab, from the GitHub summary: null when the PRD is known to have no feature PR (the tab
+ * is not shown); pending while GitHub was not asked, unread when it did not answer. */
+function careView(github: GithubSummary | null | undefined, prd: PrdNumber | null, people: People, now: number): CareView | null {
+  if (prd === null || noFeature(prd, github)) return null;
+  const watcher = watcherOf(null, prd, now);
+  if (github === undefined) return { state: 'pending', words: GITHUB_PENDING, prUrl: null, ...NO_CARE, watcher };
+  const feature = featureOf(github);
+  if (!github || !feature) return { state: 'unread', words: GITHUB_UNREAD, prUrl: null, ...NO_CARE, watcher };
+  if (feature.state !== 'open') return { state: 'done', words: CARE_DONE, prUrl: feature.url, ...NO_CARE, watcher };
+  const care = github.care;
+  if (!care || care === UNREAD) return { state: 'unread', words: GITHUB_UNREAD, prUrl: feature.url, ...NO_CARE, watcher };
+  const counts = { open: 0, fixed: 0, 'pushed-back': 0, asked: 0 };
+  for (const t of care.threads) counts[t.verdict] += 1;
+  return {
+    state: 'care',
+    words: null,
+    prUrl: feature.url,
+    ci: { state: care.ci, words: CI_WORDS[care.ci], href: care.ci === 'red' ? care.failedUrl : null },
+    conflict: care.conflict === null ? { state: 'unknown', words: 'GitHub is still checking' }
+      : care.conflict ? { state: 'conflict', words: `conflicting with ${care.base}` } : { state: 'none', words: 'none' },
+    counts,
+    threads: care.threads.map((t): CareThreadView => {
+      const known = people.byLogin(t.login);
+      const person = known.login || !t.avatar ? known : { ...known, face: { kind: 'photo' as const, url: t.avatar } };
+      return { login: t.login, person, firstLine: t.firstLine, verdict: t.verdict, verdictWords: VERDICT_WORDS[t.verdict], reason: t.reason, url: t.url };
+    }),
+    watcher: watcherOf(care.lastRound, prd, now),
+  };
 }
 
 /** What the way back from a round's own page needs: the `from` it was opened with (null: none), the

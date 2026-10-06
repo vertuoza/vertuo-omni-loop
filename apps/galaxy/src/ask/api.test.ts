@@ -1,10 +1,19 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, it, expect } from 'vitest';
-import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, openSession, shareRound, waitRound, whereQuestionsGo, type AskDeps } from './api';
+import { describe, it, expect, vi } from 'vitest';
+import { z } from 'zod';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, LEAD_MAX_BYTES, LEAD_NOTE_BYTES, openSession, shareRound, waitRound, whereQuestionsGo, type AskDeps } from './api';
+import type { JevOutcome } from '../jev/client';
+import type { JevDecideDeps } from '../jev/resolve';
+import type { JevCall, JevMode } from '../jev/store';
 import type { Category, ClassifyInput } from './classify';
+import { categoryThroughJev } from './classify-jev';
+import type { Placement } from './cli-code';
 import { askStore } from './store';
-import { fakeSupabase } from './store.fake';
+import { FAKE_WORKSPACE, fakeSupabase } from './store.fake';
+
+vi.mock('server-only', () => ({}));
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
@@ -39,6 +48,19 @@ const QUESTIONS = [
 ];
 const ANSWERS = { 'Which storage should the sessions use?': 'Postgres (Recommended)', 'Which checks run?': 'RLS, Handlers' };
 
+// What an answer of the API carries, checked as it is read; any other field is kept for the whole-body checks.
+const Answer = z.looseObject({
+  error: z.string().optional(),
+  id: z.string().optional(),
+  url: z.string().optional(),
+  roundId: z.string().optional(),
+  attachments: z.unknown().optional(),
+  answeredBy: z.unknown().optional(),
+});
+
+// Any text, as a field of an expected body.
+const A_STRING: unknown = expect.any(String);
+
 type Call = { token?: string | null; body?: unknown; raw?: string; headers?: Record<string, string>; signal?: AbortSignal };
 
 function world() {
@@ -55,16 +77,16 @@ function world() {
   };
   const storage = {
     from: (name: string) => ({
-      async list(folder: string) {
+      list(folder: string) {
         bucket.calls.push({ op: 'list', name, arg: folder, rounds: fake.tables.ask_rounds.length });
-        if (bucket.fail) return { data: null, error: { message: 'storage is down' } };
-        return { data: bucket.objects.filter((o) => o.startsWith(`${folder}/`)).map((o) => ({ name: o.slice(folder.length + 1) })), error: null };
+        if (bucket.fail) return Promise.resolve({ data: null, error: { message: 'storage is down' } });
+        return Promise.resolve({ data: bucket.objects.filter((o) => o.startsWith(`${folder}/`)).map((o) => ({ name: o.slice(folder.length + 1) })), error: null });
       },
-      async remove(paths: string[]) {
+      remove(paths: string[]) {
         bucket.calls.push({ op: 'remove', name, arg: paths, rounds: fake.tables.ask_rounds.length });
-        if (bucket.fail) return { data: null, error: { message: 'storage is down' } };
+        if (bucket.fail) return Promise.resolve({ data: null, error: { message: 'storage is down' } });
         bucket.objects = bucket.objects.filter((o) => !paths.includes(o));
-        return { data: paths.map((p) => ({ name: p })), error: null };
+        return Promise.resolve({ data: paths.map((p) => ({ name: p })), error: null });
       },
     }),
   };
@@ -73,30 +95,37 @@ function world() {
     connect: ((token: string) => ({ ...fake.client(token), storage })) as unknown as AskDeps['connect'],
     installLink: INSTALL,
     now: () => clock.now,
-    async sleep(ms) {
+    sleep(ms) {
       sleeps.push(ms);
       clock.now += ms;
       onSleep?.();
+      return Promise.resolve();
     },
   };
   const request = (method: string, path: string, { token = 'ada-token', body, raw, headers = {}, signal }: Call = {}) =>
     new Request(`https://ask.example${path}`, {
       method,
-      signal,
+      signal: signal ?? null,
       headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': 'application/json', ...headers },
-      body: raw ?? (body === undefined ? undefined : JSON.stringify(body)),
+      body: raw ?? (body === undefined ? null : JSON.stringify(body)),
     });
-  const read = async (response: Response) => ({ status: response.status, body: await response.json() });
+  const read = async (response: Response) => ({ status: response.status, body: Answer.parse(await response.json()) });
 
   async function session(token = 'ada-token') {
     const { body } = await read(await openSession(request('POST', '/api/ask/sessions', { token, body: { title: 'vertuoza/vertuo-omni-loop · feat/ask-mode' } }), deps));
-    return body.id as string;
+    assertDefined(body.id, 'the new session\'s id');
+    return body.id;
   }
   async function round(sessionId: string, token = 'ada-token') {
     const { body } = await read(await addRound(request('POST', `/api/ask/sessions/${sessionId}/rounds`, { token, body: { questions: QUESTIONS } }), sessionId, deps));
-    return body.roundId as string;
+    assertDefined(body.roundId, 'the new round\'s id');
+    return body.roundId;
   }
-  const row = (table: 'ask_sessions' | 'ask_rounds', id: string) => fake.tables[table].find((r) => r.id === id)!;
+  const row = (table: 'ask_sessions' | 'ask_rounds', id: string | undefined) => {
+    const found = fake.tables[table].find((r) => r.id === id);
+    assertDefined(found, `${table} row ${id ?? '(no id)'}`);
+    return found;
+  };
   return {
     clock, fake, bucket, deps, sleeps, request, read, session, round, row,
     whileWaiting(fn: () => void) { onSleep = fn; },
@@ -163,7 +192,9 @@ describe('every ask call checks the bearer token, and leaves membership to the d
     const w = world();
     const sessionId = await w.session();
     w.fake.state.fail = { message: 'connection reset' };
-    const { status, body } = await w.read(await CALLS[2].call(w, {}, sessionId));
+    const ask = CALLS[2];
+    assertDefined(ask, 'the rounds call');
+    const { status, body } = await w.read(await ask.call(w, {}, sessionId));
     expect(status).toBe(500);
     expect(body.error).toEqual(expect.any(String));
   });
@@ -174,7 +205,7 @@ describe('POST /api/ask/sessions', () => {
     const w = world();
     const { status, body } = await w.read(await openSession(w.request('POST', '/api/ask/sessions', { body: { title: '  vertuoza/vertuo-omni-loop · main  ' } }), w.deps));
     expect(status).toBe(200);
-    expect(body).toEqual({ id: expect.any(String), url: `https://ask.example/ask/${body.id}` });
+    expect(body).toEqual({ id: A_STRING, url: `https://ask.example/ask/${body.id}` });
     expect(w.row('ask_sessions', body.id)).toMatchObject({ owner: ADA.id, title: 'vertuoza/vertuo-omni-loop · main', status: 'open' });
   });
 
@@ -239,7 +270,7 @@ describe('POST /api/ask/sessions/:id/rounds', () => {
     const sessionId = await w.session();
     const { status, body } = await w.read(await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body: { questions: QUESTIONS } }), sessionId, w.deps));
     expect(status).toBe(200);
-    expect(body).toEqual({ roundId: expect.any(String) });
+    expect(body).toEqual({ roundId: A_STRING });
     expect(w.row('ask_rounds', body.roundId)).toMatchObject({ session_id: sessionId, questions: QUESTIONS, status: 'open', answers: null });
   });
 
@@ -354,6 +385,59 @@ describe('a round\'s context (PRD 144)', () => {
   });
 });
 
+describe('a round\'s lead (PRD 752)', () => {
+  const ask = (w: ReturnType<typeof world>, id: string, body: unknown) =>
+    addRound(w.request('POST', `/api/ask/sessions/${id}/rounds`, { body }), id, w.deps);
+
+  it('stores the lead Claude wrote before asking, and reads it back with the round', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const lead = '## The design\n\nA lead and a fold. <b>x</b>';
+    const { status, body } = await w.read(await ask(w, sessionId, { questions: QUESTIONS, lead }));
+    expect(status).toBe(200);
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({ lead });
+    expect(w.fake.tables.ask_rounds).toHaveLength(1);
+  });
+
+  it('opens a round without a lead, or with a null one, and stores none', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    for (const sent of [{ questions: QUESTIONS }, { questions: QUESTIONS, lead: null }]) {
+      const { status, body } = await w.read(await ask(w, sessionId, sent));
+      expect(status).toBe(200);
+      expect(w.row('ask_rounds', body.roundId).lead ?? null).toBeNull();
+    }
+  });
+
+  it('takes a lead of 16 KB plus the shortened note', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const lead = `${'é'.repeat(LEAD_MAX_BYTES / 2)}\n\n… (shortened, the rest is in the terminal)`;
+    const { status, body } = await w.read(await ask(w, sessionId, { questions: QUESTIONS, lead }));
+    expect(status).toBe(200);
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({ lead });
+  });
+
+  it('refuses a lead that is not text, or is longer than the kit sends, with 400, and asks nothing', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    for (const lead of [7, true, [], { text: 'x' }, '', 'x'.repeat(LEAD_MAX_BYTES + 1024)]) {
+      const response = await ask(w, sessionId, { questions: QUESTIONS, lead });
+      expect(response.status, JSON.stringify(lead).slice(0, 40)).toBe(400);
+      expect(Answer.parse(await response.json()).error).toMatch(/lead/);
+    }
+    expect(w.fake.tables.ask_rounds).toEqual([]);
+  });
+
+  it('is kept by a migration that adds one nullable column, bounded as this API bounds it, and changes no policy', () => {
+    const migration = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261018090000_ask_round_lead.sql', import.meta.url)), 'utf8');
+    const statements = migration.split('\n').filter((line) => !line.startsWith('--')).join(' ').replace(/\s+/g, ' ');
+    expect(statements).toContain(`alter table public.ask_rounds add column lead text check (lead is null or octet_length(lead) between 1 and ${LEAD_MAX_BYTES + LEAD_NOTE_BYTES});`);
+    expect(statements).toContain('grant insert (lead) on public.ask_rounds to authenticated;');
+    expect(statements).not.toMatch(/\bpolicy\b|row level security|not null/i);
+  });
+});
+
 describe('who answered (PRD 144)', () => {
   it('is the session owner for an answer the terminal recorded, whatever the body says', async () => {
     const w = world();
@@ -461,18 +545,21 @@ describe('GET /api/ask/rounds/:id/wait', () => {
         ...(w.fake.client(token)),
         storage: {
           from: (bucket: string) => ({
-            async createSignedUrls(paths: string[], expiresIn: number) {
+            createSignedUrls(paths: string[], expiresIn: number) {
               asked.push({ token, bucket, paths, expiresIn });
-              if (fail) return { data: null, error: { message: 'storage is down' } };
-              return { data: paths.map((path) => ({ path, signedUrl: sign(path) ?? '', error: sign(path) ? null : 'Object not found' })), error: null };
+              if (fail) return Promise.resolve({ data: null, error: { message: 'storage is down' } });
+              return Promise.resolve({ data: paths.map((path) => ({ path, signedUrl: sign(path) ?? '', error: sign(path) ? null : 'Object not found' })), error: null });
             },
           }),
         },
       });
       return { asked, deps: { ...w.deps, connect: connect as unknown as AskDeps['connect'] } };
     }
-    const Q1 = QUESTIONS[0].question;
-    const Q2 = QUESTIONS[1].question;
+    const [first, second] = QUESTIONS;
+    assertDefined(first, 'the first question');
+    assertDefined(second, 'the second question');
+    const Q1 = first.question;
+    const Q2 = second.question;
 
     it('hands each screenshot back by name with a 10-minute signed link, made as the caller', async () => {
       const w = world();
@@ -743,14 +830,15 @@ describe('a round sorted by the model (PRD 144)', () => {
     const ask = async (sessionId: string) => {
       const { status, body } = await w.read(await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body: { questions: QUESTIONS, context: CONTEXT } }), sessionId, deps));
       expect(status).toBe(200);
-      return body.roundId as string;
+      assertDefined(body.roundId, 'the new round\'s id');
+      return body.roundId;
     };
     const runLater = async () => { for (const task of tasks.splice(0)) await task(); };
     return { ...w, deps, tasks, asked, ask, runLater };
   }
 
   it('schedules the classifier after the response: the round is created before it runs', async () => {
-    const w = sorting(async () => 'business');
+    const w = sorting(() => Promise.resolve('business'));
     const roundId = await w.ask(await w.session());
     expect(w.tasks).toHaveLength(1);
     expect(w.asked).toEqual([]);
@@ -762,7 +850,7 @@ describe('a round sorted by the model (PRD 144)', () => {
   });
 
   it('leaves the round unsorted when the classifier gives nothing, and never asks twice', async () => {
-    const w = sorting(async () => null);
+    const w = sorting(() => Promise.resolve(null));
     const roundId = await w.ask(await w.session());
     await w.runLater();
     expect(w.asked).toHaveLength(1);
@@ -770,12 +858,12 @@ describe('a round sorted by the model (PRD 144)', () => {
   });
 
   it('leaves the round unsorted when the classifier or the database fails, and the task never throws', async () => {
-    const w = sorting(async () => { throw new Error('boom'); });
+    const w = sorting(() => Promise.reject(new Error('boom')));
     const roundId = await w.ask(await w.session());
     await expect(w.runLater()).resolves.toBeUndefined();
     expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null });
 
-    const v = sorting(async () => 'product');
+    const v = sorting(() => Promise.resolve('product'));
     const other = await v.ask(await v.session());
     v.fake.state.fail = { message: 'connection reset' };
     await expect(v.runLater()).resolves.toBeUndefined();
@@ -795,11 +883,105 @@ describe('a round sorted by the model (PRD 144)', () => {
   });
 
   it('never overrides a member who sorted the round first', async () => {
-    const w = sorting(async () => 'architecture');
+    const w = sorting(() => Promise.resolve('architecture'));
     const roundId = await w.ask(await w.session());
     await categorizeRound(w.request('PATCH', `/api/ask/rounds/${roundId}/category`, { token: 'bob-token', body: { category: 'product' } }), roundId, w.deps);
     await w.runLater();
     expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'product', category_by: BOB.id });
+  });
+});
+
+describe('a round sorted through Jev (PRD 812)', () => {
+  const CONTEXT = { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/question-history', prd: 144, skill: '/omni:brainstorm' };
+  const jevSaid = (answer: string, confidence = 0.9): JevOutcome => ({ kind: 'answered', model: 'jev-1.13.0', answer, confidence, probabilities: null, ms: 150 });
+  const JEV_DOWN: JevOutcome = { kind: 'failed', reason: 'status', status: 500, message: 'TypeSafe answered 500.', ms: 80 };
+
+  /** A world whose classifier (Haiku) says `haiku`, and whose Jev, in `mode`, says `jev`. */
+  function sorting({ mode, haiku = 'business', jev = jevSaid('architecture') }: { mode: JevMode; haiku?: Category | null; jev?: JevOutcome }) {
+    const w = world();
+    const tasks: Array<() => Promise<void>> = [];
+    const logged: Array<[string, JevCall]> = [];
+    const asked: string[] = [];
+    const jevDeps: JevDecideDeps = {
+      settings: (_, decision) => Promise.resolve({ decision, mode, threshold: 0.5, floor: 0.4 }),
+      key: () => Promise.resolve({ kind: 'key', key: 'ts_live_key' }),
+      ask: (_, state) => { asked.push(String(state)); return Promise.resolve(jev); },
+      log: (workspace, call) => { logged.push([workspace, call]); return Promise.resolve(); },
+    };
+    const deps: AskDeps = {
+      ...w.deps,
+      classify: () => Promise.resolve(haiku),
+      decideCategory: categoryThroughJev(jevDeps),
+      later: (task) => { tasks.push(task); },
+    };
+    const ask = async (sessionId: string) => {
+      const { status, body } = await w.read(await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body: { questions: QUESTIONS, context: CONTEXT } }), sessionId, deps));
+      expect(status).toBe(200);
+      assertDefined(body.roundId, 'the new round\'s id');
+      return body.roundId;
+    };
+    const runLater = async () => { for (const task of tasks.splice(0)) await task(); };
+    return { ...w, ask, runLater, logged, asked };
+  }
+
+  it('Off: stores Haiku\'s category, never asks Jev and logs nothing', async () => {
+    const w = sorting({ mode: 'off' });
+    const roundId = await w.ask(await w.session());
+    await w.runLater();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'business', category_by: 'model' });
+    expect(w.asked).toEqual([]);
+    expect(w.logged).toEqual([]);
+  });
+
+  it('Shadow: stores Haiku\'s category and logs Jev\'s beside it, about the round, in the session\'s workspace', async () => {
+    const w = sorting({ mode: 'shadow' });
+    const roundId = await w.ask(await w.session());
+    await w.runLater();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'business', category_by: 'model' });
+    expect(w.asked[0]).toContain('Which storage should the sessions use?');
+    expect(w.asked[0]).not.toContain('create table ask_sessions');
+    expect(w.logged).toEqual([[FAKE_WORKSPACE, expect.objectContaining({
+      decision: 'question-category', mode: 'shadow', outcome: 'answered', jevAnswer: 'architecture', oldAnswer: 'business',
+      counted: 'business', decidedBy: 'old', ref: `round:${roundId}`,
+    })]]);
+  });
+
+  it('On: stores Jev\'s category, and logs Haiku\'s beside it', async () => {
+    const w = sorting({ mode: 'on' });
+    const roundId = await w.ask(await w.session());
+    await w.runLater();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'architecture', category_by: 'model' });
+    expect(w.logged[0]?.[1]).toMatchObject({ jevAnswer: 'architecture', oldAnswer: 'business', counted: 'architecture', decidedBy: 'jev' });
+  });
+
+  it('On: stores Haiku\'s category when Jev fails or answers under the floor', async () => {
+    for (const jev of [JEV_DOWN, jevSaid('architecture', 0.1)]) {
+      const w = sorting({ mode: 'on', jev });
+      const roundId = await w.ask(await w.session());
+      await w.runLater();
+      expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'business', category_by: 'model' });
+      expect(w.logged[0]?.[1]).toMatchObject({ counted: 'business', decidedBy: 'old' });
+    }
+  });
+
+  it('On: sorts the round even without a classifier (no OPENROUTER_API_KEY)', async () => {
+    const w = world();
+    const tasks: Array<() => Promise<void>> = [];
+    const deps: AskDeps = {
+      ...w.deps,
+      classify: null,
+      decideCategory: categoryThroughJev({
+        settings: (_, decision) => Promise.resolve({ decision, mode: 'on', threshold: 0.5, floor: 0.4 }),
+        key: () => Promise.resolve({ kind: 'key', key: 'k' }),
+        ask: () => Promise.resolve(jevSaid('harness')),
+        log: async () => {},
+      }),
+      later: (task) => { tasks.push(task); },
+    };
+    const sessionId = await w.session();
+    const { body } = await w.read(await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body: { questions: QUESTIONS } }), sessionId, deps));
+    for (const task of tasks.splice(0)) await task();
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({ category: 'harness', category_by: 'model' });
   });
 });
 
@@ -1006,12 +1188,12 @@ describe('the first answer wins (PRD 144)', () => {
 describe('GET /api/ask/workspace?repo= (PRD 459)', () => {
   const GLOBEX = 'you are not a member of Globex, which owns globex/web';
   // repo_workspace(), as the live route asks it: acme owns acme/*, Globex owns globex/*, and Eve is in no workspace.
-  const place = async (userId: string, repo: string) => {
-    if (userId === EVE.id) return { workspace: null, reason: `no workspace owns ${repo} yet — install the Omni App` };
-    if (repo.startsWith('globex/')) return { workspace: null, reason: GLOBEX };
-    return { workspace: { slug: 'acme', name: 'Acme' }, reason: null };
+  const place = (userId: string, repo: string): Promise<Placement> => {
+    if (userId === EVE.id) return Promise.resolve({ workspace: null, reason: `no workspace owns ${repo} yet — install the Omni App` });
+    if (repo.startsWith('globex/')) return Promise.resolve({ workspace: null, reason: GLOBEX });
+    return Promise.resolve({ workspace: { slug: 'acme', name: 'Acme' }, reason: null });
   };
-  const ask = async (w: ReturnType<typeof world>, repo: string | null, { token = 'ada-token', deps = {} as Partial<AskDeps> } = {}) => {
+  const ask = async (w: ReturnType<typeof world>, repo: string | null, { token = 'ada-token', deps = {} }: { token?: string; deps?: Partial<AskDeps> } = {}) => {
     const query = repo === null ? '' : `?${new URLSearchParams({ repo })}`;
     return w.read(await whereQuestionsGo(w.request('GET', `/api/ask/workspace${query}`, { token }), { ...w.deps, place, ...deps }));
   };
@@ -1036,7 +1218,7 @@ describe('GET /api/ask/workspace?repo= (PRD 459)', () => {
 
   it('answers 500 when the lookup fails', async () => {
     const w = world();
-    const failing = async () => { throw new Error('repo_workspace: connection reset'); };
+    const failing = () => Promise.reject(new Error('repo_workspace: connection reset'));
     const { status, body } = await ask(w, 'acme/api', { deps: { place: failing } });
     expect(status).toBe(500);
     expect(body.error).toEqual(expect.any(String));

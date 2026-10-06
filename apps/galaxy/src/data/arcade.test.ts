@@ -1,21 +1,30 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 
 vi.mock('server-only', () => ({}));
 // The page reads the season as the viewer, uncached: the season cache (season-cache.test.ts) needs a
-// service key, and none reaches this test even when the shell holds one.
-vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');
+// service key, and none reaches this test even when the shell holds one: the server's environment is
+// an empty one.
+vi.mock('../env', async (actual) => {
+  const env = await actual<typeof import('../env')>();
+  return { ...env, serverEnv: () => env.readEnv({}) };
+});
 
+import { present } from '../ask/test/test-item';
 import type { DossierListRow } from '../dossier/store';
 import { arcadeFor, OUT_OF_REACH } from './arcade';
 import { withDossiers, type FakeDossier } from './dossiers.fake';
 import { ACME, authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const NOW = new Date('2026-09-26T10:00:00Z');
+const ANY_OBJECT: unknown = expect.any(Object);
+const containing = (fields: object): unknown => expect.objectContaining(fields);
 
 /** A dossier of the workspace's plan repository, as dossier_list() lists it. */
 const dossierRow = (id: string, workspace_id: string, home_repo: string, prd: number | null, more: Partial<DossierListRow> = {}): DossierListRow => ({
-  id, workspace_id, home_repo, prd, title: `PRD ${prd}`, opened_by: null, created_at: '2026-09-20T09:00:00Z',
+  id, workspace_id, home_repo, prd: prd === null ? null : parsePrd(prd), title: `PRD ${prd}`, opened_by: null, created_at: '2026-09-20T09:00:00Z',
   numbered_at: prd === null ? null : '2026-09-20T10:00:00Z', repos: [home_repo], latest: {}, asked: 0, answered: 0,
   last_activity: '2026-09-20T10:00:00Z', ...more,
 });
@@ -44,7 +53,7 @@ async function page(person: FakeUser | null, arrange: (world: World) => void = (
   const dossiers = withDossiers(galaxy, DOSSIERS);
   const world: World = Object.assign(galaxy, { dossiers });
   arrange(world);
-  const db = dossiers.client(person) as unknown as SupabaseClient;
+  const db = dossiers.client(person) as unknown as SupabaseClient<Database>;
   const data = await arcadeFor(db, person ? (authUser(person) as unknown as User) : null, NOW);
   return { data, world, reads: world.calls.filter((c) => c.kind === 'from'), rpcs: world.calls.filter((c) => c.kind === 'rpc') };
 }
@@ -96,7 +105,7 @@ describe('the viewer\'s role (PRD 400)', () => {
   it('says whether the member owns the workspace they play, read as themselves', async () => {
     expect((await page(PEOPLE.ada)).data.owner).toBe(false);
     const { data, reads } = await page(PEOPLE.ada, (world) => {
-      world.tables.workspace_members.find((m) => m.user_id === PEOPLE.ada.id && m.workspace_id === VERTUOZA)!.role = 'owner';
+      present(world.tables.workspace_members.find((m) => m.user_id === PEOPLE.ada.id && m.workspace_id === VERTUOZA), 'ada\'s membership').role = 'owner';
     });
     expect(data.owner).toBe(true);
     expect(reads.filter((c) => c.table === 'workspace_members').map((c) => c.eq)).toContainEqual({ workspace_id: VERTUOZA, user_id: PEOPLE.ada.id });
@@ -104,7 +113,7 @@ describe('the viewer\'s role (PRD 400)', () => {
 
   it('owns only the workspace played: owning another one changes nothing', async () => {
     const { data } = await page(PEOPLE.both, (world) => {
-      world.tables.workspace_members.find((m) => m.user_id === PEOPLE.both.id && m.workspace_id === VERTUOZA)!.role = 'owner';
+      present(world.tables.workspace_members.find((m) => m.user_id === PEOPLE.both.id && m.workspace_id === VERTUOZA), 'both\'s membership').role = 'owner';
     });
     expect(data.workspace).toBe(ACME);
     expect(data.owner).toBe(false);
@@ -113,14 +122,15 @@ describe('the viewer\'s role (PRD 400)', () => {
   it('reads as a member when the role is out of reach, and shows the galaxy all the same', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { data } = await page(PEOPLE.ada, (world) => {
-      world.tables.workspace_members.find((m) => m.user_id === PEOPLE.ada.id)!.role = 'owner';
+      present(world.tables.workspace_members.find((m) => m.user_id === PEOPLE.ada.id), 'ada\'s membership').role = 'owner';
       const members = world.tables.workspace_members;
       // The role's read, and only it, fails: the membership read that picks the workspace comes first.
       let reads = 0;
       world.tables.workspace_members = new Proxy(members, {
         get(target, prop) {
           if (prop === 'filter' && ++reads > 1) throw new Error('fake: role out of reach');
-          return Reflect.get(target, prop);
+          const value: unknown = Reflect.get(target, prop);
+          return value;
         },
       });
     });
@@ -144,7 +154,7 @@ describe('a member of two workspaces', () => {
   it('joined both at once: the first by slug', async () => {
     const { data } = await page(PEOPLE.both, (world) => {
       for (const m of world.tables.workspace_members) if (m.user_id === PEOPLE.both.id) m.joined_at = '2026-09-26T08:00:00Z';
-      world.tables.workspaces.find((w) => w.id === ACME)!.slug = 'zeta';
+      present(world.tables.workspaces.find((w) => w.id === ACME), 'acme').slug = 'zeta';
     });
     expect(data.workspace).toBe(VERTUOZA);
   });
@@ -175,7 +185,7 @@ describe('joining', () => {
       expect(rpcs, person.email).toHaveLength(0);
       expect(reads.every((c) => c.table === 'workspace_members'), person.email).toBe(true);
       expect(data, person.email).toEqual({
-        view: null, fleets: [], session: expect.objectContaining({ id: person.id, crew: false }), workspace: null,
+        view: null, fleets: [], session: containing({ id: person.id, crew: false }), workspace: null,
       });
     }
   });
@@ -233,13 +243,14 @@ describe('the crew\'s high scores', () => {
     expect(data.scores).toEqual({
       invaders: {
         top: [
-          { id: PEOPLE.ada.id, name: 'ADA', hero: expect.any(Object), team: 'pirates', best: 1240 },
-          { id: PEOPLE.both.id, name: 'BOTH', hero: expect.any(Object), team: 'beaver', best: 385 },
+          { id: PEOPLE.ada.id, name: 'ADA', hero: ANY_OBJECT, team: 'pirates', best: 1240 },
+          { id: PEOPLE.both.id, name: 'BOTH', hero: ANY_OBJECT, team: 'beaver', best: 385 },
         ],
         mine: 1240,
       },
+      platformer: { top: [], mine: null },
     });
-    expect((await page(PEOPLE.both)).data.scores?.invaders).toEqual({ top: [expect.objectContaining({ name: 'WILE', best: 9210 })], mine: null });
+    expect((await page(PEOPLE.both)).data.scores?.invaders).toEqual({ top: [containing({ name: 'WILE', best: 9210 })], mine: null });
   });
 
   it('reads nothing for a visitor without GitHub linked: every cabinet is locked to them', async () => {
@@ -253,7 +264,7 @@ describe('the crew\'s high scores', () => {
   it('says the scores are out of reach when only they cannot be read, and keeps the galaxy and the XP', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { data } = await page(PEOPLE.ada, (world) => { world.state.failOn = 'arcade_scores'; });
-    expect(data.scores).toEqual({ invaders: 'unreadable' });
+    expect(data.scores).toEqual({ invaders: 'unreadable', platformer: 'unreadable' });
     expect(data.xp).toEqual({ xp: 180, level: 3, unlocked: ['invaders'] });
     expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
     expect(data.problem).toBeUndefined();
@@ -270,14 +281,14 @@ describe('the planets\' dossiers', () => {
         last: [{ question: 'Who owns a workspace?', answer: 'Its first member', more: 0, at: '2026-09-20T09:06:00Z' }],
       },
     });
-    expect((await page(PEOPLE.both)).data.dossiers).toEqual({ 12: expect.objectContaining({ id: 'd-acme-12' }) });
+    expect((await page(PEOPLE.both)).data.dossiers).toEqual({ 12: containing({ id: 'd-acme-12' }) });
   });
 
   it('reads them for a visitor without GitHub linked too: a visitor may look at every planet', async () => {
     const { data } = await page(PEOPLE.una, (world) => {
       world.tables.workspace_members.push({ workspace_id: VERTUOZA, user_id: PEOPLE.una.id, role: 'member', joined_at: '2026-09-26T09:00:00Z' });
     });
-    expect(data.dossiers).toEqual({ 12: expect.objectContaining({ id: 'd-vz-12' }) });
+    expect(data.dossiers).toEqual({ 12: containing({ id: 'd-vz-12' }) });
   });
 
   it('gives a planet with no dossier none', async () => {
@@ -320,7 +331,7 @@ describe('the database out of reach', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { data } = await page(PEOPLE.ada, (world) => { world.state.fail = { message: 'relation "public.workspace_members" does not exist' }; });
     expect(data).toEqual({
-      view: null, fleets: [], session: expect.objectContaining({ id: PEOPLE.ada.id }), workspace: null, problem: OUT_OF_REACH,
+      view: null, fleets: [], session: containing({ id: PEOPLE.ada.id }), workspace: null, problem: OUT_OF_REACH,
     });
     expect(console.error).toHaveBeenCalled();
   });

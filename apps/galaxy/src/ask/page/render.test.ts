@@ -9,10 +9,14 @@ import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { AskQuestion } from './AskQuestion';
 import { DEMO_MEMBERS, DEMO_TEAMMATE, demoQuestion, demoSessions, demoState } from './demo';
-import { History } from './History';
+import { AnswerList, History } from './History';
 import { RoundForm } from './RoundForm';
 import { rowOf, startPage } from './tabs';
 import { contextParts, type HistoryEntry } from './view';
+import { item } from '../test/test-item';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+type Asked = ReturnType<typeof readQuestions>[number];
 
 // The round and the history as the server renders them: what a person sees before any script runs.
 
@@ -32,7 +36,7 @@ const [storage, checks] = readQuestions([
     multiSelect: true,
     options: [{ label: 'RLS', description: 'two JWTs' }, { label: 'Handlers', description: 'stubbed client' }],
   },
-]);
+]) as [Asked, Asked];
 
 function round(draft = emptyDraft([storage, checks]), canSend = false) {
   return renderToStaticMarkup(
@@ -86,7 +90,7 @@ describe('the round, rendered', () => {
 
   it('keeps Send off until every question has an answer', () => {
     expect(html).toMatch(/<button type="button" class="ask-button" disabled="">Send to Claude<\/button>/);
-    const draft = [pickOption(storage, emptyDraft([storage])[0], 'Memory'), pickOption(checks, emptyDraft([checks])[0], 'RLS')];
+    const draft = [pickOption(storage, item(emptyDraft([storage]), 0), 'Memory'), pickOption(checks, item(emptyDraft([checks]), 0), 'RLS')];
     expect(round(draft, true)).toMatch(/<button type="button" class="ask-button">Send to Claude<\/button>/);
   });
 
@@ -161,7 +165,7 @@ describe('the shared-round page, answered with screenshots (PRD 620)', () => {
   const NOW = Date.parse('2026-09-26T10:00:00Z');
   const page = (shots: boolean) => {
     const initial = demoQuestion(NOW, true);
-    const question = Object.keys(initial.round.answers ?? {})[0];
+    const question = item(Object.keys(initial.round.answers ?? {}), 0);
     const round = shots ? { ...initial.round, attachments: { [question]: [`${initial.round.id}/1.png`] } } : initial.round;
     return renderToStaticMarkup(createElement(AskQuestion, { source: { kind: 'demo' }, initial: { ...initial, round }, serverNow: NOW, me: DEMO_TEAMMATE, members: DEMO_MEMBERS }));
   };
@@ -182,7 +186,7 @@ describe('the context line, rendered (PRD 144)', () => {
   const line = (parts: string[] | undefined) => renderToStaticMarkup(createElement(ContextLine, { parts }));
 
   it('shows every field of a round that has them all, and the time to answer', () => {
-    const round = { ...base, prd: 144, skill: '/omni:brainstorm', model: 'claude-opus-4-8', tokens: { input: 10, output: 20, cacheRead: 30_000, cacheWrite: 0 }, cost_usd: 1.2345 };
+    const round = { ...base, prd: parsePrd(144), skill: '/omni:brainstorm', model: 'claude-opus-4-8', tokens: { input: 10, output: 20, cacheRead: 30_000, cacheWrite: 0 }, cost_usd: 1.2345 };
     expect(line(contextParts(session, round))).toBe(
       '<p class="ask-title ask-context" aria-label="Where this question came from">'
       + 'vertuoza/vertuo-omni-loop · feat/question-history · PRD #144 · /omni:brainstorm · claude-opus-4-8 · 30k tokens · $1.23 · answered in 3 min 0 s</p>',
@@ -330,5 +334,133 @@ describe("the person's page, rendered", () => {
     expect(html).toMatch(/<button type="button" class="ask-tabs-fold" aria-expanded="false" aria-controls="ask-tab-list"><span>Terminals \(3\) · <b>1 needs you<\/b>/);
     expect(html).toMatch(/<nav class="ask-tabs" aria-label="Terminals">/);
     expect(html).toContain('<ul class="ask-tab-list" id="ask-tab-list">');
+  });
+});
+
+describe('a long question, rendered (PRD 752)', () => {
+  const ERP =
+    "The two customer-facing screens are painted by the ERP out of the package this work publishes, and that package now expects the ERP to install AG Grid itself and point Tailwind at the package's dist. " +
+    'Nobody in this repository can make that change — it belongs to vertuo-apps. ' +
+    'Until it lands, those two screens render unstyled and nothing errors to say so. ' +
+    'Steps: (1) open a change in vertuo-apps declaring ag-grid-community and ag-grid-react at the version the guide names; ' +
+    "(2) in the same change add the @source line pointing Tailwind at this package's dist, plus the two stylesheet imports — `libs/vertuo-workflow-ui/README.md` gives all three word for word; " +
+    "(3) merge it before or with the ERP's next update of this package, and tell whoever cuts the release here. " +
+    'Has that been done?';
+  const words = ERP.split(/\s+/).length;
+  const [erp] = readQuestions([
+    {
+      question: ERP,
+      header: 'ERP change',
+      multiSelect: false,
+      options: [
+        { label: "Yes, it's merged", description: 'The change is in `vertuo-apps` <b>x</b>.' },
+        { label: 'Not yet', description: 'Nobody made it.' },
+      ],
+    },
+  ]) as [Asked];
+  const html = renderToStaticMarkup(createElement(RoundForm, {
+    roundId: 'r1', questions: [erp], draft: emptyDraft([erp]), onDraft: () => {}, canSend: false, sending: false, onSend: () => {}, minutesLeft: 8,
+  }));
+
+  it('shows the first sentence and the final question as the lead heading', () => {
+    expect(html).toMatch(
+      /<h2 class="ask-question ask-question-long"[^>]*>The two customer-facing screens [^<]*dist\. Has that been done\?<\/h2>/,
+    );
+  });
+
+  it('folds the rest, closed, with its steps as a numbered list and the counts in the summary', () => {
+    expect(html).toContain(`<details class="ask-fold"><summary>Read the full question · 3 steps · ${words} words</summary>`);
+    expect(html).not.toMatch(/<details class="ask-fold" open/);
+    const fold = html.slice(html.indexOf('<details class="ask-fold">'));
+    expect(fold).toMatch(/<ol>\n<li>open a change in vertuo-apps[^<]*<\/li>\n<li>in the same change[^]*<\/li>\n<li>merge it before[^<]*<\/li>\n<\/ol>/);
+    expect(fold).toContain('<p>Nobody in this repository can make that change');
+  });
+
+  it('shows a backticked path as code, and raw HTML in a question or a description as text', () => {
+    expect(html).toContain('<code>libs/vertuo-workflow-ui/README.md</code>');
+    expect(html).toContain('<span class="ask-opt-desc">The change is in <code>vertuo-apps</code> &lt;b&gt;x&lt;/b&gt;.</span>');
+    const [raw] = readQuestions([{ question: `${'<b>x</b> '.repeat(40)}Fine?`, header: 'Raw', multiSelect: false, options: [{ label: 'Yes' }, { label: 'No' }] }]) as [Asked];
+    const shown = renderToStaticMarkup(createElement(RoundForm, {
+      roundId: 'r2', questions: [raw], draft: emptyDraft([raw]), onDraft: () => {}, canSend: false, sending: false, onSend: () => {}, minutesLeft: 8,
+    }));
+    expect(shown).not.toContain('<b>x</b>');
+    expect(shown).toContain('&lt;b&gt;x&lt;/b&gt;');
+  });
+
+  it('keeps the plain text in the legend and in what Other is for', () => {
+    expect(html).toContain('<legend class="ask-sr">The two customer-facing screens');
+    expect(html).toContain('aria-label="Your own answer: The two customer-facing screens');
+  });
+
+  it('shows the same lead and fold on an answered or shared round', () => {
+    const answered = renderToStaticMarkup(createElement(AnswerList, { lines: [{ question: ERP, answer: 'Not yet' }, { question: 'Short?', answer: 'Yes' }] }));
+    expect(answered).toMatch(/<dt><span class="ask-lead">The two customer-facing screens [^<]*Has that been done\?<\/span><details class="ask-fold"><summary>Read the full question · 3 steps/);
+    expect(answered).toContain('<dt>Short?</dt>');
+  });
+});
+
+describe('what Claude wrote before asking, rendered (PRD 752)', () => {
+  const NOW = Date.parse('2026-09-26T10:00:00Z');
+  const DESIGN = '## The design\n\nThree parts:\n\n- the reader\n- the hook\n- the page\n\n<script>alert(1)</script> and `kit/lib/ask/`';
+  const LONG = Array.from({ length: 30 }, (_, i) => `Line ${i + 1} of the plan.`).join('\n\n');
+  const withLead = <T extends { rounds: { lead?: string | null | undefined }[] }>(state: T, lead: string | null): T =>
+    ({ ...state, rounds: state.rounds.map((r, i) => (i === state.rounds.length - 1 ? { ...r, lead } : r)) });
+  const session = (lead: string | null, scenario: 'open' | 'moved' = 'open', viewer: 'owner' | 'member' = 'owner') =>
+    renderToStaticMarkup(createElement(AskSession, { source: { kind: 'demo' }, initial: withLead(demoState('s1', scenario, NOW), lead), serverNow: NOW, viewer }));
+  const question = (lead: string | null, answered = false, from?: string) => {
+    const initial = demoQuestion(NOW, answered);
+    return renderToStaticMarkup(createElement(AskQuestion, {
+      source: { kind: 'demo' }, initial: { ...initial, round: { ...initial.round, lead } }, serverNow: NOW, me: DEMO_TEAMMATE, members: DEMO_MEMBERS, from,
+    }));
+  };
+  const TITLE = 'Claude wrote before asking';
+
+  it('shows the lead once, above the first question, as markdown', () => {
+    const html = session(DESIGN);
+    expect(html).toContain(TITLE);
+    expect(html.indexOf(TITLE)).toBeLessThan(html.indexOf('class="ask-question'));
+    expect(html).toContain('<h2>The design</h2>');
+    expect(html).toMatch(/<ul>\n<li>the reader<\/li>/);
+    expect(html).toContain('<code>kit/lib/ask/</code>');
+    expect(count(html, new RegExp(`>${TITLE}</h2>`))).toBe(1);
+  });
+
+  it('shows HTML in a lead as text', () => {
+    const html = session(DESIGN);
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+  });
+
+  it('shows a short lead whole, and folds a long one behind Show all', () => {
+    const short = session(DESIGN);
+    expect(short).not.toContain('Show all');
+    expect(short).not.toContain('is-folded');
+    const long = session(LONG);
+    expect(long).toContain('ask-lead-msg-body is-folded');
+    expect(long).toMatch(/<button type="button" class="ask-lead-msg-more"[^>]*>Show all<\/button>/);
+  });
+
+  it('shows no block for a round without a lead', () => {
+    expect(session(null)).not.toContain(TITLE);
+    expect(session('  ')).not.toContain(TITLE);
+    expect(question(null)).not.toContain(TITLE);
+  });
+
+  it('shows it to a member reading the open round, and on a round moved to the terminal', () => {
+    expect(session(DESIGN, 'open', 'member')).toContain(TITLE);
+    expect(session(DESIGN, 'moved')).toContain(TITLE);
+  });
+
+  it('shows it on the shared round, open or answered, and on a round opened from a dossier', () => {
+    expect(question(DESIGN)).toContain(TITLE);
+    expect(question(DESIGN, true)).toContain(TITLE);
+    expect(question(DESIGN, false, '752')).toContain(TITLE);
+  });
+
+  it('shows it inside an answered round of the history', () => {
+    const past: HistoryEntry = { id: 'a', outcome: 'answered', via: 'page', at: '', lines: [{ header: 'H', question: 'Q?', answer: 'A' }], lead: DESIGN };
+    const html = renderToStaticMarkup(createElement(History, { history: [past] }));
+    expect(html).toMatch(/<details class="ask-past">[^]*Claude wrote before asking[^]*<dl>/);
+    expect(renderToStaticMarkup(createElement(History, { history: [{ ...past, lead: undefined }] }))).not.toContain(TITLE);
   });
 });

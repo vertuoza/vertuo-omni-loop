@@ -1,0 +1,966 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Business context — round 1 board</title><style>
+:root{--ground:#f5f4fc;--surface:#fff;--sunk:#eceaf8;--line:#d9d6ee;--strong:#85819f;--ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--soft:#efe7ff;--red:#b3122f;--green:#15703f}
+@media (prefers-color-scheme:dark){:root{--ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--strong:#6d6acc;--ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--soft:#2a1d66;--red:#ff6b86;--green:#4ee08a}}
+*{box-sizing:border-box}body{margin:0;background:var(--ground);color:var(--ink);font:16px/1.5 "Atkinson Hyperlegible",system-ui,sans-serif}
+.top{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:2px solid var(--strong);padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.top h1{font-size:18px;margin:0;flex:1}.top output{font:13px ui-monospace,monospace;color:var(--muted);flex-basis:100%}
+button{background:var(--plasma);color:#fff;border:0;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer}
+main{max-width:1040px;margin:0 auto;padding:16px}.intro{background:var(--surface);border:1px solid var(--strong);border-radius:12px;padding:16px 20px;margin-bottom:16px}
+.cc{background:var(--surface);border:1px solid var(--strong);border-radius:12px;padding:20px;margin:0 0 20px}
+.cc header{display:flex;gap:14px}.lt{flex:none;width:44px;height:44px;border-radius:8px;background:var(--plasma);color:#fff;font:700 24px/44px ui-monospace,monospace;text-align:center}
+h2{margin:0;font-size:22px}.wow,.ax{margin:4px 0;font-size:15px}.desc{color:var(--muted);font-size:15px}
+.frame{border:1px solid var(--line);border-radius:10px;overflow:auto;background:var(--sunk);max-height:620px}.scale{width:920px}
+.cons,.dis{margin:12px 0 0;padding:10px 12px;border-radius:8px;font-size:15px}.cons{background:var(--soft)}.dis{border-left:4px solid var(--red);background:var(--sunk)}
+.sc{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}.sc th,.sc td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:center}.sc th:first-child{text-align:left}.sc td.st{text-align:left;color:var(--muted)}.avg td,.avg th{font-weight:700}
+.tg{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);align-items:center}.tg label{font-weight:700}.note{flex:1 1 220px;padding:8px;border:1px solid var(--strong);border-radius:6px;background:var(--ground);color:var(--ink)}
+select{background:var(--ground);color:var(--ink);border:1px solid var(--strong);border-radius:4px}
+</style></head><body>
+<p data-omni-reactions>keep A B H · merge E→A · merge C→B · merge D→B (check + Never) · merge F→A (gap-filler) · kill G (later PRD)  [person picked &quot;Follow the panel&quot;]</p>
+<div class="top"><h1>Business context — round 1 board</h1><button id="copy" type="button">Copy my reactions</button><output id="line">No reaction yet.</output></div>
+<main><div class="intro"><p><b>Brief:</b> every Omni Loop agent knows the business its repositories serve (one-liner, ICP, competitors, region) and uses it when it thinks. Success: <i>/omni:think-big on a Vertuoza repo cites the ICP and a named competitor without anyone typing them.</i> Empty by default; a skill that finds none carries on.</p><p><b>Round 1, go wide.</b> 8 concepts from 4 lenses (10×, steal from another industry, delight, contrarian). Feasibility is not scored this round. Panel: Visionary, Craft, Skeptic, Value, and two users: <b>Sophie</b> (head of product at Vertuoza) and <b>Tom</b> (tech lead, brand-new empty workspace, 2 repos). Scores are 1–5, after the cross-talk.</p><p><b>Where the panel landed (unanimous after cross-talk):</b> <b>A + E</b> as one store and one screen (evidence pre-fills claims; with no repos you pick from generic axes; rivals never come from a curated catalogue); <b>B</b> as how agents <i>speak</i> it, rendered from A's confirmed claims only, once per concept, only to object; <b>D</b>'s 'breaks canon' check plus a hand-written 'Never' line; <b>H thin</b>: <code>omni business show</code> plus one read-only MCP URL on day one. C folds into B as a Game-mode skin; F becomes a 2-question gap-filler; G is a later PRD.</p><p><b>Skeptic's smallest proof:</b> insert one business row by hand, add one fuel line to think-big, and check it cites the ICP and a rival.</p><p>Every name, number and competitor on the cards is made-up mock content.</p></div>
+<section class="cc" id="cA" data-letter="A">
+ <header><span class="lt">A</span><div><h2>What we believe (claims with receipts)</h2>
+ <p class="wow"><b>Wow:</b> After one /omni:invade, a fresh workspace says “We think you sell an ERP to 2–50-person builders in Belgium, up against Procore and Excel+WhatsApp. Nobody typed this”, with 41 receipts.</p><p class="ax"><b>Axis:</b> Who writes it: agents draft claims from evidence; people only veto.</p></div></header>
+ <p class="desc">The business is a living list of claims (ICP, region, competitors, buyer), each with receipts from READMEs, the pricing page, merged PRDs and customer bugs. New evidence can contradict a claim (a French i18n PR challenges “Belgium only”). Claims fade after 120 days without evidence.</p>
+ <div class="frame"><div class="scale"><div class="card-a4-1">
+<style>
+.card-a4-1{width:900px;height:560px;box-sizing:border-box;display:flex;background:#07061c;color:#f2f4ff;font-family:"Atkinson Hyperlegible",system-ui,-apple-system,sans-serif;font-size:14px;border:1px solid #1a2170;border-radius:12px;overflow:hidden}
+.card-a4-1 *{box-sizing:border-box;margin:0;padding:0}
+.card-a4-1 .a41-side{width:180px;background:#120f3a;border-right:1px solid #1a2170;padding:16px 12px;display:flex;flex-direction:column;gap:4px}
+.card-a4-1 .a41-logo{font-family:ui-monospace,"JetBrains Mono",monospace;font-weight:800;letter-spacing:2px;color:#ffd84a;font-size:13px;margin-bottom:12px}
+.card-a4-1 .a41-grp{font-size:11px;font-weight:700;text-transform:uppercase;color:#8a90d6;margin:10px 0 4px}
+.card-a4-1 .a41-it{font-size:13px;font-weight:700;padding:6px 8px;border-radius:6px;border:1px solid transparent;display:flex;align-items:center;gap:8px}
+.card-a4-1 .a41-it i{width:10px;height:10px;display:inline-block;background:#5a60c4;box-shadow:2px 2px 0 #2a2350}
+.card-a4-1 .a41-on{color:#ffd84a;border-color:#ffd84a}
+.card-a4-1 .a41-on i{background:#ffd84a}
+.card-a4-1 .a41-new{margin-left:auto;font-size:10px;background:#ffd84a;color:#07061c;border-radius:4px;padding:0 4px}
+.card-a4-1 .a41-main{flex:1;display:flex;flex-direction:column;min-width:0}
+.card-a4-1 .a41-top{height:52px;background:#120f3a;border-bottom:2px solid #5a60c4;display:flex;align-items:center;gap:10px;padding:0 16px}
+.card-a4-1 .a41-tile{width:32px;height:32px;background:#0e0d33;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.card-a4-1 .a41-crumb{font-weight:700;font-size:15px}
+.card-a4-1 .a41-crumb span{color:#8a90d6}
+.card-a4-1 .a41-av{margin-left:auto;width:26px;height:26px;border-radius:50%;background:#2a2350;border:1px solid #5a60c4}
+.card-a4-1 .a41-body{flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.card-a4-1 .a41-hero{background:#120f3a;border:1px solid #5a60c4;border-radius:12px;padding:12px 14px;display:flex;gap:14px;align-items:center}
+.card-a4-1 .a41-hero h2{font-size:17px;line-height:1.3}
+.card-a4-1 .a41-hero h2 b{color:#ffd84a}
+.card-a4-1 .a41-hero p{color:#8a90d6;font-size:12px;margin-top:4px}
+.card-a4-1 .a41-meter{margin-left:auto;text-align:right;flex-shrink:0}
+.card-a4-1 .a41-meter strong{font-family:ui-monospace,monospace;font-size:24px;color:#4ee08a;display:block}
+.card-a4-1 .a41-meter small{color:#8a90d6;font-size:11px}
+.card-a4-1 .a41-cols{display:flex;gap:10px;flex:1;min-height:0}
+.card-a4-1 .a41-feed{flex:1.7;display:flex;flex-direction:column;gap:8px}
+.card-a4-1 .a41-lbl{font-size:11px;font-weight:700;text-transform:uppercase;color:#8a90d6;display:flex;justify-content:space-between}
+.card-a4-1 .a41-claim{background:#120f3a;border:1px solid #1a2170;border-radius:12px;padding:9px 12px;display:flex;gap:10px}
+.card-a4-1 .a41-claim.a41-warn{border-color:#ff6b86}
+.card-a4-1 .a41-bar{width:4px;border-radius:2px;flex-shrink:0}
+.card-a4-1 .a41-ct{flex:1;min-width:0}
+.card-a4-1 .a41-ct b{font-size:13px;display:block}
+.card-a4-1 .a41-ct em{font-style:normal;color:#8a90d6;font-size:11px;font-family:ui-monospace,"JetBrains Mono",monospace}
+.card-a4-1 .a41-rc{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
+.card-a4-1 .a41-rc span{font-family:ui-monospace,monospace;font-size:10px;background:#0e0d33;border:1px solid #1a2170;color:#a9aee6;border-radius:4px;padding:1px 5px}
+.card-a4-1 .a41-act{display:flex;flex-direction:column;gap:4px;flex-shrink:0;justify-content:center}
+.card-a4-1 .a41-btn{font-size:11px;font-weight:700;border-radius:6px;padding:3px 8px;text-align:center;border:1px solid #5a60c4;color:#f2f4ff}
+.card-a4-1 .a41-btn.a41-p{background:#ffd84a;color:#07061c;border-color:#ffd84a}
+.card-a4-1 .a41-side2{flex:1;display:flex;flex-direction:column;gap:8px}
+.card-a4-1 .a41-box{background:#120f3a;border:1px solid #5a60c4;border-radius:12px;padding:10px 12px}
+.card-a4-1 .a41-box h3{font-size:12px;text-transform:uppercase;color:#8a90d6;margin-bottom:6px}
+.card-a4-1 .a41-src{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #1a2170}
+.card-a4-1 .a41-src:last-child{border:none}
+.card-a4-1 .a41-src span{font-family:ui-monospace,monospace;color:#6ff0ff}
+.card-a4-1 .a41-nf{font-size:12px;color:#a9aee6;line-height:1.45}
+.card-a4-1 .a41-nf code{font-family:ui-monospace,monospace;color:#ffd84a;font-size:11px}
+</style>
+<div class="a41-side">
+  <div class="a41-logo">OMNI&nbsp;LOOP</div>
+  <div class="a41-grp">Dashboard</div>
+  <div class="a41-it"><i></i>Boards</div>
+  <div class="a41-grp">Work</div>
+  <div class="a41-it"><i></i>PRDs</div>
+  <div class="a41-it"><i></i>Bug Fixes</div>
+  <div class="a41-grp">Settings</div>
+  <div class="a41-it"><i></i>Fleets</div>
+  <div class="a41-it"><i></i>Repositories</div>
+  <div class="a41-grp">Omni</div>
+  <div class="a41-it a41-on"><i></i>What we believe<span class="a41-new">3</span></div>
+  <div class="a41-it"><i></i>Knowledge</div>
+</div>
+<div class="a41-main">
+  <div class="a41-top">
+    <div class="a41-tile"><svg width="16" height="16" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="1" width="6" height="6" fill="#ffd84a"/><rect x="2" y="2" width="4" height="1" fill="#07061c"/><rect x="2" y="4" width="3" height="1" fill="#07061c"/></svg></div>
+    <div class="a41-crumb"><span>Omni ›</span> What we believe · Vertuoza</div>
+    <div class="a41-av"></div>
+  </div>
+  <div class="a41-body">
+    <div class="a41-hero">
+      <svg width="40" height="40" viewBox="0 0 10 10" shape-rendering="crispEdges"><rect x="2" y="1" width="6" height="7" fill="#5a60c4"/><rect x="3" y="3" width="1" height="1" fill="#ffd84a"/><rect x="6" y="3" width="1" height="1" fill="#ffd84a"/><rect x="3" y="6" width="4" height="1" fill="#07061c"/><rect x="1" y="8" width="8" height="1" fill="#2a2350"/></svg>
+      <div>
+        <h2>Nobody typed this. We think you sell <b>an ERP to 2–50-person builders in Belgium</b>, up against <b>Procore</b> and <b>Excel + WhatsApp</b>.</h2>
+        <p>Read by the agents from 6 repos, 212 merged PRDs, the pricing page and support threads. Every line carries its receipts. You only veto.</p>
+      </div>
+      <div class="a41-meter"><strong>41</strong><small>receipts · 3 to check</small></div>
+    </div>
+    <div class="a41-cols">
+      <div class="a41-feed">
+        <div class="a41-lbl"><span>Claims, newest evidence first</span><span>agents read these</span></div>
+        <div class="a41-claim">
+          <div class="a41-bar" style="background:#4ee08a"></div>
+          <div class="a41-ct"><b>Customers are construction firms of 2–50 people</b><em>ICP · 14 receipts · confirmed by 2 people</em>
+            <div class="a41-rc"><span>pricing.html “up to 50 users”</span><span>PRD 412 “site foreman”</span><span>+12</span></div></div>
+          <div class="a41-act"><div class="a41-btn">Pinned</div></div>
+        </div>
+        <div class="a41-claim a41-warn">
+          <div class="a41-bar" style="background:#ff6b86"></div>
+          <div class="a41-ct"><b>Region: Belgium only — contradicted</b><em>REGION · new evidence 2 days ago</em>
+            <div class="a41-rc"><span>i18n: fr-FR added (#731)</span><span>invoice: French VAT rule</span></div></div>
+          <div class="a41-act"><div class="a41-btn a41-p">Belgium + France</div><div class="a41-btn">Keep</div></div>
+        </div>
+        <div class="a41-claim">
+          <div class="a41-bar" style="background:#ffd84a"></div>
+          <div class="a41-ct"><b>Main alternative is spreadsheets, not software</b><em>COMPETITOR · 5 receipts · agent guess</em>
+            <div class="a41-rc"><span>import-xlsx used in 9 PRDs</span><span>README “replace Excel”</span></div></div>
+          <div class="a41-act"><div class="a41-btn a41-p">True</div><div class="a41-btn">Wrong</div></div>
+        </div>
+        <div class="a41-claim" style="opacity:.55">
+          <div class="a41-bar" style="background:#5a60c4"></div>
+          <div class="a41-ct"><b>Buyer is the company owner, not IT</b><em>ICP · fading — no new receipt in 120 days</em></div>
+          <div class="a41-act"><div class="a41-btn">Refresh</div></div>
+        </div>
+      </div>
+      <div class="a41-side2">
+        <div class="a41-box">
+          <h3>Where it came from</h3>
+          <div class="a41-src">merged PRDs<span>212</span></div>
+          <div class="a41-src">READMEs + marketing site<span>7</span></div>
+          <div class="a41-src">pricing page<span>1</span></div>
+          <div class="a41-src">bug reports by customers<span>38</span></div>
+        </div>
+        <div class="a41-box">
+          <h3>No form. No blank page.</h3>
+          <p class="a41-nf">An empty workspace starts empty. The first <code>/omni:invade</code> writes the first claims; every shipped PRD adds or weakens one. Think-big quotes the claim <i>and</i> its receipt.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div></div>
+ <div class="cons"><b>Consensus:</b> The spine and the store. Tighten to one verb pair (✓ Right / ✗ Wrong); a contradiction shows as a one-line diff at the top; a thin-evidence state (“3 claims, low confidence: confirm in 3 taps”). Add outside sources: a pricing-page URL and an uploaded deck.</div>
+ <div class='dis'><b>Dissent:</b> Sophie: code shows what we built, not who we sell to next; without the deck and pricing page, A lags the roadmap. Skeptic: READMEs rarely name Procore, so evidence from code alone may fail the success test.</div>
+ <table class="sc"><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr><tr><th>Visionary</th><td>5</td><td>5</td><td>4</td><td>5</td><td class='st'>The backbone. End invade on a &#x27;That&#x27;s us&#x27; reveal.</td></tr><tr><th>Craft</th><td>4</td><td>5</td><td>4</td><td>5</td><td class='st'>The backbone; tighten the states.</td></tr><tr><th>Skeptic</th><td>4</td><td>5</td><td>4</td><td>5</td><td class='st'>The spine, only if every claim carries a receipt.</td></tr><tr><th>Value</th><td>4</td><td>5</td><td>4</td><td>5</td><td class='st'>The core; this is the product.</td></tr><tr><th>Sophie</th><td>5</td><td>5</td><td>4</td><td>4</td><td class='st'>The upkeep engine; let me point it at the deck and pricing page.</td></tr><tr><th>Tom</th><td>4</td><td>4</td><td>4</td><td>4</td><td class='st'>Best source, if it copes with 2 repos.</td></tr>
+ <tr class="avg"><th>Mean</th><td>4.3</td><td>4.8</td><td>4.0</td><td>4.7</td><td></td></tr></table>
+ <div class="tg" role="group" aria-label="Your reaction to A">
+  <label><input type="radio" name="rA" value="keep"> keep</label>
+  <label><input type="radio" name="rA" value="kill"> kill</label>
+  <label><input type="radio" name="rA" value="merge"> merge into <select><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select></label>
+  <label><input type="radio" name="rA" value="push"> push further</label>
+  <input class="note" type="text" placeholder="note (optional)">
+ </div>
+</section>
+<section class="cc" id="cB" data-letter="B">
+ <header><span class="lt">B</span><div><h2>The customer seat</h2>
+ <p class="wow"><b>Wow:</b> Mid-think-big, “Marc, owner of an 11-person renovation firm in Liège” pushes back: “A board? My office is my kitchen table.” Claude drops the idea.</p><p class="ax"><b>Axis:</b> How agents use it: the context speaks as a participant, not data they look up.</p></div></header>
+ <p class="desc">In think-big and brainstorm, the customer takes a seat, reacts citing evidence, and runs a fit line (ICP ✓ region ✓ beats the alternative ✓). The card proposed storing customers as files in the plan repo.</p>
+ <div class="frame"><div class="scale"><div class="card-a4-2">
+<style>
+.card-a4-2{width:900px;height:560px;box-sizing:border-box;display:flex;gap:14px;padding:16px;background:#0e0d33;color:#f2f4ff;font-family:"Atkinson Hyperlegible",system-ui,-apple-system,sans-serif;border-radius:12px;overflow:hidden}
+.card-a4-2 *{box-sizing:border-box;margin:0;padding:0}
+.card-a4-2 .a42-term{flex:1.55;background:#05041a;border:1px solid #2f2c78;border-radius:10px;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.card-a4-2 .a42-bar{height:28px;background:#16144a;border-bottom:1px solid #2f2c78;display:flex;align-items:center;gap:6px;padding:0 10px}
+.card-a4-2 .a42-bar i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.card-a4-2 .a42-bar span{margin-left:10px;font-family:ui-monospace,"JetBrains Mono",monospace;font-size:11px;color:#a9aee6}
+.card-a4-2 .a42-log{padding:12px 14px;font-family:ui-monospace,"JetBrains Mono",monospace;font-size:11.5px;line-height:1.5;display:flex;flex-direction:column;gap:9px}
+.card-a4-2 .a42-cmd{color:#6ff0ff}
+.card-a4-2 .a42-dim{color:#8a90d6}
+.card-a4-2 .a42-cl{color:#f2f4ff}
+.card-a4-2 .a42-cl b{color:#b37cff}
+.card-a4-2 .a42-cust{border-left:3px solid #ffd84a;background:#1a1640;border-radius:0 8px 8px 0;padding:8px 10px;font-family:"Atkinson Hyperlegible",system-ui,sans-serif;font-size:13px;line-height:1.4}
+.card-a4-2 .a42-cust .a42-who{font-family:ui-monospace,monospace;font-size:10.5px;color:#ffd84a;font-weight:700;display:block;margin-bottom:3px;letter-spacing:.5px}
+.card-a4-2 .a42-cust em{font-style:normal;color:#a9aee6;font-size:11px;font-family:ui-monospace,monospace;display:block;margin-top:4px}
+.card-a4-2 .a42-cust.a42-yes{border-left-color:#4ee08a}
+.card-a4-2 .a42-cust.a42-yes .a42-who{color:#4ee08a}
+.card-a4-2 .a42-cursor{display:inline-block;width:7px;height:13px;background:#6ff0ff;vertical-align:middle}
+.card-a4-2 .a42-seat{flex:1;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card-a4-2 .a42-card{background:#16144a;border:1px solid #6d6acc;border-radius:12px;padding:14px}
+.card-a4-2 .a42-head{display:flex;gap:12px;align-items:center}
+.card-a4-2 .a42-head h2{font-size:18px}
+.card-a4-2 .a42-head p{font-size:12px;color:#a9aee6}
+.card-a4-2 .a42-tag{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0e0d33;background:#ffd84a;border-radius:4px;padding:1px 6px;margin-bottom:8px}
+.card-a4-2 .a42-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px dashed #2f2c78}
+.card-a4-2 .a42-row:last-child{border:none}
+.card-a4-2 .a42-row span{color:#a9aee6}
+.card-a4-2 .a42-row b{text-align:right}
+.card-a4-2 .a42-file{font-family:ui-monospace,"JetBrains Mono",monospace;font-size:11px;background:#05041a;border:1px solid #2f2c78;border-radius:8px;padding:10px;color:#a9aee6;line-height:1.5}
+.card-a4-2 .a42-file b{color:#6ff0ff;font-weight:400}
+.card-a4-2 .a42-file .a42-k{color:#b37cff}
+.card-a4-2 .a42-hint{font-size:12px;color:#a9aee6;line-height:1.4}
+.card-a4-2 .a42-hint strong{color:#f2f4ff}
+</style>
+<div class="a42-term">
+  <div class="a42-bar"><i style="background:#ff6b86"></i><i style="background:#ffd84a"></i><i style="background:#4ee08a"></i><span>vertuo-planning — claude — /omni:think-big</span></div>
+  <div class="a42-log">
+    <div class="a42-cmd">› /omni:think-big "let site teams log hours by voice"</div>
+    <div class="a42-dim">● fuel: briefing, 4 refs, 1 customer seat (Marc)</div>
+    <div class="a42-cl"><b>Claude</b> — Concept A: a voice agent that fills the timesheet, plus a live labour-cost board for the office.</div>
+    <div class="a42-cust">
+      <span class="a42-who">MARC · IN THE CUSTOMER SEAT</span>
+      “A board? I have 11 people and one van. My office is my kitchen table. Procore already sells boards to the big firms — I left it because it wanted a project manager I don't have. Voice, yes. Board, no.”
+      <em>grounded in: 3 support threads · pricing “up to 50 users” · lost-deal note 2026-08</em>
+    </div>
+    <div class="a42-cl"><b>Claude</b> — Dropping the board. Concept B: the foreman says “Luc, 8 to 4, Rue Haute” in Dutch or French; the invoice line exists before he's back in the van.</div>
+    <div class="a42-cust a42-yes">
+      <span class="a42-who">MARC · WOULD PAY</span>
+      “That one I'd show my brother-in-law. Two languages on one site — that's every job in Brussels.”
+      <em>fit: ICP 2–50 ✓ · region BE ✓ · beats alternative “Excel + WhatsApp” ✓</em>
+    </div>
+    <div class="a42-dim">› <span class="a42-cursor"></span></div>
+  </div>
+</div>
+<div class="a42-seat">
+  <div class="a42-card">
+    <span class="a42-tag">The customer seat</span>
+    <div class="a42-head">
+      <svg width="52" height="52" viewBox="0 0 13 13" shape-rendering="crispEdges"><rect x="3" y="1" width="7" height="2" fill="#ffd84a"/><rect x="2" y="3" width="9" height="1" fill="#ffd84a"/><rect x="3" y="4" width="7" height="5" fill="#e0b48a"/><rect x="4" y="5" width="1" height="1" fill="#0e0d33"/><rect x="8" y="5" width="1" height="1" fill="#0e0d33"/><rect x="5" y="7" width="3" height="1" fill="#8a4a2a"/><rect x="2" y="9" width="9" height="4" fill="#ff8a3a"/><rect x="6" y="9" width="1" height="4" fill="#ffd84a"/></svg>
+      <div><h2>Marc, 44</h2><p>Owner, 11-person renovation firm, Liège</p></div>
+    </div>
+    <div style="margin-top:10px">
+      <div class="a42-row"><span>Business</span><b>Vertuoza · construction ERP</b></div>
+      <div class="a42-row"><span>Firm size</span><b>2–50 people</b></div>
+      <div class="a42-row"><span>Left behind</span><b>Procore · Excel + WhatsApp</b></div>
+      <div class="a42-row"><span>Speaks in</span><b>think-big · brainstorm</b></div>
+    </div>
+  </div>
+  <div class="a42-file">
+<span class="a42-k"># plan repo</span><br>
+<b>customers/marc.md</b> ← seat, reviewed by PR<br>
+<b>customers/sophie.md</b> ← office manager, 32 people<br>
+<span class="a42-k">empty folder?</span> no seat, the skill goes on
+  </div>
+  <p class="a42-hint"><strong>Not a profile, a voice.</strong> Nobody fills in “ICP” or “competitors”. You write one customer in plain words — or <code style="font-family:ui-monospace,monospace;color:#ffd84a">/omni:invade</code> drafts one from support threads — and every idea has to get past them.</p>
+</div>
+</div>
+</div></div>
+ <div class="cons"><b>Consensus:</b> Keep, as A&#x27;s voice only: rendered from A&#x27;s confirmed claims plus real quotes kept as receipts. No customers/*.md store. Marc speaks at most once per concept, only to object; silence means fine. No confirmed claims means no seat.</div>
+ 
+ <table class="sc"><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr><tr><th>Visionary</th><td>5</td><td>4</td><td>4</td><td>4</td><td class='st'>Keep, as the voice of A; &#x27;Marc walked out&#x27; once per run.</td></tr><tr><th>Craft</th><td>5</td><td>4</td><td>3</td><td>4</td><td class='st'>How it&#x27;s used, not how it&#x27;s stored.</td></tr><tr><th>Skeptic</th><td>5</td><td>4</td><td>4</td><td>3</td><td class='st'>A rendering, never a store.</td></tr><tr><th>Value</th><td>5</td><td>4</td><td>4</td><td>4</td><td class='st'>Changed mind: rendering only.</td></tr><tr><th>Sophie</th><td>5</td><td>5</td><td>4</td><td>4</td><td class='st'>This is what actually changes the ideas.</td></tr><tr><th>Tom</th><td>5</td><td>3</td><td>4</td><td>3</td><td class='st'>Changed mind: the seat is only a rendering of A.</td></tr>
+ <tr class="avg"><th>Mean</th><td>5.0</td><td>4.0</td><td>3.8</td><td>3.7</td><td></td></tr></table>
+ <div class="tg" role="group" aria-label="Your reaction to B">
+  <label><input type="radio" name="rB" value="keep"> keep</label>
+  <label><input type="radio" name="rB" value="kill"> kill</label>
+  <label><input type="radio" name="rB" value="merge"> merge into <select><option>A</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select></label>
+  <label><input type="radio" name="rB" value="push"> push further</label>
+  <input class="note" type="text" placeholder="note (optional)">
+ </div>
+</section>
+<section class="cc" id="cC" data-letter="C">
+ <header><span class="lt">C</span><div><h2>Fit Fight (VS screen)</h2>
+ <p class="wow"><b>Wow:</b> Think-big stages the idea as a fighting-game VS: the real customer vs a named competitor boss with its weak spot, and a fit %. Nobody told it who either was.</p><p class="ax"><b>Axis:</b> Where it shows: at the moment of use, competitor-first.</p></div></header>
+ <p class="desc">Each idea is a round: P1 is the ICP persona, the boss is a rival card with its weak spot. Every fact cites its source; a stale rival shows “verified 41 days ago — re-check?”.</p>
+ <div class="frame"><div class="scale"><div class="card-a3-2">
+<style>
+.card-a3-2{--g:#07061c;--s:#120f3a;--k:#0e0d33;--l:#1a2170;--ls:#5a60c4;--i:#f2f4ff;--m:#8a90d6;--a:#ffd84a;--ps:#2a2350;--c:#6ff0ff;--gr:#4ee08a;--r:#ff6b86;
+width:900px;height:560px;background:var(--g);color:var(--i);font-family:"Atkinson Hyperlegible",system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden;border-radius:12px;border:1px solid var(--l);box-sizing:border-box}
+.card-a3-2 *{box-sizing:border-box;margin:0}
+.card-a3-2 .tb{height:46px;background:var(--s);border-bottom:2px solid var(--ls);display:flex;align-items:center;gap:10px;padding:0 16px;font-size:13px;flex:none}
+.card-a3-2 .tile{width:28px;height:28px;background:var(--k);border-radius:6px;display:grid;place-items:center}
+.card-a3-2 .tb span{color:var(--m)}
+.card-a3-2 .tag{margin-left:auto;font:700 11px/1 "JetBrains Mono",ui-monospace,monospace;color:var(--c);border:1px solid var(--c);border-radius:999px;padding:4px 9px}
+.card-a3-2 .stage{flex:1;position:relative;padding:14px 20px 0;background:
+ radial-gradient(ellipse at 50% 120%,rgba(255,216,74,.18),transparent 55%),
+ repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px),var(--g);display:flex;flex-direction:column}
+.card-a3-2 .round{text-align:center;font:900 10px/1 "Press Start 2P",ui-monospace,monospace;color:var(--m);letter-spacing:2px}
+.card-a3-2 .idea{text-align:center;font-size:15px;font-weight:700;margin-top:6px}
+.card-a3-2 .idea em{font-style:normal;color:var(--a)}
+.card-a3-2 .arena{display:flex;align-items:stretch;gap:0;margin-top:12px;flex:1;min-height:0}
+.card-a3-2 .f{flex:1;display:flex;flex-direction:column;gap:8px}
+.card-a3-2 .f.r{align-items:flex-end;text-align:right}
+.card-a3-2 .who{font:900 10px/1 "Press Start 2P",ui-monospace,monospace;letter-spacing:1px}
+.card-a3-2 .p1 .who{color:var(--c)} .card-a3-2 .p2 .who{color:var(--r)}
+.card-a3-2 .hp{width:280px;height:14px;border:2px solid var(--i);background:#000;display:flex;padding:1px}
+.card-a3-2 .r .hp{flex-direction:row-reverse}
+.card-a3-2 .hp em{display:block;height:100%}
+.card-a3-2 .p1 .hp em{width:84%;background:repeating-linear-gradient(90deg,var(--gr) 0 8px,#2fa860 8px 10px)}
+.card-a3-2 .p2 .hp em{width:38%;background:repeating-linear-gradient(90deg,var(--r) 0 8px,#c04060 8px 10px)}
+.card-a3-2 .port{display:flex;gap:12px;align-items:flex-end}
+.card-a3-2 .r .port{flex-direction:row-reverse}
+.card-a3-2 .box{width:96px;height:96px;border:2px solid var(--ls);background:var(--s);border-radius:6px;display:grid;place-items:center;flex:none}
+.card-a3-2 .p1 .box{border-color:var(--c);box-shadow:0 0 0 3px rgba(111,240,255,.15)}
+.card-a3-2 .p2 .box{border-color:var(--r);box-shadow:0 0 0 3px rgba(255,107,134,.15)}
+.card-a3-2 .nm{font:900 26px/1 Anton,"Arial Narrow",Impact,sans-serif;text-transform:uppercase;letter-spacing:.5px}
+.card-a3-2 .sub{font-size:12px;color:var(--m);margin-top:4px;line-height:1.35;max-width:200px}
+.card-a3-2 .facts{background:var(--s);border:1px solid var(--ls);border-radius:12px;padding:10px 12px;width:330px;font-size:12px;line-height:1.45}
+.card-a3-2 .facts b{display:block;font:700 9px/1.6 "JetBrains Mono",ui-monospace,monospace;text-transform:uppercase;color:var(--m)}
+.card-a3-2 .facts .src{font:10px/1.4 "JetBrains Mono",ui-monospace,monospace;color:var(--m);margin-top:6px}
+.card-a3-2 .facts .src i{font-style:normal;color:var(--gr)}
+.card-a3-2 .facts .src i.old{color:var(--a)}
+.card-a3-2 .vs{width:120px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.card-a3-2 .vs .big{font:900 58px/1 Anton,Impact,"Arial Narrow",sans-serif;font-style:italic;color:var(--a);text-shadow:4px 4px 0 #b3122f,-2px -2px 0 #6a2fd0;transform:skew(-8deg)}
+.card-a3-2 .vs .t{font:900 9px/1.4 "Press Start 2P",ui-monospace,monospace;color:var(--m);text-align:center}
+.card-a3-2 .ko{margin:12px -20px 0;background:var(--s);border-top:2px solid var(--a);padding:10px 20px;display:flex;align-items:center;gap:14px;flex:none}
+.card-a3-2 .ko .lab{font:900 11px/1 "Press Start 2P",ui-monospace,monospace;color:var(--a);flex:none}
+.card-a3-2 .ko p{font-size:13px;line-height:1.4;flex:1}
+.card-a3-2 .ko p q{color:var(--c);quotes:none}
+.card-a3-2 .btn{background:var(--a);color:#1a1033;font-weight:700;font-size:13px;border-radius:8px;padding:9px 13px;flex:none}
+.card-a3-2 .btn.g{background:transparent;color:var(--i);border:1px solid var(--ls)}
+</style>
+
+<div class="tb">
+  <div class="tile"><svg width="16" height="16" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="3" y="0" width="2" height="8" fill="#ffd84a"/><rect x="0" y="3" width="8" height="2" fill="#ffd84a"/><rect x="1" y="1" width="2" height="2" fill="#ff6b86"/><rect x="5" y="5" width="2" height="2" fill="#6ff0ff"/></svg></div>
+  <span>Work › PRDs › Think big #742 ›</span><b>Concept 2 of 6</b>
+  <span class="tag">read: Vertuoza · ERP for builders</span>
+</div>
+
+<div class="stage">
+  <div class="round">ROUND 1 · FIT FIGHT</div>
+  <div class="idea">Concept: <em>"Site diary in one photo"</em> — the foreman snaps, the invoice line writes itself</div>
+
+  <div class="arena">
+    <div class="f p1">
+      <div class="who">P1 · YOUR CUSTOMER</div>
+      <div class="hp"><em></em></div>
+      <div class="port">
+        <div class="box">
+          <svg width="72" height="72" viewBox="0 0 12 12" shape-rendering="crispEdges">
+            <rect x="3" y="0" width="6" height="2" fill="#ffd84a"/><rect x="2" y="2" width="8" height="1" fill="#ffd84a"/>
+            <rect x="3" y="3" width="6" height="4" fill="#e8b48a"/><rect x="4" y="4" width="1" height="1" fill="#07061c"/><rect x="7" y="4" width="1" height="1" fill="#07061c"/><rect x="5" y="6" width="2" height="1" fill="#8a4a2a"/>
+            <rect x="2" y="7" width="8" height="4" fill="#ff9f3a"/><rect x="3" y="8" width="1" height="3" fill="#f2f4ff"/><rect x="8" y="8" width="1" height="3" fill="#f2f4ff"/><rect x="5" y="8" width="2" height="1" fill="#6ff0ff"/>
+            <rect x="3" y="11" width="2" height="1" fill="#1d1a58"/><rect x="7" y="11" width="2" height="1" fill="#1d1a58"/>
+          </svg>
+        </div>
+        <div><div class="nm">The owner-builder</div><div class="sub">Runs a 12-person renovation firm near Liège. Quotes at night.</div></div>
+      </div>
+      <div class="facts">
+        <b>Why the idea lands</b>
+        Owners with 2–50 people have no back office — the photo replaces the evening re-typing.
+        <div class="src">ICP · Business › Vertuoza · <i>● confirmed</i></div>
+      </div>
+    </div>
+
+    <div class="vs">
+      <div class="big">VS</div>
+      <div class="t">FIT<br>84%</div>
+    </div>
+
+    <div class="f r p2">
+      <div class="who">RIVAL · BOSS 2 OF 3</div>
+      <div class="hp"><em></em></div>
+      <div class="port">
+        <div class="box">
+          <svg width="72" height="72" viewBox="0 0 12 12" shape-rendering="crispEdges">
+            <rect x="1" y="1" width="2" height="2" fill="#ff6b86"/><rect x="9" y="1" width="2" height="2" fill="#ff6b86"/>
+            <rect x="2" y="3" width="8" height="6" fill="#6d6acc"/><rect x="3" y="4" width="2" height="2" fill="#ffd84a"/><rect x="7" y="4" width="2" height="2" fill="#ffd84a"/><rect x="4" y="4" width="1" height="1" fill="#b3122f"/><rect x="7" y="4" width="1" height="1" fill="#b3122f"/>
+            <rect x="3" y="7" width="6" height="1" fill="#07061c"/><rect x="4" y="7" width="1" height="1" fill="#f2f4ff"/><rect x="7" y="7" width="1" height="1" fill="#f2f4ff"/>
+            <rect x="1" y="9" width="10" height="2" fill="#2f2c78"/><rect x="0" y="10" width="1" height="1" fill="#2f2c78"/><rect x="11" y="10" width="1" height="1" fill="#2f2c78"/>
+          </svg>
+        </div>
+        <div><div class="nm">Procore</div><div class="sub">Built for 200-person contractors. Priced per project.</div></div>
+      </div>
+      <div class="facts" style="text-align:left">
+        <b>Its weak spot</b>
+        Daily logs need a site manager to fill forms; nothing flows to the invoice for a small firm.
+        <div class="src">rival card · <i class="old">● verified 41 days ago</i> — re-check?</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ko">
+    <div class="lab">K.O.</div>
+    <p>Think-big cited <q>owner-builders, 2–50 people</q> and <q>Procore</q> from the workspace's Business — nobody typed them.</p>
+    <span class="btn g">Next rival ▸</span>
+    <span class="btn">Brainstorm this</span>
+  </div>
+</div>
+</div>
+</div></div>
+ <div class="cons"><b>Consensus:</b> A skin, not a concept. Fold into B: replace the % with three cited pips (ICP · region · beats rival), show it only in Game mode, and never invent a rival (“no rival on file, add one?”). Steal the last-verified date for every rival.</div>
+ <div class='dis'><b>Dissent:</b> Visionary and Craft: it is the most shareable screen here; one VS frame per think-big run is worth keeping.</div>
+ <table class="sc"><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr><tr><th>Visionary</th><td>4</td><td>3</td><td>4</td><td>4</td><td class='st'>A skin; fold the rival card into A/B.</td></tr><tr><th>Craft</th><td>5</td><td>3</td><td>3</td><td>4</td><td class='st'>B&#x27;s Game-mode skin.</td></tr><tr><th>Skeptic</th><td>5</td><td>3</td><td>4</td><td>4</td><td class='st'>Fold into think-big&#x27;s output.</td></tr><tr><th>Value</th><td>5</td><td>3</td><td>3</td><td>3</td><td class='st'>Share card for the one promoted idea.</td></tr><tr><th>Sophie</th><td>4</td><td>3</td><td>3</td><td>3</td><td class='st'>Drop the arena, keep the rival card.</td></tr><tr><th>Tom</th><td>5</td><td>2</td><td>4</td><td>3</td><td class='st'>Nice output, not a way in.</td></tr>
+ <tr class="avg"><th>Mean</th><td>4.7</td><td>2.8</td><td>3.5</td><td>3.5</td><td></td></tr></table>
+ <div class="tg" role="group" aria-label="Your reaction to C">
+  <label><input type="radio" name="rC" value="keep"> keep</label>
+  <label><input type="radio" name="rC" value="kill"> kill</label>
+  <label><input type="radio" name="rC" value="merge"> merge into <select><option>A</option><option>B</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select></label>
+  <label><input type="radio" name="rC" value="push"> push further</label>
+  <input class="note" type="text" placeholder="note (optional)">
+ </div>
+</section>
+<section class="cc" id="cD" data-letter="D">
+ <header><span class="lt">D</span><div><h2>Series Bible</h2>
+ <p class="wow"><b>Wow:</b> The script supervisor catches that a PRD was written for a 6-company holding when the lead is Marc with 12 staff: “Procore wins that fight. Rewrite for Marc.”</p><p class="ax"><b>Axis:</b> Canon written by a person and enforced on agents&#x27; output after the fact.</p></div></header>
+ <p class="desc">Each product has a bible: logline, lead character, rivals with verdicts, the world, and “Never” rules. Every PRD is an episode; a supervisor marks it in canon or breaks canon, with a fix. Canon changes are versioned.</p>
+ <div class="frame"><div class="scale"><div class="card-a2-1">
+<style>
+.card-a2-1{width:900px;height:560px;box-sizing:border-box;display:grid;grid-template-columns:184px 1fr;grid-template-rows:52px 1fr;background:#f5f4fc;color:#17153d;font-family:"Atkinson Hyperlegible",system-ui,sans-serif;font-size:13px;border:1px solid #d9d6ee;border-radius:12px;overflow:hidden}
+.card-a2-1 *{box-sizing:border-box;margin:0;padding:0}
+.card-a2-1 .a21-side{grid-row:1/3;background:#fff;border-right:1px solid #d9d6ee;padding:14px 10px}
+.card-a2-1 .a21-logo{font:900 13px/1 "Arial Narrow",Impact,sans-serif;letter-spacing:.06em;color:#6a2fd0;margin:2px 6px 16px}
+.card-a2-1 .a21-grp{font-size:10px;font-weight:700;text-transform:uppercase;color:#4f5486;margin:12px 6px 5px;letter-spacing:.04em}
+.card-a2-1 .a21-it{display:flex;align-items:center;gap:7px;font-weight:700;font-size:12.5px;padding:5px 6px;border:1px solid transparent;border-radius:6px;color:#17153d}
+.card-a2-1 .a21-it svg{flex:none}
+.card-a2-1 .a21-on{color:#6a2fd0;border-color:#6a2fd0;background:#efe7ff}
+.card-a2-1 .a21-new{margin-left:auto;font-size:9px;background:#6a2fd0;color:#fff;border-radius:4px;padding:1px 4px}
+.card-a2-1 .a21-top{background:#fff;border-bottom:2px solid #85819f;display:flex;align-items:center;gap:10px;padding:0 14px}
+.card-a2-1 .a21-tile{width:30px;height:30px;background:#eceaf8;border-radius:6px;display:grid;place-items:center}
+.card-a2-1 .a21-crumb{font-weight:700;font-size:14px}
+.card-a2-1 .a21-crumb span{color:#4f5486;font-weight:400}
+.card-a2-1 .a21-ava{margin-left:auto;display:flex;gap:8px;align-items:center;color:#4f5486;font-size:11px}
+.card-a2-1 .a21-ava i{width:24px;height:24px;border-radius:50%;background:#6a2fd0;display:block}
+.card-a2-1 .a21-main{padding:12px 14px;display:grid;grid-template-columns:1.45fr 1fr;gap:12px;overflow:hidden}
+.card-a2-1 .a21-card{background:#fff;border:1px solid #85819f;border-radius:12px;padding:14px 16px}
+.card-a2-1 .a21-bible{position:relative}
+.card-a2-1 .a21-kick{font:700 10px/1 "JetBrains Mono",ui-monospace,monospace;color:#6a2fd0;letter-spacing:.08em;text-transform:uppercase}
+.card-a2-1 .a21-h{font:900 24px/1.05 "Arial Narrow",Impact,"Helvetica Neue",sans-serif;letter-spacing:.01em;margin:5px 0 3px;text-transform:uppercase}
+.card-a2-1 .a21-season{font-size:11px;color:#4f5486;margin-bottom:9px}
+.card-a2-1 .a21-log{background:#efe7ff;border-left:3px solid #6a2fd0;border-radius:6px;padding:8px 10px;font-size:12.5px;line-height:1.3;font-weight:700}
+.card-a2-1 .a21-log em{font-style:normal;color:#6a2fd0}
+.card-a2-1 .a21-sec{display:grid;grid-template-columns:86px 1fr;gap:6px 10px;margin-top:10px;align-items:start}
+.card-a2-1 .a21-lab{font:700 9.5px/1.4 "JetBrains Mono",ui-monospace,monospace;text-transform:uppercase;color:#4f5486;padding-top:2px}
+.card-a2-1 .a21-hero{display:flex;gap:9px;align-items:center}
+.card-a2-1 .a21-hero b{display:block;font-size:13px}
+.card-a2-1 .a21-hero small{color:#4f5486;font-size:11px;line-height:1.3;display:block}
+.card-a2-1 .a21-chips{display:flex;flex-wrap:wrap;gap:5px}
+.card-a2-1 .a21-chip{border:1px solid #d9d6ee;background:#f5f4fc;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700}
+.card-a2-1 .a21-rival{border-color:#85819f;background:#fff}
+.card-a2-1 .a21-rival i{font-style:normal;color:#4f5486;font-weight:400}
+.card-a2-1 .a21-rules{list-style:none;display:grid;gap:3px}
+.card-a2-1 .a21-rules li{font-size:11.5px;line-height:1.3;padding-left:14px;position:relative}
+.card-a2-1 .a21-rules li:before{content:"";position:absolute;left:2px;top:5px;width:6px;height:6px;background:#6a2fd0}
+.card-a2-1 .a21-foot{margin-top:10px;display:flex;justify-content:space-between;align-items:center;border-top:1px dashed #d9d6ee;padding-top:8px;font-size:10.5px;color:#4f5486}
+.card-a2-1 .a21-btn{background:#6a2fd0;color:#fff;font-weight:700;font-size:12px;border-radius:8px;padding:6px 11px}
+.card-a2-1 .a21-stamp{position:absolute;top:12px;right:14px;transform:rotate(4deg);border:2px solid #6a2fd0;color:#6a2fd0;font:900 10px/1 "JetBrains Mono",ui-monospace,monospace;padding:4px 6px;border-radius:4px;letter-spacing:.06em}
+.card-a2-1 .a21-eps h3{font-size:15px;margin-bottom:2px}
+.card-a2-1 .a21-eps p.a21-sub{font-size:11px;color:#4f5486;margin-bottom:8px}
+.card-a2-1 .a21-ep{border:1px solid #d9d6ee;border-radius:10px;padding:7px 9px;margin-bottom:6px;display:grid;grid-template-columns:34px 1fr auto;gap:8px;align-items:center}
+.card-a2-1 .a21-num{font:700 10px/1 "JetBrains Mono",ui-monospace,monospace;color:#4f5486;text-align:center}
+.card-a2-1 .a21-num b{display:block;font-size:13px;color:#17153d;margin-top:2px}
+.card-a2-1 .a21-ep strong{font-size:12px;display:block;line-height:1.2}
+.card-a2-1 .a21-ep small{font-size:10.5px;color:#4f5486}
+.card-a2-1 .a21-ok{font:700 10px/1 "JetBrains Mono",ui-monospace,monospace;color:#15703f;border:1px solid #15703f;border-radius:4px;padding:3px 5px}
+.card-a2-1 .a21-break{border:2px solid #6a2fd0;background:#efe7ff}
+.card-a2-1 .a21-bad{font:700 10px/1 "JetBrains Mono",ui-monospace,monospace;color:#fff;background:#6a2fd0;border-radius:4px;padding:3px 5px}
+.card-a2-1 .a21-note{grid-column:1/4;font-size:11px;line-height:1.35;background:#fff;border:1px solid #d9d6ee;border-radius:8px;padding:6px 8px}
+.card-a2-1 .a21-note b{color:#6a2fd0}
+.card-a2-1 .a21-note u{text-decoration:none;font-weight:700;border-bottom:1px solid #6a2fd0}
+</style>
+<aside class="a21-side">
+  <div class="a21-logo">OMNI&nbsp;LOOP</div>
+  <div class="a21-grp">Dashboard</div>
+  <div class="a21-it"><svg width="14" height="14" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="1" width="2" height="6" fill="#4f5486"/><rect x="5" y="3" width="2" height="4" fill="#4f5486"/></svg>Boards</div>
+  <div class="a21-grp">Work</div>
+  <div class="a21-it"><svg width="14" height="14" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="1" width="6" height="6" fill="none" stroke="#4f5486"/><rect x="2" y="3" width="4" height="1" fill="#4f5486"/></svg>PRDs</div>
+  <div class="a21-it"><svg width="14" height="14" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="2" y="2" width="4" height="4" fill="#4f5486"/><rect x="1" y="3" width="1" height="1" fill="#4f5486"/><rect x="6" y="3" width="1" height="1" fill="#4f5486"/></svg>Bug Fixes</div>
+  <div class="a21-it"><svg width="14" height="14" viewBox="0 0 8 8" shape-rendering="crispEdges"><circle cx="4" cy="4" r="3" fill="none" stroke="#4f5486"/></svg>Visual Updates</div>
+  <div class="a21-grp">Settings</div>
+  <div class="a21-it a21-on"><svg width="14" height="14" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="1" width="3" height="6" fill="#6a2fd0"/><rect x="4" y="1" width="3" height="6" fill="#b37cff"/><rect x="4" y="1" width="0.5" height="6" fill="#17153d"/></svg>Series bible<span class="a21-new">NEW</span></div>
+  <div class="a21-it"><svg width="14" height="14" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="4" width="6" height="3" fill="#4f5486"/><rect x="3" y="1" width="2" height="3" fill="#4f5486"/></svg>Fleets</div>
+  <div class="a21-it"><svg width="14" height="14" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="1" width="6" height="2" fill="#4f5486"/><rect x="1" y="5" width="6" height="2" fill="#4f5486"/></svg>Repositories</div>
+  <div class="a21-grp">Omni</div>
+  <div class="a21-it"><svg width="14" height="14" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="2" y="1" width="4" height="6" fill="none" stroke="#4f5486"/></svg>Docs</div>
+  <div class="a21-it"><svg width="14" height="14" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="3" y="1" width="2" height="2" fill="#4f5486"/><rect x="2" y="4" width="4" height="3" fill="#4f5486"/></svg>Knowledge</div>
+</aside>
+<header class="a21-top">
+  <div class="a21-tile"><svg width="16" height="16" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="1" width="3" height="6" fill="#6a2fd0"/><rect x="4" y="1" width="3" height="6" fill="#b37cff"/></svg></div>
+  <div class="a21-crumb"><span>Settings ›</span> Series bible <span>› Vertuoza ERP</span></div>
+  <div class="a21-ava">Game mode ◐<i></i></div>
+</header>
+<main class="a21-main">
+  <section class="a21-card a21-bible">
+    <div class="a21-stamp">CANON · v7</div>
+    <div class="a21-kick">Show bible · Product 1 of 2 in “Vertuoza”</div>
+    <div class="a21-h">Vertuoza ERP</div>
+    <div class="a21-season">Season 2026-Q4 · 4 repositories write episodes for this show</div>
+    <div class="a21-log"><span class="a21-lab" style="display:block;margin-bottom:3px">Logline</span>The ERP a <em>12-person Belgian builder</em> runs from the site van — quotes, planning and invoices, without an IT department.</div>
+    <div class="a21-sec">
+      <div class="a21-lab">Lead</div>
+      <div class="a21-hero">
+        <svg width="34" height="34" viewBox="0 0 10 10" shape-rendering="crispEdges"><rect width="10" height="10" rx="2" fill="#eceaf8"/><rect x="2" y="1" width="6" height="2" fill="#ffd84a"/><rect x="3" y="3" width="4" height="3" fill="#e0a77a"/><rect x="2" y="6" width="6" height="4" fill="#6a2fd0"/><rect x="4" y="4" width="1" height="1" fill="#17153d"/><rect x="6" y="4" width="1" height="1" fill="#17153d"/></svg>
+        <div><b>Marc, owner-foreman · 2–50 staff</b><small>Quotes at night on a phone. Hates double entry. Wallonia &amp; Flanders, FR/NL.</small></div>
+      </div>
+      <div class="a21-lab">Rivals</div>
+      <div class="a21-chips">
+        <span class="a21-chip a21-rival">Procore <i>· too big</i></span>
+        <span class="a21-chip a21-rival">Excel + Odoo <i>· the real rival</i></span>
+        <span class="a21-chip a21-rival">WinBouw <i>· legacy</i></span>
+      </div>
+      <div class="a21-lab">World</div>
+      <div class="a21-chips"><span class="a21-chip">Benelux + FR</span><span class="a21-chip">B2B SaaS</span><span class="a21-chip">€/seat/mo</span></div>
+      <div class="a21-lab">Never</div>
+      <ul class="a21-rules">
+        <li>Never write for a 500-seat general contractor.</li>
+        <li>Never make Marc configure before he sees value.</li>
+        <li>Never ship a screen that needs a desktop to finish a job.</li>
+      </ul>
+    </div>
+    <div class="a21-foot"><span>Every agent reads this before it writes · last edit by @pierre, 6 days ago</span><span class="a21-btn">Edit canon</span></div>
+  </section>
+  <section class="a21-card a21-eps">
+    <h3>Episodes this season</h3>
+    <p class="a21-sub">Each PRD is an episode. The script supervisor checks it against canon.</p>
+    <div class="a21-ep"><div class="a21-num">EP<b>728</b></div><div><strong>Points in every repo</strong><small>brainstorm · 3 days ago</small></div><span class="a21-ok">IN CANON</span></div>
+    <div class="a21-ep"><div class="a21-num">EP<b>733</b></div><div><strong>Site diary on the phone</strong><small>cites Marc + “the site van”</small></div><span class="a21-ok">IN CANON</span></div>
+    <div class="a21-ep a21-break"><div class="a21-num">EP<b>741</b></div><div><strong>Multi-entity consolidation</strong><small>think-big draft · today</small></div><span class="a21-bad">BREAKS CANON</span>
+      <div class="a21-note"><b>Script supervisor:</b> this episode is written for a holding with 6 legal entities — our lead runs <u>one company of 12</u>. Procore wins that fight. <u>Rewrite for Marc</u> · <u>Change canon</u></div>
+    </div>
+    <div class="a21-ep"><div class="a21-num">EP<b>—</b></div><div><strong>New episode</strong><small>/omni:brainstorm opens with the logline</small></div><span class="a21-chip">+</span></div>
+  </section>
+</main>
+</div>
+</div></div>
+ <div class="cons"><b>Consensus:</b> Keep the check and the “Never” lines under plain names; drop the bible authoring and the TV words. The check runs on A&#x27;s confirmed claims at phase-0 review.</div>
+ <div class='dis'><b>Dissent:</b> Tom: any authoring is too much on day one.</div>
+ <table class="sc"><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr><tr><th>Visionary</th><td>4</td><td>4</td><td>4</td><td>3</td><td class='st'>Keep the supervisor, drop hand-written canon.</td></tr><tr><th>Craft</th><td>4</td><td>5</td><td>4</td><td>3</td><td class='st'>Steal the check and the Never line.</td></tr><tr><th>Skeptic</th><td>4</td><td>4</td><td>4</td><td>3</td><td class='st'>Keep the check, drop the authoring.</td></tr><tr><th>Value</th><td>4</td><td>4</td><td>4</td><td>3</td><td class='st'>Steal the &#x27;breaks canon&#x27; check.</td></tr><tr><th>Sophie</th><td>4</td><td>4</td><td>4</td><td>3</td><td class='st'>&#x27;Never&#x27; is the one thing I&#x27;d write: three sentences.</td></tr><tr><th>Tom</th><td>3</td><td>3</td><td>4</td><td>2</td><td class='st'>Too much authoring for day one.</td></tr>
+ <tr class="avg"><th>Mean</th><td>3.8</td><td>4.0</td><td>4.0</td><td>2.8</td><td></td></tr></table>
+ <div class="tg" role="group" aria-label="Your reaction to D">
+  <label><input type="radio" name="rD" value="keep"> keep</label>
+  <label><input type="radio" name="rD" value="kill"> kill</label>
+  <label><input type="radio" name="rD" value="merge"> merge into <select><option>A</option><option>B</option><option>C</option><option>E</option><option>F</option><option>G</option><option>H</option></select></label>
+  <label><input type="radio" name="rD" value="push"> push further</label>
+  <input class="note" type="text" placeholder="note (optional)">
+ </div>
+</section>
+<section class="cc" id="cE" data-letter="E">
+ <header><span class="lt">E</span><div><h2>New Game (character creator)</h2>
+ <p class="wow"><b>Wow:</b> A brand-new workspace with no repos: two minutes of picking, like making a game character, and every agent knows your customers and rivals. Nobody typed a letter.</p><p class="ax"><b>Axis:</b> The empty cold start: built by picking, with no evidence needed.</p></div></header>
+ <p class="desc">A 4-step NEW GAME: trade grid, customer-size slider, region toggles, rival roster. A character builds on the left and a one-line summary writes itself. “Skip: agents work without it.”</p>
+ <div class="frame"><div class="scale"><div class="card-a3-1">
+<style>
+.card-a3-1{--g:#07061c;--s:#120f3a;--k:#0e0d33;--l:#1a2170;--ls:#5a60c4;--i:#f2f4ff;--m:#8a90d6;--a:#ffd84a;--ps:#2a2350;--c:#6ff0ff;--gr:#4ee08a;--r:#ff6b86;
+width:900px;height:560px;background:var(--g);color:var(--i);font-family:"Atkinson Hyperlegible",system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden;border-radius:12px;border:1px solid var(--l);box-sizing:border-box}
+.card-a3-1 *{box-sizing:border-box;margin:0}
+.card-a3-1 .tb{height:46px;background:var(--s);border-bottom:2px solid var(--ls);display:flex;align-items:center;gap:10px;padding:0 16px;font-size:13px;flex:none}
+.card-a3-1 .tile{width:28px;height:28px;background:var(--k);border-radius:6px;display:grid;place-items:center}
+.card-a3-1 .tb span{color:var(--m)}
+.card-a3-1 .st{margin-left:auto;display:flex;gap:6px;align-items:center;font:700 10px/1 "JetBrains Mono",ui-monospace,monospace;color:var(--m)}
+.card-a3-1 .st i{width:22px;height:6px;background:var(--k);border:1px solid var(--ls);display:block}
+.card-a3-1 .st i.on{background:var(--a);border-color:var(--a)}
+.card-a3-1 .body{flex:1;display:flex;min-height:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.02) 0 1px,transparent 1px 3px),var(--g)}
+.card-a3-1 .hero{width:300px;flex:none;padding:16px 18px;display:flex;flex-direction:column;align-items:center;border-right:1px solid var(--l);background:radial-gradient(ellipse at 50% 55%,rgba(255,216,74,.14),transparent 60%)}
+.card-a3-1 .ng{font:900 11px/1 "Press Start 2P",ui-monospace,monospace;color:var(--a);letter-spacing:2px}
+.card-a3-1 .ngs{font-size:11px;color:var(--m);margin-top:5px}
+.card-a3-1 .ped{margin-top:10px;position:relative;width:220px;height:190px;display:grid;place-items:end center}
+.card-a3-1 .ped:after{content:"";position:absolute;bottom:0;left:30px;right:30px;height:16px;border-radius:50%;background:var(--ps);border:2px solid var(--ls)}
+.card-a3-1 .ped svg{position:relative;z-index:1;margin-bottom:8px}
+.card-a3-1 .arw{position:absolute;top:80px;font:900 16px/1 "Press Start 2P",ui-monospace,monospace;color:var(--a)}
+.card-a3-1 .arw.l{left:0}.card-a3-1 .arw.r{right:0}
+.card-a3-1 .nm{font:900 24px/1 Anton,Impact,"Arial Narrow",sans-serif;text-transform:uppercase;margin-top:10px;letter-spacing:.5px}
+.card-a3-1 .nm small{display:block;font:700 10px/1.5 "JetBrains Mono",ui-monospace,monospace;color:var(--m);text-transform:none;text-align:center}
+.card-a3-1 .line{margin-top:8px;font-size:12px;line-height:1.4;text-align:center;background:var(--s);border:1px solid var(--ls);border-radius:10px;padding:8px 10px}
+.card-a3-1 .line em{font-style:normal;color:var(--a);font-weight:700}
+.card-a3-1 .pick{flex:1;padding:14px 18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card-a3-1 .q{display:flex;align-items:baseline;gap:8px}
+.card-a3-1 .q b{font-size:16px}
+.card-a3-1 .q span{font-size:11px;color:var(--m)}
+.card-a3-1 .grp{background:var(--s);border:1px solid var(--ls);border-radius:12px;padding:9px 11px}
+.card-a3-1 .grp.cur{border:2px solid var(--a);box-shadow:0 0 0 4px rgba(255,216,74,.1)}
+.card-a3-1 .gl{font:700 9px/1 "JetBrains Mono",ui-monospace,monospace;text-transform:uppercase;color:var(--m);margin-bottom:7px;display:flex}
+.card-a3-1 .gl s{margin-left:auto;text-decoration:none;color:var(--gr)}
+.card-a3-1 .row{display:flex;gap:6px;flex-wrap:wrap}
+.card-a3-1 .o{font-size:12px;font-weight:700;border:1px solid var(--ls);border-radius:8px;padding:5px 9px;background:var(--k);color:var(--m);display:flex;gap:6px;align-items:center}
+.card-a3-1 .o.on{background:var(--a);color:#1a1033;border-color:var(--a)}
+.card-a3-1 .o svg{flex:none}
+.card-a3-1 .sl{display:flex;align-items:center;gap:8px;font:700 10px/1 "JetBrains Mono",ui-monospace,monospace;color:var(--m)}
+.card-a3-1 .trk{flex:1;height:12px;background:var(--k);border:1px solid var(--ls);position:relative;display:flex}
+.card-a3-1 .trk em{position:absolute;top:0;bottom:0;left:6%;width:30%;background:repeating-linear-gradient(90deg,var(--a) 0 6px,#b58f00 6px 8px)}
+.card-a3-1 .trk b{position:absolute;top:-4px;width:8px;height:18px;background:var(--i);border:1px solid #000}
+.card-a3-1 .ros{display:flex;gap:8px}
+.card-a3-1 .bs{width:74px;border:1px solid var(--ls);border-radius:8px;background:var(--k);padding:6px 4px 5px;text-align:center;font-size:11px;font-weight:700;color:var(--m)}
+.card-a3-1 .bs.on{border:2px solid var(--r);color:var(--i);box-shadow:0 0 0 3px rgba(255,107,134,.15)}
+.card-a3-1 .bs.add{border-style:dashed;display:grid;place-items:center;font-size:20px;color:var(--ls)}
+.card-a3-1 .bs svg{display:block;margin:0 auto 4px}
+.card-a3-1 .ft{margin-top:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--m)}
+.card-a3-1 .ft .kb{font:700 10px/1 "JetBrains Mono",ui-monospace,monospace;border:1px solid var(--ls);border-radius:4px;padding:3px 5px;color:var(--i)}
+.card-a3-1 .pb{margin-left:auto;background:var(--a);color:#1a1033;font-weight:700;font-size:13px;border-radius:8px;padding:9px 14px}
+.card-a3-1 .sk{color:var(--m);font-size:12px;font-weight:700}
+</style>
+
+<div class="tb">
+  <div class="tile"><svg width="16" height="16" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="2" y="0" width="4" height="3" fill="#ffd84a"/><rect x="1" y="3" width="6" height="4" fill="#6ff0ff"/><rect x="3" y="4" width="2" height="1" fill="#07061c"/><rect x="2" y="7" width="1" height="1" fill="#6ff0ff"/><rect x="5" y="7" width="1" height="1" fill="#6ff0ff"/></svg></div>
+  <span>Settings ›</span><b>Business</b><span>· new workspace, 0 repos</span>
+  <div class="st">STEP 3 / 4 <i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+</div>
+
+<div class="body">
+  <div class="hero">
+    <div class="ng">NEW GAME</div>
+    <div class="ngs">Create your business. Pick, don't type.</div>
+    <div class="ped">
+      <span class="arw l">◀</span><span class="arw r">▶</span>
+      <svg width="150" height="150" viewBox="0 0 20 20" shape-rendering="crispEdges">
+        <!-- hard hat -->
+        <rect x="6" y="1" width="8" height="1" fill="#ffd84a"/><rect x="5" y="2" width="10" height="2" fill="#ffd84a"/><rect x="4" y="4" width="12" height="1" fill="#e0b000"/><rect x="9" y="1" width="2" height="3" fill="#fff3b0"/>
+        <!-- face -->
+        <rect x="6" y="5" width="8" height="5" fill="#e8b48a"/><rect x="7" y="6" width="2" height="1" fill="#07061c"/><rect x="11" y="6" width="2" height="1" fill="#07061c"/><rect x="8" y="8" width="4" height="1" fill="#8a4a2a"/>
+        <!-- body: hi-vis -->
+        <rect x="4" y="10" width="12" height="6" fill="#ff9f3a"/><rect x="6" y="10" width="1" height="6" fill="#f2f4ff"/><rect x="13" y="10" width="1" height="6" fill="#f2f4ff"/><rect x="4" y="13" width="12" height="1" fill="#f2f4ff"/>
+        <!-- arms + tablet -->
+        <rect x="2" y="11" width="2" height="4" fill="#ff9f3a"/><rect x="16" y="11" width="2" height="3" fill="#ff9f3a"/><rect x="16" y="14" width="3" height="3" fill="#6ff0ff"/><rect x="17" y="15" width="1" height="1" fill="#07061c"/>
+        <!-- legs -->
+        <rect x="6" y="16" width="3" height="3" fill="#2f2c78"/><rect x="11" y="16" width="3" height="3" fill="#2f2c78"/><rect x="5" y="19" width="4" height="1" fill="#17153d"/><rect x="11" y="19" width="4" height="1" fill="#17153d"/>
+        <!-- small crew behind -->
+        <rect x="0" y="14" width="2" height="1" fill="#ffd84a"/><rect x="0" y="15" width="2" height="4" fill="#5a60c4"/>
+      </svg>
+    </div>
+    <div class="nm">Vertuoza<small>class: Vertical SaaS · ERP</small></div>
+    <div class="line">An <em>ERP</em> for <em>construction firms</em> of <em>2–50 people</em> in <em>Belgium &amp; France</em>, up against <em>Procore</em> and <em>Obat</em>.</div>
+  </div>
+
+  <div class="pick">
+    <div class="q"><b>Pick your rivals</b><span>Every agent will know who you beat, and how.</span></div>
+
+    <div class="grp">
+      <div class="gl">Trade you serve <s>✓ picked</s></div>
+      <div class="row">
+        <span class="o on"><svg width="12" height="12" viewBox="0 0 4 4" shape-rendering="crispEdges"><rect x="0" y="1" width="4" height="3" fill="#1a1033"/><rect x="1" y="0" width="2" height="1" fill="#1a1033"/></svg>Construction</span>
+        <span class="o">Retail</span><span class="o">Health</span><span class="o">Logistics</span><span class="o">Agencies</span><span class="o">Finance</span><span class="o">…12 more</span>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="gl">Customer size <s>✓ 2–50 people</s></div>
+      <div class="sl">1<div class="trk"><em></em><b style="left:5%"></b><b style="left:35%"></b></div>5 000+</div>
+    </div>
+
+    <div class="grp">
+      <div class="gl">Region <s>✓ picked</s></div>
+      <div class="row"><span class="o on">Belgium</span><span class="o on">France</span><span class="o">Netherlands</span><span class="o">DACH</span><span class="o">UK</span><span class="o">North America</span></div>
+    </div>
+
+    <div class="grp cur">
+      <div class="gl">Rival roster · construction, Benelux + France</div>
+      <div class="ros">
+        <div class="bs on"><svg width="30" height="30" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="1" width="6" height="5" fill="#6d6acc"/><rect x="2" y="2" width="1" height="1" fill="#ffd84a"/><rect x="5" y="2" width="1" height="1" fill="#ffd84a"/><rect x="2" y="4" width="4" height="1" fill="#07061c"/><rect x="0" y="0" width="1" height="2" fill="#ff6b86"/><rect x="7" y="0" width="1" height="2" fill="#ff6b86"/><rect x="1" y="6" width="6" height="2" fill="#2f2c78"/></svg>Procore</div>
+        <div class="bs on"><svg width="30" height="30" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="2" width="6" height="5" fill="#4ee08a"/><rect x="2" y="3" width="1" height="1" fill="#07061c"/><rect x="5" y="3" width="1" height="1" fill="#07061c"/><rect x="3" y="5" width="2" height="1" fill="#07061c"/><rect x="2" y="0" width="4" height="2" fill="#15703f"/></svg>Obat</div>
+        <div class="bs"><svg width="30" height="30" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="1" width="6" height="6" fill="#8a90d6"/><rect x="2" y="3" width="1" height="1" fill="#07061c"/><rect x="5" y="3" width="1" height="1" fill="#07061c"/><rect x="2" y="5" width="4" height="1" fill="#07061c"/></svg>Batappli</div>
+        <div class="bs"><svg width="30" height="30" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="2" y="1" width="4" height="6" fill="#6ff0ff"/><rect x="1" y="3" width="6" height="2" fill="#6ff0ff"/><rect x="3" y="3" width="1" height="1" fill="#07061c"/><rect x="5" y="3" width="1" height="1" fill="#07061c"/></svg>Tolteck</div>
+        <div class="bs add">+</div>
+      </div>
+    </div>
+
+    <div class="ft">
+      <span class="kb">◀ ▶</span> browse <span class="kb">A</span> pick
+      <span class="sk">Skip — agents work without it</span>
+      <span class="pb">Next: your bets ▸</span>
+    </div>
+  </div>
+</div>
+</div>
+</div></div>
+ <div class="cons"><b>Consensus:</b> A&#x27;s empty state, on the same screen: with repos, A&#x27;s claims arrive pre-picked for you to confirm. Only generic axes (size slider, region toggles, short trade list with Other). Rivals never come from a curated catalogue: only A&#x27;s draft, or + to add one.</div>
+ 
+ <table class="sc"><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr><tr><th>Visionary</th><td>3</td><td>3</td><td>4</td><td>4</td><td class='st'>A&#x27;s zero-repo fallback.</td></tr><tr><th>Craft</th><td>4</td><td>4</td><td>5</td><td>4</td><td class='st'>This is the empty state; merge with A.</td></tr><tr><th>Skeptic</th><td>4</td><td>4</td><td>3</td><td>4</td><td class='st'>A&#x27;s empty-state screen; the presets are nobody&#x27;s.</td></tr><tr><th>Value</th><td>4</td><td>4</td><td>4</td><td>4</td><td class='st'>The cold-start door to A.</td></tr><tr><th>Sophie</th><td>4</td><td>3</td><td>4</td><td>4</td><td class='st'>Onboarding, not a concept.</td></tr><tr><th>Tom</th><td>4</td><td>5</td><td>4</td><td>5</td><td class='st'>Aimed straight at me, if the presets are generic.</td></tr>
+ <tr class="avg"><th>Mean</th><td>3.8</td><td>3.8</td><td>4.0</td><td>4.2</td><td></td></tr></table>
+ <div class="tg" role="group" aria-label="Your reaction to E">
+  <label><input type="radio" name="rE" value="keep"> keep</label>
+  <label><input type="radio" name="rE" value="kill"> kill</label>
+  <label><input type="radio" name="rE" value="merge"> merge into <select><option>A</option><option>B</option><option>C</option><option>D</option><option>F</option><option>G</option><option>H</option></select></label>
+  <label><input type="radio" name="rE" value="push"> push further</label>
+  <input class="note" type="text" placeholder="note (optional)">
+ </div>
+</section>
+<section class="cc" id="cF" data-letter="F">
+ <header><span class="lt">F</span><div><h2>The Interview</h2>
+ <p class="wow"><b>Wow:</b> An agent interviews you like a reporter; you tap “construction companies” and it says “too broad to print: picture the last one who signed.”</p><p class="ax"><b>Axis:</b> Written through conversation: an interviewer pushes until the answers are specific.</p></div></header>
+ <p class="desc">A 10-minute interview with Dunford&#x27;s positioning questions and tap answers. It pushes back using what it sees in the repos. A newspaper-style profile writes itself.</p>
+ <div class="frame"><div class="scale"><div class="card-a2-2">
+<style>
+.card-a2-2{width:900px;height:560px;box-sizing:border-box;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:52px 1fr;background:#f5f4fc;color:#17153d;font-family:"Atkinson Hyperlegible",system-ui,sans-serif;font-size:13px;border:1px solid #d9d6ee;border-radius:12px;overflow:hidden}
+.card-a2-2 *{box-sizing:border-box;margin:0;padding:0}
+.card-a2-2 .a22-top{grid-column:1/3;background:#fff;border-bottom:2px solid #85819f;display:flex;align-items:center;gap:10px;padding:0 14px}
+.card-a2-2 .a22-tile{width:30px;height:30px;background:#eceaf8;border-radius:6px;display:grid;place-items:center}
+.card-a2-2 .a22-crumb{font-weight:700;font-size:14px}
+.card-a2-2 .a22-crumb span{color:#4f5486;font-weight:400}
+.card-a2-2 .a22-rec{margin-left:auto;display:flex;align-items:center;gap:8px;font:700 10px/1 "JetBrains Mono",ui-monospace,monospace;color:#4f5486}
+.card-a2-2 .a22-dot{width:9px;height:9px;border-radius:50%;background:#b3122f}
+.card-a2-2 .a22-prog{display:flex;gap:3px}
+.card-a2-2 .a22-prog i{width:14px;height:6px;border-radius:2px;background:#d9d6ee;display:block}
+.card-a2-2 .a22-prog i.a22-f{background:#6a2fd0}
+.card-a2-2 .a22-ava{width:24px;height:24px;border-radius:50%;background:#6a2fd0}
+.card-a2-2 .a22-talk{padding:12px 12px 12px 14px;display:flex;flex-direction:column;gap:7px;overflow:hidden;border-right:1px solid #d9d6ee}
+.card-a2-2 .a22-kick{font:700 10px/1 "JetBrains Mono",ui-monospace,monospace;color:#6a2fd0;letter-spacing:.08em;text-transform:uppercase}
+.card-a2-2 .a22-q,.card-a2-2 .a22-a{border-radius:12px;padding:7px 10px;font-size:12.5px;line-height:1.35;max-width:92%}
+.card-a2-2 .a22-q{background:#fff;border:1px solid #85819f;display:flex;gap:8px}
+.card-a2-2 .a22-q svg{flex:none}
+.card-a2-2 .a22-a{background:#efe7ff;align-self:flex-end;font-weight:700}
+.card-a2-2 .a22-a small{display:block;font-weight:400;color:#4f5486;font-size:10.5px}
+.card-a2-2 .a22-push{border:2px solid #6a2fd0}
+.card-a2-2 .a22-push b{color:#6a2fd0}
+.card-a2-2 .a22-lbl{font:700 9.5px/1 "JetBrains Mono",ui-monospace,monospace;color:#4f5486;text-transform:uppercase;margin-top:2px}
+.card-a2-2 .a22-chips{display:flex;flex-wrap:wrap;gap:5px}
+.card-a2-2 .a22-chip{background:#fff;border:1px solid #6a2fd0;color:#6a2fd0;font-weight:700;font-size:12px;border-radius:8px;padding:6px 9px}
+.card-a2-2 .a22-chip.a22-pick{background:#6a2fd0;color:#fff}
+.card-a2-2 .a22-chip.a22-ghost{border-color:#d9d6ee;color:#4f5486;font-weight:400}
+.card-a2-2 .a22-paper{padding:12px 14px;overflow:hidden}
+.card-a2-2 .a22-sheet{background:#fff;border:1px solid #85819f;border-radius:12px;padding:14px 18px 12px;height:100%;position:relative}
+.card-a2-2 .a22-mast{display:flex;justify-content:space-between;border-bottom:3px double #17153d;padding-bottom:5px;font:700 9.5px/1 "JetBrains Mono",ui-monospace,monospace;color:#4f5486;text-transform:uppercase;letter-spacing:.06em}
+.card-a2-2 .a22-hl{font:900 23px/1.05 Georgia,"Times New Roman",serif;margin:9px 0 6px}
+.card-a2-2 .a22-stand{font:italic 12.5px/1.4 Georgia,serif;color:#4f5486;margin-bottom:8px}
+.card-a2-2 .a22-body{columns:2;column-gap:14px;font:11.5px/1.45 Georgia,serif}
+.card-a2-2 .a22-body p{margin-bottom:6px;break-inside:avoid}
+.card-a2-2 .a22-body mark{background:#efe7ff;color:#17153d;border-bottom:2px solid #6a2fd0;padding:0 1px}
+.card-a2-2 .a22-pull{border-left:3px solid #6a2fd0;padding-left:8px;font:700 13px/1.3 Georgia,serif;color:#6a2fd0;margin:4px 0 6px;break-inside:avoid}
+.card-a2-2 .a22-tk{color:#85819f;font-style:italic}
+.card-a2-2 .a22-facts{position:absolute;left:18px;right:18px;bottom:12px;border-top:1px solid #d9d6ee;padding-top:7px;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.card-a2-2 .a22-facts span{font:700 10px/1 "JetBrains Mono",ui-monospace,monospace;border-radius:999px;padding:4px 7px;border:1px solid #15703f;color:#15703f}
+.card-a2-2 .a22-facts span.a22-open{border:1px dashed #85819f;color:#4f5486}
+.card-a2-2 .a22-facts em{font:700 9.5px/1 "JetBrains Mono",ui-monospace,monospace;font-style:normal;color:#4f5486;margin-right:2px}
+</style>
+<header class="a22-top">
+  <div class="a22-tile"><svg width="16" height="16" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="3" y="0" width="2" height="4" fill="#6a2fd0"/><rect x="2" y="3" width="1" height="2" fill="#6a2fd0"/><rect x="5" y="3" width="1" height="2" fill="#6a2fd0"/><rect x="3" y="5" width="2" height="1" fill="#6a2fd0"/><rect x="3" y="6" width="2" height="2" fill="#4f5486"/></svg></div>
+  <div class="a22-crumb"><span>Settings › Business ›</span> The interview <span>› Vertuoza ERP</span></div>
+  <div class="a22-rec"><i class="a22-dot"></i>ON THE RECORD · 6 OF 10 MIN<div class="a22-prog"><i class="a22-f"></i><i class="a22-f"></i><i class="a22-f"></i><i class="a22-f"></i><i class="a22-f"></i><i class="a22-f"></i><i></i><i></i><i></i><i></i></div><i class="a22-ava"></i></div>
+</header>
+<section class="a22-talk">
+  <div class="a22-kick">The reporter asks · you tap</div>
+  <div class="a22-q"><svg width="22" height="22" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect width="8" height="8" rx="1" fill="#eceaf8"/><rect x="2" y="1" width="4" height="1" fill="#17153d"/><rect x="2" y="2" width="4" height="3" fill="#e0a77a"/><rect x="1" y="5" width="6" height="3" fill="#0b6f86"/><rect x="5" y="5" width="2" height="2" fill="#fff"/></svg><span>Who is your customer?</span></div>
+  <div class="a22-a">Construction companies.<small>tapped · then typed nothing</small></div>
+  <div class="a22-q a22-push"><svg width="22" height="22" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect width="8" height="8" rx="1" fill="#eceaf8"/><rect x="2" y="1" width="4" height="1" fill="#17153d"/><rect x="2" y="2" width="4" height="3" fill="#e0a77a"/><rect x="1" y="5" width="6" height="3" fill="#0b6f86"/><rect x="5" y="5" width="2" height="2" fill="#fff"/></svg><span><b>Too broad to print.</b> Your repos have 38 tenants and a 50-user cap on pricing. Picture the last one who signed: how many people?</span></div>
+  <div class="a22-a">12 — a roofer in Namur.<small>tapped “2–20” · added “roofer, Namur”</small></div>
+  <div class="a22-q"><svg width="22" height="22" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect width="8" height="8" rx="1" fill="#eceaf8"/><rect x="2" y="1" width="4" height="1" fill="#17153d"/><rect x="2" y="2" width="4" height="3" fill="#e0a77a"/><rect x="1" y="5" width="6" height="3" fill="#0b6f86"/><rect x="5" y="5" width="2" height="2" fill="#fff"/></svg><span>Before you, what did he use to send a quote?</span></div>
+  <div class="a22-lbl">Tap one — the alternative, not the vendor you fear</div>
+  <div class="a22-chips">
+    <span class="a22-chip a22-pick">Excel + email</span>
+    <span class="a22-chip">Odoo</span>
+    <span class="a22-chip">An accountant</span>
+    <span class="a22-chip">Procore</span>
+    <span class="a22-chip a22-ghost">Something else…</span>
+    <span class="a22-chip a22-ghost">Skip — off the record</span>
+  </div>
+</section>
+<section class="a22-paper">
+  <div class="a22-sheet">
+    <div class="a22-mast"><span>The Omni Gazette · Company profile</span><span>Draft · writing as you answer</span></div>
+    <div class="a22-hl">The roofer who stopped quoting in Excel</div>
+    <div class="a22-stand">Vertuoza is the ERP a 12-person builder in Belgium runs from the site van — no IT department required.</div>
+    <div class="a22-body">
+      <p>Its customers are <mark>construction firms of 2 to 50 people</mark>, most in <mark>Wallonia and Flanders</mark>, with France next.</p>
+      <div class="a22-pull">“Our real rival is <mark>Excel and an inbox</mark>, not Procore.”</div>
+      <p>Before switching, a typical owner quoted at night on a laptop and <span class="a22-tk">[the reporter is still asking what hurt most…]</span></p>
+      <p class="a22-tk">[unique attributes · price · why now — 4 questions left]</p>
+    </div>
+    <div class="a22-facts"><em>AGENTS WILL CITE</em><span>ICP 2–50</span><span>BE → FR</span><span>vs Excel</span><span class="a22-open">competitor #2</span><span class="a22-open">pricing</span></div>
+  </div>
+</section>
+</div>
+</div></div>
+ <div class="cons"><b>Consensus:</b> Steal the pushback, drop the 10-minute ritual: a gap-filler of about 2 questions, asked only on A&#x27;s red, fading or unreceipted claims, with “stop here, keep what I said” always visible.</div>
+ 
+ <table class="sc"><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr><tr><th>Visionary</th><td>4</td><td>4</td><td>4</td><td>3</td><td class='st'>Steal the pushback.</td></tr><tr><th>Craft</th><td>4</td><td>4</td><td>3</td><td>3</td><td class='st'>A follow-up, not the front door.</td></tr><tr><th>Skeptic</th><td>4</td><td>5</td><td>4</td><td>4</td><td class='st'>A&#x27;s gap-filler.</td></tr><tr><th>Value</th><td>3</td><td>4</td><td>4</td><td>3</td><td class='st'>A later &#x27;sharpen&#x27; step.</td></tr><tr><th>Sophie</th><td>4</td><td>4</td><td>4</td><td>3</td><td class='st'>Good as A&#x27;s way to ask me.</td></tr><tr><th>Tom</th><td>4</td><td>4</td><td>4</td><td>3</td><td class='st'>Let me stop at minute 3.</td></tr>
+ <tr class="avg"><th>Mean</th><td>3.8</td><td>4.2</td><td>3.8</td><td>3.2</td><td></td></tr></table>
+ <div class="tg" role="group" aria-label="Your reaction to F">
+  <label><input type="radio" name="rF" value="keep"> keep</label>
+  <label><input type="radio" name="rF" value="kill"> kill</label>
+  <label><input type="radio" name="rF" value="merge"> merge into <select><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>G</option><option>H</option></select></label>
+  <label><input type="radio" name="rF" value="push"> push further</label>
+  <input class="note" type="text" placeholder="note (optional)">
+ </div>
+</section>
+<section class="cc" id="cG" data-letter="G">
+ <header><span class="lt">G</span><div><h2>Strategy Clock</h2>
+ <p class="wow"><b>Wow:</b> Move the dial from “cut churn” to “reach 50-staff firms” and the agents&#x27; next-to-build list re-sorts; two PRDs light up red because their bet expired.</p><p class="ax"><b>Axis:</b> Time: dated bets that expire and re-rank what agents propose.</p></div></header>
+ <p class="desc">Per product: a quarter timeline of weighted bets with expiry, plus a standing “never” line. Agents read only the live bet; in-flight PRDs on dead bets are flagged.</p>
+ <div class="frame"><div class="scale"><div class="card-a1-1">
+<style>
+.card-a1-1{width:900px;height:560px;overflow:hidden;background:#f5f4fc;color:#17153d;font-family:"Atkinson Hyperlegible",system-ui,sans-serif;display:flex;flex-direction:column;border-radius:12px;border:1px solid #d9d6ee;box-sizing:border-box;font-size:13px}
+.card-a1-1 *{box-sizing:border-box}
+.card-a1-1 .top{height:46px;background:#fff;border-bottom:2px solid #85819f;display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0}
+.card-a1-1 .tile{width:28px;height:28px;background:#eceaf8;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.card-a1-1 .crumb{font-weight:700}
+.card-a1-1 .crumb span{color:#4f5486}
+.card-a1-1 .warn{margin-left:auto;font-size:11px;font-weight:700;color:#b3122f;border:1px solid #b3122f;border-radius:20px;padding:3px 10px;background:#fff}
+.card-a1-1 .body{flex:1;padding:12px 16px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.card-a1-1 .tl{background:#fff;border:1px solid #85819f;border-radius:12px;padding:12px 14px}
+.card-a1-1 .tlh{display:flex;align-items:baseline;gap:8px}
+.card-a1-1 .h2{font-size:17px;font-weight:800}
+.card-a1-1 .muted{color:#4f5486;font-size:11.5px}
+.card-a1-1 .lanes{position:relative;margin-top:10px;height:92px}
+.card-a1-1 .qcol{position:absolute;top:0;bottom:0;border-left:1px dashed #d9d6ee;font-family:ui-monospace,monospace;font-size:9.5px;color:#4f5486;padding-left:4px}
+.card-a1-1 .now{position:absolute;top:-4px;bottom:-4px;width:2px;background:#6a2fd0}
+.card-a1-1 .now b{position:absolute;top:-2px;left:4px;font-family:ui-monospace,monospace;font-size:9px;color:#6a2fd0;white-space:nowrap}
+.card-a1-1 .bet{position:absolute;height:22px;border-radius:6px;font-size:11px;font-weight:800;display:flex;align-items:center;padding:0 8px;white-space:nowrap}
+.card-a1-1 .bet small{font-weight:400;margin-left:6px;font-size:9.5px;opacity:.8}
+.card-a1-1 .row{flex:1;display:flex;gap:12px;min-height:0}
+.card-a1-1 .dial{width:270px;background:#fff;border:2px solid #17153d;border-radius:12px;padding:12px;box-shadow:4px 4px 0 #6a2fd0;display:flex;flex-direction:column;gap:8px}
+.card-a1-1 .lab{font-size:10px;font-weight:800;text-transform:uppercase;color:#4f5486;letter-spacing:.5px}
+.card-a1-1 .slider{position:relative;height:30px;margin-top:4px}
+.card-a1-1 .track{position:absolute;left:0;right:0;top:13px;height:6px;border-radius:3px;background:linear-gradient(90deg,#0b6f86,#6a2fd0)}
+.card-a1-1 .knob{position:absolute;top:5px;width:22px;height:22px;background:#fff;border:3px solid #17153d;border-radius:5px}
+.card-a1-1 .ends{display:flex;justify-content:space-between;font-size:11px;font-weight:800}
+.card-a1-1 .mix{display:flex;height:10px;border-radius:3px;overflow:hidden;margin-top:2px}
+.card-a1-1 .note{font-size:11px;line-height:1.4;background:#eceaf8;border-radius:8px;padding:7px 9px}
+.card-a1-1 .btn{background:#6a2fd0;color:#fff;font-weight:800;font-size:13px;border-radius:8px;padding:9px;text-align:center;margin-top:auto}
+.card-a1-1 .list{flex:1;background:#fff;border:1px solid #85819f;border-radius:12px;padding:11px 13px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card-a1-1 .lh{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+.card-a1-1 .it{display:flex;align-items:center;gap:9px;border:1px solid #d9d6ee;border-radius:10px;padding:7px 10px}
+.card-a1-1 .rk{font-family:ui-monospace,monospace;font-weight:800;font-size:13px;width:18px}
+.card-a1-1 .mv{font-family:ui-monospace,monospace;font-size:10px;font-weight:800;width:30px;text-align:center;border-radius:4px;padding:1px 0}
+.card-a1-1 .up{color:#15703f;background:#e3f5ea}
+.card-a1-1 .dn{color:#b3122f;background:#fbe6ea}
+.card-a1-1 .nw{color:#6a2fd0;background:#efe7ff}
+.card-a1-1 .nm{font-weight:800;font-size:12.5px}
+.card-a1-1 .sub{font-size:10.5px;color:#4f5486}
+.card-a1-1 .chip{margin-left:auto;font-size:9.5px;font-weight:800;border-radius:5px;padding:2px 6px;white-space:nowrap}
+.card-a1-1 .it.drift{border-color:#b3122f;border-style:dashed;opacity:.8}
+</style>
+<div class="top">
+  <div class="tile"><svg width="16" height="16" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="1" width="6" height="6" fill="#6a2fd0"/><rect x="2" y="2" width="4" height="4" fill="#fff"/><rect x="4" y="2" width="1" height="2" fill="#6a2fd0"/><rect x="4" y="4" width="2" height="1" fill="#6a2fd0"/></svg></div>
+  <div class="crumb"><span>Settings › Vertuoza ERP ›</span> Bets &amp; time</div>
+  <div class="warn">⚠ Q3 bet expired 2 days ago — agents paused on it</div>
+</div>
+<div class="body">
+  <div class="tl">
+    <div class="tlh"><div class="h2">The strategy has a clock</div><div class="muted">Bets start, end and expire. Agents read the one that is live today — and nothing that has gone stale.</div></div>
+    <div class="lanes">
+      <div class="qcol" style="left:0">2026 Q3</div>
+      <div class="qcol" style="left:25%">Q4</div>
+      <div class="qcol" style="left:50%">2027 Q1</div>
+      <div class="qcol" style="left:75%">Q2</div>
+      <div class="bet" style="left:1%;top:18px;width:23%;background:#eceaf8;color:#85819f;text-decoration:line-through">Win Flanders <small>ended</small></div>
+      <div class="bet" style="left:26%;top:18px;width:36%;background:#0b6f86;color:#fff">Cut churn under 3% <small>60%</small></div>
+      <div class="bet" style="left:26%;top:46px;width:46%;background:#6a2fd0;color:#fff">Reach 50-staff firms <small>40%</small></div>
+      <div class="bet" style="left:63%;top:18px;width:30%;background:#fff;border:1px dashed #6a2fd0;color:#6a2fd0">France launch <small>draft</small></div>
+      <div class="bet" style="left:1%;top:70px;width:92%;background:#fff8dc;border:1px solid #c9a400;color:#17153d;height:18px;font-size:10px">Never: enterprise (&gt;200 staff) · no on-premise</div>
+      <div class="now" style="left:30%"><b>today · 30 Sep</b></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="dial">
+      <div class="lab">This quarter's weight</div>
+      <div class="ends"><span style="color:#0b6f86">Cut churn</span><span style="color:#6a2fd0">Reach 50-staff</span></div>
+      <div class="slider"><div class="track"></div><div class="knob" style="left:52%"></div></div>
+      <div class="mix"><div style="width:60%;background:#0b6f86"></div><div style="width:40%;background:#6a2fd0"></div></div>
+      <div class="note">Drag the dial: the backlog on the right re-sorts live. Every think-big, brainstorm and invade reads the same weights through <b style="font-family:ui-monospace,monospace">omni bets</b>.</div>
+      <div class="note" style="background:#fbe6ea">2 PRDs in flight serve the expired Flanders bet. Keep, pause or re-aim them?</div>
+      <div class="btn">Lock Q4 weights ▸</div>
+    </div>
+    <div class="list">
+      <div class="lh"><div class="h2" style="font-size:15px">What the agents would build next</div><div class="muted">re-ranked by the dial · 3 s ago</div></div>
+      <div class="it"><span class="rk">1</span><span class="mv up">▲ 4</span><div><div class="nm">Nudge before a quote goes cold</div><div class="sub">think-big #742 · churn signal in 31% of lost accounts</div></div><span class="chip" style="background:#0b6f86;color:#fff">churn</span></div>
+      <div class="it"><span class="rk">2</span><span class="mv nw">new</span><div><div class="nm">Multi-crew planning board</div><div class="sub">proposed now — only matters at 30+ staff</div></div><span class="chip" style="background:#6a2fd0;color:#fff">50-staff</span></div>
+      <div class="it"><span class="rk">3</span><span class="mv up">▲ 1</span><div><div class="nm">Offline site diary</div><div class="sub">PRD 731 · serves both bets</div></div><span class="chip" style="background:#eceaf8;color:#17153d">both</span></div>
+      <div class="it drift"><span class="rk">4</span><span class="mv dn">▼ 3</span><div><div class="nm">Dutch-language quote templates</div><div class="sub">PRD 702 · built for the ended Flanders bet</div></div><span class="chip" style="background:#fbe6ea;color:#b3122f">stale bet</span></div>
+      <div class="it drift"><span class="rk">5</span><span class="mv dn">▼ 5</span><div><div class="nm">SSO for group accounts</div><div class="sub">idea · hits the "never: enterprise" line</div></div><span class="chip" style="background:#fff8dc;color:#17153d">never</span></div>
+    </div>
+  </div>
+</div>
+</div>
+</div></div>
+ <div class="cons"><b>Consensus:</b> A strong follow-up that answers another brief (priorities, not identity). Park it as its own PRD; a one-line “this quarter we bet on X until date” could come later.</div>
+ <div class='dis'><b>Dissent:</b> Sophie: the expired-bet flag on in-flight PRDs is what I&#x27;d act on most.</div>
+ <table class="sc"><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr><tr><th>Visionary</th><td>4</td><td>3</td><td>3</td><td>2</td><td class='st'>Park it, a sequel.</td></tr><tr><th>Craft</th><td>4</td><td>3</td><td>4</td><td>3</td><td class='st'>Out of scope now.</td></tr><tr><th>Skeptic</th><td>4</td><td>3</td><td>4</td><td>2</td><td class='st'>A separate PRD.</td></tr><tr><th>Value</th><td>4</td><td>3</td><td>4</td><td>2</td><td class='st'>The follow-up PRD.</td></tr><tr><th>Sophie</th><td>4</td><td>4</td><td>4</td><td>2</td><td class='st'>Later: one line per quarter, no dial.</td></tr><tr><th>Tom</th><td>4</td><td>2</td><td>4</td><td>2</td><td class='st'>Month three, not day one.</td></tr>
+ <tr class="avg"><th>Mean</th><td>4.0</td><td>3.0</td><td>3.8</td><td>2.2</td><td></td></tr></table>
+ <div class="tg" role="group" aria-label="Your reaction to G">
+  <label><input type="radio" name="rG" value="keep"> keep</label>
+  <label><input type="radio" name="rG" value="kill"> kill</label>
+  <label><input type="radio" name="rG" value="merge"> merge into <select><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>H</option></select></label>
+  <label><input type="radio" name="rG" value="push"> push further</label>
+  <input class="note" type="text" placeholder="note (optional)">
+ </div>
+</section>
+<section class="cc" id="cH" data-letter="H">
+ <header><span class="lt">H</span><div><h2>Product Brain (MCP)</h2>
+ <p class="wow"><b>Wow:</b> A sales rep asks ChatGPT who we lose deals to in Liège, and it answers from Omni&#x27;s battlecards; “do we sell in Luxembourg?” lands on the to-do after nine people ask.</p><p class="ax"><b>Axis:</b> Distribution: a company-wide MCP endpoint any agent plugs into.</p></div></header>
+ <p class="desc">One MCP endpoint per workspace serves the business → product → repo tree to Claude Code, Cursor, ChatGPT, Slack, with permissions per asker, a live feed, and a to-do of unanswered questions.</p>
+ <div class="frame"><div class="scale"><div class="card-a1-2">
+<style>
+.card-a1-2{width:900px;height:560px;overflow:hidden;background:#07061c;color:#f2f4ff;font-family:"Atkinson Hyperlegible",system-ui,sans-serif;display:flex;flex-direction:column;border-radius:12px;border:1px solid #1a2170;box-sizing:border-box;font-size:13px}
+.card-a1-2 *{box-sizing:border-box}
+.card-a1-2 .top{height:46px;background:#120f3a;border-bottom:2px solid #5a60c4;display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0}
+.card-a1-2 .tile{width:28px;height:28px;background:#0e0d33;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.card-a1-2 .crumb{font-weight:700}
+.card-a1-2 .crumb span{color:#8a90d6}
+.card-a1-2 .url{margin-left:auto;font-family:ui-monospace,monospace;font-size:10.5px;background:#0e0d33;border:1px solid #5a60c4;border-radius:6px;padding:4px 8px;color:#6ff0ff}
+.card-a1-2 .cp{background:#ffd84a;color:#07061c;font-weight:800;font-size:11px;border-radius:6px;padding:5px 9px}
+.card-a1-2 .body{flex:1;display:flex;gap:12px;padding:12px 14px;min-height:0}
+.card-a1-2 .map{flex:1;background:#120f3a;border:1px solid #1a2170;border-radius:12px;position:relative;overflow:hidden}
+.card-a1-2 .maph{position:absolute;left:14px;top:10px;right:14px}
+.card-a1-2 .h2{font-size:17px;font-weight:800}
+.card-a1-2 .muted{color:#8a90d6;font-size:11px}
+.card-a1-2 .map svg{position:absolute;left:0;top:0}
+.card-a1-2 .side{width:300px;display:flex;flex-direction:column;gap:10px}
+.card-a1-2 .panel{background:#120f3a;border:1px solid #1a2170;border-radius:12px;padding:10px 12px}
+.card-a1-2 .ttl{font-size:12px;font-weight:800;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.card-a1-2 .ttl small{margin-left:auto;font-weight:400;color:#8a90d6;font-size:10px}
+.card-a1-2 .live{width:7px;height:7px;border-radius:50%;background:#4ee08a;box-shadow:0 0 6px #4ee08a}
+.card-a1-2 .q{border-top:1px solid #1a2170;padding:6px 0;font-size:11px;line-height:1.35}
+.card-a1-2 .q:first-of-type{border-top:0}
+.card-a1-2 .who{font-family:ui-monospace,monospace;font-size:9.5px;color:#8a90d6}
+.card-a1-2 .who b{color:#6ff0ff;font-weight:400}
+.card-a1-2 .ans{color:#a9aee6;font-size:10.5px}
+.card-a1-2 .ans i{font-style:normal;color:#4ee08a}
+.card-a1-2 .gap{border:1px dashed #ffd84a;border-radius:8px;padding:6px 8px;font-size:11px;margin-top:5px;display:flex;align-items:center;gap:6px}
+.card-a1-2 .gap b{font-family:ui-monospace,monospace;color:#ffd84a;font-size:11px}
+.card-a1-2 .gap span.a{margin-left:auto;font-size:10px;font-weight:800;color:#07061c;background:#ffd84a;border-radius:5px;padding:2px 6px;white-space:nowrap}
+</style>
+<div class="top">
+  <div class="tile"><svg width="16" height="16" viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="3" y="0" width="2" height="2" fill="#ffd84a"/><rect x="1" y="2" width="6" height="4" fill="#ffd84a"/><rect x="2" y="3" width="1" height="1" fill="#07061c"/><rect x="5" y="3" width="1" height="1" fill="#07061c"/><rect x="2" y="6" width="1" height="2" fill="#ffd84a"/><rect x="5" y="6" width="1" height="2" fill="#ffd84a"/></svg></div>
+  <div class="crumb"><span>Omni ›</span> Product brain</div>
+  <div class="url">mcp.omni-loop.app/vertuoza</div>
+  <div class="cp">Copy · plug into any agent</div>
+</div>
+<div class="body">
+  <div class="map">
+    <div class="maph"><div class="h2">One brain, every agent</div><div class="muted">2 businesses · 4 products · 14 repositories. Anything that speaks MCP asks here — and only sees what its asker may see.</div></div>
+    <svg width="570" height="470" viewBox="0 0 570 470" font-family="Atkinson Hyperlegible,system-ui,sans-serif">
+      <g stroke="#2f2c78" stroke-width="1.5" fill="none">
+        <path d="M285 265 L110 150"/><path d="M285 265 L110 380"/><path d="M285 265 L460 150"/><path d="M285 265 L460 380"/>
+      </g>
+      <g stroke-width="2" fill="none" stroke-dasharray="5 4">
+        <path d="M285 265 L110 150" stroke="#4ee08a"/><path d="M285 265 L460 150" stroke="#6ff0ff"/><path d="M285 265 L460 380" stroke="#b37cff"/>
+      </g>
+      <circle cx="285" cy="265" r="92" fill="none" stroke="#1a2170" stroke-dasharray="2 5"/>
+      <rect x="215" y="212" width="140" height="106" rx="12" fill="#0e0d33" stroke="#ffd84a" stroke-width="2"/>
+      <text x="285" y="234" text-anchor="middle" font-size="9" fill="#ffd84a" font-family="ui-monospace,monospace" letter-spacing="1">OMNI BRAIN</text>
+      <rect x="227" y="242" width="116" height="20" rx="5" fill="#2a2350"/><text x="235" y="256" font-size="10.5" fill="#f2f4ff" font-weight="700">Vertuoza</text><text x="335" y="256" text-anchor="end" font-size="9" fill="#8a90d6">business</text>
+      <rect x="235" y="266" width="108" height="18" rx="5" fill="#16144a" stroke="#5a60c4"/><text x="243" y="279" font-size="10" fill="#f2f4ff">ERP · 9 repos</text>
+      <rect x="235" y="288" width="108" height="18" rx="5" fill="#16144a" stroke="#5a60c4"/><text x="243" y="301" font-size="10" fill="#f2f4ff">Planning · 3 repos</text>
+      <g font-size="11" font-weight="700">
+        <rect x="30" y="118" width="160" height="62" rx="10" fill="#120f3a" stroke="#4ee08a"/>
+        <text x="44" y="140" fill="#f2f4ff">Claude Code · /omni</text><text x="44" y="157" font-size="9.5" font-weight="400" fill="#8a90d6">14 repos · think-big, brainstorm</text><text x="44" y="171" font-size="9.5" font-weight="400" fill="#4ee08a">● 212 reads today</text>
+        <rect x="380" y="118" width="170" height="62" rx="10" fill="#120f3a" stroke="#6ff0ff"/>
+        <text x="394" y="140" fill="#f2f4ff">Cursor · 6 engineers</text><text x="394" y="157" font-size="9.5" font-weight="400" fill="#8a90d6">get_product, list_competitors</text><text x="394" y="171" font-size="9.5" font-weight="400" fill="#6ff0ff">● 38 reads today</text>
+        <rect x="380" y="350" width="170" height="62" rx="10" fill="#120f3a" stroke="#b37cff"/>
+        <text x="394" y="372" fill="#f2f4ff">ChatGPT · Sales team</text><text x="394" y="389" font-size="9.5" font-weight="400" fill="#8a90d6">ICP + battlecards only</text><text x="394" y="403" font-size="9.5" font-weight="400" fill="#b37cff">● 17 reads today</text>
+        <rect x="30" y="350" width="160" height="62" rx="10" fill="#0e0d33" stroke="#2f2c78" stroke-dasharray="4 3"/>
+        <text x="44" y="372" fill="#8a90d6">+ Slack · Support bot</text><text x="44" y="389" font-size="9.5" font-weight="400" fill="#8a90d6">one click to connect</text>
+      </g>
+      <g fill="#ffd84a"><rect x="192" y="203" width="6" height="6"/><rect x="368" y="203" width="6" height="6"/><rect x="368" y="318" width="6" height="6"/></g>
+    </svg>
+  </div>
+  <div class="side">
+    <div class="panel">
+      <div class="ttl"><span class="live"></span>Asked just now<small>live</small></div>
+      <div class="q"><div class="who"><b>ChatGPT</b> · Sofie, sales</div>"Who do we lose deals to in Liège?"<div class="ans"><i>✓</i> Obat, Batappli — ERP battlecards, verified 12 Sep</div></div>
+      <div class="q"><div class="who"><b>Claude Code</b> · /omni:think-big</div>"Is a 3-person firm in scope?"<div class="ans"><i>✓</i> Yes — ICP 2–50 staff, owner-led</div></div>
+      <div class="q"><div class="who"><b>Cursor</b> · Tom, planning repo</div>"Which product owns this repo?"<div class="ans"><i>✓</i> Vertuoza › Planning</div></div>
+    </div>
+    <div class="panel" style="flex:1">
+      <div class="ttl">Nobody could answer<small>the brain's to-do</small></div>
+      <div class="gap"><b>×9</b>"Do we sell in Luxembourg?"<span class="a">Answer once</span></div>
+      <div class="gap"><b>×4</b>"What does Pro cost a year?"<span class="a">Answer once</span></div>
+      <div class="gap"><b>×2</b>"Is Planning sold on its own?"<span class="a">Answer once</span></div>
+      <div class="muted" style="margin-top:8px">One answer here reaches every agent in the company at the next question.</div>
+    </div>
+  </div>
+</div>
+</div>
+</div></div>
+ <div class="cons"><b>Consensus:</b> The panel moved: a thin H ships in v1. That means omni business show plus one read-only MCP URL, the same fields, the workspace&#x27;s sign-in, and a &#x27;Connect an agent&#x27; copy chip. Empty means &#x27;no business yet, agents carry on&#x27;, never an error. Unanswered questions land in A as unknown rows. Per-asker permissions, the live feed and sales reach come later.</div>
+ <div class='dis'><b>Dissent:</b> Tom (the origin of the shift): the pipe matters more than the page.</div>
+ <table class="sc"><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr><tr><th>Visionary</th><td>5</td><td>4</td><td>3</td><td>3</td><td class='st'>Changed mind: Tom wins; thin MCP day one.</td></tr><tr><th>Craft</th><td>4</td><td>5</td><td>3</td><td>4</td><td class='st'>Changed mind: a copy chip is the whole first visit.</td></tr><tr><th>Skeptic</th><td>5</td><td>4</td><td>3</td><td>3</td><td class='st'>&#x27;Transport later&#x27; was too broad.</td></tr><tr><th>Value</th><td>5</td><td>4</td><td>3</td><td>3</td><td class='st'>Last slice of v1; cut it if it slips.</td></tr><tr><th>Sophie</th><td>4</td><td>3</td><td>3</td><td>3</td><td class='st'>CLI + one MCP URL at launch.</td></tr><tr><th>Tom</th><td>4</td><td>5</td><td>3</td><td>4</td><td class='st'>Shape it as MCP from day one.</td></tr>
+ <tr class="avg"><th>Mean</th><td>4.5</td><td>4.2</td><td>3.0</td><td>3.3</td><td></td></tr></table>
+ <div class="tg" role="group" aria-label="Your reaction to H">
+  <label><input type="radio" name="rH" value="keep"> keep</label>
+  <label><input type="radio" name="rH" value="kill"> kill</label>
+  <label><input type="radio" name="rH" value="merge"> merge into <select><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select></label>
+  <label><input type="radio" name="rH" value="push"> push further</label>
+  <input class="note" type="text" placeholder="note (optional)">
+ </div>
+</section></main>
+<script>
+function line(){var k=[],p=[],m=[],x=[],notes=[];document.querySelectorAll('.cc').forEach(function(s){var L=s.dataset.letter,r=s.querySelector('input[type=radio]:checked'),n=s.querySelector('.note').value.trim();if(!r){if(n)notes.push(L+': '+n);return}
+if(r.value=='keep')k.push(L+(n?' ('+n+')':''));if(r.value=='kill')x.push(L);if(r.value=='merge')m.push(L+'\u2192'+s.querySelector('select').value+(n?' ('+n+')':''));if(r.value=='push')p.push('push '+L+(n?': '+n:''));});
+var o=[];if(k.length)o.push('keep '+k.join(' '));if(m.length)o.push('merge '+m.join(' '));o=o.concat(p);if(x.length)o.push('kill '+x.join(' '));o=o.concat(notes);return o.join(' \u00b7 ')||'No reaction yet.'}
+document.addEventListener('change',function(){document.getElementById('line').value=line()});document.addEventListener('input',function(){document.getElementById('line').value=line()});
+document.getElementById('copy').onclick=function(){var t=line();try{navigator.clipboard.writeText(t)}catch(e){};var b=this;b.textContent='Copied';setTimeout(function(){b.textContent='Copy my reactions'},1200)};
+</script></body></html>

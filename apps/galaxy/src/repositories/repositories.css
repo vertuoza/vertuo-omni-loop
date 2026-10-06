@@ -34,6 +34,41 @@
 .repositories-collection { font-size: 14px; }
 .repositories-no-access { font-size: 14px; }
 
+/* A row's product (PRD 748 s4): wraps under the name at 393 px, never wider than the row. Its arrow
+   sits in a sunk compartment behind a divider (#1010); the field draws the chevron in ink, so it
+   follows the theme. */
+.repositories-product-field { position: relative; display: inline-flex; max-width: 100%; }
+.repositories-product-field::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 11px;
+  width: 12px;
+  height: 8px;
+  margin-top: -4px;
+  background: var(--ask-ink);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain;
+  pointer-events: none;
+}
+.repositories-product-field:has(.repositories-product:disabled)::after { opacity: 0.6; }
+.repositories-product {
+  max-width: 100%;
+  font: 600 14px/1.2 var(--ask-body);
+  color: var(--ask-ink);
+  appearance: none;
+  -webkit-appearance: none;
+  background:
+    linear-gradient(var(--ask-line-strong), var(--ask-line-strong)) no-repeat right 33px center / 1.5px 100%,
+    linear-gradient(var(--ask-sunk), var(--ask-sunk)) no-repeat right center / 33px 100%,
+    var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 6px 44px 6px 12px;
+  cursor: pointer;
+}
+.repositories-product:disabled { cursor: not-allowed; opacity: 0.6; }
+.repositories-product:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
 .repositories-switch { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ask-muted); }
 .repositories-toggle {
   position: relative;

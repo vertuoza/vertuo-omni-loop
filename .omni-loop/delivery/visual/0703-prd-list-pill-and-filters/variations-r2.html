@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD list variations · round 2</title>
+<style>
+:root { color-scheme: dark; }
+body { margin: 0; background: #04031a; color: #f2f4ff; font: 16px/1.5 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.page { padding: 32px 16px 64px; max-width: 1480px; margin: 0 auto; }
+.page > header h1 { margin: 0 0 6px; font-size: 26px; }
+.page > header p { margin: 0 0 4px; color: #aab0ee; max-width: 900px; }
+.variant { margin: 44px 0 0; }
+.variant h2 { margin: 0 0 4px; font-size: 22px; }
+.variant h2 .letter { display: inline-block; min-width: 34px; text-align: center; margin-right: 8px; padding: 2px 8px; border-radius: 6px; background: #ffd84a; color: #07061c; }
+.variant.today h2 .letter { background: #5a60c4; color: #f2f4ff; }
+.variant > p { margin: 0 0 14px; color: #aab0ee; max-width: 980px; }
+.frames { display: flex; gap: 20px; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; }
+.frame-wrap { flex: none; }
+.frame-wrap > span { display: block; font: 600 12px/1 ui-monospace, Menlo, monospace; color: #8a90d6; margin: 0 0 6px; letter-spacing: .06em; text-transform: uppercase; }
+.frame { container-type: inline-size; border: 1px solid #2a3190; border-radius: 12px; overflow: hidden; }
+.frame.desk { width: 900px; }
+.frame.phone { width: 390px; }
+.ask {
+  --ask-body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ask-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4; --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c; --ask-yellow: #ff3ea5; --ask-on-yellow: #07061c; --ask-cyan: #6ff0ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+  background: var(--ask-ground); color: var(--ask-ink); font: 17px/1.6 var(--ask-body); padding: 28px 24px 24px;
+}
+@container (max-width: 719.98px) { .ask { padding: 24px 16px 16px; } }
+.ask a { color: var(--ask-cyan); }
+.ask *, .ask *::before, .ask *::after { box-sizing: border-box; }
+.ask-hint { font-size: 14px; color: var(--ask-muted); }
+.ask-button { font: 700 16px/1 var(--ask-body); color: var(--ask-on-plasma); background: var(--ask-plasma); border: 0; border-radius: 8px; padding: 13px 20px; cursor: pointer; }
+.ask-share-pick, .ask-share-link { font: 400 15px/1.2 var(--ask-body); color: var(--ask-ink); background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); border-radius: 8px; padding: 11px 12px; min-width: 0; }
+.ask-share-link { font-family: var(--ask-mono); font-size: 14px; }
+.dossier { width: 100%; min-width: 0; display: grid; gap: 20px; }
+.dossier-title { margin: 0; font-size: 28px; line-height: 1.25; }
+.dossier-number { color: var(--ask-plasma); white-space: nowrap; }
+.dossier-draft { display: inline-block; vertical-align: middle; font-size: 13px; line-height: 1; letter-spacing: .08em; color: var(--ask-on-yellow); background: var(--ask-yellow); padding: 6px 9px; border-radius: 4px; }
+.stage-track { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; font: 600 12px/1 var(--ask-mono); }
+.stage-stop { padding: 6px 9px; border-radius: 999px; border: 1px solid var(--ask-line-strong); color: var(--ask-muted); white-space: nowrap; }
+.stage-passed { color: var(--ask-ink); background: var(--ask-sunk); }
+.stage-current { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); font-weight: 800; }
+.dossier-history-stages { margin: 0 0 12px; }
+.dossier-history-stages a { text-decoration: none; }
+.ask .dossier-history-stages a.stage-stop { color: var(--ask-cyan); }
+.dossier-repos { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.dossier-repo { font: 600 13px/1 var(--ask-mono); color: var(--ask-ink); background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 999px; padding: 6px 10px; overflow-wrap: anywhere; }
+.dossier-history-filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; padding: 16px; background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); border-radius: 12px; }
+.dossier-history-field { display: grid; gap: 4px; min-width: 0; }
+.dossier-history-field .ask-share-pick, .dossier-history-field .ask-share-link { width: 100%; }
+.dossier-history-search { grid-column: 1 / -1; }
+.dossier-history-actions { grid-column: 1 / -1; margin: 0; display: flex; align-items: center; gap: 16px; }
+.dossier-history-whos { display: inline-flex; gap: 4px; margin: 0 0 12px; padding: 4px; background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); border-radius: 999px; }
+.ask a.dossier-history-who { font: 700 14px/1 var(--ask-body); color: var(--ask-ink); text-decoration: none; padding: 8px 16px; border-radius: 999px; }
+.ask a.dossier-history-who[aria-current="page"] { color: var(--ask-on-plasma); background: var(--ask-plasma); }
+.dossier-history-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; min-width: 0; }
+.ask a.dossier-history-row { display: grid; gap: 10px; padding: 14px 18px; min-width: 0; color: var(--ask-ink); text-decoration: none; background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); border-radius: 12px; }
+.dossier-history-title { font-size: 19px; font-weight: 700; line-height: 1.3; text-wrap: balance; overflow-wrap: anywhere; }
+.dossier-history-facts { display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; min-width: 0; }
+.dossier-history-artifacts { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.dossier-history-artifact { font: 700 13px/1 var(--ask-body); color: var(--ask-ink); background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 4px; padding: 5px 8px; }
+.dossier-history-artifact small { font: 600 12px/1 var(--ask-mono); color: var(--ask-muted); }
+.needs { font-size: 16px; }
+@container (max-width: 719.98px) {
+  .dossier-title { font-size: 23px; }
+  .ask a.dossier-history-row { padding: 12px 14px; }
+}
+
+.frames { flex-wrap: wrap; overflow-x: visible; }
+.frame-wrap { max-width: 100%; overflow-x: auto; }
+.h-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.h-row .dossier-history-whos { margin: 0; }
+.h-row .dossier-history-who { padding: 7px 14px; font-size: 13px; }
+/* D's row */
+.d-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.d-top .stage-stop { flex: none; font: 800 12px/1 var(--ask-mono); padding: 6px 10px; margin-top: 2px; }
+/* B's filters */
+.b-filters { display: grid; gap: 8px; }
+.b-bar { display: flex; min-width: 0; }
+.b-bar .ask-share-link { flex: 1 1 auto; border-radius: 10px 0 0 10px; border-right: 0; padding: 12px 14px; font-size: 15px; }
+.b-bar .ask-button { border-radius: 0 10px 10px 0; padding: 0 22px; }
+.b-more { border: 1.5px solid var(--ask-line); border-radius: 10px; padding: 0 14px; }
+.b-more[open] { border-color: var(--ask-line-strong); background: var(--ask-surface); padding-bottom: 14px; }
+.b-more summary { cursor: pointer; padding: 10px 0; font-weight: 700; font-size: 15px; display: flex; gap: 4px 10px; align-items: baseline; flex-wrap: wrap; }
+.b-more summary .ask-hint { font-weight: 400; font-size: 13px; }
+.b-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+/* B */
+@container (max-width: 719.98px) {
+  .v-b .d-top { flex-direction: column-reverse; gap: 8px; }
+  .v-b .d-top .stage-stop { margin-top: 0; }
+  .v-b .dossier-history-stages { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+}
+/* C */
+.v-c .b-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.v-c .b-bar { flex: 1 1 320px; }
+.v-c .c-more { display: contents; }
+.v-c .c-more summary { list-style: none; cursor: pointer; }
+.v-c .c-more summary::-webkit-details-marker { display: none; }
+.v-c .c-toggle { display: inline-flex; align-items: center; gap: 8px; font: 700 14px/1 var(--ask-body); color: var(--ask-ink); background: var(--ask-sunk); border: 1.5px solid var(--ask-line-strong); border-radius: 999px; padding: 12px 16px; white-space: nowrap; }
+.v-c .c-more[open] .c-toggle { border-color: var(--ask-plasma); color: var(--ask-plasma); }
+.v-c .c-chips { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 8px; }
+.d-chip { font: 600 14px/1 var(--ask-body); color: var(--ask-ink); background: var(--ask-sunk); border: 1.5px solid var(--ask-line-strong); border-radius: 999px; padding: 8px 12px; min-width: 0; max-width: 100%; }
+.d-check { display: inline-flex; align-items: center; gap: 6px; }
+.d-check input { margin: 0; }
+.c-caret { font-size: 11px; }
+/* D */
+.v-d .d2-stages { display: grid; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--ask-line); }
+.v-d .d2-track { margin: 0; }
+/* E */
+.v-e .e-bar { position: relative; display: flex; min-width: 0; }
+.v-e .e-bar .ask-share-link { flex: 1 1 auto; border-radius: 10px 0 0 10px; border-right: 0; padding: 12px 14px; font-size: 15px; }
+.v-e .e-more { flex: none; display: flex; }
+.v-e .e-more summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 0 14px; font: 700 14px/1 var(--ask-body); color: var(--ask-ink); background: var(--ask-sunk); border: 1.5px solid var(--ask-line-strong); border-right: 0; }
+.v-e .e-more summary::-webkit-details-marker { display: none; }
+.v-e .e-more[open] summary { color: var(--ask-plasma); }
+.v-e .e-bar .ask-button { border-radius: 0 10px 10px 0; padding: 0 20px; }
+.v-e .e-panel { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 2; padding: 14px; background: var(--ask-surface); border: 1.5px solid var(--ask-plasma); border-radius: 10px; box-shadow: 0 14px 30px rgba(0, 0, 0, .55); }
+</style></head>
+<body><main class="page">
+<header>
+  <h1>/prd — the stage pill and the filters · round 2</h1>
+  <p>Issue #703, round 2: round 1's D rows (the stage pill on the card's right edge) with round 1's B filters (a search bar carrying Filter, the rest folded). Today first, then five takes on that mix, A to E; each shows a computer width, a phone width, and a phone with the filters open.</p>
+</header>
+<section class="variant today"><h2><span class="letter">—</span>Today</h2><p>As /prd renders now.</p><div class="frames">
+  <div class="frame-wrap"><span>Desktop · 900 px content</span><div class="frame desk"><div class="ask"><div class="dossier dossier-history">
+  <h1 class="dossier-title">PRDs</h1>
+  <nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav>
+  <form class="dossier-history-filters">
+    <label class="dossier-history-field dossier-history-search"><span class="ask-hint">Search the titles</span><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"></label>
+    <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+    <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+    <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+    <p class="dossier-history-actions"><button type="button" class="ask-button">Filter</button></p>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="dossier-history-title"><span class="dossier-draft">DRAFT</span> <span class="stage-stop stage-current">idea</span> <span>Offline quotes on the site app</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-mobile</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="ask-hint">no artifact yet</span></span>
+  
+  <span class="ask-hint">2/3 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 16:46 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="dossier-history-title"><span class="dossier-number">#652</span> <span class="stage-stop stage-current">shipped</span> <span>Person and fleet chips everywhere</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="dossier-history-title"><span class="dossier-number">#691</span> <span class="stage-stop stage-current">outbox</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="dossier-history-title"><span class="dossier-number">#657</span> <span class="stage-stop stage-current">shipped</span> <span>Snappy pages — stream the frame, GitHub off the request path</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v2</small></span><span class="dossier-history-artifact">Spec <small>v2</small></span><span class="dossier-history-artifact">Plan <small>v3</small></span></span>
+  
+  <span class="ask-hint">6/6 answered</span>
+  <span class="ask-hint">last activity 28 Sep 2026, 21:02 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+  <div class="frame-wrap"><span>Phone · 390 px</span><div class="frame phone"><div class="ask"><div class="dossier dossier-history">
+  <h1 class="dossier-title">PRDs</h1>
+  <nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav>
+  <form class="dossier-history-filters">
+    <label class="dossier-history-field dossier-history-search"><span class="ask-hint">Search the titles</span><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"></label>
+    <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+    <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+    <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+    <p class="dossier-history-actions"><button type="button" class="ask-button">Filter</button></p>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="dossier-history-title"><span class="dossier-draft">DRAFT</span> <span class="stage-stop stage-current">idea</span> <span>Offline quotes on the site app</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-mobile</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="ask-hint">no artifact yet</span></span>
+  
+  <span class="ask-hint">2/3 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 16:46 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="dossier-history-title"><span class="dossier-number">#652</span> <span class="stage-stop stage-current">shipped</span> <span>Person and fleet chips everywhere</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="dossier-history-title"><span class="dossier-number">#691</span> <span class="stage-stop stage-current">outbox</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+</div></section>
+<section class="variant" id="A"><h2><span class="letter">A</span>The straight mix</h2><p>D's rows (the pill on the card's top-right edge, 12 px) with B's filters as drawn: the search bar carries Filter, repository, draft or PRD and the outbox box fold under More filters (open by itself whenever one of them is set); Mine / All beside the heading; the stage chips as today.</p><div class="frames">
+  <div class="frame-wrap"><span>Desktop · 900 px content</span><div class="frame desk"><div class="ask v-a"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="b-filters"><div class="b-bar"><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"><button type="button" class="ask-button">Filter</button></div>
+    <details class="b-more"><summary>More filters <span class="ask-hint">repository, draft or PRD, outbox</span></summary><div class="b-fields">
+  <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+</div></details>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-draft">DRAFT</span> <span>Offline quotes on the site app</span></span><span class="stage-stop stage-current">idea</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-mobile</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="ask-hint">no artifact yet</span></span>
+  
+  <span class="ask-hint">2/3 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 16:46 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#657</span> <span>Snappy pages — stream the frame, GitHub off the request path</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v2</small></span><span class="dossier-history-artifact">Spec <small>v2</small></span><span class="dossier-history-artifact">Plan <small>v3</small></span></span>
+  
+  <span class="ask-hint">6/6 answered</span>
+  <span class="ask-hint">last activity 28 Sep 2026, 21:02 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+  <div class="frame-wrap"><span>Phone · 390 px</span><div class="frame phone"><div class="ask v-a"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="b-filters"><div class="b-bar"><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"><button type="button" class="ask-button">Filter</button></div>
+    <details class="b-more"><summary>More filters <span class="ask-hint">repository, draft or PRD, outbox</span></summary><div class="b-fields">
+  <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+</div></details>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-draft">DRAFT</span> <span>Offline quotes on the site app</span></span><span class="stage-stop stage-current">idea</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-mobile</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="ask-hint">no artifact yet</span></span>
+  
+  <span class="ask-hint">2/3 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 16:46 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+  <div class="frame-wrap"><span>Phone · filters open</span><div class="frame phone"><div class="ask v-a"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="b-filters"><div class="b-bar"><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"><button type="button" class="ask-button">Filter</button></div>
+    <details class="b-more" open><summary>More filters <span class="ask-hint">repository, draft or PRD, outbox</span></summary><div class="b-fields">
+  <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+</div></details>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+</div></section>
+<section class="variant" id="B"><h2><span class="letter">B</span>The mix, phone-first</h2><p>A on a computer. On a phone the pill leaves the right edge for its own line above the title, so the title keeps the whole width, and the stage chips scroll on one line instead of wrapping to two.</p><div class="frames">
+  <div class="frame-wrap"><span>Desktop · 900 px content</span><div class="frame desk"><div class="ask v-b"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="b-filters"><div class="b-bar"><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"><button type="button" class="ask-button">Filter</button></div>
+    <details class="b-more"><summary>More filters <span class="ask-hint">repository, draft or PRD, outbox</span></summary><div class="b-fields">
+  <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+</div></details>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-draft">DRAFT</span> <span>Offline quotes on the site app</span></span><span class="stage-stop stage-current">idea</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-mobile</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="ask-hint">no artifact yet</span></span>
+  
+  <span class="ask-hint">2/3 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 16:46 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#657</span> <span>Snappy pages — stream the frame, GitHub off the request path</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v2</small></span><span class="dossier-history-artifact">Spec <small>v2</small></span><span class="dossier-history-artifact">Plan <small>v3</small></span></span>
+  
+  <span class="ask-hint">6/6 answered</span>
+  <span class="ask-hint">last activity 28 Sep 2026, 21:02 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+  <div class="frame-wrap"><span>Phone · 390 px</span><div class="frame phone"><div class="ask v-b"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="b-filters"><div class="b-bar"><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"><button type="button" class="ask-button">Filter</button></div>
+    <details class="b-more"><summary>More filters <span class="ask-hint">repository, draft or PRD, outbox</span></summary><div class="b-fields">
+  <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+</div></details>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-draft">DRAFT</span> <span>Offline quotes on the site app</span></span><span class="stage-stop stage-current">idea</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-mobile</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="ask-hint">no artifact yet</span></span>
+  
+  <span class="ask-hint">2/3 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 16:46 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+  <div class="frame-wrap"><span>Phone · filters open</span><div class="frame phone"><div class="ask v-b"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="b-filters"><div class="b-bar"><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"><button type="button" class="ask-button">Filter</button></div>
+    <details class="b-more" open><summary>More filters <span class="ask-hint">repository, draft or PRD, outbox</span></summary><div class="b-fields">
+  <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+</div></details>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+</div></section>
+<section class="variant" id="C"><h2><span class="letter">C</span>Fold as a chip</h2><p>The fold becomes a small More filters chip beside the search bar (under it on a phone); open, it shows D's chip-shaped picks on one line, not labelled boxes. The lightest look of the five.</p><div class="frames">
+  <div class="frame-wrap"><span>Desktop · 900 px content</span><div class="frame desk"><div class="ask v-c"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="b-filters"><div class="b-bar"><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"><button type="button" class="ask-button">Filter</button></div>
+    <details class="c-more"><summary><span class="c-toggle">More filters <span class="c-caret">▾</span></span></summary><div class="c-chips">
+  <select class="d-chip" aria-label="Repository"><option>Repository: any</option></select>
+  <select class="d-chip" aria-label="Draft or PRD"><option>Drafts and PRDs</option></select>
+  <label class="d-chip d-check"><input type="checkbox"> Needs an answer</label>
+</div></details>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-draft">DRAFT</span> <span>Offline quotes on the site app</span></span><span class="stage-stop stage-current">idea</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-mobile</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="ask-hint">no artifact yet</span></span>
+  
+  <span class="ask-hint">2/3 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 16:46 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#657</span> <span>Snappy pages — stream the frame, GitHub off the request path</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v2</small></span><span class="dossier-history-artifact">Spec <small>v2</small></span><span class="dossier-history-artifact">Plan <small>v3</small></span></span>
+  
+  <span class="ask-hint">6/6 answered</span>
+  <span class="ask-hint">last activity 28 Sep 2026, 21:02 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+  <div class="frame-wrap"><span>Phone · 390 px</span><div class="frame phone"><div class="ask v-c"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="b-filters"><div class="b-bar"><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"><button type="button" class="ask-button">Filter</button></div>
+    <details class="c-more"><summary><span class="c-toggle">More filters <span class="c-caret">▾</span></span></summary><div class="c-chips">
+  <select class="d-chip" aria-label="Repository"><option>Repository: any</option></select>
+  <select class="d-chip" aria-label="Draft or PRD"><option>Drafts and PRDs</option></select>
+  <label class="d-chip d-check"><input type="checkbox"> Needs an answer</label>
+</div></details>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-draft">DRAFT</span> <span>Offline quotes on the site app</span></span><span class="stage-stop stage-current">idea</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-mobile</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="ask-hint">no artifact yet</span></span>
+  
+  <span class="ask-hint">2/3 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 16:46 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+  <div class="frame-wrap"><span>Phone · filters open</span><div class="frame phone"><div class="ask v-c"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="b-filters"><div class="b-bar"><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"><button type="button" class="ask-button">Filter</button></div>
+    <details class="c-more" open><summary><span class="c-toggle">More filters <span class="c-caret">▾</span></span></summary><div class="c-chips">
+  <select class="d-chip" aria-label="Repository"><option>Repository: any</option></select>
+  <select class="d-chip" aria-label="Draft or PRD"><option>Drafts and PRDs</option></select>
+  <label class="d-chip d-check"><input type="checkbox"> Needs an answer</label>
+</div></details>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+</div></section>
+<section class="variant" id="D"><h2><span class="letter">D</span>One fold for everything</h2><p>The stage chips move into the fold too, so a phone sees the heading, the search bar and one line before the list. The fold's line says what is set (any repository · drafts and PRDs · every stage), so a filter is never hidden silently.</p><div class="frames">
+  <div class="frame-wrap"><span>Desktop · 900 px content</span><div class="frame desk"><div class="ask v-d"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="b-filters"><div class="b-bar"><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"><button type="button" class="ask-button">Filter</button></div>
+    <details class="b-more"><summary>Filters and stages <span class="ask-hint">any repository · drafts and PRDs · every stage</span></summary><div class="b-fields">
+  <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+</div>
+      <div class="d2-stages"><span class="ask-hint">Stage</span><nav class="stage-track dossier-history-stages d2-track"><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav></div>
+    </details>
+  </form>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-draft">DRAFT</span> <span>Offline quotes on the site app</span></span><span class="stage-stop stage-current">idea</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-mobile</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="ask-hint">no artifact yet</span></span>
+  
+  <span class="ask-hint">2/3 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 16:46 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#657</span> <span>Snappy pages — stream the frame, GitHub off the request path</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v2</small></span><span class="dossier-history-artifact">Spec <small>v2</small></span><span class="dossier-history-artifact">Plan <small>v3</small></span></span>
+  
+  <span class="ask-hint">6/6 answered</span>
+  <span class="ask-hint">last activity 28 Sep 2026, 21:02 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+  <div class="frame-wrap"><span>Phone · 390 px</span><div class="frame phone"><div class="ask v-d"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="b-filters"><div class="b-bar"><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"><button type="button" class="ask-button">Filter</button></div>
+    <details class="b-more"><summary>Filters and stages <span class="ask-hint">any repository · drafts and PRDs · every stage</span></summary><div class="b-fields">
+  <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+</div>
+      <div class="d2-stages"><span class="ask-hint">Stage</span><nav class="stage-track dossier-history-stages d2-track"><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav></div>
+    </details>
+  </form>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-draft">DRAFT</span> <span>Offline quotes on the site app</span></span><span class="stage-stop stage-current">idea</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-mobile</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="ask-hint">no artifact yet</span></span>
+  
+  <span class="ask-hint">2/3 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 16:46 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+  <div class="frame-wrap"><span>Phone · filters open</span><div class="frame phone"><div class="ask v-d"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="b-filters"><div class="b-bar"><input class="ask-share-link" type="search" placeholder="a word of a PRD's title"><button type="button" class="ask-button">Filter</button></div>
+    <details class="b-more" open><summary>Filters and stages <span class="ask-hint">any repository · drafts and PRDs · every stage</span></summary><div class="b-fields">
+  <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+</div>
+      <div class="d2-stages"><span class="ask-hint">Stage</span><nav class="stage-track dossier-history-stages d2-track"><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav></div>
+    </details>
+  </form>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+</div></section>
+<section class="variant" id="E"><h2><span class="letter">E</span>Filters inside the bar</h2><p>Filters becomes a segment of the search bar, between the words and the Filter button; it opens as a panel over the list rather than pushing it down. One line of filters on every width.</p><div class="frames">
+  <div class="frame-wrap"><span>Desktop · 900 px content</span><div class="frame desk"><div class="ask v-e"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="e-bar">
+    <input class="ask-share-link" type="search" placeholder="a word of a PRD's title">
+    <details class="e-more"><summary>Filters <span class="c-caret">▾</span></summary><div class="e-panel"><div class="b-fields">
+  <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+</div></div></details>
+    <button type="button" class="ask-button">Filter</button>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-draft">DRAFT</span> <span>Offline quotes on the site app</span></span><span class="stage-stop stage-current">idea</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-mobile</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="ask-hint">no artifact yet</span></span>
+  
+  <span class="ask-hint">2/3 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 16:46 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#657</span> <span>Snappy pages — stream the frame, GitHub off the request path</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v2</small></span><span class="dossier-history-artifact">Spec <small>v2</small></span><span class="dossier-history-artifact">Plan <small>v3</small></span></span>
+  
+  <span class="ask-hint">6/6 answered</span>
+  <span class="ask-hint">last activity 28 Sep 2026, 21:02 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+  <div class="frame-wrap"><span>Phone · 390 px</span><div class="frame phone"><div class="ask v-e"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="e-bar">
+    <input class="ask-share-link" type="search" placeholder="a word of a PRD's title">
+    <details class="e-more"><summary>Filters <span class="c-caret">▾</span></summary><div class="e-panel"><div class="b-fields">
+  <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+</div></div></details>
+    <button type="button" class="ask-button">Filter</button>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-draft">DRAFT</span> <span>Offline quotes on the site app</span></span><span class="stage-stop stage-current">idea</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-mobile</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="ask-hint">no artifact yet</span></span>
+  
+  <span class="ask-hint">2/3 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 16:46 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+  <div class="frame-wrap"><span>Phone · filters open</span><div class="frame phone"><div class="ask v-e"><div class="dossier dossier-history">
+  <div class="h-row"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos "><a class="dossier-history-who" href="#">Mine</a><a class="dossier-history-who" aria-current="page" href="#">All</a></nav></div>
+  <form class="e-bar">
+    <input class="ask-share-link" type="search" placeholder="a word of a PRD's title">
+    <details class="e-more" open><summary>Filters <span class="c-caret">▾</span></summary><div class="e-panel"><div class="b-fields">
+  <label class="dossier-history-field"><span class="ask-hint">Repository</span><select class="ask-share-pick"><option>Any</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Draft or PRD</span><select class="ask-share-pick"><option>Drafts and PRDs</option></select></label>
+  <label class="dossier-history-field"><span class="ask-hint">Outbox</span><span class="needs"><input type="checkbox"> Needs an answer</span></label>
+</div></div></details>
+    <button type="button" class="ask-button">Filter</button>
+  </form>
+  <nav class="stage-track dossier-history-stages "><a class="stage-stop stage-passed" href="#">idea <small>1</small></a><a class="stage-stop stage-passed" href="#">PRD <small>0</small></a><a class="stage-stop stage-passed" href="#">inbox <small>0</small></a><a class="stage-stop stage-passed" href="#">building <small>0</small></a><a class="stage-stop stage-passed" href="#">outbox <small>1</small></a><a class="stage-stop stage-passed" href="#">shipped <small>37</small></a><a class="stage-stop stage-passed" href="#">retro <small>0</small></a></nav>
+  <ol class="dossier-history-list"><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#652</span> <span>Person and fleet chips everywhere</span></span><span class="stage-stop stage-current">shipped</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v2</small></span></span>
+  
+  <span class="ask-hint">5/5 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:36 UTC</span>
+</span></a></li><li><a class="dossier-history-row" href="#">
+  <span class="d-top"><span class="dossier-history-title"><span class="dossier-number">#691</span> <span>Fast fix lists — Bug Fixes and Visual Updates read stored GitHub facts</span></span><span class="stage-stop stage-current">outbox</span></span>
+  <span class="dossier-repos"><span class="dossier-repo">vertuoza/vertuo-omni-loop</span></span><span class="dossier-history-facts">
+  <span class="dossier-history-artifacts"><span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span></span>
+  <span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>
+  <span class="ask-hint">1/1 answered</span>
+  <span class="ask-hint">last activity 29 Sep 2026, 18:13 UTC</span>
+</span></a></li></ol>
+</div></div></div></div>
+</div></section>
+</main></body></html>

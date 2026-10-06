@@ -11,7 +11,7 @@ const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.c
 const START = Date.parse('2026-09-28T09:00:00Z');
 const question = (text: string) => [{ question: text, header: 'Pick', multiSelect: false, options: [{ label: 'Yes' }, { label: 'No' }] }];
 
-async function world() {
+function world() {
   const clock = { now: START };
   const fake = fakeSupabase({ ada: ADA, bob: BOB }, () => clock.now);
   const as = (token: string) => fake.client(token) as unknown as Db & SortDb;
@@ -24,7 +24,7 @@ async function world() {
     const { data } = await fake.client(token).from('ask_rounds').insert({ session_id: sessionId, questions: question(text) }).select('id').single() as { data: { id: string } };
     return data.id;
   };
-  return { clock, as, session, ask };
+  return Promise.resolve({ clock, as, session, ask });
 }
 
 describe('the Questions part, read from the database', () => {

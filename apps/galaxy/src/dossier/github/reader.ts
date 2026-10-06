@@ -9,22 +9,32 @@
 // shipped folder's after; items parsed by the kit's own reader) and the feature PR's outbox comment,
 // found by its marker (s2), and the retro's retro.md (./retro.ts, s3). From the feature PR's comments it
 // also keeps the outbox comment's numbering and the answers nobody has settled yet (PRD 251, s9,
-// ./replies.ts), and from settled.md the adopted mediums, each read back as its item. Each of those
+// ./replies.ts), and from settled.md the adopted mediums, each read back as its item. While the feature PR
+// is open, one GraphQL read gives its care state (PRD 790, s2, ./care.ts). Each of those
 // reads fails on its own (`UNREAD`); the App not installed, or no config, and the whole summary is null. Every answer, null included, is cached 60 s per dossier.
 // Concurrent reads of one dossier share one promise, and a repository's config is read once per
 // 60-second window whatever the number of its PRDs (PRD 657, s6).
+// Every call made with the installation token goes through the shared, budget-aware client
+// (packages/github, PRD 902, s1): a page's read is `interactive`, a recount's `background`. A read the
+// budget refused (deferred or paused) is said once by the client, never per part, and is not kept, so
+// the next caller asks again.
 // The token never leaves this module: the summary holds only numbers, states and github.com links.
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
-import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.mjs';
-import { parseOutboxItem, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.mjs';
-import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.mjs';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { defined, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
+import { parseOutboxItem, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
+import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
+import { githubClient, type GithubStore, type Priority } from '@omni/github';
 import { z } from 'zod';
+import { orThrow, parseRow } from '../../data/parse-rows';
+import { CARE_QUERY, parseCare, type CareState } from './care';
 import { readFix, type FixSummary } from './fix';
 import { outboxReplies, type KitAdopted, type KitItem, type PrComment } from './replies';
 import { readRetro } from './retro';
 import { githubApp, REPO, type AppCredentials, type InstallationToken } from '../../signup/github-app';
-import { readPart, UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxDetails, type OutboxItem, type OutboxReplies, type PullRef, type Read, type SettledItem } from './summary';
+import { isBudgetRefusal, readPart, UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxDetails, type OutboxItem, type OutboxReplies, type PullRef, type Read, type SettledItem } from './summary';
+import { CommentIdSchema, type IssueNumber, IssueNumberSchema, type PrdNumber, type PrNumber, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -37,10 +47,10 @@ const CONFIG_PATH = '.omni-loop/config.yml';
 const TOPIC = '([a-z0-9]+(?:-[a-z0-9]+)*)';
 
 /** What the reader needs of a dossier: its id (the cache key), its home repository and its PRD. */
-export type DossierRef = { id: string; home_repo: string; prd: number };
+export type DossierRef = { id: string; home_repo: string; prd: PrdNumber };
 
 /** A fix (PRD 627, s5): its issue's number is its `prd`. */
-export type FixRef = DossierRef;
+export type FixRef = { id: string; home_repo: string; prd: IssueNumber };
 
 /** What the reader takes from the repository's config. */
 type RepoConfig = {
@@ -54,8 +64,8 @@ type RepoConfig = {
 };
 
 const Pull = z.object({
-  number: z.number().int().positive(),
-  html_url: z.string().url(),
+  number: PrNumberSchema,
+  html_url: z.url(),
   state: z.enum(['open', 'closed']),
   draft: z.boolean().optional().default(false),
   merged_at: z.string().nullable().optional().default(null),
@@ -65,11 +75,11 @@ const Pull = z.object({
 });
 type Pull = z.infer<typeof Pull>;
 const Pulls = z.array(Pull);
-const Issue = z.object({ number: z.number().int().positive(), html_url: z.string().url(), state: z.enum(['open', 'closed']) });
+const Issue = z.object({ number: IssueNumberSchema, html_url: z.url(), state: z.enum(['open', 'closed']) });
 const Entries = z.array(z.object({ name: z.string(), type: z.string() }));
 const Comments = z.array(z.object({
-  id: z.number().int(),
-  html_url: z.string().url(),
+  id: CommentIdSchema,
+  html_url: z.url(),
   body: z.string().nullable().optional().default(null),
   created_at: z.string().optional(),
   user: z.object({ login: z.string() }).nullable().optional(),
@@ -92,14 +102,7 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const path = (p: string) => p.split('/').map(encodeURIComponent).join('/');
 
 function repoConfig(text: string): RepoConfig {
-  const config = parseConfig(text, CONFIG_PATH) as unknown as {
-    repo: { defaultBranch: string };
-    branches: { feature: string; phase0: string; retro: string; fix: string };
-    paths: { delivery: string };
-    prLinks: { feature: string; phase0: string };
-    markers: { prefix: string };
-    labels: { riskCritical: string; riskHigh: string; riskMedium: string; riskLow: string; regression: string };
-  };
+  const config = parseConfig(text, CONFIG_PATH);
   return {
     defaultBranch: config.repo.defaultBranch,
     branches: { feature: config.branches.feature, phase0: config.branches.phase0, retro: config.branches.retro },
@@ -118,7 +121,7 @@ type ParsedItem = KitItem & { rank: OutboxItem['rank']; bearsOn: string };
 
 /** An item as the kit's parser reads it; null, said on the server's log, when it is not well formed. */
 function parsedItem(text: string, file: string | null): ParsedItem | null {
-  const parsed = parseOutboxItem(text, { file }) as { ok: true; item: ParsedItem } | { ok: false; errors: string[] };
+  const parsed = parseOutboxItem(text, { file });
   if (parsed.ok) return parsed.item;
   console.error(`PRD page: an outbox item could not be read: ${parsed.errors.join('; ')}`);
   return null;
@@ -128,9 +131,18 @@ const DETAIL_FIELDS = [
   ['decide', 'whatIHadToDecide'], ['meanwhile', 'whatIDidMeanwhile'], ['cost', 'whatItCostsToChangeLater'], ['unknown', 'whatICouldNotKnow'],
 ] as const;
 
+/** An item's options, as the kit's parser writes them; anything else shows none. */
+const ItemOptions = z.array(z.object({ letter: z.string(), text: z.string() }));
+
+/** A GraphQL answer: its data, or the errors that say why it has none. */
+const GraphqlAnswer = z.object({ data: z.unknown().optional(), errors: z.array(z.object({ message: z.string().optional() })).optional() }).nullable();
+
 /** An item as the Outbox tab shows it. */
 function outboxItem({ id, rank, bearsOn, sections }: ParsedItem): OutboxItem {
-  const text_ = (key: string) => (typeof sections[key] === 'string' ? (sections[key] as string) : null);
+  const text_ = (key: string) => {
+    const value = sections[key];
+    return typeof value === 'string' ? value : null;
+  };
   const details: OutboxDetails = {};
   for (const [key, field] of DETAIL_FIELDS) {
     const text = text_(field);
@@ -141,7 +153,7 @@ function outboxItem({ id, rank, bearsOn, sections }: ParsedItem): OutboxItem {
     rank,
     question: text_('questionPlain') ?? text_('whatIHadToDecide') ?? id,
     decision: text_('decisionPlain') ?? text_('whatIDidMeanwhile'),
-    options: Array.isArray(sections.options) ? (sections.options as OutboxItem['options']) : [],
+    options: ItemOptions.safeParse(sections.options).data ?? [],
     personSteps: text_('personSteps'),
     bearsOn,
     intro: text_('introFun'),
@@ -151,13 +163,13 @@ function outboxItem({ id, rank, bearsOn, sections }: ParsedItem): OutboxItem {
 }
 
 /** A settled entry as the kit's ledger reader gives it (the latest per id). */
-type LedgerEntry = { id: string; verdict?: string; answerText: string; itemText: string; fields: Record<string, string | undefined> };
+type LedgerEntry = { id: string; verdict?: string | undefined; answerText: string; itemText: string; fields: Record<string, string | undefined> };
 
 /** The settled entries, in the order settled.md holds them (the latest per id). */
 function settledItems(entries: LedgerEntry[]): SettledItem[] {
   return entries.map((entry) => {
-    const parsed = parseOutboxItem(entry.itemText) as { ok: boolean; item?: { sections: Record<string, unknown> } };
-    const question = parsed.ok ? parsed.item?.sections.questionPlain : undefined;
+    const parsed = parseOutboxItem(entry.itemText);
+    const question = parsed.ok ? parsed.item.sections.questionPlain : undefined;
     const field = (name: string) => entry.fields[name]?.trim() || null;
     return {
       id: entry.id, title: typeof question === 'string' ? question : entry.id, verdict: entry.verdict ?? 'settled', answer: entry.answerText,
@@ -169,8 +181,11 @@ function settledItems(entries: LedgerEntry[]): SettledItem[] {
 /** An outbox as the tab shows it, and what the kit's reply reader needs of it. */
 type OutboxRead = { outbox: Outbox; items: KitItem[]; adopted: KitAdopted[] };
 
+/** Who waits on a read: a person (`interactive`, the default) or nobody (`background`: a recount, the sync). */
+export type ReadOptions = { priority?: Priority };
+
 export type GithubReader = {
-  summary(dossier: DossierRef): Promise<GithubSummary | null>;
+  summary(dossier: DossierRef, options?: ReadOptions): Promise<GithubSummary | null>;
   /** Drops the dossier's cached summary, so the next read is fresh (PRD 251, s11: a send reads the
    * outbox fresh, and clears it once posted so the answer shows at once). */
   forget(dossierId: string): void;
@@ -180,31 +195,37 @@ export type GithubReader = {
 export type FixReader = {
   /** What GitHub says of a fix (./fix.ts), through the same 60-second cache; null when the App is not
    * installed on its repository, or its config could not be read. */
-  fix(ref: FixRef): Promise<FixSummary | null>;
+  fix(ref: FixRef, options?: ReadOptions): Promise<FixSummary | null>;
 };
 
-export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): GithubReader & FixReader {
+/** `store` is the budget's store (github_etags, github_budget); without one, the client still reads the
+ * pause and floor of nothing, and every call goes out plain. */
+export function githubReader(
+  creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now, store: GithubStore | null = null,
+): GithubReader & FixReader {
   const app = githubApp(creds, fetchImpl, clock);
-  const tokens = new Map<string, InstallationToken>();
+  const github = githubClient({ store, fetch: fetchImpl, clock });
+  const tokens = new Map<string, InstallationToken & { installation: number }>();
   const summaries = keptFor<GithubSummary | null>(clock);
   const fixes = keptFor<FixSummary | null>(clock);
   const configs = keptFor<RepoConfig>(clock);
 
-  /** A token for `repo`, reused until a minute before it expires; null when the App is not installed there. */
-  async function tokenFor(repo: string): Promise<string | null> {
+  /** A token for `repo` and its installation, reused until a minute before it expires; null when the App is not installed there. */
+  async function tokenFor(repo: string): Promise<{ token: string; installation: number } | null> {
     const kept = tokens.get(repo);
-    if (kept && clock() < kept.expiresAt - TOKEN_MARGIN_MS) return kept.token;
+    if (kept && clock() < kept.expiresAt - TOKEN_MARGIN_MS) return kept;
     const installation = await app.repoInstallation(repo);
     if (!installation) return null;
-    const token = await app.installationToken(installation.id);
+    const token = { ...(await app.installationToken(installation.id)), installation: installation.id };
     tokens.set(repo, token);
-    return token.token;
+    return token;
   }
 
-  async function read(repo: string, token: string) {
+  function read(repo: string, { token, installation }: { token: string; installation: number }, priority: Priority) {
+    const call = (url: string, init: RequestInit) => github.fetch(url, { ...init, installation, priority });
     /** A GitHub answer as JSON; null on 404. Throws on any other error. */
     async function json(route: string, accept = 'application/vnd.github+json'): Promise<unknown> {
-      const res = await fetchImpl(`${GITHUB}/repos/${repo}${route}`, {
+      const res = await call(`${GITHUB}/repos/${repo}${route}`, {
         headers: { authorization: `Bearer ${token}`, accept, 'x-github-api-version': '2022-11-28' },
         cache: 'no-store',
       });
@@ -216,8 +237,21 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       json(`/contents/${path(file)}?ref=${encodeURIComponent(ref)}`, raw ? 'application/vnd.github.raw+json' : undefined);
     const pulls = async (query: Record<string, string>) =>
       Pulls.parse((await json(`/pulls?${new URLSearchParams({ state: 'all', per_page: '100', ...query })}`)) ?? []);
-    const owner = repo.split('/')[0];
+    const [owner, name] = repo.split('/');
     return {
+      /** The pull request's care state (PRD 790, s2): one GraphQL read; null when it is not there. */
+      async care(pr: PrNumber, statusMarker: string): Promise<CareState | null> {
+        const res = await call(`${GITHUB}/graphql`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'content-type': 'application/json' },
+          body: JSON.stringify({ query: CARE_QUERY, variables: { owner, name, number: pr } }),
+          cache: 'no-store',
+        });
+        if (!res.ok) throw new Error(`GitHub answered ${res.status} to the care query`);
+        const body = orThrow(parseRow(GraphqlAnswer, await res.json(), 'dossier/github: the care query'));
+        if (!body?.data) throw new Error(`GitHub's care answer holds no data${body?.errors?.[0]?.message ? `: ${body.errors[0].message}` : ''}`);
+        return parseCare(body.data, statusMarker);
+      },
       /** The repository's config, read once per cache window for all its dossiers; a failed read is not kept. */
       config(): Promise<RepoConfig> {
         return configs.get(repo, async () => {
@@ -227,13 +261,13 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         });
       },
       /** The PRD's folder under `dir` on `ref`; null when there is none. */
-      async folderIn(dir: string, ref: string, prd: number): Promise<string | null> {
+      async folderIn(dir: string, ref: string, prd: PrdNumber): Promise<string | null> {
         const listed = await contents(dir, ref, false);
         if (listed === null || !Array.isArray(listed)) return null;
         return Entries.parse(listed).find((e) => e.type === 'dir' && parseFolderName(e.name)?.prd === prd)?.name ?? null;
       },
       /** A topic from a recent phase-0 or feature pull request whose body carries the PRD's link line. */
-      async topicFromPulls(config: RepoConfig, prd: number): Promise<string | null> {
+      async topicFromPulls(config: RepoConfig, prd: PrdNumber): Promise<string | null> {
         const kinds = (['phase0', 'feature'] as const).map((kind) => ({
           head: new RegExp(`^${escape(fill(config.branches[kind], { topic: '\u0000' })).replace('\u0000', TOPIC)}$`),
           link: new RegExp(`${escape(fill(config.links[kind], { prd: String(prd) }))}(?!\\d)`),
@@ -241,12 +275,12 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         for (const pull of await pulls({ sort: 'created', direction: 'desc' })) {
           for (const { head, link } of kinds) {
             const match = head.exec(pull.head.ref);
-            if (match && link.test(pull.body ?? '')) return match[1];
+            if (match && link.test(pull.body ?? '')) return group(match, 1);
           }
         }
         return null;
       },
-      async issue(prd: number): Promise<IssueRef | null> {
+      async issue(prd: PrdNumber): Promise<IssueRef | null> {
         const answer = await json(`/issues/${prd}`);
         if (answer === null) return null;
         const issue = Issue.parse(answer);
@@ -268,7 +302,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         const parsed = await Promise.all(files.filter((f) => f.name !== SETTLED_FILE).map(async (f) => parsedItem(await raw(f.name), f.name)));
         const items = parsed.filter((i): i is ParsedItem => i !== null);
         const ledger = files.some((f) => f.name === SETTLED_FILE)
-          ? (parseSettledEntries(await raw(SETTLED_FILE), markers) as LedgerEntry[]) : [];
+          ? parseSettledEntries(await raw(SETTLED_FILE), markers) : [];
         const adopted = ledger.filter((entry) => entry.verdict === ADOPTED_VERDICT);
         const adoptedItems = adopted.map((entry) => parsedItem(entry.itemText, null)).filter((i): i is ParsedItem => i !== null);
         return {
@@ -278,7 +312,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         };
       },
       /** The pull request's comments: at most the first 100, as GitHub lists them. */
-      async comments(pr: number): Promise<PrComment[]> {
+      async comments(pr: PrNumber): Promise<PrComment[]> {
         return Comments.parse((await json(`/issues/${pr}/comments?per_page=100`)) ?? []);
       },
       /** A file's text on `ref`; null when it is not there. */
@@ -294,42 +328,54 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
     };
   }
 
-  /** One read on its own: its answer, or UNREAD when it failed. */
-  const part = <T>(what: string, run: () => Promise<T>) => readPart('PRD page', what, run);
-
-  async function fresh({ home_repo: repo, prd }: DossierRef): Promise<GithubSummary | null> {
-    if (!REPO.test(repo)) return null;
+  /** A summary read fresh, and whether the budget refused any of its reads (then it is not kept). */
+  async function fresh({ home_repo: repo, prd }: DossierRef, priority: Priority): Promise<{ summary: GithubSummary | null; refused: boolean }> {
+    let refused = false;
+    /** One read on its own: its answer, or UNREAD when it failed. */
+    const part = <T,>(what: string, run: () => Promise<T>) => readPart('PRD page', what, async () => {
+      try {
+        return await run();
+      } catch (error) {
+        if (isBudgetRefusal(error)) refused = true;
+        throw error;
+      }
+    });
+    if (!REPO.test(repo)) return { summary: null, refused };
     const token = await tokenFor(repo);
-    if (!token) return null;
-    const gh = await read(repo, token);
+    if (!token) return { summary: null, refused };
+    const gh = read(repo, token, priority);
     const config = await gh.config();
     const main = config.defaultBranch;
     const orNull = <T,>(value: Read<T | null>) => (value === UNREAD ? null : value);
     const shipped = orNull(await part('the shipped folder', () => gh.folderIn(`${config.delivery}/shipped`, main, prd)));
     let folder = shipped ?? orNull(await part('the inbox folder', () => gh.folderIn(`${config.delivery}/inbox`, main, prd)));
-    const topic = folder ? parseFolderName(folder)!.topic : orNull(await part('the pull requests', () => gh.topicFromPulls(config, prd)));
+    const topic = folder ? defined(parseFolderName(folder), 'the PRD folder\'s name').topic : orNull(await part('the pull requests', () => gh.topicFromPulls(config, prd)));
     const branch = (shape: string) => fill(shape, { topic: topic ?? '' });
     if (!folder && topic) {
       folder = orNull(await part('the inbox folder on the feature branch', () => gh.folderIn(`${config.delivery}/inbox`, branch(config.branches.feature), prd)));
     }
-    const none = async () => null;
+    const none = () => Promise.resolve(null);
     const [issue, phase0, feature, retro, mergedSlices] = await Promise.all([
       part('the issue', () => gh.issue(prd)),
       part('the phase-0 PR', topic ? () => gh.pullOn(branch(config.branches.phase0)) : none),
       part('the feature PR', topic ? () => gh.pullOn(branch(config.branches.feature)) : none),
       part('the retro PR', topic ? () => gh.pullOn(branch(config.branches.retro)) : none),
-      part('the merged sub-PRs', topic ? () => gh.mergedInto(branch(config.branches.feature)) : async () => 0),
+      part('the merged sub-PRs', topic ? () => gh.mergedInto(branch(config.branches.feature)) : () => Promise.resolve(0)),
     ]);
     // The outbox: the feature branch's while the PRD is not shipped, the shipped folder's once it is.
     const outboxRead = shipped
       ? () => gh.outbox(`${config.delivery}/shipped/${shipped}/outbox`, main, config.markers)
       : folder && topic ? () => gh.outbox(`${config.delivery}/outbox/${folder}`, branch(config.branches.feature), config.markers) : none;
     const retroWhere = { delivery: config.delivery, folder: shipped ?? folder, defaultBranch: main, retroBranch: branch(config.branches.retro) };
-    const [outboxRead_, comments, retroText] = await Promise.all([
+    const openFeature = feature !== UNREAD && feature?.state === 'open' ? feature : null;
+    const [outboxRead_, comments, retroText, careRead] = await Promise.all([
       part('the outbox', outboxRead),
       part('the outbox comment', feature !== UNREAD && feature ? () => gh.comments(feature.number) : none),
-      part('the retro', retro !== UNREAD && retro ? () => readRetro(retro, retroWhere, gh.raw) : none),
+      part('the retro', retro !== UNREAD && retro ? () => readRetro(retro, retroWhere, (file, ref) => gh.raw(file, ref)) : none),
+      part('the feature PR\'s care state', openFeature ? () => gh.care(openFeature.number, config.markers.status) : none),
     ]);
+    // The care state is unknown, not absent, when the feature PR itself could not be read.
+    const care = feature === UNREAD ? UNREAD : careRead;
     const outbox = outboxRead_ === UNREAD ? UNREAD : outboxRead_?.outbox ?? null;
     const find = (list: PrComment[], marker: string) => list.find((c) => c.body?.includes(marker))?.html_url ?? null;
     const outboxComment = comments === UNREAD ? UNREAD
@@ -339,18 +385,26 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
     if (comments === UNREAD || (comments && outboxRead_ === UNREAD)) replies = UNREAD;
     else if (comments && outboxRead_ !== UNREAD) {
       const kit = outboxRead_ ?? { items: [], adopted: [] };
-      replies = await part('the pending answers', async () => outboxReplies({ comments, items: kit.items, adopted: kit.adopted, markers: config.markers }));
+      replies = await part('the pending answers', () => Promise.resolve(outboxReplies({ comments, items: kit.items, adopted: kit.adopted, markers: config.markers })));
     }
-    return { repo, prd, folder, topic, issue, phase0, feature, retro, mergedSlices, outbox, outboxComment, replies, retroText };
+    return { summary: { repo, prd, folder, topic, issue, phase0, feature, retro, mergedSlices, outbox, outboxComment, replies, retroText, care }, refused };
   }
 
+  /** Logs a failed read, unless the budget refused it: the client has said so once already. */
+  const failed = (page: string, repo: string, error: unknown) => {
+    if (!isBudgetRefusal(error)) console.error(`${page}: GitHub could not be read for ${repo}: ${error instanceof Error ? error.message : String(error)}`);
+  };
+
   return {
-    summary(dossier) {
+    summary(dossier, { priority = 'interactive' } = {}) {
       return summaries.get(dossier.id, async () => {
         try {
-          return await fresh(dossier);
+          const { summary, refused } = await fresh(dossier, priority);
+          if (refused) summaries.forget(dossier.id);
+          return summary;
         } catch (error) {
-          console.error(`PRD page: GitHub could not be read for ${dossier.home_repo}: ${error instanceof Error ? error.message : String(error)}`);
+          failed('PRD page', dossier.home_repo, error);
+          if (isBudgetRefusal(error)) summaries.forget(dossier.id);
           return null;
         }
       });
@@ -358,17 +412,25 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
     forget(dossierId) {
       summaries.forget(dossierId);
     },
-    fix(ref) {
+    fix(ref, { priority = 'interactive' } = {}) {
       return fixes.get(ref.id, async () => {
+        let refused = false;
         try {
           const token = REPO.test(ref.home_repo) ? await tokenFor(ref.home_repo) : null;
           if (!token) return null;
-          const gh = await read(ref.home_repo, token);
+          const gh = read(ref.home_repo, token, priority);
           const { fix } = await gh.config();
-          return await readFix((route) => gh.json(route), ref.prd, fix.branch, { risk: fix.risk, regression: fix.regression });
+          const json = (route: string) => gh.json(route).catch((error: unknown) => {
+            if (isBudgetRefusal(error)) refused = true;
+            throw error;
+          });
+          return await readFix(json, ref.prd, fix.branch, { risk: fix.risk, regression: fix.regression });
         } catch (error) {
-          console.error(`Fix page: GitHub could not be read for ${ref.home_repo}: ${error instanceof Error ? error.message : String(error)}`);
+          failed('Fix page', ref.home_repo, error);
+          if (isBudgetRefusal(error)) refused = true;
           return null;
+        } finally {
+          if (refused) fixes.forget(ref.id);
         }
       });
     },
@@ -377,7 +439,8 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
 
 /** Answers kept per key for SUMMARY_TTL_MS from when they were asked. Concurrent callers of one key
  * share one promise; a rejected one is dropped at once, and a forgotten key's pending answer is never
- * kept, so the next read is fresh. */
+ * kept, so the next read is fresh: a load that forgets its own key (a read the budget refused) keeps its
+ * answer from the callers after it. */
 function keptFor<T>(clock: () => number) {
   const kept = new Map<string, { at: number; value: Promise<T> }>();
   return {

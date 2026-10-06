@@ -132,6 +132,21 @@
   font-size: 13px;
 }
 .stage-links li + li::before { content: '·'; color: var(--ask-muted); margin-right: 12px; }
+/* When GitHub was last read, under the links (PRD 902, s2), and when it resumes while paused. */
+.github-as-of { margin: 4px 0 0; font-size: 12px; }
+/* The open feature PR's health chip (PRD 790, s2): green-edged when all is well, red on CI red or a
+   conflict, grey while CI runs. */
+.care-chip {
+  display: inline-block;
+  font: 600 12px/1 var(--ask-mono);
+  border: 1px solid var(--ask-green);
+  color: var(--ask-ink);
+  border-radius: 999px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.care-chip.care-red { border-color: var(--ask-red); color: var(--ask-red); }
+.care-chip.care-grey { border-color: var(--ask-line-strong); color: var(--ask-muted); }
 
 .dossier-repos { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .dossier-repo {
@@ -550,6 +565,24 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .dossier-history-actions { grid-column: 1 / -1; margin: 0; display: flex; align-items: center; gap: 16px; }
 .ask a.dossier-history-clear { color: var(--ask-muted); font-size: 15px; }
 
+/* /prd's own filters (issue #703): Mine / All beside the heading, the search and Filter joined on one bar,
+   the repository, draft or PRD and the outbox box folded under More filters, which opens by itself when one
+   of them is set. /visual and /bugs keep the card above. */
+.dossier-history-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; min-width: 0; }
+.dossier-history-head .dossier-history-whos { margin: 0; }
+.dossier-history-find { display: grid; gap: 8px; min-width: 0; }
+.dossier-history-line { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; min-width: 0; }
+.dossier-history-bar { display: flex; flex: 1 1 280px; min-width: 0; }
+/* The search is one half of a bar that spans the list with the fold under it, so it is not held to the
+   900 px of a lone field (src/ask/ask.css). */
+.dossier-history-bar .ask-share-link { flex: 1 1 auto; max-width: none; font-size: 15px; padding: 12px 14px; border-right: 0; border-radius: 10px 0 0 10px; }
+.dossier-history-bar .ask-button { flex: none; padding: 0 22px; border-radius: 0 10px 10px 0; }
+.dossier-history-more { min-width: 0; padding: 0 14px; border: 1.5px solid var(--ask-line-strong); border-radius: 10px; }
+.dossier-history-more[open] { padding-bottom: 14px; background: var(--ask-surface); }
+.dossier-history-more summary { cursor: pointer; padding: 10px 0; font-size: 15px; font-weight: 700; }
+.dossier-history-more summary .ask-hint { margin-left: 6px; font-size: 13px; font-weight: 400; }
+.dossier-history-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+
 /* Mine / All (PRD 413): two links, the current one filled. */
 .dossier-history-whos { display: inline-flex; gap: 4px; margin: 0 0 12px; padding: 4px; background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); border-radius: 999px; }
 .ask a.dossier-history-who { font: 700 14px/1 var(--ask-body); color: var(--ask-ink); text-decoration: none; padding: 8px 16px; border-radius: 999px; }
@@ -572,6 +605,10 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .ask a.dossier-history-row:hover { border-color: var(--ask-plasma); }
 .ask a.dossier-history-row:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
 .dossier-history-title { font-size: 19px; font-weight: 700; line-height: 1.3; text-wrap: balance; overflow-wrap: anywhere; }
+/* A row's first line (issue #703): the title, and its stage pill at the card's right edge at the track's
+   12 px, not the title's 19; on a phone the pill takes its own line above the title. */
+.dossier-history-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+.dossier-history-top .stage-stop { flex: none; margin-top: 2px; padding: 6px 10px; font: 800 12px/1 var(--ask-mono); }
 .dossier-history-facts { display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; min-width: 0; }
 .dossier-history-artifacts { display: inline-flex; gap: 6px; flex-wrap: wrap; }
 .dossier-history-artifact {
@@ -587,6 +624,9 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 @media (max-width: 719.98px) {
   .dossier-title { font-size: 23px; }
   .ask a.dossier-history-row { padding: 12px 14px; }
+  .dossier-history-top { flex-direction: column-reverse; gap: 8px; }
+  .dossier-history-top .stage-stop { margin-top: 0; }
+  .dossier-history-stages { flex-wrap: nowrap; overflow-x: auto; min-width: 0; padding-bottom: 2px; }
   .dossier-actions { justify-content: flex-start; }
   .dossier-head { padding-top: 14px; }
   .dossier-facts { display: grid; gap: 12px; margin: 0; clip-path: none; }
@@ -642,3 +682,117 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .fix-moment-done::before { background: var(--ask-plasma); border-color: var(--ask-plasma); }
 .fix-moment-label { font-weight: 700; }
 .fix-moment:not(.fix-moment-done) .fix-moment-label { color: var(--ask-muted); }
+
+/* The PR care tab (PRD 790, s4): the CI, Conflicts and Review rows, one line per review thread (asked
+   first, its verdict in red), then the watcher line. */
+.care-rows { display: grid; gap: 6px; margin: 0 0 16px; }
+.care-row { display: flex; gap: 12px; align-items: baseline; }
+.care-row dt { width: 88px; flex: none; font-weight: 600; color: var(--ask-muted); }
+.care-row dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.care-ci-red dd, .care-conflict-conflict dd { color: var(--ask-red); font-weight: 600; }
+.care-ci-green dd { color: var(--ask-green); font-weight: 600; }
+.care-threads { list-style: none; margin: 0 0 16px; padding: 0; border-top: 1px solid var(--ask-line); }
+.care-thread {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ask-line);
+}
+.care-first, .care-verdict { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.care-verdict-asked .care-verdict strong { color: var(--ask-red); }
+.care-watcher { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ask-muted); }
+.care-watcher.care-watching { color: var(--ask-ink); }
+
+/* The User voice tab (PRD 822, s3): the Rework button, then a grid of personas by rounds that scrolls
+   inside its own box at 393 px, never the page, each score a <details> holding its
+   reaction; then each round with its fit line and its objection, outlined. */
+.voice { display: grid; gap: 16px; min-width: 0; }
+.voice-rework { display: flex; flex-wrap: wrap; gap: 8px; }
+.voice-scroll { max-width: 100%; overflow-x: auto; border: 1.5px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
+.voice-grid { border-collapse: collapse; min-width: 100%; }
+.voice-grid th,
+.voice-grid td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--ask-line); }
+.voice-grid thead th { font-weight: 700; white-space: nowrap; color: var(--ask-muted); }
+.voice-grid thead th small { display: block; font-weight: 400; }
+.voice-grid th[scope='row'] {
+  width: 280px;
+  max-width: min(280px, 55vw);
+  font-weight: 400;
+  background: var(--ask-surface);
+}
+.voice-persona { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.voice-portrait { flex: none; line-height: 0; border-radius: 6px; background: var(--ask-sunk); }
+.voice-portrait svg { display: block; image-rendering: pixelated; }
+.voice-portrait-none { display: grid; place-items: center; width: 32px; height: 32px; font: 700 14px/32px var(--ask-mono); color: var(--ask-muted); }
+.voice-who { display: grid; gap: 4px; justify-items: start; min-width: 0; }
+.voice-stance { font: 700 11px/1 var(--ask-mono); padding: 4px 7px; border-radius: 999px; border: 1px solid var(--ask-line-strong); }
+.voice-stance[data-stance='excited'] { color: var(--ask-green); border-color: var(--ask-green); }
+.voice-stance[data-stance='neutral'] { color: var(--ask-muted); border-color: var(--ask-muted); }
+.voice-stance[data-stance='skeptical'] { color: var(--ask-red); border-color: var(--ask-red); }
+.voice-latest { font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }
+.voice-cell { min-width: 96px; }
+.voice-objected { outline: 2px solid var(--ask-yellow); outline-offset: -4px; border-radius: 8px; }
+.voice-score summary { cursor: pointer; display: inline-flex; gap: 6px; align-items: baseline; font: 16px/1.2 var(--ask-mono); }
+.voice-move[data-move='up'] { color: var(--ask-green); }
+.voice-move[data-move='down'] { color: var(--ask-red); }
+.voice-move[data-move='the same'] { color: var(--ask-muted); }
+.voice-reaction { margin: 6px 0 0; max-width: 240px; font-size: 14px; overflow-wrap: anywhere; }
+.voice-none { color: var(--ask-muted); }
+.voice-rounds { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.voice-round h3 { margin: 0 0 6px; font-size: 16px; }
+.voice-fit { margin: 0 0 6px; font: 13px/1.4 var(--ask-mono); color: var(--ask-muted); overflow-wrap: anywhere; }
+.voice-objection {
+  margin: 0;
+  padding: 10px 14px;
+  border: 2px solid var(--ask-yellow);
+  border-radius: 10px;
+  background: var(--ask-surface);
+  overflow-wrap: anywhere;
+}
+.voice-objection p { margin: 0 0 4px; }
+.voice-cites { font: 12px/1.4 var(--ask-mono); color: var(--ask-muted); }
+.voice-settled { font-weight: 700; }
+
+/* ── The Proof tab (PRD 798, s4): the run's facts and counts, then a row per criterion with its mark,
+   its note, a player at most 960 px wide (a 1280 × 720 clip, scaled to the width on a phone) and its
+   script behind a fold that scrolls sideways rather than widen the page. ── */
+
+.proof-facts { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; }
+.proof-facts > div { display: grid; gap: 2px; min-width: 0; }
+.proof-facts dt { font-size: 12px; color: var(--ask-muted); }
+.proof-facts dd { margin: 0; overflow-wrap: anywhere; }
+.proof-counts { display: flex; gap: 12px; }
+.proof-mark { font-weight: 700; flex: none; }
+.proof-mark.proof-pass { color: var(--ask-green); }
+.proof-mark.proof-fail { color: var(--ask-red); }
+.proof-mark.proof-unfilmable { color: var(--ask-muted); }
+.proof-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; max-width: 960px; min-width: 0; }
+.proof-row {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 16px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-left-width: 4px;
+  border-radius: 12px;
+}
+.proof-row.proof-pass { border-left-color: var(--ask-green); }
+.proof-row.proof-fail { border-left-color: var(--ask-red); }
+.proof-criterion { display: flex; gap: 10px; margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.proof-note { margin: 0; color: var(--ask-muted); font: 13px/1.5 var(--ask-mono); overflow-wrap: anywhere; }
+.proof-video { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--ask-sunk); border-radius: 8px; }
+.proof-script { min-width: 0; }
+.proof-script > summary { cursor: pointer; font-weight: 700; }
+.proof-script[open] > summary { margin-bottom: 8px; }
+.proof-script pre {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 480px;
+  overflow: auto;
+  font: 12px/1.5 var(--ask-mono);
+  background: var(--ask-sunk);
+  border-radius: 8px;
+}

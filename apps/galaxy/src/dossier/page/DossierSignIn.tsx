@@ -1,6 +1,5 @@
 'use client';
-import { useState } from 'react';
-import { startGithubSignIn } from '../../data/sign-in-github';
+import { useGithubSignIn } from '../../ask/page/GithubSignInCard';
 
 // Signed out on /prd/<id> or /prd (PRD 216): the galaxy's GitHub sign-in, as on the ask pages
 // (PRD 359; src/data/sign-in-github.ts), coming back to the page's own callback, which exchanges the
@@ -31,18 +30,7 @@ const COPY = {
 export function DossierSignIn({ supabase, returnPath, error, what = 'dossier' }: {
   supabase: Supabase; returnPath: string; error?: string | null; what?: keyof typeof COPY;
 }) {
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(error ?? null);
-
-  async function signIn() {
-    setBusy(true);
-    setProblem(null);
-    const failed = await startGithubSignIn(supabase, `${window.location.origin}${returnPath}`);
-    if (failed) {
-      setProblem(failed);
-      setBusy(false);
-    }
-  }
+  const { busy, problem, signIn } = useGithubSignIn({ supabase, returnPath, error });
 
   return (
     <div className="ask-col">
@@ -52,7 +40,7 @@ export function DossierSignIn({ supabase, returnPath, error, what = 'dossier' }:
           {COPY[what].body} Sign in with your GitHub account, and you come straight back here.
         </p>
         {problem && <p className="ask-error" role="alert">{problem}</p>}
-        <button type="button" className="ask-button" onClick={signIn} disabled={busy}>
+        <button type="button" className="ask-button" onClick={() => void signIn()} disabled={busy}>
           {busy ? 'Opening GitHub…' : 'Sign in with GitHub'}
         </button>
       </section>

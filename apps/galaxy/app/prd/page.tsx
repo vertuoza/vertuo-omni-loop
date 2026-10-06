@@ -1,13 +1,14 @@
+import 'server-only';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { arcadeMode } from '../../src/data/mode';
+import { serverEnv } from '../../src/env';
 import type { DossierListRow } from '../../src/dossier/store';
 import { DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/demo';
 import { DossierHistory } from '../../src/dossier/page/DossierHistory';
 import { DossierSignIn } from '../../src/dossier/page/DossierSignIn';
 import {
   HISTORY_CALLBACK, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds, readOpenCounts,
-  whoLogin, type CurrentStages, type OpenCounts, type Whom,
+  rosterReader, whoLogin, type CurrentStages, type OpenCounts, type Whom,
 } from '../../src/dossier/page/history';
 import { DossierDatabaseDown, DossiersClosed, dossierSession } from '../../src/dossier/page/route-gate';
 import { readHistory } from '../../src/dossier/page/source';
@@ -45,10 +46,10 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
 
 /** The demo's stored outboxes: the demo dossier's PRD, counted from its built-in summary. */
 const DEMO_READER: Pick<PrdOutboxStore, 'countsOf'> = {
-  countsOf: async (_workspace, prds) => {
+  countsOf: (_workspace, prds) => {
     const demo = countsOf(DEMO_GITHUB);
     const key = prdKey({ repository: DEMO_GITHUB.repo, prd: DEMO_GITHUB.prd });
-    return new Map(demo ? prds.filter((p) => prdKey(p) === key).map((p): [string, OutboxCounts] => [prdKey(p), demo]) : []);
+    return Promise.resolve(new Map(demo ? prds.filter((p) => prdKey(p) === key).map((p): [string, OutboxCounts] => [prdKey(p), demo]) : []));
   },
 };
 
@@ -62,7 +63,7 @@ export default async function HistoryRoute({ searchParams }: Props) {
     />
   );
   const login = whoLogin(filters.who);
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
 
   if (mode === 'demo') {
     const rows = ofWork(demoHistory(Date.now()), 'prd');
@@ -82,11 +83,7 @@ export default async function HistoryRoute({ searchParams }: Props) {
       console.error(error);
       return <DossierDatabaseDown />;
     }
-    const whom = login ? await readLoginIds(rows, login, async (workspace) => {
-      const { data, error } = await db.rpc('workspace_roster', { workspace });
-      if (error) throw new Error(error.message);
-      return data ?? [];
-    }) : undefined;
+    const whom = login ? await readLoginIds(rows, login, rosterReader(db)) : undefined;
     const [open, stages] = await Promise.all([
       readOpenCounts(historyToRead(rows, filters, userId, whom), prdOutboxStore(db)),
       readCurrentStages(rows, stageStore(db)),

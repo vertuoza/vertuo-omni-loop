@@ -3,6 +3,8 @@
 // bottom rule — the tabs' rule spanning the whole header, and the PRD list free of its width cap.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 const CSS = readFileSync(new URL('./dossier.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -10,12 +12,15 @@ const CSS = readFileSync(new URL('./dossier.css', import.meta.url), 'utf8').repl
 function declarations(selector: string): string[] {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const rules = [...CSS.matchAll(new RegExp(`(?:^|[}{;])\\s*${escaped}\\s*\\{([^}]*)\\}`, 'g'))];
-  return rules.flatMap(([, body]) => body.split(';').map((d) => d.trim().replace(/\s+/g, ' ')).filter(Boolean));
+  return rules.flatMap(([, body]) => {
+    assertDefined(body, `the body of a ${selector} rule`);
+    return body.split(';').map((d) => d.trim().replace(/\s+/g, ' ')).filter(Boolean);
+  });
 }
 
-const props = (selector: string) => declarations(selector).map((d) => d.split(':')[0].trim());
+const props = (selector: string) => declarations(selector).map((d) => firstPart(d, ':').trim());
 const value = (selector: string, prop: string) =>
-  declarations(selector).filter((d) => d.split(':')[0].trim() === prop).map((d) => d.slice(d.indexOf(':') + 1).trim());
+  declarations(selector).filter((d) => firstPart(d, ':').trim() === prop).map((d) => d.slice(d.indexOf(':') + 1).trim());
 
 describe('the PRD header frame', () => {
   it('has no rounded corners and no side or top border', () => {
@@ -52,5 +57,11 @@ describe('the PRD header frame', () => {
 describe('the PRD list', () => {
   it('declares no max-width', () => {
     expect(props('.dossier-history')).not.toContain('max-width');
+  });
+
+  it('draws a row\'s stage pill at its own 12 px, at the card\'s right edge, and above the title on a phone (issue #703)', () => {
+    expect(value('.dossier-history-top .stage-stop', 'font')).toEqual(['800 12px/1 var(--ask-mono)']);
+    expect(value('.dossier-history-top', 'justify-content')).toEqual(['space-between']);
+    expect(CSS).toMatch(/@media \(max-width: 719\.98px\) \{[^@]*\.dossier-history-top \{ flex-direction: column-reverse;/);
   });
 });

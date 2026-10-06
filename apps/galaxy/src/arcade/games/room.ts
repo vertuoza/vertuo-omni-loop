@@ -1,6 +1,6 @@
 // What the game room shows, as pure functions: the player's XP state, the level on their badge, the
 // words for each state, and the cabinets. The numbers come from the player's player_xp row, and the
-// curve and the unlock levels from the rulebook's `xp` block, through game/experience.mjs.
+// curve and the unlock levels from the rulebook's `xp` block, through game/experience.ts.
 import { xpForLevel, XP_RULES, type XpRules } from '@omni/galaxy';
 import type { SceneName } from '../scenes/common.ts';
 import type { XpRead } from '../types';

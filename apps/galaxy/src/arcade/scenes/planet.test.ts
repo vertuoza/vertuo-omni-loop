@@ -12,7 +12,10 @@ import { DEFAULT_THEME } from '../theme';
 import type { DossiersRead, FleetRow, PlanetDossier } from '../types';
 import { TALL, WIDE, type FrameState, type Grid } from './common.ts';
 import { drawPlanetScene, planetStage, TALL_BAND, TALL_SCENES } from './planet.ts';
-import { DOSSIER_TAB, dossierLink, dossierOf, PLANET_TABS, PlanetOverlay, type DossierShown } from './planet.tsx';
+import { DOSSIER_TAB, dossierLink, dossierOf, PLANET_TABS, PlanetOverlay, statusRows, type DossierShown } from './planet.tsx';
+import { twinEvents, twinGalaxy } from '../test/twins.fake';
+import { sure } from '../test/sure';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
@@ -44,7 +47,12 @@ function recorder() {
 }
 
 class FakeOffscreenCanvas {
-  constructor(public width: number, public height: number) {}
+  width: number;
+  height: number;
+  constructor(width: number, height: number) {
+    this.width = width;
+    this.height = height;
+  }
   getContext() { return recorder().ctx; }
 }
 
@@ -57,9 +65,9 @@ function frame(sel: number, t: number, grid: Grid): FrameState {
 
 /** A planet of the demo galaxy with every fleet on station, one of them without a mascot (a hero stand-in, 48 px tall). */
 function crowded(): Planet {
-  const p = view.planets.find((x) => x.state === 'distress')!;
+  const p = sure(view.planets.find((x) => x.state === 'distress'), 'view.planets.find((x) => x.state === "distress")');
   const teams = ['no-mascot-fleet', ...fleets.map((f) => f.name)]; // five fly: the stand-in among them
-  return { ...p, zones: teams.map((team, i) => ({ id: `s${i + 1}`, region: 'vertuo-core', wave: 1, state: 'claimed', contributor: 'dime', team, at: p.chartedAt! })) } as Planet;
+  return { ...p, zones: teams.map((team, i) => ({ id: `s${i + 1}`, region: 'vertuo-core', wave: 1, state: 'claimed', contributor: 'dime', team, at: sure(p.chartedAt, 'p.chartedAt') })) };
 }
 
 describe('the planet on the tall grid', () => {
@@ -174,10 +182,10 @@ const DOSSIER: PlanetDossier = {
 };
 
 describe('the planet\'s tabs', () => {
-  const p = view.planets.find((x) => x.state === 'distress')!;
+  const p = sure(view.planets.find((x) => x.state === 'distress'), 'view.planets.find((x) => x.state === "distress")');
   const tabs = (grid: Grid) => {
     const html = htmlOf(createElement(PlanetOverlay, { view, planet: p, tab: 0, onTab: () => {}, dossier: 'none' }), grid);
-    return [...html.matchAll(/role="tab"[^>]*>([^<]+)</g)].map((m) => m[1].replace(/ \d+$/, ''));
+    return [...html.matchAll(/role="tab"[^>]*>([^<]+)</g)].map((m) => sure(m[1], 'm[1]').replace(/ \d+$/, ''));
   };
 
   it('read STATUS · ZONES · ENTROPY · LOG · DOSSIER, on the wide grid and the tall one', () => {
@@ -190,7 +198,7 @@ describe('the planet\'s tabs', () => {
 
 describe('the DOSSIER tab', () => {
   beforeAll(() => { setFleets(fleets); });
-  const p = view.planets.find((x) => x.state === 'distress')!;
+  const p = sure(view.planets.find((x) => x.state === 'distress'), 'view.planets.find((x) => x.state === "distress")');
   const shown = (dossier: DossierShown, grid: Grid, tab = DOSSIER_TAB, form: 'full' | 'handheld' = 'full') =>
     textOf(createElement(PlanetOverlay, { view, planet: p, tab, onTab: () => {}, dossier }), grid, form);
   const body = (text: string[]) => text.slice(text.indexOf('DOSSIER') + 1, text.lastIndexOf('◀ ▶ TABS · ▲ ▼ NEXT PLANET · B MAP'));
@@ -266,6 +274,42 @@ describe('dossierOf', () => {
     expect(dossierOf(read, 985)).toBe('none');
     expect(dossierOf('unreadable', 2410)).toBe('unreadable');
     expect(dossierOf(undefined, 2410)).toBe('none');
+  });
+
+  describe('names the home (PRD 728)', () => {
+    const twins = twinGalaxy();
+    const [plan, tools] = twins.planets;
+    assertDefined(plan, 'plan');
+    assertDefined(tools, 'tools');
+    const other = { ...DOSSIER, id: 'd-tools-88', url: '/prd/d-tools-88' };
+
+    it('gives each of two repositories\' PRD 88 the dossier of its own home', () => {
+      const byHome: DossiersRead = { 'acme/plan#88': DOSSIER, 'acme/tools#88': other };
+      expect(dossierOf(byHome, plan, twins.planets)).toBe(DOSSIER);
+      expect(dossierOf(byHome, tools, twins.planets)).toBe(other);
+      expect(dossierLink(byHome, tools, DOSSIER_TAB, twins.planets)).toBe('/prd/d-tools-88');
+    });
+
+    it('reads a dossier kept by number alone only when no other planet holds that number', () => {
+      const byNumber: DossiersRead = { 88: DOSSIER };
+      expect(dossierOf(byNumber, plan, twins.planets)).toBe('none');
+      expect(dossierOf(byNumber, tools, twins.planets)).toBe('none');
+      const one = twinGalaxy(twinEvents('acme/plan', 'beaver', 'bob'));
+      expect(dossierOf(byNumber, sure(one.planets[0], 'one.planets[0]'), one.planets)).toBe(DOSSIER);
+    });
+  });
+});
+
+describe('the status tab of a twin (PRD 728)', () => {
+  it('names as a blocker the planet of the same home, never its twin', () => {
+    const twins = twinGalaxy([
+      ...twinEvents('acme/plan', 'beaver', 'bob'),
+      ...twinEvents('acme/tools', 'octopod', 'alice'),
+      ...twinEvents('acme/tools', 'octopod', 'alice', 90, [{ id: 'planet:acme/tools#90:locked:88', at: '2026-09-03T08:00:00Z', type: 'PLANET_LOCKED', data: { blocker: 88 } }]),
+    ]);
+    const locked = sure(twins.planets.find((p) => p.key === 'acme/tools#90'), 'twins.planets.find((p) => p.key === "acme/tools#90")');
+    const row = sure(statusRows(locked, twins).find((r) => r.label === 'BLOCKED BY'), 'statusRows(locked, twins).find((r) => r.label === "BLOCKED BY")');
+    expect(row.value).toBe('#88 88 of acme/tools');
   });
 });
 

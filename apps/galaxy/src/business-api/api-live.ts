@@ -1,0 +1,13 @@
+import 'server-only';
+import { supabaseAs, supabaseEnv } from '../data/supabase-server';
+import { installUrl } from '../signup/github-app';
+import type { BusinessDeps } from './api';
+import { serverEnv } from '../env';
+
+// The business API's real dependencies: a Supabase client per call, acting as the caller's access
+// token (never a service key), so business_for_repo() checks who calls and row-level security has the
+// last word. Without Supabase configured (the demo galaxy, a closed build) every call answers 503.
+export function businessDeps(): BusinessDeps {
+  if (!supabaseEnv()) return { connect: null };
+  return { connect: supabaseAs, installLink: installUrl(serverEnv().githubAppSlug) };
+}

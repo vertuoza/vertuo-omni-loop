@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1030 · No escape hatches</title>
+<style>
+  :root { --bg: #f7f7f5; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e2dc; --bad: #b42318; --good: #157f3d; --code: #f0f0eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141413; --card: #1e1e1c; --ink: #ecece8; --muted: #a3a39c; --line: #33332f; --bad: #f97066; --good: #4ade80; --code: #262623; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lede { color: var(--muted); margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 12px; color: var(--muted); }
+  h3 { font-size: 15px; margin: 18px 0 6px; }
+  h3:first-of-type { margin-top: 0; }
+  pre { background: var(--code); border-radius: 6px; padding: 10px 12px; margin: 0; overflow-x: auto; font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+  .bad { color: var(--bad); } .good { color: var(--good); } .muted { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td, th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .same { margin-top: 20px; }
+  ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>PRD 1030 · No escape hatches left</h1>
+  <p class="lede">Nothing on screen changes. What changes is that outside data is checked, and no line of source can tell the compiler "trust me".</p>
+  <div class="grid">
+    <section>
+      <h2>Today</h2>
+      <h3>A database row, taken on its word</h3>
+<pre>const { data } = await db.from('claims').select(CLAIM_COLUMNS);
+return claimOf(data as StoredClaim); <span class="muted">// ts-allow: the select names CLAIM_COLUMNS…</span>
+<span class="bad">a renamed column flows on as undefined, and breaks far away</span></pre>
+      <h3>A game object, taken on its word</h3>
+<pre>const body = this.hero.body as Body; <span class="muted">// ts-allow: physics.add made it</span></pre>
+      <h3>A saved Inngest step, trusted</h3>
+<pre>const facts = await step.run('gather', gather);
+<span class="bad">a deploy that changed the step's shape goes unnoticed (s19-01)</span></pre>
+      <h3>A contract test that checks nothing</h3>
+<pre>import type * as Contract from './index.d.ts'; <span class="muted">// resolves to index.ts</span>
+<span class="bad">the code is compared with itself (s6-02)</span></pre>
+      <h3>The ratchet</h3>
+<table>
+  <tr><th>Area</th><th class="n">ts-allow lines</th></tr>
+  <tr><td>apps/galaxy</td><td class="n">113</td></tr>
+  <tr><td>kit</td><td class="n">19</td></tr>
+  <tr><td>apps/omni-app</td><td class="n">17</td></tr>
+  <tr><td>packages</td><td class="n">5</td></tr>
+  <tr><td><strong>Total</strong></td><td class="n"><strong>154</strong></td></tr>
+</table>
+    </section>
+    <section>
+      <h2>After</h2>
+      <h3>The row is parsed where it comes in</h3>
+<pre>const ClaimRow = z.object({ id: z.string(), kind: z.enum(KINDS), … });
+type StoredClaim = z.infer&lt;typeof ClaimRow&gt;;
+return parseRows(ClaimRow, answer, 'business/store · claims');
+<span class="good">a mismatch is the failed read the page already handles,
+logged with the module and the field: "claims.0.kind"</span></pre>
+      <h3>The engine's guarantee is checked</h3>
+<pre>const body = bodyOf(this.hero); <span class="muted">// instanceof, throws if not</span></pre>
+      <h3>Saved steps are parsed when read back</h3>
+<pre>const facts = FactSheet.parse(await step.run('gather', gather));</pre>
+      <h3>The package publishes its own source</h3>
+<pre>"types": "./src/index.ts"  <span class="muted">index.d.ts and contract.test.ts deleted</span></pre>
+      <h3>The guard</h3>
+<pre><span class="good">0 everywhere. ceilings file and ts-allow deleted:</span>
+x as Foo // ts-allow: anything   <span class="bad">✗ refused</span>
+x as const                       <span class="good">✓ allowed</span>   <span class="muted">tests: free, as today</span></pre>
+    </section>
+  </div>
+  <section class="same">
+    <h2>How we know nothing breaks</h2>
+    <ul>
+      <li>Every schema is tested on the module's fixtures, and refuses a missing column, a wrong type and a forbidden null.</li>
+      <li><code>pnpm schemas:verify --local</code> parses every boundary's real read against the migrated, seeded database in CI.</li>
+      <li><code>pnpm schemas:verify --production</code> does the same, read-only, against production once before ship.</li>
+      <li><code>pnpm galaxy:shots</code> walks every arcade scene and <code>/app</code> with no page error.</li>
+    </ul>
+  </section>
+  <section class="same">
+    <h2>What stays the same</h2>
+    <ul>
+      <li>Every page, command and output: a value that parses is the same value.</li>
+      <li>The database: no migration, no table or route change.</li>
+      <li>Tests, which may still cast their fixtures.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

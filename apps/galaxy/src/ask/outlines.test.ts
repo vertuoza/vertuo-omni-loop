@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
+import { item, present } from './test/test-item';
 
 // PRD 476: on every page drawn in Ask's colours, what the eye must find (a chip, a badge, a card or
 // panel, a control, a tab) is outlined with --ask-line-strong, at 3:1 against what it sits on.
@@ -25,8 +26,8 @@ const RULES = FOLDERS.flatMap((folder) => stylesheets(join(SRC, folder))).flatMa
   const file = relative(SRC, path);
   return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
     file,
-    selector: m[1].trim().split('\n').pop()!.trim(),
-    body: m[2],
+    selector: present(item(m, 1).trim().split('\n').pop(), 'the outline\'s last line').trim(),
+    body: item(m, 2),
   }));
 });
 
@@ -40,8 +41,10 @@ const DIVIDERS = new Set([
   'nav/sidebar.css .app-shell > .app-sidebar',
   'nav/sidebar.css .app-shell > .app-sidebar[data-open]',
   'nav/sidebar.css .app-sidebar-foot',
+  "nav/sidebar.css .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-group + .app-sidebar-group",
   'dashboard/week/week.css .dash-week-grid',
   'dashboard/rankings/rankings.css .dash-rank-table tbody td',
+  'dashboard/board/board.css .board-chart-head',
   'dashboard/board/board.css .board-grid',
   'dashboard/board/board.css .board-table td',
   'docs/docs.css .docs-md h2',

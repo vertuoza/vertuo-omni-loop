@@ -46,7 +46,7 @@ Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-5
 
-kit/build.mjs builds a byte-identical bundle wherever it is started from, with the working directory pinned to the repository root, and tests build to a scratch file rather than overwriting the committed kit/dist/omni.mjs.
+kit/build.ts builds a byte-identical bundle wherever it is started from, with the working directory pinned to the repository root, and tests build to a scratch file rather than overwriting the committed kit/dist/omni.mjs.
 
 Source: .omni-loop/delivery/shipped/0039-omni-init/outbox/settled.md, entry s3-03-build-script-outfile-and-fixed-working-dir, PRD #39
 Enforced by: unenforced

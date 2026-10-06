@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product select arrow</title>
+<style>
+  :root {
+    --ask-ground: #f5f4fc; --ask-surface: #ffffff; --ask-sunk: #eceaf8; --ask-line: #d9d6ee;
+    --ask-line-strong: #85819f; --ask-ink: #17153d; --ask-muted: #4f5486; --ask-plasma: #6a2fd0;
+    --ask-plasma-soft: #efe7ff; --ask-cyan: #0b6f86;
+    --ask-body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px 48px; background: var(--ask-ground); color: var(--ask-ink); font-family: var(--ask-body); }
+  main { max-width: 760px; margin: 0 auto; display: grid; gap: 28px; }
+  h1 { font-size: 22px; margin: 0; }
+  .lede { margin: 4px 0 0; color: var(--ask-muted); }
+  section { display: grid; gap: 10px; }
+  h2 { font-size: 17px; margin: 0; }
+  h2 span { color: var(--ask-muted); font-weight: 400; font-size: 15px; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+  /* The real row, copied from apps/galaxy/src/repositories/repositories.css */
+  .repositories-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; padding: 14px 16px;
+    background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .repositories-name { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; }
+  .repositories-name strong { color: var(--ask-ink); }
+  .repositories-collection { font-size: 14px; color: var(--ask-muted); }
+  .repositories-product { max-width: 100%; font: 600 14px/1.2 var(--ask-body); color: var(--ask-ink);
+    background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); border-radius: 8px; padding: 6px 10px; }
+  .repositories-product:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+  .repositories-switch { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ask-muted); }
+  .repositories-toggle { position: relative; width: 44px; height: 24px; padding: 0; border-radius: 12px;
+    border: 1.5px solid var(--ask-plasma); background: var(--ask-plasma-soft); }
+  .repositories-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px;
+    border-radius: 50%; background: var(--ask-plasma); transform: translateX(20px); }
+
+  /* A: a drawn chevron, inset with room to breathe */
+  .va .repositories-product { appearance: none; -webkit-appearance: none; padding: 6px 34px 6px 12px;
+    background: var(--ask-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%234f5486' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center; }
+
+  /* B: the arrow in its own compartment, behind a divider */
+  .vb .repositories-product { appearance: none; -webkit-appearance: none; padding: 6px 44px 6px 12px;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2317153d' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 11px center,
+      linear-gradient(var(--ask-line-strong), var(--ask-line-strong)) no-repeat right 33px center / 1.5px 100%,
+      linear-gradient(var(--ask-sunk), var(--ask-sunk)) no-repeat right center / 33px 100%,
+      var(--ask-surface); }
+
+  /* C: a solid plasma caret, the brand colour marks it as a control */
+  .vc .repositories-product { appearance: none; -webkit-appearance: none; padding: 6px 32px 6px 12px;
+    background: var(--ask-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%236a2fd0'/%3E%3C/svg%3E") no-repeat right 12px center; }
+
+  /* D: the chevron in a soft round chip, like the toggle beside it */
+  .vd .repositories-product { appearance: none; -webkit-appearance: none; padding: 6px 38px 6px 12px;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1.5l4 4 4-4' fill='none' stroke='%236a2fd0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 13px center,
+      radial-gradient(circle 11px at calc(100% - 18px) 50%, var(--ask-plasma-soft) 10.5px, transparent 11px),
+      var(--ask-surface); }
+
+  /* E: up and down chevrons, a list you scroll through */
+  .ve .repositories-product { appearance: none; -webkit-appearance: none; padding: 6px 32px 6px 12px;
+    background: var(--ask-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14'%3E%3Cpath d='M1.5 5l3.5-3.5L8.5 5M1.5 9l3.5 3.5L8.5 9' fill='none' stroke='%234f5486' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center; }
+
+  .full { display: grid; gap: 20px; }
+  .not-picked { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .not-picked section { font-size: 13px; }
+  .not-picked .repositories-row { padding: 10px 12px; }
+  [data-omni-pick] { margin: 6px 0 0; font-weight: 700; color: var(--ask-plasma); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>The product select's arrow (#1010)</h1>
+    <p class="lede">Settings → Repositories, light theme. The browser's own arrow sat flush against the select's edge; it now sits in its own compartment.</p>
+    <p data-omni-pick>Picked B by @pierrederval on 2026-10-02</p>
+  </header>
+  <div class="full">
+    <section class="today"><h2>Today <span>the browser's own arrow, flush against the edge</span></h2><ul><li class="repositories-row">
+      <div class="repositories-name"><strong>vertuoza/vertuo-omni-loop</strong><span class="repositories-collection">Collected 2 hours ago</span></div>
+      <select class="repositories-product" aria-label="Product"><option>Vertuoza</option></select>
+      <div class="repositories-switch"><span>Tracked</span><button type="button" class="repositories-toggle" role="switch" aria-checked="true" aria-label="Tracked"></button></div>
+    </li><li class="repositories-row">
+      <div class="repositories-name"><strong>vertuoza/vertuo-ops</strong><span class="repositories-collection">Collected 2 hours ago</span></div>
+      <select class="repositories-product" aria-label="Product"><option>Vertuo Ops</option></select>
+      <div class="repositories-switch"><span>Tracked</span><button type="button" class="repositories-toggle" role="switch" aria-checked="true" aria-label="Tracked"></button></div>
+    </li></ul></section>
+    <section class="vb"><h2>The pick: B <span>the arrow in its own tinted compartment, behind a divider</span></h2><ul><li class="repositories-row">
+      <div class="repositories-name"><strong>vertuoza/vertuo-omni-loop</strong><span class="repositories-collection">Collected 2 hours ago</span></div>
+      <select class="repositories-product" aria-label="Product"><option>Vertuoza</option></select>
+      <div class="repositories-switch"><span>Tracked</span><button type="button" class="repositories-toggle" role="switch" aria-checked="true" aria-label="Tracked"></button></div>
+    </li><li class="repositories-row">
+      <div class="repositories-name"><strong>vertuoza/vertuo-ops</strong><span class="repositories-collection">Collected 2 hours ago</span></div>
+      <select class="repositories-product" aria-label="Product"><option>Vertuo Ops</option></select>
+      <div class="repositories-switch"><span>Tracked</span><button type="button" class="repositories-toggle" role="switch" aria-checked="true" aria-label="Tracked"></button></div>
+    </li></ul></section>
+  </div>
+  <h2>Not picked</h2>
+  <div class="not-picked">
+    <section class="va"><h2>A <span>a drawn chevron, inset 12px, in the muted ink</span></h2><ul><li class="repositories-row">
+      <div class="repositories-name"><strong>vertuoza/vertuo-omni-loop</strong><span class="repositories-collection">Collected 2 hours ago</span></div>
+      <select class="repositories-product" aria-label="Product"><option>Vertuoza</option></select>
+      <div class="repositories-switch"><span>Tracked</span><button type="button" class="repositories-toggle" role="switch" aria-checked="true" aria-label="Tracked"></button></div>
+    </li></ul></section>
+    <section class="vc"><h2>C <span>a solid caret in plasma</span></h2><ul><li class="repositories-row">
+      <div class="repositories-name"><strong>vertuoza/vertuo-omni-loop</strong><span class="repositories-collection">Collected 2 hours ago</span></div>
+      <select class="repositories-product" aria-label="Product"><option>Vertuoza</option></select>
+      <div class="repositories-switch"><span>Tracked</span><button type="button" class="repositories-toggle" role="switch" aria-checked="true" aria-label="Tracked"></button></div>
+    </li></ul></section>
+    <section class="vd"><h2>D <span>a plasma chevron in a soft round chip</span></h2><ul><li class="repositories-row">
+      <div class="repositories-name"><strong>vertuoza/vertuo-omni-loop</strong><span class="repositories-collection">Collected 2 hours ago</span></div>
+      <select class="repositories-product" aria-label="Product"><option>Vertuoza</option></select>
+      <div class="repositories-switch"><span>Tracked</span><button type="button" class="repositories-toggle" role="switch" aria-checked="true" aria-label="Tracked"></button></div>
+    </li></ul></section>
+    <section class="ve"><h2>E <span>up-and-down chevrons</span></h2><ul><li class="repositories-row">
+      <div class="repositories-name"><strong>vertuoza/vertuo-omni-loop</strong><span class="repositories-collection">Collected 2 hours ago</span></div>
+      <select class="repositories-product" aria-label="Product"><option>Vertuoza</option></select>
+      <div class="repositories-switch"><span>Tracked</span><button type="button" class="repositories-toggle" role="switch" aria-checked="true" aria-label="Tracked"></button></div>
+    </li></ul></section>
+  </div>
+</main>
+</body>
+</html>

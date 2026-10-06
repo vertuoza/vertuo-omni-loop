@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { Form } from './form';
 import type { FullscreenPress } from './fullscreen';
 import { FullscreenButton, type FullscreenButtonProps } from './FullscreenButton';
+import { sure } from './test/sure';
 
 // The ⛶ button (PRD 451): on desktop, the one visible way into fullscreen besides F. Rendered as the
 // server would; the click and the mouse press are read off the element it returns, since nothing here
@@ -21,7 +22,7 @@ describe('the full-screen button', () => {
     expect(found).toHaveLength(1);
     expect(found[0]).toMatch(/^<button type="button" class="fs-button"/);
     expect(found[0]).toContain('title="Full screen (F)"');
-    expect(found[0]!.replace(/<[^>]+>/g, '').trim()).toBe('⛶');
+    expect(sure(found[0], 'found[0]').replace(/<[^>]+>/g, '').trim()).toBe('⛶');
   });
 
   it('hides while the page is fullscreen', () => {

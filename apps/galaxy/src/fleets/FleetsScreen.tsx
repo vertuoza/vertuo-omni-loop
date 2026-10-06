@@ -1,10 +1,13 @@
 import { Notice } from '../ask/page/Notice';
+import { SectionTabs } from '../nav/SectionTabs';
+import { SETTINGS_TABS } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
 import { FleetsPage, type FleetsPageProps } from './FleetsPage';
 
 // /app/settings/fleets in each situation (PRD 400 s3), decided once by the page: no database here; signed out
 // (sign in on /app, then come back); an account in no workspace; the fleets that could not be read;
 // or the fleets themselves, the owner's to change and a member's to read.
+// Every situation starts with the Settings tabs, Fleets · Repositories (PRD 733).
 
 export type FleetsScreenView =
   | { kind: 'closed' }
@@ -14,6 +17,15 @@ export type FleetsScreenView =
   | ({ kind: 'fleets' } & FleetsPageProps);
 
 export function FleetsScreen({ view }: { view: FleetsScreenView }) {
+  return (
+    <>
+      <SectionTabs label="Settings" tabs={SETTINGS_TABS} current="/app/settings/fleets" />
+      <FleetsBody view={view} />
+    </>
+  );
+}
+
+function FleetsBody({ view }: { view: FleetsScreenView }) {
   switch (view.kind) {
     case 'closed':
       return (
@@ -40,8 +52,7 @@ export function FleetsScreen({ view }: { view: FleetsScreenView }) {
         </Notice>
       );
     case 'fleets': {
-      const { kind: _, ...props } = view;
-      return <FleetsPage {...props} />;
+      return <FleetsPage source={view.source} owner={view.owner} fleets={view.fleets} mascots={view.mascots} />;
     }
   }
 }

@@ -3,6 +3,7 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { APP_HOME } from './switch';
+import { sure } from '../arcade/test/sure';
 
 vi.mock('server-only', () => ({}));
 const at = { path: '/app' };
@@ -10,7 +11,8 @@ vi.mock('next/navigation', () => ({ usePathname: () => at.path, useRouter: () =>
 
 // Every header of the app, as the server renders it (PRD 238). Two kinds since PRD 438:
 // - the app's pages (/app, /prd, /ask, /knowledge) sit in the app shell: the sidebar (the crest to
-//   /app, the Dashboard, Work, Settings and Omni groups since PRD 572, the page's item marked current) and the top bar (the trail
+//   /app, the Dashboard and Work groups since PRD 572, then Settings, Docs and Release notes at the foot since PRD 733, the
+//   page's entry marked current) and the top bar (the trail
 //   to the page since issue 704, the theme switch, then Game mode, last);
 // - the public pages (/releases, PRD 262, and /docs) keep the public top bar (TopBar, PRD 346): the
 //   OMNI LOOP mark to /app, its menu of Omni's pages (Release notes, Docs: no PRDs), Open the app →
@@ -28,7 +30,7 @@ type Layout = (props: { children: React.ReactNode }) => ReactElement | Promise<R
 /** A layout around an empty page, rendered at a path. */
 const renderAt = async (layout: Layout, path: string) => {
   at.path = path;
-  return renderToStaticMarkup((await layout({ children: createElement('p') })) as ReactElement);
+  return renderToStaticMarkup(await layout({ children: createElement('p') }));
 };
 
 /** The part of the markup from one tag to its end. */
@@ -41,7 +43,7 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '
 /** What a person can press, in order, by name: links and buttons, the Game mode dialog's own left out
  * (it is closed until Game mode opens it). */
 const controls = (bar: string) =>
-  [...bar.replace(/<dialog[\s\S]*?<\/dialog>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => text(m[2]));
+  [...bar.replace(/<dialog[\s\S]*?<\/dialog>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => text(sure(m[2], 'group 2')));
 
 /** The theme switch, Omni first (PRD 284), then Game mode. */
 const THEME_THEN_GAME = ['Omni', 'Light', 'Dark', 'Game mode'];
@@ -52,14 +54,15 @@ const APP_PAGES: Array<[string, Layout, string, string]> = [
   ['/app/fleet', AppLayout, '/app/fleet', 'Dashboard › Fleet'],
   ['/app/workspace', AppLayout, '/app/workspace', 'Dashboard › Workspace'],
   ['/app/engineering', AppLayout, '/app/engineering', 'Dashboard › Engineering'],
-  ['/app/settings/fleets', AppLayout, '/app/settings/fleets', 'Settings › Fleets'],
-  ['/app/settings/repositories', AppLayout, '/app/settings/repositories', 'Settings › Repositories'],
+  ['/app/settings/fleets', AppLayout, '/app/settings', 'Settings › Fleets'],
+  ['/app/settings/repositories', AppLayout, '/app/settings', 'Settings › Repositories'],
+  ['/app/settings/business', AppLayout, '/app/settings', 'Settings › Business'],
   ['/prd', DossierLayout, '/prd', 'Work › PRDs'],
   ['/prd/<id>', DossierLayout, '/prd', 'Work › PRDs'],
   ['/ask', AskLayout, '/ask', 'Work › Questions'],
   ['/ask/<session>', AskLayout, '/ask', 'Work › Questions'],
-  ['/ask/for-me', AskLayout, '/ask/for-me', 'Work › Questions › Shared with me'],
-  ['/ask/history', AskLayout, '/ask/history', 'Work › Questions › History'],
+  ['/ask/for-me', AskLayout, '/ask', 'Work › Questions › Shared with me'],
+  ['/ask/history', AskLayout, '/ask', 'Work › Questions › History'],
   ['/knowledge', KnowledgeLayout, '/knowledge', 'Work › Knowledge'],
 ];
 const pathOf = (name: string) => name.replace('<id>', '3f2a').replace('<session>', '7c1e');
@@ -76,10 +79,10 @@ describe('every app page', () => {
     expect(html).not.toContain('ask-bar');
   });
 
-  it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists Dashboard, Work, Settings then Omni', async (name, layout) => {
+  it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists « and » (PRD 733), Dashboard, Work, then Settings and Omni at the foot', async (name, layout) => {
     const side = part(await renderAt(layout, pathOf(name)), '<aside', '</aside>');
-    expect(side).toMatch(new RegExp(`<a class="app-sidebar-crest" href="${APP_HOME}">`));
-    expect(controls(side)).toEqual(['OMNI LOOP', 'Home', 'Fleet', 'Workspace', 'Engineering', 'PRDs', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), expect.stringMatching(/^Shared with me( \d+)?$/), 'History', 'Knowledge', 'Fleets', 'Repositories', 'Docs', 'Release notes']);
+    expect(side).toMatch(new RegExp(`<a class="brand-logo app-sidebar-crest" href="${APP_HOME}">`));
+    expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', 'Home', 'Fleet', 'Workspace', 'Engineering', 'PRDs', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), 'Knowledge', 'Settings', 'Docs', 'Release notes']);
   });
 
   it.each(APP_PAGES)('%s: marks exactly one sidebar item current: %s', async (name, layout, current) => {
@@ -101,7 +104,8 @@ describe('every app page', () => {
     const up = controls(crumbs);
     expect(controls(shown).slice(0, 1 + up.length)).toEqual(['☰', ...up]);
     // Signed in, the bell (PRD 499) sits after Game mode, before you.
-    const bell = /class="bell-button"/.test(shown) ? [expect.stringMatching(/^\d*$/)] : [];
+    const count: unknown = expect.stringMatching(/^\d*$/);
+    const bell = /class="bell-button"/.test(shown) ? [count] : [];
     expect(controls(shown).slice(1 + up.length, -1)).toEqual([...THEME_THEN_GAME, ...bell]);
     expect(shown).toMatch(/aria-haspopup="menu"|>Sign in with GitHub<\/button>/);
     expect(bar).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
@@ -127,7 +131,7 @@ describe('the public pages', () => {
 
   it.each(PUBLIC)('%s: the OMNI LOOP mark leads to /app, then the menu, Open the app →, the theme switch and Game mode, last', async (name, layout) => {
     const bar = part(await renderAt(layout, name), '<header', '</header>');
-    expect(bar).toMatch(new RegExp(`<a class="ask-mark" href="${APP_HOME}">OMNI LOOP</a>`));
+    expect(bar).toMatch(new RegExp(`<a class="brand-logo" href="${APP_HOME}">[\\s\\S]*?<span class="ask-mark">OMNI LOOP</span></a>`));
     expect(controls(bar).slice(-7)).toEqual(MENU_THEN_THEME);
     expect(bar).toContain(`<a class="top-bar-open" href="${APP_HOME}">Open the app →</a>`);
     expect(controls(bar)).not.toContain('PRDs');

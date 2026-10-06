@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { addressAt, DEEP_LINKS, landing, readHash } from './deep-link';
+import { twinEvents, twinGalaxy } from './test/twins.fake';
 import type { Session } from './types';
+import { sure } from './test/sure';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // The arcade's deep links (moved out of ArcadeApp.tsx; PRD 238 adds #menu): the screen an address's
 // hash opens, past the boot and the title, through the one door every route goes through; and the
@@ -10,6 +13,7 @@ import type { Session } from './types';
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
 const planet = view.planets[2];
+assertDefined(planet, 'planet');
 const crew: Session = { id: 'u1', email: 'ada@vertuoza.com', givenName: 'Ada', crew: true, github: 'ada-gh' };
 const outsider: Session = { ...crew, email: 'eve@elsewhere.example', crew: false, github: null };
 
@@ -25,12 +29,11 @@ describe('the deep links', () => {
 
   it('read a planet by its PRD number, when the galaxy holds it', () => {
     expect(readHash(`#planet-${planet.prd}`, view)).toEqual({ scene: 'planet', sel: 2 });
-    expect(readHash('#planet-999999', view)).toBeNull();
     expect(readHash(`#planet-${planet.prd}`, null)).toBeNull();
   });
 
   it('read nothing from any other hash', () => {
-    for (const hash of ['', '#', '#boot', '#title', '#coin', '#invaders', '#levelup', '#MENU', '#menu-2']) {
+    for (const hash of ['', '#', '#boot', '#title', '#coin', '#invaders', '#platformer', '#levelup', '#MENU', '#menu-2']) {
       expect(readHash(hash, view), hash).toBeNull();
     }
   });
@@ -83,11 +86,11 @@ describe('every deep link, through the one door', () => {
 describe('the address the arcade writes', () => {
   it('names the screen it is on, when a deep link names it', () => {
     expect(addressAt('/', { scene: 'map', sel: 0 }, view)).toBe('/#map');
-    expect(addressAt('/', { scene: 'planet', sel: 2 }, view)).toBe(`/#planet-${planet.prd}`);
+    expect(addressAt('/', { scene: 'planet', sel: 2 }, view)).toBe(`/#planet-${planet.home}/${planet.prd}`);
   });
 
   it('names nothing on any other screen', () => {
-    for (const scene of ['title', 'coin', 'select', 'levelup', 'invaders', 'system'] as const) {
+    for (const scene of ['title', 'coin', 'select', 'levelup', 'invaders', 'platformer', 'system'] as const) {
       expect(addressAt('/', { scene, sel: 0 }, view), scene).toBe('/');
     }
   });
@@ -99,5 +102,45 @@ describe('the address the arcade writes', () => {
 
   it('keeps the page\'s own path', () => {
     expect(addressAt('/arcade.html', { scene: 'menu', sel: 0 }, view)).toBe('/arcade.html#menu');
+  });
+});
+
+describe('a planet named by its home (PRD 728)', () => {
+  const twins = twinGalaxy();
+
+  it('holds two planets for two repositories\' PRD 88', () => {
+    expect(twins.planets.map((p) => p.key)).toEqual(['acme/plan#88', 'acme/tools#88']);
+  });
+
+  it('writes the home into a planet\'s address, and reads each twin back to its own planet', () => {
+    expect(addressAt('/', { scene: 'planet', sel: 0 }, twins)).toBe('/#planet-acme/plan/88');
+    expect(addressAt('/', { scene: 'planet', sel: 1 }, twins)).toBe('/#planet-acme/tools/88');
+    expect(readHash('#planet-acme/plan/88', twins)).toEqual({ scene: 'planet', sel: 0 });
+    expect(readHash('#planet-acme/tools/88', twins)).toEqual({ scene: 'planet', sel: 1 });
+  });
+
+  it('reads a link by number alone when one planet holds that number, and the map when two do', () => {
+    const one = twinGalaxy(twinEvents('acme/plan', 'beaver', 'bob'));
+    expect(readHash('#planet-88', one)).toEqual({ scene: 'planet', sel: 0 });
+    expect(readHash('#planet-88', twins)).toEqual({ scene: 'map' });
+  });
+
+  it('lands on the map for a planet the galaxy does not hold', () => {
+    expect(readHash('#planet-999999', view)).toEqual({ scene: 'map' });
+    expect(readHash('#planet-acme/other/88', twins)).toEqual({ scene: 'map' });
+    expect(readHash('#planet-acme/plan/89', twins)).toEqual({ scene: 'map' });
+    expect(landing('#planet-acme/other/88', { view: twins, session: crew })).toEqual({ scene: 'map' });
+    expect(landing('#planet-acme/plan/88', { view: twins, session: crew })).toEqual({ scene: 'planet', sel: 0 });
+  });
+
+  it('names a planet with no home by its number alone, as before', () => {
+    const bare = twinGalaxy(twinEvents('acme/plan', 'beaver', 'bob').map((event) => {
+      const e = { ...event };
+      delete e.home;
+      return e;
+    }));
+    expect(sure(bare.planets[0], 'bare.planets[0]').home).toBeNull();
+    expect(addressAt('/', { scene: 'planet', sel: 0 }, bare)).toBe('/#planet-88');
+    expect(readHash('#planet-88', bare)).toEqual({ scene: 'planet', sel: 0 });
   });
 });

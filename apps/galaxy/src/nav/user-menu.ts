@@ -1,5 +1,6 @@
 import { APP_CALLBACK } from '../dashboard/sign-in';
 import { startGithubSignIn } from '../data/sign-in-github';
+import { clientEnv } from '../env.client';
 
 // The user menu's pure parts (PRD 438), the end of the app's top bar: the keys of the WAI-ARIA
 // menu-button pattern, the top bar's GitHub sign-in (the one /app's card starts, back through
@@ -77,7 +78,5 @@ export function initialOf({ name, login }: { name: string | null; login: string 
 
 /** The galaxy's Supabase, inlined into the browser bundle when the page is built; null on the demo. */
 export function publicSupabase(): Supabase | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return url && key ? { url, key } : null;
+  return clientEnv().supabase;
 }

@@ -64,10 +64,11 @@ export interface PlanetDossier {
 export type PlanetDossierRead = PlanetDossier | 'unreadable';
 
 /**
- * The planets' dossiers, by PRD number: a planet with none is absent. 'unreadable' when none could be
- * read at all: every DOSSIER tab then says so, and the rest of the planet is unchanged.
+ * The planets' dossiers, by planet key (`<home>#<n>`, PRD 728) or by PRD number alone: a planet with
+ * none is absent. 'unreadable' when none could be read at all: every DOSSIER tab then says so, and the
+ * rest of the planet is unchanged.
  */
-export type DossiersRead = Record<number, PlanetDossierRead> | 'unreadable';
+export type DossiersRead = Record<string | number, PlanetDossierRead> | 'unreadable';
 
 /** What the arcade saves for the signed-in player: a fleet, a name, a hero. */
 export type PlayerPatch = Partial<Pick<Player, 'display_name' | 'team' | 'hero'>>;
@@ -86,9 +87,9 @@ export interface Session { id: string; email: string; givenName: string; crew: b
 export interface Account {
   kind: 'demo' | 'supabase' | 'closed';
   /** Signs in with Google. Supabase leaves the page (and comes back through /auth/callback). */
-  signIn(): Promise<Session | void>;
+  signIn(): Promise<Session | undefined>;
   /** Links GitHub, which makes a visitor a player. Supabase leaves the page; the demo resolves with a made-up login. */
-  linkGithub(): Promise<string | void>;
+  linkGithub(): Promise<string | undefined>;
   /** Creates or updates the signed-in player's row; resolves with the row as stored. */
   save(patch: PlayerPatch, current: Player | null): Promise<Player>;
   /**
@@ -101,5 +102,5 @@ export interface Account {
   scores(game: string): Promise<ScoreBoard>;
   signOut(): Promise<void>;
   /** The demo's remembered guest; Supabase answers from the server render instead. */
-  restore?(): { session: Session | null; me: Player | null };
+  restore?: () => { session: Session | null; me: Player | null };
 }

@@ -1,40 +1,52 @@
 import { readFileSync } from 'node:fs';
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { sure } from '../arcade/test/sure';
+import { item } from '../ask/test/test-item';
 
 // HOME at `/`, and the game moved to `/play` (PRD 261). HOME is rendered as the server renders it,
 // with every Supabase door stubbed to fail loudly: it must open none of them.
 const supabase = vi.hoisted(() => ({
   env: vi.fn(() => null as null | { url: string; key: string }),
-  server: vi.fn(async () => { throw new Error('HOME must not reach Supabase'); }),
-  exchange: vi.fn(async () => ({ error: null as null | { message: string } })),
+  server: vi.fn(() => Promise.reject(new Error('HOME must not reach Supabase'))),
+  exchange: vi.fn(() => Promise.resolve({ error: null as null | { message: string } })),
 }));
-const afterSignIn = vi.hoisted(() => vi.fn(async () => ['signed_in', '1'] as [string, string]));
+const afterSignIn = vi.hoisted(() => vi.fn(() => Promise.resolve(['signed_in', '1'] as [string, string])));
 // The high scores as the build would count them: two counters read, one out of reach.
 const highScores = vi.hoisted(() => vi.fn(() => ({ prdsShipped: 21, slicesMerged: 134, decisionsAdopted: '—' as const })));
 
+// The environment HOME is rendered in: a plain object, handed to the server's and the browser's env
+// modules alike, never written into the process's.
+const environment = vi.hoisted(() => ({ source: {} }));
+
 vi.mock('server-only', () => ({}));
+vi.mock('../env', async (actual) => {
+  const env = await actual<typeof import('../env')>();
+  return { ...env, serverEnv: () => env.readEnv(environment.source) };
+});
+vi.mock('../env.client', async (actual) => {
+  const env = await actual<typeof import('../env.client')>();
+  return { ...env, clientEnv: () => env.readClientEnv(environment.source) };
+});
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: supabase.env,
   supabaseServer: async () => { await supabase.server(); return { auth: { exchangeCodeForSession: supabase.exchange } }; },
   supabaseAs: () => { throw new Error('not in this test'); },
 }));
-vi.mock('../data/sign-in', () => ({ afterSignIn, joinBeforeIssue: () => { throw new Error('not in this test'); } }));
+vi.mock('../data/sign-in', async (actual) => ({
+  appLanding: (await actual<typeof import('../data/sign-in')>()).appLanding,
+  afterSignIn,
+  joinBeforeIssue: () => { throw new Error('not in this test'); },
+}));
 vi.mock('../data/workspace', () => ({ joinByDomain: () => { throw new Error('not in this test'); } }));
 vi.mock('./scores', async (actual) => ({ ...(await actual<typeof import('./scores')>()), countHighScores: highScores }));
 vi.mock('../ask/cli-code-live', () => ({ cliCallbackDeps: () => { throw new Error('not in this test'); } }));
 
-const ENV = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'OMNI_LOOP_DEMO'] as const;
-const saved = Object.fromEntries(ENV.map((k) => [k, process.env[k]]));
-
 beforeEach(() => {
-  for (const k of ENV) delete process.env[k];
+  environment.source = {};
   supabase.env.mockReturnValue(null);
   supabase.server.mockClear();
-});
-afterEach(() => {
-  for (const k of ENV) if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k];
 });
 
 const text = (html: string) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -43,7 +55,7 @@ const text = (html: string) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').r
 describe('HOME at /', () => {
   const render = async () => {
     const { default: Page } = await import('../../app/page.tsx');
-    return renderToStaticMarkup((await Page()) as ReactElement);
+    return renderToStaticMarkup(Page() as ReactElement);
   };
 
   it('shows the headline, AGENTS SHIP. YOU STEER.', async () => {
@@ -68,8 +80,7 @@ describe('HOME at /', () => {
   });
 
   it('renders the same in a build that has Supabase settings', async () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321';
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon';
+    environment.source = { NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon' };
     supabase.env.mockReturnValue({ url: 'http://127.0.0.1:54321', key: 'anon' });
     expect(text(await render())).toContain('AGENTS SHIP. YOU STEER.');
     expect(supabase.server).not.toHaveBeenCalled();
@@ -150,6 +161,24 @@ describe('the poster', () => {
     }
   });
 
+  it('leaves SELECT YOUR APP out of the server markup: the controls draw it in the browser, on a click (PRD 932)', async () => {
+    const html = await render();
+    expect(html).not.toContain('SELECT YOUR APP');
+    expect(html).not.toContain('home-select');
+    expect(html).not.toContain('REMEMBER MY CHOICE');
+    expect(supabase.server).not.toHaveBeenCalled();
+  });
+
+  it('carries no hint line under the sign-up buttons, only the empty place the browser draws it in (PRD 932, s4)', async () => {
+    const html = await render();
+    expect(html).not.toMatch(/Opens the (Omni app|Arcade)/);
+    expect(html).not.toContain('data-sign-up-change');
+    expect(html).not.toContain('home-signup-hint');
+    const slots = [...html.matchAll(/<span\b[^>]*data-sign-up-hint=""[^>]*>([\s\S]*?)<\/span>/g)];
+    expect(slots).toHaveLength(2);
+    for (const [, inner] of slots) expect(text(inner ?? '')).toBe('SIGN UP WITH GITHUB');
+  });
+
   it('marks PRESS START for the controls, and keeps it a plain link to /play', async () => {
     const html = await render();
     const starts = [...html.matchAll(/<a\b[^>]*>PRESS START<\/a>/g)].map(([a]) => a);
@@ -177,26 +206,63 @@ describe('the poster', () => {
   });
 });
 
-// The magazine spreads under the poster (PRD 285): value first, then the loop's proof, the game and
-// the order form. Each spread is its own component, with its own test beside it under spreads/.
+// No flash (PRD 1006, s2): the server draws no pill and no mark; a script that runs before the first
+// paint marks the page pending when the browser holds a Supabase auth cookie, and the CSS then holds
+// each SIGN UP WITH GITHUB button's box, hidden, until Controls settles the mark.
+describe('the signed-in mark', () => {
+  const render = async () => {
+    const { Home } = await import('./Home');
+    return renderToStaticMarkup(Home());
+  };
+
+  it('is not in the server markup: no pill, and no data-session on the page', async () => {
+    const html = await render();
+    const main = /<main\b[^>]*>/.exec(html)?.[0] ?? '';
+    expect(main).toContain('class="home"');
+    expect(main).not.toContain('data-session');
+    expect(html).not.toContain('home-signed-in');
+    expect(text(html)).not.toContain('CONTINUE YOUR GAME');
+    expect(supabase.server).not.toHaveBeenCalled();
+  });
+
+  it('is set by a script that runs after the forwarding of old links and before anything paints', async () => {
+    const html = await render();
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => ({ at: sure(m.index, 'the position of a script'), body: m[1] ?? '' }));
+    const forward = scripts.findIndex((s) => s.body.includes("location.replace('/play'"));
+    const mark = scripts.findIndex((s) => s.body.includes('document.cookie'));
+    expect(forward).toBe(0);
+    expect(mark).toBe(1);
+    expect(scripts[mark]?.body).toContain("setAttribute('data-session','pending')");
+    expect(scripts[mark]?.at).toBeLessThan(html.indexOf('<h1'));
+  });
+
+  it('holds each SIGN UP WITH GITHUB button\'s box, hidden, while it is pending', () => {
+    const css = readFileSync(new URL('./home.css', import.meta.url), 'utf8');
+    const pending = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(([, sel]) => sel?.includes('[data-session="pending"]'));
+    const hides = (cls: string) => pending.some(([, sel, body]) => new RegExp(`\\.${cls}(?![-\\w])`).test(sel ?? '') && /visibility:\s*hidden/.test(body ?? ''));
+    expect(hides('home-signup')).toBe(true);
+    expect(hides('home-signup-hint')).toBe(true);
+    for (const [, , body] of pending) expect(body).not.toMatch(/display:\s*none/);
+  });
+});
+
+// The magazine spreads under the poster (PRD 285, trimmed by PRD 971): the loop, the customers, the
+// fleet game with its proof, and the order form. Each spread is its own component, with its own test beside it under spreads/.
 describe('the spreads', () => {
   const render = async () => {
     const { Home } = await import('./Home');
     return renderToStaticMarkup(Home());
   };
   const HEADS = [
-    'What\'s in it for you?',
-    'Strategy guide: the loop, level by level',
-    'You see everything',
-    'Easy in, easy out',
-    'High scores: the loop built this',
-    'The game: Entropy you can see',
+    'Strategy guide: the loop',
+    'Built for your customers',
+    'The game: build your fleet',
     'Join the loop!',
   ];
 
   it('come under the poster, in the spec\'s order, each under its own h2', async () => {
     const html = await render();
-    const heads = [...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map(([, h]) => text(h));
+    const heads = [...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(item(m, 1)));
     expect(heads).toEqual(HEADS);
     expect(html.indexOf('<h2')).toBeGreaterThan(html.indexOf('</h1>'));
   });
@@ -204,20 +270,28 @@ describe('the spreads', () => {
   it('are composed by Spreads.tsx alone, one component per spread', () => {
     const source = readFileSync(new URL('./spreads/Spreads.tsx', import.meta.url), 'utf8');
     expect(source).not.toMatch(/<section\b|<h2\b/);
-    for (const name of ['ForYou', 'StrategyGuide', 'SeeEverything', 'InOut', 'HighScores', 'Game', 'OrderForm']) {
-      expect(source, name).toMatch(new RegExp(`from '\\./${name}'`));
-    }
+    const imports = [...source.matchAll(/from '\.\/(\w+)'/g)].map(([, name]) => name);
+    expect(imports).toEqual(['Customers', 'Game', 'OrderForm', 'StrategyGuide']);
+    for (const gone of ['ForYou', 'SeeEverything', 'InOut', 'HighScores']) expect(source, gone).not.toMatch(new RegExp(`'\\./${gone}'|<${gone}\\b`));
   });
 
-  it('link nowhere but the game at /play, the release notes at /releases and the docs at /docs (PRD 346), the pages open without signing in', async () => {
+  it('link nowhere but the game at /play and the docs at /docs (PRD 346; /releases left with You see everything, PRD 971), the pages open without signing in', async () => {
     const html = await render();
     const hrefs = [...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)].map(([, href]) => href);
     expect(hrefs).toContain('/play');
-    expect(hrefs).toContain('/releases');
     expect(hrefs).toContain('/docs');
-    expect(new Set(hrefs)).toEqual(new Set(['/play', '/releases', '/docs']));
+    expect(new Set(hrefs)).toEqual(new Set(['/play', '/docs']));
     expect(html.match(/<a\b/g)?.length, 'every link has an href').toBe(hrefs.length);
     expect(html).not.toMatch(/<(?:form|area|link)\b[^>]*\b(?:action|href)=/);
+  });
+
+  it('read HOME\'s own example fleets, never the demo galaxy\'s (PRD 971)', async () => {
+    const page = text(await render());
+    for (const name of ['BUILDERS', 'INKLINGS', 'COINERS', 'NIGHT OWLS', 'CORSAIRS', 'CAPES']) expect(page, name).not.toContain(name);
+    expect(page).toContain('DAM BUSTERS');
+    expect(page).toContain('FEATURES SHIPPED 21');
+    const source = readFileSync(new URL('./Home.tsx', import.meta.url), 'utf8');
+    expect(source).not.toMatch(/demoFleets|load-galaxy/);
   });
 
   it('name no Nintendo game, console or mark', async () => {
@@ -257,6 +331,30 @@ describe('coming back to the game', () => {
 
   it('sends a refused sign-in back to /play, with the reason', async () => {
     const back = await callback('?error=access_denied&error_description=Nope');
+    expect(back.pathname).toBe('/play');
+    expect(back.searchParams.get('signin_error')).toBe('Nope');
+  });
+
+  it('lands a finished sign-in that picked the Omni app on /app (PRD 932)', async () => {
+    supabase.env.mockReturnValue({ url: 'http://127.0.0.1:54321', key: 'anon' });
+    supabase.server.mockResolvedValueOnce(undefined as never);
+    const back = await callback('?code=github&next=app');
+    expect(back.pathname).toBe('/app');
+    expect(back.origin).toBe('https://galaxy.example');
+  });
+
+  it('never lands on a path taken from next (PRD 932)', async () => {
+    supabase.env.mockReturnValue({ url: 'http://127.0.0.1:54321', key: 'anon' });
+    for (const next of ['//evil.example', 'https%3A%2F%2Fevil.example', '%2Fapp%2F..%2Fx', 'arcade']) {
+      supabase.server.mockResolvedValueOnce(undefined as never);
+      const back = await callback(`?code=github&next=${next}`);
+      expect(back.origin).toBe('https://galaxy.example');
+      expect(back.pathname).toBe('/play');
+    }
+  });
+
+  it('sends a refused sign-in that picked the Omni app back to /play, with the reason (PRD 932)', async () => {
+    const back = await callback('?next=app&error=access_denied&error_description=Nope');
     expect(back.pathname).toBe('/play');
     expect(back.searchParams.get('signin_error')).toBe('Nope');
   });

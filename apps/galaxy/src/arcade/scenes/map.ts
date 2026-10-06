@@ -1,5 +1,6 @@
 // The galaxy map on the canvas: where each planet sits, which planet the D-pad reaches next, and the
 // map itself (the sectors, the hyperlanes, the distress pulses, the planets and their Entropy).
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { drawPlanet, rng, WOUND_TINT } from '@omni/design';
 import type { GalaxyView } from '@omni/galaxy';
 import { seedOf } from '../fleets';
@@ -67,10 +68,11 @@ function layoutWide(view: GalaxyView, grid: Grid): MapSlot[] {
     const shrink = Math.min(1, cellH / 62, cellW / 62);
     members.forEach(({ p, index }, j) => {
       const r = Math.max(8, Math.round((10 + p.class * 4) * shrink));
-      const rand = rng(seedOf(p.prd));
+      const { prd } = p;
+      const rand = rng(seedOf(prd));
       const cx = ci * colW + 12 + cellW * ((j % perRow) + 0.5) + (rand() - 0.5) * Math.max(0, cellW - r * 2 - 12) * 0.6;
       const cy = top + cellH * (Math.floor(j / perRow) + 0.5) + (rand() - 0.5) * Math.max(0, cellH - r * 2 - 12) * 0.6;
-      slots.push({ prd: p.prd, x: Math.round(cx), y: Math.round(cy), r, index });
+      slots.push({ prd, x: Math.round(cx), y: Math.round(cy), r, index });
     });
   });
   return slots.sort((a, b) => a.index - b.index);
@@ -107,7 +109,7 @@ function lanesFor(k: number, width: number, need = Infinity): Lanes {
     if (room >= need) return it;
     if (!best || room > best.room) best = it;
   }
-  return best!;
+  return defined(best, 'the map lanes');
 }
 
 /** A planet's drift from the middle of its box, along one side of `slack` spare pixels. */
@@ -131,21 +133,22 @@ function layoutTall(view: GalaxyView, grid: Grid): MapSlot[] {
       const r = Math.max(1, Math.min(room, Math.max(6, Math.round(baseRadius(p.class) * shrink))));
       const discTop = TALL_MAP.top + j * step + TALL_MAP.icon; // the disc's part of the box, under the icon
       const discH = tall - TALL_MAP.icon;
-      const rand = rng(seedOf(p.prd)); // the same drift for a planet on every run
+      const { prd } = p;
+      const rand = rng(seedOf(prd)); // the same drift for a planet on every run
       const cx = left + (j % lanes + 0.5) * laneW + drift(rand, laneW - r * 2 - 2);
       const cy = discTop + discH / 2 + drift(rand, discH - r * 2 - 2);
-      slots.push({ prd: p.prd, x: Math.round(cx), y: Math.round(cy), r, index });
+      slots.push({ prd, x: Math.round(cx), y: Math.round(cy), r, index });
     });
   }
   return slots.sort((a, b) => a.index - b.index);
 }
 
 // The planet in `dir` from the current one that is closest, preferring straight lines.
-export function neighbour<T extends Pick<MapSlot, 'x' | 'y' | 'index'>>(layout: T[], from: number, dir: 'up' | 'down' | 'left' | 'right'): number {
+export function neighbour(layout: readonly Pick<MapSlot, 'x' | 'y' | 'index'>[], from: number, dir: 'up' | 'down' | 'left' | 'right'): number {
   const cur = layout.find((s) => s.index === from);
   if (!cur) return layout[0]?.index ?? 0;
-  const [vx, vy] = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[dir];
-  let best: T | null = null;
+  const [vx, vy] = ({ up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] } satisfies Record<string, [number, number]>)[dir];
+  let best: Pick<MapSlot, 'x' | 'y' | 'index'> | null = null;
   let bestScore = Infinity;
   for (const s of layout) {
     if (s.index === from) continue;
@@ -164,7 +167,7 @@ export function neighbour<T extends Pick<MapSlot, 'x' | 'y' | 'index'>>(layout: 
 /** The cursor's four blinking corners around a disc of radius `r`: the selected planet, sun or world. */
 export function brackets(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number, color: string) {
   const m = r + 6 + (Math.floor(t * 4) % 2) * 2;
-  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] satisfies [number, number][]) {
     const cx = x + sx * m, cy = y + sy * m;
     ctx.fillStyle = '#0b0a26';
     ctx.fillRect((sx < 0 ? cx : cx - 7) + 1, cy + 1, 8, 2);
@@ -197,6 +200,21 @@ const SKY = {
   tall: { key: 'tall-sector', top: TALL_MAP.hud, h: TALL_MAP.dialog - 2 - TALL_MAP.hud, from: TALL_MAP.hud + 4, to: TALL_MAP.dialog - 2 },
 } as const;
 
+/**
+ * The hyperlanes: a locked planet waits on the planets it is blocked by, each from its slot to the
+ * blocker's. A blocker is a PRD of the planet's own home (PRD 728), never a twin of another repository.
+ */
+export function hyperlanes(view: GalaxyView, layout: MapSlot[]): Array<[MapSlot, MapSlot]> {
+  const bySlot = new Map(layout.map((l) => [view.planets[l.index]?.key, l]));
+  return layout.flatMap((slot) => {
+    const p = defined(view.planets[slot.index], "a slot's planet");
+    return p.blockers.flatMap((b): Array<[MapSlot, MapSlot]> => {
+      const to = bySlot.get(p.home ? `${p.home}#${b}` : String(b));
+      return to ? [[slot, to]] : [];
+    });
+  });
+}
+
 export function drawMap(ctx: CanvasRenderingContext2D, s: FrameState) {
   space(ctx, s, 0.15);
   const { view, layout } = s;
@@ -210,14 +228,9 @@ export function drawMap(ctx: CanvasRenderingContext2D, s: FrameState) {
       for (let y = sky.from; y < sky.to; y += 8) ctx.fillRect(Math.round(i * colW), y, 1, 4);
     }
   });
-  const bySlot = new Map(layout.map((l) => [l.prd, l]));
-  // Hyperlanes: a locked planet waits on the planets it is blocked by.
+  for (const [from, to] of hyperlanes(view, layout)) dashedLine(ctx, from, to, s.t, s.theme.red);
   for (const slot of layout) {
-    const p = view.planets[slot.index];
-    for (const b of p.blockers) { const to = bySlot.get(b); if (to) dashedLine(ctx, slot, to, s.t, s.theme.red); }
-  }
-  for (const slot of layout) {
-    const p = view.planets[slot.index];
+    const p = defined(view.planets[slot.index], "a slot's planet");
     const look = planetLook(p, s.theme);
     const rot = s.reduced ? look.seed % 7 : s.t * 0.15 + (look.seed % 7);
     if (p.state === 'distress' && !s.reduced) pulseRing(ctx, slot.x, slot.y, slot.r, s.t, s.theme.red);

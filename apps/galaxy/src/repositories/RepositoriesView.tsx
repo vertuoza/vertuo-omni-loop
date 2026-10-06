@@ -1,3 +1,4 @@
+import { hasProducts, type Product } from '../business/model';
 import { addable, collectionLabel, hasNoAccess, type RepositoriesState, type RepositoryRow } from './model';
 
 // Settings → Repositories drawn from its state (PRD 612 s1). One row per repository of the
@@ -6,7 +7,8 @@ import { addable, collectionLabel, hasNoAccess, type RepositoriesState, type Rep
 // listed yet, one click each; a member reads the same list, read only. A repository the App cannot
 // read says so, with a link to the installation's settings on GitHub, and stays tracked. A workspace
 // with no installation reads a link to installing the App instead. Drawn on the server first;
-// RepositoriesPage.tsx wires the handlers.
+// RepositoriesPage.tsx wires the handlers. Once the business has two products or more (PRD 748 s4),
+// each row has a product select, any member's to change; while it has one, nothing says "Product".
 
 /** What a member reads instead of the controls. */
 export const ONLY_OWNER = 'Only @owner can change repositories.';
@@ -25,9 +27,14 @@ export interface RepositoriesHandlers {
   close(): void;
   add(fullName: string): void;
   setTracked(fullName: string, tracked: boolean): void;
+  /** A row's product select (PRD 748 s4). */
+  setProduct(fullName: string, product: string): void;
 }
 
-const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {} };
+const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {} };
+
+/** What the head says once each repository has a product select. */
+const PRODUCTS_LINE = 'Each repository’s agents read its product’s business.';
 
 export interface RepositoriesViewProps {
   state: RepositoriesState;
@@ -35,7 +42,27 @@ export interface RepositoriesViewProps {
   access: Access;
   /** The time the collection lines are read at (the server's, so both renders agree). */
   now: number;
+  /** The business's products, first first (PRD 748 s4): each row has a select from the second on. */
+  products?: Product[] | undefined;
   on?: RepositoriesHandlers;
+}
+
+/** Which product the repository serves: any member's to change, from the business's products. */
+function ProductSelect({ row, products, busy, on }: { row: RepositoryRow; products: Product[]; busy: boolean; on: RepositoriesHandlers }) {
+  return (
+    <span className="repositories-product-field">
+      <select
+        className="repositories-product"
+        aria-label={`Product of ${row.fullName}`}
+        value={row.product ?? ''}
+        onChange={(e) => { if (e.currentTarget.value) on.setProduct(row.fullName, e.currentTarget.value); }}
+        disabled={busy}
+      >
+        {row.product === null && <option value="" disabled>Choose…</option>}
+        {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+    </span>
+  );
 }
 
 function Picker({ state, access, on }: { state: RepositoriesState; access: Extract<Access, { kind: 'installed' }>; on: RepositoriesHandlers }) {
@@ -49,17 +76,17 @@ function Picker({ state, access, on }: { state: RepositoriesState; access: Extra
         <ul className="repositories-offer">
           {offer.map((name) => (
             <li key={name}>
-              <button type="button" className="ask-button quiet" onClick={() => on.add(name)} disabled={state.busy}>{name}</button>
+              <button type="button" className="ask-button quiet" onClick={() => { on.add(name); }} disabled={state.busy}>{name}</button>
             </li>
           ))}
         </ul>
       )}
-      <button type="button" className="ask-button quiet" onClick={on.close} disabled={state.busy}>Close</button>
+      <button type="button" className="ask-button quiet" onClick={() => { on.close(); }} disabled={state.busy}>Close</button>
     </section>
   );
 }
 
-function Row({ row, owner, access, now, busy, on }: { row: RepositoryRow; owner: boolean; access: Access; now: number; busy: boolean; on: RepositoriesHandlers }) {
+function Row({ row, owner, access, now, busy, products, on }: { row: RepositoryRow; owner: boolean; access: Access; now: number; busy: boolean; products: Product[]; on: RepositoriesHandlers }) {
   const noAccess = access.kind === 'installed' && hasNoAccess(row, access.reachable);
   const label = `Track ${row.fullName}`;
   return (
@@ -70,10 +97,11 @@ function Row({ row, owner, access, now, busy, on }: { row: RepositoryRow; owner:
         {noAccess && (
           <span className="repositories-no-access">
             {NO_ACCESS}
-            {access.kind === 'installed' && access.settingsUrl && <> · <a href={access.settingsUrl}>Give access on GitHub →</a></>}
+            {access.settingsUrl && <> · <a href={access.settingsUrl}>Give access on GitHub →</a></>}
           </span>
         )}
       </div>
+      {hasProducts(products) && <ProductSelect row={row} products={products} busy={busy} on={on} />}
       <div className="repositories-switch">
         <span>Tracked</span>
         <button
@@ -82,7 +110,7 @@ function Row({ row, owner, access, now, busy, on }: { row: RepositoryRow; owner:
           aria-checked={row.tracked}
           aria-label={label}
           className="repositories-toggle"
-          onClick={() => on.setTracked(row.fullName, !row.tracked)}
+          onClick={() => { on.setTracked(row.fullName, !row.tracked); }}
           disabled={!owner || busy}
         />
       </div>
@@ -90,7 +118,7 @@ function Row({ row, owner, access, now, busy, on }: { row: RepositoryRow; owner:
   );
 }
 
-export function RepositoriesView({ state, owner, access, now, on = IDLE }: RepositoriesViewProps) {
+export function RepositoriesView({ state, owner, access, now, products = [], on = IDLE }: RepositoriesViewProps) {
   const rows = state.repositories;
   const canAdd = owner && access.kind === 'installed';
   return (
@@ -100,8 +128,9 @@ export function RepositoriesView({ state, owner, access, now, on = IDLE }: Repos
         {owner
           ? <p className="ask-muted">Your workspace’s repositories. The Engineering board counts the tracked ones; switching one off hides it and keeps its history.</p>
           : <p className="ask-muted">{ONLY_OWNER}</p>}
+        {hasProducts(products) && <p className="ask-muted">{PRODUCTS_LINE}</p>}
         {state.refusal && <p className="repositories-refusal" role="alert">{state.refusal}</p>}
-        {canAdd && !state.picking && <button type="button" className="ask-button" onClick={on.pick} disabled={state.busy}>Add repository</button>}
+        {canAdd && !state.picking && <button type="button" className="ask-button" onClick={() => { on.pick(); }} disabled={state.busy}>Add repository</button>}
       </section>
 
       {access.kind === 'none' && (
@@ -112,12 +141,12 @@ export function RepositoriesView({ state, owner, access, now, on = IDLE }: Repos
         </section>
       )}
 
-      {canAdd && state.picking && access.kind === 'installed' && <Picker state={state} access={access} on={on} />}
+      {canAdd && state.picking && <Picker state={state} access={access} on={on} />}
 
       <section className="repositories-list" aria-label="The workspace’s repositories">
         {rows.length === 0
           ? <p className="repositories-empty">No repositories yet. {owner ? 'Add one from the repositories the Omni App can see.' : 'The workspace’s owner adds them.'}</p>
-          : <ul>{rows.map((r) => <Row key={r.fullName} row={r} owner={owner} access={access} now={now} busy={state.busy} on={on} />)}</ul>}
+          : <ul>{rows.map((r) => <Row key={r.fullName} row={r} owner={owner} access={access} now={now} busy={state.busy} products={products} on={on} />)}</ul>}
         {access.kind === 'installed' && access.settingsUrl && <p className="repositories-missing"><a href={access.settingsUrl}>{MISSING_ONE}</a></p>}
       </section>
     </div>

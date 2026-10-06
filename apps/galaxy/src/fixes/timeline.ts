@@ -11,6 +11,7 @@ import type { FixApproval, FixIssue, FixPull, FixRelease, FixSummary } from '../
 import { UNREAD, type Read } from '../dossier/github/summary';
 import { stamp } from '../dossier/page/view';
 import type { FixKind } from './list';
+import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** The pick, as `/omni:visual-fix` writes it in before-after.html: `<p data-omni-pick>Picked C by @login on 2026-09-29</p>`. */
 export type Pick = { letter: string; login: string; date: string };
@@ -24,7 +25,7 @@ const PICK_LINE = /<p data-omni-pick>Picked ([A-Z]) by @([A-Za-z0-9](?:[A-Za-z0-
 /** The pick line of a before/after page, in its one fixed shape; `none` for any other shape. */
 export function readPickLine(html: string): Pick | 'none' {
   const match = PICK_LINE.exec(html);
-  return match ? { letter: match[1], login: match[2], date: match[3] } : 'none';
+  return match ? { letter: group(match, 1), login: group(match, 2), date: group(match, 3) } : 'none';
 }
 
 export type FixState = 'asked' | 'in-review' | 'merged';
@@ -55,7 +56,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 /** `2026-09-29` as `29 Sep 2026`. */
 const day = (date: string) => {
-  const [year, month, dayOf] = date.split('-').map(Number);
+  const [year, month = NaN, dayOf] = date.split('-').map(Number);
   return `${dayOf} ${MONTHS[month - 1]} ${year}`;
 };
 

@@ -3,6 +3,7 @@
 // Entropy, log, and its PRD's dossier). On the wide grid the panel stands beside the planet; on the
 // tall grid it runs across the screen under the band the header and the planet share (TALL_BAND in
 // planet.ts), with the same rows.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import type { GalaxyView, Planet } from '@omni/galaxy';
 import { woundTint } from '@omni/design';
@@ -15,6 +16,7 @@ import { Pips, StateChip } from './common.tsx';
 import { TALL_BAND } from './planet.ts';
 import './common.css';
 import './planet.css';
+import { cssVars } from '../css-vars';
 
 function Bar({ value, segments = 10, label }: { value: number; segments?: number; label: string }) {
   const on = Math.round(value * segments);
@@ -33,23 +35,34 @@ export const DOSSIER_TAB: number = PLANET_TABS.indexOf('DOSSIER');
 /** What a planet's DOSSIER tab shows: its dossier, none yet, or out of reach. */
 export type DossierShown = PlanetDossier | 'none' | 'unreadable';
 
+/** A planet as a dossier lookup names it: its number, and its home when it has one (PRD 728). */
+export type PlanetRef = number | Pick<Planet, 'prd' | 'home' | 'key'>;
+
 /**
- * The planet `prd`'s dossier among those the page read: 'unreadable' when it, or every dossier, could
- * not be read; 'none' when it has none (or nothing was read: a page that says nothing of dossiers).
+ * The planet's dossier among those the page read: 'unreadable' when it, or every dossier, could not be
+ * read; 'none' when it has none (or nothing was read: a page that says nothing of dossiers).
+ *
+ * A dossier is found by the planet's key, `<home>#<n>` (PRD 728). One kept by its number alone is the
+ * planet's only when no other planet among `planets` holds that number: two repositories' PRD 88 never
+ * share a dossier.
  */
-export function dossierOf(dossiers: DossiersRead | undefined, prd: number): DossierShown {
+export function dossierOf(dossiers: DossiersRead | undefined, planet: PlanetRef, planets: readonly Pick<Planet, 'prd' | 'key'>[] = []): DossierShown {
   if (dossiers === 'unreadable') return 'unreadable';
-  return dossiers?.[prd] ?? 'none';
+  const p = typeof planet === 'number' ? { prd: planet, home: null, key: String(planet) } : planet;
+  const byKey = p.home ? dossiers?.[p.key] : undefined;
+  if (byKey) return byKey;
+  const twin = planets.some((o) => o.prd === p.prd && o.key !== p.key);
+  return (twin ? undefined : dossiers?.[p.prd]) ?? 'none';
 }
 
 /**
- * The page START opens from planet `prd` on `tab`: its dossier's `/prd/<id>`, on the DOSSIER tab only,
+ * The page START opens from the planet on `tab`: its dossier's `/prd/<id>`, on the DOSSIER tab only,
  * and only for a dossier with a page to open. Null otherwise, and START goes back to the map as it does
  * on every other tab.
  */
-export function dossierLink(dossiers: DossiersRead | undefined, prd: number, tab: number): string | null {
+export function dossierLink(dossiers: DossiersRead | undefined, planet: PlanetRef, tab: number, planets: readonly Pick<Planet, 'prd' | 'key'>[] = []): string | null {
   if (tab !== DOSSIER_TAB) return null;
-  const d = dossierOf(dossiers, prd);
+  const d = dossierOf(dossiers, planet, planets);
   return typeof d === 'object' ? d.url : null;
 }
 
@@ -66,7 +79,8 @@ export interface StatusRow {
 /** Everything the status tab says about a planet, in order: the same rows on either grid. */
 export function statusRows(p: Planet, view: GalaxyView): StatusRow[] {
   const owner = fleet(p.ownerTeam);
-  const blockers = p.blockers.map((b) => view.planets.find((x) => x.prd === b));
+  // A blocker is a PRD of the planet's own home (PRD 728): never a twin of another repository.
+  const blockers = p.blockers.map((b) => view.planets.find((x) => x.prd === b && x.home === p.home));
   const rows: (StatusRow | false)[] = [
     { label: 'TERRAFORM', value: <><Bar value={p.progress} label="Terraformed" /> {Math.round(p.progress * 100)}%</> },
     { label: 'THREAT', value: <><Pips value={p.threat} label="Threat" /> {ROMAN[p.threat]}</> },
@@ -88,7 +102,7 @@ function StatusTab({ p, view }: { p: Planet; view: GalaxyView }) {
   const tall = useScreen().grid.name === 'tall';
   const rows = statusRows(p, view);
   // On the tall grid a paired row shares its line with the row before it (planet.css places them).
-  const paired = (i: number) => (tall && rows[i].pair ? 'pair' : tall && rows[i + 1]?.pair ? 'before-pair' : '');
+  const paired = (i: number) => (tall && defined(rows[i], 'a status row').pair ? 'pair' : tall && rows[i + 1]?.pair ? 'before-pair' : '');
   return (
     <dl className="stats">
       {rows.map((r, i) => (
@@ -120,8 +134,8 @@ function ZonesTab({ p }: { p: Planet }) {
           <span className="wave-label">PHASE {w || '?'}</span>
           <div className="wave-tiles">
             {p.zones.filter((z) => (z.wave ?? 0) === w).map((z) => (
-              <span key={`${z.region}:${z.id}`} className={`tile tile-${z.state}`} title={`${z.id} · ${z.region} · ${ZONE_ICON[z.state].label}${z.contributor ? ` · @${z.contributor}` : ''}`}>
-                <Sprite name={ZONE_ICON[z.state].sprite} scale={1} animate={z.state !== 'secured'} />
+              <span key={`${z.region}:${z.id}`} className={`tile tile-${z.state}`} title={`${z.id} · ${z.region} · ${defined(ZONE_ICON[z.state], `the ${z.state} zone icon`).label}${z.contributor ? ` · @${z.contributor}` : ''}`}>
+                <Sprite name={defined(ZONE_ICON[z.state], `the ${z.state} zone icon`).sprite} scale={1} animate={z.state !== 'secured'} />
                 <span className="tile-id">{z.id}</span>
                 {z.team && <span className="tile-team" style={{ background: fleet(z.team).color }} />}
               </span>
@@ -221,7 +235,7 @@ export function PlanetOverlay({ view, planet: p, tab, onTab, dossier }: {
 }) {
   const { grid } = useScreen();
   return (
-    <div className="planet" style={grid.name === 'tall' ? { ['--band' as string]: `${TALL_BAND}px` } : undefined}>
+    <div className="planet" style={grid.name === 'tall' ? cssVars({ '--band': `${TALL_BAND}px` }) : undefined}>
       <header className="planet-head">
         <span className="dialog-prd">#{p.prd}</span>
         <h2>{p.title.toUpperCase()}</h2>
@@ -234,7 +248,7 @@ export function PlanetOverlay({ view, planet: p, tab, onTab, dossier }: {
         <div className="tabs" role="tablist">
           {PLANET_TABS.map((t, i) => (
             // No focus on click, as a key hint: Enter keeps meaning START (which opens the dossier's page).
-            <button key={t} type="button" role="tab" aria-selected={i === tab} className={i === tab ? 'active' : ''} onMouseDown={(e) => e.preventDefault()} onClick={() => onTab(i)}>
+            <button key={t} type="button" role="tab" aria-selected={i === tab} className={i === tab ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); }} onClick={() => { onTab(i); }}>
               {t}{t === 'ENTROPY' && p.openWounds.length ? ` ${p.openWounds.length}` : ''}
             </button>
           ))}

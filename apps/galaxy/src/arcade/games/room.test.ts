@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { XP_RULES, type XpRules } from '@omni/galaxy';
 import { GAMES } from './index';
-import { barFill, cabinetDoor, cabinets, gamesHint, levelTag, ROOM_CABINETS, XP_LINE, xpStatus } from './room';
+import { barFill, cabinetDoor, cabinets, gamesHint, levelTag, ROOM_CABINETS, XP_LINE, xpStatus, type Cabinet } from './room';
+import { sure } from '../test/sure';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 const row = (xp: number, level: number, unlocked: string[] = level >= 1 ? ['invaders'] : []) => ({ xp, level, unlocked });
 
 describe('the registry', () => {
-  it('lists Entropy Invaders, keyed as the rulebook unlocks it, not playable until its scene lands', () => {
-    expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS']]);
+  it('lists Entropy Invaders then Super Omni World, each keyed as the rulebook unlocks it', () => {
+    expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'SUPER OMNI WORLD']]);
+    expect(XP_RULES.unlocks).toMatchObject({ invaders: 1, platformer: 2 });
     for (const g of GAMES) expect(XP_RULES.unlocks[g.id], g.id).toBeGreaterThanOrEqual(1);
   });
 });
@@ -89,8 +92,9 @@ describe('cabinets', () => {
   it('stands a cabinet per registry game, then SOON cabinets up to three', () => {
     const room = cabinets(xpStatus(true, row(180, 3)));
     expect(room).toHaveLength(ROOM_CABINETS);
-    expect(room.map((c) => c.kind)).toEqual(['game', 'soon', 'soon']);
+    expect(room.map((c) => c.kind)).toEqual(['game', 'game', 'soon']);
     expect(room[0]).toEqual({ kind: 'game', game: GAMES[0], unlocked: true, level: 1 });
+    expect(room[1]).toEqual({ kind: 'game', game: GAMES[1], unlocked: false, level: 2 });
   });
 
   it('lights a game only when the player\'s stored row unlocked it', () => {
@@ -104,6 +108,7 @@ describe('cabinets', () => {
   ])('keeps every cabinet locked for %s, the game showing its level', (_, status) => {
     const room = cabinets(status);
     expect(room[0]).toMatchObject({ kind: 'game', unlocked: false, level: 1 });
+    expect(room[1]).toMatchObject({ kind: 'game', unlocked: false, level: 2 });
     expect(room.filter((c) => c.kind === 'game' && c.unlocked)).toEqual([]);
   });
 
@@ -117,7 +122,9 @@ describe('cabinets', () => {
 
 describe('cabinetDoor', () => {
   const status = xpStatus(true, row(180, 3));
-  const [game, soon] = cabinets(status);
+  const [game, , soon] = cabinets(status);
+  assertDefined(game, 'game');
+  assertDefined(soon, 'soon');
 
   it('plays Entropy Invaders on its unlocked cabinet: A opens the invaders scene', () => {
     expect(GAMES[0]).toEqual({ id: 'invaders', title: 'ENTROPY INVADERS', scene: 'invaders' });
@@ -125,12 +132,27 @@ describe('cabinetDoor', () => {
   });
 
   it('says why a cabinet does not play: not playable yet, locked, or still to come', () => {
-    const unplayable = { ...game, game: { ...GAMES[0], scene: null } };
+    const unplayable = { ...game, game: { ...sure(GAMES[0], 'GAMES[0]'), scene: null } } as Cabinet;
     expect(cabinetDoor(unplayable, status)).toEqual({ refused: 'ENTROPY INVADERS · COMING SOON' });
     expect(cabinetDoor(soon, status)).toEqual({ refused: 'THIS CABINET ARRIVES SOON' });
     const locked = cabinets(xpStatus(true, null))[0];
+    assertDefined(locked, 'locked');
     expect(cabinetDoor(locked, xpStatus(true, null))).toEqual({ refused: 'REACH LV 1 TO PLAY' });
     expect(cabinetDoor(locked, xpStatus(false, null))).toEqual({ refused: 'LINK GITHUB TO EARN XP' });
     expect(cabinetDoor(locked, xpStatus(true, 'unreadable'))).toEqual({ refused: 'XP OUT OF REACH' });
+  });
+
+  it('refuses Super Omni World at LV 1 with REACH LV 2 TO PLAY, and opens its scene at LV 2; the third cabinet stays SOON', () => {
+    const lv1 = xpStatus(true, row(10, 1, ['invaders']));
+    const [, platformer1, third] = cabinets(lv1);
+    assertDefined(platformer1, 'platformer1');
+    assertDefined(third, 'third');
+    expect(platformer1).toMatchObject({ kind: 'game', unlocked: false, level: 2 });
+    expect(cabinetDoor(platformer1, lv1)).toEqual({ refused: 'REACH LV 2 TO PLAY' });
+    expect(cabinetDoor(third, lv1)).toEqual({ refused: 'THIS CABINET ARRIVES SOON' });
+    const lv2 = xpStatus(true, row(60, 2, ['invaders', 'platformer']));
+    const [, platformer2] = cabinets(lv2);
+    assertDefined(platformer2, 'platformer2');
+    expect(cabinetDoor(platformer2, lv2)).toEqual({ scene: 'platformer' });
   });
 });

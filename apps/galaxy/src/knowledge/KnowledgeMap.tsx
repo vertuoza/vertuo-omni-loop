@@ -49,7 +49,7 @@ export function KnowledgeMap({ graph, initial, repo = null }: { graph: Knowledge
       if (next) setSelection(next);
     };
     window.addEventListener('popstate', walk);
-    return () => window.removeEventListener('popstate', walk);
+    return () => { window.removeEventListener('popstate', walk); };
   }, [graph]);
 
   // After choosing an entry, its panel is brought into view when it is off screen: on a phone it sits
@@ -59,7 +59,8 @@ export function KnowledgeMap({ graph, initial, repo = null }: { graph: Knowledge
     reveal.current = false;
     const box = panel.current?.getBoundingClientRect();
     if (!box || (box.top >= 0 && box.top < window.innerHeight * 0.8)) return;
-    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    // A browser without matchMedia (an old one, a test's) moves smoothly, as before.
+    const still = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     panel.current?.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' });
   }, [selection]);
 
@@ -71,8 +72,8 @@ export function KnowledgeMap({ graph, initial, repo = null }: { graph: Knowledge
     const href = entryHref(next, repo);
     if (`${window.location.pathname}${window.location.search}` !== href) window.history.pushState(null, '', href);
   };
-  const choose = (id: string, event: MouseEvent) => go(select(graph, { entry: id }), event, true);
-  const openTab = (key: string, event: MouseEvent) => go(select(graph, { domain: key }), event, false);
+  const choose = (id: string, event: MouseEvent) => { go(select(graph, { entry: id }), event, true); };
+  const openTab = (key: string, event: MouseEvent) => { go(select(graph, { domain: key }), event, false); };
 
   const title = tabLabel(selection.domain);
   return (
@@ -84,7 +85,7 @@ export function KnowledgeMap({ graph, initial, repo = null }: { graph: Knowledge
             href={entryHref({ domain: tab.key, entry: null }, repo)}
             aria-current={tab.key === selection.domain ? 'page' : undefined}
             className="km-tab"
-            onClick={(event) => openTab(tab.key, event)}
+            onClick={(event) => { openTab(tab.key, event); }}
           >
             {tab.label}<span className="km-count">{tab.count}</span>
           </a>
@@ -124,7 +125,7 @@ export function KnowledgeMap({ graph, initial, repo = null }: { graph: Knowledge
               id="km-filter"
               type="search"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => { setQuery(event.target.value); }}
               placeholder="By id or words"
               autoComplete="off"
               spellCheck={false}

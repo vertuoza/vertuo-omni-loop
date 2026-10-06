@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useId, useState, useSyncExternalStore } from 'react';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
   activeQuestion,
   addShots,
@@ -18,9 +19,11 @@ import {
   type Pick,
   type Shot,
 } from '../answer-model';
+import { OptionDescription, QuestionHeading } from './QuestionText';
 import { imagesOf, progressOf, progressText, shotOf, stageShots, subscribeTrays, type Progress } from './attachments';
 
-// The open round: each question with its header chip and its text as the heading, the options as
+// The open round: each question with its header chip and its text as the heading (a long one as
+// its lead, the rest folded: PRD 752), the options as
 // large rows (radios, or checkboxes for a multi-select) with their descriptions, the Recommended
 // badge, Other, and a preview panel beside the options when an option carries one. Keys 1 to 4 pick
 // in the question with the focus (else the first without an answer) and Enter sends. Other takes
@@ -39,11 +42,11 @@ type Props = {
 };
 
 const isTyping = (el: Element | null) =>
-  !!el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'text') || (el as HTMLElement).isContentEditable);
+  !!el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && propertyOf(el, 'type') === 'text') || propertyOf(el, 'isContentEditable') === true);
 
 /** The question an element sits in, from its data-question attribute. */
 function questionOf(el: Element | null): number | null {
-  const at = el?.closest?.('[data-question]')?.getAttribute('data-question');
+  const at = el?.closest('[data-question]')?.getAttribute('data-question');
   return at === undefined || at === null ? null : Number(at);
 }
 
@@ -53,7 +56,9 @@ function Thumb({ shot, n, onRemove }: { shot: Shot; n: number; onRemove: () => v
   useEffect(() => {
     const made = URL.createObjectURL(shot.file);
     setUrl(made);
-    return () => URL.revokeObjectURL(made);
+    return () => {
+      URL.revokeObjectURL(made);
+    };
   }, [shot.file]);
   return (
     <li className="ask-shot">
@@ -94,14 +99,18 @@ function OtherBox({ name, question, pick, questions, draft, index, onDraft, upda
       onDragOver={(event) => {
         if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault();
       }}
-      onDrop={(event) => takeFiles(event, event.dataTransfer, addFiles)}
+      onDrop={(event) => {
+        takeFiles(event, event.dataTransfer, addFiles);
+      }}
     >
       <input
         id={`${name}-other`}
         type={question.multiSelect ? 'checkbox' : 'radio'}
         name={name}
         checked={pick.otherOn}
-        onChange={() => update(toggleOther(question, pick))}
+        onChange={() => {
+          update(toggleOther(question, pick));
+        }}
       />
       <label htmlFor={`${name}-other`} className="ask-other-head">
         <span className="ask-key" aria-hidden="true">…</span>
@@ -113,13 +122,19 @@ function OtherBox({ name, question, pick, questions, draft, index, onDraft, upda
         placeholder="Type your own answer"
         aria-label={`Your own answer: ${question.question}`}
         value={pick.otherText}
-        onChange={(event) => update(typeOther(question, pick, event.target.value))}
-        onPaste={(event) => takeFiles(event, event.clipboardData, addFiles)}
+        onChange={(event) => {
+          update(typeOther(question, pick, event.target.value));
+        }}
+        onPaste={(event) => {
+          takeFiles(event, event.clipboardData, addFiles);
+        }}
       />
       <div className="ask-shots">
         {!!pick.shots?.length && (
           <ul className="ask-shot-list" aria-label="Screenshots">
-            {pick.shots.map((shot, n) => <Thumb key={shot.id} shot={shot} n={n + 1} onRemove={() => dropShot(shot.id)} />)}
+            {pick.shots.map((shot, n) => <Thumb key={shot.id} shot={shot} n={n + 1} onRemove={() => {
+              dropShot(shot.id);
+            }} />)}
           </ul>
         )}
         <input
@@ -149,6 +164,7 @@ type OptionProps = { name: string; question: AskQuestion; pick: Pick; k: number;
 /** One option's row: its radio or checkbox, its key, its label with the Recommended badge, its description. */
 function OptionRow({ name, question, pick, k, onFocus, update }: OptionProps) {
   const option = question.options[k];
+  if (!option) return null;
   const shown = shownLabel(option.label);
   return (
     <label className="ask-opt" onMouseEnter={onFocus} onFocus={onFocus}>
@@ -157,7 +173,9 @@ function OptionRow({ name, question, pick, k, onFocus, update }: OptionProps) {
         name={name}
         value={option.label}
         checked={pick.labels.includes(option.label)}
-        onChange={() => update(pickOption(question, pick, option.label))}
+        onChange={() => {
+          update(pickOption(question, pick, option.label));
+        }}
       />
       <span className="ask-key" aria-hidden="true">{k < 4 ? k + 1 : ''}</span>
       <span>
@@ -165,7 +183,7 @@ function OptionRow({ name, question, pick, k, onFocus, update }: OptionProps) {
           {shown.text}
           {shown.recommended && <span className="ask-rec">Recommended</span>}
         </span>
-        {option.description && <span className="ask-opt-desc">{option.description}</span>}
+        {option.description && <OptionDescription text={option.description} />}
       </span>
     </label>
   );
@@ -181,34 +199,54 @@ type QuestionProps = {
   onDraft: (draft: Draft) => void;
 };
 
+/** A question's head: its header chip, if any, and whether it takes one pick or several. */
+function QuestionHead({ question }: { question: AskQuestion }) {
+  return (
+    <div className="ask-q-head">
+      {question.header && <span className="ask-chip">{question.header}</span>}
+      <span className="ask-pick-hint">{question.multiSelect ? 'Pick any that apply' : 'Pick one'}</span>
+    </div>
+  );
+}
+
+/** The preview beside the options, of the option it shows; nothing when none is shown. */
+function PreviewPanel({ question, pick, focused }: { question: AskQuestion; pick: Pick; focused: number | null }) {
+  const preview = shownPreview(question, pick, focused);
+  const option = preview ? question.options[preview.option] : undefined;
+  if (!preview || !option) return null;
+  const label = shownLabel(option.label).text;
+  return (
+    <pre className="ask-preview" aria-label={`Preview of ${label}`}>
+      <span className="ask-preview-for" aria-hidden="true">Preview · {label}</span>
+      {preview.text}
+    </pre>
+  );
+}
+
 /** One question: its head, its options with Other, and the preview beside them when one is shown. */
 function QuestionBlock({ name, questions, draft, index, focused, setFocus, onDraft }: QuestionProps) {
   const question = questions[index];
   const pick = draft[index];
-  const preview = shownPreview(question, pick, focused);
-  const hasPreview = question.options.some((o) => o.preview !== null);
-  const update = (next: Pick) => onDraft(draft.map((p, i) => (i === index ? next : p)));
+  if (!question || !pick) return null;
+  const withPreview = question.options.some((o) => o.preview !== null) ? ' has-preview' : '';
+  const update = (next: Pick) => {
+    onDraft(draft.map((p, i) => (i === index ? next : p)));
+  };
   return (
-    <section className={hasPreview ? 'ask-q has-preview' : 'ask-q'} data-question={index} aria-labelledby={`${name}-text`}>
-      <div className="ask-q-head">
-        {question.header && <span className="ask-chip">{question.header}</span>}
-        <span className="ask-pick-hint">{question.multiSelect ? 'Pick any that apply' : 'Pick one'}</span>
-      </div>
-      <h2 className="ask-question" id={`${name}-text`}>{question.question}</h2>
-      <div className={hasPreview ? 'ask-q-body has-preview' : 'ask-q-body'}>
+    <section className={`ask-q${withPreview}`} data-question={index} aria-labelledby={`${name}-text`}>
+      <QuestionHead question={question} />
+      <QuestionHeading id={`${name}-text`} text={question.question} />
+      <div className={`ask-q-body${withPreview}`}>
         <fieldset className="ask-opts" data-multi={question.multiSelect}>
           <legend className="ask-sr">{question.question}</legend>
           {question.options.map((_, k) => (
-            <OptionRow key={k} name={name} question={question} pick={pick} k={k} onFocus={() => setFocus({ question: index, option: k })} update={update} />
+            <OptionRow key={k} name={name} question={question} pick={pick} k={k} onFocus={() => {
+              setFocus({ question: index, option: k });
+            }} update={update} />
           ))}
           <OtherBox name={name} question={question} pick={pick} questions={questions} draft={draft} index={index} onDraft={onDraft} update={update} />
         </fieldset>
-        {preview && (
-          <pre className="ask-preview" aria-label={`Preview of ${shownLabel(question.options[preview.option].label).text}`}>
-            <span className="ask-preview-for" aria-hidden="true">Preview · {shownLabel(question.options[preview.option].label).text}</span>
-            {preview.text}
-          </pre>
-        )}
+        <PreviewPanel question={question} pick={pick} focused={focused} />
       </div>
     </section>
   );
@@ -249,7 +287,9 @@ export function RoundForm({ roundId, questions, draft, onDraft, canSend, sending
       onDraft(pickByKey(questions, draft, activeQuestion(questions, draft, questionOf(target)), intent.option));
     }
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
   }, [questions, draft, onDraft, canSend, sending, onSend]);
 
   return (

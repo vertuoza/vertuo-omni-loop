@@ -1,11 +1,14 @@
 // GitHub as the omni-loop App sees it (PRD 359): a JWT signed with the App's private key, then three
 // reads, an installation by id, an org's installation and a person's own account's installation. The
 // PRD page (PRD 426) adds two: a repository's installation, and an installation access token for it. Settings → Repositories (PRD 612) adds the
-// repositories an installation reaches, and where its access is changed on GitHub. galaxy's server holds the App's id and key
+// repositories an installation reaches, read with that token through the fetch its caller hands in (the
+// shared client's, PRD 902), and where its access is changed on GitHub. galaxy's server holds the App's id and key
 // (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, server only: never a NEXT_PUBLIC_ variable, never imported
 // by a client component); the install link needs only the App's public slug (GITHUB_APP_SLUG).
+import 'server-only';
 import { createSign } from 'node:crypto';
 import { z } from 'zod';
+import { serverEnv, type GithubAppEnv } from '../env';
 import type { Installation } from './installation';
 
 export interface AppCredentials { appId: string; privateKey: string }
@@ -13,18 +16,15 @@ export interface AppCredentials { appId: string; privateKey: string }
 const LOGIN = /^[A-Za-z0-9-]{1,39}$/;
 const GITHUB = 'https://api.github.com';
 
-/** The App's id and key from the server's environment. A key pasted on one line (`\n` escaped, as a
- * dashboard often stores it) is turned back into lines. Throws, naming what is missing. */
-export function appCredentials(env: Record<string, string | undefined> = process.env): AppCredentials {
-  const appId = env.GITHUB_APP_ID?.trim();
-  const key = env.GITHUB_APP_PRIVATE_KEY?.trim();
-  const missing = [!appId && 'GITHUB_APP_ID', !key && 'GITHUB_APP_PRIVATE_KEY'].filter(Boolean);
-  if (missing.length) throw new Error(`${missing.join(' and ')} not set on this deployment: sign-up cannot read GitHub as the App`);
-  return { appId: appId!, privateKey: key!.replace(/\\n/g, '\n') };
+/** The App's id and key from the server's environment (../env.ts, which turns a key pasted on one line
+ * back into lines). Throws, naming both variables, when the App is not set up on this deployment. */
+export function appCredentials(app: GithubAppEnv | null = serverEnv().githubApp): AppCredentials {
+  if (!app) throw new Error('GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY not set on this deployment: sign-up cannot read GitHub as the App');
+  return { appId: app.id, privateKey: app.privateKey };
 }
 
 /** Where a visitor installs the App: its install page on GitHub, or null without a slug. */
-export function installUrl(slug: string | undefined): string | null {
+export function installUrl(slug: string | null | undefined): string | null {
   return slug && /^[a-z0-9-]{1,34}$/i.test(slug) ? `https://github.com/apps/${slug}/installations/new` : null;
 }
 
@@ -50,7 +50,7 @@ const InstallationAnswer = z.object({
   account: z.object({ login: z.string().regex(LOGIN), type: z.enum(['Organization', 'User']) }),
 });
 
-const TokenAnswer = z.object({ token: z.string().min(1), expires_at: z.string().datetime({ offset: true }) });
+const TokenAnswer = z.object({ token: z.string().min(1), expires_at: z.iso.datetime({ offset: true }) });
 
 const RepositoriesAnswer = z.object({
   total_count: z.number().int().nonnegative(),
@@ -69,8 +69,9 @@ export const REPO = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
 /** Every repository an installation token reaches, as GitHub spells it, archived ones left out.
- * Throws when GitHub answers an error or an odd shape. Shared with the knowledge reader. */
-export async function reachedRepositories(token: string, fetchImpl: Fetch = fetch): Promise<string[]> {
+ * Throws when GitHub answers an error or an odd shape. Read by the knowledge reader and Settings ›
+ * Repositories, each handing it the shared client's fetch, bound to the installation's budget (PRD 902). */
+export async function reachedRepositories(token: string, fetchImpl: Fetch): Promise<string[]> {
   const names: string[] = [];
   for (let page = 1; page <= MAX_REPOSITORY_PAGES; page += 1) {
     const path = `/installation/repositories?per_page=100&page=${page}`;
@@ -132,11 +133,5 @@ export function githubApp(creds: AppCredentials, fetchImpl: Fetch = fetch, clock
       return read(`/repos/${repo}/installation`);
     },
     installationToken,
-    /** Every repository installation `id` reaches, as GitHub spells it, archived ones left out (PRD
-     * 612). Read with a fresh installation token. Throws when GitHub answers an error or an odd shape. */
-    async installationRepositories(id: number): Promise<string[]> {
-      const { token } = await installationToken(id);
-      return reachedRepositories(token, fetchImpl);
-    },
   };
 }

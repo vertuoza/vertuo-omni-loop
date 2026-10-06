@@ -1,14 +1,16 @@
 import { createElement } from 'react';
 import { prerender } from 'react-dom/static';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { GithubSummary } from '../../github/summary';
 import { DEMO_GITHUB, DEMO_VIEWER, demoDossier } from '../demo';
 import { DossierStream, type DossierReads } from './DossierStream';
 import { GITHUB_PENDING } from './pending';
 
+vi.mock('server-only', () => ({}));
+
 // A PRD's page streamed (PRD 657 s4): sent once the database has answered, the Outbox saying it is
-// being read while the GitHub summary is pending, then whole once it arrives; the change check starts
-// only from the page as read with its summary.
+// being read while the GitHub summary is pending, then whole once it arrives. Bug #782: the change
+// check (and the play dock it carries) starts from the database's read, never waiting for GitHub.
 
 const NOW = Date.parse('2026-09-29T10:00:00Z');
 const read = demoDossier(NOW);
@@ -27,9 +29,13 @@ const element = (github: Promise<GithubSummary | null>) => createElement('main',
 /** What the server has sent once the reads that resolve have: a pending summary keeps the page pending. */
 async function sentBy(github: Promise<GithubSummary | null>) {
   const stop = new AbortController();
-  setTimeout(() => stop.abort(), 30);
+  setTimeout(() => { stop.abort(); }, 30);
   return new Response((await prerender(element(github), { signal: stop.signal, onError: () => {} })).prelude).text();
 }
+
+/** Everything the server sends, once every read has resolved. */
+const everything = async (github: Promise<GithubSummary | null>) =>
+  new Response((await prerender(element(github))).prelude).text();
 
 /** The page as the browser ends up showing it: the completed segment the server sends after the
  * pending page, in the pending page's place, or the page itself when it was complete at once. */
@@ -44,19 +50,28 @@ describe('a PRD\'s page, streamed', () => {
     const html = await sentBy(never());
     expect(html).toContain('PRD #71');
     expect(html).toContain(GITHUB_PENDING);
-    expect(html).not.toContain('data-live');
   });
 
-  it('is sent whole once the summary arrives, with the change check started from it', async () => {
+  // Bug #782: the change check carries the play dock (PRD 757) and the page's own live poll; it must not
+  // wait for a GitHub summary that may never arrive.
+  it('starts the change check, and so the play dock, before GitHub answers', async () => {
+    const html = await sentBy(never());
+    expect(html).toContain(GITHUB_PENDING);
+    expect(html).toContain('data-live');
+  });
+
+  it('is sent whole once the summary arrives, the change check sent once, from the database\'s read', async () => {
     const html = await settled(Promise.resolve(DEMO_GITHUB));
     expect(html).toContain('PRD #71');
     expect(html).not.toContain(GITHUB_PENDING);
-    expect(html).toContain('data-live="with-github"');
+    const whole = await everything(Promise.resolve(DEMO_GITHUB));
+    expect(whole.match(/data-live=/g)).toHaveLength(1);
+    expect(whole).toContain('data-live="none"');
   });
 
   it('a summary GitHub could not give says so where it did before', async () => {
     const html = await settled(Promise.resolve(null));
     expect(html).not.toContain(GITHUB_PENDING);
-    expect(html).toContain('data-live="none"');
+    expect((await everything(Promise.resolve(null))).match(/data-live=/g)).toHaveLength(1);
   });
 });

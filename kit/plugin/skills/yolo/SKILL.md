@@ -157,16 +157,30 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
    - Commit the note alone as `docs(release): PRD <prd> release note`, with your session's
      co-author trailer, then the `omni sign trailer` line; it is pushed with the move (item 3). A
      kept note that did not change needs no commit.
-2. `node .omni-loop/bin/omni.mjs ship <prd>`. It stages the move and prints what moved.
+2. **The shipped round** first, only when the PRD's folder holds a `voice.json` and
+   `node .omni-loop/bin/omni.mjs business show --json` lists personas; otherwise go straight to the
+   ship below. The personas judge what actually shipped: the release note of item 1, when there is
+   one, and the final before/after page. Append round `shipped` to `voice.json` as
+   `/omni:brainstorm`'s **The voice** writes a round (today's date, each persona's score and cited
+   reaction, the objection or none, the fit line), run `node .omni-loop/bin/omni.mjs check inbox`
+   until it is green, and commit it alone as `docs(voice): PRD <prd> shipped round`, with your
+   session's co-author trailer, then the `omni sign trailer` line; it is pushed with the move
+   (item 3). A read that is not `ok` and lists no personas writes no round and stops nothing.
+   Then `node .omni-loop/bin/omni.mjs ship <prd>`. It stages the move and prints what moved.
    - Exit 1 names each reason it refused (with the switch on, a missing or failing release note is
      one): the feature PR stays draft; name them in step 6 as `stuck`.
    - Exit 2 means the delivery folder holds uncommitted changes. Commit them if they are this run's
      own (the body file never lives there), then rerun once; otherwise stop, as for exit 1.
 3. Commit the move as `chore(delivery): ship PRD <prd>`, with your session's co-author trailer, then
-   the `omni sign trailer` line, and `git push <remote> HEAD:<feature branch>`.
+   the `omni sign trailer` line, and `git push <remote> HEAD:<feature branch>`. When item 2 wrote a
+   shipped round, follow `/omni:dossier-push <prd>` from the worktree, so the PRD's User voice tab
+   ends on what shipped; whatever it prints, carry on.
 4. Only now, `gh pr ready <feature PR>`. **This is the only place in this skill a feature PR is
    marked ready**; `/omni:yolo-fix` follows this same green path after its own ship. CI runs on it
    once: follow `/omni:pr`'s lifecycle for the feature PR until its checks are green or it is stuck.
+5. **The proof,** only when the spec's front matter says `proof: video` (PRD 798): follow
+   `/omni:prove <prd>`. Whatever it prints, a stop line included, this run goes on to step 6: a proof
+   never changes the PR's state, its labels or its checks.
 
 The **omni-loop** GitHub App, when installed on the repository, posts this same gate on the feature
 PR as the check named `ci.outboxContext`; this skill never posts it and never waits on it.
@@ -339,7 +353,10 @@ ending's last line.
 3. If the omni-loop app is installed, it then opens a retro PR (how the delivery went)
    and a knowledge PR (the decisions, written back): review and merge each.
 
-Nothing to run: merging #<feature PR> is yours.
+Merging #<feature PR> is yours. Until then, to keep it green, conflict-free and its review
+comments handled while you do other things, type /clear (or open a new terminal), then run:
+
+/omni:pr-care <n>
 ```
 
 When `/omni:pr`'s lifecycle left the ready feature PR's CI stuck, the line in brackets under step 1
@@ -377,7 +394,7 @@ that stayed red.
 The PR that holds it is the stuck sub-PR when there is one, the feature PR otherwise.
 
 The last line of the reply is always the ending's own, alone on it:
-`Nothing to run: merging #<feature PR> is yours.`, `/omni:yolo-fix <n>` or `/omni:yolo <n>`.
+`/omni:pr-care <n>`, `/omni:yolo-fix <n>` or `/omni:yolo <n>`.
 Everything the next session needs is in the repository and on GitHub, so clearing the session loses
 nothing.
 

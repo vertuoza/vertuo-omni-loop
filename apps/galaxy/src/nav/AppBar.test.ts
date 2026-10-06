@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { pixelSvg } from '../design/pixel-svg';
 import { GAME_MODE } from '../switch/switch';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
+import { item } from '../ask/test/test-item';
 
 // The app's top bar (PRD 438) as the server renders it: the section's sprite in its tile and the trail
 // to the page (issue 704) on the left, then the theme switch (Omni, Light, Dark) and Game mode,
@@ -19,7 +20,9 @@ const linked = vi.hoisted((): string[] => []);
 vi.mock('next/link', async () => {
   const { createElement: h } = await import('react');
   return {
-    default: ({ prefetch: _prefetch, ...props }: Record<string, unknown>) => {
+    default: (given: Record<string, unknown>) => {
+      const props = { ...given };
+      delete props.prefetch;
       linked.push(String(props.href));
       return h('a', props);
     },
@@ -42,7 +45,7 @@ const tileOf = (bar: string) => (bar.match(/<span class="app-bar-tile" aria-hidd
 const tileWith = (svg: string) => `<span class="app-bar-tile" aria-hidden="true">${svg}</span>`;
 const sprite = (name: string) => tileWith(pixelSvg(spritePixels(name), { scale: 2, title: '' }));
 const controls = (bar: string) =>
-  [...bar.replace(/<dialog[\s\S]*?<\/dialog>/g, '').replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => text(m[2]));
+  [...bar.replace(/<dialog[\s\S]*?<\/dialog>/g, '').replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => text(item(m, 2)));
 
 describe('the top bar', () => {
   it('is a header holding the trail to the page, then Omni/Light/Dark, then Game mode, then the avatar, in that order', () => {
@@ -111,13 +114,14 @@ describe('the top bar', () => {
     expect(render('/app', ADA)).not.toContain('app-bar-crest');
   });
 
-  it('holds a nested item\'s section sprite: Shared with me is under Questions', () => {
+  it('holds a page\'s section sprite: Shared with me is under Questions, Fleets under Settings (PRD 733)', () => {
     expect(tileOf(render('/ask/for-me'))).toBe(sprite('menu-questions'));
+    expect(tileOf(render('/app/settings/fleets'))).toBe(sprite('menu-settings'));
+    expect(tileOf(render('/app/settings/repositories'))).toBe(sprite('menu-settings'));
   });
 
-  it('holds the OMNI LOOP mark in the tile on a section without a sprite, and on a path under no item', () => {
+  it('holds the OMNI LOOP mark in the tile on a path under no item', () => {
     const mark = tileWith(logoSvg('mark', { scale: 1, title: null }));
-    expect(tileOf(render('/app/settings/fleets'))).toBe(mark);
     expect(tileOf(render('/nowhere'))).toBe(mark);
   });
 
@@ -149,6 +153,10 @@ describe('the top bar', () => {
     ['/app/fleet', 'Dashboard › Fleet'],
     ['/app/workspace', 'Dashboard › Workspace'],
     ['/app/settings/fleets', 'Settings › Fleets'],
+    ['/app/settings/repositories', 'Settings › Repositories'],
+    ['/app/settings/business', 'Settings › Business'],
+    ['/app/settings/jev', 'Settings › Jev'],
+    ['/ask/for-me', 'Work › Questions › Shared with me'],
     ['/prd/3f2a', 'Work › PRDs'],
     ['/ask/history', 'Work › Questions › History'],
     ['/knowledge', 'Work › Knowledge'],

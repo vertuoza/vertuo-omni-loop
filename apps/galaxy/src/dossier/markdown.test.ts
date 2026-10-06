@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderMarkdown } from './markdown';
+import { renderInlineMarkdown, renderMarkdown, renderMarkdownBody } from './markdown';
 
 // A dossier's spec and plan, as /prd/<id> shows them (PRD 216): markdown rendered by markdown-it with
 // raw HTML off, and the front matter as one line above the body.
@@ -66,5 +66,30 @@ describe('rendering a spec or a plan', () => {
 
   it('escapes what the front matter says too: it is text', () => {
     expect(renderMarkdown('---\ntitle: <b>bold</b>\n---\n').front).toBe('title: <b>bold</b>');
+  });
+});
+
+// The ask page renders questions and option descriptions with the same renderer, in the browser
+// (PRD 752, decision 6): a lead or a description as one line, the rest of a question as a body.
+describe('rendering a line of a question', () => {
+  it('renders code and emphasis without wrapping the line in a paragraph', () => {
+    expect(renderInlineMarkdown('Open `libs/vertuo-workflow-ui/README.md` **now**')).toBe(
+      'Open <code>libs/vertuo-workflow-ui/README.md</code> <strong>now</strong>',
+    );
+  });
+
+  it('shows raw HTML as text, and never links a script: URL', () => {
+    expect(renderInlineMarkdown('<b>x</b>')).toBe('&lt;b&gt;x&lt;/b&gt;');
+    expect(renderInlineMarkdown('[go](javascript:alert(1))')).not.toMatch(/href="javascript:/i);
+  });
+
+  it('leaves plain text as it is', () => {
+    expect(renderInlineMarkdown('Row-level security per owner.')).toBe('Row-level security per owner.');
+  });
+
+  it('renders the rest of a question as a body, its steps as a numbered list, nothing taken as front matter', () => {
+    const html = renderMarkdownBody('Steps:\n\n1. open `vertuo-apps`\n2. merge <b>it</b>');
+    expect(html).toBe('<p>Steps:</p>\n<ol>\n<li>open <code>vertuo-apps</code></li>\n<li>merge &lt;b&gt;it&lt;/b&gt;</li>\n</ol>\n');
+    expect(renderMarkdownBody('---\nnot: front\n---\n')).toContain('not: front');
   });
 });

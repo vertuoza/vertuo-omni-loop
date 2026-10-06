@@ -1,0 +1,139 @@
+import { describe, expect, it } from 'vitest';
+import { longestPit, WORLD } from './rules';
+import { LEGEND, MAX_COLS, parseStage, pits, SOLID, STAGE_ROWS, stageProblems, STAGES, StageError } from './stages';
+import { sure } from '../test/sure';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+
+// Super Omni World's stages as data (PRD 817): each one a text map, checked here so a stage that
+// cannot be played never ships.
+
+/** A stage of `rows` rows, each `line` unless `at` gives that row its own. */
+const map = (line: string, at: Record<number, string> = {}, rows = STAGE_ROWS) =>
+  Array.from({ length: rows }, (_, i) => at[i] ?? line).join('\n');
+const FLOOR = '##########';
+const good = (over: Record<number, string> = {}) => map('..........', { 15: '.S......F.', 16: FLOOR, 17: FLOOR, ...over });
+
+describe('every stage', () => {
+  it('is the world\'s three stages, in the order they are played, each in its own palette', () => {
+    expect(STAGES.map((s) => [s.id, s.palette])).toEqual([['1-1', 'grass'], ['1-2', 'underground'], ['1-3', 'castle']]);
+    expect(STAGES.map((s) => s.id)).toEqual([...WORLD]);
+  });
+
+  it.each(STAGES.map((s) => [s.id, s] as const))('%s passes the stage checks', (_, stage) => {
+    expect(stageProblems(stage)).toEqual([]);
+  });
+
+  it.each(STAGES.map((s) => [s.id, s] as const))('%s has one start, one flag, 18 equal rows, ground under the start, and fits the length cap', (_, stage) => {
+    expect(stage.starts).toHaveLength(1);
+    expect(stage.flags).toHaveLength(1);
+    expect(stage.rows).toBe(18);
+    expect(new Set(stage.widths)).toEqual(new Set([stage.cols]));
+    expect(stage.cols).toBeLessThanOrEqual(MAX_COLS);
+    const [start] = stage.starts;
+    assertDefined(start, 'start');
+    expect(SOLID.has(sure(sure(stage.tiles[start.row + 1], 'stage.tiles[start.row + 1]')[start.col], 'stage.tiles[start.row + 1]![start.col]'))).toBe(true);
+  });
+
+  it.each(STAGES.map((s) => [s.id, s] as const))('%s has pits, none wider than a run-jump', (_, stage) => {
+    expect(pits(stage).length).toBeGreaterThan(0);
+    for (const p of pits(stage)) expect(p.width, `pit at column ${p.col}`).toBeLessThanOrEqual(longestPit());
+  });
+
+  it('1-1 has ground, bricks, ? blocks and pipes to play on', () => {
+    const tiles = new Set(sure(STAGES[0], 'STAGES[0]').tiles.flat());
+    for (const t of ['ground', 'brick', 'block', 'pipe'] as const) expect(tiles, t).toContain(t);
+  });
+
+  it('1-1 has coins to take and Entropy blobs to stomp, every blob standing on something solid', () => {
+    const [s] = STAGES;
+    assertDefined(s, 's');
+    expect(s.coins.length).toBeGreaterThanOrEqual(10);
+    expect(s.enemies.length).toBeGreaterThanOrEqual(5);
+    for (const e of s.enemies) expect(SOLID.has(sure(sure(s.tiles[e.row + 1], 's.tiles[e.row + 1]')[e.col], 's.tiles[e.row + 1]![e.col]')), `blob at column ${e.col + 1}`).toBe(true);
+  });
+
+  it.each(STAGES.map((s) => [s.id, s] as const))('%s has coins to take and blobs to stomp, every blob standing on something solid', (_, stage) => {
+    expect(stage.coins.length).toBeGreaterThanOrEqual(10);
+    expect(stage.enemies.length).toBeGreaterThanOrEqual(5);
+    for (const e of stage.enemies) expect(SOLID.has(sure(sure(stage.tiles[e.row + 1], 'stage.tiles[e.row + 1]')[e.col], 'stage.tiles[e.row + 1]![e.col]')), `blob at column ${e.col + 1}`).toBe(true);
+  });
+
+  it('1-2 is underground: a brick ceiling over ground, with pipes and ? blocks', () => {
+    const s = STAGES[1];
+    assertDefined(s, 's');
+    expect(sure(s.tiles[0], 's.tiles[0]').filter((t) => t === 'brick').length).toBeGreaterThan(s.cols / 2);
+    const tiles = new Set(s.tiles.flat());
+    for (const t of ['ground', 'brick', 'block', 'pipe'] as const) expect(tiles, t).toContain(t);
+  });
+
+  it('1-3 is a castle: stone underfoot and overhead, and no grass ground', () => {
+    const s = STAGES[2];
+    assertDefined(s, 's');
+    expect(sure(s.tiles[0], 's.tiles[0]').every((t) => t === 'stone')).toBe(true);
+    expect(sure(s.tiles[s.rows - 1], 's.tiles[s.rows - 1]').filter((t) => t !== 'empty').every((t) => t === 'stone')).toBe(true);
+    const tiles = new Set(s.tiles.flat());
+    expect(tiles).toContain('block');
+    expect(tiles).not.toContain('ground');
+  });
+});
+
+describe('parseStage', () => {
+  it('reads each legend character as its tile, and the start, the flag, the coins and the enemies as places on empty ground', () => {
+    const s = parseStage('t', 'grass', good({ 14: '..?B.PC.oe' }));
+    expect(s.tiles[14]).toEqual(['empty', 'empty', 'block', 'brick', 'empty', 'pipe', 'stone', 'empty', 'empty', 'empty']);
+    expect(s.starts).toEqual([{ col: 1, row: 15 }]);
+    expect(s.flags).toEqual([{ col: 8, row: 15 }]);
+    expect(s.coins).toEqual([{ col: 8, row: 14 }]);
+    expect(s.enemies).toEqual([{ col: 9, row: 14 }]);
+    expect(sure(s.tiles[15], 's.tiles[15]')[1]).toBe('empty');
+  });
+
+  it('writes the whole legend above the maps', () => {
+    expect(Object.keys(LEGEND).sort()).toEqual(['#', '.', '?', 'B', 'C', 'F', 'P', 'S', 'e', 'o'].sort());
+  });
+
+  it('refuses an unknown character, naming it with its row and column', () => {
+    const text = good({ 3: '....x.....' });
+    expect(() => parseStage('t', 'grass', text)).toThrow(StageError);
+    expect(() => parseStage('t', 'grass', text)).toThrow('stage t: unknown tile "x" at row 4, column 5');
+  });
+});
+
+describe('stageProblems', () => {
+  it('passes a well-formed stage', () => {
+    expect(stageProblems(parseStage('t', 'grass', good()))).toEqual([]);
+  });
+
+  it('names a missing or second start and flag', () => {
+    expect(stageProblems(parseStage('t', 'grass', good({ 15: '..........' })))).toEqual(['no start', 'no flag']);
+    expect(stageProblems(parseStage('t', 'grass', good({ 15: '.S.S..F.F.' })))).toEqual(['2 starts', '2 flags']);
+  });
+
+  it('names a stage that is not 18 rows high, or whose rows differ in length', () => {
+    expect(stageProblems(parseStage('t', 'grass', map('..........', { 14: '.S......F.', 15: FLOOR, 16: FLOOR }, 17)))).toContain('17 rows, not 18');
+    expect(stageProblems(parseStage('t', 'grass', good({ 4: '...' })))).toContain('row 5 is 3 tiles long, not 10');
+  });
+
+  it('names a start with no ground under it', () => {
+    expect(stageProblems(parseStage('t', 'grass', good({ 16: '#.########', 17: '#.########' })))).toContain('no ground under the start');
+  });
+
+  it('names an enemy with nothing solid under it', () => {
+    expect(stageProblems(parseStage('t', 'grass', good({ 14: '....e.....', 15: '.S..e...F.' })))).toEqual(['enemy at row 15, column 5 stands on nothing']);
+  });
+
+  it('names a pit wider than a run-jump, and lets one as wide pass', () => {
+    const cols = longestPit() + 12;
+    const floor = (gap: number) => `${'#'.repeat(4)}${'.'.repeat(gap)}${'#'.repeat(cols - 4 - gap)}`;
+    const stage = (gap: number) => parseStage('t', 'grass', map('.'.repeat(cols), { 15: `.S${'.'.repeat(cols - 4)}F.`, 16: floor(gap), 17: floor(gap) }));
+    expect(stageProblems(stage(longestPit()))).toEqual([]);
+    expect(stageProblems(stage(longestPit() + 1))).toEqual([`pit at column 5 is ${longestPit() + 1} tiles wide, more than a run-jump (${longestPit()})`]);
+  });
+
+  it('names a stage longer than the cap', () => {
+    const line = '.'.repeat(MAX_COLS + 1);
+    const floor = '#'.repeat(MAX_COLS + 1);
+    const text = map(line, { 15: `.S${'.'.repeat(MAX_COLS - 3)}F.`, 16: floor, 17: floor });
+    expect(stageProblems(parseStage('t', 'grass', text))).toEqual([`${MAX_COLS + 1} tiles long, more than ${MAX_COLS}`]);
+  });
+});

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { inSeason, seasonBounds } from './season';
+import { twinEvents, twinGalaxy, TWIN_NOW } from '../arcade/test/twins.fake';
 
 // The season (PRD 328): the calendar month in UTC, the one the game's economy scores (buildGalaxy
 // scores `now.toISOString().slice(0, 7)`). The points, both rankings and the three season counts all
@@ -52,5 +53,20 @@ describe('seasonBounds', () => {
     expect(holds('2026-09-30T23:59:59Z')).toBe(true);
     expect(holds('2026-08-31T23:59:59Z')).toBe(false);
     expect(holds('2026-10-01T00:00:00Z')).toBe(false);
+  });
+});
+
+// PRD 728: the economy keys a planet by `<home>#<n>`. The dashboard's Points column reads the
+// galaxy's heroes, which the economy scores for this season's key.
+describe('the season the Points column reads', () => {
+  it('is the galaxy\'s: the economy scores the season seasonBounds keys', () => {
+    expect(twinGalaxy().season).toBe(seasonBounds(TWIN_NOW).key);
+  });
+
+  it('pays each of two repositories\' PRD 88 to its own crew, and nothing from the season before', () => {
+    const last = twinEvents('acme/plan', 'beaver', 'carol', 70).map((e) => ({ ...e, at: e.at.replace('2026-09-', '2026-08-') }));
+    const view = twinGalaxy([...twinEvents('acme/plan', 'beaver', 'bob'), ...twinEvents('acme/tools', 'octopod', 'alice'), ...last]);
+    expect(Object.fromEntries(view.heroes.map((h) => [h.name, h.points]))).toEqual({ alice: 10, bob: 10 });
+    expect(view.planets.filter((p) => p.prd === 88).map((p) => [p.key, p.earned])).toEqual([['acme/plan#88', 10], ['acme/tools#88', 10]]);
   });
 });

@@ -5,7 +5,7 @@
 //   POST /api/ask/sessions                {title, context?}    → {id, url}
 //   POST /api/ask/sessions/:id/close                           → {id, status: "closed"}
 //   DELETE /api/ask/sessions/:id                               → {id, deleted: true}
-//   POST /api/ask/sessions/:id/rounds     {questions, context?} → {roundId}
+//   POST /api/ask/sessions/:id/rounds     {questions, context?, lead?} → {roundId}
 //   GET  /api/ask/rounds/:id/wait                              → {status: open|answered|abandoned|closed, answers?, attachments?}
 //   POST /api/ask/rounds/:id/answers      {answers, via: "terminal"} → {id, status: "answered", via: "terminal"}
 //   POST /api/ask/rounds/:id/abandon                           → {id, status: "abandoned"}
@@ -31,11 +31,18 @@
 // is ignored; a known one of the wrong shape is refused with 400. The round's cost comes from the one
 // price table (./prices.ts). Who answered is never taken from a body: the database sets it.
 //
+// `lead` is optional on a round (PRD 752): the text Claude wrote before asking, as the kit read it from
+// the transcript (ADR-0002), at most LEAD_MAX_BYTES plus the kit's shortened note. It is text or null;
+// anything else, an empty text or a longer one is refused with 400. It is stored with the round and
+// read back with it, and the classifier never reads it.
+//
 // A round's category (PRD 144) is one of six (./classify.ts). Once a round is created, the model sorts
 // it after the response has gone (`later`, Next's after()), so asking never waits on it; any failure
 // leaves it unsorted, and nothing retries. Any member of the session's workspace sets, changes or
 // clears it (`category: null`); a round of another workspace is 404. The model never overrides a
-// person: the database records its guess only while nobody has set one.
+// person: the database records its guess only while nobody has set one. When the session's workspace
+// has its Jev decision `question-category` in Shadow or On (PRD 812), the category goes through the
+// resolver (./classify-jev.ts); Off is exactly the path above.
 //
 // The session's owner shares a round (PRD 144) with another member of the session's workspace, who may
 // then answer it on the page while it is open (/ask/q/<round>). Sharing any other round is refused:
@@ -52,12 +59,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Placement } from './cli-code';
 import { authenticate, callerOrigin as origin, withInstallLink, type AskCaller, type TokenCheck } from './auth';
-import { CATEGORIES, isCategory, type Category, type Classifier, type ClassifyInput } from './classify';
+import { CATEGORIES, isCategory, type Classifier, type ClassifyInput } from './classify';
+import type { CategoryDecider } from './classify-jev';
 import { costUsd } from './prices';
 import {
   askAttachments, askCategories, askShares, askStore, AskStoreError, memberLabel, sessionClosed,
   type AskAnswers, type AskAttachmentFiles, type AskCategories, type AskRound, type AskRoundFacts, type AskSession, type AskShares, type AskStore, type AskTokens,
 } from './store';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** How long one wait holds before it answers `open`: within the 60 s the routes may run. */
 export const WAIT_MS = 50_000;
@@ -65,6 +74,11 @@ export const WAIT_MS = 50_000;
 export const POLL_MS = 1_000;
 /** The largest body a call accepts (a round's questions, previews included). */
 export const MAX_BODY_BYTES = 256 * 1024;
+
+/** The most a round's lead carries (PRD 752), as the kit caps it, before its shortened note. */
+export const LEAD_MAX_BYTES = 16 * 1024;
+/** Room for the kit's shortened note after a cut lead, and the blank line before it. */
+export const LEAD_NOTE_BYTES = 256;
 
 /** A Supabase client acting as one access token: the Auth server's check, and the tables. */
 export type AskClient = TokenCheck & Pick<SupabaseClient, 'from' | 'rpc' | 'storage'>;
@@ -78,12 +92,15 @@ export type AskDeps = {
   pollMs?: number;
   /** Sorts a new round into one of six, or null when there is no classifier (no key): it stays unsorted. */
   classify?: Classifier | null;
+  /** Puts the category through the workspace's Jev decision (PRD 812), `classify` as today's answer;
+   * absent or null: today's classifier alone. */
+  decideCategory?: CategoryDecider | null;
   /** Runs a task once the response has gone (Next's after()); without it, the task just starts. */
   later?: (task: () => Promise<void>) => void;
   /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
   installLink?: string | null;
   /** Where a person's calls for a repository go (repo_workspace()); absent: nobody can say here. */
-  place?: (userId: string, repo: string) => Promise<Placement>;
+  place?: ((userId: string, repo: string) => Promise<Placement>) | undefined;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -178,9 +195,9 @@ async function touch(who: Signed, session: AskSession) {
 }
 
 /** A context field: missing or null reads as null; `ok` says whether a value it holds is fine. */
-type Field<T> = { value: T | null } | { problem: string };
+type Field<T> = { value: T } | { problem: string };
 
-function field<T>(context: Record<string, unknown>, key: string, ok: (value: unknown) => value is T, shape: string): Field<T> {
+function field<T>(context: Record<string, unknown>, key: string, ok: (value: unknown) => value is T, shape: string): Field<T | null> {
   const value = context[key];
   if (value === undefined || value === null) return { value: null };
   return ok(value) ? { value } : { problem: `\`context.${key}\` must be ${shape}, or null.` };
@@ -189,21 +206,30 @@ function field<T>(context: Record<string, unknown>, key: string, ok: (value: unk
 const text = (max: number) => (value: unknown): value is string => typeof value === 'string' && value.length >= 1 && value.length <= max;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const isRepo = (value: unknown): value is string => text(200)(value) && REPO.test(value);
-const isPrd = (value: unknown): value is number => Number.isInteger(value) && (value as number) > 0;
-const count = (value: unknown) => Number.isInteger(value) && (value as number) >= 0;
+const isPrd = (value: unknown): value is PrdNumber => PrdNumberSchema.safeParse(value).success;
+const count = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0;
 const TOKEN_KEYS = ['cacheRead', 'cacheWrite', 'input', 'output'];
 const isTokens = (value: unknown): value is AskTokens =>
   isRecord(value) && Object.keys(value).sort().join() === TOKEN_KEYS.join() && Object.values(value).every(count);
 
-type RoundContext = { repo: string | null; branch: string | null; prd: number | null; claudeSessionId: string | null;
+type RoundContext = { repo: string | null; branch: string | null; prd: PrdNumber | null; claudeSessionId: string | null;
   skill: string | null; model: string | null; tokens: AskTokens | null };
+type ContextFields = { [K in keyof RoundContext]: Field<RoundContext[K]> };
+
+/** Copies field `key` into `context`, or says why it is refused. */
+function copyField<K extends keyof RoundContext>(context: RoundContext, fields: Pick<ContextFields, K>, key: K): string | null {
+  const got = fields[key];
+  if ('problem' in got) return got.problem;
+  context[key] = got.value;
+  return null;
+}
 
 /** The context a body carries — every field null when it carries none — or why it is refused. */
 function readContext(sent: Record<string, unknown>, keys: Array<keyof RoundContext>): { context: RoundContext } | { problem: string } {
   const empty: RoundContext = { repo: null, branch: null, prd: null, claudeSessionId: null, skill: null, model: null, tokens: null };
   if (sent.context === undefined || sent.context === null) return { context: empty };
   if (!isRecord(sent.context)) return { problem: '`context`, when sent, must be a JSON object.' };
-  const fields: Record<keyof RoundContext, Field<unknown>> = {
+  const fields: ContextFields = {
     repo: field(sent.context, 'repo', isRepo, 'owner/name'),
     branch: field(sent.context, 'branch', text(250), 'a branch name of 1 to 250 characters'),
     prd: field(sent.context, 'prd', isPrd, 'a PRD number'),
@@ -214,9 +240,8 @@ function readContext(sent: Record<string, unknown>, keys: Array<keyof RoundConte
   };
   const context = { ...empty };
   for (const key of keys) {
-    const got = fields[key];
-    if ('problem' in got) return { problem: got.problem };
-    (context as Record<string, unknown>)[key] = got.value;
+    const problem = copyField(context, fields, key);
+    if (problem !== null) return { problem };
   }
   return { context };
 }
@@ -266,22 +291,34 @@ export function deleteSession(request: Request, id: string, deps: AskDeps): Prom
   });
 }
 
-/** AskUserQuestion's `questions`: a non-empty list of objects, each with its question text. */
-function questionsProblem(questions: unknown): string | null {
-  if (!Array.isArray(questions) || questions.length === 0) return 'A round needs `questions`: AskUserQuestion\'s list, as given.';
-  const fine = questions.every((q) => isRecord(q) && typeof q.question === 'string' && q.question.trim() !== '');
-  return fine ? null : 'Each question needs its `question` text.';
+/** AskUserQuestion's `questions`: a non-empty list of objects, each with its question text — or why it is refused. */
+function readQuestions(questions: unknown): { questions: unknown[] } | { problem: string } {
+  if (!Array.isArray(questions) || questions.length === 0) return { problem: 'A round needs `questions`: AskUserQuestion\'s list, as given.' };
+  const list: unknown[] = questions;
+  const fine = list.every((q) => isRecord(q) && typeof q.question === 'string' && q.question.trim() !== '');
+  return fine ? { questions: list } : { problem: 'Each question needs its `question` text.' };
+}
+
+/** The lead a round body carries — null when it carries none — or why it is refused. */
+function readLead(sent: Record<string, unknown>): { lead: string | null } | { problem: string } {
+  const lead = sent.lead;
+  if (lead === undefined || lead === null) return { lead: null };
+  const fine = typeof lead === 'string' && lead.trim() !== '' && new TextEncoder().encode(lead).length <= LEAD_MAX_BYTES + LEAD_NOTE_BYTES;
+  return fine ? { lead } : { problem: `\`lead\`, when sent, must be the text Claude wrote before asking, up to ${LEAD_MAX_BYTES / 1024} KB, or null.` };
 }
 
 export function addRound(request: Request, id: string, deps: AskDeps): Promise<Response> {
   return handle(request, deps, async (who) => {
     const sent = await body(request);
     if (sent instanceof Response) return sent;
-    const problem = questionsProblem(sent.questions);
-    if (problem) return refuse(400, problem);
+    const sentQuestions = readQuestions(sent.questions);
+    if ('problem' in sentQuestions) return refuse(400, sentQuestions.problem);
+    const { questions } = sentQuestions;
     const read = readContext(sent, ROUND_KEYS);
     if ('problem' in read) return refuse(400, read.problem);
     const { context } = read;
+    const sentLead = readLead(sent);
+    if ('problem' in sentLead) return refuse(400, sentLead.problem);
     const session = await ownSession(who, id);
     if (!session) return notFound('session');
     if (sessionClosed(session, who.now())) return closedSession();
@@ -291,16 +328,17 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
       model: context.model,
       tokens: context.tokens,
       cost_usd: costUsd(context.model, context.tokens),
+      lead: sentLead.lead,
     };
     try {
-      const round = await who.store.addRound(session.id, sent.questions as unknown[], facts);
+      const round = await who.store.addRound(session.id, questions, facts);
       await touch(who, session);
       await who.store.placeSession(session.id, {
         ...(context.branch !== null && { branch: context.branch }),
         ...(context.claudeSessionId !== null && { claude_session_id: context.claudeSessionId }),
       });
-      sortLater(who, deps, round.id, {
-        questions: sent.questions as unknown[],
+      sortLater(who, deps, round.id, session.workspace_id, {
+        questions,
         context: { repo: context.repo ?? session.repo, branch: context.branch, prd: context.prd, skill: context.skill },
       });
       return reply(200, { roundId: round.id });
@@ -314,12 +352,13 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
 
 /** Has the model sort the round once the response has gone. Nothing it does can fail the round: a
  * null reply, an error or a timeout leaves it unsorted, and nothing retries. */
-function sortLater(who: Signed, deps: AskDeps, roundId: string, input: ClassifyInput) {
-  const classify = deps.classify;
-  if (!classify) return;
+function sortLater(who: Signed, deps: AskDeps, roundId: string, workspace: string | null, input: ClassifyInput) {
+  const classify = deps.classify ?? null;
+  const viaJev = deps.decideCategory ?? null;
+  if (!classify && !(workspace && viaJev)) return;
   const task = async () => {
     try {
-      const category = await classify(input);
+      const category = workspace && viaJev ? await viaJev({ workspace, roundId, input, classify }) : classify ? await classify(input) : null;
       if (category) await who.categories.classified(roundId, category);
     } catch (error) {
       console.error(`ask: round ${roundId} stays unsorted: ${error instanceof Error ? error.message : String(error)}`);
@@ -439,7 +478,7 @@ export function categorizeRound(request: Request, id: string, deps: AskDeps): Pr
       return refuse(400, `\`category\` must be one of ${CATEGORIES.join(', ')}, or null to leave the round unsorted.`);
     }
     if (!UUID.test(id)) return notFound('round');
-    const set = await who.categories.set(id, category as Category | null);
+    const set = await who.categories.set(id, category);
     if (!set) return notFound('round');
     return reply(200, { id, category: set.category, category_by: set.category_by });
   });

@@ -3,7 +3,9 @@ import { buildGalaxy, demoEvents, DEMO_PROJECTS, type GalaxyView, type Planet } 
 import { gridFor } from '../grid';
 import { planetAt } from '../Screen';
 import { TALL, WIDE, type MapSlot } from './common.ts';
-import { layoutMap, neighbour, TALL_MAP, TALL_SCENES } from './map.ts';
+import { hyperlanes, layoutMap, neighbour, TALL_MAP, TALL_SCENES } from './map.ts';
+import { twinEvents, twinGalaxy } from '../test/twins.fake';
+import { sure } from '../test/sure';
 
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
@@ -15,7 +17,7 @@ function reachable(layout: MapSlot[], from: number): Set<number> {
   const seen = new Set([from]);
   const queue = [from];
   while (queue.length) {
-    const at = queue.shift()!;
+    const at = sure(queue.shift(), 'queue.shift()');
     for (const dir of DIRS) {
       const next = neighbour(layout, at, dir);
       if (!seen.has(next)) { seen.add(next); queue.push(next); }
@@ -27,9 +29,9 @@ function reachable(layout: MapSlot[], from: number): Set<number> {
 /** Two planets overlap when their discs share a pixel. */
 function overlaps(layout: MapSlot[]): string[] {
   const found: string[] = [];
-  layout.forEach((a, i) => layout.slice(i + 1).forEach((b) => {
+  layout.forEach((a, i) => { layout.slice(i + 1).forEach((b) => {
     if (Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r) found.push(`#${a.prd} and #${b.prd}`);
-  }));
+  }); });
   return found;
 }
 
@@ -102,7 +104,7 @@ describe('the map on the tall grid', () => {
   it('keeps each planet in its sector\'s column', () => {
     const colW = TALL.w / view.sectors.length;
     for (const s of tall) {
-      const col = view.sectors.findIndex((sec) => sec.name === view.planets[s.index].sector);
+      const col = view.sectors.findIndex((sec) => sec.name === sure(view.planets[s.index], 'view.planets[s.index]').sector);
       expect(s.x - s.r, `#${s.prd}`).toBeGreaterThanOrEqual(col * colW);
       expect(s.x + s.r, `#${s.prd}`).toBeLessThanOrEqual((col + 1) * colW);
     }
@@ -111,12 +113,12 @@ describe('the map on the tall grid', () => {
   it('draws a bigger class as a bigger planet, the same size in every sector', () => {
     const byClass = new Map<number, Set<number>>();
     for (const s of tall) {
-      const c = view.planets[s.index].class;
+      const c = sure(view.planets[s.index], 'view.planets[s.index]').class;
       byClass.set(c, (byClass.get(c) ?? new Set()).add(s.r));
     }
     for (const radii of byClass.values()) expect(radii.size).toBe(1);
     const sizes = [...byClass.entries()].sort(([a], [b]) => a - b).map(([, r]) => [...r][0]);
-    expect(sizes).toEqual([...sizes].sort((a, b) => a - b));
+    expect(sizes).toEqual([...sizes].sort((a, b) => sure(a, 'a') - sure(b, 'b')));
   });
 
   it('finds each planet under a tap on it, in the tall grid\'s pixels', () => {
@@ -135,5 +137,27 @@ describe('the map on the tall grid', () => {
     expect(outside(slots, TALL)).toEqual([]);
     expect(overlaps(slots)).toEqual([]);
     for (const s of slots) expect(reachable(slots, s.index).size).toBe(slots.length);
+  });
+});
+
+describe('two repositories\' PRD 88 on the map (PRD 728)', () => {
+  const twins = twinGalaxy([
+    ...twinEvents('acme/plan', 'beaver', 'bob'),
+    ...twinEvents('acme/tools', 'octopod', 'alice'),
+    ...twinEvents('acme/tools', 'octopod', 'alice', 90, [{ id: 'planet:acme/tools#90:locked:88', at: '2026-09-03T08:00:00Z', type: 'PLANET_LOCKED', data: { blocker: 88 } }]),
+  ]);
+
+  it('are two planets, each in its own slot', () => {
+    for (const grid of [WIDE, TALL]) {
+      const slots = layoutMap(twins, grid);
+      expect(slots.map((s) => sure(twins.planets[s.index], 'twins.planets[s.index]').key).sort()).toEqual(['acme/plan#88', 'acme/tools#88', 'acme/tools#90']);
+      expect(overlaps(slots)).toEqual([]);
+    }
+  });
+
+  it('draw a hyperlane to the blocker of the planet\'s own home, never to its twin', () => {
+    const slots = layoutMap(twins, WIDE);
+    const lanes = hyperlanes(twins, slots).map(([from, to]) => [sure(twins.planets[from.index], 'twins.planets[from.index]').key, sure(twins.planets[to.index], 'twins.planets[to.index]').key]);
+    expect(lanes).toEqual([['acme/tools#90', 'acme/tools#88']]);
   });
 });

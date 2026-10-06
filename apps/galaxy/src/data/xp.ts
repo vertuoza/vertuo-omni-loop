@@ -5,12 +5,12 @@
 // artifact have no such row: their guest borrows the demo world's highest XP (`demoXp`).
 import { borrowedXp, demoEvents } from '@omni/galaxy';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { PlayerXp, XpRead } from '../arcade/types';
-
-type XpRow = { xp: number; level: number; unlocked: string[] | null };
+import { listOf, numberOf } from './unparsed';
 
 /** The login's row in the workspace, or null when the workflow has written none for it. */
-export async function loadXp(db: Pick<SupabaseClient, 'from'>, workspace: string, login: string): Promise<PlayerXp | null> {
+export async function loadXp(db: Pick<SupabaseClient<Database>, 'from'>, workspace: string, login: string): Promise<PlayerXp | null> {
   const { data, error } = await db
     .from('player_xp')
     .select('xp, level, unlocked')
@@ -18,15 +18,15 @@ export async function loadXp(db: Pick<SupabaseClient, 'from'>, workspace: string
     .eq('github_login', login.toLowerCase())
     .maybeSingle();
   if (error) throw new Error(`Supabase: could not read your XP (${error.message})`);
-  const row = data as XpRow | null;
-  return row ? { xp: Number(row.xp), level: Number(row.level), unlocked: row.unlocked ?? [] } : null;
+  const row = data;
+  return row ? { xp: numberOf(row.xp), level: numberOf(row.level), unlocked: listOf(row.unlocked) } : null;
 }
 
 /**
  * The player's XP as the arcade takes it: the row, null for none, or 'unreadable' when the read
  * fails. XP out of reach never takes the galaxy with it: the arcade then shows no level.
  */
-export async function readXp(db: Pick<SupabaseClient, 'from'>, workspace: string, login: string): Promise<XpRead> {
+export async function readXp(db: Pick<SupabaseClient<Database>, 'from'>, workspace: string, login: string): Promise<XpRead> {
   try {
     return await loadXp(db, workspace, login);
   } catch (err) {

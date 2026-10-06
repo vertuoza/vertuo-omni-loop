@@ -1,3 +1,5 @@
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+
 // A refusal from the fleet functions (supabase/migrations/20261003090000_own_fleets.sql, PRD 400), as
 // /app/settings/fleets shows it. A field's refusal carries SQLSTATE 22023 and the field's name as its hint,
 // and its message starts with the field ("Label: 1 to 12 characters."): the page shows that message
@@ -19,7 +21,7 @@ export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 
 /** An error as PostgREST answers it (code, hint, message), or anything thrown. */
 export function refusalOf(error: unknown): Refusal {
-  const { code, hint, message } = (error ?? {}) as { code?: unknown; hint?: unknown; message?: unknown };
+  const [code, hint, message] = [propertyOf(error, 'code'), propertyOf(error, 'hint'), propertyOf(error, 'message')];
   if (code === '42501') return { field: 'form', message: NOT_OWNER };
   if (code === 'P0002') return { field: 'form', message: GONE };
   if (code === '22023' && typeof message === 'string' && message) {

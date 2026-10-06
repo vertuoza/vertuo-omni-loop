@@ -413,6 +413,14 @@ Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-
 Merged: @pierrederval, 2026-09-28, PR #403
 Proposed: harvest 2026-09-28
 
+## P-PRODUCT-47
+
+A count on the dashboard always agrees with the list it summarises, and each question counts once, however many ways it reaches a person.
+
+Why: A tile that disagrees with the list beside it, or counts one question twice, misleads a person about how much is waiting.
+Source: .omni-loop/delivery/shipped/0657-snappy-pages/outbox/settled.md, entry s2-02-waiting-count-from-the-shared-list, PRD #657
+Merged: @pierrederval, 2026-09-29, PR #664
+
 ## P-PRODUCT-48
 
 The app never offers a link that leads only to a page with nothing to show.

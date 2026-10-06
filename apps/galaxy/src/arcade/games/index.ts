@@ -1,5 +1,5 @@
 // The game room's registry: every arcade game, in the order its cabinets stand. Each later game's PRD
-// adds its row here, and its unlock level to the rulebook's `xp.unlocks` (game/rulebook.mjs).
+// adds its row here, and its unlock level to the rulebook's `xp.unlocks` (game/rulebook.ts).
 import type { SceneName } from '../scenes/common.ts';
 
 export interface Game {
@@ -13,4 +13,5 @@ export interface Game {
 
 export const GAMES: readonly Game[] = [
   { id: 'invaders', title: 'ENTROPY INVADERS', scene: 'invaders' },
+  { id: 'platformer', title: 'SUPER OMNI WORLD', scene: 'platformer' },
 ];

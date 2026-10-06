@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1023 · Strict flags</title>
+<style>
+  :root { --bg: #f7f7f5; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e2dc; --bad: #b42318; --good: #157f3d; --code: #f0f0eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141413; --card: #1e1e1c; --ink: #ecece8; --muted: #a3a39c; --line: #33332f; --bad: #f97066; --good: #4ade80; --code: #262623; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lede { color: var(--muted); margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 12px; color: var(--muted); }
+  h3 { font-size: 15px; margin: 18px 0 6px; }
+  h3:first-of-type { margin-top: 0; }
+  pre { background: var(--code); border-radius: 6px; padding: 10px 12px; margin: 0; overflow-x: auto; font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+  .bad { color: var(--bad); } .good { color: var(--good); } .muted { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td, th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .same { margin-top: 20px; }
+  ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>PRD 1023 · The last strict compiler flags</h1>
+  <p class="lede">Nothing on screen changes. What changes is what the compiler refuses.</p>
+  <div class="grid">
+    <section>
+      <h2>Today</h2>
+      <h3>Missing and undefined look the same</h3>
+<pre>type Options = { title?: string };
+const o: Options = { title: undefined };
+<span class="good">✓ compiles</span>     <span class="bad">'title' in o is true, though nothing was given</span></pre>
+      <h3>A parameter nobody reads</h3>
+<pre>function render(rows, now) { return rows.map(line); }
+<span class="good">✓ compiles</span>     <span class="bad">now is never read</span></pre>
+      <h3>A method shadowed by accident</h3>
+<pre>class Store extends Base { read() { … } }
+<span class="good">✓ compiles</span>     <span class="bad">Base.read is silently replaced</span></pre>
+      <h3>The flags</h3>
+<pre>strict · noUncheckedIndexedAccess
+<span class="muted">6 more checks off: 231 errors waiting</span></pre>
+    </section>
+    <section>
+      <h2>After</h2>
+      <h3>The type says which it is</h3>
+<pre>type Options = { title?: string | undefined };   <span class="muted">// what the code does</span>
+<span class="muted">or, for a body sent out:</span>
+{ ...(title === undefined ? {} : { title }) }    <span class="muted">// absent, not undefined</span></pre>
+      <h3>An unused parameter is an error</h3>
+<pre><span class="bad">✗ 'now' is declared but its value is never read</span></pre>
+      <h3>Overriding is said out loud</h3>
+<pre>class Store extends Base { <span class="good">override</span> read() { … } }</pre>
+      <h3>The flags</h3>
+<pre>strict · noUncheckedIndexedAccess
+<span class="good">+ exactOptionalPropertyTypes · noImplicitOverride · noImplicitReturns
++ noFallthroughCasesInSwitch · noUnusedLocals · noUnusedParameters</span>
+<span class="muted">noPropertyAccessFromIndexSignature stays off (style)</span></pre>
+    </section>
+  </div>
+  <section class="same">
+    <h2>What stays the same</h2>
+    <ul>
+      <li>Every command, page and output: widening a type changes no value, and the suite pins the rest.</li>
+      <li>The escape-hatch ceilings and the linter at zero: no cast, no ts-allow, no disable is added.</li>
+      <li>The bundle other repositories run, <code>.omni-loop/bin/omni.mjs</code>.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

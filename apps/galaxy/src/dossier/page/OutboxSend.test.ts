@@ -1,12 +1,16 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { readEnv } from '../../env';
 import { sendOpen } from '../../outbox/open';
 import type { SentView } from '../../outbox/sent';
 import type { GithubSummary } from '../github/summary';
 import { OutboxPane, sendOffOf } from './OutboxPane';
 import { OutboxSend, SendResult } from './OutboxSend';
 import { outboxView, SEND_OFF } from './outbox-view';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 // Send, wired on the Outbox tab (PRD 251, s11): open once this deployment knows the omni-loop App's
 // client, off in the demo and before; and what the tab says once GitHub sent the person back. Rendered as
@@ -14,9 +18,9 @@ import { outboxView, SEND_OFF } from './outbox-view';
 
 const PR = 'https://github.com/acme/widgets/pull/12';
 const summary: GithubSummary = {
-  repo: 'acme/widgets', prd: 7, folder: '0007-widgets', topic: 'widgets',
-  issue: { number: 7, url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
-  phase0: null, feature: { number: 12, url: PR, state: 'open', draft: true, mergedAt: null }, retro: null, mergedSlices: 1,
+  repo: 'acme/widgets', prd: parsePrd(7), folder: '0007-widgets', topic: 'widgets',
+  issue: { number: parseIssue(7), url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
+  phase0: null, feature: { number: parsePr(12), url: PR, state: 'open', draft: true, mergedAt: null }, retro: null, mergedSlices: 1,
   outbox: {
     open: [{ id: 's11-01-colour', rank: 'high', question: 'Blue?', decision: 'Blue.', options: [{ letter: 'A', text: 'Blue.' }, { letter: 'B', text: 'Red.' }], personSteps: null }],
     settled: [], adopted: [],
@@ -53,14 +57,16 @@ describe('Send on the tab', () => {
 });
 
 describe('whether the deployment may send', () => {
-  const env = {
-    GITHUB_APP_CLIENT_ID: 'Iv1.client', GITHUB_APP_CLIENT_SECRET: 'shh', NEXT_PUBLIC_SUPABASE_URL: 'http://db', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'k',
-  };
+  const client = { GITHUB_APP_CLIENT_ID: 'Iv1.client', GITHUB_APP_CLIENT_SECRET: 'shh' };
+  const database = { NEXT_PUBLIC_SUPABASE_URL: 'http://db', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'k' };
   it('needs the App\'s client id and secret, and a database', () => {
-    expect(sendOpen(env)).toBe(true);
-    expect(sendOpen({ ...env, GITHUB_APP_CLIENT_ID: '' })).toBe(false);
-    expect(sendOpen({ ...env, GITHUB_APP_CLIENT_SECRET: ' ' })).toBe(false);
-    expect(sendOpen({ ...env, NEXT_PUBLIC_SUPABASE_URL: undefined })).toBe(false);
+    expect(sendOpen(readEnv({ ...client, ...database }))).toBe(true);
+    expect(sendOpen(readEnv({ ...client, GITHUB_APP_CLIENT_ID: '', GITHUB_APP_CLIENT_SECRET: ' ', ...database }))).toBe(false);
+    expect(sendOpen(readEnv(client))).toBe(false);
+  });
+
+  it('is refused at startup with only one of the client\'s two values', () => {
+    expect(() => readEnv({ ...database, GITHUB_APP_CLIENT_ID: 'Iv1.client' })).toThrow(/GITHUB_APP_CLIENT_SECRET is not set/);
   });
 });
 

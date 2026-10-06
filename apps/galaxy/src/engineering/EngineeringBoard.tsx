@@ -8,14 +8,17 @@ import { PeriodSwitch } from '../dashboard/board/PeriodSwitch';
 import type { Period } from '../dashboard/board/period';
 import { faceOf } from '../people/face';
 import { PersonChip } from '../people/PersonChip';
-import { durationWords, SORTS, type EngineeringValue, type MergedDay, type Ranked, type SortKey } from './tally';
+import { durationWords, SORTS, type EngineeringValue, type HealthKind, type LoopHealth, type MergedDay, type NeedsFixRate, type Ranked, type SortKey } from './tally';
 import '../dashboard/board/board.css';
 import './engineering.css';
 
 // The Engineering board (PRD 612 s3), drawn on the server, top to bottom: the period switch (the
 // other boards' 7 days / 30 days / Season), the six tiles, the Omni Loop panel beside the chart of
 // merged PRs per day, the per-repository table (each column heading a link that sorts by it, kept in
-// the URL as `?sort=`), then the three top-5 people lists: ranked rows, each naming the person with a
+// the URL as `?sort=`; the Omni Loop panel ends with the loop's sub-PRs merged into feature branches,
+// which count nowhere else, PRD 714; beside it the Loop health panel, PRD 714 s2: the loop's pull
+// requests stuck right now, each linking to it on GitHub, then, s4, how many of the sub-PRs merged in
+// the period got omni:needs-fix first), then the three top-5 people lists: ranked rows, each naming the person with a
 // PersonChip (their face from the people directory, PRD 652 s3) and a bar scaled to the list's first
 // count (PRD 645 s1). Over tracked repositories only. With none,
 // the empty state sends the person to Settings → Repositories. The chart is inline SVG with no
@@ -61,7 +64,7 @@ function Tiles({ tiles }: { tiles: Extract<EngineeringValue, { kind: 'board' }>[
 
 function OmniLoop({ omni }: { omni: Extract<EngineeringValue, { kind: 'board' }>['omni'] }) {
   return (
-    <section className="board-chart eng-omni" aria-labelledby="eng-omni">
+    <section className="board-chart board-card eng-omni" aria-labelledby="eng-omni">
       <h2 id="eng-omni">Omni Loop</h2>
       {omni.of === 0 ? <p className="dash-note">No PR merged in this period</p> : (
         <>
@@ -74,6 +77,45 @@ function OmniLoop({ omni }: { omni: Extract<EngineeringValue, { kind: 'board' }>
           <p className="eng-omni-lines">Lines signed: <b>{`+${n(omni.additions)}`}</b> <b>{`−${n(omni.deletions)}`}</b></p>
         </>
       )}
+      <p className="eng-omni-subs">
+        <b>{`+ ${n(omni.subPrsMerged)}`}</b>{` sub-PR${omni.subPrsMerged === 1 ? '' : 's'} merged into feature branches`}
+      </p>
+    </section>
+  );
+}
+
+// ── Loop health ──────────────────────────────────────────────────────────
+
+const KIND_WORDS: Record<HealthKind, string> = { stuck: 'Stuck', held: 'Held', 'stale-claim': 'Stale claim' };
+
+function NeedsFixLine({ rate }: { rate: NeedsFixRate }) {
+  if (rate.of === 0) return <p className="dash-note">No sub-PR merged in this period</p>;
+  return (
+    <p className="eng-health-rate">
+      <b>{`${n(rate.got)} of ${n(rate.of)}`}</b>{` merged sub-PR${rate.of === 1 ? '' : 's'} got `}<code>omni:needs-fix</code>{' first '}<b>{`(${rate.share}%)`}</b>
+    </p>
+  );
+}
+
+function LoopHealthPanel({ health, rate }: { health: LoopHealth; rate: NeedsFixRate }) {
+  return (
+    <section className="board-chart board-card eng-health" aria-labelledby="eng-health">
+      <h2 id="eng-health">Loop health</h2>
+      <h3 className="eng-health-part">Right now</h3>
+      {health.rows.length === 0 ? <p className="dash-note">Nothing stuck right now</p> : (
+        <ol className="eng-health-rows">
+          {health.rows.map((r) => (
+            <li key={`${r.repo}#${r.number}`} className="eng-health-row">
+              <span className={`eng-health-kind is-${r.kind}`}>{KIND_WORDS[r.kind]}</span>
+              <a href={r.url}>{`${r.repo}#${r.number}`}</a>
+              <span className="eng-health-age">{`opened ${durationWords(r.age)} ago`}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {health.more > 0 ? <p className="eng-health-more">{`and ${n(health.more)} more`}</p> : null}
+      <h3 className="eng-health-part">In the period</h3>
+      <NeedsFixLine rate={rate} />
     </section>
   );
 }
@@ -94,7 +136,7 @@ function PerDay({ days, period }: { days: MergedDay[]; period: Period }) {
   }));
   const total = days.reduce((s, d) => s + d.signed + d.rest, 0);
   return (
-    <section className="board-chart" aria-labelledby="eng-per-day">
+    <section className="board-chart board-card" aria-labelledby="eng-per-day">
       <header className="board-chart-head">
         <h2 id="eng-per-day">{`PRs merged per day · ${PERIOD_WORDS[period]}`}</h2>
         <p className="board-chart-total"><b>{n(total)}</b> total</p>
@@ -118,7 +160,7 @@ function Repositories({ value, period, query }: { value: Extract<EngineeringValu
     </th>
   );
   return (
-    <section className="board-repos" aria-labelledby="eng-repos">
+    <section className="board-repos board-card" aria-labelledby="eng-repos">
       <h2 id="eng-repos">Repositories</h2>
       <div className="board-scroll">
         <table className="board-table">
@@ -153,7 +195,7 @@ function TopFive({ kind, title, people }: { kind: ListKind; title: string; peopl
   const id = `eng-top-${kind}`;
   const leader = people[0]?.count ?? 0;
   return (
-    <section className="board-chart eng-top" aria-labelledby={id}>
+    <section className="board-chart board-card eng-top" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
       {people.length === 0 ? <p className="dash-note">Nobody in this period</p> : (
         <ol className="eng-rows">
@@ -186,7 +228,7 @@ export interface EngineeringBoardProps {
   period: Period;
   query: Query;
   /** On a repository's page, that repository: the period switch stays on the page, and there is no table. */
-  repo?: string;
+  repo?: string | undefined;
 }
 
 export function EngineeringBoard({ board, period, query, repo }: EngineeringBoardProps) {
@@ -198,6 +240,7 @@ export function EngineeringBoard({ board, period, query, repo }: EngineeringBoar
           <Tiles tiles={board.tiles} />
           <div className="board-charts">
             <OmniLoop omni={board.omni} />
+            <LoopHealthPanel health={board.health} rate={board.needsFixRate} />
             <PerDay days={board.perDay} period={period} />
           </div>
           {repo ? null : <Repositories value={board} period={period} query={query} />}

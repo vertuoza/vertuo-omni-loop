@@ -39,26 +39,27 @@ describe('the workspaces those logins join', () => {
 });
 
 describe('reading the GitHub account with the provider token', () => {
+  const hrefOf = (url: string | URL | Request) => (url instanceof Request ? url.url : url.toString());
   const answer = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
   it('asks GitHub for the login and the orgs, with the token, and nothing else', async () => {
-    const fetch = vi.fn(async (url: string | URL | Request) => (String(url).endsWith('/user')
+    const fetch = vi.fn((url: string | URL | Request) => Promise.resolve(hrefOf(url).endsWith('/user')
       ? answer(200, { login: 'ada-gh', id: 11 })
       : answer(200, [{ login: 'vertuoza', id: 1 }, { login: 'acme', id: 2 }])));
     expect(await readGithubAccount('gho_token', fetch)).toEqual({ login: 'ada-gh', orgs: ['vertuoza', 'acme'] });
-    expect(fetch.mock.calls.map(([url]) => String(url))).toEqual(['https://api.github.com/user', 'https://api.github.com/user/orgs?per_page=100']);
+    expect(fetch.mock.calls.map(([url]) => hrefOf(url))).toEqual(['https://api.github.com/user', 'https://api.github.com/user/orgs?per_page=100']);
     for (const [, init] of fetch.mock.calls as unknown as [string, RequestInit][]) {
       expect(new Headers(init.headers).get('authorization')).toBe('Bearer gho_token');
     }
   });
 
   it('throws, naming GitHub\'s status, when GitHub refuses', async () => {
-    const fetch = vi.fn(async () => answer(401, { message: 'Bad credentials' }));
+    const fetch = vi.fn(() => Promise.resolve(answer(401, { message: 'Bad credentials' })));
     await expect(readGithubAccount('expired', fetch)).rejects.toThrow(/GitHub.*401/);
   });
 
   it('throws on an answer that is not the shape GitHub documents', async () => {
-    const fetch = vi.fn(async (url: string | URL | Request) => (String(url).endsWith('/user') ? answer(200, { login: 'ada-gh' }) : answer(200, { orgs: [] })));
+    const fetch = vi.fn((url: string | URL | Request) => Promise.resolve(hrefOf(url).endsWith('/user') ? answer(200, { login: 'ada-gh' }) : answer(200, { orgs: [] })));
     await expect(readGithubAccount('gho_token', fetch)).rejects.toThrow(/GitHub/);
   });
 });

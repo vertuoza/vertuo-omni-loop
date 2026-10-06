@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ unstable_cache: () => { throw new Error('the live cache is never reached in a test'); } }));
 
+import { item } from '../ask/test/test-item';
 import { loadGalaxy } from './load-galaxy';
 import { seasonKey, type SeasonCache } from './season-cache';
 
@@ -19,7 +21,7 @@ type Row = Record<string, unknown>;
 type Call = { table: string; eq: Record<string, unknown>; count: boolean; limit: number | null; range: [number, number] | null };
 
 const event = (id: string, at: string, planet = 12, data: Row = { title: 'Workspaces', captain: 'ada-gh' }) =>
-  ({ workspace_id: WS, id, at, type: 'PLANET_CHARTED', planet, region: null, contributor: null, team: null, data });
+  ({ workspace_id: WS, id, at, type: 'PLANET_CHARTED', planet, home: 'vertuoza/vertuo-omni-loop', region: null, contributor: null, team: null, data });
 
 /** A PostgREST-shaped client over rows: `member` false stands for row-level security hiding them all. */
 function fakeDb(tables: Record<string, Row[]>, member = true) {
@@ -27,10 +29,11 @@ function fakeDb(tables: Record<string, Row[]>, member = true) {
   const client = {
     from(table: string) {
       const q = {
-        eqs: {} as Record<string, unknown>, orders: [] as { column: string; ascending: boolean }[],
-        counting: false, most: null as number | null, window: null as [number, number] | null,
-        select(_columns: string, options: { count?: string } = {}) { q.counting = Boolean(options.count); return q; },
+        eqs: {} as Record<string, unknown>, nots: [] as [string, unknown][], orders: [] as { column: string; ascending: boolean }[],
+        counting: false, most: null as number | null, window: null as [number, number] | null, columns: [] as string[],
+        select(columns: string, options: { count?: string } = {}) { q.columns = columns.split(',').map((c) => c.trim()); q.counting = Boolean(options.count); return q; },
         eq(column: string, value: unknown) { q.eqs[column] = value; return q; },
+        not(column: string, _op: 'is', value: unknown) { q.nots.push([column, value]); return q; },
         order(column: string, options: { ascending?: boolean } = {}) { q.orders.push({ column, ascending: options.ascending ?? true }); return q; },
         limit(n: number) { q.most = n; return q; },
         range(from: number, to: number) { q.window = [from, to]; return q; },
@@ -38,6 +41,7 @@ function fakeDb(tables: Record<string, Row[]>, member = true) {
           calls.push({ table, eq: { ...q.eqs }, count: q.counting, limit: q.most, range: q.window });
           const all = (member ? tables[table] ?? [] : [])
             .filter((row) => Object.entries(q.eqs).every(([c, v]) => row[c] === v))
+            .filter((row) => q.nots.every(([c, v]) => (row[c] ?? null) !== v))
             .sort((a, b) => {
               for (const { column, ascending } of q.orders) {
                 const x = String(a[column]), y = String(b[column]);
@@ -46,14 +50,15 @@ function fakeDb(tables: Record<string, Row[]>, member = true) {
               return 0;
             });
           const windowed = q.window ? all.slice(q.window[0], q.window[1] + 1) : all;
-          const rows = q.most === null ? windowed : windowed.slice(0, q.most);
+          const rows = (q.most === null ? windowed : windowed.slice(0, q.most))
+            .map((row) => Object.fromEntries(q.columns.map((c) => [c, row[c]])));
           return Promise.resolve({ data: rows, error: null, ...(q.counting ? { count: all.length } : {}) }).then(done, failed);
         },
       };
       return q;
     },
   };
-  return { db: client as unknown as SupabaseClient, calls, ledgerPages: () => calls.filter((c) => c.table === 'ledger_events' && c.range) };
+  return { db: client as unknown as SupabaseClient<Database>, calls, ledgerPages: () => calls.filter((c) => c.table === 'ledger_events' && c.range) };
 }
 
 /** A data cache in memory, as Next's is: one value per key, computed on the first read. */
@@ -136,7 +141,7 @@ describe('the season cache', () => {
     const w = world();
     const deps = { cache: w.memory.cache, service: w.service.db };
     await loadGalaxy(w.viewer.db, WS, NOW, deps);
-    w.tables.teams[0].color = '#ff0000';
+    item(w.tables.teams, 0).color = '#ff0000';
     const after = await loadGalaxy(w.viewer.db, WS, NOW, deps);
     expect(w.service.ledgerPages()).toHaveLength(2);
     expect(after.teams.find((t) => t.name === 'beaver')?.color).toBe('#ff0000');
