@@ -70,6 +70,21 @@ describe('freepdMusic.pick', () => {
     await expect(pick(network.fetch).track).resolves.toMatchObject({ licence: 'CC0 1.0 Universal (public domain)' });
   });
 
+  it("tries the item's second server when the first fails, and keeps the download address's refusal when none answers", async () => {
+    const metadata = JSON.stringify({ d1: 'ia601509.us.archive.org', d2: 'ia801509.us.archive.org', dir: '/18/items/freepd' });
+    const second = fakeFetch([
+      [ARCHIVE, 500],
+      [/^https:\/\/archive\.org\/metadata\/freepd$/, metadata],
+      [/^https:\/\/ia601509\./, 503],
+      [/^https:\/\/ia801509\.us\.archive\.org\/18\/items\/freepd\/upbeat\/Advertime\.mp3$/, MP3],
+    ]);
+    await expect(pick(second.fetch).track).resolves.toMatchObject({ licence: 'CC0 1.0 Universal (public domain)' });
+    const none = fakeFetch([[ARCHIVE, 500], [/^https:\/\/archive\.org\/metadata\/freepd$/, metadata], [/^https:\/\/ia[68]01509\./, 503]]);
+    await expect(pick(none.fetch).track).rejects.toThrow('the archive answered 500 for "Advertime"');
+    const unreadable = fakeFetch([[ARCHIVE, 500], [/^https:\/\/archive\.org\/metadata\/freepd$/, '{"dir": 7}']]);
+    await expect(pick(unreadable.fetch).track).rejects.toThrow('the archive answered 500 for "Advertime"');
+  });
+
   it('accepts an MP3 that opens on a frame, with no ID3 tag', async () => {
     const track = await pick(fakeFetch([[ARCHIVE, new Uint8Array([0xff, 0xfb, 0x90, 0x64])]]).fetch).track;
     expect(track.credit).toContain('Advertime');
