@@ -60,6 +60,16 @@ describe('freepdMusic.pick', () => {
     await expect(pick(fakeFetch([[ARCHIVE, '<html>500 Internal Server Error</html>']]).fetch).track).rejects.toThrow('the download is not an MP3 for "Advertime"');
   });
 
+  it("downloads from the item's own server when the archive's download address answers 500 (#1129)", async () => {
+    const metadata = JSON.stringify({ d1: 'ia601509.us.archive.org', d2: 'ia801509.us.archive.org', dir: '/18/items/freepd' });
+    const network = fakeFetch([
+      [ARCHIVE, 500],
+      [/^https:\/\/archive\.org\/metadata\/freepd$/, metadata],
+      [/^https:\/\/ia601509\.us\.archive\.org\/18\/items\/freepd\/upbeat\/Advertime\.mp3$/, MP3],
+    ]);
+    await expect(pick(network.fetch).track).resolves.toMatchObject({ licence: 'CC0 1.0 Universal (public domain)' });
+  });
+
   it('accepts an MP3 that opens on a frame, with no ID3 tag', async () => {
     const track = await pick(fakeFetch([[ARCHIVE, new Uint8Array([0xff, 0xfb, 0x90, 0x64])]]).fetch).track;
     expect(track.credit).toContain('Advertime');

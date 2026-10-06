@@ -8,8 +8,10 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ProviderFetch, MusicProvider } from '../types.ts';
+import { propertyOf } from '../../../narrow.ts';
 
 const ARCHIVE = 'https://archive.org/download/freepd';
+const METADATA = 'https://archive.org/metadata/freepd';
 const LICENCE = 'CC0 1.0 Universal (public domain)';
 
 type PinnedTrack = { title: string; folder: string; seconds: number };
@@ -62,14 +64,39 @@ const isMp3 = (bytes: Uint8Array): boolean =>
 /** The archive's mirrors answer an error now and then: a track is asked for this many times. */
 const ATTEMPTS = 3;
 
-/** A pinned track's bytes, asked for up to `ATTEMPTS` times; the last refusal when none answers an MP3. */
+/** One address's bytes when they open like an MP3, else why not. */
+async function fetchMp3(url: string, fetch: ProviderFetch): Promise<Uint8Array | string> {
+  const answer = await fetch(url);
+  const bytes = answer.ok ? new Uint8Array(await answer.arrayBuffer()) : null;
+  if (bytes !== null && isMp3(bytes)) return bytes;
+  return bytes === null ? `the archive answered ${String(answer.status)}` : 'the download is not an MP3';
+}
+
+/** The item's own servers' addresses for a track, from the archive's metadata: its download address
+ * redirects to a mirror that can answer 500 while the item's servers serve the file (#1129). */
+async function serverUrls(track: PinnedTrack, fetch: ProviderFetch): Promise<string[]> {
+  const answer = await fetch(METADATA).catch(() => null);
+  if (answer === null || !answer.ok) return [];
+  const metadata = await answer.text().then((text): unknown => JSON.parse(text)).catch(() => null);
+  const dir = propertyOf(metadata, 'dir');
+  if (typeof dir !== 'string') return [];
+  const [d1, d2] = [propertyOf(metadata, 'd1'), propertyOf(metadata, 'd2')];
+  const file = `${track.folder}/${encodeURIComponent(`${track.title}.mp3`)}`;
+  return [d1, d2].filter((host): host is string => typeof host === 'string' && host !== '').map((host) => `https://${host}${dir}/${file}`);
+}
+
+/** A pinned track's bytes: its download address asked up to `ATTEMPTS` times, then the item's own
+ * servers; the download address's last refusal when none answers an MP3. */
 async function download(track: PinnedTrack, fetch: ProviderFetch): Promise<Uint8Array> {
   let reason = '';
   for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
-    const answer = await fetch(trackUrl(track));
-    const bytes = answer.ok ? new Uint8Array(await answer.arrayBuffer()) : null;
-    if (bytes !== null && isMp3(bytes)) return bytes;
-    reason = bytes === null ? `the archive answered ${String(answer.status)}` : 'the download is not an MP3';
+    const got = await fetchMp3(trackUrl(track), fetch);
+    if (typeof got !== 'string') return got;
+    reason = got;
+  }
+  for (const url of await serverUrls(track, fetch)) {
+    const got = await fetchMp3(url, fetch);
+    if (typeof got !== 'string') return got;
   }
   throw new Error(`${reason} for "${track.title}"`);
 }
