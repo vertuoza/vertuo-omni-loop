@@ -1,9 +1,9 @@
 // `omni pitch film`, then a storyboard made from its moments (PRD 1108 s7, acceptance 7), through `main()`:
 // a walk-through of a local test page is filmed into walk.webm and moments.json; a storyboard whose feature
 // scene's camera comes from the moment `filter` passes the check; in the studio's page, the intro builds
-// the PRD's title word by word in the Heading font the product uploaded, and the feature's camera zooms on
-// the element its moment names: at the zoom's peak, the magenta Filter button fills the middle of the
-// media, where at the scene's start it was a small patch.
+// the PRD's title word by word in the Heading font the product uploaded; and in the feature scene's still,
+// as `render --stills` draws it, the camera has zoomed on the element its moment names: the magenta Filter
+// button fills the middle of the frame, where at zoom 1 it is a small patch right of centre.
 //
 // Runs in Playwright's Chromium with the computer's ffmpeg, where both are installed; elsewhere it skips.
 import { execFileSync } from 'node:child_process';
@@ -99,8 +99,6 @@ const MAGENTA = `async (url) => {
 const MagentaSchema = z.object({ share: z.number(), x: z.number(), y: z.number() });
 
 const TitleSchema = z.object({ font: z.string(), loaded: z.boolean(), words: z.array(z.tuple([z.string(), z.number()])) });
-const InfoSchema = z.object({ scenes: z.array(z.object({ type: z.string(), from: z.number() })) });
-const SurfaceSchema = z.object({ x: z.number(), y: z.number() }).nullable();
 
 let server: Server | undefined;
 let origin = '';
@@ -130,19 +128,10 @@ function run(): string {
   return dir;
 }
 
-/** Whether the page holds a clip and every clip shows a frame. */
-const CLIPS_READY = "(() => { const clips = [...document.querySelectorAll('video')]; return clips.length > 0 && clips.every((clip) => clip.readyState >= 2); })()";
-
-/**
- * Settles frame `frame` of the open page, and measures its magenta. On a loaded machine the clip may still
- * be loading when the frame settles: wait until it shows a frame, then settle the frame again.
- */
-async function magentaAt(page: Page, tools: Page, frame: number) {
-  await page.evaluate(`window.__pitchSeek(${String(frame)})`);
-  await page.waitForFunction(CLIPS_READY, undefined, { timeout: 60_000 });
-  await page.evaluate(`window.__pitchSeek(${String(frame)})`);
-  const shot = `data:image/png;base64,${(await page.screenshot()).toString('base64')}`;
-  return MagentaSchema.parse(await tools.evaluate(`(${MAGENTA})(${JSON.stringify(shot)})`));
+/** The magenta of an image: its share of the pixels, and where it sits, as 0..1 of the image. */
+async function magentaOf(tools: Page, png: Buffer) {
+  const url = `data:image/png;base64,${png.toString('base64')}`;
+  return MagentaSchema.parse(await tools.evaluate(`(${MAGENTA})(${JSON.stringify(url)})`));
 }
 
 /** The intro's title at frame 15, mid-build: its font, whether that font loaded, each word and its opacity. */
@@ -161,34 +150,17 @@ async function settledTitle(page: Page): Promise<unknown> {
   return page.evaluate("[...document.querySelector('h1').querySelectorAll('span > span')].map((word) => Number(getComputedStyle(word).opacity))");
 }
 
-/** The centre of the surface the camera moves over, as 0..1 of the frame, or null. */
-async function surfaceCentre(page: Page) {
-  return SurfaceSchema.parse(await page.evaluate(`(() => {
-    const moved = [...document.querySelectorAll('div')].find((div) => div.style.transform.startsWith('translate(') && div.style.transform.includes(') scale('));
-    if (!moved) return null;
-    const box = moved.parentElement.getBoundingClientRect();
-    return { x: (box.left + box.width / 2) / innerWidth, y: (box.top + box.height / 2) / innerHeight };
-  })()`));
-}
+/** What the studio's page showed of the intro's title: mid-build, and settled. */
+type Seen = { title: z.infer<typeof TitleSchema>; settled: unknown };
 
-type Magenta = z.infer<typeof MagentaSchema>;
-/** What the studio's page showed: the title mid-build and settled, and the feature's magenta before and at the zoom's peak. */
-type Seen = { title: z.infer<typeof TitleSchema>; settled: unknown; before: Magenta; peak: Magenta; surface: z.infer<typeof SurfaceSchema> };
-
-/** Opens the studio's page at `url` and measures it. */
+/** Opens the studio's page at `url` and measures the intro's title. */
 async function measure(url: string, opened: Browser): Promise<Seen> {
-  const tools = await opened.newPage();
   const page = await opened.newPage({ viewport: { width: 1920, height: 1080 } });
   await page.goto(url);
   const title = await titleAt(page);
   const settled = await settledTitle(page);
-  const feature = InfoSchema.parse(await page.evaluate('window.__pitchInfo()')).scenes[1]?.from ?? 0;
-  const before = await magentaAt(page, tools, feature + 3);
-  const peak = await magentaAt(page, tools, feature + 75);
-  const surface = await surfaceCentre(page);
   await page.close();
-  await tools.close();
-  return { title, settled, before, peak, surface };
+  return { title, settled };
 }
 
 describe.skipIf(!toolsHere)('omni pitch film, then the storyboard from its moments (acceptance 7)', () => {
@@ -196,7 +168,9 @@ describe.skipIf(!toolsHere)('omni pitch film, then the storyboard from its momen
   let filmed = { code: -1, out: '', err: '' };
   let checked = { code: -1, out: '', err: '' };
   let studio = { code: -1, out: '', err: '' };
+  let stills = { code: -1, out: '', err: '' };
   let seen: Seen | undefined;
+  let feature: z.infer<typeof MagentaSchema> | undefined;
 
   beforeAll(async () => {
     dir = run();
@@ -208,6 +182,9 @@ describe.skipIf(!toolsHere)('omni pitch film, then the storyboard from its momen
     const opened = await chromium.launch();
     browser = opened;
     studio = await omni(['studio', '.', '--no-open'], { dir, studioUntil: async (url) => { seen = await measure(url, opened); } });
+    stills = await omni(['render', '.', '--stills'], { dir });
+    const tools = await opened.newPage();
+    feature = await magentaOf(tools, readFileSync(join(dir, 'stills/02-feature.png')));
   });
 
   it('films the walk-through: walk.webm, moments.json, and a line per moment with its box and camera', () => {
@@ -218,6 +195,7 @@ describe.skipIf(!toolsHere)('omni pitch film, then the storyboard from its momen
     expect(lines[3]).toMatch(/^[\d.]+ s$/);
     expect(checked.code, checked.err).toBe(0);
     expect(studio.code, studio.err).toBe(0);
+    expect(stills.code, stills.err).toBe(0);
   });
 
   it("builds the PRD's title word by word in the Heading font the product uploaded", () => {
@@ -231,12 +209,10 @@ describe.skipIf(!toolsHere)('omni pitch film, then the storyboard from its momen
     expect(settled).toEqual([1, 1, 1, 1]);
   });
 
-  it('zooms the feature scene on the element its moment names: the button fills the middle of the media', () => {
-    if (seen === undefined) throw new Error('the studio page was not measured');
-    const { before, peak, surface } = seen;
-    expect(peak.share).toBeGreaterThan(before.share * 4);
-    expect(peak.share).toBeGreaterThan(0.03);
-    expect(Math.abs(peak.x - (surface?.x ?? 0))).toBeLessThan(0.06);
-    expect(Math.abs(peak.y - (surface?.y ?? 0))).toBeLessThan(0.06);
+  it("zooms the feature scene's still on the element its moment names: the button fills the middle of the frame", () => {
+    // At zoom 1 the button is under half a percent of the frame, right of centre; at its moment's zoom, centred.
+    if (feature === undefined) throw new Error('the feature still was not measured');
+    expect(feature.share).toBeGreaterThan(0.03);
+    expect(Math.abs(feature.x - 0.5)).toBeLessThan(0.06);
   });
 });

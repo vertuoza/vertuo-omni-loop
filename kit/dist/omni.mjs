@@ -44141,16 +44141,32 @@ var MADE = Object.freeze({
   "/engine/engine.js": (page2) => found(page2["engine.js"], TYPES[".js"] ?? ""),
   "/contact.html": (_, params) => found(contactHtml((params.get("files") ?? "").split(",").filter(Boolean)), HTML)
 });
-function runAnswer(dir, path) {
+var RANGE = /^bytes=(\d*)-(\d*)$/;
+function rangeOf2(range, size) {
+  const [, from = "", to = ""] = RANGE.exec(range.trim()) ?? [];
+  if (from === "" && to === "") return null;
+  const first = from === "" ? Math.max(0, size - Number(to)) : Number(from);
+  const last = from === "" || to === "" ? size - 1 : Math.min(Number(to), size - 1);
+  return first <= last ? { first, last } : null;
+}
+function ranged(body, type, range) {
+  if (range === void 0) return { ...found(body, type), headers: { "accept-ranges": "bytes" } };
+  const asked = rangeOf2(range, body.length);
+  if (asked === null) return { status: 416, headers: { "content-range": `bytes */${String(body.length)}` } };
+  const { first, last } = asked;
+  return { status: 206, type, body: body.subarray(first, last + 1), headers: { "accept-ranges": "bytes", "content-range": `bytes ${String(first)}-${String(last)}/${String(body.length)}` } };
+}
+function runAnswer(dir, path, range) {
   const file2 = path.startsWith("/run/") ? runFile(dir, path.slice("/run/".length)) : null;
   if (file2 === null) return { status: 404 };
-  return found(readFileSync53(file2), TYPES[extname4(file2).toLowerCase()] ?? "application/octet-stream");
+  return ranged(readFileSync53(file2), TYPES[extname4(file2).toLowerCase()] ?? "application/octet-stream", range);
 }
-function answerGet(dir, page2, url2) {
+function answerGet(dir, page2, url2, range) {
   const path = decodeURIComponent(url2.pathname);
   const made = Object.hasOwn(MADE, path) ? MADE[path] : void 0;
-  return made === void 0 ? runAnswer(dir, path) : made(page2, url2.searchParams);
+  return made === void 0 ? runAnswer(dir, path, range) : made(page2, url2.searchParams);
 }
+var headersOf = ({ type, headers }) => ({ ...type === void 0 ? {} : { "content-type": type, "cache-control": "no-store" }, ...headers });
 function deferred() {
   let settle3 = () => void 0;
   const promise2 = new Promise((done) => {
@@ -44192,8 +44208,8 @@ async function serveRun({ dir, page: page2 = enginePage() }) {
       request.on("close", () => listeners.delete(response));
       return;
     }
-    const answer = answerGet(dir, page2, url2);
-    response.writeHead(answer.status, answer.type === void 0 ? {} : { "content-type": answer.type, "cache-control": "no-store" }).end(answer.body);
+    const answer = answerGet(dir, page2, url2, request.headers.range);
+    response.writeHead(answer.status, headersOf(answer)).end(answer.body);
   });
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
   const address = server.address();

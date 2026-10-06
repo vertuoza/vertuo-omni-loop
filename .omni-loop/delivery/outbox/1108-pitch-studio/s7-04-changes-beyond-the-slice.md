@@ -35,7 +35,7 @@ Whether these edits stay, or move to slices of their own.
 
 ## What I did meanwhile
 
-kit/lib/ask/client.ts gains readPitchSettings (GET /api/pitch-settings) and drops readPitchLook, now unused; kit/lib/pitch/render-input.ts asks each font through fontRequestOf so a family asset:<file> is drawn from the run's file; kit/test/plugin.test.ts's pitch block tests the rewritten skill, including the never-invent rule. The providers' network type is renamed ProviderFetch (kit/lib/pitch/providers/types.ts and the seven files that use it), so it no longer shares its name with the Omni page client's Fetch, which the dead-code audit against main reported.
+kit/lib/ask/client.ts gains readPitchSettings (GET /api/pitch-settings) and drops readPitchLook, now unused; kit/lib/pitch/render-input.ts asks each font through fontRequestOf so a family asset:<file> is drawn from the run's file; kit/test/plugin.test.ts's pitch block tests the rewritten skill, including the never-invent rule. The providers' network type is renamed ProviderFetch (kit/lib/pitch/providers/types.ts and the seven files that use it), so it no longer shares its name with the Omni page client's Fetch, which the dead-code audit against main reported. The render's local server (kit/lib/pitch/render-server.ts) now answers a byte range of a run's file: without it the browser could seek a clip only as far as it had downloaded, and a filmed walk-through's frame often showed the clip's first, blank frame, in the stills and the videos alike.
 
 ## What it costs to change later
 
