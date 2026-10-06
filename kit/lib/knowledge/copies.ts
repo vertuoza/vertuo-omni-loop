@@ -3,7 +3,9 @@
  * knowledge base, one per `plan.targets` entry whose `knowledge` is `imported`, under
  * `<paths.knowledge>/repos/<name>/`. A copy has a knowledge folder's own layout: `playbook/` with
  * the forms, `adr/README.md` for the decisions form, and `product/`, `domains/` and `cross-domain/`
- * with the registers.
+ * with the registers. It may also hold `flow/`, the target's flow and its hook files (PRD 1089,
+ * `../plan-repo/copy-flow.ts`): its Markdown files are hooks, which the register grading never reads
+ * (it reads the register folders only), and a `flow/config.yml` the config would refuse is a violation.
  *
  * A copy is read and graded through a **copy context**: the plan repository's own context with its
  * knowledge paths moved into the copy, so the forms' and registers' own parsers and graders read it
@@ -21,9 +23,11 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { trackedFiles } from '../check-report.ts';
 import { createContext, type Context, type ExecText } from '../context.ts';
+import { readCopyFlow } from '../plan-repo/copy-flow.ts';
 import { copyFolder } from '../plan-repo/targets.ts';
 import { gradePlaybook } from '../playbook/check-playbook.ts';
 import { playbookStatus } from '../playbook/status.ts';
+import { messageOf } from '../narrow.ts';
 import { gradeKnowledge } from './check-knowledge.ts';
 import { registerCounts } from './registers.ts';
 
@@ -81,10 +85,20 @@ export function gradeCopies({ ctx, exec }: { ctx: Context; exec: ExecText }): {
     const forms = gradePlaybook({ ctx: copy.ctx, exec });
     const files = trackedFiles(copy.ctx, copy.folder).filter((file) => file.endsWith('.md'));
     const registers = gradeKnowledge({ ctx: copy.ctx, files });
-    violations.push(...forms.violations.map(prefix), ...registers.violations.map(prefix));
+    violations.push(...forms.violations.map(prefix), ...registers.violations.map(prefix), ...copyFlowViolations(copy, ctx).map(prefix));
     warnings.push(...forms.warnings.map(prefix), ...registers.wishes.map(prefix), ...registers.proposals.map(prefix));
   }
   return { copies: copies.length, violations, warnings };
+}
+
+/** What a copy's `flow/` breaks: its `flow/config.yml` refused by the config's own rules. */
+function copyFlowViolations(copy: Copy, ctx: Context): string[] {
+  try {
+    readCopyFlow(copy.repo, ctx);
+    return [];
+  } catch (error) {
+    return [messageOf(error)];
+  }
 }
 
 /**

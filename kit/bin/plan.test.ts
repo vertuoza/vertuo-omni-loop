@@ -408,6 +408,43 @@ describe('omni plan check — in a plan repository (PRD 549)', () => {
   });
 });
 
+describe("omni plan check — each target's imported flow (PRD 1089, s6)", () => {
+  const config = {
+    '.omni-loop/config.yml': [
+      'kit: 1',
+      'repo:',
+      '  slug: vertuoza/vertuo-automation-plan',
+      'plan:',
+      '  targets:',
+      '    - repo: vertuoza/vertuo-backend-php',
+      '      role: back-end',
+      '      knowledge: imported',
+      `      readAt: ${SHA_BACK}`,
+      '    - repo: vertuoza/vertuo-apps',
+      '      role: front-end',
+      '      knowledge: imported',
+      `      readAt: ${SHA_APPS}`,
+      '',
+    ].join('\n'),
+    '.omni-loop/knowledge/repos/vertuo-backend-php/flow/config.yml':
+      "flow:\n  areas:\n    migrations:\n      paths: ['^database/migrations/']\n      rules:\n        plan:\n          - slice: { alone: true }\n",
+    '.omni-loop/knowledge/repos/vertuo-apps/flow/config.yml': 'flow:\n  rules:\n    plan:\n      - slice: { maxFiles: 1 }\n',
+  };
+  const repos = [`| vertuo-backend-php | back-end | ${SHA_BACK} | imported |`, `| vertuo-apps | front-end | ${SHA_APPS} | imported |`];
+
+  it('grades a back-end row against the back end\'s copy and a front-end row against the front end\'s (acceptance 12)', async () => {
+    const slices = [
+      '| s1 | vertuo-backend-php | mixed | `database/migrations/x.sql` `src/` | — | 1 |',
+      '| s2 | vertuo-apps | mixed | `database/migrations/x.sql` `src/` | — | 1 |',
+    ];
+    const { code, out } = await check(config, multiPlan({ repos, slices }));
+    expect(code).toBe(1);
+    expect(out).toMatch(/flow \(vertuo-backend-php\): s1 touches database\/migrations\/x\.sql \(area migrations\) .* — migrations: slice alone/);
+    expect(out).toMatch(/flow \(vertuo-apps\): s2 touches 2 paths — default: slice maxFiles 1/);
+    expect(out).not.toMatch(/flow \(vertuo-apps\): s2 touches database/);
+  });
+});
+
 describe('omni plan check — outside a plan repository (PRD 549)', () => {
   it('refuses a repo column', async () => {
     const { code, out } = await check(CONFIG, multiPlan({ repos: null }));
