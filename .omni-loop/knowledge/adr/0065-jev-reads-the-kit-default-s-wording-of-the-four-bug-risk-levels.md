@@ -1,4 +1,4 @@
-# ADR-0059 — Jev reads the kit default's wording of the four bug risk levels, the same for every repository
+# ADR-0065 — Jev reads the kit default's wording of the four bug risk levels, the same for every repository
 
 **Status:** adopted · **Date:** 2026-09-30 · **PRD:** #812 · **Decided:** nobody — adopted when raised (medium), 2026-09-30 · **Merged:** @pierrederval, 2026-09-30, PR #814
 

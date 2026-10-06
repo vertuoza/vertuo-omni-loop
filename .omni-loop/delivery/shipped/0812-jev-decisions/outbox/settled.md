@@ -252,7 +252,7 @@ One line in one test.
 - Raised: 2026-09-30
 - Slice: s2
 - Wave: 2
-- Became: ADR-0058
+- Became: ADR-0064
 
 ### The answer, as it was given
 
@@ -644,7 +644,7 @@ Changing it is a one-line filter in the record module and its tests; nothing is 
 - Raised: 2026-09-30
 - Slice: s5
 - Wave: 4
-- Became: ADR-0059
+- Became: ADR-0065
 
 ### The answer, as it was given
 

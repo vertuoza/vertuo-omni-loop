@@ -1,4 +1,4 @@
-# ADR-0058 — With the question category On, the old sorter still answers every round beside Jev
+# ADR-0064 — With the question category On, the old sorter still answers every round beside Jev
 
 **Status:** adopted · **Date:** 2026-09-30 · **PRD:** #812 · **Decided:** nobody — adopted when raised (medium), 2026-09-30 · **Merged:** @pierrederval, 2026-09-30, PR #814
 
