@@ -28,8 +28,6 @@ import { synchronous } from '../synchronous.ts';
 const USAGE = 'usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--json] | omni flow verdict <point> --from <file>';
 const KNOWN = FLOW_POINTS.map(({ point }) => point).join(', ');
 
-type ShowFlags = { prd?: string; slice?: string; path?: string; json?: true };
-
 /** The point named `name`, or a usage error listing the catalog. */
 function pointArg(verb: string, name: string): FlowPoint {
   const point = flowPoint(name);
@@ -114,7 +112,8 @@ function differencesText(differences: AreaDifference[]): string {
   return lines.join('\n');
 }
 
-function show(positional: string[], flags: ShowFlags, { ctx, stdout }: CommandIo): number {
+function show(args: string[], { ctx, stdout }: CommandIo): number {
+  const { positional, flags } = parseArgs('flow show', args, { values: ['prd', 'slice', 'path'], booleans: ['json'] });
   if (positional.length > 1) throw usageError(USAGE);
   const flow = resolveFlow(ctx.config);
   const [name] = positional;
@@ -148,8 +147,10 @@ function show(positional: string[], flags: ShowFlags, { ctx, stdout }: CommandIo
   return view.problems.length > 0 ? 1 : 0;
 }
 
-function verdict(positional: string[], from: string | undefined, { ctx, stdout }: CommandIo): number {
+function verdict(args: string[], { ctx, stdout }: CommandIo): number {
+  const { positional, flags } = parseArgs('flow verdict', args, { values: ['from'] });
   const [name] = positional;
+  const from = flags.from;
   if (positional.length !== 1 || name === undefined || from === undefined) throw usageError('usage: omni flow verdict <point> --from <file>');
   const point = pointArg('verdict', name);
   const read = readVerdict(point.point, readUserFile('flow verdict', ctx, from));
@@ -159,16 +160,9 @@ function verdict(positional: string[], from: string | undefined, { ctx, stdout }
 
 export const flow: Command = {
   run: synchronous((args: string[], io: CommandIo): number => {
-    const { positional, flags } = parseArgs('flow', args, { values: ['prd', 'slice', 'path', 'from'], booleans: ['json'] });
-    const [sub, ...rest] = positional;
-    if (sub === 'show') {
-      if (flags.from !== undefined) throw usageError(USAGE);
-      return show(rest, flags, io);
-    }
-    if (sub === 'verdict') {
-      if (flags.prd !== undefined || flags.slice !== undefined || flags.path !== undefined || flags.json) throw usageError('usage: omni flow verdict <point> --from <file>');
-      return verdict(rest, flags.from, io);
-    }
+    const [sub, ...rest] = args;
+    if (sub === 'show') return show(rest, io);
+    if (sub === 'verdict') return verdict(rest, io);
     throw usageError(USAGE);
   }),
 };

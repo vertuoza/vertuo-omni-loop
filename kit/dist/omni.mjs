@@ -37774,10 +37774,15 @@ function parseHookFile(text8) {
     return none;
   }
   if (data === null || typeof data !== "object" || Array.isArray(data)) return none;
-  const record2 = data;
   const str = (value) => typeof value === "string" && value.trim() !== "" ? value.trim() : null;
-  const inputs = Array.isArray(record2.inputs) ? record2.inputs.filter((one) => typeof one === "string") : null;
-  return { omniHook: str(record2["omni-hook"]), inputs, verdict: str(record2.verdict), body: text8.slice(block[0].length).replace(/^\r?\n/, "") };
+  const listed2 = propertyOf(data, "inputs");
+  const inputs = Array.isArray(listed2) ? listed2.filter((one) => typeof one === "string") : null;
+  return {
+    omniHook: str(propertyOf(data, "omni-hook")),
+    inputs,
+    verdict: str(propertyOf(data, "verdict")),
+    body: text8.slice(block[0].length).replace(/^\r?\n/, "")
+  };
 }
 var fill = (text8, values) => text8.replace(/\{([\w-]+)\}/g, (whole2, name) => values[name] ?? whole2);
 function showPoint(flow2, point, { territory, values = {}, readHook }) {
@@ -37938,7 +37943,8 @@ function differencesText(differences) {
   }
   return lines.join("\n");
 }
-function show2(positional, flags, { ctx, stdout }) {
+function show2(args, { ctx, stdout }) {
+  const { positional, flags } = parseArgs("flow show", args, { values: ["prd", "slice", "path"], booleans: ["json"] });
   if (positional.length > 1) throw usageError(USAGE12);
   const flow2 = resolveFlow(ctx.config);
   const [name] = positional;
@@ -37969,8 +37975,10 @@ function show2(positional, flags, { ctx, stdout }) {
   for (const problem of view.problems) println(stdout, `not ok ${point.point} ${problem}`);
   return view.problems.length > 0 ? 1 : 0;
 }
-function verdict(positional, from, { ctx, stdout }) {
+function verdict(args, { ctx, stdout }) {
+  const { positional, flags } = parseArgs("flow verdict", args, { values: ["from"] });
   const [name] = positional;
+  const from = flags.from;
   if (positional.length !== 1 || name === void 0 || from === void 0) throw usageError("usage: omni flow verdict <point> --from <file>");
   const point = pointArg("verdict", name);
   const read2 = readVerdict(point.point, readUserFile("flow verdict", ctx, from));
@@ -37979,16 +37987,9 @@ function verdict(positional, from, { ctx, stdout }) {
 }
 var flow = {
   run: synchronous((args, io) => {
-    const { positional, flags } = parseArgs("flow", args, { values: ["prd", "slice", "path", "from"], booleans: ["json"] });
-    const [sub, ...rest] = positional;
-    if (sub === "show") {
-      if (flags.from !== void 0) throw usageError(USAGE12);
-      return show2(rest, flags, io);
-    }
-    if (sub === "verdict") {
-      if (flags.prd !== void 0 || flags.slice !== void 0 || flags.path !== void 0 || flags.json) throw usageError("usage: omni flow verdict <point> --from <file>");
-      return verdict(rest, flags.from, io);
-    }
+    const [sub, ...rest] = args;
+    if (sub === "show") return show2(rest, io);
+    if (sub === "verdict") return verdict(rest, io);
     throw usageError(USAGE12);
   })
 };

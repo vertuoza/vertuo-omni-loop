@@ -8,6 +8,7 @@
 // Fail closed: a hook file that is not there, or whose front matter names another point, is a
 // problem the command refuses on, never a hook skipped.
 import { parse } from 'yaml';
+import { propertyOf } from '../narrow.ts';
 import type { FlowPoint } from './points.ts';
 import { areaOf, resolveTerritory, type AreaRules, type PointHooks, type ResolvedArea, type ResolvedFlow, type ResolvedHook } from './resolve.ts';
 import { DEFAULT_AREA } from './schema.ts';
@@ -74,10 +75,15 @@ export function parseHookFile(text: string): HookFile {
     return none;
   }
   if (data === null || typeof data !== 'object' || Array.isArray(data)) return none;
-  const record = data as Record<string, unknown>;
   const str = (value: unknown) => (typeof value === 'string' && value.trim() !== '' ? value.trim() : null);
-  const inputs = Array.isArray(record.inputs) ? record.inputs.filter((one): one is string => typeof one === 'string') : null;
-  return { omniHook: str(record['omni-hook']), inputs, verdict: str(record.verdict), body: text.slice(block[0].length).replace(/^\r?\n/, '') };
+  const listed = propertyOf(data, 'inputs');
+  const inputs = Array.isArray(listed) ? listed.filter((one): one is string => typeof one === 'string') : null;
+  return {
+    omniHook: str(propertyOf(data, 'omni-hook')),
+    inputs,
+    verdict: str(propertyOf(data, 'verdict')),
+    body: text.slice(block[0].length).replace(/^\r?\n/, ''),
+  };
 }
 
 /** `text` with each `{name}` the values carry filled in; any other brace left as written. */
