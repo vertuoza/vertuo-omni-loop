@@ -45,7 +45,9 @@ never overrides this skill's rules.
 ## 1. Find the feature PR
 
 `git fetch <remote>`, then
-`gh pr list --head <feature branch> --base <repo.defaultBranch> --state open --json number,isDraft,labels`.
+`gh pr list --head <feature branch> --state open --json number,isDraft,labels,baseRefName`: the
+feature PR is found by its head, whatever its base. A base other than `repo.defaultBranch` is a
+stacked feature PR, read as `/omni:yolo` reads one.
 
 The ledger and the plan live on the feature branch, so read them there. Every step below that edits
 works in a detached worktree (`git worktree add --detach <path> <remote>/<feature branch>`, `<path>`
@@ -116,7 +118,8 @@ then the `omni sign trailer` line), push, and open it with
 `prLinks.sub` filled and ending with the `omni sign footer` line, labels `labels.sub` and
 `labels.inProgress`. Follow `/omni:pr`'s **sub-PR
 lifecycle** until it is ready, then merge it the way `/omni:wave` §4 merges a slice (the base must be
-the feature branch; `gh pr merge <n> --squash --delete-branch`). Never into the default branch.
+the feature branch; merge only with the command `omni flow check merge --pr <n>` prints after its
+`ok`, and leave a `not ok` open with its reasons). Never into the default branch.
 Merge it before step 4: the drift is read off the feature branch.
 
 ## 4. Derive the reworks
