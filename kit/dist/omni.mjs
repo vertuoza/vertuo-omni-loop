@@ -31716,6 +31716,416 @@ function askBatches({ numbering, items }) {
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync6 } from "node:child_process";
 
+// kit/lib/flow/merge-gate.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/inbox/territory.ts
+init_define_OMNI_BUNDLE();
+var NOTHING = /^[—–-]?$/;
+function sliceIdOf(text8) {
+  const id = WorkSliceIdSchema.safeParse(text8);
+  if (!id.success) throw new Error(`This plan's slice table names "${text8}", which is no slice id like s1.`);
+  return id.data;
+}
+function blockedByCell(cell2) {
+  const text8 = (cell2 ?? "").trim();
+  if (NOTHING.test(text8)) return [];
+  return text8.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
+}
+function territoryPrefixes(cell2) {
+  const text8 = (cell2 ?? "").trim();
+  if (NOTHING.test(text8)) return [];
+  return [...text8.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
+}
+function prefixOf(declaration) {
+  return declaration.replace(/\*+$/, "");
+}
+function cells(line) {
+  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell2) => cell2.trim());
+}
+function isTableRow(line) {
+  return line !== void 0 && line.trim().startsWith("|");
+}
+function isSeparatorRow(line) {
+  return /^\|[\s:|-]+\|$/.test(line.trim());
+}
+function bodyRows(lines, headerIndex) {
+  const rows2 = [];
+  for (let index = headerIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!isTableRow(line)) break;
+    if (isSeparatorRow(line)) continue;
+    rows2.push(cells(line));
+  }
+  return rows2;
+}
+function parsePlanSlices(markdown) {
+  const lines = markdown.split("\n");
+  let headerIndex = -1;
+  let foundAnyIdTable = false;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (isTableRow(line) && /^\|\s*id\s*\|/i.test(line.trim())) {
+      foundAnyIdTable = true;
+      const header3 = cells(line).map((name) => name.toLowerCase());
+      if (header3.indexOf("territory") !== -1) {
+        headerIndex = i;
+        break;
+      }
+    }
+  }
+  if (headerIndex === -1) {
+    if (foundAnyIdTable) {
+      throw new Error(
+        "This plan's slice table has no `territory` column; it predates the territory discipline and cannot be graded."
+      );
+    }
+    throw new Error("No slice table was found in this plan; its slices declare no territory.");
+  }
+  const header2 = cells(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
+  const column = (name) => header2.indexOf(name);
+  const slices = [];
+  for (const row of bodyRows(lines, headerIndex)) {
+    const id = row[column("id")];
+    if (!id) continue;
+    slices.push({
+      id: sliceIdOf(id),
+      repo: column("repo") === -1 ? null : plainCell(row[column("repo")]),
+      title: column("slice") === -1 ? "" : row[column("slice")] ?? "",
+      territory: territoryPrefixes(row[column("territory")]),
+      blockedBy: column("blocked by") === -1 ? [] : blockedByCell(row[column("blocked by")]),
+      wave: column("wave") === -1 ? null : Number(row[column("wave")]),
+      landing: column("landing") === -1 ? 1 : landingCell(row[column("landing")])
+    });
+  }
+  if (slices.length === 0) {
+    throw new Error("The slice table holds no slice; there is nothing to grade.");
+  }
+  return slices;
+}
+function landingCell(cell2) {
+  const text8 = plainCell(cell2);
+  return NOTHING.test(text8) ? 1 : Number(text8);
+}
+function plainCell(cell2) {
+  return (cell2 ?? "").replace(/`/g, "").trim();
+}
+function parsePlanRepositories(markdown) {
+  const rows2 = [];
+  for (const at2 of sectionTable(markdown, "repositories")) {
+    const repo = at2("repo");
+    if (!repo) continue;
+    rows2.push({ repo, role: at2("role"), readAt: at2("read at"), knowledge: at2("knowledge") });
+  }
+  return rows2;
+}
+function parsePlanLandings(markdown) {
+  const rows2 = [];
+  for (const at2 of sectionTable(markdown, "landings")) {
+    const landing = at2("landing");
+    if (!landing) continue;
+    const mergeWhen = at2("merge when");
+    rows2.push({ landing: Number(landing), name: at2("name"), mergeWhen: NOTHING.test(mergeWhen) ? "" : mergeWhen });
+  }
+  return rows2;
+}
+function sectionTable(markdown, heading) {
+  const lines = markdown.split("\n");
+  const start = lines.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line.trim()));
+  if (start === -1) return [];
+  let headerIndex = -1;
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i] ?? "";
+    if (/^#{1,2}\s/.test(line.trim())) break;
+    if (isTableRow(line)) {
+      headerIndex = i;
+      break;
+    }
+  }
+  if (headerIndex === -1) return [];
+  const header2 = cells(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
+  return bodyRows(lines, headerIndex).map(
+    (row) => (name) => header2.indexOf(name) === -1 ? "" : plainCell(row[header2.indexOf(name)])
+  );
+}
+function covers(territory, path) {
+  return territory.some((declaration) => path.startsWith(prefixOf(declaration)));
+}
+function sharedGround(left, right) {
+  const shared = /* @__PURE__ */ new Set();
+  for (const a of left.territory) {
+    for (const b of right.territory) {
+      const [x, y] = [prefixOf(a), prefixOf(b)];
+      if (x.startsWith(y)) shared.add(x.length >= y.length ? y : x);
+      else if (y.startsWith(x)) shared.add(x);
+    }
+  }
+  return [...shared];
+}
+function collisions(slices) {
+  const pairs = [];
+  for (const [i, a] of slices.entries()) {
+    for (const b of slices.slice(i + 1)) {
+      if ((a.repo ?? null) !== (b.repo ?? null)) continue;
+      const shared = sharedGround(a, b);
+      if (shared.length > 0) pairs.push({ left: a.id, right: b.id, shared });
+    }
+  }
+  return pairs;
+}
+function sameWaveCollisions(slices) {
+  const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
+  const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
+  return collisions(slices).filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf2.get(left) === landingOf2.get(right)).map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
+}
+function collisionRows(slices) {
+  const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
+  const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
+  const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
+  const at2 = (id) => `${landed ? `l${landingOf2.get(id)}` : ""}w${waveOf.get(id)}`;
+  return collisions(slices).map(({ left, right, shared }) => ({
+    pair: `${left} \xB7 ${right}`,
+    shared: shared.map((ground) => `\`${ground}\``).join(", "),
+    resolved: `${left} ${at2(left)} \xB7 ${right} ${at2(right)}`
+  }));
+}
+
+// kit/lib/flow/resolve.ts
+init_define_OMNI_BUNDLE();
+var LANDINGS_ALIAS_AREA = "landings.alone";
+var noRules = () => ({
+  plan: { alone: false, maxFiles: null, waveFirst: false, blocksAll: false, landingAlone: false },
+  subPr: { merge: null, requireChecks: [], approval: null, territory: null, maxOpen: null }
+});
+var stricter = (a, b) => a === null ? b : b === null ? a : Math.min(a, b);
+var stickier = (a, b) => a === "block" || b === "block" ? "block" : a ?? b;
+function combineRules(a, b) {
+  return {
+    plan: {
+      alone: a.plan.alone || b.plan.alone,
+      maxFiles: stricter(a.plan.maxFiles, b.plan.maxFiles),
+      waveFirst: a.plan.waveFirst || b.plan.waveFirst,
+      blocksAll: a.plan.blocksAll || b.plan.blocksAll,
+      landingAlone: a.plan.landingAlone || b.plan.landingAlone
+    },
+    subPr: {
+      merge: b.subPr.merge ?? a.subPr.merge,
+      requireChecks: [.../* @__PURE__ */ new Set([...a.subPr.requireChecks, ...b.subPr.requireChecks])],
+      approval: a.subPr.approval ?? b.subPr.approval,
+      territory: stickier(a.subPr.territory, b.subPr.territory),
+      maxOpen: stricter(a.subPr.maxOpen, b.subPr.maxOpen)
+    }
+  };
+}
+function withPlanRule(plan2, rule) {
+  if ("slice" in rule) {
+    return { ...plan2, alone: plan2.alone || rule.slice.alone === true, maxFiles: stricter(plan2.maxFiles, rule.slice.maxFiles ?? null) };
+  }
+  if ("wave" in rule) return { ...plan2, waveFirst: true };
+  if ("blocks" in rule) return { ...plan2, blocksAll: true };
+  return { ...plan2, landingAlone: true };
+}
+function ownRules(rules) {
+  const { merge: merge2 = null, requireChecks = [], approval = null, territory = null, maxOpen = null } = rules?.subPr ?? {};
+  return {
+    plan: (rules?.plan ?? []).reduce(withPlanRule, noRules().plan),
+    subPr: { merge: merge2, requireChecks: [...new Set(requireChecks)], approval, territory, maxOpen }
+  };
+}
+var toResolved = (area2, ref) => typeof ref === "string" ? { area: area2, path: ref, alias: null } : { area: area2, path: ref.path, alias: ref.alias };
+function ownHooks(area2, hooks) {
+  const resolved = {};
+  for (const [point, value] of Object.entries(hooks ?? {})) {
+    const { before: before2, after, replace } = hooksByMode(value);
+    resolved[point] = {
+      before: before2.map((ref) => toResolved(area2, ref)),
+      replace: replace === null ? null : toResolved(area2, replace),
+      after: after.map((ref) => toResolved(area2, ref))
+    };
+  }
+  return resolved;
+}
+function addHooks(a, b) {
+  const added = { ...a };
+  for (const [point, hooks] of Object.entries(b)) {
+    const before2 = a[point];
+    added[point] = before2 ? { before: [...before2.before, ...hooks.before], replace: hooks.replace ?? before2.replace, after: [...before2.after, ...hooks.after] } : hooks;
+  }
+  return added;
+}
+function resolveFlow(config3) {
+  const flow2 = config3.flow;
+  let defaultHooks = ownHooks(DEFAULT_AREA, flow2?.hooks);
+  if (config3.pr.openWith !== null) {
+    defaultHooks = addHooks(defaultHooks, {
+      "pr.open": { before: [], replace: { area: DEFAULT_AREA, path: config3.pr.openWith, alias: CLAUDE_ALIAS }, after: [] }
+    });
+  }
+  const defaultArea = {
+    name: DEFAULT_AREA,
+    patterns: [],
+    knowledge: null,
+    inherit: false,
+    rules: ownRules(flow2?.rules),
+    hooks: defaultHooks
+  };
+  const declared = Object.entries(flow2?.areas ?? {}).map(([name, area2]) => {
+    const inherit = area2.inherit ?? true;
+    const rules = ownRules(area2.rules);
+    const hooks = ownHooks(name, area2.hooks);
+    return {
+      name,
+      patterns: area2.paths.map((source) => new RegExp(source)),
+      knowledge: area2.knowledge ?? null,
+      inherit,
+      rules: inherit ? combineRules(defaultArea.rules, rules) : rules,
+      hooks: inherit ? addHooks(defaultArea.hooks, hooks) : hooks
+    };
+  });
+  const aliased = config3.landings.alone.length === 0 ? [] : [{
+    name: LANDINGS_ALIAS_AREA,
+    patterns: config3.landings.alone.map((source) => new RegExp(source)),
+    knowledge: null,
+    inherit: true,
+    rules: combineRules(defaultArea.rules, { ...noRules(), plan: { ...noRules().plan, landingAlone: true } }),
+    hooks: defaultArea.hooks
+  }];
+  return { defaultArea, areas: [...declared, ...aliased] };
+}
+function areaOf(flow2, path) {
+  return flow2.areas.find(({ patterns }) => patterns.some((pattern) => pattern.test(path))) ?? flow2.defaultArea;
+}
+function resolveTerritory(flow2, territory) {
+  const order = [flow2.defaultArea, ...flow2.areas];
+  const pathsOf2 = /* @__PURE__ */ new Map();
+  for (const path of territory) {
+    const { name } = areaOf(flow2, path);
+    pathsOf2.set(name, [...pathsOf2.get(name) ?? [], path]);
+  }
+  const touched = order.filter(({ name }) => pathsOf2.has(name));
+  const areas = touched.map(({ name, rules }) => ({ name, paths: pathsOf2.get(name) ?? [], rules }));
+  const merges = touched.flatMap(({ name, rules }) => rules.subPr.merge === null ? [] : [{ area: name, method: rules.subPr.merge }]);
+  const hooks = {};
+  const replace = [];
+  for (const { point } of FLOW_POINTS) {
+    const at2 = hooksAt(touched, point);
+    hooks[point] = at2.hooks;
+    if (at2.conflict.length > 0) replace.push({ point, hooks: at2.conflict });
+  }
+  return {
+    areas,
+    rules: combinedRules(touched),
+    hooks,
+    conflicts: { merge: new Set(merges.map(({ method }) => method)).size > 1 ? merges : [], replace }
+  };
+}
+function combinedRules(touched) {
+  return touched.reduce((combined, area2) => {
+    const next = combineRules(combined, area2.rules);
+    return { ...next, subPr: { ...next.subPr, merge: combined.subPr.merge ?? area2.rules.subPr.merge } };
+  }, noRules());
+}
+var uniqueHooks = (hooks) => hooks.filter((hook, index) => hooks.findIndex(({ area: area2, path }) => area2 === hook.area && path === hook.path) === index);
+function hooksAt(touched, point) {
+  const at2 = touched.flatMap(({ hooks }) => hooks[point] ?? []);
+  const replaces = uniqueHooks(at2.flatMap(({ replace }) => replace ? [replace] : []));
+  const own2 = replaces.filter(({ area: area2 }) => area2 !== DEFAULT_AREA);
+  return {
+    hooks: {
+      before: uniqueHooks(at2.flatMap(({ before: before2 }) => before2)),
+      replace: own2[0] ?? replaces[0] ?? null,
+      after: uniqueHooks(at2.flatMap(({ after }) => after))
+    },
+    conflict: new Set(own2.map(({ path }) => path)).size > 1 ? own2 : []
+  };
+}
+
+// kit/lib/flow/merge-gate.ts
+function mergeGate({
+  flow: flow2,
+  pr,
+  territory,
+  defaultBranch,
+  open: open3,
+  repo = null
+}) {
+  const met = resolveTerritory(flow2, [...territory ?? [], ...pr.files]);
+  const method = met.rules.subPr.merge ?? "squash";
+  const reasons = [];
+  const reported = [];
+  const firstAsking = (asks) => met.areas.find(({ rules }) => asks(rules))?.name ?? "default";
+  if (pr.base === defaultBranch) reasons.push(`#${pr.number} targets ${pr.base}, the default branch: a person merges there`);
+  if (pr.state !== "OPEN") reasons.push(`#${pr.number} is not open (${pr.state})`);
+  if (met.conflicts.merge.length > 0) {
+    const named3 = met.conflicts.merge.map(({ area: area2, method: m }) => `${area2} ${m}`).join(", ");
+    reasons.push(`${met.conflicts.merge.map(({ area: area2 }) => area2).join(", ")}: merge \u2014 two merge methods on one slice (${named3}): split the slice`);
+  }
+  for (const name of met.rules.subPr.requireChecks) {
+    const states = pr.checks.filter((check3) => check3.name === name).map(({ state }) => state);
+    const why2 = states.length === 0 ? "has not run" : states.includes("fail") ? "failed" : states.includes("pending") ? "is pending" : null;
+    if (why2 !== null) reasons.push(`${firstAsking((rules) => rules.subPr.requireChecks.includes(name))}: requireChecks ${name} \u2014 ${name} ${why2} on #${pr.number}`);
+  }
+  if (met.rules.subPr.approval === "person" && pr.approvedBy.length === 0) {
+    reasons.push(`${firstAsking((rules) => rules.subPr.approval === "person")}: approval person \u2014 no person has approved #${pr.number}`);
+  }
+  const block = met.rules.subPr.territory === "block";
+  const blocking = block ? `${firstAsking((rules) => rules.subPr.territory === "block")}: territory block \u2014 ` : "";
+  if (territory === null) {
+    if (block) reasons.push(`${blocking}#${pr.number}'s head ${pr.head} is no slice of a plan here, so its territory is not known`);
+    else reported.push(`#${pr.number}'s head ${pr.head} is no slice of a plan here: its diff was not compared with a territory`);
+  } else {
+    for (const path of pr.files.filter((file2) => !covers(territory, file2))) {
+      (block ? reasons : reported).push(`${blocking}${path} is outside the slice's territory`);
+    }
+  }
+  for (const { name, rules } of met.areas) {
+    const max = rules.subPr.maxOpen;
+    if (max === null) continue;
+    const ofArea = open3.filter((other) => resolveTerritory(flow2, other.territory).areas.some((area2) => area2.name === name));
+    if (ofArea.length > max) reasons.push(`${name}: maxOpen ${max} \u2014 ${ofArea.length} of its sub-PRs are open: ${ofArea.map(({ number: number4 }) => `#${number4}`).join(", ")}`);
+  }
+  const ok = reasons.length === 0;
+  return {
+    ok,
+    method,
+    command: ok ? ["gh", "pr", "merge", String(pr.number), `--${method}`, "--delete-branch", ...repo === null ? [] : ["--repo", repo]] : null,
+    areas: met.areas.map(({ name }) => name),
+    reasons,
+    reported
+  };
+}
+var PASSING = /* @__PURE__ */ new Set(["SUCCESS", "NEUTRAL", "SKIPPED"]);
+var WORST = ["fail", "pending", "pass"];
+function entryState(entry) {
+  if (entry.__typename === "StatusContext" || entry.context !== void 0) {
+    const state = entry.state ?? "";
+    return state === "SUCCESS" ? "pass" : state === "PENDING" || state === "EXPECTED" ? "pending" : "fail";
+  }
+  if (entry.status !== "COMPLETED") return "pending";
+  return PASSING.has(entry.conclusion ?? "") ? "pass" : "fail";
+}
+function checkState(rollup) {
+  const byName2 = /* @__PURE__ */ new Map();
+  for (const entry of rollup) {
+    const name = entry.name ?? entry.context;
+    if (name === void 0) continue;
+    const state = entryState(entry);
+    const before2 = byName2.get(name);
+    byName2.set(name, before2 === void 0 || WORST.indexOf(state) < WORST.indexOf(before2) ? state : before2);
+  }
+  return [...byName2].map(([name, state]) => ({ name, state }));
+}
+var DECIDING = /* @__PURE__ */ new Set(["APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
+function personApproved(reviews) {
+  const last = /* @__PURE__ */ new Map();
+  for (const { author, state = "" } of reviews) {
+    const login2 = author?.login;
+    if (login2 === void 0 || login2.endsWith("[bot]") || !DECIDING.has(state)) continue;
+    last.set(login2, state);
+  }
+  return [...last].filter(([, state]) => state === "APPROVED").map(([login2]) => login2);
+}
+
 // kit/bin/schema.ts
 init_define_OMNI_BUNDLE();
 var GhCommentSchema = external_exports.looseObject({
@@ -31833,6 +32243,49 @@ function pullRequestFor(ctx, { repo = ctx.config.repo.slug, number: number4, exe
     base: data.base?.ref ?? "",
     head: data.head?.ref ?? ""
   };
+}
+var GhSubPrSchema = external_exports.looseObject({
+  number: PrNumberSchema,
+  state: external_exports.string(),
+  baseRefName: external_exports.string(),
+  headRefName: external_exports.string(),
+  reviews: external_exports.array(external_exports.looseObject({ author: external_exports.looseObject({ login: external_exports.string().optional() }).nullish(), state: external_exports.string().optional() })).nullish(),
+  statusCheckRollup: external_exports.array(external_exports.looseObject({
+    __typename: external_exports.string().optional(),
+    name: external_exports.string().optional(),
+    context: external_exports.string().optional(),
+    status: external_exports.string().optional(),
+    conclusion: external_exports.string().nullish(),
+    state: external_exports.string().optional()
+  })).nullish()
+});
+var GhOpenPrsSchema = external_exports.array(external_exports.looseObject({ number: PrNumberSchema, headRefName: external_exports.string() }));
+function subPrFor(ctx, { repo = ctx.config.repo.slug, number: number4, exec = execFileSync6, env = processEnv() }) {
+  const ghEnv = githubEnv(ctx, { exec, env });
+  const options = { encoding: "utf8", ...ghEnv ? { env: ghEnv } : {} };
+  const where = ["--repo", repo ?? ""];
+  const data = GhSubPrSchema.parse(JSON.parse(
+    exec("gh", ["pr", "view", String(number4), ...where, "--json", "number,state,baseRefName,headRefName,reviews,statusCheckRollup"], options)
+  ));
+  const files = exec("gh", ["pr", "diff", String(number4), ...where, "--name-only"], options).split("\n").map((line) => line.trim()).filter((line) => line !== "");
+  return {
+    number: data.number,
+    state: data.state,
+    base: data.baseRefName,
+    head: data.headRefName,
+    checks: checkState(data.statusCheckRollup ?? []),
+    approvedBy: personApproved(data.reviews ?? []),
+    files
+  };
+}
+function openPullRequestsInto(ctx, { repo = ctx.config.repo.slug, base, exec = execFileSync6, env = processEnv() }) {
+  const ghEnv = githubEnv(ctx, { exec, env });
+  const listed2 = GhOpenPrsSchema.parse(JSON.parse(exec(
+    "gh",
+    ["pr", "list", "--repo", repo ?? "", "--base", base, "--state", "open", "--json", "number,headRefName", "--limit", "200"],
+    { encoding: "utf8", ...ghEnv ? { env: ghEnv } : {} }
+  )));
+  return listed2.map(({ number: number4, headRefName }) => ({ number: number4, head: headRefName }));
 }
 
 // kit/bin/commands/answers.ts
@@ -33084,179 +33537,6 @@ import { join as join22 } from "node:path";
 
 // kit/lib/board.ts
 init_define_OMNI_BUNDLE();
-
-// kit/lib/inbox/territory.ts
-init_define_OMNI_BUNDLE();
-var NOTHING = /^[—–-]?$/;
-function sliceIdOf(text8) {
-  const id = WorkSliceIdSchema.safeParse(text8);
-  if (!id.success) throw new Error(`This plan's slice table names "${text8}", which is no slice id like s1.`);
-  return id.data;
-}
-function blockedByCell(cell2) {
-  const text8 = (cell2 ?? "").trim();
-  if (NOTHING.test(text8)) return [];
-  return text8.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
-}
-function territoryPrefixes(cell2) {
-  const text8 = (cell2 ?? "").trim();
-  if (NOTHING.test(text8)) return [];
-  return [...text8.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
-}
-function prefixOf(declaration) {
-  return declaration.replace(/\*+$/, "");
-}
-function cells(line) {
-  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell2) => cell2.trim());
-}
-function isTableRow(line) {
-  return line !== void 0 && line.trim().startsWith("|");
-}
-function isSeparatorRow(line) {
-  return /^\|[\s:|-]+\|$/.test(line.trim());
-}
-function bodyRows(lines, headerIndex) {
-  const rows2 = [];
-  for (let index = headerIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!isTableRow(line)) break;
-    if (isSeparatorRow(line)) continue;
-    rows2.push(cells(line));
-  }
-  return rows2;
-}
-function parsePlanSlices(markdown) {
-  const lines = markdown.split("\n");
-  let headerIndex = -1;
-  let foundAnyIdTable = false;
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
-    if (isTableRow(line) && /^\|\s*id\s*\|/i.test(line.trim())) {
-      foundAnyIdTable = true;
-      const header3 = cells(line).map((name) => name.toLowerCase());
-      if (header3.indexOf("territory") !== -1) {
-        headerIndex = i;
-        break;
-      }
-    }
-  }
-  if (headerIndex === -1) {
-    if (foundAnyIdTable) {
-      throw new Error(
-        "This plan's slice table has no `territory` column; it predates the territory discipline and cannot be graded."
-      );
-    }
-    throw new Error("No slice table was found in this plan; its slices declare no territory.");
-  }
-  const header2 = cells(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
-  const column = (name) => header2.indexOf(name);
-  const slices = [];
-  for (const row of bodyRows(lines, headerIndex)) {
-    const id = row[column("id")];
-    if (!id) continue;
-    slices.push({
-      id: sliceIdOf(id),
-      repo: column("repo") === -1 ? null : plainCell(row[column("repo")]),
-      title: column("slice") === -1 ? "" : row[column("slice")] ?? "",
-      territory: territoryPrefixes(row[column("territory")]),
-      blockedBy: column("blocked by") === -1 ? [] : blockedByCell(row[column("blocked by")]),
-      wave: column("wave") === -1 ? null : Number(row[column("wave")]),
-      landing: column("landing") === -1 ? 1 : landingCell(row[column("landing")])
-    });
-  }
-  if (slices.length === 0) {
-    throw new Error("The slice table holds no slice; there is nothing to grade.");
-  }
-  return slices;
-}
-function landingCell(cell2) {
-  const text8 = plainCell(cell2);
-  return NOTHING.test(text8) ? 1 : Number(text8);
-}
-function plainCell(cell2) {
-  return (cell2 ?? "").replace(/`/g, "").trim();
-}
-function parsePlanRepositories(markdown) {
-  const rows2 = [];
-  for (const at2 of sectionTable(markdown, "repositories")) {
-    const repo = at2("repo");
-    if (!repo) continue;
-    rows2.push({ repo, role: at2("role"), readAt: at2("read at"), knowledge: at2("knowledge") });
-  }
-  return rows2;
-}
-function parsePlanLandings(markdown) {
-  const rows2 = [];
-  for (const at2 of sectionTable(markdown, "landings")) {
-    const landing = at2("landing");
-    if (!landing) continue;
-    const mergeWhen = at2("merge when");
-    rows2.push({ landing: Number(landing), name: at2("name"), mergeWhen: NOTHING.test(mergeWhen) ? "" : mergeWhen });
-  }
-  return rows2;
-}
-function sectionTable(markdown, heading) {
-  const lines = markdown.split("\n");
-  const start = lines.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line.trim()));
-  if (start === -1) return [];
-  let headerIndex = -1;
-  for (let i = start + 1; i < lines.length; i += 1) {
-    const line = lines[i] ?? "";
-    if (/^#{1,2}\s/.test(line.trim())) break;
-    if (isTableRow(line)) {
-      headerIndex = i;
-      break;
-    }
-  }
-  if (headerIndex === -1) return [];
-  const header2 = cells(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
-  return bodyRows(lines, headerIndex).map(
-    (row) => (name) => header2.indexOf(name) === -1 ? "" : plainCell(row[header2.indexOf(name)])
-  );
-}
-function covers(territory, path) {
-  return territory.some((declaration) => path.startsWith(prefixOf(declaration)));
-}
-function sharedGround(left, right) {
-  const shared = /* @__PURE__ */ new Set();
-  for (const a of left.territory) {
-    for (const b of right.territory) {
-      const [x, y] = [prefixOf(a), prefixOf(b)];
-      if (x.startsWith(y)) shared.add(x.length >= y.length ? y : x);
-      else if (y.startsWith(x)) shared.add(x);
-    }
-  }
-  return [...shared];
-}
-function collisions(slices) {
-  const pairs = [];
-  for (const [i, a] of slices.entries()) {
-    for (const b of slices.slice(i + 1)) {
-      if ((a.repo ?? null) !== (b.repo ?? null)) continue;
-      const shared = sharedGround(a, b);
-      if (shared.length > 0) pairs.push({ left: a.id, right: b.id, shared });
-    }
-  }
-  return pairs;
-}
-function sameWaveCollisions(slices) {
-  const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
-  const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
-  return collisions(slices).filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf2.get(left) === landingOf2.get(right)).map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
-}
-function collisionRows(slices) {
-  const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
-  const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
-  const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
-  const at2 = (id) => `${landed ? `l${landingOf2.get(id)}` : ""}w${waveOf.get(id)}`;
-  return collisions(slices).map(({ left, right, shared }) => ({
-    pair: `${left} \xB7 ${right}`,
-    shared: shared.map((ground) => `\`${ground}\``).join(", "),
-    resolved: `${left} ${at2(left)} \xB7 ${right} ${at2(right)}`
-  }));
-}
-
-// kit/lib/board.ts
 function fillBranch(template, values) {
   return template.replace(/\{(topic|slice|landings|landing|name)\}/g, (whole2, key) => {
     const value = values[key];
@@ -33454,158 +33734,6 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/flow/plan-rules.ts
 init_define_OMNI_BUNDLE();
-
-// kit/lib/flow/resolve.ts
-init_define_OMNI_BUNDLE();
-var LANDINGS_ALIAS_AREA = "landings.alone";
-var noRules = () => ({
-  plan: { alone: false, maxFiles: null, waveFirst: false, blocksAll: false, landingAlone: false },
-  subPr: { merge: null, requireChecks: [], approval: null, territory: null, maxOpen: null }
-});
-var stricter = (a, b) => a === null ? b : b === null ? a : Math.min(a, b);
-var stickier = (a, b) => a === "block" || b === "block" ? "block" : a ?? b;
-function combineRules(a, b) {
-  return {
-    plan: {
-      alone: a.plan.alone || b.plan.alone,
-      maxFiles: stricter(a.plan.maxFiles, b.plan.maxFiles),
-      waveFirst: a.plan.waveFirst || b.plan.waveFirst,
-      blocksAll: a.plan.blocksAll || b.plan.blocksAll,
-      landingAlone: a.plan.landingAlone || b.plan.landingAlone
-    },
-    subPr: {
-      merge: b.subPr.merge ?? a.subPr.merge,
-      requireChecks: [.../* @__PURE__ */ new Set([...a.subPr.requireChecks, ...b.subPr.requireChecks])],
-      approval: a.subPr.approval ?? b.subPr.approval,
-      territory: stickier(a.subPr.territory, b.subPr.territory),
-      maxOpen: stricter(a.subPr.maxOpen, b.subPr.maxOpen)
-    }
-  };
-}
-function withPlanRule(plan2, rule) {
-  if ("slice" in rule) {
-    return { ...plan2, alone: plan2.alone || rule.slice.alone === true, maxFiles: stricter(plan2.maxFiles, rule.slice.maxFiles ?? null) };
-  }
-  if ("wave" in rule) return { ...plan2, waveFirst: true };
-  if ("blocks" in rule) return { ...plan2, blocksAll: true };
-  return { ...plan2, landingAlone: true };
-}
-function ownRules(rules) {
-  const { merge: merge2 = null, requireChecks = [], approval = null, territory = null, maxOpen = null } = rules?.subPr ?? {};
-  return {
-    plan: (rules?.plan ?? []).reduce(withPlanRule, noRules().plan),
-    subPr: { merge: merge2, requireChecks: [...new Set(requireChecks)], approval, territory, maxOpen }
-  };
-}
-var toResolved = (area2, ref) => typeof ref === "string" ? { area: area2, path: ref, alias: null } : { area: area2, path: ref.path, alias: ref.alias };
-function ownHooks(area2, hooks) {
-  const resolved = {};
-  for (const [point, value] of Object.entries(hooks ?? {})) {
-    const { before: before2, after, replace } = hooksByMode(value);
-    resolved[point] = {
-      before: before2.map((ref) => toResolved(area2, ref)),
-      replace: replace === null ? null : toResolved(area2, replace),
-      after: after.map((ref) => toResolved(area2, ref))
-    };
-  }
-  return resolved;
-}
-function addHooks(a, b) {
-  const added = { ...a };
-  for (const [point, hooks] of Object.entries(b)) {
-    const before2 = a[point];
-    added[point] = before2 ? { before: [...before2.before, ...hooks.before], replace: hooks.replace ?? before2.replace, after: [...before2.after, ...hooks.after] } : hooks;
-  }
-  return added;
-}
-function resolveFlow(config3) {
-  const flow2 = config3.flow;
-  let defaultHooks = ownHooks(DEFAULT_AREA, flow2?.hooks);
-  if (config3.pr.openWith !== null) {
-    defaultHooks = addHooks(defaultHooks, {
-      "pr.open": { before: [], replace: { area: DEFAULT_AREA, path: config3.pr.openWith, alias: CLAUDE_ALIAS }, after: [] }
-    });
-  }
-  const defaultArea = {
-    name: DEFAULT_AREA,
-    patterns: [],
-    knowledge: null,
-    inherit: false,
-    rules: ownRules(flow2?.rules),
-    hooks: defaultHooks
-  };
-  const declared = Object.entries(flow2?.areas ?? {}).map(([name, area2]) => {
-    const inherit = area2.inherit ?? true;
-    const rules = ownRules(area2.rules);
-    const hooks = ownHooks(name, area2.hooks);
-    return {
-      name,
-      patterns: area2.paths.map((source) => new RegExp(source)),
-      knowledge: area2.knowledge ?? null,
-      inherit,
-      rules: inherit ? combineRules(defaultArea.rules, rules) : rules,
-      hooks: inherit ? addHooks(defaultArea.hooks, hooks) : hooks
-    };
-  });
-  const aliased = config3.landings.alone.length === 0 ? [] : [{
-    name: LANDINGS_ALIAS_AREA,
-    patterns: config3.landings.alone.map((source) => new RegExp(source)),
-    knowledge: null,
-    inherit: true,
-    rules: combineRules(defaultArea.rules, { ...noRules(), plan: { ...noRules().plan, landingAlone: true } }),
-    hooks: defaultArea.hooks
-  }];
-  return { defaultArea, areas: [...declared, ...aliased] };
-}
-function areaOf(flow2, path) {
-  return flow2.areas.find(({ patterns }) => patterns.some((pattern) => pattern.test(path))) ?? flow2.defaultArea;
-}
-function resolveTerritory(flow2, territory) {
-  const order = [flow2.defaultArea, ...flow2.areas];
-  const pathsOf2 = /* @__PURE__ */ new Map();
-  for (const path of territory) {
-    const { name } = areaOf(flow2, path);
-    pathsOf2.set(name, [...pathsOf2.get(name) ?? [], path]);
-  }
-  const touched = order.filter(({ name }) => pathsOf2.has(name));
-  const areas = touched.map(({ name, rules }) => ({ name, paths: pathsOf2.get(name) ?? [], rules }));
-  const merges = touched.flatMap(({ name, rules }) => rules.subPr.merge === null ? [] : [{ area: name, method: rules.subPr.merge }]);
-  const hooks = {};
-  const replace = [];
-  for (const { point } of FLOW_POINTS) {
-    const at2 = hooksAt(touched, point);
-    hooks[point] = at2.hooks;
-    if (at2.conflict.length > 0) replace.push({ point, hooks: at2.conflict });
-  }
-  return {
-    areas,
-    rules: combinedRules(touched),
-    hooks,
-    conflicts: { merge: new Set(merges.map(({ method }) => method)).size > 1 ? merges : [], replace }
-  };
-}
-function combinedRules(touched) {
-  return touched.reduce((combined, area2) => {
-    const next = combineRules(combined, area2.rules);
-    return { ...next, subPr: { ...next.subPr, merge: combined.subPr.merge ?? area2.rules.subPr.merge } };
-  }, noRules());
-}
-var uniqueHooks = (hooks) => hooks.filter((hook, index) => hooks.findIndex(({ area: area2, path }) => area2 === hook.area && path === hook.path) === index);
-function hooksAt(touched, point) {
-  const at2 = touched.flatMap(({ hooks }) => hooks[point] ?? []);
-  const replaces = uniqueHooks(at2.flatMap(({ replace }) => replace ? [replace] : []));
-  const own2 = replaces.filter(({ area: area2 }) => area2 !== DEFAULT_AREA);
-  return {
-    hooks: {
-      before: uniqueHooks(at2.flatMap(({ before: before2 }) => before2)),
-      replace: own2[0] ?? replaces[0] ?? null,
-      after: uniqueHooks(at2.flatMap(({ after }) => after))
-    },
-    conflict: new Set(own2.map(({ path }) => path)).size > 1 ? own2 : []
-  };
-}
-
-// kit/lib/flow/plan-rules.ts
 var LANDINGS_ALIAS_AREA2 = "landings.alone";
 function planRuleViolations(slices, flow2) {
   const graded = slices.map((slice) => ({ slice, territory: resolveTerritory(flow2, slice.territory) }));
@@ -37871,7 +37999,7 @@ function flowDifferences(flow2) {
 }
 
 // kit/bin/commands/flow.ts
-var USAGE12 = "usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--json] | omni flow verdict <point> --from <file>";
+var USAGE12 = "usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--json] | omni flow verdict <point> --from <file> | omni flow check merge --pr <n> [--repo <target>] [--json]";
 var KNOWN = FLOW_POINTS.map(({ point }) => point).join(", ");
 function pointArg(verb2, name) {
   const point = flowPoint(name);
@@ -37987,11 +38115,57 @@ function verdict(args, { ctx, stdout }) {
   println(stdout, verdictLine(point.point, read2));
   return read2.ok ? 0 : 1;
 }
+var MERGE_USAGE = "usage: omni flow check merge --pr <n> [--repo <target>] [--json]";
+function repoArg(ctx, value) {
+  if (value === void 0) return null;
+  if (value.includes("/")) return value;
+  const target3 = (ctx.config.plan?.targets ?? []).find(({ repo }) => repo.split("/")[1] === value);
+  if (!target3) throw usageError(`omni flow check merge: ${value} is not a target of plan.targets \u2014 give owner/name.`);
+  return target3.repo;
+}
+function sliceTerritories(ctx) {
+  const byBranch = /* @__PURE__ */ new Map();
+  for (const { name } of prdFoldersIn(join39(ctx.root, ctx.layout.dirs.inbox))) {
+    const topic = parseFolderName(name)?.topic;
+    const plan2 = join39(ctx.root, ctx.layout.dirs.inbox, name, "plan.md");
+    if (topic === void 0 || !existsSync30(plan2)) continue;
+    for (const { id, territory } of parsePlanSlices(readFileSync28(plan2, "utf8"))) {
+      byBranch.set(fillBranch(ctx.config.branches.slice, { topic, slice: id }), territory);
+    }
+  }
+  return byBranch;
+}
+function checkMerge(args, { ctx, stdout, exec, env }) {
+  const [what, ...rest] = args;
+  if (what !== "merge") throw usageError(MERGE_USAGE);
+  const { positional, flags } = parseArgs("flow check merge", rest, { values: ["pr", "repo"], booleans: ["json"] });
+  if (positional.length > 0 || flags.pr === void 0) throw usageError(MERGE_USAGE);
+  const number4 = prArg("flow check merge", "--pr", flags.pr);
+  const repo = repoArg(ctx, flags.repo);
+  const resolved = resolveFlow(ctx.config);
+  const slug = repo ?? ctx.config.repo.slug;
+  const pr = subPrFor(ctx, { repo: slug, number: number4, exec, env });
+  const slices = sliceTerritories(ctx);
+  const countsOpen = [resolved.defaultArea, ...resolved.areas].some(({ rules }) => rules.subPr.maxOpen !== null);
+  const open3 = countsOpen ? openPullRequestsInto(ctx, { repo: slug, base: pr.base, exec, env }).flatMap(({ number: n, head }) => {
+    const territory = slices.get(head);
+    return territory === void 0 ? [] : [{ number: n, territory }];
+  }) : [];
+  const verdict2 = mergeGate({ flow: resolved, pr, territory: slices.get(pr.head) ?? null, defaultBranch: ctx.config.repo.defaultBranch, open: open3, repo });
+  if (flags.json) {
+    println(stdout, JSON.stringify(verdict2, null, 2));
+  } else {
+    const lines = verdict2.command === null ? verdict2.reasons.map((reason2) => `not ok ${reason2}`) : ["ok", verdict2.command.join(" ")];
+    println(stdout, [...lines, ...verdict2.reported.map((line) => `report ${line}`)].join("\n"));
+  }
+  return verdict2.ok ? 0 : 1;
+}
 var flow = {
   run: synchronous((args, io) => {
     const [sub, ...rest] = args;
     if (sub === "show") return show2(rest, io);
     if (sub === "verdict") return verdict(rest, io);
+    if (sub === "check") return checkMerge(rest, io);
     throw usageError(USAGE12);
   })
 };
