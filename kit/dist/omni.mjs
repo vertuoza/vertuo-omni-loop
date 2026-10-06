@@ -27422,21 +27422,18 @@ var FlowSchema = external_exports.object({
     }
   }
 });
+function hookFile(scope, key, ref) {
+  const path = typeof ref === "string" ? ref : ref.path;
+  return typeof ref !== "string" && path.startsWith("/") ? [] : [{ key: [scope, ...key].join("."), path }];
+}
 function namedHookFiles(flow) {
   const scopes = [
     ["flow.hooks", flow.hooks],
     ...Object.entries(flow.areas ?? {}).map(([name, { hooks }]) => [`flow.areas.${name}.hooks`, hooks])
   ];
-  const files = [];
-  for (const [scope, hooks] of scopes) {
-    for (const [point, value] of Object.entries(hooks ?? {})) {
-      for (const { key, ref } of eachHook(point, value)) {
-        if (typeof ref !== "string" && ref.path.startsWith("/")) continue;
-        files.push({ key: [scope, ...key].join("."), path: typeof ref === "string" ? ref : ref.path });
-      }
-    }
-  }
-  return files;
+  return scopes.flatMap(
+    ([scope, hooks]) => Object.entries(hooks ?? {}).flatMap(([point, value]) => eachHook(point, value).flatMap(({ key, ref }) => hookFile(scope, key, ref)))
+  );
 }
 function hookFileViolations(root, flow, maxBytes = DEFAULT_HOOK_MAX_BYTES) {
   if (!flow) return [];
@@ -27547,14 +27544,6 @@ var text2 = external_exports.string().min(1);
 var nullableText = text2.nullable();
 var branchTemplate = external_exports.string().min(1);
 var labelName = external_exports.string().min(1);
-var regexSource2 = external_exports.string().refine((source) => {
-  try {
-    new RegExp(source);
-    return true;
-  } catch {
-    return false;
-  }
-}, "not a valid regular expression");
 var section = (shape) => external_exports.preprocess((value) => value === void 0 ? {} : value, external_exports.object(shape).strict());
 var trailerPart = text2.regex(/^[^<>\r\n]+$/, "one line, with no < or >");
 var askUrl = external_exports.string().refine((value) => {
@@ -27707,13 +27696,13 @@ var ConfigSchema = external_exports.object({
     claudeMdHeading: text2.default("## Invariants")
   }),
   risk: section({
-    storedShape: external_exports.array(regexSource2).default([]),
+    storedShape: external_exports.array(regexSource).default([]),
     sharedContract: external_exports.array(text2).default([])
   }),
   // Landings: the paths that must reach the default branch in a landing of their own (a
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
-  landings: section({ alone: external_exports.array(regexSource2).default([]) }),
+  landings: section({ alone: external_exports.array(regexSource).default([]) }),
   notify: section({
     slack: external_exports.object({ channelVar: text2.default("OMNI_SLACK_CHANNEL"), tokenSecret: text2.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
   }),

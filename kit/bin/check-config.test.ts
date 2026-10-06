@@ -87,7 +87,7 @@ describe('omni check config', () => {
   });
 
   it('exits 1 on a hook file that does not exist, naming the key and the path', async () => {
-    const { '.omni-loop/flow/kernel/tests.md': _gone, ...others } = HOOK_FILES;
+    const others = Object.fromEntries(Object.entries(HOOK_FILES).filter(([path]) => path !== '.omni-loop/flow/kernel/tests.md'));
     const { code, out } = await checkConfig(HEAD + SPEC_FLOW, others);
     expect(code).toBe(1);
     expect(out).toContain('flow.areas.kernel.hooks.do-work.test.replace: .omni-loop/flow/kernel/tests.md does not exist');

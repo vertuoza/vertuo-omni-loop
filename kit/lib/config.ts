@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
 import { messageOf } from './narrow.ts';
-import { FlowSchema, hooksByMode } from './flow/schema.ts';
+import { FlowSchema, hooksByMode, regexSource } from './flow/schema.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
 export const CONFIG_FILE = '.omni-loop/config.yml';
@@ -29,9 +29,6 @@ const nullableText = text.nullable();
 // so they keep those names; the values are no IDs, and are never branded (ADR-0056).
 const branchTemplate = z.string().min(1);
 const labelName = z.string().min(1);
-const regexSource = z.string().refine((source) => {
-  try { new RegExp(source); return true; } catch { return false; }
-}, 'not a valid regular expression');
 // A section every key of which has a default: absent, it parses as `{}` would, defaults filled in.
 const section = <Shape extends z.ZodRawShape>(shape: Shape) =>
   z.preprocess((value) => (value === undefined ? {} : value), z.object(shape).strict());

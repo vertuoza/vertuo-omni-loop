@@ -17,7 +17,8 @@ export const DEFAULT_AREA = 'default';
 export const DEFAULT_HOOK_MAX_BYTES = 20480;
 
 const text = z.string().min(1);
-const regexSource = z.string().refine((source) => {
+/** A regex source over repository paths: refused when it does not compile. `kit/lib/config.ts` uses it too. */
+export const regexSource = z.string().refine((source) => {
   try { new RegExp(source); return true; } catch { return false; }
 }, 'not a valid regular expression');
 
@@ -145,27 +146,26 @@ export const FlowSchema = z
 export type Flow = z.infer<typeof FlowSchema>;
 export type FlowRules = z.infer<typeof rulesSection>;
 export type FlowHooks = z.infer<typeof hooksSection>;
-export type PlanRule = z.infer<typeof planRule>;
-export type SubPrRules = z.infer<typeof subPrRules>;
-export type { PointHooks };
+type PlanRule = z.infer<typeof planRule>;
+export type { PlanRule };
+
+type HookFile = { key: string; path: string };
+
+/** The file `ref` names, keyed from `scope`; none for a slash command, which Claude Code resolves. */
+function hookFile(scope: string, key: string[], ref: HookRef): HookFile[] {
+  const path = typeof ref === 'string' ? ref : ref.path;
+  return typeof ref !== 'string' && path.startsWith('/') ? [] : [{ key: [scope, ...key].join('.'), path }];
+}
 
 /** Every hook file `flow` names, with the key that names it: `flow.areas.kernel.hooks.do-work.test.replace`. */
-function namedHookFiles(flow: Flow): { key: string; path: string }[] {
+function namedHookFiles(flow: Flow): HookFile[] {
   const scopes: [string, FlowHooks | undefined][] = [
     ['flow.hooks', flow.hooks],
     ...Object.entries(flow.areas ?? {}).map(([name, { hooks }]): [string, FlowHooks | undefined] => [`flow.areas.${name}.hooks`, hooks]),
   ];
-  const files: { key: string; path: string }[] = [];
-  for (const [scope, hooks] of scopes) {
-    for (const [point, value] of Object.entries(hooks ?? {})) {
-      for (const { key, ref } of eachHook(point, value)) {
-        // A slash command is no file: Claude Code resolves it.
-        if (typeof ref !== 'string' && ref.path.startsWith('/')) continue;
-        files.push({ key: [scope, ...key].join('.'), path: typeof ref === 'string' ? ref : ref.path });
-      }
-    }
-  }
-  return files;
+  return scopes.flatMap(([scope, hooks]) =>
+    Object.entries(hooks ?? {}).flatMap(([point, value]) => eachHook(point, value).flatMap(({ key, ref }) => hookFile(scope, key, ref))),
+  );
 }
 
 /**

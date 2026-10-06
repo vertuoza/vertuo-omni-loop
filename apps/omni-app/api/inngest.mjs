@@ -1109,14 +1109,6 @@ var text3 = z8.string().min(1);
 var nullableText = text3.nullable();
 var branchTemplate = z8.string().min(1);
 var labelName = z8.string().min(1);
-var regexSource2 = z8.string().refine((source) => {
-  try {
-    new RegExp(source);
-    return true;
-  } catch {
-    return false;
-  }
-}, "not a valid regular expression");
 var section = (shape) => z8.preprocess((value) => value === void 0 ? {} : value, z8.object(shape).strict());
 var trailerPart = text3.regex(/^[^<>\r\n]+$/, "one line, with no < or >");
 var askUrl = z8.string().refine((value) => {
@@ -1269,13 +1261,13 @@ var ConfigSchema = z8.object({
     claudeMdHeading: text3.default("## Invariants")
   }),
   risk: section({
-    storedShape: z8.array(regexSource2).default([]),
+    storedShape: z8.array(regexSource).default([]),
     sharedContract: z8.array(text3).default([])
   }),
   // Landings: the paths that must reach the default branch in a landing of their own (a
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
-  landings: section({ alone: z8.array(regexSource2).default([]) }),
+  landings: section({ alone: z8.array(regexSource).default([]) }),
   notify: section({
     slack: z8.object({ channelVar: text3.default("OMNI_SLACK_CHANNEL"), tokenSecret: text3.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
   }),

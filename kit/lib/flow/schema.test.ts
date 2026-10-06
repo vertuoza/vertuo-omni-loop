@@ -2,7 +2,6 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parse } from 'yaml';
 import { parseConfig } from '../config.ts';
 import { messageOf } from '../narrow.ts';
 import { FlowSchema, hookFileViolations, hookRefProblem } from './schema.ts';
@@ -107,7 +106,7 @@ describe('hookFileViolations', () => {
     }
     return root;
   };
-  const flowOf = (yaml: string) => FlowSchema.parse(parse(yaml).flow);
+  const flowOf = (yaml: string) => parseConfig(`kit: 1\n${yaml}`).flow;
 
   it('is quiet with no flow, and when every hook file is there and small enough', () => {
     expect(hookFileViolations(repo({}), undefined)).toEqual([]);

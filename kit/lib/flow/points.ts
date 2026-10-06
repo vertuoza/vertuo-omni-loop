@@ -4,7 +4,7 @@
 // follows that skill step for step fires the same point, so it is listed beside it.
 
 /** The ways a hook joins a point: before the kit's step, after it, or in its place. */
-export const HOOK_MODES = Object.freeze(['before', 'after', 'replace'] as const);
+const HOOK_MODES = Object.freeze(['before', 'after', 'replace'] as const);
 export type HookMode = (typeof HOOK_MODES)[number];
 
 export type FlowPoint = {

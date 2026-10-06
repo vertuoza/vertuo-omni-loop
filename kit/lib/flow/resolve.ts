@@ -15,7 +15,7 @@
 //   replace hook, marked `alias: claude`.
 import type { Config } from '../types.ts';
 import { FLOW_POINTS } from './points.ts';
-import { CLAUDE_ALIAS, DEFAULT_AREA, hooksByMode, type FlowHooks, type FlowRules, type HookRef, MERGE_METHODS } from './schema.ts';
+import { CLAUDE_ALIAS, DEFAULT_AREA, hooksByMode, type FlowHooks, type FlowRules, type HookRef, MERGE_METHODS, type PlanRule } from './schema.ts';
 
 type MergeMethod = (typeof MERGE_METHODS)[number];
 
@@ -96,28 +96,23 @@ function combineRules(a: AreaRules, b: AreaRules): AreaRules {
   };
 }
 
+/** `plan` with one more `rules.plan` entry applied. */
+function withPlanRule(plan: AreaRules['plan'], rule: PlanRule): AreaRules['plan'] {
+  if ('slice' in rule) {
+    return { ...plan, alone: plan.alone || rule.slice.alone === true, maxFiles: stricter(plan.maxFiles, rule.slice.maxFiles ?? null) };
+  }
+  if ('wave' in rule) return { ...plan, waveFirst: true };
+  if ('blocks' in rule) return { ...plan, blocksAll: true };
+  return { ...plan, landingAlone: true };
+}
+
 /** The rules a `rules` section declares, by themselves. */
 function ownRules(rules: FlowRules | undefined): AreaRules {
-  const own = noRules();
-  for (const rule of rules?.plan ?? []) {
-    if ('slice' in rule) {
-      own.plan.alone ||= rule.slice.alone === true;
-      own.plan.maxFiles = stricter(own.plan.maxFiles, rule.slice.maxFiles ?? null);
-    } else if ('wave' in rule) own.plan.waveFirst = true;
-    else if ('blocks' in rule) own.plan.blocksAll = true;
-    else own.plan.landingAlone = true;
-  }
-  const subPr = rules?.subPr;
-  if (subPr) {
-    own.subPr = {
-      merge: subPr.merge ?? null,
-      requireChecks: [...new Set(subPr.requireChecks ?? [])],
-      approval: subPr.approval ?? null,
-      territory: subPr.territory ?? null,
-      maxOpen: subPr.maxOpen ?? null,
-    };
-  }
-  return own;
+  const { merge = null, requireChecks = [], approval = null, territory = null, maxOpen = null } = rules?.subPr ?? {};
+  return {
+    plan: (rules?.plan ?? []).reduce(withPlanRule, noRules().plan),
+    subPr: { merge, requireChecks: [...new Set(requireChecks)], approval, territory, maxOpen },
+  };
 }
 
 const toResolved = (area: string, ref: HookRef): ResolvedHook =>
@@ -209,38 +204,45 @@ export function resolveTerritory(flow: ResolvedFlow, territory: readonly string[
   const areas = touched.map(({ name, rules }) => ({ name, paths: pathsOf.get(name) ?? [], rules }));
 
   const merges = touched.flatMap(({ name, rules }) => (rules.subPr.merge === null ? [] : [{ area: name, method: rules.subPr.merge }]));
-  const mergeConflict = new Set(merges.map(({ method }) => method)).size > 1 ? merges : [];
-  // Across areas the first declared `merge` stands; a conflict is reported beside it, never settled.
-  const rules = touched.reduce((combined, area) => {
-    const next = combineRules(combined, area.rules);
-    return { ...next, subPr: { ...next.subPr, merge: combined.subPr.merge ?? area.rules.subPr.merge } };
-  }, noRules());
-
   const hooks: Record<string, PointHooks> = {};
   const replace: { point: string; hooks: ResolvedHook[] }[] = [];
   for (const { point } of FLOW_POINTS) {
-    const before: ResolvedHook[] = [];
-    const after: ResolvedHook[] = [];
-    const replaces: ResolvedHook[] = [];
-    const seen = new Set<string>();
-    const once = (list: ResolvedHook[], hook: ResolvedHook) => {
-      const key = `${list === before ? 'before' : list === after ? 'after' : 'replace'} ${hook.area} ${hook.path}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      list.push(hook);
-    };
-    for (const area of touched) {
-      const at = area.hooks[point];
-      if (!at) continue;
-      for (const hook of at.before) once(before, hook);
-      if (at.replace) once(replaces, at.replace);
-      for (const hook of at.after) once(after, hook);
-    }
-    // An area's own `replace` wins over the default area's; two areas' own are a conflict.
-    const own = replaces.filter(({ area }) => area !== DEFAULT_AREA);
-    const chosen = own[0] ?? replaces[0] ?? null;
-    if (new Set(own.map(({ path }) => path)).size > 1) replace.push({ point, hooks: own });
-    hooks[point] = { before, replace: chosen, after };
+    const at = hooksAt(touched, point);
+    hooks[point] = at.hooks;
+    if (at.conflict.length > 0) replace.push({ point, hooks: at.conflict });
   }
-  return { areas, rules, hooks, conflicts: { merge: mergeConflict, replace } };
+  return {
+    areas,
+    rules: combinedRules(touched),
+    hooks,
+    conflicts: { merge: new Set(merges.map(({ method }) => method)).size > 1 ? merges : [], replace },
+  };
+}
+
+/** The rules of `touched` together. Across areas the first declared `merge` stands; a conflict is reported beside it, never settled. */
+function combinedRules(touched: readonly ResolvedArea[]): AreaRules {
+  return touched.reduce((combined, area) => {
+    const next = combineRules(combined, area.rules);
+    return { ...next, subPr: { ...next.subPr, merge: combined.subPr.merge ?? area.rules.subPr.merge } };
+  }, noRules());
+}
+
+/** `hooks` with each area's file kept once, in order. */
+const uniqueHooks = (hooks: readonly ResolvedHook[]): ResolvedHook[] =>
+  hooks.filter((hook, index) => hooks.findIndex(({ area, path }) => area === hook.area && path === hook.path) === index);
+
+/** What runs at `point` for a slice in `touched`, and the areas' own `replace` hooks when more than one applies. */
+function hooksAt(touched: readonly ResolvedArea[], point: string): { hooks: PointHooks; conflict: ResolvedHook[] } {
+  const at = touched.flatMap(({ hooks }) => hooks[point] ?? []);
+  const replaces = uniqueHooks(at.flatMap(({ replace }) => (replace ? [replace] : [])));
+  // An area's own `replace` wins over the default area's; two areas' own are a conflict.
+  const own = replaces.filter(({ area }) => area !== DEFAULT_AREA);
+  return {
+    hooks: {
+      before: uniqueHooks(at.flatMap(({ before }) => before)),
+      replace: own[0] ?? replaces[0] ?? null,
+      after: uniqueHooks(at.flatMap(({ after }) => after)),
+    },
+    conflict: new Set(own.map(({ path }) => path)).size > 1 ? own : [],
+  };
 }
