@@ -10,7 +10,7 @@ export type Kind = (typeof KINDS)[number];
 /** What a network answer must offer: the global `fetch`'s answer meets it. */
 export type FetchAnswer = { ok: boolean; status: number; text(): Promise<string>; arrayBuffer(): Promise<ArrayBuffer> };
 /** The network: the global `fetch`, or a test's fake. */
-export type Fetch = (url: string, init?: { headers?: Record<string, string> }) => Promise<FetchAnswer>;
+export type ProviderFetch = (url: string, init?: { headers?: Record<string, string> }) => Promise<FetchAnswer>;
 /** A product's uploaded file (`asset:logo.svg`) as a path on this computer. */
 export type AssetResolver = (ref: string) => Promise<string>;
 /** How a provider runs a tool: `execFileSync`, or a test's fake. */
@@ -20,14 +20,14 @@ export type Exec = (file: string, args: readonly string[], options: ExecFileSync
 export type MusicRequest = { mood: string; seconds: number; asset?: string };
 /** A track written in the run's folder, its licence and its credit (null when none is owed). */
 export type Track = { file: string; licence: string | null; credit: string | null };
-export type MusicContext = { dir: string; fetch: Fetch; asset: AssetResolver };
+export type MusicContext = { dir: string; fetch: ProviderFetch; asset: AssetResolver };
 export type MusicProvider = { kind: 'music'; id: string; pick(request: MusicRequest, context: MusicContext): Promise<Track> };
 
 /** A font request: a family and a weight, and the uploaded file for a product's own font. */
 export type FontRequest = { family: string; weight: number; asset?: string };
 /** The `@font-face` rules (their files relative to the run's folder), the files written, and the CSS family stack to use. */
 export type LoadedFont = { css: string; files: string[]; stack: string };
-export type FontsContext = { dir: string; fetch: Fetch; asset: AssetResolver };
+export type FontsContext = { dir: string; fetch: ProviderFetch; asset: AssetResolver };
 export type FontsProvider = { kind: 'fonts'; id: string; load(request: FontRequest, context: FontsContext): Promise<LoadedFont> };
 
 /** The few calls of a browser page a capture makes; Playwright's page meets them. */

@@ -4,7 +4,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import type { AssetResolver, CaptureBrowser, Exec, Fetch, FetchAnswer } from './types.ts';
+import type { AssetResolver, CaptureBrowser, Exec, ProviderFetch, FetchAnswer } from './types.ts';
 
 /** The first bytes of an MP3 with an ID3 tag. */
 export const MP3 = new Uint8Array([0x49, 0x44, 0x33, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a]);
@@ -26,9 +26,9 @@ function answerOf(body: Body): FetchAnswer {
 }
 
 /** A network that answers by the first route whose test matches the address, else 404; the calls it took. */
-export function fakeFetch(routes: readonly (readonly [RegExp, Body | ((url: string) => Body)])[]): { fetch: Fetch; calls: { url: string; headers: Record<string, string> }[] } {
+export function fakeFetch(routes: readonly (readonly [RegExp, Body | ((url: string) => Body)])[]): { fetch: ProviderFetch; calls: { url: string; headers: Record<string, string> }[] } {
   const calls: { url: string; headers: Record<string, string> }[] = [];
-  const fetch: Fetch = (url, init) => {
+  const fetch: ProviderFetch = (url, init) => {
     calls.push({ url, headers: init?.headers ?? {} });
     const route = routes.find(([test]) => test.test(url));
     const body = route === undefined ? 404 : typeof route[1] === 'function' ? route[1](url) : route[1];

@@ -10,7 +10,7 @@ wave: 4
 
 ## The question, in plain words
 
-Making the video from the settings needed small changes in three files outside this slice's ground. Were they right to make?
+Making the video from the settings needed small changes in a few files outside this slice's ground. Were they right to make?
 
 ## The decision, in plain words
 
@@ -18,7 +18,7 @@ Yes: the terminal's call to the Omni page gained the new settings address and lo
 
 ## The intro, for fun
 
-Three small screws turned outside the cupboard the carpenter was hired to build.
+A few small screws turned outside the cupboard the carpenter was hired to build.
 
 ## The punchline, for fun
 
@@ -26,16 +26,16 @@ Without them the cupboard's door would not close.
 
 ## The options, in plain words
 
-A. Keep the three edits in this slice (built).
+A. Keep these edits in this slice (built).
 B. Move them to a slice of their own, leaving this one unable to read the settings or draw an uploaded font.
 
 ## What I had to decide
 
-Whether these three edits stay, or move to slices of their own.
+Whether these edits stay, or move to slices of their own.
 
 ## What I did meanwhile
 
-kit/lib/ask/client.ts gains readPitchSettings (GET /api/pitch-settings) and drops readPitchLook, now unused; kit/lib/pitch/render-input.ts asks each font through fontRequestOf so a family asset:<file> is drawn from the run's file; kit/test/plugin.test.ts's pitch block tests the rewritten skill, including the never-invent rule.
+kit/lib/ask/client.ts gains readPitchSettings (GET /api/pitch-settings) and drops readPitchLook, now unused; kit/lib/pitch/render-input.ts asks each font through fontRequestOf so a family asset:<file> is drawn from the run's file; kit/test/plugin.test.ts's pitch block tests the rewritten skill, including the never-invent rule. The providers' network type is renamed ProviderFetch (kit/lib/pitch/providers/types.ts and the seven files that use it), so it no longer shares its name with the Omni page client's Fetch, which the dead-code audit against main reported.
 
 ## What it costs to change later
 

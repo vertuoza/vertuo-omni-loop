@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { DEFAULTS, providerFor } from './providers/registry.ts';
 import type { Registry, Warn } from './providers/registry.ts';
-import type { CaptureProvider, Exec, Fetch, Launch, Shape } from './providers/types.ts';
+import type { CaptureProvider, Exec, ProviderFetch, Launch, Shape } from './providers/types.ts';
 import { RenderRefused, runAssets, runSettings, runStoryboard, writePageInput } from './render-input.ts';
 import { audioOf, pickRunMusic } from './render-music.ts';
 import type { MusicRecord, PickedMusic } from './render-music.ts';
@@ -40,7 +40,7 @@ const PITCH_FILES = Object.freeze([SLIDES.wide, SLIDES.square, 'pitch.mp4', 'pit
 const SHAPES: readonly Shape[] = Object.freeze(['wide', 'square', 'gif']);
 
 /** What the render reaches the world through: a child process, the network, a browser, and where a fallback's line goes. */
-export type RenderTools = { cwd: string; exec: Exec; fetch: Fetch; launch?: Launch | undefined; warn: Warn; registry?: Registry | undefined };
+export type RenderTools = { cwd: string; exec: Exec; fetch: ProviderFetch; launch?: Launch | undefined; warn: Warn; registry?: Registry | undefined };
 
 const PageInfoSchema = z.object({
   fps: z.number().positive(),

@@ -46,7 +46,7 @@ import type { Context } from '../../lib/context.ts';
 import { whereIs } from '../../lib/delivery/prd.ts';
 import { isOneOf, propertyOf } from '../../lib/narrow.ts';
 import { checkRunFolder, findingLine } from '../../lib/pitch/check.ts';
-import type { Fetch as ProviderFetch, Launch } from '../../lib/pitch/providers/types.ts';
+import type { Launch, ProviderFetch } from '../../lib/pitch/providers/types.ts';
 import { MOMENTS_FILE, WALK_CLIP } from '../../lib/pitch/moments.ts';
 import type { Moments } from '../../lib/pitch/moments.ts';
 import { FilmRefused, filmRun, repositoryBrowser } from '../../lib/pitch/moments-film.ts';

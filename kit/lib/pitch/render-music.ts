@@ -9,7 +9,7 @@
 // - The encode provider normalises it, fades it in and out and cuts it to the video's length.
 import { DEFAULTS, pickMusic } from './providers/registry.ts';
 import type { Registry, Warn } from './providers/registry.ts';
-import type { AssetResolver, Fetch } from './providers/types.ts';
+import type { AssetResolver, ProviderFetch } from './providers/types.ts';
 import type { PitchSettings } from './settings.ts';
 
 /** The mood a music setting without one asks for. */
@@ -25,7 +25,7 @@ export type PickedMusic = { file: string; credit: string | null; record: MusicRe
 /** The track the settings name, written in `dir`, for a video of at most `seconds`. */
 export async function pickRunMusic(
   music: PitchSettings['music'],
-  { dir, seconds, fetch, asset, warn, registry }: { dir: string; seconds: number; fetch: Fetch; asset: AssetResolver; warn: Warn; registry?: Registry },
+  { dir, seconds, fetch, asset, warn, registry }: { dir: string; seconds: number; fetch: ProviderFetch; asset: AssetResolver; warn: Warn; registry?: Registry },
 ): Promise<PickedMusic> {
   const request = { provider: music.provider, mood: music.mood ?? DEFAULT_MOOD, seconds, ...(music.file === undefined ? {} : { asset: music.file }) };
   const track = await pickMusic(request, { dir, fetch, asset }, warn, registry);

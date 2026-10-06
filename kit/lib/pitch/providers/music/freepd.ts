@@ -7,7 +7,7 @@
 // the same every time for a mood and a length.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Fetch, MusicProvider } from '../types.ts';
+import type { ProviderFetch, MusicProvider } from '../types.ts';
 
 const ARCHIVE = 'https://archive.org/download/freepd';
 const LICENCE = 'CC0 1.0 Universal (public domain)';
@@ -63,7 +63,7 @@ const isMp3 = (bytes: Uint8Array): boolean =>
 const ATTEMPTS = 3;
 
 /** A pinned track's bytes, asked for up to `ATTEMPTS` times; the last refusal when none answers an MP3. */
-async function download(track: PinnedTrack, fetch: Fetch): Promise<Uint8Array> {
+async function download(track: PinnedTrack, fetch: ProviderFetch): Promise<Uint8Array> {
   let reason = '';
   for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
     const answer = await fetch(trackUrl(track));
