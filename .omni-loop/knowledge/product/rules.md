@@ -654,3 +654,39 @@ Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
 Proposed: harvest 2026-09-29
+
+## BR-PRODUCT-56
+
+When the hero loses a life with lives left, the stage waits on its ready screen with the stage and lives left until the player presses start, as a new game does; play then resumes from the stage's start with the score kept.
+
+Serves: P-PRODUCT-53
+Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s2-01-ready-screen-after-a-life-lost, PRD #817
+Enforced by: unenforced
+Stated: 2026-09-30
+Decided: nobody — adopted when raised (medium), 2026-09-30
+Merged: @pierrederval, 2026-09-30, PR #818
+Proposed: harvest 2026-09-30
+
+## BR-PRODUCT-57
+
+The corner game box never takes the page's Tab or Shift keys, so a reader can always move between links while a game is open; Escape folds the box and B goes back to the game list.
+
+Serves: P-PRODUCT-42
+Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s4-02-dock-select-stays-with-the-page, PRD #817
+Enforced by: unenforced
+Stated: 2026-09-30
+Decided: nobody — adopted when raised (medium), 2026-09-30
+Merged: @pierrederval, 2026-09-30, PR #818
+Proposed: harvest 2026-09-30
+
+## BR-PRODUCT-58
+
+On a stage clear screen, A or START goes on to the next stage's ready screen with score and lives kept, and B does nothing, so a run ends only at game over or the world's end, where its score is saved.
+
+Serves: P-PRODUCT-54
+Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s3-01-stage-clear-goes-on, PRD #817
+Enforced by: unenforced
+Stated: 2026-09-30
+Decided: nobody — adopted when raised (medium), 2026-09-30
+Merged: @pierrederval, 2026-09-30, PR #818
+Proposed: harvest 2026-09-30

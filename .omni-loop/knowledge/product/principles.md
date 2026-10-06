@@ -465,3 +465,21 @@ Why: So a workspace's profile stays consistent with its board and never mixes in
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-02-profile-work-one-workspace, PRD #698
 Merged: @pierrederval, 2026-09-29, PR #699
 Proposed: harvest 2026-09-29
+
+## P-PRODUCT-53
+
+In the arcade games, play never resumes on its own after a setback; the player always chooses when to go again.
+
+Why: A player who just lost a life should never be thrown back into play before they are ready.
+Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s2-01-ready-screen-after-a-life-lost, PRD #817
+Merged: @pierrederval, 2026-09-30, PR #818
+Proposed: harvest 2026-09-30
+
+## P-PRODUCT-54
+
+In the arcade games, a run never ends by a route that loses its score; every way a game can end saves the score reached.
+
+Why: A player should never lose a score they earned because of the route they took out of a game.
+Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s3-01-stage-clear-goes-on, PRD #817
+Merged: @pierrederval, 2026-09-30, PR #818
+Proposed: harvest 2026-09-30
