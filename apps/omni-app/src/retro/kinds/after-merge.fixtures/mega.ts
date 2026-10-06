@@ -32,13 +32,13 @@ const issue = (number: number, body: string, createdAt: string, closedAt: string
 });
 
 /** The mega bugs the plan repository holds, beside the plan repository's own. */
-export const MEGA_ISSUES = [
+const MEGA_ISSUES = [
   issue(60, 'The colour flickers.\n\nFor PRD #7\n\nA bug fix across repositories.', '2026-09-25T08:00:00Z', '2026-09-30T08:00:00Z'),
   issue(61, 'Another one.\n\nFor PRD #70\n', '2026-09-26T08:00:00Z', null),
 ];
 
 /** The fix-plan comment `/omni:mega-bug-fix` keeps on bug #60. */
-export const FIX_PLAN = [
+const FIX_PLAN = [
   '<!-- omni-bug:fix-plan -->',
   '',
   '## Fix plan',
@@ -74,7 +74,7 @@ const filesOf = (slug: string, number: number, files: object[]): Recorded => {
 };
 
 /** Each target's churn ranges, as the merge run's fact sheet holds them. */
-export const TARGET_RANGES = {
+const TARGET_RANGES = {
   'acme/backend': [{ path: 'src/store/colour.ts', from: 10, to: 20, commits: ['b1', 'b2', 'b3'], slices: ['s1', 's2'] }],
   'acme/frontend': [{ path: 'src/show/colour.tsx', from: 1, to: 5, commits: ['f1', 'f2', 'f3'], slices: ['s4'] }],
 };
