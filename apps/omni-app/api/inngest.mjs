@@ -3717,6 +3717,7 @@ import { tmpdir } from "node:os";
 import { dirname as dirname2, join as join10 } from "node:path";
 var MAX_FILES = 2e3;
 var MAX_BYTES = 20 * 1024 * 1024;
+var BLOB_CONCURRENCY = 16;
 var TREE = "GET /repos/{owner}/{repo}/git/trees/{tree_sha}";
 var BLOB = "GET /repos/{owner}/{repo}/git/blobs/{file_sha}";
 var SnapshotBoundError = class extends Error {
@@ -3758,13 +3759,17 @@ async function snapshot(octokit, { owner, repo, ref, paths, dest }) {
     );
   }
   const folder = dest ?? mkdtempSync(join10(tmpdir(), "omni-snapshot-"));
-  for (const file of list2) {
-    const { data: answer } = await octokit.request(BLOB, { owner, repo, file_sha: file.sha });
-    const data = BlobSchema.parse(answer);
-    const target2 = join10(folder, ...repositoryPath(file.path));
-    mkdirSync2(dirname2(target2), { recursive: true });
-    writeFileSync3(target2, Buffer.from(data.content, data.encoding === "base64" ? "base64" : "utf8"));
-  }
+  const queue = [...list2];
+  const fetchNext = async () => {
+    for (let file = queue.shift(); file; file = queue.shift()) {
+      const { data: answer } = await octokit.request(BLOB, { owner, repo, file_sha: file.sha });
+      const data = BlobSchema.parse(answer);
+      const target2 = join10(folder, ...repositoryPath(file.path));
+      mkdirSync2(dirname2(target2), { recursive: true });
+      writeFileSync3(target2, Buffer.from(data.content, data.encoding === "base64" ? "base64" : "utf8"));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(BLOB_CONCURRENCY, queue.length) }, fetchNext));
   return folder;
 }
 function repositoryPath(path) {

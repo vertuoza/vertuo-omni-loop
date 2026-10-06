@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
-import { MAX_BYTES, MAX_FILES, SnapshotBoundError, snapshot } from './snapshot.ts';
+import { BLOB_CONCURRENCY, MAX_BYTES, MAX_FILES, SnapshotBoundError, snapshot } from './snapshot.ts';
 
 /** A request's parameters, as `snapshot` hands them to `octokit.request`. */
 type Params = Record<string, unknown>;
@@ -222,5 +222,32 @@ describe('snapshot — the bound', () => {
     await expect(snapshot(octokit, { ...REPO, ref: 'abc123', paths: ['a', 'b'], dest: dest() })).rejects.toThrow(
       SnapshotBoundError,
     );
+  });
+});
+
+describe('snapshot — the time it takes (issue 1087)', () => {
+  // PRD 859's feature PR holds 515 files under its delivery folder. Fetched one blob after another,
+  // the step outran Vercel's 300 seconds on every retry, so its check stayed `in_progress` and the
+  // outbox comment that numbers the Outbox tab's questions was never written.
+  it(`fetches the blobs side by side, at most ${BLOB_CONCURRENCY} at once`, async () => {
+    const delivery: Record<string, string> = {};
+    for (let i = 0; i < 515; i += 1) delivery[`.omni-loop/delivery/shipped/f${i}.md`] = `# ${i}\n`;
+    const { octokit } = stubRepo(delivery);
+    let inFlight = 0;
+    let most = 0;
+    const slow = {
+      request: async (route: string, params: Params = {}) => {
+        if (!route.endsWith('/git/blobs/{file_sha}')) return octokit.request(route, params);
+        inFlight += 1;
+        most = Math.max(most, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        inFlight -= 1;
+        return octokit.request(route, params);
+      },
+    };
+    const folder = dest();
+    await snapshot(slow, { ...REPO, ref: 'abc123', paths: ['.omni-loop/delivery'], dest: folder });
+    expect(most).toBe(BLOB_CONCURRENCY);
+    expect(readFileSync(join(folder, '.omni-loop/delivery/shipped/f514.md'), 'utf8')).toBe('# 514\n');
   });
 });

@@ -29,13 +29,14 @@ dossier:
 # ship by /omni:yolo and /omni:yolo-fix; `omni ship` refuses one without it. Off by default in the kit.
 releaseNotes:
   enabled: true
-# Proof videos (PRD 798): /omni:prove films a PRD's acceptance criteria on the feature PR's galaxy
-# preview. The previews sit behind Vercel's deployment protection: set VERCEL_AUTOMATION_BYPASS_SECRET
+# Proof videos (PRD 798): /omni:prove films a PRD's acceptance criteria on the production galaxy
+# (fixed url, so merged PRDs can be recorded too; `github-deployment` films the feature PR's preview
+# instead). The previews sit behind Vercel's deployment protection: set VERCEL_AUTOMATION_BYPASS_SECRET
 # in your shell to the galaxy project's "Protection Bypass for Automation" secret (this repository's
 # only; other repositories name their own variable, or none). Each run signs its browser in from the
 # person's own `omni signin` (`omni proof session`): Google refuses a browser login inside Playwright.
 proof:
-  url: github-deployment
+  url: https://vertuo-omni-loop-galaxy.vercel.app
   deployment: Preview – vertuo-omni-loop-galaxy
   setup: node .omni-loop/bin/omni.mjs proof session
   bypassEnv: VERCEL_AUTOMATION_BYPASS_SECRET
