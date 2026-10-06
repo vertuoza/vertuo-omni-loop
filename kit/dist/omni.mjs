@@ -5662,8 +5662,8 @@ var require_cst_visit = __commonJS({
     visit2.REMOVE = REMOVE;
     visit2.itemAtPath = (cst, path) => {
       let item2 = cst;
-      for (const [field3, index] of path) {
-        const tok = item2?.[field3];
+      for (const [field2, index] of path) {
+        const tok = item2?.[field2];
         if (tok && "items" in tok) {
           item2 = tok.items[index];
         } else
@@ -5673,8 +5673,8 @@ var require_cst_visit = __commonJS({
     };
     visit2.parentCollection = (cst, path) => {
       const parent = visit2.itemAtPath(cst, path.slice(0, -1));
-      const field3 = path[path.length - 1][0];
-      const coll = parent?.[field3];
+      const field2 = path[path.length - 1][0];
+      const coll = parent?.[field2];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
@@ -5683,11 +5683,11 @@ var require_cst_visit = __commonJS({
       let ctrl = visitor(item2, path);
       if (typeof ctrl === "symbol")
         return ctrl;
-      for (const field3 of ["key", "value"]) {
-        const token = item2[field3];
+      for (const field2 of ["key", "value"]) {
+        const token = item2[field2];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path.concat([[field3, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path.concat([[field2, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5697,7 +5697,7 @@ var require_cst_visit = __commonJS({
               i -= 1;
             }
           }
-          if (typeof ctrl === "function" && field3 === "key")
+          if (typeof ctrl === "function" && field2 === "key")
             ctrl = ctrl(item2, path);
         }
       }
@@ -11005,14 +11005,14 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
     const shape = zod.def.shape;
     const propValues = {};
     for (const key in shape) {
-      const field3 = shape[key]._zod;
-      if (field3.values) {
+      const field2 = shape[key]._zod;
+      if (field2.values) {
         if (!Object.prototype.hasOwnProperty.call(propValues, key)) {
           assignProp(propValues, key, /* @__PURE__ */ new Set());
         }
-        for (const v of field3.values)
+        for (const v of field2.values)
           propValues[key].add(v);
-        if (field3.optin !== void 0)
+        if (field2.optin !== void 0)
           propValues[key].add(void 0);
       }
     }
@@ -24014,8 +24014,8 @@ var objectProcessor = (schema, ctx, _json, params) => {
   }
   const requiredKeys = [];
   for (const key of Object.keys(shape)) {
-    const field3 = def.shape[key];
-    if (ctx.io === "input" ? inputOptin(field3) === void 0 : field3._zod.optout === void 0) {
+    const field2 = def.shape[key];
+    if (ctx.io === "input" ? inputOptin(field2) === void 0 : field2._zod.optout === void 0) {
       requiredKeys.push(key);
     }
   }
@@ -27838,8 +27838,8 @@ function parseOrThrow(schema, value, shape) {
   const parsed = schema.safeParse(value, { error: KIT_MESSAGES });
   if (parsed.success) return parsed.data;
   const issue2 = parsed.error.issues[0];
-  const field3 = issue2 && issue2.path.length ? `${issue2.path.join(".")}: ` : "";
-  throw new Error(`${shape}: ${field3}${issue2?.message ?? "invalid"}`);
+  const field2 = issue2 && issue2.path.length ? `${issue2.path.join(".")}: ` : "";
+  throw new Error(`${shape}: ${field2}${issue2?.message ?? "invalid"}`);
 }
 
 // kit/lib/ids.ts
@@ -27952,8 +27952,8 @@ function readFrontMatter(raw) {
   return {
     errors: result.error.issues.map((issue2) => {
       const keys = issue2.code === "unrecognized_keys" ? ` (${issue2.keys.join(", ")})` : "";
-      const field3 = issue2.path.length > 0 ? `${issue2.path.join(".")}: ` : "";
-      return `front matter ${field3}${issue2.message}${keys}`;
+      const field2 = issue2.path.length > 0 ? `${issue2.path.join(".")}: ` : "";
+      return `front matter ${field2}${issue2.message}${keys}`;
     })
   };
 }
@@ -29895,9 +29895,9 @@ function parseOutboxItem(text8, { file: file2 = null } = {}) {
   if (errors.length > 0 || read2.data === null) return { ok: false, errors };
   const fm = read2.data;
   const itemSections2 = {};
-  for (const [heading, field3] of Object.entries(SECTION_FIELD)) {
+  for (const [heading, field2] of Object.entries(SECTION_FIELD)) {
     const content = sections[heading];
-    if (content !== void 0) itemSections2[field3] = content;
+    if (content !== void 0) itemSections2[field2] = content;
   }
   if (parsedOptions !== void 0) itemSections2.options = parsedOptions;
   const item2 = {
@@ -35007,7 +35007,7 @@ function claimOf(raw) {
   if (!value.id.startsWith(`${kind}#`)) return null;
   const state = value.state ?? "confirmed";
   if (!STATES.includes(state)) return null;
-  const orNull = (field3) => isText2(field3) ? field3 : null;
+  const orNull = (field2) => isText2(field2) ? field2 : null;
   return {
     id: value.id,
     kind,
@@ -35218,6 +35218,63 @@ function fixVerdict({
   return { ok: failures.length === 0, folder, failures };
 }
 
+// kit/lib/bug/fixes.ts
+init_define_OMNI_BUNDLE();
+var PER_TARGET = ["Reproduction", "Guard"];
+var REFERENCE2 = /^(?:([\w.-]+\/[\w.-]+))?#(\d+)$|github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/;
+function escape2(text8) {
+  return text8.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function boldField(body2, key) {
+  const match = new RegExp(`^\\s*(?:[-*]\\s+)?\\*\\*${escape2(key)}:\\*\\*(.*)$`, "m").exec(body2);
+  return match ? (match[1] ?? "").trim() : void 0;
+}
+function cells2(line) {
+  return line.trim().replace(/^\||\|$/g, "").split("|").map((cell2) => cell2.trim().replace(/^`+|`+$/g, ""));
+}
+function tableRows(body2) {
+  const lines = body2.split(/\r?\n/).filter((line) => line.trim().startsWith("|"));
+  return lines.slice(1).filter((line) => !/^\|?[\s:|-]+$/.test(line.trim())).map(cells2);
+}
+function targetOf2(config3, cell2) {
+  return config3.plan?.targets.map(({ repo }) => repo).find((repo) => repo === cell2 || repo.split("/")[1] === cell2);
+}
+function prViolation(slug, cell2) {
+  const match = REFERENCE2.exec(cell2);
+  if (match === null) return "no pull request.";
+  const named3 = match[1] ?? match[3];
+  const number4 = match[2] ?? match[4];
+  return named3 === void 0 || named3 === slug ? null : `the pull request ${named3}#${number4} is not in ${slug}.`;
+}
+function orderViolation(cell2, next, seen) {
+  const order = /^\d+$/.test(cell2) ? Number(cell2) : Number.NaN;
+  if (order === next) return null;
+  if (seen.has(order)) return `order ${order} repeats an earlier row; ${next} is next.`;
+  return Number.isNaN(order) ? `order "${cell2}", where ${next} is next.` : `order ${order}, where ${next} is next.`;
+}
+function lineViolations(sections, slug) {
+  const name = slug.split("/")[1] ?? slug;
+  return PER_TARGET.filter((section4) => {
+    const body2 = sections.get(section4) ?? "";
+    return !(boldField(body2, slug) || boldField(body2, name));
+  }).map((section4) => `the ${section4} has no **${name}:** line.`);
+}
+function rowViolations(config3, sections, row, index, seen) {
+  const [orderCell = "", repoCell = "", prCell = ""] = row;
+  const order = orderViolation(orderCell, index, seen);
+  seen.add(Number(orderCell));
+  const slug = targetOf2(config3, repoCell);
+  if (slug === void 0) return [`Fixes row ${index}: ${repoCell} is not a repository of plan.targets.`];
+  const problems = [order, prViolation(slug, prCell), ...lineViolations(sections, slug)];
+  return problems.filter((problem) => problem !== null).map((problem) => `Fixes row ${index} (${slug}): ${problem}`);
+}
+function fixesViolations(config3, sections, fixes) {
+  const rows2 = tableRows(fixes);
+  if (rows2.length === 0) return ['the "## Fixes" table has no rows.'];
+  const seen = /* @__PURE__ */ new Set();
+  return rows2.flatMap((row, index) => rowViolations(config3, sections, row, index + 1, seen));
+}
+
 // kit/lib/bug/verdict.ts
 var RECORD = "bug.md";
 var SECTIONS = ["Triage", "Reproduction", "Fix", "Guard", "Mutation"];
@@ -35242,10 +35299,6 @@ function parseSections(text8) {
   }
   return new Map([...sections].map(([name, lines]) => [name, lines.join("\n").trim()]));
 }
-function field2(body2, key) {
-  const match = new RegExp(`^\\s*(?:[-*]\\s+)?\\*\\*${key}:\\*\\*(.*)$`, "m").exec(body2);
-  return match ? (match[1] ?? "").trim() : void 0;
-}
 function isFile(ctx, path) {
   try {
     return statSync6(join26(ctx.root, path)).isFile();
@@ -35254,7 +35307,7 @@ function isFile(ctx, path) {
   }
 }
 function triageViolations(record2, body2) {
-  const risk = field2(body2, "Risk");
+  const risk = boldField(body2, "Risk");
   if (risk === void 0 || risk === "") return [`${record2}: the Triage has no **Risk:** line.`];
   const level = (risk.split(/[\s—–-]/)[0] ?? "").replace(/[^a-z]/gi, "").toLowerCase();
   if (RISK_LEVELS.includes(level)) return [];
@@ -35262,7 +35315,7 @@ function triageViolations(record2, body2) {
 }
 function reproductionViolations(ctx, record2, body2, changed) {
   const violations = [];
-  const file2 = field2(body2, "File");
+  const file2 = boldField(body2, "File");
   if (file2 === void 0 || file2 === "") {
     violations.push(`${record2}: the Reproduction has no **File:** line naming the test or scenario.`);
   } else {
@@ -35273,24 +35326,32 @@ function reproductionViolations(ctx, record2, body2, changed) {
       violations.push(`${record2}: the reproduction ${path} is not changed on this branch.`);
     }
   }
-  const red = field2(body2, "Red");
+  const red = boldField(body2, "Red");
   if (red === void 0) violations.push(`${record2}: the Reproduction has no **Red:** line.`);
   else if (red === "") violations.push(`${record2}: the Reproduction has an empty **Red:** line.`);
   return violations;
 }
+function sectionViolations(record2, sections) {
+  return SECTIONS.flatMap((name) => {
+    if (!sections.has(name)) return [`${record2}: no "## ${name}" section.`];
+    return sections.get(name) === "" ? [`${record2}: the "## ${name}" section is empty.`] : [];
+  });
+}
+function reproductionsViolations(ctx, record2, sections, changed) {
+  const fixes = sections.get("Fixes");
+  if (fixes !== void 0) return fixesViolations(ctx.config, sections, fixes).map((line) => `${record2}: ${line}`);
+  const reproduction = sections.get("Reproduction");
+  return reproduction ? reproductionViolations(ctx, record2, reproduction, changed) : [];
+}
 function recordViolations(ctx, record2, changed) {
   if (!isFile(ctx, record2)) return [`${record2}: missing.`];
   const sections = parseSections(readFileSync21(join26(ctx.root, record2), "utf8"));
-  const violations = [];
-  for (const name of SECTIONS) {
-    if (!sections.has(name)) violations.push(`${record2}: no "## ${name}" section.`);
-    else if (sections.get(name) === "") violations.push(`${record2}: the "## ${name}" section is empty.`);
-  }
   const triage = sections.get("Triage");
-  if (triage) violations.push(...triageViolations(record2, triage));
-  const reproduction = sections.get("Reproduction");
-  if (reproduction) violations.push(...reproductionViolations(ctx, record2, reproduction, changed));
-  return violations;
+  return [
+    ...sectionViolations(record2, sections),
+    ...triage ? triageViolations(record2, triage) : [],
+    ...reproductionsViolations(ctx, record2, sections, changed)
+  ];
 }
 function bugVerdict({ ctx, issue: issue2, changed, commits }) {
   const changedSet = changed === void 0 ? void 0 : new Set([...changed].map((path) => normalize(path)));
@@ -35414,18 +35475,18 @@ var isText3 = (value) => typeof value === "string" && value.trim().length > 0;
 function countSentences2(text8) {
   return text8.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
 }
-function citationProblems(citations, field3) {
+function citationProblems(citations, field2) {
   if (!Array.isArray(citations) || citations.length === 0) {
-    return [`${field3} must cite at least one persona:<name> or claim id.`];
+    return [`${field2} must cite at least one persona:<name> or claim id.`];
   }
   return citations.flatMap(
-    (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field3}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
+    (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field2}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
   );
 }
-function lineProblems(text8, field3) {
-  if (!isText3(text8)) return [`${field3} must be a sentence.`];
+function lineProblems(text8, field2) {
+  if (!isText3(text8)) return [`${field2} must be a sentence.`];
   const count3 = countSentences2(text8);
-  return count3 > MAX_SENTENCES ? [`${field3} holds ${count3} sentences; two at most.`] : [];
+  return count3 > MAX_SENTENCES ? [`${field2} holds ${count3} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
   const at2 = `personas[${i}]`;
@@ -35528,8 +35589,8 @@ function parseSpec(text8, { file: file2 = null } = {}) {
         }
         continue;
       }
-      const field3 = issue2.path.length > 0 ? issue2.path.join(".") : "(front matter)";
-      errors.push(withFile2(file2, `${field3}: ${issue2.message}`));
+      const field2 = issue2.path.length > 0 ? issue2.path.join(".") : "(front matter)";
+      errors.push(withFile2(file2, `${field2}: ${issue2.message}`));
     }
   }
   if (errors.length > 0 || !parsed.success) return { ok: false, errors };
@@ -36257,15 +36318,15 @@ function checkItemText(file2, text8, { laws }) {
       )
     );
   } else {
-    for (const { heading, field: field3 } of PLAIN_SECTION_FIELDS) {
-      for (const problem of plainWordsProblems(item2.sections[field3])) {
+    for (const { heading, field: field2 } of PLAIN_SECTION_FIELDS) {
+      for (const problem of plainWordsProblems(item2.sections[field2])) {
         violations.push(describe3(file2, `"## ${heading}" ${problem}`));
       }
     }
   }
-  for (const { heading, field: field3 } of FUN_SECTION_FIELDS) {
-    if (item2.sections[field3] === void 0) continue;
-    for (const problem of funLineProblems(item2.sections[field3])) {
+  for (const { heading, field: field2 } of FUN_SECTION_FIELDS) {
+    if (item2.sections[field2] === void 0) continue;
+    for (const problem of funLineProblems(item2.sections[field2])) {
       violations.push(describe3(file2, `"## ${heading}" ${problem}`));
     }
   }
@@ -36948,12 +37009,12 @@ var FrontMatterSchema2 = external_exports.object({
   kind: external_exports.enum(CONCEPT_KINDS),
   scale: external_exports.enum(CONCEPT_SCALES)
 }).strict();
-function fieldFault(field3, value) {
-  if (value === void 0) return `no "${field3}" field.`;
-  if (field3 === "concept") return `concept is "${value}", not a positive whole number (the concept's issue).`;
-  if (field3 === "title") return "title is empty.";
-  const allowed = field3 === "kind" ? CONCEPT_KINDS : CONCEPT_SCALES;
-  return `${field3} is "${value}", not one of ${allowed.join(", ")}.`;
+function fieldFault(field2, value) {
+  if (value === void 0) return `no "${field2}" field.`;
+  if (field2 === "concept") return `concept is "${value}", not a positive whole number (the concept's issue).`;
+  if (field2 === "title") return "title is empty.";
+  const allowed = field2 === "kind" ? CONCEPT_KINDS : CONCEPT_SCALES;
+  return `${field2} is "${value}", not one of ${allowed.join(", ")}.`;
 }
 function frontMatter(raw) {
   const { data, errors: lineErrors } = parseFrontMatterLines(raw);
@@ -36967,7 +37028,7 @@ function frontMatter(raw) {
     }
   }
   const faulty = new Set(parsed.error.issues.map((issue2) => issue2.path[0]).filter(Boolean));
-  for (const field3 of FRONT_FIELDS.filter((name) => faulty.has(name))) errors.push(`front matter: ${fieldFault(field3, data[field3])}`);
+  for (const field2 of FRONT_FIELDS.filter((name) => faulty.has(name))) errors.push(`front matter: ${fieldFault(field2, data[field2])}`);
   return { data: null, errors, scale };
 }
 function sectionsOf(body2) {
@@ -37002,7 +37063,7 @@ function sectionFaults(sections) {
   }
   return faults;
 }
-function cells2(line) {
+function cells3(line) {
   let inner = line.trim();
   if (inner.startsWith("|")) inner = inner.slice(1);
   if (inner.endsWith("|") && !inner.endsWith("\\|")) inner = inner.slice(0, -1);
@@ -37017,7 +37078,7 @@ function firstTable(lines) {
     block.push(line.trim());
   }
   const [header2 = "", ...rest] = block;
-  return { header: cells2(header2), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells2) };
+  return { header: cells3(header2), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells3) };
 }
 function idFaults(ids) {
   const seen = /* @__PURE__ */ new Set();
@@ -38827,10 +38888,10 @@ var PRODUCT_PLACE = PRODUCT_CODE.toLowerCase();
 var NEW_PRINCIPLE = "new";
 var CAPS = Object.freeze({ statement: 300, principle: 300, reason: 200 });
 var RECORD_ID = /^ADR-(\d{4})$/;
-function capped(field3, max) {
-  return external_exports.string({ error: (issue2) => issue2.input === void 0 ? `${field3} is required` : `${field3} must be text` }).trim().min(1, `${field3} is required`).max(max, `${field3} is over its cap of ${max} characters`);
+function capped(field2, max) {
+  return external_exports.string({ error: (issue2) => issue2.input === void 0 ? `${field2} is required` : `${field2} must be text` }).trim().min(1, `${field2} is required`).max(max, `${field2} is over its cap of ${max} characters`);
 }
-var text7 = (field3) => external_exports.string({ error: (issue2) => issue2.input === void 0 ? `${field3} is required` : `${field3} must be text` }).trim().min(1, `${field3} is required`);
+var text7 = (field2) => external_exports.string({ error: (issue2) => issue2.input === void 0 ? `${field2} is required` : `${field2} must be text` }).trim().min(1, `${field2} is required`);
 var statement = capped("statement", CAPS.statement);
 var reason = capped("reason", CAPS.reason);
 var ClassificationSchema = external_exports.discriminatedUnion(
@@ -39700,7 +39761,7 @@ function withDeadline2(fetch, ms) {
   const deadline = AbortSignal.timeout(ms);
   return (url2, init3) => fetch(url2, { ...init3, signal: init3.signal ? AbortSignal.any([init3.signal, deadline]) : deadline });
 }
-function targetOf2(cwd, exec, tokens) {
+function targetOf3(cwd, exec, tokens) {
   const root = findRoot(cwd, exec);
   const config3 = loadConfig(root);
   const toggle = dossierSwitch(config3);
@@ -39729,7 +39790,7 @@ async function beat({
   const input2 = await readInput(stdin);
   const claudeSessionId = input2?.session_id;
   if (!isSafeId(claudeSessionId)) return;
-  const target3 = targetOf2(cwd, exec, tokens);
+  const target3 = targetOf3(cwd, exec, tokens);
   if (!target3) return;
   const { root, config: config3, repo, askUrl: askUrl2, host, store } = target3;
   if (!claimed(mainCheckout(cwd, exec) ?? root, claudeSessionId, end, now)) return;
@@ -41827,10 +41888,10 @@ var NEW_USAGE = "usage: omni item new --prd <n> --slice <id> --file <file> [--ad
 var RELAY_USAGE = "usage: omni item relay <dir> --prd <n>";
 var USAGE14 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
 var SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-function funLine2(field3) {
-  return external_exports.string().trim().min(1, `${field3} must not be empty`).superRefine((value, refinement) => {
+function funLine2(field2) {
+  return external_exports.string().trim().min(1, `${field2} must not be empty`).superRefine((value, refinement) => {
     for (const problem of funLineProblems(value)) {
-      refinement.addIssue({ code: "custom", message: `${field3} ${problem}` });
+      refinement.addIssue({ code: "custom", message: `${field2} ${problem}` });
     }
   }).optional();
 }
@@ -41878,8 +41939,8 @@ function readItemInput(ctx, path) {
   const result = ItemInputSchema.safeParse(parsed, { error: KIT_MESSAGES });
   if (!result.success) {
     const issue2 = result.error.issues[0];
-    const field3 = issue2 && issue2.path.length > 0 ? issue2.path.join(".") : "(json)";
-    throw usageError(`omni item new: ${path}: "${field3}" \u2014 ${issue2?.message}.`);
+    const field2 = issue2 && issue2.path.length > 0 ? issue2.path.join(".") : "(json)";
+    throw usageError(`omni item new: ${path}: "${field2}" \u2014 ${issue2?.message}.`);
   }
   return result.data;
 }
@@ -42562,8 +42623,8 @@ var GhCompareSchema = external_exports.looseObject({
 function firstIssue(error62) {
   const [issue2] = error62.issues;
   if (issue2 === void 0) return error62.message;
-  const field3 = issue2.path.length > 0 ? issue2.path.join(".") : "(answer)";
-  return `${field3}: ${issue2.message}`;
+  const field2 = issue2.path.length > 0 ? issue2.path.join(".") : "(answer)";
+  return `${field2}: ${issue2.message}`;
 }
 
 // kit/lib/plan-repo/targets.ts
@@ -42732,9 +42793,9 @@ function readTargets(targets2, { ctx, exec = execFileSync11, env }) {
 }
 var COLUMNS = ["repo", "role", "knowledge", "loop", "state"];
 function targetsTable(rows2) {
-  const cells3 = [COLUMNS, ...rows2.map((r) => [r.repo, r.role, r.knowledge, r.loop, r.detail ? `${r.state} (${r.detail})` : r.state])];
-  const widths = COLUMNS.map((_, i) => Math.max(...cells3.map((line) => (line[i] ?? "").length)));
-  return cells3.map((line) => line.map((cell2, i) => i === line.length - 1 ? cell2 : cell2.padEnd(widths[i] ?? 0)).join("  "));
+  const cells4 = [COLUMNS, ...rows2.map((r) => [r.repo, r.role, r.knowledge, r.loop, r.detail ? `${r.state} (${r.detail})` : r.state])];
+  const widths = COLUMNS.map((_, i) => Math.max(...cells4.map((line) => (line[i] ?? "").length)));
+  return cells4.map((line) => line.map((cell2, i) => i === line.length - 1 ? cell2 : cell2.padEnd(widths[i] ?? 0)).join("  "));
 }
 
 // kit/lib/plan-repo/moved.ts
@@ -42789,10 +42850,10 @@ function detailOf(row) {
   return row.detail ?? "";
 }
 function movedTable(rows2) {
-  const cells3 = rows2.map((row) => [row.repo, row.state, detailOf(row)]);
-  const widths = [0, 1].map((i) => Math.max(0, ...cells3.map((line) => (line[i] ?? "").length)));
+  const cells4 = rows2.map((row) => [row.repo, row.state, detailOf(row)]);
+  const widths = [0, 1].map((i) => Math.max(0, ...cells4.map((line) => (line[i] ?? "").length)));
   const [repoWidth = 0, stateWidth = 0] = widths;
-  return cells3.map(
+  return cells4.map(
     ([repo, state, detail]) => detail ? `${repo.padEnd(repoWidth)}   ${state.padEnd(stateWidth)}   ${detail}` : `${repo.padEnd(repoWidth)}   ${state}`
   );
 }
@@ -43341,7 +43402,7 @@ var SLIDE_FILES = Object.freeze([
 ]);
 var FONTS = "https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@500;800;900&family=Press+Start+2P&display=block";
 var ENTITIES = Object.freeze({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" });
-var escape2 = (text8) => text8.replace(/[&<>"']/g, (c) => ENTITIES[c] ?? c);
+var escape3 = (text8) => text8.replace(/[&<>"']/g, (c) => ENTITIES[c] ?? c);
 function starfield(width, height) {
   let seed = 859;
   const next = () => {
@@ -43417,7 +43478,7 @@ var FIT_SCRIPT = `
   if (image && !image.complete) await new Promise((done) => { image.onload = done; image.onerror = done; });
   document.body.dataset.fit = 'done';
 })();`;
-var box = (name, text8) => `<div class="${name}-box" data-box><div class="${name}">${escape2(text8)}</div></div>`;
+var box = (name, text8) => `<div class="${name}-box" data-box><div class="${name}">${escape3(text8)}</div></div>`;
 function body(card2, words) {
   if (card2 === "backdrop") return "";
   const kicker = box("kicker", words.kicker);
@@ -45230,8 +45291,8 @@ function counts(values) {
 }
 function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
   if (total === 0) return ["  nothing yet: /omni:brainstorm to start"];
-  const cells3 = `${"\u2588".repeat(filled)}${"\u2591".repeat(BAR_CELLS - filled)}`;
-  const top = `${LABEL2}${cells3}  ${delivered} of ${total} \xB7 ${percent}%`;
+  const cells4 = `${"\u2588".repeat(filled)}${"\u2591".repeat(BAR_CELLS - filled)}`;
+  const top = `${LABEL2}${cells4}  ${delivered} of ${total} \xB7 ${percent}%`;
   if (inProgress.total === 0) return [top, `${UNDER_BAR}nothing in progress`];
   const counted3 = [[inProgress.inbox, "in the inbox"], [inProgress.building, "being built"], [inProgress.outbox, "in the outbox"]];
   const parts = counted3.filter(([count3]) => count3 > 0).map(([count3, where]) => `${count3} ${where}`);
