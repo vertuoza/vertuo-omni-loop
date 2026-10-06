@@ -10,11 +10,15 @@
 // `node kit/build.ts [outfile] [package.json]`: the outfile defaults to `kit/dist/omni.mjs`, which is
 // committed and kept equal to a fresh build by kit/test/dist.test.ts — so the output never depends
 // on the cwd. The package.json defaults to the repository's own; a test names another.
+//
+// It also builds the pitch engine (PRD 1108 s4): `kit/pitch-engine/page.tsx` and React bundled for the
+// browser into `pitch-engine/engine.js` beside the outfile, with the `index.html` that loads it — a
+// static page, so a repository using the kit needs no React and no bundler to render a pitch.
 import { build } from 'esbuild';
 import { z } from 'zod';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { slugFromRemote } from './lib/context.ts';
 import { readTemplates } from './lib/playbook/templates.ts';
@@ -56,3 +60,30 @@ await build({
   // A string, parsed once where it is read: an object here would be initialised in every module.
   define: { __OMNI_BUNDLE__: JSON.stringify({ home, version }), __OMNI_TEMPLATES__: JSON.stringify(JSON.stringify(readTemplates())) },
 });
+
+/** The engine page's HTML: a stage for React, and the bundle. */
+const ENGINE_PAGE = [
+  '<!doctype html>',
+  '<html lang="en">',
+  '<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pitch</title></head>',
+  '<body style="margin: 0"><div id="root"></div><script src="engine.js"></script></body>',
+  '</html>',
+  '',
+].join('\n');
+
+const engineDir = join(dirname(outfile), 'pitch-engine');
+mkdirSync(engineDir, { recursive: true });
+await build({
+  entryPoints: [`${kit}pitch-engine/page.tsx`],
+  outfile: join(engineDir, 'engine.js'),
+  absWorkingDir: fileURLToPath(new URL('..', import.meta.url)),
+  bundle: true,
+  platform: 'browser',
+  format: 'iife',
+  target: 'chrome120',
+  jsx: 'automatic',
+  minify: true,
+  legalComments: 'none',
+  define: { 'process.env.NODE_ENV': '"production"' },
+});
+writeFileSync(join(engineDir, 'index.html'), ENGINE_PAGE);

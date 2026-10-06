@@ -14,8 +14,8 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsgo -p . && pnpm --filter @omni/galaxy-app typecheck",
-    "typecheck:tsc": "tsc -p . && pnpm --filter @omni/galaxy-app typecheck:tsc",
+    "typecheck": "tsgo -p . && tsgo -p kit/pitch-engine && pnpm --filter @omni/galaxy-app typecheck",
+    "typecheck:tsc": "tsc -p . && tsc -p kit/pitch-engine && pnpm --filter @omni/galaxy-app typecheck:tsc",
     "lint": "pnpm --filter @omni/galaxy-app exec fumadocs-mdx && node --max-old-space-size=8192 scripts/lint.ts",
     "fallow:audit": "fallow audit",
     "check:changed": "node scripts/check-changed.ts",

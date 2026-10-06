@@ -85,7 +85,7 @@ export type FontUse = Readonly<{ stack: string; weight: number }>;
 export type Fonts = Readonly<{ heading: FontUse; text: FontUse }>;
 
 /** The CSS stacks of the look's Heading and Text fonts: the ones a fonts provider loaded, or the families by name. */
-export function fontsOf(look: PitchLook, loaded: { heading?: string; text?: string }): Fonts {
+export function fontsOf(look: PitchLook, loaded: { heading?: string | undefined; text?: string | undefined }): Fonts {
   const stack = (family: string): string => `"${family.replace(/["\\]/g, '')}", ${FALLBACK}`;
   return {
     heading: { stack: loaded.heading ?? stack(look.heading.family), weight: look.heading.weight },
