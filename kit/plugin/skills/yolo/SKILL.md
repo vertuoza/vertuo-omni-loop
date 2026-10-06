@@ -22,6 +22,18 @@ nothing.
 feature PR, on the Omni page, or, when the gate ends red and `answers.enabled` is on, here in the
 terminal (the end of step 6). Only `stopped` and `blocked` hold a slice, and only that one.
 
+**Flow points.** A repository may hook the loop at named points (the `flow` of its config). This
+skill has one, `yolo.ready` (step 5, item 4). At it, run
+`node .omni-loop/bin/omni.mjs flow show yolo.ready` and follow what it prints: every `before` hook,
+then the kit's step, then every `after` hook (`yolo.ready` takes no `replace`). A hook is Markdown to
+follow; an input it leaves as `{name}` is filled from this step. Following a hook ends on its verdict
+line (`omni-hook yolo.ready: pass`, or `omni-hook yolo.ready: fail <why>`): write what it produced,
+that line last, to a scratch file and run
+`node .omni-loop/bin/omni.mjs flow verdict yolo.ready --from <file>`. `ok` carries on; `not ok` stops
+the point as a failing kit step would, and so does `flow show` exiting 1 (a hook file missing). A
+hook never loosens a guard: the gate, `omni ship` and the stacked base's check run whatever it says.
+With no `flow`, `flow show` prints `hooks none` and `kitStep: run`: the step runs as written.
+
 ## Input
 
 A PRD number. Re-running is safe: the board is rebuilt from GitHub every time, `/omni:wave` resumes
@@ -245,7 +257,11 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
    the `omni sign trailer` line, and `git push <remote> HEAD:<feature branch>`. When item 2 wrote a
    shipped round, follow `/omni:dossier-push <prd>` from the worktree, so the PRD's User voice tab
    ends on what shipped; whatever it prints, carry on.
-4. Only now, `gh pr ready <feature PR>`, once a stacked feature PR's base allows it. **A stacked
+4. Only now, `gh pr ready <feature PR>`, once a stacked feature PR's base allows it, at **point
+   `yolo.ready`**: once the base allows it, run `node .omni-loop/bin/omni.mjs flow show yolo.ready`
+   and follow every `before` hook (`{prd}` the PRD, `{pr}` the feature PR), then `gh pr ready`, then
+   every `after` hook (**Flow points**). A `not ok` from a `before` hook leaves the feature PR in
+   draft: name the hook and its reason in step 6 as `stuck`, and skip the rest of this item. **A stacked
    feature PR waits for its base:** when its base is not `repo.defaultBranch`, first read the base
    PR again through GitHub, never from memory
    (`gh pr list --head <base> --state all --json number,state --limit 1`). `MERGED`: retarget it

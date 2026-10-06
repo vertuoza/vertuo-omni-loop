@@ -20,6 +20,17 @@ a paragraph of its own just above your session's own attribution lines, and a bo
 that line. Comments are never signed. A command that prints nothing means signing is off here: add
 nothing.
 
+**Flow points.** A repository may hook the loop at named points (the `flow` of its config). At each
+point this skill names, run `node .omni-loop/bin/omni.mjs flow show <point>` and follow what it
+prints: every `before` hook, then the kit's step (or, when it prints `kitStep: replaced`, the
+`replace` hook in its place), then every `after` hook. A hook is Markdown to follow; an input it
+leaves as `{name}` is filled from this step. Following a hook ends on its verdict line
+(`omni-hook <point>: pass`, or `omni-hook <point>: fail <why>`): write what it produced, that line
+last, to a scratch file and run `node .omni-loop/bin/omni.mjs flow verdict <point> --from <file>`.
+`ok` carries on; `not ok` stops the point as a failing kit step would, and so does `flow show`
+exiting 1 (a hook file missing). A hook never loosens a guard: `omni plan check` runs whatever a hook
+says. With no `flow`, `flow show` prints `hooks none` and `kitStep: run`: the step runs as written.
+
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the repository
@@ -43,6 +54,9 @@ The input is a PRD number. It is also the PRD's issue number, which `{prd}` in a
    is set, and each ADR the spec cites under `paths.adr`.
 3. `gh issue view <n> --json body,comments`: the issue and any answer a person already gave on it.
    (Piped, `--comments` alone prints nothing when there are no comments; read the JSON.)
+4. `node .omni-loop/bin/omni.mjs flow show`: what this repository changes from the kit's defaults,
+   area by area (its `rules.plan`, which step 5 grades, and its hooks). An area that names a
+   `knowledge` domain sends you to that folder under `paths.knowledge` for every slice touching it.
 
 **Stop with `needs clarification`** when the spec's acceptance criteria are missing, ambiguous, or
 contradict the spec itself or an ADR it cites. The criteria are the spec's acceptance section, or,
@@ -94,6 +108,12 @@ may go and what may depend on what, and every territory follows them. A slice ow
 repo-relative path prefixes. A prefix covers a path when the path starts with it. Write a
 directory with its trailing slash, and a family of files as a prefix and a star. There is no glob
 language. `/omni:wave` grades each sub-PR's diff against its territory.
+
+**Point `plan.slice`.** Once a slice's row is drafted in `plan.md` (step 4), run
+`node .omni-loop/bin/omni.mjs flow show plan.slice --prd <n> --slice <id>` and follow it (**Flow
+points**): its kit step is cutting that slice as this step says, and its hooks may reshape the row
+(its territory, its blockers, its wave) before step 5 grades it. Each slice of the plan meets the
+point once; a slice rewritten after a `fail` meets it again.
 
 **Waves are computed, not asserted.** Two slices whose territories intersect may never share a wave,
 because siblings in a wave merge one after another and shared ground turns the second into a
@@ -163,8 +183,13 @@ landing and what must be true before it is merged:
   the one before it by its order alone, never by a `blocked by`. Two slices of different landings
   never share a wave, so their territories never collide.
 
-**Paths that land alone.** When `landings.alone` in the config lists patterns, `omni plan check`
-enforces the repository's own rule: a slice whose territory touches a path one pattern matches
+**The repository's own rules.** The `flow` areas `omni flow show` printed (step 1) add to the
+check: `slice.alone`, `slice.maxFiles`, `wave: first`, `blocks: all` and `landing: alone`, each for
+the slices whose territory touches that area. `omni flow show --path <p>` names a path's area and its
+rules when a territory is in doubt.
+
+**Paths that land alone.** When `landings.alone` in the config lists patterns (or an area says
+`landing: alone`), `omni plan check` enforces the repository's own rule: a slice whose territory touches a path one pattern matches
 touches nothing else, and a landing holding such a slice holds only such slices. Put the migrations
 in their own landing before the code that reads them (an expand landing), and what drops the old
 shape in a landing after it (a contract landing). Read `omni kb show releasing` for how this
@@ -235,9 +260,9 @@ change the check.
    every slice unticked (`- [ ] <slice title> — not started`), then the **Acceptance** checklist when
    `acceptance.enabled` is true, then the remaining sections filled as far as the spec allows, and
    last the `omni sign footer` line.
-   `gh pr list --head <feature branch> --base <repo.defaultBranch> --state open --json number,url,isDraft`
-   finds a feature PR already open for the branch: update its body, footer line included, instead
-   of opening another.
+   `gh pr list --head <feature branch> --state open --json number,url,isDraft,baseRefName` finds a
+   feature PR already open for the branch, whatever its base (it may be stacked on another PR's
+   branch, as `/omni:pr` says): update its body, footer line included, instead of opening another.
 3. The status comment's state is `claimed`, with `slices: 0 / <total> merged`. Do not enter
    `/omni:pr`'s check loop, and never mark the PR ready: `/omni:yolo` carries it from here.
 4. Comment on the PRD issue: `Plan: <plan path> · Feature PR: #<pr>`.
@@ -280,6 +305,11 @@ branch for landing 1, landing n-1's branch for landing n), its `titleSuffix` (` 
 
 A plan of one landing never reads `plan landings` for its branch or title: it is the feature
 branch, the one feature PR, no suffix and no overview, as above.
+
+**Point `plan.done`.** Once the plan is committed and its draft PR (or every landing PR) is open,
+run `node .omni-loop/bin/omni.mjs flow show plan.done` and follow it (**Flow points**), with `{prd}`
+the PRD's number and `{plan}` the plan's path; its kit step is empty: only its hooks run. A `not ok`
+is named in the hand-off, and the plan and its PR stay as they are.
 
 ## 7. Hand off
 
