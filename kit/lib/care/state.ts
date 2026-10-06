@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { readCareVerdict } from './marker.ts';
 import { at, propertyOf } from '../narrow.ts';
 import type { CareVerdict } from './marker.ts';
-import { CommentIdSchema, PrNumberSchema } from '../ids.ts';
+import { CommentIdSchema, PrNumberSchema, parsePr } from '../ids.ts';
 import type { CommentId, PrNumber } from '../ids.ts';
 
 // The parts of `CARE_QUERY`'s answer this file reads, as a schema: `kit/bin/commands/care.ts` parses
@@ -96,7 +96,15 @@ export type CareThread = {
   reason: string | null;
   needs: ThreadNeed;
 };
-export type CareStatus = { commentId: CommentId | null; watchingSince: string | null; lastRound: string | null };
+/** Another repository's pull request a red CI waits on (PRD 1118), as the status comment names it. */
+export type WaitsOn = { slug: string; pr: PrNumber };
+export type CareStatus = {
+  commentId: CommentId | null;
+  watchingSince: string | null;
+  lastRound: string | null;
+  /** Present only when the status comment carries a `waits on <slug>#<pr>` line. */
+  waitsOn?: WaitsOn;
+};
 export type CareState = {
   pr: { number: PrNumber; url: string; state: string; isDraft: boolean; base: string; head: string; labels: string[] };
   checks: CareChecks;
@@ -128,6 +136,7 @@ const ROLLUP: Record<string, CheckState> = { SUCCESS: 'green', FAILURE: 'red', E
 const FAILED_RUN = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);
 const FAILED_STATUS = new Set(['FAILURE', 'ERROR']);
 const CARE_LINE_RE = /PR care: watching since (.+?) · last round (.+?)\s*$/m;
+const WAITS_ON_RE = /\bwaits on ([\w.-]+\/[\w.-]+)#(\d+)/;
 
 /** A commit status that failed, as a failed check; null for one that did not. */
 function failedStatus(node: ContextNode): FailedCheck | null {
@@ -221,11 +230,17 @@ function readThread(node: ThreadNode): CareThread | null {
   return { ...base, ...repliedThread(comments, last, resolved) };
 }
 
+/** The `waits on <slug>#<pr>` line of a status comment, as the field it adds; `{}` without one. */
+function waitsOnIn(body: string): Pick<CareStatus, 'waitsOn'> {
+  const waits = body.match(WAITS_ON_RE);
+  return waits?.[1] && waits[2] ? { waitsOn: { slug: waits[1], pr: parsePr(waits[2]) } } : {};
+}
+
 function readStatus(nodes: readonly IssueCommentNode[], statusMarker: CareOptions['statusMarker']): CareStatus | null {
   const found = nodes.find((node) => statusMarker && (node.body ?? '').includes(statusMarker));
   if (!found) return null;
   const line = String(found.body).match(CARE_LINE_RE);
-  return { commentId: found.databaseId ?? null, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null };
+  return { commentId: found.databaseId ?? null, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null, ...waitsOnIn(String(found.body)) };
 }
 
 /** The care state of the pull request in `response` (the parsed JSON of `CARE_QUERY`). */

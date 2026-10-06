@@ -181,6 +181,28 @@ describe('careState — the status comment', () => {
   });
 });
 
+describe('careState — waits on another repository (PRD 1118)', () => {
+  it('reads the waits-on line of the status comment', () => {
+    const comments = { nodes: [{ databaseId: 8, body: `${STATUS}\n- PR care: watching since a · last round b\n- waits on acme/backend#41\n` }] };
+    expect(careState(response({ comments }), OPTIONS).status).toEqual({
+      commentId: 8,
+      watchingSince: 'a',
+      lastRound: 'b',
+      waitsOn: { slug: 'acme/backend', pr: 41 },
+    });
+  });
+
+  it('reads a status comment without the line as not waiting', () => {
+    const comments = { nodes: [{ databaseId: 8, body: `${STATUS}\n- PR care: watching since a · last round b\n` }] };
+    expect(careState(response({ comments }), OPTIONS).status).not.toHaveProperty('waitsOn');
+  });
+
+  it('reads no waits-on line outside the status comment', () => {
+    const comments = { nodes: [{ databaseId: 1, body: 'waits on acme/backend#41' }, { databaseId: 8, body: `${STATUS}\n- state: done` }] };
+    expect(careState(response({ comments }), OPTIONS).status).not.toHaveProperty('waitsOn');
+  });
+});
+
 describe('CareResponseSchema — the answer GitHub gives CARE_QUERY', () => {
   const withPr = (pr: Record<string, unknown>) => ({ data: { repository: { pullRequest: pr } } });
   const pr = (): Record<string, unknown> => ({ ...response()?.data?.repository?.pullRequest });
