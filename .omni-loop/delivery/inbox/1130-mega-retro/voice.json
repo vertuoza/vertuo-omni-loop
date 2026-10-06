@@ -1,0 +1,30 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-06",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "Seeing the churn and CI of my front-end slices next to the back-end's tells me where the bugs came from, if the retro is honest about my repo.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "I never open the plan repo, so findings about my back-end filed there are findings I'll never see.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "One retro for a feature built across every repository is the report I can actually share.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Comparing timelines and checks repository by repository is how I'd spot which team the loop slows down.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "Nothing I have to run, and the day-14 count of bugs tells me whether customers got a clean feature.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": { "persona": "B-E DEv", "text": "I never open the plan repo. A finding about my back-end filed there is a finding I'll never see, so to me this retro is fluff.", "citations": ["persona:B-E DEv"], "settled": "accepted" },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ~ · persona:F-E Developer ~ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-06",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "My repo's findings come to my merged PR, and nothing but one comment is ever written there.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "The findings about my back-end land on my own merged PR, one comment rewritten in place. That I will read.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Automatic, grouped by repository, and a target without the App is a line, not a failure.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Every issue in one place, each naming its repository, with the same thresholds for every team.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "The day-14 look counts the bugs fixed with mega-bug-fix, so I see whether customers were hit.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:Irisa ~ · persona:F-E Developer ~"
+    }
+  ]
+}
