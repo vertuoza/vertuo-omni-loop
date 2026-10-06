@@ -2,12 +2,16 @@
 // feature PR, as one JSON document: its check rollup, mergeable state, review threads with their
 // verdicts, the care line of its status comment, whether a wave holds claims on the feature branch,
 // and the round `decideRound` draws from all that. One GraphQL read, plus the board's own reads.
+// For a PRD of several landings it looks after the first landing PR still open, and carries the
+// landings and the chain link to restack once the landing before it has merged (`landingChain`).
 //
 // `omni care reply --verdict <fixed|pushed-back|asked> (--body <text> | --file <path>) [--thread <id>]
 // [--repo <owner/name>]` — the reply's body, ending with the care marker. Without --thread it only
 // prints the body; with --thread it posts it on that review thread and, for fixed and pushed-back,
 // resolves the thread (an asked thread stays open for the PM), then prints what it did as JSON.
+import { landingChain, landingPrToWatch } from '../../lib/care/chain.ts';
 import { decideRound } from '../../lib/care/decide.ts';
+import type { LandingRow } from '../../lib/board.ts';
 import { CARE_VERDICTS, careReplyBody } from '../../lib/care/marker.ts';
 import { CARE_QUERY, CareResponseSchema, careState } from '../../lib/care/state.ts';
 import type { Context } from '../../lib/context.ts';
@@ -77,14 +81,24 @@ function findFeaturePr({ repo, branch, exec, env }: { repo: string; branch: stri
 function waveClaims(
   prd: PrdNumber,
   { ctx, exec, env, repo }: { ctx: Context; exec: Exec; env: Env; repo: string | undefined },
-): { holdsClaims: boolean | null; claimed: string[]; unreadable?: string } {
+): { wave: { holdsClaims: boolean | null; claimed: string[]; unreadable?: string }; landings: LandingRow[] | null } {
   try {
     const { result } = buildBoard(prd, { ctx, exec, env, repo });
     const claimed = result.slices.filter((row) => CLAIM_STATES.has(row.state)).map((row) => row.id);
-    return { holdsClaims: claimed.length > 0, claimed };
+    return { wave: { holdsClaims: claimed.length > 0, claimed }, landings: result.landings ?? null };
   } catch (error) {
-    return { holdsClaims: null, claimed: [], unreadable: String(propertyOf(error, 'message') ?? error).split('\n')[0] ?? '' };
+    return {
+      wave: { holdsClaims: null, claimed: [], unreadable: String(propertyOf(error, 'message') ?? error).split('\n')[0] ?? '' },
+      landings: null,
+    };
   }
+}
+
+/** The pull request a round looks after: `--pr`'s, else the first open landing PR of a PRD of
+ * several landings, else the feature PR `find` looks up. */
+function watchedPr({ flag, landed, find }: { flag: string | undefined; landed: LandingRow[] | null; find: () => number | null }): number | null {
+  if (flag !== undefined) return prArg('care', '--pr', flag);
+  return landed === null ? find() : landingPrToWatch(landed);
 }
 
 function runState(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number {
@@ -95,9 +109,12 @@ function runState(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo)
   const branch = featureBranchFor(prd, ctx);
   const ghEnv = githubEnv(ctx, { exec, env });
 
-  const number = flags.pr !== undefined ? prArg('care', '--pr', flags.pr) : findFeaturePr({ repo, branch, exec, env: ghEnv });
+  const { wave, landings } = waveClaims(prd, { ctx, exec, env, repo: flags.repo });
+  const landed = landings !== null && landings.length > 1 ? landings : null;
+  const number = watchedPr({ flag: flags.pr, landed, find: () => findFeaturePr({ repo, branch, exec, env: ghEnv }) });
   if (number === null) {
-    println(stderr, `omni care: PRD ${prd} has no feature PR yet (no pull request from ${branch}).`);
+    const from = landed === null ? branch : landed.map((landing) => landing.branch).join(', ');
+    println(stderr, `omni care: PRD ${prd} has no feature PR yet (no pull request from ${from}).`);
     return 1;
   }
   const [owner, name] = repo.split('/');
@@ -107,8 +124,8 @@ function runState(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo)
     needsFixLabel: ctx.config.labels.needsFix,
     gateContexts: [ctx.config.ci.outboxContext, ctx.config.ci.inboxContext].filter(Boolean),
   });
-  const wave = waveClaims(prd, { ctx, exec, env, repo: flags.repo });
-  const full = { prd, ...state, wave };
+  const chain = landed === null ? [] : landingChain(landed, ctx.config.repo.defaultBranch);
+  const full = { prd, ...state, wave, ...(landed === null ? {} : { landings: landed, chain }) };
   println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
   return 0;
 }

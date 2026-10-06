@@ -23,7 +23,7 @@ nothing.
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the repository
-is not installed. Keep the JSON; later steps read `repo.*`, `branches.feature`, `worktrees`,
+is not installed. Keep the JSON; later steps read `repo.*`, `branches.feature`, `branches.landing`, `worktrees`,
 `paths.*`, `labels.*`, `prLinks.feature` and `acceptance.*` from it.
 
 Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
@@ -64,6 +64,10 @@ git merge <repo.remote>/<repo.defaultBranch>                 # inside the worktr
 ```
 
 Never commit on the default branch.
+
+A plan of more than one landing (step 4) has one branch per landing instead, cut once the plan is
+green (step 6). Start in the feature branch's worktree all the same: the plan is written there, and
+step 6 moves it onto landing 1's branch.
 
 ## 3. The slices
 
@@ -128,6 +132,44 @@ require. These four parts are the whole shape:
 4. `## Per slice: done when`: for each slice (or group of like slices), the observable conditions,
    as a bullet list.
 
+**Landings.** A PRD reaches the default branch in one pull request unless something in it must be
+deployed apart from the rest: a database migration the code needs in place first, or a contract
+step that drops what the old code still reads. Then the plan cuts it into **landings**, built and
+merged in order, each one its own pull request into the default branch. Give the slice table a
+`landing` column, a whole number from 1, and, after the table, a `## Landings` table naming each
+landing and what must be true before it is merged:
+
+```markdown
+| id | slice | territory | blocked by | wave | landing |
+| --- | --- | --- | --- | --- | --- |
+| s1 | <the column exists> | `<migrations dir>/` | — | 1 | 1 |
+| s2 | <the code reads it> | `<dir>/` | — | 1 | 2 |
+
+## Landings
+
+| landing | name | merge when |
+| --- | --- | --- |
+| 1 | expand | — |
+| 2 | code | landing 1 is deployed |
+```
+
+- Landing numbers run from 1 with no gap. A plan with no `landing` column, or with every value at
+  1, has one landing and is built exactly as a plan always was: write no column then.
+- A `name` is one kebab-case word or a few (it goes into the branch and the title); without the
+  table each landing is named `landing-<n>`. When the table is there, it names exactly the landings
+  the slice table uses.
+- **Waves are counted within a landing.** A slice's wave is `1` with no blockers, else one more than
+  its highest blocker's wave, and every blocker sits in the **same** landing: a landing waits for
+  the one before it by its order alone, never by a `blocked by`. Two slices of different landings
+  never share a wave, so their territories never collide.
+
+**Paths that land alone.** When `landings.alone` in the config lists patterns, `omni plan check`
+enforces the repository's own rule: a slice whose territory touches a path one pattern matches
+touches nothing else, and a landing holding such a slice holds only such slices. Put the migrations
+in their own landing before the code that reads them (an expand landing), and what drops the old
+shape in a landing after it (a contract landing). Read `omni kb show releasing` for how this
+repository advises cutting them. A PRD whose every slice lands alone needs only one landing.
+
 **In a plan repository** (the config has a `plan` section; `/omni:mega-brainstorm` runs this skill
 there), a slice lands in one repository, so the slice table gains a `repo` column, and a
 `## Repositories` table comes before `## Slices`. Anywhere else, never write either: `omni plan
@@ -168,8 +210,11 @@ check` refuses a `repo` column outside a plan repository.
 node .omni-loop/bin/omni.mjs plan check <n>
 ```
 
-It prints the waves and the collision matrix, then every violation: a duplicate id, a blocker that
-names no slice or sits in the same or a later wave, and two slices sharing ground in one wave. Fix
+It prints the waves and the collision matrix (and, for more than one landing, a line per landing),
+then every violation: a duplicate id, a blocker that names no slice, sits in another landing, or sits
+in the same or a later wave, two slices sharing ground in one wave of one landing, landing numbers
+with a gap, a `## Landings` table that does not match the slice table, and, with `landings.alone`
+set, a land-alone path sharing a slice or a landing with anything else. Fix
 the plan and rerun until it exits `0`. A same-wave collision is resolved by moving one slice to a
 later wave (and every slice it blocks with it), or by narrowing a territory so the two no longer
 meet. Merging the two into one slice is also allowed. **Never** leave the check red, and never
@@ -200,9 +245,46 @@ change the check.
    `gh pr edit <pr> --remove-label "<labels.inProgress>"`. `/omni:yolo` puts it back when it picks
    the PR up.
 
+**A plan of more than one landing** opens one draft PR per landing, stacked, instead of the one
+feature PR above. The chain is computed, never worked out by hand:
+
+```bash
+node .omni-loop/bin/omni.mjs plan landings <n> --json
+```
+
+It prints, per landing in order, its `branch` (`branches.landing` filled), its `base` (the default
+branch for landing 1, landing n-1's branch for landing n), its `titleSuffix` (` (n/N)`), its
+`mergeAfterLine` (`null` for landing 1) and its `slices`. Then:
+
+1. **Branches.** Landing 1's branch is cut from `<repo.remote>/<repo.defaultBranch>`, landing n's
+   from landing n-1's branch, each pushed with `git push -u <repo.remote> <branch>`. When a branch
+   already exists on the remote, keep it. In the worktree, rename the feature branch to landing 1's
+   (`git branch -m <feature branch> <landing 1 branch>`, before anything was pushed), commit the plan
+   there as in item 1, push, and follow `/omni:dossier-push <n>`. Then cut each later landing's
+   branch from the one before it and push it: it starts with the plan and nothing else.
+2. **Pull requests.** One draft **feature**-kind PR per landing, through `/omni:pr`, head the
+   landing's branch and base its `base`. Its title is the PRD's title followed by `titleSuffix`. Its
+   body, in order: `prLinks.feature` filled; the landing's `mergeAfterLine` as a paragraph, when it
+   is not `null`; the **Slices** checklist of **that landing's** slices only; a `## Landings`
+   overview, one line per landing of the PRD,
+   `- Landing <n>/<N> <name> — #<pr> — <draft | ready | merged> — merge when: <mergeWhen or —>`,
+   this landing's line marked `(this PR)`; the **Acceptance** checklist when `acceptance.enabled` is
+   true; the remaining sections; and last the `omni sign footer` line. Open them in order, landing 1
+   first, then write every overview once every number is known.
+3. **Again.** `gh pr list --head <branch> --state open --json number,url,isDraft` finds a landing
+   PR already open: update its title and body instead of opening another, so a second run opens
+   nothing new.
+4. Each landing PR gets the status comment of item 3 (`slices: 0 / <its slices> merged`), and loses
+   `labels.inProgress` as in item 5.
+5. Comment on the PRD issue once: `Plan: <plan path> · Landings: #<pr 1> (1/N), #<pr 2> (2/N), …`.
+
+A plan of one landing never reads `plan landings` for its branch or title: it is the feature
+branch, the one feature PR, no suffix and no overview, as above.
+
 ## 7. Hand off
 
-Print the slice table and the waves `omni plan check` reported, then the PRD's page beside its
+Print the slice table and the waves `omni plan check` reported (and, for more than one landing,
+the landing PRs in order, `#<pr> (n/N)`; "the feature PR" below is then landing 1's), then the PRD's page beside its
 number. Run `node .omni-loop/bin/omni.mjs dossier link <n>`: exit `0` prints the page's link on one
 line, so print `PRD <n>: <link>`. Anything else (`none`, `off`, `no sign-in (omni signin)`,
 `unreachable`, `refused (<status>)`, or exit `2` from a kit without the verb) means it has no page
@@ -228,10 +310,11 @@ merged, so a stage marker could be wrong.
 
 ## Guardrails
 
-- One PRD, one feature branch, one feature PR. Related small asks belong in one PRD when it is
+- One PRD, one feature branch, one feature PR, or, for a plan of more than one landing, one branch
+  and one draft PR per landing, stacked in order. Related small asks belong in one PRD when it is
   written, not in one plan afterwards.
 - Slices live in the plan, never in issues.
 - Every slice declares a territory, and the waves come from `omni plan check`, never from a
   sentence saying the slices look independent.
-- The feature PR stays draft.
+- The feature PR, and every landing PR, stays draft.
 - Never write code, never file an issue, never merge.

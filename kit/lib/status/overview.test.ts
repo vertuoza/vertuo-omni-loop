@@ -397,3 +397,45 @@ describe('overviewFor — the seven stages (PRD 587, slice s5)', () => {
     expect(overview.yours.rows.map(({ stage, prd }) => `${stage} ${prd}`)).toEqual(['outbox 5', 'building 4', 'inbox 6', 'prd 9']);
   });
 });
+
+describe('overviewFor — a PRD of several landings', () => {
+  const landing = (prd: number, n: number, count: number, name: string, more: Partial<Omit<FeatureFacts, 'branch'>> = {}): FeatureFacts => ({
+    ...feature(prd, more),
+    branch: `feat/t${prd}-${n}of${count}-${name}`,
+    landing: { landing: n, landings: count, name },
+  });
+
+  it('lists its landings in order, each merged, open or not started, and what each waits for', () => {
+    const overview = overviewFor(
+      facts({
+        inbox: [4],
+        features: [landing(4, 2, 3, 'code', CODE), landing(4, 3, 3, 'contract')],
+      }),
+    );
+    expect(overview.stages.building).toEqual([
+      {
+        prd: 4,
+        topic: 't4',
+        openItems: 0,
+        landings: [
+          { landing: 1, landings: 3, name: 'landing-1', state: 'merged', waitsFor: null },
+          { landing: 2, landings: 3, name: 'code', state: 'open', waitsFor: null },
+          { landing: 3, landings: 3, name: 'contract', state: 'not started', waitsFor: 2 },
+        ],
+      },
+    ]);
+  });
+
+  it('says landing 2 waits for landing 1 while landing 1 is open', () => {
+    const overview = overviewFor(facts({ inbox: [4], features: [landing(4, 1, 2, 'expand', CODE), landing(4, 2, 2, 'code', CODE)] }));
+    expect(overview.stages.building[0]?.landings?.map(({ state, waitsFor }) => [state, waitsFor])).toEqual([
+      ['open', null],
+      ['open', 1],
+    ]);
+  });
+
+  it('gives a PRD of one feature branch no landings', () => {
+    const overview = overviewFor(facts({ inbox: [4], features: [feature(4, CODE)] }));
+    expect(overview.stages.building).toEqual([{ prd: 4, topic: 't4', openItems: 0 }]);
+  });
+});

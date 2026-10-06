@@ -4,6 +4,7 @@ import {
   collisionRows,
   collisions,
   covers,
+  parsePlanLandings,
   parsePlanRepositories,
   parsePlanSlices,
   sameWaveCollisions,
@@ -392,5 +393,57 @@ describe('parsePlanSlices — slice ids (PRD 1049)', () => {
   it('fails where it reads a malformed id, naming it', () => {
     expect(() => parsePlanSlices(PLAN.replace('| s2  |', '| S2  |'))).toThrow('This plan\'s slice table names "S2", which is no slice id like s1.');
     expect(() => parsePlanSlices(PLAN.replace('| s1         |', '| S1         |'))).toThrow('names "S1"');
+  });
+});
+
+const LANDED_PLAN = `# Plan: in two landings
+
+## Slices
+
+| id | slice | territory | blocked by | wave | landing |
+| --- | --- | --- | --- | --- | --- |
+| s1 | the column exists | \`db/migrations/\` | — | 1 | 1 |
+| s2 | the total reads it | \`src/\` | — | 1 | \`2\` |
+| s3 | the screen shows it | \`src/\` | s2 | 2 | 2 |
+
+## Landings
+
+| landing | name | merge when |
+| --- | --- | --- |
+| 1 | expand | — |
+| \`2\` | code | landing 1 is deployed |
+`;
+
+describe('landings: a slice names the landing it reaches the default branch in', () => {
+  it('reads each slice\'s landing from a landing column, backticks stripped', () => {
+    expect(parsePlanSlices(LANDED_PLAN).map((slice) => slice.landing)).toEqual([1, 2, 2]);
+  });
+
+  it('reads landing 1 on every slice of a table without a landing column, and on an empty cell', () => {
+    expect(parsePlanSlices(PLAN).map((slice) => slice.landing)).toEqual([1, 1, 1]);
+    expect(parsePlanSlices(LANDED_PLAN.replace('| 1 | 1 |', '| 1 | — |'))[0]?.landing).toBe(1);
+  });
+
+  it('reads a cell that is no number as NaN, for the plan check to refuse', () => {
+    expect(parsePlanSlices(LANDED_PLAN.replace('| 1 | 1 |', '| 1 | first |'))[0]?.landing).toBeNaN();
+  });
+
+  it('reads the ## Landings rows in order', () => {
+    expect(parsePlanLandings(LANDED_PLAN)).toEqual([
+      { landing: 1, name: 'expand', mergeWhen: '' },
+      { landing: 2, name: 'code', mergeWhen: 'landing 1 is deployed' },
+    ]);
+  });
+
+  it('reads [] for a plan with no ## Landings table', () => {
+    expect(parsePlanLandings(PLAN)).toEqual([]);
+  });
+
+  it('counts a same-wave collision within one landing only', () => {
+    const slices = parsePlanSlices(LANDED_PLAN.replace('| s2 | 2 | 2 |', '| — | 1 | 1 |'));
+    expect(sameWaveCollisions(slices)).toEqual([]);
+    expect(sameWaveCollisions(parsePlanSlices(LANDED_PLAN.replace('| s2 | 2 | 2 |', '| — | 1 | 2 |')))).toEqual([
+      { left: 's2', right: 's3', shared: ['src/'], wave: 1 },
+    ]);
   });
 });

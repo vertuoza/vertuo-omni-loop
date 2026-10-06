@@ -108,6 +108,29 @@ refuses a PRD whose folder has no note (`no release note: <path>`) or whose note
 (`release note: <rule>`). The note's voice is the optional `notes` slot of the `releasing` form, which
 `omni kb show releasing` prints.
 
+**Landings** let a PRD reach the default branch in several ordered pull requests, so that what
+must be deployed apart (a database migration, a contract step) ships alone. A plan opts in with a
+`landing` column in its slice table and an optional `## Landings` table (number, kebab-case name,
+`merge when`); `omni plan check` counts waves within each landing, refuses landing numbers with a
+gap, a slice blocked by a slice of another landing, and a `## Landings` table that does not match the
+slice table. A plan without the column has one landing and is built as it always was. A repository
+makes the cut a rule with `landings: { alone: [<regex>, …] }` in its config (empty by default,
+validated like `risk.storedShape`): a slice whose territory touches a path one pattern matches must
+touch nothing else, and a landing holding such a slice holds only such slices. The back-end, for
+instance, lists its migrations directories there (`^kernel-migrations/database/migrations/` and
+`/db/migrations/`), so a migration always travels in a landing of its own.
+
+**Opening pull requests through the repository's skill.** `pr: { openWith: <skill> }` in the
+config (`null` by default, which keeps the kit's `gh pr create`) names a slash skill of the
+repository that `/omni:pr` opens every feature, landing and standalone pull request with, so the
+repository's own conventions (its template, its title, its advisory review) apply to the loop's pull
+requests. The skill is run with `--base <branch> --draft --non-interactive --prd <owner/repo>#<n>`,
+plus `--landing <n>/<N>` for a PRD of more than one landing and `--issue #<n>` when there is one,
+and prints the pull request's URL as its last line; `/omni:pr` then puts its own lines (the link
+line, the slices, the landings overview, the acceptance) above what the skill wrote, and the footer
+last. Sub-PRs never go through it. In target mode the target's own `pr.openWith` decides, and the
+skill runs in the target's clone. The back-end sets it to `/create-pr`.
+
 **The knowledge graph** is the knowledge registers read as one map: `omni kb graph` prints a summary
 (a line per domain with its principles, rules, invariants, laws and proposals, then the principles
 nothing serves and the rules and invariants that serve no principle), and `omni kb graph --json` the

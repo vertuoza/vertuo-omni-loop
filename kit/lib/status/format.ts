@@ -3,7 +3,7 @@
 // 80 columns.
 // Pure: the clock comes in as `now`.
 import { BAR_CELLS } from './overview.ts';
-import type { Counts, Overview, StagedPrd, YourRow, Yours } from './overview.ts';
+import type { Counts, LandingStatus, Overview, StagedPrd, YourRow, Yours } from './overview.ts';
 import type { Stage } from '../types.ts';
 import { at } from '../narrow.ts';
 
@@ -118,7 +118,19 @@ function rows(entries: readonly YourRow[]): string[] {
   const wordsWidth = Math.max(...lines.map(({ words }) => words.length));
   const room = WIDTH - UNDER_BAR.length - numberWidth - TOPIC_GAP.length - wordsWidth;
   const topicWidth = Math.min(Math.max(...lines.map(({ topic }) => topic.length)), Math.max(1, room));
-  return lines.map(({ stage, number, topic, words }) => `${stage}${number.padEnd(numberWidth)}${cut(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words}`);
+  return lines.flatMap(({ stage, number, topic, words }, index) => [
+    `${stage}${number.padEnd(numberWidth)}${cut(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words}`,
+    ...landingLines(entries[index]?.landings ?? []),
+  ]);
+}
+
+/** A PRD's landings, under its row: each `<n>/<N> <name> <state>`, and what it waits for, one per
+ * line, starting under the bar. */
+function landingLines(landings: readonly LandingStatus[]): string[] {
+  return landings.map(({ landing, landings: count, name, state, waitsFor }) => {
+    const waits = waitsFor === null ? '' : `, waits for landing ${waitsFor} to merge`;
+    return cut(`${UNDER_BAR}landing ${landing}/${count} ${name}: ${state}${waits}`, WIDTH);
+  });
 }
 
 /** `#<n> <topic>`, its topic cut with `…` when the whole would be wider than `width`. */

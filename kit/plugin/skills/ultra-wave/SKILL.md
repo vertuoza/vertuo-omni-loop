@@ -44,13 +44,20 @@ As `/omni:wave` step 0, with these differences:
   PR `gh pr list --repo <slug> --head <feature branch> --state open --json number,body`. A target
   with no clone, no feature branch or no target PR is **held**: its slices are left out of the wave,
   naming `/omni:ultra-yolo <prd>` as what sets it up.
+- **A plan of several landings.** The board JSON's `landings` holds one row per landing of each
+  target's own chain, each with its `repo`, `branch`, `pr` and `current`. A slice's feature branch is
+  the `branch` of the row of its `repo` whose `slices` hold it, and its target feature PR that row's
+  PR; wherever this skill says "the target's feature branch", it means that branch.
 
 ## 1. The board
 
 As `/omni:wave` step 1. Every row of `node .omni-loop/bin/omni.mjs board <prd> --json` carries
 `repo` (the short name) and `slug` (`owner/name`); the frontier is already computed across
 repositories. An `unreadable` row (its repository could not be read) is held, as a `blocked` one,
-and so is every slice of a held target. A row whose `repo` is the plan repository's own is built as
+and so is every slice of a held target. With landings, the frontier holds, in each target, the
+slices of that target's **current** landing only (`current: true`): a target's landing 2 is never
+claimed before that target's landing 1 slices are all merged, and one target never waits on
+another's. A row whose `repo` is the plan repository's own is built as
 `/omni:wave` builds it, with none of the differences below.
 
 ## 2. Claim every slice first
@@ -130,8 +137,9 @@ with its reason. This is what `/omni:ultra-yolo` reads.
 
 ## Guardrails
 
-- Merge only into a target's feature branch (or, for the plan repository's own slices, its feature
-  branch), never into any repository's default branch. Check the base before every merge.
+- Merge only into a target's feature branch, or its landing's branch (or, for the plan repository's
+  own slices, its feature branch), never into any repository's default branch, and never a landing
+  PR. Check the base before every merge.
 - **Never add `labels.outboxGo`,** and **never create a label in a target**: a missing one is a human
   step.
 - **Never run a command in a target other than its own committed preflight** (beyond `git` and

@@ -45,6 +45,9 @@ export type Slice = {
   blockedBy: WorkSliceId[];
   /** `null` for a plan with no `wave` column. */
   wave: number | null;
+  /** The landing the slice reaches the default branch in: 1 for a plan with no `landing` column.
+   * An unreadable cell reads as `NaN`, which the plan check refuses. */
+  landing: number;
 };
 
 export type SpecSource = (typeof SPEC_VALUES)[number];

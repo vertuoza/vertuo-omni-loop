@@ -179,6 +179,30 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nacceptance:\n  enabled: true\n')).toThrow(/acceptance\.dir/);
   });
 
+  it('reads pr.openWith as the name of a skill, null by default, and refuses one that is not text', () => {
+    expect(parseConfig('kit: 1\n').pr).toEqual({ openWith: null });
+    expect(parseConfig('kit: 1\npr:\n  openWith: /create-pr\n').pr.openWith).toBe('/create-pr');
+    expect(() => parseConfig('kit: 1\npr:\n  openWith: 3\n')).toThrow(/pr\.openWith/);
+    expect(() => parseConfig('kit: 1\npr:\n  openWith: [/create-pr]\n')).toThrow(/pr\.openWith/);
+    expect(() => parseConfig("kit: 1\npr:\n  openWith: ''\n")).toThrow(/pr\.openWith/);
+  });
+
+  it('names each landing branch from branches.landing, filled with {topic}, {landing}, {landings} and {name}', () => {
+    expect(parseConfig('kit: 1\n').branches.landing).toBe('feat/{topic}-{landing}of{landings}-{name}');
+    expect(parseConfig("kit: 1\nbranches:\n  landing: 'land/{topic}/{landing}'\n").branches.landing).toBe('land/{topic}/{landing}');
+    expect(() => parseConfig("kit: 1\nbranches:\n  landing: ''\n")).toThrow(/branches\.landing/);
+  });
+
+  it('reads landings.alone as regex sources, empty by default, and refuses one that is no regular expression', () => {
+    expect(parseConfig('kit: 1\n').landings).toEqual({ alone: [] });
+    const config = parseConfig("kit: 1\nlandings:\n  alone: ['^kernel-migrations/database/migrations/', '/db/migrations/']\n");
+    expect(config.landings.alone).toEqual(['^kernel-migrations/database/migrations/', '/db/migrations/']);
+    expect(config.risk).toEqual(parseConfig('kit: 1\n').risk);
+    expect(() => parseConfig("kit: 1\nlandings:\n  alone: ['(']\n")).toThrow(/landings\.alone\.0/);
+    expect(() => parseConfig('kit: 1\nlandings:\n  alone: db/\n')).toThrow(/landings\.alone/);
+    expect(() => parseConfig('kit: 1\nlandings:\n  after: []\n')).toThrow(/landings/);
+  });
+
   it('refuses a risk pattern that is not a regular expression', () => {
     expect(() => parseConfig("kit: 1\nrisk:\n  storedShape: ['(']\n")).toThrow(/risk\.storedShape\.0/);
   });
@@ -401,8 +425,8 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     const config = parseConfig('kit: 1\n');
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
-      'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'markers', 'signature',
+      'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
+      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'markers', 'signature',
     ]);
   });
 

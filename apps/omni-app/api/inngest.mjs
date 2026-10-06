@@ -1045,6 +1045,10 @@ var ConfigSchema = z7.object({
     fix: branchTemplate.default("fix/{topic}"),
     phase0: branchTemplate.default("docs/phase-0-{topic}"),
     slice: branchTemplate.default("feat/{topic}--{slice}"),
+    // Landings: the branch of each landing of a PRD of more than one, stacked on the one before;
+    // `{landing}` and `{landings}` are its number and the count, `{name}` its plan's name for it.
+    // A PRD of one landing keeps `feature`.
+    landing: branchTemplate.default("feat/{topic}-{landing}of{landings}-{name}"),
     rework: branchTemplate.default("fix-{item}"),
     retro: branchTemplate.default("docs/retro-{topic}"),
     knowledge: branchTemplate.default("docs/knowledge-{topic}"),
@@ -1092,6 +1096,10 @@ var ConfigSchema = z7.object({
     sub: text2.default("Part of #{prd}"),
     phase0: text2.default("Refs #{prd}")
   }),
+  // How a pull request into the default branch or a landing branch is opened: `openWith` names a
+  // slash skill of this repository (`/create-pr`, say) that `/omni:pr` runs with `--base`,
+  // `--draft` and `--non-interactive`; `null` keeps the kit's own `gh pr create`. Sub-PRs never use it.
+  pr: section({ openWith: nullableText.default(null) }),
   board: section({ matchBy: z7.enum(["base", "label"]).default("base") }),
   ci: section({
     outboxContext: text2.default("outbox"),
@@ -1126,6 +1134,10 @@ var ConfigSchema = z7.object({
     storedShape: z7.array(regexSource).default([]),
     sharedContract: z7.array(text2).default([])
   }),
+  // Landings: the paths that must reach the default branch in a landing of their own (a
+  // repository's migrations directories, say). Regex sources over repository paths, compiled once
+  // by `omni plan check`; empty, no plan is refused for what it puts together.
+  landings: section({ alone: z7.array(regexSource).default([]) }),
   notify: section({
     slack: z7.object({ channelVar: text2.default("OMNI_SLACK_CHANNEL"), tokenSecret: text2.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
   }),
@@ -4504,7 +4516,8 @@ function parsePlanSlices(markdown) {
       title: column("slice") === -1 ? "" : row[column("slice")] ?? "",
       territory: territoryPrefixes(row[column("territory")]),
       blockedBy: column("blocked by") === -1 ? [] : blockedByCell(row[column("blocked by")]),
-      wave: column("wave") === -1 ? null : Number(row[column("wave")])
+      wave: column("wave") === -1 ? null : Number(row[column("wave")]),
+      landing: column("landing") === -1 ? 1 : landingCell(row[column("landing")])
     });
   }
   if (slices.length === 0) {
@@ -4512,15 +4525,38 @@ function parsePlanSlices(markdown) {
   }
   return slices;
 }
+function landingCell(cell3) {
+  const text6 = plainCell(cell3);
+  return NOTHING.test(text6) ? 1 : Number(text6);
+}
 function plainCell(cell3) {
   return (cell3 ?? "").replace(/`/g, "").trim();
 }
 function parsePlanRepositories(markdown) {
+  const rows = [];
+  for (const at2 of sectionTable(markdown, "repositories")) {
+    const repo = at2("repo");
+    if (!repo) continue;
+    rows.push({ repo, role: at2("role"), readAt: at2("read at"), knowledge: at2("knowledge") });
+  }
+  return rows;
+}
+function parsePlanLandings(markdown) {
+  const rows = [];
+  for (const at2 of sectionTable(markdown, "landings")) {
+    const landing = at2("landing");
+    if (!landing) continue;
+    const mergeWhen = at2("merge when");
+    rows.push({ landing: Number(landing), name: at2("name"), mergeWhen: NOTHING.test(mergeWhen) ? "" : mergeWhen });
+  }
+  return rows;
+}
+function sectionTable(markdown, heading) {
   const lines = markdown.split("\n");
-  const heading = lines.findIndex((line) => /^##\s+repositories\s*$/i.test(line.trim()));
-  if (heading === -1) return [];
+  const start = lines.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line.trim()));
+  if (start === -1) return [];
   let headerIndex = -1;
-  for (let i = heading + 1; i < lines.length; i += 1) {
+  for (let i = start + 1; i < lines.length; i += 1) {
     const line = lines[i] ?? "";
     if (/^#{1,2}\s/.test(line.trim())) break;
     if (isTableRow(line)) {
@@ -4530,14 +4566,9 @@ function parsePlanRepositories(markdown) {
   }
   if (headerIndex === -1) return [];
   const header = cells(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
-  const at2 = (row, name) => header.indexOf(name) === -1 ? "" : plainCell(row[header.indexOf(name)]);
-  const rows = [];
-  for (const row of bodyRows(lines, headerIndex)) {
-    const repo = at2(row, "repo");
-    if (!repo) continue;
-    rows.push({ repo, role: at2(row, "role"), readAt: at2(row, "read at"), knowledge: at2(row, "knowledge") });
-  }
-  return rows;
+  return bodyRows(lines, headerIndex).map(
+    (row) => (name) => header.indexOf(name) === -1 ? "" : plainCell(row[header.indexOf(name)])
+  );
 }
 function covers(territory, path) {
   return territory.some((declaration) => path.startsWith(prefixOf(declaration)));
@@ -4569,14 +4600,18 @@ function collisions(slices) {
 }
 function sameWaveCollisions(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
-  return collisions(slices).filter(({ left, right }) => waveOf.get(left) === waveOf.get(right)).map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
+  const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
+  return collisions(slices).filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf.get(left) === landingOf.get(right)).map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
 }
 function collisionRows(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
+  const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
+  const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
+  const at2 = (id) => `${landed ? `l${landingOf.get(id)}` : ""}w${waveOf.get(id)}`;
   return collisions(slices).map(({ left, right, shared }) => ({
     pair: `${left} \xB7 ${right}`,
     shared: shared.map((ground) => `\`${ground}\``).join(", "),
-    resolved: `${left} w${waveOf.get(left)} \xB7 ${right} w${waveOf.get(right)}`
+    resolved: `${left} ${at2(left)} \xB7 ${right} ${at2(right)}`
   }));
 }
 
@@ -4590,11 +4625,19 @@ function duplicateIds(slices) {
 }
 function blockedByViolations2(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
+  const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing]));
   const violations = [];
   for (const slice of slices) {
     for (const blocker of slice.blockedBy) {
       if (!waveOf.has(blocker)) {
         violations.push(`${slice.id} is blocked by "${blocker}", which names no slice in this plan.`);
+        continue;
+      }
+      const blockerLanding = landingOf.get(blocker);
+      if (blockerLanding !== slice.landing) {
+        violations.push(
+          `blocked by: ${slice.id} (landing ${slice.landing}) is blocked by ${blocker} (landing ${blockerLanding}) \u2014 a landing waits for the one before it by its order alone, never by a blocker.`
+        );
         continue;
       }
       const blockerWave = waveOf.get(blocker);
@@ -4606,6 +4649,83 @@ function blockedByViolations2(slices) {
     }
   }
   return violations;
+}
+function isLandingNumber(value) {
+  return Number.isInteger(value) && value >= 1;
+}
+var LANDING_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+function landingViolations(slices, rows) {
+  const used = [...new Set(slices.map((slice) => slice.landing).filter(isLandingNumber))].sort((a, b) => a - b);
+  return [
+    ...slices.filter((slice) => !isLandingNumber(slice.landing)).map((slice) => `landing: ${slice.id} reads "${slice.landing}", not a whole number from 1.`),
+    ...gapViolations(used),
+    ...rows.length === 0 ? [] : landingTableViolations(rows, used)
+  ];
+}
+function gapViolations(used) {
+  const missing = Array.from({ length: used.at(-1) ?? 0 }, (_, index) => index + 1).filter((landing) => !used.includes(landing));
+  return missing.map((landing) => `landing: no slice sits in landing ${landing} \u2014 landings run from 1 with no gap, and this plan uses ${used.join(", ")}.`);
+}
+function landingTableViolations(rows, used) {
+  const violations = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const row of rows) {
+    if (!isLandingNumber(row.landing)) {
+      violations.push(`## Landings: a row reads "${row.landing}", not a whole number from 1.`);
+      continue;
+    }
+    if (seen.has(row.landing)) violations.push(`## Landings: landing ${row.landing} has more than one row.`);
+    seen.add(row.landing);
+    if (!used.includes(row.landing)) violations.push(`## Landings: landing ${row.landing} has a row and holds no slice.`);
+    if (!LANDING_NAME.test(row.name)) violations.push(`## Landings: landing ${row.landing} is named "${row.name}", not one kebab-case name.`);
+  }
+  return [...violations, ...used.filter((landing) => !seen.has(landing)).map((landing) => `## Landings: landing ${landing} holds slices and has no row.`)];
+}
+function aloneSplit(slice, alone) {
+  const matches = (prefix) => alone.some((pattern) => pattern.test(prefix));
+  return { alone: slice.territory.filter(matches), other: slice.territory.filter((prefix) => !matches(prefix)) };
+}
+function landAloneViolations(slices, patterns) {
+  if (patterns.length === 0) return [];
+  const alone = patterns.map((source) => new RegExp(source));
+  const split = new Map(slices.map((slice) => [slice.id, aloneSplit(slice, alone)]));
+  const violations = [];
+  for (const slice of slices) {
+    const { alone: aloneGround, other } = split.get(slice.id) ?? { alone: [], other: [] };
+    if (aloneGround.length > 0 && other.length > 0) {
+      violations.push(
+        `landing: ${slice.id} (landing ${slice.landing}) touches ${aloneGround.join(", ")}, which lands alone, and also ${other.join(", ")} \u2014 a slice touching a land-alone path touches nothing else.`
+      );
+    }
+  }
+  for (const landing of new Set(slices.map((slice) => slice.landing))) {
+    const members2 = slices.filter((slice) => slice.landing === landing);
+    const lone = members2.filter((slice) => split.get(slice.id)?.other.length === 0 && slice.territory.length > 0);
+    const rest = members2.filter((slice) => split.get(slice.id)?.alone.length === 0);
+    if (lone.length > 0 && rest.length > 0) {
+      violations.push(
+        `landing: landing ${landing} holds ${lone.map((slice) => slice.id).join(", ")}, which land alone, and ${rest.map((slice) => slice.id).join(", ")}, which do not \u2014 a landing holding a land-alone slice holds only land-alone slices.`
+      );
+    }
+  }
+  return violations;
+}
+function wavesOf(slices) {
+  return [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
+}
+function gradedLandings(slices, rows) {
+  const numbers = [...new Set(slices.map((slice) => slice.landing))].sort((a, b) => a - b);
+  return numbers.map((landing) => {
+    const row = rows.find((candidate) => candidate.landing === landing);
+    const members2 = slices.filter((slice) => slice.landing === landing);
+    return {
+      landing,
+      name: row?.name || `landing-${landing}`,
+      mergeWhen: row?.mergeWhen || null,
+      slices: members2.map((slice) => slice.id),
+      waves: wavesOf(members2)
+    };
+  });
 }
 function shortName(slug) {
   return slug.slice(slug.indexOf("/") + 1);
@@ -4682,6 +4802,7 @@ function gradePlan(markdown, { config }) {
     return {
       slices: [],
       repositories: [],
+      landings: [],
       waves: [],
       multi: false,
       collisions: [],
@@ -4691,22 +4812,27 @@ function gradePlan(markdown, { config }) {
     };
   }
   const repositories = parsePlanRepositories(markdown);
+  const landingRows = parsePlanLandings(markdown);
   const planSection2 = config.plan ?? null;
   const multi = planSection2 !== null && slices.some((slice) => slice.repo !== null);
   const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
   const collisions2 = sameWaveCollisions(slices);
+  const landings = gradedLandings(slices, landingRows);
+  const ofLanding = (id) => landings.length > 1 ? ` of landing ${slices.find((slice) => slice.id === id)?.landing}` : "";
   const violations = [
     ...planSection2 === null ? notPlanRepositoryViolations(slices, repositories) : repositoryViolations(slices, repositories, { planSlug: defined(config.repo.slug, "the plan repository's repo.slug"), targets: planSection2.targets }),
     // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
+    ...landingViolations(slices, landingRows),
+    ...landAloneViolations(slices, config.landings.alone),
     ...blockedByViolations2(slices),
     ...collisions2.map(
-      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
+      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
     )
   ];
-  const waves = [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
+  const waves = wavesOf(slices);
   const matrices = multi ? [...byRepository(slices)].map(([repo, group2]) => ({ repo, rows: collisionRows(group2) })) : [{ repo: null, rows: collisionRows(slices) }];
-  return { slices, repositories, waves, multi, collisions: collisions2, matrices, violations, parseError: null };
+  return { slices, repositories, landings, waves, multi, collisions: collisions2, matrices, violations, parseError: null };
 }
 
 // kit/lib/signature.ts

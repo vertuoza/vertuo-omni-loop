@@ -197,6 +197,21 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
     ]);
   });
 
+  it("prints a PRD's landings under its row, each with its state and the merge it waits for", () => {
+    const landings = [
+      { landing: 1, landings: 2, name: 'expand', state: 'open' as const, waitsFor: null },
+      { landing: 2, landings: 2, name: 'code', state: 'open' as const, waitsFor: 1 },
+    ];
+    const yours = known({ rows: [{ ...row('building', 12, 'twelve'), landings }] });
+    const text = formatOverview(overview({ building: 1, yours }), { now: NOW });
+    expect(yoursLines(text)).toEqual([
+      '  Yours · me@example.com',
+      '  building   #12  twelve    being built',
+      '             landing 1/2 expand: open',
+      '             landing 2/2 code: open, waits for landing 1 to merge',
+    ]);
+  });
+
   it('says one open item waits, and being built for a building PRD with none open', () => {
     const yours = known({ rows: [row('building', 12, 'twelve', { openItems: 1 }), row('building', 7, 'seven', { openItems: 0 })] });
     expect(yoursLines(formatOverview(overview({ yours }), { now: NOW }))).toEqual([

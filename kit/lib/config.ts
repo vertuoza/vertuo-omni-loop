@@ -105,6 +105,10 @@ export const ConfigSchema = z
       fix: branchTemplate.default('fix/{topic}'),
       phase0: branchTemplate.default('docs/phase-0-{topic}'),
       slice: branchTemplate.default('feat/{topic}--{slice}'),
+      // Landings: the branch of each landing of a PRD of more than one, stacked on the one before;
+      // `{landing}` and `{landings}` are its number and the count, `{name}` its plan's name for it.
+      // A PRD of one landing keeps `feature`.
+      landing: branchTemplate.default('feat/{topic}-{landing}of{landings}-{name}'),
       rework: branchTemplate.default('fix-{item}'),
       retro: branchTemplate.default('docs/retro-{topic}'),
       knowledge: branchTemplate.default('docs/knowledge-{topic}'),
@@ -152,6 +156,10 @@ export const ConfigSchema = z
       sub: text.default('Part of #{prd}'),
       phase0: text.default('Refs #{prd}'),
     }),
+    // How a pull request into the default branch or a landing branch is opened: `openWith` names a
+    // slash skill of this repository (`/create-pr`, say) that `/omni:pr` runs with `--base`,
+    // `--draft` and `--non-interactive`; `null` keeps the kit's own `gh pr create`. Sub-PRs never use it.
+    pr: section({ openWith: nullableText.default(null) }),
     board: section({ matchBy: z.enum(['base', 'label']).default('base') }),
     ci: section({
       outboxContext: text.default('outbox'),
@@ -190,6 +198,10 @@ export const ConfigSchema = z
       storedShape: z.array(regexSource).default([]),
       sharedContract: z.array(text).default([]),
     }),
+    // Landings: the paths that must reach the default branch in a landing of their own (a
+    // repository's migrations directories, say). Regex sources over repository paths, compiled once
+    // by `omni plan check`; empty, no plan is refused for what it puts together.
+    landings: section({ alone: z.array(regexSource).default([]) }),
     notify: section({
       slack: z
         .object({ channelVar: text.default('OMNI_SLACK_CHANNEL'), tokenSecret: text.default('SLACK_BOT_TOKEN') })

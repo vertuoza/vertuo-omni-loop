@@ -25,10 +25,15 @@ type Commit = { email: string; paths: string[] };
 /** The base: the name it was read under and the commit it names. */
 type Base = { name: string; commit: string };
 
-/** A feature branch on the remote, as {@link readFacts} reads it. */
+/** Where a landing branch sits in its PRD's chain, read from its name (`branches.landing`). */
+export type LandingName = { landing: number; landings: number; name: string };
+
+/** A feature branch on the remote, as {@link readFacts} reads it: a landing's branch carries
+ * `landing`. */
 export type FeatureFacts = {
   branch: string;
   topic: string;
+  landing?: LandingName;
   forked: string[];
   differs: string[];
   outbox: string[];
@@ -293,8 +298,9 @@ function unlessUnreadable<T>(read: () => T): T | null {
 }
 
 /**
- * The feature branch (`branches.feature` with the folder's topic) of each PRD in the base's inbox
- * that has one on the remote, as `{ branch, topic, forked, differs, outbox, ships, authors,
+ * The feature branch (`branches.feature` with the folder's topic), and each landing branch
+ * (`branches.landing` with that topic, carrying `landing`), of each PRD in the base's inbox that has
+ * one on the remote, as `{ branch, topic, forked, differs, outbox, ships, authors,
  * touched }`: `forked` holds the paths outside the delivery folder it changed since it forked from
  * the base, `differs` those that differ from the base now, `outbox` every file under the PRD's
  * outbox folder on it, `ships` whether its shipped folder holds the PRD (the green gate's
@@ -304,25 +310,61 @@ function unlessUnreadable<T>(read: () => T): T | null {
 function featuresOf(ctx: Context, exec: ExecText, base: string, inbox: readonly FactsFolder[], remote: Map<string, string>): FeatureFacts[] {
   const out: FeatureFacts[] = [];
   for (const { prd, topic, name } of inbox) {
-    const branch = fillBranch(ctx.config.branches.feature, { topic });
-    const ref = remote.get(branch);
-    if (!ref) continue;
-    const feature = unlessUnreadable(() => {
-      const beyond = commitsIn(ctx, exec, `${base}..${ref}`);
-      return {
-        branch,
-        topic,
-        forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
-        differs: changedOutside(ctx, exec, [base, ref]),
-        outbox: filesUnder(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`),
-        ships: foldersAt(ctx, exec, ref, ctx.layout.dirs.shipped).some((folder) => folder.prd === prd),
-        authors: authorsOf(beyond),
-        touched: touchedBy(ctx, beyond),
-      };
-    });
-    if (feature) out.push(feature);
+    const feature = fillBranch(ctx.config.branches.feature, { topic });
+    const branches: { branch: string; landing?: LandingName }[] = [{ branch: feature }];
+    for (const branch of remote.keys()) {
+      const landing = landingOf(branch, ctx.config.branches.landing, topic);
+      if (landing && branch !== feature) branches.push({ branch, landing });
+    }
+    for (const { branch, landing } of branches) {
+      const ref = remote.get(branch);
+      if (!ref) continue;
+      const facts = unlessUnreadable(() => {
+        const beyond = commitsIn(ctx, exec, `${base}..${ref}`);
+        return {
+          branch,
+          topic,
+          ...(landing ? { landing } : {}),
+          forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
+          differs: changedOutside(ctx, exec, [base, ref]),
+          outbox: filesUnder(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`),
+          ships: foldersAt(ctx, exec, ref, ctx.layout.dirs.shipped).some((folder) => folder.prd === prd),
+          authors: authorsOf(beyond),
+          touched: touchedBy(ctx, beyond),
+        };
+      });
+      if (facts) out.push(facts);
+    }
   }
   return out;
+}
+
+/** `text` as a regular expression matching only itself. */
+const escaped = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Where `branch` sits in the landing chain of `topic`, when `template` (`branches.landing`) with
+ * that topic names it: `{topic}` the topic, `{landing}` and `{landings}` numbers, `{name}` one
+ * kebab-case name. `null` otherwise. */
+function landingOf(branch: string, template: string, topic: string): LandingName | null {
+  const keys: string[] = [];
+  const source = template
+    .split(/(\{(?:topic|landings|landing|name)\})/)
+    .map((part) => {
+      if (part === '{topic}') return escaped(topic);
+      if (part === '{landing}' || part === '{landings}' || part === '{name}') {
+        keys.push(part);
+        return part === '{name}' ? '([a-z0-9]+(?:-[a-z0-9]+)*)' : '(\\d+)';
+      }
+      return escaped(part);
+    })
+    .join('');
+  const match = new RegExp(`^${source}$`).exec(branch);
+  if (!match) return null;
+  const value = (key: string): string | undefined => match[keys.indexOf(key) + 1];
+  const landing = Number(value('{landing}'));
+  const landings = Number(value('{landings}'));
+  if (!Number.isInteger(landing) || !Number.isInteger(landings) || landing < 1 || landing > landings) return null;
+  return { landing, landings, name: value('{name}') ?? `landing-${landing}` };
 }
 
 /** Every remote branch shaped like `branches.phase0`, with its topic, the PRD folders in its inbox

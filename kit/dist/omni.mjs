@@ -27451,6 +27451,10 @@ var ConfigSchema = external_exports.object({
     fix: branchTemplate.default("fix/{topic}"),
     phase0: branchTemplate.default("docs/phase-0-{topic}"),
     slice: branchTemplate.default("feat/{topic}--{slice}"),
+    // Landings: the branch of each landing of a PRD of more than one, stacked on the one before;
+    // `{landing}` and `{landings}` are its number and the count, `{name}` its plan's name for it.
+    // A PRD of one landing keeps `feature`.
+    landing: branchTemplate.default("feat/{topic}-{landing}of{landings}-{name}"),
     rework: branchTemplate.default("fix-{item}"),
     retro: branchTemplate.default("docs/retro-{topic}"),
     knowledge: branchTemplate.default("docs/knowledge-{topic}"),
@@ -27498,6 +27502,10 @@ var ConfigSchema = external_exports.object({
     sub: text.default("Part of #{prd}"),
     phase0: text.default("Refs #{prd}")
   }),
+  // How a pull request into the default branch or a landing branch is opened: `openWith` names a
+  // slash skill of this repository (`/create-pr`, say) that `/omni:pr` runs with `--base`,
+  // `--draft` and `--non-interactive`; `null` keeps the kit's own `gh pr create`. Sub-PRs never use it.
+  pr: section({ openWith: nullableText.default(null) }),
   board: section({ matchBy: external_exports.enum(["base", "label"]).default("base") }),
   ci: section({
     outboxContext: text.default("outbox"),
@@ -27532,6 +27540,10 @@ var ConfigSchema = external_exports.object({
     storedShape: external_exports.array(regexSource).default([]),
     sharedContract: external_exports.array(text).default([])
   }),
+  // Landings: the paths that must reach the default branch in a landing of their own (a
+  // repository's migrations directories, say). Regex sources over repository paths, compiled once
+  // by `omni plan check`; empty, no plan is refused for what it puts together.
+  landings: section({ alone: external_exports.array(regexSource).default([]) }),
   notify: section({
     slack: external_exports.object({ channelVar: text.default("OMNI_SLACK_CHANNEL"), tokenSecret: text.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
   }),
@@ -29986,8 +29998,8 @@ function openingClause(text7) {
   return (first ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function markerFound(haystack, marker) {
-  const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(^|[^a-z0-9'])${escaped}([^a-z0-9']|$)`).test(haystack);
+  const escaped2 = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9'])${escaped2}([^a-z0-9']|$)`).test(haystack);
 }
 function judgeAnswer({
   choice,
@@ -32072,8 +32084,8 @@ function readTranscript(text7) {
   return { skill, model, tokens };
 }
 function branchPattern(template) {
-  const escaped = template.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
-  return new RegExp(`^${escaped.replace(/\{topic\}/, "(.+?)").replace(/\{slice\}/, "[^/]+")}$`);
+  const escaped2 = template.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${escaped2.replace(/\{topic\}/, "(.+?)").replace(/\{slice\}/, "[^/]+")}$`);
 }
 function prdOfBranch(branch, { branches, folders }) {
   if (typeof branch !== "string" || !branch) return null;
@@ -32974,7 +32986,8 @@ function parsePlanSlices(markdown) {
       title: column("slice") === -1 ? "" : row[column("slice")] ?? "",
       territory: territoryPrefixes(row[column("territory")]),
       blockedBy: column("blocked by") === -1 ? [] : blockedByCell(row[column("blocked by")]),
-      wave: column("wave") === -1 ? null : Number(row[column("wave")])
+      wave: column("wave") === -1 ? null : Number(row[column("wave")]),
+      landing: column("landing") === -1 ? 1 : landingCell(row[column("landing")])
     });
   }
   if (slices.length === 0) {
@@ -32982,15 +32995,38 @@ function parsePlanSlices(markdown) {
   }
   return slices;
 }
+function landingCell(cell2) {
+  const text7 = plainCell(cell2);
+  return NOTHING.test(text7) ? 1 : Number(text7);
+}
 function plainCell(cell2) {
   return (cell2 ?? "").replace(/`/g, "").trim();
 }
 function parsePlanRepositories(markdown) {
+  const rows2 = [];
+  for (const at2 of sectionTable(markdown, "repositories")) {
+    const repo = at2("repo");
+    if (!repo) continue;
+    rows2.push({ repo, role: at2("role"), readAt: at2("read at"), knowledge: at2("knowledge") });
+  }
+  return rows2;
+}
+function parsePlanLandings(markdown) {
+  const rows2 = [];
+  for (const at2 of sectionTable(markdown, "landings")) {
+    const landing = at2("landing");
+    if (!landing) continue;
+    const mergeWhen = at2("merge when");
+    rows2.push({ landing: Number(landing), name: at2("name"), mergeWhen: NOTHING.test(mergeWhen) ? "" : mergeWhen });
+  }
+  return rows2;
+}
+function sectionTable(markdown, heading) {
   const lines = markdown.split("\n");
-  const heading = lines.findIndex((line) => /^##\s+repositories\s*$/i.test(line.trim()));
-  if (heading === -1) return [];
+  const start = lines.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line.trim()));
+  if (start === -1) return [];
   let headerIndex = -1;
-  for (let i = heading + 1; i < lines.length; i += 1) {
+  for (let i = start + 1; i < lines.length; i += 1) {
     const line = lines[i] ?? "";
     if (/^#{1,2}\s/.test(line.trim())) break;
     if (isTableRow(line)) {
@@ -33000,14 +33036,9 @@ function parsePlanRepositories(markdown) {
   }
   if (headerIndex === -1) return [];
   const header2 = cells(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
-  const at2 = (row, name) => header2.indexOf(name) === -1 ? "" : plainCell(row[header2.indexOf(name)]);
-  const rows2 = [];
-  for (const row of bodyRows(lines, headerIndex)) {
-    const repo = at2(row, "repo");
-    if (!repo) continue;
-    rows2.push({ repo, role: at2(row, "role"), readAt: at2(row, "read at"), knowledge: at2(row, "knowledge") });
-  }
-  return rows2;
+  return bodyRows(lines, headerIndex).map(
+    (row) => (name) => header2.indexOf(name) === -1 ? "" : plainCell(row[header2.indexOf(name)])
+  );
 }
 function covers(territory, path) {
   return territory.some((declaration) => path.startsWith(prefixOf(declaration)));
@@ -33036,20 +33067,37 @@ function collisions(slices) {
 }
 function sameWaveCollisions(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
-  return collisions(slices).filter(({ left, right }) => waveOf.get(left) === waveOf.get(right)).map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
+  const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
+  return collisions(slices).filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf2.get(left) === landingOf2.get(right)).map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
 }
 function collisionRows(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
+  const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
+  const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
+  const at2 = (id) => `${landed ? `l${landingOf2.get(id)}` : ""}w${waveOf.get(id)}`;
   return collisions(slices).map(({ left, right, shared }) => ({
     pair: `${left} \xB7 ${right}`,
     shared: shared.map((ground) => `\`${ground}\``).join(", "),
-    resolved: `${left} w${waveOf.get(left)} \xB7 ${right} w${waveOf.get(right)}`
+    resolved: `${left} ${at2(left)} \xB7 ${right} ${at2(right)}`
   }));
 }
 
 // kit/lib/board.ts
 function fillBranch(template, values) {
-  return template.replace(/\{(topic|slice)\}/g, (whole2, key) => values[key] ?? whole2);
+  return template.replace(/\{(topic|slice|landings|landing|name)\}/g, (whole2, key) => {
+    const value = values[key];
+    return value === void 0 ? whole2 : String(value);
+  });
+}
+function landingBranches(branches, { topic, landings }) {
+  if (landings.length <= 1) {
+    return [{ landing: 1, name: landings[0]?.name ?? "landing-1", branch: fillBranch(branches.feature, { topic }) }];
+  }
+  return landings.map(({ landing, name }) => ({
+    landing,
+    name,
+    branch: fillBranch(branches.landing, { topic, landing, landings: landings.length, name })
+  }));
 }
 function isMerged(pr) {
   return pr.state === "MERGED" || Boolean(pr.mergedAt);
@@ -33060,8 +33108,9 @@ function isLive(pr) {
 function hasLabel(pr, name) {
   return (pr.labels ?? []).some((label) => (typeof label === "string" ? label : label?.name) === name);
 }
-function matchesFeature(pr, { matchBy, featureBranch, subLabel }) {
-  return matchBy === "label" ? hasLabel(pr, subLabel) : pr.baseRefName === featureBranch;
+function matchesFeature(pr, { matchBy, featureBranch, subLabel, landed }) {
+  if (matchBy !== "label") return pr.baseRefName === featureBranch;
+  return hasLabel(pr, subLabel) && (!landed || pr.baseRefName === featureBranch);
 }
 function timeOf(date5) {
   return date5 === void 0 ? Number.NaN : new Date(date5 ?? 0).getTime();
@@ -33143,19 +33192,23 @@ function boardFor({
   limits,
   config: config3,
   prd: prd2,
-  repos = null
+  repos = null,
+  landings = null
 }) {
   const { topic } = prd2;
-  const featureBranch = fillBranch(config3.branches.feature, { topic });
-  const live = prs.filter(isLive);
+  const ordered = landings ?? [{ landing: 1, name: "landing-1", branch: fillBranch(config3.branches.feature, { topic }) }];
+  const landed = ordered.length > 1;
   const acrossRepos = slices.some((slice) => (slice.repo ?? null) !== null);
+  const entryOf2 = (slice) => ordered.find((entry) => entry.landing === (slice.landing ?? 1) && (!acrossRepos || entry.repo === void 0 || entry.repo === slice.repo));
+  const branchOf2 = (slice) => entryOf2(slice)?.branch ?? "";
+  const live = prs.filter(isLive);
   const repoOf = (slice) => acrossRepos ? repos?.[String(slice.repo)] ?? { slug: null, readable: false } : null;
   const matched = slices.map((slice) => {
     const repo = repoOf(slice);
     if (repo && !repo.readable) return null;
     const sliceBranch = fillBranch(config3.branches.slice, { topic, slice: slice.id });
     const candidates = live.filter(
-      (pr) => pr.headRefName === sliceBranch && (!repo || pr.slug === repo.slug) && matchesFeature(pr, { matchBy: config3.board.matchBy, featureBranch, subLabel: config3.labels.sub })
+      (pr) => pr.headRefName === sliceBranch && (!repo || pr.slug === repo.slug) && matchesFeature(pr, { matchBy: config3.board.matchBy, featureBranch: branchOf2(slice), subLabel: config3.labels.sub, landed })
     );
     return pickPr(candidates);
   });
@@ -33177,7 +33230,308 @@ function boardFor({
     const state = repo.readable ? stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config3.labels.needsFix }) : "unreadable";
     return { ...rest, repo: slice.repo, slug: repo.slug, pr, state };
   });
-  return { prd: { topic }, slices: rows2, frontier: runnableFrontier(rows2) };
+  if (!landed) return { prd: { topic }, slices: rows2, frontier: runnableFrontier(rows2) };
+  const slugOf2 = (entry) => acrossRepos && entry.repo !== void 0 ? repos?.[String(entry.repo)]?.slug ?? null : void 0;
+  const counted3 = ordered.map((entry) => landingRow(entry, { rows: rows2, slices, live, slug: slugOf2(entry), acrossRepos }));
+  const currentOf = /* @__PURE__ */ new Map();
+  for (const row of counted3) {
+    const key = row.repo ?? null;
+    if (!row.complete && !currentOf.has(key)) currentOf.set(key, row.landing);
+  }
+  const landingRows = counted3.map((row) => ({ ...row, current: currentOf.get(row.repo ?? null) === row.landing }));
+  const currentLanding = currentOf.size === 0 ? null : Math.min(...currentOf.values());
+  const inCurrent = new Set(
+    slices.filter((slice) => landingRows.some((row) => row.current && row.slices.includes(slice.id))).map((slice) => slice.id)
+  );
+  return {
+    prd: { topic },
+    slices: rows2,
+    frontier: runnableFrontier(rows2.filter((row) => inCurrent.has(row.id))),
+    landings: landingRows,
+    currentLanding
+  };
+}
+var OPEN_STATES = /* @__PURE__ */ new Set(["stuck", "claimed-stale", "in-flight"]);
+function landingRow(entry, { rows: rows2, slices, live, slug, acrossRepos }) {
+  const mine = (slice) => (slice.landing ?? 1) === entry.landing && (!acrossRepos || entry.repo === void 0 || entry.repo === slice.repo);
+  const ids = slices.filter(mine).map((slice) => slice.id);
+  const own2 = rows2.filter((row) => ids.includes(row.id));
+  const merged = own2.filter((row) => row.state === "merged").length;
+  const open3 = own2.filter((row) => OPEN_STATES.has(row.state)).length;
+  const pr = pickPr(live.filter((candidate) => candidate.headRefName === entry.branch && (slug === void 0 || candidate.slug === slug)));
+  return {
+    ...entry,
+    slices: ids,
+    merged,
+    open: open3,
+    notStarted: own2.length - merged - open3,
+    complete: merged === own2.length,
+    pr: { number: pr?.number ?? null, state: landingPrState(pr), base: pr?.baseRefName ?? null }
+  };
+}
+function landingPrState(pr) {
+  if (!pr) return "absent";
+  if (isMerged(pr)) return "merged";
+  return pr.isDraft ? "draft" : "ready";
+}
+
+// kit/lib/inbox/plan-grade.ts
+init_define_OMNI_BUNDLE();
+var COMMIT = /^[0-9a-f]{40}$/;
+var NO_COMMIT = /^[—–-]$/;
+function duplicateIds(slices) {
+  const counts2 = /* @__PURE__ */ new Map();
+  for (const slice of slices) counts2.set(slice.id, (counts2.get(slice.id) ?? 0) + 1);
+  return [...counts2.entries()].filter(([, count3]) => count3 > 1).map(([id]) => id);
+}
+function blockedByViolations(slices) {
+  const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
+  const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing]));
+  const violations = [];
+  for (const slice of slices) {
+    for (const blocker of slice.blockedBy) {
+      if (!waveOf.has(blocker)) {
+        violations.push(`${slice.id} is blocked by "${blocker}", which names no slice in this plan.`);
+        continue;
+      }
+      const blockerLanding = landingOf2.get(blocker);
+      if (blockerLanding !== slice.landing) {
+        violations.push(
+          `blocked by: ${slice.id} (landing ${slice.landing}) is blocked by ${blocker} (landing ${blockerLanding}) \u2014 a landing waits for the one before it by its order alone, never by a blocker.`
+        );
+        continue;
+      }
+      const blockerWave = waveOf.get(blocker);
+      if (Number(blockerWave) >= Number(slice.wave)) {
+        violations.push(
+          `${slice.id} (wave ${slice.wave}) is blocked by ${blocker} (wave ${blockerWave}) \u2014 a blocker must sit in an earlier wave.`
+        );
+      }
+    }
+  }
+  return violations;
+}
+function isLandingNumber(value) {
+  return Number.isInteger(value) && value >= 1;
+}
+var LANDING_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+function landingViolations(slices, rows2) {
+  const used = [...new Set(slices.map((slice) => slice.landing).filter(isLandingNumber))].sort((a, b) => a - b);
+  return [
+    ...slices.filter((slice) => !isLandingNumber(slice.landing)).map((slice) => `landing: ${slice.id} reads "${slice.landing}", not a whole number from 1.`),
+    ...gapViolations(used),
+    ...rows2.length === 0 ? [] : landingTableViolations(rows2, used)
+  ];
+}
+function gapViolations(used) {
+  const missing = Array.from({ length: used.at(-1) ?? 0 }, (_, index) => index + 1).filter((landing) => !used.includes(landing));
+  return missing.map((landing) => `landing: no slice sits in landing ${landing} \u2014 landings run from 1 with no gap, and this plan uses ${used.join(", ")}.`);
+}
+function landingTableViolations(rows2, used) {
+  const violations = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const row of rows2) {
+    if (!isLandingNumber(row.landing)) {
+      violations.push(`## Landings: a row reads "${row.landing}", not a whole number from 1.`);
+      continue;
+    }
+    if (seen.has(row.landing)) violations.push(`## Landings: landing ${row.landing} has more than one row.`);
+    seen.add(row.landing);
+    if (!used.includes(row.landing)) violations.push(`## Landings: landing ${row.landing} has a row and holds no slice.`);
+    if (!LANDING_NAME.test(row.name)) violations.push(`## Landings: landing ${row.landing} is named "${row.name}", not one kebab-case name.`);
+  }
+  return [...violations, ...used.filter((landing) => !seen.has(landing)).map((landing) => `## Landings: landing ${landing} holds slices and has no row.`)];
+}
+function aloneSplit(slice, alone) {
+  const matches = (prefix) => alone.some((pattern) => pattern.test(prefix));
+  return { alone: slice.territory.filter(matches), other: slice.territory.filter((prefix) => !matches(prefix)) };
+}
+function landAloneViolations(slices, patterns) {
+  if (patterns.length === 0) return [];
+  const alone = patterns.map((source) => new RegExp(source));
+  const split = new Map(slices.map((slice) => [slice.id, aloneSplit(slice, alone)]));
+  const violations = [];
+  for (const slice of slices) {
+    const { alone: aloneGround, other } = split.get(slice.id) ?? { alone: [], other: [] };
+    if (aloneGround.length > 0 && other.length > 0) {
+      violations.push(
+        `landing: ${slice.id} (landing ${slice.landing}) touches ${aloneGround.join(", ")}, which lands alone, and also ${other.join(", ")} \u2014 a slice touching a land-alone path touches nothing else.`
+      );
+    }
+  }
+  for (const landing of new Set(slices.map((slice) => slice.landing))) {
+    const members3 = slices.filter((slice) => slice.landing === landing);
+    const lone = members3.filter((slice) => split.get(slice.id)?.other.length === 0 && slice.territory.length > 0);
+    const rest = members3.filter((slice) => split.get(slice.id)?.alone.length === 0);
+    if (lone.length > 0 && rest.length > 0) {
+      violations.push(
+        `landing: landing ${landing} holds ${lone.map((slice) => slice.id).join(", ")}, which land alone, and ${rest.map((slice) => slice.id).join(", ")}, which do not \u2014 a landing holding a land-alone slice holds only land-alone slices.`
+      );
+    }
+  }
+  return violations;
+}
+function wavesOf(slices) {
+  return [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
+}
+function gradedLandings(slices, rows2) {
+  const numbers = [...new Set(slices.map((slice) => slice.landing))].sort((a, b) => a - b);
+  return numbers.map((landing) => {
+    const row = rows2.find((candidate) => candidate.landing === landing);
+    const members3 = slices.filter((slice) => slice.landing === landing);
+    return {
+      landing,
+      name: row?.name || `landing-${landing}`,
+      mergeWhen: row?.mergeWhen || null,
+      slices: members3.map((slice) => slice.id),
+      waves: wavesOf(members3)
+    };
+  });
+}
+function shortName(slug) {
+  return slug.slice(slug.indexOf("/") + 1);
+}
+function repositoryViolations(slices, repositories, { planSlug, targets: targets2 }) {
+  if (slices.every((slice) => slice.repo === null)) {
+    return ["repo: the slice table has no repo column \u2014 in a plan repository each slice names the repository it lands in."];
+  }
+  const owners = ownersByShortName([...targets2.map((target3) => target3.repo), planSlug]);
+  return [
+    ...shortNameClashes(owners),
+    ...unknownRepoViolations(slices, owners),
+    ...missingRowViolations(slices, repositories, owners),
+    ...repositoryRowViolations(slices, repositories, { owners, planName: shortName(planSlug) })
+  ];
+}
+function ownersByShortName(slugs) {
+  const owners = /* @__PURE__ */ new Map();
+  for (const slug of slugs) {
+    const name = shortName(slug);
+    owners.set(name, [...owners.get(name) ?? [], slug]);
+  }
+  return owners;
+}
+function shortNameClashes(owners) {
+  return [...owners].filter(([, slugs]) => slugs.length > 1).map(([name, slugs]) => `repo: "${name}" is the short name of ${slugs.join(" and ")} \u2014 a slice could not say which.`);
+}
+function unknownRepoViolations(slices, owners) {
+  return slices.filter((slice) => slice.repo === null || !owners.has(slice.repo)).map(
+    (slice) => `repo: ${slice.id} names "${slice.repo}", which is neither a target nor this plan repository (${[...owners.keys()].join(", ")}).`
+  );
+}
+function missingRowViolations(slices, repositories, owners) {
+  const rows2 = new Set(repositories.map((row) => row.repo));
+  const named3 = new Set(slices.map((slice) => slice.repo).filter((name) => name !== null && owners.has(name)));
+  return [...named3].filter((repo) => !rows2.has(repo)).map((repo) => `## Repositories: ${repo} holds slices and has no row.`);
+}
+function repositoryRowViolations(slices, repositories, { owners, planName }) {
+  const violations = [];
+  for (const row of repositories) {
+    const violation2 = rowViolation(row, slices, { owners, planName });
+    if (violation2) violations.push(violation2);
+  }
+  return violations;
+}
+function rowViolation(row, slices, { owners, planName }) {
+  if (!slices.some((slice) => slice.repo === row.repo)) {
+    return `## Repositories: the row ${row.repo} names no slice's repository.`;
+  }
+  if (row.repo === planName) {
+    return NO_COMMIT.test(row.readAt) ? null : `read at: ${row.repo} is the plan repository and reads "${row.readAt}", not \u2014.`;
+  }
+  if (owners.has(row.repo) && !COMMIT.test(row.readAt)) {
+    return `read at: ${row.repo} reads "${row.readAt}", not the full 40-character commit its clone was read at.`;
+  }
+  return null;
+}
+function notPlanRepositoryViolations(slices, repositories) {
+  const violations = [];
+  if (slices.some((slice) => slice.repo !== null)) violations.push("repo: a repo column needs a plan repository.");
+  if (repositories.length > 0) violations.push("## Repositories: a Repositories table needs a plan repository.");
+  return violations;
+}
+function byRepository(slices) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const slice of slices) groups.set(slice.repo, [...groups.get(slice.repo) ?? [], slice]);
+  return groups;
+}
+function gradePlan(markdown, { config: config3 }) {
+  let slices;
+  try {
+    slices = parsePlanSlices(markdown);
+  } catch (error62) {
+    return {
+      slices: [],
+      repositories: [],
+      landings: [],
+      waves: [],
+      multi: false,
+      collisions: [],
+      matrices: [],
+      violations: [messageOf(error62)],
+      parseError: messageOf(error62)
+    };
+  }
+  const repositories = parsePlanRepositories(markdown);
+  const landingRows = parsePlanLandings(markdown);
+  const planSection2 = config3.plan ?? null;
+  const multi = planSection2 !== null && slices.some((slice) => slice.repo !== null);
+  const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
+  const collisions2 = sameWaveCollisions(slices);
+  const landings = gradedLandings(slices, landingRows);
+  const ofLanding = (id) => landings.length > 1 ? ` of landing ${slices.find((slice) => slice.id === id)?.landing}` : "";
+  const violations = [
+    ...planSection2 === null ? notPlanRepositoryViolations(slices, repositories) : repositoryViolations(slices, repositories, { planSlug: defined(config3.repo.slug, "the plan repository's repo.slug"), targets: planSection2.targets }),
+    // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
+    ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
+    ...landingViolations(slices, landingRows),
+    ...landAloneViolations(slices, config3.landings.alone),
+    ...blockedByViolations(slices),
+    ...collisions2.map(
+      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
+    )
+  ];
+  const waves = wavesOf(slices);
+  const matrices = multi ? [...byRepository(slices)].map(([repo, group2]) => ({ repo, rows: collisionRows(group2) })) : [{ repo: null, rows: collisionRows(slices) }];
+  return { slices, repositories, landings, waves, multi, collisions: collisions2, matrices, violations, parseError: null };
+}
+
+// kit/lib/landings/landing-plan.ts
+init_define_OMNI_BUNDLE();
+function landingPlan({
+  landings,
+  slices,
+  branches,
+  defaultBranch,
+  topic,
+  repo = null
+}) {
+  const mine = slices.filter((slice) => repo === null || slice.repo === repo);
+  const kept = landings.filter((landing) => mine.some((slice) => slice.landing === landing.landing));
+  const chain = landingBranches(branches, {
+    topic,
+    landings: kept.map((landing, index) => ({ landing: index + 1, name: landing.name }))
+  });
+  return kept.map((landing, index) => ({
+    landing: index + 1,
+    planLanding: landing.landing,
+    count: kept.length,
+    name: landing.name,
+    mergeWhen: landing.mergeWhen,
+    branch: chain[index]?.branch ?? "",
+    base: index === 0 ? defaultBranch : chain[index - 1]?.branch ?? defaultBranch,
+    titleSuffix: kept.length > 1 ? ` (${index + 1}/${kept.length})` : "",
+    mergeAfter: mergeAfterOf(kept, index),
+    slices: mine.filter((slice) => slice.landing === landing.landing).map(({ id, title }) => ({ id, title }))
+  }));
+}
+function mergeAfterOf(kept, index) {
+  const before = kept[index - 1];
+  return index === 0 || before === void 0 ? null : { landing: index, name: before.name };
+}
+function mergeAfterLine(step) {
+  if (step.mergeAfter === null) return null;
+  return `Merge after landing ${step.mergeAfter.landing} (${step.mergeAfter.name}) is deployed.`;
 }
 
 // kit/bin/commands/board.ts
@@ -33203,7 +33557,7 @@ var PR_FIELDS = ["number", "title", "headRefName", "baseRefName", "state", "isDr
 function narrowingArgs({ matchBy, featureBranch, subLabel }) {
   return matchBy === "label" ? ["--label", subLabel] : ["--base", featureBranch];
 }
-function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel }) {
+function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel, head = null }) {
   const options = { encoding: "utf8", ...env ? { env } : {} };
   const raw = exec(
     "gh",
@@ -33218,7 +33572,7 @@ function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel }) {
       "all",
       "--limit",
       "200",
-      ...narrowingArgs({ matchBy, featureBranch, subLabel })
+      ...head === null ? narrowingArgs({ matchBy, featureBranch, subLabel }) : ["--head", head]
     ],
     options
   );
@@ -33246,6 +33600,12 @@ function tableLine(row, repoWidth) {
   const repoCol = row.repo === void 0 ? "" : `${defined(row.repo, `the repository of ${row.id}`).padEnd(repoWidth)}  `;
   return `  ${row.id.padEnd(6)} ${repoCol}w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
 }
+function landingLine(landing) {
+  const pr = landing.pr.number === null ? "no PR" : `#${landing.pr.number} ${landing.pr.state}`;
+  const counts2 = `${landing.merged}/${landing.slices.length} merged, ${landing.open} open, ${landing.notStarted} not started`;
+  const where = landing.repo === void 0 || landing.repo === null ? "" : `${landing.repo} `;
+  return ` ${where}landing ${landing.landing} (${landing.name}) ${landing.branch} \u2014 ${counts2} \u2014 ${pr}${landing.current ? " \u2014 current" : ""}`;
+}
 function buildBoard(prd2, { ctx, exec, env, repo: repoFlag, now = Date.now() }) {
   const { markdown } = readPlan(prd2, { ctx });
   let slices;
@@ -33255,51 +33615,72 @@ function buildBoard(prd2, { ctx, exec, env, repo: repoFlag, now = Date.now() }) 
     throw usageError(`omni board: ${errorMessage(error62)}`);
   }
   const topic = topicFor(prd2, { ctx });
-  const featureBranch = fillBranch(ctx.config.branches.feature, { topic });
+  const planLandings = gradedLandings(slices, parsePlanLandings(markdown));
+  const landings = landingBranches(ctx.config.branches, { topic, landings: planLandings });
+  const landed = landings.length > 1 ? landings : null;
   const repo = repoSlug("board", ctx, repoFlag);
-  const ghEnv = githubEnv(ctx, { exec, env });
-  const matchBy = ctx.config.board.matchBy;
-  const subLabel = ctx.config.labels.sub;
-  const staleMinutes = ctx.config.limits.claimStaleMinutes;
-  const read2 = (slug) => {
-    const listed2 = fetchPrList({ repo: slug, exec, env: ghEnv, matchBy, featureBranch, subLabel });
-    return fetchHeadCommitDates(listed2, { repo: slug, exec, env: ghEnv, now, staleMinutes });
+  const reader = {
+    exec,
+    env: githubEnv(ctx, { exec, env }),
+    now,
+    matchBy: ctx.config.board.matchBy,
+    featureBranch: fillBranch(ctx.config.branches.feature, { topic }),
+    subLabel: ctx.config.labels.sub,
+    staleMinutes: ctx.config.limits.claimStaleMinutes
   };
+  const board2 = (prs, more) => boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, ...more });
   if (slices.every((slice) => slice.repo === null)) {
-    const prs2 = read2(repo);
-    const result2 = boardFor({ slices, prs: prs2, now, limits: ctx.config.limits, config: ctx.config, prd: { topic } });
-    return { slices, result: result2, unreadable: [] };
+    return { slices, result: board2(readPrs(repo, landed, reader), { landings: landed }), unreadable: [], landings };
   }
-  const known = knownRepositories(ctx, repo);
-  const repos = {};
-  const prs = [];
-  const unreadable2 = [];
+  const chainOf = (name) => landed === null ? null : landingPlan({ landings: planLandings, slices, branches: ctx.config.branches, defaultBranch: ctx.config.repo.defaultBranch, topic, repo: name }).map(
+    (step) => ({ landing: step.planLanding, name: step.name, branch: step.branch, repo: name })
+  );
+  const across = readAcrossRepos(slices, { known: knownRepositories(ctx, repo), chainOf, reader });
+  const chains = landed === null ? null : across.chains;
+  return { slices, result: board2(across.prs, { repos: across.repos, landings: chains }), unreadable: across.unreadable, landings: chains ?? landings };
+}
+function readPrs(slug, chain, reader) {
+  const { exec, env, now, staleMinutes, ...narrowing } = reader;
+  const list3 = (more) => fetchPrList({ repo: slug, exec, env, ...narrowing, ...more });
+  let prs;
+  if (chain === null) prs = list3({});
+  else {
+    const subs = narrowing.matchBy === "label" ? list3({}) : chain.flatMap(({ branch }) => list3({ featureBranch: branch }));
+    const byNumber = /* @__PURE__ */ new Map();
+    for (const pr of [...subs, ...chain.flatMap(({ branch }) => list3({ head: branch }))]) if (!byNumber.has(pr.number)) byNumber.set(pr.number, pr);
+    prs = [...byNumber.values()];
+  }
+  return fetchHeadCommitDates(prs, { repo: slug, exec, env, now, staleMinutes });
+}
+function readAcrossRepos(slices, { known, chainOf, reader }) {
+  const out = { prs: [], repos: {}, unreadable: [], chains: [] };
   for (const name of new Set(slices.map((slice) => slice.repo))) {
+    const chain = chainOf(name);
+    out.chains.push(...chain ?? []);
     const key = String(name);
     const slug = (typeof name === "string" ? known.get(name) : void 0) ?? null;
     if (slug === null) {
-      repos[key] = { slug: null, readable: false };
-      unreadable2.push({ repo: name, slug: null, reason: "neither a target nor this plan repository" });
+      out.repos[key] = { slug: null, readable: false };
+      out.unreadable.push({ repo: name, slug: null, reason: "neither a target nor this plan repository" });
       continue;
     }
     try {
-      prs.push(...read2(slug).map((pr) => ({ ...pr, slug })));
-      repos[key] = { slug, readable: true };
+      out.prs.push(...readPrs(slug, chain, reader).map((pr) => ({ ...pr, slug })));
+      out.repos[key] = { slug, readable: true };
     } catch (error62) {
-      repos[key] = { slug, readable: false };
-      unreadable2.push({ repo: name, slug, reason: ghReason(error62) });
+      out.repos[key] = { slug, readable: false };
+      out.unreadable.push({ repo: name, slug, reason: ghReason(error62) });
     }
   }
-  const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, repos });
-  return { slices, result, unreadable: unreadable2 };
+  return out;
 }
-function shortName(slug) {
+function shortName2(slug) {
   return slug.slice(slug.indexOf("/") + 1);
 }
 function knownRepositories(ctx, planSlug) {
   const known = /* @__PURE__ */ new Map();
-  for (const target3 of ctx.config.plan?.targets ?? []) known.set(shortName(target3.repo), target3.repo);
-  known.set(shortName(planSlug), planSlug);
+  for (const target3 of ctx.config.plan?.targets ?? []) known.set(shortName2(target3.repo), target3.repo);
+  known.set(shortName2(planSlug), planSlug);
   return known;
 }
 function textOf2(value) {
@@ -33310,6 +33691,32 @@ function ghReason(error62) {
   const lines = `${textOf2(propertyOf(error62, "stderr"))}
 ${textOf2(propertyOf(error62, "message"))}`.split("\n").map((line) => line.trim()).filter(Boolean);
   return lines[0] ?? "gh could not read it";
+}
+function printRows(stdout, result) {
+  const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? "").length));
+  if (result.landings === void 0) {
+    for (const row of result.slices) println(stdout, tableLine(row, repoWidth));
+    return;
+  }
+  for (const landing of result.landings) {
+    println(stdout, landingLine(landing));
+    for (const row of result.slices.filter((candidate) => landing.slices.includes(candidate.id))) println(stdout, tableLine(row, repoWidth));
+  }
+}
+function printFrontier(stdout, result) {
+  const { frontier } = result;
+  if (frontier.wave === null) {
+    println(stdout, "omni board \u2014 runnable frontier: none \u2014 nothing is takeable right now.");
+    if (result.landings !== void 0 && result.currentLanding === null) println(stdout, "omni board \u2014 every landing has all its slices merged.");
+    return;
+  }
+  const takeable = frontier.takeable.join(", ") || "(none \u2014 every candidate collides with another)";
+  const where = result.currentLanding === void 0 ? "" : ` of landing ${result.currentLanding}`;
+  println(stdout, `omni board \u2014 runnable frontier: wave ${frontier.wave}${where} \u2014 takeable: ${takeable}`);
+  println(stdout, `omni board \u2014 of which runnable (unclaimed): ${frontier.runnable.join(", ") || "(none)"}`);
+  if (frontier.excluded.length > 0) {
+    println(stdout, `omni board \u2014 deferred by a same-wave territory collision (kept the earlier slice in plan order): ${frontier.excluded.join(", ")}`);
+  }
 }
 var board = {
   run: synchronous((args, { ctx, stdout, exec, env }) => {
@@ -33322,40 +33729,56 @@ var board = {
       return 0;
     }
     println(stdout, `omni board \u2014 PRD ${prd2}: ${slices.length} slice(s).`);
-    const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? "").length));
-    for (const row of result.slices) println(stdout, tableLine(row, repoWidth));
+    printRows(stdout, result);
     for (const { repo, slug, reason: reason2 } of unreadable2) {
       println(stdout, `omni board \u2014 cannot read ${slug ?? repo}: ${reason2} \u2014 its slices are unreadable.`);
     }
-    printFrontier(stdout, result.frontier);
+    printFrontier(stdout, result);
     return 0;
   })
 };
-function printFrontier(stdout, frontier) {
-  if (frontier.wave === null) {
-    println(stdout, "omni board \u2014 runnable frontier: none \u2014 nothing is takeable right now.");
-    return;
-  }
-  const takeable = frontier.takeable.join(", ") || "(none \u2014 every candidate collides with another)";
-  println(stdout, `omni board \u2014 runnable frontier: wave ${frontier.wave} \u2014 takeable: ${takeable}`);
-  println(stdout, `omni board \u2014 of which runnable (unclaimed): ${frontier.runnable.join(", ") || "(none)"}`);
-  if (frontier.excluded.length > 0) {
-    println(
-      stdout,
-      `omni board \u2014 deferred by a same-wave territory collision (kept the earlier slice in plan order): ${frontier.excluded.join(", ")}`
-    );
-  }
-}
 
 // kit/bin/commands/care.ts
 init_define_OMNI_BUNDLE();
+
+// kit/lib/care/chain.ts
+init_define_OMNI_BUNDLE();
+function openLandings(landings) {
+  return landings.flatMap(
+    (row) => (row.pr.state === "draft" || row.pr.state === "ready") && row.pr.number !== null ? [{ landing: row.landing, pr: row.pr.number, branch: row.branch }] : []
+  );
+}
+function landingChain(landings, defaultBranch) {
+  for (const [index, row] of landings.entries()) {
+    const before = landings[index - 1];
+    if (before === void 0 || before.pr.state !== "merged" || before.pr.number === null) continue;
+    if (row.pr.state !== "draft" && row.pr.state !== "ready" || row.pr.number === null) continue;
+    return [
+      {
+        landing: row.landing,
+        pr: row.pr.number,
+        branch: row.branch,
+        base: row.pr.base,
+        retarget: row.pr.base !== defaultBranch,
+        after: { landing: before.landing, pr: before.pr.number, branch: before.branch },
+        later: openLandings(landings.slice(index + 1))
+      }
+    ];
+  }
+  return [];
+}
+function landingPrToWatch(landings) {
+  const open3 = openLandings(landings)[0];
+  if (open3) return open3.pr;
+  return [...landings].reverse().find((row) => row.pr.number !== null)?.pr.number ?? null;
+}
 
 // kit/lib/care/decide.ts
 init_define_OMNI_BUNDLE();
 function decideRound(state) {
   if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
   if (state.wave?.holdsClaims !== false) return { mode: "report-only", actions: [{ kind: "status" }] };
-  const actions = [];
+  const actions = (state.chain ?? []).map((link2) => ({ kind: "restack", ...link2 }));
   if (state.mergeable === "CONFLICTING") actions.push({ kind: "merge-base", base: state.pr.base });
   const { checks } = state;
   if (checks.state === "red" && checks.fixable && !checks.stuck) actions.push({ kind: "fix-ci", failed: checks.failed });
@@ -33592,10 +34015,17 @@ function waveClaims(prd2, { ctx, exec, env, repo }) {
   try {
     const { result } = buildBoard(prd2, { ctx, exec, env, repo });
     const claimed2 = result.slices.filter((row) => CLAIM_STATES.has(row.state)).map((row) => row.id);
-    return { holdsClaims: claimed2.length > 0, claimed: claimed2 };
+    return { wave: { holdsClaims: claimed2.length > 0, claimed: claimed2 }, landings: result.landings ?? null };
   } catch (error62) {
-    return { holdsClaims: null, claimed: [], unreadable: String(propertyOf(error62, "message") ?? error62).split("\n")[0] ?? "" };
+    return {
+      wave: { holdsClaims: null, claimed: [], unreadable: String(propertyOf(error62, "message") ?? error62).split("\n")[0] ?? "" },
+      landings: null
+    };
   }
+}
+function watchedPr({ flag, landed, find }) {
+  if (flag !== void 0) return prArg("care", "--pr", flag);
+  return landed === null ? find() : landingPrToWatch(landed);
 }
 function runState(args, { ctx, stdout, stderr, exec, env }) {
   const { positional, flags } = parseArgs("care", args, { values: ["pr", "repo"] });
@@ -33604,9 +34034,12 @@ function runState(args, { ctx, stdout, stderr, exec, env }) {
   const repo = repoSlug("care", ctx, flags.repo);
   const branch = featureBranchFor(prd2, ctx);
   const ghEnv = githubEnv(ctx, { exec, env });
-  const number4 = flags.pr !== void 0 ? prArg("care", "--pr", flags.pr) : findFeaturePr({ repo, branch, exec, env: ghEnv });
+  const { wave, landings } = waveClaims(prd2, { ctx, exec, env, repo: flags.repo });
+  const landed = landings !== null && landings.length > 1 ? landings : null;
+  const number4 = watchedPr({ flag: flags.pr, landed, find: () => findFeaturePr({ repo, branch, exec, env: ghEnv }) });
   if (number4 === null) {
-    println(stderr, `omni care: PRD ${prd2} has no feature PR yet (no pull request from ${branch}).`);
+    const from = landed === null ? branch : landed.map((landing) => landing.branch).join(", ");
+    println(stderr, `omni care: PRD ${prd2} has no feature PR yet (no pull request from ${from}).`);
     return 1;
   }
   const [owner, name] = repo.split("/");
@@ -33616,8 +34049,8 @@ function runState(args, { ctx, stdout, stderr, exec, env }) {
     needsFixLabel: ctx.config.labels.needsFix,
     gateContexts: [ctx.config.ci.outboxContext, ctx.config.ci.inboxContext].filter(Boolean)
   });
-  const wave = waveClaims(prd2, { ctx, exec, env, repo: flags.repo });
-  const full = { prd: prd2, ...state, wave };
+  const chain = landed === null ? [] : landingChain(landed, ctx.config.repo.defaultBranch);
+  const full = { prd: prd2, ...state, wave, ...landed === null ? {} : { landings: landed, chain } };
   println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
   return 0;
 }
@@ -34264,7 +34697,7 @@ function violationsForFile(file2, folder, text7, ctx) {
   }
   return { record: record2, violations };
 }
-function blockedByViolations(records, ctx) {
+function blockedByViolations2(records, ctx) {
   const violations = [];
   for (const record2 of records) {
     if (record2.blockedBy === "none") continue;
@@ -34314,7 +34747,7 @@ function findInboxViolations({ ctx }) {
     violations.push(...graded.violations);
     if (graded.record) records.push(graded.record);
   }
-  violations.push(...blockedByViolations(records, ctx));
+  violations.push(...blockedByViolations2(records, ctx));
   return violations;
 }
 
@@ -34387,8 +34820,8 @@ function findLayoutViolations(ctx, knowledge2, { glossaryText = "" } = {}) {
   return violations;
 }
 function glossaryHolds(glossaryText, term) {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(^|[^\\w])${escaped}([^\\w]|$)`, "i").test(glossaryText);
+  const escaped2 = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^\\w])${escaped2}([^\\w]|$)`, "i").test(glossaryText);
 }
 function findCrossDomainFileViolations(knowledge2) {
   const known = new Set(knowledge2.domains.map((domain2) => domain2.name));
@@ -36392,7 +36825,7 @@ function cell(text7, width, gap = 1) {
   return value.length + gap > width ? `${value}${" ".repeat(gap)}` : value.padEnd(width);
 }
 var joined2 = (parts) => parts.length ? parts.join(" \xB7 ") : "none";
-var shortName2 = (repo) => repo.slice(repo.indexOf("/") + 1);
+var shortName3 = (repo) => repo.slice(repo.indexOf("/") + 1);
 var counted = (count3, one, many) => `${count3} ${count3 === 1 ? one : many}`;
 var signatureLine = (signatures) => `signed ${signatures.signed} \xB7 before signing ${signatures["before signing"]} \xB7 missed ${signatures.missed}`;
 function creditsReport({ name, scope, since, summary }) {
@@ -36411,7 +36844,7 @@ function creditsReport({ name, scope, since, summary }) {
   }
   if (commits !== null) lines.push(`Co-authored commits on default branches: ${commits}`);
   lines.push(
-    cell("By repo", LABEL) + joined2(byRepo.map(({ repo, count: count3 }) => `${shortName2(repo)} ${count3}`)),
+    cell("By repo", LABEL) + joined2(byRepo.map(({ repo, count: count3 }) => `${shortName3(repo)} ${count3}`)),
     cell("By month", LABEL) + joined2(byMonth.map(({ month, count: count3 }) => `${month} ${count3}`))
   );
   return lines;
@@ -36419,7 +36852,7 @@ function creditsReport({ name, scope, since, summary }) {
 var cellOf = (row, index) => row[index] ?? "";
 function creditsList(items) {
   const rows2 = items.map((item2) => [
-    shortName2(item2.repo),
+    shortName3(item2.repo),
     `#${item2.number}`,
     item2.kind,
     item2.state,
@@ -38116,8 +38549,8 @@ function attempt4(fn) {
 }
 function topicOf(template, branch) {
   if (typeof template !== "string" || !template.includes("{topic}")) return null;
-  const escaped = template.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`^${escaped.replace(/\{topic\}/, "(.+?)").replace(/\{slice\}/, "[^/]+")}$`);
+  const escaped2 = template.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`^${escaped2.replace(/\{topic\}/, "(.+?)").replace(/\{slice\}/, "[^/]+")}$`);
   return pattern.exec(branch)?.[1] ?? null;
 }
 function numberOf(topic, folders) {
@@ -38561,9 +38994,9 @@ var ENTRIES = deepFreeze([
     name: "plan",
     kind: "command",
     who: "skills",
-    usage: ["omni plan check <prd>", "omni plan moved <prd> [--json]"],
-    summary: "grade a PRD's plan, or see what moved in its targets",
-    detail: "check grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the same plan in an earlier wave, no id is used twice, and no two slices of one wave share ground. It prints the slices, the waves and where they meet, then every violation; exit 1 on any. moved, in a plan repository, compares each target's read at with its default branch today: moved with the files changed under its slices' territories, ok, or unreachable; exit 0 whatever the states, 1 with not a plan repository."
+    usage: ["omni plan check <prd>", "omni plan moved <prd> [--json]", "omni plan landings <prd> [--json] [--repo <name>]"],
+    summary: "grade a PRD's plan, see what moved in its targets, or list its landings",
+    detail: "check grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the same plan in an earlier wave of the same landing, no id is used twice, no two slices of one wave share ground, landings run from 1 with no gap, and paths that land alone travel alone. It prints the slices, the waves and where they meet, then every violation; exit 1 on any. moved, in a plan repository, compares each target's read at with its default branch today: moved with the files changed under its slices' territories, ok, or unreachable; exit 0 whatever the states, 1 with not a plan repository. landings prints the chain of landing branches the PRD is opened as: each branch, the branch it is cut from, its title suffix, the landing it is merged after and its slices; --repo keeps one target of a plan repository."
   },
   {
     name: "rework",
@@ -40924,136 +41357,6 @@ init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync43 } from "node:fs";
 import { join as join54 } from "node:path";
 
-// kit/lib/inbox/plan-grade.ts
-init_define_OMNI_BUNDLE();
-var COMMIT = /^[0-9a-f]{40}$/;
-var NO_COMMIT = /^[—–-]$/;
-function duplicateIds(slices) {
-  const counts2 = /* @__PURE__ */ new Map();
-  for (const slice of slices) counts2.set(slice.id, (counts2.get(slice.id) ?? 0) + 1);
-  return [...counts2.entries()].filter(([, count3]) => count3 > 1).map(([id]) => id);
-}
-function blockedByViolations2(slices) {
-  const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
-  const violations = [];
-  for (const slice of slices) {
-    for (const blocker of slice.blockedBy) {
-      if (!waveOf.has(blocker)) {
-        violations.push(`${slice.id} is blocked by "${blocker}", which names no slice in this plan.`);
-        continue;
-      }
-      const blockerWave = waveOf.get(blocker);
-      if (Number(blockerWave) >= Number(slice.wave)) {
-        violations.push(
-          `${slice.id} (wave ${slice.wave}) is blocked by ${blocker} (wave ${blockerWave}) \u2014 a blocker must sit in an earlier wave.`
-        );
-      }
-    }
-  }
-  return violations;
-}
-function shortName3(slug) {
-  return slug.slice(slug.indexOf("/") + 1);
-}
-function repositoryViolations(slices, repositories, { planSlug, targets: targets2 }) {
-  if (slices.every((slice) => slice.repo === null)) {
-    return ["repo: the slice table has no repo column \u2014 in a plan repository each slice names the repository it lands in."];
-  }
-  const owners = ownersByShortName([...targets2.map((target3) => target3.repo), planSlug]);
-  return [
-    ...shortNameClashes(owners),
-    ...unknownRepoViolations(slices, owners),
-    ...missingRowViolations(slices, repositories, owners),
-    ...repositoryRowViolations(slices, repositories, { owners, planName: shortName3(planSlug) })
-  ];
-}
-function ownersByShortName(slugs) {
-  const owners = /* @__PURE__ */ new Map();
-  for (const slug of slugs) {
-    const name = shortName3(slug);
-    owners.set(name, [...owners.get(name) ?? [], slug]);
-  }
-  return owners;
-}
-function shortNameClashes(owners) {
-  return [...owners].filter(([, slugs]) => slugs.length > 1).map(([name, slugs]) => `repo: "${name}" is the short name of ${slugs.join(" and ")} \u2014 a slice could not say which.`);
-}
-function unknownRepoViolations(slices, owners) {
-  return slices.filter((slice) => slice.repo === null || !owners.has(slice.repo)).map(
-    (slice) => `repo: ${slice.id} names "${slice.repo}", which is neither a target nor this plan repository (${[...owners.keys()].join(", ")}).`
-  );
-}
-function missingRowViolations(slices, repositories, owners) {
-  const rows2 = new Set(repositories.map((row) => row.repo));
-  const named3 = new Set(slices.map((slice) => slice.repo).filter((name) => name !== null && owners.has(name)));
-  return [...named3].filter((repo) => !rows2.has(repo)).map((repo) => `## Repositories: ${repo} holds slices and has no row.`);
-}
-function repositoryRowViolations(slices, repositories, { owners, planName }) {
-  const violations = [];
-  for (const row of repositories) {
-    const violation2 = rowViolation(row, slices, { owners, planName });
-    if (violation2) violations.push(violation2);
-  }
-  return violations;
-}
-function rowViolation(row, slices, { owners, planName }) {
-  if (!slices.some((slice) => slice.repo === row.repo)) {
-    return `## Repositories: the row ${row.repo} names no slice's repository.`;
-  }
-  if (row.repo === planName) {
-    return NO_COMMIT.test(row.readAt) ? null : `read at: ${row.repo} is the plan repository and reads "${row.readAt}", not \u2014.`;
-  }
-  if (owners.has(row.repo) && !COMMIT.test(row.readAt)) {
-    return `read at: ${row.repo} reads "${row.readAt}", not the full 40-character commit its clone was read at.`;
-  }
-  return null;
-}
-function notPlanRepositoryViolations(slices, repositories) {
-  const violations = [];
-  if (slices.some((slice) => slice.repo !== null)) violations.push("repo: a repo column needs a plan repository.");
-  if (repositories.length > 0) violations.push("## Repositories: a Repositories table needs a plan repository.");
-  return violations;
-}
-function byRepository(slices) {
-  const groups = /* @__PURE__ */ new Map();
-  for (const slice of slices) groups.set(slice.repo, [...groups.get(slice.repo) ?? [], slice]);
-  return groups;
-}
-function gradePlan(markdown, { config: config3 }) {
-  let slices;
-  try {
-    slices = parsePlanSlices(markdown);
-  } catch (error62) {
-    return {
-      slices: [],
-      repositories: [],
-      waves: [],
-      multi: false,
-      collisions: [],
-      matrices: [],
-      violations: [messageOf(error62)],
-      parseError: messageOf(error62)
-    };
-  }
-  const repositories = parsePlanRepositories(markdown);
-  const planSection2 = config3.plan ?? null;
-  const multi = planSection2 !== null && slices.some((slice) => slice.repo !== null);
-  const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
-  const collisions2 = sameWaveCollisions(slices);
-  const violations = [
-    ...planSection2 === null ? notPlanRepositoryViolations(slices, repositories) : repositoryViolations(slices, repositories, { planSlug: defined(config3.repo.slug, "the plan repository's repo.slug"), targets: planSection2.targets }),
-    // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
-    ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
-    ...blockedByViolations2(slices),
-    ...collisions2.map(
-      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
-    )
-  ];
-  const waves = [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
-  const matrices = multi ? [...byRepository(slices)].map(([repo, group2]) => ({ repo, rows: collisionRows(group2) })) : [{ repo: null, rows: collisionRows(slices) }];
-  return { slices, repositories, waves, multi, collisions: collisions2, matrices, violations, parseError: null };
-}
-
 // kit/lib/plan-repo/moved.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync12 } from "node:child_process";
@@ -41117,7 +41420,7 @@ function movedTable(rows2) {
 }
 
 // kit/bin/commands/plan.ts
-var USAGE16 = "usage: omni plan check <prd> | omni plan moved <prd> [--json]";
+var USAGE16 = "usage: omni plan check <prd> | omni plan moved <prd> [--json] | omni plan landings <prd> [--json] [--repo <name>]";
 function counted2(count3, singular, pluralForm) {
   return `${count3} ${count3 === 1 ? singular : pluralForm}`;
 }
@@ -41165,19 +41468,58 @@ function moved(rest, { ctx, stdout, exec, env }) {
   else for (const line of movedTable(rows2)) println(stdout, line);
   return 0;
 }
+function landingsCommand(rest, { ctx, stdout }) {
+  const { positional, flags } = parseArgs("plan landings", rest, { values: ["repo"], booleans: ["json"] });
+  if (positional.length !== 1) throw usageError(USAGE16);
+  const prd2 = prdArg("plan landings", "<prd>", positional[0]);
+  const { planPath, slices, landings, violations } = checkPlan(prd2, { ctx });
+  if (violations.length > 0) {
+    println(stdout, `omni plan landings \u2014 PRD ${prd2}: ${planPath} does not pass omni plan check: ${violations[0]}`);
+    return 1;
+  }
+  const where = ctx.layout.whereIs(prd2);
+  const topic = where ? parseFolderName(where.name)?.topic : void 0;
+  if (topic === void 0) throw usageError(`omni plan landings: cannot read a topic for PRD ${prd2}.`);
+  const chain = landingPlan({
+    landings,
+    slices,
+    branches: ctx.config.branches,
+    defaultBranch: ctx.config.repo.defaultBranch,
+    topic,
+    repo: flags.repo ?? null
+  });
+  if (flags.json) {
+    println(stdout, JSON.stringify(chain.map((step) => ({ ...step, mergeAfterLine: mergeAfterLine(step) })), null, 2));
+    return 0;
+  }
+  println(stdout, `omni plan landings \u2014 PRD ${prd2}: ${counted2(chain.length, "landing", "landings")}.`);
+  for (const step of chain) {
+    const ids = step.slices.map((slice) => slice.id).join(", ");
+    println(stdout, `  ${step.landing}/${step.count} ${step.name}: ${step.branch} \u2190 ${step.base} \u2014 ${ids}`);
+  }
+  return 0;
+}
 var plan = {
   run: synchronous((args, { ctx, stdout, exec, env }) => {
     const [sub, ...rest] = args;
     if (sub === "moved") return moved(rest, { ctx, stdout, exec, env });
+    if (sub === "landings") return landingsCommand(rest, { ctx, stdout });
     if (sub !== "check") throw usageError(USAGE16);
     const { positional } = parseArgs("plan check", rest);
     if (positional.length !== 1) throw usageError(USAGE16);
     const prd2 = prdArg("plan check", "<prd>", positional[0]);
-    const { planPath, slices, waves, multi, matrices, violations } = checkPlan(prd2, { ctx });
+    const { planPath, slices, landings, waves, multi, matrices, violations } = checkPlan(prd2, { ctx });
     println(
       stdout,
       `omni plan check \u2014 PRD ${prd2}: ${slices.length} slice(s) across wave(s) ${waves.join(", ")} (${planPath}).`
     );
+    if (landings.length > 1) {
+      println(stdout, `omni plan check \u2014 ${counted2(landings.length, "landing", "landings")}, merged in order:`);
+      for (const { landing, name, mergeWhen, slices: members3, waves: landingWaves } of landings) {
+        const when = mergeWhen === null ? "" : ` \u2014 merge when ${mergeWhen}`;
+        println(stdout, `  landing ${landing} (${name}): wave(s) ${landingWaves.join(", ")} \u2014 ${members3.join(", ")}${when}`);
+      }
+    }
     if (multi) {
       const repos = new Set(slices.map((slice) => slice.repo)).size;
       println(
@@ -42504,25 +42846,52 @@ function unlessUnreadable(read2) {
 function featuresOf(ctx, exec, base, inbox, remote) {
   const out = [];
   for (const { prd: prd2, topic, name } of inbox) {
-    const branch = fillBranch(ctx.config.branches.feature, { topic });
-    const ref = remote.get(branch);
-    if (!ref) continue;
-    const feature = unlessUnreadable(() => {
-      const beyond = commitsIn(ctx, exec, `${base}..${ref}`);
-      return {
-        branch,
-        topic,
-        forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
-        differs: changedOutside(ctx, exec, [base, ref]),
-        outbox: filesUnder2(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`),
-        ships: foldersAt(ctx, exec, ref, ctx.layout.dirs.shipped).some((folder) => folder.prd === prd2),
-        authors: authorsOf(beyond),
-        touched: touchedBy(ctx, beyond)
-      };
-    });
-    if (feature) out.push(feature);
+    const feature = fillBranch(ctx.config.branches.feature, { topic });
+    const branches = [{ branch: feature }];
+    for (const branch of remote.keys()) {
+      const landing = landingOf(branch, ctx.config.branches.landing, topic);
+      if (landing && branch !== feature) branches.push({ branch, landing });
+    }
+    for (const { branch, landing } of branches) {
+      const ref = remote.get(branch);
+      if (!ref) continue;
+      const facts = unlessUnreadable(() => {
+        const beyond = commitsIn(ctx, exec, `${base}..${ref}`);
+        return {
+          branch,
+          topic,
+          ...landing ? { landing } : {},
+          forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
+          differs: changedOutside(ctx, exec, [base, ref]),
+          outbox: filesUnder2(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`),
+          ships: foldersAt(ctx, exec, ref, ctx.layout.dirs.shipped).some((folder) => folder.prd === prd2),
+          authors: authorsOf(beyond),
+          touched: touchedBy(ctx, beyond)
+        };
+      });
+      if (facts) out.push(facts);
+    }
   }
   return out;
+}
+var escaped = (text7) => text7.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function landingOf(branch, template, topic) {
+  const keys = [];
+  const source = template.split(/(\{(?:topic|landings|landing|name)\})/).map((part) => {
+    if (part === "{topic}") return escaped(topic);
+    if (part === "{landing}" || part === "{landings}" || part === "{name}") {
+      keys.push(part);
+      return part === "{name}" ? "([a-z0-9]+(?:-[a-z0-9]+)*)" : "(\\d+)";
+    }
+    return escaped(part);
+  }).join("");
+  const match = new RegExp(`^${source}$`).exec(branch);
+  if (!match) return null;
+  const value = (key) => match[keys.indexOf(key) + 1];
+  const landing = Number(value("{landing}"));
+  const landings = Number(value("{landings}"));
+  if (!Number.isInteger(landing) || !Number.isInteger(landings) || landing < 1 || landing > landings) return null;
+  return { landing, landings, name: value("{name}") ?? `landing-${landing}` };
 }
 function phase0Of(ctx, exec, base, remote) {
   const out = [];
@@ -42600,10 +42969,36 @@ function buildingAndOutboxOf(inbox, features) {
     const mine = features.filter((feature) => feature.topic === topic);
     if (mine.length === 0) continue;
     const openItems2 = mine.reduce((sum, feature) => sum + feature.outbox.filter(isOpenItem).length, 0);
-    if (mine.some((feature) => feature.ships)) out.outbox.push({ prd: prd2, topic, openItems: openItems2 });
-    else if (openItems2 > 0 || mine.some(isBuilt)) out.building.push({ prd: prd2, topic, openItems: openItems2 });
+    const landings = landingsOf(mine);
+    const entry = { prd: prd2, topic, openItems: openItems2, ...landings ? { landings } : {} };
+    if (mine.some((feature) => feature.ships)) out.outbox.push(entry);
+    else if (openItems2 > 0 || mine.some(isBuilt)) out.building.push(entry);
   }
   return out;
+}
+function landingsOf(features) {
+  const landed = features.filter((feature) => feature.landing !== void 0);
+  if (landed.length === 0) return void 0;
+  const count3 = Math.max(...landed.map((feature) => feature.landing?.landings ?? 0));
+  const statuses = [];
+  for (let landing = 1; landing <= count3; landing += 1) {
+    const own2 = landed.find((feature) => feature.landing?.landing === landing);
+    const later = landed.some((feature) => (feature.landing?.landing ?? 0) > landing);
+    const before = statuses.at(-1);
+    statuses.push({
+      landing,
+      landings: count3,
+      name: own2?.landing?.name ?? `landing-${landing}`,
+      state: landingState(own2, later),
+      waitsFor: before !== void 0 && before.state !== "merged" ? before.landing : null
+    });
+  }
+  return statuses;
+}
+function landingState(own2, later) {
+  if (own2 === void 0) return later ? "merged" : "not started";
+  if (own2.ships || isBuilt(own2)) return "open";
+  return own2.forked.length > 0 ? "merged" : "not started";
 }
 function prdOf2(phase02, taken) {
   const held = phase02.flatMap(({ topic, inbox }) => inbox.filter((folder) => folder.topic === topic));
@@ -42743,7 +43138,16 @@ function rows(entries3) {
   const wordsWidth = Math.max(...lines.map(({ words }) => words.length));
   const room = WIDTH - UNDER_BAR.length - numberWidth - TOPIC_GAP.length - wordsWidth;
   const topicWidth = Math.min(Math.max(...lines.map(({ topic }) => topic.length)), Math.max(1, room));
-  return lines.map(({ stage: stage2, number: number4, topic, words }) => `${stage2}${number4.padEnd(numberWidth)}${cut2(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words}`);
+  return lines.flatMap(({ stage: stage2, number: number4, topic, words }, index) => [
+    `${stage2}${number4.padEnd(numberWidth)}${cut2(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words}`,
+    ...landingLines(entries3[index]?.landings ?? [])
+  ]);
+}
+function landingLines(landings) {
+  return landings.map(({ landing, landings: count3, name, state, waitsFor }) => {
+    const waits = waitsFor === null ? "" : `, waits for landing ${waitsFor} to merge`;
+    return cut2(`${UNDER_BAR}landing ${landing}/${count3} ${name}: ${state}${waits}`, WIDTH);
+  });
 }
 function shippedEntry({ prd: prd2, topic }, width) {
   const number4 = `#${prd2} `;
