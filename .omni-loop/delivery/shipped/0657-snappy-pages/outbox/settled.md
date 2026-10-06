@@ -333,7 +333,7 @@ Undoing it is reverting three test lines; no product code outside the slice chan
 - Raised: 2026-09-29
 - Slice: s8
 - Wave: 1
-- Became: ADR-0054
+- Became: ADR-0060
 
 ### The answer, as it was given
 
@@ -883,7 +883,7 @@ Moving to small blocks later is a reshaping of the PRD page's view and page file
 - Raised: 2026-09-29
 - Slice: s5
 - Wave: 3
-- Became: ADR-0055
+- Became: ADR-0061
 
 ### The answer, as it was given
 
@@ -1040,7 +1040,7 @@ Removing or moving the step is a one-line edit of the workflow; nothing is store
 - Raised: 2026-09-29
 - Slice: s5
 - Wave: 3
-- Became: ADR-0056
+- Became: ADR-0062
 
 ### The answer, as it was given
 

@@ -1,4 +1,4 @@
-# ADR-0055 — The prd_outbox table keeps each PRD's waiting questions beside its count, so the waiting list never asks GitHub
+# ADR-0061 — The prd_outbox table keeps each PRD's waiting questions beside its count, so the waiting list never asks GitHub
 
 **Status:** adopted · **Date:** 2026-09-29 · **PRD:** #657 · **Decided:** nobody — adopted when raised (medium), 2026-09-29 · **Merged:** @pierrederval, 2026-09-29, PR #664
 
