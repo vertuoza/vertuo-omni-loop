@@ -34526,7 +34526,8 @@ function claimedIn(rows2, repo) {
   return rows2.filter((row) => CLAIM_STATES.has(row.state) && (repo === null || row.repo === repo)).map((row) => row.id);
 }
 function landingsIn(rows2, repo) {
-  return rows2.filter((row) => row.repo === repo);
+  if (rows2 === null || rows2 === void 0) return null;
+  return repo === null ? [...rows2] : rows2.filter((row) => row.repo === repo);
 }
 
 // kit/lib/care/marker.ts
@@ -34685,13 +34686,15 @@ function readThread(node2) {
   if (last === -1) return resolved ? null : { ...base, verdict: null, reason: null, needs: "judge" };
   return { ...base, ...repliedThread(comments, last, resolved) };
 }
+function waitsOnIn(body2) {
+  const waits = body2.match(WAITS_ON_RE);
+  return waits?.[1] && waits[2] ? { waitsOn: { slug: waits[1], pr: parsePr(waits[2]) } } : {};
+}
 function readStatus(nodes, statusMarker) {
   const found = nodes.find((node2) => statusMarker && (node2.body ?? "").includes(statusMarker));
   if (!found) return null;
   const line = String(found.body).match(CARE_LINE_RE);
-  const status3 = { commentId: found.databaseId ?? null, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null };
-  const waits = String(found.body).match(WAITS_ON_RE);
-  return waits?.[1] && waits[2] ? { ...status3, waitsOn: { slug: waits[1], pr: parsePr(waits[2]) } } : status3;
+  return { commentId: found.databaseId ?? null, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null, ...waitsOnIn(String(found.body)) };
 }
 function careState(response, { statusMarker, needsFixLabel, gateContexts = [] }) {
   const pr = response?.data?.repository?.pullRequest;
@@ -34781,14 +34784,13 @@ function waveClaims(prd2, { ctx, exec, env, repo, target: target3 }) {
   try {
     const { result } = buildBoard(prd2, { ctx, exec, env, repo: target3 === null ? repo : void 0 });
     const claimed2 = claimedIn(result.slices, target3?.name ?? null);
-    const landings = result.landings ?? null;
-    return { wave: { holdsClaims: claimed2.length > 0, claimed: claimed2 }, landings: target3 === null || landings === null ? landings : landingsIn(landings, target3.name) };
+    return { wave: { holdsClaims: claimed2.length > 0, claimed: claimed2 }, landings: landingsIn(result.landings, target3?.name ?? null) };
   } catch (error62) {
-    return {
-      wave: { holdsClaims: null, claimed: [], unreadable: String(propertyOf(error62, "message") ?? error62).split("\n")[0] ?? "" },
-      landings: null
-    };
+    return { wave: { holdsClaims: null, claimed: [], unreadable: firstLine2(error62) }, landings: null };
   }
+}
+function firstLine2(error62) {
+  return String(propertyOf(error62, "message") ?? error62).split("\n")[0] ?? "";
 }
 function watchedPr({ flag, landed, find }) {
   if (flag !== void 0) return prArg("care", "--pr", flag);
@@ -37429,7 +37431,7 @@ var GitHubUnreadable = class extends Error {
     this.reason = reason2;
   }
 };
-var firstLine2 = (text8) => plainText(text8).split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+var firstLine3 = (text8) => plainText(text8).split("\n").map((line) => line.trim()).find(Boolean) ?? "";
 function unreadable(caught) {
   const error62 = failureOf(caught);
   if (error62?.code === "ENOENT") {
@@ -37443,7 +37445,7 @@ ${plainText(error62?.message)}`;
   if (/rate limit|HTTP 429/i.test(said)) {
     return new GitHubUnreadable("rate-limited", "GitHub's rate limit stopped the search: wait a minute and run it again, or narrow it with --since or --repo.");
   }
-  return new GitHubUnreadable("failed", `gh failed: ${firstLine2(error62?.stderr) || firstLine2(error62?.message)}`);
+  return new GitHubUnreadable("failed", `gh failed: ${firstLine3(error62?.stderr) || firstLine3(error62?.message)}`);
 }
 function failureOf(caught) {
   return typeof caught === "object" && caught !== null ? caught : null;
@@ -38862,7 +38864,7 @@ var ClassificationSchema = external_exports.discriminatedUnion(
     context.addIssue({ code: "custom", path: ["principle"], message: `a principle is proposed only with serves "${NEW_PRINCIPLE}"` });
   }
 });
-function firstLine3(value) {
+function firstLine4(value) {
   return value.split("\n").find((line) => line.trim().length > 0)?.trim() ?? null;
 }
 function knowledgeSummary({ ctx }) {
@@ -38874,7 +38876,7 @@ function knowledgeSummary({ ctx }) {
   const placeOf2 = (entry) => entry.scope === "product" ? PRODUCT_PLACE : entry.domain;
   const domains = knowledge2.domains.map((domain2) => {
     const readme = join43(ctx.root, domainsDir(ctx), domain2.name, "README.md");
-    return { name: domain2.name, firstLine: existsSync33(readme) ? firstLine3(readFileSync31(readme, "utf8")) : null };
+    return { name: domain2.name, firstLine: existsSync33(readme) ? firstLine4(readFileSync31(readme, "utf8")) : null };
   });
   const principles = knowledge2.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf2(entry), statement: entry.statement }));
   const laws = knowledge2.entries.filter((entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, kind: entry.kind, place: placeOf2(entry), statement: entry.statement }));
@@ -43563,7 +43565,7 @@ function runFolder(verb2, cwd, dir) {
   if (!existsSync50(folder)) throw usageError(`omni pitch ${verb2}: ${dir} is not a run folder.`);
   return folder;
 }
-function firstLine4(error62) {
+function firstLine5(error62) {
   const text8 = String(propertyOf(error62, "stderr") ?? propertyOf(error62, "message") ?? error62).trim();
   return text8.split("\n").find((line) => line.trim()) ?? "failed";
 }
@@ -43631,7 +43633,7 @@ function slide(args, { cwd, stdout, stderr, exec, screenshot }) {
   try {
     files = renderSlides({ dir, look, words, frame, screenshot: screenshot ?? playwrightScreenshot(exec, { cwd: dir }) });
   } catch (error62) {
-    println(stderr, `slide render failed: ${firstLine4(error62)}`);
+    println(stderr, `slide render failed: ${firstLine5(error62)}`);
     return Promise.resolve(1);
   }
   for (const file2 of files) println(stdout, join62(dir, file2));
@@ -43658,7 +43660,7 @@ function video(args, { cwd, stdout, stderr, exec }) {
   try {
     made = makeVideos({ dir, exec });
   } catch (error62) {
-    println(stderr, `ffmpeg failed: ${firstLine4(error62)}`);
+    println(stderr, `ffmpeg failed: ${firstLine5(error62)}`);
     return Promise.resolve(1);
   }
   writePitchJson(dir, { ...readPitchJson(dir), files: PITCH_FILES2 });

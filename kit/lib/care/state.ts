@@ -230,13 +230,17 @@ function readThread(node: ThreadNode): CareThread | null {
   return { ...base, ...repliedThread(comments, last, resolved) };
 }
 
+/** The `waits on <slug>#<pr>` line of a status comment, as the field it adds; `{}` without one. */
+function waitsOnIn(body: string): Pick<CareStatus, 'waitsOn'> {
+  const waits = body.match(WAITS_ON_RE);
+  return waits?.[1] && waits[2] ? { waitsOn: { slug: waits[1], pr: parsePr(waits[2]) } } : {};
+}
+
 function readStatus(nodes: readonly IssueCommentNode[], statusMarker: CareOptions['statusMarker']): CareStatus | null {
   const found = nodes.find((node) => statusMarker && (node.body ?? '').includes(statusMarker));
   if (!found) return null;
   const line = String(found.body).match(CARE_LINE_RE);
-  const status: CareStatus = { commentId: found.databaseId ?? null, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null };
-  const waits = String(found.body).match(WAITS_ON_RE);
-  return waits?.[1] && waits[2] ? { ...status, waitsOn: { slug: waits[1], pr: parsePr(waits[2]) } } : status;
+  return { commentId: found.databaseId ?? null, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null, ...waitsOnIn(String(found.body)) };
 }
 
 /** The care state of the pull request in `response` (the parsed JSON of `CARE_QUERY`). */

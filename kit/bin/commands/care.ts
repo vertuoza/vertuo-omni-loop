@@ -152,14 +152,15 @@ function waveClaims(
   try {
     const { result } = buildBoard(prd, { ctx, exec, env, repo: target === null ? repo : undefined });
     const claimed = claimedIn(result.slices, target?.name ?? null);
-    const landings = result.landings ?? null;
-    return { wave: { holdsClaims: claimed.length > 0, claimed }, landings: target === null || landings === null ? landings : landingsIn(landings, target.name) };
+    return { wave: { holdsClaims: claimed.length > 0, claimed }, landings: landingsIn(result.landings, target?.name ?? null) };
   } catch (error) {
-    return {
-      wave: { holdsClaims: null, claimed: [], unreadable: String(propertyOf(error, 'message') ?? error).split('\n')[0] ?? '' },
-      landings: null,
-    };
+    return { wave: { holdsClaims: null, claimed: [], unreadable: firstLine(error) }, landings: null };
   }
+}
+
+/** An error's message, its first line only. */
+function firstLine(error: unknown): string {
+  return String(propertyOf(error, 'message') ?? error).split('\n')[0] ?? '';
 }
 
 /** The pull request a round looks after: `--pr`'s, else the first open landing PR of a PRD of

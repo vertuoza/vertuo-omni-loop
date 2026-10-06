@@ -39,10 +39,16 @@ describe('claimedIn', () => {
 describe('landingsIn', () => {
   it("keeps only the target's own landings, in order", () => {
     const rows = [landing(1, 'backend'), landing(1, 'frontend'), landing(2, 'backend')];
-    expect(landingsIn(rows, 'backend').map((l) => [l.repo, l.landing])).toEqual([
+    expect(landingsIn(rows, 'backend')?.map((l) => [l.repo, l.landing])).toEqual([
       ['backend', 1],
       ['backend', 2],
     ]);
     expect(landingsIn(rows, 'web')).toEqual([]);
+  });
+
+  it('keeps every landing without a target, and none when the board has none', () => {
+    const rows = [landing(1, 'backend'), landing(1, 'frontend')];
+    expect(landingsIn(rows, null)).toEqual(rows);
+    expect(landingsIn(undefined, 'backend')).toBeNull();
   });
 });

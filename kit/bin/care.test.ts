@@ -379,27 +379,33 @@ const pr = (number: number, state = 'OPEN', over = {}) => ({ number, state, url:
 function fakePlanExec(root: string, gh: PlanGh = {}) {
   const calls: { file: string; args: readonly string[]; options: ExecFileSyncOptions }[] = [];
   const at = (args: readonly string[], flag: string) => String(args[args.indexOf(flag) + 1]);
-  const answer = (args: readonly string[], options: ExecFileSyncOptions): unknown => {
+  // Every `gh` call the fake answers with JSON, by its first two arguments and the slug it reads.
+  const answers: Record<string, (args: readonly string[], slug: string) => unknown> = {
+    'pr list': (args, slug) => (args.includes('--head') ? (gh.heads?.[slug]?.[at(args, '--head')] ?? []) : (gh.subs?.[slug] ?? [])),
+    'pr view': (args, slug) => gh.views?.[`${slug}#${args[2]}`] ?? { number: Number(args[2]), state: 'OPEN', url: null },
+    'issue list': () => gh.issues ?? [],
+    'issue view': (args) => gh.issueViews?.[String(args[2])] ?? { comments: [], closedByPullRequestsReferences: [] },
+  };
+  const unreadable = (slug: string) => {
+    if (gh.failing?.includes(slug)) throw Object.assign(new Error('gh: Could not resolve to a Repository'), { stderr: 'GraphQL: Could not resolve to a Repository' });
+  };
+  const answer = (args: readonly string[]): unknown => {
     const key = args.slice(0, 2).join(' ');
     if (key === 'api graphql') return gh.read ?? { data: { repository: { pullRequest: PULL_REQUEST } } };
     const slug = at(args, '--repo');
-    if (gh.failing?.includes(slug)) throw Object.assign(new Error('gh: Could not resolve to a Repository'), { stderr: 'GraphQL: Could not resolve to a Repository' });
-    if (key === 'pr list') return args.includes('--head') ? (gh.heads?.[slug]?.[at(args, '--head')] ?? []) : (gh.subs?.[slug] ?? []);
-    if (key === 'pr view') return gh.views?.[`${slug}#${args[2]}`] ?? { number: Number(args[2]), state: 'OPEN', url: null };
-    if (key === 'issue list') return gh.issues ?? [];
-    if (key === 'issue view') return gh.issueViews?.[String(args[2])] ?? { comments: [], closedByPullRequestsReferences: [] };
-    void options;
-    throw new Error(`fakePlanExec: unexpected call gh ${args.join(' ')}`);
+    unreadable(slug);
+    const handler = answers[key];
+    assertDefined(handler, `an answer to gh ${args.join(' ')}`);
+    return handler(args, slug);
+  };
+  const defaultBranch = (args: readonly string[]) => {
+    unreadable(String(args[2]));
+    return args[2] === 'acme/backend' ? 'develop\n' : 'main\n';
   };
   const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions = {}) => {
     calls.push({ file, args, options });
-    if (file === 'git' && args[0] === 'rev-parse') return `${root}\n`;
-    if (file === 'gh' && args[0] === 'repo' && args[1] === 'view') {
-      if (gh.failing?.includes(String(args[2]))) throw new Error('gh: Could not resolve to a Repository');
-      return args[2] === 'acme/backend' ? 'develop\n' : 'main\n';
-    }
-    if (file !== 'gh') throw new Error(`fakePlanExec: unexpected call ${file} ${args.join(' ')}`);
-    return JSON.stringify(answer(args, options));
+    if (file === 'git') return `${root}\n`;
+    return args[0] === 'repo' ? defaultBranch(args) : JSON.stringify(answer(args));
   };
   return { exec, calls };
 }

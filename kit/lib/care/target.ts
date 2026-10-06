@@ -13,7 +13,9 @@ export function claimedIn(rows: readonly { id: string; state: string; repo?: str
   return rows.filter((row) => CLAIM_STATES.has(row.state) && (repo === null || row.repo === repo)).map((row) => row.id);
 }
 
-/** The landings of the target `repo`'s own chain, in order. */
-export function landingsIn(rows: readonly LandingRow[], repo: string): LandingRow[] {
-  return rows.filter((row) => row.repo === repo);
+/** The landings of the target `repo`'s own chain, in order: every landing for `null`, and `null`
+ * when the board has no landings. */
+export function landingsIn(rows: readonly LandingRow[] | null | undefined, repo: string | null): LandingRow[] | null {
+  if (rows === null || rows === undefined) return null;
+  return repo === null ? [...rows] : rows.filter((row) => row.repo === repo);
 }
