@@ -153,6 +153,61 @@ describe('omni flow show', () => {
   });
 });
 
+describe('omni flow show --repo (PRD 1089, s6)', () => {
+  const PLAN_HEAD = `kit: 1
+repo:
+  slug: acme/plan
+plan:
+  targets:
+    - repo: acme/back
+      role: back-end
+      knowledge: imported
+      readAt: 3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4
+    - repo: acme/web
+      role: front-end
+      knowledge: own
+`;
+  const COPY = '.omni-loop/knowledge/repos/back/flow';
+  const copied = Object.fromEntries(Object.entries(HOOK_FILES).map(([path, text]) => [`${COPY}/${path}`, text]));
+
+  async function inPlan(args: string[], files: Record<string, string> = { [`${COPY}/config.yml`]: SPEC_FLOW, ...copied }) {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': PLAN_HEAD, ...files } });
+    const s = io();
+    const code = await main(args, { cwd: root, ...s });
+    return { code, out: s.out.join(''), err: s.err.join('') };
+  }
+
+  it("reads an imported target's copied flow and its hook files from the copy", async () => {
+    const { code, out } = await inPlan(['flow', 'show', 'do-work.test', '--repo', 'back', '--path', 'src/kernel/Bus/Dispatcher.php', '--json']);
+    expect(code).toBe(0);
+    expect(JSON.parse(out)).toMatchObject({
+      areas: ['kernel'],
+      replace: { area: 'kernel', path: '.omni-loop/flow/kernel/tests.md', text: expect.stringMatching(/Run phpunit/) },
+      kitStep: 'replaced',
+    });
+  });
+
+  it("prints the target's area for a path, while the plan repository's own flow stays the kit's defaults", async () => {
+    expect((await inPlan(['flow', 'show', '--repo', 'acme/back', '--path', 'database/migrations/x.sql'])).out).toMatch(/^area {5}migrations/m);
+    expect((await inPlan(['flow', 'show', '--path', 'database/migrations/x.sql'])).out).toMatch(/^area {5}default/m);
+  });
+
+  it.each([
+    [['flow', 'show', '--repo', 'web'], /web has no copied flow at \.omni-loop\/knowledge\/repos\/web\/flow\/config\.yml/],
+    [['flow', 'show', '--repo', 'nope'], /nope is not a target of plan\.targets/],
+  ])('refuses %j as a usage error', async (args, message) => {
+    const { code, err } = await inPlan(args);
+    expect(code).toBe(2);
+    expect(err).toMatch(message);
+  });
+
+  it('refuses a copied flow the config would refuse, naming its file', async () => {
+    const { code, err } = await inPlan(['flow', 'show', '--repo', 'back'], { [`${COPY}/config.yml`]: 'flow:\n  on: {}\n' });
+    expect(code).toBe(2);
+    expect(err).toMatch(/repos\/back\/flow\/config\.yml is not a valid Omni Loop config/);
+  });
+});
+
 describe('omni flow verdict', () => {
   it.each([
     ['ran 12 tests\nomni-hook do-work.test: pass\n', 0, 'ok\n'],
