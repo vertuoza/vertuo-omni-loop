@@ -1408,3 +1408,314 @@ Two names in one small module; the next slice writes whatever names are chosen.
 ```
 
 <!-- /omni-outbox-settled: s6-05-run-folder-holds-settings-and-assets -->
+
+<!-- omni-outbox-settled: s7-01-start-falls-back-to-arcade -->
+
+## s7-01-start-falls-back-to-arcade — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-06
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-06
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-start-falls-back-to-arcade
+prd: 1108
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-06
+wave: 4
+---
+
+## The question, in plain words
+
+When the terminal cannot read a product's Pitch settings, which look should the video use? The plan says Keynote, but products with no settings already start on Arcade.
+
+## The decision, in plain words
+
+It uses the same defaults a product with no settings has: the Arcade look, a confident and warm voice, no music, and a length of 20 to 40 seconds, with one line saying why.
+
+## The intro, for fun
+
+The wardrobe is locked, so which outfit does the presenter wear tonight?
+
+## The punchline, for fun
+
+The one every new product already wears, so nobody gets two different first days.
+
+## The options, in plain words
+
+A. Fall back to the default settings, Arcade, as a product with no settings reads (built).
+B. Fall back to the Keynote preset, as the plan's sentence says.
+C. Refuse to start when the settings cannot be read.
+
+## What I had to decide
+
+Whether an unreadable product falls back to the Arcade defaults settled earlier, or to Keynote as the plan's sentence says.
+
+## What I did meanwhile
+
+omni pitch start writes the default settings (Arcade) into the run when the Omni page cannot answer or answers settings out of shape, and prints one line naming the reason.
+
+## What it costs to change later
+
+One constant: the fallback reads the default preset, so changing that default, or naming Keynote here, is a one-line change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's done-when names Keynote as the fallback, written before the first slice settled Arcade as the default; nothing says which should win.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-start-falls-back-to-arcade -->
+
+<!-- omni-outbox-settled: s7-02-walk-through-is-filmed-by-the-kit -->
+
+## s7-02-walk-through-is-filmed-by-the-kit — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-06
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-06
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-walk-through-is-filmed-by-the-kit
+prd: 1108
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-06
+wave: 4
+---
+
+## The question, in plain words
+
+Who films the walk-through on the live product, and how does the video know where each button is?
+
+## The decision, in plain words
+
+The assistant writes the walk-through as a short list of steps, and the terminal plays and films it, noting where each element sits. It refuses any click on a button that saves, sends, deletes or submits.
+
+## The intro, for fun
+
+A camera crew on a live set, and nobody may touch the props.
+
+## The punchline, for fun
+
+So the camera holds the script, and it slaps away any hand that reaches for Save.
+
+## The options, in plain words
+
+A. The kit plays a list of steps, films it, guards every click and writes the moments (built).
+B. The skill writes its own browser script and computes the moments itself, with no guard in the kit.
+C. The kit plays the steps and also blocks every request that is not a read, at the network.
+
+## What I had to decide
+
+Whether the walk-through stays a script the skill writes and runs, or a list of steps the kit plays, films and guards.
+
+## What I did meanwhile
+
+A new verb, omni pitch film, plays walk.json in the repository's Chromium, refuses a click on a submit button or on words that save, send, delete or change anything (English and French), and writes walk.webm and moments.json with each element's box and the camera that shows it. The clip is a VP8 WebM with a keyframe every half second, not an MP4: the Chromium Playwright ships plays no H.264, and the render draws the clip in it.
+
+## What it costs to change later
+
+One verb and one module: the skill could go back to writing its own script by changing one step, with no stored data to move.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the walk-through writes moments.json but not who plays it; the word list the guard refuses is a best guess for English and French screens.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-walk-through-is-filmed-by-the-kit -->
+
+<!-- omni-outbox-settled: s7-03-uploaded-files-are-not-fetched -->
+
+## s7-03-uploaded-files-are-not-fetched — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-06
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-06
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-03-uploaded-files-are-not-fetched
+prd: 1108
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-06
+wave: 4
+---
+
+## The question, in plain words
+
+A product's logo, fonts and music uploaded on the Omni page are private files. How do they reach the computer that makes the video?
+
+## The decision, in plain words
+
+They do not yet: nothing lets the terminal download them. When the settings point at one, the terminal says so in one line, and a person may copy the file into the pitch's folder; otherwise the video goes without it.
+
+## The intro, for fun
+
+The costumes are in the studio's locked wardrobe, and the film crew has no key.
+
+## The punchline, for fun
+
+So the crew says which costume is missing, and someone may bring it over by hand.
+
+## The options, in plain words
+
+A. Name each missing file in one line and let a person copy it into the run (built).
+B. Add a route on the Omni page answering signed links for a product's files, and download them at start.
+C. Refuse to start a pitch whose settings point at a file the run cannot fetch.
+
+## What I had to decide
+
+Whether a later change adds a way for the terminal to download a product's uploaded files, or whether copying them by hand stays the way.
+
+## What I did meanwhile
+
+omni pitch start names each file the settings point at (asset:<name>) in one line; render and studio read it from the run's assets/ folder, and without it the logo is left out, a font falls back to the system's and the music to none, each in one line. An uploaded font (stored as the family asset:<file>) is asked of the fonts provider by its file.
+
+## What it costs to change later
+
+An Omni page route that answers signed links for a product's files, and a few lines in start that download them into assets/; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The Omni page has no route answering a product's uploaded files to the terminal, and this slice's ground does not include the page.
+
+```
+
+<!-- /omni-outbox-settled: s7-03-uploaded-files-are-not-fetched -->
+
+<!-- omni-outbox-settled: s7-04-changes-beyond-the-slice -->
+
+## s7-04-changes-beyond-the-slice — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-06
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-06
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-04-changes-beyond-the-slice
+prd: 1108
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-06
+wave: 4
+---
+
+## The question, in plain words
+
+Making the video from the settings needed small changes in a few files outside this slice's ground. Were they right to make?
+
+## The decision, in plain words
+
+Yes: the terminal's call to the Omni page gained the new settings address and lost the old look-only one nothing used any more, the step that loads fonts now finds an uploaded font, and the skill's tests follow the rewritten skill.
+
+## The intro, for fun
+
+A few small screws turned outside the cupboard the carpenter was hired to build.
+
+## The punchline, for fun
+
+Without them the cupboard's door would not close.
+
+## The options, in plain words
+
+A. Keep these edits in this slice (built).
+B. Move them to a slice of their own, leaving this one unable to read the settings or draw an uploaded font.
+
+## What I had to decide
+
+Whether these edits stay, or move to slices of their own.
+
+## What I did meanwhile
+
+kit/lib/ask/client.ts gains readPitchSettings (GET /api/pitch-settings) and drops readPitchLook, now unused; kit/lib/pitch/render-input.ts asks each font through fontRequestOf so a family asset:<file> is drawn from the run's file; kit/test/plugin.test.ts's pitch block tests the rewritten skill, including the never-invent rule. The providers' network type is renamed ProviderFetch (kit/lib/pitch/providers/types.ts and the seven files that use it), so it no longer shares its name with the Omni page client's Fetch, which the dead-code audit against main reported. The render's local server (kit/lib/pitch/render-server.ts) now answers a byte range of a run's file: without it the browser could seek a clip only as far as it had downloaded, and a filmed walk-through's frame often showed the clip's first, blank frame, in the stills and the videos alike.
+
+## What it costs to change later
+
+Each is a few lines; reverting one means the old look-only read, no uploaded fonts, or the old skill's tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory for this slice names neither the Omni page client, the render's input nor the plugin's test file, though the slice cannot be done without them.
+
+```
+
+<!-- /omni-outbox-settled: s7-04-changes-beyond-the-slice -->
