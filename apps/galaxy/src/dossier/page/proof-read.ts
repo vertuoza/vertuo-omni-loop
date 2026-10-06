@@ -45,8 +45,8 @@ export async function readProofs(
     const signed = await store.links(names.map((name) => proofPath(dossierId, run.id, name)), PROOF_LINK_SECONDS);
     const links = Object.fromEntries(names.map((name, i) => [name, signed[i] ?? null]));
     const scripts = run.criteria.flatMap((c) => (c.script ? [c.script] : []));
-    const texts = await Promise.all(scripts.map((name) => textOf(links[name], fetchText)));
-    return { runs, shown: { id: run.id, links, scripts: Object.fromEntries(scripts.map((name, i) => [name, texts[i]])) } };
+    const texts = await Promise.all(scripts.map((name) => textOf(links[name] ?? null, fetchText)));
+    return { runs, shown: { id: run.id, links, scripts: Object.fromEntries(scripts.map((name, i) => [name, texts[i] ?? null])) } };
   } catch (error) {
     console.error(error);
     return null;

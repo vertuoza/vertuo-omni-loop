@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { inSeason, seasonBounds } from './season';
-import { twinEvents, twinGalaxy, TWIN_NOW } from '../arcade/twins.fake';
+import { twinEvents, twinGalaxy, TWIN_NOW } from '../arcade/test/twins.fake';
 
 // The season (PRD 328): the calendar month in UTC, the one the game's economy scores (buildGalaxy
 // scores `now.toISOString().slice(0, 7)`). The points, both rankings and the three season counts all

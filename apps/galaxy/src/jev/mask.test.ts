@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { maskSecrets as kitMask } from 'vertuo-omni-plan/kit/lib/openrouter.mjs';
+import { maskSecrets as kitMask } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
 import { MASK, maskSecrets, maskState } from './mask';
 
 // The mask (PRD 812 s1, decision 10): every token-shaped string is masked before anything reaches Jev,
-// by the kit's own rules (kit/lib/openrouter.mjs › maskSecrets), ported here.
+// by the kit's own rules (kit/lib/openrouter.ts › maskSecrets), ported here.
 
 const SECRETS = [
   'ghp_abcdefghijklmnopqrstuvwxyz0123456789',

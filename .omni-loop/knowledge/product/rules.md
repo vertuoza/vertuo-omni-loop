@@ -584,6 +584,147 @@ Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
 Proposed: harvest 2026-09-28
 
+## BR-PRODUCT-50
+
+The dashboard's waiting-for-you tile counts the same questions the page's sidebar lists, each once, even one that is both yours and shared with you. When that list cannot be read, the tile says it could not load and the rest of the dashboard still shows.
+
+Serves: P-PRODUCT-47
+Source: .omni-loop/delivery/shipped/0657-snappy-pages/outbox/settled.md, entry s2-02-waiting-count-from-the-shared-list, PRD #657
+Enforced by: unenforced
+Stated: 2026-09-29
+Decided: nobody — adopted when raised (medium), 2026-09-29
+Merged: @pierrederval, 2026-09-29, PR #664
+
+## BR-PRODUCT-51
+
+A person's name links to their profile page only when they are a member of the workspace; the name of someone outside it, such as an outside contributor, is shown without a link.
+
+Serves: P-PRODUCT-48
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s1-01-chip-links-members-only, PRD #698
+Enforced by: unenforced
+Stated: 2026-09-29
+Decided: nobody — adopted when raised (medium), 2026-09-29
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## BR-PRODUCT-52
+
+On a person's profile, each PRDs stage count opens the PRD list at that stage filtered to that person, never to everyone's or the viewer's own PRDs.
+
+Serves: P-PRODUCT-49
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s3-02-profile-stage-links, PRD #698
+Enforced by: unenforced
+Stated: 2026-09-29
+Decided: nobody — adopted when raised (medium), 2026-09-29
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## BR-PRODUCT-53
+
+When the PRD list is narrowed to one person, it shows only the PRDs that person started in the app, the same rule as for your own PRDs. Who opened the GitHub issue never counts, and a PRD with no recorded starter shows under nobody.
+
+Serves: P-PRODUCT-50
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s4-01-prd-opener-rule, PRD #698
+Enforced by: unenforced
+Stated: 2026-09-29
+Decided: nobody — adopted when raised (medium), 2026-09-29
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## BR-PRODUCT-54
+
+On a person's profile, a PRD, bug fix or visual update is listed for the chosen week, month or season when its latest activity falls within that period, even if it was started earlier; one started in the period with no activity since is judged by that latest activity.
+
+Serves: P-PRODUCT-51
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-01-profile-work-period-by-activity, PRD #698
+Enforced by: unenforced
+Stated: 2026-09-29
+Decided: nobody — adopted when raised (medium), 2026-09-29
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## BR-PRODUCT-55
+
+A person's profile lists only the PRDs and fixes of the workspace the profile is about, as its board does. See all opens the full list, covering every workspace the viewer and that person both belong to.
+
+Serves: P-PRODUCT-52
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-02-profile-work-one-workspace, PRD #698
+Enforced by: unenforced
+Stated: 2026-09-29
+Decided: nobody — adopted when raised (medium), 2026-09-29
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## BR-PRODUCT-56
+
+When the hero loses a life with lives left, the stage waits on its ready screen with the stage and lives left until the player presses start, as a new game does; play then resumes from the stage's start with the score kept.
+
+Serves: P-PRODUCT-53
+Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s2-01-ready-screen-after-a-life-lost, PRD #817
+Enforced by: unenforced
+Stated: 2026-09-30
+Decided: nobody — adopted when raised (medium), 2026-09-30
+Merged: @pierrederval, 2026-09-30, PR #818
+Proposed: harvest 2026-09-30
+
+## BR-PRODUCT-57
+
+The corner game box never takes the page's Tab or Shift keys, so a reader can always move between links while a game is open; Escape folds the box and B goes back to the game list.
+
+Serves: P-PRODUCT-42
+Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s4-02-dock-select-stays-with-the-page, PRD #817
+Enforced by: unenforced
+Stated: 2026-09-30
+Decided: nobody — adopted when raised (medium), 2026-09-30
+Merged: @pierrederval, 2026-09-30, PR #818
+Proposed: harvest 2026-09-30
+
+## BR-PRODUCT-58
+
+On a stage clear screen, A or START goes on to the next stage's ready screen with score and lives kept, and B does nothing, so a run ends only at game over or the world's end, where its score is saved.
+
+Serves: P-PRODUCT-54
+Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s3-01-stage-clear-goes-on, PRD #817
+Enforced by: unenforced
+Stated: 2026-09-30
+Decided: nobody — adopted when raised (medium), 2026-09-30
+Merged: @pierrederval, 2026-09-30, PR #818
+
+## BR-PRODUCT-59
+
+Jev is on exactly when a key is stored: turning it off deletes the key and sets every decision to Off, and no decision may be Shadow or On without a key. Only the owner sees the key's last four and date; members see only whether Jev is on.
+
+Serves: P-PRODUCT-55
+Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s1-02-jev-on-means-key-stored, PRD #812
+Enforced by: unenforced
+Stated: 2026-09-30
+Decided: nobody — adopted when raised (medium), 2026-09-30
+Merged: @pierrederval, 2026-09-30, PR #814
+Proposed: harvest 2026-09-30
+
+## BR-PRODUCT-60
+
+When a terminal asks Jev about a repository, the Jev settings of the workspace that owns it apply; a repository no workspace owns goes to the person's first-joined workspace, and one owned by a workspace the person is not in is refused.
+
+Serves: P-PRODUCT-27
+Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s3-03-decide-unowned-repository, PRD #812
+Enforced by: unenforced
+Stated: 2026-09-30
+Decided: nobody — adopted when raised (medium), 2026-09-30
+Merged: @pierrederval, 2026-09-30, PR #814
+Proposed: harvest 2026-09-30
+
+## BR-PRODUCT-61
+
+The Jev page's agreement rate counts only calls where Jev and the old way both answered, including answers under the confidence floor. A call where Jev failed, had no key or answered outside the options adds only to the call count.
+
+Serves: P-PRODUCT-56
+Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s4-01-agreement-counts-only-answered-calls, PRD #812
+Enforced by: unenforced
+Stated: 2026-09-30
+Decided: nobody — adopted when raised (medium), 2026-09-30
+Merged: @pierrederval, 2026-09-30, PR #814
+
 ## BR-PRODUCT-62
 
 When more than one workspace tracks a repository, the canon check reads the business of the workspace whose GitHub organisation owns the repository; when none does, it reads the workspace that started tracking it first.

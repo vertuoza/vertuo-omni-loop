@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { parseRow } from '../../data/parse-rows';
 import type { JevDecisionSettings, JevKeyStatus } from '../store';
 import type { DecisionSaved } from './decision';
 
@@ -19,18 +21,37 @@ export interface JevPort {
 }
 
 export const COULD_NOT_SAVE_DECISION = 'Couldn’t save this decision. Try again in a moment.';
-const NO_ACTION: SaveDecisionAction = async () => ({ ok: false, message: COULD_NOT_SAVE_DECISION });
+const NO_ACTION: SaveDecisionAction = () => Promise.resolve({ ok: false, message: COULD_NOT_SAVE_DECISION });
 
 export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 export const DEMO_REFUSAL = 'TypeSafe refused this key: Invalid API key';
 const ROUTE = '/api/jev/key';
 
+/** What the key route (./api.ts) answers: the key's status, or why it refused. */
+export const KeyAnswer = z.union([
+  z.strictObject({ key: z.strictObject({ stored: z.boolean(), lastFour: z.string().nullable(), setAt: z.string().nullable() }) }),
+  z.strictObject({ error: z.string() }),
+]);
+
+/** The key route's answer, parsed, or null when it is not one. A body that is no JSON (`null`: a proxy's
+ * error page) is a failure the route never wrote: nothing to log. */
+function keyAnswerOf(json: unknown, method: string): z.infer<typeof KeyAnswer> | null {
+  if (json === null) return null;
+  const parsed = parseRow(KeyAnswer, json, `jev/settings: ${method} ${ROUTE}`);
+  return parsed.ok ? parsed.value : null;
+}
+
+/** What the route's answer says: the key's status when it said yes, else its error in plain words. */
+function keySaved(ok: boolean, answer: z.infer<typeof KeyAnswer> | null): KeySaved {
+  if (ok && answer && 'key' in answer) return { ok: true, key: answer.key };
+  return { ok: false, message: answer && 'error' in answer ? answer.error : COULD_NOT_SAVE };
+}
+
 async function sent(fetch: typeof globalThis.fetch, method: 'POST' | 'DELETE', body: Record<string, string>): Promise<KeySaved> {
   try {
     const res = await fetch(ROUTE, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-    const answer = (await res.json().catch(() => null)) as { key?: JevKeyStatus; error?: string } | null;
-    if (res.ok && answer?.key) return { ok: true, key: answer.key };
-    return { ok: false, message: typeof answer?.error === 'string' ? answer.error : COULD_NOT_SAVE };
+    const json: unknown = await res.json().catch(() => null);
+    return keySaved(res.ok, keyAnswerOf(json, method));
   } catch {
     return { ok: false, message: COULD_NOT_SAVE };
   }
@@ -52,16 +73,16 @@ export function httpJevPort(workspace: string, fetch: typeof globalThis.fetch = 
 
 export function demoJevPort(now: () => number = Date.now): JevPort {
   return {
-    async saveKey(key) {
+    saveKey(key) {
       const trimmed = key.trim();
-      if (trimmed.length < 8 || trimmed.startsWith('bad')) return { ok: false, message: DEMO_REFUSAL };
-      return { ok: true, key: { stored: true, lastFour: trimmed.slice(-4), setAt: new Date(now()).toISOString() } };
+      if (trimmed.length < 8 || trimmed.startsWith('bad')) return Promise.resolve({ ok: false, message: DEMO_REFUSAL });
+      return Promise.resolve({ ok: true, key: { stored: true, lastFour: trimmed.slice(-4), setAt: new Date(now()).toISOString() } });
     },
-    async removeKey() {
-      return { ok: true, key: { stored: false, lastFour: null, setAt: null } };
+    removeKey() {
+      return Promise.resolve({ ok: true, key: { stored: false, lastFour: null, setAt: null } });
     },
-    async saveDecision(settings) {
-      return { ok: true, settings };
+    saveDecision(settings) {
+      return Promise.resolve({ ok: true, settings });
     },
   };
 }

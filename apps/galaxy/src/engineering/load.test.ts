@@ -2,15 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const given = vi.hoisted(() => ({
-  workspace: (async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} })) as () => Promise<unknown>,
+const given = vi.hoisted((): { workspace: () => Promise<unknown> } => ({
+  workspace: () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} }),
 }));
 vi.mock('../data/workspace', () => ({ memberWorkspace: () => given.workspace() }));
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { UNREADABLE } from '../dashboard/part';
 import { peopleOf } from '../people/load';
 import { loadEngineering, loadEngineeringBoard, loadEngineeringRepository, loadEngineeringRepositoryBoard, supabaseEngineeringReads, type EngineeringReads } from './load';
+import { sure } from '../arcade/test/sure';
 
 // /app/engineering's read (PRD 612 s3), on fakes: no test calls Supabase.
 
@@ -29,15 +31,15 @@ function reads(over: Partial<EngineeringReads> = {}): EngineeringReads & { asked
   const asked: unknown[] = [];
   return {
     asked,
-    tracked: async () => { asked.push('tracked'); return ['acme/widgets']; },
-    pullRequests: async (from, repos) => { asked.push(['prs', from.toISOString(), repos]); return [PR]; },
-    reviews: async (from, to, repos) => { asked.push(['reviews', from.toISOString(), to.toISOString(), repos]); return []; },
-    people: async () => {
+    tracked: () => { asked.push('tracked'); return Promise.resolve(['acme/widgets']); },
+    pullRequests: (from, repos) => { asked.push(['prs', from.toISOString(), repos]); return Promise.resolve([PR]); },
+    reviews: (from, to, repos) => { asked.push(['reviews', from.toISOString(), to.toISOString(), repos]); return Promise.resolve([]); },
+    people: () => {
       asked.push('people');
-      return peopleOf(
+      return Promise.resolve(peopleOf(
         [{ user_id: 'u-ada', name: 'Ada', github_login: 'Ada', avatar_url: null, fleet: 'octo', hero: HERO }],
         [{ name: 'octo', label: 'OCTO', color: '#e0457b', mascot: null }],
-      );
+      ));
     },
     ...over,
   };
@@ -61,7 +63,7 @@ describe('loadEngineering', () => {
 
   it('lists Loop health at the request\'s instant (PRD 714 s2)', async () => {
     const claim = { ...PR, number: 8, mergedAt: null, closedAt: null, mergedBy: null, omniSigned: true, base: 'feat/x', head: 'feat/x--s1', draft: true, labels: [], openedAt: '2026-09-26T08:58:00Z', headCommittedAt: '2026-09-26T08:58:00Z' };
-    const at = (now: Date) => loadEngineering(reads({ pullRequests: async () => [PR, claim] }), { ...REQUEST, now });
+    const at = (now: Date) => loadEngineering(reads({ pullRequests: () => Promise.resolve([PR, claim]) }), { ...REQUEST, now });
     const late = await at(NOW);
     expect(late !== UNREADABLE && late.kind === 'board' && late.health.rows.map((r) => [r.kind, r.number])).toEqual([['stale-claim', 8]]);
     const early = await at(new Date('2026-09-26T09:57:00Z'));
@@ -76,38 +78,38 @@ describe('loadEngineering', () => {
   });
 
   it('when the faces cannot be read: the board still, every face the GitHub photo, the error logged', async () => {
-    const board = await loadEngineering(reads({ people: async () => { throw new Error('players down'); } }), REQUEST);
+    const board = await loadEngineering(reads({ people: () => Promise.reject(new Error('players down')) }), REQUEST);
     if (board === UNREADABLE || board.kind !== 'board') throw new Error('no board');
     expect(board.tiles.merged).toBe(1);
-    expect(board.people.opened[0].face).toEqual({ kind: 'photo', url: 'https://github.com/ada.png?size=48' });
-    expect(board.people.merged[0].face).toEqual({ kind: 'photo', url: 'https://github.com/bob.png?size=48' });
+    expect(sure(board.people.opened[0], 'board.people.opened[0]').face).toEqual({ kind: 'photo', url: 'https://github.com/ada.png?size=48' });
+    expect(sure(board.people.merged[0], 'board.people.merged[0]').face).toEqual({ kind: 'photo', url: 'https://github.com/bob.png?size=48' });
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('players down'));
   });
 
   it('with nobody to show: no faces read', async () => {
-    const r = reads({ pullRequests: async () => [] });
+    const r = reads({ pullRequests: () => Promise.resolve([]) });
     await loadEngineering(r, REQUEST);
     expect(r.asked).not.toContain('people');
   });
 
   it('with no tracked repository: the empty state, and nothing else read', async () => {
-    const r = reads({ tracked: async () => [] });
+    const r = reads({ tracked: () => Promise.resolve([]) });
     expect(await loadEngineering(r, REQUEST)).toMatchObject({ kind: 'empty' });
     expect(r.asked).toEqual([]);
   });
 
   it.each(['tracked', 'pullRequests', 'reviews'] as const)('when %s cannot be read: could not load, its error logged', async (which) => {
-    const board = await loadEngineering(reads({ [which]: async () => { throw new Error('boom'); } }), REQUEST);
+    const board = await loadEngineering(reads({ [which]: () => Promise.reject(new Error('boom')) }), REQUEST);
     expect(board).toBe(UNREADABLE);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('boom'));
   });
 });
 
 describe('loadEngineeringRepository (PRD 645 s2)', () => {
-  const two = (over: Partial<EngineeringReads> = {}) => reads({ tracked: async () => ['acme/widgets', 'Acme/Gears'], ...over });
+  const two = (over: Partial<EngineeringReads> = {}) => reads({ tracked: () => Promise.resolve(['acme/widgets', 'Acme/Gears']), ...over });
 
   it('reads the pull requests and reviews of that repository alone, found whatever its case, under its tracked spelling', async () => {
-    const r = two({ pullRequests: async (from, repos) => { r.asked.push(['prs', from.toISOString(), repos]); return [{ ...PR, repo: 'Acme/Gears' }]; } });
+    const r = two({ pullRequests: (from, repos) => { r.asked.push(['prs', from.toISOString(), repos]); return Promise.resolve([{ ...PR, repo: 'Acme/Gears' }]); } });
     const got = await loadEngineeringRepository(r, 'acme/GEARS', REQUEST);
     expect(got.kind).toBe('repository');
     if (got.kind !== 'repository') return;
@@ -126,34 +128,34 @@ describe('loadEngineeringRepository (PRD 645 s2)', () => {
   });
 
   it('when the tracked repositories cannot be read: could not load, under the asked name', async () => {
-    const got = await loadEngineeringRepository(two({ tracked: async () => { throw new Error('boom'); } }), 'acme/gears', REQUEST);
+    const got = await loadEngineeringRepository(two({ tracked: () => Promise.reject(new Error('boom')) }), 'acme/gears', REQUEST);
     expect(got).toEqual({ kind: 'repository', repo: 'acme/gears', board: UNREADABLE });
   });
 });
 
 describe('loadEngineeringBoard', () => {
-  const db = () => ({ from: () => { throw new Error('no read expected'); } }) as unknown as SupabaseClient;
+  const db = () => ({ from: () => { throw new Error('no read expected'); } }) as unknown as SupabaseClient<Database>;
 
   it('for an account in no workspace: no-workspace', async () => {
-    given.workspace = async () => null;
+    given.workspace = () => Promise.resolve(null);
     expect(await loadEngineeringBoard(db(), { id: 'u-1' }, REQUEST)).toEqual({ kind: 'no-workspace' });
   });
 
   it('when the workspace cannot be read: the board says it could not load', async () => {
-    given.workspace = async () => { throw new Error('down'); };
+    given.workspace = () => Promise.reject(new Error('down'));
     expect(await loadEngineeringBoard(db(), { id: 'u-1' }, REQUEST)).toEqual({ kind: 'board', name: 'Engineering', board: UNREADABLE });
   });
 });
 
 describe('loadEngineeringRepositoryBoard (PRD 645 s2)', () => {
   it('for an account in no workspace: no-workspace', async () => {
-    given.workspace = async () => null;
-    const db = { from: () => { throw new Error('no read expected'); } } as unknown as SupabaseClient;
+    given.workspace = () => Promise.resolve(null);
+    const db = { from: () => { throw new Error('no read expected'); } } as unknown as SupabaseClient<Database>;
     expect(await loadEngineeringRepositoryBoard(db, { id: 'u-1' }, 'acme/gears', REQUEST)).toEqual({ kind: 'no-workspace' });
   });
 
   it('narrows the reads to that repository on Supabase, and heads the board with its tracked spelling', async () => {
-    given.workspace = async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
+    given.workspace = () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
     const calls: unknown[][] = [];
     const answers: Record<string, unknown[][]> = {
       repositories: [[{ full_name: 'acme/widgets' }, { full_name: 'Acme/Gears' }]], pull_requests: [[]], pull_request_reviews: [[]],
@@ -164,20 +166,20 @@ describe('loadEngineeringRepositoryBoard (PRD 645 s2)', () => {
         calls.push(call);
         const q: Record<string, unknown> = {};
         for (const m of ['select', 'eq', 'in', 'or', 'gte', 'lt', 'order', 'range']) q[m] = (...a: unknown[]) => { call.push([m, ...a]); return q; };
-        q.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: answers[table].shift(), error: null }).then(ok);
+        q.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: sure(answers[table], 'answers[table]').shift(), error: null }).then(ok);
         return q;
       },
-    } as unknown as SupabaseClient;
+    } as unknown as SupabaseClient<Database>;
     const got = await loadEngineeringRepositoryBoard(db, { id: 'u-1' }, 'acme/gears', REQUEST);
     expect(got).toMatchObject({ kind: 'board', name: 'Vertuoza', repo: 'Acme/Gears' });
-    const of = (table: string) => calls.find((c) => c[0] === table)!;
+    const of = (table: string) => sure(calls.find((c) => c[0] === table), 'calls.find((c) => c[0] === table)');
     expect(of('pull_requests')).toContainEqual(['in', 'repo', ['Acme/Gears']]);
     expect(of('pull_request_reviews')).toContainEqual(['in', 'repo', ['Acme/Gears']]);
   });
 
   it('for a repository the workspace does not track: not tracked', async () => {
-    given.workspace = async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
-    const db = { from: () => ({ select: () => ({ eq: () => ({ eq: async () => ({ data: [{ full_name: 'acme/widgets' }], error: null }) }) }) }) } as unknown as SupabaseClient;
+    given.workspace = () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
+    const db = { from: () => ({ select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ full_name: 'acme/widgets' }], error: null }) }) }) }) } as unknown as SupabaseClient<Database>;
     expect(await loadEngineeringRepositoryBoard(db, { id: 'u-1' }, 'acme/gears', REQUEST)).toEqual({ kind: 'not-tracked' });
   });
 });
@@ -192,11 +194,11 @@ describe('supabaseEngineeringReads', () => {
         calls.push(call);
         const q: Record<string, unknown> = {};
         for (const m of ['select', 'eq', 'in', 'or', 'gte', 'lt', 'order', 'range', 'limit']) q[m] = (...a: unknown[]) => { call.push([m, ...a]); return q; };
-        q.then = (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve(answers[table].shift()).then(ok, ko);
+        q.then = (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve(sure(answers[table], 'answers[table]').shift()).then(ok, ko);
         return q;
       },
     };
-    return { calls, db: db as unknown as SupabaseClient };
+    return { calls, db: db as unknown as SupabaseClient<Database> };
   }
 
   it('reads only the workspace\'s tracked repositories', async () => {
@@ -232,7 +234,7 @@ describe('supabaseEngineeringReads', () => {
   });
 
   it('reads the faces through the people directory: the workspace\'s roster and its fleets', async () => {
-    const rpc = vi.fn(async () => ({ data: [{ user_id: 'u-ada', name: 'Ada', github_login: 'Ada', avatar_url: null, fleet: null, hero: HERO }], error: null }));
+    const rpc = vi.fn(() => Promise.resolve({ data: [{ user_id: 'u-ada', name: 'Ada', github_login: 'Ada', avatar_url: null, fleet: null, hero: HERO }], error: null }));
     const { calls, db } = fakeDb({ teams: [{ data: [], error: null }] });
     const people = await supabaseEngineeringReads(Object.assign(db, { rpc }), 'ws-1').people();
     expect(rpc).toHaveBeenCalledWith('workspace_roster', { workspace: 'ws-1' });

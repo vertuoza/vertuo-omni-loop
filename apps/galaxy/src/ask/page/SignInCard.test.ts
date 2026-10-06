@@ -15,7 +15,9 @@ describe('the ask page\'s sign-in card (PRD 359)', () => {
 
   it('starts the sign-in through githubSignIn, which asks for read:org', () => {
     const source = readFileSync(new URL('./SignInCard.tsx', import.meta.url), 'utf8');
-    expect(source).toContain('startGithubSignIn(supabase,');
-    expect(source).not.toMatch(/google|\bhd\b/i);
+    const shared = readFileSync(new URL('./GithubSignInCard.tsx', import.meta.url), 'utf8');
+    expect(source).toContain('<GithubSignInCard');
+    expect(shared).toContain('startGithubSignIn(supabase,');
+    expect(source + shared).not.toMatch(/google|\bhd\b/i);
   });
 });

@@ -6,16 +6,29 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import { parse } from 'yaml';
+import { z } from 'zod';
+import { sure } from '../arcade/test/sure';
+
+// A workflow, read for what these tests check: its triggers, and each job's condition, settings and steps.
+const Step = z.looseObject({ uses: z.string().optional(), run: z.string().optional(), name: z.string().optional(), with: z.record(z.string(), z.unknown()).optional() });
+const Job = z.looseObject({
+  if: z.string().default(''),
+  concurrency: z.unknown().optional(),
+  env: z.record(z.string(), z.unknown()).default({}),
+  permissions: z.unknown().optional(),
+  steps: z.array(Step).default([]),
+});
+const Workflow = z.looseObject({ name: z.string().optional(), on: z.record(z.string(), z.unknown()), jobs: z.record(z.string(), Job) });
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../${path}`, import.meta.url)), 'utf8');
-const releases = parse(read('.github/workflows/releases.yml'));
-const game = parse(read('.github/workflows/game.yml'));
-const supabase = parse(read('.github/workflows/supabase.yml'));
-
-type Step = { uses?: string; run?: string; name?: string; with?: Record<string, unknown> };
+const workflow = (path: string) => Workflow.parse(parse(read(path)));
+const releases = workflow('.github/workflows/releases.yml');
+const game = workflow('.github/workflows/game.yml');
+const supabase = workflow('.github/workflows/supabase.yml');
+const jobOf = (flow: z.infer<typeof Workflow>, name: string) => sure(flow.jobs[name], `the ${name} job`);
 
 describe('the releases workflow', () => {
-  const [name, job] = Object.entries(releases.jobs)[0] as [string, { if: string; concurrency: Record<string, unknown>; env: Record<string, string>; permissions: Record<string, string>; steps: Step[] }];
+  const [name, job] = sure(Object.entries(releases.jobs)[0], 'the releases job');
 
   it('runs after a push to main that ships a PRD or changes it, after a successful supabase run on main, and by hand', () => {
     expect(releases.on.push).toEqual({ branches: ['main'], paths: ['.omni-loop/delivery/shipped/**', '.github/workflows/releases.yml'] });
@@ -27,7 +40,7 @@ describe('the releases workflow', () => {
 
   it('is one job, off while SUPABASE_PROJECT_ID is unset, as the supabase workflow\'s deploy is', () => {
     expect(Object.keys(releases.jobs)).toEqual([name]);
-    expect(supabase.jobs.deploy.if).toContain("vars.SUPABASE_PROJECT_ID != ''");
+    expect(jobOf(supabase, 'deploy').if).toContain("vars.SUPABASE_PROJECT_ID != ''");
     expect(job.if).toContain("vars.SUPABASE_PROJECT_ID != ''");
   });
 
@@ -41,8 +54,8 @@ describe('the releases workflow', () => {
   });
 
   it('writes Supabase with the game\'s credentials, and never the repository', () => {
-    expect(job.env.SUPABASE_URL).toBe(game.jobs.ledger.env.SUPABASE_URL);
-    expect(job.env.SUPABASE_SERVICE_ROLE_KEY).toBe(game.jobs.ledger.env.SUPABASE_SERVICE_ROLE_KEY);
+    expect(job.env.SUPABASE_URL).toBe(jobOf(game, 'ledger').env.SUPABASE_URL);
+    expect(job.env.SUPABASE_SERVICE_ROLE_KEY).toBe(jobOf(game, 'ledger').env.SUPABASE_SERVICE_ROLE_KEY);
     expect(job.permissions).toEqual({ contents: 'read' });
     const runs = job.steps.map((step) => step.run ?? '').join('\n');
     expect(runs).not.toMatch(/git (add|commit|push)/);
@@ -52,13 +65,13 @@ describe('the releases workflow', () => {
   it('shares nothing with the game: deleting game/ leaves it working', () => {
     const text = read('.github/workflows/releases.yml').replace(/^\s*#.*$/gm, '');
     expect(text).not.toMatch(/\bgame[:/]|GAME_/);
-    expect(read('apps/galaxy/scripts/releases-sync.mjs')).not.toMatch(/from '[^']*game\//);
+    expect(read('apps/galaxy/scripts/releases-sync.ts')).not.toMatch(/from '[^']*game\//);
   });
 });
 
 describe('the supabase workflow', () => {
   it('proves who may read and write the releases, beside the other checks', () => {
-    const runs = (supabase.jobs.check.steps as Step[]).map((step) => step.run ?? '');
+    const runs = jobOf(supabase, 'check').steps.map((step) => step.run ?? '');
     const at = (file: string) => runs.findIndex((run) => run.endsWith(`-v ON_ERROR_STOP=1 -f supabase/checks/${file}`));
     expect(at('releases.sql')).toBeGreaterThan(at('dossiers.sql'));
     expect(at('dossiers.sql')).toBeGreaterThan(0);

@@ -1,6 +1,7 @@
 // Arcade name entry, as a pure reducer: up to 10 characters from A–Z, 0–9 and `-`, typed on a
 // keyboard or spun on a letter wheel (the on-screen pad). `cursor` is the slot being edited;
 // 10 means every slot is full.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export const WHEEL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-';
 export const NAME_MAX = 10;
@@ -23,12 +24,12 @@ export function foldChar(key: string): string | null {
 
 /** A whole name (a Google first name, say) folded to what the arcade accepts: `Élodie` → `ELODIE`. */
 export function foldName(text: string): string {
-  return [...text.normalize('NFC')].map((c) => (c === ' ' ? '-' : foldChar(c))).filter(Boolean).join('')
+  return Array.from(text.normalize('NFC')).map((c) => (c === ' ' ? '-' : foldChar(c))).filter(Boolean).join('')
     .replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, NAME_MAX);
 }
 
 export function nameInit(name: string): NameState {
-  const chars = [...foldName(name)];
+  const chars = Array.from(foldName(name));
   return { chars, cursor: Math.min(chars.length, NAME_MAX) };
 }
 
@@ -52,7 +53,7 @@ export function nameReduce(s: NameState, a: NameAction): { state: NameState; sou
     }
     case 'spin': {
       const at = chars[slot] ? WHEEL.indexOf(chars[slot]) : a.dir > 0 ? -1 : 0;
-      chars[slot] = WHEEL[(at + a.dir + WHEEL.length) % WHEEL.length];
+      chars[slot] = defined(WHEEL[(at + a.dir + WHEEL.length) % WHEEL.length], 'the wheel letter');
       return { state: { chars, cursor: slot }, sound: 'tick' };
     }
     case 'move': {

@@ -98,9 +98,34 @@ html:has(.home) body {
 }
 .home-omni { width: 128px; }
 
-.home-signup {
+/* The button and, under it once a pick is remembered (PRD 932), the line saying where it opens,
+   drawn by Controls in the browser only. */
+.home-signup-slot {
   align-self: center;
   justify-self: start;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.home-signup-hint {
+  display: block;
+  font: 12px/1.4 var(--font-body);
+  color: var(--white);
+}
+.home-signup-change {
+  font: inherit;
+  color: var(--yellow);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.home-signup-change:hover { text-decoration-thickness: 2px; }
+.home-signup-change:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+.home-signup {
   font: 9px/1.5 var(--font-pixel);
   letter-spacing: 0.04em;
   color: var(--white);
@@ -115,6 +140,46 @@ html:has(.home) body {
 .home-signup:hover b { color: var(--yellow); }
 .home-signup:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
 .home-signup[aria-busy="true"] { cursor: progress; opacity: 0.6; }
+
+/* The signed-in pill (PRD 1006), drawn by Controls into the slot once a session is read: it takes the
+   place of SIGN UP WITH GITHUB, on the button's own frame, and the line under the button goes too. */
+.home-signup-slot:has(.home-signed-in) .home-signup,
+.home-signup-slot:has(.home-signed-in) .home-signup-hint { display: none; }
+/* No flash (PRD 1006, s2): while the browser holds a Supabase auth cookie and the session is not yet
+   known, the page is marked pending before it paints, and the button and its line keep their box but
+   are not shown, so nothing jumps. Controls settles the mark: the pill, or the button back. */
+.home[data-session="pending"] .home-signup,
+.home[data-session="pending"] .home-signup-hint { visibility: hidden; }
+.home-signed-in {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font: 9px/1.5 var(--font-pixel);
+  letter-spacing: 0.04em;
+  color: var(--white);
+  background: var(--deep);
+  border: 2px solid var(--yellow);
+  box-shadow: 3px 3px 0 var(--magenta);
+  padding: 6px 12px 6px 6px;
+  text-decoration: none;
+}
+.home-signed-in b { color: var(--white); font-weight: 400; }
+.home-signed-in:hover b { color: var(--yellow); }
+.home-signed-in:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
+.home-signed-in-face {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  overflow: hidden;
+  font: 12px/1 var(--font-pixel);
+  color: var(--void);
+  background: var(--yellow);
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+.home-signed-in-face svg { display: block; width: 100%; height: 100%; }
 
 /* Why SIGN UP WITH GITHUB could not start, shown by Controls. */
 .home-signup-error {

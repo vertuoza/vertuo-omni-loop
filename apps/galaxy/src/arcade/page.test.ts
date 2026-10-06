@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // visitor's page carries the star chart's knowledge, and that every page hands the arcade the app it
 // leaves for. The props it returns are what reaches the browser.
 const given = vi.hoisted(() => ({
-  mode: 'demo' as 'demo' | 'closed' | 'supabase',
+  mode: 'demo',
   user: null as null | { id: string; email: string; user_metadata: Record<string, string>; identities: [] },
   galaxyDown: false,
   graph: { version: 1, repo: 'acme/widgets', domains: [], entries: [], links: [], loose: [], unserved: [] },
@@ -15,24 +15,27 @@ const given = vi.hoisted(() => ({
 const loadKnowledge = vi.hoisted(() => vi.fn(() => given.graph));
 
 vi.mock('server-only', () => ({}));
-vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
+vi.mock('../env', async (actual) => {
+  const env = await actual<typeof import('../env')>();
+  return { ...env, serverEnv: () => ({ ...env.readEnv({}), mode: given.mode }) };
+});
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
-  supabaseServer: async () => ({ auth: { getUser: async () => ({ data: { user: given.user } }) } }),
+  supabaseServer: () => Promise.resolve({ auth: { getUser: () => Promise.resolve({ data: { user: given.user } }) } }),
 }));
 // Crew is membership of a workspace: here, the vertuoza workspace holds every @vertuoza.com account.
 vi.mock('../data/workspace', () => ({
-  memberWorkspace: async (_db: unknown, id: string) =>
-    (given.user?.id === id && given.user.email.endsWith('@vertuoza.com') ? { id: 'w1', slug: 'vertuoza', name: 'Vertuoza', theme: {} } : null),
+  memberWorkspace: (_db: unknown, id: string) =>
+    Promise.resolve(given.user?.id === id && given.user.email.endsWith('@vertuoza.com') ? { id: 'w1', slug: 'vertuoza', name: 'Vertuoza', theme: {} } : null),
   brandOf: ({ name, theme }: { name: string; theme: Record<string, string> }) => ({ name, theme }),
 }));
 vi.mock('../data/load-galaxy', () => ({
   demoGalaxy: () => given.view,
   demoFleets: () => [],
-  loadFleets: async () => [],
-  loadGalaxy: async () => { if (given.galaxyDown) throw new Error('Supabase: down'); return given.view; },
-  loadMe: async () => null,
-  loadCrew: async () => [],
+  loadFleets: () => Promise.resolve([]),
+  loadGalaxy: () => (given.galaxyDown ? Promise.reject(new Error('Supabase: down')) : Promise.resolve(given.view)),
+  loadMe: () => Promise.resolve(null),
+  loadCrew: () => Promise.resolve([]),
 }));
 vi.mock('../data/load-knowledge', () => ({ loadKnowledge }));
 

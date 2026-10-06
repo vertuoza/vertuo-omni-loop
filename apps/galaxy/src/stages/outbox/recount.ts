@@ -1,6 +1,6 @@
 // A PRD's open outbox questions, recounted (PRD 657, s5): its current stage read from the stored stages;
 // at building or outbox, its outbox counted from its GitHub summary (PRD 426's reader, as the Outbox tab
-// counts it); at any other stage, 0 with no GitHub read. The counts go to prd_outbox (./store.ts),
+// counts it; since PRD 902 s2, its dossier's GitHub snapshot); at any other stage, 0 with no GitHub read. The counts go to prd_outbox (./store.ts),
 // which /prd and the waiting outbox read instead of GitHub. The stages sync recounts every PRD of a
 // repository, a stage event and a Send their one PRD. A PRD whose summary cannot be read keeps what it
 // had, and is logged.
@@ -9,12 +9,13 @@ import { UNREAD, type GithubSummary } from '../../dossier/github/summary';
 import type { StoredStage } from '../stage';
 import { prdKey, type PrdRef, type StageStore } from '../store';
 import type { OutboxCounts, OutboxRecord, PrdOutboxStore, WaitingQuestion } from './store';
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** The stages whose outbox is counted: the feature is being built, or waits on its outbox. */
 const COUNTED: ReadonlySet<StoredStage> = new Set(['building', 'outbox']);
 
 /** The ranks that wait on a person. */
-const WAITING_RANKS: ReadonlySet<string> = new Set(['human-action', 'high']);
+const WAITING_RANKS: readonly WaitingQuestion['rank'][] = ['human-action', 'high'];
 
 const NONE: OutboxCounts = { open_questions: 0, waiting: [] };
 
@@ -23,16 +24,15 @@ export function countsOf(summary: GithubSummary | null): OutboxCounts | null {
   if (summary === null || summary.outbox === UNREAD || summary.feature === UNREAD) return null;
   const open = summary.outbox?.open ?? [];
   const waiting = summary.feature?.state === 'open'
-    ? open.filter((item) => WAITING_RANKS.has(item.rank))
-      .map((item): WaitingQuestion => ({ id: item.id, rank: item.rank as WaitingQuestion['rank'], question: item.question }))
+    ? open.flatMap(({ id, rank, question }): WaitingQuestion[] => (isOneOf(WAITING_RANKS, rank) ? [{ id, rank, question }] : []))
     : [];
   return { open_questions: open.length, waiting };
 }
 
 export type RecountDeps = {
   stages: Pick<StageStore, 'currentStages'>;
-  /** A dossier's GitHub summary; null when it cannot be read. */
-  summary: (ref: DossierRef) => Promise<GithubSummary | null>;
+  /** A dossier's GitHub summary, of the workspace's PRD; null when it cannot be read. */
+  summary: (ref: DossierRef, workspace: string) => Promise<GithubSummary | null>;
   /** The service role's store: only it writes. */
   store: PrdOutboxStore;
   log?: (line: string) => void;
@@ -56,7 +56,7 @@ export async function recountOutboxes(workspace: string, prds: readonly RecountR
     if (!stage || !COUNTED.has(stage)) return { ...base, ...NONE };
     let counts: OutboxCounts | null;
     try {
-      counts = countsOf(await deps.summary({ id: ref.id ?? `prd-outbox ${workspace} ${key}`, home_repo: repository, prd: ref.prd }));
+      counts = countsOf(await deps.summary({ id: ref.id ?? `prd-outbox ${workspace} ${key}`, home_repo: repository, prd: ref.prd }, workspace));
     } catch (error) {
       log(`prd outbox: ${key} could not be counted — ${why(error)}`);
       return null;

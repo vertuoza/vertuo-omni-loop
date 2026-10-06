@@ -64,7 +64,7 @@ function Tiles({ tiles }: { tiles: Extract<EngineeringValue, { kind: 'board' }>[
 
 function OmniLoop({ omni }: { omni: Extract<EngineeringValue, { kind: 'board' }>['omni'] }) {
   return (
-    <section className="board-chart eng-omni" aria-labelledby="eng-omni">
+    <section className="board-chart board-card eng-omni" aria-labelledby="eng-omni">
       <h2 id="eng-omni">Omni Loop</h2>
       {omni.of === 0 ? <p className="dash-note">No PR merged in this period</p> : (
         <>
@@ -99,7 +99,7 @@ function NeedsFixLine({ rate }: { rate: NeedsFixRate }) {
 
 function LoopHealthPanel({ health, rate }: { health: LoopHealth; rate: NeedsFixRate }) {
   return (
-    <section className="board-chart eng-health" aria-labelledby="eng-health">
+    <section className="board-chart board-card eng-health" aria-labelledby="eng-health">
       <h2 id="eng-health">Loop health</h2>
       <h3 className="eng-health-part">Right now</h3>
       {health.rows.length === 0 ? <p className="dash-note">Nothing stuck right now</p> : (
@@ -136,7 +136,7 @@ function PerDay({ days, period }: { days: MergedDay[]; period: Period }) {
   }));
   const total = days.reduce((s, d) => s + d.signed + d.rest, 0);
   return (
-    <section className="board-chart" aria-labelledby="eng-per-day">
+    <section className="board-chart board-card" aria-labelledby="eng-per-day">
       <header className="board-chart-head">
         <h2 id="eng-per-day">{`PRs merged per day · ${PERIOD_WORDS[period]}`}</h2>
         <p className="board-chart-total"><b>{n(total)}</b> total</p>
@@ -160,7 +160,7 @@ function Repositories({ value, period, query }: { value: Extract<EngineeringValu
     </th>
   );
   return (
-    <section className="board-repos" aria-labelledby="eng-repos">
+    <section className="board-repos board-card" aria-labelledby="eng-repos">
       <h2 id="eng-repos">Repositories</h2>
       <div className="board-scroll">
         <table className="board-table">
@@ -195,7 +195,7 @@ function TopFive({ kind, title, people }: { kind: ListKind; title: string; peopl
   const id = `eng-top-${kind}`;
   const leader = people[0]?.count ?? 0;
   return (
-    <section className="board-chart eng-top" aria-labelledby={id}>
+    <section className="board-chart board-card eng-top" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
       {people.length === 0 ? <p className="dash-note">Nobody in this period</p> : (
         <ol className="eng-rows">
@@ -228,7 +228,7 @@ export interface EngineeringBoardProps {
   period: Period;
   query: Query;
   /** On a repository's page, that repository: the period switch stays on the page, and there is no table. */
-  repo?: string;
+  repo?: string | undefined;
 }
 
 export function EngineeringBoard({ board, period, query, repo }: EngineeringBoardProps) {

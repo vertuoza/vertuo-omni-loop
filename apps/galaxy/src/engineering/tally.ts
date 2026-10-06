@@ -1,5 +1,6 @@
-import { isClaimedStale } from 'vertuo-omni-plan/kit/lib/board.mjs';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
+import { at, defined, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isClaimedStale } from 'vertuo-omni-plan/kit/lib/board.ts';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { brusselsDay, type PeriodWindow } from '../dashboard/board/period';
 import type { Face } from '../people/face';
 
@@ -47,7 +48,7 @@ export interface PullRequestRow {
   /** The base branch; optional so a profile's rows (PRD 698) build without it. */
   base?: string | null;
   /** The head branch; null until the collector re-reads the pull request (PRD 714). */
-  head?: string | null;
+  head?: string | null | undefined;
   /** Whether it is a draft, as last read (PRD 714 s2); optional so a profile's rows build without it. */
   draft?: boolean;
   /** Its label names, as last read (PRD 714 s2). */
@@ -56,7 +57,7 @@ export interface PullRequestRow {
   headCommittedAt?: string | null;
   /** The `state:` of the loop's status comment (PRD 714 s3), read only for open signed pull requests into
    * a main branch; null otherwise or with no status comment. */
-  statusState?: string | null;
+  statusState?: string | null | undefined;
   /** When omni:needs-fix was first added to it (PRD 714 s4); null when never or not read. */
   needsFixAt?: string | null;
 }
@@ -130,7 +131,7 @@ export interface NeedsFixRate {
 
 /** The period rate over `subPrs`, the sub-PRs merged in the period. */
 function needsFixRateOf(subPrs: readonly PullRequestRow[]): NeedsFixRate {
-  const got = subPrs.filter((p) => p.needsFixAt && Date.parse(p.needsFixAt) <= Date.parse(p.mergedAt!)).length;
+  const got = subPrs.filter((p) => p.needsFixAt && Date.parse(p.needsFixAt) <= Date.parse(defined(p.mergedAt, 'a merged sub-PR\'s merge time'))).length;
   return { got, of: subPrs.length, share: subPrs.length ? Math.round((got / subPrs.length) * 100) : null };
 }
 
@@ -222,7 +223,7 @@ export const SORTS: readonly { id: SortKey; label: string }[] = [
 
 /** The sort a query value names: merged, for anything unknown. */
 export function sortOf(value: string | string[] | null | undefined): SortKey {
-  return SORTS.some((s) => s.id === value) ? (value as SortKey) : 'merged';
+  return isOneOf(SORTS.map((s) => s.id), value) ? value : 'merged';
 }
 
 const COUNT_OF: Record<Exclude<SortKey, 'repo' | 'time'>, (r: RepositoryStats) => number> = {
@@ -248,7 +249,7 @@ export function median(values: readonly number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted.length % 2 ? at(sorted, mid, 'the middle value') : (at(sorted, mid - 1, 'the value below the middle') + at(sorted, mid, 'the middle value')) / 2;
 }
 
 const MINUTE = 60_000;
@@ -278,20 +279,26 @@ export function topFive(logins: readonly (string | null)[]): Ranked[] {
 }
 
 const person = (login: string | null) => (login && !isBot(login) && login.toLowerCase() !== OMNI_MAN ? login : null);
-const toMerge = (p: PullRequestRow) => Date.parse(p.mergedAt!) - Date.parse(p.openedAt);
+const toMerge = (p: PullRequestRow) => Date.parse(defined(p.mergedAt, 'a merged pull request\'s merge time')) - Date.parse(p.openedAt);
 
-function statsOf(repo: string, prs: readonly PullRequestRow[], inWindow: (at: string | null) => boolean): RepositoryStats & EngineeringTiles {
+function statsOf(prs: readonly PullRequestRow[], inWindow: (at: string | null) => boolean): EngineeringTiles {
   const merged = prs.filter((p) => inWindow(p.mergedAt));
-  const additions = merged.reduce((s, p) => s + p.additions, 0);
-  const deletions = merged.reduce((s, p) => s + p.deletions, 0);
   return {
-    repo,
     opened: prs.filter((p) => inWindow(p.openedAt)).length,
     merged: merged.length,
     openNow: prs.filter((p) => !p.mergedAt && !p.closedAt).length,
     medianToMerge: median(merged.map(toMerge)),
     commits: merged.reduce((s, p) => s + p.commits, 0),
-    additions, deletions, lines: additions + deletions,
+    additions: merged.reduce((s, p) => s + p.additions, 0),
+    deletions: merged.reduce((s, p) => s + p.deletions, 0),
+  };
+}
+
+/** A repository's row of the table: its counts, additions and deletions as one number of lines. */
+function rowOf(repo: string, stats: EngineeringTiles): RepositoryStats {
+  return {
+    repo, opened: stats.opened, merged: stats.merged, openNow: stats.openNow, medianToMerge: stats.medianToMerge,
+    commits: stats.commits, lines: stats.additions + stats.deletions,
   };
 }
 
@@ -311,12 +318,9 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
   const prs = all.filter(countsOnBoard);
   const merged = prs.filter((p) => inWindow(p.mergedAt));
 
-  const { repo: _all, lines: _lines, ...tiles } = statsOf('', prs, inWindow);
+  const tiles = statsOf(prs, inWindow);
   const repositories = sortRows(
-    [...tracked].map((repo) => {
-      const { additions: _a, deletions: _d, ...row } = statsOf(repo, prs.filter((p) => p.repo.toLowerCase() === repo), inWindow);
-      return row;
-    }),
+    [...tracked].map((repo) => rowOf(repo, statsOf(prs.filter((p) => p.repo.toLowerCase() === repo), inWindow))),
     sort,
   );
 
@@ -346,8 +350,10 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
   const perDay = window.days.map((date) => ({ date, signed: 0, rest: 0 }));
   const dayAt = new Map(perDay.map((d) => [d.date, d]));
   for (const p of merged) {
-    const day = dayAt.get(brusselsDay(p.mergedAt!) ?? '');
-    if (day) p.omniSigned ? day.signed++ : day.rest++;
+    const day = dayAt.get(brusselsDay(defined(p.mergedAt, 'a merged pull request\'s merge time')) ?? '');
+    if (!day) continue;
+    if (p.omniSigned) day.signed++;
+    else day.rest++;
   }
 
   return { kind: 'board', window, sort, tiles, repositories, people, omni, health: loopHealthOf(all, now), needsFixRate: needsFixRateOf(subPrsMerged), perDay };

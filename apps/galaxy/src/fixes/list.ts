@@ -23,6 +23,7 @@ import { ofWork, WORK_PATHS, workPath } from '../dossier/page/work';
 import { NOBODY, type PeopleIn } from './people';
 import { readWho, whoParam, type HistoryWho, type Whom } from '../dossier/page/history';
 import { one, type Query } from '../nav/query';
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { People } from '../people/load';
 import type { Person } from '../people/types';
 
@@ -41,7 +42,7 @@ export type FixFilters = {
 };
 
 const STATES: readonly FixState[] = ['asked', 'in-review', 'merged'];
-const isFixState = (value: unknown): value is FixState => STATES.includes(value as FixState);
+const isFixState = (value: unknown): value is FixState => isOneOf(STATES, value);
 
 /** What the fix holds, and how much of it: `v1`, or `2 rounds` of variations. */
 export type FixArtifact = { kind: ArtifactKind; label: string; badge: string };
@@ -81,7 +82,7 @@ export function readFixFilters(query: Query): FixFilters {
 }
 
 /** Whether any filter but `who` is set: the page then offers to clear them, keeping `who`. */
-export const fixFiltered = ({ who: _who, ...rest }: FixFilters) => Object.keys(rest).length > 0;
+export const fixFiltered = (filters: FixFilters) => Object.keys(filters).some((key) => key !== 'who');
 
 /** The list's address for these filters: `repo`, `q`, then `who=all` for All or `who=<login>` (Mine is the default). */
 export function fixAddress(kind: FixKind, filters: FixFilters): string {

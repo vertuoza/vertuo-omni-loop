@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { DocsPage } from '../../../src/docs/DocsPage';
+import { docsMetadata } from '../../../src/seo/seo';
 import { guide } from '../../../src/docs/source';
 import { sidebarItems } from '../../../src/docs/tree';
 
@@ -19,7 +20,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const page = guide.getPage((await params).slug);
   if (!page) notFound();
-  return { title: page.data.title, description: page.data.description };
+  return docsMetadata(page.url, page.data.title, page.data.description);
 }
 
 export default async function DocsRoute({ params }: Params) {
@@ -30,7 +31,7 @@ export default async function DocsRoute({ params }: Params) {
     <DocsPage
       items={sidebarItems(guide.pageTree)}
       url={page.url}
-      title={page.data.title ?? ''}
+      title={page.data.title}
       description={page.data.description}
       toc={page.data.toc}
     >

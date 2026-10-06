@@ -3,10 +3,13 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DEMO_RELEASES } from '../demo';
 import { RELEASES } from '../words';
 import { ReleasesPage } from './ReleasesPage';
+import { sure } from '../../arcade/test/sure';
+
+vi.mock('server-only', () => ({}));
 
 // /releases as the server renders it (PRD 262), from the demo sample: what a visitor and a search
 // engine read, with no script run. The tests run in the demo's mode (no Supabase, not production).
@@ -32,7 +35,7 @@ const release = (version: string) => between(html, `<article id="${version}"`, '
 describe('the app bar', () => {
   it('reads OMNI LOOP · Releases, linked to the app\'s home, then the theme switch, then Game mode', () => {
     const bar = between(html, '<header class="ask-bar', '</header>');
-    expect(bar).toMatch(/<a class="ask-mark" href="\/app">OMNI LOOP<\/a>/);
+    expect(bar).toMatch(/<a class="brand-logo" href="\/app">[\s\S]*?<span class="ask-mark">OMNI LOOP<\/span><\/a>/);
     expect(bar).toContain('<span class="ask-brand-sub">Releases</span>');
     const theme = bar.indexOf('aria-label="Theme"'), game = bar.indexOf('>Game mode');
     expect(theme).toBeGreaterThan(0);
@@ -83,7 +86,7 @@ describe('the page', () => {
     expect(text(initial)).toMatch(/^0\.0\.1 · Sun 27 Sep · Initial release/);
     expect(initial).toMatch(/<h3 class="rel-title">From idea to merged PR, on a loop\.<\/h3>/);
     expect(text(initial)).toContain(RELEASES.initial.intro);
-    const lines = [...initial.matchAll(/<li class="rel-line">([\s\S]*?)<\/li>/g)].map((m) => text(m[1]));
+    const lines = [...initial.matchAll(/<li class="rel-line">([\s\S]*?)<\/li>/g)].map((m) => text(sure(m[1], 'group 1')));
     const rows = DEMO_RELEASES.filter((r) => r.release === 1).sort((a, b) => a.prd - b.prd);
     expect(lines).toEqual(rows.map((r) => `${r.title} ${r.description} PRD ${r.prd}`));
     expect(lines).toHaveLength(21);
@@ -91,7 +94,7 @@ describe('the page', () => {
 
   it('keeps the four newest weeks open and folds the older ones into a closed <details>, its summary counting releases and PRDs', () => {
     const folds = [...html.matchAll(/<details class="rel-week rel-fold"( open="")?>\s*<summary[^>]*>([\s\S]*?)<\/summary>/g)];
-    expect(folds.map((m) => [Boolean(m[1]), text(m[2])])).toEqual([[false, 'Week of 21 Sep 2026 · 1 release · 21 PRDs']]);
+    expect(folds.map((m) => [Boolean(m[1]), text(sure(m[2], 'group 2'))])).toEqual([[false, 'Week of 21 Sep 2026 · 1 release · 21 PRDs']]);
     expect(between(html, '<details', '</details>')).toContain('<article id="0.0.1"');
     expect([...html.matchAll(/<section class="rel-week"/g)]).toHaveLength(4);
   });
@@ -122,10 +125,10 @@ describe('its metadata', () => {
   it('names it for the tab, search engines and link previews: title, description, canonical address, Open Graph', () => {
     expect(metadata.title).toBe('Release notes · Omni Loop');
     expect(metadata.description).toBe(RELEASES.description);
-    expect(metadata.alternates?.canonical).toBe('https://vertuo-omni-loop-galaxy.vercel.app/releases');
+    expect(metadata.alternates?.canonical).toBe('https://www.omni-loop.xyz/releases');
     expect(metadata.openGraph).toMatchObject({
       type: 'website',
-      url: 'https://vertuo-omni-loop-galaxy.vercel.app/releases',
+      url: 'https://www.omni-loop.xyz/releases',
       siteName: 'Omni Loop',
       title: 'Release notes · Omni Loop',
       description: RELEASES.description,

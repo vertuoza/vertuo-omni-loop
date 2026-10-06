@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { matches, type KnowledgeEntry, type KnowledgeGraph, type KnowledgeLink } from '../data/knowledge';
 import { orrery } from './orrery';
 import { entryHref, tabOf } from './view';
@@ -35,7 +36,7 @@ export function OrreryDiagram({ graph, entries, label, selected, query, repo, on
   const chosen = selected ? at.get(selected) : undefined;
 
   const line = (link: KnowledgeLink, className: string) => {
-    const [a, b] = [at.get(link.from)!, at.get(link.to)!];
+    const [a, b] = [defined(at.get(link.from), `the dot of ${link.from}`), defined(at.get(link.to), `the dot of ${link.to}`)];
     return <line key={`${link.kind} ${link.from} ${link.to}`} className={className} data-link={link.kind} x1={a.x} y1={a.y} x2={b.x} y2={b.y} />;
   };
 
@@ -55,7 +56,7 @@ export function OrreryDiagram({ graph, entries, label, selected, query, repo, on
           className={matches(entry, query) ? 'km-pick' : 'km-pick is-dim'}
           tabIndex={-1}
           data-entry={entry.id}
-          onClick={(event) => onChoose(entry.id, event)}
+          onClick={(event) => { onChoose(entry.id, event); }}
         >
           <title>{`${entry.id} · ${entry.statement}`}</title>
           <circle className="km-hit" cx={x} cy={y} r={layout.dot + 4} />

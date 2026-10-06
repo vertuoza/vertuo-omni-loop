@@ -1,3 +1,4 @@
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { z } from 'zod';
 import type { JevDecisionEntry } from './entry';
 
@@ -12,7 +13,7 @@ import type { JevDecisionEntry } from './entry';
 export const BUG_RISK_LEVELS = ['low', 'medium', 'high', 'critical'] as const;
 export type BugRisk = (typeof BUG_RISK_LEVELS)[number];
 
-const isLevel = (value: unknown): value is BugRisk => typeof value === 'string' && (BUG_RISK_LEVELS as readonly string[]).includes(value);
+const isLevel = (value: unknown): value is BugRisk => isOneOf(BUG_RISK_LEVELS, value);
 
 export interface BugRiskInput {
   title: string;

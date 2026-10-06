@@ -39,7 +39,7 @@ export function mergeFacts(stored: FixSummary | null, read: FixSummary): FixSumm
 export async function refreshFixFacts(workspace: string, fixes: readonly FixRef[], deps: RefreshDeps): Promise<RefreshResult> {
   const result: RefreshResult = { read: 0, stored: 0, final: 0, failed: 0 };
   if (fixes.length === 0) return result;
-  const log = deps.log ?? ((error: unknown) => console.error(error));
+  const log = deps.log ?? ((error: unknown) => { console.error(error); });
   const stored = await deps.store.readFacts(workspace, fixes.map((f) => f.id));
 
   const rows = await Promise.all(fixes.map(async (fix): Promise<FixFactsRow | null> => {

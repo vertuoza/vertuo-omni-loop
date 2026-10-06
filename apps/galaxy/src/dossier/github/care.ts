@@ -8,6 +8,7 @@
 // A thread's verdict: the last care reply's marker, except that a person writing after it, or a thread
 // care resolved and someone reopened, makes it `asked` (the reviewer keeps the last word). A thread with
 // no care reply is `open` while unresolved; resolved by a person without one, it is left out.
+import { at, defined, firstPart, group, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { z } from 'zod';
 
 export type CareCi = 'green' | 'red' | 'running' | 'none';
@@ -82,12 +83,12 @@ const Answer = z.object({
 });
 
 const MARKER = /<!--\s*omni-care:\s*([a-z-]+)\s*-->/;
-const VERDICTS = new Set(['fixed', 'pushed-back', 'asked']);
+const VERDICTS: readonly Exclude<CareVerdict, 'open'>[] = ['fixed', 'pushed-back', 'asked'];
 
 /** A comment's care verdict; null when it carries no marker, or an unknown one (then it is a person's). */
 export function careVerdictOf(body: string | null | undefined): Exclude<CareVerdict, 'open'> | null {
   const found = MARKER.exec(body ?? '')?.[1];
-  return found && VERDICTS.has(found) ? (found as Exclude<CareVerdict, 'open'>) : null;
+  return isOneOf(VERDICTS, found) ? found : null;
 }
 
 const FAILED_RUN = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);
@@ -108,7 +109,7 @@ const ROLLUP_CI: Record<string, CareCi> = { SUCCESS: 'green', FAILURE: 'red', ER
 
 function ciOf(rollup: z.infer<typeof Rollup>): { ci: CareCi; failedUrl: string | null } {
   if (!rollup) return { ci: 'none', failedUrl: null };
-  const ci = ROLLUP_CI[rollup.state ?? ''] ?? 'running';
+  const ci = ROLLUP_CI[rollup.state] ?? 'running';
   return { ci, failedUrl: ci === 'red' ? failedUrlOf(rollup) : null };
 }
 
@@ -119,14 +120,14 @@ type CareComment = z.infer<typeof Comment>;
 /** What a thread shows of its first comment: who opened it and its first line. */
 function threadBaseOf(first: CareComment, resolved: boolean) {
   return { url: first.url, login: first.author?.login ?? 'ghost', avatar: first.author?.avatarUrl ?? null,
-    firstLine: (first.body ?? '').trim().split('\n')[0].trim(), resolved };
+    firstLine: firstPart((first.body ?? '').trim(), '\n').trim(), resolved };
 }
 
 /** The verdict and reason of the last care reply, at `lastCare`: asked once a person spoke after it
  * or reopened the thread. */
 function repliedOf(comments: CareComment[], lastCare: number, resolved: boolean): Pick<CareThread, 'verdict' | 'reason'> {
-  const reply = comments[lastCare];
-  const marked = careVerdictOf(reply.body)!;
+  const reply = at(comments, lastCare, 'the last care reply');
+  const marked = defined(careVerdictOf(reply.body), 'the care reply\'s verdict');
   const spokeAfter = lastCare < comments.length - 1;
   const reopened = !resolved && marked !== 'asked';
   return { verdict: spokeAfter || reopened ? 'asked' : marked, reason: reasonOf(reply.body ?? '') };
@@ -170,8 +171,8 @@ export function parseCare(data: unknown, statusMarker: string): CareState | null
     conflict: pull.mergeable === 'CONFLICTING' ? true : pull.mergeable === 'MERGEABLE' ? false : null,
     base: pull.baseRefName,
     threads,
-    watchingSince: line ? iso(line[1]) : null,
-    lastRound: line ? iso(line[2]) : null,
+    watchingSince: line ? iso(group(line, 1)) : null,
+    lastRound: line ? iso(group(line, 2)) : null,
   };
 }
 

@@ -51,6 +51,7 @@ function ReleaseEntry({ release }: { release: Release }) {
     );
   }
   const [only, ...more] = release.lines;
+  if (!only) return null; // a release always has a line: the rows make the release
   if (more.length) {
     // The table keeps one PRD per release above 1; should it ever hold more, none is hidden.
     return (

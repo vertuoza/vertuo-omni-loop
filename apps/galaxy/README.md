@@ -29,7 +29,7 @@ Game Boy's buttons on a phone (design:
   (24×24) recoloured per wound kind, 16×16 icons. A fleet's flavour (its sprite, its motif, its
   HOME card's rule) is keyed by its mascot, never by its name: a workspace names its own fleets.
 - Every player's hero is the OmniMan body (a girl or a boy, 32×48) recoloured: skin, hair, suit and
-  cape are ramp swaps on one material each (`packages/design/src/heroes.mjs`). A fleet without a
+  cape are ramp swaps on one material each (`packages/design/src/heroes.ts`). A fleet without a
   drawn mascot flies as a hero in its own colour.
 - Planets are procedural: a dithered, lit, rotating sphere per PRD with oceans, shallows, forests,
   ice caps, drifting clouds, a five-band terminator and an atmosphere glow. The surface greens in
@@ -49,27 +49,43 @@ every visitor. Its parts live in `src/home/` (`app/page.tsx` renders them), top 
    page's one headline **AGENTS SHIP. YOU STEER.**, the pitch, the promise strip (ONE FOLDER IN, ONE
    FOLDER OUT · EVERY DECISION WRITTEN DOWN · A PERSON ALWAYS MERGES), OmniMan, the disabled sign-up,
    the invaded planet, the crest and PRESS START.
-2. **What's in it for you?**: three cards, HEAD OF ENGINEERING, DEVELOPER and PRODUCT MANAGER, each a
-   promise and three proofs, all visible.
-3. **Strategy guide: the loop, level by level**: seven levels, SET UP to SHIP and the KNOWLEDGE bonus,
-   with OmniMan running the path and the LOOP LINGO sidebar.
-4. **You see everything**: six bullets; the release notes one links to `/releases`.
-5. **Easy in, easy out**: the four GET IN steps, and GET OUT: delete `.omni-loop/` and commit.
-6. **High scores: the loop built this**: FEATURES SHIPPED, SLICES MERGED and DECISIONS ADOPTED,
-   counted from `.omni-loop/delivery/shipped/` when the page is built (`src/home/scores.ts`).
-7. **The game: Entropy you can see**: why the game exists, and the demo world's invented fleets as
-   trading cards.
-8. **Join the loop!**: the order form, with PRESS START and the Konami tip.
+2. **Strategy guide: the loop**: the loop drawn as a map after the docs' own
+   (`docs/guide/diagrams/loop.svg`), in the arcade's look: IDEA → PRD → INBOX on top, down to OUTBOX,
+   back along OUTBOX → SHIPPED → RETRO, and the dashed ★ BONUS KNOWLEDGE arrow from RETRO up to IDEA.
+   Each level box carries its level (1-1 to 1-6), its name and one plain line; each arrow is coloured
+   by who moves the work on, named in the legend: YOU, AGENTS, OMNI APP. The stages are one list,
+   `LOOP` in `StrategyGuide.tsx`, which draws the map and the visually hidden list a screen reader
+   reads. Below 720px the map is redrawn as one column, KNOWLEDGE running back up its left edge.
+   OmniMan (`omni-run`) runs the loop in CSS and stands still on IDEA under reduced motion. The LOOP
+   LINGO sidebar sits beside the map.
+3. **Built for your customers**: the agents build for a team's customers, from what the team writes
+   down once. A chain of three steps, BUSINESS → PRODUCTS → PERSONAS (one column below 720px), filled
+   by one invented company labelled EXAMPLE, *Brick & Bolt* (`EXAMPLE_BUSINESS` in `Customers.tsx`):
+   its business, its site diary app, and three personas, each a pixel portrait from `personaGrid`
+   (`@omni/design`) with a name, a trade and a stance (EXCITED, NEUTRAL, SKEPTICAL). The closing
+   step, THE AGENTS READ THEM ON EVERY RUN, shows the skeptical persona's objection, the answer, and
+   the fact the agents keep from it. No real company's name appears in it.
+4. **The game: build your fleet**: ship value to your customers and score for your fleet, in three
+   numbered beats. CREATE YOUR FLEET deals HOME's own example fleets (`EXAMPLE_FLEETS` in
+   `src/home/spreads/fleets.ts`: DAM BUSTERS, DEEP DIVERS, GOLD DIGGERS, SPY RING and SEA DOGS,
+   never the demo galaxy's) as trading cards, each with its mascot on the front and, on the back,
+   the scoring rule its mascot carries (`cardsOf`). SHIP VALUE says how points come, every number
+   read from `game/rulebook.ts`. CLIMB THE LEADERBOARD ranks the example fleets by their points,
+   labelled EXAMPLE, then shows the loop's real counts under THE LOOP BUILT THIS: FEATURES SHIPPED,
+   SLICES MERGED and DECISIONS ADOPTED, counted from `.omni-loop/delivery/shipped/` when the page is
+   built (`src/home/scores.ts`), `—` for a count it cannot read.
+5. **Join the loop!**: the order form, with PRESS START, GETTING STARTED, the Konami tip and the exit
+   line: "Leave any time: delete one folder and commit. Nothing to migrate."
 
 Each spread is its own component under `src/home/spreads/`, composed by `Spreads.tsx`. HOME links
-nowhere but `/play` and `/releases`.
+nowhere but `/play` and `/docs`.
 
-**LOOP LINGO** (`src/home/lingo.ts`) keeps HOME in plain words. It glosses the five loop terms HOME
-uses (HARNESS, PRD, SLICE, WAVE, OUTBOX) and names the loop words it never says (phase-0, worktree,
-sub-PR, dossier, territory, yolo). Its guard, `lingo.test.ts`, renders HOME and reads the text a
-visitor reads, leaving out `<code>`, `<kbd>`, the fleet cards and the sidebar itself: every term it
-finds must be glossed, every gloss used, and no banned word said. A new sentence that trips it is
-reworded, or its term added to the sidebar.
+**LOOP LINGO** (`src/home/lingo.ts`) keeps HOME in plain words. It glosses the three loop terms HOME
+says (PRD, SLICE, OUTBOX; HARNESS and WAVE stay loop terms HOME no longer says) and names the loop
+words it never says (phase-0, worktree, sub-PR, dossier, territory, yolo). Its guard,
+`lingo.test.ts`, renders HOME and reads the text a visitor reads, leaving out `<code>`, `<kbd>`, the
+fleet cards and the sidebar itself: every term it finds must be glossed, every gloss used, and no
+banned word said. A new sentence that trips it is reworded, or its term added to the sidebar.
 
 Shared, a link to `/` previews as the ad: the title `OMNI LOOP · AGENTS SHIP. YOU STEER.`, its
 description, and an Open Graph image of the crest and AGENTS SHIP. YOU STEER. on the starfield
@@ -103,11 +119,11 @@ HOME.
 | Star chart | The knowledge base as space: a sun per domain, sized by the entries it holds, and a dotted lane for each cross-domain file ([The knowledge map](#the-knowledge-map)) |
 | System | One domain as an orrery: its entries as worlds on still orbits, laws terraformed and proposed entries barren; the selected world's links, its panel, and the reading card |
 | Fleets | A hero-select wall of the fleets with season points, streak, planets, crew (players by name) |
-| Hall of Heroes | Season high-score table from `game/economy.mjs`, with each player's hero and name |
+| Hall of Heroes | Season high-score table from `game/economy.ts`, with each player's hero and name |
 | Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) and a SOON cabinet ([The game room](#the-game-room)) |
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
 | SUPER OMNI WORLD | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
-| How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.mjs` so they never drift |
+| How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.ts` so they never drift |
 
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#menu`, `#planet-2332`
 (`src/arcade/deep-link.ts`). Each opens its screen past the boot and the title, and the address
@@ -267,13 +283,13 @@ GitHub ──pnpm game:project (game workflow, every 15 min)──▶ Supabase: 
                                                                  ▼
              apps/galaxy (Next.js, per request, as the signed-in member, one workspace) ── buildGalaxy() ──▶ arcade (client)
                                                                  ▲
-                              no Supabase configured ──▶ demo world → game/projector.mjs → events
+                              no Supabase configured ──▶ demo world → game/projector.ts → events
 ```
 
 `@omni/galaxy` (`packages/galaxy`) folds ledger events into the view. It never invents a number:
-points and rankings come from `game/economy.mjs`, decay and threat weights from
-`game/rulebook.mjs`, working hours from `game/calendar.mjs`, XP, levels and unlocks from
-`game/experience.mjs` (the view's rules carry the rulebook's `xp` block, for How to play). The demo
+points and rankings come from `game/economy.ts`, decay and threat weights from
+`game/rulebook.ts`, working hours from `game/calendar.ts`, XP, levels and unlocks from
+`game/experience.ts` (the view's rules carry the rulebook's `xp` block, for How to play). The demo
 galaxy is a fictional GitHub snapshot run through the real projector, so demo events are exactly
 what `pnpm game:project` would append. Its fleets are invented too (`demoFleets()`): no workspace's
 own, and nobody's but the demo mode's, HOME's and the artifact's.
@@ -501,7 +517,7 @@ error logged on the server, and the rest renders.
 
 **Numbers that read 0 for now.** Season points and places come from the ledger, whose projector
 reads each repository's `docs/inbox/*.md` and the plan repository's PRD issues only
-(`game/sources/github.mjs`), while the kit writes `.omni-loop/delivery/{inbox,shipped}/`: they read
+(`game/sources/github.ts`), while the kit writes `.omni-loop/delivery/{inbox,shipped}/`: they read
 0 for most people until a later PRD teaches the projector the kit's delivery folders, and the boards
 show activity beside them. The merges and PRD stages read 0 while the game workflow is off, and the
 stages cover the poller's 40-day window only.
@@ -636,7 +652,7 @@ installation (the one it stored, else the App's installation on its GitHub org, 
 account), a hundred per page and at most ten pages, checking fifty configs per GraphQL call, and a
 picked repository's `product/`, `domains/` and `cross-domain/` registers, under the knowledge folder
 its config names, are read in one more call at its default branch's tip and built into the same
-graph by the same parser (`graphOfTexts` in `kit/lib/knowledge/graph.mjs`). The token stays in
+graph by the same parser (`graphOfTexts` in `kit/lib/knowledge/graph.ts`). The token stays in
 server memory; the listing is kept five minutes per installation and a graph one minute per
 repository. Without the App's credentials, or when the workspaces or GitHub cannot be read, the menu
 offers only what it could read (the log says why), and the deployed checkout is always there.
@@ -652,8 +668,8 @@ knowledge base: its star chart reads `NO STAR CHART IN THIS BUILD`.
 
 Every point a player earns by delivering also counts as XP, and XP never resets: a new season
 starts the Hall of Heroes again, never a level (PRD 160). The rules (what XP counts, the curve, the
-cap and the level each game opens at) are the `xp` block of `game/rulebook.mjs`, applied by
-`game/experience.mjs` ([`game/README.md` › XP, levels and unlocks](../../game/README.md#xp-levels-and-unlocks)).
+cap and the level each game opens at) are the `xp` block of `game/rulebook.ts`, applied by
+`game/experience.ts` ([`game/README.md` › XP, levels and unlocks](../../game/README.md#xp-levels-and-unlocks)).
 The game workflow writes each login's XP, level and unlocked games to `player_xp` at every poll
 (`pnpm game:xp`); the arcade reads that row and shows the level it holds. Where the workflow is
 off, no row exists, and every player sees NO XP YET.
@@ -788,7 +804,7 @@ person's own reply on the feature pull request, so `/omni:yolo-fix` settles it l
 1. `POST /api/outbox/send` (`src/outbox/send.ts`), as the signed-in person, who must be a member of
    the dossier's workspace, reads the outbox fresh from GitHub (not from the cache) and checks each
    pick against it. A pick whose question was settled meanwhile is dropped, and the tab names it.
-   The kit's reply writer (`kit/lib/outbox/answers.mjs`) writes the reply, and it is recorded as a
+   The kit's reply writer (`kit/lib/outbox/answers.ts`) writes the reply, and it is recorded as a
    send, a row of `outbox_sends`.
 2. The person goes through GitHub's authorisation of the omni-loop App (`GITHUB_APP_CLIENT_ID`),
    whose `state` names the send and carries a nonce, also held in a short-lived, http-only cookie;
@@ -900,7 +916,7 @@ notes**.
   the read throws, Next keeps serving the last page it rendered, and it tries again on a later
   request. A visitor never reads an error's detail.
 
-**`pnpm releases:sync`, the sync** (`scripts/releases-sync.mjs`, its rules in `src/releases/`). It
+**`pnpm releases:sync`, the sync** (`scripts/releases-sync.ts`, its rules in `src/releases/`). It
 reads this checkout's shipped folders through the kit (the config, the layout and the note parser)
 and `git`, reads the table, and writes:
 
@@ -997,6 +1013,11 @@ pnpm galaxy:shots        # in another: apps/galaxy/shots/<width>x<height>/, whic
 - A dev server on another port: `GALAXY_URL=http://localhost:3001/ pnpm galaxy:shots`.
 
 ## Deploy to production
+
+Galaxy is live at **`https://www.omni-loop.xyz`** (the apex `omni-loop.xyz` answers 308 to `www`),
+and still at `https://vertuo-omni-loop-galaxy.vercel.app`: both hosts serve every page, with no
+redirect between them, and every canonical address galaxy prints names the first (PRD 983). Below,
+`<production host>` is `www.omni-loop.xyz`.
 
 Supabase holds the game's data and is its source of truth; GitHub Actions migrates it and appends
 to the ledger, and Vercel serves the arcade from it:
@@ -1101,6 +1122,19 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    (`openssl rand -base64 32`), which encrypts each workspace's TypeSafe key. Without it,
    Settings › Jev says Jev is not available on this deployment and every decision is made as before
    ([Settings › Jev](#settings--jev-prd-812)).
+
+   Every variable the arcade reads, each optional and read once at startup (`src/env.ts`,
+   `src/env.client.ts`, ADR-0057); [`.env.example`](.env.example) says what each one does:
+   <!-- omni:env-variables -->
+   - the public pair: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - the service role: `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_URL` when it reads another address
+   - the GitHub App: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`,
+     `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`
+   - OpenRouter: `OPENROUTER_API_KEY`
+   - the shared secrets: `STAGES_SYNC_SECRET`, `STAGE_EVENT_SECRET`, `SECRETS_MASTER_KEY`,
+     `CONSTITUENT_JUDGE_SECRET`, `BUSINESS_RECHECK_SECRET`
+   - the demo: `OMNI_LOOP_DEMO`; the screenshots' address (`pnpm shots`): `GALAXY_URL`
+   <!-- /omni:env-variables -->
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    arcade still plays its attract mode and says the galaxy is out of reach. `/releases` reads the
    database at build time instead, as nobody, and again at most every 5 minutes.
@@ -1111,6 +1145,22 @@ Invite the crew to join (sign in with GitHub, pick a fleet). The real sectors ar
 (`supabase/migrations/20260926160000_vertuoza_sectors.sql`: `omni-core`, `ai-nebula`, `flow-rim`);
 add a sector or a repository with a migration of its own. Then switch the game workflow on ([`game/README.md` › Setup](../../game/README.md#setup)): the first
 poll backfills history with everyone's fleet as it stands.
+
+### 7. Serve it on www.omni-loop.xyz
+
+Signing in works on any host, because every OAuth return address is built from the host the visitor
+is on. What a new host needs is outside the repository: three steps a person takes, none of them
+done by the code (PRD 983). Without them, `www.omni-loop.xyz` still serves every page, and sign-in
+works on the vercel.app host as before.
+
+1. **Supabase** › Authentication › URL Configuration: add `https://www.omni-loop.xyz/**` and
+   `https://omni-loop.xyz/**` to Redirect URLs, keeping the vercel.app, preview and localhost
+   entries. Set the Site URL to `https://www.omni-loop.xyz`.
+2. **The omni-loop GitHub App** › its settings page: add
+   `https://www.omni-loop.xyz/prd/github/callback` to its Callback URLs, keeping the vercel.app one,
+   and set its Setup URL to `https://www.omni-loop.xyz/signup/installed`.
+3. **Vercel** › the galaxy project › Domains: keep both `www.omni-loop.xyz` and
+   `vertuo-omni-loop-galaxy.vercel.app`, with no redirect between them.
 
 ### In production
 
@@ -1160,7 +1210,7 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   installation when it had none), else a new, empty one with the person as its owner.
 - `signup_requests`: `(user_id, github_org, created_at)`, a visitor waiting for their org's owner to
   install the App. Its own person reads it; only the service role writes it.
-- `ledger_events` mirrors the event contract (`game/events.mjs`) one to one, with the same type
+- `ledger_events` mirrors the event contract (`game/events.ts`) one to one, with the same type
   check, plus the `workspace_id` it is stored under: the workspace is a storage column, never an
   event field, so two workspaces may each hold a `planet:12:charted` (key `(workspace_id, id)`). A
   trigger refuses `UPDATE` and `DELETE`: the ledger is append-only.

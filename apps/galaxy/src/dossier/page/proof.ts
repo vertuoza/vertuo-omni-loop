@@ -8,6 +8,7 @@
 // could not be signed reads as missing, never as an error.
 import { nameOf, type Member } from '../../ask/page/question';
 import type { ProofRunRow, Verdict } from '../../proof/store';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { shortDay, stamp } from './dates';
 import type { VersionEntry } from './view';
 
@@ -51,7 +52,7 @@ function shownNumber(count: number, version: number | null): number {
 
 /** The run the picker names, else the newest; null with none. `runs` is newest first. */
 export function runOf(runs: readonly ProofRunRow[], version: number | null): ProofRunRow | null {
-  return runs.length ? runs[runs.length - shownNumber(runs.length, version)] : null;
+  return runs.length ? at(runs, runs.length - shownNumber(runs.length, version), 'the shown run') : null;
 }
 
 const short = (sha: string) => sha.slice(0, 7);

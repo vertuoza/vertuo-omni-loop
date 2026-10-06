@@ -4,8 +4,10 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { afterEach, describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { firstAdded } from './git';
+
+vi.mock('server-only', () => ({}));
 
 const INBOX = '.omni-loop/delivery/inbox';
 const SHIPPED = '.omni-loop/delivery/shipped';

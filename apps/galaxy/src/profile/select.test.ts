@@ -6,6 +6,7 @@ import {
   capped, fixesOf, githubPullUrl, moreHref, prdsOf, profileLogin, profilePath, profileStageLinks, pullRequestsOf, reviewsOf, seeAllHref,
   PROFILE_LIMIT,
 } from './select';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The profile's pure choices (PRD 698 s3): one person's pull requests and reviews of one period,
 // newest first, at most 10 and whether more exist; the login a path names; where each link goes.
@@ -40,9 +41,9 @@ describe('pullRequestsOf', () => {
     ];
     expect(pullRequestsOf(rows, 'ADA', WINDOW)).toEqual({
       rows: [
-        { repo: 'acme/widgets', number: 6, url: 'https://github.com/acme/widgets/pull/6', event: 'merged', at: '2026-09-28T08:00:00Z', additions: 16, deletions: 6 },
-        { repo: 'acme/widgets', number: 2, url: 'https://github.com/acme/widgets/pull/2', event: 'opened', at: '2026-09-25T08:00:00Z', additions: 12, deletions: 2 },
-        { repo: 'acme/widgets', number: 1, url: 'https://github.com/acme/widgets/pull/1', event: 'merged', at: '2026-09-24T08:00:00Z', additions: 11, deletions: 1 },
+        { repo: 'acme/widgets', number: parsePr(6), url: 'https://github.com/acme/widgets/pull/6', event: 'merged', at: '2026-09-28T08:00:00Z', additions: 16, deletions: 6 },
+        { repo: 'acme/widgets', number: parsePr(2), url: 'https://github.com/acme/widgets/pull/2', event: 'opened', at: '2026-09-25T08:00:00Z', additions: 12, deletions: 2 },
+        { repo: 'acme/widgets', number: parsePr(1), url: 'https://github.com/acme/widgets/pull/1', event: 'merged', at: '2026-09-24T08:00:00Z', additions: 11, deletions: 1 },
       ],
       more: false,
     });
@@ -66,8 +67,8 @@ describe('reviewsOf', () => {
     ];
     expect(reviewsOf(rows, 'ada', WINDOW)).toEqual({
       rows: [
-        { repo: 'acme/gears', number: 2, url: 'https://github.com/acme/gears/pull/2', at: '2026-09-28T08:00:00Z' },
-        { repo: 'acme/gears', number: 1, url: 'https://github.com/acme/gears/pull/1', at: '2026-09-24T08:00:00Z' },
+        { repo: 'acme/gears', number: parsePr(2), url: 'https://github.com/acme/gears/pull/2', at: '2026-09-28T08:00:00Z' },
+        { repo: 'acme/gears', number: parsePr(1), url: 'https://github.com/acme/gears/pull/1', at: '2026-09-24T08:00:00Z' },
       ],
       more: false,
     });
@@ -105,12 +106,12 @@ describe('the addresses', () => {
 // who=<login> uses, at most 10 each.
 
 const dossier = (id: string, over: Partial<DossierListRow> = {}): DossierListRow => ({
-  id, workspace_id: 'w1', home_repo: 'acme/widgets', prd: Number(id.replace(/\D/g, '')) || null, kind: 'prd', title: `Title ${id}`,
+  id, workspace_id: 'w1', home_repo: 'acme/widgets', prd: Number(id.replace(/\D/g, '')) ? parsePrd(id.replace(/\D/g, '')) : null, kind: 'prd', title: `Title ${id}`,
   opened_by: 'u-ada', created_at: '2026-09-01T08:00:00Z', numbered_at: null, repos: ['acme/widgets'], latest: {}, asked: 0, answered: 0,
   last_activity: '2026-09-25T08:00:00Z', ...over,
 });
 const fact = (author: string): FixSummary => ({
-  issue: { number: 1, url: 'https://github.com/acme/widgets/issues/1', state: 'open', author, createdAt: '2026-09-24T08:00:00Z', risk: 'omni:risk-high', regression: true },
+  issue: { number: parseIssue(1), url: 'https://github.com/acme/widgets/issues/1', state: 'open', author, createdAt: '2026-09-24T08:00:00Z', risk: 'omni:risk-high', regression: true },
   pull: null, approvals: [], release: null,
 });
 const ADA = new Set(['u-ada']);

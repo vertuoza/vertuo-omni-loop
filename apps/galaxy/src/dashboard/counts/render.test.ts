@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { WaitingTile } from './WaitingTile';
 import { ASK, FOR_ME, type Waiting } from './counts';
+import { sure } from '../../arcade/test/sure';
 
 // Waiting for you as the server renders it (PRD 328, kept on Home by PRD 572), to static markup: one
 // tile, its label and its number, linking where waitingCount says; out of reach, it says so alone.
@@ -12,8 +13,8 @@ const UNREADABLE_LINE = 'Couldn’t load this. Reload in a moment.';
 
 const render = (part: Waiting | 'unreadable') => renderToStaticMarkup(createElement(WaitingTile, { part }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const tiles = (html: string) => [...html.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map((m) => text(m[1]));
-const links = (html: string) => [...html.matchAll(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(m[2])]);
+const tiles = (html: string) => [...html.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map((m) => text(sure(m[1], 'm[1]')));
+const links = (html: string) => [...html.matchAll(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(sure(m[2], 'm[2]'))]);
 
 describe('Waiting for you', () => {
   it('is one tile, its label and its number, linking to /ask', () => {

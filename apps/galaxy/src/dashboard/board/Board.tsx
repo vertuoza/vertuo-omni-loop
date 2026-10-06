@@ -6,12 +6,14 @@ import { CouldNotLoad } from '../Notes';
 import { UNREADABLE, type Read } from '../part';
 import { fleetTagOf, type FleetRank } from '../rankings/rank';
 import { axisTicks, columnLabels, dayName } from './chart';
+import { medalSvg } from './medal';
 import type { Query } from './links';
 import type { BoardValue } from './load';
 import type { Period } from './period';
 import { PeriodSwitch } from './PeriodSwitch';
 import { EVENTS, GROUPS, type ChartDay, type EventDay, type PersonRow, type PrdEvent, type RepoRow, type StageTally } from './tally';
 import './board.css';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // A board (PRD 572), drawn on the server, top to bottom: the period switch, the four tiles, the two
 // per-day charts, the People table, the repositories involved and, where the page asks, the season's
@@ -23,7 +25,7 @@ import './board.css';
 // period's events, named opened · started · shipped so nobody reads it as where PRDs are.
 // PRD 652: each People row's name starts with the member's face (PersonChip), and its fleet is a
 // FleetChip, its mascot in its colour; the row's text is the same as before. Each fleet of the season's
-// ranking is a FleetChip too.
+// ranking is a FleetChip too. Issue 958: its top three wear a pixel medal (medal.ts) in a narrow rank column.
 
 const COUNT = new Intl.NumberFormat('en-US');
 const n = (value: number) => COUNT.format(value);
@@ -92,7 +94,7 @@ export type Column = { date: string; parts: { key: string; count: number; classN
 export function Bars({ columns }: { columns: Column[] }) {
   const totals = columns.map((c) => c.parts.reduce((s, p) => s + p.count, 0));
   const ticks = axisTicks(Math.max(0, ...totals));
-  const top = ticks.at(-1)!;
+  const top = at(ticks, -1, "the axis's top mark");
   const width = (100 - CHART.left) / columns.length;
   const bar = width * 0.6;
   const labels = columnLabels(columns.map((c) => c.date));
@@ -140,7 +142,7 @@ const dayWords = (date: string, today: boolean) => {
 
 function ChartPart({ id, title, total, children }: { id: string; title: string; total: ReactNode; children: ReactNode }) {
   return (
-    <section className="board-chart" aria-labelledby={id}>
+    <section className="board-chart board-card" aria-labelledby={id}>
       <header className="board-chart-head">
         <h2 id={id}>{title}</h2>
         {total}
@@ -210,7 +212,7 @@ function failed(rows: PersonRow[]): string[] {
 
 function People({ people, title, note }: { people: Read<PersonRow[]>; title: ReactNode; note?: ReactNode }) {
   return (
-    <section className="board-people" aria-labelledby="board-people">
+    <section className="board-people board-card" aria-labelledby="board-people">
       <h2 id="board-people">{title}</h2>
       {people === UNREADABLE ? <CouldNotLoad /> : (
         <>
@@ -255,7 +257,7 @@ function People({ people, title, note }: { people: Read<PersonRow[]>; title: Rea
 
 function Repositories({ repos }: { repos: Read<RepoRow[]> }) {
   return (
-    <section className="board-repos" aria-labelledby="board-repos">
+    <section className="board-repos board-card" aria-labelledby="board-repos">
       <h2 id="board-repos">Repositories involved</h2>
       {repos === UNREADABLE ? <CouldNotLoad /> : repos.length === 0 ? <p className="dash-note">No merged PR or PRD event in this period</p> : (
         <table className="board-table">
@@ -273,19 +275,26 @@ function Repositories({ repos }: { repos: Read<RepoRow[]> }) {
   );
 }
 
+/** A rank of the fleet ranking: a pixel medal for the top three, the number read aloud beside it. */
+function Medal({ rank }: { rank: number }) {
+  const svg = medalSvg(rank);
+  if (!svg) return <>{rank}</>;
+  return <><span className="board-medal" aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} /><span className="ask-sr">{rank}</span></>;
+}
+
 function FleetRanking({ fleets, season }: { fleets: Read<FleetRank[]>; season: string }) {
   return (
-    <section className="board-fleets" aria-labelledby="board-fleets">
+    <section className="board-fleets board-card" aria-labelledby="board-fleets">
       <h2 id="board-fleets">{`Fleets · ${season}`}</h2>
       {fleets === UNREADABLE ? <CouldNotLoad /> : fleets.length === 0 ? <p className="dash-note">This workspace has no fleet yet</p> : (
         <table className="board-table">
           <thead>
-            <tr><th scope="col" className="is-num">Rank</th><th scope="col">Fleet</th><th scope="col" className="is-num">Points</th></tr>
+            <tr><th scope="col" className="board-rank">Rank</th><th scope="col">Fleet</th><th scope="col" className="is-num">Points</th></tr>
           </thead>
           <tbody>
             {fleets.map((f) => (
               <tr key={f.name} aria-current={f.yours ? 'true' : undefined}>
-                <td className="is-num">{f.rank}</td>
+                <td className="board-rank"><Medal rank={f.rank} /></td>
                 <th scope="row" className="board-name">
                   <FleetChip fleet={fleetTagOf(f)} />
                   {f.yours && <span className="board-you"><span aria-hidden="true"> ◀</span><span className="ask-sr"> (your fleet)</span></span>}

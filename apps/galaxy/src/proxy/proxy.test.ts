@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { config } from '../../proxy';
 import { refreshSession } from './session';
+
+vi.mock('server-only', () => ({}));
 
 // The proxy (PRD 657 s2): it keeps the session fresh before a page renders, through
 // auth.getClaims() (a local JWT check with asymmetric keys, never slower than getUser), and it does
@@ -14,14 +16,18 @@ const covers = (path: string) => config.matcher.some((m) => new RegExp(`^${m}$`)
 describe('the proxy matcher', () => {
   it.each(['/', '/app', '/app/workspace', '/app/fleet', '/prd', '/prd/1f0c9a2e-8a55-4c55-9a1e-0f5c2d4b7e11', '/ask', '/play', '/apple'])(
     'covers the page %s',
-    (path) => expect(covers(path)).toBe(true),
+    (path) => {
+      expect(covers(path)).toBe(true);
+    },
   );
 
   it.each([
     '/api', '/api/waiting/outbox', '/api/stages/event', '/_next/static/chunks/app.js', '/_next/image', '/favicon.ico',
     '/fonts/anton.woff2', '/fonts/inter.woff', '/styles/app.css', '/mascots/beaver.gif', '/hero.png', '/hero.jpg', '/hero.jpeg',
     '/crest.svg', '/hero.webp', '/hero.avif', '/robots.txt', '/sitemap.xml',
-  ])('leaves out %s', (path) => expect(covers(path)).toBe(false));
+  ])('leaves out %s', (path) => {
+    expect(covers(path)).toBe(false);
+  });
 });
 
 function fakeCreate() {
@@ -31,14 +37,14 @@ function fakeCreate() {
     cookies = options.cookies;
     return {
       auth: {
-        async getClaims() {
+        getClaims() {
           calls.getClaims += 1;
           cookies?.setAll([{ name: 'sb-token', value: 'fresh', options: { path: '/' } }]);
-          return { data: null, error: null };
+          return Promise.resolve({ data: null, error: null });
         },
-        async getUser() {
+        getUser() {
           calls.getUser += 1;
-          throw new Error('the proxy never calls getUser');
+          return Promise.reject(new Error('the proxy never calls getUser'));
         },
       },
     };

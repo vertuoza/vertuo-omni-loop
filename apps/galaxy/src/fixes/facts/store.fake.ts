@@ -4,6 +4,7 @@
 // to the workspace asked. `fail` makes every call throw, as a refused Supabase call does. That the
 // database holds the same rules is proved by supabase/checks/fix_facts.sql, not here.
 import type { FixSummary } from '../../dossier/github/fix';
+import { settled } from '../../stages/settled';
 import type { FixFactsRow, FixFactsStore } from './store';
 
 export type FakeFixFactsStore = FixFactsStore & {
@@ -22,25 +23,29 @@ export function fakeFixFactsStore(now: () => string = () => new Date().toISOStri
     reads: [],
     fail: null,
 
-    async readFacts(workspace, ids) {
-      check();
-      fake.reads.push(`${workspace} ${ids.length}`);
-      const wanted = new Set(ids);
-      const facts = new Map<string, FixSummary>();
-      for (const row of fake.rows) {
-        if (row.workspace_id === workspace && wanted.has(row.dossier_id)) facts.set(row.dossier_id, row.facts);
-      }
-      return facts;
+    readFacts(workspace, ids) {
+      return settled(() => {
+        check();
+        fake.reads.push(`${workspace} ${ids.length}`);
+        const wanted = new Set(ids);
+        const facts = new Map<string, FixSummary>();
+        for (const row of fake.rows) {
+          if (row.workspace_id === workspace && wanted.has(row.dossier_id)) facts.set(row.dossier_id, row.facts);
+        }
+        return facts;
+      });
     },
 
-    async writeFacts(rows, syncedAt = now()) {
-      check();
-      if (rows.length === 0) return;
-      for (const r of rows) {
-        const row = { dossier_id: r.dossier_id, workspace_id: r.workspace_id, facts: r.facts, synced_at: syncedAt };
-        fake.rows = [...fake.rows.filter((k) => k.dossier_id !== row.dossier_id), row];
-      }
-      fake.writes.push(rows.map((r) => `${r.workspace_id} ${r.dossier_id}`).join(', '));
+    writeFacts(rows, syncedAt = now()) {
+      return settled(() => {
+        check();
+        if (rows.length === 0) return;
+        for (const r of rows) {
+          const row = { dossier_id: r.dossier_id, workspace_id: r.workspace_id, facts: r.facts, synced_at: syncedAt };
+          fake.rows = [...fake.rows.filter((k) => k.dossier_id !== row.dossier_id), row];
+        }
+        fake.writes.push(rows.map((r) => `${r.workspace_id} ${r.dossier_id}`).join(', '));
+      });
     },
   };
   function check() {

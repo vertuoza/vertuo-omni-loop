@@ -47,6 +47,25 @@ pnpm test
 
 The tests run entirely on fixtures and never call GitHub.
 
+### Environment variables
+
+The kit, the game and the scripts read their environment once, in `kit/lib/env/read.ts`, as groups:
+each one set whole, or left unset and its feature off. A group half set or a malformed value stops
+the command with one line naming the variables, never a value (ADR-0057). Every one is optional:
+
+<!-- omni:env-variables -->
+- `OPENROUTER_API_KEY`, and optionally `OPENROUTER_MODEL`: the model `omni harvest` asks where each
+  decision belongs.
+- `PROOF_URL` and `PROOF_STORAGE_STATE`: the address `/omni:prove` films and the file
+  `omni proof session` writes its sign-in to.
+- `OMNI_LOOP_WORKSPACE`: the workspace a game command plays for when `--workspace` names none.
+- `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY`: the game's
+  database, for the `game:*` commands, `personas-import` and `schemas:verify --production`.
+<!-- /omni:env-variables -->
+
+The app and the arcade each list their own: [`apps/omni-app/README.md`](apps/omni-app/README.md),
+[`apps/galaxy/README.md`](apps/galaxy/README.md).
+
 ### Open the galaxy
 
 ```bash

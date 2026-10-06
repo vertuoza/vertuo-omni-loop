@@ -36,7 +36,7 @@
         "count": 1
       }
     },
-    "apps/galaxy/scripts/shots.mjs": {
+    "apps/galaxy/scripts/shots.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -419,17 +419,17 @@
         "count": 1
       }
     },
-    "apps/omni-app/src/knowledge-harvest/render.mjs": {
+    "apps/omni-app/src/knowledge-harvest/render.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "apps/omni-app/src/outbox-check/fake-github.mjs": {
+    "apps/omni-app/src/outbox-check/fake-github.ts": {
       "crap_high": {
         "count": 1
       }
     },
-    "apps/omni-app/src/retro/guard.mjs": {
+    "apps/omni-app/src/retro/guard.ts": {
       "complexity_high": {
         "count": 1
       },
@@ -443,7 +443,7 @@
         "count": 1
       }
     },
-    "apps/omni-app/src/retro/kinds/after-merge.mjs": {
+    "apps/omni-app/src/retro/kinds/after-merge.ts": {
       "complexity_high": {
         "count": 1
       },
@@ -451,7 +451,7 @@
         "count": 3
       }
     },
-    "apps/omni-app/src/retro/kinds/churn-generated.mjs": {
+    "apps/omni-app/src/retro/kinds/churn-generated.ts": {
       "complexity_high": {
         "count": 1
       },
@@ -459,12 +459,12 @@
         "count": 1
       }
     },
-    "apps/omni-app/src/retro/kinds/churn-lines.mjs": {
+    "apps/omni-app/src/retro/kinds/churn-lines.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "apps/omni-app/src/retro/kinds/churn.mjs": {
+    "apps/omni-app/src/retro/kinds/churn.ts": {
       "complexity_high": {
         "count": 1
       },
@@ -475,32 +475,32 @@
         "count": 2
       }
     },
-    "apps/omni-app/src/retro/kinds/ci-logs.mjs": {
+    "apps/omni-app/src/retro/kinds/ci-logs.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "apps/omni-app/src/retro/kinds/ci.mjs": {
+    "apps/omni-app/src/retro/kinds/ci.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "apps/omni-app/src/retro/kinds/delivery.facts.mjs": {
+    "apps/omni-app/src/retro/kinds/delivery.facts.ts": {
       "crap_high": {
         "count": 1
       }
     },
-    "apps/omni-app/src/retro/kinds/delivery.mjs": {
+    "apps/omni-app/src/retro/kinds/delivery.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "apps/omni-app/src/retro/kinds/delivery.reads.mjs": {
+    "apps/omni-app/src/retro/kinds/delivery.reads.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "apps/omni-app/src/retro/narrate.mjs": {
+    "apps/omni-app/src/retro/narrate.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -511,12 +511,12 @@
         "count": 1
       }
     },
-    "apps/omni-app/src/retro/render.mjs": {
+    "apps/omni-app/src/retro/render.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "apps/omni-app/src/retro/retro.mjs": {
+    "apps/omni-app/src/retro/retro.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -524,17 +524,17 @@
         "count": 1
       }
     },
-    "apps/omni-app/test/github-replay.mjs": {
+    "apps/omni-app/test/github-replay.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "game/cli/banner.mjs": {
+    "game/cli/banner.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "game/cli/contributions.test.mjs": {
+    "game/cli/contributions.test.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -542,12 +542,12 @@
         "count": 1
       }
     },
-    "game/config.mjs": {
+    "game/config.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "game/dossiers/fake-github.mjs": {
+    "game/dossiers/fake-github.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -555,7 +555,7 @@
         "count": 1
       }
     },
-    "game/dossiers/fake-supabase.mjs": {
+    "game/dossiers/fake-supabase.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -572,12 +572,12 @@
         "count": 1
       }
     },
-    "game/dossiers/folders.mjs": {
+    "game/dossiers/folders.ts": {
       "complexity_high": {
         "count": 1
       }
     },
-    "game/dossiers/sync.mjs": {
+    "game/dossiers/sync.ts": {
       "complexity_high": {
         "count": 1
       },
@@ -588,7 +588,7 @@
         "count": 1
       }
     },
-    "game/economy.mjs": {
+    "game/economy.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -596,12 +596,12 @@
         "count": 1
       }
     },
-    "game/experience.mjs": {
+    "game/experience.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "game/planet-state.mjs": {
+    "game/planet-state.ts": {
       "complexity_critical": {
         "count": 2
       },
@@ -612,12 +612,12 @@
         "count": 2
       }
     },
-    "game/projector.mjs": {
+    "game/projector.ts": {
       "complexity_critical": {
         "count": 1
       }
     },
-    "game/sources/github.mjs": {
+    "game/sources/github.ts": {
       "complexity_critical": {
         "count": 2
       },
@@ -625,7 +625,7 @@
         "count": 2
       }
     },
-    "game/test/fake-supabase.mjs": {
+    "game/test/fake-supabase.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -633,22 +633,22 @@
         "count": 1
       }
     },
-    "kit/bin/board.test.mjs": {
+    "kit/bin/board.test.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/bin/commands/answers.mjs": {
+    "kit/bin/commands/answers.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/bin/commands/ask.mjs": {
+    "kit/bin/commands/ask.ts": {
       "crap_moderate": {
         "count": 2
       }
     },
-    "kit/bin/commands/check.mjs": {
+    "kit/bin/commands/check.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -656,7 +656,7 @@
         "count": 1
       }
     },
-    "kit/bin/commands/comment.mjs": {
+    "kit/bin/commands/comment.ts": {
       "complexity_high": {
         "count": 1
       },
@@ -664,7 +664,7 @@
         "count": 1
       }
     },
-    "kit/bin/commands/credits.mjs": {
+    "kit/bin/commands/credits.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -672,7 +672,7 @@
         "count": 1
       }
     },
-    "kit/bin/commands/dossier.mjs": {
+    "kit/bin/commands/dossier.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -683,7 +683,7 @@
         "count": 1
       }
     },
-    "kit/bin/commands/harvest.mjs": {
+    "kit/bin/commands/harvest.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -691,12 +691,12 @@
         "count": 1
       }
     },
-    "kit/bin/commands/init.mjs": {
+    "kit/bin/commands/init.ts": {
       "crap_high": {
         "count": 1
       }
     },
-    "kit/bin/commands/item.mjs": {
+    "kit/bin/commands/item.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -704,7 +704,7 @@
         "count": 1
       }
     },
-    "kit/bin/commands/plan.mjs": {
+    "kit/bin/commands/plan.ts": {
       "complexity_high": {
         "count": 1
       },
@@ -715,17 +715,17 @@
         "count": 2
       }
     },
-    "kit/bin/commands/signin.mjs": {
+    "kit/bin/commands/signin.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/bin/commands/status.mjs": {
+    "kit/bin/commands/status.ts": {
       "crap_high": {
         "count": 1
       }
     },
-    "kit/bin/commands/update.mjs": {
+    "kit/bin/commands/update.ts": {
       "complexity_high": {
         "count": 1
       },
@@ -733,7 +733,7 @@
         "count": 1
       }
     },
-    "kit/bin/init.test.mjs": {
+    "kit/bin/init.test.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -741,7 +741,7 @@
         "count": 1
       }
     },
-    "kit/bin/update.test.mjs": {
+    "kit/bin/update.test.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -749,37 +749,37 @@
         "count": 1
       }
     },
-    "kit/lib/ask/context.mjs": {
+    "kit/lib/ask/context.ts": {
       "complexity_high": {
         "count": 1
       }
     },
-    "kit/lib/ask/hook.mjs": {
+    "kit/lib/ask/hook.ts": {
       "complexity_high": {
         "count": 1
       }
     },
-    "kit/lib/bug/verdict.mjs": {
+    "kit/lib/bug/verdict.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/lib/credits/classify.mjs": {
+    "kit/lib/credits/classify.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/lib/credits/reader.mjs": {
+    "kit/lib/credits/reader.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "kit/lib/dossier/local.mjs": {
+    "kit/lib/dossier/local.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/lib/help/entries.test.mjs": {
+    "kit/lib/help/entries.test.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -787,37 +787,37 @@
         "count": 1
       }
     },
-    "kit/lib/inbox/check-inbox.mjs": {
+    "kit/lib/inbox/check-inbox.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/lib/inbox/inbox.mjs": {
+    "kit/lib/inbox/inbox.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "kit/lib/inbox/territory.mjs": {
+    "kit/lib/inbox/territory.ts": {
       "complexity_high": {
         "count": 1
       }
     },
-    "kit/lib/init/install-pr.mjs": {
+    "kit/lib/init/install-pr.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "kit/lib/init/install-pr.test.mjs": {
+    "kit/lib/init/install-pr.test.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/lib/init/steps.mjs": {
+    "kit/lib/init/steps.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "kit/lib/knowledge/check-knowledge.mjs": {
+    "kit/lib/knowledge/check-knowledge.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -831,12 +831,12 @@
         "count": 4
       }
     },
-    "kit/lib/knowledge/check-knowledge.test.mjs": {
+    "kit/lib/knowledge/check-knowledge.test.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/lib/knowledge/classify.mjs": {
+    "kit/lib/knowledge/classify.ts": {
       "complexity_moderate": {
         "count": 1
       },
@@ -844,17 +844,17 @@
         "count": 1
       }
     },
-    "kit/lib/knowledge/harvest.mjs": {
+    "kit/lib/knowledge/harvest.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/lib/knowledge/registers.mjs": {
+    "kit/lib/knowledge/registers.ts": {
       "crap_high": {
         "count": 1
       }
     },
-    "kit/lib/knowledge/write.mjs": {
+    "kit/lib/knowledge/write.ts": {
       "complexity_high": {
         "count": 1
       },
@@ -862,7 +862,7 @@
         "count": 1
       }
     },
-    "kit/lib/openrouter.mjs": {
+    "kit/lib/openrouter.ts": {
       "complexity_high": {
         "count": 1
       },
@@ -873,7 +873,7 @@
         "count": 1
       }
     },
-    "kit/lib/outbox/answers.mjs": {
+    "kit/lib/outbox/answers.ts": {
       "complexity_moderate": {
         "count": 1
       },
@@ -881,17 +881,17 @@
         "count": 1
       }
     },
-    "kit/lib/outbox/check-outbox.mjs": {
+    "kit/lib/outbox/check-outbox.ts": {
       "complexity_moderate": {
         "count": 2
       }
     },
-    "kit/lib/outbox/comment.mjs": {
+    "kit/lib/outbox/comment.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "kit/lib/outbox/outbox.mjs": {
+    "kit/lib/outbox/outbox.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -899,7 +899,7 @@
         "count": 1
       }
     },
-    "kit/lib/outbox/replies.mjs": {
+    "kit/lib/outbox/replies.ts": {
       "complexity_high": {
         "count": 1
       },
@@ -907,7 +907,7 @@
         "count": 1
       }
     },
-    "kit/lib/outbox/settle.mjs": {
+    "kit/lib/outbox/settle.ts": {
       "complexity_moderate": {
         "count": 1
       },
@@ -915,17 +915,17 @@
         "count": 1
       }
     },
-    "kit/lib/plan-repo/targets.mjs": {
+    "kit/lib/plan-repo/targets.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "kit/lib/plan-repo/targets.test.mjs": {
+    "kit/lib/plan-repo/targets.test.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/lib/playbook/check-playbook.mjs": {
+    "kit/lib/playbook/check-playbook.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -933,7 +933,7 @@
         "count": 1
       }
     },
-    "kit/lib/playbook/forms.mjs": {
+    "kit/lib/playbook/forms.ts": {
       "complexity_moderate": {
         "count": 1
       },
@@ -941,17 +941,17 @@
         "count": 1
       }
     },
-    "kit/lib/playbook/resolve.mjs": {
+    "kit/lib/playbook/resolve.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/lib/statusline/facts.mjs": {
+    "kit/lib/statusline/facts.ts": {
       "crap_moderate": {
         "count": 1
       }
     },
-    "kit/test/fake-ask-server.mjs": {
+    "kit/test/fake-ask-server.ts": {
       "complexity_critical": {
         "count": 2
       },
@@ -959,7 +959,7 @@
         "count": 2
       }
     },
-    "packages/design/src/draw.mjs": {
+    "packages/design/src/draw.ts": {
       "complexity_critical": {
         "count": 1
       },
@@ -967,40 +967,40 @@
         "count": 2
       },
       "complexity_moderate": {
-        "count": 1
-      },
-      "crap_critical": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 2
-      }
-    },
-    "packages/design/src/forge.mjs": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "complexity_high": {
         "count": 1
       },
       "crap_critical": {
         "count": 1
       },
       "crap_high": {
+        "count": 2
+      }
+    },
+    "packages/design/src/forge.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
         "count": 1
       }
     },
-    "packages/design/src/logo.mjs": {
+    "packages/design/src/logo.ts": {
       "complexity_high": {
         "count": 1
       }
     },
-    "packages/design/src/logo.test.mjs": {
+    "packages/design/src/logo.test.ts": {
       "complexity_moderate": {
         "count": 1
       }
     },
-    "packages/design/src/sprites.mjs": {
+    "packages/design/src/sprites.ts": {
       "complexity_high": {
         "count": 1
       },
@@ -1008,7 +1008,7 @@
         "count": 1
       }
     },
-    "packages/galaxy/src/galaxy.mjs": {
+    "packages/galaxy/src/galaxy.ts": {
       "complexity_critical": {
         "count": 2
       },
@@ -1022,25 +1022,25 @@
   },
   "runtime_coverage_findings": [],
   "target_keys": [
-    "kit/lib/knowledge/check-knowledge.mjs:dead code",
-    "kit/bin/commands/dossier.mjs:untested risk",
+    "kit/lib/knowledge/check-knowledge.ts:dead code",
+    "kit/bin/commands/dossier.ts:untested risk",
     "apps/galaxy/src/data/sign-in-live.ts:high impact",
-    "game/planet-state.mjs:high impact",
+    "game/planet-state.ts:high impact",
     "apps/galaxy/src/dossier/github/reader.ts:high impact",
     "apps/galaxy/src/arcade/ArcadeApp.tsx:high impact",
-    "game/economy.mjs:high impact",
+    "game/economy.ts:high impact",
     "apps/galaxy/src/ask/page/tabs.ts:high impact",
     "apps/galaxy/src/outbox/send-live.ts:dead code",
     "apps/galaxy/src/dossier/page/view.ts:high impact",
     "apps/galaxy/src/outbox/send.ts:high impact",
-    "game/projector.mjs:high impact",
+    "game/projector.ts:high impact",
     "apps/galaxy/src/fleets/store.ts:high impact",
-    "kit/lib/bug/verdict.mjs:dead code",
-    "kit/lib/knowledge/write.mjs:dead code",
+    "kit/lib/bug/verdict.ts:dead code",
+    "kit/lib/knowledge/write.ts:dead code",
     "apps/galaxy/src/fleets/refusal.ts:dead code",
     "apps/galaxy/src/dossier/page/stage.ts:high impact",
-    "kit/lib/credits/classify.mjs:high impact",
-    "kit/lib/laws.mjs:high impact",
+    "kit/lib/credits/classify.ts:high impact",
+    "kit/lib/laws.ts:high impact",
     "apps/galaxy/src/arcade/games/room.ts:high impact",
     "apps/galaxy/src/arcade/scenes/map.ts:high impact",
     "apps/galaxy/src/knowledge/view.ts:high impact",
@@ -1052,10 +1052,10 @@
     "apps/galaxy/src/arcade/games/invaders.ts:high impact",
     "apps/galaxy/src/ask/page/workspace-history.ts:high impact",
     "apps/galaxy/src/ask/store.fake.ts:high impact",
-    "game/sources/github.mjs:high impact",
+    "game/sources/github.ts:high impact",
     "apps/galaxy/src/dossier/page/live.ts:high impact",
-    "kit/lib/ask/client.mjs:high impact",
-    "kit/lib/knowledge/copies.mjs:dead code",
+    "kit/lib/ask/client.ts:high impact",
+    "kit/lib/knowledge/copies.ts:dead code",
     "apps/galaxy/src/arcade/onboarding.ts:high impact",
     "apps/galaxy/src/dashboard/you.ts:high impact",
     "apps/galaxy/src/ask/page/source.ts:high impact",
@@ -1063,96 +1063,96 @@
     "apps/galaxy/src/waiting/documents.ts:high impact",
     "apps/galaxy/src/ask/page/AskSession.tsx:complexity",
     "apps/galaxy/src/waiting/source.ts:high impact",
-    "kit/test/fake-ask-server.mjs:high impact",
+    "kit/test/fake-ask-server.ts:high impact",
     "apps/galaxy/src/signup/signup.fake.ts:high impact",
-    "kit/lib/outbox/decision-coverage.mjs:dead code",
+    "kit/lib/outbox/decision-coverage.ts:dead code",
     "apps/galaxy/src/arcade/account-demo.ts:high impact",
     "apps/galaxy/src/home/spreads/StrategyGuide.tsx:dead code",
-    "kit/lib/outbox/replies.mjs:complexity",
-    "apps/omni-app/src/retro/narrate.mjs:high impact",
+    "kit/lib/outbox/replies.ts:complexity",
+    "apps/omni-app/src/retro/narrate.ts:high impact",
     "apps/galaxy/src/ask/cli-code.ts:high impact",
-    "kit/lib/ask/hook.mjs:high impact",
-    "kit/lib/visual/verdict.mjs:dead code",
+    "kit/lib/ask/hook.ts:high impact",
+    "kit/lib/visual/verdict.ts:dead code",
     "apps/galaxy/src/dossier/page/history.ts:high impact",
-    "kit/bin/commands/check.mjs:complexity",
-    "kit/lib/statusline/board-cache.mjs:circular dependency",
-    "kit/test/fixture.mjs:high impact",
+    "kit/bin/commands/check.ts:complexity",
+    "kit/lib/statusline/board-cache.ts:circular dependency",
+    "kit/test/fixture.ts:high impact",
     "apps/galaxy/src/docs/guide.ts:complexity",
     "apps/galaxy/src/dossier/page/outbox-view.ts:high impact",
     "apps/galaxy/src/data/galaxy.fake.ts:high impact",
-    "kit/bin/omni.mjs:circular dependency",
+    "kit/bin/omni.ts:circular dependency",
     "apps/galaxy/src/arcade/fleets.ts:high impact",
-    "kit/bin/commands/ask.mjs:untested risk",
+    "kit/bin/commands/ask.ts:untested risk",
     "apps/galaxy/src/dossier/api.ts:high impact",
     "apps/galaxy/src/ask/answer-model.ts:high impact",
     "apps/galaxy/src/data/load-galaxy.ts:high impact",
     "apps/galaxy/src/docs/diagrams.ts:high impact",
-    "kit/lib/dossier/folder.mjs:dead code",
-    "kit/lib/ask/credentials.mjs:high impact",
-    "kit/lib/delivery/ship.mjs:high impact",
-    "kit/lib/status/overview.mjs:high impact",
-    "kit/lib/dossier/local.mjs:high impact",
-    "game/dossiers/folders.mjs:high impact",
+    "kit/lib/dossier/folder.ts:dead code",
+    "kit/lib/ask/credentials.ts:high impact",
+    "kit/lib/delivery/ship.ts:high impact",
+    "kit/lib/status/overview.ts:high impact",
+    "kit/lib/dossier/local.ts:high impact",
+    "game/dossiers/folders.ts:high impact",
     "apps/galaxy/src/dossier/page/source.ts:high impact",
-    "game/config.mjs:high impact",
+    "game/config.ts:high impact",
     "apps/galaxy/src/ask/page/AskQuestion.tsx:complexity",
-    "apps/omni-app/src/retro/kinds/churn.mjs:complexity",
-    "packages/galaxy/src/galaxy.mjs:complexity",
+    "apps/omni-app/src/retro/kinds/churn.ts:complexity",
+    "packages/galaxy/src/galaxy.ts:complexity",
     "apps/galaxy/src/arcade/scenes/invaders-score.ts:high impact",
-    "kit/lib/init/repo.mjs:high impact",
+    "kit/lib/init/repo.ts:high impact",
     "apps/galaxy/src/ask/page/view.ts:high impact",
-    "kit/lib/plan-repo/targets.mjs:high impact",
+    "kit/lib/plan-repo/targets.ts:high impact",
     "apps/galaxy/src/arcade/sound.ts:high impact",
     "apps/galaxy/src/dossier/page/outbox-picks.ts:high impact",
-    "packages/design/src/forge.mjs:high impact",
-    "kit/lib/help/entries.test.mjs:complexity",
-    "apps/omni-app/src/retro/kinds/after-merge.mjs:high impact",
-    "kit/lib/statusline/facts.mjs:circular dependency",
+    "packages/design/src/forge.ts:high impact",
+    "kit/lib/help/entries.test.ts:complexity",
+    "apps/omni-app/src/retro/kinds/after-merge.ts:high impact",
+    "kit/lib/statusline/facts.ts:circular dependency",
     "apps/galaxy/src/arcade/scenes/common.tsx:high impact",
-    "kit/lib/statusline/sessions.mjs:high impact",
+    "kit/lib/statusline/sessions.ts:high impact",
     "apps/galaxy/src/signup/installed.ts:high impact",
     "apps/galaxy/src/data/sign-in.ts:high impact",
     "apps/galaxy/src/ask/page/question.ts:high impact",
     "apps/galaxy/src/ask/cli-code-live.ts:high impact",
-    "apps/omni-app/src/retro/kinds/timeline.mjs:high impact",
-    "game/experience.mjs:high impact",
-    "kit/lib/playbook/check-playbook.mjs:high impact",
-    "apps/omni-app/src/retro/render.mjs:high impact",
-    "game/sources/supabase.mjs:high impact",
-    "apps/omni-app/test/github-replay.mjs:high impact",
-    "kit/bin/args.mjs:high impact",
+    "apps/omni-app/src/retro/kinds/timeline.ts:high impact",
+    "game/experience.ts:high impact",
+    "kit/lib/playbook/check-playbook.ts:high impact",
+    "apps/omni-app/src/retro/render.ts:high impact",
+    "game/sources/supabase.ts:high impact",
+    "apps/omni-app/test/github-replay.ts:high impact",
+    "kit/bin/args.ts:high impact",
     "apps/galaxy/src/data/scores.ts:high impact",
-    "kit/lib/knowledge/graph.mjs:high impact",
+    "kit/lib/knowledge/graph.ts:high impact",
     "apps/galaxy/src/data/mode.ts:high impact",
-    "game/test/fake-supabase.mjs:high impact",
+    "game/test/fake-supabase.ts:high impact",
     "apps/galaxy/src/data/workspace.ts:high impact",
     "apps/galaxy/src/ask/page/poll.ts:high impact",
-    "kit/lib/releases/note.mjs:high impact",
+    "kit/lib/releases/note.ts:high impact",
     "apps/galaxy/src/arcade/account-closed.ts:high impact",
     "apps/galaxy/src/dossier/page/history-at.ts:high impact",
-    "packages/design/src/heroes.mjs:high impact",
-    "packages/design/src/logo.mjs:high impact",
+    "packages/design/src/heroes.ts:high impact",
+    "packages/design/src/logo.ts:high impact",
     "apps/galaxy/src/fleets/model.ts:high impact",
-    "game/dossiers/fake-supabase.mjs:high impact",
-    "kit/lib/layout.mjs:high impact",
-    "kit/lib/ask/local-state.mjs:high impact",
-    "kit/lib/version/version.mjs:high impact",
-    "apps/omni-app/src/retro/guard.mjs:untested risk",
-    "apps/omni-app/src/webhook/webhook.mjs:high impact",
-    "kit/lib/openrouter.mjs:high impact",
-    "kit/bin/commands/statusline.mjs:circular dependency",
-    "kit/lib/init/bundle.mjs:high impact",
-    "apps/omni-app/src/snapshot/snapshot.mjs:high impact",
-    "apps/omni-app/src/retro/kinds/ci-logs.mjs:high impact",
+    "game/dossiers/fake-supabase.ts:high impact",
+    "kit/lib/layout.ts:high impact",
+    "kit/lib/ask/local-state.ts:high impact",
+    "kit/lib/version/version.ts:high impact",
+    "apps/omni-app/src/retro/guard.ts:untested risk",
+    "apps/omni-app/src/webhook/webhook.ts:high impact",
+    "kit/lib/openrouter.ts:high impact",
+    "kit/bin/commands/statusline.ts:circular dependency",
+    "kit/lib/init/bundle.ts:high impact",
+    "apps/omni-app/src/snapshot/snapshot.ts:high impact",
+    "apps/omni-app/src/retro/kinds/ci-logs.ts:high impact",
     "apps/galaxy/src/dossier/store.fake.ts:high impact",
-    "game/dossiers/sync.mjs:untested risk",
+    "game/dossiers/sync.ts:untested risk",
     "apps/galaxy/src/ask/page/History.tsx:high impact",
-    "kit/bin/commands/plan.mjs:untested risk",
-    "kit/lib/dossier/draft.mjs:high impact",
+    "kit/bin/commands/plan.ts:untested risk",
+    "kit/lib/dossier/draft.ts:high impact",
     "apps/galaxy/src/nav/drawer-context.tsx:high impact",
-    "packages/design/src/draw.mjs:complexity",
-    "kit/bin/commands/item.mjs:complexity",
+    "packages/design/src/draw.ts:complexity",
+    "kit/bin/commands/item.ts:complexity",
     "apps/galaxy/src/knowledge/github.test.ts:complexity",
-    "kit/bin/init.test.mjs:complexity"
+    "kit/bin/init.test.ts:complexity"
   ]
 }

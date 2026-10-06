@@ -1,6 +1,7 @@
 'use client';
 import { useReducer, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { Product } from '../business/model';
 import { initialState, repositoriesReducer, type RepositoryRow } from './model';
 import { RepositoriesView, type Access, type RepositoriesHandlers } from './RepositoriesView';
@@ -14,8 +15,6 @@ export type RepositoriesSource =
   | { kind: 'demo' }
   | { kind: 'database'; url: string; key: string; workspace: string };
 
-type Rpc = Parameters<typeof databaseRepositories>[0];
-
 export interface RepositoriesPageProps {
   source: RepositoriesSource;
   owner: boolean;
@@ -23,7 +22,7 @@ export interface RepositoriesPageProps {
   access: Access;
   now: number;
   /** The business's products, first first (PRD 748 s4). */
-  products?: Product[];
+  products?: Product[] | undefined;
 }
 
 export function RepositoriesPage({ source, owner, repositories, access, now, products = [] }: RepositoriesPageProps) {
@@ -31,7 +30,7 @@ export function RepositoriesPage({ source, owner, repositories, access, now, pro
   const port = useRef<RepositoriesPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoRepositoriesPort(repositories)
-    : databaseRepositories(createBrowserClient(source.url, source.key) as unknown as Rpc, source.workspace));
+    : databaseRepositories(createBrowserClient<Database>(source.url, source.key), source.workspace));
 
   const run = async (call: (p: RepositoriesPort) => Promise<Saved>) => {
     if (state.busy) return;
@@ -41,8 +40,8 @@ export function RepositoriesPage({ source, owner, repositories, access, now, pro
   };
 
   const on: RepositoriesHandlers = {
-    pick: () => dispatch({ type: 'pick' }),
-    close: () => dispatch({ type: 'close' }),
+    pick: () => { dispatch({ type: 'pick' }); },
+    close: () => { dispatch({ type: 'close' }); },
     add: (fullName) => void run((p) => p.add(fullName)),
     setTracked: (fullName, tracked) => void run((p) => p.setTracked(fullName, tracked)),
     setProduct: (fullName, product) => void run((p) => p.setProduct(fullName, product)),

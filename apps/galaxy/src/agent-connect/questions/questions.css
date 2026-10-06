@@ -1,0 +1,11 @@
+/* Settings › Business › Questions agents couldn't answer (PRD 855 s3): one row per question on Connect an
+   agent's row styles (../tokens/connect.css), its two buttons and the Answer once form beneath it, the
+   Business page's own (.business-type). At 393 px the buttons and the form wrap, a long file breaks
+   anywhere, and nothing is wider than the screen. */
+.agent-question { display: grid; gap: 8px; min-width: 0; }
+.agent-question-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.agent-question-file { overflow-wrap: anywhere; word-break: break-all; }
+.agent-question-answer select { font: inherit; color: inherit; padding: 9px 10px; border-radius: 8px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-surface); max-width: 100%; }
+.business-agents + .business-agents { margin-top: 16px; }
+.agent-set-aside { margin-top: 12px; min-width: 0; }
+.agent-set-aside > summary { cursor: pointer; }

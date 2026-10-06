@@ -3,6 +3,7 @@ import type { StageId } from '../../stages/stage';
 import { boardOf, type AnsweredCount, type BoardRequest, type BoardValue } from './load';
 import { brusselsDay, brusselsMidnight } from './period';
 import type { Activity, Member, PrdNow } from './tally';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The board in the demo (PRD 572: development, or OMNI_LOOP_DEMO=1), on the demo world: its roster is
 // the demo galaxy's heroes, *you* (DAM-DEV) playing solo as on the demo's Home, and two members with
@@ -35,13 +36,17 @@ export function demoRoster(galaxy: Pick<GalaxyView, 'heroes'>): Member[] {
     avatarUrl: null,
     fleet: h.name.toLowerCase() === DEMO_VIEWER.login ? null : h.team,
   }));
-  return [...heroes, ...NEWCOMERS];
+  // A season is a calendar month: on its first morning *you* have no point in it yet, so are no
+  // hero, and are still a member (bug 864).
+  const you: Member[] = heroes.some((m) => m.login === DEMO_VIEWER.login) ? []
+    : [{ userId: DEMO_VIEWER.userId, name: DEMO_VIEWER.login.toUpperCase(), login: DEMO_VIEWER.login, avatarUrl: null, fleet: null }];
+  return [...heroes, ...you, ...NEWCOMERS];
 }
 
 /** The made-up contributions: each member merges on a fixed rhythm of their own, PRDs open every
  * three days and move on two and five days later, and a bot merges every fourth day. */
 export function demoActivity(roster: readonly Member[], now: Date): Activity[] {
-  const today = brusselsDay(now)!;
+  const today = defined(brusselsDay(now), 'today in Brussels');
   const noon = (back: number) => {
     const day = new Date(Date.parse(`${today}T00:00:00Z`) - back * 24 * HOUR).toISOString().slice(0, 10);
     return new Date(brusselsMidnight(day).getTime() + 12 * HOUR).toISOString();
@@ -53,12 +58,12 @@ export function demoActivity(roster: readonly Member[], now: Date): Activity[] {
     logins.forEach((login, k) => {
       // Paul merges most days: the member a points-only board missed.
       const merges = login === 'paul-e' ? (back % 3 === 0 ? 0 : 1) : login === 'new-hire' ? 0 : (back * 7 + k * 3) % 11 < 2 ? 1 : 0;
-      for (let i = 0; i < merges; i++) rows.push({ kind: 'pr-merged', repo: REPOS[(back + k) % REPOS.length], number: ++number, login, at: noon(back) });
+      for (let i = 0; i < merges; i++) rows.push({ kind: 'pr-merged', repo: at(REPOS, (back + k) % REPOS.length, 'the demo repository'), number: ++number, login, at: noon(back) });
     });
     if (back % 4 === 1) rows.push({ kind: 'pr-merged', repo: 'vertuo-core', number: ++number, login: OUTSIDER, at: noon(back) });
     if (back % 3 === 0) {
       const prd = 500 + back;
-      const author = logins[back % logins.length];
+      const author = at(logins, back % logins.length, 'the demo author');
       rows.push({ kind: 'prd-opened', repo: 'vertuo-omni-plan', number: prd, login: author, at: noon(back) });
       if (back >= 2) rows.push({ kind: 'prd-started', repo: 'vertuo-omni-plan', number: prd, login: author, at: noon(back - 2) });
       if (back >= 5) rows.push({ kind: 'prd-shipped', repo: 'vertuo-omni-plan', number: prd, login: author, at: noon(back - 5) });
@@ -82,7 +87,7 @@ const DEMO_STAGES: readonly StageId[] = ['shipped', 'shipped', 'retro', 'buildin
 export function demoPrds(roster: readonly Member[]): PrdNow[] {
   const authors = roster.filter((m) => m.login && m.login !== 'new-hire');
   return authors.flatMap((m, k) => [0, 1].map((i): PrdNow => {
-    const stage = DEMO_STAGES[(k * 2 + i) % DEMO_STAGES.length];
+    const stage = at(DEMO_STAGES, (k * 2 + i) % DEMO_STAGES.length, 'the demo stage');
     return stage === 'idea' ? { stage, login: null, userId: m.userId } : { stage, login: m.login, userId: null };
   }));
 }

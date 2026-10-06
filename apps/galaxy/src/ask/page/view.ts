@@ -17,15 +17,17 @@ export const HOOK_WAIT_MS = 540_000;
 
 /** Where a session came from; missing on a row read before PRD 144's columns, or left out by a demo. */
 export type SessionPlace = Partial<Pick<AskSession, 'repo' | 'branch'>>;
+/** Each field of T optional, and undefined where it is not known. */
+type Unknown<T> = { [K in keyof T]?: T[K] | undefined };
 /** What a round records besides its questions (PRD 144), missing or null when unknown. */
-export type RoundFacts = Partial<Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd' | 'answered_by' | 'category' | 'category_by' | 'attachments' | 'lead'>>;
+export type RoundFacts = Unknown<Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd' | 'answered_by' | 'category' | 'category_by' | 'attachments' | 'lead'>>;
 
 export type SessionRow = Pick<AskSession, 'id' | 'owner' | 'title' | 'status' | 'created_at' | 'last_seen_at'> & SessionPlace
   & Partial<Pick<AskSession, 'workspace_id' | 'claude_session_id'>>;
 export type RoundRow = Pick<AskRound, 'id' | 'questions' | 'answers' | 'answered_via' | 'status' | 'created_at' | 'answered_at'> & RoundFacts;
 /** `ping`: the latest heartbeat of the session's Claude session (PRD 757), null when there is none or
  * it could not be read; left out by a read that does not ask for it. */
-export type SessionState = { session: SessionRow; rounds: RoundRow[]; ping?: WorkingPing | null };
+export type SessionState = { session: SessionRow; rounds: RoundRow[]; ping?: WorkingPing | null | undefined };
 
 export type HistoryLine = {
   header: string; question: string; answer: string | null;
@@ -45,7 +47,7 @@ export type HistoryEntry = {
   category?: Category | null;
   category_by?: string | null;
   /** What Claude wrote before asking (PRD 752); left out when the round has none. */
-  lead?: string;
+  lead?: string | undefined;
 };
 
 export type SessionView =

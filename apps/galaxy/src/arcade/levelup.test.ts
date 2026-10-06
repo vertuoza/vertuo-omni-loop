@@ -3,6 +3,7 @@ import { XP_RULES, type XpRules } from '@omni/galaxy';
 import { GAMES, type Game } from './games';
 import { xpStatus } from './games/room';
 import { createSeen, eyebrowOf, fanfareOf, LEVEL_SEEN_PREFIX, levelSeenKey, levelUpFor, readSeen, saveSeen, xpLineOf, type Local } from './levelup';
+import { sure } from './test/sure';
 
 const row = (xp: number, level: number, unlocked: string[] = level >= 1 ? ['invaders'] : []) => ({ xp, level, unlocked });
 /** A player whose GitHub is linked, with their player_xp row. */
@@ -63,19 +64,19 @@ describe('NEW GAME UNLOCKED', () => {
 
 describe('what the screen says', () => {
   it('opens on the first point at LV 1, and on the XP earned above it', () => {
-    expect(eyebrowOf(levelUpFor(player(1, 1), null)!)).toBe('FIRST POINT EARNED');
-    expect(eyebrowOf(levelUpFor(player(230, 3), null)!)).toBe('230 XP EARNED');
+    expect(eyebrowOf(sure(levelUpFor(player(1, 1), null), 'levelUpFor(player(1, 1), null)'))).toBe('FIRST POINT EARNED');
+    expect(eyebrowOf(sure(levelUpFor(player(230, 3), null), 'levelUpFor(player(230, 3), null)'))).toBe('230 XP EARNED');
   });
 
   it('shows the XP bar\'s numbers from the new level, and the cap as the last', () => {
-    expect(xpLineOf(levelUpFor(player(1, 1), null)!)).toBe('1 / 50 XP · NEXT LV 2');
+    expect(xpLineOf(sure(levelUpFor(player(1, 1), null), 'levelUpFor(player(1, 1), null)'))).toBe('1 / 50 XP · NEXT LV 2');
     const top = XP_RULES.curve.step * XP_RULES.cap * (XP_RULES.cap - 1);
-    expect(xpLineOf(levelUpFor(player(top, XP_RULES.cap), 98)!)).toBe(`${top} XP · MAX LEVEL`);
+    expect(xpLineOf(sure(levelUpFor(player(top, XP_RULES.cap), 98), 'levelUpFor(player(top, XP_RULES.cap), 98)'))).toBe(`${top} XP · MAX LEVEL`);
   });
 
   it('plays the unlock fanfare when a game opened, the level-up fanfare otherwise', () => {
-    expect(fanfareOf(levelUpFor(player(1, 1), null)!)).toBe('unlock');
-    expect(fanfareOf(levelUpFor(player(60, 2), 1)!)).toBe('levelup');
+    expect(fanfareOf(sure(levelUpFor(player(1, 1), null), 'levelUpFor(player(1, 1), null)'))).toBe('unlock');
+    expect(fanfareOf(sure(levelUpFor(player(60, 2), 1), 'levelUpFor(player(60, 2), 1)'))).toBe('levelup');
   });
 });
 

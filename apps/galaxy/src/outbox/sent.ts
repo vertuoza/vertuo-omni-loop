@@ -6,11 +6,13 @@
 // not count; failed, with why; or waiting, when no outcome was recorded (the person came back some other
 // way). Pure and safe in the browser: the tab's client code receives it as it is.
 
+import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
 /** A row of outbox_sends, as its owner reads it. */
 export type SendRow = {
   id: string;
   dossier_id: string;
-  pr_number: number;
+  pr_number: PrNumber;
   reply: string;
   nonce_hash: string;
   created_at: string;
@@ -37,13 +39,13 @@ export type SendErrorCode = keyof typeof SEND_ERRORS;
 export const isSendError = (value: unknown): value is SendErrorCode => typeof value === 'string' && Object.hasOwn(SEND_ERRORS, value);
 
 /** The next step once the reply is on the pull request. */
-export const nextStep = (prd: number | null) => (prd === null ? '/omni:yolo-fix' : `/omni:yolo-fix ${prd}`);
+export const nextStep = (prd: PrdNumber | null) => (prd === null ? '/omni:yolo-fix' : `/omni:yolo-fix ${prd}`);
 
 /** Said beside a posted send whose author the kit does not count. */
 export const UNCOUNTED = (login: string) =>
   `GitHub does not list @${login} as an owner, member or collaborator of this repository, so /omni:yolo-fix will not read this reply.`;
 
-export function sentView(row: SendRow | null, prd: number | null, error: SendErrorCode | null): SentView | null {
+export function sentView(row: SendRow | null, prd: PrdNumber | null, error: SendErrorCode | null): SentView | null {
   if (error) return { state: 'failed', error: SEND_ERRORS[error] };
   if (!row) return null;
   if (row.error !== null) return { state: 'failed', error: row.error };

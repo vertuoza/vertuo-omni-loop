@@ -17,7 +17,7 @@ export function RepoPicker({ menu }: { menu: RepoMenu }) {
           className="ask-share-pick"
           name="repo"
           defaultValue={menu.current}
-          onChange={(event) => window.location.assign(repoHref(event.currentTarget.value))}
+          onChange={(event) => { window.location.assign(repoHref(event.currentTarget.value)); }}
         >
           {menu.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>

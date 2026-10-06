@@ -25,9 +25,9 @@ const GALAXY = {
 };
 
 const reads = (fail: Partial<Record<keyof BoardReads, boolean>> = {}, galaxy = GALAXY): BoardReads => {
-  const read = <T>(name: keyof BoardReads, value: T) => async () => {
-    if (fail[name]) throw new Error(`${name} is down`);
-    return value;
+  const read = <T>(name: keyof BoardReads, value: T) => () => {
+    if (fail[name]) return Promise.reject(new Error(`${name} is down`));
+    return Promise.resolve(value);
   };
   return {
     roster: read('roster', ROSTER),

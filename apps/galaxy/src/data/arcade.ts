@@ -1,11 +1,14 @@
 import 'server-only';
 import type { GalaxyView } from '@omni/galaxy';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { Brand } from '../arcade/brand';
 import type { DossiersRead, FleetRow, Player, ScoresRead, Session, XpRead } from '../arcade/types';
 import { readDossiers } from './dossiers';
 import { loadCrew, loadFleets, loadGalaxy, loadMe } from './load-galaxy';
 import { readScores } from './scores';
+import { textOf } from './unparsed';
 import { brandOf, memberWorkspace, type Workspace } from './workspace';
 import { readXp } from './xp';
 
@@ -51,14 +54,16 @@ export interface ArcadeData {
 }
 
 const givenName = (user: User) => {
-  const m = user.user_metadata ?? {};
-  return String(m.given_name ?? m.full_name ?? m.name ?? user.email?.split('@')[0] ?? '').trim().split(/\s+/)[0] ?? '';
+  // The Auth server's answer is read unparsed: its metadata may be missing, and any of its fields.
+  const m = propertyOf(user, 'user_metadata');
+  const name = propertyOf(m, 'given_name') ?? propertyOf(m, 'full_name') ?? propertyOf(m, 'name');
+  return textOf(name ?? user.email?.split('@')[0] ?? '').trim().split(/\s+/)[0] ?? '';
 };
 
 // The GitHub login linked to this sign-in, if any: linking it is what makes a visitor a player.
 const githubLogin = (user: User) => {
   const d = user.identities?.find((i) => i.provider === 'github')?.identity_data ?? null;
-  const login = d?.user_name ?? d?.preferred_username;
+  const login: unknown = d?.user_name ?? d?.preferred_username;
   return typeof login === 'string' && login ? login : null;
 };
 
@@ -66,11 +71,11 @@ const githubLogin = (user: User) => {
  * Whether the person owns the workspace (workspace_members.role), read as themselves. Out of reach,
  * they read as a member: the role only changes a pointer on the fleet screens, never the galaxy.
  */
-async function ownsWorkspace(db: SupabaseClient, workspace: string, userId: string): Promise<boolean> {
+async function ownsWorkspace(db: SupabaseClient<Database>, workspace: string, userId: string): Promise<boolean> {
   try {
     const { data, error } = await db.from('workspace_members').select('role').eq('workspace_id', workspace).eq('user_id', userId).maybeSingle();
     if (error) throw new Error(error.message);
-    return (data as { role?: string } | null)?.role === 'owner';
+    return data?.role === 'owner';
   } catch (err) {
     console.error(`Supabase: could not read your role (${err instanceof Error ? err.message : String(err)})`);
     return false;
@@ -81,7 +86,7 @@ async function ownsWorkspace(db: SupabaseClient, workspace: string, userId: stri
 const sessionOf = (user: User, crew: boolean): Session =>
   ({ id: user.id, email: user.email ?? '', givenName: givenName(user), crew, github: githubLogin(user) });
 
-export async function arcadeFor(db: SupabaseClient, user: User | null, now = new Date()): Promise<ArcadeData> {
+export async function arcadeFor(db: SupabaseClient<Database>, user: User | null, now = new Date()): Promise<ArcadeData> {
   if (!user) return { view: null, fleets: [], session: null, workspace: null };
   let workspace: Workspace | null = null;
   try {

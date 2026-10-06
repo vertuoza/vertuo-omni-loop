@@ -30,7 +30,8 @@
 .ask .eng-sort:hover { color: var(--ask-ink); text-decoration: underline; }
 [aria-sort] .eng-sort { color: var(--ask-ink); }
 
-.eng-people { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 24px 32px; }
+/* The three top-5 cards (PRD 962): each stretches to the row's height, so the row ends on one line. */
+.eng-people { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 24px 32px; align-items: stretch; }
 /* A top-people row (PRD 645 s1): rank, the person's chip (their face then their login, PRD 652 s3),
    the count in its own right-aligned column, and under them a thin bar scaled to the list's first
    count, in the list's colour. A long login wraps inside its column; the count never leaves its own. */

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 
-const signOut = vi.fn(async (_options?: { scope?: string }) => ({ error: null }));
-const signInWithOAuth = vi.fn(async (_: unknown) => ({ data: {}, error: null as null | { message: string } }));
-const linkIdentity = vi.fn(async (_: unknown) => ({ data: {}, error: null }));
+const signOut = vi.fn<(options?: { scope?: string }) => Promise<{ error: null }>>(() => Promise.resolve({ error: null }));
+const signInWithOAuth = vi.fn<(options: unknown) => Promise<{ data: object; error: null | { message: string } }>>(() => Promise.resolve({ data: {}, error: null }));
+const linkIdentity = vi.fn<(options: unknown) => Promise<{ data: object; error: null }>>(() => Promise.resolve({ data: {}, error: null }));
 vi.mock('@supabase/ssr', () => ({ createBrowserClient: () => ({ auth: { signOut, signInWithOAuth, linkIdentity } }) }));
 vi.stubGlobal('window', { location: { origin: 'https://galaxy.example' } });
 

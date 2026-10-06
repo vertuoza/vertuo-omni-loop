@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Claim } from './model';
 import { MAX_GUESSES, readRivals, suggestInput, suggestKey, suggestRivals, SUGGEST_MODEL, type SuggestInput } from './suggest';
+import { sure } from '../arcade/test/sure';
+import { sentOf } from './json.fake';
+import { z } from 'zod';
+
+// What the model was sent, parsed: the fields a test reads.
+const Sent = z.object({ model: z.string(), messages: z.array(z.object({ content: z.string() })) });
 
 // Suggested rivals (PRD 748 s3): what the small model is asked once offering, trade and region are
 // picked, and what is kept of its reply: up to five names, none the business already holds in any
@@ -23,14 +29,14 @@ const PICKED: Claim[] = [
 const INPUT: SuggestInput = { offering: ['ERP'], trade: ['construction'], region: ['Belgium', 'France'], exclude: ['Kept Co', 'Gone Co', 'Maybe Co'] };
 
 const answer = (content: unknown, init: { ok?: boolean; status?: number } = {}) =>
-  ({ ok: init.ok ?? true, status: init.status ?? 200, json: async () => ({ choices: [{ message: { content } }] }) }) as Response;
+  ({ ok: init.ok ?? true, status: init.status ?? 200, json: () => Promise.resolve({ choices: [{ message: { content } }] }) }) as Response;
 
 function stub(reply: Response | Error) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
-  const fetch = (async (url: string, init: RequestInit) => {
+  const fetch = ((url: string, init: RequestInit) => {
     calls.push({ url, init });
-    if (reply instanceof Error) throw reply;
-    return reply;
+    if (reply instanceof Error) return Promise.reject(reply);
+    return Promise.resolve(reply);
   }) as unknown as typeof globalThis.fetch;
   return { calls, fetch };
 }
@@ -74,11 +80,11 @@ describe('suggestRivals()', () => {
     const s = stub(answer('Alpha\nBeta\nGone Co'));
     expect(await suggestRivals(INPUT, { apiKey: 'k', fetch: s.fetch })).toEqual(['Alpha', 'Beta']);
     expect(s.calls).toHaveLength(1);
-    expect(s.calls[0].url).toBe('https://openrouter.ai/api/v1/chat/completions');
-    expect((s.calls[0].init.headers as Record<string, string>).authorization).toBe('Bearer k');
-    const body = JSON.parse(String(s.calls[0].init.body));
+    expect(sure(s.calls[0], 's.calls[0]').url).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect((sure(s.calls[0], 's.calls[0]').init.headers as Record<string, string>).authorization).toBe('Bearer k');
+    const body = Sent.parse(sentOf(sure(s.calls[0], 's.calls[0]').init.body));
     expect(body.model).toBe(SUGGEST_MODEL);
-    const user = body.messages.at(-1).content as string;
+    const user = sure(body.messages.at(-1), 'the last message').content;
     for (const said of ['ERP', 'construction', 'Belgium and France', 'Gone Co']) expect(user).toContain(said);
   });
 
@@ -92,7 +98,7 @@ describe('suggestRivals()', () => {
   it('is null on a non-ok answer, an unparseable reply or a throw', async () => {
     expect(await suggestRivals(INPUT, { apiKey: 'k', fetch: stub(answer('Alpha', { ok: false, status: 500 })).fetch })).toBeNull();
     expect(await suggestRivals(INPUT, { apiKey: 'k', fetch: stub(answer(null)).fetch })).toBeNull();
-    const broken = stub({ ok: true, status: 200, json: async () => { throw new SyntaxError('no'); } } as unknown as Response);
+    const broken = stub({ ok: true, status: 200, json: () => Promise.reject(new SyntaxError('no')) } as unknown as Response);
     expect(await suggestRivals(INPUT, { apiKey: 'k', fetch: broken.fetch })).toBeNull();
     expect(await suggestRivals(INPUT, { apiKey: 'k', fetch: stub(new Error('down')).fetch })).toBeNull();
   });

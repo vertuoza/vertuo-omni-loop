@@ -1,6 +1,7 @@
 import { claimOf, type StoredClaim } from './model';
 import { refuse, reply } from '../business-api/reply';
 import { suggestInput, type Suggester } from './suggest';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // POST /api/business/suggest-rivals {workspace, product} → 200 {claims} (PRD 748 s3), as a plain
 // function of a Request so app/api/business/suggest-rivals/route.ts stays one line. Settings › Business
@@ -17,8 +18,10 @@ import { suggestInput, type Suggester } from './suggest';
 
 /** A store call that failed, with the database's code. */
 export class SuggestStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, message: string) {
+  readonly code: string | undefined;
+  constructor(what: string, code: string | undefined, message: string) {
     super(`Could not ${what}: ${message}`);
+    this.code = code;
   }
 }
 
@@ -36,7 +39,7 @@ export type SuggestDeps = {
   suggest: Suggester | null;
 };
 
-const NOTHING = { claims: [] as StoredClaim[] };
+const NOTHING: { claims: StoredClaim[] } = { claims: [] };
 
 const id = (value: unknown) => (typeof value === 'string' && value.length > 0 && value.length <= 64 ? value : null);
 
@@ -48,23 +51,22 @@ function refusal(error: unknown): Response {
   return refuse(500, 'The business database could not answer. Try again.');
 }
 
-type Target = { ws: string; pr: string };
+type Target = { ws: string; product: string };
 const NOT_JSON = Symbol('not JSON');
 
 /** The workspace and product a body names, or the Response that refuses it. */
 async function targetOf(request: Request): Promise<Target | Response> {
   const sent: unknown = await request.json().catch(() => NOT_JSON);
   if (sent === NOT_JSON) return refuse(400, 'The body must be a JSON object.');
-  const { workspace, product } = (sent && typeof sent === 'object' ? sent : {}) as Record<string, unknown>;
-  const ws = id(workspace);
-  const pr = id(product);
-  if (!ws || !pr) return refuse(400, '`workspace` and `product` must be the ids the page shows.');
-  return { ws, pr };
+  const ws = id(propertyOf(sent, 'workspace'));
+  const product = id(propertyOf(sent, 'product'));
+  if (!ws || !product) return refuse(400, '`workspace` and `product` must be the ids the page shows.');
+  return { ws, product };
 }
 
 /** The model's rival names not already held, or null when there is nothing to ask or it failed. */
-async function freshNames(store: SuggestStore, suggest: Suggester, { ws, pr }: Target): Promise<string[] | null> {
-  const stored = (await store.claims(ws, pr)).filter((c) => c.product_id == null || c.product_id === pr);
+async function freshNames(store: SuggestStore, suggest: Suggester, { ws, product }: Target): Promise<string[] | null> {
+  const stored = (await store.claims(ws, product)).filter((c) => c.product_id == null || c.product_id === product);
   const input = suggestInput(stored.map((c) => claimOf(c)));
   if (!input) return null;
   const names = await suggest(input);
@@ -75,9 +77,9 @@ async function freshNames(store: SuggestStore, suggest: Suggester, { ws, pr }: T
 
 /** Stores one name as a proposed rival: the row when it is proposed, else null. One name the database
  * finds invalid is dropped; a refusal of the caller stops the call. */
-async function proposed(store: SuggestStore, { ws, pr }: Target, name: string): Promise<StoredClaim | null> {
+async function proposed(store: SuggestStore, { ws, product }: Target, name: string): Promise<StoredClaim | null> {
   try {
-    const saved = await store.propose(ws, pr, name);
+    const saved = await store.propose(ws, product, name);
     return saved.state === 'proposed' ? saved : null;
   } catch (error) {
     if (error instanceof SuggestStoreError && error.code === '22023') return null;

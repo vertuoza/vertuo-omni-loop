@@ -6,6 +6,9 @@ import type { DossierRow, DossierVersionRow } from '../store';
 import { DossierPage } from './DossierPage';
 import { fixPageView, type FixPageView } from '../../fixes/timeline';
 import { dossierView, readPick } from './view';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 vi.mock('next/navigation', async (original) => ({
   ...(await original<typeof import('next/navigation')>()),
@@ -21,7 +24,7 @@ const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierr
 const SUPABASE = { url: 'http://127.0.0.1:54321', key: 'anon' };
 
 const dossier = (kind: 'visual' | 'bug', prd: number): DossierRow => ({
-  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd, kind, title: 'Darker sidebar',
+  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(prd), kind, title: 'Darker sidebar',
   opened_by: PIERRE.user_id, created_at: '2026-09-29T09:00:00Z', numbered_at: '2026-09-29T09:00:00Z',
 });
 const version = (id: string, kind: DossierVersionRow['kind'], at: string): DossierVersionRow => ({
@@ -76,10 +79,10 @@ describe('a bug fix\'s page', () => {
 
 describe('a fix\'s Timeline and state (PRD 627, s5)', () => {
   const ISSUE = {
-    number: 548, url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/548', state: 'closed' as const, author: 'anna',
+    number: parseIssue(548), url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/548', state: 'closed' as const, author: 'anna',
     createdAt: '2026-09-29T08:00:00Z', risk: null, regression: false,
   };
-  const PULL = { number: 562, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/562', state: 'merged' as const, mergedAt: '2026-09-29T12:00:00Z', mergedBy: 'pierre-derval' };
+  const PULL = { number: parsePr(562), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/562', state: 'merged' as const, mergedAt: '2026-09-29T12:00:00Z', mergedBy: 'pierre-derval' };
   const withFix = (kind: 'visual' | 'bug', fix: FixPageView | undefined, query: Record<string, string> = {}) => {
     const view = dossierView({ dossier: dossier(kind, 548), versions: VISUAL, members: [PIERRE], rounds: [], fix }, PIERRE.user_id, readPick(query));
     return renderToStaticMarkup(createElement(DossierPage, { view, markdown: null, supabase: SUPABASE }));
@@ -88,7 +91,7 @@ describe('a fix\'s Timeline and state (PRD 627, s5)', () => {
 
   it('opens on the Timeline: each moment with who and when, linked, then not yet', () => {
     const html = withFix('visual', fixPageView('visual', summary, { letter: 'C', login: 'pierre-derval', date: '2026-09-29' }));
-    const moments = [...html.matchAll(/<li class="fix-moment fix-moment-([a-z-]+)">(.*?)<\/li>/g)].map((m) => [m[1], m[2].replace(/<[^>]+>/g, '')]);
+    const moments = [...html.matchAll(/<li class="fix-moment fix-moment-([a-z-]+)">(.*?)<\/li>/g)].map((m) => [m[1], m[2]?.replace(/<[^>]+>/g, '')]);
     expect(moments).toEqual([
       ['done', 'Asked by @anna · 29 Sep 2026, 08:00 UTC'],
       ['done', 'Picked C by @pierre-derval · 29 Sep 2026'],
