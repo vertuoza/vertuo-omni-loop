@@ -120,3 +120,13 @@ export function pitchMusic(audience: string): Buffer {
   }
   return Buffer.concat([wavHeader(frames), body]);
 }
+
+/**
+ * `seconds` of silence as a WAV file's bytes, at the default music's rate and channels: what the
+ * `none` music provider writes (PRD 1108), so a silent pitch encodes like any other.
+ */
+export function silenceWav(seconds: number): Buffer {
+  if (!(seconds > 0)) throw new RangeError(`silence needs a length above 0 s, not ${String(seconds)}`);
+  const frames = Math.round(seconds * MUSIC.rate);
+  return Buffer.concat([wavHeader(frames), Buffer.alloc(frames * MUSIC.channels * 2)]);
+}

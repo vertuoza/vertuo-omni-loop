@@ -2,7 +2,7 @@
 // 44.1 kHz, stereo.
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { MUSIC, pitchMusic } from './music.ts';
+import { MUSIC, pitchMusic, silenceWav } from './music.ts';
 
 const sha = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex');
 
@@ -43,5 +43,20 @@ describe('pitchMusic', () => {
 
   it('refuses an audience other than customers or inside', () => {
     expect(() => pitchMusic('investors')).toThrow(/customers or inside/);
+  });
+});
+
+describe('silenceWav (PRD 1108 s5)', () => {
+  it('is a WAV of the asked length, every sample zero', () => {
+    const wav = silenceWav(2.5);
+    const fields = header(wav);
+    expect(fields).toEqual({ riff: 'RIFF', wave: 'WAVE', format: 1, channels: 2, rate: 44100, bits: 16, data: Math.round(2.5 * 44100) * 4 });
+    expect(wav.length).toBe(44 + fields.data);
+    expect(wav.subarray(44).every((byte) => byte === 0)).toBe(true);
+  });
+
+  it('refuses a length that is not positive', () => {
+    expect(() => silenceWav(0)).toThrow(/silence needs a length/);
+    expect(() => silenceWav(Number.NaN)).toThrow(/silence needs a length/);
   });
 });
