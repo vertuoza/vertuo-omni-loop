@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-29
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-51, P-PRODUCT-48
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ One line in the people directory to also carry the login for an outsider looked 
 - Raised: 2026-09-29
 - Slice: s1
 - Wave: 1
+- Stays here: A local test-update and presentation choice for this slice; ADR-0053 covers shared test ground in plans, and nothing lasting beyond this slice needs recording.
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ Drop one setting on the fleet page's title to make it a link; the check updates 
 - Raised: 2026-09-29
 - Slice: s3
 - Wave: 1
+- Stays here: A local navigation choice, cheap to change (one address), with no lasting guarantee; no existing entry or domain covers profile links.
 
 ### The answer, as it was given
 
@@ -250,6 +253,7 @@ One address to change in the profile module; nothing stored.
 - Raised: 2026-09-29
 - Slice: s3
 - Wave: 1
+- Became: BR-PRODUCT-52, P-PRODUCT-49
 
 ### The answer, as it was given
 
@@ -328,6 +332,7 @@ One address in the profile module; until the person filter on the PRD list merge
 - Raised: 2026-09-29
 - Slice: s4
 - Wave: 2
+- Became: BR-PRODUCT-53, P-PRODUCT-50
 
 ### The answer, as it was given
 
@@ -407,6 +412,7 @@ A small change in the list's filter and one extra GitHub read per listed PRD; no
 - Raised: 2026-09-29
 - Slice: s5
 - Wave: 3
+- Became: BR-PRODUCT-54, P-PRODUCT-51
 
 ### The answer, as it was given
 
@@ -485,6 +491,7 @@ One date to swap in the profile module; nothing stored changes.
 - Raised: 2026-09-29
 - Slice: s5
 - Wave: 3
+- Became: BR-PRODUCT-55, P-PRODUCT-52
 
 ### The answer, as it was given
 

@@ -5,10 +5,13 @@
 // GitHub could not read it. A write replaces the fix's facts. A row whose facts are not a FixSummary is
 // read as none. A refusal throws with Supabase's reason.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { z } from 'zod';
 import type { FixSummary } from '../../dossier/github/fix';
 import { UNREAD } from '../../dossier/github/summary';
+import { textOf } from '../../data/unparsed';
 import { settle } from '../../stages/store';
+import { IssueNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const TABLE = 'fix_facts';
 
@@ -23,15 +26,15 @@ export type FixFactsStore = {
 };
 
 /** A part as stored: its value, or UNREAD. */
-const read = <T extends z.ZodTypeAny>(part: T) => z.union([z.literal(UNREAD), part]);
+const read = <T extends z.ZodType>(part: T) => z.union([z.literal(UNREAD), part]);
 
 const Summary = z.object({
   issue: read(z.object({
-    number: z.number(), url: z.string(), state: z.enum(['open', 'closed']), author: z.string().nullable(), createdAt: z.string(),
+    number: IssueNumberSchema, url: z.string(), state: z.enum(['open', 'closed']), author: z.string().nullable(), createdAt: z.string(),
     risk: z.string().nullable(), regression: z.boolean(),
   }).nullable()),
   pull: read(z.object({
-    number: z.number(), url: z.string(), state: z.enum(['open', 'merged']), mergedAt: z.string().nullable(), mergedBy: z.string().nullable(),
+    number: PrNumberSchema, url: z.string(), state: z.enum(['open', 'merged']), mergedAt: z.string().nullable(), mergedBy: z.string().nullable(),
   }).nullable()),
   approvals: read(z.array(z.object({ login: z.string(), at: z.string() }))),
   release: read(z.object({ tag: z.string(), url: z.string(), at: z.string() }).nullable()),
@@ -40,10 +43,10 @@ const Summary = z.object({
 /** A stored `facts` value as a FixSummary; null when it is not one. */
 export function factsOf(value: unknown): FixSummary | null {
   const parsed = Summary.safeParse(value);
-  return parsed.success ? (parsed.data as FixSummary) : null;
+  return parsed.success ? parsed.data : null;
 }
 
-export function fixFactsStore(db: Pick<SupabaseClient, 'from'>): FixFactsStore {
+export function fixFactsStore(db: Pick<SupabaseClient<Database>, 'from'>): FixFactsStore {
   return {
     async readFacts(workspace, ids) {
       const facts = new Map<string, FixSummary>();
@@ -51,9 +54,9 @@ export function fixFactsStore(db: Pick<SupabaseClient, 'from'>): FixFactsStore {
       if (wanted.length === 0) return facts;
       const { data, error } = await db.from(TABLE).select('dossier_id, facts').eq('workspace_id', workspace).in('dossier_id', wanted);
       settle('read the fix facts', error);
-      for (const row of (data ?? []) as Record<string, unknown>[]) {
+      for (const row of data ?? []) {
         const summary = factsOf(row.facts);
-        if (summary) facts.set(String(row.dossier_id), summary);
+        if (summary) facts.set(textOf(row.dossier_id), summary);
       }
       return facts;
     },

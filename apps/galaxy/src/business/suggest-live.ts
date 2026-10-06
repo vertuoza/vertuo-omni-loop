@@ -3,6 +3,7 @@ import { supabaseEnv, supabaseServer } from '../data/supabase-server';
 import { suggesterFromEnv } from './suggest';
 import type { SuggestDeps } from './suggest-api';
 import { suggestStore } from './suggest-store';
+import { serverEnv } from '../env';
 
 // The rival suggestions' real dependencies (./suggest-api.ts, PRD 748 s3): the signed-in person's own
 // Supabase session, so row-level security decides which claims are read and claim_pick() who may
@@ -17,6 +18,6 @@ export function suggestDeps(): SuggestDeps {
       const { data: { user } } = await db.auth.getUser();
       return user ? suggestStore(db) : null;
     },
-    suggest: suggesterFromEnv(process.env),
+    suggest: suggesterFromEnv(serverEnv().openrouter),
   };
 }

@@ -2,10 +2,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { diagramsNamed } from './diagrams';
 import { commandsNamed, guideProblems, parsePage, readGuide, skillsNamed } from './guide';
 import { pageUrl } from './paths';
+import { sure } from '../arcade/test/sure';
+
+vi.mock('server-only', () => ({}));
 
 // The docs guard (PRD 346): docs/guide/ holds its pages in order, each with a title and a Next link
 // to the page to read next, the last one back to Getting started; every /omni:<skill> and
@@ -17,10 +20,10 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'join', 'install', 'invade', 'loop', 'first-prd', 'several-repositories', 'use-cases', 'troubleshooting',
+  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'several-repositories', 'use-cases', 'troubleshooting',
 ];
 const TITLES = [
-  'Getting started', 'Join a team', 'Install', 'Invade', 'How the loop works', 'Your first PRD', 'Several repositories',
+  'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Several repositories',
   'Use cases', 'When something goes wrong',
 ];
 
@@ -38,12 +41,12 @@ describe('docs/guide', () => {
   it('links each page to the one to read next, and the last back to Getting started', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
-      '/docs/join', '/docs/loop', '/docs/invade', '/docs/loop', '/docs/first-prd', '/docs/several-repositories',
+      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories',
       '/docs/use-cases', '/docs/troubleshooting', '/docs',
     ]);
   });
 
-  it('sends someone joining a team past Install and Invade, which their repository needs no more', () => {
+  it('sends someone joining a team past Invade, which their repository needs no more', () => {
     const join = readGuide(GUIDE).pages.find((page) => page.slug === 'join');
     expect(join?.next).toBe('/docs/loop');
     for (const never of ['omni init', 'installing the GitHub App', '/omni:invade']) expect(join?.body).toContain(never);
@@ -64,9 +67,9 @@ describe('docs/guide', () => {
     const useCases = body('use-cases');
     const row = /^\| \[([^\]]*vast idea[^\]]*)\]\(#([a-z-]+)\) \| `\/omni:think-big [^`]+`/m.exec(useCases);
     expect(row, 'a row for a vast idea, typing /omni:think-big').not.toBeNull();
-    const heading = useCases.split('\n').find((line) => /^### /.test(line) && line.slice(4).toLowerCase().replace(/[^a-z0-9 -]/g, '').replace(/ /g, '-') === row![2]);
-    expect(heading, `a section #${row![2]}`).toBeDefined();
-    const section = useCases.slice(useCases.indexOf(heading!), useCases.indexOf('\n## ', useCases.indexOf(heading!)));
+    const heading = useCases.split('\n').find((line) => /^### /.test(line) && line.slice(4).toLowerCase().replace(/[^a-z0-9 -]/g, '').replace(/ /g, '-') === sure(row, 'row')[2]);
+    expect(heading, `a section #${sure(row, 'row')[2]}`).toBeDefined();
+    const section = useCases.slice(useCases.indexOf(sure(heading, 'heading')), useCases.indexOf('\n## ', useCases.indexOf(sure(heading, 'heading'))));
     for (const phrase of ['/omni:think-big', 'omni:concept', '.omni-loop/delivery/inbox/concepts/', '/omni:brainstorm --concept']) {
       expect(section, phrase).toContain(phrase);
     }
@@ -86,6 +89,42 @@ describe('docs/guide', () => {
       ['diagrams/repositories.svg', true], ['diagrams/pull-requests-repositories.svg', true],
       ['diagrams/skills-repositories.svg', true],
     ]);
+  });
+
+  describe('getting started (#890)', () => {
+    // Everyone's laptop, in four steps on Install, each shown as the line to type.
+    const STEPS = [
+      ['omni, installed globally', 'npm install -g github:vertuoza/vertuo-omni-loop'],
+      ['the skills, loaded in Claude Code', 'claude plugin install omni@omni-loop'],
+      ['the sign-in', 'omni signin'],
+      ['the questions, on the Omni page', '/omni:ask on'],
+    ];
+    const SETUP_LINES = ['npm install -g github:vertuoza/vertuo-omni-loop', 'plugin install omni@omni-loop'];
+    const body = (slug: string) => readGuide(GUIDE).pages.find((page) => page.slug === slug)?.body ?? '';
+    /** A page's numbered steps: each `## <n>. ` section, up to the next `## `. */
+    const steps = (markdown: string) => markdown.split(/^## /m).slice(1).filter((section) => /^\d+\. /.test(section));
+    /** The lines of code a section shows in its fenced blocks. */
+    const codeLines = (section: string) =>
+      [...section.matchAll(/^\s*```[^\n]*\n([\s\S]*?)^\s*```\s*$/gm)].flatMap((m) => sure(m[1], 'm[1]').split('\n').map((line) => line.trim()));
+
+    it('takes everyone, on Install, through four steps: omni globally, the skills in Claude Code, the sign-in, the questions', () => {
+      const found = steps(body('install'));
+      expect(found.map((section) => section.split('\n')[0])).toHaveLength(STEPS.length);
+      STEPS.forEach(([what, line], i) => { expect(codeLines(found[i] ?? ''), `step ${i + 1}, ${what}`).toContain(line); });
+    });
+
+    it('reads Install right after Getting started, before Join a team', () => {
+      const { order, pages } = readGuide(GUIDE);
+      expect(order.slice(0, 3)).toEqual(['index', 'install', 'join']);
+      expect(pages.find((page) => page.slug === 'index')?.next).toBe('/docs/install');
+    });
+
+    it('gives the lines that install omni and the skills on Install only: the other pages link it', () => {
+      for (const page of readGuide(GUIDE).pages.filter((p) => p.slug !== 'install')) {
+        for (const line of SETUP_LINES) expect(page.body, `${page.slug}.md shows ${line}`).not.toContain(line);
+      }
+      for (const slug of ['index', 'join']) expect(body(slug), slug).toContain('](/docs/install)');
+    });
   });
 
   it('points the Invade page\'s plan-repository section at the several-repositories page', () => {
@@ -117,6 +156,28 @@ describe('what a page names', () => {
   });
 });
 
+describe('the order file', () => {
+  let dir = '';
+  afterEach(() => { if (dir) rmSync(dir, { recursive: true, force: true }); });
+
+  const guideWith = (meta: unknown) => {
+    dir = mkdtempSync(join(tmpdir(), 'omni-guide-'));
+    writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta));
+    writeFileSync(join(dir, 'index.md'), '---\ntitle: A\n---\n');
+    return () => readGuide(dir);
+  };
+
+  it('reads the pages it lists, and none when it lists none', () => {
+    expect(guideWith({ pages: ['index'] })().order).toEqual(['index']);
+    expect(guideWith({})().order).toEqual([]);
+  });
+
+  it('refuses pages that are not a list of slugs, naming the field', () => {
+    expect(guideWith({ pages: 'index' })).toThrow(/meta\.json: pages: /);
+    expect(guideWith({ pages: ['index', 7] })).toThrow(/meta\.json: pages\.1: /);
+  });
+});
+
 describe('the guard', () => {
   let dir = '';
   afterEach(() => { if (dir) rmSync(dir, { recursive: true, force: true }); });
@@ -128,7 +189,7 @@ describe('the guard', () => {
     const kit = { skills: join(dir, 'skills'), commands: join(dir, 'commands') };
     mkdirSync(join(kit.skills, 'plan'), { recursive: true });
     mkdirSync(kit.commands);
-    writeFileSync(join(kit.commands, 'config.mjs'), '');
+    writeFileSync(join(kit.commands, 'config.ts'), '');
     mkdirSync(join(dir, 'guide'));
     writeFileSync(join(dir, 'guide/meta.json'), JSON.stringify({ pages: order }));
     for (const [slug, text] of Object.entries(pages)) writeFileSync(join(dir, 'guide', `${slug}.md`), text);

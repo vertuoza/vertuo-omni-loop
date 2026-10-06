@@ -28,7 +28,10 @@ import { isStage, STAGE_LABELS, STAGES, type StageId, type StoredStage } from '.
 import { prdKey, type PrdRef, type StageStore } from '../../stages/store';
 import type { PrdOutboxStore } from '../../stages/outbox/store';
 import type { DossierKind, DossierListRow } from '../store';
+import { listOf } from '../../data/unparsed';
+import type { ViewerDb } from '../../data/viewer';
 import { dossierPath, stamp, TAB_LABELS, TABS } from './view';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The history's own address, and where its sign-in comes back to. */
 export const HISTORY_PATH = '/prd';
@@ -64,9 +67,9 @@ export type HistoryFilters = {
   /** Words, each of which must appear in the title. */
   search?: string;
   /** Only the dossiers whose outbox has open questions (PRD 251). */
-  needsAnswer?: true;
+  needsAnswer?: true | undefined;
   /** Only the dossiers at this stage now (PRD 587). */
-  stage?: StageId;
+  stage?: StageId | undefined;
 };
 
 /** Each numbered dossier's current stored stage, by stageKeyOf; one left out has no stored stage yet. */
@@ -74,7 +77,7 @@ export type CurrentStages = ReadonlyMap<string, StoredStage>;
 
 /** A numbered dossier's key among the current stages: its workspace, then its PRD's key. */
 export const stageKeyOf = (row: Pick<DossierListRow, 'workspace_id' | 'home_repo' | 'prd'>) =>
-  `${row.workspace_id} ${prdKey({ repository: row.home_repo, prd: row.prd ?? 0 })}`;
+  `${row.workspace_id} ${row.prd === null ? `${row.home_repo.toLowerCase()}#0` : prdKey({ repository: row.home_repo, prd: row.prd })}`;
 
 /** One stop of the stage bar: how many rows sit at it, and the list filtered to it (or cleared, when selected). */
 export type StageBarEntry = { id: StageId; label: string; count: number; href: string; selected: boolean };
@@ -128,7 +131,7 @@ export function readHistoryFilters(query: Query): HistoryFilters {
 }
 
 /** Whether any filter but `who` is set: the page then offers to clear them, keeping `who`. */
-export const filtered = ({ who: _who, ...rest }: HistoryFilters) => Object.keys(rest).length > 0;
+export const filtered = (filters: HistoryFilters) => Object.keys(filters).some((key) => key !== 'who');
 
 /** The history's address for these filters: `repo`, `state`, `q`, `needs`, `stage`, then `who=all` for All or
  * `who=<login>` for one person (Mine is the default). */
@@ -200,7 +203,7 @@ const newestFirst = (a: DossierListRow, b: DossierListRow) =>
 /** The numbered dossiers every filter but Needs an answer and the stage lets through, newest activity
  * first: the ones whose open questions the history reads (the stage bar counts over them too). */
 export function historyToRead(rows: DossierListRow[], filters: HistoryFilters, viewer: string | null, whom: Whom = NOBODY): DossierListRow[] {
-  const { needsAnswer: _needs, stage: _stage, ...rest } = filters;
+  const rest: HistoryFilters = { ...filters, needsAnswer: undefined, stage: undefined };
   return rows.filter((row) => row.prd !== null && passes(row, rest, viewer, new Map(), new Map(), whom)).sort(newestFirst);
 }
 
@@ -222,6 +225,13 @@ export async function readLoginIds(rows: readonly Pick<DossierListRow, 'workspac
   return ids;
 }
 
+/** The roster reader `readLoginIds` takes: workspace_roster, as the viewer; a refusal throws its message. */
+export const rosterReader = (db: Pick<ViewerDb, 'rpc'>): RosterReader => async (workspace) => {
+  const { data, error } = await db.rpc('workspace_roster', { workspace });
+  if (error) throw new Error(error.message);
+  return listOf(data);
+};
+
 /** A reader of the stored outboxes (PRD 657, s5): prd_outbox, as the viewer. */
 type OpenReader = Pick<PrdOutboxStore, 'countsOf'>;
 
@@ -231,16 +241,16 @@ type OpenReader = Pick<PrdOutboxStore, 'countsOf'>;
 export async function readOpenCounts(rows: readonly DossierListRow[], reader: OpenReader | null): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
   if (!reader) return counts;
-  const byWorkspace = new Map<string, DossierListRow[]>();
+  const byWorkspace = new Map<string, Array<{ row: DossierListRow; prd: PrdNumber }>>();
   for (const row of rows) {
     if (row.prd === null) continue;
-    byWorkspace.set(row.workspace_id, [...(byWorkspace.get(row.workspace_id) ?? []), row]);
+    byWorkspace.set(row.workspace_id, [...(byWorkspace.get(row.workspace_id) ?? []), { row, prd: row.prd }]);
   }
   await Promise.all([...byWorkspace].map(async ([workspace, numbered]) => {
     try {
-      const stored = await reader.countsOf(workspace, numbered.map((row) => ({ repository: row.home_repo, prd: row.prd ?? 0 })));
-      for (const row of numbered) {
-        const count = stored.get(prdKey({ repository: row.home_repo, prd: row.prd ?? 0 }));
+      const stored = await reader.countsOf(workspace, numbered.map(({ row, prd }) => ({ repository: row.home_repo, prd })));
+      for (const { row, prd } of numbered) {
+        const count = stored.get(prdKey({ repository: row.home_repo, prd }));
         if (count) counts.set(row.id, count.open_questions);
       }
     } catch (error) {

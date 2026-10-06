@@ -9,7 +9,7 @@
 //
 // Since PRD 627 a dossier has a kind: a PRD's (`prd`, the kind of every call that sends none, so an older
 // kit pushes and finds as before), a visual fix's (`visual`) or a bug fix's (`bug`), numbered by its issue.
-// Each kind takes its own artifacts — a PRD spec, plan and before-after; a visual fix before-after and
+// Each kind takes its own artifacts — a PRD spec, plan, before-after and (PRD 822) voice; a visual fix before-after and
 // variations, a round each, oldest first; a bug fix bug-record — and each is sent once but the rounds. A
 // fix is never a draft. The link goes to the kind's own page: /prd/<id>, /visual/<id> or /bugs/<id>.
 //
@@ -32,6 +32,7 @@ import {
   ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, dossierReader, dossierStore, DossierStoreError, isArtifactKind, isWorkKind, KIND_ARTIFACTS, TITLE_MAX,
   WORK_KINDS, type DossierArtifact, type WorkKind,
 } from './store';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The largest push: three artifacts of 512 KiB and their JSON (a visual fix's page and rounds together). */
 export const MAX_PUSH_BYTES = 2 * 1024 * 1024;
@@ -51,6 +52,11 @@ export type DossierDeps = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const PRD_MAX = 2 ** 31 - 1;
+/** A PRD's number: a whole number from 1 to the database's largest integer. */
+function isPrdNumber(value: unknown): value is PrdNumber {
+  const parsed = PrdNumberSchema.safeParse(value);
+  return parsed.success && parsed.data <= PRD_MAX;
+}
 
 const reply = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 const refuse = (status: number, error: string) => reply(status, { error });
@@ -118,10 +124,10 @@ function titleOf(value: unknown): string | null {
 const repoOf = (value: unknown): string | null => (typeof value === 'string' && value.length <= 200 && REPO.test(value) ? value : null);
 
 /** A PRD's number as a query sends it: digits only, 1 to 2³¹−1; or null. */
-const prdOf = (value: string | null): number | null => {
+const prdOf = (value: string | null): PrdNumber | null => {
   if (value === null || !/^\d{1,10}$/.test(value)) return null;
   const prd = Number(value);
-  return prd >= 1 && prd <= PRD_MAX ? prd : null;
+  return isPrdNumber(prd) ? prd : null;
 };
 
 /** Where PRD n of a repository lives: its dossier's id and link, as the caller may read it. */
@@ -202,7 +208,7 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
     const repo = repoOf(sent.repo);
     if (!repo) return refuse(400, 'A push names its repository as owner/name.');
     const prd = sent.prd;
-    if (!Number.isInteger(prd) || (prd as number) <= 0 || (prd as number) > PRD_MAX) return refuse(400, '`prd` is the PRD\'s number.');
+    if (!isPrdNumber(prd)) return refuse(400, '`prd` is the PRD\'s number.');
     const title = titleOf(sent.title);
     if (!title) return refuse(400, `A push carries a title of 1 to ${TITLE_MAX} characters.`);
     const which = kindAndDraftOf(sent);
@@ -210,7 +216,7 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
     const { kind, draftId } = which;
     const read = artifactsOf(sent.artifacts, kind);
     if ('problem' in read) return refuse(read.status, read.problem);
-    const pushed = await store.push({ repo, prd: prd as number, kind, title, draftId, artifacts: read.artifacts });
+    const pushed = await store.push({ repo, prd, kind, title, draftId, artifacts: read.artifacts });
     return reply(200, { id: pushed.id, url: linkTo(request, pushed.id, kind), added: pushed.added, unchanged: pushed.unchanged });
   });
 }

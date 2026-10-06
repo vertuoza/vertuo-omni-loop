@@ -1,0 +1,9 @@
+/* The OMNI LOOP logo (BrandLogo): the crest beside the wordmark, one link, never underlined. */
+
+.ask a.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+.brand-logo-crest { display: inline-flex; line-height: 0; }

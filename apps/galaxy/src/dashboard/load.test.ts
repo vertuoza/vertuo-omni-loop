@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { GalaxyView, LedgerEvent } from '@omni/galaxy';
+import { sure } from '../arcade/test/sure';
 
 vi.mock('server-only', () => ({}));
 
@@ -9,8 +11,8 @@ vi.mock('server-only', () => ({}));
 // with the page's galaxy (supabaseReads) and drawn with Home's request (loadBoard); boardOf, which
 // draws a board from reads that all failed, is the real one.
 const parts = vi.hoisted(() => ({
-  waiting: vi.fn(async (_input: unknown): Promise<unknown> => 'the waiting'),
-  board: vi.fn(async (_reads: { galaxy: () => Promise<GalaxyView> }, _request: unknown): Promise<unknown> => 'the board'),
+  waiting: vi.fn<(input: unknown) => Promise<unknown>>(() => Promise.resolve('the waiting')),
+  board: vi.fn<(reads: { galaxy: () => Promise<GalaxyView> }, request: unknown) => Promise<unknown>>(() => Promise.resolve('the board')),
   reads: vi.fn((_db: unknown, _workspace: string, galaxy: () => Promise<GalaxyView>) => ({ galaxy })),
 }));
 vi.mock('./counts/load', async (actual) => ({ ...(await actual<typeof import('./counts/load')>()), loadWaiting: parts.waiting }));
@@ -63,7 +65,7 @@ function world(arrange: (w: ReturnType<typeof fakeGalaxyDb>) => void = () => {})
 
 async function dashboardOf(person: FakeUser, arrange?: (w: ReturnType<typeof fakeGalaxyDb>) => void, period: '7d' | '30d' | 'season' = '7d') {
   const w = world(arrange);
-  const db = w.client(person) as unknown as SupabaseClient;
+  const db = w.client(person) as unknown as SupabaseClient<Database>;
   const load = await loadDashboard(db, authUser(person) as unknown as User, period, NOW);
   return { load, w, reads: w.calls.filter((c) => c.kind === 'from') };
 }
@@ -76,13 +78,13 @@ async function dashboard(person: FakeUser, arrange?: (w: ReturnType<typeof fakeG
 }
 
 /** The request the board was drawn for. */
-const request = () => parts.board.mock.calls[0][1] as Record<string, unknown>;
+const request = () => sure(parts.board.mock.calls[0], 'parts.board.mock.calls[0]')[1] as Record<string, unknown>;
 const errors = () => vi.mocked(console.error).mock.calls.map((c) => String(c[0]));
 
 beforeEach(() => {
   for (const load of Object.values(parts)) load.mockClear();
-  parts.waiting.mockImplementation(async () => 'the waiting');
-  parts.board.mockImplementation(async () => 'the board');
+  parts.waiting.mockImplementation(() => Promise.resolve('the waiting'));
+  parts.board.mockImplementation(() => Promise.resolve('the board'));
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -113,12 +115,12 @@ describe('Home', () => {
 
   it('reads the board in the workspace shown', async () => {
     await dashboard(PEOPLE.ada);
-    expect(parts.reads.mock.calls[0][1]).toBe(VERTUOZA);
+    expect(sure(parts.reads.mock.calls[0], 'parts.reads.mock.calls[0]')[1]).toBe(VERTUOZA);
   });
 
   it('hands Waiting for you the database, the workspace, the person, their lower-cased login and fleet, now and the season', async () => {
     const d = await dashboard(PEOPLE.ada);
-    const input = parts.waiting.mock.calls[0][0] as PartInput;
+    const input = sure(parts.waiting.mock.calls[0], 'parts.waiting.mock.calls[0]')[0] as PartInput;
     expect(input).toMatchObject({ workspace: VERTUOZA, userId: PEOPLE.ada.id, login: 'ada-gh', team: 'pirates', now: NOW });
     expect(input.season).toEqual(d.season);
   });
@@ -162,7 +164,7 @@ describe('each situation of a signed-in person', () => {
 
   it('a solo player (a player row with no fleet): their hero, SOLO, their own row and the link to Fleet', async () => {
     const d = await dashboard(PEOPLE.ada, (w) => {
-      w.tables.players.find((p) => p.user_id === PEOPLE.ada.id)!.team = null;
+      sure(w.tables.players.find((p) => p.user_id === PEOPLE.ada.id), 'the item found').team = null;
     });
     expect(d.you).toMatchObject({ kind: 'player', fleet: 'solo' });
     expect(d.solo).toBe(true);
@@ -195,11 +197,11 @@ describe('one read failing', () => {
 
   it('Waiting for you from the questions the layout read (PRD 657): counted from them, the ask tables not read again', async () => {
     const w = world();
-    const db = w.client(PEOPLE.ada) as unknown as SupabaseClient;
-    const questions = vi.fn(async () => [
+    const db = w.client(PEOPLE.ada) as unknown as SupabaseClient<Database>;
+    const questions = vi.fn(() => Promise.resolve([
       { kind: 'question' as const, id: 'r1', sessionTitle: 'feat/ada', question: 'Which storage?', askedAt: 1, sharedBy: null },
       { kind: 'question' as const, id: 'r2', sessionTitle: 'feat/both', question: 'Who reads it?', askedAt: 2, sharedBy: 'BOTH' },
-    ]);
+    ]));
     const load = await loadDashboard(db, authUser(PEOPLE.ada) as unknown as User, '7d', NOW, questions);
     expect(load).toMatchObject({ kind: 'dashboard', dashboard: { waiting: { count: 2, href: '/ask' } } });
     expect(questions).toHaveBeenCalledTimes(1);
@@ -208,14 +210,14 @@ describe('one read failing', () => {
 
   it('Waiting for you from the layout\'s questions: their read failing reads unreadable alone', async () => {
     const w = world();
-    const db = w.client(PEOPLE.ada) as unknown as SupabaseClient;
-    const load = await loadDashboard(db, authUser(PEOPLE.ada) as unknown as User, '7d', NOW, async () => { throw new Error('questions are down'); });
+    const db = w.client(PEOPLE.ada) as unknown as SupabaseClient<Database>;
+    const load = await loadDashboard(db, authUser(PEOPLE.ada) as unknown as User, '7d', NOW, () => Promise.reject(new Error('questions are down')));
     expect(load).toMatchObject({ kind: 'dashboard', dashboard: { waiting: 'unreadable', board: 'the board' } });
     expect(errors().some((e) => e.includes('questions are down'))).toBe(true);
   });
 
   it('Waiting for you: it alone reads unreadable, and the error is logged', async () => {
-    parts.waiting.mockImplementation(async () => { throw new Error('ask is down'); });
+    parts.waiting.mockImplementation(() => Promise.reject(new Error('ask is down')));
     const d = await dashboard(PEOPLE.ada);
     expect(d.waiting).toBe('unreadable');
     expect(d.board).toBe('the board');

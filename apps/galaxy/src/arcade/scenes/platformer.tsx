@@ -8,7 +8,7 @@ import { Hint } from '../hint';
 import type { ScreenStatus } from '../platformer/PlatformerScreen';
 import type { Session } from '../platformer/session';
 import { scoreText } from './invaders.tsx';
-import { canRetry, sendLine, type ScoreSend } from './invaders-score';
+import { canRetry, sendLine, sendTone, type ScoreSend } from './invaders-score';
 import './common.css';
 import './platformer.css';
 
@@ -19,7 +19,7 @@ function EndSend({ send, back }: { send: ScoreSend | null; back: string }) {
   const line = sendLine(send);
   return (
     <>
-      {line && <p className={`inv-send inv-${send!.state === 'saved' && send!.newBest ? 'best' : send!.state}`} role="status">{line}</p>}
+      {line && send && <p className={`inv-send inv-${sendTone(send)}`} role="status">{line}</p>}
       {canRetry(send)
         ? <p className="hint"><Hint k="A">RETRY</Hint> <Hint k="B">{back}</Hint></p>
         : <p className="hint"><Hint k="A">{back}</Hint></p>}

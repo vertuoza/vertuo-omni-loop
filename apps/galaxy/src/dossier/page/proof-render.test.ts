@@ -6,6 +6,9 @@ import type { DossierRow } from '../store';
 import { DossierPage } from './DossierPage';
 import type { ProofRead } from './proof';
 import { dossierView, readPick } from './view';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 vi.mock('next/navigation', async (original) => ({
   ...(await original<typeof import('next/navigation')>()),
@@ -21,7 +24,7 @@ const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierr
 const SUPABASE = { url: 'http://127.0.0.1:54321', key: 'anon' };
 
 const numbered: DossierRow = {
-  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: 798, title: 'Proof video',
+  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(798), title: 'Proof video',
   opened_by: PIERRE.user_id, created_at: '2026-09-27T09:12:00Z', numbered_at: '2026-09-27T10:00:00Z',
 };
 

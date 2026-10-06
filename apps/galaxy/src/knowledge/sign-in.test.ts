@@ -3,7 +3,7 @@ import { knowledgeCallbackPath, knowledgeSignInReturn } from './sign-in';
 
 const ORIGIN = 'https://galaxy.example';
 const callback = (query: string) => new URL(`${ORIGIN}/knowledge/callback${query}`);
-const ok = async () => ({ error: null });
+const ok = () => Promise.resolve({ error: null });
 
 describe('signing in from the knowledge map', () => {
   it('asks Google to come back through the page’s own callback, carrying the entry the address named', () => {
@@ -16,7 +16,7 @@ describe('signing in from the knowledge map', () => {
 
   it('comes back to /knowledge once the code is exchanged, on the same entry', async () => {
     const codes: string[] = [];
-    const exchange = async (code: string) => { codes.push(code); return { error: null }; };
+    const exchange = (code: string) => { codes.push(code); return Promise.resolve({ error: null }); };
     expect(await knowledgeSignInReturn(callback('?code=abc&domain=product&entry=BR-PRODUCT-3'), ORIGIN, exchange))
       .toBe(`${ORIGIN}/knowledge?domain=product&entry=BR-PRODUCT-3`);
     expect(codes).toEqual(['abc']);
@@ -35,7 +35,7 @@ describe('signing in from the knowledge map', () => {
   });
 
   it('says so when the code cannot be exchanged', async () => {
-    const back = new URL(await knowledgeSignInReturn(callback('?code=stale'), ORIGIN, async () => ({ error: { message: 'invalid flow state' } })));
+    const back = new URL(await knowledgeSignInReturn(callback('?code=stale'), ORIGIN, () => Promise.resolve({ error: { message: 'invalid flow state' } })));
     expect(back.pathname).toBe('/knowledge');
     expect(back.searchParams.get('signin_error')).toBe('That sign-in could not be finished. Start again from this browser.');
   });

@@ -10,6 +10,7 @@ import { ScreenContext } from './Screen';
 import { hudOf, newGame, press, step, type Game } from './games/invaders';
 import { LEAVE, leaveKey, leaveMove, openOver, pauseFirst } from './leave.ts';
 import { LeaveOverlay } from './leave.tsx';
+import { sure } from './test/sure';
 
 // The confirm before the arcade is left for the app (PRD 238): OPEN THE APP?, over whatever scene is
 // showing. While it is open, A and START go, B stays, and nothing else is read; a game in play is
@@ -55,18 +56,18 @@ describe('the confirm over Entropy Invaders', () => {
   it('pauses a game in play before it shows, its score and its field as they were', () => {
     const g = step(playing(), new Set(['right']), 1 / 60);
     expect(pauseFirst(g)).toBe(true);
-    const under = openOver(g)!;
+    const under = sure(openOver(g), 'openOver(g)');
     expect(hudOf(under).phase).toBe('paused');
     expect({ ...under, paused: false, events: [] }).toEqual({ ...g, events: [] });
   });
 
   it('pauses the ready screen too, which B comes back to as the pause', () => {
     expect(pauseFirst(ready())).toBe(true);
-    expect(hudOf(openOver(ready())!).phase).toBe('paused');
+    expect(hudOf(sure(openOver(ready()), 'openOver(ready())')).phase).toBe('paused');
   });
 
   it('comes back to the pause on B, never to play, and never leaves the game', () => {
-    const under = openOver(playing())!;
+    const under = sure(openOver(playing()), 'openOver(playing())');
     expect(leaveMove('b')).toBe('stay');
     // B is the confirm's: the game under it hears nothing, so it is still paused, and START resumes it.
     expect(hudOf(under).phase).toBe('paused');
@@ -113,7 +114,7 @@ describe('the confirm on the screen', () => {
   });
 
   it('makes its hints buttons a tap presses, as every key hint is', () => {
-    const buttons = [...html(TALL, 'handheld').matchAll(/<button type="button" class="j-hit">(.*?)<\/button>/g)].map(([, b]) => text(b));
+    const buttons = [...html(TALL, 'handheld').matchAll(/<button type="button" class="j-hit">(.*?)<\/button>/g)].map(([, b]) => text(sure(b, 'b')));
     expect(buttons).toEqual([['A', 'YES'], ['B', 'NO']]);
   });
 });

@@ -42,12 +42,15 @@
 // a PRD of its workspace's plan repository, its planet's regions as <github_org>/<region>, in lower case,
 // once each, in order), its latest version of each kind, its rounds asked and answered, and its last
 // activity (its opening, numbering, versions and rounds asked or answered), newest first.
+import 'server-only';
 import { createHash } from 'node:crypto';
+import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
   ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, KIND_ARTIFACTS, latestVersions, TITLE_MAX, WORK_KINDS, type ArtifactKind, type DossierListRow, type DossierRoundRow,
   type RoundRule, type WorkKind,
 } from './store';
-import { FAKE_WORKSPACE, type FakeAccount } from '../ask/store.fake';
+import { FAKE_WORKSPACE, userOf, type FakeAccount } from '../ask/store.fake';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
@@ -58,7 +61,7 @@ type Result = { data: unknown; error: Failure | null };
 export { FAKE_WORKSPACE, type FakeAccount };
 
 export type FakeDossier = {
-  id: string; workspace_id: string; home_repo: string; prd: number | null; kind: WorkKind; title: string;
+  id: string; workspace_id: string; home_repo: string; prd: PrdNumber | null; kind: WorkKind; title: string;
   opened_by: string | null; claude_session_id: string | null; created_at: string; numbered_at: string | null;
 };
 export type FakeVersion = {
@@ -79,7 +82,7 @@ export type FakeAskSession = {
 export type FakeAskRound = {
   id: string; session_id: string; questions: unknown; answers: Record<string, string> | null;
   status: 'open' | 'answered' | 'abandoned'; answered_via: 'page' | 'terminal' | null; answered_by: string | null;
-  category: string | null; category_by: string | null; prd: number | null; skill: string | null;
+  category: string | null; category_by: string | null; prd: PrdNumber | null; skill: string | null;
   created_at: string; answered_at: string | null;
 };
 /** A share (PRD 144): a round, the member it is shared with, who shared it and when. */
@@ -91,23 +94,77 @@ const REPO =/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/;
 const sha256 = (content: string) => createHash('sha256').update(content, 'utf8').digest('hex');
 const refuse = (code: string, message: string): Result => ({ data: null, error: { code, message } });
 
+/** A check's value, or the refusal it ends the call with. */
+type Checked<T> = { ok: true; value: T } | { ok: false; refusal: Result };
+const refused = (code: string, message: string): { ok: false; refusal: Result } => ({ ok: false, refusal: refuse(code, message) });
+/** A text argument, trimmed: anything else reads as empty. */
+const trimmed = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
+/** A dossier's title: 1 to TITLE_MAX characters. */
+const titleFits = (title: string): boolean => title.length >= 1 && title.length <= TITLE_MAX;
+/** A PRD number: a positive whole number. */
+const isPrdNumber = (value: unknown): value is PrdNumber => PrdNumberSchema.safeParse(value).success;
+/** A Claude session id: none, or 1 to 200 characters. */
+const sessionFits = (session: unknown): session is string | null => session === null || (typeof session === 'string' && session.length >= 1 && session.length <= 200);
+
+type SentArtifact = { kind: ArtifactKind; content: string };
+/** dossier_push()'s arguments, checked. */
+type PushArgs = { repo: string; prd: PrdNumber; title: string; draftId: unknown; kind: WorkKind; sent: SentArtifact[] };
+
+/** The artifacts a push sends to a `kind` dossier, each checked, or the refusal of the first that fails. */
+function sentArtifacts(artifacts: unknown, kind: WorkKind): Checked<SentArtifact[]> {
+  if (!Array.isArray(artifacts)) return refused('22023', 'The artifacts are a list.');
+  const seen = new Set<string>();
+  const sent: SentArtifact[] = [];
+  for (const item of artifacts) {
+    const artifact = artifactOf(item);
+    if (!artifact) return refused('22023', `Each artifact is {kind, content}, its kind one of ${ARTIFACT_KINDS.join(', ')}.`);
+    if (artifact.kind !== 'variations' && seen.has(artifact.kind)) return refused('22023', 'Each kind is sent once.');
+    if (!KIND_ARTIFACTS[kind].includes(artifact.kind)) return refused('22023', `A ${kind} dossier takes no ${artifact.kind} version.`);
+    seen.add(artifact.kind);
+    if (Buffer.byteLength(artifact.content, 'utf8') > ARTIFACT_MAX_BYTES) return refused('54000', 'An artifact holds 512 KiB at most.');
+    sent.push(artifact);
+  }
+  return { ok: true, value: sent };
+}
+
+/** An artifact as a push sends it, `{kind, content}`, or null when it is not one. */
+function artifactOf(item: unknown): SentArtifact | null {
+  const kind = propertyOf(item, 'kind'), content = propertyOf(item, 'content');
+  if (!item || typeof item !== 'object' || !isOneOf(ARTIFACT_KINDS, kind) || typeof content !== 'string') return null;
+  return { kind, content };
+}
+
 /**
  * @param accounts by access token
  * @param orgs each workspace's github_org, by workspace id: a workspace not named owns no organisation
  */
+/** `row` without `keys`: what a rest destructure gave, with no unused name for each key left out. */
+function omit<T extends object, K extends keyof T>(row: T, keys: readonly K[]): Omit<T, K> {
+  const copy: T = { ...row };
+  for (const key of keys) Reflect.deleteProperty(copy, key);
+  return copy;
+}
+
 export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record<string, string | null> = {}, now: () => number = Date.now) {
-  const tables = {
-    dossiers: [] as FakeDossier[], dossier_versions: [] as FakeVersion[],
-    ask_sessions: [] as FakeAskSession[], ask_rounds: [] as FakeAskRound[], ask_shares: [] as FakeAskShare[],
-    ledger_events: [] as FakeLedgerEvent[],
+  const tables: {
+    dossiers: FakeDossier[]; dossier_versions: FakeVersion[];
+    ask_sessions: FakeAskSession[]; ask_rounds: FakeAskRound[]; ask_shares: FakeAskShare[];
+    ledger_events: FakeLedgerEvent[];
     /** Each workspace's plan repository, a bare name, by workspace id. */
-    plan_repos: {} as Record<string, string>,
+    plan_repos: Record<string, string>;
     /** Each member's GitHub login, avatar, fleet and hero (PRD 652), by workspace id then account id. */
-    players: {} as Record<string, Record<string, FakePlayer>>,
-    teams: [] as FakeFleet[],
+    players: Record<string, Record<string, FakePlayer>>;
+    teams: FakeFleet[];
+  } = {
+    dossiers: [], dossier_versions: [],
+    ask_sessions: [], ask_rounds: [], ask_shares: [],
+    ledger_events: [],
+    plan_repos: {},
+    players: {},
+    teams: [],
   };
   /** `fail`: every read fails so. `rosterDown` (PRD 652): only the faces' reads (roster and fleets) fail. */
-  const state = { fail: null as Failure | null, calls: 0, rosterDown: false };
+  const state: { fail: Failure | null; calls: number; rosterDown: boolean } = { fail: null, calls: 0, rosterDown: false };
   let next = 0;
   let tick = 0;
   const newId = () => `00000000-0000-4000-8000-${String((next += 1)).padStart(12, '0')}`;
@@ -144,88 +201,91 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
 
   function open(me: FakeAccount | null, args: Row): Result {
     if (!me) return refuse('42501', 'Sign in first.');
-    const title = typeof args.p_title === 'string' ? args.p_title.trim() : '';
-    const repo = typeof args.p_repo === 'string' ? args.p_repo.trim().toLowerCase() : '';
+    const title = trimmed(args.p_title);
+    const repo = trimmed(args.p_repo).toLowerCase();
     const session = args.p_claude_session_id ?? null;
-    if (title.length < 1 || title.length > TITLE_MAX) return refuse('22023', 'A dossier needs a title of 1 to 200 characters.');
+    if (!titleFits(title)) return refuse('22023', 'A dossier needs a title of 1 to 200 characters.');
     if (!REPO.test(repo)) return refuse('22023', 'A dossier needs its repository as owner/name.');
-    if (!(session === null || (typeof session === 'string' && session.length >= 1 && session.length <= 200))) {
-      return refuse('22023', 'A Claude session id is 1 to 200 characters.');
-    }
+    if (!sessionFits(session)) return refuse('22023', 'A Claude session id is 1 to 200 characters.');
     const place = workspaceFor(me, repo);
     if (!place) return refuse('42501', 'Join a workspace first: a dossier belongs to one.');
     const row: FakeDossier = {
       id: newId(), workspace_id: place, home_repo: repo, prd: null, kind: 'prd', title, opened_by: me.id,
-      claude_session_id: session as string | null, created_at: stamp(), numbered_at: null,
+      claude_session_id: session, created_at: stamp(), numbered_at: null,
     };
     tables.dossiers.push(row);
     return { data: row.id, error: null };
   }
 
+  /** dossier_push()'s arguments, checked in the order the migration checks them, or its refusal. */
+  function pushArgs(args: Row): Checked<PushArgs> {
+    const repo = trimmed(args.p_repo).toLowerCase();
+    const prd = args.p_prd;
+    const title = trimmed(args.p_title);
+    const kind = args.p_kind ?? 'prd';
+    if (!isOneOf(WORK_KINDS, kind)) return refused('22023', 'A dossier\'s kind is prd, visual or bug.');
+    if (!REPO.test(repo)) return refused('22023', 'A dossier needs its repository as owner/name.');
+    if (!isPrdNumber(prd)) return refused('22023', 'A PRD number is a positive whole number.');
+    if (!titleFits(title)) return refused('22023', 'A dossier needs a title of 1 to 200 characters.');
+    const sent = sentArtifacts(args.p_artifacts, kind);
+    if (!sent.ok) return sent;
+    return { ok: true, value: { repo, prd, title, draftId: args.p_draft ?? null, kind, sent: sent.value } };
+  }
+
+  /** The draft named, numbered `prd`: merged into the dossier already keyed so, if there is one. */
+  function numberedDraft(me: FakeAccount, { draftId, repo, prd, kind }: PushArgs): Checked<FakeDossier> {
+    if (kind !== 'prd') return refused('22023', 'A fix has no draft: push it by its number alone.');
+    const draft = tables.dossiers.find((d) => d.id === draftId && isMember(me, d.workspace_id));
+    if (!draft) return refused('P0002', 'No such draft dossier.');
+    if (draft.home_repo !== repo) return refused('22023', `This draft belongs to ${draft.home_repo}.`);
+    if (draft.prd !== null && draft.prd !== prd) return refused('22023', `This dossier is already PRD #${draft.prd}.`);
+    if (draft.prd !== null) return { ok: true, value: draft };
+    const keyed = tables.dossiers.find((d) => d.workspace_id === draft.workspace_id && d.home_repo === repo && d.kind === 'prd' && d.prd === prd);
+    if (!keyed) {
+      Object.assign(draft, { prd, numbered_at: stamp() });
+      return { ok: true, value: draft };
+    }
+    mergeDraft(draft, keyed);
+    return { ok: true, value: keyed };
+  }
+
+  /** A draft numbered to a key already taken: its versions, Claude session id and opener move over,
+   * the dossier is dated from the earlier opening, and the draft goes. */
+  function mergeDraft(draft: FakeDossier, keyed: FakeDossier): void {
+    for (const version of tables.dossier_versions) if (version.dossier_id === draft.id) version.dossier_id = keyed.id;
+    keyed.claude_session_id = draft.claude_session_id ?? keyed.claude_session_id;
+    keyed.opened_by = draft.opened_by ?? keyed.opened_by;
+    if (draft.created_at < keyed.created_at) keyed.created_at = draft.created_at;
+    tables.dossiers = tables.dossiers.filter((d) => d.id !== draft.id);
+  }
+
+  /** The dossier keyed by the caller's workspace, the repository, the kind and the number, else a new one. */
+  function keyedDossier(me: FakeAccount, { repo, prd, kind, title }: PushArgs): Checked<FakeDossier> {
+    const place = workspaceFor(me, repo);
+    if (!place) return refused('42501', 'Join a workspace first: a dossier belongs to one.');
+    const keyed = tables.dossiers.find((d) => d.workspace_id === place && d.home_repo === repo && d.kind === kind && d.prd === prd);
+    if (keyed) return { ok: true, value: keyed };
+    const dossier: FakeDossier = {
+      id: newId(), workspace_id: place, home_repo: repo, prd, kind, title, opened_by: me.id,
+      claude_session_id: null, created_at: stamp(), numbered_at: stamp(),
+    };
+    tables.dossiers.push(dossier);
+    return { ok: true, value: dossier };
+  }
+
   function push(me: FakeAccount | null, args: Row): Result {
     if (!me) return refuse('42501', 'Sign in first.');
-    const repo = typeof args.p_repo === 'string' ? args.p_repo.trim().toLowerCase() : '';
-    const prd = args.p_prd;
-    const title = typeof args.p_title === 'string' ? args.p_title.trim() : '';
-    const draftId = args.p_draft ?? null;
-    const artifacts = args.p_artifacts;
-    const kind = (args.p_kind ?? 'prd') as WorkKind;
-    if (!WORK_KINDS.includes(kind)) return refuse('22023', 'A dossier\'s kind is prd, visual or bug.');
-    if (!REPO.test(repo)) return refuse('22023', 'A dossier needs its repository as owner/name.');
-    if (!Number.isInteger(prd) || (prd as number) <= 0) return refuse('22023', 'A PRD number is a positive whole number.');
-    if (title.length < 1 || title.length > TITLE_MAX) return refuse('22023', 'A dossier needs a title of 1 to 200 characters.');
-    if (!Array.isArray(artifacts)) return refuse('22023', 'The artifacts are a list.');
-    const seen = new Set<string>();
-    for (const item of artifacts as Row[]) {
-      if (!item || typeof item !== 'object' || !ARTIFACT_KINDS.includes(item.kind as never) || typeof item.content !== 'string') {
-        return refuse('22023', 'Each artifact is {kind, content}, its kind one of spec, plan, before-after, variations, bug-record.');
-      }
-      if (item.kind !== 'variations' && seen.has(item.kind as string)) return refuse('22023', 'Each kind is sent once.');
-      if (!KIND_ARTIFACTS[kind].includes(item.kind as ArtifactKind)) return refuse('22023', `A ${kind} dossier takes no ${item.kind as string} version.`);
-      seen.add(item.kind as string);
-      if (Buffer.byteLength(item.content as string, 'utf8') > ARTIFACT_MAX_BYTES) return refuse('54000', 'An artifact holds 512 KiB at most.');
-    }
-
-    let dossier: FakeDossier;
-    if (draftId !== null) {
-      if (kind !== 'prd') return refuse('22023', 'A fix has no draft: push it by its number alone.');
-      const draft = tables.dossiers.find((d) => d.id === draftId && isMember(me, d.workspace_id));
-      if (!draft) return refuse('P0002', 'No such draft dossier.');
-      if (draft.home_repo !== repo) return refuse('22023', `This draft belongs to ${draft.home_repo}.`);
-      if (draft.prd !== null && draft.prd !== prd) return refuse('22023', `This dossier is already PRD #${draft.prd}.`);
-      dossier = draft;
-      if (draft.prd === null) {
-        const keyed = tables.dossiers.find((d) => d.workspace_id === draft.workspace_id && d.home_repo === repo && d.kind === 'prd' && d.prd === prd);
-        if (keyed) {
-          for (const version of tables.dossier_versions) if (version.dossier_id === draft.id) version.dossier_id = keyed.id;
-          keyed.claude_session_id = draft.claude_session_id ?? keyed.claude_session_id;
-          keyed.opened_by = draft.opened_by ?? keyed.opened_by;
-          if (draft.created_at < keyed.created_at) keyed.created_at = draft.created_at;
-          tables.dossiers = tables.dossiers.filter((d) => d.id !== draft.id);
-          dossier = keyed;
-        } else {
-          Object.assign(draft, { prd, numbered_at: stamp() });
-        }
-      }
-    } else {
-      const place = workspaceFor(me, repo);
-      if (!place) return refuse('42501', 'Join a workspace first: a dossier belongs to one.');
-      const keyed = tables.dossiers.find((d) => d.workspace_id === place && d.home_repo === repo && d.kind === kind && d.prd === prd);
-      if (keyed) {
-        dossier = keyed;
-      } else {
-        dossier = {
-          id: newId(), workspace_id: place, home_repo: repo, prd: prd as number, kind, title, opened_by: me.id,
-          claude_session_id: null, created_at: stamp(), numbered_at: stamp(),
-        };
-        tables.dossiers.push(dossier);
-      }
-    }
-    dossier.title = title;
+    const checked = pushArgs(args);
+    if (!checked.ok) return checked.refusal;
+    const pushed = checked.value;
+    const found = pushed.draftId !== null ? numberedDraft(me, pushed) : keyedDossier(me, pushed);
+    if (!found.ok) return found.refusal;
+    const dossier = found.value;
+    dossier.title = pushed.title;
 
     const added: Array<{ kind: string; version: number }> = [];
     const unchanged: string[] = [];
-    for (const { kind, content } of artifacts as Array<{ kind: string; content: string }>) {
+    for (const { kind, content } of pushed.sent) {
       const version = addVersion(dossier, kind, content, { source: 'kit', uploadedBy: me.id });
       if (version === null) unchanged.push(kind);
       else added.push({ kind, version });
@@ -248,7 +308,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
 
     const readable = (row: Row): boolean => {
       if (!me) return false;
-      if (table === 'teams') return isMember(me, row.workspace_id as string);
+      if (table === 'teams') return typeof row.workspace_id === 'string' && isMember(me, row.workspace_id);
       if (table === 'ask_shares') {
         // "a member reads the shares of their workspace's rounds" (20260927120000_ask_shares.sql).
         const round = tables.ask_rounds.find((r) => r.id === row.round_id);
@@ -272,7 +332,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     function run(): Result {
       state.calls += 1;
       if (state.fail) return { data: null, error: state.fail };
-      const rows = (tables[table] as Row[]).filter((row) => readable(row) && filters.every((f) => f(row)));
+      const all: readonly Row[] = tables[table];
+      const rows = all.filter((row) => readable(row) && filters.every((f) => f(row)));
       if (!removing) return { data: [...rows].sort(compare).slice(0, most).map(project), error: null };
       const gone = new Set(rows.filter(deletable).map((row) => row.id));
       tables.dossiers = tables.dossiers.filter((d) => !gone.has(d.id));
@@ -292,7 +353,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
       maybeSingle: () => Promise.resolve().then((): Result => {
         const result = run();
         if (result.error) return result;
-        const rows = result.data as Row[];
+        const rows: readonly unknown[] = Array.isArray(result.data) ? result.data : [];
         return rows.length > 1 ? refuse('PGRST116', 'More than one row came back.') : { data: rows[0] ?? null, error: null };
       }),
       then: <T>(resolve: (result: Result) => T, reject?: (error: unknown) => T) => Promise.resolve().then(run).then(resolve, reject),
@@ -341,7 +402,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
       const session = sessions.find((s) => s.id === round.session_id);
       const rule = session ? ruleOf(round, session) : null;
       if (!session || !rule) return [];
-      const { id, session_id: _session, ...rest } = round;
+      const { id } = round;
+      const rest = omit(round, ['id', 'session_id']);
       return [{ rule, round_id: id, session_id: session.id, asked_by: session.owner, repo: session.repo, branch: session.branch, ...rest }];
     }).sort((a, b) => at(a.created_at) - at(b.created_at) || a.round_id.localeCompare(b.round_id));
   }
@@ -365,7 +427,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
         .filter((repo) => repo !== d.home_repo).sort();
       const times = [d.created_at, d.numbered_at, ...versions.map((v) => v.created_at), ...asked.flatMap((r) => [r.created_at, r.answered_at])]
         .filter((t): t is string => t !== null);
-      const { claude_session_id: _session, ...row } = d;
+      const row = omit(d, ['claude_session_id']);
       return {
         ...row,
         repos: [d.home_repo, ...others],
@@ -377,6 +439,20 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     }).sort((a, b) => Date.parse(b.last_activity) - Date.parse(a.last_activity) || a.id.localeCompare(b.id));
   }
 
+  /** One of the functions, called as `me`. */
+  function call(me: FakeAccount | null, name: string, args: Row): Result {
+    if (name === 'dossier_open') return open(me, args);
+    if (name === 'dossier_push') return push(me, args);
+    const workspace = typeof args.workspace === 'string' ? args.workspace : '';
+    if (name === 'ask_members') return { data: members(me, workspace), error: null };
+    if (name === 'workspace_roster') {
+      return state.rosterDown ? refuse('57014', 'canceling statement due to statement timeout') : { data: roster(me, workspace), error: null };
+    }
+    if (name === 'dossier_rounds') return { data: rounds(me, args.p_dossier), error: null };
+    if (name === 'dossier_list') return { data: list(me, args.p_dossier), error: null };
+    return refuse('PGRST202', `Could not find the function public.${name}`);
+  }
+
   /** The client for one bearer token: acting as its account, as the API's real client does. */
   function client(token: string) {
     const me = accounts[token] ?? null;
@@ -385,22 +461,11 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
       rpc: (name: string, args: Row) => Promise.resolve().then((): Result => {
         state.calls += 1;
         if (state.fail) return { data: null, error: state.fail };
-        if (name === 'dossier_open') return open(me, args);
-        if (name === 'dossier_push') return push(me, args);
-        if (name === 'ask_members') return { data: members(me, args.workspace as string), error: null };
-        if (name === 'workspace_roster') {
-          return state.rosterDown ? refuse('57014', 'canceling statement due to statement timeout') : { data: roster(me, args.workspace as string), error: null };
-        }
-        if (name === 'dossier_rounds') return { data: rounds(me, args.p_dossier), error: null };
-        if (name === 'dossier_list') return { data: list(me, args.p_dossier), error: null };
-        return refuse('PGRST202', `Could not find the function public.${name}`);
+        return call(me, name, args);
       }),
       auth: {
-        async getUser(jwt: string) {
-          const account = accounts[jwt];
-          return account
-            ? { data: { user: { id: account.id, email: account.email } }, error: null }
-            : { data: { user: null }, error: { name: 'AuthApiError', status: 401, message: 'invalid JWT' } };
+        getUser(jwt: string) {
+          return Promise.resolve(userOf(accounts[jwt]));
         },
       },
     };
@@ -408,7 +473,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
 
   /** A dossier the fallback created (no opener, no Claude session), with versions read from GitHub. */
   function seedFromGithub({ workspace = FAKE_WORKSPACE, repo, prd, kind = 'prd', title, versions = [] }: {
-    workspace?: string; repo: string; prd: number; kind?: WorkKind; title: string; versions?: Array<{ kind: string; content: string }>;
+    workspace?: string; repo: string; prd: PrdNumber; kind?: WorkKind; title: string; versions?: Array<{ kind: string; content: string }>;
   }): FakeDossier {
     const dossier: FakeDossier = {
       id: newId(), workspace_id: workspace, home_repo: repo.toLowerCase(), prd, kind, title, opened_by: null,
@@ -446,7 +511,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   /** A workspace's plan repository (a bare name), and PRD `prd`'s planet surveyed in each of `regions`,
    * as the ledger's REGION_SURVEYED events record it. */
   function seedPlanet({ workspace = FAKE_WORKSPACE, planRepo, prd, regions }: {
-    workspace?: string; planRepo: string; prd: number; regions: string[];
+    workspace?: string; planRepo: string; prd: PrdNumber; regions: string[];
   }) {
     tables.plan_repos[workspace] = planRepo;
     for (const region of regions) tables.ledger_events.push({ workspace_id: workspace, type: 'REGION_SURVEYED', planet: prd, region });

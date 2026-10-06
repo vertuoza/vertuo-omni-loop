@@ -1,6 +1,7 @@
 import type { PlanetState, WoundKind } from '@omni/galaxy';
 import { fleetSprite, heroLook, MASCOTS as LIBRARY, type Hero, type Tint } from '@omni/design';
 import type { FleetRow } from './types';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export interface FleetLook { label: string; sprite: string; tint: Tint | null; color: string; motto: string; retired: boolean }
 
@@ -87,4 +88,4 @@ export function shortDate(iso: string): string {
 }
 
 // Deterministic seed per planet, so a planet's continents never change between visits.
-export const seedOf = (prd: number) => (prd * 2654435761) >>> 0;
+export const seedOf = (prd: PrdNumber) => (prd * 2654435761) >>> 0;

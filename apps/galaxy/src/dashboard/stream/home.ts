@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import type { Player } from '../../arcade/types';
 import { loadFleets, loadGalaxy, loadMe } from '../../data/load-galaxy';
 import type { WaitingQuestion } from '../../waiting/waiting';
@@ -31,7 +32,7 @@ export interface HomeParts {
 }
 
 export function homeParts(
-  db: SupabaseClient, user: User, workspace: string, period: Period, now: Date, questions: () => Promise<WaitingQuestion[]>,
+  db: SupabaseClient<Database>, user: User, workspace: string, period: Period, now: Date, questions: () => Promise<WaitingQuestion[]>,
 ): HomeParts {
   const season = seasonBounds(now);
   const galaxy = once(() => loadGalaxy(db, workspace, now));

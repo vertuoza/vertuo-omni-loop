@@ -1,6 +1,5 @@
 'use client';
-import { useState } from 'react';
-import { startGithubSignIn } from '../data/sign-in-github';
+import { useGithubSignIn } from './page/GithubSignInCard';
 
 // /ask/signin, for `omni signin`: the galaxy's GitHub sign-in (PRD 359; src/data/sign-in-github.ts),
 // coming back through the auth callback's ask-cli branch, which joins the workspaces of the person's
@@ -10,18 +9,7 @@ import { startGithubSignIn } from '../data/sign-in-github';
 type Supabase = { url: string; key: string };
 
 export function CliSignInCard({ supabase, returnPath, error }: { supabase: Supabase; returnPath: string; error?: string | null }) {
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(error ?? null);
-
-  async function signIn() {
-    setBusy(true);
-    setProblem(null);
-    const failed = await startGithubSignIn(supabase, `${window.location.origin}${returnPath}`);
-    if (failed) {
-      setProblem(failed);
-      setBusy(false);
-    }
-  }
+  const { busy, problem, signIn } = useGithubSignIn({ supabase, returnPath, error });
 
   return (
     <div className="ask-col">
@@ -32,7 +20,7 @@ export function CliSignInCard({ supabase, returnPath, error }: { supabase: Supab
           sign-in of its own, and this tab can be closed once it says so.
         </p>
         {problem && <p className="ask-error" role="alert">{problem}</p>}
-        <button type="button" className="ask-button" onClick={signIn} disabled={busy}>
+        <button type="button" className="ask-button" onClick={() => void signIn()} disabled={busy}>
           {busy ? 'Opening GitHub…' : problem ? 'Try again with GitHub' : 'Sign in with GitHub'}
         </button>
       </section>

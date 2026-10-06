@@ -40,7 +40,7 @@ export function AppBar({ viewer }: { viewer: ViewerView }) {
         aria-label="Menu"
         aria-expanded={drawer.open}
         aria-controls="app-sidebar"
-        onClick={() => drawer.send('toggle')}
+        onClick={() => { drawer.send('toggle'); }}
       >
         <span aria-hidden="true">☰</span>
       </button>

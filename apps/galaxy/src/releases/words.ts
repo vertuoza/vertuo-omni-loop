@@ -2,6 +2,7 @@
 // a visitor reads when the releases cannot be shown, and the way a day, a week and its counts are
 // written. English, whatever the server's locale: the names are spelled here, never asked of Intl.
 import type { Day } from './weeks.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export const RELEASES = {
   /** Beside the OMNI LOOP mark in the app bar. */
@@ -50,4 +51,4 @@ export const prdsOf = (prds: number) => plural(prds, 'PRD', 'PRDs');
 export const countsOf = (releases: number, prds: number) => `${plural(releases, 'release', 'releases')} · ${prdsOf(prds)}`;
 
 /** A PRD, as plain text: never a link. */
-export const prdOf = (prd: number) => `PRD ${prd}`;
+export const prdOf = (prd: PrdNumber) => `PRD ${prd}`;

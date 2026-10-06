@@ -4,7 +4,11 @@
 // workspace's rows to its members. A PRD is a workspace, a repository (kept in lower case) and an issue
 // number. A write replaces the PRD's counts. A refusal throws with Supabase's reason.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { prdKey, settle, type PrdRef, type StageKey } from '../store';
+import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { numberOf, textOf } from '../../data/unparsed';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const TABLE = 'prd_outbox';
 
@@ -24,19 +28,21 @@ export type PrdOutboxStore = {
   countsOf(workspace: string, prds: readonly PrdRef[]): Promise<Map<string, OutboxCounts>>;
 };
 
-const RANKS = new Set(['human-action', 'high']);
+const RANKS: readonly WaitingQuestion['rank'][] = ['human-action', 'high'];
 
 /** The waiting items a row holds, dropping any that is not one. */
 export function waitingOf(value: unknown): WaitingQuestion[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((raw): WaitingQuestion[] => {
-    const item = (raw ?? {}) as Record<string, unknown>;
-    if (typeof item.id !== 'string' || typeof item.question !== 'string' || typeof item.rank !== 'string' || !RANKS.has(item.rank)) return [];
-    return [{ id: item.id, rank: item.rank as WaitingQuestion['rank'], question: item.question }];
+    const id = propertyOf(raw, 'id');
+    const rank = propertyOf(raw, 'rank');
+    const question = propertyOf(raw, 'question');
+    if (typeof id !== 'string' || typeof question !== 'string' || !isOneOf(RANKS, rank)) return [];
+    return [{ id, rank, question }];
   });
 }
 
-export function prdOutboxStore(db: Pick<SupabaseClient, 'from'>): PrdOutboxStore {
+export function prdOutboxStore(db: Pick<SupabaseClient<Database>, 'from'>): PrdOutboxStore {
   return {
     async record(rows, syncedAt = new Date().toISOString()) {
       if (rows.length === 0) return;
@@ -56,10 +62,10 @@ export function prdOutboxStore(db: Pick<SupabaseClient, 'from'>): PrdOutboxStore
       const { data, error } = await db.from(TABLE).select('repository, prd, open_questions, waiting')
         .eq('workspace_id', workspace).in('prd', numbers);
       settle('read the outboxes', error);
-      for (const row of (data ?? []) as Record<string, unknown>[]) {
-        const key = prdKey({ repository: String(row.repository), prd: Number(row.prd) });
+      for (const row of data ?? []) {
+        const key = prdKey({ repository: textOf(row.repository), prd: parsePrd(numberOf(row.prd)) });
         if (!wanted.has(key)) continue;
-        counts.set(key, { open_questions: Number(row.open_questions) || 0, waiting: waitingOf(row.waiting) });
+        counts.set(key, { open_questions: numberOf(row.open_questions) || 0, waiting: waitingOf(row.waiting) });
       }
       return counts;
     },

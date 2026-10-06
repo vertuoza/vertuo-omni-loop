@@ -5,6 +5,10 @@
 // rounds stay unsorted. Any member may set or change a category on the page, so a wrong guess costs
 // a click. Pure apart from the one fetch, which a test stubs.
 
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { OpenRouterEnv } from '../env';
+
 /** The six values, in the spec's order. Stored as they are; the page shows CATEGORY_LABELS. */
 export const CATEGORIES = ['business', 'product', 'ux-ui', 'architecture', 'harness', 'other'] as const;
 export type Category = (typeof CATEGORIES)[number];
@@ -18,8 +22,8 @@ export const CATEGORY_LABELS: Readonly<Record<Category, string>> = Object.freeze
   other: 'Other',
 });
 
-/** What each category holds, as the model is told. */
-const HOLDS: Readonly<Record<Category, string>> = {
+/** What each category holds, as the model is told (and Jev, PRD 812). */
+export const HOLDS: Readonly<Record<Category, string>> = {
   business: 'pricing, priorities, customers, contracts, anything a business owner decides',
   product: 'scope, features, behaviour, what the product does',
   'ux-ui': 'screens, copy, flows, look',
@@ -28,7 +32,7 @@ const HOLDS: Readonly<Record<Category, string>> = {
   other: 'the rest',
 };
 
-export const isCategory = (value: unknown): value is Category => (CATEGORIES as readonly unknown[]).includes(value);
+export const isCategory = (value: unknown): value is Category => isOneOf(CATEGORIES, value);
 
 /** The model's reply as one of the six, or null: case, spaces, quotes and a final full stop aside,
  * it must be a value exactly. */
@@ -41,7 +45,7 @@ export function readCategory(reply: unknown): Category | null {
 /** What the classifier reads: the round's questions as AskUserQuestion took them, and its context. */
 export type ClassifyInput = {
   questions: unknown[];
-  context: { repo?: string | null; branch?: string | null; prd?: number | null; skill?: string | null };
+  context: { repo?: string | null; branch?: string | null; prd?: PrdNumber | null; skill?: string | null };
 };
 
 export type Classifier = (input: ClassifyInput) => Promise<Category | null>;
@@ -52,12 +56,13 @@ export const CLASSIFIER_MODEL = 'anthropic/claude-haiku-4.5';
 /** How long the call may take before the round stays unsorted. */
 export const CLASSIFY_TIMEOUT_MS = 15_000;
 
-const record = (value: unknown): Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {});
 const str = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
-/** The questions and their options as plain lines; never an option's preview. */
-function describe(input: ClassifyInput): string {
+/** The questions and their options as plain lines; never an option's preview. What Haiku reads, and
+ * the state Jev is given for the question category (PRD 812). */
+export function describeRound(input: ClassifyInput): string {
   const lines: string[] = [];
   for (const q of input.questions.map(record)) {
     const header = str(q.header);
@@ -95,7 +100,7 @@ export function openRouterClassifier({ apiKey, fetch = globalThis.fetch, model =
           max_tokens: 8,
           messages: [
             { role: 'system', content: SYSTEM },
-            { role: 'user', content: describe(input) },
+            { role: 'user', content: describeRound(input) },
           ],
         }),
         signal: AbortSignal.timeout(timeoutMs),
@@ -111,7 +116,6 @@ export function openRouterClassifier({ apiKey, fetch = globalThis.fetch, model =
 }
 
 /** The classifier when OPENROUTER_API_KEY is set, and null otherwise: rounds then stay unsorted. */
-export function classifierFromEnv(env: Record<string, string | undefined>): Classifier | null {
-  const apiKey = env.OPENROUTER_API_KEY?.trim();
-  return apiKey ? openRouterClassifier({ apiKey }) : null;
+export function classifierFromEnv(openrouter: OpenRouterEnv | null): Classifier | null {
+  return openrouter ? openRouterClassifier({ apiKey: openrouter.key }) : null;
 }

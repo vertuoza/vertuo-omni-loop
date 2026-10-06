@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
+import { sure } from '../arcade/test/sure';
 
 vi.mock('server-only', () => ({}));
 
@@ -30,7 +31,7 @@ describe('the demo dashboard', () => {
 
   it('scores *you* as the demo galaxy does: your points and your place, and no fleet\'s', () => {
     const galaxy = demoGalaxy(NOW);
-    const hero = galaxy.heroes.find((h) => h.name === DEMO_YOU.login)!;
+    const hero = sure(galaxy.heroes.find((h) => h.name === DEMO_YOU.login), 'the item found');
     expect(demoDashboard('7d', NOW).you).toMatchObject({
       score: { points: hero.points, you: { rank: hero.rank, of: galaxy.heroes.length }, fleet: null },
     });
@@ -61,7 +62,7 @@ describe('the demo dashboard', () => {
     expect(d.board.window.period).toBe('30d');
     expect(d.board.window.days).toHaveLength(30);
     if (d.board.people === 'unreadable') throw new Error('people unreadable');
-    const me = d.board.people[0];
+    const me = sure(d.board.people[0], 'd.board.people[0]');
     expect(d.board.tiles.prs).toBe(me.prs);
   });
 

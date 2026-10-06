@@ -132,6 +132,8 @@
   font-size: 13px;
 }
 .stage-links li + li::before { content: '·'; color: var(--ask-muted); margin-right: 12px; }
+/* When GitHub was last read, under the links (PRD 902, s2), and when it resumes while paused. */
+.github-as-of { margin: 4px 0 0; font-size: 12px; }
 /* The open feature PR's health chip (PRD 790, s2): green-edged when all is well, red on CI red or a
    conflict, grey while CI runs. */
 .care-chip {
@@ -702,6 +704,56 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .care-verdict-asked .care-verdict strong { color: var(--ask-red); }
 .care-watcher { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ask-muted); }
 .care-watcher.care-watching { color: var(--ask-ink); }
+
+/* The User voice tab (PRD 822, s3): the Rework button, then a grid of personas by rounds that scrolls
+   inside its own box at 393 px, never the page, each score a <details> holding its
+   reaction; then each round with its fit line and its objection, outlined. */
+.voice { display: grid; gap: 16px; min-width: 0; }
+.voice-rework { display: flex; flex-wrap: wrap; gap: 8px; }
+.voice-scroll { max-width: 100%; overflow-x: auto; border: 1.5px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
+.voice-grid { border-collapse: collapse; min-width: 100%; }
+.voice-grid th,
+.voice-grid td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--ask-line); }
+.voice-grid thead th { font-weight: 700; white-space: nowrap; color: var(--ask-muted); }
+.voice-grid thead th small { display: block; font-weight: 400; }
+.voice-grid th[scope='row'] {
+  width: 280px;
+  max-width: min(280px, 55vw);
+  font-weight: 400;
+  background: var(--ask-surface);
+}
+.voice-persona { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.voice-portrait { flex: none; line-height: 0; border-radius: 6px; background: var(--ask-sunk); }
+.voice-portrait svg { display: block; image-rendering: pixelated; }
+.voice-portrait-none { display: grid; place-items: center; width: 32px; height: 32px; font: 700 14px/32px var(--ask-mono); color: var(--ask-muted); }
+.voice-who { display: grid; gap: 4px; justify-items: start; min-width: 0; }
+.voice-stance { font: 700 11px/1 var(--ask-mono); padding: 4px 7px; border-radius: 999px; border: 1px solid var(--ask-line-strong); }
+.voice-stance[data-stance='excited'] { color: var(--ask-green); border-color: var(--ask-green); }
+.voice-stance[data-stance='neutral'] { color: var(--ask-muted); border-color: var(--ask-muted); }
+.voice-stance[data-stance='skeptical'] { color: var(--ask-red); border-color: var(--ask-red); }
+.voice-latest { font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }
+.voice-cell { min-width: 96px; }
+.voice-objected { outline: 2px solid var(--ask-yellow); outline-offset: -4px; border-radius: 8px; }
+.voice-score summary { cursor: pointer; display: inline-flex; gap: 6px; align-items: baseline; font: 16px/1.2 var(--ask-mono); }
+.voice-move[data-move='up'] { color: var(--ask-green); }
+.voice-move[data-move='down'] { color: var(--ask-red); }
+.voice-move[data-move='the same'] { color: var(--ask-muted); }
+.voice-reaction { margin: 6px 0 0; max-width: 240px; font-size: 14px; overflow-wrap: anywhere; }
+.voice-none { color: var(--ask-muted); }
+.voice-rounds { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.voice-round h3 { margin: 0 0 6px; font-size: 16px; }
+.voice-fit { margin: 0 0 6px; font: 13px/1.4 var(--ask-mono); color: var(--ask-muted); overflow-wrap: anywhere; }
+.voice-objection {
+  margin: 0;
+  padding: 10px 14px;
+  border: 2px solid var(--ask-yellow);
+  border-radius: 10px;
+  background: var(--ask-surface);
+  overflow-wrap: anywhere;
+}
+.voice-objection p { margin: 0 0 4px; }
+.voice-cites { font: 12px/1.4 var(--ask-mono); color: var(--ask-muted); }
+.voice-settled { font-weight: 700; }
 
 /* ── The Proof tab (PRD 798, s4): the run's facts and counts, then a row per criterion with its mark,
    its note, a player at most 960 px wide (a 1280 × 720 clip, scaled to the width on a phone) and its

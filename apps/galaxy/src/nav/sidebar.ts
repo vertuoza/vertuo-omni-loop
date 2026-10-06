@@ -12,6 +12,7 @@
 // group (the foot has none), the entry, then the page, with the entry's sprite. The query and the hash
 // never count. An entry that counts what waits for the person (PRD 499) carries its count as a badge,
 // none at 0.
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { WaitingCounts } from '../waiting/waiting';
 
 export type SidebarId = 'home' | 'fleet' | 'workspace' | 'engineering' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
@@ -90,6 +91,7 @@ export const SETTINGS: SidebarItem = {
     { label: 'Fleets', path: SETTINGS_LANDING },
     { label: 'Repositories', path: '/app/settings/repositories' },
     { label: 'Business', path: '/app/settings/business' },
+    { label: 'Jev', path: '/app/settings/jev' },
   ],
 };
 
@@ -109,7 +111,7 @@ const ENTRIES: readonly Entry[] = [
   ...(item.pages ?? []).map((page) => ({ item, page, group, path: page.path })),
 ]);
 
-const bare = (pathname: string) => pathname.split(/[?#]/)[0].replace(/(.)\/+$/, '$1');
+const bare = (pathname: string) => at(pathname.split(/[?#]/), 0, 'the path').replace(/(.)\/+$/, '$1');
 
 function entryOf(pathname: string | null | undefined): Entry | null {
   if (!pathname) return null;
@@ -146,7 +148,7 @@ export function pageTrail(pathname: string | null | undefined): Trail | null {
   const entry = entryOf(pathname);
   if (!entry) return null;
   const { item, page, group } = entry;
-  const here = bare(pathname!) === entry.path;
+  const here = bare(defined(pathname, 'the path')) === entry.path;
   const last = page ?? item;
   return {
     crumbs: [

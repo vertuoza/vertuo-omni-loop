@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EMPTY_OUTBOX_PART, OUTBOX_MS, outboxRead, pollOutbox, readOutbox } from './outbox';
 import type { WaitingOutbox } from './waiting';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The waiting list's Outbox part (PRD 499, s3): read from GET /api/waiting/outbox once after load and
 // every 60 s while the tab is visible, never twice within 60 s; a failed read keeps the last items.
 
-const item = (id: string, prd = 459): WaitingOutbox => ({ kind: 'outbox', id, prd, dossierId: `d${prd}`, title: 'Gate', rank: 'high', question: 'Why?' });
+const item = (id: string, prd = 459): WaitingOutbox => ({ kind: 'outbox', id, prd: parsePrd(prd), dossierId: `d${prd}`, title: 'Gate', rank: 'high', question: 'Why?' });
 const wire = (i: WaitingOutbox) => ({ id: i.id, prd: i.prd, dossierId: i.dossierId, title: i.title, rank: i.rank, question: i.question });
 
 /** A document whose visibility a test flips. */
@@ -26,7 +27,7 @@ function page(visible = true) {
 }
 
 describe('reading the outbox route', () => {
-  const answer = (status: number, body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
+  const answer = (status: number, body: unknown) => vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status })));
 
   it('asks GET /api/waiting/outbox and gives its items as the list\'s outbox items, and how many PRDs it could not read', async () => {
     const fetch = answer(200, { items: [wire(item('d1:a'))], unread: 2 });
@@ -42,7 +43,7 @@ describe('reading the outbox route', () => {
   it('fails on an answer it cannot read, and when the network fails', async () => {
     expect(await readOutbox(answer(200, { items: 'no' }))).toEqual({ ok: false, kind: 'shape' });
     expect(await readOutbox(answer(200, { items: [{ id: 'x' }], unread: 0 }))).toEqual({ ok: false, kind: 'shape' });
-    expect(await readOutbox(vi.fn(async () => { throw new Error('offline'); }))).toEqual({ ok: false, kind: 'network' });
+    expect(await readOutbox(vi.fn(() => Promise.reject(new Error('offline'))))).toEqual({ ok: false, kind: 'network' });
   });
 });
 

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { ASK, ASK_TEXT_PAIRS, ASK_UI_PAIRS } from '@omni/design';
 import { TEXT_PAIRS, TOKENS, UI_PAIRS, themeCss, type TokenName } from './theme-tokens';
+import { item } from './test/test-item';
 
 describe('the token table', () => {
   // Its values, its pairs and their WCAG AA test live in @omni/design (tokens.test.mjs).
@@ -51,7 +52,7 @@ describe('the stylesheet the table becomes', () => {
 describe('the stylesheet', () => {
   const css = readFileSync(new URL('./ask.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   /** Every innermost rule, as its selector and its declarations. */
-  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: item(m, 1).trim(), body: item(m, 2) }));
 
   it('names no colour of its own: every colour comes from the token table', () => {
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);

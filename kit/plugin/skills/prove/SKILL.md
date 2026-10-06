@@ -8,7 +8,7 @@ description: Records a PRD's acceptance criteria as evidence once its feature PR
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-A person runs it on PRD n once its feature PR is ready; `/omni:yolo` follows it after it marks the
+A person runs it on PRD n once its feature PR is ready, or on a PRD already shipped to record it; `/omni:yolo` follows it after it marks the
 PR ready when the spec says `proof: video`. It is never run by default: each run costs a model
 session and a few minutes of browser time. It writes nothing in the repository's tracked tree, and
 it commits nothing.
@@ -35,20 +35,29 @@ proof is not configured here: run /omni:invade --refresh, or set proof.url in .o
 ```
 
 Then find the feature PR: `gh pr list --head <feature branch> --state open --json number,url,headRefOid,isDraft`.
-None open: say `PRD <n> has no open feature PR`, and stop. A draft is proved all the same, but say
-in one line that it is not ready yet.
+A draft is proved all the same, but say in one line that it is not ready yet.
+
+None open: the PRD may have shipped. Look for its merged one,
+`gh pr list --head <feature branch> --state merged --json number,url,headRefOid`, and prove that,
+saying in one line that it is already merged, so the run is a record rather than help for a review.
+A merged PRD's code is on the default branch, so it is filmed on the fixed `proof.url` only: when
+that is `github-deployment`, stop with
+`proof.url is github-deployment: a merged PRD has no preview to film; set a fixed proof.url`.
+Neither open nor merged: say `PRD <n> has no feature PR`, and stop.
 
 ## 2. The target
 
 - **The URL.** With `proof.url: github-deployment`, it is the preview of the feature PR's head
   commit: `gh api repos/<repo.slug>/deployments?sha=<headRefOid>`, then the newest deployment's
-  statuses, whose `success` status carries `environment_url`. Wait for it up to **10 minutes**,
+  statuses, whose `success` status carries `environment_url`. When `proof.deployment` is set, only
+  the deployments whose `environment` is exactly that count: a commit may have several previews. Wait for it up to **10 minutes**,
   looking again every 20 seconds. Otherwise `proof.url` is the fixed URL itself.
 - **The bypass.** When `proof.bypassEnv` names an environment variable, every request sends its value
   as the `x-vercel-protection-bypass` header (and `x-vercel-set-bypass-cookie: true`). Never print
   the value, and never write it to a file.
 - **Signed in.** When `proof.setup` is set, run that command once, from the repository's root, with
-  `PROOF_STORAGE_STATE=<run dir>/storage-state.json` in its environment. It writes a Playwright
+  `PROOF_STORAGE_STATE=<run dir>/storage-state.json` and `PROOF_URL=<the URL>` in its environment, so
+  that a sign-in can target the address filmed, a preview's included. It writes a Playwright
   storageState file there, which every script then loads. A setup that fails stops the run with
   `proof setup failed: <its last line>`.
 - **Reachable, or stop.** Fetch the URL once, with the bypass header and the storageState's cookies.

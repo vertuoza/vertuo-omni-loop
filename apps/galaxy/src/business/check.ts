@@ -6,9 +6,12 @@ import { KIND_LABEL, valueLabel, type Claim } from './model';
 //   addition     a proposed evidence value of a kind that holds several (region, trade, rival), beside
 //                the confirmed ones of its kind: "Region: Belgium → Belgium + France". ✓ confirms it,
 //                ✗ rejects it. A first value of a kind is not an addition: it is a found row (./reveal.ts).
+//                A proposed Never line (PRD 839) is never one: it waits in the Never lines list.
 //   replacement  a proposed offering or size that `replaces` a confirmed one, now contradicted:
 //                "~~ERP~~ → CRM". ✓ confirms the new and rejects the old; ✗ the reverse
 //                (claim_set_state() settles it in the database).
+//   answer       a proposed claim a person gave as an answer in a skill run (PRD 822, an overrule saved as
+//                a claim, source `answer`): "Size: 20 – 50 · answered in a run". ✓ confirms it, ✗ rejects it.
 //   faded        a confirmed claim with receipts that no source has quoted for eight weeks (decision 13):
 //                dimmed, "not seen since 12 Aug". ✓ Still true sets its last_seen to now; ✗ Wrong rejects
 //                it. A claim with no receipt (a pick) never fades.
@@ -22,9 +25,12 @@ const REPLACED: ReadonlySet<Claim['kind']> = new Set(['offering', 'size']);
 const sameProduct = (a: Claim, b: Claim) => (a.product ?? null) === (b.product ?? null);
 const waiting = (c: Claim) => c.state === 'proposed' && c.source === 'evidence';
 
+/** A proposed claim a person answered in a skill run (PRD 822): it waits for a member to confirm it. */
+const isAnswerToCheck = (c: Claim) => c.state === 'proposed' && c.source === 'answer';
+
 /** The confirmed claims an addition would join; none when `claim` is not an addition. */
 function joined(claim: Claim, claims: readonly Claim[]): Claim[] {
-  if (!waiting(claim) || claim.replaces || REPLACED.has(claim.kind)) return [];
+  if (!waiting(claim) || claim.replaces || REPLACED.has(claim.kind) || claim.kind === 'never') return [];
   return claims.filter((c) => c.state === 'confirmed' && c.kind === claim.kind && sameProduct(c, claim)).sort((a, b) => a.seq - b.seq);
 }
 
@@ -56,9 +62,10 @@ export function seenSince(at: string): string {
 export type CheckRow =
   | { kind: 'replacement'; claim: Claim; old: Claim }
   | { kind: 'addition'; claim: Claim; before: Claim[] }
+  | { kind: 'answer'; claim: Claim }
   | { kind: 'faded'; claim: Claim; since: string };
 
-/** Everything to check, in order: replacements, additions, then faded claims, each by its id. */
+/** Everything to check, in order: replacements, additions, answers, then faded claims, each by its id. */
 export function checkRows(claims: readonly Claim[], now: number): CheckRow[] {
   const bySeq = [...claims].sort((a, b) => a.seq - b.seq);
   const replacements: CheckRow[] = bySeq.flatMap((c) => {
@@ -70,8 +77,12 @@ export function checkRows(claims: readonly Claim[], now: number): CheckRow[] {
     const before = joined(c, claims);
     return before.length > 0 ? [{ kind: 'addition' as const, claim: c, before }] : [];
   });
-  const faded: CheckRow[] = bySeq.flatMap((c) => (isFaded(c, now) ? [{ kind: 'faded' as const, claim: c, since: lastSeenOf(c) as string }] : []));
-  return [...replacements, ...additions, ...faded];
+  const answers: CheckRow[] = bySeq.flatMap((c) => (isAnswerToCheck(c) ? [{ kind: 'answer' as const, claim: c }] : []));
+  const faded: CheckRow[] = bySeq.flatMap((c) => {
+    const since = lastSeenOf(c);
+    return since !== null && isFaded(c, now) ? [{ kind: 'faded' as const, claim: c, since }] : [];
+  });
+  return [...replacements, ...additions, ...answers, ...faded];
 }
 
 /** The ids of the claims the rows to check hold, the old side of a replacement included. */
@@ -96,7 +107,7 @@ export function settled(claims: readonly Claim[], saved: Claim): Claim[] {
 /** The saved row, with the receipts and citations the page read. */
 function keptAsRead(saved: Claim, was: Claim | undefined): Claim {
   if (!was) return saved;
-  return { ...saved, cited: was.cited ?? saved.cited, lastBy: was.lastBy ?? saved.lastBy, ...(was.receipts ? { receipts: was.receipts } : {}) };
+  return { ...saved, cited: was.cited, lastBy: was.lastBy ?? saved.lastBy, ...(was.receipts ? { receipts: was.receipts } : {}) };
 }
 
 /** The old side of an answered replacement takes the other state; any other claim stays as it is. */

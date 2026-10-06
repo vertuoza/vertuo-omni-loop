@@ -8,7 +8,8 @@ screen follows.
 - **Plain files.** ES modules, CSS, SVG strings and woff2 files. No React, no Next: the package can
   leave the monorepo as a library without a rewrite. It stays `private` for now.
 - **One entry point.** `import { … } from '@omni/design'` gives every module below;
-  `src/index.mjs` re-exports each one, and each has its own declaration file (`src/<module>.d.mts`).
+  `src/index.ts` re-exports each one. The modules are strict TypeScript, and their types are read
+  from the source itself: there is no declaration file beside them.
 - **Two stylesheets.** `@omni/design/tokens.css` (the colours, as `:root` custom properties) and
   `@omni/design/fonts.css` (the `@font-face` rules, and the type scale as `:root` custom
   properties). The woff2 files are served as `@omni/design/fonts/<file>`.
@@ -27,19 +28,19 @@ own colour on `:root`, or if a galaxy page links Google Fonts.
 | `logo` | `LOGO_FORMS`, `LOGO_DRAWINGS`, `logoPixels`, `logoSvg`, `drawLogo` | The 16-bit crest in its three forms and the favicon, each with a one-colour variant: as pixels, as a crisp SVG at any whole-number scale, and drawn on a canvas. |
 | `brand` | `OMNI_LOOP` | The product brand: its name, its tagline, its logo form, its favicon and its theme colour. |
 | `forge` | `forge`, `RAMPS`, `FLAT` | The sprite forge: material shapes finished with a 4-tone ramp lit from the top left and a coloured outline. |
-| `sprites` | `SPRITE_DEFS`, `MASCOTS`, `WOUND_TINT`, `woundTint` | The cast and the icons, two frames each: OmniMan (32×48) and his poses `omni-point`, `omni-cheer`, `omni-run`; the hero bodies; the fleet mascots (32×32), listed in `MASCOTS`, the library a workspace's owner picks a fleet's mascot from; Entropy (24×24) recoloured per wound kind; the 16×16 icons (`flag`, `hammer`, `fire`, `lock`, `skull`, `beacon`, `coin`, `check`, `open`, `star`, `ship`) and the 8×8 `cursor`. |
+| `sprites` | `SPRITE_DEFS`, `MASCOTS`, `WOUND_TINT`, `woundTint` | The cast and the icons, two frames each: OmniMan (32×48) and his poses `omni-point`, `omni-cheer`, `omni-run`; the hero bodies; the fleet mascots (32×32), listed in `MASCOTS`, the library a workspace's owner picks a fleet's mascot from; Entropy (24×24) recoloured per wound kind; the 16×16 icons (`flag`, `hammer`, `fire`, `lock`, `skull`, `beacon`, `coin`, `check`, `open`, `star`, `ship`) and the 8×8 `cursor`; the two pedestals of SELECT YOUR APP: `code-mark` (30×17), the Omni app's sober two-tone `</>`, cyan on slate, still in both frames, and `arcade-cabinet` (18×26), the Arcade's cabinet with its marquee, screen, joystick and buttons. |
 | `heroes` | `HERO_PRESETS`, `heroLook`, `heroPose`, `OMNI_POSES`, `validHero`, `randomHero`, `rampFrom`, `fleetSprite` | A player's hero: the OmniMan body recoloured by ramp swaps (skin, hair, suit, cape), in any of OmniMan's poses; a fleet's mascot, or a hero in its colour. |
 | `draw` | `spritePixels`, `spriteImage`, `drawSprite`, `spriteSize`, `posterPixels`, `posterImage`, `POSTER_MAX_SCALE`, `drawPlanet`, `planetTexture`, `drawSun`, `sunPixels`, `sunSize`, `SUN_FRAMES`, `drawStarfield`, `makeStarfield`, `makeNebula`, `rng`, `SURFACES` | Drawing at native resolution: sprites, sprites at poster scale (a whole number from 1 to 16, every pixel a block), the procedural planets and suns, the starfield and the nebulae. |
 
 ### Colours
 
-Change a colour in `src/palette.mjs` or `src/tokens.mjs`, then regenerate the stylesheet:
+Change a colour in `src/palette.ts` or `src/tokens.ts`, then regenerate the stylesheet:
 
 ```bash
 pnpm --filter @omni/design tokens
 ```
 
-`src/tokens.test.mjs` fails while the committed `tokens.css` differs from what the generator writes,
+`src/tokens.test.ts` fails while the committed `tokens.css` differs from what the generator writes,
 and while any of Ask's text or edge pairs misses WCAG AA, in Omni, in light or in dark. A workspace's
 theme (the galaxy's `src/arcade/theme.ts`) takes its defaults from `COLOURS` and overrides them on
 the arcade's root element; it never writes on `:root`.
@@ -58,7 +59,7 @@ Every face ships the latin and latin-ext subsets.
 
 The type scale names each step as a role, a size, a line height and a slant: `display-xl` to
 `display-s`, `pixel-l` to `pixel-s`, `body-l` to `body-s`, and `mono` (`TYPE_SCALE` in JS, and
-custom properties in `fonts.css`). Change a face or a step in `src/fonts.mjs`, then:
+custom properties in `fonts.css`). Change a face or a step in `src/fonts.ts`, then:
 
 ```bash
 pnpm --filter @omni/design fonts
@@ -139,6 +140,7 @@ icons.
 
 ## Tests
 
-`pnpm test` from the repository root runs them all, beside their modules: `tokens.test.mjs`,
-`fonts.test.mjs`, `logo.test.mjs`, `brand.test.mjs`, `sprites.test.mjs`, `heroes.test.mjs`,
-`sun.test.mjs` and `index.test.mjs`.
+`pnpm test` from the repository root runs them all, beside their modules: `tokens.test.ts`,
+`fonts.test.ts`, `logo.test.ts`, `brand.test.ts`, `sprites.test.ts`, `heroes.test.ts`,
+`mascots.test.ts`, `personas.test.ts`, `sun.test.ts` and `index.test.ts`. `pnpm typecheck` checks
+them with the modules.

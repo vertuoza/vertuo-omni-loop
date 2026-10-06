@@ -16,8 +16,12 @@ export function pixelSvg({ w, h, pixels }: PixelGrid, { scale, title }: { scale:
       let end = x + 1;
       while (end < w && pixels[y * w + end] === c) end++;
       if (c) {
-        if (!paths.has(c)) paths.set(c, []);
-        paths.get(c)!.push(`M${x} ${y}h${end - x}v1h-${end - x}z`);
+        let path = paths.get(c);
+        if (!path) {
+          path = [];
+          paths.set(c, path);
+        }
+        path.push(`M${x} ${y}h${end - x}v1h-${end - x}z`);
       }
       x = end;
     }

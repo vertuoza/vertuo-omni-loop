@@ -5,13 +5,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { Claim } from './model';
 import { businessReducer, initialBusinessState, type BusinessAction } from './state';
-import { BusinessView, CHECK_TITLE, STILL_TRUE, type BusinessHandlers } from './BusinessView';
+import { ANSWERED, BusinessView, CHECK_TITLE, STILL_TRUE, type BusinessHandlers } from './BusinessView';
+import { sure } from '../arcade/test/sure';
 
 // Settings › Business after the weekly recheck (PRD 774 s4), as the server renders it: on top of the
 // page, an addition diff ("Belgium → Belgium + France") and a replacement ("ERP → CRM", the old one
 // struck), each with ✓ Right / ✗ Wrong; a claim with receipts unseen for eight weeks, dimmed with its
-// date, ✓ Still true and ✗ Wrong; a claim without receipts never fades. The rows on top leave the list
-// of claims below, and the card holds at 393 px.
+// date, ✓ Still true and ✗ Wrong; a claim without receipts never fades; a claim a person answered in a
+// skill run and left proposed (PRD 822), "answered in a run", ✓ Right / ✗ Wrong. The rows on top leave
+// the list of claims below, and the card holds at 393 px.
 
 const NOW = Date.parse('2026-10-05T09:00:00Z');
 const WEEK = 7 * 24 * 3600_000;
@@ -30,6 +32,7 @@ const RECHECKED: Claim[] = [
   evidence(4, 'offering', 'CRM', { replaces: 'c-3', receipts: [receipt(ago(0), 'The CRM for builders.')] }),
   claim(5, 'rival', 'Brick & Co', { source: 'evidence', receipts: [receipt('2026-08-03T10:00:00Z')], lastSeen: '2026-08-03T10:00:00Z' }),
   claim(6, 'rival', 'Mortar Inc', { lastSeen: ago(40 * WEEK) }),
+  claim(7, 'rival', 'Pipe Pro', { source: 'answer', state: 'proposed' }),
 ];
 
 const render = (claims: Claim[], { actions = [] as BusinessAction[], on }: { actions?: BusinessAction[]; on?: BusinessHandlers } = {}) =>
@@ -43,7 +46,7 @@ const row = (html: string, id: string) => {
   const from = html.indexOf(`data-check="${id}"`);
   return from < 0 ? '' : html.slice(from, html.indexOf('</li>', from));
 };
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(sure(m[2], 'm[2]')) }));
 
 describe('what the recheck found, on top', () => {
   it('comes first on the page, before the sentence', () => {
@@ -75,6 +78,15 @@ describe('what the recheck found, on top', () => {
     expect(buttons(r).map((b) => b.text)).toEqual([STILL_TRUE, '✗ Wrong']);
   });
 
+  it('shows a proposed answer as "answered in a run", with ✓ Right / ✗ Wrong, and never as a guess', () => {
+    const html = render(RECHECKED);
+    const r = row(html, 'rival#7');
+    expect(r).toContain('data-kind="answer"');
+    expect(text(r)).toContain(`Rival Pipe Pro ${ANSWERED}`);
+    expect(buttons(r).map((b) => b.text)).toEqual(['✓ Right', '✗ Wrong']);
+    expect(html).not.toContain('data-claim="rival#7"');
+  });
+
   it('never fades a claim without receipts', () => {
     const html = render(RECHECKED);
     expect(row(html, 'rival#6')).toBe('');
@@ -83,7 +95,7 @@ describe('what the recheck found, on top', () => {
 
   it('takes its rows out of the list of claims below, and the found rows', () => {
     const html = render(RECHECKED);
-    for (const id of ['region#2', 'offering#3', 'offering#4', 'rival#5']) expect(html, id).not.toContain(`data-claim="${id}"`);
+    for (const id of ['region#2', 'offering#3', 'offering#4', 'rival#5', 'rival#7']) expect(html, id).not.toContain(`data-claim="${id}"`);
     expect(html).not.toContain('What we found');
   });
 
@@ -100,20 +112,21 @@ describe('settling what the recheck found', () => {
 
   it('wires ✓ and ✗ to settle, ✓ Still true to stillTrue and ✗ Wrong on a faded claim to reject', () => {
     const html = render(RECHECKED, { on });
-    const names = buttons(card(html)).map((b) => /aria-label="([^"]+)"/.exec(b.attrs)?.[1]);
+    const names = buttons(card(html)).map((b) => /aria-label="([^"]+)"/.exec(sure(b.attrs, 'b.attrs'))?.[1]);
     expect(names).toEqual([
       'Right: CRM replaces ERP', 'Wrong: CRM replaces ERP',
       'Right: add France', 'Wrong: add France',
+      'Right: Pipe Pro', 'Wrong: Pipe Pro',
       'Still true: Brick &amp; Co', 'Wrong: Brick &amp; Co',
     ]);
   });
 
   it('✓ on a replacement confirms the new and rejects the old; ✗ the reverse', () => {
-    const right = render(RECHECKED, { actions: [{ type: 'settled', claim: { ...RECHECKED[3], state: 'confirmed' } }] });
+    const right = render(RECHECKED, { actions: [{ type: 'settled', claim: { ...sure(RECHECKED[3], 'RECHECKED[3]'), state: 'confirmed' } }] });
     expect(row(right, 'offering#4')).toBe('');
     expect(right).toContain('data-claim="offering#4" data-state="confirmed"');
     expect(right).not.toContain('data-claim="offering#3" data-state="confirmed"');
-    const wrong = render(RECHECKED, { actions: [{ type: 'settled', claim: { ...RECHECKED[3], state: 'rejected' } }] });
+    const wrong = render(RECHECKED, { actions: [{ type: 'settled', claim: { ...sure(RECHECKED[3], 'RECHECKED[3]'), state: 'rejected' } }] });
     expect(wrong).toContain('data-claim="offering#3" data-state="confirmed"');
   });
 

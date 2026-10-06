@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { claimOf, type Claim } from './model';
+import { claimOf, type Claim, type StoredClaim } from './model';
 import { foundRows, thatsUs } from './reveal';
 import {
   additionText, checkRows, FADE_MS, isFaded, lastSeenOf, seenSince, settled, stillTrue,
 } from './check';
+import { sure } from '../arcade/test/sure';
 
 // What the weekly recheck leaves to check (PRD 774 s4), as pure data: an addition (a new value of a kind
 // that holds several, beside confirmed ones), a replacement (a new offering or size that would replace a
@@ -49,15 +50,26 @@ describe('the rows to check', () => {
     expect(checkRows([evidence(2, 'offering', 'CRM', { replaces: 'gone' })], NOW)).toEqual([]);
   });
 
-  it('comes on top in order: replacements, additions, then faded claims', () => {
+  it('an answer: a proposed claim a person gave in a skill run (PRD 822), never a found row', () => {
+    const claims = [claim(1, 'size', '20-50', { source: 'answer', state: 'proposed' })];
+    expect(checkRows(claims, NOW)).toEqual([{ kind: 'answer', claim: claims[0] }]);
+    expect(foundRows(claims)).toEqual([]);
+  });
+
+  it('an answer once confirmed or rejected waits no more', () => {
+    expect(checkRows([claim(1, 'size', '20-50', { source: 'answer' }), claim(2, 'rival', 'X', { source: 'answer', state: 'rejected' })], NOW)).toEqual([]);
+  });
+
+  it('comes on top in order: replacements, additions, answers, then faded claims', () => {
     const claims = [
       claim(1, 'region', 'Belgium'),
       claim(2, 'rival', 'Brick & Co', { receipts: [receipt(ago(9 * WEEK))], lastSeen: ago(9 * WEEK) }),
       evidence(3, 'region', 'France'),
       claim(4, 'offering', 'ERP', { state: 'contradicted' }),
       evidence(5, 'offering', 'CRM', { replaces: 'c-4' }),
+      claim(6, 'trade', 'plumbing', { source: 'answer', state: 'proposed' }),
     ];
-    expect(checkRows(claims, NOW).map((r) => `${r.kind} ${r.claim.id}`)).toEqual(['replacement c-5', 'addition c-3', 'faded c-2']);
+    expect(checkRows(claims, NOW).map((r) => `${r.kind} ${r.claim.id}`)).toEqual(['replacement c-5', 'addition c-3', 'answer c-6', 'faded c-2']);
   });
 });
 
@@ -93,12 +105,12 @@ describe('fading', () => {
   it('✓ Still true clears it', () => {
     const c = claim(1, 'rival', 'X', { receipts: [receipt(ago(9 * WEEK))], lastSeen: ago(9 * WEEK) });
     const after = stillTrue([c], 'c-1', new Date(NOW).toISOString());
-    expect(after[0].lastSeen).toBe(new Date(NOW).toISOString());
-    expect(isFaded(after[0], NOW)).toBe(false);
+    expect(sure(after[0], 'after[0]').lastSeen).toBe(new Date(NOW).toISOString());
+    expect(isFaded(sure(after[0], 'after[0]'), NOW)).toBe(false);
   });
 
   it('reads last_seen from the stored row', () => {
-    const row = { id: 'c-1', seq: 1, kind: 'rival', value: 'X', source: 'evidence', state: 'confirmed', last_seen: '2026-08-12T15:00:00Z' };
+    const row: StoredClaim = { id: 'c-1', seq: 1, kind: 'rival', value: 'X', source: 'evidence', state: 'confirmed', last_seen: '2026-08-12T15:00:00Z' };
     expect(claimOf(row).lastSeen).toBe('2026-08-12T15:00:00Z');
     expect(claimOf({ ...row, last_seen: null })).not.toHaveProperty('lastSeen');
   });

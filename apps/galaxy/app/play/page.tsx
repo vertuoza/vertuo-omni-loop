@@ -1,9 +1,10 @@
+import 'server-only';
 import { ArcadeClient } from '../../src/arcade/ArcadeClient';
 import { arcadeFor } from '../../src/data/arcade';
 import { demoDossiers } from '../../src/data/dossiers';
 import { demoFleets, demoGalaxy } from '../../src/data/load-galaxy';
 import { loadKnowledge } from '../../src/data/load-knowledge';
-import { arcadeMode } from '../../src/data/mode';
+import { serverEnv } from '../../src/env';
 import { demoXp } from '../../src/data/xp';
 import { supabaseEnv, supabaseServer } from '../../src/data/supabase-server';
 import { APP_HOME } from '../../src/switch/switch';
@@ -23,7 +24,7 @@ import { APP_HOME } from '../../src/switch/switch';
 // (PRD 238).
 
 export default async function Page() {
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
   const env = supabaseEnv();
   if (mode === 'demo') {
     const now = new Date();

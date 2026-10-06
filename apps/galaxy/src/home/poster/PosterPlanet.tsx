@@ -17,7 +17,7 @@ export function PosterPlanet({ size, children }: { size: number; children: React
   useEffect(() => {
     const ctx = moves ? canvas.current?.getContext('2d') : null;
     if (!ctx) return;
-    const stop = spinPlanet(ctx, size, browserClock(), { onFirst: () => setDrawn(true) });
+    const stop = spinPlanet(ctx, size, browserClock(), { onFirst: () => { setDrawn(true); } });
     return () => { stop(); setDrawn(false); };
   }, [moves, size]);
 

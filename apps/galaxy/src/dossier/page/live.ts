@@ -5,26 +5,25 @@
 // server cannot be reached, until a read works again.
 //
 // PRD 426, part 5: the signature also covers the PRD's stage and its number of open outbox items,
-// read from the GitHub summary the server caches 60 s. The browser asks the server for them (never
-// GitHub) at most every GITHUB_EVERY_MS, so a change on GitHub shows within about a minute. That part
+// read from the GitHub summary the server caches 60 s. That part
 // is compared only when both sides have one, so a page rendered without it never refreshes for
 // nothing; the last one known is kept between reads. PRD 251 (s9) adds the pending answers (how many,
 // and the latest one's time), so a reply typed on GitHub shows on the Outbox tab within a minute.
 import { UNREAD, type GithubSummary } from '../github/summary';
-import { DOSSIER_KINDS, isDossierKind, type DossierKind, type DossierListRow, type DossierPulse } from '../store';
+import { isPulseKind, PULSE_KINDS, type DossierPulse, type PulseKind } from '../store';
 import { stageOf, type StageId } from './stage';
 import type { DossierRead } from './view';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** How many failed reads in a row before the page says so. */
 export const FAILURES_BEFORE_PROBLEM = 3;
 export const LIVE_PROBLEM = 'Cannot reach the server. Trying again every few seconds.';
 
-/** How often the open page asks the server for the GitHub part: the summary is cached 60 s anyway. */
-export const GITHUB_EVERY_MS = 15_000;
-
-/** What the signature reads of GitHub: the stage, the open outbox items (null when unknown), and the
- * pending answers as `<how many>@<the latest's time>` (null when unknown; left out by an older pulse). */
-export type GithubPulse = { stage: StageId | 'unknown'; open: number | null; answers?: string | null };
+/** What the signature reads of GitHub: the stage, the open outbox items (null when unknown), the
+ * pending answers as `<how many>@<the latest's time>` (null when unknown; left out by an older pulse),
+ * and when the PRD's GitHub snapshot was read (PRD 902, s2: `none` with no snapshot; left out when not
+ * watched). */
+export type GithubPulse = { stage: StageId | 'unknown'; open: number | null; answers?: string | null; readAt?: string };
 
 /** The pending answers, as the signature reads them: how many, and when the latest was written. */
 function answersOf(github: GithubSummary | null): string | null {
@@ -35,11 +34,11 @@ function answersOf(github: GithubSummary | null): string | null {
 }
 
 /** The dossier's pulse, and its GitHub part when there is one (a numbered dossier whose summary was read). */
-export type LivePulse = DossierPulse & { github?: GithubPulse };
+export type LivePulse = DossierPulse & { github?: GithubPulse | undefined };
 
 /** The GitHub part of a dossier's pulse: its stage and open outbox count, unknown when the summary
  * could not be read; none for a draft, or when the summary was not asked for (undefined). */
-export function githubPulse(prd: number | null, github: GithubSummary | null | undefined): GithubPulse | undefined {
+export function githubPulse(prd: PrdNumber | null, github: GithubSummary | null | undefined): GithubPulse | undefined {
   if (prd === null || github === undefined) return undefined;
   const outbox = github?.outbox ?? null;
   return { stage: stageOf(prd, github).id, open: outbox && outbox !== UNREAD ? outbox.open.length : null, answers: answersOf(github) };
@@ -52,11 +51,11 @@ const SEPARATOR = '#';
  * a signature of its own. */
 export function signature(pulse: LivePulse | null): string {
   if (!pulse) return 'gone';
-  const versions = DOSSIER_KINDS.map((kind) => `${kind}:${pulse.latest[kind] ?? 0}`).join(',');
+  const versions = PULSE_KINDS.map((kind) => `${kind}:${pulse.latest[kind] ?? 0}`).join(',');
   const counts = `${pulse.asked}/${pulse.answered}|${versions}`;
   if (!pulse.github) return counts;
-  const { stage, open, answers } = pulse.github;
-  return `${counts}${SEPARATOR}${stage}:${open ?? '-'}${answers === undefined ? '' : `:${answers ?? '-'}`}`;
+  const { stage, open, answers, readAt } = pulse.github;
+  return `${counts}${SEPARATOR}${stage}:${open ?? '-'}${answers === undefined ? '' : `:${answers ?? '-'}`}${readAt === undefined ? '' : `@${readAt}`}`;
 }
 
 /** A signature's two parts: the counts', and GitHub's (null when it has none). */
@@ -69,47 +68,13 @@ function partsOf(value: string): [string, string | null] {
  * its rounds could not be read, and the first check sets the baseline instead. */
 export function pulseOf(read: DossierRead): LivePulse | null {
   if (!read.rounds) return null;
-  const latest: Partial<Record<DossierKind, number>> = {};
-  // A PRD's three kinds, as dossier_list() pulses them; a fix's rounds and record are not watched (PRD 627).
-  for (const version of read.versions) if (isDossierKind(version.kind)) latest[version.kind] = (latest[version.kind] ?? 0) + 1;
+  const latest: Partial<Record<PulseKind, number>> = {};
+  // A PRD's three kinds and its voice (PRD 822), as dossier_list() pulses them; a fix's rounds and record
+  // are not watched (PRD 627).
+  for (const version of read.versions) if (isPulseKind(version.kind)) latest[version.kind] = (latest[version.kind] ?? 0) + 1;
   const pulse: LivePulse = { asked: read.rounds.length, answered: read.rounds.filter((r) => r.status === 'answered').length, latest };
   const github = githubPulse(read.dossier.prd, read.github);
   return github ? { ...pulse, github } : pulse;
-}
-
-/** The server's one GitHub reader, as the live check needs it; null when the server has none. */
-export type LiveReader = { summary: (dossier: { id: string; home_repo: string; prd: number }) => Promise<GithubSummary | null> } | null;
-
-/** The GitHub part for the open page, from the dossier as the viewer may read it (null: they may not,
- * or it is gone) through the server's cached reader. A draft asks nothing; a failed read, or no
- * reader, is the stage unknown, as the page renders it. */
-export async function liveGithub(row: Pick<DossierListRow, 'id' | 'home_repo' | 'prd'> | null, reader: LiveReader): Promise<GithubPulse | undefined> {
-  if (!row || row.prd === null) return undefined;
-  const summary = reader
-    ? await reader.summary({ id: row.id, home_repo: row.home_repo, prd: row.prd }).catch((error: unknown) => {
-      console.error(error);
-      return null;
-    })
-    : null;
-  return githubPulse(row.prd, summary);
-}
-
-/** `read`, asked at most once every `periodMs`: in between, and after a failed read, the last answer
- * (undefined before the first); a failed read is tried again at the next call. */
-export function everyFew<T>(read: () => Promise<T>, periodMs: number, now: () => number = Date.now): () => Promise<T | undefined> {
-  let last: T | undefined;
-  let askedAt: number | null = null;
-  return async () => {
-    const at = now();
-    if (askedAt !== null && at - askedAt < periodMs) return last;
-    try {
-      last = await read();
-      askedAt = at;
-    } catch {
-      askedAt = null;
-    }
-    return last;
-  };
 }
 
 type Watch = {

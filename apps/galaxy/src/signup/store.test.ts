@@ -13,11 +13,13 @@ function stubDb(answer: { data?: unknown; error?: { message: string } | null } =
     for (const op of ['select', 'insert', 'upsert', 'delete', 'eq']) {
       q[op] = (...args: unknown[]) => { calls.push({ op, args }); return q; };
     }
-    q.then = (resolve: (v: unknown) => void) => resolve(result);
+    q.then = (resolve: (v: unknown) => void) => {
+      resolve(result);
+    };
     return q;
   };
   const db = {
-    rpc: async (fn: string, args: unknown) => { calls.push({ op: 'rpc', args: [fn, args] }); return result; },
+    rpc: (fn: string, args: unknown) => { calls.push({ op: 'rpc', args: [fn, args] }); return Promise.resolve(result); },
     from: (table: string) => { calls.push({ op: 'from', args: [table] }); return chain(); },
   };
   return { db: db as unknown as SupabaseClient, calls };
@@ -45,6 +47,11 @@ describe('the sign-up store, as the service role', () => {
       { op: 'select', args: ['github_org'] },
       { op: 'eq', args: ['user_id', 'user-mia'] },
     ]);
+  });
+
+  it('reads no pending requests as none, and throws on an odd shape', async () => {
+    expect(await signupStore(stubDb().db).pendingRequests('user-mia')).toEqual([]);
+    await expect(signupStore(stubDb({ data: [{ org: 'acme' }] }).db).pendingRequests('user-mia')).rejects.toThrow(/shape/);
   });
 
   it('records a request once, however often it is made', async () => {
