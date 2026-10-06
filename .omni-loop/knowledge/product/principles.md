@@ -516,4 +516,21 @@ An agent's link never reaches further than the member's own read would; it grant
 Why: So handing a link to an agent never widens what the workspace exposes, and the link and the member always see the same repositories.
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-01-token-repo-scope, PRD #855
 Merged: @pierrederval, 2026-10-01, PR #856
+
+## P-PRODUCT-59
+
+Each product owns its own Statement and Never list, and another product's lines never shift or claim its numbers.
+
+Why: People cite Never lines by number, so numbering must stay local to a product and stable once cited.
+Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s1-02-statement-shape-and-never-numbers, PRD #871
+Merged: @pierrederval, 2026-10-01, PR #874
+Proposed: harvest 2026-10-01
+
+## P-PRODUCT-60
+
+A check turns red only on a finding it can show. A model's judgement may confirm or clear that finding, but never raises one on its own.
+
+Why: Every red can then be checked by a person against quoted text, rather than taken on a model's word.
+Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s5-02-jev-broken-without-quote-is-not-red, PRD #871
+Merged: @pierrederval, 2026-10-01, PR #874
 Proposed: harvest 2026-10-01
