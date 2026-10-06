@@ -1,4 +1,4 @@
-# ADR-0062 — The inbox check asks the judge on every run and caches only the small model's verdict
+# ADR-0068 — The inbox check asks the judge on every run and caches only the small model's verdict
 
 **Status:** adopted · **Date:** 2026-10-01 · **PRD:** #871 · **Decided:** nobody — adopted when raised (medium), 2026-10-01 · **Merged:** @pierrederval, 2026-10-01, PR #874
 

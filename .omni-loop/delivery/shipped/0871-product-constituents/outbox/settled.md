@@ -495,7 +495,7 @@ Reverting the test change is one line; documenting the secret is two lines in th
 - Raised: 2026-10-01
 - Slice: s5
 - Wave: 3
-- Became: ADR-0062
+- Became: ADR-0068
 
 ### The answer, as it was given
 
