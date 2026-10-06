@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-01
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-63, P-PRODUCT-58
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ One condition in the database function that reads through a link.
 - Raised: 2026-10-01
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-64
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ One condition in the list's database function and one line on the card.
 - Raised: 2026-10-01
 - Slice: s2
 - Wave: 2
+- Became: ADR-0067
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ A constant: answering HTTP 401 instead is a few lines in the route and its test.
 - Raised: 2026-10-01
 - Slice: s3
 - Wave: 3
+- Became: BR-PRODUCT-65
 
 ### The answer, as it was given
 
@@ -328,6 +332,7 @@ One condition in the report function: dropping it keeps such questions, with no 
 - Raised: 2026-10-01
 - Slice: s4
 - Wave: 4
+- Became: BR-PRODUCT-66
 
 ### The answer, as it was given
 

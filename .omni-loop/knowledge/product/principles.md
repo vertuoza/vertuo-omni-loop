@@ -508,3 +508,12 @@ Why: Mixing or switching between workspaces' claims would make the check's verdi
 Source: .omni-loop/delivery/shipped/0839-canon-check/outbox/settled.md, entry s1-01-app-read-workspace-choice, PRD #839
 Merged: @pierrederval, 2026-09-30, PR #840
 Proposed: harvest 2026-09-30
+
+## P-PRODUCT-58
+
+An agent's link never reaches further than the member's own read would; it grants no access the person does not already have.
+
+Why: So handing a link to an agent never widens what the workspace exposes, and the link and the member always see the same repositories.
+Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-01-token-repo-scope, PRD #855
+Merged: @pierrederval, 2026-10-01, PR #856
+Proposed: harvest 2026-10-01
