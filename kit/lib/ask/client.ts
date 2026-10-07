@@ -12,7 +12,8 @@
 // signed link carries no token), and registers the run (`POST /api/proofs`). Since PRD 812 it asks a workspace's Jev decision
 // (`POST /api/decide/<decision>`), for `omni decide`. Since PRD 871 it reads a repository's product's
 // constituents (`GET /api/constituents`), for `omni constituents`. Since PRD 1108 it reads a
-// repository's product's Pitch settings (`GET /api/pitch-settings`), for `omni pitch start`.
+// repository's product's Pitch settings (`GET /api/pitch-settings`), for `omni pitch start`. Since
+// PRD 1139 it pushes where a loop stands (`POST /api/loops`), for `omni loop push`.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -305,5 +306,8 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ answer: string | null, confidence: number | null, decidedBy: 'jev' | 'old' }>} */
     decide: ({ decision, repo, state, old, ref = null }: { decision: string; repo: unknown; state: unknown; old: unknown; ref?: unknown }) =>
       call('POST', `/api/decide/${segment(decision)}`, { body: { repo, state, old, ...(ref ? { ref } : {}) } }),
+    /** PRD 1139: one push of a loop (`../loop/body.ts` shapes it), sent as it is.
+     * @returns {Promise<{ loopId: string, state: 'running' | 'parked' | 'stopped', planVersion: number }>} */
+    pushLoop: (body: unknown) => call('POST', '/api/loops', { body }),
   };
 }

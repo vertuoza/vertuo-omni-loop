@@ -74,6 +74,15 @@ describe('omni help', () => {
     expect(out.replace(/\s+/g, ' ')).toMatch(/With no number it drives your own PRDs .* --plan orders every slice .* first step not done/);
   });
 
+  it('prints omni loop: its verbs, run by the skills, and how it never blocks (PRD 1139)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'loop'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni loop push start \[--take-over\] +run by the skills\n/);
+    expect(out).toContain('omni loop status [--json]');
+    expect(out.replace(/\s+/g, ' ')).toMatch(/refuses a second live loop .* --take-over.* 5-second limit and one sign-in refresh.* exits 1 with one line/);
+  });
+
   it('takes a skill by its name or its slash command alike', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const byName = await run(['help', 'yolo'], root);
