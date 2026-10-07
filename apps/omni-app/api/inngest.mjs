@@ -1151,14 +1151,32 @@ var target = z8.object({
   repo: z8.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
   role: z8.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "one kebab-case word, such as back-end"),
   knowledge: z8.enum(TARGET_KNOWLEDGE),
-  readAt: z8.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null)
+  readAt: z8.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null),
+  // PRD 1162: no slice and no roadmap row may name a read-only target; it is still read, surveyed
+  // and imported.
+  readOnly: z8.boolean().optional(),
+  // PRD 1162: the short names of the targets whose default-branch packages this one installs.
+  consumes: z8.array(z8.string()).optional()
 }).strict();
+function targetShortName(slug) {
+  return slug.slice(slug.indexOf("/") + 1);
+}
 var planSection = z8.object({
   guide: nullableText.default(null),
   targets: z8.array(target).min(1, "at least one target")
 }).strict().superRefine(({ targets }, issues) => {
   const seen = /* @__PURE__ */ new Set();
-  targets.forEach(({ repo, knowledge, readAt }, index) => {
+  const names = targets.map(({ repo }) => targetShortName(repo));
+  targets.forEach(({ repo, knowledge, readAt, consumes = [] }, index) => {
+    const own = targetShortName(repo);
+    const others = names.filter((name) => name !== own);
+    consumes.forEach((name, at2) => {
+      const path = ["targets", index, "consumes", at2];
+      if (name === own) issues.addIssue({ code: "custom", path, message: `${name} is this target itself \u2014 a target never consumes itself` });
+      else if (!others.includes(name)) {
+        issues.addIssue({ code: "custom", path, message: `${name} names no other target of plan.targets by its short name (${others.join(", ") || "none"})` });
+      }
+    });
     if (seen.has(repo)) issues.addIssue({ code: "custom", path: ["targets", index, "repo"], message: `${repo} is listed twice` });
     seen.add(repo);
     if (knowledge === "imported" && readAt === null) {
@@ -5290,6 +5308,23 @@ function rowViolation(row, slices, { owners, planName }) {
   }
   return null;
 }
+function targetReachViolations(slices, targets) {
+  const readOnly = new Set(targets.filter((target2) => target2.readOnly === true).map((target2) => shortName2(target2.repo)));
+  const consumes = new Map(targets.map((target2) => [shortName2(target2.repo), new Set(target2.consumes ?? [])]));
+  const repoOf2 = new Map(slices.map((slice) => [slice.id, slice.repo]));
+  const violations = slices.filter((slice) => slice.repo !== null && readOnly.has(slice.repo)).map((slice) => `readOnly: ${slice.id} lands in ${slice.repo}, a read-only target \u2014 no slice may name it.`);
+  for (const slice of slices) {
+    const provided = slice.repo === null ? void 0 : consumes.get(slice.repo);
+    for (const blocker of slice.blockedBy) {
+      const provider = repoOf2.get(blocker);
+      if (provider === void 0 || provider === null || provided?.has(provider) !== true) continue;
+      violations.push(
+        `consumes: ${slice.id} (${slice.repo}) is blocked by ${blocker} (${provider}), and ${slice.repo} consumes ${provider} \u2014 ${slice.repo} installs what ${provider} publishes from its default branch, so the change it waits on is an earlier PRD of its own.`
+      );
+    }
+  }
+  return violations;
+}
 function notPlanRepositoryViolations(slices, repositories) {
   const violations = [];
   if (slices.some((slice) => slice.repo !== null)) violations.push("repo: a repo column needs a plan repository.");
@@ -5330,6 +5365,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
   const violations = [
     ...planSection2 === null ? notPlanRepositoryViolations(slices, repositories) : repositoryViolations(slices, repositories, { planSlug: defined(config.repo.slug, "the plan repository's repo.slug"), targets: planSection2.targets }),
     // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
+    ...multi ? targetReachViolations(slices, planSection2.targets) : [],
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...landingViolations(slices, landingRows),
     ...multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config)),

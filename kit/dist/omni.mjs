@@ -27579,14 +27579,32 @@ var target = external_exports.object({
   repo: external_exports.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
   role: external_exports.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "one kebab-case word, such as back-end"),
   knowledge: external_exports.enum(TARGET_KNOWLEDGE),
-  readAt: external_exports.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null)
+  readAt: external_exports.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null),
+  // PRD 1162: no slice and no roadmap row may name a read-only target; it is still read, surveyed
+  // and imported.
+  readOnly: external_exports.boolean().optional(),
+  // PRD 1162: the short names of the targets whose default-branch packages this one installs.
+  consumes: external_exports.array(external_exports.string()).optional()
 }).strict();
+function targetShortName(slug) {
+  return slug.slice(slug.indexOf("/") + 1);
+}
 var planSection = external_exports.object({
   guide: nullableText.default(null),
   targets: external_exports.array(target).min(1, "at least one target")
 }).strict().superRefine(({ targets: targets2 }, issues) => {
   const seen = /* @__PURE__ */ new Set();
-  targets2.forEach(({ repo, knowledge: knowledge2, readAt }, index) => {
+  const names = targets2.map(({ repo }) => targetShortName(repo));
+  targets2.forEach(({ repo, knowledge: knowledge2, readAt, consumes = [] }, index) => {
+    const own2 = targetShortName(repo);
+    const others = names.filter((name2) => name2 !== own2);
+    consumes.forEach((name2, at2) => {
+      const path = ["targets", index, "consumes", at2];
+      if (name2 === own2) issues.addIssue({ code: "custom", path, message: `${name2} is this target itself \u2014 a target never consumes itself` });
+      else if (!others.includes(name2)) {
+        issues.addIssue({ code: "custom", path, message: `${name2} names no other target of plan.targets by its short name (${others.join(", ") || "none"})` });
+      }
+    });
     if (seen.has(repo)) issues.addIssue({ code: "custom", path: ["targets", index, "repo"], message: `${repo} is listed twice` });
     seen.add(repo);
     if (knowledge2 === "imported" && readAt === null) {
@@ -34151,6 +34169,23 @@ function rowViolation(row, slices, { owners, planName }) {
   }
   return null;
 }
+function targetReachViolations(slices, targets2) {
+  const readOnly = new Set(targets2.filter((target3) => target3.readOnly === true).map((target3) => shortName2(target3.repo)));
+  const consumes = new Map(targets2.map((target3) => [shortName2(target3.repo), new Set(target3.consumes ?? [])]));
+  const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
+  const violations = slices.filter((slice) => slice.repo !== null && readOnly.has(slice.repo)).map((slice) => `readOnly: ${slice.id} lands in ${slice.repo}, a read-only target \u2014 no slice may name it.`);
+  for (const slice of slices) {
+    const provided = slice.repo === null ? void 0 : consumes.get(slice.repo);
+    for (const blocker of slice.blockedBy) {
+      const provider2 = repoOf.get(blocker);
+      if (provider2 === void 0 || provider2 === null || provided?.has(provider2) !== true) continue;
+      violations.push(
+        `consumes: ${slice.id} (${slice.repo}) is blocked by ${blocker} (${provider2}), and ${slice.repo} consumes ${provider2} \u2014 ${slice.repo} installs what ${provider2} publishes from its default branch, so the change it waits on is an earlier PRD of its own.`
+      );
+    }
+  }
+  return violations;
+}
 function notPlanRepositoryViolations(slices, repositories) {
   const violations = [];
   if (slices.some((slice) => slice.repo !== null)) violations.push("repo: a repo column needs a plan repository.");
@@ -34191,6 +34226,7 @@ function gradePlan(markdown, { config: config3, targets: targets2 = /* @__PURE__
   const violations = [
     ...planSection2 === null ? notPlanRepositoryViolations(slices, repositories) : repositoryViolations(slices, repositories, { planSlug: defined(config3.repo.slug, "the plan repository's repo.slug"), targets: planSection2.targets }),
     // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
+    ...multi ? targetReachViolations(slices, planSection2.targets) : [],
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...landingViolations(slices, landingRows),
     ...multi ? repositoryFlowViolations(slices, { config: config3, targets: targets2 }) : planRuleViolations(slices, resolveFlow(config3)),
