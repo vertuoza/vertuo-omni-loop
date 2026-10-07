@@ -20,8 +20,11 @@ on:
     paths-ignore: ['**/*.md', 'docs/**']
 permissions:
   contents: read
+# A draft run has a group of its own (issue 1167): a push and `gh pr ready` seconds apart start a
+# draft `synchronize` run, which runs nothing, beside the `ready_for_review` run, and in one shared
+# group either could cancel the other, leaving the ready PR green with no check run at all.
 concurrency:
-  group: checks-${{ github.head_ref }}
+  group: checks-${{ github.head_ref }}-${{ github.event.pull_request.draft && 'draft' || 'ready' }}
   cancel-in-progress: true
 jobs:
   settle:

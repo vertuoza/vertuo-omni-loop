@@ -154,6 +154,15 @@ differences.
 - **Never mark a feature PR ready.** `/omni:yolo` does that, after `omni ship` has run on the feature
   branch, and, for a stacked feature PR, only once the PR of its base has merged. This skill leaves a
   feature PR in draft, however green it is.
+- **Ready after a push waits for the push's run.** A repository's workflow may cancel a run when a
+  newer one of the same branch starts, and a draft's run may run nothing: a `gh pr ready` seconds
+  after a push can then end with the ready run cancelled and the PR green with no check run at all
+  (issue 1167). So, whoever marks a feature or standalone PR ready after pushing to it: first wait,
+  up to two minutes, until `gh run list --commit <pushed sha> --json databaseId,event,status` lists
+  a run (none by then: the push starts none, carry on); then `gh pr ready`; then, once its checks
+  finish, read the head commit's runs again. When the `ready_for_review` run is `cancelled` and no
+  later run of that commit ran its jobs, `gh run rerun <its id>` and watch again. A check that only
+  skipped or was cancelled is never green.
 - `/omni:pr` owns `gh pr ready` for a sub-PR, and runs it only once the preflight is green.
 - A **sub-PR** is merged into its feature branch by the orchestrator (`/omni:wave`), one at a time:
   check `baseRefName` is not the default branch and `headRefName` is a slice branch (`branches.slice`),

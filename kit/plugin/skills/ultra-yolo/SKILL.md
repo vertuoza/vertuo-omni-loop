@@ -205,7 +205,8 @@ For each target with a slice merged into its feature branch, in a detached workt
    `/omni:pr` owns (`gh pr edit <n> --repo <slug> --body-file <file>`), keeping the
    `Part of` line first and the `omni sign footer` line last.
 5. **Ready,** at point `yolo.ready` read in the target's clone (**Flow points**): every `before`
-   hook, then `gh pr ready <n> --repo <slug>`, then every `after` hook; a `not ok` leaves the target
+   hook, then `gh pr ready <n> --repo <slug>` as `/omni:pr`'s **Ready after a push waits for the
+   push's run** says (item 3 just pushed), then every `after` hook; a `not ok` leaves the target
    PR in draft and the target **stuck**, naming the hook. Then follow `/omni:pr --repo <slug>`'s lifecycle until
    its CI is green or it is stuck. This is the only place a target feature PR is marked ready.
 

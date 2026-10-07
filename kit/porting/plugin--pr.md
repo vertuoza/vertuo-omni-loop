@@ -128,3 +128,14 @@ SKILL.md names exists now covers `sign`.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## Issue 1167 — ready after a push waits for the push's run
+
+Not a re-port: a kit-local bug fix. A `gh pr ready` seconds after a push started a draft
+`synchronize` run and the `ready_for_review` run together; with a branch-wide concurrency group that
+cancels in progress, the ready run was cancelled and the PR showed green with no check run at all.
+The kit's own `checks` workflow now gives a draft run its own group; repositories whose workflows
+the kit does not own are covered by **Merging and ready**'s new rule: wait for the pushed commit's
+run before `gh pr ready`, then rerun a cancelled `ready_for_review` run, and never count a check
+that only skipped or was cancelled as green. `/omni:yolo` §5 item 4, `/omni:yolo-fix`'s ship and
+`/omni:ultra-yolo`'s target ready point to it.

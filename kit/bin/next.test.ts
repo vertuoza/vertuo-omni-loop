@@ -86,16 +86,17 @@ function repo(remoteFiles: Record<string, string> = {}) {
 /** Which of the fake's answers a gh call asks for. */
 function ghCallKind(args: readonly string[]): string {
   if (args[0] === 'api') return args[1] === 'graphql' ? 'graphql' : 'comments';
+  if (args[0] === 'pr' && args[1] === 'view') return 'commits';
   if (args.includes('--label')) return 'phase0';
   return args.includes('--head') ? 'feature' : 'subs';
 }
 
-type Fakes = { feature?: unknown[]; subs?: unknown[]; phase0?: unknown[]; comments?: unknown[]; read?: unknown; down?: boolean };
+type Fakes = { feature?: unknown[]; subs?: unknown[]; phase0?: unknown[]; comments?: unknown[]; commits?: unknown; read?: unknown; down?: boolean };
 
 /** A fake `execFileSync`: gh answered from `fakes`, git fetch a no-op, every other git call real. */
-function fakeExec({ feature = [featurePr()], subs = [subPr('s1', { state: 'OPEN', mergedAt: null, isDraft: true }), subPr('s2', { state: 'OPEN', mergedAt: null, isDraft: true })], phase0 = [], comments = [], read, down = false }: Fakes = {}) {
+function fakeExec({ feature = [featurePr()], subs = [subPr('s1', { state: 'OPEN', mergedAt: null, isDraft: true }), subPr('s2', { state: 'OPEN', mergedAt: null, isDraft: true })], phase0 = [], comments = [], commits = { commits: [] }, read, down = false }: Fakes = {}) {
   const calls: string[][] = [];
-  const answers: Record<string, () => unknown> = { phase0: () => phase0, feature: () => feature, subs: () => subs, graphql: () => read, comments: () => comments };
+  const answers: Record<string, () => unknown> = { phase0: () => phase0, feature: () => feature, subs: () => subs, graphql: () => read, comments: () => comments, commits: () => commits };
   const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions = {}): string => {
     calls.push([file, ...args]);
     if (file === 'git') return args[0] === 'fetch' ? '' : realExec(file, args, options);
@@ -142,6 +143,32 @@ describe('omni next', () => {
     const { code, out } = await run(['next', '7', '--json'], root, fakeExec());
     expect(code).toBe(0);
     expect(JSON.parse(out)).toEqual({ prds: [{ prd: 7, verdict: 'wait', why: 'another session holds the claim on s1, s2', wakeHint: 1200, link: PR_URL }] });
+  });
+
+  it('a slice in flight with no commit for limits.stallDays parks on a person: its sub-PR, since when, take over or close, its link', async () => {
+    const root = repo();
+    const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const quietSince = daysAgo(5.5);
+    const subs = [subPr('s1', { state: 'OPEN', mergedAt: null, isDraft: true, createdAt: daysAgo(6), updatedAt: daysAgo(5.5) }), subPr('s2')];
+    const { out } = await run(['next', '7', '--json'], root, fakeExec({ subs, commits: { commits: [{ committedDate: daysAgo(6) }, { committedDate: quietSince }] } }));
+    expect(JSON.parse(out)).toEqual({
+      prds: [
+        {
+          prd: 7,
+          verdict: 'park',
+          why: `waits on a person: s1's sub-PR #21 has had no commit since ${quietSince.slice(0, 10)} (5 days or more); take it over or close it`,
+          link: 'https://github.com/acme/widgets/pull/21',
+        },
+      ],
+    });
+  });
+
+  it('a slice in flight with a commit inside limits.stallDays still waits on its claim', async () => {
+    const root = repo();
+    const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const subs = [subPr('s1', { state: 'OPEN', mergedAt: null, isDraft: true, createdAt: daysAgo(6) }), subPr('s2')];
+    const { out } = await run(['next', '7', '--json'], root, fakeExec({ subs, commits: { commits: [{ committedDate: daysAgo(4.9) }] } }));
+    expect(JSON.parse(out)).toEqual({ prds: [{ prd: 7, verdict: 'wait', why: 'another session holds the claim on s1', wakeHint: 1200, link: PR_URL }] });
   });
 
   it('a ready feature PR with red CI → act pr-care --once, read through its care state', async () => {

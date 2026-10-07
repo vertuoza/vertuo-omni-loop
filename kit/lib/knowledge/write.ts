@@ -16,9 +16,14 @@
  *
  * **Provenance** is the same everywhere: `Decided:` in one of three forms (who answered, nobody,
  * or the merger over a red outbox), `Merged:` naming who merged, when and which pull request,
- * `Source:` naming the ledger file and the entry's id, `Enforced by: unenforced` on every rule and
- * invariant, and `Proposed: harvest <date>` on every entry from an adopted decision and on every
- * new principle. A record's `Status:` is `accepted` when a person answered, `adopted` otherwise.
+ * `Source:` naming the ledger file and the entry's id, `Enforced by:` on every rule and invariant,
+ * and `Proposed: harvest <date>` on every entry from an adopted decision and on every new principle.
+ *
+ * **Enforced by** (PRD 1171): the model proposes the proof, code keeps only what it can check. A
+ * path the reply's `enforcedBy` names is kept when the feature pull request changed it (added,
+ * modified or renamed: `changed`) **and** it exists in the tree; the kept paths are written
+ * comma-separated, or `unenforced` when none is kept. Every other path is dropped with its reason
+ * ({@link proofOf}), and the caller reports it. A record's `Status:` is `accepted` when a person answered, `adopted` otherwise.
  *
  * Reads the working tree through `ctx` and touches no file: the result is data,
  * `{ writes: [{ path, text }], placed, notPlaced }`. {@link applyKnowledgeWrites} writes it.
@@ -54,6 +59,15 @@ export type WriteCandidate = {
   closed?: string | null;
 };
 
+/** One file the feature pull request changed: its path (a rename's new one) and GitHub's status. */
+export type ChangedFile = { path: string; status: string };
+
+/** The statuses whose path the pull request leaves in the tree: a kept proof may name one. */
+export const KEPT_STATUSES: readonly string[] = Object.freeze(['added', 'modified', 'renamed']);
+
+/** A proposed proof the writer did not keep, and why. */
+export type DroppedPath = { path: string; reason: string };
+
 /** One classified candidate: the reply `classificationSchema` accepted, or why there is none. */
 export type Classified = { candidate: WriteCandidate; reply: ClassificationReply | null; reason?: string | null | undefined };
 
@@ -69,6 +83,10 @@ export type Placed = {
   status: string | null;
   proposed: boolean;
   reason: string;
+  /** A rule's or an invariant's kept proof, as written on `Enforced by:`; none means `unenforced`. */
+  enforcedBy?: string[];
+  /** A rule's or an invariant's proposed proof the writer did not keep, each with its reason. */
+  dropped?: DroppedPath[];
 };
 
 /** What {@link writeKnowledge} returns: the files to write, and where every candidate landed. */
@@ -157,6 +175,35 @@ function sectionOf(candidate: WriteCandidate, key: 'whatIHadToDecide' | 'whatItC
   return (candidate.item?.sections?.[key] ?? '').trim() || '(not recorded)';
 }
 
+/**
+ * Which of `proposed` the writer keeps as proof (PRD 1171): a path `changed` lists with a kept status
+ * and that `exists`. The rest are dropped, once each, with the reason: `not changed by #<pr>`,
+ * `removed by #<pr>`, or `no longer in the tree`. Pure but for `exists`.
+ */
+function proofOf({
+  proposed = [],
+  changed,
+  pr,
+  exists,
+}: {
+  proposed?: readonly string[] | undefined;
+  changed: readonly ChangedFile[];
+  pr: PrNumber;
+  exists: (path: string) => boolean;
+}): { kept: string[]; dropped: DroppedPath[] } {
+  const status = new Map(changed.map((file) => [file.path, file.status]));
+  const kept: string[] = [];
+  const dropped: DroppedPath[] = [];
+  for (const path of new Set(proposed.map((p) => p.trim()))) {
+    const given = status.get(path);
+    if (given === 'removed') dropped.push({ path, reason: `removed by #${pr}` });
+    else if (!KEPT_STATUSES.includes(given ?? '')) dropped.push({ path, reason: `not changed by #${pr}` });
+    else if (!exists(path)) dropped.push({ path, reason: 'no longer in the tree' });
+    else kept.push(path);
+  }
+  return { kept, dropped };
+}
+
 /** Numbers the ids of one run: past the tree, past `taken`, past what the run handed out. */
 function makeNumbering({ ctx, taken }: { ctx: WriteCtx; taken: Taken }): {
   entry: (kind: EntryKind, code: string) => string;
@@ -164,11 +211,7 @@ function makeNumbering({ ctx, taken }: { ctx: WriteCtx; taken: Taken }): {
 } {
   const highest = new Map<string, number>();
   const bump = (key: string, n: string) => highest.set(key, Math.max(highest.get(key) ?? 0, Number(n)));
-  for (const entry of readKnowledge({ ctx }).entries) {
-    const parts = idParts(entry.id);
-    if (parts && parts.codes.length === 1) bump(`${parts.type}-${parts.codes[0]}`, parts.n);
-  }
-  for (const id of taken.ids ?? []) {
+  for (const id of [...readKnowledge({ ctx }).entries.map((entry) => entry.id), ...(taken.ids ?? [])]) {
     const parts = idParts(id);
     if (parts && parts.codes.length === 1) bump(`${parts.type}-${parts.codes[0]}`, parts.n);
   }
@@ -316,6 +359,111 @@ export function addLedgerLine(text: string, { id, line, markers }: { id: string;
   return lines.join('\n');
 }
 
+/** What writing one rule or invariant needs of its run. */
+type EntryRun = {
+  ctx: WriteCtx;
+  files: Files;
+  numbering: ReturnType<typeof makeNumbering>;
+  reply: Extract<ClassificationReply, { kind: 'rule' | 'invariant' }>;
+  candidate: WriteCandidate;
+  source: string;
+  decided: string;
+  merged: string;
+  merge: Merge;
+  /** Whether the entry is proposed: no person answered its decision. A new principle always is. */
+  proposed: boolean;
+  /** `harvest <date>`. */
+  proposedLine: string;
+  changed: readonly ChangedFile[];
+};
+
+/** The `Serves:` of a rule, and the id of the principle it proposes when it serves `new`; none for an invariant. */
+function servedBy(
+  reply: EntryRun['reply'],
+  nextPrinciple: () => string,
+): { serves: string | null; principleId: string | null } {
+  if (reply.kind !== 'rule') return { serves: null, principleId: null };
+  if (reply.serves !== NEW_PRINCIPLE) return { serves: reply.serves, principleId: null };
+  const principleId = nextPrinciple();
+  return { serves: principleId, principleId };
+}
+
+/** The `Enforced by:` value of the kept proof: the paths comma-separated, or `unenforced`. */
+const enforcedValue = (kept: readonly string[]): string => (kept.length > 0 ? kept.join(', ') : 'unenforced');
+
+/**
+ * Appends one rule or invariant to its place's layer file, its kept proof ({@link proofOf}) on
+ * `Enforced by:`, and the principle a rule serving `new` proposes beside it.
+ */
+function writeRegisterEntry({
+  ctx,
+  files,
+  numbering,
+  reply,
+  candidate,
+  source,
+  decided,
+  merged,
+  merge,
+  proposed,
+  proposedLine,
+  changed,
+}: EntryRun): { touched: string[]; landedAs: string[]; proof: { kept: string[]; dropped: DroppedPath[] } } {
+  const place = placeOf(ctx, reply.place);
+  const id = numbering.entry(reply.kind, place.code);
+  const { serves, principleId } = servedBy(reply, () => numbering.entry('principle', place.code));
+  const proof = proofOf({ proposed: reply.enforcedBy, changed, pr: merge.pr, exists: (path) => existsSync(join(ctx.root, path)) });
+  const fields: [string, string][] = [
+    ...(serves ? [['Serves', serves] satisfies [string, string]] : []),
+    ['Source', source],
+    ['Enforced by', enforcedValue(proof.kept)],
+    ['Stated', day(merge.at)],
+    ['Decided', decided],
+    ['Merged', merged],
+    ...(proposed ? [['Proposed', proposedLine] satisfies [string, string]] : []),
+  ];
+  const path = `${place.dir}/${LAYER[reply.kind]}`;
+  files.write(
+    path,
+    appendEntry(files.read(path), renderRegisterEntry({ id, statement: reply.statement, fields }), {
+      heading: `${place.title} ${reply.kind}s`,
+    }),
+  );
+  if (!principleId) return { touched: [path], landedAs: [id], proof };
+  const principlePath = writeProposedPrinciple({ files, place, id: principleId, reply, candidate, source, merged, proposedLine });
+  return { touched: [path, principlePath], landedAs: [id, principleId], proof };
+}
+
+/** Appends the principle a rule serving `new` proposes to its place's principles; returns that file. */
+function writeProposedPrinciple({
+  files,
+  place,
+  id,
+  reply,
+  candidate,
+  source,
+  merged,
+  proposedLine,
+}: Pick<EntryRun, 'files' | 'reply' | 'candidate' | 'source' | 'merged' | 'proposedLine'> & {
+  place: { dir: string; title: string };
+  id: string;
+}): string {
+  const proposal = defined(reply.kind === 'rule' ? reply.principle : undefined, `the principle ${candidate.id} proposes`); // classificationSchema refuses serves "new" without the principle it proposes
+  const path = `${place.dir}/${LAYER.principle}`;
+  const principle = renderRegisterEntry({
+    id,
+    statement: proposal.statement,
+    fields: [
+      ['Why', oneLine(proposal.why)],
+      ['Source', source],
+      ['Merged', merged],
+      ['Proposed', proposedLine],
+    ],
+  });
+  files.write(path, appendEntry(files.read(path), principle, { heading: `${place.title} principles` }));
+  return path;
+}
+
 /**
  * Turns classified candidates into file edits. `reply` is what `classificationSchema` accepted,
  * `null` when there is none (`reason` says why: the candidate is then not placed). `taken` holds the
@@ -328,12 +476,15 @@ export function writeKnowledge({
   merge,
   taken = {},
   date,
+  changed = [],
 }: {
   ctx: WriteCtx;
   classified: readonly Classified[];
   merge: Merge;
   taken?: Taken | undefined;
   date: string;
+  /** The files the feature pull request changed (PRD 1171); none keeps every proposed proof out. */
+  changed?: readonly ChangedFile[] | undefined;
 }): WriteResult {
   const files = makeFiles(ctx);
   const numbering = makeNumbering({ ctx, taken });
@@ -355,6 +506,7 @@ export function writeKnowledge({
     const touched: string[] = [];
     let landedAs: string[] = [];
     let status: string | null = null;
+    let proof: { kept: string[]; dropped: DroppedPath[] } | null = null;
 
     if (reply.kind === 'adr') {
       const number = numbering.record();
@@ -364,50 +516,11 @@ export function writeKnowledge({
       touched.push(path);
       landedAs = [`ADR-${number}`];
     } else if (reply.kind === 'rule' || reply.kind === 'invariant') {
-      const place = placeOf(ctx, reply.place);
       const source = sourceLine(candidate, ledgerFile, prd);
-      const id = numbering.entry(reply.kind, place.code);
-      let serves = reply.kind === 'rule' ? reply.serves : null;
-      let principleId: string | null = null;
-      if (reply.kind === 'rule' && serves === NEW_PRINCIPLE) {
-        principleId = numbering.entry('principle', place.code);
-        serves = principleId;
-      }
-      const fields: [string, string][] = [
-        ...(serves ? [['Serves', serves] satisfies [string, string]] : []),
-        ['Source', source],
-        ['Enforced by', 'unenforced'],
-        ['Stated', day(merge.at)],
-        ['Decided', decided],
-        ['Merged', merged],
-        ...(proposed ? [['Proposed', proposedLine] satisfies [string, string]] : []),
-      ];
-      const path = `${place.dir}/${LAYER[reply.kind]}`;
-      files.write(
-        path,
-        appendEntry(files.read(path), renderRegisterEntry({ id, statement: reply.statement, fields }), {
-          heading: `${place.title} ${reply.kind}s`,
-        }),
-      );
-      touched.push(path);
-      landedAs = [id];
-      if (principleId && reply.kind === 'rule') {
-        const proposal = defined(reply.principle, `the principle ${candidate.id} proposes`); // classificationSchema refuses serves "new" without the principle it proposes
-        const principlePath = `${place.dir}/${LAYER.principle}`;
-        const principle = renderRegisterEntry({
-          id: principleId,
-          statement: proposal.statement,
-          fields: [
-            ['Why', oneLine(proposal.why)],
-            ['Source', source],
-            ['Merged', merged],
-            ['Proposed', proposedLine],
-          ],
-        });
-        files.write(principlePath, appendEntry(files.read(principlePath), principle, { heading: `${place.title} principles` }));
-        touched.push(principlePath);
-        landedAs.push(principleId);
-      }
+      const entry = writeRegisterEntry({ ctx, files, numbering, reply, candidate, source, decided, merged, merge, proposed, proposedLine, changed });
+      touched.push(...entry.touched);
+      landedAs = entry.landedAs;
+      proof = entry.proof;
     } else if (reply.kind === 'covered') {
       landedAs = [reply.covers];
     }
@@ -434,6 +547,7 @@ export function writeKnowledge({
       status,
       proposed: proposed && (reply.kind === 'rule' || reply.kind === 'invariant' || reply.kind === 'adr'),
       reason: oneLine(reply.reason),
+      ...(proof ? { enforcedBy: proof.kept, dropped: proof.dropped } : {}),
     });
   }
 

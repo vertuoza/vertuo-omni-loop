@@ -18,7 +18,8 @@
 // | every slice merged, the ready PR clean                                    | `park` (a merger)        |
 // | no plan yet                                                               | `act yolo`               |
 // | slices takeable in the next wave                                          | `act wave`               |
-// | a slice claimed by another session                                        | `wait` (claim hint)      |
+// | a slice claimed by another session, a commit on it within `stallDays`     | `wait` (claim hint)      |
+// | a slice in flight with no commit for `stallDays` (stalled)                | `park` (a person)        |
 // | a slice stuck                                                             | `park` (a person)        |
 // | anything else                                                             | `wait` (claim hint)      |
 //
@@ -44,7 +45,7 @@
 // | then as in one repository: a claim held, a slice stuck, anything else       | `wait`, `park`, `wait`         |
 
 import type { CheckState } from '../care/state.ts';
-import type { PrdNumber, WorkSliceId } from '../ids.ts';
+import type { PrNumber, PrdNumber, WorkSliceId } from '../ids.ts';
 
 /** How long a loop sleeps, in seconds, before it looks again: CI is checked again sooner than a claim. */
 export const WAKE_HINTS = Object.freeze({ ci: 300, claim: 1200, unreadable: 300 });
@@ -76,6 +77,9 @@ export type FeatureFacts = {
   threads: number;
 };
 
+/** A slice in flight whose sub-PR has had no commit for `limits.stallDays`: abandoned, not held. */
+export type StalledSlice = { id: WorkSliceId; pr: PrNumber; url: string; since: string };
+
 /** The PRD's board, as far as the verdict reads it. */
 export type BoardFacts = {
   total: number;
@@ -83,9 +87,33 @@ export type BoardFacts = {
   wave: number | null;
   takeable: WorkSliceId[];
   inFlight: WorkSliceId[];
+  /** The slices of `inFlight` that have stalled ({@link stalledSlices}). */
+  stalled: StalledSlice[];
+  /** `limits.stallDays`, as the verdict names it. */
+  stallDays: number;
   stuck: WorkSliceId[];
   unreadable: WorkSliceId[];
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The in-flight slices that have stalled: the head commit of their sub-PR is `stallDays` old or
+ * older — the kit's own meaning of a stall (`deriveStatus` in `kit/lib/inbox/status.ts`: in flight,
+ * no commit for `stallDays`). An unknown head commit date is never read as a stall, as the board never
+ * calls a claim stale on a signal it did not see.
+ */
+export function stalledSlices(
+  rows: readonly { id: WorkSliceId; state: string; pr: { number?: PrNumber | undefined; headCommitDate?: string | null | undefined } | null }[],
+  { now, stallDays, prUrl }: { now: number; stallDays: number; prUrl: (pr: PrNumber) => string },
+): StalledSlice[] {
+  return rows.flatMap(({ id, state, pr }) => {
+    const since = pr?.headCommitDate;
+    if (state !== 'in-flight' || pr?.number === undefined || !since) return [];
+    if (now - new Date(since).getTime() < stallDays * DAY_MS) return [];
+    return [{ id, pr: pr.number, url: prUrl(pr.number), since }];
+  });
+}
 
 /** The PRD's open outbox questions (human-action and high), and whether a person answered one. */
 export type OutboxFacts = { questions: number; answered: boolean };
@@ -153,10 +181,20 @@ function finished(prd: PrdNumber, feature: FeatureFacts | null, outbox: OutboxFa
   return park(prd, 'waits on a person: the feature PR is ready to merge', feature.url);
 }
 
+/** The park a stalled slice forces: each sub-PR named with the day of its last commit, the first linked. */
+function stalledPark(prd: PrdNumber, stalled: readonly StalledSlice[], stallDays: number): Verdict {
+  const named = stalled.map(({ id, pr, since }, index) => `${id}'s sub-PR #${pr}${index === 0 ? ' has had no commit' : ''} since ${since.slice(0, 10)}`);
+  const them = stalled.length === 1 ? 'take it over or close it' : 'take them over or close them';
+  return park(prd, `waits on a person: ${named.join(', ')} (${stallDays} days or more); ${them}`, stalled[0]?.url);
+}
+
 /** The verdict while slices remain to build. */
 function building(prd: PrdNumber, board: BoardFacts, link: string | undefined): Verdict {
   if (board.takeable.length > 0) return act(prd, 'wave', `wave ${board.wave ?? '?'} can take ${ids(board.takeable)}`, link);
-  if (board.inFlight.length > 0) return wait(prd, `another session holds the claim on ${ids(board.inFlight)}`, WAKE_HINTS.claim, link);
+  const stalled = new Set(board.stalled.map(({ id }) => id));
+  const held = board.inFlight.filter((id) => !stalled.has(id));
+  if (held.length > 0) return wait(prd, `another session holds the claim on ${ids(held)}`, WAKE_HINTS.claim, link);
+  if (board.stalled.length > 0) return stalledPark(prd, board.stalled, board.stallDays);
   if (board.stuck.length > 0) return park(prd, `waits on a person: ${ids(board.stuck)} stuck`, link);
   if (board.unreadable.length > 0) return wait(prd, `cannot read ${ids(board.unreadable)}`, WAKE_HINTS.unreadable, link);
   return wait(prd, 'nothing can move yet', WAKE_HINTS.claim, link);

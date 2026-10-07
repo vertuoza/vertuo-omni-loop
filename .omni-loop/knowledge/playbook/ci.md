@@ -38,7 +38,9 @@ Use this page when a check on your pull request is red.
 A draft runs no CI, and neither does a sub-pull request into a feature branch: its base is not
 `main`. A ready pull request into `main` runs `checks`: marking a draft ready is what grades it,
 then every push after, and a newer push cancels an older run still waiting in `settle`
-(concurrency group `checks-<head branch>`). A pull request that changes only `**/*.md` or
+(concurrency group `checks-<head branch>-ready`; a draft's run, which runs nothing, has its own
+`checks-<head branch>-draft`, so a push straight before `gh pr ready` never cancels the ready run,
+issue 1167). A pull request that changes only `**/*.md` or
 `docs/**` (a phase-0, a retro) runs no `checks`. No other workflow job runs on a pull request: the
 `supabase` workflow's `deploy` job, `release` and `releases` run on a push to `main`, and the
 `game` workflow on a schedule or by hand.

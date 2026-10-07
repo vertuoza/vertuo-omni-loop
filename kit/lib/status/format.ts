@@ -87,6 +87,10 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }: Pick<Ov
   return [top, ...under];
 }
 
+/** How many of the base's rules and invariants name a proof, one line under the bar; none without a
+ * knowledge folder (PRD 1171). */
+const rulesLine = ({ rules }: Pick<Overview, 'rules'>): string[] => (rules === null ? [] : [`${INDENT}rules enforced  ${rules.enforced} of ${rules.total}`]);
+
 /** Each row of yours starts with its stage, in a column as wide as the widest stage and a gap: the
  * rows' own columns then start under the line under the bar. */
 /** The gap between a row's PRD number and its topic, and between its topic and what it says. */
@@ -180,6 +184,7 @@ export function formatOverview(overview: Overview, { now }: { now: number }): st
     ...counts(overview.counts),
     '',
     ...bar(overview),
+    ...rulesLine(overview),
     '',
     ...yours(overview.yours),
     '',

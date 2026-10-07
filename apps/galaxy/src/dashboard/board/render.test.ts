@@ -50,6 +50,12 @@ describe('the period switch', () => {
     expect(html).toContain('href="/app/workspace?fleet=octo&amp;period=season"');
   });
 
+  it('keeps the People table\'s sort and direction (PRD 1017)', () => {
+    const html = render({}, {}, { sort: 'prs', dir: 'asc' });
+    expect(html).toContain('href="/app/workspace?sort=prs&amp;dir=asc&amp;period=30d"');
+    expect(html).toContain('href="/app/workspace?sort=prs&amp;dir=asc&amp;period=season"');
+  });
+
   it('hrefWith keeps every other value, and drops one set to null', () => {
     expect(hrefWith('/p', { a: '1', b: ['2', '3'], c: undefined }, { a: '9' })).toBe('/p?b=2&b=3&a=9');
     expect(hrefWith('/p', { a: '1' }, { a: null })).toBe('/p');
@@ -93,11 +99,70 @@ describe('a board', () => {
   it('lists every member in People: 0s kept, the viewer marked, SOLO with no fleet, dashes with no login', () => {
     const html = render();
     const rows = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => text(sure(m[1], 'm[1]')));
-    expect(rows).toContain('Name Fleet Points PRs PRDs open · building · shipped Questions');
-    expect(rows).toContain('Paul Etienne SOLO 0 1 0 · 0 · 0 9');
-    expect(rows).toContain('ADA ◀ (you) OCTO 40 0 0 · 1 · 2 0');
-    expect(rows).toContain('NOGIT SOLO – – 1 · 0 · 0 0');
-    expect(html).toMatch(/<tr aria-current="true"><th scope="row" class="board-name">(?:(?!<\/th>)[\s\S])*ADA/);
+    expect(rows).toContain('Rank Name Fleet Points ▼ PRs PRDs open · building · shipped Questions');
+    expect(rows).toContain('2 Paul Etienne SOLO 0 1 0 · 0 · 0 9');
+    expect(rows).toContain('1 ADA ◀ (you) OCTO 40 0 0 · 1 · 2 0');
+    expect(rows).toContain('– NOGIT SOLO – – 1 · 0 · 0 0');
+    expect(html).toMatch(/<tr aria-current="true"><td class="is-num">1<\/td><th scope="row" class="board-name">(?:(?!<\/th>)[\s\S])*ADA/);
+  });
+
+  it('orders People by points and draws RANK first, right-aligned, a dash with no rank (PRD 1017)', () => {
+    const html = render();
+    const people = html.slice(html.indexOf('board-people'), html.indexOf('board-repos'));
+    const names = [...people.matchAll(/<th scope="row" class="board-name">([\s\S]*?)<\/th>/g)].map((m) => text(sure(m[1], 'm[1]')));
+    expect(names).toEqual(['ADA ◀ (you)', 'Paul Etienne', 'NOGIT']);
+    expect(people).toMatch(/<th scope="col" class="is-num"><a class="board-sort" href="[^"]*">Rank<\/a><\/th><th scope="col"><a class="board-sort" href="[^"]*">Name<\/a><\/th>/);
+    const ranks = [...people.matchAll(/<tr[^>]*><td class="is-num">([\s\S]*?)<\/td><th scope="row"/g)].map((m) => sure(m[1], 'm[1]'));
+    expect(ranks).toEqual(['1', '2', '<span aria-label="no rank">–</span>']);
+  });
+
+  const peopleOf = (html: string) => html.slice(html.indexOf('board-people'), html.indexOf('board-repos'));
+  const rowNames = (html: string) => [...peopleOf(html).matchAll(/<th scope="row" class="board-name">([\s\S]*?)<\/th>/g)].map((m) => text(sure(m[1], 'm[1]')).replace(' ◀ (you)', ''));
+  const rowRanks = (html: string) => Object.fromEntries([...peopleOf(html).matchAll(/<tr[^>]*><td class="is-num">([\s\S]*?)<\/td><th scope="row" class="board-name">([\s\S]*?)<\/th>/g)]
+    .map((m) => [text(sure(m[2], 'm[2]')).replace(' ◀ (you)', ''), text(sure(m[1], 'm[1]'))]));
+  const headers = (html: string) => [...peopleOf(html).matchAll(/<th scope="col"([^>]*)>([\s\S]*?)<\/th>/g)].map((m) => ({ attrs: sure(m[1], 'm[1]'), inner: sure(m[2], 'm[2]') }));
+  const hrefOf = (inner: string) => sure(sure(inner.match(/<a class="board-sort" href="([^"]*)">/), inner)[1], 'the href').replace(/&amp;/g, '&');
+
+  it('draws every People header as a link that sorts by its column, keeping the query, at the table (PRD 1017)', () => {
+    const html = render({}, { period: '30d' }, { period: '30d', fleet: 'octo' });
+    expect(headers(html).map((h) => hrefOf(h.inner))).toEqual([
+      '/app/workspace?period=30d&fleet=octo&sort=rank#board-people',
+      '/app/workspace?period=30d&fleet=octo&sort=name#board-people',
+      '/app/workspace?period=30d&fleet=octo&sort=fleet#board-people',
+      '/app/workspace?period=30d&fleet=octo&sort=points&dir=asc#board-people',
+      '/app/workspace?period=30d&fleet=octo&sort=prs#board-people',
+      '/app/workspace?period=30d&fleet=octo&sort=prds#board-people',
+      '/app/workspace?period=30d&fleet=octo&sort=questions#board-people',
+    ]);
+    expect(hrefOf(sure(headers(render({}, {}, { sort: 'prs' }))[4], 'PRs').inner)).toBe('/app/workspace?sort=prs&dir=asc#board-people');
+  });
+
+  it('marks the sorted header alone, with ▼ or ▲ hidden from a screen reader and aria-sort (PRD 1017)', () => {
+    const byDefault = headers(render());
+    expect(byDefault.filter((h) => h.attrs.includes('aria-sort'))).toHaveLength(1);
+    expect(sure(byDefault[3], 'Points').attrs).toContain('aria-sort="descending"');
+    expect(sure(byDefault[3], 'Points').inner).toContain('<span class="board-sort-mark" aria-hidden="true">▼</span>');
+    expect(byDefault.filter((h) => h.inner.includes('board-sort-mark'))).toHaveLength(1);
+    const byName = headers(render({}, {}, { sort: 'name' }));
+    expect(sure(byName[1], 'Name').attrs).toContain('aria-sort="ascending"');
+    expect(sure(byName[1], 'Name').inner).toContain('<span class="board-sort-mark" aria-hidden="true">▲</span>');
+    expect(byName.filter((h) => h.attrs.includes('aria-sort'))).toHaveLength(1);
+  });
+
+  it('draws the rows in the order the query asks, the default for one it does not know (PRD 1017)', () => {
+    expect(rowNames(render())).toEqual(['ADA', 'Paul Etienne', 'NOGIT']);
+    expect(rowNames(render({}, {}, { sort: 'prs' }))).toEqual(['Paul Etienne', 'ADA', 'NOGIT']);
+    expect(rowNames(render({}, {}, { sort: 'prs', dir: 'asc' }))).toEqual(['ADA', 'Paul Etienne', 'NOGIT']);
+    expect(rowNames(render({}, {}, { sort: 'name', dir: 'desc' }))).toEqual(['Paul Etienne', 'NOGIT', 'ADA']);
+    expect(rowNames(render({}, {}, { sort: 'nope', dir: 'up' }))).toEqual(['ADA', 'Paul Etienne', 'NOGIT']);
+  });
+
+  it('keeps every row\'s rank whatever the sort (PRD 1017)', () => {
+    const ranks = rowRanks(render());
+    expect(ranks).toEqual({ ADA: '1', 'Paul Etienne': '2', NOGIT: '–' });
+    for (const sort of ['rank', 'name', 'fleet', 'points', 'prs', 'prds', 'questions']) {
+      for (const dir of ['asc', 'desc']) expect(rowRanks(render({}, {}, { sort, dir })), `${sort} ${dir}`).toEqual(ranks);
+    }
   });
 
   it('starts each People row with the member\'s face and shows their fleet as a chip with its mascot', () => {
