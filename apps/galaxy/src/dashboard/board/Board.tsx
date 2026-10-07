@@ -11,6 +11,7 @@ import type { Query } from './links';
 import type { BoardValue } from './load';
 import type { Period } from './period';
 import { PeriodSwitch } from './PeriodSwitch';
+import { headerOf, peopleSortOf, sortPeople, type PeopleSort, type SortKey } from './sort';
 import { EVENTS, GROUPS, type ChartDay, type EventDay, type PersonRow, type PrdEvent, type RepoRow, type StageTally } from './tally';
 import './board.css';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
@@ -26,6 +27,8 @@ import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 // PRD 652: each People row's name starts with the member's face (PersonChip), and its fleet is a
 // FleetChip, its mascot in its colour; the row's text is the same as before. Each fleet of the season's
 // ranking is a FleetChip too. Issue 958: its top three wear a pixel medal (medal.ts) in a narrow rank column.
+// PRD 1017: every People header is a link that sorts the table by its column (sort.ts), the sort kept
+// in the query; the sorted header alone shows ▼ or ▲ and carries aria-sort. The rank never moves.
 
 const COUNT = new Intl.NumberFormat('en-US');
 const n = (value: number) => COUNT.format(value);
@@ -210,7 +213,23 @@ function failed(rows: PersonRow[]): string[] {
   ].filter((x): x is string => Boolean(x));
 }
 
-function People({ people, title, note }: { people: Read<PersonRow[]>; title: ReactNode; note?: ReactNode }) {
+/** Where the People table is drawn: the page's path and query, and the sort the query asks for. */
+interface TableAt { path: string; query: Query; sort: PeopleSort }
+
+const MARK = { ascending: '▲', descending: '▼' } as const;
+
+/** A People header: a link that sorts by its column; the sorted one marked, for the eye and for a screen reader. */
+function SortHeader({ table, sortKey, num = false, note, children }: { table: TableAt; sortKey: SortKey; num?: boolean; note?: string; children: string }) {
+  const header = headerOf(table.path, table.query, table.sort, sortKey);
+  return (
+    <th scope="col" className={num ? 'is-num' : undefined} aria-sort={header.sorted ?? undefined}>
+      <a className="board-sort" href={header.href}>{children}{header.sorted && <span className="board-sort-mark" aria-hidden="true">{MARK[header.sorted]}</span>}</a>
+      {note && <span className="board-th-note">{note}</span>}
+    </th>
+  );
+}
+
+function People({ people, title, note, table }: { people: Read<PersonRow[]>; title: ReactNode; note?: ReactNode; table: TableAt }) {
   return (
     <section className="board-people board-card" aria-labelledby="board-people">
       <h2 id="board-people">{title}</h2>
@@ -220,17 +239,19 @@ function People({ people, title, note }: { people: Read<PersonRow[]>; title: Rea
             <table className="board-table">
               <thead>
                 <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Fleet</th>
-                  <th scope="col" className="is-num">Points</th>
-                  <th scope="col" className="is-num">PRs</th>
-                  <th scope="col" className="is-num">PRDs <span className="board-th-note">{GROUPS.join(' · ')}</span></th>
-                  <th scope="col" className="is-num">Questions</th>
+                  <SortHeader table={table} sortKey="rank" num>Rank</SortHeader>
+                  <SortHeader table={table} sortKey="name">Name</SortHeader>
+                  <SortHeader table={table} sortKey="fleet">Fleet</SortHeader>
+                  <SortHeader table={table} sortKey="points" num>Points</SortHeader>
+                  <SortHeader table={table} sortKey="prs" num>PRs</SortHeader>
+                  <SortHeader table={table} sortKey="prds" num note={GROUPS.join(' · ')}>PRDs</SortHeader>
+                  <SortHeader table={table} sortKey="questions" num>Questions</SortHeader>
                 </tr>
               </thead>
               <tbody>
-                {people.map((p) => (
+                {sortPeople(people, table.sort).map((p) => (
                   <tr key={p.userId} aria-current={p.you ? 'true' : undefined}>
+                    <td className="is-num">{p.rank === null ? <span aria-label="no rank">{DASH}</span> : n(p.rank)}</td>
                     <th scope="row" className="board-name">
                       <PersonChip person={p} />
                       {p.you && <span className="board-you"><span aria-hidden="true"> ◀</span><span className="ask-sr"> (you)</span></span>}
@@ -319,7 +340,7 @@ export function Board({ board, path, query, peopleTitle = 'People', peopleNote, 
         <MergesChart days={board.merges} period={period} />
         <PrdChart days={board.prdEvents} period={period} />
       </div>
-      <People people={board.people} title={peopleTitle} note={peopleNote} />
+      <People people={board.people} title={peopleTitle} note={peopleNote} table={{ path, query, sort: peopleSortOf(query) }} />
       <Repositories repos={board.repositories} />
       {fleets && <FleetRanking fleets={board.fleets} season={board.season.name} />}
     </div>

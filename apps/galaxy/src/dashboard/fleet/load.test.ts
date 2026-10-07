@@ -51,7 +51,7 @@ describe('loadFleet', () => {
     expect(fleet.board.tiles.answered).toBe(9);
     expect(fleet.board.tiles.prds).toMatchObject({ shipped: 1, inbox: 0 });
     const people = fleet.board.people as PersonRow[];
-    expect(people.map((p) => p.userId)).toEqual(['u-paul', 'u-ada']);
+    expect(people.map((p) => p.userId)).toEqual(['u-ada', 'u-paul']);
     expect(people.find((p) => p.userId === 'u-paul')).toMatchObject({ prs: 7, answered: 9, points: 0 });
     expect(people.find((p) => p.userId === 'u-ada')?.you).toBe(true);
     expect((fleet.fleets as { name: string; yours: boolean }[]).map((f) => [f.name, f.yours])).toEqual([['beaver', false], ['octo', true]]);

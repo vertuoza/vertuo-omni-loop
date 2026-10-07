@@ -153,9 +153,43 @@ describe('peopleRows', () => {
     expect(people.find((p) => p.userId === 'u-bob')).toMatchObject({ prs: 0, points: 300, answered: 0 });
   });
 
-  it('sorts by PRs merged, then points, then name', () => {
+  it('sorts by points, then PRs merged, then name; a dash in points sorts last (PRD 1017)', () => {
     const people = peopleRows(ROSTER, input(), 'u-ada');
-    expect(people.map((p) => p.userId)).toEqual(['u-paul', 'u-ada', 'u-bob', 'u-sol', 'u-nog']);
+    expect(people.map((p) => p.userId)).toEqual(['u-bob', 'u-ada', 'u-paul', 'u-sol', 'u-nog']);
+  });
+
+  it('ranks each row by points, equal points sharing a rank; a dash has no rank (PRD 1017)', () => {
+    const people = peopleRows(ROSTER, input(), 'u-ada');
+    expect(people.map((p) => [p.userId, p.rank])).toEqual([['u-bob', 1], ['u-ada', 2], ['u-paul', 3], ['u-sol', 3], ['u-nog', null]]);
+  });
+
+  describe('the points order and its rank (PRD 1017)', () => {
+    const players = [
+      member('u-e', 'e-gh', null, 'eve'), member('u-d', 'd-gh', null, 'Dan'), member('u-c', 'c-gh', null, 'cat'),
+      member('u-b', 'b-gh', null, 'Bea'), member('u-a', 'a-gh', null, 'Abe'), member('u-x', null, null, 'Xen'),
+    ];
+    const heroes = [{ name: 'a-gh', points: 125 }, { name: 'b-gh', points: 50 }, { name: 'c-gh', points: 50 }];
+    const merged = inPeriod([
+      act('pr-merged', 'c-gh', '2026-09-25T08:00:00Z', 'vertuo-core', 1),
+      act('pr-merged', 'e-gh', '2026-09-25T08:00:00Z', 'vertuo-core', 2),
+      act('pr-merged', 'e-gh', '2026-09-25T08:00:00Z', 'vertuo-core', 3),
+    ], WEEK);
+    const table = (over: Partial<Parameters<typeof peopleRows>[1]> = {}) =>
+      peopleRows(players, { activity: merged, answered: new Map(), heroes, fleets: [], prds: [], ...over }, null);
+
+    it('ties on points fall to PRs merged, highest first, then to the name A to Z, ignoring case', () => {
+      expect(table().map((p) => p.name)).toEqual(['Abe', 'cat', 'Bea', 'eve', 'Dan', 'Xen']);
+    });
+
+    it('standard competition ranking: 125, 50, 50, 0, 0 rank 1, 2, 2, 4, 4, and the dash has none', () => {
+      expect(table().map((p) => p.rank)).toEqual([1, 2, 2, 4, 4, null]);
+    });
+
+    it('points unreadable: no row has a rank, and the order falls to PRs, then name', () => {
+      const rows = table({ heroes: 'unreadable' });
+      expect(rows.map((p) => p.rank)).toEqual([null, null, null, null, null, null]);
+      expect(rows.map((p) => p.name)).toEqual(['eve', 'cat', 'Abe', 'Bea', 'Dan', 'Xen']);
+    });
   });
 
   it('marks the viewer, reads SOLO with no fleet, and dashes the GitHub-counted columns with no login', () => {
