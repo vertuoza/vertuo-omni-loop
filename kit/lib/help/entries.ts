@@ -137,6 +137,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'unless the verdict is asked. Needs gh logged in.',
   },
   {
+    name: 'next',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni next <prd>… [--json]'],
+    label: 'omni next <n>',
+    summary: "what the loop's next step is for PRD n",
+    detail:
+      "PRD n's next step, read from its phase-0 PR, its feature PR, its open outbox questions and " +
+      'its board: act with the skill to run (a wave, yolo, yolo-fix or one PR care round), wait ' +
+      'with when to look again, park with who it waits on and the link where they act, or done. ' +
+      'It writes nothing on GitHub; GitHub out of reach is a wait. --json prints every verdict as ' +
+      'one document. Needs gh logged in.',
+  },
+  {
     name: 'check',
     kind: 'command',
     who: 'you',

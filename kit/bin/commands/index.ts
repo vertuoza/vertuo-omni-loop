@@ -30,6 +30,7 @@ import { init } from './init.ts';
 import { item } from './item.ts';
 import { kb } from './kb.ts';
 import { knowledge } from './knowledge.ts';
+import { next } from './next.ts';
 import { phase0 } from './phase0.ts';
 import { plan } from './plan.ts';
 import { prd } from './prd.ts';
@@ -48,4 +49,4 @@ import { update } from './update.ts';
 import { version } from './version.ts';
 import { visual } from './visual.ts';
 
-export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, sign, credits, dossier, flow, proof, pitch, business, constituents, decide, version, update, help, statusline, targets });
+export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, care, next, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, sign, credits, dossier, flow, proof, pitch, business, constituents, decide, version, update, help, statusline, targets });
