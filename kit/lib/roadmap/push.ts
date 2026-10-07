@@ -75,6 +75,10 @@ export type RoadmapPushBody = {
 /** The longest waits-on line the app stores. */
 export const WAITS_ON_MAX = 300;
 
+/** A recommendation cell that gives none: empty, a dash of any width, or the word, as the parser
+ * reads a "none" cell. */
+const NO_RECOMMENDATION = /^(?:|-|–|—|none)$/i;
+
 /** Outbox ranks a person must answer: a medium decision is adopted, never asked. */
 const ASKED_RANKS = new Set(['human-action', 'high']);
 
@@ -170,7 +174,7 @@ export function roadmapPushBody({ repo, roadmap, document, standings, answers }:
   const questions = roadmap.questions.map((q) => ({
     id: q.id,
     question: q.question,
-    recommendation: q.recommendation.trim() || null,
+    recommendation: NO_RECOMMENDATION.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
     blocks: [...q.blocks],
     kind: q.kind,
     answer: answers.get(q.id) ?? null,

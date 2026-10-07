@@ -636,8 +636,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'roadmap',
     kind: 'command',
     who: 'skills',
-    usage: ['omni roadmap check [<n>]'],
-    summary: 'grade the roadmaps of the inbox',
+    usage: ['omni roadmap check [<n>]', 'omni roadmap push <n>', 'omni roadmap answer <n> <question> "<answer>"'],
+    summary: 'grade, push or answer the roadmaps of the inbox',
     detail:
       "check grades every roadmap under {inbox}roadmaps/, or roadmap n alone: a milestone's PRDs, each " +
       'with its blockers, the why of each, and its wave. It refuses a table that does not parse, an id ' +
@@ -645,7 +645,14 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "blocker without its why, a row whose PRD has no folder or whose spec's blocked-by differs, and a " +
       'question blocking a row that does not exist; in a plan repository also a repo that is not a ' +
       'target, a read-only one, and a consumer PRD not after the provider PRD it waits on. It prints ' +
-      'the PRDs wave by wave, then every violation; exit 1 on any. omni check inbox runs it too.',
+      'the PRDs wave by wave, then every violation; exit 1 on any. omni check inbox runs it too. ' +
+      "push sends roadmap n, its open questions with the latest answer to each, and where each PRD " +
+      'stands (waiting, building, outbox, ready, merged or closed, and the pull request a PRD not ' +
+      "started waits on) to the roadmap's page on the Omni page, with this computer's sign-in. It " +
+      'never holds up the loop: a 5-second limit and one sign-in refresh, and anything that stops it ' +
+      'exits 1 with one line (off, no sign-in, github unreachable, unreachable or refused). answer ' +
+      "posts a person's answer to one question as a comment on the roadmap's issue, with the marker " +
+      "push reads the answers back from; the roadmap's page writes the same line.",
   },
   {
     name: 'rework',
