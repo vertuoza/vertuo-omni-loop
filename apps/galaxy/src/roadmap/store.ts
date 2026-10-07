@@ -110,15 +110,19 @@ function bodyOf(push: RoadmapPush): Record<string, unknown> {
   return { ...rest, number: roadmap };
 }
 
+/** roadmap_push()'s answer, parsed; its refusal or an answer that does not parse, thrown. */
+function settled({ data, error }: { data: unknown; error: Failure | null }): RoadmapPushAnswer {
+  if (error) throw new RoadmapStoreError('push the roadmap', error);
+  const parsed = parseRow(PushAnswer, data, 'roadmap/store: roadmap_push');
+  if (!parsed.ok) throw new RoadmapStoreError('push the roadmap', { message: parsed.error });
+  return parsed.value;
+}
+
 export function roadmapStore(db: Pick<SupabaseClient, 'rpc'>) {
   return {
     /** Records one push of a roadmap; answers the roadmap, whether it is new, and its product. */
     async push(push: RoadmapPush): Promise<RoadmapPushAnswer> {
-      const { data, error } = await db.rpc('roadmap_push', { p_body: bodyOf(push) });
-      if (error) throw new RoadmapStoreError('push the roadmap', error);
-      const parsed = parseRow(PushAnswer, data, 'roadmap/store: roadmap_push');
-      if (!parsed.ok) throw new RoadmapStoreError('push the roadmap', { message: parsed.error });
-      return parsed.value;
+      return settled(await db.rpc('roadmap_push', { p_body: bodyOf(push) }));
     },
   };
 }

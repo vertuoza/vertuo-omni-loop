@@ -65,7 +65,8 @@ describe('POST /api/roadmaps: a roadmap is pushed', () => {
     const w = world();
     const { status, body } = await w.send(PUSH);
     expect(status).toBe(201);
-    expect(body).toEqual({ roadmapId: expect.any(String), created: true, product: 'Anvils', unknownProduct: null, note: null });
+    expect(body).toEqual({ roadmapId: body?.roadmapId, created: true, product: 'Anvils', unknownProduct: null, note: null });
+    expect(body?.roadmapId).toMatch(/^[0-9a-f-]{36}$/);
     expect(w.fake.tables.roadmaps).toEqual([expect.objectContaining({
       id: body?.roadmapId, workspace_id: ACME, repo: 'acme/plan', number: 1200, product_id: w.fake.productId(ACME, 'Anvils'),
       target_date: '2027-03-31', questions: [Q5], document: PUSH.document, pushed_by: ADA.id,
@@ -79,7 +80,7 @@ describe('POST /api/roadmaps: a roadmap is pushed', () => {
 
   it('sends exactly what the database needs: the roadmap\'s number under `number`, every field defaulted', async () => {
     const w = world();
-    const { product: _product, target: _target, source: _source, questions: _questions, ...bare } = PUSH;
+    const bare = { repo: PUSH.repo, roadmap: PUSH.roadmap, title: PUSH.title, milestone: PUSH.milestone, document: PUSH.document };
     await w.send({ ...bare, prds: [{ id: 'P1.1', prd: 1201, title: 'Crew API', wave: 1, state: 'building' }] });
     expect(w.fake.calls).toEqual([{ fn: 'roadmap_push', args: { p_body: {
       repo: 'acme/plan', number: 1200, title: PUSH.title, milestone: PUSH.milestone, product: null, target: null, source: null,
