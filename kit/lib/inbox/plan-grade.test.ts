@@ -377,3 +377,67 @@ flow:
     expect(graded.violations).toEqual(["flow: back's imported flow at .omni-loop/knowledge/repos/back/flow/config.yml cannot be read — not valid YAML"]);
   });
 });
+
+describe('gradePlan — readOnly and consumes targets (PRD 1162)', () => {
+  const CONSUMING = parseConfig(
+    [
+      'kit: 1',
+      'repo:',
+      '  slug: acme/plan',
+      'plan:',
+      '  targets:',
+      '    - repo: acme/api',
+      '      role: back-end',
+      '      knowledge: none',
+      '    - repo: acme/web',
+      '      role: front-end',
+      '      knowledge: none',
+      '      consumes: [api]',
+      '    - repo: acme/legacy',
+      '      role: legacy',
+      '      knowledge: none',
+      '      readOnly: true',
+      '',
+    ].join('\n'),
+  );
+  const header = '| id | repo | slice | territory | blocked by | wave |';
+  const multi = (slices: string[]) => {
+    const repos = [...new Set(slices.map((row) => row.split('|')[2]?.trim()))];
+    return [
+      '## Repositories',
+      '',
+      '| repo | role | read at | knowledge |',
+      '| --- | --- | --- | --- |',
+      ...repos.map((repo) => `| ${repo} | target | ${'a'.repeat(40)} | none |`),
+      '',
+      '## Slices',
+      '',
+      planMd(slices, header),
+    ].join('\n');
+  };
+
+  it('refuses a slice in a readOnly target, naming the slice and the target', () => {
+    const graded = gradePlan(multi(['| s1 | api | A | `a/` | — | 1 |', '| s2 | legacy | B | `b/` | — | 1 |']), { config: CONSUMING });
+    expect(graded.violations).toEqual(['readOnly: s2 lands in legacy, a read-only target — no slice may name it.']);
+  });
+
+  it('refuses a consumer slice blocked by a slice of a target it consumes, naming both slices', () => {
+    const graded = gradePlan(multi(['| s1 | api | A | `a/` | — | 1 |', '| s2 | web | B | `b/` | s1 | 2 |']), { config: CONSUMING });
+    expect(graded.violations).toEqual([
+      'consumes: s2 (web) is blocked by s1 (api), and web consumes api — web installs what api publishes from its default branch, so the change it waits on is an earlier PRD of its own.',
+    ]);
+  });
+
+  it('passes a consumer slice blocked only by slices of its own repository, and a provider blocked by its consumer', () => {
+    const own = gradePlan(multi(['| s1 | web | A | `a/` | — | 1 |', '| s2 | web | B | `b/` | s1 | 2 |', '| s3 | api | C | `c/` | — | 1 |']), {
+      config: CONSUMING,
+    });
+    expect(own.violations).toEqual([]);
+    const reverse = gradePlan(multi(['| s1 | web | A | `a/` | — | 1 |', '| s2 | api | B | `b/` | s1 | 2 |']), { config: CONSUMING });
+    expect(reverse.violations).toEqual([]);
+  });
+
+  it('refuses nothing new in a plan repository whose targets carry neither field', () => {
+    expect(gradePlan(multi(['| s1 | api | A | `a/` | — | 1 |']), { config: PLAN_REPO }).violations).toEqual([]);
+  });
+});

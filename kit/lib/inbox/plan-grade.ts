@@ -8,7 +8,8 @@
 // used twice. In a plan repository (a config with a `plan` section, PRD 549) each slice names the
 // repository it lands in, in a `repo` column, and a `## Repositories` table records each one: this
 // grades both, every refusal naming its field first, and gives the collision matrix per repository.
-// Outside one, either table is refused.
+// Outside one, either table is refused. There a target's reach is graded too (PRD 1162): no slice may
+// land in a `readOnly` target, and no slice in a target may be blocked by one in a target it `consumes`.
 //
 // A plan may deliver its PRD in several landings: a `landing` column puts each slice in one, and a
 // `## Landings` table may name each landing and say what must be true before it is merged. Waves
@@ -284,6 +285,35 @@ function rowViolation(
   return null;
 }
 
+/** A target as the PRD 1162 rules read it: its slug, whether it is read-only, what it consumes. */
+type TargetReach = { repo: string; readOnly?: boolean | undefined; consumes?: string[] | undefined };
+
+/**
+ * What a plan repository's plan gets wrong about its targets' reach (PRD 1162), each line naming its
+ * field first: a slice landing in a `readOnly` target, and a slice in a consumer target blocked by a
+ * slice in a target it `consumes` — the consumer installs what the provider publishes from its
+ * default branch, so that change cannot reach it before it merges and is an earlier PRD of its own.
+ */
+function targetReachViolations(slices: readonly Slice[], targets: readonly TargetReach[]): string[] {
+  const readOnly = new Set(targets.filter((target) => target.readOnly === true).map((target) => shortName(target.repo)));
+  const consumes = new Map(targets.map((target) => [shortName(target.repo), new Set(target.consumes ?? [])]));
+  const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
+  const violations = slices
+    .filter((slice) => slice.repo !== null && readOnly.has(slice.repo))
+    .map((slice) => `readOnly: ${slice.id} lands in ${slice.repo}, a read-only target — no slice may name it.`);
+  for (const slice of slices) {
+    const provided = slice.repo === null ? undefined : consumes.get(slice.repo);
+    for (const blocker of slice.blockedBy) {
+      const provider = repoOf.get(blocker);
+      if (provider === undefined || provider === null || provided?.has(provider) !== true) continue;
+      violations.push(
+        `consumes: ${slice.id} (${slice.repo}) is blocked by ${blocker} (${provider}), and ${slice.repo} consumes ${provider} — ${slice.repo} installs what ${provider} publishes from its default branch, so the change it waits on is an earlier PRD of its own.`,
+      );
+    }
+  }
+  return violations;
+}
+
 /** What an ordinary repository's plan may not carry: either table of a plan repository. */
 function notPlanRepositoryViolations(slices: readonly Slice[], repositories: readonly PlanRepository[]): string[] {
   const violations: string[] = [];
@@ -344,6 +374,7 @@ export function gradePlan(
     ...(planSection === null
       ? notPlanRepositoryViolations(slices, repositories)
       : repositoryViolations(slices, repositories, { planSlug: defined(config.repo.slug, "the plan repository's repo.slug"), targets: planSection.targets })), // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
+    ...(multi ? targetReachViolations(slices, planSection.targets) : []),
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...landingViolations(slices, landingRows),
     ...(multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config))),
