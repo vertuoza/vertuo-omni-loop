@@ -7824,7 +7824,8 @@ var SettledSchema = z25.object({
     settled: z25.array(z25.object({ id: z25.string(), from: z25.enum(["open", "drift"]) })),
     shipped: z25.array(MoveSchema),
     candidates: z25.array(CandidateSchema),
-    summary: SummarySchema
+    summary: SummarySchema,
+    changed: z25.array(z25.object({ path: z25.string(), status: z25.string() }))
   })
 });
 var ClassificationOutSchema = z25.object({
@@ -7843,7 +7844,9 @@ var PlacedSchema = z25.object({
   decided: z25.string(),
   status: z25.string().nullable(),
   proposed: z25.boolean(),
-  reason: z25.string()
+  reason: z25.string(),
+  enforcedBy: z25.array(z25.string()).exactOptional(),
+  dropped: z25.array(z25.object({ path: z25.string(), reason: z25.string() })).exactOptional()
 });
 var WrittenSchema = z25.object({
   edits: EditsSchema,
@@ -7878,6 +7881,12 @@ async function readMerge(octokit, { owner, repo, prNumber }) {
     url: data.html_url ?? null
   };
 }
+async function pullFiles(octokit, { owner, repo, prNumber }) {
+  const files = await paginate(
+    (page) => octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page }).then(({ data }) => parsedOr(ListSchema, data, `GitHub answered the files of #${prNumber} unexpectedly`))
+  );
+  return parsedOr(PullFilesSchema, files, `GitHub answered the files of #${prNumber} unexpectedly`);
+}
 async function tipOf(octokit, { owner, repo, branch }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo, ref: `heads/${branch}` });
   return parsedOr(RefSchema3, data, `GitHub answered the branch ${branch} unexpectedly`).object.sha;
@@ -7888,10 +7897,10 @@ function loopPaths2(config) {
     (path) => typeof path === "string" && path.length > 0
   );
 }
-async function withTreeAt(octokit, { owner, repo, sha, config }, fn) {
+async function withTreeAt(octokit, { owner, repo, sha, config, also = [] }, fn) {
   const root = mkdtempSync8(join31(tmpdir8(), "omni-harvest-tree-"));
   try {
-    await snapshot(octokit, { owner, repo, ref: sha, paths: loopPaths2(config), dest: root });
+    await snapshot(octokit, { owner, repo, ref: sha, paths: [.../* @__PURE__ */ new Set([...loopPaths2(config), ...also])], dest: root });
     return await fn(createContext(root, loadConfig(root)), root);
   } finally {
     rmSync8(root, { recursive: true, force: true });
@@ -7962,6 +7971,16 @@ function decidedShort(decided) {
   if (text8.startsWith("nobody")) return "nobody \u2014 adopted";
   return text8;
 }
+function proofLines(placed) {
+  return placed.flatMap((entry) => {
+    if (!entry.enforcedBy) return [];
+    const enforced = entry.enforcedBy.length > 0 ? entry.enforcedBy.join(", ") : "unenforced";
+    return [
+      `- ${entry.landedAs[0] ?? ""} \u2014 Enforced by: ${enforced}`,
+      ...(entry.dropped ?? []).map((drop) => `  - dropped ${drop.path} \u2014 ${drop.reason}`)
+    ];
+  });
+}
 function checkMark(name, violations) {
   return violations.length === 0 ? `omni check ${name} \u2713` : `omni check ${name} \u2717 (${violations.length})`;
 }
@@ -7984,6 +8003,8 @@ function knowledgeBody({ prd, merge, settled, shipped, placed, notPlaced, checks
     }
     lines.push("");
   }
+  const proofs = proofLines(placed);
+  if (proofs.length > 0) lines.push("**Proofs \u2014 confirmed with their entry:**", ...proofs, "");
   if (notPlaced.length > 0) {
     lines.push("**Not placed:**");
     for (const entry of notPlaced) lines.push(`- [ ] ${entry.id} \u2014 ${entry.reason.split("\n")[0]}`);
@@ -8037,6 +8058,11 @@ var verdictMarker = (prefix) => `<!-- ${prefix}-knowledge-verdict -->`;
 var VERDICT_MARKER = verdictMarker(MARKER_PREFIX);
 var nothingNewText = (count2) => `Knowledge: nothing new \u2014 ${count2} ${count2 === 1 ? "candidate" : "candidates"} stayed local.`;
 var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+function proposedProofs(classified, changed) {
+  const kept2 = new Set(keptPaths(changed));
+  const proposed = classified.flatMap(({ reply }) => reply && "enforcedBy" in reply ? reply.enforcedBy ?? [] : []);
+  return [...new Set(proposed)].filter((path) => kept2.has(path)).sort();
+}
 function createKnowledgeHarvest({ client, octokitFor, openrouter, fetch: fetch2 = globalThis.fetch, now = today }) {
   return client.createFunction(
     {
@@ -8075,8 +8101,9 @@ function createKnowledgeHarvest({ client, octokitFor, openrouter, fetch: fetch2 
       refuseDefault(branch, base);
       const settled = await savedStep(step, "settle", SettledSchema, async () => {
         const octokit = await github();
+        const changed = await pullFiles(octokit, { owner, repo, prNumber });
         const tip2 = await tipOf(octokit, { owner, repo, branch: base });
-        const prepared2 = await withTreeAt(octokit, { owner, repo, sha: tip2, config }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge }));
+        const prepared2 = await withTreeAt(octokit, { owner, repo, sha: tip2, config }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge, changed }));
         if (!prepared2.ok) {
           throw new NonRetriableError3(`PRD ${prd.number} cannot be harvested at ${base}: ${prepared2.errors.join("; ")}`);
         }
@@ -8086,13 +8113,14 @@ function createKnowledgeHarvest({ client, octokitFor, openrouter, fetch: fetch2 
       const classified = [];
       for (const candidate of prepared.candidates) {
         classified.push(
-          await savedStep(step, `classify:${candidate.id}`, ClassificationOutSchema, () => classifyCandidate({ candidate, summary: prepared.summary, openrouter, fetch: fetch2 }))
+          await savedStep(step, `classify:${candidate.id}`, ClassificationOutSchema, () => classifyCandidate({ candidate, summary: prepared.summary, changed: prepared.changed, openrouter, fetch: fetch2 }))
         );
       }
       const written = await savedStep(step, "write", WrittenSchema, async () => {
         const octokit = await github();
         const taken = await takenElsewhere(octokit, { owner, repo, config, own: branch });
-        return withTreeAt(octokit, { owner, repo, sha: tip, config }, (ctx, root) => {
+        const also = proposedProofs(classified, prepared.changed);
+        return withTreeAt(octokit, { owner, repo, sha: tip, config, also }, (ctx, root) => {
           const result = finishHarvest({ ctx, prepared, classified, merge, taken, date: now() });
           return { ...result, commit: toCommit(result.edits, filesIn(root)), taken: taken.branches };
         });

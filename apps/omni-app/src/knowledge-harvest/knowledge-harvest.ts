@@ -6,12 +6,15 @@
 //
 //   step "qualify"         the pull request's merge (who, when, which commit); a feature PR merged into
 //                          `repo.defaultBranch`, by the retro's rule (`../retro/qualify.ts`)
-//   step "settle"          the default branch's tip, snapshotted: settle at merge, plan the ship, list
-//                          the candidates (`prepareHarvest`)
-//   step "classify:<id>"   one OpenRouter call per candidate (`classifyCandidate`); without a key,
-//                          each is not placed and says why
-//   step "write"           the same tip again, and the ids the other open knowledge branches take:
-//                          write the knowledge, run both checks, drop what fails (`finishHarvest`)
+//   step "settle"          the files the pull request changed, every page (PRD 1171), and the default
+//                          branch's tip, snapshotted: settle at merge, plan the ship, list the
+//                          candidates (`prepareHarvest`)
+//   step "classify:<id>"   one OpenRouter call per candidate (`classifyCandidate`), the prompt listing
+//                          the changed files; without a key, each is not placed and says why
+//   step "write"           the same tip again, with every proof a reply proposed among the changed
+//                          files, and the ids the other open knowledge branches take: write the
+//                          knowledge, keep each proof the tip still holds, run both checks, drop what
+//                          fails (`finishHarvest`)
 //   step "publish"         one commit on `branches.knowledge`, cut from that tip; one knowledge PR
 //   step "verdict"         only when there is nothing to publish: one comment on the merged PR, marked
 //                          `<markers.prefix>-knowledge-verdict`, "Knowledge: nothing new — <n>
@@ -25,7 +28,7 @@
 // the model.
 import { type Inngest, NonRetriableError } from 'inngest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { classifyCandidate, finishHarvest, noEdits, prepareHarvest } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
+import { classifyCandidate, finishHarvest, keptPaths, noEdits, prepareHarvest } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import { addCommit, branchHead, refuseDefault, upsertPull } from '../git-write/git-write.ts';
 import { HARVEST_EVENT } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
@@ -33,7 +36,8 @@ import { qualify } from '../retro/qualify.ts';
 import { firstLine } from '../outbox-check/github-schema.ts';
 import { commentOnFailure, FailureCommentSchema, upsertComment } from '../verdict-comment/verdict-comment.ts';
 import type { Classification } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
-import { filesIn, readMerge, type RequestOctokit, takenElsewhere, tipOf, withTreeAt } from './github.ts';
+import type { ChangedFile } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
+import { filesIn, pullFiles, readMerge, type RequestOctokit, takenElsewhere, tipOf, withTreeAt } from './github.ts';
 import { commitMarker, commitMessage, knowledgeBody, knowledgeTitle, toCommit } from './render.ts';
 import {
   ClassificationOutSchema,
@@ -73,6 +77,16 @@ export const nothingNewText = (count: number) =>
   `Knowledge: nothing new — ${count} ${count === 1 ? 'candidate' : 'candidates'} stayed local.`;
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * The proofs the replies propose that the pull request left in the tree: the files the "write" step
+ * reads at the tip beside the loop's, so the writer can tell a kept proof from one gone since.
+ */
+export function proposedProofs(classified: readonly Pick<Classification, 'reply'>[], changed: readonly ChangedFile[]): string[] {
+  const kept = new Set(keptPaths(changed));
+  const proposed = classified.flatMap(({ reply }) => (reply && 'enforcedBy' in reply ? (reply.enforcedBy ?? []) : []));
+  return [...new Set(proposed)].filter((path) => kept.has(path)).sort();
+}
 
 /**
  * The function, bound to its client, GitHub, OpenRouter (from the app's environment, ../env.ts; `null`:
@@ -125,8 +139,9 @@ export function createKnowledgeHarvest({ client, octokitFor, openrouter, fetch =
 
       const settled = await savedStep(step, 'settle', SettledSchema, async () => {
         const octokit = await github();
+        const changed = await pullFiles(octokit, { owner, repo, prNumber });
         const tip = await tipOf(octokit, { owner, repo, branch: base });
-        const prepared = await withTreeAt(octokit, { owner, repo, sha: tip, config }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge }));
+        const prepared = await withTreeAt(octokit, { owner, repo, sha: tip, config }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge, changed }));
         if (!prepared.ok) {
           throw new NonRetriableError(`PRD ${prd.number} cannot be harvested at ${base}: ${prepared.errors.join('; ')}`);
         }
@@ -137,14 +152,15 @@ export function createKnowledgeHarvest({ client, octokitFor, openrouter, fetch =
       const classified: Classification[] = [];
       for (const candidate of prepared.candidates) {
         classified.push(
-          await savedStep(step, `classify:${candidate.id}`, ClassificationOutSchema, () => classifyCandidate({ candidate, summary: prepared.summary, openrouter, fetch })),
+          await savedStep(step, `classify:${candidate.id}`, ClassificationOutSchema, () => classifyCandidate({ candidate, summary: prepared.summary, changed: prepared.changed, openrouter, fetch })),
         );
       }
 
       const written = await savedStep(step, 'write', WrittenSchema, async () => {
         const octokit = await github();
         const taken = await takenElsewhere(octokit, { owner, repo, config, own: branch });
-        return withTreeAt(octokit, { owner, repo, sha: tip, config }, (ctx, root) => {
+        const also = proposedProofs(classified, prepared.changed);
+        return withTreeAt(octokit, { owner, repo, sha: tip, config, also }, (ctx, root) => {
           const result = finishHarvest({ ctx, prepared, classified, merge, taken, date: now() });
           return { ...result, commit: toCommit(result.edits, filesIn(root)), taken: taken.branches };
         });
