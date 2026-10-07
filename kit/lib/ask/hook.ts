@@ -90,28 +90,41 @@ export function toolAnswers(questions: unknown, answers: unknown): Answers | nul
  * `answers` shaped as `toolAnswers` shapes them, keeping only the questions that have one (PRD 1180):
  * a question left empty is left out. `null` when none has an answer.
  */
-export function givenAnswers(questions: unknown, answers: unknown): Answers | null {
+function givenAnswers(questions: unknown, answers: unknown): Answers | null {
   return shapeAnswers(questions, answers, { partly: true });
 }
 
 function shapeAnswers(questions: unknown, answers: unknown, { partly }: { partly: boolean }): Answers | null {
-  if (!Array.isArray(questions) || questions.length === 0) return null;
-  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) return null;
+  const list = questionsToShape(questions, answers);
+  if (!list) return null;
   const shaped: Answers = {};
-  const list: readonly unknown[] = questions;
   for (const entry of list) {
-    // A question that is null or undefined throws, as destructuring it always has.
-    if (entry === null || entry === undefined) throw new TypeError(`a question is ${String(entry)}`);
-    const question = String(field(entry, 'question'));
-    const given = field(answers, question);
-    const text = Array.isArray(given) && given.every((label) => typeof label === 'string') ? given.join(', ') : given;
-    if (typeof text !== 'string' || text === '') {
-      if (partly) continue;
-      return null;
-    }
-    shaped[question] = text;
+    const question = questionOf(entry);
+    const text = answerText(field(answers, question));
+    if (text !== null) shaped[question] = text;
+    else if (!partly) return null;
   }
   return Object.keys(shaped).length > 0 ? shaped : null;
+}
+
+/** The questions, when there are some and `answers` is a record to read them from; else `null`. */
+function questionsToShape(questions: unknown, answers: unknown): readonly unknown[] | null {
+  if (!Array.isArray(questions) || questions.length === 0) return null;
+  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) return null;
+  const list: readonly unknown[] = questions;
+  return list;
+}
+
+/** A question's text. A question that is null or undefined throws, as destructuring it always has. */
+function questionOf(entry: unknown): string {
+  if (entry === null || entry === undefined) throw new TypeError(`a question is ${String(entry)}`);
+  return String(field(entry, 'question'));
+}
+
+/** The answer given to one question, its labels joined; `null` when it has none. */
+function answerText(given: unknown): string | null {
+  const text = Array.isArray(given) && given.every((label) => typeof label === 'string') ? given.join(', ') : given;
+  return typeof text === 'string' && text !== '' ? text : null;
 }
 
 export function promptOutput(): HookOutput {
@@ -232,8 +245,8 @@ function preInput(input: unknown): { toolInput: unknown; questions: unknown[]; t
   return { toolInput, questions, terminalId, toolUseId };
 }
 
-/** The round opened for this question in this terminal's session, or `null` when none could be. */
-async function openRoundFor({ root, host, client, input, title, readContext, readSessionContext, readLead, questions, terminalId }: {
+/** What opening a round needs, from the pre hook or the post hook. */
+type RoundOpening = {
   root: string;
   host: string;
   client: Client;
@@ -242,6 +255,10 @@ async function openRoundFor({ root, host, client, input, title, readContext, rea
   readContext: (options: { root: string; input: unknown }) => unknown;
   readSessionContext: (root: string) => unknown;
   readLead: (options: { input?: unknown }) => unknown;
+};
+
+/** The round opened for this question in this terminal's session, or `null` when none could be. */
+async function openRoundFor({ root, host, client, input, title, readContext, readSessionContext, readLead, questions, terminalId }: RoundOpening & {
   questions: unknown[];
   terminalId: string;
 }): Promise<string | null> {
@@ -359,15 +376,7 @@ function defaultTitle(root: string): () => string {
  * session, or in a new one when the server no longer takes rounds in it. An older server, which opens
  * it unanswered, is then sent the answer. Throws when it could not be recorded.
  */
-async function openAnswered({ root, host, client, input, title, readContext, readSessionContext, readLead, questions, answers, terminalId }: {
-  root: string;
-  host: string;
-  client: Client;
-  input: unknown;
-  title: () => string;
-  readContext: (options: { root: string; input: unknown }) => unknown;
-  readSessionContext: (root: string) => unknown;
-  readLead: (options: { input?: unknown }) => unknown;
+async function openAnswered({ root, host, client, input, title, readContext, readSessionContext, readLead, questions, answers, terminalId }: RoundOpening & {
   questions: unknown;
   answers: Answers;
   terminalId: string;

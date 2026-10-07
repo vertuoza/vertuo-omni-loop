@@ -26,6 +26,11 @@ export function header(headers: Headers | undefined, name: string): string {
   return Array.isArray(value) ? value.join(', ') : value ?? '';
 }
 
+/** A fetch that answers at once, as an async function's body did; a request it cannot read rejects. */
+function atOnce(answer: (href: string, init: Init) => Reply | Promise<Reply>): (href: string, init?: Init) => Promise<Reply> {
+  return (href, init = {}) => new Promise((resolve) => { resolve(answer(href, init)); });
+}
+
 /** Serves `fetch` on a local port, for a test that runs a game script as a process. */
 export async function serve<C>(fake: { fetch: (href: string, init: Init) => Promise<Reply>; calls: C[]; tables: Tables }, contentType: (text: string) => Record<string, string>): Promise<Served<C>> {
   const server = createServer((req, res) => {
@@ -96,9 +101,7 @@ export function fakeSupabase(tables: Tables, { failOn = null }: { failOn?: strin
     }
     return reply(201, prefer.includes('return=minimal') ? [] : inserted);
   };
-  // Answers at once, as an async function's body did; a request it cannot read rejects.
-  const fetch = (href: string, init: Init = {}): Promise<Reply> => new Promise((resolve) => { resolve(answer(href, init)); });
-  return { fetch, calls, tables };
+  return { fetch: atOnce(answer), calls, tables };
 }
 
 /** The fake behind http://127.0.0.1:<port>: resolves to { url, calls, tables, close() }. */

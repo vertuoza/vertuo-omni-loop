@@ -320,20 +320,26 @@ function readTerminalAnswer(sent: Record<string, unknown>): { answers: AskAnswer
   return isAnswers(sent.answers) ? { answers: sent.answers } : { problem: '`answers` must map each question\'s text to the answer text.' };
 }
 
+/** Everything a new round's request carries, or the first problem with it. */
+function readNewRound(sent: Record<string, unknown>) {
+  const sentQuestions = readQuestions(sent.questions);
+  if ('problem' in sentQuestions) return sentQuestions;
+  const read = readContext(sent, ROUND_KEYS);
+  if ('problem' in read) return read;
+  const sentLead = readLead(sent);
+  if ('problem' in sentLead) return sentLead;
+  const answered = readTerminalAnswer(sent);
+  if ('problem' in answered) return answered;
+  return { questions: sentQuestions.questions, context: read.context, sentLead, answered };
+}
+
 export function addRound(request: Request, id: string, deps: AskDeps): Promise<Response> {
   return handle(request, deps, async (who) => {
     const sent = await body(request);
     if (sent instanceof Response) return sent;
-    const sentQuestions = readQuestions(sent.questions);
-    if ('problem' in sentQuestions) return refuse(400, sentQuestions.problem);
-    const { questions } = sentQuestions;
-    const read = readContext(sent, ROUND_KEYS);
+    const read = readNewRound(sent);
     if ('problem' in read) return refuse(400, read.problem);
-    const { context } = read;
-    const sentLead = readLead(sent);
-    if ('problem' in sentLead) return refuse(400, sentLead.problem);
-    const answered = readTerminalAnswer(sent);
-    if ('problem' in answered) return refuse(400, answered.problem);
+    const { questions, context, sentLead, answered } = read;
     const session = await ownSession(who, id);
     if (!session) return notFound('session');
     if (sessionClosed(session, who.now())) return closedSession();

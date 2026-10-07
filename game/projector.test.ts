@@ -169,7 +169,8 @@ describe('projectEvents', () => {
       const events = projectEvents(settledBy(name), { config, now: NOW, onSkip: (s) => skipped.push(s) });
       expect(events.some((e) => e.type === 'WOUND_CLOSED')).toBe(false);
       expect(events.some((e) => e.id === 'planet:2332:charted')).toBe(true);
-      expect(skipped).toEqual([{ id: expect.stringMatching(/:closed$/) as unknown as string, message: `contributor ${JSON.stringify(name)} is not a GitHub login` }]);
+      const closedId: unknown = expect.stringMatching(/:closed$/);
+      expect(skipped).toEqual([{ id: closedId, message: `contributor ${JSON.stringify(name)} is not a GitHub login` }]);
     });
 
     it('writes it, under the same id, on the first poll after the name is fixed', () => {

@@ -30334,9 +30334,9 @@ function openedEntry(id) {
   return read2.success ? { id: read2.data, fields: {}, blocks: [] } : null;
 }
 function closedEntry({ id, fields, blocks }) {
-  const [answerText = "", itemText = ""] = blocks;
+  const [answerText2 = "", itemText = ""] = blocks;
   const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
-  return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
+  return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText: answerText2, itemText, became };
 }
 function rawSettledEntries(text10, markers) {
   const lines = text10.split("\n");
@@ -32945,22 +32945,30 @@ function givenAnswers(questions2, answers2) {
   return shapeAnswers(questions2, answers2, { partly: true });
 }
 function shapeAnswers(questions2, answers2, { partly }) {
-  if (!Array.isArray(questions2) || questions2.length === 0) return null;
-  if (!answers2 || typeof answers2 !== "object" || Array.isArray(answers2)) return null;
+  const list3 = questionsToShape(questions2, answers2);
+  if (!list3) return null;
   const shaped = {};
-  const list3 = questions2;
   for (const entry of list3) {
-    if (entry === null || entry === void 0) throw new TypeError(`a question is ${String(entry)}`);
-    const question = String(field(entry, "question"));
-    const given = field(answers2, question);
-    const text10 = Array.isArray(given) && given.every((label) => typeof label === "string") ? given.join(", ") : given;
-    if (typeof text10 !== "string" || text10 === "") {
-      if (partly) continue;
-      return null;
-    }
-    shaped[question] = text10;
+    const question = questionOf(entry);
+    const text10 = answerText(field(answers2, question));
+    if (text10 !== null) shaped[question] = text10;
+    else if (!partly) return null;
   }
   return Object.keys(shaped).length > 0 ? shaped : null;
+}
+function questionsToShape(questions2, answers2) {
+  if (!Array.isArray(questions2) || questions2.length === 0) return null;
+  if (!answers2 || typeof answers2 !== "object" || Array.isArray(answers2)) return null;
+  const list3 = questions2;
+  return list3;
+}
+function questionOf(entry) {
+  if (entry === null || entry === void 0) throw new TypeError(`a question is ${String(entry)}`);
+  return String(field(entry, "question"));
+}
+function answerText(given) {
+  const text10 = Array.isArray(given) && given.every((label) => typeof label === "string") ? given.join(", ") : given;
+  return typeof text10 === "string" && text10 !== "" ? text10 : null;
 }
 function promptOutput() {
   return { hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: PROMPT_CONTEXT } };
@@ -47354,8 +47362,8 @@ function namedPaths(text10) {
   );
 }
 var CHOSEN_OPTION_ANSWER = /^([A-D])\. ([\s\S]*?)(?: — because ([\s\S]*))?$/;
-function chosenOptionOf(answerText, options) {
-  const match = (answerText ?? "").trim().match(CHOSEN_OPTION_ANSWER);
+function chosenOptionOf(answerText2, options) {
+  const match = (answerText2 ?? "").trim().match(CHOSEN_OPTION_ANSWER);
   const option = match && (options ?? []).find((candidate) => candidate.letter === match[1]);
   if (!match || !option || option.text !== (match[2] ?? "").trim()) return { chosenOption: null, reason: null };
   return {
