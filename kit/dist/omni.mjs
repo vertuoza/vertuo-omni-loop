@@ -27797,7 +27797,29 @@ function migrateConfig(raw, migrations = MIGRATIONS) {
   }
   return current;
 }
-function parseConfig(source, file2 = CONFIG_FILE, { migrate = false } = {}) {
+function dropUnrecognized(raw, issues) {
+  let dropped = false;
+  for (const issue2 of issues) {
+    if (issue2.code !== "unrecognized_keys") continue;
+    let at2 = raw;
+    for (const step of issue2.path) at2 = isRecord(at2) ? at2[String(step)] : void 0;
+    if (!isRecord(at2)) continue;
+    for (const key of issue2.keys) {
+      if (Object.hasOwn(at2, key)) {
+        Reflect.deleteProperty(at2, key);
+        dropped = true;
+      }
+    }
+  }
+  return dropped;
+}
+function checkConfig(raw, ignoreUnknownKeys) {
+  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  if (result.success || !ignoreUnknownKeys) return result;
+  const copy = structuredClone(raw);
+  return dropUnrecognized(copy, result.error.issues) ? ConfigSchema.safeParse(copy, { error: KIT_MESSAGES }) : result;
+}
+function parseConfig(source, file2 = CONFIG_FILE, { migrate = false, ignoreUnknownKeys = false } = {}) {
   let raw;
   try {
     raw = (0, import_yaml.parse)(source) ?? {};
@@ -27810,7 +27832,7 @@ function parseConfig(source, file2 = CONFIG_FILE, { migrate = false } = {}) {
     const { section: name2, from, to } = renamed;
     throw new ConfigError(`${file2} is not a valid Omni Loop config: ${name2}.${from} was renamed \u2014 call it ${name2}.${to}`, { invalid: true });
   }
-  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  const result = checkConfig(raw, ignoreUnknownKeys);
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
     const more = others.length ? `
@@ -29120,7 +29142,7 @@ function why(error62) {
   const text10 = plainText(prop(error62, "stderr")).trim() || String(message);
   return text10.split("\n")[0] ?? "";
 }
-function checkConfig(root, version3) {
+function checkConfig2(root, version3) {
   const file2 = join10(root, CONFIG_FILE);
   if (!existsSync8(file2)) throw new UpdateError(`omni update: ${CONFIG_FILE} is missing: this repository is not installed; run omni init.`);
   try {
@@ -29146,7 +29168,7 @@ function applyUpdate({ root, bundle, version: version3, from, home, exec, printl
       throw new UpdateError(`omni update: gh ${args.slice(0, 2).join(" ")} failed: ${why(error62)}`);
     }
   };
-  const config3 = checkConfig(root, version3);
+  const config3 = checkConfig2(root, version3);
   const { remote, defaultBranch } = config3.repo;
   const slug = config3.repo.slug ?? readRepo(root, { exec, remote }).slug;
   const repoFlag = slug ? ["--repo", slug] : [];
@@ -29166,7 +29188,7 @@ function applyUpdate({ root, bundle, version: version3, from, home, exec, printl
     mkdirSync2(dirname2(bin), { recursive: true });
     copyFileSync(bundle, bin);
     chmodSync(bin, 493);
-    const branchConfig = checkConfig(worktree, version3);
+    const branchConfig = checkConfig2(worktree, version3);
     const ctx = createContext(worktree, branchConfig);
     const outside = !insideLoop(ctx.layout.frontDoor);
     const created = outside ? [] : writeForms({ ctx }).filter((file2) => file2.wrote).map((file2) => file2.path);
@@ -36753,7 +36775,7 @@ function checkCoverage({ ctx, stdout, exec }, { base, prd: prd2 }) {
 function generatedNote(entries3) {
   return entries3 === void 0 ? "" : `; generated: ${entries3.length} output(s), every path, source and build present`;
 }
-function checkConfig2({ ctx, stdout }) {
+function checkConfig3({ ctx, stdout }) {
   const { flow: flow2, limits, generated: generated2 } = ctx.config;
   const areas = Object.keys(flow2?.areas ?? {}).length;
   const violations = [
@@ -36780,7 +36802,7 @@ function contextFor(guard, cwd, exec, stdout) {
 }
 var GUARDS = ["config", "inbox", "outbox", "knowledge", "kb", "releases", "coverage", "all"];
 var SINGLE_GUARDS = {
-  config: checkConfig2,
+  config: checkConfig3,
   inbox: checkInbox,
   outbox: checkOutbox,
   knowledge: checkKnowledge,
@@ -36808,7 +36830,7 @@ function coverageOnly(io, { base, baseKnown, prd: prd2 }) {
   return checkCoverage(io, { base, prd: prd2 });
 }
 function allGuards(io, { base, baseKnown, prd: prd2 }) {
-  const results = [checkConfig2(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io)];
+  const results = [checkConfig3(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io)];
   if (baseKnown) results.push(checkCoverage(io, { base, prd: prd2 }));
   else println(io.stdout, `coverage: skipped \u2014 no ${base}`);
   return results.every(Boolean);

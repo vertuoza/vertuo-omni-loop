@@ -726,7 +726,29 @@ function migrateConfig(raw, migrations = MIGRATIONS) {
   }
   return current;
 }
-function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}) {
+function dropUnrecognized(raw, issues) {
+  let dropped = false;
+  for (const issue of issues) {
+    if (issue.code !== "unrecognized_keys") continue;
+    let at = raw;
+    for (const step of issue.path) at = isRecord(at) ? at[String(step)] : void 0;
+    if (!isRecord(at)) continue;
+    for (const key of issue.keys) {
+      if (Object.hasOwn(at, key)) {
+        Reflect.deleteProperty(at, key);
+        dropped = true;
+      }
+    }
+  }
+  return dropped;
+}
+function checkConfig(raw, ignoreUnknownKeys) {
+  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  if (result.success || !ignoreUnknownKeys) return result;
+  const copy = structuredClone(raw);
+  return dropUnrecognized(copy, result.error.issues) ? ConfigSchema.safeParse(copy, { error: KIT_MESSAGES }) : result;
+}
+function parseConfig(source, file = CONFIG_FILE, { migrate = false, ignoreUnknownKeys = false } = {}) {
   let raw;
   try {
     raw = parse(source) ?? {};
@@ -739,7 +761,7 @@ function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}) {
     const { section: name, from, to } = renamed;
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed \u2014 call it ${name}.${to}`, { invalid: true });
   }
-  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  const result = checkConfig(raw, ignoreUnknownKeys);
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
     const more = others.length ? `

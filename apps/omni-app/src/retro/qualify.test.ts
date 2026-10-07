@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FEATURE, MERGE_SHA, OWNER, PLAN, REPO, SUB_PULLS, mergeFiles, widgetScenario } from '../../test/retro-scenario.ts';
+import { CONFIG, FEATURE, MERGE_SHA, OWNER, PLAN, REPO, SUB_PULLS, mergeFiles, widgetScenario } from '../../test/retro-scenario.ts';
 import { qualify } from './qualify.ts';
 
 type Scenario = ReturnType<typeof widgetScenario>;
@@ -14,6 +14,13 @@ async function taken(scenario: Scenario) {
 }
 
 describe('qualify — a merged feature PR', () => {
+  it('takes a merge whose config has keys this App does not know yet, written for a newer kit (#1151)', async () => {
+    const newer = `${CONFIG}generated:\n  - path: dist/\n    from: [src/]\n    build: pnpm build\nbranches:\n  later: later/{topic}\n`;
+    const out = await taken(widgetScenario({ files: mergeFiles({ config: newer }) }));
+    expect(out.prd.number).toBe(7);
+    expect(out.config.branches.feature).toBe('feat/{topic}');
+  });
+
   it('names the PRD, its shipped folder, its title, its problem, its plan and its settled file', async () => {
     const out = await taken(widgetScenario({ files: mergeFiles({ settled: '# Settled\n' }) }));
     expect(out.skip).toBeNull();
@@ -88,9 +95,9 @@ describe('qualify — what gets no retro', () => {
     expect(out.skip).toMatch(/No `\.omni-loop\/config\.yml` at the merge/);
   });
 
-  it('a repository whose config is broken', async () => {
-    const out = await run(widgetScenario({ files: mergeFiles({ config: 'kit: 1\nnope: true\n' }) }));
-    expect(out.skip).toMatch(/not a valid Omni Loop config/);
+  it('a repository whose config is broken: no skip, it fails, so the retro says it could not run (#1151)', async () => {
+    const broken = 'kit: 1\nrepo:\n  defaultBranch: 3\n';
+    await expect(run(widgetScenario({ files: mergeFiles({ config: broken }) }))).rejects.toThrow(/not a valid Omni Loop config/);
   });
 
   it('a feature branch with no PRD folder for its topic', async () => {

@@ -1357,7 +1357,29 @@ function migrateConfig(raw, migrations = MIGRATIONS) {
   }
   return current;
 }
-function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}) {
+function dropUnrecognized(raw, issues) {
+  let dropped = false;
+  for (const issue of issues) {
+    if (issue.code !== "unrecognized_keys") continue;
+    let at2 = raw;
+    for (const step of issue.path) at2 = isRecord(at2) ? at2[String(step)] : void 0;
+    if (!isRecord(at2)) continue;
+    for (const key of issue.keys) {
+      if (Object.hasOwn(at2, key)) {
+        Reflect.deleteProperty(at2, key);
+        dropped = true;
+      }
+    }
+  }
+  return dropped;
+}
+function checkConfig(raw, ignoreUnknownKeys) {
+  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  if (result.success || !ignoreUnknownKeys) return result;
+  const copy = structuredClone(raw);
+  return dropUnrecognized(copy, result.error.issues) ? ConfigSchema.safeParse(copy, { error: KIT_MESSAGES }) : result;
+}
+function parseConfig(source, file = CONFIG_FILE, { migrate = false, ignoreUnknownKeys = false } = {}) {
   let raw;
   try {
     raw = parse(source) ?? {};
@@ -1370,7 +1392,7 @@ function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}) {
     const { section: name, from, to } = renamed;
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed \u2014 call it ${name}.${to}`, { invalid: true });
   }
-  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  const result = checkConfig(raw, ignoreUnknownKeys);
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
     const more = others.length ? `
@@ -4007,7 +4029,7 @@ async function readPull2(octokit, { owner, repo, prNumber }) {
     labels: (data.labels ?? []).map(labelName2).filter((name) => name !== void 0)
   };
 }
-async function readBaseConfig(octokit, { owner, repo, baseSha, dest }) {
+async function readBaseConfig(octokit, { owner, repo, baseSha, dest, ignoreUnknownKeys = false }) {
   const folder = await snapshot(octokit, { owner, repo, ref: baseSha, paths: [CONFIG_FILE], dest });
   let text8;
   try {
@@ -4016,7 +4038,7 @@ async function readBaseConfig(octokit, { owner, repo, baseSha, dest }) {
     return { folder, config: null, error: null };
   }
   try {
-    return { folder, config: parseConfig(text8, CONFIG_FILE), error: null };
+    return { folder, config: parseConfig(text8, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return { folder, config: null, error };
@@ -7514,7 +7536,7 @@ async function qualify(octokit, { owner, repo, prNumber, mergeSha }) {
   if (!read.merged) return { skip: `#${prNumber} was closed, not merged.`, pr: read };
   const pr = Object.assign(read, { mergeSha });
   const { config, error } = await configAt(octokit, { owner, repo, sha: mergeSha });
-  if (error) return { skip: error.message.split("\n")[0] ?? "", pr };
+  if (error) throw error;
   if (!config) return { skip: `No \`${CONFIG_FILE}\` at the merge ${mergeSha}.`, pr };
   const { defaultBranch } = config.repo;
   if (pr.baseRef !== defaultBranch) {
@@ -7562,7 +7584,7 @@ function topicOf2(headRef, featureTemplate) {
 async function configAt(octokit, { owner, repo, sha }) {
   const dest = mkdtempSync7(join30(tmpdir7(), "omni-retro-config-"));
   try {
-    return await readBaseConfig(octokit, { owner, repo, baseSha: sha, dest });
+    return await readBaseConfig(octokit, { owner, repo, baseSha: sha, dest, ignoreUnknownKeys: true });
   } finally {
     rmSync7(dest, { recursive: true, force: true });
   }
