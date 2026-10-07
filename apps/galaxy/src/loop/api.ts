@@ -19,6 +19,7 @@
 // sign-in service down, 500 the database failed.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { OutboxItemIdSchema, PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
 import { loopStore, LoopStoreError, type LoopEvent } from './store';
 
@@ -46,7 +47,7 @@ const When = z.iso.datetime({ offset: true });
 const Start = z.strictObject({
   event: z.literal('start'),
   repo: z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/, 'owner/name'),
-  prds: z.array(Count).min(1).max(50),
+  prds: z.array(PrdNumberSchema).min(1).max(50),
   plan: Plan,
   reason: Line(300).optional(),
   takeOver: z.boolean().default(false),
@@ -57,12 +58,12 @@ const Tick = z.strictObject({
   loopId: LoopId,
   step: Count,
   steps: Count,
-  prd: Count,
+  prd: PrdNumberSchema,
   action: z.string().regex(/^[a-z][a-z-]{0,39}$/, 'a word, such as wave, yolo or wait'),
   result: Line(300),
   link: Link.default(null),
-  merged: z.array(Count).max(50).default([]),
-  items: z.array(Line(100)).max(50).default([]),
+  merged: z.array(PrNumberSchema).max(50).default([]),
+  items: z.array(OutboxItemIdSchema).max(50).default([]),
   nextWakeAt: When.nullable(),
   replan: z.strictObject({ reason: Line(300), plan: Plan }).optional(),
 }).refine((tick) => tick.step <= tick.steps, { message: 'the step is past the plan\'s end', path: ['step'] });
@@ -70,7 +71,7 @@ const Tick = z.strictObject({
 const Park = z.strictObject({
   event: z.literal('park'),
   loopId: LoopId,
-  prd: Count,
+  prd: PrdNumberSchema,
   who: Line(100),
   what: Line(300),
   link: Link.default(null),

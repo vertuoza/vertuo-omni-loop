@@ -49,7 +49,7 @@ const PLAN = { steps: [{ n: 1, prd: 7, slice: 's1' }, { n: 2, prd: 9, slice: 's1
 const START_BODY = { event: 'start', repo: 'acme/widgets', prds: [7, 9], plan: PLAN };
 const tick = (loopId: string, extra: Record<string, unknown> = {}) => ({
   event: 'tick', loopId, step: 1, steps: 2, prd: 7, action: 'wave', result: 'wave 1 merged: s1, s2',
-  link: 'https://omni.example/prd/7', merged: [101, 102], items: ['0007-s1-a'],
+  link: 'https://omni.example/prd/7', merged: [101, 102], items: ['s1-01-first-wave'],
   nextWakeAt: new Date(START + 90_000).toISOString(), ...extra,
 });
 
@@ -113,7 +113,7 @@ describe('POST /api/loops tick, park and stop', () => {
     expect(body).toEqual({ loopId, state: 'running', planVersion: 1 });
     expect(w.fake.tables.loop_ticks).toEqual([expect.objectContaining({
       loop_id: loopId, step: 1, steps: 2, prd: 7, action: 'wave', result: 'wave 1 merged: s1, s2',
-      link: 'https://omni.example/prd/7', merged: [101, 102], items: ['0007-s1-a'], next_wake_at: new Date(START + 90_000).toISOString(),
+      link: 'https://omni.example/prd/7', merged: [101, 102], items: ['s1-01-first-wave'], next_wake_at: new Date(START + 90_000).toISOString(),
     })]);
     expect(w.loop(loopId)).toMatchObject({ next_wake_at: new Date(START + 90_000).toISOString(), last_tick_at: new Date(START).toISOString() });
   });

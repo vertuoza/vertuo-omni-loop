@@ -14,6 +14,7 @@
 // The body is trusted: the route validated it, and the database's own checks are proved by
 // supabase/checks/loops.sql, not here. Reading runs under the migration's policies: a member of the
 // loop's workspace reads it, its ticks and its plans.
+import { parsePr, parsePrd, parseOutboxItemId, type OutboxItemId, type PrdNumber, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { loopState } from './state';
 
 type Failure = { code?: string; message: string };
@@ -23,15 +24,15 @@ type Row = Record<string, unknown>;
 /** An account, and the workspaces it belongs to in the order it joined them. */
 export type FakeAccount = { id: string; email: string | null; workspaces: string[] };
 
-type Parked = { prd: number; who: string; what: string; link: string | null; at: string };
+type Parked = { prd: PrdNumber; who: string; what: string; link: string | null; at: string };
 
 type FakeLoop = {
-  id: string; user_id: string; workspace_id: string; repo: string; prds: number[]; state: 'running' | 'parked' | 'stopped';
+  id: string; user_id: string; workspace_id: string; repo: string; prds: PrdNumber[]; state: 'running' | 'parked' | 'stopped';
   parked: Parked[]; started_at: string; seen_at: string; last_tick_at: string | null; next_wake_at: string | null; stopped_at: string | null;
 };
 type FakeTick = {
-  id: number; loop_id: string; at: string; step: number; steps: number; prd: number; action: string; result: string;
-  link: string | null; merged: number[]; items: string[]; next_wake_at: string | null;
+  id: number; loop_id: string; at: string; step: number; steps: number; prd: PrdNumber; action: string; result: string;
+  link: string | null; merged: PrNumber[]; items: OutboxItemId[]; next_wake_at: string | null;
 };
 type FakePlan = { loop_id: string; version: number; reason: string; plan: unknown; created_at: string };
 
@@ -83,7 +84,7 @@ export function fakeLoops(accounts: Record<string, FakeAccount>, orgs: Record<st
       Object.assign(running, { state: 'stopped', stopped_at: at(), seen_at: at() });
     }
     const loop: FakeLoop = {
-      id: newId(), user_id: me.id, workspace_id: workspace, repo, prds: listOf(body.prds).map(numberOf), state: 'running', parked: [],
+      id: newId(), user_id: me.id, workspace_id: workspace, repo, prds: listOf(body.prds).map((n) => parsePrd(numberOf(n))), state: 'running', parked: [],
       started_at: at(), seen_at: at(), last_tick_at: null, next_wake_at: null, stopped_at: null,
     };
     tables.loops.push(loop);
@@ -96,19 +97,19 @@ export function fakeLoops(accounts: Record<string, FakeAccount>, orgs: Record<st
     if (body.replan) {
       tables.loop_plans.push({ loop_id: loop.id, version: latestVersion(loop.id) + 1, reason: String(replan.reason).trim(), plan: replan.plan, created_at: at() });
     }
-    const prd = numberOf(body.prd);
+    const prd = parsePrd(numberOf(body.prd));
     const nextWakeAt = textOf(body.nextWakeAt);
     const nextWake = nextWakeAt === null ? null : new Date(nextWakeAt).toISOString();
     tables.loop_ticks.push({
       id: tables.loop_ticks.length + 1, loop_id: loop.id, at: at(), step: numberOf(body.step), steps: numberOf(body.steps), prd,
-      action: String(body.action), result: String(body.result), link: textOf(body.link), merged: listOf(body.merged).map(numberOf),
-      items: listOf(body.items).map(String), next_wake_at: nextWake,
+      action: String(body.action), result: String(body.result), link: textOf(body.link), merged: listOf(body.merged).map((n) => parsePr(numberOf(n))),
+      items: listOf(body.items).map((id) => parseOutboxItemId(String(id))), next_wake_at: nextWake,
     });
     Object.assign(loop, { last_tick_at: at(), seen_at: at(), next_wake_at: nextWake, parked: loop.parked.filter((p) => p.prd !== prd) });
   }
 
   function park(loop: FakeLoop, body: Row) {
-    const prd = numberOf(body.prd);
+    const prd = parsePrd(numberOf(body.prd));
     const parked = { prd, who: String(body.who).trim(), what: String(body.what).trim(), link: textOf(body.link), at: at() };
     Object.assign(loop, { seen_at: at(), parked: [...loop.parked.filter((p) => p.prd !== prd), parked] });
   }

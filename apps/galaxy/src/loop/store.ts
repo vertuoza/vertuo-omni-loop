@@ -5,6 +5,7 @@
 // another workspace reads as missing. Every answer is parsed where it comes in (data/parse-rows.ts).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { OutboxItemIdSchema, PrdNumberSchema, PrNumberSchema, type OutboxItemId, type PrdNumber, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { orEmpty, orNull, parseRow, parseRows } from '../data/parse-rows';
 
 /** A plan as the kit computed it: an object the app stores and shows, never reshapes. */
@@ -12,13 +13,13 @@ export type LoopPlan = Record<string, unknown>;
 
 /** One push of `omni loop push`, validated: what loop_push() takes. */
 export type LoopEvent =
-  | { event: 'start'; repo: string; prds: number[]; plan: LoopPlan; reason?: string | undefined; takeOver: boolean }
+  | { event: 'start'; repo: string; prds: PrdNumber[]; plan: LoopPlan; reason?: string | undefined; takeOver: boolean }
   | {
-    event: 'tick'; loopId: string; step: number; steps: number; prd: number; action: string; result: string;
-    link: string | null; merged: number[]; items: string[]; nextWakeAt: string | null;
+    event: 'tick'; loopId: string; step: number; steps: number; prd: PrdNumber; action: string; result: string;
+    link: string | null; merged: PrNumber[]; items: OutboxItemId[]; nextWakeAt: string | null;
     replan?: { reason: string; plan: LoopPlan } | undefined;
   }
-  | { event: 'park'; loopId: string; prd: number; who: string; what: string; link: string | null }
+  | { event: 'park'; loopId: string; prd: PrdNumber; who: string; what: string; link: string | null }
   | { event: 'stop'; loopId: string };
 
 const StoredState = z.enum(['running', 'parked', 'stopped']);
@@ -28,14 +29,14 @@ const PushAnswer = z.strictObject({ loopId: z.string(), state: StoredState, plan
 type PushAnswer = z.infer<typeof PushAnswer>;
 
 /** A PRD parked on a person, as the loop keeps it. */
-const ParkedPrd = z.strictObject({ prd: z.number().int(), who: z.string(), what: z.string(), link: z.string().nullable(), at: z.string() });
+const ParkedPrd = z.strictObject({ prd: PrdNumberSchema, who: z.string(), what: z.string(), link: z.string().nullable(), at: z.string() });
 
 export const LoopRow = z.strictObject({
   id: z.string(),
   user_id: z.string(),
   workspace_id: z.string(),
   repo: z.string(),
-  prds: z.array(z.number().int()),
+  prds: z.array(PrdNumberSchema),
   state: StoredState,
   parked: z.array(ParkedPrd),
   started_at: z.string(),
@@ -52,12 +53,12 @@ export const TickRow = z.strictObject({
   at: z.string(),
   step: z.number().int(),
   steps: z.number().int(),
-  prd: z.number().int(),
+  prd: PrdNumberSchema,
   action: z.string(),
   result: z.string(),
   link: z.string().nullable(),
-  merged: z.array(z.number().int()),
-  items: z.array(z.string()),
+  merged: z.array(PrNumberSchema),
+  items: z.array(OutboxItemIdSchema),
   next_wake_at: z.string().nullable(),
 });
 type TickRow = z.infer<typeof TickRow>;
