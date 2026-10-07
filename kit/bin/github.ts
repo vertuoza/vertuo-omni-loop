@@ -11,6 +11,8 @@ import { checkState, personApproved, type SubPr } from '../lib/flow/merge-gate.t
 import { PrNumberSchema } from '../lib/ids.ts';
 import type { IssueNumber, PrNumber } from '../lib/ids.ts';
 import type { CommentClient } from '../lib/outbox/comment.ts';
+import { PullFilesSchema } from '../lib/knowledge/pipeline.ts';
+import type { ChangedFile } from '../lib/knowledge/write.ts';
 import type { Env } from './io.ts';
 import { GhCommentsSchema, GhPullRequestSchema, GhWrittenCommentSchema } from './schema.ts';
 
@@ -139,6 +141,23 @@ export function pullRequestFor(
     base: data.base?.ref ?? '',
     head: data.head?.ref ?? '',
   };
+}
+
+/**
+ * The files pull request `number` of `repo` (default `ctx.config.repo.slug`) changed, every page
+ * (PRD 1171): each one's path, a rename's new one, and GitHub's status, removals included, for the
+ * harvest to tell a removed proof from one the pull request never changed. `--slurp` gives the pages
+ * as one array of arrays, joined here.
+ */
+export function pullRequestFilesFor(
+  ctx: GithubContext,
+  { repo = ctx.config.repo.slug, number, exec = execFileSync, env = processEnv() }: { repo?: string | null; number: PrNumber; exec?: ExecText; env?: Env },
+): ChangedFile[] {
+  const ghEnv = githubEnv(ctx, { exec, env });
+  const pages = z
+    .array(z.array(z.unknown()))
+    .parse(JSON.parse(exec('gh', ['api', `repos/${repo}/pulls/${number}/files`, '--paginate', '--slurp'], { encoding: 'utf8', ...(ghEnv ? { env: ghEnv } : {}) })));
+  return PullFilesSchema.parse(pages.flat());
 }
 
 const GhSubPrSchema = z.looseObject({

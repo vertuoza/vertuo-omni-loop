@@ -14,7 +14,7 @@ import {
 import { gradeKnowledge } from './check-knowledge.ts';
 import { harvestCandidates } from './harvest.ts';
 import type { ClassificationReply } from './classify.ts';
-import { applyKnowledgeWrites, decidedLine, writeKnowledge, type Taken, type WriteResult } from './write.ts';
+import { applyKnowledgeWrites, decidedLine, writeKnowledge, type ChangedFile, type Taken, type WriteResult } from './write.ts';
 import { assertDefined } from '../../test/assert.ts';
 import { parsePr, parsePrd } from '../ids.ts';
 
@@ -406,6 +406,101 @@ describe('writeKnowledge', () => {
     expect(result.writes.length).toBeGreaterThan(0);
     expect(read(LEDGER)).toBe(ledgerText);
     expect(read(`${K}/product/rules.md`)).toBe(FILES[`${K}/product/rules.md`]);
+  });
+});
+
+describe('writeKnowledge — Enforced by, from the paths the feature pull request changed (PRD 1171)', () => {
+  const CHANGED: ChangedFile[] = [
+    { path: 'kit/lib/foo.test.ts', status: 'added' },
+    { path: 'kit/lib/bar.test.ts', status: 'modified' },
+    { path: 'kit/lib/moved.test.ts', status: 'renamed' },
+    { path: 'kit/lib/gone.test.ts', status: 'modified' },
+    { path: 'kit/lib/old.test.ts', status: 'removed' },
+  ];
+  const TREE = {
+    ...FILES,
+    'kit/lib/foo.test.ts': 'test\n',
+    'kit/lib/bar.test.ts': 'test\n',
+    'kit/lib/moved.test.ts': 'test\n',
+    'kit/lib/other.test.ts': 'test\n',
+  };
+
+  function run(replies: Record<string, ClassificationReply>, changed: ChangedFile[] = CHANGED) {
+    const repo = makeRepo({ files: TREE });
+    const candidates = harvestCandidates({ ctx: repo.ctx, prd: parsePrd(28) }).filter((c) => c.id in replies);
+    const classified = candidates.map((candidate) => ({ candidate, reply: replies[candidate.id] ?? null }));
+    const result = writeKnowledge({ ctx: repo.ctx, classified, merge: MERGE, date: DATE, changed });
+    return { ...repo, result, files: byPath(result) };
+  }
+  const INVARIANT: ClassificationReply = { kind: 'invariant', place: 'billing', statement: 'One billing run at a time per account.', reason: 'must always hold' };
+  const RULE: ClassificationReply = {
+    kind: 'rule',
+    place: 'billing',
+    statement: 'An invoice is read from the head.',
+    serves: 'P-PRODUCT-1',
+    reason: 'a billing rule',
+  };
+
+  it('writes a kept path: changed by the pull request and still in the tree', () => {
+    const { files, result } = run({ 's1-03-one-run': { ...INVARIANT, enforcedBy: ['kit/lib/foo.test.ts'] } });
+    expect(files[`${K}/domains/billing/invariants.md`]).toContain('Enforced by: kit/lib/foo.test.ts\n');
+    expect(result.placed[0]).toMatchObject({ enforcedBy: ['kit/lib/foo.test.ts'], dropped: [] });
+  });
+
+  it('writes two kept paths comma-separated, a renamed one among them', () => {
+    const { files } = run({ 's1-06-reworked': { ...RULE, enforcedBy: ['kit/lib/foo.test.ts', 'kit/lib/moved.test.ts'] } });
+    expect(files[`${K}/domains/billing/rules.md`]).toContain('Enforced by: kit/lib/foo.test.ts, kit/lib/moved.test.ts\n');
+  });
+
+  it('drops a path not changed, a removed path and a path gone from the tree, each with its reason', () => {
+    const { files, result } = run({
+      's1-06-reworked': {
+        ...RULE,
+        enforcedBy: ['kit/lib/other.test.ts', 'kit/lib/old.test.ts', 'kit/lib/gone.test.ts'],
+      },
+    });
+    expect(files[`${K}/domains/billing/rules.md`]).toContain('Enforced by: unenforced\n');
+    expect(result.placed[0]?.dropped).toEqual([
+      { path: 'kit/lib/other.test.ts', reason: 'not changed by #29' },
+      { path: 'kit/lib/old.test.ts', reason: 'removed by #29' },
+      { path: 'kit/lib/gone.test.ts', reason: 'no longer in the tree' },
+    ]);
+    expect(result.placed[0]?.enforcedBy).toEqual([]);
+  });
+
+  it('keeps the paths it can and drops the rest, once each', () => {
+    const { files, result } = run({
+      's1-03-one-run': { ...INVARIANT, enforcedBy: ['kit/lib/bar.test.ts', 'kit/lib/other.test.ts', 'kit/lib/bar.test.ts'] },
+    });
+    expect(files[`${K}/domains/billing/invariants.md`]).toContain('Enforced by: kit/lib/bar.test.ts\n');
+    expect(result.placed[0]?.dropped).toEqual([{ path: 'kit/lib/other.test.ts', reason: 'not changed by #29' }]);
+  });
+
+  it('writes unenforced with no proposal, and with no changed files at all', () => {
+    expect(run({ 's1-03-one-run': INVARIANT }).files[`${K}/domains/billing/invariants.md`]).toContain('Enforced by: unenforced\n');
+    const none = run({ 's1-03-one-run': { ...INVARIANT, enforcedBy: ['kit/lib/foo.test.ts'] } }, []);
+    expect(none.files[`${K}/domains/billing/invariants.md`]).toContain('Enforced by: unenforced\n');
+    expect(none.result.placed[0]?.dropped).toEqual([{ path: 'kit/lib/foo.test.ts', reason: 'not changed by #29' }]);
+  });
+
+  it('never gives a principle the line, and the result grades clean', () => {
+    const { files, result, ctx } = run({
+      's1-02-intro-cap': {
+        kind: 'rule',
+        place: 'product',
+        statement: 'An intro is refused past 120 characters.',
+        serves: 'new',
+        principle: { statement: 'A question reads well to a business person.', why: 'the person answering is not an engineer.' },
+        enforcedBy: ['kit/lib/foo.test.ts'],
+        reason: 'a provable rule with no principle yet',
+      },
+    });
+    expect(files[`${K}/product/rules.md`]).toContain('Enforced by: kit/lib/foo.test.ts\n');
+    expect(files[`${K}/product/rules.md`]).toContain('Proposed: harvest 2026-09-27');
+    expect(files[`${K}/product/principles.md`]).not.toContain('Enforced by');
+    applyKnowledgeWrites({ ctx, writes: result.writes });
+    const graded = [`${K}/product/rules.md`, `${K}/product/principles.md`];
+    expect(gradeKnowledge({ ctx, files: graded }).violations).toEqual([]);
   });
 });
 

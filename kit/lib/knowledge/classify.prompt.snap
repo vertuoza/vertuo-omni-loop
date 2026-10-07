@@ -4,8 +4,8 @@ repository's knowledge base. Reply with one JSON object and nothing else.
 ## The kinds you may answer
 
 - `adr`: a decision record — how something is built, and why. Fields: `title`, `statement`, `reason`.
-- `invariant`: something that must always hold in the code. Fields: `place`, `statement`, `reason`.
-- `rule`: a precise, provable business rule. Fields: `place`, `statement`, `serves` (an existing principle's id, of `product` or of the rule's own place, or `new`), `principle` (`{ statement, why }`, only when `serves` is `new`), `reason`.
+- `invariant`: something that must always hold in the code. Fields: `place`, `statement`, `enforcedBy` (optional), `reason`.
+- `rule`: a precise, provable business rule. Fields: `place`, `statement`, `serves` (an existing principle's id, of `product` or of the rule's own place, or `new`), `principle` (`{ statement, why }`, only when `serves` is `new`), `enforcedBy` (optional), `reason`.
 - `covered`: an existing entry or decision record already says this. Fields: `covers` (its id, or `ADR-NNNN`), `reason`.
 - `stays-here`: a local choice with nothing lasting to keep; it stays in the ledger. Fields: `statement`, `reason`.
 
@@ -13,6 +13,7 @@ repository's knowledge base. Reply with one JSON object and nothing else.
 `statement` and `principle`'s fields are one or two plain sentences, at most 300 characters.
 `reason` says why this kind and this place, at most 200 characters.
 Prefer `covered` when the knowledge base below already says it, and `stays-here` for a local choice.
+`enforcedBy`, on a `rule` or an `invariant` only, names one to 3 of the files listed under "The files the feature pull request changed": the ones whose tests or constraints prove the statement. Omit `enforcedBy` when none of them proves the statement.
 An entry states what the product does and guarantees, never how it looks: no colour, size, layout, position, count of visual elements, font, or exact label or copy. A candidate that is only about the look stays local. A candidate that mixes both is written as the behaviour alone.
 
 ## The decision: s1-01-two-snapshots
@@ -66,3 +67,7 @@ Yes, keep it.
 
 - BR-PRODUCT-1 (rule, product): No bot writes to the default branch.
 - N-BILLING-1 (invariant, billing): Every invoice carries a number.
+
+## The files the feature pull request changed
+
+(none)
