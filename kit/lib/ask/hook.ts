@@ -33,7 +33,7 @@ import { roundLead } from './lead.ts';
 import {
   clearOldShots, clearRound, clearTerminal, isSafeId, isShotName, readMode, readRound, readTerminal, writeRound, writeShot, writeTerminal,
 } from './local-state.ts';
-import { currentBranch, sessionTitle } from './mode.ts';
+import { currentBranch, sessionTitle } from './title.ts';
 import type { RoundStatus } from './schema.ts';
 import { field, jsonObject } from './schema.ts';
 

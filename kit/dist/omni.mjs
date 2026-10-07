@@ -32901,16 +32901,10 @@ function roundLead({ input: input2 } = {}) {
   }
 }
 
-// kit/lib/ask/mode.ts
+// kit/lib/ask/title.ts
 init_define_OMNI_BUNDLE();
 import { basename as basename4 } from "node:path";
 var TITLE_MAX = 200;
-var AskModeError = class extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "AskModeError";
-  }
-};
 var QUIET6 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 function attempt3(fn) {
   try {
@@ -32924,44 +32918,6 @@ function currentBranch(root, exec) {
 }
 function sessionTitle({ slug, branch, root }) {
   return `${slug || basename4(root)} \xB7 ${branch}`.slice(0, TITLE_MAX);
-}
-var hostOf = (askUrl2) => new URL(askUrl2).host;
-var pageUrl = (askUrl2) => `${askUrl2.replace(/\/+$/, "")}/ask`;
-function turnOn({ root, askUrl: askUrl2, tokens }) {
-  const host = hostOf(askUrl2);
-  if (!tokens.read(host)) throw new AskModeError(`not signed in to ${host} \u2014 run \`omni signin\` first`);
-  if (readMode(root)?.host !== host) writeMode(root, { host });
-  return { url: pageUrl(askUrl2) };
-}
-async function closeSession(client, sessionId) {
-  try {
-    await defined(client, "the ask client").closeSession(sessionId);
-    return null;
-  } catch (error62) {
-    if (field(error62, "status") === 404) return null;
-    return messageOf(error62);
-  }
-}
-async function turnOff({ root, askUrl: askUrl2, tokens, fetch }) {
-  const legacy = readMode(root);
-  const sessions = listTerminals(root).map(({ sessionId, host: host2 }) => ({ sessionId, host: host2 }));
-  if (legacy?.sessionId) sessions.push({ sessionId: legacy.sessionId, host: legacy.host });
-  const host = askUrl2 ? hostOf(askUrl2) : null;
-  const client = askUrl2 && host && sessions.some((session) => session.host === host) ? askClient({ baseUrl: askUrl2, host, tokens, fetch }) : null;
-  const leftOpen = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const session of sessions) {
-    if (seen.has(session.sessionId)) continue;
-    seen.add(session.sessionId);
-    const reason2 = session.host === host ? await closeSession(client, session.sessionId) : `ask.url no longer names ${session.host}`;
-    if (reason2) leftOpen.push({ ...session, reason: reason2 });
-  }
-  clearMode(root);
-  return { leftOpen };
-}
-function modeStatus(root) {
-  const mode = activeMode(root);
-  return mode ? pageUrl(mode.baseUrl) : null;
 }
 
 // kit/lib/ask/hook.ts
@@ -33236,6 +33192,53 @@ async function endHook({ root, host, client, input: input2 }) {
   } finally {
     clearTerminal(root, terminalId);
   }
+}
+
+// kit/lib/ask/mode.ts
+init_define_OMNI_BUNDLE();
+var AskModeError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "AskModeError";
+  }
+};
+var hostOf = (askUrl2) => new URL(askUrl2).host;
+var pageUrl = (askUrl2) => `${askUrl2.replace(/\/+$/, "")}/ask`;
+function turnOn({ root, askUrl: askUrl2, tokens }) {
+  const host = hostOf(askUrl2);
+  if (!tokens.read(host)) throw new AskModeError(`not signed in to ${host} \u2014 run \`omni signin\` first`);
+  if (readMode(root)?.host !== host) writeMode(root, { host });
+  return { url: pageUrl(askUrl2) };
+}
+async function closeSession(client, sessionId) {
+  try {
+    await defined(client, "the ask client").closeSession(sessionId);
+    return null;
+  } catch (error62) {
+    if (field(error62, "status") === 404) return null;
+    return messageOf(error62);
+  }
+}
+async function turnOff({ root, askUrl: askUrl2, tokens, fetch }) {
+  const legacy = readMode(root);
+  const sessions = listTerminals(root).map(({ sessionId, host: host2 }) => ({ sessionId, host: host2 }));
+  if (legacy?.sessionId) sessions.push({ sessionId: legacy.sessionId, host: legacy.host });
+  const host = askUrl2 ? hostOf(askUrl2) : null;
+  const client = askUrl2 && host && sessions.some((session) => session.host === host) ? askClient({ baseUrl: askUrl2, host, tokens, fetch }) : null;
+  const leftOpen = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const session of sessions) {
+    if (seen.has(session.sessionId)) continue;
+    seen.add(session.sessionId);
+    const reason2 = session.host === host ? await closeSession(client, session.sessionId) : `ask.url no longer names ${session.host}`;
+    if (reason2) leftOpen.push({ ...session, reason: reason2 });
+  }
+  clearMode(root);
+  return { leftOpen };
+}
+function modeStatus(root) {
+  const mode = activeMode(root);
+  return mode ? pageUrl(mode.baseUrl) : null;
 }
 
 // kit/bin/commands/signin.ts
