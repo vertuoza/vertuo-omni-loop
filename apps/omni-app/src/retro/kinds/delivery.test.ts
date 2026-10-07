@@ -27,7 +27,7 @@ const fixture = (name: string) => readFileSync(new URL(`./delivery.fixtures/${na
 const PLAN = fixture('plan.md');
 const SETTLED = fixture('settled.md');
 
-const config = parseConfig('kit: 1\n');
+const defaultConfig = parseConfig('kit: 1\n');
 const FOLDER = '.omni-loop/delivery/shipped/0007-widget';
 const pull = (n: number) => `https://github.com/${OWNER}/${REPO}/pull/${n}`;
 
@@ -69,7 +69,7 @@ function stubGitHub({ threads = threadsAnswer, events = EVENTS, comments = COMME
   return { ...stub, octokit } as Stub & Omit<typeof stub, 'octokit' | 'state'>;
 }
 
-async function run({ github = stubGitHub(), pr = basePr, prd = basePrd }: { github?: Stub; pr?: object; prd?: object } = {}) {
+async function run({ github = stubGitHub(), pr = basePr, prd = basePrd, config = defaultConfig }: { github?: Stub; pr?: object; prd?: object; config?: typeof defaultConfig } = {}) {
   const pulls: RetroPull[] = await listPullsInto(github.octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
   const scope = { owner: OWNER, repo: REPO, mergeSha: MERGE_SHA, mergedAt: MERGED_AT, pr, prd, config, pulls };
   const records = await gather(github.octokit, scope);
@@ -242,6 +242,23 @@ describe('delivery — territory', () => {
       { slice: 's3', pr: 15, url: pull(15), status: 'unread', files: null, breaches: null, shared: null },
     ]);
     expect(findings.filter((finding) => finding.kind === 'territory')).toEqual([]);
+  });
+
+  it('raises no finding for a rebuilt generated path, read from the config at the merge, and still for any other (PRD 1138)', async () => {
+    const generated = parseConfig('kit: 1\ngenerated:\n  - path: src/store/colour.mjs\n    from: [src/show/]\n    build: node build.ts\n');
+    const { facts, findings } = await run({ config: generated });
+    expect(byId(findings, 'territory:s3')?.happened).toBe('Slice s3 changed 1 path outside its territory and off the plan’s shared ground: `README.md`.');
+    expect(facts.territory.counts).toEqual({ graded: 3, breaches: 1, shared: 1, unread: 0, unplanned: 0 });
+  });
+
+  it('keeps no generated path as shared ground: two slices that both list one share nothing on it (PRD 1138)', async () => {
+    const generated = parseConfig('kit: 1\ngenerated:\n  - path: src/registry.mjs\n    from: [src/store/]\n    build: node build.ts\n');
+    const { facts, findings } = await run({ config: generated });
+    expect(facts.territory.sharedGround).toEqual([]);
+    expect(facts.territory.counts).toEqual({ graded: 3, breaches: 2, shared: 0, unread: 0, unplanned: 0 });
+    expect(byId(findings, 'territory:s3')?.happened).toBe(
+      'Slice s3 changed 2 paths outside its territory and off the plan’s shared ground: `src/store/colour.mjs`, `README.md`.',
+    );
   });
 
   it('grades nothing, and says why, when the plan holds no slice table', async () => {
