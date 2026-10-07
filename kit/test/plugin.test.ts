@@ -1116,6 +1116,80 @@ describe('the drive across repositories and roadmaps (PRD 1162)', () => {
   });
 });
 
+// PRD 1162, slice s9: `/omni:roadmap <source>` and `/omni:mega-roadmap <source>` write a whole roadmap
+// in one sitting: one map and one answer, every PRD's issue, folder and spec up front with no plan,
+// the roadmap issue and `roadmap.md`, the checks, one phase-0 PR, the roadmap pushed, and the drive
+// line. Each refuses the other's kind of repository with the other's line.
+describe('the roadmap skills (PRD 1162)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const missingInOrder = (text: string, mentions: string[]) => {
+    let from = 0;
+    return mentions.filter((mention) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) return true;
+      from = at + mention.length;
+      return false;
+    });
+  };
+  const SKILLS = {
+    roadmap: { refusal: 'a plan repository: /omni:mega-roadmap <source>', drive: '/loop /omni:drive --roadmap <n>' },
+    'mega-roadmap': { refusal: 'not a plan repository: /omni:roadmap <source>', drive: '/loop /omni:mega-drive --roadmap <n>' },
+  } as const;
+
+  for (const [skill, { refusal, drive }] of Object.entries(SKILLS)) {
+    it(`/omni:${skill} is named for its folder, triggers on its slash command, and signs what it commits and opens`, () => {
+      const text = read(skill);
+      const { name, description } = frontmatter(text) ?? {};
+      expect(name).toBe(skill);
+      expect(description).toMatch(new RegExp(`\\bTriggers on\\b.*"/omni:${skill}"`));
+      expect(text).toMatch(namesSign('trailer'));
+      expect(text).toMatch(namesSign('footer'));
+      for (const command of commandMentions(text)) expect(Object.hasOwn(COMMAND_TABLE, command), `${skill}: omni ${command}`).toBe(true);
+    });
+
+    it(`/omni:${skill} refuses the wrong kind of repository in step 0 with the other's line, writing nothing`, () => {
+      const step0 = skillSection(read(skill), 'Step 0');
+      expect(missingInOrder(step0, ['omni.mjs config', '`plan` section', refusal, 'kb show briefing'])).toEqual([]);
+      expect(lastFencedLine(step0)).toBe(refusal);
+      expect(step0).toMatch(/writ(?:e|es|ing) nothing/);
+    });
+
+    it(`/omni:${skill} shows one map and takes every answer in one message, before anything is written`, () => {
+      const map = skillSection(read(skill), '2. The map');
+      expect(map).toMatch(/\*\*one map\*\*/);
+      expect(map).toMatch(/in \*\*one message\*\*/);
+      expect(map).toMatch(/Nothing is written before that answer/);
+    });
+
+    it(`/omni:${skill} writes specs up front and no plan, checks the roadmap and the inbox, opens one phase-0 PR, pushes the roadmap and hands off ${drive}`, () => {
+      const text = read(skill);
+      expect(text).toMatch(/[Nn]o plan/);
+      expect(text).not.toMatch(/[Ff]ollow `\/omni:plan/);
+      expect(missingInOrder(text, ['omni.mjs roadmap check <n>', 'omni.mjs check inbox', 'omni.mjs phase0 <prd>', 'omni.mjs roadmap push <n>'])).toEqual([]);
+      expect(text).toMatch(/\*\*one phase-0 PR\*\*/);
+      const handOff = skillSection(text, '6. Hand off');
+      expect(lastFencedLine(handOff)).toBe(drive);
+    });
+  }
+
+  it('/omni:roadmap writes each PRD as /omni:brainstorm writes it, with its blocked-by from the table', () => {
+    const text = read('roadmap');
+    expect(missingInOrder(skillSection(text, '3. Write every PRD'), ['/omni:brainstorm', 'gh issue create', '`blocked-by`', 'before-after.html'])).toEqual([]);
+    expect(missingInOrder(skillSection(text, '4. The roadmap'), ['omni:roadmap', 'gh issue create', 'roadmap.md', '| id | PRD | title | blocked by | why | wave |', '## Open questions'])).toEqual([]);
+  });
+
+  it('/omni:mega-roadmap follows /omni:roadmap step for step, surveys the targets and reads them from read-only clones', () => {
+    const text = read('mega-roadmap');
+    expect(text).toContain('It follows `/omni:roadmap` **step for step**');
+    expect(text).toContain('**Nothing runs in a clone.**');
+    expect(missingInOrder(skillSection(text, '1. Read the source'), ['omni.mjs targets --json', 'gh repo clone <repo> <scratch>/<name> -- --depth 1 --single-branch'])).toEqual([]);
+    expect(skillSection(text, '2. The map')).toMatch(/`readOnly`[\s\S]*`consumes`/);
+    expect(missingInOrder(skillSection(text, '3. Write every PRD'), ['/omni:mega-brainstorm', '## Repositories'])).toEqual([]);
+    expect(skillSection(text, '4. The roadmap')).toContain('| id | PRD | title | repos | blocked by | why | wave |');
+    expect(skillSection(text, 'Guardrails')).toMatch(/never a branch, a commit, a pull request, an issue or a comment in a target/);
+  });
+});
+
 // PRD 563: three skills build a PRD that spans repositories, from its plan repository, each beside
 // its single-repository twin and following it step for step. None merges into a default branch,
 // adds the outbox override, creates a label in a target, or runs anything there but its preflight.
