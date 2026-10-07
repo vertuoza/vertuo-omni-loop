@@ -124,7 +124,7 @@ export function detailOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], produc
     moreBlocks: 0,
     issueUrl: issueUrlOf(row),
     source: row.source,
-    gantt: ganttOf(prds, now),
+    gantt: ganttOf(prds, now, row.repo),
     questions: row.questions.map((q) => ({ ...q, answerable: q.kind === 'person' && q.answer === null })),
   };
 }

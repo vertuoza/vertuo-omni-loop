@@ -121,16 +121,16 @@ describe('ledgerOf', () => {
   const plan = (version: number, at: string, reason: string) => ({ loop_id: 'l', version, reason, plan: {}, created_at: at });
 
   it('lists the ticks and every replan after the first plan, the newest first', () => {
-    const lines = ledgerOf([tick(1, '2026-10-07T14:02:00Z', 1), tick(2, '2026-10-07T14:21:00Z', 2)], [plan(1, '2026-10-07T14:00:00Z', 'first plan'), plan(2, '2026-10-07T14:20:00Z', 's4 of 1030 stuck')]);
+    const lines = ledgerOf([tick(1, '2026-10-07T14:02:00Z', 1), tick(2, '2026-10-07T14:21:00Z', 2)], [plan(1, '2026-10-07T14:00:00Z', 'first plan'), plan(2, '2026-10-07T14:20:00Z', 's4 of 1030 stuck')], 'acme/widgets');
     expect(lines.map((l) => [l.kind, l.at])).toEqual([['tick', '14:21 UTC'], ['replan', '14:20 UTC'], ['tick', '14:02 UTC']]);
     const replan = lines[1];
     expect(replan?.kind === 'replan' && [replan.version, replan.reason]).toEqual([2, 's4 of 1030 stuck']);
     const first = lines[0];
-    expect(first?.kind === 'tick' && [first.step, first.steps, first.prd, first.href]).toEqual([2, 4, 1030, '/prd/1030']);
+    expect(first?.kind === 'tick' && [first.step, first.steps, first.prd, first.href]).toEqual([2, 4, 1030, '/prd/at/acme/widgets/1030?to=page']);
   });
 
   it('carries the repositories each tick\'s step touched (PRD 1162), none when the tick did not say', () => {
-    const lines = ledgerOf([{ ...tick(1, '2026-10-07T14:02:00Z', 1), repos: ['crew', 'ai-domain'] }, tick(2, '2026-10-07T14:21:00Z', 2)], []);
+    const lines = ledgerOf([{ ...tick(1, '2026-10-07T14:02:00Z', 1), repos: ['crew', 'ai-domain'] }, tick(2, '2026-10-07T14:21:00Z', 2)], [], 'acme/widgets');
     expect(lines.map((l) => (l.kind === 'tick' ? l.repos : null))).toEqual([[], ['crew', 'ai-domain']]);
   });
 });
