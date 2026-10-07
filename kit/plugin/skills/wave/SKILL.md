@@ -122,6 +122,9 @@ A subagent that returns nothing usable counts as `red`, with "no result" as its 
 Run `node .omni-loop/bin/omni.mjs plan check <prd>` once. Red means a slice broke the plan; say so in
 the report, and carry on.
 
+Before the first merge, `git fetch <remote>` and keep `git rev-parse <remote>/<feature branch>`:
+**the feature branch before the wave**, which step 5 rebuilds from.
+
 Then take each `done` slice, and each slice awaiting merge, in board order. Each merge moves the feature branch, so read every
 sub-PR afresh; never trust an earlier look.
 
@@ -130,7 +133,9 @@ sub-PR afresh; never trust an earlier look.
    is missing), then read it again. **Never merge a PR whose base is `repo.defaultBranch`.**
 2. **Territory.** `gh pr diff <n> --name-only`, against the slice's `territory` in the board JSON.
    A path is inside when it starts with a territory entry, or sits under the PRD's outbox dir
-   (`node .omni-loop/bin/omni.mjs prd <prd>` prints it). Any other path is a **breach**: name it in
+   (`node .omni-loop/bin/omni.mjs prd <prd>` prints it). A path under a generated entry's `path`
+   (`node .omni-loop/bin/omni.mjs config generated`) is never a breach: step 5 rebuilds it. Any
+   other path is a **breach**: name it in
    the report and merge anyway. It is never fatal; it says the plan was wrong about the ground,
    and it is the first thing to read when a later sub-PR conflicts.
 3. **Mergeable.** `UNKNOWN`: look again in a minute. `CONFLICTING`: work in a detached worktree,
@@ -195,9 +200,17 @@ run `git fetch <remote>`, then `git worktree add --detach <path> <remote>/<featu
    open and name the refusal in the report. Commit the ledger and the removed files together:
    `chore(delivery): wave <n> of PRD <prd> — adopt <k> medium decisions`, with your session's
    co-author trailer, then the `omni sign trailer` line. High items stay open for a person.
-2. **Check.** Run the preflight, every command in `commands.checks`, then
-   `node .omni-loop/bin/omni.mjs check all`. Red: fix it on the feature branch itself; each fix
-   counts toward `limits.attempts`. Still red after that: the wave is stuck; say which step.
+2. **Rebuild, then check.** The slices committed no generated file, so the wave rebuilds them once.
+   Run `node .omni-loop/bin/omni.mjs generated <feature branch before the wave>..HEAD`: one line per
+   generated entry, `<path>: stale|fresh — <build>`, or `no generated files`. Run the build of every
+   `stale` line from the worktree's root. Then run the preflight, every command in
+   `commands.checks`, then `node .omni-loop/bin/omni.mjs check all`. Red: fix it on the feature
+   branch itself; each fix counts toward `limits.attempts`, and a fix that changes a generated
+   entry's sources reruns its build. Still red after that: the wave is stuck; say which step. Green:
+   commit the rebuilt paths alone, `git add -- <path>` for each `stale` line and nothing else, as
+   `chore(build): rebuild generated files — wave <n> of PRD <prd>`, with your session's co-author
+   trailer, then the `omni sign trailer` line. Nothing stale, or a build that changed nothing: no
+   commit.
 3. `git push <remote> HEAD:<feature branch>`, then `git worktree remove <path>`.
 4. **The feature PR.** Tick each merged slice in its **Slices** checklist (`#<sub-PR> <title>`), in
    the body shape `/omni:pr` owns (`gh pr edit <feature PR> --body-file <file>`), which keeps its

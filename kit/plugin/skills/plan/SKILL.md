@@ -109,6 +109,13 @@ repo-relative path prefixes. A prefix covers a path when the path starts with it
 directory with its trailing slash, and a family of files as a prefix and a star. There is no glob
 language. `/omni:wave` grades each sub-PR's diff against its territory.
 
+**Generated paths are never listed.** A file the repository builds rather than writes is a
+`generated` entry of its config: `node .omni-loop/bin/omni.mjs config generated` prints each one's
+`path`, the sources it is built `from` and its `build`. Never list a generated path in a territory or
+in the shared-ground note, even for a slice that changes its sources: a slice rebuilds it only to
+test and commits none, the wave rebuilds it once after merging, and the kit leaves it out of every
+breach and every collision. List the sources the slice changes, as for any slice.
+
 **Point `plan.slice`.** Once a slice's row is drafted in `plan.md` (step 4), run
 `node .omni-loop/bin/omni.mjs flow show plan.slice --prd <n> --slice <id>` and follow it (**Flow
 points**): its kit step is cutting that slice as this step says, and its hooks may reshape the row
@@ -148,7 +155,7 @@ require. These four parts are the whole shape:
    ```
 
 3. Under the table, the **shared-ground note**: each prefix more than one slice declares, which
-   slices, and how the waves keep them apart.
+   slices, and how the waves keep them apart. A generated path is never in it.
 4. `## Per slice: done when`: for each slice (or group of like slices), the observable conditions,
    as a bullet list.
 

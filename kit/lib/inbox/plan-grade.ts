@@ -38,8 +38,9 @@ import { collisionRows, parsePlanLandings, parsePlanRepositories, parsePlanSlice
 import type { Collision, PlanLanding, PlanRepository } from './territory.ts';
 
 /** What the grading reads of a config: its `plan` section, when it is a plan repository, its slug,
- * the paths that land alone, and its flow (`pr` for the flow's aliases). */
-export type GradeConfig = Pick<Config, 'plan' | 'repo' | 'landings' | 'flow' | 'pr'>;
+ * the paths that land alone, its flow (`pr` for the flow's aliases), and its generated outputs
+ * (PRD 1138), whose ground keeps no two slices apart. */
+export type GradeConfig = Pick<Config, 'plan' | 'repo' | 'landings' | 'flow' | 'pr' | 'generated'>;
 
 /** One repository's collision matrix: `repo` is `null` for an ordinary plan. */
 export type CollisionMatrix = { repo: string | null; rows: ReturnType<typeof collisionRows> };
@@ -333,7 +334,9 @@ export function gradePlan(
   const planSection = config.plan ?? null;
   const multi = planSection !== null && slices.some((slice) => slice.repo !== null);
   const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
-  const collisions = sameWaveCollisions(slices);
+  // The config's generated outputs are this repository's: a target's slices meet none of them.
+  const generated = multi ? [] : (config.generated ?? []);
+  const collisions = sameWaveCollisions(slices, generated);
   const landings = gradedLandings(slices, landingRows);
   const ofLanding = (id: string) => (landings.length > 1 ? ` of landing ${slices.find((slice) => slice.id === id)?.landing}` : '');
 
@@ -354,6 +357,6 @@ export function gradePlan(
   const waves = wavesOf(slices);
   const matrices = multi
     ? [...byRepository(slices)].map(([repo, group]) => ({ repo, rows: collisionRows(group) }))
-    : [{ repo: null, rows: collisionRows(slices) }];
+    : [{ repo: null, rows: collisionRows(slices, generated) }];
   return { slices, repositories, landings, waves, multi, collisions, matrices, violations, parseError: null };
 }

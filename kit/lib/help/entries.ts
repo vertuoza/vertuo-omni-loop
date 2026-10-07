@@ -690,6 +690,19 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'are on, sends no path, command or text, prints nothing and always exits 0.',
   },
   {
+    name: 'generated',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni generated <range> [--json]'],
+    summary: 'which built files a range made stale, and how to rebuild them',
+    detail:
+      "For each output the config's generated section lists, a file the repository builds rather " +
+      'than writes, says stale when a path the range changed is under one of its sources, fresh ' +
+      'otherwise, with the build that rebuilds it. A wave runs the stale builds once, after merging, ' +
+      'and commits the rebuilt files alone. --json prints the same as one document. Without the ' +
+      'section it prints no generated files. It runs no build, and exits 0 whatever it finds.',
+  },
+  {
     name: 'statusline',
     kind: 'command',
     who: 'skills',
