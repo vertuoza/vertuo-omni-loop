@@ -39701,8 +39701,8 @@ function mergedLine(merge2) {
 function slugOf(title) {
   const slug = title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   if (slug.length <= SLUG_MAX) return slug;
-  const cut4 = slug.slice(0, SLUG_MAX + 1);
-  return cut4.slice(0, cut4.lastIndexOf("-") > 0 ? cut4.lastIndexOf("-") : SLUG_MAX);
+  const cut5 = slug.slice(0, SLUG_MAX + 1);
+  return cut5.slice(0, cut5.lastIndexOf("-") > 0 ? cut5.lastIndexOf("-") : SLUG_MAX);
 }
 function chosenOption(candidate) {
   if (candidate.verdict === "drifted") {
@@ -40438,10 +40438,10 @@ var ENTRIES = deepFreeze([
     name: "next",
     kind: "command",
     who: "you",
-    usage: ["omni next [<prd>\u2026] [--json] [--plan]"],
+    usage: ["omni next [<prd>\u2026] [--json] [--plan]", "omni next --roadmap <n> [--json] [--plan]"],
     label: "omni next [<n>\u2026]",
     summary: "the loop's next step, for PRD n or across your PRDs",
-    detail: "PRD n's next step, read from its phase-0 PR, its feature PR, its open outbox questions and its board: act with the skill to run (a wave, yolo, yolo-fix or one PR care round), wait with when to look again, park with who it waits on and the link where they act, or done. With no number it drives your own PRDs in inbox, building or outbox, as omni status marks them. --plan orders every slice of them into numbered steps (colliding territories in series with the reason, blocked-by held, the rest beside each other) and keeps the plan in this checkout; each later call returns the first step not done, and writes a new plan version with a one-line reason when a slice goes stuck, a slice is added or a PRD ends early. It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one document. Needs gh logged in."
+    detail: "PRD n's next step, read from its phase-0 PR, its feature PR, its open outbox questions and its board: act with the skill to run (a wave, yolo, yolo-fix or one PR care round), wait with when to look again, park with who it waits on and the link where they act, or done. With no number it drives your own PRDs in inbox, building or outbox, as omni status marks them. --plan orders every slice of them into numbered steps (colliding territories in series with the reason, blocked-by held, the rest beside each other) and keeps the plan in this checkout; each later call returns the first step not done, and writes a new plan version with a one-line reason when a slice goes stuck, a slice is added or a PRD ends early. --roadmap <n> drives exactly roadmap n's PRDs, someone else's included: a blocked PRD's first step is held until its blockers' feature PRs merged (in a plan repository, the plan PR and every target PR), its why naming the pull request it waits on and its state, while every other step runs; a person question not answered parks only the PRDs it blocks, and a blocker closed unmerged parks its dependents. It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one document. Needs gh logged in."
   },
   {
     name: "loop",
@@ -40455,7 +40455,7 @@ var ENTRIES = deepFreeze([
       "omni loop status [--json]"
     ],
     summary: "sends a loop's state to the Loop page",
-    detail: "Sends where a loop stands to the Loop page on the Omni page, with this computer's sign-in. start opens a loop on this repository with the loop plan omni next --plan keeps, and keeps the loop's id and plan in this checkout, so a loop whose terminal closed resumes with the same ones; it refuses a second live loop here, and takes over a silent one, whose session died, only with --take-over. tick records one step, its result, its links and the next wake, and carries a new plan version when omni next wrote one; park records a PRD waiting on a person; stop ends the loop. status prints the loop kept here and what it is doing, and calls nothing. It never holds up the loop: a 5-second limit and one sign-in refresh, and anything that stops it exits 1 with one line (off, no sign-in, unreachable or refused)."
+    detail: "Sends where a loop stands to the Loop page on the Omni page, with this computer's sign-in. start opens a loop on this repository with the loop plan omni next --plan keeps, and keeps the loop's id and plan in this checkout, so a loop whose terminal closed resumes with the same ones; it refuses a second live loop here, and takes over a silent one, whose session died, only with --take-over. tick records one step, its result, its links, the repositories it touches (--repos, else the plan's) and the next wake, and carries a new plan version when omni next wrote one; park records a PRD waiting on a person; stop ends the loop. status prints the loop kept here and what it is doing, and calls nothing. It never holds up the loop: a 5-second limit and one sign-in refresh, and anything that stops it exits 1 with one line (off, no sign-in, unreachable or refused)."
   },
   {
     name: "check",
@@ -43066,7 +43066,7 @@ function startBody({ repo, plan: plan2, takeOver }) {
   const reason2 = oneLine3(plan2.reason ?? "", LINE_MAX);
   return { event: "start", repo, prds: [...plan2.prds], plan: plan2, ...reason2 ? { reason: reason2 } : {}, takeOver };
 }
-function tickBody({ loopId, step, steps, prd: prd2, action, result, link: link2 = null, merged = [], items = [], nextWakeAt = null, replan: replan2 = null }) {
+function tickBody({ loopId, step, steps, prd: prd2, action, result, link: link2 = null, merged = [], items = [], repos = [], nextWakeAt = null, replan: replan2 = null }) {
   return {
     event: "tick",
     loopId,
@@ -43078,6 +43078,7 @@ function tickBody({ loopId, step, steps, prd: prd2, action, result, link: link2 
     link: link2,
     merged: [...merged],
     items: [...items],
+    ...repos.length > 0 ? { repos: [...repos] } : {},
     nextWakeAt,
     ...replan2 ? { replan: { reason: reasonOf3(replan2), plan: replan2 } } : {}
   };
@@ -43176,7 +43177,7 @@ function writeLoopPlans(root, versions) {
 // kit/bin/commands/loop.ts
 var USAGE17 = [
   "usage: omni loop push start [--take-over]",
-  '       omni loop push tick --step <k> [--steps <n>] --prd <n> --action <word> --result "<line>" [--link <url>] [--merged <pr,\u2026>] [--items <id,\u2026>] [--wake-in <seconds> | --next-wake <time>]',
+  '       omni loop push tick --step <k> [--steps <n>] --prd <n> --action <word> --result "<line>" [--link <url>] [--merged <pr,\u2026>] [--items <id,\u2026>] [--repos <repo,\u2026>] [--wake-in <seconds> | --next-wake <time>]',
   '       omni loop push park --prd <n> --who "<who>" --what "<what>" [--link <url>]',
   "       omni loop push stop",
   "       omni loop status [--json]"
@@ -43184,6 +43185,8 @@ var USAGE17 = [
 var ACTION = /^[a-z][a-z-]{0,39}$/;
 var LINK = /^https?:\/\/\S+$/;
 var LINK_MAX = 500;
+var REPO = /^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)?$/;
+var REPOS_MAX = 20;
 function skipLine2(error62) {
   if (!(error62 instanceof AskCallError)) throw error62;
   if (error62.status === null) return "unreachable";
@@ -43208,6 +43211,14 @@ function itemsArg(value) {
     if (!parsed.success) throw usageError(`omni loop push: --items names outbox items, got "${id}".`);
     return parsed.data;
   });
+}
+function reposArg(value) {
+  if (value === void 0) return null;
+  const repos = list(value);
+  const bad = repos.find((repo) => !REPO.test(repo));
+  if (bad !== void 0) throw usageError(`omni loop push: --repos names repositories, such as crew or acme/crew, got "${bad}".`);
+  if (repos.length > REPOS_MAX) throw usageError(`omni loop push: --repos names ${REPOS_MAX} repositories at most.`);
+  return repos;
 }
 function wakeArg({ wakeIn, nextWake }, now) {
   if (wakeIn !== void 0 && nextWake !== void 0) throw usageError("omni loop push: --wake-in or --next-wake, not both.");
@@ -43235,7 +43246,7 @@ function actionArg(value) {
   return action;
 }
 function prepareTick(args, { now }) {
-  const { positional, flags } = parseArgs("loop push tick", args, { values: ["step", "steps", "prd", "action", "result", "link", "merged", "items", "wake-in", "next-wake"] });
+  const { positional, flags } = parseArgs("loop push tick", args, { values: ["step", "steps", "prd", "action", "result", "link", "merged", "items", "repos", "wake-in", "next-wake"] });
   if (positional.length) throw usageError(USAGE17);
   const { step, given } = stepArgs(flags);
   const prd2 = prdArg("loop push tick", "--prd", flags.prd);
@@ -43244,6 +43255,7 @@ function prepareTick(args, { now }) {
   const link2 = linkArg(flags.link);
   const merged = prsArg(flags.merged);
   const items = itemsArg(flags.items);
+  const named3 = reposArg(flags.repos);
   const wake = wakeArg({ wakeIn: flags["wake-in"], nextWake: flags["next-wake"] }, now);
   return {
     needsLoop: true,
@@ -43252,7 +43264,8 @@ function prepareTick(args, { now }) {
     body: (loop2, plan2) => {
       const steps = Math.max(given ?? plan2?.steps.length ?? step, step);
       const replan2 = plan2 && plan2.version > loop2.planVersion ? plan2 : null;
-      return tickBody({ loopId: loop2.loopId, step, steps, prd: prd2, action, result, link: link2, merged, items, nextWakeAt: wake, replan: replan2 });
+      const repos = named3 ?? plan2?.steps.find((candidate) => candidate.step === step)?.repos ?? [];
+      return tickBody({ loopId: loop2.loopId, step, steps, prd: prd2, action, result, link: link2, merged, items, repos, nextWakeAt: wake, replan: replan2 });
     }
   };
 }
@@ -43415,6 +43428,241 @@ init_define_OMNI_BUNDLE();
 import { existsSync as existsSync48, readFileSync as readFileSync49 } from "node:fs";
 import { join as join61 } from "node:path";
 
+// kit/lib/roadmap/answers.ts
+init_define_OMNI_BUNDLE();
+var ANSWER_MAX = 1e3;
+var MARKER3 = /^<!-- omni-roadmap-answer: ([A-Za-z0-9][A-Za-z0-9._-]{0,19}) -->[ \t]*\r?\n?/;
+var answerMarker = (question) => `<!-- omni-roadmap-answer: ${question} -->`;
+var heading = (question) => `**${question}**, answered:`;
+function answerComment(question, answer) {
+  return `${answerMarker(question)}
+${heading(question)}
+
+${answer.trim()}
+`;
+}
+function answerOf3(body) {
+  const marked = MARKER3.exec(body);
+  if (!marked) return null;
+  const question = marked[1] ?? "";
+  let rest = body.slice(marked[0].length).trim();
+  if (rest.startsWith(heading(question))) rest = rest.slice(heading(question).length).trim();
+  if (!rest) return null;
+  return { question, answer: rest.length > ANSWER_MAX ? rest.slice(0, ANSWER_MAX).trim() : rest };
+}
+function readAnswers(comments) {
+  const answers2 = /* @__PURE__ */ new Map();
+  for (const comment2 of comments) {
+    const found2 = answerOf3(comment2.body ?? "");
+    if (found2) answers2.set(found2.question, found2.answer);
+  }
+  return answers2;
+}
+
+// kit/lib/roadmap/push.ts
+init_define_OMNI_BUNDLE();
+var WAITS_ON_MAX = 300;
+var NO_RECOMMENDATION = /^(?:|-|–|—|none)$/i;
+var ASKED_RANKS = /* @__PURE__ */ new Set(["human-action", "high"]);
+function prdState({ shipped, prs, expected }) {
+  if (prs.length === 0) return shipped ? "merged" : "waiting";
+  if (prs.some((pr) => pr.state === "CLOSED")) return "closed";
+  const open3 = prs.filter((pr) => pr.state === "OPEN");
+  if (open3.length === 0) return shipped || prs.length >= expected ? "merged" : "building";
+  if (open3.some((pr) => pr.isDraft && pr.questions > 0)) return "outbox";
+  return open3.every((pr) => !pr.isDraft) && prs.length >= expected ? "ready" : "building";
+}
+function bound(times, pick2) {
+  const known2 = times.filter((time5) => time5 !== null).sort();
+  return (pick2 === "first" ? known2[0] : known2.at(-1)) ?? null;
+}
+function prdTimes(standing2, state) {
+  const startedAt = bound(standing2.prs.map((pr) => pr.createdAt), "first");
+  if (state === "merged") return { startedAt, endedAt: bound(standing2.prs.map((pr) => pr.mergedAt), "last") };
+  if (state === "closed") return { startedAt, endedAt: bound(standing2.prs.filter((pr) => pr.state === "CLOSED").map((pr) => pr.closedAt), "last") };
+  return { startedAt, endedAt: null };
+}
+var questionsWord = (n) => `${n} question${n === 1 ? "" : "s"}`;
+function stateWords(state, pr) {
+  if (state === "closed") return "closed unmerged: fix the roadmap";
+  if (state === "ready") return "ready, waiting for your merge";
+  if (state === "outbox") return `outbox: ${questionsWord(pr?.questions ?? 0)}`;
+  return state === "waiting" ? "not started" : state;
+}
+var cut2 = (line, max) => {
+  const flat = line.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}\u2026` : flat;
+};
+var namedPr = (standing2) => standing2.prs.find((pr) => pr.state === "OPEN") ?? standing2.prs.find((pr) => pr.state === "CLOSED") ?? null;
+function waitsOn(row, rows2, live = /* @__PURE__ */ new Map()) {
+  for (const id of row.blockedBy) {
+    const blocker = rows2.get(id);
+    if (!blocker || blocker.state === "merged") continue;
+    const pr = namedPr(blocker.standing);
+    const who2 = `${blocker.row.id} ${blocker.row.title}`;
+    const words3 = live.get(id) ?? stateWords(blocker.state, pr);
+    if (pr === null) return { waitsOn: cut2(`waits on ${who2}: ${words3}`, WAITS_ON_MAX), waitsOnUrl: null };
+    return { waitsOn: cut2(`waits on ${pr.repo}#${pr.number} (${who2}): ${words3}`, WAITS_ON_MAX), waitsOnUrl: pr.url };
+  }
+  return { waitsOn: null, waitsOnUrl: null };
+}
+function rowStates(roadmap2, standings) {
+  const none = { shipped: false, prs: [], expected: 1 };
+  return new Map(roadmap2.prds.map((row) => {
+    const standing2 = standings.get(row.id) ?? none;
+    return [row.id, { row, standing: standing2, state: prdState(standing2) }];
+  }));
+}
+function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers: answers2 }) {
+  const rows2 = rowStates(roadmap2, standings);
+  const prds = [...rows2.values()].map(({ row, standing: standing2, state }) => ({
+    id: row.id,
+    prd: row.prd,
+    title: row.title,
+    repos: row.repos ?? [],
+    blockers: [...row.blockedBy],
+    wave: row.wave,
+    state,
+    ...state === "waiting" ? waitsOn(row, rows2) : { waitsOn: null, waitsOnUrl: null },
+    ...prdTimes(standing2, state)
+  }));
+  const questions2 = roadmap2.questions.map((q) => ({
+    id: q.id,
+    question: q.question,
+    recommendation: NO_RECOMMENDATION.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
+    blocks: [...q.blocks],
+    kind: q.kind,
+    answer: answers2.get(q.id) ?? null
+  }));
+  const { title, milestone, product, target: target3, source } = roadmap2;
+  return { repo, roadmap: roadmap2.roadmap, title, milestone, product, target: target3, source, questions: questions2, document, prds };
+}
+var GhPrSchema2 = external_exports.looseObject({
+  number: PrNumberSchema,
+  url: external_exports.string(),
+  state: external_exports.enum(["OPEN", "MERGED", "CLOSED"]),
+  isDraft: external_exports.boolean().nullish(),
+  createdAt: external_exports.string().nullish(),
+  mergedAt: external_exports.string().nullish(),
+  closedAt: external_exports.string().nullish(),
+  updatedAt: external_exports.string().nullish()
+});
+var shortName7 = (slug) => slug.slice(slug.indexOf("/") + 1);
+function featurePr(slug, branch, { gh: gh2 }) {
+  const raw = gh2(["pr", "list", "--repo", slug, "--head", branch, "--state", "all", "--json", "number,url,state,isDraft,createdAt,mergedAt,closedAt,updatedAt", "--limit", "20"]);
+  const prs = external_exports.array(GhPrSchema2).parse(JSON.parse(raw));
+  return prs.find((pr) => pr.state === "OPEN") ?? [...prs].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] ?? null;
+}
+function questionsOn(ref, dir, { git: git7 }) {
+  let listed2;
+  try {
+    listed2 = git7(["ls-tree", "-r", "--name-only", ref, "--", dir]);
+  } catch {
+    return 0;
+  }
+  const files = listed2.split("\n").map((line) => line.trim()).filter((file2) => file2.endsWith(".md") && !file2.endsWith("/settled.md") && !file2.slice(dir.length).includes("/accounts/"));
+  return files.filter((file2) => {
+    const parsed = parseOutboxItem(git7(["show", `${ref}:${file2}`]), { file: file2 });
+    return parsed.ok && ASKED_RANKS.has(parsed.item.rank);
+  }).length;
+}
+function draftQuestions(ctx, row, branch, readers) {
+  const dir = ctx.layout.outboxDir(row.prd);
+  if (dir === null) return 0;
+  const remote = ctx.config.repo.remote;
+  try {
+    readers.git(["fetch", "--quiet", remote, branch]);
+  } catch {
+  }
+  return questionsOn(`${remote}/${branch}`, dir, readers);
+}
+function slugsOf(ctx, row, slug) {
+  const targets2 = ctx.config.plan?.targets ?? [];
+  const named3 = new Set(row.repos ?? []);
+  const own2 = shortName7(slug);
+  return [slug, ...targets2.filter((t) => named3.has(shortName7(t.repo)) && shortName7(t.repo) !== own2).map((t) => t.repo)];
+}
+function readStanding(ctx, row, readers) {
+  const slug = ctx.config.repo.slug ?? "";
+  const slugs = slugsOf(ctx, row, slug);
+  const where = ctx.layout.whereIs(row.prd);
+  const folder = where === null ? null : parseFolderName(where.name);
+  if (where === null || folder === null) return { shipped: false, prs: [], expected: slugs.length };
+  const branch = fillBranch(ctx.config.branches.feature, { topic: folder.topic });
+  const prs = slugs.flatMap((repo) => {
+    const pr = featurePr(repo, branch, readers);
+    if (pr === null) return [];
+    const isDraft = Boolean(pr.isDraft);
+    const questions2 = repo === slug && pr.state === "OPEN" && isDraft ? draftQuestions(ctx, row, branch, readers) : 0;
+    return [{
+      repo: shortName7(repo),
+      number: pr.number,
+      url: pr.url,
+      state: pr.state,
+      isDraft,
+      createdAt: pr.createdAt ?? null,
+      mergedAt: pr.mergedAt ?? null,
+      closedAt: pr.closedAt ?? null,
+      questions: questions2
+    }];
+  });
+  return { shipped: where.state === "shipped", prs, expected: slugs.length };
+}
+function readStandings(ctx, roadmap2, readers) {
+  return new Map(roadmap2.prds.map((row) => [row.id, readStanding(ctx, row, readers)]));
+}
+
+// kit/lib/next/roadmap.ts
+init_define_OMNI_BUNDLE();
+var QUESTION_MAX = 120;
+function cut3(text10, max) {
+  const flat = text10.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}\u2026` : flat;
+}
+function liveWords(state, facts, slices) {
+  if (state === "building") {
+    const waves = (slices ?? []).map((slice) => slice.wave).filter((wave) => wave !== null);
+    if (waves.length === 0) return null;
+    const last = Math.max(...waves);
+    const open3 = (slices ?? []).filter((slice) => slice.state !== "merged" && slice.wave !== null).map((slice) => slice.wave ?? last);
+    return `building wave ${open3.length > 0 ? Math.min(...open3) : last}/${last}`;
+  }
+  if (state !== "ready") return null;
+  const prs = [facts.feature, ...(facts.across?.targets ?? []).map((target3) => target3.pr)];
+  const red = prs.some((pr) => pr !== null && pr !== "unreadable" && pr.state === "OPEN" && !pr.isDraft && pr.checks === "red");
+  return red ? "CI red" : null;
+}
+function closedBlocker(blockedBy, standings) {
+  for (const id of blockedBy) {
+    const standing2 = standings.get(id);
+    if (!standing2 || prdState(standing2) !== "closed") continue;
+    const closed = standing2.prs.find((pr) => pr.state === "CLOSED");
+    if (closed) return closed;
+  }
+  return null;
+}
+function roadmapGates({ roadmap: roadmap2, answers: answers2, standings, live, issueLink }) {
+  const rows2 = rowStates(roadmap2, standings);
+  const gates = /* @__PURE__ */ new Map();
+  const withLink = (gate, link2) => link2 ? { ...gate, link: link2 } : gate;
+  for (const row of roadmap2.prds) {
+    const question = roadmap2.questions.find((q) => q.kind === "person" && q.blocks.includes(row.id) && !answers2.has(q.id));
+    if (question) {
+      const why2 = `waits on a person: roadmap ${roadmap2.roadmap} question ${question.id} is not answered (${cut3(question.question, QUESTION_MAX)}); answer it with omni roadmap answer ${roadmap2.roadmap} ${question.id} "<answer>"`;
+      gates.set(row.prd, withLink({ kind: "park", why: why2 }, issueLink));
+      continue;
+    }
+    const closed = closedBlocker(row.blockedBy, standings);
+    if (closed) {
+      gates.set(row.prd, { kind: "park", why: `blocker #${closed.number} closed unmerged: fix the roadmap`, link: closed.url });
+      continue;
+    }
+    const wait3 = waitsOn(row, rows2, live);
+    if (wait3.waitsOn !== null) gates.set(row.prd, withLink({ kind: "hold", why: wait3.waitsOn }, wait3.waitsOnUrl));
+  }
+  return gates;
+}
+
 // kit/lib/next/decide.ts
 init_define_OMNI_BUNDLE();
 var WAKE_HINTS = Object.freeze({ ci: 300, claim: 1200, unreadable: 300 });
@@ -43545,13 +43793,23 @@ function decideAcross(facts, across) {
 
 // kit/lib/next/follow.ts
 init_define_OMNI_BUNDLE();
+function verdictOf(prd2, live) {
+  const verdict2 = live.verdicts.get(prd2);
+  const gate = live.gates?.get(prd2);
+  if (!verdict2 || verdict2.verdict === "done" || gate?.kind !== "park") return verdict2;
+  return { prd: prd2, verdict: "park", why: gate.why, ...gate.link ? { link: gate.link } : {}, ...verdict2.repos ? { repos: verdict2.repos } : {} };
+}
 function isDone(step, live) {
-  if (live.verdicts.get(step.prd)?.verdict === "done") return true;
+  if (verdictOf(step.prd, live)?.verdict === "done") return true;
   if (step.kind !== "wave") return false;
   const merged = live.merged.get(step.prd);
   return step.slices.every((id) => merged?.has(id) === true);
 }
 function holdOf(step, plan2, done, live) {
+  const gate = live.gates?.get(step.prd);
+  if (gate?.kind === "hold" && plan2.steps.find((candidate) => candidate.prd === step.prd) === step) {
+    return { prd: step.prd, why: gate.why, ...gate.link ? { link: gate.link } : {} };
+  }
   const unshipped = step.waitsFor.find((prd2) => !live.shipped.has(prd2));
   if (unshipped !== void 0) return { prd: step.prd, why: `waits on PRD ${unshipped} to ship` };
   const before2 = step.after.find((n) => !done.has(n));
@@ -43561,16 +43819,16 @@ function holdOf(step, plan2, done, live) {
 }
 function waitingOf(plan2, live, holds2) {
   return plan2.prds.flatMap((prd2) => {
-    const verdict2 = live.verdicts.get(prd2);
+    const verdict2 = verdictOf(prd2, live);
     if (verdict2?.verdict === "done") return [];
     if (verdict2?.verdict === "park") return [verdict2];
     const hold = holds2.get(prd2);
-    return hold ? [{ prd: prd2, verdict: "park", why: hold.why }] : [];
+    return hold ? [{ prd: prd2, verdict: "park", why: hold.why, ...hold.link ? { link: hold.link } : {} }] : [];
   });
 }
 function runnableVerdict(step, { plan: plan2, live, done, holds: holds2 }) {
   if (done.has(step.step)) return null;
-  const verdict2 = live.verdicts.get(step.prd);
+  const verdict2 = verdictOf(step.prd, live);
   if (!verdict2 || verdict2.verdict === "park") return null;
   const hold = holdOf(step, plan2, done, live);
   if (hold === null) return verdict2;
@@ -44554,7 +44812,7 @@ var GhListedPrSchema = external_exports.looseObject({
   body: external_exports.string().nullish(),
   author: external_exports.looseObject({ login: external_exports.string().nullish() }).nullish()
 });
-var ASKED_RANKS = /* @__PURE__ */ new Set(["human-action", "high"]);
+var ASKED_RANKS2 = /* @__PURE__ */ new Set(["human-action", "high"]);
 function gh(args, { exec, ghEnv }) {
   return exec("gh", args, { encoding: "utf8", ...ghEnv ? { env: ghEnv } : {} });
 }
@@ -44574,7 +44832,7 @@ function openPhase0(prd2, reader) {
   const found2 = listPrs(["--label", reader.ctx.config.labels.phase0, "--state", "open"], reader).find((pr) => link2.test(pr.body ?? ""));
   return found2 ? { url: found2.url } : null;
 }
-function featurePr(branch, reader) {
+function featurePr2(branch, reader) {
   const prs = listPrs(["--head", branch, "--state", "all"], reader);
   const open3 = prs.find((pr) => pr.state === "OPEN");
   return open3 ?? [...prs].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] ?? null;
@@ -44635,7 +44893,7 @@ function openItems2(prd2, branch, reader) {
 }
 function outboxFacts(prd2, { branch, pr }, reader) {
   const items = openItems2(prd2, branch, reader);
-  const questions2 = items.filter((item2) => ASKED_RANKS.has(item2.rank)).length;
+  const questions2 = items.filter((item2) => ASKED_RANKS2.has(item2.rank)).length;
   if (questions2 === 0 || pr === null) return { questions: questions2, answered: false };
   const comments = githubClientFor(reader.ctx, { repo: reader.slug, issue: pr.number, exec: reader.exec, env: reader.env }).listComments();
   const { settle: settle3 } = planReplies({ comments, items, markers: reader.ctx.markers });
@@ -44687,39 +44945,55 @@ function folderOf(prd2, ctx) {
 function readFacts2(prd2, reader) {
   const folder = folderOf(prd2, reader.ctx);
   const phase02 = openPhase0(prd2, reader);
-  if (folder === null) {
-    if (phase02 !== null) {
-      const across2 = acrossFacts("", null, reader);
-      return { facts: { prd: prd2, shipped: false, phase0: phase02, feature: null, board: null, outbox: { questions: 0, answered: false }, ...across2 ? { across: across2 } : {} }, slices: null };
-    }
-    throw usageError(`omni next: PRD ${prd2} has no inbox or shipped folder, and no open phase-0 PR.`);
-  }
+  if (folder === null) return beforeInbox(prd2, phase02, reader);
   const branch = fillBranch(reader.ctx.config.branches.feature, { topic: folder.topic });
-  const pr = featurePr(branch, reader);
+  const pr = featurePr2(branch, reader);
   const open3 = pr?.state === "OPEN" ? pr : null;
   const feature = pr === null ? null : featureFacts(pr, reader);
   const { board: board2, slices } = boardFacts(prd2, reader);
   const across = acrossFacts(branch, slices, reader);
-  const facts = { prd: prd2, shipped: folder.shipped, phase0: phase02, feature, board: board2, outbox: outboxFacts(prd2, { branch, pr: open3 }, reader), ...across ? { across } : {} };
-  return { facts, slices };
+  const outbox = outboxFacts(prd2, { branch, pr: open3 }, reader);
+  const facts = { prd: prd2, shipped: folder.shipped, phase0: phase02, feature, board: board2, outbox, ...across ? { across: across.across } : {} };
+  return { facts, slices, prs: standingsOf(pr, outbox, across, reader) };
 }
-var shortName7 = (slug) => slug.slice(slug.indexOf("/") + 1);
+function beforeInbox(prd2, phase02, reader) {
+  if (phase02 === null) throw usageError(`omni next: PRD ${prd2} has no inbox or shipped folder, and no open phase-0 PR.`);
+  const read2 = acrossFacts("", null, reader);
+  const facts = { prd: prd2, shipped: false, phase0: phase02, feature: null, board: null, outbox: { questions: 0, answered: false }, ...read2 ? { across: read2.across } : {} };
+  return { facts, slices: null, prs: [] };
+}
+function standingsOf(own2, outbox, across, reader) {
+  const questions2 = own2?.state === "OPEN" && own2.isDraft ? outbox.questions : 0;
+  const targets2 = (across?.listed ?? []).map((listed2) => standingPr(listed2.repo, listed2.pr, 0));
+  return [...own2 === null ? [] : [standingPr(shortName8(reader.slug), own2, questions2)], ...targets2].filter((standing2) => standing2 !== null);
+}
+var shortName8 = (slug) => slug.slice(slug.indexOf("/") + 1);
 var reposOf2 = (slices) => [...new Set((slices ?? []).flatMap((slice) => slice.repo ? [slice.repo] : []))].sort();
 function targetPr(branch, reader) {
   try {
-    const pr = featurePr(branch, reader);
-    return pr === null ? null : featureFacts(pr, reader);
+    const pr = featurePr2(branch, reader);
+    return { pr: pr === null ? null : featureFacts(pr, reader), listed: pr };
   } catch {
-    return "unreadable";
+    return { pr: "unreadable", listed: null };
   }
 }
 function acrossFacts(branch, slices, reader) {
   const targets2 = reader.ctx.config.plan?.targets;
   if (targets2 === void 0) return void 0;
-  const repo = shortName7(reader.slug);
+  const repo = shortName8(reader.slug);
   const named3 = new Set(reposOf2(slices));
-  const landed = targets2.filter((target3) => named3.has(shortName7(target3.repo)) && shortName7(target3.repo) !== repo);
-  return { repo, targets: landed.map((target3) => ({ repo: shortName7(target3.repo), pr: targetPr(branch, { ...reader, slug: target3.repo }) })) };
+  const landed = targets2.filter((target3) => named3.has(shortName8(target3.repo)) && shortName8(target3.repo) !== repo);
+  const read2 = landed.map((target3) => ({ repo: shortName8(target3.repo), ...targetPr(branch, { ...reader, slug: target3.repo }) }));
+  return {
+    across: { repo, targets: read2.map(({ repo: name2, pr }) => ({ repo: name2, pr })) },
+    listed: read2.flatMap(({ repo: name2, listed: listed2 }) => listed2 ? [{ repo: name2, pr: listed2 }] : [])
+  };
+}
+var PR_STATES = ["OPEN", "MERGED", "CLOSED"];
+function standingPr(repo, pr, questions2) {
+  const state = PR_STATES.find((known2) => known2 === pr.state);
+  if (state === void 0) return null;
+  return { repo, number: pr.number, url: pr.url, state, isDraft: Boolean(pr.isDraft), createdAt: null, mergedAt: null, closedAt: null, questions: questions2 };
 }
 function isUsage(error62) {
   return error62 instanceof Error && error62.name === "UsageError";
@@ -44737,12 +45011,12 @@ function readPrd(prd2, reader) {
     if (isUsage(error62)) throw error62;
     const planPath = reader.ctx.layout.planPath(prd2);
     const facts = { prd: prd2, shipped: false, phase0: null, feature: "unreadable", board: "unreadable", outbox: "unreadable" };
-    read2 = { facts, slices: planPath === null ? null : planSlices(join61(reader.ctx.root, planPath)) };
+    read2 = { facts, slices: planPath === null ? null : planSlices(join61(reader.ctx.root, planPath)), prs: [] };
   }
   const input2 = { prd: prd2, blockedBy: blockersOf2(prd2, reader.ctx), slices: read2.slices, ended: endedOf(read2.facts) };
   const repos = reposOf2(read2.slices);
   const verdict2 = decideNext(read2.facts);
-  return { verdict: repos.length > 0 ? { ...verdict2, repos } : verdict2, input: input2 };
+  return { verdict: repos.length > 0 ? { ...verdict2, repos } : verdict2, input: input2, read: read2 };
 }
 function yourPrds(reader) {
   const facts = readFacts({ ctx: reader.ctx, exec: reader.exec });
@@ -44754,15 +45028,56 @@ function yourPrds(reader) {
   }
   return yours2.rows.filter((row) => row.stage !== "prd").map((row) => row.prd).sort((a, b) => a - b);
 }
-function readAll2(prds, reader) {
+function readAll2(prds, reader, roadmap2 = null) {
   const read2 = prds.map((prd2) => readPrd(prd2, reader));
   const driven = new Set(prds);
-  const outside = [...new Set(read2.flatMap(({ input: input2 }) => input2.blockedBy))].filter((prd2) => !driven.has(prd2));
+  const rowBlockers = roadmapBlockers(roadmap2);
+  const inputs = read2.map(({ input: input2 }) => {
+    const extra = rowBlockers.get(input2.prd) ?? [];
+    return extra.length === 0 ? input2 : { ...input2, blockedBy: [.../* @__PURE__ */ new Set([...input2.blockedBy, ...extra])].sort((a, b) => a - b) };
+  });
+  const outside = [...new Set(inputs.flatMap((input2) => input2.blockedBy))].filter((prd2) => !driven.has(prd2));
   const shipped = outside.filter((prd2) => reader.ctx.layout.whereIs(prd2)?.state === "shipped");
-  return { verdicts: read2.map(({ verdict: verdict2 }) => verdict2), inputs: { prds: read2.map(({ input: input2 }) => input2), shipped } };
+  return { verdicts: read2.map(({ verdict: verdict2 }) => verdict2), inputs: { prds: inputs, shipped }, reads: new Map(read2.map((one) => [one.input.prd, one.read])) };
 }
-function startPlan(prds, { reader, out, json: json2 }) {
-  const plan2 = planLoop(readAll2(prds, reader).inputs);
+function roadmapBlockers(roadmap2) {
+  if (roadmap2 === null) return /* @__PURE__ */ new Map();
+  const prdOf3 = new Map(roadmap2.prds.map((row) => [row.id, row.prd]));
+  return new Map(roadmap2.prds.map((row) => [row.prd, row.blockedBy.flatMap((id) => {
+    const blocker = prdOf3.get(id);
+    return blocker === void 0 ? [] : [blocker];
+  })]));
+}
+var issueUrl = (slug, n) => `https://github.com/${slug}/issues/${n}`;
+function answersOf(roadmap2, reader) {
+  try {
+    return readAnswers(githubClientFor(reader.ctx, { issue: roadmap2.roadmap, exec: reader.exec, env: reader.env }).listComments());
+  } catch {
+    return /* @__PURE__ */ new Map();
+  }
+}
+function gatesOf(roadmap2, reads, reader) {
+  const standings = /* @__PURE__ */ new Map();
+  const live = /* @__PURE__ */ new Map();
+  for (const row of roadmap2.prds) {
+    const read2 = reads.get(row.prd);
+    if (!read2) continue;
+    const standing2 = { shipped: read2.facts.shipped, prs: read2.prs, expected: 1 + (read2.facts.across?.targets.length ?? 0) };
+    standings.set(row.id, standing2);
+    const words3 = liveWords(prdState(standing2), read2.facts, read2.slices);
+    if (words3 !== null) live.set(row.id, words3);
+  }
+  return roadmapGates({ roadmap: roadmap2, answers: answersOf(roadmap2, reader), standings, live, issueLink: issueUrl(reader.slug, roadmap2.roadmap) });
+}
+function heldOf(gates, verdicts) {
+  return verdicts.flatMap((verdict2) => {
+    const gate = gates.get(verdict2.prd);
+    if (!gate || verdict2.verdict === "done") return [];
+    return [{ prd: verdict2.prd, gate: gate.kind, why: gate.why, ...gate.link ? { link: gate.link } : {} }];
+  });
+}
+function startPlan(prds, { reader, out, json: json2, roadmap: roadmap2 }) {
+  const plan2 = planLoop(readAll2(prds, reader, roadmap2 ?? null).inputs);
   writeLoopPlans(reader.ctx.root, [plan2]);
   if (json2) out(JSON.stringify({ plan: plan2 }, null, 2));
   else for (const line of formatPlan(plan2)) out(line);
@@ -44780,28 +45095,32 @@ function currentPlan(kept, inputs, root) {
   writeLoopPlans(root, [...kept, next2]);
   return { plan: next2, replanned: replanLine(next2) };
 }
-function followKept(prds, kept, { reader, out, json: json2 }) {
-  const { verdicts, inputs } = readAll2(prds, reader);
+function followKept(prds, kept, { reader, out, json: json2, roadmap: roadmap2 }) {
+  const { verdicts, inputs, reads } = readAll2(prds, reader, roadmap2 ?? null);
   const { plan: plan2, replanned } = currentPlan(kept, inputs, reader.ctx.root);
   const merged = new Map(inputs.prds.map((input2) => [input2.prd, new Set((input2.slices ?? []).filter((slice) => slice.state === "merged").map((slice) => slice.id))]));
-  const followed = followPlan(plan2, { verdicts: new Map(verdicts.map((verdict2) => [verdict2.prd, verdict2])), merged, shipped: new Set(inputs.shipped) });
-  if (!json2) {
-    if (replanned !== null) out(replanned);
-    for (const line of formatFollowed(plan2, followed)) out(line);
-    return 0;
-  }
+  const gates = roadmap2 ? gatesOf(roadmap2, reads, reader) : null;
+  const followed = followPlan(plan2, { verdicts: new Map(verdicts.map((verdict2) => [verdict2.prd, verdict2])), merged, shipped: new Set(inputs.shipped), ...gates ? { gates } : {} });
+  const ticked = { plan: plan2, replanned, followed, verdicts, held: gates ? heldOf(gates, verdicts) : [], roadmap: roadmap2?.roadmap ?? null };
+  for (const line of json2 ? [JSON.stringify(tickJson(ticked), null, 2)] : tickLines(ticked)) out(line);
+  return 0;
+}
+function tickLines({ plan: plan2, replanned, followed, held }) {
+  const holds2 = followed.state === "step" ? held.map((one) => `  ${one.gate === "park" ? "parked" : "held"}: PRD ${one.prd} \u2014 ${one.why}${one.link ? ` \u2014 ${one.link}` : ""}`) : [];
+  return [...replanned === null ? [] : [replanned], ...formatFollowed(plan2, followed), ...holds2];
+}
+function tickJson({ plan: plan2, replanned, followed, verdicts, held, roadmap: roadmap2 }) {
   const step = followed.state === "step" ? followed.step : null;
-  const tick2 = {
+  return {
     plan: { version: plan2.version, steps: plan2.steps.length },
     replanned,
     stop: followed.state === "stop",
     step: step && { step: step.step, of: plan2.steps.length, prd: step.prd, kind: step.kind, wave: step.wave, slices: step.slices, ...step.repos ? { repos: step.repos } : {} },
     verdict: followed.state === "step" ? followed.verdict : null,
     waiting: followed.state === "stop" ? followed.waiting : [],
-    prds: verdicts
+    prds: verdicts,
+    ...roadmap2 === null ? {} : { roadmap: roadmap2, held }
   };
-  out(JSON.stringify(tick2, null, 2));
-  return 0;
 }
 function samePrds(prds, plan2) {
   const named3 = [...new Set(prds)].sort((a, b) => a - b);
@@ -44832,15 +45151,32 @@ function tick(named3, io) {
   if (last !== void 0 && samePrds(named3, last)) return followKept(last.prds, kept, io);
   return printVerdicts(named3, io);
 }
+function roadmapOf(n, ctx) {
+  const entry = roadmapFiles(ctx).find((file2) => file2.number === n);
+  if (entry === void 0 || !existsSync48(join61(ctx.root, entry.file))) throw usageError(`omni next: no roadmap ${n} in the inbox; omni roadmap check lists them.`);
+  const parsed = parseRoadmap(readRepoFile(ctx, entry.file));
+  if (!parsed.ok) throw usageError(`omni next: roadmap ${n} does not parse; run omni roadmap check ${n}.`);
+  return parsed.roadmap;
+}
+function driveRoadmap(roadmap2, plan2, io) {
+  const prds = [...new Set(roadmap2.prds.map((row) => row.prd))].sort((a, b) => a - b);
+  if (plan2) return startPlan(prds, io);
+  const kept = readLoopPlans(io.reader.ctx.root);
+  const last = kept.at(-1);
+  return followKept(prds, last !== void 0 && samePrds(prds, last) ? kept : [], io);
+}
 var next = {
   run: synchronous((args, { ctx, stdout, exec, env }) => {
-    const { positional, flags } = parseArgs("next", args, { booleans: ["json", "plan"] });
+    const { positional, flags } = parseArgs("next", args, { booleans: ["json", "plan"], values: ["roadmap"] });
     const named3 = positional.map((value) => prdArg("next", "<prd>", value));
+    if (flags.roadmap !== void 0 && named3.length > 0) throw usageError("omni next: --roadmap <n> drives the roadmap's PRDs; name no PRD beside it.");
+    const roadmap2 = flags.roadmap === void 0 ? null : roadmapOf(issueArg("next", "--roadmap", flags.roadmap), ctx);
     const slug = repoSlug("next", ctx, void 0);
     const reader = { ctx, exec, env, slug, ghEnv: ghEnvOf(ctx, exec, env) };
     const io = { reader, out: (line) => {
       println(stdout, line);
-    }, json: flags.json === true };
+    }, json: flags.json === true, ...roadmap2 ? { roadmap: roadmap2 } : {} };
+    if (roadmap2 !== null) return driveRoadmap(roadmap2, flags.plan === true, io);
     if (flags.plan) return startPlan(named3.length > 0 ? [...new Set(named3)] : yoursOrRefuse(reader, " --plan"), io);
     return tick(named3, io);
   })
@@ -45086,22 +45422,22 @@ function ghReader({ exec, env }) {
       } catch (error62) {
         throw new Unreachable(ghLine(error62));
       }
-      return answerOf3(GhRepositorySchema, answer, `repos/${repo}`);
+      return answerOf4(GhRepositorySchema, answer, `repos/${repo}`);
     },
     file: (repo, path, ref) => call(["-H", "Accept: application/vnd.github.raw", contents(repo, path, ref)]),
     dir(repo, path, ref) {
       const out = call([contents(repo, path, ref)]);
       if (out === null) return null;
       const listed2 = JSON.parse(out);
-      return Array.isArray(listed2) ? answerOf3(GhContentEntrySchema.array(), listed2, `${repo}:${path}`) : null;
+      return Array.isArray(listed2) ? answerOf4(GhContentEntrySchema.array(), listed2, `${repo}:${path}`) : null;
     },
     compare(repo, base, head) {
       const out = call([`repos/${repo}/compare/${base}...${encodeURIComponent(head)}`]);
-      return out === null ? null : answerOf3(GhCompareSchema, JSON.parse(out), `${repo} compare ${base}...${head}`);
+      return out === null ? null : answerOf4(GhCompareSchema, JSON.parse(out), `${repo} compare ${base}...${head}`);
     }
   };
 }
-function answerOf3(schema, answer, what) {
+function answerOf4(schema, answer, what) {
   const parsed = schema.safeParse(answer);
   if (!parsed.success) throw new Unreachable(`gh answered ${what} without what it needs \u2014 ${firstIssue(parsed.error)}`);
   return parsed.data;
@@ -45224,7 +45560,7 @@ function targetsTable(rows2) {
 }
 
 // kit/lib/plan-repo/moved.ts
-var shortName8 = (slug) => slug.slice(slug.indexOf("/") + 1);
+var shortName9 = (slug) => slug.slice(slug.indexOf("/") + 1);
 var pathsOf = (file2) => [file2.filename, file2.previous_filename].filter((path) => Boolean(path));
 function compareRow(gh2, { slug, readAt, slices }) {
   const branch = gh2.repository(slug).default_branch;
@@ -45249,8 +45585,8 @@ function planMoved({
   targets: targets2
 }, { exec = execFileSync13, env } = {}) {
   const gh2 = ghReader({ exec, env });
-  const slugOf3 = new Map(targets2.map((target3) => [shortName8(target3.repo), target3.repo]));
-  return repositories.filter((row) => row.repo !== shortName8(planSlug)).map((row) => {
+  const slugOf3 = new Map(targets2.map((target3) => [shortName9(target3.repo), target3.repo]));
+  return repositories.filter((row) => row.repo !== shortName9(planSlug)).map((row) => {
     const base = { repo: row.repo, state: "ok", files: [], slices: [], detail: null };
     const slug = slugOf3.get(row.repo);
     if (!slug) return { ...base, state: "unreachable", detail: "not a target of this plan repository" };
@@ -47490,7 +47826,7 @@ function textOf4(item2, at2) {
   if (!valid) return refuse3(`${at2}: its text is 1 to ${TEXT_MAX} characters`);
   return { text: text10.trim(), sent: item2 };
 }
-function verdictOf(item2, at2) {
+function verdictOf2(item2, at2) {
   const { verdict: verdict2 } = item2;
   if (!isVerdict2(verdict2)) return refuse3(`${at2}: a verdict is ${VERDICTS2.slice(0, -1).join(", ")} or ${VERDICTS2.at(-1)}, not ${String(item2.verdict)}`);
   return verdict2;
@@ -47512,7 +47848,7 @@ function extrasOf(item2, at2, criterion) {
 function criterionOf(item2, index) {
   const at2 = `criterion ${index + 1}`;
   const { text: text10, sent } = textOf4(item2, at2);
-  return extrasOf(sent, at2, { text: text10, verdict: verdictOf(sent, at2) });
+  return extrasOf(sent, at2, { text: text10, verdict: verdictOf2(sent, at2) });
 }
 function fileOf2(dir, name2) {
   const path = join80(dir, name2);
@@ -47746,189 +48082,6 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
 
 // kit/bin/commands/roadmap.ts
 init_define_OMNI_BUNDLE();
-
-// kit/lib/roadmap/answers.ts
-init_define_OMNI_BUNDLE();
-var ANSWER_MAX = 1e3;
-var MARKER3 = /^<!-- omni-roadmap-answer: ([A-Za-z0-9][A-Za-z0-9._-]{0,19}) -->[ \t]*\r?\n?/;
-var answerMarker = (question) => `<!-- omni-roadmap-answer: ${question} -->`;
-var heading = (question) => `**${question}**, answered:`;
-function answerComment(question, answer) {
-  return `${answerMarker(question)}
-${heading(question)}
-
-${answer.trim()}
-`;
-}
-function answerOf4(body) {
-  const marked = MARKER3.exec(body);
-  if (!marked) return null;
-  const question = marked[1] ?? "";
-  let rest = body.slice(marked[0].length).trim();
-  if (rest.startsWith(heading(question))) rest = rest.slice(heading(question).length).trim();
-  if (!rest) return null;
-  return { question, answer: rest.length > ANSWER_MAX ? rest.slice(0, ANSWER_MAX).trim() : rest };
-}
-function readAnswers(comments) {
-  const answers2 = /* @__PURE__ */ new Map();
-  for (const comment2 of comments) {
-    const found2 = answerOf4(comment2.body ?? "");
-    if (found2) answers2.set(found2.question, found2.answer);
-  }
-  return answers2;
-}
-
-// kit/lib/roadmap/push.ts
-init_define_OMNI_BUNDLE();
-var WAITS_ON_MAX = 300;
-var NO_RECOMMENDATION = /^(?:|-|–|—|none)$/i;
-var ASKED_RANKS2 = /* @__PURE__ */ new Set(["human-action", "high"]);
-function prdState({ shipped, prs, expected }) {
-  if (prs.length === 0) return shipped ? "merged" : "waiting";
-  if (prs.some((pr) => pr.state === "CLOSED")) return "closed";
-  const open3 = prs.filter((pr) => pr.state === "OPEN");
-  if (open3.length === 0) return shipped || prs.length >= expected ? "merged" : "building";
-  if (open3.some((pr) => pr.isDraft && pr.questions > 0)) return "outbox";
-  return open3.every((pr) => !pr.isDraft) && prs.length >= expected ? "ready" : "building";
-}
-function bound(times, pick2) {
-  const known2 = times.filter((time5) => time5 !== null).sort();
-  return (pick2 === "first" ? known2[0] : known2.at(-1)) ?? null;
-}
-function prdTimes(standing2, state) {
-  const startedAt = bound(standing2.prs.map((pr) => pr.createdAt), "first");
-  if (state === "merged") return { startedAt, endedAt: bound(standing2.prs.map((pr) => pr.mergedAt), "last") };
-  if (state === "closed") return { startedAt, endedAt: bound(standing2.prs.filter((pr) => pr.state === "CLOSED").map((pr) => pr.closedAt), "last") };
-  return { startedAt, endedAt: null };
-}
-var questionsWord = (n) => `${n} question${n === 1 ? "" : "s"}`;
-function stateWords(state, pr) {
-  if (state === "closed") return "closed unmerged: fix the roadmap";
-  if (state === "ready") return "ready, waiting for your merge";
-  if (state === "outbox") return `outbox: ${questionsWord(pr?.questions ?? 0)}`;
-  return state === "waiting" ? "not started" : state;
-}
-var cut2 = (line, max) => {
-  const flat = line.replace(/\s+/g, " ").trim();
-  return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}\u2026` : flat;
-};
-var namedPr = (standing2) => standing2.prs.find((pr) => pr.state === "OPEN") ?? standing2.prs.find((pr) => pr.state === "CLOSED") ?? null;
-function waitsOn(row, rows2) {
-  for (const id of row.blockedBy) {
-    const blocker = rows2.get(id);
-    if (!blocker || blocker.state === "merged") continue;
-    const pr = namedPr(blocker.standing);
-    const who2 = `${blocker.row.id} ${blocker.row.title}`;
-    const words3 = stateWords(blocker.state, pr);
-    if (pr === null) return { waitsOn: cut2(`waits on ${who2}: ${words3}`, WAITS_ON_MAX), waitsOnUrl: null };
-    return { waitsOn: cut2(`waits on ${pr.repo}#${pr.number} (${who2}): ${words3}`, WAITS_ON_MAX), waitsOnUrl: pr.url };
-  }
-  return { waitsOn: null, waitsOnUrl: null };
-}
-function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers: answers2 }) {
-  const none = { shipped: false, prs: [], expected: 1 };
-  const rows2 = new Map(roadmap2.prds.map((row) => {
-    const standing2 = standings.get(row.id) ?? none;
-    return [row.id, { row, standing: standing2, state: prdState(standing2) }];
-  }));
-  const prds = [...rows2.values()].map(({ row, standing: standing2, state }) => ({
-    id: row.id,
-    prd: row.prd,
-    title: row.title,
-    repos: row.repos ?? [],
-    blockers: [...row.blockedBy],
-    wave: row.wave,
-    state,
-    ...state === "waiting" ? waitsOn(row, rows2) : { waitsOn: null, waitsOnUrl: null },
-    ...prdTimes(standing2, state)
-  }));
-  const questions2 = roadmap2.questions.map((q) => ({
-    id: q.id,
-    question: q.question,
-    recommendation: NO_RECOMMENDATION.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
-    blocks: [...q.blocks],
-    kind: q.kind,
-    answer: answers2.get(q.id) ?? null
-  }));
-  const { title, milestone, product, target: target3, source } = roadmap2;
-  return { repo, roadmap: roadmap2.roadmap, title, milestone, product, target: target3, source, questions: questions2, document, prds };
-}
-var GhPrSchema2 = external_exports.looseObject({
-  number: PrNumberSchema,
-  url: external_exports.string(),
-  state: external_exports.enum(["OPEN", "MERGED", "CLOSED"]),
-  isDraft: external_exports.boolean().nullish(),
-  createdAt: external_exports.string().nullish(),
-  mergedAt: external_exports.string().nullish(),
-  closedAt: external_exports.string().nullish(),
-  updatedAt: external_exports.string().nullish()
-});
-var shortName9 = (slug) => slug.slice(slug.indexOf("/") + 1);
-function featurePr2(slug, branch, { gh: gh2 }) {
-  const raw = gh2(["pr", "list", "--repo", slug, "--head", branch, "--state", "all", "--json", "number,url,state,isDraft,createdAt,mergedAt,closedAt,updatedAt", "--limit", "20"]);
-  const prs = external_exports.array(GhPrSchema2).parse(JSON.parse(raw));
-  return prs.find((pr) => pr.state === "OPEN") ?? [...prs].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] ?? null;
-}
-function questionsOn(ref, dir, { git: git7 }) {
-  let listed2;
-  try {
-    listed2 = git7(["ls-tree", "-r", "--name-only", ref, "--", dir]);
-  } catch {
-    return 0;
-  }
-  const files = listed2.split("\n").map((line) => line.trim()).filter((file2) => file2.endsWith(".md") && !file2.endsWith("/settled.md") && !file2.slice(dir.length).includes("/accounts/"));
-  return files.filter((file2) => {
-    const parsed = parseOutboxItem(git7(["show", `${ref}:${file2}`]), { file: file2 });
-    return parsed.ok && ASKED_RANKS2.has(parsed.item.rank);
-  }).length;
-}
-function draftQuestions(ctx, row, branch, readers) {
-  const dir = ctx.layout.outboxDir(row.prd);
-  if (dir === null) return 0;
-  const remote = ctx.config.repo.remote;
-  try {
-    readers.git(["fetch", "--quiet", remote, branch]);
-  } catch {
-  }
-  return questionsOn(`${remote}/${branch}`, dir, readers);
-}
-function slugsOf(ctx, row, slug) {
-  const targets2 = ctx.config.plan?.targets ?? [];
-  const named3 = new Set(row.repos ?? []);
-  const own2 = shortName9(slug);
-  return [slug, ...targets2.filter((t) => named3.has(shortName9(t.repo)) && shortName9(t.repo) !== own2).map((t) => t.repo)];
-}
-function readStanding(ctx, row, readers) {
-  const slug = ctx.config.repo.slug ?? "";
-  const slugs = slugsOf(ctx, row, slug);
-  const where = ctx.layout.whereIs(row.prd);
-  const folder = where === null ? null : parseFolderName(where.name);
-  if (where === null || folder === null) return { shipped: false, prs: [], expected: slugs.length };
-  const branch = fillBranch(ctx.config.branches.feature, { topic: folder.topic });
-  const prs = slugs.flatMap((repo) => {
-    const pr = featurePr2(repo, branch, readers);
-    if (pr === null) return [];
-    const isDraft = Boolean(pr.isDraft);
-    const questions2 = repo === slug && pr.state === "OPEN" && isDraft ? draftQuestions(ctx, row, branch, readers) : 0;
-    return [{
-      repo: shortName9(repo),
-      number: pr.number,
-      url: pr.url,
-      state: pr.state,
-      isDraft,
-      createdAt: pr.createdAt ?? null,
-      mergedAt: pr.mergedAt ?? null,
-      closedAt: pr.closedAt ?? null,
-      questions: questions2
-    }];
-  });
-  return { shipped: where.state === "shipped", prs, expected: slugs.length };
-}
-function readStandings(ctx, roadmap2, readers) {
-  return new Map(roadmap2.prds.map((row) => [row.id, readStanding(ctx, row, readers)]));
-}
-
-// kit/bin/commands/roadmap.ts
 var USAGE23 = [
   "usage: omni roadmap check [<n>]",
   "       omni roadmap push <n>",
@@ -48525,7 +48678,7 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
 var NUMBER_GAP = "  ";
 var TOPIC_GAP = "    ";
 var SEPARATOR = " \xB7 ";
-var cut3 = (text10, width) => text10.length <= width ? text10 : `${text10.slice(0, Math.max(0, width - 1))}\u2026`;
+var cut4 = (text10, width) => text10.length <= width ? text10 : `${text10.slice(0, Math.max(0, width - 1))}\u2026`;
 var stageColumn = (stage2) => `${INDENT}${STAGE_WORDS[stage2].padEnd(UNDER_BAR.length - INDENT.length)}`;
 function standing({ stage: stage2, prd: prd2, openItems: openItems3 = 0 }) {
   const waiting = openItems3 > 0 ? `${plural5(openItems3, "open item")} wait${openItems3 === 1 ? "s" : ""} for an answer` : null;
@@ -48541,19 +48694,19 @@ function rows(entries3) {
   const room = WIDTH - UNDER_BAR.length - numberWidth - TOPIC_GAP.length - wordsWidth;
   const topicWidth = Math.min(Math.max(...lines.map(({ topic }) => topic.length)), Math.max(1, room));
   return lines.flatMap(({ stage: stage2, number: number4, topic, words: words3 }, index) => [
-    `${stage2}${number4.padEnd(numberWidth)}${cut3(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words3}`,
+    `${stage2}${number4.padEnd(numberWidth)}${cut4(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words3}`,
     ...landingLines(entries3[index]?.landings ?? [])
   ]);
 }
 function landingLines(landings) {
   return landings.map(({ landing, landings: count4, name: name2, state, waitsFor }) => {
     const waits = waitsFor === null ? "" : `, waits for landing ${waitsFor} to merge`;
-    return cut3(`${UNDER_BAR}landing ${landing}/${count4} ${name2}: ${state}${waits}`, WIDTH);
+    return cut4(`${UNDER_BAR}landing ${landing}/${count4} ${name2}: ${state}${waits}`, WIDTH);
   });
 }
 function shippedEntry({ prd: prd2, topic }, width) {
   const number4 = `#${prd2} `;
-  return `${number4}${cut3(topic, width - number4.length)}`;
+  return `${number4}${cut4(topic, width - number4.length)}`;
 }
 function shippedRow(shipped) {
   const out = [];
@@ -48578,7 +48731,7 @@ function shippedRow(shipped) {
 function yours({ state, email: email3, rows: inFlight, shipped }) {
   if (state === "no-email") return [`${INDENT}set git config user.email to see yours`];
   if (state === "shallow") return [`${INDENT}this clone is shallow: git fetch --unshallow to see yours`];
-  const heading2 = cut3(`${INDENT}Yours \xB7 ${email3}`, WIDTH);
+  const heading2 = cut4(`${INDENT}Yours \xB7 ${email3}`, WIDTH);
   if (inFlight.length === 0 && shipped.length === 0) return [heading2, `${INDENT}none yet`];
   return [heading2, ...inFlight.length ? rows(inFlight) : [], ...shipped.length ? shippedRow(shipped) : []];
 }
