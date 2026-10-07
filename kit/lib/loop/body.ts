@@ -1,5 +1,5 @@
 // PRD 1139, slice s4: the bodies `omni loop push` sends to `POST <ask.url>/api/loops`, one per event,
-// in the shape the app's contract takes (`apps/galaxy/src/loop/api.ts`, which refuses an unknown field):
+// in the shape the app's loops contract takes (it refuses an unknown field):
 //
 //   start {event, repo, prds, plan, reason?, takeOver}
 //   tick  {event, loopId, step, steps, prd, action, result, link, merged, items, nextWakeAt, replan?}

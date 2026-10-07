@@ -55,6 +55,9 @@ function plan(version: number, reason: string | null): LoopPlan {
   };
 }
 
+/** `value` as it reads once it has been through JSON, the way the kit's client sends it. */
+const throughJson = (value: unknown): unknown => JSON.parse(JSON.stringify(value)) as unknown;
+
 /** A checkout's loop plan file, written and read back through the kit's store, as the kit reads it. */
 function keptPlans(versions: LoopPlan[]): LoopPlan[] {
   const root = mkdtempSync(join(tmpdir(), 'loop-plan-'));
@@ -69,8 +72,9 @@ describe('the bodies omni loop push sends are the ones POST /api/loops takes', (
     const { fake, send } = world();
 
     const started = await send(startBody({ repo: 'acme/widgets', plan: first, takeOver: false }));
-    expect(started).toEqual({ status: 201, body: { loopId: expect.any(String), state: 'running', planVersion: 1 } });
     const loopId = started.body.loopId ?? '';
+    expect(started).toEqual({ status: 201, body: { loopId, state: 'running', planVersion: 1 } });
+    expect(loopId).toMatch(/^[0-9a-f-]{36}$/);
 
     const ticked = await send(tickBody({
       loopId, step: 1, steps: first.steps.length, prd: prd(7), action: 'wave', result: `wave 1 merged:\ns1, s2 ${'x'.repeat(400)}`,
@@ -88,8 +92,8 @@ describe('the bodies omni loop push sends are the ones POST /api/loops takes', (
 
     // What the app keeps is the file's plan, each version, as the kit wrote it.
     expect(fake.tables.loop_plans.map(({ version, reason, plan: stored }) => ({ version, reason, plan: stored }))).toEqual([
-      { version: 1, reason: 'the first plan', plan: JSON.parse(JSON.stringify(first)) },
-      { version: 2, reason: 'replanned v2: s1 of PRD 9 stuck → 7 moves up', plan: JSON.parse(JSON.stringify(second)) },
+      { version: 1, reason: 'the first plan', plan: throughJson(first) },
+      { version: 2, reason: 'replanned v2: s1 of PRD 9 stuck → 7 moves up', plan: throughJson(second) },
     ]);
     expect(fake.tables.loops).toEqual([expect.objectContaining({ repo: 'acme/widgets', prds: [7, 9], state: 'parked' })]);
     expect(fake.tables.loop_ticks.map((t) => [t.step, t.steps, t.prd, t.action])).toEqual([[1, 3, 7, 'wave'], [2, 3, 9, 'wait']]);

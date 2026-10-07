@@ -1,5 +1,5 @@
 // `omni loop push <start|tick|park|stop> …` and `omni loop status [--json]` — PRD 1139, slice s4: where a
-// `/omni:drive` loop stands, sent to the Omni page's `POST /api/loops` (`apps/galaxy/src/loop/api.ts`)
+// `/omni:drive` loop stands, sent to the Omni page's `POST /api/loops` (the app's loops contract)
 // with the terminal's sign-in, and kept in this checkout at `.omni-loop/local/loop.json`
 // (`../../lib/loop/local.ts`) beside the loop plan `omni next --plan` keeps (`../../lib/next/store.ts`).
 //

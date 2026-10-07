@@ -4,7 +4,7 @@
 // with the same id and the same plan. A file that is missing, half-written or not of the shape reads
 // as no loop.
 //
-// What the loop is doing is read by the app's rule (`apps/galaxy/src/loop/state.ts`, and
+// What the loop is doing is read by the app's rule (its loop state, and
 // `loop_is_silent()` in the migration), from the times this checkout last pushed:
 //
 // - parked or stopped: it ended, with PRDs waiting on people or with none;

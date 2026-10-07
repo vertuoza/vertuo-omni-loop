@@ -203,7 +203,7 @@ describe('omni loop push never blocks: one line, exit 1', () => {
     expect(CALL_TIMEOUT_MS).toBe(5000);
     const { root } = checkout();
     const hang = (_url: string, init: FetchInit) => new Promise<Response>((_resolve, reject) => {
-      init.signal?.addEventListener('abort', () => { reject(init.signal?.reason); });
+      init.signal?.addEventListener('abort', () => { reject(new Error('timed out', { cause: init.signal?.reason })); });
     });
     const began = Date.now();
     expect(await omni(['push', 'start'], { root, fetch: hang })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
