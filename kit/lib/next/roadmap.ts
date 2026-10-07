@@ -23,14 +23,14 @@ import type { PlanSliceInput } from './plan.ts';
 /** What a roadmap holds a PRD on: `park` passes over every step of it, `hold` its first step only. */
 export type Gate = { kind: 'hold' | 'park'; why: string; link?: string };
 
-/** What the command read of a roadmap. `standings` and `live` are by row id; `issue` is the roadmap
+/** What the command read of a roadmap. `standings` and `live` are by row id; `issueLink` is the roadmap
  * issue's link, where `omni roadmap answer` posts. */
 export type RoadmapRead = {
   roadmap: Roadmap;
   answers: ReadonlyMap<string, string>;
   standings: ReadonlyMap<string, PrdStanding>;
   live: ReadonlyMap<string, string>;
-  issue: string | null;
+  issueLink: string | null;
 };
 
 /** The longest question a park line quotes. */
@@ -70,7 +70,7 @@ function closedBlocker(blockedBy: readonly string[], standings: ReadonlyMap<stri
 }
 
 /** Each PRD of the roadmap the roadmap holds, with its gate; a PRD free to run is absent. */
-export function roadmapGates({ roadmap, answers, standings, live, issue }: RoadmapRead): Map<PrdNumber, Gate> {
+export function roadmapGates({ roadmap, answers, standings, live, issueLink }: RoadmapRead): Map<PrdNumber, Gate> {
   const rows = rowStates(roadmap, standings);
   const gates = new Map<PrdNumber, Gate>();
   const withLink = (gate: Gate, link: string | null): Gate => (link ? { ...gate, link } : gate);
@@ -78,7 +78,7 @@ export function roadmapGates({ roadmap, answers, standings, live, issue }: Roadm
     const question = roadmap.questions.find((q) => q.kind === 'person' && q.blocks.includes(row.id) && !answers.has(q.id));
     if (question) {
       const why = `waits on a person: roadmap ${roadmap.roadmap} question ${question.id} is not answered (${cut(question.question, QUESTION_MAX)}); answer it with omni roadmap answer ${roadmap.roadmap} ${question.id} "<answer>"`;
-      gates.set(row.prd, withLink({ kind: 'park', why }, issue));
+      gates.set(row.prd, withLink({ kind: 'park', why }, issueLink));
       continue;
     }
     const closed = closedBlocker(row.blockedBy, standings);

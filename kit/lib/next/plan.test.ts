@@ -151,7 +151,7 @@ describe('planLoop under a roadmap', () => {
     verdicts: new Map(verdicts.map((verdict) => [verdict.prd, verdict] as const)),
     merged: new Map(),
     shipped: new Set(),
-    gates: roadmapGates({ roadmap, answers: new Map(), standings: new Map([['P1', { shipped: false, prs, expected: 2 }]]), live: new Map(), issue: null }),
+    gates: roadmapGates({ roadmap, answers: new Map(), standings: new Map([['P1', { shipped: false, prs, expected: 2 }]]), live: new Map(), issueLink: null }),
   });
   const half = [pr('plans', 12, 'MERGED'), pr('crew', 40, 'OPEN')];
 

@@ -422,7 +422,7 @@ function gatesOf(roadmap: Roadmap, reads: ReadonlyMap<PrdNumber, Read>, reader: 
     const words = liveWords(prdState(standing), read.facts, read.slices);
     if (words !== null) live.set(row.id, words);
   }
-  return roadmapGates({ roadmap, answers: answersOf(roadmap, reader), standings, live, issue: issueUrl(reader.slug, roadmap.roadmap) });
+  return roadmapGates({ roadmap, answers: answersOf(roadmap, reader), standings, live, issueLink: issueUrl(reader.slug, roadmap.roadmap) });
 }
 
 /** A PRD a roadmap holds or parks, as a tick names it. */

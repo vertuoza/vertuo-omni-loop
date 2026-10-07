@@ -124,7 +124,7 @@ describe('followPlan under a roadmap', () => {
     answers: new Map(Object.entries(answers)),
     standings: new Map([['P1.1', standingOf(blocker)]]),
     live: new Map(Object.entries(words)),
-    issue: ISSUE,
+    issueLink: ISSUE,
   });
   const roadmapPlan = planLoop({
     prds: [prd(A, [slice('s1', ['a/'], 1)]), prd(B, [slice('s1', ['b/'], 1)], { blockedBy: [A] }), prd(C, [slice('s1', ['c/'], 1)])],
