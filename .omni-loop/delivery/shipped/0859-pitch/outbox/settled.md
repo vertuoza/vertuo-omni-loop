@@ -569,7 +569,7 @@ One line in the recipe's cut and its tests; no stored data, no pitch already mad
 - Raised: 2026-10-01
 - Slice: s4
 - Wave: 3
-- Became: ADR-0078
+- Stays here: Superseded by PRD 1108's pitch studio, which replaced `omni pitch slide`; the decision no longer describes the product.
 
 ### The answer, as it was given
 
