@@ -614,6 +614,10 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
     d.ellipse(8, 3.5, 1.5, 1.2, 'E').rect(1, 6, 2, 1, 'R', 1).rect(13, 6, 2, 1, 'R', 1);
     d.rect(1, 8, 1, 7, 'C', f ? 0 : 1).rect(14, 8, 1, 7, 'C', f ? 0 : 1);
   } },
+  'menu-loop': { w: 16, h: 16, draw(d, f) { // a probe on its orbit: a ring around a core, the probe moving on
+    d.ellipse(8, 8, 6.5, 6.5, 'C').ellipse(8, 8, 4.5, 4.5, 'X').ellipse(8, 8, 2, 2, f ? 'O' : 'Y');
+    d.rect(f ? 12 : 1, f ? 1 : 12, 3, 3, 'L').px(f ? 13 : 2, f ? 2 : 13, 'R', 1);
+  } },
   'menu-workspace': { w: 16, h: 16, draw(d, f) { // a ringed home world with a moon
     d.ellipse(8, 8, 5, 5, 'P').line(1, 11, 15, 5, 'Y').ellipse(8, 8, 5, 5, 'P');
     d.line(1, 11, 3, 10, 'Y').line(13, 6, 15, 5, 'Y').line(5, 11, 11, 8.5, 'Y');
