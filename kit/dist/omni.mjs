@@ -40903,10 +40903,10 @@ var ENTRIES = deepFreeze([
     name: "mega-pr-care",
     kind: "skill",
     who: "you",
-    usage: ["/omni:mega-pr-care <n>"],
+    usage: ["/omni:mega-pr-care <n> [--once]"],
     label: "/omni:mega-pr-care <n>",
     summary: "look after every PR of a PRD across repositories",
-    detail: "The /omni:pr-care of a plan repository: looks after the plan PR, every target and landing PR and every bug-fix PR linked to PRD n, round by round in merge order, until each is merged or closed or you stop it. Each target PR is read against the target's own default branch, landings, wave claims and review form; a red that waits on another repository's PR spends no attempt. In a target it runs only its own committed preflight, and it never merges.",
+    detail: "The /omni:pr-care of a plan repository: looks after the plan PR, every target and landing PR and every bug-fix PR linked to PRD n, round by round in merge order, until each is merged or closed or you stop it. Each target PR is read against the target's own default branch, landings, wave claims and review form; a red that waits on another repository's PR spends no attempt. In a target it runs only its own committed preflight, and it never merges. --once runs one round and returns, for /omni:mega-drive.",
     group: "multi-repo",
     when: "Use it when a multi-repository PRD's pull requests are open and you want CI, conflicts and review comments handled in every repository.",
     example: {
@@ -41083,15 +41083,30 @@ var ENTRIES = deepFreeze([
     name: "drive",
     kind: "skill",
     who: "you",
-    usage: ["/loop /omni:drive [<n>\u2026]"],
+    usage: ["/loop /omni:drive [<n>\u2026]", "/loop /omni:drive --roadmap <n>"],
     label: "/omni:drive [<n>\u2026]",
     summary: "drive your PRDs, one step per tick",
-    detail: "Run under /loop, it drives your own PRDs in inbox, building or outbox, or the ones you name. Its first tick orders every slice of them into a loop plan (omni next --plan), colliding territories in series with the reason, and opens the loop on the Loop page. Each tick then takes the first step not done and runs that one skill (/omni:wave, /omni:yolo, /omni:yolo-fix or /omni:pr-care --once) or waits, parks a PRD waiting on a person on its feature PR's status comment, records the tick on the Loop page and picks when to look again. Once every PRD is parked or done it stops itself and lists what waits on whom. A closed terminal resumes the same loop. It never answers the outbox and never merges into {defaultBranch}.",
+    detail: "Run under /loop, it drives your own PRDs in inbox, building or outbox, or the ones you name. Its first tick orders every slice of them into a loop plan (omni next --plan), colliding territories in series with the reason, and opens the loop on the Loop page. Each tick then takes the first step not done and runs that one skill (/omni:wave, /omni:yolo, /omni:yolo-fix or /omni:pr-care --once) or waits, parks a PRD waiting on a person on its feature PR's status comment, records the tick on the Loop page and picks when to look again. Once every PRD is parked or done it stops itself and lists what waits on whom. A closed terminal resumes the same loop. --roadmap <n> drives exactly roadmap n's PRDs, someone else's included, holding a blocked PRD until its blockers' feature PRs merged, naming the pull request it waits on, and sends the roadmap's page where each PRD stands after every tick. In a plan repository it prints the /omni:mega-drive line and stops. It never answers the outbox and never merges into {defaultBranch}.",
     group: "build",
     when: "Use it when PRDs are merged into the inbox and you want them built, finished and cared for without typing each next command.",
     example: {
       type: "/omni:drive",
       result: "one tick: the loop plan, then its first step; under /loop, every tick until your PRDs wait on you"
+    }
+  },
+  {
+    name: "mega-drive",
+    kind: "skill",
+    who: "you",
+    usage: ["/loop /omni:mega-drive [<n>\u2026]", "/loop /omni:mega-drive --roadmap <n>"],
+    label: "/omni:mega-drive",
+    summary: "drive PRDs across repositories, one step per tick",
+    detail: "The /omni:drive of a plan repository: run under /loop, it drives your own multi-repository PRDs, the ones you name, or with --roadmap <n> exactly roadmap n's. Its loop plan puts two steps in series only when they touch the same path in the same repository. Each tick runs one skill (/omni:ultra-wave, /omni:ultra-yolo, which plans a PRD with no plan, /omni:ultra-yolo-fix or /omni:mega-pr-care --once) or waits, parks a PRD waiting on a person on its plan PR's status comment naming each open PR by repository, records the repositories the tick touched on the Loop page, and under --roadmap sends the roadmap's page. Outside a plan repository it prints the /omni:drive line and stops. It never answers the outbox and never merges into any default branch.",
+    group: "multi-repo",
+    when: "Use it when multi-repository PRDs are merged into the inbox of a plan repository and you want them built in every target without typing each next command.",
+    example: {
+      type: "/omni:mega-drive",
+      result: "one tick across the repositories; under /loop, every tick until your PRDs wait on you"
     }
   },
   {
