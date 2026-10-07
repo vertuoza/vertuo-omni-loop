@@ -808,6 +808,30 @@ Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #874
 Proposed: harvest 2026-10-01
 
+## BR-PRODUCT-69
+
+The plan check accepts a slice that must come first only when it sits strictly before every other slice, ordered by landing and then wave. A slice in a later landing already waits for it, the file limit counts the paths a slice lists, and every row is checked against this repository's rules.
+
+Serves: P-PRODUCT-61
+Source: .omni-loop/delivery/shipped/1089-repo-flow/outbox/settled.md, entry s3-01-plan-rules-order-and-reach, PRD #1089
+Enforced by: unenforced
+Stated: 2026-10-06
+Decided: nobody — adopted when raised (medium), 2026-10-06
+Merged: @pierrederval, 2026-10-06, PR #1090
+Proposed: harvest 2026-10-06
+
+## BR-PRODUCT-70
+
+A product's pitch look may be changed by exactly those who may edit the workspace's business, which today is every member; anyone else sees it read-only.
+
+Serves: P-PRODUCT-62
+Source: .omni-loop/delivery/shipped/0859-pitch/outbox/settled.md, entry s1-02-every-member-edits-the-look, PRD #859
+Enforced by: unenforced
+Stated: 2026-10-06
+Decided: nobody — adopted when raised (medium), 2026-10-01
+Merged: @pierrederval, 2026-10-06, PR #860
+Proposed: harvest 2026-10-06
+
 ## BR-PRODUCT-71
 
 When a pull request waits on another that was closed without merging, it is no longer held and care goes back to fixing it. When the awaited pull request cannot be looked up, it stays held and no fix attempt is spent.

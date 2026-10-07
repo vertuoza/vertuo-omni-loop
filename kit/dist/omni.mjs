@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.209" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.214" };
   }
 });
 
@@ -43967,6 +43967,7 @@ init_define_OMNI_BUNDLE();
 import { writeFileSync as writeFileSync21 } from "node:fs";
 import { join as join68 } from "node:path";
 var ARCHIVE = "https://archive.org/download/freepd";
+var METADATA = "https://archive.org/metadata/freepd";
 var LICENCE = "CC0 1.0 Universal (public domain)";
 var FREEPD_TRACKS = Object.freeze({
   upbeat: [
@@ -44005,13 +44006,32 @@ function pickTrack(mood, seconds4) {
 }
 var isMp3 = (bytes) => bytes[0] === 73 && bytes[1] === 68 && bytes[2] === 51 || bytes[0] === 255 && ((bytes[1] ?? 0) & 224) === 224;
 var ATTEMPTS = 3;
+async function fetchMp3(url2, fetch) {
+  const answer = await fetch(url2);
+  const bytes = answer.ok ? new Uint8Array(await answer.arrayBuffer()) : null;
+  if (bytes !== null && isMp3(bytes)) return bytes;
+  return bytes === null ? `the archive answered ${String(answer.status)}` : "the download is not an MP3";
+}
+async function serverUrls(track, fetch) {
+  const answer = await fetch(METADATA).catch(() => null);
+  if (answer === null || !answer.ok) return [];
+  const metadata = await answer.text().then((text10) => JSON.parse(text10)).catch(() => null);
+  const dir = propertyOf(metadata, "dir");
+  if (typeof dir !== "string") return [];
+  const [d1, d2] = [propertyOf(metadata, "d1"), propertyOf(metadata, "d2")];
+  const file2 = `${track.folder}/${encodeURIComponent(`${track.title}.mp3`)}`;
+  return [d1, d2].filter((host) => typeof host === "string" && host !== "").map((host) => `https://${host}${dir}/${file2}`);
+}
 async function download(track, fetch) {
   let reason2 = "";
   for (let attempt9 = 0; attempt9 < ATTEMPTS; attempt9 += 1) {
-    const answer = await fetch(trackUrl(track));
-    const bytes = answer.ok ? new Uint8Array(await answer.arrayBuffer()) : null;
-    if (bytes !== null && isMp3(bytes)) return bytes;
-    reason2 = bytes === null ? `the archive answered ${String(answer.status)}` : "the download is not an MP3";
+    const got = await fetchMp3(trackUrl(track), fetch);
+    if (typeof got !== "string") return got;
+    reason2 = got;
+  }
+  for (const url2 of await serverUrls(track, fetch)) {
+    const got = await fetchMp3(url2, fetch);
+    if (typeof got !== "string") return got;
   }
   throw new Error(`${reason2} for "${track.title}"`);
 }

@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-01
 - Slice: s1
 - Wave: 1
+- Stays here: A local navigation label choice, cheap to undo, with no lasting product guarantee beyond how the top bar reads; nothing in the knowledge base needs it.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ One line in the sidebar's list of Settings pages, plus its tests; undoing it is 
 - Raised: 2026-10-01
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-70, P-PRODUCT-62
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ Making it owner-only later is a one-function change in the database plus the pag
 - Raised: 2026-10-01
 - Slice: s1
 - Wave: 1
+- Stays here: A local, cheaply reversible build choice adopted without review; nothing stored depends on it, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -250,6 +253,7 @@ Setting up the business from the Products page later is one call added to its re
 - Raised: 2026-10-01
 - Slice: s2
 - Wave: 1
+- Stays here: A local wiring choice about what the demo sample shows; cheap to change and nothing lasting for the knowledge base.
 
 ### The answer, as it was given
 
@@ -328,6 +332,7 @@ One line in demo.ts to move the demo's stages, or dropping the optional flag and
 - Raised: 2026-10-01
 - Slice: s3
 - Wave: 2
+- Stays here: A local placement choice outside the slice's territory, cheap to move later; nothing lasting or product-level to record.
 
 ### The answer, as it was given
 
@@ -405,6 +410,7 @@ Moving them later is moving two short functions and one help entry; nothing stor
 - Raised: 2026-10-01
 - Slice: s4
 - Wave: 3
+- Became: ADR-0077
 
 ### The answer, as it was given
 
@@ -484,6 +490,7 @@ Folding the refusals into the other verbs later is moving one function call; rem
 - Raised: 2026-10-01
 - Slice: s4
 - Wave: 3
+- Stays here: The 20 to 30 second length already comes from the spec. Which card stretches is a recipe detail that costs one line to change, touches no stored data and was adopted without review.
 
 ### The answer, as it was given
 
@@ -562,6 +569,7 @@ One line in the recipe's cut and its tests; no stored data, no pitch already mad
 - Raised: 2026-10-01
 - Slice: s4
 - Wave: 3
+- Stays here: Superseded by PRD 1108's pitch studio, which replaced `omni pitch slide`; the decision no longer describes the product.
 
 ### The answer, as it was given
 
