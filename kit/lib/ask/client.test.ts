@@ -123,6 +123,17 @@ describe('the ask contract client', () => {
     expect(bodyOf(server, 3)).toEqual({ questions: QUESTIONS });
   });
 
+  it('opens a round already answered in the terminal in one call, with its context and lead (PRD 1180)', async () => {
+    const { client, server } = await setUp();
+    const session = digText(await client.openSession('acme/widgets · main'), 'id');
+    const context = { repo: 'acme/widgets', branch: 'main', prd: 7, claudeSessionId: 'c1', skill: null, model: null, tokens: null };
+    const answers = { 'Which colour?': 'Red' };
+    await client.openAnswered(session, QUESTIONS, answers, context, '## The design');
+    expect(bodyOf(server, 1)).toEqual({ questions: QUESTIONS, answers, via: 'terminal', context, lead: '## The design' });
+    await client.openAnswered(session, QUESTIONS, answers);
+    expect(bodyOf(server, 2)).toEqual({ questions: QUESTIONS, answers, via: 'terminal' });
+  });
+
   it('keeps a path under ask.url, with or without a trailing slash', async () => {
     const server = await startServer();
     const tokens = memoryTokens({ [server.host]: { access_token: 'access-1' } });
