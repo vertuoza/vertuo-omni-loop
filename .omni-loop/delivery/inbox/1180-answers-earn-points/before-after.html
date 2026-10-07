@@ -1,0 +1,126 @@
+<title>Answers Earn Points</title>
+<style>
+/* Layout: two columns, today beside after, stacked on a phone; three scenes from the player's side. */
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --fg:#1b1f2a; --muted:#5b6274; --line:#dde1e8;
+  --accent:#2f5bd3; --good:#1f8a4c; --bad:#b4362b; --chip:#eef1f7;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12151c; --panel:#1a1e27; --fg:#e7eaf0; --muted:#9aa2b4; --line:#2b3140;
+  --accent:#7c9cf0; --good:#4cc283; --bad:#ef7b6e; --chip:#232838; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12151c; --panel:#1a1e27; --fg:#e7eaf0; --muted:#9aa2b4; --line:#2b3140;
+  --accent:#7c9cf0; --good:#4cc283; --bad:#ef7b6e; --chip:#232838; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--sans);padding:0 16px}
+main{max-width:1040px;margin:0 auto;padding-block:32px 48px;display:grid;gap:36px}
+h1{font-size:1.7rem;margin:0;text-wrap:balance}
+h2{font-size:1.1rem;margin:0 0 4px;text-wrap:balance}
+p{margin:0;max-width:68ch}
+.lede{color:var(--muted)}
+.scene{display:grid;gap:12px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:720px){.pair{grid-template-columns:1fr}}
+.side{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0;display:grid;gap:10px;align-content:start}
+.tag{font:600 .72rem var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.after .tag{color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+th{font-weight:600;color:var(--muted);font-size:.82rem}
+td.n{text-align:right}
+.up{color:var(--good);font-weight:600}
+.flow{display:grid;gap:6px;font-family:var(--mono);font-size:.82rem}
+.flow div{background:var(--chip);padding:6px 10px;border-radius:4px;overflow-wrap:anywhere}
+.lost{color:var(--bad)}
+.ok{color:var(--good)}
+.note{font-size:.85rem;color:var(--muted)}
+.same{border-top:1px solid var(--line);padding-top:16px}
+ul{margin:0;padding-left:20px}
+</style>
+<main>
+  <header style="display:grid;gap:8px">
+    <span class="tag">PRD 1180 · before / after</span>
+    <h1>Every answered question earns points</h1>
+    <p class="lede">Today an answer to the agent's question moves only the "Questions answered" count. After this PRD, each answered question tied to a numbered PRD pays its answerer 2 points and 2 XP, the same from the Omni page or the Claude terminal.</p>
+  </header>
+
+  <section class="scene">
+    <h2>1. The board after a brainstorm of 12 questions on PRD 1180</h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag">Today</span>
+        <table>
+          <tr><th>Player</th><th class="n">Questions answered</th><th class="n">Points</th></tr>
+          <tr><td>pierrederval (terminal)</td><td class="n">12</td><td class="n">0</td></tr>
+          <tr><td>irisa (Omni page)</td><td class="n">4</td><td class="n">0</td></tr>
+        </table>
+        <p class="note">Answers are counted, never paid, wherever they are given.</p>
+      </div>
+      <div class="side after">
+        <span class="tag">After</span>
+        <table>
+          <tr><th>Player</th><th class="n">Questions answered</th><th class="n">Points</th></tr>
+          <tr><td>pierrederval (terminal)</td><td class="n">12</td><td class="n up">+24</td></tr>
+          <tr><td>irisa (Omni page)</td><td class="n">4</td><td class="n up">+8</td></tr>
+        </table>
+        <p class="note">One <code>QUESTION_ANSWERED</code> ledger event per answer, written on the next hourly poll, dated when it was answered. Past answers since the game began are backfilled.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene">
+    <h2>2. An answer given in the terminal when the page round did not open</h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag">Today</span>
+        <div class="flow">
+          <div>pre hook: open round → server down</div>
+          <div>terminal: person picks "Both"</div>
+          <div class="lost">post hook: no round file → returns, nothing recorded</div>
+        </div>
+        <p class="note">The same silence when the round came back <code>closed</code>, or when one question was left empty.</p>
+      </div>
+      <div class="side after">
+        <span class="tag">After</span>
+        <div class="flow">
+          <div>pre hook: open round → server down</div>
+          <div>terminal: person picks "Both"</div>
+          <div class="ok">post hook: opens and answers in one call → recorded, via terminal</div>
+        </div>
+        <p class="note">Closed rounds and partly answered rounds are recorded too. A post that still fails prints one line instead of nothing.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene">
+    <h2>3. A settled outbox item that names its approver badly</h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag">Today</span>
+        <div class="flow">
+          <div>- Approved by: @pierrederval</div>
+          <div class="lost">ledger contributor "@pierrederval" → matches no player, kept forever</div>
+        </div>
+      </div>
+      <div class="side after">
+        <span class="tag">After</span>
+        <div class="flow">
+          <div>- Approved by: pierrederval</div>
+          <div class="ok">ledger contributor "pierrederval" → credited</div>
+        </div>
+        <p class="note">A name with <code>@</code>, a dot or upper case is skipped with a warning, so the event is written correctly once the name is fixed.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="same">
+    <h2>What stays the same</h2>
+    <ul>
+      <li>Answers that belong to no PRD (a spike, ad-hoc work) earn nothing and still count as Questions answered.</li>
+      <li>Threat, decay and terraform ignore answers.</li>
+      <li>Events already in the ledger are never rewritten, including past credits under a wrong name.</li>
+      <li>Every other way of earning points pays exactly what it paid before.</li>
+    </ul>
+  </section>
+</main>

@@ -68,7 +68,9 @@ Each tick asks `omni next` for the first step not done, and does one thing about
 | waiting on a person | parks |
 
 A PRD **parks** when only a person can move it: its phase-0 PR is open, its outbox has questions,
-its CI is stuck, or its feature PR is ready to merge. The loop writes why on the feature PR's
+its CI is stuck, its feature PR is ready to merge, or a slice's sub-PR has had no commit for
+`limits.stallDays` (5 days by default): a claim nobody came back to, which a person takes over or
+closes. The loop writes why on the feature PR's
 status comment, so whoever opens the pull request sees it.
 
 ## Stop and restart

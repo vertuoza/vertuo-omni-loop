@@ -270,7 +270,9 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
 4. Only now, `gh pr ready <feature PR>`, once a stacked feature PR's base allows it, at **point
    `yolo.ready`**: once the base allows it, run `node .omni-loop/bin/omni.mjs flow show yolo.ready`
    and follow every `before` hook (`{prd}` the PRD, `{pr}` the feature PR), then `gh pr ready`, then
-   every `after` hook (**Flow points**). A `not ok` from a `before` hook leaves the feature PR in
+   every `after` hook (**Flow points**). Item 3 has just pushed: run `gh pr ready` as `/omni:pr`'s
+   **Ready after a push waits for the push's run** says, waiting for the push's run first and
+   rerunning a cancelled ready run after. A `not ok` from a `before` hook leaves the feature PR in
    draft: name the hook and its reason in step 6 as `stuck`, and skip the rest of this item. **A stacked
    feature PR waits for its base:** when its base is not `repo.defaultBranch`, first read the base
    PR again through GitHub, never from memory
