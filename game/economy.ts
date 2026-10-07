@@ -84,6 +84,11 @@ export function score(events: readonly GameEvent[], { season, now }: { season: s
         // F5b: the RESCUE is a ledger fact whoever claims; it pays only a claimer from another team.
         if (e.team && e.team !== ownerFor(e)) credit(e, RULEBOOK.rescue, 'rescue');
         break;
+      case 'QUESTION_ANSWERED':
+        // PRD 1180: an answer pays its answerer, in the season it was answered, with no multiplier.
+        // It opens no wound and joins no crew, so threat, decay and the terraform bonus ignore it.
+        credit(e, RULEBOOK.questionAnswered, 'question answered');
+        break;
       case 'PLANET_TERRAFORMED': {
         const team = ownerFor(e);
         const prior = (team ? streak.get(team) : undefined) ?? 0;

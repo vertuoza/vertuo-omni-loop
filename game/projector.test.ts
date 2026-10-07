@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { configFrom } from './config.ts';
-import { projectEvents, type Skip } from './projector.ts';
+import { projectEvents, type AnsweredRound, type Skip } from './projector.ts';
 import type { GameEvent } from './events.ts';
 import type { Snapshot, SnapshotPlanet } from './types.ts';
 import { present } from './test/present.ts';
@@ -203,6 +203,51 @@ describe('projectEvents', () => {
       // acme/tools#90 waits for acme/tools#88, which has not merged: acme/plan#88's terraform does not unlock it.
       expect(all).toContain('planet:acme/tools#90:locked:88');
       expect(all.some((id) => id.startsWith('planet:acme/tools#90:unlocked'))).toBe(false);
+    });
+  });
+
+  describe('an answered round (PRD 1180)', () => {
+    const homed = (home: string): Snapshot => ({ ...snapshot(), planets: [{ ...snapshot().planets[0], home } as unknown as SnapshotPlanet] });
+    const round = (over: Partial<AnsweredRound> = {}): AnsweredRound => ({
+      roundId: '00000000-0000-4000-8000-0000000000a1', answeredAt: '2026-09-22T09:30:00Z', prd: parsePrd(2332), home: 'acme/plan', login: 'alice', ...over,
+    });
+    const answers = (events: GameEvent[]) => events.filter((e) => e.type === 'QUESTION_ANSWERED');
+
+    it('becomes one QUESTION_ANSWERED, dated when it was answered, crediting its answerer and fleet', () => {
+      const events = projectEvents(homed('acme/plan'), { config, now: NOW, answers: [round(), round({ roundId: 'r2', login: 'pm', answeredAt: '2026-09-23T08:00:00Z' })] });
+      expect(answers(events)).toEqual([
+        { id: 'ask:00000000-0000-4000-8000-0000000000a1:answered', at: '2026-09-22T09:30:00Z', type: 'QUESTION_ANSWERED', planet: 2332, home: 'acme/plan', contributor: 'alice', team: 'octopod', data: {} },
+        { id: 'ask:r2:answered', at: '2026-09-23T08:00:00Z', type: 'QUESTION_ANSWERED', planet: 2332, home: 'acme/plan', contributor: 'pm', team: 'beaver', data: {} },
+      ]);
+    });
+
+    it('keeps the same id on every poll, so the ledger pays it once', () => {
+      const poll = () => answers(projectEvents(homed('acme/plan'), { config, now: NOW, answers: [round()] }));
+      expect(poll()).toEqual(poll());
+      expect(poll().map((e) => e.id)).toEqual(['ask:00000000-0000-4000-8000-0000000000a1:answered']);
+    });
+
+    it('writes nothing yet for a round whose planet is not charted in this poll', () => {
+      const skipped: Skip[] = [];
+      const events = projectEvents(homed('acme/plan'), { config, now: NOW, onSkip: (s) => skipped.push(s), answers: [
+        round({ prd: parsePrd(9999) }),
+        round({ home: 'acme/tools' }), // the same number in another home is another planet
+      ] });
+      expect(answers(events)).toEqual([]);
+      expect(skipped).toEqual([]);
+    });
+
+    it('skips a round it cannot build and still projects the rest', () => {
+      const skipped: Skip[] = [];
+      const events = projectEvents(homed('acme/plan'), { config, now: NOW, onSkip: (s) => skipped.push(s), answers: [round({ answeredAt: 'yesterday' }), round({ roundId: 'r2' })] });
+      expect(answers(events).map((e) => e.id)).toEqual(['ask:r2:answered']);
+      expect(skipped.map((s) => s.id)).toEqual(['ask:00000000-0000-4000-8000-0000000000a1:answered']);
+    });
+
+    it('leaves the other events of the poll as they were', () => {
+      const without = projectEvents(homed('acme/plan'), { config, now: NOW });
+      const withAnswers = projectEvents(homed('acme/plan'), { config, now: NOW, answers: [round()] });
+      expect(withAnswers.filter((e) => e.type !== 'QUESTION_ANSWERED')).toEqual(without);
     });
   });
 

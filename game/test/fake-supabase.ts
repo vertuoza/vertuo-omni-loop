@@ -1,6 +1,6 @@
 // A fake PostgREST over in-memory tables, for the game's tests: enough of GET (select, eq. and
 // not.is.null filters, limit/offset) and of POST with on_conflict + ignore-duplicates or
-// merge-duplicates (an upsert) to hold the client to the real contract. `fakeSupabase(...).fetch` stands in for fetch; `serveFake` puts the
+// merge-duplicates (an upsert) to hold the client to the real contract, and of POST /rpc/<fn>. `fakeSupabase(...).fetch` stands in for fetch; `serveFake` puts the
 // same fake behind a local HTTP server, for a test that runs a game script as a process.
 import { createServer, type IncomingHttpHeaders } from 'node:http';
 import { z } from 'zod';
@@ -80,6 +80,8 @@ export function fakeSupabase(tables: Tables, { failOn = null }: { failOn?: strin
       const offset = Number(url.searchParams.get('offset') ?? 0), limit = Number(url.searchParams.get('limit') ?? 1e9);
       return reply(200, out.slice(offset, offset + limit).map((r) => pick(r, select)));
     }
+    // A database function (POST /rpc/<fn>) answers every row of the fake table named after it.
+    if (url.pathname.includes('/rpc/')) return reply(200, rows);
     const key = (url.searchParams.get('on_conflict') ?? '').split(',').filter(Boolean);
     const prefer = header(init.headers, 'Prefer');
     const merge = prefer.includes('resolution=merge-duplicates');

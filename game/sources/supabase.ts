@@ -12,8 +12,13 @@ import type { Database, Json } from '../../supabase/database.types.ts';
 import { makeEvent, type GameEvent } from '../events.ts';
 import { configFrom, type GameConfig } from '../config.ts';
 import type { Ledger } from '../ledger.ts';
+import type { AnsweredRound } from '../projector.ts';
+import { PrdNumberSchema } from '../../kit/lib/ids.ts';
 
 type Tables = Database['public']['Tables'];
+type Functions = Database['public']['Functions'];
+/** A function of the database's public schema. */
+export type FunctionName = keyof Functions;
 /** A table of the database's public schema. */
 export type TableName = keyof Tables;
 /** A row as written to `table`. */
@@ -35,6 +40,8 @@ export type SupabaseRest = {
   select: (table: TableName, query: string) => Promise<unknown[]>;
   insertNew: <T extends TableName>(table: T, rows: InsertRow<T>[], onConflict: string, select?: string) => Promise<unknown[]>;
   upsert: <T extends TableName>(table: T, rows: InsertRow<T>[], onConflict: string) => Promise<void>;
+  /** Calls a database function with its named arguments; answers what it returns, unread. */
+  rpc: <F extends FunctionName>(fn: F, args: Functions[F]['Args']) => Promise<unknown>;
 };
 
 // What PostgREST answers a read or a representation write with: a list of rows.
@@ -105,6 +112,16 @@ export function supabaseRest({ url, key, fetch = globalThis.fetch }: { url: stri
         body: JSON.stringify(rows),
       });
       if (!res.ok) throw await fail(what, res);
+    },
+    async rpc(fn, args) {
+      const what = `read ${fn}`;
+      const res = await send(what, `${base}/rpc/${fn}`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(args),
+      });
+      if (!res.ok) throw await fail(what, res);
+      return res.json();
     },
   };
 }
@@ -240,4 +257,47 @@ export async function exportWorkspace(rest: SupabaseRest, workspaceId: string): 
     teams: await rest.select('teams', `select=workspace_id,name,home,label,color,motto,mascot,sort,retired_at&${inWorkspace}&order=sort,name`),
     players: await rest.select('players', `select=workspace_id,user_id,display_name,team,team_since,hero,github_id,github_login,created_at,updated_at&${inWorkspace}&order=created_at,user_id`),
   };
+}
+
+// A row of public.game_answered_rounds() (PRD 1180). The function already lower-cases the home and
+// the login; they are lower-cased again here, so a name never reaches the ledger in another case.
+const AnsweredRow = z.object({
+  round_id: z.string().min(1),
+  answered_at: z.string().min(1),
+  prd: PrdNumberSchema,
+  home: z.string().min(1),
+  login: z.string().min(1),
+});
+
+/**
+ * One workspace's ask rounds answered on a numbered PRD since its `game_since`, through
+ * public.game_answered_rounds() (PRD 1180; the service role's only). A failed read, a workspace it
+ * cannot find or a row it cannot read throws: game:project then appends the GitHub events alone.
+ */
+export async function loadAnsweredRounds(rest: SupabaseRest, workspaceId: string): Promise<AnsweredRound[]> {
+  scope(workspaceId);
+  const [row] = GameSince.parse(await rest.select('workspaces', `select=game_since&id=eq.${encodeURIComponent(workspaceId)}`));
+  if (!row) throw new Error(`Supabase: no workspace ${workspaceId}: its answered rounds are read from its game_since`);
+  const rows = z.array(AnsweredRow).parse(await rest.rpc('game_answered_rounds', { workspace: workspaceId, since: row.game_since ?? new Date(0).toISOString() }));
+  return rows.map((r) => ({
+    roundId: r.round_id,
+    answeredAt: new Date(r.answered_at).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    prd: r.prd,
+    home: r.home.toLowerCase(),
+    login: r.login.toLowerCase(),
+  }));
+}
+
+/**
+ * The answered rounds game:project projects, or none: a failed read is told through `warn`, in one
+ * line, and the poll goes on with its GitHub events. The next poll reads the rounds again; the ledger
+ * keeps each answer's first copy, so a round missed now is paid then.
+ */
+export async function answeredRoundsOrNone(rest: SupabaseRest, workspaceId: string, warn: (line: string) => void): Promise<AnsweredRound[]> {
+  try {
+    return await loadAnsweredRounds(rest, workspaceId);
+  } catch (err) {
+    warn(`answered rounds not read, so no answer is appended this poll: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
+  }
 }
