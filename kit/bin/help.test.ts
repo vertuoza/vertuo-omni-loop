@@ -115,6 +115,17 @@ describe('omni --help, omni -h and a bare omni', () => {
     expect(out).toMatch(/once a\s+minute/);
   });
 
+  it('lists generated among the commands the skills run, and explains it (PRD 1138)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const overview = await run(['help'], root);
+    expect(overview.out.slice(overview.out.indexOf('Run by the skills:'))).toMatch(/\bgenerated\b/);
+    const { code, out } = await run(['help', 'generated'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni generated <range> \[--json\] +run by the skills\n/);
+    expect(out).toMatch(/stale/);
+    expect(out).toMatch(/no generated\s+files/);
+  });
+
   it('--help and -h print exactly what omni help prints', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const help = await run(['help'], root);
