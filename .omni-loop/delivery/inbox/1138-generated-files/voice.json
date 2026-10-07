@@ -1,0 +1,30 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-07",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Sub-PRs with sources only and one rebuilt bundle per wave are diffs I can actually review.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "One more list to keep in sync; forget a bundle there and the fake breaches come back with a config that lies.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Fewer serial waves means the same PRD ships faster, with no conflict to wait on.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Retro issues that are real, not noise from a rebuilt bundle, are ones my team will read.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "Quicker deliveries help my quick wins, even if this one is invisible to customers.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": { "persona": "B-E DEv", "text": "One more list to keep in sync. Forget to add a new bundle there and you're back to fake breaches and serial waves, now with a config that lies.", "citations": ["persona:B-E DEv"], "settled": "accepted" },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Irisa ~ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-07",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "The stale-bundle tests stay, so a missed rebuild still fails before it reaches me.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "A wrong path or build turns omni check config red, naming the entry. The list cannot quietly lie.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Kit-heavy PRDs stop running one wave per slice.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Hand-written registration files stay shared ground, so real overlaps are still caught.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "Nothing for me to learn or run; deliveries just get shorter.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:Irisa ~"
+    }
+  ]
+}
