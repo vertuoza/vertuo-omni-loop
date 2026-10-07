@@ -497,6 +497,13 @@ var GithubPaused = class extends Error {
 function resourceOf(url) {
   return new URL(url).pathname.replace(/\/+$/, "").endsWith("/graphql") ? "graphql" : "core";
 }
+function plainHeaders(init) {
+  const plain2 = {};
+  new Headers(init).forEach((value, name) => {
+    plain2[name] = value;
+  });
+  return plain2;
+}
 function budgetOf(headers) {
   const limit = Number(headers.get("x-ratelimit-limit"));
   const remaining = Number(headers.get("x-ratelimit-remaining"));
@@ -579,7 +586,7 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
     const refused3 = refusal(await stored((s) => s.budget(installation, resource)), priority, clock());
     if (refused3) throw refused3;
     const etag = await conditionalOf(installation, url, resource, rest.method);
-    const headers = etag.kept ? { ...Object.fromEntries(new Headers(rest.headers)), "if-none-match": etag.kept.etag } : rest.headers;
+    const headers = etag.kept ? { ...plainHeaders(rest.headers), "if-none-match": etag.kept.etag } : rest.headers;
     const res = await send(url, headers === void 0 ? rest : { ...rest, headers });
     const answered = clock();
     await record(installation, resource, res, answered);
