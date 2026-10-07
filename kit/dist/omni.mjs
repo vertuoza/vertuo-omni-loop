@@ -45463,7 +45463,13 @@ function classifyPhase0Path(path, { ctx, prd: prd2 }) {
   if (isDocsPath(file2, ctx)) return "docs";
   return "source";
 }
-function phase0Verdict(paths, { ctx, prd: prd2, needsBeforeAfter = true, commits }) {
+function phase0Verdict(paths, {
+  ctx,
+  prd: prd2,
+  needsBeforeAfter = true,
+  needsPlan = true,
+  commits
+}) {
   const files = (paths ?? []).map(normalize2).filter(Boolean);
   const kinds = files.map((file2) => classifyPhase0Path(file2, { ctx, prd: prd2 }));
   const carries = {
@@ -45476,7 +45482,7 @@ function phase0Verdict(paths, { ctx, prd: prd2, needsBeforeAfter = true, commits
   };
   const offending = carries.source;
   const required2 = PHASE_0_REQUIRED_KINDS.filter(
-    (kind) => kind !== "before-after" || needsBeforeAfter
+    (kind) => (kind !== "before-after" || needsBeforeAfter) && (kind !== "plan" || needsPlan)
   );
   const missing = required2.filter((kind) => carries[kind].length === 0);
   const docsOnly = offending.length === 0;
@@ -45493,7 +45499,7 @@ function phase0Verdict(paths, { ctx, prd: prd2, needsBeforeAfter = true, commits
     signed,
     trailer,
     unsigned,
-    reason: phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned })
+    reason: phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned, needsPlan })
   };
 }
 function gradeSignature(commits, signature) {
@@ -45502,9 +45508,10 @@ function gradeSignature(commits, signature) {
   const unsigned = commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => ({ sha: commit.sha, subject: ((commit.message ?? "").split("\n")[0] ?? "").trim() }));
   return { signed: unsigned.length === 0, trailer, unsigned };
 }
-function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }) {
+function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned, needsPlan }) {
   if (ok) {
-    return "docs-only, and it carries the spec, the plan and the before/after a reviewer is being asked to approve";
+    const carried = needsPlan ? "the spec, the plan and the before/after" : "the spec and the before/after";
+    return `docs-only, and it carries ${carried} a reviewer is being asked to approve`;
   }
   const faults = [];
   if (!docsOnly) {

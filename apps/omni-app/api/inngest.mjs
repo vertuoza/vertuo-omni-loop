@@ -1461,6 +1461,12 @@ function numeric(value) {
 function parseId(schema, value, what, given) {
   return parseOrThrow(schema, value, `${what} ${JSON.stringify(given)}`);
 }
+function parseIssue(value) {
+  return parseId(IssueNumberSchema, numeric(value), "issue number", value);
+}
+function parsePrd(value) {
+  return parseId(PrdNumberSchema, numeric(value), "PRD number", value);
+}
 function parsePr(value) {
   return parseId(PrNumberSchema, numeric(value), "pull request number", value);
 }
@@ -4466,8 +4472,189 @@ function parseSpec(text8, { file = null } = {}) {
   return { ok: true, record };
 }
 
+// kit/lib/roadmap/grade.ts
+var shortName = (slug) => slug.slice(slug.indexOf("/") + 1);
+function duplicateIds(roadmap) {
+  const seen = /* @__PURE__ */ new Set();
+  const twice = /* @__PURE__ */ new Set();
+  for (const { id } of [...roadmap.prds, ...roadmap.questions]) {
+    if (seen.has(id)) twice.add(id);
+    seen.add(id);
+  }
+  return [...twice].map((id) => `${id}: the id is used twice.`);
+}
+function unknownBlockers(roadmap, rows) {
+  return roadmap.prds.flatMap(
+    (row) => row.blockedBy.filter((blocker) => !rows.has(blocker)).map((blocker) => `${row.id}: blocked by ${blocker}, which is not a row of the roadmap.`)
+  );
+}
+function cycles(roadmap, rows) {
+  const found = [];
+  const seenCycles = /* @__PURE__ */ new Set();
+  const done = /* @__PURE__ */ new Set();
+  const walk2 = (id, path) => {
+    const start = path.indexOf(id);
+    if (start !== -1) {
+      const loop = path.slice(start);
+      const key = [...loop].sort().join(",");
+      if (!seenCycles.has(key)) {
+        seenCycles.add(key);
+        found.push(`${loop[0]}: a cycle \u2014 ${[...loop, id].join(" \u2192 ")}.`);
+      }
+      return;
+    }
+    if (done.has(id)) return;
+    for (const blocker of rows.get(id)?.blockedBy ?? []) walk2(blocker, [...path, id]);
+    done.add(id);
+  };
+  for (const row of roadmap.prds) walk2(row.id, []);
+  return found;
+}
+function waveOrder(roadmap, rows) {
+  const violations = [];
+  for (const row of roadmap.prds) {
+    const blockers = row.blockedBy.flatMap((id) => rows.get(id) ?? []);
+    const expected = blockers.length === 0 ? 1 : Math.max(...blockers.map((blocker) => blocker.wave)) + 1;
+    if (row.wave === expected) continue;
+    const reason2 = blockers.length === 0 ? "it has no blocker" : `its highest blocker, ${blockers.find((blocker) => blocker.wave === expected - 1)?.id}, is in wave ${expected - 1}`;
+    violations.push(`${row.id}: in wave ${row.wave}, but ${reason2}, so its wave is ${expected}.`);
+  }
+  return violations;
+}
+function missingWhy(roadmap) {
+  return roadmap.prds.filter((row) => row.blockedBy.length > 0 && row.why === null).map((row) => `${row.id}: blocked by ${row.blockedBy.join(", ")} with no why \u2014 every blocker says why it blocks.`);
+}
+var prdList = (prds) => prds.length === 0 ? "none" : prds.map((prd) => `#${prd}`).join(", ");
+function specAgreement(roadmap, rows, prdFacts2) {
+  const violations = [];
+  for (const row of roadmap.prds) {
+    const facts = prdFacts2(row.prd);
+    if (facts === "no-folder") {
+      violations.push(`${row.id}: PRD #${row.prd} has no inbox or shipped folder.`);
+      continue;
+    }
+    if (facts === "unreadable") {
+      violations.push(`${row.id}: PRD #${row.prd}'s spec does not parse, so its blocked-by cannot be compared.`);
+      continue;
+    }
+    const wanted = [...new Set(row.blockedBy.flatMap((id) => rows.get(id)?.prd ?? []))].sort((a, b) => a - b);
+    const declared = [...new Set(facts.blockedBy === "none" ? [] : facts.blockedBy)].sort((a, b) => a - b);
+    if (wanted.join(",") === declared.join(",")) continue;
+    violations.push(`${row.id}: PRD #${row.prd}'s spec is blocked by ${prdList(declared)}, but its row by ${prdList(wanted)}.`);
+  }
+  return violations;
+}
+function unknownQuestionRows(roadmap, rows) {
+  return roadmap.questions.flatMap(
+    (question) => question.blocks.filter((id) => !rows.has(id)).map((id) => `${question.id}: blocks ${id}, which is not a row of the roadmap.`)
+  );
+}
+function upstream(row, rows) {
+  const found = /* @__PURE__ */ new Map();
+  const queue = [...row.blockedBy];
+  while (queue.length > 0) {
+    const id = queue.shift() ?? "";
+    const blocker = rows.get(id);
+    if (blocker === void 0 || found.has(id) || id === row.id) continue;
+    found.set(id, blocker);
+    queue.push(...blocker.blockedBy);
+  }
+  return [...found.values()];
+}
+function rowRepoViolations(row, { names, readOnly }) {
+  const repos = row.repos ?? [];
+  if (repos.length === 0) return [`${row.id}: names no repository.`];
+  return repos.flatMap((repo) => {
+    if (!names.includes(repo)) return [`${row.id}: ${repo} is not a target of plan.targets (${names.join(", ")}).`];
+    return readOnly.has(repo) ? [`${row.id}: ${repo} is a read-only target \u2014 no roadmap row may name it.`] : [];
+  });
+}
+function consumerViolations(row, blocker, consumes) {
+  if (blocker.wave < row.wave) return [];
+  return (row.repos ?? []).flatMap((consumer) => {
+    const provider = (blocker.repos ?? []).find((repo) => consumes.get(consumer)?.includes(repo) === true);
+    if (provider === void 0) return [];
+    return [
+      `${row.id}: changes ${consumer}, which consumes ${provider}, in wave ${row.wave}, not after ${blocker.id} (wave ${blocker.wave}) that changes ${provider} and that it waits on.`
+    ];
+  });
+}
+function targetViolations(roadmap, rows, targets) {
+  if (!roadmap.repos) return ['PRDs: the table has no "repos" column; in a plan repository each row names its repositories.'];
+  const rules = {
+    names: targets.map((target2) => shortName(target2.repo)),
+    readOnly: new Set(targets.filter((target2) => target2.readOnly === true).map((target2) => shortName(target2.repo))),
+    consumes: new Map(targets.map((target2) => [shortName(target2.repo), target2.consumes ?? []]))
+  };
+  return roadmap.prds.flatMap((row) => [
+    ...rowRepoViolations(row, rules),
+    ...upstream(row, rows).flatMap((blocker) => consumerViolations(row, blocker, rules.consumes))
+  ]);
+}
+function gradeRoadmap(roadmap, { prdFacts: prdFacts2, targets }) {
+  const rows = /* @__PURE__ */ new Map();
+  for (const row of roadmap.prds) if (!rows.has(row.id)) rows.set(row.id, row);
+  const repoRule = targets === null ? roadmap.repos ? ["PRDs: a repos column needs a plan repository (a config with plan.targets)."] : [] : targetViolations(roadmap, rows, targets);
+  return [
+    ...duplicateIds(roadmap),
+    ...unknownBlockers(roadmap, rows),
+    ...cycles(roadmap, rows),
+    ...waveOrder(roadmap, rows),
+    ...missingWhy(roadmap),
+    ...specAgreement(roadmap, rows, prdFacts2),
+    ...unknownQuestionRows(roadmap, rows),
+    ...repoRule
+  ];
+}
+
 // kit/lib/roadmap/parse.ts
 import { z as z20 } from "zod";
+
+// kit/lib/markdown-body.ts
+var SEPARATOR_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
+function sectionsOf(body) {
+  const sections = [];
+  let current = null;
+  for (const line of body.split(/\r?\n/)) {
+    const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
+    if (heading && !line.startsWith("###")) {
+      current = { name: group(heading, 1), lines: [] };
+      sections.push(current);
+    } else if (/^#\s/.test(line)) {
+      current = null;
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  return sections;
+}
+function cells(line) {
+  let inner = line.trim();
+  if (inner.startsWith("|")) inner = inner.slice(1);
+  if (inner.endsWith("|") && !inner.endsWith("\\|")) inner = inner.slice(0, -1);
+  return inner.split(/(?<!\\)\|/).map((cell3) => cell3.trim().replace(/\\\|/g, "|"));
+}
+function firstTable(lines) {
+  const start = lines.findIndex((line) => line.trim().startsWith("|"));
+  if (start === -1) return null;
+  const block = [];
+  for (const line of lines.slice(start)) {
+    if (!line.trim().startsWith("|")) break;
+    block.push(line.trim());
+  }
+  const [header = "", ...rest] = block;
+  return { header: cells(header), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells) };
+}
+
+// kit/lib/roadmap/parse.ts
+var PRD_COLUMNS = ["id", "PRD", "title", "blocked by", "why", "wave"];
+var QUESTION_COLUMNS = ["id", "question", "recommendation", "blocks", "kind"];
+var QUESTION_KINDS = ["default", "person"];
+var FRONT_MATTER_BLOCK4 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
+var PRD_CELL = /^#([1-9]\d*)$/;
+var WAVE_CELL = /^[1-9]\d*$/;
+var NONE_CELL = /^(?:|-|–|—|none)$/i;
+var ID_CELL = /^[^\s,|]+$/;
 var optionalText = z20.string().trim().min(1).optional();
 var FrontMatterSchema2 = z20.object({
   roadmap: z20.string().regex(/^[1-9]\d*$/, "the roadmap issue's number").transform(Number).pipe(IssueNumberSchema),
@@ -4477,6 +4664,169 @@ var FrontMatterSchema2 = z20.object({
   target: z20.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
   source: optionalText
 }).strict();
+function frontMatter(raw) {
+  const { data, errors: lineErrors } = parseFrontMatterLines(raw);
+  const errors = lineErrors.map((message) => `front matter: ${message}.`);
+  const parsed2 = FrontMatterSchema2.safeParse(data, { error: KIT_MESSAGES });
+  if (parsed2.success) return { data: parsed2.data, errors };
+  for (const issue of parsed2.error.issues) {
+    if (issue.code === "unrecognized_keys") {
+      for (const key of issue.keys) {
+        errors.push(`front matter: unexpected field "${key}"; it holds roadmap, title, milestone, and an optional product, target and source.`);
+      }
+      continue;
+    }
+    const field3 = String(issue.path[0] ?? "(front matter)");
+    const value = data[field3];
+    errors.push(value === void 0 ? `front matter: no "${field3}" field.` : `front matter: ${field3} is "${value}": ${issue.message}.`);
+  }
+  return { data: null, errors };
+}
+function listCell(cell3) {
+  if (NONE_CELL.test(cell3)) return [];
+  return cell3.split(",").map((entry) => entry.trim()).filter((entry) => entry !== "");
+}
+function columns(table, wanted, where) {
+  const position = (name) => table.header.findIndex((cell4) => cell4.toLowerCase() === name.toLowerCase());
+  const faults = wanted.filter((name) => position(name) === -1).map((name) => `${where}: the table has no "${name}" column.`);
+  const cell3 = (row, name) => row[position(name)] ?? "";
+  return { faults, has: (name) => position(name) !== -1, cell: cell3 };
+}
+function rowLabel(id, index) {
+  return id === "" ? `row ${index + 1}` : id;
+}
+function rowOpening(id, index, where) {
+  const label2 = rowLabel(id, index);
+  const rowFaults = ID_CELL.test(id) ? [] : [`${where}: ${label2} has the id "${id}", which is empty or holds a space, a comma or a pipe.`];
+  return { label: label2, rowFaults };
+}
+function idListFaults(entries, where) {
+  return entries.filter((entry) => !ID_CELL.test(entry)).map((entry) => `${where} "${entry}", which is no id.`);
+}
+function prdsOf(section4) {
+  if (!section4) return { rows: [], repos: false, faults: ['sections: no "## PRDs" section.'] };
+  const table = firstTable(section4.lines);
+  if (!table) return { rows: [], repos: false, faults: [`PRDs: no table; it holds one with the columns ${PRD_COLUMNS.join(", ")}.`] };
+  const { faults, has, cell: cell3 } = columns(table, PRD_COLUMNS, "PRDs");
+  if (faults.length > 0) return { rows: [], repos: false, faults };
+  const repos = has("repos");
+  const rows = [];
+  table.rows.forEach((row, index) => {
+    const id = cell3(row, "id");
+    const { label: label2, rowFaults } = rowOpening(id, index, "PRDs");
+    const prdCell = PRD_CELL.exec(cell3(row, "PRD"));
+    if (!prdCell) rowFaults.push(`PRDs: ${label2} has the PRD cell "${cell3(row, "PRD")}", not #<number>.`);
+    const title = cell3(row, "title");
+    if (title === "") rowFaults.push(`PRDs: ${label2} has no title.`);
+    const waveCell = cell3(row, "wave");
+    if (!WAVE_CELL.test(waveCell)) rowFaults.push(`PRDs: ${label2} has the wave "${waveCell}", not a positive whole number.`);
+    const blockedBy = listCell(cell3(row, "blocked by"));
+    rowFaults.push(...idListFaults(blockedBy, `PRDs: ${label2} is blocked by`));
+    const why = cell3(row, "why");
+    faults.push(...rowFaults);
+    if (rowFaults.length > 0 || !prdCell) return;
+    rows.push({
+      id,
+      prd: parsePrd(group(prdCell, 1)),
+      title,
+      repos: repos ? listCell(cell3(row, "repos")) : null,
+      blockedBy,
+      why: NONE_CELL.test(why) ? null : why,
+      wave: Number(waveCell)
+    });
+  });
+  return { rows, repos, faults };
+}
+function questionsOf(section4) {
+  const table = section4 ? firstTable(section4.lines) : null;
+  if (!table) return { questions: [], faults: [] };
+  const { faults, cell: cell3 } = columns(table, QUESTION_COLUMNS, "Open questions");
+  if (faults.length > 0) return { questions: [], faults };
+  const questions = [];
+  table.rows.forEach((row, index) => {
+    const id = cell3(row, "id");
+    const { label: label2, rowFaults } = rowOpening(id, index, "Open questions");
+    const question = cell3(row, "question");
+    if (question === "") rowFaults.push(`Open questions: ${label2} asks nothing: its question is empty.`);
+    const kind = cell3(row, "kind");
+    const known = QUESTION_KINDS;
+    if (!known.includes(kind)) rowFaults.push(`Open questions: ${label2} has the kind "${kind}", not one of ${QUESTION_KINDS.join(", ")}.`);
+    const blocks = listCell(cell3(row, "blocks"));
+    rowFaults.push(...idListFaults(blocks, `Open questions: ${label2} blocks`));
+    faults.push(...rowFaults);
+    if (rowFaults.length > 0) return;
+    const typed = QUESTION_KINDS.find((name) => name === kind) ?? "default";
+    questions.push({ id, question, recommendation: cell3(row, "recommendation"), blocks, kind: typed });
+  });
+  return { questions, faults };
+}
+function parseRoadmap(text8) {
+  const block = FRONT_MATTER_BLOCK4.exec(text8);
+  if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
+  const [, raw = "", body = ""] = block;
+  const front = frontMatter(raw);
+  const sections = sectionsOf(body);
+  const prds = prdsOf(sections.find((section4) => section4.name === "PRDs"));
+  const questions = questionsOf(sections.find((section4) => section4.name === "Open questions"));
+  const errors = [...front.errors, ...prds.faults, ...questions.faults];
+  if (errors.length > 0 || front.data === null) return { ok: false, errors };
+  const { roadmap, title, milestone, product, target: target2, source } = front.data;
+  return {
+    ok: true,
+    roadmap: {
+      roadmap,
+      title,
+      milestone,
+      product: product ?? null,
+      target: target2 ?? null,
+      source: source ?? null,
+      repos: prds.repos,
+      prds: prds.rows,
+      questions: questions.questions
+    }
+  };
+}
+function roadmapWaves(roadmap) {
+  const waves = [...new Set(roadmap.prds.map((row) => row.wave))].sort((a, b) => a - b);
+  return waves.map((wave) => ({ wave, rows: roadmap.prds.filter((row) => row.wave === wave) }));
+}
+
+// kit/lib/roadmap/index.ts
+function roadmapsDir(ctx) {
+  return `${ctx.layout.dirs.inbox}/roadmaps`;
+}
+function roadmapFiles(ctx) {
+  const dir = roadmapsDir(ctx);
+  return prdFoldersIn(join15(ctx.root, dir)).map(({ name, prd }) => ({
+    number: parseIssue(prd),
+    dir: `${dir}/${name}`,
+    file: `${dir}/${name}/roadmap.md`
+  }));
+}
+function prdFacts(ctx, prd) {
+  const specFile = ctx.layout.specPath(prd);
+  if (specFile === null) return "no-folder";
+  if (!existsSync13(join15(ctx.root, specFile))) return "unreadable";
+  const parsed2 = parseSpec(readRepoFile(ctx, specFile), { file: specFile });
+  return parsed2.ok ? { blockedBy: parsed2.record.blockedBy } : "unreadable";
+}
+function gradeRoadmapFile(ctx, entry) {
+  const at2 = (message) => `${entry.file}: ${message}`;
+  if (!existsSync13(join15(ctx.root, entry.file))) return { ...entry, roadmap: null, violations: [at2("roadmap.md is missing.")] };
+  const parsed2 = parseRoadmap(readRepoFile(ctx, entry.file));
+  if (!parsed2.ok) return { ...entry, roadmap: null, violations: parsed2.errors.map(at2) };
+  const { roadmap } = parsed2;
+  const violations = [];
+  if (roadmap.roadmap !== entry.number) {
+    violations.push(`roadmap ${roadmap.roadmap} does not agree with its folder's number, ${entry.number}.`);
+  }
+  const targets = ctx.config.plan?.targets ?? null;
+  violations.push(...gradeRoadmap(roadmap, { prdFacts: (prd) => prdFacts(ctx, prd), targets }));
+  return { ...entry, roadmap, violations: violations.map(at2) };
+}
+function gradeRoadmaps(ctx) {
+  return roadmapFiles(ctx).map((entry) => gradeRoadmapFile(ctx, entry));
+}
 
 // kit/lib/voice/voice.ts
 import { z as z21 } from "zod";
@@ -4981,16 +5331,16 @@ function readCopyFlow(repo, { root, config }) {
   };
   return { folder, config: flow, readHook };
 }
-var shortName = (slug) => slug.slice(slug.indexOf("/") + 1);
+var shortName2 = (slug) => slug.slice(slug.indexOf("/") + 1);
 function targetFlows({ root, config }) {
   const flows = /* @__PURE__ */ new Map();
   for (const { repo, knowledge } of config.plan?.targets ?? []) {
     if (knowledge !== "imported") continue;
     try {
       const copy = readCopyFlow(repo, { root, config });
-      if (copy) flows.set(shortName(repo), { ok: true, config: copy.config });
+      if (copy) flows.set(shortName2(repo), { ok: true, config: copy.config });
     } catch (error) {
-      flows.set(shortName(repo), { ok: false, file: join17(copyFlowFolder(repo, { config }), COPY_FLOW_FILE), reason: messageOf2(error) });
+      flows.set(shortName2(repo), { ok: false, file: join17(copyFlowFolder(repo, { config }), COPY_FLOW_FILE), reason: messageOf2(error) });
     }
   }
   return flows;
@@ -5016,7 +5366,7 @@ function territoryPrefixes(cell3) {
 function prefixOf(declaration) {
   return declaration.replace(/\*+$/, "");
 }
-function cells(line) {
+function cells2(line) {
   return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell3) => cell3.trim());
 }
 function isTableRow(line) {
@@ -5031,7 +5381,7 @@ function bodyRows(lines, headerIndex) {
     const line = lines[index];
     if (!isTableRow(line)) break;
     if (isSeparatorRow(line)) continue;
-    rows.push(cells(line));
+    rows.push(cells2(line));
   }
   return rows;
 }
@@ -5043,7 +5393,7 @@ function parsePlanSlices(markdown) {
     const line = lines[i];
     if (isTableRow(line) && /^\|\s*id\s*\|/i.test(line.trim())) {
       foundAnyIdTable = true;
-      const header2 = cells(line).map((name) => name.toLowerCase());
+      const header2 = cells2(line).map((name) => name.toLowerCase());
       if (header2.indexOf("territory") !== -1) {
         headerIndex = i;
         break;
@@ -5058,7 +5408,7 @@ function parsePlanSlices(markdown) {
     }
     throw new Error("No slice table was found in this plan; its slices declare no territory.");
   }
-  const header = cells(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
+  const header = cells2(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
   const column = (name) => header.indexOf(name);
   const slices = [];
   for (const row of bodyRows(lines, headerIndex)) {
@@ -5119,7 +5469,7 @@ function sectionTable(markdown, heading) {
     }
   }
   if (headerIndex === -1) return [];
-  const header = cells(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
+  const header = cells2(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
   return bodyRows(lines, headerIndex).map(
     (row) => (name) => header.indexOf(name) === -1 ? "" : plainCell(row[header.indexOf(name)])
   );
@@ -5178,7 +5528,7 @@ function collisionRows(slices, generated = []) {
 // kit/lib/inbox/plan-grade.ts
 var COMMIT = /^[0-9a-f]{40}$/;
 var NO_COMMIT = /^[—–-]$/;
-function duplicateIds(slices) {
+function duplicateIds2(slices) {
   const counts = /* @__PURE__ */ new Map();
   for (const slice of slices) counts.set(slice.id, (counts.get(slice.id) ?? 0) + 1);
   return [...counts.entries()].filter(([, count2]) => count2 > 1).map(([id]) => id);
@@ -5259,7 +5609,7 @@ function gradedLandings(slices, rows) {
   });
 }
 function repositoryFlowViolations(slices, { config, targets }) {
-  const planName = config.repo.slug === null ? null : shortName2(config.repo.slug);
+  const planName = config.repo.slug === null ? null : shortName3(config.repo.slug);
   return [...byRepository(slices)].flatMap(([repo, group2]) => {
     const found = repo === null ? void 0 : targets.get(repo);
     const unreadable = found !== void 0 && !found.ok ? [`flow: ${repo}'s imported flow at ${found.file} cannot be read \u2014 ${found.reason}`] : [];
@@ -5268,7 +5618,7 @@ function repositoryFlowViolations(slices, { config, targets }) {
     return [...unreadable, ...named];
   });
 }
-function shortName2(slug) {
+function shortName3(slug) {
   return slug.slice(slug.indexOf("/") + 1);
 }
 function repositoryViolations(slices, repositories, { planSlug, targets }) {
@@ -5280,13 +5630,13 @@ function repositoryViolations(slices, repositories, { planSlug, targets }) {
     ...shortNameClashes(owners),
     ...unknownRepoViolations(slices, owners),
     ...missingRowViolations(slices, repositories, owners),
-    ...repositoryRowViolations(slices, repositories, { owners, planName: shortName2(planSlug) })
+    ...repositoryRowViolations(slices, repositories, { owners, planName: shortName3(planSlug) })
   ];
 }
 function ownersByShortName(slugs) {
   const owners = /* @__PURE__ */ new Map();
   for (const slug of slugs) {
-    const name = shortName2(slug);
+    const name = shortName3(slug);
     owners.set(name, [...owners.get(name) ?? [], slug]);
   }
   return owners;
@@ -5325,8 +5675,8 @@ function rowViolation(row, slices, { owners, planName }) {
   return null;
 }
 function targetReachViolations(slices, targets) {
-  const readOnly = new Set(targets.filter((target2) => target2.readOnly === true).map((target2) => shortName2(target2.repo)));
-  const consumes = new Map(targets.map((target2) => [shortName2(target2.repo), new Set(target2.consumes ?? [])]));
+  const readOnly = new Set(targets.filter((target2) => target2.readOnly === true).map((target2) => shortName3(target2.repo)));
+  const consumes = new Map(targets.map((target2) => [shortName3(target2.repo), new Set(target2.consumes ?? [])]));
   const repoOf2 = new Map(slices.map((slice) => [slice.id, slice.repo]));
   const violations = slices.filter((slice) => slice.repo !== null && readOnly.has(slice.repo)).map((slice) => `readOnly: ${slice.id} lands in ${slice.repo}, a read-only target \u2014 no slice may name it.`);
   for (const slice of slices) {
@@ -5382,7 +5732,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
     ...planSection2 === null ? notPlanRepositoryViolations(slices, repositories) : repositoryViolations(slices, repositories, { planSlug: defined(config.repo.slug, "the plan repository's repo.slug"), targets: planSection2.targets }),
     // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
     ...multi ? targetReachViolations(slices, planSection2.targets) : [],
-    ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
+    ...duplicateIds2(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...landingViolations(slices, landingRows),
     ...multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config)),
     ...blockedByViolations2(slices),
@@ -5454,7 +5804,13 @@ function classifyPhase0Path(path, { ctx, prd }) {
   if (isDocsPath(file, ctx)) return "docs";
   return "source";
 }
-function phase0Verdict(paths, { ctx, prd, needsBeforeAfter = true, commits }) {
+function phase0Verdict(paths, {
+  ctx,
+  prd,
+  needsBeforeAfter = true,
+  needsPlan = true,
+  commits
+}) {
   const files = (paths ?? []).map(normalize).filter(Boolean);
   const kinds = files.map((file) => classifyPhase0Path(file, { ctx, prd }));
   const carries = {
@@ -5467,7 +5823,7 @@ function phase0Verdict(paths, { ctx, prd, needsBeforeAfter = true, commits }) {
   };
   const offending = carries.source;
   const required = PHASE_0_REQUIRED_KINDS.filter(
-    (kind) => kind !== "before-after" || needsBeforeAfter
+    (kind) => (kind !== "before-after" || needsBeforeAfter) && (kind !== "plan" || needsPlan)
   );
   const missing = required.filter((kind) => carries[kind].length === 0);
   const docsOnly = offending.length === 0;
@@ -5484,7 +5840,7 @@ function phase0Verdict(paths, { ctx, prd, needsBeforeAfter = true, commits }) {
     signed,
     trailer,
     unsigned,
-    reason: phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned })
+    reason: phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned, needsPlan })
   };
 }
 function gradeSignature(commits, signature) {
@@ -5493,9 +5849,10 @@ function gradeSignature(commits, signature) {
   const unsigned = commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => ({ sha: commit.sha, subject: ((commit.message ?? "").split("\n")[0] ?? "").trim() }));
   return { signed: unsigned.length === 0, trailer, unsigned };
 }
-function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }) {
+function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned, needsPlan }) {
   if (ok) {
-    return "docs-only, and it carries the spec, the plan and the before/after a reviewer is being asked to approve";
+    const carried = needsPlan ? "the spec, the plan and the before/after" : "the spec and the before/after";
+    return `docs-only, and it carries ${carried} a reviewer is being asked to approve`;
   }
   const faults = [];
   if (!docsOnly) {
@@ -5540,6 +5897,29 @@ function inboxPrd({ head, config, topic }) {
   }
   return null;
 }
+function roadmapTopic(topic) {
+  return topic.startsWith(ROADMAP_PREFIX) && topic.length > ROADMAP_PREFIX.length ? topic.slice(ROADMAP_PREFIX.length) : null;
+}
+var ROADMAP_PREFIX = "roadmap-";
+function roadmapPathOf(config, topic) {
+  return `${createContext(".", config).layout.dirs.inbox}/roadmaps/<nnnn>-${topic}/roadmap.md`;
+}
+function inboxRoadmap({ head, config, topic }) {
+  const wanted = roadmapTopic(topic);
+  if (wanted === null) return null;
+  const ctx = createContext(head, config);
+  const entry = roadmapFiles(ctx).find(
+    (file) => parseFolderName(file.dir.slice(file.dir.lastIndexOf("/") + 1))?.topic === wanted && existsSync16(join18(head, file.file))
+  );
+  if (!entry) return null;
+  return gradeRoadmaps(ctx).find((graded) => graded.dir === entry.dir) ?? null;
+}
+function phase0Prds({ head, config, topic }) {
+  const roadmap = inboxRoadmap({ head, config, topic });
+  if (roadmap) return (roadmap.roadmap?.prds ?? []).map((row) => row.prd);
+  const prd = inboxPrd({ head, config, topic });
+  return prd === null ? [] : [prd];
+}
 async function evaluateInbox({
   base,
   head,
@@ -5555,25 +5935,30 @@ async function evaluateInbox({
   const topic = phase0Topic(pr.headRef, config.branches.phase0);
   if (topic === null) return null;
   const name = config.ci.inboxContext;
+  const ctx = createContext(head, config);
+  const issueOf = (prd2) => typeof issue === "function" ? issue(prd2) : issue;
+  const roadmap = inboxRoadmap({ head, config, topic });
+  if (roadmap) return evaluateRoadmap({ name, ctx, roadmap, changes, commits, issueOf, canon, head, repo });
   const prd = inboxPrd({ head, config, topic });
   if (prd === null) {
     const title = `no inbox folder for topic \`${topic}\``;
+    const rest = roadmapTopic(topic);
+    const roadmapLine = rest === null ? "" : `, and no roadmap at \`${roadmapPathOf(config, rest)}\``;
     return {
       name,
       prd,
       conclusion: "failure",
       title,
-      summary: `${title} under \`${config.paths.delivery}\` on the head branch \`${pr.headRef}\`.`,
+      summary: `${title} under \`${config.paths.delivery}\` on the head branch \`${pr.headRef}\`${roadmapLine}.`,
       gates: [],
       canon: null
     };
   }
-  const ctx = createContext(head, config);
   const gates = [
     phase0Gate({ ctx, prd, changes, commits }),
     inboxGate({ ctx, prd }),
     planGate({ ctx, prd, head }),
-    issueGate({ prd, issue, label: config.labels.prd })
+    issueGate({ prd, issue: issueOf(prd), label: config.labels.prd })
   ];
   const { canon: facts, ...canonGate } = await canonGateOf({ canon, ctx, prd, head, repo });
   gates.push(canonGate);
@@ -5587,6 +5972,92 @@ async function evaluateInbox({
     canon: facts
   };
 }
+async function evaluateRoadmap({
+  name,
+  ctx,
+  roadmap,
+  changes,
+  commits,
+  issueOf,
+  canon,
+  head,
+  repo
+}) {
+  const waves = roadmap.roadmap ? roadmapWaves(roadmap.roadmap) : [];
+  const size = `${plural3(waves.flatMap((wave) => wave.rows).length, "PRD")} in ${plural3(waves.length, "wave")}`;
+  const roadmapGate = roadmap.violations.length === 0 ? { name: "roadmap", ok: true, reason: `${size}: every row, blocker and question holds` } : { name: "roadmap", ok: false, reason: roadmap.violations.join("; ") };
+  const graded = await Promise.all(
+    waves.flatMap((wave) => wave.rows).map(async (row) => {
+      const { canon: facts, ...canonGate } = await rowCanonGate({ canon, ctx, prd: row.prd, head, repo });
+      const gates2 = [...rowGates({ ctx, prd: row.prd, changes, commits, issue: issueOf(row.prd) }), canonGate];
+      return { row, gates: gates2.map((gate) => ({ ...gate, prd: row.prd })), facts };
+    })
+  );
+  const gates = [roadmapGate, ...graded.flatMap((entry) => entry.gates)];
+  const ok = gates.every((gate) => gate.ok);
+  return {
+    name,
+    prd: null,
+    conclusion: ok ? "success" : "failure",
+    title: ok ? `Roadmap ${roadmap.number} complete: ${size}, every gate ok \xB7 ${canonTail(gates)}` : `Not ok: ${failedByName(gates)}`,
+    summary: roadmapSummary({ ctx, roadmap, roadmapGate, graded }),
+    gates,
+    canon: graded.find((entry) => entry.facts.state === "red")?.facts ?? null
+  };
+}
+function roadmapSummary({ ctx, roadmap, roadmapGate, graded }) {
+  const name = roadmap.roadmap ? `Roadmap ${roadmap.roadmap.roadmap} \u2014 ${roadmap.roadmap.title}` : `Roadmap ${roadmap.number}`;
+  const waves = roadmap.roadmap ? roadmapWaves(roadmap.roadmap) : [];
+  const red = graded.find((entry) => entry.facts.state === "red");
+  const marker2 = red ? canonMarker({ prd: red.row.prd, canon: red.facts }) : null;
+  return [
+    `${name} (\`${roadmap.dir.slice(ctx.layout.dirs.inbox.length + 1)}\`)`,
+    "",
+    ...gateLines([roadmapGate]),
+    ...waves.flatMap((wave) => [
+      "",
+      `### Wave ${wave.wave}`,
+      ...wave.rows.flatMap((row) => ["", `#### ${rowHeading(ctx, row)}`, "", ...gateLines(graded.find((entry) => entry.row === row)?.gates ?? [])])
+    ]),
+    ...marker2 ? ["", marker2] : []
+  ].join("\n");
+}
+function canonTail(gates) {
+  const canon = gates.filter((gate) => gate.name === CANON_GATE);
+  const judged2 = canon.filter((gate) => !gate.neutral);
+  return judged2.length === 0 ? "canon neutral" : `canon \u2713 on ${judged2.length} of ${plural3(canon.length, "PRD")}`;
+}
+function rowGates({
+  ctx,
+  prd,
+  changes,
+  commits,
+  issue
+}) {
+  const label2 = ctx.config.labels.prd;
+  if (ctx.layout.whereIs(prd) === null) {
+    return [{ name: "inbox folder", ok: false, reason: `PRD ${prd} has no folder in the inbox` }, issueGate({ prd, issue, label: label2 })];
+  }
+  return [phase0Gate({ ctx, prd, changes, commits, needsPlan: false }), inboxGate({ ctx, prd }), issueGate({ prd, issue, label: label2 })];
+}
+function rowCanonGate(args) {
+  if (args.ctx.layout.whereIs(args.prd) === null) return Promise.resolve(neutral(`PRD ${args.prd} has no folder in the inbox`));
+  return canonGateOf(args);
+}
+function rowHeading(ctx, row) {
+  const folder = ctx.layout.whereIs(row.prd)?.name ?? "no folder";
+  return `${row.id} \xB7 PRD ${row.prd} \u2014 ${row.title} (\`${folder}\`)`;
+}
+function failedByName(gates) {
+  const failed2 = /* @__PURE__ */ new Map();
+  for (const gate of gates.filter((candidate) => !candidate.ok)) {
+    const prds = failed2.get(gate.name) ?? [];
+    if (gate.prd !== void 0) prds.push(gate.prd);
+    failed2.set(gate.name, prds);
+  }
+  return [...failed2].map(([name, prds]) => prds.length === 0 ? name : `${name} (PRD ${prds.join(", ")})`).join(", ");
+}
+var plural3 = (count2, word) => `${count2} ${word}${count2 === 1 ? "" : "s"}`;
 async function canonGateOf({
   canon,
   ctx,
@@ -5620,11 +6091,12 @@ function phase0Gate({
   ctx,
   prd,
   changes,
-  commits
+  commits,
+  needsPlan = true
 }) {
   const verdict = phase0Verdict(
     (changes ?? []).map((change) => change.path),
-    { ctx, prd, commits }
+    { ctx, prd, commits, needsPlan }
   );
   return { name: "phase-0 verdict", ok: verdict.ok, reason: verdict.reason };
 }
@@ -5657,11 +6129,13 @@ function issueGate({ prd, issue, label: label2 }) {
   return { name: "PRD issue", ok: true, reason: `issue #${prd} is open and carries ${label2}` };
 }
 function summaryOf({ prd, folder, gates, marker: marker2 }) {
-  const lines = gates.flatMap((gate) => [
+  return [`PRD ${prd} (\`${folder}\`)`, "", ...gateLines(gates), ...marker2 ? ["", marker2] : []].join("\n");
+}
+function gateLines(gates) {
+  return gates.flatMap((gate) => [
     `- ${gate.neutral ? "neutral" : gate.ok ? "ok" : "not ok"} \u2014 ${gate.name}: ${gate.reason}`,
     ...(gate.details ?? []).map((detail) => `  - ${detail}`)
   ]);
-  return [`PRD ${prd} (\`${folder}\`)`, "", ...lines, ...marker2 ? ["", marker2] : []].join("\n");
 }
 
 // apps/omni-app/src/inbox-check/github.ts
@@ -5811,8 +6285,10 @@ async function evaluateAt2(octokit, { owner, repo, prNumber, headSha, canon }) {
     const ctx = createContext(head, config);
     const { dirs } = ctx.layout;
     await snapshot(octokit, { owner, repo, ref: headSha, paths: [dirs.inbox, dirs.shipped, domainsDir(ctx)], dest: head });
-    const prd = inboxPrd({ head, config, topic });
-    const issue = prd === null ? null : await readIssue(octokit, { owner, repo, number: prd });
+    const prds = phase0Prds({ head, config, topic });
+    const read = await Promise.all(prds.map(async (prd) => [prd, await readIssue(octokit, { owner, repo, number: prd })]));
+    const issues = new Map(read);
+    const issue = (prd) => issues.get(prd) ?? null;
     const { changes, commits } = await compareFacts(octokit, { owner, repo, baseSha: pr.baseSha, headSha });
     return await evaluateInbox({ base, head, pr: { headRef: pr.headRef }, repo: `${owner}/${repo}`, changes, commits, issue, canon });
   } finally {
@@ -5914,7 +6390,7 @@ var DESCRIPTION_MAX = 280;
 var FIELDS = ["prd", "title", "version"];
 var REQUIRED = ["prd", "title"];
 var KIT_FOLDER = `${dirname5(CONFIG_FILE)}/`;
-var FRONT_MATTER_BLOCK4 = /^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/;
+var FRONT_MATTER_BLOCK5 = /^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/;
 var FIELD_LINE2 = /^([A-Za-z][\w-]*):(?:[ \t]+(.*))?$/;
 var PRD_NUMBER = /^[1-9]\d*$/;
 var HEADING2 = /^#{1,6}(?:\s|$)/;
@@ -5955,7 +6431,7 @@ ${line.trim()}`;
   return { fields, errors };
 }
 function splitNote(text8) {
-  const match = text8.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK4);
+  const match = text8.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK5);
   return match ? { front: match[1] ?? "", body: match[2] ?? "" } : null;
 }
 function bodyLines(body) {
@@ -9370,14 +9846,14 @@ function mergeAfterOf(kept2, index) {
 }
 
 // apps/omni-app/src/retro/targets.ts
-var shortName3 = (slug) => slug.split("/").at(-1) ?? slug;
+var shortName4 = (slug) => slug.split("/").at(-1) ?? slug;
 function planTargets({ config, plan, planSlug, topic }) {
   const targets = config.plan?.targets ?? [];
   if (targets.length === 0 || plan === null) return [];
-  const own = shortName3(planSlug);
-  return parsePlanRepositories(plan).filter((row) => shortName3(row.repo) !== own).map((row) => {
-    const name = shortName3(row.repo);
-    const slug = targets.find((target2) => target2.repo === row.repo || shortName3(target2.repo) === name)?.repo ?? null;
+  const own = shortName4(planSlug);
+  return parsePlanRepositories(plan).filter((row) => shortName4(row.repo) !== own).map((row) => {
+    const name = shortName4(row.repo);
+    const slug = targets.find((target2) => target2.repo === row.repo || shortName4(target2.repo) === name)?.repo ?? null;
     return { name, slug, branches: featureBranches({ config, plan, topic, name }) };
   });
 }
@@ -9503,7 +9979,7 @@ function plannedFor(mega, { bug, window, counted: counted2 }) {
 function placeOf3(mega, repo, planRanges) {
   if (repo === mega.plan) return { ranges: planRanges, prefix: "" };
   const target2 = mega.targets.find((entry) => entry.repo === repo);
-  return { ranges: target2?.ranges ?? [], prefix: `${target2?.name ?? shortName3(repo)}/` };
+  return { ranges: target2?.ranges ?? [], prefix: `${target2?.name ?? shortName4(repo)}/` };
 }
 function refOf(fix) {
   return fix.repo ? `${fix.repo}#${fix.number}` : `#${fix.number}`;
@@ -9694,7 +10170,7 @@ function checkLines(checks) {
   const red = checks.jobs.filter((job) => RED.has(job.conclusion)).map((job) => `\`${job.name}\``);
   const counts = [`${checks.green} green`, `${checks.red} red${red.length > 0 ? ` (${red.join(", ")})` : ""}`];
   if (checks.other > 0) counts.push(`${checks.other} neither`);
-  return [`- ${plural3(checks.total, "GitHub Actions job")} ran on the merge commit \`${checks.commit}\`: ${counts.join(", ")}.`];
+  return [`- ${plural4(checks.total, "GitHub Actions job")} ran on the merge commit \`${checks.commit}\`: ${counts.join(", ")}.`];
 }
 function happened(bug, facts) {
   const opened = `was opened ${daysText(bug.daysAfterMerge)} after the merge.`;
@@ -9776,7 +10252,7 @@ function daysText(days) {
   if (days < 1) return "less than a day";
   return days === 1 ? "1 day" : `${days} days`;
 }
-function plural3(count2, noun) {
+function plural4(count2, noun) {
   return `${count2} ${noun}${count2 === 1 ? "" : "s"}`;
 }
 function and(items, last = " and ") {
@@ -10741,7 +11217,7 @@ function territoryFacts({ prd, config, subs, read }) {
       id: `territory:${slice}`,
       kind: "territory",
       title: `Slice ${slice} changed files outside its territory`,
-      happened: `Slice ${slice} changed ${plural4(paths.length, "path")} outside its territory and off the plan\u2019s shared ground: ${paths.map(code).join(", ")}.`,
+      happened: `Slice ${slice} changed ${plural5(paths.length, "path")} outside its territory and off the plan\u2019s shared ground: ${paths.map(code).join(", ")}.`,
       evidence: withUrls(own.map((pull) => ({ label: `#${pull.pr}`, url: pull.url ? `${pull.url}/files` : null })))
     };
   });
@@ -10778,7 +11254,7 @@ function frictionFacts({ subs, read, config }) {
     const parts = [];
     if (entry.needsFix.length > 0) parts.push(`was labelled \`${label2}\``);
     const [onlyStuck] = entry.stuck;
-    if (entry.stuck.length === 1 && onlyStuck) parts.push(`went stuck after ${plural4(onlyStuck.attempts, "attempt")}`);
+    if (entry.stuck.length === 1 && onlyStuck) parts.push(`went stuck after ${plural5(onlyStuck.attempts, "attempt")}`);
     if (entry.stuck.length > 1) parts.push(`went stuck ${entry.stuck.length} times`);
     if (entry.claims > 1) parts.push(`was claimed ${entry.claims} times`);
     const evidence = [
@@ -10843,8 +11319,8 @@ function reviewFacts({ pr, subs, read }) {
   const findings = pulls.filter((pull) => pull.red.length > 0 || pull.unresolved.length > 0).map((pull) => {
     const where = pull.slice ? `slice ${pull.slice}` : "the feature PR";
     const parts = [];
-    if (pull.red.length > 0) parts.push(`${plural4(pull.red.length, "red-circle finding")} from ${pull.red.length === 1 ? "a bot" : "bots"}`);
-    if (pull.unresolved.length > 0) parts.push(`${plural4(pull.unresolved.length, "review thread")} unresolved at the merge`);
+    if (pull.red.length > 0) parts.push(`${plural5(pull.red.length, "red-circle finding")} from ${pull.red.length === 1 ? "a bot" : "bots"}`);
+    if (pull.unresolved.length > 0) parts.push(`${plural5(pull.unresolved.length, "review thread")} unresolved at the merge`);
     const evidence = [
       ...pull.red.map((item) => ({ label: item.path ? `red circle on ${item.path}` : "red circle in a review", url: item.url })),
       ...pull.unresolved.map((item) => ({ label: item.path ? `unresolved thread on ${item.path}` : "unresolved thread", url: item.url }))
@@ -10863,7 +11339,7 @@ function byAuthorKind(items) {
   const bots = items.filter((item) => item.bot).length;
   return { people: items.length - bots, bots };
 }
-function plural4(count2, word) {
+function plural5(count2, word) {
   return `${count2} ${count2 === 1 ? word : `${word}s`}`;
 }
 function joinAnd(parts) {
@@ -11071,31 +11547,31 @@ function territoryLine(territory) {
   if (territory.reason) return `- Territory: not graded \u2014 ${territory.reason}.`;
   const { graded, breaches: breaches2, shared, unread, unplanned } = territory.counts;
   const notes = [];
-  if (unread > 0) notes.push(`the files of ${plural4(unread, "more sub-PR")} could not be read`);
-  if (unplanned > 0) notes.push(`${plural4(unplanned, "more sub-PR")} ${unplanned === 1 ? "names a slice" : "name slices"} the plan does not hold`);
-  const outside = breaches2 === 0 ? "no path" : plural4(breaches2, "path");
-  return `- Territory: ${plural4(graded, "merged sub-PR")} graded against the plan \u2014 ${outside} outside a slice\u2019s territory${shared > 0 ? `, ${shared} more on shared ground` : ""}${notes.map((note) => `; ${note}`).join("")}.`;
+  if (unread > 0) notes.push(`the files of ${plural5(unread, "more sub-PR")} could not be read`);
+  if (unplanned > 0) notes.push(`${plural5(unplanned, "more sub-PR")} ${unplanned === 1 ? "names a slice" : "name slices"} the plan does not hold`);
+  const outside = breaches2 === 0 ? "no path" : plural5(breaches2, "path");
+  return `- Territory: ${plural5(graded, "merged sub-PR")} graded against the plan \u2014 ${outside} outside a slice\u2019s territory${shared > 0 ? `, ${shared} more on shared ground` : ""}${notes.map((note) => `; ${note}`).join("")}.`;
 }
 function frictionLine(friction) {
   const { stuck, needsFix, reclaimed, commentsUnread, eventsUnread } = friction.counts;
   const notes = [];
-  if (commentsUnread > 0) notes.push(`the comments of ${plural4(commentsUnread, "sub-PR")} could not be read`);
-  if (eventsUnread > 0) notes.push(`the label events of ${plural4(eventsUnread, "sub-PR")} could not be read, so only the labels they carry now count`);
-  return `- Friction: ${plural4(stuck, "slice")} stuck, ${needsFix} labelled \`${friction.label}\`, ${reclaimed} claimed more than once${notes.map((note) => `; ${note}`).join("")}.`;
+  if (commentsUnread > 0) notes.push(`the comments of ${plural5(commentsUnread, "sub-PR")} could not be read`);
+  if (eventsUnread > 0) notes.push(`the label events of ${plural5(eventsUnread, "sub-PR")} could not be read, so only the labels they carry now count`);
+  return `- Friction: ${plural5(stuck, "slice")} stuck, ${needsFix} labelled \`${friction.label}\`, ${reclaimed} claimed more than once${notes.map((note) => `; ${note}`).join("")}.`;
 }
 function reviewLine(review) {
   const c = review.counts;
   const reviewsRead = c.pulls - c.reviewsUnread;
   const threadsRead = c.pulls - c.threadsUnread;
   const parts = [];
-  if (reviewsRead > 0) parts.push(`${plural4(c.reviews, "review")}${c.reviews > 0 ? ` (${c.reviewsByPeople} by people, ${c.reviewsByBots} by bots)` : ""}`);
-  if (threadsRead > 0) parts.push(`${plural4(c.threads, "review thread")}${c.threads > 0 ? ` (${c.threadsByPeople} by people, ${c.threadsByBots} by bots)` : ""}`);
-  if (reviewsRead > 0 || threadsRead > 0) parts.push(plural4(c.red, "red-circle bot finding"));
-  if (threadsRead > 0) parts.push(`${plural4(c.unresolved, "thread")} unresolved at the merge`);
+  if (reviewsRead > 0) parts.push(`${plural5(c.reviews, "review")}${c.reviews > 0 ? ` (${c.reviewsByPeople} by people, ${c.reviewsByBots} by bots)` : ""}`);
+  if (threadsRead > 0) parts.push(`${plural5(c.threads, "review thread")}${c.threads > 0 ? ` (${c.threadsByPeople} by people, ${c.threadsByBots} by bots)` : ""}`);
+  if (reviewsRead > 0 || threadsRead > 0) parts.push(plural5(c.red, "red-circle bot finding"));
+  if (threadsRead > 0) parts.push(`${plural5(c.unresolved, "thread")} unresolved at the merge`);
   const unread = [];
   if (c.reviewsUnread > 0) unread.push(`the reviews of ${c.reviewsUnread}`);
   if (c.threadsUnread > 0) unread.push(`the review threads of ${c.threadsUnread}`);
-  return `- Review: ${plural4(c.pulls, "pull request")}${parts.length > 0 ? ` \u2014 ${parts.join(", ")}` : ""}${unread.length > 0 ? `; ${unread.join(" and ")} could not be read` : ""}.`;
+  return `- Review: ${plural5(c.pulls, "pull request")}${parts.length > 0 ? ` \u2014 ${parts.join(", ")}` : ""}${unread.length > 0 ? `; ${unread.join(" and ")} could not be read` : ""}.`;
 }
 
 // apps/omni-app/src/retro/kinds/timeline.ts
@@ -12299,7 +12775,7 @@ async function gatherTarget({ step, octokitFor, kinds, scope }, target2) {
 // apps/omni-app/src/retro/targets.detect.ts
 function withTargets(sheet, { planSlug, targets, run, kinds, scope }) {
   if (targets.length === 0) return sheet;
-  const plan = { repo: planSlug, name: shortName3(planSlug), plan: true, read: true, featurePrs: [{ number: sheet.featurePr.number, url: sheet.featurePr.url }] };
+  const plan = { repo: planSlug, name: shortName4(planSlug), plan: true, read: true, featurePrs: [{ number: sheet.featurePr.number, url: sheet.featurePr.url }] };
   const repositories = [plan];
   const findings = sheet.findings.map((finding) => ({ ...finding, repo: planSlug }));
   for (const { target: target2, records } of targets) {

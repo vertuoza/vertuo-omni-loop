@@ -52,6 +52,13 @@ describe('evaluate — the conclusion table', () => {
     expect(verdict.title).toBe('omni-loop is not active on this PR');
   });
 
+  it('skips a roadmap\'s phase-0 PR on its branch shape, never as a missing PRD (issue 1198)', () => {
+    const verdict = run({ pr: featurePr({ headRef: 'docs/phase-0-roadmap-crew' }) });
+    expect(verdict.conclusion).toBe('skipped');
+    expect(verdict.title).toBe('omni-loop is not active on this PR');
+    expect(verdict.summary).toBe('The head `docs/phase-0-roadmap-crew` does not match `feat/{topic}`.');
+  });
+
   it('skips a feature-shaped pull request with no PRD folder for its topic', () => {
     const verdict = run({ pr: featurePr({ headRef: 'feat/gadget' }) });
     expect(verdict.conclusion).toBe('skipped');

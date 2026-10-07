@@ -264,3 +264,101 @@ describe('evaluateInbox — the canon gate, fifth', () => {
 });
 
 const failed = (verdict: InboxVerdict) =>verdict.gates.filter((gate) => !gate.ok).map((gate) => gate.name);
+
+describe('evaluateInbox — a roadmap phase-0 PR (issue 1198)', () => {
+  const ROADMAP_IN = '.omni-loop/delivery/inbox';
+  const ROADMAP_CHANGES = [
+    ...['0010-alpha', '0011-beta'].flatMap((folder) => ['spec.md', 'before-after.html'].map((file) => ({ path: `${ROADMAP_IN}/${folder}/${file}`, status: 'A' }))),
+    { path: `${ROADMAP_IN}/roadmaps/0009-crew/roadmap.md`, status: 'A' },
+  ];
+  const issueOf = (prd: number) => ({ number: parseIssue(prd), state: 'open', labels: ['omni:prd'], isPullRequest: false });
+  const roadmap = (over: Partial<Input> = {}): Input =>
+    input({ head: fixture('inbox-head-roadmap'), pr: { headRef: 'docs/phase-0-roadmap-crew' }, changes: ROADMAP_CHANGES, issue: issueOf, canon: undefined, ...over });
+
+  it('a green roadmap of two PRDs with no plan is success, listing each PRD wave by wave', async () => {
+    const verdict = await graded(roadmap());
+    expect(verdict.conclusion).toBe('success');
+    expect(verdict.prd).toBeNull();
+    expect(verdict.gates.filter((gate) => !gate.neutral).map((gate) => [gate.prd ?? null, gate.name, gate.ok])).toEqual([
+      [null, 'roadmap', true],
+      [10, 'phase-0 verdict', true],
+      [10, 'inbox folder', true],
+      [10, 'PRD issue', true],
+      [11, 'phase-0 verdict', true],
+      [11, 'inbox folder', true],
+      [11, 'PRD issue', true],
+    ]);
+    expect(verdict.gates.some((gate) => gate.name === 'plan')).toBe(false);
+    expect(verdict.title).toBe('Roadmap 9 complete: 2 PRDs in 2 waves, every gate ok · canon neutral');
+    const summary = verdict.summary.split('\n');
+    expect(summary[0]).toBe('Roadmap 9 — Crew (`roadmaps/0009-crew`)');
+    expect(summary.indexOf('### Wave 1')).toBeLessThan(summary.indexOf('#### P1 · PRD 10 — Alpha (`0010-alpha`)'));
+    expect(summary.indexOf('#### P1 · PRD 10 — Alpha (`0010-alpha`)')).toBeLessThan(summary.indexOf('### Wave 2'));
+    expect(summary.indexOf('### Wave 2')).toBeLessThan(summary.indexOf('#### P2 · PRD 11 — Beta (`0011-beta`)'));
+    expect(verdict.summary).toContain('- neutral — canon: the canon gate is not wired here');
+  });
+
+  it('grades each PRD\'s spec through the canon gate when it is wired', async () => {
+    const grade = vi.fn(() => Promise.resolve(neutral('stub')));
+    await graded(roadmap({ canon: { grade } }));
+    expect(grade.mock.calls.map((call) => (call as unknown as [{ ref: string }])[0].ref)).toEqual(['PRD 10', 'PRD 11']);
+  });
+
+  it('canon green on every row: the title counts the rows it judged', async () => {
+    const verdict = await graded(roadmap({ canon: stubbedCanon().canon }));
+    expect(verdict.title).toBe('Roadmap 9 complete: 2 PRDs in 2 waves, every gate ok · canon ✓ on 2 of 2 PRDs');
+    expect(verdict.canon).toBeNull();
+  });
+
+  it('canon red on a row: that row fails, and its facts drive the buttons', async () => {
+    const reply = { findings: [{ quote: 'the second PRD', claims: ['never#4'], why: 'a group' }], persona: BREAKS.persona };
+    const verdict = await graded(roadmap({ canon: stubbedCanon({ reply }).canon }));
+    expect(verdict.gates.filter((gate) => !gate.ok).map((gate) => [gate.prd, gate.name])).toEqual([[11, 'canon']]);
+    expect(verdict.title).toBe('Not ok: canon (PRD 11)');
+    expect(readCanonMarker(verdict.summary)).toEqual({ prd: 11, persona: 'Marc', claims: ['never#4'] });
+    expect(verdict.canon).toMatchObject({ state: 'red' });
+  });
+
+  it('a spec whose blocked-by differs from its row is failure, naming the roadmap', async () => {
+    const verdict = await graded(roadmap({ head: fixture('inbox-head-roadmap-drift') }));
+    expect(verdict.conclusion).toBe('failure');
+    expect(failed(verdict)).toEqual(['roadmap']);
+    expect(verdict.title).toBe('Not ok: roadmap');
+    expect(verdict.summary).toContain(`- not ok — roadmap: ${ROADMAP_IN}/roadmaps/0009-crew/roadmap.md: P2:`);
+  });
+
+  it('in a plan repository, a row naming a read-only target is failure', async () => {
+    const verdict = await graded(roadmap({ base: fixture('inbox-base-plan'), head: fixture('inbox-head-roadmap-plan') }));
+    expect(verdict.conclusion).toBe('failure');
+    expect(failed(verdict)).toEqual(['roadmap']);
+    expect(verdict.summary).toContain('P2: backend-php is a read-only target — no roadmap row may name it.');
+  });
+
+  it('a PRD row with a source file, an unsigned commit or no issue fails that PRD\'s gate', async () => {
+    const verdict = await graded(
+      roadmap({ issue: (prd: number) => (prd === 11 ? null : issueOf(prd)), changes: [...ROADMAP_CHANGES, { path: 'src/crew.mjs', status: 'A' }] }),
+    );
+    expect(verdict.conclusion).toBe('failure');
+    expect(verdict.gates.filter((gate) => !gate.ok).map((gate) => [gate.prd, gate.name])).toEqual([
+      [10, 'phase-0 verdict'],
+      [11, 'phase-0 verdict'],
+      [11, 'PRD issue'],
+    ]);
+    expect(verdict.title).toBe('Not ok: phase-0 verdict (PRD 10, 11), PRD issue (PRD 11)');
+    expect(verdict.summary).toContain('src/crew.mjs');
+    expect(verdict.summary).not.toContain('nothing in it is the plan');
+  });
+
+  it('a roadmap- topic with no roadmap folder is failure, naming the roadmaps path it looked for', async () => {
+    const verdict = await graded(roadmap({ pr: { headRef: 'docs/phase-0-roadmap-gadget' } }));
+    expect(verdict.conclusion).toBe('failure');
+    expect(verdict.title).toBe('no inbox folder for topic `roadmap-gadget`');
+    expect(verdict.summary).toContain(`\`${ROADMAP_IN}/roadmaps/<nnnn>-gadget/roadmap.md\``);
+  });
+
+  it('the one-PRD path is unchanged', async () => {
+    const verdict = await graded(input());
+    expect(verdict.gates.map((gate) => gate.name)).toEqual(['phase-0 verdict', 'inbox folder', 'plan', 'PRD issue', 'canon']);
+    expect(verdict.summary.split('\n')[0]).toBe('PRD 42 (`0042-widget`)');
+  });
+});
