@@ -87,6 +87,31 @@ describe('planLoop', () => {
     expect(two).toEqual(one);
   });
 
+  // PRD 1162, slice s1: in a plan repository, ground is a path in one repository.
+  const inRepo = (repo: string, id: string, territory: string[]): PlanSliceInput => ({ ...slice(id, territory, 1), repo });
+
+  it('the same path in two repositories → beside', () => {
+    const plan = planLoop({ prds: [prd(1201, [inRepo('crew', 's3', ['apps/crew-api/'])]), prd(1213, [inRepo('ai-domain', 's2', ['apps/crew-api/'])])], shipped: [] });
+    expect(crossOrders(plan)).toEqual([]);
+    expect(shape(plan)).toEqual(['1: 1201 wave w1 s3', '2: 1213 wave w1 s2', '3: 1201 finish', '4: 1213 finish']);
+    expect(plan.steps[0]?.beside).toEqual([2]);
+  });
+
+  it('the same path in one repository → in series, the reason naming <repo>:<path>', () => {
+    const plan = planLoop({ prds: [prd(1213, [inRepo('crew', 's2', ['apps/crew-api/x.ts'])]), prd(1201, [inRepo('crew', 's3', ['apps/crew-api/'])])], shipped: [] });
+    expect(crossOrders(plan)).toEqual(['step 3: 1213 s2 after 1201 s3: both touch crew:apps/crew-api/']);
+  });
+
+  it('each step carries the repositories of its slices, in a plan repository only', () => {
+    const plan = planLoop({ prds: [prd(1201, [inRepo('crew', 's1', ['a/']), inRepo('ai-domain', 's2', ['b/'])])], shipped: [] });
+    expect(plan.steps.map((step) => step.repos)).toEqual([
+      ['ai-domain', 'crew'],
+      ['ai-domain', 'crew'],
+    ]);
+    expect(planLoop({ prds: [prd(7, null)], shipped: [] }).steps[0]).not.toHaveProperty('repos');
+    expect(planLoop({ prds: [prd(7, [slice('s1', ['a/'], 1)])], shipped: [] }).steps[0]).not.toHaveProperty('repos');
+  });
+
   it('records what it saw, so a later tick can tell what changed', () => {
     const plan = planLoop({ prds: [prd(7, [slice('s1', ['a/'], 1, 'stuck'), slice('s2', ['b/'], 1)])], shipped: [] });
     expect(plan.seen).toEqual([{ prd: 7, slices: ['s1', 's2'], stuck: ['s1'], ended: null }]);
