@@ -633,6 +633,21 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'landing it is merged after and its slices; --repo keeps one target of a plan repository.',
   },
   {
+    name: 'roadmap',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni roadmap check [<n>]'],
+    summary: 'grade the roadmaps of the inbox',
+    detail:
+      "check grades every roadmap under {inbox}roadmaps/, or roadmap n alone: a milestone's PRDs, each " +
+      'with its blockers, the why of each, and its wave. It refuses a table that does not parse, an id ' +
+      'used twice, a blocker that is not a row, a cycle, a wave that does not follow its blockers, a ' +
+      "blocker without its why, a row whose PRD has no folder or whose spec's blocked-by differs, and a " +
+      'question blocking a row that does not exist; in a plan repository also a repo that is not a ' +
+      'target, a read-only one, and a consumer PRD not after the provider PRD it waits on. It prints ' +
+      'the PRDs wave by wave, then every violation; exit 1 on any. omni check inbox runs it too.',
+  },
+  {
     name: 'rework',
     kind: 'command',
     who: 'skills',
