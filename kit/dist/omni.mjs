@@ -31859,39 +31859,48 @@ function sectionTable(markdown, heading) {
 function covers(territory, path) {
   return territory.some((declaration) => path.startsWith(prefixOf(declaration)));
 }
-function sharedGround(left, right) {
+function generatedPrefixes(generated2) {
+  return generated2.map(({ path }) => path);
+}
+function breaches(paths, territory, generated2 = []) {
+  const built = generatedPrefixes(generated2);
+  return paths.filter((path) => !covers(territory, path) && !covers(built, path));
+}
+function sharedGround(left, right, generated2 = []) {
+  const built = generatedPrefixes(generated2);
   const shared = /* @__PURE__ */ new Set();
   for (const a of left.territory) {
     for (const b of right.territory) {
       const [x, y] = [prefixOf(a), prefixOf(b)];
-      if (x.startsWith(y)) shared.add(x.length >= y.length ? y : x);
-      else if (y.startsWith(x)) shared.add(x);
+      const meets = x.startsWith(y) || y.startsWith(x);
+      const narrower = x.length >= y.length ? x : y;
+      if (meets && !covers(built, narrower)) shared.add(x.length >= y.length ? y : x);
     }
   }
   return [...shared];
 }
-function collisions(slices) {
+function collisions(slices, generated2 = []) {
   const pairs = [];
   for (const [i, a] of slices.entries()) {
     for (const b of slices.slice(i + 1)) {
       if ((a.repo ?? null) !== (b.repo ?? null)) continue;
-      const shared = sharedGround(a, b);
+      const shared = sharedGround(a, b, generated2);
       if (shared.length > 0) pairs.push({ left: a.id, right: b.id, shared });
     }
   }
   return pairs;
 }
-function sameWaveCollisions(slices) {
+function sameWaveCollisions(slices, generated2 = []) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
   const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
-  return collisions(slices).filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf2.get(left) === landingOf2.get(right)).map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
+  return collisions(slices, generated2).filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf2.get(left) === landingOf2.get(right)).map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
 }
-function collisionRows(slices) {
+function collisionRows(slices, generated2 = []) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
   const landingOf2 = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
   const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
   const at2 = (id) => `${landed ? `l${landingOf2.get(id)}` : ""}w${waveOf.get(id)}`;
-  return collisions(slices).map(({ left, right, shared }) => ({
+  return collisions(slices, generated2).map(({ left, right, shared }) => ({
     pair: `${left} \xB7 ${right}`,
     shared: shared.map((ground) => `\`${ground}\``).join(", "),
     resolved: `${left} ${at2(left)} \xB7 ${right} ${at2(right)}`
@@ -32079,7 +32088,7 @@ function approval(gate, { reasons }) {
   reasons.push(`${firstAsking(gate, (rules) => rules.subPr.approval === "person")}: approval person \u2014 no person has approved #${pr.number}`);
 }
 function territoryRule(gate, findings) {
-  const { met, pr, territory, files } = gate;
+  const { met, pr, territory, files, generated: generated2 } = gate;
   const block = met.rules.subPr.territory === "block";
   const blocking = block ? `${firstAsking(gate, (rules) => rules.subPr.territory === "block")}: territory block \u2014 ` : "";
   const into = block ? findings.reasons : findings.reported;
@@ -32089,7 +32098,7 @@ function territoryRule(gate, findings) {
     );
     return;
   }
-  for (const path of files.filter((file2) => !covers(territory, file2))) into.push(`${blocking}${path} is outside the slice's territory`);
+  for (const path of breaches(files, territory, generated2)) into.push(`${blocking}${path} is outside the slice's territory`);
 }
 function maxOpen({ met, flow: flow2, open: open3 }, { reasons }) {
   for (const { name: name2, rules } of met.areas) {
@@ -32107,12 +32116,13 @@ function mergeGate({
   defaultBranch,
   open: open3,
   repo = null,
-  ground = []
+  ground = [],
+  generated: generated2 = []
 }) {
   const files = pr.files.filter((file2) => !covers(ground, file2));
   const met = resolveTerritory(flow2, [...territory ?? [], ...files]);
   const method = met.rules.subPr.merge ?? "squash";
-  const gate = { flow: flow2, pr, territory, defaultBranch, open: open3, files, met };
+  const gate = { flow: flow2, pr, territory, defaultBranch, open: open3, files, met, generated: generated2 };
   const findings = { reasons: [], reported: [] };
   for (const rule of RULES2) rule(gate, findings);
   const ok = findings.reasons.length === 0;
@@ -34149,7 +34159,8 @@ function gradePlan(markdown, { config: config3, targets: targets2 = /* @__PURE__
   const planSection2 = config3.plan ?? null;
   const multi = planSection2 !== null && slices.some((slice) => slice.repo !== null);
   const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
-  const collisions2 = sameWaveCollisions(slices);
+  const generated2 = multi ? [] : config3.generated ?? [];
+  const collisions2 = sameWaveCollisions(slices, generated2);
   const landings = gradedLandings(slices, landingRows);
   const ofLanding = (id) => landings.length > 1 ? ` of landing ${slices.find((slice) => slice.id === id)?.landing}` : "";
   const violations = [
@@ -34164,7 +34175,7 @@ function gradePlan(markdown, { config: config3, targets: targets2 = /* @__PURE__
     )
   ];
   const waves = wavesOf(slices);
-  const matrices = multi ? [...byRepository(slices)].map(([repo, group2]) => ({ repo, rows: collisionRows(group2) })) : [{ repo: null, rows: collisionRows(slices) }];
+  const matrices = multi ? [...byRepository(slices)].map(([repo, group2]) => ({ repo, rows: collisionRows(group2) })) : [{ repo: null, rows: collisionRows(slices, generated2) }];
   return { slices, repositories, landings, waves, multi, collisions: collisions2, matrices, violations, parseError: null };
 }
 
@@ -38486,7 +38497,9 @@ function checkMerge(args, io) {
     defaultBranch: ctx.config.repo.defaultBranch,
     open: open3,
     repo,
-    ground: own2 === void 0 ? [] : [own2.outbox]
+    ground: own2 === void 0 ? [] : [own2.outbox],
+    // This repository's generated outputs (PRD 1138); a sub-PR in another repository meets none.
+    generated: repo === null ? ctx.config.generated ?? [] : []
   });
   println(stdout, json2 ? JSON.stringify(verdict2, null, 2) : verdictText(verdict2));
   return verdict2.ok ? 0 : 1;
