@@ -1,3 +1,5 @@
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+
 // Signing in from an ask page, and coming back to it. The sign-in is the galaxy's Google sign-in
 // (Supabase Auth, restricted to @vertuoza.com); only the way back differs from the arcade's: Google
 // returns to /ask/<id>/callback (or /ask/callback from the person's page, /ask), which turns the code
@@ -59,7 +61,16 @@ export async function historySignInReturn(url: URL, origin: string, exchange: Ex
 
 /** Back to `path` on this site, once the code is exchanged, or with `signin_error` saying why not. */
 async function signInBack(url: URL, origin: string, path: string, exchange: Exchange | null): Promise<string> {
-  const back = new URL(path, origin);
+  return signInBackTo(url, new URL(path, origin), exchange, 'ask');
+}
+
+/** Joins the account's workspaces, once the sign-in is a session. */
+export type Join = () => Promise<unknown>;
+
+/** A sign-in callback's way back: `back`, once the code is exchanged, or with `signin_error` saying why
+ * not. Once it is a session, `join` runs, best effort: a failure is only logged. `page` names the page
+ * in the log. */
+export async function signInBackTo(url: URL, back: URL, exchange: Exchange | null, page: string, join: Join | null = null): Promise<string> {
   const refused = url.searchParams.get('error_description') ?? url.searchParams.get('error');
   const code = url.searchParams.get('code');
   if (refused) {
@@ -67,8 +78,14 @@ async function signInBack(url: URL, origin: string, path: string, exchange: Exch
   } else if (code && exchange) {
     const { error } = await exchange(code);
     if (error) {
-      console.error(`ask sign-in: ${error.message}`);
+      console.error(`${page} sign-in: ${error.message}`);
       back.searchParams.set('signin_error', 'That sign-in could not be finished. Start again from this browser.');
+    } else if (join) {
+      try {
+        await join();
+      } catch (failure) {
+        console.error(`${page} sign-in: ${messageOf(failure)}`);
+      }
     }
   }
   return back.toString();

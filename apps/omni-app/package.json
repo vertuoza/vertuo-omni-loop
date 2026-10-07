@@ -10,12 +10,14 @@
   "dependencies": {
     "@octokit/app": "^16.1.4",
     "@octokit/webhooks": "^14.2.0",
+    "@omni/github": "workspace:*",
     "@supabase/supabase-js": "^2.117.1",
     "inngest": "^4.21.0",
     "vertuo-omni-plan": "workspace:*",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@inngest/test": "^1.0.0"
+    "@inngest/test": "^1.0.0",
+    "esbuild": "^0.28.1"
   }
 }

@@ -18,6 +18,7 @@ import { checkItemText } from './check-outbox.ts';
 import { parseOutboxItem, SETTLED_FILE } from './outbox.ts';
 import type { OutboxContext } from './outbox.ts';
 import { parseSettledEntries } from './settle.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** The part of the context a relay reads: the root, the PRD's outbox directory and the markers. */
 type RelayContext = OutboxContext;
@@ -66,7 +67,7 @@ function itemRefusal({
 }: {
   ctx: RelayContext;
   laws: Laws;
-  prd: number;
+  prd: PrdNumber;
   outboxDir: string;
   name: string;
   text: string;
@@ -79,7 +80,7 @@ function itemRefusal({
   const parsed = parseOutboxItem(text, { file: renderedFile });
   if (!parsed.ok) return parsed.errors.join('; ');
   const { item } = parsed;
-  if (Number(item.prd) !== prd) return `it belongs to PRD ${item.prd}, not PRD ${prd}`;
+  if (item.prd !== prd) return `it belongs to PRD ${item.prd}, not PRD ${prd}`;
   if (`${item.id}.md` !== name) return `its file name is not its id ${item.id}`;
   if (taken.has(item.id)) return `${item.id} is already in the outbox of PRD ${prd}`;
   return null;
@@ -92,7 +93,7 @@ function accountRefusal({
   name,
   text,
 }: {
-  prd: number;
+  prd: PrdNumber;
   destination: string;
   name: string;
   text: string;
@@ -117,7 +118,7 @@ export function relayFolder({
 }: {
   ctx: RelayContext;
   laws: Laws;
-  prd: number;
+  prd: PrdNumber;
   dir: string;
 }): { moved: RelayMove[]; refused: RelayRefusal[] } {
   const outboxDir = ctx.layout.outboxDir(prd);

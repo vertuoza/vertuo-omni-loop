@@ -34,7 +34,7 @@ const ConstituentSchema = z.looseObject({ id: z.string(), text: z.string() });
  * `constituents_for_repo_app(repo)` (PRD 871): `state` "ok" when the product has a live constituent,
  * its Statement (null with none), its live Never lines, and the id of its latest constituent event.
  */
-const ConstituentsSchema = z.looseObject({
+export const ConstituentsSchema = z.looseObject({
   state: z.string().nullish(),
   statement: ConstituentSchema.nullish(),
   never: z.array(ConstituentSchema).nullish(),

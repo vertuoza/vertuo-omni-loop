@@ -37,6 +37,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { z } from 'zod';
+import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber, type PrNumber, type SliceId } from '../../kit/lib/ids.ts';
 import { parseSpec, parseOutboxItem, parseSettled, parsePlanSlices, parsePlanRepos, deliveryOf, prdOfFolder, type PlanSlice, type SettledEntry } from './parsers.ts';
 import type { GameConfig } from '../config.ts';
 import type { Bug, FeaturePr, NeedsFix, OutboxEntry, Region, Snapshot, SnapshotPlanet } from '../types.ts';
@@ -52,7 +53,7 @@ export const ghExec: Exec = async (args) => (await run('gh', args, { maxBuffer: 
 const Login = z.looseObject({ login: z.string().nullish() }).nullish();
 const Labels = z.array(z.looseObject({ name: z.string() })).nullish();
 const IssueRows = z.array(z.looseObject({
-  number: z.number().int(),
+  number: PrdNumberSchema,
   title: z.string(),
   assignees: z.array(Login).nullish(),
   author: Login,
@@ -60,7 +61,7 @@ const IssueRows = z.array(z.looseObject({
   closedAt: z.string().nullish(),
 }));
 const PrRow = z.looseObject({
-  number: z.number().int(),
+  number: PrNumberSchema,
   headRefName: z.string(),
   createdAt: z.string().nullish(),
   isDraft: z.boolean().nullish(),
@@ -71,7 +72,7 @@ const PrRow = z.looseObject({
 });
 const PrRows = z.array(PrRow);
 const SubRowSchema = z.looseObject({
-  number: z.number().int(),
+  number: PrNumberSchema,
   title: z.string(),
   headRefName: z.string(),
   author: Login,
@@ -83,14 +84,14 @@ const SubRowSchema = z.looseObject({
 });
 const SubRows = z.array(SubRowSchema);
 const BugRows = z.array(z.looseObject({
-  number: z.number().int(),
+  number: IssueNumberSchema,
   createdAt: z.string().nullish(),
   closedAt: z.string().nullish(),
   closedBy: Login,
 }));
 const ClosingRefs = z.looseObject({ closedByPullRequestsReferences: z.unknown() }).nullable();
 const ClosingRef = z.looseObject({
-  number: z.number().int(),
+  number: PrNumberSchema,
   repository: z.looseObject({ name: z.string().nullish(), owner: Login }).nullish(),
 });
 const ViewedPr = z.looseObject({ mergedAt: z.string().nullish(), author: Login }).nullable();
@@ -99,10 +100,10 @@ type PrRow = z.infer<typeof PrRow>;
 type SubRow = z.infer<typeof SubRowSchema> & { createdAt: string; mergedAt: string | null };
 type IssueRow = z.infer<typeof IssueRows>[number];
 type Folder = { stage: string; name: string; dir: string };
-type Repository = { defaultBranch: string; delivery: string; folders: Map<number, Folder> };
+type Repository = { defaultBranch: string; delivery: string; folders: Map<PrdNumber, Folder> };
 type Part = { slug: string; fp: PrRow };
-type RegionsOf = (home: string, prd: number) => Promise<Part[]>;
-type SpecOf = (prd: number) => Promise<{ blockedBy: number[] }>;
+type RegionsOf = (home: string, prd: PrdNumber) => Promise<Part[]>;
+type SpecOf = (prd: PrdNumber) => Promise<{ blockedBy: PrdNumber[] }>;
 
 const RAW = ['-H', 'Accept: application/vnd.github.raw'];
 const lines = (s: string): string[] => s.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -113,9 +114,9 @@ const OUTBOX_RANKS = new Set<string | undefined>(['medium', 'high', 'human-actio
 // F4: every timestamp read from GitHub or a delivery file goes through here, so one malformed value
 // never reaches the projector as a crash. Empty, missing, jq's "null" and unparseable → null; anything
 // else → UTC ISO without milliseconds (`2026-09-22T10:00:00Z`). A date-only value is UTC midnight.
-export function toIso(value: unknown): string | null {
+export function toIso(value: string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
-  const text = String(value).trim();
+  const text = value.trim();
   if (!text || text === 'null') return null;
   const date = new Date(text);
   return Number.isNaN(date.getTime()) ? null : date.toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -126,7 +127,7 @@ const firstIso = (out: string): string | null => toIso(lines(out)[0]);
  * `prds` keeps only those PRD numbers (in every home) and the PRDs their specs name as blockers.
  */
 export async function buildSnapshot(
-  { config, exec = ghExec, now = new Date(), prds }: { config: Partial<Pick<GameConfig, 'tracked' | 'roster'>>; exec?: Exec; now?: Date; prds?: readonly number[] },
+  { config, exec = ghExec, now = new Date(), prds }: { config: Partial<Pick<GameConfig, 'tracked' | 'roster'>>; exec?: Exec; now?: Date; prds?: readonly PrdNumber[] },
 ): Promise<Snapshot> {
   const teams = { ...(config.roster ?? {}) };
   const wanted = prds ? new Set(prds) : null;
@@ -140,7 +141,7 @@ export async function buildSnapshot(
   const regionsOf = partOfRegions(exec, tracked);
   for (const { home, issues } of homes) {
     const repo = await readRepository(exec, home);
-    const specs = new Map<number, { blockedBy: number[] }>(); // prd → { blockedBy }, read once
+    const specs = new Map<PrdNumber, { blockedBy: PrdNumber[] }>(); // prd → { blockedBy }, read once
     const specOf: SpecOf = async (prd) => {
       if (!specs.has(prd)) {
         const folder = repo.folders.get(prd);
@@ -154,7 +155,7 @@ export async function buildSnapshot(
     // know a region is locked, not to walk the whole blocker chain).
     let chosen = issues;
     if (wanted) {
-      const keep = new Set<number>();
+      const keep = new Set<PrdNumber>();
       for (const issue of issues.filter((i) => wanted.has(i.number))) {
         keep.add(issue.number);
         for (const blocker of (await specOf(issue.number)).blockedBy) keep.add(blocker);
@@ -217,7 +218,7 @@ function pickFeaturePr(prs: PrRow[]): PrRow | undefined {
 async function readRepository(exec: Exec, home: string): Promise<Repository> {
   const defaultBranch = lines(await soft(exec(['api', `repos/${home}`, '--jq', '.default_branch'])))[0] ?? 'main';
   const delivery = deliveryOf(await soft(exec(['api', `repos/${home}/contents/.omni-loop/config.yml`, ...RAW])));
-  const folders = new Map<number, Folder>(); // prd → { stage, name, dir }: the inbox before shipped, the first name first
+  const folders = new Map<PrdNumber, Folder>(); // prd → { stage, name, dir }: the inbox before shipped, the first name first
   for (const stage of ['inbox', 'shipped']) {
     const names = lines(await soft(exec(['api', `repos/${home}/contents/${delivery}/${stage}`, '--jq', '.[] | select(.type=="dir") | .name']))).sort();
     for (const name of names) {
@@ -270,7 +271,7 @@ function chartPlanet(home: string, issue: IssueRow, teams: Record<string, string
 }
 
 // The home's feature PR: a PR into its default branch whose body says `Closes #<n>`.
-async function homeFeaturePr(exec: Exec, { home, repo, prd }: { home: string; repo: Repository; prd: number }): Promise<PrRow | undefined> {
+async function homeFeaturePr(exec: Exec, { home, repo, prd }: { home: string; repo: Repository; prd: PrdNumber }): Promise<PrRow | undefined> {
   const closes = new RegExp(`\\bCloses #${prd}(?!\\d)`, 'i');
   const prs = PrRows.parse(json(await exec(['pr', 'list', '-R', home, '--search', `"Closes #${prd}" in:body`, '--base', repo.defaultBranch, '--state', 'all', '--json', 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt,labels,body'])))
     .filter((pr) => toIso(pr.createdAt) && closes.test(pr.body ?? '')); // F4: no creation time, no feature PR
@@ -317,7 +318,7 @@ function slicesByRegion(planText: string, { home, tracked, parts, regions }: { h
 
 // The home's bugs that name the PRD, each with who fixed it once closed (F5c). A bug without a
 // readable creation time is skipped (F4).
-async function readBugs(exec: Exec, home: string, prd: number): Promise<Bug[]> {
+async function readBugs(exec: Exec, home: string, prd: PrdNumber): Promise<Bug[]> {
   const bugs: Bug[] = [];
   for (const b of BugRows.parse(json(await soft(exec(['issue', 'list', '-R', home, '--label', 'bug', '--state', 'all', '--search', `#${prd}`, '--json', 'number,createdAt,closedAt,closedBy']))))) {
     const createdAt = toIso(b.createdAt);
@@ -473,7 +474,7 @@ function aggregateFeaturePr(regions: Region[], planned: Set<string>): FeaturePr 
 // hand is not a fix, and its aftershock keeps decaying. Where the gh in use does not know
 // `closedByPullRequestsReferences`, the timeline's last `closed` event stands in: a closing commit
 // (`commit_id`) counts as a fix by that event's actor; anything unknown is not fixed. All soft.
-async function bugFixedBy(exec: Exec, slug: string, number: number): Promise<string | null> {
+async function bugFixedBy(exec: Exec, slug: string, number: IssueNumber): Promise<string | null> {
   const refs = await closingRefs(exec, slug, number);
   if (!Array.isArray(refs)) return closedByCommit(exec, slug, number);
   const merged: Array<{ mergedAt: string; by: string }> = [];
@@ -497,7 +498,7 @@ async function readJson<T>(read: () => Promise<string>, schema: z.ZodType<T>): P
 }
 
 // The PRs that closed a bug, or null where the gh in use cannot say (or the read fails).
-async function closingRefs(exec: Exec, slug: string, number: number): Promise<Array<z.infer<typeof ClosingRef>> | null> {
+async function closingRefs(exec: Exec, slug: string, number: IssueNumber): Promise<Array<z.infer<typeof ClosingRef>> | null> {
   const refs = (await readJson(() => exec(['issue', 'view', String(number), '-R', slug, '--json', 'closedByPullRequestsReferences']), ClosingRefs))?.closedByPullRequestsReferences ?? null;
   if (!Array.isArray(refs)) return null;
   const parsed = z.array(ClosingRef).safeParse(refs);
@@ -508,14 +509,14 @@ async function closingRefs(exec: Exec, slug: string, number: number): Promise<Ar
 const refSlug = (ref: z.infer<typeof ClosingRef>, slug: string): string => (ref.repository?.name ? `${ref.repository.owner?.login ?? slug.split('/')[0]}/${ref.repository.name}` : slug);
 
 // One closing PR: `{ mergedAt, by }` once merged by a known author, else null.
-async function mergedFix(exec: Exec, prSlug: string, prNumber: number): Promise<{ mergedAt: string; by: string } | null> {
+async function mergedFix(exec: Exec, prSlug: string, prNumber: PrNumber): Promise<{ mergedAt: string; by: string } | null> {
   const pr = await readJson(() => exec(['pr', 'view', String(prNumber), '-R', prSlug, '--json', 'mergedAt,author']), ViewedPr);
   const mergedAt = toIso(pr?.mergedAt);
   return mergedAt && pr?.author?.login ? { mergedAt, by: pr.author.login } : null;
 }
 
 // The fallback: the timeline's last `closed` event, a fix by its actor when a commit closed it.
-async function closedByCommit(exec: Exec, slug: string, number: number): Promise<string | null> {
+async function closedByCommit(exec: Exec, slug: string, number: IssueNumber): Promise<string | null> {
   const closed = lines(await soft(exec(['api', `repos/${slug}/issues/${number}/timeline`, '--paginate', '--jq', '.[] | select(.event=="closed") | "\\(.commit_id) \\(.actor.login)"']))).at(-1);
   const [commitId, actor] = (closed ?? '').split(/\s+/);
   return commitId && commitId !== 'null' && actor && actor !== 'null' ? actor : null;
@@ -524,7 +525,7 @@ async function closedByCommit(exec: Exec, slug: string, number: number): Promise
 // F2: the sub-PR that stands for a zone. A sub-PR closed without merging is dropped (it freed the
 // zone); among the rest the lowest number wins (spec §8). Once that one is reverted, the zone's next
 // non-revert sub-PR opened after the revert — if there is one — takes over.
-function zoneSub(subs: SubRow[], sliceId: string, reverts: ReadonlyMap<number, string>): SubRow | undefined {
+function zoneSub(subs: SubRow[], sliceId: SliceId, reverts: ReadonlyMap<number, string>): SubRow | undefined {
   const live = subs
     .filter((s) => !/^revert/i.test(s.title) && s.headRefName.endsWith(`--${sliceId}`) && !(s.state === 'CLOSED' && !s.mergedAt))
     .sort((a, b) => a.number - b.number);

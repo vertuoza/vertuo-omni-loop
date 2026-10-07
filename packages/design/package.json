@@ -16,5 +16,8 @@
     "./tokens.css": "./tokens.css",
     "./fonts.css": "./fonts.css",
     "./fonts/*": "./fonts/*"
+  },
+  "dependencies": {
+    "vertuo-omni-plan": "workspace:*"
   }
 }

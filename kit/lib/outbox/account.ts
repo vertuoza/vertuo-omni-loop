@@ -27,6 +27,7 @@ import { AccountFrontMatterSchema } from '../schema/front-matter.ts';
 import { SETTLED_FILE, outboxItemFiles, parseHeadingSections, readFrontMatterBlock } from './outbox.ts';
 import type { OutboxContext } from './outbox.ts';
 import { parseSettledEntries } from './settle.ts';
+import type { PrdNumber, WorkSliceId } from '../ids.ts';
 
 /** What an entry's account line says: `item <id>` or `spec <where>`, and no third form. */
 export type AccountLine = { kind: 'item'; id: string } | { kind: 'spec'; where: string };
@@ -35,7 +36,7 @@ export type AccountLine = { kind: 'item'; id: string } | { kind: 'spec'; where: 
 export type AccountEntry = { path: string; rule: string; account: AccountLine };
 
 /** A slice's account, parsed. */
-export type Account = { prd: number; slice: string; graded: string; entries: AccountEntry[]; file: string | null };
+export type Account = { prd: PrdNumber; slice: WorkSliceId; graded: string; entries: AccountEntry[]; file: string | null };
 
 /** The result of {@link parseAccount} (and of each file {@link readAccounts} reads). */
 export type ParsedAccount = { ok: true; account: Account } | { ok: false; errors: string[] };
@@ -44,7 +45,7 @@ export type ParsedAccount = { ok: true; account: Account } | { ok: false; errors
 export type Change = { path: string; status: string };
 
 /** An account entry carried with the slice and file it came from, as {@link compare} reports it. */
-export type NamedEntry = AccountEntry & { slice: string; file: string | null };
+export type NamedEntry = AccountEntry & { slice: WorkSliceId; file: string | null };
 
 /** The subdirectory an account file lives under, inside its PRD's own outbox directory. */
 export const ACCOUNTS_DIR = 'accounts';
@@ -206,7 +207,7 @@ export function parseAccount(text: string, { file = null }: { file?: string | nu
  * @param {{ ctx: object }} options
  * @returns {({ ok: true, account: object } | { ok: false, errors: string[] })[]}
  */
-export function readAccounts(prd: string | number, { ctx }: { ctx: OutboxContext }): ParsedAccount[] {
+export function readAccounts(prd: PrdNumber, { ctx }: { ctx: OutboxContext }): ParsedAccount[] {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
 
@@ -277,7 +278,7 @@ function entryKey(change: { path: string; rule: string }): string {
  *   ground, not a breach.
  *
  * @param {{ path: string, status: string, rule: string }[]} risky
- * @param {{ slice: string, file: string | null, entries: { path: string, rule: string, account: object }[] }[]} accounts
+ * @param {{ slice: WorkSliceId, file: string | null, entries: { path: string, rule: string, account: object }[] }[]} accounts
  * @returns {{ accounted: object[], unaccounted: object[], stale: object[] }}
  */
 export function compare<R extends { path: string; rule: string }>(

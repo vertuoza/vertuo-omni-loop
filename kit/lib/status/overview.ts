@@ -14,28 +14,40 @@
 // - PRD: a phase-0 branch holds an inbox folder of its topic whose PRD number is in neither folder
 //   of the base. It is counted, but kept out of the bar.
 //
+// A PRD of several landings has a branch per landing (`branches.landing`): each counts as one of its
+// feature branches, and a PRD building or in the outbox then carries its landings in order, each
+// `merged` (its branch is gone while a later one is there, or all it changed is in the base), `open`
+// (built, or shipping), or `not started`, and the landing each waits for when the one before it is not
+// merged. Git cannot tell a draft from a ready pull request: `omni board <n>` reads those.
+//
 // A PRD is yours when a commit authored with `user.email` (compared ignoring case) touched its
 // folder, on the base or on a feature or phase-0 branch read, or sits on its feature branch beyond
 // the base.
 import { ACCOUNTS_DIR } from '../outbox/account.ts';
 import { SETTLED_FILE } from '../outbox/outbox.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** The bar's width, in cells. */
 export const BAR_CELLS = 30;
 
 /** A PRD in a stage: its number and its folder's topic. */
-export type StagedPrd = { prd: number; topic: string };
+export type StagedPrd = { prd: PrdNumber; topic: string };
 
-/** A PRD past the inbox: building or in the outbox, with its feature branches' open items. */
-export type BuildingPrd = StagedPrd & { openItems: number };
+/** One landing of a PRD, as the overview reads it from git. */
+export type LandingStatus = { landing: number; landings: number; name: string; state: 'merged' | 'open' | 'not started'; waitsFor: number | null };
+
+/** A PRD past the inbox: building or in the outbox, with its feature branches' open items, and its
+ * landings when it has more than one. */
+export type BuildingPrd = StagedPrd & { openItems: number; landings?: LandingStatus[] };
 
 /** A PRD folder an author's commits touched. */
-type Touched = { prd: number; email: string };
+type Touched = { prd: PrdNumber; email: string };
 
 /** A feature branch, as the facts read it. */
 type FeatureBranch = {
   branch: string;
   topic: string;
+  landing?: { landing: number; landings: number; name: string };
   forked: string[];
   differs: string[];
   outbox: string[];
@@ -79,7 +91,7 @@ export type Counts = Record<keyof Stages, number> & { openItems: number };
 export type Bar = { delivered: number; total: number; percent: number | null; filled: number };
 
 /** One row of yours: a PRD in progress or at PRD, with its stage. */
-export type YourRow = StagedPrd & { stage: 'outbox' | 'building' | 'inbox' | 'prd'; openItems?: number };
+export type YourRow = StagedPrd & { stage: 'outbox' | 'building' | 'inbox' | 'prd'; openItems?: number; landings?: LandingStatus[] };
 
 /** Your PRDs, or why the overview cannot tell which they are. */
 export type Yours = { state: 'no-email' | 'shallow' | 'known'; email: string | null; rows: YourRow[]; shipped: StagedPrd[] };
@@ -146,10 +158,42 @@ function buildingAndOutboxOf(inbox: readonly StagedPrd[], features: readonly Fea
     const mine = features.filter((feature) => feature.topic === topic);
     if (mine.length === 0) continue;
     const openItems = mine.reduce((sum, feature) => sum + feature.outbox.filter(isOpenItem).length, 0);
-    if (mine.some((feature) => feature.ships === true)) out.outbox.push({ prd, topic, openItems });
-    else if (openItems > 0 || mine.some(isBuilt)) out.building.push({ prd, topic, openItems });
+    const landings = landingsOf(mine);
+    const entry = { prd, topic, openItems, ...(landings ? { landings } : {}) };
+    if (mine.some((feature) => feature.ships)) out.outbox.push(entry);
+    else if (openItems > 0 || mine.some(isBuilt)) out.building.push(entry);
   }
   return out;
+}
+
+/** A PRD's landings in order, from its landing branches, or `undefined` when it has none. */
+function landingsOf(features: readonly FeatureBranch[]): LandingStatus[] | undefined {
+  const landed = features.filter((feature) => feature.landing !== undefined);
+  if (landed.length === 0) return undefined;
+  const count = Math.max(...landed.map((feature) => feature.landing?.landings ?? 0));
+  const statuses: LandingStatus[] = [];
+  for (let landing = 1; landing <= count; landing += 1) {
+    const own = landed.find((feature) => feature.landing?.landing === landing);
+    const later = landed.some((feature) => (feature.landing?.landing ?? 0) > landing);
+    const before = statuses.at(-1);
+    statuses.push({
+      landing,
+      landings: count,
+      name: own?.landing?.name ?? `landing-${landing}`,
+      state: landingState(own, later),
+      waitsFor: before !== undefined && before.state !== 'merged' ? before.landing : null,
+    });
+  }
+  return statuses;
+}
+
+/** One landing's state from its branch: gone while a later landing's is there, it was merged (its
+ * branch deleted with it); open while built or shipping; merged once all it changed is in the base;
+ * not started otherwise. */
+function landingState(own: FeatureBranch | undefined, later: boolean): LandingStatus['state'] {
+  if (own === undefined) return later ? 'merged' : 'not started';
+  if (own.ships || isBuilt(own)) return 'open';
+  return own.forked.length > 0 ? 'merged' : 'not started';
 }
 
 /** The inbox folders phase-0 branches hold, each of its branch's own topic, whose PRD number is
@@ -181,7 +225,7 @@ function yoursOf(facts: OverviewFacts, stages: Stages, onBase: readonly StagedPr
   const mine = yourNumbers(facts, onBase, facts.email.toLowerCase());
   const yours = <T extends StagedPrd>(entries: readonly T[]): T[] => entries.filter(({ prd }) => mine.has(prd));
   const order: YourRow['stage'][] = ['outbox', 'building', 'inbox', 'prd'];
-  const rows = order.flatMap((stage): YourRow[] => yours<StagedPrd & { openItems?: number }>(stages[stage]).map((entry) => ({ stage, ...entry })));
+  const rows = order.flatMap((stage): YourRow[] => yours<StagedPrd & { openItems?: number; landings?: LandingStatus[] }>(stages[stage]).map((entry) => ({ stage, ...entry })));
   const delivered = [...stages.shipped, ...stages.retro].sort((a, b) => b.prd - a.prd);
   return { state: 'known', email: facts.email, rows, shipped: yours(delivered) };
 }
@@ -189,7 +233,7 @@ function yoursOf(facts: OverviewFacts, stages: Stages, onBase: readonly StagedPr
 /** The overview of the repository `facts` describe: its stages, counts, bar and your PRDs. */
 export function overviewFor(facts: OverviewFacts): Overview {
   const delivered = stage(facts.shipped);
-  const withRetro = new Set(facts.retro ?? []);
+  const withRetro = new Set(facts.retro);
   const retro = delivered.filter(({ prd }) => withRetro.has(prd));
   const shipped = delivered.filter(({ prd }) => !withRetro.has(prd));
   const onBase = stage(facts.inbox, new Set(delivered.map(({ prd }) => prd)));

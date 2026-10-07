@@ -8,9 +8,11 @@
 // spec, or a spec the kit cannot read is refused, each naming its file and rule, and the sync writes
 // nothing until a pull request fixes it: a PRD left out now would be numbered after PRDs that reached
 // main later. A folder main does not hold yet (a checkout ahead of main) is only waiting.
+import 'server-only';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { parseSpec } from 'vertuo-omni-plan/kit/lib/inbox/inbox.ts';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
@@ -18,6 +20,7 @@ import { releaseNotePath } from 'vertuo-omni-plan/kit/lib/releases/check-release
 import { gradeReleaseNote, INITIAL_VERSION, parseReleaseNote } from 'vertuo-omni-plan/kit/lib/releases/note.ts';
 import { firstAdded, type Git } from './git.ts';
 import type { ShippedPrd } from './sync.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export type ShippedReading = {
   /** Every shipped PRD main holds, by PRD number. */
@@ -28,7 +31,7 @@ export type ShippedReading = {
   refused: string[];
 };
 
-type Folder = { prd: number; dir: string; spec: string; note: string };
+type Folder = { prd: PrdNumber; dir: string; spec: string; note: string };
 
 /** The PRD folders under the checkout's shipped folder, by PRD number. */
 function shippedFolders(root: string): Folder[] {
@@ -36,10 +39,11 @@ function shippedFolders(root: string): Folder[] {
   const shipped: string = ctx.layout.dirs.shipped;
   if (!existsSync(join(root, shipped))) return [];
   return readdirSync(join(root, shipped), { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && parseFolderName(entry.name))
-    .map((entry) => {
+    .flatMap((entry) => {
+      const folder = entry.isDirectory() ? parseFolderName(entry.name) : null;
+      if (!folder) return [];
       const dir = `${shipped}/${entry.name}`;
-      return { prd: parseFolderName(entry.name)!.prd, dir, spec: `${dir}/spec.md`, note: releaseNotePath(dir) };
+      return [{ prd: folder.prd, dir, spec: `${dir}/spec.md`, note: releaseNotePath(dir) }];
     })
     .sort((a, b) => a.prd - b.prd);
 }
@@ -51,7 +55,7 @@ function readWords(root: string, folder: Folder): { words: Pick<ShippedPrd, 'tit
     const text = read(folder.note);
     const broken = gradeReleaseNote(text, { prd: folder.prd });
     if (broken.length) return { refused: broken.map((rule) => `${folder.note}: ${rule}`) };
-    const note = parseReleaseNote(text).note!; // ts-allow: a note the grade passed parses
+    const note = defined(parseReleaseNote(text).note, `${folder.note}, a note the grade passed,`);
     return { words: { title: note.title, description: note.description, pinned: note.version === INITIAL_VERSION } };
   }
   const spec = parseSpec(read(folder.spec), { file: folder.spec });
@@ -59,7 +63,7 @@ function readWords(root: string, folder: Folder): { words: Pick<ShippedPrd, 'tit
   return { words: { title: spec.record.title, description: '', pinned: false } };
 }
 
-export function readShipped(root: string, { git }: { git?: Git } = {}): ShippedReading {
+export function readShipped(root: string, { git }: { git?: Git | undefined } = {}): ShippedReading {
   const folders = shippedFolders(root);
   const refused: string[] = [];
   const waiting: string[] = [];

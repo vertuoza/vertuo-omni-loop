@@ -26,6 +26,7 @@ import { ghExec, toIso, type Exec } from '../sources/github.ts';
 import type { InsertRow, SupabaseRest } from '../sources/supabase.ts';
 import { ghWhy } from '../dossiers/github.ts';
 import { openWorkspace } from './workspace.ts';
+import { PrdNumberSchema, PrNumberSchema, type PrdNumber } from '../../kit/lib/ids.ts';
 
 /** How far back each run reads: the current season (a UTC month) and the chart's week, even on a month's first days. */
 export const WINDOW_DAYS = 40;
@@ -45,16 +46,16 @@ const KEY = 'workspace_id,kind,repo,number';
 export const windowStart = (now: Date): Date => new Date(now.getTime() - WINDOW_DAYS * DAY);
 
 // What gh prints for `--json number,author,<time>`. A deleted account's author is null, or has no login.
-const Author = z.object({ login: z.string().nullish() }).passthrough().nullish();
+const Author = z.object({ login: z.string().nullish() }).loose().nullish();
 const Merged = z.array(z.object({
-  number: z.number().int().positive(),
+  number: PrNumberSchema,
   author: Author,
   mergedAt: z.string().nullish(),
-  labels: z.array(z.object({ name: z.string() }).passthrough()).nullish(),
+  labels: z.array(z.object({ name: z.string() }).loose()).nullish(),
   body: z.string().nullish(),
-}).passthrough());
-const Viewed = z.object({ author: Author }).passthrough();
-const Opened = z.array(z.object({ number: z.number().int().positive(), author: Author, createdAt: z.string().nullish() }).passthrough());
+}).loose());
+const Viewed = z.object({ author: Author }).loose();
+const Opened = z.array(z.object({ number: PrdNumberSchema, author: Author, createdAt: z.string().nullish() }).loose());
 
 type Author = z.infer<typeof Author>;
 /** A contributions row before it is given its workspace. */
@@ -67,12 +68,13 @@ const loginOf = (author: Author): string | null => {
   return login && login !== 'ghost' ? login : null;
 };
 
-/** The PRD stage a merged pull request marks, as `{ kind, prd }`, or null: its label and its link both. */
-export function stageOf(pr: { labels?: Array<{ name: string }> | null; body?: string | null }): { kind: string; prd: number } | null {
+/** The PRD stage a merged pull request marks, as `{ kind, prd }`, or null: its label and its link both, naming a PRD number. */
+export function stageOf(pr: { labels?: Array<{ name: string }> | null | undefined; body?: string | null | undefined }): { kind: string; prd: PrdNumber } | null {
   const labels = new Set((pr.labels ?? []).map((l) => l.name));
   for (const { kind, label, link } of STAGES) {
-    const prd = labels.has(label) ? link.exec(pr.body ?? '')?.[1] : undefined;
-    if (prd) return { kind, prd: Number(prd) };
+    const linked = labels.has(label) ? link.exec(pr.body ?? '')?.[1] : undefined;
+    const prd = linked === undefined ? null : PrdNumberSchema.safeParse(Number(linked));
+    if (prd?.success) return { kind, prd: prd.data };
   }
   return null;
 }
@@ -106,9 +108,9 @@ export async function readRepository(exec: Exec, org: string, repo: string, star
   for (const issue of opened) keep('prd-opened', issue, issue.createdAt);
 
   // Each PRD's author: the listed issues first, then one view per PRD older than the window.
-  const authors = new Map<number, Author>(opened.map((issue) => [issue.number, issue.author]));
-  const unreadable = new Set<number>();
-  const authorOf = async (prd: number): Promise<Author | undefined> => {
+  const authors = new Map<PrdNumber, Author>(opened.map((issue) => [issue.number, issue.author]));
+  const unreadable = new Set<PrdNumber>();
+  const authorOf = async (prd: PrdNumber): Promise<Author | undefined> => {
     if (authors.has(prd)) return authors.get(prd);
     if (unreadable.has(prd)) return undefined;
     try {
@@ -140,7 +142,7 @@ const order = (a: Contribution, b: Contribution): number => a.kind.localeCompare
  * in one request. Returns { rows: what was written, read: [{ repo, merged, opened }], skipped: [{ repo, why }] }.
  */
 export async function runContributions(
-  { exec = ghExec, rest, workspaceId, org, now = new Date(), log = console.error }: { exec?: Exec; rest: SupabaseRest; workspaceId: string; org: string | null | undefined; now?: Date; log?: Log },
+  { exec = ghExec, rest, workspaceId, org, now = new Date(), log = console.error }: { exec?: Exec; rest: SupabaseRest; workspaceId: string | undefined; org: string | null | undefined; now?: Date; log?: Log },
 ): Promise<{
   rows: InsertRow<'contributions'>[];
   read: Array<{ repo: string; merged: number; opened: number; started: number; shipped: number }>;

@@ -1,3 +1,4 @@
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { periodWindow, type Period } from '../dashboard/board/period';
 import { peopleOf } from '../people/load';
 import { withPeople } from './faced';
@@ -28,8 +29,8 @@ const DEMO_PEOPLE = peopleOf(
 
 const openedAt = (i: number, now: Date) => new Date(now.getTime() - (i * 11 + 3) * HOUR);
 const isSigned = (i: number) => i % 3 === 0;
-const person = (i: number) => PEOPLE[i % PEOPLE.length]!;
-const tracked = (i: number) => TRACKED[i % TRACKED.length]!;
+const person = (i: number) => at(PEOPLE, i % PEOPLE.length, 'a demo person');
+const tracked = (i: number) => at(TRACKED, i % TRACKED.length, 'a demo repository');
 
 /** When the i-th pull request merges: never for every seventh, sooner when signed. */
 function mergedAt(i: number, opened: Date): Date | null {

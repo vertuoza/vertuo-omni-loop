@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 
 import { loadConstituentsPanel } from './constituents-load';
+import { sure } from '../arcade/test/sure';
 
 // The Constituents panel's read (PRD 871 s2), against a stubbed client: no test calls Supabase.
 
@@ -19,19 +20,19 @@ const EVENTS = [
 ];
 
 function db({
-  constituents = { data: ROWS } as Answer,
-  events = { data: EVENTS } as Answer,
-  owner = { data: true } as Answer,
-  roster = { data: [{ user_id: 'u-1', name: 'Pierre', github_login: 'Pierre-D', avatar_url: null, fleet: null }] } as Answer,
-} = {}) {
+  constituents = { data: ROWS },
+  events = { data: EVENTS },
+  owner = { data: true },
+  roster = { data: [{ user_id: 'u-1', name: 'Pierre', github_login: 'Pierre-D', avatar_url: null, fleet: null }] },
+}: Partial<Record<'constituents' | 'events' | 'owner' | 'roster', Answer>> = {}) {
   const calls: unknown[] = [];
   const answer = (a: Answer) => Promise.resolve({ data: a.data ?? null, error: a.error ?? null });
   const tables: Record<string, Answer> = { constituents, constituent_events: events, teams: { data: [] } };
   const query = (table: string) => {
     const q = {
       select: () => q,
-      in: (...a: unknown[]) => { calls.push(['in', table, ...a]); return answer(tables[table]!); },
-      eq: () => answer(tables[table]!),
+      in: (...a: unknown[]) => { calls.push(['in', table, ...a]); return answer(sure(tables[table], 'tables[table]')); },
+      eq: () => answer(sure(tables[table], 'tables[table]')),
     };
     return q;
   };
@@ -67,6 +68,12 @@ describe('the Constituents panel\'s read', () => {
   it('answers null constituents when they cannot be read, and the page carries on', async () => {
     const read = await loadConstituentsPanel(db({ events: { error: { message: 'down' } } }) as never, 'ws-1', ['p-1']);
     expect(read).toEqual({ constituents: null, events: [], owner: true, people: {} });
+  });
+
+  it('reads a role or members that do not parse as a member\'s and no people (PRD 1030)', async () => {
+    const read = await loadConstituentsPanel(db({ owner: { data: 'yes' }, roster: { data: [{ user_id: 7 }] } }) as never, 'ws-1', ['p-1']);
+    expect(read.owner).toBe(false);
+    expect(read.people).toEqual({});
   });
 
   it('leaves the people empty when the members cannot be read', async () => {

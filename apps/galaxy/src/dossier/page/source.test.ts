@@ -1,9 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { dossierRounds } from '../store';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { pulseOf, signature } from './live';
 import { fakeSupabase as askFake } from '../../ask/store.fake';
 import { answerQuick, deleteDraft, readContent, readDossier, readHistory, readPlanSlices, readPulse, readSandboxed } from './source';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 // Where /prd/<id> reads: straight from the database as the viewer (the stubbed client of
 // ../store.fake.ts, which keeps the migration's access rules), so a member of the dossier's workspace
@@ -66,7 +70,7 @@ describe('reading a dossier as the viewer', () => {
     const { fake, numbered } = await world();
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
     const client = fake.client('ada');
-    const read = await readDossier({ from: client.from, rpc: async () => ({ data: null, error: { message: 'down' } }) } as never, numbered);
+    const read = await readDossier({ from: client.from, rpc: () => Promise.resolve({ data: null, error: { message: 'down' } }) } as never, numbered);
     expect(read?.members).toEqual([]);
     expect(read?.dossier.id).toBe(numbered);
     quiet.mockRestore();
@@ -76,10 +80,11 @@ describe('reading a dossier as the viewer', () => {
 describe('reading a version', () => {
   it('reads one version\'s content for a member, and nothing for anyone else', async () => {
     const { as, numbered } = await world();
-    const spec = (await readDossier(as('ada'), numbered))!.versions[0];
-    expect(await readContent(as('bob'), spec!.id)).toBe(SPEC);
-    expect(await readContent(as('carl'), spec!.id)).toBeNull();
-    expect(await readContent(as(null), spec!.id)).toBeNull();
+    const spec = (await readDossier(as('ada'), numbered))?.versions[0];
+    assertDefined(spec, 'the spec\'s version');
+    expect(await readContent(as('bob'), spec.id)).toBe(SPEC);
+    expect(await readContent(as('carl'), spec.id)).toBeNull();
+    expect(await readContent(as(null), spec.id)).toBeNull();
   });
 
   it('serves the before/after page by its number, to a member only', async () => {
@@ -150,15 +155,15 @@ describe('reading the questions that shaped it', () => {
     const [before, brainstorm, both, later] = ids(fake.seedAsk({ owner: ADA.id, repo: 'Acme/Widgets', branch: 'main', claudeSessionId: 'sess-a' }, [
       { created_at: at('08:00') },
       { created_at: at('09:30'), status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: at('09:31') },
-      { created_at: at('10:00'), prd: 7 },
+      { created_at: at('10:00'), prd: parsePrd(7) },
       { created_at: at('12:30') },
     ]));
     const [delivery, other] = ids(fake.seedAsk({ owner: BOB.id, repo: 'acme/widgets', branch: 'feat/team-inbox--s2', claudeSessionId: 'sess-b' }, [
-      { created_at: at('15:00'), prd: 7, skill: '/omni:do-work', category: 'product', category_by: 'model' },
-      { created_at: at('15:30'), prd: 8 },
+      { created_at: at('15:00'), prd: parsePrd(7), skill: '/omni:do-work', category: 'product', category_by: 'model' },
+      { created_at: at('15:30'), prd: parsePrd(8) },
     ]));
-    const [gadgets] = ids(fake.seedAsk({ owner: BOB.id, repo: 'acme/gadgets' }, [{ created_at: at('16:00'), prd: 7 }]));
-    const [elsewhere] = ids(fake.seedAsk({ owner: CARL.id, workspace: OTHER, repo: 'acme/widgets', claudeSessionId: 'sess-a' }, [{ created_at: at('10:30'), prd: 7 }]));
+    const [gadgets] = ids(fake.seedAsk({ owner: BOB.id, repo: 'acme/gadgets' }, [{ created_at: at('16:00'), prd: parsePrd(7) }]));
+    const [elsewhere] = ids(fake.seedAsk({ owner: CARL.id, workspace: OTHER, repo: 'acme/widgets', claudeSessionId: 'sess-a' }, [{ created_at: at('10:30'), prd: parsePrd(7) }]));
     return { fake, as, inbox, roster, round: { before, brainstorm, both, later, delivery, other, gadgets, elsewhere } };
   }
 
@@ -226,12 +231,12 @@ describe('reading the history', () => {
     now = Date.parse(at('10:00'));
     const widgets = await push('bob', 'acme/widgets', 'Widget sizes', null);
     const elsewhere = await push('carl', 'other/stuff', 'Elsewhere', null);
-    fake.seedPlanet({ planRepo: 'plans', prd: 7, regions: ['widgets', 'Gadgets', 'gadgets', 'core'] });
-    fake.seedPlanet({ workspace: OTHER, planRepo: 'stuff', prd: 7, regions: ['secret'] });
+    fake.seedPlanet({ planRepo: 'plans', prd: parsePrd(7), regions: ['widgets', 'Gadgets', 'gadgets', 'core'] });
+    fake.seedPlanet({ workspace: OTHER, planRepo: 'stuff', prd: parsePrd(7), regions: ['secret'] });
     fake.seedAsk({ owner: ADA.id, repo: 'Acme/Gadgets', claudeSessionId: 'sess-a' }, [
       { created_at: at('09:30'), status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: at('09:31') },
     ]);
-    fake.seedAsk({ owner: BOB.id, repo: 'Acme/Plans', branch: 'feat/invoice-reminders--s1' }, [{ created_at: at('11:00'), prd: 7 }]);
+    fake.seedAsk({ owner: BOB.id, repo: 'Acme/Plans', branch: 'feat/invoice-reminders--s1' }, [{ created_at: at('11:00'), prd: parsePrd(7) }]);
     return { fake, as, draft, reminders, widgets, elsewhere };
   }
 
@@ -244,7 +249,9 @@ describe('reading the history', () => {
       repos: ['acme/plans', 'acme/core', 'acme/gadgets', 'acme/widgets'],
       latest: { spec: { version: 1, source: 'kit' } }, asked: 2, answered: 1, last_activity: at('11:00'),
     });
-    expect(rows[0]!.latest.plan).toBeUndefined();
+    const [first] = rows;
+    assertDefined(first, 'the first row');
+    expect(first.latest.plan).toBeUndefined();
     expect(rows[1]).toMatchObject({ repos: ['acme/widgets'], latest: {}, asked: 0, answered: 0, last_activity: at('10:00') });
     expect(rows[2]).toMatchObject({ prd: null, repos: ['acme/plans'], last_activity: at('08:00') });
   });
@@ -278,12 +285,13 @@ describe('reading the change check (PRD 384)', () => {
     const first = await readPulse(as('bob'), numbered);
     expect(first).toEqual({ asked: 0, answered: 0, latest: { spec: 1, 'before-after': 2 } });
 
-    const [round] = fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [{ created_at: '2026-09-28T10:00:00.000Z', prd: 7 }]).rounds;
+    const [round] = fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [{ created_at: '2026-09-28T10:00:00.000Z', prd: parsePrd(7) }]).rounds;
     const asked = await readPulse(as('bob'), numbered);
     expect(asked).toMatchObject({ asked: 1, answered: 0 });
     expect(signature(asked)).not.toBe(signature(first));
 
-    Object.assign(round!, { status: 'answered', answers: { 'A question?': 'Yes' }, answered_at: '2026-09-28T10:01:00.000Z' });
+    assertDefined(round, 'the round');
+    Object.assign(round, { status: 'answered', answers: { 'A question?': 'Yes' }, answered_at: '2026-09-28T10:01:00.000Z' });
     const answered = await readPulse(as('bob'), numbered);
     expect(answered).toMatchObject({ asked: 1, answered: 1 });
     expect(signature(answered)).not.toBe(signature(asked));
@@ -300,11 +308,12 @@ describe('reading the change check (PRD 384)', () => {
   it('agrees with what the page rendered, so a page read and a check of the same dossier match', async () => {
     const { fake, as, numbered } = await world();
     fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
-      { created_at: '2026-09-28T10:00:00.000Z', prd: 7, status: 'answered', answered_at: '2026-09-28T10:01:00.000Z' },
-      { created_at: '2026-09-28T10:02:00.000Z', prd: 7 },
+      { created_at: '2026-09-28T10:00:00.000Z', prd: parsePrd(7), status: 'answered', answered_at: '2026-09-28T10:01:00.000Z' },
+      { created_at: '2026-09-28T10:02:00.000Z', prd: parsePrd(7) },
     ]);
     const read = await readDossier(as('bob'), numbered);
-    expect(signature(pulseOf(read!))).toBe(signature(await readPulse(as('bob'), numbered)));
+    assertDefined(read, 'the dossier, read');
+    expect(signature(pulseOf(read))).toBe(signature(await readPulse(as('bob'), numbered)));
   });
 
   it('reads nothing for someone who cannot read the dossier, or an id that is not a dossier\'s', async () => {
@@ -328,12 +337,14 @@ describe('who may answer a round on the list (PRD 384), decided on the server', 
     });
     const id = (pushed.data as { id: string }).id;
     const [shared, own, done] = fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
-      { created_at: '2026-09-28T10:00:00.000Z', prd: 7 },
-      { created_at: '2026-09-28T10:01:00.000Z', prd: 7 },
-      { created_at: '2026-09-28T10:02:00.000Z', prd: 7, status: 'answered', answers: { 'A question?': 'Yes' } },
+      { created_at: '2026-09-28T10:00:00.000Z', prd: parsePrd(7) },
+      { created_at: '2026-09-28T10:01:00.000Z', prd: parsePrd(7) },
+      { created_at: '2026-09-28T10:02:00.000Z', prd: parsePrd(7), status: 'answered', answers: { 'A question?': 'Yes' } },
     ]).rounds.map((r) => r.id);
-    fake.seedShare(shared!, BOB.id, ADA.id);
-    fake.seedShare(done!, BOB.id, ADA.id);
+    assertDefined(shared, 'the shared round');
+    assertDefined(done, 'the answered round');
+    fake.seedShare(shared, BOB.id, ADA.id);
+    fake.seedShare(done, BOB.id, ADA.id);
     const read = async (token: keyof typeof ACCOUNTS) => (await readDossier(fake.client(token) as never, id, ACCOUNTS[token].id))?.answerable;
     return { fake, id, read, shared, own };
   }
@@ -366,7 +377,7 @@ describe('who may answer a round on the list (PRD 384), decided on the server', 
       return {
         rpc: client.rpc,
         from: (table: string) => (table === 'ask_shares'
-          ? { select: () => ({ eq: async () => ({ data: null, error: { message: 'down' } }) }) }
+          ? { select: () => ({ eq: () => Promise.resolve({ data: null, error: { message: 'down' } }) }) }
           : client.from(table as 'dossiers')),
       } as never;
     };
@@ -406,7 +417,9 @@ describe('answering a quick round from the list (PRD 384)', () => {
 
   it('says it moved when the terminal took it over', async () => {
     const { fake, id, as } = await round();
-    fake.tables.ask_rounds[0]!.status = 'abandoned';
+    const [asked] = fake.tables.ask_rounds;
+    assertDefined(asked, 'the round');
+    asked.status = 'abandoned';
     expect(await answerQuick(as('ada'), id, QUESTION, 'Memory')).toMatchObject({ kind: 'taken', by: null, moved: true });
   });
 
@@ -433,15 +446,21 @@ describe('the plan\'s slice count, for the stage (PRD 426)', () => {
       await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: plan }] });
     }
     const read = await readDossier(as('bob'), numbered);
-    expect(await readPlanSlices(as('bob'), read!.versions)).toBe(3);
+    assertDefined(read, 'the dossier, read');
+    expect(await readPlanSlices(as('bob'), read.versions)).toBe(3);
   });
 
   it('is null with no plan version, or one with no slice table', async () => {
     const { fake, as, numbered } = await world();
-    expect(await readPlanSlices(as('bob'), (await readDossier(as('bob'), numbered))!.versions)).toBeNull();
+    const versions = async () => {
+      const read = await readDossier(as('bob'), numbered);
+      assertDefined(read, 'the dossier, read');
+      return read.versions;
+    };
+    expect(await readPlanSlices(as('bob'), await versions())).toBeNull();
     vi.spyOn(console, 'error').mockImplementation(() => {});
     await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: '# Plan\n\nNo table.\n' }] });
-    expect(await readPlanSlices(as('bob'), (await readDossier(as('bob'), numbered))!.versions)).toBeNull();
+    expect(await readPlanSlices(as('bob'), await versions())).toBeNull();
     vi.restoreAllMocks();
   });
 });

@@ -148,7 +148,7 @@ describe('omni status — the overview (PRD 315, slice s1)', () => {
 
   it('never fetches without --fetch', async () => {
     const { root } = cloned(THREE_AND_TWO);
-    const calls: any[][] = [];
+    const calls: string[][] = [];
     const exec = (command: string, args: readonly string[], options?: ExecFileSyncOptions) => {
       calls.push([command, ...args]);
       return realExec(command, args, options);
@@ -355,7 +355,7 @@ describe('omni status — building and the PRDs in review (PRD 315 s2, PRD 587 s
     writeFileSync(join(root, `${OUTBOX}/0004-fourth/s1-01-a.md`), '# a\n');
     commit(root, 'not pushed');
     writeFileSync(join(root, `${OUTBOX}/0004-fourth/s1-02-b.md`), '# b\n');
-    const calls: any[][] = [];
+    const calls: string[][] = [];
     const exec = (command: string, args: readonly string[], options?: ExecFileSyncOptions) => {
       calls.push([command, ...args]);
       return realExec(command, args, options);

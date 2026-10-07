@@ -1,3 +1,4 @@
+import { runInNewContext } from 'node:vm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hasAuthCookie, SESSION_MARK_SCRIPT, SETTLE_MS, settleSession, type SettlePorts } from './session-mark';
 import type { SignedInView } from './signed-in';
@@ -30,7 +31,7 @@ describe('the pre-paint cookie check', () => {
   it('runs the same rule as the inline script', () => {
     const run = (cookie: string) => {
       const main = { attrs: {} as Record<string, string>, setAttribute(k: string, v: string) { this.attrs[k] = v; } };
-      new Function('document', SESSION_MARK_SCRIPT)({ cookie, currentScript: { parentElement: main } });
+      runInNewContext(SESSION_MARK_SCRIPT, { document: { cookie, currentScript: { parentElement: main } } });
       return main.attrs['data-session'];
     };
     expect(run('sb-abc-auth-token.0=x')).toBe('pending');
@@ -56,21 +57,21 @@ describe('settling the mark', () => {
   afterEach(() => { vi.useRealTimers(); });
 
   it('a session marks the page in and draws the pills', async () => {
-    settleSession(ports(async () => ada));
+    settleSession(ports(() => Promise.resolve(ada)));
     await vi.advanceTimersByTimeAsync(0);
     expect(marks).toEqual(['in']);
     expect(drawn).toEqual([ada]);
   });
 
   it('no session removes the mark', async () => {
-    settleSession(ports(async () => null));
+    settleSession(ports(() => Promise.resolve(null)));
     await vi.advanceTimersByTimeAsync(0);
     expect(marks).toEqual([null]);
     expect(drawn).toEqual([]);
   });
 
   it('a failed read removes the mark', async () => {
-    settleSession(ports(async () => { throw new Error('network down'); }));
+    settleSession(ports(() => Promise.reject(new Error('network down'))));
     await vi.advanceTimersByTimeAsync(0);
     expect(marks).toEqual([null]);
   });
@@ -106,7 +107,7 @@ describe('settling the mark', () => {
   });
 
   it('stops when cancelled: the page has gone', async () => {
-    const cancel = settleSession(ports(async () => ada));
+    const cancel = settleSession(ports(() => Promise.resolve(ada)));
     cancel();
     await vi.advanceTimersByTimeAsync(SETTLE_MS);
     expect(marks).toEqual([]);

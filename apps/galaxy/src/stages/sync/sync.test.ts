@@ -1,12 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import { present } from '../../ask/test/test-item';
 import type { FixSummary } from '../../dossier/github/fix';
 import type { DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
 import type { GithubSummary } from '../../dossier/github/summary';
 import { fakeFixFactsStore } from '../../fixes/facts/store.fake';
 import { fakePrdOutboxStore } from '../outbox/store.fake';
+import { settled } from '../settled';
 import { fakeStageStore } from '../store.fake';
 import { syncConfig, type RepoSnapshot } from './core';
-import { syncStages, type SyncDeps, type SyncWorkspace } from './sync';
+import { syncStages, type SnapshotSyncDeps, type SyncDeps, type SyncWorkspace } from './sync';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 // POST /api/stages/sync (PRD 587, s2), on the store's fake and a fake reader: never GitHub, never a
 // database. Two workspaces; the reader answers from the snapshots each test gives.
@@ -25,20 +31,20 @@ const snap = (repository: string, more: Partial<RepoSnapshot> = {}): RepoSnapsho
 function deps(more: Partial<SyncDeps> = {}, repos: Record<string, string[]> = { acme: ['acme/widgets', 'acme/gears'], globex: ['globex/core'] }) {
   const store = fakeStageStore(() => NOW);
   const snapshots: Record<string, RepoSnapshot | Error> = {
-    'acme/widgets': snap('acme/widgets', { shipped: ['0042-dark-mode'], issues: [{ number: 42, created_at: '2026-09-18T00:00:00Z' }] }),
+    'acme/widgets': snap('acme/widgets', { shipped: ['0042-dark-mode'], issues: [{ number: parsePrd(42), created_at: '2026-09-18T00:00:00Z' }] }),
     'acme/gears': snap('acme/gears', { inbox: ['0007-teeth'] }),
-    'globex/core': snap('globex/core', { issues: [{ number: 3, created_at: '2026-09-27T00:00:00Z' }] }),
+    'globex/core': snap('globex/core', { issues: [{ number: parsePrd(3), created_at: '2026-09-27T00:00:00Z' }] }),
   };
   const lines: string[] = [];
   const d: SyncDeps = {
     secret: SECRET,
-    workspaces: async () => [ACME, GLOBEX],
-    repositories: async (w) => repos[w.slug] ?? [],
-    snapshot: async (_w, repo) => {
+    workspaces: () => Promise.resolve([ACME, GLOBEX]),
+    repositories: (w) => Promise.resolve(repos[w.slug] ?? []),
+    snapshot: (_w, repo) => settled(() => {
       const s = snapshots[repo];
       if (s instanceof Error) throw s;
-      return s!;
-    },
+      return present(s, `the snapshot of ${repo}`);
+    }),
     store,
     now: () => NOW,
     log: (line) => lines.push(line),
@@ -46,6 +52,13 @@ function deps(more: Partial<SyncDeps> = {}, repos: Record<string, string[]> = { 
   };
   return { d, store, snapshots, lines };
 }
+
+/** The route's answer, read through a schema: every key it sends is kept. */
+const Answer = z.looseObject({
+  repositories: z.array(z.looseObject({ repository: z.string() })),
+  skipped: z.array(z.unknown()),
+});
+const answerOf = async (res: Response) => Answer.parse(await res.json());
 
 const post = (auth?: string) => new Request('http://galaxy.test/api/stages/sync', {
   method: 'POST', headers: auth === undefined ? {} : { authorization: auth },
@@ -75,7 +88,7 @@ describe('the stages sync route', () => {
     const { d, store } = deps();
     const res = await syncStages(post(`Bearer ${SECRET}`), d);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body: unknown = await res.json();
     expect(body).toEqual({
       synced_at: NOW,
       repositories: [
@@ -92,17 +105,17 @@ describe('the stages sync route', () => {
       'w-globex globex/core#3 prd 2026-09-27T00:00:00Z',
     ]);
     expect(store.topics).toEqual([
-      { workspace_id: 'w-acme', repository: 'acme/widgets', prd: 42, topic: 'dark-mode' },
-      { workspace_id: 'w-acme', repository: 'acme/gears', prd: 7, topic: 'teeth' },
+      { workspace_id: 'w-acme', repository: 'acme/widgets', prd: parsePrd(42), topic: 'dark-mode' },
+      { workspace_id: 'w-acme', repository: 'acme/gears', prd: parsePrd(7), topic: 'teeth' },
     ]);
   });
 
   it('logs and skips a repository it cannot read, while the others land', async () => {
     const { d, store, snapshots, lines } = deps();
     snapshots['acme/widgets'] = new Error('GitHub answered 502 to /pulls');
-    const body = await (await syncStages(post(`Bearer ${SECRET}`), d)).json();
+    const body = await answerOf(await syncStages(post(`Bearer ${SECRET}`), d));
     expect(body.skipped).toEqual([{ workspace: 'acme', repository: 'acme/widgets', reason: 'GitHub answered 502 to /pulls' }]);
-    expect(body.repositories.map((r: { repository: string }) => r.repository)).toEqual(['acme/gears', 'globex/core']);
+    expect(body.repositories.map((r) => r.repository)).toEqual(['acme/gears', 'globex/core']);
     expect(store.stages.some((s) => s.repository === 'acme/widgets')).toBe(false);
     expect(store.stages.some((s) => s.repository === 'acme/gears')).toBe(true);
     expect(lines.some((l) => l.includes('acme/widgets') && l.includes('502'))).toBe(true);
@@ -110,12 +123,12 @@ describe('the stages sync route', () => {
 
   it('skips a workspace whose repositories cannot be listed, while the others land', async () => {
     const { d, store } = deps({
-      repositories: async (w) => {
+      repositories: (w) => settled(() => {
         if (w.slug === 'acme') throw new Error('the App is not installed');
         return ['globex/core'];
-      },
+      }),
     });
-    const body = await (await syncStages(post(`Bearer ${SECRET}`), d)).json();
+    const body = await answerOf(await syncStages(post(`Bearer ${SECRET}`), d));
     expect(body.skipped).toEqual([{ workspace: 'acme', repository: null, reason: 'the App is not installed' }]);
     expect(store.stages.map((s) => s.repository)).toEqual(['globex/core']);
   });
@@ -133,8 +146,8 @@ describe('the stages sync route', () => {
   it('reads a repository in full on its first sync, then only what changed since it, five minutes early', async () => {
     const seen: [string, string | null | undefined][] = [];
     const { d } = deps();
-    const read = d.snapshot;
-    d.snapshot = async (w, repo, since) => { seen.push([repo, since]); return read(w, repo, since); };
+    const base = { ...d };
+    d.snapshot = (w, repo, since) => { seen.push([repo, since]); return base.snapshot(w, repo, since); };
     await syncStages(post(`Bearer ${SECRET}`), d);
     await syncStages(post(`Bearer ${SECRET}`), { ...d, now: () => '2026-09-29T12:15:00.000Z' });
     expect(seen).toEqual([
@@ -147,9 +160,9 @@ describe('the stages sync route', () => {
   it('takes when a repository was last synced from its PRD stages only, which no stage event writes', async () => {
     const seen: (string | null | undefined)[] = [];
     const { d, store } = deps({}, { acme: ['acme/widgets'] });
-    await store.recordStages([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: 42, stage: 'prd', reached_at: '2026-09-18T00:00:00Z' }], '2026-09-29T10:00:00.000Z');
-    await store.recordStages([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: 42, stage: 'outbox', reached_at: '2026-09-29T11:30:00Z' }], '2026-09-29T11:30:00.000Z');
-    d.snapshot = async (_w, repo, since) => { seen.push(since); return snap(repo); };
+    await store.recordStages([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: parsePrd(42), stage: 'prd', reached_at: '2026-09-18T00:00:00Z' }], '2026-09-29T10:00:00.000Z');
+    await store.recordStages([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: parsePrd(42), stage: 'outbox', reached_at: '2026-09-29T11:30:00Z' }], '2026-09-29T11:30:00.000Z');
+    d.snapshot = (_w, repo, since) => { seen.push(since); return Promise.resolve(snap(repo)); };
     await syncStages(post(`Bearer ${SECRET}`), d);
     expect(seen).toEqual(['2026-09-29T09:55:00.000Z']);
   });
@@ -159,12 +172,12 @@ describe('the stages sync route', () => {
     await syncStages(post(`Bearer ${SECRET}`), {
       ...d,
       now: () => '2026-09-20T00:00:00.000Z',
-      snapshot: async (_w, repo) => snap(repo, {
-        shipped: ['0042-dark-mode'], issues: [{ number: 42, created_at: '2026-09-18T00:00:00Z' }],
-        pulls: [{ number: 9, head: 'feat/dark-mode', base: 'main', state: 'closed', draft: false, merged_at: '2026-09-19T00:00:00Z', created_at: '2026-09-18T00:00:00Z', ready_at: null }],
-      }),
+      snapshot: (_w, repo) => Promise.resolve(snap(repo, {
+        shipped: ['0042-dark-mode'], issues: [{ number: parsePrd(42), created_at: '2026-09-18T00:00:00Z' }],
+        pulls: [{ number: parsePr(9), head: 'feat/dark-mode', base: 'main', state: 'closed', draft: false, merged_at: '2026-09-19T00:00:00Z', created_at: '2026-09-18T00:00:00Z', ready_at: null }],
+      })),
     });
-    await syncStages(post(`Bearer ${SECRET}`), { ...d, snapshot: async (_w, repo) => snap(repo, { shipped: ['0042-dark-mode'] }) });
+    await syncStages(post(`Bearer ${SECRET}`), { ...d, snapshot: (_w, repo) => Promise.resolve(snap(repo, { shipped: ['0042-dark-mode'] })) });
     expect(store.stages.find((s) => s.stage === 'shipped')).toMatchObject({ reached_at: '2026-09-19T00:00:00Z', synced_at: NOW });
   });
 
@@ -175,21 +188,21 @@ describe('the stages sync route', () => {
       if (rows.some((r) => r.repository === 'acme/gears')) throw new Error('Supabase refused: boom');
       return record(rows, at);
     };
-    const body = await (await syncStages(post(`Bearer ${SECRET}`), d)).json();
+    const body = await answerOf(await syncStages(post(`Bearer ${SECRET}`), d));
     expect(body.skipped).toEqual([{ workspace: 'acme', repository: 'acme/gears', reason: 'Supabase refused: boom' }]);
     expect(lines.some((l) => l.includes('acme/gears'))).toBe(true);
   });
 
   it('counts a topic the database refuses as not learnt, and keeps the repository\'s stages', async () => {
     const { d, store, lines } = deps();
-    store.topics.push({ workspace_id: 'w-acme', repository: 'acme/gears', prd: 99, topic: 'teeth' });
-    const body = await (await syncStages(post(`Bearer ${SECRET}`), d)).json();
+    store.topics.push({ workspace_id: 'w-acme', repository: 'acme/gears', prd: parsePrd(99), topic: 'teeth' });
+    const body = await answerOf(await syncStages(post(`Bearer ${SECRET}`), d));
     expect(body.repositories[1]).toEqual({ workspace: 'acme', repository: 'acme/gears', stages: 1, topics: 0 });
     expect(lines.some((l) => l.includes('teeth'))).toBe(true);
   });
 
   it('answers 500 when the workspaces cannot be read, and writes nothing', async () => {
-    const { d, store } = deps({ workspaces: async () => { throw new Error('Supabase is down'); } });
+    const { d, store } = deps({ workspaces: () => Promise.reject(new Error('Supabase is down')) });
     const res = await syncStages(post(`Bearer ${SECRET}`), d);
     expect(res.status).toBe(500);
     expect(store.writes).toEqual([]);
@@ -197,10 +210,10 @@ describe('the stages sync route', () => {
 });
 
 describe('the open outbox questions (PRD 657, s5)', () => {
-  const building = { number: 5, head: 'feat/teeth--s1', base: 'feat/teeth', state: 'closed' as const, draft: false, merged_at: '2026-09-20T00:00:00Z', created_at: '2026-09-19T00:00:00Z', ready_at: null };
+  const building = { number: parsePr(5), head: 'feat/teeth--s1', base: 'feat/teeth', state: 'closed' as const, draft: false, merged_at: '2026-09-20T00:00:00Z', created_at: '2026-09-19T00:00:00Z', ready_at: null };
   const outboxOf = (open: number): GithubSummary => ({
-    repo: 'acme/gears', prd: 7, folder: '0007-teeth', topic: 'teeth', issue: null, phase0: null, retro: null, mergedSlices: 1,
-    feature: { number: 6, url: 'https://github.com/acme/gears/pull/6', state: 'open', draft: true },
+    repo: 'acme/gears', prd: parsePrd(7), folder: '0007-teeth', topic: 'teeth', issue: null, phase0: null, retro: null, mergedSlices: 1,
+    feature: { number: parsePr(6), url: 'https://github.com/acme/gears/pull/6', state: 'open', draft: true },
     outbox: { open: Array.from({ length: open }, (_, i) => ({ id: `s1-0${i}-x`, rank: 'high' as const, question: `Q${i}?`, decision: null, options: [], personSteps: null })), settled: [] },
   });
 
@@ -209,7 +222,7 @@ describe('the open outbox questions (PRD 657, s5)', () => {
     setup.snapshots['acme/gears'] = snap('acme/gears', { inbox: ['0007-teeth'], pulls: [building] });
     const outbox = fakePrdOutboxStore(() => NOW);
     const asked: DossierRef[] = [];
-    setup.d.outbox = { store: outbox, summary: async (ref) => { asked.push(ref); return summary; } };
+    setup.d.outbox = { store: outbox, summary: (ref) => { asked.push(ref); return Promise.resolve(summary); } };
     return { ...setup, outbox, asked };
   }
 
@@ -223,12 +236,12 @@ describe('the open outbox questions (PRD 657, s5)', () => {
 
   it('keeps a PRD\'s counts when GitHub cannot be read, and a refused recount leaves the stages recorded', async () => {
     const { d, outbox, store, lines } = withOutbox(null);
-    await outbox.record([{ workspace_id: 'w-acme', repository: 'acme/gears', prd: 7, open_questions: 4, waiting: [] }]);
+    await outbox.record([{ workspace_id: 'w-acme', repository: 'acme/gears', prd: parsePrd(7), open_questions: 4, waiting: [] }]);
     await syncStages(post(`Bearer ${SECRET}`), d);
     expect(outbox.rows.find((r) => r.prd === 7)?.open_questions).toBe(4);
 
     outbox.fail = 'boom';
-    const body = await (await syncStages(post(`Bearer ${SECRET}`), d)).json();
+    const body = await answerOf(await syncStages(post(`Bearer ${SECRET}`), d));
     expect(body.skipped).toEqual([]);
     expect(store.stages.some((s) => s.repository === 'acme/gears' && s.stage === 'building')).toBe(true);
     expect(lines.some((l) => l.includes('outboxes of acme/gears'))).toBe(true);
@@ -243,8 +256,8 @@ describe('the open outbox questions (PRD 657, s5)', () => {
 
 describe('the fix facts (PRD 691, s2)', () => {
   const REPO = 'acme/widgets';
-  const fixRef = (id: string, prd: number): FixRef => ({ id, home_repo: REPO, prd });
-  const issue = (n: number) => ({ number: n, url: `https://github.com/${REPO}/issues/${n}`, state: 'open' as const, author: 'ada', createdAt: '2026-09-28T09:00:00Z', risk: null, regression: false });
+  const fixRef = (id: string, prd: number): FixRef => ({ id, home_repo: REPO, prd: parseIssue(prd) });
+  const issue = (n: number) => ({ number: parseIssue(n), url: `https://github.com/${REPO}/issues/${n}`, state: 'open' as const, author: 'ada', createdAt: '2026-09-28T09:00:00Z', risk: null, regression: false });
   const release = { tag: 'v0.0.9', url: `https://github.com/${REPO}/releases/tag/v0.0.9`, at: '2026-09-28T13:00:00Z' };
   const summary = (n: number, more: Partial<FixSummary> = {}): FixSummary => ({ issue: issue(n), pull: null, approvals: [], release: null, ...more });
 
@@ -255,11 +268,11 @@ describe('the fix facts (PRD 691, s2)', () => {
     const asked: string[] = [];
     const listed: Record<string, FixRef[]> = {
       acme: [fixRef('f1', 1), fixRef('f2', 2), fixRef('f3', 3)],
-      globex: [{ id: 'g1', home_repo: 'globex/core', prd: 4 }],
+      globex: [{ id: 'g1', home_repo: 'globex/core', prd: parseIssue(4) }],
     };
-    const fix = more.fix ?? (async (r: FixRef) => summary(r.prd));
+    const fix = more.fix ?? ((r: FixRef) => Promise.resolve(summary(r.prd)));
     const reader: FixReader = { fix: async (r) => { asked.push(r.id); return fix(r); } };
-    setup.d.fixes = { dossiers: more.dossiers ?? (async (w) => listed[w.slug] ?? []), reader, store: facts };
+    setup.d.fixes = { dossiers: more.dossiers ?? ((w) => Promise.resolve(listed[w.slug] ?? [])), reader, store: facts };
     return { ...setup, facts, asked };
   }
 
@@ -275,10 +288,10 @@ describe('the fix facts (PRD 691, s2)', () => {
 
   it('refreshes a workspace\'s fixes even when its repositories cannot be listed', async () => {
     const { d, asked } = withFixes();
-    d.repositories = async (w) => {
+    d.repositories = (w) => settled(() => {
       if (w.slug === 'acme') throw new Error('the App is not installed');
       return ['globex/core'];
-    };
+    });
     await syncStages(post(`Bearer ${SECRET}`), d);
     expect(asked.sort()).toEqual(['f1', 'f2', 'f3', 'g1']);
   });
@@ -288,17 +301,17 @@ describe('the fix facts (PRD 691, s2)', () => {
     facts.fail = 'boom';
     const res = await syncStages(post(`Bearer ${SECRET}`), d);
     expect(res.status).toBe(200);
-    expect((await res.json()).skipped).toEqual([]);
+    expect((await answerOf(res)).skipped).toEqual([]);
     expect(store.stages.length).toBe(4);
     expect(lines.filter((l) => l.includes('fix facts') && l.includes('boom')).length).toBe(2);
   });
 
   it('logs a workspace whose fix dossiers cannot be listed, and refreshes the others', async () => {
     const { d, asked, lines } = withFixes({
-      dossiers: async (w) => {
+      dossiers: (w) => settled(() => {
         if (w.slug === 'acme') throw new Error('Supabase refused: nope');
-        return [{ id: 'g1', home_repo: 'globex/core', prd: 4 }];
-      },
+        return [{ id: 'g1', home_repo: 'globex/core', prd: parsePrd(4) }];
+      }),
     });
     expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
     expect(asked).toEqual(['g1']);
@@ -306,10 +319,116 @@ describe('the fix facts (PRD 691, s2)', () => {
   });
 
   it('logs a fix GitHub cannot read, and keeps its stored facts', async () => {
-    const { d, facts, lines } = withFixes({ fix: async (r) => { if (r.id === 'f2') throw new Error('GitHub answered 502'); return summary(r.prd); } });
+    const { d, facts, lines } = withFixes({ fix: (r) => settled(() => { if (r.id === 'f2') throw new Error('GitHub answered 502'); return summary(r.prd); }) });
     await facts.writeFacts([{ dossier_id: 'f2', workspace_id: 'w-acme', facts: summary(2) }], '2026-09-28T00:00:00Z');
     await syncStages(post(`Bearer ${SECRET}`), d);
     expect(facts.rows.find((r) => r.dossier_id === 'f2')).toMatchObject({ synced_at: '2026-09-28T00:00:00Z' });
     expect(lines.some((l) => l.includes('502'))).toBe(true);
+  });
+});
+
+describe('the sync is the safety net (PRD 902, s4)', () => {
+  type Row = { id: string; workspace: string; repo: string; prd: number; readAt: string; staleSince: string | null };
+  const HOUR = 3_600_000;
+  const ago = (ms: number) => new Date(Date.parse(NOW) - ms).toISOString();
+
+  /** The snapshots of acme: #42 of acme/widgets, #7 of acme/gears; of globex: #3 of globex/core. Each was read `readAgo` ago. */
+  function withSnapshots(readAgo = HOUR) {
+    const setup = deps();
+    const rows: Row[] = [
+      { id: 'd42', workspace: 'w-acme', repo: 'acme/widgets', prd: 42, readAt: ago(readAgo), staleSince: null },
+      { id: 'd7', workspace: 'w-acme', repo: 'acme/gears', prd: 7, readAt: ago(readAgo), staleSince: null },
+      { id: 'd3', workspace: 'w-globex', repo: 'globex/core', prd: 3, readAt: ago(readAgo), staleSince: null },
+    ];
+    const refreshed: string[] = [];
+    const dropped: string[] = [];
+    const events: string[] = [];
+    const net: SnapshotSyncDeps = {
+      markChanged: (w, repo, prds, at) => settled(() => {
+        for (const row of rows) if (row.workspace === w.id && row.repo === repo && prds.includes(parsePrd(row.prd)) && row.staleSince === null) row.staleSince = at;
+      }),
+      markOld: (w, before, at) => settled(() => {
+        for (const row of rows) if (row.workspace === w.id && row.readAt < before && row.staleSince === null) row.staleSince = at;
+      }),
+      stale: (w, repo) => settled(() => rows.filter((r) => r.workspace === w.id && r.repo === repo && r.staleSince !== null)
+        .map((r) => ({ id: r.id, home_repo: r.repo, prd: parsePrd(r.prd) }))),
+      refresh: (_w, dossier) => settled(() => {
+        refreshed.push(dossier.id);
+        events.push(`refresh ${dossier.id}`);
+        const row = rows.find((r) => r.id === dossier.id);
+        if (row) Object.assign(row, { staleSince: null, readAt: NOW });
+      }),
+      dropEtags: (before) => settled(() => { dropped.push(before); }),
+    };
+    setup.d.snapshots = net;
+    // Nothing changed on GitHub since the last sync: no issue and no pull request read.
+    setup.snapshots['acme/widgets'] = snap('acme/widgets', { shipped: ['0042-dark-mode'] });
+    setup.snapshots['globex/core'] = snap('globex/core');
+    return { ...setup, rows, refreshed, dropped, events, net };
+  }
+
+  it('refreshes no snapshot when nothing changed on GitHub (acceptance 9)', async () => {
+    const { d, refreshed, rows } = withSnapshots();
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(refreshed).toEqual([]);
+    expect(rows.every((r) => r.staleSince === null)).toBe(true);
+  });
+
+  it('marks stale and refreshes the dossier whose issue or pull request changed, and only it', async () => {
+    const { d, refreshed, events } = withSnapshots();
+    const teeth = { number: parsePr(5), head: 'feat/teeth--s1', base: 'feat/teeth', state: 'closed' as const, draft: false, merged_at: '2026-09-29T11:59:30Z', created_at: '2026-09-29T11:59:00Z', ready_at: null };
+    d.snapshot = (_w, repo) => Promise.resolve(repo === 'acme/gears'
+      ? snap(repo, { inbox: ['0007-teeth'], pulls: [teeth] })
+      : repo === 'globex/core' ? snap(repo, { issues: [{ number: parsePrd(3), created_at: '2026-09-27T00:00:00Z' }] }) : snap(repo, { shipped: ['0042-dark-mode'] }));
+    const outbox = fakePrdOutboxStore(() => NOW);
+    d.outbox = { store: outbox, summary: (ref) => { events.push(`recount ${ref.home_repo}#${ref.prd}`); return Promise.resolve(null); } };
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(refreshed).toEqual(['d7', 'd3']);
+    expect(events.indexOf('refresh d7')).toBeLessThan(events.indexOf('recount acme/gears#7'));
+  });
+
+  it('marks stale and refreshes every snapshot older than six hours, and none younger', async () => {
+    const old = withSnapshots(6 * HOUR + 1);
+    await syncStages(post(`Bearer ${SECRET}`), old.d);
+    expect(old.refreshed).toEqual(['d42', 'd7', 'd3']);
+    const young = withSnapshots(6 * HOUR - 1);
+    await syncStages(post(`Bearer ${SECRET}`), young.d);
+    expect(young.refreshed).toEqual([]);
+  });
+
+  it('refreshes a snapshot left stale, by a webhook whose refresh failed', async () => {
+    const { d, rows, refreshed } = withSnapshots();
+    const row = rows.find((r) => r.id === 'd42');
+    if (row) row.staleSince = ago(HOUR);
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(refreshed).toEqual(['d42']);
+  });
+
+  it('drops the ETags unread for seven days, once a run', async () => {
+    const { d, dropped } = withSnapshots();
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(dropped).toEqual([ago(7 * 24 * HOUR)]);
+  });
+
+  it('logs each step the store refuses, and still records the stages and refreshes what it can', async () => {
+    const { d, net: s, snapshots, store, lines, refreshed, rows } = withSnapshots();
+    snapshots['globex/core'] = snap('globex/core', { issues: [{ number: parsePrd(3), created_at: '2026-09-27T00:00:00Z' }] });
+    const row = rows.find((r) => r.id === 'd7');
+    if (row) row.staleSince = ago(HOUR);
+    const refused = (what: string) => () => Promise.reject(new Error(`Supabase refused: ${what}`));
+    d.snapshots = {
+      ...s,
+      markOld: refused('old'),
+      markChanged: refused('changed'),
+      dropEtags: refused('etags'),
+      stale: (w, repo) => (repo === 'acme/widgets' ? refused('stale')() : s.stale(w, repo)),
+      refresh: (w, dossier) => (dossier.id === 'd7' ? refused('refresh')() : s.refresh(w, dossier)),
+    };
+    const res = await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(res.status).toBe(200);
+    expect((await answerOf(res)).skipped).toEqual([]);
+    expect(store.stages.map((s) => `${s.repository}#${s.prd} ${s.stage}`).sort()).toEqual(['acme/gears#7 inbox', 'acme/widgets#42 shipped', 'globex/core#3 prd']);
+    expect(refreshed).toEqual([]);
+    for (const what of ['old', 'changed', 'etags', 'stale', 'refresh']) expect(lines.some((l) => l.includes(`Supabase refused: ${what}`))).toBe(true);
   });
 });

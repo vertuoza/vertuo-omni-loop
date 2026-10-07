@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import type { Files, Repo } from '../test/fixture.ts';
+import { dig } from './dig.ts';
 import { main } from './omni.ts';
 
 function io() {
@@ -137,7 +138,7 @@ describe('omni rework plan', () => {
 
     const s = io();
     expect(await main(['rework', 'plan', String(PRD), '--json'], { cwd: root, ...s })).toBe(0);
-    const result = JSON.parse(s.out.join(''));
+    const result = JSON.parse(s.out.join('')) as { reworks: unknown[]; opensPullRequest: boolean; mergesIntoMain: boolean };
     expect(result.reworks).toHaveLength(1);
     expect(result.reworks[0]).toMatchObject({
       id: 'fix-s1-01-default-country',
@@ -205,7 +206,7 @@ describe('omni rework plan — in a plan repository (PRD 563, s3)', () => {
 
     const j = io();
     expect(await main(['rework', 'plan', String(PRD), '--json'], { cwd: root, ...j })).toBe(0);
-    expect(JSON.parse(j.out.join('')).reworks[0]).toMatchObject({ id: 'fix-s1-01-default-country', repo: 'widgets-api' });
+    expect(dig(JSON.parse(j.out.join('')), 'reworks', 0)).toMatchObject({ id: 'fix-s1-01-default-country', repo: 'widgets-api' });
   });
 
   it('outside a plan repository prints what it prints today, with no repo', async () => {
@@ -217,7 +218,7 @@ describe('omni rework plan — in a plan repository (PRD 563, s3)', () => {
 
     const j = io();
     expect(await main(['rework', 'plan', String(PRD), '--json'], { cwd: root, ...j })).toBe(0);
-    expect(JSON.parse(j.out.join('')).reworks[0]).not.toHaveProperty('repo');
+    expect(dig(JSON.parse(j.out.join('')), 'reworks', 0)).not.toHaveProperty('repo');
   });
 });
 

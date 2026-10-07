@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { HOOK_WAIT_MS, type SessionRow } from './view';
 import { ageLabel, askTitle, firstTab, needsYou, pageTabs, pageWithList, pageWithPane, pickTab, startPage, tabsOf, tabsTitle, toggleList, type TabRow } from './tabs';
+import { item } from '../test/test-item';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const MIN = 60_000;
@@ -18,13 +19,13 @@ describe('a tab', () => {
   it("shows the session's title and its latest question's header", () => {
     const [tab] = tabsOf([row('a', { title: 'vertuo-omni-loop · main', round: { ago: MIN, header: 'Access' } })], NOW);
     expect(tab).toMatchObject({ id: 'a', title: 'vertuo-omni-loop · main', header: 'Access' });
-    expect(tabsOf([row('b')], NOW)[0]!.header).toBeNull();
+    expect(item(tabsOf([row('b')], NOW), 0).header).toBeNull();
   });
 
   it('needs you while its newest round is open and the hook still waits, with its age', () => {
     const [tab] = tabsOf([row('a', { round: { ago: 3 * MIN } })], NOW);
     expect(tab).toMatchObject({ state: 'needs-you', age: '3 min' });
-    expect(tabsOf([row('a', { round: { ago: HOOK_WAIT_MS - 1 } })], NOW)[0]!.state).toBe('needs-you');
+    expect(item(tabsOf([row('a', { round: { ago: HOOK_WAIT_MS - 1 } })], NOW), 0).state).toBe('needs-you');
   });
 
   it('is working otherwise: no round, an answered one, one the terminal took, or one the hook gave up on', () => {
@@ -34,8 +35,8 @@ describe('a tab', () => {
   });
 
   it('is closed once its session closes or idles for 12 hours, a question open or not', () => {
-    expect(tabsOf([row('a', { status: 'closed', round: { ago: MIN } })], NOW)[0]!.state).toBe('closed');
-    expect(tabsOf([row('a', { seen: 12 * 60 * MIN, round: { ago: MIN } })], NOW)[0]!.state).toBe('closed');
+    expect(item(tabsOf([row('a', { status: 'closed', round: { ago: MIN } })], NOW), 0).state).toBe('closed');
+    expect(item(tabsOf([row('a', { seen: 12 * 60 * MIN, round: { ago: MIN } })], NOW), 0).state).toBe('closed');
   });
 
   it('says an age in whole minutes, and just now under one', () => {
@@ -125,7 +126,7 @@ describe("the page's state", () => {
   it("takes the selected tab's newest round from the pane, which reads it first", () => {
     const before = startPage([row('a', { round: { ago: MIN } }), row('b')], 'a', null, NOW);
     const after = pageWithPane(before, {
-      session: before.rows[0]!.session,
+      session: item(before.rows, 0).session,
       rounds: [{ id: 'a-round', questions: [], answers: { q: 'x' }, answered_via: 'page', status: 'answered', created_at: at(MIN), answered_at: at(0) }],
     });
     expect(pageTabs(after, NOW).find((t) => t.id === 'a')?.state).toBe('working');
@@ -156,7 +157,7 @@ describe('the folded tab list, on a phone', () => {
     const open = toggleList(startPage([row('a'), row('b')], 'a', null, NOW));
     const read = pageWithList(open, [row('a'), row('b', { round: { ago: 0 } })]);
     expect(read.listOpen).toBe(true);
-    expect(pageWithPane(read, { session: read.rows[0]!.session, rounds: [] }).listOpen).toBe(true);
+    expect(pageWithPane(read, { session: item(read.rows, 0).session, rounds: [] }).listOpen).toBe(true);
     expect(pageWithList(pickTab(read), [row('a', { round: { ago: 0 } })]).listOpen).toBe(false);
   });
 });

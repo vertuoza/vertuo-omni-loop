@@ -1,5 +1,5 @@
 import 'server-only';
-import { arcadeMode } from '../../data/mode';
+import { serverEnv } from '../../env';
 import { supabaseEnv, supabaseServer } from '../../data/supabase-server';
 import { demoSandboxed } from './demo';
 import { readSandboxed, type SandboxedKind } from './source';
@@ -14,7 +14,7 @@ const VERSION = /^[1-9]\d{0,8}$/;
 export async function readSandboxedLive(id: string, version: string, artifact: SandboxedKind = 'before-after'): Promise<string | null> {
   if (!VERSION.test(version)) return null;
   const number = Number(version);
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
   if (mode === 'demo') return artifact === 'before-after' ? demoSandboxed(number) : null;
   if (mode === 'closed' || !supabaseEnv()) return null;
   const db = await supabaseServer();

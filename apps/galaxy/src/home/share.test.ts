@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { COLOURS, logoSvg } from '@omni/design';
 import { HOME_METADATA, SHARE_CARD, shareCard } from './share';
 
+const SAYS_THE_HEADLINE: unknown = expect.stringMatching(/AGENTS SHIP\. YOU STEER\./);
+
 // HOME shared as the ad (PRD 261, s6; reworded by PRD 285, s2): a link to `/` previews with the
 // page's title, its description and an Open Graph image showing the crest and AGENTS SHIP. YOU
 // STEER. on the starfield.
@@ -38,7 +40,7 @@ describe('the share card', () => {
   const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
   it('is the size every network previews without cropping, and its alt text says the headline', () => {
-    expect(SHARE_CARD).toEqual({ width: 1200, height: 630, alt: expect.stringMatching(/AGENTS SHIP\. YOU STEER\./) });
+    expect(SHARE_CARD).toEqual({ width: 1200, height: 630, alt: SAYS_THE_HEADLINE });
     expect(SHARE_CARD.alt).not.toContain('JOIN THE LOOP!');
   });
 

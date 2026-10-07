@@ -1,11 +1,13 @@
+import 'server-only';
 import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { serviceDb } from '../../data/sign-in-live';
 import type { FixSummary } from '../github/fix';
 import { mergeFacts } from '../../fixes/facts/refresh';
 import { fixFactsStore } from '../../fixes/facts/store';
+import { fixFacts } from './fix-facts';
 import { Notice } from '../../ask/page/Notice';
-import { arcadeMode } from '../../data/mode';
+import { serverEnv } from '../../env';
 import { fixPageView, readPickLine, type FixPageView, type PickRead } from '../../fixes/timeline';
 import { dossierGithub } from '../github/server';
 import { UNREAD } from '../github/summary';
@@ -16,6 +18,7 @@ import { DossierSignIn } from './DossierSignIn';
 import { pulseOf, signature } from './live';
 import { LiveRefresh } from './live-refresh';
 import { DossierStream, type DossierReads } from './stream/DossierStream';
+import { livePageSnapshot } from '../snapshot/live';
 import { DossierDatabaseDown, DossiersClosed, dossierSession } from './route-gate';
 import { dossierCallbackPath } from './sign-in';
 import { isDossierId, readContent, readDossier, readPlanSlices, type Db } from './source';
@@ -29,6 +32,9 @@ import type { WorkKind } from '../store';
 import { stageStore } from '../../stages/store';
 import { proofStore } from '../../proof/store';
 import { readProofs } from './proof-read';
+import { pitchStore } from '../../pitch/store';
+import { readPitches } from './pitch-read';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
 // person, so row-level security decides: signed out, a sign-in card that comes back here through
@@ -39,7 +45,8 @@ import { readProofs } from './proof-read';
 // LiveRefresh starts from the signature of what was read here and re-renders only when it moves. Which
 // open rounds the signed-in person may answer on the list is read here too, on the server.
 // For a numbered dossier and a signed-in member only, the page reads its PRD's GitHub summary (PRD 426)
-// through the server's one reader, cached 60 s; a draft, a signed-out visitor and demo mode make no
+// from its stored snapshot (PRD 902, s2, ../snapshot/): a first visit reads GitHub once, interactively,
+// and a stale snapshot is refreshed after the response; a draft, a signed-out visitor and demo mode make no
 // GitHub call. The stage itself (PRD 587) is read from the PRD's stored stages, as the member, beside
 // that call and never waiting on it: the summary gives only the button, the links and the badge. Stages
 // that could not be read show as not synced yet.
@@ -57,6 +64,8 @@ import { readProofs } from './proof-read';
 // PRD 691 s3: what a fix's page read of GitHub is stored in fix_facts, which /bugs and /visual read, as
 // the service role, after the response (Next's after()): the render never waits on it, a part GitHub
 // could not read keeps its stored value, and a write that fails is only logged.
+// PRD 902 s2: a fix's page renders from its stored facts, read as the member (./fix-facts.ts), and reads
+// GitHub only after the response while they are not final; with none stored, it reads GitHub once.
 // PRD 757 s4: the change check also carries whether Claude works on the dossier, and sits the play dock
 // in the page's corner (LiveRefresh). Who plays is read here, as the member, beside the page's own
 // reads and never before them: their GitHub link, their XP in the dossier's workspace, their hero. A
@@ -66,6 +75,8 @@ import { readProofs } from './proof-read';
 // PRD 798 s4: a PRD's proof runs are read as the member beside the dossier (./proof-read.ts), and on the
 // Proof tab only, the shown run's clips and scripts are signed for them; runs that cannot be read leave
 // the Proof tab out, never the page.
+// PRD 859 s3: its pitches are read the same way (./pitch-read.ts), and on the Pitch tab only the shown
+// pitch of each audience has its five files signed; pitches that cannot be read leave the tab out.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -77,35 +88,42 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
 /** The GitHub summary, the plan's slice count and the stored stages of a numbered PRD dossier the member
  * reads, each started now and awaited by the page's own blocks (PRD 657 s4); the summary reads null when
  * GitHub could not be read, the stages null when they could not be read. */
-function prdReads(db: Db, read: DossierRead): DossierReads {
+function prdReads(db: Db, read: DossierRead, prd: PrdNumber): DossierReads {
   const { dossier } = read;
-  const prd = dossier.prd as number; // ts-allow: prdReads runs for a numbered PRD dossier only, as its comment says
-  const reader = dossierGithub();
   const logged = (error: unknown) => {
     console.error(error);
     return null;
   };
+  const snapshot = livePageSnapshot({ id: dossier.id, workspace_id: dossier.workspace_id, home_repo: dossier.home_repo, prd })
+    .catch((error: unknown) => ({ summary: logged(error), at: null }));
   return {
-    github: reader ? reader.summary({ id: dossier.id, home_repo: dossier.home_repo, prd }).catch(logged) : Promise.resolve(null),
+    github: snapshot.then((s) => s.summary),
+    githubAt: snapshot.then((s) => s.at),
     slices: readPlanSlices(db, read.versions),
     stages: stageStore(db).stagesOf({ workspace_id: dossier.workspace_id, repository: dossier.home_repo, prd }).catch(logged),
   };
 }
 
-/** A fix's state, links and Timeline: GitHub through the server's reader (every moment unknown without
- * it), and a visual fix's pick line from its latest before/after version. Nothing for a PRD. */
+/** A fix's state, links and Timeline: its stored facts, else GitHub through the server's reader (every
+ * moment unknown without either), and a visual fix's pick line from its latest before/after version. Nothing for a PRD. */
 async function fixOf(db: Db, read: DossierRead): Promise<{ fix?: FixPageView }> {
   const { dossier } = read;
   const kind = kindOf(dossier);
   if (kind === 'prd' || dossier.prd === null) return {};
   const reader = dossierGithub();
+  const ref = { id: dossier.id, home_repo: dossier.home_repo, prd: dossier.prd };
   const pages = read.versions.filter((v) => v.kind === 'before-after');
   const latest = pages[pages.length - 1];
   const [summary, pick] = await Promise.all([
-    reader ? reader.fix({ id: dossier.id, home_repo: dossier.home_repo, prd: dossier.prd }).catch((error: unknown) => {
-      console.error(error);
-      return null;
-    }) : Promise.resolve(null),
+    fixFacts({
+      stored: async () => (await fixFactsStore(db).readFacts(dossier.workspace_id, [dossier.id])).get(dossier.id) ?? null,
+      read: (priority) => (reader ? reader.fix(ref, { priority }).catch((error: unknown) => {
+        console.error(error);
+        return null;
+      }) : Promise.resolve(null)),
+      keep: (facts) => keepFacts(dossier, facts),
+      later: (task) => { after(task); },
+    }),
     kind !== 'visual' || !latest ? Promise.resolve<PickRead>('no-page') : readContent(db, latest.id).then(
       (html): PickRead => (html === null ? UNREAD : readPickLine(html)),
       (error: unknown): PickRead => {
@@ -114,7 +132,6 @@ async function fixOf(db: Db, read: DossierRead): Promise<{ fix?: FixPageView }> 
       },
     ),
   ]);
-  if (summary) after(() => keepFacts(dossier, summary));
   return { fix: fixPageView(kind, summary, pick) };
 }
 
@@ -159,8 +176,8 @@ async function demoPage(route: WorkKind, id: string, query: Query, pick: ReturnT
   const elsewhere = misrouted('prd', route, id, query);
   if (elsewhere) redirect(elsewhere);
   const view = dossierView(demoDossier(Date.now()), DEMO_VIEWER, pick);
-  const content = async (shownId: string) => demoContent(shownId);
-  const [markdown, voice] = await Promise.all([shownMarkdown(view, content), shownVoice(view, content, async () => DEMO_VOICE_CAST)]);
+  const content = (shownId: string) => Promise.resolve(demoContent(shownId));
+  const [markdown, voice] = await Promise.all([shownMarkdown(view, content), shownVoice(view, content, () => Promise.resolve(DEMO_VOICE_CAST))]);
   return <DossierPage view={view} markdown={markdown} voice={voice} supabase={null} />;
 }
 
@@ -176,7 +193,7 @@ function DraftDeleted() {
 export async function dossierRoute(route: WorkKind, { params, searchParams }: DossierRouteProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const pick = readPick(query);
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
 
   if (mode === 'demo') return demoPage(route, id, query, pick);
   const session = await dossierSession(mode);
@@ -186,6 +203,7 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
 
   let read: DossierRead | null;
   const proofs = isDossierId(id) ? readProofs(proofStore(db), id, { sign: pick.tab === 'proof', version: pick.version }) : Promise.resolve(null);
+  const pitches = isDossierId(id) ? readPitches(pitchStore(db), id, { sign: pick.tab === 'pitch', pitch: pick.pitch ?? null }) : Promise.resolve(null);
   try {
     read = await readDossier(db, id, user.id);
   } catch (error) {
@@ -207,15 +225,17 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   );
   const live = async (seen: DossierRead) => {
     const pulse = pulseOf(seen);
-    return <LiveRefresh supabase={env} id={dossier.id} signature={pulse ? signature(pulse) : null} dock={await dock} />;
+    const github = seen.dossier.prd !== null && kindOf(seen.dossier) === 'prd';
+    return <LiveRefresh supabase={env} id={dossier.id} signature={pulse ? signature(pulse) : null} dock={await dock} github={github} />;
   };
-  if (read.dossier.prd !== null && kindOf(read.dossier) === 'prd') {
-    read = { ...read, proofs: await proofs };
+  const { prd } = read.dossier;
+  if (prd !== null && kindOf(read.dossier) === 'prd') {
+    read = { ...read, proofs: await proofs, pitches: await pitches };
     // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
     const first = dossierView(read, user.id, pick);
     const markdown = shownMarkdown(first, (shownId) => readContent(db, shownId));
     const voice = shownVoice(first, (shownId) => readContent(db, shownId), () => readVoiceCast(db, dossier.workspace_id));
-    return <DossierStream read={read} me={user.id} pick={pick} reads={prdReads(db, read)} markdown={markdown} voice={voice} supabase={env} live={live} />;
+    return <DossierStream read={read} me={user.id} pick={pick} reads={prdReads(db, read, prd)} markdown={markdown} voice={voice} supabase={env} live={live} />;
   }
   const withFix = { ...read, ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);

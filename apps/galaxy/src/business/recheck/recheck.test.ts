@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { DraftRow } from '../draft/run';
 import { recheckRoute, type RecheckDeps } from './recheck';
+import { answerOf } from '../json.fake';
+
+vi.mock('server-only', () => ({}));
 
 // The weekly recheck with fakes (PRD 774, s4): refused without the secret; with it, every business with
 // a confirmed claim is drafted again as a `recheck`, a failing workspace is skipped and the others still
@@ -17,17 +20,18 @@ function fakes({ confirmed = ['ws-a', 'ws-b'], failStart = [] as string[], failL
   const ran: Array<[string, string]> = [];
   const deps: RecheckDeps = {
     secret: SECRET,
-    async businesses() {
-      if (failList) throw new Error('the claims are unreadable');
-      return confirmed;
+    businesses() {
+      if (failList) return Promise.reject(new Error('the claims are unreadable'));
+      return Promise.resolve(confirmed);
     },
-    async start(workspace) {
-      if (failStart.includes(workspace)) throw new Error(`no business database for ${workspace}`);
+    start(workspace) {
+      if (failStart.includes(workspace)) return Promise.reject(new Error(`no business database for ${workspace}`));
       started.push([workspace, 'recheck']);
-      return running.includes(workspace) ? row(`d-${workspace}`, { kind: 'draft' }) : row(`r-${workspace}`);
+      return Promise.resolve(running.includes(workspace) ? row(`d-${workspace}`, { kind: 'draft' }) : row(`r-${workspace}`));
     },
-    async run(workspace, draft) {
+    run(workspace, draft) {
       ran.push([workspace, draft]);
+      return Promise.resolve();
     },
     now: () => '2026-09-27T22:00:01Z',
     log() {},
@@ -67,7 +71,7 @@ describe('POST /api/business/recheck', () => {
     const res = await recheckRoute(call(`Bearer ${SECRET}`), deps);
     expect(res.status).toBe(200);
     expect(ran.map(([ws]) => ws)).toEqual(['ws-a', 'ws-c']);
-    const body = await res.json();
+    const body = await answerOf(res);
     expect(body.rechecked).toEqual(['ws-a', 'ws-c']);
     expect(body.skipped).toEqual([{ workspace: 'ws-b', reason: 'no business database for ws-b' }]);
   });
@@ -76,25 +80,26 @@ describe('POST /api/business/recheck', () => {
     const { deps } = fakes({ confirmed: ['ws-a', 'ws-b'] });
     const res = await recheckRoute(call(`Bearer ${SECRET}`), {
       ...deps,
-      async run(workspace) {
-        if (workspace === 'ws-a') throw new Error('GitHub said no');
+      run(workspace) {
+        if (workspace === 'ws-a') return Promise.reject(new Error('GitHub said no'));
+        return Promise.resolve();
       },
     });
-    const body = await res.json();
+    const body = await answerOf(res);
     expect(body.rechecked).toEqual(['ws-b']);
     expect(body.skipped).toEqual([{ workspace: 'ws-a', reason: 'GitHub said no' }]);
   });
 
   it('skips a business whose draft is already running, and runs nothing twice', async () => {
     const { deps, ran } = fakes({ running: ['ws-a'] });
-    const body = await (await recheckRoute(call(`Bearer ${SECRET}`), deps)).json();
+    const body = await answerOf(await recheckRoute(call(`Bearer ${SECRET}`), deps));
     expect(ran).toEqual([['ws-b', 'r-ws-b']]);
     expect(body.skipped).toEqual([{ workspace: 'ws-a', reason: 'a draft is already running' }]);
   });
 
   it('reads no business with no confirmed claim', async () => {
     const { deps, started } = fakes({ confirmed: [] });
-    const body = await (await recheckRoute(call(`Bearer ${SECRET}`), deps)).json();
+    const body = await answerOf(await recheckRoute(call(`Bearer ${SECRET}`), deps));
     expect(started).toEqual([]);
     expect(body).toMatchObject({ rechecked: [], skipped: [] });
   });
@@ -127,6 +132,13 @@ describe('the businesses a recheck reads', () => {
     };
     expect(await rechecked(db)).toEqual(['ws-a', 'ws-b']);
     expect(asked).toEqual(['claims', 'workspace_id', 'state=confirmed']);
+  });
+
+  it('throw when a row is not a workspace\'s (PRD 1030)', async () => {
+    const { rechecked } = await import('./recheck');
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const db = { from: () => ({ select: () => ({ eq: () => Promise.resolve({ data: [{ workspace_id: null }], error: null }) }) }) };
+    await expect(rechecked(db)).rejects.toThrow(/business\/recheck: claims: the answer does not parse: \[0\]\.workspace_id/);
   });
 
   it('throw when the claims cannot be read', async () => {

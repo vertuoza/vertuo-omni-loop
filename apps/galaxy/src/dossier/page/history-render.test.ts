@@ -1,11 +1,13 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import type { DossierListRow } from '../store';
 import { DossierHistory } from './DossierHistory';
 import { DossierSignIn } from './DossierSignIn';
 import { DEMO_VIEWER, demoHistory } from './demo';
 import { historyChoices, historyItems, historyStageBar, stageKeyOf, type CurrentStages, type HistoryFilters } from './history';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd as the server renders it (PRD 216): what a person sees before any script runs — the filters and
 // the search, a GET form to the same page; the rows, newest activity first, each a link to its dossier;
@@ -21,7 +23,7 @@ const row = (id: string, more: Partial<DossierListRow> = {}): DossierListRow => 
 });
 const ROWS = [
   row('00000000-0000-4000-8000-0000000000d1', {
-    prd: 216, title: 'PRD dossiers <b>shared</b>', numbered_at: '2026-09-27T10:00:00Z',
+    prd: parsePrd(216), title: 'PRD dossiers <b>shared</b>', numbered_at: '2026-09-27T10:00:00Z',
     repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-core'],
     latest: {
       spec: { id: 's3', version: 3, source: 'github', created_at: '2026-09-28T08:00:00Z' },
@@ -39,7 +41,7 @@ function history(filters: HistoryFilters = ALL, rows = ROWS, viewer: string | nu
 }
 
 const toggle = (html: string) =>
-  [...html.matchAll(/<a class="dossier-history-who"( aria-current="page")? href="([^"]+)">([^<]+)<\/a>/g)].map((m) => [m[3], m[2]!.replaceAll('&amp;', '&'), Boolean(m[1])]);
+  [...html.matchAll(/<a class="dossier-history-who"( aria-current="page")? href="([^"]+)">([^<]+)<\/a>/g)].map((m) => [m[3], m[2]?.replaceAll('&amp;', '&'), Boolean(m[1])]);
 
 describe('the filters', () => {
   it('are a GET form to the same page, a search and two picks, so they work before any script runs', () => {
@@ -117,7 +119,9 @@ describe('Mine and All', () => {
   });
 
   it('Mine lists only the viewer\'s dossiers', () => {
-    const rows = [...ROWS, { ...ROWS[1]!, id: '00000000-0000-4000-8000-0000000000d9', title: 'Paula\'s idea', opened_by: 'u-paula' }];
+    const second = ROWS[1];
+    assertDefined(second, 'the second row');
+    const rows = [...ROWS, { ...second, id: '00000000-0000-4000-8000-0000000000d9', title: 'Paula\'s idea', opened_by: 'u-paula' }];
     const html = history({ who: 'mine' }, rows);
     expect(html).toContain('Offline quotes');
     expect(html).not.toContain('Paula&#x27;s idea');
@@ -196,7 +200,7 @@ describe('the sign-in', () => {
 
 describe('the open questions (PRD 251)', () => {
   const WAITING = row('00000000-0000-4000-8000-0000000000d6', {
-    prd: 251, title: 'Answer the outbox anywhere', numbered_at: '2026-09-26T10:00:00Z', last_activity: '2026-09-26T10:00:00Z',
+    prd: parsePrd(251), title: 'Answer the outbox anywhere', numbered_at: '2026-09-26T10:00:00Z', last_activity: '2026-09-26T10:00:00Z',
   });
   const rows = [...ROWS, WAITING];
   const open = new Map([[WAITING.id, 2]]);
@@ -230,14 +234,16 @@ describe('the open questions (PRD 251)', () => {
 describe('the stages (PRD 587)', () => {
   const ANSWERED = row('00000000-0000-4000-8000-0000000000d3', { title: 'Half answered', asked: 2, answered: 1, last_activity: '2026-09-19T09:00:00Z' });
   const rows = [...ROWS, ANSWERED];
-  const stages: CurrentStages = new Map([[stageKeyOf(ROWS[0]!), 'building']]);
+  const [first] = ROWS;
+  assertDefined(first, 'the first row');
+  const stages: CurrentStages = new Map([[stageKeyOf(first), 'building']]);
   const render = (filters: HistoryFilters) => renderToStaticMarkup(createElement(DossierHistory, {
     items: historyItems(rows, filters, 'u-pierre', new Map(), stages), choices: historyChoices(rows), filters,
     stages: historyStageBar(rows, filters, 'u-pierre', new Map(), stages),
   }));
   const bar = (html: string) =>
     [...html.matchAll(/<a class="stage-stop stage-(passed|current)"( aria-current="page")? href="([^"]+)" style="text-decoration:none">([^<]+) <small>(\d+)<\/small><\/a>/g)]
-      .map((m) => [m[4], Number(m[5]), m[3]!.replaceAll('&amp;', '&'), m[1] === 'current']);
+      .map((m) => [m[4], Number(m[5]), m[3]?.replaceAll('&amp;', '&'), m[1] === 'current']);
 
   it('shows the bar above the list, the seven stages in order with their counts, each a link', () => {
     const html = render(ALL);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { memberWorkspace } from './workspace';
 
 // The member workspace is read once per client (PRD 657): the viewer, the layout and a page's own
@@ -10,15 +11,15 @@ function fakeDb(fail = false) {
   const db = {
     from: () => ({
       select: () => ({
-        eq: async () => {
+        eq: () => {
           reads += 1;
-          if (fail && reads === 1) return { data: null, error: { message: 'down' } };
-          return { data: [{ joined_at: '2026-09-01T00:00:00Z', workspace: { id: 'w-1', slug: 'acme', name: 'Acme', theme: {} } }], error: null };
+          if (fail && reads === 1) return Promise.resolve({ data: null, error: { message: 'down' } });
+          return Promise.resolve({ data: [{ joined_at: '2026-09-01T00:00:00Z', workspace: { id: 'w-1', slug: 'acme', name: 'Acme', theme: {} } }], error: null });
         },
       }),
     }),
   };
-  return { db: db as unknown as SupabaseClient, reads: () => reads };
+  return { db: db as unknown as SupabaseClient<Database>, reads: () => reads };
 }
 
 describe('memberWorkspace', () => {

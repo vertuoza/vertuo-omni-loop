@@ -34,7 +34,7 @@ export function findTarget({ home, to = null, exec, timeoutMs = 15000 }: { home:
     throw new UpdateError(`omni update: cannot find ${what}: ${tag ? 'no such tag, or ' : ''}GitHub is out of reach or gh is not signed in.`);
   }
   const version = parseVersion(answer);
-  if (!version) throw new UpdateError(`omni update: ${what} is not a version: ${String(answer).trim() || '(nothing)'}.`);
+  if (!version) throw new UpdateError(`omni update: ${what} is not a version: ${answer.trim() || '(nothing)'}.`);
   return version;
 }
 

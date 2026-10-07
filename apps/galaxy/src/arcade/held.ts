@@ -21,7 +21,7 @@ export interface Held extends HeldFingers {
   /** The window lost focus, or the tab was hidden: nothing is held any more. */
   clear(): void;
   /** Every button held now, by a key or a finger. */
-  buttons(): ReadonlySet<Action>;
+  buttons: () => ReadonlySet<Action>;
 }
 
 // A letter goes up under the case it went down in, or another if Shift moved in between.

@@ -2,6 +2,7 @@ import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { Database } from '../../../../supabase/database.types.ts';
+import { FLEET_COLUMNS, FleetLookRow as FleetLookRowSchema, RosterRow as RosterRowSchema } from '../business/constituents-rows';
 import { faceOf } from './face';
 import { SOLO, type FleetTag, type Person } from './types';
 
@@ -14,18 +15,9 @@ import { SOLO, type FleetTag, type Person } from './types';
 // every lookup falls back so: a failed faces read never turns a screen into "could not load".
 
 /** A member, as workspace_roster returns them. */
-const RosterRowSchema = z.object({
-  user_id: z.string(),
-  name: z.string().nullable(),
-  github_login: z.string().nullable(),
-  avatar_url: z.string().nullable(),
-  fleet: z.string().nullable(),
-  hero: z.unknown().optional(),
-});
 export type RosterRow = z.infer<typeof RosterRowSchema>;
 
 /** A fleet, as the directory reads it from `teams`. */
-const FleetLookRowSchema = z.object({ name: z.string(), label: z.string(), color: z.string().nullable(), mascot: z.string().nullable() });
 export type FleetLookRow = z.infer<typeof FleetLookRowSchema>;
 
 export interface People {
@@ -69,10 +61,10 @@ async function settled<T>(what: string, row: z.ZodType<T>, read: () => PromiseLi
 }
 
 /** The directory of one workspace: its roster and its fleets, read in parallel, each on its own. */
-export async function loadPeople(db: SupabaseClient<Database>, workspace: string): Promise<People> {
+export async function loadPeople(db: Pick<SupabaseClient<Database>, 'from' | 'rpc'>, workspace: string): Promise<People> {
   const [roster, fleets] = await Promise.all([
     settled('the workspace\'s members', RosterRowSchema, () => db.rpc('workspace_roster', { workspace })),
-    settled('the fleets', FleetLookRowSchema, () => db.from('teams').select('name, label, color, mascot').eq('workspace_id', workspace)),
+    settled('the fleets', FleetLookRowSchema, () => db.from('teams').select(FLEET_COLUMNS).eq('workspace_id', workspace)),
   ]);
   return peopleOf(roster, fleets);
 }

@@ -1,6 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MASTER_KEY_VAR, SecretBoxError, lastFour, masterKey, openSecret, sealSecret } from './secret-box';
+import { sure } from '../arcade/test/sure';
+
+vi.mock('server-only', () => ({}));
 
 // The secret box (PRD 812 s1, decision 7): a workspace's TypeSafe key, sealed with AES-256-GCM under
 // the deployment's SECRETS_MASTER_KEY (32 bytes, base64), its last four kept in the clear.
@@ -12,7 +15,7 @@ const KEY = 'ts_live_0123456789abcdef1a2b';
 /** A base64 string with one byte changed. */
 function flip(b64: string): string {
   const bytes = Buffer.from(b64, 'base64');
-  bytes[0]! ^= 0xff;
+  bytes[0] = sure(bytes[0], 'the first byte') ^ 0xff;
   return bytes.toString('base64');
 }
 
@@ -56,17 +59,17 @@ describe('sealSecret and openSecret', () => {
 describe('masterKey', () => {
   it('reads SECRETS_MASTER_KEY as 32 bytes of base64', () => {
     expect(MASTER_KEY_VAR).toBe('SECRETS_MASTER_KEY');
-    expect(masterKey({ SECRETS_MASTER_KEY: MASTER.toString('base64') })?.equals(MASTER)).toBe(true);
+    expect(masterKey(MASTER.toString('base64'))?.equals(MASTER)).toBe(true);
   });
 
   it('is null when the master key is missing', () => {
-    expect(masterKey({})).toBeNull();
-    expect(masterKey({ SECRETS_MASTER_KEY: '' })).toBeNull();
-    expect(masterKey({ SECRETS_MASTER_KEY: '   ' })).toBeNull();
+    expect(masterKey(null)).toBeNull();
+    expect(masterKey('')).toBeNull();
+    expect(masterKey('   ')).toBeNull();
   });
 
   it('is null when it is not 32 bytes', () => {
-    expect(masterKey({ SECRETS_MASTER_KEY: randomBytes(16).toString('base64') })).toBeNull();
-    expect(masterKey({ SECRETS_MASTER_KEY: 'not base64 at all!' })).toBeNull();
+    expect(masterKey(randomBytes(16).toString('base64'))).toBeNull();
+    expect(masterKey('not base64 at all!')).toBeNull();
   });
 });

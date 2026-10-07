@@ -5,6 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WaitingView } from '../waiting/view';
 import type { WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
+import { item } from '../ask/test/test-item';
+import { z } from 'zod';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The app's sidebar as the server renders it (PRD 438): the crest, the workspace's name, the
 // Dashboard and Work groups (PRD 572), then the foot's Settings entry and Omni's row (PRD 733), the current
@@ -19,7 +22,9 @@ const linked = vi.hoisted((): string[] => []);
 vi.mock('next/link', async () => {
   const { createElement: h } = await import('react');
   return {
-    default: ({ prefetch: _prefetch, ...props }: Record<string, unknown>) => {
+    default: (given: Record<string, unknown>) => {
+      const props = { ...given };
+      delete props.prefetch;
       linked.push(String(props.href));
       return h('a', props);
     },
@@ -28,7 +33,7 @@ vi.mock('next/link', async () => {
 
 const { Sidebar } = await import('./Sidebar.tsx');
 /** The release running, as the release workflow stamps it in the root package.json. */
-const VERSION = JSON.parse(readFileSync(new URL('../../../../package.json', import.meta.url), 'utf8')).version;
+const VERSION = z.looseObject({ version: z.string() }).parse(JSON.parse(readFileSync(new URL('../../../../package.json', import.meta.url), 'utf8'))).version;
 const { WaitingProvider } = await import('../waiting/WaitingProvider');
 
 const question = (id: string, sharedBy: string | null = null): WaitingQuestion => ({ kind: 'question', id, sessionTitle: 'feat/x', question: 'Why?', askedAt: 1, sharedBy });
@@ -42,9 +47,9 @@ const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: 
   at.path = path;
   return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, outbox, children: createElement(Sidebar, { viewer }) }));
 };
-const gate = (id: string): WaitingOutbox => ({ kind: 'outbox', id, prd: 459, dossierId: 'd459', title: 'Gate', rank: 'high', question: 'Why?' });
+const gate = (id: string): WaitingOutbox => ({ kind: 'outbox', id, prd: parsePrd(459), dossierId: 'd459', title: 'Gate', rank: 'high', question: 'Why?' });
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({ attrs: m[1], text: text(m[2]!) }));
+const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({ attrs: item(m, 1), text: text(item(m, 2)) }));
 
 beforeEach(() => {
   at.path = '/app';
@@ -55,7 +60,7 @@ describe('the sidebar', () => {
     const html = render();
     expect(html).toMatch(/^<aside class="app-sidebar" id="app-sidebar" aria-label="Sidebar">/);
     expect(links(html)[0]).toMatchObject({ text: 'OMNI LOOP' });
-    expect(links(html)[0]!.attrs).toContain('href="/app"');
+    expect(item(links(html), 0).attrs).toContain('href="/app"');
   });
 
   it('shows the workspace\'s name when there is one, and none when there is not', () => {
@@ -66,9 +71,9 @@ describe('the sidebar', () => {
 
   it('lists Dashboard and Work, then Settings, Docs and Release notes at the foot, in order (PRD 733)', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Dashboard Home Fleet Workspace Engineering Work PRDs Bug Fixes Visual Updates Questions 5 Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
-    expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs!)?.[1])).toEqual([
-      '/app', '/app/fleet', '/app/workspace', '/app/engineering', '/prd', '/bugs', '/visual', '/ask', '/knowledge', '/app/settings', '/docs', '/releases',
+    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Dashboard Home Fleet Loop Workspace Engineering Work PRDs Bug Fixes Visual Updates Questions 5 Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
+    expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
+      '/app', '/app/fleet', '/app/loop', '/app/workspace', '/app/engineering', '/prd', '/bugs', '/visual', '/ask', '/knowledge', '/app/settings', '/docs', '/releases',
     ]);
   });
 
@@ -81,7 +86,7 @@ describe('the sidebar', () => {
 
   it('draws each section\'s sprite before its name, hidden from screen readers, at its native size (issue 653)', () => {
     const html = render();
-    for (const [path, label] of [['/app', 'Home'], ['/app/fleet', 'Fleet'], ['/prd', 'PRDs'], ['/bugs', 'Bug Fixes'], ['/visual', 'Visual Updates'], ['/knowledge', 'Knowledge'], ['/app/settings', 'Settings']]) {
+    for (const [path, label] of [['/app', 'Home'], ['/app/fleet', 'Fleet'], ['/app/loop', 'Loop'], ['/prd', 'PRDs'], ['/bugs', 'Bug Fixes'], ['/visual', 'Visual Updates'], ['/knowledge', 'Knowledge'], ['/app/settings', 'Settings']]) {
       expect(html).toMatch(new RegExp(`<a class="app-sidebar-item" href="${path}" title="${label}"[^>]*><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*width="16" height="16"[^>]*>.*?</svg></span><span class="app-sidebar-text">${label}</span>`));
     }
   });
@@ -120,6 +125,8 @@ describe('the sidebar', () => {
     ['/app', '/app'],
     ['/app/fleet', '/app/fleet'],
     ['/app/fleet?fleet=beaver', '/app/fleet'],
+    ['/app/loop', '/app/loop'],
+    ['/app/loop/0b7c6a2e-1f00-4d6a-9c55-2f1f3e4a5b6c', '/app/loop'],
     ['/app/workspace', '/app/workspace'],
     ['/app/engineering', '/app/engineering'],
     ['/app/settings', '/app/settings'],
@@ -193,11 +200,11 @@ describe('« and the rail (PRD 733)', () => {
 
   it('names every sprite entry by its title and its spoken name, so the rail still says each one', () => {
     const html = render(ADA, '/app', [gate('a')]);
-    const entries = links(html).filter((l) => l.attrs!.includes('class="app-sidebar-item"') && !l.attrs!.includes('target="_blank"'));
-    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs!)?.[1])).toEqual(['Home', 'Fleet', 'Workspace', 'Engineering', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Questions', 'Knowledge', 'Settings']);
+    const entries = links(html).filter((l) => l.attrs.includes('class="app-sidebar-item"') && !l.attrs.includes('target="_blank"'));
+    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Home', 'Fleet', 'Loop', 'Workspace', 'Engineering', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Questions', 'Knowledge', 'Settings']);
     for (const entry of entries) {
-      const title = /title="([^"]+)"/.exec(entry.attrs!)?.[1];
-      const spoken = /aria-label="([^"]+)"/.exec(entry.attrs!)?.[1] ?? entry.text;
+      const title = /title="([^"]+)"/.exec(entry.attrs)?.[1];
+      const spoken = /aria-label="([^"]+)"/.exec(entry.attrs)?.[1] ?? entry.text;
       expect(spoken.startsWith(title ?? '?'), title).toBe(true);
     }
   });
@@ -224,7 +231,7 @@ describe('« and the rail (PRD 733)', () => {
 describe('its links (PRD 657)', () => {
   it('makes every entry, the crest included, a next/link: a click changes the page without a document load', () => {
     linked.length = 0;
-    const hrefs = links(render(ADA, '/app', [gate('a')])).map((l) => /href="([^"]+)"/.exec(l.attrs!)?.[1]);
+    const hrefs = links(render(ADA, '/app', [gate('a')])).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1]);
     expect(hrefs.length).toBeGreaterThan(10);
     expect(linked).toEqual(hrefs);
   });
@@ -235,9 +242,9 @@ describe('its links (PRD 657)', () => {
     ['/app/settings/fleets', '/app/settings'],
   ])('keeps the highlight on %s through the link, prefix match included: %s', (path, current) => {
     linked.length = 0;
-    const marked = links(render(ADA, path)).filter((l) => l.attrs!.includes('aria-current="page"'));
+    const marked = links(render(ADA, path)).filter((l) => l.attrs.includes('aria-current="page"'));
     expect(marked).toHaveLength(1);
-    expect(marked[0]!.attrs).toContain(`href="${current}"`);
+    expect(item(marked, 0).attrs).toContain(`href="${current}"`);
     expect(linked).toContain(current);
   });
 });

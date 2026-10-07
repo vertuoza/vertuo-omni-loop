@@ -17,6 +17,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { RpcAnswer } from '../../business/answer';
 import { businessReader, BusinessStoreError } from '../../business-api/read';
 import { hashToken, isTokenShaped } from '../tokens/token';
 
@@ -74,10 +76,16 @@ function refused(error: unknown) {
 /** What agent_question_report() answers: the question's id and how many times it was asked. */
 const reportSchema = z.object({ id: z.string().optional(), asked: z.number().catch(0) }).catch({ asked: 0 });
 
+/** A PostgREST error's code and message, read as they came: either may be missing. */
+function refusalOf(error: unknown): { code: string | undefined; message: string | undefined } {
+  const code = propertyOf(error, 'code'), message = propertyOf(error, 'message');
+  return { code: typeof code === 'string' ? code : undefined, message: typeof message === 'string' ? message : undefined };
+}
+
 /** The report the database stored, or its refusal thrown as a BusinessStoreError. */
 function reportOf({ data, error }: { data: unknown; error: unknown }) {
   if (error) {
-    const { code, message } = error as { code?: string; message?: string }; // ts-allow: a PostgREST error carries its code and message
+    const { code, message } = refusalOf(error);
     throw new BusinessStoreError(code, message ?? 'no answer');
   }
   return reportSchema.parse(data ?? {});
@@ -97,8 +105,13 @@ function server(hash: string | null, deps: McpDeps): McpServer {
     const db = linked();
     // businessReader() asks for business_for_repo(); the link reads business_for_token(), same body.
     const reader = businessReader({
-      rpc: ((_fn: string, args: { p_repo: string }) =>
-        db.rpc('business_for_token', { p_hash: hash, p_repo: args.p_repo || null })) as never, // ts-allow: the reader's rpc port, answered by business_for_token() instead
+      rpc: async (_fn, args): Promise<RpcAnswer> => {
+        const repo = propertyOf(args, 'p_repo');
+        const { data, error } = await db.rpc('business_for_token', { p_hash: hash, p_repo: typeof repo === 'string' && repo ? repo : null });
+        if (!error) return { data, error: null };
+        const { code, message } = refusalOf(error);
+        return { data, error: { code: code ?? '', message: message ?? 'no answer' } };
+      },
     });
     return reader.forRepo(repo ?? '');
   };
@@ -159,10 +172,10 @@ function server(hash: string | null, deps: McpDeps): McpServer {
   return mcp;
 }
 
-/** One MCP request: a fresh stateless server for the link the request carries. */
+/** One MCP request: a fresh stateless server (no session id generator) for the link the request carries. */
 export async function handleMcp(request: Request, deps: McpDeps): Promise<Response> {
   const hash = await hashOf(request.headers.get('authorization'));
-  const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+  const transport = new WebStandardStreamableHTTPServerTransport({ enableJsonResponse: true });
   const mcp = server(hash, deps);
   await mcp.connect(transport);
   try {

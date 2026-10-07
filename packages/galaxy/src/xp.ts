@@ -7,7 +7,7 @@ import type { GameEvent } from 'vertuo-omni-plan/game/events.ts';
 export { experience, levelFor, playerXp, unlockedFor, xpForLevel } from 'vertuo-omni-plan/game/experience.ts';
 
 /** The rulebook's `xp` block: the weights, the curve, the cap and the level each game unlocks at. */
-export const XP_RULES = RULEBOOK.xp;
+export const XP_RULES: XpRules = RULEBOOK.xp;
 
 /**
  * What the demo guest shows: the XP, level and unlocked games of the world's highest-XP contributor

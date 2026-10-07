@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { readFix, type FixGet } from './fix';
 import { UNREAD } from './summary';
+import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // A fix on GitHub (PRD 627, s5), read from a fixture: its issue (author, time, risk and regression
 // labels), its `fix/<n>-…` pull request (open or merged, with who merged it), each approving review,
@@ -24,16 +26,17 @@ function fixture(routes: Record<string, unknown>, fail: RegExp | null = null): {
   const calls: string[] = [];
   return {
     calls,
-    get: async (route) => {
+    get: (route) => {
       calls.push(route);
-      if (fail?.test(route)) throw new Error(`GitHub answered 502 to ${route}`);
-      const key = route.split('?')[0];
-      return key! in routes ? routes[key!] : null;
+      if (fail?.test(route)) return Promise.reject(new Error(`GitHub answered 502 to ${route}`));
+      const [key] = route.split('?');
+      assertDefined(key, 'the route\'s path');
+      return Promise.resolve(key in routes ? routes[key] : null);
     },
   };
 }
 
-const read = (routes: Record<string, unknown>, fail: RegExp | null = null) => readFix(fixture(routes, fail).get, 548, SHAPE, LABELS);
+const read = (routes: Record<string, unknown>, fail: RegExp | null = null) => readFix(fixture(routes, fail).get, parseIssue(548), SHAPE, LABELS);
 
 describe('a fix read from GitHub', () => {
   it('gives the issue\'s author and time, and no pull request while none is on a fix/548- branch', async () => {

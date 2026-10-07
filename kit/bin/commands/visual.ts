@@ -6,9 +6,11 @@
 // (`kit/lib/visual/verdict.ts`). `--base` defaults to `<repo.remote>/<repo.defaultBranch>`; a bad
 // ref is a usage error, exit 2.
 import { visualVerdict } from '../../lib/visual/verdict.ts';
+import { issueArg } from '../args.ts';
 import { branchVerdictCommand } from '../branch-range.ts';
 
 export const visual = branchVerdictCommand({
   verb: 'visual',
+  read: issueArg,
   grade: ({ ctx, number, commits }) => visualVerdict({ ctx, issue: number, commits }),
 });

@@ -1,22 +1,25 @@
 // The stored PRD stages (PRD 587): the store's rules on its fake, and its Supabase calls on a recording
 // client. No test reaches Supabase.
 import { describe, expect, it } from 'vitest';
+import { item } from '../ask/test/test-item';
 import { fakeStageStore } from './store.fake';
-import { countStages, currentOf, noCounts, stageStore, type StageRecord } from './store';
+import { brokenRows } from '../data/broken-rows.fake';
+import { countStages, currentOf, noCounts, stageStore, StoredStageRow, type StageRecord } from './store';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const W = 'w-acme';
 const OTHER = 'w-other';
 const REPO = 'acme/widgets';
 const at = (day: number) => `2026-09-${String(day).padStart(2, '0')}T09:00:00Z`;
 const rec = (prd: number, stage: StageRecord['stage'], day = 1, more: Partial<StageRecord> = {}): StageRecord =>
-  ({ workspace_id: W, repository: REPO, prd, stage, reached_at: at(day), ...more });
+  ({ workspace_id: W, repository: REPO, prd: parsePrd(prd), stage, reached_at: at(day), ...more });
 
 describe('the store, on its fake', () => {
   it('records a stage once: a second write keeps the first date and refreshes when it was seen', async () => {
     const store = fakeStageStore();
     await store.recordStages([rec(7, 'prd', 1), rec(7, 'inbox', 2)], at(3));
     await store.recordStages([rec(7, 'inbox', 20)], at(21));
-    expect(await store.stagesOf({ workspace_id: W, repository: REPO, prd: 7 })).toEqual([
+    expect(await store.stagesOf({ workspace_id: W, repository: REPO, prd: parsePrd(7) })).toEqual([
       { stage: 'prd', reached_at: at(1), synced_at: at(3) },
       { stage: 'inbox', reached_at: at(2), synced_at: at(21) },
     ]);
@@ -26,8 +29,8 @@ describe('the store, on its fake', () => {
   it('keeps the repository in lower case, and reads it in any case', async () => {
     const store = fakeStageStore();
     await store.recordStages([rec(7, 'prd', 1, { repository: 'Acme/Widgets' })], at(1));
-    expect(await store.stagesOf({ workspace_id: W, repository: 'ACME/widgets', prd: 7 })).toHaveLength(1);
-    expect(store.stages[0]!.repository).toBe('acme/widgets');
+    expect(await store.stagesOf({ workspace_id: W, repository: 'ACME/widgets', prd: parsePrd(7) })).toHaveLength(1);
+    expect(item(store.stages, 0).repository).toBe('acme/widgets');
   });
 
   it('gives the current stage of each PRD, the latest on the track, and counts them, for a set of PRDs or all', async () => {
@@ -43,22 +46,22 @@ describe('the store, on its fake', () => {
       ['acme/core#4', 'building'], ['acme/widgets#1', 'inbox'], ['acme/widgets#2', 'shipped'], ['acme/widgets#3', 'retro'],
     ]);
     expect(await store.stageCounts(W)).toEqual({ ...noCounts(), inbox: 1, building: 1, shipped: 1, retro: 1 });
-    expect(await store.stageCounts(W, [{ repository: 'ACME/widgets', prd: 1 }, { repository: REPO, prd: 2 }, { repository: REPO, prd: 99 }]))
+    expect(await store.stageCounts(W, [{ repository: 'ACME/widgets', prd: parsePrd(1) }, { repository: REPO, prd: parsePrd(2) }, { repository: REPO, prd: parsePrd(99) }]))
       .toEqual({ ...noCounts(), inbox: 1, shipped: 1 });
     expect(await store.stageCounts(W, [])).toEqual(noCounts());
   });
 
   it('learns each PRD\'s topic and finds a PRD by it, one topic per PRD and one PRD per topic', async () => {
     const store = fakeStageStore();
-    await store.recordTopic({ workspace_id: W, repository: 'Acme/Widgets', prd: 7, topic: 'team-inbox' });
-    await store.recordTopic({ workspace_id: W, repository: REPO, prd: 7, topic: 'team-inbox' });
+    await store.recordTopic({ workspace_id: W, repository: 'Acme/Widgets', prd: parsePrd(7), topic: 'team-inbox' });
+    await store.recordTopic({ workspace_id: W, repository: REPO, prd: parsePrd(7), topic: 'team-inbox' });
     expect(store.writes).toEqual(['topic acme/widgets#7 team-inbox']);
     expect(await store.prdByTopic(W, 'acme/WIDGETS', 'team-inbox')).toBe(7);
     expect(await store.prdByTopic(W, REPO, 'nothing')).toBeNull();
     expect(await store.prdByTopic(OTHER, REPO, 'team-inbox')).toBeNull();
-    await store.recordTopic({ workspace_id: W, repository: REPO, prd: 7, topic: 'shared-inbox' });
+    await store.recordTopic({ workspace_id: W, repository: REPO, prd: parsePrd(7), topic: 'shared-inbox' });
     expect(await store.prdByTopic(W, REPO, 'team-inbox')).toBeNull();
-    await expect(store.recordTopic({ workspace_id: W, repository: REPO, prd: 8, topic: 'shared-inbox' })).rejects.toThrow(/23505/);
+    await expect(store.recordTopic({ workspace_id: W, repository: REPO, prd: parsePrd(8), topic: 'shared-inbox' })).rejects.toThrow(/23505/);
   });
 
   it('says when a repository was last synced: its latest PRD stage, never another stage', async () => {
@@ -73,14 +76,14 @@ describe('the store, on its fake', () => {
   it('throws when told to fail, as a refused call does', async () => {
     const store = fakeStageStore();
     store.fail = 'down';
-    await expect(store.stagesOf({ workspace_id: W, repository: REPO, prd: 7 })).rejects.toThrow('Supabase refused: down');
+    await expect(store.stagesOf({ workspace_id: W, repository: REPO, prd: parsePrd(7) })).rejects.toThrow('Supabase refused: down');
   });
 });
 
 describe('counting', () => {
   it('counts current stages, and keeps each PRD to the latest stage on the track', () => {
-    expect(countStages(['shipped', 'shipped', 'prd'])).toEqual({ ...noCounts(), shipped: 2, prd: 1 });
-    expect(currentOf([{ repository: REPO, prd: 1, stage: 'retro' }, { repository: REPO, prd: 1, stage: 'prd' }]).get('acme/widgets#1')).toBe('retro');
+    expect(countStages(['shipped', 'shipped', 'prd'])).toEqual({ ...noCounts(), shipped: 2, prd: parsePrd(1) });
+    expect(currentOf([{ repository: REPO, prd: parsePrd(1), stage: 'retro' }, { repository: REPO, prd: parsePrd(1), stage: 'prd' }]).get('acme/widgets#1')).toBe('retro');
   });
 });
 
@@ -119,22 +122,22 @@ describe('the store, on Supabase', () => {
     await stageStore(db).recordStages([rec(7, 'inbox', 2, { repository: 'Acme/Widgets' })], at(5));
     expect(calls).toEqual([[
       'upsert', 'prd_stages',
-      [{ workspace_id: W, repository: 'acme/widgets', prd: 7, stage: 'inbox', reached_at: at(2), synced_at: at(5) }],
+      [{ workspace_id: W, repository: 'acme/widgets', prd: parsePrd(7), stage: 'inbox', reached_at: at(2), synced_at: at(5) }],
       { onConflict: 'workspace_id,repository,prd,stage' },
     ]]);
   });
 
   it('upserts a topic by its PRD', async () => {
     const { calls, db } = recording();
-    await stageStore(db).recordTopic({ workspace_id: W, repository: 'Acme/Widgets', prd: 7, topic: 'team-inbox' });
-    expect(calls).toEqual([['upsert', 'prd_topics', { workspace_id: W, repository: 'acme/widgets', prd: 7, topic: 'team-inbox' }, { onConflict: 'workspace_id,repository,prd' }]]);
+    await stageStore(db).recordTopic({ workspace_id: W, repository: 'Acme/Widgets', prd: parsePrd(7), topic: 'team-inbox' });
+    expect(calls).toEqual([['upsert', 'prd_topics', { workspace_id: W, repository: 'acme/widgets', prd: parsePrd(7), topic: 'team-inbox' }, { onConflict: 'workspace_id,repository,prd' }]]);
   });
 
   it('reads a PRD\'s stages in track order, leaving out a stage it does not know', async () => {
     const { calls, db } = recording([
       { stage: 'shipped', reached_at: at(9), synced_at: at(10) }, { stage: 'prd', reached_at: at(1), synced_at: at(10) }, { stage: 'idea', reached_at: at(1), synced_at: at(1) },
     ]);
-    expect((await stageStore(db).stagesOf({ workspace_id: W, repository: 'Acme/Widgets', prd: 7 })).map((r) => r.stage)).toEqual(['prd', 'shipped']);
+    expect((await stageStore(db).stagesOf({ workspace_id: W, repository: 'Acme/Widgets', prd: parsePrd(7) })).map((r) => r.stage)).toEqual(['prd', 'shipped']);
     expect(calls).toEqual([['select', 'prd_stages', 'stage, reached_at, synced_at', ['workspace_id', W], ['repository', 'acme/widgets'], ['prd', 7]]]);
   });
 
@@ -157,7 +160,7 @@ describe('the store, on Supabase', () => {
   });
 
   it('finds a PRD by its topic', async () => {
-    const { calls, db } = recording([{ prd: 7 }]);
+    const { calls, db } = recording([{ prd: parsePrd(7) }]);
     expect(await stageStore(db).prdByTopic(W, 'Acme/Widgets', 'team-inbox')).toBe(7);
     expect(calls).toEqual([['select', 'prd_topics', 'prd', ['workspace_id', W], ['repository', 'acme/widgets'], ['topic', 'team-inbox'], 'maybeSingle']]);
     expect(await stageStore(recording([]).db).prdByTopic(W, REPO, 'none')).toBeNull();
@@ -166,6 +169,21 @@ describe('the store, on Supabase', () => {
   it('says what Supabase refused, and why', async () => {
     const { db } = recording([], { message: 'permission denied for table prd_stages', code: '42501' });
     await expect(stageStore(db).recordStages([rec(7, 'prd')])).rejects.toThrow('Supabase refused to record 1 stage: permission denied for table prd_stages (42501)');
-    await expect(stageStore(db).stagesOf({ workspace_id: W, repository: REPO, prd: 7 })).rejects.toThrow('Supabase refused to read the stages of PRD 7');
+    await expect(stageStore(db).stagesOf({ workspace_id: W, repository: REPO, prd: parsePrd(7) })).rejects.toThrow('Supabase refused to read the stages of PRD 7');
+  });
+});
+
+describe('the stage row\'s schema (PRD 1030)', () => {
+  const row = { stage: 'inbox', reached_at: at(2), synced_at: at(5) };
+
+  it('parses a stage as stagesOf() reads it, and refuses a column missing, of the wrong type or null', () => {
+    expect(StoredStageRow.parse(row)).toEqual(row);
+    for (const [how, broken] of brokenRows(row, { missing: 'synced_at', wrongType: ['reached_at', 2], notNull: 'stage' })) {
+      expect(StoredStageRow.safeParse(broken).success, how).toBe(false);
+    }
+  });
+
+  it('counts no PRD at any stored stage', () => {
+    expect(noCounts()).toEqual({ prd: 0, inbox: 0, building: 0, outbox: 0, shipped: 0, retro: 0 });
   });
 });

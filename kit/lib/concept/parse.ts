@@ -16,6 +16,9 @@
 import { z } from 'zod';
 import { parseFrontMatterLines } from '../front-matter.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
+import { at, defined, group } from '../narrow.ts';
+import { parsePrd } from '../ids.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** What the idea changes: a new experience, how the product looks, or how it is built. */
 export const CONCEPT_KINDS = ['product', 'identity', 'platform'] as const;
@@ -34,7 +37,7 @@ export type ConceptScale = (typeof CONCEPT_SCALES)[number];
 type AreaColumn = (typeof AREA_COLUMNS)[number];
 
 /** One row of the Areas table, in build order. */
-export type ConceptArea = { id: string; area: string; brief: string; prd: number | null };
+export type ConceptArea = { id: string; area: string; brief: string; prd: PrdNumber | null };
 
 /** A concept.md, parsed. */
 export type ConceptRecord = {
@@ -49,7 +52,7 @@ export type ConceptRecord = {
 export type ConceptParse = { ok: true; record: ConceptRecord } | { ok: false; errors: string[] };
 
 /** An area as read from its row: a cell is `undefined` while the table lacks its column. */
-type AreaRow = { id: string | undefined; area: string | undefined; brief: string | undefined; prd: number | null };
+type AreaRow = { id: string | undefined; area: string | undefined; brief: string | undefined; prd: PrdNumber | null };
 
 type Section = { name: string; lines: string[] };
 
@@ -107,7 +110,7 @@ function sectionsOf(body: string): Section[] {
   for (const line of body.split(/\r?\n/)) {
     const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
     if (heading && !line.startsWith('###')) {
-      current = { name: heading[1]!, lines: [] }; // group 1 always matches
+      current = { name: group(heading, 1), lines: [] }; // group 1 always matches
       sections.push(current);
     } else if (/^#\s/.test(line)) {
       current = null;
@@ -119,15 +122,16 @@ function sectionsOf(body: string): Section[] {
 }
 
 function sectionFaults(sections: readonly Section[]): string[] {
-  const at = new Map<string, number>();
+  const position = new Map<string, number>();
   sections.forEach((section, index) => {
-    if (!at.has(section.name)) at.set(section.name, index);
+    if (!position.has(section.name)) position.set(section.name, index);
   });
-  const faults = CONCEPT_SECTIONS.filter((name) => !at.has(name)).map((name) => `sections: no "## ${name}" section.`);
-  const present = CONCEPT_SECTIONS.filter((name) => at.has(name));
+  const faults = CONCEPT_SECTIONS.filter((name) => !position.has(name)).map((name) => `sections: no "## ${name}" section.`);
+  const present = CONCEPT_SECTIONS.filter((name) => position.has(name));
   for (let index = 1; index < present.length; index += 1) {
-    const [before, after] = [present[index - 1]!, present[index]!]; // both indexes are inside `present`
-    if (at.get(after)! < at.get(before)!) { // `present` holds only names `at` has
+    const [before, after] = [at(present, index - 1, 'a section'), at(present, index, 'a section')]; // both indexes are inside `present`
+    const placeOf = (name: string): number => defined(position.get(name), `the place of "## ${name}"`); // `present` holds only names `position` has
+    if (placeOf(after) < placeOf(before)) {
       faults.push(`sections: "## ${before}" comes after "## ${after}"; the order is ${CONCEPT_SECTIONS.join(', ')}.`);
     }
   }
@@ -176,16 +180,17 @@ function idFaults(ids: readonly (string | undefined)[]): string[] {
 function areasOf(lines: readonly string[], scale: ConceptScale | null): { areas: AreaRow[]; faults: string[] } {
   const table = firstTable(lines);
   if (!table) return { areas: [], faults: [`Areas: no table; it holds one with the columns ${AREA_COLUMNS.slice(0, -1).join(', ')} and ${AREA_COLUMNS.at(-1)}.`] };
-  const column: Record<AreaColumn, number> = Object.fromEntries(AREA_COLUMNS.map((name) => [name, table.header.findIndex((cell) => cell.toLowerCase() === name.toLowerCase())])) as Record<AreaColumn, number>; // ts-allow: `fromEntries` keys every column of AREA_COLUMNS
-  const faults = AREA_COLUMNS.filter((name) => column[name] === -1).map((name) => `Areas: the table has no "${name}" column.`);
-  const cell = (row: readonly string[], name: AreaColumn): string | undefined => (column[name] === -1 ? undefined : (row[column[name]] ?? ''));
+  const positions = new Map(AREA_COLUMNS.map((name) => [name, table.header.findIndex((cell) => cell.toLowerCase() === name.toLowerCase())]));
+  const column = (name: AreaColumn): number => positions.get(name) ?? -1;
+  const faults = AREA_COLUMNS.filter((name) => column(name) === -1).map((name) => `Areas: the table has no "${name}" column.`);
+  const cell = (row: readonly string[], name: AreaColumn): string | undefined => (column(name) === -1 ? undefined : (row[column(name)] ?? ''));
 
   const areas = table.rows.map((row, index): AreaRow => {
     const id = cell(row, 'id');
     const prd = cell(row, 'PRD');
     const filled = PRD_CELL.exec(prd ?? '');
     if (prd && !filled) faults.push(`Areas: the PRD cell of "${id ?? `row ${index + 1}`}" is "${prd}", neither empty nor #<number>.`);
-    return { id, area: cell(row, 'area'), brief: cell(row, 'brief'), prd: filled ? Number(filled[1]) : null };
+    return { id, area: cell(row, 'area'), brief: cell(row, 'brief'), prd: filled ? parsePrd(at(filled, 1, 'the PRD cell')) : null };
   });
   faults.push(...idFaults(areas.map((area) => area.id)));
 
@@ -195,6 +200,11 @@ function areasOf(lines: readonly string[], scale: ConceptScale | null): { areas:
     faults.push(`Areas: ${count}; a ${scale} concept has ${allowed.words}.`);
   }
   return { areas, faults };
+}
+
+/** An area of a table with every column, where each cell is a string. */
+function conceptArea({ id, area, brief, prd }: AreaRow): ConceptArea {
+  return { id: defined(id, 'the area id'), area: defined(area, 'the area name'), brief: defined(brief, 'the area brief'), prd };
 }
 
 /** Parses one concept.md (`text`, the file's text) into a typed record, or every fault it has. */
@@ -214,9 +224,9 @@ export function parseConcept(text: string): ConceptParse {
   const named = new Map<string, string>();
   for (const section of sections) if (!named.has(section.name)) named.set(section.name, section.lines.join('\n').trim());
   // With no fault, the front matter parsed, every section is present and the table has every column.
-  const data = front.data!;
+  const data = defined(front.data, 'the parsed front matter');
   return {
     ok: true,
-    record: { ...data, sections: Object.fromEntries(CONCEPT_SECTIONS.map((name) => [name, named.get(name) ?? ''])), areas: areas as ConceptArea[] }, // ts-allow: with every column present, each cell is a string
+    record: { ...data, sections: Object.fromEntries(CONCEPT_SECTIONS.map((name) => [name, named.get(name) ?? ''])), areas: areas.map(conceptArea) },
   };
 }

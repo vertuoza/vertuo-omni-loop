@@ -6,18 +6,19 @@
 // checkboxes, then what the merge settled and shipped and how the checks came out.
 import type { HarvestEdits, Move } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import type { Placed } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
+import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** What the knowledge PR names of its PRD. */
-export type HarvestPrd = { number: number; title: string };
+export type HarvestPrd = { number: PrdNumber; title: string };
 
 /** What the knowledge PR names of the merge it harvests. */
-export type HarvestMerge = { by: string | null; at: string | null; pr: number };
+export type HarvestMerge = { by: string | null; at: string | null; pr: PrNumber };
 
 /** One file the shared git writer commits. */
 export type CommitFile = { path: string; content: string };
 
 /** The line every harvest commit carries, which a replay reads to know it already committed. */
-export function commitMarker(prNumber: number): string {
+export function commitMarker(prNumber: PrNumber): string {
   return `The knowledge harvest of #${prNumber}.`;
 }
 
@@ -31,9 +32,9 @@ export function commitMessage({ prd, merge }: { prd: HarvestPrd; merge: HarvestM
   return `${knowledgeTitle(prd)}\n\n${commitMarker(merge.pr)} Merged by @${bare(merge.by)}.`;
 }
 
-const bare = (who: unknown) => String(who ?? '').replace(/^@/, '');
-const day = (value: unknown) => String(value ?? '').slice(0, 10);
-const cell = (text: unknown) => String(text ?? '').replace(/\|/g, '\\|').replace(/\s+/g, ' ').trim();
+const bare = (who: string | null | undefined) => (who ?? '').replace(/^@/, '');
+const day = (value: string | null | undefined) => (value ?? '').slice(0, 10);
+const cell = (text: string | null | undefined) => (text ?? '').replace(/\|/g, '\\|').replace(/\s+/g, ' ').trim();
 
 /** Where a placed decision landed, as its row says it. */
 export function landedAs(entry: Pick<Placed, 'kind' | 'landedAs' | 'status' | 'proposed'>): string {
@@ -44,8 +45,8 @@ export function landedAs(entry: Pick<Placed, 'kind' | 'landedAs' | 'status' | 'p
 }
 
 /** Who decided, short: the `Decided:` line without its date, "nobody — adopted" for a medium item. */
-export function decidedShort(decided: unknown): string {
-  const text = String(decided ?? '').replace(/,\s*\d{4}-\d{2}-\d{2}$/, '');
+export function decidedShort(decided: string | null | undefined): string {
+  const text = (decided ?? '').replace(/,\s*\d{4}-\d{2}-\d{2}$/, '');
   if (text.startsWith('nobody')) return 'nobody — adopted';
   return text;
 }
@@ -90,7 +91,7 @@ export function knowledgeBody({ prd, merge, settled, shipped, placed, notPlaced,
 
   if (notPlaced.length > 0) {
     lines.push('**Not placed:**');
-    for (const entry of notPlaced) lines.push(`- [ ] ${entry.id} — ${String(entry.reason).split('\n')[0]}`);
+    for (const entry of notPlaced) lines.push(`- [ ] ${entry.id} — ${entry.reason.split('\n')[0]}`);
     lines.push('');
   }
 

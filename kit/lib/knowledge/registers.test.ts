@@ -165,7 +165,7 @@ describe('parseEntryFile', () => {
 
 const roots: string[] = [];
 afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
 function tree(files: Record<string, string>): string {

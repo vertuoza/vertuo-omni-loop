@@ -2,44 +2,76 @@
 // state, its review threads with each one's verdict, and the care line of `/omni:pr`'s status comment.
 // Pure: `kit/bin/commands/care.ts` runs the query (`CARE_QUERY`) and adds whether a wave holds
 // claims; the decision (`decide.mjs`) reads what this returns.
+import { z } from 'zod';
 import { readCareVerdict } from './marker.ts';
+import { at, propertyOf } from '../narrow.ts';
 import type { CareVerdict } from './marker.ts';
+import { CommentIdSchema, PrNumberSchema, parsePr } from '../ids.ts';
+import type { CommentId, PrNumber } from '../ids.ts';
 
-// The parts of `CARE_QUERY`'s answer this file reads. Every field may be missing or null: GitHub's
-// answer is checked where `kit/bin/commands/care.ts` reads it (PRD 725 outbox item s4-03), and this
+// The parts of `CARE_QUERY`'s answer this file reads, as a schema: `kit/bin/commands/care.ts` parses
+// GitHub's answer with it. Every field but a few GitHub always sends may be missing or null, and this
 // parser keeps reading a missing field as it always has.
-type Maybe<T> = T | null | undefined;
-type Nodes<T> = Maybe<{ nodes?: Maybe<T[]> }>;
+const text = z.string().nullish();
+const nodesOf = <T extends z.ZodType>(node: T) => z.object({ nodes: z.array(node).nullish() }).nullish();
 
-type ContextNode = {
-  __typename?: Maybe<string>;
-  name?: Maybe<string>;
-  conclusion?: Maybe<string>;
-  detailsUrl?: Maybe<string>;
-  context?: Maybe<string>;
-  state?: Maybe<string>;
-  targetUrl?: Maybe<string>;
-};
-type Rollup = { state?: Maybe<string>; contexts?: Nodes<Maybe<ContextNode>> };
-type CommentNode = { author?: Maybe<{ login?: Maybe<string>; avatarUrl?: Maybe<string> }>; body?: Maybe<string>; createdAt?: Maybe<string>; url?: Maybe<string> };
-type ThreadNode = { id: string; isResolved?: Maybe<boolean>; path?: Maybe<string>; line?: Maybe<number>; comments?: Nodes<CommentNode> };
-type IssueCommentNode = { databaseId?: Maybe<number>; body?: Maybe<string> };
-type PullRequestNode = {
-  number: number;
-  url: string;
-  state: string;
-  isDraft?: Maybe<boolean>;
-  baseRefName: string;
-  headRefName: string;
-  mergeable?: Maybe<string>;
-  labels?: Nodes<{ name: string }>;
-  commits?: Nodes<Maybe<{ commit?: Maybe<{ statusCheckRollup?: Maybe<Rollup> }> }>>;
-  reviewThreads?: Nodes<ThreadNode>;
-  comments?: Nodes<IssueCommentNode>;
-};
+const ContextNodeSchema = z.object({
+  __typename: text,
+  name: text,
+  conclusion: text,
+  detailsUrl: text,
+  context: text,
+  state: text,
+  targetUrl: text,
+});
+type ContextNode = z.infer<typeof ContextNodeSchema>;
+const RollupSchema = z.object({ state: text, contexts: nodesOf(ContextNodeSchema.nullish()) });
+type Rollup = z.infer<typeof RollupSchema>;
+const AuthorSchema = z.object({ login: text, avatarUrl: text });
+const CommentNodeSchema = z.object({
+  author: AuthorSchema.nullish(),
+  body: text,
+  createdAt: text,
+  url: text,
+});
+type CommentNode = z.infer<typeof CommentNodeSchema>;
+const ThreadNodeSchema = z.object({
+  id: z.string(),
+  isResolved: z.boolean().nullish(),
+  path: text,
+  line: z.number().nullish(),
+  comments: nodesOf(CommentNodeSchema),
+});
+type ThreadNode = z.infer<typeof ThreadNodeSchema>;
+const IssueCommentNodeSchema = z.object({ databaseId: CommentIdSchema.nullish(), body: text });
+type IssueCommentNode = z.infer<typeof IssueCommentNodeSchema>;
+const PullRequestNodeSchema = z.object({
+  number: PrNumberSchema,
+  url: z.string(),
+  state: z.string(),
+  isDraft: z.boolean().nullish(),
+  baseRefName: z.string(),
+  headRefName: z.string(),
+  mergeable: text,
+  labels: nodesOf(z.object({ name: z.string() })),
+  commits: nodesOf(z.object({ commit: z.object({ statusCheckRollup: RollupSchema.nullish() }).nullish() }).nullish()),
+  reviewThreads: nodesOf(ThreadNodeSchema),
+  comments: nodesOf(IssueCommentNodeSchema),
+});
+type PullRequestNode = z.infer<typeof PullRequestNodeSchema>;
 
-/** The parsed JSON of `CARE_QUERY`, as far as `careState` reads it. */
-export type CareResponse = Maybe<{ data?: Maybe<{ repository?: Maybe<{ pullRequest?: Maybe<PullRequestNode> }> }> }>;
+/**
+ * The JSON of `CARE_QUERY`, as far as `careState` reads it. Typed as `ZodType<CareResponse>`, which the
+ * compiler checks against what the schema infers: inferring the whole output at every use instead is too
+ * deep for `tsgo` (TS2589) in a file that reads it first (PRD 1042).
+ */
+export const CareResponseSchema: z.ZodType<CareResponse> = z
+  .object({ data: z.object({ repository: z.object({ pullRequest: PullRequestNodeSchema.nullish() }).nullish() }).nullish() })
+  .nullish();
+
+/** The parsed JSON of `CARE_QUERY`: its three outer levels written out over `PullRequestNode`. */
+type Nullish<T> = T | null | undefined;
+export type CareResponse = Nullish<{ data?: Nullish<{ repository?: Nullish<{ pullRequest?: Nullish<PullRequestNode> }> }> }>;
 
 export type CheckState = 'green' | 'red' | 'running' | 'none';
 export type FailedCheck = { name: string | null | undefined; url: string | null };
@@ -64,9 +96,17 @@ export type CareThread = {
   reason: string | null;
   needs: ThreadNeed;
 };
-export type CareStatus = { commentId: number | null; watchingSince: string | null; lastRound: string | null };
+/** Another repository's pull request a red CI waits on (PRD 1118), as the status comment names it. */
+export type WaitsOn = { slug: string; pr: PrNumber };
+export type CareStatus = {
+  commentId: CommentId | null;
+  watchingSince: string | null;
+  lastRound: string | null;
+  /** Present only when the status comment carries a `waits on <slug>#<pr>` line. */
+  waitsOn?: WaitsOn;
+};
 export type CareState = {
-  pr: { number: number; url: string; state: string; isDraft: boolean; base: string; head: string; labels: string[] };
+  pr: { number: PrNumber; url: string; state: string; isDraft: boolean; base: string; head: string; labels: string[] };
   checks: CareChecks;
   mergeable: string;
   threads: CareThread[];
@@ -96,6 +136,7 @@ const ROLLUP: Record<string, CheckState> = { SUCCESS: 'green', FAILURE: 'red', E
 const FAILED_RUN = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);
 const FAILED_STATUS = new Set(['FAILURE', 'ERROR']);
 const CARE_LINE_RE = /PR care: watching since (.+?) · last round (.+?)\s*$/m;
+const WAITS_ON_RE = /\bwaits on ([\w.-]+\/[\w.-]+)#(\d+)/;
 
 /** A commit status that failed, as a failed check; null for one that did not. */
 function failedStatus(node: ContextNode): FailedCheck | null {
@@ -107,7 +148,7 @@ function failedRun(node: ContextNode): FailedCheck | null {
   return FAILED_RUN.has(node.conclusion ?? '') ? { name: node.name, url: node.detailsUrl ?? null } : null;
 }
 
-function failedContexts(contexts: readonly Maybe<ContextNode>[]): FailedCheck[] {
+function failedContexts(contexts: readonly (ContextNode | null | undefined)[]): FailedCheck[] {
   const failed: FailedCheck[] = [];
   for (const node of contexts) {
     const check = node ? (node.__typename === 'StatusContext' ? failedStatus(node) : failedRun(node)) : null;
@@ -135,10 +176,16 @@ function readChecks(pr: PullRequestNode, labels: readonly string[], { needsFixLa
   return { state, failed, stuck: needsFixLabel ? labels.includes(needsFixLabel) : false, fixable };
 }
 
+/** A comment author's field: its text, or null when the comment has no author or no such field. */
+function authorField(node: CommentNode, key: 'login' | 'avatarUrl'): string | null {
+  const value = propertyOf(node.author, key);
+  return typeof value === 'string' ? value : null;
+}
+
 function readComment(node: CommentNode): CareComment {
   return {
-    author: node.author?.login ?? null,
-    avatarUrl: node.author?.avatarUrl ?? null,
+    author: authorField(node, 'login'),
+    avatarUrl: authorField(node, 'avatarUrl'),
     body: node.body ?? '',
     createdAt: node.createdAt ?? null,
     url: node.url ?? null,
@@ -166,7 +213,7 @@ function threadBase(node: ThreadNode, comments: CareComment[], resolved: boolean
 
 /** The verdict, reason and need of a thread whose last care reply sits at `last`. */
 function repliedThread(comments: readonly CareComment[], last: number, resolved: boolean): Pick<CareThread, 'verdict' | 'reason' | 'needs'> {
-  const reply = comments[last]!; // `last` is the index `findLastIndex` found
+  const reply = at(comments, last, 'the last care reply'); // `last` is the index `findLastIndex` found
   const reason = reasonOf(reply.body);
   if (reply.verdict === 'asked') return { verdict: 'asked', reason, needs: null };
   const personAfter = comments.slice(last + 1).some((c) => c.verdict === null);
@@ -183,11 +230,17 @@ function readThread(node: ThreadNode): CareThread | null {
   return { ...base, ...repliedThread(comments, last, resolved) };
 }
 
+/** The `waits on <slug>#<pr>` line of a status comment, as the field it adds; `{}` without one. */
+function waitsOnIn(body: string): Pick<CareStatus, 'waitsOn'> {
+  const waits = body.match(WAITS_ON_RE);
+  return waits?.[1] && waits[2] ? { waitsOn: { slug: waits[1], pr: parsePr(waits[2]) } } : {};
+}
+
 function readStatus(nodes: readonly IssueCommentNode[], statusMarker: CareOptions['statusMarker']): CareStatus | null {
-  const found = nodes.find((node) => statusMarker && String(node.body ?? '').includes(statusMarker));
+  const found = nodes.find((node) => statusMarker && (node.body ?? '').includes(statusMarker));
   if (!found) return null;
   const line = String(found.body).match(CARE_LINE_RE);
-  return { commentId: found.databaseId ?? null, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null };
+  return { commentId: found.databaseId ?? null, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null, ...waitsOnIn(String(found.body)) };
 }
 
 /** The care state of the pull request in `response` (the parsed JSON of `CARE_QUERY`). */

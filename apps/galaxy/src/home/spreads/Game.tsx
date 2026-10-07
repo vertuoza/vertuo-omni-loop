@@ -1,6 +1,7 @@
-import type { CSSProperties } from 'react';
 import { spritePixels } from '@omni/design';
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { cssVars } from '../../arcade/css-vars';
 import { pixelSvg } from '../../design/pixel-svg';
 import { Svg } from '../poster/Poster';
 import type { HighScores as Counts } from '../scores';
@@ -16,7 +17,7 @@ import './Game.css';
 // Controls flips a card on a click.
 
 // A card's art: its fleet's mascot. Every example fleet flies one (fleets.test.ts holds it).
-const artOf = (c: Card) => pixelSvg(spritePixels(c.mascot!, { frame: 0 }), { scale: 2, title: `${c.label}'s mascot` });
+const artOf = (c: Card) => pixelSvg(spritePixels(defined(c.mascot, `${c.label}'s mascot`), { frame: 0 }), { scale: 2, title: `${c.label}'s mascot` });
 
 /** The three counters, in order: each label and the count it shows. */
 const scoreRows = (scores: Counts) => [
@@ -28,7 +29,7 @@ const scoreRows = (scores: Counts) => [
 const closes = Object.values(RULEBOOK.woundClose);
 
 // A fleet's colour, as the variable its card and its leaderboard row are drawn in.
-const inFleetColour = (color: string) => ({ '--fleet': color }) as CSSProperties; // ts-allow: React's style type has no custom properties
+const inFleetColour = (color: string) => cssVars({ '--fleet': color });
 
 export function Game({ scores }: { scores: Counts }) {
   const ranked = [...EXAMPLE_FLEETS].sort((a, b) => b.points - a.points);

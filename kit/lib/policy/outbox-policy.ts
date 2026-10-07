@@ -32,8 +32,11 @@ import { idParts } from '../knowledge/registers.ts';
 import { ACCOUNTS_DIR } from '../outbox/account.ts';
 import type { AccountEntry, AccountLine } from '../outbox/account.ts';
 import { floorRank, FUN_SECTIONS, OPTION_LETTERS, RANK_VALUES } from '../outbox/outbox.ts';
+import { isList, plainText } from '../outbox/plain-text.ts';
+import { isOneOf } from '../narrow.ts';
 import type { Laws } from '../laws.ts';
-import type { Layout, PrdNumber } from '../layout.ts';
+import type { OutboxItemId, PrdNumber, WorkSliceId } from '../ids.ts';
+import type { Layout } from '../layout.ts';
 import type { Rank } from '../types.ts';
 
 /** The three places a slice built under the recording policy can end. */
@@ -80,7 +83,7 @@ export type ConsultedAnswer = {
   text: string;
   approvedBy: string;
   approvedAt: string;
-  channel: { kind: 'prd-issue'; number: number };
+  channel: { kind: 'prd-issue'; number: PrdNumber };
 };
 
 /** What one item's consultation came to: never a stop. */
@@ -97,23 +100,23 @@ export type Consultation = {
 
 /** The fields {@link renderOutboxItem} renders an item from. */
 export type OutboxItemFields = {
-  id: string;
+  id: OutboxItemId;
   prd: PrdNumber;
-  slice: string;
+  slice: WorkSliceId;
   wave: number | string;
   raised: string;
   bearsOn: string;
   rank: string;
   questionPlain: string;
   decisionPlain: string;
-  introFun?: string | null;
-  punchlineFun?: string | null;
+  introFun?: string | null | undefined;
+  punchlineFun?: string | null | undefined;
   decide: string;
   meanwhile: string;
   cost: string;
   gaps: readonly string[];
-  options?: readonly (string | null | undefined)[] | null;
-  personSteps?: string | null;
+  options?: readonly (string | null | undefined)[] | null | undefined;
+  personSteps?: string | null | undefined;
   laws: FloorLaws;
 };
 
@@ -365,7 +368,7 @@ export function consult({
 }: {
   command: string;
   rank: string;
-  prd: number;
+  prd: PrdNumber;
   answer?: unknown;
   session?: string | null;
   at?: string | null;
@@ -467,16 +470,18 @@ export function renderOutboxItem({
   laws,
 }: OutboxItemFields): string {
   const couldNotKnow = unknowable(gaps);
-  const settledRank: string = floorRank(bearsOn, rank as Rank, laws); // ts-allow: an unknown rank is refused just below, after the floor, as it always was
+  // An unknown rank is refused just below, after the floor, as it always was: one an item's
+  // `bears-on` floors at `high` settles there.
+  const settledRank: string = isOneOf(RANK_VALUES, rank) ? floorRank(bearsOn, rank, laws) : laws.floorsHigh(bearsOn) ? 'high' : rank;
   if (!RANK_VALUES.some((value: string) => value === settledRank)) {
     throw new Error(`rank must be one of: ${RANK_VALUES.join(', ')} — got "${rank}"`);
   }
-  if (!(questionPlain ?? '').trim()) {
+  if (!questionPlain.trim()) {
     throw new Error(
       'an item states its question in plain words too — "## The question, in plain words" — before it says what was decided',
     );
   }
-  if (!(decisionPlain ?? '').trim()) {
+  if (!decisionPlain.trim()) {
     throw new Error(
       'an item states its decision in plain words too — "## The decision, in plain words" — before the four sections a developer reads',
     );
@@ -549,7 +554,7 @@ function renderFun(introFun: string | null | undefined, punchlineFun: string | n
  * for carrying too few or too many.
  */
 function renderOptions(options: readonly (string | null | undefined)[] | null | undefined): string[] {
-  const list = (Array.isArray(options) ? options : [])
+  const list = (isList(options) ? options : [])
     .map((text) => (text ?? '').trim())
     .filter((text) => text.length > 0);
   if (list.length < 2 || list.length > 4) {
@@ -647,7 +652,7 @@ export const ACCOUNT_FORMS: Readonly<Record<AccountLine['kind'], AccountForm>> =
  * and `ACCOUNTS_DIR` (`account.mjs`). Throws when the PRD names no inbox or shipped folder at all,
  * the same guard `settle.mjs`'s own outbox-directory lookups use.
  */
-export function accountFile(prd: PrdNumber, slice: string, { ctx }: { ctx: AccountCtx }): string {
+export function accountFile(prd: PrdNumber, slice: WorkSliceId, { ctx }: { ctx: AccountCtx }): string {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) throw new Error(`PRD ${prd} has no inbox or shipped folder`);
   return `${outboxDir}/${ACCOUNTS_DIR}/${slice}.md`;
@@ -661,10 +666,10 @@ function accountLine(account: GivenAccount): string {
   const form = kind === 'item' || kind === 'spec' ? ACCOUNT_FORMS[kind] : undefined;
   if (!form) {
     throw new Error(
-      `an account is "item <id>" or "spec <where>", and no third form — got "${account?.kind}"`,
+      `an account is "item <id>" or "spec <where>", and no third form — got "${String(kind)}"`,
     );
   }
-  const value = String(account?.[form.field] ?? '').trim();
+  const value = plainText(account?.[form.field]).trim();
   if (value.length === 0) {
     throw new Error(`an "${form.kind}" account needs its ${form.field} — ${form.why}`);
   }
@@ -686,11 +691,11 @@ export function renderAccount({
   entries,
 }: {
   prd: PrdNumber;
-  slice: string;
+  slice: WorkSliceId;
   graded: string;
   entries: readonly (RiskyPath & { account: GivenAccount })[] | null | undefined;
 }): string {
-  if (!Array.isArray(entries) || entries.length === 0) {
+  if (!isList(entries) || entries.length === 0) {
     throw new Error(
       'an account file with no risky change is not written at all — a slice that touched nothing risky owes nothing',
     );
@@ -743,7 +748,7 @@ export function planAccount({
   ctx,
 }: {
   prd: PrdNumber;
-  slice: string;
+  slice: WorkSliceId;
   graded: string;
   risky?: readonly (RiskyPath & { status?: string })[];
   accountFor: (change: RiskyPath) => AccountLine | null | undefined;

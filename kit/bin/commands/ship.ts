@@ -2,14 +2,15 @@
 // paths that named them. Stages the moves; never commits. Exit 1 when refused, naming every reason;
 // exit 2, one line, when the delivery folder holds uncommitted changes.
 import { applyShip, DirtyDeliveryError, movedPath } from '../../lib/delivery/ship.ts';
-import { errorMessage, parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { errorMessage, parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 export const ship: Command = {
-  async run(args: string[], { ctx, stdout, stderr, exec }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, stderr, exec }: CommandIo): number => {
     const { positional } = parseArgs('ship', args);
     if (positional.length !== 1) throw usageError('usage: omni ship <prd>');
-    const prd = positiveInt('ship', '<prd>', positional[0]);
+    const prd = prdArg('ship', '<prd>', positional[0]);
     let plan;
     try {
       plan = applyShip(ctx, prd, { exec });
@@ -24,5 +25,5 @@ export const ship: Command = {
     lines.push('Review the diff and commit it on the feature branch.');
     println(stdout, lines.join('\n'));
     return 0;
-  },
+  }),
 };

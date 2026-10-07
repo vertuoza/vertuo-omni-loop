@@ -34,7 +34,7 @@ export function flatLayout(root: string) {
 }
 
 export function flatCtx(rootDir: string | undefined, overrides: Overrides = {}) {
-  const root = rootDir as string; // ts-allow: a test hands its fixture's root, set before each case
+  const root = rootDir as string;
   const ctx = testContext(root, {
     markers: { prefix: 'vertuo-outbox' },
     laws: { source: 'knowledge' },

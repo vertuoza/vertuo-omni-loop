@@ -23,12 +23,16 @@ import type { ExecText } from '../context.ts';
 import type { DossierEntry } from '../dossier/draft.ts';
 import { isSafeId, LOCAL_DIR } from './local-state.ts';
 import { HeartbeatWindowSchema } from './schema.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
+import { parseFolderName } from '../layout.ts';
+import type { Config } from '../types.ts';
 
-/** What a Claude session works on: its draft, a PRD, a visual or a bug fix; `null` is the session alone. */
-export type Work = { kind: 'draft'; draftId: string } | { kind: 'prd' | 'visual' | 'bug'; number: number } | null;
+/** What a Claude session works on: its draft, a PRD, a visual or a bug fix (keyed by its issue); `null`
+ * is the session alone. */
+export type Work = { kind: 'draft'; draftId: string } | { kind: 'prd'; number: PrdNumber } | { kind: 'visual' | 'bug'; number: IssueNumber } | null;
 
-/** The branch templates the work finder reads. */
-type Branches = { feature: string; phase0: string; slice: string; fix: string };
+/** The branch templates the work finder reads, as the config declares them. */
+type Branches = Pick<Config['branches'], 'feature' | 'phase0' | 'slice' | 'fix'>;
 
 /** The delivery folders the work finder looks among, by where they sit. */
 type Folders = { inbox?: readonly string[]; shipped?: readonly string[]; visual?: readonly string[]; bugs?: readonly string[] };
@@ -39,7 +43,6 @@ export const HEARTBEAT_EVERY_MS = 60_000;
 export const HEARTBEAT_LIMIT_MS = 2000;
 
 const WINDOWS_DIR = 'heartbeat';
-const FOLDER = /^(\d{4})-(.+)$/;
 const QUIET: { encoding: 'utf8'; stdio: StdioOptions; timeout: number } = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: HEARTBEAT_LIMIT_MS };
 
 function attempt<T>(fn: () => T): T | null {
@@ -58,11 +61,12 @@ function topicOf(template: unknown, branch: string): string | null {
   return pattern.exec(branch)?.[1] ?? null;
 }
 
-/** The number of the `<nnnn>-<topic>` folder among `folders`, or null. */
-function numberOf(topic: string, folders: readonly string[] | undefined): number | null {
+/** The number of the `<nnnn>-<topic>` folder among `folders`, or null. A fix's folder is named the
+ * way a PRD's is, by its issue's number, which a PRD's number is too. */
+function numberOf(topic: string, folders: readonly string[] | undefined): PrdNumber | null {
   for (const folder of folders ?? []) {
-    const match = FOLDER.exec(folder);
-    if (match && match[2] === topic) return Number(match[1]);
+    const named = parseFolderName(folder);
+    if (named && named.topic === topic) return named.prd;
   }
   return null;
 }
@@ -87,7 +91,7 @@ export function findWork({ claudeSessionId, drafts, branch, branches, folders }:
 function draftWork(claudeSessionId: string, drafts: readonly DossierEntry[] | null | undefined): Work {
   const own = (drafts ?? [])
     .filter((entry) => entry.claudeSessionId === claudeSessionId)
-    .sort((a, b) => String(a.openedAt).localeCompare(String(b.openedAt)))
+    .sort((a, b) => a.openedAt.localeCompare(b.openedAt))
     .at(-1);
   if (!own) return null;
   return own.prd === null ? { kind: 'draft', draftId: own.id } : { kind: 'prd', number: own.prd };
@@ -128,9 +132,9 @@ export function readWork({ cwd, config, claudeSessionId, exec = execFileSync }: 
 }): Work {
   const home = attempt(() => mainCheckout(cwd, exec));
   const drafts = home ? attempt(() => readDossiers(home)) ?? [] : [];
-  const head = attempt(() => String(exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, ...QUIET })).trim());
+  const head = attempt(() => exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, ...QUIET }).trim());
   const branch = head && head !== 'HEAD' ? head : null;
-  const top = attempt(() => String(exec('git', ['rev-parse', '--show-toplevel'], { cwd, ...QUIET })).trim());
+  const top = attempt(() => exec('git', ['rev-parse', '--show-toplevel'], { cwd, ...QUIET }).trim());
   const list = (folder: string): string[] => (top ? attempt(() => readdirSync(join(top, config.paths.delivery, folder))) ?? [] : []);
   const folders = { inbox: list('inbox'), shipped: list('shipped'), visual: list('visual'), bugs: list('bugs') };
   return attempt(() => findWork({ claudeSessionId, drafts, branch, branches: config.branches, folders })) ?? null;
@@ -145,7 +149,7 @@ const windowFile = (root: string, claudeSessionId: string): string => join(root,
 export function claimWindow(root: string, claudeSessionId: unknown, now: number): boolean {
   if (!isSafeId(claudeSessionId)) return false;
   const file = windowFile(root, claudeSessionId);
-  const window = HeartbeatWindowSchema.safeParse(attempt(() => JSON.parse(readFileSync(file, 'utf8'))));
+  const window = HeartbeatWindowSchema.safeParse(attempt((): unknown => JSON.parse(readFileSync(file, 'utf8'))));
   const last = window.success ? window.data.sentAt : null;
   if (last !== null && Number.isFinite(last) && now - last < HEARTBEAT_EVERY_MS && now >= last) return false;
   const dir = join(root, LOCAL_DIR);

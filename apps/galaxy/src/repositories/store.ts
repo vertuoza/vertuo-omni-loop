@@ -1,5 +1,6 @@
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { rowOf, type RepositoryRow, type StoredRepository } from './model';
+import { parseRow } from '../data/parse-rows';
+import { rowOf, SavedRepository, type RepositoryRow } from './model';
 
 // Settings → Repositories's two calls (PRD 612 s1). In production, the owner-only functions of
 // supabase/migrations/20261008090000_repositories.sql, add_repository() and set_repository_tracked(),
@@ -38,7 +39,8 @@ export function databaseRepositories(db: Rpc, workspace: string): RepositoriesPo
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return { ok: false, message: refusal(error) };
-      return { ok: true, repository: rowOf(data as StoredRepository) }; // ts-allow: each of these functions answers the public.repositories row it saved
+      const saved = parseRow(SavedRepository, data, `repositories/store: ${fn}`);
+      return saved.ok ? { ok: true, repository: rowOf(saved.value) } : { ok: false, message: COULD_NOT_SAVE };
     } catch (err) {
       return { ok: false, message: refusal(err) };
     }
@@ -56,20 +58,20 @@ export function databaseRepositories(db: Rpc, workspace: string): RepositoriesPo
 export function demoRepositoriesPort(initial: RepositoryRow[]): RepositoriesPort {
   let rows = [...initial];
   const find = (name: string) => rows.find((r) => r.fullName === name.trim().toLowerCase());
-  const change = async (fullName: string, to: Partial<RepositoryRow>): Promise<Saved> => {
+  const change = (fullName: string, to: Partial<RepositoryRow>): Promise<Saved> => {
     const kept = find(fullName);
-    if (!kept) return { ok: false, message: GONE };
+    if (!kept) return Promise.resolve({ ok: false, message: GONE });
     const repository = { ...kept, ...to };
     rows = rows.map((r) => (r === kept ? repository : r));
-    return { ok: true, repository };
+    return Promise.resolve({ ok: true, repository });
   };
   return {
-    async add(fullName) {
+    add(fullName) {
       const kept = find(fullName);
-      if (kept) return { ok: true, repository: kept };
+      if (kept) return Promise.resolve({ ok: true, repository: kept });
       const repository: RepositoryRow = { fullName: fullName.trim().toLowerCase(), tracked: true, collectedAt: null, collectError: null, product: null };
       rows = [...rows, repository];
-      return { ok: true, repository };
+      return Promise.resolve({ ok: true, repository });
     },
     setTracked: (fullName, tracked) => change(fullName, { tracked }),
     setProduct: (fullName, product) => change(fullName, { product }),

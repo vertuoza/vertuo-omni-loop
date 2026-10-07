@@ -5,6 +5,7 @@ import { nestedLinks } from '../../people/nested-links';
 import { DEMO_MEMBERS, demoHistory } from './demo';
 import { WorkspaceHistory } from './WorkspaceHistory';
 import { historyChoices, historyList, type HistoryFilters } from './workspace-history';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /ask/history (PRD 144), as the server renders it: a form of filters that works before any script
 // runs (a GET to the same page), and a list of rounds, each opening /ask/q/<round>.
@@ -55,7 +56,7 @@ describe('the history page', () => {
   });
 
   it('offers a GET form with every filter and the search, keeping what is chosen', () => {
-    const html = page({ category: 'product', prd: 71, search: 'host' });
+    const html = page({ category: 'product', prd: parsePrd(71), search: 'host' });
     const form = html.match(/<form[^>]*>/)?.[0] ?? '';
     expect(form).toContain('method="get"');
     expect(form).toContain('action="/ask/history"');

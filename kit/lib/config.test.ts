@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { main } from '../bin/omni.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { CONFIG_FILE, ConfigError, MIGRATIONS, dossierSwitch, loadConfig, migrateConfig, parseConfig } from './config.ts';
+import { messageOf } from './narrow.ts';
+import { assertDefined } from '../test/assert.ts';
 
 describe('parseConfig', () => {
   it('fills every section from defaults when only the version is given', () => {
@@ -148,10 +150,10 @@ describe('parseConfig', () => {
   });
 
   it('refuses the renamed branch key, naming the key that replaced it', () => {
-    let error: any;
+    let error: unknown;
     try { parseConfig('kit: 1\nbranches:\n  terraform: docs/omni-terraform\n', 'c.yml'); } catch (e) { error = e; }
     expect(error).toBeInstanceOf(ConfigError);
-    expect(error.message.split('\n')[0]).toMatch(/^c\.yml.*branches\.terraform.*branches\.invade/);
+    expect(messageOf(error).split('\n')[0]).toMatch(/^c\.yml.*branches\.terraform.*branches\.invade/);
   });
 
   it('still refuses a key the schema does not hold beside the new ones', () => {
@@ -165,16 +167,40 @@ describe('parseConfig', () => {
   });
 
   it('names the file, the key path and the unknown key for a typo', () => {
-    let error: any;
+    let error: unknown;
     try { parseConfig('kit: 1\nlabels:\n  outboxgo: go\n', '.omni-loop/config.yml'); } catch (e) { error = e; }
     expect(error).toBeInstanceOf(ConfigError);
-    expect(error.message).toContain('.omni-loop/config.yml');
-    expect(error.message).toContain('labels');
-    expect(error.message).toContain('outboxgo');
+    expect(messageOf(error)).toContain('.omni-loop/config.yml');
+    expect(messageOf(error)).toContain('labels');
+    expect(messageOf(error)).toContain('outboxgo');
   });
 
   it('refuses acceptance enabled without a directory', () => {
     expect(() => parseConfig('kit: 1\nacceptance:\n  enabled: true\n')).toThrow(/acceptance\.dir/);
+  });
+
+  it('reads pr.openWith as the name of a skill, null by default, and refuses one that is not text', () => {
+    expect(parseConfig('kit: 1\n').pr).toEqual({ openWith: null });
+    expect(parseConfig('kit: 1\npr:\n  openWith: /create-pr\n').pr.openWith).toBe('/create-pr');
+    expect(() => parseConfig('kit: 1\npr:\n  openWith: 3\n')).toThrow(/pr\.openWith/);
+    expect(() => parseConfig('kit: 1\npr:\n  openWith: [/create-pr]\n')).toThrow(/pr\.openWith/);
+    expect(() => parseConfig("kit: 1\npr:\n  openWith: ''\n")).toThrow(/pr\.openWith/);
+  });
+
+  it('names each landing branch from branches.landing, filled with {topic}, {landing}, {landings} and {name}', () => {
+    expect(parseConfig('kit: 1\n').branches.landing).toBe('feat/{topic}-{landing}of{landings}-{name}');
+    expect(parseConfig("kit: 1\nbranches:\n  landing: 'land/{topic}/{landing}'\n").branches.landing).toBe('land/{topic}/{landing}');
+    expect(() => parseConfig("kit: 1\nbranches:\n  landing: ''\n")).toThrow(/branches\.landing/);
+  });
+
+  it('reads landings.alone as regex sources, empty by default, and refuses one that is no regular expression', () => {
+    expect(parseConfig('kit: 1\n').landings).toEqual({ alone: [] });
+    const config = parseConfig("kit: 1\nlandings:\n  alone: ['^kernel-migrations/database/migrations/', '/db/migrations/']\n");
+    expect(config.landings.alone).toEqual(['^kernel-migrations/database/migrations/', '/db/migrations/']);
+    expect(config.risk).toEqual(parseConfig('kit: 1\n').risk);
+    expect(() => parseConfig("kit: 1\nlandings:\n  alone: ['(']\n")).toThrow(/landings\.alone\.0/);
+    expect(() => parseConfig('kit: 1\nlandings:\n  alone: db/\n')).toThrow(/landings\.alone/);
+    expect(() => parseConfig('kit: 1\nlandings:\n  after: []\n')).toThrow(/landings/);
   });
 
   it('refuses a risk pattern that is not a regular expression', () => {
@@ -368,8 +394,8 @@ describe('branches.update and the migration step (PRD 347)', () => {
 
   it("runs each migration from the file's kit up, keeping every value", () => {
     const migrations = [
-      { from: 1, migrate: (raw: any) => ({ ...raw, kit: 2, moved: raw.old }) },
-      { from: 2, migrate: (raw: any) => ({ ...raw, kit: 3 }) },
+      { from: 1, migrate: (raw: Record<string, unknown>) => ({ ...raw, kit: 2, moved: raw.old }) },
+      { from: 2, migrate: (raw: Record<string, unknown>) => ({ ...raw, kit: 3 }) },
     ];
     expect(migrateConfig({ kit: 1, old: 'x' }, migrations)).toEqual({ kit: 3, old: 'x', moved: 'x' });
     expect(migrateConfig({ kit: 2 }, migrations)).toEqual({ kit: 3 });
@@ -389,8 +415,8 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
   const firstLine = (source: string) => {
     try {
       parseConfig(source, 'c.yml');
-    } catch (error: any) {
-      return error.message.split('\n')[0];
+    } catch (error) {
+      return messageOf(error).split('\n')[0];
     }
     throw new Error('it parsed');
   };
@@ -399,8 +425,8 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     const config = parseConfig('kit: 1\n');
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
-      'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'markers', 'signature',
+      'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
+      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'markers', 'signature',
     ]);
   });
 
@@ -417,8 +443,12 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
   });
 
   it('takes a null guide, and reads a guide left out as null', () => {
-    expect(parseConfig(plan([OWN], 'null')).plan!.guide).toBeNull();
-    expect(parseConfig(`kit: 1\nplan:\n  targets:\n${target(OWN)}\n`).plan!.guide).toBeNull();
+    const plan2 = parseConfig(plan([OWN], 'null')).plan;
+    assertDefined(plan2, 'the plan');
+    expect(plan2.guide).toBeNull();
+    const plan3 = parseConfig(`kit: 1\nplan:\n  targets:\n${target(OWN)}\n`).plan;
+    assertDefined(plan3, 'the plan');
+    expect(plan3.guide).toBeNull();
   });
 
   it('refuses a repo not in owner/name form, and a repo listed twice', () => {
@@ -458,7 +488,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
 
 describe('the proof section (PRD 798)', () => {
   const firstLine = (source: string) => {
-    try { parseConfig(source, 'c.yml'); } catch (error: any) { return error.message.split('\n')[0]; }
+    try { parseConfig(source, 'c.yml'); } catch (error) { return messageOf(error).split('\n')[0]; }
     return 'parsed';
   };
 
@@ -503,5 +533,85 @@ describe('the proof section (PRD 798)', () => {
     const code = await main(['config', 'proof'], { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => {} } });
     expect(code).toBe(0);
     expect(JSON.parse(out.join(''))).toEqual({ url: null, deployment: null, setup: null, bypassEnv: null, maxSeconds: 60 });
+  });
+});
+
+describe('the flow section (PRD 1089)', () => {
+  it('leaves a config with no flow exactly as it parses today: no flow key, no hookMaxBytes', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(Object.hasOwn(config, 'flow')).toBe(false);
+    expect(Object.hasOwn(config.limits, 'hookMaxBytes')).toBe(false);
+  });
+
+  it('reads a flow and a hook size limit, and refuses a limit that is not a positive whole number', () => {
+    const config = parseConfig("kit: 1\nlimits:\n  hookMaxBytes: 4096\nflow:\n  areas:\n    kernel:\n      paths: ['^src/kernel/']\n");
+    expect(config.limits.hookMaxBytes).toBe(4096);
+    expect(config.flow?.areas?.kernel?.paths).toEqual(['^src/kernel/']);
+    expect(() => parseConfig('kit: 1\nlimits:\n  hookMaxBytes: 0\n', 'c.yml')).toThrow(/c\.yml.*limits\.hookMaxBytes/);
+  });
+
+  it('refuses an unknown key under flow, naming it', () => {
+    expect(() => parseConfig('kit: 1\nflow:\n  steps: {}\n', 'c.yml')).toThrow(/c\.yml.*flow.*steps/);
+  });
+});
+
+describe('the generated section (PRD 1138)', () => {
+  const firstLine = (source: string) => {
+    try {
+      parseConfig(source, 'c.yml');
+    } catch (error) {
+      return messageOf(error).split('\n')[0];
+    }
+    throw new Error('it parsed');
+  };
+  const SECTION = 'generated:\n  - path: out/\n    from: [src/, lib/]\n    build: pnpm build\n  - path: api/\n    from: [app/]\n    build: node build.ts\n';
+
+  it('leaves a config without it exactly as it parses today: no generated key at all', () => {
+    expect(Object.hasOwn(parseConfig('kit: 1\n'), 'generated')).toBe(false);
+  });
+
+  it('reads each entry in order: its path, its from prefixes and its build', () => {
+    expect(parseConfig(`kit: 1\n${SECTION}`).generated).toEqual([
+      { path: 'out/', from: ['src/', 'lib/'], build: 'pnpm build' },
+      { path: 'api/', from: ['app/'], build: 'node build.ts' },
+    ]);
+  });
+
+  it.each([
+    ['a missing path', 'generated:\n  - from: [src/]\n    build: pnpm build\n', 'generated.0.path'],
+    ['an empty path', "generated:\n  - path: ''\n    from: [src/]\n    build: pnpm build\n", 'generated.0.path'],
+    ['a missing from', 'generated:\n  - path: out/\n    build: pnpm build\n', 'generated.0.from'],
+    ['an empty from', 'generated:\n  - path: out/\n    from: []\n    build: pnpm build\n', 'generated.0.from'],
+    ['an empty from prefix', "generated:\n  - path: out/\n    from: ['']\n    build: pnpm build\n", 'generated.0.from.0'],
+    ['a missing build', 'generated:\n  - path: out/\n    from: [src/]\n', 'generated.0.build'],
+    ['an empty build', "generated:\n  - path: out/\n    from: [src/]\n    build: '  '\n", 'generated.0.build'],
+    ['an unknown key', 'generated:\n  - path: out/\n    from: [src/]\n    build: pnpm build\n    run: x\n', 'generated.0'],
+    ['a section that is no list', 'generated:\n  path: out/\n', 'generated'],
+  ])('refuses %s, naming the field', (_what, section, key) => {
+    expect(firstLine(`kit: 1\n${section}`)).toContain(`: ${key}: `);
+  });
+});
+
+// #1151: the GitHub App's retro read a config written for a newer kit than its own deploy, and skipped
+// in silence. A reader that may lag the file asks to leave unknown keys out; every other reader still
+// refuses them, so a typo is still caught.
+describe('parseConfig — keys this kit does not know (#1151)', () => {
+  const newer = 'kit: 1\nfuture: [a]\nbranches:\n  later: later/{topic}\n';
+
+  it('refuses them by default, naming the key', () => {
+    expect(() => parseConfig(newer)).toThrow(/Unrecognized key\(s\) in object: 'future'/);
+  });
+
+  it('leaves them out with ignoreUnknownKeys, at the top level and inside a section', () => {
+    const config = parseConfig(newer, CONFIG_FILE, { ignoreUnknownKeys: true });
+    expect(config.branches.feature).toBe('feat/{topic}');
+    expect(config).not.toHaveProperty('future');
+    expect(config.branches).not.toHaveProperty('later');
+  });
+
+  it('still refuses a value of the wrong kind with ignoreUnknownKeys', () => {
+    expect(() => parseConfig('kit: 1\nfuture: 1\nrepo:\n  defaultBranch: 3\n', CONFIG_FILE, { ignoreUnknownKeys: true })).toThrow(
+      /not a valid Omni Loop config: repo\.defaultBranch/,
+    );
   });
 });

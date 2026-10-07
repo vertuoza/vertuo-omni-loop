@@ -26,11 +26,13 @@ import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import type { Browser, BrowserContext, Page, PageScreenshotOptions, Route } from 'playwright';
-import { z } from 'zod';
+import './server-only.ts';
+
+const { serverEnv } = await import('../src/env.ts');
 
 // The arcade is at /play since HOME took `/` (PRD 261), the app's home at /app. Another dev server:
 // GALAXY_URL=http://localhost:3001/
-const ROOT = z.string().default('http://localhost:3000/').parse(process.env.GALAXY_URL);
+const ROOT = serverEnv().galaxyUrl ?? 'http://localhost:3000/';
 const BASE = new URL('play', ROOT).href;
 const APP = new URL('app', ROOT).href;
 const OUT = fileURLToPath(new URL('../shots/', import.meta.url));
@@ -156,7 +158,7 @@ function appInPage(): AppSeen {
   return {
     theme: document.querySelector('.ask')?.getAttribute('data-ask-theme') ?? null,
     dashboard: Boolean(h1?.classList.contains('dash-name')),
-    heading: h1?.textContent?.trim() ?? null,
+    heading: h1?.textContent.trim() ?? null,
     width,
     scrollWidth: page.scrollWidth,
     out: out.slice(0, 5).map((el) => el.tagName.toLowerCase() + [...el.classList].map((c) => `.${c}`).join('')),
@@ -540,7 +542,7 @@ function unreachable(err: unknown): string {
   if (!(err instanceof Error)) return String(err);
   const cause: unknown = err.cause;
   const code = typeof cause === 'object' && cause !== null && 'code' in cause ? cause.code : undefined;
-  return String(code ?? err.message);
+  return typeof code === 'string' || typeof code === 'number' ? String(code) : err.message;
 }
 
 async function main(): Promise<number> {

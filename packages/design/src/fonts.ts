@@ -3,6 +3,7 @@
 // declares them, and names the type scale as :root custom properties. Change a face or a step here,
 // then run `pnpm --filter @omni/design fonts`: fonts.test.mjs fails while the committed fonts.css
 // differs from what this writes.
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export type FontRole = 'display' | 'pixel' | 'body' | 'mono';
 export type FontStyle = 'normal' | 'italic';
@@ -144,11 +145,11 @@ export function fontFaceCss(files: readonly FontFile[], url = (file: string): st
   ].join('\n')).join('');
 }
 
-const stackOf = (family: string): string => FACES.find((f) => f.family === family)!.stack;
+const stackOf = (family: string): string => defined(FACES.find((f) => f.family === family), `the face ${family}`).stack;
 
 /** fonts.css: every face, then each role's stack and each type-scale step as :root custom properties. */
 export function fontsCss(): string {
-  const roles = Object.entries(ROLES).map(([role, families]) => `  --font-${role}: ${stackOf(families[0]!)};`);
+  const roles = Object.entries(ROLES).map(([role, families]) => `  --font-${role}: ${stackOf(at(families, 0, `the first family of ${role}`))};`);
   const steps = Object.entries(TYPE_SCALE).flatMap(([name, s]) => [
     `  --type-${name}-family: ${stackOf(s.face)};`,
     `  --type-${name}-size: ${s.size}px;`,

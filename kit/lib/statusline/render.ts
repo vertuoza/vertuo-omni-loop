@@ -21,18 +21,19 @@
 import type { SessionInput } from './input.ts';
 import type { CachedSlice } from './schema.ts';
 import { IN_FLIGHT, MERGED, OUTBOX, SHIPPED, STUCK } from './stage.ts';
+import { isList } from '../outbox/plain-text.ts';
+import type { Terminal } from '../env/read.ts';
+import type { PrdNumber, WorkSliceId } from '../ids.ts';
 
-/** The environment the lines read: `COLUMNS` and `NO_COLOR`. */
-type Env = Readonly<Record<string, string | null | undefined>> | null | undefined;
 
 /** The five-hour window, as `parseInput` reads it. */
 type FiveHour = { percent: number; resetsAt: number };
 
 /** What line 2 draws for a PRD: `slices` is the board shown. */
 export type PrdLineFacts = {
-  number: number;
+  number: PrdNumber;
   topic: string;
-  slice: string | null;
+  slice: WorkSliceId | null;
   stage: string | null;
   openItems: number;
   slices?: readonly CachedSlice[] | null;
@@ -44,7 +45,6 @@ export const NO_PRD_LINE = 'no PRD · /omni:brainstorm to start';
 /** What the status line prints for JSON it could not read. */
 export const UNREADABLE_LINE = 'omni';
 const SEPARATOR = ' · ';
-const DEFAULT_COLUMNS = 80;
 const BAR_CELLS = 10;
 const FILLED = '█';
 const EMPTY = '░';
@@ -58,19 +58,6 @@ const COLOURS: Record<Colour, string> = { green: '\x1b[32m', yellow: '\x1b[33m',
 // One SGR escape (a colour or a reset), or one character.
 const TOKEN = /\x1b\[[0-9;]*m|[\s\S]/gu;
 const SGR = /^\x1b\[[0-9;]*m$/;
-
-/** The line's width: `COLUMNS` when it is a positive whole number, else 80. */
-export function columnsOf(env: Env): number {
-  const raw = env?.COLUMNS;
-  const columns = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : Number.NaN;
-  return Number.isInteger(columns) && columns > 0 ? columns : DEFAULT_COLUMNS;
-}
-
-/** Whether colour is on: always, unless `NO_COLOR` is set to anything but an empty string. */
-export function colorOn(env: Env): boolean {
-  const value = env?.NO_COLOR;
-  return value === undefined || value === null || value === '';
-}
 
 const paint = (text: string, colour: Colour, color: boolean): string => (color ? `${COLOURS[colour]}${text}${RESET}` : text);
 
@@ -150,7 +137,7 @@ export function itemsPart(count: number | null | undefined): string | null {
  * when `color` is on.
  */
 export function slicesPart(slices: readonly CachedSlice[] | null | undefined, { color = false }: { color?: boolean } = {}): string | null {
-  if (!Array.isArray(slices) || slices.length === 0) return null;
+  if (!isList(slices) || slices.length === 0) return null;
   const count = (test: (state: string) => boolean): number => slices.filter((slice) => test(slice.state)).length;
   const merged = count((state) => state === MERGED);
   if (merged === slices.length) return 'all slices merged';
@@ -166,7 +153,7 @@ export function slicesPart(slices: readonly CachedSlice[] | null | undefined, { 
 }
 
 /** `text` cut to `length` characters, the last one `…`. */
-const cutTo = (text: string, length: number): string => `${[...text].slice(0, length - 1).join('')}${CUT}`;
+const cutTo = (text: string, length: number): string => `${Array.from(text).slice(0, length - 1).join('')}${CUT}`;
 
 /**
  * Line 2 for a PRD, within `width`: its topic cut first (never below 8 characters), then the line at
@@ -186,7 +173,7 @@ export function prdLine(
   };
   const line = draw(topic);
   const over = visibleLength(line) - width;
-  const length = [...topic].length;
+  const length = Array.from(topic).length;
   if (over <= 0 || length <= TOPIC_FLOOR) return fit(line, width);
   return fit(draw(cutTo(topic, Math.max(TOPIC_FLOOR, length - over))), width);
 }
@@ -196,15 +183,15 @@ export function prdLine(
  * `readFacts`' (`null`: it could not read, so line 1 comes from the JSON alone), whose `prd` is the
  * PRD line's facts, or `null` for the no-PRD line.
  */
-export function renderLines({ input, facts, env, now }: {
+export function renderLines({ input, facts, terminal, now }: {
   input: Pick<SessionInput, 'model' | 'contextPercent' | 'fiveHour'> | null;
   facts: { installed: boolean; askOn: boolean; prd?: PrdLineFacts | null } | null;
-  env: Env;
+  terminal: Terminal;
   now: number;
 }): string[] {
-  const width = columnsOf(env);
+  const width = terminal.columns;
   if (!input) return [fit(UNREADABLE_LINE, width)];
-  const color = colorOn(env);
+  const color = terminal.color;
   const lines = [sessionLine({ ...input, askOn: facts?.askOn === true }, { now, color })];
   if (facts?.installed) lines.push(facts.prd ? prdLine(facts.prd, width, { color }) : NO_PRD_LINE);
   return lines.map((line) => fit(line, width));

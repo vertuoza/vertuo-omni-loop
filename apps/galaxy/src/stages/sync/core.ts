@@ -11,6 +11,8 @@
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import type { StoredStage } from '../stage';
+import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 
 const CONFIG_PATH = '.omni-loop/config.yml';
 
@@ -19,13 +21,13 @@ export type SyncConfig = {
   defaultBranch: string;
   delivery: string;
   prdLabel: string;
-  branches: { phase0: string; slice: string; feature: string; retro: string };
+  branches: Pick<Config['branches'], 'phase0' | 'slice' | 'feature' | 'retro'>;
 };
 
 /** A pull request as the sync reads it. `ready_at` is when it was last marked ready for review; null
  * when it never was (opened ready, or still a draft). */
 export type SnapshotPull = {
-  number: number;
+  number: PrNumber;
   head: string;
   base: string;
   state: 'open' | 'closed';
@@ -36,7 +38,7 @@ export type SnapshotPull = {
 };
 
 /** A `labels.prd` issue: its number and when it was opened. */
-export type SnapshotIssue = { number: number; created_at: string };
+export type SnapshotIssue = { number: PrdNumber; created_at: string };
 
 /** One repository as GitHub shows it; `config` null when it carries no `.omni-loop` config. */
 export type RepoSnapshot = {
@@ -49,8 +51,8 @@ export type RepoSnapshot = {
 };
 
 /** A stage seen, without its workspace: the route adds it. */
-export type SeenStage = { repository: string; prd: number; stage: StoredStage; reached_at: string };
-export type SeenTopic = { repository: string; prd: number; topic: string };
+export type SeenStage = { repository: string; prd: PrdNumber; stage: StoredStage; reached_at: string };
+export type SeenTopic = { repository: string; prd: PrdNumber; topic: string };
 
 /** The sync's reading of a repository's config. Throws, naming the repository, when it is not valid. */
 export function syncConfig(text: string, repository: string): SyncConfig {
@@ -79,15 +81,17 @@ const earliest = (dates: readonly (string | null)[]): string | null =>
 
 const counted = (pull: SnapshotPull) => pull.state === 'open' || pull.merged_at !== null;
 
-type Folder = { prd: number; topic: string; place: 'inbox' | 'shipped' };
+type Folder = { prd: PrdNumber; topic: string; place: 'inbox' | 'shipped' };
 
 /** Each PRD's folder, the first one found (inbox before shipped), in PRD order. */
 function foldersOf(snapshot: RepoSnapshot): Folder[] {
-  const folders = new Map<number, Folder>();
+  const folders = new Map<PrdNumber, Folder>();
   for (const [place, names] of [['inbox', snapshot.inbox], ['shipped', snapshot.shipped]] as const) {
     for (const name of names) {
       const parsed = parseFolderName(name);
-      if (parsed && !folders.has(parsed.prd)) folders.set(parsed.prd, { prd: parsed.prd, topic: parsed.topic, place });
+      if (!parsed) continue;
+      const { prd } = parsed;
+      if (!folders.has(prd)) folders.set(prd, { prd, topic: parsed.topic, place });
     }
   }
   return [...folders.values()].sort((a, b) => a.prd - b.prd);
@@ -115,13 +119,28 @@ function folderStages(config: SyncConfig, pulls: readonly SnapshotPull[], { topi
   ];
 }
 
+/** The PRDs whose GitHub the snapshot saw move (PRD 902, s4): each issue read, and each folder that a pull
+ * request read belongs to by its topic (its phase-0, slice, feature or retro branch), in PRD order. Read
+ * since the last sync, these are the PRDs that changed; nothing without a config. */
+export function changedPrds(snapshot: RepoSnapshot): PrdNumber[] {
+  const { config } = snapshot;
+  if (!config) return [];
+  const changed = new Set<PrdNumber>(snapshot.issues.map((issue) => issue.number));
+  const shapes = [config.branches.phase0, config.branches.slice, config.branches.feature, config.branches.retro];
+  for (const { prd, topic } of foldersOf(snapshot)) {
+    const patterns = shapes.map((shape) => branchPattern(shape, topic));
+    if (snapshot.pulls.some((pull) => patterns.some((pattern) => pattern.test(pull.head)))) changed.add(prd);
+  }
+  return [...changed].sort((a, b) => a - b);
+}
+
 /** Every stage and topic the repository shows; nothing without a config. */
 export function stagesOfRepo(snapshot: RepoSnapshot, syncedAt: string): { stages: SeenStage[]; topics: SeenTopic[] } {
   const { config } = snapshot;
   if (!config) return { stages: [], topics: [] };
   const repository = snapshot.repository.toLowerCase();
   const stages: SeenStage[] = [];
-  const seen = (prd: number, stage: StoredStage, reached_at: string | null) => {
+  const seen = (prd: PrdNumber, stage: StoredStage, reached_at: string | null) => {
     if (reached_at !== null) stages.push({ repository, prd, stage, reached_at });
   };
 

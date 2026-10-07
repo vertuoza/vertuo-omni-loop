@@ -23,6 +23,7 @@
 // gate, and the database keeps it. Nor for being in no workspace: the callback joins the person to
 // their workspaces before it issues the code (joinBeforeIssue, src/data/sign-in.ts), and when the
 // database still will not issue it for someone in none, the server does.
+import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { messageOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { withInstallLink } from './auth';
@@ -131,7 +132,8 @@ export async function cliSignInReturn(url: URL, origin: string, deps: CliCallbac
 
 // ── POST /api/ask/token ─────────────────────────────────────────────────────
 
-type Refreshed = { data: { session: CliSession | null }; error: unknown };
+// `data` is widened to null: the Auth server's answer is read here unparsed.
+type Refreshed = { data: { session: CliSession | null } | null; error: unknown };
 type Called = { data: unknown; error: { message: string; code?: string } | null };
 
 /** The one thing each half asks of a Supabase client acting as nobody (the anon key). */
@@ -148,7 +150,7 @@ export type TokenDeps = {
   revoke?: (accessToken: string) => Promise<void>;
   /** Where a call of this person for this repository goes (repo_workspace()): the workspace, or the
    * database's reason. Absent (no service role here), nobody is told. */
-  place?: (userId: string, repo: string) => Promise<Placement>;
+  place?: ((userId: string, repo: string) => Promise<Placement>) | undefined;
   /** The App's install link, added after the database's install hint. */
   installLink?: string | null;
 };

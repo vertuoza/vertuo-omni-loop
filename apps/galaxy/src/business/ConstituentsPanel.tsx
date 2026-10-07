@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import { NEVER_MAX, STATEMENT_MAX, type Constituent, type ConstituentEvent } from '../constituents/model';
 import { PersonChip } from '../people/PersonChip';
 import type { Person } from '../people/types';
@@ -16,12 +16,12 @@ import {
 // the field and never blocks Save. Drawn on the server first; BusinessPage.tsx wires the handlers.
 
 export interface ConstituentHandlers {
-  editStatement(statement: Constituent | null): void;
-  addNever(): void;
-  text(text: string): void;
-  cancel(): void;
-  save(): void;
-  remove(line: Constituent): void;
+  editStatement: (statement: Constituent | null) => void;
+  addNever: () => void;
+  text: (text: string) => void;
+  cancel: () => void;
+  save: () => void;
+  remove: (line: Constituent) => void;
 }
 
 const IDLE: ConstituentHandlers = { editStatement() {}, addNever() {}, text() {}, cancel() {}, save() {}, remove() {} };
@@ -64,7 +64,7 @@ export interface ConstituentsPanelProps {
 
 function Field({ kind, state, on }: { kind: 'statement' | 'never'; state: ConstituentsState; on: ConstituentHandlers }) {
   const hint = kind === 'never' ? vagueHint(state.text) : null;
-  const submit = (e: FormEvent) => {
+  const submit = (e: SubmitEvent) => {
     e.preventDefault();
     on.save();
   };
@@ -77,7 +77,7 @@ function Field({ kind, state, on }: { kind: 'statement' | 'never'; state: Consti
         type="text"
         value={state.text}
         maxLength={kind === 'statement' ? STATEMENT_MAX : NEVER_MAX}
-        onChange={(e) => on.text(e.target.value)}
+        onChange={(e) => { on.text(e.target.value); }}
         aria-describedby={hint ? `${id}-hint` : undefined}
         disabled={state.busy}
       />
@@ -101,7 +101,7 @@ function StatementBlock({ statement, state, owner, on }: { statement: Constituen
           <div className="constituents-row">
             {statement ? <p className="constituents-text">{statement.text}</p> : <p className="ask-muted">{NO_STATEMENT}</p>}
             {owner && (
-              <button type="button" className="ask-button quiet" onClick={() => on.editStatement(statement)} disabled={state.busy}>
+              <button type="button" className="ask-button quiet" onClick={() => { on.editStatement(statement); }} disabled={state.busy}>
                 {statement ? EDIT_STATEMENT : ADD_STATEMENT}
               </button>
             )}
@@ -124,7 +124,7 @@ function NeverList({ lines, state, owner, on }: { lines: readonly Constituent[];
                 <code>{line.displayId}</code>
                 <span className="constituents-text">{line.text}</span>
                 {owner && (
-                  <button type="button" className="ask-button quiet" aria-label={`${REMOVE} ${line.displayId}: ${line.text}`} onClick={() => on.remove(line)} disabled={state.busy}>
+                  <button type="button" className="ask-button quiet" aria-label={`${REMOVE} ${line.displayId}: ${line.text}`} onClick={() => { on.remove(line); }} disabled={state.busy}>
                     {REMOVE}
                   </button>
                 )}

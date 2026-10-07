@@ -4,7 +4,7 @@
 // `which-prd.ts`, `stage.ts` and `render.ts` stay pure. Each fact is read on its own, and one that
 // cannot be read counts as absent: nothing here prints, fetches, runs `gh` or writes a file. Every
 // git call goes through the injected `exec`; the one process it may start, the board's background
-// refresh, through the injected `spawn` (none without it).
+// refresh, through the injected `spawn`, running the injected `script` (none without either).
 //
 // - `installed` — a config loads in the checkout of the session's folder (`input.currentDir`, else
 //   the process's own folder): the loop is installed there, and line 2 is printed.
@@ -43,12 +43,13 @@ import { recordedPrd } from './sessions.ts';
 import { isBuilt, openItemCount, stageOf } from './stage.ts';
 import type { FeatureFacts, PrdStage } from './stage.ts';
 import { branchNames, whichPrd } from './which-prd.ts';
+import type { PrdNumber, WorkSliceId } from '../ids.ts';
 
 /** The PRD line's facts: the PRD, the slice its branch names, where it stands, and its board. */
 export type PrdFacts = {
-  number: number;
+  number: PrdNumber;
   topic: string;
-  slice: string | null;
+  slice: WorkSliceId | null;
   stage: PrdStage | null;
   openItems: number;
   slices: CachedSlice[] | null;
@@ -58,7 +59,7 @@ export type PrdFacts = {
 export type Facts = { installed: boolean; askOn: boolean; prd: PrdFacts | null };
 
 /** What the board's refresh needs to start, as `readFacts` passes it on. */
-type Refresh = { now: number; spawn: Spawn | null; env: NodeJS.ProcessEnv | undefined };
+type Refresh = { now: number; spawn: Spawn | null; script: string | undefined; env: NodeJS.ProcessEnv | undefined };
 
 const QUIET: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] };
 
@@ -71,7 +72,7 @@ function attempt<T, F>(fn: () => T, fallback: F): T | F {
   }
 }
 
-const git = (exec: ExecText, cwd: string, args: string[]): string => String(exec('git', args, { cwd, ...QUIET }));
+const git = (exec: ExecText, cwd: string, args: string[]): string => exec('git', args, { cwd, ...QUIET });
 /** The entries of a `-z` output. */
 const entries = (text: string): string[] => text.split('\0').filter(Boolean);
 
@@ -153,15 +154,15 @@ function featureFacts(ctx: Context, { base, topic, folder }: { base: string; top
 }
 
 /** The slices PRD `prd`'s cached board shows, read in the main checkout of `folder`, its refresh
- * started in `folder` when due and `spawn` is given; `null` for none. */
-function boardSlices({ folder, prd, now, spawn, env }: Refresh & { folder: string; prd: number }, exec: ExecText): CachedSlice[] | null {
+ * started in `folder` when due and `spawn` and `script` are given; `null` for none. */
+function boardSlices({ folder, prd, now, spawn, script, env }: Refresh & { folder: string; prd: PrdNumber }, exec: ExecText): CachedSlice[] | null {
   const root = attempt(() => mainCheckout(folder, exec), null);
-  return root ? cachedSlices({ root, prd, now, cwd: folder, spawn, env }) : null;
+  return root ? cachedSlices({ root, prd, now, cwd: folder, spawn, script, env }) : null;
 }
 
 /** The PRD the branch checked out in `folder` names, else the one session `sessionId`'s record names,
  * and where it stands; `null` for no PRD. */
-function readPrd(ctx: Context, { folder, sessionId, now, spawn, env }: Refresh & { folder: string; sessionId: string | null }, exec: ExecText): PrdFacts | null {
+function readPrd(ctx: Context, { folder, sessionId, now, spawn, script, env }: Refresh & { folder: string; sessionId: string | null }, exec: ExecText): PrdFacts | null {
   const branch = branchOf(folder, exec);
   const { branches } = ctx.config;
   const recorded = recordedPrd({ cwd: folder, exec, sessionId });
@@ -174,7 +175,7 @@ function readPrd(ctx: Context, { folder, sessionId, now, spawn, env }: Refresh &
   if (!found) return null;
   const feature = base ? featureFacts(ctx, { base, topic: found.topic, folder: found.folder }, exec) : null;
   const inBaseInbox = Boolean(onBase?.inbox.includes(found.folder) && !onBase.shipped.includes(found.folder));
-  const slices = inBaseInbox ? boardSlices({ folder, prd: found.prd, now, spawn, env }, exec) : null;
+  const slices = inBaseInbox ? boardSlices({ folder, prd: found.prd, now, spawn, script, env }, exec) : null;
   return {
     number: found.prd,
     topic: found.topic,
@@ -187,18 +188,19 @@ function readPrd(ctx: Context, { folder, sessionId, now, spawn, env }: Refresh &
 
 /**
  * The facts for `input`, `parseInput`'s result, from the options: the process's own folder,
- * `execFileSync`, the clock in milliseconds, and `spawn` with the environment the board's refresh
- * starts with (no refresh starts without `spawn`).
+ * `execFileSync`, the clock in milliseconds, and `spawn` with the `script` the board's refresh runs
+ * (the file that runs this `omni`) and the environment it starts with (no refresh starts without
+ * `spawn` and `script`).
  */
 export function readFacts(
   input: Pick<SessionInput, 'currentDir' | 'projectDir' | 'sessionId'>,
-  { cwd, exec, now = Date.now(), spawn = null, env }: { cwd: string; exec: ExecText; now?: number; spawn?: Spawn | null; env?: NodeJS.ProcessEnv | undefined },
+  { cwd, exec, now = Date.now(), spawn = null, script, env }: { cwd: string; exec: ExecText; now?: number; spawn?: Spawn | null; script?: string | undefined; env?: NodeJS.ProcessEnv | undefined },
 ): Facts {
   const folder = input.currentDir ?? cwd;
   const ctx = checkoutContext(folder, exec);
   return {
     installed: ctx !== null,
     askOn: askModeOn(input.projectDir),
-    prd: ctx ? readPrd(ctx, { folder, sessionId: input.sessionId, now, spawn, env }, exec) : null,
+    prd: ctx ? readPrd(ctx, { folder, sessionId: input.sessionId, now, spawn, script, env }, exec) : null,
   };
 }

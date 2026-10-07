@@ -22,14 +22,12 @@ export interface AgentQuestionsProps {
   products: Product[];
 }
 
-type Rpc = Parameters<typeof databaseQuestions>[0];
-
 export function AgentQuestions({ source, questions, products }: AgentQuestionsProps) {
   const [state, act] = useReducer(questionsReducer, questions, initialQuestionsState);
   const port = useRef<QuestionsPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoQuestions(source.lastSeq)
-    : databaseQuestions(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace)); // ts-allow: the port takes only the narrow rpc it calls
+    : databaseQuestions(createBrowserClient<Database>(source.url, source.key), source.workspace));
 
   const save = async () => {
     const answering = state.answering;
@@ -52,12 +50,12 @@ export function AgentQuestions({ source, questions, products }: AgentQuestionsPr
     act(got.ok ? { type: 'brought-back', id: question.id } : { type: 'refused', message: got.message });
   };
   const on: QuestionsHandlers = {
-    answer: (question) => act({ type: 'answer', id: question.id }),
-    kind: (kind) => act({ type: 'kind', kind }),
-    value: (value) => act({ type: 'value', value }),
-    product: (product) => act({ type: 'product', product }),
+    answer: (question) => { act({ type: 'answer', id: question.id }); },
+    kind: (kind) => { act({ type: 'kind', kind }); },
+    value: (value) => { act({ type: 'value', value }); },
+    product: (product) => { act({ type: 'product', product }); },
     save: () => void save(),
-    cancel: () => act({ type: 'cancel' }),
+    cancel: () => { act({ type: 'cancel' }); },
     dismiss: (question) => void dismiss(question),
     bringBack: (question) => void bringBack(question),
   };

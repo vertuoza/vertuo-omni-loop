@@ -36,6 +36,8 @@
  * base branch is a caller's job.
  */
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-territory.mjs — changes in kit/porting/inbox--territory.md.
+import { WorkSliceIdSchema } from '../ids.ts';
+import type { WorkSliceId } from '../ids.ts';
 import type { Slice } from '../types.ts';
 
 export type { Slice };
@@ -43,12 +45,16 @@ export type { Slice };
 /** One row of a plan's `## Repositories` table. */
 export type PlanRepository = { repo: string; role: string; readAt: string; knowledge: string };
 
+/** One row of a plan's `## Landings` table: the landing's number, its kebab-case name and what must
+ * be true before its pull request merges (`''` when the row leaves it empty). */
+export type PlanLanding = { landing: number; name: string; mergeWhen: string };
+
 /** Two slices whose declarations intersect, and the ground they share. */
-export type Collision = { left: string; right: string; shared: string[] };
+export type Collision = { left: WorkSliceId; right: WorkSliceId; shared: string[] };
 
 /** One slice's diff graded against its declaration. */
 export type TerritoryVerdict = {
-  slice: string;
+  slice: WorkSliceId;
   unknownSlice: boolean;
   declared: string[];
   breaches: string[];
@@ -56,24 +62,40 @@ export type TerritoryVerdict = {
   lines: string[];
 };
 
+/**
+ * A file the repository builds rather than writes (PRD 1138): an entry of the config's `generated`
+ * section, of which matching reads the `path` alone. Its ground is nobody's: a slice that rebuilt it
+ * did not breach, and two slices that both list it share nothing on it.
+ */
+export type Generated = { readonly path: string };
+
 /** The ground a slice declares: the only field the matching reads. */
 type Declared = Pick<Slice, 'territory'>;
 
 /** What the collision matrix reads of a slice: `repo` may be absent on a hand-built row. */
-type CollidingSlice = Pick<Slice, 'id' | 'territory'> & { repo?: string | null; wave?: number | null };
+type CollidingSlice = Pick<Slice, 'id' | 'territory'> & { repo?: string | null; wave?: number | null; landing?: number };
 
 /** A cell that declares nothing: an em dash, or nothing at all. */
 const NOTHING = /^[—–-]?$/;
 
+/** A slice id the plan wrote — a plan's `s1`, or a rework plan's `fix-s1-01-…` — or an error naming
+ * it: a malformed id fails where it is read. */
+function sliceIdOf(text: string): WorkSliceId {
+  const id = WorkSliceIdSchema.safeParse(text);
+  if (!id.success) throw new Error(`This plan's slice table names "${text}", which is no slice id like s1.`);
+  return id.data;
+}
+
 /** The ids one `blocked by` cell names — comma- or space-separated, backticks stripped. `[]` for a
  * cell that declares nothing (an em dash, a bare hyphen, or empty). */
-function blockedByCell(cell: string | undefined): string[] {
+function blockedByCell(cell: string | undefined): WorkSliceId[] {
   const text = (cell ?? '').trim();
   if (NOTHING.test(text)) return [];
   return text
     .split(/[\s,]+/)
     .map((token) => token.replace(/`/g, '').trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map(sliceIdOf);
 }
 
 /**
@@ -174,18 +196,25 @@ export function parsePlanSlices(markdown: string): Slice[] {
     const id = row[column('id')];
     if (!id) continue;
     slices.push({
-      id,
+      id: sliceIdOf(id),
       repo: column('repo') === -1 ? null : plainCell(row[column('repo')]),
       title: column('slice') === -1 ? '' : (row[column('slice')] ?? ''),
       territory: territoryPrefixes(row[column('territory')]),
       blockedBy: column('blocked by') === -1 ? [] : blockedByCell(row[column('blocked by')]),
       wave: column('wave') === -1 ? null : Number(row[column('wave')]),
+      landing: column('landing') === -1 ? 1 : landingCell(row[column('landing')]),
     });
   }
   if (slices.length === 0) {
     throw new Error('The slice table holds no slice; there is nothing to grade.');
   }
   return slices;
+}
+
+/** A `landing` cell: a number, 1 for an empty cell (the plan's one landing), `NaN` for anything else. */
+function landingCell(cell: string | undefined): number {
+  const text = plainCell(cell);
+  return NOTHING.test(text) ? 1 : Number(text);
 }
 
 /** A cell's text with its backticks stripped: `''` for an empty cell, never `null`. */
@@ -200,12 +229,41 @@ function plainCell(cell: string | undefined): string {
  * under it — an ordinary plan names no repository.
  */
 export function parsePlanRepositories(markdown: string): PlanRepository[] {
+  const rows: PlanRepository[] = [];
+  for (const at of sectionTable(markdown, 'repositories')) {
+    const repo = at('repo');
+    if (!repo) continue;
+    rows.push({ repo, role: at('role'), readAt: at('read at'), knowledge: at('knowledge') });
+  }
+  return rows;
+}
+
+/**
+ * The rows of a plan's `## Landings` table, in the order they are written: each landing's number
+ * (`NaN` for a cell that is no number), its `name` and what must be true before it is merged
+ * (`merge when`, `''` for an em dash). `[]` when the plan has no such heading, or no table under it: its landings are then
+ * named `landing-<n>`, with no merge condition.
+ */
+export function parsePlanLandings(markdown: string): PlanLanding[] {
+  const rows: PlanLanding[] = [];
+  for (const at of sectionTable(markdown, 'landings')) {
+    const landing = at('landing');
+    if (!landing) continue;
+    const mergeWhen = at('merge when');
+    rows.push({ landing: Number(landing), name: at('name'), mergeWhen: NOTHING.test(mergeWhen) ? '' : mergeWhen });
+  }
+  return rows;
+}
+
+/** Each row of the first table under the `## <heading>` of `markdown`, as a reader of its cells by
+ * column name (`''` for a column the table lacks). `[]` without the heading or a table under it. */
+function sectionTable(markdown: string, heading: string): ((name: string) => string)[] {
   const lines = markdown.split('\n');
-  const heading = lines.findIndex((line) => /^##\s+repositories\s*$/i.test(line.trim()));
-  if (heading === -1) return [];
+  const start = lines.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, 'i').test(line.trim()));
+  if (start === -1) return [];
 
   let headerIndex = -1;
-  for (let i = heading + 1; i < lines.length; i += 1) {
+  for (let i = start + 1; i < lines.length; i += 1) {
     const line = lines[i] ?? '';
     if (/^#{1,2}\s/.test(line.trim())) break;
     if (isTableRow(line)) {
@@ -216,14 +274,9 @@ export function parsePlanRepositories(markdown: string): PlanRepository[] {
   if (headerIndex === -1) return [];
 
   const header = cells(lines[headerIndex] ?? '').map((name) => name.toLowerCase());
-  const at = (row: string[], name: string): string => (header.indexOf(name) === -1 ? '' : plainCell(row[header.indexOf(name)]));
-  const rows: PlanRepository[] = [];
-  for (const row of bodyRows(lines, headerIndex)) {
-    const repo = at(row, 'repo');
-    if (!repo) continue;
-    rows.push({ repo, role: at(row, 'role'), readAt: at(row, 'read at'), knowledge: at(row, 'knowledge') });
-  }
-  return rows;
+  return bodyRows(lines, headerIndex).map(
+    (row) => (name: string) => (header.indexOf(name) === -1 ? '' : plainCell(row[header.indexOf(name)])),
+  );
 }
 
 /** True when one of the declared prefixes owns this path. */
@@ -231,19 +284,34 @@ export function covers(territory: readonly string[], path: string): boolean {
   return territory.some((declaration) => path.startsWith(prefixOf(declaration)));
 }
 
-/** The changed paths no declared prefix owns — the breach, in the order the diff listed them. */
-export function breaches(paths: readonly string[], territory: readonly string[]): string[] {
-  return paths.filter((path) => !covers(territory, path));
+/** The path prefixes of the generated outputs. */
+function generatedPrefixes(generated: readonly Generated[]): string[] {
+  return generated.map(({ path }) => path);
 }
 
-/** The ground two slices both claim: every declaration of one that meets a declaration of the other. */
-export function sharedGround(left: Declared, right: Declared): string[] {
+/**
+ * The changed paths no declared prefix owns — the breach, in the order the diff listed them. A path
+ * a `generated` entry covers is never one: it is rebuilt, not written.
+ */
+export function breaches(paths: readonly string[], territory: readonly string[], generated: readonly Generated[] = []): string[] {
+  const built = generatedPrefixes(generated);
+  return paths.filter((path) => !covers(territory, path) && !covers(built, path));
+}
+
+/**
+ * The ground two slices both claim: every declaration of one that meets a declaration of the other.
+ * Two declarations meet on the narrower of them; when a `generated` entry covers that, they share
+ * nothing (PRD 1138).
+ */
+export function sharedGround(left: Declared, right: Declared, generated: readonly Generated[] = []): string[] {
+  const built = generatedPrefixes(generated);
   const shared = new Set<string>();
   for (const a of left.territory) {
     for (const b of right.territory) {
       const [x, y] = [prefixOf(a), prefixOf(b)];
-      if (x.startsWith(y)) shared.add(x.length >= y.length ? y : x);
-      else if (y.startsWith(x)) shared.add(x);
+      const meets = x.startsWith(y) || y.startsWith(x);
+      const narrower = x.length >= y.length ? x : y;
+      if (meets && !covers(built, narrower)) shared.add(x.length >= y.length ? y : x);
     }
   }
   return [...shared];
@@ -254,12 +322,12 @@ export function sharedGround(left: Declared, right: Declared): string[] {
  * can meet (PRD 549): a territory is a path in its slice's `repo`, and two slices with no `repo`
  * (`null`, an ordinary plan) share one repository, as they always did.
  */
-export function collisions(slices: readonly CollidingSlice[]): Collision[] {
+export function collisions(slices: readonly CollidingSlice[], generated: readonly Generated[] = []): Collision[] {
   const pairs: Collision[] = [];
   for (const [i, a] of slices.entries()) {
     for (const b of slices.slice(i + 1)) {
       if ((a.repo ?? null) !== (b.repo ?? null)) continue;
-      const shared = sharedGround(a, b);
+      const shared = sharedGround(a, b, generated);
       if (shared.length > 0) pairs.push({ left: a.id, right: b.id, shared });
     }
   }
@@ -267,23 +335,37 @@ export function collisions(slices: readonly CollidingSlice[]): Collision[] {
 }
 
 /**
- * The pairs a plan may not contain: intersecting territories in one wave. Siblings in a wave merge
- * one after another, so shared ground turns the second into a conflict.
+ * The pairs a plan may not contain: intersecting territories in one wave of one landing. Siblings in
+ * a wave merge one after another, so shared ground turns the second into a conflict. Waves are
+ * counted within a landing, and a landing starts only once the one before it is merged, so two
+ * slices of different landings never meet, whatever their wave numbers. A slice with no `landing`
+ * sits in landing 1. Ground a `generated` entry covers is nobody's, so it never keeps two slices apart.
  */
-export function sameWaveCollisions(slices: readonly CollidingSlice[]): (Collision & { wave: number | null | undefined })[] {
+export function sameWaveCollisions(
+  slices: readonly CollidingSlice[],
+  generated: readonly Generated[] = [],
+): (Collision & { wave: number | null | undefined })[] {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
-  return collisions(slices)
-    .filter(({ left, right }) => waveOf.get(left) === waveOf.get(right))
+  const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
+  return collisions(slices, generated)
+    .filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf.get(left) === landingOf.get(right))
     .map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
 }
 
-/** The collision matrix a plan prints, computed from the declarations rather than asserted. */
-export function collisionRows(slices: readonly CollidingSlice[]): { pair: string; shared: string; resolved: string }[] {
+/** The collision matrix a plan prints, computed from the declarations rather than asserted. In a plan
+ * of more than one landing, each side's wave is written with its landing (`s1 l1w2`). */
+export function collisionRows(
+  slices: readonly CollidingSlice[],
+  generated: readonly Generated[] = [],
+): { pair: string; shared: string; resolved: string }[] {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
-  return collisions(slices).map(({ left, right, shared }) => ({
+  const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
+  const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
+  const at = (id: WorkSliceId) => `${landed ? `l${landingOf.get(id)}` : ''}w${waveOf.get(id)}`;
+  return collisions(slices, generated).map(({ left, right, shared }) => ({
     pair: `${left} · ${right}`,
     shared: shared.map((ground) => `\`${ground}\``).join(', '),
-    resolved: `${left} w${waveOf.get(left)} · ${right} w${waveOf.get(right)}`,
+    resolved: `${left} ${at(left)} · ${right} ${at(right)}`,
   }));
 }
 
@@ -291,12 +373,13 @@ export function collisionRows(slices: readonly CollidingSlice[]): { pair: string
  * One slice's diff against its own declaration.
  *
  * `fatal` is always `false`, and it is a field rather than a comment so the caller that merges can
- * read the policy instead of remembering it.
+ * read the policy instead of remembering it. A path a `generated` entry covers is no breach.
  */
 export function territoryVerdict(
   slices: readonly Pick<Slice, 'id' | 'territory'>[],
-  sliceId: string,
+  sliceId: WorkSliceId,
   changedPaths: readonly string[],
+  generated: readonly Generated[] = [],
 ): TerritoryVerdict {
   const slice = slices.find((candidate) => candidate.id === sliceId);
   if (!slice) {
@@ -309,7 +392,7 @@ export function territoryVerdict(
       lines: [`Territory: the plan holds no slice ${sliceId}; its diff was not graded.`],
     };
   }
-  const outside = breaches(changedPaths, slice.territory);
+  const outside = breaches(changedPaths, slice.territory, generated);
   const lines =
     outside.length === 0
       ? [`Territory: ${slice.id} stayed inside the ${slice.territory.length} path(s) it declared.`]

@@ -1,4 +1,6 @@
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { CANON_ACTION, canonActions, canonComment, canonMarker, commentMarker, readCanonMarker } from './canon-actions.ts';
 
 const RED = Object.freeze({
@@ -34,24 +36,25 @@ describe('canonActions — the buttons on a red canon check run', () => {
       expect(action.description.length).toBeLessThanOrEqual(40);
       expect(action.identifier.length).toBeLessThanOrEqual(20);
     }
-    expect(canonActions(long)[0]!.label).toBe('Rewrite for Maximili');
+    expect(canonActions(long)[0]?.label).toBe('Rewrite for Maximili');
   });
 
   it('without a persona, the first button reads Rewrite the spec', () => {
-    expect(canonActions({ ...RED, persona: null })[0]!.label).toBe('Rewrite the spec');
+    expect(canonActions({ ...RED, persona: null })[0]?.label).toBe('Rewrite the spec');
   });
 });
 
 describe('canonMarker / readCanonMarker — the facts a click needs, hidden in the summary', () => {
   it('a red canon writes the PRD, the persona and every cited claim once, in order', () => {
-    const marker = canonMarker({ prd: 839, canon: RED });
-    expect(marker!.startsWith('<!--')).toBe(true);
-    expect(readCanonMarker(`PRD 839\n\n${marker}\n- ok`)).toEqual({ prd: 839, persona: 'Marc', claims: ['never#4', 'size#1'] });
+    const marker = canonMarker({ prd: parsePrd(839), canon: RED });
+    assertDefined(marker, 'the marker');
+    expect(marker.startsWith('<!--')).toBe(true);
+    expect(readCanonMarker(`PRD 839\n\n${marker}\n- ok`)).toEqual({ prd: parsePrd(839), persona: 'Marc', claims: ['never#4', 'size#1'] });
   });
 
   it('a green or neutral canon, or no PRD, writes none', () => {
-    expect(canonMarker({ prd: 839, canon: GREEN })).toBeNull();
-    expect(canonMarker({ prd: 839, canon: NEUTRAL })).toBeNull();
+    expect(canonMarker({ prd: parsePrd(839), canon: GREEN })).toBeNull();
+    expect(canonMarker({ prd: parsePrd(839), canon: NEUTRAL })).toBeNull();
     expect(canonMarker({ prd: null, canon: RED })).toBeNull();
   });
 
@@ -59,12 +62,13 @@ describe('canonMarker / readCanonMarker — the facts a click needs, hidden in t
     expect(readCanonMarker('PRD 1\n- ok — canon: canon ✓')).toBeNull();
     expect(readCanonMarker('<!-- omni-canon {not json} -->')).toBeNull();
     expect(readCanonMarker('<!-- omni-canon {"prd":"x","claims":[]} -->')).toBeNull();
+    expect(readCanonMarker('<!-- omni-canon {"prd":0,"claims":[]} -->')).toBeNull();
     expect(readCanonMarker(undefined)).toBeNull();
   });
 });
 
 describe('canonComment — the one comment each action posts', () => {
-  const facts = { prd: 839, persona: 'Marc', claims: ['never#4', 'size#1'] };
+  const facts = { prd: parsePrd(839), persona: 'Marc', claims: ['never#4', 'size#1'] };
 
   it('Rewrite for <persona> posts the rework command', () => {
     const body = canonComment(CANON_ACTION.rewrite, facts, { galaxyUrl: GALAXY });
@@ -85,7 +89,7 @@ describe('canonComment — the one comment each action posts', () => {
   });
 
   it('Change the line links the Statement at #statement, and says an owner changes a constituent', () => {
-    const body = canonComment(CANON_ACTION.claim, { prd: 871, persona: null, claims: ['statement', 'never#1'] }, { galaxyUrl: GALAXY });
+    const body = canonComment(CANON_ACTION.claim, { prd: parsePrd(871), persona: null, claims: ['statement', 'never#1'] }, { galaxyUrl: GALAXY });
     expect(body).toContain('[statement](https://galaxy.example/app/settings/business#statement)');
     expect(body).toContain('[never#1](https://galaxy.example/app/settings/business#never-1)');
     expect(body).toContain('an owner of the workspace changes it on the Constituents panel');

@@ -12,7 +12,7 @@ import type { AskAttachments } from '../store';
 
 /** The bucket, as the page's storage client reaches it (`storage.from(bucket)`). */
 export type Bucket = {
-  upload(path: string, file: Blob, options: { contentType: string; upsert: false }): Promise<{ error: { message: string; statusCode?: string } | null }>;
+  upload(path: string, file: Blob, options: { contentType: string; upsert: false }): Promise<{ error: { message: string; statusCode?: string | undefined } | null }>;
   remove(paths: string[]): Promise<{ error: unknown }>;
 };
 
@@ -50,7 +50,9 @@ export type Tray = {
 };
 
 const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((listener) => listener());
+const emit = () => {
+  for (const listener of listeners) listener();
+};
 
 export function newTray(): Tray {
   const tray: Tray = {
@@ -90,7 +92,7 @@ export function subscribeTrays(listener: () => void): () => void {
 
 const EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
 const numberOf = (path: string) => Number(path.slice(path.lastIndexOf('/') + 1).split('.')[0]);
-const exists = (error: { message: string; statusCode?: string }) => error.statusCode === '409' || /already exists|duplicate/i.test(error.message);
+const exists = (error: { message: string; statusCode?: string | undefined }) => error.statusCode === '409' || /already exists|duplicate/i.test(error.message);
 
 /** Deletes the uploads whose screenshot was removed from the tray, so their numbers are free again. */
 async function dropRemoved(bucket: Bucket, tray: Tray, staged: Shot[]): Promise<void> {
@@ -127,7 +129,7 @@ async function upload(bucket: Bucket, roundId: string, tray: Tray, onProgress: (
     if (!path || !(await put(bucket, path, shot))) throw failed(at + 1, staged.length, onProgress);
     tray.uploaded.set(shot.id, path);
   }
-  return Object.fromEntries(Object.entries(tray.shots).map(([question, shots]) => [question, shots.map((s) => tray.uploaded.get(s.id) as string)])); // ts-allow: the loop above set every staged shot's path in tray.uploaded, or threw
+  return Object.fromEntries(Object.entries(tray.shots).map(([question, shots]) => [question, shots.flatMap((s) => tray.uploaded.get(s.id) ?? [])])); // the loop above set every staged shot's path, or threw
 }
 
 function failed(at: number, total: number, onProgress: (progress: Progress) => void): UploadFailed {

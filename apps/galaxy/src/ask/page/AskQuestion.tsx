@@ -34,7 +34,7 @@ export type QuestionSource = { kind: 'database'; url: string; key: string } | { 
 type Props = {
   source: QuestionSource; initial: QuestionState; serverNow: number; me: string | null; members: Member[];
   /** The dossier the page was opened from (`?from=`), as given: back.ts ignores anything that is no dossier id. */
-  from?: string | null;
+  from?: string | null | undefined;
 };
 
 function makePort(source: QuestionSource, seed: QuestionState): QuestionPort {
@@ -111,6 +111,10 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
       setSending(false);
     }
   }, [answers, sending, getPort, state.round.id, clock, me, members, from, source]);
+  // What RoundForm calls, stable while onSend is: its keyboard effect runs on the same changes as before.
+  const send = useCallback(() => {
+    void onSend();
+  }, [onSend]);
 
   const onSort = useCallback(async (category: Category | null) => {
     setSorting(true);
@@ -146,7 +150,7 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
           onDraft={setDraft}
           canSend={answers !== null}
           sending={sending}
-          onSend={onSend}
+          onSend={send}
           minutesLeft={minutesLeft(view.movesAt, now)}
         />
       )}

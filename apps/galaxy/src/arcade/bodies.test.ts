@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { Advance } from './Advance';
 import { Handheld, type BodyProps } from './Handheld';
+import { sure } from './test/sure';
 
 // The two Game Boy bodies, rendered as the server would: with the app to leave for, each carries the
 // GAME ▮▯ APP switch (PRD 238), the upright one at the right end of its wordmark row, the sideways one
@@ -24,7 +25,7 @@ describe('the GAME ▮▯ APP switch', () => {
     it(`is on the ${name} body with the app: one button, named "Switch to the app", reading GAME and APP`, () => {
       const found = switches(html(Body, { onApp }));
       expect(found).toHaveLength(1);
-      const button = found[0]!;
+      const button = sure(found[0], 'found[0]');
       expect(button).toMatch(/^<button type="button" class="gb-switch"/);
       expect(button.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean)).toEqual(['GAME', 'APP']);
     });
@@ -54,7 +55,7 @@ describe('the GAME ▮▯ APP switch', () => {
     const markup = html(Handheld, { onApp });
     const word = markup.indexOf('<p class="gb-word">'), sw = markup.search(SWITCH), pad = markup.indexOf('class="gb-pad"');
     expect(word).toBeGreaterThanOrEqual(0);
-    expect(markup.slice(word).match(/^<p class="gb-word">[\s\S]*?<\/p>/)![0].length + word).toBe(sw);
+    expect(sure(markup.slice(word).match(/^<p class="gb-word">[\s\S]*?<\/p>/), 'markup.slice(word).match(/^<p class="gb-word">[\s\S]*?<\/p>/)')[0].length + word).toBe(sw);
     expect(sw).toBeLessThan(pad);
   });
 

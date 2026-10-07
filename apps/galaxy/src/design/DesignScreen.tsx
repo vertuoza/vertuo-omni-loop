@@ -29,7 +29,7 @@ const SAMPLE: Record<FontRole, string> = {
 const Svg = ({ svg }: { svg: string }) => <span className="ds-svg" dangerouslySetInnerHTML={{ __html: svg }} />;
 
 function SpriteFrame({ name, frame, scale, tint, label }: { name: string; frame: number; scale: number; tint?: Tint; label?: string }) {
-  return <Svg svg={pixelSvg(spritePixels(name, { frame, tint }), { scale, title: `${label ?? name}, frame ${frame + 1}` })} />;
+  return <Svg svg={pixelSvg(spritePixels(name, { frame, tint: tint ?? null }), { scale, title: `${label ?? name}, frame ${frame + 1}` })} />;
 }
 
 function Section({ id, title, lede, children }: { id: string; title: string; lede: string; children: React.ReactNode }) {

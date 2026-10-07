@@ -10,7 +10,9 @@
 //   Territory   paths a merged sub-PR changed outside its slice's territory. The PRD's own outbox
 //               folder (its items and accounts) is every slice's ground, and a path on shared ground
 //               (ground two slices' territories both cover, as the kit computes it) is counted, never
-//               flagged. A finding for any other path.
+//               flagged. A path one of the repository's generated outputs covers (the config's
+//               `generated` section at the merge, PRD 1138) is rebuilt, not written: never flagged,
+//               and never shared ground. A finding for any other path.
 //   Friction    `labels.needsFix` added, "Stuck after N attempts" comments, a slice claimed by more
 //               than one sub-PR. A finding for a stuck or needs-fix slice; a second claim is counted,
 //               and named in that finding.
@@ -27,12 +29,13 @@ import { parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
 import { reworkPullRequest } from 'vertuo-omni-plan/kit/lib/policy/rework.ts';
 import type { SettledEntry } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import { SliceIdSchema, type PrNumber, type SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { Evidence, Finding, RetroPr, RetroPrd, RetroPull } from './index.ts';
 import type { PullReads, StuckComment } from './delivery.reads.ts';
 import { sliceOf } from './slice-of.ts';
 
 /** A sub-PR of a slice: the pull request and the slice its head branch names. */
-export type Sub = { pull: RetroPull; slice: string };
+export type Sub = { pull: RetroPull; slice: SliceId };
 
 /** What the kind read, by pull request number. */
 export type Reads = Record<string, PullReads | undefined>;
@@ -88,13 +91,22 @@ function outboxFolder(prd: RetroPrd, config: Config): string {
 export function repoLinks(pr: RetroPr) {
   const base = typeof pr.url === 'string' ? pr.url.replace(/\/pull\/\d+$/, '') : null;
   return {
-    pull: (number: number): string | null => (base ? `${base}/pull/${number}` : null),
+    pull: (number: PrNumber): string | null => (base ? `${base}/pull/${number}` : null),
     blob: (path: string): string | null => (base && pr.mergeSha ? `${base}/blob/${pr.mergeSha}/${path}` : null),
     ref: (reference: string): string | null => (/^#\d+$/.test(reference) ? (base ? `${base}/pull/${reference.slice(1)}` : null) : reference),
   };
 }
 
 // ---- decisions and the override label ------------------------------------------------------------
+
+/**
+ * A settled entry's `Slice:` line as a slice id, or `null` when it has none or it is no slice id: the
+ * ledger keeps an entry's lines as text, so the slice is parsed where it is read.
+ */
+function sliceIdOrNull(value: string | undefined): SliceId | null {
+  const read = SliceIdSchema.safeParse(value);
+  return read.success ? read.data : null;
+}
 
 /** The settled decisions, by verdict and by rank; a finding for each drift. */
 export function decisionFacts({ prd, config, links }: { prd: RetroPrd; config: Config; links: Links }): Part<DecisionFacts> {
@@ -106,7 +118,7 @@ export function decisionFacts({ prd, config, links }: { prd: RetroPrd; config: C
   const verdicts = (verdict: string) => entries.filter((entry) => entry.verdict === verdict).length;
   const drifts = entries
     .filter((entry) => entry.verdict === 'drifted')
-    .map((entry) => ({ id: entry.id, rank: entry.fields.Rank ?? null, slice: entry.fields.Slice ?? null, reworkedBy: reworkPullRequest(entry) }));
+    .map((entry) => ({ id: entry.id, rank: entry.fields.Rank ?? null, slice: sliceIdOrNull(entry.fields.Slice), reworkedBy: reworkPullRequest(entry) }));
 
   const facts = {
     file,
@@ -152,7 +164,7 @@ function byRank(entries: readonly SettledEntry[]): Record<string, number> {
 /** Whether the feature PR merged carrying the override label; a finding when it did. */
 export function overrideFacts({ pr, config }: { pr: RetroPr; config: Config }): Part<{ label: string; mergedUnder: boolean }> {
   const label = config.labels.outboxGo;
-  const mergedUnder = (pr.labels ?? []).includes(label);
+  const mergedUnder = pr.labels.includes(label);
   const findings: Finding[] = mergedUnder
     ? [
         {
@@ -181,7 +193,8 @@ export function territoryFacts({ prd, config, subs, read }: { prd: RetroPrd; con
     return ungraded(firstClause(messageOf(error)));
   }
 
-  const sharedGround = [...new Set(collisions(slices).flatMap((pair) => pair.shared))];
+  const generated = config.generated ?? [];
+  const sharedGround = [...new Set(collisions(slices, generated).flatMap((pair) => pair.shared))];
   const ownOutbox = [`${outboxFolder(prd, config)}/`, `${prd.folder}/outbox/`];
 
   const pulls = mergedSlicePulls(subs).map(({ pull, slice }): TerritoryPull => {
@@ -191,7 +204,7 @@ export function territoryFacts({ prd, config, subs, read }: { prd: RetroPrd; con
     const paths = [...new Set(files)];
     const planned = slices.find((candidate) => candidate.id === slice);
     if (!planned) return { ...base, status: 'unplanned', files: paths.length, breaches: null, shared: null };
-    const off = breaches(paths, [...planned.territory, ...ownOutbox]);
+    const off = breaches(paths, [...planned.territory, ...ownOutbox], generated);
     return {
       ...base,
       status: 'graded',
@@ -229,7 +242,7 @@ export function territoryFacts({ prd, config, subs, read }: { prd: RetroPrd; con
 
 /** "No slice table was found in this plan; its slices…" → "no slice table was found in this plan". */
 function firstClause(message: string): string {
-  const clause = (String(message).split(/;|\.(\s|$)/)[0] ?? '').trim();
+  const clause = (message.split(/;|\.(\s|$)/)[0] ?? '').trim();
   return clause.charAt(0).toLowerCase() + clause.slice(1);
 }
 
@@ -256,7 +269,7 @@ export function frictionFacts({ subs, read, config }: { subs: readonly Sub[]; re
     const added = records.needsFix ?? null;
     if (added === null) counts.eventsUnread += 1;
     if (added && added.length > 0) entry.needsFix.push(...added.map((at) => ({ pr: pull.number, at })));
-    else if (pull.labels?.includes(label)) entry.needsFix.push({ pr: pull.number, at: null });
+    else if (pull.labels.includes(label)) entry.needsFix.push({ pr: pull.number, at: null });
   }
 
   const all = [...slices.values()];
@@ -294,7 +307,7 @@ export function frictionFacts({ subs, read, config }: { subs: readonly Sub[]; re
 
 /** The feature PR's and each merged sub-PR's reviews and threads; a finding per pull request left with a red circle or an open thread. */
 export function reviewFacts({ pr, subs, read }: { pr: RetroPr; subs: readonly Sub[]; read: Reads }): Part<ReviewFacts> {
-  const targets: { pr: number; slice: string | null; url: string | null }[] = [
+  const targets: { pr: PrNumber; slice: SliceId | null; url: string | null }[] = [
     { pr: pr.number, slice: null, url: pr.url },
     ...mergedSlicePulls(subs).map(({ pull, slice }) => ({ pr: pull.number, slice, url: pull.url })),
   ];
@@ -417,11 +430,11 @@ export type DecisionFacts = {
   drifted: number;
   reworked: number;
   byRank: Record<string, number>;
-  drifts: { id: string; rank: string | null; slice: string | null; reworkedBy: string | null }[];
+  drifts: { id: string; rank: string | null; slice: SliceId | null; reworkedBy: string | null }[];
 };
 
 type TerritoryCounts = { graded: number; breaches: number; shared: number; unread: number; unplanned: number };
-type PullBase = { slice: string; pr: number; url: string | null };
+type PullBase = { slice: SliceId; pr: PrNumber; url: string | null };
 type GradedPull = PullBase & { status: 'graded'; files: number; breaches: string[]; shared: string[] };
 type TerritoryPull =
   | GradedPull
@@ -430,11 +443,11 @@ type TerritoryPull =
 export type TerritoryFacts = { reason: string | null; sharedGround: string[]; counts: TerritoryCounts; pulls: TerritoryPull[] };
 
 type FrictionSlice = {
-  slice: string;
-  prs: number[];
+  slice: SliceId;
+  prs: PrNumber[];
   claims: number;
-  stuck: (StuckComment & { pr: number })[];
-  needsFix: { pr: number; at: string | null }[];
+  stuck: (StuckComment & { pr: PrNumber })[];
+  needsFix: { pr: PrNumber; at: string | null }[];
 };
 export type FrictionFacts = {
   label: string;
@@ -458,8 +471,8 @@ export type ReviewFacts = {
     threadsUnread: number;
   };
   pulls: {
-    pr: number;
-    slice: string | null;
+    pr: PrNumber;
+    slice: SliceId | null;
     url: string | null;
     reviews: { people: number; bots: number } | null;
     threads: { people: number; bots: number } | null;

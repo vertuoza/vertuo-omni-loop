@@ -1,8 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { JevOutcome } from '../client';
 import type { JevDecideDeps } from '../resolve';
 import type { JevCall, JevDecisionSettings, JevMode } from '../store';
 import { decideRoute, placedFrom, type DecideRouteDeps } from './decide-route';
+import { sure } from '../../arcade/test/sure';
+
+vi.mock('server-only', () => ({}));
 
 // `POST /api/decide/<decision>` (PRD 812 s3): a Claude session asks the workspace's Jev decision, with
 // the terminal's sign-in. A fake world of one workspace, Acme (GitHub org acme), whose Ada is a member;
@@ -25,29 +28,30 @@ function world({ mode = 'off', noul = 0.82, database = true, jev = true, outcome
   const asked: unknown[] = [];
   const logged: JevCall[] = [];
   const placed: Array<{ userId: string; repo: string }> = [];
-  const connect = (_token: string) => ({
+  const connect = () => ({
     auth: {
-      getUser: async (jwt: string) =>
-        jwt === 'ada-token' ? { data: { user: ADA }, error: null } : { data: { user: null }, error: { status: 401, message: 'bad jwt' } },
+      getUser: (jwt: string) =>
+        Promise.resolve(jwt === 'ada-token' ? { data: { user: ADA }, error: null } : { data: { user: null }, error: { status: 401, message: 'bad jwt' } }),
     },
   });
   const deps: JevDecideDeps = {
-    settings: async (_w, decision): Promise<JevDecisionSettings> => ({ decision, mode, threshold: 0.5, floor: 0.4 }),
-    key: async () => ({ kind: 'key', key: 'ts-key' }),
-    ask: async (_key, state, question) => {
+    settings: (_w, decision): Promise<JevDecisionSettings> => Promise.resolve({ decision, mode, threshold: 0.5, floor: 0.4 }),
+    key: () => Promise.resolve({ kind: 'key', key: 'ts-key' }),
+    ask: (_key, state, question) => {
       asked.push({ state, question });
-      return outcome ?? { kind: 'answered', model: 'jev-1.13.0', answer: noul, confidence: Math.abs(2 * noul - 1), probabilities: null, ms: 90 };
+      return Promise.resolve(outcome ?? { kind: 'answered', model: 'jev-1.13.0', answer: noul, confidence: Math.abs(2 * noul - 1), probabilities: null, ms: 90 });
     },
-    log: async (_w, call) => {
+    log: (_w, call) => {
       logged.push(call);
+      return Promise.resolve();
     },
   };
   const route: DecideRouteDeps = {
     connect: database ? connect : null,
-    place: async (userId, repo) => {
+    place: (userId, repo) => {
       placed.push({ userId, repo });
-      if (repo.toLowerCase().startsWith('acme/')) return { workspace: ACME, reason: null };
-      return { workspace: null, reason: `no workspace owns ${repo} yet — install the Omni App` };
+      if (repo.toLowerCase().startsWith('acme/')) return Promise.resolve({ workspace: ACME, reason: null });
+      return Promise.resolve({ workspace: null, reason: `no workspace owns ${repo} yet — install the Omni App` });
     },
     jev: jev ? deps : null,
     installLink: INSTALL,
@@ -64,9 +68,15 @@ const request = (body: unknown, token: string | null = 'ada-token') =>
 
 const CALL = { repo: 'acme/widgets', state: STATE, old: 'false', ref: 'item 812-s3-03' };
 
+// The matchers, as values: vitest types each `expect.<matcher>` as any.
+const containing = (text: string): unknown => expect.stringContaining(text);
+const matching = (pattern: RegExp): unknown => expect.stringMatching(pattern);
+const near = (n: number): unknown => expect.closeTo(n, 5);
+
 async function send(w: ReturnType<typeof world>, body: unknown = CALL, { decision = 'outbox-risk', token }: { decision?: string; token?: string | null } = {}) {
   const response = await decideRoute(request(body, token === undefined ? 'ada-token' : token), decision, w.route);
-  return { status: response.status, body: await response.json() };
+  const answer: unknown = await response.json();
+  return { status: response.status, body: answer };
 }
 
 describe('POST /api/decide/<decision>', () => {
@@ -91,7 +101,7 @@ describe('POST /api/decide/<decision>', () => {
 
   it('refuses an unknown decision, and one made in Galaxy only, with 404', async () => {
     const w = world({ mode: 'on' });
-    expect(await send(w, CALL, { decision: 'nope' })).toMatchObject({ status: 404, body: { error: expect.stringContaining('nope') } });
+    expect(await send(w, CALL, { decision: 'nope' })).toMatchObject({ status: 404, body: { error: containing('nope') } });
     expect(await send(w, CALL, { decision: 'question-category' })).toMatchObject({ status: 404 });
     expect(await send(w, CALL, { decision: '__proto__' })).toMatchObject({ status: 404 });
     expect(w.asked).toEqual([]);
@@ -101,9 +111,9 @@ describe('POST /api/decide/<decision>', () => {
     const w = world({ mode: 'on' });
     expect(await send(w, 'not json')).toMatchObject({ status: 400 });
     expect(await send(w, [1])).toMatchObject({ status: 400 });
-    expect(await send(w, { ...CALL, state: { decision: '' } })).toMatchObject({ status: 400, body: { error: expect.stringMatching(/state/) } });
+    expect(await send(w, { ...CALL, state: { decision: '' } })).toMatchObject({ status: 400, body: { error: matching(/state/) } });
     expect(await send(w, { ...CALL, state: 'text' })).toMatchObject({ status: 400 });
-    expect(await send(w, { ...CALL, old: 'maybe' })).toMatchObject({ status: 400, body: { error: expect.stringMatching(/old/) } });
+    expect(await send(w, { ...CALL, old: 'maybe' })).toMatchObject({ status: 400, body: { error: matching(/old/) } });
     expect(await send(w, { ...CALL, old: undefined })).toMatchObject({ status: 400 });
     expect(await send(w, { ...CALL, repo: 'widgets' })).toMatchObject({ status: 400 });
     expect(await send(w, { ...CALL, ref: 7 })).toMatchObject({ status: 400 });
@@ -141,14 +151,15 @@ describe('POST /api/decide/<decision>', () => {
     const w = world({ mode: 'on', noul: 0.91 });
     const run = await send(w);
     expect(run.status).toBe(200);
-    expect(run.body).toEqual({ answer: 'true', confidence: expect.closeTo(0.82, 5), decidedBy: 'jev' });
-    expect(w.asked).toEqual([{ state: expect.stringContaining('Decision: Keep the sessions in Postgres'), question: expect.objectContaining({ type: 'noul' }) }]);
+    expect(run.body).toEqual({ answer: 'true', confidence: near(0.82), decidedBy: 'jev' });
+    const noul: unknown = expect.objectContaining({ type: 'noul' });
+    expect(w.asked).toEqual([{ state: containing('Decision: Keep the sessions in Postgres'), question: noul }]);
     expect(w.logged).toEqual([expect.objectContaining({ mode: 'on', counted: 'true', decidedBy: 'jev', oldAnswer: 'false' })]);
   });
 
   it('answers On with Jev\'s lower answer too (decision 4)', async () => {
     const w = world({ mode: 'on', noul: 0.1 });
-    expect((await send(w, { ...CALL, old: 'true' })).body).toEqual({ answer: 'false', confidence: expect.closeTo(0.8, 5), decidedBy: 'jev' });
+    expect((await send(w, { ...CALL, old: 'true' })).body).toEqual({ answer: 'false', confidence: near(0.8), decidedBy: 'jev' });
   });
 
   it('answers On with today\'s answer when Jev fails or is unsure', async () => {
@@ -161,9 +172,9 @@ describe('POST /api/decide/<decision>', () => {
 
   it('takes a call without a ref', async () => {
     const w = world({ mode: 'shadow' });
-    const { ref: _ref, ...noRef } = CALL;
+    const noRef = { repo: CALL.repo, state: CALL.state, old: CALL.old };
     expect((await send(w, noRef)).status).toBe(200);
-    expect(w.logged[0]!.ref).toBeNull();
+    expect(sure(w.logged[0], 'w.logged[0]').ref).toBeNull();
   });
 });
 

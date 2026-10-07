@@ -3,7 +3,7 @@ import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { failing } from '../../../test/github-replay.ts';
 import { refusedWordsIn } from '../rules.ts';
 import { afterMerge, followUpAt } from './after-merge.ts';
-import { handles, replay } from './test-handles.ts';
+import { handles, replay } from './test/handles.ts';
 import {
   DAY_14,
   FEATURE,
@@ -17,6 +17,10 @@ import {
   afterMergeRecording,
 } from './after-merge.fixtures/day-14.ts';
 import type { AfterMergeMissing } from './after-merge.fixtures/day-14.ts';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+
+/** Any text holding `text`, as the matcher reads it. */
+const containing = (text: string): unknown => expect.stringContaining(text);
 
 const { gather, detect, section } = handles(afterMerge);
 
@@ -89,10 +93,10 @@ describe('after-merge — gather', () => {
       commit: MERGE_SHA,
       status: null,
       jobs: [
-        { name: 'unit', workflow: 'CI', conclusion: 'success', url: expect.stringContaining('/job/8001') },
-        { name: 'e2e', workflow: 'CI', conclusion: 'failure', url: expect.stringContaining('/job/8002') },
-        { name: 'lint', workflow: 'CI', conclusion: 'success', url: expect.stringContaining('/job/8003') },
-        { name: 'deploy', workflow: 'Deploy', conclusion: 'skipped', url: expect.stringContaining('/job/8004') },
+        { name: 'unit', workflow: 'CI', conclusion: 'success', url: containing('/job/8001') },
+        { name: 'e2e', workflow: 'CI', conclusion: 'failure', url: containing('/job/8002') },
+        { name: 'lint', workflow: 'CI', conclusion: 'success', url: containing('/job/8003') },
+        { name: 'deploy', workflow: 'Deploy', conclusion: 'skipped', url: containing('/job/8004') },
       ],
     });
     expect(stub.state.requests.filter((r) => r.route.includes('check-runs'))).toEqual([]);
@@ -200,7 +204,7 @@ describe('after-merge — detect', () => {
     const { facts, findings } = detect(records, { pr, prd });
     expect(facts.bugs[0]).toMatchObject({ fixes: [45], linked: [] });
     expect(facts).toMatchObject({ fixed: 1, linked: 0 });
-    expect(findings[0]!.happened).not.toContain('linked');
+    expect(at(findings, 0, 'the first finding').happened).not.toContain('linked');
   });
 
   it('links a pure insertion inside a range, and a file renamed from a churned one', () => {
@@ -216,7 +220,7 @@ describe('after-merge — detect', () => {
       unread: [],
     };
     const { facts } = detect(records, { pr, prd });
-    expect(facts.bugs[0]!.linked.map((link) => link.fix)).toEqual([45, 47]);
+    expect(at(facts.bugs, 0, 'the first bug').linked.map((link) => link.fix)).toEqual([45, 47]);
   });
 
   it('counts only what falls within the window, whatever the records hold', () => {

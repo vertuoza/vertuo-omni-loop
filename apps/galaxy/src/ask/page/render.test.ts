@@ -13,6 +13,8 @@ import { AnswerList, History } from './History';
 import { RoundForm } from './RoundForm';
 import { rowOf, startPage } from './tabs';
 import { contextParts, type HistoryEntry } from './view';
+import { item } from '../test/test-item';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 type Asked = ReturnType<typeof readQuestions>[number];
 
@@ -88,7 +90,7 @@ describe('the round, rendered', () => {
 
   it('keeps Send off until every question has an answer', () => {
     expect(html).toMatch(/<button type="button" class="ask-button" disabled="">Send to Claude<\/button>/);
-    const draft = [pickOption(storage, emptyDraft([storage])[0]!, 'Memory'), pickOption(checks, emptyDraft([checks])[0]!, 'RLS')];
+    const draft = [pickOption(storage, item(emptyDraft([storage]), 0), 'Memory'), pickOption(checks, item(emptyDraft([checks]), 0), 'RLS')];
     expect(round(draft, true)).toMatch(/<button type="button" class="ask-button">Send to Claude<\/button>/);
   });
 
@@ -163,7 +165,7 @@ describe('the shared-round page, answered with screenshots (PRD 620)', () => {
   const NOW = Date.parse('2026-09-26T10:00:00Z');
   const page = (shots: boolean) => {
     const initial = demoQuestion(NOW, true);
-    const question = Object.keys(initial.round.answers ?? {})[0]!;
+    const question = item(Object.keys(initial.round.answers ?? {}), 0);
     const round = shots ? { ...initial.round, attachments: { [question]: [`${initial.round.id}/1.png`] } } : initial.round;
     return renderToStaticMarkup(createElement(AskQuestion, { source: { kind: 'demo' }, initial: { ...initial, round }, serverNow: NOW, me: DEMO_TEAMMATE, members: DEMO_MEMBERS }));
   };
@@ -184,7 +186,7 @@ describe('the context line, rendered (PRD 144)', () => {
   const line = (parts: string[] | undefined) => renderToStaticMarkup(createElement(ContextLine, { parts }));
 
   it('shows every field of a round that has them all, and the time to answer', () => {
-    const round = { ...base, prd: 144, skill: '/omni:brainstorm', model: 'claude-opus-4-8', tokens: { input: 10, output: 20, cacheRead: 30_000, cacheWrite: 0 }, cost_usd: 1.2345 };
+    const round = { ...base, prd: parsePrd(144), skill: '/omni:brainstorm', model: 'claude-opus-4-8', tokens: { input: 10, output: 20, cacheRead: 30_000, cacheWrite: 0 }, cost_usd: 1.2345 };
     expect(line(contextParts(session, round))).toBe(
       '<p class="ask-title ask-context" aria-label="Where this question came from">'
       + 'vertuoza/vertuo-omni-loop · feat/question-history · PRD #144 · /omni:brainstorm · claude-opus-4-8 · 30k tokens · $1.23 · answered in 3 min 0 s</p>',
@@ -401,7 +403,7 @@ describe('what Claude wrote before asking, rendered (PRD 752)', () => {
   const NOW = Date.parse('2026-09-26T10:00:00Z');
   const DESIGN = '## The design\n\nThree parts:\n\n- the reader\n- the hook\n- the page\n\n<script>alert(1)</script> and `kit/lib/ask/`';
   const LONG = Array.from({ length: 30 }, (_, i) => `Line ${i + 1} of the plan.`).join('\n\n');
-  const withLead = <T extends { rounds: { lead?: string | null }[] }>(state: T, lead: string | null): T =>
+  const withLead = <T extends { rounds: { lead?: string | null | undefined }[] }>(state: T, lead: string | null): T =>
     ({ ...state, rounds: state.rounds.map((r, i) => (i === state.rounds.length - 1 ? { ...r, lead } : r)) });
   const session = (lead: string | null, scenario: 'open' | 'moved' = 'open', viewer: 'owner' | 'member' = 'owner') =>
     renderToStaticMarkup(createElement(AskSession, { source: { kind: 'demo' }, initial: withLead(demoState('s1', scenario, NOW), lead), serverNow: NOW, viewer }));

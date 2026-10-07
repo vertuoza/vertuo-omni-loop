@@ -10,6 +10,8 @@
 // worked on answers (the spec's D10): the PRD number its record names, whose folder is found among the
 // same folders. A record whose PRD has no folder names no PRD either.
 import { parseFolderName } from '../layout.ts';
+import { WorkSliceIdSchema } from '../ids.ts';
+import type { PrdNumber, WorkSliceId } from '../ids.ts';
 
 const TEMPLATE_ORDER = ['slice', 'feature', 'phase0'] as const;
 const PLACEHOLDER = /\{(topic|slice)\}/g;
@@ -18,10 +20,10 @@ const PLACEHOLDER = /\{(topic|slice)\}/g;
 export type BranchTemplates = Readonly<Partial<Record<(typeof TEMPLATE_ORDER)[number], unknown>>>;
 
 /** A PRD folder found by its topic or its number. */
-export type FoundFolder = { prd: number; topic: string; folder: string };
+export type FoundFolder = { prd: PrdNumber; topic: string; folder: string };
 
 /** The PRD the session works on, and the slice its branch names. */
-export type SessionPrd = FoundFolder & { slice: string | null };
+export type SessionPrd = FoundFolder & { slice: WorkSliceId | null };
 
 const escapeLiteral = (text: string): string => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 
@@ -44,15 +46,16 @@ export function templatePattern(template: string): RegExp {
 }
 
 /** What `branch` names by the first template that reads it: `{ topic, slice }` (`slice` null but
- * on a slice branch), or `null`. A template with no `{topic}` names nothing. */
-export function branchNames(branch: unknown, branches: BranchTemplates | null | undefined): { topic: string; slice: string | null } | null {
+ * on a slice branch whose `{slice}` is a slice id), or `null`. A template with no `{topic}` names
+ * nothing. */
+export function branchNames(branch: unknown, branches: BranchTemplates | null | undefined): { topic: string; slice: WorkSliceId | null } | null {
   if (typeof branch !== 'string' || branch === '') return null;
   for (const key of TEMPLATE_ORDER) {
     const template = branches?.[key];
     if (typeof template !== 'string' || !template.includes('{topic}')) continue;
     const groups = templatePattern(template).exec(branch)?.groups;
     // A template holding `{topic}` always captures it once it matches.
-    if (groups?.topic !== undefined) return { topic: groups.topic, slice: groups.slice ?? null };
+    if (groups?.topic !== undefined) return { topic: groups.topic, slice: WorkSliceIdSchema.safeParse(groups.slice).data ?? null };
   }
   return null;
 }
@@ -71,7 +74,7 @@ export function folderOfTopic(folders: readonly string[] | null | undefined, top
 
 /** The PRD folder among `folders` (names) whose number is `prd`: `{ prd, topic, folder }`, the first
  * found when several carry it, or `null`. */
-export function folderOfNumber(folders: readonly string[] | null | undefined, prd: number): FoundFolder | null {
+export function folderOfNumber(folders: readonly string[] | null | undefined, prd: PrdNumber): FoundFolder | null {
   for (const name of folders ?? []) {
     const parsed = parseFolderName(name);
     if (parsed && parsed.prd === prd) return { prd, topic: parsed.topic, folder: name };
@@ -89,7 +92,7 @@ export function whichPrd({ branch, branches, folders, recorded = null }: {
   branch: string | null;
   branches: BranchTemplates | null | undefined;
   folders: readonly string[];
-  recorded?: number | null;
+  recorded?: PrdNumber | null;
 }): SessionPrd | null {
   const named = branchNames(branch, branches);
   const fromBranch = named ? folderOfTopic(folders, named.topic) : null;

@@ -3,6 +3,7 @@ import { UNREAD, type GithubSummary, type PullRef } from '../github/summary';
 import type { StageRow } from '../../stages/stage';
 import type { CareState } from '../github/care';
 import { careChipOf, stageOf, stageView, syncedWords } from './stage';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // PRD 426's reading of the stage from the GitHub summary, which only the page's pulse still uses: each
 // row of its spec's table, tried from the latest stage down, and unknown whenever what decides it could
@@ -10,10 +11,10 @@ import { careChipOf, stageOf, stageView, syncedWords } from './stage';
 // from the summary.
 
 const pr = (number: number, state: PullRef['state'], draft = false): PullRef =>
-  ({ number, url: `https://github.com/acme/widgets/pull/${number}`, state, draft });
+  ({ number: parsePr(number), url: `https://github.com/acme/widgets/pull/${number}`, state, draft });
 const summary = (more: Partial<GithubSummary> = {}): GithubSummary => ({
-  repo: 'acme/widgets', prd: 426, folder: '0426-prd-page-stage', topic: 'prd-page-stage',
-  issue: { number: 426, url: 'https://github.com/acme/widgets/issues/426', state: 'open' },
+  repo: 'acme/widgets', prd: parsePrd(426), folder: '0426-prd-page-stage', topic: 'prd-page-stage',
+  issue: { number: parseIssue(426), url: 'https://github.com/acme/widgets/issues/426', state: 'open' },
   phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
 });
 
@@ -23,24 +24,24 @@ describe('the stage of a PRD, read from GitHub for the pulse', () => {
   });
 
   it('is PRD while the spec is being written, with no button until a phase-0 PR is open', () => {
-    expect(stageOf(426, summary())).toEqual({ id: 'prd', action: null, caption: 'Spec being written' });
-    expect(stageOf(426, summary({ phase0: pr(431, 'open') }))).toEqual({
+    expect(stageOf(parsePrd(426), summary())).toEqual({ id: 'prd', action: null, caption: 'Spec being written' });
+    expect(stageOf(parsePrd(426), summary({ phase0: pr(431, 'open') }))).toEqual({
       id: 'prd', action: { kind: 'link', label: 'Approve spec', href: 'https://github.com/acme/widgets/pull/431' }, caption: null,
     });
   });
 
   it('is inbox once phase-0 merged and no sub-PR is merged: Build it copies the command', () => {
-    expect(stageOf(426, summary({ phase0: pr(431, 'merged'), feature: pr(433, 'open', true) }))).toEqual({
+    expect(stageOf(parsePrd(426), summary({ phase0: pr(431, 'merged'), feature: pr(433, 'open', true) }))).toEqual({
       id: 'inbox', action: { kind: 'copy', label: 'Build it', command: '/omni:yolo 426' }, caption: null,
     });
   });
 
   it('is outbox once a sub-PR merged: being built while the feature PR is a draft, Review & merge once it is ready', () => {
     const building = summary({ phase0: pr(431, 'merged'), feature: pr(433, 'open', true), mergedSlices: 2 });
-    expect(stageOf(426, building, 4)).toEqual({ id: 'outbox', action: null, caption: 'Being built · 2/4 slices' });
-    expect(stageOf(426, building, null)).toMatchObject({ caption: 'Being built · 2 slices merged' });
-    expect(stageOf(426, { ...building, feature: null }, 4)).toMatchObject({ id: 'outbox', action: null });
-    expect(stageOf(426, { ...building, feature: pr(433, 'open') }, 4)).toEqual({
+    expect(stageOf(parsePrd(426), building, 4)).toEqual({ id: 'outbox', action: null, caption: 'Being built · 2/4 slices' });
+    expect(stageOf(parsePrd(426), building, null)).toMatchObject({ caption: 'Being built · 2 slices merged' });
+    expect(stageOf(parsePrd(426), { ...building, feature: null }, 4)).toMatchObject({ id: 'outbox', action: null });
+    expect(stageOf(parsePrd(426), { ...building, feature: pr(433, 'open') }, 4)).toEqual({
       id: 'outbox', action: { kind: 'link', label: 'Review & merge', href: 'https://github.com/acme/widgets/pull/433' }, caption: null,
     });
   });
@@ -51,43 +52,43 @@ describe('the stage of a PRD, read from GitHub for the pulse', () => {
       phase0: pr(431, 'merged'), feature: pr(433, 'open'), mergedSlices: 2,
       outbox: { open: [item], settled: [] }, outboxComment: 'https://github.com/acme/widgets/pull/433#issuecomment-9',
     });
-    expect(stageOf(426, open, 4)).toEqual({
+    expect(stageOf(parsePrd(426), open, 4)).toEqual({
       id: 'outbox', action: { kind: 'link', label: 'Answer the outbox', href: 'https://github.com/acme/widgets/pull/433#issuecomment-9' }, caption: null,
     });
     for (const outboxComment of [null, UNREAD] as const) {
-      expect(stageOf(426, { ...open, feature: pr(433, 'open', true), outboxComment }, 4).action)
+      expect(stageOf(parsePrd(426), { ...open, feature: pr(433, 'open', true), outboxComment }, 4).action)
         .toEqual({ kind: 'link', label: 'Answer the outbox', href: 'https://github.com/acme/widgets/pull/433' });
     }
     // Nothing open, the settled ones do not count: Review & merge once the feature PR is ready.
     const settled = { id: 's1-01-x', title: 'Q?', verdict: 'adopted', answer: 'ok' };
-    expect(stageOf(426, { ...open, outbox: { open: [], settled: [settled] } }, 4).action).toMatchObject({ label: 'Review & merge' });
-    expect(stageOf(426, { ...open, outbox: null }, 4).action).toMatchObject({ label: 'Review & merge' });
+    expect(stageOf(parsePrd(426), { ...open, outbox: { open: [], settled: [settled] } }, 4).action).toMatchObject({ label: 'Review & merge' });
+    expect(stageOf(parsePrd(426), { ...open, outbox: null }, 4).action).toMatchObject({ label: 'Review & merge' });
     // An outbox that could not be read decides nothing: the stage is unknown.
-    expect(stageOf(426, { ...open, outbox: UNREAD }, 4).id).toBe('unknown');
+    expect(stageOf(parsePrd(426), { ...open, outbox: UNREAD }, 4).id).toBe('unknown');
   });
 
-  it('is shipped once the feature PR merged and there is no retro PR', () => {
-    expect(stageOf(426, summary({ phase0: pr(431, 'merged'), feature: pr(433, 'merged'), mergedSlices: 4 }))).toEqual({
-      id: 'shipped', action: null, caption: 'Shipped · the retro is written next',
+  it('is shipped once the feature PR merged and there is no retro PR: Pitch, and the retro comes next', () => {
+    expect(stageOf(parsePrd(426), summary({ phase0: pr(431, 'merged'), feature: pr(433, 'merged'), mergedSlices: 4 }))).toEqual({
+      id: 'shipped', action: { kind: 'pitch', label: 'Pitch', prd: 426 }, caption: 'Shipped · the retro is written next',
     });
   });
 
-  it('is retro once a retro PR exists, open or merged, and the latest stage wins', () => {
+  it('is retro once a retro PR exists, open or merged, and the latest stage wins: Pitch is its button', () => {
     for (const state of ['open', 'merged'] as const) {
-      expect(stageOf(426, summary({ phase0: pr(431, 'merged'), feature: pr(433, 'merged'), mergedSlices: 4, retro: pr(440, state) }))).toEqual({
-        id: 'retro', action: { kind: 'link', label: 'Read the retro', href: 'https://github.com/acme/widgets/pull/440' }, caption: null,
+      expect(stageOf(parsePrd(426), summary({ phase0: pr(431, 'merged'), feature: pr(433, 'merged'), mergedSlices: 4, retro: pr(440, state) }))).toEqual({
+        id: 'retro', action: { kind: 'pitch', label: 'Pitch', prd: 426 }, caption: null,
       });
     }
   });
 
   it('is unknown when the summary is missing, or a part the deciding row needs could not be read', () => {
-    expect(stageOf(426, null).id).toBe('unknown');
-    expect(stageOf(426, summary({ retro: UNREAD })).id).toBe('unknown');
-    expect(stageOf(426, summary({ feature: UNREAD })).id).toBe('unknown');
-    expect(stageOf(426, summary({ mergedSlices: UNREAD })).id).toBe('unknown');
-    expect(stageOf(426, summary({ phase0: UNREAD })).id).toBe('unknown');
+    expect(stageOf(parsePrd(426), null).id).toBe('unknown');
+    expect(stageOf(parsePrd(426), summary({ retro: UNREAD })).id).toBe('unknown');
+    expect(stageOf(parsePrd(426), summary({ feature: UNREAD })).id).toBe('unknown');
+    expect(stageOf(parsePrd(426), summary({ mergedSlices: UNREAD })).id).toBe('unknown');
+    expect(stageOf(parsePrd(426), summary({ phase0: UNREAD })).id).toBe('unknown');
     // A later stage already decided does not need the earlier parts.
-    expect(stageOf(426, summary({ phase0: UNREAD, issue: UNREAD, retro: pr(440, 'open') })).id).toBe('retro');
+    expect(stageOf(parsePrd(426), summary({ phase0: UNREAD, issue: UNREAD, retro: pr(440, 'open') })).id).toBe('retro');
   });
 });
 
@@ -97,7 +98,7 @@ describe('the header\'s view of the stage (PRD 587)', () => {
   const building = summary({ phase0: pr(431, 'merged'), feature: pr(433, 'open', true), mergedSlices: 1 });
 
   it('takes the stage from the stored rows, lights it bold with the earlier stops passed, and lists only the links that exist', () => {
-    const view = stageView({ prd: 426, rows: [row('prd'), row('inbox'), row('building')], github: building, slices: 3 });
+    const view = stageView({ prd: parsePrd(426), rows: [row('prd'), row('inbox'), row('building')], github: building, slices: 3 });
     expect(view.track.map((s) => `${s.label}:${s.state}`)).toEqual(
       ['idea:passed', 'PRD:passed', 'inbox:passed', 'building:current', 'outbox:ahead', 'shipped:ahead', 'retro:ahead'],
     );
@@ -111,27 +112,42 @@ describe('the header\'s view of the stage (PRD 587)', () => {
 
   it('never reads GitHub for the stage: the stored stage shows with the summary missing, only the GitHub-bound button goes', () => {
     for (const github of [null, undefined, summary({ retro: UNREAD, feature: UNREAD, phase0: UNREAD, mergedSlices: UNREAD, issue: UNREAD })]) {
-      const view = stageView({ prd: 426, rows: [row('outbox')], github });
+      const view = stageView({ prd: parsePrd(426), rows: [row('outbox')], github });
       expect(view).toMatchObject({ id: 'outbox', words: 'Stage: outbox', action: null, links: [] });
-      expect(stageView({ prd: 426, rows: [row('inbox')], github }).action).toEqual({ kind: 'copy', label: 'Build it', command: '/omni:yolo 426' });
-      expect(stageView({ prd: 426, rows: [row('building')], github }).caption).toBe('Being built');
-      expect(stageView({ prd: 426, rows: [row('shipped')], github }).caption).toBe('Shipped · the retro is written next');
+      expect(stageView({ prd: parsePrd(426), rows: [row('inbox')], github }).action).toEqual({ kind: 'copy', label: 'Build it', command: '/omni:yolo 426' });
+      expect(stageView({ prd: parsePrd(426), rows: [row('building')], github }).caption).toBe('Being built');
+      expect(stageView({ prd: parsePrd(426), rows: [row('shipped')], github }).caption).toBe('Shipped · the retro is written next');
     }
   });
 
   it('keeps PRD 426\'s button for each stage', () => {
-    const at = (rows: StageRow[], github: GithubSummary) => stageView({ prd: 426, rows, github, slices: 4 }).action;
+    const at = (rows: StageRow[], github: GithubSummary) => stageView({ prd: parsePrd(426), rows, github, slices: 4 }).action;
     expect(at([row('prd')], summary({ phase0: pr(431, 'open') }))).toEqual({ kind: 'link', label: 'Approve spec', href: 'https://github.com/acme/widgets/pull/431' });
-    expect(stageView({ prd: 426, rows: [row('prd')], github: summary() }).caption).toBe('Spec being written');
+    expect(stageView({ prd: parsePrd(426), rows: [row('prd')], github: summary() }).caption).toBe('Spec being written');
     expect(at([row('outbox')], summary({ feature: pr(433, 'open') }))).toEqual({ kind: 'link', label: 'Review & merge', href: 'https://github.com/acme/widgets/pull/433' });
-    expect(at([row('retro')], summary({ retro: pr(440, 'open') }))).toEqual({ kind: 'link', label: 'Read the retro', href: 'https://github.com/acme/widgets/pull/440' });
-    expect(at([row('shipped')], summary({ feature: pr(433, 'merged') }))).toBeNull();
+  });
+
+  it('is Pitch at shipped and retro, with or without GitHub, and at no earlier stage (PRD 859)', () => {
+    const pitch = { kind: 'pitch', label: 'Pitch', prd: 426 };
+    for (const github of [summary({ feature: pr(433, 'merged'), retro: pr(440, 'open') }), null]) {
+      expect(stageView({ prd: parsePrd(426), rows: [row('shipped')], github }).action).toEqual(pitch);
+      expect(stageView({ prd: parsePrd(426), rows: [row('retro')], github }).action).toEqual(pitch);
+    }
+    const earlier = summary({ phase0: pr(431, 'open'), feature: pr(433, 'open'), mergedSlices: 2 });
+    for (const stage of ['prd', 'inbox', 'building', 'outbox'] as const) {
+      for (const github of [earlier, null]) {
+        expect(stageView({ prd: parsePrd(426), rows: [row(stage)], github }).action?.kind, stage).not.toBe('pitch');
+      }
+    }
+    expect(stageView({ prd: null, rows: [] }).action).toBeNull();
+    expect(stageView({ prd: null, answered: true, rows: [] }).action).toBeNull();
+    expect(stageView({ prd: parsePrd(426), rows: [] }).action).toBeNull();
   });
 
   it('at building with open outbox items, shows N questions waiting linking to the outbox comment, and Answer the outbox', () => {
     const item = { id: 's1-01-x', rank: 'high' as const, question: 'Q?', decision: 'D.', options: [], personSteps: null };
     const comment = 'https://github.com/acme/widgets/pull/433#issuecomment-9';
-    const view = stageView({ prd: 426, rows: [row('building')], github: { ...building, outbox: { open: [item, { ...item, id: 's1-02-y' }], settled: [] }, outboxComment: comment } });
+    const view = stageView({ prd: parsePrd(426), rows: [row('building')], github: { ...building, outbox: { open: [item, { ...item, id: 's1-02-y' }], settled: [] }, outboxComment: comment } });
     expect(view.badge).toEqual({ label: '2 questions waiting', href: comment });
     expect(view.action).toEqual({ kind: 'link', label: 'Answer the outbox', href: comment });
   });
@@ -143,8 +159,8 @@ describe('the header\'s view of the stage (PRD 587)', () => {
   });
 
   it('reads Syncing… for a numbered PRD with no rows yet, and says when each PRD was last synced', () => {
-    expect(stageView({ prd: 426, rows: [], github: building })).toMatchObject({ id: 'syncing', words: 'Syncing…', action: null, caption: null, synced: 'not synced yet' });
-    expect(stageView({ prd: 426, rows: [row('prd', '2026-09-29T11:15:00Z')] }).synced).toBe('last synced 29 Sep 2026, 11:15 UTC');
+    expect(stageView({ prd: parsePrd(426), rows: [], github: building })).toMatchObject({ id: 'syncing', words: 'Syncing…', action: null, caption: null, synced: 'not synced yet' });
+    expect(stageView({ prd: parsePrd(426), rows: [row('prd', '2026-09-29T11:15:00Z')] }).synced).toBe('last synced 29 Sep 2026, 11:15 UTC');
     expect(syncedWords(null)).toBe('not synced yet');
   });
 });
@@ -171,9 +187,9 @@ describe('the feature PR\'s health chip (PRD 790, s2)', () => {
 
   it('sits on the open feature PR\'s link only: none when it is merged, absent, or its care could not be read', () => {
     const open = summary({ phase0: pr(431, 'merged'), feature: pr(433, 'open'), mergedSlices: 1, care: care({ ci: 'red' }) });
-    const feature = (github: GithubSummary) => stageView({ prd: 426, rows: [row('outbox')], github }).links.find((l) => l.label.startsWith('feature'));
+    const feature = (github: GithubSummary) => stageView({ prd: parsePrd(426), rows: [row('outbox')], github }).links.find((l) => l.label.startsWith('feature'));
     expect(feature(open)?.chip).toEqual({ label: 'CI red · no conflict · 0 open', tone: 'red' });
-    expect(stageView({ prd: 426, rows: [row('outbox')], github: open }).links.filter((l) => l.chip)).toHaveLength(1);
+    expect(stageView({ prd: parsePrd(426), rows: [row('outbox')], github: open }).links.filter((l) => l.chip)).toHaveLength(1);
     for (const more of [{ care: UNREAD }, { care: null }, { care: undefined }, { feature: pr(433, 'merged') }] as Partial<GithubSummary>[]) {
       expect(feature({ ...open, ...more })?.chip ?? null).toBeNull();
     }

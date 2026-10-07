@@ -152,7 +152,7 @@ export const LIST_FILES = 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files';
  */
 export type ChurnMissing = { pulls?: Record<string, number>; commits?: Record<string, number>; final?: number };
 
-export function churnRecording({ missing = {} }: { missing?: ChurnMissing } = {}) {
+export function churnRecording({ missing = {} }: { missing?: ChurnMissing | undefined } = {}) {
   const entries = [];
   for (const [number, tags] of Object.entries(PULL_COMMITS)) {
     const list = tags.map((tag) => listed(tag, tag === 'm1' ? 2 : 1));

@@ -1,7 +1,9 @@
 // The galaxy view's shapes (PRD 725, s23): what buildGalaxy folds ledger events into and the arcade
-// draws. One source for the package's types: index.d.ts re-exports them for the arcade, and the
+// draws. One source for the package's types: index.ts re-exports them for the arcade, and the
 // sources type themselves with them. Self-contained on purpose, so the arcade's type check never
-// reaches into the game's sources through it.
+// reaches into the game's sources through it. Its ID brands come from the kit's own module (PRD 1049).
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
 export type PlanetState =
   | 'charted' | 'locked' | 'terraforming' | 'distress' | 'awaiting-command'
   | 'terraformed' | 'aftershock' | 'lost' | 'decommissioned';
@@ -11,12 +13,12 @@ export type WoundKind = 'transmission' | 'unconfirmed-ground' | 'beacon' | 'faul
 export interface LedgerEvent {
   id: string; at: string; type: string; planet: number;
   /** The PRD's home, `owner/name` (PRD 728); absent on the events written before it. */
-  home?: string;
-  region?: string; contributor?: string; team?: string; data: Record<string, unknown>;
+  home?: string | undefined;
+  region?: string | undefined; contributor?: string | undefined; team?: string | undefined; data: Record<string, unknown>;
 }
 /** A fleet as stored in Supabase (public.teams). Only `home` is required; the rest has defaults. */
 export interface FleetConfig {
-  home: string | null; label?: string; color?: string; motto?: string; mascot?: string | null; sort?: number; retired?: boolean;
+  home: string | null; label?: string | undefined; color?: string | undefined; motto?: string | undefined; mascot?: string | null | undefined; sort?: number | undefined; retired?: boolean | undefined;
 }
 export interface FleetLook { home: string | null; label: string; color: string; motto: string; mascot: string | null; sort: number; retired: boolean }
 export interface Projects {
@@ -30,7 +32,7 @@ export interface Wound {
 }
 export interface LogLine { at: string; type: string; planet: number; text: string; contributor: string | null; team: string | null }
 export interface Planet {
-  prd: number;
+  prd: PrdNumber;
   /** The repository of the PRD's issue, `owner/name`, or null for an event written before PRD 728. */
   home: string | null;
   /** How the view names the planet: `<home>#<prd>`, or the number alone without a home. */

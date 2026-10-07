@@ -1,5 +1,6 @@
 import 'server-only';
-import { arcadeMode } from '../../data/mode';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { serverEnv } from '../../env';
 import { DEMO_MEMBERS } from './demo';
 import { forMeList, type ForMeEntry } from './question';
 import { readAsSignedIn, sessionsMembers, type NotRead } from './signed-in-live';
@@ -11,9 +12,9 @@ import { readForMe } from './source';
 export type ForMeRead = { kind: 'entries'; entries: ForMeEntry[] } | NotRead;
 
 export async function readForMeLive(now: number): Promise<ForMeRead> {
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
   if (mode === 'demo') {
-    const teammate = DEMO_MEMBERS[1]!;
+    const teammate = at(DEMO_MEMBERS, 1, 'the demo teammate');
     return {
       kind: 'entries',
       entries: [{ roundId: 'demo', question: 'How should the page and the agent be authenticated?', sessionTitle: 'vertuo-omni-loop · feat/ask-mode', sharedBy: teammate.name ?? teammate.email, minutesLeft: 7 }],

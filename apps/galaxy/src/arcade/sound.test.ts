@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MASCOTS } from '@omni/design';
 import { motif, unlock, writtenMotif } from './sound';
+import { sure } from './test/sure';
 
 // A fleet's motif is keyed by its mascot, never by its name (PRD 400): a workspace names its own
 // fleets, and the mascot is what the motif was written for.
@@ -64,13 +65,15 @@ class Osc extends Node {
   setPeriodicWave() {}
 }
 let audio: FakeAudio;
+/** The context sound.ts made last, which the tests read. */
+const made = (context: FakeAudio) => { audio = context; };
 class FakeAudio {
   currentTime = 0;
   sampleRate = 8000;
   state = 'running';
   destination = new Node();
   oscs: Osc[] = [];
-  constructor() { audio = this; }
+  constructor() { made(this); }
   resume() {}
   createGain() { return Object.assign(new Node(), { gain: new Param() }); }
   createDelay() { return Object.assign(new Node(), { delayTime: new Param() }); }
@@ -87,7 +90,7 @@ function tones(f: { name: string; mascot: string | null }): Tone[] {
   motif(f);
   return audio.oscs
     .filter((o) => o.frequency.set !== null)
-    .map((o) => ({ f: o.frequency.set!, start: o.at, slides: o.frequency.slides, wobbles: o.frequency.wobbles }))
+    .map((o) => ({ f: sure(o.frequency.set, 'o.frequency.set'), start: o.at, slides: o.frequency.slides, wobbles: o.frequency.wobbles }))
     .sort((a, b) => a.start - b.start || a.f - b.f);
 }
 
@@ -113,8 +116,8 @@ describe('the five new mascots\' motifs (PRD 517)', () => {
   it('atom-eve: a sparkly shimmer that rises', () => {
     const played = tones({ name: 'x', mascot: 'atom-eve' });
     expect(played.length).toBeGreaterThanOrEqual(4);
-    played.slice(1).forEach((t, i) => expect(t.f).toBeGreaterThanOrEqual(played[i]!.f));
-    expect(played.at(-1)!.f).toBeGreaterThan(played[0]!.f);
+    played.slice(1).forEach((t, i) => { expect(t.f).toBeGreaterThanOrEqual(sure(played[i], 'played[i]').f); });
+    expect(sure(played.at(-1), 'played.at(-1)').f).toBeGreaterThan(sure(played[0], 'played[0]').f);
     expect(played.some((t) => t.wobbles)).toBe(true);
   });
 
@@ -127,10 +130,10 @@ describe('the five new mascots\' motifs (PRD 517)', () => {
   it('turtle: three slow, steady plods', () => {
     const played = tones({ name: 'x', mascot: 'turtle' });
     expect(played).toHaveLength(3);
-    const gaps = played.slice(1).map((t, i) => t.start - played[i]!.start);
+    const gaps = played.slice(1).map((t, i) => t.start - sure(played[i], 'played[i]').start);
     for (const g of gaps) {
       expect(g).toBeGreaterThanOrEqual(0.2);
-      expect(g).toBeCloseTo(gaps[0]!, 6);
+      expect(g).toBeCloseTo(sure(gaps[0], 'gaps[0]'), 6);
     }
     expect(new Set(played.map((t) => t.f)).size).toBe(1);
   });
@@ -144,9 +147,9 @@ describe('the five new mascots\' motifs (PRD 517)', () => {
   it('robot: quick beeps and boops, jumping up and down', () => {
     const played = tones({ name: 'x', mascot: 'robot' });
     expect(played.length).toBeGreaterThanOrEqual(4);
-    played.slice(1).forEach((t, i) => expect(t.start - played[i]!.start).toBeLessThanOrEqual(0.1));
-    const steps = played.slice(1).map((t, i) => Math.sign(t.f - played[i]!.f));
+    played.slice(1).forEach((t, i) => { expect(t.start - sure(played[i], 'played[i]').start).toBeLessThanOrEqual(0.1); });
+    const steps = played.slice(1).map((t, i) => Math.sign(t.f - sure(played[i], 'played[i]').f));
     expect(steps.every((s) => s !== 0)).toBe(true);
-    steps.slice(1).forEach((s, i) => expect(s).toBe(-steps[i]!));
+    steps.slice(1).forEach((s, i) => { expect(s).toBe(-sure(steps[i], 'steps[i]')); });
   });
 });

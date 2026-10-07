@@ -1,11 +1,14 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { diagramsNamed } from './diagrams';
 import { commandsNamed, guideProblems, parsePage, readGuide, skillsNamed } from './guide';
 import { pageUrl } from './paths';
+import { sure } from '../arcade/test/sure';
+
+vi.mock('server-only', () => ({}));
 
 // The docs guard (PRD 346): docs/guide/ holds its pages in order, each with a title and a Next link
 // to the page to read next, the last one back to Getting started; every /omni:<skill> and
@@ -17,11 +20,11 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'several-repositories', 'use-cases', 'troubleshooting',
+  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'drive', 'several-repositories', 'landings', 'flow', 'use-cases', 'troubleshooting',
 ];
 const TITLES = [
-  'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Several repositories',
-  'Use cases', 'When something goes wrong',
+  'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Several repositories',
+  'Landings', 'Repository flow', 'Use cases', 'When something goes wrong',
 ];
 
 describe('docs/guide', () => {
@@ -29,7 +32,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its nine pages, in order, each with its title', () => {
+  it('holds its twelve pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -38,9 +41,19 @@ describe('docs/guide', () => {
   it('links each page to the one to read next, and the last back to Getting started', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
-      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories',
-      '/docs/use-cases', '/docs/troubleshooting', '/docs',
+      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories',
+      '/docs/landings', '/docs/flow', '/docs/use-cases', '/docs/troubleshooting', '/docs',
     ]);
+  });
+
+  it('explains driving the loop: starting it, its plan, watching it on the Loop page, stopping and resuming (PRD 1139)', () => {
+    const drive = readGuide(GUIDE).pages.find((page) => page.slug === 'drive')?.body ?? '';
+    for (const heading of ['## Start it', '## The loop plan', '## One step per tick', '## Stop and restart', '## Watch it on the Loop page']) {
+      expect(drive, heading).toContain(heading);
+    }
+    for (const phrase of ['/loop /omni:drive', 'omni next --plan', '/omni:pr-care --once', 'stops itself', 'resumes, with the same plan', 'silent', 'omni signin']) {
+      expect(drive, phrase).toContain(phrase);
+    }
   });
 
   it('sends someone joining a team past Invade, which their repository needs no more', () => {
@@ -64,13 +77,30 @@ describe('docs/guide', () => {
     const useCases = body('use-cases');
     const row = /^\| \[([^\]]*vast idea[^\]]*)\]\(#([a-z-]+)\) \| `\/omni:think-big [^`]+`/m.exec(useCases);
     expect(row, 'a row for a vast idea, typing /omni:think-big').not.toBeNull();
-    const heading = useCases.split('\n').find((line) => /^### /.test(line) && line.slice(4).toLowerCase().replace(/[^a-z0-9 -]/g, '').replace(/ /g, '-') === row![2]);
-    expect(heading, `a section #${row![2]}`).toBeDefined();
-    const section = useCases.slice(useCases.indexOf(heading!), useCases.indexOf('\n## ', useCases.indexOf(heading!)));
+    const heading = useCases.split('\n').find((line) => /^### /.test(line) && line.slice(4).toLowerCase().replace(/[^a-z0-9 -]/g, '').replace(/ /g, '-') === sure(row, 'row')[2]);
+    expect(heading, `a section #${sure(row, 'row')[2]}`).toBeDefined();
+    const section = useCases.slice(useCases.indexOf(sure(heading, 'heading')), useCases.indexOf('\n## ', useCases.indexOf(sure(heading, 'heading'))));
     for (const phrase of ['/omni:think-big', 'omni:concept', '.omni-loop/delivery/inbox/concepts/', '/omni:brainstorm --concept']) {
       expect(section, phrase).toContain(phrase);
     }
     expect(body('loop')).toMatch(/^\| `\/omni:think-big` \|/m);
+  });
+
+  it('walks the kernel and migrations example end to end on the flow page (PRD 1089)', () => {
+    const flow = readGuide(GUIDE).pages.find((page) => page.slug === 'flow')?.body ?? '';
+    for (const step of [
+      '```yaml file=.omni-loop/config.yml',
+      '```markdown file=.omni-loop/flow/kernel/tests.md',
+      'migrations: slice alone, a slice of this area touches no path outside it.',
+      'kernel: wave first',
+      'all territories and blocks well-formed.',
+      'omni flow show --path src/kernel/Bus/Dispatcher.php',
+      'kitStep: replaced',
+      'omni flow verdict do-work.test --from out.txt',
+      'not ok kernel: approval person',
+      'gh pr merge 12 --squash --delete-branch',
+      'ADR-0069',
+    ]) expect(flow, step).toContain(step);
   });
 
   it('draws the loop, its pull requests and its skills on the loop page', () => {
@@ -88,6 +118,16 @@ describe('docs/guide', () => {
     ]);
   });
 
+  it('draws /omni:mega-pr-care and /omni:mega-bug-fix among what you type in the plan repository (PRD 1118)', () => {
+    const svg = readFileSync(join(GUIDE, 'diagrams/skills-repositories.svg'), 'utf8');
+    const desc = /<desc>([\s\S]*?)<\/desc>/.exec(svg)?.[1] ?? '';
+    const typed = [...svg.matchAll(/<text [^>]*class="dg-code dg-you"[^>]*>([^<]*)<\/text>/g)].map((m) => sure(m[1], 'm[1]'));
+    for (const skill of ['/omni:mega-pr-care', '/omni:mega-bug-fix']) {
+      expect(desc, `the <desc> names ${skill}`).toContain(skill);
+      expect(typed.some((text) => text.startsWith(skill)), `${skill} is drawn as a command you type`).toBe(true);
+    }
+  });
+
   describe('getting started (#890)', () => {
     // Everyone's laptop, in four steps on Install, each shown as the line to type.
     const STEPS = [
@@ -102,12 +142,12 @@ describe('docs/guide', () => {
     const steps = (markdown: string) => markdown.split(/^## /m).slice(1).filter((section) => /^\d+\. /.test(section));
     /** The lines of code a section shows in its fenced blocks. */
     const codeLines = (section: string) =>
-      [...section.matchAll(/^\s*```[^\n]*\n([\s\S]*?)^\s*```\s*$/gm)].flatMap((m) => m[1]!.split('\n').map((line) => line.trim()));
+      [...section.matchAll(/^\s*```[^\n]*\n([\s\S]*?)^\s*```\s*$/gm)].flatMap((m) => sure(m[1], 'm[1]').split('\n').map((line) => line.trim()));
 
     it('takes everyone, on Install, through four steps: omni globally, the skills in Claude Code, the sign-in, the questions', () => {
       const found = steps(body('install'));
       expect(found.map((section) => section.split('\n')[0])).toHaveLength(STEPS.length);
-      STEPS.forEach(([what, line], i) => expect(codeLines(found[i] ?? ''), `step ${i + 1}, ${what}`).toContain(line));
+      STEPS.forEach(([what, line], i) => { expect(codeLines(found[i] ?? ''), `step ${i + 1}, ${what}`).toContain(line); });
     });
 
     it('reads Install right after Getting started, before Join a team', () => {

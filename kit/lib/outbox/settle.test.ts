@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, assert, describe, expect, it } from 'vitest';
 import { makeMarkers } from '../markers.ts';
+import { assertDefined } from '../../test/assert.ts';
 import { makeRepo } from '../../test/fixture.ts';
 import { flatCtx } from '../../test/flat-layout.ts';
 import { parseOutboxItem } from './outbox.ts';
@@ -21,6 +22,7 @@ import {
   settledHeader,
 } from './settle.ts';
 import type { AnswerChannel } from './settle.ts';
+import { parsePrd } from '../ids.ts';
 
 /** The markers every ported test below renders and parses through — `vertuo-outbox`, matching
  * `flatCtx`'s own configured prefix (`kit/test/flat-layout.ts`). */
@@ -154,7 +156,7 @@ function makeEmptyRoot() {
 }
 
 afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
 describe('the settled shapes', () => {
@@ -255,12 +257,15 @@ describe('an answer is transcribed, not merged into the question', () => {
     const entries = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers);
     expect(entries).toHaveLength(1);
 
-    const roundTripped = parseOutboxItem(entries[0]!.itemText);
+    assertDefined(entries[0], 'entries[0]');
+    const roundTripped = parseOutboxItem(entries[0].itemText);
     const original = parseOutboxItem(ITEM_TEXT);
     assert(roundTripped.ok);
     assert(original.ok);
-    expect(roundTripped.item!.sections).toEqual(original.item!.sections);
-    expect(entries[0]!.itemText).toBe(ITEM_TEXT);
+    assertDefined(roundTripped.item, 'the item');
+    assertDefined(original.item, 'the item');
+    expect(roundTripped.item.sections).toEqual(original.item.sections);
+    expect(entries[0].itemText).toBe(ITEM_TEXT);
   });
 
   it('records the answer exactly as it was given', () => {
@@ -268,7 +273,7 @@ describe('an answer is transcribed, not merged into the question', () => {
       'No.\n\n  Two spaces, a blank line, and a ``` fence inside:\n```js\nconst a = 1;\n```';
     const { settledPath } = settle({ text });
 
-    expect(parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0]!.answerText).toBe(
+    expect(parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0]?.answerText).toBe(
       text,
     );
   });
@@ -301,7 +306,8 @@ describe('an answer given on the pull request', () => {
     const { settledPath } = settle({ channel: PR_CHANNEL });
 
     const entries = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers);
-    expect(entries[0]!.fields.Channel).toBe('feature pull request #986');
+    assertDefined(entries[0], 'entries[0]');
+    expect(entries[0].fields.Channel).toBe('feature pull request #986');
   });
 });
 
@@ -312,10 +318,11 @@ describe('an answer that agrees with what was built', () => {
     assert(result.ok);
     expect(result.verdict).toBe('agreed');
     const entry = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0];
-    expect(entry!.verdict).toBe('agreed');
-    expect(entry!.closed).toBe(true);
-    expect(entry!.fields.Closed).toMatch(/^yes\b/);
-    expect(entry!.fields.Closed).toContain('nothing to rework');
+    assertDefined(entry, 'the entry');
+    expect(entry.verdict).toBe('agreed');
+    expect(entry.closed).toBe(true);
+    expect(entry.fields.Closed).toMatch(/^yes\b/);
+    expect(entry.fields.Closed).toContain('nothing to rework');
   });
 });
 
@@ -328,16 +335,18 @@ describe('an answer that contradicts what was built', () => {
     assert(result.ok);
     expect(result.verdict).toBe('drifted');
     const entry = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0];
-    expect(entry!.verdict).toBe('drifted');
-    expect(entry!.closed).toBe(false);
-    expect(entry!.fields.Closed).toMatch(/^no\b/);
+    assertDefined(entry, 'the entry');
+    expect(entry.verdict).toBe('drifted');
+    expect(entry.closed).toBe(false);
+    expect(entry.fields.Closed).toMatch(/^no\b/);
   });
 
   it('keeps what a different answer would cost addressable, for the rework to be derived from', () => {
     const { settledPath } = settle({ text: "No — use the contact's own country instead." });
 
     const entry = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0];
-    const item = parseOutboxItem(entry!.itemText);
+    assertDefined(entry, 'the entry');
+    const item = parseOutboxItem(entry.itemText);
     if (!item.ok) throw new Error('settled item does not parse');
     expect(item.item.sections.whatItCostsToChangeLater).toBe(
       'One constant, and a migration over contacts already created with the default.',
@@ -550,8 +559,9 @@ describe("the ledger's readers take the latest entry for an id", () => {
     const entries = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers);
     const forThisId = entries.filter((entry) => entry.id === adopted.item.id);
     expect(forThisId).toHaveLength(1);
-    expect(forThisId[0]!.verdict).toBe('drifted');
-    expect(forThisId[0]!.closed).toBe(false);
+    assertDefined(forThisId[0], 'forThisId[0]');
+    expect(forThisId[0].verdict).toBe('drifted');
+    expect(forThisId[0].closed).toBe(false);
   });
 
   it('keeps an id at its first position, so unrelated entries still read in raised order', () => {
@@ -584,7 +594,8 @@ describe("the ledger's readers take the latest entry for an id", () => {
       's7-01-default-timeout',
       's7-02-retry-count',
     ]);
-    expect(entries[0]!.verdict).toBe('drifted');
+    assertDefined(entries[0], 'entries[0]');
+    expect(entries[0].verdict).toBe('drifted');
   });
 });
 
@@ -593,7 +604,8 @@ describe('renderAdoptedEntry — the pure renderer behind adoptItem', () => {
     const parsed = parseOutboxItem(MEDIUM_ITEM_TEXT);
     assert(parsed.ok);
 
-    const rendered = renderAdoptedEntry({ item: parsed.item!, itemText: MEDIUM_ITEM_TEXT, markers });
+    assertDefined(parsed.item, 'the item');
+    const rendered = renderAdoptedEntry({ item: parsed.item, itemText: MEDIUM_ITEM_TEXT, markers });
     const root = makeEmptyRoot();
     const result = adoptItem({ ctx: flatCtx(root), itemText: MEDIUM_ITEM_TEXT });
 
@@ -614,12 +626,12 @@ describe('Became: is parsed as a list of ids', () => {
       '- Became: N-PRODUCT-1, N-PRODUCT-2',
       markers.settledClose('s1-01-x'),
     ].join('\n');
-    expect(parseSettledEntries(text, markers)[0]!.became).toEqual(['N-PRODUCT-1', 'N-PRODUCT-2']);
+    expect(parseSettledEntries(text, markers)[0]?.became).toEqual(['N-PRODUCT-1', 'N-PRODUCT-2']);
   });
 
   it('is an empty list when the entry carries no Became: field', () => {
     const { settledPath } = settle();
-    expect(parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0]!.became).toEqual([]);
+    expect(parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0]?.became).toEqual([]);
   });
 });
 
@@ -679,7 +691,7 @@ describe('settleItem against the folders layout', () => {
 describe('settledHeader (final review)', () => {
   it('points at the delivery folder\'s README, which is where the format lives', () => {
     const { ctx } = makeRepo();
-    const header = settledHeader(42, { ctx });
+    const header = settledHeader(parsePrd(42), { ctx });
     expect(header).toContain('`.omni-loop/delivery/README.md`');
     expect(header).not.toContain('delivery/outbox/README.md');
   });

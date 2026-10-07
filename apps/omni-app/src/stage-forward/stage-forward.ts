@@ -14,13 +14,12 @@
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
 
 /** The header galaxy reads the signature from: `sha256=<hex>`. */
 export const STAGE_SIGNATURE_HEADER = 'x-omni-signature-256';
-
-/** Galaxy's production host, when `GALAXY_URL` is not set. */
-const DEFAULT_GALAXY_URL = 'https://www.omni-loop.xyz';
 
 /** The kit's default branch shapes and link lines. */
 const DEFAULT_SHAPES = (() => {
@@ -29,8 +28,9 @@ const DEFAULT_SHAPES = (() => {
 })();
 
 export type EventStage = 'inbox' | 'building' | 'outbox' | 'shipped' | 'retro';
-export type StageEvent = { repository: string; topic: string; prd: number | null; stage: EventStage; at: string };
-type Branches = { phase0: string; slice: string; feature: string; retro: string };
+export type StageEvent = { repository: string; topic: string; prd: PrdNumber | null; stage: EventStage; at: string };
+/** The branch shapes the stages read, as the config names them: a shape, not a slice id. */
+type Branches = Pick<Config['branches'], 'phase0' | 'slice' | 'feature' | 'retro'>;
 export type Shapes = { branches: Branches; prLinks: Record<string, string> };
 
 /**
@@ -112,31 +112,42 @@ export function signStageEvent(secret: string, body: string): string {
   return `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
 }
 
-/** Galaxy's event route, on `GALAXY_URL` when set. */
-export function stageEventUrl(env: Record<string, string | undefined> = process.env): string {
-  const host = (env.GALAXY_URL || DEFAULT_GALAXY_URL).replace(/\/+$/, '');
-  return `${host}/api/stages/event`;
+/** Galaxy's event route, on its host (`galaxyUrl` of the app's environment, `GALAXY_URL` or its default). */
+export function stageEventUrl(galaxyUrl: string): string {
+  return `${galaxyUrl.replace(/\/+$/, '')}/api/stages/event`;
 }
+
+/** Where a signed POST goes, and how it is sent: `fetch` and `log` are the platform's unless given. */
+export type SignedPost = {
+  url: string;
+  secret: string | undefined;
+  fetch?: (url: string, init: RequestInit) => Promise<Response>;
+  log?: (line: string) => void;
+};
 
 /**
  * POSTs one stage event to galaxy, signed. Never throws: a missing secret, a refusal or a network
  * failure is one line in the log.
  */
-export async function forwardStageEvent(
-  stageEvent: StageEvent,
-  { url, secret, fetch: post = fetch, log = console.error }: {
-    url: string;
-    secret: string | undefined;
-    fetch?: (url: string, init: RequestInit) => Promise<Response>;
-    log?: (line: string) => void;
-  },
-): Promise<void> {
+export function forwardStageEvent(stageEvent: StageEvent, post: SignedPost): Promise<void> {
   const what = `${stageEvent.stage} of ${stageEvent.repository} ${stageEvent.prd ? `#${stageEvent.prd}` : stageEvent.topic}`;
+  return postSigned(stageEvent, post, { name: 'stage event', what });
+}
+
+/**
+ * POSTs `payload` as JSON to `url`, signed with an HMAC-SHA256 over the body under `secret`. Never
+ * throws: a missing secret, a refusal or a network failure is one line in the log, naming `what`.
+ */
+export async function postSigned(
+  payload: unknown,
+  { url, secret, fetch: post = fetch, log = console.error }: SignedPost,
+  { name, what }: { name: string; what: string },
+): Promise<void> {
   if (!secret) {
-    log(`stage event: STAGE_EVENT_SECRET is not set, the ${what} is left to the sync`);
+    log(`${name}: STAGE_EVENT_SECRET is not set, the ${what} is left to the sync`);
     return;
   }
-  const body = JSON.stringify(stageEvent);
+  const body = JSON.stringify(payload);
   try {
     const response = await post(url, {
       method: 'POST',
@@ -144,26 +155,27 @@ export async function forwardStageEvent(
       headers: { 'content-type': 'application/json', [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) },
       signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) log(`stage event: galaxy answered ${response.status} to the ${what}`);
+    if (!response.ok) log(`${name}: galaxy answered ${response.status} to the ${what}`);
   } catch (error) {
-    log(`stage event: the ${what} could not be sent — ${messageOf(error)}`);
+    log(`${name}: the ${what} could not be sent — ${String(messageOf(error))}`);
   }
 }
 
 /** The PRD number from the body's first link line (`Closes #7`, `Part of #7`, `Refs #7`); null when none. */
-function prdOf(body: unknown, prLinks: Record<string, string>): number | null {
+function prdOf(body: unknown, prLinks: Record<string, string>): PrdNumber | null {
   if (typeof body !== 'string') return null;
   for (const template of Object.values(prLinks)) {
     if (!template.includes('{prd}')) continue;
     const [before, after] = template.split('{prd}').map(escape);
     const found = new RegExp(`(?:^|\\s)${before}(\\d+)${after}(?!\\d)`, 'im').exec(body);
-    if (found) return Number(found[1]);
+    const prd = PrdNumberSchema.safeParse(Number(found?.[1]));
+    if (prd.success) return prd.data;
   }
   return null;
 }
 
 /** The placeholders a branch shape fills from a branch name; null when it does not match. */
-function match(template: string | undefined, ref: string): Record<string, string | undefined> | null {
+export function match(template: string | undefined, ref: string): Record<string, string | undefined> | null {
   if (!template?.includes('{topic}')) return null;
   const names: string[] = [];
   const pattern = template.split(/(\{topic\}|\{slice\})/).map((part) => {

@@ -35,7 +35,7 @@ export function changeBlocks(patch: string): Block[] {
     if (header) {
       close();
       // A count left out is one line.
-      const [oldStart = 1, oldCount = 1, newStart = 1, newCount = 1] = header.slice(1).map((n) => (n === undefined ? 1 : Number(n)));
+      const [oldStart = 1, oldCount = 1, newStart = 1, newCount = 1] = header.slice(1).map((n: string | undefined) => (n === undefined ? 1 : Number(n)));
       // A side of zero lines names the line before the hunk; its first line is the next one.
       oldLine = oldCount === 0 ? oldStart + 1 : oldStart;
       newLine = newCount === 0 ? newStart + 1 : newStart;

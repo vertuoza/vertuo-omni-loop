@@ -5,10 +5,11 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { ReviewRow } from './github.ts';
-import { parsedOr, TrackedRowSchema } from './schema.ts';
+import { parsedOr, TrackedRowSchema, type TrackedRepositorySchema } from './schema.ts';
+import type { z } from 'zod';
 
 /** A tracked repository, the installation it is read through, and its cursor. */
-export type TrackedRepository = { workspaceId: string; installationId: number; fullName: string; collectedUntil: string | null };
+export type TrackedRepository = z.infer<typeof TrackedRepositorySchema>;
 
 /** A `pull_requests` row as written: every column with a default may be left out. */
 export type PullInsert = Database['public']['Tables']['pull_requests']['Insert'];
@@ -23,10 +24,10 @@ export type PrStatsStore = {
   updateRepository: (workspaceId: string, fullName: string, patch: RepositoryPatch) => Promise<void>;
 };
 
-const TRACKED = 'workspace_id, full_name, collected_until, workspaces!inner(github_installation_id)';
+export const TRACKED = 'workspace_id, full_name, collected_until, workspaces!inner(github_installation_id)';
 
 /** The store on the database at `url`, as the service role `key`; `fetch` for tests only. */
-export function supabaseStore({ url, key, fetch = undefined }: { url: string; key: string; fetch?: typeof globalThis.fetch | undefined }): PrStatsStore {
+export function supabaseStore({ url, key, fetch }: { url: string; key: string; fetch?: typeof globalThis.fetch | undefined }): PrStatsStore {
   const db = createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     ...(fetch ? { global: { fetch } } : {}),

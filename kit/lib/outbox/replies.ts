@@ -39,6 +39,7 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-replies.mjs — changes in kit/porting/outbox--replies.md.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { z } from 'zod';
 import {
   adoptedEntriesForPrd,
   findPrMarkerComment,
@@ -50,20 +51,41 @@ import type { Context } from '../context.ts';
 import type { OutboxItem, OutboxOption } from '../types.ts';
 import { answerErrors, AnswerSchema, judgeAnswer, parseItem, renderSettledEntry, settleItem } from './settle.ts';
 import type { Judgement, Markers, SettledItemFacts, SettledVerdict, Verdict } from './settle.ts';
-import { SETTLED_FILE } from './outbox.ts';
+import { RANK_VALUES, SETTLED_FILE } from './outbox.ts';
+import { defined } from '../narrow.ts';
+import { plainText } from './plain-text.ts';
+import { CommentIdSchema, OutboxItemIdSchema } from '../ids.ts';
+import type { OutboxItemId, PrdNumber, PrNumber } from '../ids.ts';
 
 /** A pull request comment, as GitHub lists it: only the fields the reader looks at. */
-type ReplyComment = {
-  id: number;
-  body?: string | null;
-  created_at?: string;
-  user?: { login?: string } | null;
-  author_association?: string;
-  html_url?: string;
-};
+const ReplyCommentSchema = z.object({
+  id: CommentIdSchema,
+  body: z.string().nullish(),
+  created_at: z.string().optional(),
+  user: z.object({ login: z.string().optional() }).nullish(),
+  author_association: z.string().optional(),
+  html_url: z.string().optional(),
+});
+type ReplyComment = z.infer<typeof ReplyCommentSchema>;
+
+/**
+ * An item, as far as the reader reads it: its id, its rank and the sections a reply is read against.
+ * Every other field the caller's item carries is kept, so what comes back is the item that went in.
+ */
+const RepliedItemSchema = z.looseObject({
+  id: OutboxItemIdSchema,
+  rank: z.enum(RANK_VALUES),
+  sections: z.looseObject({
+    options: z.array(z.object({ letter: z.string(), text: z.string() })).optional(),
+    questionPlain: z.string().optional(),
+    whatIHadToDecide: z.string().optional(),
+    whatIDidMeanwhile: z.string().optional(),
+  }),
+});
+type RepliedItem = z.infer<typeof RepliedItemSchema>;
 
 /** An adopted settled entry, as far as the reader needs it: its id and its item's text. */
-type AdoptedEntry = { id: string; itemText: string };
+type AdoptedEntry = { id: OutboxItemId; itemText: string };
 
 /** One reply line: a numbered answer, or an `approve all` (`go with recommendation`). */
 type ReplyLine = { kind: 'numbered'; number: number; text: string } | { kind: 'approve-all'; text: string };
@@ -74,7 +96,7 @@ type Reading =
   | { undetermined: true; recorded: string; statedVerdict?: undefined };
 
 /** A question a reply may answer: its numbering entry, its item, and its adopted entry when it has one. */
-type Question = { number: number; id: string; since: string; item: OutboxItem; adoptedEntry: AdoptedEntry | null };
+type Question<I extends RepliedItem> = { number: number; id: string; since: string; item: I | OutboxItem; adoptedEntry: AdoptedEntry | null };
 
 /** A reply's answer to one question, before and after it is read. */
 type RawAnswer = { approvedBy: string; approvedAt: string | undefined; url: string | undefined; text: string; approveAll?: boolean };
@@ -117,7 +139,7 @@ const RANK_PLAIN_LABEL: Record<string, string> = { 'human-action': 'needs a pers
  */
 export function parseReplyLines(body: unknown): ReplyLine[] {
   const lines: ReplyLine[] = [];
-  for (const line of String(body ?? '').split(/\r?\n/)) {
+  for (const line of plainText(body).split(/\r?\n/)) {
     if (APPROVE_ALL_LINE.test(line)) {
       lines.push({ kind: 'approve-all', text: APPROVE_ALL_TEXT });
       continue;
@@ -153,7 +175,7 @@ export function interpretAnswer({
   text: unknown;
   options?: readonly OutboxOption[] | undefined;
 }): Reading {
-  const trimmed = String(text ?? '').trim();
+  const trimmed = plainText(text).trim();
   if (RECOMMENDATION_RE.test(trimmed)) {
     return { statedVerdict: 'agreed', recorded: RECOMMENDATION_TEXT };
   }
@@ -214,18 +236,18 @@ function lastReaskedAt(comments: readonly ReplyComment[], markers: Markers): { a
  * adopted item it names, whose item is read back off its settled entry. An adopted entry whose
  * embedded item no longer parses is left out rather than guessed at.
  */
-function answerableQuestions(
-  numbering: readonly { number: number; id: string; since: string }[],
-  items: readonly OutboxItem[],
+function answerableQuestions<I extends RepliedItem>(
+  numbering: readonly { number: number; id: OutboxItemId; since: string }[],
+  items: readonly I[],
   adopted: readonly AdoptedEntry[],
-): Question[] {
+): Question<I>[] {
   const itemsById = new Map(items.map((item) => [item.id, item]));
-  const adoptedById = new Map<string, { entry: AdoptedEntry; item: OutboxItem }>();
+  const adoptedById = new Map<OutboxItemId, { entry: AdoptedEntry; item: OutboxItem }>();
   for (const entry of adopted) {
     const parsed = parseItem(entry.itemText, null);
     if (parsed.ok) adoptedById.set(entry.id, { entry, item: parsed.item });
   }
-  const questions: Question[] = [];
+  const questions: Question<I>[] = [];
   for (const entry of numbering) {
     const open = itemsById.get(entry.id);
     const kept = adoptedById.get(entry.id);
@@ -258,23 +280,50 @@ function answerableQuestions(
  *   round: { number: number, questions: Array<object> } | null,
  * }}
  */
-export function planReplies(args: { comments: object[]; items: object[]; adopted?: object[]; markers: object }) {
-  // The arcade passes its own loosely typed rows, so the parameters stay as wide as they were; the
-  // shapes below are what the reader reads off them.
-  const { comments, items, adopted = [], markers } = args as { // ts-allow: the arcade's callers pass object rows of these shapes
-    comments: ReplyComment[];
-    items: OutboxItem[];
-    adopted?: AdoptedEntry[];
-    markers: Markers;
-  };
-  const all: ReplyComment[] = Array.isArray(comments) ? comments : [];
+export function planReplies({ comments, items, adopted = [], markers }: { comments: readonly unknown[]; items: readonly unknown[]; adopted?: readonly AdoptedEntry[]; markers: Markers }) {
+  // The arcade passes its own loosely typed rows: the reader parses what it reads off them.
+  return planFor({ comments: replyComments(comments), items: z.array(RepliedItemSchema).parse(items), adopted, markers });
+}
+
+/** The comments a reader reads, parsed: none when what came is not a list, as it always was. */
+function replyComments(comments: unknown): ReplyComment[] {
+  return Array.isArray(comments) ? z.array(ReplyCommentSchema).parse(comments) : [];
+}
+
+/** {@link planReplies}, on comments and items already parsed: each item comes back as it went in. */
+function planFor<I extends RepliedItem>({ comments: all, items, adopted, markers }: { comments: ReplyComment[]; items: readonly I[]; adopted: readonly AdoptedEntry[]; markers: Markers }) {
   const prComment: ReplyComment | null = findPrMarkerComment(all, markers);
-  const numbering: { number: number; id: string; since: string }[] = prComment ? parseNumbersMarker(prComment.body, markers) : [];
+  const numbering: { number: number; id: OutboxItemId; since: string }[] = prComment ? parseNumbersMarker(prComment.body, markers) : [];
   const questions = answerableQuestions(numbering, items, adopted);
   const byNumber = new Map(questions.map((question) => [question.number, question]));
   const open = questions.filter((question) => question.adoptedEntry === null);
 
-  // Per question: the latest numbered answer, and the latest approve-all that covers it.
+  const { numbered, approved } = rawAnswers(all, markers, byNumber, open);
+
+  const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
+  const settle: { number: number; item: I | OutboxItem; answer: ReadAnswer; judgement: Judgement; adoptedEntry: AdoptedEntry | null }[] = [];
+  const held: { number: number; item: I | OutboxItem; answer: ReadAnswer; due: boolean }[] = [];
+  for (const { number, item, adoptedEntry } of questions) {
+    const raw = numbered.get(number) ?? approved.get(number);
+    if (!raw) continue;
+    const { answer, judgement } = readAnswer(raw, item);
+
+    if (judgement.verdict === null) {
+      const lastRound = reaskedAt.get(number);
+      const due = lastRound === undefined || time(answer.approvedAt) > lastRound;
+      held.push({ number, item, answer, due });
+      continue;
+    }
+    // Agreeing with an adopted item changes nothing: it is already settled and kept.
+    if (adoptedEntry && judgement.verdict !== 'drifted') continue;
+    settle.push({ number, item, answer, judgement, adoptedEntry });
+  }
+
+  return { settle, held, round: roundOf(held, highestRound) };
+}
+
+/** Per question: the latest numbered answer, and the latest approve-all that covers it. */
+function rawAnswers(all: ReplyComment[], markers: Markers, byNumber: ReadonlyMap<number, unknown>, open: readonly { number: number; since: string }[]) {
   const numbered = new Map<number, RawAnswer>();
   const approved = new Map<number, RawAnswer>();
   for (const comment of chronological(all.filter((comment) => isCountedReply(comment, markers)))) {
@@ -296,59 +345,46 @@ export function planReplies(args: { comments: object[]; items: object[]; adopted
       }
     }
   }
+  return { numbered, approved };
+}
 
-  const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
-  const settle: { number: number; item: OutboxItem; answer: ReadAnswer; judgement: Judgement; adoptedEntry: AdoptedEntry | null }[] = [];
-  const held: { number: number; item: OutboxItem; answer: ReadAnswer; due: boolean }[] = [];
-  for (const { number, item, adoptedEntry } of questions) {
-    const raw = numbered.get(number) ?? approved.get(number);
-    if (!raw) continue;
-    const reading: Reading = raw.approveAll
-      ? { statedVerdict: 'agreed', recorded: raw.text }
-      : interpretAnswer({ text: raw.text, options: item.sections?.options });
-    const answer: ReadAnswer = {
-      ...raw,
-      recorded: reading.recorded,
-      ...(reading.statedVerdict ? { statedVerdict: reading.statedVerdict } : {}),
-    };
-    const judgement: Judgement = reading.undetermined
-      ? {
-          verdict: null,
-          basis: 'undetermined',
-          reason: 'the reply names an option the question does not offer',
-        }
-      : judgeAnswer({
-          choice: item.sections?.whatIDidMeanwhile,
-          answer: answer.recorded,
-          statedVerdict: reading.statedVerdict ?? null,
-        });
+/** What a raw answer to `item` says, and the judgement on it: approve-all agrees with what was done. */
+function readAnswer(raw: RawAnswer, item: RepliedItem | OutboxItem): { answer: ReadAnswer; judgement: Judgement } {
+  const reading: Reading = raw.approveAll
+    ? { statedVerdict: 'agreed', recorded: raw.text }
+    : interpretAnswer({ text: raw.text, options: item.sections.options });
+  const answer: ReadAnswer = {
+    ...raw,
+    recorded: reading.recorded,
+    ...(reading.statedVerdict ? { statedVerdict: reading.statedVerdict } : {}),
+  };
+  const judgement: Judgement = reading.undetermined
+    ? {
+        verdict: null,
+        basis: 'undetermined',
+        reason: 'the reply names an option the question does not offer',
+      }
+    : judgeAnswer({
+        choice: item.sections.whatIDidMeanwhile,
+        answer: answer.recorded,
+        statedVerdict: reading.statedVerdict ?? null,
+      });
+  return { answer, judgement };
+}
 
-    if (judgement.verdict === null) {
-      const lastRound = reaskedAt.get(number);
-      const due = lastRound === undefined || time(answer.approvedAt) > lastRound;
-      held.push({ number, item, answer, due });
-      continue;
-    }
-    // Agreeing with an adopted item changes nothing: it is already settled and kept.
-    if (adoptedEntry && judgement.verdict !== 'drifted') continue;
-    settle.push({ number, item, answer, judgement, adoptedEntry });
-  }
-
+/** The next round: every held question that is due, re-asked; null when none is. */
+function roundOf(held: readonly { number: number; item: RepliedItem | OutboxItem; answer: ReadAnswer; due: boolean }[], highestRound: number): { number: number; questions: RoundQuestion[] } | null {
   const dueQuestions = held.filter((question) => question.due);
-  const round: { number: number; questions: RoundQuestion[] } | null =
-    dueQuestions.length === 0
-      ? null
-      : {
-          number: Math.max(highestRound, 1) + 1,
-          questions: dueQuestions.map(({ number, item, answer }) => ({
-            number,
-            rank: item.rank,
-            questionPlain: item.sections?.questionPlain ?? item.sections?.whatIHadToDecide ?? '',
-            answerText: answer.text,
-          })),
-        };
-
-  return { settle, held, round };
+  if (dueQuestions.length === 0) return null;
+  return {
+    number: Math.max(highestRound, 1) + 1,
+    questions: dueQuestions.map(({ number, item, answer }) => ({
+      number,
+      rank: item.rank,
+      questionPlain: item.sections.questionPlain ?? item.sections.whatIHadToDecide ?? '',
+      answerText: answer.text,
+    })),
+  };
 }
 
 /**
@@ -408,7 +444,7 @@ export function appendObjection({
   judgement,
 }: {
   ctx: Pick<Context, 'root' | 'layout' | 'markers'>;
-  prd: number | string;
+  prd: PrdNumber;
   adoptedEntry: Pick<AdoptedEntry, 'itemText'>;
   item: SettledItemFacts;
   answer: unknown;
@@ -440,17 +476,17 @@ export function appendObjection({
  * appends a `drifted` entry and deletes nothing ({@link appendObjection}). With `post`, a due round
  * comment is posted as a NEW comment (by body); without it, the body is only returned.
  *
- * @param {{ ctx: object, prd: number, pr: number, post?: boolean }} args
+ * @param {{ ctx: object, prd: PrdNumber, pr: PrNumber, post?: boolean }} args
  * @param {{ listComments: () => Array, createComment: (body: string) => any }} client
  */
 export function readReplies(
-  { ctx, prd, pr, post = false }: { ctx: Context; prd: number; pr: number; post?: boolean },
+  { ctx, prd, pr, post = false }: { ctx: Context; prd: PrdNumber; pr: PrNumber; post?: boolean },
   client: { listComments: () => object[]; createComment: (body: string) => unknown },
 ) {
   const comments = client.listComments();
   const items = openItemsForPrd(prd, { ctx });
   const adopted = adoptedEntriesForPrd(prd, { ctx });
-  const plan = planReplies({ comments, items, adopted, markers: ctx.markers });
+  const plan = planFor({ comments: replyComments(comments), items, adopted, markers: ctx.markers });
 
   const settled: {
     number: number;
@@ -478,7 +514,7 @@ export function readReplies(
       | { ok: true; verdict?: SettledVerdict; settledFile: string; removedFile?: string }
       | { ok: false; errors: string[] } = adoptedEntry
       ? appendObjection({ ctx, prd, adoptedEntry, item, answer: given, judgement })
-      : settleItem({ ctx, file: item.file as string, answer: given }); // ts-allow: an open item is always read from its file
+      : settleItem({ ctx, file: defined(item.file, 'the file of an open item'), answer: given });
     if (result.ok) {
       settled.push({
         number,

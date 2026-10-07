@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 
 const read = vi.hoisted(() => ({
-  workspace: (async () => ({ id: 'ws-1', slug: 'acme', name: 'Acme', theme: {} })) as () => Promise<unknown>,
-  fleets: (async () => []) as () => Promise<unknown>,
+  workspace: (): Promise<unknown> => Promise.resolve({ id: 'ws-1', slug: 'acme', name: 'Acme', theme: {} }),
+  fleets: (): Promise<unknown> => Promise.resolve([]),
 }));
 vi.mock('../data/workspace', () => ({ memberWorkspace: () => read.workspace() }));
 vi.mock('../data/load-galaxy', () => ({ loadFleets: () => read.fleets() }));
@@ -24,19 +24,19 @@ function db(answers: Record<string, { data?: unknown; error?: unknown } | Error>
   const calls: [string, unknown][] = [];
   return {
     calls,
-    rpc: async (fn: string, args: unknown) => {
+    rpc: (fn: string, args: unknown) => {
       calls.push([fn, args]);
       const a = answers[fn];
-      if (a instanceof Error) throw a;
-      return { data: a?.data ?? null, error: a?.error ?? null };
+      if (a instanceof Error) return Promise.reject(a);
+      return Promise.resolve({ data: a?.data ?? null, error: a?.error ?? null });
     },
   };
 }
 
 describe('the fleets page\'s read', () => {
   beforeEach(() => {
-    read.workspace = async () => ({ id: 'ws-1', slug: 'acme', name: 'Acme', theme: {} });
-    read.fleets = async () => [BEAVER];
+    read.workspace = () => Promise.resolve({ id: 'ws-1', slug: 'acme', name: 'Acme', theme: {} });
+    read.fleets = () => Promise.resolve([BEAVER]);
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -63,15 +63,15 @@ describe('the fleets page\'s read', () => {
   });
 
   it('is the no-workspace notice for an account in none', async () => {
-    read.workspace = async () => null;
+    read.workspace = () => Promise.resolve(null);
     expect(await loadFleetsPage(db({}) as never, USER)).toEqual({ kind: 'no-workspace' });
   });
 
   it('is unreadable when the workspace or its fleets cannot be read', async () => {
-    read.workspace = async () => { throw new Error('down'); };
+    read.workspace = () => Promise.reject(new Error('down'));
     expect(await loadFleetsPage(db({}) as never, USER)).toEqual({ kind: 'unreadable' });
-    read.workspace = async () => ({ id: 'ws-1', slug: 'acme', name: 'Acme', theme: {} });
-    read.fleets = async () => { throw new Error('down'); };
+    read.workspace = () => Promise.resolve({ id: 'ws-1', slug: 'acme', name: 'Acme', theme: {} });
+    read.fleets = () => Promise.reject(new Error('down'));
     expect(await loadFleetsPage(db({ is_owner: { data: true } }) as never, USER)).toEqual({ kind: 'unreadable' });
   });
 });

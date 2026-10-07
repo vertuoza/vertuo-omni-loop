@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
 import { ARTIFACT_MAX_BYTES, deliveryFolders, dossierSwitch, fixFolders, fixTitle, gitBlobSha, titleOf } from './folders.ts';
 
+// Any text matching `pattern`, as the expectation reads it.
+const matching = (pattern: RegExp): unknown => expect.stringMatching(pattern);
+
 const blob = (path: string, sha: string, size = 100) => ({ path, mode: '100644', type: 'blob', sha, size });
 
 describe('dossierSwitch: the repository\'s own config decides', () => {
@@ -21,9 +24,9 @@ describe('dossierSwitch: the repository\'s own config decides', () => {
   });
 
   it('is off when the config does not read', () => {
-    expect(dossierSwitch('kit: [1\n')).toMatchObject({ on: false, reason: expect.stringMatching(/^\.omni-loop\/config\.yml does not read/) });
-    expect(dossierSwitch('')).toMatchObject({ on: false, reason: expect.stringMatching(/does not read/) });
-    expect(dossierSwitch('- a list\n')).toMatchObject({ on: false, reason: expect.stringMatching(/does not read/) });
+    expect(dossierSwitch('kit: [1\n')).toMatchObject({ on: false, reason: matching(/^\.omni-loop\/config\.yml does not read/) });
+    expect(dossierSwitch('')).toMatchObject({ on: false, reason: matching(/does not read/) });
+    expect(dossierSwitch('- a list\n')).toMatchObject({ on: false, reason: matching(/does not read/) });
   });
 });
 

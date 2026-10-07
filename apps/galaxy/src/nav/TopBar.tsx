@@ -16,7 +16,7 @@ export type TopBarProps = {
   /** The page's sub-title, beside the wordmark. */
   sub: string;
   /** The menu item of the page being shown, when it is one. */
-  current?: MenuId;
+  current?: MenuId | undefined;
 };
 
 export function TopBar({ sub, current }: TopBarProps) {

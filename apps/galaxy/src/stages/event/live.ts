@@ -1,5 +1,6 @@
 import 'server-only';
 import { serviceDb } from '../../data/sign-in-live';
+import { serverEnv } from '../../env';
 import { recountLive } from '../outbox/live';
 import { stageStore } from '../store';
 import type { StageEventDeps } from './event';
@@ -10,7 +11,7 @@ import { workspacesOwning } from './workspaces';
 // PRD 657 (s5): each PRD placed has its open outbox questions recounted (../outbox/live.ts).
 export function stageEventDeps(): StageEventDeps {
   return {
-    secret: process.env.STAGE_EVENT_SECRET || undefined,
+    secret: serverEnv().stageEventSecret ?? undefined,
     store: () => stageStore(serviceDb()),
     workspacesOf: (repository) => workspacesOwning(serviceDb(), repository),
     recount: recountLive,

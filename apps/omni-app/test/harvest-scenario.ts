@@ -7,9 +7,12 @@
 import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
 import { parseOutboxItem as parseOutboxItemOf } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
 import { renderAdoptedEntry, renderSettledEntry, settledHeader } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { vi } from 'vitest';
+import { z } from 'zod';
 import { HARVEST_EVENT } from '../src/inngest-client.ts';
 import { replayGitHub } from './github-replay.ts';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export const OWNER = 'acme';
 export const REPO = 'widgets';
@@ -28,7 +31,10 @@ export const LEDGER = `${SHIPPED}/outbox/settled.md`;
 
 const markers = makeMarkers('omni-outbox');
 
-export function itemText({ id, prd = 42, rank, slice = 's1', personSteps = false }: any) {
+/** One open item of the scenario: its id and rank, and whether it asks a person to act. */
+type ItemOptions = { id: string; prd?: number; rank: string; slice?: string; personSteps?: boolean };
+
+export function itemText({ id, prd = 42, rank, slice = 's1', personSteps = false }: ItemOptions) {
   const last = personSteps
     ? ['## What a person must do', '', '1. Set the secret in the console.', '']
     : ['## The options, in plain words', '', 'A. Keep what was built.', 'B. Change it.', ''];
@@ -78,12 +84,12 @@ function parseOutboxItem(text: string) {
   return parsed;
 }
 
-function adopted(id: any, prd = 42) {
+function adopted(id: string, prd = 42) {
   const text = itemText({ id, prd, rank: 'medium', slice: 's0' });
   return renderAdoptedEntry({ item: parseOutboxItem(text).item, itemText: text, markers });
 }
 
-function drifted(id: any) {
+function drifted(id: string) {
   const text = itemText({ id, rank: 'high', slice: 's0' });
   return renderSettledEntry({
     item: parseOutboxItem(text).item,
@@ -99,7 +105,7 @@ function drifted(id: any) {
   });
 }
 
-const header = (prd: any) => settledHeader(prd, { ctx: { config: { paths: { delivery: D } } } });
+const header = (prd: number) => settledHeader(parsePrd(prd), { ctx: { config: { paths: { delivery: D } } } });
 
 export const LEDGER_TEXT = [header(42), adopted('s0-01-local-name'), adopted('s0-02-cited'), adopted('s0-03-refused'), drifted('s0-04-drift')].join('\n');
 
@@ -153,20 +159,34 @@ export const REPLIES = {
   's1-02-gadget-rule': { kind: 'rule', place: 'product', statement: 'A gadget has one owner.', serves: 'P-PRODUCT-1', reason: 'a product rule' },
 };
 
+/** The request the harvest sends OpenRouter, as far as the fake reads it. */
+const ModelRequest = z.object({ messages: z.array(z.object({ role: z.string(), content: z.string() })) });
+
 /** A fake OpenRouter: the reply the prompt's decision id is given, from `replies`. */
 export function fakeFetch(replies = REPLIES) {
-  return vi.fn(async (_url: string | URL | Request, init: any) => {
-    const body = JSON.parse(init.body);
-    const user = body.messages.find((m: any) => m.role === 'user').content;
-    const id = /^## The decision: (\S+)$/m.exec(user)?.[1] ?? '';
+  const answer = (init: RequestInit | undefined): Response => {
+    const body = ModelRequest.parse(JSON.parse(z.string().parse(init?.body)));
+    const user = body.messages.find((m) => m.role === 'user');
+    assertDefined(user, "the request's user message");
+    const id = /^## The decision: (\S+)$/m.exec(user.content)?.[1] ?? '';
     return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify((replies as Record<string, unknown>)[id]) } }] }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
     });
-  });
+  };
+  // Settled as an async function settles: a request the fake cannot read rejects the promise, never throws.
+  return vi.fn(
+    (_url: string | URL | Request, init?: RequestInit) =>
+      new Promise<Response>((resolve) => {
+        resolve(answer(init));
+      }),
+  );
 }
 
-const pull = ({ number, head, base = 'main', mergedAt = MERGED_AT, mergedBy = MERGER, mergeSha = MERGE_SHA, title = `PR ${number}` }: any) => ({
+/** One pull request of the scenario: merged unless `mergedAt` is null. */
+type PullOptions = { number: number; head: string; base?: string; mergedAt?: string | null; mergedBy?: string; mergeSha?: string; title?: string };
+
+const pull = ({ number, head, base = 'main', mergedAt = MERGED_AT, mergedBy = MERGER, mergeSha = MERGE_SHA, title = `PR ${number}` }: PullOptions) => ({
   number,
   title,
   state: 'closed',

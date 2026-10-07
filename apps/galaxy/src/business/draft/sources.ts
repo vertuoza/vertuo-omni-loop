@@ -42,7 +42,7 @@ export function repoFiles(listing: RepoListing): RepoFile[] {
   if (listing.delivery !== null) {
     const shipped = listing.shipped
       .map((name) => ({ name, parsed: parseFolderName(name) }))
-      .filter((f): f is { name: string; parsed: { prd: number; topic: string } } => f.parsed !== null)
+      .filter((f): f is { name: string; parsed: NonNullable<typeof f.parsed> } => f.parsed !== null)
       .sort((a, b) => b.parsed.prd - a.parsed.prd)
       .slice(0, MAX_SPECS);
     for (const { name } of shipped) files.push({ path: `${listing.delivery}/shipped/${name}/spec.md`, kind: 'prd' });

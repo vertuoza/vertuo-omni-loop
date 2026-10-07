@@ -12,10 +12,12 @@
 //
 // PRD 657 (s5): each PRD placed then has its open outbox questions recounted into prd_outbox, so /prd
 // sees a feature PR's change before the next sync. A recount that fails is logged; the reply stands.
+import 'server-only';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { StoredStage } from '../stage';
 import type { StageStore } from '../store';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The header omni-app signs with: `sha256=<hex>`. */
 export const STAGE_SIGNATURE_HEADER = 'x-omni-signature-256';
@@ -23,7 +25,7 @@ export const STAGE_SIGNATURE_HEADER = 'x-omni-signature-256';
 /** The stages a pull request event can show: every stored stage but PRD, which only the sync sees. */
 const EVENT_STAGES = ['inbox', 'building', 'outbox', 'shipped', 'retro'] as const satisfies readonly StoredStage[];
 
-export type StageEvent = { repository: string; topic: string; prd: number | null; stage: StoredStage; at: string };
+export type StageEvent = { repository: string; topic: string; prd: PrdNumber | null; stage: StoredStage; at: string };
 
 export type StageEventDeps = {
   /** STAGE_EVENT_SECRET; unset, every event is refused. */
@@ -33,7 +35,7 @@ export type StageEventDeps = {
   /** The workspaces that own a repository (`owner/name`): those whose GitHub org is its owner. */
   workspacesOf: (repository: string) => Promise<string[]>;
   /** Recounts a workspace's PRDs' open outbox questions (../outbox/recount.ts); none, no recount. */
-  recount?: (workspace: string, prds: { repository: string; prd: number }[]) => Promise<number>;
+  recount?: (workspace: string, prds: { repository: string; prd: PrdNumber }[]) => Promise<number>;
   log?: (line: string) => void;
 };
 
@@ -45,7 +47,7 @@ const REPOSITORY = /^[\w.-]+\/[\w.-]+$/;
 const StageEventBody = z.object({
   repository: z.string().regex(REPOSITORY),
   topic: z.string().refine((topic) => topic.trim() !== ''),
-  prd: z.number().refine((prd) => Number.isInteger(prd) && prd > 0).nullable(),
+  prd: PrdNumberSchema.nullable(),
   stage: z.enum(EVENT_STAGES),
   at: z.string().refine((at) => !Number.isNaN(Date.parse(at))),
 });

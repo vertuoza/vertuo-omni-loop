@@ -10,6 +10,9 @@ import { DossierPage } from './DossierPage';
 import { isWide, subscribe, WIDE } from './outbox-context';
 import { SEND_OFF } from './outbox-view';
 import { dossierView, readPick } from './view';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 // Ported from archive/outbox-answers-v1:apps/galaxy/src/outbox/render.test.ts (PRD 251, s9), on PRD
 // 426's GitHub summary. The Outbox tab of /prd/<id> as the server renders it: what a person sees
@@ -20,7 +23,7 @@ const ID = '00000000-0000-4000-8000-0000000000d1';
 const PR = 'https://github.com/acme/widgets/pull/12';
 const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
 const dossier: DossierRow = {
-  id: ID, workspace_id: 'w1', home_repo: 'acme/widgets', prd: 7, title: 'Team inbox',
+  id: ID, workspace_id: 'w1', home_repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox',
   opened_by: PIERRE.user_id, created_at: '2026-09-27T09:12:00Z', numbered_at: '2026-09-27T10:00:00Z',
 };
 const versions: DossierVersionRow[] = [
@@ -51,10 +54,10 @@ const NAME: OutboxItem = {
 
 function summary(more: Partial<GithubSummary> = {}): GithubSummary {
   return {
-    repo: 'acme/widgets', prd: 7, folder: '0007-team-inbox', topic: 'team-inbox',
-    issue: { number: 7, url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
-    phase0: { number: 10, url: 'https://github.com/acme/widgets/pull/10', state: 'merged', draft: false },
-    feature: { number: 12, url: PR, state: 'open', draft: true, mergedAt: null }, retro: null, mergedSlices: 2,
+    repo: 'acme/widgets', prd: parsePrd(7), folder: '0007-team-inbox', topic: 'team-inbox',
+    issue: { number: parseIssue(7), url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
+    phase0: { number: parsePr(10), url: 'https://github.com/acme/widgets/pull/10', state: 'merged', draft: false },
+    feature: { number: parsePr(12), url: PR, state: 'open', draft: true, mergedAt: null }, retro: null, mergedSlices: 2,
     outbox: {
       open: [COLOUR, SECRET],
       adopted: [NAME],
@@ -72,7 +75,7 @@ function summary(more: Partial<GithubSummary> = {}): GithubSummary {
   };
 }
 
-function tab({ github = summary() as GithubSummary | null, query = {} as Record<string, string>, spec = null as string | null, me = PIERRE.user_id as string | null, demo = false } = {}) {
+function tab({ github = summary(), query = {}, spec = null, me = PIERRE.user_id, demo = false }: { github?: GithubSummary | null; query?: Record<string, string>; spec?: string | null; me?: string | null; demo?: boolean } = {}) {
   const view = dossierView({ dossier, versions, members: [PIERRE], rounds, github, demo }, me, readPick({ tab: 'outbox', ...query }));
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: spec === null ? null : renderMarkdown(spec), supabase: null }));
 }
@@ -101,7 +104,7 @@ describe('the states', () => {
   });
 
   it('shipped: read-only, with the date, and no toolbar', () => {
-    const merged = tab({ github: summary({ feature: { number: 12, url: PR, state: 'merged', draft: false, mergedAt: '2026-09-28T08:00:00Z' } }) });
+    const merged = tab({ github: summary({ feature: { number: parsePr(12), url: PR, state: 'merged', draft: false, mergedAt: '2026-09-28T08:00:00Z' } }) });
     expect(merged).toContain('The feature pull request merged on 28 Sep 2026: what was still open was adopted.');
     expect(merged).not.toContain('Select every recommendation');
     expect(merged).toMatch(/<fieldset class="outbox-options" disabled="">/);
@@ -109,7 +112,7 @@ describe('the states', () => {
   });
 
   it('closed: read-only, and says so', () => {
-    const closed = tab({ github: summary({ feature: null, issue: { number: 7, url: 'https://github.com/acme/widgets/issues/7', state: 'closed' } }) });
+    const closed = tab({ github: summary({ feature: null, issue: { number: parseIssue(7), url: 'https://github.com/acme/widgets/issues/7', state: 'closed' } }) });
     expect(closed).toContain('The feature pull request closed: what was still open was adopted.');
     expect(closed).not.toContain('Select every recommendation');
   });
@@ -267,7 +270,7 @@ describe('the context disclosure, wide and tall', () => {
       const seen: boolean[] = [];
       const stop = subscribe(() => seen.push(isWide()));
       matches = false;
-      listeners.forEach((f) => f());
+      listeners.forEach((f) => { f(); });
       expect(seen).toEqual([false]);
       stop();
       expect(listeners.size).toBe(0);

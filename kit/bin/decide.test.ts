@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { assertDefined } from '../test/assert.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
@@ -32,11 +33,14 @@ const config = (url: string | null) => `kit: 1\nrepo:\n  slug: acme/widgets\nask
 /** What a stubbed call answers: its status (200 when not given) and its body. */
 type Stubbed = { status?: number; body?: unknown };
 
+/** Matches any text, inside an expected object. */
+const anyText: unknown = expect.any(String);
+
 function stubFetch(answer: (url: string, init: FetchInit) => Stubbed | Promise<Stubbed>) {
-  const calls: { url: string; method?: string; authorization?: string; body: unknown }[] = [];
+  const calls: { url: string; method?: string | undefined; authorization?: string | undefined; body: unknown }[] = [];
   const fetch = async (url: string, init: FetchInit) => {
-    calls.push({ url: String(url), method: init.method, authorization: init.headers.authorization, body: init.body ? JSON.parse(init.body) : undefined });
-    const { status = 200, body } = await answer(String(url), init);
+    calls.push({ url, method: init.method, authorization: init.headers.authorization, body: init.body ? (JSON.parse(init.body) as unknown) : undefined });
+    const { status = 200, body } = await answer(url, init);
     return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
   };
   return { fetch, calls };
@@ -77,7 +81,7 @@ describe('omni decide', () => {
     const c = checkout();
     const stub = stubFetch(() => ({ body: JEV }));
     await decide(['outbox-risk', '--state-file', join(c.root, 'state.json'), '--old', 'true'], { ...c, fetch: stub.fetch });
-    expect(stub.calls[0]!.body).toEqual({ repo: 'acme/widgets', state: STATE, old: 'true' });
+    expect(stub.calls[0]?.body).toEqual({ repo: 'acme/widgets', state: STATE, old: 'true' });
   });
 
   it('prints --json as the answer, its confidence and who decided', async () => {
@@ -92,7 +96,7 @@ describe('omni decide', () => {
     const run = await decide(ARGS, { ...c, fetch: stubFetch(() => ({ body: OLD })).fetch });
     expect(run).toMatchObject({ code: 0, out: 'unset\n' });
     const json = await decide([...ARGS, '--json'], { ...c, fetch: stubFetch(() => ({ body: OLD })).fetch });
-    expect(JSON.parse(json.out)).toEqual({ decision: 'outbox-risk', answer: null, confidence: null, decidedBy: 'old', reason: expect.any(String) });
+    expect(JSON.parse(json.out)).toEqual({ decision: 'outbox-risk', answer: null, confidence: null, decidedBy: 'old', reason: anyText });
   });
 
   it('prints unset without a sign-in, without calling anything', async () => {
@@ -122,7 +126,11 @@ describe('omni decide', () => {
   it('prints unset on a timeout', async () => {
     const c = checkout();
     const hang = (_url: string, init: FetchInit) => new Promise((_resolve, reject) => {
-      init.signal!.addEventListener('abort', () => reject(Object.assign(new Error('timed out'), { name: 'TimeoutError' })));
+      const { signal } = init;
+      assertDefined(signal, 'the call\'s signal');
+      signal.addEventListener('abort', () => {
+        reject(Object.assign(new Error('timed out'), { name: 'TimeoutError' }));
+      });
     });
     const run = await decide(ARGS, { ...c, fetch: hang, callMs: 20 });
     expect(run).toMatchObject({ code: 0, out: 'unset\n' });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { INK } from './palette.ts';
 import { drawLogo, LOGO_DRAWINGS, LOGO_FORMS, logoPixels, logoSvg } from './logo.ts';
 import type { LogoArt, LogoDrawing } from './logo.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 /** A pixel of a drawing: its column, its row, its colour. */
 type Cell = [number, number, string | null];
@@ -27,8 +28,14 @@ describe('the logo', () => {
 
       it('uses only INK colours: the ramp, the navy-dark outline and the plasma-dark shadow', () => {
         const used = new Set(art.pixels.filter(Boolean));
-        for (const c of used) expect(INK_HEX.has(c!), c!).toBe(true);
-        for (const c of [...RAMP, INK.navyDark, INK.plasmaDark]) expect(used.has(c!), c!).toBe(true);
+        for (const c of used) {
+          assertDefined(c, 'a colour the drawing uses');
+          expect(INK_HEX.has(c), c).toBe(true);
+        }
+        for (const c of [...RAMP, INK.navyDark, INK.plasmaDark]) {
+          assertDefined(c, 'a colour the drawing must use');
+          expect(used.has(c), c).toBe(true);
+        }
       });
 
       it('outlines every lit pixel: a ramp pixel touches only the ramp or the outline, on each side', () => {
@@ -59,11 +66,13 @@ describe('the logo', () => {
           const stack: Cell[] = [start];
           seen.add(key);
           while (stack.length) {
-            const p = stack.pop()!;
+            const p = stack.pop();
+            assertDefined(p, 'a pixel to visit');
             glyph.push(p);
             for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
               const k = `${p[0] + dx},${p[1] + dy}`;
-              if (lit.has(k) && !seen.has(k)) { seen.add(k); stack.push(lit.get(k)!); }
+              const next = lit.get(k);
+              if (next && !seen.has(k)) { seen.add(k); stack.push(next); }
             }
           }
           const light = ([x, y]: Cell): number => x + 3 * y;
@@ -101,8 +110,10 @@ describe('the logo', () => {
         const svg = logoSvg(form);
         const painted = new Map<string, string | null>();
         for (const [, fill, d] of svg.matchAll(/<path fill="([^"]+)" d="([^"]+)"/g)) {
-          for (const [, x, y, n] of d!.matchAll(/M(\d+) (\d+)h(\d+)v1h-\d+z/g)) {
-            for (let i = 0; i < +n!; i++) painted.set(`${+x! + i},${y}`, fill!);
+          assertDefined(d, 'a path\'s outline');
+          assertDefined(fill, 'a path\'s fill');
+          for (const [, x, y, n] of d.matchAll(/M(\d+) (\d+)h(\d+)v1h-\d+z/g)) {
+            for (let i = 0; i < Number(n); i++) painted.set(`${Number(x) + i},${String(y)}`, fill);
           }
         }
         const held = new Map(cells(art).filter(([, , c]) => c).map(([x, y, c]) => [`${x},${y}`, c]));
@@ -124,7 +135,7 @@ describe('the logo', () => {
           expect(r.x + r.w).toBeLessThanOrEqual(10 + art.w * 3);
           expect(r.y + r.h).toBeLessThanOrEqual(20 + art.h * 3);
         }
-        expect(() => drawLogo(ctx as CanvasRenderingContext2D, form, 0, 0, { scale: 2.5 })).toThrow(/whole number/);
+        expect(() => { drawLogo(ctx as CanvasRenderingContext2D, form, 0, 0, { scale: 2.5 }); }).toThrow(/whole number/);
       });
 
       it('reveals itself from the left, a whole pixel column at a time', () => {
@@ -163,7 +174,11 @@ describe('the logo', () => {
     expect(widths[0]).toBe(widths[5]);
     expect(widths[5]).toBe(widths[6]);
     expect(widths[0]).toBeGreaterThan(10);
-    const gaps = glyphs.slice(1).map(([x], i) => x - (glyphs[i]![0] + glyphs[i]![1]));
+    const gaps = glyphs.slice(1).map(([x], i) => {
+      const before = glyphs[i];
+      assertDefined(before, 'the glyph before');
+      return x - (before[0] + before[1]);
+    });
     expect(Math.max(...gaps)).toBe(gaps[3]);
   });
 
@@ -188,10 +203,12 @@ describe('the logo', () => {
     expect(gapRows.length).toBeGreaterThanOrEqual(1);
     // The arrowhead: its tip is a single lit pixel on a row above which nothing is lit in its column,
     // and it widens by at least one pixel each side below.
-    const tipRow = top.find((y) => Array.from({ length: 16 }, (_, x) => lit(x, y)).some(Boolean))!;
+    const tipRow = top.find((y) => Array.from({ length: 16 }, (_, x) => lit(x, y)).some(Boolean));
+    assertDefined(tipRow, 'the row of the arrowhead\'s tip');
     const tips = Array.from({ length: 16 }, (_, x) => x).filter((x) => lit(x, tipRow) && x > 8);
     expect(tips.length).toBeGreaterThanOrEqual(1);
-    const tx = tips[0]!;
+    const tx = tips[0];
+    assertDefined(tx, 'the arrowhead\'s tip');
     expect(lit(tx - 1, tipRow + 1) && lit(tx + 1, tipRow + 1)).toBe(true);
     expect(lit(tx - 2, tipRow + 2) && lit(tx + 2, tipRow + 2)).toBe(true);
   });

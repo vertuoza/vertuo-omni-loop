@@ -3,8 +3,6 @@
 // width and `NO_COLOR`.
 import { describe, expect, it } from 'vitest';
 import {
-  columnsOf,
-  colorOn,
   contextPart,
   fit,
   itemsPart,
@@ -17,6 +15,14 @@ import {
   usagePart,
   visibleLength,
 } from './render.ts';
+import { assertDefined } from '../../test/assert.ts';
+import { parsePrd, parseWorkSliceId } from '../ids.ts';
+import { readEnv } from '../env/read.ts';
+
+/** The terminal `main()` reads from `env`. */
+const t = (env: Record<string, string>) => readEnv(env).terminal;
+const columnsOf = (env: Record<string, string>) => t(env).columns;
+const colorOn = (env: Record<string, string>) => t(env).color;
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
@@ -121,30 +127,30 @@ describe('renderLines', () => {
   const PLAIN = { NO_COLOR: '1' };
 
   it('prints line 1, then the no-PRD line where the loop is installed', () => {
-    expect(renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env: PLAIN, now: NOW })).toEqual([LINE_1, NO_PRD_LINE]);
+    expect(renderLines({ input: INPUT, facts: { installed: true, askOn: true }, terminal: t(PLAIN), now: NOW })).toEqual([LINE_1, NO_PRD_LINE]);
     expect(NO_PRD_LINE).toBe('no PRD · /omni:brainstorm to start');
   });
 
   it('prints line 1 alone where the loop is not installed', () => {
-    expect(renderLines({ input: INPUT, facts: { installed: false, askOn: true }, env: PLAIN, now: NOW })).toEqual([LINE_1]);
+    expect(renderLines({ input: INPUT, facts: { installed: false, askOn: true }, terminal: t(PLAIN), now: NOW })).toEqual([LINE_1]);
   });
 
   it('prints line 1 from the JSON alone when nothing could be read', () => {
-    expect(renderLines({ input: INPUT, facts: null, env: PLAIN, now: NOW })).toEqual([
+    expect(renderLines({ input: INPUT, facts: null, terminal: t(PLAIN), now: NOW })).toEqual([
       `Opus 5.5 · context ${bar(5)} 58% · usage 25%, resets in 1h30`,
     ]);
   });
 
   it('prints `omni` for JSON that could not be read', () => {
-    expect(renderLines({ input: null, facts: { installed: true, askOn: true }, env: PLAIN, now: NOW })).toEqual(['omni']);
+    expect(renderLines({ input: null, facts: { installed: true, askOn: true }, terminal: t(PLAIN), now: NOW })).toEqual(['omni']);
   });
 
   it('holds no colour code when NO_COLOR is set to anything but an empty string', () => {
     for (const value of ['1', 'true', '0', 'no']) {
-      const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env: { NO_COLOR: value }, now: NOW });
+      const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, terminal: t({ NO_COLOR: value }), now: NOW });
       expect(lines.join('\n')).not.toContain('\x1b');
     }
-    const coloured = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env: { NO_COLOR: '' }, now: NOW });
+    const coloured = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, terminal: t({ NO_COLOR: '' }), now: NOW });
     expect(coloured[0]).toContain(YELLOW);
     expect(colorOn({})).toBe(true);
     expect(colorOn({ NO_COLOR: '' })).toBe(true);
@@ -153,24 +159,26 @@ describe('renderLines', () => {
 
   it.each([40, 80, 200])('fits every line within COLUMNS=%i, colour codes not counted', (columns) => {
     for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
-      const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env, now: NOW });
+      const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, terminal: t(env), now: NOW });
       expect(lines).toHaveLength(2);
       for (const line of lines) expect(visibleLength(line)).toBeLessThanOrEqual(columns);
-      if (visibleLength(LINE_1) > columns) expect(lines[0]!.replace(/\x1b\[[0-9;]*m/g, '')).toMatch(/…$/);
-      else expect(lines[0]!.replace(/\x1b\[[0-9;]*m/g, '')).toBe(LINE_1);
+      assertDefined(lines[0], 'lines[0]');
+      if (visibleLength(LINE_1) > columns) expect(lines[0].replace(/\x1b\[[0-9;]*m/g, '')).toMatch(/…$/);
+      else expect(lines[0].replace(/\x1b\[[0-9;]*m/g, '')).toBe(LINE_1);
       expect(lines[1]).toBe(NO_PRD_LINE);
     }
   });
 
   it('cuts a line too wide at its end with `…`, closing any colour it cut into', () => {
-    const [line] = renderLines({ input: INPUT, facts: null, env: { COLUMNS: '24' }, now: NOW });
+    const [line] = renderLines({ input: INPUT, facts: null, terminal: t({ COLUMNS: '24' }), now: NOW });
     expect(line).toBe(`Opus 5.5 · context ${YELLOW}████${RESET}…`);
-    expect(visibleLength(line!)).toBe(24);
+    assertDefined(line, 'line');
+    expect(visibleLength(line)).toBe(24);
   });
 
   it('does not cut a coloured line whose visible width fits exactly', () => {
     const exact = String(visibleLength(LINE_1));
-    const [line] = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env: { COLUMNS: exact }, now: NOW });
+    const [line] = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, terminal: t({ COLUMNS: exact }), now: NOW });
     expect(line).toBe(`Opus 5.5 · context ${YELLOW}${bar(5)} 58%${RESET} · usage 25%, resets in 1h30 · ask on`);
   });
 
@@ -206,15 +214,15 @@ describe('fit and visibleLength', () => {
 });
 
 describe('line 2: the PRD', () => {
-  const BRAVO = { number: 7, topic: 'bravo', slice: null, stage: 'outbox', openItems: 2 };
-  const LONG = { number: 324, topic: 'statusline-for-claude-code', slice: 's4', stage: 'outbox', openItems: 3 };
+  const BRAVO = { number: parsePrd(7), topic: 'bravo', slice: null, stage: 'outbox', openItems: 2 };
+  const LONG = { number: parsePrd(324), topic: 'statusline-for-claude-code', slice: parseWorkSliceId('s4'), stage: 'outbox', openItems: 3 };
 
   it('names the PRD, its topic, its stage and its open items', () => {
     expect(prdLine(BRAVO)).toBe('PRD 7 bravo · outbox · 2 open items');
   });
 
   it('names the slice on a slice branch, between the topic and the stage', () => {
-    expect(prdLine({ ...BRAVO, slice: 's2' })).toBe('PRD 7 bravo · s2 · outbox · 2 open items');
+    expect(prdLine({ ...BRAVO, slice: parseWorkSliceId('s2') })).toBe('PRD 7 bravo · s2 · outbox · 2 open items');
   });
 
   it('says `1 open item`, and leaves the part out at zero', () => {
@@ -227,16 +235,16 @@ describe('line 2: the PRD', () => {
 
   it('shows open items in the outbox only', () => {
     expect(prdLine({ ...BRAVO, stage: 'inbox', openItems: 0 })).toBe('PRD 7 bravo · inbox');
-    expect(prdLine({ ...BRAVO, number: 11, topic: 'delta', stage: 'in review' })).toBe('PRD 11 delta · in review');
+    expect(prdLine({ ...BRAVO, number: parsePrd(11), topic: 'delta', stage: 'in review' })).toBe('PRD 11 delta · in review');
   });
 
   it('reads `PRD <n> <topic> · shipped`, and nothing after', () => {
-    expect(prdLine({ number: 3, topic: 'alpha', slice: 's2', stage: 'shipped', openItems: 4 })).toBe('PRD 3 alpha · shipped');
+    expect(prdLine({ number: parsePrd(3), topic: 'alpha', slice: parseWorkSliceId('s2'), stage: 'shipped', openItems: 4 })).toBe('PRD 3 alpha · shipped');
   });
 
   it('leaves the stage out without one', () => {
     expect(prdLine({ ...BRAVO, stage: null })).toBe('PRD 7 bravo');
-    expect(prdLine({ ...BRAVO, slice: 's2', stage: null })).toBe('PRD 7 bravo · s2');
+    expect(prdLine({ ...BRAVO, slice: parseWorkSliceId('s2'), stage: null })).toBe('PRD 7 bravo · s2');
   });
 
   it('cuts the topic first, just enough to fit, ending in `…`', () => {
@@ -257,19 +265,20 @@ describe('line 2: the PRD', () => {
   });
 
   it('prints the PRD line where the loop is installed and a PRD was read', () => {
-    const facts = { installed: true, askOn: true, prd: { ...BRAVO, slice: 's2' } };
-    expect(renderLines({ input: INPUT, facts, env: { NO_COLOR: '1' }, now: NOW })).toEqual([LINE_1, 'PRD 7 bravo · s2 · outbox · 2 open items']);
+    const facts = { installed: true, askOn: true, prd: { ...BRAVO, slice: parseWorkSliceId('s2') } };
+    expect(renderLines({ input: INPUT, facts, terminal: t({ NO_COLOR: '1' }), now: NOW })).toEqual([LINE_1, 'PRD 7 bravo · s2 · outbox · 2 open items']);
     const none = { installed: true, askOn: true, prd: null };
-    expect(renderLines({ input: INPUT, facts: none, env: { NO_COLOR: '1' }, now: NOW })).toEqual([LINE_1, NO_PRD_LINE]);
+    expect(renderLines({ input: INPUT, facts: none, terminal: t({ NO_COLOR: '1' }), now: NOW })).toEqual([LINE_1, NO_PRD_LINE]);
     const notInstalled = { installed: false, askOn: true, prd: BRAVO };
-    expect(renderLines({ input: INPUT, facts: notInstalled, env: { NO_COLOR: '1' }, now: NOW })).toEqual([LINE_1]);
+    expect(renderLines({ input: INPUT, facts: notInstalled, terminal: t({ NO_COLOR: '1' }), now: NOW })).toEqual([LINE_1]);
   });
 
   it.each([40, 80, 200])('fits the PRD line within COLUMNS=%i, the topic cut before anything else', (columns) => {
     const facts = { installed: true, askOn: true, prd: LONG };
     for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
-      const [, line] = renderLines({ input: INPUT, facts, env, now: NOW });
-      expect(visibleLength(line!)).toBeLessThanOrEqual(columns);
+      const [, line] = renderLines({ input: INPUT, facts, terminal: t(env), now: NOW });
+      assertDefined(line, 'line');
+      expect(visibleLength(line)).toBeLessThanOrEqual(columns);
       expect(line).not.toContain('\x1b');
       if (columns < 63) expect(line).toMatch(/^PRD 324 statusl[^ ]*… · s4 · /);
       else expect(line).toBe('PRD 324 statusline-for-claude-code · s4 · outbox · 3 open items');
@@ -281,7 +290,7 @@ describe('line 2: the slices, from the board (slice s6)', () => {
   const slice = (id: string, wave: number, state: string) => ({ id, wave, state });
   /** Five slices over four waves: three merged, the lowest wave not all merged is 2. */
   const FIVE = [slice('s1', 1, 'merged'), slice('s2', 1, 'merged'), slice('s3', 2, 'merged'), slice('s4', 2, 'runnable'), slice('s5', 4, 'blocked')];
-  const HELP = { number: 315, topic: 'help-and-status', slice: null, stage: 'outbox', openItems: 2 };
+  const HELP = { number: parsePrd(315), topic: 'help-and-status', slice: null, stage: 'outbox', openItems: 2 };
 
   it('reads the lowest wave not all merged, the highest wave, and the slices merged', () => {
     expect(slicesPart(FIVE)).toBe('wave 2 of 4 · 3/5 slices merged');
@@ -318,7 +327,7 @@ describe('line 2: the slices, from the board (slice s6)', () => {
   it('sits in the outbox line after the stage and before the open items', () => {
     const stuck = [...FIVE.slice(0, 3), slice('s4', 2, 'stuck'), slice('s5', 4, 'blocked')];
     expect(prdLine({ ...HELP, slices: stuck })).toBe('PRD 315 help-and-status · outbox · wave 2 of 4 · 3/5 slices merged, 1 stuck · 2 open items');
-    expect(prdLine({ ...HELP, slice: 's2', openItems: 0, slices: FIVE })).toBe('PRD 315 help-and-status · s2 · outbox · wave 2 of 4 · 3/5 slices merged');
+    expect(prdLine({ ...HELP, slice: parseWorkSliceId('s2'), openItems: 0, slices: FIVE })).toBe('PRD 315 help-and-status · s2 · outbox · wave 2 of 4 · 3/5 slices merged');
     expect(prdLine({ ...HELP, slices: null })).toBe('PRD 315 help-and-status · outbox · 2 open items');
   });
 
@@ -330,9 +339,9 @@ describe('line 2: the slices, from the board (slice s6)', () => {
 
   it('colours the stuck count in the printed line, and nothing under NO_COLOR', () => {
     const facts = { installed: true, askOn: false, prd: { ...HELP, slices: [slice('s1', 1, 'merged'), slice('s2', 2, 'stuck')] } };
-    const [, coloured] = renderLines({ input: INPUT, facts, env: { COLUMNS: '200' }, now: NOW });
+    const [, coloured] = renderLines({ input: INPUT, facts, terminal: t({ COLUMNS: '200' }), now: NOW });
     expect(coloured).toBe(`PRD 315 help-and-status · outbox · wave 2 of 2 · 1/2 slices merged, ${RED}1 stuck${RESET} · 2 open items`);
-    const [, plain] = renderLines({ input: INPUT, facts, env: { COLUMNS: '200', NO_COLOR: '1' }, now: NOW });
+    const [, plain] = renderLines({ input: INPUT, facts, terminal: t({ COLUMNS: '200', NO_COLOR: '1' }), now: NOW });
     expect(plain).toBe('PRD 315 help-and-status · outbox · wave 2 of 2 · 1/2 slices merged, 1 stuck · 2 open items');
   });
 
@@ -340,9 +349,11 @@ describe('line 2: the slices, from the board (slice s6)', () => {
     const facts = { installed: true, askOn: false, prd: { ...HELP, slices: [slice('s1', 1, 'merged'), slice('s2', 2, 'stuck')] } };
     const full = 'PRD 315 help-and-status · outbox · wave 2 of 2 · 1/2 slices merged, 1 stuck · 2 open items';
     for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
-      const [, line] = renderLines({ input: INPUT, facts, env, now: NOW });
-      expect(visibleLength(line!)).toBeLessThanOrEqual(columns);
-      const shown = line!.replace(/\x1b\[[0-9;]*m/g, '');
+      const [, line] = renderLines({ input: INPUT, facts, terminal: t(env), now: NOW });
+      assertDefined(line, 'line');
+      expect(visibleLength(line)).toBeLessThanOrEqual(columns);
+      assertDefined(line, 'line');
+      const shown = line.replace(/\x1b\[[0-9;]*m/g, '');
       if (columns >= full.length) expect(shown).toBe(full);
       else expect(shown.startsWith('PRD 315 help-an… · outbox · wave 2 of 2')).toBe(true);
       if (columns === 80) expect(shown).toBe('PRD 315 help-an… · outbox · wave 2 of 2 · 1/2 slices merged, 1 stuck · 2 open i…');

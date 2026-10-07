@@ -1,8 +1,8 @@
 // `omni targets` (PRD 522, s1), through `main()` on a fixture repository with `gh` faked: the table in
 // config order, `--json`, the exit code, and a repository with no plan section. It never calls GitHub.
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
+import { dig } from '../dig.ts';
 import { main } from '../omni.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../../test/fixture.ts';
@@ -123,9 +123,32 @@ describe('omni targets', () => {
     };
     const out: string[] = [];
     const code = await main(['targets', '--json'], { cwd: root, exec: faked, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
-    expect(JSON.parse(out.join(''))[2]).toEqual({
+    expect(dig(JSON.parse(out.join('')), 2)).toEqual({
       repo: 'acme/back', role: 'back-end', knowledge: 'imported', loop: 'not installed', state: 'stale', detail: '3 commits, 1 evidence file changed',
     });
+    expect(code).toBe(1);
+  });
+
+  it("reads an imported target stale, naming the flow, when its committed flow is not its copy's (PRD 1089, s6)", async () => {
+    const config = `${PLAN}    - repo: acme/back
+      role: back-end
+      knowledge: imported
+      readAt: ${SHA}
+`;
+    const copied = "flow:\n  areas:\n    kernel:\n      paths: ['^src/kernel/']\n";
+    const world = { ...ALL_OK, 'acme/back': { '.omni-loop/config.yml': `kit: 1\n${copied.replace('kernel/', 'core/')}` } };
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/knowledge/repos/back/flow/config.yml': copied } });
+    const { exec } = fakeGh(world);
+    const faked = (file: string, args: readonly string[], options?: ExecFileSyncOptions): string => {
+      const endpoint = String(args[args.length - 1]);
+      if (endpoint === `repos/acme/back/compare/${SHA}...main`) return JSON.stringify({ ahead_by: 1, files: [{ filename: '.omni-loop/config.yml' }] });
+      return exec(file, args, options);
+    };
+    const out: string[] = [];
+    const code = await main(['targets'], { cwd: root, exec: faked, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
+    expect(out.join('').split('\n')[3]).toMatch(
+      new RegExp(`^acme/back\\s+back-end\\s+imported\\s+installed\\s+stale \\(flow moved since read at ${SHA.slice(0, 7)}: its flow section differs from the copy\\)$`),
+    );
     expect(code).toBe(1);
   });
 

@@ -3,20 +3,24 @@
 // header never waits on GitHub for them. The one button and the links line keep PRD 426's rules, read
 // from the GitHub summary when there is one: without it, a stage that needs GitHub for its button shows
 // none, and the links line is empty. While the feature PR is open, its link carries the health chip
-// (PRD 790, s2), from the care state the summary read: none when that read failed.
+// (PRD 790, s2), from the care state the summary read: none when that read failed. At shipped and retro
+// the button is Pitch (PRD 859), which opens the panel that copies `/omni:pitch <n> --for <audience>`:
+// it needs no GitHub read, and no earlier stage shows it.
 //
 // `stageOf` below is PRD 426's reading of the stage from the GitHub summary alone. Only the page's
 // pulse (./live.ts) still uses it, to notice that something moved on GitHub; nothing shows it.
 import { openThreads, type CareState } from '../github/care';
 import { UNREAD, type GithubSummary, type IssueRef, type PullRef, type Read } from '../github/summary';
 import { storedStageOf, type CurrentStage, type OpenOutbox, type StageId, type StageRow } from '../../stages/stage';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export { STAGES, STAGE_LABELS, type StageId } from '../../stages/stage';
 
-/** The one button: a link that opens GitHub, or a command to copy. */
+/** The one button: a link that opens GitHub, a command to copy, or Pitch's panel (PRD 859). */
 export type NextAction =
   | { kind: 'link'; label: string; href: string }
-  | { kind: 'copy'; label: string; command: string };
+  | { kind: 'copy'; label: string; command: string }
+  | { kind: 'pitch'; label: 'Pitch'; prd: PrdNumber };
 
 /** PRD 426's stage, read from the GitHub summary: unknown when what decides it could not be read. */
 export type Stage = { id: StageId | 'unknown'; action: NextAction | null; caption: string | null };
@@ -40,7 +44,7 @@ function openOutboxOf(summary: GithubSummary | null | undefined): OpenOutbox {
 }
 
 /** The stage from the GitHub summary alone (PRD 426), for the page's pulse. `slices` is the plan's slice count. */
-export function stageOf(prd: number | null, summary: GithubSummary | null, slices: number | null = null): Stage {
+export function stageOf(prd: PrdNumber | null, summary: GithubSummary | null, slices: number | null = null): Stage {
   if (prd === null) return { id: 'idea', action: null, caption: 'Brainstorm in progress' };
   if (!summary) return unknown;
   const { retro, feature, mergedSlices, phase0 } = summary;
@@ -63,7 +67,7 @@ export function stageOf(prd: number | null, summary: GithubSummary | null, slice
 type Action = { action: NextAction | null; caption: string | null };
 const none: Action = { action: null, caption: null };
 
-type ActionInput = { prd: number | null; read: GithubSummary | null; slices: number | null };
+type ActionInput = { prd: PrdNumber | null; read: GithubSummary | null; slices: number | null };
 
 const caption = (text: string): Action => ({ action: null, caption: text });
 const link = (label: string, href: string): Action => ({ action: { kind: 'link', label, href }, caption: null });
@@ -102,10 +106,12 @@ const outboxFirst =
     return open ? link('Answer the outbox', open.href) : otherwise(input);
   };
 
-function retroAction({ read }: ActionInput): Action {
-  const retro = read ? read.retro : UNREAD;
-  return known(retro) && retro ? link('Read the retro', retro.url) : none;
-}
+/** Pitch (PRD 859): the one button at shipped and retro, read from no GitHub summary. The retro PR stays
+ * on the links line. */
+const pitch =
+  (words: string | null) =>
+  ({ prd }: ActionInput): Action =>
+    prd === null ? none : { action: { kind: 'pitch', label: 'Pitch', prd }, caption: words };
 
 const ACTIONS: Readonly<Record<CurrentStage['id'], (input: ActionInput) => Action>> = {
   idea: () => caption('Brainstorm in progress'),
@@ -115,12 +121,12 @@ const ACTIONS: Readonly<Record<CurrentStage['id'], (input: ActionInput) => Actio
   inbox: buildAction,
   building: outboxFirst(buildingCaption),
   outbox: outboxFirst(reviewAction),
-  shipped: () => caption('Shipped · the retro is written next'),
-  retro: retroAction,
+  shipped: pitch('Shipped · the retro is written next'),
+  retro: pitch(null),
 };
 
 /** The one button and the caption of a stage, by PRD 426's rules, from what the GitHub summary holds. */
-function actionOf(id: CurrentStage['id'], prd: number | null, summary: GithubSummary | null | undefined, slices: number | null = null): Action {
+function actionOf(id: CurrentStage['id'], prd: PrdNumber | null, summary: GithubSummary | null | undefined, slices: number | null = null): Action {
   return ACTIONS[id]({ prd, read: summary ?? null, slices });
 }
 
@@ -179,13 +185,13 @@ export function syncedWords(iso: string | null): string {
 }
 
 export type StageViewInput = {
-  prd: number | null;
+  prd: PrdNumber | null;
   /** A draft only: whether any of its questions was answered. */
   answered?: boolean;
   /** The PRD's stored stages; none yet reads Syncing…. */
   rows: readonly StageRow[];
   /** The GitHub summary, for the button, the links and the badge only; null or left out when not read. */
-  github?: GithubSummary | null;
+  github?: GithubSummary | null | undefined;
   slices?: number | null;
 };
 

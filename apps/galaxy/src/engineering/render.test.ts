@@ -8,6 +8,7 @@ import { demoEngineeringBoard } from './demo';
 import { EngineeringScreen, type EngineeringView } from './EngineeringScreen';
 import { faceOf, type Face } from '../people/face';
 import { engineeringOf, OMNI_MAN, type PullRequestRow } from './tally';
+import { sure } from '../arcade/test/sure';
 
 // /app/engineering as the server renders it (PRD 612 s3), to static markup: what a person sees
 // before any script runs.
@@ -34,7 +35,7 @@ const ROWS = [
 ];
 
 const board = (rows = ROWS, tracked = ['acme/widgets', 'acme/gears']): EngineeringView =>
-  ({ kind: 'board', name: 'Vertuoza', board: engineeringOf({ tracked, pullRequests: rows, reviews: [{ repo: 'acme/widgets', number: ROWS[0]!.number, reviewer: 'dora', firstAt: '2026-09-25T08:00:00Z' }] }, WEEK, 'merged', NOW) });
+  ({ kind: 'board', name: 'Vertuoza', board: engineeringOf({ tracked, pullRequests: rows, reviews: [{ repo: 'acme/widgets', number: sure(ROWS[0], 'ROWS[0]').number, reviewer: 'dora', firstAt: '2026-09-25T08:00:00Z' }] }, WEEK, 'merged', NOW) });
 const render = (view: EngineeringView, query: Record<string, string> = {}) =>
   renderToStaticMarkup(createElement(EngineeringScreen, { view, period: '7d', supabase: null, signinError: null, query }));
 
@@ -96,7 +97,7 @@ describe('Loop health, right now (PRD 714 s2)', () => {
   const ago = (minutes: number) => new Date(NOW.getTime() - minutes * MINUTE).toISOString();
   const stuck = (minutes: number, over: Partial<PullRequestRow> = {}) => pr({ openedAt: ago(minutes), labels: ['omni:needs-fix'], ...over });
   const claim = (minutes: number) => pr({ openedAt: ago(minutes), headCommittedAt: ago(minutes), draft: true, omniSigned: true, base: 'feat/x', head: 'feat/x--s2' });
-  const panel = (html: string) => html.split('id="eng-health">')[1]!.split('</section>')[0];
+  const panel = (html: string) => sure(html.split('id="eng-health">')[1], 'html.split(\'id="eng-health">\')[1]').split('</section>')[0];
 
   it('sits beside Omni Loop, before the chart', () => {
     const html = render(board());
@@ -105,7 +106,7 @@ describe('Loop health, right now (PRD 714 s2)', () => {
   });
 
   it('with nothing stuck: says so', () => {
-    expect(text(panel(render(board()))!).split(' In the period')[0]).toBe('Loop health Right now Nothing stuck right now');
+    expect(text(sure(panel(render(board())), 'panel(render(board()))')).split(' In the period')[0]).toBe('Loop health Right now Nothing stuck right now');
   });
 
   it('lists each pull request: its kind, owner/repo#n linking to it on GitHub, and how long ago it was opened', () => {
@@ -114,7 +115,7 @@ describe('Loop health, right now (PRD 714 s2)', () => {
     const html = panel(render(board([...ROWS, one, two])));
     expect(html).toContain('<a href="https://github.com/acme/gears/pull/42">acme/gears#42</a>');
     expect(html).toContain(`<a href="https://github.com/acme/widgets/pull/${two.number}">acme/widgets#${two.number}</a>`);
-    expect(text(html!).split(' In the period')[0]).toBe(`Loop health Right now Stuck acme/gears#42 opened 3.0 h ago Stale claim acme/widgets#${two.number} opened 1.5 h ago`);
+    expect(text(sure(html, 'html')).split(' In the period')[0]).toBe(`Loop health Right now Stuck acme/gears#42 opened 3.0 h ago Stale claim acme/widgets#${two.number} opened 1.5 h ago`);
     expect(html).not.toContain('more');
   });
 
@@ -123,30 +124,30 @@ describe('Loop health, right now (PRD 714 s2)', () => {
     const html = panel(render(board([...ROWS, held])));
     expect(html).toContain('<span class="eng-health-kind is-held">Held</span>');
     expect(html).toContain('<a href="https://github.com/acme/gears/pull/77">acme/gears#77</a>');
-    expect(text(html!).split(' In the period')[0]).toBe('Loop health Right now Held acme/gears#77 opened 2.0 h ago');
+    expect(text(sure(html, 'html')).split(' In the period')[0]).toBe('Loop health Right now Held acme/gears#77 opened 2.0 h ago');
   });
 
   it('shows 10 rows, then how many more', () => {
     const rows = Array.from({ length: 11 }, (_, i) => stuck(100 + i));
     const html = panel(render(board(rows)));
-    expect(html!.match(/<li/g)).toHaveLength(10);
-    expect(text(html!)).toMatch(/and 1 more In the period/);
+    expect(sure(html, 'html').match(/<li/g)).toHaveLength(10);
+    expect(text(sure(html, 'html'))).toMatch(/and 1 more In the period/);
   });
 });
 
 describe('Loop health, in the period (PRD 714 s4)', () => {
-  const periodPart = (html: string) => html.split('id="eng-health">')[1]!.split('</section>')[0]!.split('In the period')[1];
+  const periodPart = (html: string) => sure(sure(html.split('id="eng-health">')[1], 'the health panel').split('</section>')[0], 'the health panel\'s section').split('In the period')[1];
   const sub = (over: Partial<PullRequestRow> = {}) => mergedAfter(1, { omniSigned: true, base: 'feat/x', head: 'feat/x--s1', ...over });
 
   it('reads K of M merged sub-PRs got omni:needs-fix first, with the percent', () => {
     const rows = [...ROWS, sub({ needsFixAt: '2026-09-24T08:30:00Z' }), sub(), sub({ needsFixAt: '2026-09-24T10:00:00Z' })];
     const html = render(board(rows));
-    expect(text(periodPart(html)!)).toBe('1 of 3 merged sub-PRs got omni:needs-fix first (33%)');
+    expect(text(sure(periodPart(html), 'periodPart(html)'))).toBe('1 of 3 merged sub-PRs got omni:needs-fix first (33%)');
     expect(periodPart(html)).toContain('<code>omni:needs-fix</code>');
   });
 
   it('with no sub-PR merged in the period: says so', () => {
-    expect(text(periodPart(render(board()))!)).toBe('No sub-PR merged in this period');
+    expect(text(sure(periodPart(render(board())), 'periodPart(render(board()))'))).toBe('No sub-PR merged in this period');
   });
 
   it('after the right-now list, empty or not', () => {
@@ -161,10 +162,10 @@ describe('the top-people lists (PRD 645 s1)', () => {
   const faced = (opened: [string, number][], faces: Record<string, Face> = {}): EngineeringView => {
     const view = board();
     if (view.kind !== 'board' || view.board === UNREADABLE || view.board.kind !== 'board') throw new Error('no board');
-    const withFace = (list: [string, number][]) => people(list).map((p) => (faces[p.login] ? { ...p, face: faces[p.login] } : p));
+    const withFace = (list: [string, number][]) => people(list).map((p) => { const face = faces[p.login]; return face ? { ...p, face } : p; });
     return { ...view, board: { ...view.board, people: { opened: withFace(opened), merged: withFace([['bob', 2]]), reviews: withFace([['dora', 1]]) } } };
   };
-  const rowsOf = (html: string, id: string) => html.split(`id="${id}"`)[1]!.split('</section>')[0]!.match(/<li[^>]*>.*?<\/li>/g) ?? [];
+  const rowsOf = (html: string, id: string) => sure(sure(html.split(`id="${id}"`)[1], `the section ${id}`).split('</section>')[0], `the section ${id}'s body`).match(/<li[^>]*>.*?<\/li>/g) ?? [];
 
   const FIVE: [string, number][] = [['ada', 8], ['bob', 6], ['carl', 4], ['dora', 2], ['eli', 1]];
 
@@ -257,7 +258,7 @@ describe('a page per repository (PRD 645 s2)', () => {
 });
 
 describe('every panel in the shared card (PRD 962)', () => {
-  const sections = (html: string) => [...html.matchAll(/<section class="([^"]*)"[^>]*?(?:aria-labelledby="([^"]*)")?>/g)].map((m) => ({ id: m[2], classes: m[1]!.split(' ') }));
+  const sections = (html: string) => [...html.matchAll(/<section class="([^"]*)"[^>]*?(?:aria-labelledby="([^"]*)")?>/g)].map((m) => ({ id: m[2], classes: sure(m[1], 'a section\'s classes').split(' ') }));
   const gears: EngineeringView = {
     kind: 'board', name: 'Vertuoza', repo: 'Acme/Gears',
     board: engineeringOf({ tracked: ['Acme/Gears'], pullRequests: ROWS, reviews: [] }, WEEK, 'merged', NOW),
@@ -282,10 +283,10 @@ describe('every panel in the shared card (PRD 962)', () => {
 
   it('engineering.css frames no panel itself and lets the cards of a row stretch to one line', () => {
     const css = readFileSync(new URL('./engineering.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1]!.trim().split('\n').pop()!.trim(), body: m[2]! }));
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: sure(sure(m[1], 'a selector').trim().split('\n').pop(), 'a selector\'s last line').trim(), body: sure(m[2], 'a rule\'s body') }));
     const framing = rules.filter((r) => /\.(eng-(omni|health|top|people)|board-(chart|charts|repos|card))(?![-\w])/.test(r.selector) && /(^|[;\s])(border|border-radius|background):/.test(r.body));
     expect(framing.map((r) => r.selector)).toEqual([]);
-    expect(rules.find((r) => r.selector === '.eng-people')!.body).toMatch(/align-items: stretch/);
+    expect(sure(rules.find((r) => r.selector === '.eng-people'), 'the .eng-people rule').body).toMatch(/align-items: stretch/);
   });
 });
 

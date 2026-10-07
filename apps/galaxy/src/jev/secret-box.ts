@@ -1,3 +1,4 @@
+import 'server-only';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 // The secret box (PRD 812, decision 7): a workspace's TypeSafe API key, sealed by Galaxy's server
@@ -30,9 +31,8 @@ export class SecretBoxError extends Error {
   }
 }
 
-/** The master key from the environment, or null when it is missing or not 32 bytes of base64. */
-export function masterKey(env: Record<string, string | undefined>): Buffer | null {
-  const raw = env[MASTER_KEY_VAR]?.trim();
+/** The master key from the environment (`SECRETS_MASTER_KEY`, ../env.ts), or null when it is unset or not 32 bytes of base64. */
+export function masterKey(raw: string | null): Buffer | null {
   if (!raw) return null;
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) return null;
   const key = Buffer.from(raw, 'base64');

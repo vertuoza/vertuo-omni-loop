@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loop drive</title>
+<style>
+/* Layout: three moments (the terminal, two PRDs that collide, the Omni app), each today | after side by side, stacking at phone width. Look: the PRD page's own tokens, as PRD 1130's page. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --red:#b3122f;--redSoft:#fbe8ec;--amber:#8a5a00;--amberSoft:#fdf1d8;--green:#15703f;--greenSoft:#e4f4ea;
+ --term:#14123a;--termInk:#e6e8ff;--termMuted:#9aa0d8;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+ --display:Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
+ --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#08072a;--termInk:#e6e8ff;--termMuted:#8f95d0;
+ color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#08072a;--termInk:#e6e8ff;--termMuted:#8f95d0;
+ color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.55 var(--body)}
+main{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:32px 56px;display:grid;gap:40px}
+header{display:grid;gap:8px}
+h1{font:400 clamp(30px,5vw,46px)/1 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance}
+.lede{color:var(--muted);max-width:68ch;margin:0}
+section{display:grid;gap:14px}
+h2{font:400 24px/1.1 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+.why{color:var(--muted);margin:0;max-width:72ch}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{min-width:0;display:grid;gap:8px;align-content:start}
+.tag{font:700 11px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tag.after{color:var(--plasma)}
+.term{background:var(--term);color:var(--termInk);border-radius:10px;padding:14px 16px;font:12.5px/1.6 var(--mono);overflow-x:auto;white-space:pre;margin:0}
+.term .m{color:var(--termMuted)}.term .p{color:#c9a7ff}.term .g{color:#5fe39a}.term .a{color:#ffcf70}.term .r{color:#ff7d95}
+.doc{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:grid;gap:10px;min-width:0}
+.doc p{margin:0;font-size:14px}
+.chip{display:inline-block;font:700 11px/1 var(--body);padding:4px 7px;border-radius:999px;letter-spacing:.03em;white-space:nowrap}
+.chip.red{background:var(--redSoft);color:var(--red)}.chip.amber{background:var(--amberSoft);color:var(--amber)}.chip.green{background:var(--greenSoft);color:var(--green)}.chip.plasma{background:var(--plasmaSoft);color:var(--plasma)}
+code{font:12.5px var(--mono);background:var(--sunk);padding:1px 5px;border-radius:4px}
+.app{display:grid;grid-template-columns:150px 1fr;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+@media (max-width:460px){.app{grid-template-columns:1fr}.nav{display:none}}
+.nav{background:var(--sunk);padding:12px 10px;display:grid;gap:2px;align-content:start;font-size:13px}
+.nav .grp{font:700 10px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:8px 6px 4px}
+.nav a{color:var(--ink);text-decoration:none;padding:5px 8px;border-radius:6px}
+.nav a.on{background:var(--plasmaSoft);color:var(--plasma);font-weight:700}
+.nav a.new::after{content:"new";margin-left:6px;font:700 9px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--plasma)}
+.pane{padding:14px 16px;display:grid;gap:12px;min-width:0}
+.pane h4{margin:0;font:400 20px/1 var(--display);letter-spacing:.02em}
+.loop{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:6px;font-size:13px;min-width:0}
+.loop .top{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.loop .who{font-weight:700}
+.loop .muted{color:var(--muted)}
+.steps{display:grid;gap:4px;font:12px/1.4 var(--mono);font-variant-numeric:tabular-nums}
+.row{display:grid;grid-template-columns:44px 1fr auto;gap:8px;align-items:center}
+.bar{height:8px;border-radius:4px;background:var(--sunk);position:relative;overflow:hidden}
+.bar i{position:absolute;top:0;bottom:0;border-radius:4px}
+.ledger{display:grid;gap:3px;font:12px/1.45 var(--mono);font-variant-numeric:tabular-nums;color:var(--muted)}
+.ledger b{color:var(--ink);font-weight:600}
+.ledger a{color:var(--plasma)}
+.emptyapp{color:var(--muted);font-style:italic;font-size:14px;padding:18px 0}
+ul.same{margin:0;padding-left:18px;color:var(--muted);display:grid;gap:4px;max-width:72ch}
+</style>
+</head>
+<body>
+<main>
+<header>
+ <h1>Loop drive</h1>
+ <p class="lede">PRD 1139. <code>/loop /omni:drive</code> builds your own PRDs from inbox to ready, one step of a loop plan per tick. It stops on its own when every PRD waits on a person, and the Omni app's new <b>Loop</b> page shows it while it runs.</p>
+</header>
+
+<section>
+ <h2>1. In the terminal</h2>
+ <p class="why">Today each PRD needs a person to type the next command. After, one command plans the work across PRDs and runs it step by step.</p>
+ <div class="pair">
+  <div class="side">
+   <span class="tag">Today</span>
+<pre class="term"><span class="p">&gt; /omni:yolo 1030</span>
+<span class="m">wave 1 … 3 sub-PRs merged</span>
+<span class="m">wave 2 … s4 in-flight (another session)</span>
+<span class="a">held: s4 in-flight — re-run later</span>
+
+<span class="m">  … nobody re-runs it until someone remembers</span>
+
+<span class="p">&gt; /omni:yolo 1017</span>     <span class="m">one PRD per command</span>
+<span class="p">&gt; /omni:pr-care 971</span>   <span class="m">background sleep 300</span></pre>
+  </div>
+  <div class="side">
+   <span class="tag after">After</span>
+<pre class="term"><span class="p">&gt; /loop /omni:drive</span>
+<span class="m">driving yours: 1030 building · 1017 inbox · 971 outbox</span>
+loop plan v1 — 23 steps
+<span class="m">  1017 s2 after 1030 s3: both touch apps/galaxy/src/nav/</span>
+<span class="g">step 1/23 · pr-care · PRD 971 → 2 threads fixed</span>
+<span class="g">step 2/23 · wave 1 · PRD 1030 → 3 sub-PRs, 2 outbox items</span>
+<span class="m">step 3/23 · wait · CI on #1041 — wakes 14:32</span>
+<span class="a">replanned v2: s4 of 1030 stuck → 1017 moves up</span>
+…
+<span class="a">stopped — every PRD waits on a person:</span>
+<span class="m">  971  merge the ready PR      github.com/…/pull/980</span>
+<span class="m">  1030 answer 3 outbox items   github.com/…/pull/1036</span></pre>
+  </div>
+ </div>
+</section>
+
+<section>
+ <h2>2. Two PRDs that touch the same files</h2>
+ <p class="why">Today nothing looks across PRDs, so they collide at merge time. After, the loop plan puts colliding steps in order, and the order is the plan's to change, with a reason.</p>
+ <div class="pair">
+  <div class="side">
+   <span class="tag">Today</span>
+   <div class="doc">
+    <p><b>PRD 1030</b> wave 2 and <b>PRD 1017</b> wave 1 both edit <code>apps/galaxy/src/nav/sidebar.ts</code> on their own feature branches.</p>
+    <p><span class="chip red">conflict</span> found by pr-care on the second feature PR, after both are built.</p>
+    <p><code>blocked-by: [1017]</code> in a spec is written down and run by nobody.</p>
+   </div>
+  </div>
+  <div class="side">
+   <span class="tag after">After</span>
+   <div class="doc">
+    <div class="steps" aria-label="Loop plan timeline">
+     <div class="row"><span>1030</span><div class="bar"><i style="left:0;width:38%;background:var(--green)"></i><i style="left:40%;width:22%;background:var(--plasma)"></i></div><span class="chip green">building</span></div>
+     <div class="row"><span>1017</span><div class="bar"><i style="left:64%;width:30%;background:var(--plasma)"></i></div><span class="chip amber">after 1030 s3</span></div>
+     <div class="row"><span>971</span><div class="bar"><i style="left:0;width:12%;background:var(--green)"></i></div><span class="chip plasma">parked</span></div>
+    </div>
+    <p>Collisions run one after the other, with the reason on the plan. <code>blocked-by</code> holds. Steps with no collision run beside each other.</p>
+    <p>The plan is frozen at the start. A stuck slice or an early ship makes v2, and every version is kept.</p>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section>
+ <h2>3. In the Omni app</h2>
+ <p class="why">Today no page shows that work is running unattended. After, a <b>Loop</b> entry beside Fleet lists every loop in the workspace, its plan and its ledger. Each tick links to its PRD's page, where its outbox items wait.</p>
+ <div class="pair">
+  <div class="side">
+   <span class="tag">Today</span>
+   <div class="app">
+    <nav class="nav" aria-label="Today's menu">
+     <span class="grp">Dashboard</span><a href="#">Home</a><a href="#">Fleet</a><a href="#">Workspace</a><a href="#">Engineering</a>
+     <span class="grp">Work</span><a href="#">PRDs</a><a href="#">Bugs</a><a href="#">Visual</a><a href="#">Questions</a><a href="#">Knowledge</a>
+    </nav>
+    <div class="pane"><h4>Fleet</h4><p class="emptyapp">A PRD page says "Claude is working…" while a session sends heartbeats. Nothing lists running loops, what they did, or what they wait on.</p></div>
+   </div>
+  </div>
+  <div class="side">
+   <span class="tag after">After</span>
+   <div class="app">
+    <nav class="nav" aria-label="Menu after">
+     <span class="grp">Dashboard</span><a href="#">Home</a><a href="#">Fleet</a><a href="#" class="on new">Loop</a><a href="#">Workspace</a><a href="#">Engineering</a>
+     <span class="grp">Work</span><a href="#">PRDs</a><a href="#">Bugs</a><a href="#">Visual</a><a href="#">Questions</a><a href="#">Knowledge</a>
+    </nav>
+    <div class="pane">
+     <h4>Loop</h4>
+     <div class="loop">
+      <div class="top"><span class="who">pierre · vertuo-omni-loop</span><span class="chip green">sleeping · wakes 14:32</span></div>
+      <span class="muted">plan v2 · step 3/23 · driving 1030, 1017, 971</span>
+      <div class="ledger">
+       <span><b>14:21</b> wave 1 · <a href="#">PRD 1030</a> → 3 sub-PRs, 2 outbox items</span>
+       <span><b>14:20</b> replanned v2: s4 of 1030 stuck</span>
+       <span><b>14:02</b> pr-care · <a href="#">PRD 971</a> → 2 threads fixed</span>
+      </div>
+     </div>
+     <div class="loop">
+      <div class="top"><span class="who">irisa · vertuo-mobile</span><span class="chip amber">parked</span></div>
+      <span class="muted">PRD 1101 waits on outbox answers · <a href="#" style="color:var(--plasma)">answer</a></span>
+     </div>
+     <div class="loop">
+      <div class="top"><span class="who">paul · vertuo-api</span><span class="chip red">silent 22 min</span></div>
+      <span class="muted">no tick since 13:48 · run /loop /omni:drive again to resume</span>
+     </div>
+    </div>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section>
+ <h2>What stays the same</h2>
+ <ul class="same">
+  <li><code>/omni:wave</code>, <code>/omni:yolo</code> and <code>/omni:yolo-fix</code> run unchanged. <code>/omni:pr-care</code> only gains <code>--once</code>.</li>
+  <li>Every decision a slice takes still goes into its PRD's outbox, behind the same gate.</li>
+  <li>Nothing merges into <code>main</code> without a person. The loop never answers the outbox.</li>
+  <li>Brainstorm and phase-0 review stay a person's conversation.</li>
+ </ul>
+</section>
+</main>
+</body>
+</html>

@@ -27,21 +27,21 @@
 //
 // It runs before a context exists, like `ask`, so that a test can hand it `tokens` (the token store),
 // `home` (where the real one lives), `fetch` and `callMs`; it loads the context itself.
-import { askClient, AskCallError } from '../../lib/ask/client.ts';
+import { AskCallError, type askClient } from '../../lib/ask/client.ts';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { field } from '../../lib/ask/schema.ts';
 import type { Context } from '../../lib/context.ts';
 import type { FixKind, TooLarge } from '../../lib/dossier/folder.ts';
-import { homeTokens } from '../../lib/ask/client-tokens.ts';
-import { credentialsHost } from '../../lib/ask/credentials.ts';
+import { signedInClient } from '../../lib/ask/credentials.ts';
 import { dossierSwitch } from '../../lib/config.ts';
 import { loadContext } from '../../lib/context.ts';
 import { chooseDraft } from '../../lib/dossier/draft.ts';
 import { fixTitle, readDossierFolder, readFixFolder, TITLE_MAX } from '../../lib/dossier/folder.ts';
 import { forgetDraft, mainCheckout, markNumbered, readDossiers, recordDraft } from '../../lib/dossier/local.ts';
+import type { IssueNumber, PrdNumber } from '../../lib/ids.ts';
 import { isOneOf } from '../../lib/narrow.ts';
-import { parseArgs, positiveInt, println, usageError } from '../args.ts';
-import type { Env, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
+import { issueArg, parseArgs, prdArg, println, usageError } from '../args.ts';
+import type { Exec, FreeCommand, FreeIo, Out, Vars } from '../io.ts';
 
 /** What a test hands `omni dossier` beyond `main()`'s own. */
 type DossierOptions = {
@@ -72,8 +72,8 @@ const ISSUE_TITLE_MS = 5000;
 const NO_SIGN_IN = 'no sign-in (omni signin)';
 
 /** The Claude session id this terminal runs in, or null: sent only when it could be a real one. */
-function claudeSessionOf(env: Env | undefined): string | null {
-  const id = typeof env?.CLAUDE_CODE_SESSION_ID === 'string' ? env.CLAUDE_CODE_SESSION_ID.trim() : '';
+function claudeSessionOf(session: Vars['claudeSession']): string | null {
+  const id = session?.id.trim() ?? '';
   return id.length >= 1 && id.length <= TITLE_MAX ? id : null;
 }
 
@@ -87,11 +87,18 @@ function skipLine(error: unknown): string {
 
 const isText = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
 
+/** One added version of the push's reply, `{ kind, version }`, or `null` when it is not one. */
+function versionOf(entry: unknown): { kind: string; version: number } | null {
+  const kind = field(entry, 'kind');
+  const version = field(entry, 'version');
+  return isText(kind) && typeof version === 'number' && Number.isInteger(version) ? { kind, version } : null;
+}
+
 /** `added: spec v2 · unchanged: before-after, plan`, from the push's reply. */
 export function addedLine({ added, unchanged }: { added?: unknown; unchanged?: unknown }): string {
-  const got = Array.isArray(added) ? added.filter((a: unknown) => isText(field(a, 'kind')) && Number.isInteger(field(a, 'version'))) : [];
+  const got = Array.isArray(added) ? added.flatMap((a: unknown) => versionOf(a) ?? []) : [];
   const kept = Array.isArray(unchanged) ? unchanged.filter(isText) : [];
-  const parts = [`added: ${got.length ? got.map((a: unknown) => `${field(a, 'kind')} v${field(a, 'version')}`).join(', ') : 'none'}`];
+  const parts = [`added: ${got.length ? got.map(({ kind, version }) => `${kind} v${version}`).join(', ') : 'none'}`];
   if (kept.length) parts.push(`unchanged: ${kept.join(', ')}`);
   return parts.join(' · ');
 }
@@ -116,7 +123,7 @@ async function open(title: string, { ctx, repo, client, home, claudeSessionId, s
 }
 
 /** Issue n's title, as `gh` reads it, or null when it cannot: the push then titles the fix after its folder. */
-function issueTitle(issue: number, { ctx, repo, exec }: Pick<VerbIo, 'ctx' | 'repo' | 'exec'>): string | null {
+function issueTitle(issue: IssueNumber, { ctx, repo, exec }: Pick<VerbIo, 'ctx' | 'repo' | 'exec'>): string | null {
   try {
     const title = exec('gh', ['issue', 'view', String(issue), '--repo', repo, '--json', 'title', '--jq', '.title'], {
       cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: ISSUE_TITLE_MS,
@@ -141,7 +148,7 @@ function reportPush(result: unknown, tooLarge: readonly TooLarge[], { stdout, st
 }
 
 /** Issue n's fix of `kind`: its folder, sent with its kind. No draft: a fix never has one. */
-async function pushFix(issue: number, kind: FixKind, { ctx, repo, client, exec, stdout, stderr }: VerbIo): Promise<number> {
+async function pushFix(issue: IssueNumber, kind: FixKind, { ctx, repo, client, exec, stdout, stderr }: VerbIo): Promise<number> {
   const folder = readFixFolder(ctx, kind, issue);
   if (!folder) throw usageError(`omni dossier push: issue ${issue} has no ${kind} fix folder.`);
   // Titled after its issue, asked of GitHub only once the folder is there; after the folder when it cannot.
@@ -156,7 +163,7 @@ async function pushFix(issue: number, kind: FixKind, { ctx, repo, client, exec, 
   return reportPush(result, folder.tooLarge, { stdout, stderr });
 }
 
-async function push(prd: number, { ctx, repo, client, home, claudeSessionId, stdout, stderr }: VerbIo): Promise<number> {
+async function push(prd: PrdNumber, { ctx, repo, client, home, claudeSessionId, stdout, stderr }: VerbIo): Promise<number> {
   const folder = readDossierFolder(ctx, prd);
   if (!folder) throw usageError(`omni dossier push: PRD ${prd} has no inbox or shipped folder.`);
   const where = home ?? ctx.root;
@@ -190,12 +197,14 @@ async function push(prd: number, { ctx, repo, client, home, claudeSessionId, std
 }
 
 /** The last link this computer recorded for PRD n, or null. It records PRDs only: a fix has none. */
-function recordedLink(home: string | null, prd: number, kind: string) {
+function recordedLink(home: string | null, prd: PrdNumber | IssueNumber, kind: string) {
   if (!home || kind !== 'prd') return null;
   return readDossiers(home).filter((entry) => entry.prd === prd).at(-1) ?? null;
 }
 
-async function link(prd: number, kind: string, { repo, client, home, stdout, stderr }: VerbIo): Promise<number> {
+/** PRD n's link, or with a fix's kind issue n's: a fix's dossier is keyed by its issue, so `prd` is
+ * a PRD's number or an issue's. */
+async function link(prd: PrdNumber | IssueNumber, kind: string, { repo, client, home, stdout, stderr }: VerbIo): Promise<number> {
   let found: unknown;
   try {
     found = await client.findDossier({ repo, prd, kind });
@@ -222,6 +231,15 @@ async function link(prd: number, kind: string, { repo, client, home, stdout, std
   return 0;
 }
 
+/** What `push` and `link` name: PRD n, or with `--kind visual|bug` issue n's fix. */
+type Named = { kind: 'prd'; prd: PrdNumber } | { kind: FixKind; issue: IssueNumber };
+
+/** `<n>` read as the kind names it: a PRD's number, or a fix's issue. */
+function namedBy(verb: string, kind: 'prd' | FixKind, value: string | undefined): Named {
+  const command = `dossier ${verb}`;
+  return kind === 'prd' ? { kind, prd: prdArg(command, '<n>', value) } : { kind, issue: issueArg(command, '<n>', value) };
+}
+
 /** The kind `--kind` names (prd when it names none); only push and link take one. */
 function kindOf(flag: string | undefined, numbered: boolean): 'prd' | FixKind {
   if (flag === undefined) return 'prd';
@@ -233,7 +251,7 @@ export const dossier = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, stderr, exec, env = process.env, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }: FreeIo & DossierOptions,
+    { cwd, stdout, stderr, exec, vars, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }: FreeIo & DossierOptions,
   ) {
     const { positional, flags } = parseArgs('dossier', args, { values: ['kind'] });
     const [verb = '', ...rest] = positional;
@@ -244,7 +262,7 @@ export const dossier = {
     if (!runnable) throw usageError(USAGE);
     const kind = kindOf(flags.kind, numbered);
     if (verb === 'link' && !/^[1-9]\d*$/.test(String(rest[0]))) throw usageError(USAGE);
-    const prd = numbered ? positiveInt(`dossier ${verb}`, '<n>', rest[0]) : null;
+    const named = numbered ? namedBy(verb, kind, rest[0]) : null;
 
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
@@ -259,18 +277,16 @@ export const dossier = {
     const repo = ctx.config.repo.slug;
     if (!repo) throw usageError(`omni dossier: no repository slug — set repo.slug in the config.`);
 
-    const host = credentialsHost(toggle.askUrl);
-    const store = tokens ?? homeTokens(home ? { home } : undefined);
-    if (!store.read(host)) {
+    const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
+    if (!client) {
       println(stderr, NO_SIGN_IN);
       return 1;
     }
-    const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
-    const options: VerbIo = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
-    // `prd` is a number for `push` and `link`, the two verbs that read it, and null for `open`.
-    if (prd === null) return open(title, options);
-    if (verb === 'link') return link(prd, kind, options);
-    if (verb === 'push' && kind !== 'prd') return pushFix(prd, kind, options);
-    return push(prd, options);
+    const options: VerbIo = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(vars.claudeSession), stdout, stderr, now };
+    // `named` is set for `push` and `link`, the two verbs that read a number, and null for `open`.
+    if (named === null) return open(title, options);
+    if (verb === 'link') return link(named.kind === 'prd' ? named.prd : named.issue, named.kind, options);
+    if (named.kind !== 'prd') return pushFix(named.issue, named.kind, options);
+    return push(named.prd, options);
   },
 } satisfies FreeCommand;

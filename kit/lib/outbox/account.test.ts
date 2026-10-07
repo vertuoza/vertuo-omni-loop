@@ -6,6 +6,7 @@ import { flatCtx } from '../../test/flat-layout.ts';
 import { ACCOUNTS_DIR, compare, parseAccount, readAccounts } from './account.ts';
 import type { Account, AccountEntry, ParsedAccount } from './account.ts';
 import { settleItem } from './settle.ts';
+import { parsePrd, parseWorkSliceId } from '../ids.ts';
 
 /** A parse result read either way: a test checks `ok` first, then reads the side it expects. */
 type EitherSide = { ok: boolean; account: Account; errors: string[] };
@@ -20,10 +21,10 @@ afterEach(() => {
 });
 
 function accountText({ frontMatter = {}, body }: { frontMatter?: Record<string, string | undefined>; body?: string } = {}) {
-  const fm = { prd: '1044', slice: 's2', graded: '2026-09-23', ...frontMatter };
+  const fm: Record<string, string | undefined> = { prd: '1044', slice: 's2', graded: '2026-09-23', ...frontMatter };
   const fmLines = Object.entries(fm)
     .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => `${key}: ${value}`);
+    .map(([key, value]) => `${key}: ${value ?? ''}`);
   const defaultBody = [
     '## Risky changes',
     '',
@@ -215,7 +216,7 @@ describe('readAccounts', () => {
     seedItem(1044, 's3-01-credit-ledger-shape');
     seedAccount(1044, 's2', accountText());
 
-    const results = readAccounts(1044, { ctx: flatCtx(root) });
+    const results = readAccounts(parsePrd(1044), { ctx: flatCtx(root) });
     expect(results).toHaveLength(1);
     expect(results[0]?.ok).toBe(true);
     expect(view(results[0]).account.slice).toBe('s2');
@@ -225,7 +226,7 @@ describe('readAccounts', () => {
     // No item file seeded at all — s3-01-credit-ledger-shape does not exist.
     seedAccount(1044, 's2', accountText());
 
-    const results = readAccounts(1044, { ctx: flatCtx(root) });
+    const results = readAccounts(parsePrd(1044), { ctx: flatCtx(root) });
     expect(results).toHaveLength(1);
     expect(results[0]?.ok).toBe(false);
     expect(view(results[0]).errors).toEqual([
@@ -252,13 +253,13 @@ describe('readAccounts', () => {
     });
     expect(settled.ok).toBe(true);
 
-    const results = readAccounts(1044, { ctx });
+    const results = readAccounts(parsePrd(1044), { ctx });
     expect(results).toHaveLength(1);
     expect(results[0]?.ok).toBe(true);
   });
 
   it('returns [] when the PRD has no accounts directory at all', () => {
-    expect(readAccounts(1044, { ctx: flatCtx(root) })).toEqual([]);
+    expect(readAccounts(parsePrd(1044), { ctx: flatCtx(root) })).toEqual([]);
   });
 
   it('reads two slices of one PRD separately, neither writing into the other', () => {
@@ -275,7 +276,7 @@ describe('readAccounts', () => {
     ].join('\n');
     seedAccount(1044, 's4', accountText({ frontMatter: { slice: 's4' }, body: s4Body }));
 
-    const results = readAccounts(1044, { ctx: flatCtx(root) });
+    const results = readAccounts(parsePrd(1044), { ctx: flatCtx(root) });
     expect(results).toHaveLength(2);
 
     const s2Result = results.find((result) => result.ok && view(result).account.slice === 's2');
@@ -303,10 +304,10 @@ describe('readAccounts', () => {
     seedAccount(985, 's7', accountText({ frontMatter: { prd: '985', slice: 's7' } }));
 
     const ctx = flatCtx(root);
-    expect(readAccounts(1044, { ctx })).toHaveLength(1);
+    expect(readAccounts(parsePrd(1044), { ctx })).toHaveLength(1);
     // The 985 account names an item id that does not exist under 985 either, so it refuses —
     // but the point here is isolation: it must not even be considered by the 1044 read.
-    expect(readAccounts(985, { ctx })[0]?.ok).toBe(false);
+    expect(readAccounts(parsePrd(985), { ctx })[0]?.ok).toBe(false);
   });
 });
 
@@ -316,7 +317,7 @@ describe('compare', () => {
   ];
 
   function account(entries: AccountEntry[], overrides: Partial<Account> = {}) {
-    return { slice: 's2', file: 'docs/outbox/1044/accounts/s2.md', entries, ...overrides };
+    return { slice: parseWorkSliceId('s2'), file: 'docs/outbox/1044/accounts/s2.md', entries, ...overrides };
   }
 
   it('an exact match: the one risky change is accounted for, nothing unaccounted, nothing stale', () => {

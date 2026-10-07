@@ -95,7 +95,9 @@ export function playChime(Audio: AudioCtor | null | undefined): void {
     tone.onended = () => void ctx.close().catch(() => {});
     tone.start(t);
     tone.stop(t + 0.32);
-    void ctx.resume?.().catch(() => {});
+    // An older AudioContext has no resume: then the tone plays as the context allows.
+    const resumable: { resume?: () => Promise<void> } = ctx;
+    void resumable.resume?.().catch(() => {});
   } catch {
     /* no sound */
   }
@@ -105,7 +107,7 @@ export function playChime(Audio: AudioCtor | null | undefined): void {
 export type NotificationApi = {
   readonly permission: NotificationPermission;
   requestPermission(): Promise<NotificationPermission>;
-  new (title: string, options?: NotificationOptions): { onclick: ((this: unknown, ev: Event) => unknown) | null; close?(): void };
+  new (title: string, options?: NotificationOptions): { onclick: ((ev: Event) => unknown) | null; close?(): void };
 };
 
 /** The Desktop alerts switch: on, off, or blocked by the browser (it cannot be turned on from the page). */

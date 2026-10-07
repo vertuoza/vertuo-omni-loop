@@ -36,6 +36,8 @@
  */
 import { dirname } from 'node:path';
 import { CONFIG_FILE } from '../config.ts';
+import { PrdNumberSchema } from '../ids.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** The note's file name, in a PRD's folder beside `spec.md`. */
 export const RELEASE_NOTE_FILE = 'release.md';
@@ -48,7 +50,7 @@ const FIELDS: readonly string[] = ['prd', 'title', 'version'];
 const REQUIRED = ['prd', 'title'] as const;
 
 /** A release note, parsed: `version` is `null` when the note carries none. */
-export type ReleaseNote = { prd: number; title: string; version: string | null; description: string };
+export type ReleaseNote = { prd: PrdNumber; title: string; version: string | null; description: string };
 
 /** What {@link parseReleaseNote} returns: the note, or one refusal per line. */
 export type ParsedReleaseNote = { ok: true; note: ReleaseNote; errors?: undefined } | { ok: false; errors: string[]; note?: undefined };
@@ -72,7 +74,7 @@ const FORBIDDEN: readonly Forbidden[] = [
   { pattern: new RegExp(KIT_FOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), what: () => `a path under ${KIT_FOLDER}` },
 ];
 
-const characters = (text: string): number => [...text].length;
+const characters = (text: string): number => Array.from(text).length;
 
 function unquote(value: string): string {
   const trimmed = value.trim();
@@ -117,6 +119,16 @@ function bodyLines(body: string): string[] {
   return lines;
 }
 
+/** The note's `prd` as a PRD number, or `null`; a `prd` that is none is named in `errors`. */
+function notePrd(fields: Record<string, string>, errors: string[]): PrdNumber | null {
+  if (!Object.hasOwn(fields, 'prd')) return null;
+  const prd = unquote(fields.prd ?? '');
+  const number = PrdNumberSchema.safeParse(Number(prd));
+  if (PRD_NUMBER.test(prd) && number.success) return number.data;
+  errors.push(`prd "${prd}" is not a PRD number`);
+  return null;
+}
+
 /**
  * Parses one note's text: `{ ok: true, note: { prd, title, version, description } }`, `version`
  * `null` when the note carries none, or `{ ok: false, errors }`, one line each: no front matter, a
@@ -133,13 +145,12 @@ export function parseReleaseNote(text: string): ParsedReleaseNote {
   for (const key of REQUIRED) {
     if (!Object.hasOwn(fields, key)) errors.push(`front matter lacks ${key}`);
   }
-  const prd = Object.hasOwn(fields, 'prd') ? unquote(fields.prd ?? '') : null;
-  if (prd !== null && !PRD_NUMBER.test(prd)) errors.push(`prd "${prd}" is not a PRD number`);
-  if (errors.length) return { ok: false, errors };
+  const prd = notePrd(fields, errors);
+  if (errors.length || prd === null) return { ok: false, errors };
   return {
     ok: true,
     note: {
-      prd: Number(prd),
+      prd,
       title: (fields.title ?? '').split('\n').map(unquote).join('\n'),
       version: Object.hasOwn(fields, 'version') ? unquote(fields.version ?? '') : null,
       description: bodyLines(parts.body).join(' '),
@@ -181,7 +192,7 @@ function contentViolations(name: string, text: string): string[] {
  * Every rule the note `text` breaks, in the folder of PRD `prd`: one message per rule, `[]` when it
  * holds. A note that does not parse gives the parser's refusals and nothing more.
  */
-export function gradeReleaseNote(text: string, { prd }: { prd: number | string }): string[] {
+export function gradeReleaseNote(text: string, { prd }: { prd: PrdNumber }): string[] {
   const parsed = parseReleaseNote(text);
   if (!parsed.ok) return parsed.errors;
   const { note } = parsed;

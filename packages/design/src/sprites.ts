@@ -5,6 +5,7 @@
 
 import { RAMPS } from './forge.ts';
 import type { Painter, Tint } from './forge.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** A sprite's recipe: its size, how to paint frame `f` (0 or 1), and whether the forge outlines it. */
 export interface SpriteDef { w: number; h: number; draw(d: Painter, f: number): void; outline?: boolean }
@@ -138,7 +139,7 @@ function omniPose(pose: 'point' | 'cheer' | 'run', cape: boolean): SpriteDef['dr
 // Paints a sprite written as strings: each character a [material, tone] from `key`, '.' left empty.
 type Key = Readonly<Record<string, readonly [string, number?]>>;
 function rows(d: Painter, lines: readonly string[], key: Key, x0 = 0, y0 = 0): void {
-  lines.forEach((line, y) => [...line].forEach((c, x) => { const k = key[c]; if (k) d.px(x0 + x, y0 + y, k[0], k[1]); }));
+  lines.forEach((line, y) => { Array.from(line).forEach((c, x) => { const k = key[c]; if (k) d.px(x0 + x, y0 + y, k[0], k[1]); }); });
 }
 
 // The `</>` of the Omni app, its strokes two pixels wide.
@@ -262,8 +263,12 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
       for (let i = 0; i < 6; i++) {
         const x0 = 7 + i * 3.6, dir = i < 3 ? -1 : 1, ph = f * 1.2 + i;
         const pts = Array.from({ length: 6 }, (_, k): Point => [x0 + dir * k * 0.9 + Math.sin(ph + k * 0.9) * 1.2, 19 + k * 2]);
-        for (let k = 1; k < pts.length; k++) d.line(pts[k - 1]![0], pts[k - 1]![1], pts[k]![0], pts[k]![1], 'V', 3.2 - k * 0.35);
-        d.px(pts[3]![0] + 0.5, pts[3]![1] + 1, 'M', 1).px(pts[4]![0] + 0.5, pts[4]![1] + 1, 'M', 1);
+        for (let k = 1; k < pts.length; k++) {
+          const [ax, ay] = at(pts, k - 1, 'a tentacle point'), [bx, by] = at(pts, k, 'a tentacle point');
+          d.line(ax, ay, bx, by, 'V', 3.2 - k * 0.35);
+        }
+        const [sx, sy] = at(pts, 3, 'a sucker point'), [tx, ty] = at(pts, 4, 'a sucker point');
+        d.px(sx + 0.5, sy + 1, 'M', 1).px(tx + 0.5, ty + 1, 'M', 1);
       }
       d.rect(9, 17, 14, 4, 'N').rect(11, 17, 10, 4, 'W').px(15, 18, 'C').px(16, 18, 'C');
       d.ellipse(16, 10, 11, 9.5 - f * 0.5, 'V');
@@ -609,6 +614,10 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
     d.ellipse(8, 3.5, 1.5, 1.2, 'E').rect(1, 6, 2, 1, 'R', 1).rect(13, 6, 2, 1, 'R', 1);
     d.rect(1, 8, 1, 7, 'C', f ? 0 : 1).rect(14, 8, 1, 7, 'C', f ? 0 : 1);
   } },
+  'menu-loop': { w: 16, h: 16, draw(d, f) { // a probe on its orbit: a ring around a core, the probe moving on
+    d.ellipse(8, 8, 6.5, 6.5, 'C').ellipse(8, 8, 4.5, 4.5, 'X').ellipse(8, 8, 2, 2, f ? 'O' : 'Y');
+    d.rect(f ? 12 : 1, f ? 1 : 12, 3, 3, 'L').px(f ? 13 : 2, f ? 2 : 13, 'R', 1);
+  } },
   'menu-workspace': { w: 16, h: 16, draw(d, f) { // a ringed home world with a moon
     d.ellipse(8, 8, 5, 5, 'P').line(1, 11, 15, 5, 'Y').ellipse(8, 8, 5, 5, 'P');
     d.line(1, 11, 3, 10, 'Y').line(13, 6, 15, 5, 'Y').line(5, 11, 11, 8.5, 'Y');
@@ -727,12 +736,15 @@ export const TILES: readonly string[] = Object.freeze([
  * bricks (`O`, and `D`, their joints and the blocks' frames) and castle stone (`A`), from the forge's
  * own ramps. The ? block's gold (`Y`) is never recoloured: it reads the same in every stage.
  */
+/** A material's ramp, which the forge's RAMPS must hold. */
+const ramp = (m: string): readonly string[] => defined(RAMPS[m], `the ramp of material ${m}`);
+
 export const STAGE_PALETTES: Readonly<Record<string, Tint>> = Object.freeze({
   grass: Object.freeze({}),
   // 1-2: cave moss and teal pipes over blue-grey rock, bricks in cold slate.
-  underground: Object.freeze({ g: RAMPS.K!, B: RAMPS.n!, O: RAMPS.J!, D: RAMPS.H!, A: RAMPS.J! }),
+  underground: Object.freeze({ g: ramp('K'), B: ramp('n'), O: ramp('J'), D: ramp('H'), A: ramp('J') }),
   // 1-3: steel-grey battlements over dark stone, bricks in castle red, stone in the castle's grey.
-  castle: Object.freeze({ g: RAMPS.L!, B: RAMPS.H!, O: RAMPS.R!, D: RAMPS.H! }),
+  castle: Object.freeze({ g: ramp('L'), B: ramp('H'), O: ramp('R'), D: ramp('H') }),
 });
 
 // The mascot library: every fleet mascot drawn above, the keys an owner may pick for a fleet, in the

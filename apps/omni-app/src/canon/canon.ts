@@ -27,6 +27,7 @@
 // `constituents_for_repo_app`), `judge(request)` (./judge.ts, the signed call to galaxy's judge route)
 // and `ask(request)` (the kit's OpenRouter client, bound to its key and model). ./live.ts binds them.
 import { createHash } from 'node:crypto';
+import { z } from 'zod';
 import { NO_KEY } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
 import { type Business, type Claim, type Constituent, type Constituents, FindingSchema, type Persona, ReplyPersonaSchema } from './schema.ts';
 
@@ -88,8 +89,15 @@ export type JudgeAnswer = {
 };
 export type Judge = (request: JudgeRequest) => Promise<JudgeAnswer>;
 
-/** The model's reply, once checked. */
-type Reply = { findings: Finding[]; persona: PersonaLine };
+/**
+ * The model's reply, once `checkReply` checked it and trimmed its words: the reply the kit's client
+ * answers is read through it, so the verdict is built from what it says it is.
+ */
+const CheckedReplySchema = z.object({
+  findings: z.array(z.object({ quote: z.string(), claims: z.array(z.string()), why: z.string() })),
+  persona: z.object({ name: z.string(), line: z.string() }),
+});
+type Reply = z.infer<typeof CheckedReplySchema>;
 
 /** What the check of a reply answers the kit's client: its errors, or the reply. */
 type Checked = { errors: string[]; reply: Reply | null };
@@ -112,10 +120,10 @@ const CACHE_LIMIT = 200;
 /** The judge's error when it has no secret to sign with: the gate says "not configured". */
 export const JUDGE_NOT_CONFIGURED = 'no-secret';
 
-const plain = (text: unknown) => String(text ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+const plain = (text: string | null | undefined) => (text ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 
 /** Whether `quote` appears in `text`, whitespace and case aside. */
-export function quoted(text: unknown, quote: unknown): boolean {
+export function quoted(text: string | null | undefined, quote: string | null | undefined): boolean {
   const q = plain(quote);
   return q.length > 0 && plain(text).includes(q);
 }
@@ -173,10 +181,15 @@ function checkReply(value: unknown): Checked {
   return { errors, reply: { findings, persona: { name: text(name), line: text(line) } } };
 }
 
-const text = (value: unknown) => String(value ?? '').trim();
+/** Whatever the model wrote, as `String` prints it, trimmed: nothing for null and undefined. */
+const text = (value: unknown) => (value === undefined || value === null ? '' : stringOf(value)).trim();
+
+/** Any value, as `String` prints it. */
+export const stringOf = (value: unknown) => String(value);
 
 /** What a thrown value says: its `message`, when it has one. */
-const messageOf = (error: unknown): unknown => (error !== null && typeof error === 'object' && 'message' in error ? error.message : undefined);
+export const thrownMessage = (error: unknown): unknown =>
+  error !== null && typeof error === 'object' && 'message' in error ? error.message : undefined;
 
 function userPrompt({ spec, claims, constituents, personas }: { spec: string; claims: Claim[]; constituents: Constituent[]; personas: Persona[] }): string {
   const constituentLines = constituents.length ? constituents.map((c) => `${c.id}: ${c.text}`) : ['(none)'];
@@ -292,7 +305,7 @@ async function attempt<T>(read: () => Promise<T>, what: string): Promise<{ gate:
   try {
     return { value: await read() };
   } catch (error) {
-    return { gate: neutral(`${what}: the read failed (${messageOf(error) ?? error})`) };
+    return { gate: neutral(`${what}: the read failed (${String(thrownMessage(error) ?? error)})`) };
   }
 }
 
@@ -329,13 +342,13 @@ function counted(findings: Finding[], broken: boolean): Finding[] {
 }
 
 /** A judge that is not wired: the gate is neutral whenever the product has constituents. */
-const NO_JUDGE: Judge = async () => ({ ok: false, error: JUDGE_NOT_CONFIGURED, answer: null, confidence: null, decidedBy: null, reason: 'no judge here' });
+const NO_JUDGE: Judge = () => Promise.resolve({ ok: false, error: JUDGE_NOT_CONFIGURED, answer: null, confidence: null, decidedBy: null, reason: 'no judge here' });
 
 /**
  * The gate on its four ports, with its cache of the model's verdicts. Without `readConstituents` the
  * product has none; without `judge`, constituents are neutral.
  */
-export function createCanon({ readBusiness, readConstituents = async () => null, judge = NO_JUDGE, ask, cache = new Map(), limit = CACHE_LIMIT }: {
+export function createCanon({ readBusiness, readConstituents = () => Promise.resolve(null), judge = NO_JUDGE, ask, cache = new Map(), limit = CACHE_LIMIT }: {
   readBusiness: ReadBusiness;
   readConstituents?: ReadConstituents;
   judge?: Judge;
@@ -353,7 +366,7 @@ export function createCanon({ readBusiness, readConstituents = async () => null,
     if (!answer.ok) {
       return { gate: neutral(answer.error === NO_KEY ? `model not configured (${answer.reason})` : `model error: ${answer.reason}`) };
     }
-    const verdict = kept({ spec, reply: answer.reply as Reply, claims, constituents, personas }); // ts-allow: an ok answer's reply is the one checkReply returned
+    const verdict = kept({ spec, reply: CheckedReplySchema.parse(answer.reply), claims, constituents, personas });
     cache.set(key, verdict);
     for (const oldest of cache.keys()) {
       if (cache.size <= limit) break;

@@ -1,6 +1,8 @@
+import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieMethodsServer } from '@supabase/ssr';
 import type { Database } from '../../../../supabase/database.types';
+import { serverEnv } from '../env';
 
 // Keeps the Supabase session fresh before a page renders (proxy.ts): an expired access token is
 // refreshed here, and the new cookies go both to the render (request) and to the browser (response).
@@ -10,14 +12,19 @@ import type { Database } from '../../../../supabase/database.types';
 
 export type SessionEnv = { url: string; key: string };
 
+/** What the refresh asks of a Supabase server client: built with the cookies' getAll and setAll, it checks the claims. */
+export type CreateClient = (url: string, key: string, options: { cookies: CookieMethodsServer }) => { auth: { getClaims(): Promise<unknown> } };
+
+const createClient: CreateClient = (url, key, options) => createServerClient<Database>(url, key, options);
+
 export async function refreshSession(
   request: NextRequest,
   env: SessionEnv | null,
-  create: typeof createServerClient = createServerClient,
+  create: CreateClient = createClient,
 ): Promise<NextResponse> {
   let response = NextResponse.next({ request });
   if (!env) return response;
-  const supabase = create<Database>(env.url, env.key, {
+  const supabase = create(env.url, env.key, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll(list) {
@@ -33,7 +40,5 @@ export async function refreshSession(
 
 /** The database's public settings, or null for the demo galaxy. */
 export function sessionEnv(): SessionEnv | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return url && key ? { url, key } : null;
+  return serverEnv().supabase;
 }

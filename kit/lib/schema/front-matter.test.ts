@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { z } from 'zod';
 import { AccountFrontMatterSchema, OutboxItemFrontMatterSchema, SpecFrontMatterSchema } from './front-matter.ts';
 import { KIT_MESSAGES } from './messages.ts';
+import type { OutboxItemId, PrdNumber, WorkSliceId } from '../ids.ts';
 
 const firstIssue = (schema: z.ZodType, value: unknown) => schema.safeParse(value, { error: KIT_MESSAGES }).error?.issues[0];
 
@@ -51,6 +52,20 @@ describe('OutboxItemFrontMatterSchema', () => {
     const raised = firstIssue(OutboxItemFrontMatterSchema, { ...item, raised: 'yesterday' });
     expect(raised?.path).toEqual(['raised']);
     expect(raised?.message).toBe('raised must be a YYYY-MM-DD date');
+  });
+
+  it('reads its id, its PRD and its slice into their brands, a rework\'s included (PRD 1049)', () => {
+    const read = OutboxItemFrontMatterSchema.parse(item);
+    expectTypeOf(read.id).toEqualTypeOf<OutboxItemId>();
+    expectTypeOf(read.prd).toEqualTypeOf<PrdNumber>();
+    expectTypeOf(read.slice).toEqualTypeOf<WorkSliceId>();
+    const rework = { ...item, id: 'fix-s3-01-zod-01-crew', slice: 'fix-s3-01-zod' };
+    expect(OutboxItemFrontMatterSchema.parse(rework)).toMatchObject({ id: 'fix-s3-01-zod-01-crew', slice: 'fix-s3-01-zod' });
+  });
+
+  it('refuses an id with no slug and a slice that is no slice, naming each', () => {
+    expect(firstIssue(OutboxItemFrontMatterSchema, { ...item, id: 's3-01' })?.path).toEqual(['id']);
+    expect(firstIssue(OutboxItemFrontMatterSchema, { ...item, slice: 'S3' })?.path).toEqual(['slice']);
   });
 });
 

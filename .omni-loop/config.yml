@@ -12,6 +12,9 @@ commands:
   preflight: pnpm test
   preflightFull: pnpm test
   test: pnpm test
+  # PRD 1072: mutation testing of the delivery core files changed against origin/main (PRD 556's
+  # meaning), run by the bug-fix skill after a fix. Never in the preflight or pull request CI.
+  mutation: pnpm mutation:changed
 laws:
   source: none
 # Ask mode (PRD #71, ADR-0002): questions answered on the page the galaxy app serves. The Vercel
@@ -26,13 +29,26 @@ dossier:
 # ship by /omni:yolo and /omni:yolo-fix; `omni ship` refuses one without it. Off by default in the kit.
 releaseNotes:
   enabled: true
-# Proof videos (PRD 798): /omni:prove films a PRD's acceptance criteria on the feature PR's galaxy
-# preview. The previews sit behind Vercel's deployment protection: set VERCEL_AUTOMATION_BYPASS_SECRET
+# Proof videos (PRD 798): /omni:prove films a PRD's acceptance criteria on the production galaxy
+# (fixed url, so merged PRDs can be recorded too; `github-deployment` films the feature PR's preview
+# instead). The previews sit behind Vercel's deployment protection: set VERCEL_AUTOMATION_BYPASS_SECRET
 # in your shell to the galaxy project's "Protection Bypass for Automation" secret (this repository's
 # only; other repositories name their own variable, or none). Each run signs its browser in from the
 # person's own `omni signin` (`omni proof session`): Google refuses a browser login inside Playwright.
 proof:
-  url: github-deployment
+  url: https://vertuo-omni-loop-galaxy.vercel.app
   deployment: Preview – vertuo-omni-loop-galaxy
   setup: node .omni-loop/bin/omni.mjs proof session
   bypassEnv: VERCEL_AUTOMATION_BYPASS_SECRET
+# Generated files (PRD 1138): outputs this repository builds rather than writes. A slice rebuilds them
+# only to test and commits none; the wave rebuilds the stale ones once, after merging, in a commit of
+# their own. Never a territory breach, never shared ground between two slices. `from` names every
+# source the build reads: the kit's code, its templates, the pitch engine and the build script; the
+# App's code, its entries, its build script, the kit and the workspace packages it bundles.
+generated:
+  - path: kit/dist/
+    from: [kit/lib/, kit/bin/, kit/templates/, kit/pitch-engine/, kit/build.ts]
+    build: pnpm kit:build
+  - path: apps/omni-app/api/
+    from: [apps/omni-app/src/, apps/omni-app/entries/, apps/omni-app/build.ts, kit/lib/, packages/design/, packages/github/]
+    build: node apps/omni-app/build.ts

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PROOF_FILE_MAX_BYTES, ProofRunRefused, readRun } from './run.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const COMMIT = '8775008c0a1b';
 const URL = 'https://preview.example/prd/7';
@@ -40,7 +41,8 @@ function refusal(dir: string) {
 describe('readRun', () => {
   it('reads the commit, the URL, the criteria and every file they name, with its size and type', () => {
     const dir = runDir(RUN, FILES);
-    const run = readRun(dir)!;
+    const run = readRun(dir);
+    assertDefined(run, 'run');
     expect(run.commit).toBe(COMMIT);
     expect(run.url).toBe(URL);
     expect(run.criteria).toEqual(RUN.criteria);
@@ -54,13 +56,19 @@ describe('readRun', () => {
 
   it('adds preview.gif when the folder holds one, and only then', () => {
     const dir = runDir(RUN, { ...FILES, 'preview.gif': 'GIF89a' });
-    expect(readRun(dir)!.files.at(-1)).toEqual({ name: 'preview.gif', path: join(dir, 'preview.gif'), bytes: 6, type: 'image/gif' });
-    expect(readRun(runDir(RUN, FILES))!.files.map((f) => f.name)).not.toContain('preview.gif');
+    const run = readRun(dir);
+    assertDefined(run, 'the run');
+    expect(run.files.at(-1)).toEqual({ name: 'preview.gif', path: join(dir, 'preview.gif'), bytes: 6, type: 'image/gif' });
+    const run2 = readRun(runDir(RUN, FILES));
+    assertDefined(run2, 'the run');
+    expect(run2.files.map((f) => f.name)).not.toContain('preview.gif');
   });
 
   it('keeps only the fields the register call takes, and a note only when there is one', () => {
     const run = { ...RUN, criteria: [{ text: ' Trimmed. ', verdict: 'unfilmable', extra: 'dropped', note: null }] };
-    expect(readRun(runDir(run))!.criteria).toEqual([{ text: 'Trimmed.', verdict: 'unfilmable' }]);
+    const run2 = readRun(runDir(run));
+    assertDefined(run2, 'the run');
+    expect(run2.criteria).toEqual([{ text: 'Trimmed.', verdict: 'unfilmable' }]);
   });
 
   it('a folder without run.json is null', () => {

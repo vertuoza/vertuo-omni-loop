@@ -1,7 +1,6 @@
 // `omni dossier link <n>` (PRD 413), through `main()` on a fixture repository, against a stubbed fetch
 // that follows the lookup's contract (`GET /api/dossiers?repo=<owner/name>&prd=<n>`). The sign-in is an
 // in-memory token store and the environment is passed in, so nothing real is read or written.
-import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -18,7 +17,7 @@ const BASE = 'https://omni.example';
 const HOST = 'omni.example';
 const LINK = `${BASE}/prd/0b7c-dossier-7`;
 
-const config = ({ url = BASE, enabled = true }: { url?: string | null; enabled?: boolean } = {}) =>
+const config = ({ url = BASE, enabled = true }: { url?: string | null | undefined; enabled?: boolean | undefined } = {}) =>
   `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\ndossier:\n  enabled: ${enabled}\n`;
 
 function memoryTokens(entries: Record<string, Tokens> = {}) {
@@ -29,10 +28,13 @@ const signedIn = () => memoryTokens({ [HOST]: { access_token: 'access-1', refres
 
 /** A fetch that answers every call with `reply(url, init)` and keeps each call. */
 function stubFetch(reply: (url: string, init: FetchInit) => Response | Promise<Response>) {
-  const calls: { url: string; method?: string; authorization?: string }[] = [];
-  const fetch = async (url: string, init: FetchInit) => {
-    calls.push({ url: String(url), method: init.method, authorization: init.headers.authorization });
-    return reply(String(url), init);
+  const calls: { url: string; method?: string | undefined; authorization?: string | undefined }[] = [];
+  // A promise of the reply, rejected when replying throws, as the async fetch it fakes.
+  const fetch = (url: string, init: FetchInit) => {
+    calls.push({ url, method: init.method, authorization: init.headers.authorization });
+    return new Promise<Response>((resolve) => {
+      resolve(reply(url, init));
+    });
   };
   return { calls, fetch };
 }
@@ -221,10 +223,12 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
 
   /** A fetch that keeps each call with its body, and answers with `reply`. */
   function recordingFetch(reply: (url: string, init: FetchInit) => Response | Promise<Response>) {
-    const calls: { url: string; method?: string; body: Record<string, unknown> | undefined }[] = [];
-    const fetch = async (url: string, init: FetchInit) => {
-      calls.push({ url: String(url), method: init.method, body: init.body === undefined ? undefined : JSON.parse(init.body) });
-      return reply(String(url), init);
+    const calls: { url: string; method?: string | undefined; body: Record<string, unknown> | undefined }[] = [];
+    const fetch = (url: string, init: FetchInit) => {
+      calls.push({ url, method: init.method, body: init.body === undefined ? undefined : (JSON.parse(init.body) as Record<string, unknown>) });
+      return new Promise<Response>((resolve) => {
+        resolve(reply(url, init));
+      });
     };
     return { calls, fetch };
   }
@@ -257,7 +261,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     const { calls, fetch } = recordingFetch(() => json(200, { id: 'd-1', url: LINK, added: [{ kind: 'voice', version: 2 }], unchanged: ['spec'] }));
     const result = await run(['push', '7'], { root, fetch });
     expect(result).toEqual({ code: 0, out: `${LINK}\nadded: voice v2 · unchanged: spec\n`, err: '' });
-    expect(calls[0]!.body!.artifacts).toEqual([{ kind: 'spec', content: SPEC }, { kind: 'voice', content: VOICE }]);
+    expect(calls[0]?.body?.artifacts).toEqual([{ kind: 'spec', content: SPEC }, { kind: 'voice', content: VOICE }]);
   });
 
   it('push <n> with no --kind sends exactly what it sent before: no kind, the PRD folder, and asks GitHub nothing', async () => {
@@ -295,7 +299,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     write(`${BUGS}/bug.md`, '# Bug 571\n');
     const { calls, fetch } = recordingFetch(() => pushed(`${BASE}/bugs/d-1`));
     expect((await run(['push', '571', '--kind', 'bug'], { root, fetch, exec: withIssue(null) })).code).toBe(0);
-    expect(calls[0]!.body).toEqual({ repo: 'acme/widgets', prd: 571, kind: 'bug', title: 'number-args', artifacts: [{ kind: 'bug-record', content: '# Bug 571\n' }] });
+    expect(calls[0]?.body).toEqual({ repo: 'acme/widgets', prd: 571, kind: 'bug', title: 'number-args', artifacts: [{ kind: 'bug-record', content: '# Bug 571\n' }] });
   });
 
   it('push <n> --kind prd is the PRD push', async () => {
@@ -303,7 +307,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);
     const { calls, fetch } = recordingFetch(() => pushed(LINK));
     expect((await run(['push', '7', '--kind', 'prd'], { root, fetch })).code).toBe(0);
-    expect(calls[0]!.body).not.toHaveProperty('kind');
+    expect(calls[0]?.body).not.toHaveProperty('kind');
   });
 
   it('exits 2 for a fix with no folder, an unknown kind, or a kind on open or status, and calls nothing', async () => {

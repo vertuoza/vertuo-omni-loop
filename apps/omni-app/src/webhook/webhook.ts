@@ -17,14 +17,19 @@
 // no check.
 //
 // Beside either route, a pull request that moves a PRD to a stage (PRD 587) is handed to `forward` as
-// one stage event (src/stage-forward/). Unless one is given, `forward` POSTs it to galaxy, signed with
-// `STAGE_EVENT_SECRET` (`GALAXY_URL` names galaxy when set). It never changes the reply: a failure is
-// logged.
+// one stage event (src/stage-forward/). The app's `forward` (./github-route.ts) POSTs it to galaxy,
+// signed with `STAGE_EVENT_SECRET`. It never changes the reply: a failure is logged.
+//
+// Every delivery of an event a touch is read from (PRD 902, s3) — issues, comments, every pull request
+// action, reviews, check suites and pushes — is handed to `touch` as its touches
+// (src/stage-forward/touch.ts), whether or not it also becomes an event. The app's `touch` POSTs each to
+// galaxy's `/api/github/touched`, signed as the stage event is. It never changes the reply either.
 //
 // The delivery is read through one schema: a delivery whose fields are of another type than GitHub
 // sends becomes no event at all.
 import { Webhooks } from '@octokit/webhooks';
 import { z } from 'zod';
+import { PrNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import {
   HARVEST_EVENT,
   INBOX_CHECK_EVENT,
@@ -39,7 +44,8 @@ import {
 } from '../inngest-client.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
-import { forwardStageEvent, stageEventUrl, toStageEvent, type StageEvent } from '../stage-forward/stage-forward.ts';
+import { toStageEvent, type StageEvent } from '../stage-forward/stage-forward.ts';
+import { TOUCH_EVENTS, toTouches, type Touch } from '../stage-forward/touch.ts';
 
 /** Events to the actions handled on each. */
 type ActionTable = Readonly<Record<string, readonly string[]>>;
@@ -69,15 +75,18 @@ export const HANDLED = Object.freeze({
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run]),
 });
 
+/** Every event the app subscribes to: the ones it acts on, and the ones a touch is read from. */
+export const SUBSCRIBED = Object.freeze([...new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
+
 const PullRefSchema = z.looseObject({
-  number: z.number().nullish(),
+  number: PrNumberSchema.nullish(),
   head: z.looseObject({ sha: z.string().nullish() }).nullish(),
 });
 
 /** The parts of a delivery the router reads; any of them may be missing. */
 const PayloadSchema = z.looseObject({
   action: z.unknown(),
-  number: z.number().nullish(),
+  number: PrNumberSchema.nullish(),
   installation: z.looseObject({ id: z.number().nullish() }).nullish(),
   repository: z
     .looseObject({
@@ -114,13 +123,16 @@ export async function receiveWebhook({
   headers,
   secret,
   send,
-  forward = forwardToGalaxy,
+  forward,
+  touch = () => Promise.resolve(),
 }: {
   body: string;
   headers: HeadersIn;
   secret: string | undefined;
   send: (events: AppEvent[]) => Promise<unknown>;
-  forward?: (stageEvent: StageEvent) => Promise<unknown>;
+  forward: (stageEvent: StageEvent) => Promise<unknown>;
+  /** Forwards one touch; none given, touches go nowhere. */
+  touch?: (touch: Touch) => Promise<unknown>;
 }): Promise<WebhookResponse> {
   if (!secret) return reply(500, 'webhook secret is not configured');
 
@@ -140,9 +152,16 @@ export async function receiveWebhook({
     try {
       await forward(stageEvent);
     } catch (error) {
-      console.error(`stage event: could not forward — ${messageOf(error)}`);
+      console.error(`stage event: could not forward — ${String(messageOf(error))}`);
     }
   }
+  await Promise.all(toTouches(event, payload).map(async (one) => {
+    try {
+      await touch(one);
+    } catch (error) {
+      console.error(`touch: could not forward — ${String(messageOf(error))}`);
+    }
+  }));
 
   const events = toEvents(event, payload);
   if (events.length === 0) return reply(200, 'ignored');
@@ -150,7 +169,7 @@ export async function receiveWebhook({
   try {
     await send(events);
   } catch (error) {
-    return reply(502, `could not send the event: ${messageOf(error)}`);
+    return reply(502, `could not send the event: ${String(messageOf(error))}`);
   }
   return reply(200, `sent ${events.length}`);
 }
@@ -209,8 +228,8 @@ export function toRetroRequests(event: string, delivery: unknown): RetroRequest[
   const pull = payload.pull_request;
   if (!source || pull?.merged !== true) return [];
 
-  const prNumber = pull.number ?? payload.number;
-  if (!isInteger(prNumber) || !pull.merge_commit_sha || !pull.merged_at) return [];
+  const prNumber = pull.number ?? payload.number ?? undefined;
+  if (prNumber === undefined || !pull.merge_commit_sha || !pull.merged_at) return [];
 
   return [
     {
@@ -226,7 +245,10 @@ export function toRetroRequests(event: string, delivery: unknown): RetroRequest[
  * request itself, and decides in its step "qualify" whether it is a feature PR.
  */
 export function toHarvestRequests(event: string, payload: unknown): HarvestRequest[] {
-  return toRetroRequests(event, payload).map(({ data: { mergeSha, mergedAt, ...data } }) => ({ name: HARVEST_EVENT, data }));
+  return toRetroRequests(event, payload).map(({ data: { installationId, owner, repo, repository, prNumber } }) => ({
+    name: HARVEST_EVENT,
+    data: { installationId, owner, repo, repository, prNumber },
+  }));
 }
 
 /** The canon buttons' identifiers. */
@@ -269,16 +291,9 @@ function handles(table: ActionTable, event: string, action: unknown): boolean {
   return table[event]?.includes(action) ?? false;
 }
 
-const isInteger = (value: unknown): value is number => Number.isInteger(value);
-
 /** A pull request named by an integer number and a head SHA. */
-function isNamed(pull: { number: number | null | undefined; sha: string | null | undefined }): pull is { number: number; sha: string } {
-  return isInteger(pull.number) && Boolean(pull.sha);
-}
-
-/** The live forward: galaxy's event route, the secret read at the call. */
-function forwardToGalaxy(stageEvent: StageEvent): Promise<void> {
-  return forwardStageEvent(stageEvent, { url: stageEventUrl(), secret: process.env.STAGE_EVENT_SECRET });
+function isNamed(pull: { number: PrNumber | null | undefined; sha: string | null | undefined }): pull is { number: PrNumber; sha: string } {
+  return pull.number !== null && pull.number !== undefined && Boolean(pull.sha);
 }
 
 /** The installation and repository every event carries, or `null` when the delivery lacks one. */
@@ -302,10 +317,12 @@ async function verified(secret: string, body: string, signature: string): Promis
   }
 }
 
-function header(headers: HeadersIn, name: string): string | undefined {
+/** One header, by its lower-case name: a caller that hands no headers at all reads as none. */
+function header(headers: HeadersIn | null | undefined, name: string): string | undefined {
   if (headers instanceof Headers) return headers.get(name) ?? undefined;
-  const key = Object.keys(headers ?? {}).find((k) => k.toLowerCase() === name);
-  return key === undefined ? undefined : headers[key];
+  const fields = headers ?? {};
+  const key = Object.keys(fields).find((k) => k.toLowerCase() === name);
+  return key === undefined ? undefined : fields[key];
 }
 
 function reply(status: number, body: string): WebhookResponse {

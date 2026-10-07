@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { axisTicks, brusselsDay, chartDays, dayName, weekDays, weekTotal, type Merge } from './chart';
+import { sure } from '../../arcade/test/sure';
 
 // The week's days (PRD 328): seven Brussels days, the six before today and today, today last; each
 // counts your pull requests merged into main on it. A person reads "today" in their own time, so the
@@ -151,8 +152,8 @@ describe('axisTicks', () => {
       expect(ticks.length, `${max}`).toBeLessThanOrEqual(6);
       expect(ticks[0]).toBe(0);
       expect(ticks.at(-1)).toBe(Math.max(1, max));
-      const step = ticks[1]! - ticks[0]!;
-      if (ticks.length > 2) expect(ticks.at(-1)! - ticks.at(-2)!, `${max}`).toBeGreaterThan(step / 2);
+      const step = sure(ticks[1], 'ticks[1]') - sure(ticks[0], 'ticks[0]');
+      if (ticks.length > 2) expect(sure(ticks.at(-1), 'ticks.at(-1)') - sure(ticks.at(-2), 'ticks.at(-2)'), `${max}`).toBeGreaterThan(step / 2);
     }
   });
 });

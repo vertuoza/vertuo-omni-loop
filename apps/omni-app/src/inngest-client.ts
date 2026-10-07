@@ -8,6 +8,7 @@
 // the network), so a malformed event fails by the name of its field.
 import { Inngest } from 'inngest';
 import { z } from 'zod';
+import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export const APP_ID = 'omni-loop';
 
@@ -47,31 +48,21 @@ const SourceSchema = z.looseObject({
 
 /** A check's event data: the outbox check's, and the inbox check's re-run. */
 export const CheckRequestDataSchema = SourceSchema.extend({
-  prNumber: z.number(),
+  prNumber: PrNumberSchema,
   headSha: z.string(),
   trigger: z.string().optional(),
 });
 
-/** A merged pull request, for the retro. */
-const RetroRequestDataSchema = SourceSchema.extend({
-  prNumber: z.number(),
-  mergeSha: z.string(),
-  mergedAt: z.string(),
-});
-
-/** A merged pull request, for the knowledge harvest. */
-const HarvestRequestDataSchema = SourceSchema.extend({ prNumber: z.number() });
-
 /** The facts a red canon check run hides in its summary (./inbox-check/canon-actions.ts). */
 const CanonFactsSchema = z.object({
-  prd: z.number(),
+  prd: PrdNumberSchema,
   persona: z.string().nullable(),
   claims: z.array(z.string()),
 });
 
 /** A click of a canon button (PRD 839). */
 export const CanonActionRequestDataSchema = SourceSchema.extend({
-  prNumber: z.number(),
+  prNumber: PrNumberSchema,
   headSha: z.string().optional(),
   checkRunId: z.number().optional(),
   action: z.string(),
@@ -88,8 +79,10 @@ export const FailureEventDataSchema = z.looseObject({
 });
 
 export type CheckRequestData = z.infer<typeof CheckRequestDataSchema>;
-export type RetroRequestData = z.infer<typeof RetroRequestDataSchema>;
-export type HarvestRequestData = z.infer<typeof HarvestRequestDataSchema>;
+/** A merged pull request, for the retro: a type only, as the retro parses its event itself. */
+export type RetroRequestData = z.infer<typeof SourceSchema> & { prNumber: PrNumber; mergeSha: string; mergedAt: string };
+/** A merged pull request, for the knowledge harvest: a type only, as the harvest parses its event itself. */
+export type HarvestRequestData = z.infer<typeof SourceSchema> & { prNumber: PrNumber };
 export type CanonFacts = z.infer<typeof CanonFactsSchema>;
 export type CanonActionRequestData = z.infer<typeof CanonActionRequestDataSchema>;
 

@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { checkSpecText, findInboxViolations, inboxViolationsFor } from './check-inbox.ts';
+import { assertDefined } from '../../test/assert.ts';
+import { dig } from '../../bin/dig.ts';
+import { parsePrd } from '../ids.ts';
 
 const IN = '.omni-loop/delivery/inbox';
 const SHIPPED = '.omni-loop/delivery/shipped';
 
-function specText({ frontMatter = {} } = {}) {
+function specText({ frontMatter = {} }: { frontMatter?: Record<string, unknown> } = {}) {
   const fm = {
     prd: 42,
     title: 'The inbox, and a planner that ranks it',
@@ -14,9 +17,9 @@ function specText({ frontMatter = {} } = {}) {
     spec: 'file',
     ...frontMatter,
   };
-  const fmLines = Object.entries(fm)
+  const fmLines = Object.entries<unknown>(fm)
     .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => `${key}: ${Array.isArray(value) ? `[${value.join(', ')}]` : value}`);
+    .map(([key, value]) => `${key}: ${Array.isArray(value) ? `[${value.join(', ')}]` : String(value)}`);
   return ['---', ...fmLines, '---', ''].join('\n');
 }
 
@@ -31,7 +34,8 @@ describe('checkSpecText', () => {
     const text = specText({ frontMatter: { spec: 'wiki' } });
     const violations = checkSpecText(`${IN}/0042-a/spec.md`, text, { ctx });
     expect(violations.length).toBeGreaterThan(0);
-    expect(violations[0]!.startsWith(`${IN}/0042-a/spec.md:`)).toBe(true);
+    assertDefined(violations[0], 'violations[0]');
+    expect(violations[0].startsWith(`${IN}/0042-a/spec.md:`)).toBe(true);
     expect(violations[0]).toMatch(/spec/);
   });
 
@@ -80,7 +84,7 @@ describe('findInboxViolations', () => {
     });
 
     expect(findInboxViolations({ ctx })).toEqual([]);
-    expect(inboxViolationsFor({ ctx, prd: 712 })).toEqual(['PRD 712 has no inbox folder.']);
+    expect(inboxViolationsFor({ ctx, prd: parsePrd(712) })).toEqual(['PRD 712 has no inbox folder.']);
   });
 
   it('collects violations across several folders, each naming its own file', () => {
@@ -210,20 +214,20 @@ describe('inboxViolationsFor (PRD 675)', () => {
     const all = findInboxViolations({ ctx });
     for (const [prd, folder] of [[42, '0042-good'], [43, '0043-bad'], [45, '0045-missing']] as const) {
       const own = all.filter((v) => v.startsWith(`${IN}/${folder}/`));
-      expect(inboxViolationsFor({ ctx, prd })).toEqual(own);
+      expect(inboxViolationsFor({ ctx, prd: parsePrd(prd) })).toEqual(own);
     }
   });
 
   it("reports nothing for another folder's faults", () => {
     const { ctx } = makeRepo({ files: broken });
-    expect(inboxViolationsFor({ ctx, prd: 42 })).toEqual([]);
-    expect(inboxViolationsFor({ ctx, prd: 43 }).length).toBe(3);
+    expect(inboxViolationsFor({ ctx, prd: parsePrd(42) })).toEqual([]);
+    expect(inboxViolationsFor({ ctx, prd: parsePrd(43) }).length).toBe(3);
   });
 
   it('refuses a PRD with no inbox folder, even one already shipped', () => {
     const { ctx } = makeRepo({ files: { [`${SHIPPED}/0007-done/spec.md`]: specText({ frontMatter: { prd: 7 } }) } });
-    expect(inboxViolationsFor({ ctx, prd: 7 })).toEqual(['PRD 7 has no inbox folder.']);
-    expect(inboxViolationsFor({ ctx, prd: 8 })).toEqual(['PRD 8 has no inbox folder.']);
+    expect(inboxViolationsFor({ ctx, prd: parsePrd(7) })).toEqual(['PRD 7 has no inbox folder.']);
+    expect(inboxViolationsFor({ ctx, prd: parsePrd(8) })).toEqual(['PRD 8 has no inbox folder.']);
   });
 });
 
@@ -295,7 +299,7 @@ it('still refuses status, branch, value and priority by name', () => {
 });
 
 describe('voice.json (PRD 822)', () => {
-  const VOICE = JSON.parse(readFileSync(new URL('../voice/example.json', import.meta.url), 'utf8'));
+  const VOICE: unknown = JSON.parse(readFileSync(new URL('../voice/example.json', import.meta.url), 'utf8'));
   const folder = `${IN}/0042-inbox-and-planner`;
 
   it('passes a valid voice.json beside the spec', () => {
@@ -303,18 +307,20 @@ describe('voice.json (PRD 822)', () => {
       files: { [`${folder}/spec.md`]: specText(), [`${folder}/voice.json`]: JSON.stringify(VOICE) },
     });
     expect(findInboxViolations({ ctx })).toEqual([]);
-    expect(inboxViolationsFor({ ctx, prd: 42 })).toEqual([]);
+    expect(inboxViolationsFor({ ctx, prd: parsePrd(42) })).toEqual([]);
   });
 
   it('refuses an invalid voice.json, naming the file, the round and the field', () => {
-    const bad = JSON.parse(JSON.stringify(VOICE));
-    bad.rounds[1].personas[0].score = 9;
+    const bad: unknown = JSON.parse(JSON.stringify(VOICE));
+    const persona = dig(bad, 'rounds', 1, 'personas', 0);
+    if (typeof persona !== 'object' || persona === null) throw new Error('the example has no persona in its spec round');
+    Reflect.set(persona, 'score', 9);
     const { ctx } = makeRepo({
       files: { [`${folder}/spec.md`]: specText(), [`${folder}/voice.json`]: JSON.stringify(bad) },
     });
     const expected = [`${folder}/voice.json: round spec: personas[0].score must be a whole number from 1 to 5.`];
     expect(findInboxViolations({ ctx })).toEqual(expected);
-    expect(inboxViolationsFor({ ctx, prd: 42 })).toEqual(expected);
+    expect(inboxViolationsFor({ ctx, prd: parsePrd(42) })).toEqual(expected);
   });
 
   it('refuses a voice.json that is not JSON', () => {

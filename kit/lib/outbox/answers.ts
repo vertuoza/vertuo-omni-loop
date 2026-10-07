@@ -20,6 +20,8 @@ import { z } from 'zod';
 import type { OutboxItem, OutboxOption } from '../types.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
 import { parseItem } from './settle.ts';
+import { plainText } from './plain-text.ts';
+import type { OutboxItemId, PrdNumber } from '../ids.ts';
 
 /** The longest a reason or a prose answer may be, once made one line. */
 export const REASON_MAX_LENGTH = 500;
@@ -66,7 +68,7 @@ export type AnswerableQuestion = {
 };
 
 /** The numbering the pull request comment carries: which item each question number names. */
-export type CommentNumbering = readonly { number: number; id: string; since?: string }[];
+export type CommentNumbering = readonly { number: number; id: OutboxItemId; since?: string }[];
 
 /**
  * A reason or a prose answer as one clean line: every run of whitespace (newlines included) becomes
@@ -74,7 +76,7 @@ export type CommentNumbering = readonly { number: number; id: string; since?: st
  * two halves into another — and the rest is cut to {@link REASON_MAX_LENGTH} characters.
  */
 export function cleanLine(text: unknown): string {
-  let line = String(text ?? '');
+  let line = plainText(text);
   let previous: string;
   do {
     previous = line;
@@ -123,7 +125,7 @@ function lineFor(question: ReplyQuestion, pick: Pick): { line: string; reason?: 
 /**
  * Writes the reply one person gives through a door. Pure.
  *
- * @param {{ prd: number, door: 'terminal' | 'page',
+ * @param {{ prd: PrdNumber, door: 'terminal' | 'page',
  *   questions: Array<{ number: number, rank: string, options?: { letter: string }[] }>,
  *   picks: Array<{ number: number, pick: string, reason?: string, text?: string }> }} args
  *   `questions` is every question the reply may answer (see {@link answerableQuestions}).
@@ -135,7 +137,7 @@ export function writeReply({
   questions,
   picks,
 }: {
-  prd: number;
+  prd: PrdNumber;
   door: Door;
   questions: readonly ReplyQuestion[] | null | undefined;
   picks: unknown;
@@ -190,7 +192,7 @@ export function answerableQuestions({
       number,
       id,
       rank: item.rank,
-      options: item.sections?.options ?? [],
+      options: item.sections.options ?? [],
       adopted: !open.has(id),
       item,
     });
@@ -200,7 +202,7 @@ export function answerableQuestions({
 
 /** The text a question is asked with: the question and the decision, in plain words. */
 function askedText(item: OutboxItem): string {
-  const sections = item.sections ?? {};
+  const { sections } = item;
   return [sections.questionPlain ?? sections.whatIHadToDecide, sections.decisionPlain]
     .filter((part): part is string => Boolean(part))
     .map((part) => part.replace(/\s+/g, ' ').trim())
@@ -227,7 +229,7 @@ export function askBatches({ numbering, items }: { numbering: CommentNumbering; 
         rank,
         header: `Q${number} · ${isAction ? 'action' : rank}`,
         text: askedText(item),
-        ...(isAction ? { steps: (item.sections?.personSteps ?? '').trim() } : {}),
+        ...(isAction ? { steps: (item.sections.personSteps ?? '').trim() } : {}),
         options: isAction
           ? [
               { pick: 'done', label: 'Done', text: 'It is done.' },

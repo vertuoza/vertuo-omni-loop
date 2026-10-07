@@ -13,6 +13,7 @@ import type { Period } from './period';
 import { PeriodSwitch } from './PeriodSwitch';
 import { EVENTS, GROUPS, type ChartDay, type EventDay, type PersonRow, type PrdEvent, type RepoRow, type StageTally } from './tally';
 import './board.css';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // A board (PRD 572), drawn on the server, top to bottom: the period switch, the four tiles, the two
 // per-day charts, the People table, the repositories involved and, where the page asks, the season's
@@ -93,7 +94,7 @@ export type Column = { date: string; parts: { key: string; count: number; classN
 export function Bars({ columns }: { columns: Column[] }) {
   const totals = columns.map((c) => c.parts.reduce((s, p) => s + p.count, 0));
   const ticks = axisTicks(Math.max(0, ...totals));
-  const top = ticks.at(-1)!;
+  const top = at(ticks, -1, "the axis's top mark");
   const width = (100 - CHART.left) / columns.length;
   const bar = width * 0.6;
   const labels = columnLabels(columns.map((c) => c.date));

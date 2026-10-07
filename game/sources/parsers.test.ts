@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseFrontMatter, parseSpec, deliveryOf, prdOfFolder, parseOutboxItem, parseSettled, parsePlanSlices } from './parsers.ts';
+import { present } from '../test/present.ts';
 
 describe('parsers', () => {
   it('reads plain key: value front matter', () => {
@@ -11,6 +12,15 @@ describe('parsers', () => {
     expect(parseSpec('---\nprd: 1\nblocked-by: none\n---\n').blockedBy).toEqual([]);
     expect(parseSpec('## no front matter').blockedBy).toEqual([]);
     expect(parseSpec('').blockedBy).toEqual([]);
+  });
+
+  it('leaves out a blocker that is no PRD number (PRD 1049)', () => {
+    expect(parseSpec('---\nblocked-by: [0, #985, -3, 12a, 1.5]\n---\n').blockedBy).toEqual([985]);
+  });
+
+  it('reads no row whose id is not a slice id (PRD 1049)', () => {
+    const text = '| id | slice | territory | blocked by | wave |\n| --- | --- | --- | --- | --- |\n| s1 | A | `a/` | — | 1 |\n| S2 | B | `b/` | — | 1 |\n| s | C | `c/` | — | 1 |\n';
+    expect(parsePlanSlices(text).map((s) => s.id)).toEqual(['s1']);
   });
 
   it('reads a repository\'s delivery folder from its config, the kit\'s default otherwise', () => {
@@ -61,7 +71,7 @@ describe('parsers', () => {
   });
 
   it('reads who settled an item: nobody is no one, a delegated session is the person it answered for', () => {
-    const entry = (by: string) => parseSettled(`<!-- omni-outbox-settled: s1-01-a -->\n\n- Verdict: agreed\n- Approved by: ${by}\n- Approved at: 2026-09-29\n`).get('s1-01-a')!.by;
+    const entry = (by: string) => present(parseSettled(`<!-- omni-outbox-settled: s1-01-a -->\n\n- Verdict: agreed\n- Approved by: ${by}\n- Approved at: 2026-09-29\n`).get('s1-01-a'), 'the settled item').by;
     expect(entry('nobody')).toBeNull();
     expect(entry('claude-code-session (delegated by pierre-derval)')).toBe('pierre-derval');
     expect(entry('paul-w')).toBe('paul-w');

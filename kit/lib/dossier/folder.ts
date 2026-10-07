@@ -16,7 +16,9 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseFrontMatterLines } from '../front-matter.ts';
 import { parseFolderName } from '../layout.ts';
-import type { Layout, PrdNumber } from '../layout.ts';
+import { defined } from '../narrow.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
+import type { Layout } from '../layout.ts';
 import { VOICE_FILE } from '../voice/voice.ts';
 
 /** The largest artifact the contract takes. */
@@ -35,7 +37,7 @@ export type Artifact = { kind: ArtifactKind; path: string; content: string; sha2
 export type TooLarge = { kind: string; path: string; bytes: number };
 
 /** A PRD's folder as its dossier is pushed. */
-export type DossierFolder = { prd: number; dir: string; title: string; artifacts: Artifact[]; tooLarge: TooLarge[] };
+export type DossierFolder = { prd: PrdNumber; dir: string; title: string; artifacts: Artifact[]; tooLarge: TooLarge[] };
 
 /** The kinds of fix that keep a folder (PRD 627). */
 export type FixKind = 'visual' | 'bug';
@@ -51,14 +53,14 @@ export type FixArtifact = {
 };
 
 /** A fix's folder as its dossier is pushed. */
-export type FixFolder = { issue: number; kind: FixKind; dir: string; title: string; artifacts: FixArtifact[]; tooLarge: TooLarge[] };
+export type FixFolder = { issue: IssueNumber; kind: FixKind; dir: string; title: string; artifacts: FixArtifact[]; tooLarge: TooLarge[] };
 
 export const ARTIFACT_KINDS: readonly { kind: ArtifactKind; pathOf: (layout: Layout, prd: PrdNumber) => string | null }[] = Object.freeze([
   { kind: 'spec', pathOf: (layout: Layout, prd: PrdNumber) => layout.specPath(prd) },
   { kind: 'plan', pathOf: (layout: Layout, prd: PrdNumber) => layout.planPath(prd) },
   { kind: 'before-after', pathOf: (layout: Layout, prd: PrdNumber) => layout.beforeAfterPath(prd) },
   // A PRD with no folder throws here, as it always has; `readDossierFolder` asks only once it has one.
-  { kind: 'voice', pathOf: (layout: Layout, prd: PrdNumber) => `${layout.whereIs(prd)!.dir}/${VOICE_FILE}` },
+  { kind: 'voice', pathOf: (layout: Layout, prd: PrdNumber) => `${defined(layout.whereIs(prd), `the folder of PRD ${Number(prd)}`).dir}/${VOICE_FILE}` },
 ]);
 
 const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
@@ -82,7 +84,7 @@ export function readDossierFolder(ctx: { root: string; layout: Layout }, prd: Pr
   let title: string | null = null;
   for (const { kind, pathOf } of ARTIFACT_KINDS) {
     // Never null: every kind's path is in the folder, and the folder is there.
-    const path = pathOf(ctx.layout, prd)!;
+    const path = defined(pathOf(ctx.layout, prd), `the ${kind} of PRD ${Number(prd)}`);
     const file = join(ctx.root, path);
     if (!existsSync(file)) continue;
     const raw = readFileSync(file);
@@ -95,7 +97,7 @@ export function readDossierFolder(ctx: { root: string; layout: Layout }, prd: Pr
     artifacts.push({ kind, path, content, sha256: sha256(content), bytes: Buffer.byteLength(content, 'utf8') });
   }
   const topic = parseFolderName(where.name)?.topic ?? where.name;
-  return { prd: Number(prd), dir: where.dir, title: (title ?? topic).slice(0, TITLE_MAX), artifacts, tooLarge };
+  return { prd, dir: where.dir, title: (title ?? topic).slice(0, TITLE_MAX), artifacts, tooLarge };
 }
 
 /** The folder under `<delivery>` each kind of fix keeps its record in. */
@@ -135,7 +137,7 @@ function fixFiles(kind: FixKind, names: readonly string[]): FixFile[] {
 export function readFixFolder(
   ctx: { root: string; config: { paths: { delivery: string } } },
   kind: FixKind,
-  issue: number | string,
+  issue: IssueNumber,
   { issueTitle = null }: { issueTitle?: string | null } = {},
 ): FixFolder | null {
   const root = `${ctx.config.paths.delivery}/${FIX_ROOTS[kind]}`;
@@ -164,5 +166,5 @@ export function readFixFolder(
     });
   }
   const topic = name.slice(prefix.length);
-  return { issue: Number(issue), kind, dir, title: fixTitle(issueTitle, topic), artifacts, tooLarge };
+  return { issue, kind, dir, title: fixTitle(issueTitle, topic), artifacts, tooLarge };
 }

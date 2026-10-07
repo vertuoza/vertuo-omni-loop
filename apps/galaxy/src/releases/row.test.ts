@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import { INITIAL_RELEASE, parseReleaseRows, RELEASE_COLUMNS, RELEASES_TABLE, ReleaseRow, releaseVersion } from './row';
+import { sure } from '../arcade/test/sure';
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260929090000_releases.sql', import.meta.url)), 'utf8');
 
@@ -14,7 +15,7 @@ describe('a row of public.releases', () => {
   it('reads the columns the migration creates, in its order', () => {
     const table = /create table public\.releases \(([\s\S]*?)\n\);/.exec(MIGRATION);
     expect(table).not.toBeNull();
-    const columns = table![1]!.split('\n').map((line) => line.trim().split(/\s+/)[0]!).filter((word) => /^[a-z_]+$/.test(word));
+    const columns = sure(sure(table, 'table')[1], 'the table\'s columns').split('\n').map((line) => sure(line.trim().split(/\s+/)[0], 'a column\'s name')).filter((word) => /^[a-z_]+$/.test(word));
     expect(RELEASE_COLUMNS.split(',')).toEqual(columns);
     expect(RELEASES_TABLE).toBe('releases');
   });

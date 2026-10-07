@@ -6,7 +6,7 @@
 // OPENROUTER_API_KEY, with nothing written.
 import { KEY_VAR } from '../../lib/openrouter.ts';
 import { applyHarvestEdits, classifyCandidate, finishHarvest, noEdits, prepareHarvest } from '../../lib/knowledge/pipeline.ts';
-import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { parseArgs, prArg, prdArg, println, usageError } from '../args.ts';
 import { pullRequestFor } from '../github.ts';
 import type { Command, CommandIo } from '../io.ts';
 import type { Merge, Placed } from '../../lib/knowledge/write.ts';
@@ -27,12 +27,12 @@ function checkLine(name: string, violations: readonly string[]): string {
 }
 
 export const harvest: Command = {
-  async run(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo) {
+  async run(args: string[], { ctx, stdout, stderr, exec, env, vars }: CommandIo) {
     const { positional, flags } = parseArgs('harvest', args, { values: ['pr'] });
     if (positional.length !== 1 || flags.pr === undefined) throw usageError(USAGE);
-    const prd = positiveInt('harvest', '<prd>', positional[0]);
-    const number = positiveInt('harvest', '--pr', flags.pr);
-    if (!env[KEY_VAR]) throw usageError(`omni harvest: ${KEY_VAR} is not set — the harvest asks a model where each decision belongs.`);
+    const prd = prdArg('harvest', '<prd>', positional[0]);
+    const number = prArg('harvest', '--pr', flags.pr);
+    if (!vars.openrouter) throw usageError(`omni harvest: ${KEY_VAR} is not set — the harvest asks a model where each decision belongs.`);
     if (ctx.layout.whereIs(prd) === null) throw usageError(`omni harvest: PRD ${prd} has no inbox or shipped folder.`);
 
     const pr = pullRequestFor(ctx, { number, exec, env });
@@ -45,7 +45,7 @@ export const harvest: Command = {
       println(stderr, `omni harvest: pull request #${number} merged into ${pr.base}, not into ${defaultBranch} — only a feature pull request is harvested.`);
       return 1;
     }
-    const merge: Merge = { by: pr.mergedBy ?? '', at: pr.mergedAt ?? '', pr: pr.number ?? number, ...(pr.url ? { url: pr.url } : {}) };
+    const merge: Merge = { by: pr.mergedBy ?? '', at: pr.mergedAt ?? '', pr: pr.number, ...(pr.url ? { url: pr.url } : {}) };
 
     const prepared = prepareHarvest({ ctx, prd, merge });
     if (!prepared.ok) {
@@ -55,12 +55,12 @@ export const harvest: Command = {
 
     const classified = [];
     for (const candidate of prepared.candidates) {
-      classified.push(await classifyCandidate({ candidate, summary: prepared.summary, env, fetch: globalThis.fetch }));
+      classified.push(await classifyCandidate({ candidate, summary: prepared.summary, openrouter: vars.openrouter, fetch: globalThis.fetch }));
     }
     const result = finishHarvest({ ctx, prepared, classified, merge, date: today() });
     applyHarvestEdits({ root: ctx.root, edits: result.edits });
 
-    const lines = [`omni harvest — PRD ${prd}, pull request #${merge.pr} merged by @${merge.by} on ${String(merge.at).slice(0, 10)}${pr.mergeSha ? ` (${pr.mergeSha.slice(0, 7)})` : ''}:`];
+    const lines = [`omni harvest — PRD ${prd}, pull request #${merge.pr} merged by @${merge.by} on ${merge.at.slice(0, 10)}${pr.mergeSha ? ` (${pr.mergeSha.slice(0, 7)})` : ''}:`];
     if (prepared.settled.length > 0) {
       const open = prepared.settled.filter((entry) => entry.from === 'open').length;
       const drift = prepared.settled.length - open;

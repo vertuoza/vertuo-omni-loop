@@ -7,7 +7,10 @@
 name: game
 on:
   schedule:
-    - cron: '*/15 * * * *'     # poll
+    # Hourly, at :07 to miss the top-of-hour rush. Every 15 minutes kept one runner busy all day:
+    # game:project re-reads every PRD of every tracked repository and takes 15 to 20 minutes, so each
+    # poll started as the last one ended (about 1,400 billed minutes a day).
+    - cron: '7 * * * *'        # poll
     - cron: '0 7 * * 1'        # Monday 09:00 Brussels (07:00 UTC in summer; 08:00 in winter is fine)
   workflow_dispatch:
     inputs:
@@ -26,7 +29,7 @@ jobs:
     # Every schedule and every dispatch. Off until the repository variable GAME_ENABLED is 'true'.
     if: vars.GAME_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30          # game:project alone runs up to 20; at 20 the steps after it never ran
     concurrency:
       group: game-ledger          # two polls never append together
       cancel-in-progress: false

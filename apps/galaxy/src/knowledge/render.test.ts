@@ -10,6 +10,7 @@ import { KnowledgeScreen } from './KnowledgeScreen';
 import { OrreryDiagram } from './OrreryDiagram';
 import { repoHref } from './RepoPicker';
 import { select, tabEntries } from './view';
+import { sure } from '../arcade/test/sure';
 
 // The /knowledge page as the server renders it: what a person sees before any script runs.
 
@@ -52,7 +53,7 @@ describe('the map, for the crew', () => {
 
   it('shows one tab per domain with its entry count, then Between domains', () => {
     const tabs = between(html, 'class="km-tabs"', '</nav>');
-    expect([...tabs.matchAll(/<a [^>]*>([^<]+)<span class="km-count">(\d+)<\/span><\/a>/g)].map((m) => `${m[1]!.trim()} ${m[2]}`))
+    expect([...tabs.matchAll(/<a [^>]*>([^<]+)<span class="km-count">(\d+)<\/span><\/a>/g)].map((m) => `${sure(m[1], 'm[1]').trim()} ${m[2]}`))
       .toEqual(['product 8', 'billing 2', 'Between domains 1']);
     expect(tabs).toMatch(/<a [^>]*href="\/knowledge\?domain=product"[^>]*aria-current="page"/);
   });
@@ -185,7 +186,7 @@ describe('the map of a repository the menu shows (PRD 523)', () => {
   const ANVILS: KnowledgeGraph = { ...GRAPH, repo: 'acme/Anvils' };
   /** The map alone, on one entry, with `repo` as given: left out when undefined. */
   const drawn = (entry: string, repo?: string | null) =>
-    renderToStaticMarkup(createElement(KnowledgeMap, { graph: ANVILS, initial: select(ANVILS, { entry })!, ...(repo === undefined ? {} : { repo }) }));
+    renderToStaticMarkup(createElement(KnowledgeMap, { graph: ANVILS, initial: sure(select(ANVILS, { entry }), 'select(ANVILS, { entry })'), ...(repo === undefined ? {} : { repo }) }));
   /** Every address on the map. */
   const addresses = (html: string) => [...html.matchAll(/href="(\/knowledge[^"]*)"/g)].map((m) => m[1]);
   const ids = ANVILS.entries.map((e) => e.id);
@@ -204,7 +205,7 @@ describe('the map of a repository the menu shows (PRD 523)', () => {
   it.each(ids)('on %s, leaves no address without the repository', (id) => {
     const html = drawn(id, 'acme/Anvils');
     expect(addresses(html).length).toBeGreaterThan(0);
-    expect(addresses(html).filter((href) => !href!.startsWith('/knowledge?repo=acme%2FAnvils&amp;domain='))).toEqual([]);
+    expect(addresses(html).filter((href) => !sure(href, 'href').startsWith('/knowledge?repo=acme%2FAnvils&amp;domain='))).toEqual([]);
     expect(html).not.toMatch(/href="\/knowledge\?domain=/);
   });
 

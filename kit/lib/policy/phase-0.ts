@@ -32,7 +32,8 @@
 import { carriesTrailer, trailerLine } from '../signature.ts';
 import type { TrailerSignature } from '../signature.ts';
 import type { Context } from '../context.ts';
-import type { PrdNumber } from '../layout.ts';
+import type { PrdNumber } from '../ids.ts';
+import { plainText } from '../outbox/plain-text.ts';
 
 /** What the phase-0 policy reads of the context: the config and the layout. */
 export type Phase0Ctx = Pick<Context, 'config' | 'layout'>;
@@ -78,7 +79,7 @@ export type Phase0RequiredKind = (typeof PHASE_0_REQUIRED_KINDS)[number];
 
 /** Repo-relative, no `./` and no leading slash — so `a/b.md` and `./a/b.md` classify alike. */
 function normalize(path: unknown): string {
-  return String(path ?? '')
+  return plainText(path)
     .trim()
     .replace(/^\.\//, '')
     .replace(/^\/+/, '');
@@ -126,7 +127,7 @@ function isDocsPath(file: string, ctx: Phase0Ctx): boolean {
   const prefixes = [paths.delivery, ctx.layout.knowledgeRoot, ctx.layout.adrDir].filter(Boolean);
   if (prefixes.some((prefix) => file === prefix || file.startsWith(`${prefix}/`))) return true;
   if (paths.glossary && file === paths.glossary) return true;
-  if ((paths.context ?? []).includes(file)) return true;
+  if (paths.context.includes(file)) return true;
   return false;
 }
 
@@ -186,7 +187,7 @@ export function isDocsOnly(paths: readonly unknown[] | null | undefined, { ctx }
  */
 export function phase0Verdict(
   paths: readonly unknown[] | null | undefined,
-  { ctx, prd, needsBeforeAfter = true, commits }: { ctx: Phase0Ctx; prd: PrdNumber; needsBeforeAfter?: boolean; commits?: readonly Phase0Commit[] },
+  { ctx, prd, needsBeforeAfter = true, commits }: { ctx: Phase0Ctx; prd: PrdNumber; needsBeforeAfter?: boolean; commits?: readonly Phase0Commit[] | undefined },
 ): Phase0Verdict {
   const files = (paths ?? []).map(normalize).filter(Boolean);
   const kinds = files.map((file) => classifyPhase0Path(file, { ctx, prd }));
@@ -232,7 +233,7 @@ function gradeSignature(
   if (trailer === null || commits === undefined) return { signed: null, trailer, unsigned: [] };
   const unsigned = commits
     .filter((commit) => !carriesTrailer(commit.message, signature))
-    .map((commit) => ({ sha: commit.sha, subject: (String(commit.message ?? '').split('\n')[0] ?? '').trim() }));
+    .map((commit) => ({ sha: commit.sha, subject: ((commit.message ?? '').split('\n')[0] ?? '').trim() }));
   return { signed: unsigned.length === 0, trailer, unsigned };
 }
 
@@ -280,7 +281,7 @@ function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }: {
  * slice exists. `value` is the Handoff line's value.
  */
 export function beforeAfterHandoff(value: unknown, { ctx, prd }: { ctx?: Phase0Ctx; prd?: PrdNumber | null } = {}): HandoffVerdict {
-  const stated = String(value ?? '').trim();
+  const stated = plainText(value).trim();
 
   if (stated === '') {
     return refusal(

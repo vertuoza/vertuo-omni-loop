@@ -5,6 +5,7 @@ import {
   filtered, historyAddress, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds,
   readOpenCounts, stageKeyOf, type CurrentStages, type HistoryFilters, type OpenCounts,
 } from './history';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd, the history (PRD 216's spec, "The pages"), as pure functions of the rows dossier_list() gives the
 // viewer and the filters in the address: newest activity first, filtered by repository — any of a
@@ -22,7 +23,7 @@ const row = (id: string, more: Partial<DossierListRow> = {}): DossierListRow => 
 });
 
 const DOSSIERS = row('00000000-0000-4000-8000-0000000000d1', {
-  prd: 216, title: 'PRD dossiers', numbered_at: '2026-09-27T10:00:00Z',
+  prd: parsePrd(216), title: 'PRD dossiers', numbered_at: '2026-09-27T10:00:00Z',
   repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-core'],
   latest: {
     spec: { id: 's3', version: 3, source: 'github', created_at: '2026-09-28T08:00:00Z' },
@@ -35,7 +36,7 @@ const QUOTES = row('00000000-0000-4000-8000-0000000000d2', {
   asked: 2, answered: 0, last_activity: '2026-09-28T09:30:00Z',
 });
 const ASK = row('00000000-0000-4000-8000-0000000000d3', {
-  prd: 71, title: 'Ask mode — questions on a page', numbered_at: '2026-09-10T10:00:00Z',
+  prd: parsePrd(71), title: 'Ask mode — questions on a page', numbered_at: '2026-09-10T10:00:00Z',
   latest: { plan: { id: 'p1', version: 1, source: 'kit', created_at: '2026-09-10T11:00:00Z' } }, last_activity: '2026-09-12T08:00:00Z',
 });
 const ROWS = [ASK, DOSSIERS, QUOTES];
@@ -98,7 +99,7 @@ describe('the rows', () => {
   it('lists every dossier newest activity first, each opening its page', () => {
     const items = historyItems(ROWS, ALL, 'u-pierre');
     expect(items.map((i) => i.title)).toEqual(['Offline quotes on the site app', 'PRD dossiers', 'Ask mode — questions on a page']);
-    expect(items[1]!.href).toBe('/prd/00000000-0000-4000-8000-0000000000d1');
+    expect(items[1]?.href).toBe('/prd/00000000-0000-4000-8000-0000000000d1');
   });
 
   it('shows #n or DRAFT, the repository chips, which artifacts it has with how many versions, and answered out of asked', () => {
@@ -138,10 +139,10 @@ describe('the rows', () => {
 
 describe('Mine and All', () => {
   const PAULAS = row('00000000-0000-4000-8000-0000000000d4', {
-    prd: 300, title: 'Paula\'s PRD', opened_by: 'u-paula', numbered_at: '2026-09-25T10:00:00Z', last_activity: '2026-09-25T10:00:00Z',
+    prd: parsePrd(300), title: 'Paula\'s PRD', opened_by: 'u-paula', numbered_at: '2026-09-25T10:00:00Z', last_activity: '2026-09-25T10:00:00Z',
   });
   const FALLBACK = row('00000000-0000-4000-8000-0000000000d5', {
-    prd: 301, title: 'Read from GitHub', opened_by: null, numbered_at: '2026-09-24T10:00:00Z', last_activity: '2026-09-24T10:00:00Z',
+    prd: parsePrd(301), title: 'Read from GitHub', opened_by: null, numbered_at: '2026-09-24T10:00:00Z', last_activity: '2026-09-24T10:00:00Z',
   });
   const EVERY = [...ROWS, PAULAS, FALLBACK];
 
@@ -181,7 +182,7 @@ describe('what the repository filter offers', () => {
 
 describe('the open questions (PRD 251)', () => {
   const WAITING = row('00000000-0000-4000-8000-0000000000d6', {
-    prd: 251, title: 'Answer the outbox anywhere', numbered_at: '2026-09-26T10:00:00Z', last_activity: '2026-09-26T10:00:00Z',
+    prd: parsePrd(251), title: 'Answer the outbox anywhere', numbered_at: '2026-09-26T10:00:00Z', last_activity: '2026-09-26T10:00:00Z',
   });
   const rows = [...ROWS, WAITING];
   const open: OpenCounts = new Map([[WAITING.id, 3], [ASK.id, 0]]);
@@ -213,13 +214,13 @@ describe('the open questions (PRD 251)', () => {
   });
 
   it('reads each dossier\'s open questions from the stored outboxes, one read per workspace, and never GitHub (PRD 657, s5)', async () => {
-    const OTHER = row('00000000-0000-4000-8000-0000000000da', { prd: 216, workspace_id: 'w2', title: 'Same number, other workspace', last_activity: '2026-09-01T10:00:00Z' });
+    const OTHER = row('00000000-0000-4000-8000-0000000000da', { prd: parsePrd(216), workspace_id: 'w2', title: 'Same number, other workspace', last_activity: '2026-09-01T10:00:00Z' });
     const store = fakePrdOutboxStore();
     await store.record([
-      { workspace_id: 'w1', repository: DOSSIERS.home_repo, prd: 216, open_questions: 2, waiting: [] },
-      { workspace_id: 'w1', repository: WAITING.home_repo, prd: 251, open_questions: 0, waiting: [] },
-      { workspace_id: 'w2', repository: OTHER.home_repo, prd: 216, open_questions: 5, waiting: [] },
-      { workspace_id: 'w1', repository: 'vertuoza/elsewhere', prd: 71, open_questions: 9, waiting: [] },
+      { workspace_id: 'w1', repository: DOSSIERS.home_repo, prd: parsePrd(216), open_questions: 2, waiting: [] },
+      { workspace_id: 'w1', repository: WAITING.home_repo, prd: parsePrd(251), open_questions: 0, waiting: [] },
+      { workspace_id: 'w2', repository: OTHER.home_repo, prd: parsePrd(216), open_questions: 5, waiting: [] },
+      { workspace_id: 'w1', repository: 'vertuoza/elsewhere', prd: parsePrd(71), open_questions: 9, waiting: [] },
     ]);
     const github = vi.fn();
     vi.stubGlobal('fetch', github);
@@ -235,9 +236,9 @@ describe('the open questions (PRD 251)', () => {
 
   it('counts nothing without a store, and a workspace whose outboxes cannot be read leaves its rows out', async () => {
     expect((await readOpenCounts([WAITING], null)).size).toBe(0);
-    const OTHER = row('00000000-0000-4000-8000-0000000000db', { prd: 9, workspace_id: 'w2' });
+    const OTHER = row('00000000-0000-4000-8000-0000000000db', { prd: parsePrd(9), workspace_id: 'w2' });
     const store = fakePrdOutboxStore();
-    await store.record([{ workspace_id: 'w2', repository: OTHER.home_repo, prd: 9, open_questions: 1, waiting: [] }]);
+    await store.record([{ workspace_id: 'w2', repository: OTHER.home_repo, prd: parsePrd(9), open_questions: 1, waiting: [] }]);
     const countsOf = store.countsOf.bind(store);
     store.countsOf = async (workspace, prds) => {
       if (workspace === 'w1') throw new Error('boom');
@@ -253,13 +254,13 @@ describe('the open questions (PRD 251)', () => {
 
 describe('the stages (PRD 587)', () => {
   const PAULAS = row('00000000-0000-4000-8000-0000000000d7', {
-    prd: 300, title: 'Paula ships', opened_by: 'u-paula', numbered_at: '2026-09-25T10:00:00Z', last_activity: '2026-09-25T10:00:00Z',
+    prd: parsePrd(300), title: 'Paula ships', opened_by: 'u-paula', numbered_at: '2026-09-25T10:00:00Z', last_activity: '2026-09-25T10:00:00Z',
   });
   const ANSWERED = row('00000000-0000-4000-8000-0000000000d8', {
     title: 'A brainstorm under way', asked: 3, answered: 1, last_activity: '2026-09-19T10:00:00Z',
   });
   const SYNCING = row('00000000-0000-4000-8000-0000000000d9', {
-    prd: 590, title: 'Not synced yet', numbered_at: '2026-09-29T10:00:00Z', last_activity: '2026-09-18T10:00:00Z',
+    prd: parsePrd(590), title: 'Not synced yet', numbered_at: '2026-09-29T10:00:00Z', last_activity: '2026-09-18T10:00:00Z',
   });
   const rows = [...ROWS, PAULAS, ANSWERED, SYNCING];
   const stages: CurrentStages = new Map([
@@ -318,13 +319,13 @@ describe('the stages (PRD 587)', () => {
   });
 
   it('reads the current stages per workspace of the numbered rows, and a workspace that fails reads none', async () => {
-    const OTHER = row('00000000-0000-4000-8000-0000000000da', { prd: 7, workspace_id: 'w2', home_repo: 'Acme/Tool' });
+    const OTHER = row('00000000-0000-4000-8000-0000000000da', { prd: parsePrd(7), workspace_id: 'w2', home_repo: 'Acme/Tool' });
     const asked: [string, unknown][] = [];
     const read = await readCurrentStages([...rows, OTHER], {
-      currentStages: async (workspace, prds) => {
+      currentStages: (workspace, prds) => {
         asked.push([workspace, prds]);
-        if (workspace === 'w2') throw new Error('boom');
-        return new Map([['vertuoza/vertuo-omni-loop#216', 'building' as const]]);
+        if (workspace === 'w2') return Promise.reject(new Error('boom'));
+        return Promise.resolve(new Map([['vertuoza/vertuo-omni-loop#216', 'building' as const]]));
       },
     });
     expect(asked).toEqual([
@@ -336,14 +337,14 @@ describe('the stages (PRD 587)', () => {
     ]);
     expect([...read]).toEqual([[stageKeyOf(DOSSIERS), 'building']]);
     expect((await readCurrentStages(rows, null)).size).toBe(0);
-    expect((await readCurrentStages(ROWS.filter((r) => r.prd === null), { currentStages: async () => { throw new Error('never asked'); } })).size).toBe(0);
+    expect((await readCurrentStages(ROWS.filter((r) => r.prd === null), { currentStages: () => Promise.reject(new Error('never asked')) })).size).toBe(0);
   });
 });
 
 describe('one person\'s PRDs, who=<login> (PRD 698)', () => {
   const ADA = { who: { login: 'ada-gh' } } as const;
-  const BY_ADA = row('00000000-0000-4000-8000-0000000000e1', { prd: 300, title: 'Ada\'s PRD', opened_by: 'u-ada', last_activity: '2026-09-29T09:00:00Z' });
-  const SYNCED = row('00000000-0000-4000-8000-0000000000e2', { prd: 301, title: 'Synced', opened_by: null });
+  const BY_ADA = row('00000000-0000-4000-8000-0000000000e1', { prd: parsePrd(300), title: 'Ada\'s PRD', opened_by: 'u-ada', last_activity: '2026-09-29T09:00:00Z' });
+  const SYNCED = row('00000000-0000-4000-8000-0000000000e2', { prd: parsePrd(301), title: 'Synced', opened_by: null });
   const MIXED = [...ROWS, BY_ADA, SYNCED];
 
   it('keeps the dossiers opened by one of the account ids the login holds, by the rule Mine uses', () => {
@@ -363,11 +364,11 @@ describe('one person\'s PRDs, who=<login> (PRD 698)', () => {
   });
 
   it('reads the account ids a login holds in each workspace once, ignoring case; a roster that fails adds none', async () => {
-    const roster = vi.fn(async (workspace: string) => {
-      if (workspace === 'w3') throw new Error('down');
-      return workspace === 'w1'
+    const roster = vi.fn((workspace: string) => {
+      if (workspace === 'w3') return Promise.reject(new Error('down'));
+      return Promise.resolve(workspace === 'w1'
         ? [{ user_id: 'u-ada', github_login: 'Ada-GH' }, { user_id: 'u-bob', github_login: 'bob' }]
-        : [{ user_id: 'u-ada-2', github_login: 'ada-gh' }, { user_id: 'u-none', github_login: null }];
+        : [{ user_id: 'u-ada-2', github_login: 'ada-gh' }, { user_id: 'u-none', github_login: null }]);
     });
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     const rows = [row('a'), row('b'), row('c', { workspace_id: 'w2' }), row('d', { workspace_id: 'w3' })];

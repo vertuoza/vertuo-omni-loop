@@ -27,7 +27,7 @@ export function StageHeaderCopy({ label, command }: { label: string; command: st
 
   return (
     <span className="stage-copy">
-      <button type="button" className="ask-button stage-action" onClick={copy} title={command}>{label}</button>
+      <button type="button" className="ask-button stage-action" onClick={() => void copy()} title={command}>{label}</button>
       <code className="stage-command">{command}</code>
       {state !== 'idle' && <span className="ask-hint" role="status">{COPY_WORDS[state]}</span>}
     </span>

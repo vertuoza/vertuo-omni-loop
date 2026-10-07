@@ -25,13 +25,14 @@
 import type { Context } from '../context.ts';
 import { compare, readAccounts } from './account.ts';
 import type { RiskyChange } from './decision-coverage.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** `git diff --name-status` output as `{ path, status }[]` — one implementation, in `kit/lib/git.ts`. */
 export { parseNameStatus } from '../git.ts';
 
 /** Every PRD `ctx.layout.outboxDirs()` names — in-flight and shipped — as numbers, sorted. An
  * outbox tree with no PRD in it reads as `[]`. */
-export function discoveredPrds({ ctx }: { ctx: Pick<Context, 'layout'> }): number[] {
+export function discoveredPrds({ ctx }: { ctx: Pick<Context, 'layout'> }): PrdNumber[] {
   return ctx.layout
     .outboxDirs()
     .map(({ prd }) => prd)
@@ -45,7 +46,7 @@ export function discoveredPrds({ ctx }: { ctx: Pick<Context, 'layout'> }): numbe
  */
 export function findFormatViolations({ ctx }: { ctx: Context }): string[] {
   return discoveredPrds({ ctx }).flatMap((prd) =>
-    readAccounts(prd, { ctx }).flatMap((result) => (result.ok ? [] : (result.errors ?? []))),
+    readAccounts(prd, { ctx }).flatMap((result) => (result.ok ? [] : result.errors)),
   );
 }
 
@@ -58,15 +59,15 @@ export function findFormatViolations({ ctx }: { ctx: Context }): string[] {
  * @param {{ path: string, status: string, rule: string }[]} risky
  * @param {{ ctx: object }} options
  */
-export function gradePrd(prd: string | number, risky: readonly RiskyChange[], { ctx }: { ctx: Context }) {
+export function gradePrd(prd: PrdNumber, risky: readonly RiskyChange[], { ctx }: { ctx: Context }) {
   const results = readAccounts(prd, { ctx });
-  const malformed = results.flatMap((result) => (result.ok ? [] : (result.errors ?? [])));
-  const accounts = results.flatMap((result) => (result.ok && result.account ? [result.account] : []));
+  const malformed = results.flatMap((result) => (result.ok ? [] : result.errors));
+  const accounts = results.flatMap((result) => (result.ok ? [result.account] : []));
   const { accounted, unaccounted, stale } = compare(risky, accounts);
   return { prd, malformed, accounted, unaccounted, stale };
 }
 
 /** One unaccounted change's line — names both the path and the rule that flagged it. */
-export function describeUnaccounted(prd: string | number, change: Pick<RiskyChange, 'path' | 'rule'>): string {
+export function describeUnaccounted(prd: PrdNumber, change: Pick<RiskyChange, 'path' | 'rule'>): string {
   return `PRD #${prd}: \`${change.path}\` is risky (${change.rule}) and no account names it.`;
 }

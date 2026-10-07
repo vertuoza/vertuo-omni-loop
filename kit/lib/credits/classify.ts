@@ -29,6 +29,8 @@
  */
 import { botLogin, carriesTrailer, isSignedBody } from '../signature.ts';
 import type { TrailerSignature } from '../signature.ts';
+import { plainText } from '../outbox/plain-text.ts';
+import type { Config } from '../types.ts';
 
 /** One pull request or issue the reader kept: `state` is `gh`'s, lower-cased. */
 export type CreditPullRequest = {
@@ -45,8 +47,8 @@ export type CreditPullRequest = {
 /** One default-branch commit the reader kept. */
 export type CreditCommit = { repo: string; sha: string; message: string; date: string | null };
 
-/** The loop labels whose pull requests and issues are his. */
-export type CreditLabels = { prd: string; phase0: string; feature: string; sub: string };
+/** The loop labels whose pull requests and issues are his: their names, as the config declares them. */
+export type CreditLabels = Pick<Config['labels'], 'prd' | 'phase0' | 'feature' | 'sub'>;
 
 type Kind = (typeof KINDS)[number];
 export type Signature = (typeof SIGNATURES)[number] | typeof BY_THE_APP;
@@ -77,7 +79,7 @@ const MERGED_PR = /\(#(\d+)\)\s*$/;
 
 /** The pull request a default-branch commit merged — the `(#<n>)` ending its subject — or `null`. */
 export function mergedPullRequest(message: unknown): number | null {
-  const match = MERGED_PR.exec(String(message ?? '').split('\n')[0] ?? '');
+  const match = MERGED_PR.exec(plainText(message).split('\n')[0] ?? '');
   return match ? Number(match[1]) : null;
 }
 
@@ -98,7 +100,7 @@ function kindOf(names: string[], labels: CreditLabels): Kind {
  */
 export function sameAccount(author: unknown, login: string | null): boolean {
   if (!author || !login) return false;
-  const said = String(author).toLowerCase();
+  const said = plainText(author).toLowerCase();
   const wanted = login.toLowerCase();
   return said === wanted || (wanted.endsWith('[bot]') && said === `app/${wanted.slice(0, -'[bot]'.length)}`);
 }
@@ -204,14 +206,13 @@ export function creditCommits(commits: CreditCommit[]): CreditedCommit[] {
       repo: commit.repo,
       sha: commit.sha,
       date: commit.date,
-      subject: (String(commit.message ?? '').split('\n')[0] ?? '').trim(),
+      subject: (commit.message.split('\n')[0] ?? '').trim(),
       pullRequest: mergedPullRequest(commit.message),
     }))
     .sort((a, b) => (time(a.date) || 0) - (time(b.date) || 0) || a.repo.localeCompare(b.repo) || a.sha.localeCompare(b.sha));
 }
 
-const zeros = <K extends string>(keys: readonly K[]): Record<K, number> =>
-  Object.fromEntries(keys.map((key) => [key, 0])) as Record<K, number>; // ts-allow: fromEntries types its keys as string; they are exactly `keys`
+const zeros = (keys: readonly string[]): Record<string, number> => Object.fromEntries(keys.map((key) => [key, 0]));
 
 /** Counts one more `key` in `counts`; every key `summarize` counts is one it started at zero. */
 function bump(counts: Record<string, number>, key: string): void {

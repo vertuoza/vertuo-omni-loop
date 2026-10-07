@@ -14,6 +14,7 @@ import type { FrameState } from './common.ts';
 import { layoutMap } from './map.ts';
 import { drawGames, TALL_SCENES } from './games.ts';
 import { GamesOverlay } from './games.tsx';
+import { sure } from '../test/sure';
 
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
@@ -21,7 +22,7 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .map(([name, t]) => ({ name, ...lookOf(name, t) }))
   .sort((a, b) => a.sort - b.sort);
 const player: Player = {
-  id: 'guest', display_name: 'INKY', team: fleets[1]!.name, team_since: null, github_login: 'inky-gh',
+  id: 'guest', display_name: 'INKY', team: sure(fleets[1], 'fleets[1]').name, team_since: null, github_login: 'inky-gh',
   hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 },
 };
 const LEVEL_3 = xpStatus(true, { xp: 180, level: 3, unlocked: ['invaders'] });
@@ -61,7 +62,7 @@ describe('the game room, for a player with a level', () => {
 
   it('shows the level, the XP bar\'s numbers and the XP to the next level, and the level on the badge', () => {
     expect(wide).toContain('GAME ROOM');
-    expect(wide).toContain(`P1 INKY · ${fleets[1]!.label} · LV 3`);
+    expect(wide).toContain(`P1 INKY · ${sure(fleets[1], 'fleets[1]').label} · LV 3`);
     expect(wide).toContain('LV 3');
     expect(wide).toContain('180 / 300 XP');
     expect(wide).toContain('120 XP to LV 4');
@@ -80,7 +81,7 @@ describe('the game room, for a player with a level', () => {
   });
 
   it('shows no level on a SOON cabinet: only Super Omni World\'s, locked until the stored row unlocks it', () => {
-    expect(levels(wide).sort()).toEqual(['120 XP to LV 4', `P1 INKY · ${fleets[1]!.label} · LV 3`, 'LV 2', 'LV 3'].sort());
+    expect(levels(wide).sort()).toEqual(['120 XP to LV 4', `P1 INKY · ${sure(fleets[1], 'fleets[1]').label} · LV 3`, 'LV 2', 'LV 3'].sort());
   });
 
   it('shows the XP and the cap without a next level at the top', () => {
@@ -108,7 +109,7 @@ describe('the crew\'s top five on the lit cabinet', () => {
     const text = room(LEVEL_3, grid, 0, player, { invaders: CREW });
     const rows = [['1 DIME', '12 480'], ['2 INKY', '9 210'], ['3 BONNY-B', '7 730'], ['4 KRAKEN-K', '5 100'], ['5 AGENT-K', '2 990']];
     const at = rows.map(([who, best]) => {
-      const i = text.indexOf(who!);
+      const i = text.indexOf(sure(who, 'who'));
       expect(i, who).toBeGreaterThanOrEqual(0);
       expect(text[i + 1], who).toBe(best);
       return i;
@@ -122,7 +123,7 @@ describe('the crew\'s top five on the lit cabinet', () => {
   it('highlights the player\'s own line, and no other', () => {
     const html = markup(WIDE, { invaders: CREW });
     expect(html.match(/class="mine"/g)).toHaveLength(1);
-    expect(/<li class="mine">(.*?)<\/li>/.exec(html)?.[1]!.replace(/<[^>]+>/g, ' ')).toMatch(/2\s+INKY\s+9 210/);
+    expect(sure(/<li class="mine">(.*?)<\/li>/.exec(html)?.[1], '/<li class="mine">(.*?)<\/li>/.exec(html)?.[1]').replace(/<[^>]+>/g, ' ')).toMatch(/2\s+INKY\s+9 210/);
     expect(markup(WIDE, { invaders: { top: CREW.top.filter((l) => l.id !== player.id), mine: 40 } })).not.toContain('class="mine"');
   });
 
@@ -141,9 +142,9 @@ describe('the crew\'s top five on the lit cabinet', () => {
 describe('the game room without a level', () => {
   it.each([
     ['a visitor', xpStatus(false, null), null, 'LINK GITHUB TO EARN XP', 'VISITOR'],
-    ['a player with no row', xpStatus(true, null), player, 'NO XP YET · SCORE YOUR FIRST POINT', `P1 INKY · ${fleets[1]!.label}`],
-    ['a player whose row holds level 0', xpStatus(true, { xp: 0, level: 0, unlocked: [] }), player, 'NO XP YET · SCORE YOUR FIRST POINT', `P1 INKY · ${fleets[1]!.label}`],
-    ['a player whose XP could not be read', xpStatus(true, 'unreadable'), player, 'XP OUT OF REACH', `P1 INKY · ${fleets[1]!.label}`],
+    ['a player with no row', xpStatus(true, null), player, 'NO XP YET · SCORE YOUR FIRST POINT', `P1 INKY · ${sure(fleets[1], 'fleets[1]').label}`],
+    ['a player whose row holds level 0', xpStatus(true, { xp: 0, level: 0, unlocked: [] }), player, 'NO XP YET · SCORE YOUR FIRST POINT', `P1 INKY · ${sure(fleets[1], 'fleets[1]').label}`],
+    ['a player whose XP could not be read', xpStatus(true, 'unreadable'), player, 'XP OUT OF REACH', `P1 INKY · ${sure(fleets[1], 'fleets[1]').label}`],
   ] as const)('tells %s why, shows no level of theirs, and keeps every cabinet locked', (_, xp, me, line, badge) => {
     for (const grid of [WIDE, TALL]) {
       const text = room(xp, grid, 0, me);
@@ -191,7 +192,7 @@ describe('the game room on the tall grid', () => {
 // A 2D context that keeps where each image lands, and the offscreen canvases the sprites render into.
 function recorder() {
   const images: { x: number; y: number; w: number; h: number }[] = [];
-  const ctx = new Proxy({} as Record<string | symbol, unknown>, {
+  const ctx = new Proxy<Record<string | symbol, unknown>>({}, {
     get(target, prop) {
       if (prop in target) return target[prop];
       if (prop === 'createImageData') return (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });

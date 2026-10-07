@@ -16,12 +16,13 @@
  *   `call.budgetMs`.
  *
  * It never throws. The contract:
- *   in:  { system, user, check, schema?, env, fetch, sleep?, call?, title?, stream? }
+ *   in:  { system, user, check, schema?, openrouter, fetch, sleep?, call?, title?, stream? }
  *   out: { ok, error, model, reply, reason }
  *        `ok` true: `reply` is what the check kept. Otherwise `error` is `NO_KEY` (no request was
  *        made, `model` null), `UNAVAILABLE` or `REFUSED`, and `reason` says why in words.
  */
 import { z } from 'zod';
+import { plainText } from './outbox/plain-text.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
 /** The model asked when `OPENROUTER_MODEL` names none. */
@@ -61,7 +62,7 @@ export const MASK = '[masked]';
 
 /** `text` with every token-shaped string replaced by `[masked]`. Masking twice changes nothing. */
 export function maskSecrets(text: unknown): string {
-  let out = String(text ?? '');
+  let out = plainText(text);
   for (const pattern of SECRETS) out = out.replace(pattern, MASK);
   return out.replace(BEARER, `$1 ${MASK}`);
 }
@@ -78,17 +79,21 @@ type SafeParsed =
 /** The failures a call returns in `error`. */
 export type ModelFailure = typeof NO_KEY | typeof UNAVAILABLE | typeof REFUSED;
 
+/** OpenRouter's key, and the model when one is named. */
+export type OpenRouterSettings = { key: string; model?: string | undefined };
+
 export type AskInput = {
   system: string;
   user: string;
   check: ReplyCheck;
-  schema?: { name: string; schema: object };
-  env?: Record<string, string | undefined>;
-  fetch?: typeof fetch;
+  schema?: { name: string; schema: object } | undefined;
+  /** OpenRouter's key and model, as the runtime's env module reads them; `null` when it is off. */
+  openrouter: OpenRouterSettings | null;
+  fetch?: typeof fetch | undefined;
   sleep?: ((ms: number) => Promise<void>) | undefined;
-  call?: ModelCall;
-  title?: string;
-  stream?: boolean;
+  call?: ModelCall | undefined;
+  title?: string | undefined;
+  stream?: boolean | undefined;
 };
 
 export type AskResult = { ok: boolean; error: ModelFailure | null; model: string | null; reply: unknown; reason: string | null };
@@ -105,16 +110,16 @@ export async function askModel({
   user,
   check,
   schema,
-  env = {},
+  openrouter,
   fetch,
   sleep = wait,
   call = MODEL_CALL,
   title = 'omni loop',
   stream = false,
 }: AskInput): Promise<AskResult> {
-  const key = env[KEY_VAR];
+  const key = openrouter?.key;
   if (!key) return failure(NO_KEY, null, `${KEY_VAR} is not set`);
-  const model = env[MODEL_VAR] || DEFAULT_MODEL;
+  const model = openrouter.model || DEFAULT_MODEL;
   if (typeof fetch !== 'function') return failure(UNAVAILABLE, model, 'model unavailable (no fetch given)');
 
   const messages: Message[] = [
@@ -176,7 +181,7 @@ function runCheck(check: ReplyCheck | undefined, value: unknown): { errors: stri
     }
     return { errors: ['no check was given for the reply'], reply: null };
   } catch (error) {
-    return { errors: [`the reply could not be checked: ${messageOf(error)}`], reply: null };
+    return { errors: [`the reply could not be checked: ${String(messageOf(error))}`], reply: null };
   }
 }
 

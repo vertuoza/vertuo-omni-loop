@@ -10,11 +10,13 @@
 // reply's door line (`_answered in the terminal · …`, `_answered on the Omni page · …`), else GitHub.
 import { findPrMarkerComment, parseNumbersMarker } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
 import { planReplies } from 'vertuo-omni-plan/kit/lib/outbox/replies.ts';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { CommentId, OutboxItemId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { AnswerDoor, OutboxReplies, PendingAnswer } from './summary';
 
 /** A comment of the feature PR, as GitHub lists it. */
 export type PrComment = {
-  id: number; html_url: string; body: string | null; created_at?: string; user?: { login: string } | null; author_association?: string;
+  id: CommentId; html_url: string; body: string | null; created_at?: string | undefined; user?: { login: string } | null | undefined; author_association?: string | undefined;
 };
 
 /** The kit's markers, as `makeMarkers` builds them. */
@@ -22,9 +24,9 @@ type Markers = Parameters<typeof findPrMarkerComment>[1];
 
 /** An item as the kit's parser reads it; an adopted entry as the kit's ledger reader reads it. */
 export type KitItem = { id: string; rank: string; sections: Record<string, unknown> };
-export type KitAdopted = { id: string; itemText: string };
+export type KitAdopted = { id: OutboxItemId; itemText: string };
 
-type Planned = { number: number; item: { id: string }; answer: { text: string; approvedBy: string; approvedAt?: string; url?: string } };
+type Planned = { number: number; item: { id: string }; answer: { text: string; approvedBy: string; approvedAt?: string | undefined; url?: string | undefined } };
 
 /** The reply's door line, as the kit's reply writer ends every reply it writes. */
 const DOOR_LINE = /^_answered (in the terminal|on the Omni page)\b/m;
@@ -53,7 +55,7 @@ export function outboxReplies({ comments, items, adopted, markers }: {
   const bodies = new Map(comments.map((c) => [c.html_url, c.body]));
   const pending = [...new Set([...counted.keys(), ...anyone.keys()])].sort((a, b) => a - b).map((number): PendingAnswer => {
     const kept = counted.get(number);
-    const { item, answer } = kept ?? anyone.get(number)!;
+    const { item, answer } = kept ?? defined(anyone.get(number), `the answer to item ${number}`);
     const url = answer.url ?? null;
     return {
       number, id: item.id, text: answer.text, by: answer.approvedBy, at: answer.approvedAt ?? null, url,

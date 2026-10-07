@@ -2,9 +2,12 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { inngest } from '../inngest-client.ts';
 import { widgetScenario } from '../../test/retro-scenario.ts';
+import { dig } from 'vertuo-omni-plan/kit/bin/dig.ts';
 import { LOOK_RULE } from 'vertuo-omni-plan/kit/lib/knowledge/look-rule.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
   CHARS_PER_TOKEN,
   DEFAULT_MODEL,
@@ -21,7 +24,7 @@ import {
 import { createRetro } from './retro.ts';
 import type { NarrateInput, NarrateSheet } from './narrate.ts';
 import { LIMITS } from './rules.ts';
-import type { Octokit } from './retro.types.ts';
+import { readEnv } from '../env.ts';
 
 const RUN = (n: number) => `https://github.com/acme/widgets/actions/runs/${n}`;
 const PRD = { title: 'Widgets that remember their colour', problem: 'A widget forgets its colour when the page reloads.' };
@@ -100,28 +103,57 @@ function streamed(content: string, { error = null }: { error?: object | null } =
 
 const failed = (status: number) => new Response(JSON.stringify({ error: { code: status, message: 'no' } }), { status });
 
+/** One message of a request to the model. */
+const Message = z.object({ role: z.string(), content: z.string() });
+/** A request's JSON body, as far as the tests read it: every other field kept, to match on. */
+const SentBody = z.looseObject({ model: z.string(), messages: z.array(Message) });
+
 /** A stubbed fetch answering each call with the next response (the last one repeats). */
-type Answer = Response | Error | ((init: any) => Promise<Response> | Response);
-type Call = { url: unknown; init: any; body: any };
+type Answer = Response | Error | ((init: RequestInit) => Promise<Response> | Response);
+type Call = { url: unknown; init: RequestInit; body: z.infer<typeof SentBody> };
 
 function stubFetch(...answers: Answer[]) {
   const calls: Call[] = [];
-  const fn = vi.fn(async (url: unknown, init: any): Promise<Response> => {
-    calls.push({ url, init, body: JSON.parse(init.body) });
-    const answer = answers[Math.min(calls.length, answers.length) - 1];
+  const fn = vi.fn(async (url: unknown, init: RequestInit = {}): Promise<Response> => {
+    calls.push({ url, init, body: SentBody.parse(JSON.parse(z.string().parse(init.body))) });
+    const answer = at(answers, Math.min(calls.length, answers.length) - 1, 'the stub’s answer');
     if (answer instanceof Error) throw answer;
-    return typeof answer === 'function' ? answer(init) : answer!.clone();
+    return typeof answer === 'function' ? answer(init) : answer.clone();
   });
-  return Object.assign(fn, { calls }) as typeof fn & { calls: any[] } & typeof globalThis.fetch;
+  return Object.assign(fn, { calls });
 }
 
-const noSleep = vi.fn(async (_ms: number) => {});
-const ask = (fetch: typeof globalThis.fetch, over: Partial<NarrateInput> = {}) => narrate({ sheet: sheetOf(), prd: PRD, env: KEY, fetch, sleep: noSleep, ...over });
+/** The `n`th call the stubbed fetch received. */
+const callOf = (fetch: ReturnType<typeof stubFetch>, n: number) => at(fetch.calls, n, `call ${String(n)} of the stubbed fetch`);
+/** Message `n` of the `call`th request. */
+const messageOf = (fetch: ReturnType<typeof stubFetch>, call: number, n: number) => at(callOf(fetch, call).body.messages, n, `message ${String(n)}`);
+
+/** What `modelInput` gives the model as its user message, as far as the tests read it. */
+const UserInput = z.object({
+  prd: z.unknown(),
+  findings: z.array(z.looseObject({ id: z.string() })),
+  knowledge: z.array(z.unknown()),
+  earlierLessons: z.array(z.unknown()),
+});
+const userInput = (user: string) => UserInput.parse(JSON.parse(user));
+
+/** The app's vercel.json, as far as the tests read it: each function's time limit. */
+const Vercel = z.object({ functions: z.record(z.string(), z.object({ maxDuration: z.number() })) });
+const vercelJson = (url: URL) => Vercel.parse(JSON.parse(readFileSync(fileURLToPath(url), 'utf8')));
+
+/** A JSON file's text, parsed into a value of unknown shape. */
+const parsedJson = (text: string): unknown => JSON.parse(text);
+
+/** REPLY without its verdict. */
+const NO_VERDICT = { summary: REPLY.summary, findings: REPLY.findings, lessons: REPLY.lessons };
+
+const noSleep = vi.fn<(ms: number) => Promise<void>>(() => Promise.resolve());
+const ask = (fetch: typeof globalThis.fetch, over: Partial<NarrateInput> = {}) => narrate({ sheet: sheetOf(), prd: PRD, openrouter: readEnv(KEY).openrouter, fetch, sleep: noSleep, ...over });
 
 describe('narrate — no key', () => {
   it('asks no model without OPENROUTER_API_KEY, and says so', async () => {
     const fetch = stubFetch(streamed(JSON.stringify(REPLY)));
-    expect(await narrate({ sheet: sheetOf(), prd: PRD, env: {}, fetch })).toEqual({ model: null, reply: null, reason: NO_MODEL_KEY });
+    expect(await narrate({ sheet: sheetOf(), prd: PRD, openrouter: readEnv({}).openrouter, fetch })).toEqual({ model: null, reply: null, reason: NO_MODEL_KEY });
     expect(fetch).not.toHaveBeenCalled();
   });
 });
@@ -133,21 +165,21 @@ describe('narrate — one call to OpenRouter', () => {
     expect(out).toEqual({ model: DEFAULT_MODEL, reply: REPLY, reason: null });
     expect(DEFAULT_MODEL).toBe('anthropic/claude-opus-5.5');
     expect(fetch).toHaveBeenCalledTimes(1);
-    const [{ url, init, body }] = fetch.calls;
+    const { url, init, body } = callOf(fetch, 0);
     expect(url).toBe(OPENROUTER_URL);
     expect(OPENROUTER_URL).toBe('https://openrouter.ai/api/v1/chat/completions');
     expect(init.method).toBe('POST');
-    expect(init.headers.authorization).toBe(`Bearer ${KEY.OPENROUTER_API_KEY}`);
+    expect(new Headers(init.headers).get('authorization')).toBe(`Bearer ${KEY.OPENROUTER_API_KEY}`);
     expect(init.signal).toBeInstanceOf(AbortSignal);
     expect(body).toMatchObject({ model: DEFAULT_MODEL, stream: true });
-    expect(body.messages.map((message: { role: string }) => message.role)).toEqual(['system', 'user']);
+    expect(body.messages.map((message) => message.role)).toEqual(['system', 'user']);
   });
 
   it('asks the model OPENROUTER_MODEL names instead', async () => {
     const fetch = stubFetch(streamed(JSON.stringify(REPLY)));
-    const out = await ask(fetch, { env: { ...KEY, OPENROUTER_MODEL: 'anthropic/claude-sonnet-5' } });
+    const out = await ask(fetch, { openrouter: readEnv({ ...KEY, OPENROUTER_MODEL: 'anthropic/claude-sonnet-5' }).openrouter });
     expect(out.model).toBe('anthropic/claude-sonnet-5');
-    expect(fetch.calls[0].body.model).toBe('anthropic/claude-sonnet-5');
+    expect(callOf(fetch, 0).body.model).toBe('anthropic/claude-sonnet-5');
   });
 
   it('reads a reply fenced as a code block, and a reply that was not streamed', async () => {
@@ -167,7 +199,7 @@ describe('narrate — one call to OpenRouter', () => {
 
 describe('narrate — the model unavailable', () => {
   it('tries a 500 again, and after its retries goes out facts only: "model unavailable (500)"', async () => {
-    const sleep = vi.fn(async (_ms: number) => {});
+    const sleep = vi.fn<(ms: number) => Promise<void>>(() => Promise.resolve());
     const fetch = stubFetch(failed(500));
     const out = await ask(fetch, { sleep });
     expect(out).toEqual({ model: DEFAULT_MODEL, reply: null, reason: 'model unavailable (500)' });
@@ -195,8 +227,13 @@ describe('narrate — the model unavailable', () => {
   });
 
   it('gives up when the call outlasts its time budget', async () => {
-    const hang = (init: any) =>
-      new Promise<Response>((_, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason)));
+    const hang = (init: RequestInit) =>
+      new Promise<Response>((_, reject) => {
+        const signal = defined(init.signal, 'the call’s abort signal');
+        signal.addEventListener('abort', () => {
+          reject(signal.reason instanceof Error ? signal.reason : new Error('aborted'));
+        });
+      });
     const out = await ask(stubFetch(hang), { call: { ...MODEL_CALL, budgetMs: 20 } as unknown as typeof MODEL_CALL });
     expect(out).toEqual({ model: DEFAULT_MODEL, reply: null, reason: 'model unavailable (timeout)' });
   });
@@ -208,10 +245,10 @@ describe('narrate — a reply that fails its schema', () => {
     const fetch = stubFetch(streamed(broken), streamed(JSON.stringify(REPLY)));
     expect(await ask(fetch)).toEqual({ model: DEFAULT_MODEL, reply: REPLY, reason: null });
     expect(fetch).toHaveBeenCalledTimes(2);
-    const repair = fetch.calls[1].body.messages;
-    expect(repair.map((message: { role: string }) => message.role)).toEqual(['system', 'user', 'assistant', 'user']);
-    expect(repair[2].content).toBe(broken);
-    expect(repair[3].content).toContain('summary must be a string');
+    const repair = callOf(fetch, 1).body.messages;
+    expect(repair.map((message) => message.role)).toEqual(['system', 'user', 'assistant', 'user']);
+    expect(messageOf(fetch, 1, 2).content).toBe(broken);
+    expect(messageOf(fetch, 1, 3).content).toContain('summary must be a string');
   });
 
   it('is dropped after one repair: the retro goes out facts only', async () => {
@@ -249,8 +286,7 @@ describe('narrate — the verdict and what each finding keeps', () => {
   });
 
   it('rejects a reply without a verdict', () => {
-    const { verdict, ...rest } = REPLY;
-    expect(checkReply(rest)).toEqual({ errors: ['verdict must be an object: { worthIt, reason }'], reply: null });
+    expect(checkReply(NO_VERDICT)).toEqual({ errors: ['verdict must be an object: { worthIt, reason }'], reply: null });
   });
 
   it('rejects a verdict, a keep or a why of the wrong type', () => {
@@ -269,10 +305,9 @@ describe('narrate — the verdict and what each finding keeps', () => {
   });
 
   it('repairs a reply with no verdict once, like any other broken reply', async () => {
-    const { verdict, ...rest } = REPLY;
-    const fetch = stubFetch(streamed(JSON.stringify(rest)), streamed(JSON.stringify(REPLY)));
+    const fetch = stubFetch(streamed(JSON.stringify(NO_VERDICT)), streamed(JSON.stringify(REPLY)));
     expect(await ask(fetch)).toEqual({ model: DEFAULT_MODEL, reply: REPLY, reason: null });
-    expect(fetch.calls[1].body.messages[3].content).toContain('verdict must be an object');
+    expect(messageOf(fetch, 1, 3).content).toContain('verdict must be an object');
   });
 });
 
@@ -282,7 +317,7 @@ describe('narrate — the judge', () => {
   });
 
   it('gives the knowledge summary, one line per entry, and the lessons of earlier retros', () => {
-    const input = JSON.parse(modelInput({ sheet: sheetOf(), prd: PRD, knowledge: KNOWLEDGE, lessons: EARLIER }).user);
+    const input = userInput(modelInput({ sheet: sheetOf(), prd: PRD, knowledge: KNOWLEDGE, lessons: EARLIER }).user);
     expect(input.knowledge).toEqual([
       { id: 'PR-PRODUCT-1', line: 'A widget keeps what it was given.' },
       { id: 'BR-CART-2', line: 'A cart never holds a widget twice.' },
@@ -292,7 +327,7 @@ describe('narrate — the judge', () => {
   });
 
   it('gives an empty knowledge summary and no earlier lessons when it has none', () => {
-    const input = JSON.parse(modelInput({ sheet: sheetOf(), prd: PRD }).user);
+    const input = userInput(modelInput({ sheet: sheetOf(), prd: PRD }).user);
     expect(input.knowledge).toEqual([]);
     expect(input.earlierLessons).toEqual([]);
   });
@@ -320,8 +355,8 @@ describe('narrate — the judge', () => {
     const laws = Array.from({ length: 400 }, (_, i) => ({ id: `BR-CART-${i}`, statement: `LAW-${i} ${'y'.repeat(cap / 400)}` }));
     const out = modelInput({ sheet: sheetOf(), prd: PRD, knowledge: { ...KNOWLEDGE, laws }, lessons: many });
     expect(out.system.length + out.user.length).toBeLessThanOrEqual(cap);
-    const input = JSON.parse(out.user);
-    expect(input.findings.map((finding: { id: string }) => finding.id)).toEqual([RED.id, SLOW.id]);
+    const input = userInput(out.user);
+    expect(input.findings.map((finding) => finding.id)).toEqual([RED.id, SLOW.id]);
     expect(input.earlierLessons).toEqual([]);
     expect(input.knowledge.length).toBeGreaterThan(0);
   });
@@ -329,7 +364,7 @@ describe('narrate — the judge', () => {
   it('sends the knowledge and the earlier lessons narrate is given', async () => {
     const fetch = stubFetch(streamed(JSON.stringify(REPLY)));
     await ask(fetch, { knowledge: KNOWLEDGE, lessons: EARLIER });
-    const sent = JSON.parse(fetch.calls[0].body.messages[1].content);
+    const sent = userInput(messageOf(fetch, 0, 1).content);
     expect(sent.earlierLessons).toEqual(EARLIER);
     expect(sent.knowledge).toHaveLength(3);
   });
@@ -338,7 +373,7 @@ describe('narrate — the judge', () => {
 describe('narrate — what the model is given', () => {
   it('gives the PRD’s title and problem, and per finding its id, its facts and its evidence', () => {
     const { user } = modelInput({ sheet: sheetOf(), prd: PRD });
-    const input = JSON.parse(user);
+    const input = userInput(user);
     expect(input.prd).toEqual(PRD);
     expect(input.findings).toEqual([
       { id: RED.id, kind: RED.kind, title: RED.title, happened: RED.happened, evidence: RED.evidence },
@@ -361,8 +396,8 @@ describe('narrate — what the model is given', () => {
       evidence: [{ label: 'run 7001', url: RUN(7001), excerpt: `curl -H "Authorization: Bearer abc.def-ghi" ${secrets.join(' ')}` }],
     };
     const fetch = stubFetch(streamed(JSON.stringify(REPLY)));
-    await narrate({ sheet: sheetOf([leaky]), prd: { ...PRD, problem: `token ${secrets[0]}` }, env: KEY, fetch, sleep: noSleep });
-    const sent = fetch.calls[0].init.body;
+    await narrate({ sheet: sheetOf([leaky]), prd: { ...PRD, problem: `token ${secrets[0]}` }, openrouter: readEnv(KEY).openrouter, fetch, sleep: noSleep });
+    const sent = callOf(fetch, 0).init.body;
     for (const secret of [...secrets, 'abc.def-ghi']) expect(sent).not.toContain(secret);
     expect(sent).toContain('Bearer [masked]');
     expect(maskSecrets('a task-list and sk-short stay')).toBe('a task-list and sk-short stay');
@@ -409,7 +444,7 @@ describe('narrate — what the model is given', () => {
     const fetch = stubFetch(streamed(JSON.stringify(REPLY)));
     await ask(fetch);
     const { system, user } = modelInput({ sheet: sheetOf(), prd: PRD });
-    expect(fetch.calls[0].body.messages).toEqual([
+    expect(callOf(fetch, 0).body.messages).toEqual([
       { role: 'system', content: system },
       { role: 'user', content: user },
     ]);
@@ -417,19 +452,19 @@ describe('narrate — what the model is given', () => {
 });
 
 describe('the function’s time limit', () => {
-  it('gives api/inngest.ts a maxDuration above a minute, with room for the model’s whole budget', () => {
-    const vercel = JSON.parse(readFileSync(fileURLToPath(new URL('../../vercel.json', import.meta.url)), 'utf8'));
-    const seconds = vercel.functions['api/inngest.ts'].maxDuration;
+  it('gives api/inngest.mjs a maxDuration above a minute, with room for the model’s whole budget', () => {
+    const vercel = vercelJson(new URL('../../vercel.json', import.meta.url));
+    const seconds = defined(vercel.functions['api/inngest.mjs'], 'api/inngest.mjs in vercel.json').maxDuration;
     expect(seconds).toBeGreaterThan(60);
     expect(MODEL_CALL.budgetMs).toBeLessThan(seconds * 1000);
   });
 
   it('names every function under api/, so none falls back to the platform’s default', () => {
     const app = new URL('../../', import.meta.url);
-    const vercel = JSON.parse(readFileSync(fileURLToPath(new URL('vercel.json', app)), 'utf8'));
-    const files = readdirSync(fileURLToPath(new URL('api/', app))).filter((name) => name.endsWith('.ts') && !name.includes('.test.'));
+    const vercel = vercelJson(new URL('vercel.json', app));
+    const files = readdirSync(fileURLToPath(new URL('api/', app))).filter((name) => name.endsWith('.mjs'));
     expect(Object.keys(vercel.functions).sort()).toEqual(files.map((name) => `api/${name}`).sort());
-    expect(vercel.functions['api/github.ts'].maxDuration).toBe(60);
+    expect(vercel.functions['api/github.mjs']?.maxDuration).toBe(60);
   });
 });
 
@@ -440,15 +475,16 @@ describe('narrate and guard in the retro function', () => {
   /** Runs the real function against the stubbed GitHub, with `fetch` stubbed; the pauses between tries skipped. */
   async function runRetro(fetch: typeof globalThis.fetch) {
     const scenario = widgetScenario();
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit as Octokit, env: KEY });
+    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, openrouter: readEnv(KEY).openrouter });
     vi.stubGlobal('fetch', fetch);
     vi.useFakeTimers({ toFake: ['setTimeout'] });
     try {
-      let settled = false;
+      // Set from the promise's callback: an object, so the loop reads it afresh on each turn.
+      const progress = { settled: false };
       const run = new InngestTestEngine({ function: fn, events: [scenario.event] }).execute().finally(() => {
-        settled = true;
+        progress.settled = true;
       });
-      while (!settled) await vi.advanceTimersByTimeAsync(1000);
+      while (!progress.settled) await vi.advanceTimersByTimeAsync(1000);
       const { error } = await run;
       expect(error).toBeUndefined();
     } finally {
@@ -457,7 +493,7 @@ describe('narrate and guard in the retro function', () => {
     }
     const files = scenario.github.filesAt(BRANCH, [`${FOLDER}/retro.md`, `${FOLDER}/retro.json`]);
     const json = files[`${FOLDER}/retro.json`];
-    return { scenario, md: files[`${FOLDER}/retro.md`] ?? null, json: json ? JSON.parse(json) : null };
+    return { scenario, md: files[`${FOLDER}/retro.md`] ?? null, json: json ? parsedJson(json) : null };
   }
 
   it('a stubbed 500 after the retries: the retro is not judged, and says so in one comment instead of a PR (PRD 487)', async () => {
@@ -491,7 +527,7 @@ describe('narrate and guard in the retro function', () => {
     expect(md).toContain('- **Why it matters:** _Dropped: it holds a digit._');
     expect(md).toContain('- **Proposed lesson:** Split a slice that grows past its plan.');
     expect(md).toContain('- Split a slice that grows past its plan. (F1)');
-    expect(json.runs[0].narration).toEqual({
+    expect(dig(json, 'runs', 0, 'narration')).toEqual({
       model: DEFAULT_MODEL,
       reason: null,
       dropped: [{ field: 'findings.slow-slice:s3.whyItMatters', reason: 'it holds a digit' }],

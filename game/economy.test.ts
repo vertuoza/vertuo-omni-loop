@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { score, seasonsToScore } from './economy.ts';
 import type { EventType, GameEvent } from './events.ts';
+import { present } from './test/present.ts';
 
 const NOW = new Date('2026-09-30T16:00:00Z');
 const E = (id: string, at: string, type: EventType, over: Partial<GameEvent> = {}): GameEvent => ({ id, at, type, planet: 2332, data: {}, ...over });
@@ -40,7 +41,7 @@ describe('score', () => {
     expect(s.individuals).toEqual({ pm: 40, eve: 22.5 });
     expect(s.teams).toEqual({ beaver: 40, octopod: 22.5 });
     expect(s.credits.find((c) => c.to === 'eve')).toMatchObject({ crossTeam: true });
-    expect(s.credits.find((c) => c.to === 'pm')!.crossTeam).toBeUndefined();
+    expect(present(s.credits.find((c) => c.to === 'pm'), 'the credit').crossTeam).toBeUndefined();
   });
 
   it('pays nothing for a settle verdict other than agreed or drifted (F5a)', () => {
@@ -122,7 +123,7 @@ describe('score', () => {
     expect(s.individuals).toEqual({ alice: 0, bob: 0 });
     expect(s.teams).toEqual({ octopod: 0, cia: 0 });
     expect(s.credits.filter((c) => c.clawed)).toHaveLength(2);
-    expect(s.planets[2332]!.lost).toBe(true);
+    expect(present(s.planets[2332], 'planet 2332').lost).toBe(true);
   });
 
   it('a lost planet keeps the decay it accrued', () => {

@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-30
 - Slice: s1
 - Wave: 1
+- Stays here: The jump pose is purely visual, and the pause-exit mapping is a local, one-line control choice that no principle depends on, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ One constant in the art and one line in the pause handling, no stored data.
 - Raised: 2026-09-30
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off territory choice about a single expected value in one test; nothing lasting about the product or the build to keep.
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ One expected value in one test.
 - Raised: 2026-09-30
 - Slice: s2
 - Wave: 2
+- Became: BR-PRODUCT-56, P-PRODUCT-53
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ One line in the game's screen handling; nothing stored.
 - Raised: 2026-09-30
 - Slice: s2
 - Wave: 2
+- Became: ADR-0063
 
 ### The answer, as it was given
 
@@ -330,6 +334,7 @@ A small change to the engine's side and the rules; nothing stored.
 - Raised: 2026-09-30
 - Slice: s4
 - Wave: 2
+- Stays here: A temporary sequencing choice between slices, cheap to change later; no lasting guarantee or build pattern to record.
 
 ### The answer, as it was given
 
@@ -409,6 +414,7 @@ One call and one status line in the dock's platformer screen, once the game keep
 - Raised: 2026-09-30
 - Slice: s4
 - Wave: 2
+- Became: BR-PRODUCT-57
 
 ### The answer, as it was given
 
@@ -487,6 +493,7 @@ One line in the dock's keyboard handling; nothing stored.
 - Raised: 2026-09-30
 - Slice: s3
 - Wave: 3
+- Became: BR-PRODUCT-58, P-PRODUCT-54
 
 ### The answer, as it was given
 
@@ -565,6 +572,7 @@ One line in the game's press rules and one hint on the screen: a different answe
 - Raised: 2026-09-30
 - Slice: s3
 - Wave: 3
+- Stays here: Purely a look choice (colours per stage), a one-line table change; entries never state colour, so it stays in the ledger.
 
 ### The answer, as it was given
 

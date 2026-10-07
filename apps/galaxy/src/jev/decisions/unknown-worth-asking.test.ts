@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { JEV_DECISIONS, jevEntry } from './index';
 import { unknownWorthAsking } from './unknown-worth-asking';
+import { sure } from '../../arcade/test/sure';
 
 // Unknown worth asking's registry entry (PRD 855 s4): a Noul "a person should be asked this", mapped with
 // the decision's threshold (true: worth asking); what it sends Jev (the question, its repository and file,
@@ -42,7 +43,7 @@ describe('unknown-worth-asking', () => {
   });
 
   it('is the fourth decision on Settings › Jev, registered, with what it sends', () => {
-    const row = JEV_DECISIONS[3]!;
+    const row = sure(JEV_DECISIONS[3], 'JEV_DECISIONS[3]');
     expect(row.name).toBe('unknown-worth-asking');
     expect(row.title).toBe('Unknown worth asking');
     expect(row.sends).toMatch(/question/i);

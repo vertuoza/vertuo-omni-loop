@@ -19,7 +19,7 @@ async function run(argv: readonly string[], cwd: string) {
   const code = await main(argv, { cwd, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };
 }
-const widest = (text: string) => Math.max(...text.split('\n').map((line: string) => [...line].length));
+const widest = (text: string) => Math.max(...text.split('\n').map((line: string) => Array.from(line).length));
 
 describe('omni help', () => {
   it('prints the loop, its principles, Claude, the terminal and what the skills run, in order, and exits 0', async () => {
@@ -63,6 +63,36 @@ describe('omni help', () => {
     expect(first).toMatch(/^omni board <prd> \[--json\] \[--repo <owner\/name>\] +for you$/);
     expect(blank).toBe('');
     expect(sentences.join(' ')).toMatch(/slices.*wave/);
+  });
+
+  it('prints omni next: its usage, for you, and its four verdicts (PRD 1139)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'next'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni next \[<prd>…\] \[--json\] \[--plan\] +for you\n/);
+    expect(out.replace(/\s+/g, ' ')).toMatch(/act .* wait .* park .* done/);
+    expect(out.replace(/\s+/g, ' ')).toMatch(/With no number it drives your own PRDs .* --plan orders every slice .* first step not done/);
+  });
+
+  it('prints omni loop: its verbs, run by the skills, and how it never blocks (PRD 1139)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'loop'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni loop push start \[--take-over\] +run by the skills\n/);
+    expect(out).toContain('omni loop status [--json]');
+    expect(out.replace(/\s+/g, ' ')).toMatch(/refuses a second live loop .* --take-over.* 5-second limit and one sign-in refresh.* exits 1 with one line/);
+  });
+
+  it('prints /omni:drive: run under /loop, for you, one step per tick, and /omni:pr-care --once (PRD 1139)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', '/omni:drive'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^\/loop \/omni:drive \[<n>…\] +for you\n/);
+    expect(out.replace(/\s+/g, ' ')).toMatch(/omni next --plan.* first step not done .*\/omni:pr-care --once.* stops itself/);
+    expect(out.replace(/\s+/g, ' ')).toMatch(/never answers the outbox and never merges/);
+    const care = await run(['help', 'pr-care'], root);
+    expect(care.out).toMatch(/^\/omni:pr-care <n> \[--once\] +for you\n/);
+    expect(care.out.replace(/\s+/g, ' ')).toMatch(/--once runs one round and returns/);
   });
 
   it('takes a skill by its name or its slash command alike', async () => {
@@ -113,6 +143,17 @@ describe('omni --help, omni -h and a bare omni', () => {
     expect(code).toBe(0);
     expect(out).toMatch(/^omni heartbeat \[--end\] +run by the skills\n/);
     expect(out).toMatch(/once a\s+minute/);
+  });
+
+  it('lists generated among the commands the skills run, and explains it (PRD 1138)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const overview = await run(['help'], root);
+    expect(overview.out.slice(overview.out.indexOf('Run by the skills:'))).toMatch(/\bgenerated\b/);
+    const { code, out } = await run(['help', 'generated'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni generated <range> \[--json\] +run by the skills\n/);
+    expect(out).toMatch(/stale/);
+    expect(out).toMatch(/no generated\s+files/);
   });
 
   it('--help and -h print exactly what omni help prints', async () => {

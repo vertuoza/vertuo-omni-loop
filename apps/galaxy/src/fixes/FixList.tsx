@@ -41,9 +41,10 @@ function Who({ kind, filters }: { kind: FixKind; filters: FixFilters }) {
 }
 
 function Filters({ kind, choices, filters }: { kind: FixKind; choices: Choices; filters: FixFilters }) {
+  const who = whoParam(filters.who);
   return (
     <form className="dossier-history-filters" method="get" action={WORK_PATHS[kind]} role="search">
-      {whoParam(filters.who) && <input type="hidden" name="who" value={whoParam(filters.who)!} />}
+      {who && <input type="hidden" name="who" value={who} />}
       <label className="dossier-history-field dossier-history-search">
         <span className="ask-hint">Search the titles</span>
         <input className="ask-share-link" type="search" name="q" defaultValue={filters.search ?? ''} placeholder={`a word of a ${WORK_NAMES[kind].one}'s title`} />

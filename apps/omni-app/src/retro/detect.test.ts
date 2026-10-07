@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
 import { detect } from './detect.ts';
 import { KINDS, kindsFor, type Kind } from './kinds/index.ts';
@@ -12,8 +13,9 @@ const finding = (id: string, kind: string): Finding => ({ id, kind, title: id, h
 const fakeKind = (id: string, findings: Finding[], facts: object = { id }): Kind => ({
   id,
   section: id,
+  records: z.unknown(),
   runs: ['merge'],
-  gather: async () => null,
+  gather: () => Promise.resolve(null),
   detect: (records: unknown, context: DetectContext) => ({ facts: { ...facts, records, prNumber: context.pr.number }, findings }),
   describe: () => null,
 });
@@ -86,7 +88,7 @@ describe('the kind registry', () => {
     expect(kindsFor('day-14').map((kind) => kind.id)).toEqual(['after-merge']);
   });
 
-  it('gives every kind the same shape', async () => {
+  it('gives every kind the same shape', () => {
     for (const kind of KINDS) {
       expect(typeof kind.gather).toBe('function');
       expect(typeof kind.detect).toBe('function');
@@ -97,7 +99,7 @@ describe('the kind registry', () => {
   it('holds kinds that, until they are built, gather nothing, find nothing and leave their section out', async () => {
     for (const kind of KINDS.filter((k) => !['timeline', 'delivery'].includes(k.id))) {
       expect(await kind.gather({ request: () => { throw new Error('no GitHub'); } }, {} as never)).toBeNull();
-      expect(kind.detect(null, { pr, prd, config, pulls: [] } as never)).toEqual({ facts: null, findings: [] });
+      expect(kind.detect(null, { pr, prd, config, pulls: [] })).toEqual({ facts: null, findings: [] });
       expect(kind.describe(null)).toBeNull();
     }
   });

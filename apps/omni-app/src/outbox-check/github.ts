@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import type { CommentId, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { featureTopic, NOT_ACTIVE_ON_PR, prdDirs, prdOfTopic } from '../evaluate/evaluate.ts';
 import { DEFAULT_CHECK_NAME } from '../publish/publish.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
@@ -20,6 +21,7 @@ import {
   CommentsPageSchema,
   ComparePageSchema,
   CreatedSchema,
+  firstLine,
   labelName,
   PullSchema,
   TreeSchema,
@@ -46,10 +48,10 @@ export type PullFacts = { baseRef: string; baseSha: string; headRef: string; hea
 export type Change = { path: string; status: string };
 
 /** A comment on a pull request. */
-export type Comment = { id: number; body: string };
+export type Comment = { id: CommentId; body: string };
 
 /** The pull request's facts, read fresh: a debounced run sees the latest labels and refs. */
-export async function readPull(octokit: GitHubClient, { owner, repo, prNumber }: Repo & { prNumber: number }): Promise<PullFacts> {
+export async function readPull(octokit: GitHubClient, { owner, repo, prNumber }: Repo & { prNumber: PrNumber }): Promise<PullFacts> {
   const { data: answer } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
     owner,
     repo,
@@ -71,11 +73,12 @@ export type BaseConfig = { folder: string; config: Config | null; error: ConfigE
 /**
  * Snapshots the base branch's `.omni-loop/config.yml` into `dest` (a fresh temporary folder when
  * omitted) and parses it through the kit's schema. `config` null and `error` null: the base branch has
- * no config (omni-loop is not active).
+ * no config (omni-loop is not active). With `ignoreUnknownKeys`, a key this kit does not know is left
+ * out rather than refused (the retro, #1151); the checks keep refusing it, to say the config is wrong.
  */
 export async function readBaseConfig(
   octokit: GitHubClient,
-  { owner, repo, baseSha, dest }: Repo & { baseSha: string; dest?: string },
+  { owner, repo, baseSha, dest, ignoreUnknownKeys = false }: Repo & { baseSha: string; dest?: string; ignoreUnknownKeys?: boolean },
 ): Promise<BaseConfig> {
   const folder = await snapshot(octokit, { owner, repo, ref: baseSha, paths: [CONFIG_FILE], dest });
   let text;
@@ -85,7 +88,7 @@ export async function readBaseConfig(
     return { folder, config: null, error: null };
   }
   try {
-    return { folder, config: parseConfig(text, CONFIG_FILE), error: null };
+    return { folder, config: parseConfig(text, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return { folder, config: null, error };
@@ -107,7 +110,7 @@ export type CheckTarget = { active: boolean; name: string; gated: boolean; reaso
  */
 export async function checkTarget(
   octokit: GitHubClient,
-  { owner, repo, prNumber, headSha }: Repo & { prNumber: number; headSha?: string | undefined },
+  { owner, repo, prNumber, headSha }: Repo & { prNumber: PrNumber; headSha?: string | undefined },
 ): Promise<CheckTarget> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const folder = mkdtempSync(join(tmpdir(), 'omni-name-'));
@@ -151,7 +154,7 @@ async function folderNamesAt(
 }
 
 /** Every comment on the pull request, as `{ id, body }`. */
-export async function listComments(octokit: GitHubClient, { owner, repo, prNumber }: Repo & { prNumber: number }): Promise<Comment[]> {
+export async function listComments(octokit: GitHubClient, { owner, repo, prNumber }: Repo & { prNumber: PrNumber }): Promise<Comment[]> {
   const comments = await paginate((page) =>
     octokit
       .request('GET /repos/{owner}/{repo}/issues/{issue_number}/comments', {
@@ -300,9 +303,4 @@ async function completeOpen(
     output,
   });
   return [CreatedSchema.parse(created).id];
-}
-
-function firstLine(reason: unknown): string {
-  const text = String(reason ?? 'unknown error').trim();
-  return text.split('\n')[0] || 'unknown error';
 }

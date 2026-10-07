@@ -23,7 +23,7 @@ const KNOWLEDGE_FILES = [
 const withMDX = createMDX();
 
 const config: NextConfig = {
-  transpilePackages: ['@omni/galaxy', '@omni/design', 'vertuo-omni-plan'],
+  transpilePackages: ['@omni/galaxy', '@omni/design', '@omni/github', 'vertuo-omni-plan'],
   turbopack: { root },
   outputFileTracingRoot: root,
   outputFileTracingIncludes: { '/': KNOWLEDGE_FILES },

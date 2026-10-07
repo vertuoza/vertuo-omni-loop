@@ -70,3 +70,55 @@ describe('decideRound', () => {
     expect(decideRound(state({ pr: { ...state().pr, state: prState }, threads: [thread('T1')] }))).toEqual({ mode: 'stop', actions: [] });
   });
 });
+
+describe('decideRound — a landing chain', () => {
+  const LINK = {
+    landing: 2,
+    pr: 12,
+    branch: 'feat/w-2of2-code',
+    base: 'feat/w-1of2-expand',
+    retarget: true,
+    after: { landing: 1, pr: 11, branch: 'feat/w-1of2-expand' },
+    later: [],
+  };
+
+  it('restacks first, before a conflict, red CI and reviews', () => {
+    const round = decideRound(state({ chain: [LINK], mergeable: 'CONFLICTING', checks: RED }));
+    expect(kinds(round)).toEqual(['restack', 'merge-base', 'fix-ci', 'status']);
+    expect(round.actions[0]).toEqual({ kind: 'restack', ...LINK });
+  });
+
+  it('restacks nothing while a wave holds claims', () => {
+    expect(decideRound(state({ chain: [LINK], wave: { holdsClaims: true, claimed: ['s3'] } }))).toEqual({ mode: 'report-only', actions: [{ kind: 'status' }] });
+  });
+});
+
+describe('decideRound — waits on another repository (PRD 1118)', () => {
+  const waiting = (state: string) => ({ slug: 'acme/backend', pr: 41, state });
+
+  it('lists no fix-ci while the named PR is open, and says what it waits on', () => {
+    const round = decideRound(state({ checks: RED, threads: [thread('T1')], waitsOn: waiting('open') }));
+    expect(round).toEqual({ mode: 'act', actions: [{ kind: 'judge', thread: 'T1' }, { kind: 'status' }], waitsOn: 'acme/backend#41' });
+  });
+
+  it('holds as open when the named PR could not be read', () => {
+    expect(kinds(decideRound(state({ checks: RED, waitsOn: waiting('unreadable') })))).toEqual(['status']);
+  });
+
+  it('lists one rerun of the failed checks once the named PR merged', () => {
+    const round = decideRound(state({ checks: RED, waitsOn: waiting('merged') }));
+    expect(round).toEqual({ mode: 'act', actions: [{ kind: 'rerun', failed: RED.failed }, { kind: 'status' }] });
+  });
+
+  it('reruns nothing once merged when CI is not red', () => {
+    expect(kinds(decideRound(state({ waitsOn: waiting('merged') })))).toEqual(['status']);
+  });
+
+  it('fixes CI as without the line once the named PR was closed unmerged', () => {
+    expect(kinds(decideRound(state({ checks: RED, waitsOn: waiting('closed') })))).toEqual(['fix-ci', 'status']);
+  });
+
+  it('decides as today without the line', () => {
+    expect(decideRound(state({ checks: RED, waitsOn: null }))).toEqual({ mode: 'act', actions: [{ kind: 'fix-ci', failed: RED.failed }, { kind: 'status' }] });
+  });
+});

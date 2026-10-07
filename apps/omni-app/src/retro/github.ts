@@ -10,6 +10,7 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
 import { ContentSchema, PullSchema, PullsSchema, TreeSchema, parseGitHub } from './github.schema.ts';
 import type { Octokit, Pull, PullInto } from './retro.types.ts';
@@ -37,7 +38,7 @@ export async function paginate<T>(fetchPage: (page: number) => Promise<readonly 
 }
 
 /** A pull request as the retro reads it. */
-export async function readPull(octokit: Octokit, { owner, repo, prNumber }: Repo & { prNumber: number }): Promise<Pull> {
+export async function readPull(octokit: Octokit, { owner, repo, prNumber }: Repo & { prNumber: PrNumber }): Promise<Pull> {
   const { data: answer } = await octokit.request(PULL, {
     owner,
     repo,
@@ -88,6 +89,17 @@ export async function listPullsInto(octokit: Octokit, { owner, repo, base }: Rep
       labels: labelNames(data.labels),
     }))
     .sort((a, b) => a.openedAt.localeCompare(b.openedAt) || a.number - b.number);
+}
+
+/** The pull requests from `branch`, open or closed, newest first: a target's feature PR is among them (PRD 1130). */
+export async function listPullsFrom(octokit: Octokit, { owner, repo, branch }: Repo & { branch: string }): Promise<PrNumber[]> {
+  const pulls = await paginate((page) =>
+    octokit
+      .request(PULLS, { owner, repo, head: `${owner}:${branch}`, state: 'all', per_page: PER_PAGE, page })
+      .then(({ data }) => parseGitHub(PullsSchema, data, PULLS)),
+  );
+  const merged = pulls.filter((pull) => pull.merged_at);
+  return (merged.length > 0 ? merged : pulls).sort((a, b) => b.created_at.localeCompare(a.created_at)).map((pull) => pull.number);
 }
 
 /**

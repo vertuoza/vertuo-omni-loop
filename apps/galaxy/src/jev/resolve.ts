@@ -127,7 +127,7 @@ export async function decide<I, V>(deps: JevDecideDeps, run: Decide<I, V>): Prom
   ]);
   const counted = resolve({ entry, settings, old, attempt: tried, ref });
   if (counted.call) {
-    await deps.log(workspace, counted.call).catch((err: unknown) => console.error(`jev: a ${entry.name} call was not logged (${why(err)})`));
+    await deps.log(workspace, counted.call).catch((err: unknown) => { console.error(`jev: a ${entry.name} call was not logged (${why(err)})`); });
   }
   return counted;
 }

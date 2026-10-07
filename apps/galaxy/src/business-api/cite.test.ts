@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { citeClaims, type BusinessDeps } from './api';
+import { sure } from '../arcade/test/sure';
+import { answerOf } from '../business/json.fake';
 
 // A fake database of one workspace, Acme (GitHub org acme), whose business holds region#1 and rival#4.
 // claims_cite() is played as the migration writes it: 42501 outside the caller's workspaces, 22023 a
@@ -14,17 +16,17 @@ function world({ database = true } = {}) {
   const users: Record<string, typeof ADA> = { 'ada-token': ADA, 'carl-token': CARL };
   const client = (token: string) => ({
     auth: {
-      getUser: async (jwt: string) => ({ data: { user: users[jwt] ?? null }, error: users[jwt] ? null : { status: 401, message: 'bad jwt' } }),
+      getUser: (jwt: string) => Promise.resolve({ data: { user: users[jwt] ?? null }, error: users[jwt] ? null : { status: 401, message: 'bad jwt' } }),
     },
-    rpc: async (fn: string, args: { p_repo: string; p_ids: string[]; p_by: string; p_ref: string | null }) => {
+    rpc: (fn: string, args: { p_repo: string; p_ids: string[]; p_by: string; p_ref: string | null }) => {
       calls.push({ fn, args });
-      if (!users[token]!.member) return { data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } };
+      if (!sure(users[token], 'users[token]').member) return Promise.resolve({ data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } });
       for (const id of args.p_ids) {
-        if (!/^(region|offering|size|trade|rival)#[1-9]\d*$/.test(id)) return { data: null, error: { code: '22023', message: `Ids: ${id} is not a claim id like rival#4.` } };
-        if (!HELD.includes(id)) return { data: null, error: { code: 'P0002', message: `Ids: this business holds no ${id}.` } };
+        if (!/^(region|offering|size|trade|rival)#[1-9]\d*$/.test(id)) return Promise.resolve({ data: null, error: { code: '22023', message: `Ids: ${id} is not a claim id like rival#4.` } });
+        if (!HELD.includes(id)) return Promise.resolve({ data: null, error: { code: 'P0002', message: `Ids: this business holds no ${id}.` } });
       }
       for (const id of args.p_ids) log.push({ id, by: args.p_by, ref: args.p_ref });
-      return { data: args.p_ids.length, error: null };
+      return Promise.resolve({ data: args.p_ids.length, error: null });
     },
   });
   const deps: BusinessDeps = { connect: database ? (client as unknown as NonNullable<BusinessDeps['connect']>) : null };
@@ -34,7 +36,7 @@ function world({ database = true } = {}) {
       headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
       body: typeof body === 'string' ? body : JSON.stringify(body),
     }), deps);
-    return { status: response.status, body: await response.json(), cache: response.headers.get('cache-control') };
+    return { status: response.status, body: await answerOf(response), cache: response.headers.get('cache-control') };
   };
   return { calls, log, post };
 }

@@ -11,6 +11,8 @@
  * 3. Triage names a risk that is one of the four levels.
  * 4. Reproduction has a **File:** line naming a file that exists and that the branch changes, and a
  *    non-empty **Red:** line.
+ *    A record with a `## Fixes` section (PRD 1118) is checked by its rows instead
+ *    (`kit/lib/bug/fixes.ts`): its reproductions live in the target repositories.
  * 5. Every commit of the branch carries the trailer `omni sign trailer` prints, unless the config
  *    says `signature: null`.
  *
@@ -19,11 +21,14 @@
 import { readFileSync, statSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
 import { fixVerdict, issuePrefix, numberedFolders } from '../fix-verdict.ts';
+import { boldField, fixesViolations } from './fixes.ts';
+import type { FixesConfig } from './fixes.ts';
 import type { Commit } from '../fix-verdict.ts';
 import type { TrailerSignature } from '../signature.ts';
+import type { IssueNumber } from '../ids.ts';
 
 /** What a bug verdict reads of the context: the root, where deliveries live and the signature. */
-type BugContext = { root: string; config: { paths: { delivery: string }; signature: TrailerSignature | null } };
+type BugContext = { root: string; config: FixesConfig & { paths: { delivery: string }; signature: TrailerSignature | null } };
 
 const RECORD = 'bug.md';
 
@@ -57,12 +62,6 @@ export function parseSections(text: string): Map<string, string> {
   return new Map([...sections].map(([name, lines]) => [name, lines.join('\n').trim()]));
 }
 
-/** The value of a `- **<key>:** value` line in `body`: `undefined` with no such line, else trimmed. */
-function field(body: string, key: string): string | undefined {
-  const match = new RegExp(`^\\s*(?:[-*]\\s+)?\\*\\*${key}:\\*\\*(.*)$`, 'm').exec(body);
-  return match ? (match[1] ?? '').trim() : undefined;
-}
-
 function isFile(ctx: { root: string }, path: string): boolean {
   try {
     return statSync(join(ctx.root, path)).isFile();
@@ -72,7 +71,7 @@ function isFile(ctx: { root: string }, path: string): boolean {
 }
 
 function triageViolations(record: string, body: string): string[] {
-  const risk = field(body, 'Risk');
+  const risk = boldField(body, 'Risk');
   if (risk === undefined || risk === '') return [`${record}: the Triage has no **Risk:** line.`];
   const level = (risk.split(/[\s—–-]/)[0] ?? '').replace(/[^a-z]/gi, '').toLowerCase();
   if (RISK_LEVELS.includes(level)) return [];
@@ -81,7 +80,7 @@ function triageViolations(record: string, body: string): string[] {
 
 function reproductionViolations(ctx: { root: string }, record: string, body: string, changed: Set<string> | undefined): string[] {
   const violations: string[] = [];
-  const file = field(body, 'File');
+  const file = boldField(body, 'File');
   if (file === undefined || file === '') {
     violations.push(`${record}: the Reproduction has no **File:** line naming the test or scenario.`);
   } else {
@@ -92,25 +91,39 @@ function reproductionViolations(ctx: { root: string }, record: string, body: str
       violations.push(`${record}: the reproduction ${path} is not changed on this branch.`);
     }
   }
-  const red = field(body, 'Red');
+  const red = boldField(body, 'Red');
   if (red === undefined) violations.push(`${record}: the Reproduction has no **Red:** line.`);
   else if (red === '') violations.push(`${record}: the Reproduction has an empty **Red:** line.`);
   return violations;
 }
 
-function recordViolations(ctx: { root: string }, record: string, changed: Set<string> | undefined): string[] {
+function sectionViolations(record: string, sections: ReadonlyMap<string, string>): string[] {
+  return SECTIONS.flatMap((name) => {
+    if (!sections.has(name)) return [`${record}: no "## ${name}" section.`];
+    return sections.get(name) === '' ? [`${record}: the "## ${name}" section is empty.`] : [];
+  });
+}
+
+/**
+ * The reproduction's failures. A record with `## Fixes` (PRD 1118) keeps its reproductions in the
+ * targets, so its rows are checked instead of a **File:** this branch changes.
+ */
+function reproductionsViolations(ctx: BugContext, record: string, sections: ReadonlyMap<string, string>, changed: Set<string> | undefined): string[] {
+  const fixes = sections.get('Fixes');
+  if (fixes !== undefined) return fixesViolations(ctx.config, sections, fixes).map((line) => `${record}: ${line}`);
+  const reproduction = sections.get('Reproduction');
+  return reproduction ? reproductionViolations(ctx, record, reproduction, changed) : [];
+}
+
+function recordViolations(ctx: BugContext, record: string, changed: Set<string> | undefined): string[] {
   if (!isFile(ctx, record)) return [`${record}: missing.`];
   const sections = parseSections(readFileSync(join(ctx.root, record), 'utf8'));
-  const violations: string[] = [];
-  for (const name of SECTIONS) {
-    if (!sections.has(name)) violations.push(`${record}: no "## ${name}" section.`);
-    else if (sections.get(name) === '') violations.push(`${record}: the "## ${name}" section is empty.`);
-  }
   const triage = sections.get('Triage');
-  if (triage) violations.push(...triageViolations(record, triage));
-  const reproduction = sections.get('Reproduction');
-  if (reproduction) violations.push(...reproductionViolations(ctx, record, reproduction, changed));
-  return violations;
+  return [
+    ...sectionViolations(record, sections),
+    ...(triage ? triageViolations(record, triage) : []),
+    ...reproductionsViolations(ctx, record, sections, changed),
+  ];
 }
 
 /**
@@ -119,13 +132,13 @@ function recordViolations(ctx: { root: string }, record: string, changed: Set<st
  */
 export function bugVerdict({ ctx, issue, changed, commits }: {
   ctx: BugContext;
-  issue: number;
-  changed?: Iterable<string>;
-  commits?: readonly Commit[];
+  issue: IssueNumber;
+  changed?: Iterable<string> | undefined;
+  commits?: readonly Commit[] | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   const changedSet = changed === undefined ? undefined : new Set([...changed].map((path) => normalize(path)));
   return fixVerdict({
-    ctx, issue, commits, root: bugRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, bugRoot(ctx), issuePrefix(issue)),
+    ctx, number: issue, commits, root: bugRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, bugRoot(ctx), issuePrefix(issue)),
     grade: (folder) => recordViolations(ctx, `${folder}/${RECORD}`, changedSet),
   });
 }

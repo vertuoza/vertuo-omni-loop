@@ -12,6 +12,8 @@
 // Reading runs under the migration's policy: a member of the row's workspace reads it. That the
 // database holds these rules is proved by supabase/checks/working_pings.sql, not here.
 
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
 type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null };
 type Row = Record<string, unknown>;
@@ -19,7 +21,7 @@ type Row = Record<string, unknown>;
 /** An account, and the workspaces it belongs to in the order it joined them. */
 export type FakeAccount = { id: string; email: string | null; workspaces: string[] };
 
-type FakeDossierKey = { id: string; workspace_id: string; home_repo: string; kind: 'prd' | 'visual' | 'bug'; prd: number | null };
+type FakeDossierKey = { id: string; workspace_id: string; home_repo: string; kind: 'prd' | 'visual' | 'bug'; prd: PrdNumber | null };
 
 type FakePing = {
   claude_session_id: string; user_id: string; workspace_id: string; repo: string; work_kind: string | null;
@@ -39,7 +41,7 @@ export function fakeWorking(accounts: Record<string, FakeAccount>, orgs: Record<
   // workspace owns it; else the one joined first.
   const workspaceFor = (account: FakeAccount, repo: string): string | null => {
     const owner = repo.split('/')[0];
-    const owning = Object.keys(orgs).filter((w) => orgs[w]!.toLowerCase() === owner);
+    const owning = Object.entries(orgs).filter(([, org]) => org.toLowerCase() === owner).map(([w]) => w);
     if (owning.length > 0) return account.workspaces.find((w) => owning.includes(w)) ?? null;
     return account.workspaces[0] ?? null;
   };
@@ -59,7 +61,7 @@ export function fakeWorking(accounts: Record<string, FakeAccount>, orgs: Record<
   };
 
   const workOf = (args: Row): Work => ({
-    repo: String(args.p_repo ?? '').trim().toLowerCase(),
+    repo: (typeof args.p_repo === 'string' ? args.p_repo : '').trim().toLowerCase(),
     kind: typeof args.p_work_kind === 'string' ? args.p_work_kind : null,
     number: typeof args.p_work_number === 'number' ? args.p_work_number : null,
     draft: typeof args.p_draft === 'string' ? args.p_draft : null,
@@ -109,7 +111,7 @@ export function fakeWorking(accounts: Record<string, FakeAccount>, orgs: Record<
         return builder;
       },
       limit: (n: number) => { rows = rows.slice(0, n); return builder; },
-      maybeSingle: async (): Promise<Result> => ({ data: rows[0] ?? null, error: null }),
+      maybeSingle: (): Promise<Result> => Promise.resolve({ data: rows[0] ?? null, error: null }),
       then: (resolve: (r: Result) => unknown) => resolve({ data: rows.map((r) => ({ ...r })), error: null }),
     };
     return builder;
@@ -119,14 +121,13 @@ export function fakeWorking(accounts: Record<string, FakeAccount>, orgs: Record<
     const me = accounts[token] ?? null;
     return {
       auth: {
-        async getUser(jwt: string) {
+        getUser(jwt: string) {
           const account = accounts[jwt];
-          return account ? { data: { user: { id: account.id, email: account.email } }, error: null } : { data: { user: null }, error: { status: 401 } };
+          return Promise.resolve(account ? { data: { user: { id: account.id, email: account.email } }, error: null } : { data: { user: null }, error: { status: 401 } });
         },
       },
-      async rpc(fn: string, args: Row): Promise<Result> {
-        if (fn === 'working_ping') return workingPing(me, args);
-        return refused('42883', `no function ${fn}`);
+      rpc(fn: string, args: Row): Promise<Result> {
+        return Promise.resolve(fn === 'working_ping' ? workingPing(me, args) : refused('42883', `no function ${fn}`));
       },
       from(table: string) {
         if (table !== 'working_pings') throw new Error(`the fake reads no ${table}`);

@@ -1,6 +1,9 @@
 import type { Db } from '../ask/page/source';
 import { claimChime, documentAlertOf, raiseEach, type DesktopState, type NotificationApi, type Store } from './alerts';
-import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined, isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { z } from 'zod';
+import { orThrow, parseRows } from '../data/parse-rows';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The waiting list's New documents part (PRD 579, s1): the spec, plan and before/after versions pushed
 // in the last 7 days to the numbered dossiers the signed-in person opened, read by the browser straight
@@ -32,14 +35,14 @@ export type DocumentRow = {
   id: string;
   kind: DocumentKind;
   created_at: string;
-  dossier: { id: string; prd: number; title: string };
+  dossier: { id: string; prd: PrdNumber; title: string };
 };
 
 /** One PRD's new documents: the kinds that landed, in the order spec, plan, before/after, each once,
  * and its newest version. */
 export type DocumentGroup = {
   dossierId: string;
-  prd: number;
+  prd: PrdNumber;
   title: string;
   kinds: DocumentKind[];
   newestId: string;
@@ -61,7 +64,7 @@ export function groupDocuments(rows: readonly DocumentRow[], seen: Seen): Docume
   const groups = new Map<string, { group: DocumentGroup; kinds: Set<DocumentKind> }>();
   for (const r of rows) {
     const { dossier } = r;
-    if (!dossier || typeof dossier.prd !== 'number' || !KNOWN.has(r.kind)) continue;
+    if (typeof dossier.prd !== 'number' || !KNOWN.has(r.kind)) continue;
     const time = Date.parse(r.created_at);
     if (Number.isNaN(time) || time < seen.since) continue;
     const last = seen.dossiers[dossier.id];
@@ -72,7 +75,7 @@ export function groupDocuments(rows: readonly DocumentRow[], seen: Seen): Docume
       groups.set(dossier.id, entry);
     }
     entry.kinds.add(r.kind);
-    const kindsAt = entry.group.kindsAt!;
+    const kindsAt = defined(entry.group.kindsAt, 'the group\'s times by kind');
     if ((kindsAt[r.kind] ?? -Infinity) < time) kindsAt[r.kind] = time;
     if (time > entry.group.newestAt) {
       entry.group.newestId = r.id;
@@ -84,23 +87,30 @@ export function groupDocuments(rows: readonly DocumentRow[], seen: Seen): Docume
     .sort((a, b) => b.newestAt - a.newestAt || a.dossierId.localeCompare(b.dossierId));
 }
 
-const SELECT = 'id, kind, created_at, dossier:dossiers!inner(id, prd, title, opened_by)';
+export const DOCUMENT_COLUMNS = 'id, kind, created_at, dossier:dossiers!inner(id, prd, title, opened_by)';
 
-type Raw = { id: string; kind: string; created_at: string; dossier: { id: string; prd: number | null; title: string } | null };
+/** A version as the read answers it, with its dossier: a row of another kind, or of an unnumbered
+ * dossier, is left out by the reader, not refused. */
+export const DocumentRead = z.object({
+  id: z.string(),
+  kind: z.string(),
+  created_at: z.string(),
+  dossier: z.object({ id: z.string(), prd: PrdNumberSchema.nullable(), title: z.string() }).nullable(),
+});
 
 /** A reader of the versions pushed to the numbered dossiers `me` opened, in the last 7 days, the 50
  * newest. Throws when a read fails. */
 export function documentsReader(db: Db, me: string): (now: number) => Promise<DocumentRow[]> {
   return async (now) => {
     const { data, error } = await db.from('dossier_versions')
-      .select(SELECT)
+      .select(DOCUMENT_COLUMNS)
       .eq('dossier.opened_by', me)
       .not('dossier.prd', 'is', null)
       .gt('created_at', new Date(now - WINDOW).toISOString())
       .order('created_at', { ascending: false })
       .limit(DOCS_LIMIT);
     if (error) throw new Error(`read the new documents: ${error.message}`);
-    return ((data ?? []) as unknown as Raw[]).flatMap((r) => (r.dossier && typeof r.dossier.prd === 'number' && isOneOf(DOCUMENT_KINDS, r.kind) // ts-allow: the select names exactly these columns; each is checked on this line
+    return orThrow(parseRows(DocumentRead, data, 'waiting/documents: dossier_versions')).flatMap((r) => (r.dossier && typeof r.dossier.prd === 'number' && isOneOf(DOCUMENT_KINDS, r.kind)
       ? [{ id: r.id, kind: r.kind, created_at: r.created_at, dossier: { id: r.dossier.id, prd: r.dossier.prd, title: r.dossier.title } }]
       : []));
   };
@@ -199,8 +209,9 @@ function readAnnounced(store: () => Store): Announced | null {
   try {
     const raw: unknown = JSON.parse(store().getItem(DOCS_ANNOUNCED_KEY) ?? '[]');
     if (!Array.isArray(raw)) return [];
-    return raw.filter((a): a is Announced[number] =>
-      !!a && typeof a.id === 'string' && typeof a.dossierId === 'string' && typeof a.at === 'number');
+    const list: unknown[] = raw;
+    return list.filter((a): a is Announced[number] =>
+      !!a && typeof propertyOf(a, 'id') === 'string' && typeof propertyOf(a, 'dossierId') === 'string' && typeof propertyOf(a, 'at') === 'number');
   } catch (error) {
     return error instanceof SyntaxError ? [] : null;
   }

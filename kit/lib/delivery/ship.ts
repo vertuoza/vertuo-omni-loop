@@ -12,7 +12,7 @@ import { SETTLED_FILE } from '../outbox/outbox.ts';
 import { releaseNotePath } from '../releases/check-releases.ts';
 import { gradeReleaseNote } from '../releases/note.ts';
 import type { Context, ExecRaw } from '../context.ts';
-import type { PrdNumber } from '../layout.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** Reads a repository file's text, by its path from the root. */
 export type ReadFile = (file: string) => string;
@@ -86,7 +86,7 @@ export function applyShip(ctx: Context, prd: PrdNumber, { exec = execFileSync }:
   // yolo-fix commits the settle before shipping.
   const delivery = ctx.config.paths.delivery;
   const dirty = exec('git', ['status', '--porcelain', '--', delivery], { cwd: ctx.root, encoding: 'utf8' });
-  if (String(dirty ?? '').trim()) throw new DirtyDeliveryError(delivery);
+  if (String(dirty).trim()) throw new DirtyDeliveryError(delivery);
   const read: ReadFile = (file) => readFileSync(join(ctx.root, file), 'utf8');
   const plan = planShip(ctx, prd, { files: trackedFiles(ctx), read });
   if (!plan.ok) throw new Error(`Cannot ship PRD ${Number(prd)}:\n${plan.reasons.map((r) => `  - ${r}`).join('\n')}`);

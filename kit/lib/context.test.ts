@@ -12,7 +12,9 @@ describe('slugFromRemote', () => {
     ['https://github.com/acme/widgets', 'acme/widgets'],
     ['ssh://git@github.com/acme/widgets.git', 'acme/widgets'],
     ['/local/path', null],
-  ])('%s → %s', (url, slug) => expect(slugFromRemote(url)).toBe(slug));
+  ])('%s → %s', (url, slug) => {
+    expect(slugFromRemote(url)).toBe(slug);
+  });
 });
 
 describe('loadContext', () => {

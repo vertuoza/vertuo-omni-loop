@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { assertDefined } from '../../test/assert.ts';
 import { testContext } from '../../test/fixture.ts';
 import type { Context } from '../context.ts';
 import { flatCtx as untypedFlatCtx } from '../../test/flat-layout.ts';
@@ -19,6 +20,7 @@ import {
   gradePrd,
   parseNameStatus,
 } from './check-decision-coverage.ts';
+import { parsePrd } from '../ids.ts';
 
 let root: string;
 beforeEach(() => {
@@ -104,13 +106,14 @@ describe('gradePrd', () => {
   ];
 
   it('a risky change with no account anywhere is unaccounted, and the printed line names path and rule', () => {
-    const result = gradePrd(1044, risky, { ctx: flatCtx(root) });
+    const result = gradePrd(parsePrd(1044), risky, { ctx: flatCtx(root) });
     expect(result.malformed).toEqual([]);
     expect(result.accounted).toEqual([]);
     expect(result.unaccounted).toEqual(risky);
     expect(result.stale).toEqual([]);
 
-    const line = describeUnaccounted(1044, result.unaccounted[0]!);
+    assertDefined(result.unaccounted[0], 'result.unaccounted[0]');
+    const line = describeUnaccounted(parsePrd(1044), result.unaccounted[0]);
     expect(line).toContain('libs/vertuo-ai-credit/src/server/migrations.ts');
     expect(line).toContain('stored-shape');
   });
@@ -125,7 +128,7 @@ describe('gradePrd', () => {
       '',
     ].join('\n');
     seedAccount(1044, 's3', accountText({ body }));
-    const result = gradePrd(1044, risky, { ctx: flatCtx(root) });
+    const result = gradePrd(parsePrd(1044), risky, { ctx: flatCtx(root) });
     expect(result.accounted).toEqual(risky);
     expect(result.unaccounted).toEqual([]);
     expect(result.stale).toEqual([]);
@@ -141,22 +144,23 @@ describe('gradePrd', () => {
       '',
     ].join('\n');
     seedAccount(1044, 's3', accountText({ body }));
-    const result = gradePrd(1044, risky, { ctx: flatCtx(root) });
+    const result = gradePrd(parsePrd(1044), risky, { ctx: flatCtx(root) });
     expect(result.unaccounted).toEqual(risky);
     expect(result.stale).toHaveLength(1);
-    expect(result.stale[0]!.path).toBe('some/other/path.ts');
+    assertDefined(result.stale[0], 'result.stale[0]');
+    expect(result.stale[0].path).toBe('some/other/path.ts');
   });
 
   it('a malformed account is refused by name and never silently compared', () => {
     seedAccount(1044, 's3', 'not even front matter\n');
-    const result = gradePrd(1044, risky, { ctx: flatCtx(root) });
+    const result = gradePrd(parsePrd(1044), risky, { ctx: flatCtx(root) });
     expect(result.malformed).toEqual([expect.stringContaining('docs/outbox/1044/accounts/s3.md')]);
     // The malformed file's entries never reach compare(); the risky change is still unaccounted.
     expect(result.unaccounted).toEqual(risky);
   });
 
   it('nothing risky and nothing accounted is entirely green', () => {
-    const result = gradePrd(1044, [], { ctx: flatCtx(root) });
+    const result = gradePrd(parsePrd(1044), [], { ctx: flatCtx(root) });
     expect(result).toEqual({
       prd: 1044,
       malformed: [],
@@ -190,7 +194,7 @@ describe('rangeChanges, on a real repository', () => {
 
   beforeEach(() => {
     repo = mkdtempSync(join(tmpdir(), 'check-decision-coverage-repo-'));
-    ctx = testContext(repo) as unknown as Context;
+    ctx = testContext(repo);
     git(['init', '-q', '-b', 'main']);
     git(['config', 'user.email', 'test@example.com']);
     git(['config', 'user.name', 'Test']);
@@ -212,7 +216,7 @@ describe('rangeChanges, on a real repository', () => {
     expect(changes).toEqual([{ status: 'A', path: 'apps/vertuo-ai-api/src/foo.service.ts' }]);
     expect(riskyChanges(changes, { ctx })).toEqual([]);
 
-    const result = gradePrd(1044, riskyChanges(changes, { ctx }), { ctx });
+    const result = gradePrd(parsePrd(1044), riskyChanges(changes, { ctx }), { ctx });
     expect(result).toEqual({ prd: 1044, malformed: [], accounted: [], unaccounted: [], stale: [] });
   });
 

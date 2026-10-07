@@ -6,6 +6,7 @@
 import { forge } from './forge.ts';
 import type { Painter, Pixels } from './forge.ts';
 import { rampFrom } from './heroes.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export type PersonaTrade =
   | 'builder' | 'plumber' | 'heating' | 'electrician' | 'carpenter' | 'roofer' | 'painter' | 'foreman'
@@ -47,10 +48,11 @@ export const PERSONA_AVATAR_RANGES: {
 });
 
 const FIELDS: readonly Field[] = Object.freeze<Field[]>(['skin', 'hair', 'hairColor', 'outfit', 'accessory']);
-const SIZE: Readonly<Record<string, number>> = Object.fromEntries(FIELDS.map((f) => [f, PERSONA_AVATAR_RANGES[f].max - PERSONA_AVATAR_RANGES[f].min + 1]));
+/** How many presets a field has. */
+const sizeOf = (f: Field): number => PERSONA_AVATAR_RANGES[f].max - PERSONA_AVATAR_RANGES[f].min + 1;
 
 /** How many avatars one trade can draw. */
-export const PERSONA_VARIATIONS: number = FIELDS.reduce((n, f) => n * SIZE[f]!, 1);
+export const PERSONA_VARIATIONS: number = FIELDS.reduce((n, f) => n * sizeOf(f), 1);
 
 export const PERSONA_PRESETS: {
   readonly skin: readonly string[];
@@ -100,7 +102,7 @@ function seed32(seed: number | string): number {
   if (typeof seed === 'string') {
     x = 0x811c9dc5;
     for (let i = 0; i < seed.length; i++) x = Math.imul(x ^ seed.charCodeAt(i), 0x01000193);
-  } else x = Math.floor(Number(seed) || 0);
+  } else x = Math.floor(seed || 0);
   x >>>= 0;
   x ^= x >>> 16; x = Math.imul(x, 0x7feb352d);
   x ^= x >>> 15; x = Math.imul(x, 0x846ca68b);
@@ -112,7 +114,7 @@ function avatarAt(index: number): PersonaAvatar {
   // Every field is set below, in FIELDS order: the keys keep the order they always had.
   const a: PersonaAvatar = { v: 1, skin: 0, hair: 0, hairColor: 0, outfit: 0, accessory: 0 };
   let n = index;
-  for (const f of FIELDS) { a[f] = PERSONA_AVATAR_RANGES[f].min + (n % SIZE[f]!); n = Math.floor(n / SIZE[f]!); }
+  for (const f of FIELDS) { a[f] = PERSONA_AVATAR_RANGES[f].min + (n % sizeOf(f)); n = Math.floor(n / sizeOf(f)); }
   return a;
 }
 
@@ -278,7 +280,7 @@ const HAIR: readonly Paint[] = [
 function head(d: Painter, hair: number): void {
   d.ellipse(16, 11, 6.5, 7.5, 'S');
   d.px(9, 11, 'S', 2).px(22, 11, 'S', 2);
-  HAIR[hair]!(d);
+  at(HAIR, hair, `hair style ${hair}`)(d);
   d.rect(12, 9, 3, 1, 'H').rect(17, 9, 3, 1, 'H');
   d.px(13, 11, 'X').px(18, 11, 'X');
   d.px(15, 13, 'S', 2).px(16, 13, 'S', 2);
@@ -307,17 +309,17 @@ export function personaGrid(trade: string, avatar: PersonaAvatar): Pixels {
   if (!def) throw new Error(`personaGrid: ${trade} is not a persona trade`);
   if (!validPersonaAvatar(avatar)) throw new Error(`personaGrid: ${JSON.stringify(avatar)} is not a persona avatar`);
   const outfits: Readonly<Record<string, readonly string[]>> = PERSONA_PRESETS.outfit;
-  const outfit = outfits[trade]![avatar.outfit]!;
+  const outfit = at(defined(outfits[trade], `the outfits of ${trade}`), avatar.outfit, `outfit ${avatar.outfit} of ${trade}`);
   const tint = {
-    S: rampFrom(PERSONA_PRESETS.skin[avatar.skin]!),
-    H: rampFrom(PERSONA_PRESETS.hairColor[avatar.hairColor]!),
+    S: rampFrom(at(PERSONA_PRESETS.skin, avatar.skin, `skin ${avatar.skin}`)),
+    H: rampFrom(at(PERSONA_PRESETS.hairColor, avatar.hairColor, `hair colour ${avatar.hairColor}`)),
     W: rampFrom(outfit),
     N: rampFrom(darker(outfit)),
   };
   const grid = forge(32, 32, (d) => {
-    BUSTS[def.bust]!(d);
+    defined(BUSTS[def.bust], `the bust ${def.bust}`)(d);
     head(d, avatar.hair);
-    ACCESSORIES[avatar.accessory]!(d);
+    at(ACCESSORIES, avatar.accessory, `accessory ${avatar.accessory}`)(d);
     def.prop(d);
   }, { tint });
   return { w: grid.w, h: grid.h, pixels: grid.pixels };

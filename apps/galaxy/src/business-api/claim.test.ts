@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addClaim, type BusinessDeps } from './api';
+import { sure } from '../arcade/test/sure';
+import { answerOf } from '../business/json.fake';
 
 // A fake database of one workspace, Acme (GitHub org acme), whose business already holds size#3 (2-50,
 // confirmed). claim_answer() is played as the migration writes it: 42501 outside the caller's
@@ -17,19 +19,19 @@ function world({ database = true } = {}) {
   const users: Record<string, typeof ADA> = { 'ada-token': ADA, 'carl-token': CARL };
   const client = (token: string) => ({
     auth: {
-      getUser: async (jwt: string) => ({ data: { user: users[jwt] ?? null }, error: users[jwt] ? null : { status: 401, message: 'bad jwt' } }),
+      getUser: (jwt: string) => Promise.resolve({ data: { user: users[jwt] ?? null }, error: users[jwt] ? null : { status: 401, message: 'bad jwt' } }),
     },
-    rpc: async (fn: string, args: Args) => {
+    rpc: (fn: string, args: Args) => {
       calls.push({ fn, args });
-      if (!users[token]!.member) return { data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } };
+      if (!sure(users[token], 'users[token]').member) return Promise.resolve({ data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } });
       if (args.p_kind === 'size' && !/^\d+\+?-\d+\+?$/.test(args.p_value)) {
-        return { data: null, error: { code: '22023', message: 'Size: <min>-<max>, each one of 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000+.' } };
+        return Promise.resolve({ data: null, error: { code: '22023', message: 'Size: <min>-<max>, each one of 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000+.' } });
       }
       const held = claims.find((c) => c.kind === args.p_kind && c.value.toLowerCase() === args.p_value.toLowerCase());
-      if (held) return { data: { id: held.id, state: held.state, added: false }, error: null };
+      if (held) return Promise.resolve({ data: { id: held.id, state: held.state, added: false }, error: null });
       const id = `${args.p_kind}#${claims.length + 3}`;
       claims.push({ id, kind: args.p_kind, value: args.p_value, source: 'answer', state: args.p_state, receipt: args.p_ref });
-      return { data: { id, state: args.p_state, added: true }, error: null };
+      return Promise.resolve({ data: { id, state: args.p_state, added: true }, error: null });
     },
   });
   const deps: BusinessDeps = { connect: database ? (client as unknown as NonNullable<BusinessDeps['connect']>) : null };
@@ -39,7 +41,7 @@ function world({ database = true } = {}) {
       headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
       body: typeof body === 'string' ? body : JSON.stringify(body),
     }), deps);
-    return { status: response.status, body: await response.json(), cache: response.headers.get('cache-control') };
+    return { status: response.status, body: await answerOf(response), cache: response.headers.get('cache-control') };
   };
   return { calls, claims, post };
 }

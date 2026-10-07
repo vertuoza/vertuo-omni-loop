@@ -29,11 +29,14 @@ import { readDecisions } from '../playbook/decisions.ts';
 import { ADOPTED_VERDICT } from '../outbox/settle.ts';
 import type { Context } from '../context.ts';
 import { NEW_PRINCIPLE, PRODUCT_PLACE, type ClassificationReply, type ItemSections } from './classify.ts';
+import { defined } from '../narrow.ts';
+import { plainText } from '../outbox/plain-text.ts';
 import { BECAME_FIELD, STAYS_HERE_FIELD } from './harvest.ts';
 import { PRODUCT_CODE, codeOf, domainsDir, idParts, productDir, readKnowledge, type EntryKind } from './registers.ts';
+import type { PrNumber, PrdNumber } from '../ids.ts';
 
 /** The merge a harvest runs after: who merged, when, and which pull request. */
-export type Merge = { by: string; at: string; pr: number; url?: string };
+export type Merge = { by: string; at: string; pr: PrNumber; url?: string };
 
 /** The record numbers and register ids the open knowledge branches already hold. */
 export type Taken = { records?: readonly (string | number)[]; ids?: readonly string[] };
@@ -42,7 +45,7 @@ export type Taken = { records?: readonly (string | number)[]; ids?: readonly str
 export type WriteCandidate = {
   id: string;
   ledgerFile: string | null;
-  item?: { prd?: number | null; sections?: ItemSections | null } | null;
+  item?: { prd?: PrdNumber | null; sections?: ItemSections | null } | null;
   answer?: string | null;
   verdict?: string | null;
   approvedBy?: string | null;
@@ -95,9 +98,9 @@ const PREFIX: Record<EntryKind, string> = { principle: 'P', rule: 'BR', invarian
 const LAYER: Record<EntryKind, string> = { principle: 'principles.md', rule: 'rules.md', invariant: 'invariants.md' };
 const NONE_YET = /^None yet\./;
 
-const day = (value: unknown): string => String(value ?? '').slice(0, 10);
-const handle = (who: unknown): string => (String(who).startsWith('@') ? String(who) : `@${who}`);
-const oneLine = (value: unknown): string => String(value ?? '').replace(/\s+/g, ' ').trim();
+const day = (value: unknown): string => plainText(value).slice(0, 10);
+const handle = (who: unknown): string => (String(who).startsWith('@') ? String(who) : `@${String(who)}`);
+const oneLine = (value: unknown): string => plainText(value).replace(/\s+/g, ' ').trim();
 
 /** Whether a person answered the decision: agreed, or drifted and reworked since. */
 export function answeredByPerson(candidate: Pick<WriteCandidate, 'verdict' | 'closed'>): boolean {
@@ -238,7 +241,7 @@ function appendEntry(text: string | null, entry: string, { heading }: { heading:
   return `${base}${entry}`;
 }
 
-function sourceLine(candidate: WriteCandidate, ledgerFile: string, prd: number | null): string {
+function sourceLine(candidate: WriteCandidate, ledgerFile: string, prd: PrdNumber | null): string {
   return `${ledgerFile}, entry ${candidate.id}, PRD #${prd}`;
 }
 
@@ -264,7 +267,7 @@ function renderRecord({
   decided: string;
   merged: string;
   merge: Merge;
-  prd: number | null;
+  prd: PrdNumber | null;
   ledgerFile: string;
 }): string {
   const option = chosenOption(candidate);
@@ -329,7 +332,7 @@ export function writeKnowledge({
   ctx: WriteCtx;
   classified: readonly Classified[];
   merge: Merge;
-  taken?: Taken;
+  taken?: Taken | undefined;
   date: string;
 }): WriteResult {
   const files = makeFiles(ctx);
@@ -344,7 +347,7 @@ export function writeKnowledge({
       notPlaced.push({ id: candidate.id, reason: reason ?? 'not classified' });
       continue;
     }
-    const ledgerFile = candidate.ledgerFile!; // ts-allow: harvestCandidates always names the ledger it read
+    const ledgerFile = defined(candidate.ledgerFile, `the ledger of ${candidate.id}`); // harvestCandidates always names the ledger it read
     const prd = candidate.item?.prd ?? null;
     const answered = answeredByPerson(candidate);
     const decided = decidedLine(candidate);
@@ -389,7 +392,7 @@ export function writeKnowledge({
       touched.push(path);
       landedAs = [id];
       if (principleId && reply.kind === 'rule') {
-        const proposal = reply.principle!; // ts-allow: classificationSchema refuses serves "new" without the principle it proposes
+        const proposal = defined(reply.principle, `the principle ${candidate.id} proposes`); // classificationSchema refuses serves "new" without the principle it proposes
         const principlePath = `${place.dir}/${LAYER.principle}`;
         const principle = renderRegisterEntry({
           id: principleId,

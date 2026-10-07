@@ -1,5 +1,5 @@
 import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import type { FakeUser, fakeGalaxyDb } from '../../data/galaxy.fake';
+import { isFakeTable, type FakeUser, type fakeGalaxyDb } from '../../data/galaxy.fake';
 
 // A stubbed Supabase client for the counts' loader tests (PRD 328): the galaxy's fake database
 // (src/data/galaxy.fake.ts) answers the game's tables, and beside it the three ask tables live in
@@ -22,7 +22,7 @@ type Op = 'eq' | 'in' | 'gte' | 'lt';
 export type AskRead = { table: AskTable; filters: Array<{ column: string; op: Op; value: unknown }>; counting: boolean };
 
 const ASK_TABLES: readonly AskTable[] = ['ask_sessions', 'ask_rounds', 'ask_shares'];
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+const clone = <T>(value: T): T => structuredClone(value);
 
 /** Instants as instants; a range never holds a null. */
 const time = (value: unknown) => (typeof value === 'string' ? Date.parse(value) : Number.NaN);
@@ -63,7 +63,7 @@ export function fakeCountsDb(world: ReturnType<typeof fakeGalaxyDb>, seed: Parti
       this.me = me;
     }
 
-    select(_columns = '*', options: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean } = {}) {
+    select(_columns?: string, options: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean } = {}) {
       this.counting = options.count !== undefined;
       this.head = options.head ?? false;
       return this;
@@ -96,7 +96,11 @@ export function fakeCountsDb(world: ReturnType<typeof fakeGalaxyDb>, seed: Parti
     const game = world.client(user);
     return {
       ...game,
-      from: (table: string) => (isOneOf(ASK_TABLES, table) ? new Query(table, user) : game.from(table as never)), // ts-allow: a test fake hands every other table to the galaxy fake, which answers only its own
+      from: (table: string) => {
+        if (isOneOf(ASK_TABLES, table)) return new Query(table, user);
+        if (isFakeTable(table)) return game.from(table);
+        throw new Error(`fake: no table ${table}`);
+      },
     };
   }
 

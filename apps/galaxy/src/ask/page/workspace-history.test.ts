@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { RoundRow, SessionRow } from './view';
 import { historyChoices, historyList, readHistoryFilters, type HistoryRow } from './workspace-history';
+import { present } from '../test/test-item';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The workspace's history (PRD 144), as a pure function of the rows the caller may read, the
 // workspace's members and the filters in the address: newest first, each filter narrowing it.
@@ -29,13 +31,13 @@ function row(id: string, session: SessionRow, minute: number, patch: Partial<Rou
 const ROWS: HistoryRow[] = [
   row('r1', ONE, 1, {
     questions: q('Which storage should the ledger use?', 'Storage'), status: 'answered', answers: { 'Which storage should the ledger use?': 'Postgres' },
-    answered_via: 'page', answered_at: at(2), answered_by: BOB, prd: 71, skill: '/omni:brainstorm', category: 'architecture', category_by: 'model',
+    answered_via: 'page', answered_at: at(2), answered_by: BOB, prd: parsePrd(71), skill: '/omni:brainstorm', category: 'architecture', category_by: 'model',
   }),
   row('r2', TWO, 5, {
     questions: q('Should the trial last 30 days?', 'Trial'), status: 'answered', answers: { 'Should the trial last 30 days?': 'Fourteen days, invoiced monthly' },
-    answered_via: 'terminal', answered_at: at(6), answered_by: BOB, prd: 94, skill: '/omni:yolo', category: 'business', category_by: ADA,
+    answered_via: 'terminal', answered_at: at(6), answered_by: BOB, prd: parsePrd(94), skill: '/omni:yolo', category: 'business', category_by: ADA,
   }),
-  row('r3', ONE, 9, { prd: 71, skill: '/omni:yolo' }),
+  row('r3', ONE, 9, { prd: parsePrd(71), skill: '/omni:yolo' }),
 ];
 
 const ids = (list: ReturnType<typeof historyList>) => list.map((item) => item.roundId);
@@ -62,7 +64,7 @@ describe('the workspace history', () => {
       question: 'Should the trial last 30 days?', answer: 'Fourteen days, invoiced monthly', status: 'answered',
       askedBy: 'bob@vertuoza.com', answeredBy: 'bob@vertuoza.com', via: 'terminal', category: 'Business', at: at(5),
     });
-    expect(trial!.context).toEqual(['vertuoza/vertuo-app', 'feat/pricing', 'PRD #94', '/omni:yolo', 'answered in 1 min 0 s']);
+    expect(present(trial, 'trial').context).toEqual(['vertuoza/vertuo-app', 'feat/pricing', 'PRD #94', '/omni:yolo', 'answered in 1 min 0 s']);
     expect(storage).toMatchObject({ askedBy: 'ADA', answeredBy: 'bob@vertuoza.com', category: 'Architecture' });
     expect(storage).toMatchObject({ askedByFace: { kind: 'initial', letter: 'A' }, answeredByFace: { kind: 'initial', letter: 'B' } });
     const open = historyList(ROWS, {}, MEMBERS)[0];
@@ -73,7 +75,7 @@ describe('the workspace history', () => {
     ['category', { category: 'business' }, ['r2']],
     ['unsorted', { category: 'unsorted' }, ['r3']],
     ['repo', { repo: 'vertuoza/vertuo-omni-loop' }, ['r3', 'r1']],
-    ['PRD', { prd: 71 }, ['r3', 'r1']],
+    ['PRD', { prd: parsePrd(71) }, ['r3', 'r1']],
     ['skill', { skill: '/omni:yolo' }, ['r3', 'r2']],
     ['who asked', { askedBy: BOB }, ['r2']],
     ['who answered', { answeredBy: BOB }, ['r2', 'r1']],
@@ -82,8 +84,8 @@ describe('the workspace history', () => {
   });
 
   it('combines filters', () => {
-    expect(ids(historyList(ROWS, { prd: 71, skill: '/omni:yolo' }, MEMBERS))).toEqual(['r3']);
-    expect(ids(historyList(ROWS, { prd: 94, repo: 'vertuoza/vertuo-omni-loop' }, MEMBERS))).toEqual([]);
+    expect(ids(historyList(ROWS, { prd: parsePrd(71), skill: '/omni:yolo' }, MEMBERS))).toEqual(['r3']);
+    expect(ids(historyList(ROWS, { prd: parsePrd(94), repo: 'vertuoza/vertuo-omni-loop' }, MEMBERS))).toEqual([]);
   });
 
   it('finds a round by a word of its answer, or of its question, whatever the case', () => {
@@ -98,7 +100,7 @@ describe('the filters, read from the address', () => {
   it('reads each filter, and ignores what is empty or not a filter value', () => {
     expect(readHistoryFilters({
       category: 'product', repo: 'vertuoza/vertuo-app', prd: '94', skill: '/omni:yolo', asked: BOB, answered: ADA, q: '  trial  ',
-    })).toEqual({ category: 'product', repo: 'vertuoza/vertuo-app', prd: 94, skill: '/omni:yolo', askedBy: BOB, answeredBy: ADA, search: 'trial' });
+    })).toEqual({ category: 'product', repo: 'vertuoza/vertuo-app', prd: parsePrd(94), skill: '/omni:yolo', askedBy: BOB, answeredBy: ADA, search: 'trial' });
     expect(readHistoryFilters({ category: 'finance', prd: 'x', repo: '', q: ' ', skill: ['/a', '/b'] })).toEqual({ skill: '/a' });
     expect(readHistoryFilters({ category: 'unsorted' })).toEqual({ category: 'unsorted' });
   });

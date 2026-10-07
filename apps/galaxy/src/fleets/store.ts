@@ -2,6 +2,7 @@ import { MASCOTS as LIBRARY } from '@omni/design';
 import { lookOf } from '@omni/galaxy';
 import { z } from 'zod';
 import type { FleetRow } from '../arcade/types';
+import { settled } from '../stages/settled';
 import { refusalOf, type Refusal } from './refusal';
 
 // /app/settings/fleets's four calls (PRD 400 s3). In production, the owner-only fleet functions of
@@ -44,9 +45,14 @@ const TeamRowSchema = z.object({
 });
 type TeamRow = z.infer<typeof TeamRowSchema>;
 
-/** A public.teams row as the page draws it. */
-export const fleetOfRow = (r: TeamRow): FleetRow =>
-  ({ name: r.name, ...lookOf(r.name, { ...r, home: r.home ?? null, motto: r.motto ?? '', retired: Boolean(r.retired_at) }) });
+/** A public.teams row as the page draws it. A field the row leaves out is left out of the look's
+ * input too, so @omni/galaxy's lookOf gives it its default. */
+export const fleetOfRow = ({ name, home, label, color, motto, mascot, sort, retired_at }: TeamRow): FleetRow =>
+  ({ name, ...lookOf(name, {
+    home: home ?? null, motto: motto ?? '', retired: Boolean(retired_at),
+    ...(label === undefined ? {} : { label }), ...(color === undefined ? {} : { color }),
+    ...(mascot === undefined ? {} : { mascot }), ...(sort === undefined ? {} : { sort }),
+  }) });
 
 type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }> };
 
@@ -100,31 +106,39 @@ export function demoFleetsPort(initial: FleetRow[]): FleetsPort {
   };
   const find = (name: string) => fleets.find((f) => f.name === name);
   return {
-    async create(input) {
-      const look = checked(input);
-      if ('ok' in look) return look;
-      if (!room()) return FULL();
-      const base = look.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'fleet';
-      let name = base;
-      for (let n = 2; find(name); n++) name = `${base}-${n}`;
-      const sort = Math.max(0, ...fleets.map((f) => f.sort)) + 10;
-      return put({ name, home: null, ...look, sort, retired: false });
+    create(input) {
+      return settled(() => {
+        const look = checked(input);
+        if ('ok' in look) return look;
+        if (!room()) return FULL();
+        const base = look.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'fleet';
+        let name = base;
+        for (let n = 2; find(name); n++) name = `${base}-${n}`;
+        const sort = Math.max(0, ...fleets.map((f) => f.sort)) + 10;
+        return put({ name, home: null, ...look, sort, retired: false });
+      });
     },
-    async update(name, input) {
-      const look = checked(input);
-      if ('ok' in look) return look;
-      const f = find(name);
-      return f ? put({ ...f, ...look }) : GONE;
+    update(name, input) {
+      return settled(() => {
+        const look = checked(input);
+        if ('ok' in look) return look;
+        const f = find(name);
+        return f ? put({ ...f, ...look }) : GONE;
+      });
     },
-    async retire(name) {
-      const f = find(name);
-      return f ? put({ ...f, retired: true }) : GONE;
+    retire(name) {
+      return settled(() => {
+        const f = find(name);
+        return f ? put({ ...f, retired: true }) : GONE;
+      });
     },
-    async restore(name) {
-      const f = find(name);
-      if (!f) return GONE;
-      if (!f.retired) return { ok: true, fleet: f };
-      return room() ? put({ ...f, retired: false }) : FULL();
+    restore(name) {
+      return settled(() => {
+        const f = find(name);
+        if (!f) return GONE;
+        if (!f.retired) return { ok: true, fleet: f };
+        return room() ? put({ ...f, retired: false }) : FULL();
+      });
     },
   };
 }

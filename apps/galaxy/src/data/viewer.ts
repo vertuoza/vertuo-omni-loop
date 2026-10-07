@@ -1,10 +1,10 @@
 import 'server-only';
 import { cache } from 'react';
-import type { JwtPayload, SupabaseClient, User } from '@supabase/supabase-js';
-import type { Database } from '../../../../supabase/database.types.ts';
+import type { JwtPayload, User, UserIdentity } from '@supabase/supabase-js';
 import { readWaitingQuestions } from '../waiting/source';
 import type { WaitingQuestion } from '../waiting/waiting';
-import { arcadeMode, type ArcadeMode } from './mode';
+import type { ArcadeMode } from './mode';
+import { serverEnv } from '../env';
 import { supabaseEnv, supabaseServer } from './supabase-server';
 import { memberWorkspace, type Workspace } from './workspace';
 
@@ -57,20 +57,21 @@ export function userOfClaims(claims: JwtPayload): User {
   const userName = text(meta.user_name);
   const preferred = text(meta.preferred_username);
   const github = providers.includes('github') && (userName || preferred);
+  const identities: UserIdentity[] = github
+    ? [{ id: claims.sub, user_id: claims.sub, identity_id: claims.sub, provider: 'github', identity_data: { user_name: userName, preferred_username: preferred } }]
+    : [];
   return {
     id: claims.sub,
     aud: typeof claims.aud === 'string' ? claims.aud : 'authenticated',
-    email: claims.email,
-    phone: claims.phone,
+    ...(claims.email === undefined ? {} : { email: claims.email }),
+    ...(claims.phone === undefined ? {} : { phone: claims.phone }),
     role: claims.role,
-    is_anonymous: claims.is_anonymous,
+    ...(claims.is_anonymous === undefined ? {} : { is_anonymous: claims.is_anonymous }),
     app_metadata: app,
     user_metadata: meta,
     created_at: '',
-    identities: github
-      ? [{ id: claims.sub, user_id: claims.sub, provider: 'github', identity_data: { user_name: userName, preferred_username: preferred } }]
-      : [],
-  } as unknown as User; // ts-allow: the fields of a User the app reads; the claims carry no more
+    identities,
+  };
 }
 
 /** A read started at most once: the first call's promise, every call after. */
@@ -101,7 +102,7 @@ export async function readViewing(deps: ViewerDeps): Promise<Viewing> {
   const user = userOfClaims(claims);
   return {
     kind: 'signed-in', db, env, user,
-    workspace: once(() => memberWorkspace(db as unknown as SupabaseClient<Database>, user.id)), // ts-allow: the viewer's client is the server client, typed narrower here
+    workspace: once(() => memberWorkspace(db, user.id)),
     questions: once(() => deps.questions(db, user.id, deps.now())),
   };
 }
@@ -112,7 +113,7 @@ type Memo = <T>(read: () => T) => () => T;
 export const viewerOf = (deps: ViewerDeps, memo: Memo) => memo(() => readViewing(deps));
 
 const LIVE: ViewerDeps = {
-  mode: () => arcadeMode(process.env),
+  mode: () => serverEnv().mode,
   env: supabaseEnv,
   client: supabaseServer,
   questions: (db, userId, now) => readWaitingQuestions(db, userId, now),

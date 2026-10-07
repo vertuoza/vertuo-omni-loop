@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { answeredTitle, forMeList, questionView, type ForMeRow, type QuestionState } from './question';
 import { HOOK_WAIT_MS, type RoundRow, type SessionRow } from './view';
+import { item } from '../test/test-item';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const MIN = 60_000;
@@ -109,8 +110,8 @@ describe('For me', () => {
   it('carries the sharer\'s face: the directory\'s, else their initial (PRD 652)', () => {
     const hero = { kind: 'hero' as const, svg: '<svg></svg>' };
     const faced = MEMBERS.map((m) => (m.user_id === ADA ? { ...m, face: hero } : m));
-    expect(forMeList([row(round('r1', MIN))], faced, NOW)[0]!.sharedByFace).toEqual(hero);
-    expect(forMeList([row(round('r1', MIN), { sharedBy: DAN })], faced, NOW)[0]!.sharedByFace).toEqual({ kind: 'initial', letter: 'D' });
+    expect(item(forMeList([row(round('r1', MIN))], faced, NOW), 0).sharedByFace).toEqual(hero);
+    expect(item(forMeList([row(round('r1', MIN), { sharedBy: DAN })], faced, NOW), 0).sharedByFace).toEqual({ kind: 'initial', letter: 'D' });
   });
 
   it('leaves out a round answered, moved to the terminal, out of time, or in a closed session', () => {

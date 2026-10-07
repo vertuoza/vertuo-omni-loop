@@ -1,6 +1,7 @@
 // What GitHub's GraphQL API answers the collector's queries (PRD 612, bug 638, PRD 714), as the
 // collector reads them (PRD 725, s20). Each schema names only the fields the collector uses and lets
 // every other field through; a field the collector reads past a missing value is nullish here.
+import { PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { z } from 'zod';
 import { firstIssue } from 'vertuo-omni-plan/kit/lib/plan-repo/gh-schema.ts';
 
@@ -19,7 +20,7 @@ export const PullsUpdatedSchema = z.looseObject({
   repository: z.looseObject({
     pullRequests: z.looseObject({
       pageInfo: z.looseObject({ hasNextPage: z.boolean(), endCursor: z.string().nullish() }),
-      nodes: z.array(z.looseObject({ number: z.number(), updatedAt: z.string() })),
+      nodes: z.array(z.looseObject({ number: PrNumberSchema, updatedAt: z.string() })),
     }),
   }),
 });
@@ -29,7 +30,7 @@ const ActorSchema = z.looseObject({ login: z.string().nullish(), __typename: z.s
 
 /** One pull request of `query PullDetails`, its `PULL_FIELDS`. */
 export const PullDetailSchema = z.looseObject({
-  number: z.number(),
+  number: PrNumberSchema,
   author: ActorSchema,
   createdAt: z.string(),
   mergedAt: z.string().nullish(),
@@ -96,12 +97,6 @@ export const FailureSchema = z.looseObject({
   status: z.unknown().optional(),
 });
 
-/** The environment the collector reads: the database's address and the service role's key. */
-export const StoreEnvSchema = z.looseObject({
-  SUPABASE_URL: z.string().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-});
-
 export type PullDetail = z.infer<typeof PullDetailSchema>;
 export type Actor = z.infer<typeof ActorSchema>;
 
@@ -119,3 +114,35 @@ export function parsedOr<S extends z.ZodType>(schema: S, value: unknown, context
   if (parsed.success) return parsed.data;
   throw new Error(`${context}: ${firstIssue(parsed.error)}`);
 }
+
+// What the collector's steps return, read back through these once Inngest has saved them as JSON
+// (PRD 1030): a deploy between two replays of a run cannot hand the collector a value of another shape.
+
+/** An installation's GraphQL budget, as the collector carries it from one batch to the next; `{}` before its first query. */
+export const BudgetSchema = z.object({
+  limit: z.number().exactOptional(),
+  remaining: z.number().exactOptional(),
+  resetAt: z.string().nullable().exactOptional(),
+});
+
+/** A tracked repository and its installation, as the step "list-repositories" returns them. */
+export const TrackedRepositorySchema = z.object({
+  workspaceId: z.string(),
+  installationId: z.number(),
+  fullName: z.string(),
+  collectedUntil: z.string().nullable(),
+});
+
+/** The step "list-repositories": every tracked repository. */
+export const TrackedRepositoriesSchema = z.array(TrackedRepositorySchema);
+
+/** A step "collect <workspace>/<repo> <n>": what one batch did, and where the cursor and the budget stand. */
+export const BatchOutSchema = z.object({
+  saved: z.number(),
+  cursor: z.string(),
+  more: z.boolean(),
+  paused: z.literal(true).exactOptional(),
+  error: z.string().exactOptional(),
+  budget: BudgetSchema,
+});
+export type BatchOut = z.infer<typeof BatchOutSchema>;

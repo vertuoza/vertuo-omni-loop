@@ -123,29 +123,100 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'skills',
     usage: [
       'omni care state <prd> [--pr <n>] [--repo <owner/name>]',
+      'omni care list <prd> [--json]',
       'omni care reply --verdict <v> --body <text> [--thread <id>]',
       'omni care reply --verdict <v> --file <path> [--thread <id>]',
     ],
     summary: "PRD n's feature PR as PR care sees it, and its marked replies",
     detail:
       "state prints PRD n's feature PR as one document: its checks, whether it conflicts, each review " +
-      'thread with its verdict, whether a wave holds claims, and the next actions of a round. reply ' +
+      'thread with its verdict, whether a wave holds claims, and the next actions of a round; with ' +
+      "--repo and --pr, in a plan repository, a target's PR read against that target. list, in a plan " +
+      'repository, names every pull request /omni:mega-pr-care looks after, in merge order. reply ' +
       'writes a reply ending with the care marker; with --thread it posts it and resolves the thread ' +
       'unless the verdict is asked. Needs gh logged in.',
+  },
+  {
+    name: 'next',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni next [<prd>…] [--json] [--plan]'],
+    label: 'omni next [<n>…]',
+    summary: "the loop's next step, for PRD n or across your PRDs",
+    detail:
+      "PRD n's next step, read from its phase-0 PR, its feature PR, its open outbox questions and " +
+      'its board: act with the skill to run (a wave, yolo, yolo-fix or one PR care round), wait ' +
+      'with when to look again, park with who it waits on and the link where they act, or done. ' +
+      'With no number it drives your own PRDs in inbox, building or outbox, as omni status marks ' +
+      'them. --plan orders every slice of them into numbered steps (colliding territories in ' +
+      'series with the reason, blocked-by held, the rest beside each other) and keeps the plan in ' +
+      'this checkout; each later call returns the first step not done, and writes a new plan ' +
+      'version with a one-line reason when a slice goes stuck, a slice is added or a PRD ends ' +
+      'early. It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one ' +
+      'document. Needs gh logged in.',
+  },
+  {
+    name: 'loop',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni loop push start [--take-over]',
+      'omni loop push tick --step <k> --prd <n> --action <word> --result "<line>" […]',
+      'omni loop push park --prd <n> --who "<who>" --what "<what>" [--link <url>]',
+      'omni loop push stop',
+      'omni loop status [--json]',
+    ],
+    summary: "sends a loop's state to the Loop page",
+    detail:
+      "Sends where a loop stands to the Loop page on the Omni page, with this computer's sign-in. " +
+      'start opens a loop on this repository with the loop plan omni next --plan keeps, and keeps ' +
+      "the loop's id and plan in this checkout, so a loop whose terminal closed resumes with the " +
+      'same ones; it refuses a second live loop here, and takes over a silent one, whose session ' +
+      'died, only with --take-over. tick records one step, its result, its links and the next ' +
+      'wake, and carries a new plan version when omni next wrote one; park records a PRD waiting ' +
+      'on a person; stop ends the loop. status prints the loop kept here and what it is doing, and ' +
+      'calls nothing. It never holds up the loop: a 5-second limit and one sign-in refresh, and ' +
+      'anything that stops it exits 1 with one line (off, no sign-in, unreachable or refused).',
   },
   {
     name: 'check',
     kind: 'command',
     who: 'you',
-    usage: ['omni check [inbox|outbox|knowledge|kb|releases|coverage|all]', '  [--base <ref>] [--prd <n>]'],
+    usage: ['omni check [config|inbox|outbox|knowledge|kb|releases|coverage|all]', '  [--base <ref>] [--prd <n>]'],
     label: 'omni check [all]',
     summary: "the repository's guards",
     detail:
-      "The repository's guards, each printing its violations or one line saying it passed: inbox " +
+      "The repository's guards, each printing its violations or one line saying it passed: config " +
+      '(the config file, its flow and every hook file the flow names, each refusal naming its key), inbox ' +
       '(the PRDs waiting to be built), outbox (the open items), knowledge (the registers), kb (the ' +
       "playbook's forms), releases (the release notes) and coverage (every risky change of a branch " +
       'accounted for, against --base). all, the default, runs every one, and skips coverage when ' +
       '{remote}/{defaultBranch} has not been fetched. Exit 1 on any violation.',
+  },
+  {
+    name: 'flow',
+    kind: 'command',
+    who: 'you',
+    usage: [
+      'omni flow show [<point>] [--json] [--repo <target>]',
+      '  [--prd <n> --slice <id> | --path <p>]',
+      'omni flow verdict <point> --from <file>',
+      'omni flow check merge --pr <n> [--repo <target>] [--json]',
+    ],
+    label: 'omni flow show',
+    summary: "this repository's areas, rules and hooks",
+    detail:
+      "The repository's flow, the rules, areas and hooks its config declares. show with a point " +
+      '(do-work.test, pr.open…) prints the hooks to follow there, every before, the replace and ' +
+      'every after, each with its area, its text with the inputs filled in and the verdict line it ' +
+      'ends with, then kitStep: run, or replaced when a hook takes the kit\'s place; --prd and --slice ' +
+      "read the slice's territory from its plan, --path takes one path. A hook file that is not there " +
+      'is a not ok line and exit 1. show --path prints the area a path belongs to, with every rule ' +
+      "and hook there; show alone, what this repository changes from the kit's defaults, area by " +
+      "area. --repo reads a target's flow from its imported copy. verdict reads a hook's output: ok, " +
+      'or not ok with the point and why, exit 1, and not ok … no verdict when its last line is not ' +
+      "the verdict. check merge reads a sub-PR's checks, reviews and diff and applies the sub-PR rules " +
+      'of its areas: ok and the merge command to run, or a not ok line per reason, exit 1.',
   },
   {
     name: 'kb',
@@ -216,6 +287,45 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'It never holds up the skill that runs it: anything that stops it exits 1 with one line, as ' +
       'omni dossier link does. omni proof session writes the signed-in browser session a run films ' +
       'with, from your omni signin, to <file> or PROOF_STORAGE_STATE: set proof.setup to it.',
+  },
+  {
+    name: 'pitch',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni pitch start <n> --for customers|inside',
+      'omni pitch film <dir>',
+      'omni pitch check <dir>',
+      'omni pitch render <dir> [--stills]',
+      'omni pitch studio <dir> [--no-open]',
+      'omni pitch push <n> <dir>',
+    ],
+    summary: "makes a shipped PRD's pitch, and sends it to its Pitch tab",
+    detail:
+      'The verbs /omni:pitch runs. start refuses with one line, writing nothing, a PRD not shipped, a ' +
+      'proof.url that is not a fixed URL, no ffmpeg or no sign-in; otherwise it opens the run folder ' +
+      "under the worktrees, writes the product's Pitch settings there as settings.json (the Arcade " +
+      'preset, said in one line, when the Omni page cannot answer them), names each file they point at ' +
+      "that the run's assets/ folder must hold, and prints the folder. film plays the folder's " +
+      'walk.json in the browser at 1920×1080, signed in with its storage-state.json, and writes ' +
+      'walk.webm and moments.json, each moment with its time, the box of its element and the camera ' +
+      'that shows it; it only looks, refusing a click on a submit button or on words that save, send, ' +
+      "delete or change anything, and writing nothing then. check reads the folder's " +
+      'storyboard.json and stops, naming each with its path, a field the schema refuses, a media file ' +
+      'missing, an intro that is not first or an outro that is not last; it warns on words over their ' +
+      'count, words that take longer to read than their scene lasts and a length outside 15 to 60 ' +
+      's, and writes the warnings to pitch.json. render --stills draws one image per scene and a ' +
+      'contact sheet of them in stills/; render draws every frame in the browser and makes pitch.mp4 ' +
+      '(1920×1080), pitch-square.mp4 (1080×1080) and pitch.gif (8 s at most, 640 px wide) with ffmpeg, ' +
+      "the music its provider picks under them, and the intro's still as slide.png and slide-square.png. " +
+      'studio serves the storyboard on a local page with play, frame and scene keys, opens it unless ' +
+      '--no-open, and reloads it when the storyboard changes. push ' +
+      "sends a pitch /omni:pitch made of shipped PRD n to its dossier on the Omni page, and prints its " +
+      "Pitch tab's link, then the GIF's link that opens without signing in. It reads pitch.json in the " +
+      'folder and refuses, before sending anything, a run missing one of its five files ' +
+      '(slide.png, slide-square.png, pitch.mp4, pitch-square.mp4, pitch.gif) or one over 50 MB. A PRD ' +
+      'that is not shipped prints not shipped. It never retries, and never holds up the skill that runs ' +
+      'it: anything that stops it exits 1 with one line, as omni proof push does, and keeps every file.',
   },
   {
     name: 'business',
@@ -509,15 +619,18 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'plan',
     kind: 'command',
     who: 'skills',
-    usage: ['omni plan check <prd>', 'omni plan moved <prd> [--json]'],
-    summary: "grade a PRD's plan, or see what moved in its targets",
+    usage: ['omni plan check <prd>', 'omni plan moved <prd> [--json]', 'omni plan landings <prd> [--json] [--repo <name>]'],
+    summary: "grade a PRD's plan, see what moved in its targets, or list its landings",
     detail:
       "check grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the " +
-      'same plan in an earlier wave, no id is used twice, and no two slices of one wave share ground. ' +
+      'same plan in an earlier wave of the same landing, no id is used twice, no two slices of one ' +
+      'wave share ground, landings run from 1 with no gap, and paths that land alone travel alone. ' +
       'It prints the slices, the waves and where they meet, then every violation; exit 1 on any. ' +
       "moved, in a plan repository, compares each target's read at with its default branch today: " +
       'moved with the files changed under its slices\' territories, ok, or unreachable; exit 0 ' +
-      'whatever the states, 1 with not a plan repository.',
+      'whatever the states, 1 with not a plan repository. landings prints the chain of landing ' +
+      'branches the PRD is opened as: each branch, the branch it is cut from, its title suffix, the ' +
+      'landing it is merged after and its slices; --repo keeps one target of a plan repository.',
   },
   {
     name: 'rework',
@@ -617,6 +730,19 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'it tells the Omni page that the session is working, and on which draft, PRD or fix. --end, ' +
       "run when the session ends, says it stopped. It sends only when you are signed in and dossiers " +
       'are on, sends no path, command or text, prints nothing and always exits 0.',
+  },
+  {
+    name: 'generated',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni generated <range> [--json]'],
+    summary: 'which built files a range made stale, and how to rebuild them',
+    detail:
+      "For each output the config's generated section lists, a file the repository builds rather " +
+      'than writes, says stale when a path the range changed is under one of its sources, fresh ' +
+      'otherwise, with the build that rebuilds it. A wave runs the stale builds once, after merging, ' +
+      'and commits the rebuilt files alone. --json prints the same as one document. Without the ' +
+      'section it prints no generated files. It runs no build, and exits 0 whatever it finds.',
   },
   {
     name: 'statusline',
@@ -736,6 +862,47 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:ultra-yolo 600',
       result: 'a feature PR ready in each target, then the plan PR ready last, or a draft with the outbox questions',
+    },
+  },
+  {
+    name: 'mega-pr-care',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-pr-care <n>'],
+    label: '/omni:mega-pr-care <n>',
+    summary: 'look after every PR of a PRD across repositories',
+    detail:
+      'The /omni:pr-care of a plan repository: looks after the plan PR, every target and landing PR ' +
+      'and every bug-fix PR linked to PRD n, round by round in merge order, until each is merged or ' +
+      "closed or you stop it. Each target PR is read against the target's own default branch, " +
+      "landings, wave claims and review form; a red that waits on another repository's PR spends " +
+      'no attempt. In a target it runs only its own committed preflight, and it never merges.',
+    group: 'multi-repo',
+    when: "Use it when a multi-repository PRD's pull requests are open and you want CI, conflicts and review comments handled in every repository.",
+    example: {
+      type: '/omni:mega-pr-care 1200',
+      result: 'every target PR and the plan PR kept green, each review comment handled',
+    },
+  },
+  {
+    name: 'mega-bug-fix',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-bug-fix <line or n> [--prd <prd>]'],
+    label: '/omni:mega-bug-fix',
+    summary: 'a bug across repositories, to one PR per target',
+    detail:
+      'The /omni:bug-fix of a plan repository, for a bug that shows in one target while its cause ' +
+      'sits in another: the issue, its triage and a fix plan stay in the plan repository, provider ' +
+      'first. Each target gets one fix PR into its default branch, red proven by its own preflight ' +
+      'or its CI before the fix, saying which PR to merge first; a record PR closes the issue and is ' +
+      'merged last. --prd <n> links it to a PRD, so /omni:mega-pr-care looks after its PRs. A change ' +
+      "that would break today's consumer stops it, with the /omni:mega-brainstorm line. It never merges.",
+    group: 'multi-repo',
+    when: 'Use it when a bug shows in one target repository and its cause may sit in another.',
+    example: {
+      type: '/omni:mega-bug-fix the total is wrong on the invoice screen',
+      result: 'one bug issue with a fix plan, one fix PR per target in merge order, and a record PR',
     },
   },
   {
@@ -921,7 +1088,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'pr-care',
     kind: 'skill',
     who: 'you',
-    usage: ['/omni:pr-care <n>'],
+    usage: ['/omni:pr-care <n> [--once]'],
     label: '/omni:pr-care <n>',
     summary: "look after a PRD's feature PR until it is merged",
     detail:
@@ -929,12 +1096,36 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'it merges {defaultBranch} on a conflict, fixes red CI, then judges each review comment against ' +
       "the repository's review form and fixes it, pushes back with a reason, or leaves it for the " +
       'PM. A reviewer who answers again gets the PM, not an argument. It pushes nothing while a ' +
-      'wave is building, shows on the PRD page that it is watching, and never merges.',
+      'wave is building, shows on the PRD page that it is watching, and never merges. --once runs ' +
+      'one round and returns, for /omni:drive.',
     group: 'build',
     when: 'Use it when a feature PR is ready and you want CI, conflicts and review comments handled while you do other things.',
     example: {
       type: '/omni:pr-care 790',
       result: 'each review comment fixed, pushed back with a reason, or left for you, and the PR kept green',
+    },
+  },
+  {
+    name: 'drive',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/loop /omni:drive [<n>…]'],
+    label: '/omni:drive [<n>…]',
+    summary: 'drive your PRDs, one step per tick',
+    detail:
+      'Run under /loop, it drives your own PRDs in inbox, building or outbox, or the ones you name. ' +
+      'Its first tick orders every slice of them into a loop plan (omni next --plan), colliding ' +
+      'territories in series with the reason, and opens the loop on the Loop page. Each tick then ' +
+      'takes the first step not done and runs that one skill (/omni:wave, /omni:yolo, /omni:yolo-fix ' +
+      "or /omni:pr-care --once) or waits, parks a PRD waiting on a person on its feature PR's status " +
+      'comment, records the tick on the Loop page and picks when to look again. Once every PRD is ' +
+      'parked or done it stops itself and lists what waits on whom. A closed terminal resumes the ' +
+      'same loop. It never answers the outbox and never merges into {defaultBranch}.',
+    group: 'build',
+    when: 'Use it when PRDs are merged into the inbox and you want them built, finished and cared for without typing each next command.',
+    example: {
+      type: '/omni:drive',
+      result: 'one tick: the loop plan, then its first step; under /loop, every tick until your PRDs wait on you',
     },
   },
   {
@@ -1051,6 +1242,30 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:prove 798',
       result: 'a comment on the feature PR with a ✓, ✗ or — line per criterion, and the Proof tab full of clips',
+    },
+  },
+
+  {
+    name: 'pitch',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:pitch <n> --for customers|inside'],
+    label: '/omni:pitch <n>',
+    summary: 'an animated video and GIF announcing a shipped PRD',
+    detail:
+      "Makes a launch video for shipped PRD n, for customers or for inside, from the product's Pitch " +
+      'settings (look, voice, intro and outro, music, length): a walk-through filmed on production that ' +
+      'never saves, deletes or changes anything, writing the moments it acts on; a storyboard written ' +
+      'from the spec, the release note and those moments only, in the voice the settings ask for, never ' +
+      'inventing a number, a name or a capability whatever the instructions say; then omni pitch check, ' +
+      'one still per scene looked at before the render, pitch.mp4, pitch-square.mp4 and pitch.gif, sent ' +
+      "to the PRD's Pitch tab with omni pitch push. It refuses with one line a PRD not shipped, a " +
+      'proof.url that is not fixed, no ffmpeg or no sign-in, and posts no comment.',
+    group: 'everyday',
+    when: 'Use it when a PRD has shipped and you want to announce it to customers or at an all-hands.',
+    example: {
+      type: '/omni:pitch 859 --for customers',
+      result: "a 20 to 40 second pitch.mp4 in the product's look, pitch-square.mp4 and pitch.gif, on the PRD's Pitch tab",
     },
   },
 

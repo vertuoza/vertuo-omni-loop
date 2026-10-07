@@ -5,6 +5,7 @@ import {
   INK, LOGO_DRAWINGS, OMNI_LOOP, OMNI_POSES, POSTER_MAX_SCALE, SPRITE_DEFS, TYPE_SCALE, contrast,
 } from '@omni/design';
 import { DEMO_PROJECTS } from '@omni/galaxy';
+import { sure } from '../arcade/test/sure';
 import { DesignScreen } from './DesignScreen';
 import { ICONS, LOGO_SCALES, POSTER_SCALE } from './catalogue';
 
@@ -93,7 +94,7 @@ describe('the /design page', () => {
     const icons = section('icons');
     expect(ICONS.length).toBeGreaterThan(0);
     expect(new Set(values(icons, 'data-sprite'))).toEqual(new Set(ICONS));
-    expect(values(section('sprites'), 'data-sprite').some((n) => ICONS.includes(n!))).toBe(false);
+    expect(values(section('sprites'), 'data-sprite').some((n) => n !== undefined && ICONS.includes(n))).toBe(false);
   });
 
   it('dresses both heroes in every fleet’s colours', () => {
@@ -106,19 +107,21 @@ describe('the /design page', () => {
 
   it('draws the three OmniMan poses at poster scale, in both frames', () => {
     const poses = section('poses');
-    expect(Number.isInteger(POSTER_SCALE) && POSTER_SCALE >= 2 && POSTER_SCALE <= POSTER_MAX_SCALE).toBe(true);
+    const scale: number = POSTER_SCALE;
+    const most: number = POSTER_MAX_SCALE;
+    expect(Number.isInteger(scale) && scale >= 2 && scale <= most).toBe(true);
     for (const pose of OMNI_POSES) {
       for (const frame of [0, 1]) {
         const at = poses.indexOf(`data-pose="${pose}" data-frame="${frame}"`);
         expect(at, `${pose} ${frame}`).toBeGreaterThanOrEqual(0);
-        const svg = poses.slice(at).match(/<svg [^>]*width="(\d+)" height="(\d+)"/)!;
+        const svg = sure(poses.slice(at).match(/<svg [^>]*width="(\d+)" height="(\d+)"/), `the ${pose} ${frame} drawing`);
         expect([Number(svg[1]), Number(svg[2])]).toEqual([32 * POSTER_SCALE, 48 * POSTER_SCALE]);
       }
     }
   });
 
   it('draws every pixel crisp: no SVG on the page is smoothed', () => {
-    const svgs = html.match(/<svg [^>]*>/g)!;
+    const svgs = sure(html.match(/<svg [^>]*>/g), 'the page\'s drawings');
     expect(svgs.length).toBeGreaterThan(100);
     for (const svg of svgs) expect(svg).toContain('shape-rendering="crispEdges"');
   });

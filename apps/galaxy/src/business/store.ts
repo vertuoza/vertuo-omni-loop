@@ -1,4 +1,5 @@
-import { claimOf, maxValue, type Claim, type ClaimKind, type Product, type StoredClaim } from './model';
+import { claimOf, maxValue, Product, StoredClaim, type Claim, type ClaimKind } from './model';
+import { orEmpty, parseRow, parseRows } from '../data/parse-rows';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings → Business's calls (PRD 748 s2). In production, the functions of
@@ -58,7 +59,8 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string, fe
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return refused(error);
-      return { ok: true, claim: claimOf(data as StoredClaim) }; // ts-allow: claim_pick and claim_set_state answer the public.claims row they wrote
+      const row = parseRow(StoredClaim, data, `business/store: ${fn}`);
+      return row.ok ? { ok: true, claim: claimOf(row.value) } : { ok: false, message: COULD_NOT_SAVE };
     } catch (err) {
       return refused(err);
     }
@@ -71,9 +73,9 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string, fe
     async addProduct(name) {
       try {
         const { data, error } = await db.rpc('product_add', { p_workspace: workspace, p_name: name });
-        const id = propertyOf(data, 'id');
-        if (error || typeof id !== 'string') return { ok: false, message: refusalOf(error) };
-        return { ok: true, product: { id, name: String(propertyOf(data, 'name')) } };
+        if (error || !data) return { ok: false, message: refusalOf(error) };
+        const row = parseRow(Product, data, 'business/store: product_add');
+        return row.ok ? { ok: true, product: row.value } : { ok: false, message: COULD_NOT_SAVE };
       } catch (err) {
         return { ok: false, message: refusalOf(err) };
       }
@@ -88,7 +90,7 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string, fe
         });
         if (!response.ok) return [];
         const claims = propertyOf(await response.json(), 'claims');
-        const rows = Array.isArray(claims) ? (claims as StoredClaim[]) : []; // ts-allow: the suggest route answers public.claims rows (suggest-api.ts)
+        const rows = orEmpty(parseRows(StoredClaim, claims, `business/store: ${SUGGEST_ROUTE}`));
         return rows.map((row) => claimOf(row)).filter(isGuess);
       } catch {
         return [];
@@ -108,33 +110,33 @@ export function demoBusinessPort(initial: Claim[], initialProducts: Product[] = 
     return { ok: true, claim };
   };
   return {
-    async pick(kind, value, on = products[0]?.id) {
+    pick(kind, value, on = products[0]?.id) {
       const v = value.trim();
-      if (badText(v, maxValue(kind))) return { ok: false, message: kind === 'never' ? NEVER_INVALID : INVALID };
+      if (badText(v, maxValue(kind))) return Promise.resolve({ ok: false, message: kind === 'never' ? NEVER_INVALID : INVALID });
       const first = products[0]?.id;
       const product = kind === 'region' ? null : on ?? null;
       // With no product known, one product holds every claim.
       const sameProduct = (c: Claim) => c.kind === 'region' || first === undefined || (c.product ?? first) === product;
       const kept = claims.find((c) => c.kind === kind && sameProduct(c) && c.value.toLowerCase() === v.toLowerCase());
-      if (kept) return save({ ...kept, state: 'confirmed' });
+      if (kept) return Promise.resolve(save({ ...kept, state: 'confirmed' }));
       const seq = Math.max(0, ...claims.map((c) => c.seq)) + 1;
-      return save({ id: `demo-${seq}`, seq, kind, value: v, source: 'pick', state: 'confirmed', product, cited: 0, lastBy: null });
+      return Promise.resolve(save({ id: `demo-${seq}`, seq, kind, value: v, source: 'pick', state: 'confirmed', product, cited: 0, lastBy: null }));
     },
-    async addProduct(name) {
+    addProduct(name) {
       const v = name.trim();
-      if (badText(v) || products.some((p) => p.name.toLowerCase() === v.toLowerCase())) return { ok: false, message: INVALID };
+      if (badText(v) || products.some((p) => p.name.toLowerCase() === v.toLowerCase())) return Promise.resolve({ ok: false, message: INVALID });
       const product = { id: `demo-product-${products.length + 1}`, name: v };
       products = [...products, product];
-      return { ok: true, product };
+      return Promise.resolve({ ok: true, product });
     },
-    async setState(claim, state) {
+    setState(claim, state) {
       const kept = claims.find((c) => c.id === claim.id);
-      if (!kept) return { ok: false, message: GONE };
-      return save({ ...kept, state });
+      if (!kept) return Promise.resolve({ ok: false, message: GONE });
+      return Promise.resolve(save({ ...kept, state }));
     },
     // The demo has no model: it never guesses, and its sample rivals name no real company.
-    async suggest() {
-      return [];
+    suggest() {
+      return Promise.resolve([]);
     },
   };
 }

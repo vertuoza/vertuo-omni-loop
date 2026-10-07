@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const read = vi.hoisted(() => ({
-  workspace: (async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} })) as () => Promise<unknown>,
+const read = vi.hoisted((): { workspace: () => Promise<unknown> } => ({
+  workspace: () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} }),
 }));
 vi.mock('../data/workspace', () => ({ memberWorkspace: () => read.workspace() }));
 
 import type { User } from '@supabase/supabase-js';
 import { loadBusinessPage } from './load';
+import { sure } from '../arcade/test/sure';
 
 // Settings → Business's read (PRD 748 s2): the business opened with business_open(), its first
 // product, the claims of the region and of that product, and the citation log counted per claim, all
@@ -29,15 +30,15 @@ const CITATIONS = [
 ];
 
 function db({
-  open = { data: { id: 'b-1', workspace_id: 'ws-1', name: 'Vertuoza' } } as Answer,
-  products = { data: [{ id: 'p-1', name: 'Vertuoza' }] } as Answer,
-  claims = { data: CLAIMS } as Answer,
-  citations = { data: CITATIONS } as Answer,
-  receipts = { data: [] } as Answer,
-  pages = { data: [] } as Answer,
-  drafts = { data: [] } as Answer,
-  personas = { data: [] } as Answer,
-} = {}) {
+  open = { data: { id: 'b-1', workspace_id: 'ws-1', name: 'Vertuoza' } },
+  products = { data: [{ id: 'p-1', name: 'Vertuoza' }] },
+  claims = { data: CLAIMS },
+  citations = { data: CITATIONS },
+  receipts = { data: [] },
+  pages = { data: [] },
+  drafts = { data: [] },
+  personas = { data: [] },
+}: Partial<Record<'open' | 'products' | 'claims' | 'citations' | 'receipts' | 'pages' | 'drafts' | 'personas', Answer>> = {}) {
   const calls: unknown[] = [];
   const query = (answer: Answer) => {
     const q = {
@@ -52,17 +53,17 @@ function db({
   const tables: Record<string, Answer> = { products, claims, claim_citations: citations, claim_receipts: receipts, business_sources: pages, business_drafts: drafts, personas };
   return {
     calls,
-    rpc: async (fn: string, args: unknown) => {
+    rpc: (fn: string, args: unknown) => {
       calls.push(['rpc', fn, args]);
-      return { data: open.data ?? null, error: open.error ?? null };
+      return Promise.resolve({ data: open.data ?? null, error: open.error ?? null });
     },
-    from: (table: string) => { calls.push(['from', table]); return query(tables[table]!); },
+    from: (table: string) => { calls.push(['from', table]); return query(sure(tables[table], 'tables[table]')); },
   };
 }
 
 describe('the business page\'s read', () => {
   beforeEach(() => {
-    read.workspace = async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
+    read.workspace = () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -134,8 +135,22 @@ describe('the business page\'s read', () => {
     expect(await loadBusinessPage(db({ claims: { data: [] }, citations: { data: [] } }) as never, USER)).toMatchObject({ kind: 'business', claims: [] });
   });
 
+  it('reads the page as unreadable when its claims do not parse (PRD 1030), logging where and no value', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const claims = { data: [{ ...CLAIMS[0], kind: 'statement', value: 'a secret' }] };
+    expect(await loadBusinessPage(db({ claims }) as never, USER)).toEqual({ kind: 'unreadable' });
+    const lines = logged.mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes('business/load: claims') && l.includes('[0].kind'))).toBe(true);
+    expect(lines.some((l) => l.includes('a secret') || l.includes('statement'))).toBe(false);
+  });
+
+  it('reads the page with no persona when a persona does not parse (PRD 1030)', async () => {
+    const personas = { data: [{ id: 'pe-1', product_id: 'p-1', ordinal: 1, name: 'Marc', stance: 'skeptical', trade: 'plumber', avatar: { v: 2 }, who: '', usage: '' }] };
+    expect(await loadBusinessPage(db({ personas }) as never, USER)).toMatchObject({ kind: 'business', personas: [] });
+  });
+
   it('answers no-workspace for an account in none', async () => {
-    read.workspace = async () => null;
+    read.workspace = () => Promise.resolve(null);
     expect(await loadBusinessPage(db() as never, USER)).toEqual({ kind: 'no-workspace' });
   });
 

@@ -3,13 +3,12 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
+import { serverEnv, type SupabaseEnv } from '../env';
 
 // The galaxy database, from the server. Configured by the two public variables; with neither set the
 // app plays the demo galaxy and nothing signs in.
-export function supabaseEnv(): { url: string; key: string } | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return url && key ? { url, key } : null;
+export function supabaseEnv(): SupabaseEnv | null {
+  return serverEnv().supabase;
 }
 
 /** A client that acts as the signed-in player (their session cookies), so row-level security applies. */

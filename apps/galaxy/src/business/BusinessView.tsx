@@ -1,4 +1,4 @@
-import type { FormEvent, ReactNode } from 'react';
+import type { ReactNode, SubmitEvent } from 'react';
 import {
   BLANK, chipLabel, citationLine, confirmed, displayId, hasProducts, isPicked, KIND_LABEL, KIND_ORDER, maxValue, OFFERINGS, othersOf, REGIONS,
   sentence, SIZE_STOPS, sizeLabel, sizeOf, sizeValue, sourceLabel, TRADES, valueLabel, viewClaims,
@@ -50,37 +50,37 @@ import { cssVars } from '../arcade/css-vars';
 
 export interface BusinessHandlers {
   /** A chip: on when off, off when on. */
-  tap(kind: ClaimKind, value: string): void;
+  tap: (kind: ClaimKind, value: string) => void;
   /** A typed value, from Other or "+ add a rival". */
-  pick(kind: ClaimKind, value: string): void;
-  type(kind: ClaimKind): void;
-  untype(): void;
-  sizeDraft(stops: [number, number]): void;
-  sizeCommit(): void;
-  confirm(claim: Claim): void;
-  reject(claim: Claim): void;
-  skip(): void;
-  unskip(): void;
+  pick: (kind: ClaimKind, value: string) => void;
+  type: (kind: ClaimKind) => void;
+  untype: () => void;
+  sizeDraft: (stops: [number, number]) => void;
+  sizeCommit: () => void;
+  confirm: (claim: Claim) => void;
+  reject: (claim: Claim) => void;
+  skip: () => void;
+  unskip: () => void;
   /** "+ Add a product": opens its name field (PRD 748 s4). */
-  openProduct(): void;
-  closeProduct(): void;
-  addProduct(name: string): void;
+  openProduct: () => void;
+  closeProduct: () => void;
+  addProduct: (name: string) => void;
   /** A product's tab. */
-  showProduct(id: string): void;
+  showProduct: (id: string) => void;
   /** Draft from my repos (PRD 774 s3). */
-  draft(): void;
+  draft: () => void;
   /** ✓ Right or ✗ Wrong on a found row, kept in the page until That's us. */
-  mark(claim: Claim, mark: Mark): void;
-  thatsUs(): void;
+  mark: (claim: Claim, mark: Mark) => void;
+  thatsUs: () => void;
   /** "+ add a web page": opens its address field. */
-  openPage(): void;
-  closePage(): void;
-  addPage(url: string): void;
-  removePage(page: WebPage): void;
+  openPage: () => void;
+  closePage: () => void;
+  addPage: (url: string) => void;
+  removePage: (page: WebPage) => void;
   /** ✓ Right (`right`) or ✗ Wrong on a replacement or an addition the recheck left (PRD 774 s4). */
-  settle(claim: Claim, right: boolean): void;
+  settle: (claim: Claim, right: boolean) => void;
   /** ✓ Still true on a faded claim. */
-  stillTrue(claim: Claim): void;
+  stillTrue: (claim: Claim) => void;
 }
 
 const IDLE: BusinessHandlers = {
@@ -120,7 +120,7 @@ export interface BusinessViewProps {
   state: BusinessState;
   /** The demo: sample claims, changed only in the page. */
   demo?: boolean;
-  on?: BusinessHandlers;
+  on?: BusinessHandlers | undefined;
   /** What "eight weeks ago" is counted from (PRD 774 s4); now, left out. */
   now?: number;
   /** The Personas section (PRD 799 s3), drawn below the claims of the tab shown. */
@@ -142,10 +142,16 @@ function Sentence({ parts, typing = false }: { parts: readonly SentencePart[]; t
   );
 }
 
+/** A text field of a submitted form, trimmed; '' when it is missing (no form here holds a file). */
+function fieldText(form: HTMLFormElement, name: string): string {
+  const value = new FormData(form).get(name);
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function TypeField({ kind, label, busy, on }: { kind: ClaimKind; label: string; busy: boolean; on: BusinessHandlers }) {
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const value = String(new FormData(event.currentTarget).get('value') ?? '').trim();
+    const value = fieldText(event.currentTarget, 'value');
     if (value) on.pick(kind, value);
   };
   return (
@@ -160,7 +166,7 @@ function TypeField({ kind, label, busy, on }: { kind: ClaimKind; label: string; 
   );
 }
 
-function Chip({ pressed, busy, onClick, children }: { pressed: boolean; busy: boolean; onClick(): void; children: ReactNode }) {
+function Chip({ pressed, busy, onClick, children }: { pressed: boolean; busy: boolean; onClick: () => void; children: ReactNode }) {
   return <button type="button" className="business-chip" aria-pressed={pressed} onClick={onClick} disabled={busy}>{children}</button>;
 }
 
@@ -172,12 +178,12 @@ function ChipGroup({ kind, title, list, state, on }: { kind: ClaimKind; title: s
       <h2 id={id}>{title}</h2>
       <div className="business-chips">
         {list.map((value) => (
-          <Chip key={value} pressed={isPicked(state.claims, kind, value)} busy={state.busy} onClick={() => on.tap(kind, value)}>{chipLabel(value)}</Chip>
+          <Chip key={value} pressed={isPicked(state.claims, kind, value)} busy={state.busy} onClick={() => { on.tap(kind, value); }}>{chipLabel(value)}</Chip>
         ))}
         {extra.map((c) => (
-          <Chip key={c.id} pressed busy={state.busy} onClick={() => on.tap(kind, c.value)}>{chipLabel(c.value)}</Chip>
+          <Chip key={c.id} pressed busy={state.busy} onClick={() => { on.tap(kind, c.value); }}>{chipLabel(c.value)}</Chip>
         ))}
-        {state.typing !== kind && <Chip pressed={false} busy={state.busy} onClick={() => on.type(kind)}>Other</Chip>}
+        {state.typing !== kind && <Chip pressed={false} busy={state.busy} onClick={() => { on.type(kind); }}>Other</Chip>}
       </div>
       {state.typing === kind && <TypeField kind={kind} label={`Your ${KIND_LABEL[kind].toLowerCase()}`} busy={state.busy} on={on} />}
     </div>
@@ -230,8 +236,8 @@ function Guess({ claim, busy, on }: { claim: Claim; busy: boolean; on: BusinessH
     <span className="business-guess" data-claim={displayId(claim)}>
       <span className="business-guess-name">{claim.value}</span>
       <span className="business-guess-tag">guess</span>
-      <button type="button" className="business-right" aria-label={`Right: ${claim.value}`} onClick={() => on.confirm(claim)} disabled={busy}>✓ Right</button>
-      <button type="button" className="business-wrong" aria-label={`Wrong: ${claim.value}`} onClick={() => on.reject(claim)} disabled={busy}>✗ Wrong</button>
+      <button type="button" className="business-right" aria-label={`Right: ${claim.value}`} onClick={() => { on.confirm(claim); }} disabled={busy}>✓ Right</button>
+      <button type="button" className="business-wrong" aria-label={`Wrong: ${claim.value}`} onClick={() => { on.reject(claim); }} disabled={busy}>✗ Wrong</button>
     </span>
   );
 }
@@ -244,9 +250,9 @@ function Rivals({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
     <div className="business-group" role="group" aria-labelledby="business-rival-title" data-kind="rival">
       <h2 id="business-rival-title">Up against</h2>
       <div className="business-chips">
-        {rivals.map((c) => <Chip key={c.id} pressed busy={state.busy} onClick={() => on.tap('rival', c.value)}>{c.value}</Chip>)}
+        {rivals.map((c) => <Chip key={c.id} pressed busy={state.busy} onClick={() => { on.tap('rival', c.value); }}>{c.value}</Chip>)}
         {guesses.map((c) => <Guess key={c.id} claim={c} busy={state.busy} on={on} />)}
-        {state.typing !== 'rival' && <Chip pressed={false} busy={state.busy} onClick={() => on.type('rival')}>{ADD_RIVAL}</Chip>}
+        {state.typing !== 'rival' && <Chip pressed={false} busy={state.busy} onClick={() => { on.type('rival'); }}>{ADD_RIVAL}</Chip>}
       </div>
       {state.typing === 'rival' && <TypeField kind="rival" label="A rival’s name" busy={state.busy} on={on} />}
     </div>
@@ -267,9 +273,9 @@ function Picks({ state, region, on }: { state: BusinessState; region: boolean; o
 }
 
 function ProductField({ busy, on }: { busy: boolean; on: BusinessHandlers }) {
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const value = String(new FormData(event.currentTarget).get('name') ?? '').trim();
+    const value = fieldText(event.currentTarget, 'name');
     if (value) on.addProduct(value);
   };
   return (
@@ -302,7 +308,7 @@ function ProductTabs({ state, on }: { state: BusinessState; on: BusinessHandlers
             role="tab"
             className="business-product-tab"
             aria-selected={p.id === state.current}
-            onClick={() => on.showProduct(p.id)}
+            onClick={() => { on.showProduct(p.id); }}
             disabled={state.busy}
           >
             {p.name}
@@ -329,8 +335,8 @@ function Row({ claim, busy, on }: { claim: Claim; busy: boolean; on: BusinessHan
         <span className="business-cited">{citationLine(claim)}</span>
       </div>
       <div className="business-verdict">
-        <button type="button" className="business-right" aria-pressed={claim.state === 'confirmed'} aria-label={`Right: ${value}`} onClick={() => on.confirm(claim)} disabled={busy || claim.state === 'confirmed'}>✓</button>
-        <button type="button" className="business-wrong" aria-pressed={claim.state === 'rejected'} aria-label={`Wrong: ${value}`} onClick={() => on.reject(claim)} disabled={busy || claim.state === 'rejected'}>✗</button>
+        <button type="button" className="business-right" aria-pressed={claim.state === 'confirmed'} aria-label={`Right: ${value}`} onClick={() => { on.confirm(claim); }} disabled={busy || claim.state === 'confirmed'}>✓</button>
+        <button type="button" className="business-wrong" aria-pressed={claim.state === 'rejected'} aria-label={`Wrong: ${value}`} onClick={() => { on.reject(claim); }} disabled={busy || claim.state === 'rejected'}>✗</button>
       </div>
     </li>
   );
@@ -363,35 +369,34 @@ function Scan({ draft }: { draft: NonNullable<BusinessState['draft']> }) {
   );
 }
 
+/** The reveals that come to one line: its class and what it says. */
+const ONE_LINERS: Partial<Record<Reveal['kind'], { className: string; line: ReactNode }>> = {
+  nothing: { className: 'business-reveal-line', line: <strong>{NOTHING_FOUND}</strong> },
+  known: { className: 'business-reveal-line ask-muted', line: NOTHING_NEW },
+  saved: { className: 'business-reveal-line business-saved', line: SAVED_LINE },
+};
+
 /** What the draft came to, in one line, above the picks. */
 function RevealLine({ reveal }: { reveal: Reveal }) {
-  switch (reveal.kind) {
-    case 'thin':
-      return (
-        <div className="business-reveal-line">
-          <p><strong>We found only {reveal.found} {reveal.found === 1 ? 'thing' : 'things'}.</strong></p>
-          <p className="ask-muted">{THIN_HINT}</p>
-        </div>
-      );
-    case 'nothing':
-      return <p className="business-reveal-line"><strong>{NOTHING_FOUND}</strong></p>;
-    case 'known':
-      return <p className="business-reveal-line ask-muted">{NOTHING_NEW}</p>;
-    case 'saved':
-      return <p className="business-reveal-line business-saved">{SAVED_LINE}</p>;
-    case 'failed':
-      return <p className="business-refusal" role="alert">{reveal.reason}</p>;
-    default:
-      return null;
+  if (reveal.kind === 'thin') {
+    return (
+      <div className="business-reveal-line">
+        <p><strong>We found only {reveal.found} {reveal.found === 1 ? 'thing' : 'things'}.</strong></p>
+        <p className="ask-muted">{THIN_HINT}</p>
+      </div>
+    );
   }
+  if (reveal.kind === 'failed') return <p className="business-refusal" role="alert">{reveal.reason}</p>;
+  const oneLiner = ONE_LINERS[reveal.kind];
+  return oneLiner ? <p className={oneLiner.className}>{oneLiner.line}</p> : null;
 }
 
 const pageName = (url: string) => url.replace(/^https:\/\//i, '').replace(/\/$/, '');
 
 function PageField({ busy, on }: { busy: boolean; on: BusinessHandlers }) {
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const value = String(new FormData(event.currentTarget).get('url') ?? '').trim();
+    const value = fieldText(event.currentTarget, 'url');
     if (value) on.addPage(value);
   };
   return (
@@ -428,7 +433,7 @@ function DraftBar({ state, on }: { state: BusinessState; on: BusinessHandlers })
             {state.pages.map((p) => (
               <li key={p.id}>
                 <span>{pageName(p.url)}</span>
-                <button type="button" className="business-page-remove" aria-label={`Remove ${pageName(p.url)}`} onClick={() => on.removePage(p)} disabled={state.busy}>×</button>
+                <button type="button" className="business-page-remove" aria-label={`Remove ${pageName(p.url)}`} onClick={() => { on.removePage(p); }} disabled={state.busy}>×</button>
               </li>
             ))}
           </ul>
@@ -448,8 +453,8 @@ function FoundRow({ claim, mark, busy, on }: { claim: Claim; mark: Mark | undefi
         <Receipts claim={claim} />
       </div>
       <div className="business-found-verdict">
-        <button type="button" className="business-right" aria-pressed={mark === 'right'} aria-label={`Right: ${value}`} onClick={() => on.mark(claim, 'right')} disabled={busy}>✓ Right</button>
-        <button type="button" className="business-wrong" aria-pressed={mark === 'wrong'} aria-label={`Wrong: ${value}`} onClick={() => on.mark(claim, 'wrong')} disabled={busy}>✗ Wrong</button>
+        <button type="button" className="business-right" aria-pressed={mark === 'right'} aria-label={`Right: ${value}`} onClick={() => { on.mark(claim, 'right'); }} disabled={busy}>✓ Right</button>
+        <button type="button" className="business-wrong" aria-pressed={mark === 'wrong'} aria-label={`Wrong: ${value}`} onClick={() => { on.mark(claim, 'wrong'); }} disabled={busy}>✗ Wrong</button>
       </div>
     </li>
   );
@@ -491,26 +496,26 @@ function CheckItem({ row, busy, on }: { row: CheckRow; busy: boolean; on: Busine
   const { claim } = row;
   const value = valueLabel(claim);
   let diff: ReactNode;
-  let right: { label: string; aria: string; press(): void };
-  let wrong: { aria: string; press(): void };
+  let right: { label: string; aria: string; press: () => void };
+  let wrong: { aria: string; press: () => void };
   if (row.kind === 'replacement') {
     const was = valueLabel(row.old);
     diff = <><s>{was}</s> → <strong>{value}</strong></>;
-    right = { label: '✓ Right', aria: `Right: ${value} replaces ${was}`, press: () => on.settle(claim, true) };
-    wrong = { aria: `Wrong: ${value} replaces ${was}`, press: () => on.settle(claim, false) };
+    right = { label: '✓ Right', aria: `Right: ${value} replaces ${was}`, press: () => { on.settle(claim, true); } };
+    wrong = { aria: `Wrong: ${value} replaces ${was}`, press: () => { on.settle(claim, false); } };
   } else if (row.kind === 'addition') {
     const { from, to } = additionText(row);
     diff = <>{from} → <strong>{to}</strong></>;
-    right = { label: '✓ Right', aria: `Right: add ${value}`, press: () => on.settle(claim, true) };
-    wrong = { aria: `Wrong: add ${value}`, press: () => on.settle(claim, false) };
+    right = { label: '✓ Right', aria: `Right: add ${value}`, press: () => { on.settle(claim, true); } };
+    wrong = { aria: `Wrong: add ${value}`, press: () => { on.settle(claim, false); } };
   } else if (row.kind === 'answer') {
     diff = <><strong>{value}</strong> <span className="business-check-since">{ANSWERED}</span></>;
-    right = { label: '✓ Right', aria: `Right: ${value}`, press: () => on.confirm(claim) };
-    wrong = { aria: `Wrong: ${value}`, press: () => on.reject(claim) };
+    right = { label: '✓ Right', aria: `Right: ${value}`, press: () => { on.confirm(claim); } };
+    wrong = { aria: `Wrong: ${value}`, press: () => { on.reject(claim); } };
   } else {
     diff = <><strong>{value}</strong> <span className="business-check-since">{seenSince(row.since)}</span></>;
-    right = { label: STILL_TRUE, aria: `Still true: ${value}`, press: () => on.stillTrue(claim) };
-    wrong = { aria: `Wrong: ${value}`, press: () => on.reject(claim) };
+    right = { label: STILL_TRUE, aria: `Still true: ${value}`, press: () => { on.stillTrue(claim); } };
+    wrong = { aria: `Wrong: ${value}`, press: () => { on.reject(claim); } };
   }
   return (
     <li className="business-check-row" data-check={displayId(claim)} data-kind={row.kind}>

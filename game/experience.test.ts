@@ -7,7 +7,11 @@ import { RULEBOOK } from './rulebook.ts';
 const NOW = new Date('2026-09-30T16:00:00Z');
 // Every event names its home (PRD 728): a row with none was written before the fresh start.
 const E = (id: string, at: string, type: EventType, over: Partial<GameEvent> = {}): GameEvent => ({ id, at, type, planet: 2332, home: 'acme/plan', data: {}, ...over });
-const old = ({ home, ...e }: GameEvent): GameEvent => e;
+const old = (event: GameEvent): GameEvent => {
+  const e = { ...event };
+  delete e.home;
+  return e;
+};
 const charted = E('planet:2332:charted', '2026-09-01T08:00:00Z', 'PLANET_CHARTED', { data: { ownerTeam: 'beaver', captain: 'pm' } });
 const secured = (id: string, at: string, contributor: string, team = 'octopod', planet = 2332) => E(`zone:r:${planet}:${id}:secured`, at, 'ZONE_SECURED', { planet, contributor, team });
 const closed = (id: string, at: string, contributor: string, team: string, kind: string) => [

@@ -8,6 +8,8 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
 import { GhPullRequestsSchema } from './schema.ts';
+import { PrNumberSchema } from '../ids.ts';
+import type { PrNumber } from '../ids.ts';
 
 const QUIET: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
 
@@ -15,7 +17,7 @@ const QUIET: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', stdio: 
 export type BranchStep = { outcome: 'created' | 'switched' | 'stayed' | 'failed'; branch: string };
 
 /** The install pull request, found open or just opened. */
-export type InstallPr = { url: string; number: number | null; already: boolean };
+export type InstallPr = { url: string; number: PrNumber | null; already: boolean };
 
 /** What `openInstallPr` did, step by step. */
 export type InstallResult = {
@@ -67,10 +69,10 @@ function findPr(root: string, exec: ExecText): InstallPr | null | undefined {
   const listed = attempt(() => GhPullRequestsSchema.parse(JSON.parse(exec('gh', ['pr', 'list', '--head', INSTALL_BRANCH, '--state', 'open', '--json', 'url,number'], { cwd: root, ...QUIET }))));
   if (!listed.ok) return undefined;
   const [pr] = listed.value;
-  return pr?.url ? { url: pr.url, number: Number(pr.number) || null, already: true } : null;
+  return pr?.url ? { url: pr.url, number: pr.number ?? null, already: true } : null;
 }
 
-const prNumber = (url: string): number | null => Number(/\/pull\/(\d+)/.exec(url)?.[1]) || null;
+const prNumberOf = (url: string): PrNumber | null => PrNumberSchema.safeParse(Number(/\/pull\/(\d+)/.exec(url)?.[1])).data ?? null;
 
 /**
  * Commits `paths` on the install branch, pushes it to `remote` and opens its pull request into `base`.
@@ -118,8 +120,8 @@ export function openInstallPr(
   }
   if (found === undefined) return result;
   const created = attempt(() => exec('gh', ['pr', 'create', '--base', base, '--head', INSTALL_BRANCH, '--title', INSTALL_COMMIT, '--body', PR_BODY], { cwd: root, ...QUIET }));
-  const url = created.ok ? String(created.value).trim().split('\n').pop() : null;
-  if (url?.startsWith('http')) result.pr = { url, number: prNumber(url), already: false };
+  const url = created.ok ? created.value.trim().split('\n').pop() : null;
+  if (url?.startsWith('http')) result.pr = { url, number: prNumberOf(url), already: false };
   else result.pr = findPr(root, exec) ?? null;
   return result;
 }

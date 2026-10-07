@@ -51,43 +51,83 @@
  * `kit/lib/inbox/territory.ts`) may not both be taken: the plan's own order decides which one is
  * — the earlier slice is kept and the later one deferred — rather than dropping both, so one
  * colliding pair costs the wave a single slice, not two.
+ *
+ * **Landings.** A PRD whose plan has more than one landing is delivered as one branch per landing
+ * (`branches.landing`), each with its own pull request into the default branch, stacked. The board is
+ * then handed the ordered landing branches: a slice of landing n matches only a pull request into
+ * landing n's branch (in `label` mode, one carrying `labels.sub` **and** targeting that branch), the
+ * board reports each landing (its slices merged, open and not started, and the state of its own pull
+ * request: `draft`, `ready`, `merged` or `absent`), and names the **current landing**, the
+ * lowest-numbered one whose slices are not all merged. The frontier is that landing's only: a slice
+ * of a later landing is never takeable early. A PRD of one landing gets no `landings` key and the
+ * board it always got.
+ *
+ * In a plan repository each target has a chain of its own (only the landings with a slice there, a
+ * single feature branch when it has one): each landing entry then names its `repo`, a slice matches
+ * its own repository's entry, and the current landing is decided per repository (`current` on each
+ * landing row), so one target's landings never wait for another's.
  */
+import type { PrNumber, WorkSliceId } from './ids.ts';
+import type { Config } from './types.ts';
 import { sameWaveCollisions } from './inbox/territory.ts';
 
 /** A label as `gh pr list --json labels` returns it: a name, or an object carrying one. */
-export type PrLabel = string | { name?: string | null } | null | undefined;
+export type PrLabel = string | { name?: string | null | undefined } | null | undefined;
 
 /**
  * One pull request of a `gh pr list` payload, as far as the board reads it. Every field but the
  * head branch is optional: the board reads a missing one as "not known", as it always has.
  */
 export type BoardPr = {
-  number?: number;
-  title?: string;
-  headRefName?: string;
-  baseRefName?: string;
-  state?: string;
-  isDraft?: boolean;
-  mergedAt?: string | null;
-  body?: string;
-  labels?: readonly PrLabel[] | null;
-  updatedAt?: string;
-  createdAt?: string | null;
+  number?: PrNumber | undefined;
+  title?: string | undefined;
+  headRefName?: string | undefined;
+  baseRefName?: string | undefined;
+  state?: string | undefined;
+  isDraft?: boolean | undefined;
+  mergedAt?: string | null | undefined;
+  body?: string | undefined;
+  labels?: readonly PrLabel[] | null | undefined;
+  updatedAt?: string | undefined;
+  createdAt?: string | null | undefined;
   /** The head commit's own date, when known. */
-  headCommitDate?: string | null;
+  headCommitDate?: string | null | undefined;
   /** In a plan repository: the repository the pull request was read from. */
-  slug?: string | null;
+  slug?: string | null | undefined;
 };
 
 /** One slice of the plan, as the board reads it. */
 export type BoardSlice = {
-  id: string;
+  id: WorkSliceId;
   title?: string;
   territory: string[];
-  wave: number;
-  blockedBy?: string[];
+  /** `null` for a plan with no `wave` column: such a slice is never in the frontier's wave. */
+  wave: number | null;
+  blockedBy?: WorkSliceId[];
   /** In a plan repository: the short name of the repository the slice lands in. */
   repo?: string | null;
+  /** The landing the slice reaches the default branch in; 1 when absent. */
+  landing?: number;
+};
+
+/** One landing of a PRD, as the board is handed it: its number in the plan, its name and its
+ * branch, and, in a plan repository, the short name of the repository whose chain it is part of. */
+export type BoardLanding = { landing: number; name: string; branch: string; repo?: string | null };
+
+/** The state of a landing's own pull request. */
+export type LandingPrState = 'draft' | 'ready' | 'merged' | 'absent';
+
+/** One landing on the board: its slices' counts and its own pull request. */
+export type LandingRow = BoardLanding & {
+  slices: string[];
+  merged: number;
+  open: number;
+  notStarted: number;
+  complete: boolean;
+  /** Whether it is the landing a wave takes from now, in its repository's chain. */
+  current: boolean;
+  /** Its own pull request: its number, its state and the branch it targets now (`null` when absent). */
+  pr: { number: PrNumber | null; state: LandingPrState; base: string | null };
 };
 
 /** A slice's state on the board, in the order it is decided. */
@@ -97,25 +137,25 @@ export type SliceState = 'merged' | 'stuck' | 'claimed-stale' | 'in-flight' | 'r
 export type BoardRow<S extends BoardSlice = BoardSlice> = Omit<S, 'repo'> & {
   pr: BoardPr | null;
   state: SliceState;
-  repo?: string | null;
-  slug?: string | null;
+  repo?: string | null | undefined;
+  slug?: string | null | undefined;
 };
 
 /** What the board's frontier reads of a row. */
-export type FrontierRow = { id: string; territory: string[]; wave: number; state: string };
+export type FrontierRow = { id: WorkSliceId; territory: string[]; wave: number | null; state: string };
 
 /** The wave a person or a wave runner should take next. */
 export type Frontier = {
   wave: number | null;
-  runnable: string[];
-  takeable: string[];
-  excluded: string[];
+  runnable: WorkSliceId[];
+  takeable: WorkSliceId[];
+  excluded: WorkSliceId[];
   collisions: ReturnType<typeof sameWaveCollisions>;
 };
 
-/** The config sections the board reads. */
+/** The config sections the board reads: the branch templates as the config declares them. */
 export type BoardConfig = {
-  branches: { feature: string; slice: string };
+  branches: Pick<Config['branches'], 'feature' | 'slice'> & { landing?: string };
   board: { matchBy: string };
   labels: { sub: string; needsFix: string };
 };
@@ -123,12 +163,37 @@ export type BoardConfig = {
 /** A plan repository's repositories by short name. */
 export type BoardRepos = Record<string, { slug: string | null; readable: boolean }>;
 
-/** `template` with `{topic}` and `{slice}` filled in from `values` — the same shape
- * `branches.feature` and `branches.slice` are declared in (`kit/lib/config.ts`). A placeholder
- * `values` does not carry is left untouched. Exported so the CLI half can compute the same feature
- * branch name to narrow its own `gh pr list` call. */
-export function fillBranch(template: string, values: { topic?: string; slice?: string }): string {
-  return template.replace(/\{(topic|slice)\}/g, (whole: string, key: 'topic' | 'slice') => (values[key] ?? whole));
+/** What a branch template's placeholders are filled with. */
+type BranchValues = { topic?: string; slice?: WorkSliceId; landing?: number; landings?: number; name?: string };
+
+/** `template` with `{topic}`, `{slice}`, `{landing}`, `{landings}` and `{name}` filled in from
+ * `values` — the shape `branches.feature`, `branches.slice` and `branches.landing` are declared in
+ * (`kit/lib/config.ts`). A placeholder `values` does not carry is left untouched. Exported so the
+ * CLI half can compute the same feature branch name to narrow its own `gh pr list` call. */
+export function fillBranch(template: string, values: BranchValues): string {
+  return template.replace(/\{(topic|slice|landings|landing|name)\}/g, (whole: string, key: keyof BranchValues) => {
+    const value = values[key];
+    return value === undefined ? whole : String(value);
+  });
+}
+
+/**
+ * A PRD's landing branches, in order: one landing, named after its plan's, on `branches.feature`, as
+ * a PRD always had; more than one, each on `branches.landing` with `{topic}`, `{landing}`,
+ * `{landings}` and `{name}` filled.
+ */
+export function landingBranches(
+  branches: { feature: string; landing: string },
+  { topic, landings }: { topic: string; landings: readonly { landing: number; name: string }[] },
+): BoardLanding[] {
+  if (landings.length <= 1) {
+    return [{ landing: 1, name: landings[0]?.name ?? 'landing-1', branch: fillBranch(branches.feature, { topic }) }];
+  }
+  return landings.map(({ landing, name }) => ({
+    landing,
+    name,
+    branch: fillBranch(branches.landing, { topic, landing, landings: landings.length, name }),
+  }));
 }
 
 /** Merged, by whichever shape a pull-request-list payload happens to carry. */
@@ -150,8 +215,12 @@ function hasLabel(pr: BoardPr, name: string): boolean {
 
 /** Whether `matchBy` accepts `pr` as belonging to this feature at all — the coarse filter applied
  * before the fine one (the head branch, which is what actually ties a pull request to one slice). */
-function matchesFeature(pr: BoardPr, { matchBy, featureBranch, subLabel }: { matchBy: string; featureBranch: string; subLabel: string }): boolean {
-  return matchBy === 'label' ? hasLabel(pr, subLabel) : pr.baseRefName === featureBranch;
+function matchesFeature(
+  pr: BoardPr,
+  { matchBy, featureBranch, subLabel, landed }: { matchBy: string; featureBranch: string; subLabel: string; landed: boolean },
+): boolean {
+  if (matchBy !== 'label') return pr.baseRefName === featureBranch;
+  return hasLabel(pr, subLabel) && (!landed || pr.baseRefName === featureBranch);
 }
 
 /** A date's time, or `NaN` for a missing one — exactly what `new Date(undefined)` reads as. */
@@ -231,12 +300,13 @@ export function runnableFrontier(rows: readonly FrontierRow[]): Frontier {
   const takeableRows = rows.filter((row) => TAKEABLE_STATES.has(row.state));
   if (takeableRows.length === 0) return { wave: null, runnable: [], takeable: [], excluded: [], collisions: [] };
 
-  const wave = Math.min(...takeableRows.map((row) => row.wave));
+  // A wave read as `Math.min` reads it: `null` counts as 0, though no row of wave `null` is in it.
+  const wave = Math.min(...takeableRows.map((row) => Number(row.wave)));
   const inWave = takeableRows.filter((row) => row.wave === wave);
   const collisions = sameWaveCollisions(inWave);
 
-  const collidesWith = new Map<string, Set<string>>();
-  const rivalsOf = (id: string): Set<string> => {
+  const collidesWith = new Map<WorkSliceId, Set<WorkSliceId>>();
+  const rivalsOf = (id: WorkSliceId): Set<WorkSliceId> => {
     let rivals = collidesWith.get(id);
     if (!rivals) {
       rivals = new Set();
@@ -252,7 +322,7 @@ export function runnableFrontier(rows: readonly FrontierRow[]): Frontier {
   }
 
   const kept: FrontierRow[] = [];
-  const excluded: string[] = [];
+  const excluded: WorkSliceId[] = [];
   for (const row of inWave) {
     const rivals = collidesWith.get(row.id);
     const alreadyKeptRival = rivals && kept.some((keptRow) => rivals.has(keptRow.id));
@@ -284,6 +354,9 @@ export function runnableFrontier(rows: readonly FrontierRow[]): Frontier {
  *   fills `{topic}` in the branch templates.
  * - `repos` — a plan repository's repositories by short name; each pull request then carries the
  *   `slug` it was read from. Ignored on a plan with no `repo` column.
+ * - `landings` — the PRD's landing branches in order (`landingBranches`); by default its one
+ *   landing, on the feature branch. With more than one, the result also carries `landings` and
+ *   `currentLanding`, and the frontier is the current landing's.
  */
 export function boardFor<S extends BoardSlice>({
   slices,
@@ -293,6 +366,7 @@ export function boardFor<S extends BoardSlice>({
   config,
   prd,
   repos = null,
+  landings = null,
 }: {
   slices: readonly S[];
   prs?: readonly BoardPr[];
@@ -301,11 +375,16 @@ export function boardFor<S extends BoardSlice>({
   config: BoardConfig;
   prd: { topic: string };
   repos?: BoardRepos | null;
-}): { prd: { topic: string }; slices: BoardRow<S>[]; frontier: Frontier } {
+  landings?: readonly BoardLanding[] | null;
+}): { prd: { topic: string }; slices: BoardRow<S>[]; frontier: Frontier; landings?: LandingRow[]; currentLanding?: number | null } {
   const { topic } = prd;
-  const featureBranch = fillBranch(config.branches.feature, { topic });
-  const live = prs.filter(isLive);
+  const ordered = landings ?? [{ landing: 1, name: 'landing-1', branch: fillBranch(config.branches.feature, { topic }) }];
+  const landed = ordered.length > 1;
   const acrossRepos = slices.some((slice) => (slice.repo ?? null) !== null);
+  const entryOf = (slice: S) =>
+    ordered.find((entry) => entry.landing === (slice.landing ?? 1) && (!acrossRepos || entry.repo === undefined || entry.repo === slice.repo));
+  const branchOf = (slice: S) => entryOf(slice)?.branch ?? '';
+  const live = prs.filter(isLive);
   // `String(slice.repo)` is the key JavaScript itself would look up for a missing repo name.
   const repoOf = (slice: S) => (acrossRepos ? repos?.[String(slice.repo)] ?? { slug: null, readable: false } : null);
 
@@ -317,7 +396,7 @@ export function boardFor<S extends BoardSlice>({
       (pr) =>
         pr.headRefName === sliceBranch &&
         (!repo || pr.slug === repo.slug) &&
-        matchesFeature(pr, { matchBy: config.board.matchBy, featureBranch, subLabel: config.labels.sub }),
+        matchesFeature(pr, { matchBy: config.board.matchBy, featureBranch: branchOf(slice), subLabel: config.labels.sub, landed }),
     );
     return pickPr(candidates);
   });
@@ -332,7 +411,9 @@ export function boardFor<S extends BoardSlice>({
   const rows = slices.map((slice, index): BoardRow<S> => {
     const pr = matched[index] ?? null;
     const repo = repoOf(slice);
-    const { repo: _repo, ...rest } = slice;
+    // The row carries its own `repo` (below), or none: never the slice's raw one.
+    const rest: Omit<S, 'repo'> & { repo?: string | null } = { ...slice };
+    delete rest.repo;
     const blockersMerged = (slice.blockedBy ?? []).every((blockerId) => mergedById.get(blockerId) === true);
     if (!repo) {
       return { ...rest, pr, state: stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix }) };
@@ -343,5 +424,59 @@ export function boardFor<S extends BoardSlice>({
     return { ...rest, repo: slice.repo, slug: repo.slug, pr, state };
   });
 
-  return { prd: { topic }, slices: rows, frontier: runnableFrontier(rows) };
+  if (!landed) return { prd: { topic }, slices: rows, frontier: runnableFrontier(rows) };
+
+  const slugOf = (entry: BoardLanding) => (acrossRepos && entry.repo !== undefined ? (repos?.[String(entry.repo)]?.slug ?? null) : undefined);
+  const counted = ordered.map((entry) => landingRow(entry, { rows, slices, live, slug: slugOf(entry), acrossRepos }));
+  // The current landing of each repository's chain: its first whose slices are not all merged.
+  const currentOf = new Map<string | null, number>();
+  for (const row of counted) {
+    const key = row.repo ?? null;
+    if (!row.complete && !currentOf.has(key)) currentOf.set(key, row.landing);
+  }
+  const landingRows = counted.map((row) => ({ ...row, current: currentOf.get(row.repo ?? null) === row.landing }));
+  const currentLanding = currentOf.size === 0 ? null : Math.min(...currentOf.values());
+  const inCurrent = new Set(
+    slices.filter((slice) => landingRows.some((row) => row.current && row.slices.includes(slice.id))).map((slice) => slice.id),
+  );
+  return {
+    prd: { topic },
+    slices: rows,
+    frontier: runnableFrontier(rows.filter((row) => inCurrent.has(row.id))),
+    landings: landingRows,
+    currentLanding,
+  };
+}
+
+/** States a slice is open in: it has a pull request, not yet merged. */
+const OPEN_STATES = new Set<SliceState>(['stuck', 'claimed-stale', 'in-flight']);
+
+/** One landing's row: its slices' counts, and its own pull request read from the payload (the one
+ * whose head is the landing's branch). */
+function landingRow<S extends BoardSlice>(
+  entry: BoardLanding,
+  { rows, slices, live, slug, acrossRepos }: { rows: readonly BoardRow<S>[]; slices: readonly S[]; live: readonly BoardPr[]; slug: string | null | undefined; acrossRepos: boolean },
+): Omit<LandingRow, 'current'> {
+  const mine = (slice: S) => (slice.landing ?? 1) === entry.landing && (!acrossRepos || entry.repo === undefined || entry.repo === slice.repo);
+  const ids = slices.filter(mine).map((slice) => slice.id);
+  const own = rows.filter((row) => ids.includes(row.id));
+  const merged = own.filter((row) => row.state === 'merged').length;
+  const open = own.filter((row) => OPEN_STATES.has(row.state)).length;
+  const pr = pickPr(live.filter((candidate) => candidate.headRefName === entry.branch && (slug === undefined || candidate.slug === slug)));
+  return {
+    ...entry,
+    slices: ids,
+    merged,
+    open,
+    notStarted: own.length - merged - open,
+    complete: merged === own.length,
+    pr: { number: pr?.number ?? null, state: landingPrState(pr), base: pr?.baseRefName ?? null },
+  };
+}
+
+/** A landing pull request's state: merged, draft, ready (open and not a draft), or absent. */
+function landingPrState(pr: BoardPr | null): LandingPrState {
+  if (!pr) return 'absent';
+  if (isMerged(pr)) return 'merged';
+  return pr.isDraft ? 'draft' : 'ready';
 }

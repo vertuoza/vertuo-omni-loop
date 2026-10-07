@@ -12,11 +12,11 @@ const SOLO: WorkspaceGithub = { slug: 'solo', github_org: null, github_installat
 
 function reader(repos: Record<number, string[] | Error>, installations: Record<string, number | null> = { vertuoza: 1 }): KnowledgeReader {
   return {
-    installationFor: vi.fn(async (w) => w.github_installation_id ?? (w.github_org ? installations[w.github_org] ?? null : null)),
-    repos: vi.fn(async (id: number) => {
+    installationFor: vi.fn((w: WorkspaceGithub) => Promise.resolve(w.github_installation_id ?? (w.github_org ? installations[w.github_org] ?? null : null))),
+    repos: vi.fn((id: number) => {
       const found = repos[id];
-      if (found instanceof Error) throw found;
-      return found ?? [];
+      if (found instanceof Error) return Promise.reject(found);
+      return Promise.resolve(found ?? []);
     }),
     graph: vi.fn(),
   };
@@ -25,7 +25,7 @@ function reader(repos: Record<number, string[] | Error>, installations: Record<s
 describe('installedRepos — the repositories the menu offers', () => {
   it('gives every workspace\'s repositories by name, each with the installation that reads it', async () => {
     const read = reader({ 1: ['vertuoza/vertuo-core', 'vertuoza/Api'], 2: ['acme/widgets'] });
-    expect(await installedRepos(read, async () => [ACME, VERTUOZA, SOLO])).toEqual([
+    expect(await installedRepos(read, () => Promise.resolve([ACME, VERTUOZA, SOLO]))).toEqual([
       { repo: 'acme/widgets', installation: 2 },
       { repo: 'vertuoza/Api', installation: 1 },
       { repo: 'vertuoza/vertuo-core', installation: 1 },
@@ -34,23 +34,23 @@ describe('installedRepos — the repositories the menu offers', () => {
 
   it('offers a repository two installations reach once', async () => {
     const read = reader({ 1: ['acme/widgets'], 2: ['Acme/Widgets'] });
-    expect(await installedRepos(read, async () => [ACME, VERTUOZA])).toEqual([{ repo: 'Acme/Widgets', installation: 2 }]);
+    expect(await installedRepos(read, () => Promise.resolve([ACME, VERTUOZA]))).toEqual([{ repo: 'Acme/Widgets', installation: 2 }]);
   });
 
   it('keeps the other workspaces\' repositories when one installation cannot be read, saying why', async () => {
     const log = vi.fn();
     const read = reader({ 1: new Error('GitHub answered 502 to /installation/repositories'), 2: ['acme/widgets'] });
-    expect(await installedRepos(read, async () => [ACME, VERTUOZA], log)).toEqual([{ repo: 'acme/widgets', installation: 2 }]);
+    expect(await installedRepos(read, () => Promise.resolve([ACME, VERTUOZA]), log)).toEqual([{ repo: 'acme/widgets', installation: 2 }]);
     expect(log).toHaveBeenCalledWith('knowledge map: the repositories of vertuoza could not be read from GitHub — GitHub answered 502 to /installation/repositories');
   });
 
   it('offers none without the App\'s credentials, or when the workspaces cannot be read', async () => {
-    const workspaces = vi.fn(async () => [ACME]);
+    const workspaces = vi.fn(() => Promise.resolve([ACME]));
     expect(await installedRepos(null, workspaces)).toEqual([]);
     expect(workspaces).not.toHaveBeenCalled();
 
     const log = vi.fn();
-    expect(await installedRepos(reader({ 2: ['acme/widgets'] }), async () => { throw new Error('Supabase: down'); }, log)).toEqual([]);
+    expect(await installedRepos(reader({ 2: ['acme/widgets'] }), () => Promise.reject(new Error('Supabase: down')), log)).toEqual([]);
     expect(log).toHaveBeenCalledWith('knowledge map: no other repository is offered, the workspaces cannot be read — Supabase: down');
   });
 });

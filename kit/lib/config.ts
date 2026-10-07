@@ -6,26 +6,32 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
 import { messageOf } from './narrow.ts';
+import { FlowSchema, hooksByMode, regexSource } from './flow/schema.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
 export const CONFIG_FILE = '.omni-loop/config.yml';
 export const CONFIG_VERSION = 1;
 
 export class ConfigError extends Error {
-  constructor(message: string) {
+  /** True when the file was read and does not hold a valid config, false when there is no file to read. */
+  readonly invalid: boolean;
+  constructor(message: string, { invalid = false }: { invalid?: boolean } = {}) {
     super(message);
     this.name = 'ConfigError';
+    this.invalid = invalid;
   }
 }
 
 const text = z.string().min(1);
 const nullableText = text.nullable();
-const regexSource = z.string().refine((source) => {
-  try { new RegExp(source); return true; } catch { return false; }
-}, 'not a valid regular expression');
+// A branch name template (`feat/{topic}--{slice}`) and a label's name (`omni:prd`): text, named by
+// what it holds. Their keys (`branches.slice`, `labels.prd`) are the ones users' config files carry,
+// so they keep those names; the values are no IDs, and are never branded (ADR-0056).
+const branchTemplate = z.string().min(1);
+const labelName = z.string().min(1);
 // A section every key of which has a default: absent, it parses as `{}` would, defaults filled in.
 const section = <Shape extends z.ZodRawShape>(shape: Shape) =>
-  z.object(shape).strict().prefault({} as z.input<z.ZodObject<Shape, z.core.$strict>>); // ts-allow: every key of a section has a default, so {} is its input
+  z.preprocess((value) => (value === undefined ? {} : value), z.object(shape).strict());
 // A name or an address a `Co-authored-by: <name> <email>` line can hold: one line, no angle bracket.
 const trailerPart = text.regex(/^[^<>\r\n]+$/, 'one line, with no < or >');
 // Where ask mode's pages and calls live: https anywhere, or plain http on the loopback address only.
@@ -86,6 +92,17 @@ const planSection = z
     });
   });
 
+// PRD 1138: a file the repository builds rather than writes. `path` is a path prefix, written as a
+// territory entry is; `from` the prefixes whose change makes it stale; `build` the command that
+// rebuilds it, run from the repository root.
+const generatedEntry = z
+  .object({
+    path: text,
+    from: z.array(text).min(1, 'at least one source prefix'),
+    build: z.string().trim().min(1),
+  })
+  .strict();
+
 export const ConfigSchema = z
   .object({
     kit: z.literal(CONFIG_VERSION),
@@ -96,20 +113,24 @@ export const ConfigSchema = z
     }),
     github: section({ user: nullableText.default(null) }),
     branches: section({
-      feature: text.default('feat/{topic}'),
-      fix: text.default('fix/{topic}'),
-      phase0: text.default('docs/phase-0-{topic}'),
-      slice: text.default('feat/{topic}--{slice}'),
-      rework: text.default('fix-{item}'),
-      retro: text.default('docs/retro-{topic}'),
-      knowledge: text.default('docs/knowledge-{topic}'),
-      invade: text.default('docs/omni-invade'),
+      feature: branchTemplate.default('feat/{topic}'),
+      fix: branchTemplate.default('fix/{topic}'),
+      phase0: branchTemplate.default('docs/phase-0-{topic}'),
+      slice: branchTemplate.default('feat/{topic}--{slice}'),
+      // Landings: the branch of each landing of a PRD of more than one, stacked on the one before;
+      // `{landing}` and `{landings}` are its number and the count, `{name}` its plan's name for it.
+      // A PRD of one landing keeps `feature`.
+      landing: branchTemplate.default('feat/{topic}-{landing}of{landings}-{name}'),
+      rework: branchTemplate.default('fix-{item}'),
+      retro: branchTemplate.default('docs/retro-{topic}'),
+      knowledge: branchTemplate.default('docs/knowledge-{topic}'),
+      invade: branchTemplate.default('docs/omni-invade'),
       // PRD 347: the branch `omni update` opens its pull request from; `{version}` is `v<x.y.z>`.
-      update: text.default('chore/omni-update-{version}'),
+      update: branchTemplate.default('chore/omni-update-{version}'),
       // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
-      megaInvade: text.default('docs/omni-mega-invade'),
+      megaInvade: branchTemplate.default('docs/omni-mega-invade'),
       // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
-      concept: text.default('docs/concept-{topic}'),
+      concept: branchTemplate.default('docs/concept-{topic}'),
     }),
     worktrees: text.default('.claude/worktrees'),
     paths: section({
@@ -121,25 +142,25 @@ export const ConfigSchema = z
       context: z.array(text).default(['CLAUDE.md']),
     }),
     labels: section({
-      prd: text.default('omni:prd'),
-      phase0: text.default('omni:phase-0'),
-      feature: text.default('omni:feature'),
-      sub: text.default('omni:sub'),
-      inProgress: text.default('omni:in-progress'),
-      needsFix: text.default('omni:needs-fix'),
-      outboxGo: text.default('omni:outbox-go'),
-      retro: text.default('omni:retro'),
-      knowledge: text.default('omni:knowledge'),
-      visual: text.default('omni:visual'),
+      prd: labelName.default('omni:prd'),
+      phase0: labelName.default('omni:phase-0'),
+      feature: labelName.default('omni:feature'),
+      sub: labelName.default('omni:sub'),
+      inProgress: labelName.default('omni:in-progress'),
+      needsFix: labelName.default('omni:needs-fix'),
+      outboxGo: labelName.default('omni:outbox-go'),
+      retro: labelName.default('omni:retro'),
+      knowledge: labelName.default('omni:knowledge'),
+      visual: labelName.default('omni:visual'),
       // PRD 556: the bug-fix lane's labels — the issue and its PR, a regression, and the triage's risk.
-      bug: text.default('omni:bug'),
-      regression: text.default('omni:regression'),
-      riskCritical: text.default('omni:risk-critical'),
-      riskHigh: text.default('omni:risk-high'),
-      riskMedium: text.default('omni:risk-medium'),
-      riskLow: text.default('omni:risk-low'),
+      bug: labelName.default('omni:bug'),
+      regression: labelName.default('omni:regression'),
+      riskCritical: labelName.default('omni:risk-critical'),
+      riskHigh: labelName.default('omni:risk-high'),
+      riskMedium: labelName.default('omni:risk-medium'),
+      riskLow: labelName.default('omni:risk-low'),
       // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
-      concept: text.default('omni:concept'),
+      concept: labelName.default('omni:concept'),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({
@@ -147,6 +168,10 @@ export const ConfigSchema = z
       sub: text.default('Part of #{prd}'),
       phase0: text.default('Refs #{prd}'),
     }),
+    // How a pull request into the default branch or a landing branch is opened: `openWith` names a
+    // slash skill of this repository (`/create-pr`, say) that `/omni:pr` runs with `--base`,
+    // `--draft` and `--non-interactive`; `null` keeps the kit's own `gh pr create`. Sub-PRs never use it.
+    pr: section({ openWith: nullableText.default(null) }),
     board: section({ matchBy: z.enum(['base', 'label']).default('base') }),
     ci: section({
       outboxContext: text.default('outbox'),
@@ -185,6 +210,10 @@ export const ConfigSchema = z
       storedShape: z.array(regexSource).default([]),
       sharedContract: z.array(text).default([]),
     }),
+    // Landings: the paths that must reach the default branch in a landing of their own (a
+    // repository's migrations directories, say). Regex sources over repository paths, compiled once
+    // by `omni plan check`; empty, no plan is refused for what it puts together.
+    landings: section({ alone: z.array(regexSource).default([]) }),
     notify: section({
       slack: z
         .object({ channelVar: text.default('OMNI_SLACK_CHANNEL'), tokenSecret: text.default('SLACK_BOT_TOKEN') })
@@ -197,6 +226,9 @@ export const ConfigSchema = z
       attempts: z.number().int().positive().default(3),
       claimStaleMinutes: z.number().int().positive().default(60),
       beforeAfterMaxBytes: z.number().int().positive().default(512000),
+      // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
+      // and a config that does not set it parses exactly as before.
+      hookMaxBytes: z.number().int().positive().optional(),
     }),
     ask: section({ url: askUrl.nullable().default(null) }),
     // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
@@ -237,8 +269,25 @@ export const ConfigSchema = z
       .nullable()
       .prefault({}),
     plan: planSection.optional(),
+    // PRD 1089: the repository's flow — its rules, its areas and its hooks (`kit/lib/flow/`).
+    // Optional: a config without it runs the loop as the kit defines it, and parses with no `flow` key.
+    flow: FlowSchema.optional(),
+    // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
+    // it has none, and parses with no `generated` key.
+    generated: z.array(generatedEntry).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(({ pr, flow }, issues) => {
+    // `pr.openWith` reads as the default area's `pr.open` replace hook: two of them is one too many.
+    const hooks = flow?.hooks?.['pr.open'];
+    if (pr.openWith !== null && hooks !== undefined && hooksByMode(hooks).replace !== null) {
+      issues.addIssue({
+        code: 'custom',
+        path: ['flow', 'hooks', 'pr.open', 'replace'],
+        message: 'pr.openWith already replaces how a pull request opens — keep one of the two',
+      });
+    }
+  });
 
 /**
  * Whether dossiers are on in a repository (PRD 216): `dossier.enabled` is true and `ask.url` is set.
@@ -293,29 +342,62 @@ export function migrateConfig(raw: unknown, migrations: readonly Migration[] = M
   return current;
 }
 
+/** Removes from `raw` every key a schema issue says it does not recognize; whether it removed any. */
+function dropUnrecognized(raw: unknown, issues: readonly z.core.$ZodIssue[]): boolean {
+  let dropped = false;
+  for (const issue of issues) {
+    if (issue.code !== 'unrecognized_keys') continue;
+    let at: unknown = raw;
+    for (const step of issue.path) at = isRecord(at) ? at[String(step)] : undefined;
+    if (!isRecord(at)) continue;
+    for (const key of issue.keys) {
+      if (Object.hasOwn(at, key)) {
+        Reflect.deleteProperty(at, key);
+        dropped = true;
+      }
+    }
+  }
+  return dropped;
+}
+
+/** `raw` checked by the schema; with `ignoreUnknownKeys`, keys it does not know are dropped and it is checked again. */
+function checkConfig(raw: unknown, ignoreUnknownKeys: boolean) {
+  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  if (result.success || !ignoreUnknownKeys) return result;
+  const copy = structuredClone(raw);
+  return dropUnrecognized(copy, result.error.issues) ? ConfigSchema.safeParse(copy, { error: KIT_MESSAGES }) : result;
+}
+
 /**
  * Parses config text. Throws ConfigError whose FIRST line names `file` and the first offending key —
  * the CLI prints only that line — and whose later lines list every other issue. With `migrate`, the
- * migration step runs first, as `omni update` checks a file written for an older kit.
+ * migration step runs first, as `omni update` checks a file written for an older kit. With
+ * `ignoreUnknownKeys`, a key this kit does not know is left out instead of refused: a reader that may
+ * run older code than the file was written for (the GitHub App's retro, just before its deploy, #1151)
+ * reads what it knows.
  */
-export function parseConfig(source: string, file: string = CONFIG_FILE, { migrate = false }: { migrate?: boolean } = {}): Config {
+export function parseConfig(
+  source: string,
+  file: string = CONFIG_FILE,
+  { migrate = false, ignoreUnknownKeys = false }: { migrate?: boolean; ignoreUnknownKeys?: boolean } = {},
+): Config {
   let raw: unknown;
   try {
     raw = parse(source) ?? {};
   } catch (error) {
-    throw new ConfigError(`${file}: not valid YAML — ${messageOf(error).split('\n')[0]}`);
+    throw new ConfigError(`${file}: not valid YAML — ${messageOf(error).split('\n')[0]}`, { invalid: true });
   }
   if (migrate) raw = migrateConfig(raw);
   const renamed = renamedKey(raw);
   if (renamed) {
     const { section: name, from, to } = renamed;
-    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed — call it ${name}.${to}`);
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed — call it ${name}.${to}`, { invalid: true });
   }
-  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  const result = checkConfig(raw, ignoreUnknownKeys);
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
     const more = others.length ? `\n${others.map((line) => `  - ${line}`).join('\n')}` : '';
-    throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`);
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
   }
   return result.data;
 }

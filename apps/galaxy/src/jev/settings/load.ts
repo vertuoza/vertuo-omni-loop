@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { memberWorkspace } from '../../data/workspace';
 import { jevRecords, recordSince, type JevRecords } from '../record/record';
 import { jevStore, type JevDecisionSettings, type JevKeyStatus } from '../store';
@@ -18,7 +19,7 @@ export type JevLoad =
 
 const why = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-export async function loadJevPage(db: SupabaseClient, user: User, now: Date = new Date()): Promise<JevLoad> {
+export async function loadJevPage(db: SupabaseClient<Database>, user: User, now: Date = new Date()): Promise<JevLoad> {
   try {
     const workspace = await memberWorkspace(db, user.id);
     if (!workspace) return { kind: 'no-workspace' };
