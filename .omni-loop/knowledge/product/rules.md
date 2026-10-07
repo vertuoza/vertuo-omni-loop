@@ -819,3 +819,15 @@ Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1090
 Proposed: harvest 2026-10-06
+
+## BR-PRODUCT-70
+
+A product's pitch look may be changed by exactly those who may edit the workspace's business, which today is every member; anyone else sees it read-only.
+
+Serves: P-PRODUCT-62
+Source: .omni-loop/delivery/shipped/0859-pitch/outbox/settled.md, entry s1-02-every-member-edits-the-look, PRD #859
+Enforced by: unenforced
+Stated: 2026-10-06
+Decided: nobody — adopted when raised (medium), 2026-10-01
+Merged: @pierrederval, 2026-10-06, PR #860
+Proposed: harvest 2026-10-06

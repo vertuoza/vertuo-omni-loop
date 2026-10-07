@@ -547,3 +547,12 @@ Why: Work that builds on a part that is not yet finished would rest on ground th
 Source: .omni-loop/delivery/shipped/1089-repo-flow/outbox/settled.md, entry s3-01-plan-rules-order-and-reach, PRD #1089
 Merged: @pierrederval, 2026-10-06, PR #1090
 Proposed: harvest 2026-10-06
+
+## P-PRODUCT-62
+
+Who may change how a product is presented always follows who may edit that product's business, never a separate grant.
+
+Why: One source of edit rights means presentation and business can never drift apart in who controls them.
+Source: .omni-loop/delivery/shipped/0859-pitch/outbox/settled.md, entry s1-02-every-member-edits-the-look, PRD #859
+Merged: @pierrederval, 2026-10-06, PR #860
+Proposed: harvest 2026-10-06
