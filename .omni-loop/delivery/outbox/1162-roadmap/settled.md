@@ -235,3 +235,392 @@ One small change in the plan check to walk the chain, and its tests; no stored d
 ```
 
 <!-- /omni-outbox-settled: s3-01-consumes-is-direct-only -->
+
+<!-- omni-outbox-settled: s4-01-consumer-rule-follows-blockers -->
+
+## s4-01-consumer-rule-follows-blockers — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-consumer-rule-follows-blockers
+prd: 1162
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 2
+---
+
+## The question, in plain words
+
+When a roadmap has a project in a repository that installs another repository's package, which earlier projects must it come after?
+
+## The decision, in plain words
+
+It must come after every project it waits on, directly or through others, that changes the repository it installs from. Projects that do not wait on each other may still run side by side in the same wave.
+
+## The intro, for fun
+
+Two repositories, one package, and a question of who goes first.
+
+## The punchline, for fun
+
+Only the ones holding hands have to queue.
+
+## The options, in plain words
+
+A. A. Only the provider projects it waits on, directly or through others (built).
+B. B. Every provider project of an earlier or the same wave, whether it waits on it or not.
+C. C. Only the provider projects it waits on directly.
+
+## What I had to decide
+
+Whether the rule binds only the projects a consumer waits on (built), or every provider project against every consumer project of the roadmap, which would force all provider work before any consumer work.
+
+## What I did meanwhile
+
+The check refuses a consumer project whose wave is not after a provider project it waits on; unrelated projects in the two repositories run in parallel.
+
+## What it costs to change later
+
+Switching to the global reading is one extra loop in the roadmap grade and its tests; no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec's sentence reads either way; the narrower reading was taken because the wider one would refuse the spec's own example roadmap once crew consumes ai-domain (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-01-consumer-rule-follows-blockers -->
+
+<!-- omni-outbox-settled: s4-02-shipped-prd-still-counts -->
+
+## s4-02-shipped-prd-still-counts — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-shipped-prd-still-counts
+prd: 1162
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 2
+---
+
+## The question, in plain words
+
+Once a project of a roadmap has shipped, does the roadmap check still accept its row?
+
+## The decision, in plain words
+
+Yes: a row passes when its project's folder is in the inbox or already shipped, and its spec is compared wherever it lives. Otherwise every roadmap would fail its check as soon as its first project merged.
+
+## The intro, for fun
+
+A roadmap that fails the moment it succeeds would be a strange reward.
+
+## The punchline, for fun
+
+Shipped projects keep their seat at the table.
+
+## The options, in plain words
+
+A. A. Inbox or shipped folder (built).
+B. B. Inbox folder only, so a roadmap must be edited each time one of its projects ships.
+
+## What I had to decide
+
+Whether a roadmap row needs its project in the inbox only, as the spec words it, or in the inbox or the shipped folder (built).
+
+## What I did meanwhile
+
+The check reads each row's project from the inbox or the shipped folder; only a project with neither is refused.
+
+## What it costs to change later
+
+Narrowing it to the inbox is one condition in the roadmap reader and one test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says inbox folder; whether it meant to refuse shipped projects was not settled (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-02-shipped-prd-still-counts -->
+
+<!-- omni-outbox-settled: s4-03-repos-column-and-source -->
+
+## s4-03-repos-column-and-source — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-repos-column-and-source
+prd: 1162
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 2
+---
+
+## The question, in plain words
+
+How strict is the roadmap file about which repositories each project names, and about saying where the roadmap came from?
+
+## The decision, in plain words
+
+In a plan repository every project must name at least one repository; outside one, a repositories column is refused. Saying where the roadmap was read from is optional, like the product and the target date.
+
+## The intro, for fun
+
+Every roadmap starts somewhere, but not every start has a link.
+
+## The punchline, for fun
+
+Pasted text gets to stay anonymous.
+
+## The options, in plain words
+
+A. A. Repositories required on every row of a plan repository; source optional (built).
+B. B. Source required too, written as pasted for pasted text.
+C. C. Repositories optional per row, a row without them read as the plan repository's own.
+
+## What I had to decide
+
+Whether the source line is required, and whether a plan repository's roadmap may leave a project's repositories empty.
+
+## What I did meanwhile
+
+A plan repository's roadmap needs its repositories column and a repository on every row; the source line may be left out.
+
+## What it costs to change later
+
+Making the source required, or relaxing the repositories rule, is one schema field or one condition and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan lists source beside the optional fields without saying it is optional; a roadmap from pasted text has no link to give (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-03-repos-column-and-source -->
+
+<!-- omni-outbox-settled: s5-01-answer-box-copies-the-command -->
+
+## s5-01-answer-box-copies-the-command — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-answer-box-copies-the-command
+prd: 1162
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 2
+---
+
+## The question, in plain words
+
+The roadmap page's answer box should leave a person's answer on the roadmap's issue. Should the page post that comment itself, or hand the person the one line that posts it?
+
+## The decision, in plain words
+
+The box turns the answer into the one line that records it, with a copy button and a link to the roadmap's issue. The page does not post anything to GitHub yet.
+
+## The intro, for fun
+
+A text box that wants to talk to GitHub, but has nobody to pass the note to yet.
+
+## The punchline, for fun
+
+So it writes the note neatly and hands it to you to deliver.
+
+## The options, in plain words
+
+A. A. The box writes out the answer command to copy, and links the issue; posting from the page comes later
+B. B. The page posts the comment itself now, through a new API route and the App's authorisation as the person
+C. C. The box only links to the roadmap's issue, and the person writes the comment by hand
+
+## What I had to decide
+
+The spec says the page's answer box writes the same comment as `omni roadmap answer`. Posting from the page needs a write path to GitHub as the person (the GitHub App's authorisation, as the Outbox tab's Send does, through an API route) that is outside s5's territory, and the comment's marker is s6's (`kit/lib/roadmap/answers`), not built yet in wave 2.
+
+## What I did meanwhile
+
+`AnswerBox.tsx` shows a textarea for each unanswered `person` question; as the person types, it shows `omni roadmap answer <n> <Q> "<answer>"` with a Copy button, beside a link to the roadmap's issue. Nothing is written by the page.
+
+## What it costs to change later
+
+Small: a later slice swaps the box's copy step for a Send button posting through a new `/api/roadmaps/answer` route that reuses s6's marker; the box, its place on the page and the question model stay.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether any workspace member may answer a person question from the page, or only some (author)
+- Which GitHub account the page would post as: the person's, through the App's authorisation, is assumed (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-answer-box-copies-the-command -->
+
+<!-- omni-outbox-settled: s5-02-switch-test-lists-roadmaps -->
+
+## s5-02-switch-test-lists-roadmaps — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-switch-test-lists-roadmaps
+prd: 1162
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 2
+---
+
+## The question, in plain words
+
+Adding the Roadmaps entry broke a check that lists every menu entry, in a file outside this slice's list. Fix it here, or leave it failing?
+
+## The decision, in plain words
+
+The check now lists the Roadmaps entry too. It is a one-line change to a test, made in this slice so everything stays green.
+
+## The intro, for fun
+
+One new menu entry, and a test somewhere was keeping count.
+
+## The punchline, for fun
+
+It now counts one more.
+
+## The options, in plain words
+
+A. A. Update the test's list in this slice
+B. B. Leave it failing for a later slice to fix
+
+## What I had to decide
+
+`apps/galaxy/src/switch/switch.test.ts` pins the sidebar's in-app paths and checks each page exists. The plan gave s5 `headers.test.ts` but not this file; the Roadmaps entry makes it fail until `/roadmaps` is in its list.
+
+## What I did meanwhile
+
+Added `/roadmaps` between `/app/engineering` and `/prd` in that test's expected list; `app/roadmaps/page.tsx` exists, so its page check passes.
+
+## What it costs to change later
+
+None: a test's expected list. Reverting the entry reverts the line.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the plan meant to leave this file to another slice: no other slice of PRD 1162 touches the sidebar (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-02-switch-test-lists-roadmaps -->
