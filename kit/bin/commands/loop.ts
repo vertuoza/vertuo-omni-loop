@@ -8,9 +8,10 @@
 //   sleeping is printed and the start refused; a silent one (its session died) is taken over only
 //   with `--take-over`, which the app checks again.
 // - `push tick --step <k> [--steps <n>] --prd <n> --action <word> --result "<line>" [--link <url>]
-//   [--merged <pr,…>] [--items <id,…>] [--wake-in <seconds> | --next-wake <time>]`: one tick of the
-//   kept loop. `--steps` is the latest plan's length when left out. A plan version newer than the one
-//   the app was sent goes with the tick as its replan, once.
+//   [--merged <pr,…>] [--items <id,…>] [--repos <repo,…>] [--wake-in <seconds> | --next-wake <time>]`:
+//   one tick of the kept loop. `--steps` is the latest plan's length when left out. A plan version
+//   newer than the one the app was sent goes with the tick as its replan, once. The repositories the
+//   step touches (PRD 1162) are `--repos`, else the ones the latest plan gives step k, else none.
 // - `push park --prd <n> --who "<who>" --what "<what>" [--link <url>]` and `push stop`.
 // - `status [--json]` prints the kept loop, what it is doing (live, sleeping, parked, stopped or silent,
 //   by the app's rule) and its plan, from this checkout alone: a loop whose terminal closed resumes
@@ -51,7 +52,7 @@ type LoopOptions = {
 
 const USAGE = [
   'usage: omni loop push start [--take-over]',
-  '       omni loop push tick --step <k> [--steps <n>] --prd <n> --action <word> --result "<line>" [--link <url>] [--merged <pr,…>] [--items <id,…>] [--wake-in <seconds> | --next-wake <time>]',
+  '       omni loop push tick --step <k> [--steps <n>] --prd <n> --action <word> --result "<line>" [--link <url>] [--merged <pr,…>] [--items <id,…>] [--repos <repo,…>] [--wake-in <seconds> | --next-wake <time>]',
   '       omni loop push park --prd <n> --who "<who>" --what "<what>" [--link <url>]',
   '       omni loop push stop',
   '       omni loop status [--json]',
@@ -60,6 +61,9 @@ const USAGE = [
 const ACTION = /^[a-z][a-z-]{0,39}$/;
 const LINK = /^https?:\/\/\S+$/;
 const LINK_MAX = 500;
+/** A repository a tick names: a target's short name, or `owner/name`, as the app's contract takes it. */
+const REPO = /^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)?$/;
+const REPOS_MAX = 20;
 
 /** The one line a failed call is reported with; the app's reason after it when it gave one. */
 function skipLine(error: unknown): string {
@@ -92,6 +96,16 @@ function itemsArg(value: string | undefined): OutboxItemId[] {
     if (!parsed.success) throw usageError(`omni loop push: --items names outbox items, got "${id}".`);
     return parsed.data;
   });
+}
+
+/** `--repos`, or null when the flag is left out. */
+function reposArg(value: string | undefined): string[] | null {
+  if (value === undefined) return null;
+  const repos = list(value);
+  const bad = repos.find((repo) => !REPO.test(repo));
+  if (bad !== undefined) throw usageError(`omni loop push: --repos names repositories, such as crew or acme/crew, got "${bad}".`);
+  if (repos.length > REPOS_MAX) throw usageError(`omni loop push: --repos names ${REPOS_MAX} repositories at most.`);
+  return repos;
 }
 
 /** When the loop wakes next: `--wake-in` seconds from now, `--next-wake` as written, or null. */
@@ -134,7 +148,7 @@ function actionArg(value: string | undefined): string {
 }
 
 function prepareTick(args: string[], { now }: PrepareOptions): Prepared {
-  const { positional, flags } = parseArgs('loop push tick', args, { values: ['step', 'steps', 'prd', 'action', 'result', 'link', 'merged', 'items', 'wake-in', 'next-wake'] });
+  const { positional, flags } = parseArgs('loop push tick', args, { values: ['step', 'steps', 'prd', 'action', 'result', 'link', 'merged', 'items', 'repos', 'wake-in', 'next-wake'] });
   if (positional.length) throw usageError(USAGE);
   const { step, given } = stepArgs(flags);
   const prd = prdArg('loop push tick', '--prd', flags.prd);
@@ -143,13 +157,15 @@ function prepareTick(args: string[], { now }: PrepareOptions): Prepared {
   const link = linkArg(flags.link);
   const merged = prsArg(flags.merged);
   const items = itemsArg(flags.items);
+  const named = reposArg(flags.repos);
   const wake = wakeArg({ wakeIn: flags['wake-in'], nextWake: flags['next-wake'] }, now);
   return {
     needsLoop: true, takeOver: false, wake,
     body: (loop, plan) => {
       const steps = Math.max(given ?? plan?.steps.length ?? step, step);
       const replan = plan && plan.version > loop.planVersion ? plan : null;
-      return tickBody({ loopId: loop.loopId, step, steps, prd, action, result, link, merged, items, nextWakeAt: wake, replan });
+      const repos = named ?? plan?.steps.find((candidate) => candidate.step === step)?.repos ?? [];
+      return tickBody({ loopId: loop.loopId, step, steps, prd, action, result, link, merged, items, repos, nextWakeAt: wake, replan });
     },
   };
 }

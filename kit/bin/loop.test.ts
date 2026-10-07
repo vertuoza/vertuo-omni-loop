@@ -137,6 +137,25 @@ describe('omni loop push: each event sends the body the app takes', () => {
     expect(calls).toHaveLength(1);
   });
 
+  // PRD 1162, slice s7: the Loop page shows the repositories each step touches.
+  it('a tick carries the repositories of its step: the kept plan\'s, or --repos', async () => {
+    const multi = plan();
+    const [first, second] = multi.steps;
+    if (!first || !second) throw new Error('the plan has two steps');
+    multi.steps = [{ ...first, repos: ['ai-domain', 'crew'] }, second];
+    const { root } = checkout({ plans: [multi] });
+    const { calls, fetch } = stubFetch(answers());
+    await omni(['push', 'start'], { root, fetch });
+    await omni(['push', ...TICK], { root, fetch });
+    expect(calls.at(-1)?.body).toMatchObject({ event: 'tick', step: 1, repos: ['ai-domain', 'crew'] });
+    await omni(['push', 'tick', '--step', '2', '--prd', '9', '--action', 'wait', '--result', 'x'], { root, fetch });
+    expect(calls.at(-1)?.body).not.toHaveProperty('repos');
+    await omni(['push', 'tick', '--step', '2', '--prd', '9', '--action', 'wave', '--result', 'x', '--repos', 'crew,acme/ai-domain'], { root, fetch });
+    expect(calls.at(-1)?.body).toMatchObject({ step: 2, repos: ['crew', 'acme/ai-domain'] });
+    const bad = await omni(['push', 'tick', '--step', '2', '--prd', '9', '--action', 'wave', '--result', 'x', '--repos', 'not a repo!'], { root, fetch });
+    expect(bad.code).toBe(2);
+  });
+
   it('park sends the PRD, who and what, and the link; stop sends the loop alone and keeps how it ended', async () => {
     const { root } = checkout();
     const { calls, fetch } = stubFetch(answers());
