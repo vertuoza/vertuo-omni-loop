@@ -29,6 +29,16 @@ describe('experience', () => {
     ], { now: NOW })).toEqual({ alice: 10, bob: 15 });
   });
 
+  it('counts each answered question at its weight, 1 by default (PRD 1180)', () => {
+    const answers = [
+      E('ask:r1:answered', '2026-08-21T12:00:00Z', 'QUESTION_ANSWERED', { contributor: 'alice', team: 'octopod' }),
+      E('ask:r2:answered', '2026-09-21T12:00:00Z', 'QUESTION_ANSWERED', { contributor: 'Alice', team: 'octopod' }),
+    ];
+    expect(experience([charted, ...answers], { now: NOW })).toEqual({ alice: 4 });
+    expect(experience([charted, ...answers], { now: NOW, rules: rules({ weights: { questionAnswered: 0 } }) })).toEqual({ alice: 0 });
+    expect(xpKindOf('question answered')).toBe('questionAnswered');
+  });
+
   it('counts the cross-fleet multiplier of a wound close, rounding once after summing', () => {
     // Each close pays 15 × 1.5 = 22.5; rounded once, two of them are 45, not 2 × 23.
     expect(experience([
@@ -141,6 +151,7 @@ describe('xpKindOf', () => {
       secured('s9', '2026-09-21T12:00:00Z', 'dan', 'picsou', lostPlanet),
       E('planet:7:lost', '2026-09-25T12:00:00Z', 'PLANET_LOST', { planet: lostPlanet, data: { ownerTeam: 'beaver', reason: 'closed' } }),
       E('planet:7:decommissioned', '2026-09-26T12:00:00Z', 'PLANET_DECOMMISSIONED', { planet: lostPlanet }),
+      E('ask:r1:answered', '2026-09-22T09:00:00Z', 'QUESTION_ANSWERED', { contributor: 'pm', team: 'beaver' }),
     ];
     expect(new Set(events.map((e) => e.type))).toEqual(new Set(EVENT_TYPES));
 

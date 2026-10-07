@@ -6,6 +6,8 @@ export const EVENT_TYPES = Object.freeze([
   'ZONE_OPENED', 'ZONE_CLAIMED', 'ZONE_SECURED', 'ZONE_REVERTED',
   'WOUND_OPENED', 'WOUND_CLOSED', 'DISTRESS', 'RESCUE',
   'PLANET_READY', 'PLANET_TERRAFORMED', 'PLANET_LOST', 'PLANET_DECOMMISSIONED',
+  // An ask round answered on a PRD (PRD 1180): born closed, it pays its answerer and nothing else.
+  'QUESTION_ANSWERED',
 ] as const);
 
 export const WOUND_KINDS = Object.freeze(['transmission', 'unconfirmed-ground', 'beacon', 'fault-line', 'under-fire', 'aftershock'] as const);
