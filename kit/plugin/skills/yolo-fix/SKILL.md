@@ -203,7 +203,8 @@ the whole feature, acceptance, push, the body, the gate), then `/omni:yolo` §5 
     stands, then `node .omni-loop/bin/omni.mjs check releases` until it is green, and commit it as
     `docs(release): PRD <prd> release note`, with your session's co-author trailer, then the
     `omni sign trailer` line. A rework that changed nothing the note says leaves it as it is.
-  - **Ship,** commit and push as `/omni:yolo` §5's items 2 and 3, then `gh pr ready`. When
+  - **Ship,** commit and push as `/omni:yolo` §5's items 2 and 3, then `gh pr ready` as
+    `/omni:pr`'s **Ready after a push waits for the push's run** says. When
     `omni prd` already says `shipped` (the after-merge path), there is nothing to ship: the note is
     written or rewritten all the same, in the folder `omni prd` prints; push its commit, if there is
     one (`git push <remote> HEAD:<feature branch>`), and go straight to ready;
