@@ -10,6 +10,10 @@
 // only. Wherever it runs, a status comment's `waits on <slug>#<pr>` line is read with that PR's state,
 // and the round holds its CI fix while that PR is open (`decideRound`).
 //
+// Issue #1178: when `--pr` names a sub-PR, one of the board's slice PRs, the state carries its `slice`
+// and the round is a sub-PR's (`decideSubPrRound`): its review threads only, which `/omni:wave` judges
+// before it merges the sub-PR, whatever the wave's own claims, its CI and its conflict say.
+//
 // `omni care list <prd> [--json]` — PRD 1118, in a plan repository only: every pull request one
 // `/omni:mega-pr-care` run looks after, in merge order (`mergeOrder`): the target and landing PRs, the
 // bug-fix and record PRs of each bug linked by its `For PRD #<prd>` line, then the plan PR. A
@@ -23,7 +27,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { landingChain, landingPrToWatch } from '../../lib/care/chain.ts';
-import { decideRound } from '../../lib/care/decide.ts';
+import { decideRound, decideSubPrRound } from '../../lib/care/decide.ts';
 import type { Waiting } from '../../lib/care/decide.ts';
 import { FIX_PLAN_MARKER, fixPlanRows, foundEntry, linksPrd, mergeOrder } from '../../lib/care/list.ts';
 import type { CareListEntry, Found, FoundPr, TargetStep } from '../../lib/care/list.ts';
@@ -47,7 +51,7 @@ import type { Command, CommandIo, Env, Exec } from '../io.ts';
 import { GhGraphqlSchema, GhReplyMutationSchema } from '../schema.ts';
 import { synchronous } from '../synchronous.ts';
 import { IssueNumberSchema, PrNumberSchema } from '../../lib/ids.ts';
-import type { IssueNumber, PrNumber, PrdNumber } from '../../lib/ids.ts';
+import type { IssueNumber, PrNumber, PrdNumber, WorkSliceId } from '../../lib/ids.ts';
 
 const USAGE =
   'usage: omni care state <prd> [--pr <n>] [--repo <owner/name>]\n' +
@@ -148,13 +152,14 @@ function targetOf(ctx: Context, flag: string | undefined): Target | null {
 function waveClaims(
   prd: PrdNumber,
   { ctx, exec, env, repo, target }: { ctx: Context; exec: Exec; env: Env; repo: string | undefined; target: Target | null },
-): { wave: { holdsClaims: boolean | null; claimed: string[]; unreadable?: string }; landings: LandingRow[] | null } {
+): { wave: { holdsClaims: boolean | null; claimed: string[]; unreadable?: string }; landings: LandingRow[] | null; sliceOf: (pr: PrNumber) => WorkSliceId | null } {
   try {
     const { result } = buildBoard(prd, { ctx, exec, env, repo: target === null ? repo : undefined });
     const claimed = claimedIn(result.slices, target?.name ?? null);
-    return { wave: { holdsClaims: claimed.length > 0, claimed }, landings: landingsIn(result.landings, target?.name ?? null) };
+    const sliceOf = (pr: PrNumber) => result.slices.find((row) => row.pr?.number === pr && (target === null || row.repo === target.name))?.id ?? null;
+    return { wave: { holdsClaims: claimed.length > 0, claimed }, landings: landingsIn(result.landings, target?.name ?? null), sliceOf };
   } catch (error) {
-    return { wave: { holdsClaims: null, claimed: [], unreadable: firstLine(error) }, landings: null };
+    return { wave: { holdsClaims: null, claimed: [], unreadable: firstLine(error) }, landings: null, sliceOf: () => null };
   }
 }
 
@@ -215,13 +220,19 @@ function runState(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo)
   const gh: Gh = { exec, env: githubEnv(ctx, { exec, env }) };
   const scope = scopeOf(prd, flags.repo, { ctx, gh });
 
-  const { wave, landings } = waveClaims(prd, { ctx, exec, env, repo: flags.repo, target: scope.target });
+  const { wave, landings, sliceOf } = waveClaims(prd, { ctx, exec, env, repo: flags.repo, target: scope.target });
   const landed = landings !== null && landings.length > 1 ? landings : null;
   const number = watchedPr({ flag: flags.pr, landed, find: () => findPr(scope, gh)?.number ?? null });
   if (number === null) {
     const from = landed === null ? scope.branch : landed.map((landing) => landing.branch).join(', ');
     println(stderr, `omni care: PRD ${prd} has no feature PR yet (no pull request from ${from}).`);
     return 1;
+  }
+  const slice = flags.pr === undefined ? null : sliceOf(prArg('care', '--pr', flags.pr));
+  if (slice !== null) {
+    const state = readCare(prd, number, { scope, ctx, gh });
+    println(stdout, JSON.stringify({ ...state, slice, wave, round: decideSubPrRound(state) }, null, 2));
+    return 0;
   }
   const { waitsOn, ...state } = readCare(prd, number, { scope, ctx, gh });
   const chain = landed === null ? [] : landingChain(landed, scope.defaultBranch);

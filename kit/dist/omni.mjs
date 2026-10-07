@@ -34492,16 +34492,23 @@ function ciActions({ checks, waitsOn }) {
   if (checks.state !== "red" || !checks.fixable || checks.stuck || holds(waitsOn)) return [];
   return [{ kind: waitsOn?.state === "merged" ? "rerun" : "fix-ci", failed: checks.failed }];
 }
+function threadActions(threads) {
+  return threads.flatMap((thread) => thread.needs === null ? [] : [{ kind: thread.needs, thread: thread.id }]);
+}
+function decideSubPrRound(state) {
+  if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
+  const actions = threadActions(state.threads);
+  if (actions.length > 0) return { mode: "act", actions };
+  const held = state.threads.filter((thread) => thread.verdict === "asked").map((thread) => thread.id);
+  return held.length > 0 ? { mode: "hold", actions: [], held } : { mode: "clear", actions: [] };
+}
 function decideRound(state) {
   if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
   if (state.wave?.holdsClaims !== false) return { mode: "report-only", actions: [{ kind: "status" }] };
   const actions = (state.chain ?? []).map((link2) => ({ kind: "restack", ...link2 }));
   if (state.mergeable === "CONFLICTING") actions.push({ kind: "merge-base", base: state.pr.base });
   actions.push(...ciActions(state));
-  for (const thread of state.threads) {
-    if (thread.needs === "judge") actions.push({ kind: "judge", thread: thread.id });
-    else if (thread.needs === "mark-asked") actions.push({ kind: "mark-asked", thread: thread.id });
-  }
+  actions.push(...threadActions(state.threads));
   actions.push({ kind: "status" });
   const { waitsOn } = state;
   return waitsOn && holds(waitsOn) ? { mode: "act", actions, waitsOn: `${waitsOn.slug}#${waitsOn.pr}` } : { mode: "act", actions };
@@ -34828,9 +34835,10 @@ function waveClaims(prd2, { ctx, exec, env, repo, target: target3 }) {
   try {
     const { result } = buildBoard(prd2, { ctx, exec, env, repo: target3 === null ? repo : void 0 });
     const claimed2 = claimedIn(result.slices, target3?.name ?? null);
-    return { wave: { holdsClaims: claimed2.length > 0, claimed: claimed2 }, landings: landingsIn(result.landings, target3?.name ?? null) };
+    const sliceOf = (pr) => result.slices.find((row) => row.pr?.number === pr && (target3 === null || row.repo === target3.name))?.id ?? null;
+    return { wave: { holdsClaims: claimed2.length > 0, claimed: claimed2 }, landings: landingsIn(result.landings, target3?.name ?? null), sliceOf };
   } catch (error62) {
-    return { wave: { holdsClaims: null, claimed: [], unreadable: firstLine2(error62) }, landings: null };
+    return { wave: { holdsClaims: null, claimed: [], unreadable: firstLine2(error62) }, landings: null, sliceOf: () => null };
   }
 }
 function firstLine2(error62) {
@@ -34874,13 +34882,19 @@ function runState2(args, { ctx, stdout, stderr, exec, env }) {
   const prd2 = prdArg("care", "<prd>", positional[0]);
   const gh2 = { exec, env: githubEnv(ctx, { exec, env }) };
   const scope = scopeOf(prd2, flags.repo, { ctx, gh: gh2 });
-  const { wave, landings } = waveClaims(prd2, { ctx, exec, env, repo: flags.repo, target: scope.target });
+  const { wave, landings, sliceOf } = waveClaims(prd2, { ctx, exec, env, repo: flags.repo, target: scope.target });
   const landed = landings !== null && landings.length > 1 ? landings : null;
   const number4 = watchedPr({ flag: flags.pr, landed, find: () => findPr(scope, gh2)?.number ?? null });
   if (number4 === null) {
     const from = landed === null ? scope.branch : landed.map((landing) => landing.branch).join(", ");
     println(stderr, `omni care: PRD ${prd2} has no feature PR yet (no pull request from ${from}).`);
     return 1;
+  }
+  const slice = flags.pr === void 0 ? null : sliceOf(prArg("care", "--pr", flags.pr));
+  if (slice !== null) {
+    const state2 = readCare(prd2, number4, { scope, ctx, gh: gh2 });
+    println(stdout, JSON.stringify({ ...state2, slice, wave, round: decideSubPrRound(state2) }, null, 2));
+    return 0;
   }
   const { waitsOn, ...state } = readCare(prd2, number4, { scope, ctx, gh: gh2 });
   const chain = landed === null ? [] : landingChain(landed, scope.defaultBranch);

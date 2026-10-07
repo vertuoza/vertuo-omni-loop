@@ -106,6 +106,12 @@ each by its own agent in its own copy of the repository, each ending in its own 
 The loop merges them into the feature branch one at a time, checks the wave as a whole, then starts
 the next wave.
 
+When a reviewer, a bot or a person, has left comments on a sub-pull request, the wave handles them
+before it merges it, as `/omni:pr-care` handles the feature pull request's: each one is fixed,
+pushed back with its reason, or left open for you. A comment left open for you holds that slice
+alone, unmerged, and the wave says which; the rest of the wave goes on. Only the comments posted
+when the wave reaches the slice count: it waits for no review still to come.
+
 A slice that stays red after its tries gets `omni:needs-fix`; it holds only the slices that wait for
 it, and the rest go on. To see a PRD's slices, which are merged, in flight, stuck, ready or waiting,
 and what can run next:

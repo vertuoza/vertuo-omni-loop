@@ -1710,6 +1710,17 @@ describe('generated files in the skills that build, plan and finish', () => {
     ])).toEqual([]);
   });
 
+  // Issue #1178: a reviewer bot's threads on a sub-PR were merged past into the feature branch.
+  it("/omni:wave judges a sub-PR's review threads as /omni:pr-care does before its merge gate, and an asked thread holds that sub-PR", () => {
+    const text = read('wave');
+    expect(missingInOrder(skillSection(text, '4.'), [
+      '**Ready.**', '**Review threads.**', 'omni.mjs care state <prd> --pr <n>', '`act`', '`judge`', '`mark-asked`',
+      "`/omni:pr-care`'s **3. Review threads**", 'kb show review', '`omni care reply`', '`hold`', 'do not merge', '`clear`',
+      '**Merge, through the gate.**', 'flow check merge --pr <n>', '| held: a review thread left asked',
+    ])).toEqual([]);
+    expect(skillSection(text, 'Guardrails')).toMatch(/Never merge a sub-PR before its review threads are read/);
+  });
+
   it("/omni:yolo's finish rebuilds after meeting its base, and commits the rebuilt paths alone", () => {
     expect(missingInOrder(skillSection(read('yolo'), '4.'), [
       '**Meet its base:**', 'git merge <remote>/<base>', 'generated entry', 'is never a reason to stop',

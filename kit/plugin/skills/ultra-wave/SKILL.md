@@ -100,7 +100,7 @@ As `/omni:wave` step 4, with `--repo <slug>` on every `gh` call and git in the t
 3. **Mergeable.** A conflict is resolved in a detached worktree of the clone, as there; the
    preflight it runs is the target's own, or none.
 4. **Ready** through `/omni:pr --repo <slug>`'s sub-PR lifecycle; that skill owns `gh pr ready`.
-5. **Merge, through the gate,** as `/omni:wave` step 4 item 5, with the target's rules. In the
+5. **Merge, through the gate,** as `/omni:wave` step 4 item 6, with the target's rules. In the
    target's clone (**A target's flow**):
 
    ```bash

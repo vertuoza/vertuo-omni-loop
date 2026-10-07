@@ -392,4 +392,5 @@ No CI runs on a sub-PR, and its checks are never read. The preflight, run on thi
    `git fetch <remote> && git merge <remote>/<feature branch>`, resolve the conflict, and go back to step 1.
 3. Once the preflight is green and the PR does not conflict, run `gh pr ready <n>` (this skill owns
    that step for a sub-PR). Then remove `labels.inProgress` and write the final status comment. The
-   orchestrator merges it.
+   orchestrator merges it, once it has judged the sub-PR's review threads, when a reviewer left
+   any (`/omni:wave` step 4, item 5).
