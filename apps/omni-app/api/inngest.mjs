@@ -1162,6 +1162,11 @@ var planSection = z8.object({
     }
   });
 });
+var generatedEntry = z8.object({
+  path: text3,
+  from: z8.array(text3).min(1, "at least one source prefix"),
+  build: z8.string().trim().min(1)
+}).strict();
 var ConfigSchema = z8.object({
   kit: z8.literal(CONFIG_VERSION),
   repo: section({
@@ -1317,7 +1322,10 @@ var ConfigSchema = z8.object({
   plan: planSection.optional(),
   // PRD 1089: the repository's flow — its rules, its areas and its hooks (`kit/lib/flow/`).
   // Optional: a config without it runs the loop as the kit defines it, and parses with no `flow` key.
-  flow: FlowSchema.optional()
+  flow: FlowSchema.optional(),
+  // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
+  // it has none, and parses with no `generated` key.
+  generated: z8.array(generatedEntry).optional()
 }).strict().superRefine(({ pr, flow }, issues) => {
   const hooks = flow?.hooks?.["pr.open"];
   if (pr.openWith !== null && hooks !== void 0 && hooksByMode(hooks).replace !== null) {

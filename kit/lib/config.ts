@@ -92,6 +92,17 @@ const planSection = z
     });
   });
 
+// PRD 1138: a file the repository builds rather than writes. `path` is a path prefix, written as a
+// territory entry is; `from` the prefixes whose change makes it stale; `build` the command that
+// rebuilds it, run from the repository root.
+const generatedEntry = z
+  .object({
+    path: text,
+    from: z.array(text).min(1, 'at least one source prefix'),
+    build: z.string().trim().min(1),
+  })
+  .strict();
+
 export const ConfigSchema = z
   .object({
     kit: z.literal(CONFIG_VERSION),
@@ -261,6 +272,9 @@ export const ConfigSchema = z
     // PRD 1089: the repository's flow — its rules, its areas and its hooks (`kit/lib/flow/`).
     // Optional: a config without it runs the loop as the kit defines it, and parses with no `flow` key.
     flow: FlowSchema.optional(),
+    // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
+    // it has none, and parses with no `generated` key.
+    generated: z.array(generatedEntry).optional(),
   })
   .strict()
   .superRefine(({ pr, flow }, issues) => {

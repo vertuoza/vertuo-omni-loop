@@ -554,3 +554,40 @@ describe('the flow section (PRD 1089)', () => {
     expect(() => parseConfig('kit: 1\nflow:\n  steps: {}\n', 'c.yml')).toThrow(/c\.yml.*flow.*steps/);
   });
 });
+
+describe('the generated section (PRD 1138)', () => {
+  const firstLine = (source: string) => {
+    try {
+      parseConfig(source, 'c.yml');
+    } catch (error) {
+      return messageOf(error).split('\n')[0];
+    }
+    throw new Error('it parsed');
+  };
+  const SECTION = 'generated:\n  - path: out/\n    from: [src/, lib/]\n    build: pnpm build\n  - path: api/\n    from: [app/]\n    build: node build.ts\n';
+
+  it('leaves a config without it exactly as it parses today: no generated key at all', () => {
+    expect(Object.hasOwn(parseConfig('kit: 1\n'), 'generated')).toBe(false);
+  });
+
+  it('reads each entry in order: its path, its from prefixes and its build', () => {
+    expect(parseConfig(`kit: 1\n${SECTION}`).generated).toEqual([
+      { path: 'out/', from: ['src/', 'lib/'], build: 'pnpm build' },
+      { path: 'api/', from: ['app/'], build: 'node build.ts' },
+    ]);
+  });
+
+  it.each([
+    ['a missing path', 'generated:\n  - from: [src/]\n    build: pnpm build\n', 'generated.0.path'],
+    ['an empty path', "generated:\n  - path: ''\n    from: [src/]\n    build: pnpm build\n", 'generated.0.path'],
+    ['a missing from', 'generated:\n  - path: out/\n    build: pnpm build\n', 'generated.0.from'],
+    ['an empty from', 'generated:\n  - path: out/\n    from: []\n    build: pnpm build\n', 'generated.0.from'],
+    ['an empty from prefix', "generated:\n  - path: out/\n    from: ['']\n    build: pnpm build\n", 'generated.0.from.0'],
+    ['a missing build', 'generated:\n  - path: out/\n    from: [src/]\n', 'generated.0.build'],
+    ['an empty build', "generated:\n  - path: out/\n    from: [src/]\n    build: '  '\n", 'generated.0.build'],
+    ['an unknown key', 'generated:\n  - path: out/\n    from: [src/]\n    build: pnpm build\n    run: x\n', 'generated.0'],
+    ['a section that is no list', 'generated:\n  path: out/\n', 'generated'],
+  ])('refuses %s, naming the field', (_what, section, key) => {
+    expect(firstLine(`kit: 1\n${section}`)).toContain(`: ${key}: `);
+  });
+});

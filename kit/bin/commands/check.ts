@@ -27,6 +27,7 @@ import { gradePlaybook } from '../../lib/playbook/check-playbook.ts';
 import { findReleaseViolations, releaseNoteFiles } from '../../lib/releases/check-releases.ts';
 import { CONFIG_FILE, ConfigError } from '../../lib/config.ts';
 import { DEFAULT_HOOK_MAX_BYTES, hookFileViolations } from '../../lib/flow/schema.ts';
+import { generatedViolations, readGround } from '../../lib/generated/check.ts';
 import { parseArgs, prdArg, println, usageError, type Flags } from '../args.ts';
 import type { CommandIo, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { loadContext, type Context } from '../../lib/context.ts';
@@ -168,15 +169,25 @@ function checkCoverage({ ctx, stdout, exec }: CommandIo, { base, prd }: { base: 
   return ok;
 }
 
-// PRD 1089: the config itself, its flow included, and the hook files the flow names.
+/** The pass line's word on the `generated` section (PRD 1138): nothing when the config has none. */
+function generatedNote(entries: readonly unknown[] | undefined): string {
+  return entries === undefined ? '' : `; generated: ${entries.length} output(s), every path, source and build present`;
+}
+
+// PRD 1089: the config itself, its flow included, and the hook files the flow names. PRD 1138: and
+// every generated output's path, sources and build.
 function checkConfig({ ctx, stdout }: CommandIo): boolean {
-  const { flow, limits } = ctx.config;
+  const { flow, limits, generated } = ctx.config;
   const areas = Object.keys(flow?.areas ?? {}).length;
+  const violations = [
+    ...hookFileViolations(ctx.root, flow, limits.hookMaxBytes ?? DEFAULT_HOOK_MAX_BYTES),
+    ...(generated === undefined ? [] : generatedViolations(generated, readGround(ctx.root))),
+  ];
   return report(
     stdout,
     CONFIG_TITLE,
-    hookFileViolations(ctx.root, flow, limits.hookMaxBytes ?? DEFAULT_HOOK_MAX_BYTES),
-    `check config — ${CONFIG_FILE} is valid; ${flow ? `flow: ${areas} area(s), every hook file present` : 'no flow'}.`,
+    violations,
+    `check config — ${CONFIG_FILE} is valid; ${flow ? `flow: ${areas} area(s), every hook file present` : 'no flow'}${generatedNote(generated)}.`,
   );
 }
 
