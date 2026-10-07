@@ -71,9 +71,9 @@ describe('the sidebar', () => {
 
   it('lists Dashboard and Work, then Settings, Docs and Release notes at the foot, in order (PRD 733)', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Dashboard Home Fleet Loop Workspace Engineering Work PRDs Bug Fixes Visual Updates Questions 5 Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
+    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Dashboard Home Fleet Loop Workspace Engineering Work Roadmaps PRDs Bug Fixes Visual Updates Questions 5 Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
-      '/app', '/app/fleet', '/app/loop', '/app/workspace', '/app/engineering', '/prd', '/bugs', '/visual', '/ask', '/knowledge', '/app/settings', '/docs', '/releases',
+      '/app', '/app/fleet', '/app/loop', '/app/workspace', '/app/engineering', '/roadmaps', '/prd', '/bugs', '/visual', '/ask', '/knowledge', '/app/settings', '/docs', '/releases',
     ]);
   });
 
@@ -86,7 +86,7 @@ describe('the sidebar', () => {
 
   it('draws each section\'s sprite before its name, hidden from screen readers, at its native size (issue 653)', () => {
     const html = render();
-    for (const [path, label] of [['/app', 'Home'], ['/app/fleet', 'Fleet'], ['/app/loop', 'Loop'], ['/prd', 'PRDs'], ['/bugs', 'Bug Fixes'], ['/visual', 'Visual Updates'], ['/knowledge', 'Knowledge'], ['/app/settings', 'Settings']]) {
+    for (const [path, label] of [['/app', 'Home'], ['/app/fleet', 'Fleet'], ['/app/loop', 'Loop'], ['/roadmaps', 'Roadmaps'], ['/prd', 'PRDs'], ['/bugs', 'Bug Fixes'], ['/visual', 'Visual Updates'], ['/knowledge', 'Knowledge'], ['/app/settings', 'Settings']]) {
       expect(html).toMatch(new RegExp(`<a class="app-sidebar-item" href="${path}" title="${label}"[^>]*><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*width="16" height="16"[^>]*>.*?</svg></span><span class="app-sidebar-text">${label}</span>`));
     }
   });
@@ -133,6 +133,7 @@ describe('the sidebar', () => {
     ['/app/settings/fleets', '/app/settings'],
     ['/app/settings/repositories', '/app/settings'],
     ['/app/settings/business', '/app/settings'],
+    ['/roadmaps/0b7c6a2e-1f00-4d6a-9c55-2f1f3e4a5b6c', '/roadmaps'],
     ['/prd/3f2a', '/prd'],
     ['/bugs/3f2a', '/bugs'],
     ['/visual/3f2a', '/visual'],
@@ -201,7 +202,7 @@ describe('« and the rail (PRD 733)', () => {
   it('names every sprite entry by its title and its spoken name, so the rail still says each one', () => {
     const html = render(ADA, '/app', [gate('a')]);
     const entries = links(html).filter((l) => l.attrs.includes('class="app-sidebar-item"') && !l.attrs.includes('target="_blank"'));
-    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Home', 'Fleet', 'Loop', 'Workspace', 'Engineering', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Questions', 'Knowledge', 'Settings']);
+    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Home', 'Fleet', 'Loop', 'Workspace', 'Engineering', 'Roadmaps', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Questions', 'Knowledge', 'Settings']);
     for (const entry of entries) {
       const title = /title="([^"]+)"/.exec(entry.attrs)?.[1];
       const spoken = /aria-label="([^"]+)"/.exec(entry.attrs)?.[1] ?? entry.text;

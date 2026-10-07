@@ -128,6 +128,11 @@ describe('ledgerOf', () => {
     const first = lines[0];
     expect(first?.kind === 'tick' && [first.step, first.steps, first.prd, first.href]).toEqual([2, 4, 1030, '/prd/1030']);
   });
+
+  it('carries the repositories each tick\'s step touched (PRD 1162), none when the tick did not say', () => {
+    const lines = ledgerOf([{ ...tick(1, '2026-10-07T14:02:00Z', 1), repos: ['crew', 'ai-domain'] }, tick(2, '2026-10-07T14:21:00Z', 2)], []);
+    expect(lines.map((l) => (l.kind === 'tick' ? l.repos : null))).toEqual([[], ['crew', 'ai-domain']]);
+  });
 });
 
 describe('clockOf', () => {

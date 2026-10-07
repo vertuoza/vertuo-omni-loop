@@ -10,8 +10,8 @@ import './loop.css';
 // /app/loop in each situation (PRD 1139 s5), decided once by the page, as /app/engineering decides its
 // own: closed, signed out and in no workspace through the shared gate; the list of the workspace's
 // loops, or the empty state naming how to start one; one loop opened, with every version of its plan
-// as a timeline per PRD, the latest open, its ledger and its parked PRDs. Every tick and every parked
-// PRD links to its PRD's page.
+// as a timeline per PRD, the latest open, its ledger (each tick naming the repositories its step
+// touched, PRD 1162) and its parked PRDs. Every tick and every parked PRD links to its PRD's page.
 
 type Supabase = { url: string; key: string };
 
@@ -134,7 +134,10 @@ function Versions({ versions }: { versions: readonly PlanVersion[] }) {
 function Line({ line }: { line: LedgerLine }) {
   if (line.kind === 'replan') return <li className="loop-line is-replan"><time>{line.at}</time> replanned v{line.version}: {line.reason}</li>;
   return (
-    <li className="loop-line"><time>{line.at}</time> step {line.step}/{line.steps} · {line.action} · <a href={line.href}>PRD {line.prd}</a> → {line.result}</li>
+    <li className="loop-line">
+      <time>{line.at}</time> step {line.step}/{line.steps} · {line.action} · <a href={line.href}>PRD {line.prd}</a>
+      {line.repos.length > 0 ? <span className="loop-repos"> · in {line.repos.join(', ')}</span> : null} → {line.result}
+    </li>
   );
 }
 

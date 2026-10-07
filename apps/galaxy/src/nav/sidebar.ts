@@ -2,7 +2,7 @@
 // /knowledge). Since PRD 733 it has two groups, then the foot: Dashboard (the boards: Home, your
 // fleet's, since PRD 1139 the workspace's loops beside it, at /app/loop, the workspace's, and since PRD 612
 // Engineering's, at /app/engineering), Work (the workspace's
-// work: PRDs, then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), and at
+// work: since PRD 1162 Roadmaps, the milestones its PRDs deliver, then PRDs, then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), and at
 // the foot one Settings entry, at /app/settings, which lands on Fleets (SETTINGS_LANDING), then Omni's
 // own pages, Docs and Release notes, which leave the app for the public ones. Since issue 653 each
 // Dashboard and Work section names its sprite, and since PRD 733 Settings too. A new section is one
@@ -16,7 +16,7 @@
 import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { WaitingCounts } from '../waiting/waiting';
 
-export type SidebarId = 'home' | 'fleet' | 'loop' | 'workspace' | 'engineering' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
+export type SidebarId = 'home' | 'fleet' | 'loop' | 'workspace' | 'engineering' | 'roadmaps' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
 
 /** A page under an entry, shown as a tab on its pages, never as a menu line (PRD 733). */
 export interface SidebarPage {
@@ -62,6 +62,7 @@ export const SIDEBAR: readonly SidebarGroup[] = [
     id: 'work',
     label: 'Work',
     items: [
+      { id: 'roadmaps', label: 'Roadmaps', path: '/roadmaps', sprite: 'menu-roadmaps' },
       { id: 'prds', label: 'PRDs', path: '/prd', sprite: 'menu-prds' },
       { id: 'bugs', label: 'Bug Fixes', path: '/bugs', sprite: 'menu-bugs' },
       { id: 'visual', label: 'Visual Updates', path: '/visual', sprite: 'menu-visual' },
