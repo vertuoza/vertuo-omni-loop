@@ -8,6 +8,10 @@
 // - Two wave steps of different PRDs whose slices share territory run in series, the PRD first in
 //   the PRD order first, and the later step says why: `1017 s2 after 1030 s3: both touch nav/`. A
 //   step already done (every slice merged) orders nothing.
+// - In a plan repository (PRD 1162, slice s1) each slice names the repository it lands in, and ground
+//   is a path in one repository: slices of two repositories never meet, and the reason names the
+//   repository (`1213 s2 after 1201 s3: both touch crew:apps/crew-api/`). Each wave step, and the
+//   finish step after them, carries the repositories it touches (`repos`).
 // - A PRD whose `blocked-by` names a driven PRD starts after that PRD's finish step; one naming a
 //   PRD outside the loop that has not shipped waits for it to ship (`waitsFor`).
 // - The PRD order: blockers before the PRDs they block, then PRDs with no stuck slice before those
@@ -19,8 +23,9 @@ import type { SliceState } from '../board.ts';
 import type { PrdNumber, WorkSliceId } from '../ids.ts';
 import { sharedGround } from '../inbox/territory.ts';
 
-/** One slice of a driven PRD, as its plan declares it and its board reads it. */
-export type PlanSliceInput = { id: WorkSliceId; territory: string[]; wave: number | null; state: SliceState };
+/** One slice of a driven PRD, as its plan declares it and its board reads it; in a plan repository,
+ * with the short name of the repository it lands in. */
+export type PlanSliceInput = { id: WorkSliceId; territory: string[]; wave: number | null; state: SliceState; repo?: string | null };
 
 /** How a PRD ended, when it has: its feature PR merged or closed, or its folder shipped. */
 export type Ended = 'merged' | 'closed' | 'shipped';
@@ -48,6 +53,8 @@ export type Step = {
   why: string[];
   /** The steps it may run beside. */
   beside: number[];
+  /** In a plan repository: the repositories the step touches, by short name. */
+  repos?: string[];
 };
 
 /** What a plan version saw of one PRD, so a later tick can tell what changed. */
@@ -57,7 +64,22 @@ export type Seen = { prd: PrdNumber; slices: WorkSliceId[] | null; stuck: WorkSl
 export type LoopPlan = { version: number; reason: string | null; prds: PrdNumber[]; steps: Step[]; seen: Seen[] };
 
 /** A step before it is numbered. */
-type Unit = { prd: PrdNumber; order: number; index: number; kind: StepKind; wave: number | null; slices: PlanSliceInput[]; done: boolean; deps: Set<Unit>; waitsFor: PrdNumber[]; why: string[] };
+type Unit = {
+  prd: PrdNumber;
+  order: number;
+  index: number;
+  kind: StepKind;
+  wave: number | null;
+  slices: PlanSliceInput[];
+  repos: string[];
+  done: boolean;
+  deps: Set<Unit>;
+  waitsFor: PrdNumber[];
+  why: string[];
+};
+
+/** The repositories `slices` name, sorted; none outside a plan repository. */
+const reposOf = (slices: readonly PlanSliceInput[]): string[] => [...new Set(slices.flatMap((slice) => (slice.repo ? [slice.repo] : [])))].sort();
 
 const byNumber = (a: number, b: number): number => a - b;
 
@@ -99,6 +121,7 @@ function unitsOf(input: PrdInput, order: number): Unit[] {
     kind,
     wave,
     slices,
+    repos: reposOf(kind === 'finish' ? (input.slices ?? []) : slices),
     done,
     deps: new Set(),
     waitsFor: [],
@@ -116,16 +139,19 @@ function unitsOf(input: PrdInput, order: number): Unit[] {
   return units;
 }
 
-/** The ground two wave units share, and the slices of each that meet. */
+/** The ground two wave units share, and the slices of each that meet. Two slices meet only in the
+ * same repository; ground in a named one reads `<repo>:<path>`. */
 function meeting(first: Unit, second: Unit): { shared: string[]; left: WorkSliceId[]; right: WorkSliceId[] } {
   const shared = new Set<string>();
   const left = new Set<WorkSliceId>();
   const right = new Set<WorkSliceId>();
   for (const a of first.slices) {
     for (const b of second.slices) {
+      const repo = a.repo ?? null;
+      if (repo !== (b.repo ?? null)) continue;
       const ground = sharedGround(a, b);
       if (ground.length === 0) continue;
-      for (const path of ground) shared.add(path);
+      for (const path of ground) shared.add(repo === null ? path : `${repo}:${path}`);
       left.add(a.id);
       right.add(b.id);
     }
@@ -213,6 +239,7 @@ export function planLoop(inputs: PlanInputs, { version = 1, reason = null }: { v
       waitsFor: unit.waitsFor,
       why: unit.why,
       beside: sorted.filter((other) => other !== unit && level(other) === level(unit)).map(num),
+      ...(unit.repos.length > 0 ? { repos: unit.repos } : {}),
     }),
   );
   return { version, reason, prds: ordered.map((input) => input.prd).sort(byNumber), steps, seen: [...inputs.prds].sort((a, b) => a.prd - b.prd).map(seenOf) };
