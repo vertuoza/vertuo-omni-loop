@@ -37612,31 +37612,35 @@ function upstream(row, rows2) {
   }
   return [...found2.values()];
 }
+function rowRepoViolations(row, { names, readOnly }) {
+  const repos = row.repos ?? [];
+  if (repos.length === 0) return [`${row.id}: names no repository.`];
+  return repos.flatMap((repo) => {
+    if (!names.includes(repo)) return [`${row.id}: ${repo} is not a target of plan.targets (${names.join(", ")}).`];
+    return readOnly.has(repo) ? [`${row.id}: ${repo} is a read-only target \u2014 no roadmap row may name it.`] : [];
+  });
+}
+function consumerViolations(row, blocker, consumes) {
+  if (blocker.wave < row.wave) return [];
+  return (row.repos ?? []).flatMap((consumer) => {
+    const provider2 = (blocker.repos ?? []).find((repo) => consumes.get(consumer)?.includes(repo) === true);
+    if (provider2 === void 0) return [];
+    return [
+      `${row.id}: changes ${consumer}, which consumes ${provider2}, in wave ${row.wave}, not after ${blocker.id} (wave ${blocker.wave}) that changes ${provider2} and that it waits on.`
+    ];
+  });
+}
 function targetViolations(roadmap2, rows2, targets2) {
   if (!roadmap2.repos) return ['PRDs: the table has no "repos" column; in a plan repository each row names its repositories.'];
-  const names = targets2.map((target3) => shortName5(target3.repo));
-  const readOnly = new Set(targets2.filter((target3) => target3.readOnly === true).map((target3) => shortName5(target3.repo)));
-  const consumes = new Map(targets2.map((target3) => [shortName5(target3.repo), target3.consumes ?? []]));
-  const violations = [];
-  for (const row of roadmap2.prds) {
-    const repos = row.repos ?? [];
-    if (repos.length === 0) violations.push(`${row.id}: names no repository.`);
-    for (const repo of repos) {
-      if (!names.includes(repo)) violations.push(`${row.id}: ${repo} is not a target of plan.targets (${names.join(", ")}).`);
-      else if (readOnly.has(repo)) violations.push(`${row.id}: ${repo} is a read-only target \u2014 no roadmap row may name it.`);
-    }
-    for (const blocker of upstream(row, rows2)) {
-      if (blocker.wave < row.wave) continue;
-      for (const consumer of repos) {
-        const provider2 = (blocker.repos ?? []).find((repo) => consumes.get(consumer)?.includes(repo) === true);
-        if (provider2 === void 0) continue;
-        violations.push(
-          `${row.id}: changes ${consumer}, which consumes ${provider2}, in wave ${row.wave}, not after ${blocker.id} (wave ${blocker.wave}) that changes ${provider2} and that it waits on.`
-        );
-      }
-    }
-  }
-  return violations;
+  const rules = {
+    names: targets2.map((target3) => shortName5(target3.repo)),
+    readOnly: new Set(targets2.filter((target3) => target3.readOnly === true).map((target3) => shortName5(target3.repo))),
+    consumes: new Map(targets2.map((target3) => [shortName5(target3.repo), target3.consumes ?? []]))
+  };
+  return roadmap2.prds.flatMap((row) => [
+    ...rowRepoViolations(row, rules),
+    ...upstream(row, rows2).flatMap((blocker) => consumerViolations(row, blocker, rules.consumes))
+  ]);
 }
 function gradeRoadmap(roadmap2, { prdFacts: prdFacts2, targets: targets2 }) {
   const rows2 = /* @__PURE__ */ new Map();
@@ -37656,42 +37660,10 @@ function gradeRoadmap(roadmap2, { prdFacts: prdFacts2, targets: targets2 }) {
 
 // kit/lib/roadmap/parse.ts
 init_define_OMNI_BUNDLE();
-var PRD_COLUMNS = ["id", "PRD", "title", "blocked by", "why", "wave"];
-var QUESTION_COLUMNS = ["id", "question", "recommendation", "blocks", "kind"];
-var QUESTION_KINDS = ["default", "person"];
-var FRONT_MATTER_BLOCK5 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
+
+// kit/lib/markdown-body.ts
+init_define_OMNI_BUNDLE();
 var SEPARATOR_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
-var PRD_CELL = /^#([1-9]\d*)$/;
-var WAVE_CELL = /^[1-9]\d*$/;
-var NONE_CELL = /^(?:|-|–|—|none)$/i;
-var ID_CELL = /^[^\s,|]+$/;
-var optionalText = external_exports.string().trim().min(1).optional();
-var FrontMatterSchema2 = external_exports.object({
-  roadmap: external_exports.string().regex(/^[1-9]\d*$/, "the roadmap issue's number").transform(Number).pipe(IssueNumberSchema),
-  title: external_exports.string().trim().min(1),
-  milestone: external_exports.string().trim().min(1),
-  product: optionalText,
-  target: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
-  source: optionalText
-}).strict();
-function frontMatter(raw) {
-  const { data, errors: lineErrors } = parseFrontMatterLines(raw);
-  const errors = lineErrors.map((message) => `front matter: ${message}.`);
-  const parsed = FrontMatterSchema2.safeParse(data, { error: KIT_MESSAGES });
-  if (parsed.success) return { data: parsed.data, errors };
-  for (const issue2 of parsed.error.issues) {
-    if (issue2.code === "unrecognized_keys") {
-      for (const key of issue2.keys) {
-        errors.push(`front matter: unexpected field "${key}"; it holds roadmap, title, milestone, and an optional product, target and source.`);
-      }
-      continue;
-    }
-    const field2 = String(issue2.path[0] ?? "(front matter)");
-    const value = data[field2];
-    errors.push(value === void 0 ? `front matter: no "${field2}" field.` : `front matter: ${field2} is "${value}": ${issue2.message}.`);
-  }
-  return { data: null, errors };
-}
 function sectionsOf(body) {
   const sections = [];
   let current = null;
@@ -37725,6 +37697,43 @@ function firstTable(lines) {
   const [header2 = "", ...rest] = block;
   return { header: cells3(header2), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells3) };
 }
+
+// kit/lib/roadmap/parse.ts
+var PRD_COLUMNS = ["id", "PRD", "title", "blocked by", "why", "wave"];
+var QUESTION_COLUMNS = ["id", "question", "recommendation", "blocks", "kind"];
+var QUESTION_KINDS = ["default", "person"];
+var FRONT_MATTER_BLOCK5 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
+var PRD_CELL = /^#([1-9]\d*)$/;
+var WAVE_CELL = /^[1-9]\d*$/;
+var NONE_CELL = /^(?:|-|–|—|none)$/i;
+var ID_CELL = /^[^\s,|]+$/;
+var optionalText = external_exports.string().trim().min(1).optional();
+var FrontMatterSchema2 = external_exports.object({
+  roadmap: external_exports.string().regex(/^[1-9]\d*$/, "the roadmap issue's number").transform(Number).pipe(IssueNumberSchema),
+  title: external_exports.string().trim().min(1),
+  milestone: external_exports.string().trim().min(1),
+  product: optionalText,
+  target: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
+  source: optionalText
+}).strict();
+function frontMatter(raw) {
+  const { data, errors: lineErrors } = parseFrontMatterLines(raw);
+  const errors = lineErrors.map((message) => `front matter: ${message}.`);
+  const parsed = FrontMatterSchema2.safeParse(data, { error: KIT_MESSAGES });
+  if (parsed.success) return { data: parsed.data, errors };
+  for (const issue2 of parsed.error.issues) {
+    if (issue2.code === "unrecognized_keys") {
+      for (const key of issue2.keys) {
+        errors.push(`front matter: unexpected field "${key}"; it holds roadmap, title, milestone, and an optional product, target and source.`);
+      }
+      continue;
+    }
+    const field2 = String(issue2.path[0] ?? "(front matter)");
+    const value = data[field2];
+    errors.push(value === void 0 ? `front matter: no "${field2}" field.` : `front matter: ${field2} is "${value}": ${issue2.message}.`);
+  }
+  return { data: null, errors };
+}
 function listCell(cell2) {
   if (NONE_CELL.test(cell2)) return [];
   return cell2.split(",").map((entry) => entry.trim()).filter((entry) => entry !== "");
@@ -37737,6 +37746,11 @@ function columns(table, wanted, where) {
 }
 function rowLabel(id, index) {
   return id === "" ? `row ${index + 1}` : id;
+}
+function rowOpening(id, index, where) {
+  const label = rowLabel(id, index);
+  const rowFaults = ID_CELL.test(id) ? [] : [`${where}: ${label} has the id "${id}", which is empty or holds a space, a comma or a pipe.`];
+  return { label, rowFaults };
 }
 function idListFaults(entries3, where) {
   return entries3.filter((entry) => !ID_CELL.test(entry)).map((entry) => `${where} "${entry}", which is no id.`);
@@ -37751,9 +37765,7 @@ function prdsOf(section5) {
   const rows2 = [];
   table.rows.forEach((row, index) => {
     const id = cell2(row, "id");
-    const label = rowLabel(id, index);
-    const rowFaults = [];
-    if (!ID_CELL.test(id)) rowFaults.push(`PRDs: ${label} has the id "${id}", which is empty or holds a space, a comma or a pipe.`);
+    const { label, rowFaults } = rowOpening(id, index, "PRDs");
     const prdCell = PRD_CELL.exec(cell2(row, "PRD"));
     if (!prdCell) rowFaults.push(`PRDs: ${label} has the PRD cell "${cell2(row, "PRD")}", not #<number>.`);
     const title = cell2(row, "title");
@@ -37785,9 +37797,7 @@ function questionsOf(section5) {
   const questions2 = [];
   table.rows.forEach((row, index) => {
     const id = cell2(row, "id");
-    const label = rowLabel(id, index);
-    const rowFaults = [];
-    if (!ID_CELL.test(id)) rowFaults.push(`Open questions: ${label} has the id "${id}", which is empty or holds a space, a comma or a pipe.`);
+    const { label, rowFaults } = rowOpening(id, index, "Open questions");
     const question = cell2(row, "question");
     if (question === "") rowFaults.push(`Open questions: ${label} asks nothing: its question is empty.`);
     const kind = cell2(row, "kind");
@@ -38758,7 +38768,6 @@ var FRONT_FIELDS = ["concept", "title", "kind", "scale"];
 var FRONT_MATTER_BLOCK6 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 var KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 var PRD_CELL2 = /^#([1-9]\d*)$/;
-var SEPARATOR_ROW2 = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
 var FrontMatterSchema3 = external_exports.object({
   concept: external_exports.string().regex(/^[1-9]\d*$/).transform(Number),
   title: external_exports.string().trim().min(1),
@@ -38787,22 +38796,6 @@ function frontMatter2(raw) {
   for (const field2 of FRONT_FIELDS.filter((name2) => faulty.has(name2))) errors.push(`front matter: ${fieldFault(field2, data[field2])}`);
   return { data: null, errors, scale };
 }
-function sectionsOf2(body) {
-  const sections = [];
-  let current = null;
-  for (const line of body.split(/\r?\n/)) {
-    const heading2 = /^##\s+(.+?)\s*#*\s*$/.exec(line);
-    if (heading2 && !line.startsWith("###")) {
-      current = { name: group(heading2, 1), lines: [] };
-      sections.push(current);
-    } else if (/^#\s/.test(line)) {
-      current = null;
-    } else if (current) {
-      current.lines.push(line);
-    }
-  }
-  return sections;
-}
 function sectionFaults(sections) {
   const position = /* @__PURE__ */ new Map();
   sections.forEach((section5, index) => {
@@ -38818,23 +38811,6 @@ function sectionFaults(sections) {
     }
   }
   return faults;
-}
-function cells4(line) {
-  let inner = line.trim();
-  if (inner.startsWith("|")) inner = inner.slice(1);
-  if (inner.endsWith("|") && !inner.endsWith("\\|")) inner = inner.slice(0, -1);
-  return inner.split(/(?<!\\)\|/).map((cell2) => cell2.trim().replace(/\\\|/g, "|"));
-}
-function firstTable2(lines) {
-  const start2 = lines.findIndex((line) => line.trim().startsWith("|"));
-  if (start2 === -1) return null;
-  const block = [];
-  for (const line of lines.slice(start2)) {
-    if (!line.trim().startsWith("|")) break;
-    block.push(line.trim());
-  }
-  const [header2 = "", ...rest] = block;
-  return { header: cells4(header2), rows: rest.filter((line) => !SEPARATOR_ROW2.test(line)).map(cells4) };
 }
 function idFaults(ids2) {
   const seen = /* @__PURE__ */ new Set();
@@ -38853,7 +38829,7 @@ function idFaults(ids2) {
   return faults;
 }
 function areasOf(lines, scale) {
-  const table = firstTable2(lines);
+  const table = firstTable(lines);
   if (!table) return { areas: [], faults: [`Areas: no table; it holds one with the columns ${AREA_COLUMNS.slice(0, -1).join(", ")} and ${AREA_COLUMNS.at(-1)}.`] };
   const positions = new Map(AREA_COLUMNS.map((name2) => [name2, table.header.findIndex((cell3) => cell3.toLowerCase() === name2.toLowerCase())]));
   const column = (name2) => positions.get(name2) ?? -1;
@@ -38882,7 +38858,7 @@ function parseConcept(text10) {
   if (!block) return { ok: false, errors: ['no front matter: a concept.md opens with a "---" fenced header.'] };
   const [, raw = "", body = ""] = block;
   const front = frontMatter2(raw);
-  const sections = sectionsOf2(body);
+  const sections = sectionsOf(body);
   const errors = [...front.errors, ...sectionFaults(sections)];
   const areasSection = sections.find((section5) => section5.name === "Areas");
   const { areas, faults } = areasSection ? areasOf(areasSection.lines, front.scale) : { areas: [], faults: [] };
@@ -43698,18 +43674,21 @@ function featurePr(slug, branch, { gh: gh2 }) {
   const prs = external_exports.array(GhPrSchema2).parse(JSON.parse(raw));
   return prs.find((pr) => pr.state === "OPEN") ?? [...prs].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] ?? null;
 }
-function questionsOn(ref, dir, { git: git7 }) {
+function openItemsOn(ref, dir, git7) {
   let listed2;
   try {
     listed2 = git7(["ls-tree", "-r", "--name-only", ref, "--", dir]);
   } catch {
-    return 0;
+    return null;
   }
   const files = listed2.split("\n").map((line) => line.trim()).filter((file2) => file2.endsWith(".md") && !file2.endsWith("/settled.md") && !file2.slice(dir.length).includes("/accounts/"));
-  return files.filter((file2) => {
+  return files.flatMap((file2) => {
     const parsed = parseOutboxItem(git7(["show", `${ref}:${file2}`]), { file: file2 });
-    return parsed.ok && ASKED_RANKS.has(parsed.item.rank);
-  }).length;
+    return parsed.ok ? [parsed.item] : [];
+  });
+}
+function questionsOn(ref, dir, { git: git7 }) {
+  return (openItemsOn(ref, dir, git7) ?? []).filter((item2) => ASKED_RANKS.has(item2.rank)).length;
 }
 function draftQuestions(ctx, row, branch, readers) {
   const dir = ctx.layout.outboxDir(row.prd);
@@ -45049,19 +45028,6 @@ function featureFacts(pr, reader) {
   if (pr.state !== "OPEN" || isDraft) return { ...base, checks: "none", fixable: false, stuck: false, conflict: false, threads: 0 };
   return { ...base, ...careFacts(pr.number, reader) };
 }
-function itemsOnBranch(ref, dir, reader) {
-  let listed2;
-  try {
-    listed2 = git4(["ls-tree", "-r", "--name-only", ref, "--", dir], reader);
-  } catch {
-    return null;
-  }
-  const files = listed2.split("\n").map((line) => line.trim()).filter((file2) => file2.endsWith(".md") && !file2.endsWith("/settled.md") && !file2.slice(dir.length).includes("/accounts/"));
-  return files.flatMap((file2) => {
-    const parsed = parseOutboxItem(git4(["show", `${ref}:${file2}`], reader), { file: file2 });
-    return parsed.ok ? [parsed.item] : [];
-  });
-}
 function openItems2(prd2, branch, reader) {
   const { ctx } = reader;
   const dir = ctx.layout.outboxDir(prd2);
@@ -45071,7 +45037,7 @@ function openItems2(prd2, branch, reader) {
     git4(["fetch", "--quiet", remote, branch], reader);
   } catch {
   }
-  return itemsOnBranch(`${remote}/${branch}`, dir, reader) ?? openItemsForPrd(prd2, { ctx });
+  return openItemsOn(`${remote}/${branch}`, dir, (args) => git4(args, reader)) ?? openItemsForPrd(prd2, { ctx });
 }
 function outboxFacts(prd2, { branch, pr }, reader) {
   const items = openItems2(prd2, branch, reader);
@@ -45739,9 +45705,9 @@ function readTargets(targets2, { ctx, exec = execFileSync12, env }) {
 }
 var COLUMNS = ["repo", "role", "knowledge", "loop", "state"];
 function targetsTable(rows2) {
-  const cells5 = [COLUMNS, ...rows2.map((r) => [r.repo, r.role, r.knowledge, r.loop, r.detail ? `${r.state} (${r.detail})` : r.state])];
-  const widths = COLUMNS.map((_, i) => Math.max(...cells5.map((line) => (line[i] ?? "").length)));
-  return cells5.map((line) => line.map((cell2, i) => i === line.length - 1 ? cell2 : cell2.padEnd(widths[i] ?? 0)).join("  "));
+  const cells4 = [COLUMNS, ...rows2.map((r) => [r.repo, r.role, r.knowledge, r.loop, r.detail ? `${r.state} (${r.detail})` : r.state])];
+  const widths = COLUMNS.map((_, i) => Math.max(...cells4.map((line) => (line[i] ?? "").length)));
+  return cells4.map((line) => line.map((cell2, i) => i === line.length - 1 ? cell2 : cell2.padEnd(widths[i] ?? 0)).join("  "));
 }
 
 // kit/lib/plan-repo/moved.ts
@@ -45796,10 +45762,10 @@ function detailOf(row) {
   return row.detail ?? "";
 }
 function movedTable(rows2) {
-  const cells5 = rows2.map((row) => [row.repo, row.state, detailOf(row)]);
-  const widths = [0, 1].map((i) => Math.max(0, ...cells5.map((line) => (line[i] ?? "").length)));
+  const cells4 = rows2.map((row) => [row.repo, row.state, detailOf(row)]);
+  const widths = [0, 1].map((i) => Math.max(0, ...cells4.map((line) => (line[i] ?? "").length)));
   const [repoWidth = 0, stateWidth = 0] = widths;
-  return cells5.map(
+  return cells4.map(
     ([repo, state, detail]) => detail ? `${repo.padEnd(repoWidth)}   ${state.padEnd(stateWidth)}   ${detail}` : `${repo.padEnd(repoWidth)}   ${state}`
   );
 }
@@ -48352,36 +48318,43 @@ function readGithub(ctx, roadmap2, { exec, env }) {
     return null;
   }
 }
+function pushInputs(n, io) {
+  const { ctx, repo } = repoContext2(io);
+  const entry = roadmapFile(ctx, "push", n);
+  const askUrl2 = ctx.config.ask.url;
+  if (!askUrl2) return "off";
+  const read2 = readRoadmap(ctx, entry);
+  if (typeof read2 === "string") return read2;
+  const client = signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
+  if (!client) return "no sign-in (omni signin)";
+  const github = readGithub(ctx, read2.roadmap, io);
+  if (github === null) return "github unreachable";
+  return { askUrl: askUrl2, client, body: roadmapPushBody({ repo, roadmap: read2.roadmap, document: read2.document, ...github }) };
+}
+function reportPush2({ stdout, stderr }, n, { askUrl: askUrl2, body }, reply) {
+  const roadmapId = field(reply, "roadmapId");
+  if (typeof roadmapId !== "string" || !roadmapId) return refuse4(stderr, "refused (no roadmap in the reply)");
+  const how = field(reply, "created") === true ? "created" : "updated";
+  println(stdout, `roadmap ${n}: ${how}, ${body.prds.length} PRD(s) \u2014 ${askUrl2.replace(/\/+$/, "")}/roadmaps/${roadmapId}`);
+  const note = field(reply, "note");
+  if (typeof note === "string" && note) println(stdout, note);
+  return 0;
+}
 async function pushCommand(rest, io) {
   const { positional } = parseArgs("roadmap push", rest);
   if (positional.length !== 1) throw usageError(USAGE23);
   const n = issueArg("roadmap push", "<n>", positional[0]);
-  const { ctx, repo } = repoContext2(io);
-  const entry = roadmapFile(ctx, "push", n);
-  const askUrl2 = ctx.config.ask.url;
-  if (!askUrl2) return refuse4(io.stderr, "off");
-  const read2 = readRoadmap(ctx, entry);
-  if (typeof read2 === "string") return refuse4(io.stderr, read2);
-  const client = signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
-  if (!client) return refuse4(io.stderr, "no sign-in (omni signin)");
-  const github = readGithub(ctx, read2.roadmap, io);
-  if (github === null) return refuse4(io.stderr, "github unreachable");
-  const body = roadmapPushBody({ repo, roadmap: read2.roadmap, document: read2.document, ...github });
+  const inputs = pushInputs(n, io);
+  if (typeof inputs === "string") return refuse4(io.stderr, inputs);
   let reply;
   try {
-    reply = await client.pushRoadmap(body);
+    reply = await inputs.client.pushRoadmap(inputs.body);
   } catch (error62) {
     return refuse4(io.stderr, skipLine5(error62));
   }
-  const roadmapId = field(reply, "roadmapId");
-  if (typeof roadmapId !== "string" || !roadmapId) return refuse4(io.stderr, "refused (no roadmap in the reply)");
-  const how = field(reply, "created") === true ? "created" : "updated";
-  println(io.stdout, `roadmap ${n}: ${how}, ${body.prds.length} PRD(s) \u2014 ${askUrl2.replace(/\/+$/, "")}/roadmaps/${roadmapId}`);
-  const note = field(reply, "note");
-  if (typeof note === "string" && note) println(io.stdout, note);
-  return 0;
+  return reportPush2(io, n, inputs, reply);
 }
-function answerCommand(rest, io) {
+function answerArgs(rest) {
   const { positional } = parseArgs("roadmap answer", rest);
   if (positional.length !== 3) throw usageError(USAGE23);
   const [number4, question = "", given = ""] = positional;
@@ -48389,13 +48362,19 @@ function answerCommand(rest, io) {
   const answer = given.trim();
   if (!answer) throw usageError("omni roadmap answer: the answer is empty.");
   if (answer.length > ANSWER_MAX) throw usageError(`omni roadmap answer: an answer holds ${ANSWER_MAX} characters at most.`);
+  return { n, question, answer };
+}
+function assertAsks(roadmap2, n, question) {
+  const ids2 = roadmap2.questions.map((q) => q.id);
+  if (ids2.includes(question)) return;
+  throw usageError(`omni roadmap answer: roadmap ${n} has no question ${question}${ids2.length ? ` (its questions: ${ids2.join(", ")})` : ""}.`);
+}
+function answerCommand(rest, io) {
+  const { n, question, answer } = answerArgs(rest);
   const { ctx } = repoContext2(io);
   const read2 = readRoadmap(ctx, roadmapFile(ctx, "answer", n));
   if (typeof read2 === "string") return refuse4(io.stderr, read2);
-  const ids2 = read2.roadmap.questions.map((q) => q.id);
-  if (!ids2.includes(question)) {
-    throw usageError(`omni roadmap answer: roadmap ${n} has no question ${question}${ids2.length ? ` (its questions: ${ids2.join(", ")})` : ""}.`);
-  }
+  assertAsks(read2.roadmap, n, question);
   let url2;
   try {
     url2 = githubClientFor(ctx, { issue: n, exec: io.exec, env: io.env }).createComment(answerComment(question, answer))?.html_url;
@@ -48844,8 +48823,8 @@ function counts(values) {
 }
 function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
   if (total === 0) return ["  nothing yet: /omni:brainstorm to start"];
-  const cells5 = `${"\u2588".repeat(filled)}${"\u2591".repeat(BAR_CELLS - filled)}`;
-  const top = `${LABEL2}${cells5}  ${delivered} of ${total} \xB7 ${percent}%`;
+  const cells4 = `${"\u2588".repeat(filled)}${"\u2591".repeat(BAR_CELLS - filled)}`;
+  const top = `${LABEL2}${cells4}  ${delivered} of ${total} \xB7 ${percent}%`;
   if (inProgress.total === 0) return [top, `${UNDER_BAR}nothing in progress`];
   const counted3 = [[inProgress.inbox, "in the inbox"], [inProgress.building, "being built"], [inProgress.outbox, "in the outbox"]];
   const parts = counted3.filter(([count4]) => count4 > 0).map(([count4, where]) => `${count4} ${where}`);
