@@ -6,6 +6,7 @@
 //   POST /api/ask/sessions/:id/close                           → {id, status: "closed"}
 //   DELETE /api/ask/sessions/:id                               → {id, deleted: true}
 //   POST /api/ask/sessions/:id/rounds     {questions, context?, lead?} → {roundId}
+//                                         {…, answers, via: "terminal"} → {roundId, status: "answered", via: "terminal"}
 //   GET  /api/ask/rounds/:id/wait                              → {status: open|answered|abandoned|closed, answers?, attachments?}
 //   POST /api/ask/rounds/:id/answers      {answers, via: "terminal"} → {id, status: "answered", via: "terminal"}
 //   POST /api/ask/rounds/:id/abandon                           → {id, status: "abandoned"}
@@ -35,6 +36,11 @@
 // the transcript (ADR-0002), at most LEAD_MAX_BYTES plus the kit's shortened note. It is text or null;
 // anything else, an empty text or a longer one is refused with 400. It is stored with the round and
 // read back with it, and the classifier never reads it.
+//
+// A round may be opened already answered in the terminal (PRD 1180): `answers` and `via: "terminal"`,
+// as `POST /rounds/:id/answers` takes them, sent with the questions. The kit does it when its pre hook
+// could not open the round, so a terminal answer always reaches the page. Answers that are not that
+// shape are refused with 400, and nothing is asked. A body without `answers` opens the round as before.
 //
 // A round's category (PRD 144) is one of six (./classify.ts). Once a round is created, the model sorts
 // it after the response has gone (`later`, Next's after()), so asking never waits on it; any failure
@@ -307,6 +313,13 @@ function readLead(sent: Record<string, unknown>): { lead: string | null } | { pr
   return fine ? { lead } : { problem: `\`lead\`, when sent, must be the text Claude wrote before asking, up to ${LEAD_MAX_BYTES / 1024} KB, or null.` };
 }
 
+/** The terminal's answer a round body carries (PRD 1180) — null when it carries none — or why it is refused. */
+function readTerminalAnswer(sent: Record<string, unknown>): { answers: AskAnswers | null } | { problem: string } {
+  if (sent.answers === undefined && sent.via === undefined) return { answers: null };
+  if (sent.via !== 'terminal') return { problem: 'A round opened answered records an answer given in the terminal: `via` must be "terminal".' };
+  return isAnswers(sent.answers) ? { answers: sent.answers } : { problem: '`answers` must map each question\'s text to the answer text.' };
+}
+
 export function addRound(request: Request, id: string, deps: AskDeps): Promise<Response> {
   return handle(request, deps, async (who) => {
     const sent = await body(request);
@@ -319,6 +332,8 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
     const { context } = read;
     const sentLead = readLead(sent);
     if ('problem' in sentLead) return refuse(400, sentLead.problem);
+    const answered = readTerminalAnswer(sent);
+    if ('problem' in answered) return refuse(400, answered.problem);
     const session = await ownSession(who, id);
     if (!session) return notFound('session');
     if (sessionClosed(session, who.now())) return closedSession();
@@ -341,7 +356,9 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
         questions,
         context: { repo: context.repo ?? session.repo, branch: context.branch, prd: context.prd, skill: context.skill },
       });
-      return reply(200, { roundId: round.id });
+      if (!answered.answers) return reply(200, { roundId: round.id });
+      await who.store.moveRound(round.id, ['open'], { status: 'answered', answers: answered.answers, answered_via: 'terminal' });
+      return reply(200, { roundId: round.id, status: 'answered', via: 'terminal' });
     } catch (error) {
       // Closed between the read and the write: the database's policy refused the round.
       if (error instanceof AskStoreError && error.code === '42501') return closedSession();
