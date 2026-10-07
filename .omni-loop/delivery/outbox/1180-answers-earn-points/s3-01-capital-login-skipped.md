@@ -10,11 +10,11 @@ wave: 2
 
 ## The question, in plain words
 
-GitHub accounts may be spelt with capital letters (`Serghok`). Should points credited to such an account be skipped until it is spelt in lower case, or credited as GitHub spells it?
+GitHub accounts may be spelt with capital letters, like Serghok. Should points credited to such an account be skipped until it is spelt in lower case, or credited as GitHub spells it?
 
 ## The decision, in plain words
 
-They are credited as GitHub spells them. The login check ignores case, so a capitalised GitHub name keeps earning; only `@`, dots, spaces and other characters no GitHub login can hold are skipped. This departs from the spec's acceptance criterion 7, which also refused upper case.
+They are credited as GitHub spells them: the login check ignores case, and skips only names holding an at sign, a dot, a space or another character no GitHub login can hold. This departs from the spec's acceptance criterion 7, which also refused upper case.
 
 ## The intro, for fun
 
