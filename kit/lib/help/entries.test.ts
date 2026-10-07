@@ -107,11 +107,45 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 42 commands and the 24 skills', () => {
+  it('holds the 42 commands and the 26 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(42);
-    expect(skillFolders()).toHaveLength(24);
+    expect(skillFolders()).toHaveLength(26);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(42);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(24);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(26);
+  });
+
+  it('lists /omni:mega-bug-fix for you under Several repositories, after /omni:mega-pr-care, with when and an example (PRD 1118)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const mega = skills.find((e) => e.name === 'mega-bug-fix');
+    assertDefined(mega, 'mega');
+    expect(mega).toMatchObject({ who: 'you', usage: ['/omni:mega-bug-fix <line or n> [--prd <prd>]'], label: '/omni:mega-bug-fix', group: 'multi-repo' });
+    expect(skills.indexOf(mega)).toBe(skills.findIndex((e) => e.name === 'mega-pr-care') + 1);
+    expect(mega.when).toMatch(/^Use it when\b/);
+    expect(mega.example).toEqual({ type: '/omni:mega-bug-fix the total is wrong on the invoice screen', result: anyText });
+    expect(mega.detail).toMatch(/\bplan repository\b/);
+    expect(mega.detail).toMatch(/\/omni:bug-fix\b/);
+    expect(mega.detail).toMatch(/\/omni:mega-brainstorm\b/);
+    expect(mega.detail).toMatch(/never merges/);
+  });
+
+  it('lists /omni:mega-pr-care for you under Several repositories, after /omni:ultra-yolo, with when and an example (PRD 1118)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const mega = skills.find((e) => e.name === 'mega-pr-care');
+    assertDefined(mega, 'mega');
+    expect(mega).toMatchObject({ who: 'you', usage: ['/omni:mega-pr-care <n>'], label: '/omni:mega-pr-care <n>', group: 'multi-repo' });
+    expect(skills.indexOf(mega)).toBe(skills.findIndex((e) => e.name === 'ultra-yolo') + 1);
+    expect(mega.when).toMatch(/^Use it when\b/);
+    expect(mega.example).toEqual({ type: '/omni:mega-pr-care 1200', result: anyText });
+    expect(mega.detail).toMatch(/\bplan repository\b/);
+    expect(mega.detail).toMatch(/\/omni:pr-care\b/);
+    expect(mega.detail).toMatch(/never merges/);
+  });
+
+  it('names omni care list beside omni care state (PRD 1118)', () => {
+    const care = ENTRIES.find((e) => e.kind === 'command' && e.name === 'care');
+    assertDefined(care, 'care');
+    expect(care.usage).toContain('omni care list <prd> [--json]');
+    expect(care.usage.indexOf('omni care list <prd> [--json]')).toBe(care.usage.findIndex((u) => u.startsWith('omni care state')) + 1);
   });
 
   it('lists /omni:pr-care for you under Build it, after /omni:pr, with when to use it and an example (PRD 790)', () => {
@@ -250,7 +284,7 @@ describe('the help table in this repository', () => {
       start: ['brainstorm', 'bug-fix', 'think-big', 'visual-fix'],
       build: ['do-work', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
       setup: ['invade'],
-      'multi-repo': ['mega-brainstorm', 'mega-invade', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
+      'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-invade', 'mega-pr-care', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
       everyday: ['ask', 'help', 'pitch', 'prove', 'status'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });

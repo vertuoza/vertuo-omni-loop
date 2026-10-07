@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mega retro</title>
+<style>
+/* Layout: two moments (the retro file, a target's merged PR), each today | after side by side, stacking at phone width. Look: the PRD page's own tokens, as PRD 790's page. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --red:#b3122f;--redSoft:#fbe8ec;--amber:#8a5a00;--amberSoft:#fdf1d8;--green:#15703f;--greenSoft:#e4f4ea;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+ --display:Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
+ --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.55 var(--body)}
+main{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:32px 56px;display:grid;gap:40px}
+header{display:grid;gap:8px}
+h1{font:400 clamp(30px,5vw,46px)/1 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance}
+.lede{color:var(--muted);max-width:68ch;margin:0}
+section{display:grid;gap:14px}
+h2{font:400 24px/1.1 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h3{font:700 13px/1.2 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:6px 0 0}
+.why{color:var(--muted);margin:0;max-width:72ch}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{min-width:0;display:grid;gap:8px;align-content:start}
+.tag{font:700 11px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tag.after{color:var(--plasma)}
+.doc{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:grid;gap:8px;min-width:0}
+.doc .file{font:12px var(--mono);color:var(--muted)}
+.doc h4{font:700 15px var(--body);margin:4px 0 0}
+.doc p,.doc li{margin:0;font-size:14px}
+.doc ul{margin:0;padding-left:18px;display:grid;gap:3px}
+.repo{font:700 12px var(--mono);color:var(--plasma)}
+.empty{color:var(--muted);font-style:italic}
+.chip{display:inline-block;font:700 11px/1 var(--body);padding:4px 7px;border-radius:999px;letter-spacing:.03em}
+.chip.red{background:var(--redSoft);color:var(--red)}.chip.amber{background:var(--amberSoft);color:var(--amber)}.chip.green{background:var(--greenSoft);color:var(--green)}.chip.grey{background:var(--sunk);color:var(--muted)}
+code{font:12.5px var(--mono);background:var(--sunk);padding:1px 5px;border-radius:4px}
+.who{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.who b{color:var(--ink)}
+.av{width:22px;height:22px;border-radius:50%;background:var(--plasmaSoft);color:var(--plasma);display:inline-grid;place-items:center;font:700 11px var(--body)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+th{font:700 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.same{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 18px}
+.same ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
+</style>
+</head>
+<body>
+<main>
+<header>
+ <h1>Mega retro</h1>
+ <p class="lede">PRD #1130. When a multi-repository PRD's plan PR merges, the omni-loop App's retro reads every target repository too, and writes one retro for the whole PRD, grouped by repository. The example: PRD 1200, plan repository <code>vertuo-automation-plan</code>, targets <code>vertuo-backend-php</code> and <code>vertuo-apps</code>.</p>
+</header>
+
+<section>
+ <h2>The retro file</h2>
+ <p class="why">Today the retro reads only the plan repository, where almost nothing was built. After, it reads each target's feature PR, sub-PRs, CI runs and churn.</p>
+ <div class="pair">
+  <div class="side">
+   <span class="tag">Today</span>
+   <div class="doc">
+    <div class="file">shipped/1200-invoice-rounding/retro.md · vertuo-automation-plan</div>
+    <h4>Findings</h4>
+    <p class="empty">None: 0 sub-PRs into the plan feature branch.</p>
+    <h4>Timeline</h4>
+    <ul><li>plan PR #88 opened → merged, 3 days</li></ul>
+    <h4>Checks</h4>
+    <p class="empty">No workflow run on the plan feature branch.</p>
+    <h4>Churn</h4>
+    <p class="empty">2 files, docs only.</p>
+   </div>
+  </div>
+  <div class="side">
+   <span class="tag after">After</span>
+   <div class="doc">
+    <div class="file">shipped/1200-invoice-rounding/retro.md · vertuo-automation-plan</div>
+    <h4>Findings</h4>
+    <ul>
+     <li><span class="chip red">F1</span> <span class="repo">vertuo-apps</span> s3 went red 4 times on the same typecheck job</li>
+     <li><span class="chip amber">F2</span> <span class="repo">vertuo-backend-php</span> s1 rewrote 60% of its lines after review</li>
+    </ul>
+    <h4>Checks</h4>
+    <div class="tbl"><table>
+     <thead><tr><th>repository</th><th>runs</th><th>red</th><th>slowest job</th></tr></thead>
+     <tbody>
+      <tr><td>vertuo-backend-php</td><td>9</td><td>1</td><td>phpunit · 11 min</td></tr>
+      <tr><td>vertuo-apps</td><td>14</td><td>5</td><td>typecheck · 6 min</td></tr>
+      <tr><td>vertuo-legacy</td><td colspan="3">not read — the App is not installed there</td></tr>
+     </tbody>
+    </table></div>
+    <h3>Timeline · Churn</h3>
+    <p>One subsection per repository, the plan repository first, then <code>## Repositories</code>'s order.</p>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section>
+ <h2>A target's merged feature PR</h2>
+ <p class="why">The retro's issues stay in the plan repository. Each target team sees its own findings where it already looks: one comment on its merged feature PR, rewritten in place.</p>
+ <div class="pair">
+  <div class="side">
+   <span class="tag">Today</span>
+   <div class="doc">
+    <div class="who"><b>vertuo-backend-php#41</b> <span class="chip grey">merged</span></div>
+    <p class="empty">No word from the retro. It ran in another repository.</p>
+   </div>
+  </div>
+  <div class="side">
+   <span class="tag after">After</span>
+   <div class="doc">
+    <div class="who"><b>vertuo-backend-php#41</b> <span class="chip grey">merged</span></div>
+    <div class="who"><span class="av">Ω</span><b>omni-loop</b> commented</div>
+    <p><b>Retro of PRD 1200</b>: <code>vertuo-automation-plan#91</code></p>
+    <ul><li>F2: s1 rewrote 60% of its lines after review (<code>vertuo-automation-plan#92</code>)</li></ul>
+    <p class="who">Day 14: 1 bug fixed here, <code>#57</code>, inside s1's churn.</p>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section class="same">
+ <h2>What stays the same</h2>
+ <ul>
+  <li>A one-repository PRD's retro reads and writes exactly what it does today.</li>
+  <li>The retro, its issues and its PR live in the plan repository. In a target, the App writes one comment and nothing else.</li>
+  <li>A merge in a target starts no retro. The knowledge PR is unchanged.</li>
+ </ul>
+</section>
+</main>
+</body>
+</html>

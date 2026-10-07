@@ -441,3 +441,54 @@ describe('the retro function — its issues', () => {
     expect(markdown(scenario.github)).toContain(`[#${first.number}](${first.html_url}) (closed)`);
   });
 });
+
+describe('a multi-repository PRD (PRD 1130) — its issues', () => {
+  const PLAN = `${OWNER}/${REPO}`;
+  const BACKEND = 'acme/backend';
+  const slow = at(FOUND, 1, 'the slow slice');
+  /** The plan repository's sheet with the back-end's slow slice in it, named as `withTargets` names a target's finding. */
+  const megaSheet = (): FactSheet => {
+    const sheet = sheetOf([at(FOUND, 2, 'the repeated red')]);
+    const own = sheet.findings.map((finding) => ({ ...finding, repo: PLAN }));
+    const target = { ...slow, id: `backend/${slow.id}`, title: `${BACKEND}: ${slow.title}`, source: 'found', ref: 'F2', repo: BACKEND };
+    return {
+      ...sheet,
+      findings: [...own, target],
+      repositories: [
+        { repo: PLAN, name: REPO, plan: true, read: true, featurePrs: [{ number: pr.number, url: pr.url }] },
+        { repo: BACKEND, name: 'backend', plan: false, read: true, featurePrs: [{ number: parsePr(40), url: 'https://github.com/acme/backend/pull/40' }] },
+      ],
+    };
+  };
+  const findingOf = (sheet: FactSheet, id: string) => {
+    const one = sheet.findings.find((candidate) => candidate.id === id);
+    assertDefined(one, id);
+    return one;
+  };
+
+  it("opens a target's issue in the plan repository, its title naming the target", async () => {
+    const github = replay();
+    const sheet = megaSheet();
+    await publishIssues(github.octokit, input({ sheet, prose: keeping(sheet.findings) }));
+    expect(created(github).map((request) => [request.owner, request.repo, request.title])).toEqual([
+      [OWNER, REPO, 'retro(PRD 7): The check e2e went red again and again'],
+      [OWNER, REPO, `retro(PRD 7): ${BACKEND}: Slice s3 took far longer than the others`],
+    ]);
+  });
+
+  it("names the target before the model's own title, once", () => {
+    const sheet = megaSheet();
+    const target = findingOf(sheet, `backend/${slow.id}`);
+    const words = (title: string): Prose => ({ findings: { [target.id]: { title, keep: true } }, lessons: [], verdict: KEEP_ALL.verdict });
+    const titled = (title: string) => renderIssue({ sheet, finding: target, prose: words(title), retroPath: RETRO_PATH, retroPr: null, prefix: 'omni-outbox' }).title;
+    expect(titled('The serving slice dragged on')).toBe(`retro(PRD 7): ${BACKEND}: The serving slice dragged on`);
+    expect(titled(`${BACKEND}: The serving slice dragged on`)).toBe(`retro(PRD 7): ${BACKEND}: The serving slice dragged on`);
+  });
+
+  it("leaves the plan repository's own finding titled as in a PRD of one repository", () => {
+    const sheet = megaSheet();
+    const own = findingOf(sheet, 'repeated-red:e2e');
+    const { title } = renderIssue({ sheet, finding: own, prose: PROSE, retroPath: RETRO_PATH, retroPr: null, prefix: 'omni-outbox' });
+    expect(title).toBe('retro(PRD 7): The end-to-end check kept failing');
+  });
+});

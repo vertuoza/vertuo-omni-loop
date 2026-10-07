@@ -126,7 +126,7 @@ It never merges into any repository's default branch. You do.
 
 ## Which skill runs which
 
-![Which skill runs which across repositories: you type /omni:mega-invade, /omni:mega-brainstorm, /omni:ultra-yolo and /omni:ultra-yolo-fix; ultra-yolo runs /omni:ultra-wave, which runs /omni:do-work in each target; /omni:do-work and /omni:pr are shared with the single-repository loop](diagrams/skills-repositories.svg)
+![Which skill runs which across repositories: you type /omni:mega-invade, /omni:mega-brainstorm, /omni:ultra-yolo and /omni:ultra-yolo-fix, /omni:mega-pr-care and /omni:mega-bug-fix; ultra-yolo runs /omni:ultra-wave, which runs /omni:do-work in each target; /omni:do-work and /omni:pr are shared with the single-repository loop](diagrams/skills-repositories.svg)
 
 | Skill | Type it when | It ends with |
 |---|---|---|
@@ -135,6 +135,8 @@ It never merges into any repository's default branch. You do.
 | `/omni:ultra-yolo <n>` | the phase-0 pull request is merged | a target pull request per target, ready; the plan pull request ready, or questions for you |
 | `/omni:ultra-yolo-fix <n>` | you answered the questions on the plan pull request | each rework built in its own target, and the plan pull request ready |
 | `/omni:ultra-wave <n>` | you want one wave at a time; `/omni:ultra-yolo` runs it for you | the wave's slices merged into their targets' feature branches |
+| `/omni:mega-pr-care <n>` | the pull requests are open, after `/omni:ultra-yolo` or alongside it; leave it running | every pull request of the PRD, the plan's, each target's and each linked bug fix's, kept conflict-free, green and review-handled round by round, until each is merged or closed; it never merges |
+| `/omni:mega-bug-fix` | a bug shows in one target and its cause may sit in another; `--prd <n>` links it to a PRD | one bug issue with a fix plan, one fix pull request per target in merge order, provider first, and a record pull request that closes the issue, merged last |
 
 `/omni:do-work` and `/omni:pr` are the same skills the single-repository loop runs: `--target`
 builds a slice in its target repository, and `--repo` opens and follows its pull request there. You

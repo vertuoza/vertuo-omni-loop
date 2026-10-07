@@ -13,6 +13,8 @@
     "kit/bin/omni.ts",
     // `pnpm kit:build` runs it by path.
     "kit/build.ts",
+    // The pitch engine's page (PRD 1108 s4): `kit/build.ts` bundles it for the browser by path.
+    "kit/pitch-engine/page.tsx",
     // The `release` workflow runs it by path (`node kit/release/release.ts`).
     "kit/release/release.ts",
     // The game's commands, each run by path from a `game:*` script of the root package.json.

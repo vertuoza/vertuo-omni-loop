@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-06",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A React render engine inside a CLI kit is a big new surface; I want to see it tested before it renders anything for customers.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Swappable providers and nothing paid: that I can live with, and the video might finally be something I would post.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Title, description, zooms on the feature and our call to action, every time I press Pitch: that is the launch video I wanted.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "One look per product keeps the videos consistent across teams; another engine to maintain is the cost.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Setting our tone and customers' words once means quick wins get announced the way our customers talk.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "A React render engine inside a CLI kit is a large new surface. If a render breaks or comes out blurry, it is my team that ships slop to customers.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ~ · persona:F-E Developer ~"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-06",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "check blocks a bad storyboard, stills come before any render, and frames are tested against references: the slop risk is handled.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Providers are one file each and a removed one falls back in one line; no API keys to manage.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The studio and per-product settings mean I can make it look like us, not like the kit.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "A new import zone and a built engine page are more to keep cohesive; the ADR change makes it explicit.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Free music and fonts mean I can pitch without asking for budget.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-06",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Deterministic frames, a check before any render and reference-image tests: the engine is tested, though those tests skip on CI without a browser.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Every outside tool is one provider file and nothing costs money; uploaded fonts and music still need a route before the CLI can use them.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Title, zooms on the feature and our call to action, in our look, from one button: that is the launch video.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "One look per product keeps teams consistent; the bundle grew by 0.8 MB in every repository for an engine most will rarely run.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Our tone and customers' words set once, free music: I can announce quick wins without asking anyone.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ~"
+    }
+  ]
+}

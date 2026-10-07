@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-06
 - Slice: s1
 - Wave: 1
+- Became: ADR-0070
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A constant change in kit/lib/flow/resolve.ts and its tests: letting an area's ow
 - Raised: 2026-10-06
 - Slice: s1
 - Wave: 1
+- Stays here: These are local config-shape choices, each a few lines to change, and they guarantee nothing lasting about product behaviour that the knowledge base must keep.
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ A constant change: defaulting hookMaxBytes in the schema (and updating one exist
 - Raised: 2026-10-06
 - Slice: s1
 - Wave: 1
+- Became: ADR-0071
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ Nothing to undo: they are a build output; a later slice rebuilds them again. The
 - Raised: 2026-10-06
 - Slice: s2
 - Wave: 1
+- Stays here: A scoping choice for this slice with a small, known follow-up; it sets no lasting rule or design, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ Small: the same one-line change in three skill files, plus a check in the skill 
 - Raised: 2026-10-06
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-69, P-PRODUCT-61
 
 ### The answer, as it was given
 
@@ -409,6 +414,7 @@ A constant change in the plan rules module and its tests: letting a first part s
 - Raised: 2026-10-06
 - Slice: s4
 - Wave: 3
+- Became: ADR-0072
 
 ### The answer, as it was given
 
@@ -492,6 +498,7 @@ A constant change in kit/lib/flow/show.ts or kit/lib/flow/verdict.ts and their s
 - Raised: 2026-10-06
 - Slice: s5
 - Wave: 4
+- Became: ADR-0073
 
 ### The answer, as it was given
 
@@ -574,6 +581,7 @@ A constant change in kit/lib/flow/merge-gate.ts and the check merge command in k
 - Raised: 2026-10-06
 - Slice: s6
 - Wave: 5
+- Became: ADR-0074
 
 ### The answer, as it was given
 
@@ -656,6 +664,7 @@ A constant change in kit/lib/plan-repo/copy-flow.ts, kit/lib/inbox/plan-grade.ts
 - Raised: 2026-10-06
 - Slice: s7
 - Wave: 6
+- Became: ADR-0075
 
 ### The answer, as it was given
 
@@ -737,6 +746,7 @@ Small: a few sentences in kit/plugin/skills/do-work, pr and wave, and the regexe
 - Raised: 2026-10-06
 - Slice: s7
 - Wave: 6
+- Became: ADR-0076
 
 ### The answer, as it was given
 
@@ -818,6 +828,7 @@ Small: sentences in the ultra and target skills; a later CLI change letting omni
 - Raised: 2026-10-06
 - Slice: s8
 - Wave: 7
+- Stays here: A local numbering and page-ordering choice, cheap to change, with no lasting product behaviour or architectural rationale to keep.
 
 ### The answer, as it was given
 

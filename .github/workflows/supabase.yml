@@ -192,6 +192,14 @@ jobs:
         # stranger read nothing and register nothing, anyone signed out is refused, and nobody writes the
         # table directly.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/pitch.sql
+      - name: Who may read and change a product's Pitch settings and assets
+        # A PRD 859 look reads as its preset after the migration. Any member of a workspace changes one
+        # product's settings through set_pitch_settings(), its other products keep theirs, and pitch_look
+        # follows the preset; a value the kit could never parse is refused (22023), another workspace's
+        # member, a stranger and anyone signed out are refused (42501). pitch_settings_for_repo() reads the
+        # repository's product's settings, {} for none. A member uploads, replaces, reads and removes their
+        # products' files in the private pitch-assets bucket; nobody else touches them.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/pitch_settings.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

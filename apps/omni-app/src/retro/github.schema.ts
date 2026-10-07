@@ -34,6 +34,9 @@ export const PullsSchema = z.array(PullSchema.extend({ state: z.string(), create
 /** A page of `GET /repos/{owner}/{repo}/pulls?head=…`, as the retro looks for its own PR. */
 export const RetroPullsSchema = z.array(z.object({ number: PrNumberSchema, state: z.string(), html_url: z.string() }));
 
+/** `GET /repos/{owner}/{repo}/installation`, the App's own call: its installation on that repository (PRD 1130). */
+export const InstallationSchema = z.object({ id: z.number() });
+
 /** `GET /repos/{owner}/{repo}/git/trees/{tree_sha}`. */
 export const TreeSchema = z.object({
   tree: z.array(z.object({ path: z.string(), type: z.string(), sha: z.string() })),
