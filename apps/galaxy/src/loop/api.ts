@@ -3,7 +3,7 @@
 //
 //   POST /api/loops {event: 'start', repo, prds, plan, reason?, takeOver?}          → 201 {loopId, state, planVersion}
 //   POST /api/loops {event: 'tick', loopId, step, steps, prd, action, result, link?,
-//                    merged?, items?, nextWakeAt, replan?: {reason, plan}}          → 200 {loopId, state, planVersion}
+//                    merged?, items?, repos?, nextWakeAt, replan?: {reason, plan}}  → 200 {loopId, state, planVersion}
 //   POST /api/loops {event: 'park', loopId, prd, who, what, link?}                 → 200 {loopId, state, planVersion}
 //   POST /api/loops {event: 'stop', loopId}                                        → 200 {loopId, state, planVersion}
 //
@@ -64,6 +64,7 @@ const Tick = z.strictObject({
   link: Link.default(null),
   merged: z.array(PrNumberSchema).max(50).default([]),
   items: z.array(OutboxItemIdSchema).max(50).default([]),
+  repos: z.array(z.string().regex(/^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)?$/, 'a repository: a target\'s short name or owner/name')).max(20).default([]),
   nextWakeAt: When.nullable(),
   replan: z.strictObject({ reason: Line(300), plan: Plan }).optional(),
 }).refine((tick) => tick.step <= tick.steps, { message: 'the step is past the plan\'s end', path: ['step'] });

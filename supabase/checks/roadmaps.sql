@@ -1,0 +1,258 @@
+-- Who may read and write the roadmaps (PRD 1162). The supabase workflow runs it on every pull request,
+-- after `supabase db start` has applied the migrations:
+--   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/roadmaps.sql
+-- Accounts each with its own JWT. roadmap_push() files a roadmap in the workspace its repository belongs
+-- to for the caller, with its PRD rows in the table's order and its product matched by name among the
+-- workspace's own; a second push, by any member, replaces its document, questions and PRD rows; a
+-- product named but unknown, or another workspace's, is stored as none and said in the answer. Nobody
+-- signed in writes the two tables directly, and a roadmap never points at another workspace's product.
+-- A member of the workspace reads the roadmap and its PRDs; an account of another workspace, of none,
+-- or signed out, nothing. A loop's tick keeps the repositories it touched. One transaction, rolled back
+-- at the end. Any `FAIL:` stops the run.
+
+begin;
+
+insert into auth.users (id, email) values
+  ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com'),
+  ('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com'),
+  ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
+  ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
+-- Ada and Bob belong to Vertuoza; Carl to Acme, which owns the GitHub organisation acme; Eve to none.
+insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme');
+insert into public.workspace_members (workspace_id, user_id)
+select w.id, m.user_id
+  from (values
+         ('vertuoza', '00000000-0000-4000-8000-0000000000a1'::uuid),
+         ('vertuoza', '00000000-0000-4000-8000-0000000000b1'::uuid),
+         ('acme',     '00000000-0000-4000-8000-0000000000c1'::uuid)
+       ) as m (slug, user_id)
+  join public.workspaces w on w.slug = m.slug;
+-- Each workspace sells one product: Vertuoza Crew for Vertuoza, Anvils for Acme.
+insert into public.businesses (workspace_id, name)
+select id, name from public.workspaces where slug in ('vertuoza', 'acme');
+insert into public.products (workspace_id, business_id, name)
+select b.workspace_id, b.id, case w.slug when 'vertuoza' then 'Vertuoza Crew' else 'Anvils' end
+  from public.businesses b join public.workspaces w on w.id = b.workspace_id
+ where w.slug in ('vertuoza', 'acme');
+
+-- Act as a signed-in account for the rest of the transaction: the claims of its access token.
+create function pg_temp.sign_in(uid text, email text) returns void language sql as $$
+  select set_config('request.jwt.claims', json_build_object('sub', uid, 'email', email, 'role', 'authenticated')::text, true);
+$$;
+
+-- A push of roadmap 1200 of vertuoza/vertuo-omni-loop, its fields overridden by `extra`.
+create function pg_temp.push_body(extra jsonb default '{}'::jsonb) returns jsonb language sql as $$
+  select jsonb_build_object(
+    'repo', 'Vertuoza/Vertuo-Omni-Loop', 'number', 1200, 'title', 'Vertuoza Crew — from skeleton to earned autonomy',
+    'milestone', 'A company grants its first mandate after a trial week.', 'product', 'vertuoza crew', 'target', '2027-03-31',
+    'source', 'https://claude.ai/artifact/crew',
+    'questions', jsonb_build_array(jsonb_build_object('id', 'Q5', 'question', 'Who signs a mandate?', 'recommendation', null,
+                                                      'blocks', jsonb_build_array('P3.4'), 'kind', 'person', 'answer', null)),
+    'document', E'---\nroadmap: 1200\n---\n',
+    'prds', jsonb_build_array(
+      jsonb_build_object('id', 'P1.1', 'prd', 1201, 'title', 'Crew API and worker skeleton', 'repos', jsonb_build_array('Crew'),
+                         'blockers', jsonb_build_array(), 'wave', 1, 'state', 'merged',
+                         'startedAt', '2026-10-01T09:00:00Z', 'endedAt', '2026-10-03T17:00:00Z'),
+      jsonb_build_object('id', 'P3.4', 'prd', 1213, 'title', 'Stateless think endpoint', 'repos', jsonb_build_array('ai-domain'),
+                         'blockers', jsonb_build_array('P1.1'), 'wave', 2, 'state', 'waiting',
+                         'waitsOn', 'waits on crew#88 (P1.1 Crew API and worker skeleton): CI red',
+                         'waitsOnUrl', 'https://github.com/vertuoza/crew/pull/88'))
+  ) || extra;
+$$;
+
+create table pg_temp.ids (name text primary key, id uuid);
+grant all on pg_temp.ids to authenticated;
+
+-- ── Signed out: nothing ──
+set local role anon;
+do $$
+begin
+  begin perform 1 from public.roadmaps limit 1; raise exception 'FAIL: anon read the roadmaps';
+  exception when insufficient_privilege then null; end;
+  begin perform 1 from public.roadmap_prds limit 1; raise exception 'FAIL: anon read the roadmap PRDs';
+  exception when insufficient_privilege then null; end;
+  begin perform public.roadmap_push(pg_temp.push_body()); raise exception 'FAIL: anon pushed a roadmap';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- ── Ada pushes the roadmap, then pushes it again ──
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+declare
+  ws      uuid := (select id from public.workspaces where slug = 'vertuoza');
+  crew    uuid := (select p.id from public.products p join public.workspaces w on w.id = p.workspace_id where w.slug = 'vertuoza');
+  answer  jsonb;
+  roadmap uuid;
+begin
+  answer := public.roadmap_push(pg_temp.push_body());
+  roadmap := (answer ->> 'roadmapId')::uuid;
+  insert into pg_temp.ids values ('crew', roadmap);
+  if (answer ->> 'created')::boolean is not true or answer ->> 'product' <> 'Vertuoza Crew' or answer -> 'unknownProduct' <> 'null'::jsonb then
+    raise exception 'FAIL: a first push did not answer a new roadmap filed under its product: %', answer;
+  end if;
+  if not exists (
+    select 1 from public.roadmaps
+     where id = roadmap and workspace_id = ws and repo = 'vertuoza/vertuo-omni-loop' and number = 1200 and product_id = crew
+       and target_date = '2027-03-31' and source = 'https://claude.ai/artifact/crew' and questions -> 0 ->> 'kind' = 'person'
+       and pushed_by = '00000000-0000-4000-8000-0000000000a1') then
+    raise exception 'FAIL: the roadmap was not stored in the repository''s workspace, under its product';
+  end if;
+  if (select array_agg(row_id order by position) from public.roadmap_prds where roadmap_id = roadmap) <> '{P1.1,P3.4}'
+     or not exists (select 1 from public.roadmap_prds where roadmap_id = roadmap and row_id = 'P1.1' and repos = '{crew}' and state = 'merged' and ended_at is not null)
+     or not exists (select 1 from public.roadmap_prds where roadmap_id = roadmap and row_id = 'P3.4' and blockers = '{P1.1}' and wave = 2
+                      and waits_on like 'waits on crew#88%' and waits_on_url = 'https://github.com/vertuoza/crew/pull/88') then
+    raise exception 'FAIL: the roadmap''s PRDs were not stored in the table''s order';
+  end if;
+
+  -- A second push replaces the document and the PRD rows, and keeps the roadmap.
+  answer := public.roadmap_push(pg_temp.push_body(jsonb_build_object(
+    'document', E'---\nroadmap: 1200\ntitle: v2\n---\n', 'product', 'Widgets',
+    'prds', jsonb_build_array(jsonb_build_object('id', 'P1.1', 'prd', 1201, 'title', 'Crew API', 'wave', 1, 'state', 'building',
+                                                 'startedAt', '2026-10-01T09:00:00Z')))));
+  if (answer ->> 'roadmapId')::uuid <> roadmap or (answer ->> 'created')::boolean then
+    raise exception 'FAIL: a second push did not answer the same roadmap: %', answer;
+  end if;
+  if answer -> 'product' <> 'null'::jsonb or answer ->> 'unknownProduct' <> 'Widgets' then
+    raise exception 'FAIL: an unknown product was not said in the answer: %', answer;
+  end if;
+  if (select count(*) from public.roadmaps where number = 1200) <> 1
+     or not exists (select 1 from public.roadmaps where id = roadmap and document like '%title: v2%' and product_id is null)
+     or (select count(*) from public.roadmap_prds where roadmap_id = roadmap) <> 1
+     or not exists (select 1 from public.roadmap_prds where roadmap_id = roadmap and state = 'building' and repos = '{}' and blockers = '{}') then
+    raise exception 'FAIL: a second push did not replace the document and the PRD rows';
+  end if;
+
+  -- Another workspace's product, by its name, matches none: filed under none.
+  answer := public.roadmap_push(pg_temp.push_body(jsonb_build_object('number', 1300, 'product', 'Anvils')));
+  if answer -> 'product' <> 'null'::jsonb or answer ->> 'unknownProduct' <> 'Anvils'
+     or exists (select 1 from public.roadmaps where number = 1300 and product_id is not null) then
+    raise exception 'FAIL: another workspace''s product was matched: %', answer;
+  end if;
+
+  -- Malformed pushes are refused.
+  begin perform public.roadmap_push(pg_temp.push_body('{"repo": "widgets"}')); raise exception 'FAIL: a repository not owner/name was taken';
+  exception when invalid_parameter_value then null; end;
+  begin perform public.roadmap_push(pg_temp.push_body() - 'prds'); raise exception 'FAIL: a roadmap without its PRDs was taken';
+  exception when invalid_parameter_value then null; end;
+  begin perform public.roadmap_push(pg_temp.push_body() - 'number'); raise exception 'FAIL: a roadmap without its number was taken';
+  exception when invalid_parameter_value then null; end;
+  begin perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('target', 'soon'))); raise exception 'FAIL: a target that is not a date was taken';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('prds', jsonb_build_array(
+      jsonb_build_object('id', 'P1.1', 'prd', 1201, 'title', 'x', 'wave', 1, 'state', 'shipped')))));
+    raise exception 'FAIL: an unknown state was taken';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('prds', jsonb_build_array(
+      jsonb_build_object('id', 'P1.1', 'prd', 1201, 'title', 'x', 'wave', 1, 'state', 'waiting'),
+      jsonb_build_object('id', 'P1.1', 'prd', 1202, 'title', 'y', 'wave', 1, 'state', 'waiting')))));
+    raise exception 'FAIL: an id used twice was taken';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('prds', jsonb_build_array(
+      jsonb_build_object('id', 'P1.1', 'prd', 1201, 'title', 'x', 'wave', 1, 'state', 'waiting', 'repos', jsonb_build_array('crew api'))))));
+    raise exception 'FAIL: a repository that is not a name was taken';
+  exception when invalid_parameter_value then null; end;
+  -- A refused push changed nothing.
+  if (select count(*) from public.roadmap_prds where roadmap_id = roadmap) <> 1 then
+    raise exception 'FAIL: a refused push changed the roadmap''s PRDs';
+  end if;
+
+  -- Nothing is written but through the function.
+  begin
+    insert into public.roadmaps (workspace_id, repo, number, title, milestone, document) values (ws, 'vertuoza/planted', 1, 't', 'm', 'd');
+    raise exception 'FAIL: a signed-in account wrote a roadmap directly';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.roadmaps set title = 'planted' where id = roadmap;
+    raise exception 'FAIL: a signed-in account changed a roadmap directly';
+  exception when insufficient_privilege then null; end;
+  begin
+    insert into public.roadmap_prds (roadmap_id, position, row_id, prd, title, wave, state) values (roadmap, 9, 'P9', 9, 'planted', 1, 'merged');
+    raise exception 'FAIL: a signed-in account wrote a roadmap PRD directly';
+  exception when insufficient_privilege then null; end;
+  begin
+    delete from public.roadmap_prds where roadmap_id = roadmap;
+    raise exception 'FAIL: a signed-in account deleted a roadmap PRD directly';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- ── A roadmap never points at another workspace's product, whoever writes it ──
+do $$
+begin
+  update public.roadmaps
+     set product_id = (select p.id from public.products p join public.workspaces w on w.id = p.workspace_id where w.slug = 'acme')
+   where id = (select id from pg_temp.ids where name = 'crew');
+  raise exception 'FAIL: a roadmap was filed under another workspace''s product';
+exception when foreign_key_violation then null;
+end $$;
+
+-- ── Bob, of the same workspace: reads Ada's roadmap, and pushes it too ──
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+do $$
+declare
+  roadmap uuid := (select id from pg_temp.ids where name = 'crew');
+  answer  jsonb;
+begin
+  if not exists (select 1 from public.roadmaps where id = roadmap)
+     or (select count(*) from public.roadmap_prds where roadmap_id = roadmap) <> 1 then
+    raise exception 'FAIL: a member of the workspace did not read the roadmap and its PRDs';
+  end if;
+  answer := public.roadmap_push(pg_temp.push_body());
+  if (answer ->> 'roadmapId')::uuid <> roadmap
+     or not exists (select 1 from public.roadmaps where id = roadmap and pushed_by = '00000000-0000-4000-8000-0000000000b1') then
+    raise exception 'FAIL: another member of the workspace could not push the roadmap';
+  end if;
+end $$;
+reset role;
+
+-- ── Carl, of another workspace, and Eve, of none: read nothing, push nothing there ──
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
+do $$
+begin
+  if exists (select 1 from public.roadmaps) or exists (select 1 from public.roadmap_prds) then
+    raise exception 'FAIL: an account of another workspace read a roadmap';
+  end if;
+  begin
+    perform public.roadmap_push(pg_temp.push_body());
+    raise exception 'FAIL: an account of another workspace pushed a roadmap of its repository';
+  exception when insufficient_privilege then null; end;
+end $$;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
+do $$
+begin
+  if exists (select 1 from public.roadmaps) then raise exception 'FAIL: an account in no workspace read a roadmap'; end if;
+  begin
+    perform public.roadmap_push(pg_temp.push_body());
+    raise exception 'FAIL: an account in no workspace pushed a roadmap';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- ── A loop's tick keeps the repositories it touched ──
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+declare
+  loop_a uuid := (public.loop_push('start', null, '{"repo": "vertuoza/plan", "prds": [1213], "plan": {}}') ->> 'loopId')::uuid;
+begin
+  perform public.loop_push('tick', loop_a, '{"step": 1, "steps": 2, "prd": 1213, "action": "ultra-wave", "result": "wave 1 built", "repos": ["Crew", "ai-domain"], "nextWakeAt": null}');
+  perform public.loop_push('tick', loop_a, '{"step": 2, "steps": 2, "prd": 1213, "action": "wait", "result": "CI running", "nextWakeAt": null}');
+  if (select array_agg(repos::text order by step) from public.loop_ticks where loop_id = loop_a) <> '{"{crew,ai-domain}","{}"}' then
+    raise exception 'FAIL: a tick did not keep its repositories, or one without them did not keep none';
+  end if;
+  begin
+    perform public.loop_push('tick', loop_a, '{"step": 2, "steps": 2, "prd": 1213, "action": "wait", "result": "x", "repos": ["crew api"], "nextWakeAt": null}');
+    raise exception 'FAIL: a tick''s repository that is not a name was taken';
+  exception when invalid_parameter_value then null; end;
+end $$;
+reset role;
+
+select 'roadmaps checks passed' as result;
+rollback;

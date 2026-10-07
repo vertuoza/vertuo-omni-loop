@@ -7,9 +7,10 @@
 //   the caller runs a loop on the repository, naming it, unless it is silent and `takeOver` is sent,
 //   which stops it; plan version 1 comes with it;
 // - tick, park, stop: refused P0002 for no such loop, 42501 for another account's, 55000 for one that
-//   stopped. A tick appends to the ledger, moves the next wake, takes its PRD out of the parked ones
-//   and, with `replan`, adds the next plan version; park records a PRD, replacing one of the same
-//   number; stop ends the loop parked when PRDs still wait, else stopped.
+//   stopped. A tick appends to the ledger, with the repositories it touched in lower case (PRD 1162),
+//   moves the next wake, takes its PRD out of the parked ones and, with `replan`, adds the next plan
+//   version; park records a PRD, replacing one of the same number; stop ends the loop parked when
+//   PRDs still wait, else stopped.
 //
 // The body is trusted: the route validated it, and the database's own checks are proved by
 // supabase/checks/loops.sql, not here. Reading runs under the migration's policies: a member of the
@@ -32,7 +33,7 @@ type FakeLoop = {
 };
 type FakeTick = {
   id: number; loop_id: string; at: string; step: number; steps: number; prd: PrdNumber; action: string; result: string;
-  link: string | null; merged: PrNumber[]; items: OutboxItemId[]; next_wake_at: string | null;
+  link: string | null; merged: PrNumber[]; items: OutboxItemId[]; next_wake_at: string | null; repos: string[];
 };
 type FakePlan = { loop_id: string; version: number; reason: string; plan: unknown; created_at: string };
 
@@ -104,6 +105,7 @@ export function fakeLoops(accounts: Record<string, FakeAccount>, orgs: Record<st
       id: tables.loop_ticks.length + 1, loop_id: loop.id, at: at(), step: numberOf(body.step), steps: numberOf(body.steps), prd,
       action: String(body.action), result: String(body.result), link: textOf(body.link), merged: listOf(body.merged).map((n) => parsePr(numberOf(n))),
       items: listOf(body.items).map((id) => parseOutboxItemId(String(id))), next_wake_at: nextWake,
+      repos: listOf(body.repos).map((r) => String(r).toLowerCase()),
     });
     Object.assign(loop, { last_tick_at: at(), seen_at: at(), next_wake_at: nextWake, parked: loop.parked.filter((p) => p.prd !== prd) });
   }
