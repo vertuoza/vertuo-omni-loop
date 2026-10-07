@@ -1,13 +1,17 @@
 // PRD 1139, slice s3: following the frozen loop plan — the first step not done, never a later one
-// that could run, save one the plan marked beside it.
+// that could run, save one the plan marked beside it. PRD 1162, slice s7: under a roadmap.
 import { describe, expect, it } from 'vitest';
-import { parsePrd, parseWorkSliceId } from '../ids.ts';
+import { parseIssue, parsePr, parsePrd, parseWorkSliceId } from '../ids.ts';
 import type { PrdNumber, WorkSliceId } from '../ids.ts';
-import type { Verdict } from './decide.ts';
+import type { Roadmap, RoadmapQuestion, RoadmapRow } from '../roadmap/parse.ts';
+import type { PrdStanding, PrStanding } from '../roadmap/push.ts';
+import type { PrdFacts, Verdict } from './decide.ts';
 import { followPlan } from './follow.ts';
 import type { Live } from './follow.ts';
 import { planLoop } from './plan.ts';
 import type { PlanSliceInput, PrdInput } from './plan.ts';
+import { liveWords, roadmapGates } from './roadmap.ts';
+import type { RoadmapRead } from './roadmap.ts';
 
 const P7 = parsePrd(7);
 const P8 = parsePrd(8);
@@ -93,5 +97,100 @@ describe('followPlan', () => {
 
   it('every step done stops with nothing waiting', () => {
     expect(followPlan(plan, live([done(P7), done(P8), done(P9)]))).toEqual({ state: 'stop', waiting: [] });
+  });
+});
+
+// PRD 1162, slice s7: under a roadmap, what each PRD is held or parked on, and the words it says so in.
+describe('followPlan under a roadmap', () => {
+  const A = parsePrd(1201);
+  const B = parsePrd(1202);
+  const C = parsePrd(1203);
+  const ISSUE = 'https://github.com/acme/widgets/issues/1200';
+  const PR_URL = 'https://github.com/acme/widgets/pull/31';
+  const row = (id: string, n: PrdNumber, title: string, blockedBy: string[] = []): RoadmapRow => ({ id, prd: n, title, repos: null, blockedBy, why: blockedBy.length ? 'needs it' : null, wave: blockedBy.length ? 2 : 1 });
+  const roadmap = (questions: RoadmapQuestion[] = []): Roadmap => ({
+    roadmap: parseIssue(1200), title: 'Crew', milestone: 'A mandate', product: null, target: null, source: null, repos: false,
+    prds: [row('P1.1', A, 'Crew API skeleton'), row('P2.1', B, 'Think endpoint', ['P1.1']), row('P3.1', C, 'Docs')],
+    questions,
+  });
+  const pr = (over: Partial<PrStanding> = {}): PrStanding => ({
+    repo: 'widgets', number: parsePr(31), url: PR_URL, state: 'OPEN', isDraft: true,
+    createdAt: null, mergedAt: null, closedAt: null, questions: 0, ...over,
+  });
+  const standingOf = (prs: PrStanding[]): PrdStanding => ({ shipped: false, prs, expected: 1 });
+  type ReadOver = { questions?: RoadmapQuestion[]; answers?: Record<string, string>; words?: Record<string, string> };
+  const read = (blocker: PrStanding[], { questions = [], answers = {}, words = {} }: ReadOver = {}): RoadmapRead => ({
+    roadmap: roadmap(questions),
+    answers: new Map(Object.entries(answers)),
+    standings: new Map([['P1.1', standingOf(blocker)]]),
+    live: new Map(Object.entries(words)),
+    issueLink: ISSUE,
+  });
+  const roadmapPlan = planLoop({
+    prds: [prd(A, [slice('s1', ['a/'], 1)]), prd(B, [slice('s1', ['b/'], 1)], { blockedBy: [A] }), prd(C, [slice('s1', ['c/'], 1)])],
+    shipped: [],
+  });
+  const tick = (verdicts: Verdict[], gates: RoadmapRead) => followPlan(roadmapPlan, { ...live(verdicts), gates: roadmapGates(gates) });
+  const gateOfB = (gates: RoadmapRead) => roadmapGates(gates).get(B);
+
+  it('the held why reads waits on <repo>#<pr> (<id> <title>): <state>, for each state the spec names', () => {
+    const line = (state: string) => `waits on widgets#31 (P1.1 Crew API skeleton): ${state}`;
+    expect(gateOfB(read([pr()], { words: { 'P1.1': 'building wave 2/3' } }))).toEqual({ kind: 'hold', why: line('building wave 2/3'), link: PR_URL });
+    expect(gateOfB(read([pr({ questions: 2 })]))?.why).toBe(line('outbox: 2 questions'));
+    expect(gateOfB(read([pr({ isDraft: false })], { words: { 'P1.1': 'CI red' } }))?.why).toBe(line('CI red'));
+    expect(gateOfB(read([pr({ isDraft: false })]))?.why).toBe(line('ready, waiting for your merge'));
+    expect(gateOfB(read([]))).toEqual({ kind: 'hold', why: 'waits on P1.1 Crew API skeleton: not started' });
+    expect(gateOfB(read([pr({ state: 'MERGED' })]))).toBeUndefined();
+  });
+
+  it('in a plan repository the line names the first of its PRs still open', () => {
+    const plans = pr({ repo: 'plans', number: parsePr(12), url: 'https://github.com/acme/plans/pull/12', state: 'MERGED', isDraft: false });
+    const crew = pr({ repo: 'crew', number: parsePr(40), url: 'https://github.com/acme/crew/pull/40', isDraft: false });
+    const standings = new Map([['P1.1', { shipped: false, prs: [plans, crew], expected: 2 }]]);
+    expect(roadmapGates({ ...read([]), standings }).get(B)?.why).toBe('waits on crew#40 (P1.1 Crew API skeleton): ready, waiting for your merge');
+  });
+
+  it('a held PRD waits while every other step runs', () => {
+    expect(tick([act(A), act(B), act(C)], read([pr()]))).toMatchObject({ state: 'step', step: { prd: 1201 } });
+    expect(tick([wait(A), act(B), act(C)], read([pr()]))).toMatchObject({ state: 'step', verdict: { prd: 1203, verdict: 'act' } });
+    expect(tick([park(A), act(B), done(C)], read([pr()]))).toEqual({
+      state: 'stop',
+      waiting: [park(A), { prd: 1202, verdict: 'park', why: 'waits on widgets#31 (P1.1 Crew API skeleton): building', link: PR_URL }],
+    });
+  });
+
+  it('a person question not answered parks only the PRDs it blocks and names it; answered, the next call takes them up', () => {
+    const question: RoadmapQuestion = { id: 'Q5', question: 'Which bank?', recommendation: '–', blocks: ['P3.1'], kind: 'person' };
+    const asked = read([pr({ state: 'MERGED' })], { questions: [question] });
+    expect(tick([done(A), act(B), act(C)], asked)).toMatchObject({ state: 'step', verdict: { prd: 1202, verdict: 'act' } });
+    expect(tick([done(A), done(B), act(C)], asked)).toEqual({
+      state: 'stop',
+      waiting: [{ prd: 1203, verdict: 'park', why: 'waits on a person: roadmap 1200 question Q5 is not answered (Which bank?); answer it with omni roadmap answer 1200 Q5 "<answer>"', link: ISSUE }],
+    });
+    const answered = read([pr({ state: 'MERGED' })], { questions: [question], answers: { Q5: 'the first' } });
+    expect(tick([done(A), done(B), act(C)], answered)).toMatchObject({ state: 'step', verdict: { prd: 1203, verdict: 'act' } });
+    expect(roadmapGates(read([pr({ state: 'MERGED' })], { questions: [{ ...question, kind: 'default' }] })).has(C)).toBe(false);
+  });
+
+  it('a blocker closed unmerged parks its dependents', () => {
+    const closed = read([pr({ state: 'CLOSED' })]);
+    const parked = { prd: 1202, verdict: 'park', why: 'blocker #31 closed unmerged: fix the roadmap', link: PR_URL };
+    expect(gateOfB(closed)).toEqual({ kind: 'park', why: parked.why, link: PR_URL });
+    expect(tick([done(A), act(B), done(C)], closed)).toEqual({ state: 'stop', waiting: [parked] });
+  });
+
+  it('the finer words: the wave a blocker builds, and red CI on its ready PR', () => {
+    const facts = (checks: 'red' | 'green'): PrdFacts => ({
+      prd: A, shipped: false, phase0: null, board: null, outbox: { questions: 0, answered: false },
+      feature: { url: 'u', state: 'OPEN', isDraft: false, author: null, checks, fixable: true, stuck: false, conflict: false, threads: 0 },
+    });
+    const merged = (input: PlanSliceInput): PlanSliceInput => ({ ...input, state: 'merged' });
+    const slices = [merged(slice('s1', ['a/'], 1)), slice('s2', ['b/'], 2), slice('s3', ['c/'], 3)];
+    expect(liveWords('building', facts('green'), slices)).toBe('building wave 2/3');
+    expect(liveWords('building', facts('green'), slices.map(merged))).toBe('building wave 3/3');
+    expect(liveWords('building', facts('green'), null)).toBeNull();
+    expect(liveWords('ready', facts('red'), slices)).toBe('CI red');
+    expect(liveWords('ready', facts('green'), slices)).toBeNull();
+    expect(liveWords('outbox', facts('red'), slices)).toBeNull();
   });
 });

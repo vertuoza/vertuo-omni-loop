@@ -129,21 +129,34 @@ const namedPr = (standing: PrdStanding): PrStanding | null =>
   standing.prs.find((pr) => pr.state === 'OPEN') ?? standing.prs.find((pr) => pr.state === 'CLOSED') ?? null;
 
 /** What a PRD not started waits on: the first of its blockers not merged, as `waits on <repo>#<pr>
- * (<id> <title>): <state>` and that PR's link, or `waits on <id> <title>: not started` with no link. */
+ * (<id> <title>): <state>` and that PR's link, or `waits on <id> <title>: not started` with no link.
+ * `live` (PRD 1162, slice s7: `omni next` reads the board and the CI) gives a blocker's state in finer
+ * words, by row id — `building wave <k>/<m>`, `CI red` — in place of the state's own. */
 export function waitsOn(
   row: RoadmapRow,
   rows: ReadonlyMap<string, { row: RoadmapRow; standing: PrdStanding; state: RoadmapPrdState }>,
+  live: ReadonlyMap<string, string> = new Map(),
 ): { waitsOn: string | null; waitsOnUrl: string | null } {
   for (const id of row.blockedBy) {
     const blocker = rows.get(id);
     if (!blocker || blocker.state === 'merged') continue;
     const pr = namedPr(blocker.standing);
     const who = `${blocker.row.id} ${blocker.row.title}`;
-    const words = stateWords(blocker.state, pr);
+    const words = live.get(id) ?? stateWords(blocker.state, pr);
     if (pr === null) return { waitsOn: cut(`waits on ${who}: ${words}`, WAITS_ON_MAX), waitsOnUrl: null };
     return { waitsOn: cut(`waits on ${pr.repo}#${pr.number} (${who}): ${words}`, WAITS_ON_MAX), waitsOnUrl: pr.url };
   }
   return { waitsOn: null, waitsOnUrl: null };
+}
+
+/** Each row of `roadmap` by id, with its standing and its state (a row with none read stands as
+ * waiting): what {@link waitsOn} reads. */
+export function rowStates(roadmap: Pick<Roadmap, 'prds'>, standings: ReadonlyMap<string, PrdStanding>): Map<string, { row: RoadmapRow; standing: PrdStanding; state: RoadmapPrdState }> {
+  const none: PrdStanding = { shipped: false, prs: [], expected: 1 };
+  return new Map(roadmap.prds.map((row) => {
+    const standing = standings.get(row.id) ?? none;
+    return [row.id, { row, standing, state: prdState(standing) }] as const;
+  }));
 }
 
 /** The body `omni roadmap push` sends: the roadmap, its document, its answers and each PRD's standing
@@ -155,11 +168,7 @@ export function roadmapPushBody({ repo, roadmap, document, standings, answers }:
   standings: ReadonlyMap<string, PrdStanding>;
   answers: ReadonlyMap<string, string>;
 }): RoadmapPushBody {
-  const none: PrdStanding = { shipped: false, prs: [], expected: 1 };
-  const rows = new Map(roadmap.prds.map((row) => {
-    const standing = standings.get(row.id) ?? none;
-    return [row.id, { row, standing, state: prdState(standing) }] as const;
-  }));
+  const rows = rowStates(roadmap, standings);
   const prds = [...rows.values()].map(({ row, standing, state }) => ({
     id: row.id,
     prd: row.prd,
