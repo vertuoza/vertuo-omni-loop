@@ -220,6 +220,7 @@ function People({ people, title, note }: { people: Read<PersonRow[]>; title: Rea
             <table className="board-table">
               <thead>
                 <tr>
+                  <th scope="col" className="is-num">Rank</th>
                   <th scope="col">Name</th>
                   <th scope="col">Fleet</th>
                   <th scope="col" className="is-num">Points</th>
@@ -231,6 +232,7 @@ function People({ people, title, note }: { people: Read<PersonRow[]>; title: Rea
               <tbody>
                 {people.map((p) => (
                   <tr key={p.userId} aria-current={p.you ? 'true' : undefined}>
+                    <td className="is-num">{p.rank === null ? <span aria-label="no rank">{DASH}</span> : n(p.rank)}</td>
                     <th scope="row" className="board-name">
                       <PersonChip person={p} />
                       {p.you && <span className="board-you"><span aria-hidden="true"> ◀</span><span className="ask-sr"> (you)</span></span>}

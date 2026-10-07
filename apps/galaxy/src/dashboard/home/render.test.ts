@@ -61,8 +61,8 @@ describe('Home, with the real board', () => {
     expect(text(heading)).toBe('Your fleet OCTO');
     expect(heading).toMatch(/<a class="fleet-chip is-inline" href="\/app\/fleet\?fleet=octo" style="--fleet:#3355ff"><span class="fleet-chip-mascot" aria-hidden="true"><svg /);
     expect(rows(html)).toEqual([
-      'ADA ◀ (you) OCTO 120 2 0 · 0 · 0 4',
-      'Paul Etienne OCTO 0 0 0 · 0 · 0 0',
+      '1 ADA ◀ (you) OCTO 120 2 0 · 0 · 0 4',
+      '2 Paul Etienne OCTO 0 0 0 · 0 · 0 0',
     ]);
     expect(html).toMatch(/<tr aria-current="true">/);
     expect(html).not.toContain('href="/app/fleet"');
@@ -84,7 +84,7 @@ describe('Home, with the real board', () => {
 
   it('solo: your own row, and the line to Fleet', () => {
     const html = home({ userId: 'u-bob', login: 'bob-gh', team: null });
-    expect(rows(html)).toEqual(['BOB ◀ (you) BEAVER 300 3 0 · 0 · 0 6']);
+    expect(rows(html)).toEqual(['1 BOB ◀ (you) BEAVER 300 3 0 · 0 · 0 6']);
     expect(text(sure(sure(/<h2 id="board-people">([\s\S]*?)<\/h2>/.exec(section(html, 'board-people')), 'the match')[1], 'group 1'))).toBe('Your fleet · SOLO');
     expect(section(html, 'board-people')).toMatch(/<a href="\/app\/fleet">See a fleet’s board on Fleet<\/a>/);
   });
