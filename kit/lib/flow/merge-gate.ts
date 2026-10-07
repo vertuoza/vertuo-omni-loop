@@ -9,9 +9,11 @@
 //   that asks for it. `approval: person`: a person, never a bot, approved. `territory: block`: no
 //   changed path outside the territory (`report`, the default, names them and merges). `maxOpen`:
 //   no more of the area's sub-PRs open into the same base than the count.
+// - A changed path one of the repository's generated outputs covers (PRD 1138) is rebuilt, not
+//   written: it is never outside the territory.
 // - The guards hold whatever the flow says: a sub-PR into the default branch, or one not open,
 //   never merges.
-import { covers } from '../inbox/territory.ts';
+import { breaches, covers, type Generated } from '../inbox/territory.ts';
 import type { AreaRules, ResolvedFlow, TerritoryFlow } from './resolve.ts';
 import { resolveTerritory } from './resolve.ts';
 
@@ -56,6 +58,8 @@ type Gate = {
   /** Its changed paths, the loop's own ground left out. */
   files: string[];
   met: TerritoryFlow;
+  /** The repository's generated outputs: never outside the territory. */
+  generated: readonly Generated[];
 };
 
 /** What the rules find: why it does not merge, and what merges anyway but a person should see. */
@@ -104,7 +108,7 @@ function approval(gate: Gate, { reasons }: Findings): void {
 
 /** `territory`: `block` refuses a changed path outside the territory, `report` names it and merges. */
 function territoryRule(gate: Gate, findings: Findings): void {
-  const { met, pr, territory, files } = gate;
+  const { met, pr, territory, files, generated } = gate;
   const block = met.rules.subPr.territory === 'block';
   const blocking = block ? `${firstAsking(gate, (rules) => rules.subPr.territory === 'block')}: territory block — ` : '';
   const into = block ? findings.reasons : findings.reported;
@@ -116,7 +120,7 @@ function territoryRule(gate: Gate, findings: Findings): void {
     );
     return;
   }
-  for (const path of files.filter((file) => !covers(territory, file))) into.push(`${blocking}${path} is outside the slice's territory`);
+  for (const path of breaches(files, territory, generated)) into.push(`${blocking}${path} is outside the slice's territory`);
 }
 
 /** `maxOpen`: no more of the area's sub-PRs open into the same base than the count. */
@@ -138,6 +142,7 @@ const RULES: readonly ((gate: Gate, findings: Findings) => void)[] = [guards, me
  * command names when the sub-PR lives in another repository. `ground` is the loop's own ground the
  * slice writes besides its territory (its PRD's outbox folder): a path under it is neither compared
  * with the territory nor met by an area, so a decision a slice records never changes its rules.
+ * `generated` is the repository's generated outputs: a path under one is never outside the territory.
  */
 export function mergeGate({
   flow,
@@ -147,6 +152,7 @@ export function mergeGate({
   open,
   repo = null,
   ground = [],
+  generated = [],
 }: {
   flow: ResolvedFlow;
   pr: SubPr;
@@ -155,11 +161,12 @@ export function mergeGate({
   open: readonly OpenSubPr[];
   repo?: string | null;
   ground?: readonly string[];
+  generated?: readonly Generated[];
 }): MergeVerdict {
   const files = pr.files.filter((file) => !covers(ground, file));
   const met = resolveTerritory(flow, [...(territory ?? []), ...files]);
   const method = met.rules.subPr.merge ?? 'squash';
-  const gate: Gate = { flow, pr, territory, defaultBranch, open, files, met };
+  const gate: Gate = { flow, pr, territory, defaultBranch, open, files, met, generated };
   const findings: Findings = { reasons: [], reported: [] };
   for (const rule of RULES) rule(gate, findings);
 
