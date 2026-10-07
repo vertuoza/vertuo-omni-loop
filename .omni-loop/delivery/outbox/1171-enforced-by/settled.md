@@ -158,3 +158,158 @@ One generated file; the next slice that touches the app or the kit's library reb
 ```
 
 <!-- /omni-outbox-settled: s1-02-app-bundle-rebuilt -->
+
+<!-- omni-outbox-settled: s2-01-app-bundle-rebuilt-again -->
+
+## s2-01-app-bundle-rebuilt-again — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-app-bundle-rebuilt-again
+prd: 1171
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 2
+---
+
+## The question, in plain words
+
+This slice changed the app's harvest, and the app's built file is made from it. Should it rebuild that file too, though it sits outside its agreed area?
+
+## The decision, in plain words
+
+Yes. It rebuilt that file in a commit of its own, with nothing else in it, so the full test run stays green.
+
+## The intro, for fun
+
+The recipe changed again, so the cake on the shelf went stale again.
+
+## The punchline, for fun
+
+Same bakery, same oven, one more fresh cake.
+
+## The options, in plain words
+
+A. Rebuild the app's bundle in this slice, in its own commit, so the preflight is green.
+B. Leave the app's bundle stale and let the feature branch rebuild it once, with this slice's preflight red until then.
+
+## What I had to decide
+
+Whether a slice that changes the app's code also rebuilds the app's committed bundle when the plan leaves that bundle out of its territory.
+
+## What I did meanwhile
+
+It ran the app's build script on top of the first slice's rebuild and committed the regenerated bundle alone, in its own commit. The app's own source changes stay inside the slice's folder.
+
+## What it costs to change later
+
+One generated file; any later change to the app or the kit's library rebuilds it again, and a conflict there is settled by rebuilding.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's shared-ground note says this slice never touches a bundle; it names only the kit's bundle, not the app's, which the full test run also checks against a fresh build.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-app-bundle-rebuilt-again -->
+
+<!-- omni-outbox-settled: s3-01-rules-count-reads-the-base -->
+
+## s3-01-rules-count-reads-the-base — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-rules-count-reads-the-base
+prd: 1171
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 2
+---
+
+## The question, in plain words
+
+Should the count of proven rules in the status screen come from the shared main line, or from the copy on the person's own computer?
+
+## The decision, in plain words
+
+It counts the rules on the shared main line as last fetched, like every other number on that screen, so a rule edited locally shows up only once it is merged.
+
+## The intro, for fun
+
+Two copies of the rules exist: the one everyone shares and the one on your desk.
+
+## The punchline, for fun
+
+The status screen counts the shared one, so it never brags about homework not handed in.
+
+## The options, in plain words
+
+A. A. Count the rules on the shared main line as last fetched, like the rest of the screen (built).
+B. B. Count the rules in the local copy, so an unmerged edit shows at once.
+C. C. Show both counts when they differ.
+
+## What I had to decide
+
+Whether the rules count follows the rest of the status screen and reads the shared main line, or reads the local copy instead.
+
+## What I did meanwhile
+
+The count reads the main line as last fetched, the same place the delivered bar reads.
+
+## What it costs to change later
+
+Switching to the local copy is a few lines in one function; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the count covers 'the registers' without saying which copy; reading the main line follows the status screen's existing rule that it never reads the working tree. (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-rules-count-reads-the-base -->
