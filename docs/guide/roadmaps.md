@@ -1,6 +1,6 @@
 ---
 title: Roadmaps
-description: A milestone delivered by many PRDs — written in one sitting from the plan you already have, reviewed in one phase-0 pull request, then driven to the end.
+description: A milestone delivered by many PRDs — written in one sitting from the plan you already have, reviewed in one phase-0 pull request, driven to the end, and followed on the Roadmaps page.
 ---
 
 Large work is rarely one PRD. A milestone ("a company grants its first mandate after a trial week")
@@ -10,6 +10,11 @@ through `/omni:brainstorm` means a design conversation per PRD for decisions you
 A **roadmap** is the milestone as its own object: a set of normal-sized PRDs, each blocked only by
 the PRDs it really needs, every blocker saying why. You write it in one sitting, a person reviews it
 in one pull request, and the loop drives it to the end.
+
+![A roadmap from the plan you have to the end: your source goes through /omni:roadmap or /omni:mega-roadmap, one map and one answer; it writes roadmap.md and every PRD's issue and spec in one phase-0 pull request you merge; you start /loop /omni:drive --roadmap or /loop /omni:mega-drive --roadmap, and the loop plans and builds each PRD once it is unblocked; you merge each feature pull request, which unblocks the next PRDs](diagrams/roadmap.svg)
+
+Twice a person decides: the phase-0 pull request, once for the whole roadmap, and each PRD's feature
+pull request, as it comes. Everything between is the loop's.
 
 ## Write a roadmap
 
@@ -50,6 +55,9 @@ The roadmap lives in the inbox, in a folder named after its issue, under `roadma
 roadmap: 1200
 title: Vertuoza Crew — from skeleton to earned autonomy
 milestone: A company grants its first mandate after a trial week.
+product: Crew
+target: 2026-12-18
+source: https://example.com/crew-plan
 ---
 
 ## PRDs
@@ -66,19 +74,75 @@ milestone: A company grants its first mandate after a trial week.
 | Q2 | Which model answers first? | the smallest that passes the evals | P3.4 | default |
 ```
 
+### Its front matter
+
+| field | what it holds |
+|---|---|
+| `roadmap` | the roadmap issue's number; it matches the folder's number |
+| `title` | the roadmap's name, as the Roadmaps page lists it |
+| `milestone` | the one sentence that says when the roadmap is done |
+| `product` | optional: a product of your workspace, by its name. The Roadmaps list filters by it. A name the workspace does not have files the roadmap under no product, and `omni roadmap push` says so in one line |
+| `target` | optional: a date a person gave, written `YYYY-MM-DD`. It is shown as given; the loop never computes one |
+| `source` | optional: where the roadmap was read from, such as the plan's link. The roadmap's page links it |
+
+Nothing else goes in the front matter.
+
+### Its tables
+
 - **Blockers are the narrowest the plan justifies.** A PRD waits for the whole previous phase only
   when the plan says nothing finer, and every blocker carries its `why`.
 - **The wave** is 1 with no blocker, else one more than the highest blocker's wave.
 - **A question's kind:** `default` runs on its recommendation, written into each blocked PRD's spec
   and accepted when the phase-0 pull request merges; `person` parks the PRDs it blocks until someone
   answers it.
-- In a plan repository the table gains a `repos` column naming the target repositories each PRD
-  lands in. A target marked `readOnly` can never be named, and a repository that `consumes` another's
-  package waits for that provider's PRD to merge first.
+- In a plan repository the PRDs table gains a `repos` column naming the target repositories each PRD
+  lands in, by their short name. A target marked `readOnly` can never be named, and a PRD in a target
+  that `consumes` another comes after the PRDs it waits on that change that other target:
+  [Read-only and consumer targets](/docs/several-repositories#read-only-and-consumer-targets).
 
-`omni roadmap check` refuses a cycle, a wave out of order, a blocker without its why, a spec whose
-`blocked-by` differs from its row, and in a plan repository a repository that is not a target or is
-read-only. `omni check inbox` runs it on every roadmap of the inbox.
+## What the check refuses
+
+`omni roadmap check` reads every roadmap of the inbox, or one with its number
+(`omni roadmap check 1200`), prints its PRDs wave by wave, then each thing it refuses, naming the row
+or the question. `omni check inbox` runs it on every roadmap of the inbox.
+
+```bash terminal agent
+omni roadmap check 1200
+```
+
+It refuses a `roadmap.md` it cannot read:
+
+- no front matter; a missing `roadmap`, `title` or `milestone`; a field that is not one of the six; a
+  `target` that is not a `YYYY-MM-DD` date;
+- no `## PRDs` section, no table in it, or a column missing from either table;
+- an id, or an id in a `blocked by` or `blocks` cell, that is empty or holds a space, a comma or a
+  pipe; a `PRD` cell that is not `#<number>`; a row with no title; a wave that is not a positive whole number; a question with no words, or whose
+  kind is neither `default` nor `person`.
+
+And a roadmap whose rows do not hold together:
+
+- a `roadmap` number that does not match its folder's;
+- an id used twice, among the PRDs and the questions together;
+- a blocker that is not a row of the roadmap;
+- a cycle among the blockers;
+- a wave out of order: not 1 with no blocker, or not one more than the highest blocker's;
+- a blocker without its `why`;
+- a row whose PRD has no folder in the inbox or the shipped folder, or whose spec does not read;
+- a spec whose `blocked-by` differs from its row's blockers;
+- a question that blocks a row the roadmap does not have.
+
+In a plan repository, also:
+
+- no `repos` column, or a row that names no repository;
+- a repository that is not a target of `plan.targets`, or one marked `readOnly`;
+- a PRD in a consumer target in a wave not after a PRD it waits on, directly or through others, that
+  changes a target it consumes. PRDs that do not wait on each other may share a wave.
+
+Outside a plan repository, a `repos` column is refused.
+
+A PRD's row still passes once that PRD has shipped: its folder counts in the inbox or in the shipped
+folder, and its spec is compared wherever it lives. A roadmap does not fail its check because its
+first PRD merged.
 
 ## Drive it
 
@@ -94,6 +158,8 @@ or, in a plan repository:
 /loop /omni:mega-drive --roadmap 1200
 ```
 
+![The PRDs of roadmap 1200 over time in two repositories: P1.1 and P1.2 build side by side; P3.4 is held, naming app#1201, the feature pull request of P1.1 it waits on; you merge P1.1, which unblocks P2.1 and P3.4, which then build side by side](diagrams/roadmap-waves.svg)
+
 Every PRD whose blockers have merged is planned and built; a PRD whose blocker is still open waits,
 and says which pull request it waits on and where that one stands:
 
@@ -102,20 +168,63 @@ held: PRD 1213 — waits on app#1201 (P1.1 Crew API and worker skeleton): ready,
 ```
 
 A blocker stops blocking when its feature pull request is **merged**, so a PRD always builds on
-reviewed code: the pull request named is the one to review first. [Drive the loop](/docs/drive)
-explains the loop itself.
+reviewed code: the pull request named is the one to review first. In a plan repository, a blocker
+has merged once its plan pull request and every target pull request it lands in have merged.
+[Drive the loop](/docs/drive#drive-a-roadmap) explains the loop itself.
 
 ## Answer a question
 
-A `person` question parks only the PRDs it blocks. Answer it on the roadmap's page in the Omni app,
-or from the terminal:
+A `person` question parks only the PRDs it blocks. Answer it from a checkout of the repository:
 
 ```bash terminal
 omni roadmap answer 1200 Q5 "Weekly, by email"
 ```
 
-The next tick takes the parked PRDs up. The roadmap's page shows the milestone as a Gantt, one row
-per PRD by wave, with an arrow from each blocker and the pull request each waiting PRD waits on; the
-loop sends it where each PRD stands after every tick (`omni roadmap push`).
+It posts one comment on the roadmap's issue, which records the answer; the latest answer to a
+question wins. It takes only a question the roadmap lists, and an answer of up to 1,000 characters.
+The next tick takes the parked PRDs up.
+
+On the roadmap's page, each `person` question not answered yet has an **answer box**. It posts
+nothing itself: you write your answer in it, and it builds the `omni roadmap answer` line for you,
+with a **Copy** button and a link to the roadmap's issue. Run that line from your checkout.
+
+## The Roadmaps page
+
+The Omni app shows every roadmap of your workspace under **Roadmaps**, in the sidebar's Work group,
+above PRDs. The loop sends it where each PRD stands: `/omni:roadmap` once the roadmap is written, the
+drive after every tick (`omni roadmap push`). It needs your terminal signed in (`omni signin`); with
+the app out of reach, the push prints one line and the loop carries on.
+
+### The list
+
+One card per roadmap: its title, its milestone, its product, how many of its PRDs have merged, how
+many wait on your merge, its target date when a person gave one, and **what blocks it now**. That is,
+first, each `person` question nobody has answered yet, then each pull request a PRD waits on, once
+each: the shortest list of what to do to move it. A card shows three lines and says how many more;
+the roadmap's own page shows them all. Above the cards, one chip per product of the workspace that
+has a roadmap filters the list, beside **Every product**.
+
+### A roadmap's page
+
+At the top: its milestone, its progress, its repository, a link to its issue and to its source, and
+what blocks it now. Then its Gantt, its open questions and its PRDs, each linking to the PRD's own
+page.
+
+To read the Gantt:
+
+- **One row per PRD, grouped by wave**, in the table's order.
+- **An arrow from each blocker**, from the end of the blocker's bar to the start of the bar it blocks.
+- **The colour is the state:** waiting (not started), building, outbox (its questions wait for you),
+  waiting for merge, merged, and closed unmerged. The legend under the chart names each.
+- **Before any PRD has merged, nothing is dated:** each bar sits in its wave's column.
+- **Once one has merged, the bars are on dates.** A PRD that started is solid from its start, to its
+  merge or to today, then dashed to its projected end. A PRD not started is dashed from the latest end
+  of its blockers. The projection is the median length of this roadmap's merged PRDs: its own
+  history, never an estimate made up.
+- **In a plan repository, each bar has a lane per repository** the PRD lands in.
+- **The pull request a PRD waits on is on its bar**, linked, until the PRD merges.
+
+Under the Gantt, the **open questions**: each with its recommendation and the rows it blocks, the
+answer once someone gave one, and the answer box for a `person` question still open.
 
 [Next → Landings](/docs/landings)

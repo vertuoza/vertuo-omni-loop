@@ -11,6 +11,7 @@ or in Claude Code with `!` before them. In the examples, `7` stands for your PRD
 |---|---|
 | [turn an idea into a PRD](#i-have-an-idea) | `/omni:brainstorm <the idea>` |
 | [explore a vast idea before any PRD](#explore-a-vast-idea) | `/omni:think-big <the idea>` |
+| [deliver a milestone of several PRDs](#deliver-a-milestone-of-several-prds) | `/omni:roadmap <your plan>`, then `/loop /omni:drive --roadmap 1200` |
 | [make a small visual change](#make-a-small-visual-change) | `/omni:visual-fix <the change>` |
 | [fix a bug](#fix-a-bug) | `/omni:bug-fix <the bug>` or `/omni:bug-fix 612` |
 | [build an approved PRD](#build-an-approved-prd) | `/omni:yolo 7` |
@@ -79,6 +80,33 @@ brainstorm its areas one at a time, the wedge first, each in a clean session:
 Each starts from the area's brief and the concept's vision, and ends like any brainstorm, with a
 phase-0 pull request. The concept's Areas table shows which area became which PRD. It never merges
 itself.
+
+### Deliver a milestone of several PRDs
+
+A milestone that takes a dozen PRDs or more, some waiting on others, and a plan that already says
+what each one does: a page, a file in the repository, or text you paste.
+
+```text agent
+/omni:roadmap docs/plans/crew.md
+```
+
+Claude reads the plan and shows you **one map**: every PRD it will write, what blocks each and why,
+the wave each sits in, and the open questions. You answer it in one message. It then writes every
+PRD's issue, spec and before/after page, with no plan yet, opens the roadmap's issue, writes
+`roadmap.md`, and opens **one phase-0 pull request** for the whole roadmap. In a plan repository,
+type `/omni:mega-roadmap` instead: it also says where each PRD lands.
+
+**Then:** read the phase-0 pull request and merge it, which approves every PRD at once. Then drive
+it, with the roadmap's number:
+
+```text agent
+/loop /omni:drive --roadmap 1200
+```
+
+Each PRD is planned and built once the PRDs it waits on have merged; one that waits names the pull
+request to review first. Merge each feature pull request as it becomes ready: that is what unblocks
+the next ones. Follow it on the **Roadmaps** page of the app, and answer a question that parks a PRD
+with `omni roadmap answer`. The whole walk is [Roadmaps](/docs/roadmaps).
 
 ### Make a small visual change
 
