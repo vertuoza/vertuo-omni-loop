@@ -6,10 +6,17 @@ import { makeEvent, planetKey, type EventType, type GameEvent } from './events.t
 import { derivePlanet, distressEpisodes } from './planet-state.ts';
 import type { GameConfig } from './config.ts';
 import type { DerivedPlanet, Snapshot, SnapshotPlanet } from './types.ts';
-import type { PrNumber } from '../kit/lib/ids.ts';
+import type { PrdNumber, PrNumber } from '../kit/lib/ids.ts';
 
 /** One fact that could not become an event, and why. */
 export type Skip = { id: string; message: string };
+
+/**
+ * One ask round answered on a numbered PRD (PRD 1180), as public.game_answered_rounds() returns it:
+ * the PRD by the brainstorm or the delivery rule, its home in lower case, the answerer's lower-case
+ * GitHub login.
+ */
+export type AnsweredRound = { roundId: string; answeredAt: string; prd: PrdNumber; home: string; login: string };
 
 // An event's fields before validation: what the projector builds, `contributor` possibly unset.
 type Fields = {
@@ -37,15 +44,18 @@ const iso = (d: Date): string => d.toISOString().replace('.000Z', 'Z');
 // reported through `onSkip({ id, message })`; one bad fact never stops the rest of the poll. A planet
 // whose state cannot be derived at all is reported the same way, under the id `planet:<key>`. Every id
 // names the PRD by its key, `<home>#<n>` (PRD 728; the number alone for a snapshot with no home).
+// `answers` are the workspace's answered rounds (PRD 1180): each becomes one QUESTION_ANSWERED once
+// its planet is charted in this snapshot; until then it writes nothing, and a later poll writes it.
 export function projectEvents(
   snapshot: Snapshot,
-  { config, now, onSkip = () => {} }: { config: Pick<GameConfig, 'sectorOf'>; now: Date; onSkip?: (skip: Skip) => void },
+  { config, now, answers = [], onSkip = () => {} }: { config: Pick<GameConfig, 'sectorOf'>; now: Date; answers?: readonly AnsweredRound[]; onSkip?: (skip: Skip) => void },
 ): GameEvent[] {
   // A planet is named by its key, `<home>#<n>` (PRD 728): a blocker is the PRD of that number in the same home.
   const terraformedAt = new Map(snapshot.planets.flatMap((p) => (p.featurePr?.mergedAt ? [[planetKey(p.home, p.prd), p.featurePr.mergedAt] as const] : [])));
   const terraformedPlanets = new Set(terraformedAt.keys());
   const events: GameEvent[] = [];
   const push = pusher(events, snapshot.teams, onSkip);
+  const charted = new Set<string>();
 
   for (const planet of snapshot.planets) {
     const key = planetKey(planet.home, planet.prd);
@@ -56,6 +66,7 @@ export function projectEvents(
       onSkip({ id: `planet:${key}`, message: err instanceof Error ? err.message : String(err) });
       continue;
     }
+    charted.add(key);
     const at: At = { planet, state, key, on: { planet: planet.prd, ...(planet.home ? { home: planet.home } : {}) } }; // every event names its home
     push({ id: `planet:${key}:charted`, at: planet.issue.createdAt, type: 'PLANET_CHARTED', ...at.on, data: { captain: planet.captain, ownerTeam: planet.ownerTeam, title: planet.title } });
     regionEvents(push, at, terraformedAt);
@@ -65,6 +76,7 @@ export function projectEvents(
     finishEvents(push, at);
     endEvents(push, at);
   }
+  answerEvents(push, answers, charted);
   return events.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
 }
 
@@ -140,6 +152,15 @@ function endEvents(push: Push, { planet, state, key, on }: At): void {
     push({ id: `planet:${key}:lost`, at, type: 'PLANET_LOST', ...on, data: { ownerTeam: planet.ownerTeam, reason: planet.issue.closedAt ? 'closed' : 'silence' } });
   }
   if (state.state === 'decommissioned') push({ id: `planet:${key}:decommissioned`, at: planet.issue.closedAt, type: 'PLANET_DECOMMISSIONED', ...on });
+}
+
+// PRD 1180: one QUESTION_ANSWERED per answered round whose planet this poll charted. Its id names the
+// round alone, so however many polls see it, the ledger keeps one.
+function answerEvents(push: Push, answers: readonly AnsweredRound[], charted: ReadonlySet<string>): void {
+  for (const a of answers) {
+    if (!charted.has(planetKey(a.home, a.prd))) continue;
+    push({ id: `ask:${a.roundId}:answered`, at: a.answeredAt, type: 'QUESTION_ANSWERED', planet: a.prd, home: a.home, contributor: a.login });
+  }
 }
 
 function prNumber(planet: SnapshotPlanet, zoneId: string, repo: string): PrNumber | null {
