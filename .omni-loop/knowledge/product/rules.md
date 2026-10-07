@@ -855,3 +855,75 @@ Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
 Proposed: harvest 2026-10-06
+
+## BR-PRODUCT-81
+
+Any member of a roadmap's workspace may push an update to it, replacing its document and PRD rows, and the roadmap records the member who pushed last.
+
+Serves: P-PRODUCT-72
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s2-02-roadmap-any-member-pushes, PRD #1162
+Enforced by: supabase/checks/roadmaps.sql, apps/galaxy/src/roadmap/migration.test.ts, kit/lib/roadmap/push.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-82
+
+The plan check refuses a target only for blockers in the repositories its own consumes list names; a chain through a middle repository is not followed. A repository installed indirectly must be listed in the target's consumes list to be refused.
+
+Serves: P-PRODUCT-61
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s3-01-consumes-is-direct-only, PRD #1162
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-83
+
+The roadmap check refuses a project that installs another repository's package unless its wave comes after every project it waits on, directly or through others, that changes that repository. Projects that do not wait on each other may share a wave.
+
+Serves: P-PRODUCT-61
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-01-consumer-rule-follows-blockers, PRD #1162
+Enforced by: kit/lib/roadmap/grade.test.ts, kit/lib/roadmap/grade.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-84
+
+The roadmap check accepts a row when its project's folder is in the inbox or the shipped folder, and compares its spec wherever it lives; only a row whose project is in neither is refused.
+
+Serves: P-PRODUCT-73
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-02-shipped-prd-still-counts, PRD #1162
+Enforced by: kit/lib/roadmap/grade.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-85
+
+In a plan repository's roadmap, every project must name at least one repository; outside a plan repository, a repositories column is refused. The source line, like the product and target date, is optional.
+
+Serves: P-PRODUCT-74
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-03-repos-column-and-source, PRD #1162
+Enforced by: kit/lib/roadmap/parse.test.ts, kit/lib/roadmap/grade.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-86
+
+omni roadmap push marks a PRD building once its feature PR is open, outbox when its draft holds open questions, ready once every part is ready, merged once every part merged; a PRD not started names its first unmerged blocker. If GitHub is unreadable, nothing is pushed.
+
+Serves: P-PRODUCT-75
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s6-01-roadmap-push-reads-the-prs, PRD #1162
+Enforced by: kit/lib/roadmap/push.test.ts, kit/bin/roadmap.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07

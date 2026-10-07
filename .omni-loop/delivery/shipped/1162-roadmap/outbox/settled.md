@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-07
 - Slice: s2
 - Wave: 1
+- Became: ADR-0085
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ Changing it later is one migration on two tables nothing else reads, and the mat
 - Raised: 2026-10-07
 - Slice: s2
 - Wave: 1
+- Became: BR-PRODUCT-81, P-PRODUCT-72
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ Restricting it later is one change to the database function, and a refusal the p
 - Raised: 2026-10-07
 - Slice: s3
 - Wave: 1
+- Became: BR-PRODUCT-82
 
 ### The answer, as it was given
 
@@ -250,6 +253,7 @@ One small change in the plan check to walk the chain, and its tests; no stored d
 - Raised: 2026-10-07
 - Slice: s4
 - Wave: 2
+- Became: BR-PRODUCT-83
 
 ### The answer, as it was given
 
@@ -328,6 +332,7 @@ Switching to the global reading is one extra loop in the roadmap grade and its t
 - Raised: 2026-10-07
 - Slice: s4
 - Wave: 2
+- Became: BR-PRODUCT-84, P-PRODUCT-73
 
 ### The answer, as it was given
 
@@ -405,6 +410,7 @@ Narrowing it to the inbox is one condition in the roadmap reader and one test.
 - Raised: 2026-10-07
 - Slice: s4
 - Wave: 2
+- Became: BR-PRODUCT-85, P-PRODUCT-74
 
 ### The answer, as it was given
 
@@ -483,6 +489,7 @@ Making the source required, or relaxing the repositories rule, is one schema fie
 - Raised: 2026-10-07
 - Slice: s5
 - Wave: 2
+- Stays here: An interim, wave-bound choice to be replaced by a Send route later; nothing lasting to record, and no domain or principle needs it.
 
 ### The answer, as it was given
 
@@ -562,6 +569,7 @@ Small: a later slice swaps the box's copy step for a Send button posting through
 - Raised: 2026-10-07
 - Slice: s5
 - Wave: 2
+- Stays here: A local test-list fix outside the slice's declared files; it sets no lasting rule or architecture choice, and reverting the entry reverts the line.
 
 ### The answer, as it was given
 
@@ -639,6 +647,7 @@ None: a test's expected list. Reverting the entry reverts the line.
 - Raised: 2026-10-07
 - Slice: s6
 - Wave: 3
+- Became: BR-PRODUCT-86, P-PRODUCT-75
 
 ### The answer, as it was given
 
@@ -717,6 +726,7 @@ Small: s7 can hand its own held `why` to the push, or widen `stateWords` with th
 - Raised: 2026-10-07
 - Slice: s6
 - Wave: 3
+- Stays here: A local, additive implementation choice about touching a file outside the slice's territory; nothing lasting for the knowledge base to keep.
 
 ### The answer, as it was given
 
@@ -795,6 +805,7 @@ Nothing to undo: the client line is additive; the index comment is one word for 
 - Raised: 2026-10-07
 - Slice: s6
 - Wave: 3
+- Became: ADR-0086
 
 ### The answer, as it was given
 
@@ -873,6 +884,7 @@ Small: a different marker is one constant in `answers.ts` and in the page's futu
 - Raised: 2026-10-07
 - Slice: s7
 - Wave: 4
+- Stays here: A local, additive choice to extend another slice's files rather than duplicate wording; no lasting product guarantee or architecture decision beyond this piece of work.
 
 ### The answer, as it was given
 
@@ -951,6 +963,7 @@ Nothing to undo: both changes are additive. Moving them would be one parameter a
 - Raised: 2026-10-07
 - Slice: s7
 - Wave: 4
+- Stays here: A stopgap link choice made because omni next calls no app. It changes with one argument once the page id is readable, so nothing lasting needs keeping.
 
 ### The answer, as it was given
 
@@ -1030,6 +1043,7 @@ Small: a page link is one argument once `omni next` can read the roadmap's id (o
 - Raised: 2026-10-07
 - Slice: s8
 - Wave: 5
+- Stays here: A stopgap mapping in two skills, cheap to replace with a hold event later; no lasting guarantee or architecture to record.
 
 ### The answer, as it was given
 
@@ -1109,6 +1123,7 @@ Small: a `hold` event in `omni loop push` and the Loop page would replace one li
 - Raised: 2026-10-07
 - Slice: s9
 - Wave: 6
+- Stays here: Page order in the guide is a local documentation choice, cheap to move, with no lasting product guarantee to keep.
 
 ### The answer, as it was given
 
@@ -1187,6 +1202,7 @@ Moving the page is one entry in meta.json, two Next links and the matching lines
 - Raised: 2026-10-07
 - Slice: s9
 - Wave: 6
+- Became: ADR-0087
 
 ### The answer, as it was given
 

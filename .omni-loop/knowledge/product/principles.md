@@ -574,3 +574,39 @@ Why: So a person looking after a bug sees real work only, and nothing missing or
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-02-care-list-reads-bug-fix-plan, PRD #1118
 Merged: @pierrederval, 2026-10-06, PR #1119
 Proposed: harvest 2026-10-06
+
+## P-PRODUCT-72
+
+A roadmap belongs to its workspace, not to the person who first sent it, so every member can keep it current.
+
+Why: Several people often drive one roadmap, and its page must stay current whoever pushed last.
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s2-02-roadmap-any-member-pushes, PRD #1162
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-73
+
+A roadmap stays valid as its projects ship; shipping a project never makes the roadmap that planned it fail its check.
+
+Why: Otherwise every roadmap would fail as soon as its first project merged, forcing an edit on each ship.
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-02-shipped-prd-still-counts, PRD #1162
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-74
+
+A roadmap in a plan repository always says which repositories each project's work lands in, never leaving it to be assumed.
+
+Why: With several repositories in play, a project with no named repository would be sent to a guessed place.
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-03-repos-column-and-source, PRD #1162
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-75
+
+A roadmap shows each piece's standing only from what the code host records; when the host cannot be read, nothing is sent rather than a guessed state.
+
+Why: People plan around the roadmap, so a guessed or stale state would mislead them about what is waiting and on what.
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s6-01-roadmap-push-reads-the-prs, PRD #1162
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
