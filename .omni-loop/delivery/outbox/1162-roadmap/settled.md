@@ -858,3 +858,160 @@ Small: a different marker is one constant in `answers.ts` and in the page's futu
 ```
 
 <!-- /omni-outbox-settled: s6-03-roadmap-answer-comment-shape -->
+
+<!-- omni-outbox-settled: s7-01-roadmap-waits-on-outside-territory -->
+
+## s7-01-roadmap-waits-on-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-roadmap-waits-on-outside-territory
+prd: 1162
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 4
+---
+
+## The question, in plain words
+
+Naming what a waiting project waits on, and showing on the loop's page which repositories a step touches, needed small changes in two files this piece of work was not given. Change them here, or write the same words a second time?
+
+## The decision, in plain words
+
+Both files got a small addition: the roadmap's code now accepts finer words for a waiting project, such as the wave being built or red checks, so the loop and the roadmap's page say it the same way. The loop's sending command now takes the repositories of a step, or reads them from the plan.
+
+## The intro, for fun
+
+Two files over the fence, and a sentence nobody wanted to write twice.
+
+## The punchline, for fun
+
+So the loop borrows the roadmap's words instead of inventing its own.
+
+## The options, in plain words
+
+A. A. Widen s6's waits-on line with an optional argument and add the flag to the loop command (built)
+B. B. Write a second waits-on line inside the loop's code, and leave the command without the flag
+C. C. Leave both for a later piece of work, so the loop names only the coarse states and no repositories
+
+## What I had to decide
+
+`kit/lib/roadmap/push.ts` (s6's) and `kit/bin/commands/loop.ts` are outside s7's territory. The waits-on line had to be widened with `building wave <k>/<m>` and `CI red` without duplicating its wording, and a tick had to carry its repositories, which only the command's flags can add.
+
+## What I did meanwhile
+
+`waitsOn(row, rows, live)` gained an optional third argument: finer state words by row id, used in place of the state's own; `rowStates(roadmap, standings)` was extracted so `omni next` and the push read the rows the same way. `omni loop push tick` gained `--repos <repo,…>`, and without it sends the repositories the latest loop plan gives that step; a tick with none sends no `repos`, as before. Every existing push and loop test passes unchanged.
+
+## What it costs to change later
+
+Nothing to undo: both changes are additive. Moving them would be one parameter and one flag in another slice.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives s7 `kit/lib/loop/` and `kit/bin/loop.test.ts` but not the command file that reads the tick's flags; whether it meant to was not settled.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-roadmap-waits-on-outside-territory -->
+
+<!-- omni-outbox-settled: s7-02-roadmap-park-links-the-issue -->
+
+## s7-02-roadmap-park-links-the-issue — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-roadmap-park-links-the-issue
+prd: 1162
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 4
+---
+
+## The question, in plain words
+
+When a project of a roadmap waits on a person's answer, the loop should point at the roadmap's page, but it only knows the roadmap's issue on GitHub. Where should it point?
+
+## The decision, in plain words
+
+The loop points at the roadmap's issue, where an answer is left, and its line names the question and the one command that answers it. A project whose earlier project was closed without merging points at that closed pull request.
+
+## The intro, for fun
+
+A question with no address is a letter with no envelope.
+
+## The punchline, for fun
+
+So the loop writes the issue on the envelope, and the reply finds its way.
+
+## The options, in plain words
+
+A. A. Link the roadmap's issue and name the answer command; spec wording for a closed blocker (built)
+B. B. Read the page's address from the app on each tick, with the sign-in, and link the page
+C. C. Link the roadmap list page of the app, which every roadmap can be reached from
+
+## What I had to decide
+
+The spec says a `person` question parks its PRDs "naming the question and the roadmap's page", but the page's id is the app's (`omni roadmap push` learns it from the reply); `omni next` calls no app. Also open: what a tick does when the kept loop plan drives other PRDs, and what a closed blocker's line names in a plan repository.
+
+## What I did meanwhile
+
+The park reads `waits on a person: roadmap <n> question <Q> is not answered (<question>); answer it with omni roadmap answer <n> <Q> "<answer>"`, linking `https://github.com/<slug>/issues/<n>`; answers GitHub cannot read leave the question unanswered. A closed blocker parks with the spec's `blocker #<pr> closed unmerged: fix the roadmap`, linking that PR. `omni next --roadmap <n>` follows the kept plan when it drives the roadmap's PRDs, else makes version 1 for them, replacing the kept one, as a tick with no plan kept does. Only a PRD's first step is held on its blockers.
+
+## What it costs to change later
+
+Small: a page link is one argument once `omni next` can read the roadmap's id (or the app serves a page by repository and number); the closed line is one string.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the page should be reachable by repository and roadmap number, so a terminal could link it without asking the app.
+- (author) In a plan repository `#<pr>` alone does not say which repository the closed PR is in; the link does.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-roadmap-park-links-the-issue -->
