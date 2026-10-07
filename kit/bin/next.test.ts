@@ -1,0 +1,201 @@
+// PRD 1139, slice s1: `omni next <prd>` through `main()`, on a fixture repository and a stubbed GitHub.
+import { execFileSync } from 'node:child_process';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { describe, expect, it } from 'vitest';
+import { makeRepo, realExec } from '../test/fixture.ts';
+import { parseOutboxItemId } from '../lib/ids.ts';
+import { makeMarkers } from '../lib/markers.ts';
+import { formatNumbersMarker } from '../lib/outbox/comment.ts';
+import { main } from './omni.ts';
+
+function io() {
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
+}
+
+const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
+const PLAN = [
+  '# A plan',
+  '',
+  '| id | slice | territory | blocked by | wave |',
+  '| --- | --- | --- | --- | --- |',
+  '| s1 | Alpha | `a/` | — | 1 |',
+  '| s2 | Beta | `b/` | — | 1 |',
+  '',
+].join('\n');
+const PR_URL = 'https://github.com/acme/widgets/pull/9';
+const NOW = new Date().toISOString();
+
+const subPr = (slice: string, over = {}) => ({
+  number: 20 + Number(slice.slice(1)),
+  title: slice,
+  headRefName: `feat/widgets--${slice}`,
+  baseRefName: 'feat/widgets',
+  state: 'MERGED',
+  isDraft: false,
+  mergedAt: NOW,
+  body: '',
+  labels: [],
+  updatedAt: NOW,
+  createdAt: NOW,
+  ...over,
+});
+const featurePr = (over = {}) => ({ number: 9, url: PR_URL, state: 'OPEN', isDraft: true, updatedAt: NOW, body: 'Closes #7', author: { login: 'pm' }, ...over });
+
+const markers = makeMarkers('omni-outbox');
+const ITEM_PATH = '.omni-loop/delivery/outbox/0007-widgets/wave-1/s1-01-list.md';
+
+/** An open outbox item of PRD 7, as `/omni:do-work` writes one. */
+function itemText(rank: string) {
+  return [
+    '---', 'id: s1-01-list', 'prd: 7', 'slice: s1', `rank: ${rank}`, 'bears-on: none', 'raised: 2026-09-27', 'wave: 1', '---', '',
+    '## The question, in plain words', '', 'Which way?', '',
+    '## The decision, in plain words', '', 'We kept the first way.', '',
+    '## The options, in plain words', '', 'A. Option A.', 'B. Option B.', '',
+    '## What I had to decide', '', 'x', '',
+    '## What I did meanwhile', '', 'Kept the first way.', '',
+    '## What it costs to change later', '', 'z', '',
+    '## What I could not know', '', '(author) w', '',
+  ].join('\n');
+}
+const PR_COMMENT = {
+  id: 1,
+  body: `${markers.prComment}\n${formatNumbersMarker([{ number: 1, id: parseOutboxItemId('s1-01-list'), since: '2026-09-27T08:00:00Z' }], markers)}`,
+  user: { login: 'omni-loop[bot]' },
+  author_association: 'NONE',
+  created_at: '2026-09-27T08:00:00Z',
+  html_url: `${PR_URL}#issuecomment-1`,
+};
+const REPLY = { id: 2, body: '1: B because it reads better', user: { login: 'pm' }, author_association: 'MEMBER', created_at: '2026-09-28T08:00:00Z', html_url: `${PR_URL}#issuecomment-2` };
+
+/** A fixture repository whose feature branch, as last fetched, holds `remoteFiles`. */
+function repo(remoteFiles: Record<string, string> = {}) {
+  const { root, write } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': PLAN } });
+  const run = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+  for (const [path, text] of Object.entries(remoteFiles)) write(path, text);
+  run('add', '-A');
+  run('-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'feature');
+  run('update-ref', 'refs/remotes/origin/feat/widgets', 'HEAD');
+  run('reset', '-q', '--hard', 'HEAD~1');
+  return root;
+}
+
+type Fakes = { feature?: unknown[]; subs?: unknown[]; phase0?: unknown[]; comments?: unknown[]; read?: unknown; down?: boolean };
+
+/** A fake `execFileSync`: gh answered from `fakes`, git fetch a no-op, every other git call real. */
+function fakeExec({ feature = [featurePr()], subs = [subPr('s1', { state: 'OPEN', mergedAt: null, isDraft: true }), subPr('s2', { state: 'OPEN', mergedAt: null, isDraft: true })], phase0 = [], comments = [], read, down = false }: Fakes = {}) {
+  const calls: string[][] = [];
+  const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions = {}): string => {
+    calls.push([file, ...args]);
+    if (file === 'git') return args[0] === 'fetch' ? '' : realExec(file, args, options);
+    if (down) throw Object.assign(new Error('error connecting to api.github.com'), { stderr: 'error connecting to api.github.com' });
+    if (args[0] === 'pr' && args[1] === 'list') {
+      if (args.includes('--label')) return JSON.stringify(phase0);
+      return JSON.stringify(args.includes('--head') ? feature : subs);
+    }
+    if (args[0] === 'api' && args[1] === 'graphql') return JSON.stringify(read);
+    if (args[0] === 'api' && String(args[1]).endsWith('/comments')) return JSON.stringify(comments);
+    throw new Error(`fakeExec: unexpected call ${file} ${args.join(' ')}`);
+  };
+  return { exec, calls };
+}
+
+async function run(argv: readonly string[], root: string, fake: ReturnType<typeof fakeExec>) {
+  const s = io();
+  const code = await main(argv, { cwd: root, exec: fake.exec, ...s });
+  return { code, out: s.out.join(''), err: s.err.join('') };
+}
+
+const readyRead = (over = {}) => ({
+  data: {
+    repository: {
+      pullRequest: {
+        number: 9, url: PR_URL, state: 'OPEN', isDraft: false, baseRefName: 'main', headRefName: 'feat/widgets', mergeable: 'MERGEABLE',
+        labels: { nodes: [] },
+        commits: { nodes: [{ commit: { statusCheckRollup: { state: 'FAILURE', contexts: { nodes: [{ __typename: 'CheckRun', name: 'test', status: 'COMPLETED', conclusion: 'FAILURE', detailsUrl: 'https://ci/1' }] } } } }] },
+        reviewThreads: { nodes: [] },
+        comments: { nodes: [] },
+        ...over,
+      },
+    },
+  },
+});
+
+describe('omni next', () => {
+  it('prints one verdict line for a PRD with takeable slices', async () => {
+    const root = repo();
+    const { code, out, err } = await run(['next', '7'], root, fakeExec({ subs: [] }));
+    expect(err).toBe('');
+    expect(code).toBe(0);
+    expect(out).toBe(`PRD 7 — act wave: wave 1 can take s1, s2 — ${PR_URL}\n`);
+  });
+
+  it('--json prints {prds: [{prd, verdict, skill?, why, link?, wakeHint?}]}', async () => {
+    const root = repo();
+    const { code, out } = await run(['next', '7', '--json'], root, fakeExec());
+    expect(code).toBe(0);
+    expect(JSON.parse(out)).toEqual({ prds: [{ prd: 7, verdict: 'wait', why: 'another session holds the claim on s1, s2', wakeHint: 1200, link: PR_URL }] });
+  });
+
+  it('a ready feature PR with red CI → act pr-care --once, read through its care state', async () => {
+    const root = repo();
+    const fake = fakeExec({ feature: [featurePr({ isDraft: false })], subs: [subPr('s1'), subPr('s2')], read: readyRead() });
+    const { out } = await run(['next', '7', '--json'], root, fake);
+    expect(JSON.parse(out)).toMatchObject({ prds: [{ prd: 7, verdict: 'act', skill: 'pr-care --once', link: PR_URL }] });
+    expect(fake.calls.some((call) => call[1] === 'api' && call[2] === 'graphql')).toBe(true);
+  });
+
+  it('every slice merged and a question open on the feature branch → park on the PR author', async () => {
+    const root = repo({ [ITEM_PATH]: itemText('high') });
+    const { out } = await run(['next', '7', '--json'], root, fakeExec({ subs: [subPr('s1'), subPr('s2')], comments: [PR_COMMENT] }));
+    expect(JSON.parse(out)).toEqual({ prds: [{ prd: 7, verdict: 'park', why: 'waits on @pm: 1 outbox question to answer', link: PR_URL }] });
+  });
+
+  it('every slice merged and the question answered on the feature PR → act yolo-fix', async () => {
+    const root = repo({ [ITEM_PATH]: itemText('high') });
+    const { out } = await run(['next', '7', '--json'], root, fakeExec({ subs: [subPr('s1'), subPr('s2')], comments: [PR_COMMENT, REPLY] }));
+    expect(JSON.parse(out)).toMatchObject({ prds: [{ verdict: 'act', skill: 'yolo-fix' }] });
+  });
+
+  it('a medium item is adopted, never asked: every slice merged → act yolo', async () => {
+    const root = repo({ [ITEM_PATH]: itemText('medium') });
+    const fake = fakeExec({ subs: [subPr('s1'), subPr('s2')] });
+    const { out } = await run(['next', '7', '--json'], root, fake);
+    expect(JSON.parse(out)).toMatchObject({ prds: [{ verdict: 'act', skill: 'yolo' }] });
+    expect(fake.calls.some((call) => String(call[2]).endsWith('/comments'))).toBe(false);
+  });
+
+  it('two PRDs give two lines, in the order named', async () => {
+    const root = repo();
+    const { out } = await run(['next', '7', '7'], root, fakeExec({ subs: [] }));
+    expect(out.trimEnd().split('\n')).toHaveLength(2);
+  });
+
+  it('an open phase-0 PR parks on a reviewer, even before the folder reached the inbox', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const fake = fakeExec({ phase0: [{ number: 3, url: 'https://github.com/acme/widgets/pull/3', state: 'OPEN', body: 'Refs #7' }, { number: 4, url: 'x', state: 'OPEN', body: 'Refs #70' }] });
+    const { code, out } = await run(['next', '7'], root, fake);
+    expect(code).toBe(0);
+    expect(out).toBe('PRD 7 — park: waits on a reviewer: the phase-0 PR is open — https://github.com/acme/widgets/pull/3\n');
+  });
+
+  it('a merged feature PR → done', async () => {
+    const root = repo();
+    const { out } = await run(['next', '7'], root, fakeExec({ feature: [featurePr({ state: 'MERGED' })] }));
+    expect(out).toBe(`PRD 7 — done: the feature PR is merged — ${PR_URL}\n`);
+  });
+
+  it('gh unreachable prints wait: github unreachable, with exit 0', async () => {
+    const root = repo();
+    const { code, out } = await run(['next', '7'], root, fakeExec({ down: true }));
+    expect(code).toBe(0);
+    expect(out).toBe('PRD 7 — wait: github unreachable (look again in 5 min)\n');
+  });
+
+  it('a PRD with no folder and no phase-0 PR, or no number at all, is a usage error', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    expect((await run(['next', '7'], root, fakeExec())).code).toBe(2);
+    expect((await run(['next'], root, fakeExec())).code).toBe(2);
+  });
+});

@@ -65,6 +65,14 @@ describe('omni help', () => {
     expect(sentences.join(' ')).toMatch(/slices.*wave/);
   });
 
+  it('prints omni next: its usage, for you, and its four verdicts (PRD 1139)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'next'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni next <prd>… \[--json\] +for you\n/);
+    expect(out.replace(/\s+/g, ' ')).toMatch(/act .* wait .* park .* done/);
+  });
+
   it('takes a skill by its name or its slash command alike', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const byName = await run(['help', 'yolo'], root);
