@@ -162,6 +162,42 @@ describe('projectEvents', () => {
     expect(() => projectEvents(s, { config, now: NOW })).not.toThrow();
   });
 
+  describe('a contributor that is not a GitHub login (PRD 1180)', () => {
+    const settledBy = (by: string) => snapshot({ outbox: [{ id: 's1-01-a', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: { verdict: 'agreed', at: '2026-09-22T10:00:00Z', by, reworkMergedAt: null } }] });
+    it.each(['@pm', 'clement.noterdaem', '-pm', 'a'.repeat(40), 'p m'])('skips the event credited to %j with a warning naming it', (name) => {
+      const skipped: Skip[] = [];
+      const events = projectEvents(settledBy(name), { config, now: NOW, onSkip: (s) => skipped.push(s) });
+      expect(events.some((e) => e.type === 'WOUND_CLOSED')).toBe(false);
+      expect(events.some((e) => e.id === 'planet:2332:charted')).toBe(true);
+      expect(skipped).toEqual([{ id: expect.stringMatching(/:closed$/) as unknown as string, message: `contributor ${JSON.stringify(name)} is not a GitHub login` }]);
+    });
+
+    it('writes it, under the same id, on the first poll after the name is fixed', () => {
+      const before = projectEvents(settledBy('@pm'), { config, now: NOW, onSkip: () => {} });
+      const after = projectEvents(settledBy('pm'), { config, now: NOW });
+      const closed = after.find((e) => e.type === 'WOUND_CLOSED');
+      expect(closed).toMatchObject({ contributor: 'pm', team: 'beaver' });
+      expect(before.some((e) => e.id === closed?.id)).toBe(false);
+      expect(after.filter((e) => e.id !== closed?.id)).toEqual(before);
+    });
+
+    it('keeps every login GitHub can issue', () => {
+      for (const login of ['pm', 'paul-w', 'a1', 'Serghok', 'a'.repeat(39)]) {
+        const skipped: Skip[] = [];
+        projectEvents(settledBy(login), { config, now: NOW, onSkip: (s) => skipped.push(s) });
+        expect(skipped).toEqual([]);
+      }
+    });
+
+    it('skips an answered round whose login is not a GitHub login', () => {
+      const s: Snapshot = { ...snapshot(), planets: [{ ...snapshot().planets[0], home: 'acme/plan' } as unknown as SnapshotPlanet] };
+      const skipped: Skip[] = [];
+      const events = projectEvents(s, { config, now: NOW, onSkip: (k) => skipped.push(k), answers: [{ roundId: 'r1', answeredAt: '2026-09-22T09:30:00Z', prd: parsePrd(2332), home: 'acme/plan', login: '@alice' }] });
+      expect(events.some((e) => e.type === 'QUESTION_ANSWERED')).toBe(false);
+      expect(skipped).toEqual([{ id: 'ask:r1:answered', message: 'contributor "@alice" is not a GitHub login' }]);
+    });
+  });
+
   it('names the right sub-PR when two regions share a slice id (F3)', () => {
     const events = projectEvents(snapshot({ zones: [
       { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },

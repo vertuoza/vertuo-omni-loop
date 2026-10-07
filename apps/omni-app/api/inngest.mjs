@@ -6221,7 +6221,8 @@ var MergeSchema = z21.object({
 }).strict();
 function mergeAnswer(merge) {
   return {
-    approvedBy: `@${merge.by}`,
+    approvedBy: merge.by,
+    // the login alone: the ledger credits the line as written (PRD 1180)
     approvedAt: merge.at,
     channel: {
       kind: "feature-pull-request",
