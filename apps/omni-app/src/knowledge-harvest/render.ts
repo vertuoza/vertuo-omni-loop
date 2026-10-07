@@ -56,7 +56,7 @@ export function decidedShort(decided: string | null | undefined): string {
  * What each new rule and invariant is enforced by, as its `Enforced by:` line says it, each proposed
  * proof the harvest dropped under it with its reason: the lines `omni harvest` prints, as a list.
  */
-export function proofLines(placed: readonly Pick<Placed, 'landedAs' | 'enforcedBy' | 'dropped'>[]): string[] {
+function proofLines(placed: readonly Pick<Placed, 'landedAs' | 'enforcedBy' | 'dropped'>[]): string[] {
   return placed.flatMap((entry) => {
     if (!entry.enforcedBy) return [];
     const enforced = entry.enforcedBy.length > 0 ? entry.enforcedBy.join(', ') : 'unenforced';

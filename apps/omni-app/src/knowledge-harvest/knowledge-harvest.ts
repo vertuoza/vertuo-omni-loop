@@ -65,10 +65,12 @@ export const CONCURRENCY = Object.freeze({ key: 'event.data.repository', limit: 
 
 /** The prefix of the failure comment's marker. The config may be what failed to read, so the kit's default. */
 const MARKER_PREFIX = parseConfig('kit: 1\n').markers.prefix;
-export const FAILURE_MARKER = `<!-- ${MARKER_PREFIX}-knowledge-harvest-failed -->`;
+/** One of the harvest's comment markers, `<!-- <prefix>-<name> -->`. */
+const marker = (prefix: string, name: string): string => `<!-- ${prefix}-${name} -->`;
+export const FAILURE_MARKER = marker(MARKER_PREFIX, 'knowledge-harvest-failed');
 
 /** The marker of the "nothing new" comment, under the repository's `markers.prefix`. */
-export const verdictMarker = (prefix: string) => `<!-- ${prefix}-knowledge-verdict -->`;
+export const verdictMarker = (prefix: string): string => marker(prefix, 'knowledge-verdict');
 /** The marker under the kit's default prefix. */
 export const VERDICT_MARKER = verdictMarker(MARKER_PREFIX);
 
@@ -82,7 +84,7 @@ const today = () => new Date().toISOString().slice(0, 10);
  * The proofs the replies propose that the pull request left in the tree: the files the "write" step
  * reads at the tip beside the loop's, so the writer can tell a kept proof from one gone since.
  */
-export function proposedProofs(classified: readonly Pick<Classification, 'reply'>[], changed: readonly ChangedFile[]): string[] {
+function proposedProofs(classified: readonly Pick<Classification, 'reply'>[], changed: readonly ChangedFile[]): string[] {
   const kept = new Set(keptPaths(changed));
   const proposed = classified.flatMap(({ reply }) => (reply && 'enforcedBy' in reply ? (reply.enforcedBy ?? []) : []));
   return [...new Set(proposed)].filter((path) => kept.has(path)).sort();

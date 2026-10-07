@@ -1794,9 +1794,9 @@ function readSection(heading, lines) {
   const at2 = lines.findIndex((line) => line.trim() !== "");
   const first = at2 === -1 ? "" : (lines[at2] ?? "").trim();
   if (!MARKER_START.test(first)) return { kind: "unmarked" };
-  const marker = first.match(MARKER);
-  if (!marker) return { kind: "malformed", first };
-  const [, id = "", need, by, verified] = marker;
+  const marker2 = first.match(MARKER);
+  if (!marker2) return { kind: "malformed", first };
+  const [, id = "", need, by, verified] = marker2;
   const slot = {
     id,
     heading,
@@ -3218,9 +3218,9 @@ function sortItems(items) {
     return byRank2 !== 0 ? byRank2 : a.id.localeCompare(b.id);
   });
 }
-function findCommentByMarker(comments, marker) {
+function findCommentByMarker(comments, marker2) {
   if (!isList(comments)) return null;
-  return comments.find((comment) => typeof comment.body === "string" && comment.body.includes(marker)) ?? null;
+  return comments.find((comment) => typeof comment.body === "string" && comment.body.includes(marker2)) ?? null;
 }
 function findPrMarkerComment(comments, markers) {
   return findCommentByMarker(comments, markers.prComment);
@@ -5604,12 +5604,12 @@ function issueGate({ prd, issue, label: label2 }) {
   if (!issue.labels.includes(label2)) return fail(`issue #${prd} does not carry the label ${label2}`);
   return { name: "PRD issue", ok: true, reason: `issue #${prd} is open and carries ${label2}` };
 }
-function summaryOf({ prd, folder, gates, marker }) {
+function summaryOf({ prd, folder, gates, marker: marker2 }) {
   const lines = gates.flatMap((gate) => [
     `- ${gate.neutral ? "neutral" : gate.ok ? "ok" : "not ok"} \u2014 ${gate.name}: ${gate.reason}`,
     ...(gate.details ?? []).map((detail) => `  - ${detail}`)
   ]);
-  return [`PRD ${prd} (\`${folder}\`)`, "", ...lines, ...marker ? ["", marker] : []].join("\n");
+  return [`PRD ${prd} (\`${folder}\`)`, "", ...lines, ...marker2 ? ["", marker2] : []].join("\n");
 }
 
 // apps/omni-app/src/inbox-check/github.ts
@@ -5805,8 +5805,8 @@ function createCanonAction({ client, octokitFor, galaxyUrl }) {
         if (await phase0CheckName(octokit, { owner, repo, prNumber }) === null) {
           return { posted: false, reason: "not a phase-0 PR of a repository with omni-loop" };
         }
-        const marker = commentMarker(action);
-        const mine = (await listComments(octokit, { owner, repo, prNumber })).find((comment) => comment.body.includes(marker));
+        const marker2 = commentMarker(action);
+        const mine = (await listComments(octokit, { owner, repo, prNumber })).find((comment) => comment.body.includes(marker2));
         if (mine) {
           await octokit.request("PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}", { owner, repo, comment_id: mine.id, body });
           return { posted: true, comment: "updated", id: mine.id };
@@ -7710,12 +7710,12 @@ function parseSaved(schema, value, id) {
 
 // apps/omni-app/src/verdict-comment/verdict-comment.ts
 import { z as z24 } from "zod";
-async function upsertComment(octokit, { owner, repo, prNumber, marker, text: text8 }) {
-  const body = `${marker}
+async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text8 }) {
+  const body = `${marker2}
 ${String(text8).trimEnd()}
 `;
   const comments = await listComments(octokit, { owner, repo, prNumber });
-  const existing = comments.find((comment) => comment.body.includes(marker));
+  const existing = comments.find((comment) => comment.body.includes(marker2));
   if (existing) {
     await octokit.request("PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}", {
       owner,
@@ -8053,8 +8053,9 @@ function toCommit(edits, filesBefore) {
 var HARVEST_FUNCTION_ID = "knowledge-harvest";
 var CONCURRENCY = Object.freeze({ key: "event.data.repository", limit: 1 });
 var MARKER_PREFIX = parseConfig("kit: 1\n").markers.prefix;
-var FAILURE_MARKER = `<!-- ${MARKER_PREFIX}-knowledge-harvest-failed -->`;
-var verdictMarker = (prefix) => `<!-- ${prefix}-knowledge-verdict -->`;
+var marker = (prefix, name) => `<!-- ${prefix}-${name} -->`;
+var FAILURE_MARKER = marker(MARKER_PREFIX, "knowledge-harvest-failed");
+var verdictMarker = (prefix) => marker(prefix, "knowledge-verdict");
 var VERDICT_MARKER = verdictMarker(MARKER_PREFIX);
 var nothingNewText = (count2) => `Knowledge: nothing new \u2014 ${count2} ${count2 === 1 ? "candidate" : "candidates"} stayed local.`;
 var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
@@ -11739,8 +11740,8 @@ async function publishIssues(octokit, { owner, repo, config, sheet, prose, retro
   const links = {};
   for (const finding of chosen) {
     const { title, body } = renderIssue({ sheet, finding, prose, retroPath, retroPr, prefix });
-    const marker = issueMarker(prefix, sheet.prd.number, finding.id);
-    const found = pick(existing.filter((issue) => (issue.body ?? "").includes(marker)));
+    const marker2 = issueMarker(prefix, sheet.prd.number, finding.id);
+    const found = pick(existing.filter((issue) => (issue.body ?? "").includes(marker2)));
     if (found?.state === "closed") {
       links[finding.id] = { number: found.number, url: found.html_url, state: "closed" };
       continue;

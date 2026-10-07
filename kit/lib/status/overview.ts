@@ -26,6 +26,7 @@
 import { ACCOUNTS_DIR } from '../outbox/account.ts';
 import { SETTLED_FILE } from '../outbox/outbox.ts';
 import type { PrdNumber } from '../ids.ts';
+import type { RulesCount } from './facts.ts';
 
 /** The bar's width, in cells. */
 export const BAR_CELLS = 30;
@@ -75,8 +76,6 @@ export type OverviewFacts = {
   rules: RulesCount | null;
 };
 
-/** The base's rules and invariants, and how many of them name a proof (PRD 1171). */
-export type RulesCount = { enforced: number; total: number };
 
 /** Every stage the repository can show, each PRD once and newest first. */
 export type Stages = {
