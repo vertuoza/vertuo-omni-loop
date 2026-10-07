@@ -126,7 +126,8 @@ describe('the help table in this repository', () => {
       expect(skill).toMatchObject({ who: 'you', usage: [`/omni:${name} <source>`], label: `/omni:${name}`, group });
       expect(skills.indexOf(skill)).toBe(skills.findIndex((e) => e.name === after) + 1);
       expect(skill.when).toMatch(/^Use it when\b/);
-      expect(skill.example).toEqual({ type: expect.stringMatching(new RegExp(`^/omni:${name} `)), result: anyText });
+      const typed: unknown = expect.stringMatching(new RegExp(`^/omni:${name} `));
+      expect(skill.example).toEqual({ type: typed, result: anyText });
       for (const words of [/\bone map\b/, /\bone phase-0 PR\b/, /\bno plan\b/, new RegExp(drive.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')), new RegExp(other)]) {
         expect(skill.detail, `${name}: ${String(words)}`).toMatch(words);
       }
