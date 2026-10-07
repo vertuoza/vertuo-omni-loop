@@ -188,20 +188,30 @@ Work in a detached worktree: `git fetch <remote>`, then
    `git merge-base --is-ancestor <remote>/<base> HEAD` fails, run `git merge <remote>/<base>`. For a
    stacked base, merge only when the base moved forward, that is when **the base head** step 1 kept
    is an ancestor of `<remote>/<base>`; when it is not, the base was rewritten: remove the worktree
-   and stop with step 1's one line. A conflict you cannot resolve with
-   confidence: `git merge --abort`, and take `/omni:pr`'s **Stuck** path for the feature PR, naming
+   and stop with step 1's one line. A conflict on a path under a generated entry's `path`
+   (`node .omni-loop/bin/omni.mjs config generated`) is never a reason to stop: take either side
+   (`git checkout --theirs -- <path>`, then `git add -- <path>`), since item 3 rebuilds it. Any other
+   conflict you cannot resolve with confidence: `git merge --abort`, and take `/omni:pr`'s **Stuck** path for the feature PR, naming
    the conflicting files as what a person should look at. Post the outbox (the `omni comment` line
    step 5 opens with), remove the worktree, and go to step 7.
 2. **Install when the ground moved.** If the merge changed the lockfile or any package manifest,
    install the dependencies in the worktree with the repository's package manager before checking.
    It is not an attempt.
-3. **Check the whole feature.** The preflight (`commands.preflightFull`, or `commands.preflight` when
-   null), every command in `commands.checks`, then `node .omni-loop/bin/omni.mjs check all`. Red
+3. **Rebuild, then check the whole feature.** First the generated files, after the merge of item 1,
+   as `/omni:wave` step 5 rebuilds them: run
+   `node .omni-loop/bin/omni.mjs generated <remote>/<base>..HEAD` (one line per generated entry,
+   `<path>: stale|fresh — <build>`, or `no generated files`) and run the build of every `stale` line
+   from the worktree's root. Then the preflight (`commands.preflightFull`, or `commands.preflight`
+   when null), every command in `commands.checks`, then `node .omni-loop/bin/omni.mjs check all`. Red
    because of the environment (a missing install, a tool, the network): fix the environment and rerun;
    that is not code to fix. Red in the PRD's own slices: fix it here; each fix counts toward
-   `limits.attempts`. **Never edit code outside the PRD's slices to turn the finish green.** Still red:
-   the Stuck path, naming the red step; post the outbox (as above), remove the worktree, and go to
-   step 7.
+   `limits.attempts`, and a fix that changes a generated entry's sources reruns its build. **Never
+   edit code outside the PRD's slices to turn the finish green.** Still red: the Stuck path, naming
+   the red step; post the outbox (as above), remove the worktree, and go to step 7. Green: commit the
+   rebuilt paths alone, `git add -- <path>` for each `stale` line and nothing else, as
+   `chore(build): rebuild generated files — finish of PRD <prd>`, with your session's co-author
+   trailer, then the `omni sign trailer` line. Nothing stale, or a build that changed nothing: no
+   commit.
 4. **Acceptance,** only when `acceptance.enabled`: run `acceptance.run` twice.
 5. `git push <remote> HEAD:<feature branch>`.
 6. **The body.** Tick every slice, and every passing scenario, and fill **Summary**, **Verified** (the
