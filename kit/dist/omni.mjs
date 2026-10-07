@@ -17469,11 +17469,11 @@ var error37 = () => {
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
-        const shortName7 = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
+        const shortName8 = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
         if (sizing) {
-          return `Te ${shortName7}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+          return `Te ${shortName8}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
         }
-        return `Te ${shortName7}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
+        return `Te ${shortName8}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
       }
       case "invalid_format": {
         const _issue = issue2;
@@ -28051,7 +28051,7 @@ function readSlots(sections, { file: file2, errors, oldSpellings }) {
       continue;
     }
     const { slot, oldBy } = read2;
-    if (slots.some((known) => known.id === slot.id)) {
+    if (slots.some((known2) => known2.id === slot.id)) {
       errors.push(withFile(file2, `slot "${slot.id}" appears twice`));
       continue;
     }
@@ -31094,9 +31094,9 @@ function assignNumbers({
   previous = [],
   now = () => (/* @__PURE__ */ new Date()).toISOString()
 }) {
-  const known = new Set(previous.map((entry) => entry.id));
+  const known2 = new Set(previous.map((entry) => entry.id));
   const maxNumber = previous.reduce((max, entry) => Math.max(max, entry.number), 0);
-  const fresh = sortItems(items.filter((item2) => !known.has(item2.id)));
+  const fresh = sortItems(items.filter((item2) => !known2.has(item2.id)));
   if (fresh.length === 0) return [...previous];
   const since = now();
   let next2 = maxNumber + 1;
@@ -32976,8 +32976,8 @@ async function downloadShot({ root, client, roundId, shot, deadline, now }) {
 var idOf = (value) => isSafeId(value) ? value : null;
 var SESSION_GONE = [404, 409];
 async function terminalSession({ root, host, client, terminalId, title, readSessionContext }) {
-  const known = readTerminal(root, terminalId);
-  if (known && known.host === host) return known.sessionId;
+  const known2 = readTerminal(root, terminalId);
+  if (known2 && known2.host === host) return known2.sessionId;
   const opened = await client.openSession(title(), contextOf(() => readSessionContext(root)) ?? void 0);
   const id = field(opened, "id");
   if (typeof id !== "string" || id === "") throw new Error("the server answered with no session");
@@ -34360,13 +34360,13 @@ function readPrs(slug, chain, reader) {
   }
   return fetchHeadCommitDates(prs, { repo: slug, exec, env, now, staleMinutes });
 }
-function readAcrossRepos(slices, { known, chainOf, reader }) {
+function readAcrossRepos(slices, { known: known2, chainOf, reader }) {
   const out = { prs: [], repos: {}, unreadable: [], chains: [] };
   for (const name2 of new Set(slices.map((slice) => slice.repo))) {
     const chain = chainOf(name2);
     out.chains.push(...chain ?? []);
     const key = String(name2);
-    const slug = (typeof name2 === "string" ? known.get(name2) : void 0) ?? null;
+    const slug = (typeof name2 === "string" ? known2.get(name2) : void 0) ?? null;
     if (slug === null) {
       out.repos[key] = { slug: null, readable: false };
       out.unreadable.push({ repo: name2, slug: null, reason: "neither a target nor this plan repository" });
@@ -34386,10 +34386,10 @@ function shortName3(slug) {
   return slug.slice(slug.indexOf("/") + 1);
 }
 function knownRepositories(ctx, planSlug) {
-  const known = /* @__PURE__ */ new Map();
-  for (const target3 of ctx.config.plan?.targets ?? []) known.set(shortName3(target3.repo), target3.repo);
-  known.set(shortName3(planSlug), planSlug);
-  return known;
+  const known2 = /* @__PURE__ */ new Map();
+  for (const target3 of ctx.config.plan?.targets ?? []) known2.set(shortName3(target3.repo), target3.repo);
+  known2.set(shortName3(planSlug), planSlug);
+  return known2;
 }
 function textOf2(value) {
   if (typeof value === "string") return value;
@@ -34510,9 +34510,9 @@ function decideRound(state) {
 // kit/lib/care/list.ts
 init_define_OMNI_BUNDLE();
 var FIX_PLAN_MARKER = "<!-- omni-bug:fix-plan -->";
-function foundEntry(base, found2, known = null) {
+function foundEntry(base, found2, known2 = null) {
   if (found2 === null) return null;
-  if (found2 === "unreadable") return { ...base, number: known, state: "unreadable", url: null };
+  if (found2 === "unreadable") return { ...base, number: known2, state: "unreadable", url: null };
   return { ...base, number: found2.number, state: found2.state.toLowerCase(), url: found2.url };
 }
 function rank(step, repositories) {
@@ -34957,8 +34957,8 @@ function careList(prd2, { ctx, gh: gh2 }) {
   const targets2 = ctx.config.plan?.targets ?? [];
   const planSlug = repoSlug("care", ctx, void 0);
   const plan2 = readPlanOf(prd2, ctx);
-  const known = new Map(targets2.map((target3) => [target3.repo, shortName4(target3.repo)]));
-  const bugs = linkedBugs(prd2, ctx.config.labels.bug, { planSlug, targetName: (slug) => known.get(slug) ?? null, gh: gh2 });
+  const known2 = new Map(targets2.map((target3) => [target3.repo, shortName4(target3.repo)]));
+  const bugs = linkedBugs(prd2, ctx.config.labels.bug, { planSlug, targetName: (slug) => known2.get(slug) ?? null, gh: gh2 });
   const planPr = foundEntry({ repo: planSlug, kind: "plan", target: null }, readFound(() => findPr({ repo: planSlug, branch: featureBranchFor(prd2, ctx) }, gh2)));
   const steps = targets2.flatMap(({ repo }) => stepsOf(repo, plan2, { ctx, gh: gh2 }));
   return mergeOrder({ repositories: plan2.repositories, targets: steps, bugs, plan: planPr });
@@ -35561,7 +35561,7 @@ function objectionProblems(objection, names) {
   if (!KNOWN_SETTLED.includes(objection.settled)) problems.push(`objection.settled must be one of ${SETTLED.join(", ")}.`);
   return problems;
 }
-var unknownFields = (value, known, where) => Object.keys(value).filter((key) => !known.includes(key)).map((key) => `\`${key}\` is not a field of ${where}.`);
+var unknownFields = (value, known2, where) => Object.keys(value).filter((key) => !known2.includes(key)).map((key) => `\`${key}\` is not a field of ${where}.`);
 var personasProblems = (personas) => Array.isArray(personas) && personas.length > 0 ? personas.flatMap(personaProblems) : ["personas must list at least one persona."];
 var fitProblems = (fit3) => fit3 === void 0 || fit3 === null || isText3(fit3) ? [] : ["fit must be one line, or null."];
 function roundProblems(round2) {
@@ -35590,11 +35590,11 @@ function parseVoice(text10) {
   const seen = /* @__PURE__ */ new Set();
   voice.rounds.forEach((round2, i) => {
     const stage2 = isRecord3(round2) ? round2.stage : void 0;
-    const known = typeof stage2 === "string" && STAGE.test(stage2);
-    const name2 = known ? `round ${stage2}` : `round ${i + 1}`;
-    if (!known) errors.push(`${name2}: stage ${JSON.stringify(stage2 ?? null)} is not one of ${STAGES_SAID}.`);
+    const known2 = typeof stage2 === "string" && STAGE.test(stage2);
+    const name2 = known2 ? `round ${stage2}` : `round ${i + 1}`;
+    if (!known2) errors.push(`${name2}: stage ${JSON.stringify(stage2 ?? null)} is not one of ${STAGES_SAID}.`);
     else if (seen.has(stage2)) errors.push(`${name2}: the stage comes twice.`);
-    if (known) seen.add(stage2);
+    if (known2) seen.add(stage2);
     errors.push(...roundProblems(round2).map((problem) => `${name2}: ${problem}`));
   });
   if (errors.length) return { ok: false, voice: null, errors };
@@ -35675,9 +35675,9 @@ function violationsForFile(file2, folder, text10, ctx) {
     );
   }
   if (record2.areas?.length && existsSync19(join27(ctx.root, ctx.layout.knowledgeRoot))) {
-    const known = knownAreas(ctx);
+    const known2 = knownAreas(ctx);
     for (const area2 of record2.areas) {
-      if (!known.has(area2)) {
+      if (!known2.has(area2)) {
         violations.push(`${file2}: areas names "${area2}", which is not a folder under ${domainsDir(ctx)}.`);
       }
     }
@@ -35811,7 +35811,7 @@ function glossaryHolds(glossaryText, term) {
   return new RegExp(`(^|[^\\w])${escaped2}([^\\w]|$)`, "i").test(glossaryText);
 }
 function findCrossDomainFileViolations(knowledge2) {
-  const known = new Set(knowledge2.domains.map((domain2) => domain2.name));
+  const known2 = new Set(knowledge2.domains.map((domain2) => domain2.name));
   const violations = [];
   for (const { file: file2, name: name2, pair } of knowledge2.crossDomainFiles) {
     if (!pair) {
@@ -35820,7 +35820,7 @@ function findCrossDomainFileViolations(knowledge2) {
     }
     const [a = "", b = ""] = pair;
     for (const half of pair) {
-      if (!known.has(half)) {
+      if (!known2.has(half)) {
         violations.push(violation(file2, name2, `names "${half}", which is not a domain folder.`));
       }
     }
@@ -39130,8 +39130,8 @@ function classificationSchema(summary) {
     }
     if (reply.kind === "covered") {
       const record2 = reply.covers.match(RECORD_ID);
-      const known = record2 ? records.has(record2[1] ?? "") : entryIds.has(reply.covers);
-      if (!known) issue2(["covers"], `covers "${reply.covers}", which names no existing entry or decision record`);
+      const known2 = record2 ? records.has(record2[1] ?? "") : entryIds.has(reply.covers);
+      if (!known2) issue2(["covers"], `covers "${reply.covers}", which names no existing entry or decision record`);
     }
   });
 }
@@ -42743,7 +42743,9 @@ var StepSchema = external_exports.object({
   after: external_exports.array(external_exports.number().int().positive()),
   waitsFor: external_exports.array(PrdNumberSchema),
   why: external_exports.array(external_exports.string()),
-  beside: external_exports.array(external_exports.number().int().positive())
+  beside: external_exports.array(external_exports.number().int().positive()),
+  // PRD 1162, slice s1: in a plan repository, the repositories the step touches.
+  repos: external_exports.array(external_exports.string()).exactOptional()
 });
 var LoopPlanSchema = external_exports.object({
   version: external_exports.number().int().positive(),
@@ -43052,6 +43054,7 @@ function building(prd2, board2, link2) {
   return wait2(prd2, "nothing can move yet", WAKE_HINTS.claim, link2);
 }
 function decideNext(facts) {
+  if (facts.across !== void 0) return decideAcross(facts, facts.across);
   const { prd: prd2, feature, board: board2, outbox } = facts;
   if (feature !== null && feature !== "unreadable" && feature.state !== "OPEN") {
     return { prd: prd2, verdict: "done", why: `the feature PR is ${feature.state.toLowerCase()}`, link: feature.url };
@@ -43065,6 +43068,75 @@ function decideNext(facts) {
   if (board2 === null) return act(prd2, "yolo", "the PRD has no plan yet", feature?.url);
   if (board2.total > 0 && board2.merged === board2.total) return finished(prd2, feature, outbox);
   return building(prd2, board2, feature?.url);
+}
+function prRef(url2) {
+  const match = /\/([^/]+)\/pull\/(\d+)\/?$/.exec(url2);
+  return match ? `${match[1]}#${match[2]}` : url2;
+}
+var known = (entry) => entry.pr === null || entry.pr === "unreadable" ? null : entry.pr;
+var isReady = (pr) => pr !== null && pr.state === "OPEN" && !pr.isDraft;
+function allEnded(planPr, targets2) {
+  if (planPr === null || planPr.state === "OPEN") return false;
+  return targets2.every((entry) => entry.pr === null || entry.pr !== "unreadable" && entry.pr.state !== "OPEN");
+}
+function readyAcross(prd2, prs) {
+  const ready = prs.map(known).filter(isReady);
+  for (const pr of ready) {
+    const needs = careNeeds(pr);
+    if (needs.length > 0) return act(prd2, "mega-pr-care --once", `${prRef(pr.url)} has ${needs.join(", ")}`, pr.url);
+  }
+  const stuck = ready.find((pr) => pr.checks === "red" && pr.stuck);
+  return stuck ? park(prd2, `waits on a person: ${prRef(stuck.url)}'s CI is stuck after its attempts`, stuck.url) : null;
+}
+function questionsAcross(prd2, planPr, outbox) {
+  if (outbox.questions === 0) return null;
+  const on = planPr ? ` on ${prRef(planPr.url)}` : "";
+  if (outbox.answered) return act(prd2, "ultra-yolo-fix", `answers are posted on the outbox questions${on}`, planPr?.url);
+  const who2 = planPr?.author ? `@${planPr.author}` : "the PRD's owner";
+  return park(prd2, `waits on ${who2}: ${count3(outbox.questions, "outbox question")} to answer${on}`, planPr?.url);
+}
+function finishedAcross(prd2, prs, outbox) {
+  const asked = questionsAcross(prd2, prs[0] ? known(prs[0]) : null, outbox);
+  if (asked !== null) return asked;
+  const open3 = prs.filter((entry) => entry.pr === null || known(entry)?.state === "OPEN");
+  const notReady = open3.find((entry) => !isReady(known(entry)));
+  if (notReady) {
+    const pr = known(notReady);
+    const what = pr === null ? `${notReady.repo}'s feature PR is not opened yet` : `${prRef(pr.url)} is not ready yet`;
+    return act(prd2, "ultra-yolo", `every slice is merged and ${what}`, pr?.url);
+  }
+  const ready = open3.map(known).filter(isReady);
+  const running = ready.find((pr) => pr.checks === "running");
+  if (running) return wait2(prd2, `${prRef(running.url)}'s CI is running`, WAKE_HINTS.ci, running.url);
+  return park(prd2, `waits on a person: ready to merge: ${ready.map((pr) => prRef(pr.url)).join(", ")}`, ready[0]?.url);
+}
+function endedAcross(facts, prs, planPr) {
+  const { prd: prd2 } = facts;
+  if (allEnded(planPr, prs.slice(1))) return { prd: prd2, verdict: "done", why: "the plan PR and every target PR are merged or closed", ...planPr ? { link: planPr.url } : {} };
+  return facts.shipped && prs.every((entry) => entry.pr === null) ? { prd: prd2, verdict: "done", why: "the PRD has shipped" } : null;
+}
+function stoppedAcross(facts, prs, planPr) {
+  const { prd: prd2, phase0: phase02 } = facts;
+  const ended = endedAcross(facts, prs, planPr);
+  if (ended !== null) return ended;
+  if (phase02 !== null) return park(prd2, `waits on a reviewer: the phase-0 PR ${prRef(phase02.url)} is open`, phase02.url);
+  if (prs.some((entry) => entry.pr === "unreadable")) return wait2(prd2, "github unreachable", WAKE_HINTS.unreadable);
+  return readyAcross(prd2, prs);
+}
+function plannedAcross(prd2, board2, { prs, outbox }, link2) {
+  if (board2.total > 0 && board2.merged === board2.total) return finishedAcross(prd2, prs, outbox);
+  return board2.takeable.length > 0 ? act(prd2, "ultra-wave", `wave ${board2.wave ?? "?"} can take ${ids(board2.takeable)}`, link2) : building(prd2, board2, link2);
+}
+function decideAcross(facts, across) {
+  const { prd: prd2, feature, board: board2, outbox } = facts;
+  const prs = [{ repo: across.repo, pr: feature }, ...across.targets];
+  const planPr = known({ repo: across.repo, pr: feature });
+  const link2 = planPr?.url;
+  const stopped3 = stoppedAcross(facts, prs, planPr);
+  if (stopped3 !== null) return stopped3;
+  if (outbox === "unreadable") return wait2(prd2, "github unreachable", WAKE_HINTS.unreadable);
+  if (board2 === "unreadable") return wait2(prd2, "the board cannot be read", WAKE_HINTS.unreadable, link2);
+  return board2 === null ? act(prd2, "ultra-yolo", "the PRD has no plan yet", link2) : plannedAcross(prd2, board2, { prs, outbox }, link2);
 }
 
 // kit/lib/next/follow.ts
@@ -43124,6 +43196,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/next/plan.ts
 init_define_OMNI_BUNDLE();
+var reposOf = (slices) => [...new Set(slices.flatMap((slice) => slice.repo ? [slice.repo] : []))].sort();
 var byNumber = (a, b) => a - b;
 var hasStuck = (input2) => (input2.slices ?? []).some((slice) => slice.state === "stuck");
 function prdOrder(prds) {
@@ -43155,6 +43228,7 @@ function unitsOf(input2, order) {
     kind,
     wave,
     slices,
+    repos: reposOf(kind === "finish" ? input2.slices ?? [] : slices),
     done,
     deps: /* @__PURE__ */ new Set(),
     waitsFor: [],
@@ -43171,13 +43245,19 @@ function unitsOf(input2, order) {
   }
   return units;
 }
+function groundOf(a, b) {
+  const repo = a.repo ?? null;
+  if (repo !== (b.repo ?? null)) return [];
+  const ground = sharedGround(a, b);
+  return repo === null ? ground : ground.map((path) => `${repo}:${path}`);
+}
 function meeting(first, second) {
   const shared = /* @__PURE__ */ new Set();
   const left = /* @__PURE__ */ new Set();
   const right = /* @__PURE__ */ new Set();
   for (const a of first.slices) {
     for (const b of second.slices) {
-      const ground = sharedGround(a, b);
+      const ground = groundOf(a, b);
       if (ground.length === 0) continue;
       for (const path of ground) shared.add(path);
       left.add(a.id);
@@ -43218,8 +43298,8 @@ function orderBlockers(ordered, unitsByPrd, shipped) {
   }
 }
 function depthOf(unit3, memo2, seen = /* @__PURE__ */ new Set()) {
-  const known = memo2.get(unit3);
-  if (known !== void 0) return known;
+  const known2 = memo2.get(unit3);
+  if (known2 !== void 0) return known2;
   if (seen.has(unit3)) return 0;
   seen.add(unit3);
   const depth = Math.max(-1, ...[...unit3.deps].map((dep) => depthOf(dep, memo2, seen))) + 1;
@@ -43253,7 +43333,8 @@ function planLoop(inputs, { version: version3 = 1, reason: reason2 = null } = {}
       after: [...unit3.deps].map(num).sort(byNumber),
       waitsFor: unit3.waitsFor,
       why: unit3.why,
-      beside: sorted.filter((other) => other !== unit3 && level(other) === level(unit3)).map(num)
+      beside: sorted.filter((other) => other !== unit3 && level(other) === level(unit3)).map(num),
+      ...unit3.repos.length > 0 ? { repos: unit3.repos } : {}
     })
   );
   return { version: version3, reason: reason2, prds: ordered.map((input2) => input2.prd).sort(byNumber), steps, seen: [...inputs.prds].sort((a, b) => a.prd - b.prd).map(seenOf) };
@@ -43279,7 +43360,8 @@ function formatPlan(plan2) {
     const after = step.after.length > 0 ? ` \xB7 after ${step.after.join(", ")}` : "";
     const waits = step.waitsFor.length > 0 ? ` \xB7 waits for PRD ${step.waitsFor.join(", ")} to ship` : "";
     const beside = step.beside.length > 0 ? ` \xB7 beside ${step.beside.join(", ")}` : "";
-    return `  ${step.step}. ${stepWords(step)}${after}${waits}${beside}`;
+    const repos = step.repos ? ` \xB7 in ${step.repos.join(", ")}` : "";
+    return `  ${step.step}. ${stepWords(step)}${after}${waits}${beside}${repos}`;
   });
   const orders = crossOrders(plan2);
   return [head, ...steps, ...orders.length > 0 ? ["orders across PRDs:", ...orders.map((order) => `  ${order}`)] : []];
@@ -44171,14 +44253,14 @@ function boardFacts(prd2, reader) {
       stuck: having("stuck"),
       unreadable: having("unreadable")
     };
-    return { board: board2, slices: result.slices.map(({ id, territory, wave, state }) => ({ id, territory, wave, state })) };
+    return { board: board2, slices: result.slices.map(({ id, territory, wave, state, repo }) => ({ id, territory, wave, state, ...repo === void 0 ? {} : { repo } })) };
   } catch {
     return { board: "unreadable", slices: planSlices(join60(ctx.root, planPath)) };
   }
 }
 function planSlices(path) {
   try {
-    return parsePlanSlices(readFileSync49(path, "utf8")).map(({ id, territory, wave }) => ({ id, territory, wave, state: "unreadable" }));
+    return parsePlanSlices(readFileSync49(path, "utf8")).map(({ id, territory, wave, repo }) => ({ id, territory, wave, state: "unreadable", repo }));
   } catch {
     return null;
   }
@@ -44202,7 +44284,10 @@ function readFacts2(prd2, reader) {
   const folder = folderOf(prd2, reader.ctx);
   const phase02 = openPhase0(prd2, reader);
   if (folder === null) {
-    if (phase02 !== null) return { facts: { prd: prd2, shipped: false, phase0: phase02, feature: null, board: null, outbox: { questions: 0, answered: false } }, slices: null };
+    if (phase02 !== null) {
+      const across2 = acrossFacts("", null, reader);
+      return { facts: { prd: prd2, shipped: false, phase0: phase02, feature: null, board: null, outbox: { questions: 0, answered: false }, ...across2 ? { across: across2 } : {} }, slices: null };
+    }
     throw usageError(`omni next: PRD ${prd2} has no inbox or shipped folder, and no open phase-0 PR.`);
   }
   const branch = fillBranch(reader.ctx.config.branches.feature, { topic: folder.topic });
@@ -44210,7 +44295,27 @@ function readFacts2(prd2, reader) {
   const open3 = pr?.state === "OPEN" ? pr : null;
   const feature = pr === null ? null : featureFacts(pr, reader);
   const { board: board2, slices } = boardFacts(prd2, reader);
-  return { facts: { prd: prd2, shipped: folder.shipped, phase0: phase02, feature, board: board2, outbox: outboxFacts(prd2, { branch, pr: open3 }, reader) }, slices };
+  const across = acrossFacts(branch, slices, reader);
+  const facts = { prd: prd2, shipped: folder.shipped, phase0: phase02, feature, board: board2, outbox: outboxFacts(prd2, { branch, pr: open3 }, reader), ...across ? { across } : {} };
+  return { facts, slices };
+}
+var shortName6 = (slug) => slug.slice(slug.indexOf("/") + 1);
+var reposOf2 = (slices) => [...new Set((slices ?? []).flatMap((slice) => slice.repo ? [slice.repo] : []))].sort();
+function targetPr(branch, reader) {
+  try {
+    const pr = featurePr(branch, reader);
+    return pr === null ? null : featureFacts(pr, reader);
+  } catch {
+    return "unreadable";
+  }
+}
+function acrossFacts(branch, slices, reader) {
+  const targets2 = reader.ctx.config.plan?.targets;
+  if (targets2 === void 0) return void 0;
+  const repo = shortName6(reader.slug);
+  const named3 = new Set(reposOf2(slices));
+  const landed = targets2.filter((target3) => named3.has(shortName6(target3.repo)) && shortName6(target3.repo) !== repo);
+  return { repo, targets: landed.map((target3) => ({ repo: shortName6(target3.repo), pr: targetPr(branch, { ...reader, slug: target3.repo }) })) };
 }
 function isUsage(error62) {
   return error62 instanceof Error && error62.name === "UsageError";
@@ -44231,7 +44336,9 @@ function readPrd(prd2, reader) {
     read2 = { facts, slices: planPath === null ? null : planSlices(join60(reader.ctx.root, planPath)) };
   }
   const input2 = { prd: prd2, blockedBy: blockersOf2(prd2, reader.ctx), slices: read2.slices, ended: endedOf(read2.facts) };
-  return { verdict: decideNext(read2.facts), input: input2 };
+  const repos = reposOf2(read2.slices);
+  const verdict2 = decideNext(read2.facts);
+  return { verdict: repos.length > 0 ? { ...verdict2, repos } : verdict2, input: input2 };
 }
 function yourPrds(reader) {
   const facts = readFacts({ ctx: reader.ctx, exec: reader.exec });
@@ -44284,7 +44391,7 @@ function followKept(prds, kept, { reader, out, json: json2 }) {
     plan: { version: plan2.version, steps: plan2.steps.length },
     replanned,
     stop: followed.state === "stop",
-    step: step && { step: step.step, of: plan2.steps.length, prd: step.prd, kind: step.kind, wave: step.wave, slices: step.slices },
+    step: step && { step: step.step, of: plan2.steps.length, prd: step.prd, kind: step.kind, wave: step.wave, slices: step.slices, ...step.repos ? { repos: step.repos } : {} },
     verdict: followed.state === "step" ? followed.verdict : null,
     waiting: followed.state === "stop" ? followed.waiting : [],
     prds: verdicts
@@ -44713,7 +44820,7 @@ function targetsTable(rows2) {
 }
 
 // kit/lib/plan-repo/moved.ts
-var shortName6 = (slug) => slug.slice(slug.indexOf("/") + 1);
+var shortName7 = (slug) => slug.slice(slug.indexOf("/") + 1);
 var pathsOf = (file2) => [file2.filename, file2.previous_filename].filter((path) => Boolean(path));
 function compareRow(gh2, { slug, readAt, slices }) {
   const branch = gh2.repository(slug).default_branch;
@@ -44738,8 +44845,8 @@ function planMoved({
   targets: targets2
 }, { exec = execFileSync13, env } = {}) {
   const gh2 = ghReader({ exec, env });
-  const slugOf3 = new Map(targets2.map((target3) => [shortName6(target3.repo), target3.repo]));
-  return repositories.filter((row) => row.repo !== shortName6(planSlug)).map((row) => {
+  const slugOf3 = new Map(targets2.map((target3) => [shortName7(target3.repo), target3.repo]));
+  return repositories.filter((row) => row.repo !== shortName7(planSlug)).map((row) => {
     const base = { repo: row.repo, state: "ok", files: [], slices: [], detail: null };
     const slug = slugOf3.get(row.repo);
     if (!slug) return { ...base, state: "unreachable", detail: "not a target of this plan repository" };
