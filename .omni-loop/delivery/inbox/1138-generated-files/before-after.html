@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Generated files</title>
+<style>
+/* Layout: three moments (the plan's waves, a sub-PR, the retro), each today | after side by side, stacking at phone width. Look: the PRD page's own tokens. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --red:#b3122f;--redSoft:#fbe8ec;--green:#15703f;--greenSoft:#e4f4ea;
+ --term:#14132e;--termInk:#e7e8ff;--termMuted:#9a9cc9;--termGreen:#5fe39a;--termRed:#ff7d93;--termAmber:#ffc865;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+ --display:Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
+ --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#07061c;--termInk:#e7e8ff;--termMuted:#8d90c4;--termGreen:#5fe39a;--termRed:#ff7d93;--termAmber:#ffc865;
+ color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#07061c;--termInk:#e7e8ff;--termMuted:#8d90c4;--termGreen:#5fe39a;--termRed:#ff7d93;--termAmber:#ffc865;
+ color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.55 var(--body)}
+main{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:32px 56px;display:grid;gap:40px}
+header{display:grid;gap:8px}
+h1{font:400 clamp(30px,5vw,46px)/1 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance}
+.lede{color:var(--muted);max-width:68ch;margin:0}
+section{display:grid;gap:14px}
+h2{font:400 24px/1.1 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+.why{color:var(--muted);margin:0;max-width:72ch}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{min-width:0;display:grid;gap:8px;align-content:start}
+.tag{font:700 11px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tag.after{color:var(--plasma)}
+.term{background:var(--term);color:var(--termInk);border-radius:10px;padding:14px 16px;font:12.5px/1.6 var(--mono);overflow-x:auto;white-space:pre;margin:0}
+.term .m{color:var(--termMuted)}.term .g{color:var(--termGreen)}.term .r{color:var(--termRed)}.term .a{color:var(--termAmber)}
+code{font:12.5px var(--mono);background:var(--sunk);padding:1px 5px;border-radius:4px}
+.same{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 18px}
+.same ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
+</style>
+</head>
+<body>
+<main>
+<header>
+ <h1>Generated files</h1>
+ <p class="lede">PRD #1138, from PRD 1089's retro (#1101, #1102, #1103). The config lists the files the repository builds: <code>kit/dist/</code> and the App bundle <code>apps/omni-app/api/</code>. A slice never commits them, the wave rebuilds them once, and no check counts them as a breach or as shared ground.</p>
+</header>
+
+<section>
+ <h2>The plan's waves</h2>
+ <p class="why">PRD 1118's four kit slices all rebuild <code>kit/dist/</code>. Today that is shared ground, so they run one wave each.</p>
+ <div class="pair">
+  <div class="side"><span class="tag">Today</span>
+<pre class="term"><span class="m">$ omni plan check 1118</span>
+4 slices across waves 1, 2, 3, 4
+  s1 · s2: <span class="a">`kit/dist/`</span> — w1 · w2
+  s1 · s3: <span class="a">`kit/dist/`</span> — w1 · w3
+  s2 · s4: <span class="a">`kit/dist/`</span> — w2 · w4
+  s3 · s4: `kit/lib/help/`, <span class="a">`kit/dist/`</span> — w3 · w4</pre>
+  </div>
+  <div class="side"><span class="tag after">After</span>
+<pre class="term"><span class="m">$ omni plan check 1118</span>
+4 slices across waves 1, 2
+  s3 · s4: `kit/lib/help/` — w1 · w2
+<span class="m">  kit/dist/ is generated: never shared ground</span></pre>
+  </div>
+ </div>
+</section>
+
+<section>
+ <h2>A sub-PR, and the wave</h2>
+ <p class="why">Today each slice commits the rebuilt bundle, which is a breach, and two slices in one wave conflict on it. After, the sub-PR carries sources only, and the wave rebuilds once.</p>
+ <div class="pair">
+  <div class="side"><span class="tag">Today</span>
+<pre class="term"><span class="m">wave 2 of PRD 1130</span>
+  s2 #1135  merged  <span class="r">breach: apps/omni-app/api/inngest.mjs</span>
+  s3 #1136  <span class="r">CONFLICTING</span> on apps/omni-app/api/inngest.mjs
+            <span class="m">orchestrator merges, rebuilds by hand</span></pre>
+  </div>
+  <div class="side"><span class="tag after">After</span>
+<pre class="term"><span class="m">wave 2 of PRD 1130</span>
+  s2 #1135  merged  inside
+  s3 #1136  merged  inside
+<span class="m">$ omni generated 755491ae..HEAD</span>
+  apps/omni-app/api/  <span class="a">stale</span>  node apps/omni-app/build.ts
+  kit/dist/           <span class="g">fresh</span>
+<span class="g">chore(build): rebuild generated files — wave 2 of PRD 1130</span></pre>
+  </div>
+ </div>
+</section>
+
+<section>
+ <h2>The retro</h2>
+ <p class="why">PRD 1089's retro opened three issues for the same rebuilt bundle. After, a generated path is never a territory finding. Hand-written registration files still are.</p>
+ <div class="pair">
+  <div class="side"><span class="tag">Today</span>
+<pre class="term">F1 · territory:s1  <span class="r">apps/omni-app/api/github.mjs, inngest.mjs</span>  #1101
+F2 · territory:s3  <span class="r">apps/omni-app/api/inngest.mjs</span>              #1102
+F4 · territory:s6  <span class="r">inngest.mjs</span>, kit/bin/commands/plan.ts, …   #1103</pre>
+  </div>
+  <div class="side"><span class="tag after">After</span>
+<pre class="term">F1 · territory:s6  kit/bin/commands/plan.ts,
+                   apps/omni-app/src/inbox-check/evaluate-inbox.ts
+<span class="m">generated paths left out: apps/omni-app/api/</span></pre>
+  </div>
+ </div>
+</section>
+
+<section class="same">
+ <h2>What stays the same</h2>
+ <ul>
+  <li>A repository without a <code>generated</code> section plans, merges and runs its retro exactly as today.</li>
+  <li>The stale-bundle tests (<code>kit/test/dist.test.ts</code>, the App's vercel-functions test) stay, so a missed rebuild still fails.</li>
+  <li><code>omni check config</code> turns red on an entry whose path, sources or build do not exist.</li>
+ </ul>
+</section>
+</main>
+</body>
+</html>
