@@ -43681,6 +43681,24 @@ function phase0Of(ctx, exec, base, remote) {
   }
   return out;
 }
+function knowledgeAt(ctx, exec, ref) {
+  const paths = entries(git3(ctx, exec, ["ls-tree", "-r", "-z", "--name-only", ref, "--", `${ctx.layout.knowledgeRoot}/`]));
+  if (paths.length === 0) return null;
+  const under = (dir) => paths.filter((path) => path.startsWith(`${dir}/`)).map((path) => path.slice(dir.length + 1));
+  return {
+    files: (dir) => under(dir).filter((rest) => !rest.includes("/")).sort(),
+    dirs: (dir) => [...new Set(under(dir).filter((rest) => rest.includes("/")).map((rest) => rest.split("/")[0] ?? ""))].sort(),
+    read: (file2) => git3(ctx, exec, ["show", `${ref}:${file2}`])
+  };
+}
+function rulesAt(ctx, exec, ref) {
+  return unlessUnreadable(() => {
+    const source = knowledgeAt(ctx, exec, ref);
+    if (source === null) return null;
+    const proven = readKnowledge({ ctx, source }).entries.filter((entry) => entry.kind === "rule" || entry.kind === "invariant");
+    return { enforced: proven.filter((entry) => entry.enforced).length, total: proven.length };
+  });
+}
 function readFacts({ ctx, exec = execFileSync11 }) {
   const base = readBase(ctx, exec);
   if (!base) return null;
@@ -43698,7 +43716,8 @@ function readFacts({ ctx, exec = execFileSync11 }) {
     inbox,
     touched: touchedBy(ctx, commitsIn(ctx, exec, base.commit, [`${ctx.config.paths.delivery}/`])),
     features: featuresOf(ctx, exec, base.commit, inbox, remote),
-    phase0: phase0Of(ctx, exec, base.commit, remote)
+    phase0: phase0Of(ctx, exec, base.commit, remote),
+    rules: rulesAt(ctx, exec, base.commit)
   };
 }
 
@@ -43821,7 +43840,8 @@ function overviewFor(facts) {
     },
     bar: barFor(delivered.length, delivered.length + inProgress),
     inProgress: { total: inProgress, inbox: inbox.length, building: building2.length, outbox: outbox.length },
-    yours: yoursOf(facts, stages, onBase)
+    yours: yoursOf(facts, stages, onBase),
+    rules: facts.rules
   };
 }
 
@@ -47777,6 +47797,7 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
   }
   return [top, ...under];
 }
+var rulesLine = ({ rules }) => rules === null ? [] : [`${INDENT}rules enforced  ${rules.enforced} of ${rules.total}`];
 var NUMBER_GAP = "  ";
 var TOPIC_GAP = "    ";
 var SEPARATOR = " \xB7 ";
@@ -47844,6 +47865,7 @@ function formatOverview(overview2, { now }) {
     ...counts(overview2.counts),
     "",
     ...bar(overview2),
+    ...rulesLine(overview2),
     "",
     ...yours(overview2.yours),
     "",

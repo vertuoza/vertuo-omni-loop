@@ -1,13 +1,15 @@
 // Every git call of `omni status`'s overview, and nothing else: it reads the base — the default
 // branch as last fetched — and the remote feature and phase-0 branches, who wrote which of their
-// commits, the checkout's `user.email` and whether it is a shallow clone, and returns plain data for
-// `overview.mjs`. It never reads the working tree, and it touches the network only when asked to
-// fetch; the fetch is also the only thing it writes, and a failed one leaves the checkout's
-// `FETCH_HEAD` as it found it.
+// commits, the checkout's `user.email`, whether it is a shallow clone and the base's knowledge
+// registers, and returns plain data for `overview.mjs`. It never reads the working tree, and it
+// touches the network only when asked to fetch; the fetch is also the only thing it writes, and a
+// failed one leaves the checkout's `FETCH_HEAD` as it found it.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fillBranch } from '../board.ts';
+import { readKnowledge } from '../knowledge/registers.ts';
+import type { KnowledgeSource } from '../knowledge/registers.ts';
 import { parseFolderName } from '../layout.ts';
 import { plainText } from '../outbox/plain-text.ts';
 import type { Context, ExecText } from '../context.ts';
@@ -45,6 +47,10 @@ export type FeatureFacts = {
 /** A phase-0 branch on the remote, as {@link readFacts} reads it. */
 export type Phase0Facts = { branch: string; topic: string; inbox: FactsFolder[]; touched: Touch[] };
 
+/** The base's rules and invariants: how many there are, and how many name a proof in their
+ * `Enforced by:` line (PRD 1171). */
+export type RulesCount = { enforced: number; total: number };
+
 /** What the overview needs, as {@link readFacts} returns it. */
 export type Facts = {
   slug: string | null;
@@ -58,6 +64,7 @@ export type Facts = {
   touched: Touch[];
   features: FeatureFacts[];
   phase0: Phase0Facts[];
+  rules: RulesCount | null;
 };
 
 /** `FETCH_HEAD` as it was before a fetch: its bytes and times, or `bytes: null` when it was absent. */
@@ -385,13 +392,39 @@ function phase0Of(ctx: Context, exec: ExecText, base: string, remote: Map<string
   return out;
 }
 
+/** The knowledge folder at `ref`, each file read through git only when the parser asks for it, or
+ * `null` when no file sits under `paths.knowledge` there. */
+function knowledgeAt(ctx: Context, exec: ExecText, ref: string): KnowledgeSource | null {
+  const paths = entries(git(ctx, exec, ['ls-tree', '-r', '-z', '--name-only', ref, '--', `${ctx.layout.knowledgeRoot}/`]));
+  if (paths.length === 0) return null;
+  const under = (dir: string): string[] => paths.filter((path) => path.startsWith(`${dir}/`)).map((path) => path.slice(dir.length + 1));
+  return {
+    files: (dir) => under(dir).filter((rest) => !rest.includes('/')).sort(),
+    dirs: (dir) => [...new Set(under(dir).filter((rest) => rest.includes('/')).map((rest) => rest.split('/')[0] ?? ''))].sort(),
+    read: (file) => git(ctx, exec, ['show', `${ref}:${file}`]),
+  };
+}
+
+/** The rules and invariants of the knowledge folder at `ref`, proposed ones included, and how many of
+ * them name a proof; a principle is judged, not proven, so it is left out. `null` when `ref` holds no
+ * knowledge folder, or it cannot be read. */
+function rulesAt(ctx: Context, exec: ExecText, ref: string): RulesCount | null {
+  return unlessUnreadable(() => {
+    const source = knowledgeAt(ctx, exec, ref);
+    if (source === null) return null;
+    const proven = readKnowledge({ ctx, source }).entries.filter((entry) => entry.kind === 'rule' || entry.kind === 'invariant');
+    return { enforced: proven.filter((entry) => entry.enforced).length, total: proven.length };
+  });
+}
+
 /**
  * What the overview needs: `{ slug, base, fetchedAt, email, shallow, shipped, retro, inbox, touched,
  * features, phase0 }` — `base` the name the base was read under, `email` what `user.email` gives
  * (or `null`), `shallow` whether the clone is, `shipped` and `inbox` the base's PRD folders, `retro`
  * the numbers of the shipped ones holding `RETRO_FILE`,
  * `touched` the PRD folders each author's commits on the base touched, `features` the feature
- * branches of its inbox's PRDs and `phase0` the phase-0 branches, both read on `<repo.remote>`.
+ * branches of its inbox's PRDs and `phase0` the phase-0 branches, both read on `<repo.remote>`,
+ * and `rules` the base's rules and invariants counted, `null` without a knowledge folder.
  * `null` when neither the remote-tracking default branch nor the local one exists.
  */
 export function readFacts({ ctx, exec = execFileSync }: { ctx: Context; exec?: ExecText }): Facts | null {
@@ -412,5 +445,6 @@ export function readFacts({ ctx, exec = execFileSync }: { ctx: Context; exec?: E
     touched: touchedBy(ctx, commitsIn(ctx, exec, base.commit, [`${ctx.config.paths.delivery}/`])),
     features: featuresOf(ctx, exec, base.commit, inbox, remote),
     phase0: phase0Of(ctx, exec, base.commit, remote),
+    rules: rulesAt(ctx, exec, base.commit),
   };
 }

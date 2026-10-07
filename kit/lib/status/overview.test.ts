@@ -23,6 +23,7 @@ function facts({ shipped = [], inbox = [], ...more }: Partial<Omit<OverviewFacts
     touched: [],
     features: [],
     phase0: [],
+    rules: null,
     ...more,
   };
 }
@@ -61,6 +62,11 @@ describe('overviewFor — the shipped and inbox stages', () => {
     const overview = overviewFor(facts({ shipped: [1, 2, 3], inbox: [4, 5] }));
     expect(overview.counts).toEqual({ prd: 0, inbox: 2, building: 0, openItems: 0, outbox: 0, shipped: 3, retro: 0 });
     expect(overview.inProgress).toEqual({ total: 2, inbox: 2, building: 0, outbox: 0 });
+  });
+
+  it('carries the rules count as the facts read it (PRD 1171)', () => {
+    expect(overviewFor(facts({ rules: { enforced: 1, total: 3 } })).rules).toEqual({ enforced: 1, total: 3 });
+    expect(overviewFor(facts()).rules).toBeNull();
   });
 
   it('lists each stage newest first', () => {
