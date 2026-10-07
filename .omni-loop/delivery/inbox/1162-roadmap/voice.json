@@ -1,0 +1,124 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-07",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Twenty-five PRDs written at once is a lot of surface for slop, unless every one still goes through the same outbox gate.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A bot that writes a whole roadmap sounds like fluff until I see the blockers make sense.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Paste the plan, merge one PR, and every repository builds: that is exactly the speed I want.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "One page showing the milestone, its order and what blocks it is what I look for, but twenty-five specs in one review worries me.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I can follow the Gantt and see which merge I owe, without driving the harness myself.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "Twenty-five specs from one page land in one phase-0 PR, and I can't review that properly. Specs written today for phase 6 will describe code that doesn't exist yet, so I'd rather approve the order.",
+        "citations": [
+          "persona:Lead Engineer"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ~ · persona:B-E DEv ~ · persona:F-E Developer ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-07",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Each PRD keeps its own plan, waves and outbox gate, and nothing merges into main without a person.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "readOnly on vertuo-backend-php and a check that refuses a consumer before its provider are rules I can trust.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "One map, one answer, one phase-0 PR, then mega-drive builds the milestone across every repository.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Every blocker carries its reason and every wait names the PR to merge, so the order is reviewable.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The Roadmaps page tells me what waits on me, so I merge what unblocks the most.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "Twenty-five PRDs written by a bot in one sitting is exactly the fluff I expect. If the map step lets wrong repo tags or invented blockers through, I'll spend my week closing PRs.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ · persona:F-E Developer ~"
+    }
+  ]
+}
