@@ -15,6 +15,7 @@ type Job = {
 };
 
 const workflow = parse(readFileSync(fileURLToPath(new URL('../.github/workflows/checks.yml', import.meta.url)), 'utf8')) as {
+  concurrency: { group: string; 'cancel-in-progress': boolean };
   jobs: Record<string, Job>;
 };
 
@@ -54,6 +55,53 @@ describe.each([
     // It runs even when a shard failed, to fail itself, and only when settle said the run is current.
     expect(gather.if).toBe("always() && needs.settle.outputs.stale == 'false'");
     expect(runs(gather)).toContain(`[ "\${{ needs.${check}-shard.result }}" = "success" ]`);
+  });
+});
+
+/**
+ * The concurrency group a run of this event lands in: each `${{ … }}` of the workflow's group read
+ * with the little of GitHub's expression language it needs — a context path, a quoted string, `==`,
+ * `&&` and `||`, which return an operand as GitHub's do.
+ */
+function concurrencyGroup(event: { head_ref: string; draft: boolean }): string {
+  const context: Record<string, unknown> = {
+    'github.head_ref': event.head_ref,
+    'github.event.pull_request.draft': event.draft,
+  };
+  const operand = (text: string): unknown => {
+    const term = text.trim();
+    const quoted = /^'(.*)'$/.exec(term);
+    if (quoted) return quoted[1];
+    if (term === 'true' || term === 'false') return term === 'true';
+    if (!(term in context)) throw new Error(`concurrencyGroup does not know ${term}`);
+    return context[term];
+  };
+  const equality = (text: string): unknown => {
+    const sides = text.split('==');
+    return sides.length === 2 ? operand(sides[0] ?? '') === operand(sides[1] ?? '') : operand(text);
+  };
+  const evaluate = (text: string): unknown =>
+    text
+      .split('||')
+      .map((either) => either.split('&&').reduce<unknown>((left, right, k) => (k === 0 ? equality(right) : left ? equality(right) : left), true))
+      .reduce((left, right) => left || right);
+  return workflow.concurrency.group.replace(/\$\{\{(.*?)\}\}/g, (_, expression: string) => String(evaluate(expression)));
+}
+
+// Issue 1167: a push and `gh pr ready` seconds apart start two runs together. The push's
+// `synchronize` run saw a draft and runs nothing; when it shared the ready run's group, either could
+// cancel the other, and a cancelled ready run left the PR green with no test, lint, typecheck or fallow.
+describe('the concurrency group', () => {
+  const branch = 'feat/people-ranking';
+
+  it("keeps a draft run out of a ready run's group, so it can never cancel it", () => {
+    expect(concurrencyGroup({ head_ref: branch, draft: true })).not.toBe(concurrencyGroup({ head_ref: branch, draft: false }));
+  });
+
+  it('still lets a newer push cancel the ready run before it, on that branch only', () => {
+    expect(workflow.concurrency['cancel-in-progress']).toBe(true);
+    expect(concurrencyGroup({ head_ref: branch, draft: false })).toBe(concurrencyGroup({ head_ref: branch, draft: false }));
+    expect(concurrencyGroup({ head_ref: branch, draft: false })).not.toBe(concurrencyGroup({ head_ref: 'feat/other', draft: false }));
   });
 });
 
