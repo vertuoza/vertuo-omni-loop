@@ -272,6 +272,9 @@ export interface PersonRow {
   prs: number | null | typeof UNREADABLE;
   prds: PrdGroups | typeof UNREADABLE;
   answered: number | typeof UNREADABLE;
+  /** Their place by points among the table's rows (PRD 1017): equal points share it and the next
+   * place skips (1, 2, 2, 4); null when their points are a dash or unreadable. */
+  rank: number | null;
   you: boolean;
 }
 
@@ -286,7 +289,8 @@ export interface PeopleInput {
   prds: Read<readonly PrdNow[]>;
 }
 
-const rank = (n: PersonRow['prs']) => (typeof n === 'number' ? n : -1);
+/** A count to order by: a dash or an unreadable one below every number. */
+const counted = (n: PersonRow['prs']) => (typeof n === 'number' ? n : -1);
 
 const nameOf = (m: Member) => m.name?.trim() || m.login || 'A member';
 
@@ -314,7 +318,7 @@ export function peopleRows(members: readonly Member[], input: PeopleInput, viewe
   if (input.heroes !== UNREADABLE) for (const h of input.heroes) points.set(h.name.toLowerCase(), h.points);
   const fleets = new Map(input.fleets.map((f) => [f.name, f]));
 
-  const rows = members.map((m): PersonRow => {
+  const rows = members.map((m): Omit<PersonRow, 'rank'> => {
     const login = m.login?.toLowerCase() ?? null;
     const mine = login ? byLogin.get(login) ?? [] : [];
     const byGithub = <T>(unreadable: boolean, value: () => T): T | null | typeof UNREADABLE =>
@@ -335,6 +339,16 @@ export function peopleRows(members: readonly Member[], input: PeopleInput, viewe
       you: m.userId === viewerId,
     };
   });
-  return rows.sort((a, b) => rank(b.prs) - rank(a.prs) || rank(b.points) - rank(a.points)
-    || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+  return withRanks(rows.sort((a, b) => counted(b.points) - counted(a.points) || counted(b.prs) - counted(a.prs)
+    || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })));
+}
+
+/** Each row's place by points (PRD 1017), in standard competition ranking: one more than the number
+ * of rows with more points. A row whose points are a dash or unreadable has none. */
+function withRanks(rows: readonly Omit<PersonRow, 'rank'>[]): PersonRow[] {
+  const scored = rows.flatMap((r) => (typeof r.points === 'number' ? [r.points] : []));
+  return rows.map((r) => {
+    const points = r.points;
+    return { ...r, rank: typeof points === 'number' ? scored.filter((p) => p > points).length + 1 : null };
+  });
 }
