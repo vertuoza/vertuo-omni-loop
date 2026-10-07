@@ -1248,6 +1248,144 @@ export type Database = {
           },
         ]
       }
+      loop_plans: {
+        Row: {
+          created_at: string
+          loop_id: string
+          plan: Json
+          reason: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          loop_id: string
+          plan: Json
+          reason: string
+          version: number
+        }
+        Update: {
+          created_at?: string
+          loop_id?: string
+          plan?: Json
+          reason?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loop_plans_loop_id_fkey"
+            columns: ["loop_id"]
+            isOneToOne: false
+            referencedRelation: "loops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loop_ticks: {
+        Row: {
+          action: string
+          at: string
+          id: number
+          items: string[]
+          link: string | null
+          loop_id: string
+          merged: number[]
+          next_wake_at: string | null
+          prd: number
+          result: string
+          step: number
+          steps: number
+        }
+        Insert: {
+          action: string
+          at?: string
+          id?: never
+          items?: string[]
+          link?: string | null
+          loop_id: string
+          merged?: number[]
+          next_wake_at?: string | null
+          prd: number
+          result: string
+          step: number
+          steps: number
+        }
+        Update: {
+          action?: string
+          at?: string
+          id?: never
+          items?: string[]
+          link?: string | null
+          loop_id?: string
+          merged?: number[]
+          next_wake_at?: string | null
+          prd?: number
+          result?: string
+          step?: number
+          steps?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loop_ticks_loop_id_fkey"
+            columns: ["loop_id"]
+            isOneToOne: false
+            referencedRelation: "loops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loops: {
+        Row: {
+          id: string
+          last_tick_at: string | null
+          next_wake_at: string | null
+          parked: Json
+          prds: number[]
+          repo: string
+          seen_at: string
+          started_at: string
+          state: string
+          stopped_at: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          id?: string
+          last_tick_at?: string | null
+          next_wake_at?: string | null
+          parked?: Json
+          prds: number[]
+          repo: string
+          seen_at?: string
+          started_at?: string
+          state?: string
+          stopped_at?: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          id?: string
+          last_tick_at?: string | null
+          next_wake_at?: string | null
+          parked?: Json
+          prds?: number[]
+          repo?: string
+          seen_at?: string
+          started_at?: string
+          state?: string
+          stopped_at?: string | null
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loops_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outbox_sends: {
         Row: {
           comment_url: string | null
@@ -2915,6 +3053,14 @@ export type Database = {
         Returns: string[]
       }
       link_github: { Args: never; Returns: Json }
+      loop_is_silent: {
+        Args: { at: string; l: Database["public"]["Tables"]["loops"]["Row"] }
+        Returns: boolean
+      }
+      loop_push: {
+        Args: { p_body?: Json; p_event: string; p_loop?: string }
+        Returns: Json
+      }
       my_github: {
         Args: never
         Returns: {
