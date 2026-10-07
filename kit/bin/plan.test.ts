@@ -64,6 +64,21 @@ describe('omni plan check', () => {
     expect(s.out.join('')).toMatch(/collision matrix \(1 pair/);
   });
 
+  it('places two slices that share only a generated path in one wave, read from the config (PRD 1138)', async () => {
+    const generated = 'generated:\n  - path: kit/dist/\n    from: [kit/lib/]\n    build: pnpm kit:build\n';
+    const config = { '.omni-loop/config.yml': `${CONFIG['.omni-loop/config.yml']}${generated}` };
+    const plan = planMd(['| s1 | Alpha | `kit/lib/a.ts` `kit/dist/` | — | 1 |', '| s2 | Beta | `kit/lib/b.ts` `kit/dist/` | — | 1 |']);
+    const { root } = makeRepo({ git: true, files: { ...config, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+    const s = io();
+    expect(await main(['plan', 'check', '7'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).toMatch(/all territories and blocks well-formed/);
+
+    const without = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+    const t = io();
+    expect(await main(['plan', 'check', '7'], { cwd: without.root, ...t })).toBe(1);
+    expect(t.out.join('')).toMatch(/s1 and s2 share kit\/dist\/ and both sit in wave 1/);
+  });
+
   it('flags a "blocked by" id that names no slice in the plan', async () => {
     const plan = planMd(['| s1 | Alpha | `a/` | s9 | 1 |']);
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
