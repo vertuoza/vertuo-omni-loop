@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roadmaps</title>
+<style>
+/* Layout: five moments (writing a roadmap, driving across repositories, a wait, the plan check, the Roadmaps page), each today | after side by side, stacking at phone width. Look: PRD 1139 page tokens. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --red:#b3122f;--redSoft:#fbe8ec;--amber:#8a5a00;--amberSoft:#fdf1d8;--green:#15703f;--greenSoft:#e4f4ea;
+ --term:#14123a;--termInk:#e6e8ff;--termMuted:#9aa0d8;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+ --display:Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
+ --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#08072a;--termInk:#e6e8ff;--termMuted:#8f95d0;
+ color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#08072a;--termInk:#e6e8ff;--termMuted:#8f95d0;
+ color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.55 var(--body)}
+main{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:32px 56px;display:grid;gap:40px}
+header{display:grid;gap:8px}
+h1{font:400 clamp(30px,5vw,46px)/1 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance}
+.lede{color:var(--muted);max-width:68ch;margin:0}
+section{display:grid;gap:14px}
+h2{font:400 24px/1.1 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+.why{color:var(--muted);margin:0;max-width:72ch}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{min-width:0;display:grid;gap:8px;align-content:start}
+.tag{font:700 11px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tag.after{color:var(--plasma)}
+.term{background:var(--term);color:var(--termInk);border-radius:10px;padding:14px 16px;font:12.5px/1.6 var(--mono);overflow-x:auto;white-space:pre;margin:0}
+.term .m{color:var(--termMuted)}.term .p{color:#c9a7ff}.term .g{color:#5fe39a}.term .a{color:#ffcf70}.term .r{color:#ff7d95}
+.doc{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:grid;gap:10px;min-width:0}
+.doc p{margin:0;font-size:14px}
+.chip{display:inline-block;font:700 11px/1 var(--body);padding:4px 7px;border-radius:999px;letter-spacing:.03em;white-space:nowrap}
+.chip.red{background:var(--redSoft);color:var(--red)}.chip.amber{background:var(--amberSoft);color:var(--amber)}.chip.green{background:var(--greenSoft);color:var(--green)}.chip.plasma{background:var(--plasmaSoft);color:var(--plasma)}
+code{font:12.5px var(--mono);background:var(--sunk);padding:1px 5px;border-radius:4px}
+.app{display:grid;grid-template-columns:150px 1fr;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+@media (max-width:460px){.app{grid-template-columns:1fr}.nav{display:none}}
+.nav{background:var(--sunk);padding:12px 10px;display:grid;gap:2px;align-content:start;font-size:13px}
+.nav .grp{font:700 10px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:8px 6px 4px}
+.nav a{color:var(--ink);text-decoration:none;padding:5px 8px;border-radius:6px}
+.nav a.on{background:var(--plasmaSoft);color:var(--plasma);font-weight:700}
+.nav a.new::after{content:"new";margin-left:6px;font:700 9px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--plasma)}
+.pane{padding:14px 16px;display:grid;gap:12px;min-width:0}
+.pane h4{margin:0;font:400 20px/1 var(--display);letter-spacing:.02em}
+.loop{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:6px;font-size:13px;min-width:0}
+.loop .top{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.loop .who{font-weight:700}
+.loop .muted{color:var(--muted)}
+.steps{display:grid;gap:4px;font:12px/1.4 var(--mono);font-variant-numeric:tabular-nums}
+.row{display:grid;grid-template-columns:44px 1fr auto;gap:8px;align-items:center}
+.bar{height:8px;border-radius:4px;background:var(--sunk);position:relative;overflow:hidden}
+.bar i{position:absolute;top:0;bottom:0;border-radius:4px}
+.ledger{display:grid;gap:3px;font:12px/1.45 var(--mono);font-variant-numeric:tabular-nums;color:var(--muted)}
+.ledger b{color:var(--ink);font-weight:600}
+.ledger a{color:var(--plasma)}
+ul.same{margin:0;padding-left:18px;color:var(--muted);display:grid;gap:4px;max-width:72ch}
+.gantt{display:grid;gap:5px;font-size:12px;min-width:0}
+.gantt .hd,.gantt .gr{display:grid;grid-template-columns:150px repeat(6,1fr);gap:4px;align-items:center}
+@media (max-width:560px){.gantt .hd,.gantt .gr{grid-template-columns:96px repeat(6,1fr)}}
+.gantt .hd span{font:700 10px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.gantt .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.gantt .nm small{display:block;font-weight:400;color:var(--muted);font:11px var(--mono)}
+.gb{height:18px;border-radius:5px;font:700 10px/18px var(--body);padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gb.merged{background:var(--greenSoft);color:var(--green)}
+.gb.build{background:var(--plasmaSoft);color:var(--plasma)}
+.gb.merge{background:var(--amberSoft);color:var(--amber)}
+.gb.held{background:transparent;border:1.5px dashed var(--line);color:var(--muted);line-height:15px}
+.lanes{display:grid;gap:2px}.lanes .gb{height:12px;line-height:12px;font-size:9px}
+.filter{display:flex;gap:6px;flex-wrap:wrap}
+.waitline{font:12px/1.45 var(--mono);background:var(--amberSoft);color:var(--amber);border-radius:6px;padding:6px 8px}
+</style>
+</head>
+<body>
+<main>
+<header>
+<span class="tag">PRD 1162 · before / after</span>
+<h1>Roadmaps</h1>
+<p class="lede">A milestone becomes a set of normal-sized PRDs, written in one sitting from a phased plan, built across repositories by <code>/loop /omni:mega-drive --roadmap &lt;n&gt;</code>, and followed on its own page in Omni. Shown on the Vertuoza Crew plan: seven phases, about twenty-five items, five repositories.</p>
+</header>
+
+<section>
+<h2>1 · Writing the plan down</h2>
+<p class="why">The Crew page already took its decisions. Today each item still needs its own design conversation.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<pre class="term"><span class="m">$</span> /omni:mega-brainstorm 'Crew API and worker skeleton'
+  … design conversation, spec, plan, phase-0 PR #1
+<span class="m">$</span> /omni:mega-brainstorm 'Persona cards'
+  … design conversation, spec, plan, phase-0 PR #2
+<span class="m">  … 23 more, one at a time</span>
+<span class="r">  blocked-by typed by hand in 25 specs, nothing checks the set</span></pre></div>
+<div class="side"><span class="tag after">After</span>
+<pre class="term"><span class="m">$</span> /omni:mega-roadmap https://claude.ai/artifact/…
+<span class="p">one map</span>: 25 PRDs · 5 repos · 6 waves · 8 questions
+  P3.1 Timers loop       crew       ← P1.1  <span class="m">the worker runs the timers</span>
+  P3.4 Think endpoint    ai-domain  ← P1.1  <span class="m">called by the worker</span>
+  Q5   production writes <span class="a">person</span> → parks P4.4
+<span class="a">  ! P2.x names vertuo-backend-php: readOnly</span>
+<span class="m">  answer once ›</span> move it to crew
+<span class="g">✓</span> omni roadmap check · omni phase0 ok
+<span class="g">✓</span> roadmap #1200 · 25 PRD issues · phase-0 PR #1226
+  next: /loop /omni:mega-drive --roadmap 1200</pre></div>
+</div>
+</section>
+
+<section>
+<h2>2 · Driving across repositories</h2>
+<p class="why">In a plan repository, <code>omni next</code> returns the single-repository skills, and <code>/omni:yolo</code> stops on a multi-repository PRD.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<pre class="term"><span class="m">$</span> /loop /omni:drive
+step 1/9 · PRD 1201 · act yolo
+<span class="r">  /omni:yolo: PRD 1201 spans repositories (repos: crew, ai-domain)</span>
+<span class="r">  stop.</span> nothing loops</pre></div>
+<div class="side"><span class="tag after">After</span>
+<pre class="term"><span class="m">$</span> /loop /omni:mega-drive --roadmap 1200
+step 1/31 · PRD 1201 · act ultra-yolo  <span class="m">(no plan yet: plans it)</span>
+step 2/31 · PRD 1201 · act ultra-wave  <span class="m">crew w1</span>
+step 3/31 · PRD 1203 · act ultra-wave  <span class="m">beside: no shared path per repo</span>
+step 4/31 · PRD 1201 · act mega-pr-care --once  <span class="m">ai-domain#88 CI red</span>
+step 5/31 · PRD 1213 · <span class="a">wait</span> · waits on crew#41 (P1.1): ready, waiting for your merge</pre></div>
+</div>
+</section>
+
+<section>
+<h2>3 · A wait names its pull request</h2>
+<p class="why">A blocked PRD waits until its blockers' feature PRs merge. Meanwhile every other PRD builds. The person sees which merge moves the most work.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<div class="doc"><p><b>PRD 1213</b> · <span class="chip amber">waiting</span></p><p>blocked by 1201 until it ships</p></div></div>
+<div class="side"><span class="tag after">After</span>
+<div class="doc"><p><b>PRD 1213 · P3.4 Stateless think endpoint</b> · <span class="chip amber">held</span></p>
+<p class="waitline">waits on vertuoza/vertuo-crew-domain#41 (P1.1 Crew API and worker skeleton): ready, waiting for your merge</p>
+<p>The same line on the terminal, the Loop page, the roadmap's page and PRD 1213's issue.</p></div></div>
+</div>
+</section>
+
+<section>
+<h2>4 · Rules a plan repository can state</h2>
+<p class="why">Two new optional fields on a target: <code>readOnly</code> and <code>consumes</code>.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<pre class="term"><span class="m">$</span> omni plan check 1213
+<span class="g">✓</span> plan ok · 3 waves
+<span class="m">  s2 vertuo-backend-php   (nobody may change it)</span>
+<span class="m">  s4 crew installs ai-sdk ← s3 ai-domain adds think</span>
+<span class="r">  passes: s4 fails after merge, ai-sdk publishes from main only</span></pre></div>
+<div class="side"><span class="tag after">After</span>
+<pre class="term"><span class="m">$</span> omni plan check 1213
+<span class="r">✗</span> s2 names vertuo-backend-php, a readOnly target
+<span class="r">✗</span> s4 (crew) is blocked by s3 (ai-domain), and crew consumes
+  ai-domain: make s3 its own earlier PRD in the roadmap</pre></div>
+</div>
+</section>
+
+<section>
+<h2>5 · Roadmaps in Omni</h2>
+<p class="why">A Roadmaps entry above PRDs, a list filtered by product, and one page per roadmap with its Gantt.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<div class="app"><nav class="nav"><span class="grp">Work</span><a class="on">PRDs</a><a>Bug Fixes</a><a>Visual Updates</a><a>Questions</a><a>Knowledge</a></nav>
+<div class="pane"><h4>PRDs</h4><p class="emptyapp">Twenty-five PRDs in one list. Nothing shows the milestone, its order, or what blocks it.</p></div></div></div>
+<div class="side"><span class="tag after">After</span>
+<div class="app"><nav class="nav"><span class="grp">Work</span><a class="on new">Roadmaps</a><a>PRDs</a><a>Bug Fixes</a><a>Visual Updates</a><a>Questions</a><a>Knowledge</a></nav>
+<div class="pane"><h4>Vertuoza Crew</h4>
+<div class="filter"><span class="chip plasma">product: Vertuoza Crew</span><span class="chip green">4 of 25 merged</span><span class="chip amber">2 wait on your merge</span></div>
+<p style="margin:0;font-size:13px;color:var(--muted)">Milestone: a company grants its first mandate after a trial week.</p>
+<div class="gantt">
+<div class="hd"><span>PRD</span><span>w1</span><span>w2</span><span>w3</span><span>w4</span><span>w5</span><span>w6</span></div>
+<div class="gr"><div class="nm">P1.1 Crew API<small>crew</small></div><div class="gb merged">merged</div></div>
+<div class="gr"><div class="nm">P1.2 Personas<small>crew</small></div><div class="gb merge" style="grid-column:2/4">#44 your merge</div></div>
+<div class="gr"><div class="nm">P2.2 Crew panel<small>crew · ux-research</small></div><div style="grid-column:3/5" class="lanes"><div class="gb build">crew w2/3</div><div class="gb merged">ux-research</div></div></div>
+<div class="gr"><div class="nm">P3.4 Think endpoint<small>ai-domain</small></div><div class="gb build" style="grid-column:3/5">wave 1/2</div></div>
+<div class="gr"><div class="nm">P4.3 Messages<small>workflow</small></div><div class="gb held" style="grid-column:5/7">← P3.4, P4.1</div></div>
+</div>
+<p style="margin:0;font-size:12px;color:var(--muted)">Real dates once a PRD starts; dashed bars are projected from this roadmap's merged PRDs.</p>
+</div></div></div>
+</div>
+</section>
+
+<section>
+<h2>What stays the same</h2>
+<ul class="same">
+<li>A PRD is built as today: its issue, spec, plan, waves, outbox gate, feature PR. A roadmap only orders PRDs.</li>
+<li>The loop never merges into any default branch, never answers the outbox, never adds the outbox label.</li>
+<li><code>/omni:drive</code> without <code>--roadmap</code> drives your PRDs as PRD 1139 made it.</li>
+<li>Every target PR and every review stays in its own repository.</li>
+</ul>
+</section>
+</main>
+</body>
+</html>
