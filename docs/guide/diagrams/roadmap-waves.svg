@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 470" width="800" height="470">
+  <title>A roadmap's PRDs over time</title>
+  <desc>Roadmap 1200 has four PRDs: P1.1 and P1.2 wait on nothing, P2.1 and P3.4 are blocked by P1.1. P1.1, P1.2 and P2.1 land in the repository app, P3.4 in the repository worker. Driven with /loop /omni:mega-drive --roadmap 1200 (in one repository, /loop /omni:drive --roadmap 1200), the loop builds P1.1 and P1.2 side by side, each as its own feature PR. P3.4 is held meanwhile, naming the pull request it waits on, app#1201, P1.1's feature PR, and its state. A person merges P1.2, then P1.1: that merge unblocks P2.1 and P3.4, which the loop then builds side by side, in two repositories, until a person merges each.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <!-- who merges -->
+  <text x="784" y="22" class="dg-tag dg-you" text-anchor="end">YOU MERGE EACH FEATURE PR</text>
+  <text x="784" y="40" class="dg-small dg-muted" text-anchor="end">a merge unblocks the PRDs that wait on it</text>
+
+  <!-- a repository: app -->
+  <text x="16" y="18" class="dg-tag dg-muted">REPOSITORY</text>
+  <text x="16" y="34" class="dg-code">app</text>
+  <text x="16" y="85" class="dg-small">default branch</text>
+  <text x="16" y="126" class="dg-small">feature PRs</text>
+  <text x="16" y="142" class="dg-small dg-muted">one per PRD</text>
+  <path d="M160 80 L780 80" class="dg-line"/>
+  <polygon points="789,80 780,85.5 780,74.5" class="dg-head"/>
+  <circle cx="176" cy="80" r="5" class="dg-box"/>
+  <!-- P1.2: blocked by nothing -->
+  <path d="M176 80 C196 80, 192 120, 212 120 L344 120 C364 120, 360 80, 380 80" class="dg-line dg-edge-agents"/>
+  <text x="222" y="113" class="dg-code">P1.2</text>
+  <circle cx="380" cy="80" r="6" class="dg-head dg-you"/>
+  <!-- P1.1: blocked by nothing; P2.1 and P3.4 wait on it -->
+  <path d="M176 80 C196 80, 192 160, 212 160 L410 160 C430 160, 426 80, 446 80" class="dg-line dg-edge-agents"/>
+  <text x="222" y="153" class="dg-code">P1.1 · app#1201</text>
+  <circle cx="446" cy="80" r="6" class="dg-head dg-you"/>
+  <!-- P2.1: built once P1.1 merged -->
+  <path d="M490 80 C510 80, 506 120, 526 120 L684 120 C704 120, 700 80, 720 80" class="dg-line dg-edge-agents"/>
+  <text x="536" y="113" class="dg-code">P2.1, after P1.1</text>
+  <circle cx="720" cy="80" r="6" class="dg-head dg-you"/>
+
+  <!-- your merge of P1.1 unblocks what waits on it -->
+  <path d="M446 90 L446 266" class="dg-line dg-edge-you dg-dash"/>
+  <polygon points="446,275 440.5,266 451.5,266" class="dg-head dg-you"/>
+  <text x="458" y="204" class="dg-tag dg-you">YOU MERGE P1.1</text>
+  <text x="458" y="222" class="dg-small">P2.1 and P3.4 start</text>
+
+  <!-- a repository: worker -->
+  <text x="16" y="226" class="dg-tag dg-muted">REPOSITORY</text>
+  <text x="16" y="242" class="dg-code">worker</text>
+  <text x="16" y="285" class="dg-small">default branch</text>
+  <text x="16" y="326" class="dg-small">feature PRs</text>
+  <text x="16" y="342" class="dg-small dg-muted">one per PRD</text>
+  <path d="M160 280 L780 280" class="dg-line"/>
+  <polygon points="789,280 780,285.5 780,274.5" class="dg-head"/>
+  <!-- P3.4: held while P1.1 is open -->
+  <path d="M176 320 L426 320" class="dg-line dg-dash"/>
+  <text x="184" y="312" class="dg-small dg-muted">P3.4 held: waits on app#1201</text>
+  <text x="184" y="340" class="dg-small dg-muted">ready, waiting for your merge</text>
+  <path d="M470 280 C490 280, 486 320, 506 320 L684 320 C704 320, 700 280, 720 280" class="dg-line dg-edge-agents"/>
+  <text x="516" y="313" class="dg-code">P3.4, after P1.1</text>
+  <circle cx="720" cy="280" r="6" class="dg-head dg-you"/>
+
+  <!-- the waves -->
+  <text x="311" y="378" class="dg-tag dg-agents" text-anchor="middle">WAVE 1</text>
+  <text x="605" y="378" class="dg-tag dg-agents" text-anchor="middle">WAVE 2</text>
+
+  <!-- what the loop says of a held PRD -->
+  <text x="16" y="412" class="dg-tag dg-agents">THE LOOP SAYS</text>
+  <text x="16" y="432" class="dg-code">held: PRD 1213 — waits on app#1201 (P1.1 …): ready, waiting for your merge</text>
+  <text x="400" y="458" class="dg-small dg-muted" text-anchor="middle">the loop builds what nothing blocks side by side, and holds the rest until you merge what it waits on</text>
+</svg>
