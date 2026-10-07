@@ -556,3 +556,21 @@ Why: One source of edit rights means presentation and business can never drift a
 Source: .omni-loop/delivery/shipped/0859-pitch/outbox/settled.md, entry s1-02-every-member-edits-the-look, PRD #859
 Merged: @pierrederval, 2026-10-06, PR #860
 Proposed: harvest 2026-10-06
+
+## P-PRODUCT-63
+
+Care spends a fix attempt only on what it has confirmed; an unreadable dependency never triggers work on a guess.
+
+Why: Fix attempts are limited, and acting on a guessed state wastes them or fixes the wrong thing, while a dependency confirmed dead no longer justifies waiting.
+Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-01-waits-on-closed-or-unreadable, PRD #1118
+Merged: @pierrederval, 2026-10-06, PR #1119
+Proposed: harvest 2026-10-06
+
+## P-PRODUCT-64
+
+The care list shows a bug's fixes only from what the bug's plan and the code host actually record, never a guessed or not-yet-existing pull request.
+
+Why: So a person looking after a bug sees real work only, and nothing missing or invented is presented as a fix.
+Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-02-care-list-reads-bug-fix-plan, PRD #1118
+Merged: @pierrederval, 2026-10-06, PR #1119
+Proposed: harvest 2026-10-06

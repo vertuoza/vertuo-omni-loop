@@ -831,3 +831,27 @@ Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-06, PR #860
 Proposed: harvest 2026-10-06
+
+## BR-PRODUCT-71
+
+When a pull request waits on another that was closed without merging, it is no longer held and care goes back to fixing it. When the awaited pull request cannot be looked up, it stays held and no fix attempt is spent.
+
+Serves: P-PRODUCT-63
+Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-01-waits-on-closed-or-unreadable, PRD #1118
+Enforced by: unenforced
+Stated: 2026-10-06
+Decided: nobody — adopted when raised (medium), 2026-10-06
+Merged: @pierrederval, 2026-10-06, PR #1119
+Proposed: harvest 2026-10-06
+
+## BR-PRODUCT-72
+
+The care list reads a bug's fix pull requests from its fix-plan table, one per row in table order, and takes the bug's record from the pull requests GitHub links as closing it. A repository with no pull request yet is left off until one opens.
+
+Serves: P-PRODUCT-64
+Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-02-care-list-reads-bug-fix-plan, PRD #1118
+Enforced by: unenforced
+Stated: 2026-10-06
+Decided: nobody — adopted when raised (medium), 2026-10-06
+Merged: @pierrederval, 2026-10-06, PR #1119
+Proposed: harvest 2026-10-06
