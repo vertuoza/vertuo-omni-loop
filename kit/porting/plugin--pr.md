@@ -139,3 +139,9 @@ the kit does not own are covered by **Merging and ready**'s new rule: wait for t
 run before `gh pr ready`, then rerun a cancelled `ready_for_review` run, and never count a check
 that only skipped or was cancelled as green. `/omni:yolo` §5 item 4, `/omni:yolo-fix`'s ship and
 `/omni:ultra-yolo`'s target ready point to it.
+
+## Issue 1178 — a sub-PR's review threads
+
+Not a re-port: a kit-local bug fix. **A sub-PR's lifecycle** step 3 now says the orchestrator
+judges the sub-PR's review threads, when a reviewer left any, before it merges it (`/omni:wave`
+step 4, item 5). Its checks are still never read; only its threads are.

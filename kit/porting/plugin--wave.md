@@ -110,3 +110,30 @@ SKILL.md names exists now covers `sign`.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## Issue 1178 — the wave judges a sub-PR's review threads before it merges it
+
+Not a re-port: a kit-local bug fix. Upstream, and the kit until now, assumed a sub-PR is never
+reviewed, so a reviewer bot's threads on one (seven on vertuoza/vertuo-backend-php#6486, a real
+migration bug among them) were merged past into the feature branch. Step 4 gains item 5, **Review
+threads**, before the gate (which becomes item 6): `omni care state <prd> --pr <n>` names the
+sub-PR's `slice` and gives it a sub-PR's round (`decideSubPrRound`, `kit/lib/care/decide.ts`):
+`act` lists `judge` and `mark-asked`, carried out exactly as `/omni:pr-care` §3 says (the `review`
+form, `omni care reply`, one commit per fix, the preflight green), in a detached worktree pushed
+with `HEAD:<slice branch>` as a conflict is; `hold` (a thread left asked) leaves the sub-PR open
+and unmerged, a new **Not merged** row, while its siblings merge; `clear` goes on to the gate. The
+wave's own claims, CI and the conflict never change that round. `/omni:ultra-wave`'s pointer to the
+gate now names item 6.
+
+**Decided:** the wave waits for no review not yet posted. A reviewer bot may post minutes after
+`gh pr ready`, but no config names a reviewer or a delay, and every other step reads GitHub as it
+stands when it gets there (the board is rebuilt each run, "read every sub-PR afresh"). The slices
+that finish first have had that time by step 4; a review posted after a merge lands on the merged
+sub-PR, and the feature PR, which `/omni:pr-care` looks after, still carries the review. Waiting
+would be a new config key, a product decision for a later PRD.
+
+### Tests
+
+`kit/lib/care/decide.test.ts` (the sub-PR round's four modes), `kit/bin/care.test.ts` (`care state
+--pr` on a sub-PR while the wave holds claims) and `kit/test/plugin.test.ts` (the wave reads its
+sub-PR's threads before the gate and holds an asked one).

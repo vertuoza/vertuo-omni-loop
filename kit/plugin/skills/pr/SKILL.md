@@ -166,7 +166,8 @@ differences.
 - `/omni:pr` owns `gh pr ready` for a sub-PR, and runs it only once the preflight is green.
 - A **sub-PR** is merged into its feature branch by the orchestrator (`/omni:wave`), one at a time:
   check `baseRefName` is not the default branch and `headRefName` is a slice branch (`branches.slice`),
-  never a landing's, then `node .omni-loop/bin/omni.mjs flow check merge --pr <n>` (the repository's
+  never a landing's, then its review threads (`/omni:wave` step 4, item 5: a thread left asked holds
+  it), then `node .omni-loop/bin/omni.mjs flow check merge --pr <n>` (the repository's
   merge gate, `/omni:wave` step 4) and, on its `ok`, the merge command it prints, never one written
   by hand. On `not ok` the sub-PR stays open with the reasons it names. A subagent never merges its
   own sub-PR.
@@ -392,4 +393,5 @@ No CI runs on a sub-PR, and its checks are never read. The preflight, run on thi
    `git fetch <remote> && git merge <remote>/<feature branch>`, resolve the conflict, and go back to step 1.
 3. Once the preflight is green and the PR does not conflict, run `gh pr ready <n>` (this skill owns
    that step for a sub-PR). Then remove `labels.inProgress` and write the final status comment. The
-   orchestrator merges it.
+   orchestrator merges it, once it has judged the sub-PR's review threads, when a reviewer left
+   any (`/omni:wave` step 4, item 5).

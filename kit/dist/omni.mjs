@@ -34492,16 +34492,23 @@ function ciActions({ checks, waitsOn }) {
   if (checks.state !== "red" || !checks.fixable || checks.stuck || holds(waitsOn)) return [];
   return [{ kind: waitsOn?.state === "merged" ? "rerun" : "fix-ci", failed: checks.failed }];
 }
+function threadActions(threads) {
+  return threads.flatMap((thread) => thread.needs === null ? [] : [{ kind: thread.needs, thread: thread.id }]);
+}
+function decideSubPrRound(state) {
+  if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
+  const actions = threadActions(state.threads);
+  if (actions.length > 0) return { mode: "act", actions };
+  const held = state.threads.filter((thread) => thread.verdict === "asked").map((thread) => thread.id);
+  return held.length > 0 ? { mode: "hold", actions: [], held } : { mode: "clear", actions: [] };
+}
 function decideRound(state) {
   if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
   if (state.wave?.holdsClaims !== false) return { mode: "report-only", actions: [{ kind: "status" }] };
   const actions = (state.chain ?? []).map((link2) => ({ kind: "restack", ...link2 }));
   if (state.mergeable === "CONFLICTING") actions.push({ kind: "merge-base", base: state.pr.base });
   actions.push(...ciActions(state));
-  for (const thread of state.threads) {
-    if (thread.needs === "judge") actions.push({ kind: "judge", thread: thread.id });
-    else if (thread.needs === "mark-asked") actions.push({ kind: "mark-asked", thread: thread.id });
-  }
+  actions.push(...threadActions(state.threads));
   actions.push({ kind: "status" });
   const { waitsOn } = state;
   return waitsOn && holds(waitsOn) ? { mode: "act", actions, waitsOn: `${waitsOn.slug}#${waitsOn.pr}` } : { mode: "act", actions };
@@ -34828,9 +34835,10 @@ function waveClaims(prd2, { ctx, exec, env, repo, target: target3 }) {
   try {
     const { result } = buildBoard(prd2, { ctx, exec, env, repo: target3 === null ? repo : void 0 });
     const claimed2 = claimedIn(result.slices, target3?.name ?? null);
-    return { wave: { holdsClaims: claimed2.length > 0, claimed: claimed2 }, landings: landingsIn(result.landings, target3?.name ?? null) };
+    const sliceOf = (pr) => result.slices.find((row) => row.pr?.number === pr && (target3 === null || row.repo === target3.name))?.id ?? null;
+    return { wave: { holdsClaims: claimed2.length > 0, claimed: claimed2 }, landings: landingsIn(result.landings, target3?.name ?? null), sliceOf };
   } catch (error62) {
-    return { wave: { holdsClaims: null, claimed: [], unreadable: firstLine2(error62) }, landings: null };
+    return { wave: { holdsClaims: null, claimed: [], unreadable: firstLine2(error62) }, landings: null, sliceOf: () => null };
   }
 }
 function firstLine2(error62) {
@@ -34868,15 +34876,15 @@ function readCare(prd2, number4, { scope, ctx, gh: gh2 }) {
   const waitsOn = waitingOn(state.status?.waitsOn, gh2);
   return { prd: prd2, ...scope.target === null ? {} : { target: scope.target }, ...state, ...waitsOn === null ? {} : { waitsOn } };
 }
-function runState2(args, { ctx, stdout, stderr, exec, env }) {
-  const { positional, flags } = parseArgs("care", args, { values: ["pr", "repo"] });
-  if (positional.length !== 1) throw usageError(USAGE4);
-  const prd2 = prdArg("care", "<prd>", positional[0]);
-  const gh2 = { exec, env: githubEnv(ctx, { exec, env }) };
-  const scope = scopeOf(prd2, flags.repo, { ctx, gh: gh2 });
-  const { wave, landings } = waveClaims(prd2, { ctx, exec, env, repo: flags.repo, target: scope.target });
-  const landed = landings !== null && landings.length > 1 ? landings : null;
-  const number4 = watchedPr({ flag: flags.pr, landed, find: () => findPr(scope, gh2)?.number ?? null });
+function printSubPr(number4, slice, { prd: prd2, scope, claims, ctx, gh: gh2, stdout }) {
+  const state = readCare(prd2, number4, { scope, ctx, gh: gh2 });
+  println(stdout, JSON.stringify({ ...state, slice, wave: claims.wave, round: decideSubPrRound(state) }, null, 2));
+  return 0;
+}
+function printFeature(flag, run) {
+  const { prd: prd2, scope, claims, ctx, gh: gh2, stdout, stderr } = run;
+  const landed = claims.landings !== null && claims.landings.length > 1 ? claims.landings : null;
+  const number4 = watchedPr({ flag, landed, find: () => findPr(scope, gh2)?.number ?? null });
   if (number4 === null) {
     const from = landed === null ? scope.branch : landed.map((landing) => landing.branch).join(", ");
     println(stderr, `omni care: PRD ${prd2} has no feature PR yet (no pull request from ${from}).`);
@@ -34884,9 +34892,22 @@ function runState2(args, { ctx, stdout, stderr, exec, env }) {
   }
   const { waitsOn, ...state } = readCare(prd2, number4, { scope, ctx, gh: gh2 });
   const chain = landed === null ? [] : landingChain(landed, scope.defaultBranch);
-  const full = { ...state, wave, ...landed === null ? {} : { landings: landed, chain }, ...waitsOn === void 0 ? {} : { waitsOn } };
+  const full = { ...state, wave: claims.wave, ...landed === null ? {} : { landings: landed, chain }, ...waitsOn === void 0 ? {} : { waitsOn } };
   println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
   return 0;
+}
+function runState2(args, { ctx, stdout, stderr, exec, env }) {
+  const { positional, flags } = parseArgs("care", args, { values: ["pr", "repo"] });
+  if (positional.length !== 1) throw usageError(USAGE4);
+  const prd2 = prdArg("care", "<prd>", positional[0]);
+  const gh2 = { exec, env: githubEnv(ctx, { exec, env }) };
+  const scope = scopeOf(prd2, flags.repo, { ctx, gh: gh2 });
+  const claims = waveClaims(prd2, { ctx, exec, env, repo: flags.repo, target: scope.target });
+  const run = { prd: prd2, scope, claims, ctx, gh: gh2, stdout };
+  const named3 = flags.pr === void 0 ? null : prArg("care", "--pr", flags.pr);
+  const slice = named3 === null ? null : claims.sliceOf(named3);
+  if (named3 !== null && slice !== null) return printSubPr(named3, slice, run);
+  return printFeature(flags.pr, { ...run, stderr });
 }
 function readPlanOf(prd2, ctx) {
   const planPath = ctx.layout.planPath(prd2);

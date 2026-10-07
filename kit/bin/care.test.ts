@@ -239,6 +239,32 @@ describe('omni care state', () => {
     expect(dig(sentJson(fake.calls.find((c) => c.args[1] === 'graphql')), 'variables', 'number')).toBe(12);
   });
 
+  // Issue #1178: a reviewer bot reviews every pull request, sub-PRs too. Before `/omni:wave` merges a
+  // sub-PR, its threads are judged as a feature PR's are, while the wave's own claims stand.
+  const openSub = (over = {}) => subPr('s2', { state: 'OPEN', mergedAt: null, isDraft: false, ...over });
+  const subRead = (over: Record<string, unknown>) => ({ data: { repository: { pullRequest: { ...PULL_REQUEST, number: 22, baseRefName: 'feat/widgets', headRefName: 'feat/widgets--s2', ...over } } } });
+
+  it("judges a sub-PR's review threads while the wave holds claims: no CI, no merge-base, no status", async () => {
+    const root = repo();
+    const fake = fakeExec(root, { subPrs: [subPr('s1'), openSub()], graphql: { read: subRead({}) } });
+    const { code, out } = await run(['care', 'state', '7', '--pr', '22'], root, fake);
+    expect(code).toBe(0);
+    const state: unknown = JSON.parse(out);
+    expect(dig(state, 'round')).toEqual({ mode: 'act', actions: [{ kind: 'judge', thread: 'T1' }] });
+    expect(dig(state, 'slice')).toBe('s2');
+    expect(dig(state, 'wave')).toEqual({ holdsClaims: true, claimed: ['s2'] });
+  });
+
+  it('holds a sub-PR whose thread was left asked, and clears one whose threads are all handled', async () => {
+    const root = repo();
+    const asked = { nodes: [{ author: { login: 'rev', avatarUrl: null }, body: 'Drop the column?', createdAt: NOW, url: 'u1' }, { author: { login: 'bot', avatarUrl: null }, body: 'The PM decides.\n\n<!-- omni-care: asked -->', createdAt: NOW, url: 'u2' }] };
+    const threads = (nodes: unknown[]) => subRead({ reviewThreads: { nodes } });
+    const held = fakeExec(root, { subPrs: [subPr('s1'), openSub()], graphql: { read: threads([{ id: 'T3', isResolved: false, path: 'b/x.mjs', line: 1, comments: asked }]) } });
+    expect(dig(JSON.parse((await run(['care', 'state', '7', '--pr', '22'], root, held)).out), 'round')).toEqual({ mode: 'hold', actions: [], held: ['T3'] });
+    const clear = fakeExec(root, { subPrs: [subPr('s1'), openSub()], graphql: { read: threads([]) } });
+    expect(dig(JSON.parse((await run(['care', 'state', '7', '--pr', '22'], root, clear)).out), 'round')).toEqual({ mode: 'clear', actions: [] });
+  });
+
   it('prefers the open feature PR over a closed one', async () => {
     const root = repo();
     const fake = fakeExec(root, { featurePrs: [{ number: 3, state: 'CLOSED', updatedAt: NOW }, { number: 9, state: 'OPEN', updatedAt: NOW }] });
