@@ -118,6 +118,17 @@ describe('POST /api/loops tick, park and stop', () => {
     expect(w.loop(loopId)).toMatchObject({ next_wake_at: new Date(START + 90_000).toISOString(), last_tick_at: new Date(START).toISOString() });
   });
 
+  it('a tick carrying the repositories its step touched stores them; one without them stores none', async () => {
+    const w = world();
+    const { loopId } = await w.start();
+    expect((await w.send(tick(loopId, { action: 'ultra-wave', repos: ['crew', 'ai-domain'] }))).status).toBe(200);
+    expect((await w.send(tick(loopId, { step: 2 }))).status).toBe(200);
+    expect(w.fake.tables.loop_ticks.map((t) => t.repos)).toEqual([['crew', 'ai-domain'], []]);
+    expect(w.fake.calls[1]?.args.p_body).toMatchObject({ repos: ['crew', 'ai-domain'] });
+    const ticks = await loopReader(w.fake.client('bob-token') as never).ticks(loopId);
+    expect(ticks.map((t) => t.repos)).toEqual([['crew', 'ai-domain'], []]);
+  });
+
   it('a tick that replanned adds the next plan version, with its reason', async () => {
     const w = world();
     const { loopId } = await w.start();
@@ -192,6 +203,8 @@ describe('refusals', () => {
     ['a next wake that is not a time', tick(LOOP, { nextWakeAt: 'soon' })],
     ['a tick without its next wake', { ...tick(LOOP), nextWakeAt: undefined }],
     ['a replan without its reason', tick(LOOP, { replan: { plan: {} } })],
+    ['a repository that is not a name', tick(LOOP, { repos: ['crew api'] })],
+    ['21 repositories', tick(LOOP, { repos: Array.from({ length: 21 }, (_, i) => `r${i}`) })],
     ['an unknown field', tick(LOOP, { transcript: '…' })],
     ['a park without who it waits on', { event: 'park', loopId: LOOP, prd: 9, what: 'answers' }],
     ['a park without on what', { event: 'park', loopId: LOOP, prd: 9, who: 'Pierre' }],

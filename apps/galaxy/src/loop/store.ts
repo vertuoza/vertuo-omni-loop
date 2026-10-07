@@ -16,7 +16,7 @@ export type LoopEvent =
   | { event: 'start'; repo: string; prds: PrdNumber[]; plan: LoopPlan; reason?: string | undefined; takeOver: boolean }
   | {
     event: 'tick'; loopId: string; step: number; steps: number; prd: PrdNumber; action: string; result: string;
-    link: string | null; merged: PrNumber[]; items: OutboxItemId[]; nextWakeAt: string | null;
+    link: string | null; merged: PrNumber[]; items: OutboxItemId[]; repos: string[]; nextWakeAt: string | null;
     replan?: { reason: string; plan: LoopPlan } | undefined;
   }
   | { event: 'park'; loopId: string; prd: PrdNumber; who: string; what: string; link: string | null }
@@ -60,6 +60,9 @@ export const TickRow = z.strictObject({
   merged: z.array(PrNumberSchema),
   items: z.array(OutboxItemIdSchema),
   next_wake_at: z.string().nullable(),
+  // Always read (TICK_READ_COLUMNS); optional so a tick built before PRD 1162 (the page's demo) still
+  // types. Empty when the tick did not say.
+  repos: z.array(z.string()).optional(),
 });
 type TickRow = z.infer<typeof TickRow>;
 
@@ -73,7 +76,12 @@ export const PlanRow = z.strictObject({
 type PlanRow = z.infer<typeof PlanRow>;
 
 export const LOOP_COLUMNS = 'id, user_id, workspace_id, repo, prds, state, parked, started_at, seen_at, last_tick_at, next_wake_at, stopped_at';
+/** The columns loop_ticks was created with (20261108090000_loops.sql). */
 export const TICK_COLUMNS = 'id, loop_id, at, step, steps, prd, action, result, link, merged, items, next_wake_at';
+/** The column 20261109090000_roadmaps.sql adds (PRD 1162): the repositories the tick's step touched. */
+export const TICK_ADDED_COLUMNS = 'repos';
+/** What a tick is read with: both. */
+export const TICK_READ_COLUMNS = `${TICK_COLUMNS}, ${TICK_ADDED_COLUMNS}`;
 export const PLAN_COLUMNS = 'loop_id, version, reason, plan, created_at';
 
 type Failure = { code?: string; message: string };
@@ -100,8 +108,8 @@ function bodyOf(event: LoopEvent): Record<string, unknown> {
       return { repo, prds, plan, ...(reason === undefined ? {} : { reason }), takeOver };
     }
     case 'tick': {
-      const { step, steps, prd, action, result, link, merged, items, nextWakeAt, replan } = event;
-      return { step, steps, prd, action, result, link, merged, items, nextWakeAt, ...(replan ? { replan } : {}) };
+      const { step, steps, prd, action, result, link, merged, items, repos, nextWakeAt, replan } = event;
+      return { step, steps, prd, action, result, link, merged, items, repos, nextWakeAt, ...(replan ? { replan } : {}) };
     }
     case 'park': {
       const { prd, who, what, link } = event;
@@ -150,7 +158,7 @@ export function loopReader(db: Pick<SupabaseClient, 'from'>) {
 
     /** A loop's ledger, oldest tick first. */
     async ticks(loopId: string): Promise<TickRow[]> {
-      const { data, error } = await db.from('loop_ticks').select(TICK_COLUMNS).eq('loop_id', loopId).order('id', { ascending: true });
+      const { data, error } = await db.from('loop_ticks').select(TICK_READ_COLUMNS).eq('loop_id', loopId).order('id', { ascending: true });
       return error ? [] : orEmpty(parseRows(TickRow, data, 'loop/store: loop_ticks'));
     },
 
