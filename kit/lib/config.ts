@@ -66,8 +66,19 @@ const target = z
     role: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'one kebab-case word, such as back-end'),
     knowledge: z.enum(TARGET_KNOWLEDGE),
     readAt: z.string().regex(/^[0-9a-f]{40}$/, 'the full 40-character commit the copy was read at').nullable().default(null),
+    // PRD 1162: no slice and no roadmap row may name a read-only target; it is still read, surveyed
+    // and imported.
+    readOnly: z.boolean().optional(),
+    // PRD 1162: the short names of the targets whose default-branch packages this one installs.
+    consumes: z.array(z.string()).optional(),
   })
   .strict();
+
+/** The part of an `owner/name` slug after the `/`: the name a plan's `repo` column and a target's
+ * `consumes` use. */
+function targetShortName(slug: string): string {
+  return slug.slice(slug.indexOf('/') + 1);
+}
 
 // A plan repository's own section (PRD 522): the page saying which repository does what, pointed at
 // and never copied, and its target repositories. Optional: a config without it is no plan repository,
@@ -80,7 +91,17 @@ const planSection = z
   .strict()
   .superRefine(({ targets }, issues) => {
     const seen = new Set();
-    targets.forEach(({ repo, knowledge, readAt }, index) => {
+    const names = targets.map(({ repo }) => targetShortName(repo));
+    targets.forEach(({ repo, knowledge, readAt, consumes = [] }, index) => {
+      const own = targetShortName(repo);
+      const others = names.filter((name) => name !== own);
+      consumes.forEach((name, at) => {
+        const path = ['targets', index, 'consumes', at];
+        if (name === own) issues.addIssue({ code: 'custom', path, message: `${name} is this target itself — a target never consumes itself` });
+        else if (!others.includes(name)) {
+          issues.addIssue({ code: 'custom', path, message: `${name} names no other target of plan.targets by its short name (${others.join(', ') || 'none'})` });
+        }
+      });
       if (seen.has(repo)) issues.addIssue({ code: 'custom', path: ['targets', index, 'repo'], message: `${repo} is listed twice` });
       seen.add(repo);
       if (knowledge === 'imported' && readAt === null) {

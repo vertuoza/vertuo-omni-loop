@@ -484,6 +484,42 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(firstLine(plan([{ ...OWN, url: 'x' }]))).toMatch(/: plan\.targets\.0: .*unrecognized: url/);
     expect(firstLine(`kit: 1\nplan:\n  repos: []\n  targets:\n${target(OWN)}\n`)).toMatch(/: plan: .*unrecognized: repos/);
   });
+
+  describe('readOnly and consumes on a target (PRD 1162)', () => {
+    it('reads a target without them as today: neither key at all', () => {
+      const parsed = parseConfig(plan([OWN, NONE])).plan;
+      assertDefined(parsed, 'the plan');
+      for (const entry of parsed.targets) {
+        expect(Object.hasOwn(entry, 'readOnly')).toBe(false);
+        expect(Object.hasOwn(entry, 'consumes')).toBe(false);
+      }
+    });
+
+    it('reads readOnly as a boolean and consumes as the short names of other targets', () => {
+      const parsed = parseConfig(plan([{ ...OWN, consumes: '[back, legacy]' }, IMPORTED, { ...NONE, readOnly: 'true' }])).plan;
+      assertDefined(parsed, 'the plan');
+      expect(parsed.targets[0]?.consumes).toEqual(['back', 'legacy']);
+      expect(parsed.targets[2]?.readOnly).toBe(true);
+    });
+
+    it('refuses a readOnly that is not a boolean', () => {
+      expect(firstLine(plan([{ ...OWN, readOnly: 'yes' }]))).toMatch(/: plan\.targets\.0\.readOnly: /);
+      expect(firstLine(plan([{ ...OWN, readOnly: '"true"' }]))).toMatch(/: plan\.targets\.0\.readOnly: /);
+    });
+
+    it('refuses a consumes that is no list, or names itself, an owner/name slug or no target', () => {
+      expect(firstLine(plan([{ ...OWN, consumes: 'back' }, IMPORTED]))).toMatch(/: plan\.targets\.0\.consumes: /);
+      expect(firstLine(plan([{ ...OWN, consumes: '[front]' }, IMPORTED]))).toMatch(
+        /: plan\.targets\.0\.consumes\.0: front is this target itself — a target never consumes itself/,
+      );
+      expect(firstLine(plan([{ ...OWN, consumes: '[acme/back]' }, IMPORTED]))).toMatch(
+        /: plan\.targets\.0\.consumes\.0: acme\/back names no other target of plan\.targets by its short name \(back\)/,
+      );
+      expect(firstLine(plan([{ ...OWN, consumes: '[mobile]' }, IMPORTED]))).toMatch(
+        /: plan\.targets\.0\.consumes\.0: mobile names no other target of plan\.targets by its short name \(back\)/,
+      );
+    });
+  });
 });
 
 describe('the proof section (PRD 798)', () => {

@@ -111,6 +111,30 @@ describe('omni check config', () => {
     expect(out).toMatch(/flow\.on/);
   });
 
+  it('lists a readOnly that is no boolean and a consumes naming no other target, one per line (PRD 1162)', async () => {
+    const plan = [
+      'plan:',
+      '  targets:',
+      '    - repo: acme/api',
+      '      role: back-end',
+      '      knowledge: none',
+      '      readOnly: maybe',
+      '    - repo: acme/web',
+      '      role: front-end',
+      '      knowledge: none',
+      '      consumes: [web, mobile]',
+      '',
+    ].join('\n');
+    const notBoolean = await checkConfig(HEAD + plan.replace('[web, mobile]', '[api]'));
+    expect(notBoolean.code).toBe(1);
+    expect(notBoolean.out).toMatch(/plan\.targets\.0\.readOnly/);
+    const { code, out } = await checkConfig(HEAD + plan.replace('readOnly: maybe', 'readOnly: true'));
+    expect(code).toBe(1);
+    expect(out).toMatch(/plan\.targets\.1\.consumes\.0: web is this target itself/);
+    expect(out).toMatch(/plan\.targets\.1\.consumes\.1: mobile names no other target of plan\.targets by its short name \(api\)/);
+    expect((await checkConfig(HEAD + plan.replace('readOnly: maybe', 'readOnly: true').replace('[web, mobile]', '[api]'))).code).toBe(0);
+  });
+
   it('still stops with exit 2 where there is no config to check', async () => {
     const { root } = makeRepo({ git: true, files: { 'README.md': 'x' } });
     const s = io();
