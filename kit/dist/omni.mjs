@@ -631,8 +631,8 @@ var require_Node = __commonJS({
         };
         const res = toJS.toJS(this, "", ctx);
         if (typeof onAnchor === "function")
-          for (const { count: count3, res: res2 } of ctx.anchors.values())
-            onAnchor(res2, count3);
+          for (const { count: count4, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count4);
         return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
       }
     };
@@ -741,13 +741,13 @@ var require_Alias = __commonJS({
         const anchor2 = anchors2 && source && anchors2.get(source);
         return anchor2 ? anchor2.count * anchor2.aliasCount : 0;
       } else if (identity.isCollection(node2)) {
-        let count3 = 0;
+        let count4 = 0;
         for (const item2 of node2.items) {
           const c = getAliasCount(doc, item2, anchors2);
-          if (c > count3)
-            count3 = c;
+          if (c > count4)
+            count4 = c;
         }
-        return count3;
+        return count4;
       } else if (identity.isPair(node2)) {
         const kc = getAliasCount(doc, node2.key, anchors2);
         const vc = getAliasCount(doc, node2.value, anchors2);
@@ -3738,8 +3738,8 @@ var require_Document = __commonJS({
         };
         const res = toJS.toJS(this.contents, jsonArg ?? "", ctx);
         if (typeof onAnchor === "function")
-          for (const { count: count3, res: res2 } of ctx.anchors.values())
-            onAnchor(res2, count3);
+          for (const { count: count4, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count4);
         return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
       }
       /**
@@ -3817,12 +3817,12 @@ var require_errors = __commonJS({
         lineStr = prev + lineStr;
       }
       if (/[^ ]/.test(lineStr)) {
-        let count3 = 1;
+        let count4 = 1;
         const end = error62.linePos[1];
         if (end?.line === line && end.col > col) {
-          count3 = Math.max(1, Math.min(end.col - col, 80 - ci));
+          count4 = Math.max(1, Math.min(end.col - col, 80 - ci));
         }
-        const pointer = " ".repeat(ci) + "^".repeat(count3);
+        const pointer = " ".repeat(ci) + "^".repeat(count4);
         error62.message += `:
 
 ${lineStr}
@@ -8696,14 +8696,14 @@ function codePointLength(str) {
   const units = str.length;
   if (!highSurrogate.test(str))
     return units;
-  let count3 = units;
+  let count4 = units;
   for (let i = 0; i < units - 1; i++) {
     if ((str.charCodeAt(i) & 64512) === 55296 && (str.charCodeAt(i + 1) & 64512) === 56320) {
-      count3--;
+      count4--;
       i++;
     }
   }
-  return count3;
+  return count4;
 }
 function getLengthableOrigin(input2) {
   if (Array.isArray(input2))
@@ -13076,8 +13076,8 @@ function az_default() {
 
 // node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/be.js
 init_define_OMNI_BUNDLE();
-function getBelarusianPlural(count3, one, few, many) {
-  const absCount = Math.abs(count3);
+function getBelarusianPlural(count4, one, few, many) {
+  const absCount = Math.abs(count4);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -15745,8 +15745,8 @@ function hu_default() {
 
 // node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hy.js
 init_define_OMNI_BUNDLE();
-function getArmenianPlural(count3, one, many) {
-  return Math.abs(count3) === 1 ? one : many;
+function getArmenianPlural(count4, one, many) {
+  return Math.abs(count4) === 1 ? one : many;
 }
 function withDefiniteArticle(word) {
   if (!word)
@@ -18509,8 +18509,8 @@ function ro_default() {
 
 // node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ru.js
 init_define_OMNI_BUNDLE();
-function getRussianPlural(count3, one, few, many) {
-  const absCount = Math.abs(count3);
+function getRussianPlural(count4, one, few, many) {
+  const absCount = Math.abs(count4);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -27983,12 +27983,12 @@ function readHead(head) {
 function readBody(raw) {
   const text10 = raw.replace(COMMENT, "").trim();
   const lines = text10.split("\n").map((line) => line.trim()).filter(Boolean);
-  const questions = lines.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
+  const questions2 = lines.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
   if (lines.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
-  if (questions.length === lines.length) return { kind: "holes", text: text10, see: null, questions };
+  if (questions2.length === lines.length) return { kind: "holes", text: text10, see: null, questions: questions2 };
   const see = lines.length === 1 ? lines[0]?.match(SEE) ?? null : null;
   if (see) return { kind: "pointer", text: text10, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
-  return { kind: "text", text: text10, see: null, questions };
+  return { kind: "text", text: text10, see: null, questions: questions2 };
 }
 function readSection(heading, lines) {
   const at2 = lines.findIndex((line) => line.trim() !== "");
@@ -31187,13 +31187,13 @@ function questionBanter({
   numberById
 }) {
   const numberOf2 = (question) => numberById.get(question.id) ?? Infinity;
-  const questions = [
+  const questions2 = [
     ...items.map((item2) => ({ id: item2.id, sections: item2.sections })),
     ...adopted.map((entry) => ({ id: entry.id, sections: adoptedItem(entry)?.sections }))
   ].sort((a, b) => numberOf2(a) - numberOf2(b) || a.id.localeCompare(b.id));
   const banter = /* @__PURE__ */ new Map();
   const fromPool = [];
-  for (const { id, sections } of questions) {
+  for (const { id, sections } of questions2) {
     if (sections?.introFun && sections.punchlineFun) {
       banter.set(id, { intro: sections.introFun, punchline: sections.punchlineFun });
     } else {
@@ -31293,10 +31293,10 @@ function formatOutboxPrComment({
   const facts = { numberById, roundMarkers, banter };
   const lines = [ctx.markers.prComment, ""];
   if (sorted.length > 0) {
-    const count3 = sorted.length;
+    const count4 = sorted.length;
     const example = exampleNumber(sorted, numberById);
     lines.push(
-      `**${count3} question${count3 === 1 ? "" : "s"} need${count3 === 1 ? "s" : ""} your decision**`,
+      `**${count4} question${count4 === 1 ? "" : "s"} need${count4 === 1 ? "s" : ""} your decision**`,
       "",
       `Reply to this comment, one line per question: \`${example}: A\` keeps what was built, \`${example}: B because \u2026\` chooses another option. Several answers can go in one reply. To keep every recommendation at once, reply \`go with recommendation\`.`,
       "",
@@ -31424,8 +31424,8 @@ function countsByRank(items) {
 function slackEscape(text10) {
   return text10.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
-function plural2(count3, singular, pluralForm = `${singular}s`) {
-  return `${count3} ${count3 === 1 ? singular : pluralForm}`;
+function plural2(count4, singular, pluralForm = `${singular}s`) {
+  return `${count4} ${count4 === 1 ? singular : pluralForm}`;
 }
 var SLACK_USER_ID = /^[UW][A-Z0-9]{2,}$/;
 function slackOwner({
@@ -31458,7 +31458,7 @@ function slackLine({
   const name2 = cleanTitle ? `PRD #${prd2} \xB7 ${slackEscape(cleanTitle)}` : `PRD #${prd2}`;
   const who2 = ownerText(owner);
   const head = who2 ? `*${name2}* \u2014 owner ${who2}` : `*${name2}*`;
-  const waiting = Object.values(counts2).reduce((sum, count3) => sum + count3, 0);
+  const waiting = Object.values(counts2).reduce((sum, count4) => sum + count4, 0);
   const parts = [];
   if (waiting > 0) {
     parts.push(`${waiting} question${waiting === 1 ? " needs" : "s need"} a decision`);
@@ -31634,14 +31634,14 @@ function lineFor(question, pick2) {
 function writeReply({
   prd: prd2,
   door,
-  questions,
+  questions: questions2,
   picks
 }) {
   if (!Object.hasOwn(DOORS, door)) return { ok: false, reason: `unknown door "${door}": terminal or page` };
   const parsed = PicksSchema.safeParse(picks, { error: KIT_MESSAGES });
   if (!parsed.success) return { ok: false, reason: describeIssue2(parsed.error.issues[0]) };
   if (parsed.data.length === 0) return { ok: false, reason: "no answer to write" };
-  const byNumber = new Map((questions ?? []).map((question) => [question.number, question]));
+  const byNumber = new Map((questions2 ?? []).map((question) => [question.number, question]));
   const seen = /* @__PURE__ */ new Set();
   const lines = [];
   for (const pick2 of [...parsed.data].sort((a, b) => a.number - b.number)) {
@@ -31666,11 +31666,11 @@ function answerableQuestions({
     const parsed = parseItem(entry.itemText, null);
     if (parsed.ok) kept.set(entry.id, parsed.item);
   }
-  const questions = [];
+  const questions2 = [];
   for (const { number: number4, id } of numbering) {
     const item2 = open3.get(id) ?? kept.get(id);
     if (!item2) continue;
-    questions.push({
+    questions2.push({
       number: number4,
       id,
       rank: item2.rank,
@@ -31679,7 +31679,7 @@ function answerableQuestions({
       item: item2
     });
   }
-  return questions.sort((a, b) => a.number - b.number);
+  return questions2.sort((a, b) => a.number - b.number);
 }
 function askedText(item2) {
   const { sections } = item2;
@@ -32394,12 +32394,12 @@ function post(args, { ctx, stdout, stderr, exec, env }) {
   } catch (error62) {
     return fail(stderr, `could not read the comments of pull request #${pr} (${firstLine(error62)}).`);
   }
-  const questions = answerableQuestions({
+  const questions2 = answerableQuestions({
     numbering: numbering ?? [],
     items: openItemsForPrd(prd2, { ctx }),
     adopted: adoptedEntriesForPrd(prd2, { ctx })
   });
-  const written = writeReply({ prd: prd2, door: "terminal", questions, picks });
+  const written = writeReply({ prd: prd2, door: "terminal", questions: questions2, picks });
   if (!written.ok) return fail(stderr, `refused \u2014 ${written.reason}`);
   if (flags.print === true) {
     println(stdout, written.reply);
@@ -32573,7 +32573,7 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     /** `questions` is `AskUserQuestion`'s input as is; `context`, when given, is where the round came
      * from and what it cost (`./context.ts`); `lead`, when given, is the text Claude wrote before
      * asking (`./lead.ts`, PRD 752). @returns {Promise<{ roundId: string }>} */
-    openRound: (sessionId, questions, context, lead) => call("POST", `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withLead(withContext({ questions }, context), lead) }),
+    openRound: (sessionId, questions2, context, lead) => call("POST", `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withLead(withContext({ questions: questions2 }, context), lead) }),
     /** Held by the server up to 50 s. An answer given on the page with screenshots (PRD 620) also
      * carries, per question, each one's name and a signed link (null when none could be made).
      * @returns {Promise<{ status: 'open'|'answered'|'abandoned'|'closed', answers?: Record<string, string>,
@@ -32871,11 +32871,11 @@ function activeMode(root) {
   if (!baseUrl || new URL(baseUrl).host !== mode.host) return null;
   return { host: mode.host, baseUrl };
 }
-function toolAnswers(questions, answers2) {
-  if (!Array.isArray(questions) || questions.length === 0) return null;
+function toolAnswers(questions2, answers2) {
+  if (!Array.isArray(questions2) || questions2.length === 0) return null;
   if (!answers2 || typeof answers2 !== "object" || Array.isArray(answers2)) return null;
   const shaped = {};
-  const list3 = questions;
+  const list3 = questions2;
   for (const entry of list3) {
     if (entry === null || entry === void 0) throw new TypeError(`a question is ${String(entry)}`);
     const question = String(field(entry, "question"));
@@ -32950,20 +32950,20 @@ function sweepOldShots(root, now) {
 function preInput(input2) {
   if (field(input2, "tool_name") !== TOOL2) return null;
   const toolInput = field(input2, "tool_input");
-  const questions = field(toolInput, "questions");
-  if (!Array.isArray(questions) || questions.length === 0) return null;
+  const questions2 = field(toolInput, "questions");
+  if (!Array.isArray(questions2) || questions2.length === 0) return null;
   const terminalId = idOf(field(input2, "session_id"));
   const toolUseId = idOf(field(input2, "tool_use_id"));
   if (!terminalId || !toolUseId) return null;
-  return { toolInput, questions, terminalId, toolUseId };
+  return { toolInput, questions: questions2, terminalId, toolUseId };
 }
-async function openRoundFor({ root, host, client, input: input2, title, readContext, readSessionContext, readLead: readLead2, questions, terminalId }) {
+async function openRoundFor({ root, host, client, input: input2, title, readContext, readSessionContext, readLead: readLead2, questions: questions2, terminalId }) {
   let roundId;
   try {
     const sessionId = await terminalSession({ root, host, client, terminalId, title, readSessionContext });
     try {
       const context = contextOf(() => readContext({ root, input: input2 })) ?? void 0;
-      roundId = field(await client.openRound(sessionId, questions, context, contextOf(() => readLead2({ input: input2 }))), "roundId");
+      roundId = field(await client.openRound(sessionId, questions2, context, contextOf(() => readLead2({ input: input2 }))), "roundId");
     } catch (error62) {
       const status3 = field(error62, "status");
       if (typeof status3 === "number" && SESSION_GONE.includes(status3)) clearTerminal(root, terminalId);
@@ -32988,10 +32988,10 @@ async function preHook({
 }) {
   const pre = preInput(input2);
   if (!pre) return null;
-  const { toolInput, questions, terminalId, toolUseId } = pre;
+  const { toolInput, questions: questions2, terminalId, toolUseId } = pre;
   const deadline = now() + limits.totalMs;
   sweepOldShots(root, now);
-  const roundId = await openRoundFor({ root, host, client, input: input2, title, readContext, readSessionContext, readLead: readLead2, questions, terminalId });
+  const roundId = await openRoundFor({ root, host, client, input: input2, title, readContext, readSessionContext, readLead: readLead2, questions: questions2, terminalId });
   if (!roundId) return null;
   const keep = (status3) => {
     writeRound(root, toolUseId, { roundId, status: status3 });
@@ -33023,7 +33023,7 @@ async function preHook({
       keep("abandoned");
       return null;
     }
-    const answers2 = status3 === "answered" ? toolAnswers(questions, field(result, "answers")) : null;
+    const answers2 = status3 === "answered" ? toolAnswers(questions2, field(result, "answers")) : null;
     if (!answers2) return giveUp();
     keep("answered");
     const attachments = field(result, "attachments");
@@ -33038,8 +33038,8 @@ async function postHook({ root, client, input: input2 }) {
     if (round2.status === "answered") return;
     const toolInput = field(input2, "tool_input");
     const toolResponse = field(input2, "tool_response");
-    const questions = field(toolInput, "questions") ?? field(toolResponse, "questions");
-    const answers2 = toolAnswers(questions, field(toolResponse, "answers") ?? field(toolInput, "answers"));
+    const questions2 = field(toolInput, "questions") ?? field(toolResponse, "questions");
+    const answers2 = toolAnswers(questions2, field(toolResponse, "answers") ?? field(toolInput, "answers"));
     if (answers2) await client.answer(round2.roundId, answers2);
   } catch {
   } finally {
@@ -33965,7 +33965,7 @@ var NO_COMMIT = /^[—–-]$/;
 function duplicateIds(slices) {
   const counts2 = /* @__PURE__ */ new Map();
   for (const slice of slices) counts2.set(slice.id, (counts2.get(slice.id) ?? 0) + 1);
-  return [...counts2.entries()].filter(([, count3]) => count3 > 1).map(([id]) => id);
+  return [...counts2.entries()].filter(([, count4]) => count4 > 1).map(([id]) => id);
 }
 function blockedByViolations(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
@@ -35487,8 +35487,8 @@ function citationProblems(citations, field2) {
 }
 function lineProblems(text10, field2) {
   if (!isText3(text10)) return [`${field2} must be a sentence.`];
-  const count3 = countSentences2(text10);
-  return count3 > MAX_SENTENCES ? [`${field2} holds ${count3} sentences; two at most.`] : [];
+  const count4 = countSentences2(text10);
+  return count4 > MAX_SENTENCES ? [`${field2} holds ${count4} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
   const at2 = `personas[${i}]`;
@@ -35862,9 +35862,9 @@ function headingAnchors(text10) {
     const match = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
     const base = (match[1] ?? "").replace(/`/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
-    const count3 = seen.get(base) ?? 0;
-    seen.set(base, count3 + 1);
-    anchors.add(count3 === 0 ? base : `${base}-${count3}`);
+    const count4 = seen.get(base) ?? 0;
+    seen.set(base, count4 + 1);
+    anchors.add(count4 === 0 ? base : `${base}-${count4}`);
   }
   return anchors;
 }
@@ -36575,22 +36575,22 @@ function report(stdout, title, violations, passLine) {
 }
 function checkInbox({ ctx, stdout }) {
   const violations = findInboxViolations({ ctx });
-  const count3 = ctx.layout.specFiles().length;
+  const count4 = ctx.layout.specFiles().length;
   return report(
     stdout,
     "check inbox \u2014 an inbox file does not hold what it claims:",
     violations,
-    `check inbox \u2014 ${count3} inbox file(s), all well-formed.`
+    `check inbox \u2014 ${count4} inbox file(s), all well-formed.`
   );
 }
 function checkOutbox({ ctx, stdout }) {
   const violations = findOutboxViolations({ ctx });
-  const count3 = outboxItemFiles({ ctx }).length;
+  const count4 = outboxItemFiles({ ctx }).length;
   return report(
     stdout,
     "check outbox \u2014 an outbox item does not hold what it claims:",
     violations,
-    `check outbox \u2014 ${count3} open item(s), all well-formed.`
+    `check outbox \u2014 ${count4} open item(s), all well-formed.`
   );
 }
 function checkKnowledge({ ctx, stdout, stderr }) {
@@ -36608,12 +36608,12 @@ function checkKnowledge({ ctx, stdout, stderr }) {
   for (const wish of wishes) println(stderr, `warning: ${wish}`);
   for (const proposal of proposals) println(stderr, `warning: ${proposal}`);
   const knowledge2 = readKnowledge({ ctx });
-  const count3 = (kind) => knowledge2.entries.filter((entry) => entry.kind === kind).length;
+  const count4 = (kind) => knowledge2.entries.filter((entry) => entry.kind === kind).length;
   return report(
     stdout,
     title,
     violations,
-    `check knowledge \u2014 ${count3("principle")} principle(s), ${count3("rule")} rule(s), ${count3("invariant")} invariant(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`
+    `check knowledge \u2014 ${count4("principle")} principle(s), ${count4("rule")} rule(s), ${count4("invariant")} invariant(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`
   );
 }
 var FORM_STATES2 = ["filled", "pointer", "blank", "missing"];
@@ -36624,7 +36624,7 @@ function checkKb({ ctx, stdout, stderr, exec }) {
   const warnings = [...own2.warnings, ...copies.warnings];
   for (const warning of warnings) println(stderr, `warning: ${warning}`);
   const { forms } = own2;
-  const counts2 = FORM_STATES2.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count3]) => count3 > 0).map(([state, count3]) => `${count3} ${state}`);
+  const counts2 = FORM_STATES2.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count4]) => count4 > 0).map(([state, count4]) => `${count4} ${state}`);
   const copied = copies.copies === 0 ? "" : `; ${copies.copies} imported ${copies.copies === 1 ? "copy" : "copies"} checked`;
   return report(
     stdout,
@@ -37115,8 +37115,8 @@ function areasOf(lines, scale) {
   faults.push(...idFaults(areas.map((area2) => area2.id)));
   const allowed = scale ? AREA_ROWS[scale] : void 0;
   if (allowed && (areas.length < allowed.min || areas.length > allowed.max)) {
-    const count3 = areas.length === 0 ? "no area" : `${areas.length} area${areas.length === 1 ? "" : "s"}`;
-    faults.push(`Areas: ${count3}; a ${scale} concept has ${allowed.words}.`);
+    const count4 = areas.length === 0 ? "no area" : `${areas.length} area${areas.length === 1 ? "" : "s"}`;
+    faults.push(`Areas: ${count4}; a ${scale} concept has ${allowed.words}.`);
   }
   return { areas, faults };
 }
@@ -37440,8 +37440,8 @@ function summarize(items, { commits = null, app = false } = {}) {
     prdIssues,
     byTheApp: app ? byTheApp : null,
     commits: commits === null ? null : commits.length,
-    byRepo: tally(counted3, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count3]) => ({ repo, count: count3 })),
-    byMonth: tally(counted3, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count3]) => ({ month, count: count3 }))
+    byRepo: tally(counted3, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count4]) => ({ repo, count: count4 })),
+    byMonth: tally(counted3, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count4]) => ({ month, count: count4 }))
   };
 }
 
@@ -37614,7 +37614,7 @@ function cell(text10, width, gap = 1) {
 }
 var joined2 = (parts) => parts.length ? parts.join(" \xB7 ") : "none";
 var shortName5 = (repo) => repo.slice(repo.indexOf("/") + 1);
-var counted = (count3, one, many) => `${count3} ${count3 === 1 ? one : many}`;
+var counted = (count4, one, many) => `${count4} ${count4 === 1 ? one : many}`;
 var signatureLine = (signatures) => `signed ${signatures.signed} \xB7 before signing ${signatures["before signing"]} \xB7 missed ${signatures.missed}`;
 function creditsReport({ name: name2, scope, since, summary }) {
   const { prs, prdIssues, byTheApp, commits, byRepo, byMonth } = summary;
@@ -37632,8 +37632,8 @@ function creditsReport({ name: name2, scope, since, summary }) {
   }
   if (commits !== null) lines.push(`Co-authored commits on default branches: ${commits}`);
   lines.push(
-    cell("By repo", LABEL) + joined2(byRepo.map(({ repo, count: count3 }) => `${shortName5(repo)} ${count3}`)),
-    cell("By month", LABEL) + joined2(byMonth.map(({ month, count: count3 }) => `${month} ${count3}`))
+    cell("By repo", LABEL) + joined2(byRepo.map(({ repo, count: count4 }) => `${shortName5(repo)} ${count4}`)),
+    cell("By month", LABEL) + joined2(byMonth.map(({ month, count: count4 }) => `${month} ${count4}`))
   );
   return lines;
 }
@@ -42326,7 +42326,7 @@ function copyLines(targets2) {
   return [
     `Imported copies: ${targets2.length}`,
     ...targets2.map(({ repo, folder, forms, registers }) => {
-      const states = COPY_STATES.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count3]) => count3 > 0).map(([state, count3]) => `${count3} ${state}`);
+      const states = COPY_STATES.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count4]) => count4 > 0).map(([state, count4]) => `${count4} ${state}`);
       return `  ${repo.padEnd(width)}  ${[folder, ...states, `${registers.length} register folder(s)`].join(" \xB7 ")}`;
     })
   ];
@@ -42334,19 +42334,19 @@ function copyLines(targets2) {
 function statusText({ frontDoor, forms, registers, targets: targets2 }) {
   const width = Math.max(...forms.map(({ form: form2 }) => form2.length));
   const lines = [`kb status \u2014 ${forms.length} form(s) in ${frontDoor}`];
-  for (const { form: form2, kind, state, source, questions: questions2, stale: stale2 } of forms) {
+  for (const { form: form2, kind, state, source, questions: questions3, stale: stale2 } of forms) {
     const counts2 = [];
-    if (questions2.length > 0) counts2.push(`${questions2.length} open question(s)`);
+    if (questions3.length > 0) counts2.push(`${questions3.length} open question(s)`);
     if (stale2.length > 0) counts2.push(`${stale2.length} stale evidence`);
     const columns2 = [form2.padEnd(width), kind.padEnd(8), state.padEnd(7), String(SOURCE_LABEL[source]).padEnd(11), counts2.join(" \xB7 ")];
     lines.push(`  ${columns2.join("  ").trimEnd()}`);
   }
-  const questions = forms.flatMap(({ form: form2, file: file2, questions: open3 }) => open3.map(({ slot, question }) => `  ${form2}#${slot} (${file2}): ${question}`));
+  const questions2 = forms.flatMap(({ form: form2, file: file2, questions: open3 }) => open3.map(({ slot, question }) => `  ${form2}#${slot} (${file2}): ${question}`));
   const stale = forms.flatMap(
     ({ form: form2, file: file2, stale: entries3 }) => entries3.map(({ path, hash: hash2, now }) => `  ${form2} (${file2}): ${path}@${hash2} \u2014 ${now === null ? "gone" : `now ${now.slice(0, 7)}`}`)
   );
   lines.push(...registerLines(registers), ...copyLines(targets2));
-  lines.push(questions.length > 0 ? `Open questions: ${questions.length}` : "Open questions: none.", ...questions);
+  lines.push(questions2.length > 0 ? `Open questions: ${questions2.length}` : "Open questions: none.", ...questions2);
   lines.push(stale.length > 0 ? `Stale evidence: ${stale.length}` : "Stale evidence: none.", ...stale);
   return lines.join("\n");
 }
@@ -42476,27 +42476,33 @@ var act = (prd2, skill, why2, link2) => ({ prd: prd2, verdict: "act", skill, why
 var wait2 = (prd2, why2, wakeHint, link2) => ({ prd: prd2, verdict: "wait", why: why2, wakeHint, ...link2 ? { link: link2 } : {} });
 var park = (prd2, why2, link2) => ({ prd: prd2, verdict: "park", why: why2, ...link2 ? { link: link2 } : {} });
 var ids = (list3) => list3.join(", ");
+var count3 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+function careNeeds(feature) {
+  const redToFix = feature.checks === "red" && feature.fixable && !feature.stuck;
+  return [redToFix ? "red CI" : null, feature.conflict ? "a conflict" : null, feature.threads > 0 ? `${count3(feature.threads, "review thread")} to handle` : null].filter(
+    (need) => need !== null
+  );
+}
 function readyPr(prd2, feature) {
   if (feature.state !== "OPEN" || feature.isDraft) return null;
-  const needs = [
-    feature.checks === "red" && feature.fixable && !feature.stuck ? "red CI" : null,
-    feature.conflict ? "a conflict" : null,
-    feature.threads > 0 ? `${feature.threads} review thread${feature.threads === 1 ? "" : "s"} to handle` : null
-  ].filter((need) => need !== null);
+  const needs = careNeeds(feature);
   if (needs.length > 0) return act(prd2, "pr-care --once", `the ready feature PR has ${needs.join(", ")}`, feature.url);
   if (feature.checks === "red" && feature.stuck) return park(prd2, "waits on a person: the feature PR's CI is stuck after its attempts", feature.url);
   return null;
 }
-function finished(prd2, feature, outbox) {
+function questions(prd2, feature, outbox) {
+  if (outbox.questions === 0) return null;
   const link2 = feature?.url;
-  if (outbox.questions > 0 && outbox.answered) return act(prd2, "yolo-fix", "answers are posted on the feature PR's outbox questions", link2);
-  if (outbox.questions > 0) {
-    const who2 = feature?.author ? `@${feature.author}` : "the PRD's owner";
-    return park(prd2, `waits on ${who2}: ${outbox.questions} outbox question${outbox.questions === 1 ? "" : "s"} to answer`, link2);
-  }
-  if (feature === null || feature.isDraft) return act(prd2, "yolo", "every slice is merged and the feature PR is not ready yet", link2);
-  if (feature.checks === "running") return wait2(prd2, "the feature PR's CI is running", WAKE_HINTS.ci, link2);
-  return park(prd2, "waits on a person: the feature PR is ready to merge", link2);
+  if (outbox.answered) return act(prd2, "yolo-fix", "answers are posted on the feature PR's outbox questions", link2);
+  const who2 = feature?.author ? `@${feature.author}` : "the PRD's owner";
+  return park(prd2, `waits on ${who2}: ${count3(outbox.questions, "outbox question")} to answer`, link2);
+}
+function finished(prd2, feature, outbox) {
+  const asked = questions(prd2, feature, outbox);
+  if (asked !== null) return asked;
+  if (feature === null || feature.isDraft) return act(prd2, "yolo", "every slice is merged and the feature PR is not ready yet", feature?.url);
+  if (feature.checks === "running") return wait2(prd2, "the feature PR's CI is running", WAKE_HINTS.ci, feature.url);
+  return park(prd2, "waits on a person: the feature PR is ready to merge", feature.url);
 }
 function building(prd2, board2, link2) {
   if (board2.takeable.length > 0) return act(prd2, "wave", `wave ${board2.wave ?? "?"} can take ${ids(board2.takeable)}`, link2);
@@ -42617,18 +42623,18 @@ function answerableQuestions2(numbering, items, adopted) {
     const parsed = parseItem(entry.itemText, null);
     if (parsed.ok) adoptedById.set(entry.id, { entry, item: parsed.item });
   }
-  const questions = [];
+  const questions2 = [];
   for (const entry of numbering) {
     const open3 = itemsById.get(entry.id);
     const kept = adoptedById.get(entry.id);
     if (open3 !== void 0) {
-      questions.push({ ...entry, item: open3, adoptedEntry: null });
+      questions2.push({ ...entry, item: open3, adoptedEntry: null });
     } else if (kept !== void 0) {
       const { entry: adoptedEntry, item: item2 } = kept;
-      questions.push({ ...entry, item: item2, adoptedEntry });
+      questions2.push({ ...entry, item: item2, adoptedEntry });
     }
   }
-  return questions.sort((a, b) => a.number - b.number);
+  return questions2.sort((a, b) => a.number - b.number);
 }
 function planReplies({ comments, items, adopted = [], markers }) {
   return planFor({ comments: replyComments(comments), items: external_exports.array(RepliedItemSchema).parse(items), adopted, markers });
@@ -42639,14 +42645,14 @@ function replyComments(comments) {
 function planFor({ comments: all, items, adopted, markers }) {
   const prComment = findPrMarkerComment(all, markers);
   const numbering = prComment ? parseNumbersMarker(prComment.body, markers) : [];
-  const questions = answerableQuestions2(numbering, items, adopted);
-  const byNumber = new Map(questions.map((question) => [question.number, question]));
-  const open3 = questions.filter((question) => question.adoptedEntry === null);
+  const questions2 = answerableQuestions2(numbering, items, adopted);
+  const byNumber = new Map(questions2.map((question) => [question.number, question]));
+  const open3 = questions2.filter((question) => question.adoptedEntry === null);
   const { numbered, approved } = rawAnswers(all, markers, byNumber, open3);
   const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
   const settle3 = [];
   const held = [];
-  for (const { number: number4, item: item2, adoptedEntry } of questions) {
+  for (const { number: number4, item: item2, adoptedEntry } of questions2) {
     const raw = numbered.get(number4) ?? approved.get(number4);
     if (!raw) continue;
     const { answer, judgement } = readAnswer(raw, item2);
@@ -42718,10 +42724,10 @@ function roundOf(held, highestRound) {
 }
 function formatRoundComment({
   round: round2,
-  questions,
+  questions: questions2,
   markers
 }) {
-  const ordered = [...questions].sort((a, b) => a.number - b.number);
+  const ordered = [...questions2].sort((a, b) => a.number - b.number);
   const lines = [
     markers.round(round2, ordered.map((question) => question.number)),
     "",
@@ -42946,11 +42952,11 @@ function openItems2(prd2, branch, reader) {
 }
 function outboxFacts(prd2, { branch, pr }, reader) {
   const items = openItems2(prd2, branch, reader);
-  const questions = items.filter((item2) => ASKED_RANKS.has(item2.rank)).length;
-  if (questions === 0 || pr === null) return { questions, answered: false };
+  const questions2 = items.filter((item2) => ASKED_RANKS.has(item2.rank)).length;
+  if (questions2 === 0 || pr === null) return { questions: questions2, answered: false };
   const comments = githubClientFor(reader.ctx, { repo: reader.slug, issue: pr.number, exec: reader.exec, env: reader.env }).listComments();
   const { settle: settle3 } = planReplies({ comments, items, markers: reader.ctx.markers });
-  return { questions, answered: settle3.length > 0 };
+  return { questions: questions2, answered: settle3.length > 0 };
 }
 function boardFacts(prd2, reader) {
   const { ctx } = reader;
@@ -42972,19 +42978,23 @@ function boardFacts(prd2, reader) {
     return "unreadable";
   }
 }
+function folderOf(prd2, ctx) {
+  const where = ctx.layout.whereIs(prd2);
+  const parsed = where === null ? null : parseFolderName(where.name);
+  return where === null || parsed === null ? null : { topic: parsed.topic, shipped: where.state === "shipped" };
+}
 function readFacts(prd2, reader) {
-  const where = reader.ctx.layout.whereIs(prd2);
+  const folder = folderOf(prd2, reader.ctx);
   const phase02 = openPhase0(prd2, reader);
-  const topic = where === null ? null : parseFolderName(where.name)?.topic ?? null;
-  if (topic === null) {
+  if (folder === null) {
     if (phase02 !== null) return { prd: prd2, shipped: false, phase0: phase02, feature: null, board: null, outbox: { questions: 0, answered: false } };
     throw usageError(`omni next: PRD ${prd2} has no inbox or shipped folder, and no open phase-0 PR.`);
   }
-  const branch = fillBranch(reader.ctx.config.branches.feature, { topic });
+  const branch = fillBranch(reader.ctx.config.branches.feature, { topic: folder.topic });
   const pr = featurePr(branch, reader);
+  const open3 = pr?.state === "OPEN" ? pr : null;
   const feature = pr === null ? null : featureFacts(pr, reader);
-  const outbox = outboxFacts(prd2, { branch, pr: pr?.state === "OPEN" ? pr : null }, reader);
-  return { prd: prd2, shipped: where?.state === "shipped", phase0: phase02, feature, board: boardFacts(prd2, reader), outbox };
+  return { prd: prd2, shipped: folder.shipped, phase0: phase02, feature, board: boardFacts(prd2, reader), outbox: outboxFacts(prd2, { branch, pr: open3 }, reader) };
 }
 function isUsage(error62) {
   return error62 instanceof Error && error62.name === "UsageError";
@@ -43444,11 +43454,11 @@ function planMoved({
 var SHOWN = 3;
 function detailOf(row) {
   if (row.state === "moved") {
-    const count3 = `${row.files.length} ${row.files.length === 1 ? "file" : "files"}`;
+    const count4 = `${row.files.length} ${row.files.length === 1 ? "file" : "files"}`;
     const owners = row.slices.map((id) => `${id}'s`).join(", ");
     const where = row.slices.length === 1 ? "territory" : "territories";
     const shown4 = row.files.slice(0, SHOWN).join(", ") + (row.files.length > SHOWN ? ", \u2026" : "");
-    return `${count3} under ${owners} ${where} (${shown4})`;
+    return `${count4} under ${owners} ${where} (${shown4})`;
   }
   return row.detail ?? "";
 }
@@ -43463,8 +43473,8 @@ function movedTable(rows2) {
 
 // kit/bin/commands/plan.ts
 var USAGE18 = "usage: omni plan check <prd> | omni plan moved <prd> [--json] | omni plan landings <prd> [--json] [--repo <name>]";
-function counted2(count3, singular, pluralForm) {
-  return `${count3} ${count3 === 1 ? singular : pluralForm}`;
+function counted2(count4, singular, pluralForm) {
+  return `${count4} ${count4 === 1 ? singular : pluralForm}`;
 }
 function readPlanText(prd2, { ctx, verb: verb2 }) {
   const planPath = ctx.layout.planPath(prd2);
@@ -43886,7 +43896,7 @@ var WORD_LIMITS = Object.freeze({
   label: { max: 4, name: "a label" }
 });
 var countWords = (text10) => text10.trim().split(/\s+/).filter(Boolean).length;
-var plural4 = (count3, word) => `${count3} ${word}${count3 === 1 ? "" : "s"}`;
+var plural4 = (count4, word) => `${count4} ${word}${count4 === 1 ? "" : "s"}`;
 function checkRunFolder(dir) {
   let value;
   try {
@@ -43951,17 +43961,17 @@ function syncErrors({ meta: meta3, scenes }) {
 function sceneWarnings(scene2, index) {
   const words3 = wordsOf2(scene2, `scenes.${index}`);
   const warnings = words3.flatMap(overLimit);
-  const count3 = words3.reduce((sum, piece) => sum + countWords(piece.text), 0);
-  if (count3 / READ_WORDS_PER_SECOND > scene2.duration) {
-    const needed = Math.ceil(count3 / READ_WORDS_PER_SECOND);
-    warnings.push({ path: `scenes.${index}`, message: `${plural4(count3, "word")} take about ${needed} s to read; the scene lasts ${scene2.duration} s` });
+  const count4 = words3.reduce((sum, piece) => sum + countWords(piece.text), 0);
+  if (count4 / READ_WORDS_PER_SECOND > scene2.duration) {
+    const needed = Math.ceil(count4 / READ_WORDS_PER_SECOND);
+    warnings.push({ path: `scenes.${index}`, message: `${plural4(count4, "word")} take about ${needed} s to read; the scene lasts ${scene2.duration} s` });
   }
   return warnings;
 }
 function overLimit({ path, text: text10, limit }) {
-  const count3 = countWords(text10);
+  const count4 = countWords(text10);
   const { max, name: name2 } = WORD_LIMITS[limit];
-  return count3 > max ? [{ path, message: `${plural4(count3, "word")}; ${name2} holds at most ${max}` }] : [];
+  return count4 > max ? [{ path, message: `${plural4(count4, "word")}; ${name2} holds at most ${max}` }] : [];
 }
 var WORD_FIELDS = Object.freeze([
   ["eyebrow", "eyebrow"],
@@ -44345,7 +44355,7 @@ function repositoryChromium(cwd) {
     throw new Error("Playwright is needed to capture frames: install playwright in the repository");
   };
 }
-var share = (count3, page2, pages) => Array.from({ length: count3 }, (_, n) => n).filter((n) => n % pages === page2);
+var share = (count4, page2, pages) => Array.from({ length: count4 }, (_, n) => n).filter((n) => n % pages === page2);
 async function capture(page2, url2, frames, dir) {
   await page2.goto(url2);
   for (const n of frames) {
@@ -44356,16 +44366,16 @@ async function capture(page2, url2, frames, dir) {
 var playwrightCapture = Object.freeze({
   kind: "capture",
   id: "playwright",
-  frames: async ({ url: url2, count: count3, width, height, pages = PAGES }, { dir, cwd, launch }) => {
+  frames: async ({ url: url2, count: count4, width, height, pages = PAGES }, { dir, cwd, launch }) => {
     const browser = await (launch ?? repositoryChromium(cwd))();
     try {
-      const lanes = Math.max(1, Math.min(pages, count3));
+      const lanes = Math.max(1, Math.min(pages, count4));
       const opened = await Promise.all(Array.from({ length: lanes }, () => browser.newPage({ viewport: { width, height } })));
-      await Promise.all(opened.map((page2, lane) => capture(page2, url2, share(count3, lane, lanes), dir)));
+      await Promise.all(opened.map((page2, lane) => capture(page2, url2, share(count4, lane, lanes), dir)));
     } finally {
       await browser.close();
     }
-    return Array.from({ length: count3 }, (_, n) => join65(dir, frameFile(n)));
+    return Array.from({ length: count4 }, (_, n) => join65(dir, frameFile(n)));
   }
 });
 
@@ -45023,9 +45033,9 @@ function contactHtml(files) {
   const seek = `window.${PAGE_SEEK}=function(){return Promise.all(Array.from(document.images).map(function(i){return i.decode();}));};`;
   return `<!doctype html><html><head><meta charset="utf-8"><style>${style}</style></head><body>${tiles}${script(seek)}</body></html>`;
 }
-var contactSize = (count3) => ({
+var contactSize = (count4) => ({
   width: CONTACT.columns * CONTACT.width,
-  height: Math.max(1, Math.ceil(count3 / CONTACT.columns)) * CONTACT.height
+  height: Math.max(1, Math.ceil(count4 / CONTACT.columns)) * CONTACT.height
 });
 function runFile(dir, path) {
   const root = resolve3(dir);
@@ -45321,9 +45331,9 @@ function audienceOf(verb2, value) {
   if (!isOneOf(AUDIENCES2, value)) throw usageError(`${USAGE19[verb2]} \u2014 --for is customers or inside, not ${value}`);
   return value;
 }
-var folderOf = (cwd, dir) => isAbsolute6(dir) ? dir : resolve4(cwd, dir);
+var folderOf2 = (cwd, dir) => isAbsolute6(dir) ? dir : resolve4(cwd, dir);
 function runFolder(verb2, cwd, dir) {
-  const folder = folderOf(cwd, dir);
+  const folder = folderOf2(cwd, dir);
   if (!existsSync56(folder)) throw usageError(`omni pitch ${verb2}: ${dir} is not a run folder.`);
   return folder;
 }
@@ -46599,15 +46609,15 @@ function buildingAndOutboxOf(inbox, features) {
 function landingsOf(features) {
   const landed = features.filter((feature) => feature.landing !== void 0);
   if (landed.length === 0) return void 0;
-  const count3 = Math.max(...landed.map((feature) => feature.landing?.landings ?? 0));
+  const count4 = Math.max(...landed.map((feature) => feature.landing?.landings ?? 0));
   const statuses = [];
-  for (let landing = 1; landing <= count3; landing += 1) {
+  for (let landing = 1; landing <= count4; landing += 1) {
     const own2 = landed.find((feature) => feature.landing?.landing === landing);
     const later = landed.some((feature) => (feature.landing?.landing ?? 0) > landing);
     const before2 = statuses.at(-1);
     statuses.push({
       landing,
-      landings: count3,
+      landings: count4,
       name: own2?.landing?.name ?? `landing-${landing}`,
       state: landingState(own2, later),
       waitsFor: before2 !== void 0 && before2.state !== "merged" ? before2.landing : null
@@ -46695,7 +46705,7 @@ var STAGE_WORDS = Object.freeze({
   retro: "retro"
 });
 var IDEA_COUNT = "on the app";
-var plural5 = (count3, word) => `${count3} ${word}${count3 === 1 ? "" : "s"}`;
+var plural5 = (count4, word) => `${count4} ${word}${count4 === 1 ? "" : "s"}`;
 function fetchedAgo(fetchedAt2, now) {
   if (fetchedAt2 === null || fetchedAt2 === void 0) return "never fetched";
   const age = Math.max(0, now - fetchedAt2);
@@ -46728,7 +46738,7 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
   const top = `${LABEL2}${cells4}  ${delivered} of ${total} \xB7 ${percent}%`;
   if (inProgress.total === 0) return [top, `${UNDER_BAR}nothing in progress`];
   const counted3 = [[inProgress.inbox, "in the inbox"], [inProgress.building, "being built"], [inProgress.outbox, "in the outbox"]];
-  const parts = counted3.filter(([count3]) => count3 > 0).map(([count3, where]) => `${count3} ${where}`);
+  const parts = counted3.filter(([count4]) => count4 > 0).map(([count4, where]) => `${count4} ${where}`);
   const under = [`${UNDER_BAR}${inProgress.total} in progress: ${parts[0]}`];
   for (const part of parts.slice(1)) {
     const joined3 = `${under.at(-1)}, ${part}`;
@@ -46764,9 +46774,9 @@ function rows(entries3) {
   ]);
 }
 function landingLines(landings) {
-  return landings.map(({ landing, landings: count3, name: name2, state, waitsFor }) => {
+  return landings.map(({ landing, landings: count4, name: name2, state, waitsFor }) => {
     const waits = waitsFor === null ? "" : `, waits for landing ${waitsFor} to merge`;
-    return cut2(`${UNDER_BAR}landing ${landing}/${count3} ${name2}: ${state}${waits}`, WIDTH);
+    return cut2(`${UNDER_BAR}landing ${landing}/${count4} ${name2}: ${state}${waits}`, WIDTH);
   });
 }
 function shippedEntry({ prd: prd2, topic }, width) {
@@ -47329,19 +47339,19 @@ function fit2(line, width) {
   }
   return `${out}${open3 ? RESET : ""}${CUT}`;
 }
-function itemsPart(count3) {
-  if (count3 === null || count3 === void 0 || !(count3 > 0)) return null;
-  return `${count3} open item${count3 === 1 ? "" : "s"}`;
+function itemsPart(count4) {
+  if (count4 === null || count4 === void 0 || !(count4 > 0)) return null;
+  return `${count4} open item${count4 === 1 ? "" : "s"}`;
 }
 function slicesPart(slices, { color = false } = {}) {
   if (!isList(slices) || slices.length === 0) return null;
-  const count3 = (test) => slices.filter((slice) => test(slice.state)).length;
-  const merged = count3((state) => state === MERGED);
+  const count4 = (test) => slices.filter((slice) => test(slice.state)).length;
+  const merged = count4((state) => state === MERGED);
   if (merged === slices.length) return "all slices merged";
   const wave = Math.min(...slices.filter((slice) => slice.state !== MERGED).map((slice) => slice.wave));
   const last = Math.max(...slices.map((slice) => slice.wave));
-  const inFlight = count3((state) => IN_FLIGHT.includes(state));
-  const stuck = count3((state) => state === STUCK);
+  const inFlight = count4((state) => IN_FLIGHT.includes(state));
+  const stuck = count4((state) => state === STUCK);
   return [
     `wave ${wave} of ${last}${SEPARATOR2}${merged}/${slices.length} slices merged`,
     inFlight > 0 ? `, ${inFlight} in flight` : "",

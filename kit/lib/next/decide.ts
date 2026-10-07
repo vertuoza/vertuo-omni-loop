@@ -85,30 +85,42 @@ const park = (prd: PrdNumber, why: string, link?: string): Verdict => ({ prd, ve
 /** A list of slice ids, in words. */
 const ids = (list: readonly string[]): string => list.join(', ');
 
+/** Plural words: `1 question`, `2 questions`. */
+const count = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** What a PR care round has to do on a ready feature PR, in words: none, or each need. */
+function careNeeds(feature: FeatureFacts): string[] {
+  const redToFix = feature.checks === 'red' && feature.fixable && !feature.stuck;
+  return [redToFix ? 'red CI' : null, feature.conflict ? 'a conflict' : null, feature.threads > 0 ? `${count(feature.threads, 'review thread')} to handle` : null].filter(
+    (need) => need !== null,
+  );
+}
+
 /** The verdict a ready feature PR forces before anything else, or `null` when it forces none. */
 function readyPr(prd: PrdNumber, feature: FeatureFacts): Verdict | null {
   if (feature.state !== 'OPEN' || feature.isDraft) return null;
-  const needs = [
-    feature.checks === 'red' && feature.fixable && !feature.stuck ? 'red CI' : null,
-    feature.conflict ? 'a conflict' : null,
-    feature.threads > 0 ? `${feature.threads} review thread${feature.threads === 1 ? '' : 's'} to handle` : null,
-  ].filter((need) => need !== null);
+  const needs = careNeeds(feature);
   if (needs.length > 0) return act(prd, 'pr-care --once', `the ready feature PR has ${needs.join(', ')}`, feature.url);
-  if (feature.checks === 'red' && feature.stuck) return park(prd, 'waits on a person: the feature PR\'s CI is stuck after its attempts', feature.url);
+  if (feature.checks === 'red' && feature.stuck) return park(prd, "waits on a person: the feature PR's CI is stuck after its attempts", feature.url);
   return null;
+}
+
+/** The verdict open outbox questions force once every slice is merged, or `null` with none open. */
+function questions(prd: PrdNumber, feature: FeatureFacts | null, outbox: OutboxFacts): Verdict | null {
+  if (outbox.questions === 0) return null;
+  const link = feature?.url;
+  if (outbox.answered) return act(prd, 'yolo-fix', "answers are posted on the feature PR's outbox questions", link);
+  const who = feature?.author ? `@${feature.author}` : "the PRD's owner";
+  return park(prd, `waits on ${who}: ${count(outbox.questions, 'outbox question')} to answer`, link);
 }
 
 /** The verdict once every slice is merged. */
 function finished(prd: PrdNumber, feature: FeatureFacts | null, outbox: OutboxFacts): Verdict {
-  const link = feature?.url;
-  if (outbox.questions > 0 && outbox.answered) return act(prd, 'yolo-fix', 'answers are posted on the feature PR\'s outbox questions', link);
-  if (outbox.questions > 0) {
-    const who = feature?.author ? `@${feature.author}` : 'the PRD\'s owner';
-    return park(prd, `waits on ${who}: ${outbox.questions} outbox question${outbox.questions === 1 ? '' : 's'} to answer`, link);
-  }
-  if (feature === null || feature.isDraft) return act(prd, 'yolo', 'every slice is merged and the feature PR is not ready yet', link);
-  if (feature.checks === 'running') return wait(prd, 'the feature PR\'s CI is running', WAKE_HINTS.ci, link);
-  return park(prd, 'waits on a person: the feature PR is ready to merge', link);
+  const asked = questions(prd, feature, outbox);
+  if (asked !== null) return asked;
+  if (feature === null || feature.isDraft) return act(prd, 'yolo', 'every slice is merged and the feature PR is not ready yet', feature?.url);
+  if (feature.checks === 'running') return wait(prd, "the feature PR's CI is running", WAKE_HINTS.ci, feature.url);
+  return park(prd, 'waits on a person: the feature PR is ready to merge', feature.url);
 }
 
 /** The verdict while slices remain to build. */

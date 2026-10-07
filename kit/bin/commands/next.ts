@@ -178,20 +178,26 @@ function boardFacts(prd: PrdNumber, reader: Reader): BoardFacts | null | 'unread
   }
 }
 
+/** PRD `prd`'s folder in this checkout: its topic, and whether it has shipped; `null` with none. */
+function folderOf(prd: PrdNumber, ctx: Context): { topic: string; shipped: boolean } | null {
+  const where = ctx.layout.whereIs(prd);
+  const parsed = where === null ? null : parseFolderName(where.name);
+  return where === null || parsed === null ? null : { topic: parsed.topic, shipped: where.state === 'shipped' };
+}
+
 /** Everything PRD `prd`'s verdict is decided on. Throws what `gh` throws when GitHub cannot be read. */
 function readFacts(prd: PrdNumber, reader: Reader): PrdFacts {
-  const where = reader.ctx.layout.whereIs(prd);
+  const folder = folderOf(prd, reader.ctx);
   const phase0 = openPhase0(prd, reader);
-  const topic = where === null ? null : parseFolderName(where.name)?.topic ?? null;
-  if (topic === null) {
+  if (folder === null) {
     if (phase0 !== null) return { prd, shipped: false, phase0, feature: null, board: null, outbox: { questions: 0, answered: false } };
     throw usageError(`omni next: PRD ${prd} has no inbox or shipped folder, and no open phase-0 PR.`);
   }
-  const branch = fillBranch(reader.ctx.config.branches.feature, { topic });
+  const branch = fillBranch(reader.ctx.config.branches.feature, { topic: folder.topic });
   const pr = featurePr(branch, reader);
+  const open = pr?.state === 'OPEN' ? pr : null;
   const feature = pr === null ? null : featureFacts(pr, reader);
-  const outbox = outboxFacts(prd, { branch, pr: pr?.state === 'OPEN' ? pr : null }, reader);
-  return { prd, shipped: where?.state === 'shipped', phase0, feature, board: boardFacts(prd, reader), outbox };
+  return { prd, shipped: folder.shipped, phase0, feature, board: boardFacts(prd, reader), outbox: outboxFacts(prd, { branch, pr: open }, reader) };
 }
 
 /** Whether an error is the command's own refusal, which `main()` prints as a usage error. */
@@ -212,7 +218,7 @@ function verdictFor(prd: PrdNumber, reader: Reader): Verdict {
 }
 
 /** One verdict, as one line for a person. */
-export function verdictLine(verdict: Verdict): string {
+function verdictLine(verdict: Verdict): string {
   const head = verdict.verdict === 'act' ? `act ${verdict.skill}` : verdict.verdict;
   const wake = verdict.verdict === 'wait' ? ` (look again in ${Math.round(verdict.wakeHint / 60)} min)` : '';
   return `PRD ${verdict.prd} — ${head}: ${verdict.why}${wake}${verdict.link ? ` — ${verdict.link}` : ''}`;

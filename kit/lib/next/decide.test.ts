@@ -67,7 +67,7 @@ describe('decideNext', () => {
   });
 
   it('every slice merged and no feature PR yet → act yolo', () => {
-    expect(decideNext(facts({ feature: null, board: allMerged }))).toEqual({ prd: PRD, verdict: 'act', skill: 'yolo', why: expect.any(String) });
+    expect(decideNext(facts({ feature: null, board: allMerged }))).toEqual({ prd: PRD, verdict: 'act', skill: 'yolo', why: 'every slice is merged and the feature PR is not ready yet' });
   });
 
   it('a PRD with no plan yet → act yolo', () => {
@@ -80,7 +80,7 @@ describe('decideNext', () => {
 
   it('CI running on a ready PR → wait, with the CI hint', () => {
     const verdict = decideNext(facts({ feature: feature({ isDraft: false, checks: 'running' }), board: allMerged }));
-    expect(verdict).toEqual({ prd: PRD, verdict: 'wait', why: expect.stringMatching(/CI is running/), wakeHint: WAKE_HINTS.ci, link: URL });
+    expect(verdict).toEqual({ prd: PRD, verdict: 'wait', why: "the feature PR's CI is running", wakeHint: WAKE_HINTS.ci, link: URL });
   });
 
   it('a claim held by another session → wait, with the claim hint', () => {

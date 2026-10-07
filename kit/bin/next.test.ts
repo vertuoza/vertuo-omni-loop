@@ -81,22 +81,26 @@ function repo(remoteFiles: Record<string, string> = {}) {
   return root;
 }
 
+/** Which of the fake's answers a gh call asks for. */
+function ghCallKind(args: readonly string[]): string {
+  if (args[0] === 'api') return args[1] === 'graphql' ? 'graphql' : 'comments';
+  if (args.includes('--label')) return 'phase0';
+  return args.includes('--head') ? 'feature' : 'subs';
+}
+
 type Fakes = { feature?: unknown[]; subs?: unknown[]; phase0?: unknown[]; comments?: unknown[]; read?: unknown; down?: boolean };
 
 /** A fake `execFileSync`: gh answered from `fakes`, git fetch a no-op, every other git call real. */
 function fakeExec({ feature = [featurePr()], subs = [subPr('s1', { state: 'OPEN', mergedAt: null, isDraft: true }), subPr('s2', { state: 'OPEN', mergedAt: null, isDraft: true })], phase0 = [], comments = [], read, down = false }: Fakes = {}) {
   const calls: string[][] = [];
+  const answers: Record<string, () => unknown> = { phase0: () => phase0, feature: () => feature, subs: () => subs, graphql: () => read, comments: () => comments };
   const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions = {}): string => {
     calls.push([file, ...args]);
     if (file === 'git') return args[0] === 'fetch' ? '' : realExec(file, args, options);
     if (down) throw Object.assign(new Error('error connecting to api.github.com'), { stderr: 'error connecting to api.github.com' });
-    if (args[0] === 'pr' && args[1] === 'list') {
-      if (args.includes('--label')) return JSON.stringify(phase0);
-      return JSON.stringify(args.includes('--head') ? feature : subs);
-    }
-    if (args[0] === 'api' && args[1] === 'graphql') return JSON.stringify(read);
-    if (args[0] === 'api' && String(args[1]).endsWith('/comments')) return JSON.stringify(comments);
-    throw new Error(`fakeExec: unexpected call ${file} ${args.join(' ')}`);
+    const answer = answers[ghCallKind(args)];
+    if (!answer) throw new Error(`fakeExec: unexpected call ${file} ${args.join(' ')}`);
+    return JSON.stringify(answer());
   };
   return { exec, calls };
 }
