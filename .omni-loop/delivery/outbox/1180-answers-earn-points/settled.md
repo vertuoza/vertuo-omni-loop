@@ -237,3 +237,233 @@ A change is a new version of one database function; past answers would be paid o
 ```
 
 <!-- /omni-outbox-settled: s1-03-which-answers-are-paid -->
+
+<!-- omni-outbox-settled: s3-01-capital-login-skipped -->
+
+## s3-01-capital-login-skipped — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-capital-login-skipped
+prd: 1180
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 2
+---
+
+## The question, in plain words
+
+GitHub accounts may be spelt with capital letters, like Serghok. Should points credited to such an account be skipped until it is spelt in lower case, or credited as GitHub spells it?
+
+## The decision, in plain words
+
+They are credited as GitHub spells them: the login check ignores case, and skips only names holding an at sign, a dot, a space or another character no GitHub login can hold. This departs from the spec's acceptance criterion 7, which also refused upper case.
+
+## The intro, for fun
+
+Somebody signed up to GitHub with their caps lock on.
+
+## The punchline, for fun
+
+The ledger reads their name the way GitHub does: without shouting back.
+
+## The options, in plain words
+
+A. Skip an event credited to a capitalised name, with a warning naming it, as the spec's criterion 7 says.
+B. Lower the name before the check, so a capitalised GitHub name is credited under its lower-case spelling.
+C. Accept the name in any case, as GitHub issues it, and credit it as spelt.
+
+## What I had to decide
+
+Skip capitalised names, lower them, or accept them as GitHub spells them.
+
+## What I did meanwhile
+
+C. As first built, the slice skipped capitalised names (A), but 12 members of the vertuoza GitHub organisation have a capital in their login, and one (`Serghok`) merged a pull request here: A would have stopped crediting them with every new point, zones secured included. The orchestrator changed the check to ignore case before merging. Contributors stay spelt as GitHub gives them; the board and the roster already match logins whatever their case.
+
+## What it costs to change later
+
+One flag in the projector and a test, no migration.
+
+## What I could not know
+
+(orchestrator) Whether anyone relies on criterion 7 refusing upper case; nothing in the code or the registers does.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-capital-login-skipped -->
+
+<!-- omni-outbox-settled: s3-02-dotted-approver-waits -->
+
+## s3-02-dotted-approver-waits — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-dotted-approver-waits
+prd: 1180
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 2
+---
+
+## The question, in plain words
+
+When a settled decision names its approver with a dotted name, which no GitHub account can have, should that settle wait for the name to be fixed, or be closed on no one?
+
+## The decision, in plain words
+
+It waits: the settle is not counted until someone corrects the name, and then the right person gets the credit, while that decision still counts as open on the board.
+
+## The intro, for fun
+
+A name with a dot walks into the ledger, and the ledger asks for some ID.
+
+## The punchline, for fun
+
+It can wait in the lobby until the name is spelt right, or leave with nobody's credit.
+
+## The options, in plain words
+
+A. A. The settle waits, skipped with a warning, until its approver's name is fixed; the decision stays open on the board meanwhile.
+B. B. The reader drops a dotted approver, so the settle closes at once on no one and that credit is lost for good.
+
+## What I had to decide
+
+Keep the settle waiting until the name is fixed, or close it on no one at once.
+
+## What I did meanwhile
+
+A dotted approver's settle is skipped with a warning each poll; the decision stays open on the board, and is credited to the right login on the first poll after the line is corrected.
+
+## What it costs to change later
+
+Switching to B is one line in the settled-ledger reader and one test, no migration: nothing was written in the meantime.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan's done-when for s3 says the approver yields no dotted name, while the spec's user story says the event waits until the name is fixed; I followed the user story, because closing on no one is permanent in the ledger. (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-02-dotted-approver-waits -->
+
+<!-- omni-outbox-settled: s3-03-harvest-follows-login -->
+
+## s3-03-harvest-follows-login — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-harvest-follows-login
+prd: 1180
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 2
+---
+
+## The question, in plain words
+
+Writing the approver's name without the @ sign also changes what two other parts of the product expect, which this slice was not given. Should the slice update them, or leave the change to a later piece of work?
+
+## The decision, in plain words
+
+The slice updated them: two tests now expect the name without the @ sign, and the app's built copy was rebuilt so it matches the code.
+
+## The intro, for fun
+
+One little @ sign left the room, and two tests noticed it had gone.
+
+## The punchline, for fun
+
+They were told politely, and they agreed to stop looking for it.
+
+## The options, in plain words
+
+A. A. Update the two harvest tests and rebuild the app bundle in this slice, so the preflight is green.
+B. B. Leave them out of this slice, with a red preflight, for a follow-up slice to fix.
+
+## What I had to decide
+
+Keep the two test updates and the rebuilt app copy in this slice, or move them out to a follow-up.
+
+## What I did meanwhile
+
+Two tests outside the slice's ground expect the approver without @, and the app's committed bundle is rebuilt from the changed kit code; nothing else moved.
+
+## What it costs to change later
+
+Reverting is three files: two one-line test expectations and a rebuild of the app bundle.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan's territory for s3 names neither the harvest tests nor the app bundle; without them the preflight is red, so leaving them out was not a working option. (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-03-harvest-follows-login -->
