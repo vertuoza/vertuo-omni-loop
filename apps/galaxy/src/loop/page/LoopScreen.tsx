@@ -82,7 +82,7 @@ function List({ name, loops }: { name: string; loops: readonly LoopSummary[] }) 
   );
 }
 
-function Timeline({ version }: { version: PlanVersion }) {
+function Timeline({ version, repo }: { version: PlanVersion; repo: string }) {
   if (version.plan.kind === 'unreadable') return <p className="loop-muted">This plan cannot be read here.</p>;
   if (version.steps === 0) return <p className="loop-muted">This plan has no step.</p>;
   const grid = cssVars({ '--loop-steps': version.steps });
@@ -92,7 +92,7 @@ function Timeline({ version }: { version: PlanVersion }) {
       <ol className="loop-timeline" aria-label={`Plan v${version.version}, one row per PRD`}>
         {version.rows.map((row) => (
           <li key={row.prd} className="loop-row">
-            <a className="loop-prd" href={prdHref(row.prd)}>PRD {row.prd}</a>
+            <a className="loop-prd" href={prdHref(repo, row.prd)}>PRD {row.prd}</a>
             <ol className="loop-steps" style={grid}>
               {row.cells.map((cell) => (
                 <li
@@ -117,14 +117,14 @@ function Timeline({ version }: { version: PlanVersion }) {
   );
 }
 
-function Versions({ versions }: { versions: readonly PlanVersion[] }) {
+function Versions({ versions, repo }: { versions: readonly PlanVersion[]; repo: string }) {
   if (versions.length === 0) return <p className="loop-muted">No plan yet.</p>;
   return (
     <>
       {versions.map((version, i) => (
         <details key={version.version} className="loop-version" data-version={version.version} open={i === 0}>
           <summary><b>v{version.version}</b> {version.reason} <span className="loop-muted">· {version.at} · {version.steps} steps</span></summary>
-          <Timeline version={version} />
+          <Timeline version={version} repo={repo} />
         </details>
       ))}
     </>
@@ -155,7 +155,7 @@ function Detail({ loop }: { loop: LoopDetail }) {
         </section>
         <section className="board-card loop-plan">
           <h2>Plan</h2>
-          <Versions versions={loop.versions} />
+          <Versions versions={loop.versions} repo={loop.repo} />
         </section>
         <section className="board-card loop-ledger">
           <h2>Ledger</h2>

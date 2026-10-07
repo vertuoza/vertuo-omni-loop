@@ -96,7 +96,7 @@ describe('one roadmap opened', () => {
   });
 
   it('links each PRD to its page', () => {
-    for (const prd of [1201, 1202, 1205, 1213, 1220, 1221]) expect(html).toContain(`href="/prd/${prd}"`);
+    for (const prd of [1201, 1202, 1205, 1213, 1220, 1221]) expect(html).toContain(`href="/prd/at/acme/crew-plan/${prd}?to=page"`);
   });
 
   it('lists its open questions, with an answer box only for a `person` one not answered', () => {
