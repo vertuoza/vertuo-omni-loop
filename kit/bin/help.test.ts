@@ -168,6 +168,18 @@ describe('omni --help, omni -h and a bare omni', () => {
     expect(out.replace(/\s+/g, ' ')).toMatch(/omni check inbox runs it too/);
   });
 
+  it('explains roadmap push and answer (PRD 1162, s6)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'roadmap'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni roadmap push <n>$/m);
+    expect(out).toMatch(/^omni roadmap answer <n> <question> "<answer>"$/m);
+    const flat = out.replace(/\s+/g, ' ');
+    expect(flat).toMatch(/a 5-second limit and one sign-in refresh/);
+    expect(flat).toMatch(/exits 1 with one line \(off, no sign-in, github unreachable, unreachable or refused\)/);
+    expect(flat).toMatch(/as a comment on the roadmap's issue, with the marker/);
+  });
+
   it('--help and -h print exactly what omni help prints', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const help = await run(['help'], root);
