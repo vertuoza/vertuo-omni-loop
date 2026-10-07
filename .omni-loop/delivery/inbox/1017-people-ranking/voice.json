@@ -4,27 +4,168 @@
       "stage": "design",
       "date": "2026-10-02",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Header links drawn on the server, no client state: nothing here can hydrate wrong in production.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "A sortable table is table stakes, not a reason to use the tool. At least it adds no read and no endpoint.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "Seeing who ships the most points first is the board I want to show off.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 2, "reaction": "A rank beside every person on the shared board turns my teams into a leaderboard of individuals.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "A quick win for the board; I can sort by PRDs shipped to see who delivers for customers.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Header links drawn on the server, no client state: nothing here can hydrate wrong in production.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A sortable table is table stakes, not a reason to use the tool. At least it adds no read and no endpoint.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Seeing who ships the most points first is the board I want to show off.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 2,
+          "reaction": "A rank beside every person on the shared board turns my teams into a leaderboard of individuals.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "A quick win for the board; I can sort by PRDs shipped to see who delivers for customers.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
-      "objection": { "persona": "Lead Engineer", "text": "I'm trying to keep my teams together, and a rank beside every person on the shared Workspace board makes it a leaderboard of individuals. With most people on 0, a shared last place in front of the whole workspace could hurt more than it motivates.", "citations": ["persona:Lead Engineer", "size#37"], "settled": "none" },
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "I'm trying to keep my teams together, and a rank beside every person on the shared Workspace board makes it a leaderboard of individuals. With most people on 0, a shared last place in front of the whole workspace could hurt more than it motivates.",
+        "citations": [
+          "persona:Lead Engineer",
+          "size#37"
+        ],
+        "settled": "none"
+      },
       "fit": "fits persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ~ · persona:B-E DEv ~ · persona:Lead Engineer ✗ · offering#36 ✓"
     },
     {
       "stage": "spec",
       "date": "2026-10-02",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Unknown sort values fall back to the default and every order is total: no flaky row order in a test or on screen.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "Pure functions with their own tests, and nothing touches a read. Fine, still small.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "A sorted board I can send as a link is exactly what I share in the weekly.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 2, "reaction": "The spec records my objection, but the rank still shows for everyone on every board.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "Sorting by PRDs shipped gives me the view I want, and nothing else on the board changes.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Unknown sort values fall back to the default and every order is total: no flaky row order in a test or on screen.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Pure functions with their own tests, and nothing touches a read. Fine, still small.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "A sorted board I can send as a link is exactly what I share in the weekly.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 2,
+          "reaction": "The spec records my objection, but the rank still shows for everyone on every board.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Sorting by PRDs shipped gives me the view I want, and nothing else on the board changes.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
       "objection": null,
       "fit": "fits persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ~ · persona:B-E DEv ~ · persona:Lead Engineer ✗ · offering#36 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-07",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The sort is a pure tested function and the table is still drawn on the server, so the order is the same in a test and on screen.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Small, tested, no read or route touched. It does what it says.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "A ranked board I can sort and send as a link, ready for the weekly.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 2,
+          "reaction": "It shipped as designed, so the rank still shows for everyone on every board.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Sorting by PRDs shipped is one click now, and the link keeps it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:B-E DEv ~ · persona:Lead Engineer ✗"
     }
   ]
 }
