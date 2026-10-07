@@ -2,8 +2,9 @@
 // knowledge PR"); and the pipeline's edit set turned into what the shared git writer commits.
 //
 // The body lists every decision the run looked at: the proposed principles first (a person's call),
-// then one table row per placed decision, matching its ledger line, then the ones not placed as
-// checkboxes, then what the merge settled and shipped and how the checks came out.
+// then one table row per placed decision, matching its ledger line, then what each new rule and
+// invariant is enforced by and every proposed proof dropped with its reason (PRD 1171), then the ones
+// not placed as checkboxes, then what the merge settled and shipped and how the checks came out.
 import type { HarvestEdits, Move } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import type { Placed } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
 import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -51,6 +52,21 @@ export function decidedShort(decided: string | null | undefined): string {
   return text;
 }
 
+/**
+ * What each new rule and invariant is enforced by, as its `Enforced by:` line says it, each proposed
+ * proof the harvest dropped under it with its reason: the lines `omni harvest` prints, as a list.
+ */
+export function proofLines(placed: readonly Pick<Placed, 'landedAs' | 'enforcedBy' | 'dropped'>[]): string[] {
+  return placed.flatMap((entry) => {
+    if (!entry.enforcedBy) return [];
+    const enforced = entry.enforcedBy.length > 0 ? entry.enforcedBy.join(', ') : 'unenforced';
+    return [
+      `- ${entry.landedAs[0] ?? ''} — Enforced by: ${enforced}`,
+      ...(entry.dropped ?? []).map((drop) => `  - dropped ${drop.path} — ${drop.reason}`),
+    ];
+  });
+}
+
 function checkMark(name: string, violations: readonly unknown[]): string {
   return violations.length === 0 ? `omni check ${name} ✓` : `omni check ${name} ✗ (${violations.length})`;
 }
@@ -88,6 +104,9 @@ export function knowledgeBody({ prd, merge, settled, shipped, placed, notPlaced,
     }
     lines.push('');
   }
+
+  const proofs = proofLines(placed);
+  if (proofs.length > 0) lines.push('**Proofs — confirmed with their entry:**', ...proofs, '');
 
   if (notPlaced.length > 0) {
     lines.push('**Not placed:**');
