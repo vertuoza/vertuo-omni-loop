@@ -102,6 +102,12 @@ building, commit and push work in progress at least every half of
 - **Tracer bullets, not layer piles.** Prove the smallest vertical path, then widen.
 - **Territory only.** A change outside the row's territory is a decision (below), not a fix you
   just make.
+- **Generated files: rebuild to test, never commit.** A file the repository builds rather than
+  writes is a `generated` entry of its config (`node .omni-loop/bin/omni.mjs config generated`: its
+  `path`, the sources it is built `from`, its `build`). When a test needs one fresh, run its `build`
+  from the repository root: that is not a change outside the territory, and no decision. Never stage
+  or commit a path under a generated entry's `path`, in a work-in-progress commit or any other: the
+  wave rebuilds it once after merging (step 5, item 1, drops what you rebuilt).
 - **Follow local patterns;** let abstractions earn their keep. Narrow, behavioural seams; small
   ports over broad clients; one responsibility per module.
 - **Reviewable commits:** one coherent change each, no unrelated formatting, each ending with the
@@ -226,8 +232,15 @@ Read `omni kb show verification`, `omni kb show pull-requests` and
 `omni kb show definition-of-done` first: what must be green before a push, what a pull request
 carries here, and what done means. What they ask of a push or a hand-off is part of this step.
 
-1. **Preflight:** `commands.preflightFull`, or `commands.preflight` when it is null. Fix until
-   green. Neither set: say so, and name it in the hand-off.
+1. **Preflight:** first rebuild what the slice made stale. Run
+   `node .omni-loop/bin/omni.mjs generated <repo.remote>/<feature branch>...HEAD`: one line per
+   generated entry, `<path>: stale|fresh — <build>`, or `no generated files`. Run the build of every
+   `stale` line from the repository root, so the preflight sees fresh outputs. Then run
+   `commands.preflightFull`, or `commands.preflight` when it is null. Fix until green. Neither set:
+   say so, and name it in the hand-off. Once it is green, drop the rebuilt outputs before anything
+   is committed or pushed: for each `stale` line, `git checkout HEAD -- <path>`, then
+   `git clean -fdq -- <path>`. The slice commits and pushes no generated file: the sub-PR carries
+   sources only.
 2. **Checks:** every command in `commands.checks`, then
    `node .omni-loop/bin/omni.mjs check all`. Fix until green.
 3. **Acceptance,** only when `acceptance.enabled`: a pending scenario file for this slice (its name
@@ -282,7 +295,8 @@ with these differences.
   claim is already on the target's remote; alone, claim through `/omni:pr --repo <slug>`'s
   **Claim** first. Remove the worktree (`git -C <clone> worktree remove`) once the sub-PR is open.
 - **Territory** is paths in the target, read from the plan row as written. Nothing in the plan
-  repository is part of it.
+  repository is part of it. The plan repository's `generated` entries say nothing about a target:
+  step 5's rebuild and drop do not run on a target slice.
 - **Reading.** Step 1 reads the plan, the spec and the plan repository's knowledge as usual. The
   target's knowledge is read where `plan.targets` says it lives (`own`: in the target;
   `imported`: the draft copy in this repository; `none`: the guide only). Its playbook forms bind
