@@ -156,6 +156,18 @@ describe('omni --help, omni -h and a bare omni', () => {
     expect(out).toMatch(/no generated\s+files/);
   });
 
+  it('lists roadmap among the commands the skills run, and explains its check (PRD 1162)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const overview = await run(['help'], root);
+    expect(overview.out.slice(overview.out.indexOf('Run by the skills:'))).toMatch(/\broadmap\b/);
+    const { code, out } = await run(['help', 'roadmap'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni roadmap check \[<n>\] +run by the skills\n/);
+    expect(out).toContain('work/delivery/inbox/roadmaps/');
+    expect(out.replace(/\s+/g, ' ')).toMatch(/a cycle, a wave that does not follow its blockers, a blocker without its why/);
+    expect(out.replace(/\s+/g, ' ')).toMatch(/omni check inbox runs it too/);
+  });
+
   it('--help and -h print exactly what omni help prints', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const help = await run(['help'], root);
