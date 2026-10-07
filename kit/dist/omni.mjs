@@ -17469,11 +17469,11 @@ var error37 = () => {
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
-        const shortName9 = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
+        const shortName10 = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
         if (sizing) {
-          return `Te ${shortName9}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+          return `Te ${shortName10}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
         }
-        return `Te ${shortName9}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
+        return `Te ${shortName10}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
       }
       case "invalid_format": {
         const _issue = issue2;
@@ -27493,9 +27493,9 @@ function boundOf(inclusive, exact) {
   if (exact) return "exact";
   return inclusive ? "inclusive" : "exclusive";
 }
-function sizeMessage(words3, origin, limit, bound) {
+function sizeMessage(words3, origin, limit, bound2) {
   const measure = MEASURES.get(origin);
-  return measure === void 0 ? void 0 : SENTENCES[measure](words3[measure][bound], limit);
+  return measure === void 0 ? void 0 : SENTENCES[measure](words3[measure][bound2], limit);
 }
 function invalidType(issue2) {
   if (issue2.input === void 0) return "Required";
@@ -28011,10 +28011,10 @@ function splitSections(lines) {
   let current = null;
   let fenced = false;
   for (const line of lines) {
-    const heading = fenced ? null : line.match(HEADING);
+    const heading2 = fenced ? null : line.match(HEADING);
     if (FENCE.test(line)) fenced = !fenced;
-    if (heading) {
-      current = { heading: heading[1] ?? "", lines: [] };
+    if (heading2) {
+      current = { heading: heading2[1] ?? "", lines: [] };
       sections.push(current);
     } else {
       (current ? current.lines : head).push(line);
@@ -28038,7 +28038,7 @@ function readBody(raw) {
   if (see) return { kind: "pointer", text: text10, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
   return { kind: "text", text: text10, see: null, questions: questions2 };
 }
-function readSection(heading, lines) {
+function readSection(heading2, lines) {
   const at2 = lines.findIndex((line) => line.trim() !== "");
   const first = at2 === -1 ? "" : (lines[at2] ?? "").trim();
   if (!MARKER_START.test(first)) return { kind: "unmarked" };
@@ -28047,7 +28047,7 @@ function readSection(heading, lines) {
   const [, id = "", need, by, verified] = marker;
   const slot = {
     id,
-    heading,
+    heading: heading2,
     required: need === "required",
     by: by === OLD_BY ? "invade" : by ?? null,
     verified: verified ?? null,
@@ -28058,14 +28058,14 @@ function readSection(heading, lines) {
 function readSlots(sections, { file: file2, errors, oldSpellings }) {
   const slots = [];
   const unmarked = [];
-  for (const { heading, lines } of sections) {
-    const read2 = readSection(heading, lines);
+  for (const { heading: heading2, lines } of sections) {
+    const read2 = readSection(heading2, lines);
     if (read2.kind === "unmarked") {
-      unmarked.push(heading);
+      unmarked.push(heading2);
       continue;
     }
     if (read2.kind === "malformed") {
-      errors.push(withFile(file2, `"## ${heading}": malformed slot marker ${read2.first} \u2014 want <!-- slot: <id> \xB7 required|optional[ \xB7 by: invade|human][ \xB7 verified: YYYY-MM-DD] -->`));
+      errors.push(withFile(file2, `"## ${heading2}": malformed slot marker ${read2.first} \u2014 want <!-- slot: <id> \xB7 required|optional[ \xB7 by: invade|human][ \xB7 verified: YYYY-MM-DD] -->`));
       continue;
     }
     const { slot, oldBy } = read2;
@@ -28073,7 +28073,7 @@ function readSlots(sections, { file: file2, errors, oldSpellings }) {
       errors.push(withFile(file2, `slot "${slot.id}" appears twice`));
       continue;
     }
-    if (oldBy) oldSpellings.push({ where: `"## ${heading}"`, old: `by: ${OLD_BY}`, now: "by: invade" });
+    if (oldBy) oldSpellings.push({ where: `"## ${heading2}"`, old: `by: ${OLD_BY}`, now: "by: invade" });
     slots.push(slot);
   }
   return { slots, unmarked };
@@ -29856,18 +29856,18 @@ function validateSections(body) {
   const found2 = parseHeadingSections(body);
   const foundHeadings = found2.map((section5) => section5.heading);
   const errors = [];
-  const presentPlain = PLAIN_SECTIONS.filter((heading) => foundHeadings.includes(heading));
+  const presentPlain = PLAIN_SECTIONS.filter((heading2) => foundHeadings.includes(heading2));
   if (presentPlain.length === 1) {
     const [present] = presentPlain;
-    const other = PLAIN_SECTIONS.find((heading) => heading !== present);
+    const other = PLAIN_SECTIONS.find((heading2) => heading2 !== present);
     errors.push(
       `carries "## ${present}" without "## ${other}" \u2014 the two plain-words sections come together, or neither does`
     );
   }
-  const presentFun = FUN_SECTIONS.filter((heading) => foundHeadings.includes(heading));
+  const presentFun = FUN_SECTIONS.filter((heading2) => foundHeadings.includes(heading2));
   if (presentFun.length === 1) {
     const [present] = presentFun;
-    const other = FUN_SECTIONS.find((heading) => heading !== present);
+    const other = FUN_SECTIONS.find((heading2) => heading2 !== present);
     errors.push(
       `carries "## ${present}" without "## ${other}" \u2014 the intro and the punchline come together, or neither does`
     );
@@ -29878,7 +29878,7 @@ function validateSections(body) {
     );
   }
   const presentOptionsHeadings = [OPTIONS_HEADING, PERSON_STEPS_HEADING].filter(
-    (heading) => foundHeadings.includes(heading)
+    (heading2) => foundHeadings.includes(heading2)
   );
   if (presentOptionsHeadings.length > 1) {
     errors.push(
@@ -29899,19 +29899,19 @@ function validateSections(body) {
     PERSON_STEPS_HEADING,
     ...REQUIRED_SECTIONS
   ];
-  const missing = expectedSections.filter((heading) => !foundHeadings.includes(heading));
+  const missing = expectedSections.filter((heading2) => !foundHeadings.includes(heading2));
   if (missing.length > 0) {
-    errors.push(`missing section(s): ${missing.map((heading) => `"## ${heading}"`).join(", ")}`);
+    errors.push(`missing section(s): ${missing.map((heading2) => `"## ${heading2}"`).join(", ")}`);
   }
-  const unexpected = foundHeadings.filter((heading) => !knownHeadings.includes(heading));
+  const unexpected = foundHeadings.filter((heading2) => !knownHeadings.includes(heading2));
   if (unexpected.length > 0) {
     errors.push(
-      `unexpected heading(s): ${unexpected.map((heading) => `"## ${heading}"`).join(", ")}`
+      `unexpected heading(s): ${unexpected.map((heading2) => `"## ${heading2}"`).join(", ")}`
     );
   }
   if (missing.length === 0 && unexpected.length === 0 && presentPlain.length !== 1 && presentFun.length !== 1) {
     const seen = foundHeadings;
-    const inOrder = seen.every((heading, index) => heading === expectedSections[index]);
+    const inOrder = seen.every((heading2, index) => heading2 === expectedSections[index]);
     if (!inOrder) {
       errors.push(
         `sections are out of order: found [${seen.join(", ")}], expected [${expectedSections.join(", ")}]`
@@ -29943,8 +29943,8 @@ function parseOutboxItem(text10, { file: file2 = null } = {}) {
   if (errors.length > 0 || read2.data === null) return { ok: false, errors };
   const fm = read2.data;
   const itemSections2 = {};
-  for (const [heading, field2] of Object.entries(SECTION_FIELD)) {
-    const content = sections[heading];
+  for (const [heading2, field2] of Object.entries(SECTION_FIELD)) {
+    const content = sections[heading2];
     if (content !== void 0) itemSections2[field2] = content;
   }
   if (parsedOptions !== void 0) itemSections2.options = parsedOptions;
@@ -31877,9 +31877,9 @@ function parsePlanLandings(markdown) {
   }
   return rows2;
 }
-function sectionTable(markdown, heading) {
+function sectionTable(markdown, heading2) {
   const lines = markdown.split("\n");
-  const start2 = lines.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line.trim()));
+  const start2 = lines.findIndex((line) => new RegExp(`^##\\s+${heading2}\\s*$`, "i").test(line.trim()));
   if (start2 === -1) return [];
   let headerIndex = -1;
   for (let i = start2 + 1; i < lines.length; i += 1) {
@@ -32695,7 +32695,10 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     decide: ({ decision, repo, state, old, ref = null }) => call("POST", `/api/decide/${segment(decision)}`, { body: { repo, state, old, ...ref ? { ref } : {} } }),
     /** PRD 1139: one push of a loop (`../loop/body.ts` shapes it), sent as it is.
      * @returns {Promise<{ loopId: string, state: 'running' | 'parked' | 'stopped', planVersion: number }>} */
-    pushLoop: (body) => call("POST", "/api/loops", { body })
+    pushLoop: (body) => call("POST", "/api/loops", { body }),
+    /** PRD 1162: one push of a roadmap (`../roadmap/push.ts` shapes it), sent as it is.
+     * @returns {Promise<{ roadmapId: string, created: boolean, product: unknown, unknownProduct: string | null, note: string | null }>} */
+    pushRoadmap: (body) => call("POST", "/api/roadmaps", { body })
   };
 }
 
@@ -34524,9 +34527,9 @@ init_define_OMNI_BUNDLE();
 function holds(waiting) {
   return waiting?.state === "open" || waiting?.state === "unreadable";
 }
-function ciActions({ checks, waitsOn }) {
-  if (checks.state !== "red" || !checks.fixable || checks.stuck || holds(waitsOn)) return [];
-  return [{ kind: waitsOn?.state === "merged" ? "rerun" : "fix-ci", failed: checks.failed }];
+function ciActions({ checks, waitsOn: waitsOn2 }) {
+  if (checks.state !== "red" || !checks.fixable || checks.stuck || holds(waitsOn2)) return [];
+  return [{ kind: waitsOn2?.state === "merged" ? "rerun" : "fix-ci", failed: checks.failed }];
 }
 function decideRound(state) {
   if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
@@ -34539,8 +34542,8 @@ function decideRound(state) {
     else if (thread.needs === "mark-asked") actions.push({ kind: "mark-asked", thread: thread.id });
   }
   actions.push({ kind: "status" });
-  const { waitsOn } = state;
-  return waitsOn && holds(waitsOn) ? { mode: "act", actions, waitsOn: `${waitsOn.slug}#${waitsOn.pr}` } : { mode: "act", actions };
+  const { waitsOn: waitsOn2 } = state;
+  return waitsOn2 && holds(waitsOn2) ? { mode: "act", actions, waitsOn: `${waitsOn2.slug}#${waitsOn2.pr}` } : { mode: "act", actions };
 }
 
 // kit/lib/care/list.ts
@@ -34901,8 +34904,8 @@ function readCare(prd2, number4, { scope, ctx, gh: gh2 }) {
     needsFixLabel: ctx.config.labels.needsFix,
     gateContexts: [ctx.config.ci.outboxContext, ctx.config.ci.inboxContext].filter(Boolean)
   });
-  const waitsOn = waitingOn(state.status?.waitsOn, gh2);
-  return { prd: prd2, ...scope.target === null ? {} : { target: scope.target }, ...state, ...waitsOn === null ? {} : { waitsOn } };
+  const waitsOn2 = waitingOn(state.status?.waitsOn, gh2);
+  return { prd: prd2, ...scope.target === null ? {} : { target: scope.target }, ...state, ...waitsOn2 === null ? {} : { waitsOn: waitsOn2 } };
 }
 function runState2(args, { ctx, stdout, stderr, exec, env }) {
   const { positional, flags } = parseArgs("care", args, { values: ["pr", "repo"] });
@@ -34918,9 +34921,9 @@ function runState2(args, { ctx, stdout, stderr, exec, env }) {
     println(stderr, `omni care: PRD ${prd2} has no feature PR yet (no pull request from ${from}).`);
     return 1;
   }
-  const { waitsOn, ...state } = readCare(prd2, number4, { scope, ctx, gh: gh2 });
+  const { waitsOn: waitsOn2, ...state } = readCare(prd2, number4, { scope, ctx, gh: gh2 });
   const chain = landed === null ? [] : landingChain(landed, scope.defaultBranch);
-  const full = { ...state, wave, ...landed === null ? {} : { landings: landed, chain }, ...waitsOn === void 0 ? {} : { waitsOn } };
+  const full = { ...state, wave, ...landed === null ? {} : { landings: landed, chain }, ...waitsOn2 === void 0 ? {} : { waitsOn: waitsOn2 } };
   println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
   return 0;
 }
@@ -35368,8 +35371,8 @@ function parseSections(text10) {
   const sections = /* @__PURE__ */ new Map();
   let current = null;
   for (const line of text10.split(/\r?\n/)) {
-    const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
-    const name2 = heading?.[1];
+    const heading2 = /^##\s+(.+?)\s*#*\s*$/.exec(line);
+    const name2 = heading2?.[1];
     if (name2 !== void 0 && !line.startsWith("###")) {
       current = sections.has(name2) ? null : name2;
       if (current !== null) sections.set(current, []);
@@ -35751,9 +35754,9 @@ function sectionsOf(body) {
   const sections = [];
   let current = null;
   for (const line of body.split(/\r?\n/)) {
-    const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
-    if (heading && !line.startsWith("###")) {
-      current = { name: group(heading, 1), lines: [] };
+    const heading2 = /^##\s+(.+?)\s*#*\s*$/.exec(line);
+    if (heading2 && !line.startsWith("###")) {
+      current = { name: group(heading2, 1), lines: [] };
       sections.push(current);
     } else if (/^#\s/.test(line)) {
       current = null;
@@ -36659,11 +36662,11 @@ init_define_OMNI_BUNDLE();
 import { existsSync as existsSync25, readdirSync as readdirSync12, readFileSync as readFileSync23 } from "node:fs";
 import { join as join33 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
-function invariantAdrs(text10, heading) {
+function invariantAdrs(text10, heading2) {
   const lines = text10.split("\n");
-  const start2 = lines.findIndex((line) => line.trim() === heading.trim());
+  const start2 = lines.findIndex((line) => line.trim() === heading2.trim());
   if (start2 === -1) return /* @__PURE__ */ new Set();
-  const level = group(/^#+/.exec(heading.trim()), 0).length;
+  const level = group(/^#+/.exec(heading2.trim()), 0).length;
   const ids2 = /* @__PURE__ */ new Set();
   for (const line of lines.slice(start2 + 1)) {
     const next2 = line.match(/^(#+)\s/);
@@ -36757,16 +36760,16 @@ function checkItemText(file2, text10, { laws }) {
       )
     );
   } else {
-    for (const { heading, field: field2 } of PLAIN_SECTION_FIELDS) {
+    for (const { heading: heading2, field: field2 } of PLAIN_SECTION_FIELDS) {
       for (const problem of plainWordsProblems(item2.sections[field2])) {
-        violations.push(describe3(file2, `"## ${heading}" ${problem}`));
+        violations.push(describe3(file2, `"## ${heading2}" ${problem}`));
       }
     }
   }
-  for (const { heading, field: field2 } of FUN_SECTION_FIELDS) {
+  for (const { heading: heading2, field: field2 } of FUN_SECTION_FIELDS) {
     if (item2.sections[field2] === void 0) continue;
     for (const problem of funLineProblems(item2.sections[field2])) {
-      violations.push(describe3(file2, `"## ${heading}" ${problem}`));
+      violations.push(describe3(file2, `"## ${heading2}" ${problem}`));
     }
   }
   if (RANKS_NEEDING_OPTIONS.includes(item2.rank)) {
@@ -36957,8 +36960,8 @@ function descriptionViolations(lines, description) {
   const out = [];
   if (characters(description) > DESCRIPTION_MAX) out.push(`description is ${characters(description)} characters \u2014 ${DESCRIPTION_MAX} at most`);
   if (lines.includes("")) out.push("description holds a blank line \u2014 one paragraph");
-  const heading = lines.find((line) => HEADING2.test(line));
-  if (heading) out.push(`description holds a heading ("${heading}") \u2014 one paragraph of prose`);
+  const heading2 = lines.find((line) => HEADING2.test(line));
+  if (heading2) out.push(`description holds a heading ("${heading2}") \u2014 one paragraph of prose`);
   const item2 = lines.find((line) => LIST_ITEM.test(line));
   if (item2) out.push(`description holds a list item ("${item2}") \u2014 one paragraph of prose`);
   return out;
@@ -37535,9 +37538,9 @@ function sectionsOf2(body) {
   const sections = [];
   let current = null;
   for (const line of body.split(/\r?\n/)) {
-    const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
-    if (heading && !line.startsWith("###")) {
-      current = { name: group(heading, 1), lines: [] };
+    const heading2 = /^##\s+(.+?)\s*#*\s*$/.exec(line);
+    if (heading2 && !line.startsWith("###")) {
+      current = { name: group(heading2, 1), lines: [] };
       sections.push(current);
     } else if (/^#\s/.test(line)) {
       current = null;
@@ -39551,10 +39554,10 @@ function classificationJsonSchema(summary) {
     }
   };
 }
-function section2(heading, body) {
+function section2(heading2, body) {
   const text10 = plainText(body).trim();
   if (text10 === "") return [];
-  return [`### ${heading}`, "", text10, ""];
+  return [`### ${heading2}`, "", text10, ""];
 }
 function itemSections(candidate) {
   const sections = candidate.item?.sections;
@@ -39698,8 +39701,8 @@ function mergedLine(merge2) {
 function slugOf(title) {
   const slug = title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   if (slug.length <= SLUG_MAX) return slug;
-  const cut3 = slug.slice(0, SLUG_MAX + 1);
-  return cut3.slice(0, cut3.lastIndexOf("-") > 0 ? cut3.lastIndexOf("-") : SLUG_MAX);
+  const cut4 = slug.slice(0, SLUG_MAX + 1);
+  return cut4.slice(0, cut4.lastIndexOf("-") > 0 ? cut4.lastIndexOf("-") : SLUG_MAX);
 }
 function chosenOption(candidate) {
   if (candidate.verdict === "drifted") {
@@ -39763,8 +39766,8 @@ function makeFiles(ctx) {
     }
   };
 }
-function appendEntry(text10, entry, { heading }) {
-  let base = text10 ?? `# ${heading}
+function appendEntry(text10, entry, { heading: heading2 }) {
+  let base = text10 ?? `# ${heading2}
 `;
   if (!/^## /m.test(base)) {
     const lines = base.split("\n");
@@ -40736,9 +40739,9 @@ var ENTRIES = deepFreeze([
     name: "roadmap",
     kind: "command",
     who: "skills",
-    usage: ["omni roadmap check [<n>]"],
-    summary: "grade the roadmaps of the inbox",
-    detail: "check grades every roadmap under {inbox}roadmaps/, or roadmap n alone: a milestone's PRDs, each with its blockers, the why of each, and its wave. It refuses a table that does not parse, an id used twice, a blocker that is not a row, a cycle, a wave that does not follow its blockers, a blocker without its why, a row whose PRD has no folder or whose spec's blocked-by differs, and a question blocking a row that does not exist; in a plan repository also a repo that is not a target, a read-only one, and a consumer PRD not after the provider PRD it waits on. It prints the PRDs wave by wave, then every violation; exit 1 on any. omni check inbox runs it too."
+    usage: ["omni roadmap check [<n>]", "omni roadmap push <n>", 'omni roadmap answer <n> <question> "<answer>"'],
+    summary: "grade, push or answer the roadmaps of the inbox",
+    detail: "check grades every roadmap under {inbox}roadmaps/, or roadmap n alone: a milestone's PRDs, each with its blockers, the why of each, and its wave. It refuses a table that does not parse, an id used twice, a blocker that is not a row, a cycle, a wave that does not follow its blockers, a blocker without its why, a row whose PRD has no folder or whose spec's blocked-by differs, and a question blocking a row that does not exist; in a plan repository also a repo that is not a target, a read-only one, and a consumer PRD not after the provider PRD it waits on. It prints the PRDs wave by wave, then every violation; exit 1 on any. omni check inbox runs it too. push sends roadmap n, its open questions with the latest answer to each, and where each PRD stands (waiting, building, outbox, ready, merged or closed, and the pull request a PRD not started waits on) to the roadmap's page on the Omni page, with this computer's sign-in. It never holds up the loop: a 5-second limit and one sign-in refresh, and anything that stops it exits 1 with one line (off, no sign-in, github unreachable, unreachable or refused). answer posts a person's answer to one question as a comment on the roadmap's issue, with the marker push reads the answers back from; the roadmap's page writes the same line."
   },
   {
     name: "rework",
@@ -41494,8 +41497,8 @@ function detectLawsSource({ ctx }) {
   const { principles, rules, invariants } = readRegisters({ ctx });
   if (principles.length + rules.length + invariants.length > 0) return "knowledge";
   const claudeMd = join50(ctx.root, "CLAUDE.md");
-  const heading = ctx.config.laws.claudeMdHeading;
-  if (existsSync40(claudeMd) && readFileSync38(claudeMd, "utf8").split("\n").some((line) => line.trim() === heading)) {
+  const heading2 = ctx.config.laws.claudeMdHeading;
+  if (existsSync40(claudeMd) && readFileSync38(claudeMd, "utf8").split("\n").some((line) => line.trim() === heading2)) {
     return "claudeMdInvariants";
   }
   return "none";
@@ -42686,12 +42689,12 @@ function renderedItem(input2, decision, { id, prd: prd2, slice, laws }) {
     throw usageError(`omni item new: ${errorMessage(error62)}`);
   }
 }
-function nothingWritten({ asJson, stdout, stderr }, heading, lines) {
+function nothingWritten({ asJson, stdout, stderr }, heading2, lines) {
   if (asJson) {
     println(stdout, jsonOutcome({ outcome: null, reason: lines.join("; ") }));
     return;
   }
-  println(stderr, heading);
+  println(stderr, heading2);
   for (const line of lines) println(stderr, `  - ${line}`);
 }
 function adoptNew(text10, id, decision, { ctx, asJson, stdout, stderr }) {
@@ -46744,11 +46747,11 @@ function runAssets(dir) {
 }
 async function fontsOf(dir, look, { fetch, warn }) {
   const context = { dir, fetch, asset: runAssets(dir) };
-  const heading = await loadFont(fontRequestOf(look.heading), context, warn);
+  const heading2 = await loadFont(fontRequestOf(look.heading), context, warn);
   const same = look.text.provider === look.heading.provider && look.text.family === look.heading.family && look.text.weight === look.heading.weight;
-  const text10 = same ? heading : await loadFont(fontRequestOf(look.text), context, warn);
-  const css = same ? heading.css : `${heading.css}${text10.css}`;
-  return { css, heading: heading.stack, text: text10.stack };
+  const text10 = same ? heading2 : await loadFont(fontRequestOf(look.text), context, warn);
+  const css = same ? heading2.css : `${heading2.css}${text10.css}`;
+  return { css, heading: heading2.stack, text: text10.stack };
 }
 function logoOf(dir, logo, warn) {
   if (logo === null) return null;
@@ -47743,7 +47746,194 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
 
 // kit/bin/commands/roadmap.ts
 init_define_OMNI_BUNDLE();
-var USAGE23 = "usage: omni roadmap check [<n>]";
+
+// kit/lib/roadmap/answers.ts
+init_define_OMNI_BUNDLE();
+var ANSWER_MAX = 1e3;
+var MARKER3 = /^<!-- omni-roadmap-answer: ([A-Za-z0-9][A-Za-z0-9._-]{0,19}) -->[ \t]*\r?\n?/;
+var answerMarker = (question) => `<!-- omni-roadmap-answer: ${question} -->`;
+var heading = (question) => `**${question}**, answered:`;
+function answerComment(question, answer) {
+  return `${answerMarker(question)}
+${heading(question)}
+
+${answer.trim()}
+`;
+}
+function answerOf4(body) {
+  const marked = MARKER3.exec(body);
+  if (!marked) return null;
+  const question = marked[1] ?? "";
+  let rest = body.slice(marked[0].length).trim();
+  if (rest.startsWith(heading(question))) rest = rest.slice(heading(question).length).trim();
+  if (!rest) return null;
+  return { question, answer: rest.length > ANSWER_MAX ? rest.slice(0, ANSWER_MAX).trim() : rest };
+}
+function readAnswers(comments) {
+  const answers2 = /* @__PURE__ */ new Map();
+  for (const comment2 of comments) {
+    const found2 = answerOf4(comment2.body ?? "");
+    if (found2) answers2.set(found2.question, found2.answer);
+  }
+  return answers2;
+}
+
+// kit/lib/roadmap/push.ts
+init_define_OMNI_BUNDLE();
+var WAITS_ON_MAX = 300;
+var NO_RECOMMENDATION = /^(?:|-|–|—|none)$/i;
+var ASKED_RANKS2 = /* @__PURE__ */ new Set(["human-action", "high"]);
+function prdState({ shipped, prs, expected }) {
+  if (prs.length === 0) return shipped ? "merged" : "waiting";
+  if (prs.some((pr) => pr.state === "CLOSED")) return "closed";
+  const open3 = prs.filter((pr) => pr.state === "OPEN");
+  if (open3.length === 0) return shipped || prs.length >= expected ? "merged" : "building";
+  if (open3.some((pr) => pr.isDraft && pr.questions > 0)) return "outbox";
+  return open3.every((pr) => !pr.isDraft) && prs.length >= expected ? "ready" : "building";
+}
+function bound(times, pick2) {
+  const known2 = times.filter((time5) => time5 !== null).sort();
+  return (pick2 === "first" ? known2[0] : known2.at(-1)) ?? null;
+}
+function prdTimes(standing2, state) {
+  const startedAt = bound(standing2.prs.map((pr) => pr.createdAt), "first");
+  if (state === "merged") return { startedAt, endedAt: bound(standing2.prs.map((pr) => pr.mergedAt), "last") };
+  if (state === "closed") return { startedAt, endedAt: bound(standing2.prs.filter((pr) => pr.state === "CLOSED").map((pr) => pr.closedAt), "last") };
+  return { startedAt, endedAt: null };
+}
+var questionsWord = (n) => `${n} question${n === 1 ? "" : "s"}`;
+function stateWords(state, pr) {
+  if (state === "closed") return "closed unmerged: fix the roadmap";
+  if (state === "ready") return "ready, waiting for your merge";
+  if (state === "outbox") return `outbox: ${questionsWord(pr?.questions ?? 0)}`;
+  return state === "waiting" ? "not started" : state;
+}
+var cut2 = (line, max) => {
+  const flat = line.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}\u2026` : flat;
+};
+var namedPr = (standing2) => standing2.prs.find((pr) => pr.state === "OPEN") ?? standing2.prs.find((pr) => pr.state === "CLOSED") ?? null;
+function waitsOn(row, rows2) {
+  for (const id of row.blockedBy) {
+    const blocker = rows2.get(id);
+    if (!blocker || blocker.state === "merged") continue;
+    const pr = namedPr(blocker.standing);
+    const who2 = `${blocker.row.id} ${blocker.row.title}`;
+    const words3 = stateWords(blocker.state, pr);
+    if (pr === null) return { waitsOn: cut2(`waits on ${who2}: ${words3}`, WAITS_ON_MAX), waitsOnUrl: null };
+    return { waitsOn: cut2(`waits on ${pr.repo}#${pr.number} (${who2}): ${words3}`, WAITS_ON_MAX), waitsOnUrl: pr.url };
+  }
+  return { waitsOn: null, waitsOnUrl: null };
+}
+function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers: answers2 }) {
+  const none = { shipped: false, prs: [], expected: 1 };
+  const rows2 = new Map(roadmap2.prds.map((row) => {
+    const standing2 = standings.get(row.id) ?? none;
+    return [row.id, { row, standing: standing2, state: prdState(standing2) }];
+  }));
+  const prds = [...rows2.values()].map(({ row, standing: standing2, state }) => ({
+    id: row.id,
+    prd: row.prd,
+    title: row.title,
+    repos: row.repos ?? [],
+    blockers: [...row.blockedBy],
+    wave: row.wave,
+    state,
+    ...state === "waiting" ? waitsOn(row, rows2) : { waitsOn: null, waitsOnUrl: null },
+    ...prdTimes(standing2, state)
+  }));
+  const questions2 = roadmap2.questions.map((q) => ({
+    id: q.id,
+    question: q.question,
+    recommendation: NO_RECOMMENDATION.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
+    blocks: [...q.blocks],
+    kind: q.kind,
+    answer: answers2.get(q.id) ?? null
+  }));
+  const { title, milestone, product, target: target3, source } = roadmap2;
+  return { repo, roadmap: roadmap2.roadmap, title, milestone, product, target: target3, source, questions: questions2, document, prds };
+}
+var GhPrSchema2 = external_exports.looseObject({
+  number: PrNumberSchema,
+  url: external_exports.string(),
+  state: external_exports.enum(["OPEN", "MERGED", "CLOSED"]),
+  isDraft: external_exports.boolean().nullish(),
+  createdAt: external_exports.string().nullish(),
+  mergedAt: external_exports.string().nullish(),
+  closedAt: external_exports.string().nullish(),
+  updatedAt: external_exports.string().nullish()
+});
+var shortName9 = (slug) => slug.slice(slug.indexOf("/") + 1);
+function featurePr2(slug, branch, { gh: gh2 }) {
+  const raw = gh2(["pr", "list", "--repo", slug, "--head", branch, "--state", "all", "--json", "number,url,state,isDraft,createdAt,mergedAt,closedAt,updatedAt", "--limit", "20"]);
+  const prs = external_exports.array(GhPrSchema2).parse(JSON.parse(raw));
+  return prs.find((pr) => pr.state === "OPEN") ?? [...prs].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] ?? null;
+}
+function questionsOn(ref, dir, { git: git7 }) {
+  let listed2;
+  try {
+    listed2 = git7(["ls-tree", "-r", "--name-only", ref, "--", dir]);
+  } catch {
+    return 0;
+  }
+  const files = listed2.split("\n").map((line) => line.trim()).filter((file2) => file2.endsWith(".md") && !file2.endsWith("/settled.md") && !file2.slice(dir.length).includes("/accounts/"));
+  return files.filter((file2) => {
+    const parsed = parseOutboxItem(git7(["show", `${ref}:${file2}`]), { file: file2 });
+    return parsed.ok && ASKED_RANKS2.has(parsed.item.rank);
+  }).length;
+}
+function draftQuestions(ctx, row, branch, readers) {
+  const dir = ctx.layout.outboxDir(row.prd);
+  if (dir === null) return 0;
+  const remote = ctx.config.repo.remote;
+  try {
+    readers.git(["fetch", "--quiet", remote, branch]);
+  } catch {
+  }
+  return questionsOn(`${remote}/${branch}`, dir, readers);
+}
+function slugsOf(ctx, row, slug) {
+  const targets2 = ctx.config.plan?.targets ?? [];
+  const named3 = new Set(row.repos ?? []);
+  const own2 = shortName9(slug);
+  return [slug, ...targets2.filter((t) => named3.has(shortName9(t.repo)) && shortName9(t.repo) !== own2).map((t) => t.repo)];
+}
+function readStanding(ctx, row, readers) {
+  const slug = ctx.config.repo.slug ?? "";
+  const slugs = slugsOf(ctx, row, slug);
+  const where = ctx.layout.whereIs(row.prd);
+  const folder = where === null ? null : parseFolderName(where.name);
+  if (where === null || folder === null) return { shipped: false, prs: [], expected: slugs.length };
+  const branch = fillBranch(ctx.config.branches.feature, { topic: folder.topic });
+  const prs = slugs.flatMap((repo) => {
+    const pr = featurePr2(repo, branch, readers);
+    if (pr === null) return [];
+    const isDraft = Boolean(pr.isDraft);
+    const questions2 = repo === slug && pr.state === "OPEN" && isDraft ? draftQuestions(ctx, row, branch, readers) : 0;
+    return [{
+      repo: shortName9(repo),
+      number: pr.number,
+      url: pr.url,
+      state: pr.state,
+      isDraft,
+      createdAt: pr.createdAt ?? null,
+      mergedAt: pr.mergedAt ?? null,
+      closedAt: pr.closedAt ?? null,
+      questions: questions2
+    }];
+  });
+  return { shipped: where.state === "shipped", prs, expected: slugs.length };
+}
+function readStandings(ctx, roadmap2, readers) {
+  return new Map(roadmap2.prds.map((row) => [row.id, readStanding(ctx, row, readers)]));
+}
+
+// kit/bin/commands/roadmap.ts
+var USAGE23 = [
+  "usage: omni roadmap check [<n>]",
+  "       omni roadmap push <n>",
+  '       omni roadmap answer <n> <question> "<answer>"'
+].join("\n");
 function report3(stdout, graded) {
   const { number: number4, file: file2, roadmap: roadmap2, violations } = graded;
   if (roadmap2 !== null) {
@@ -47775,12 +47965,117 @@ function checkCommand2(rest, { ctx, stdout }) {
   const passed = graded.map((entry) => report3(stdout, entry));
   return passed.every(Boolean) ? 0 : 1;
 }
+function refuse4(stderr, line) {
+  println(stderr, line);
+  return 1;
+}
+function roadmapFile(ctx, verb2, n) {
+  const entry = roadmapFiles(ctx).find((file2) => file2.number === n);
+  if (!entry) throw usageError(`omni roadmap ${verb2}: roadmap ${n} has no folder under the inbox's roadmaps.`);
+  return entry;
+}
+function readRoadmap(ctx, entry) {
+  let document;
+  try {
+    document = readRepoFile(ctx, entry.file);
+  } catch {
+    return `${entry.file} is missing (omni roadmap check ${entry.number})`;
+  }
+  const parsed = parseRoadmap(document);
+  return parsed.ok ? { document, roadmap: parsed.roadmap } : `${entry.file} does not parse (omni roadmap check ${entry.number})`;
+}
+function repoContext2({ cwd, exec }) {
+  const ctx = loadContext(cwd, { exec });
+  const repo = ctx.config.repo.slug;
+  if (!repo) throw usageError("omni roadmap: no repository slug \u2014 set repo.slug in the config.");
+  return { ctx, repo };
+}
+function ghEnvOf2(ctx, exec, env) {
+  try {
+    return githubEnv(ctx, { exec, env });
+  } catch {
+    return void 0;
+  }
+}
+function skipLine5(error62) {
+  if (!(error62 instanceof AskCallError)) throw error62;
+  if (error62.status === null) return "unreachable";
+  return error62.reason ? `refused (${error62.status}): ${error62.reason}` : `refused (${error62.status})`;
+}
+function readGithub(ctx, roadmap2, { exec, env }) {
+  const ghEnv = ghEnvOf2(ctx, exec, env);
+  const gh2 = (args) => exec("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...ghEnv ? { env: ghEnv } : {} });
+  const git7 = (args) => exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  try {
+    const standings = readStandings(ctx, roadmap2, { gh: gh2, git: git7 });
+    const comments = githubClientFor(ctx, { issue: roadmap2.roadmap, exec, env }).listComments();
+    return { standings, answers: readAnswers(comments) };
+  } catch {
+    return null;
+  }
+}
+async function pushCommand(rest, io) {
+  const { positional } = parseArgs("roadmap push", rest);
+  if (positional.length !== 1) throw usageError(USAGE23);
+  const n = issueArg("roadmap push", "<n>", positional[0]);
+  const { ctx, repo } = repoContext2(io);
+  const entry = roadmapFile(ctx, "push", n);
+  const askUrl2 = ctx.config.ask.url;
+  if (!askUrl2) return refuse4(io.stderr, "off");
+  const read2 = readRoadmap(ctx, entry);
+  if (typeof read2 === "string") return refuse4(io.stderr, read2);
+  const client = signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
+  if (!client) return refuse4(io.stderr, "no sign-in (omni signin)");
+  const github = readGithub(ctx, read2.roadmap, io);
+  if (github === null) return refuse4(io.stderr, "github unreachable");
+  const body = roadmapPushBody({ repo, roadmap: read2.roadmap, document: read2.document, ...github });
+  let reply;
+  try {
+    reply = await client.pushRoadmap(body);
+  } catch (error62) {
+    return refuse4(io.stderr, skipLine5(error62));
+  }
+  const roadmapId = field(reply, "roadmapId");
+  if (typeof roadmapId !== "string" || !roadmapId) return refuse4(io.stderr, "refused (no roadmap in the reply)");
+  const how = field(reply, "created") === true ? "created" : "updated";
+  println(io.stdout, `roadmap ${n}: ${how}, ${body.prds.length} PRD(s) \u2014 ${askUrl2.replace(/\/+$/, "")}/roadmaps/${roadmapId}`);
+  const note = field(reply, "note");
+  if (typeof note === "string" && note) println(io.stdout, note);
+  return 0;
+}
+function answerCommand(rest, io) {
+  const { positional } = parseArgs("roadmap answer", rest);
+  if (positional.length !== 3) throw usageError(USAGE23);
+  const [number4, question = "", given = ""] = positional;
+  const n = issueArg("roadmap answer", "<n>", number4);
+  const answer = given.trim();
+  if (!answer) throw usageError("omni roadmap answer: the answer is empty.");
+  if (answer.length > ANSWER_MAX) throw usageError(`omni roadmap answer: an answer holds ${ANSWER_MAX} characters at most.`);
+  const { ctx } = repoContext2(io);
+  const read2 = readRoadmap(ctx, roadmapFile(ctx, "answer", n));
+  if (typeof read2 === "string") return refuse4(io.stderr, read2);
+  const ids2 = read2.roadmap.questions.map((q) => q.id);
+  if (!ids2.includes(question)) {
+    throw usageError(`omni roadmap answer: roadmap ${n} has no question ${question}${ids2.length ? ` (its questions: ${ids2.join(", ")})` : ""}.`);
+  }
+  let url2;
+  try {
+    url2 = githubClientFor(ctx, { issue: n, exec: io.exec, env: io.env }).createComment(answerComment(question, answer))?.html_url;
+  } catch {
+    return refuse4(io.stderr, "github unreachable");
+  }
+  println(io.stdout, `roadmap ${n}: ${question} answered${url2 ? ` \u2014 ${url2}` : ""}`);
+  return 0;
+}
 var roadmap = {
-  run: synchronous((args, { ctx, stdout }) => {
+  withoutContext: true,
+  async run(args, io) {
     const [sub, ...rest] = args;
-    if (sub !== "check") throw usageError(USAGE23);
-    return checkCommand2(rest, { ctx, stdout });
-  })
+    if (sub === "check") return checkCommand2(rest, { ctx: loadContext(io.cwd, { exec: io.exec }), stdout: io.stdout });
+    if (sub === "push") return pushCommand(rest, io);
+    if (sub === "answer") return answerCommand(rest, io);
+    throw usageError(USAGE23);
+  }
 };
 
 // kit/bin/commands/rework.ts
@@ -47852,9 +48147,9 @@ function deriveRework(entry, {
   }
   const { item: item2 } = parsed;
   const planSlice = planSlices2.find((slice) => slice.id === item2.slice) ?? null;
-  const bound = item2.sections.whatItCostsToChangeLater;
+  const bound2 = item2.sections.whatItCostsToChangeLater;
   const { chosenOption: chosenOption2, reason: reason2 } = chosenOptionOf(entry.answerText, item2.sections.options);
-  const territory = [.../* @__PURE__ */ new Set([...planSlice?.territory ?? [], ...namedPaths(bound)])];
+  const territory = [.../* @__PURE__ */ new Set([...planSlice?.territory ?? [], ...namedPaths(bound2)])];
   const id = reworkSliceId(entry.id, branches);
   return {
     id,
@@ -47867,7 +48162,7 @@ function deriveRework(entry, {
     answer: entry.answerText,
     chosenOption: chosenOption2,
     reason: reason2,
-    bound,
+    bound: bound2,
     approvedBy: entry.fields["Approved by"] ?? null,
     channel: entry.fields.Channel ?? null,
     territory,
@@ -48230,7 +48525,7 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
 var NUMBER_GAP = "  ";
 var TOPIC_GAP = "    ";
 var SEPARATOR = " \xB7 ";
-var cut2 = (text10, width) => text10.length <= width ? text10 : `${text10.slice(0, Math.max(0, width - 1))}\u2026`;
+var cut3 = (text10, width) => text10.length <= width ? text10 : `${text10.slice(0, Math.max(0, width - 1))}\u2026`;
 var stageColumn = (stage2) => `${INDENT}${STAGE_WORDS[stage2].padEnd(UNDER_BAR.length - INDENT.length)}`;
 function standing({ stage: stage2, prd: prd2, openItems: openItems3 = 0 }) {
   const waiting = openItems3 > 0 ? `${plural5(openItems3, "open item")} wait${openItems3 === 1 ? "s" : ""} for an answer` : null;
@@ -48246,19 +48541,19 @@ function rows(entries3) {
   const room = WIDTH - UNDER_BAR.length - numberWidth - TOPIC_GAP.length - wordsWidth;
   const topicWidth = Math.min(Math.max(...lines.map(({ topic }) => topic.length)), Math.max(1, room));
   return lines.flatMap(({ stage: stage2, number: number4, topic, words: words3 }, index) => [
-    `${stage2}${number4.padEnd(numberWidth)}${cut2(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words3}`,
+    `${stage2}${number4.padEnd(numberWidth)}${cut3(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words3}`,
     ...landingLines(entries3[index]?.landings ?? [])
   ]);
 }
 function landingLines(landings) {
   return landings.map(({ landing, landings: count4, name: name2, state, waitsFor }) => {
     const waits = waitsFor === null ? "" : `, waits for landing ${waitsFor} to merge`;
-    return cut2(`${UNDER_BAR}landing ${landing}/${count4} ${name2}: ${state}${waits}`, WIDTH);
+    return cut3(`${UNDER_BAR}landing ${landing}/${count4} ${name2}: ${state}${waits}`, WIDTH);
   });
 }
 function shippedEntry({ prd: prd2, topic }, width) {
   const number4 = `#${prd2} `;
-  return `${number4}${cut2(topic, width - number4.length)}`;
+  return `${number4}${cut3(topic, width - number4.length)}`;
 }
 function shippedRow(shipped) {
   const out = [];
@@ -48283,9 +48578,9 @@ function shippedRow(shipped) {
 function yours({ state, email: email3, rows: inFlight, shipped }) {
   if (state === "no-email") return [`${INDENT}set git config user.email to see yours`];
   if (state === "shallow") return [`${INDENT}this clone is shallow: git fetch --unshallow to see yours`];
-  const heading = cut2(`${INDENT}Yours \xB7 ${email3}`, WIDTH);
-  if (inFlight.length === 0 && shipped.length === 0) return [heading, `${INDENT}none yet`];
-  return [heading, ...inFlight.length ? rows(inFlight) : [], ...shipped.length ? shippedRow(shipped) : []];
+  const heading2 = cut3(`${INDENT}Yours \xB7 ${email3}`, WIDTH);
+  if (inFlight.length === 0 && shipped.length === 0) return [heading2, `${INDENT}none yet`];
+  return [heading2, ...inFlight.length ? rows(inFlight) : [], ...shipped.length ? shippedRow(shipped) : []];
 }
 function formatOverview(overview2, { now }) {
   return [
