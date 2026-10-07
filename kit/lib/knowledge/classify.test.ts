@@ -333,3 +333,55 @@ describe('classificationJsonSchema', () => {
     expect(json.required).toEqual(['kind', 'reason']);
   });
 });
+
+describe('enforcedBy — the proof a rule or an invariant proposes (PRD 1171)', () => {
+  const schema = classificationSchema(SUMMARY);
+  const RULE = { kind: 'rule', place: 'product', statement: 'A merge adopts what is open.', serves: 'P-PRODUCT-1', reason: 'provable' };
+  const INVARIANT = { kind: 'invariant', place: 'billing', statement: 'An invoice number is unique.', reason: 'must always hold' };
+  const messages = (reply: unknown) => {
+    const result = schema.safeParse(reply);
+    expect(result.success).toBe(false);
+    assertDefined(result.error, 'result.error');
+    return result.error.issues.map((issue) => issue.message).join(' | ');
+  };
+
+  it('is accepted on a rule and an invariant, one to three paths', () => {
+    expect(schema.safeParse({ ...RULE, enforcedBy: ['kit/lib/foo.test.ts'] }).success).toBe(true);
+    expect(schema.safeParse({ ...INVARIANT, enforcedBy: ['a.test.ts', 'b.test.ts', 'c.sql'] }).success).toBe(true);
+    expect(schema.safeParse(RULE).success).toBe(true);
+  });
+
+  it('is refused on adr, covered and stays-here', () => {
+    const others = [
+      { kind: 'adr', title: 'The check reads two snapshots', statement: 'Settings come from the base.', reason: 'how it is built' },
+      { kind: 'covered', covers: 'ADR-0001', reason: 'already recorded' },
+      { kind: 'stays-here', statement: 'A local naming choice.', reason: 'nothing lasting' },
+    ];
+    for (const reply of others) expect(messages({ ...reply, enforcedBy: ['a.test.ts'] })).toMatch(/Unrecognized key/);
+  });
+
+  it('refuses no path, more than three, and an empty one', () => {
+    expect(messages({ ...RULE, enforcedBy: [] })).toMatch(/enforcedBy/);
+    expect(messages({ ...RULE, enforcedBy: ['a', 'b', 'c', 'd'] })).toMatch(/enforcedBy/);
+    expect(messages({ ...INVARIANT, enforcedBy: ['  '] })).toMatch(/enforcedBy/);
+  });
+
+  it('the prompt lists the changed paths and says when to omit the field', () => {
+    const prompt = classificationPrompt({ candidate: candidate(), summary: SUMMARY, changed: ['kit/lib/foo.test.ts', 'kit/lib/foo.ts'] });
+    expect(prompt).toContain('## The files the feature pull request changed\n\n- kit/lib/foo.test.ts\n- kit/lib/foo.ts\n');
+    expect(prompt).toContain('`enforcedBy`');
+    expect(prompt).toMatch(/omit `enforcedBy` when none of them proves the statement/i);
+    expect(classificationPrompt({ candidate: candidate(), summary: SUMMARY })).toContain(
+      '## The files the feature pull request changed\n\n(none)\n',
+    );
+  });
+
+  it('the JSON schema offers enforcedBy as up to three paths', () => {
+    expect(classificationJsonSchema(SUMMARY).properties.enforcedBy).toEqual({
+      type: 'array',
+      items: { type: 'string' },
+      minItems: 1,
+      maxItems: 3,
+    });
+  });
+});

@@ -1,13 +1,13 @@
 // `omni harvest <prd> --pr <n>` — the knowledge harvest, run locally: the same pipeline the app runs
-// on a merged feature pull request. The merge's facts come through `gh`, the model through the kit's
-// OpenRouter client with the key from the environment, and the files go into the working tree:
-// nothing is staged, nothing committed. Exit 0 when it wrote; 1 when refused (the pull request is not
-// merged, or not into the default branch), naming why; 2 on a usage error or with no
-// OPENROUTER_API_KEY, with nothing written.
+// on a merged feature pull request. The merge's facts and changed files (PRD 1171) come through `gh`,
+// the model through the kit's OpenRouter client with the key from the environment, and the files go
+// into the working tree: nothing is staged, nothing committed. Exit 0 when it wrote; 1 when refused
+// (the pull request is not merged, or not into the default branch), naming why; 2 on a usage error or
+// with no OPENROUTER_API_KEY, with nothing written.
 import { KEY_VAR } from '../../lib/openrouter.ts';
 import { applyHarvestEdits, classifyCandidate, finishHarvest, noEdits, prepareHarvest } from '../../lib/knowledge/pipeline.ts';
 import { parseArgs, prArg, prdArg, println, usageError } from '../args.ts';
-import { pullRequestFor } from '../github.ts';
+import { pullRequestFilesFor, pullRequestFor } from '../github.ts';
 import type { Command, CommandIo } from '../io.ts';
 import type { Merge, Placed } from '../../lib/knowledge/write.ts';
 
@@ -16,10 +16,25 @@ const USAGE = 'usage: omni harvest <prd> --pr <feature pull request>';
 const today = () => new Date().toISOString().slice(0, 10);
 
 function landedText(entry: Placed): string {
-  if (entry.kind === 'stays-here') return 'stays here';
-  if (entry.kind === 'covered') return `covered by ${entry.landedAs.join(', ')}`;
-  const standing = entry.kind === 'adr' ? entry.status : entry.proposed ? 'proposed' : 'confirmed';
-  return `${entry.landedAs.join(', ')} (new, ${standing})`;
+  const ids = entry.landedAs.join(', ');
+  switch (entry.kind) {
+    case 'stays-here':
+      return 'stays here';
+    case 'covered':
+      return `covered by ${ids}`;
+    case 'adr':
+      return `${ids} (new, ${entry.status})`;
+    case 'rule':
+    case 'invariant':
+      return `${ids} (new, ${entry.proposed ? 'proposed' : 'confirmed'})`;
+  }
+}
+
+/** A rule's or an invariant's proof: what `Enforced by:` says, then each proposed path dropped. */
+function proofLines(entry: Placed): string[] {
+  if (!entry.enforcedBy) return [];
+  const enforced = entry.enforcedBy.length > 0 ? entry.enforcedBy.join(', ') : 'unenforced';
+  return [`      Enforced by: ${enforced}`, ...(entry.dropped ?? []).map((drop) => `      dropped ${drop.path} — ${drop.reason}`)];
 }
 
 function checkLine(name: string, violations: readonly string[]): string {
@@ -47,7 +62,8 @@ export const harvest: Command = {
     }
     const merge: Merge = { by: pr.mergedBy ?? '', at: pr.mergedAt ?? '', pr: pr.number, ...(pr.url ? { url: pr.url } : {}) };
 
-    const prepared = prepareHarvest({ ctx, prd, merge });
+    const changed = pullRequestFilesFor(ctx, { number, exec, env });
+    const prepared = prepareHarvest({ ctx, prd, merge, changed });
     if (!prepared.ok) {
       println(stderr, [`omni harvest — PRD ${prd}: cannot harvest:`, ...prepared.errors.map((e) => `  - ${e}`)].join('\n'));
       return 1;
@@ -55,7 +71,9 @@ export const harvest: Command = {
 
     const classified = [];
     for (const candidate of prepared.candidates) {
-      classified.push(await classifyCandidate({ candidate, summary: prepared.summary, openrouter: vars.openrouter, fetch: globalThis.fetch }));
+      classified.push(
+        await classifyCandidate({ candidate, summary: prepared.summary, changed: prepared.changed, openrouter: vars.openrouter, fetch: globalThis.fetch }),
+      );
     }
     const result = finishHarvest({ ctx, prepared, classified, merge, date: today() });
     applyHarvestEdits({ root: ctx.root, edits: result.edits });
@@ -71,7 +89,7 @@ export const harvest: Command = {
     for (const { path } of result.edits.writes) lines.push(`  wrote ${path}`);
     if (result.placed.length > 0) {
       lines.push('  placed:');
-      for (const entry of result.placed) lines.push(`    ${entry.id} → ${landedText(entry)} — ${entry.reason}`);
+      for (const entry of result.placed) lines.push(`    ${entry.id} → ${landedText(entry)} — ${entry.reason}`, ...proofLines(entry));
     }
     if (result.notPlaced.length > 0) {
       lines.push('  not placed:');
