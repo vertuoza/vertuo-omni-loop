@@ -418,6 +418,7 @@ Proposed: harvest 2026-09-28
 A count on the dashboard always agrees with the list it summarises, and each question counts once, however many ways it reaches a person.
 
 Why: A tile that disagrees with the list beside it, or counts one question twice, misleads a person about how much is waiting.
+Decided: @pierrederval, 2026-10-07
 Source: .omni-loop/delivery/shipped/0657-snappy-pages/outbox/settled.md, entry s2-02-waiting-count-from-the-shared-list, PRD #657
 Merged: @pierrederval, 2026-09-29, PR #664
 
@@ -480,6 +481,7 @@ Proposed: harvest 2026-09-30
 In the arcade games, a run never ends by a route that loses its score; every way a game can end saves the score reached.
 
 Why: A player should never lose a score they earned because of the route they took out of a game.
+Decided: @pierrederval, 2026-10-07
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s3-01-stage-clear-goes-on, PRD #817
 Merged: @pierrederval, 2026-09-30, PR #818
 
@@ -497,6 +499,7 @@ Proposed: harvest 2026-09-30
 A call that produced no answer is never scored as agreement or disagreement; it is left out of the comparison, not counted against either side.
 
 Why: Counting failures as disagreements would make the agreement rate measure outages rather than judgement, misleading anyone comparing Jev with the old way.
+Decided: @pierrederval, 2026-10-07
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s4-01-agreement-counts-only-answered-calls, PRD #812
 Merged: @pierrederval, 2026-09-30, PR #814
 
@@ -514,6 +517,7 @@ Proposed: harvest 2026-09-30
 An agent's link never reaches further than the member's own read would; it grants no access the person does not already have.
 
 Why: So handing a link to an agent never widens what the workspace exposes, and the link and the member always see the same repositories.
+Decided: @pierrederval, 2026-10-07
 Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-01-token-repo-scope, PRD #855
 Merged: @pierrederval, 2026-10-01, PR #856
 
