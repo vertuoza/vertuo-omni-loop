@@ -93,7 +93,7 @@ const statement = capped('statement', CAPS.statement);
 const reason = capped('reason', CAPS.reason);
 
 /** The most paths a rule or an invariant may propose as its proof. */
-export const MAX_ENFORCED_BY = 3;
+const MAX_ENFORCED_BY = 3;
 
 /**
  * `enforcedBy` (PRD 1171): one to {@link MAX_ENFORCED_BY} paths of the files the feature pull request
@@ -205,6 +205,20 @@ export function placesOf(summary: Pick<KnowledgeSummary, 'domains'>): string[] {
   return [PRODUCT_PLACE, ...summary.domains.map((domain) => domain.name)];
 }
 
+/** Why a rule's `serves` names no principle it may serve, or `null` when it may. */
+function servesRefusal(
+  reply: { serves: string; place: string },
+  principles: ReadonlyMap<string, { place: string }>,
+): string | null {
+  if (reply.serves === NEW_PRINCIPLE) return null;
+  const served = principles.get(reply.serves);
+  if (!served) return `serves "${reply.serves}", which is no existing principle — name one, or "${NEW_PRINCIPLE}"`;
+  if (served.place !== PRODUCT_PLACE && served.place !== reply.place) {
+    return `serves ${reply.serves}, a principle of "${served.place}" — a rule of "${reply.place}" serves a ${PRODUCT_PLACE} principle or its own`;
+  }
+  return null;
+}
+
 /**
  * The reply's schema bound to one repository's knowledge base (a {@link knowledgeSummary}): the
  * shape of {@link ClassificationSchema}, and every name in it pointing at something that exists.
@@ -228,13 +242,9 @@ export function classificationSchema(summary: KnowledgeSummary) {
     if ('place' in reply && !places.includes(reply.place)) {
       issue(['place'], `place "${reply.place}" is not "${PRODUCT_PLACE}" nor an existing domain — one of: ${places.join(', ')}`);
     }
-    if (reply.kind === 'rule' && reply.serves !== NEW_PRINCIPLE) {
-      const served = principles.get(reply.serves);
-      if (!served) {
-        issue(['serves'], `serves "${reply.serves}", which is no existing principle — name one, or "${NEW_PRINCIPLE}"`);
-      } else if (served.place !== PRODUCT_PLACE && served.place !== reply.place) {
-        issue(['serves'], `serves ${reply.serves}, a principle of "${served.place}" — a rule of "${reply.place}" serves a ${PRODUCT_PLACE} principle or its own`);
-      }
+    if (reply.kind === 'rule') {
+      const refused = servesRefusal(reply, principles);
+      if (refused) issue(['serves'], refused);
     }
     if (reply.kind === 'covered') {
       const record = reply.covers.match(RECORD_ID);

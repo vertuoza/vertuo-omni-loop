@@ -180,13 +180,13 @@ function sectionOf(candidate: WriteCandidate, key: 'whatIHadToDecide' | 'whatItC
  * and that `exists`. The rest are dropped, once each, with the reason: `not changed by #<pr>`,
  * `removed by #<pr>`, or `no longer in the tree`. Pure but for `exists`.
  */
-export function proofOf({
-  proposed,
+function proofOf({
+  proposed = [],
   changed,
   pr,
   exists,
 }: {
-  proposed: readonly string[];
+  proposed?: readonly string[] | undefined;
   changed: readonly ChangedFile[];
   pr: PrNumber;
   exists: (path: string) => boolean;
@@ -196,8 +196,8 @@ export function proofOf({
   const dropped: DroppedPath[] = [];
   for (const path of new Set(proposed.map((p) => p.trim()))) {
     const given = status.get(path);
-    if (given === undefined || (given !== 'removed' && !KEPT_STATUSES.includes(given))) dropped.push({ path, reason: `not changed by #${pr}` });
-    else if (given === 'removed') dropped.push({ path, reason: `removed by #${pr}` });
+    if (given === 'removed') dropped.push({ path, reason: `removed by #${pr}` });
+    else if (!KEPT_STATUSES.includes(given ?? '')) dropped.push({ path, reason: `not changed by #${pr}` });
     else if (!exists(path)) dropped.push({ path, reason: 'no longer in the tree' });
     else kept.push(path);
   }
@@ -211,11 +211,7 @@ function makeNumbering({ ctx, taken }: { ctx: WriteCtx; taken: Taken }): {
 } {
   const highest = new Map<string, number>();
   const bump = (key: string, n: string) => highest.set(key, Math.max(highest.get(key) ?? 0, Number(n)));
-  for (const entry of readKnowledge({ ctx }).entries) {
-    const parts = idParts(entry.id);
-    if (parts && parts.codes.length === 1) bump(`${parts.type}-${parts.codes[0]}`, parts.n);
-  }
-  for (const id of taken.ids ?? []) {
+  for (const id of [...readKnowledge({ ctx }).entries.map((entry) => entry.id), ...(taken.ids ?? [])]) {
     const parts = idParts(id);
     if (parts && parts.codes.length === 1) bump(`${parts.type}-${parts.codes[0]}`, parts.n);
   }
@@ -363,6 +359,111 @@ export function addLedgerLine(text: string, { id, line, markers }: { id: string;
   return lines.join('\n');
 }
 
+/** What writing one rule or invariant needs of its run. */
+type EntryRun = {
+  ctx: WriteCtx;
+  files: Files;
+  numbering: ReturnType<typeof makeNumbering>;
+  reply: Extract<ClassificationReply, { kind: 'rule' | 'invariant' }>;
+  candidate: WriteCandidate;
+  source: string;
+  decided: string;
+  merged: string;
+  merge: Merge;
+  /** Whether the entry is proposed: no person answered its decision. A new principle always is. */
+  proposed: boolean;
+  /** `harvest <date>`. */
+  proposedLine: string;
+  changed: readonly ChangedFile[];
+};
+
+/** The `Serves:` of a rule, and the id of the principle it proposes when it serves `new`; none for an invariant. */
+function servedBy(
+  reply: EntryRun['reply'],
+  nextPrinciple: () => string,
+): { serves: string | null; principleId: string | null } {
+  if (reply.kind !== 'rule') return { serves: null, principleId: null };
+  if (reply.serves !== NEW_PRINCIPLE) return { serves: reply.serves, principleId: null };
+  const principleId = nextPrinciple();
+  return { serves: principleId, principleId };
+}
+
+/** The `Enforced by:` value of the kept proof: the paths comma-separated, or `unenforced`. */
+const enforcedValue = (kept: readonly string[]): string => (kept.length > 0 ? kept.join(', ') : 'unenforced');
+
+/**
+ * Appends one rule or invariant to its place's layer file, its kept proof ({@link proofOf}) on
+ * `Enforced by:`, and the principle a rule serving `new` proposes beside it.
+ */
+function writeRegisterEntry({
+  ctx,
+  files,
+  numbering,
+  reply,
+  candidate,
+  source,
+  decided,
+  merged,
+  merge,
+  proposed,
+  proposedLine,
+  changed,
+}: EntryRun): { touched: string[]; landedAs: string[]; proof: { kept: string[]; dropped: DroppedPath[] } } {
+  const place = placeOf(ctx, reply.place);
+  const id = numbering.entry(reply.kind, place.code);
+  const { serves, principleId } = servedBy(reply, () => numbering.entry('principle', place.code));
+  const proof = proofOf({ proposed: reply.enforcedBy, changed, pr: merge.pr, exists: (path) => existsSync(join(ctx.root, path)) });
+  const fields: [string, string][] = [
+    ...(serves ? [['Serves', serves] satisfies [string, string]] : []),
+    ['Source', source],
+    ['Enforced by', enforcedValue(proof.kept)],
+    ['Stated', day(merge.at)],
+    ['Decided', decided],
+    ['Merged', merged],
+    ...(proposed ? [['Proposed', proposedLine] satisfies [string, string]] : []),
+  ];
+  const path = `${place.dir}/${LAYER[reply.kind]}`;
+  files.write(
+    path,
+    appendEntry(files.read(path), renderRegisterEntry({ id, statement: reply.statement, fields }), {
+      heading: `${place.title} ${reply.kind}s`,
+    }),
+  );
+  if (!principleId) return { touched: [path], landedAs: [id], proof };
+  const principlePath = writeProposedPrinciple({ files, place, id: principleId, reply, candidate, source, merged, proposedLine });
+  return { touched: [path, principlePath], landedAs: [id, principleId], proof };
+}
+
+/** Appends the principle a rule serving `new` proposes to its place's principles; returns that file. */
+function writeProposedPrinciple({
+  files,
+  place,
+  id,
+  reply,
+  candidate,
+  source,
+  merged,
+  proposedLine,
+}: Pick<EntryRun, 'files' | 'reply' | 'candidate' | 'source' | 'merged' | 'proposedLine'> & {
+  place: { dir: string; title: string };
+  id: string;
+}): string {
+  const proposal = defined(reply.kind === 'rule' ? reply.principle : undefined, `the principle ${candidate.id} proposes`); // classificationSchema refuses serves "new" without the principle it proposes
+  const path = `${place.dir}/${LAYER.principle}`;
+  const principle = renderRegisterEntry({
+    id,
+    statement: proposal.statement,
+    fields: [
+      ['Why', oneLine(proposal.why)],
+      ['Source', source],
+      ['Merged', merged],
+      ['Proposed', proposedLine],
+    ],
+  });
+  files.write(path, appendEntry(files.read(path), principle, { heading: `${place.title} principles` }));
+  return path;
+}
+
 /**
  * Turns classified candidates into file edits. `reply` is what `classificationSchema` accepted,
  * `null` when there is none (`reason` says why: the candidate is then not placed). `taken` holds the
@@ -415,56 +516,11 @@ export function writeKnowledge({
       touched.push(path);
       landedAs = [`ADR-${number}`];
     } else if (reply.kind === 'rule' || reply.kind === 'invariant') {
-      const place = placeOf(ctx, reply.place);
       const source = sourceLine(candidate, ledgerFile, prd);
-      const id = numbering.entry(reply.kind, place.code);
-      let serves = reply.kind === 'rule' ? reply.serves : null;
-      let principleId: string | null = null;
-      if (reply.kind === 'rule' && serves === NEW_PRINCIPLE) {
-        principleId = numbering.entry('principle', place.code);
-        serves = principleId;
-      }
-      proof = proofOf({
-        proposed: reply.enforcedBy ?? [],
-        changed,
-        pr: merge.pr,
-        exists: (path) => existsSync(join(ctx.root, path)),
-      });
-      const fields: [string, string][] = [
-        ...(serves ? [['Serves', serves] satisfies [string, string]] : []),
-        ['Source', source],
-        ['Enforced by', proof.kept.length > 0 ? proof.kept.join(', ') : 'unenforced'],
-        ['Stated', day(merge.at)],
-        ['Decided', decided],
-        ['Merged', merged],
-        ...(proposed ? [['Proposed', proposedLine] satisfies [string, string]] : []),
-      ];
-      const path = `${place.dir}/${LAYER[reply.kind]}`;
-      files.write(
-        path,
-        appendEntry(files.read(path), renderRegisterEntry({ id, statement: reply.statement, fields }), {
-          heading: `${place.title} ${reply.kind}s`,
-        }),
-      );
-      touched.push(path);
-      landedAs = [id];
-      if (principleId && reply.kind === 'rule') {
-        const proposal = defined(reply.principle, `the principle ${candidate.id} proposes`); // classificationSchema refuses serves "new" without the principle it proposes
-        const principlePath = `${place.dir}/${LAYER.principle}`;
-        const principle = renderRegisterEntry({
-          id: principleId,
-          statement: proposal.statement,
-          fields: [
-            ['Why', oneLine(proposal.why)],
-            ['Source', source],
-            ['Merged', merged],
-            ['Proposed', proposedLine],
-          ],
-        });
-        files.write(principlePath, appendEntry(files.read(principlePath), principle, { heading: `${place.title} principles` }));
-        touched.push(principlePath);
-        landedAs.push(principleId);
-      }
+      const entry = writeRegisterEntry({ ctx, files, numbering, reply, candidate, source, decided, merged, merge, proposed, proposedLine, changed });
+      touched.push(...entry.touched);
+      landedAs = entry.landedAs;
+      proof = entry.proof;
     } else if (reply.kind === 'covered') {
       landedAs = [reply.covers];
     }

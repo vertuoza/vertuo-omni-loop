@@ -1,10 +1,9 @@
 // `omni harvest <prd> --pr <n>` — the knowledge harvest, run locally: the same pipeline the app runs
-// on a merged feature pull request. The merge's facts come through `gh`, the model through the kit's
-// OpenRouter client with the key from the environment, the pull request's changed files through `gh`
-// too (the model proposes which one proves a new rule, PRD 1171), and the files go into the working tree:
-// nothing is staged, nothing committed. Exit 0 when it wrote; 1 when refused (the pull request is not
-// merged, or not into the default branch), naming why; 2 on a usage error or with no
-// OPENROUTER_API_KEY, with nothing written.
+// on a merged feature pull request. The merge's facts and changed files (PRD 1171) come through `gh`,
+// the model through the kit's OpenRouter client with the key from the environment, and the files go
+// into the working tree: nothing is staged, nothing committed. Exit 0 when it wrote; 1 when refused
+// (the pull request is not merged, or not into the default branch), naming why; 2 on a usage error or
+// with no OPENROUTER_API_KEY, with nothing written.
 import { KEY_VAR } from '../../lib/openrouter.ts';
 import { applyHarvestEdits, classifyCandidate, finishHarvest, noEdits, prepareHarvest } from '../../lib/knowledge/pipeline.ts';
 import { parseArgs, prArg, prdArg, println, usageError } from '../args.ts';
@@ -17,10 +16,18 @@ const USAGE = 'usage: omni harvest <prd> --pr <feature pull request>';
 const today = () => new Date().toISOString().slice(0, 10);
 
 function landedText(entry: Placed): string {
-  if (entry.kind === 'stays-here') return 'stays here';
-  if (entry.kind === 'covered') return `covered by ${entry.landedAs.join(', ')}`;
-  const standing = entry.kind === 'adr' ? entry.status : entry.proposed ? 'proposed' : 'confirmed';
-  return `${entry.landedAs.join(', ')} (new, ${standing})`;
+  const ids = entry.landedAs.join(', ');
+  switch (entry.kind) {
+    case 'stays-here':
+      return 'stays here';
+    case 'covered':
+      return `covered by ${ids}`;
+    case 'adr':
+      return `${ids} (new, ${entry.status})`;
+    case 'rule':
+    case 'invariant':
+      return `${ids} (new, ${entry.proposed ? 'proposed' : 'confirmed'})`;
+  }
 }
 
 /** A rule's or an invariant's proof: what `Enforced by:` says, then each proposed path dropped. */

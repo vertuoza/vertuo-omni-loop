@@ -33408,6 +33408,15 @@ function allowedKinds(places) {
 function placesOf(summary) {
   return [PRODUCT_PLACE, ...summary.domains.map((domain2) => domain2.name)];
 }
+function servesRefusal(reply, principles) {
+  if (reply.serves === NEW_PRINCIPLE) return null;
+  const served = principles.get(reply.serves);
+  if (!served) return `serves "${reply.serves}", which is no existing principle \u2014 name one, or "${NEW_PRINCIPLE}"`;
+  if (served.place !== PRODUCT_PLACE && served.place !== reply.place) {
+    return `serves ${reply.serves}, a principle of "${served.place}" \u2014 a rule of "${reply.place}" serves a ${PRODUCT_PLACE} principle or its own`;
+  }
+  return null;
+}
 function classificationSchema(summary) {
   const kinds = allowedKinds(summary.places);
   const places = placesOf(summary);
@@ -33426,13 +33435,9 @@ function classificationSchema(summary) {
     if ("place" in reply && !places.includes(reply.place)) {
       issue2(["place"], `place "${reply.place}" is not "${PRODUCT_PLACE}" nor an existing domain \u2014 one of: ${places.join(", ")}`);
     }
-    if (reply.kind === "rule" && reply.serves !== NEW_PRINCIPLE) {
-      const served = principles.get(reply.serves);
-      if (!served) {
-        issue2(["serves"], `serves "${reply.serves}", which is no existing principle \u2014 name one, or "${NEW_PRINCIPLE}"`);
-      } else if (served.place !== PRODUCT_PLACE && served.place !== reply.place) {
-        issue2(["serves"], `serves ${reply.serves}, a principle of "${served.place}" \u2014 a rule of "${reply.place}" serves a ${PRODUCT_PLACE} principle or its own`);
-      }
+    if (reply.kind === "rule") {
+      const refused2 = servesRefusal(reply, principles);
+      if (refused2) issue2(["serves"], refused2);
     }
     if (reply.kind === "covered") {
       const record2 = reply.covers.match(RECORD_ID);
@@ -33637,7 +33642,7 @@ function sectionOf(candidate, key) {
   return (candidate.item?.sections?.[key] ?? "").trim() || "(not recorded)";
 }
 function proofOf({
-  proposed,
+  proposed = [],
   changed,
   pr,
   exists
@@ -33647,8 +33652,8 @@ function proofOf({
   const dropped = [];
   for (const path of new Set(proposed.map((p) => p.trim()))) {
     const given = status4.get(path);
-    if (given === void 0 || given !== "removed" && !KEPT_STATUSES.includes(given)) dropped.push({ path, reason: `not changed by #${pr}` });
-    else if (given === "removed") dropped.push({ path, reason: `removed by #${pr}` });
+    if (given === "removed") dropped.push({ path, reason: `removed by #${pr}` });
+    else if (!KEPT_STATUSES.includes(given ?? "")) dropped.push({ path, reason: `not changed by #${pr}` });
     else if (!exists(path)) dropped.push({ path, reason: "no longer in the tree" });
     else kept.push(path);
   }
@@ -33657,11 +33662,7 @@ function proofOf({
 function makeNumbering({ ctx, taken }) {
   const highest = /* @__PURE__ */ new Map();
   const bump2 = (key, n) => highest.set(key, Math.max(highest.get(key) ?? 0, Number(n)));
-  for (const entry of readKnowledge({ ctx }).entries) {
-    const parts = idParts(entry.id);
-    if (parts && parts.codes.length === 1) bump2(`${parts.type}-${parts.codes[0]}`, parts.n);
-  }
-  for (const id of taken.ids ?? []) {
+  for (const id of [...readKnowledge({ ctx }).entries.map((entry) => entry.id), ...taken.ids ?? []]) {
     const parts = idParts(id);
     if (parts && parts.codes.length === 1) bump2(`${parts.type}-${parts.codes[0]}`, parts.n);
   }
@@ -33780,6 +33781,76 @@ function addLedgerLine(text10, { id, line, markers }) {
   lines.splice(at2 + 1, 0, line);
   return lines.join("\n");
 }
+function servedBy2(reply, nextPrinciple) {
+  if (reply.kind !== "rule") return { serves: null, principleId: null };
+  if (reply.serves !== NEW_PRINCIPLE) return { serves: reply.serves, principleId: null };
+  const principleId = nextPrinciple();
+  return { serves: principleId, principleId };
+}
+var enforcedValue = (kept) => kept.length > 0 ? kept.join(", ") : "unenforced";
+function writeRegisterEntry({
+  ctx,
+  files,
+  numbering,
+  reply,
+  candidate,
+  source,
+  decided,
+  merged,
+  merge: merge2,
+  proposed,
+  proposedLine,
+  changed
+}) {
+  const place = placeOf(ctx, reply.place);
+  const id = numbering.entry(reply.kind, place.code);
+  const { serves, principleId } = servedBy2(reply, () => numbering.entry("principle", place.code));
+  const proof2 = proofOf({ proposed: reply.enforcedBy, changed, pr: merge2.pr, exists: (path2) => existsSync26(join28(ctx.root, path2)) });
+  const fields = [
+    ...serves ? [["Serves", serves]] : [],
+    ["Source", source],
+    ["Enforced by", enforcedValue(proof2.kept)],
+    ["Stated", day(merge2.at)],
+    ["Decided", decided],
+    ["Merged", merged],
+    ...proposed ? [["Proposed", proposedLine]] : []
+  ];
+  const path = `${place.dir}/${LAYER[reply.kind]}`;
+  files.write(
+    path,
+    appendEntry(files.read(path), renderRegisterEntry({ id, statement: reply.statement, fields }), {
+      heading: `${place.title} ${reply.kind}s`
+    })
+  );
+  if (!principleId) return { touched: [path], landedAs: [id], proof: proof2 };
+  const principlePath = writeProposedPrinciple({ files, place, id: principleId, reply, candidate, source, merged, proposedLine });
+  return { touched: [path, principlePath], landedAs: [id, principleId], proof: proof2 };
+}
+function writeProposedPrinciple({
+  files,
+  place,
+  id,
+  reply,
+  candidate,
+  source,
+  merged,
+  proposedLine
+}) {
+  const proposal = defined(reply.kind === "rule" ? reply.principle : void 0, `the principle ${candidate.id} proposes`);
+  const path = `${place.dir}/${LAYER.principle}`;
+  const principle = renderRegisterEntry({
+    id,
+    statement: proposal.statement,
+    fields: [
+      ["Why", oneLine(proposal.why)],
+      ["Source", source],
+      ["Merged", merged],
+      ["Proposed", proposedLine]
+    ]
+  });
+  files.write(path, appendEntry(files.read(path), principle, { heading: `${place.title} principles` }));
+  return path;
+}
 function writeKnowledge({
   ctx,
   classified,
@@ -33816,56 +33887,11 @@ function writeKnowledge({
       touched.push(path);
       landedAs = [`ADR-${number4}`];
     } else if (reply.kind === "rule" || reply.kind === "invariant") {
-      const place = placeOf(ctx, reply.place);
       const source = sourceLine(candidate, ledgerFile, prd2);
-      const id = numbering.entry(reply.kind, place.code);
-      let serves = reply.kind === "rule" ? reply.serves : null;
-      let principleId = null;
-      if (reply.kind === "rule" && serves === NEW_PRINCIPLE) {
-        principleId = numbering.entry("principle", place.code);
-        serves = principleId;
-      }
-      proof2 = proofOf({
-        proposed: reply.enforcedBy ?? [],
-        changed,
-        pr: merge2.pr,
-        exists: (path2) => existsSync26(join28(ctx.root, path2))
-      });
-      const fields = [
-        ...serves ? [["Serves", serves]] : [],
-        ["Source", source],
-        ["Enforced by", proof2.kept.length > 0 ? proof2.kept.join(", ") : "unenforced"],
-        ["Stated", day(merge2.at)],
-        ["Decided", decided],
-        ["Merged", merged],
-        ...proposed ? [["Proposed", proposedLine]] : []
-      ];
-      const path = `${place.dir}/${LAYER[reply.kind]}`;
-      files.write(
-        path,
-        appendEntry(files.read(path), renderRegisterEntry({ id, statement: reply.statement, fields }), {
-          heading: `${place.title} ${reply.kind}s`
-        })
-      );
-      touched.push(path);
-      landedAs = [id];
-      if (principleId && reply.kind === "rule") {
-        const proposal = defined(reply.principle, `the principle ${candidate.id} proposes`);
-        const principlePath = `${place.dir}/${LAYER.principle}`;
-        const principle = renderRegisterEntry({
-          id: principleId,
-          statement: proposal.statement,
-          fields: [
-            ["Why", oneLine(proposal.why)],
-            ["Source", source],
-            ["Merged", merged],
-            ["Proposed", proposedLine]
-          ]
-        });
-        files.write(principlePath, appendEntry(files.read(principlePath), principle, { heading: `${place.title} principles` }));
-        touched.push(principlePath);
-        landedAs.push(principleId);
-      }
+      const entry = writeRegisterEntry({ ctx, files, numbering, reply, candidate, source, decided, merged, merge: merge2, proposed, proposedLine, changed });
+      touched.push(...entry.touched);
+      landedAs = entry.landedAs;
+      proof2 = entry.proof;
     } else if (reply.kind === "covered") {
       landedAs = [reply.covers];
     }
@@ -39810,10 +39836,18 @@ init_define_OMNI_BUNDLE();
 var USAGE14 = "usage: omni harvest <prd> --pr <feature pull request>";
 var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 function landedText(entry) {
-  if (entry.kind === "stays-here") return "stays here";
-  if (entry.kind === "covered") return `covered by ${entry.landedAs.join(", ")}`;
-  const standing2 = entry.kind === "adr" ? entry.status : entry.proposed ? "proposed" : "confirmed";
-  return `${entry.landedAs.join(", ")} (new, ${standing2})`;
+  const ids2 = entry.landedAs.join(", ");
+  switch (entry.kind) {
+    case "stays-here":
+      return "stays here";
+    case "covered":
+      return `covered by ${ids2}`;
+    case "adr":
+      return `${ids2} (new, ${entry.status})`;
+    case "rule":
+    case "invariant":
+      return `${ids2} (new, ${entry.proposed ? "proposed" : "confirmed"})`;
+  }
 }
 function proofLines(entry) {
   if (!entry.enforcedBy) return [];
