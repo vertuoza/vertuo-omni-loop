@@ -137,6 +137,48 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'unless the verdict is asked. Needs gh logged in.',
   },
   {
+    name: 'next',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni next [<prd>…] [--json] [--plan]'],
+    label: 'omni next [<n>…]',
+    summary: "the loop's next step, for PRD n or across your PRDs",
+    detail:
+      "PRD n's next step, read from its phase-0 PR, its feature PR, its open outbox questions and " +
+      'its board: act with the skill to run (a wave, yolo, yolo-fix or one PR care round), wait ' +
+      'with when to look again, park with who it waits on and the link where they act, or done. ' +
+      'With no number it drives your own PRDs in inbox, building or outbox, as omni status marks ' +
+      'them. --plan orders every slice of them into numbered steps (colliding territories in ' +
+      'series with the reason, blocked-by held, the rest beside each other) and keeps the plan in ' +
+      'this checkout; each later call returns the first step not done, and writes a new plan ' +
+      'version with a one-line reason when a slice goes stuck, a slice is added or a PRD ends ' +
+      'early. It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one ' +
+      'document. Needs gh logged in.',
+  },
+  {
+    name: 'loop',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni loop push start [--take-over]',
+      'omni loop push tick --step <k> --prd <n> --action <word> --result "<line>" […]',
+      'omni loop push park --prd <n> --who "<who>" --what "<what>" [--link <url>]',
+      'omni loop push stop',
+      'omni loop status [--json]',
+    ],
+    summary: "sends a loop's state to the Loop page",
+    detail:
+      "Sends where a loop stands to the Loop page on the Omni page, with this computer's sign-in. " +
+      'start opens a loop on this repository with the loop plan omni next --plan keeps, and keeps ' +
+      "the loop's id and plan in this checkout, so a loop whose terminal closed resumes with the " +
+      'same ones; it refuses a second live loop here, and takes over a silent one, whose session ' +
+      'died, only with --take-over. tick records one step, its result, its links and the next ' +
+      'wake, and carries a new plan version when omni next wrote one; park records a PRD waiting ' +
+      'on a person; stop ends the loop. status prints the loop kept here and what it is doing, and ' +
+      'calls nothing. It never holds up the loop: a 5-second limit and one sign-in refresh, and ' +
+      'anything that stops it exits 1 with one line (off, no sign-in, unreachable or refused).',
+  },
+  {
     name: 'check',
     kind: 'command',
     who: 'you',
@@ -1046,7 +1088,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'pr-care',
     kind: 'skill',
     who: 'you',
-    usage: ['/omni:pr-care <n>'],
+    usage: ['/omni:pr-care <n> [--once]'],
     label: '/omni:pr-care <n>',
     summary: "look after a PRD's feature PR until it is merged",
     detail:
@@ -1054,12 +1096,36 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'it merges {defaultBranch} on a conflict, fixes red CI, then judges each review comment against ' +
       "the repository's review form and fixes it, pushes back with a reason, or leaves it for the " +
       'PM. A reviewer who answers again gets the PM, not an argument. It pushes nothing while a ' +
-      'wave is building, shows on the PRD page that it is watching, and never merges.',
+      'wave is building, shows on the PRD page that it is watching, and never merges. --once runs ' +
+      'one round and returns, for /omni:drive.',
     group: 'build',
     when: 'Use it when a feature PR is ready and you want CI, conflicts and review comments handled while you do other things.',
     example: {
       type: '/omni:pr-care 790',
       result: 'each review comment fixed, pushed back with a reason, or left for you, and the PR kept green',
+    },
+  },
+  {
+    name: 'drive',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/loop /omni:drive [<n>…]'],
+    label: '/omni:drive [<n>…]',
+    summary: 'drive your PRDs, one step per tick',
+    detail:
+      'Run under /loop, it drives your own PRDs in inbox, building or outbox, or the ones you name. ' +
+      'Its first tick orders every slice of them into a loop plan (omni next --plan), colliding ' +
+      'territories in series with the reason, and opens the loop on the Loop page. Each tick then ' +
+      'takes the first step not done and runs that one skill (/omni:wave, /omni:yolo, /omni:yolo-fix ' +
+      "or /omni:pr-care --once) or waits, parks a PRD waiting on a person on its feature PR's status " +
+      'comment, records the tick on the Loop page and picks when to look again. Once every PRD is ' +
+      'parked or done it stops itself and lists what waits on whom. A closed terminal resumes the ' +
+      'same loop. It never answers the outbox and never merges into {defaultBranch}.',
+    group: 'build',
+    when: 'Use it when PRDs are merged into the inbox and you want them built, finished and cared for without typing each next command.',
+    example: {
+      type: '/omni:drive',
+      result: 'one tick: the loop plan, then its first step; under /loop, every tick until your PRDs wait on you',
     },
   },
   {

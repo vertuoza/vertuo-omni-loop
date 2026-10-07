@@ -26,7 +26,7 @@ describe('SIDEBAR', () => {
     assertDefined(work, 'the Work group');
     const drawn = [...dashboard.items, ...work.items, SETTINGS];
     expect(drawn.map((i) => [i.id, i.sprite])).toEqual([
-      ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
+      ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['loop', 'menu-loop'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
       ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
       ['settings', 'menu-settings'],
     ]);
@@ -36,12 +36,13 @@ describe('SIDEBAR', () => {
 
   const rows = (items: readonly SidebarItem[]) => items.map((i) => [i.id, i.label, i.path, (i.pages ?? []).map((p) => [p.label, p.path])]);
 
-  it('holds Home, Fleet, Workspace, then Engineering (PRD 612), under Dashboard, in that order', () => {
+  it('holds Home, Fleet, Loop beside it (PRD 1139), Workspace, then Engineering (PRD 612), under Dashboard, in that order', () => {
     const [dashboard] = SIDEBAR;
     assertDefined(dashboard, 'the Dashboard group');
     expect(rows(dashboard.items)).toEqual([
       ['home', 'Home', '/app', []],
       ['fleet', 'Fleet', '/app/fleet', []],
+      ['loop', 'Loop', '/app/loop', []],
       ['workspace', 'Workspace', '/app/workspace', []],
       ['engineering', 'Engineering', '/app/engineering', []],
     ]);
@@ -93,6 +94,9 @@ describe('currentItem and pageTrail', () => {
     ['/app', 'home', 'Dashboard › Home'],
     ['/app/fleet', 'fleet', 'Dashboard › Fleet'],
     ['/app/fleet?fleet=beaver&period=30d', 'fleet', 'Dashboard › Fleet'],
+    ['/app/loop', 'loop', 'Dashboard › Loop'],
+    ['/app/loop/0b7c6a2e-1f00-4d6a-9c55-2f1f3e4a5b6c', 'loop', 'Dashboard › Loop'],
+    ['/app/loopy', 'home', 'Dashboard › Home'],
     ['/app/workspace', 'workspace', 'Dashboard › Workspace'],
     ['/app/workspace?period=season', 'workspace', 'Dashboard › Workspace'],
     ['/app/engineering', 'engineering', 'Dashboard › Engineering'],
@@ -204,6 +208,6 @@ describe('badgeOf', () => {
 
   it('gives no badge at 0, nor to any other entry: only Questions and PRDs count (PRD 733)', () => {
     expect(badgeOf('questions', { ...counts, questions: 0 })).toBeNull();
-    for (const id of ['home', 'fleet', 'workspace', 'engineering', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
+    for (const id of ['home', 'fleet', 'loop', 'workspace', 'engineering', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
   });
 });

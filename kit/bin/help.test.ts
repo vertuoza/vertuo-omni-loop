@@ -65,6 +65,36 @@ describe('omni help', () => {
     expect(sentences.join(' ')).toMatch(/slices.*wave/);
   });
 
+  it('prints omni next: its usage, for you, and its four verdicts (PRD 1139)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'next'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni next \[<prd>…\] \[--json\] \[--plan\] +for you\n/);
+    expect(out.replace(/\s+/g, ' ')).toMatch(/act .* wait .* park .* done/);
+    expect(out.replace(/\s+/g, ' ')).toMatch(/With no number it drives your own PRDs .* --plan orders every slice .* first step not done/);
+  });
+
+  it('prints omni loop: its verbs, run by the skills, and how it never blocks (PRD 1139)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'loop'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni loop push start \[--take-over\] +run by the skills\n/);
+    expect(out).toContain('omni loop status [--json]');
+    expect(out.replace(/\s+/g, ' ')).toMatch(/refuses a second live loop .* --take-over.* 5-second limit and one sign-in refresh.* exits 1 with one line/);
+  });
+
+  it('prints /omni:drive: run under /loop, for you, one step per tick, and /omni:pr-care --once (PRD 1139)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', '/omni:drive'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^\/loop \/omni:drive \[<n>…\] +for you\n/);
+    expect(out.replace(/\s+/g, ' ')).toMatch(/omni next --plan.* first step not done .*\/omni:pr-care --once.* stops itself/);
+    expect(out.replace(/\s+/g, ' ')).toMatch(/never answers the outbox and never merges/);
+    const care = await run(['help', 'pr-care'], root);
+    expect(care.out).toMatch(/^\/omni:pr-care <n> \[--once\] +for you\n/);
+    expect(care.out.replace(/\s+/g, ' ')).toMatch(/--once runs one round and returns/);
+  });
+
   it('takes a skill by its name or its slash command alike', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const byName = await run(['help', 'yolo'], root);

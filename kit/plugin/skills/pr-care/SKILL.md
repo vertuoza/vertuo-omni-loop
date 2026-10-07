@@ -1,6 +1,6 @@
 ---
 name: pr-care
-description: Looks after one PRD's feature PR until it is merged or closed, or the person stops it — round by round, when a CI run finishes and otherwise every 5 minutes, it merges the base on a conflict, runs /omni:pr's fix loop on red CI, then judges each unhandled review thread against the review playbook form and fixes it, pushes back with a reason, or asks the PM, replying through omni care reply with the marker the PRD page reads. Pushes nothing while a wave holds claims, keeps the care line of the status comment current, never merges and never marks ready. Triggers on "look after the feature PR", "handle the review comments", "keep my PR green", "watch PRD 790's PR", "/omni:pr-care".
+description: Looks after one PRD's feature PR until it is merged or closed, or the person stops it — round by round, when a CI run finishes and otherwise every 5 minutes, it merges the base on a conflict, runs /omni:pr's fix loop on red CI, then judges each unhandled review thread against the review playbook form and fixes it, pushes back with a reason, or asks the PM, replying through omni care reply with the marker the PRD page reads. With --once it runs one round and returns, for a loop that calls it each tick (/omni:drive). Pushes nothing while a wave holds claims, keeps the care line of the status comment current, never merges and never marks ready. Triggers on "look after the feature PR", "handle the review comments", "keep my PR green", "watch PRD 790's PR", "/omni:pr-care".
 ---
 
 # PR care: keep the feature PR green, conflict-free and review-handled
@@ -25,8 +25,16 @@ signing is off here: add nothing.
 | input | example | what it is |
 |---|---|---|
 | a PRD number | `/omni:pr-care 790` | the PRD whose feature PR to look after |
+| `--once` | `/omni:pr-care 790 --once` | run one round, then return: no wait, no next round |
 
 Without a number, say that this skill takes the PRD number and stop.
+
+**`--once`** is for a loop that calls this skill each tick (`/omni:drive`), which already decides
+when to look again. Everything below holds, round for round, with three differences: step 1 keeps
+the `watching since` the status comment's care line already carries, when it has one; after the
+round's `status` action the run **returns**, skipping **5. Wait for the next round**; and the
+worktree stays for the next call, which reuses it, unless the round was a `stop`. Say in one line
+what the round did, as its status line does, and return.
 
 ## Step 0
 
@@ -52,7 +60,8 @@ tech lead moved takes effect on the next one. Read `node .omni-loop/bin/omni.mjs
    it already exists, after the same fetch and switch). Every git command and every fix below runs
    there.
 3. Note the time the watch starts, in ISO 8601 UTC (`date -u +%Y-%m-%dT%H:%M:%SZ`): it is the
-   `watching since` of every status comment this run writes.
+   `watching since` of every status comment this run writes. Under `--once`, keep the one the care
+   line already carries, when there is one.
 4. Say, in one line, `Looking after #<pr.number> (PRD <n>) until it is merged or closed. Stop me any time.`,
    then run the first round.
 
@@ -204,6 +213,9 @@ round did: `report only: a wave holds s3, s4`, `merged main`, `fixing <check> (a
 threads: 1 fixed, 1 pushed back, 1 asked`, or `nothing to do`.
 
 ## 5. Wait for the next round
+
+Under `--once`, there is no next round here: the round is done, so return (the caller wakes it
+again). Without it:
 
 A round runs when a CI run on the feature PR finishes, and otherwise every 5 minutes. A foreground
 command is killed after at most 10 minutes, so wait in the background, with Bash

@@ -52,6 +52,7 @@ const THEME_THEN_GAME = ['Omni', 'Light', 'Dark', 'Game mode'];
 const APP_PAGES: Array<[string, Layout, string, string]> = [
   ['/app', AppLayout, '/app', 'Dashboard › Home'],
   ['/app/fleet', AppLayout, '/app/fleet', 'Dashboard › Fleet'],
+  ['/app/loop', AppLayout, '/app/loop', 'Dashboard › Loop'],
   ['/app/workspace', AppLayout, '/app/workspace', 'Dashboard › Workspace'],
   ['/app/engineering', AppLayout, '/app/engineering', 'Dashboard › Engineering'],
   ['/app/settings/fleets', AppLayout, '/app/settings', 'Settings › Fleets'],
@@ -82,7 +83,7 @@ describe('every app page', () => {
   it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists « and » (PRD 733), Dashboard, Work, then Settings and Omni at the foot', async (name, layout) => {
     const side = part(await renderAt(layout, pathOf(name)), '<aside', '</aside>');
     expect(side).toMatch(new RegExp(`<a class="brand-logo app-sidebar-crest" href="${APP_HOME}">`));
-    expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', 'Home', 'Fleet', 'Workspace', 'Engineering', 'PRDs', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), 'Knowledge', 'Settings', 'Docs', 'Release notes']);
+    expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', 'Home', 'Fleet', 'Loop', 'Workspace', 'Engineering', 'PRDs', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), 'Knowledge', 'Settings', 'Docs', 'Release notes']);
   });
 
   it.each(APP_PAGES)('%s: marks exactly one sidebar item current: %s', async (name, layout, current) => {

@@ -87,7 +87,7 @@ function render(slug: string[]) {
 }
 
 describe('the sidebar', () => {
-  it('lists the eleven pages, in order, at /docs and under it', () => {
+  it('lists the twelve pages, in order, at /docs and under it', () => {
     expect(items).toEqual([
       { name: 'Getting started', url: '/docs' },
       { name: 'Install', url: '/docs/install' },
@@ -95,6 +95,7 @@ describe('the sidebar', () => {
       { name: 'Invade', url: '/docs/invade' },
       { name: 'How the loop works', url: '/docs/loop' },
       { name: 'Your first PRD', url: '/docs/first-prd' },
+      { name: 'Drive the loop', url: '/docs/drive' },
       { name: 'Several repositories', url: '/docs/several-repositories' },
       { name: 'Landings', url: '/docs/landings' },
       { name: 'Repository flow', url: '/docs/flow' },
@@ -113,6 +114,7 @@ describe('the sidebar', () => {
       '<a href="/docs/invade">Invade</a>',
       '<a href="/docs/loop">How the loop works</a>',
       '<a href="/docs/first-prd">Your first PRD</a>',
+      '<a href="/docs/drive">Drive the loop</a>',
       '<a href="/docs/several-repositories">Several repositories</a>',
       '<a href="/docs/landings">Landings</a>',
       '<a href="/docs/flow">Repository flow</a>',
@@ -125,7 +127,7 @@ describe('the sidebar', () => {
 describe('the pages', () => {
   it('serves Getting started at /docs, and each other page at /docs/<page>', () => {
     expect(guide.generateParams().map((p) => p.slug.join('/')).sort())
-      .toEqual(['', 'first-prd', 'flow', 'install', 'invade', 'join', 'landings', 'loop', 'several-repositories', 'troubleshooting', 'use-cases']);
+      .toEqual(['', 'drive', 'first-prd', 'flow', 'install', 'invade', 'join', 'landings', 'loop', 'several-repositories', 'troubleshooting', 'use-cases']);
     expect(guide.getPage([])?.data.title).toBe('Getting started');
     expect(guide.getPage(['nope'])).toBeUndefined();
   });
@@ -135,7 +137,8 @@ describe('the pages', () => {
     [['install'], 'Install', '/docs/join'],
     [['join'], 'Join a team', '/docs/loop'],
     [['invade'], 'Invade', '/docs/loop'],
-    [['loop'], 'How the loop works', '/docs/first-prd'],
+    [['first-prd'], 'Your first PRD', '/docs/several-repositories'],
+    [['drive'], 'Drive the loop', '/docs/several-repositories'],
     [['first-prd'], 'Your first PRD', '/docs/several-repositories'],
     [['several-repositories'], 'Several repositories', '/docs/landings'],
     [['landings'], 'Landings', '/docs/flow'],
@@ -197,9 +200,9 @@ describe('the skills pages (PRD 580)', () => {
   };
   const navLinks = (html: string, label: string) => (new RegExp(`<nav class="docs-nav" aria-label="${label}">[\\s\\S]*?</nav>`).exec(html)?.[0] ?? '').match(/<a [^>]*>[^<]*<\/a>/g);
 
-  it('shows the guide\'s eleven pages, then Skills › All skills, on a guide page', () => {
+  it('shows the guide\'s twelve pages, then Skills › All skills, on a guide page', () => {
     const html = render(['install']);
-    expect(navLinks(html, 'Guide')).toHaveLength(11);
+    expect(navLinks(html, 'Guide')).toHaveLength(12);
     expect(html).toMatch(/<\/nav><nav class="docs-nav" aria-label="Skills"><p class="docs-nav-head">Skills<\/p><ol><li><a href="\/docs\/skills">All skills<\/a><\/li><\/ol><\/nav>/);
   });
 
@@ -210,7 +213,7 @@ describe('the skills pages (PRD 580)', () => {
     const wave = navLinks(skills('wave'), 'Skills');
     expect(wave?.[0]).toBe('<a href="/docs/skills">All skills</a>');
     expect(wave?.filter((link) => link.includes('aria-current'))).toEqual(['<a href="/docs/skills/wave" aria-current="page">/omni:wave</a>']);
-    expect(navLinks(skills('wave'), 'Guide')).toHaveLength(11);
+    expect(navLinks(skills('wave'), 'Guide')).toHaveLength(12);
   });
 
   it('draws the overview: one section per group, a card per skill linking its page', () => {

@@ -79,6 +79,13 @@ jobs:
         # or bug fix, or null); another account cannot write it, nobody signed in writes the table, a
         # member of the workspace reads it, and anyone else reads nothing.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/working_pings.sql
+      - name: Who may read and write the loops
+        # loop_push() opens a loop as its caller, in the repository's workspace, with plan version 1;
+        # refuses a second running loop of the caller on that repository, naming it, and takes over a
+        # silent one only when asked; appends ticks, adds plan versions, parks PRDs and stops the loop,
+        # parked when PRDs still wait. Another account cannot push to it, nobody signed in writes the
+        # three tables, a member of the workspace reads them, and anyone else reads nothing (PRD 1139).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/loops.sql
       - name: Who may read and write the releases
         # Anyone, signed out or signed in, reads every release, and nobody writes one. Only the service
         # role (pnpm releases:sync) adds releases and refreshes their text, and it never renumbers,
