@@ -249,7 +249,7 @@ describe('knowledge-harvest — a feature PR merged over red', () => {
     const latest = latestEntries(textOf(files, LEDGER));
     for (const id of ['s1-01-high-one', 's1-02-set-secret', 's0-04-drift']) {
       expect(entryOf(latest, id).verdict).toBe('adopted');
-      expect(entryOf(latest, id).fields['Approved by']).toBe('@octocat');
+      expect(entryOf(latest, id).fields['Approved by']).toBe('octocat');
       expect(entryOf(latest, id).fields['Approved at']).toBe(MERGED_AT);
       expect(entryOf(latest, id).fields.Basis).toMatch(/^merged-over-red/);
     }

@@ -113,6 +113,12 @@ jobs:
         # each member's answered rounds in that workspace's sessions only; both return nothing to a
         # non-member, and neither runs signed out.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dashboards.sql
+      - name: What the game reads of the answered rounds
+        # game_answered_rounds returns one workspace's rounds answered since a moment, each with its PRD
+        # (brainstorm rule first, then delivery, numbered PRD dossiers only), its home and the
+        # answerer's lower-case login; none without a PRD or a login. Only the service role runs it,
+        # and the ledger takes QUESTION_ANSWERED (PRD 1180).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/game_answered_rounds.sql
       - name: Who may read and write the PRD stages
         # Only the service role records a PRD's stages and topics, and a second write of a stage keeps
         # its first date. A member reads their own workspace's rows; anyone else reads nothing, and

@@ -234,6 +234,11 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * asking (`./lead.ts`, PRD 752). @returns {Promise<{ roundId: string }>} */
     openRound: (sessionId: string, questions: unknown, context?: unknown, lead?: unknown) =>
       call('POST', `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withLead(withContext({ questions }, context), lead) }),
+    /** PRD 1180: a round opened already answered in the terminal, in one call, for a question the pre
+     * hook could not open on the page. An older server opens it unanswered and answers `{ roundId }`
+     * alone. @returns {Promise<{ roundId: string, status?: 'answered', via?: 'terminal' }>} */
+    openAnswered: (sessionId: string, questions: unknown, answers: unknown, context?: unknown, lead?: unknown) =>
+      call('POST', `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withLead(withContext({ questions, answers, via: 'terminal' }, context), lead) }),
     /** Held by the server up to 50 s. An answer given on the page with screenshots (PRD 620) also
      * carries, per question, each one's name and a signed link (null when none could be made).
      * @returns {Promise<{ status: 'open'|'answered'|'abandoned'|'closed', answers?: Record<string, string>,

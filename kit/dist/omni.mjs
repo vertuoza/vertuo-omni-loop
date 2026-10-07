@@ -7463,7 +7463,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/bin/omni.ts
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync14 } from "node:child_process";
+import { execFileSync as execFileSync15 } from "node:child_process";
 import { realpathSync as realpathSync5 } from "node:fs";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
@@ -30334,9 +30334,9 @@ function openedEntry(id) {
   return read2.success ? { id: read2.data, fields: {}, blocks: [] } : null;
 }
 function closedEntry({ id, fields, blocks }) {
-  const [answerText = "", itemText = ""] = blocks;
+  const [answerText2 = "", itemText = ""] = blocks;
   const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
-  return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
+  return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText: answerText2, itemText, became };
 }
 function rawSettledEntries(text10, markers) {
   const lines = text10.split("\n");
@@ -32628,7 +32628,8 @@ var MergeSchema = external_exports.object({
 }).strict();
 function mergeAnswer(merge2) {
   return {
-    approvedBy: `@${merge2.by}`,
+    approvedBy: merge2.by,
+    // the login alone: the ledger credits the line as written (PRD 1180)
     approvedAt: merge2.at,
     channel: {
       kind: "feature-pull-request",
@@ -34556,6 +34557,10 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
      * from and what it cost (`./context.ts`); `lead`, when given, is the text Claude wrote before
      * asking (`./lead.ts`, PRD 752). @returns {Promise<{ roundId: string }>} */
     openRound: (sessionId, questions2, context, lead) => call("POST", `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withLead(withContext({ questions: questions2 }, context), lead) }),
+    /** PRD 1180: a round opened already answered in the terminal, in one call, for a question the pre
+     * hook could not open on the page. An older server opens it unanswered and answers `{ roundId }`
+     * alone. @returns {Promise<{ roundId: string, status?: 'answered', via?: 'terminal' }>} */
+    openAnswered: (sessionId, questions2, answers2, context, lead) => call("POST", `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withLead(withContext({ questions: questions2, answers: answers2, via: "terminal" }, context), lead) }),
     /** Held by the server up to 50 s. An answer given on the page with screenshots (PRD 620) also
      * carries, per question, each one's name and a signed link (null when none could be made).
      * @returns {Promise<{ status: 'open'|'answered'|'abandoned'|'closed', answers?: Record<string, string>,
@@ -34675,6 +34680,7 @@ async function readInput(stdin) {
 
 // kit/lib/ask/hook.ts
 init_define_OMNI_BUNDLE();
+import { execFileSync as execFileSync9 } from "node:child_process";
 
 // kit/lib/ask/context.ts
 init_define_OMNI_BUNDLE();
@@ -34838,6 +34844,25 @@ function roundLead({ input: input2 } = {}) {
   }
 }
 
+// kit/lib/ask/title.ts
+init_define_OMNI_BUNDLE();
+import { basename as basename5 } from "node:path";
+var TITLE_MAX2 = 200;
+var QUIET6 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
+function attempt3(fn) {
+  try {
+    return fn();
+  } catch {
+    return null;
+  }
+}
+function currentBranch(root, exec) {
+  return attempt3(() => exec("git", ["branch", "--show-current"], { cwd: root, ...QUIET6 }).trim()) || attempt3(() => exec("git", ["rev-parse", "--short", "HEAD"], { cwd: root, ...QUIET6 }).trim()) || "HEAD";
+}
+function sessionTitle({ slug, branch, root }) {
+  return `${slug || basename5(root)} \xB7 ${branch}`.slice(0, TITLE_MAX2);
+}
+
 // kit/lib/ask/hook.ts
 var TOOL2 = "AskUserQuestion";
 var PROMPT_CONTEXT = "Ask mode is on: ask every question to the person through the AskUserQuestion tool, never as plain text.";
@@ -34857,19 +34882,36 @@ function activeMode(root) {
   return { host: mode.host, baseUrl };
 }
 function toolAnswers(questions2, answers2) {
+  return shapeAnswers(questions2, answers2, { partly: false });
+}
+function givenAnswers(questions2, answers2) {
+  return shapeAnswers(questions2, answers2, { partly: true });
+}
+function shapeAnswers(questions2, answers2, { partly }) {
+  const list3 = questionsToShape(questions2, answers2);
+  if (!list3) return null;
+  const shaped = {};
+  for (const entry of list3) {
+    const question = questionOf(entry);
+    const text10 = answerText(field(answers2, question));
+    if (text10 !== null) shaped[question] = text10;
+    else if (!partly) return null;
+  }
+  return Object.keys(shaped).length > 0 ? shaped : null;
+}
+function questionsToShape(questions2, answers2) {
   if (!Array.isArray(questions2) || questions2.length === 0) return null;
   if (!answers2 || typeof answers2 !== "object" || Array.isArray(answers2)) return null;
-  const shaped = {};
   const list3 = questions2;
-  for (const entry of list3) {
-    if (entry === null || entry === void 0) throw new TypeError(`a question is ${String(entry)}`);
-    const question = String(field(entry, "question"));
-    const given = field(answers2, question);
-    const text10 = Array.isArray(given) && given.every((label) => typeof label === "string") ? given.join(", ") : given;
-    if (typeof text10 !== "string" || text10 === "") return null;
-    shaped[question] = text10;
-  }
-  return shaped;
+  return list3;
+}
+function questionOf(entry) {
+  if (entry === null || entry === void 0) throw new TypeError(`a question is ${String(entry)}`);
+  return String(field(entry, "question"));
+}
+function answerText(given) {
+  const text10 = Array.isArray(given) && given.every((label) => typeof label === "string") ? given.join(", ") : given;
+  return typeof text10 === "string" && text10 !== "" ? text10 : null;
 }
 function promptOutput() {
   return { hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: PROMPT_CONTEXT } };
@@ -35000,7 +35042,6 @@ async function preHook({
     const status4 = field(result, "status");
     if (status4 === "open") continue;
     if (status4 === "closed") {
-      clearRound(root, toolUseId);
       clearTerminal(root, terminalId);
       return null;
     }
@@ -35015,20 +35056,81 @@ async function preHook({
     return preOutput(toolInput, await withScreenshots({ root, client, roundId, answers: answers2, attachments, deadline, now }));
   }
 }
-async function postHook({ root, client, input: input2 }) {
-  const toolUseId = idOf(field(input2, "tool_use_id"));
-  const round2 = readRound(root, toolUseId);
-  if (!round2) return;
+function statusOf(error62) {
+  const status4 = field(error62, "status");
+  return typeof status4 === "number" ? status4 : null;
+}
+function failureLine(error62) {
+  const reason2 = error62 instanceof Error ? error62.message : String(error62);
+  return `omni ask: this answer was not recorded on the page (${reason2.replace(/\s+/g, " ").trim()})`;
+}
+function defaultTitle(root) {
+  return () => sessionTitle({ slug: loadConfig(root).repo.slug, branch: currentBranch(root, execFileSync9), root });
+}
+async function openAnswered({ root, host, client, input: input2, title, readContext, readSessionContext, readLead: readLead2, questions: questions2, answers: answers2, terminalId }) {
+  const context = contextOf(() => readContext({ root, input: input2 })) ?? void 0;
+  const lead = contextOf(() => readLead2({ input: input2 }));
+  const send3 = async () => {
+    const sessionId = await terminalSession({ root, host, client, terminalId, title, readSessionContext });
+    return client.openAnswered(sessionId, questions2, answers2, context, lead);
+  };
+  let reply;
   try {
-    if (round2.status === "answered") return;
+    reply = await send3();
+  } catch (error62) {
+    const status4 = statusOf(error62);
+    if (status4 === null || !SESSION_GONE.includes(status4)) throw error62;
+    clearTerminal(root, terminalId);
+    reply = await send3();
+  }
+  const roundId = field(reply, "roundId");
+  if (typeof roundId !== "string" || roundId === "") throw new Error("the server answered with no round");
+  if (field(reply, "status") !== "answered") await client.answer(roundId, answers2);
+}
+async function postHook({
+  root,
+  client,
+  input: input2,
+  host = activeMode(root)?.host ?? null,
+  title = defaultTitle(root),
+  readContext = askContext,
+  readSessionContext = sessionContext,
+  readLead: readLead2 = roundLead,
+  warn = (line) => {
+    process.stderr.write(`${line}
+`);
+  }
+}) {
+  const toolUseId = idOf(field(input2, "tool_use_id"));
+  if (!toolUseId) return;
+  const round2 = readRound(root, toolUseId);
+  try {
+    if (round2?.status === "answered") return;
+    if (!round2 && field(input2, "tool_name") !== TOOL2) return;
     const toolInput = field(input2, "tool_input");
     const toolResponse = field(input2, "tool_response");
     const questions2 = field(toolInput, "questions") ?? field(toolResponse, "questions");
-    const answers2 = toolAnswers(questions2, field(toolResponse, "answers") ?? field(toolInput, "answers"));
-    if (answers2) await client.answer(round2.roundId, answers2);
-  } catch {
+    const answers2 = givenAnswers(questions2, field(toolResponse, "answers") ?? field(toolInput, "answers"));
+    if (!answers2) return;
+    if (round2 && await answerRound(client, round2.roundId, answers2)) return;
+    const terminalId = idOf(field(input2, "session_id"));
+    if (!host || !terminalId) throw new Error("no ask session can be opened for this terminal");
+    await openAnswered({ root, host, client, input: input2, title, readContext, readSessionContext, readLead: readLead2, questions: questions2, answers: answers2, terminalId });
+  } catch (error62) {
+    warn(failureLine(error62));
   } finally {
-    clearRound(root, toolUseId);
+    if (round2) clearRound(root, toolUseId);
+  }
+}
+async function answerRound(client, roundId, answers2) {
+  try {
+    await client.answer(roundId, answers2);
+    return true;
+  } catch (error62) {
+    const status4 = statusOf(error62);
+    if (status4 === 409) return true;
+    if (status4 === 404) return false;
+    throw error62;
   }
 }
 async function endHook({ root, host, client, input: input2 }) {
@@ -35045,28 +35147,12 @@ async function endHook({ root, host, client, input: input2 }) {
 
 // kit/lib/ask/mode.ts
 init_define_OMNI_BUNDLE();
-import { basename as basename5 } from "node:path";
-var TITLE_MAX2 = 200;
 var AskModeError = class extends Error {
   constructor(message) {
     super(message);
     this.name = "AskModeError";
   }
 };
-var QUIET6 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
-function attempt3(fn) {
-  try {
-    return fn();
-  } catch {
-    return null;
-  }
-}
-function currentBranch(root, exec) {
-  return attempt3(() => exec("git", ["branch", "--show-current"], { cwd: root, ...QUIET6 }).trim()) || attempt3(() => exec("git", ["rev-parse", "--short", "HEAD"], { cwd: root, ...QUIET6 }).trim()) || "HEAD";
-}
-function sessionTitle({ slug, branch, root }) {
-  return `${slug || basename5(root)} \xB7 ${branch}`.slice(0, TITLE_MAX2);
-}
 var hostOf = (askUrl2) => new URL(askUrl2).host;
 var pageUrl = (askUrl2) => `${askUrl2.replace(/\/+$/, "")}/ask`;
 function turnOn({ root, askUrl: askUrl2, tokens }) {
@@ -38805,7 +38891,7 @@ function summarize(items, { commits = null, app = false } = {}) {
 
 // kit/lib/credits/reader.ts
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync9 } from "node:child_process";
+import { execFileSync as execFileSync10 } from "node:child_process";
 
 // kit/lib/credits/schema.ts
 init_define_OMNI_BUNDLE();
@@ -38891,7 +38977,7 @@ function pullRequest(raw, repo) {
   };
 }
 var shown2 = (arg) => /\s/.test(arg) ? JSON.stringify(arg) : arg;
-function readCredits({ owner, repo, since, labels, signature, exec = execFileSync9, env }) {
+function readCredits({ owner, repo, since, labels, signature, exec = execFileSync10, env }) {
   const options = {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -39921,7 +40007,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/ask/heartbeat.ts
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync10 } from "node:child_process";
+import { execFileSync as execFileSync11 } from "node:child_process";
 import { existsSync as existsSync38, mkdirSync as mkdirSync10, readdirSync as readdirSync17, readFileSync as readFileSync36, rmSync as rmSync7, writeFileSync as writeFileSync14 } from "node:fs";
 import { join as join48 } from "node:path";
 var HEARTBEAT_EVERY_MS = 6e4;
@@ -39976,7 +40062,7 @@ function fixWork(branch, branches, folders) {
   const bug2 = numberOf(fix, folders.bugs);
   return bug2 ? { kind: "bug", number: bug2 } : null;
 }
-function readWork({ cwd, config: config3, claudeSessionId, exec = execFileSync10 }) {
+function readWork({ cwd, config: config3, claudeSessionId, exec = execFileSync11 }) {
   const home = attempt4(() => mainCheckout(cwd, exec));
   const drafts = home ? attempt4(() => readDossiers(home)) ?? [] : [];
   const head = attempt4(() => exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd, ...QUIET7 }).trim());
@@ -43472,7 +43558,7 @@ function replanLine(plan2) {
 
 // kit/lib/status/facts.ts
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync11 } from "node:child_process";
+import { execFileSync as execFileSync12 } from "node:child_process";
 import { readFileSync as readFileSync47, rmSync as rmSync8, statSync as statSync12, utimesSync, writeFileSync as writeFileSync21 } from "node:fs";
 import { resolve as resolve3 } from "node:path";
 function fieldOf(error62, key) {
@@ -43560,7 +43646,7 @@ function putBack(saved) {
   } catch {
   }
 }
-function fetchRemote({ ctx, exec = execFileSync11 }) {
+function fetchRemote({ ctx, exec = execFileSync12 }) {
   const saved = snapshot(fetchHeadPath(ctx, exec));
   try {
     git3(ctx, exec, ["fetch", "--prune", ctx.config.repo.remote]);
@@ -43716,7 +43802,7 @@ function rulesAt(ctx, exec, ref) {
     return { enforced: proven.filter((entry) => entry.enforced).length, total: proven.length };
   });
 }
-function readFacts({ ctx, exec = execFileSync11 }) {
+function readFacts({ ctx, exec = execFileSync12 }) {
   const base = readBase(ctx, exec);
   if (!base) return null;
   const { dirs } = ctx.layout;
@@ -44637,11 +44723,11 @@ import { join as join63 } from "node:path";
 
 // kit/lib/plan-repo/moved.ts
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync13 } from "node:child_process";
+import { execFileSync as execFileSync14 } from "node:child_process";
 
 // kit/lib/plan-repo/targets.ts
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync12 } from "node:child_process";
+import { execFileSync as execFileSync13 } from "node:child_process";
 import { existsSync as existsSync49, readdirSync as readdirSync21, readFileSync as readFileSync51 } from "node:fs";
 import { join as join62 } from "node:path";
 
@@ -44803,7 +44889,7 @@ function judged(gh2, target3, facts, read2) {
   return stale === null ? ["ok", null] : ["stale", stale];
 }
 function readTarget2(target3, {
-  exec = execFileSync12,
+  exec = execFileSync13,
   env,
   evidence = /* @__PURE__ */ new Set(),
   copyFlow
@@ -44840,7 +44926,7 @@ function copyFlowOf(repo, ctx) {
     return { error: messageOf(error62) };
   }
 }
-function readTargets(targets2, { ctx, exec = execFileSync12, env }) {
+function readTargets(targets2, { ctx, exec = execFileSync13, env }) {
   return targets2.map(
     (target3) => target3.knowledge === "imported" ? readTarget2(target3, { exec, env, evidence: copyEvidence(target3.repo, { ctx }), copyFlow: copyFlowOf(target3.repo, ctx) }) : readTarget2(target3, { exec, env })
   );
@@ -44876,7 +44962,7 @@ function planMoved({
   repositories,
   planSlug,
   targets: targets2
-}, { exec = execFileSync13, env } = {}) {
+}, { exec = execFileSync14, env } = {}) {
   const gh2 = ghReader({ exec, env });
   const slugOf3 = new Map(targets2.map((target3) => [shortName6(target3.repo), target3.repo]));
   return repositories.filter((row) => row.repo !== shortName6(planSlug)).map((row) => {
@@ -47396,8 +47482,8 @@ function namedPaths(text10) {
   );
 }
 var CHOSEN_OPTION_ANSWER = /^([A-D])\. ([\s\S]*?)(?: — because ([\s\S]*))?$/;
-function chosenOptionOf(answerText, options) {
-  const match = (answerText ?? "").trim().match(CHOSEN_OPTION_ANSWER);
+function chosenOptionOf(answerText2, options) {
+  const match = (answerText2 ?? "").trim().match(CHOSEN_OPTION_ANSWER);
   const option = match && (options ?? []).find((candidate) => candidate.letter === match[1]);
   if (!match || !option || option.text !== (match[2] ?? "").trim()) return { chosenOption: null, reason: null };
   return {
@@ -48760,7 +48846,7 @@ async function main(argv, {
   cwd = process.cwd(),
   stdout = process.stdout,
   stderr = process.stderr,
-  exec = execFileSync14,
+  exec = execFileSync15,
   env = processEnv(),
   ...more
 } = {}) {

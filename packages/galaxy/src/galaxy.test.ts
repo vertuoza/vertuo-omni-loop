@@ -37,6 +37,25 @@ describe('buildGalaxy', () => {
     expect(g.teams.map((t) => t.name)).toEqual(['octopod', 'beaver']);
   });
 
+  it('counts an answered question in its answerer\'s points, logs it, and leaves the planet as it was (PRD 1180)', () => {
+    const delivery = [
+      charted,
+      ev('region:core-repo:7:surveyed', '2026-09-02T08:00:00Z', 'REGION_SURVEYED', 7, { region: 'core-repo' }),
+      ev('zone:core-repo:7:s1:opened', '2026-09-21T08:00:00Z', 'ZONE_OPENED', 7, { region: 'core-repo', data: { wave: 1 } }),
+    ];
+    const answered = ev('ask:r1:answered', '2026-09-22T09:00:00Z', 'QUESTION_ANSWERED', 7, { contributor: 'alice', team: 'octopod' });
+    const without = buildGalaxy(delivery, { projects, now: NOW });
+    const g = buildGalaxy([...delivery, answered], { projects, now: NOW });
+    expect(g.heroes).toMatchObject([{ name: 'alice', points: RULEBOOK.questionAnswered }]);
+    expect(g.teams.find((t) => t.name === 'octopod')).toMatchObject({ points: RULEBOOK.questionAnswered });
+    const [before] = without.planets, [after] = g.planets;
+    assertDefined(before, 'the planet without answers');
+    assertDefined(after, 'the planet with answers');
+    expect(after.log[0]).toMatchObject({ type: 'QUESTION_ANSWERED', text: '@alice answered a question', contributor: 'alice' });
+    const shape = ({ state, threat, progress, openWounds, zones, expeditions, rescuers }: typeof after) => ({ state, threat, progress, openWounds, zones, expeditions, rescuers });
+    expect(shape(after)).toEqual(shape(before));
+  });
+
   it('orders the planet state as the spec does: lost beats terraformed, locked beats distress', () => {
     const lost = buildGalaxy([charted, ev('planet:7:lost', '2026-09-20T08:00:00Z', 'PLANET_LOST', 7, { data: { reason: 'closed' } })], { projects, now: NOW });
     expect(lost.planets[0]?.state).toBe('lost');
@@ -119,7 +138,7 @@ describe('the rules the view carries', () => {
     const g = buildGalaxy([charted], { projects, now: NOW });
     expect(g.rules.xp).toBe(RULEBOOK.xp);
     expect(g.rules.xp).toEqual({
-      weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1 },
+      weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1 },
       curve: { first: 1, step: 25 },
       cap: 99,
       unlocks: { invaders: 1, platformer: 2 },

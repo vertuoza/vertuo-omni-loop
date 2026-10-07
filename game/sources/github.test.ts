@@ -224,6 +224,15 @@ describe('buildSnapshot', () => {
     });
   });
 
+  it('credits a settle a merge over red wrote as @<login> to the login (PRD 1180)', async () => {
+    const settled = ['<!-- omni-outbox-settled: s1-01-a -->', '- Verdict: adopted', '- Approved at: 2026-09-22T10:00:00Z', '- Approved by: @pm', '- Rank: high', ''].join('\n');
+    const p = nth((await snap([
+      [`api repos/${R}/contents/${OUT}?ref=feat/generic-import --jq`, 'settled.md\n'],
+      [`api repos/${R}/contents/${OUT}/settled.md?ref=feat/generic-import`, settled],
+    ])).planets, 0, 'the planet');
+    expect(nth(p.outbox, 0, 'the outbox item').settled).toMatchObject({ verdict: 'adopted', by: 'pm' });
+  });
+
   it('carries the rework sub-PR author of a drifted settle as reworkBy (F6)', async () => {
     const settled = ['<!-- omni-outbox-settled: s1-01-a -->', '- Verdict: drifted', '- Approved at: 2026-09-22T10:00:00Z', '- Approved by: pm', '- Rank: high', ''].join('\n');
     const p = nth((await snap([
