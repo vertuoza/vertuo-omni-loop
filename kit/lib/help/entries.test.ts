@@ -107,11 +107,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 44 commands and the 26 skills', () => {
+  it('holds the 44 commands and the 27 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(44);
-    expect(skillFolders()).toHaveLength(26);
+    expect(skillFolders()).toHaveLength(27);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(44);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(26);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(27);
   });
 
   it('lists /omni:mega-bug-fix for you under Several repositories, after /omni:mega-pr-care, with when and an example (PRD 1118)', () => {
@@ -152,7 +152,7 @@ describe('the help table in this repository', () => {
     const skills = ENTRIES.filter((e) => e.kind === 'skill');
     const prCare = skills.find((e) => e.name === 'pr-care');
     assertDefined(prCare, 'prCare');
-    expect(prCare).toMatchObject({ who: 'you', usage: ['/omni:pr-care <n>'], label: '/omni:pr-care <n>', group: 'build' });
+    expect(prCare).toMatchObject({ who: 'you', usage: ['/omni:pr-care <n> [--once]'], label: '/omni:pr-care <n>', group: 'build' });
     expect(skills.indexOf(prCare)).toBe(skills.findIndex((e) => e.name === 'pr') + 1);
     expect(prCare.when).toMatch(/^Use it when\b/);
     expect(prCare.example).toEqual({ type: '/omni:pr-care 790', result: anyText });
@@ -282,7 +282,7 @@ describe('the help table in this repository', () => {
     const byGroup = Object.fromEntries(GROUP_IDS.map((id) => [id, ENTRIES.filter((e) => e.kind === 'skill' && e.group === id).map((e) => e.name).sort()]));
     expect(byGroup).toEqual({
       start: ['brainstorm', 'bug-fix', 'think-big', 'visual-fix'],
-      build: ['do-work', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
+      build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-invade', 'mega-pr-care', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
       everyday: ['ask', 'help', 'pitch', 'prove', 'status'],
