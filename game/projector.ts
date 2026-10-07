@@ -81,10 +81,10 @@ export function projectEvents(
 }
 
 /**
- * A GitHub login as the ledger names a player (PRD 1180): lower case, letters, digits and inner
- * hyphens, at most 39 characters. No `@`, no dot, no upper case.
+ * A GitHub login as the ledger names a player (PRD 1180): letters, digits and inner hyphens, at
+ * most 39 characters, in any case, as GitHub issues them (`Serghok`). No `@`, no dot.
  */
-const LOGIN = /^[a-z0-9](?:[a-z0-9-]{0,38})$/;
+const LOGIN = /^[a-z0-9](?:[a-z0-9-]{0,38})$/i;
 
 // Validates and keeps one event, or reports it skipped. An event credited to a name that is no
 // GitHub login is skipped too (PRD 1180): the ledger keeps an event's first copy forever, so it waits

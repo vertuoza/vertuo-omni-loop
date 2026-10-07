@@ -164,7 +164,7 @@ describe('projectEvents', () => {
 
   describe('a contributor that is not a GitHub login (PRD 1180)', () => {
     const settledBy = (by: string) => snapshot({ outbox: [{ id: 's1-01-a', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: { verdict: 'agreed', at: '2026-09-22T10:00:00Z', by, reworkMergedAt: null } }] });
-    it.each(['@pm', 'clement.noterdaem', 'Pierre', '-pm', 'a'.repeat(40), 'p m'])('skips the event credited to %j with a warning naming it', (name) => {
+    it.each(['@pm', 'clement.noterdaem', '-pm', 'a'.repeat(40), 'p m'])('skips the event credited to %j with a warning naming it', (name) => {
       const skipped: Skip[] = [];
       const events = projectEvents(settledBy(name), { config, now: NOW, onSkip: (s) => skipped.push(s) });
       expect(events.some((e) => e.type === 'WOUND_CLOSED')).toBe(false);
@@ -182,7 +182,7 @@ describe('projectEvents', () => {
     });
 
     it('keeps every login GitHub can issue', () => {
-      for (const login of ['pm', 'paul-w', 'a1', 'a'.repeat(39)]) {
+      for (const login of ['pm', 'paul-w', 'a1', 'Serghok', 'a'.repeat(39)]) {
         const skipped: Skip[] = [];
         projectEvents(settledBy(login), { config, now: NOW, onSkip: (s) => skipped.push(s) });
         expect(skipped).toEqual([]);
