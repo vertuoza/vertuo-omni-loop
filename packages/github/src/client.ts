@@ -84,6 +84,14 @@ export function resourceOf(url: string): Resource {
   return new URL(url).pathname.replace(/\/+$/, '').endsWith('/graphql') ? 'graphql' : 'core';
 }
 
+/** Headers as a plain object of lowercase names. Through forEach: Node's own Headers type, which tsc
+ * reads (Stryker's checker), is not iterable, though tsgo's is. */
+function plainHeaders(init: HeadersInit | undefined): Record<string, string> {
+  const plain: Record<string, string> = {};
+  new Headers(init).forEach((value, name) => { plain[name] = value; });
+  return plain;
+}
+
 /** The budget an answer's headers report; null when it carries none. */
 function budgetOf(headers: Headers): { limit: number; remaining: number; resetAt: number } | null {
   const limit = Number(headers.get('x-ratelimit-limit'));
@@ -186,7 +194,7 @@ export function githubClient({ store, fetch: send = (url, init) => globalThis.fe
 
     const etag = await conditionalOf(installation, url, resource, rest.method);
     // The caller's headers go out as given; a stored ETag adds one, as a plain object of lowercase names.
-    const headers = etag.kept ? { ...Object.fromEntries(new Headers(rest.headers)), 'if-none-match': etag.kept.etag } : rest.headers;
+    const headers = etag.kept ? { ...plainHeaders(rest.headers), 'if-none-match': etag.kept.etag } : rest.headers;
     const res = await send(url, headers === undefined ? rest : { ...rest, headers });
 
     const answered = clock();
