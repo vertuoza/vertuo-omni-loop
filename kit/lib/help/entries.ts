@@ -156,6 +156,29 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'document. Needs gh logged in.',
   },
   {
+    name: 'loop',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni loop push start [--take-over]',
+      'omni loop push tick --step <k> --prd <n> --action <word> --result "<line>" […]',
+      'omni loop push park --prd <n> --who "<who>" --what "<what>" [--link <url>]',
+      'omni loop push stop',
+      'omni loop status [--json]',
+    ],
+    summary: "sends a loop's state to the Loop page",
+    detail:
+      "Sends where a loop stands to the Loop page on the Omni page, with this computer's sign-in. " +
+      'start opens a loop on this repository with the loop plan omni next --plan keeps, and keeps ' +
+      "the loop's id and plan in this checkout, so a loop whose terminal closed resumes with the " +
+      'same ones; it refuses a second live loop here, and takes over a silent one, whose session ' +
+      'died, only with --take-over. tick records one step, its result, its links and the next ' +
+      'wake, and carries a new plan version when omni next wrote one; park records a PRD waiting ' +
+      'on a person; stop ends the loop. status prints the loop kept here and what it is doing, and ' +
+      'calls nothing. It never holds up the loop: a 5-second limit and one sign-in refresh, and ' +
+      'anything that stops it exits 1 with one line (off, no sign-in, unreachable or refused).',
+  },
+  {
     name: 'check',
     kind: 'command',
     who: 'you',
