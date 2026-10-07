@@ -6,17 +6,35 @@
 // thing it writes is the remote-tracking ref of the feature branch, which it fetches to read the
 // outbox as it stands there. GitHub unreachable is a verdict (`wait: github unreachable`), never a
 // failure: a loop calling this every tick carries on.
-import { existsSync } from 'node:fs';
+//
+// Slice s3, the loop plan: with no number, `omni next` drives your own PRDs in inbox, building or
+// outbox (the ones `omni status` marks yours). `--plan` orders every slice of the PRDs driven into
+// numbered steps (`kit/lib/next/plan.ts`) and keeps it as version 1 at `.omni-loop/local/loop-plan.json`.
+// Every later call follows the kept plan (`follow.ts`): it reads each PRD's verdict and board, writes
+// the next version when reality broke the plan (`replan.ts`), and prints the verdict of the first
+// step not done, or the stop once every PRD is parked or done. Numbers that are exactly the kept
+// plan's PRDs follow it too; any other numbers get one verdict each, as in s1.
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { fillBranch } from '../../lib/board.ts';
 import { CARE_QUERY, CareResponseSchema, careState } from '../../lib/care/state.ts';
 import type { Context } from '../../lib/context.ts';
 import { PrNumberSchema } from '../../lib/ids.ts';
-import type { PrNumber, PrdNumber } from '../../lib/ids.ts';
+import type { PrNumber, PrdNumber, WorkSliceId } from '../../lib/ids.ts';
+import { parseSpec } from '../../lib/inbox/inbox.ts';
+import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { decideNext } from '../../lib/next/decide.ts';
 import type { BoardFacts, FeatureFacts, OutboxFacts, PrdFacts, Verdict } from '../../lib/next/decide.ts';
+import { followPlan } from '../../lib/next/follow.ts';
+import { formatFollowed, formatPlan, verdictLine } from '../../lib/next/format.ts';
+import { planLoop } from '../../lib/next/plan.ts';
+import type { Ended, LoopPlan, PlanInputs, PlanSliceInput, PrdInput } from '../../lib/next/plan.ts';
+import { replan, replanLine } from '../../lib/next/replan.ts';
+import { readLoopPlans, writeLoopPlans } from '../../lib/next/store.ts';
+import { readFacts as readStatusFacts } from '../../lib/status/facts.ts';
+import { overviewFor } from '../../lib/status/overview.ts';
 import { openItemsForPrd } from '../../lib/outbox/comment.ts';
 import { parseOutboxItem } from '../../lib/outbox/outbox.ts';
 import type { OutboxItem } from '../../lib/types.ts';
@@ -27,8 +45,6 @@ import type { Command, CommandIo, Env, Exec } from '../io.ts';
 import { GhGraphqlSchema } from '../schema.ts';
 import { synchronous } from '../synchronous.ts';
 import { buildBoard } from './board.ts';
-
-const USAGE = 'usage: omni next <prd>… [--json]';
 
 /** The answers of `gh pr list` this file reads: each names only the fields read. */
 const GhListedPrSchema = z.looseObject({
@@ -156,15 +172,16 @@ function outboxFacts(prd: PrdNumber, { branch, pr }: { branch: string; pr: Liste
   return { questions, answered: settle.length > 0 };
 }
 
-/** The board's facts; `null` with no plan, `unreadable` when it cannot be built. */
-function boardFacts(prd: PrdNumber, reader: Reader): BoardFacts | null | 'unreadable' {
+/** The board's facts and its slices; `null` with no plan, `unreadable` when the board cannot be
+ * built, its slices then read from the plan alone, each `unreadable`. */
+function boardFacts(prd: PrdNumber, reader: Reader): { board: BoardFacts | null | 'unreadable'; slices: PlanSliceInput[] | null } {
   const { ctx } = reader;
   const planPath = ctx.layout.planPath(prd);
-  if (planPath === null || !existsSync(join(ctx.root, planPath))) return null;
+  if (planPath === null || !existsSync(join(ctx.root, planPath))) return { board: null, slices: null };
   try {
     const { result } = buildBoard(prd, { ctx, exec: reader.exec, env: reader.env });
     const having = (state: string) => result.slices.filter((row) => row.state === state).map((row) => row.id);
-    return {
+    const board: BoardFacts = {
       total: result.slices.length,
       merged: having('merged').length,
       wave: result.frontier.wave,
@@ -173,8 +190,30 @@ function boardFacts(prd: PrdNumber, reader: Reader): BoardFacts | null | 'unread
       stuck: having('stuck'),
       unreadable: having('unreadable'),
     };
+    return { board, slices: result.slices.map(({ id, territory, wave, state }) => ({ id, territory, wave, state })) };
   } catch {
-    return 'unreadable';
+    return { board: 'unreadable', slices: planSlices(join(ctx.root, planPath)) };
+  }
+}
+
+/** A plan's slices as the plan declares them, each `unreadable`; `null` when the plan cannot be read. */
+function planSlices(path: string): PlanSliceInput[] | null {
+  try {
+    return parsePlanSlices(readFileSync(path, 'utf8')).map(({ id, territory, wave }) => ({ id, territory, wave, state: 'unreadable' }));
+  } catch {
+    return null;
+  }
+}
+
+/** The PRDs PRD `prd`'s spec says it is blocked by; none when the spec cannot be read. */
+function blockersOf(prd: PrdNumber, ctx: Context): PrdNumber[] {
+  const path = ctx.layout.specPath(prd);
+  if (path === null) return [];
+  try {
+    const parsed = parseSpec(readFileSync(join(ctx.root, path), 'utf8'));
+    return parsed.ok && parsed.record.blockedBy !== 'none' ? [...parsed.record.blockedBy] : [];
+  } catch {
+    return [];
   }
 }
 
@@ -185,19 +224,21 @@ function folderOf(prd: PrdNumber, ctx: Context): { topic: string; shipped: boole
   return where === null || parsed === null ? null : { topic: parsed.topic, shipped: where.state === 'shipped' };
 }
 
-/** Everything PRD `prd`'s verdict is decided on. Throws what `gh` throws when GitHub cannot be read. */
-function readFacts(prd: PrdNumber, reader: Reader): PrdFacts {
+/** Everything PRD `prd`'s verdict is decided on, and its slices. Throws what `gh` throws when GitHub
+ * cannot be read. */
+function readFacts(prd: PrdNumber, reader: Reader): { facts: PrdFacts; slices: PlanSliceInput[] | null } {
   const folder = folderOf(prd, reader.ctx);
   const phase0 = openPhase0(prd, reader);
   if (folder === null) {
-    if (phase0 !== null) return { prd, shipped: false, phase0, feature: null, board: null, outbox: { questions: 0, answered: false } };
+    if (phase0 !== null) return { facts: { prd, shipped: false, phase0, feature: null, board: null, outbox: { questions: 0, answered: false } }, slices: null };
     throw usageError(`omni next: PRD ${prd} has no inbox or shipped folder, and no open phase-0 PR.`);
   }
   const branch = fillBranch(reader.ctx.config.branches.feature, { topic: folder.topic });
   const pr = featurePr(branch, reader);
   const open = pr?.state === 'OPEN' ? pr : null;
   const feature = pr === null ? null : featureFacts(pr, reader);
-  return { prd, shipped: folder.shipped, phase0, feature, board: boardFacts(prd, reader), outbox: outboxFacts(prd, { branch, pr: open }, reader) };
+  const { board, slices } = boardFacts(prd, reader);
+  return { facts: { prd, shipped: folder.shipped, phase0, feature, board, outbox: outboxFacts(prd, { branch, pr: open }, reader) }, slices };
 }
 
 /** Whether an error is the command's own refusal, which `main()` prints as a usage error. */
@@ -205,30 +246,118 @@ function isUsage(error: unknown): boolean {
   return error instanceof Error && error.name === 'UsageError';
 }
 
-/** PRD `prd`'s verdict; GitHub unreachable is a `wait`. */
-function verdictFor(prd: PrdNumber, reader: Reader): Verdict {
-  let facts: PrdFacts;
-  try {
-    facts = readFacts(prd, reader);
-  } catch (error) {
-    if (isUsage(error)) throw error;
-    facts = { prd, shipped: false, phase0: null, feature: 'unreadable', board: 'unreadable', outbox: 'unreadable' };
-  }
-  return decideNext(facts);
+/** How a PRD ended, from its facts: its feature PR merged or closed, or its folder shipped. */
+function endedOf(facts: PrdFacts): Ended | null {
+  const { feature } = facts;
+  if (feature !== null && feature !== 'unreadable' && feature.state !== 'OPEN') return feature.state === 'MERGED' ? 'merged' : 'closed';
+  return facts.shipped && feature === null ? 'shipped' : null;
 }
 
-/** One verdict, as one line for a person. */
-function verdictLine(verdict: Verdict): string {
-  const head = verdict.verdict === 'act' ? `act ${verdict.skill}` : verdict.verdict;
-  const wake = verdict.verdict === 'wait' ? ` (look again in ${Math.round(verdict.wakeHint / 60)} min)` : '';
-  return `PRD ${verdict.prd} — ${head}: ${verdict.why}${wake}${verdict.link ? ` — ${verdict.link}` : ''}`;
+/** PRD `prd`'s verdict, and what the loop plan reads of it; GitHub unreachable is a `wait`. */
+function readPrd(prd: PrdNumber, reader: Reader): { verdict: Verdict; input: PrdInput } {
+  let read: { facts: PrdFacts; slices: PlanSliceInput[] | null };
+  try {
+    read = readFacts(prd, reader);
+  } catch (error) {
+    if (isUsage(error)) throw error;
+    const planPath = reader.ctx.layout.planPath(prd);
+    const facts: PrdFacts = { prd, shipped: false, phase0: null, feature: 'unreadable', board: 'unreadable', outbox: 'unreadable' };
+    read = { facts, slices: planPath === null ? null : planSlices(join(reader.ctx.root, planPath)) };
+  }
+  const input: PrdInput = { prd, blockedBy: blockersOf(prd, reader.ctx), slices: read.slices, ended: endedOf(read.facts) };
+  return { verdict: decideNext(read.facts), input };
+}
+
+/** The PRDs `omni status` marks yours, in inbox, building or outbox, lowest first. */
+function yourPrds(reader: Reader): PrdNumber[] {
+  const facts = readStatusFacts({ ctx: reader.ctx, exec: reader.exec });
+  if (facts === null) throw usageError('omni next: cannot read the default branch to tell which PRDs are yours; run omni status --fetch, or name them: omni next <prd>…');
+  const { yours } = overviewFor(facts);
+  if (yours.state !== 'known') {
+    const why = yours.state === 'no-email' ? 'no user.email is set here' : 'this clone is shallow';
+    throw usageError(`omni next: cannot tell which PRDs are yours (${why}); name them: omni next <prd>…`);
+  }
+  return yours.rows.filter((row) => row.stage !== 'prd').map((row) => row.prd).sort((a, b) => a - b);
+}
+
+/** Every driven PRD read once: the verdicts, and what the plan is computed from. */
+function readAll(prds: readonly PrdNumber[], reader: Reader): { verdicts: Verdict[]; inputs: PlanInputs } {
+  const read = prds.map((prd) => readPrd(prd, reader));
+  const driven = new Set(prds);
+  const outside = [...new Set(read.flatMap(({ input }) => input.blockedBy))].filter((prd) => !driven.has(prd));
+  const shipped = outside.filter((prd) => reader.ctx.layout.whereIs(prd)?.state === 'shipped');
+  return { verdicts: read.map(({ verdict }) => verdict), inputs: { prds: read.map(({ input }) => input), shipped } };
+}
+
+/** Where a tick prints, and how. */
+type Out = { reader: Reader; out: (line: string) => void; json: boolean };
+
+/** `--plan`: a new loop plan, version 1, kept and printed. */
+function startPlan(prds: readonly PrdNumber[], { reader, out, json }: Out): number {
+  const plan = planLoop(readAll(prds, reader).inputs);
+  writeLoopPlans(reader.ctx.root, [plan]);
+  if (json) out(JSON.stringify({ plan }, null, 2));
+  else for (const line of formatPlan(plan)) out(line);
+  return 0;
+}
+
+/** The plan a tick follows: the kept one, its next version when reality broke it, or version 1 made
+ * now when none is kept. Each new version is kept. */
+function currentPlan(kept: readonly LoopPlan[], inputs: PlanInputs, root: string): { plan: LoopPlan; replanned: string | null } {
+  const last = kept.at(-1);
+  if (last === undefined) {
+    const plan = planLoop(inputs);
+    writeLoopPlans(root, [plan]);
+    return { plan, replanned: null };
+  }
+  const next = replan(last, inputs);
+  if (next === null) return { plan: last, replanned: null };
+  writeLoopPlans(root, [...kept, next]);
+  return { plan: next, replanned: replanLine(next) };
+}
+
+/** A tick on the kept plan: replanned when reality broke it, then the first step not done, or the stop. */
+function followKept(prds: readonly PrdNumber[], kept: readonly LoopPlan[], { reader, out, json }: Out): number {
+  const { verdicts, inputs } = readAll(prds, reader);
+  const { plan, replanned } = currentPlan(kept, inputs, reader.ctx.root);
+  const merged = new Map(inputs.prds.map((input) => [input.prd, new Set<WorkSliceId>((input.slices ?? []).filter((slice) => slice.state === 'merged').map((slice) => slice.id))] as const));
+  const followed = followPlan(plan, { verdicts: new Map(verdicts.map((verdict) => [verdict.prd, verdict] as const)), merged, shipped: new Set(inputs.shipped) });
+  if (!json) {
+    if (replanned !== null) out(replanned);
+    for (const line of formatFollowed(plan, followed)) out(line);
+    return 0;
+  }
+  const step = followed.state === 'step' ? followed.step : null;
+  const tick = {
+    plan: { version: plan.version, steps: plan.steps.length },
+    replanned,
+    stop: followed.state === 'stop',
+    step: step && { step: step.step, of: plan.steps.length, prd: step.prd, kind: step.kind, wave: step.wave, slices: step.slices },
+    verdict: followed.state === 'step' ? followed.verdict : null,
+    waiting: followed.state === 'stop' ? followed.waiting : [],
+    prds: verdicts,
+  };
+  out(JSON.stringify(tick, null, 2));
+  return 0;
+}
+
+/** Whether `prds` are exactly the PRDs `plan` drives. */
+function samePrds(prds: readonly PrdNumber[], plan: LoopPlan): boolean {
+  const named = [...new Set(prds)].sort((a, b) => a - b);
+  return named.length === plan.prds.length && named.every((prd, index) => prd === plan.prds[index]);
+}
+
+/** The PRDs that are yours, or a usage error when none is. */
+function yoursOrRefuse(reader: Reader, flag: string): PrdNumber[] {
+  const prds = yourPrds(reader);
+  if (prds.length === 0) throw usageError(`omni next: no PRD of yours is in inbox, building or outbox; name one: omni next <prd>…${flag}`);
+  return prds;
 }
 
 export const next: Command = {
   run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
-    const { positional, flags } = parseArgs('next', args, { booleans: ['json'] });
-    if (positional.length === 0) throw usageError(USAGE);
-    const prds = positional.map((value) => prdArg('next', '<prd>', value));
+    const { positional, flags } = parseArgs('next', args, { booleans: ['json', 'plan'] });
+    const named = positional.map((value) => prdArg('next', '<prd>', value));
     const slug = repoSlug('next', ctx, undefined);
     let ghEnv: Env | undefined;
     try {
@@ -237,9 +366,15 @@ export const next: Command = {
       ghEnv = undefined;
     }
     const reader: Reader = { ctx, exec, env, slug, ghEnv };
-    const verdicts = prds.map((prd) => verdictFor(prd, reader));
-    if (flags.json) println(stdout, JSON.stringify({ prds: verdicts }, null, 2));
-    else for (const verdict of verdicts) println(stdout, verdictLine(verdict));
+    const io: Out = { reader, out: (line: string) => println(stdout, line), json: flags.json === true };
+    if (flags.plan) return startPlan(named.length > 0 ? [...new Set(named)] : yoursOrRefuse(reader, ' --plan'), io);
+    const kept = readLoopPlans(ctx.root);
+    const last = kept.at(-1);
+    if (named.length === 0) return last === undefined ? followKept(yoursOrRefuse(reader, ''), [], io) : followKept(last.prds, kept, io);
+    if (last !== undefined && samePrds(named, last)) return followKept(last.prds, kept, io);
+    const verdicts = named.map((prd) => readPrd(prd, reader).verdict);
+    if (io.json) io.out(JSON.stringify({ prds: verdicts }, null, 2));
+    else for (const verdict of verdicts) io.out(verdictLine(verdict));
     return 0;
   }),
 };

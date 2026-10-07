@@ -69,8 +69,9 @@ describe('omni help', () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out } = await run(['help', 'next'], root);
     expect(code).toBe(0);
-    expect(out).toMatch(/^omni next <prd>… \[--json\] +for you\n/);
+    expect(out).toMatch(/^omni next \[<prd>…\] \[--json\] \[--plan\] +for you\n/);
     expect(out.replace(/\s+/g, ' ')).toMatch(/act .* wait .* park .* done/);
+    expect(out.replace(/\s+/g, ' ')).toMatch(/With no number it drives your own PRDs .* --plan orders every slice .* first step not done/);
   });
 
   it('takes a skill by its name or its slash command alike', async () => {

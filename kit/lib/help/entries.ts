@@ -140,15 +140,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'next',
     kind: 'command',
     who: 'you',
-    usage: ['omni next <prd>… [--json]'],
-    label: 'omni next <n>',
-    summary: "what the loop's next step is for PRD n",
+    usage: ['omni next [<prd>…] [--json] [--plan]'],
+    label: 'omni next [<n>…]',
+    summary: "the loop's next step, for PRD n or across your PRDs",
     detail:
       "PRD n's next step, read from its phase-0 PR, its feature PR, its open outbox questions and " +
       'its board: act with the skill to run (a wave, yolo, yolo-fix or one PR care round), wait ' +
       'with when to look again, park with who it waits on and the link where they act, or done. ' +
-      'It writes nothing on GitHub; GitHub out of reach is a wait. --json prints every verdict as ' +
-      'one document. Needs gh logged in.',
+      'With no number it drives your own PRDs in inbox, building or outbox, as omni status marks ' +
+      'them. --plan orders every slice of them into numbered steps (colliding territories in ' +
+      'series with the reason, blocked-by held, the rest beside each other) and keeps the plan in ' +
+      'this checkout; each later call returns the first step not done, and writes a new plan ' +
+      'version with a one-line reason when a slice goes stuck, a slice is added or a PRD ends ' +
+      'early. It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one ' +
+      'document. Needs gh logged in.',
   },
   {
     name: 'check',

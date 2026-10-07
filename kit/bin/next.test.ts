@@ -1,6 +1,8 @@
 // PRD 1139, slice s1: `omni next <prd>` through `main()`, on a fixture repository and a stubbed GitHub.
 import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptions } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo, realExec } from '../test/fixture.ts';
 import { parseOutboxItemId } from '../lib/ids.ts';
@@ -197,9 +199,111 @@ describe('omni next', () => {
     expect(out).toBe('PRD 7 — wait: github unreachable (look again in 5 min)\n');
   });
 
-  it('a PRD with no folder and no phase-0 PR, or no number at all, is a usage error', async () => {
+  it('a PRD with no folder and no phase-0 PR is a usage error', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     expect((await run(['next', '7'], root, fakeExec())).code).toBe(2);
-    expect((await run(['next'], root, fakeExec())).code).toBe(2);
+  });
+});
+
+// PRD 1139, slice s3: with no number, the PRDs that are yours; `--plan`; following the saved plan.
+describe('omni next — the loop plan', () => {
+  const ME = 'me@example.com';
+  const PLAN_FILE = '.omni-loop/local/loop-plan.json';
+  const planOf = (territory: Record<string, string>) =>
+    ['# A plan', '', '| id | slice | territory | blocked by | wave |', '| --- | --- | --- | --- | --- |', ...Object.entries(territory).map(([id, path]) => `| ${id} | ${id} | \`${path}\` | — | 1 |`), ''].join('\n');
+  const versions = (root: string) => JSON.parse(readFileSync(join(root, PLAN_FILE), 'utf8')).versions;
+
+  /** PRDs 7 and 9 committed by you, 8 by someone else; 9 shares `a/` with 7. */
+  function mine() {
+    const { root, write } = makeRepo({ git: true, files: CONFIG });
+    const run = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+    const add = (folder: string, plan: string, email: string) => {
+      write(`.omni-loop/delivery/inbox/${folder}/plan.md`, plan);
+      run('add', '-A');
+      run('-c', `user.email=${email}`, '-c', 'user.name=x', 'commit', '-q', '-m', folder);
+    };
+    add('0007-widgets', PLAN, ME);
+    add('0008-gadgets', planOf({ s1: 'q/' }), 'someone@example.com');
+    add('0009-gizmos', planOf({ s1: 'a/x' }), ME);
+    run('config', 'user.email', ME);
+    return root;
+  }
+
+  it('--plan orders your PRDs into numbered steps, prints each cross-PRD order with its reason, and keeps it', async () => {
+    const root = mine();
+    const { code, out, err } = await run(['next', '--plan'], root, fakeExec());
+    expect(err).toBe('');
+    expect(code).toBe(0);
+    expect(out).toBe(
+      [
+        'loop plan v1 · PRDs 7, 9 · 4 steps',
+        '  1. PRD 7 wave 1: s1, s2',
+        '  2. PRD 7 finish · after 1 · beside 3',
+        '  3. PRD 9 wave 1: s1 · after 1 · beside 2',
+        '  4. PRD 9 finish · after 3',
+        'orders across PRDs:',
+        '  step 3: 9 s1 after 7 s1: both touch a/',
+        '',
+      ].join('\n'),
+    );
+    expect(versions(root)).toHaveLength(1);
+  });
+
+  it('with no number, drives only your PRDs, and follows the first step not done', async () => {
+    const root = mine();
+    await run(['next', '--plan'], root, fakeExec());
+    const { code, out } = await run(['next', '--json'], root, fakeExec());
+    expect(code).toBe(0);
+    const json = JSON.parse(out);
+    expect(json.prds.map((verdict: { prd: number }) => verdict.prd)).toEqual([7, 9]);
+    expect(json).toMatchObject({ plan: { version: 1, steps: 4 }, replanned: null, stop: false, step: { step: 1, prd: 7 }, verdict: { prd: 7, verdict: 'wait' } });
+    const text = await run(['next'], root, fakeExec());
+    expect(text.out).toBe(`step 1/4 · PRD 7 — wait: another session holds the claim on s1, s2 (look again in 20 min) — ${PR_URL}\n`);
+  });
+
+  it('with no plan kept yet, a tick makes version 1 and follows it', async () => {
+    const root = mine();
+    const { out } = await run(['next'], root, fakeExec({ subs: [] }));
+    expect(out).toBe(`step 1/4 · PRD 7 — act wave: wave 1 can take s1, s2 — ${PR_URL}\n`);
+    expect(existsSync(join(root, PLAN_FILE))).toBe(true);
+  });
+
+  it('a slice going stuck writes version 2 with its reason, and the next tick follows it', async () => {
+    const root = mine();
+    await run(['next', '--plan'], root, fakeExec());
+    const stuck = [subPr('s1', { state: 'OPEN', mergedAt: null, isDraft: true, labels: [{ name: 'omni:needs-fix' }] }), subPr('s2', { state: 'OPEN', mergedAt: null, isDraft: true })];
+    const { out } = await run(['next'], root, fakeExec({ subs: stuck }));
+    expect(out.split('\n')[0]).toBe('replanned v2: s1 of PRD 7 stuck → 9 moves up');
+    expect(out.split('\n')[1]).toMatch(/^step 1\/4 · PRD 9 — act wave: /);
+    expect(versions(root)).toHaveLength(2);
+    const again = await run(['next'], root, fakeExec({ subs: stuck }));
+    expect(again.out.startsWith('replanned')).toBe(false);
+  });
+
+  it('numbers matching the kept plan follow it; other numbers get one verdict each', async () => {
+    const root = mine();
+    await run(['next', '--plan'], root, fakeExec());
+    expect((await run(['next', '9', '7'], root, fakeExec())).out).toMatch(/^step 1\/4 · PRD 7 /);
+    expect((await run(['next', '7'], root, fakeExec())).out).toMatch(/^PRD 7 — wait: /);
+  });
+
+  it('stops when every PRD is parked or done', async () => {
+    const root = mine();
+    const { out } = await run(['next', '--plan', '--json'], root, fakeExec());
+    expect(JSON.parse(out).plan.steps).toHaveLength(4);
+    const parked = await run(['next', '--json'], root, fakeExec({ feature: [featurePr({ state: 'CLOSED' })] }));
+    const json = JSON.parse(parked.out);
+    expect(json.stop).toBe(true);
+    expect(json.step).toBeNull();
+    const text = await run(['next'], root, fakeExec({ feature: [featurePr({ state: 'MERGED' })] }));
+    expect(text.out).toBe('stop: every PRD is parked or done\n');
+  });
+
+  it('cannot tell which PRDs are yours without a user.email: a usage error naming the way out', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': PLAN } });
+    execFileSync('git', ['config', 'user.email', ''], { cwd: root });
+    const { code, err } = await run(['next'], root, fakeExec());
+    expect(code).toBe(2);
+    expect(err).toMatch(/cannot tell which PRDs are yours/);
   });
 });
