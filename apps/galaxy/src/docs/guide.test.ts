@@ -20,10 +20,10 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'several-repositories', 'landings', 'flow', 'use-cases', 'troubleshooting',
+  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'drive', 'several-repositories', 'landings', 'flow', 'use-cases', 'troubleshooting',
 ];
 const TITLES = [
-  'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Several repositories',
+  'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Several repositories',
   'Landings', 'Repository flow', 'Use cases', 'When something goes wrong',
 ];
 
@@ -32,7 +32,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its eleven pages, in order, each with its title', () => {
+  it('holds its twelve pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -41,9 +41,19 @@ describe('docs/guide', () => {
   it('links each page to the one to read next, and the last back to Getting started', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
-      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories',
+      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories',
       '/docs/landings', '/docs/flow', '/docs/use-cases', '/docs/troubleshooting', '/docs',
     ]);
+  });
+
+  it('explains driving the loop: starting it, its plan, watching it on the Loop page, stopping and resuming (PRD 1139)', () => {
+    const drive = readGuide(GUIDE).pages.find((page) => page.slug === 'drive')?.body ?? '';
+    for (const heading of ['## Start it', '## The loop plan', '## One step per tick', '## Stop and restart', '## Watch it on the Loop page']) {
+      expect(drive, heading).toContain(heading);
+    }
+    for (const phrase of ['/loop /omni:drive', 'omni next --plan', '/omni:pr-care --once', 'stops itself', 'resumes, with the same plan', 'silent', 'omni signin']) {
+      expect(drive, phrase).toContain(phrase);
+    }
   });
 
   it('sends someone joining a team past Invade, which their repository needs no more', () => {
