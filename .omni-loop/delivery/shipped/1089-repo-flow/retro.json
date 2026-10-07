@@ -1,0 +1,992 @@
+{
+  "prd": 1089,
+  "runs": [
+    {
+      "run": "merge",
+      "rules": {
+        "version": 1,
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "thresholds": {
+          "slowSliceFactor": 3,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "failingTestRuns": 2,
+          "churnRangeCommits": 3,
+          "churnFilePercent": 50,
+          "churnFileLines": 40,
+          "afterMergeDays": 14
+        },
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "fieldCaps": {
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600,
+          "lesson": 400,
+          "reason": 300,
+          "why": 300
+        }
+      },
+      "prd": {
+        "number": 1089,
+        "title": "Repository flow — rules, areas and hooks that tailor the loop per repository",
+        "topic": "repo-flow",
+        "state": "shipped",
+        "folder": ".omni-loop/delivery/shipped/1089-repo-flow"
+      },
+      "featurePr": {
+        "number": 1090,
+        "title": "feat(kit): repository flow — rules, areas and hooks (PRD 1089)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1090",
+        "openedAt": "2026-10-06T07:18:21Z",
+        "mergedAt": "2026-10-06T10:30:42Z",
+        "mergeSha": "995a2c3ffa1b515d61edefee71a724f9dd5151fa"
+      },
+      "kinds": {
+        "churn": {
+          "added": 6964,
+          "churn": 184,
+          "commits": 44,
+          "files": [
+            {
+              "added": 1616,
+              "churn": 93,
+              "commits": 4,
+              "finalAdded": 1523,
+              "path": "apps/omni-app/api/inngest.mjs",
+              "percent": 6
+            },
+            {
+              "added": 299,
+              "churn": 51,
+              "commits": 2,
+              "finalAdded": 248,
+              "path": "kit/lib/flow/resolve.ts",
+              "percent": 21
+            },
+            {
+              "added": 204,
+              "churn": 16,
+              "commits": 2,
+              "finalAdded": 188,
+              "path": "kit/lib/flow/schema.ts",
+              "percent": 9
+            },
+            {
+              "added": 107,
+              "churn": 5,
+              "commits": 2,
+              "finalAdded": 102,
+              "path": "kit/lib/plan-repo/copy-flow.test.ts",
+              "percent": 5
+            },
+            {
+              "added": 320,
+              "churn": 4,
+              "commits": 2,
+              "finalAdded": 316,
+              "path": "apps/omni-app/api/github.mjs",
+              "percent": 1
+            },
+            {
+              "added": 207,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 204,
+              "path": "kit/lib/flow/show.ts",
+              "percent": 1
+            },
+            {
+              "added": 135,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 133,
+              "path": "kit/lib/flow/schema.test.ts",
+              "percent": 2
+            },
+            {
+              "added": 133,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 131,
+              "path": "kit/lib/plan-repo/copy-flow.ts",
+              "percent": 2
+            },
+            {
+              "added": 27,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 25,
+              "path": "kit/plugin/skills/invade/SKILL.md",
+              "percent": 8
+            },
+            {
+              "added": 134,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 133,
+              "path": "kit/bin/check-config.test.ts",
+              "percent": 1
+            },
+            {
+              "added": 27,
+              "churn": 1,
+              "commits": 3,
+              "finalAdded": 26,
+              "path": "kit/lib/config.ts",
+              "percent": 4
+            },
+            {
+              "added": 49,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 48,
+              "path": "kit/lib/flow/points.ts",
+              "percent": 2
+            },
+            {
+              "added": 48,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 47,
+              "path": "kit/lib/inbox/plan-grade.ts",
+              "percent": 2
+            },
+            {
+              "added": 17,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 16,
+              "path": "kit/lib/knowledge/copies.ts",
+              "percent": 6
+            },
+            {
+              "added": 59,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 58,
+              "path": "kit/plugin/skills/yolo/SKILL.md",
+              "percent": 2
+            }
+          ],
+          "finalAdded": 7104,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/1089-repo-flow/accounts/s8.md",
+              ".omni-loop/delivery/outbox/1089-repo-flow/s1-01-area-inheritance.md",
+              ".omni-loop/delivery/outbox/1089-repo-flow/s1-02-check-config-shape.md",
+              ".omni-loop/delivery/outbox/1089-repo-flow/s1-03-app-bundles-outside-territory.md",
+              ".omni-loop/delivery/outbox/1089-repo-flow/s2-01-other-skills-find-by-base.md",
+              ".omni-loop/delivery/outbox/1089-repo-flow/s3-01-plan-rules-order-and-reach.md",
+              ".omni-loop/delivery/outbox/1089-repo-flow/s4-01-flow-show-shapes.md",
+              ".omni-loop/delivery/outbox/1089-repo-flow/s5-01-merge-gate-reading.md",
+              ".omni-loop/delivery/outbox/1089-repo-flow/s6-01-target-flow-copy-and-grading.md",
+              ".omni-loop/delivery/outbox/1089-repo-flow/s7-01-skill-points-placement.md",
+              ".omni-loop/delivery/outbox/1089-repo-flow/s7-02-target-flow-read-in-clone.md",
+              ".omni-loop/delivery/outbox/1089-repo-flow/s8-01-adr-number-and-guide-place.md"
+            ],
+            "generated": [
+              "kit/dist/omni.mjs"
+            ],
+            "lockfile": []
+          },
+          "noPatch": [
+            {
+              "additions": 1173,
+              "commit": "108edf3",
+              "deletions": 1020,
+              "path": "apps/omni-app/api/inngest.mjs",
+              "slice": "s1"
+            }
+          ],
+          "notCounted": [],
+          "pulls": 8,
+          "ranges": [
+            {
+              "commits": [
+                "01baecf",
+                "a72e74c",
+                "087deb3"
+              ],
+              "from": 34,
+              "path": "kit/bin/commands/flow.ts",
+              "slices": [
+                "s4",
+                "s5",
+                "s6"
+              ],
+              "to": 34
+            },
+            {
+              "commits": [
+                "01baecf",
+                "a72e74c",
+                "087deb3"
+              ],
+              "from": 40,
+              "path": "kit/bin/commands/flow.ts",
+              "slices": [
+                "s4",
+                "s5",
+                "s6"
+              ],
+              "to": 40
+            },
+            {
+              "commits": [
+                "01baecf",
+                "5f6fb1f",
+                "087deb3"
+              ],
+              "from": 145,
+              "path": "kit/bin/commands/flow.ts",
+              "slices": [
+                "s4",
+                "s6"
+              ],
+              "to": 145
+            }
+          ],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [
+            {
+              "check": "check",
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": [],
+              "runs": 8
+            }
+          ],
+          "redRuns": [],
+          "slices": [
+            "s1",
+            "s2",
+            "s3",
+            "s4",
+            "s5",
+            "s6",
+            "s7",
+            "s8"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 1,
+            "commits": 8,
+            "red": 0,
+            "runs": 8,
+            "slices": 2
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 11,
+            "agreed": 0,
+            "byRank": {
+              "medium": 11
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/1089-repo-flow/outbox/settled.md",
+            "raised": 11,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1093
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1094
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1095
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1096
+                ],
+                "slice": "s4",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1097
+                ],
+                "slice": "s5",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1098
+                ],
+                "slice": "s6",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1099
+                ],
+                "slice": "s7",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  1100
+                ],
+                "slice": "s8",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 9,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 1090,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1090"
+              },
+              {
+                "pr": 1093,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1093"
+              },
+              {
+                "pr": 1094,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1094"
+              },
+              {
+                "pr": 1095,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1095"
+              },
+              {
+                "pr": 1096,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1096"
+              },
+              {
+                "pr": 1097,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1097"
+              },
+              {
+                "pr": 1098,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s6",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1098"
+              },
+              {
+                "pr": 1099,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s7",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1099"
+              },
+              {
+                "pr": 1100,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s8",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1100"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 11,
+              "graded": 8,
+              "shared": 2,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [
+                  "apps/omni-app/api/github.mjs",
+                  "apps/omni-app/api/inngest.mjs"
+                ],
+                "files": 16,
+                "pr": 1093,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1093"
+              },
+              {
+                "breaches": [],
+                "files": 3,
+                "pr": 1094,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1094"
+              },
+              {
+                "breaches": [
+                  "apps/omni-app/api/inngest.mjs"
+                ],
+                "files": 8,
+                "pr": 1095,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1095"
+              },
+              {
+                "breaches": [
+                  "kit/bin/__snapshots__/flow.test.ts.snap",
+                  "kit/lib/flow/__snapshots__/show.test.ts.snap"
+                ],
+                "files": 13,
+                "pr": 1096,
+                "shared": [],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1096"
+              },
+              {
+                "breaches": [],
+                "files": 8,
+                "pr": 1097,
+                "shared": [],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1097"
+              },
+              {
+                "breaches": [
+                  "apps/omni-app/api/inngest.mjs",
+                  "apps/omni-app/src/inbox-check/evaluate-inbox.ts",
+                  "kit/bin/commands/plan.ts",
+                  "kit/bin/plan.test.ts"
+                ],
+                "files": 18,
+                "pr": 1098,
+                "shared": [
+                  "kit/bin/commands/flow.ts",
+                  "kit/bin/flow.test.ts"
+                ],
+                "slice": "s6",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1098"
+              },
+              {
+                "breaches": [],
+                "files": 12,
+                "pr": 1099,
+                "shared": [],
+                "slice": "s7",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1099"
+              },
+              {
+                "breaches": [
+                  ".omni-loop/knowledge/adr/0069-a-repository-s-flow-may-replace-the-act-at-a-named-point-never-a-guard.md",
+                  "docs/guide/landings.md"
+                ],
+                "files": 10,
+                "pr": 1100,
+                "shared": [],
+                "slice": "s8",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1100"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "kit/dist/omni.mjs",
+              "kit/lib/flow/points",
+              "kit/plugin/skills/yolo/",
+              "kit/plugin/skills/pr/",
+              "kit/lib/flow/plan-rules",
+              "kit/lib/inbox/plan-grade.ts",
+              "kit/lib/inbox/plan-grade.test.ts",
+              "kit/bin/commands/flow",
+              "kit/bin/flow",
+              "kit/lib/flow/show"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-10-06T10:30:42Z",
+            "minutes": 192,
+            "number": 1090,
+            "openedAt": "2026-10-06T07:18:21Z",
+            "readyAt": "2026-10-06T09:56:04Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1090"
+          },
+          "medianMinutes": 19,
+          "sliceCount": 8,
+          "slices": [
+            {
+              "closedAt": "2026-10-06T07:46:21Z",
+              "mergedAt": "2026-10-06T07:46:20Z",
+              "mergedWave": 1,
+              "minutes": 23,
+              "openedAt": "2026-10-06T07:23:11Z",
+              "plannedWave": 1,
+              "pr": 1093,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1093"
+            },
+            {
+              "closedAt": "2026-10-06T07:46:34Z",
+              "mergedAt": "2026-10-06T07:46:34Z",
+              "mergedWave": 1,
+              "minutes": 23,
+              "openedAt": "2026-10-06T07:23:18Z",
+              "plannedWave": 1,
+              "pr": 1094,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1094"
+            },
+            {
+              "closedAt": "2026-10-06T07:58:54Z",
+              "mergedAt": "2026-10-06T07:58:54Z",
+              "mergedWave": 2,
+              "minutes": 10,
+              "openedAt": "2026-10-06T07:48:59Z",
+              "plannedWave": 2,
+              "pr": 1095,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1095"
+            },
+            {
+              "closedAt": "2026-10-06T08:17:31Z",
+              "mergedAt": "2026-10-06T08:17:31Z",
+              "mergedWave": 3,
+              "minutes": 18,
+              "openedAt": "2026-10-06T07:59:18Z",
+              "plannedWave": 3,
+              "pr": 1096,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1096"
+            },
+            {
+              "closedAt": "2026-10-06T08:28:35Z",
+              "mergedAt": "2026-10-06T08:28:35Z",
+              "mergedWave": 4,
+              "minutes": 11,
+              "openedAt": "2026-10-06T08:17:49Z",
+              "plannedWave": 4,
+              "pr": 1097,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1097"
+            },
+            {
+              "closedAt": "2026-10-06T08:51:15Z",
+              "mergedAt": "2026-10-06T08:51:15Z",
+              "mergedWave": 5,
+              "minutes": 19,
+              "openedAt": "2026-10-06T08:31:57Z",
+              "plannedWave": 5,
+              "pr": 1098,
+              "slice": "s6",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1098"
+            },
+            {
+              "closedAt": "2026-10-06T09:19:50Z",
+              "mergedAt": "2026-10-06T09:19:50Z",
+              "mergedWave": 6,
+              "minutes": 28,
+              "openedAt": "2026-10-06T08:51:34Z",
+              "plannedWave": 6,
+              "pr": 1099,
+              "slice": "s7",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1099"
+            },
+            {
+              "closedAt": "2026-10-06T09:34:50Z",
+              "mergedAt": "2026-10-06T09:34:50Z",
+              "mergedWave": 7,
+              "minutes": 13,
+              "openedAt": "2026-10-06T09:21:42Z",
+              "plannedWave": 7,
+              "pr": 1100,
+              "slice": "s8",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1100"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 7,
+            "planned": 7
+          }
+        }
+      },
+      "findings": [
+        {
+          "id": "territory:s1",
+          "kind": "territory",
+          "title": "Slice s1 changed files outside its territory",
+          "happened": "Slice s1 changed 2 paths outside its territory and off the plan’s shared ground: `apps/omni-app/api/github.mjs`, `apps/omni-app/api/inngest.mjs`.",
+          "evidence": [
+            {
+              "label": "#1093",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1093/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F1"
+        },
+        {
+          "id": "territory:s3",
+          "kind": "territory",
+          "title": "Slice s3 changed files outside its territory",
+          "happened": "Slice s3 changed 1 path outside its territory and off the plan’s shared ground: `apps/omni-app/api/inngest.mjs`.",
+          "evidence": [
+            {
+              "label": "#1095",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1095/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F2"
+        },
+        {
+          "id": "territory:s4",
+          "kind": "territory",
+          "title": "Slice s4 changed files outside its territory",
+          "happened": "Slice s4 changed 2 paths outside its territory and off the plan’s shared ground: `kit/bin/__snapshots__/flow.test.ts.snap`, `kit/lib/flow/__snapshots__/show.test.ts.snap`.",
+          "evidence": [
+            {
+              "label": "#1096",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1096/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F3"
+        },
+        {
+          "id": "territory:s6",
+          "kind": "territory",
+          "title": "Slice s6 changed files outside its territory",
+          "happened": "Slice s6 changed 4 paths outside its territory and off the plan’s shared ground: `apps/omni-app/api/inngest.mjs`, `apps/omni-app/src/inbox-check/evaluate-inbox.ts`, `kit/bin/commands/plan.ts`, `kit/bin/plan.test.ts`.",
+          "evidence": [
+            {
+              "label": "#1098",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1098/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F4"
+        },
+        {
+          "id": "territory:s8",
+          "kind": "territory",
+          "title": "Slice s8 changed files outside its territory",
+          "happened": "Slice s8 changed 2 paths outside its territory and off the plan’s shared ground: `.omni-loop/knowledge/adr/0069-a-repository-s-flow-may-replace-the-act-at-a-named-point-never-a-guard.md`, `docs/guide/landings.md`.",
+          "evidence": [
+            {
+              "label": "#1100",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1100/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F5"
+        },
+        {
+          "id": "churn:kit/bin/commands/flow.ts:34-34",
+          "kind": "churn",
+          "title": "Lines 34-34 of `kit/bin/commands/flow.ts` were rewritten again and again",
+          "happened": "Lines 34-34 of `kit/bin/commands/flow.ts`, as merged, were written and rewritten in 3 commits, in s4, s5 and s6; the rules flag a line range rewritten in 3 or more commits.",
+          "evidence": [
+            {
+              "label": "01baecf (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/01baecf5e026058c08ef600ea1a53d5092321c5e"
+            },
+            {
+              "label": "a72e74c (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a72e74cc6800328606c2267d4b303cf200c02190"
+            },
+            {
+              "label": "087deb3 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/087deb3e897618d065fd1fd0577d0cb0f25e7b14"
+            },
+            {
+              "label": "`kit/bin/commands/flow.ts` lines 34-34, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/cb7f69a83b94790df9d144d979962ad7638c888f/kit/bin/commands/flow.ts#L34-L34"
+            }
+          ],
+          "source": "churn",
+          "ref": "F6"
+        },
+        {
+          "id": "churn:kit/bin/commands/flow.ts:40-40",
+          "kind": "churn",
+          "title": "Lines 40-40 of `kit/bin/commands/flow.ts` were rewritten again and again",
+          "happened": "Lines 40-40 of `kit/bin/commands/flow.ts`, as merged, were written and rewritten in 3 commits, in s4, s5 and s6; the rules flag a line range rewritten in 3 or more commits.",
+          "evidence": [
+            {
+              "label": "01baecf (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/01baecf5e026058c08ef600ea1a53d5092321c5e"
+            },
+            {
+              "label": "a72e74c (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a72e74cc6800328606c2267d4b303cf200c02190"
+            },
+            {
+              "label": "087deb3 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/087deb3e897618d065fd1fd0577d0cb0f25e7b14"
+            },
+            {
+              "label": "`kit/bin/commands/flow.ts` lines 40-40, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/cb7f69a83b94790df9d144d979962ad7638c888f/kit/bin/commands/flow.ts#L40-L40"
+            }
+          ],
+          "source": "churn",
+          "ref": "F7"
+        },
+        {
+          "id": "churn:kit/bin/commands/flow.ts:145-145",
+          "kind": "churn",
+          "title": "Lines 145-145 of `kit/bin/commands/flow.ts` were rewritten again and again",
+          "happened": "Lines 145-145 of `kit/bin/commands/flow.ts`, as merged, were written and rewritten in 3 commits, in s4 and s6; the rules flag a line range rewritten in 3 or more commits.",
+          "evidence": [
+            {
+              "label": "01baecf (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/01baecf5e026058c08ef600ea1a53d5092321c5e"
+            },
+            {
+              "label": "5f6fb1f (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/5f6fb1f1858dded3d5a6f4ca9ef1cbc845db0bc8"
+            },
+            {
+              "label": "087deb3 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/087deb3e897618d065fd1fd0577d0cb0f25e7b14"
+            },
+            {
+              "label": "`kit/bin/commands/flow.ts` lines 145-145, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/cb7f69a83b94790df9d144d979962ad7638c888f/kit/bin/commands/flow.ts#L145-L145"
+            }
+          ],
+          "source": "churn",
+          "ref": "F8"
+        }
+      ],
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": [
+          {
+            "field": "findings.churn:kit/bin/commands/flow.ts:34-34.whyItMatters",
+            "reason": "it holds a word the rules refuse"
+          }
+        ]
+      },
+      "verdict": {
+        "worthIt": true,
+        "reason": "Three slices edited the same undeclared registry file, which teaches a planning lesson about shared registration files that neither the knowledge nor earlier lessons already state."
+      },
+      "lessons": [
+        {
+          "text": "When several slices must each register work in one central file, such as a function registry or the plan command, the plan should declare that file as shared ground or give it to one slice that lands first.",
+          "findings": [
+            "territory:s1",
+            "territory:s3",
+            "territory:s6"
+          ]
+        }
+      ],
+      "issues": {
+        "territory:s1": {
+          "number": 1101,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/1101",
+          "state": "open"
+        },
+        "territory:s3": {
+          "number": 1102,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/1102",
+          "state": "open"
+        },
+        "territory:s6": {
+          "number": 1103,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/1103",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
