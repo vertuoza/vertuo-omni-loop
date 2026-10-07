@@ -624,3 +624,237 @@ None: a test's expected list. Reverting the entry reverts the line.
 ```
 
 <!-- /omni-outbox-settled: s5-02-switch-test-lists-roadmaps -->
+
+<!-- omni-outbox-settled: s6-01-roadmap-push-reads-the-prs -->
+
+## s6-01-roadmap-push-reads-the-prs — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-roadmap-push-reads-the-prs
+prd: 1162
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 3
+---
+
+## The question, in plain words
+
+The page colours each piece of a roadmap by where it stands, and says what a waiting piece waits on. The spec names the states but not how to tell them apart from the work on GitHub.
+
+## The decision, in plain words
+
+A piece counts as building once its work is open, waiting on answers when its draft holds open questions, ready once every part is ready, and merged once every part merged; a waiting piece names the first unfinished piece before it. When the code host cannot be read, nothing is sent and one line says so.
+
+## The intro, for fun
+
+Six colours, one Gantt, and GitHub as the only witness.
+
+## The punchline, for fun
+
+We asked the pull requests; they rarely lie about being drafts.
+
+## The options, in plain words
+
+A. Derive the state and the waits-on line from the feature pull requests alone, in the push (built)
+B. Push no waits-on line until the next slice, and leave every piece without work as waiting with no reason
+C. Run the whole reading of the next-step command inside the push, board and checks included
+
+## What I had to decide
+
+How `omni roadmap push` derives each PRD's state and its waits-on line from GitHub: a feature PR (and, in a plan repository, each target PR its row names, by the same branch) decides `building`, `outbox` (an open draft with high or human-action items on its branch), `ready`, `merged`, `closed`; a PRD not started names its first unmerged blocker as `waits on <repo>#<pr> (<id> <title>): <state>`. The spec's `building wave <k>/<m>` and `CI red` words are not produced: they need the board and the care state, which `omni next` reads (s7). GitHub unreadable stops the push with `github unreachable`, exit 1.
+
+## What I did meanwhile
+
+`kit/lib/roadmap/push.ts` holds `prdState`, `prdTimes` and `waitsOn` as pure functions, tested in `push.test.ts`; `readStandings` reads `gh pr list --head <branch>` per repository and the outbox items on the fetched feature branch.
+
+## What it costs to change later
+
+Small: s7 can hand its own held `why` to the push, or widen `stateWords` with the board's wave and the CI state; the contract and the page do not change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether `outbox` should also show while slices are still building and a high item is open: it does today, as soon as the draft holds one.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-roadmap-push-reads-the-prs -->
+
+<!-- omni-outbox-settled: s6-02-roadmap-push-outside-territory -->
+
+## s6-02-roadmap-push-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-roadmap-push-outside-territory
+prd: 1162
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 3
+---
+
+## The question, in plain words
+
+Sending a roadmap to the app needed one small addition to a shared file this piece of work was not meant to touch, and the command had to start without the usual setup so tests can stand in for the sign-in.
+
+## The decision, in plain words
+
+The shared sign-in client gained one line that sends a roadmap, beside the one that sends a loop. The roadmap command now loads its own setup, as the loop command does; nothing it prints or refuses changed.
+
+## The intro, for fun
+
+One line, one file over the fence.
+
+## The punchline, for fun
+
+We knocked, nobody was home, so we left it by the loop's line.
+
+## The options, in plain words
+
+A. Add one sending line to the shared client and let the command load its own setup (built)
+B. Write a second sender with its own sign-in refresh inside the roadmap code
+C. Open up the client's private call so any code can post anywhere
+
+## What I had to decide
+
+`kit/lib/ask/client.ts` is outside s6's territory, but its `call` (the 5-second limit and the one token refresh) is private: `pushRoadmap(body)` was added beside `pushLoop`, posting to `/api/roadmaps`. `omni roadmap` became a `withoutContext` command, like `loop` and `dossier`, so a test hands it `tokens`, `fetch` and `callMs`; `check` loads the context itself and behaves as before. The comment in `kit/bin/commands/index.ts` that lists the context-free commands does not name `roadmap` yet: that file is outside the territory too.
+
+## What I did meanwhile
+
+Built as described; every `omni roadmap check` test still passes unchanged.
+
+## What it costs to change later
+
+Nothing to undo: the client line is additive; the index comment is one word for a later slice.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) None: the change is additive and every existing roadmap check test passes unchanged.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-roadmap-push-outside-territory -->
+
+<!-- omni-outbox-settled: s6-03-roadmap-answer-comment-shape -->
+
+## s6-03-roadmap-answer-comment-shape — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-07
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-07
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-roadmap-answer-comment-shape
+prd: 1162
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-07
+wave: 3
+---
+
+## The question, in plain words
+
+A person's answer to a roadmap question is left as a comment on the roadmap's issue. What should that comment look like so it can be found again, and which answers should the command accept?
+
+## The decision, in plain words
+
+The comment starts with a fixed hidden tag naming the question, then the answer in plain text, and the latest answer to a question wins. The command only accepts a question the roadmap lists, and an answer of up to a thousand characters.
+
+## The intro, for fun
+
+A comment walks into an issue wearing a name tag.
+
+## The punchline, for fun
+
+Only the last one in the room gets remembered.
+
+## The options, in plain words
+
+A. A fixed tag, the latest answer wins, only listed questions accepted (built)
+B. A tag built from the repository's own configured prefix
+C. Accept any question name, and let the page sort out unknown ones
+
+## What I had to decide
+
+The answer comment opens with `<!-- omni-roadmap-answer: <question> -->`, a fixed marker rather than one derived from `markers.prefix` (which is the outbox's), so the roadmap's page can write the same comment without reading the repository's config. `readAnswers` keeps the latest marked comment per question in GitHub's order and ignores unmarked ones. `omni roadmap answer` refuses a question the roadmap's Open questions do not list, and an empty or over-1000-character answer, exit 2. `omni roadmap push` is `off` when `ask.url` is unset, as `omni loop push` is; `dossier.enabled` is not read.
+
+## What I did meanwhile
+
+`kit/lib/roadmap/answers.ts` and `omni roadmap answer` build and read that comment; the command's shape, `omni roadmap answer <n> <question> "<answer>"`, is the one s5's answer box copies.
+
+## What it costs to change later
+
+Small: a different marker is one constant in `answers.ts` and in the page's future Send route; answers already posted would need reading under both.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether only some members may answer a person question: anyone who can comment on the issue can today.
+
+```
+
+<!-- /omni-outbox-settled: s6-03-roadmap-answer-comment-shape -->
