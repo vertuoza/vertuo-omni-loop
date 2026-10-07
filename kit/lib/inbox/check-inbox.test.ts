@@ -328,3 +328,38 @@ describe('voice.json (PRD 822)', () => {
     expect(findInboxViolations({ ctx })).toEqual([`${folder}/voice.json: not valid JSON.`]);
   });
 });
+
+describe('roadmaps (PRD 1162)', () => {
+  const roadmapFile = `${IN}/roadmaps/1200-crew/roadmap.md`;
+  const roadmap = (blocker: string) =>
+    [
+      '---',
+      'roadmap: 1200',
+      'title: Crew',
+      'milestone: A first mandate.',
+      '---',
+      '## PRDs',
+      '| id | PRD | title | blocked by | why | wave |',
+      '|---|---|---|---|---|---|',
+      '| P1 | #42 | The inbox | – | – | 1 |',
+      `| P2 | #43 | The planner | ${blocker} | it ranks the inbox | 2 |`,
+      '',
+    ].join('\n');
+  const files = (blocker: string) => ({
+    [`${IN}/0042-a/spec.md`]: specText(),
+    [`${IN}/0043-b/spec.md`]: specText({ frontMatter: { prd: 43, 'blocked-by': '[42]' } }),
+    [roadmapFile]: roadmap(blocker),
+  });
+
+  it('passes a green roadmap, its folder no PRD of its own', () => {
+    const { ctx } = makeRepo({ files: files('P1') });
+    expect(findInboxViolations({ ctx })).toEqual([]);
+  });
+
+  it('fails on a broken roadmap, naming its file and its row', () => {
+    const { ctx } = makeRepo({ files: files('P9') });
+    expect(findInboxViolations({ ctx })).toEqual(
+      expect.arrayContaining([`${roadmapFile}: P2: blocked by P9, which is not a row of the roadmap.`]),
+    );
+  });
+});
