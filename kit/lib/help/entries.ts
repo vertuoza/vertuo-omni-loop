@@ -853,6 +853,51 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     },
   },
   {
+    name: 'roadmap',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:roadmap <source>'],
+    label: '/omni:roadmap',
+    summary: 'a milestone plan, to all its PRDs in one sitting',
+    detail:
+      'Turns a milestone plan (a page, a file or pasted text) into a roadmap: one PRD per item that ' +
+      'delivers something, ordered by blockers that each say why. It shows one map of the PRDs, their ' +
+      'waves and the open questions, and takes every answer in one message. Then it writes every ' +
+      "PRD's issue, spec and before/after up front, with no plan (each is planned when the loop " +
+      'reaches it), the roadmap issue and roadmap.md, checked by omni roadmap check, in one phase-0 PR ' +
+      "a person merges, and pushes the roadmap's page. It ends with the /loop /omni:drive --roadmap <n> " +
+      'line. In a plan repository it prints the /omni:mega-roadmap line and stops. It writes no code ' +
+      'and merges nothing.',
+    group: 'start',
+    when: 'Use it when a milestone needs many PRDs and a plan already says what they are and in which order.',
+    example: {
+      type: '/omni:roadmap docs/plans/crew.md',
+      result: 'one map to answer, then every PRD and the roadmap in one phase-0 PR',
+    },
+  },
+  {
+    name: 'mega-roadmap',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-roadmap <source>'],
+    label: '/omni:mega-roadmap',
+    summary: 'a milestone across repositories, to all its PRDs',
+    detail:
+      'The roadmap of a plan repository: it turns a milestone plan whose items span several target ' +
+      'repositories into a roadmap whose PRDs each name the repositories they land in, read from a ' +
+      'read-only clone of each, in which nothing runs. Its one map, refusing a read-only target and a ' +
+      'consumer before its provider, takes every answer in one message; every spec is written up ' +
+      'front with no plan, all in one phase-0 PR in the plan repository, and it never writes in a ' +
+      'target. It ends with the /loop /omni:mega-drive --roadmap <n> line. Outside a plan repository ' +
+      'it prints the /omni:roadmap line and stops.',
+    group: 'multi-repo',
+    when: 'Use it when a milestone needs PRDs in several repositories and this is their plan repository.',
+    example: {
+      type: '/omni:mega-roadmap https://example.com/crew-plan',
+      result: 'one map to answer, then every PRD across the repositories in one phase-0 PR',
+    },
+  },
+  {
     name: 'yolo',
     kind: 'skill',
     who: 'you',

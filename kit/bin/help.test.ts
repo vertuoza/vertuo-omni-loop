@@ -117,6 +117,19 @@ describe('omni help', () => {
     expect(care.out).toMatch(/^\/omni:mega-pr-care <n> \[--once\] +for you\n/);
   });
 
+  it('prints /omni:roadmap after omni roadmap, and /omni:mega-roadmap, each with its drive line (PRD 1162)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const both = await run(['help', 'roadmap'], root);
+    expect(both.code).toBe(0);
+    expect(both.out).toMatch(/^omni roadmap check \[<n>\] +run by the skills\n/);
+    expect(both.out).toMatch(/\n\n\/omni:roadmap <source> +for you\n/);
+    expect(both.out.replace(/\s+/g, ' ')).toMatch(/one map.*one phase-0 PR.*\/loop \/omni:drive --roadmap <n>/);
+    const mega = await run(['help', '/omni:mega-roadmap'], root);
+    expect(mega.code).toBe(0);
+    expect(mega.out).toMatch(/^\/omni:mega-roadmap <source> +for you\n/);
+    expect(mega.out.replace(/\s+/g, ' ')).toMatch(/plan repository.*\/loop \/omni:mega-drive --roadmap <n>/);
+  });
+
   it('takes a skill by its name or its slash command alike', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const byName = await run(['help', 'yolo'], root);

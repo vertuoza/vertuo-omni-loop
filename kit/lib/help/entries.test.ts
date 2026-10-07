@@ -107,11 +107,30 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 46 commands and the 28 skills', () => {
+  it('holds the 46 commands and the 30 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(46);
-    expect(skillFolders()).toHaveLength(28);
+    expect(skillFolders()).toHaveLength(30);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(46);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(28);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(30);
+  });
+
+  it('lists /omni:roadmap after /omni:mega-brainstorm and /omni:mega-roadmap after it, each with its drive line (PRD 1162)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const cases = [
+      { name: 'roadmap', after: 'mega-brainstorm', group: 'start', drive: '/loop /omni:drive --roadmap <n>', other: '/omni:mega-roadmap line' },
+      { name: 'mega-roadmap', after: 'roadmap', group: 'multi-repo', drive: '/loop /omni:mega-drive --roadmap <n>', other: '/omni:roadmap line' },
+    ];
+    for (const { name, after, group, drive, other } of cases) {
+      const skill = skills.find((e) => e.name === name);
+      assertDefined(skill, name);
+      expect(skill).toMatchObject({ who: 'you', usage: [`/omni:${name} <source>`], label: `/omni:${name}`, group });
+      expect(skills.indexOf(skill)).toBe(skills.findIndex((e) => e.name === after) + 1);
+      expect(skill.when).toMatch(/^Use it when\b/);
+      expect(skill.example).toEqual({ type: expect.stringMatching(new RegExp(`^/omni:${name} `)), result: anyText });
+      for (const words of [/\bone map\b/, /\bone phase-0 PR\b/, /\bno plan\b/, new RegExp(drive.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')), new RegExp(other)]) {
+        expect(skill.detail, `${name}: ${String(words)}`).toMatch(words);
+      }
+    }
   });
 
   it('lists /omni:mega-drive for you under Several repositories, after /omni:drive, with --roadmap, when and an example (PRD 1162)', () => {
@@ -308,10 +327,10 @@ describe('the help table in this repository', () => {
     expect(Object.isFrozen(SKILL_GROUPS)).toBe(true);
     const byGroup = Object.fromEntries(GROUP_IDS.map((id) => [id, ENTRIES.filter((e) => e.kind === 'skill' && e.group === id).map((e) => e.name).sort()]));
     expect(byGroup).toEqual({
-      start: ['brainstorm', 'bug-fix', 'think-big', 'visual-fix'],
+      start: ['brainstorm', 'bug-fix', 'roadmap', 'think-big', 'visual-fix'],
       build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
       setup: ['invade'],
-      'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
+      'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
       everyday: ['ask', 'help', 'pitch', 'prove', 'status'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
