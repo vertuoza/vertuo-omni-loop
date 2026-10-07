@@ -46,6 +46,8 @@ const FORGED: Record<string, string> = {
   'menu-visual': '3c58704c0f80c755', 'menu-questions': '808ea02264e853ae', 'menu-knowledge': '461492a56cc425b0',
   // The foot's Settings entry (PRD 733), pinned as first drawn.
   'menu-settings': '4d318dd6a80f7bbc',
+  // The Loop entry (PRD 1139), pinned as first drawn.
+  'menu-loop': '02a14d7f68dd07e7',
   // Super Omni World's tiles (PRD 817), pinned as first drawn.
   'tile-ground': 'edf856e91ad82ad1', 'tile-soil': 'd30e24cd67c0e2c4', 'tile-brick': '4a7786aef594b279',
   'tile-block': '069bbba61b3e2d1b', 'tile-block-empty': '03a9ee17e8723994', 'tile-pipe-top-l': '0763de80ab794672',

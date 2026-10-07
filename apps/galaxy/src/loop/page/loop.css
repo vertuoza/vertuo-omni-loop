@@ -1,0 +1,56 @@
+/* The Loop page (PRD 1139 s5), on the ask pages' reading surface, drawn in the boards' card
+   (../../dashboard/board/board.css) and these pieces of its own: a loop's head (who, where, its state
+   as a chip), the timeline of a plan (one row per PRD, each step in its column of the plan), the
+   ledger and the parked PRDs. Every colour is a token of src/ask/theme-tokens.ts. Nothing is wider than
+   the window: at 393 px the timeline scrolls inside its own box and every line wraps. */
+
+.loop-lede { margin: 0 0 16px; color: var(--ask-muted); overflow-wrap: anywhere; }
+.loop-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.loop-card { display: grid; gap: 6px; min-width: 0; }
+.loop-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; min-width: 0; }
+.loop-who { font-weight: 700; color: var(--ask-ink); overflow-wrap: anywhere; }
+.loop-facts, .loop-open, .loop-muted, .loop-empty p { margin: 0; color: var(--ask-muted); overflow-wrap: anywhere; }
+.loop-empty { display: grid; gap: 6px; }
+.ask .loop-open a { color: var(--ask-plasma); }
+
+.loop-state { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.loop-state.is-live { color: var(--ask-green); }
+.loop-state.is-sleeping { color: var(--ask-cyan); }
+.loop-state.is-parked { color: var(--ask-yellow); }
+.loop-state.is-stopped { color: var(--ask-muted); }
+.loop-state.is-silent { color: var(--ask-red); }
+
+.loop-back-row { margin: 0 0 4px; }
+.ask .loop-back { color: var(--ask-muted); text-decoration: none; }
+.ask .loop-back:hover { color: var(--ask-ink); text-decoration: underline; }
+
+/* ── A plan: its versions, the latest open, each a timeline ── */
+.loop-version { border-top: 1px solid var(--ask-line); padding: 10px 0; }
+.loop-version:first-of-type { border-top: 0; }
+.loop-version summary { cursor: pointer; color: var(--ask-ink); overflow-wrap: anywhere; }
+.loop-timeline { margin: 10px 0 0; padding: 0 0 4px; list-style: none; display: grid; gap: 6px; overflow-x: auto; }
+.loop-row { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); align-items: center; gap: 8px; }
+.ask .loop-prd { color: var(--ask-ink); font-weight: 700; white-space: nowrap; }
+.loop-steps {
+  margin: 0; padding: 0; list-style: none; display: grid; gap: 4px;
+  grid-template-columns: repeat(var(--loop-steps), minmax(4.5em, 1fr));
+}
+.loop-step {
+  grid-row: 1; padding: 3px 6px; border-radius: 6px; font-size: 12px; white-space: nowrap;
+  border: 1px solid var(--ask-line-strong); background: var(--ask-surface); color: var(--ask-ink);
+  font-variant-numeric: tabular-nums;
+}
+.loop-step-n { color: var(--ask-muted); }
+.loop-step.is-done { background: var(--ask-green); border-color: var(--ask-green); color: var(--ask-ground); }
+.loop-step.is-done .loop-step-n { color: inherit; }
+.loop-step.is-current { border-color: var(--ask-plasma); background: var(--ask-plasma-soft); }
+.loop-step.is-collision { border-style: dashed; border-color: var(--ask-yellow); }
+.loop-step.is-beside { box-shadow: inset 3px 0 0 var(--ask-cyan); }
+.loop-collisions { margin: 8px 0 0; padding-left: 18px; color: var(--ask-muted); font-size: 13px; overflow-wrap: anywhere; }
+
+/* ── The ledger and the parked PRDs ── */
+.loop-lines { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.loop-line { color: var(--ask-ink); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.loop-line time { color: var(--ask-muted); margin-right: 4px; }
+.loop-line.is-replan { color: var(--ask-yellow); }
+.ask .loop-line a { color: var(--ask-plasma); }
