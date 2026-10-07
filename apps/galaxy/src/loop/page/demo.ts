@@ -8,7 +8,7 @@ import { detailOf, runnersOf, summaryOf, type LoopPageView } from './model';
 import type { LoopRow, PlanRow, TickRow } from './rows';
 
 const MIN = 60_000;
-export const DEMO_NAME = 'Acme';
+const DEMO_NAME = 'Acme';
 
 const ROSTER: RosterRow[] = [
   { user_id: 'demo-ada', name: 'Ada', github_login: 'ada', avatar_url: null, fleet: 'comets', hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
@@ -41,28 +41,17 @@ function rowsAt(now: number) {
   // The shape `omni next --plan` writes (kit/lib/next/plan.ts' Step).
   const step = (n: number, p: number, kind: string, over: Record<string, unknown> = {}) => ({ step: n, prd: p, kind, wave: null, slices: [], after: [], waitsFor: [], why: [], beside: [], ...over });
   const NAV = '1017 s2 after 1030 s3: both touch apps/galaxy/src/nav/';
-  const v1 = {
-    version: 1, reason: null, prds: [971, 1030, 1017],
-    steps: [
-      step(1, 971, 'finish'),
-      step(2, 1030, 'wave', { wave: 1, slices: ['s1'], beside: [1] }),
-      step(3, 1030, 'wave', { wave: 2, slices: ['s3'], after: [2] }),
-      step(4, 1030, 'wave', { wave: 3, slices: ['s4'], after: [3] }),
-      step(5, 1017, 'wave', { wave: 1, slices: ['s2'], after: [3], why: [NAV] }),
-      step(6, 1017, 'wave', { wave: 2, slices: ['s3'], after: [5] }),
-    ],
-  };
-  const v2 = {
-    version: 2, reason: 's4 of PRD 1030 stuck → PRD 1017 moves up', prds: [971, 1030, 1017],
-    steps: [
-      step(1, 971, 'finish'),
-      step(2, 1030, 'wave', { wave: 1, slices: ['s1'], beside: [1] }),
-      step(3, 1030, 'wave', { wave: 2, slices: ['s3'], after: [2] }),
-      step(4, 1017, 'wave', { wave: 1, slices: ['s2'], after: [3], why: [NAV] }),
-      step(5, 1017, 'wave', { wave: 2, slices: ['s3'], after: [4] }),
-      step(6, 1030, 'wave', { wave: 3, slices: ['s4'], after: [3] }),
-    ],
-  };
+  // Both versions share their first three steps; v2 moves PRD 1017 ahead of PRD 1030's s4.
+  const head = [
+    step(1, 971, 'finish'),
+    step(2, 1030, 'wave', { wave: 1, slices: ['s1'], beside: [1] }),
+    step(3, 1030, 'wave', { wave: 2, slices: ['s3'], after: [2] }),
+  ];
+  const s4of1030 = (n: number) => step(n, 1030, 'wave', { wave: 3, slices: ['s4'], after: [3] });
+  const s2of1017 = (n: number) => step(n, 1017, 'wave', { wave: 1, slices: ['s2'], after: [3], why: [NAV] });
+  const s3of1017 = (n: number) => step(n, 1017, 'wave', { wave: 2, slices: ['s3'], after: [n - 1] });
+  const v1 = { version: 1, reason: null, prds: [971, 1030, 1017], steps: [...head, s4of1030(4), s2of1017(5), s3of1017(6)] };
+  const v2 = { version: 2, reason: 's4 of PRD 1030 stuck → PRD 1017 moves up', prds: [971, 1030, 1017], steps: [...head, s2of1017(4), s3of1017(5), s4of1030(6)] };
   const plans: PlanRow[] = [
     { loop_id: DEMO_LOOP, version: 1, reason: 'first plan', plan: v1, created_at: at(-90) },
     { loop_id: DEMO_LOOP, version: 2, reason: 's4 of PRD 1030 stuck → PRD 1017 moves up', plan: v2, created_at: at(-20) },

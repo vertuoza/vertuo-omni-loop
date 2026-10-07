@@ -42811,52 +42811,68 @@ function wakeArg({ wakeIn, nextWake }, now) {
   if (!/^\d{4}-\d{2}-\d{2}T/.test(nextWake) || !Number.isFinite(at2)) throw usageError(`omni loop push: --next-wake is a time such as 2026-10-07T10:00:00Z, got "${nextWake}".`);
   return new Date(at2).toISOString();
 }
-function prepare(event, args, { repo, now }) {
-  if (event === "start") {
-    const { positional, flags } = parseArgs("loop push start", args, { booleans: ["take-over"] });
-    if (positional.length) throw usageError(USAGE17);
-    const takeOver = flags["take-over"] === true;
-    return { needsLoop: false, takeOver, wake: null, body: (plan2) => startBody({ repo, plan: plan2, takeOver }) };
-  }
-  if (event === "tick") {
-    const { positional, flags } = parseArgs("loop push tick", args, { values: ["step", "steps", "prd", "action", "result", "link", "merged", "items", "wake-in", "next-wake"] });
-    if (positional.length) throw usageError(USAGE17);
-    const step = positiveInt("loop push tick", "--step", flags.step);
-    const given = flags.steps === void 0 ? null : positiveInt("loop push tick", "--steps", flags.steps);
-    if (given !== null && step > given) throw usageError(`omni loop push tick: step ${step} is past the plan's ${given} steps.`);
-    const prd2 = prdArg("loop push tick", "--prd", flags.prd);
-    const action = flags.action ?? "";
-    if (!ACTION.test(action)) throw usageError(`omni loop push tick: --action is one word, such as wave, yolo or wait, got "${action}".`);
-    const result = lineArg("result", flags.result, LINE_MAX);
-    const link2 = linkArg(flags.link);
-    const merged = prsArg(flags.merged);
-    const items = itemsArg(flags.items);
-    const wake = wakeArg({ wakeIn: flags["wake-in"], nextWake: flags["next-wake"] }, now);
-    return {
-      needsLoop: true,
-      takeOver: false,
-      wake,
-      body: (loop2, plan2) => {
-        const steps = Math.max(given ?? plan2?.steps.length ?? step, step);
-        const replan2 = plan2 && plan2.version > loop2.planVersion ? plan2 : null;
-        return tickBody({ loopId: loop2.loopId, step, steps, prd: prd2, action, result, link: link2, merged, items, nextWakeAt: wake, replan: replan2 });
-      }
-    };
-  }
-  if (event === "park") {
-    const { positional, flags } = parseArgs("loop push park", args, { values: ["prd", "who", "what", "link"] });
-    if (positional.length) throw usageError(USAGE17);
-    const prd2 = prdArg("loop push park", "--prd", flags.prd);
-    const who2 = lineArg("who", flags.who, WHO_MAX);
-    const what = lineArg("what", flags.what, LINE_MAX);
-    const link2 = linkArg(flags.link);
-    return { needsLoop: true, takeOver: false, wake: null, body: (loop2) => parkBody({ loopId: loop2.loopId, prd: prd2, who: who2, what, link: link2 }) };
-  }
-  if (event === "stop") {
-    if (args.length) throw usageError(USAGE17);
-    return { needsLoop: true, takeOver: false, wake: null, body: (loop2) => stopBody(loop2.loopId) };
-  }
-  throw usageError(USAGE17);
+function prepareStart(args, { repo }) {
+  const { positional, flags } = parseArgs("loop push start", args, { booleans: ["take-over"] });
+  if (positional.length) throw usageError(USAGE17);
+  const takeOver = flags["take-over"] === true;
+  return { needsLoop: false, takeOver, wake: null, body: (plan2) => startBody({ repo, plan: plan2, takeOver }) };
+}
+function stepArgs(flags) {
+  const step = positiveInt("loop push tick", "--step", flags.step);
+  const given = flags.steps === void 0 ? null : positiveInt("loop push tick", "--steps", flags.steps);
+  if (given !== null && step > given) throw usageError(`omni loop push tick: step ${step} is past the plan's ${given} steps.`);
+  return { step, given };
+}
+function actionArg(value) {
+  const action = value ?? "";
+  if (!ACTION.test(action)) throw usageError(`omni loop push tick: --action is one word, such as wave, yolo or wait, got "${action}".`);
+  return action;
+}
+function prepareTick(args, { now }) {
+  const { positional, flags } = parseArgs("loop push tick", args, { values: ["step", "steps", "prd", "action", "result", "link", "merged", "items", "wake-in", "next-wake"] });
+  if (positional.length) throw usageError(USAGE17);
+  const { step, given } = stepArgs(flags);
+  const prd2 = prdArg("loop push tick", "--prd", flags.prd);
+  const action = actionArg(flags.action);
+  const result = lineArg("result", flags.result, LINE_MAX);
+  const link2 = linkArg(flags.link);
+  const merged = prsArg(flags.merged);
+  const items = itemsArg(flags.items);
+  const wake = wakeArg({ wakeIn: flags["wake-in"], nextWake: flags["next-wake"] }, now);
+  return {
+    needsLoop: true,
+    takeOver: false,
+    wake,
+    body: (loop2, plan2) => {
+      const steps = Math.max(given ?? plan2?.steps.length ?? step, step);
+      const replan2 = plan2 && plan2.version > loop2.planVersion ? plan2 : null;
+      return tickBody({ loopId: loop2.loopId, step, steps, prd: prd2, action, result, link: link2, merged, items, nextWakeAt: wake, replan: replan2 });
+    }
+  };
+}
+function preparePark(args) {
+  const { positional, flags } = parseArgs("loop push park", args, { values: ["prd", "who", "what", "link"] });
+  if (positional.length) throw usageError(USAGE17);
+  const prd2 = prdArg("loop push park", "--prd", flags.prd);
+  const who2 = lineArg("who", flags.who, WHO_MAX);
+  const what = lineArg("what", flags.what, LINE_MAX);
+  const link2 = linkArg(flags.link);
+  return { needsLoop: true, takeOver: false, wake: null, body: (loop2) => parkBody({ loopId: loop2.loopId, prd: prd2, who: who2, what, link: link2 }) };
+}
+function prepareStop(args) {
+  if (args.length) throw usageError(USAGE17);
+  return { needsLoop: true, takeOver: false, wake: null, body: (loop2) => stopBody(loop2.loopId) };
+}
+var PREPARERS = /* @__PURE__ */ new Map([
+  ["start", prepareStart],
+  ["tick", prepareTick],
+  ["park", preparePark],
+  ["stop", prepareStop]
+]);
+function prepare(event, args, options) {
+  const read2 = PREPARERS.get(event);
+  if (!read2) throw usageError(USAGE17);
+  return read2(args, options);
 }
 function standingLine(loop2, state) {
   const hint = state === "silent" ? "take it over with --take-over" : "stop it first (omni loop push stop)";
@@ -42870,69 +42886,89 @@ function answerOf2(reply) {
   if (state !== "running" && state !== "parked" && state !== "stopped") return null;
   return typeof planVersion === "number" && Number.isInteger(planVersion) ? { loopId, state, planVersion } : null;
 }
-async function push2(args, io) {
-  const { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs, now } = io;
-  const [event = "", ...rest] = args;
-  const ctx = loadContext(cwd, { exec });
-  const repo = ctx.config.repo.slug;
-  if (!repo) throw usageError("omni loop: no repository slug \u2014 set repo.slug in the config.");
-  const at2 = now();
-  const prepared = prepare(event, rest, { repo, now: at2 });
-  if (!ctx.config.ask.url) {
-    println(stderr, "off");
-    return 1;
-  }
-  const plan2 = readLoopPlans(ctx.root).at(-1) ?? null;
-  const kept = readLocalLoop(ctx.root);
-  let body;
-  if (prepared.needsLoop) {
-    if (!kept || kept.state !== "running") {
-      println(stderr, "no loop (omni loop push start)");
-      return 1;
-    }
-    body = prepared.body(kept, plan2);
-  } else {
-    if (!plan2) {
-      println(stderr, "no loop plan (omni next --plan)");
-      return 1;
-    }
-    const standing2 = kept ? loopState(kept, at2) : null;
-    if (kept && (standing2 === "live" || standing2 === "sleeping" || standing2 === "silent" && !prepared.takeOver)) {
-      println(stderr, standingLine(kept, standing2));
-      return 1;
-    }
-    body = prepared.body(plan2);
-  }
-  const client = signedInClient({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs });
-  if (!client) {
-    println(stderr, "no sign-in (omni signin)");
-    return 1;
-  }
+function refuse(stderr, line) {
+  println(stderr, line);
+  return 1;
+}
+function blocksStart(standing2, takeOver) {
+  return standing2 === "live" || standing2 === "sleeping" || standing2 === "silent" && !takeOver;
+}
+function loopBody(body, kept, plan2) {
+  if (!kept || kept.state !== "running") return "no loop (omni loop push start)";
+  return body(kept, plan2);
+}
+function startingBody(prepared, kept, plan2, at2) {
+  if (!plan2) return "no loop plan (omni next --plan)";
+  if (!kept) return prepared.body(plan2);
+  const standing2 = loopState(kept, at2);
+  return blocksStart(standing2, prepared.takeOver) ? standingLine(kept, standing2) : prepared.body(plan2);
+}
+async function sendBody(client, body) {
   let reply;
   try {
     reply = await client.pushLoop(body);
   } catch (error62) {
-    println(stderr, skipLine2(error62));
-    return 1;
+    return skipLine2(error62);
   }
-  const answer = answerOf2(reply);
-  if (!answer) {
-    println(stderr, "refused (no loop in the reply)");
-    return 1;
-  }
+  return answerOf2(reply) ?? "refused (no loop in the reply)";
+}
+function sentVersionOf(plan2, kept) {
+  return plan2?.version ?? kept?.planVersion ?? 1;
+}
+function nextWakeAfter(event, wake, kept) {
+  if (event === "tick") return wake;
+  if (event === "stop") return null;
+  return kept?.nextWakeAt ?? null;
+}
+function planVersionAfter(event, sentVersion, kept) {
+  return event === "tick" ? Math.max(sentVersion, kept?.planVersion ?? 1) : kept?.planVersion ?? sentVersion;
+}
+function loopAfter({ body, plan: plan2, kept, repo, wake, at: at2 }, answer) {
   const seenAt = new Date(at2).toISOString();
-  const sentVersion = plan2?.version ?? kept?.planVersion ?? 1;
-  const loop2 = body.event === "start" && plan2 ? { loopId: answer.loopId, repo, prds: [...plan2.prds], state: answer.state, startedAt: seenAt, seenAt, nextWakeAt: null, planVersion: plan2.version } : {
+  if (body.event === "start" && plan2) {
+    return { loopId: answer.loopId, repo, prds: [...plan2.prds], state: answer.state, startedAt: seenAt, seenAt, nextWakeAt: null, planVersion: plan2.version };
+  }
+  const sentVersion = sentVersionOf(plan2, kept);
+  return {
     ...kept ?? { loopId: answer.loopId, repo, prds: [], startedAt: seenAt, nextWakeAt: null, planVersion: sentVersion },
     state: answer.state,
     seenAt,
-    nextWakeAt: body.event === "tick" ? prepared.wake : body.event === "stop" ? null : kept?.nextWakeAt ?? null,
-    planVersion: body.event === "tick" ? Math.max(sentVersion, kept?.planVersion ?? 1) : kept?.planVersion ?? sentVersion
+    nextWakeAt: nextWakeAfter(body.event, wake, kept),
+    planVersion: planVersionAfter(body.event, sentVersion, kept)
   };
-  writeLocalLoop(ctx.root, loop2);
+}
+function pushedLine(body, answer, loop2) {
   const stepPart = body.event === "tick" ? ` \xB7 step ${body.step}/${body.steps}` : "";
-  println(stdout, `${body.event}: ${answer.loopId} ${answer.state}${stepPart} \xB7 plan v${loop2.planVersion}`);
+  return `${body.event}: ${answer.loopId} ${answer.state}${stepPart} \xB7 plan v${loop2.planVersion}`;
+}
+async function sendAndKeep(sending, io) {
+  const client = signedInClient({ askUrl: sending.askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
+  if (!client) return refuse(io.stderr, "no sign-in (omni signin)");
+  const answer = await sendBody(client, sending.body);
+  if (typeof answer === "string") return refuse(io.stderr, answer);
+  const loop2 = loopAfter(sending, answer);
+  writeLocalLoop(sending.root, loop2);
+  println(io.stdout, pushedLine(sending.body, answer, loop2));
   return 0;
+}
+function repoContext({ cwd, exec }) {
+  const ctx = loadContext(cwd, { exec });
+  const repo = ctx.config.repo.slug;
+  if (!repo) throw usageError("omni loop: no repository slug \u2014 set repo.slug in the config.");
+  return { ctx, repo };
+}
+async function push2(args, io) {
+  const [event = "", ...rest] = args;
+  const { ctx, repo } = repoContext(io);
+  const at2 = io.now();
+  const prepared = prepare(event, rest, { repo, now: at2 });
+  const askUrl2 = ctx.config.ask.url;
+  if (!askUrl2) return refuse(io.stderr, "off");
+  const plan2 = readLoopPlans(ctx.root).at(-1) ?? null;
+  const kept = readLocalLoop(ctx.root);
+  const body = prepared.needsLoop ? loopBody(prepared.body, kept, plan2) : startingBody(prepared, kept, plan2, at2);
+  if (typeof body === "string") return refuse(io.stderr, body);
+  return sendAndKeep({ askUrl: askUrl2, root: ctx.root, repo, body, plan: plan2, kept, wake: prepared.wake, at: at2 }, io);
 }
 function status2(args, { cwd, stdout, exec, now }) {
   const { positional, flags } = parseArgs("loop status", args, { booleans: ["json"] });
@@ -43056,19 +43092,22 @@ function waitingOf(plan2, live, holds2) {
     return hold ? [{ prd: prd2, verdict: "park", why: hold.why }] : [];
   });
 }
+function runnableVerdict(step, { plan: plan2, live, done, holds: holds2 }) {
+  if (done.has(step.step)) return null;
+  const verdict2 = live.verdicts.get(step.prd);
+  if (!verdict2 || verdict2.verdict === "park") return null;
+  const hold = holdOf(step, plan2, done, live);
+  if (hold === null) return verdict2;
+  if (!holds2.has(step.prd)) holds2.set(step.prd, hold);
+  return null;
+}
 function followPlan(plan2, live) {
   const done = new Set(plan2.steps.filter((step) => isDone(step, live)).map((step) => step.step));
-  const holds2 = /* @__PURE__ */ new Map();
+  const walk = { plan: plan2, live, done, holds: /* @__PURE__ */ new Map() };
   let waiting = null;
   for (const step of plan2.steps) {
-    if (done.has(step.step)) continue;
-    const verdict2 = live.verdicts.get(step.prd);
-    if (!verdict2 || verdict2.verdict === "park") continue;
-    const hold = holdOf(step, plan2, done, live);
-    if (hold !== null) {
-      if (!holds2.has(step.prd)) holds2.set(step.prd, hold);
-      continue;
-    }
+    const verdict2 = runnableVerdict(step, walk);
+    if (verdict2 === null) continue;
     if (waiting === null) {
       if (verdict2.verdict !== "wait") return { state: "step", step, verdict: verdict2 };
       waiting = { step, verdict: verdict2 };
@@ -43077,7 +43116,7 @@ function followPlan(plan2, live) {
     }
   }
   if (waiting !== null) return { state: "step", ...waiting };
-  return { state: "stop", waiting: waitingOf(plan2, live, holds2) };
+  return { state: "stop", waiting: waitingOf(plan2, live, walk.holds) };
 }
 
 // kit/lib/next/format.ts
@@ -43254,23 +43293,30 @@ function formatFollowed(plan2, followed) {
 init_define_OMNI_BUNDLE();
 function changesOf(seen, input2) {
   if (seen === void 0) return [`PRD ${input2.prd} added`];
-  const changes = [];
+  return [...sliceChanges(seen, input2), ...stuckChanges(seen, input2), ...endedChanges(seen, input2)];
+}
+function sliceChanges(seen, input2) {
   const now = input2.slices;
-  if (seen.slices === null && now !== null) changes.push(`PRD ${input2.prd} planned`);
-  if (seen.slices !== null && now !== null) {
-    const before2 = new Set(seen.slices);
-    const after = new Set(now.map((slice) => slice.id));
-    const added = [...after].filter((id) => !before2.has(id)).sort();
-    const dropped = [...before2].filter((id) => !after.has(id)).sort();
-    if (added.length > 0) changes.push(`${added.join(", ")} added to PRD ${input2.prd}`);
-    if (dropped.length > 0) changes.push(`${dropped.join(", ")} dropped from PRD ${input2.prd}`);
-  }
+  if (now === null) return [];
+  if (seen.slices === null) return [`PRD ${input2.prd} planned`];
+  const before2 = new Set(seen.slices);
+  const after = new Set(now.map((slice) => slice.id));
+  const added = [...after].filter((id) => !before2.has(id)).sort();
+  const dropped = [...before2].filter((id) => !after.has(id)).sort();
+  return [
+    ...added.length > 0 ? [`${added.join(", ")} added to PRD ${input2.prd}`] : [],
+    ...dropped.length > 0 ? [`${dropped.join(", ")} dropped from PRD ${input2.prd}`] : []
+  ];
+}
+function stuckChanges(seen, input2) {
   const wasStuck = new Set(seen.stuck);
-  const stuck = (now ?? []).filter((slice) => slice.state === "stuck" && !wasStuck.has(slice.id)).map((slice) => slice.id).sort();
-  if (stuck.length > 0) changes.push(`${stuck.join(", ")} of PRD ${input2.prd} stuck`);
+  const stuck = (input2.slices ?? []).filter((slice) => slice.state === "stuck" && !wasStuck.has(slice.id)).map((slice) => slice.id).sort();
+  return stuck.length > 0 ? [`${stuck.join(", ")} of PRD ${input2.prd} stuck`] : [];
+}
+function endedChanges(seen, input2) {
+  const now = input2.slices;
   const early = now === null || now.some((slice) => slice.state !== "merged");
-  if (seen.ended === null && input2.ended !== null && early) changes.push(`PRD ${input2.prd} ${input2.ended} early`);
-  return changes;
+  return seen.ended === null && input2.ended !== null && early ? [`PRD ${input2.prd} ${input2.ended} early`] : [];
 }
 function doneBy(inputs) {
   const byPrd = new Map(inputs.prds.map((input2) => [input2.prd, input2]));
@@ -44234,7 +44280,7 @@ function followKept(prds, kept, { reader, out, json: json2 }) {
     return 0;
   }
   const step = followed.state === "step" ? followed.step : null;
-  const tick = {
+  const tick2 = {
     plan: { version: plan2.version, steps: plan2.steps.length },
     replanned,
     stop: followed.state === "stop",
@@ -44243,7 +44289,7 @@ function followKept(prds, kept, { reader, out, json: json2 }) {
     waiting: followed.state === "stop" ? followed.waiting : [],
     prds: verdicts
   };
-  out(JSON.stringify(tick, null, 2));
+  out(JSON.stringify(tick2, null, 2));
   return 0;
 }
 function samePrds(prds, plan2) {
@@ -44255,30 +44301,37 @@ function yoursOrRefuse(reader, flag) {
   if (prds.length === 0) throw usageError(`omni next: no PRD of yours is in inbox, building or outbox; name one: omni next <prd>\u2026${flag}`);
   return prds;
 }
+function ghEnvOf(ctx, exec, env) {
+  try {
+    return githubEnv(ctx, { exec, env });
+  } catch {
+    return void 0;
+  }
+}
+function printVerdicts(named3, { reader, out, json: json2 }) {
+  const verdicts = named3.map((prd2) => readPrd(prd2, reader).verdict);
+  if (json2) out(JSON.stringify({ prds: verdicts }, null, 2));
+  else for (const verdict2 of verdicts) out(verdictLine2(verdict2));
+  return 0;
+}
+function tick(named3, io) {
+  const kept = readLoopPlans(io.reader.ctx.root);
+  const last = kept.at(-1);
+  if (named3.length === 0) return last === void 0 ? followKept(yoursOrRefuse(io.reader, ""), [], io) : followKept(last.prds, kept, io);
+  if (last !== void 0 && samePrds(named3, last)) return followKept(last.prds, kept, io);
+  return printVerdicts(named3, io);
+}
 var next = {
   run: synchronous((args, { ctx, stdout, exec, env }) => {
     const { positional, flags } = parseArgs("next", args, { booleans: ["json", "plan"] });
     const named3 = positional.map((value) => prdArg("next", "<prd>", value));
     const slug = repoSlug("next", ctx, void 0);
-    let ghEnv;
-    try {
-      ghEnv = githubEnv(ctx, { exec, env });
-    } catch {
-      ghEnv = void 0;
-    }
-    const reader = { ctx, exec, env, slug, ghEnv };
+    const reader = { ctx, exec, env, slug, ghEnv: ghEnvOf(ctx, exec, env) };
     const io = { reader, out: (line) => {
       println(stdout, line);
     }, json: flags.json === true };
     if (flags.plan) return startPlan(named3.length > 0 ? [...new Set(named3)] : yoursOrRefuse(reader, " --plan"), io);
-    const kept = readLoopPlans(ctx.root);
-    const last = kept.at(-1);
-    if (named3.length === 0) return last === void 0 ? followKept(yoursOrRefuse(reader, ""), [], io) : followKept(last.prds, kept, io);
-    if (last !== void 0 && samePrds(named3, last)) return followKept(last.prds, kept, io);
-    const verdicts = named3.map((prd2) => readPrd(prd2, reader).verdict);
-    if (io.json) io.out(JSON.stringify({ prds: verdicts }, null, 2));
-    else for (const verdict2 of verdicts) io.out(verdictLine2(verdict2));
-    return 0;
+    return tick(named3, io);
   })
 };
 
@@ -44999,7 +45052,7 @@ var PitchRunRefused = class extends Error {
     this.status = status4;
   }
 };
-var refuse = (message, status4 = 400) => {
+var refuse2 = (message, status4 = 400) => {
   throw new PitchRunRefused(status4, message);
 };
 var isRecord5 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -45013,16 +45066,16 @@ function parsedOrNull(text10) {
 }
 function fileOf(dir, name2) {
   const path = join65(dir, name2);
-  if (!existsSync51(path) || !statSync13(path).isFile()) refuse(`${name2}: not in the run folder`);
+  if (!existsSync51(path) || !statSync13(path).isFile()) refuse2(`${name2}: not in the run folder`);
   const { size } = statSync13(path);
-  if (size > PITCH_FILE_MAX_BYTES) refuse(`${name2}: over ${PITCH_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
+  if (size > PITCH_FILE_MAX_BYTES) refuse2(`${name2}: over ${PITCH_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
   return { name: name2, path, bytes: size, type: PITCH_FILES[name2] };
 }
 function wordsOf(sent) {
   const word = (key) => {
     const value = sent[key];
     const max = WORD_MAX[key];
-    if (typeof value !== "string" || !value.trim() || value.trim().length > max) return refuse(`${PITCH_RUN_FILE}: ${key} is 1 to ${max} characters`);
+    if (typeof value !== "string" || !value.trim() || value.trim().length > max) return refuse2(`${PITCH_RUN_FILE}: ${key} is 1 to ${max} characters`);
     return value.trim();
   };
   return { hook: word("hook"), benefit: word("benefit"), kicker: word("kicker"), closing: word("closing") };
@@ -45031,12 +45084,12 @@ function readPitchRun(dir, prd2) {
   const file2 = join65(dir, PITCH_RUN_FILE);
   if (!existsSync51(file2)) return null;
   const sent = parsedOrNull(readFileSync55(file2, "utf8"));
-  if (!isRecord5(sent)) return refuse(`${PITCH_RUN_FILE} is not a JSON object`);
+  if (!isRecord5(sent)) return refuse2(`${PITCH_RUN_FILE} is not a JSON object`);
   const { audience, look, commit } = sent;
-  if (sent.prd !== void 0 && sent.prd !== prd2) refuse(`${PITCH_RUN_FILE} is for PRD ${shown3(sent.prd)}, not ${prd2}`);
-  if (!isOneOf(AUDIENCES, audience)) return refuse(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(audience)}`);
-  if (!isOneOf(LOOKS, look)) return refuse(`${PITCH_RUN_FILE}: look is arcade or keynote, not ${String(look)}`);
-  if (typeof commit !== "string" || !COMMIT2.test(commit)) return refuse(`${PITCH_RUN_FILE}: commit is the hash of the commit the pitch was made at`);
+  if (sent.prd !== void 0 && sent.prd !== prd2) refuse2(`${PITCH_RUN_FILE} is for PRD ${shown3(sent.prd)}, not ${prd2}`);
+  if (!isOneOf(AUDIENCES, audience)) return refuse2(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(audience)}`);
+  if (!isOneOf(LOOKS, look)) return refuse2(`${PITCH_RUN_FILE}: look is arcade or keynote, not ${String(look)}`);
+  if (typeof commit !== "string" || !COMMIT2.test(commit)) return refuse2(`${PITCH_RUN_FILE}: commit is the hash of the commit the pitch was made at`);
   const words3 = wordsOf(sent);
   const files = keysOf(PITCH_FILES).map((name2) => fileOf(dir, name2));
   return { audience, look, commit, ...words3, files };
@@ -46905,7 +46958,7 @@ var ProofRunRefused = class extends Error {
     this.status = status4;
   }
 };
-var refuse2 = (message, status4 = 400) => {
+var refuse3 = (message, status4 = 400) => {
   throw new ProofRunRefused(status4, message);
 };
 var isRecord8 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -46923,24 +46976,24 @@ var isBlank = (value) => value === void 0 || value === null;
 function textOf4(item2, at2) {
   const text10 = isRecord8(item2) ? item2.text : void 0;
   const valid = isRecord8(item2) && typeof text10 === "string" && text10.trim() && text10.length <= TEXT_MAX;
-  if (!valid) return refuse2(`${at2}: its text is 1 to ${TEXT_MAX} characters`);
+  if (!valid) return refuse3(`${at2}: its text is 1 to ${TEXT_MAX} characters`);
   return { text: text10.trim(), sent: item2 };
 }
 function verdictOf(item2, at2) {
   const { verdict: verdict2 } = item2;
-  if (!isVerdict2(verdict2)) return refuse2(`${at2}: a verdict is ${VERDICTS2.slice(0, -1).join(", ")} or ${VERDICTS2.at(-1)}, not ${String(item2.verdict)}`);
+  if (!isVerdict2(verdict2)) return refuse3(`${at2}: a verdict is ${VERDICTS2.slice(0, -1).join(", ")} or ${VERDICTS2.at(-1)}, not ${String(item2.verdict)}`);
   return verdict2;
 }
 function extrasOf(item2, at2, criterion) {
   const { note } = item2;
   if (!isBlank(note)) {
-    if (typeof note !== "string" || note.length > NOTE_MAX) return refuse2(`${at2}: its note is at most ${NOTE_MAX} characters`);
+    if (typeof note !== "string" || note.length > NOTE_MAX) return refuse3(`${at2}: its note is at most ${NOTE_MAX} characters`);
     criterion.note = note;
   }
   for (const key of ["video", "script"]) {
     const name2 = item2[key];
     if (isBlank(name2)) continue;
-    if (typeof name2 !== "string" || !FILE_NAME.test(name2)) return refuse2(`${at2}: its ${key} is a file name in the run folder`);
+    if (typeof name2 !== "string" || !FILE_NAME.test(name2)) return refuse3(`${at2}: its ${key} is a file name in the run folder`);
     criterion[key] = name2;
   }
   return criterion;
@@ -46952,11 +47005,11 @@ function criterionOf(item2, index) {
 }
 function fileOf2(dir, name2) {
   const path = join79(dir, name2);
-  if (!existsSync58(path) || !statSync15(path).isFile()) refuse2(`${name2}: not in the run folder`);
+  if (!existsSync58(path) || !statSync15(path).isFile()) refuse3(`${name2}: not in the run folder`);
   const type = TYPES2[name2.slice(name2.lastIndexOf(".") + 1).toLowerCase()];
-  if (!type) return refuse2(`${name2}: a proof takes .webm, .gif, .ts or .txt files`);
+  if (!type) return refuse3(`${name2}: a proof takes .webm, .gif, .ts or .txt files`);
   const { size } = statSync15(path);
-  if (size > PROOF_FILE_MAX_BYTES) refuse2(`${name2}: over ${PROOF_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
+  if (size > PROOF_FILE_MAX_BYTES) refuse3(`${name2}: over ${PROOF_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
   return { name: name2, path, bytes: size, type };
 }
 function readRun(dir) {
@@ -46968,17 +47021,17 @@ function readRun(dir) {
   } catch {
     sent = null;
   }
-  if (!isRecord8(sent)) return refuse2(`${RUN_FILE} is not a JSON object`);
+  if (!isRecord8(sent)) return refuse3(`${RUN_FILE} is not a JSON object`);
   const { commit, url: url2, criteria: given } = sent;
-  if (typeof commit !== "string" || !COMMIT3.test(commit)) return refuse2(`${RUN_FILE}: commit is the hash of the commit the run proved`);
-  if (!isHttpUrl(url2)) return refuse2(`${RUN_FILE}: url is the http(s) address the run was recorded on`);
+  if (typeof commit !== "string" || !COMMIT3.test(commit)) return refuse3(`${RUN_FILE}: commit is the hash of the commit the run proved`);
+  if (!isHttpUrl(url2)) return refuse3(`${RUN_FILE}: url is the http(s) address the run was recorded on`);
   if (!Array.isArray(given) || given.length === 0 || given.length > PROOF_CRITERIA_MAX) {
-    return refuse2(`${RUN_FILE}: criteria is a list of 1 to ${PROOF_CRITERIA_MAX} {text, verdict, note?, video?, script?}`);
+    return refuse3(`${RUN_FILE}: criteria is a list of 1 to ${PROOF_CRITERIA_MAX} {text, verdict, note?, video?, script?}`);
   }
   const criteria = given.map(criterionOf);
   const names = [...new Set(criteria.flatMap((c) => [c.video, c.script]).filter((name2) => Boolean(name2)))];
   if (existsSync58(join79(dir, PROOF_GIF_NAME)) && !names.includes(PROOF_GIF_NAME)) names.push(PROOF_GIF_NAME);
-  if (names.length > PROOF_FILES_MAX) refuse2(`a run uploads ${PROOF_FILES_MAX} files at most: this one has ${names.length}`);
+  if (names.length > PROOF_FILES_MAX) refuse3(`a run uploads ${PROOF_FILES_MAX} files at most: this one has ${names.length}`);
   const files = names.map((name2) => fileOf2(dir, name2));
   return { commit, url: url2, criteria, files };
 }

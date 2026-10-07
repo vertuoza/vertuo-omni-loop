@@ -354,27 +354,40 @@ function yoursOrRefuse(reader: Reader, flag: string): PrdNumber[] {
   return prds;
 }
 
+/** The environment `gh` runs with, or undefined when none can be made. */
+function ghEnvOf(ctx: Context, exec: Exec, env: Env): Env | undefined {
+  try {
+    return githubEnv(ctx, { exec, env });
+  } catch {
+    return undefined;
+  }
+}
+
+/** One verdict per PRD named, outside any loop plan. */
+function printVerdicts(named: readonly PrdNumber[], { reader, out, json }: Out): number {
+  const verdicts = named.map((prd) => readPrd(prd, reader).verdict);
+  if (json) out(JSON.stringify({ prds: verdicts }, null, 2));
+  else for (const verdict of verdicts) out(verdictLine(verdict));
+  return 0;
+}
+
+/** A tick: the kept plan followed (or yours, planned now), or one verdict per PRD named. */
+function tick(named: readonly PrdNumber[], io: Out): number {
+  const kept = readLoopPlans(io.reader.ctx.root);
+  const last = kept.at(-1);
+  if (named.length === 0) return last === undefined ? followKept(yoursOrRefuse(io.reader, ''), [], io) : followKept(last.prds, kept, io);
+  if (last !== undefined && samePrds(named, last)) return followKept(last.prds, kept, io);
+  return printVerdicts(named, io);
+}
+
 export const next: Command = {
   run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
     const { positional, flags } = parseArgs('next', args, { booleans: ['json', 'plan'] });
     const named = positional.map((value) => prdArg('next', '<prd>', value));
     const slug = repoSlug('next', ctx, undefined);
-    let ghEnv: Env | undefined;
-    try {
-      ghEnv = githubEnv(ctx, { exec, env });
-    } catch {
-      ghEnv = undefined;
-    }
-    const reader: Reader = { ctx, exec, env, slug, ghEnv };
+    const reader: Reader = { ctx, exec, env, slug, ghEnv: ghEnvOf(ctx, exec, env) };
     const io: Out = { reader, out: (line: string) => { println(stdout, line); }, json: flags.json === true };
     if (flags.plan) return startPlan(named.length > 0 ? [...new Set(named)] : yoursOrRefuse(reader, ' --plan'), io);
-    const kept = readLoopPlans(ctx.root);
-    const last = kept.at(-1);
-    if (named.length === 0) return last === undefined ? followKept(yoursOrRefuse(reader, ''), [], io) : followKept(last.prds, kept, io);
-    if (last !== undefined && samePrds(named, last)) return followKept(last.prds, kept, io);
-    const verdicts = named.map((prd) => readPrd(prd, reader).verdict);
-    if (io.json) io.out(JSON.stringify({ prds: verdicts }, null, 2));
-    else for (const verdict of verdicts) io.out(verdictLine(verdict));
-    return 0;
+    return tick(named, io);
   }),
 };

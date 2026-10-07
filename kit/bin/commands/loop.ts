@@ -105,53 +105,83 @@ function wakeArg({ wakeIn, nextWake }: { wakeIn: string | undefined; nextWake: s
 }
 
 /** What a push needs once its flags are read: the body, given the kept loop and plan. */
-type Prepared = { needsLoop: false; body: (plan: LoopPlan) => LoopBody } | { needsLoop: true; body: (loop: LocalLoop, plan: LoopPlan | null) => LoopBody };
+type Prepared = (
+  | { needsLoop: false; body: (plan: LoopPlan) => LoopBody }
+  | { needsLoop: true; body: (loop: LocalLoop, plan: LoopPlan | null) => LoopBody }
+) & { takeOver: boolean; wake: string | null };
+
+type PrepareOptions = { repo: string; now: number };
+
+function prepareStart(args: string[], { repo }: PrepareOptions): Prepared {
+  const { positional, flags } = parseArgs('loop push start', args, { booleans: ['take-over'] });
+  if (positional.length) throw usageError(USAGE);
+  const takeOver = flags['take-over'] === true;
+  return { needsLoop: false, takeOver, wake: null, body: (plan) => startBody({ repo, plan, takeOver }) };
+}
+
+/** `--step`, and `--steps` when given, which the step cannot be past. */
+function stepArgs(flags: { step?: string | undefined; steps?: string | undefined }): { step: number; given: number | null } {
+  const step = positiveInt('loop push tick', '--step', flags.step);
+  const given = flags.steps === undefined ? null : positiveInt('loop push tick', '--steps', flags.steps);
+  if (given !== null && step > given) throw usageError(`omni loop push tick: step ${step} is past the plan's ${given} steps.`);
+  return { step, given };
+}
+
+function actionArg(value: string | undefined): string {
+  const action = value ?? '';
+  if (!ACTION.test(action)) throw usageError(`omni loop push tick: --action is one word, such as wave, yolo or wait, got "${action}".`);
+  return action;
+}
+
+function prepareTick(args: string[], { now }: PrepareOptions): Prepared {
+  const { positional, flags } = parseArgs('loop push tick', args, { values: ['step', 'steps', 'prd', 'action', 'result', 'link', 'merged', 'items', 'wake-in', 'next-wake'] });
+  if (positional.length) throw usageError(USAGE);
+  const { step, given } = stepArgs(flags);
+  const prd = prdArg('loop push tick', '--prd', flags.prd);
+  const action = actionArg(flags.action);
+  const result = lineArg('result', flags.result, LINE_MAX);
+  const link = linkArg(flags.link);
+  const merged = prsArg(flags.merged);
+  const items = itemsArg(flags.items);
+  const wake = wakeArg({ wakeIn: flags['wake-in'], nextWake: flags['next-wake'] }, now);
+  return {
+    needsLoop: true, takeOver: false, wake,
+    body: (loop, plan) => {
+      const steps = Math.max(given ?? plan?.steps.length ?? step, step);
+      const replan = plan && plan.version > loop.planVersion ? plan : null;
+      return tickBody({ loopId: loop.loopId, step, steps, prd, action, result, link, merged, items, nextWakeAt: wake, replan });
+    },
+  };
+}
+
+function preparePark(args: string[]): Prepared {
+  const { positional, flags } = parseArgs('loop push park', args, { values: ['prd', 'who', 'what', 'link'] });
+  if (positional.length) throw usageError(USAGE);
+  const prd = prdArg('loop push park', '--prd', flags.prd);
+  const who = lineArg('who', flags.who, WHO_MAX);
+  const what = lineArg('what', flags.what, LINE_MAX);
+  const link = linkArg(flags.link);
+  return { needsLoop: true, takeOver: false, wake: null, body: (loop) => parkBody({ loopId: loop.loopId, prd, who, what, link }) };
+}
+
+function prepareStop(args: string[]): Prepared {
+  if (args.length) throw usageError(USAGE);
+  return { needsLoop: true, takeOver: false, wake: null, body: (loop) => stopBody(loop.loopId) };
+}
+
+/** How each push event reads its flags. */
+const PREPARERS = new Map<string, (args: string[], options: PrepareOptions) => Prepared>([
+  ['start', prepareStart],
+  ['tick', prepareTick],
+  ['park', preparePark],
+  ['stop', prepareStop],
+]);
 
 /** Reads one push's flags into the body it sends, or a usage error: nothing is sent yet. */
-function prepare(event: string, args: string[], { repo, now }: { repo: string; now: number }): Prepared & { takeOver: boolean; wake: string | null } {
-  if (event === 'start') {
-    const { positional, flags } = parseArgs('loop push start', args, { booleans: ['take-over'] });
-    if (positional.length) throw usageError(USAGE);
-    const takeOver = flags['take-over'] === true;
-    return { needsLoop: false, takeOver, wake: null, body: (plan) => startBody({ repo, plan, takeOver }) };
-  }
-  if (event === 'tick') {
-    const { positional, flags } = parseArgs('loop push tick', args, { values: ['step', 'steps', 'prd', 'action', 'result', 'link', 'merged', 'items', 'wake-in', 'next-wake'] });
-    if (positional.length) throw usageError(USAGE);
-    const step = positiveInt('loop push tick', '--step', flags.step);
-    const given = flags.steps === undefined ? null : positiveInt('loop push tick', '--steps', flags.steps);
-    if (given !== null && step > given) throw usageError(`omni loop push tick: step ${step} is past the plan's ${given} steps.`);
-    const prd = prdArg('loop push tick', '--prd', flags.prd);
-    const action = flags.action ?? '';
-    if (!ACTION.test(action)) throw usageError(`omni loop push tick: --action is one word, such as wave, yolo or wait, got "${action}".`);
-    const result = lineArg('result', flags.result, LINE_MAX);
-    const link = linkArg(flags.link);
-    const merged = prsArg(flags.merged);
-    const items = itemsArg(flags.items);
-    const wake = wakeArg({ wakeIn: flags['wake-in'], nextWake: flags['next-wake'] }, now);
-    return {
-      needsLoop: true, takeOver: false, wake,
-      body: (loop, plan) => {
-        const steps = Math.max(given ?? plan?.steps.length ?? step, step);
-        const replan = plan && plan.version > loop.planVersion ? plan : null;
-        return tickBody({ loopId: loop.loopId, step, steps, prd, action, result, link, merged, items, nextWakeAt: wake, replan });
-      },
-    };
-  }
-  if (event === 'park') {
-    const { positional, flags } = parseArgs('loop push park', args, { values: ['prd', 'who', 'what', 'link'] });
-    if (positional.length) throw usageError(USAGE);
-    const prd = prdArg('loop push park', '--prd', flags.prd);
-    const who = lineArg('who', flags.who, WHO_MAX);
-    const what = lineArg('what', flags.what, LINE_MAX);
-    const link = linkArg(flags.link);
-    return { needsLoop: true, takeOver: false, wake: null, body: (loop) => parkBody({ loopId: loop.loopId, prd, who, what, link }) };
-  }
-  if (event === 'stop') {
-    if (args.length) throw usageError(USAGE);
-    return { needsLoop: true, takeOver: false, wake: null, body: (loop) => stopBody(loop.loopId) };
-  }
-  throw usageError(USAGE);
+function prepare(event: string, args: string[], options: PrepareOptions): Prepared {
+  const read = PREPARERS.get(event);
+  if (!read) throw usageError(USAGE);
+  return read(args, options);
 }
 
 /** The line a loop of this checkout is printed with when a start meets it. */
@@ -172,73 +202,117 @@ function answerOf(reply: unknown): { loopId: string; state: LocalLoop['state']; 
 
 type PushIo = FreeIo & LoopOptions & { now: () => number };
 
-async function push(args: string[], io: PushIo): Promise<number> {
-  const { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs, now } = io;
-  const [event = '', ...rest] = args;
-  const ctx = loadContext(cwd, { exec });
-  const repo = ctx.config.repo.slug;
-  if (!repo) throw usageError('omni loop: no repository slug — set repo.slug in the config.');
-  const at = now();
-  const prepared = prepare(event, rest, { repo, now: at });
+type Answer = NonNullable<ReturnType<typeof answerOf>>;
 
-  if (!ctx.config.ask.url) {
-    println(stderr, 'off');
-    return 1;
-  }
-  const plan = readLoopPlans(ctx.root).at(-1) ?? null;
-  const kept = readLocalLoop(ctx.root);
-  let body: LoopBody;
-  if (prepared.needsLoop) {
-    if (!kept || kept.state !== 'running') {
-      println(stderr, 'no loop (omni loop push start)');
-      return 1;
-    }
-    body = prepared.body(kept, plan);
-  } else {
-    if (!plan) {
-      println(stderr, 'no loop plan (omni next --plan)');
-      return 1;
-    }
-    const standing = kept ? loopState(kept, at) : null;
-    if (kept && (standing === 'live' || standing === 'sleeping' || (standing === 'silent' && !prepared.takeOver))) {
-      println(stderr, standingLine(kept, standing));
-      return 1;
-    }
-    body = prepared.body(plan);
-  }
+/** One push once its body is made: what it sends and what the kept loop is rebuilt from. */
+type Sending = { askUrl: string; root: string; repo: string; body: LoopBody; plan: LoopPlan | null; kept: LocalLoop | null; wake: string | null; at: number };
 
-  const client = signedInClient({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs });
-  if (!client) {
-    println(stderr, 'no sign-in (omni signin)');
-    return 1;
-  }
+/** Prints the one line a push stops with: exit 1. */
+function refuse(stderr: Out, line: string): number {
+  println(stderr, line);
+  return 1;
+}
+
+/** Whether a loop of this checkout, standing so, refuses a start. */
+function blocksStart(standing: string, takeOver: boolean): boolean {
+  return standing === 'live' || standing === 'sleeping' || (standing === 'silent' && !takeOver);
+}
+
+/** The body a tick, park or stop sends on the kept running loop, or the line it stops with. */
+function loopBody(body: (loop: LocalLoop, plan: LoopPlan | null) => LoopBody, kept: LocalLoop | null, plan: LoopPlan | null): LoopBody | string {
+  if (!kept || kept.state !== 'running') return 'no loop (omni loop push start)';
+  return body(kept, plan);
+}
+
+/** The body a start sends with the plan, or the line it stops with. */
+function startingBody(prepared: Prepared & { needsLoop: false }, kept: LocalLoop | null, plan: LoopPlan | null, at: number): LoopBody | string {
+  if (!plan) return 'no loop plan (omni next --plan)';
+  if (!kept) return prepared.body(plan);
+  const standing = loopState(kept, at);
+  return blocksStart(standing, prepared.takeOver) ? standingLine(kept, standing) : prepared.body(plan);
+}
+
+/** Sends `body`: the app's answer, or the line the push stops with. */
+async function sendBody(client: NonNullable<ReturnType<typeof signedInClient>>, body: LoopBody): Promise<Answer | string> {
   let reply: unknown;
   try {
     reply = await client.pushLoop(body);
   } catch (error) {
-    println(stderr, skipLine(error));
-    return 1;
+    return skipLine(error);
   }
-  const answer = answerOf(reply);
-  if (!answer) {
-    println(stderr, 'refused (no loop in the reply)');
-    return 1;
-  }
+  return answerOf(reply) ?? 'refused (no loop in the reply)';
+}
 
+/** The plan version the app holds after the push. */
+function sentVersionOf(plan: LoopPlan | null, kept: LocalLoop | null): number {
+  return plan?.version ?? kept?.planVersion ?? 1;
+}
+
+/** When the kept loop wakes next after the push. */
+function nextWakeAfter(event: LoopBody['event'], wake: string | null, kept: LocalLoop | null): string | null {
+  if (event === 'tick') return wake;
+  if (event === 'stop') return null;
+  return kept?.nextWakeAt ?? null;
+}
+
+/** The plan version the kept loop records after the push. */
+function planVersionAfter(event: LoopBody['event'], sentVersion: number, kept: LocalLoop | null): number {
+  return event === 'tick' ? Math.max(sentVersion, kept?.planVersion ?? 1) : (kept?.planVersion ?? sentVersion);
+}
+
+/** The loop this checkout keeps once the app answered. */
+function loopAfter({ body, plan, kept, repo, wake, at }: Sending, answer: Answer): LocalLoop {
   const seenAt = new Date(at).toISOString();
-  const sentVersion = plan?.version ?? kept?.planVersion ?? 1;
-  const loop: LocalLoop = body.event === 'start' && plan
-    ? { loopId: answer.loopId, repo, prds: [...plan.prds], state: answer.state, startedAt: seenAt, seenAt, nextWakeAt: null, planVersion: plan.version }
-    : {
-      ...(kept ?? { loopId: answer.loopId, repo, prds: [], startedAt: seenAt, nextWakeAt: null, planVersion: sentVersion }),
-      state: answer.state, seenAt,
-      nextWakeAt: body.event === 'tick' ? prepared.wake : body.event === 'stop' ? null : (kept?.nextWakeAt ?? null),
-      planVersion: body.event === 'tick' ? Math.max(sentVersion, kept?.planVersion ?? 1) : (kept?.planVersion ?? sentVersion),
-    };
-  writeLocalLoop(ctx.root, loop);
+  if (body.event === 'start' && plan) {
+    return { loopId: answer.loopId, repo, prds: [...plan.prds], state: answer.state, startedAt: seenAt, seenAt, nextWakeAt: null, planVersion: plan.version };
+  }
+  const sentVersion = sentVersionOf(plan, kept);
+  return {
+    ...(kept ?? { loopId: answer.loopId, repo, prds: [], startedAt: seenAt, nextWakeAt: null, planVersion: sentVersion }),
+    state: answer.state, seenAt,
+    nextWakeAt: nextWakeAfter(body.event, wake, kept),
+    planVersion: planVersionAfter(body.event, sentVersion, kept),
+  };
+}
+
+/** The line a push that went through prints. */
+function pushedLine(body: LoopBody, answer: Answer, loop: LocalLoop): string {
   const stepPart = body.event === 'tick' ? ` · step ${body.step}/${body.steps}` : '';
-  println(stdout, `${body.event}: ${answer.loopId} ${answer.state}${stepPart} · plan v${loop.planVersion}`);
+  return `${body.event}: ${answer.loopId} ${answer.state}${stepPart} · plan v${loop.planVersion}`;
+}
+
+/** Sends the push with the terminal's sign-in and keeps the loop the app answered. */
+async function sendAndKeep(sending: Sending, io: PushIo): Promise<number> {
+  const client = signedInClient({ askUrl: sending.askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
+  if (!client) return refuse(io.stderr, 'no sign-in (omni signin)');
+  const answer = await sendBody(client, sending.body);
+  if (typeof answer === 'string') return refuse(io.stderr, answer);
+  const loop = loopAfter(sending, answer);
+  writeLocalLoop(sending.root, loop);
+  println(io.stdout, pushedLine(sending.body, answer, loop));
   return 0;
+}
+
+/** This checkout's context and its repository's slug, or a usage error without one. */
+function repoContext({ cwd, exec }: PushIo): { ctx: ReturnType<typeof loadContext>; repo: string } {
+  const ctx = loadContext(cwd, { exec });
+  const repo = ctx.config.repo.slug;
+  if (!repo) throw usageError('omni loop: no repository slug — set repo.slug in the config.');
+  return { ctx, repo };
+}
+
+async function push(args: string[], io: PushIo): Promise<number> {
+  const [event = '', ...rest] = args;
+  const { ctx, repo } = repoContext(io);
+  const at = io.now();
+  const prepared = prepare(event, rest, { repo, now: at });
+  const askUrl = ctx.config.ask.url;
+  if (!askUrl) return refuse(io.stderr, 'off');
+  const plan = readLoopPlans(ctx.root).at(-1) ?? null;
+  const kept = readLocalLoop(ctx.root);
+  const body = prepared.needsLoop ? loopBody(prepared.body, kept, plan) : startingBody(prepared, kept, plan, at);
+  if (typeof body === 'string') return refuse(io.stderr, body);
+  return sendAndKeep({ askUrl, root: ctx.root, repo, body, plan, kept, wake: prepared.wake, at }, io);
 }
 
 function status(args: string[], { cwd, stdout, exec, now }: PushIo): number {

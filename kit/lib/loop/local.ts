@@ -23,7 +23,7 @@ export const LOOP_FILE = join(LOCAL_DIR, 'loop.json');
 /** How long past its next wake a running loop stays live before it reads silent. */
 export const SILENT_AFTER_MS = 5 * 60 * 1000;
 /** How long a loop with no wake yet stays live after its last push. */
-export const FIRST_TICK_MS = 60 * 60 * 1000;
+const FIRST_TICK_MS = 60 * 60 * 1000;
 
 const LocalLoopSchema = z.object({
   loopId: z.string().min(1),

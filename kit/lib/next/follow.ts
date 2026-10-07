@@ -53,20 +53,28 @@ function waitingOf(plan: LoopPlan, live: Live, holds: ReadonlyMap<PrdNumber, Hol
   });
 }
 
+/** One walk of the plan: what it read, the steps done, and the first hold met per PRD. */
+type Walk = { plan: LoopPlan; live: Live; done: ReadonlySet<number>; holds: Map<PrdNumber, Hold> };
+
+/** The verdict `step` runs with now, or null when it is done, parked or held (its hold kept). */
+function runnableVerdict(step: Step, { plan, live, done, holds }: Walk): Verdict | null {
+  if (done.has(step.step)) return null;
+  const verdict = live.verdicts.get(step.prd);
+  if (!verdict || verdict.verdict === 'park') return null;
+  const hold = holdOf(step, plan, done, live);
+  if (hold === null) return verdict;
+  if (!holds.has(step.prd)) holds.set(step.prd, hold);
+  return null;
+}
+
 /** The step a tick takes on `plan`, given what it read `live`. */
 export function followPlan(plan: LoopPlan, live: Live): Followed {
   const done = new Set(plan.steps.filter((step) => isDone(step, live)).map((step) => step.step));
-  const holds = new Map<PrdNumber, Hold>();
+  const walk: Walk = { plan, live, done, holds: new Map<PrdNumber, Hold>() };
   let waiting: { step: Step; verdict: Verdict } | null = null;
   for (const step of plan.steps) {
-    if (done.has(step.step)) continue;
-    const verdict = live.verdicts.get(step.prd);
-    if (!verdict || verdict.verdict === 'park') continue;
-    const hold = holdOf(step, plan, done, live);
-    if (hold !== null) {
-      if (!holds.has(step.prd)) holds.set(step.prd, hold);
-      continue;
-    }
+    const verdict = runnableVerdict(step, walk);
+    if (verdict === null) continue;
     if (waiting === null) {
       if (verdict.verdict !== 'wait') return { state: 'step', step, verdict };
       waiting = { step, verdict };
@@ -75,5 +83,5 @@ export function followPlan(plan: LoopPlan, live: Live): Followed {
     }
   }
   if (waiting !== null) return { state: 'step', ...waiting };
-  return { state: 'stop', waiting: waitingOf(plan, live, holds) };
+  return { state: 'stop', waiting: waitingOf(plan, live, walk.holds) };
 }

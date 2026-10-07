@@ -11,7 +11,7 @@ import { clockOf, ledgerOf, prdHref, readPlan, stateLineOf, timelineOf, type Led
 
 /** Where the Loop page lives, and one loop's page under it. */
 export const LOOP_PATH = '/app/loop';
-export const loopHref = (id: string) => `${LOOP_PATH}/${encodeURIComponent(id)}`;
+const loopHref = (id: string) => `${LOOP_PATH}/${encodeURIComponent(id)}`;
 
 /** A loop as the list shows it. */
 export interface LoopSummary {

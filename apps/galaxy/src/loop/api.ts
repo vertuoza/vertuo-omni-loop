@@ -112,22 +112,28 @@ function refusal(error: LoopStoreError, deps: LoopDeps): Response {
   return refuse(500, 'The loop could not be recorded. Try again.');
 }
 
+/** What a push sent, read as JSON, or the refusal its size or its syntax earns. */
+async function sentOf(request: Request): Promise<{ sent: unknown } | Response> {
+  const tooLarge = () => refuse(413, `A push carries ${MAX_PUSH_BYTES / 1024} KiB at most.`);
+  if (Number(request.headers.get('content-length') ?? 0) > MAX_PUSH_BYTES) return tooLarge();
+  const text = await request.text();
+  if (new TextEncoder().encode(text).length > MAX_PUSH_BYTES) return tooLarge();
+  try {
+    const sent: unknown = JSON.parse(text);
+    return { sent };
+  } catch {
+    return refuse(400, 'The body must be a JSON object.');
+  }
+}
+
 export async function loopPush(request: Request, deps: LoopDeps): Promise<Response> {
   if (!deps.connect) return refuse(503, 'Loops are not available here: this deployment has no database.');
   const auth = await authenticate(request.headers.get('authorization'), deps.connect);
   if (!auth.ok) return refuse(auth.status, auth.error);
 
-  const tooLarge = () => refuse(413, `A push carries ${MAX_PUSH_BYTES / 1024} KiB at most.`);
-  if (Number(request.headers.get('content-length') ?? 0) > MAX_PUSH_BYTES) return tooLarge();
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_PUSH_BYTES) return tooLarge();
-  let sent: unknown;
-  try {
-    sent = JSON.parse(text);
-  } catch {
-    return refuse(400, 'The body must be a JSON object.');
-  }
-  const event = eventOf(sent);
+  const read = await sentOf(request);
+  if (read instanceof Response) return read;
+  const event = eventOf(read.sent);
   if ('problem' in event) return refuse(400, event.problem);
 
   try {

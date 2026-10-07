@@ -10,23 +10,36 @@ import type { LoopPlan, PlanInputs, PrdInput, Seen, Step } from './plan.ts';
 /** What changed for one PRD since the plan saw it, one phrase each. */
 function changesOf(seen: Seen | undefined, input: PrdInput): string[] {
   if (seen === undefined) return [`PRD ${input.prd} added`];
-  const changes: string[] = [];
+  return [...sliceChanges(seen, input), ...stuckChanges(seen, input), ...endedChanges(seen, input)];
+}
+
+/** The PRD planned since, or the slices added to and dropped from its plan. */
+function sliceChanges(seen: Seen, input: PrdInput): string[] {
   const now = input.slices;
-  if (seen.slices === null && now !== null) changes.push(`PRD ${input.prd} planned`);
-  if (seen.slices !== null && now !== null) {
-    const before = new Set(seen.slices);
-    const after = new Set(now.map((slice) => slice.id));
-    const added = [...after].filter((id) => !before.has(id)).sort();
-    const dropped = [...before].filter((id) => !after.has(id)).sort();
-    if (added.length > 0) changes.push(`${added.join(', ')} added to PRD ${input.prd}`);
-    if (dropped.length > 0) changes.push(`${dropped.join(', ')} dropped from PRD ${input.prd}`);
-  }
+  if (now === null) return [];
+  if (seen.slices === null) return [`PRD ${input.prd} planned`];
+  const before = new Set(seen.slices);
+  const after = new Set(now.map((slice) => slice.id));
+  const added = [...after].filter((id) => !before.has(id)).sort();
+  const dropped = [...before].filter((id) => !after.has(id)).sort();
+  return [
+    ...(added.length > 0 ? [`${added.join(', ')} added to PRD ${input.prd}`] : []),
+    ...(dropped.length > 0 ? [`${dropped.join(', ')} dropped from PRD ${input.prd}`] : []),
+  ];
+}
+
+/** The slices of the PRD that went stuck since. */
+function stuckChanges(seen: Seen, input: PrdInput): string[] {
   const wasStuck = new Set(seen.stuck);
-  const stuck = (now ?? []).filter((slice) => slice.state === 'stuck' && !wasStuck.has(slice.id)).map((slice) => slice.id).sort();
-  if (stuck.length > 0) changes.push(`${stuck.join(', ')} of PRD ${input.prd} stuck`);
+  const stuck = (input.slices ?? []).filter((slice) => slice.state === 'stuck' && !wasStuck.has(slice.id)).map((slice) => slice.id).sort();
+  return stuck.length > 0 ? [`${stuck.join(', ')} of PRD ${input.prd} stuck`] : [];
+}
+
+/** The PRD shipped or closed since, before every slice of it merged. */
+function endedChanges(seen: Seen, input: PrdInput): string[] {
+  const now = input.slices;
   const early = now === null || now.some((slice) => slice.state !== 'merged');
-  if (seen.ended === null && input.ended !== null && early) changes.push(`PRD ${input.prd} ${input.ended} early`);
-  return changes;
+  return seen.ended === null && input.ended !== null && early ? [`PRD ${input.prd} ${input.ended} early`] : [];
 }
 
 /** Whether a step is done by `inputs`: its PRD ended, or every slice of its wave merged. */
