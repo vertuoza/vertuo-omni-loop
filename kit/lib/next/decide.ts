@@ -210,15 +210,20 @@ function readyAcross(prd: PrdNumber, prs: readonly TargetPr[]): Verdict | null {
   return stuck ? park(prd, `waits on a person: ${prRef(stuck.url)}'s CI is stuck after its attempts`, stuck.url) : null;
 }
 
+/** The verdict open outbox questions force once every slice is merged, or `null` with none open:
+ * they are asked and answered on the plan PR. */
+function questionsAcross(prd: PrdNumber, planPr: FeatureFacts | null, outbox: OutboxFacts): Verdict | null {
+  if (outbox.questions === 0) return null;
+  const on = planPr ? ` on ${prRef(planPr.url)}` : '';
+  if (outbox.answered) return act(prd, 'ultra-yolo-fix', `answers are posted on the outbox questions${on}`, planPr?.url);
+  const who = planPr?.author ? `@${planPr.author}` : "the PRD's owner";
+  return park(prd, `waits on ${who}: ${count(outbox.questions, 'outbox question')} to answer${on}`, planPr?.url);
+}
+
 /** The verdict once every slice is merged, in a plan repository; `prs` starts with the plan PR. */
 function finishedAcross(prd: PrdNumber, prs: readonly TargetPr[], outbox: OutboxFacts): Verdict {
-  const planPr = prs[0] ? known(prs[0]) : null;
-  if (outbox.questions > 0) {
-    const on = planPr ? ` on ${prRef(planPr.url)}` : '';
-    if (outbox.answered) return act(prd, 'ultra-yolo-fix', `answers are posted on the outbox questions${on}`, planPr?.url);
-    const who = planPr?.author ? `@${planPr.author}` : "the PRD's owner";
-    return park(prd, `waits on ${who}: ${count(outbox.questions, 'outbox question')} to answer${on}`, planPr?.url);
-  }
+  const asked = questionsAcross(prd, prs[0] ? known(prs[0]) : null, outbox);
+  if (asked !== null) return asked;
   const open = prs.filter((entry) => entry.pr === null || known(entry)?.state === 'OPEN');
   const notReady = open.find((entry) => !isReady(known(entry)));
   if (notReady) {
@@ -232,21 +237,39 @@ function finishedAcross(prd: PrdNumber, prs: readonly TargetPr[], outbox: Outbox
   return park(prd, `waits on a person: ready to merge: ${ready.map((pr) => prRef(pr.url)).join(', ')}`, ready[0]?.url);
 }
 
+/** The verdict of a plan-repository PRD that has ended, or `null` while it has not. */
+function endedAcross(facts: PrdFacts, prs: readonly TargetPr[], planPr: FeatureFacts | null): Verdict | null {
+  const { prd } = facts;
+  if (allEnded(planPr, prs.slice(1))) return { prd, verdict: 'done', why: 'the plan PR and every target PR are merged or closed', ...(planPr ? { link: planPr.url } : {}) };
+  return facts.shipped && prs.every((entry) => entry.pr === null) ? { prd, verdict: 'done', why: 'the PRD has shipped' } : null;
+}
+
+/** The verdict that stops a plan-repository PRD before its work is read: ended, its phase-0 PR open,
+ * a PR that cannot be read, or a ready PR to care for; `null` when none does. */
+function stoppedAcross(facts: PrdFacts, prs: readonly TargetPr[], planPr: FeatureFacts | null): Verdict | null {
+  const { prd, phase0 } = facts;
+  const ended = endedAcross(facts, prs, planPr);
+  if (ended !== null) return ended;
+  if (phase0 !== null) return park(prd, `waits on a reviewer: the phase-0 PR ${prRef(phase0.url)} is open`, phase0.url);
+  if (prs.some((entry) => entry.pr === 'unreadable')) return wait(prd, 'github unreachable', WAKE_HINTS.unreadable);
+  return readyAcross(prd, prs);
+}
+
+/** The verdict of a plan-repository PRD whose plan is read: finishing, or building. */
+function plannedAcross(prd: PrdNumber, board: BoardFacts, { prs, outbox }: { prs: readonly TargetPr[]; outbox: OutboxFacts }, link: string | undefined): Verdict {
+  if (board.total > 0 && board.merged === board.total) return finishedAcross(prd, prs, outbox);
+  return board.takeable.length > 0 ? act(prd, 'ultra-wave', `wave ${board.wave ?? '?'} can take ${ids(board.takeable)}`, link) : building(prd, board, link);
+}
+
 /** PRD `facts.prd`'s verdict in a plan repository: only the `ultra-` skills and `mega-pr-care --once`. */
 function decideAcross(facts: PrdFacts, across: AcrossFacts): Verdict {
   const { prd, feature, board, outbox } = facts;
   const prs: TargetPr[] = [{ repo: across.repo, pr: feature }, ...across.targets];
-  const planPr = feature === 'unreadable' ? null : feature;
-  if (allEnded(planPr, across.targets)) return { prd, verdict: 'done', why: 'the plan PR and every target PR are merged or closed', ...(planPr ? { link: planPr.url } : {}) };
-  if (facts.shipped && prs.every((entry) => entry.pr === null)) return { prd, verdict: 'done', why: 'the PRD has shipped' };
-  if (facts.phase0 !== null) return park(prd, `waits on a reviewer: the phase-0 PR ${prRef(facts.phase0.url)} is open`, facts.phase0.url);
-  if (prs.some((entry) => entry.pr === 'unreadable') || outbox === 'unreadable') return wait(prd, 'github unreachable', WAKE_HINTS.unreadable);
-  if (board === 'unreadable') return wait(prd, 'the board cannot be read', WAKE_HINTS.unreadable, planPr?.url);
-
-  const ready = readyAcross(prd, prs);
-  if (ready !== null) return ready;
-  if (board === null) return act(prd, 'ultra-yolo', 'the PRD has no plan yet', planPr?.url);
-  if (board.total > 0 && board.merged === board.total) return finishedAcross(prd, prs, outbox);
-  if (board.takeable.length > 0) return act(prd, 'ultra-wave', `wave ${board.wave ?? '?'} can take ${ids(board.takeable)}`, planPr?.url);
-  return building(prd, board, planPr?.url);
+  const planPr = known({ repo: across.repo, pr: feature });
+  const link = planPr?.url;
+  const stopped = stoppedAcross(facts, prs, planPr);
+  if (stopped !== null) return stopped;
+  if (outbox === 'unreadable') return wait(prd, 'github unreachable', WAKE_HINTS.unreadable);
+  if (board === 'unreadable') return wait(prd, 'the board cannot be read', WAKE_HINTS.unreadable, link);
+  return board === null ? act(prd, 'ultra-yolo', 'the PRD has no plan yet', link) : plannedAcross(prd, board, { prs, outbox }, link);
 }

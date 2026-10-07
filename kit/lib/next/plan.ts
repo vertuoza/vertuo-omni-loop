@@ -139,19 +139,24 @@ function unitsOf(input: PrdInput, order: number): Unit[] {
   return units;
 }
 
-/** The ground two wave units share, and the slices of each that meet. Two slices meet only in the
- * same repository; ground in a named one reads `<repo>:<path>`. */
+/** The ground two slices share: none across two repositories; in a named one, each `<repo>:<path>`. */
+function groundOf(a: PlanSliceInput, b: PlanSliceInput): string[] {
+  const repo = a.repo ?? null;
+  if (repo !== (b.repo ?? null)) return [];
+  const ground = sharedGround(a, b);
+  return repo === null ? ground : ground.map((path) => `${repo}:${path}`);
+}
+
+/** The ground two wave units share, and the slices of each that meet. */
 function meeting(first: Unit, second: Unit): { shared: string[]; left: WorkSliceId[]; right: WorkSliceId[] } {
   const shared = new Set<string>();
   const left = new Set<WorkSliceId>();
   const right = new Set<WorkSliceId>();
   for (const a of first.slices) {
     for (const b of second.slices) {
-      const repo = a.repo ?? null;
-      if (repo !== (b.repo ?? null)) continue;
-      const ground = sharedGround(a, b);
+      const ground = groundOf(a, b);
       if (ground.length === 0) continue;
-      for (const path of ground) shared.add(repo === null ? path : `${repo}:${path}`);
+      for (const path of ground) shared.add(path);
       left.add(a.id);
       right.add(b.id);
     }

@@ -346,19 +346,21 @@ describe('omni next — a plan repository', () => {
   function fakeMulti({ features = {}, subs = {}, read, phase0 = [] }: MultiFakes = {}) {
     const calls: string[][] = [];
     const queries: unknown[] = [];
+    const answers: Record<string, (slug: string, input: unknown) => unknown> = {
+      graphql: (_, input) => {
+        queries.push(typeof input === 'string' ? JSON.parse(input) : null);
+        return read;
+      },
+      phase0: () => phase0,
+      feature: (slug) => features[slug] ?? [],
+      subs: (slug) => subs[slug] ?? [],
+    };
     const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions = {}): string => {
       calls.push([file, ...args]);
       if (file === 'git') return args[0] === 'fetch' ? '' : realExec(file, args, options);
-      const slug = String(args[args.indexOf('--repo') + 1]);
-      const kind = ghCallKind(args);
-      if (kind === 'graphql') {
-        queries.push(JSON.parse(String(options.input)));
-        return JSON.stringify(read);
-      }
-      if (kind === 'phase0') return JSON.stringify(phase0);
-      if (kind === 'feature') return JSON.stringify(features[slug] ?? []);
-      if (kind === 'subs') return JSON.stringify(subs[slug] ?? []);
-      throw new Error(`fakeMulti: unexpected call ${file} ${args.join(' ')}`);
+      const answer = answers[ghCallKind(args)];
+      if (!answer) throw new Error(`fakeMulti: unexpected call ${file} ${args.join(' ')}`);
+      return JSON.stringify(answer(String(args[args.indexOf('--repo') + 1]), options.input));
     };
     return { exec, calls, queries };
   }
