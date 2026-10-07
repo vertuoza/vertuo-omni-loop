@@ -1075,7 +1075,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'pr-care',
     kind: 'skill',
     who: 'you',
-    usage: ['/omni:pr-care <n>'],
+    usage: ['/omni:pr-care <n> [--once]'],
     label: '/omni:pr-care <n>',
     summary: "look after a PRD's feature PR until it is merged",
     detail:
@@ -1083,12 +1083,36 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'it merges {defaultBranch} on a conflict, fixes red CI, then judges each review comment against ' +
       "the repository's review form and fixes it, pushes back with a reason, or leaves it for the " +
       'PM. A reviewer who answers again gets the PM, not an argument. It pushes nothing while a ' +
-      'wave is building, shows on the PRD page that it is watching, and never merges.',
+      'wave is building, shows on the PRD page that it is watching, and never merges. --once runs ' +
+      'one round and returns, for /omni:drive.',
     group: 'build',
     when: 'Use it when a feature PR is ready and you want CI, conflicts and review comments handled while you do other things.',
     example: {
       type: '/omni:pr-care 790',
       result: 'each review comment fixed, pushed back with a reason, or left for you, and the PR kept green',
+    },
+  },
+  {
+    name: 'drive',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/loop /omni:drive [<n>…]'],
+    label: '/omni:drive [<n>…]',
+    summary: 'drive your PRDs, one step per tick',
+    detail:
+      'Run under /loop, it drives your own PRDs in inbox, building or outbox, or the ones you name. ' +
+      'Its first tick orders every slice of them into a loop plan (omni next --plan), colliding ' +
+      'territories in series with the reason, and opens the loop on the Loop page. Each tick then ' +
+      'takes the first step not done and runs that one skill (/omni:wave, /omni:yolo, /omni:yolo-fix ' +
+      "or /omni:pr-care --once) or waits, parks a PRD waiting on a person on its feature PR's status " +
+      'comment, records the tick on the Loop page and picks when to look again. Once every PRD is ' +
+      'parked or done it stops itself and lists what waits on whom. A closed terminal resumes the ' +
+      'same loop. It never answers the outbox and never merges into {defaultBranch}.',
+    group: 'build',
+    when: 'Use it when PRDs are merged into the inbox and you want them built, finished and cared for without typing each next command.',
+    example: {
+      type: '/omni:drive',
+      result: 'one tick: the loop plan, then its first step; under /loop, every tick until your PRDs wait on you',
     },
   },
   {
