@@ -26,6 +26,7 @@ describe('the overview', () => {
     ]);
     expect(groups.find((g) => g.id === 'start')?.skills.map((s) => s.name)).toEqual(['think-big', 'brainstorm', 'visual-fix', 'bug-fix']);
     expect(groups.find((g) => g.id === 'build')?.skills.map((s) => s.name)).toEqual(['yolo', 'yolo-fix', 'plan', 'wave', 'do-work', 'pr', 'pr-care', 'drive']);
+    expect(groups.find((g) => g.id === 'multi-repo')?.skills.map((s) => s.name)).toContain('mega-drive'); // PRD 1162
     expect(sure(groups[1], 'groups[1]').skills[0]).toEqual({
       name: 'yolo', command: '/omni:yolo', summary: 'build a whole PRD: plan, waves, the outbox gate, ship', url: '/docs/skills/yolo',
     });
