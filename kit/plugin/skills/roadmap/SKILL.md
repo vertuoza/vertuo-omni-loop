@@ -138,7 +138,7 @@ title, and the **Handoff** block's next command is "the roadmap's drive line, on
 merged". The issue's number is the row's `PRD`.
 
 **Then each folder,** `<nnnn>-<topic>` in the inbox under `paths.delivery`, as `/omni:brainstorm`
-step 2 names it, holding:
+step 2 names it (the PRD's own number and topic), holding:
 
 - `spec.md`, as `/omni:brainstorm` step 4 writes it (the same front matter, the same sections, the
   same self-review), with:
@@ -168,9 +168,9 @@ No plan: no `plan.md` is written, and `/omni:plan` is not run.
    roadmap: <n>
    title: <title>
    milestone: <one sentence>
-   product: <a product's name>     # only when the source names one
-   target: <YYYY-MM-DD>            # only when the person gave one
-   source: <link or path>          # only when the source is a page or a file
+   product: <a product's name>
+   target: <YYYY-MM-DD>
+   source: <link or path>
    ---
 
    ## PRDs
@@ -186,8 +186,10 @@ No plan: no `plan.md` is written, and `/omni:plan` is not run.
    | Q2 | … | … | P3.1, P3.2 | default |
    ```
 
-   A row with several blockers lists them comma-separated and gives one `why` that covers each. No
-   `repos` column: that is a plan repository's.
+   `product` only when the source names one, `target` only when the person gave a date, `source`
+   only when the source is a page or a file: each line is left out otherwise. A row with several
+   blockers lists them comma-separated and gives one `why` that covers each. No `repos` column: that
+   is a plan repository's.
 3. **Commit** the PRD folders and the roadmap folder as `docs(roadmap): <topic>`, with the co-author
    trailer, then the `omni sign trailer` line. Then run, fixing until both are green:
 
