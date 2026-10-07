@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1171 · Enforced by</title>
+<style>
+  /* Layout: a short intro, then three today | after pairs, stacking to one column on a phone. */
+  :root { --bg: #f6f7f4; --card: #ffffff; --ink: #1c1f1b; --muted: #646a62; --line: #dfe3dc; --bad: #b42318; --good: #157f3d; --code: #eef1ea; --mark: #fff3c4; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #131512; --card: #1c1f1b; --ink: #e9ece6; --muted: #a0a79c; --line: #30352e; --bad: #f97066; --good: #4ade80; --code: #252922; --mark: #4a3f12; color-scheme: dark; } }
+  :root[data-theme="dark"] { --bg: #131512; --card: #1c1f1b; --ink: #e9ece6; --muted: #a0a79c; --line: #30352e; --bad: #f97066; --good: #4ade80; --code: #252922; --mark: #4a3f12; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 56px; display: grid; gap: 28px; }
+  h1 { font-size: 1.6rem; margin: 0; text-wrap: balance; }
+  h2 { font-size: 1.05rem; margin: 0 0 10px; }
+  p { margin: 0; max-width: 68ch; }
+  .lede { color: var(--muted); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .pair { grid-template-columns: 1fr; } }
+  .side { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; min-width: 0; display: grid; gap: 10px; align-content: start; }
+  .tag { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+  .before .tag { color: var(--bad); }
+  .after .tag { color: var(--good); }
+  pre { margin: 0; background: var(--code); border-radius: 6px; padding: 10px 12px; overflow-x: auto; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  mark { background: var(--mark); color: inherit; padding: 0 2px; border-radius: 2px; }
+  .note { font-size: .88rem; color: var(--muted); }
+  .same { border-top: 1px solid var(--line); padding-top: 18px; display: grid; gap: 8px; }
+  ul { margin: 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:8px">
+    <h1>The harvest links each new rule to the test that proves it</h1>
+    <p class="lede">PRD 1171. Nothing visible in a browser changes: the change is in the knowledge files the harvest writes and in one line of <code>omni status</code>.</p>
+  </header>
+
+  <section>
+    <h2>1 · A rule the harvest writes after a feature PR merges</h2>
+    <div class="pair">
+      <div class="side before">
+        <span class="tag">Today</span>
+<pre>## R-QUOTE-4
+
+A quote past its expiry date can no
+longer be accepted.
+
+Source: …/outbox/settled.md, entry s2-01
+Enforced by: <mark>unenforced</mark>
+Stated: 2026-10-07
+Proposed: harvest 2026-10-07</pre>
+        <p class="note">Always <code>unenforced</code>, even though the same PR added <code>tests/Quote/ExpiryTest.php</code>.</p>
+      </div>
+      <div class="side after">
+        <span class="tag">After</span>
+<pre>## R-QUOTE-4
+
+A quote past its expiry date can no
+longer be accepted.
+
+Source: …/outbox/settled.md, entry s2-01
+Enforced by: <mark>tests/Quote/ExpiryTest.php</mark>
+Stated: 2026-10-07
+Proposed: harvest 2026-10-07</pre>
+        <p class="note">The model proposes the file; code keeps it only because the PR changed it and it still exists. A person confirms the entry, as today.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · What the harvest reports</h2>
+    <div class="pair">
+      <div class="side before">
+        <span class="tag">Today</span>
+<pre>omni harvest — PRD 42, pull request #310 merged by @lea on 2026-10-07:
+  s2-01 → R-QUOTE-4 (rule)
+  s3-02 → I-QUOTE-2 (invariant)</pre>
+      </div>
+      <div class="side after">
+        <span class="tag">After</span>
+<pre>omni harvest — PRD 42, pull request #310 merged by @lea on 2026-10-07:
+  s2-01 → R-QUOTE-4 (rule), enforced by tests/Quote/ExpiryTest.php
+  s3-02 → I-QUOTE-2 (invariant), unenforced
+          dropped src/Quote/Old.php: not changed by #310</pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · <code>omni status</code></h2>
+    <div class="pair">
+      <div class="side before">
+        <span class="tag">Today</span>
+<pre>  delivered  █████████████████████████████░  114 of 115 · 99%
+             1 in progress: 1 in the inbox</pre>
+        <p class="note">Nobody can see how much of the knowledge is proven.</p>
+      </div>
+      <div class="side after">
+        <span class="tag">After</span>
+<pre>  delivered  █████████████████████████████░  114 of 115 · 99%
+             1 in progress: 1 in the inbox
+  <mark>rules enforced  12 of 60</mark></pre>
+        <p class="note">Rules and invariants, proposed ones included. Principles are not counted. No line without a knowledge folder.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="same">
+    <h2>What stays the same</h2>
+    <ul>
+      <li><code>/omni:invade</code> already links rules to tests, and is unchanged.</li>
+      <li><code>omni check knowledge</code> still refuses an <code>Enforced by:</code> path that does not exist.</li>
+      <li>The <code>law-proof</code> rule of PRD 1044 still flags a change to a proving file; it now has files to protect.</li>
+      <li>No configuration: it works in any stack, from the files the feature PR changed.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
