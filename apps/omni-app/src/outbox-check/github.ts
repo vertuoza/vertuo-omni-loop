@@ -73,11 +73,12 @@ export type BaseConfig = { folder: string; config: Config | null; error: ConfigE
 /**
  * Snapshots the base branch's `.omni-loop/config.yml` into `dest` (a fresh temporary folder when
  * omitted) and parses it through the kit's schema. `config` null and `error` null: the base branch has
- * no config (omni-loop is not active).
+ * no config (omni-loop is not active). With `ignoreUnknownKeys`, a key this kit does not know is left
+ * out rather than refused (the retro, #1151); the checks keep refusing it, to say the config is wrong.
  */
 export async function readBaseConfig(
   octokit: GitHubClient,
-  { owner, repo, baseSha, dest }: Repo & { baseSha: string; dest?: string },
+  { owner, repo, baseSha, dest, ignoreUnknownKeys = false }: Repo & { baseSha: string; dest?: string; ignoreUnknownKeys?: boolean },
 ): Promise<BaseConfig> {
   const folder = await snapshot(octokit, { owner, repo, ref: baseSha, paths: [CONFIG_FILE], dest });
   let text;
@@ -87,7 +88,7 @@ export async function readBaseConfig(
     return { folder, config: null, error: null };
   }
   try {
-    return { folder, config: parseConfig(text, CONFIG_FILE), error: null };
+    return { folder, config: parseConfig(text, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return { folder, config: null, error };

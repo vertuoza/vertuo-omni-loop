@@ -342,12 +342,45 @@ export function migrateConfig(raw: unknown, migrations: readonly Migration[] = M
   return current;
 }
 
+/** Removes from `raw` every key a schema issue says it does not recognize; whether it removed any. */
+function dropUnrecognized(raw: unknown, issues: readonly z.core.$ZodIssue[]): boolean {
+  let dropped = false;
+  for (const issue of issues) {
+    if (issue.code !== 'unrecognized_keys') continue;
+    let at: unknown = raw;
+    for (const step of issue.path) at = isRecord(at) ? at[String(step)] : undefined;
+    if (!isRecord(at)) continue;
+    for (const key of issue.keys) {
+      if (Object.hasOwn(at, key)) {
+        Reflect.deleteProperty(at, key);
+        dropped = true;
+      }
+    }
+  }
+  return dropped;
+}
+
+/** `raw` checked by the schema; with `ignoreUnknownKeys`, keys it does not know are dropped and it is checked again. */
+function checkConfig(raw: unknown, ignoreUnknownKeys: boolean) {
+  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  if (result.success || !ignoreUnknownKeys) return result;
+  const copy = structuredClone(raw);
+  return dropUnrecognized(copy, result.error.issues) ? ConfigSchema.safeParse(copy, { error: KIT_MESSAGES }) : result;
+}
+
 /**
  * Parses config text. Throws ConfigError whose FIRST line names `file` and the first offending key —
  * the CLI prints only that line — and whose later lines list every other issue. With `migrate`, the
- * migration step runs first, as `omni update` checks a file written for an older kit.
+ * migration step runs first, as `omni update` checks a file written for an older kit. With
+ * `ignoreUnknownKeys`, a key this kit does not know is left out instead of refused: a reader that may
+ * run older code than the file was written for (the GitHub App's retro, just before its deploy, #1151)
+ * reads what it knows.
  */
-export function parseConfig(source: string, file: string = CONFIG_FILE, { migrate = false }: { migrate?: boolean } = {}): Config {
+export function parseConfig(
+  source: string,
+  file: string = CONFIG_FILE,
+  { migrate = false, ignoreUnknownKeys = false }: { migrate?: boolean; ignoreUnknownKeys?: boolean } = {},
+): Config {
   let raw: unknown;
   try {
     raw = parse(source) ?? {};
@@ -360,7 +393,7 @@ export function parseConfig(source: string, file: string = CONFIG_FILE, { migrat
     const { section: name, from, to } = renamed;
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed — call it ${name}.${to}`, { invalid: true });
   }
-  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  const result = checkConfig(raw, ignoreUnknownKeys);
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
     const more = others.length ? `\n${others.map((line) => `  - ${line}`).join('\n')}` : '';

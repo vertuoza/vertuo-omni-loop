@@ -591,3 +591,27 @@ describe('the generated section (PRD 1138)', () => {
     expect(firstLine(`kit: 1\n${section}`)).toContain(`: ${key}: `);
   });
 });
+
+// #1151: the GitHub App's retro read a config written for a newer kit than its own deploy, and skipped
+// in silence. A reader that may lag the file asks to leave unknown keys out; every other reader still
+// refuses them, so a typo is still caught.
+describe('parseConfig — keys this kit does not know (#1151)', () => {
+  const newer = 'kit: 1\nfuture: [a]\nbranches:\n  later: later/{topic}\n';
+
+  it('refuses them by default, naming the key', () => {
+    expect(() => parseConfig(newer)).toThrow(/Unrecognized key\(s\) in object: 'future'/);
+  });
+
+  it('leaves them out with ignoreUnknownKeys, at the top level and inside a section', () => {
+    const config = parseConfig(newer, CONFIG_FILE, { ignoreUnknownKeys: true });
+    expect(config.branches.feature).toBe('feat/{topic}');
+    expect(config).not.toHaveProperty('future');
+    expect(config.branches).not.toHaveProperty('later');
+  });
+
+  it('still refuses a value of the wrong kind with ignoreUnknownKeys', () => {
+    expect(() => parseConfig('kit: 1\nfuture: 1\nrepo:\n  defaultBranch: 3\n', CONFIG_FILE, { ignoreUnknownKeys: true })).toThrow(
+      /not a valid Omni Loop config: repo\.defaultBranch/,
+    );
+  });
+});
