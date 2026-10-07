@@ -140,7 +140,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'next',
     kind: 'command',
     who: 'you',
-    usage: ['omni next [<prd>…] [--json] [--plan]'],
+    usage: ['omni next [<prd>…] [--json] [--plan]', 'omni next --roadmap <n> [--json] [--plan]'],
     label: 'omni next [<n>…]',
     summary: "the loop's next step, for PRD n or across your PRDs",
     detail:
@@ -152,7 +152,12 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'series with the reason, blocked-by held, the rest beside each other) and keeps the plan in ' +
       'this checkout; each later call returns the first step not done, and writes a new plan ' +
       'version with a one-line reason when a slice goes stuck, a slice is added or a PRD ends ' +
-      'early. It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one ' +
+      "early. --roadmap <n> drives exactly roadmap n's PRDs, someone else's included: a blocked " +
+      "PRD's first step is held until its blockers' feature PRs merged (in a plan repository, the " +
+      'plan PR and every target PR), its why naming the pull request it waits on and its state, while ' +
+      'every other step runs; a person question not answered parks only the PRDs it blocks, and a ' +
+      'blocker closed unmerged parks its dependents. ' +
+      'It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one ' +
       'document. Needs gh logged in.',
   },
   {
@@ -172,8 +177,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'start opens a loop on this repository with the loop plan omni next --plan keeps, and keeps ' +
       "the loop's id and plan in this checkout, so a loop whose terminal closed resumes with the " +
       'same ones; it refuses a second live loop here, and takes over a silent one, whose session ' +
-      'died, only with --take-over. tick records one step, its result, its links and the next ' +
-      'wake, and carries a new plan version when omni next wrote one; park records a PRD waiting ' +
+      'died, only with --take-over. tick records one step, its result, its links, the repositories ' +
+      "it touches (--repos, else the plan's) and the next wake, and carries a new plan version when " +
+      'omni next wrote one; park records a PRD waiting ' +
       'on a person; stop ends the loop. status prints the loop kept here and what it is doing, and ' +
       'calls nothing. It never holds up the loop: a 5-second limit and one sign-in refresh, and ' +
       'anything that stops it exits 1 with one line (off, no sign-in, unreachable or refused).',
@@ -633,6 +639,28 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'landing it is merged after and its slices; --repo keeps one target of a plan repository.',
   },
   {
+    name: 'roadmap',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni roadmap check [<n>]', 'omni roadmap push <n>', 'omni roadmap answer <n> <question> "<answer>"'],
+    summary: 'grade, push or answer the roadmaps of the inbox',
+    detail:
+      "check grades every roadmap under {inbox}roadmaps/, or roadmap n alone: a milestone's PRDs, each " +
+      'with its blockers, the why of each, and its wave. It refuses a table that does not parse, an id ' +
+      'used twice, a blocker that is not a row, a cycle, a wave that does not follow its blockers, a ' +
+      "blocker without its why, a row whose PRD has no folder or whose spec's blocked-by differs, and a " +
+      'question blocking a row that does not exist; in a plan repository also a repo that is not a ' +
+      'target, a read-only one, and a consumer PRD not after the provider PRD it waits on. It prints ' +
+      'the PRDs wave by wave, then every violation; exit 1 on any. omni check inbox runs it too. ' +
+      "push sends roadmap n, its open questions with the latest answer to each, and where each PRD " +
+      'stands (waiting, building, outbox, ready, merged or closed, and the pull request a PRD not ' +
+      "started waits on) to the roadmap's page on the Omni page, with this computer's sign-in. It " +
+      'never holds up the loop: a 5-second limit and one sign-in refresh, and anything that stops it ' +
+      'exits 1 with one line (off, no sign-in, github unreachable, unreachable or refused). answer ' +
+      "posts a person's answer to one question as a comment on the roadmap's issue, with the marker " +
+      "push reads the answers back from; the roadmap's page writes the same line.",
+  },
+  {
     name: 'rework',
     kind: 'command',
     who: 'skills',
@@ -825,6 +853,51 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     },
   },
   {
+    name: 'roadmap',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:roadmap <source>'],
+    label: '/omni:roadmap',
+    summary: 'a milestone plan, to all its PRDs in one sitting',
+    detail:
+      'Turns a milestone plan (a page, a file or pasted text) into a roadmap: one PRD per item that ' +
+      'delivers something, ordered by blockers that each say why. It shows one map of the PRDs, their ' +
+      'waves and the open questions, and takes every answer in one message. Then it writes every ' +
+      "PRD's issue, spec and before/after up front, with no plan (each is planned when the loop " +
+      'reaches it), the roadmap issue and roadmap.md, checked by omni roadmap check, in one phase-0 PR ' +
+      "a person merges, and pushes the roadmap's page. It ends with the /loop /omni:drive --roadmap <n> " +
+      'line. In a plan repository it prints the /omni:mega-roadmap line and stops. It writes no code ' +
+      'and merges nothing.',
+    group: 'start',
+    when: 'Use it when a milestone needs many PRDs and a plan already says what they are and in which order.',
+    example: {
+      type: '/omni:roadmap plans/crew.md',
+      result: 'one map to answer, then every PRD and the roadmap in one phase-0 PR',
+    },
+  },
+  {
+    name: 'mega-roadmap',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-roadmap <source>'],
+    label: '/omni:mega-roadmap',
+    summary: 'a milestone across repositories, to all its PRDs',
+    detail:
+      'The roadmap of a plan repository: it turns a milestone plan whose items span several target ' +
+      'repositories into a roadmap whose PRDs each name the repositories they land in, read from a ' +
+      'read-only clone of each, in which nothing runs. Its one map, refusing a read-only target and a ' +
+      'consumer before its provider, takes every answer in one message; every spec is written up ' +
+      'front with no plan, all in one phase-0 PR in the plan repository, and it never writes in a ' +
+      'target. It ends with the /loop /omni:mega-drive --roadmap <n> line. Outside a plan repository ' +
+      'it prints the /omni:roadmap line and stops.',
+    group: 'multi-repo',
+    when: 'Use it when a milestone needs PRDs in several repositories and this is their plan repository.',
+    example: {
+      type: '/omni:mega-roadmap https://example.com/crew-plan',
+      result: 'one map to answer, then every PRD across the repositories in one phase-0 PR',
+    },
+  },
+  {
     name: 'yolo',
     kind: 'skill',
     who: 'you',
@@ -868,7 +941,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'mega-pr-care',
     kind: 'skill',
     who: 'you',
-    usage: ['/omni:mega-pr-care <n>'],
+    usage: ['/omni:mega-pr-care <n> [--once]'],
     label: '/omni:mega-pr-care <n>',
     summary: 'look after every PR of a PRD across repositories',
     detail:
@@ -876,7 +949,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'and every bug-fix PR linked to PRD n, round by round in merge order, until each is merged or ' +
       "closed or you stop it. Each target PR is read against the target's own default branch, " +
       "landings, wave claims and review form; a red that waits on another repository's PR spends " +
-      'no attempt. In a target it runs only its own committed preflight, and it never merges.',
+      'no attempt. In a target it runs only its own committed preflight, and it never merges. ' +
+      '--once runs one round and returns, for /omni:mega-drive.',
     group: 'multi-repo',
     when: "Use it when a multi-repository PRD's pull requests are open and you want CI, conflicts and review comments handled in every repository.",
     example: {
@@ -1109,7 +1183,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'drive',
     kind: 'skill',
     who: 'you',
-    usage: ['/loop /omni:drive [<n>…]'],
+    usage: ['/loop /omni:drive [<n>…]', '/loop /omni:drive --roadmap <n>'],
     label: '/omni:drive [<n>…]',
     summary: 'drive your PRDs, one step per tick',
     detail:
@@ -1120,12 +1194,40 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "or /omni:pr-care --once) or waits, parks a PRD waiting on a person on its feature PR's status " +
       'comment, records the tick on the Loop page and picks when to look again. Once every PRD is ' +
       'parked or done it stops itself and lists what waits on whom. A closed terminal resumes the ' +
-      'same loop. It never answers the outbox and never merges into {defaultBranch}.',
+      "same loop. --roadmap <n> drives exactly roadmap n's PRDs, someone else's included, holding a " +
+      "blocked PRD until its blockers' feature PRs merged, naming the pull request it waits on, and " +
+      "sends the roadmap's page where each PRD stands after every tick. In a plan repository it " +
+      'prints the /omni:mega-drive line and stops. It never answers the outbox and never merges ' +
+      'into {defaultBranch}.',
     group: 'build',
     when: 'Use it when PRDs are merged into the inbox and you want them built, finished and cared for without typing each next command.',
     example: {
       type: '/omni:drive',
       result: 'one tick: the loop plan, then its first step; under /loop, every tick until your PRDs wait on you',
+    },
+  },
+  {
+    name: 'mega-drive',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/loop /omni:mega-drive [<n>…]', '/loop /omni:mega-drive --roadmap <n>'],
+    label: '/omni:mega-drive',
+    summary: 'drive PRDs across repositories, one step per tick',
+    detail:
+      'The /omni:drive of a plan repository: run under /loop, it drives your own multi-repository ' +
+      'PRDs, the ones you name, or with --roadmap <n> exactly roadmap n\'s. Its loop plan puts two ' +
+      'steps in series only when they touch the same path in the same repository. Each tick runs ' +
+      'one skill (/omni:ultra-wave, /omni:ultra-yolo, which plans a PRD with no plan, ' +
+      '/omni:ultra-yolo-fix or /omni:mega-pr-care --once) or waits, parks a PRD waiting on a ' +
+      "person on its plan PR's status comment naming each open PR by repository, records the " +
+      'repositories the tick touched on the Loop page, and under --roadmap sends the roadmap\'s ' +
+      'page. Outside a plan repository it prints the /omni:drive line and stops. It never answers ' +
+      'the outbox and never merges into any default branch.',
+    group: 'multi-repo',
+    when: 'Use it when multi-repository PRDs are merged into the inbox of a plan repository and you want them built in every target without typing each next command.',
+    example: {
+      type: '/omni:mega-drive',
+      result: 'one tick across the repositories; under /loop, every tick until your PRDs wait on you',
     },
   },
   {

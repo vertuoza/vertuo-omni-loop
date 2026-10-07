@@ -124,6 +124,26 @@ with your PRD's number. It is `/omni:yolo` for several repositories:
 
 It never merges into any repository's default branch. You do.
 
+A PRD whose spec was merged without a plan, as a roadmap leaves them, is planned first: the plan says
+which slice lands in which target, and `omni plan check` grades it before the first wave.
+
+## Drive it
+
+To leave several multi-repository PRDs building without typing each next command, drive them from
+the plan repository:
+
+```text agent
+/loop /omni:mega-drive
+```
+
+It is [driving the loop](/docs/drive) for a plan repository: one step per tick, each running
+`/omni:ultra-wave`, `/omni:ultra-yolo`, `/omni:ultra-yolo-fix` or `/omni:mega-pr-care --once`. A step
+in one repository never waits for a step in another unless they touch the same path in the same
+repository. When a PRD waits on you, the loop says so on the plan pull request, naming each pull
+request still open by repository, and stops itself once nothing moves without you. With
+`--roadmap <n>` it drives a roadmap's PRDs, each held until its blockers' plan and target pull
+requests all merged. `/loop /omni:drive` in a plan repository prints this line instead.
+
 ## Which skill runs which
 
 ![Which skill runs which across repositories: you type /omni:mega-invade, /omni:mega-brainstorm, /omni:ultra-yolo and /omni:ultra-yolo-fix, /omni:mega-pr-care and /omni:mega-bug-fix; ultra-yolo runs /omni:ultra-wave, which runs /omni:do-work in each target; /omni:do-work and /omni:pr are shared with the single-repository loop](diagrams/skills-repositories.svg)
@@ -136,6 +156,7 @@ It never merges into any repository's default branch. You do.
 | `/omni:ultra-yolo-fix <n>` | you answered the questions on the plan pull request | each rework built in its own target, and the plan pull request ready |
 | `/omni:ultra-wave <n>` | you want one wave at a time; `/omni:ultra-yolo` runs it for you | the wave's slices merged into their targets' feature branches |
 | `/omni:mega-pr-care <n>` | the pull requests are open, after `/omni:ultra-yolo` or alongside it; leave it running | every pull request of the PRD, the plan's, each target's and each linked bug fix's, kept conflict-free, green and review-handled round by round, until each is merged or closed; it never merges |
+| `/loop /omni:mega-drive` | several PRDs are merged into the inbox, or a roadmap with `--roadmap <n>`, and you want them built without typing each next command | each PRD ready, or parked on its plan pull request with what it waits on; the loop stops itself |
 | `/omni:mega-bug-fix` | a bug shows in one target and its cause may sit in another; `--prd <n>` links it to a PRD | one bug issue with a fix plan, one fix pull request per target in merge order, provider first, and a record pull request that closes the issue, merged last |
 
 `/omni:do-work` and `/omni:pr` are the same skills the single-repository loop runs: `--target`
@@ -156,4 +177,4 @@ It reads your answers on the plan pull request and reworks each decision you cha
 repository it was taken in**: a sub-pull request into that target's feature branch. Then it runs the
 same gate again, and marks the plan pull request ready once no question is left.
 
-[Next → Landings](/docs/landings)
+[Next → Roadmaps](/docs/roadmaps)

@@ -20,11 +20,11 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'drive', 'several-repositories', 'landings', 'flow', 'use-cases', 'troubleshooting',
+  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'drive', 'several-repositories', 'roadmaps', 'landings', 'flow', 'use-cases', 'troubleshooting',
 ];
 const TITLES = [
   'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Several repositories',
-  'Landings', 'Repository flow', 'Use cases', 'When something goes wrong',
+  'Roadmaps', 'Landings', 'Repository flow', 'Use cases', 'When something goes wrong',
 ];
 
 describe('docs/guide', () => {
@@ -32,7 +32,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its twelve pages, in order, each with its title', () => {
+  it('holds its thirteen pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -42,7 +42,7 @@ describe('docs/guide', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
       '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories',
-      '/docs/landings', '/docs/flow', '/docs/use-cases', '/docs/troubleshooting', '/docs',
+      '/docs/roadmaps', '/docs/landings', '/docs/flow', '/docs/use-cases', '/docs/troubleshooting', '/docs',
     ]);
   });
 
@@ -53,6 +53,16 @@ describe('docs/guide', () => {
     }
     for (const phrase of ['/loop /omni:drive', 'omni next --plan', '/omni:pr-care --once', 'stops itself', 'resumes, with the same plan', 'silent', 'omni signin']) {
       expect(drive, phrase).toContain(phrase);
+    }
+  });
+
+  it('explains roadmaps: one sitting, one map, specs up front, the check, one phase-0 PR, the drive line and the waiting PR (PRD 1162)', () => {
+    const roadmaps = readGuide(GUIDE).pages.find((page) => page.slug === 'roadmaps')?.body ?? '';
+    for (const heading of ['## Write a roadmap', '## roadmap.md', '## Drive it', '## Answer a question']) {
+      expect(roadmaps, heading).toContain(heading);
+    }
+    for (const phrase of ['/omni:roadmap', '/omni:mega-roadmap', 'one map', 'one phase-0', 'omni roadmap check', '/loop /omni:drive --roadmap', '/loop /omni:mega-drive --roadmap', 'waits on', 'omni roadmap answer']) {
+      expect(roadmaps, phrase).toContain(phrase);
     }
   });
 

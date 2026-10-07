@@ -168,6 +168,125 @@ describe('decideNext', () => {
   });
 });
 
+// PRD 1162, slice s1: in a plan repository, one row per verdict of the spec's part 3 table — read from
+// the plan PR (the plan repository's feature PR), each target's feature PR and the board across them.
+describe('decideNext in a plan repository', () => {
+  const PLAN_URL = 'https://github.com/acme/plans/pull/12';
+  const CREW_URL = 'https://github.com/acme/crew/pull/40';
+  const AI_URL = 'https://github.com/acme/ai-domain/pull/41';
+  const across = (over: Partial<PrdFacts> = {}, targets: { crew?: FeatureFacts | null | 'unreadable'; ai?: FeatureFacts | null | 'unreadable' } = {}): PrdFacts => ({
+    ...facts({ feature: feature({ url: PLAN_URL }), ...over }),
+    across: {
+      repo: 'plans',
+      targets: [
+        { repo: 'crew', pr: 'crew' in targets ? (targets.crew ?? null) : feature({ url: CREW_URL }) },
+        { repo: 'ai-domain', pr: 'ai' in targets ? (targets.ai ?? null) : feature({ url: AI_URL }) },
+      ],
+    },
+  });
+  const ready = (url: string, over: Partial<FeatureFacts> = {}) => feature({ url, isDraft: false, ...over });
+  const NEVER = new Set(['wave', 'yolo', 'yolo-fix', 'pr-care --once']);
+
+  it.each([
+    ['red CI', { checks: 'red', fixable: true } as const, 'red CI'],
+    ['a conflict', { conflict: true }, 'a conflict'],
+    ['a new review thread', { threads: 1 }, '1 review thread to handle'],
+  ])('a ready target PR with %s → act mega-pr-care --once, naming the PR by repository', (_, over, need) => {
+    const verdict = decideNext(across({ feature: ready(PLAN_URL), board: allMerged }, { crew: ready(CREW_URL, over), ai: ready(AI_URL) }));
+    expect(verdict).toEqual({ prd: PRD, verdict: 'act', skill: 'mega-pr-care --once', why: `crew#40 has ${need}`, link: CREW_URL });
+  });
+
+  it('a ready plan PR with red CI → act mega-pr-care --once too', () => {
+    const verdict = decideNext(across({ feature: ready(PLAN_URL, { checks: 'red', fixable: true }), board: allMerged }));
+    expect(verdict).toMatchObject({ verdict: 'act', skill: 'mega-pr-care --once', why: 'plans#12 has red CI', link: PLAN_URL });
+  });
+
+  it('a ready PR whose red CI is stuck parks on a person, naming it', () => {
+    const verdict = decideNext(across({ board: allMerged }, { ai: ready(AI_URL, { checks: 'red', fixable: true, stuck: true }) }));
+    expect(verdict).toEqual({ prd: PRD, verdict: 'park', why: "waits on a person: ai-domain#41's CI is stuck after its attempts", link: AI_URL });
+  });
+
+  it('gate red with answers on the plan PR → act ultra-yolo-fix', () => {
+    const verdict = decideNext(across({ board: allMerged, outbox: { questions: 2, answered: true } }));
+    expect(verdict).toMatchObject({ verdict: 'act', skill: 'ultra-yolo-fix', link: PLAN_URL });
+  });
+
+  it('no plan yet → act ultra-yolo', () => {
+    expect(decideNext(across({ feature: null, board: null }, { crew: null, ai: null }))).toEqual({ prd: PRD, verdict: 'act', skill: 'ultra-yolo', why: 'the PRD has no plan yet' });
+  });
+
+  it('every slice merged with a target PR still draft → act ultra-yolo, naming it', () => {
+    const verdict = decideNext(across({ feature: ready(PLAN_URL), board: allMerged }, { crew: ready(CREW_URL) }));
+    expect(verdict).toEqual({ prd: PRD, verdict: 'act', skill: 'ultra-yolo', why: 'every slice is merged and ai-domain#41 is not ready yet', link: AI_URL });
+  });
+
+  it('every slice merged with a target PR not opened yet, or the plan PR draft → act ultra-yolo', () => {
+    const missing = decideNext(across({ feature: ready(PLAN_URL), board: allMerged }, { crew: ready(CREW_URL), ai: null }));
+    expect(missing).toMatchObject({ verdict: 'act', skill: 'ultra-yolo', why: "every slice is merged and ai-domain's feature PR is not opened yet" });
+    const draft = decideNext(across({ board: allMerged }, { crew: ready(CREW_URL), ai: ready(AI_URL) }));
+    expect(draft).toMatchObject({ verdict: 'act', skill: 'ultra-yolo', why: 'every slice is merged and plans#12 is not ready yet', link: PLAN_URL });
+  });
+
+  it('takeable slices in any repository → act ultra-wave', () => {
+    expect(decideNext(across())).toMatchObject({ verdict: 'act', skill: 'ultra-wave', why: 'wave 1 can take s1, s2', link: PLAN_URL });
+  });
+
+  it('CI running in any repository → wait, with the CI hint', () => {
+    const verdict = decideNext(across({ feature: ready(PLAN_URL), board: allMerged }, { crew: ready(CREW_URL, { checks: 'running' }), ai: ready(AI_URL) }));
+    expect(verdict).toEqual({ prd: PRD, verdict: 'wait', why: "crew#40's CI is running", wakeHint: WAKE_HINTS.ci, link: CREW_URL });
+  });
+
+  it('a claim held → wait, with the claim hint', () => {
+    expect(decideNext(across({ board: board({ merged: 1, inFlight: s('s2') }) }))).toMatchObject({ verdict: 'wait', wakeHint: WAKE_HINTS.claim });
+  });
+
+  it('phase-0 open → park, naming the PR by repository', () => {
+    const verdict = decideNext(across({ phase0: { url: 'https://github.com/acme/plans/pull/3' }, feature: null, board: null }, { crew: null, ai: null }));
+    expect(verdict).toEqual({ prd: PRD, verdict: 'park', why: 'waits on a reviewer: the phase-0 PR plans#3 is open', link: 'https://github.com/acme/plans/pull/3' });
+  });
+
+  it('outbox questions open → park on the plan PR author, naming the plan PR', () => {
+    const verdict = decideNext(across({ board: allMerged, outbox: { questions: 1, answered: false } }));
+    expect(verdict).toEqual({ prd: PRD, verdict: 'park', why: 'waits on @pm: 1 outbox question to answer on plans#12', link: PLAN_URL });
+  });
+
+  it('every PR ready and clean → park, naming each open PR by repository', () => {
+    const verdict = decideNext(across({ feature: ready(PLAN_URL), board: allMerged }, { crew: ready(CREW_URL), ai: ready(AI_URL) }));
+    expect(verdict).toEqual({ prd: PRD, verdict: 'park', why: 'waits on a person: ready to merge: plans#12, crew#40, ai-domain#41', link: PLAN_URL });
+  });
+
+  it('a target merged already is not named in the park', () => {
+    const verdict = decideNext(across({ feature: ready(PLAN_URL), board: allMerged }, { crew: ready(CREW_URL, { state: 'MERGED' }), ai: ready(AI_URL) }));
+    expect(verdict).toMatchObject({ verdict: 'park', why: 'waits on a person: ready to merge: plans#12, ai-domain#41' });
+  });
+
+  it('every PR merged or closed → done; the plan PR merged with a target PR open is not', () => {
+    const merged = (url: string) => feature({ url, state: 'MERGED', isDraft: false });
+    expect(decideNext(across({ feature: merged(PLAN_URL), board: allMerged }, { crew: merged(CREW_URL), ai: feature({ url: AI_URL, state: 'CLOSED' }) }))).toEqual({
+      prd: PRD,
+      verdict: 'done',
+      why: 'the plan PR and every target PR are merged or closed',
+      link: PLAN_URL,
+    });
+    expect(decideNext(across({ feature: merged(PLAN_URL), board: allMerged }, { crew: merged(CREW_URL), ai: ready(AI_URL) }))).toMatchObject({ verdict: 'park' });
+  });
+
+  it('a target that cannot be read → wait: github unreachable', () => {
+    expect(decideNext(across({}, { crew: 'unreadable' }))).toMatchObject({ verdict: 'wait', why: 'github unreachable', wakeHint: WAKE_HINTS.unreadable });
+  });
+
+  it('never names a single-repository skill', () => {
+    const cases: PrdFacts[] = [
+      across(),
+      across({ feature: null, board: null }, { crew: null, ai: null }),
+      across({ board: allMerged }),
+      across({ board: allMerged, outbox: { questions: 1, answered: true } }),
+      across({ feature: ready(PLAN_URL, { threads: 2 }), board: allMerged }),
+    ];
+    for (const verdict of cases.map(decideNext)) if (verdict.verdict === 'act') expect(NEVER.has(verdict.skill)).toBe(false);
+  });
+});
+
 describe('stalledSlices', () => {
   const NOW = Date.parse('2026-10-07T09:00:00Z');
   const DAY = 24 * 60 * 60 * 1000;

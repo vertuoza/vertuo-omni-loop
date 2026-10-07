@@ -2,7 +2,7 @@
 // in the shape the app's loops contract takes (it refuses an unknown field):
 //
 //   start {event, repo, prds, plan, reason?, takeOver}
-//   tick  {event, loopId, step, steps, prd, action, result, link, merged, items, nextWakeAt, replan?}
+//   tick  {event, loopId, step, steps, prd, action, result, link, merged, items, repos?, nextWakeAt, replan?}
 //   park  {event, loopId, prd, who, what, link}
 //   stop  {event, loopId}
 //
@@ -10,6 +10,9 @@
 // and shows it, never reshapes it. Pure: the command reads the files and the flags, this shapes them.
 // Each line of text is put on one line and cut to the contract's length, so a long result never turns
 // a tick into a refusal.
+//
+// PRD 1162, slice s7: a tick carries the repositories its step touches (`repos`, a target's short name
+// or an `owner/name`), sent only when there are some, so a tick of a single repository is unchanged.
 import type { OutboxItemId, PrdNumber, PrNumber } from '../ids.ts';
 import type { LoopPlan } from '../next/plan.ts';
 
@@ -21,7 +24,7 @@ export const WHO_MAX = 100;
 export type StartBody = { event: 'start'; repo: string; prds: PrdNumber[]; plan: LoopPlan; reason?: string; takeOver: boolean };
 export type TickBody = {
   event: 'tick'; loopId: string; step: number; steps: number; prd: PrdNumber; action: string; result: string;
-  link: string | null; merged: PrNumber[]; items: OutboxItemId[]; nextWakeAt: string | null;
+  link: string | null; merged: PrNumber[]; items: OutboxItemId[]; repos?: string[]; nextWakeAt: string | null;
   replan?: { reason: string; plan: LoopPlan };
 };
 export type ParkBody = { event: 'park'; loopId: string; prd: PrdNumber; who: string; what: string; link: string | null };
@@ -43,13 +46,14 @@ export function startBody({ repo, plan, takeOver }: { repo: string; plan: LoopPl
 }
 
 /** One tick of loop `loopId`. `replan`, when given, is a plan version the app has not seen yet. */
-export function tickBody({ loopId, step, steps, prd, action, result, link = null, merged = [], items = [], nextWakeAt = null, replan = null }: {
+export function tickBody({ loopId, step, steps, prd, action, result, link = null, merged = [], items = [], repos = [], nextWakeAt = null, replan = null }: {
   loopId: string; step: number; steps: number; prd: PrdNumber; action: string; result: string;
-  link?: string | null; merged?: readonly PrNumber[]; items?: readonly OutboxItemId[]; nextWakeAt?: string | null; replan?: LoopPlan | null;
+  link?: string | null; merged?: readonly PrNumber[]; items?: readonly OutboxItemId[]; repos?: readonly string[];
+  nextWakeAt?: string | null; replan?: LoopPlan | null;
 }): TickBody {
   return {
     event: 'tick', loopId, step, steps, prd, action, result: oneLine(result, LINE_MAX), link,
-    merged: [...merged], items: [...items], nextWakeAt,
+    merged: [...merged], items: [...items], ...(repos.length > 0 ? { repos: [...repos] } : {}), nextWakeAt,
     ...(replan ? { replan: { reason: reasonOf(replan), plan: replan } } : {}),
   };
 }

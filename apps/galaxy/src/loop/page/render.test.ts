@@ -84,6 +84,15 @@ describe('one loop opened', () => {
     expect(html).toMatch(/<li class="loop-line"><time>13:25 UTC<\/time> step 2\/6 · wave · <a href="\/prd\/1030">PRD 1030<\/a>/);
   });
 
+  it('names the repositories a tick\'s step touched on its ledger line, in a plan repository (PRD 1162)', () => {
+    const view = opened();
+    if (view.kind !== 'loop') throw new Error('the demo loop');
+    const ledger = view.loop.ledger.map((line) => (line.kind === 'tick' && line.step === 2 ? { ...line, repos: ['crew', 'ai-domain'] } : line));
+    const shown = text(render({ ...view, loop: { ...view.loop, ledger } }));
+    expect(shown).toContain('step 2/6 · wave · PRD 1030 · in crew, ai-domain → 3 sub-PRs merged');
+    expect(shown).toContain('step 3/6 · wait · PRD 1030 → CI running');
+  });
+
   it('says it has no parked PRD when none waits', () => {
     expect(t).toContain('No PRD waits on a person.');
   });

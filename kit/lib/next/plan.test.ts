@@ -1,8 +1,14 @@
 // PRD 1139, slice s3: the loop plan — every slice of every driven PRD in numbered steps.
 import { describe, expect, it } from 'vitest';
-import { parsePrd, parseWorkSliceId } from '../ids.ts';
+import { parseIssue, parsePr, parsePrd, parseWorkSliceId } from '../ids.ts';
+import type { PrdNumber } from '../ids.ts';
+import type { Roadmap, RoadmapRow } from '../roadmap/parse.ts';
+import type { PrStanding } from '../roadmap/push.ts';
+import type { Verdict } from './decide.ts';
+import { followPlan } from './follow.ts';
 import { crossOrders, planLoop } from './plan.ts';
 import type { PlanSliceInput, PrdInput } from './plan.ts';
+import { roadmapGates } from './roadmap.ts';
 
 const slice = (id: string, territory: string[], wave: number | null, state: PlanSliceInput['state'] = 'runnable'): PlanSliceInput => ({
   id: parseWorkSliceId(id),
@@ -87,9 +93,82 @@ describe('planLoop', () => {
     expect(two).toEqual(one);
   });
 
+  // PRD 1162, slice s1: in a plan repository, ground is a path in one repository.
+  const inRepo = (repo: string, id: string, territory: string[]): PlanSliceInput => ({ ...slice(id, territory, 1), repo });
+
+  it('the same path in two repositories → beside', () => {
+    const plan = planLoop({ prds: [prd(1201, [inRepo('crew', 's3', ['apps/crew-api/'])]), prd(1213, [inRepo('ai-domain', 's2', ['apps/crew-api/'])])], shipped: [] });
+    expect(crossOrders(plan)).toEqual([]);
+    expect(shape(plan)).toEqual(['1: 1201 wave w1 s3', '2: 1213 wave w1 s2', '3: 1201 finish', '4: 1213 finish']);
+    expect(plan.steps[0]?.beside).toEqual([2]);
+  });
+
+  it('the same path in one repository → in series, the reason naming <repo>:<path>', () => {
+    const plan = planLoop({ prds: [prd(1213, [inRepo('crew', 's2', ['apps/crew-api/x.ts'])]), prd(1201, [inRepo('crew', 's3', ['apps/crew-api/'])])], shipped: [] });
+    expect(crossOrders(plan)).toEqual(['step 3: 1213 s2 after 1201 s3: both touch crew:apps/crew-api/']);
+  });
+
+  it('each step carries the repositories of its slices, in a plan repository only', () => {
+    const plan = planLoop({ prds: [prd(1201, [inRepo('crew', 's1', ['a/']), inRepo('ai-domain', 's2', ['b/'])])], shipped: [] });
+    expect(plan.steps.map((step) => step.repos)).toEqual([
+      ['ai-domain', 'crew'],
+      ['ai-domain', 'crew'],
+    ]);
+    expect(planLoop({ prds: [prd(7, null)], shipped: [] }).steps[0]).not.toHaveProperty('repos');
+    expect(planLoop({ prds: [prd(7, [slice('s1', ['a/'], 1)])], shipped: [] }).steps[0]).not.toHaveProperty('repos');
+  });
+
   it('records what it saw, so a later tick can tell what changed', () => {
     const plan = planLoop({ prds: [prd(7, [slice('s1', ['a/'], 1, 'stuck'), slice('s2', ['b/'], 1)])], shipped: [] });
     expect(plan.seen).toEqual([{ prd: 7, slices: ['s1', 's2'], stuck: ['s1'], ended: null }]);
     expect(plan.prds).toEqual([7]);
+  });
+});
+
+// PRD 1162, slice s7: a roadmap's blocked PRD starts once its blocker merged, and nothing else waits.
+describe('planLoop under a roadmap', () => {
+  const A = parsePrd(1201);
+  const B = parsePrd(1213);
+  const C = parsePrd(1220);
+  const act = (n: PrdNumber): Verdict => ({ prd: n, verdict: 'act', skill: 'ultra-wave', why: 'wave 1 can take s1' });
+  const done = (n: PrdNumber): Verdict => ({ prd: n, verdict: 'done', why: 'merged' });
+  const park = (n: PrdNumber): Verdict => ({ prd: n, verdict: 'park', why: 'waits on a merger' });
+  const pr = (repo: string, number: number, state: PrStanding['state']): PrStanding => ({
+    repo, number: parsePr(number), url: `https://github.com/acme/${repo}/pull/${number}`, state, isDraft: false, createdAt: null, mergedAt: null, closedAt: null, questions: 0,
+  });
+  const row = (id: string, n: PrdNumber, blockedBy: string[] = []): RoadmapRow => ({ id, prd: n, title: `${id} title`, repos: ['crew'], blockedBy, why: blockedBy.length ? 'x' : null, wave: blockedBy.length ? 2 : 1 });
+  const roadmap: Roadmap = {
+    roadmap: parseIssue(1200), title: 'Crew', milestone: 'm', product: null, target: null, source: null, repos: true,
+    prds: [row('P1', A), row('P2', B, ['P1']), row('P3', C)], questions: [],
+  };
+  const inCrew = (id: string, territory: string): PlanSliceInput => ({ ...slice(id, [territory], 1), repo: 'crew' });
+  const plan = planLoop({
+    prds: [prd(1201, [inCrew('s1', 'a/')]), prd(1213, [inCrew('s1', 'b/')], { blockedBy: [A] }), prd(1220, [inCrew('s1', 'c/')])],
+    shipped: [],
+  });
+  /** A tick, P1's PRs as given: the plan PR and the crew PR, two expected. */
+  const tick = (prs: PrStanding[], verdicts: Verdict[]) => followPlan(plan, {
+    verdicts: new Map(verdicts.map((verdict) => [verdict.prd, verdict] as const)),
+    merged: new Map(),
+    shipped: new Set(),
+    gates: roadmapGates({ roadmap, answers: new Map(), standings: new Map([['P1', { shipped: false, prs, expected: 2 }]]), live: new Map(), issueLink: null }),
+  });
+  const half = [pr('plans', 12, 'MERGED'), pr('crew', 40, 'OPEN')];
+
+  it("its first step comes after the blocker's finish", () => {
+    expect(plan.steps.find((step) => step.prd === B)?.why).toEqual(['1213 after 1201: blocked by it until it ships']);
+  });
+
+  it('in a plan repository, held until the plan PR and every target PR merged', () => {
+    expect(tick(half, [done(A), act(B), done(C)])).toEqual({
+      state: 'stop',
+      waiting: [{ prd: 1213, verdict: 'park', why: 'waits on crew#40 (P1 P1 title): ready, waiting for your merge', link: 'https://github.com/acme/crew/pull/40' }],
+    });
+    expect(tick([pr('plans', 12, 'MERGED')], [done(A), act(B), done(C)])).toMatchObject({ state: 'stop' });
+    expect(tick([pr('plans', 12, 'MERGED'), pr('crew', 40, 'MERGED')], [done(A), act(B), done(C)])).toMatchObject({ state: 'step', step: { prd: 1213 } });
+  });
+
+  it('other steps run meanwhile', () => {
+    expect(tick(half, [park(A), act(B), act(C)])).toMatchObject({ state: 'step', step: { prd: 1220 }, verdict: { verdict: 'act' } });
   });
 });

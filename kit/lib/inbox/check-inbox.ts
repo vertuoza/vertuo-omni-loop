@@ -17,6 +17,8 @@
  *    (`ctx.config.limits.beforeAfterMaxBytes`).
  * 6. The sibling `voice.json`, when present, reads as the voice record (PRD 822, `../voice/voice.ts`):
  *    each refusal names the file, the round and the field.
+ * 7. Every roadmap under the inbox's `roadmaps/` passes `omni roadmap check` (PRD 1162,
+ *    `../roadmap/index.ts`): each violation names the roadmap's file and its row or question.
  *
  * An empty inbox passes trivially. A missing `plan.md` is never graded here — whether a PRD has
  * been planned yet is a status question, never a violation.
@@ -27,6 +29,7 @@ import { basename, dirname, join } from 'node:path';
 import { readRepoFile } from '../check-report.ts';
 import { domainsDir } from '../knowledge/registers.ts';
 import { parseFolderName } from '../layout.ts';
+import { findRoadmapViolations } from '../roadmap/index.ts';
 import { parseVoice, VOICE_FILE } from '../voice/voice.ts';
 import type { Context } from '../context.ts';
 import type { InboxItem } from '../types.ts';
@@ -172,7 +175,8 @@ export function inboxViolationsFor({ ctx, prd }: { ctx: Ctx; prd: PrdNumber }): 
   return [...violations, ...blockedByViolations(record ? [record] : [], ctx)];
 }
 
-/** Grades every spec the inbox holds, and every sibling before-after page, folder by folder. */
+/** Grades every spec the inbox holds, every sibling before-after page, folder by folder, and every
+ * roadmap. */
 export function findInboxViolations({ ctx }: { ctx: Ctx }): string[] {
   const violations: string[] = [];
   const records: FolderRecord[] = [];
@@ -184,6 +188,7 @@ export function findInboxViolations({ ctx }: { ctx: Ctx }): string[] {
   }
 
   violations.push(...blockedByViolations(records, ctx));
+  violations.push(...findRoadmapViolations(ctx));
 
   return violations;
 }

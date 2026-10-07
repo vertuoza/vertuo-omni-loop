@@ -1291,6 +1291,7 @@ export type Database = {
           merged: number[]
           next_wake_at: string | null
           prd: number
+          repos: string[]
           result: string
           step: number
           steps: number
@@ -1305,6 +1306,7 @@ export type Database = {
           merged?: number[]
           next_wake_at?: string | null
           prd: number
+          repos?: string[]
           result: string
           step: number
           steps: number
@@ -1319,6 +1321,7 @@ export type Database = {
           merged?: number[]
           next_wake_at?: string | null
           prd?: number
+          repos?: string[]
           result?: string
           step?: number
           steps?: number
@@ -2015,6 +2018,128 @@ export type Database = {
           },
           {
             foreignKeyName: "repositories_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_prds: {
+        Row: {
+          blockers: string[]
+          ended_at: string | null
+          position: number
+          prd: number
+          repos: string[]
+          roadmap_id: string
+          row_id: string
+          started_at: string | null
+          state: string
+          title: string
+          waits_on: string | null
+          waits_on_url: string | null
+          wave: number
+        }
+        Insert: {
+          blockers?: string[]
+          ended_at?: string | null
+          position: number
+          prd: number
+          repos?: string[]
+          roadmap_id: string
+          row_id: string
+          started_at?: string | null
+          state: string
+          title: string
+          waits_on?: string | null
+          waits_on_url?: string | null
+          wave: number
+        }
+        Update: {
+          blockers?: string[]
+          ended_at?: string | null
+          position?: number
+          prd?: number
+          repos?: string[]
+          roadmap_id?: string
+          row_id?: string
+          started_at?: string | null
+          state?: string
+          title?: string
+          waits_on?: string | null
+          waits_on_url?: string | null
+          wave?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_prds_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmaps: {
+        Row: {
+          created_at: string
+          document: string
+          id: string
+          milestone: string
+          number: number
+          product_id: string | null
+          pushed_at: string
+          pushed_by: string | null
+          questions: Json
+          repo: string
+          source: string | null
+          target_date: string | null
+          title: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          document: string
+          id?: string
+          milestone: string
+          number: number
+          product_id?: string | null
+          pushed_at?: string
+          pushed_by?: string | null
+          questions?: Json
+          repo: string
+          source?: string | null
+          target_date?: string | null
+          title: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          document?: string
+          id?: string
+          milestone?: string
+          number?: number
+          product_id?: string | null
+          pushed_at?: string
+          pushed_by?: string | null
+          questions?: Json
+          repo?: string
+          source?: string | null
+          target_date?: string | null
+          title?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmaps_product_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "roadmaps_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -3390,6 +3515,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      roadmap_push: { Args: { p_body: Json }; Returns: Json }
       set_jev_decision: {
         Args: {
           p_decision: string

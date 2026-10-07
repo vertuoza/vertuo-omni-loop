@@ -86,6 +86,13 @@ jobs:
         # parked when PRDs still wait. Another account cannot push to it, nobody signed in writes the
         # three tables, a member of the workspace reads them, and anyone else reads nothing (PRD 1139).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/loops.sql
+      - name: Who may read and write the roadmaps
+        # roadmap_push() files a roadmap in its repository's workspace with its PRDs in order and its
+        # product matched by name among the workspace's own; a second push, by any member, replaces its
+        # document, questions and PRDs; an unknown product is filed under none and said. Nobody signed
+        # in writes the two tables, a roadmap never points at another workspace's product, a member of
+        # the workspace reads them, anyone else nothing; a loop's tick keeps its repositories (PRD 1162).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/roadmaps.sql
       - name: Who may read and write the releases
         # Anyone, signed out or signed in, reads every release, and nobody writes one. Only the service
         # role (pnpm releases:sync) adds releases and refreshes their text, and it never renumbers,

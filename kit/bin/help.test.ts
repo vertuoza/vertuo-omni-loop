@@ -74,6 +74,15 @@ describe('omni help', () => {
     expect(out.replace(/\s+/g, ' ')).toMatch(/With no number it drives your own PRDs .* --plan orders every slice .* first step not done/);
   });
 
+  it('prints omni next --roadmap: exactly its PRDs, held on their blockers, parked on a person question (PRD 1162)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { out } = await run(['help', 'next'], root);
+    expect(out).toContain('omni next --roadmap <n> [--json] [--plan]');
+    expect(out.replace(/\s+/g, ' ')).toMatch(/--roadmap <n> drives exactly roadmap n's PRDs, someone else's included: .* held until .* merged .* parks only the PRDs it blocks.* closed unmerged parks its dependents/);
+    const loop = await run(['help', 'loop'], root);
+    expect(loop.out.replace(/\s+/g, ' ')).toMatch(/the repositories it touches \(--repos, else the plan's\)/);
+  });
+
   it('prints omni loop: its verbs, run by the skills, and how it never blocks (PRD 1139)', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out } = await run(['help', 'loop'], root);
@@ -93,6 +102,32 @@ describe('omni help', () => {
     const care = await run(['help', 'pr-care'], root);
     expect(care.out).toMatch(/^\/omni:pr-care <n> \[--once\] +for you\n/);
     expect(care.out.replace(/\s+/g, ' ')).toMatch(/--once runs one round and returns/);
+  });
+
+  it('prints /omni:mega-drive: run under /loop, for you, the ultra- skills, and --roadmap on both drives (PRD 1162)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', '/omni:mega-drive'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^\/loop \/omni:mega-drive \[<n>…\] +for you\n/);
+    expect(out).toContain('/loop /omni:mega-drive --roadmap <n>');
+    expect(out.replace(/\s+/g, ' ')).toMatch(/plan repository.*\/omni:ultra-wave.*\/omni:mega-pr-care --once/);
+    const drive = await run(['help', 'drive'], root);
+    expect(drive.out).toContain('/loop /omni:drive --roadmap <n>');
+    const care = await run(['help', 'mega-pr-care'], root);
+    expect(care.out).toMatch(/^\/omni:mega-pr-care <n> \[--once\] +for you\n/);
+  });
+
+  it('prints /omni:roadmap after omni roadmap, and /omni:mega-roadmap, each with its drive line (PRD 1162)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const both = await run(['help', 'roadmap'], root);
+    expect(both.code).toBe(0);
+    expect(both.out).toMatch(/^omni roadmap check \[<n>\] +run by the skills\n/);
+    expect(both.out).toMatch(/\n\n\/omni:roadmap <source> +for you\n/);
+    expect(both.out.replace(/\s+/g, ' ')).toMatch(/one map.*one phase-0 PR.*\/loop \/omni:drive --roadmap <n>/);
+    const mega = await run(['help', '/omni:mega-roadmap'], root);
+    expect(mega.code).toBe(0);
+    expect(mega.out).toMatch(/^\/omni:mega-roadmap <source> +for you\n/);
+    expect(mega.out.replace(/\s+/g, ' ')).toMatch(/plan repository.*\/loop \/omni:mega-drive --roadmap <n>/);
   });
 
   it('takes a skill by its name or its slash command alike', async () => {
@@ -154,6 +189,30 @@ describe('omni --help, omni -h and a bare omni', () => {
     expect(out).toMatch(/^omni generated <range> \[--json\] +run by the skills\n/);
     expect(out).toMatch(/stale/);
     expect(out).toMatch(/no generated\s+files/);
+  });
+
+  it('lists roadmap among the commands the skills run, and explains its check (PRD 1162)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const overview = await run(['help'], root);
+    expect(overview.out.slice(overview.out.indexOf('Run by the skills:'))).toMatch(/\broadmap\b/);
+    const { code, out } = await run(['help', 'roadmap'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni roadmap check \[<n>\] +run by the skills\n/);
+    expect(out).toContain('work/delivery/inbox/roadmaps/');
+    expect(out.replace(/\s+/g, ' ')).toMatch(/a cycle, a wave that does not follow its blockers, a blocker without its why/);
+    expect(out.replace(/\s+/g, ' ')).toMatch(/omni check inbox runs it too/);
+  });
+
+  it('explains roadmap push and answer (PRD 1162, s6)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'roadmap'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni roadmap push <n>$/m);
+    expect(out).toMatch(/^omni roadmap answer <n> <question> "<answer>"$/m);
+    const flat = out.replace(/\s+/g, ' ');
+    expect(flat).toMatch(/a 5-second limit and one sign-in refresh/);
+    expect(flat).toMatch(/exits 1 with one line \(off, no sign-in, github unreachable, unreachable or refused\)/);
+    expect(flat).toMatch(/as a comment on the roadmap's issue, with the marker/);
   });
 
   it('--help and -h print exactly what omni help prints', async () => {

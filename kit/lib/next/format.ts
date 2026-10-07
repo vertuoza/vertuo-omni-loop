@@ -26,7 +26,8 @@ export function formatPlan(plan: LoopPlan): string[] {
     const after = step.after.length > 0 ? ` · after ${step.after.join(', ')}` : '';
     const waits = step.waitsFor.length > 0 ? ` · waits for PRD ${step.waitsFor.join(', ')} to ship` : '';
     const beside = step.beside.length > 0 ? ` · beside ${step.beside.join(', ')}` : '';
-    return `  ${step.step}. ${stepWords(step)}${after}${waits}${beside}`;
+    const repos = step.repos ? ` · in ${step.repos.join(', ')}` : '';
+    return `  ${step.step}. ${stepWords(step)}${after}${waits}${beside}${repos}`;
   });
   const orders = crossOrders(plan);
   return [head, ...steps, ...(orders.length > 0 ? ['orders across PRDs:', ...orders.map((order) => `  ${order}`)] : [])];

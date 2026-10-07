@@ -8,32 +8,52 @@
 // left is the tick's: its PRD's verdict. When that verdict is a `wait`, a later step the plan marked
 // beside it whose verdict is an `act` is taken instead; no other later step ever is. With no step
 // left, the loop stops, and says what each PRD not done waits on.
+//
+// PRD 1162, slice s7, a roadmap (`omni next --roadmap <n>`): the tick also reads each PRD's gate
+// (`roadmap.ts`). A `park` gate parks the PRD as a parked verdict would, its why the gate's; a `hold`
+// gate holds the PRD's first step, its why the waits-on line, while every other step runs.
 import type { PrdNumber, WorkSliceId } from '../ids.ts';
 import type { Verdict } from './decide.ts';
 import type { LoopPlan, Step } from './plan.ts';
+import type { Gate } from './roadmap.ts';
 
 /** What a tick read live. */
 export type Live = {
   verdicts: ReadonlyMap<PrdNumber, Verdict>;
   merged: ReadonlyMap<PrdNumber, ReadonlySet<WorkSliceId>>;
   shipped: ReadonlySet<PrdNumber>;
+  /** Under a roadmap: what it holds each PRD on; a PRD free to run is absent. */
+  gates?: ReadonlyMap<PrdNumber, Gate>;
 };
 
 /** The tick's step and its verdict, or the loop's stop with what each PRD waits on. */
 export type Followed = { state: 'step'; step: Step; verdict: Verdict } | { state: 'stop'; waiting: Verdict[] };
 
 /** Why a step cannot run yet, or `null` when it can. */
-type Hold = { prd: PrdNumber; why: string } | null;
+type Hold = { prd: PrdNumber; why: string; link?: string } | null;
+
+/** PRD `prd`'s verdict this tick: what it read live, parked instead when a roadmap parks it. */
+function verdictOf(prd: PrdNumber, live: Live): Verdict | undefined {
+  const verdict = live.verdicts.get(prd);
+  const gate = live.gates?.get(prd);
+  if (!verdict || verdict.verdict === 'done' || gate?.kind !== 'park') return verdict;
+  return { prd, verdict: 'park', why: gate.why, ...(gate.link ? { link: gate.link } : {}), ...(verdict.repos ? { repos: verdict.repos } : {}) };
+}
 
 function isDone(step: Step, live: Live): boolean {
-  if (live.verdicts.get(step.prd)?.verdict === 'done') return true;
+  if (verdictOf(step.prd, live)?.verdict === 'done') return true;
   if (step.kind !== 'wave') return false;
   const merged = live.merged.get(step.prd);
   return step.slices.every((id) => merged?.has(id) === true);
 }
 
-/** What holds `step`: a PRD outside the loop not shipped, or a step before it not done. */
+/** What holds `step`: a roadmap holding its PRD's first step, a PRD outside the loop not shipped, or
+ * a step before it not done. */
 function holdOf(step: Step, plan: LoopPlan, done: ReadonlySet<number>, live: Live): Hold {
+  const gate = live.gates?.get(step.prd);
+  if (gate?.kind === 'hold' && plan.steps.find((candidate) => candidate.prd === step.prd) === step) {
+    return { prd: step.prd, why: gate.why, ...(gate.link ? { link: gate.link } : {}) };
+  }
   const unshipped = step.waitsFor.find((prd) => !live.shipped.has(prd));
   if (unshipped !== undefined) return { prd: step.prd, why: `waits on PRD ${unshipped} to ship` };
   const before = step.after.find((n) => !done.has(n));
@@ -45,11 +65,11 @@ function holdOf(step: Step, plan: LoopPlan, done: ReadonlySet<number>, live: Liv
 /** What every PRD not done waits on, in the plan's PRD order: its parked verdict, or what holds it. */
 function waitingOf(plan: LoopPlan, live: Live, holds: ReadonlyMap<PrdNumber, Hold>): Verdict[] {
   return plan.prds.flatMap((prd): Verdict[] => {
-    const verdict = live.verdicts.get(prd);
+    const verdict = verdictOf(prd, live);
     if (verdict?.verdict === 'done') return [];
     if (verdict?.verdict === 'park') return [verdict];
     const hold = holds.get(prd);
-    return hold ? [{ prd, verdict: 'park', why: hold.why }] : [];
+    return hold ? [{ prd, verdict: 'park', why: hold.why, ...(hold.link ? { link: hold.link } : {}) }] : [];
   });
 }
 
@@ -59,7 +79,7 @@ type Walk = { plan: LoopPlan; live: Live; done: ReadonlySet<number>; holds: Map<
 /** The verdict `step` runs with now, or null when it is done, parked or held (its hold kept). */
 function runnableVerdict(step: Step, { plan, live, done, holds }: Walk): Verdict | null {
   if (done.has(step.step)) return null;
-  const verdict = live.verdicts.get(step.prd);
+  const verdict = verdictOf(step.prd, live);
   if (!verdict || verdict.verdict === 'park') return null;
   const hold = holdOf(step, plan, done, live);
   if (hold === null) return verdict;

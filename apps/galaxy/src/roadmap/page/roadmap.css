@@ -1,0 +1,77 @@
+/* The Roadmaps pages (PRD 1162), on the ask pages' reading surface, drawn in the boards' card
+   (../../dashboard/board/board.css) and these pieces of their own: the product filter, a roadmap's card
+   (its milestone, its progress as chips, what blocks it), the Gantt (bars coloured by state, solid on
+   real dates and dashed where projected, an arrow from each blocker), the questions with their answer
+   box, and the PRDs. Every colour is a token of src/ask/theme-tokens.ts. Nothing is wider than the
+   window: at 393 px the Gantt scrolls inside its own box and every line wraps. */
+
+.roadmap-lede { margin: 0 0 12px; color: var(--ask-muted); overflow-wrap: anywhere; }
+.roadmap-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.roadmap-card { display: grid; gap: 6px; min-width: 0; }
+.roadmap-title { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.ask .roadmap-title a { color: var(--ask-ink); }
+.roadmap-milestone { margin: 0; color: var(--ask-ink); overflow-wrap: anywhere; }
+.roadmap-muted, .roadmap-empty p { margin: 0; color: var(--ask-muted); overflow-wrap: anywhere; }
+.roadmap-empty { display: grid; gap: 6px; }
+.ask .roadmap-card a, .ask .roadmap-line a, .ask .roadmap-question a { color: var(--ask-plasma); }
+
+.roadmap-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.roadmap-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.roadmap-chip {
+  font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid var(--ask-line-strong); color: var(--ask-ink); text-decoration: none;
+}
+.roadmap-chip.is-current, .roadmap-chip.is-product { border-color: var(--ask-plasma); background: var(--ask-plasma-soft); }
+.roadmap-chip.is-merged { color: var(--ask-green); border-color: currentColor; }
+.roadmap-chip.is-ready { color: var(--ask-yellow); border-color: currentColor; }
+.roadmap-blocks { margin: 0; padding-left: 18px; color: var(--ask-muted); font-size: 13px; overflow-wrap: anywhere; }
+
+.roadmap-back-row { margin: 0 0 4px; }
+.ask .roadmap-back { color: var(--ask-muted); text-decoration: none; }
+.ask .roadmap-back:hover { color: var(--ask-ink); text-decoration: underline; }
+
+/* ── The Gantt ── */
+.roadmap-gantt-box { overflow-x: auto; max-width: 100%; }
+.roadmap-gantt { display: block; font-family: var(--ask-body); font-size: 11px; }
+.roadmap-axis line { stroke: var(--ask-line); stroke-width: 1; }
+.roadmap-axis text, .roadmap-wave { fill: var(--ask-muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.roadmap-row-name { fill: var(--ask-ink); font-weight: 600; }
+.roadmap-row a:hover .roadmap-row-name { fill: var(--ask-plasma); text-decoration: underline; }
+.roadmap-seg { stroke-width: 1.5; }
+.roadmap-seg.is-projected { fill-opacity: .18; stroke-dasharray: 4 3; }
+.roadmap-bar-text { fill: var(--ask-ink); font-size: 10px; pointer-events: none; }
+.roadmap-waits { fill: var(--ask-muted); font-size: 10px; }
+.roadmap-waits a { fill: var(--ask-yellow); }
+.roadmap-arrow { fill: none; stroke: var(--ask-muted); stroke-width: 1.2; }
+.roadmap-arrow-head { fill: var(--ask-muted); }
+
+.roadmap-bar.is-waiting .roadmap-seg { fill: var(--ask-sunk); stroke: var(--ask-line-strong); }
+.roadmap-bar.is-building .roadmap-seg { fill: var(--ask-cyan); stroke: var(--ask-cyan); }
+.roadmap-bar.is-outbox .roadmap-seg { fill: var(--ask-plasma); stroke: var(--ask-plasma); }
+.roadmap-bar.is-ready .roadmap-seg { fill: var(--ask-yellow); stroke: var(--ask-yellow); }
+.roadmap-bar.is-merged .roadmap-seg { fill: var(--ask-green); stroke: var(--ask-green); }
+.roadmap-bar.is-closed .roadmap-seg { fill: var(--ask-red); stroke: var(--ask-red); }
+.roadmap-seg.is-real, .roadmap-seg.is-wave { fill-opacity: .55; }
+
+.roadmap-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0 4px; font-size: 12px; }
+.roadmap-key { display: inline-flex; align-items: center; gap: 4px; color: var(--ask-ink); font-size: 12px; white-space: nowrap; }
+.roadmap-key::before { content: ''; width: 10px; height: 10px; border-radius: 3px; background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); }
+.roadmap-key.is-building::before { background: var(--ask-cyan); border-color: var(--ask-cyan); }
+.roadmap-key.is-outbox::before { background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.roadmap-key.is-ready::before { background: var(--ask-yellow); border-color: var(--ask-yellow); }
+.roadmap-key.is-merged::before { background: var(--ask-green); border-color: var(--ask-green); }
+.roadmap-key.is-closed::before { background: var(--ask-red); border-color: var(--ask-red); }
+
+/* ── The questions and the PRDs ── */
+.roadmap-lines { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.roadmap-line { color: var(--ask-ink); overflow-wrap: anywhere; }
+.roadmap-question { display: grid; gap: 4px; color: var(--ask-ink); overflow-wrap: anywhere; }
+.roadmap-question p { margin: 0; }
+.roadmap-question.is-person { border-left: 3px solid var(--ask-yellow); padding-left: 8px; }
+.roadmap-answer { display: grid; gap: 4px; }
+.roadmap-answer label { font-weight: 700; font-size: 13px; }
+.roadmap-answer-text {
+  width: 100%; box-sizing: border-box; font: inherit; color: var(--ask-ink); background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong); border-radius: 6px; padding: 6px 8px;
+}
+.roadmap-answer code { overflow-wrap: anywhere; }

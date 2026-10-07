@@ -421,6 +421,40 @@ describe('omni plan check — in a plan repository (PRD 549)', () => {
     expect(code).toBe(1);
     expect(out).toMatch(/s1 \(wave 1\) is blocked by s2 \(wave 2\)/);
   });
+
+  it('refuses a slice in a readOnly target and a consumer slice blocked by its provider, each by name (PRD 1162)', async () => {
+    const config = {
+      '.omni-loop/config.yml': [
+        'kit: 1',
+        'repo:',
+        '  slug: vertuoza/vertuo-automation-plan',
+        'plan:',
+        '  targets:',
+        '    - repo: vertuoza/vertuo-backend-php',
+        '      role: back-end',
+        '      knowledge: own',
+        '    - repo: vertuoza/vertuo-apps',
+        '      role: front-end',
+        '      knowledge: own',
+        '      consumes: [vertuo-backend-php]',
+        '    - repo: vertuoza/vertuo-legacy',
+        '      role: legacy',
+        '      knowledge: none',
+        '      readOnly: true',
+        '',
+      ].join('\n'),
+    };
+    const { code, out } = await check(
+      config,
+      multiPlan({
+        repos: [...REPOS_OK, `| vertuo-legacy | legacy | ${SHA_BACK} | none |`],
+        slices: [...SLICES_OK, '| s4 | vertuo-legacy | the old screen | `old/` | — | 1 |'],
+      }),
+    );
+    expect(code).toBe(1);
+    expect(out).toMatch(/^ {2}readOnly: s4 lands in vertuo-legacy, a read-only target/m);
+    expect(out).toMatch(/^ {2}consumes: s2 \(vertuo-apps\) is blocked by s1 \(vertuo-backend-php\), and vertuo-apps consumes vertuo-backend-php/m);
+  });
 });
 
 describe("omni plan check — each target's imported flow (PRD 1089, s6)", () => {
