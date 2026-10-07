@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-07",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A rule linked to the test that proves it is how I stop an agent from quietly breaking it in production.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "If the harvest guesses which test proves a rule, I get links I can not trust: fluff.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "Useful in every repository without setup, but it is plumbing, not a feature I can show.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "One number on the board that says how much of our knowledge is actually proven: that is something I would look at.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Fewer regressions reach customers if the rules hold, but nothing they see changes.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "If the harvest guesses which test proves a rule, I get links I can not trust, which is exactly the fluff I expect from this.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ~ · persona:Irisa ~"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-07",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Only a file the PR changed and that still exists: the link points at real code, and the guard of PRD 1044 now protects it.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Code checks the guess and a person confirms it. That answers my objection; it is no longer a guess.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "Works in any stack with no config, so every repository I touch gets it. Still not a feature.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "rules enforced, e of t, in omni status: I will read it.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Nothing my customers see changes.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ~ · persona:Irisa ~"
+    }
+  ]
+}
