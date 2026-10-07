@@ -213,6 +213,17 @@ describe('omni next', () => {
     expect(out).toBe('PRD 7 — park: waits on a reviewer: the phase-0 PR is open — https://github.com/acme/widgets/pull/3\n');
   });
 
+  it('a roadmap\'s one phase-0 PR, naming every row, parks each PRD on a reviewer (issue 1198)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const body = ['Refs #6', 'Refs #7', 'Refs #8', '', '## PRDs'].join('\n');
+    const fake = fakeExec({ phase0: [{ number: 36, url: 'https://github.com/acme/widgets/pull/36', state: 'OPEN', body }] });
+    const { code, out } = await run(['next', '7', '8'], root, fake);
+    expect(code).toBe(0);
+    expect(out).toBe(
+      [7, 8].map((prd) => `PRD ${prd} — park: waits on a reviewer: the phase-0 PR is open — https://github.com/acme/widgets/pull/36\n`).join(''),
+    );
+  });
+
   it('a merged feature PR → done', async () => {
     const root = repo();
     const { out } = await run(['next', '7'], root, fakeExec({ feature: [featurePr({ state: 'MERGED' })] }));
