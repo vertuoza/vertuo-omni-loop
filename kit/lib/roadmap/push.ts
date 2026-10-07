@@ -1,6 +1,6 @@
 /**
  * **A roadmap is pushed** (PRD 1162, slice s6): what `omni roadmap push <n>` sends to the app's
- * `POST /api/roadmaps` (`apps/galaxy/src/roadmap/api.ts`): `roadmap.md`'s front matter and its text,
+ * `POST /api/roadmaps` (the app's roadmaps contract): `roadmap.md`'s front matter and its text,
  * its open questions with the latest answer to each, and one row per PRD with where it stands.
  *
  * Where a PRD stands is read from its pull requests: its feature PR, found by the feature branch its
@@ -14,7 +14,7 @@ import { z } from 'zod';
 import { fillBranch } from '../board.ts';
 import type { Context } from '../context.ts';
 import { PrNumberSchema } from '../ids.ts';
-import type { PrNumber } from '../ids.ts';
+import type { IssueNumber, PrdNumber, PrNumber } from '../ids.ts';
 import { parseFolderName } from '../layout.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
 import type { Roadmap, RoadmapRow } from './parse.ts';
@@ -43,7 +43,7 @@ export type PrdStanding = { shipped: boolean; prs: PrStanding[]; expected: numbe
 /** One PRD's row of the push, as the app's contract takes it. */
 export type PushedPrd = {
   id: string;
-  prd: number;
+  prd: PrdNumber;
   title: string;
   repos: string[];
   blockers: string[];
@@ -61,7 +61,7 @@ export type PushedQuestion = { id: string; question: string; recommendation: str
 /** The body of `POST /api/roadmaps`: exactly the fields the contract takes. */
 export type RoadmapPushBody = {
   repo: string;
-  roadmap: number;
+  roadmap: IssueNumber;
   title: string;
   milestone: string;
   product: string | null;

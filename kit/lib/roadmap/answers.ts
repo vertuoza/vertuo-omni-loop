@@ -9,7 +9,7 @@
  */
 import type { IssueComment } from '../outbox/comment.ts';
 
-/** The longest answer the app stores (`apps/galaxy/src/roadmap/store.ts`, `RoadmapQuestion.answer`). */
+/** The longest answer the app stores for a question. */
 export const ANSWER_MAX = 1000;
 
 const MARKER = /^<!-- omni-roadmap-answer: ([A-Za-z0-9][A-Za-z0-9._-]{0,19}) -->[ \t]*\r?\n?/;
