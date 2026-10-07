@@ -21,6 +21,27 @@
 // | a slice claimed by another session                                        | `wait` (claim hint)      |
 // | a slice stuck                                                             | `park` (a person)        |
 // | anything else                                                             | `wait` (claim hint)      |
+//
+// PRD 1162, slice s1: in a plan repository (`facts.across` set) a PRD lands in several repositories,
+// and the single-repository skills stall on it: `decideAcross` below returns only the `ultra-` skills
+// and `mega-pr-care --once`, read from the plan PR (the plan repository's feature PR, `feature`), each
+// target's feature PR (`across.targets`) and the board across every repository. Earlier rows win:
+//
+// | the PRD                                                                     | verdict                        |
+// | --------------------------------------------------------------------------- | ------------------------------ |
+// | the plan PR and every target PR merged or closed, or shipped with none open | `done`                         |
+// | its phase-0 PR open                                                         | `park` (a reviewer), naming it |
+// | GitHub, a target or its board could not be read                             | `wait`                         |
+// | a ready PR in any repository, and red CI to fix, a conflict, or a thread    | `act mega-pr-care --once`      |
+// | a ready PR in any repository, and red CI marked stuck                       | `park` (a person)              |
+// | no plan yet                                                                 | `act ultra-yolo`               |
+// | every slice merged, and answers posted to its open outbox questions         | `act ultra-yolo-fix`           |
+// | every slice merged, and outbox questions open                               | `park` (the PRD's owner)       |
+// | every slice merged, the plan PR or a target PR draft or not opened yet      | `act ultra-yolo`               |
+// | every slice merged, CI running on a ready PR in any repository              | `wait` (CI hint)               |
+// | every slice merged, every PR ready and clean                                | `park`, naming each open PR    |
+// | slices takeable in the next wave, in any repository                         | `act ultra-wave`               |
+// | then as in one repository: a claim held, a slice stuck, anything else       | `wait`, `park`, `wait`         |
 
 import type { CheckState } from '../care/state.ts';
 import type { PrdNumber, WorkSliceId } from '../ids.ts';
@@ -29,14 +50,15 @@ import type { PrdNumber, WorkSliceId } from '../ids.ts';
 export const WAKE_HINTS = Object.freeze({ ci: 300, claim: 1200, unreadable: 300 });
 
 /** The skill an `act` verdict runs, as the loop types it after `/omni:`. */
-export type NextSkill = 'pr-care --once' | 'yolo-fix' | 'yolo' | 'wave';
+export type NextSkill = 'pr-care --once' | 'yolo-fix' | 'yolo' | 'wave' | 'mega-pr-care --once' | 'ultra-yolo-fix' | 'ultra-yolo' | 'ultra-wave';
 
-/** One PRD's verdict, as `omni next --json` prints it. */
+/** One PRD's verdict, as `omni next --json` prints it. In a plan repository the command adds the
+ * short names of the repositories the PRD's plan lands in (`repos`). */
 export type Verdict =
-  | { prd: PrdNumber; verdict: 'act'; skill: NextSkill; why: string; link?: string }
-  | { prd: PrdNumber; verdict: 'wait'; why: string; wakeHint: number; link?: string }
-  | { prd: PrdNumber; verdict: 'park'; why: string; link?: string }
-  | { prd: PrdNumber; verdict: 'done'; why: string; link?: string };
+  | { prd: PrdNumber; verdict: 'act'; skill: NextSkill; why: string; link?: string; repos?: string[] }
+  | { prd: PrdNumber; verdict: 'wait'; why: string; wakeHint: number; link?: string; repos?: string[] }
+  | { prd: PrdNumber; verdict: 'park'; why: string; link?: string; repos?: string[] }
+  | { prd: PrdNumber; verdict: 'done'; why: string; link?: string; repos?: string[] };
 
 /** The PRD's feature PR, as far as the verdict reads it. */
 export type FeatureFacts = {
@@ -68,7 +90,14 @@ export type BoardFacts = {
 /** The PRD's open outbox questions (human-action and high), and whether a person answered one. */
 export type OutboxFacts = { questions: number; answered: boolean };
 
-/** Everything the verdict is decided on. `null` means there is none; `unreadable`, it could not be read. */
+/** One target's feature PR of a plan-repository PRD: the target's short name, and its PR. */
+export type TargetPr = { repo: string; pr: FeatureFacts | null | 'unreadable' };
+
+/** In a plan repository: the plan repository's short name, and each target the plan lands in. */
+export type AcrossFacts = { repo: string; targets: TargetPr[] };
+
+/** Everything the verdict is decided on. `null` means there is none; `unreadable`, it could not be
+ * read. In a plan repository `feature` is the plan PR, and `across` names the targets. */
 export type PrdFacts = {
   prd: PrdNumber;
   shipped: boolean;
@@ -76,6 +105,7 @@ export type PrdFacts = {
   feature: FeatureFacts | null | 'unreadable';
   board: BoardFacts | null | 'unreadable';
   outbox: OutboxFacts | 'unreadable';
+  across?: AcrossFacts;
 };
 
 const act = (prd: PrdNumber, skill: NextSkill, why: string, link?: string): Verdict => ({ prd, verdict: 'act', skill, why, ...(link ? { link } : {}) });
@@ -134,6 +164,7 @@ function building(prd: PrdNumber, board: BoardFacts, link: string | undefined): 
 
 /** PRD `facts.prd`'s verdict. */
 export function decideNext(facts: PrdFacts): Verdict {
+  if (facts.across !== undefined) return decideAcross(facts, facts.across);
   const { prd, feature, board, outbox } = facts;
   if (feature !== null && feature !== 'unreadable' && feature.state !== 'OPEN') {
     return { prd, verdict: 'done', why: `the feature PR is ${feature.state.toLowerCase()}`, link: feature.url };
@@ -148,4 +179,74 @@ export function decideNext(facts: PrdFacts): Verdict {
   if (board === null) return act(prd, 'yolo', 'the PRD has no plan yet', feature?.url);
   if (board.total > 0 && board.merged === board.total) return finished(prd, feature, outbox);
   return building(prd, board, feature?.url);
+}
+
+/** A pull request named by its repository, `crew#40`, read from its URL; the URL as it is otherwise. */
+function prRef(url: string): string {
+  const match = /\/([^/]+)\/pull\/(\d+)\/?$/.exec(url);
+  return match ? `${match[1]}#${match[2]}` : url;
+}
+
+/** A pull request of the PRD that exists and could be read, or `null`. */
+const known = (entry: TargetPr): FeatureFacts | null => (entry.pr === null || entry.pr === 'unreadable' ? null : entry.pr);
+
+/** Whether a pull request is open and ready for review. */
+const isReady = (pr: FeatureFacts | null): pr is FeatureFacts => pr !== null && pr.state === 'OPEN' && !pr.isDraft;
+
+/** Whether the plan PR and every target PR opened are merged or closed. */
+function allEnded(planPr: FeatureFacts | null, targets: readonly TargetPr[]): boolean {
+  if (planPr === null || planPr.state === 'OPEN') return false;
+  return targets.every((entry) => entry.pr === null || (entry.pr !== 'unreadable' && entry.pr.state !== 'OPEN'));
+}
+
+/** The verdict a ready PR in any repository forces before anything else, or `null` when none does. */
+function readyAcross(prd: PrdNumber, prs: readonly TargetPr[]): Verdict | null {
+  const ready = prs.map(known).filter(isReady);
+  for (const pr of ready) {
+    const needs = careNeeds(pr);
+    if (needs.length > 0) return act(prd, 'mega-pr-care --once', `${prRef(pr.url)} has ${needs.join(', ')}`, pr.url);
+  }
+  const stuck = ready.find((pr) => pr.checks === 'red' && pr.stuck);
+  return stuck ? park(prd, `waits on a person: ${prRef(stuck.url)}'s CI is stuck after its attempts`, stuck.url) : null;
+}
+
+/** The verdict once every slice is merged, in a plan repository; `prs` starts with the plan PR. */
+function finishedAcross(prd: PrdNumber, prs: readonly TargetPr[], outbox: OutboxFacts): Verdict {
+  const planPr = prs[0] ? known(prs[0]) : null;
+  if (outbox.questions > 0) {
+    const on = planPr ? ` on ${prRef(planPr.url)}` : '';
+    if (outbox.answered) return act(prd, 'ultra-yolo-fix', `answers are posted on the outbox questions${on}`, planPr?.url);
+    const who = planPr?.author ? `@${planPr.author}` : "the PRD's owner";
+    return park(prd, `waits on ${who}: ${count(outbox.questions, 'outbox question')} to answer${on}`, planPr?.url);
+  }
+  const open = prs.filter((entry) => entry.pr === null || known(entry)?.state === 'OPEN');
+  const notReady = open.find((entry) => !isReady(known(entry)));
+  if (notReady) {
+    const pr = known(notReady);
+    const what = pr === null ? `${notReady.repo}'s feature PR is not opened yet` : `${prRef(pr.url)} is not ready yet`;
+    return act(prd, 'ultra-yolo', `every slice is merged and ${what}`, pr?.url);
+  }
+  const ready = open.map(known).filter(isReady);
+  const running = ready.find((pr) => pr.checks === 'running');
+  if (running) return wait(prd, `${prRef(running.url)}'s CI is running`, WAKE_HINTS.ci, running.url);
+  return park(prd, `waits on a person: ready to merge: ${ready.map((pr) => prRef(pr.url)).join(', ')}`, ready[0]?.url);
+}
+
+/** PRD `facts.prd`'s verdict in a plan repository: only the `ultra-` skills and `mega-pr-care --once`. */
+function decideAcross(facts: PrdFacts, across: AcrossFacts): Verdict {
+  const { prd, feature, board, outbox } = facts;
+  const prs: TargetPr[] = [{ repo: across.repo, pr: feature }, ...across.targets];
+  const planPr = feature === 'unreadable' ? null : feature;
+  if (allEnded(planPr, across.targets)) return { prd, verdict: 'done', why: 'the plan PR and every target PR are merged or closed', ...(planPr ? { link: planPr.url } : {}) };
+  if (facts.shipped && prs.every((entry) => entry.pr === null)) return { prd, verdict: 'done', why: 'the PRD has shipped' };
+  if (facts.phase0 !== null) return park(prd, `waits on a reviewer: the phase-0 PR ${prRef(facts.phase0.url)} is open`, facts.phase0.url);
+  if (prs.some((entry) => entry.pr === 'unreadable') || outbox === 'unreadable') return wait(prd, 'github unreachable', WAKE_HINTS.unreadable);
+  if (board === 'unreadable') return wait(prd, 'the board cannot be read', WAKE_HINTS.unreadable, planPr?.url);
+
+  const ready = readyAcross(prd, prs);
+  if (ready !== null) return ready;
+  if (board === null) return act(prd, 'ultra-yolo', 'the PRD has no plan yet', planPr?.url);
+  if (board.total > 0 && board.merged === board.total) return finishedAcross(prd, prs, outbox);
+  if (board.takeable.length > 0) return act(prd, 'ultra-wave', `wave ${board.wave ?? '?'} can take ${ids(board.takeable)}`, planPr?.url);
+  return building(prd, board, planPr?.url);
 }
