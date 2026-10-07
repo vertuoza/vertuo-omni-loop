@@ -16,7 +16,7 @@ commands:
   # meaning), run by the bug-fix skill after a fix. Never in the preflight or pull request CI.
   mutation: pnpm mutation:changed
 laws:
-  source: none
+  source: knowledge
 # Ask mode (PRD #71, ADR-0002): questions answered on the page the galaxy app serves. The Vercel
 # project's default production address; `null` switches the mode off.
 ask:
