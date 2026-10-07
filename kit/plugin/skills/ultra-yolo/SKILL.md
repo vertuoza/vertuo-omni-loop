@@ -1,6 +1,6 @@
 ---
 name: ultra-yolo
-description: Build a multi-repository PRD from its plan repository with nothing asked along the way — record each target that moved since the plan was read, clone every target and open its draft target feature PR, run /omni:ultra-wave until every slice is merged into its target's feature branch or nothing more can move, finish each target to ready with green CI, then run one outbox gate in the plan repository. Green gate — omni ship, commit, push, and the plan PR is marked ready last. Red gate — the plan PR stays draft with the questions posted, then, with answers.enabled on, it offers to take the answers here and carry on into /omni:ultra-yolo-fix. Never merges into any repository's default branch. Triggers on "ultra-yolo this PRD", "build it across the repositories", "/omni:ultra-yolo".
+description: Build a multi-repository PRD from its plan repository with nothing asked along the way — plan it first when it has no plan yet, as /omni:mega-brainstorm plans one, graded by omni plan check, then record each target that moved since the plan was read, clone every target and open its draft target feature PR, run /omni:ultra-wave until every slice is merged into its target's feature branch or nothing more can move, finish each target to ready with green CI, then run one outbox gate in the plan repository. Green gate — omni ship, commit, push, and the plan PR is marked ready last. Red gate — the plan PR stays draft with the questions posted, then, with answers.enabled on, it offers to take the answers here and carry on into /omni:ultra-yolo-fix. Never merges into any repository's default branch. Triggers on "ultra-yolo this PRD", "build it across the repositories", "/omni:ultra-yolo".
 ---
 
 # Ultra-yolo: every repository, every wave, one gate
@@ -64,6 +64,9 @@ acts.
    ```
 
    Read the same way the `omni prd <n>` of step 1, which reads the plan on the feature branch.
+   A PRD with no plan yet (its folder holds no `plan.md`, on the feature branch or, with none yet,
+   on the default branch) has no `repos:` line either: it is not stopped here, but planned in step
+   1, which runs this check again once the plan is written.
 3. The briefing (`node .omni-loop/bin/omni.mjs kb show briefing`), then
    `node .omni-loop/bin/omni.mjs kb status` once, as `/omni:yolo` step 0 runs them.
 
@@ -72,9 +75,38 @@ acts.
 As `/omni:yolo` steps 1 and 2, on the plan repository: find the draft **plan PR** (the feature PR
 `/omni:mega-brainstorm` opened), switch the clean checkout detached to its feature branch, read
 `omni prd <n>` there (state `inbox`; `shipped` with the plan PR still a draft resumes at step 5,
-green path, item 4). One difference: a PRD with no `plan.md` or no plan PR stops in one line,
-`PRD <n> has no plan: /omni:mega-brainstorm writes it`, because `/omni:plan` plans one repository
-only. Add `labels.inProgress` to the plan PR and rewrite its status comment, as there.
+green path, item 4). One difference: a PRD with no `plan.md` or no plan PR is planned first (**A
+PRD with no plan**, below). Add `labels.inProgress` to the plan PR and rewrite its status comment, as
+there.
+
+**A PRD with no plan** (a roadmap writes every spec up front and each plan just in time, so a PRD can
+reach this skill with its spec merged and no plan) is planned here, before its first wave, the way
+`/omni:mega-brainstorm` plans one, with nothing asked:
+
+1. Read the spec's `## Repositories` (for a PRD of a roadmap without one, the repositories its row
+   of `roadmap.md` names): the target repositories the PRD lands in. Then, as
+   `/omni:mega-brainstorm` step 3, a shallow read-only clone of each in a scratch folder
+   (`mktemp -d`), its head the `read at` of that repository's row; **nothing runs in it**. A target
+   that cannot be cloned stops the run in one line naming it: a plan is never written on a
+   repository it could not read.
+2. As `/omni:mega-brainstorm` step 8: follow `/omni:plan <n>`, its paragraph **In a plan
+   repository** filling the `repo` column and the `## Repositories` table, and point `plan.slice`
+   read per repository (`flow show plan.slice --repo <name>`), its hooks followed as planning
+   guidance only. It cuts the feature branch, commits `plan.md` there, signed, and opens the draft
+   plan PR, its **Slices** checklist grouped by repository.
+3. `node .omni-loop/bin/omni.mjs plan check <n>` must be green; fix the plan until it is, every
+   rule it names included (a slice in a read-only target, a consumer blocked by its provider). It
+   prints each wave with the repository beside each slice.
+4. Delete the scratch folder, then run `node .omni-loop/bin/omni.mjs prd <n>` again on the feature
+   branch. No `repos:` line now means the plan lands in this repository alone: stop with exactly
+   one line,
+
+   ```text
+   PRD <n> is an ordinary PRD: /omni:yolo <n>
+   ```
+
+`/omni:plan` may return `needs clarification`: the run stops there, with its question posted on the
+PRD's issue, and nothing is built. Otherwise carry on below with the plan PR it opened.
 
 Then read what moved since the plan was written:
 

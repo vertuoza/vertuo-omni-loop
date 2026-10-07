@@ -1016,6 +1016,106 @@ describe('the drive skill in this repository', () => {
   });
 });
 
+// PRD 1162: `/omni:drive` takes `--roadmap <n>` and refuses a plan repository with the
+// `/omni:mega-drive` line; `/loop /omni:mega-drive` is its twin for a plan repository, following it
+// step for step with the `ultra-` skills, parking on the plan PR and pushing the roadmap each tick;
+// `/omni:mega-pr-care --once` runs one round; `/omni:ultra-yolo` plans a PRD that has no plan.
+describe('the drive across repositories and roadmaps (PRD 1162)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const missingInOrder = (text: string, mentions: string[]) => {
+    let from = 0;
+    return mentions.filter((mention) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) return true;
+      from = at + mention.length;
+      return false;
+    });
+  };
+  const DRIVE_LINE = 'a plan repository: /loop /omni:mega-drive [<n>…] [--roadmap <n>]';
+  const MEGA_LINE = 'not a plan repository: /loop /omni:drive [<n>…] [--roadmap <n>]';
+
+  it('/omni:drive takes --roadmap, reads held PRDs, and pushes the roadmap after each tick', () => {
+    const text = read('drive');
+    expect(frontmatter(text)?.description).toMatch(/--roadmap/);
+    expect(skillSection(text, 'Input')).toContain('`/loop /omni:drive --roadmap 1170`');
+    expect(skillSection(text, '1. Open or resume')).toContain('omni.mjs next --plan [<n>…] [--roadmap <n>]');
+    const step = skillSection(text, '2. Read the step');
+    expect(step).toContain('omni.mjs next --json [--roadmap <n>]');
+    expect(step).toContain('`held`');
+    const act = skillSection(text, '3. Act on it');
+    expect(missingInOrder(act, ['**Held.**', 'loop push park', 'gh issue comment <held prd>'])).toEqual([]);
+    expect(missingInOrder(skillSection(text, '4. Record the tick'), ['omni.mjs loop push tick', 'omni.mjs roadmap push <n>'])).toEqual([]);
+  });
+
+  it('/omni:drive and /omni:mega-drive each refuse the wrong kind of repository with the other line, in step 0', () => {
+    const drive = skillSection(read('drive'), 'Step 0');
+    expect(missingInOrder(drive, ['omni.mjs config', '`plan` section', DRIVE_LINE])).toEqual([]);
+    expect(lastFencedLine(drive)).toBe(DRIVE_LINE);
+    const mega = skillSection(read('mega-drive'), 'Step 0');
+    expect(missingInOrder(mega, ['omni.mjs config', '`plan` section', MEGA_LINE, 'kb show briefing'])).toEqual([]);
+    expect(lastFencedLine(mega)).toBe(MEGA_LINE);
+  });
+
+  it('/omni:mega-drive is named for its folder, triggers on its /loop line, and follows /omni:drive step for step', () => {
+    const text = read('mega-drive');
+    const { name, description } = frontmatter(text) ?? {};
+    expect(name).toBe('mega-drive');
+    expect(description).toMatch(/\bTriggers on\b.*"\/loop \/omni:mega-drive"/);
+    expect(text).toContain('It follows `/omni:drive` **step for step**');
+    expect(missingInOrder(text, ['## Step 0', '## 1. Open or resume', '## 2. Read the step', '## 3. Act on it',
+      '## 4. Record the tick', '## 5. Stop', '## Waking up', '## Guardrails'])).toEqual([]);
+  });
+
+  it('/omni:mega-drive runs only the ultra- skills and mega-pr-care --once, and parks on the plan PR naming each PR by repository', () => {
+    const text = read('mega-drive');
+    expect(skillSection(text, '1. Open or resume')).toContain('omni.mjs next --plan [<n>…] [--roadmap <n>]');
+    const step = skillSection(text, '2. Read the step');
+    expect(step).toContain('omni.mjs next --json [--roadmap <n>]');
+    expect(step).toContain('`repos`');
+    const act = skillSection(text, '3. Act on it');
+    for (const skill of ['/omni:ultra-wave <prd>', '/omni:ultra-yolo <prd>', '/omni:ultra-yolo-fix <prd>', '/omni:mega-pr-care <prd> --once']) expect(act, skill).toContain(skill);
+    for (const skill of ['/omni:wave <prd>', '/omni:yolo <prd>', '/omni:yolo-fix <prd>', '/omni:pr-care <prd> --once']) expect(text, skill).not.toContain(skill);
+    expect(missingInOrder(act, ['**park**', "plan PR's status comment", 'by repository', 'omni.mjs loop push park'])).toEqual([]);
+  });
+
+  it('/omni:mega-drive records the repositories of each tick, then pushes the roadmap', () => {
+    const tick = skillSection(read('mega-drive'), '4. Record the tick');
+    expect(missingInOrder(tick, ['omni.mjs loop push tick', '--repos <repo,…>', 'omni.mjs roadmap push <n>'])).toEqual([]);
+    for (const action of ['`ultra-wave`', '`ultra-yolo`', '`ultra-yolo-fix`', '`mega-pr-care`']) expect(tick, action).toContain(action);
+  });
+
+  it('/omni:mega-drive names Claude Code only where it schedules the next wake, commits nothing and keeps its guardrails', () => {
+    const text = read('mega-drive');
+    const waking = skillSection(text, 'Waking up');
+    expect(waking).toMatch(/\*\*Claude Code\.\*\*/);
+    const body = text.replace(/^---[\s\S]*?\n---\n/, '').replace(waking, '');
+    expect(body.match(/Claude/g)).toHaveLength(2);
+    expect(text).not.toMatch(/\bgit commit\b|\bgh (?:pr|issue) create\b|\bgh pr (?:merge|ready)\b/);
+    const guardrails = skillSection(text, 'Guardrails');
+    expect(guardrails).toMatch(/any repository's default branch/);
+    expect(guardrails).toMatch(/Never add `labels\.outboxGo`/);
+    expect(guardrails).toMatch(/never answer the outbox/);
+    expect(guardrails).toMatch(/Never push while a wave holds claims/);
+  });
+
+  it('/omni:mega-pr-care --once runs one round and returns, without a wait', () => {
+    const text = read('mega-pr-care');
+    expect(frontmatter(text)?.description).toMatch(/--once it runs one round and returns/);
+    expect(skillSection(text, 'Input')).toContain('`/omni:mega-pr-care 1200 --once`');
+    expect(skillSection(text, 'Input')).toMatch(/\*\*returns\*\*, skipping \*\*5\. Wait for the next round\*\*/);
+    expect(skillSection(text, '5. Wait')).toMatch(/Under `--once`, there is no next round here/);
+  });
+
+  it('/omni:ultra-yolo plans a PRD with no plan, graded by omni plan check, before its first wave', () => {
+    const text = read('ultra-yolo');
+    expect(text).not.toContain('has no plan: /omni:mega-brainstorm writes it');
+    expect(skillSection(text, 'Step 0')).toMatch(/no plan yet/);
+    const plan = skillSection(text, '1.');
+    expect(missingInOrder(plan, ['**A PRD with no plan**', '/omni:mega-brainstorm', '/omni:plan <n>', 'omni.mjs plan check <n>', 'PRD <n> is an ordinary PRD: /omni:yolo <n>'])).toEqual([]);
+    expect(text.indexOf('**A PRD with no plan**')).toBeLessThan(text.indexOf('## 3. Loop the waves'));
+  });
+});
+
 // PRD 563: three skills build a PRD that spans repositories, from its plan repository, each beside
 // its single-repository twin and following it step for step. None merges into a default branch,
 // adds the outbox override, creates a label in a target, or runs anything there but its preflight.
