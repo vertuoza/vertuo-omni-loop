@@ -112,12 +112,32 @@ describe('the game scripts name their workspace', () => {
     const reads = server.calls.filter((c) => c.method === 'GET' && c.table !== 'workspaces');
     expect(reads.map((c) => c.table).sort()).toEqual(['players', 'repositories', 'sectors', 'teams']);
     for (const c of reads) expect(c.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
-    const append = present(server.calls.find((c) => c.method === 'POST'), 'the append');
-    expect(append.table).toBe('ledger_events');
+    const append = present(server.calls.find((c) => c.method === 'POST' && c.table === 'ledger_events'), 'the append');
     expect(append.url.searchParams.get('on_conflict')).toBe('workspace_id,id');
     expect((append.body as Row[]).map((r) => r.workspace_id)).toEqual((append.body as Row[]).map(() => ACME));
     // Acme's PRD 12 is named by its home; Vertuoza's old planet:12:charted stays as it was.
     expect(present(tables.ledger_events, 'ledger_events').filter((r) => r.workspace_id === ACME).map((r) => [r.id, r.home])).toEqual([['planet:acme-gh/acme-rockets#12:charted', 'acme-gh/acme-rockets']]);
+  });
+
+  it('game:project appends one QUESTION_ANSWERED per answered round on a charted PRD (PRD 1180)', async () => {
+    tables.game_answered_rounds = [
+      { round_id: 'r1', answered_at: '2026-09-02T10:00:00.5+00:00', prd: 12, home: 'acme-gh/acme-rockets', login: 'alice' },
+      { round_id: 'r2', answered_at: '2026-09-02T11:00:00+00:00', prd: 99, home: 'acme-gh/acme-rockets', login: 'alice' }, // not charted: waits
+    ];
+    const run = await game('project', ['--workspace', 'acme']);
+    expect(run.code, run.stderr).toBe(0);
+    const call = present(server.calls.find((c) => c.table === 'game_answered_rounds'), 'the read of the answered rounds');
+    expect(call.body).toEqual({ workspace: ACME, since: new Date(0).toISOString() });
+    expect(present(tables.ledger_events, 'ledger_events').filter((r) => r.type === 'QUESTION_ANSWERED').map((r) => [r.workspace_id, r.id, r.at, r.planet, r.home, r.contributor]))
+      .toEqual([[ACME, 'ask:r1:answered', '2026-09-02T10:00:00Z', 12, 'acme-gh/acme-rockets', 'alice']]);
+  });
+
+  it('game:project keeps its GitHub events when the answered rounds cannot be read, and says why', async () => {
+    tables.game_answered_rounds = [{ round_id: 'r1', prd: null }];
+    const run = await game('project', ['--workspace', 'acme']);
+    expect(run.code, run.stderr).toBe(0);
+    expect(run.stderr).toMatch(/! answered rounds not read, so no answer is appended this poll: /);
+    expect(present(tables.ledger_events, 'ledger_events').filter((r) => r.workspace_id === ACME).map((r) => r.id)).toEqual(['planet:acme-gh/acme-rockets#12:charted']);
   });
 
   it('game:project and game:banner refuse a workspace that names no GitHub organisation', async () => {

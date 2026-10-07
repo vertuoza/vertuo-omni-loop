@@ -251,7 +251,7 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     const latest = Object.fromEntries(parseSettledEntries(ledger, markers).map((e) => [e.id, e]));
     for (const id of ['s1-01-high-one', 's1-02-set-secret', 's0-04-drift']) {
       expect(latest[id]?.verdict).toBe('adopted');
-      expect(latest[id]?.fields['Approved by']).toBe('@octocat');
+      expect(latest[id]?.fields['Approved by']).toBe('octocat');
       expect(latest[id]?.fields.Basis).toMatch(/^merged-over-red/);
     }
     // The plan's paths follow the move.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { supabaseRest, supabaseFrom, loadWorkspace, loadConfig, supabaseLedger, exportWorkspace } from './supabase.ts';
+import { supabaseRest, supabaseFrom, loadWorkspace, loadConfig, supabaseLedger, exportWorkspace, loadAnsweredRounds, answeredRoundsOrNone } from './supabase.ts';
 import { fakeSupabase, type Init, type Reply } from '../test/fake-supabase.ts';
 import { nth, present } from '../test/present.ts';
 
@@ -256,5 +256,62 @@ describe('exportWorkspace', () => {
     const fake = fakeSupabase(tables());
     await expect((exportWorkspace as (rest: unknown) => Promise<unknown>)(restOn(fake))).rejects.toThrow(/workspace/);
     expect(fake.calls).toEqual([]);
+  });
+});
+
+describe('the answered rounds (PRD 1180)', () => {
+  const ROUND = '00000000-0000-4000-8000-0000000000a1';
+  const row = (over: Record<string, unknown> = {}) => ({ round_id: ROUND, answered_at: '2026-10-02T09:30:00.123456+00:00', prd: 1180, home: 'vertuoza/vertuo-omni-loop', login: 'alice', ...over });
+  type RpcCall = { fn: string | undefined; method: string | undefined; body: unknown; headers: Init['headers'] };
+  // The tables answer through the fake; a call to /rpc/<fn> answers `rows`, or fails with `status`.
+  const withRpc = (tables: Parameters<typeof fakeSupabase>[0], { rows = [row()], status = 200 }: { rows?: unknown[]; status?: number } = {}) => {
+    const fake = fakeSupabase(tables);
+    const rpcCalls: RpcCall[] = [];
+    const fetch = (href: string, init: Init = {}): Promise<Reply> => {
+      if (!href.includes('/rest/v1/rpc/')) return fake.fetch(href, init);
+      rpcCalls.push({ fn: new URL(href).pathname.split('/').pop(), method: init.method, body: init.body ? JSON.parse(init.body) : undefined, headers: init.headers });
+      const body = status < 300 ? rows : { message: 'permission denied for function game_answered_rounds' };
+      return Promise.resolve({ ok: status < 300, status, json: () => Promise.resolve(body), text: () => Promise.resolve(JSON.stringify(body)) });
+    };
+    return { rest: supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch }), rpcCalls };
+  };
+  const tables = () => ({ workspaces: [{ ...workspaces()[0], game_since: '2026-09-15T08:00:00+00:00' }, { ...workspaces()[1], game_since: '2026-01-01T00:00:00+00:00' }] });
+
+  it('calls a database function by POST, with its arguments and the key', async () => {
+    const { rest, rpcCalls } = withRpc({});
+    expect(await rest.rpc('game_answered_rounds', { workspace: VERTUOZA, since: '2026-09-15T08:00:00Z' })).toEqual([row()]);
+    const [call] = rpcCalls;
+    expect(call).toMatchObject({ fn: 'game_answered_rounds', method: 'POST', body: { workspace: VERTUOZA, since: '2026-09-15T08:00:00Z' } });
+    expect(present(call, 'the call').headers).toMatchObject({ apikey: 'k', 'Content-Type': 'application/json' });
+  });
+
+  it('names the function and the status when a call fails', async () => {
+    const { rest } = withRpc({}, { status: 403 });
+    await expect(rest.rpc('game_answered_rounds', { workspace: VERTUOZA, since: '2026-09-15T08:00:00Z' })).rejects.toThrow(/Supabase: read game_answered_rounds failed \(403/);
+  });
+
+  it('reads the workspace\'s rounds since its game_since, as the projector takes them', async () => {
+    const { rest, rpcCalls } = withRpc(tables(), { rows: [row(), row({ round_id: 'r2', login: 'Pierre-Derval', home: 'Vertuoza/Plan', answered_at: '2026-10-03T10:00:00+00:00' })] });
+    expect(await loadAnsweredRounds(rest, VERTUOZA)).toEqual([
+      { roundId: ROUND, answeredAt: '2026-10-02T09:30:00Z', prd: 1180, home: 'vertuoza/vertuo-omni-loop', login: 'alice' },
+      { roundId: 'r2', answeredAt: '2026-10-03T10:00:00Z', prd: 1180, home: 'vertuoza/plan', login: 'pierre-derval' },
+    ]);
+    expect(rpcCalls.map((c) => c.body)).toEqual([{ workspace: VERTUOZA, since: '2026-09-15T08:00:00+00:00' }]);
+  });
+
+  it('throws on a row it cannot read, and on a workspace it cannot find, before calling the function', async () => {
+    await expect(loadAnsweredRounds(withRpc(tables(), { rows: [row({ prd: null })] }).rest, VERTUOZA)).rejects.toThrow(/prd/);
+    const ghost = withRpc({ workspaces: [] });
+    await expect(loadAnsweredRounds(ghost.rest, VERTUOZA)).rejects.toThrow(/no workspace/);
+    expect(ghost.rpcCalls).toEqual([]);
+    await expect((loadAnsweredRounds as (rest: unknown) => Promise<unknown>)(withRpc(tables()).rest)).rejects.toThrow(/workspace/);
+  });
+
+  it('reads none on a failed read, saying why in one line, so the poll keeps its GitHub events', async () => {
+    const warned: string[] = [];
+    expect(await answeredRoundsOrNone(withRpc(tables(), { status: 503 }).rest, VERTUOZA, (line) => warned.push(line))).toEqual([]);
+    expect(warned).toEqual([expect.stringMatching(/^answered rounds not read, so no answer is appended this poll: Supabase: read game_answered_rounds failed \(503/) as unknown]);
+    expect(await answeredRoundsOrNone(withRpc(tables()).rest, VERTUOZA, (line) => warned.push(line))).toHaveLength(1);
+    expect(warned).toHaveLength(1);
   });
 });

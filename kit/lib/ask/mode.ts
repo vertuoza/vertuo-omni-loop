@@ -8,18 +8,12 @@
 //   names it), then deletes the flag and every terminal's file, even when the server cannot be told;
 //   a session left open reads as closed on its own after 12 hours without a call.
 // - `status` reads the checkout alone, as the hooks do, and calls nothing.
-import type { StdioOptions } from 'node:child_process';
-import { basename } from 'node:path';
-import type { ExecText } from '../context.ts';
 import { defined, messageOf } from '../narrow.ts';
 import { askClient } from './client.ts';
 import type { Fetch, TokenStore } from './client.ts';
 import { activeMode } from './hook.ts';
 import { clearMode, listTerminals, readMode, writeMode } from './local-state.ts';
 import { field } from './schema.ts';
-
-/** The longest title the contract takes for a session. */
-export const TITLE_MAX = 200;
 
 /** `on` could not switch the mode on; `message` says why, in one line. */
 export class AskModeError extends Error {
@@ -29,29 +23,8 @@ export class AskModeError extends Error {
   }
 }
 
-const QUIET: { encoding: 'utf8'; stdio: StdioOptions } = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] };
-
-function attempt<T>(fn: () => T): T | null {
-  try {
-    return fn();
-  } catch {
-    return null;
-  }
-}
-
-/** The branch the checkout is on, or the short commit when it is on none. */
-export function currentBranch(root: string, exec: ExecText): string {
-  return (
-    attempt(() => exec('git', ['branch', '--show-current'], { cwd: root, ...QUIET }).trim())
-    || attempt(() => exec('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, ...QUIET }).trim())
-    || 'HEAD'
-  );
-}
-
-/** `<repo slug> · <branch>`, the folder's name standing in for a slug the checkout cannot give. */
-export function sessionTitle({ slug, branch, root }: { slug: string | null | undefined; branch: string; root: string }): string {
-  return `${slug || basename(root)} · ${branch}`.slice(0, TITLE_MAX);
-}
+// The session's title lives in `./title.ts`, which the hooks read too (PRD 1180).
+export { currentBranch, sessionTitle } from './title.ts';
 
 /** The server that `ask.url` names: the host its sign-in is kept under and ask.json records. */
 const hostOf = (askUrl: string): string => new URL(askUrl).host;

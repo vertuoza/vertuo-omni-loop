@@ -3159,6 +3159,16 @@ export type Database = {
       fleet_mascots: { Args: never; Returns: string[] }
       fleet_owner_only: { Args: { p_workspace: string }; Returns: undefined }
       fleet_room: { Args: { p_workspace: string }; Returns: undefined }
+      game_answered_rounds: {
+        Args: { since: string; workspace: string }
+        Returns: {
+          answered_at: string
+          home: string
+          login: string
+          prd: number
+          round_id: string
+        }[]
+      }
       has_workspace: { Args: never; Returns: boolean }
       hook_before_user_created: { Args: { event: Json }; Returns: Json }
       is_member: { Args: { workspace: string }; Returns: boolean }

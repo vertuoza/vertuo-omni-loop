@@ -306,6 +306,43 @@ describe('POST /api/ask/sessions/:id/rounds', () => {
     expect(w.fake.tables.ask_rounds).toEqual([]);
     expect(Date.parse(w.row('ask_sessions', idle).last_seen_at as string)).toBe(START);
   });
+
+  it('opens a round already answered in the terminal, in one call (PRD 1180)', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const body = { questions: QUESTIONS, answers: ANSWERS, via: 'terminal' };
+    const { status, body: got } = await w.read(await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body }), sessionId, w.deps));
+    expect(status).toBe(200);
+    expect(got).toEqual({ roundId: A_STRING, status: 'answered', via: 'terminal' });
+    expect(w.row('ask_rounds', got.roundId)).toMatchObject({
+      session_id: sessionId, questions: QUESTIONS, status: 'answered', answers: ANSWERS, answered_via: 'terminal', answered_by: ADA.id,
+    });
+  });
+
+  it('opens it with only the questions answered, when one was left empty (PRD 1180)', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const partial = { 'Which checks run?': 'RLS' };
+    const { status, body } = await w.read(await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body: { questions: QUESTIONS, answers: partial, via: 'terminal' } }), sessionId, w.deps));
+    expect(status).toBe(200);
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({ status: 'answered', answers: partial, answered_via: 'terminal' });
+  });
+
+  it('refuses an answer sent with the round that is not text given in the terminal, with 400, and asks nothing', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    for (const extra of [
+      { answers: ANSWERS },
+      { answers: ANSWERS, via: 'page' },
+      { via: 'terminal' },
+      { answers: {}, via: 'terminal' },
+      { answers: { 'Which checks run?': ['RLS'] }, via: 'terminal' },
+    ]) {
+      const response = await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body: { questions: QUESTIONS, ...extra } }), sessionId, w.deps);
+      expect(response.status, JSON.stringify(extra)).toBe(400);
+    }
+    expect(w.fake.tables.ask_rounds).toEqual([]);
+  });
 });
 
 describe('a round\'s context (PRD 144)', () => {
@@ -656,6 +693,23 @@ describe('POST /api/ask/rounds/:id/answers', () => {
     await abandonRound(w.request('POST', `/api/ask/rounds/${roundId}/abandon`), roundId, w.deps);
     expect((await answer(w, roundId, { answers: ANSWERS, via: 'terminal' })).status).toBe(200);
     expect(w.row('ask_rounds', roundId)).toMatchObject({ status: 'answered', answered_via: 'terminal' });
+  });
+
+  it('records it on a round whose session closed while the hook waited (PRD 1180)', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const roundId = await w.round(sessionId);
+    await closeSession(w.request('POST', `/api/ask/sessions/${sessionId}/close`), sessionId, w.deps);
+    expect((await answer(w, roundId, { answers: ANSWERS, via: 'terminal' })).status).toBe(200);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ status: 'answered', answers: ANSWERS, answered_via: 'terminal' });
+  });
+
+  it('records only the questions answered, when one was left empty (PRD 1180)', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    const partial = { 'Which checks run?': 'RLS' };
+    expect((await answer(w, roundId, { answers: partial, via: 'terminal' })).status).toBe(200);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ status: 'answered', answers: partial, answered_via: 'terminal' });
   });
 
   it('leaves a round answered on the page as it is, with 409', async () => {

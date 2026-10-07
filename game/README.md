@@ -29,8 +29,9 @@ another. Name it with `--workspace <slug>`, or set `OMNI_LOOP_WORKSPACE`; the fl
 default: with neither, or with a slug no workspace has, the command stops and says so. Vertuoza is
 the workspace `vertuoza`.
 
-- `pnpm game:project --workspace <slug>` — snapshot the workspace's GitHub, append new events to its
-  ledger; logs any event it had to skip
+- `pnpm game:project --workspace <slug>` — snapshot the workspace's GitHub and read its answered ask
+  rounds, append new events to its ledger; logs any event it had to skip
+  ([Answered questions](#answered-questions))
 - `pnpm game:xp --workspace <slug>` — recompute every login's XP, level and unlocked games from the
   workspace's whole ledger, and write them all to `player_xp` in one request
   ([XP, levels and unlocks](#xp-levels-and-unlocks))
@@ -104,6 +105,32 @@ or its bare name; a tracked repository that no sector names counts as a sector o
 
 Scoring does not change: every number stays in `game/rulebook.ts`.
 
+## Answered questions
+
+PRD 1180. Every ask round answered on a numbered PRD pays its answerer `RULEBOOK.questionAnswered`
+(2) points and XP at `xp.weights.questionAnswered` (1), whether it was answered on the page or in the
+terminal. After the GitHub snapshot, `game:project` reads `public.game_answered_rounds(workspace,
+since)` (`loadAnsweredRounds`, `game/sources/supabase.ts`) with `since` = the workspace's
+`game_since`, so past answers are backfilled on the first poll, dated when they were answered.
+
+- **Which PRD.** The function finds a round's PRD by the two rules of `dossier_rounds()`, over the
+  workspace's numbered PRD dossiers: the brainstorm rule (the round's ask session carries the
+  dossier's Claude session, inside that dossier's window) first, then the delivery rule (the round's
+  own PRD, asked in the PRD's home repository). A round with no PRD (a draft's brainstorm, a spike, a
+  fix) or whose answerer has no GitHub login is not returned: it still counts in Questions answered,
+  and pays nothing. Only the service role may call it.
+- **The event.** Each round is one `QUESTION_ANSWERED`, id `ask:<round_id>:answered`, at
+  `answered_at`, on the planet `<home>#<prd>`, crediting the answerer's lower-case login and fleet. A
+  round whose planet this poll did not chart waits for a later poll. The id never changes, so a round
+  is paid once, however many polls see it.
+- **The pay.** `score()` pays it in the season of `answered_at`, with no multiplier. It opens no
+  wound and joins no crew: threat, decay, the terraform bonus and the planet's state ignore it.
+- **A failed read** of the answered rounds keeps the GitHub events, appends no answer and prints
+  why in one line; the next poll reads them again.
+
+Rollback: set `questionAnswered` and its XP weight to 0; the next `game:score` and `game:xp` remove
+those points, and the events stay, paying nothing.
+
 ## The fresh start
 
 PRD 728 started the game again, once. `public.workspaces.game_since` is the moment a workspace's
@@ -143,7 +170,7 @@ call:
 
 - **XP** is the sum, over every season in the ledger, of a login's positive personal credits as
   `score()` pays them, each multiplied by its kind's weight in `xp.weights` (`zoneSecured`,
-  `woundClosed`, `rescue`, `expedition`, `closer`), rounded once after summing. Night-shift and
+  `woundClosed`, `rescue`, `expedition`, `closer`, `questionAnswered`), rounded once after summing. Night-shift and
   cross-fleet multipliers count, as they do for points. A zone reverted and a clawback never lower
   it, and fleet credits (a terraform, a decay) are not personal. A weight of 0 leaves a kind out. A
   personal credit whose kind has no weight fails `game/experience.test.ts`, so a new kind of
