@@ -234,8 +234,9 @@ function fakeGh({ prs = {}, comments = [], down = false }: { prs?: Record<string
     if (down) throw new Error('gh: could not connect');
     if (args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs[args[args.indexOf('--head') + 1] ?? ''] ?? []);
     if (args[0] === 'api' && args.includes('--input')) {
-      const sent = JSON.parse(String(options?.input ?? '{}')) as { body?: unknown };
-      posted.push({ path: args[1] ?? '', body: String(sent.body) });
+      const sent: unknown = JSON.parse(typeof options?.input === 'string' ? options.input : '{}');
+      const body = typeof sent === 'object' && sent !== null && 'body' in sent && typeof sent.body === 'string' ? sent.body : '';
+      posted.push({ path: args[1] ?? '', body });
       return JSON.stringify({ id: 99, html_url: 'https://github.com/acme/widgets/issues/1200#issuecomment-99' });
     }
     if (args[0] === 'api') return JSON.stringify(comments);
