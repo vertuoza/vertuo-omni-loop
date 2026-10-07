@@ -79,7 +79,7 @@ export function GanttChart({ gantt }: { gantt: Gantt }) {
           </marker>
         </defs>
         {gantt.columns.map((c) => (
-          <g key={c.label + c.at} className="roadmap-axis">
+          <g key={`${c.label}@${c.at}`} className="roadmap-axis">
             <line x1={xOf(c.at)} x2={xOf(c.at)} y1={AXIS - 4} y2={height} />
             <text x={xOf(c.at) + 4} y={AXIS - 8}>{c.label}</text>
           </g>

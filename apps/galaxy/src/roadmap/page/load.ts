@@ -41,15 +41,19 @@ async function productsOf(reads: RoadmapPageReads, workspace: string): Promise<P
 export type RoadmapPageAsk = { id: string | null; product: string | null };
 
 /** The list or one roadmap; `not-found` for a roadmap the workspace does not hold. */
-export async function loadRoadmapPage(reads: RoadmapPageReads, ask: RoadmapPageAsk, now: Date): Promise<RoadmapPageView | { kind: 'not-found' }> {
-  let workspace: Workspace | null;
-  try {
-    workspace = await reads.workspace();
-  } catch (error) {
+/** The person's workspace, or the view that says why there is none to read. */
+async function workspaceOf(reads: RoadmapPageReads): Promise<Workspace | { kind: 'unreadable' | 'no-workspace' }> {
+  const read = await reads.workspace().catch((error: unknown) => {
     console.error(`roadmaps: your workspace could not be read (${messageOf(error)})`);
-    return { kind: 'unreadable' };
-  }
-  if (!workspace) return { kind: 'no-workspace' };
+    return 'unreadable' as const;
+  });
+  if (read === 'unreadable') return { kind: read };
+  return read ?? { kind: 'no-workspace' };
+}
+
+export async function loadRoadmapPage(reads: RoadmapPageReads, ask: RoadmapPageAsk, now: Date): Promise<RoadmapPageView | { kind: 'not-found' }> {
+  const workspace = await workspaceOf(reads);
+  if ('kind' in workspace) return workspace;
   const { id } = workspace;
   if (ask.id === null) {
     const [rows, products] = await Promise.all([reads.roadmaps(), productsOf(reads, id)]);

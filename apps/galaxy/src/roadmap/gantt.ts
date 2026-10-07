@@ -68,14 +68,14 @@ const STATE_LABELS: Readonly<Record<RoadmapPrdState, string>> = {
   waiting: 'waiting', building: 'building', outbox: 'outbox', ready: 'waiting for merge', merged: 'merged', closed: 'closed unmerged',
 };
 
-export const stateLabelOf = (state: RoadmapPrdState) => STATE_LABELS[state];
+const stateLabelOf = (state: RoadmapPrdState) => STATE_LABELS[state];
 
 const DAY = 86_400_000;
 const MARKS = 6;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** A PRD's page in the app. */
-export const prdHref = (prd: PrdNumber) => `/prd/${prd}`;
+const prdHref = (prd: PrdNumber) => `/prd/${prd}`;
 
 const timeOf = (iso: string | null): number | null => {
   if (iso === null) return null;

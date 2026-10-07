@@ -10,7 +10,7 @@ import type { RoadmapPrdRow, RoadmapQuestion, RoadmapRow } from '../store';
 
 /** Where the Roadmaps pages live, and one roadmap's page under it. */
 export const ROADMAPS_PATH = '/roadmaps';
-export const roadmapHref = (id: string) => `${ROADMAPS_PATH}/${encodeURIComponent(id)}`;
+const roadmapHref = (id: string) => `${ROADMAPS_PATH}/${encodeURIComponent(id)}`;
 
 /** The skill that writes a roadmap, named by the empty state. */
 export const ROADMAP_SKILL = '/omni:roadmap';
@@ -89,7 +89,7 @@ export type RoadmapPageView =
 type Prd = Pick<RoadmapPrdRow, 'state' | 'waits_on'>;
 
 /** What blocks a roadmap now: each `person` question with no answer, then each distinct pull request waited on. */
-export function blocksOf(questions: readonly RoadmapQuestion[], prds: readonly Prd[]): string[] {
+function blocksOf(questions: readonly RoadmapQuestion[], prds: readonly Prd[]): string[] {
   const asked = questions.filter((q) => q.kind === 'person' && q.answer === null).map((q) => `${q.id} waits for a person's answer`);
   const waits = prds.filter((p) => p.state !== 'merged' && p.waits_on !== null).map((p) => p.waits_on ?? '');
   return [...new Set([...asked, ...waits])];
@@ -97,7 +97,7 @@ export function blocksOf(questions: readonly RoadmapQuestion[], prds: readonly P
 
 const issueUrlOf = (row: Pick<RoadmapRow, 'repo' | 'number'>) => `https://github.com/${row.repo}/issues/${row.number}`;
 
-export function summaryOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], products: readonly ProductRef[]): RoadmapSummary {
+function summaryOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], products: readonly ProductRef[]): RoadmapSummary {
   const blocks = blocksOf(row.questions, prds);
   return {
     id: row.id,
@@ -130,7 +130,7 @@ export function detailOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], produc
 }
 
 /** The filter's choices: every roadmap, then each product of the workspace that files one, the one asked for current. */
-export function productChoices(rows: readonly Pick<RoadmapRow, 'product_id'>[], products: readonly ProductRef[], product: string | null): ProductChoice[] {
+function productChoices(rows: readonly Pick<RoadmapRow, 'product_id'>[], products: readonly ProductRef[], product: string | null): ProductChoice[] {
   const filed = products.filter((p) => rows.some((r) => r.product_id === p.id));
   return [
     { label: 'Every product', href: ROADMAPS_PATH, current: product === null, count: rows.length },
