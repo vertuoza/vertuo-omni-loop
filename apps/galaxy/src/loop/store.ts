@@ -78,7 +78,7 @@ type PlanRow = z.infer<typeof PlanRow>;
 export const LOOP_COLUMNS = 'id, user_id, workspace_id, repo, prds, state, parked, started_at, seen_at, last_tick_at, next_wake_at, stopped_at';
 /** The columns loop_ticks was created with (20261108090000_loops.sql). */
 export const TICK_COLUMNS = 'id, loop_id, at, step, steps, prd, action, result, link, merged, items, next_wake_at';
-/** The column 20261109090000_roadmaps.sql adds (PRD 1162): the repositories the tick's step touched. */
+/** The column 20261110090000_roadmaps.sql adds (PRD 1162): the repositories the tick's step touched. */
 export const TICK_ADDED_COLUMNS = 'repos';
 /** What a tick is read with: both. */
 export const TICK_READ_COLUMNS = `${TICK_COLUMNS}, ${TICK_ADDED_COLUMNS}`;

@@ -11,7 +11,7 @@
 // document itself, and each PRD's row with its state. Nothing else is taken: an unknown field is
 // refused, so no path, prompt or transcript can ever be stored. The database files the roadmap in its
 // repository's workspace, matches the product by name among the workspace's own and replaces the PRD
-// rows on every push (roadmap_push(), supabase/migrations/20261109090000_roadmaps.sql). A product named
+// rows on every push (roadmap_push(), supabase/migrations/20261110090000_roadmaps.sql). A product named
 // but unknown is filed under none: `unknownProduct` names it and `note` says it in one line.
 //
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed body, 401 no valid bearer

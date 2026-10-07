@@ -10,7 +10,7 @@ import { ROADMAP_COLUMNS, ROADMAP_PRD_COLUMNS, ROADMAP_PRD_STATES } from './stor
 import { TICK_ADDED_COLUMNS, TICK_READ_COLUMNS } from '../loop/store';
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../${path}`, import.meta.url)), 'utf8');
-const MIGRATION = read('supabase/migrations/20261109090000_roadmaps.sql');
+const MIGRATION = read('supabase/migrations/20261110090000_roadmaps.sql');
 const CODE = MIGRATION.replace(/--.*$/gm, '').replace(/\s+/g, ' ');
 const TABLES = { roadmaps: ROADMAP_COLUMNS, roadmap_prds: ROADMAP_PRD_COLUMNS };
 

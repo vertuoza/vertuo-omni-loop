@@ -1,4 +1,4 @@
-// The roadmaps (supabase/migrations/20261109090000_roadmaps.sql, PRD 1162): one row per roadmap and one
+// The roadmaps (supabase/migrations/20261110090000_roadmaps.sql, PRD 1162): one row per roadmap and one
 // per PRD of it, written as the caller through roadmap_push(), which files a roadmap in the workspace
 // its repository belongs to for the caller and replaces its document, questions and PRD rows on every
 // later push. A member of the workspace reads both; row-level security decides, so a roadmap of another

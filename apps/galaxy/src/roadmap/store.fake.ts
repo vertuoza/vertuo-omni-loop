@@ -1,6 +1,6 @@
 // A stubbed Supabase client for the roadmaps' tests: the roadmaps and roadmap_prds tables in memory,
 // the workspaces' products, the Auth server's token check, and roadmap_push() of
-// supabase/migrations/20261109090000_roadmaps.sql written here as the migration writes it:
+// supabase/migrations/20261110090000_roadmaps.sql written here as the migration writes it:
 //
 // - refused 42501 for a caller signed out or with no workspace for the repository (the fake's
 //   repo_workspace(): the member workspace whose GitHub org owns the repository, else the one joined
