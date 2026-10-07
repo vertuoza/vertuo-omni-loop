@@ -129,17 +129,20 @@ const namedPr = (standing: PrdStanding): PrStanding | null =>
   standing.prs.find((pr) => pr.state === 'OPEN') ?? standing.prs.find((pr) => pr.state === 'CLOSED') ?? null;
 
 /** What a PRD not started waits on: the first of its blockers not merged, as `waits on <repo>#<pr>
- * (<id> <title>): <state>` and that PR's link, or `waits on <id> <title>: not started` with no link. */
+ * (<id> <title>): <state>` and that PR's link, or `waits on <id> <title>: not started` with no link.
+ * `live` (PRD 1162, slice s7: `omni next` reads the board and the CI) gives a blocker's state in finer
+ * words, by row id — `building wave <k>/<m>`, `CI red` — in place of the state's own. */
 export function waitsOn(
   row: RoadmapRow,
   rows: ReadonlyMap<string, { row: RoadmapRow; standing: PrdStanding; state: RoadmapPrdState }>,
+  live: ReadonlyMap<string, string> = new Map(),
 ): { waitsOn: string | null; waitsOnUrl: string | null } {
   for (const id of row.blockedBy) {
     const blocker = rows.get(id);
     if (!blocker || blocker.state === 'merged') continue;
     const pr = namedPr(blocker.standing);
     const who = `${blocker.row.id} ${blocker.row.title}`;
-    const words = stateWords(blocker.state, pr);
+    const words = live.get(id) ?? stateWords(blocker.state, pr);
     if (pr === null) return { waitsOn: cut(`waits on ${who}: ${words}`, WAITS_ON_MAX), waitsOnUrl: null };
     return { waitsOn: cut(`waits on ${pr.repo}#${pr.number} (${who}): ${words}`, WAITS_ON_MAX), waitsOnUrl: pr.url };
   }
