@@ -14,6 +14,13 @@
 // the next version when reality broke the plan (`replan.ts`), and prints the verdict of the first
 // step not done, or the stop once every PRD is parked or done. Numbers that are exactly the kept
 // plan's PRDs follow it too; any other numbers get one verdict each, as in s1.
+//
+// PRD 1162, slice s1, a plan repository (its config has `plan.targets`): the feature PR read is the
+// plan PR, and each target a slice of the plan lands in has its own feature PR, read through `gh` on
+// that target by the same branch name, as `/omni:ultra-yolo` opens it (its care state read there
+// too, once ready). The board is read across every repository (`buildBoard`). The verdicts are then
+// the `ultra-` skills and `mega-pr-care --once` only, each verdict and step carries the repositories
+// it touches (`repos`), and the loop plan holds two steps in series only on a path in one repository.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
@@ -26,7 +33,7 @@ import { parseSpec } from '../../lib/inbox/inbox.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { decideNext } from '../../lib/next/decide.ts';
-import type { BoardFacts, FeatureFacts, OutboxFacts, PrdFacts, Verdict } from '../../lib/next/decide.ts';
+import type { AcrossFacts, BoardFacts, FeatureFacts, OutboxFacts, PrdFacts, TargetPr, Verdict } from '../../lib/next/decide.ts';
 import { followPlan } from '../../lib/next/follow.ts';
 import { formatFollowed, formatPlan, verdictLine } from '../../lib/next/format.ts';
 import { planLoop } from '../../lib/next/plan.ts';
@@ -190,7 +197,7 @@ function boardFacts(prd: PrdNumber, reader: Reader): { board: BoardFacts | null 
       stuck: having('stuck'),
       unreadable: having('unreadable'),
     };
-    return { board, slices: result.slices.map(({ id, territory, wave, state }) => ({ id, territory, wave, state })) };
+    return { board, slices: result.slices.map(({ id, territory, wave, state, repo }) => ({ id, territory, wave, state, ...(repo === undefined ? {} : { repo }) })) };
   } catch {
     return { board: 'unreadable', slices: planSlices(join(ctx.root, planPath)) };
   }
@@ -199,7 +206,7 @@ function boardFacts(prd: PrdNumber, reader: Reader): { board: BoardFacts | null 
 /** A plan's slices as the plan declares them, each `unreadable`; `null` when the plan cannot be read. */
 function planSlices(path: string): PlanSliceInput[] | null {
   try {
-    return parsePlanSlices(readFileSync(path, 'utf8')).map(({ id, territory, wave }) => ({ id, territory, wave, state: 'unreadable' }));
+    return parsePlanSlices(readFileSync(path, 'utf8')).map(({ id, territory, wave, repo }) => ({ id, territory, wave, state: 'unreadable', repo }));
   } catch {
     return null;
   }
@@ -230,7 +237,10 @@ function readFacts(prd: PrdNumber, reader: Reader): { facts: PrdFacts; slices: P
   const folder = folderOf(prd, reader.ctx);
   const phase0 = openPhase0(prd, reader);
   if (folder === null) {
-    if (phase0 !== null) return { facts: { prd, shipped: false, phase0, feature: null, board: null, outbox: { questions: 0, answered: false } }, slices: null };
+    if (phase0 !== null) {
+      const across = acrossFacts('', null, reader);
+      return { facts: { prd, shipped: false, phase0, feature: null, board: null, outbox: { questions: 0, answered: false }, ...(across ? { across } : {}) }, slices: null };
+    }
     throw usageError(`omni next: PRD ${prd} has no inbox or shipped folder, and no open phase-0 PR.`);
   }
   const branch = fillBranch(reader.ctx.config.branches.feature, { topic: folder.topic });
@@ -238,7 +248,36 @@ function readFacts(prd: PrdNumber, reader: Reader): { facts: PrdFacts; slices: P
   const open = pr?.state === 'OPEN' ? pr : null;
   const feature = pr === null ? null : featureFacts(pr, reader);
   const { board, slices } = boardFacts(prd, reader);
-  return { facts: { prd, shipped: folder.shipped, phase0, feature, board, outbox: outboxFacts(prd, { branch, pr: open }, reader) }, slices };
+  const across = acrossFacts(branch, slices, reader);
+  const facts: PrdFacts = { prd, shipped: folder.shipped, phase0, feature, board, outbox: outboxFacts(prd, { branch, pr: open }, reader), ...(across ? { across } : {}) };
+  return { facts, slices };
+}
+
+/** The part of an `owner/name` slug after the `/`: the name a plan's `repo` column uses. */
+const shortName = (slug: string): string => slug.slice(slug.indexOf('/') + 1);
+
+/** The repositories `slices` land in, by short name, sorted; none outside a plan repository. */
+const reposOf = (slices: readonly PlanSliceInput[] | null): string[] => [...new Set((slices ?? []).flatMap((slice) => (slice.repo ? [slice.repo] : [])))].sort();
+
+/** A target's feature PR from `branch`, read on that target; `unreadable` when gh cannot read it. */
+function targetPr(branch: string, reader: Reader): TargetPr['pr'] {
+  try {
+    const pr = featurePr(branch, reader);
+    return pr === null ? null : featureFacts(pr, reader);
+  } catch {
+    return 'unreadable';
+  }
+}
+
+/** In a plan repository: its short name, and the feature PR of each target a slice lands in, in
+ * `plan.targets` order; `undefined` in any other repository. */
+function acrossFacts(branch: string, slices: readonly PlanSliceInput[] | null, reader: Reader): AcrossFacts | undefined {
+  const targets = reader.ctx.config.plan?.targets;
+  if (targets === undefined) return undefined;
+  const repo = shortName(reader.slug);
+  const named = new Set(reposOf(slices));
+  const landed = targets.filter((target) => named.has(shortName(target.repo)) && shortName(target.repo) !== repo);
+  return { repo, targets: landed.map((target) => ({ repo: shortName(target.repo), pr: targetPr(branch, { ...reader, slug: target.repo }) })) };
 }
 
 /** Whether an error is the command's own refusal, which `main()` prints as a usage error. */
@@ -265,7 +304,9 @@ function readPrd(prd: PrdNumber, reader: Reader): { verdict: Verdict; input: Prd
     read = { facts, slices: planPath === null ? null : planSlices(join(reader.ctx.root, planPath)) };
   }
   const input: PrdInput = { prd, blockedBy: blockersOf(prd, reader.ctx), slices: read.slices, ended: endedOf(read.facts) };
-  return { verdict: decideNext(read.facts), input };
+  const repos = reposOf(read.slices);
+  const verdict = decideNext(read.facts);
+  return { verdict: repos.length > 0 ? { ...verdict, repos } : verdict, input };
 }
 
 /** The PRDs `omni status` marks yours, in inbox, building or outbox, lowest first. */
@@ -332,7 +373,7 @@ function followKept(prds: readonly PrdNumber[], kept: readonly LoopPlan[], { rea
     plan: { version: plan.version, steps: plan.steps.length },
     replanned,
     stop: followed.state === 'stop',
-    step: step && { step: step.step, of: plan.steps.length, prd: step.prd, kind: step.kind, wave: step.wave, slices: step.slices },
+    step: step && { step: step.step, of: plan.steps.length, prd: step.prd, kind: step.kind, wave: step.wave, slices: step.slices, ...(step.repos ? { repos: step.repos } : {}) },
     verdict: followed.state === 'step' ? followed.verdict : null,
     waiting: followed.state === 'stop' ? followed.waiting : [],
     prds: verdicts,

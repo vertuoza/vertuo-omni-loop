@@ -307,3 +307,100 @@ describe('omni next — the loop plan', () => {
     expect(err).toMatch(/cannot tell which PRDs are yours/);
   });
 });
+
+// PRD 1162, slice s1: in a plan repository, `omni next` reads the plan PR, each target's feature PR and
+// the board across repositories, and returns only the ultra- skills.
+describe('omni next — a plan repository', () => {
+  const PLAN_CONFIG = {
+    '.omni-loop/config.yml': [
+      'kit: 1',
+      'repo:',
+      '  slug: acme/plans',
+      'plan:',
+      '  targets:',
+      '    - repo: acme/crew',
+      '      role: back-end',
+      '      knowledge: own',
+      '    - repo: acme/ai-domain',
+      '      role: ai',
+      '      knowledge: none',
+      '',
+    ].join('\n'),
+  };
+  const MULTI_PLAN = [
+    '# A plan',
+    '',
+    '| id | repo | slice | territory | blocked by | wave |',
+    '| --- | --- | --- | --- | --- | --- |',
+    '| s1 | crew | Alpha | `apps/crew-api/` | — | 1 |',
+    '| s2 | ai-domain | Beta | `apps/crew-api/` | — | 1 |',
+    '',
+  ].join('\n');
+  const PRS: Record<string, number> = { 'acme/plans': 12, 'acme/crew': 40, 'acme/ai-domain': 41 };
+  const urlOf = (slug: string) => `https://github.com/${slug}/pull/${PRS[slug] ?? 0}`;
+  const prIn = (slug: string, over = {}) => ({ number: PRS[slug], url: urlOf(slug), state: 'OPEN', isDraft: true, updatedAt: NOW, body: 'Closes #7', author: { login: 'pm' }, ...over });
+
+  type MultiFakes = { features?: Record<string, unknown[]>; subs?: Record<string, unknown[]>; read?: unknown; phase0?: unknown[] };
+
+  /** A fake `execFileSync` answering each gh call from the repository it names. */
+  function fakeMulti({ features = {}, subs = {}, read, phase0 = [] }: MultiFakes = {}) {
+    const calls: string[][] = [];
+    const queries: unknown[] = [];
+    const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions = {}): string => {
+      calls.push([file, ...args]);
+      if (file === 'git') return args[0] === 'fetch' ? '' : realExec(file, args, options);
+      const slug = String(args[args.indexOf('--repo') + 1]);
+      const kind = ghCallKind(args);
+      if (kind === 'graphql') {
+        queries.push(JSON.parse(String(options.input)));
+        return JSON.stringify(read);
+      }
+      if (kind === 'phase0') return JSON.stringify(phase0);
+      if (kind === 'feature') return JSON.stringify(features[slug] ?? []);
+      if (kind === 'subs') return JSON.stringify(subs[slug] ?? []);
+      throw new Error(`fakeMulti: unexpected call ${file} ${args.join(' ')}`);
+    };
+    return { exec, calls, queries };
+  }
+
+  const planRepo = () => makeRepo({ git: true, files: { ...PLAN_CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': MULTI_PLAN } }).root;
+  const allDraft = { 'acme/plans': [prIn('acme/plans')], 'acme/crew': [prIn('acme/crew')], 'acme/ai-domain': [prIn('acme/ai-domain')] };
+
+  it('--json prints the ultra verdict and the repositories of the PRD', async () => {
+    const fake = fakeMulti({ features: allDraft });
+    const { code, out, err } = await run(['next', '7', '--json'], planRepo(), fake);
+    expect(err).toBe('');
+    expect(code).toBe(0);
+    expect(JSON.parse(out)).toEqual({
+      prds: [{ prd: 7, verdict: 'act', skill: 'ultra-wave', why: 'wave 1 can take s1, s2', link: urlOf('acme/plans'), repos: ['ai-domain', 'crew'] }],
+    });
+    const heads = fake.calls.filter((call) => call.includes('--head')).map((call) => call[call.indexOf('--repo') + 1]);
+    expect(heads).toEqual(['acme/plans', 'acme/crew', 'acme/ai-domain']);
+  });
+
+  it('a ready target PR with red CI → act mega-pr-care --once, its care state read from the target', async () => {
+    const fake = fakeMulti({
+      features: { ...allDraft, 'acme/crew': [prIn('acme/crew', { isDraft: false })] },
+      subs: { 'acme/crew': [subPr('s1')], 'acme/ai-domain': [subPr('s2')] },
+      read: readyRead({ number: 40, url: urlOf('acme/crew') }),
+    });
+    const { out } = await run(['next', '7', '--json'], planRepo(), fake);
+    expect(JSON.parse(out)).toMatchObject({ prds: [{ verdict: 'act', skill: 'mega-pr-care --once', why: 'crew#40 has red CI', link: urlOf('acme/crew') }] });
+    expect(fake.queries).toEqual([expect.objectContaining({ variables: { owner: 'acme', name: 'crew', number: 40 } })]);
+  });
+
+  it('an open phase-0 PR, before the folder reached the inbox, parks naming it by repository', async () => {
+    const { root } = makeRepo({ git: true, files: PLAN_CONFIG });
+    const phase0 = [{ number: 3, url: 'https://github.com/acme/plans/pull/3', state: 'OPEN', body: 'Refs #7' }];
+    const { out } = await run(['next', '7'], root, fakeMulti({ phase0 }));
+    expect(out).toBe('PRD 7 — park: waits on a reviewer: the phase-0 PR plans#3 is open — https://github.com/acme/plans/pull/3\n');
+  });
+
+  it('a tick on the kept plan carries the repositories of its step; the same path in two repositories runs beside', async () => {
+    const root = planRepo();
+    const planned = await run(['next', '7', '--plan'], root, fakeMulti({ features: allDraft }));
+    expect(planned.out).toBe(['loop plan v1 · PRDs 7 · 2 steps', '  1. PRD 7 wave 1: s1, s2 · in ai-domain, crew', '  2. PRD 7 finish · after 1 · in ai-domain, crew', ''].join('\n'));
+    const { out } = await run(['next', '7', '--json'], root, fakeMulti({ features: allDraft }));
+    expect(JSON.parse(out)).toMatchObject({ step: { step: 1, prd: 7, repos: ['ai-domain', 'crew'] }, verdict: { skill: 'ultra-wave' } });
+  });
+});
