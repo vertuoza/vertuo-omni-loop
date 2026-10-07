@@ -33,7 +33,7 @@ export type Followed = { state: 'step'; step: Step; verdict: Verdict } | { state
 type Hold = { prd: PrdNumber; why: string; link?: string } | null;
 
 /** PRD `prd`'s verdict this tick: what it read live, parked instead when a roadmap parks it. */
-export function verdictOf(prd: PrdNumber, live: Live): Verdict | undefined {
+function verdictOf(prd: PrdNumber, live: Live): Verdict | undefined {
   const verdict = live.verdicts.get(prd);
   const gate = live.gates?.get(prd);
   if (!verdict || verdict.verdict === 'done' || gate?.kind !== 'park') return verdict;

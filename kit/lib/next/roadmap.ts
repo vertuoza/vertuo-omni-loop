@@ -15,7 +15,7 @@
 // PR's checks. A PRD with no gate, or whose blockers all merged, runs as `omni next` decides it.
 import type { PrdNumber } from '../ids.ts';
 import type { Roadmap } from '../roadmap/parse.ts';
-import { prdState, waitsOn } from '../roadmap/push.ts';
+import { prdState, rowStates, waitsOn } from '../roadmap/push.ts';
 import type { PrdStanding, PrStanding, RoadmapPrdState } from '../roadmap/push.ts';
 import type { PrdFacts } from './decide.ts';
 import type { PlanSliceInput } from './plan.ts';
@@ -71,11 +71,7 @@ function closedBlocker(blockedBy: readonly string[], standings: ReadonlyMap<stri
 
 /** Each PRD of the roadmap the roadmap holds, with its gate; a PRD free to run is absent. */
 export function roadmapGates({ roadmap, answers, standings, live, issue }: RoadmapRead): Map<PrdNumber, Gate> {
-  const none: PrdStanding = { shipped: false, prs: [], expected: 1 };
-  const rows = new Map(roadmap.prds.map((row) => {
-    const standing = standings.get(row.id) ?? none;
-    return [row.id, { row, standing, state: prdState(standing) }] as const;
-  }));
+  const rows = rowStates(roadmap, standings);
   const gates = new Map<PrdNumber, Gate>();
   const withLink = (gate: Gate, link: string | null): Gate => (link ? { ...gate, link } : gate);
   for (const row of roadmap.prds) {

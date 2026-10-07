@@ -140,7 +140,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'next',
     kind: 'command',
     who: 'you',
-    usage: ['omni next [<prd>…] [--json] [--plan]'],
+    usage: ['omni next [<prd>…] [--json] [--plan]', 'omni next --roadmap <n> [--json] [--plan]'],
     label: 'omni next [<n>…]',
     summary: "the loop's next step, for PRD n or across your PRDs",
     detail:
@@ -152,7 +152,12 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'series with the reason, blocked-by held, the rest beside each other) and keeps the plan in ' +
       'this checkout; each later call returns the first step not done, and writes a new plan ' +
       'version with a one-line reason when a slice goes stuck, a slice is added or a PRD ends ' +
-      'early. It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one ' +
+      "early. --roadmap <n> drives exactly roadmap n's PRDs, someone else's included: a blocked " +
+      "PRD's first step is held until its blockers' feature PRs merged (in a plan repository, the " +
+      'plan PR and every target PR), its why naming the pull request it waits on and its state, while ' +
+      'every other step runs; a person question not answered parks only the PRDs it blocks, and a ' +
+      'blocker closed unmerged parks its dependents. ' +
+      'It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one ' +
       'document. Needs gh logged in.',
   },
   {
@@ -172,8 +177,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'start opens a loop on this repository with the loop plan omni next --plan keeps, and keeps ' +
       "the loop's id and plan in this checkout, so a loop whose terminal closed resumes with the " +
       'same ones; it refuses a second live loop here, and takes over a silent one, whose session ' +
-      'died, only with --take-over. tick records one step, its result, its links and the next ' +
-      'wake, and carries a new plan version when omni next wrote one; park records a PRD waiting ' +
+      'died, only with --take-over. tick records one step, its result, its links, the repositories ' +
+      "it touches (--repos, else the plan's) and the next wake, and carries a new plan version when " +
+      'omni next wrote one; park records a PRD waiting ' +
       'on a person; stop ends the loop. status prints the loop kept here and what it is doing, and ' +
       'calls nothing. It never holds up the loop: a 5-second limit and one sign-in refresh, and ' +
       'anything that stops it exits 1 with one line (off, no sign-in, unreachable or refused).',

@@ -74,6 +74,15 @@ describe('omni help', () => {
     expect(out.replace(/\s+/g, ' ')).toMatch(/With no number it drives your own PRDs .* --plan orders every slice .* first step not done/);
   });
 
+  it('prints omni next --roadmap: exactly its PRDs, held on their blockers, parked on a person question (PRD 1162)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { out } = await run(['help', 'next'], root);
+    expect(out).toContain('omni next --roadmap <n> [--json] [--plan]');
+    expect(out.replace(/\s+/g, ' ')).toMatch(/--roadmap <n> drives exactly roadmap n's PRDs, someone else's included: .* held until .* merged .* parks only the PRDs it blocks.* closed unmerged parks its dependents/);
+    const loop = await run(['help', 'loop'], root);
+    expect(loop.out.replace(/\s+/g, ' ')).toMatch(/the repositories it touches \(--repos, else the plan's\)/);
+  });
+
   it('prints omni loop: its verbs, run by the skills, and how it never blocks (PRD 1139)', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out } = await run(['help', 'loop'], root);

@@ -149,6 +149,16 @@ export function waitsOn(
   return { waitsOn: null, waitsOnUrl: null };
 }
 
+/** Each row of `roadmap` by id, with its standing and its state (a row with none read stands as
+ * waiting): what {@link waitsOn} reads. */
+export function rowStates(roadmap: Pick<Roadmap, 'prds'>, standings: ReadonlyMap<string, PrdStanding>): Map<string, { row: RoadmapRow; standing: PrdStanding; state: RoadmapPrdState }> {
+  const none: PrdStanding = { shipped: false, prs: [], expected: 1 };
+  return new Map(roadmap.prds.map((row) => {
+    const standing = standings.get(row.id) ?? none;
+    return [row.id, { row, standing, state: prdState(standing) }] as const;
+  }));
+}
+
 /** The body `omni roadmap push` sends: the roadmap, its document, its answers and each PRD's standing
  * (a row with none read stands as waiting). */
 export function roadmapPushBody({ repo, roadmap, document, standings, answers }: {
@@ -158,11 +168,7 @@ export function roadmapPushBody({ repo, roadmap, document, standings, answers }:
   standings: ReadonlyMap<string, PrdStanding>;
   answers: ReadonlyMap<string, string>;
 }): RoadmapPushBody {
-  const none: PrdStanding = { shipped: false, prs: [], expected: 1 };
-  const rows = new Map(roadmap.prds.map((row) => {
-    const standing = standings.get(row.id) ?? none;
-    return [row.id, { row, standing, state: prdState(standing) }] as const;
-  }));
+  const rows = rowStates(roadmap, standings);
   const prds = [...rows.values()].map(({ row, standing, state }) => ({
     id: row.id,
     prd: row.prd,

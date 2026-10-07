@@ -406,3 +406,95 @@ describe('omni next — a plan repository', () => {
     expect(JSON.parse(out)).toMatchObject({ step: { step: 1, prd: 7, repos: ['ai-domain', 'crew'] }, verdict: { skill: 'ultra-wave' } });
   });
 });
+
+// PRD 1162, slice s7: `omni next --roadmap <n>` drives exactly the roadmap's PRDs.
+describe('omni next --roadmap', () => {
+  const ROADMAP = [
+    '---', 'roadmap: 12', 'title: Crew', 'milestone: A mandate is granted.', '---', '',
+    '## PRDs', '',
+    '| id | PRD | title | blocked by | why | wave |',
+    '|---|---|---|---|---|---|',
+    '| P1 | #7 | Widgets | – | – | 1 |',
+    '| P2 | #8 | Gadgets | P1 | it calls the widgets | 2 |',
+    '',
+    '## Open questions', '',
+    '| id | question | recommendation | blocks | kind |',
+    '|---|---|---|---|---|',
+    '| Q5 | Who signs? | The owner | P2 | person |',
+    '',
+  ].join('\n');
+
+  /** PRD 7 by you, 8 by someone else, both on the roadmap; 9 by you, off it. */
+  function roadmapRepo() {
+    const { root, write } = makeRepo({ git: true, files: CONFIG });
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+    const add = (path: string, text: string, email: string) => {
+      write(path, text);
+      git('add', '-A');
+      git('-c', `user.email=${email}`, '-c', 'user.name=x', 'commit', '-q', '-m', path);
+    };
+    add('.omni-loop/delivery/inbox/0007-widgets/plan.md', PLAN, 'me@example.com');
+    add('.omni-loop/delivery/inbox/0008-gadgets/plan.md', PLAN, 'someone@example.com');
+    add('.omni-loop/delivery/inbox/0009-gizmos/plan.md', PLAN, 'me@example.com');
+    add('.omni-loop/delivery/inbox/roadmaps/0012-crew/roadmap.md', ROADMAP, 'me@example.com');
+    git('config', 'user.email', 'me@example.com');
+    return root;
+  }
+
+  /** A fake answering each feature PR by its branch, and the roadmap issue's comments. */
+  function fakeRoadmap({ features = {}, comments = [] }: { features?: Record<string, unknown[]>; comments?: unknown[] } = {}) {
+    const calls: string[][] = [];
+    const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions = {}): string => {
+      calls.push([file, ...args]);
+      if (file === 'git') return args[0] === 'fetch' ? '' : realExec(file, args, options);
+      const kind = ghCallKind(args);
+      if (kind === 'feature') return JSON.stringify(features[String(args[args.indexOf('--head') + 1])] ?? []);
+      if (kind === 'comments') return JSON.stringify(String(args[1]).includes('/issues/12/') ? comments : []);
+      if (kind === 'phase0' || kind === 'subs') return '[]';
+      throw new Error(`fakeRoadmap: unexpected call ${file} ${args.join(' ')}`);
+    };
+    return { exec, calls };
+  }
+  const answer = { id: 5, body: '<!-- omni-roadmap-answer: Q5 -->\n**Q5**, answered:\n\nThe owner.', user: { login: 'pm' }, author_association: 'MEMBER', created_at: NOW, html_url: 'x' };
+  const widgets = { 'feat/widgets': [featurePr()] };
+
+  it('drives exactly the roadmap\'s PRDs, someone else\'s included; a person question parks the PRD it blocks', async () => {
+    const root = roadmapRepo();
+    const { code, out, err } = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: widgets }));
+    expect(err).toBe('');
+    expect(code).toBe(0);
+    const json = JSON.parse(out) as { prds: { prd: number }[]; held: { prd: number; gate: string; why: string; link: string }[] };
+    expect(json.prds.map((verdict) => verdict.prd)).toEqual([7, 8]);
+    expect(json).toMatchObject({ roadmap: 12, step: { prd: 7 }, verdict: { prd: 7, verdict: 'act', skill: 'wave' } });
+    expect(json.held).toHaveLength(1);
+    expect(json.held[0]).toMatchObject({ prd: 8, gate: 'park', link: 'https://github.com/acme/widgets/issues/12' });
+    expect(json.held[0]?.why).toMatch(/^waits on a person: roadmap 12 question Q5 is not answered \(Who signs\?\)/);
+  });
+
+  it('once answered, the blocked PRD is held on its blocker\'s PR, named with its state', async () => {
+    const root = roadmapRepo();
+    const { out } = await run(['next', '--roadmap', '12'], root, fakeRoadmap({ features: widgets, comments: [answer] }));
+    expect(out).toBe([
+      `step 1/4 · PRD 7 — act wave: wave 1 can take s1, s2 — ${PR_URL}`,
+      `  held: PRD 8 — waits on widgets#9 (P1 Widgets): building wave 1/1 — ${PR_URL}`,
+      '',
+    ].join('\n'));
+    const merged = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: { 'feat/widgets': [featurePr({ state: 'MERGED' })] }, comments: [answer] }));
+    expect(JSON.parse(merged.out)).toMatchObject({ step: { prd: 8 }, held: [] });
+  });
+
+  it('a blocker closed unmerged parks its dependent', async () => {
+    const root = roadmapRepo();
+    const { out } = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: { 'feat/widgets': [featurePr({ state: 'CLOSED' })] }, comments: [answer] }));
+    expect(JSON.parse(out)).toMatchObject({ stop: true, waiting: [{ prd: 8, verdict: 'park', why: 'blocker #9 closed unmerged: fix the roadmap', link: PR_URL }] });
+  });
+
+  it('an unknown roadmap exits 2 with one line', async () => {
+    const root = roadmapRepo();
+    const { code, out, err } = await run(['next', '--roadmap', '99'], root, fakeRoadmap());
+    expect(code).toBe(2);
+    expect(out).toBe('');
+    expect(err.trimEnd().split('\n')).toEqual(['omni next: no roadmap 99 in the inbox; omni roadmap check lists them.']);
+    expect((await run(['next', '7', '--roadmap', '12'], root, fakeRoadmap())).code).toBe(2);
+  });
+});
