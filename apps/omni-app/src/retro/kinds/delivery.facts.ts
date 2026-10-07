@@ -10,7 +10,9 @@
 //   Territory   paths a merged sub-PR changed outside its slice's territory. The PRD's own outbox
 //               folder (its items and accounts) is every slice's ground, and a path on shared ground
 //               (ground two slices' territories both cover, as the kit computes it) is counted, never
-//               flagged. A finding for any other path.
+//               flagged. A path one of the repository's generated outputs covers (the config's
+//               `generated` section at the merge, PRD 1138) is rebuilt, not written: never flagged,
+//               and never shared ground. A finding for any other path.
 //   Friction    `labels.needsFix` added, "Stuck after N attempts" comments, a slice claimed by more
 //               than one sub-PR. A finding for a stuck or needs-fix slice; a second claim is counted,
 //               and named in that finding.
@@ -191,7 +193,8 @@ export function territoryFacts({ prd, config, subs, read }: { prd: RetroPrd; con
     return ungraded(firstClause(messageOf(error)));
   }
 
-  const sharedGround = [...new Set(collisions(slices).flatMap((pair) => pair.shared))];
+  const generated = config.generated ?? [];
+  const sharedGround = [...new Set(collisions(slices, generated).flatMap((pair) => pair.shared))];
   const ownOutbox = [`${outboxFolder(prd, config)}/`, `${prd.folder}/outbox/`];
 
   const pulls = mergedSlicePulls(subs).map(({ pull, slice }): TerritoryPull => {
@@ -201,7 +204,7 @@ export function territoryFacts({ prd, config, subs, read }: { prd: RetroPrd; con
     const paths = [...new Set(files)];
     const planned = slices.find((candidate) => candidate.id === slice);
     if (!planned) return { ...base, status: 'unplanned', files: paths.length, breaches: null, shared: null };
-    const off = breaches(paths, [...planned.territory, ...ownOutbox]);
+    const off = breaches(paths, [...planned.territory, ...ownOutbox], generated);
     return {
       ...base,
       status: 'graded',

@@ -62,6 +62,13 @@ export type TerritoryVerdict = {
   lines: string[];
 };
 
+/**
+ * A file the repository builds rather than writes (PRD 1138): an entry of the config's `generated`
+ * section, of which matching reads the `path` alone. Its ground is nobody's: a slice that rebuilt it
+ * did not breach, and two slices that both list it share nothing on it.
+ */
+export type Generated = { readonly path: string };
+
 /** The ground a slice declares: the only field the matching reads. */
 type Declared = Pick<Slice, 'territory'>;
 
@@ -277,19 +284,34 @@ export function covers(territory: readonly string[], path: string): boolean {
   return territory.some((declaration) => path.startsWith(prefixOf(declaration)));
 }
 
-/** The changed paths no declared prefix owns — the breach, in the order the diff listed them. */
-export function breaches(paths: readonly string[], territory: readonly string[]): string[] {
-  return paths.filter((path) => !covers(territory, path));
+/** The path prefixes of the generated outputs. */
+function generatedPrefixes(generated: readonly Generated[]): string[] {
+  return generated.map(({ path }) => path);
 }
 
-/** The ground two slices both claim: every declaration of one that meets a declaration of the other. */
-export function sharedGround(left: Declared, right: Declared): string[] {
+/**
+ * The changed paths no declared prefix owns — the breach, in the order the diff listed them. A path
+ * a `generated` entry covers is never one: it is rebuilt, not written.
+ */
+export function breaches(paths: readonly string[], territory: readonly string[], generated: readonly Generated[] = []): string[] {
+  const built = generatedPrefixes(generated);
+  return paths.filter((path) => !covers(territory, path) && !covers(built, path));
+}
+
+/**
+ * The ground two slices both claim: every declaration of one that meets a declaration of the other.
+ * Two declarations meet on the narrower of them; when a `generated` entry covers that, they share
+ * nothing (PRD 1138).
+ */
+export function sharedGround(left: Declared, right: Declared, generated: readonly Generated[] = []): string[] {
+  const built = generatedPrefixes(generated);
   const shared = new Set<string>();
   for (const a of left.territory) {
     for (const b of right.territory) {
       const [x, y] = [prefixOf(a), prefixOf(b)];
-      if (x.startsWith(y)) shared.add(x.length >= y.length ? y : x);
-      else if (y.startsWith(x)) shared.add(x);
+      const meets = x.startsWith(y) || y.startsWith(x);
+      const narrower = x.length >= y.length ? x : y;
+      if (meets && !covers(built, narrower)) shared.add(x.length >= y.length ? y : x);
     }
   }
   return [...shared];
@@ -300,12 +322,12 @@ export function sharedGround(left: Declared, right: Declared): string[] {
  * can meet (PRD 549): a territory is a path in its slice's `repo`, and two slices with no `repo`
  * (`null`, an ordinary plan) share one repository, as they always did.
  */
-export function collisions(slices: readonly CollidingSlice[]): Collision[] {
+export function collisions(slices: readonly CollidingSlice[], generated: readonly Generated[] = []): Collision[] {
   const pairs: Collision[] = [];
   for (const [i, a] of slices.entries()) {
     for (const b of slices.slice(i + 1)) {
       if ((a.repo ?? null) !== (b.repo ?? null)) continue;
-      const shared = sharedGround(a, b);
+      const shared = sharedGround(a, b, generated);
       if (shared.length > 0) pairs.push({ left: a.id, right: b.id, shared });
     }
   }
@@ -317,24 +339,30 @@ export function collisions(slices: readonly CollidingSlice[]): Collision[] {
  * a wave merge one after another, so shared ground turns the second into a conflict. Waves are
  * counted within a landing, and a landing starts only once the one before it is merged, so two
  * slices of different landings never meet, whatever their wave numbers. A slice with no `landing`
- * sits in landing 1.
+ * sits in landing 1. Ground a `generated` entry covers is nobody's, so it never keeps two slices apart.
  */
-export function sameWaveCollisions(slices: readonly CollidingSlice[]): (Collision & { wave: number | null | undefined })[] {
+export function sameWaveCollisions(
+  slices: readonly CollidingSlice[],
+  generated: readonly Generated[] = [],
+): (Collision & { wave: number | null | undefined })[] {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
   const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
-  return collisions(slices)
+  return collisions(slices, generated)
     .filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf.get(left) === landingOf.get(right))
     .map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
 }
 
 /** The collision matrix a plan prints, computed from the declarations rather than asserted. In a plan
  * of more than one landing, each side's wave is written with its landing (`s1 l1w2`). */
-export function collisionRows(slices: readonly CollidingSlice[]): { pair: string; shared: string; resolved: string }[] {
+export function collisionRows(
+  slices: readonly CollidingSlice[],
+  generated: readonly Generated[] = [],
+): { pair: string; shared: string; resolved: string }[] {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
   const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
   const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
   const at = (id: WorkSliceId) => `${landed ? `l${landingOf.get(id)}` : ''}w${waveOf.get(id)}`;
-  return collisions(slices).map(({ left, right, shared }) => ({
+  return collisions(slices, generated).map(({ left, right, shared }) => ({
     pair: `${left} · ${right}`,
     shared: shared.map((ground) => `\`${ground}\``).join(', '),
     resolved: `${left} ${at(left)} · ${right} ${at(right)}`,
@@ -345,12 +373,13 @@ export function collisionRows(slices: readonly CollidingSlice[]): { pair: string
  * One slice's diff against its own declaration.
  *
  * `fatal` is always `false`, and it is a field rather than a comment so the caller that merges can
- * read the policy instead of remembering it.
+ * read the policy instead of remembering it. A path a `generated` entry covers is no breach.
  */
 export function territoryVerdict(
   slices: readonly Pick<Slice, 'id' | 'territory'>[],
   sliceId: WorkSliceId,
   changedPaths: readonly string[],
+  generated: readonly Generated[] = [],
 ): TerritoryVerdict {
   const slice = slices.find((candidate) => candidate.id === sliceId);
   if (!slice) {
@@ -363,7 +392,7 @@ export function territoryVerdict(
       lines: [`Territory: the plan holds no slice ${sliceId}; its diff was not graded.`],
     };
   }
-  const outside = breaches(changedPaths, slice.territory);
+  const outside = breaches(changedPaths, slice.territory, generated);
   const lines =
     outside.length === 0
       ? [`Territory: ${slice.id} stayed inside the ${slice.territory.length} path(s) it declared.`]

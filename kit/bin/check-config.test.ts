@@ -1,4 +1,5 @@
 // `omni check config` (PRD 1089, s1): the config, its flow and the hook files the flow names.
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
@@ -122,6 +123,46 @@ describe('omni check config', () => {
     const s = io();
     expect(await main(['check', 'all'], { cwd: root, ...s })).toBe(1);
     expect(s.out.join('')).toContain('flow.hooks.yolo.ready: gone.md does not exist');
+  });
+
+  describe('the generated section (PRD 1138)', () => {
+    const GENERATED = 'generated:\n  - path: out/\n    from: [src/, lib/]\n    build: pnpm build\n  - path: api/\n    from: [app/]\n    build: node build.ts\n';
+    const GROUND = {
+      'package.json': JSON.stringify({ scripts: { build: 'x' } }),
+      'out/bundle.mjs': 'x',
+      'src/a.ts': 'x',
+      'lib/b.ts': 'x',
+      'api/fn.mjs': 'x',
+      'app/c.ts': 'x',
+      'build.ts': 'x',
+    };
+    const without = (path: string) => Object.fromEntries(Object.entries(GROUND).filter(([key]) => key !== path));
+
+    it('is green when every output, source and build exists, and counts the outputs', async () => {
+      const { code, out } = await checkConfig(HEAD + GENERATED, GROUND);
+      expect(code).toBe(0);
+      expect(out).toMatch(/check config — \.omni-loop\/config\.yml is valid; no flow; generated: 2 output\(s\), every path, source and build present/);
+    });
+
+    it.each([
+      ['a path that matches nothing tracked', without('api/fn.mjs'), 'generated.1 (api/): path api/ matches no tracked file'],
+      ['a from prefix that matches nothing tracked', without('lib/b.ts'), 'generated.0 (out/): from lib/ matches no tracked file'],
+      ['a script the root package.json lacks', { ...GROUND, 'package.json': '{}' }, 'generated.0 (out/): build pnpm build — build is no script of the root package.json'],
+      ['a node file that is not tracked', without('build.ts'), 'generated.1 (api/): build node build.ts — build.ts is not a tracked file'],
+    ])('exits 1 on %s, one line naming the entry', async (_what, files, line) => {
+      const { code, out } = await checkConfig(HEAD + GENERATED, files);
+      expect(code).toBe(1);
+      expect(out).toContain('check config — the config does not hold what it claims:');
+      expect(out).toContain(line);
+      expect(out.split('\n').filter((text) => text.includes('generated.'))).toHaveLength(1);
+    });
+
+    it("passes this repository's own config", async () => {
+      const s = io();
+      const code = await main(['check', 'config'], { cwd: fileURLToPath(new URL('../..', import.meta.url)), ...s });
+      expect(s.out.join('')).toMatch(/generated: 2 output\(s\)/);
+      expect(code).toBe(0);
+    });
   });
 
   it('leaves the other guards stopping with exit 2 on an invalid config', async () => {

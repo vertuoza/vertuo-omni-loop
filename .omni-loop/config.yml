@@ -40,3 +40,15 @@ proof:
   deployment: Preview – vertuo-omni-loop-galaxy
   setup: node .omni-loop/bin/omni.mjs proof session
   bypassEnv: VERCEL_AUTOMATION_BYPASS_SECRET
+# Generated files (PRD 1138): outputs this repository builds rather than writes. A slice rebuilds them
+# only to test and commits none; the wave rebuilds the stale ones once, after merging, in a commit of
+# their own. Never a territory breach, never shared ground between two slices. `from` names every
+# source the build reads: the kit's code, its templates, the pitch engine and the build script; the
+# App's code, its entries, its build script, the kit and the workspace packages it bundles.
+generated:
+  - path: kit/dist/
+    from: [kit/lib/, kit/bin/, kit/templates/, kit/pitch-engine/, kit/build.ts]
+    build: pnpm kit:build
+  - path: apps/omni-app/api/
+    from: [apps/omni-app/src/, apps/omni-app/entries/, apps/omni-app/build.ts, kit/lib/, packages/design/, packages/github/]
+    build: node apps/omni-app/build.ts

@@ -1666,3 +1666,90 @@ describe('the pitch skill (PRD 859, PRD 1108)', () => {
     expect(skillSection(text, 'Never')).toMatch(/Never post a comment/);
   });
 });
+
+// PRD 1138: a file the repository builds is a `generated` entry of its config. A slice rebuilds it only
+// to test and pushes none; the wave's check rebuilds the stale ones once, from the feature branch
+// before the wave, and commits them alone; the yolo's finish does the same after meeting its base; the
+// plan never lists a generated path. Each skill reads the entries from `omni generated` or
+// `omni config generated`, never naming one.
+describe('generated files in the skills that build, plan and finish', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const LINE = '`<path>: stale|fresh — <build>`';
+  /** Each mention the text lacks after the one before it. */
+  const missingInOrder = (text: string, mentions: string[]) => {
+    const out: string[] = [];
+    let from = 0;
+    mentions.forEach((mention: string, index: number) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) out.push(`${mention}, after ${mentions[index - 1] ?? 'the start'}`);
+      else from = at + mention.length;
+    });
+    return out;
+  };
+
+  it('/omni:do-work rebuilds the stale outputs before its preflight, then drops them before it commits and pushes', () => {
+    const text = read('do-work');
+    expect(skillSection(text, '2.')).toMatch(/Never stage\s+or commit a path under a generated entry's `path`/);
+    expect(missingInOrder(skillSection(text, '5.'), [
+      'omni.mjs generated <repo.remote>/<feature branch>...HEAD', LINE, '`no generated files`',
+      '`stale` line', 'commands.preflightFull', 'git checkout HEAD -- <path>', 'git clean -fdq -- <path>',
+      'pushes no generated file', '**Push**',
+    ])).toEqual([]);
+  });
+
+  it('/omni:wave keeps the feature branch before the wave, never calls a generated path a breach, and its check rebuilds and commits alone', () => {
+    const text = read('wave');
+    expect(missingInOrder(skillSection(text, '4.'), [
+      'git rev-parse <remote>/<feature branch>', '**the feature branch before the wave**', '**Territory.**', 'is never a breach',
+    ])).toEqual([]);
+    expect(missingInOrder(skillSection(text, '5.'), [
+      '**Adopt.**', '**Rebuild, then check.**', 'omni.mjs generated <feature branch before the wave>..HEAD', LINE,
+      '`stale` line', 'Then run the preflight', 'commit the rebuilt paths alone',
+      '`chore(build): rebuild generated files — wave <n> of PRD <prd>`', 'omni sign trailer', 'Nothing stale',
+      'no\n   commit.',
+    ])).toEqual([]);
+  });
+
+  it("/omni:yolo's finish rebuilds after meeting its base, and commits the rebuilt paths alone", () => {
+    expect(missingInOrder(skillSection(read('yolo'), '4.'), [
+      '**Meet its base:**', 'git merge <remote>/<base>', 'generated entry', 'is never a reason to stop',
+      '**Rebuild, then check the whole feature.**', 'omni.mjs generated <remote>/<base>..HEAD', LINE,
+      'Then the preflight', 'rebuilt paths alone', '`chore(build): rebuild generated files — finish of PRD <prd>`',
+      'omni sign trailer', 'Nothing stale', '`git push <remote> HEAD:<feature branch>`',
+    ])).toEqual([]);
+  });
+
+  it('/omni:plan never lists a generated path in a territory or the shared-ground note', () => {
+    const text = read('plan');
+    expect(skillSection(text, '3.')).toMatch(/Never list a generated path in a territory or\s+in the shared-ground note/);
+    expect(skillSection(text, '3.')).toContain('omni.mjs config generated');
+    expect(skillSection(text, '4.')).toContain('A generated path is never in it.');
+  });
+
+  it("names no generated output and no build: each is read from the repository's config", () => {
+    const run = spawnSync(process.execPath, [join(repoRoot, '.omni-loop/bin/omni.mjs'), 'config', 'generated'], { cwd: repoRoot, encoding: 'utf8' });
+    expect(run.status).toBe(0);
+    const parsed: unknown = JSON.parse(run.stdout);
+    const literals = (Array.isArray(parsed) ? parsed : []).flatMap((entry: unknown) =>
+      isFields(entry) ? [entry.path, entry.build].filter((value: unknown): value is string => typeof value === 'string') : []);
+    expect(literals.length).toBeGreaterThan(0);
+    for (const skill of ['do-work', 'wave', 'yolo', 'plan']) {
+      for (const literal of literals) expect(read(skill), `${skill} names ${literal}`).not.toContain(literal);
+    }
+  });
+
+  it('ADR-0071 is marked superseded by PRD 1138', () => {
+    const dir = join(repoRoot, '.omni-loop/knowledge/adr');
+    const file = readdirSync(dir).find((name: string) => name.startsWith('0071-'));
+    assertDefined(file, 'ADR-0071');
+    const text = readFileSync(join(dir, file), 'utf8');
+    expect(text).toMatch(/^\*\*Status:\*\* superseded · .*\*\*Superseded by:\*\* PRD #1138\b/m);
+    expect(text).toContain('## Superseded');
+  });
+
+  it('the order check names a phrase that is gone or out of order', () => {
+    expect(missingInOrder('a b c', ['a', 'b', 'c'])).toEqual([]);
+    expect(missingInOrder('a c', ['a', 'b', 'c'])).toEqual(['b, after a']);
+    expect(missingInOrder('b a', ['a', 'b'])).toEqual(['b, after a']);
+  });
+});

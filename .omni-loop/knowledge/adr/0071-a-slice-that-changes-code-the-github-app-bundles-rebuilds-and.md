@@ -1,6 +1,13 @@
 # ADR-0071 — A slice that changes code the GitHub app bundles rebuilds and commits the app's bundles as a generated change
 
-**Status:** adopted · **Date:** 2026-10-06 · **PRD:** #1089 · **Decided:** nobody — adopted when raised (medium), 2026-10-06 · **Merged:** @pierrederval, 2026-10-06, PR #1090
+**Status:** superseded · **Date:** 2026-10-06 · **PRD:** #1089 · **Superseded by:** PRD #1138, 2026-10-07 · **Decided:** nobody — adopted when raised (medium), 2026-10-06 · **Merged:** @pierrederval, 2026-10-06, PR #1090
+
+## Superseded
+
+PRD #1138 replaces this decision. The repository's config now lists its built outputs in a
+`generated` section; a slice rebuilds them only to run its tests and never commits them, and the wave
+rebuilds the stale ones once after merging its slices, in a commit of their own. A generated path is
+never a territory breach and never shared ground.
 
 ## Context
 

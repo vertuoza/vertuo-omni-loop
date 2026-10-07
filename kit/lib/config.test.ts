@@ -554,3 +554,64 @@ describe('the flow section (PRD 1089)', () => {
     expect(() => parseConfig('kit: 1\nflow:\n  steps: {}\n', 'c.yml')).toThrow(/c\.yml.*flow.*steps/);
   });
 });
+
+describe('the generated section (PRD 1138)', () => {
+  const firstLine = (source: string) => {
+    try {
+      parseConfig(source, 'c.yml');
+    } catch (error) {
+      return messageOf(error).split('\n')[0];
+    }
+    throw new Error('it parsed');
+  };
+  const SECTION = 'generated:\n  - path: out/\n    from: [src/, lib/]\n    build: pnpm build\n  - path: api/\n    from: [app/]\n    build: node build.ts\n';
+
+  it('leaves a config without it exactly as it parses today: no generated key at all', () => {
+    expect(Object.hasOwn(parseConfig('kit: 1\n'), 'generated')).toBe(false);
+  });
+
+  it('reads each entry in order: its path, its from prefixes and its build', () => {
+    expect(parseConfig(`kit: 1\n${SECTION}`).generated).toEqual([
+      { path: 'out/', from: ['src/', 'lib/'], build: 'pnpm build' },
+      { path: 'api/', from: ['app/'], build: 'node build.ts' },
+    ]);
+  });
+
+  it.each([
+    ['a missing path', 'generated:\n  - from: [src/]\n    build: pnpm build\n', 'generated.0.path'],
+    ['an empty path', "generated:\n  - path: ''\n    from: [src/]\n    build: pnpm build\n", 'generated.0.path'],
+    ['a missing from', 'generated:\n  - path: out/\n    build: pnpm build\n', 'generated.0.from'],
+    ['an empty from', 'generated:\n  - path: out/\n    from: []\n    build: pnpm build\n', 'generated.0.from'],
+    ['an empty from prefix', "generated:\n  - path: out/\n    from: ['']\n    build: pnpm build\n", 'generated.0.from.0'],
+    ['a missing build', 'generated:\n  - path: out/\n    from: [src/]\n', 'generated.0.build'],
+    ['an empty build', "generated:\n  - path: out/\n    from: [src/]\n    build: '  '\n", 'generated.0.build'],
+    ['an unknown key', 'generated:\n  - path: out/\n    from: [src/]\n    build: pnpm build\n    run: x\n', 'generated.0'],
+    ['a section that is no list', 'generated:\n  path: out/\n', 'generated'],
+  ])('refuses %s, naming the field', (_what, section, key) => {
+    expect(firstLine(`kit: 1\n${section}`)).toContain(`: ${key}: `);
+  });
+});
+
+// #1151: the GitHub App's retro read a config written for a newer kit than its own deploy, and skipped
+// in silence. A reader that may lag the file asks to leave unknown keys out; every other reader still
+// refuses them, so a typo is still caught.
+describe('parseConfig — keys this kit does not know (#1151)', () => {
+  const newer = 'kit: 1\nfuture: [a]\nbranches:\n  later: later/{topic}\n';
+
+  it('refuses them by default, naming the key', () => {
+    expect(() => parseConfig(newer)).toThrow(/Unrecognized key\(s\) in object: 'future'/);
+  });
+
+  it('leaves them out with ignoreUnknownKeys, at the top level and inside a section', () => {
+    const config = parseConfig(newer, CONFIG_FILE, { ignoreUnknownKeys: true });
+    expect(config.branches.feature).toBe('feat/{topic}');
+    expect(config).not.toHaveProperty('future');
+    expect(config.branches).not.toHaveProperty('later');
+  });
+
+  it('still refuses a value of the wrong kind with ignoreUnknownKeys', () => {
+    expect(() => parseConfig('kit: 1\nfuture: 1\nrepo:\n  defaultBranch: 3\n', CONFIG_FILE, { ignoreUnknownKeys: true })).toThrow(
+      /not a valid Omni Loop config: repo\.defaultBranch/,
+    );
+  });
+});

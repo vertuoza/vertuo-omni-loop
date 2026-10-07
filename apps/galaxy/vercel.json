@@ -4,5 +4,8 @@
   "ignoreCommand": "cd ../.. && bash scripts/vercel-ignore.sh",
   "regions": [
     "fra1"
+  ],
+  "crons": [
+    { "path": "/api/stages/sync", "schedule": "*/15 * * * *" }
   ]
 }

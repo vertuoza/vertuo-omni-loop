@@ -79,6 +79,15 @@ describe('mergeGate', () => {
     expect(verdict).toMatchObject({ ok: true, reported: ['README.md is outside the slice\'s territory'] });
   });
 
+  it('grades no rebuilt generated path as outside the territory, and still every other path (PRD 1138)', () => {
+    const generated = [{ path: 'apps/omni-app/api/', from: ['apps/omni-app/src/'], build: 'node apps/omni-app/build.ts' }];
+    const files = ['src/kernel/Bus/Dispatcher.php', 'apps/omni-app/api/inngest.mjs', 'README.md'];
+    expect(gate('', pr({ files }), { generated })).toMatchObject({ ok: true, reported: ["README.md is outside the slice's territory"] });
+    const yaml = 'flow:\n  rules:\n    subPr: { territory: block }\n';
+    expect(gate(yaml, pr({ files: files.slice(0, 2) }), { generated })).toMatchObject({ ok: true, reasons: [], reported: [] });
+    expect(gate('', pr({ files })).reported).toEqual(["apps/omni-app/api/inngest.mjs is outside the slice's territory", "README.md is outside the slice's territory"]);
+  });
+
   it('refuses a diff outside the territory under territory: block', () => {
     const yaml = 'flow:\n  rules:\n    subPr: { territory: block }\n';
     const verdict = gate(yaml, pr({ files: ['src/kernel/Bus/Dispatcher.php', 'README.md'] }));

@@ -29,7 +29,8 @@ export async function qualify(
   const pr: FeaturePull = Object.assign(read, { mergeSha });
 
   const { config, error } = await configAt(octokit, { owner, repo, sha: mergeSha });
-  if (error) return { skip: error.message.split('\n')[0] ?? '', pr };
+  // A config that cannot be read is a retro that could not run (#1151): `onFailure` says so on the PR.
+  if (error) throw error;
   if (!config) return { skip: `No \`${CONFIG_FILE}\` at the merge ${mergeSha}.`, pr };
 
   const { defaultBranch } = config.repo;
@@ -84,7 +85,8 @@ export function topicOf(headRef: string, featureTemplate: string): string | null
 async function configAt(octokit: Octokit, { owner, repo, sha }: Repo & { sha: string }): Promise<{ config: Config | null; error: Error | null }> {
   const dest = mkdtempSync(join(tmpdir(), 'omni-retro-config-'));
   try {
-    return await readBaseConfig(octokit, { owner, repo, baseSha: sha, dest });
+    // Keys this App does not know yet are left out: the merge may carry a newer kit than this deploy (#1151).
+    return await readBaseConfig(octokit, { owner, repo, baseSha: sha, dest, ignoreUnknownKeys: true });
   } finally {
     rmSync(dest, { recursive: true, force: true });
   }

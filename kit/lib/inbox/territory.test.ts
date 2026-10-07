@@ -271,6 +271,47 @@ describe('collisions', () => {
   });
 });
 
+describe('generated outputs (PRD 1138)', () => {
+  const GENERATED = [
+    { path: 'kit/dist/', from: ['kit/lib/'], build: 'pnpm kit:build' },
+    { path: 'apps/omni-app/api/', from: ['apps/omni-app/src/'], build: 'node apps/omni-app/build.ts' },
+  ];
+  const slice = (id: string, territory: string[], wave = 1) => ({ id: parseWorkSliceId(id), territory, wave });
+
+  it('breaches drops every path a generated entry covers and keeps every other breach', () => {
+    const changed = ['kit/lib/a.ts', 'kit/dist/omni.mjs', 'apps/omni-app/api/inngest.mjs', 'README.md'];
+    expect(breaches(changed, ['kit/lib/'], GENERATED)).toEqual(['README.md']);
+  });
+
+  it('breaches without generated entries is what it always was', () => {
+    expect(breaches(['kit/dist/omni.mjs', 'README.md'], ['kit/lib/'])).toEqual(['kit/dist/omni.mjs', 'README.md']);
+    expect(breaches(['kit/dist/omni.mjs'], ['kit/lib/'], [])).toEqual(['kit/dist/omni.mjs']);
+  });
+
+  it('collisions ignores a generated path two slices share and keeps every other shared path', () => {
+    const slices = [slice('s1', ['kit/lib/a.ts', 'kit/dist/']), slice('s2', ['kit/lib/b.ts', 'kit/dist/']), slice('s3', ['kit/lib/a.ts', 'kit/dist/omni.mjs'])];
+    expect(collisions(slices, GENERATED)).toEqual([{ left: 's1', right: 's3', shared: ['kit/lib/a.ts'] }]);
+    expect(sameWaveCollisions(slices, GENERATED)).toEqual([{ left: 's1', right: 's3', shared: ['kit/lib/a.ts'], wave: 1 }]);
+    expect(collisionRows(slices, GENERATED)).toEqual([{ pair: 's1 · s3', shared: '`kit/lib/a.ts`', resolved: 's1 w1 · s3 w1' }]);
+  });
+
+  it('collisions reads the ground two prefixes really meet on: the narrower one', () => {
+    // `kit/` and `kit/dist/` meet on `kit/dist/` alone, a generated path; two `kit/` meet on the sources too.
+    expect(collisions([slice('s1', ['kit/']), slice('s2', ['kit/dist/'])], GENERATED)).toEqual([]);
+    expect(collisions([slice('s1', ['kit/']), slice('s2', ['kit/'])], GENERATED)).toEqual([{ left: 's1', right: 's2', shared: ['kit/'] }]);
+  });
+
+  it('collisions without generated entries is what it always was', () => {
+    const slices = [slice('s1', ['kit/dist/']), slice('s2', ['kit/dist/'])];
+    expect(collisions(slices)).toEqual([{ left: 's1', right: 's2', shared: ['kit/dist/'] }]);
+  });
+
+  it('territoryVerdict grades no generated path as a breach', () => {
+    const verdict = territoryVerdict([slice('s1', ['kit/lib/'])], parseWorkSliceId('s1'), ['kit/lib/a.ts', 'kit/dist/omni.mjs'], GENERATED);
+    expect(verdict.breaches).toEqual([]);
+  });
+});
+
 // Scenario: Waves come from the collision matrix
 describe('Feature: Slices declare the ground they stand on — waves come from the collision matrix', () => {
   it('two slices that own an overlapping path may not share a wave', () => {

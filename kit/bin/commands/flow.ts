@@ -290,6 +290,8 @@ function checkMerge(args: string[], io: CommandIo): number {
     open,
     repo,
     ground: own === undefined ? [] : [own.outbox],
+    // This repository's generated outputs (PRD 1138); a sub-PR in another repository meets none.
+    generated: repo === null ? (ctx.config.generated ?? []) : [],
   });
   println(stdout, json ? JSON.stringify(verdict, null, 2) : verdictText(verdict));
   return verdict.ok ? 0 : 1;

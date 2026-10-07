@@ -1,5 +1,5 @@
-// POST /api/stages/sync (PRD 587, s2): the 15-minute sync, the truth of where each PRD is. The
-// `stages` workflow calls it every quarter hour with `Authorization: Bearer <STAGES_SYNC_SECRET>`; any
+// /api/stages/sync (PRD 587, s2): the 15-minute sync, the truth of where each PRD is. Vercel Cron
+// calls it every quarter hour with `Authorization: Bearer <CRON_SECRET>`, set to STAGES_SYNC_SECRET; any
 // other caller, or every caller while the deployment has no secret, is refused (401) before anything is
 // read. For each workspace, each repository its App installation reaches that carries the loop's config
 // is read (./github.ts), turned into stages and topics (./core.ts), and recorded through the stage store

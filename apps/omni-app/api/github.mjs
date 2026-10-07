@@ -531,6 +531,11 @@ var planSection = z7.object({
     }
   });
 });
+var generatedEntry = z7.object({
+  path: text2,
+  from: z7.array(text2).min(1, "at least one source prefix"),
+  build: z7.string().trim().min(1)
+}).strict();
 var ConfigSchema = z7.object({
   kit: z7.literal(CONFIG_VERSION),
   repo: section({
@@ -686,7 +691,10 @@ var ConfigSchema = z7.object({
   plan: planSection.optional(),
   // PRD 1089: the repository's flow — its rules, its areas and its hooks (`kit/lib/flow/`).
   // Optional: a config without it runs the loop as the kit defines it, and parses with no `flow` key.
-  flow: FlowSchema.optional()
+  flow: FlowSchema.optional(),
+  // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
+  // it has none, and parses with no `generated` key.
+  generated: z7.array(generatedEntry).optional()
 }).strict().superRefine(({ pr, flow }, issues) => {
   const hooks = flow?.hooks?.["pr.open"];
   if (pr.openWith !== null && hooks !== void 0 && hooksByMode(hooks).replace !== null) {
@@ -718,7 +726,29 @@ function migrateConfig(raw, migrations = MIGRATIONS) {
   }
   return current;
 }
-function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}) {
+function dropUnrecognized(raw, issues) {
+  let dropped = false;
+  for (const issue of issues) {
+    if (issue.code !== "unrecognized_keys") continue;
+    let at = raw;
+    for (const step of issue.path) at = isRecord(at) ? at[String(step)] : void 0;
+    if (!isRecord(at)) continue;
+    for (const key of issue.keys) {
+      if (Object.hasOwn(at, key)) {
+        Reflect.deleteProperty(at, key);
+        dropped = true;
+      }
+    }
+  }
+  return dropped;
+}
+function checkConfig(raw, ignoreUnknownKeys) {
+  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  if (result.success || !ignoreUnknownKeys) return result;
+  const copy = structuredClone(raw);
+  return dropUnrecognized(copy, result.error.issues) ? ConfigSchema.safeParse(copy, { error: KIT_MESSAGES }) : result;
+}
+function parseConfig(source, file = CONFIG_FILE, { migrate = false, ignoreUnknownKeys = false } = {}) {
   let raw;
   try {
     raw = parse(source) ?? {};
@@ -731,7 +761,7 @@ function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}) {
     const { section: name, from, to } = renamed;
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed \u2014 call it ${name}.${to}`, { invalid: true });
   }
-  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  const result = checkConfig(raw, ignoreUnknownKeys);
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
     const more = others.length ? `

@@ -13,7 +13,7 @@ const Package = z.object({ scripts: z.record(z.string(), z.string()) });
 
 type Step = { run?: string; uses?: string; name?: string; env?: Record<string, string>; with?: Record<string, unknown>; 'continue-on-error'?: boolean };
 type Job = { if?: string; needs?: unknown; concurrency: { group: string }; 'timeout-minutes'?: number; permissions: Record<string, string>; env: Record<string, string>; steps: Step[] };
-type Workflow = { on: { workflow_dispatch: { inputs: Record<string, { type: string }> } }; env?: Record<string, string>; jobs: Record<string, Job> & { ledger: Job; rankings: Job; check: Job } };
+type Workflow = { on: { schedule: { cron: string }[]; workflow_dispatch: { inputs: Record<string, { type: string }> } }; env?: Record<string, string>; jobs: Record<string, Job> & { ledger: Job; rankings: Job; check: Job } };
 
 const wf = parse(readFileSync(new URL('../.github/workflows/game.yml', import.meta.url), 'utf8')) as Workflow;
 
@@ -22,11 +22,16 @@ describe('game workflow', () => {
     expect(Object.keys(wf.jobs)).toEqual(['ledger', 'rankings']);
     for (const job of Object.values(wf.jobs)) {
       expect(job.if).toContain("vars.GAME_ENABLED == 'true'");
-      expect(job['timeout-minutes']).toBe(20);
       expect(job.needs).toBeUndefined();
     }
+    expect(wf.jobs.ledger['timeout-minutes']).toBe(30);
+    expect(wf.jobs.rankings['timeout-minutes']).toBe(20);
     expect(wf.jobs.ledger.concurrency.group).toBe('game-ledger');
     expect(wf.jobs.rankings.concurrency.group).toBe('game-rankings');
+  });
+
+  it('polls hourly: a poll takes up to 20 minutes, so every 15 kept a runner busy all day', () => {
+    expect(wf.on.schedule.map((s) => s.cron)).toEqual(['7 * * * *', '0 7 * * 1']);
   });
 
   it('posts rankings only on the Monday schedule or a dispatch that asks for it', () => {

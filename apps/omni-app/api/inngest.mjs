@@ -1162,6 +1162,11 @@ var planSection = z8.object({
     }
   });
 });
+var generatedEntry = z8.object({
+  path: text3,
+  from: z8.array(text3).min(1, "at least one source prefix"),
+  build: z8.string().trim().min(1)
+}).strict();
 var ConfigSchema = z8.object({
   kit: z8.literal(CONFIG_VERSION),
   repo: section({
@@ -1317,7 +1322,10 @@ var ConfigSchema = z8.object({
   plan: planSection.optional(),
   // PRD 1089: the repository's flow — its rules, its areas and its hooks (`kit/lib/flow/`).
   // Optional: a config without it runs the loop as the kit defines it, and parses with no `flow` key.
-  flow: FlowSchema.optional()
+  flow: FlowSchema.optional(),
+  // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
+  // it has none, and parses with no `generated` key.
+  generated: z8.array(generatedEntry).optional()
 }).strict().superRefine(({ pr, flow }, issues) => {
   const hooks = flow?.hooks?.["pr.open"];
   if (pr.openWith !== null && hooks !== void 0 && hooksByMode(hooks).replace !== null) {
@@ -1349,7 +1357,29 @@ function migrateConfig(raw, migrations = MIGRATIONS) {
   }
   return current;
 }
-function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}) {
+function dropUnrecognized(raw, issues) {
+  let dropped = false;
+  for (const issue of issues) {
+    if (issue.code !== "unrecognized_keys") continue;
+    let at2 = raw;
+    for (const step of issue.path) at2 = isRecord(at2) ? at2[String(step)] : void 0;
+    if (!isRecord(at2)) continue;
+    for (const key of issue.keys) {
+      if (Object.hasOwn(at2, key)) {
+        Reflect.deleteProperty(at2, key);
+        dropped = true;
+      }
+    }
+  }
+  return dropped;
+}
+function checkConfig(raw, ignoreUnknownKeys) {
+  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  if (result.success || !ignoreUnknownKeys) return result;
+  const copy = structuredClone(raw);
+  return dropUnrecognized(copy, result.error.issues) ? ConfigSchema.safeParse(copy, { error: KIT_MESSAGES }) : result;
+}
+function parseConfig(source, file = CONFIG_FILE, { migrate = false, ignoreUnknownKeys = false } = {}) {
   let raw;
   try {
     raw = parse(source) ?? {};
@@ -1362,7 +1392,7 @@ function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}) {
     const { section: name, from, to } = renamed;
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed \u2014 call it ${name}.${to}`, { invalid: true });
   }
-  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
+  const result = checkConfig(raw, ignoreUnknownKeys);
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
     const more = others.length ? `
@@ -3999,7 +4029,7 @@ async function readPull2(octokit, { owner, repo, prNumber }) {
     labels: (data.labels ?? []).map(labelName2).filter((name) => name !== void 0)
   };
 }
-async function readBaseConfig(octokit, { owner, repo, baseSha, dest }) {
+async function readBaseConfig(octokit, { owner, repo, baseSha, dest, ignoreUnknownKeys = false }) {
   const folder = await snapshot(octokit, { owner, repo, ref: baseSha, paths: [CONFIG_FILE], dest });
   let text8;
   try {
@@ -4008,7 +4038,7 @@ async function readBaseConfig(octokit, { owner, repo, baseSha, dest }) {
     return { folder, config: null, error: null };
   }
   try {
-    return { folder, config: parseConfig(text8, CONFIG_FILE), error: null };
+    return { folder, config: parseConfig(text8, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return { folder, config: null, error };
@@ -5056,42 +5086,48 @@ function sectionTable(markdown, heading) {
 function covers(territory, path) {
   return territory.some((declaration) => path.startsWith(prefixOf(declaration)));
 }
-function breaches(paths, territory) {
-  return paths.filter((path) => !covers(territory, path));
+function generatedPrefixes(generated) {
+  return generated.map(({ path }) => path);
 }
-function sharedGround(left, right) {
+function breaches(paths, territory, generated = []) {
+  const built = generatedPrefixes(generated);
+  return paths.filter((path) => !covers(territory, path) && !covers(built, path));
+}
+function sharedGround(left, right, generated = []) {
+  const built = generatedPrefixes(generated);
   const shared = /* @__PURE__ */ new Set();
   for (const a of left.territory) {
     for (const b of right.territory) {
       const [x, y] = [prefixOf(a), prefixOf(b)];
-      if (x.startsWith(y)) shared.add(x.length >= y.length ? y : x);
-      else if (y.startsWith(x)) shared.add(x);
+      const meets = x.startsWith(y) || y.startsWith(x);
+      const narrower = x.length >= y.length ? x : y;
+      if (meets && !covers(built, narrower)) shared.add(x.length >= y.length ? y : x);
     }
   }
   return [...shared];
 }
-function collisions(slices) {
+function collisions(slices, generated = []) {
   const pairs = [];
   for (const [i, a] of slices.entries()) {
     for (const b of slices.slice(i + 1)) {
       if ((a.repo ?? null) !== (b.repo ?? null)) continue;
-      const shared = sharedGround(a, b);
+      const shared = sharedGround(a, b, generated);
       if (shared.length > 0) pairs.push({ left: a.id, right: b.id, shared });
     }
   }
   return pairs;
 }
-function sameWaveCollisions(slices) {
+function sameWaveCollisions(slices, generated = []) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
   const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
-  return collisions(slices).filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf.get(left) === landingOf.get(right)).map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
+  return collisions(slices, generated).filter(({ left, right }) => waveOf.get(left) === waveOf.get(right) && landingOf.get(left) === landingOf.get(right)).map((pair) => ({ ...pair, wave: waveOf.get(pair.left) }));
 }
-function collisionRows(slices) {
+function collisionRows(slices, generated = []) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
   const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
   const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
   const at2 = (id) => `${landed ? `l${landingOf.get(id)}` : ""}w${waveOf.get(id)}`;
-  return collisions(slices).map(({ left, right, shared }) => ({
+  return collisions(slices, generated).map(({ left, right, shared }) => ({
     pair: `${left} \xB7 ${right}`,
     shared: shared.map((ground) => `\`${ground}\``).join(", "),
     resolved: `${left} ${at2(left)} \xB7 ${right} ${at2(right)}`
@@ -5280,7 +5316,8 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
   const planSection2 = config.plan ?? null;
   const multi = planSection2 !== null && slices.some((slice) => slice.repo !== null);
   const repoOf2 = new Map(slices.map((slice) => [slice.id, slice.repo]));
-  const collisions2 = sameWaveCollisions(slices);
+  const generated = multi ? [] : config.generated ?? [];
+  const collisions2 = sameWaveCollisions(slices, generated);
   const landings = gradedLandings(slices, landingRows);
   const ofLanding = (id) => landings.length > 1 ? ` of landing ${slices.find((slice) => slice.id === id)?.landing}` : "";
   const violations = [
@@ -5295,7 +5332,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
     )
   ];
   const waves = wavesOf(slices);
-  const matrices = multi ? [...byRepository(slices)].map(([repo, group2]) => ({ repo, rows: collisionRows(group2) })) : [{ repo: null, rows: collisionRows(slices) }];
+  const matrices = multi ? [...byRepository(slices)].map(([repo, group2]) => ({ repo, rows: collisionRows(group2) })) : [{ repo: null, rows: collisionRows(slices, generated) }];
   return { slices, repositories, landings, waves, multi, collisions: collisions2, matrices, violations, parseError: null };
 }
 
@@ -7499,7 +7536,7 @@ async function qualify(octokit, { owner, repo, prNumber, mergeSha }) {
   if (!read.merged) return { skip: `#${prNumber} was closed, not merged.`, pr: read };
   const pr = Object.assign(read, { mergeSha });
   const { config, error } = await configAt(octokit, { owner, repo, sha: mergeSha });
-  if (error) return { skip: error.message.split("\n")[0] ?? "", pr };
+  if (error) throw error;
   if (!config) return { skip: `No \`${CONFIG_FILE}\` at the merge ${mergeSha}.`, pr };
   const { defaultBranch } = config.repo;
   if (pr.baseRef !== defaultBranch) {
@@ -7547,7 +7584,7 @@ function topicOf2(headRef, featureTemplate) {
 async function configAt(octokit, { owner, repo, sha }) {
   const dest = mkdtempSync7(join30(tmpdir7(), "omni-retro-config-"));
   try {
-    return await readBaseConfig(octokit, { owner, repo, baseSha: sha, dest });
+    return await readBaseConfig(octokit, { owner, repo, baseSha: sha, dest, ignoreUnknownKeys: true });
   } finally {
     rmSync7(dest, { recursive: true, force: true });
   }
@@ -10499,7 +10536,8 @@ function territoryFacts({ prd, config, subs, read }) {
   } catch (error) {
     return ungraded(firstClause(messageOf2(error)));
   }
-  const sharedGround2 = [...new Set(collisions(slices).flatMap((pair) => pair.shared))];
+  const generated = config.generated ?? [];
+  const sharedGround2 = [...new Set(collisions(slices, generated).flatMap((pair) => pair.shared))];
   const ownOutbox = [`${outboxFolder(prd, config)}/`, `${prd.folder}/outbox/`];
   const pulls = mergedSlicePulls(subs).map(({ pull, slice }) => {
     const base = { slice, pr: pull.number, url: pull.url };
@@ -10508,7 +10546,7 @@ function territoryFacts({ prd, config, subs, read }) {
     const paths = [...new Set(files)];
     const planned = slices.find((candidate) => candidate.id === slice);
     if (!planned) return { ...base, status: "unplanned", files: paths.length, breaches: null, shared: null };
-    const off = breaches(paths, [...planned.territory, ...ownOutbox]);
+    const off = breaches(paths, [...planned.territory, ...ownOutbox], generated);
     return {
       ...base,
       status: "graded",
