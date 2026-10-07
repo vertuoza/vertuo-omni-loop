@@ -20,7 +20,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
+import { withInstallLink, type TokenCheck } from '../ask/auth';
+import { Line, receivePush, refuse, WebLink, When } from '../data/kit-push';
 import { RoadmapPrdState, RoadmapQuestion, RowIdSchema, roadmapStore, RoadmapStoreError, type RoadmapPush, type RoadmapPushAnswer } from './store';
 
 /** The largest push: a roadmap.md of two hundred rows and its PRDs, with room to spare. */
@@ -36,9 +37,6 @@ export type RoadmapDeps = {
   installLink?: string | null;
 };
 
-const Line = (max: number) => z.string().trim().min(1).max(max);
-const Link = z.string().max(500).regex(/^https?:\/\/\S+$/, 'a web address');
-const When = z.iso.datetime({ offset: true });
 const RepoName = z.string().regex(/^[A-Za-z0-9_.-]+$/, 'a target\'s short name');
 
 const Prd = z.strictObject({
@@ -50,7 +48,7 @@ const Prd = z.strictObject({
   wave: z.number().int().min(1).max(1000),
   state: RoadmapPrdState,
   waitsOn: Line(300).nullable().default(null),
-  waitsOnUrl: Link.nullable().default(null),
+  waitsOnUrl: WebLink.nullable().default(null),
   startedAt: When.nullable().default(null),
   endedAt: When.nullable().default(null),
 }).refine((prd) => prd.endedAt === null || prd.startedAt === null || Date.parse(prd.endedAt) >= Date.parse(prd.startedAt), {
@@ -72,7 +70,8 @@ const Push = z.strictObject({
   message: 'a row id is used twice', path: ['prds'],
 });
 
-const refuse = (status: number, error: string) => Response.json({ error }, { status, headers: { 'cache-control': 'no-store' } });
+/** The status each refusal of the database answers with; any other failure is a 500. */
+const REFUSAL_STATUS: Readonly<Record<string, number>> = { '42501': 403, '22023': 400, '23514': 400 };
 
 /** The first problem zod found, in one line naming the field. */
 function problemOf(error: z.ZodError): string {
@@ -90,25 +89,14 @@ function pushOf(sent: unknown): RoadmapPush | { problem: string } {
 
 /** The database's refusal as the contract's answer; a failure is a 500, never a guess. */
 function refusal(error: RoadmapStoreError, deps: RoadmapDeps): Response {
-  if (error.code === '42501') return refuse(403, withInstallLink(error.reason, deps.installLink));
-  if (error.code === '22023' || error.code === '23514') return refuse(400, error.reason);
-  console.error(`roadmaps: ${error.message}`);
-  return refuse(500, 'The roadmap could not be recorded. Try again.');
+  const status = error.code === undefined ? undefined : REFUSAL_STATUS[error.code];
+  if (status === undefined) {
+    console.error(`roadmaps: ${error.message}`);
+    return refuse(500, 'The roadmap could not be recorded. Try again.');
+  }
+  return refuse(status, status === 403 ? withInstallLink(error.reason, deps.installLink) : error.reason);
 }
 
-/** What a push sent, read as JSON, or the refusal its size or its syntax earns. */
-async function sentOf(request: Request): Promise<{ sent: unknown } | Response> {
-  const tooLarge = () => refuse(413, `A push carries ${MAX_PUSH_BYTES / 1024} KiB at most.`);
-  if (Number(request.headers.get('content-length') ?? 0) > MAX_PUSH_BYTES) return tooLarge();
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_PUSH_BYTES) return tooLarge();
-  try {
-    const sent: unknown = JSON.parse(text);
-    return { sent };
-  } catch {
-    return refuse(400, 'The body must be a JSON object.');
-  }
-}
 
 /** The answer, with the one line the kit prints when the product matched none. */
 function answered(answer: RoadmapPushAnswer) {
@@ -117,17 +105,16 @@ function answered(answer: RoadmapPushAnswer) {
 }
 
 export async function roadmapPush(request: Request, deps: RoadmapDeps): Promise<Response> {
-  if (!deps.connect) return refuse(503, 'Roadmaps are not available here: this deployment has no database.');
-  const auth = await authenticate(request.headers.get('authorization'), deps.connect);
-  if (!auth.ok) return refuse(auth.status, auth.error);
-
-  const read = await sentOf(request);
-  if (read instanceof Response) return read;
-  const push = pushOf(read.sent);
+  const received = await receivePush(request, deps.connect, {
+    unavailable: 'Roadmaps are not available here: this deployment has no database.',
+    maxBytes: MAX_PUSH_BYTES,
+  });
+  if (received instanceof Response) return received;
+  const push = pushOf(received.sent);
   if ('problem' in push) return refuse(400, push.problem);
 
   try {
-    const answer = await roadmapStore(deps.connect(auth.caller.token)).push(push);
+    const answer = await roadmapStore(received.client()).push(push);
     return Response.json(answered(answer), { status: answer.created ? 201 : 200, headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     if (!(error instanceof RoadmapStoreError)) throw error;

@@ -7,6 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, type IssueNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { orEmpty, orNull, parseRow, parseRows } from '../data/parse-rows';
+import { StoreError } from '../data/store-error';
 
 /** Where a roadmap's PRD stands: its bar's colour on the Gantt. `ready` waits for a person's merge;
  * `closed` is a feature PR closed unmerged. */
@@ -93,14 +94,9 @@ type Failure = { code?: string; message: string };
 
 /** The database refused or failed; `code` is Postgres's: 42501 a repository no workspace of the caller
  * owns, 22023 a malformed argument. */
-export class RoadmapStoreError extends Error {
-  readonly code: string | undefined;
-  readonly reason: string;
-
+export class RoadmapStoreError extends StoreError {
   constructor(what: string, failure: Failure) {
-    super(`${what}: ${failure.message}`);
-    this.code = failure.code;
-    this.reason = failure.message;
+    super(what, failure.code, failure.message);
   }
 }
 

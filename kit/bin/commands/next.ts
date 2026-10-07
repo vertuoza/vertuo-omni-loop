@@ -46,7 +46,7 @@ import { readAnswers } from '../../lib/roadmap/answers.ts';
 import { roadmapFiles } from '../../lib/roadmap/index.ts';
 import { parseRoadmap } from '../../lib/roadmap/parse.ts';
 import type { Roadmap } from '../../lib/roadmap/parse.ts';
-import { prdState } from '../../lib/roadmap/push.ts';
+import { openItemsOn, prdState } from '../../lib/roadmap/push.ts';
 import type { PrdStanding, PrStanding } from '../../lib/roadmap/push.ts';
 import { liveWords, roadmapGates } from '../../lib/next/roadmap.ts';
 import type { Gate } from '../../lib/next/roadmap.ts';
@@ -62,7 +62,6 @@ import { readLoopPlans, writeLoopPlans } from '../../lib/next/store.ts';
 import { readFacts as readStatusFacts } from '../../lib/status/facts.ts';
 import { overviewFor } from '../../lib/status/overview.ts';
 import { openItemsForPrd } from '../../lib/outbox/comment.ts';
-import { parseOutboxItem } from '../../lib/outbox/outbox.ts';
 import type { OutboxItem } from '../../lib/types.ts';
 import { planReplies } from '../../lib/outbox/replies.ts';
 import { issueArg, parseArgs, prdArg, println, repoSlug, usageError } from '../args.ts';
@@ -156,24 +155,6 @@ function featureFacts(pr: ListedPr, reader: Reader): FeatureFacts {
   return { ...base, ...careFacts(pr.number, reader) };
 }
 
-/** The open items under the outbox dir as they stand on `ref`; `null` when the ref cannot be read. */
-function itemsOnBranch(ref: string, dir: string, reader: Reader): OutboxItem[] | null {
-  let listed: string;
-  try {
-    listed = git(['ls-tree', '-r', '--name-only', ref, '--', dir], reader);
-  } catch {
-    return null;
-  }
-  const files = listed
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((file) => file.endsWith('.md') && !file.endsWith('/settled.md') && !file.slice(dir.length).includes('/accounts/'));
-  return files.flatMap((file) => {
-    const parsed = parseOutboxItem(git(['show', `${ref}:${file}`], reader), { file });
-    return parsed.ok ? [parsed.item] : [];
-  });
-}
-
 /** The PRD's open items: on the feature branch as last fetched, else in this checkout. */
 function openItems(prd: PrdNumber, branch: string, reader: Reader): OutboxItem[] {
   const { ctx } = reader;
@@ -185,7 +166,7 @@ function openItems(prd: PrdNumber, branch: string, reader: Reader): OutboxItem[]
   } catch {
     // An old ref, or none, is read below; a feature branch not pushed yet has its items here.
   }
-  return itemsOnBranch(`${remote}/${branch}`, dir, reader) ?? openItemsForPrd(prd, { ctx });
+  return openItemsOn(`${remote}/${branch}`, dir, (args) => git(args, reader)) ?? openItemsForPrd(prd, { ctx });
 }
 
 /** The open questions, and whether a reply on the feature PR answers one of them. */

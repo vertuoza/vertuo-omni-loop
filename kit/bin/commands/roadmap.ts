@@ -154,40 +154,57 @@ function readGithub(ctx: Context, roadmap: Roadmap, { exec, env }: Io) {
   }
 }
 
+/** What a push sends, and where: the app's address, a signed-in client and the body. */
+type PushInputs = {
+  askUrl: string;
+  client: NonNullable<ReturnType<typeof signedInClient>>;
+  body: ReturnType<typeof roadmapPushBody>;
+};
+
+/** Everything roadmap `n`'s push needs before it is sent, or the one line it stops with. */
+function pushInputs(n: IssueNumber, io: Io): PushInputs | string {
+  const { ctx, repo } = repoContext(io);
+  const entry = roadmapFile(ctx, 'push', n);
+  const askUrl = ctx.config.ask.url;
+  if (!askUrl) return 'off';
+  const read = readRoadmap(ctx, entry);
+  if (typeof read === 'string') return read;
+  const client = signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
+  if (!client) return 'no sign-in (omni signin)';
+  const github = readGithub(ctx, read.roadmap, io);
+  if (github === null) return 'github unreachable';
+  return { askUrl, client, body: roadmapPushBody({ repo, roadmap: read.roadmap, document: read.document, ...github }) };
+}
+
+/** The app's reply to roadmap `n`'s push, printed: its link and any note, exit 0; 1 with no roadmap in it. */
+function reportPush({ stdout, stderr }: Io, n: IssueNumber, { askUrl, body }: PushInputs, reply: unknown): number {
+  const roadmapId = field(reply, 'roadmapId');
+  if (typeof roadmapId !== 'string' || !roadmapId) return refuse(stderr, 'refused (no roadmap in the reply)');
+  const how = field(reply, 'created') === true ? 'created' : 'updated';
+  println(stdout, `roadmap ${n}: ${how}, ${body.prds.length} PRD(s) — ${askUrl.replace(/\/+$/, '')}/roadmaps/${roadmapId}`);
+  const note = field(reply, 'note');
+  if (typeof note === 'string' && note) println(stdout, note);
+  return 0;
+}
+
 /** `omni roadmap push <n>`: exit 0 once the app took it, 1 with one line otherwise. */
 async function pushCommand(rest: string[], io: Io): Promise<number> {
   const { positional } = parseArgs('roadmap push', rest);
   if (positional.length !== 1) throw usageError(USAGE);
   const n = issueArg('roadmap push', '<n>', positional[0]);
-  const { ctx, repo } = repoContext(io);
-  const entry = roadmapFile(ctx, 'push', n);
-  const askUrl = ctx.config.ask.url;
-  if (!askUrl) return refuse(io.stderr, 'off');
-  const read = readRoadmap(ctx, entry);
-  if (typeof read === 'string') return refuse(io.stderr, read);
-  const client = signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
-  if (!client) return refuse(io.stderr, 'no sign-in (omni signin)');
-  const github = readGithub(ctx, read.roadmap, io);
-  if (github === null) return refuse(io.stderr, 'github unreachable');
-  const body = roadmapPushBody({ repo, roadmap: read.roadmap, document: read.document, ...github });
+  const inputs = pushInputs(n, io);
+  if (typeof inputs === 'string') return refuse(io.stderr, inputs);
   let reply: unknown;
   try {
-    reply = await client.pushRoadmap(body);
+    reply = await inputs.client.pushRoadmap(inputs.body);
   } catch (error) {
     return refuse(io.stderr, skipLine(error));
   }
-  const roadmapId = field(reply, 'roadmapId');
-  if (typeof roadmapId !== 'string' || !roadmapId) return refuse(io.stderr, 'refused (no roadmap in the reply)');
-  const how = field(reply, 'created') === true ? 'created' : 'updated';
-  println(io.stdout, `roadmap ${n}: ${how}, ${body.prds.length} PRD(s) — ${askUrl.replace(/\/+$/, '')}/roadmaps/${roadmapId}`);
-  const note = field(reply, 'note');
-  if (typeof note === 'string' && note) println(io.stdout, note);
-  return 0;
+  return reportPush(io, n, inputs, reply);
 }
 
-/** `omni roadmap answer <n> <question> "<answer>"`: posts the marked comment, exit 0; 2 on a bad
- * argument; 1 with one line when GitHub refuses it. */
-function answerCommand(rest: string[], io: Io): number {
+/** `answer`'s arguments: the roadmap, the question and the trimmed answer; a usage error otherwise. */
+function answerArgs(rest: string[]): { n: IssueNumber; question: string; answer: string } {
   const { positional } = parseArgs('roadmap answer', rest);
   if (positional.length !== 3) throw usageError(USAGE);
   const [number, question = '', given = ''] = positional;
@@ -195,13 +212,24 @@ function answerCommand(rest: string[], io: Io): number {
   const answer = given.trim();
   if (!answer) throw usageError('omni roadmap answer: the answer is empty.');
   if (answer.length > ANSWER_MAX) throw usageError(`omni roadmap answer: an answer holds ${ANSWER_MAX} characters at most.`);
+  return { n, question, answer };
+}
+
+/** A usage error unless roadmap `n` asks `question`. */
+function assertAsks(roadmap: Roadmap, n: IssueNumber, question: string): void {
+  const ids = roadmap.questions.map((q) => q.id);
+  if (ids.includes(question)) return;
+  throw usageError(`omni roadmap answer: roadmap ${n} has no question ${question}${ids.length ? ` (its questions: ${ids.join(', ')})` : ''}.`);
+}
+
+/** `omni roadmap answer <n> <question> "<answer>"`: posts the marked comment, exit 0; 2 on a bad
+ * argument; 1 with one line when GitHub refuses it. */
+function answerCommand(rest: string[], io: Io): number {
+  const { n, question, answer } = answerArgs(rest);
   const { ctx } = repoContext(io);
   const read = readRoadmap(ctx, roadmapFile(ctx, 'answer', n));
   if (typeof read === 'string') return refuse(io.stderr, read);
-  const ids = read.roadmap.questions.map((q) => q.id);
-  if (!ids.includes(question)) {
-    throw usageError(`omni roadmap answer: roadmap ${n} has no question ${question}${ids.length ? ` (its questions: ${ids.join(', ')})` : ''}.`);
-  }
+  assertAsks(read.roadmap, n, question);
   let url: string | null | undefined;
   try {
     url = githubClientFor(ctx, { issue: n, exec: io.exec, env: io.env }).createComment(answerComment(question, answer))?.html_url;

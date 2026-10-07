@@ -30,7 +30,7 @@ export type RoadmapFile = { number: IssueNumber; dir: string; file: string };
 export type GradedRoadmap = RoadmapFile & { roadmap: Roadmap | null; violations: string[] };
 
 /** The folder that holds the roadmaps, under the inbox. */
-export function roadmapsDir(ctx: Pick<Context, 'layout'>): string {
+function roadmapsDir(ctx: Pick<Context, 'layout'>): string {
   return `${ctx.layout.dirs.inbox}/roadmaps`;
 }
 
@@ -54,7 +54,7 @@ function prdFacts(ctx: Ctx, prd: PrdNumber): PrdFacts {
 }
 
 /** One roadmap, read, parsed and graded. */
-export function gradeRoadmapFile(ctx: Ctx, entry: RoadmapFile): GradedRoadmap {
+function gradeRoadmapFile(ctx: Ctx, entry: RoadmapFile): GradedRoadmap {
   const at = (message: string) => `${entry.file}: ${message}`;
   if (!existsSync(join(ctx.root, entry.file))) return { ...entry, roadmap: null, violations: [at('roadmap.md is missing.')] };
   const parsed = parseRoadmap(readRepoFile(ctx, entry.file));

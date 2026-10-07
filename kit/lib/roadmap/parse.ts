@@ -19,17 +19,19 @@ import { z } from 'zod';
 import { parseFrontMatterLines } from '../front-matter.ts';
 import { IssueNumberSchema, parsePrd } from '../ids.ts';
 import type { IssueNumber, PrdNumber } from '../ids.ts';
+import { firstTable, sectionsOf } from '../markdown-body.ts';
+import type { MarkdownSection as Section, MarkdownTable as Table } from '../markdown-body.ts';
 import { group } from '../narrow.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
 
 /** The PRDs table's columns; a plan repository's roadmap adds `repos`. */
-export const PRD_COLUMNS = ['id', 'PRD', 'title', 'blocked by', 'why', 'wave'] as const;
+const PRD_COLUMNS = ['id', 'PRD', 'title', 'blocked by', 'why', 'wave'] as const;
 
 /** The Open questions table's columns. */
-export const QUESTION_COLUMNS = ['id', 'question', 'recommendation', 'blocks', 'kind'] as const;
+const QUESTION_COLUMNS = ['id', 'question', 'recommendation', 'blocks', 'kind'] as const;
 
 /** `default` runs on the recommendation; `person` parks what it blocks until a person answers. */
-export const QUESTION_KINDS = ['default', 'person'] as const;
+const QUESTION_KINDS = ['default', 'person'] as const;
 
 export type QuestionKind = (typeof QUESTION_KINDS)[number];
 
@@ -64,7 +66,6 @@ export type Roadmap = {
 export type RoadmapParse = { ok: true; roadmap: Roadmap } | { ok: false; errors: string[] };
 
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-const SEPARATOR_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
 const PRD_CELL = /^#([1-9]\d*)$/;
 const WAVE_CELL = /^[1-9]\d*$/;
 /** A cell that means "none": empty, a dash of any width, or the word. */
@@ -82,9 +83,6 @@ const FrontMatterSchema = z
     source: optionalText,
   })
   .strict();
-
-type Section = { name: string; lines: string[] };
-type Table = { header: string[]; rows: string[][] };
 
 /** The front matter, typed (`null` when it fails), and its faults. */
 function frontMatter(raw: string): { data: z.infer<typeof FrontMatterSchema> | null; errors: string[] } {
@@ -106,45 +104,6 @@ function frontMatter(raw: string): { data: z.infer<typeof FrontMatterSchema> | n
   return { data: null, errors };
 }
 
-/** The body's `## ` sections, in the order written. */
-function sectionsOf(body: string): Section[] {
-  const sections: Section[] = [];
-  let current: Section | null = null;
-  for (const line of body.split(/\r?\n/)) {
-    const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
-    if (heading && !line.startsWith('###')) {
-      current = { name: group(heading, 1), lines: [] };
-      sections.push(current);
-    } else if (/^#\s/.test(line)) {
-      current = null;
-    } else if (current) {
-      current.lines.push(line);
-    }
-  }
-  return sections;
-}
-
-/** A table row's cells, trimmed; a `\|` is a pipe inside a cell. */
-function cells(line: string): string[] {
-  let inner = line.trim();
-  if (inner.startsWith('|')) inner = inner.slice(1);
-  if (inner.endsWith('|') && !inner.endsWith('\\|')) inner = inner.slice(0, -1);
-  return inner.split(/(?<!\\)\|/).map((cell) => cell.trim().replace(/\\\|/g, '|'));
-}
-
-/** The first table among `lines`, or `null` with none. */
-function firstTable(lines: readonly string[]): Table | null {
-  const start = lines.findIndex((line) => line.trim().startsWith('|'));
-  if (start === -1) return null;
-  const block: string[] = [];
-  for (const line of lines.slice(start)) {
-    if (!line.trim().startsWith('|')) break;
-    block.push(line.trim());
-  }
-  const [header = '', ...rest] = block;
-  return { header: cells(header), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells) };
-}
-
 /** A comma-separated cell's entries; a "none" cell has none. */
 function listCell(cell: string): string[] {
   if (NONE_CELL.test(cell)) return [];
@@ -164,6 +123,13 @@ function rowLabel(id: string, index: number): string {
   return id === '' ? `row ${index + 1}` : id;
 }
 
+/** A row's label, and its first fault when its id is empty or holds a space, a comma or a pipe. */
+function rowOpening(id: string, index: number, where: string): { label: string; rowFaults: string[] } {
+  const label = rowLabel(id, index);
+  const rowFaults = ID_CELL.test(id) ? [] : [`${where}: ${label} has the id "${id}", which is empty or holds a space, a comma or a pipe.`];
+  return { label, rowFaults };
+}
+
 /** The faults of a list cell's entries that are no id. */
 function idListFaults(entries: readonly string[], where: string): string[] {
   return entries.filter((entry) => !ID_CELL.test(entry)).map((entry) => `${where} "${entry}", which is no id.`);
@@ -179,9 +145,7 @@ function prdsOf(section: Section | undefined): { rows: RoadmapRow[]; repos: bool
   const rows: RoadmapRow[] = [];
   table.rows.forEach((row, index) => {
     const id = cell(row, 'id');
-    const label = rowLabel(id, index);
-    const rowFaults: string[] = [];
-    if (!ID_CELL.test(id)) rowFaults.push(`PRDs: ${label} has the id "${id}", which is empty or holds a space, a comma or a pipe.`);
+    const { label, rowFaults } = rowOpening(id, index, 'PRDs');
     const prdCell = PRD_CELL.exec(cell(row, 'PRD'));
     if (!prdCell) rowFaults.push(`PRDs: ${label} has the PRD cell "${cell(row, 'PRD')}", not #<number>.`);
     const title = cell(row, 'title');
@@ -214,9 +178,7 @@ function questionsOf(section: Section | undefined): { questions: RoadmapQuestion
   const questions: RoadmapQuestion[] = [];
   table.rows.forEach((row, index) => {
     const id = cell(row, 'id');
-    const label = rowLabel(id, index);
-    const rowFaults: string[] = [];
-    if (!ID_CELL.test(id)) rowFaults.push(`Open questions: ${label} has the id "${id}", which is empty or holds a space, a comma or a pipe.`);
+    const { label, rowFaults } = rowOpening(id, index, 'Open questions');
     const question = cell(row, 'question');
     if (question === '') rowFaults.push(`Open questions: ${label} asks nothing: its question is empty.`);
     const kind = cell(row, 'kind');

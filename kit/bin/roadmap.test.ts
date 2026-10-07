@@ -229,20 +229,27 @@ type GhPr = { number: number; url: string; state: string; isDraft: boolean; crea
  * keeps every comment posted, and runs anything else for real. */
 function fakeGh({ prs = {}, comments = [], down = false }: { prs?: Record<string, GhPr[]>; comments?: Array<{ id: number; body: string }>; down?: boolean } = {}) {
   const posted: Array<{ path: string; body: string }> = [];
-  const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
-    if (file !== 'gh') return realExec(file, args, options);
-    if (down) throw new Error('gh: could not connect');
+  const gh = (args: readonly string[], options?: ExecFileSyncOptions) => {
     if (args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs[args[args.indexOf('--head') + 1] ?? ''] ?? []);
     if (args[0] === 'api' && args.includes('--input')) {
-      const sent: unknown = JSON.parse(typeof options?.input === 'string' ? options.input : '{}');
-      const body = typeof sent === 'object' && sent !== null && 'body' in sent && typeof sent.body === 'string' ? sent.body : '';
-      posted.push({ path: args[1] ?? '', body });
+      posted.push({ path: args[1] ?? '', body: sentBody(options) });
       return JSON.stringify({ id: 99, html_url: 'https://github.com/acme/widgets/issues/1200#issuecomment-99' });
     }
     if (args[0] === 'api') return JSON.stringify(comments);
     throw new Error(`unexpected gh ${args.join(' ')}`);
   };
+  const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+    if (file !== 'gh') return realExec(file, args, options);
+    if (down) throw new Error('gh: could not connect');
+    return gh(args, options);
+  };
   return { exec, posted };
+}
+
+/** The `body` of the JSON a `gh api --input -` call sends; empty when it carries none. */
+function sentBody(options?: ExecFileSyncOptions): string {
+  const sent: unknown = JSON.parse(typeof options?.input === 'string' ? options.input : '{}');
+  return typeof sent === 'object' && sent !== null && 'body' in sent && typeof sent.body === 'string' ? sent.body : '';
 }
 
 async function omni(argv: string[], { root, exec, fetch, tokens = signedIn() }: { root: string; exec: ReturnType<typeof fakeGh>['exec']; fetch?: unknown; tokens?: ReturnType<typeof memoryTokens> }) {

@@ -20,7 +20,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { OutboxItemIdSchema, PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
+import { withInstallLink, type TokenCheck } from '../ask/auth';
+import { Line, receivePush, refuse, WebLink, When } from '../data/kit-push';
 import { loopStore, LoopStoreError, type LoopEvent } from './store';
 
 /** The largest push: a plan of every slice of fifty PRDs, with room to spare. */
@@ -39,10 +40,8 @@ export type LoopDeps = {
 const NUMBER_MAX = 2 ** 31 - 1;
 const Count = z.number().int().min(1).max(NUMBER_MAX);
 const LoopId = z.uuid();
-const Line = (max: number) => z.string().trim().min(1).max(max);
-const Link = z.string().max(500).regex(/^https?:\/\/\S+$/, 'a web address').nullable();
+const Link = WebLink.nullable();
 const Plan = z.record(z.string(), z.unknown());
-const When = z.iso.datetime({ offset: true });
 
 const Start = z.strictObject({
   event: z.literal('start'),
@@ -82,8 +81,6 @@ const Stop = z.strictObject({ event: z.literal('stop'), loopId: LoopId });
 
 const EVENTS = { start: Start, tick: Tick, park: Park, stop: Stop } as const;
 
-const refuse = (status: number, error: string) => Response.json({ error }, { status, headers: { 'cache-control': 'no-store' } });
-
 const Named = z.looseObject({ event: z.enum(['start', 'tick', 'park', 'stop']) });
 
 /** The first problem zod found, in one line naming the field. */
@@ -113,32 +110,17 @@ function refusal(error: LoopStoreError, deps: LoopDeps): Response {
   return refuse(500, 'The loop could not be recorded. Try again.');
 }
 
-/** What a push sent, read as JSON, or the refusal its size or its syntax earns. */
-async function sentOf(request: Request): Promise<{ sent: unknown } | Response> {
-  const tooLarge = () => refuse(413, `A push carries ${MAX_PUSH_BYTES / 1024} KiB at most.`);
-  if (Number(request.headers.get('content-length') ?? 0) > MAX_PUSH_BYTES) return tooLarge();
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_PUSH_BYTES) return tooLarge();
-  try {
-    const sent: unknown = JSON.parse(text);
-    return { sent };
-  } catch {
-    return refuse(400, 'The body must be a JSON object.');
-  }
-}
-
 export async function loopPush(request: Request, deps: LoopDeps): Promise<Response> {
-  if (!deps.connect) return refuse(503, 'Loops are not available here: this deployment has no database.');
-  const auth = await authenticate(request.headers.get('authorization'), deps.connect);
-  if (!auth.ok) return refuse(auth.status, auth.error);
-
-  const read = await sentOf(request);
-  if (read instanceof Response) return read;
-  const event = eventOf(read.sent);
+  const received = await receivePush(request, deps.connect, {
+    unavailable: 'Loops are not available here: this deployment has no database.',
+    maxBytes: MAX_PUSH_BYTES,
+  });
+  if (received instanceof Response) return received;
+  const event = eventOf(received.sent);
   if ('problem' in event) return refuse(400, event.problem);
 
   try {
-    const answer = await loopStore(deps.connect(auth.caller.token)).push(event);
+    const answer = await loopStore(received.client()).push(event);
     return Response.json(answer, { status: event.event === 'start' ? 201 : 200, headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     if (!(error instanceof LoopStoreError)) throw error;

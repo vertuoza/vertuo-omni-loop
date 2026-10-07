@@ -14,9 +14,10 @@ import { z } from 'zod';
 import { fillBranch } from '../board.ts';
 import type { Context } from '../context.ts';
 import { PrNumberSchema } from '../ids.ts';
-import type { IssueNumber, PrdNumber, PrNumber } from '../ids.ts';
+import type { IssueNumber, PrNumber } from '../ids.ts';
 import { parseFolderName } from '../layout.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
+import type { OutboxItem } from '../types.ts';
 import type { Roadmap, RoadmapRow } from './parse.ts';
 
 /** Where a roadmap's PRD stands, as the app stores it: its bar's colour on the Gantt. */
@@ -41,19 +42,16 @@ export type PrStanding = {
 export type PrdStanding = { shipped: boolean; prs: PrStanding[]; expected: number };
 
 /** One PRD's row of the push, as the app's contract takes it. */
-export type PushedPrd = {
-  id: string;
-  prd: PrdNumber;
-  title: string;
+export type PushedPrd = Pick<RoadmapRow, 'id' | 'prd' | 'title' | 'wave'> & PrdTimes & {
   repos: string[];
   blockers: string[];
-  wave: number;
   state: RoadmapPrdState;
   waitsOn: string | null;
   waitsOnUrl: string | null;
-  startedAt: string | null;
-  endedAt: string | null;
 };
+
+/** When a PRD started (its first feature PR opened) and ended; null while it has not. */
+type PrdTimes = { startedAt: string | null; endedAt: string | null };
 
 /** One open question of the push, with the latest answer given, or null. */
 export type PushedQuestion = { id: string; question: string; recommendation: string | null; blocks: string[]; kind: 'default' | 'person'; answer: string | null };
@@ -100,7 +98,7 @@ function bound(times: readonly (string | null)[], pick: 'first' | 'last'): strin
 }
 
 /** When the PRD started (its first feature PR opened) and ended (its last merge, or its close). */
-export function prdTimes(standing: PrdStanding, state: RoadmapPrdState): { startedAt: string | null; endedAt: string | null } {
+export function prdTimes(standing: PrdStanding, state: RoadmapPrdState): PrdTimes {
   const startedAt = bound(standing.prs.map((pr) => pr.createdAt), 'first');
   if (state === 'merged') return { startedAt, endedAt: bound(standing.prs.map((pr) => pr.mergedAt), 'last') };
   if (state === 'closed') return { startedAt, endedAt: bound(standing.prs.filter((pr) => pr.state === 'CLOSED').map((pr) => pr.closedAt), 'last') };
@@ -210,7 +208,7 @@ const GhPrSchema = z.looseObject({
 type GhPr = z.infer<typeof GhPrSchema>;
 
 /** The part of an `owner/name` slug after the `/`: the name a roadmap's `repos` column uses. */
-export const shortName = (slug: string): string => slug.slice(slug.indexOf('/') + 1);
+const shortName = (slug: string): string => slug.slice(slug.indexOf('/') + 1);
 
 /** The pull request from `branch` on `slug`: the open one, else the one updated last; null with none. */
 function featurePr(slug: string, branch: string, { gh }: Readers): GhPr | null {
@@ -219,20 +217,26 @@ function featurePr(slug: string, branch: string, { gh }: Readers): GhPr | null {
   return prs.find((pr) => pr.state === 'OPEN') ?? [...prs].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] ?? null;
 }
 
-/** The outbox questions a person must answer, open under `dir` on `ref`; none when it cannot be read. */
-function questionsOn(ref: string, dir: string, { git }: Readers): number {
+/** The open outbox items under `dir` as they stand on `ref`, read through `git`; `null` when the ref
+ * cannot be read. An item that does not parse is left out. */
+export function openItemsOn(ref: string, dir: string, git: (args: string[]) => string): OutboxItem[] | null {
   let listed: string;
   try {
     listed = git(['ls-tree', '-r', '--name-only', ref, '--', dir]);
   } catch {
-    return 0;
+    return null;
   }
   const files = listed.split('\n').map((line) => line.trim())
     .filter((file) => file.endsWith('.md') && !file.endsWith('/settled.md') && !file.slice(dir.length).includes('/accounts/'));
-  return files.filter((file) => {
+  return files.flatMap((file) => {
     const parsed = parseOutboxItem(git(['show', `${ref}:${file}`]), { file });
-    return parsed.ok && ASKED_RANKS.has(parsed.item.rank);
-  }).length;
+    return parsed.ok ? [parsed.item] : [];
+  });
+}
+
+/** The outbox questions a person must answer, open under `dir` on `ref`; none when it cannot be read. */
+function questionsOn(ref: string, dir: string, { git }: Readers): number {
+  return (openItemsOn(ref, dir, git) ?? []).filter((item) => ASKED_RANKS.has(item.rank)).length;
 }
 
 /** The open questions on the feature branch of a PRD whose own feature PR is an open draft. */
@@ -257,7 +261,7 @@ function slugsOf(ctx: Pick<Context, 'config'>, row: RoadmapRow, slug: string): s
 }
 
 /** Where one PRD of the roadmap stands. Throws what `gh` throws when GitHub cannot be read. */
-export function readStanding(ctx: Pick<Context, 'config' | 'layout'>, row: RoadmapRow, readers: Readers): PrdStanding {
+function readStanding(ctx: Pick<Context, 'config' | 'layout'>, row: RoadmapRow, readers: Readers): PrdStanding {
   const slug = ctx.config.repo.slug ?? '';
   const slugs = slugsOf(ctx, row, slug);
   const where = ctx.layout.whereIs(row.prd);

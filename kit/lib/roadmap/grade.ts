@@ -131,32 +131,44 @@ function upstream(row: RoadmapRow, rows: ReadonlyMap<string, RoadmapRow>): Roadm
   return [...found.values()];
 }
 
+/** What a plan repository's rules read of its targets: their short names, the read-only ones, and
+ * what each consumes. */
+type TargetRules = { names: string[]; readOnly: ReadonlySet<string>; consumes: ReadonlyMap<string, readonly string[]> };
+
+/** A row naming no repository, or naming one that is no target or a read-only one. */
+function rowRepoViolations(row: RoadmapRow, { names, readOnly }: TargetRules): string[] {
+  const repos = row.repos ?? [];
+  if (repos.length === 0) return [`${row.id}: names no repository.`];
+  return repos.flatMap((repo) => {
+    if (!names.includes(repo)) return [`${row.id}: ${repo} is not a target of plan.targets (${names.join(', ')}).`];
+    return readOnly.has(repo) ? [`${row.id}: ${repo} is a read-only target — no roadmap row may name it.`] : [];
+  });
+}
+
+/** Each repository of `row` consuming one that `blocker` changes, when `row` is not in a later wave. */
+function consumerViolations(row: RoadmapRow, blocker: RoadmapRow, consumes: TargetRules['consumes']): string[] {
+  if (blocker.wave < row.wave) return [];
+  return (row.repos ?? []).flatMap((consumer) => {
+    const provider = (blocker.repos ?? []).find((repo) => consumes.get(consumer)?.includes(repo) === true);
+    if (provider === undefined) return [];
+    return [
+      `${row.id}: changes ${consumer}, which consumes ${provider}, in wave ${row.wave}, not after ${blocker.id} (wave ${blocker.wave}) that changes ${provider} and that it waits on.`,
+    ];
+  });
+}
+
 /** A plan repository's rules: every repo a target, none read-only, a consumer after its provider. */
 function targetViolations(roadmap: Roadmap, rows: ReadonlyMap<string, RoadmapRow>, targets: readonly RoadmapTarget[]): string[] {
   if (!roadmap.repos) return ['PRDs: the table has no "repos" column; in a plan repository each row names its repositories.'];
-  const names = targets.map((target) => shortName(target.repo));
-  const readOnly = new Set(targets.filter((target) => target.readOnly === true).map((target) => shortName(target.repo)));
-  const consumes = new Map(targets.map((target) => [shortName(target.repo), target.consumes ?? []]));
-  const violations: string[] = [];
-  for (const row of roadmap.prds) {
-    const repos = row.repos ?? [];
-    if (repos.length === 0) violations.push(`${row.id}: names no repository.`);
-    for (const repo of repos) {
-      if (!names.includes(repo)) violations.push(`${row.id}: ${repo} is not a target of plan.targets (${names.join(', ')}).`);
-      else if (readOnly.has(repo)) violations.push(`${row.id}: ${repo} is a read-only target — no roadmap row may name it.`);
-    }
-    for (const blocker of upstream(row, rows)) {
-      if (blocker.wave < row.wave) continue;
-      for (const consumer of repos) {
-        const provider = (blocker.repos ?? []).find((repo) => consumes.get(consumer)?.includes(repo) === true);
-        if (provider === undefined) continue;
-        violations.push(
-          `${row.id}: changes ${consumer}, which consumes ${provider}, in wave ${row.wave}, not after ${blocker.id} (wave ${blocker.wave}) that changes ${provider} and that it waits on.`,
-        );
-      }
-    }
-  }
-  return violations;
+  const rules: TargetRules = {
+    names: targets.map((target) => shortName(target.repo)),
+    readOnly: new Set(targets.filter((target) => target.readOnly === true).map((target) => shortName(target.repo))),
+    consumes: new Map(targets.map((target) => [shortName(target.repo), target.consumes ?? []])),
+  };
+  return roadmap.prds.flatMap((row) => [
+    ...rowRepoViolations(row, rules),
+    ...upstream(row, rows).flatMap((blocker) => consumerViolations(row, blocker, rules.consumes)),
+  ]);
 }
 
 /** Every violation of a parsed roadmap, each naming its row or its question. */
