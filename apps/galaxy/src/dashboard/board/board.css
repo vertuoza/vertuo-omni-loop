@@ -90,6 +90,12 @@
 .board-table thead th { color: var(--ask-muted); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
 .board-table .is-num { text-align: right; white-space: nowrap; }
 .board-th-note { display: block; font-size: 11px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+/* Each People header is a link that sorts by its column (PRD 1017): it reads as the header it was, the
+   sorted one in the text colour with its ▼ or ▲ after it. */
+.board-sort { color: inherit; text-decoration: none; }
+.board-sort:hover { color: var(--ask-ink); text-decoration: underline; }
+.board-table thead th[aria-sort] { color: var(--ask-ink); }
+.board-sort-mark { margin-left: 4px; font-size: 10px; }
 .board-name { font-weight: 700; overflow-wrap: anywhere; }
 .board-table tr[aria-current='true'] > * { background: var(--ask-plasma-soft); }
 .board-you { color: var(--ask-plasma); }

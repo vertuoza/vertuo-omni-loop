@@ -339,8 +339,13 @@ export function peopleRows(members: readonly Member[], input: PeopleInput, viewe
       you: m.userId === viewerId,
     };
   });
-  return withRanks(rows.sort((a, b) => counted(b.points) - counted(a.points) || counted(b.prs) - counted(a.prs)
-    || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })));
+  return withRanks(rows.sort(byDefault));
+}
+
+/** The People table's default order (PRD 1017): points, highest first, then PRs merged, highest first,
+ * then name A to Z, case-insensitive; a dash or unreadable count below every number. */
+export function byDefault(a: Pick<PersonRow, 'points' | 'prs' | 'name'>, b: Pick<PersonRow, 'points' | 'prs' | 'name'>): number {
+  return counted(b.points) - counted(a.points) || counted(b.prs) - counted(a.prs) || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });
 }
 
 /** Each row's place by points (PRD 1017), in standard competition ranking: one more than the number
