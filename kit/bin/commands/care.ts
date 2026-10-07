@@ -213,32 +213,45 @@ function readCare(prd: PrdNumber, number: number, { scope, ctx, gh }: { scope: S
   return { prd, ...(scope.target === null ? {} : { target: scope.target }), ...state, ...(waitsOn === null ? {} : { waitsOn }) };
 }
 
+/** What a round's printing reads: the PRD, where its PR lives, and the wave's claims. */
+type StateRun = { prd: PrdNumber; scope: Scope; claims: ReturnType<typeof waveClaims>; ctx: Context; gh: Gh; stdout: CommandIo['stdout'] };
+
+/** Issue #1178: a sub-PR's care state, its `slice` named, and its round, its threads only. */
+function printSubPr(number: PrNumber, slice: WorkSliceId, { prd, scope, claims, ctx, gh, stdout }: StateRun): number {
+  const state = readCare(prd, number, { scope, ctx, gh });
+  println(stdout, JSON.stringify({ ...state, slice, wave: claims.wave, round: decideSubPrRound(state) }, null, 2));
+  return 0;
+}
+
+/** The feature PR's (or the watched landing PR's) care state and its round; exit 1 with no PR. */
+function printFeature(flag: string | undefined, run: StateRun & { stderr: CommandIo['stderr'] }): number {
+  const { prd, scope, claims, ctx, gh, stdout, stderr } = run;
+  const landed = claims.landings !== null && claims.landings.length > 1 ? claims.landings : null;
+  const number = watchedPr({ flag, landed, find: () => findPr(scope, gh)?.number ?? null });
+  if (number === null) {
+    const from = landed === null ? scope.branch : landed.map((landing) => landing.branch).join(', ');
+    println(stderr, `omni care: PRD ${prd} has no feature PR yet (no pull request from ${from}).`);
+    return 1;
+  }
+  const { waitsOn, ...state } = readCare(prd, number, { scope, ctx, gh });
+  const chain = landed === null ? [] : landingChain(landed, scope.defaultBranch);
+  const full = { ...state, wave: claims.wave, ...(landed === null ? {} : { landings: landed, chain }), ...(waitsOn === undefined ? {} : { waitsOn }) };
+  println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
+  return 0;
+}
+
 function runState(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number {
   const { positional, flags } = parseArgs('care', args, { values: ['pr', 'repo'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const prd = prdArg('care', '<prd>', positional[0]);
   const gh: Gh = { exec, env: githubEnv(ctx, { exec, env }) };
   const scope = scopeOf(prd, flags.repo, { ctx, gh });
-
-  const { wave, landings, sliceOf } = waveClaims(prd, { ctx, exec, env, repo: flags.repo, target: scope.target });
-  const landed = landings !== null && landings.length > 1 ? landings : null;
-  const number = watchedPr({ flag: flags.pr, landed, find: () => findPr(scope, gh)?.number ?? null });
-  if (number === null) {
-    const from = landed === null ? scope.branch : landed.map((landing) => landing.branch).join(', ');
-    println(stderr, `omni care: PRD ${prd} has no feature PR yet (no pull request from ${from}).`);
-    return 1;
-  }
-  const slice = flags.pr === undefined ? null : sliceOf(prArg('care', '--pr', flags.pr));
-  if (slice !== null) {
-    const state = readCare(prd, number, { scope, ctx, gh });
-    println(stdout, JSON.stringify({ ...state, slice, wave, round: decideSubPrRound(state) }, null, 2));
-    return 0;
-  }
-  const { waitsOn, ...state } = readCare(prd, number, { scope, ctx, gh });
-  const chain = landed === null ? [] : landingChain(landed, scope.defaultBranch);
-  const full = { ...state, wave, ...(landed === null ? {} : { landings: landed, chain }), ...(waitsOn === undefined ? {} : { waitsOn }) };
-  println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
-  return 0;
+  const claims = waveClaims(prd, { ctx, exec, env, repo: flags.repo, target: scope.target });
+  const run: StateRun = { prd, scope, claims, ctx, gh, stdout };
+  const named = flags.pr === undefined ? null : prArg('care', '--pr', flags.pr);
+  const slice = named === null ? null : claims.sliceOf(named);
+  if (named !== null && slice !== null) return printSubPr(named, slice, run);
+  return printFeature(flags.pr, { ...run, stderr });
 }
 
 /** A plan's slices, its `## Repositories` order and its graded landings, with the PRD's topic. */

@@ -34876,31 +34876,38 @@ function readCare(prd2, number4, { scope, ctx, gh: gh2 }) {
   const waitsOn = waitingOn(state.status?.waitsOn, gh2);
   return { prd: prd2, ...scope.target === null ? {} : { target: scope.target }, ...state, ...waitsOn === null ? {} : { waitsOn } };
 }
+function printSubPr(number4, slice, { prd: prd2, scope, claims, ctx, gh: gh2, stdout }) {
+  const state = readCare(prd2, number4, { scope, ctx, gh: gh2 });
+  println(stdout, JSON.stringify({ ...state, slice, wave: claims.wave, round: decideSubPrRound(state) }, null, 2));
+  return 0;
+}
+function printFeature(flag, run) {
+  const { prd: prd2, scope, claims, ctx, gh: gh2, stdout, stderr } = run;
+  const landed = claims.landings !== null && claims.landings.length > 1 ? claims.landings : null;
+  const number4 = watchedPr({ flag, landed, find: () => findPr(scope, gh2)?.number ?? null });
+  if (number4 === null) {
+    const from = landed === null ? scope.branch : landed.map((landing) => landing.branch).join(", ");
+    println(stderr, `omni care: PRD ${prd2} has no feature PR yet (no pull request from ${from}).`);
+    return 1;
+  }
+  const { waitsOn, ...state } = readCare(prd2, number4, { scope, ctx, gh: gh2 });
+  const chain = landed === null ? [] : landingChain(landed, scope.defaultBranch);
+  const full = { ...state, wave: claims.wave, ...landed === null ? {} : { landings: landed, chain }, ...waitsOn === void 0 ? {} : { waitsOn } };
+  println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
+  return 0;
+}
 function runState2(args, { ctx, stdout, stderr, exec, env }) {
   const { positional, flags } = parseArgs("care", args, { values: ["pr", "repo"] });
   if (positional.length !== 1) throw usageError(USAGE4);
   const prd2 = prdArg("care", "<prd>", positional[0]);
   const gh2 = { exec, env: githubEnv(ctx, { exec, env }) };
   const scope = scopeOf(prd2, flags.repo, { ctx, gh: gh2 });
-  const { wave, landings, sliceOf } = waveClaims(prd2, { ctx, exec, env, repo: flags.repo, target: scope.target });
-  const landed = landings !== null && landings.length > 1 ? landings : null;
-  const number4 = watchedPr({ flag: flags.pr, landed, find: () => findPr(scope, gh2)?.number ?? null });
-  if (number4 === null) {
-    const from = landed === null ? scope.branch : landed.map((landing) => landing.branch).join(", ");
-    println(stderr, `omni care: PRD ${prd2} has no feature PR yet (no pull request from ${from}).`);
-    return 1;
-  }
-  const slice = flags.pr === void 0 ? null : sliceOf(prArg("care", "--pr", flags.pr));
-  if (slice !== null) {
-    const state2 = readCare(prd2, number4, { scope, ctx, gh: gh2 });
-    println(stdout, JSON.stringify({ ...state2, slice, wave, round: decideSubPrRound(state2) }, null, 2));
-    return 0;
-  }
-  const { waitsOn, ...state } = readCare(prd2, number4, { scope, ctx, gh: gh2 });
-  const chain = landed === null ? [] : landingChain(landed, scope.defaultBranch);
-  const full = { ...state, wave, ...landed === null ? {} : { landings: landed, chain }, ...waitsOn === void 0 ? {} : { waitsOn } };
-  println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
-  return 0;
+  const claims = waveClaims(prd2, { ctx, exec, env, repo: flags.repo, target: scope.target });
+  const run = { prd: prd2, scope, claims, ctx, gh: gh2, stdout };
+  const named3 = flags.pr === void 0 ? null : prArg("care", "--pr", flags.pr);
+  const slice = named3 === null ? null : claims.sliceOf(named3);
+  if (named3 !== null && slice !== null) return printSubPr(named3, slice, run);
+  return printFeature(flags.pr, { ...run, stderr });
 }
 function readPlanOf(prd2, ctx) {
   const planPath = ctx.layout.planPath(prd2);
