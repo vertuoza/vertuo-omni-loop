@@ -34400,6 +34400,30 @@ function ghReason(error62) {
 ${textOf2(propertyOf(error62, "message"))}`.split("\n").map((line) => line.trim()).filter(Boolean);
   return lines[0] ?? "gh could not read it";
 }
+function branchOnDefault(ctx, built) {
+  const { slices, result } = built;
+  if (slices.some((slice) => slice.repo !== null)) return null;
+  if (result.landings === void 0) return fillBranch(ctx.config.branches.feature, { topic: result.prd.topic });
+  const index = result.landings.findIndex((landing) => landing.current);
+  const current = result.landings[index];
+  if (current === void 0) return null;
+  return index === 0 || current.pr.base === ctx.config.repo.defaultBranch ? current.branch : null;
+}
+function ancestry(ctx, exec, onto, head) {
+  try {
+    exec("git", ["merge-base", "--is-ancestor", onto, head], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    return false;
+  } catch (error62) {
+    return propertyOf(error62, "status") === 1 ? true : null;
+  }
+}
+function baseOf(ctx, exec, built) {
+  const branch = branchOnDefault(ctx, built);
+  if (branch === null) return null;
+  const { remote, defaultBranch } = ctx.config.repo;
+  const onto = `${remote}/${defaultBranch}`;
+  return { branch, onto, behind: ancestry(ctx, exec, onto, `${remote}/${branch}`) };
+}
 function printRows(stdout, result) {
   const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? "").length));
   if (result.landings === void 0) {
@@ -34431,9 +34455,11 @@ var board = {
     const { positional, flags } = parseArgs("board", args, { values: ["repo"], booleans: ["json"] });
     if (positional.length !== 1) throw usageError(USAGE3);
     const prd2 = prdArg("board", "<prd>", positional[0]);
-    const { slices, result, unreadable: unreadable2 } = buildBoard(prd2, { ctx, exec, env, repo: flags.repo });
+    const built = buildBoard(prd2, { ctx, exec, env, repo: flags.repo });
+    const { slices, result, unreadable: unreadable2 } = built;
+    const base = baseOf(ctx, exec, built);
     if (flags.json) {
-      println(stdout, JSON.stringify(result, null, 2));
+      println(stdout, JSON.stringify({ ...result, base }, null, 2));
       return 0;
     }
     println(stdout, `omni board \u2014 PRD ${prd2}: ${slices.length} slice(s).`);
@@ -34442,6 +34468,9 @@ var board = {
       println(stdout, `omni board \u2014 cannot read ${slug ?? repo}: ${reason2} \u2014 its slices are unreadable.`);
     }
     printFrontier(stdout, result);
+    if (base?.behind === true) {
+      println(stdout, `omni board \u2014 ${base.branch} is behind ${base.onto}: merge ${base.onto} into it before reading the plan or running a wave.`);
+    }
     return 0;
   })
 };
@@ -40023,7 +40052,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni board <prd> [--json] [--repo <owner/name>]"],
     label: "omni board <n>",
     summary: "PRD n's slices and what can run next",
-    detail: "PRD n's slices as the loop sees them, rebuilt from GitHub on every run: each slice's state (merged, stuck, in flight, runnable, blocked) and the wave that can run next. --json prints it as one document, the one /omni:wave acts on. Needs gh logged in."
+    detail: "PRD n's slices as the loop sees them, rebuilt from GitHub on every run: each slice's state (merged, stuck, in flight, runnable, blocked) and the wave that can run next. --json prints it as one document, the one /omni:wave acts on, with base: whether the branch the next wave builds on is behind the default branch (a phase-0 merged after the plan), so the wave merges it in first. Needs gh logged in."
   },
   {
     name: "care",

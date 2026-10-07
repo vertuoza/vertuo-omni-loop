@@ -78,6 +78,9 @@ this section does not apply.
    before it is still open, bring that landing's finished work in: in a detached worktree of this
    landing's branch, `git merge <remote>/<previous landing branch>`, push it to this landing's
    branch, and remove the worktree. A conflict there takes the **Stuck** path of step 4, item 1.
+   When this landing's base is the default branch (landing 1, or a landing whose previous PR has
+   merged), **meet the default branch** (step 1) instead, on this landing's branch: the board's
+   `base` names it.
 2. **Finish it** (step 4) on its branch. Item 1 meets **its base**, not always the default branch:
    landing n-1's branch while that landing's PR is open, the default branch once it is merged
    (`gh pr view <previous PR> --json state --jq .state` prints `MERGED`).
@@ -118,6 +121,8 @@ and the merge it waits for, and "the feature PR" there is the last landing's.
    tracked changes (`git status --porcelain --untracked-files=no` prints nothing). Otherwise stop in
    one line naming it; never stash, clean or reset. **Do this again before every board read**: each
    wave moves the feature branch. The run leaves the checkout detached; say so in the report.
+   Before the first read, **meet the default branch** (below), then switch again: the plan may have
+   been cut while the phase-0 PR was still open, and what that PR merged is the approved version.
 3. `node .omni-loop/bin/omni.mjs prd <n>`. A `repos:` line stops the run (Step 0, **A PRD that
    spans repositories**). It must be in state `inbox`. `shipped`, with the feature
    PR still a draft, means a previous run shipped and stopped before ready: go to step 5, green path,
@@ -148,6 +153,40 @@ outside its PRD. A PR whose base is `repo.defaultBranch` skips it: every step ru
    note is the diff against it, and step 5 never marks the feature PR ready while the base PR is
    open, or when no PR heads the base (a branch no PR brings to the default branch).
 
+### Meet the default branch
+
+A feature branch cut while its phase-0 PR was still open does not carry what that PR merged: the
+spec and the plan as reviewed. Built on as it is, its slices follow the version before review, and
+the feature PR conflicts on the PRD's folder as soon as phase-0 merges. So the default branch is
+brought in **before the plan and the board are read, and before any wave**, for a feature PR whose
+base is `repo.defaultBranch` (a stacked one meets its base at step 4, as **A stacked feature PR**
+says) and, in a PRD of several landings, for each landing whose base is `repo.defaultBranch`
+(landing 1, or a later landing whose PR was retargeted there once the one before it merged).
+`omni board <prd> --json` says when it is needed: its `base` names the branch it checked (the
+feature branch, or the current landing's), `onto` (`<remote>/<repo.defaultBranch>`) and `behind`;
+`base` is `null` while the current landing is stacked on the one before it.
+
+1. `git fetch <remote>`, then
+   `git merge-base --is-ancestor <remote>/<repo.defaultBranch> <remote>/<feature branch>`. Exit 0
+   (the board's `behind: false`): nothing to do. A branch not yet on the remote: nothing to do.
+2. Otherwise, in a detached worktree: `git worktree add --detach <path> <remote>/<feature branch>`
+   (`<path>` under `worktrees`), then `git merge --no-ff --no-commit <remote>/<repo.defaultBranch>`.
+3. **A conflict in the PRD's folder** (the folder `omni prd <n>` names): take the default branch's
+   side, `git checkout --theirs -- <path>`, then `git add -- <path>`, for each conflicting path
+   there. The merged phase-0 is the approved spec, plan and before/after; the feature branch's copy
+   is the one from before review. A conflict on a path under a generated entry's `path`
+   (`node .omni-loop/bin/omni.mjs config generated`): take either side the same way, since step 4
+   rebuilds it. **Any other conflict:** `git merge --abort`, remove the worktree, and take
+   `/omni:pr`'s **Stuck** path for the feature PR, naming the conflicting files as what a person
+   should look at; post the outbox (the `omni comment` line step 5 opens with) and go to step 7.
+4. Commit the merge as `chore(merge): <repo.defaultBranch> into <feature branch>`, with your
+   session's co-author trailer, then the `omni sign trailer` line, and
+   `git push <remote> HEAD:<feature branch>`. Remove the worktree, then refresh the checkout
+   (items 1–2).
+5. When the merge changed the PRD's `plan.md`, the plan read from here on is the reviewed one: the
+   board is rebuilt from it. A slice already merged before the merge is not rebuilt here; the
+   report names it, as built against the plan before review, for a person to look at.
+
 ## 2. Pick up the feature PR
 
 Add `labels.inProgress` to it (subject to `/omni:pr`'s **Labels**), and rewrite its status comment
@@ -162,7 +201,9 @@ node .omni-loop/bin/omni.mjs board <prd> --json
 While the board shows something that can move — `frontier.takeable` is not empty, or a slice is
 **awaiting merge** as `/omni:wave` defines it (an `in-flight`, non-draft sub-PR without
 `labels.inProgress`) — follow `/omni:wave <prd>` for one wave, keep its report, refresh your
-checkout (step 1, items 1–2) and read the board again.
+checkout (step 1, items 1–2) and read the board again. Before each wave, when the board's
+`base.behind` is `true`, **meet the default branch** (step 1) first and read the board again: a
+phase-0 or another PR merged into the default branch since the last wave.
 
 Stop the loop on the first of:
 
@@ -518,6 +559,8 @@ keeps its one line: nothing was built, so there is nothing to hand off.
 - **Never add `labels.outboxGo`.** It is a person's override, not this skill's way out.
 - **Never mark the feature PR ready while the gate is red**, and never before `omni ship` is
   committed and pushed.
+- **Never run a wave on a feature branch behind the default branch** (the board's `base.behind`
+  `true`): meet it first (step 1).
 - **Never mark a stacked feature PR ready while the PR of its base is open**, and never meet a base
   that was rewritten: stop with the line that names it.
 - One PRD per run, no issues filed; slices live in the plan.

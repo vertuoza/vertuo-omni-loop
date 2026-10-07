@@ -1753,3 +1753,54 @@ describe('generated files in the skills that build, plan and finish', () => {
     expect(missingInOrder('b a', ['a', 'b'])).toEqual(['b, after a']);
   });
 });
+
+describe('the default branch met before the plan, the board and the first wave (issue 1179)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  /** The `### <heading>` part of a section, up to the next `###` or `##`. */
+  const subsection = (text: string, heading: string) => {
+    const lines = text.split('\n');
+    const from = lines.findIndex((line: string) => line === `### ${heading}`);
+    if (from < 0) return '';
+    const to = lines.findIndex((line: string, index: number) => index > from && /^##+ /.test(line));
+    return lines.slice(from, to < 0 ? undefined : to).join('\n');
+  };
+  const inOrder = (text: string, mentions: string[]) => {
+    let from = 0;
+    return mentions.filter((mention: string) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) return true;
+      from = at + mention.length;
+      return false;
+    });
+  };
+
+  it('/omni:yolo meets the default branch in step 1, before `omni prd` reads the plan', () => {
+    const step1 = skillSection(read('yolo'), '1.');
+    expect(inOrder(step1, ['git switch --detach <remote>/<feature branch>', '**meet the default branch**', 'omni.mjs prd <n>'])).toEqual([]);
+  });
+
+  it("/omni:yolo's Meet the default branch merges in a detached worktree, keeps the default branch's side of the PRD's folder, sends any other conflict to Stuck, signs and pushes", () => {
+    const part = subsection(read('yolo'), 'Meet the default branch');
+    expect(inOrder(part, [
+      '`base`', '`behind`',
+      'git merge-base --is-ancestor <remote>/<repo.defaultBranch> <remote>/<feature branch>',
+      'git worktree add --detach <path> <remote>/<feature branch>',
+      'git merge --no-ff --no-commit <remote>/<repo.defaultBranch>',
+      "**A conflict in the PRD's folder**", 'git checkout --theirs -- <path>', 'git add -- <path>',
+      '**Any other conflict:**', 'git merge --abort', '**Stuck**',
+      'omni sign trailer', 'git push <remote> HEAD:<feature branch>',
+    ])).toEqual([]);
+  });
+
+  it('/omni:yolo checks `base.behind` before each wave, and Landings meets it for a landing based on the default branch', () => {
+    const text = read('yolo');
+    expect(inOrder(skillSection(text, '3.'), ['omni.mjs board <prd> --json', 'follow `/omni:wave <prd>`', '`base.behind`', '**meet the default branch**'])).toEqual([]);
+    expect(skillSection(text, 'Landings')).toMatch(/landing 1, or a landing whose previous PR has\s+merged\), \*\*meet the default branch\*\*/);
+  });
+
+  it('/omni:wave never claims on a branch the board says is behind: it meets the default branch first, then reads the board again', () => {
+    const text = read('wave');
+    expect(inOrder(skillSection(text, '1.'), ['`base.behind`', "`/omni:yolo`'s **Meet\nthe default branch**", 'read the\nboard again'])).toEqual([]);
+    expect(skillSection(text, 'Guardrails')).toContain('Never claim on a branch behind the default branch');
+  });
+});
