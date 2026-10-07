@@ -5,11 +5,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeRepo } from '../test/fixture.ts';
+import { dig } from './dig.ts';
 import { main, prdNamedBy } from './omni.ts';
 import { sliceTimeGuardCommand } from '../lib/policy/outbox-policy.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../test/fixture.ts';
 import type { Io } from '../test/fixture.ts';
+import { parsePrd } from '../lib/ids.ts';
 
 function io() {
   const out: string[] = [];
@@ -23,6 +25,19 @@ describe('omni', () => {
     const s = io();
     expect(await main(['status', '1'], { cwd: mkdtempSync(join(tmpdir(), 'x-')), ...s })).toBe(2);
     expect(s.err.join('')).toMatch(/^.*not inside a git repository\.\n$/);
+  });
+
+  it('exits 2 before any work when the environment is half set or malformed, naming every variable and no value', async () => {
+    const secret = 'sk-fake-secret-0123456789';
+    const s = io();
+    const env = { OPENROUTER_MODEL: secret, PROOF_URL: secret, PATH: process.env.PATH };
+    expect(await main(['status', '1'], { cwd: mkdtempSync(join(tmpdir(), 'x-')), env, ...s })).toBe(2);
+    const said = s.err.join('');
+    expect(said).toBe(
+      'environment: OPENROUTER_API_KEY is not set while OPENROUTER_MODEL is (OpenRouter: set all of them, or none); PROOF_URL is not valid: Invalid URL\n',
+    );
+    expect(said).not.toContain(secret);
+    expect(s.out).toEqual([]);
   });
 
   it('exits 2 in a repository that is not installed', async () => {
@@ -82,7 +97,7 @@ describe('omni — flags, lookups and guards', () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const s = io();
     expect(await main(['config'], { cwd: root, ...s })).toBe(0);
-    expect(JSON.parse(s.out.join('')).repo.slug).toBe('acme/widgets');
+    expect(dig(JSON.parse(s.out.join('')), 'repo', 'slug')).toBe('acme/widgets');
   });
 
   it('exits 2 for a config key that does not exist', async () => {
@@ -213,7 +228,7 @@ describe('omni — flags, lookups and guards', () => {
   it('the slice-time guard command runs as emitted', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     execFileSync('git', ['branch', 'feat/topic'], { cwd: root, stdio: 'ignore' });
-    const command = sliceTimeGuardCommand({ base: 'feat/topic', prd: 42 });
+    const command = sliceTimeGuardCommand({ base: 'feat/topic', prd: parsePrd(42) });
     const [, script, ...argv] = command.split(' ');
     expect(script).toBe('.omni-loop/bin/omni.mjs');
     const s = io();
@@ -242,7 +257,9 @@ const STRAY_MEDIUM = [
 const STRAY_HIGH = STRAY_MEDIUM.replace('rank: medium', 'rank: high');
 
 describe('omni — user-caused errors are one line, exit 2', () => {
-  const oneLine = (s: Io) => expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+  const oneLine = (s: Io) => {
+    expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+  };
 
   it('check all with an explicit --base that does not exist', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
@@ -368,14 +385,14 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
     ['item', 'new', '--prd', '7', '--slice', 's1', '--file', 'missing.json'],
   ];
 
-  it.each(FORMS.map((argv) => [argv.join(' '), argv]))('`omni %s` records PRD 7, and prints and exits as it does without', async (_name: any, argv: any) => {
+  it.each(FORMS.map((argv) => [argv.join(' '), argv]))('`omni %s` records PRD 7, and prints and exits as it does without', async (_name: string, argv: string[]) => {
     const without = makeRepo({ git: true, files: FILES });
     const within = makeRepo({ git: true, files: FILES });
     const before = Date.now();
     const recorded = await omni(argv, { root: within.root, env: SESSION });
     const after = Date.now();
     expect(recorded).toEqual(await omni(argv, { root: without.root }));
-    const { prd, at, ...rest } = JSON.parse(within.read(RECORD));
+    const { prd, at, ...rest } = JSON.parse(within.read(RECORD)) as { prd: unknown; at: string };
     expect({ prd, rest }).toEqual({ prd: 7, rest: {} });
     expect(new Date(Date.parse(at)).toISOString()).toBe(at);
     expect(Date.parse(at)).toBeGreaterThanOrEqual(before);
@@ -389,7 +406,7 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
     execFileSync('git', ['worktree', 'add', '-q', '-b', 'feat/bravo--s1', worktree], { cwd: root, stdio: 'ignore' });
     const run = await omni(['prd', '7'], { root, cwd: worktree, env: SESSION });
     expect(run.code).toBe(0);
-    expect(JSON.parse(read(RECORD)).prd).toBe(7);
+    expect(dig(JSON.parse(read(RECORD)), 'prd')).toBe(7);
     expect(exists(join(worktree, '.omni-loop/local'))).toBe(false);
   });
 
@@ -397,7 +414,7 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
     const { root, read } = makeRepo({ git: true, files: FILES });
     expect((await omni(['prd', '7'], { root, env: SESSION })).code).toBe(0);
     expect((await omni(['prd', '42'], { root, env: SESSION })).code).toBe(1);
-    expect(JSON.parse(read(RECORD)).prd).toBe(42);
+    expect(dig(JSON.parse(read(RECORD)), 'prd')).toBe(42);
   });
 
   it('records nothing without the variable, with an id that is not safe, or for a number that is no PRD', async () => {

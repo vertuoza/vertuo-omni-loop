@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
-const signInWithOAuth = vi.hoisted(() => vi.fn(async (_: unknown) => ({ data: {}, error: null as null | { message: string } })));
+const signInWithOAuth = vi.hoisted(() => vi.fn<(options: unknown) => Promise<{ data: object; error: null | { message: string } }>>(() => Promise.resolve({ data: {}, error: null })));
 vi.mock('@supabase/ssr', () => ({ createBrowserClient: () => ({ auth: { signInWithOAuth } }) }));
 
 const { GITHUB_SCOPES, githubSignIn, startGithubSignIn } = await import('./sign-in-github');

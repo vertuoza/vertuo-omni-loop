@@ -8,6 +8,7 @@
 // single ink. Whole-number scales only: the logo is never smoothed.
 /// <reference lib="dom" />
 import { INK } from './palette.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** The logo's forms: OMNI LOOP, a big O leading MNI LOOP, and the O alone. */
 export type LogoForm = 'full' | 'lockup' | 'mark';
@@ -72,8 +73,8 @@ const LETTER_GAP = 2; // between two glyphs' lit pixels: their outlines meet
 const WORD_GAP = 8; // between OMNI and LOOP
 
 /** A glyph's rows doubled `k` times each way. */
-const scaled = (rows: readonly string[], k: number): string[] => rows.flatMap((r) => Array<string>(k).fill([...r].map((c) => c.repeat(k)).join('')));
-const glyph = (ch: string): readonly string[] => (ch === 'O' ? LOOP_O : scaled(FACE[ch]!, 2));
+const scaled = (rows: readonly string[], k: number): string[] => rows.flatMap((r) => Array<string>(k).fill(Array.from(r).map((c) => c.repeat(k)).join('')));
+const glyph = (ch: string): readonly string[] => (ch === 'O' ? LOOP_O : scaled(defined(FACE[ch], `the glyph ${ch}`), 2));
 
 /** A glyph to lay out, and the gap before it. */
 type Placed = [rows: readonly string[], gap?: number];
@@ -89,14 +90,14 @@ function line(glyphs: readonly Placed[]): { w: number; h: number; boxes: Box[] }
   const boxes = glyphs.map(([rows, gap = 0], i) => {
     x += i ? gap : 0;
     const box = { x, y: Math.floor((h - rows.length) / 2), rows };
-    x += rows[0]!.length;
+    x += at(rows, 0, 'the first row of a glyph').length;
     return box;
   });
   return { w: x, h, boxes };
 }
 
 function word(text: string, first = 0): Placed[] {
-  return [...text].map((ch, i): Placed => [glyph(ch), i === 0 ? first : LETTER_GAP]);
+  return Array.from(text).map((ch, i): Placed => [glyph(ch), i === 0 ? first : LETTER_GAP]);
 }
 
 // Each drawing: its glyphs laid out, and the drop shadow's offset.
@@ -112,7 +113,7 @@ const RAMP = [INK.highlight, INK.yellow, INK.orange, INK.ember];
 /** The ramp tone of a glyph's pixel: lit from the top left, mostly from above. */
 function tone(x: number, y: number, w: number, h: number): string {
   const s = (x + 3 * y) / Math.max(1, w - 1 + 3 * (h - 1));
-  return RAMP[Math.min(3, Math.floor(s * 4))]!;
+  return at(RAMP, Math.min(3, Math.floor(s * 4)), 'a logo tone');
 }
 
 const cache = new Map<string, LogoArt>();
@@ -131,9 +132,11 @@ export function logoPixels(form: LogoDrawing, { mono = false }: { mono?: boolean
   const w = lw + 2 * pad + shadow, h = lh + 2 * pad + shadow;
   const lit = Array<string | null>(w * h).fill(null);
   for (const { x: bx, y: by, rows } of boxes) {
-    rows.forEach((row, y) => [...row].forEach((c, x) => {
-      if (c === '#') lit[(by + y + pad) * w + bx + x + pad] = tone(x, y, row.length, rows.length);
-    }));
+    rows.forEach((row, y) => {
+      Array.from(row).forEach((c, x) => {
+        if (c === '#') lit[(by + y + pad) * w + bx + x + pad] = tone(x, y, row.length, rows.length);
+      });
+    });
   }
   const has = (arr: readonly (string | null)[], x: number, y: number): boolean => x >= 0 && y >= 0 && x < w && y < h && arr[y * w + x] !== null;
   // The outline: every empty pixel that touches a lit one, corners included.
@@ -181,7 +184,7 @@ function runsByColour({ w, h, pixels }: LogoArt): Map<string, [number, number, n
 }
 
 const ENTITIES: Readonly<Record<string, string>> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
-const escape = (s: string): string => s.replace(/[&<>"]/g, (c) => ENTITIES[c]!);
+const escape = (s: string): string => s.replace(/[&<>"]/g, (c) => defined(ENTITIES[c], `the entity for ${c}`));
 
 /**
  * A logo drawing as a crisp SVG string, `scale` times its pixels (a whole number), never smoothed.

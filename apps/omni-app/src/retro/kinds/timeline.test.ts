@@ -1,11 +1,13 @@
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { failing } from '../../../test/github-replay.ts';
 import { FEATURE, FEATURE_EVENTS, OWNER, PLAN, REPO, SUB_PULLS } from '../../../test/retro-scenario.ts';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { listPullsInto } from '../github.ts';
 import { timeline, wavesAsMerged } from './timeline.ts';
 import type { RetroPull } from './index.ts';
-import { handles, replay } from './test-handles.ts';
+import { handles, replay } from './test/handles.ts';
 
 const { gather, detect, section } = handles(timeline);
 
@@ -27,7 +29,7 @@ describe('timeline — gather', () => {
   });
 
   it('reads no ready time for a feature PR opened ready, or whose events cannot be read', async () => {
-    const opened = replay({ events: { 12: [FEATURE_EVENTS[0]!] } });
+    const opened = replay({ events: { 12: [at(FEATURE_EVENTS, 0, 'the feature PR’s first event')] } });
     expect(await gather(opened.octokit, { owner: OWNER, repo: REPO, pr })).toEqual({ readyAt: null });
     const unreadable = replay();
     expect(await gather(unreadable.octokit, { owner: OWNER, repo: REPO, pr })).toEqual({ readyAt: null });
@@ -52,9 +54,9 @@ describe('timeline — detect', () => {
       minutes: 180,
     });
     expect(facts.slices).toEqual([
-      { slice: 's1', pr: 13, url: SUB_PULLS[0]!.html_url, openedAt: '2026-09-20T09:10:00Z', mergedAt: '2026-09-20T09:40:00Z', closedAt: '2026-09-20T09:40:00Z', minutes: 30, plannedWave: 1, mergedWave: 1 },
-      { slice: 's2', pr: 14, url: SUB_PULLS[1]!.html_url, openedAt: '2026-09-20T09:45:00Z', mergedAt: '2026-09-20T10:05:00Z', closedAt: '2026-09-20T10:05:00Z', minutes: 20, plannedWave: 2, mergedWave: 2 },
-      { slice: 's3', pr: 15, url: SUB_PULLS[2]!.html_url, openedAt: '2026-09-20T09:46:00Z', mergedAt: '2026-09-20T11:46:00Z', closedAt: '2026-09-20T11:46:00Z', minutes: 120, plannedWave: 2, mergedWave: 2 },
+      { slice: 's1', pr: 13, url: at(SUB_PULLS, 0, 'sub-PR 0').html_url, openedAt: '2026-09-20T09:10:00Z', mergedAt: '2026-09-20T09:40:00Z', closedAt: '2026-09-20T09:40:00Z', minutes: 30, plannedWave: 1, mergedWave: 1 },
+      { slice: 's2', pr: 14, url: at(SUB_PULLS, 1, 'sub-PR 1').html_url, openedAt: '2026-09-20T09:45:00Z', mergedAt: '2026-09-20T10:05:00Z', closedAt: '2026-09-20T10:05:00Z', minutes: 20, plannedWave: 2, mergedWave: 2 },
+      { slice: 's3', pr: 15, url: at(SUB_PULLS, 2, 'sub-PR 2').html_url, openedAt: '2026-09-20T09:46:00Z', mergedAt: '2026-09-20T11:46:00Z', closedAt: '2026-09-20T11:46:00Z', minutes: 120, plannedWave: 2, mergedWave: 2 },
     ]);
     expect(facts.sliceCount).toBe(3);
     expect(facts.waves).toEqual({ planned: 2, merged: 2 });
@@ -71,7 +73,7 @@ describe('timeline — detect', () => {
         title: 'Slice s3 took far longer than the others',
         happened:
           'Slice s3 took 120 minutes from its claim to its merge, against a median of 30 minutes; the rules flag a slice slower than 3 times the median.',
-        evidence: [{ label: '#15', url: SUB_PULLS[2]!.html_url }],
+        evidence: [{ label: '#15', url: at(SUB_PULLS, 2, 'sub-PR 2').html_url }],
       },
     ]);
   });
@@ -86,8 +88,8 @@ describe('timeline — detect', () => {
     const ctx = await context();
     ctx.pulls = [
       ...ctx.pulls,
-      { number: 16, title: 'S2 again', url: 'u16', state: 'closed', draft: false, headRef: 'feat/widget--s2', headSha: 'sha16', openedAt: '2026-09-20T10:10:00Z', closedAt: '2026-09-20T10:20:00Z', mergedAt: null, labels: [] },
-      { number: 17, title: 'Settle', url: 'u17', state: 'open', draft: false, headRef: 'fix/settle-widget', headSha: 'sha17', openedAt: '2026-09-20T10:30:00Z', closedAt: null, mergedAt: null, labels: [] },
+      { number: parsePr(16), title: 'S2 again', url: 'u16', state: 'closed', draft: false, headRef: 'feat/widget--s2', headSha: 'sha16', openedAt: '2026-09-20T10:10:00Z', closedAt: '2026-09-20T10:20:00Z', mergedAt: null, labels: [] },
+      { number: parsePr(17), title: 'Settle', url: 'u17', state: 'open', draft: false, headRef: 'fix/settle-widget', headSha: 'sha17', openedAt: '2026-09-20T10:30:00Z', closedAt: null, mergedAt: null, labels: [] },
     ];
     const { facts } = detect({ readyAt: null }, ctx);
     expect(facts.slices.map((slice) => [slice.slice, slice.pr, slice.minutes])).toEqual([
@@ -130,6 +132,6 @@ describe('timeline — its section', () => {
       `- Feature PR [#12](${FEATURE.html_url}): opened \`2026-09-20T09:00:00Z\`, ready: not known, merged \`2026-09-20T12:00:00Z\`, 180 minutes in all.`,
     );
     expect(lines).toContain('- 3 slices; waves: 2 planned, 2 as merged; median slice: 30 minutes from its claim to its merge.');
-    expect(lines).toContain(`| s3 | [#15](${SUB_PULLS[2]!.html_url}) | \`2026-09-20T09:46:00Z\` | \`2026-09-20T11:46:00Z\` | 120 | 2 | 2 |`);
+    expect(lines).toContain(`| s3 | [#15](${at(SUB_PULLS, 2, 'sub-PR 2').html_url}) | \`2026-09-20T09:46:00Z\` | \`2026-09-20T11:46:00Z\` | 120 | 2 | 2 |`);
   });
 });

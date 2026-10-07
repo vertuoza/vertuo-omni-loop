@@ -2,20 +2,27 @@
 // through a 90-day backfill), and the outbox check, which shares that budget, failed with 403 for most
 // of each hour. The collector must read pull requests without REST calls per pull request, and never
 // drive a budget of the installation below half.
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { type CollectStep, collectAll } from './collect.ts';
 import { fakeGitHub, fakeStore, pull } from './fake.ts';
 
 const NOW = Date.parse('2026-09-29T12:00:00Z');
 const WS = 'ws-vertuoza';
-const step: CollectStep = { run: async (_id, fn) => JSON.parse(JSON.stringify((await fn()) ?? null)) };
+/** Inngest's step, as these tests stub it: a step's value comes back as JSON, read again. */
+const step: CollectStep = {
+  run: async <T>(_id: string, fn: () => T | Promise<T>): Promise<T> => {
+    const value: unknown = await fn();
+    return JSON.parse(JSON.stringify(value ?? null)) as T;
+  },
+};
 const daysAgo = (days: number) => new Date(NOW - days * 24 * 60 * 60 * 1000).toISOString();
 
 /** `count` pull requests of the last 60 days, each updated at an instant of its own. */
-const recentPulls = (count: number) => Array.from({ length: count }, (_, index) => pull(index + 1, { updated_at: daysAgo(60 - index * 0.1) }));
+const recentPulls = (count: number) => Array.from({ length: count }, (_, index) => pull(parsePr(index + 1), { updated_at: daysAgo(60 - index * 0.1) }));
 
 function run(github: ReturnType<typeof fakeGitHub>, store: ReturnType<typeof fakeStore>) {
-  return collectAll({ store, octokitFor: async () => github.octokit, step, now: NOW });
+  return collectAll({ store, octokitFor: () => Promise.resolve(github.octokit), step, now: NOW });
 }
 
 describe('prStats — the installation budget the outbox check shares (bug 638)', () => {

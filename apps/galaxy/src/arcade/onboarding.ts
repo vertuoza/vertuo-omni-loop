@@ -61,14 +61,14 @@ export function afterGate(me: Player | null, fleets: FleetRow[]): Step {
 }
 
 /** The screen after a step is done, in a flow: the intro leads to the fleets, or past them when there are none. */
-export function nextStep(step: Step, flow: Flow, me: Player | null, fleets: FleetRow[]): Step {
+export function nextStep(step: Step, flow: Flow, fleets: FleetRow[]): Step {
   switch (step) {
     case 'intro': return hasFleets(fleets) ? 'select' : 'name';
     case 'select': return flow === 'change' ? 'menu' : 'name';
     case 'name': return 'hero';
     case 'hero': return flow === 'onboard' ? 'ready' : 'menu';
     case 'ready': case 'welcome': return 'menu';
-    default: return 'menu';
+    case 'coin': case 'gate': case 'menu': case 'outsider': return 'menu';
   }
 }
 
@@ -79,7 +79,7 @@ export function backStep(step: Step, flow: Flow, fleets: FleetRow[]): Step | 'ti
     case 'select': return 'title';
     case 'name': return hasFleets(fleets) ? 'select' : 'title';
     case 'hero': return 'name';
-    default: return 'title';
+    case 'coin': case 'gate': case 'intro': case 'menu': case 'outsider': case 'ready': case 'welcome': return 'title';
   }
 }
 

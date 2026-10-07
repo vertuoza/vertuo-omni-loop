@@ -3,6 +3,8 @@
 // builds the graph through the kit (load-knowledge.ts); nothing here touches the disk, so the browser
 // may import it.
 
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
 export type EntryKind = 'principle' | 'rule' | 'invariant';
 export type EntryStatus = 'law' | 'proposed';
 export type LinkKind = 'serves' | 'cites';
@@ -30,7 +32,7 @@ export interface KnowledgeEntry {
   enforced: boolean;
   enforcedBy: string | null;
   /** The PRD its `Source:` line names. */
-  prd: number | null;
+  prd: PrdNumber | null;
   file: string;
 }
 

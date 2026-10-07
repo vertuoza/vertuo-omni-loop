@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { cssVars } from './css-vars';
 import type { GalaxyView } from '@omni/galaxy';
 import { randomHero, type Hero } from '@omni/design';
@@ -54,6 +54,7 @@ import { addressAt, landing } from './deep-link';
 import { leaveMove, openOver } from './leave.ts';
 import { LeaveOverlay } from './leave.tsx';
 import type { Account, DossiersRead, FleetRow, Player, PlayerPatch, ScoresRead, Session, XpRead } from './types';
+import { at, messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import './shell.css';
 
 // The music each screen plays; the rest are silent but for their effects.
@@ -63,7 +64,7 @@ const TRACK: Partial<Record<SceneName, SongName>> = {
 
 // What Entropy Invaders sounds like: its march is the marching bass, a note a step; the rest are effects.
 const GAME_SFX: Record<Exclude<GameEvent, 'march'>, Sfx> = { fire: 'fire', hit: 'hit', hurt: 'hurt', wave: 'wave', over: 'over' };
-const playGame = (e: GameEvent, g: Game) => (e === 'march' ? march(g.marchStep) : sfx(GAME_SFX[e]));
+const playGame = (e: GameEvent, g: Game) => { if (e === 'march') march(g.marchStep); else sfx(GAME_SFX[e]); };
 // A game keeps the grid it started on: turning the phone letterboxes it rather than changing its field.
 const GAME_GRID = { wide: WIDE, tall: TALL } as const;
 // Entropy Invaders' key in the registry: its crew table's, and the one its scores are sent under.
@@ -138,7 +139,7 @@ export interface ArcadeProps {
   /** Whose arcade it is: its name draws the mark's letter and the boot's and the title's words, its theme colours the arcade. The house brand when none is given. */
   brand?: Brand;
   /** The star chart's knowledge: the crew's and the demo's only; `'none'` in a build without it (see ChartSource). */
-  knowledge?: ChartSource;
+  knowledge?: ChartSource | undefined;
   /**
    * The player's XP: their player_xp row, null when they have none, 'unreadable' when it could not be
    * read (the default: a page that says nothing of XP shows no level, and never guesses one).
@@ -250,7 +251,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         const m = meRef.current;
         if (m) setScores((all) => ({ ...all, [game]: withBest(all[game], { id: m.id, name: m.display_name, hero: m.hero, team: m.team, best }) }));
         // Then the table as stored, with whatever the crew scored meanwhile.
-        account.scores(game).then((b) => setScores((all) => ({ ...all, [game]: b }))).catch(() => { /* the line above stands */ });
+        account.scores(game).then((b) => { setScores((all) => ({ ...all, [game]: b })); }).catch(() => { /* the line above stands */ });
       }
       if (run !== runRef.current) return;
       showSend(done);
@@ -285,7 +286,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       const moved = next.scene !== undefined && next.scene !== u.scene;
       return { ...u, page: moved ? 0 : u.page, ...next, since: moved ? now() : u.since };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /** Opens a joining step with what it needs: the fleet under the cursor, the name, the hero draft. */
@@ -306,7 +306,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   /** A on the unlocked cabinet: a new game, laid out for the grid it is shown on, each alien paying the rules' close value. */
   const playInvaders = useCallback(() => {
-    if (!view) return go({ toast: problem ?? 'GALAXY OUT OF REACH' }, 'buzz');
+    if (!view) { go({ toast: problem ?? 'GALAXY OUT OF REACH' }, 'buzz'); return; }
     const g = newGame({ layout: gridFor(formRef.current, 'invaders').name, values: view.rules.woundClose, seed: Math.floor(Math.random() * 2 ** 31) });
     held.clear(); // a finger lifted outside a game was never heard: each game starts with nothing held
     runRef.current += 1;
@@ -323,7 +323,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     showSend(null);
     setPf({ session: newSession(), status: 'loading', retry: 0, grid: gridFor(formRef.current, 'platformer') });
     go({ scene: 'platformer' }, 'start');
-  }, [go, held, showSend]);
+  }, [go, held, showSend, setPf]);
 
   /**
    * Opens OPEN THE APP? over whatever scene is showing: the one way to it, from the menu's APP MODE
@@ -349,7 +349,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   }, [account]);
 
   // ── First render: the demo's remembered guest, a return from GitHub, a deep link ──
-  useEffect(() => {
+  // An effect event, run by an effect with no dependency: once, on the first render's props.
+  const firstRender = useEffectEvent(() => {
     setMuted(readMuted());
     setGamesSeen(readGamesSeen());
     let s = session0, m = me0;
@@ -362,40 +363,39 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (back) {
       window.history.replaceState(null, '', window.location.pathname);
       const step = afterReturn(back, s, m, fleets);
-      if (back.kind === 'signin_error') return open('coin', { error: back.message });
-      if (step === 'coin') return open('coin');
-      return open(step, { flow: 'onboard' });
+      if (back.kind === 'signin_error') { open('coin', { error: back.message }); return; }
+      if (step === 'coin') { open('coin'); return; }
+      open(step, { flow: 'onboard' }); return;
     }
     // A deep link, through the one door; the menu's, like every route to it, through `go`.
     const link = landing(window.location.hash, { view, session: s });
     if (link) go(link);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  });
+  useEffect(() => { firstRender(); }, []);
 
   // The crew's tables the page did not bring (the demo's, the artifact's): the account's, once.
-  useEffect(() => {
+  const readScores = useEffectEvent(() => {
     if (scores0) return;
     for (const { id } of GAMES) {
       account.scores(id)
-        .then((b) => setScores((all) => ({ ...all, [id]: b })))
-        .catch(() => setScores((all) => ({ ...all, [id]: 'unreadable' })));
+        .then((b) => { setScores((all) => ({ ...all, [id]: b })); })
+        .catch(() => { setScores((all) => ({ ...all, [id]: 'unreadable' })); });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  });
+  useEffect(() => { readScores(); }, []);
 
   useEffect(() => { if (ui.scene !== 'boot') writeHash(ui, view); }, [ui, view]);
   // Back from the app to a page the browser kept as it was: the scene shows again, OPEN THE APP? closed.
   useEffect(() => {
     const back = (e: PageTransitionEvent) => { if (e.persisted) setUi((u) => (u.leaving ? { ...u, leaving: false } : u)); };
     window.addEventListener('pageshow', back);
-    return () => window.removeEventListener('pageshow', back);
+    return () => { window.removeEventListener('pageshow', back); };
   }, []);
   // The one door: whatever route led here (a deep link, a crafted return URL, a stale screen after
   // signing out), nothing past INSERT COIN shows without a session.
   useEffect(() => {
     const door = allowed(ui.scene, session);
     if (door !== ui.scene) setUi((u) => ({ ...u, scene: door, since: now(), page: 0, away: false, error: null }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.scene, session, me]);
   useEffect(() => { setAudioMuted(muted); }, [muted]);
   // The game room, once opened on this device, takes GAMES's NEW tag away.
@@ -415,7 +415,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (ui.scene !== 'invaders' && gameRef.current) { gameRef.current = null; showHud(null); }
     if (ui.scene === 'platformer' && !pfRef.current) go({ scene: 'games' });
     if (ui.scene !== 'platformer' && pfRef.current) setPf(null);
-  }, [ui.scene, go, showHud]);
+  }, [ui.scene, go, showHud, pfRef, setPf]);
   // A window that loses focus or a hidden tab never hears its keys and fingers go up: nothing stays
   // held, and a game pauses.
   useEffect(() => {
@@ -439,22 +439,21 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // ── Timed hand-overs ──
   // They wait while OPEN THE APP? is up, so B finds the scene it covered, and start again from there.
   useEffect(() => {
-    const later = (ms: number, fn: () => void) => { const id = window.setTimeout(fn, ms); return () => window.clearTimeout(id); };
+    const later = (ms: number, fn: () => void) => { const id = window.setTimeout(fn, ms); return () => { window.clearTimeout(id); }; };
     if (ui.leaving) return undefined;
-    if (ui.scene === 'boot') return later(3200, () => go({ scene: 'title' }));
-    if (ui.scene === 'intro') return later(20200, () => open(nextStep('intro', 'onboard', meRef.current, fleets), { flow: 'onboard' }));
-    if (ui.scene === 'welcome') return later(3200, () => open('menu'));
+    if (ui.scene === 'boot') return later(3200, () => { go({ scene: 'title' }); });
+    if (ui.scene === 'intro') return later(20200, () => { open(nextStep('intro', 'onboard', fleets), { flow: 'onboard' }); });
+    if (ui.scene === 'welcome') return later(3200, () => { open('menu'); });
     // The lock-in plays for 1.8 s, and moves on once the fleet is saved (whichever comes last).
     if (ui.scene === 'select' && ui.lockedAt !== null && ui.lockSaved) {
-      return later(Math.max(0, 1800 - (now() - ui.lockedAt) * 1000), () => open(nextStep('select', uiRef.current.flow, meRef.current, fleets)));
+      return later(Math.max(0, 1800 - (now() - ui.lockedAt) * 1000), () => { open(nextStep('select', uiRef.current.flow, fleets)); });
     }
     return undefined;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.scene, ui.lockedAt, ui.lockSaved, ui.leaving, go, open, fleets]);
   useEffect(() => {
     if (!ui.toast) return;
-    const id = window.setTimeout(() => go({ toast: null }), 2600);
-    return () => window.clearTimeout(id);
+    const id = window.setTimeout(() => { go({ toast: null }); }, 2600);
+    return () => { window.clearTimeout(id); };
   }, [ui.toast, go]);
 
   // ── Leaving for GitHub ──
@@ -467,7 +466,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       const s = signedIn.github ? signedIn : { ...signedIn, github: (await account.linkGithub()) || null };
       setSession(s); sessionRef.current = s;
       open(afterStart(s, meRef.current, fleets) === 'welcome' ? 'welcome' : 'gate', { flow: 'onboard' }, 'start');
-    }).catch((err: Error) => go({ away: false, error: err.message }, 'buzz'));
+    }).catch((err: unknown) => { go({ away: false, error: messageOf(err) }, 'buzz'); });
   }, [account, fleets, go, open]);
 
   const signOut = useCallback(() => {
@@ -475,7 +474,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       if (account.kind === 'supabase') { window.location.assign('/play'); return; }
       setSession(null); sessionRef.current = null;
       go({ scene: 'title', flow: 'onboard' }, 'back');
-    }).catch((err: Error) => go({ toast: err.message }, 'buzz'));
+    }).catch((err: unknown) => { go({ toast: messageOf(err) }, 'buzz'); });
   }, [account, go]);
 
   // ── The fleet (or PLAY SOLO, after the fleets) is locked in: the player row is created, or its fleet changed ──
@@ -484,38 +483,36 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (!active.length) return;
     const team = active[u.pick]?.name ?? null; // past the fleets: PLAY SOLO, no team
     const m = meRef.current, s = sessionRef.current;
-    if (u.flow === 'change' && m && (m.team ?? null) === team) return open('menu', {}, 'back');
-    if (u.flow === 'change' && m?.team && !u.confirm) return go({ confirm: true }, 'select');
+    if (u.flow === 'change' && m && (m.team ?? null) === team) { open('menu', {}, 'back'); return; }
+    if (u.flow === 'change' && m?.team && !u.confirm) { go({ confirm: true }, 'select'); return; }
     const patch: PlayerPatch = m
       ? { team }
       : { team, display_name: foldName(s?.givenName ?? '') || 'PLAYER-1', hero: randomHero() };
     go({ confirm: false, lockedAt: now(), lockSaved: false });
     music('fanfare');
     save(patch)
-      .then(() => go({ lockSaved: true }))
-      .catch((err: Error) => go({ lockedAt: null, toast: err.message }, 'buzz'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      .then(() => { go({ lockSaved: true }); })
+      .catch((err: unknown) => { go({ lockedAt: null, toast: messageOf(err) }, 'buzz'); });
   }, [active, go, open, save]);
 
   const nameDone = useCallback(() => {
     const u = uiRef.current, value = nameValue(u.name);
-    if (!NAME_RULE.test(value)) return go({ shake: now(), error: 'A name needs at least one letter or number.' }, 'buzz');
+    if (!NAME_RULE.test(value)) { go({ shake: now(), error: 'A name needs at least one letter or number.' }, 'buzz'); return; }
     // No fleet step came before (the workspace has no fleets): the name creates the player row, solo.
     const patch: PlayerPatch = meRef.current ? { display_name: value } : { display_name: value, team: null, hero: randomHero() };
     save(patch)
-      .then(() => open(nextStep('name', u.flow, meRef.current, fleets), { flow: u.flow }, 'select'))
-      .catch((err: Error) => go({ error: err.message }, 'buzz'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      .then(() => { open(nextStep('name', u.flow, fleets), { flow: u.flow }, 'select'); })
+      .catch((err: unknown) => { go({ error: messageOf(err) }, 'buzz'); });
   }, [go, open, save, fleets]);
 
   const heroDone = useCallback(() => {
     const u = uiRef.current;
     save({ hero: u.hero })
-      .then((row) => {
-        const next = nextStep('hero', u.flow, row, fleets);
+      .then(() => {
+        const next = nextStep('hero', u.flow, fleets);
         open(next, next === 'menu' ? {} : { flow: u.flow }, 'select');
       })
-      .catch((err: Error) => go({ error: err.message }, 'buzz'));
+      .catch((err: unknown) => { go({ error: messageOf(err) }, 'buzz'); });
   }, [go, open, save, fleets]);
 
   const nameAction = useCallback((a: NameAction) => {
@@ -530,8 +527,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   const leave = useCallback((step: Step) => {
     const to = backStep(step, uiRef.current.flow, fleets);
-    if (to === 'title') return go({ scene: 'title', flow: 'onboard' }, 'back');
-    return open(to, to === 'menu' ? {} : { flow: uiRef.current.flow }, 'back');
+    if (to === 'title') { go({ scene: 'title', flow: 'onboard' }, 'back'); return; }
+    open(to, to === 'menu' ? {} : { flow: uiRef.current.flow }, 'back');
   }, [go, open, fleets]);
 
   /** Opens the menu's item `i`: with A or START on the row under the cursor, or with a tap on any row. */
@@ -540,12 +537,16 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const item = items[i];
     if (!item) return;
     const door = doorOf(item, { view, chart: knowledge, problem });
-    if (door) return 'scene' in door ? go({ scene: door.scene, menu: i, card: false }, 'select') : go({ menu: i, toast: door.refused }, 'buzz');
-    if (item.id === 'myhero') return open('name', { flow: 'myhero', menu: i }, 'select');
-    if (item.id === 'change') return open('select', { flow: 'change', menu: i }, 'select');
-    if (item.id === 'play') return open(afterGate(meRef.current, fleets), { flow: 'onboard', menu: i }, 'select');
-    if (item.id === 'app') return askLeave({ menu: i });
-    if (item.id === 'signout') return signOut();
+    if (door) {
+      if ('scene' in door) go({ scene: door.scene, menu: i, card: false }, 'select');
+      else go({ menu: i, toast: door.refused }, 'buzz');
+      return;
+    }
+    if (item.id === 'myhero') { open('name', { flow: 'myhero', menu: i }, 'select'); return; }
+    if (item.id === 'change') { open('select', { flow: 'change', menu: i }, 'select'); return; }
+    if (item.id === 'play') { open(afterGate(meRef.current, fleets), { flow: 'onboard', menu: i }, 'select'); return; }
+    if (item.id === 'app') { askLeave({ menu: i }); return; }
+    if (item.id === 'signout') { signOut(); return; }
   }, [view, fleets, active, knowledge, go, open, signOut, problem, gamesSeen, app, askLeave]);
 
   const act = useCallback((action: Action) => {
@@ -554,42 +555,42 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     // B closes it on the scene as it was, and nothing else is read (leave.ts).
     if (u.leaving) {
       const move = leaveMove(action);
-      if (move === 'go' && app) { sfx('start'); return window.location.assign(app); }
-      if (move) return go({ leaving: false }, 'back');
+      if (move === 'go' && app) { sfx('start'); window.location.assign(app); return; }
+      if (move) { go({ leaving: false }, 'back'); return; }
       return;
     }
     const planets = view?.planets.length ?? 0;
     const items = menuFor(meRef.current, sessionRef.current, active, !gamesSeen, Boolean(app));
     switch (u.scene) {
-      case 'boot': return go({ scene: 'title' });
+      case 'boot': { go({ scene: 'title' }); return; }
       case 'title':
         if (action === 'a' || action === 'start') {
           const step = afterStart(sessionRef.current, meRef.current, fleets);
-          return open(step, { flow: 'onboard' }, 'start');
+          open(step, { flow: 'onboard' }, 'start'); return;
         }
         return;
       case 'coin':
         if (u.away) return;
-        if ((action === 'a' || action === 'start') && account.kind === 'closed') return sfx('buzz');
-        if (action === 'a' || action === 'start') return signIn();
-        if (action === 'b') return go({ scene: 'title', error: null }, 'back');
+        if ((action === 'a' || action === 'start') && account.kind === 'closed') { sfx('buzz'); return; }
+        if (action === 'a' || action === 'start') { signIn(); return; }
+        if (action === 'b') { go({ scene: 'title', error: null }, 'back'); return; }
         return;
       case 'outsider':
         // A: sign up, which installs Omni Loop on the visitor's org or account (PRD 359); B: sign out.
-        if (action === 'a' || action === 'start') { sfx('start'); return window.location.assign(SIGNUP_PATH); }
-        if (action === 'b') return signOut();
+        if (action === 'a' || action === 'start') { sfx('start'); window.location.assign(SIGNUP_PATH); return; }
+        if (action === 'b') { signOut(); return; }
         return;
       case 'gate':
-        if (action === 'a' || action === 'start') return open(afterGate(meRef.current, fleets), { flow: 'onboard' }, 'start');
+        if (action === 'a' || action === 'start') { open(afterGate(meRef.current, fleets), { flow: 'onboard' }, 'start'); return; }
         return;
       case 'intro':
-        if (action === 'a' || action === 'start') return open(nextStep('intro', 'onboard', meRef.current, fleets), { flow: 'onboard' }, 'select');
+        if (action === 'a' || action === 'start') { open(nextStep('intro', 'onboard', fleets), { flow: 'onboard' }, 'select'); return; }
         return;
       case 'select': {
         if (u.lockedAt !== null) return;
         if (u.confirm) {
-          if (action === 'a' || action === 'start') return lockIn();
-          if (action === 'b') return go({ confirm: false }, 'back');
+          if (action === 'a' || action === 'start') { lockIn(); return; }
+          if (action === 'b') { go({ confirm: false }, 'back'); return; }
           return;
         }
         if (action === 'left' || action === 'right' || action === 'up' || action === 'down' || action === 'select') {
@@ -599,32 +600,31 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           if (active[pick]) motif(active[pick]);
           return;
         }
-        if (action === 'a' || action === 'start') return lockIn();
-        if (action === 'b') return leave('select');
-        return;
+        if (action === 'a' || action === 'start') { lockIn(); return; }
+        leave('select'); return; // B: the only press left
       }
       case 'name':
-        if (action === 'up') return nameAction({ type: 'spin', dir: -1 });
-        if (action === 'down') return nameAction({ type: 'spin', dir: 1 });
-        if (action === 'left') return nameAction({ type: 'move', dir: -1 });
-        if (action === 'right') return nameAction({ type: 'move', dir: 1 });
-        if (action === 'a') return nameAction({ type: 'advance' });
-        if (action === 'start') return nameDone();
-        if (action === 'b') return u.name.chars.length ? nameAction({ type: 'erase' }) : leave('name');
+        if (action === 'up') { nameAction({ type: 'spin', dir: -1 }); return; }
+        if (action === 'down') { nameAction({ type: 'spin', dir: 1 }); return; }
+        if (action === 'left') { nameAction({ type: 'move', dir: -1 }); return; }
+        if (action === 'right') { nameAction({ type: 'move', dir: 1 }); return; }
+        if (action === 'a') { nameAction({ type: 'advance' }); return; }
+        if (action === 'start') { nameDone(); return; }
+        if (action === 'b') { if (u.name.chars.length) nameAction({ type: 'erase' }); else leave('name'); return; }
         return;
       case 'hero': {
-        const row = BUILDER_ROWS[u.heroRow]!;
-        if (action === 'up') return go({ heroRow: (u.heroRow + BUILDER_ROWS.length - 1) % BUILDER_ROWS.length }, 'move');
-        if (action === 'down') return go({ heroRow: (u.heroRow + 1) % BUILDER_ROWS.length }, 'move');
+        const row = at(BUILDER_ROWS, u.heroRow, 'the builder row');
+        if (action === 'up') { go({ heroRow: (u.heroRow + BUILDER_ROWS.length - 1) % BUILDER_ROWS.length }, 'move'); return; }
+        if (action === 'down') { go({ heroRow: (u.heroRow + 1) % BUILDER_ROWS.length }, 'move'); return; }
         if ((action === 'left' || action === 'right') && row !== 'RANDOM' && row !== 'DONE') {
-          return go({ hero: cycleHero(u.hero, row, action === 'left' ? -1 : 1), error: null }, 'tick');
+          go({ hero: cycleHero(u.hero, row, action === 'left' ? -1 : 1), error: null }, 'tick'); return;
         }
         if (action === 'select' || (action === 'a' && row === 'RANDOM')) {
-          return go({ hero: randomHero(Math.random, { suit: Math.floor(Math.random() * 8) }), error: null }, 'random');
+          go({ hero: randomHero(Math.random, { suit: Math.floor(Math.random() * 8) }), error: null }, 'random'); return;
         }
-        if (action === 'start' || (action === 'a' && row === 'DONE')) return heroDone();
-        if (action === 'a') return go({ heroRow: u.heroRow + 1 }, 'move');
-        if (action === 'b') return leave('hero');
+        if (action === 'start' || (action === 'a' && row === 'DONE')) { heroDone(); return; }
+        if (action === 'a') { go({ heroRow: u.heroRow + 1 }, 'move'); return; }
+        if (action === 'b') { leave('hero'); return; }
         return;
       }
       case 'ready':
@@ -635,54 +635,56 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         return;
       case 'menu': {
         const i = Math.min(u.menu, items.length - 1);
-        if (action === 'up') return go({ menu: (i + items.length - 1) % items.length }, 'move');
-        if (action === 'down' || action === 'select') return go({ menu: (i + 1) % items.length }, 'move');
-        if (action === 'b') return go({ scene: 'title' }, 'back');
+        if (action === 'up') { go({ menu: (i + items.length - 1) % items.length }, 'move'); return; }
+        if (action === 'down' || action === 'select') { go({ menu: (i + 1) % items.length }, 'move'); return; }
+        if (action === 'b') { go({ scene: 'title' }, 'back'); return; }
         if (action !== 'a' && action !== 'start') return;
-        return openItem(i);
+        openItem(i); return;
       }
       case 'map':
         if (action === 'up' || action === 'down' || action === 'left' || action === 'right') {
           const next = neighbour(layout, u.sel, action);
-          return next === u.sel ? undefined : go({ sel: next }, 'move');
+          if (next !== u.sel) go({ sel: next }, 'move');
+          return;
         }
-        if ((action === 'a' || action === 'start') && planets) return go({ scene: 'planet', tab: 0 }, 'select');
-        if (action === 'select') return go({ sel: (u.sel + 1) % Math.max(1, planets) }, 'move');
-        if (action === 'b') return go({ scene: 'menu' }, 'back');
+        if ((action === 'a' || action === 'start') && planets) { go({ scene: 'planet', tab: 0 }, 'select'); return; }
+        if (action === 'select') { go({ sel: (u.sel + 1) % Math.max(1, planets) }, 'move'); return; }
+        if (action === 'b') { go({ scene: 'menu' }, 'back'); return; }
         return;
       case 'planet':
-        if (action === 'left') return go({ tab: (u.tab + PLANET_TABS.length - 1) % PLANET_TABS.length }, 'tab');
-        if (action === 'right' || action === 'a' || action === 'select') return go({ tab: (u.tab + 1) % PLANET_TABS.length }, 'tab');
-        if (action === 'up') return go({ sel: (u.sel + planets - 1) % planets }, 'move');
-        if (action === 'down') return go({ sel: (u.sel + 1) % planets }, 'move');
+        if (action === 'left') { go({ tab: (u.tab + PLANET_TABS.length - 1) % PLANET_TABS.length }, 'tab'); return; }
+        if (action === 'right' || action === 'a' || action === 'select') { go({ tab: (u.tab + 1) % PLANET_TABS.length }, 'tab'); return; }
+        if (action === 'up') { go({ sel: (u.sel + planets - 1) % planets }, 'move'); return; }
+        if (action === 'down') { go({ sel: (u.sel + 1) % planets }, 'move'); return; }
         if (action === 'start') {
           // On the DOSSIER tab, START opens the PRD's page to share; elsewhere it goes back to the map.
           const on = view?.planets[u.sel];
           const url = on ? dossierLink(dossiers, on, u.tab, view.planets) : null;
-          if (url) { sfx('select'); return openPage(url); }
+          if (url) { sfx('select'); openPage(url); return; }
         }
-        if (action === 'b' || action === 'start') return go({ scene: 'map' }, 'back');
-        return;
+        go({ scene: 'map' }, 'back'); return; // B, or START with no page to open
       case 'chart': case 'system': {
         const entry = system?.worlds[u.world]?.entry;
         const pages = () => (graph && entry ? cardPages(graph, entry, gridFor(formRef.current, 'system').name).length : 1);
         const move = chartKey({ ...u, scene: u.scene }, action, { chart, system, pages });
-        return move ? go(move.patch, move.sound) : undefined;
+        if (move) go(move.patch, move.sound);
+        return;
       }
       case 'games': {
         // ◀ ▶ choose a cabinet on the wide grid and turn the page on the tall one: one cursor for both.
         const status = xpStatus(isPlayer(sessionRef.current), xp);
         const room = cabinets(status);
-        const at = Math.min(u.cabinet, room.length - 1);
-        if (action === 'left' || action === 'right') return go({ cabinet: turnPage(at, room.length, action) }, 'move');
-        if (action === 'select') return go({ cabinet: turnPage(at, room.length, 'right') }, 'move');
+        const spot = Math.min(u.cabinet, room.length - 1);
+        if (action === 'left' || action === 'right') { go({ cabinet: turnPage(spot, room.length, action) }, 'move'); return; }
+        if (action === 'select') { go({ cabinet: turnPage(spot, room.length, 'right') }, 'move'); return; }
         if (action === 'a' || action === 'start') {
-          const door = cabinetDoor(room[at]!, status);
-          if (!('scene' in door)) return go({ toast: door.refused }, 'buzz');
-          if (door.scene === 'platformer') return playPlatformer();
-          return door.scene === 'invaders' ? playInvaders() : go({ scene: door.scene }, 'select');
+          const door = cabinetDoor(at(room, spot, 'the cabinet under the cursor'), status);
+          if (!('scene' in door)) { go({ toast: door.refused }, 'buzz'); return; }
+          if (door.scene === 'platformer') { playPlatformer(); return; }
+          if (door.scene === 'invaders') playInvaders(); else go({ scene: door.scene }, 'select');
+          return;
         }
-        if (action === 'b') return go({ scene: 'menu' }, 'back');
+        if (action === 'b') { go({ scene: 'menu' }, 'back'); return; }
         return;
       }
       case 'levelup': {
@@ -692,68 +694,71 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         const login = loginOf();
         if (u.levelUp && login) seen.set(login, u.levelUp.xp.level);
         const game = action === 'b' ? null : u.levelUp?.game ?? null;
-        if (game?.scene === 'invaders') return view ? playInvaders() : open('menu', { toast: problem ?? 'GALAXY OUT OF REACH' }, 'buzz');
-        if (game?.scene === 'platformer') return playPlatformer();
-        if (game?.scene) return go({ scene: game.scene }, 'start');
-        return open('menu', {}, action === 'b' ? 'back' : 'select');
+        if (game?.scene === 'invaders') {
+          if (view) playInvaders(); else open('menu', { toast: problem ?? 'GALAXY OUT OF REACH' }, 'buzz');
+          return;
+        }
+        if (game?.scene === 'platformer') { playPlatformer(); return; }
+        if (game?.scene) { go({ scene: game.scene }, 'start'); return; }
+        open('menu', {}, action === 'b' ? 'back' : 'select'); return;
       }
       case 'invaders': {
         // ◀ ▶ and A are read held, by the canvas loop; a press answers START, B, and A on a screen.
         const g = gameRef.current;
-        if (!g) return action === 'b' ? go({ scene: 'games' }, 'back') : undefined;
+        if (!g) { if (action === 'b') go({ scene: 'games' }, 'back'); return; }
         // The game over, once its score has shown: A retries a send that failed, once; the rest is the game's.
         const s = sendRef.current;
         if (g.over && s && g.t - g.overAt >= OVER_SECONDS && overPress(s, action) === 'retry' && s.state === 'failed') {
           sfx('select');
-          return sendScore(INVADERS, s.score, s.tries + 1);
+          sendScore(INVADERS, s.score, s.tries + 1); return;
         }
         const { game: next, leave } = pressGame(g, action);
         if (leave) {
           gameRef.current = null;
           showHud(null);
-          return go({ scene: 'games' }, 'back');
+          go({ scene: 'games' }, 'back'); return;
         }
         if (next === g) return;
         gameRef.current = next;
         sfx(next.paused ? 'back' : 'select');
-        return showHud(next);
+        showHud(next); return;
       }
       case 'platformer': {
         // The scene reads ◀ ▶, A and B held itself; a press answers START, SELECT and the screens. Silent (PRD 817).
         const p = pfRef.current;
-        if (!p) return action === 'b' ? go({ scene: 'games' }, 'back') : undefined;
+        if (!p) { if (action === 'b') go({ scene: 'games' }, 'back'); return; }
         // At the game's end, A retries a score that was not saved, once; the rest is the game's.
         const s = sendRef.current;
-        if (ended(p.session) && s && overPress(s, action) === 'retry' && s.state === 'failed') return sendScore(PLATFORMER, s.score, s.tries + 1);
+        if (ended(p.session) && s && overPress(s, action) === 'retry' && s.state === 'failed') { sendScore(PLATFORMER, s.score, s.tries + 1); return; }
         const r = pressSession(p.session, action, p.status);
-        if (r.leave) { setPf(null); return go({ scene: 'games' }, 'back'); }
-        if (r.retry) return setPf({ ...p, retry: p.retry + 1 });
+        if (r.leave) { setPf(null); go({ scene: 'games' }, 'back'); return; }
+        if (r.retry) { setPf({ ...p, retry: p.retry + 1 }); return; }
         if (r.session !== p.session) setPf({ ...p, session: r.session });
         return;
       }
       case 'fleets': {
         const n = view?.teams.length ?? 0;
-        if (!n) return action === 'b' ? go({ scene: 'menu' }, 'back') : undefined;
-        if (action === 'left' || action === 'up') return go({ fleet: (u.fleet + n - 1) % n }, 'move');
-        if (action === 'right' || action === 'down' || action === 'select') return go({ fleet: (u.fleet + 1) % n }, 'move');
+        if (!view || !n) { if (action === 'b') go({ scene: 'menu' }, 'back'); return; }
+        if (action === 'left' || action === 'up') { go({ fleet: (u.fleet + n - 1) % n }, 'move'); return; }
+        if (action === 'right' || action === 'down' || action === 'select') { go({ fleet: (u.fleet + 1) % n }, 'move'); return; }
         if (action === 'a' || action === 'start') {
-          const team = view!.teams[u.fleet]?.name;
-          const i = view!.planets.findIndex((p) => p.ownerTeam === team);
-          return go({ scene: 'map', ...(i >= 0 ? { sel: i } : {}) }, 'select');
+          const team = view.teams[u.fleet]?.name;
+          const i = view.planets.findIndex((p) => p.ownerTeam === team);
+          go({ scene: 'map', ...(i >= 0 ? { sel: i } : {}) }, 'select'); return;
         }
-        if (action === 'b') return go({ scene: 'menu' }, 'back');
-        return;
+        go({ scene: 'menu' }, 'back'); return; // B: the only press left
       }
-      default: {
-        // `heroes` and `briefing`: ◀ ▶ turn the pages their group declares on the grid they are drawn on.
+      case 'away': case 'heroes': case 'briefing': {
+        // `heroes` and `briefing` (and `away`, which reads them the same): ◀ ▶ turn the pages their group declares on the grid they are drawn on.
         if (action === 'left' || action === 'right') {
           const n = pagesFor(u.scene, { view, grid: gridFor(formRef.current, u.scene) });
-          return n > 1 ? go({ page: turnPage(u.page, n, action) }, 'tab') : undefined;
+          if (n > 1) go({ page: turnPage(u.page, n, action) }, 'tab');
+          return;
         }
-        if (action === 'a' || action === 'b' || action === 'start') return go({ scene: 'menu' }, 'back');
+        if (action === 'a' || action === 'b' || action === 'start') { go({ scene: 'menu' }, 'back'); return; }
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, showHud, sendScore, seen, problem, dossiers, app]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, showHud, sendScore, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): on a phone the
@@ -764,7 +769,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const modified = e.metaKey || e.ctrlKey || e.altKey;
-      if (fullscreen({ kind: 'key', key: e.key, scene: uiRef.current.scene, modified, repeat: e.repeat })) return e.preventDefault();
+      if (fullscreen({ kind: 'key', key: e.key, scene: uiRef.current.scene, modified, repeat: e.repeat })) { e.preventDefault(); return; }
       if (modified) return;
       // Let Space and Enter activate a focused button natively; the button calls `act` itself.
       if (e.target instanceof Element && e.target.closest('button') && (e.key === ' ' || e.key === 'Enter')) return;
@@ -786,7 +791,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (handled) e.preventDefault();
         return;
       }
-      if (e.key === 'm' || e.key === 'M') return toggleSound();
+      if (e.key === 'm' || e.key === 'M') { toggleSound(); return; }
       const action = keyAction(e.key);
       if (!action) return;
       e.preventDefault();
@@ -795,7 +800,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       if (e.repeat && HELD_SCENES.has(uiRef.current.scene)) return; // a game reads a held key as held, never as repeats
       act(action);
     };
-    const onKeyUp = (e: KeyboardEvent) => held.keyUp(e.key);
+    const onKeyUp = (e: KeyboardEvent) => { held.keyUp(e.key); };
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKeyUp);
     return () => {
@@ -808,8 +813,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const [, tick] = useState(0);
   useEffect(() => {
     if (ui.scene !== 'title') return;
-    const id = window.setInterval(() => tick((n) => n + 1), 500);
-    return () => window.clearInterval(id);
+    const id = window.setInterval(() => { tick((n) => n + 1); }, 500);
+    return () => { window.clearInterval(id); };
   }, [ui.scene]);
 
   // ── Canvas loop ──
@@ -855,9 +860,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       drawFrame(ctx, frame, !f.view && phase === 'hiscore' ? 'title' : phase); // no high scores without the galaxy
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => { cancelAnimationFrame(raf); };
+  }, [held, showHud]);
 
   // A click on a key hint ("[A] SIGN IN WITH GITHUB"), or a press of a Game Boy's control, presses that key.
   const press = useCallback((action: Action) => { unlock(); act(action); }, [act]);
@@ -869,17 +873,19 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     unlock();
     const u = uiRef.current;
     if (u.leaving) return; // the scene under OPEN THE APP? reads no tap
-    if (u.scene === 'boot' || u.scene === 'title' || u.scene === 'gate' || u.scene === 'ready' || u.scene === 'welcome') return act('start');
+    if (u.scene === 'boot' || u.scene === 'title' || u.scene === 'gate' || u.scene === 'ready' || u.scene === 'welcome') { act('start'); return; }
     if (u.scene === 'chart') {
       const hit = sunAt(chart, p);
       if (!hit) return;
-      return hit.index === u.sun ? act('a') : go({ sun: hit.index, world: 0 }, 'move');
+      if (hit.index === u.sun) act('a'); else go({ sun: hit.index, world: 0 }, 'move');
+      return;
     }
     if (u.scene === 'system') {
       if (u.card) return; // the card is read, and closed, with its own buttons
       const hit = system ? worldAt(system, p) : null;
       if (!hit) return;
-      return hit.index === u.world ? act('a') : go({ world: hit.index }, 'move');
+      if (hit.index === u.world) act('a'); else go({ world: hit.index }, 'move');
+      return;
     }
     if (u.scene !== 'map') return;
     const hit = planetAt(layout, p);
@@ -936,15 +942,16 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           <PlatformerOverlay session={pf.session} status={pf.status} send={send} />
         </>
       ) : null;
-      case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => act('a')} /> : null;
-      case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
-      case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => go({ fleet: i }, 'move')} owner={owner} /> : null;
+      case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
+      case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
+      case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;
       case 'heroes': return view ? <HeroesOverlay view={view} crew={crew} /> : null;
       case 'briefing': return view ? <BriefingOverlay view={view} /> : null;
-      case 'chart': return <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => act('a')} />;
+      case 'chart': return <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
       case 'system': return graph && system
-        ? <SystemOverlay graph={graph} layout={system} world={ui.world} card={ui.card} cardPage={ui.cardPage} onRead={() => act('a')} onPage={(cardPage) => go({ cardPage }, 'tab')} />
-        : <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => act('a')} />;
+        ? <SystemOverlay graph={graph} layout={system} world={ui.world} card={ui.card} cardPage={ui.cardPage} onRead={() => { act('a'); }} onPage={(cardPage) => { go({ cardPage }, 'tab'); }} />
+        : <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
+      case 'away': return undefined;
     }
   })();
 

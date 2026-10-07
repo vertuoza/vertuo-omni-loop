@@ -13,7 +13,7 @@ const pageOf = (path: string) => new URL(`../../app${path}/page.tsx`, import.met
 describe('the app\'s sections', () => {
   it('are the sidebar\'s Dashboard and Work entries and Settings, and their pages, each opening a page that exists', () => {
     const inApp = [...SIDEBAR.flatMap((g) => g.items), SETTINGS].flatMap((i) => [i, ...(i.pages ?? [])]);
-    expect(inApp.map((i) => i.path)).toEqual(['/app', '/app/fleet', '/app/workspace', '/app/engineering', '/prd', '/bugs', '/visual', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings', '/app/settings/fleets', '/app/settings/repositories', '/app/settings/business', '/app/settings/jev']);
+    expect(inApp.map((i) => i.path)).toEqual(['/app', '/app/fleet', '/app/loop', '/app/workspace', '/app/engineering', '/prd', '/bugs', '/visual', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings', '/app/settings/fleets', '/app/settings/repositories', '/app/settings/business', '/app/settings/products', '/app/settings/jev']);
     for (const { path } of inApp) expect(existsSync(pageOf(path)), `app${path}/page.tsx`).toBe(true);
   });
 });

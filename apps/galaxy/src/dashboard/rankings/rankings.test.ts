@@ -3,7 +3,9 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { sure } from '../../arcade/test/sure';
 
 vi.mock('server-only', () => ({}));
 
@@ -45,8 +47,8 @@ const GALAXY = {
 function world() {
   const w = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
   const input = (over: Partial<PartInput> = {}): PartInput => ({
-    db: w.client(PEOPLE.both) as unknown as SupabaseClient, workspace: VERTUOZA, userId: PEOPLE.both.id,
-    login: 'both-gh', team: 'beaver', now: NOW, season, galaxy: async () => GALAXY, ...over,
+    db: w.client(PEOPLE.both) as unknown as SupabaseClient<Database>, workspace: VERTUOZA, userId: PEOPLE.both.id,
+    login: 'both-gh', team: 'beaver', now: NOW, season, galaxy: () => Promise.resolve(GALAXY), ...over,
   });
   return { w, input };
 }
@@ -88,7 +90,7 @@ describe('the rankings\' read', () => {
 
   it('reads the workspace\'s players, as the signed-in person, once; and the galaxy the page shares', async () => {
     const { w, input } = world();
-    const galaxy = vi.fn(async () => GALAXY);
+    const galaxy = vi.fn(() => Promise.resolve(GALAXY));
     await loadRankings(input({ galaxy }));
     expect(galaxy).toHaveBeenCalledTimes(1);
     expect(w.calls.filter((c) => c.kind === 'from')).toEqual([expect.objectContaining({ table: 'players', op: 'select', eq: { workspace_id: VERTUOZA } })]);
@@ -110,14 +112,14 @@ describe('the rankings\' read', () => {
 
   it('with no fleets: no Fleets heading and no table, only the individuals', () => {
     const html = render({ ...VALUE, fleets: [] });
-    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(m[1]!))).toEqual(['Individuals · September']);
+    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(sure(m[1], 'm[1]')))).toEqual(['Individuals · September']);
     expect(text(html)).not.toContain('Fleets');
     expect([...html.matchAll(/<table\b/g)]).toHaveLength(1);
   });
 
   it('when the galaxy cannot be read: unreadable, as the page settles it, and the error logged', async () => {
     const { input } = world();
-    const r = await settle('the rankings', () => loadRankings(input({ galaxy: async () => { throw new Error('ledger out of reach'); } })));
+    const r = await settle('the rankings', () => loadRankings(input({ galaxy: () => Promise.reject(new Error('ledger out of reach')) })));
     expect(r).toBe(UNREADABLE);
     expect(errors().join('\n')).toContain('ledger out of reach');
   });
@@ -156,7 +158,7 @@ const tableOf = (html: string, title: string) => {
   const id = new RegExp(`<h2 id="([^"]+)"[^>]*>${title}</h2>`).exec(html)?.[1];
   return new RegExp(`<table [^>]*aria-labelledby="${id}"[^>]*>([\\s\\S]*?)</table>`).exec(html)?.[1] ?? '';
 };
-const rowsOf = (table: string) => [...table.matchAll(/<tbody>([\s\S]*?)<\/tbody>/g)].flatMap((b) => [...b[1]!.matchAll(/<tr\b([^>]*)>([\s\S]*?)<\/tr>/g)]);
+const rowsOf = (table: string) => [...table.matchAll(/<tbody>([\s\S]*?)<\/tbody>/g)].flatMap((b) => [...sure(b[1], 'b[1]').matchAll(/<tr\b([^>]*)>([\s\S]*?)<\/tr>/g)]);
 /** A body row as it reads, with the ask pages' visually hidden words left out. */
 const seen = (row: string) => text(row.replace(/<span class="ask-sr">[\s\S]*?<\/span>/g, ''));
 const UNREADABLE_LINE = 'Couldn’t load this. Reload in a moment.';
@@ -164,25 +166,25 @@ const UNREADABLE_LINE = 'Couldn’t load this. Reload in a moment.';
 describe('the rankings, drawn', () => {
   it('two tables under their headings, this season: Fleets · September, then Individuals · September', () => {
     const html = render(VALUE);
-    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(m[1]!))).toEqual(['Fleets · September', 'Individuals · September']);
+    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(sure(m[1], 'm[1]')))).toEqual(['Fleets · September', 'Individuals · September']);
     expect(html).not.toMatch(/<h1\b|<script|<canvas/);
   });
 
   it('the fleets: each with its rank, its label and its points, yours marked', () => {
     const rows = rowsOf(tableOf(render(VALUE), 'Fleets · September'));
-    expect(rows.map((r) => seen(r[2]!))).toEqual(['1 OCTOPOD 2,300', '2 BEAVER 1,900 ◀', '3 PICSOU 1,400']);
-    const marked = rows.filter((r) => r[1]!.includes('aria-current="true"'));
-    expect(marked.map((r) => seen(r[2]!))).toEqual(['2 BEAVER 1,900 ◀']);
-    expect(text(marked[0]![2]!)).toContain('your fleet');
+    expect(rows.map((r) => seen(sure(r[2], 'r[2]')))).toEqual(['1 OCTOPOD 2,300', '2 BEAVER 1,900 ◀', '3 PICSOU 1,400']);
+    const marked = rows.filter((r) => sure(r[1], 'r[1]').includes('aria-current="true"'));
+    expect(marked.map((r) => seen(sure(r[2], 'r[2]')))).toEqual(['2 BEAVER 1,900 ◀']);
+    expect(text(sure(sure(marked[0], 'marked[0]')[2], 'marked[0]![2]'))).toContain('your fleet');
   });
 
   it('the individuals: the top 3, ⋯ for the ranks skipped, then you and your neighbours, you marked', () => {
     const rows = rowsOf(tableOf(render(VALUE), 'Individuals · September'));
-    expect(rows.map((r) => seen(r[2]!))).toEqual(['1 INKY 980', '2 DIME 870', '3 OTTO 820', '⋯', '6 MAX 1,300', '7 PIERRE 1,240 ◀', '8 LEA 120']);
-    const marked = rows.filter((r) => r[1]!.includes('aria-current="true"'));
-    expect(marked.map((r) => seen(r[2]!))).toEqual(['7 PIERRE 1,240 ◀']);
-    expect(text(marked[0]![2]!)).toContain('you');
-    expect(text(rows[3]![2]!)).toContain('ranks skipped');
+    expect(rows.map((r) => seen(sure(r[2], 'r[2]')))).toEqual(['1 INKY 980', '2 DIME 870', '3 OTTO 820', '⋯', '6 MAX 1,300', '7 PIERRE 1,240 ◀', '8 LEA 120']);
+    const marked = rows.filter((r) => sure(r[1], 'r[1]').includes('aria-current="true"'));
+    expect(marked.map((r) => seen(sure(r[2], 'r[2]')))).toEqual(['7 PIERRE 1,240 ◀']);
+    expect(text(sure(sure(marked[0], 'marked[0]')[2], 'marked[0]![2]'))).toContain('you');
+    expect(text(sure(sure(rows[3], 'rows[3]')[2], 'rows[3]![2]'))).toContain('ranks skipped');
   });
 
   it('the marks are read out, not drawn: the arrow is hidden from a screen reader', () => {
@@ -193,8 +195,8 @@ describe('the rankings, drawn', () => {
   it('with no points this season: the top 3, then No points yet this season', () => {
     const html = render({ ...VALUE, individuals: VALUE.individuals.slice(0, 3), you: 'no-points' });
     const rows = rowsOf(tableOf(html, 'Individuals · September'));
-    expect(rows.map((r) => seen(r[2]!))).toEqual(['1 INKY 980', '2 DIME 870', '3 OTTO 820']);
-    expect(rows.some((r) => r[1]!.includes('aria-current'))).toBe(false);
+    expect(rows.map((r) => seen(sure(r[2], 'r[2]')))).toEqual(['1 INKY 980', '2 DIME 870', '3 OTTO 820']);
+    expect(rows.some((r) => sure(r[1], 'r[1]').includes('aria-current'))).toBe(false);
     expect(text(html.slice(html.indexOf('Individuals')))).toMatch(/OTTO 820 No points yet this season$/);
   });
 
@@ -212,7 +214,7 @@ describe('the rankings, drawn', () => {
 
   it('when the galaxy cannot be read: both tables read Couldn\'t load this, and nothing else', () => {
     const html = render('unreadable');
-    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(m[1]!))).toEqual(['Fleets · September', 'Individuals · September']);
+    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(sure(m[1], 'm[1]')))).toEqual(['Fleets · September', 'Individuals · September']);
     expect(html.split(UNREADABLE_LINE)).toHaveLength(3);
     expect(html).not.toContain('<table');
   });
@@ -228,7 +230,7 @@ describe('the rankings in the demo', () => {
     const r = demoRankings(input) as RankingsValue;
     expect(r.fleets.map((f) => f.name)).toEqual(input.galaxy.teams.map((t) => t.name));
     expect(r.fleets.some((f) => f.yours)).toBe(false);
-    const me = input.galaxy.heroes.find((h) => h.name === 'dam-dev')!;
+    const me = sure(input.galaxy.heroes.find((h) => h.name === 'dam-dev'), 'the item found');
     expect(me.rank).toBeGreaterThan(5);
     expect(r.individuals.filter((row) => row !== GAP && row.you)).toEqual([{ rank: me.rank, name: 'dam-dev', points: me.points, you: true }]);
     expect(r.individuals.slice(0, 4).map((row) => (row === GAP ? '⋯' : row.rank))).toEqual([1, 2, 3, '⋯']);

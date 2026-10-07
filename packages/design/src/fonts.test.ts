@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FACES, ROLES, TYPE_SCALE, fontFaceCss, fontFiles, fontsCss } from './fonts.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 const pkg = join(dirname(fileURLToPath(import.meta.url)), '..');
 const committed = readFileSync(join(pkg, 'fonts.css'), 'utf8');
@@ -33,12 +34,16 @@ describe('fonts', () => {
     expect(faces.length).toBeGreaterThan(0);
     for (const { family, url } of faces) {
       expect(url, family).toMatch(/^\.\/fonts\/[a-z0-9-]+\.woff2$/);
-      expect(existsSync(join(pkg, url!)), url).toBe(true);
+      assertDefined(url, `the url of ${family}`);
+      expect(existsSync(join(pkg, url)), url).toBe(true);
     }
   });
 
   it('ships no woff2 file it does not declare', () => {
-    const declared = new Set(declaredFaces(committed).map((f) => f.url!.replace('./fonts/', '')));
+    const declared = new Set(declaredFaces(committed).map((f) => {
+      assertDefined(f.url, `the url of ${f.family}`);
+      return f.url.replace('./fonts/', '');
+    }));
     const shipped = readdirSync(join(pkg, 'fonts')).filter((f) => f.endsWith('.woff2'));
     expect(shipped.sort()).toEqual([...declared].sort());
   });

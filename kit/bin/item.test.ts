@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { adoptItem } from '../lib/outbox/settle.ts';
+import { dig, digText } from './dig.ts';
 import { main } from './omni.ts';
 import type { Io } from '../test/fixture.ts';
 
@@ -40,6 +41,12 @@ const FIELDS = {
     'Wait one second, so a stuck call is caught sooner.',
   ],
 };
+
+/** `FIELDS` without `key`: an item JSON missing that field. */
+const fieldsWithout = (key: string) => Object.fromEntries(Object.entries(FIELDS).filter(([name]) => name !== key));
+
+/** Matches any text `pattern` matches, inside an expected object. */
+const matching = (pattern: RegExp): unknown => expect.stringMatching(pattern);
 
 function writeJson(dir: string, fields: Record<string, unknown>) {
   const path = join(dir, 'item.json');
@@ -176,7 +183,7 @@ describe('omni item new', () => {
 
   it('needsHumanAction writes a human-action item, prints its path, and exits 1 (blocked)', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
-    const { options, ...withoutOptions } = FIELDS;
+    const withoutOptions = fieldsWithout('options');
     const json = writeJson(root, {
       ...withoutOptions,
       needsHumanAction: true,
@@ -207,7 +214,7 @@ describe('omni item new', () => {
 
   it('options is required unless the decision settles at rank human-action', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
-    const { options, ...withoutOptions } = FIELDS;
+    const withoutOptions = fieldsWithout('options');
     const json = writeJson(root, withoutOptions);
     const s = io();
     const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
@@ -248,7 +255,7 @@ describe('omni item new', () => {
 });
 
 describe('omni item new --json', () => {
-  function jsonOut(s: Io) {
+  function jsonOut(s: Io): unknown {
     return JSON.parse(s.out.join('').trim());
   }
 
@@ -315,7 +322,7 @@ describe('omni item new --json', () => {
 
   it('needsHumanAction prints outcome blocked, rank human-action, with the file written and a reason', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
-    const { options, ...withoutOptions } = FIELDS;
+    const withoutOptions = fieldsWithout('options');
     const json = writeJson(root, {
       ...withoutOptions,
       needsHumanAction: true,
@@ -334,9 +341,9 @@ describe('omni item new --json', () => {
       id: 's7-01-default-timeout',
       file: '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md',
       adopted: false,
-      reason: expect.stringMatching(/only a person can do this/),
+      reason: matching(/only a person can do this/),
     });
-    expect(existsSync(join(root, parsed.file))).toBe(true);
+    expect(existsSync(join(root, digText(parsed, 'file')))).toBe(true);
   });
 
   it('a decision pulled apart by two principles prints outcome stop, rank high, with the file written', async () => {
@@ -358,9 +365,9 @@ describe('omni item new --json', () => {
       id: 's7-01-default-timeout',
       file: '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md',
       adopted: false,
-      reason: expect.stringMatching(/P-A-1, P-B-1/),
+      reason: matching(/P-A-1, P-B-1/),
     });
-    expect(existsSync(join(root, parsed.file))).toBe(true);
+    expect(existsSync(join(root, digText(parsed, 'file')))).toBe(true);
   });
 
   it('breaking a named law prints outcome stop with a null rank, id and file, since nothing was written', async () => {
@@ -381,14 +388,16 @@ describe('omni item new --json', () => {
       id: null,
       file: null,
       adopted: false,
-      reason: expect.stringMatching(/N1/),
+      reason: matching(/N1/),
     });
     expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
   });
 });
 
 describe('omni item new — user-caused errors are one line, exit 2', () => {
-  const oneLine = (s: Io) => expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+  const oneLine = (s: Io) => {
+    expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+  };
 
   it('a missing flag', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
@@ -424,7 +433,7 @@ describe('omni item new — user-caused errors are one line, exit 2', () => {
 
   it('a JSON file missing a required field', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
-    const { decide, ...rest } = FIELDS;
+    const rest = fieldsWithout('decide');
     const json = writeJson(root, rest);
     const s = io();
     const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
@@ -496,16 +505,16 @@ describe('omni item new — a rendered item that "check outbox" would reject', (
       { cwd: root, ...s },
     );
     expect(code).toBe(2);
-    const parsed = JSON.parse(s.out.join('').trim());
+    const parsed: unknown = JSON.parse(s.out.join('').trim());
     expect(parsed).toEqual({
       outcome: null,
       rank: null,
       id: null,
       file: null,
       adopted: false,
-      reason: expect.stringMatching(/carries a code span/),
+      reason: matching(/carries a code span/),
     });
-    expect(parsed.reason).toMatch(/defaultTimeoutMs/);
+    expect(dig(parsed, 'reason')).toMatch(/defaultTimeoutMs/);
     expect(s.err.join('')).toBe('');
     expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
   });
@@ -678,7 +687,7 @@ describe('omni item new --out (PRD 563, s3)', () => {
   it('a blocked item is written into the folder too, exit 1', async () => {
     const { root } = repo();
     const out = scratch();
-    const { options, ...rest } = FIELDS;
+    const rest = fieldsWithout('options');
     const json = writeJson(root, { ...rest, needsHumanAction: true, personSteps: 'Set the secret in the console.' });
     const s = io();
     expect(await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--out', out], { cwd: root, ...s })).toBe(1);

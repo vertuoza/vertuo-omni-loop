@@ -4,6 +4,8 @@ import type { Projects } from './types.ts';
 import { demoEvents, DEMO_PROJECTS } from './demo.ts';
 import { makeEvent } from '../../../game/events.ts';
 import { RULEBOOK } from '../../../game/rulebook.ts';
+import { dig } from '../../../kit/bin/dig.ts';
+import { assertDefined } from '../../../kit/test/assert.ts';
 
 const NOW = new Date('2026-09-23T14:00:00Z');
 const projects: Projects = { sectors: { core: { repos: ['core-repo'] }, ai: { repos: ['ai-repo'] } }, teams: { beaver: { home: 'core' }, octopod: { home: 'ai' } } };
@@ -25,7 +27,8 @@ describe('buildGalaxy', () => {
       ev('fire:ai-repo:7/s2:opened', '2026-09-23T13:30:00Z', 'WOUND_OPENED', 7, { region: 'ai-repo', data: { kind: 'under-fire' } }),
       ev('outbox:core-repo:7/s1-01-x:opened', '2026-09-21T10:00:00Z', 'WOUND_OPENED', 7, { region: 'core-repo', data: { kind: 'beacon', rank: 'human-action' } }),
     ], { projects, now: NOW });
-    const p = g.planets[0]!;
+    const p = g.planets[0];
+    assertDefined(p, 'the first planet');
     expect(p).toMatchObject({ prd: 7, title: 'Seven', state: 'terraforming', class: 2, crossSector: true, secured: 1, progress: 0.5 });
     expect(p.zones.map((z) => [z.id, z.state, z.contributor])).toEqual([['s1', 'secured', 'alice'], ['s2', 'under-fire', 'bob']]);
     expect(p.openWounds.map((w) => w.kind)).toEqual(['beacon', 'under-fire']);
@@ -36,7 +39,7 @@ describe('buildGalaxy', () => {
 
   it('orders the planet state as the spec does: lost beats terraformed, locked beats distress', () => {
     const lost = buildGalaxy([charted, ev('planet:7:lost', '2026-09-20T08:00:00Z', 'PLANET_LOST', 7, { data: { reason: 'closed' } })], { projects, now: NOW });
-    expect(lost.planets[0]!.state).toBe('lost');
+    expect(lost.planets[0]?.state).toBe('lost');
     const locked = buildGalaxy([
       charted,
       ev('planet:7:locked:6', '2026-09-02T08:00:00Z', 'PLANET_LOCKED', 7, { data: { blocker: 6 } }),
@@ -50,6 +53,22 @@ describe('buildGalaxy', () => {
       ev('planet:7:rescue:2026-09-10T08:00:00Z', '2026-09-12T08:00:00Z', 'RESCUE', 7, { contributor: 'alice', team: 'octopod' }),
     ], { projects, now: NOW });
     expect(rescued.planets[0]).toMatchObject({ state: 'terraforming', rescuers: [{ login: 'alice', team: 'octopod' }] });
+  });
+
+  it('reads each data field only when it holds the type the projector writes, and leaves out a wound of an unknown kind', () => {
+    const g = buildGalaxy([
+      ev('planet:7:charted', '2026-09-01T08:00:00Z', 'PLANET_CHARTED', 7, { data: { captain: 42, ownerTeam: 'beaver', title: ['Seven'] } }),
+      ev('planet:7:locked:3', '2026-09-02T08:00:00Z', 'PLANET_LOCKED', 7, { data: { blocker: '3' } }),
+      ev('planet:7:locked:5', '2026-09-02T09:00:00Z', 'PLANET_LOCKED', 7, { data: { blocker: 5 } }),
+      ev('zone:core-repo:7:s1:opened', '2026-09-21T08:00:00Z', 'ZONE_OPENED', 7, { region: 'core-repo', data: { wave: 'one' } }),
+      ev('outbox:core-repo:7/s1-01-x:opened', '2026-09-21T10:00:00Z', 'WOUND_OPENED', 7, { region: 'core-repo', data: { kind: 'paper-cut' } }),
+      ev('outbox:core-repo:7/s1-02-y:opened', '2026-09-21T10:00:00Z', 'WOUND_OPENED', 7, { region: 'core-repo', data: { kind: 'beacon', rank: 7 } }),
+    ], { projects, now: NOW });
+    const p = g.planets[0];
+    assertDefined(p, 'the first planet');
+    expect(p).toMatchObject({ title: 'PRD #7', captain: null, ownerTeam: 'beaver', blockers: [5] });
+    expect(p.zones.map((z) => [z.id, z.wave])).toEqual([['s1', null]]);
+    expect(p.openWounds.map((w) => [w.kind, w.rank])).toEqual([['beacon', null]]);
   });
 
   it('builds the demo galaxy from the real projector with every planet state on show', () => {
@@ -109,7 +128,7 @@ describe('the rules the view carries', () => {
 
   it('keeps the xp block whole when the view is sent to the browser as JSON', () => {
     const g = buildGalaxy(demoEvents(NOW), { projects: DEMO_PROJECTS, now: NOW, source: 'demo' });
-    expect(JSON.parse(JSON.stringify(g)).rules.xp).toEqual(RULEBOOK.xp);
+    expect(dig(JSON.parse(JSON.stringify(g)), 'rules', 'xp')).toEqual(RULEBOOK.xp);
   });
 });
 
@@ -135,7 +154,7 @@ describe('fleets', () => {
     expect(g.teams.map((t) => t.name).sort()).toEqual(['builders', 'coiners', 'corsairs', 'inklings', 'night-owls']);
     expect(g.teams.find((t) => t.name === 'corsairs')).toMatchObject({ label: 'CORSAIRS', mascot: 'pirate', color: '#35b89a' });
     expect(g.teams.find((t) => t.name === 'night-owls')).toMatchObject({ mascot: null });
-    expect(DEMO_PROJECTS.teams.capes!.retired).toBe(true);
+    expect(DEMO_PROJECTS.teams.capes?.retired).toBe(true);
     const vertuoza = ['beaver', 'octopod', 'picsou', 'cia', 'pirates', 'invincible-team'];
     for (const name of Object.keys(DEMO_PROJECTS.teams)) expect(vertuoza).not.toContain(name);
   });

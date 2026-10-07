@@ -14,6 +14,7 @@
 //   It runs in the step before the branch, the files and the pull request are published, so
 //   `retro.md` can link each issue. On the first run the retro PR is not open yet, so the header
 //   names it only once one is open from the retro branch (a replay, or a later run).
+import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { PER_PAGE, paginate } from './github.ts';
 import { CreatedIssueSchema, IssuesSchema, RetroPullsSchema, parseGitHub } from './github.schema.ts';
 import { ISSUES_PER_RUN } from './rules.ts';
@@ -73,14 +74,14 @@ export async function publishIssues(
 
 /** Whether the judge kept the finding `id`: only a verdict `guard` accepted carries a `keep`. */
 export function isKept(prose: Prose | null | undefined, id: string): boolean {
-  return prose?.findings?.[id]?.keep === true;
+  return prose?.findings[id]?.keep === true;
 }
 
 /**
  * The marker a retro issue's body starts with, which finds it again: one HTML comment, whatever the
  * finding id holds.
  */
-export function issueMarker(prefix: string, prd: number, findingId: unknown): string {
+export function issueMarker(prefix: string, prd: PrdNumber, findingId: unknown): string {
   const id = String(findingId).replace(/\s+/g, ' ').replaceAll('-->', '--&gt;');
   return `<!-- ${prefix}-retro: prd=${prd} finding=${id} -->`;
 }
@@ -97,17 +98,17 @@ export function renderIssue({
   retroPr,
   prefix,
 }: {
-  sheet: Pick<FactSheet, 'prd' | 'featurePr'>;
+  sheet: Pick<FactSheet, 'prd' | 'featurePr' | 'repositories'>;
   finding: SheetFinding;
   prose: Prose | null;
   retroPath: string;
-  retroPr: { number: number } | null;
+  retroPr: { number: PrNumber } | null;
   prefix: string;
 }): { title: string; body: string } {
   const prd = sheet.prd.number;
-  const words: ProseFinding = prose?.findings?.[finding.id] ?? {};
+  const words: ProseFinding = prose?.findings[finding.id] ?? {};
   const refs = [`#${prd}`, `feature PR #${sheet.featurePr.number}`, retroPr ? `retro PR #${retroPr.number}` : null].filter(Boolean);
-  const evidence = finding.evidence ?? [];
+  const evidence = finding.evidence;
 
   const lines = [
     issueMarker(prefix, prd, finding.id),
@@ -138,14 +139,14 @@ export function renderIssue({
     `evidence: [${evidence.map((item) => scalar(item.url)).join(', ')}]`,
     '```',
   ];
-  return { title: `retro(PRD ${prd}): ${titleOf(finding, words)}`, body: `${lines.join('\n')}\n` };
+  return { title: `retro(PRD ${prd}): ${namedFor(sheet, finding, titleOf(finding, words))}`, body: `${lines.join('\n')}\n` };
 }
 
 /** The finding's own lesson, then the lessons citing it; or a line saying there is none. */
 function lessonOf(finding: SheetFinding, words: ProseFinding, prose: Prose | null): string {
   const own = field(words.lesson);
   const cited = (prose?.lessons ?? [])
-    .filter((lesson) => typeof lesson?.text === 'string' && lesson.text && (lesson.findings ?? []).includes(finding.id))
+    .filter((lesson) => lesson.text && lesson.findings.includes(finding.id))
     .map((lesson) => `- ${lesson.text}`);
   const parts = [own, cited.length > 0 ? cited.join('\n') : null].filter(Boolean);
   if (parts.length > 0) return parts.join('\n\n');
@@ -157,11 +158,21 @@ function titleOf(finding: SheetFinding, words: ProseFinding): string {
   return typeof words.title === 'string' && words.title ? words.title : finding.title;
 }
 
+/**
+ * A title naming the target a finding is about (PRD 1130): `<owner/name>: <title>`, once, whoever wrote
+ * the title. A finding of the plan repository, or of a PRD of one repository, is titled as it is.
+ */
+function namedFor(sheet: Pick<FactSheet, 'repositories'>, finding: SheetFinding, title: string): string {
+  const target = sheet.repositories?.find((one) => !one.plan && one.repo === finding.repo);
+  if (!target || title.startsWith(`${target.repo}: `)) return title;
+  return `${target.repo}: ${title}`;
+}
+
 /** A prose field as written: its text, the line naming why it was dropped, or `null` when not given. */
 function field(value: ProseField | null | undefined): string | null {
   if (value === undefined || value === null || value === '') return null;
   if (typeof value === 'object' && 'dropped' in value) return `_Dropped: ${value.dropped}._`;
-  return String(value);
+  return value;
 }
 
 const PLAIN = /^[A-Za-z0-9_./][A-Za-z0-9_./~+=%@-]*(?::[A-Za-z0-9_./~+=%@-]+)*$/;
@@ -189,7 +200,7 @@ function pick(issues: readonly Issue[]): Issue | null {
 }
 
 /** The retro PR from the retro branch: the open one, else the latest; `null` before the first is opened. */
-async function findRetroPull(octokit: Octokit, { owner, repo, branch }: Repo & { branch: string }): Promise<{ number: number; url: string } | null> {
+async function findRetroPull(octokit: Octokit, { owner, repo, branch }: Repo & { branch: string }): Promise<{ number: PrNumber; url: string } | null> {
   const { data: answer } = await octokit.request(PULLS, {
     owner,
     repo,

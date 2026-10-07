@@ -420,6 +420,7 @@ counts as unset. Then the keys the exploration and the map settle:
 | `ci.aggregateCheck` | one check gates a merge for the others: a required check, or the job every other job feeds |
 | `proof.url` | Playwright is among the dependencies and the repository has a preview deploy: `github-deployment` when its pull requests carry GitHub deployments (a Vercel project does), a fixed URL only when the evidence names one |
 | `proof.setup` | `proof.url` is proposed: `omni proof session` when the app signs in through the same server as `ask.url`, else the tests' own sign-in helper when they have one, as the command that writes a Playwright storageState to `PROOF_STORAGE_STATE` |
+| `flow.areas.migrations` | the enforced-truth facet found a tracked folder of database migrations, and no area of `flow` nor pattern of `landings.alone` already matches it: an area named `migrations` whose `paths` is one anchored pattern per such folder, with `rules.plan` `[{ slice: { alone: true } }, { landing: alone }]` (see **A proposed flow**) |
 
 `proof.bypassEnv` is proposed by its name only, the environment variable a person fills, never its value.
 Nothing else in the config is proposed. A command for which nothing runs green keeps its value, and
@@ -427,6 +428,30 @@ the verification form asks. Edit the config file (`.omni-loop/config.yml`), then
 `node .omni-loop/bin/omni.mjs config`: it must still print. The config change is **its own commit**,
 so the pull request's diff is the proposal and a person can drop it alone. A key that turns
 `omni check all` red is left out, and named in the body.
+
+**A proposed flow.** The repository's flow (the `flow` section: rules, areas and hooks) is proposed
+from what the repository proves, never applied: it lands in the same config commit, a person merges or drops it.
+A migrations folder is one the enforced-truth facet reported as migrations (a `migrations` folder
+holding schema changes, a migration tool's configured directory), found in `git ls-files`. For
+`database/migrations/` it reads:
+
+```yaml
+flow:
+  areas:
+    migrations:
+      paths: ['^database/migrations/']
+      rules:
+        plan:
+          - slice: { alone: true }
+          - landing: alone
+```
+
+Nothing more: no hook, no `subPr` rule, no other area, and no `maxFiles` (how many migrations a
+slice may hold is the team's to say). When the config already has a `flow`, add only the
+`migrations` area under its `areas`, keeping every key a person wrote. Then run
+`node .omni-loop/bin/omni.mjs check config`: it must exit `0`, and
+`node .omni-loop/bin/omni.mjs flow show --path <a file of that folder>` must print area
+`migrations`. Its line in the body's **Config** section names the folder that shows it.
 
 ## 8. One docs-only pull request
 

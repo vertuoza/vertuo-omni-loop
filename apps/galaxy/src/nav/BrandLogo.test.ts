@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { BrandLogo } from './BrandLogo';
 import { TopBar } from './TopBar';
+import { item, present } from '../ask/test/test-item';
 
 // The one OMNI LOOP logo (issue 956): the crest and the wordmark, linked to /app, drawn the same in the
 // app's sidebar and on the public bar of /docs and /releases.
@@ -23,7 +24,7 @@ describe('the logo', () => {
   it('is the one the public bar shows', () => {
     const bar = renderToStaticMarkup(createElement(TopBar, { sub: 'Docs' }));
     expect(bar).toMatch(LOGO);
-    expect(bar).toContain(`${render().match(LOGO)![0]}<span class="ask-brand-sub">Docs</span>`);
+    expect(bar).toContain(`${item(present(render().match(LOGO), 'the logo'), 0)}<span class="ask-brand-sub">Docs</span>`);
   });
 
   it('is the one the sidebar shows', () => {

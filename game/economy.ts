@@ -77,7 +77,7 @@ export function score(events: readonly GameEvent[], { season, now }: { season: s
         const base = lookup(RULEBOOK.woundClose, e.data.kind) ?? 0;
         const crossTeam = Boolean(e.team && ownerFor(e) && e.team !== ownerFor(e));
         if (e.contributor && base) setOf(closers, key).add(e.contributor);
-        credit(e, base * (crossTeam ? RULEBOOK.crossTeamMultiplier : 1), `wound closed: ${e.data.kind}`, undefined, undefined, crossTeam ? { crossTeam: true } : {});
+        credit(e, base * (crossTeam ? RULEBOOK.crossTeamMultiplier : 1), `wound closed: ${String(e.data.kind)}`, undefined, undefined, crossTeam ? { crossTeam: true } : {});
         break;
       }
       case 'RESCUE':
@@ -109,7 +109,10 @@ export function score(events: readonly GameEvent[], { season, now }: { season: s
         if (inSeason(e.at)) lostPlanets.add(key);
         break;
       }
-      default:
+      // These events score nothing: each is named, so a new event type is a choice, not a silence.
+      case 'PLANET_CHARTED': case 'REGION_SURVEYED': case 'PLANET_LOCKED': case 'PLANET_UNLOCKED':
+      case 'ZONE_OPENED': case 'ZONE_CLAIMED': case 'WOUND_OPENED': case 'DISTRESS':
+      case 'PLANET_READY': case 'PLANET_DECOMMISSIONED':
         break;
     }
   }
@@ -125,7 +128,7 @@ export function score(events: readonly GameEvent[], { season, now }: { season: s
     const to = new Date(Math.min(closed ? new Date(closed).getTime() : now.getTime(), end.getTime(), now.getTime(), lostAt ? new Date(lostAt).getTime() : Infinity));
     const tranches = tranchesBetween(from, to, RULEBOOK.trancheMinutes);
     const points = -tranches * (lookup(RULEBOOK.decayPerTranche, e.data.kind) ?? 0);
-    if (points !== 0) credits.push({ at: from.toISOString(), to: null, team, ...where(e), points, reason: `decay: ${e.data.kind}`, clawed: false });
+    if (points !== 0) credits.push({ at: from.toISOString(), to: null, team, ...where(e), points, reason: `decay: ${String(e.data.kind)}`, clawed: false });
   }
 
   // Clawback: a PLANET_LOST within the season voids every *earned* credit on that planet in the

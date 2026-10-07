@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,11 +18,17 @@ function tempDir() {
   return dir;
 }
 
-// Runs the hook as Claude Code does: the Bash tool input as JSON on stdin. The working directory is
-// an empty folder, so no node_modules/.bin/fallow is found there; PATH decides what is reachable.
-function runHook(command: string, { env = {}, path = process.env.PATH }: { env?: NodeJS.ProcessEnv; path?: string } = {}) {
-  const input = JSON.stringify({ tool_name: 'Bash', tool_input: { command } });
-  const { CLAUDE_PROJECT_DIR, FALLOW_GATE_DEBUG, ...base } = process.env;
+// Runs the hook as Claude Code does: the Bash tool input as JSON on stdin, with the directory the
+// command runs in as `cwd`. The hook's own working directory is an empty folder, so no
+// node_modules/.bin/fallow is found there; PATH decides what is reachable.
+function runHook(
+  command: string,
+  { env = {}, path = process.env.PATH, cwd }: { env?: NodeJS.ProcessEnv; path?: string; cwd?: string } = {},
+) {
+  const input = JSON.stringify({ tool_name: 'Bash', tool_input: { command }, ...(cwd ? { cwd } : {}) });
+  const base = { ...process.env };
+  delete base.CLAUDE_PROJECT_DIR;
+  delete base.FALLOW_GATE_DEBUG;
   return spawnSync('bash', [HOOK], {
     input,
     cwd: tempDir(),
@@ -111,5 +117,62 @@ describe('fallow-gate: what the audit decides', () => {
     const run = runHook('git status', { path: `${bin}:${systemPath}` });
     expect(run.status).toBe(0);
     expect(run.stderr).toBe('');
+  });
+});
+
+// A git checkout holding a .fallowrc.jsonc, and a `fallow` that writes the folder it audits from.
+function checkout() {
+  const root = tempDir();
+  spawnSync('git', ['init', '-q', root]);
+  writeFileSync(join(root, '.fallowrc.jsonc'), '{}\n');
+  mkdirSync(join(root, 'apps'));
+  return root;
+}
+
+function stubFallowRecordingCwd(record: string) {
+  const bin = join(tempDir(), 'bin');
+  mkdirSync(bin);
+  const file = join(bin, 'fallow');
+  writeFileSync(
+    file,
+    `#!/usr/bin/env bash
+if [ "$1" = "--version" ]; then echo "fallow 3.30.0"; exit 0; fi
+pwd -P > '${record}'
+printf '%s\\n' '{"verdict":"pass"}'
+`,
+  );
+  chmodSync(file, 0o755);
+  return bin;
+}
+
+describe('fallow-gate: which checkout is audited', () => {
+  const systemPath = '/usr/bin:/bin';
+  const audited = (record: string) => readFileSync(record, 'utf8').trim();
+
+  it('audits the checkout the command runs in, a worktree, not the project folder', () => {
+    const project = checkout();
+    const worktree = checkout();
+    const record = join(tempDir(), 'cwd');
+    const bin = stubFallowRecordingCwd(record);
+    const run = runHook('git commit -m x', {
+      path: `${bin}:${systemPath}`,
+      env: { CLAUDE_PROJECT_DIR: project },
+      cwd: join(worktree, 'apps'),
+    });
+    expect(run.status).toBe(0);
+    expect(audited(record)).toBe(realpathSync(worktree));
+  });
+
+  it('audits the project folder when the command runs outside a checkout with a fallow config', () => {
+    const project = checkout();
+    const record = join(tempDir(), 'cwd');
+    const bin = stubFallowRecordingCwd(record);
+    const run = runHook('git push', {
+      path: `${bin}:${systemPath}`,
+      env: { CLAUDE_PROJECT_DIR: project },
+      cwd: tempDir(),
+    });
+    expect(run.status).toBe(0);
+    expect(audited(record)).toBe(realpathSync(project));
   });
 });

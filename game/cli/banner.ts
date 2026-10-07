@@ -7,11 +7,13 @@ import { derivePlanet } from '../planet-state.ts';
 import { score } from '../economy.ts';
 import { renderBanner } from '../render/banner.ts';
 import { openWorkspace } from './workspace.ts';
+import { parsePrd, type PrdNumber } from '../../kit/lib/ids.ts';
 
-function bannerArgs([prd, ...extra]: string[]): { prd: number } {
-  if (!/^\d+$/.test(prd ?? '')) throw new Error(prd === undefined ? 'name a PRD by its number' : `"${prd}" is not a PRD number`);
+function bannerArgs([prd, ...extra]: string[]): { prd: PrdNumber } {
+  if (prd === undefined) throw new Error('name a PRD by its number');
+  if (!/^\d+$/.test(prd)) throw new Error(`"${prd}" is not a PRD number`);
   if (extra.length) throw new Error(`unexpected argument "${extra[0]}"`);
-  return { prd: Number(prd) };
+  return { prd: parsePrd(prd) };
 }
 
 const { rest, workspace, args: { prd }, github } = await openWorkspace({ usage: 'game:banner <prd> --workspace <slug>', parse: bannerArgs, github: true });

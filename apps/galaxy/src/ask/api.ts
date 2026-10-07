@@ -66,6 +66,7 @@ import {
   askAttachments, askCategories, askShares, askStore, AskStoreError, memberLabel, sessionClosed,
   type AskAnswers, type AskAttachmentFiles, type AskCategories, type AskRound, type AskRoundFacts, type AskSession, type AskShares, type AskStore, type AskTokens,
 } from './store';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** How long one wait holds before it answers `open`: within the 60 s the routes may run. */
 export const WAIT_MS = 50_000;
@@ -99,7 +100,7 @@ export type AskDeps = {
   /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
   installLink?: string | null;
   /** Where a person's calls for a repository go (repo_workspace()); absent: nobody can say here. */
-  place?: (userId: string, repo: string) => Promise<Placement>;
+  place?: ((userId: string, repo: string) => Promise<Placement>) | undefined;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -205,18 +206,18 @@ function field<T>(context: Record<string, unknown>, key: string, ok: (value: unk
 const text = (max: number) => (value: unknown): value is string => typeof value === 'string' && value.length >= 1 && value.length <= max;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const isRepo = (value: unknown): value is string => text(200)(value) && REPO.test(value);
-const isPrd = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value > 0;
+const isPrd = (value: unknown): value is PrdNumber => PrdNumberSchema.safeParse(value).success;
 const count = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0;
 const TOKEN_KEYS = ['cacheRead', 'cacheWrite', 'input', 'output'];
 const isTokens = (value: unknown): value is AskTokens =>
   isRecord(value) && Object.keys(value).sort().join() === TOKEN_KEYS.join() && Object.values(value).every(count);
 
-type RoundContext = { repo: string | null; branch: string | null; prd: number | null; claudeSessionId: string | null;
+type RoundContext = { repo: string | null; branch: string | null; prd: PrdNumber | null; claudeSessionId: string | null;
   skill: string | null; model: string | null; tokens: AskTokens | null };
 type ContextFields = { [K in keyof RoundContext]: Field<RoundContext[K]> };
 
 /** Copies field `key` into `context`, or says why it is refused. */
-function copyField<K extends keyof RoundContext>(context: RoundContext, fields: ContextFields, key: K): string | null {
+function copyField<K extends keyof RoundContext>(context: RoundContext, fields: Pick<ContextFields, K>, key: K): string | null {
   const got = fields[key];
   if ('problem' in got) return got.problem;
   context[key] = got.value;

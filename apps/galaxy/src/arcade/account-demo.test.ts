@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { demoAccount } from './account-demo';
+import { sure } from './test/sure';
 
 // The demo keeps everything in this browser's storage: here, a map standing in for localStorage.
 let storage: Map<string, string>;
@@ -69,11 +70,11 @@ describe('the demo\'s high scores', () => {
 describe('the demo\'s saved guest', () => {
   it('comes back as it was saved, after a reload', async () => {
     await player();
-    expect(demoAccount().restore!()).toMatchObject({ session: { id: 'guest', github: 'guest-gh' }, me: { display_name: 'INKY', team: 'octopod', hero: HERO } });
+    expect(sure(demoAccount().restore, 'demoAccount().restore')()).toMatchObject({ session: { id: 'guest', github: 'guest-gh' }, me: { display_name: 'INKY', team: 'octopod', hero: HERO } });
   });
 
   it('starts a fresh guest when what this browser kept is not a guest', () => {
     storage.set('omni-loop:guest', JSON.stringify({ signedIn: true, me: { id: 'guest', display_name: 'INKY', hero: 'not a hero' } }));
-    expect(demoAccount().restore!()).toEqual({ session: null, me: null });
+    expect(sure(demoAccount().restore, 'demoAccount().restore')()).toEqual({ session: null, me: null });
   });
 });

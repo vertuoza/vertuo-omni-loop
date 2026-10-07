@@ -31,6 +31,7 @@ import { parseVoice, VOICE_FILE } from '../voice/voice.ts';
 import type { Context } from '../context.ts';
 import type { InboxItem } from '../types.ts';
 import { parseSpec } from './inbox.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** What the inbox guard reads of a context. */
 type Ctx = Pick<Context, 'root' | 'layout' | 'config'>;
@@ -160,7 +161,7 @@ function gradeFolder(specFile: string, ctx: Ctx): { violations: string[]; record
  * for that folder, and nothing for any other folder's faults. A PRD with no inbox folder is one
  * violation saying so. What the omni-loop App grades a phase-0 PR with.
  */
-export function inboxViolationsFor({ ctx, prd }: { ctx: Ctx; prd: number | string }): string[] {
+export function inboxViolationsFor({ ctx, prd }: { ctx: Ctx; prd: PrdNumber }): string[] {
   const wanted = Number(prd);
   const specFile = ctx.layout
     .specFiles()

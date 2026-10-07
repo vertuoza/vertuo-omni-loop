@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { sure } from './arcade/test/sure';
 
 const MIGRATION = readFileSync(
   fileURLToPath(new URL('../../../supabase/migrations/20261012110000_rls_once_and_indexes.sql', import.meta.url)),
@@ -33,8 +34,8 @@ describe('the rls-once-and-indexes migration', () => {
   it('rewrites is_member() to read the uid once per statement', () => {
     const body = CODE.match(/create or replace function public\.is_member\(workspace uuid\)[\s\S]*?\$\$([\s\S]*?)\$\$/);
     expect(body).not.toBeNull();
-    expect(body![1]).toContain('m.user_id = (select auth.uid())');
-    expect(body![1]).not.toMatch(BARE_UID);
+    expect(sure(body, 'body')[1]).toContain('m.user_id = (select auth.uid())');
+    expect(sure(body, 'body')[1]).not.toMatch(BARE_UID);
     expect(CODE).toMatch(/create or replace function public\.is_member\(workspace uuid\) returns boolean language sql stable security definer set search_path = ''/);
   });
 

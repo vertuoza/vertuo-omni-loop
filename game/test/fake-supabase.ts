@@ -3,6 +3,7 @@
 // merge-duplicates (an upsert) to hold the client to the real contract. `fakeSupabase(...).fetch` stands in for fetch; `serveFake` puts the
 // same fake behind a local HTTP server, for a test that runs a game script as a process.
 import { createServer, type IncomingHttpHeaders } from 'node:http';
+import { z } from 'zod';
 
 /** A row of a fake table: any columns. */
 export type Row = Record<string, unknown>;
@@ -27,13 +28,15 @@ export function header(headers: Headers | undefined, name: string): string {
 
 /** Serves `fetch` on a local port, for a test that runs a game script as a process. */
 export async function serve<C>(fake: { fetch: (href: string, init: Init) => Promise<Reply>; calls: C[]; tables: Tables }, contentType: (text: string) => Record<string, string>): Promise<Served<C>> {
-  const server = createServer(async (req, res) => {
-    let body = '';
-    for await (const chunk of req) body += chunk;
-    const answer = await fake.fetch(`http://${req.headers.host}${req.url}`, { method: req.method ?? 'GET', headers: req.headers, ...(body ? { body } : {}) });
-    const text = await answer.text();
-    res.writeHead(answer.status, contentType(text));
-    res.end(text);
+  const server = createServer((req, res) => {
+    void (async () => {
+      let body = '';
+      for await (const chunk of req) body += String(chunk);
+      const answer = await fake.fetch(`http://${req.headers.host ?? ''}${req.url ?? ''}`, { method: req.method ?? 'GET', headers: req.headers, ...(body ? { body } : {}) });
+      const text = await answer.text();
+      res.writeHead(answer.status, contentType(text));
+      res.end(text);
+    })();
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
@@ -42,22 +45,27 @@ export async function serve<C>(fake: { fetch: (href: string, init: Init) => Prom
     url: `http://127.0.0.1:${address.port}`,
     calls: fake.calls,
     tables: fake.tables,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    close: () => new Promise<void>((resolve) => server.close(() => { resolve(); })),
   };
 }
 
 const PARAMS = new Set(['select', 'order', 'limit', 'offset', 'on_conflict']);
 
+// A cell as the filter compares it: the text String() makes of it.
+export const textOf = (cell: unknown): string => String(cell);
+// What a write's body carries: a list of rows.
+export const Written = z.array(z.record(z.string(), z.unknown()));
+
 const pick = (row: Row, select: string | null): Row => (select ? Object.fromEntries(select.split(',').map((c) => [c, row[c]])) : row);
 
 export function fakeSupabase(tables: Tables, { failOn = null }: { failOn?: string | null } = {}): { fetch: (href: string, init?: Init) => Promise<Reply>; calls: Call[]; tables: Tables } {
   const calls: Call[] = [];
-  const fetch = async (href: string, init: Init = {}): Promise<Reply> => {
+  const answer = (href: string, init: Init): Reply => {
     const url = new URL(href);
     const table = url.pathname.split('/').pop();
     const method = init.method ?? 'GET';
     calls.push({ method, table, url, headers: init.headers, body: init.body ? JSON.parse(init.body) : undefined });
-    const reply = (status: number, body: unknown): Reply => ({ ok: status < 300, status, json: async () => body, text: async () => JSON.stringify(body) });
+    const reply = (status: number, body: unknown): Reply => ({ ok: status < 300, status, json: () => Promise.resolve(body), text: () => Promise.resolve(JSON.stringify(body)) });
     if (failOn === table) return reply(503, { message: 'upstream down' });
     const rows = (tables[table ?? ''] ??= []);
     const select = url.searchParams.get('select');
@@ -66,7 +74,7 @@ export function fakeSupabase(tables: Tables, { failOn = null }: { failOn?: strin
       for (const [k, v] of url.searchParams) {
         if (PARAMS.has(k)) continue;
         if (v === 'not.is.null') out = out.filter((r) => r[k] !== null && r[k] !== undefined);
-        else if (v.startsWith('eq.')) out = out.filter((r) => r[k] !== null && r[k] !== undefined && String(r[k]) === v.slice(3));
+        else if (v.startsWith('eq.')) out = out.filter((r) => r[k] !== null && r[k] !== undefined && textOf(r[k]) === v.slice(3));
         else return reply(400, { message: `the fake does not know the filter ${k}=${v}` });
       }
       const offset = Number(url.searchParams.get('offset') ?? 0), limit = Number(url.searchParams.get('limit') ?? 1e9);
@@ -76,7 +84,7 @@ export function fakeSupabase(tables: Tables, { failOn = null }: { failOn?: strin
     const prefer = header(init.headers, 'Prefer');
     const merge = prefer.includes('resolution=merge-duplicates');
     const inserted: Row[] = [];
-    const written: Row[] = JSON.parse(init.body ?? '');
+    const written: Row[] = Written.parse(JSON.parse(init.body ?? ''));
     for (const row of written) {
       const existing = key.length ? rows.find((r) => key.every((k) => r[k] === row[k])) : undefined;
       if (existing && !merge) continue;
@@ -86,6 +94,8 @@ export function fakeSupabase(tables: Tables, { failOn = null }: { failOn?: strin
     }
     return reply(201, prefer.includes('return=minimal') ? [] : inserted);
   };
+  // Answers at once, as an async function's body did; a request it cannot read rejects.
+  const fetch = (href: string, init: Init = {}): Promise<Reply> => new Promise((resolve) => { resolve(answer(href, init)); });
   return { fetch, calls, tables };
 }
 

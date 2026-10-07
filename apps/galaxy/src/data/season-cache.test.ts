@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ unstable_cache: () => { throw new Error('the live cache is never reached in a test'); } }));
 
+import { item } from '../ask/test/test-item';
 import { loadGalaxy } from './load-galaxy';
 import { seasonKey, type SeasonCache } from './season-cache';
 
@@ -28,8 +30,8 @@ function fakeDb(tables: Record<string, Row[]>, member = true) {
     from(table: string) {
       const q = {
         eqs: {} as Record<string, unknown>, nots: [] as [string, unknown][], orders: [] as { column: string; ascending: boolean }[],
-        counting: false, most: null as number | null, window: null as [number, number] | null,
-        select(_columns: string, options: { count?: string } = {}) { q.counting = Boolean(options.count); return q; },
+        counting: false, most: null as number | null, window: null as [number, number] | null, columns: [] as string[],
+        select(columns: string, options: { count?: string } = {}) { q.columns = columns.split(',').map((c) => c.trim()); q.counting = Boolean(options.count); return q; },
         eq(column: string, value: unknown) { q.eqs[column] = value; return q; },
         not(column: string, _op: 'is', value: unknown) { q.nots.push([column, value]); return q; },
         order(column: string, options: { ascending?: boolean } = {}) { q.orders.push({ column, ascending: options.ascending ?? true }); return q; },
@@ -48,14 +50,15 @@ function fakeDb(tables: Record<string, Row[]>, member = true) {
               return 0;
             });
           const windowed = q.window ? all.slice(q.window[0], q.window[1] + 1) : all;
-          const rows = q.most === null ? windowed : windowed.slice(0, q.most);
+          const rows = (q.most === null ? windowed : windowed.slice(0, q.most))
+            .map((row) => Object.fromEntries(q.columns.map((c) => [c, row[c]])));
           return Promise.resolve({ data: rows, error: null, ...(q.counting ? { count: all.length } : {}) }).then(done, failed);
         },
       };
       return q;
     },
   };
-  return { db: client as unknown as SupabaseClient, calls, ledgerPages: () => calls.filter((c) => c.table === 'ledger_events' && c.range) };
+  return { db: client as unknown as SupabaseClient<Database>, calls, ledgerPages: () => calls.filter((c) => c.table === 'ledger_events' && c.range) };
 }
 
 /** A data cache in memory, as Next's is: one value per key, computed on the first read. */
@@ -138,7 +141,7 @@ describe('the season cache', () => {
     const w = world();
     const deps = { cache: w.memory.cache, service: w.service.db };
     await loadGalaxy(w.viewer.db, WS, NOW, deps);
-    w.tables.teams[0]!.color = '#ff0000';
+    item(w.tables.teams, 0).color = '#ff0000';
     const after = await loadGalaxy(w.viewer.db, WS, NOW, deps);
     expect(w.service.ledgerPages()).toHaveLength(2);
     expect(after.teams.find((t) => t.name === 'beaver')?.color).toBe('#ff0000');

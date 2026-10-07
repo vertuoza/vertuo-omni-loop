@@ -5,10 +5,11 @@ import type { FixSummary } from '../../dossier/github/fix';
 import { UNREAD } from '../../dossier/github/summary';
 import { factsOf, fixFactsStore } from './store';
 import { fakeFixFactsStore } from './store.fake';
+import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const W = 'w-acme';
 const FACTS: FixSummary = {
-  issue: { number: 7, url: 'https://github.com/acme/widgets/issues/7', state: 'open', author: 'ada', createdAt: '2026-09-28T09:00:00Z', risk: null, regression: true },
+  issue: { number: parseIssue(7), url: 'https://github.com/acme/widgets/issues/7', state: 'open', author: 'ada', createdAt: '2026-09-28T09:00:00Z', risk: null, regression: true },
   pull: UNREAD,
   approvals: [{ login: 'bob', at: '2026-09-28T11:00:00Z' }],
   release: null,

@@ -40,4 +40,4 @@ export async function backAfterSend({ view, from, sessionId, roundId, readRounds
 export const dossierRoundsReader = (db: Pick<SupabaseClient, 'rpc'>) => (dossierId: string): Promise<BackRounds> => dossierRounds(db, dossierId);
 
 /** The demo keeps no dossier: the way back goes to the Questions tab alone. */
-export const noRounds = async (): Promise<BackRounds> => null;
+export const noRounds = (): Promise<BackRounds> => Promise.resolve(null);

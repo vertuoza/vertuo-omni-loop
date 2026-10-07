@@ -8,12 +8,12 @@
 // it by construction: it is never a PRD's folder, spec or outbox.
 import { existsSync, readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
+import { PrdNumberSchema } from './ids.ts';
+import type { PrdNumber } from './ids.ts';
 import { DECISIONS_FORM, FORM_IDS } from './playbook/forms.ts';
 
+/** A PRD's folder name, `<nnnn>-<topic>`: the one pattern every reader of a folder name asks. */
 const FOLDER = /^(\d{4,})-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
-
-/** A PRD's number, as a caller holds it: a number, or the text it was read from. */
-export type PrdNumber = number | string;
 
 /** The `paths` config section this module reads. */
 export type LayoutPaths = { delivery: string; adr: string; knowledge: string; playbook: string };
@@ -22,21 +22,34 @@ export type LayoutPaths = { delivery: string; adr: string; knowledge: string; pl
 type PrdPlace = { name: string; state: 'inbox' | 'shipped'; dir: string };
 
 /** One outbox folder: its PRD, its path, and whether it sits inside a shipped folder. */
-type OutboxDir = { prd: number; dir: string; shipped: boolean };
+type OutboxDir = { prd: PrdNumber; dir: string; shipped: boolean };
 
 export function padPrd(prd: PrdNumber): string {
-  return String(Number(prd)).padStart(4, '0');
+  return String(prd).padStart(4, '0');
 }
 
-export function parseFolderName(name: string): { prd: number; topic: string } | null {
+/** A PRD folder's number and topic, or `null` for a name that is not `<nnnn>-<topic>` (or whose
+ * number is no PRD's, `0000`). */
+export function parseFolderName(name: string): { prd: PrdNumber; topic: string } | null {
   const match = FOLDER.exec(name);
   if (!match) return null;
-  const [, prd = '', topic = ''] = match;
-  return { prd: Number(prd), topic };
+  const [, digits = '', topic = ''] = match;
+  const prd = PrdNumberSchema.safeParse(Number(digits));
+  return prd.success ? { prd: prd.data, topic } : null;
 }
 
-/** The PRD number of a folder name `folders` already kept, so one `parseFolderName` reads. */
-const prdOf = (name: string): number => parseFolderName(name)?.prd ?? Number.NaN;
+/** The PRD folders in the directory `absolute`, sorted by name, each with its number: `[]` when the
+ * directory is not there. */
+export function prdFoldersIn(absolute: string): { name: string; prd: PrdNumber }[] {
+  if (!existsSync(absolute)) return [];
+  return readdirSync(absolute, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((entry) => {
+      const parsed = parseFolderName(entry.name);
+      return parsed ? [{ name: entry.name, prd: parsed.prd }] : [];
+    })
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
 
 export function foldersLayout(root: string, paths: LayoutPaths) {
   const base = paths.delivery;
@@ -48,18 +61,10 @@ export function foldersLayout(root: string, paths: LayoutPaths) {
     concepts: `${base}/inbox/concepts`,
   };
 
-  function folders(dir: string): string[] {
-    const absolute = join(root, dir);
-    if (!existsSync(absolute)) return [];
-    return readdirSync(absolute, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && parseFolderName(entry.name))
-      .map((entry) => entry.name)
-      .sort();
-  }
+  const folders = (dir: string) => prdFoldersIn(join(root, dir));
 
   function find(dir: string, prd: PrdNumber): string | null {
-    const wanted = Number(prd);
-    return folders(dir).find((name) => prdOf(name) === wanted) ?? null;
+    return folders(dir).find((folder) => folder.prd === prd)?.name ?? null;
   }
 
   function whereIs(prd: PrdNumber): PrdPlace | null {
@@ -102,15 +107,15 @@ export function foldersLayout(root: string, paths: LayoutPaths) {
       return orphan ? `${dirs.outbox}/${orphan}` : null;
     },
     outboxDirs(): OutboxDir[] {
-      const out: OutboxDir[] = folders(dirs.outbox).map((name) => ({ prd: prdOf(name), dir: `${dirs.outbox}/${name}`, shipped: false }));
-      for (const name of folders(dirs.shipped)) {
+      const out: OutboxDir[] = folders(dirs.outbox).map(({ name, prd }) => ({ prd, dir: `${dirs.outbox}/${name}`, shipped: false }));
+      for (const { name, prd } of folders(dirs.shipped)) {
         const dir = `${dirs.shipped}/${name}/outbox`;
-        if (existsSync(join(root, dir))) out.push({ prd: prdOf(name), dir, shipped: true });
+        if (existsSync(join(root, dir))) out.push({ prd, dir, shipped: true });
       }
       return out;
     },
     specFiles(): string[] {
-      return folders(dirs.inbox).map((name) => `${dirs.inbox}/${name}/spec.md`);
+      return folders(dirs.inbox).map(({ name }) => `${dirs.inbox}/${name}/spec.md`);
     },
   });
 }

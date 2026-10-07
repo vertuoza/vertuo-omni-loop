@@ -1,7 +1,9 @@
 // PRD 790, slice s1: a feature PR's GraphQL read, parsed into its care state.
 import { describe, expect, it } from 'vitest';
-import { careState } from './state.ts';
+import { CareResponseSchema, careState } from './state.ts';
 import type { CareResponse } from './state.ts';
+import { assertDefined } from '../../test/assert.ts';
+import { parsePr } from '../ids.ts';
 
 const STATUS = '<!-- omni-outbox-status -->';
 const OPTIONS = { statusMarker: STATUS, needsFixLabel: 'omni:needs-fix', gateContexts: ['outbox', 'inbox'] };
@@ -28,7 +30,7 @@ function response(over: Record<string, unknown> = {}): CareResponse {
     data: {
       repository: {
         pullRequest: {
-          number: 9,
+          number: parsePr(9),
           url: 'https://github.com/acme/widgets/pull/9',
           state: 'OPEN',
           isDraft: false,
@@ -43,7 +45,7 @@ function response(over: Record<string, unknown> = {}): CareResponse {
         },
       },
     },
-  } as CareResponse;
+  };
 }
 
 const rollup = (state: string, contexts: object[]) => ({ nodes: [{ commit: { statusCheckRollup: { state, contexts: { nodes: contexts } } } }] });
@@ -114,8 +116,10 @@ describe('careState — review threads', () => {
   it('lists an unresolved thread with no care reply as unhandled, to judge', () => {
     const [t] = careState(response({ reviewThreads: { nodes: [thread('T1', [ask])] } }), OPTIONS).threads;
     expect(t).toMatchObject({ id: 'T1', resolved: false, verdict: null, reason: null, needs: 'judge', path: 'src/a.mjs', line: 3 });
-    expect(t!.url).toBe(ask.url);
-    expect(t!.comments).toEqual([
+    assertDefined(t, 't');
+    expect(t.url).toBe(ask.url);
+    assertDefined(t, 't');
+    expect(t.comments).toEqual([
       { author: 'rev', avatarUrl: 'https://avatars.example/rev', body: ask.body, createdAt: ask.createdAt, url: ask.url, verdict: null },
     ]);
   });
@@ -174,5 +178,46 @@ describe('careState — the status comment', () => {
     const comments = { nodes: [{ databaseId: 7, body: `${STATUS}\n- state: done` }] };
     expect(careState(response({ comments }), OPTIONS).status).toEqual({ commentId: 7, watchingSince: null, lastRound: null });
     expect(careState(response(), OPTIONS).status).toBeNull();
+  });
+});
+
+describe('careState — waits on another repository (PRD 1118)', () => {
+  it('reads the waits-on line of the status comment', () => {
+    const comments = { nodes: [{ databaseId: 8, body: `${STATUS}\n- PR care: watching since a · last round b\n- waits on acme/backend#41\n` }] };
+    expect(careState(response({ comments }), OPTIONS).status).toEqual({
+      commentId: 8,
+      watchingSince: 'a',
+      lastRound: 'b',
+      waitsOn: { slug: 'acme/backend', pr: 41 },
+    });
+  });
+
+  it('reads a status comment without the line as not waiting', () => {
+    const comments = { nodes: [{ databaseId: 8, body: `${STATUS}\n- PR care: watching since a · last round b\n` }] };
+    expect(careState(response({ comments }), OPTIONS).status).not.toHaveProperty('waitsOn');
+  });
+
+  it('reads no waits-on line outside the status comment', () => {
+    const comments = { nodes: [{ databaseId: 1, body: 'waits on acme/backend#41' }, { databaseId: 8, body: `${STATUS}\n- state: done` }] };
+    expect(careState(response({ comments }), OPTIONS).status).not.toHaveProperty('waitsOn');
+  });
+});
+
+describe('CareResponseSchema — the answer GitHub gives CARE_QUERY', () => {
+  const withPr = (pr: Record<string, unknown>) => ({ data: { repository: { pullRequest: pr } } });
+  const pr = (): Record<string, unknown> => ({ ...response()?.data?.repository?.pullRequest });
+
+  it('parses the recorded answer, and an answer with no pull request', () => {
+    expect(CareResponseSchema.parse(response())).toEqual(response());
+    expect(CareResponseSchema.parse(withPr({ ...pr(), comments: null }))).toEqual(withPr({ ...pr(), comments: null }));
+    expect(CareResponseSchema.parse({ data: { repository: { pullRequest: null } } })).toEqual({ data: { repository: { pullRequest: null } } });
+  });
+
+  it('refuses a pull request with no number, a number given as text, and a null head branch', () => {
+    const noNumber = pr();
+    delete noNumber.number;
+    expect(CareResponseSchema.safeParse(withPr(noNumber)).success).toBe(false);
+    expect(CareResponseSchema.safeParse(withPr({ ...pr(), number: '9' })).success).toBe(false);
+    expect(CareResponseSchema.safeParse(withPr({ ...pr(), headRefName: null })).success).toBe(false);
   });
 });

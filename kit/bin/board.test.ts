@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
+import { dig } from './dig.ts';
 import { main } from './omni.ts';
+
+/** What `omni board --json` prints, as these tests read it. */
+type BoardPayload = {
+  slices: { id: string; repo?: string; slug?: string | null; state: string; pr: { number: number } | null }[];
+  frontier: unknown;
+};
 
 function io() {
   const out: string[] = [];
@@ -75,7 +82,7 @@ describe('omni board — the gh pr list call', () => {
     await main(['board', '7'], { cwd: root, exec, ...s });
 
     const listCall = calls.find((call) => call.file === 'gh' && call.args[1] === 'list');
-    expect(listCall!.args).toEqual([
+    expect(listCall?.args).toEqual([
       'pr',
       'list',
       '--repo',
@@ -89,7 +96,7 @@ describe('omni board — the gh pr list call', () => {
       '--base',
       'feat/widgets',
     ]);
-    expect(listCall!.args.join(' ')).not.toMatch(/commits/);
+    expect(listCall?.args.join(' ')).not.toMatch(/commits/);
   });
 
   it('narrows by --label instead of --base when board.matchBy is "label"', async () => {
@@ -106,7 +113,7 @@ describe('omni board — the gh pr list call', () => {
     await main(['board', '7'], { cwd: root, exec, ...s });
 
     const listCall = calls.find((call) => call.file === 'gh' && call.args[1] === 'list');
-    expect(listCall!.args).toEqual([
+    expect(listCall?.args).toEqual([
       'pr',
       'list',
       '--repo',
@@ -140,7 +147,7 @@ describe('omni board — head commit dates', () => {
     expect(code).toBe(0);
     expect(s.out.join('')).toMatch(/s1\s+w1\s+claimed-stale/);
     const viewCall = calls.find((call) => call.file === 'gh' && call.args[1] === 'view');
-    expect(viewCall!.args).toEqual(['pr', 'view', '42', '--repo', 'acme/widgets', '--json', 'commits']);
+    expect(viewCall?.args).toEqual(['pr', 'view', '42', '--repo', 'acme/widgets', '--json', 'commits']);
   });
 
   it('never calls `gh pr view` for a fresh draft, an open non-draft, or a merged pull request', async () => {
@@ -211,7 +218,7 @@ describe('omni board — table and --json output', () => {
     const code = await main(['board', '7', '--json'], { cwd: root, exec, ...s });
 
     expect(code).toBe(0);
-    const payload = JSON.parse(s.out.join(''));
+    const payload = JSON.parse(s.out.join('')) as BoardPayload;
     expect(payload.slices).toHaveLength(1);
     expect(payload.slices[0]).toMatchObject({ id: 's1', state: 'runnable', pr: null });
     expect(payload.frontier).toEqual({ wave: 1, runnable: ['s1'], takeable: ['s1'], excluded: [], collisions: [] });
@@ -244,6 +251,45 @@ describe('omni board — table and --json output', () => {
     const code = await main(['board', '7'], { cwd: root, exec, ...s });
     expect(code).toBe(0);
     expect(s.out.join('')).toMatch(/s1\s+w1\s+in-flight/);
+  });
+
+  it('reads a PRD of two landings per landing: one list per landing branch, one per landing PR, a line per landing', async () => {
+    const plan = [
+      '# A plan',
+      '',
+      '| id | slice | territory | blocked by | wave | landing |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| s1 | Expand | `db/` | — | 1 | 1 |',
+      '| s2 | Code | `src/` | — | 1 | 2 |',
+      '',
+      '## Landings',
+      '',
+      '| landing | name | merge when |',
+      '| --- | --- | --- |',
+      '| 1 | expand | — |',
+      '| 2 | code | landing 1 is deployed |',
+      '',
+    ].join('\n');
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan } });
+    const { exec, calls } = fakeExec(root, [
+      pr({ number: 1, baseRefName: 'feat/widgets-1of2-expand', state: 'MERGED', mergedAt: new Date().toISOString() }),
+      pr({ number: 5, headRefName: 'feat/widgets-1of2-expand', baseRefName: 'main', isDraft: true }),
+    ]);
+    const s = io();
+    expect(await main(['board', '7'], { cwd: root, exec, ...s })).toBe(0);
+
+    const narrowed = calls.filter((call) => call.file === 'gh' && call.args[1] === 'list').map((call) => call.args.slice(-2).join(' '));
+    expect(narrowed).toEqual([
+      '--base feat/widgets-1of2-expand',
+      '--base feat/widgets-2of2-code',
+      '--head feat/widgets-1of2-expand',
+      '--head feat/widgets-2of2-code',
+    ]);
+    const text = s.out.join('');
+    expect(text).toMatch(/landing 1 \(expand\) feat\/widgets-1of2-expand — 1\/1 merged, 0 open, 0 not started — #5 draft\n/);
+    expect(text).toMatch(/s1\s+w1\s+merged/);
+    expect(text).toMatch(/landing 2 \(code\) feat\/widgets-2of2-code — 0\/1 merged, 0 open, 1 not started — no PR — current\n/);
+    expect(text).toMatch(/runnable frontier: wave 1 of landing 2 — takeable: s2/);
   });
 
   it('fails usage with no PRD argument', async () => {
@@ -298,20 +344,23 @@ describe('omni board — a plan repository (PRD 563)', () => {
     { failing = [], commitsByNumber = {} }: { failing?: string[]; commitsByNumber?: Record<string, unknown[]> } = {},
   ) {
     const calls: ExecCall[] = [];
-    const exec = (file: string, args: readonly string[], options: unknown = {}) => {
-      calls.push({ file, args, options });
-      if (file === 'git' && args[0] === 'rev-parse') return `${root}\n`;
+    const gh = (args: readonly string[]) => {
       const slug = String(args[args.indexOf('--repo') + 1]);
-      if (file === 'gh' && args[0] === 'pr' && failing.includes(slug)) {
+      if (failing.includes(slug)) {
         const error: Error & { stderr?: string } = new Error('gh: Could not resolve to a Repository');
         error.stderr = 'GraphQL: Could not resolve to a Repository';
         throw error;
       }
-      if (file === 'gh' && args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prsBySlug[slug] ?? []);
-      if (file === 'gh' && args[0] === 'pr' && args[1] === 'view') {
-        return JSON.stringify({ commits: commitsByNumber[`${slug}#${args[2]}`] ?? [] });
-      }
-      throw new Error(`fakeMultiExec: unexpected call ${file} ${args.join(' ')}`);
+      if (args[1] === 'list') return JSON.stringify(prsBySlug[slug] ?? []);
+      if (args[1] === 'view') return JSON.stringify({ commits: commitsByNumber[`${slug}#${args[2]}`] ?? [] });
+      return null;
+    };
+    const exec = (file: string, args: readonly string[], options: unknown = {}) => {
+      calls.push({ file, args, options });
+      if (file === 'git' && args[0] === 'rev-parse') return `${root}\n`;
+      const answer = file === 'gh' && args[0] === 'pr' ? gh(args) : null;
+      if (answer === null) throw new Error(`fakeMultiExec: unexpected call ${file} ${args.join(' ')}`);
+      return answer;
     };
     return { exec, calls };
   }
@@ -379,13 +428,13 @@ describe('omni board — a plan repository (PRD 563)', () => {
     const code = await main(['board', '7', '--json'], { cwd: root, exec, ...s });
 
     expect(code).toBe(0);
-    const payload = JSON.parse(s.out.join(''));
-    expect(payload.slices.map(({ id, repo, slug, state }: Record<string, unknown>) => ({ id, repo, slug, state }))).toEqual([
+    const payload = JSON.parse(s.out.join('')) as BoardPayload;
+    expect(payload.slices.map(({ id, repo, slug, state }) => ({ id, repo, slug, state }))).toEqual([
       { id: 's1', repo: 'backend', slug: 'acme/backend', state: 'merged' },
       { id: 's2', repo: 'frontend', slug: 'acme/frontend', state: 'runnable' },
       { id: 's3', repo: 'widgets-plan', slug: 'acme/widgets-plan', state: 'runnable' },
     ]);
-    expect(payload.slices[0].pr.number).toBe(5);
+    expect(payload.slices[0]?.pr?.number).toBe(5);
     expect(payload.frontier).toMatchObject({ wave: 2, takeable: ['s2', 's3'] });
   });
 
@@ -400,9 +449,9 @@ describe('omni board — a plan repository (PRD 563)', () => {
     const s = io();
     await main(['board', '7', '--json'], { cwd: root, exec, ...s });
 
-    expect(JSON.parse(s.out.join('')).slices[0].state).toBe('claimed-stale');
+    expect(dig(JSON.parse(s.out.join('')), 'slices', 0, 'state')).toBe('claimed-stale');
     const viewCall = calls.find((call) => call.file === 'gh' && call.args[1] === 'view');
-    expect(viewCall!.args).toEqual(['pr', 'view', '42', '--repo', 'acme/frontend', '--json', 'commits']);
+    expect(viewCall?.args).toEqual(['pr', 'view', '42', '--repo', 'acme/frontend', '--json', 'commits']);
   });
 
   it('makes the slices of a repository gh cannot read unreadable, holds what they block, and computes the rest', async () => {
@@ -432,7 +481,7 @@ describe('omni board — a plan repository (PRD 563)', () => {
     const s = io();
     await main(['board', '7', '--json'], { cwd: root, exec, ...s });
 
-    expect(JSON.parse(s.out.join('')).slices[0]).toMatchObject({ repo: 'nowhere', slug: null, state: 'unreadable' });
+    expect(dig(JSON.parse(s.out.join('')), 'slices', 0)).toMatchObject({ repo: 'nowhere', slug: null, state: 'unreadable' });
     expect(listCalls(calls)).toEqual([]);
   });
 
@@ -443,7 +492,7 @@ describe('omni board — a plan repository (PRD 563)', () => {
     await main(['board', '7', '--json'], { cwd: root, exec, ...s });
 
     expect(listCalls(calls).map(repoOf)).toEqual(['acme/widgets-plan']);
-    const row = JSON.parse(s.out.join('')).slices[0];
+    const row = dig(JSON.parse(s.out.join('')), 'slices', 0);
     expect(row).not.toHaveProperty('repo');
     expect(row).not.toHaveProperty('slug');
   });

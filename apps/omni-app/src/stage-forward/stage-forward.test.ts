@@ -1,12 +1,15 @@
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import { readEnv } from '../env.ts';
 import { forwardStageEvent, signStageEvent, STAGE_SIGNATURE_HEADER, stageEventUrl, toStageEvent, type StageEvent } from './stage-forward.ts';
 
 const REPOSITORY: Record<string, unknown> = { name: 'widgets', full_name: 'acme/widgets', owner: { login: 'acme' }, default_branch: 'main' };
 
 type PullOver = { head?: string; base?: string; merged?: boolean; body?: string | null; [field: string]: unknown };
 
-const pull = (action: string, { head, base = 'main', merged = false, body = null, ...over }: PullOver = {}): any => ({
+const pull = (action: string, { head, base = 'main', merged = false, body = null, ...over }: PullOver = {}) => ({
   action,
   installation: { id: 7 },
   repository: REPOSITORY,
@@ -47,6 +50,10 @@ describe('toStageEvent', () => {
   it('turns an opened retro PR into retro, with no PRD when its body names none', () => {
     expect(toStageEvent('pull_request', pull('opened', { head: 'docs/retro-real-stages', body: 'The retro.' })))
       .toEqual({ repository: 'acme/widgets', topic: 'real-stages', prd: null, stage: 'retro', at: '2026-09-29T08:00:00Z' });
+  });
+
+  it('reads no PRD from a link line naming no PRD number (PRD 1049)', () => {
+    expect(toStageEvent('pull_request', pull('closed', { head: 'docs/phase-0-x', merged: true, body: 'Refs #0' }))?.prd).toBeNull();
   });
 
   it('reads no PRD from a body without a link line, or from none', () => {
@@ -100,24 +107,25 @@ describe('signStageEvent', () => {
 
 describe('stageEventUrl', () => {
   it('is galaxy’s event route, on GALAXY_URL when set', () => {
-    expect(stageEventUrl({ GALAXY_URL: 'https://galaxy.example/' })).toBe('https://galaxy.example/api/stages/event');
+    expect(stageEventUrl(readEnv({ GALAXY_URL: 'https://galaxy.example/' }).galaxyUrl)).toBe('https://galaxy.example/api/stages/event');
   });
 
   it('is on galaxy’s own domain when GALAXY_URL is unset (PRD 983)', () => {
-    expect(stageEventUrl({})).toBe('https://www.omni-loop.xyz/api/stages/event');
+    expect(stageEventUrl(readEnv({}).galaxyUrl)).toBe('https://www.omni-loop.xyz/api/stages/event');
   });
 });
 
 describe('forwardStageEvent', () => {
-  const event: StageEvent = { repository: 'acme/widgets', topic: 'x', prd: 3, stage: 'inbox', at: '2026-09-29T10:00:00Z' };
+  const event: StageEvent = { repository: 'acme/widgets', topic: 'x', prd: parsePrd(3), stage: 'inbox', at: '2026-09-29T10:00:00Z' };
 
   it('POSTs the event signed with the secret', async () => {
-    const fetch = vi.fn(async (_url: string, _init: any) => new Response('ok', { status: 200 }));
+    const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(() => Promise.resolve(new Response('ok', { status: 200 })));
     const log = vi.fn();
     await forwardStageEvent(event, { url: 'https://galaxy.example/api/stages/event', secret: 'k', fetch, log });
     expect(fetch).toHaveBeenCalledTimes(1);
-    const [url, init] = fetch.mock.calls[0] ?? [];
+    const [url, sent] = fetch.mock.calls[0] ?? [];
     expect(url).toBe('https://galaxy.example/api/stages/event');
+    const init = z.looseObject({ method: z.string(), body: z.string(), headers: z.record(z.string(), z.string()) }).parse(sent);
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body)).toEqual(event);
     expect(init.headers[STAGE_SIGNATURE_HEADER]).toBe(signStageEvent('k', init.body));
@@ -134,8 +142,8 @@ describe('forwardStageEvent', () => {
 
   it('logs a refused or failed POST and never throws', async () => {
     const log = vi.fn();
-    await expect(forwardStageEvent(event, { url: 'u', secret: 'k', fetch: async () => new Response('no', { status: 401 }), log })).resolves.toBeUndefined();
-    await expect(forwardStageEvent(event, { url: 'u', secret: 'k', fetch: async () => { throw new Error('down'); }, log })).resolves.toBeUndefined();
+    await expect(forwardStageEvent(event, { url: 'u', secret: 'k', fetch: () => Promise.resolve(new Response('no', { status: 401 })), log })).resolves.toBeUndefined();
+    await expect(forwardStageEvent(event, { url: 'u', secret: 'k', fetch: () => Promise.reject(new Error('down')), log })).resolves.toBeUndefined();
     expect(log).toHaveBeenCalledTimes(2);
     expect(log.mock.calls[0]?.[0]).toContain('401');
     expect(log.mock.calls[1]?.[0]).toContain('down');

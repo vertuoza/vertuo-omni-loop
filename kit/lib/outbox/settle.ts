@@ -46,6 +46,8 @@ import type { makeMarkers } from '../markers.ts';
 import type { OutboxItem } from '../types.ts';
 import { SETTLED_FILE, parseOutboxItem, type ParsedOutboxItem } from './outbox.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
+import { OutboxItemIdSchema } from '../ids.ts';
+import type { OutboxItemId, PrdNumber, WorkSliceId } from '../ids.ts';
 
 /** The markers the ledger is written and read with. */
 export type Markers = ReturnType<typeof makeMarkers>;
@@ -151,13 +153,13 @@ export type SettledItemFacts = {
   rank: string | undefined;
   bearsOn: string | null | undefined;
   raised: string | undefined;
-  slice: string | undefined;
+  slice: WorkSliceId | undefined;
   wave: number | string | undefined;
 };
 
 /** One entry of `settled.md`, read back (`parseSettledEntries`). */
 export type SettledEntry = {
-  id: string;
+  id: OutboxItemId;
   verdict: string | undefined;
   closed: boolean;
   /** Every `- <Name>: <value>` line, by name. */
@@ -169,7 +171,7 @@ export type SettledEntry = {
 
 /** `PRD issue #985` · `feature pull request #986` — how a human would name where they answered. */
 export function channelLabel(channel: { kind: ChannelKind; number: number }): string {
-  return `${CHANNEL_LABEL[channel.kind] ?? channel.kind} #${channel.number}`;
+  return `${CHANNEL_LABEL[channel.kind]} #${channel.number}`;
 }
 
 /**
@@ -361,7 +363,7 @@ function closedLine(verdict: SettledVerdict | null): string {
 }
 
 /** The header a fresh `settled.md` starts with. Written once; every settling after this appends. */
-export function settledHeader(prd: number | string, { ctx }: { ctx: Pick<SettleContext, 'config'> }): string {
+export function settledHeader(prd: PrdNumber, { ctx }: { ctx: Pick<SettleContext, 'config'> }): string {
   return [
     `# Settled outbox items — PRD ${prd}`,
     '',
@@ -395,7 +397,7 @@ export function renderSettledEntry({
   answer: EntryAnswer;
   judgement: Judgement;
   markers: Pick<Markers, 'settledOpen' | 'settledClose'>;
-  closed?: string | null;
+  closed?: string | null | undefined;
 }): string {
   const lines = [
     markers.settledOpen(item.id),
@@ -451,9 +453,28 @@ export function parseSettledEntries(text: string, markers: Pick<Markers, 'settle
  * "latest wins" rule. A repeated id keeps its first position (so unrelated ids keep reading in
  * raised order) with the later entry's own facts. */
 function latestPerId(entries: SettledEntry[]): SettledEntry[] {
-  const byId = new Map<string, SettledEntry>();
+  const byId = new Map<OutboxItemId, SettledEntry>();
   for (const entry of entries) byId.set(entry.id, entry);
   return [...byId.values()];
+}
+
+/** An entry being read: its id, its `- Name: value` lines and its fenced blocks so far. */
+type OpenEntry = { id: OutboxItemId; fields: Record<string, string>; blocks: string[] };
+
+/** The entry an opening marker opens: none when its id is no outbox item's. */
+function openedEntry(id: string | undefined): OpenEntry | null {
+  const read = OutboxItemIdSchema.safeParse(id);
+  return read.success ? { id: read.data, fields: {}, blocks: [] } : null;
+}
+
+/** The entry its closing marker ends, read from its lines and blocks. */
+function closedEntry({ id, fields, blocks }: OpenEntry): SettledEntry {
+  const [answerText = '', itemText = ''] = blocks;
+  const became = (fields.Became ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ''), fields, answerText, itemText, became };
 }
 
 /** Every entry `settled.md` carries, in file order, with no dedup — {@link parseSettledEntries}'s
@@ -461,33 +482,19 @@ function latestPerId(entries: SettledEntry[]): SettledEntry[] {
 function rawSettledEntries(text: string, markers: Pick<Markers, 'settledOpenRe' | 'settledClose'>): SettledEntry[] {
   const lines = text.split('\n');
   const entries: SettledEntry[] = [];
-  let current: { id: string; fields: Record<string, string>; blocks: string[] } | null = null;
+  let current: OpenEntry | null = null;
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? '';
     const openMatch = line.match(markers.settledOpenRe);
     if (openMatch) {
-      current = { id: openMatch[1] ?? '', fields: {}, blocks: [] };
+      current = openedEntry(openMatch[1]);
       continue;
     }
     if (!current) continue;
 
     if (line === markers.settledClose(current.id)) {
-      const [answerText = '', itemText = ''] = current.blocks;
-      const closed = /^yes\b/.test(current.fields.Closed ?? '');
-      const became = (current.fields.Became ?? '')
-        .split(',')
-        .map((id) => id.trim())
-        .filter(Boolean);
-      entries.push({
-        id: current.id,
-        verdict: current.fields.Verdict,
-        closed,
-        fields: current.fields,
-        answerText,
-        itemText,
-        became,
-      });
+      entries.push(closedEntry(current));
       current = null;
       continue;
     }

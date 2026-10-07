@@ -1,19 +1,28 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { startFakeAskServer } from '../../test/fake-ask-server.ts';
+import { dig, digText } from '../../bin/dig.ts';
+import { assertDefined } from '../../test/assert.ts';
+import { startFakeAskServer, type FakeAskServer } from '../../test/fake-ask-server.ts';
 import { askClient as typedClient, AskCallError } from './client.ts';
 import type { Tokens } from './client.ts';
-
-/** A client's methods with their replies read loosely: a test reads the fields it expects. */
-type Loose<C> = { [K in keyof C]: C[K] extends (...args: infer A) => Promise<unknown> ? (...args: A) => Promise<any> : C[K] };
+import { parsePrd } from '../ids.ts';
 
 /** A request as the client builds it: its headers a plain object, its body JSON text. */
-type Init = { method: string; headers: Record<string, string>; body?: any; signal?: AbortSignal };
+type Init = { method: string; headers: Record<string, string>; body?: unknown; signal?: AbortSignal };
 
 /** A fake `fetch`: it answers from what it is given, and may throw as a network failure does. */
 type FakeFetch = (url: string, init: Init) => Response | Promise<Response>;
 
 const askClient = (options: Omit<Parameters<typeof typedClient>[0], 'fetch'> & { fetch?: FakeFetch }) =>
-  typedClient(options as Parameters<typeof typedClient>[0]) as unknown as Loose<ReturnType<typeof typedClient>>;
+  typedClient(options as Parameters<typeof typedClient>[0]);
+
+const anyText: unknown = expect.any(String);
+const anyNumber: unknown = expect.any(Number);
+
+/** What a request sent as its body, read back from its JSON text. */
+function sentJson(body: unknown): unknown {
+  if (typeof body !== 'string') throw new Error('the request sent no text as its body');
+  return JSON.parse(body);
+}
 
 /** A token store held in memory, keyed by host like the real one. */
 function memoryTokens(entries: Record<string, Tokens> = {}) {
@@ -27,73 +36,95 @@ function memoryTokens(entries: Record<string, Tokens> = {}) {
 
 const QUESTIONS = [{ question: 'Which colour?', header: 'Colour', multiSelect: false, options: [{ label: 'Red', description: 'warm' }, { label: 'Blue', description: 'cool' }] }];
 
-/** The fake server, read loosely: a test reads its record of the calls as it expects. */
-type FakeServer = { url: string; host: string; calls: any[]; [key: string]: any };
-let server!: FakeServer;
+/** Every fake server a test started, closed after it. */
+const started: FakeAskServer[] = [];
 afterEach(async () => {
-  await server?.close();
-  server = undefined!;
+  await Promise.all(started.splice(0).map((server) => server.close()));
 });
 
-async function setUp(options: Record<string, unknown> = {}, signedIn: Tokens | null = { access_token: 'access-1', refresh_token: 'refresh-1' }) {
-  server = await (startFakeAskServer as (options: unknown) => Promise<FakeServer>)(options);
+async function startServer(options: Parameters<typeof startFakeAskServer>[0] = {}): Promise<FakeAskServer> {
+  const server = await startFakeAskServer(options);
+  started.push(server);
+  return server;
+}
+
+async function setUp(options: Parameters<typeof startFakeAskServer>[0] = {}, signedIn: Tokens | null = { access_token: 'access-1', refresh_token: 'refresh-1' }) {
+  const server = await startServer(options);
   const tokens = memoryTokens(signedIn ? { [server.host]: signedIn } : {});
   const client = askClient({ baseUrl: server.url, host: server.host, tokens });
-  return { client, tokens };
+  return { client, tokens, server };
 }
+
+/** The fake server's call `index`, as it recorded it. */
+function callOf(server: FakeAskServer, index: number): FakeAskServer['calls'][number] {
+  const call = server.calls[index];
+  assertDefined(call, `call ${index}`);
+  return call;
+}
+
+/** The body of the fake server's call `index`. */
+function bodyOf(server: FakeAskServer, index: number): unknown {
+  return callOf(server, index).body;
+}
+
+/** Field `key` of the fake server's session or round `id`. */
+const sessionField = (server: FakeAskServer, id: string, key: string): unknown => dig(server.sessions.get(id), key);
+const roundField = (server: FakeAskServer, id: string, key: string): unknown => dig(server.rounds.get(id), key);
 
 describe('the ask contract client', () => {
   it('opens and closes a session, carrying the bearer token', async () => {
-    const { client } = await setUp();
+    const { client, server } = await setUp();
     const session = await client.openSession('acme/widgets · main');
-    expect(session).toEqual({ id: expect.any(String), url: `${server.url}/ask/${session.id}` });
-    await client.closeSession(session.id);
-    expect(server.sessions.get(session.id).status).toBe('closed');
+    const id = digText(session, 'id');
+    expect(session).toEqual({ id: anyText, url: `${server.url}/ask/${id}` });
+    await client.closeSession(id);
+    expect(sessionField(server, id, 'status')).toBe('closed');
     expect(server.calls.map((call) => call.authorization)).toEqual(['Bearer access-1', 'Bearer access-1']);
-    expect(server.calls[0].body).toEqual({ title: 'acme/widgets · main' });
+    expect(bodyOf(server, 0)).toEqual({ title: 'acme/widgets · main' });
   });
 
   it('posts a round with the questions as given, waits on it, answers and abandons it', async () => {
-    const { client } = await setUp();
+    const { client, server } = await setUp();
     const { id } = server.openSession();
-    const { roundId } = await client.openRound(id, QUESTIONS);
-    expect(server.rounds.get(roundId).questions).toEqual(QUESTIONS);
+    const roundId = digText(await client.openRound(id, QUESTIONS), 'roundId');
+    expect(roundField(server, roundId, 'questions')).toEqual(QUESTIONS);
     expect(await client.wait(roundId, { timeoutMs: 2000 })).toEqual({ status: 'open' });
     await client.answer(roundId, { 'Which colour?': 'Red' });
-    expect(server.rounds.get(roundId)).toMatchObject({ status: 'answered', answers: { 'Which colour?': 'Red' }, answeredVia: 'terminal' });
+    const round: unknown = server.rounds.get(roundId);
+    expect(round).toMatchObject({ status: 'answered', answers: { 'Which colour?': 'Red' }, answeredVia: 'terminal' });
     expect(await client.wait(roundId, { timeoutMs: 2000 })).toEqual({ status: 'answered', answers: { 'Which colour?': 'Red' } });
-    const second = await client.openRound(id, QUESTIONS);
-    await client.abandon(second.roundId);
-    expect(server.rounds.get(second.roundId).status).toBe('abandoned');
+    const second = digText(await client.openRound(id, QUESTIONS), 'roundId');
+    await client.abandon(second);
+    expect(roundField(server, second, 'status')).toBe('abandoned');
   });
 
   it('sends a context with a session and a round when it is given one, and none otherwise', async () => {
-    const { client } = await setUp();
+    const { client, server } = await setUp();
     const context = { repo: 'acme/widgets', branch: 'main', prd: null, claudeSessionId: 'c1', skill: null, model: null, tokens: null };
-    const session = await client.openSession('acme/widgets · main', { repo: 'acme/widgets' });
-    expect(server.calls[0].body).toEqual({ title: 'acme/widgets · main', context: { repo: 'acme/widgets' } });
-    expect(server.sessions.get(session.id).context).toEqual({ repo: 'acme/widgets' });
-    const { roundId } = await client.openRound(session.id, QUESTIONS, context);
-    expect(server.calls[1].body).toEqual({ questions: QUESTIONS, context });
-    expect(server.rounds.get(roundId).context).toEqual(context);
-    await client.openRound(session.id, QUESTIONS);
-    expect(server.calls[2].body).toEqual({ questions: QUESTIONS });
+    const session = digText(await client.openSession('acme/widgets · main', { repo: 'acme/widgets' }), 'id');
+    expect(bodyOf(server, 0)).toEqual({ title: 'acme/widgets · main', context: { repo: 'acme/widgets' } });
+    expect(sessionField(server, session, 'context')).toEqual({ repo: 'acme/widgets' });
+    const roundId = digText(await client.openRound(session, QUESTIONS, context), 'roundId');
+    expect(bodyOf(server, 1)).toEqual({ questions: QUESTIONS, context });
+    expect(roundField(server, roundId, 'context')).toEqual(context);
+    await client.openRound(session, QUESTIONS);
+    expect(bodyOf(server, 2)).toEqual({ questions: QUESTIONS });
   });
 
   it('sends a lead with a round only when there is one (PRD 752)', async () => {
-    const { client } = await setUp();
-    const session = await client.openSession('acme/widgets · main');
-    const { roundId } = await client.openRound(session.id, QUESTIONS, undefined, '## The design');
-    expect(server.calls[1].body).toEqual({ questions: QUESTIONS, lead: '## The design' });
-    expect(server.rounds.get(roundId).lead).toBe('## The design');
-    await client.openRound(session.id, QUESTIONS, undefined, null);
-    await client.openRound(session.id, QUESTIONS, undefined, '');
-    expect(server.calls[2].body).toEqual({ questions: QUESTIONS });
-    expect(server.calls[3].body).toEqual({ questions: QUESTIONS });
+    const { client, server } = await setUp();
+    const session = digText(await client.openSession('acme/widgets · main'), 'id');
+    const roundId = digText(await client.openRound(session, QUESTIONS, undefined, '## The design'), 'roundId');
+    expect(bodyOf(server, 1)).toEqual({ questions: QUESTIONS, lead: '## The design' });
+    expect(roundField(server, roundId, 'lead')).toBe('## The design');
+    await client.openRound(session, QUESTIONS, undefined, null);
+    await client.openRound(session, QUESTIONS, undefined, '');
+    expect(bodyOf(server, 2)).toEqual({ questions: QUESTIONS });
+    expect(bodyOf(server, 3)).toEqual({ questions: QUESTIONS });
   });
 
   it('keeps a path under ask.url, with or without a trailing slash', async () => {
-    server = await startFakeAskServer();
+    const server = await startServer();
     const tokens = memoryTokens({ [server.host]: { access_token: 'access-1' } });
     await askClient({ baseUrl: `${server.url}/`, host: server.host, tokens }).openSession('t');
     await askClient({ baseUrl: `${server.url}/under`, host: server.host, tokens }).openSession('t').catch(() => {});
@@ -101,26 +132,26 @@ describe('the ask contract client', () => {
   });
 
   it('on a 401, refreshes once, keeps the new tokens and retries', async () => {
-    const { client, tokens } = await setUp({}, { access_token: 'access-1', refresh_token: 'refresh-1', email: 'person@example.com' });
+    const { client, tokens, server } = await setUp({}, { access_token: 'access-1', refresh_token: 'refresh-1', email: 'person@example.com' });
     const { id } = server.openSession();
     server.expireAccess();
-    const { roundId } = await client.openRound(id, QUESTIONS);
+    const roundId = digText(await client.openRound(id, QUESTIONS), 'roundId');
     expect(server.rounds.has(roundId)).toBe(true);
-    expect(server.calls.map((call) => `${call.method} ${call.path}`)).toEqual([
+    expect(server.calls.map((call) => `${call.method ?? ''} ${call.path}`)).toEqual([
       `POST /api/ask/sessions/${id}/rounds`,
       'POST /api/ask/token',
       `POST /api/ask/sessions/${id}/rounds`,
     ]);
-    expect(server.calls[1].body).toEqual({ refresh_token: 'refresh-1' });
-    expect(server.calls[1].authorization).toBeNull();
+    expect(bodyOf(server, 1)).toEqual({ refresh_token: 'refresh-1' });
+    expect(callOf(server, 1).authorization).toBeNull();
     expect(tokens.store[server.host]).toMatchObject({ access_token: 'access-2', refresh_token: 'refresh-2', email: 'person@example.com' });
-    expect(server.calls[2].authorization).toBe('Bearer access-2');
+    expect(callOf(server, 2).authorization).toBe('Bearer access-2');
   });
 
   it('on a 401, takes the tokens another terminal already renewed, and never replays the old refresh token', async () => {
     // Terminal B read the store before terminal A renewed it. Replaying B's refresh token, already
     // rotated by A, is what makes Supabase revoke the whole sign-in.
-    const { client: a, tokens } = await setUp();
+    const { client: a, tokens, server } = await setUp();
     const { id } = server.openSession();
     server.expireAccess();
     await a.openRound(id, QUESTIONS);
@@ -130,15 +161,15 @@ describe('the ask contract client', () => {
     const b = askClient({ baseUrl: server.url, host: server.host, tokens: behind });
     server.calls.length = 0;
 
-    const { roundId } = await b.openRound(id, QUESTIONS);
+    const roundId = digText(await b.openRound(id, QUESTIONS), 'roundId');
 
     expect(server.rounds.has(roundId)).toBe(true);
     expect(server.calls.map((call) => call.path)).toEqual([`/api/ask/sessions/${id}/rounds`, `/api/ask/sessions/${id}/rounds`]);
-    expect(server.calls[1].authorization).toBe('Bearer access-2');
+    expect(callOf(server, 1).authorization).toBe('Bearer access-2');
   });
 
   it('refreshes only once: a second 401 is an error', async () => {
-    const { client } = await setUp();
+    const { client, server } = await setUp();
     const { id } = server.openSession();
     server.denyAccess();
     await expect(client.openRound(id, QUESTIONS)).rejects.toMatchObject({ name: 'AskCallError', status: 401 });
@@ -150,7 +181,7 @@ describe('the ask contract client', () => {
   });
 
   it('a refused refresh is a 401 error, and the tokens are left as they were', async () => {
-    const { client, tokens } = await setUp();
+    const { client, tokens, server } = await setUp();
     const { id } = server.openSession();
     server.expireAccess();
     server.expireRefresh();
@@ -159,15 +190,15 @@ describe('the ask contract client', () => {
   });
 
   it('signed out, makes no call at all', async () => {
-    const { client } = await setUp({}, null);
-    const error = await client.openSession('t').catch((e) => e);
+    const { client, server } = await setUp({}, null);
+    const error = await client.openSession('t').catch((e: unknown) => e);
     expect(error).toBeInstanceOf(AskCallError);
-    expect(error.status).toBeNull();
+    expect(dig(error, 'status')).toBeNull();
     expect(server.calls).toEqual([]);
   });
 
   it('with the server down, fails fast', async () => {
-    const { client } = await setUp();
+    const { client, server } = await setUp();
     await server.close();
     const started = Date.now();
     await expect(client.openRound('sess-1', QUESTIONS)).rejects.toBeInstanceOf(AskCallError);
@@ -175,9 +206,9 @@ describe('the ask contract client', () => {
   });
 
   it('gives up on a call that outlives its timeout', async () => {
-    const { client } = await setUp({ holdMs: 5000 });
+    const { client, server } = await setUp({ holdMs: 5000 });
     const { id } = server.openSession();
-    const { roundId } = await client.openRound(id, QUESTIONS);
+    const roundId = digText(await client.openRound(id, QUESTIONS), 'roundId');
     const started = Date.now();
     await expect(client.wait(roundId, { timeoutMs: 100 })).rejects.toBeInstanceOf(AskCallError);
     expect(Date.now() - started).toBeLessThan(2000);
@@ -190,7 +221,7 @@ describe('the ask contract client', () => {
 
   it('a refused call keeps the server\'s reason, and none when the reply carries none (PRD 459)', async () => {
     const tokens = memoryTokens({ 'omni.example': { access_token: 'access-1', refresh_token: 'refresh-1' } });
-    const reply = (status: number, body: string) => async () => new Response(body, { status });
+    const reply = (status: number, body: string) => () => Promise.resolve(new Response(body, { status }));
     const reason = 'you are not a member of Globex, which owns globex/web';
     const refused = askClient({ baseUrl: 'https://omni.example', host: 'omni.example', tokens, fetch: reply(403, JSON.stringify({ error: reason })) });
     await expect(refused.openSession('t')).rejects.toMatchObject({ name: 'AskCallError', status: 403, reason });
@@ -205,26 +236,26 @@ describe('the dossier calls (PRD 216)', () => {
   const SPEC = '---\ntitle: Team inbox\n---\n# Team inbox\n';
 
   it('opens a draft with the bearer token, sending the Claude session id only when there is one', async () => {
-    const { client } = await setUp();
+    const { client, server } = await setUp();
     const draft = await client.openDossier({ title: 'A team inbox', repo: 'acme/widgets', claudeSessionId: 'c-1' });
-    expect(draft).toEqual({ id: expect.any(String), url: `${server.url}/prd/${draft.id}` });
+    expect(draft).toEqual({ id: anyText, url: `${server.url}/prd/${digText(draft, 'id')}` });
     await client.openDossier({ title: 'Another idea', repo: 'acme/widgets', claudeSessionId: null });
-    expect(server.calls.map(({ method, path, body, authorization }) => ({ method, path, body, authorization }))).toEqual([
+    expect(server.calls.map(({ method, path, authorization }, index) => ({ method, path, body: bodyOf(server, index), authorization }))).toEqual([
       { method: 'POST', path: '/api/dossiers', body: { title: 'A team inbox', repo: 'acme/widgets', claudeSessionId: 'c-1' }, authorization: 'Bearer access-1' },
       { method: 'POST', path: '/api/dossiers', body: { title: 'Another idea', repo: 'acme/widgets' }, authorization: 'Bearer access-1' },
     ]);
   });
 
   it('pushes a folder\'s artifacts, naming the draft only when there is one, and hands back what was added', async () => {
-    const { client } = await setUp();
-    const draft = await client.openDossier({ title: 'A team inbox', repo: 'acme/widgets' });
-    const first = await client.pushDossier({ repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: draft.id, artifacts: [{ kind: 'spec', content: SPEC }] });
-    expect(first).toEqual({ id: draft.id, url: `${server.url}/prd/${draft.id}`, added: [{ kind: 'spec', version: 1 }], unchanged: [] });
-    expect(server.calls[1].body).toEqual({ repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: draft.id, artifacts: [{ kind: 'spec', content: SPEC }] });
+    const { client, server } = await setUp();
+    const draft = digText(await client.openDossier({ title: 'A team inbox', repo: 'acme/widgets' }), 'id');
+    const first = await client.pushDossier({ repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: draft, artifacts: [{ kind: 'spec', content: SPEC }] });
+    expect(first).toEqual({ id: draft, url: `${server.url}/prd/${draft}`, added: [{ kind: 'spec', version: 1 }], unchanged: [] });
+    expect(bodyOf(server, 1)).toEqual({ repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: draft, artifacts: [{ kind: 'spec', content: SPEC }] });
 
     const again = await client.pushDossier({ repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: null, artifacts: [{ kind: 'spec', content: SPEC }] });
-    expect(again).toMatchObject({ id: draft.id, added: [], unchanged: ['spec'] });
-    expect(server.calls[2].body).not.toHaveProperty('draftId');
+    expect(again).toMatchObject({ id: draft, added: [], unchanged: ['spec'] });
+    expect(bodyOf(server, 2)).not.toHaveProperty('draftId');
   });
 
   it('carries a refusal\'s status, as every call does', async () => {
@@ -237,10 +268,10 @@ describe('the dossier calls (PRD 216)', () => {
 describe('the dossier lookup (PRD 413)', () => {
   /** A client over a stubbed fetch that records each call and answers with `reply`. */
   function stubbed(reply: (url: string) => Response) {
-    const calls: any[] = [];
-    const fetch = async (url: string, init: Init) => {
-      calls.push({ url: String(url), method: init.method, authorization: init.headers.authorization, body: init.body });
-      return reply(String(url));
+    const calls: { url: string; method: string; authorization: string | undefined; body: unknown }[] = [];
+    const fetch = (url: string, init: Init) => {
+      calls.push({ url, method: init.method, authorization: init.headers.authorization, body: init.body });
+      return Promise.resolve(reply(url));
     };
     const tokens = memoryTokens({ 'omni.example': { access_token: 'access-1', refresh_token: 'refresh-1' } });
     return { calls, client: askClient({ baseUrl: 'https://omni.example/', host: 'omni.example', tokens, fetch }) };
@@ -248,7 +279,7 @@ describe('the dossier lookup (PRD 413)', () => {
 
   it('asks GET /api/dossiers by repository and number, with the bearer token, and hands back {id, url}', async () => {
     const { calls, client } = stubbed(() => new Response(JSON.stringify({ id: 'd-1', url: 'https://omni.example/prd/d-1' }), { status: 200 }));
-    expect(await client.findDossier({ repo: 'acme/widgets', prd: 7 })).toEqual({ id: 'd-1', url: 'https://omni.example/prd/d-1' });
+    expect(await client.findDossier({ repo: 'acme/widgets', prd: parsePrd(7) })).toEqual({ id: 'd-1', url: 'https://omni.example/prd/d-1' });
     expect(calls).toEqual([
       { url: 'https://omni.example/api/dossiers?repo=acme%2Fwidgets&prd=7', method: 'GET', authorization: 'Bearer access-1', body: undefined },
     ]);
@@ -256,13 +287,13 @@ describe('the dossier lookup (PRD 413)', () => {
 
   it('a PRD with no dossier is a refusal carrying 404', async () => {
     const { client } = stubbed(() => new Response('{}', { status: 404 }));
-    await expect(client.findDossier({ repo: 'acme/widgets', prd: 7 })).rejects.toMatchObject({ status: 404 });
+    await expect(client.findDossier({ repo: 'acme/widgets', prd: parsePrd(7) })).rejects.toMatchObject({ status: 404 });
   });
 
   it('asks for a fix by its kind, and for a PRD without one (PRD 627)', async () => {
     const { calls, client } = stubbed(() => new Response(JSON.stringify({ id: 'd-2', url: 'https://omni.example/bugs/d-2' }), { status: 200 }));
-    await client.findDossier({ repo: 'acme/widgets', prd: 571, kind: 'bug' });
-    await client.findDossier({ repo: 'acme/widgets', prd: 7, kind: 'prd' });
+    await client.findDossier({ repo: 'acme/widgets', prd: parsePrd(571), kind: 'bug' });
+    await client.findDossier({ repo: 'acme/widgets', prd: parsePrd(7), kind: 'prd' });
     expect(calls.map((c) => c.url)).toEqual([
       'https://omni.example/api/dossiers?repo=acme%2Fwidgets&prd=571&kind=bug',
       'https://omni.example/api/dossiers?repo=acme%2Fwidgets&prd=7',
@@ -274,7 +305,7 @@ describe('the dossier lookup (PRD 413)', () => {
     const artifacts = [{ kind: 'variations', content: 'r1' }];
     await client.pushDossier({ repo: 'acme/widgets', prd: 548, kind: 'visual', title: 'Links', artifacts });
     await client.pushDossier({ repo: 'acme/widgets', prd: 7, kind: 'prd', title: 'Team inbox', artifacts: [] });
-    expect(calls.map((c) => JSON.parse(c.body))).toEqual([
+    expect(calls.map((c) => sentJson(c.body))).toEqual([
       { repo: 'acme/widgets', prd: 548, kind: 'visual', title: 'Links', artifacts },
       { repo: 'acme/widgets', prd: 7, title: 'Team inbox', artifacts: [] },
     ]);
@@ -285,15 +316,15 @@ describe('where a repository\'s questions land (PRD 459)', () => {
   const ACME = { workspace: { slug: 'acme', name: 'Acme' }, reason: null };
 
   it('asks GET /api/ask/workspace with the repository, and answers the page\'s reply', async () => {
-    const { client } = await setUp({ place: (repo: string) => (repo === 'acme/widgets' ? ACME : { workspace: null, reason: 'no' }) });
+    const { client, server } = await setUp({ place: (repo: string) => (repo === 'acme/widgets' ? ACME : { workspace: null, reason: 'no' }) });
     expect(await client.whereQuestionsGo('acme/widgets')).toEqual(ACME);
-    expect(server.calls.map((call) => `${call.method} ${call.path} ${call.authorization}`)).toEqual(['GET /api/ask/workspace Bearer access-1']);
+    expect(server.calls.map((call) => `${call.method ?? ''} ${call.path} ${call.authorization ?? ''}`)).toEqual(['GET /api/ask/workspace Bearer access-1']);
   });
 
   it('sends the repository encoded as a query', async () => {
     const seen: string[] = [];
     const tokens = memoryTokens({ 'omni.example': { access_token: 'access-1' } });
-    const fetch = async (url: string) => { seen.push(url); return new Response(JSON.stringify(ACME), { status: 200 }); };
+    const fetch = (url: string) => { seen.push(url); return Promise.resolve(new Response(JSON.stringify(ACME), { status: 200 })); };
     await askClient({ baseUrl: 'https://omni.example', host: 'omni.example', tokens, fetch }).whereQuestionsGo('acme/web.site');
     expect(seen).toEqual(['https://omni.example/api/ask/workspace?repo=acme%2Fweb.site']);
   });
@@ -308,20 +339,20 @@ describe('a renewed sign-in keeps only the sign-in', () => {
   const EXTRAS = { login: 'ada', workspace: { slug: 'acme', name: 'Acme' }, reason: null };
 
   it('on a 401\'s refresh, keeps the tokens, the email and the login, not where a repository went', async () => {
-    const { client, tokens } = await setUp({ tokenExtras: EXTRAS }, { access_token: 'access-1', refresh_token: 'refresh-1', email: 'ada@example.com' });
+    const { client, tokens, server } = await setUp({ tokenExtras: EXTRAS }, { access_token: 'access-1', refresh_token: 'refresh-1', email: 'ada@example.com' });
     const { id } = server.openSession();
     server.expireAccess();
     await client.openRound(id, QUESTIONS);
     expect(tokens.store[server.host]).toEqual({
-      access_token: 'access-2', refresh_token: 'refresh-2', expires_at: expect.any(Number), email: 'person@example.com', login: 'ada',
+      access_token: 'access-2', refresh_token: 'refresh-2', expires_at: anyNumber, email: 'person@example.com', login: 'ada',
     });
   });
 
   it('on renew(), the same', async () => {
-    const { client, tokens } = await setUp({ tokenExtras: EXTRAS }, { access_token: 'access-1', refresh_token: 'refresh-1', login: 'ada' });
+    const { client, tokens, server } = await setUp({ tokenExtras: EXTRAS }, { access_token: 'access-1', refresh_token: 'refresh-1', login: 'ada' });
     expect(await client.renew()).toBe('renewed');
     expect(tokens.store[server.host]).toEqual({
-      access_token: 'access-2', refresh_token: 'refresh-2', expires_at: expect.any(Number), email: 'person@example.com', login: 'ada',
+      access_token: 'access-2', refresh_token: 'refresh-2', expires_at: anyNumber, email: 'person@example.com', login: 'ada',
     });
   });
 });
@@ -335,7 +366,7 @@ describe('downloading a screenshot (PRD 620)', () => {
       baseUrl: 'https://ask.example',
       host: 'ask.example',
       tokens,
-      fetch: async (url: string, init: Init) => {
+      fetch: (url: string, init: Init) => {
         requests.push({ url, init });
         return answer(url, init);
       },
@@ -349,9 +380,11 @@ describe('downloading a screenshot (PRD 620)', () => {
     const bytes = await client.download(link, { timeoutMs: 30_000 });
     expect([...bytes]).toEqual([137, 80, 78, 71]);
     expect(requests).toHaveLength(1);
-    expect(requests[0]!.url).toBe(link);
-    expect(requests[0]!.init.headers?.authorization).toBeUndefined();
-    expect(requests[0]!.init.signal).toBeInstanceOf(AbortSignal);
+    const [request] = requests;
+    assertDefined(request, 'the request');
+    expect(request.url).toBe(link);
+    expect(request.init.headers.authorization).toBeUndefined();
+    expect(request.init.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('is an AskCallError for a refused link or one it cannot reach', async () => {
@@ -364,13 +397,13 @@ describe('downloading a screenshot (PRD 620)', () => {
 
 describe('the proof calls (PRD 798)', () => {
   function stubbed(answer: FakeFetch) {
-    const requests: any[] = [];
+    const requests: { url: string; method: string; headers: Record<string, string>; body: unknown }[] = [];
     const tokens = memoryTokens({ 'ask.example': { access_token: 'access-1' } });
     const client = askClient({
       baseUrl: 'https://ask.example',
       host: 'ask.example',
       tokens,
-      fetch: async (url: string, init: Init) => {
+      fetch: (url: string, init: Init) => {
         requests.push({ url, method: init.method, headers: init.headers, body: init.body });
         return answer(url, init);
       },
@@ -393,8 +426,8 @@ describe('the proof calls (PRD 798)', () => {
       ['POST', 'https://ask.example/api/proofs/uploads', 'Bearer access-1'],
       ['POST', 'https://ask.example/api/proofs', 'Bearer access-1'],
     ]);
-    expect(JSON.parse(requests[0].body)).toEqual({ repo: 'acme/widgets', prd: 7, files });
-    expect(JSON.parse(requests[1].body)).toEqual({ repo: 'acme/widgets', prd: 7, run: 'r-1', commit: 'abcdef1', url: 'https://p.example', criteria });
+    expect(sentJson(requests[0]?.body)).toEqual({ repo: 'acme/widgets', prd: 7, files });
+    expect(sentJson(requests[1]?.body)).toEqual({ repo: 'acme/widgets', prd: 7, run: 'r-1', commit: 'abcdef1', url: 'https://p.example', criteria });
   });
 
   it('puts a file to its signed link as its type, with no bearer token', async () => {

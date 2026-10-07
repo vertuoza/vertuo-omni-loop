@@ -4,6 +4,7 @@ import {
   OMNI_MAN, durationWords, engineeringOf, isBot, median, sortOf, topFive,
   type EngineeringRead, type PullRequestRow, type ReviewRow,
 } from './tally';
+import { sure } from '../arcade/test/sure';
 
 // The Engineering board's math (PRD 612 s3), pure: the spec's counting rules over the rows the
 // collector wrote, for tracked repositories only, within a period's window.
@@ -29,9 +30,9 @@ const board = (r: EngineeringRead, sort = sortOf(null)) => {
 };
 
 describe('median', () => {
-  it('is the middle one of an odd count', () => expect(median([5, 1, 3])).toBe(3));
-  it('is the mean of the two middle ones of an even count', () => expect(median([4, 1, 3, 10])).toBe(3.5));
-  it('is null for none', () => expect(median([])).toBeNull());
+  it('is the middle one of an odd count', () => { expect(median([5, 1, 3])).toBe(3); });
+  it('is the mean of the two middle ones of an even count', () => { expect(median([4, 1, 3, 10])).toBe(3.5); });
+  it('is null for none', () => { expect(median([])).toBeNull(); });
 });
 
 describe('durationWords', () => {
@@ -41,7 +42,7 @@ describe('durationWords', () => {
     expect(durationWords(19.64 * HOUR)).toBe('19.6 h');
     expect(durationWords(72 * HOUR)).toBe('3.0 d');
   });
-  it('says a dash for none', () => expect(durationWords(null)).toBe('–'));
+  it('says a dash for none', () => { expect(durationWords(null)).toBe('–'); });
 });
 
 describe('isBot', () => {
@@ -96,7 +97,7 @@ describe('the tiles', () => {
 describe('an untracked repository', () => {
   it('counts nowhere on the board: tiles, table, people, Omni Loop, chart', () => {
     const rows = [merged(3, { repo: 'acme/old', author: 'zed', mergedBy: 'zed', omniSigned: true, commits: 9 })];
-    const value = board(read({ tracked: ['acme/widgets'], pullRequests: rows, reviews: [review({ repo: 'acme/old', number: rows[0]!.number, reviewer: 'zed' })] }));
+    const value = board(read({ tracked: ['acme/widgets'], pullRequests: rows, reviews: [review({ repo: 'acme/old', number: sure(rows[0], 'rows[0]').number, reviewer: 'zed' })] }));
     expect(value.tiles).toMatchObject({ opened: 0, merged: 0, openNow: 0, commits: 0 });
     expect(value.repositories.map((r) => r.repo)).toEqual(['acme/widgets']);
     expect(value.people).toEqual({ opened: [], merged: [], reviews: [] });
@@ -282,7 +283,7 @@ describe('only merges into main count (PRD 714 s1)', () => {
   it('leaves sub-PRs out of every part of the board but the reviews', () => {
     const real = merged(3, { author: 'bob', mergedBy: 'carl', commits: 1, additions: 10, deletions: 1 });
     const subs = [sub(), sub({ repo: 'acme/gears' }), sub({ mergedAt: null, closedAt: null, mergedBy: null })];
-    const value = board(read({ pullRequests: [real, ...subs], reviews: [review({ number: subs[0]!.number, reviewer: 'dora' })] }));
+    const value = board(read({ pullRequests: [real, ...subs], reviews: [review({ number: sure(subs[0], 'subs[0]').number, reviewer: 'dora' })] }));
     expect(value.tiles).toEqual({ opened: 1, merged: 1, openNow: 0, medianToMerge: 3 * HOUR, commits: 1, additions: 10, deletions: 1 });
     expect(value.repositories).toEqual([
       { repo: 'acme/widgets', opened: 1, merged: 1, openNow: 0, medianToMerge: 3 * HOUR, commits: 1, lines: 11 },
@@ -369,7 +370,7 @@ describe('Loop health, right now (PRD 714 s2)', () => {
     const rows = Array.from({ length: 11 }, (_, i) => stuck(100 + i * 10));
     const value = health(rows);
     expect(value.rows).toHaveLength(10);
-    expect(value.rows[0]!.number).toBe(rows[10]!.number);
+    expect(sure(value.rows[0], 'value.rows[0]').number).toBe(sure(rows[10], 'rows[10]').number);
     expect(value.rows.map((r) => r.age)).toEqual([...value.rows.map((r) => r.age)].sort((a, b) => b - a));
     expect(value.more).toBe(1);
   });

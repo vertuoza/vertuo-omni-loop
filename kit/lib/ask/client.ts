@@ -11,7 +11,9 @@
 // proof run: asks for signed upload links (`POST /api/proofs/uploads`), puts each file to its link (a
 // signed link carries no token), and registers the run (`POST /api/proofs`). Since PRD 812 it asks a workspace's Jev decision
 // (`POST /api/decide/<decision>`), for `omni decide`. Since PRD 871 it reads a repository's product's
-// constituents (`GET /api/constituents`), for `omni constituents`.
+// constituents (`GET /api/constituents`), for `omni constituents`. Since PRD 1108 it reads a
+// repository's product's Pitch settings (`GET /api/pitch-settings`), for `omni pitch start`. Since
+// PRD 1139 it pushes where a loop stands (`POST /api/loops`), for `omni loop push`.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -22,6 +24,7 @@
 // itself (the renewed tokens, the `{error}` text), each through a schema; whoever called reads the rest.
 import { jsonObject, TokenReplySchema } from './schema.ts';
 import type { JsonObject, Tokens } from './schema.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
 
 export type { Tokens } from './schema.ts';
 
@@ -89,8 +92,8 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
   baseUrl: string;
   host: string;
   tokens: TokenStore;
-  fetch?: Fetch;
-  callMs?: number;
+  fetch?: Fetch | undefined;
+  callMs?: number | undefined;
 }) {
   const root = baseUrl.replace(/\/+$/, '');
   const segment = (value: string | number): string => encodeURIComponent(value);
@@ -103,7 +106,7 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
       return await fetch(`${root}${path}`, {
         method,
         headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
@@ -261,7 +264,8 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * from the session's end. Answered 204. */
     heartbeat: ({ claudeSessionId, repo, work, ended = false }: { claudeSessionId: unknown; repo: unknown; work: unknown; ended?: boolean }) =>
       call('POST', '/api/ask/heartbeat', { body: { claudeSessionId, repo, work, ...(ended ? { ended: true } : {}) } }),
-    findDossier: ({ repo, prd, kind = 'prd' }: { repo: string; prd: number | string; kind?: string | null }) =>
+    // A fix's dossier (`kind` visual or bug) is keyed by its issue, so `prd` is a PRD's number or an issue's.
+    findDossier: ({ repo, prd, kind = 'prd' }: { repo: string; prd: PrdNumber | IssueNumber; kind?: string | null }) =>
       call('GET', `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd), ...(kind && kind !== 'prd' ? { kind } : {}) })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
@@ -270,6 +274,18 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ url: string }>} */
     registerProof: ({ repo, prd, run, commit, url, criteria }: { repo: unknown; prd: unknown; run: unknown; commit: unknown; url: unknown; criteria: unknown }) =>
       call('POST', '/api/proofs', { body: { repo, prd, run, commit, url, criteria } }),
+    /** PRD 859: a new pitch run's id and one signed upload link per file of the five; a 404 when PRD `prd`
+     * has no dossier, a 422 when it is not shipped. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
+    requestPitchUploads: ({ repo, prd, files }: { repo: unknown; prd: unknown; files: unknown }) => call('POST', '/api/pitches/uploads', { body: { repo, prd, files } }),
+    /** PRD 859: stores a pitch once its five files are up, and answers the Pitch tab's link and the GIF's
+     * stable link. @returns {Promise<{ url: string, gif: string }>} */
+    registerPitch: ({ repo, prd, run, audience, look, commit, hook, benefit, kicker, closing }: {
+      repo: unknown; prd: unknown; run: unknown; audience: unknown; look: unknown; commit: unknown; hook: unknown; benefit: unknown; kicker: unknown; closing: unknown;
+    }) =>
+      call('POST', '/api/pitches', { body: { repo, prd, run, audience, look, commit, hook, benefit, kicker, closing } }),
+    /** PRD 1108: the Pitch settings of the product `repo` (owner/name) belongs to, filled from its preset
+     * and the defaults. @returns {Promise<{ settings: unknown }>} */
+    readPitchSettings: (repo: string) => call('GET', `/api/pitch-settings?${new URLSearchParams({ repo })}`),
     /** PRD 748: the confirmed claims of the business agents in `repo` (owner/name) read.
      * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
      *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */
@@ -290,5 +306,8 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ answer: string | null, confidence: number | null, decidedBy: 'jev' | 'old' }>} */
     decide: ({ decision, repo, state, old, ref = null }: { decision: string; repo: unknown; state: unknown; old: unknown; ref?: unknown }) =>
       call('POST', `/api/decide/${segment(decision)}`, { body: { repo, state, old, ...(ref ? { ref } : {}) } }),
+    /** PRD 1139: one push of a loop (`../loop/body.ts` shapes it), sent as it is.
+     * @returns {Promise<{ loopId: string, state: 'running' | 'parked' | 'stopped', planVersion: number }>} */
+    pushLoop: (body: unknown) => call('POST', '/api/loops', { body }),
   };
 }

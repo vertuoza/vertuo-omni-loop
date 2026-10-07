@@ -37,8 +37,8 @@ function usePfState() {
   const [pf, setPf] = useState(newDockPf);
   const pfRef = useRef(pf);
   pfRef.current = pf;
-  const onStatus = useCallback((status: ScreenStatus) => setPf((p) => ({ ...p, status })), []);
-  const onEvent = useCallback((e: PlatformerEvent) => setPf((p) => ({ ...p, session: hearEvent(p.session, e) })), []);
+  const onStatus = useCallback((status: ScreenStatus) => { setPf((p) => ({ ...p, status })); }, []);
+  const onEvent = useCallback((e: PlatformerEvent) => { setPf((p) => ({ ...p, session: hearEvent(p.session, e) })); }, []);
   return { pf, pfRef, setPf, onStatus, onEvent };
 }
 
@@ -57,10 +57,10 @@ function useDockPlatformer({ asking, onBack, onFold }: Pick<DockPlatformerProps,
 
   const act = useCallback((action: Action) => {
     const r = pressPf(pfRef.current, action, askingRef.current);
-    if (r.out) return out.current[r.out]();
+    if (r.out) { out.current[r.out](); return; }
     if (r.pf !== pfRef.current) { pfRef.current = r.pf; setPf(r.pf); }
   }, [pfRef, setPf]);
-  const fold = useCallback(() => out.current.fold(), []);
+  const fold = useCallback(() => { out.current.fold(); }, []);
   useDockKeys(act, held, fold, lost);
 
   // The scene reads the held buttons each frame: none while a question is open.
@@ -73,7 +73,7 @@ export function DockPlatformer({ asking, hero, team, back, onBack, onFold }: Doc
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   return (
-    <Screen scene="platformer" frame={TALL} info={DOCK_INFO} canvasRef={canvasRef} onTap={() => act('a')}>
+    <Screen scene="platformer" frame={TALL} info={DOCK_INFO} canvasRef={canvasRef} onTap={() => { act('a'); }}>
       <Press.Provider value={act}>
         <PlatformerScreen grid={TALL} hero={hero} team={team} held={buttons} paused={pfPaused(pf, asking)} retry={pf.retry} onEvent={onEvent} onStatus={onStatus} />
         <PlatformerOverlay session={pf.session} status={pf.status} back={back} />

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
 import { fillConfig, resolveForm } from './resolve.ts';
 import type { ResolvedForm } from './resolve.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 /** `formText`'s options, typed here until `kit/test/fixture.ts` is (PRD 725, s17). */
 type FormTextOptions = {
@@ -156,7 +157,9 @@ describe('resolveForm — order, headings and what it reports', () => {
 describe('resolveForm — {config:<key>} in a kit default', () => {
   it('fills a key from the repository’s config', () => {
     const result = resolved({}, { commands: { test: 'pnpm vitest run' } });
-    expect(section(result, 'commands')!.text).toBe('Run the whole suite with pnpm vitest run.');
+    const section2 = section(result, 'commands');
+    assertDefined(section2, 'the section');
+    expect(section2.text).toBe('Run the whole suite with pnpm vitest run.');
     expect(result.problems).toEqual([]);
   });
 
@@ -164,13 +167,17 @@ describe('resolveForm — {config:<key>} in a kit default', () => {
     const template = formText({ slots: [{ id: 'commands', required: true, body: 'Run {config:commands.tests} first.' }] });
     const { ctx } = makeRepo();
     const result = resolveForm('testing', { ctx, template });
-    expect(section(result, 'commands')!.text).toBe('Run {config:commands.tests} first.');
+    const section2 = section(result, 'commands');
+    assertDefined(section2, 'the section');
+    expect(section2.text).toBe('Run {config:commands.tests} first.');
     expect(result.problems).toEqual(['kit default testing#commands: {config:commands.tests} names no config key']);
   });
 
   it('never fills the repository’s own text', () => {
     const result = resolved({ [FILE]: repoForm([{ id: 'commands', required: true, body: 'Literally {config:commands.test}.' }]) });
-    expect(section(result, 'commands')!.text).toBe('Literally {config:commands.test}.');
+    const section2 = section(result, 'commands');
+    assertDefined(section2, 'the section');
+    expect(section2.text).toBe('Literally {config:commands.test}.');
   });
 });
 

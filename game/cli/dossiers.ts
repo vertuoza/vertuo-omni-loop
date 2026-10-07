@@ -4,7 +4,8 @@
 // game:project. A repository, a folder or a file it cannot read or store is skipped and logged, and the
 // run still exits 0; only a workspace it cannot open stops it, as every game script (exit 2 on a usage
 // mistake, 1 otherwise).
-import { loadConfig, supabaseEnv } from '../sources/supabase.ts';
+import { processEnv, readEnv } from '../../kit/lib/env/read.ts';
+import { loadConfig, supabasePair } from '../sources/supabase.ts';
 import { ghExec } from '../sources/github.ts';
 import { dossierStore } from '../dossiers/store.ts';
 import { syncDossiers } from '../dossiers/sync.ts';
@@ -20,7 +21,8 @@ try {
 }
 console.log(`workspace ${workspace.slug}: ${repos.length} repositories of ${github.org}, read on their default branch`);
 
-const store = dossierStore(supabaseEnv());
+// openWorkspace has read the pair already, and stopped when it was unset.
+const store = dossierStore(supabasePair(readEnv(processEnv()).supabase));
 const reports = await syncDossiers({ exec: ghExec, store, workspaceId: workspace.id, org: github.org, repos });
 
 const read = reports.flatMap((r) => (r.skipped === undefined ? [r] : []));

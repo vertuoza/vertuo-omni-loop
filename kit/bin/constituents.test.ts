@@ -10,6 +10,7 @@ import { makeRepo } from '../test/fixture.ts';
 import { CONSTITUENTS_BUDGET_MS } from './commands/constituents.ts';
 import { CONSTITUENTS_FILE } from '../lib/constituents/cache.ts';
 import { ageOf, constituentsOf } from '../lib/constituents/read.ts';
+import { dig } from './dig.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
 
@@ -46,18 +47,20 @@ const config = (url: string | null) => `kit: 1\nrepo:\n  slug: acme/widgets\nask
 /** A `fetch` answering every call with `status` and `body`, recording what it was asked. */
 function page(body: unknown, status = 200) {
   const calls: { url: string; authorization: unknown }[] = [];
-  const fetch: Fetch = async (url, init) => {
+  const fetch: Fetch = (url, init) => {
     calls.push({ url, authorization: (init.headers as Record<string, string>).authorization });
-    return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+    return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }));
   };
   return { fetch, calls };
 }
 
-const offline: Fetch = async () => { throw new TypeError('fetch failed'); };
+const offline: Fetch = () => Promise.reject(new TypeError('fetch failed'));
 
 /** A page that never answers until the call is given up. */
-const slow: Fetch = (url, init) => new Promise((_, reject) => {
-  init.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+const slow: Fetch = (_url, init) => new Promise((_, reject) => {
+  init.signal?.addEventListener('abort', () => {
+    reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+  });
 });
 
 function checkout({ url = URL_, signedIn = true }: { url?: string | null; signedIn?: boolean } = {}) {
@@ -93,14 +96,14 @@ describe('omni constituents', () => {
       ].join('\n'),
     });
     expect(p.calls).toEqual([{ url: `${URL_}/api/constituents?repo=acme%2Fwidgets`, authorization: 'Bearer access-1' }]);
-    const kept = JSON.parse(readFileSync(join(c.root, CONSTITUENTS_FILE), 'utf8'));
+    const kept: unknown = JSON.parse(readFileSync(join(c.root, CONSTITUENTS_FILE), 'utf8'));
     expect(kept).toEqual({ repo: 'acme/widgets', syncedAt: new Date(T0).toISOString(), read: READ });
     expect(readFileSync(join(c.root, '.omni-loop/local/.gitignore'), 'utf8')).toBe('*\n');
   });
 
   it('--json prints {state, product, statement, never, syncedAt}', async () => {
     const c = checkout();
-    const printed = JSON.parse((await run(['--json'], c, { fetch: page(READ).fetch })).out);
+    const printed = JSON.parse((await run(['--json'], c, { fetch: page(READ).fetch })).out) as object;
     expect(Object.keys(printed)).toEqual(['state', 'product', 'statement', 'never', 'syncedAt']);
     expect(printed).toEqual({ state: 'ok', product: READ.product, statement: READ.statement, never: READ.never, syncedAt: new Date(T0).toISOString() });
   });
@@ -112,7 +115,7 @@ describe('omni constituents', () => {
     expect(result.code).toBe(0);
     expect(result.out.split('\n')[0]).toBe('Constituents of Vertuoza UX (synced 3 d ago, offline): they come before every priority and the playbook.');
     expect(result.out).toContain('  never#1  Calls real Vertuoza APIs');
-    const printed = JSON.parse((await run(['--json'], c, { fetch: offline, now: T0 + 3 * DAY })).out);
+    const printed: unknown = JSON.parse((await run(['--json'], c, { fetch: offline, now: T0 + 3 * DAY })).out);
     expect(printed).toEqual({ state: 'cached', product: READ.product, statement: READ.statement, never: READ.never, syncedAt: new Date(T0).toISOString() });
   });
 
@@ -150,7 +153,7 @@ describe('omni constituents', () => {
   it('no Omni page set here: one line', async () => {
     const c = checkout({ url: null });
     const result = await run(['--json'], c, { fetch: page(READ).fetch });
-    expect(JSON.parse(result.out).state).toBe('no-sign-in');
+    expect(dig(JSON.parse(result.out), 'state')).toBe('no-sign-in');
   });
 
   it('a refusal or a reply that is not constituents: one line, or the copy', async () => {
@@ -158,7 +161,7 @@ describe('omni constituents', () => {
     const refused = await run([], c, { fetch: page({ error: 'Not your repository.' }, 403).fetch });
     expect(refused).toEqual({ code: 0, out: 'no constituents: refused (403): Not your repository. — agents carry on\n' });
     const odd = await run(['--json'], c, { fetch: page({ state: 'ok', never: 'x' }).fetch });
-    expect(JSON.parse(odd.out).state).toBe('refused');
+    expect(dig(JSON.parse(odd.out), 'state')).toBe('refused');
   });
 
   it('a page slower than the budget: gives up within it, exits 0', async () => {
@@ -203,7 +206,7 @@ describe('the constituents read', () => {
 
 describe('the plugin\'s SessionStart hook', () => {
   it('runs omni constituents, never failing', () => {
-    const hooks = JSON.parse(readFileSync(fileURLToPath(new URL('../plugin/hooks/hooks.json', import.meta.url)), 'utf8')).hooks;
-    expect(hooks.SessionStart).toEqual([{ hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" constituents || true', timeout: 10 }] }]);
+    const hooks: unknown = JSON.parse(readFileSync(fileURLToPath(new URL('../plugin/hooks/hooks.json', import.meta.url)), 'utf8'));
+    expect(dig(hooks, 'hooks', 'SessionStart')).toEqual([{ hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" constituents || true', timeout: 10 }] }]);
   });
 });

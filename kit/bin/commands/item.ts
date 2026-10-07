@@ -47,6 +47,7 @@
 //   exit code is 2, whether or not `--json` was passed; `outcome: 'record'` is never reached.
 // - **After `--adopt`**, the ledger can still refuse the adoption (a malformed `settled.md`, say);
 //   nothing is written then either, `adopted` stays `false`, and the exit code is 1.
+import { defined } from '../../lib/narrow.ts';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
@@ -57,9 +58,12 @@ import { relayFolder } from '../../lib/outbox/relay.ts';
 import { adoptItem, parseSettledEntries } from '../../lib/outbox/settle.ts';
 import { decideRecording, renderOutboxItem } from '../../lib/policy/outbox-policy.ts';
 import { KIT_MESSAGES } from '../../lib/schema/messages.ts';
-import { errorMessage, inRoot, parseArgs, positiveInt, println, readUserFile, usageError } from '../args.ts';
+import { errorMessage, inRoot, parseArgs, prdArg, println, readUserFile, sliceArg, usageError } from '../args.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
+import { OutboxItemIdSchema } from '../../lib/ids.ts';
+import type { OutboxItemId, PrdNumber, WorkSliceId } from '../../lib/ids.ts';
 
 const NEW_USAGE = 'usage: omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]';
 const RELAY_USAGE = 'usage: omni item relay <dir> --prd <n>';
@@ -75,7 +79,7 @@ function funLine(field: string) {
     .min(1, `${field} must not be empty`)
     .superRefine((value, refinement) => {
       for (const problem of funLineProblems(value)) {
-        refinement.addIssue({ code: z.ZodIssueCode.custom, message: `${field} ${problem}` });
+        refinement.addIssue({ code: 'custom', message: `${field} ${problem}` });
       }
     })
     .optional();
@@ -87,7 +91,7 @@ function funPair(input: { introFun?: string | undefined; punchlineFun?: string |
     input.introFun === undefined ? ['punchlineFun', 'introFun'] : ['introFun', 'punchlineFun'];
   if ((input.introFun === undefined) === (input.punchlineFun === undefined)) return;
   refinement.addIssue({
-    code: z.ZodIssueCode.custom,
+    code: 'custom',
     path: [missing],
     message: `${missing} is required when ${given} is given — the intro and the punchline come together, or neither does`,
   });
@@ -169,8 +173,8 @@ function readItemInput(ctx: Context, path: string): z.infer<typeof ItemInputSche
 
 /** Every id this PRD's slice has already spent: an open item file's basename, or an id `settled.md`
  * already carries — a medium item adopted at raise time leaves no open file behind at all. */
-function spentIds(prd: number, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): Set<string> {
-  const outboxDir = ctx.layout.outboxDir(prd)!; // ts-allow: runNew refused a PRD with no outbox folder first
+function spentIds(prd: PrdNumber, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): Set<string> {
+  const outboxDir = defined(ctx.layout.outboxDir(prd), `PRD ${prd}'s outbox folder`);
   const prefix = `${outboxDir}/`;
   const ids = new Set(
     outboxItemFiles({ ctx })
@@ -195,7 +199,7 @@ function spentIds(prd: number, { ctx, outDir = null }: { ctx: Context; outDir?: 
 
 /** Every two-digit number this slice has already spent, whatever slug it was raised with — an
  * open file's own number, or one `settled.md` already carries. */
-function spentNumbers(prd: number, slice: string, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): Set<string | undefined> {
+function spentNumbers(prd: PrdNumber, slice: WorkSliceId, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): Set<string | undefined> {
   const prefix = `${slice}-`;
   const shape = /^-(\d{2})-/;
   const numbers = new Set<string | undefined>();
@@ -210,11 +214,14 @@ function spentNumbers(prd: number, slice: string, { ctx, outDir = null }: { ctx:
 /** The next free `<slice>-<nn>-<slug>` id, `nn` the smallest two-digit number this slice has not
  * already spent under ANY slug (as an open file or in `settled.md`) — a running counter per
  * slice, not per slug. */
-function nextItemId(prd: number, slice: string, slug: string, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): string {
+function nextItemId(prd: PrdNumber, slice: WorkSliceId, slug: string, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): OutboxItemId {
   const spent = spentNumbers(prd, slice, { ctx, outDir });
   for (let n = 1; n <= 99; n += 1) {
     const nn = String(n).padStart(2, '0');
-    if (!spent.has(nn)) return `${slice}-${nn}-${slug}`;
+    if (spent.has(nn)) continue;
+    const id = OutboxItemIdSchema.safeParse(`${slice}-${nn}-${slug}`);
+    if (!id.success) throw usageError(`omni item new: slice ${slice} names no item id — an item is raised on a slice like s1, or on a rework of one.`);
+    return id.data;
   }
   throw usageError(`omni item new: ${slice} under PRD ${prd} has already spent every number 01-99.`);
 }
@@ -224,7 +231,14 @@ function jsonOutcome({ outcome, rank = null, id = null, file = null, adopted = f
   return JSON.stringify({ outcome, rank, id, file, adopted, reason });
 }
 
-async function runNew(args: string[], { ctx, stdout, stderr }: CommandIo): Promise<number> {
+type ItemInput = z.infer<typeof ItemInputSchema>;
+type Decision = ReturnType<typeof decideRecording>;
+type Out = CommandIo['stdout'];
+/** What `item new` was asked: the PRD, the slice, where the item goes, and how to answer. */
+type NewRequest = { prd: PrdNumber; slice: WorkSliceId; asJson: boolean; adopt: boolean; outboxDir: string; outDir: string | null; destination: Destination; file: string };
+
+/** `item new`'s arguments, checked: a usage error for any that is missing or clashes. */
+function newRequest(args: string[], ctx: Context): NewRequest {
   const { positional, flags } = parseArgs('item new', args, {
     values: ['prd', 'slice', 'file', 'out'],
     booleans: ['adopt', 'json'],
@@ -235,25 +249,25 @@ async function runNew(args: string[], { ctx, stdout, stderr }: CommandIo): Promi
   if (flags.out !== undefined && flags.adopt) {
     throw usageError('omni item new: --out never adopts — pass --out or --adopt, not both; a relayed medium item stays open for the wave to adopt.');
   }
-  const prd = positiveInt('item new', '--prd', flags.prd);
-  const slice = flags.slice;
-  const asJson = Boolean(flags.json);
-
+  const prd = prdArg('item new', '--prd', flags.prd);
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) throw usageError(`omni item new: PRD ${prd} has no inbox or shipped folder.`);
 
-  // Where the item file goes: the PRD's outbox (repo-relative), or `--out`'s folder (PRD 563).
-  const outDir = flags.out === undefined ? null : inRoot(ctx, flags.out);
-  const destination: Destination = outDir === null ? { abs: join(ctx.root, outboxDir), shown: outboxDir } : { abs: outDir, shown: flags.out ?? '' };
+  return { prd, slice: sliceArg('item new', '--slice', flags.slice), asJson: Boolean(flags.json), adopt: Boolean(flags.adopt), outboxDir, ...destinationOf(ctx, outboxDir, flags.out), file: flags.file };
+}
 
-  const input = readItemInput(ctx, flags.file);
-  const laws = lawsFor(ctx);
-  const bearsOn = input.bearsOn ?? 'none';
+/** Where the item file goes: the PRD's outbox (repo-relative), or `--out`'s folder (PRD 563). */
+function destinationOf(ctx: Context, outboxDir: string, out: string | undefined): { outDir: string | null; destination: Destination } {
+  if (out === undefined) return { outDir: null, destination: { abs: join(ctx.root, outboxDir), shown: outboxDir } };
+  const outDir = inRoot(ctx, out);
+  return { outDir, destination: { abs: outDir, shown: out } };
+}
 
-  let decision;
+/** The recording policy's decision on `input`: a usage error when it refuses the input. */
+function decisionOn(input: ItemInput, laws: ReturnType<typeof lawsFor>): Decision {
   try {
-    decision = decideRecording({
-      bearsOn,
+    return decideRecording({
+      bearsOn: input.bearsOn ?? 'none',
       breaksNamedLaw: input.breaksNamedLaw ?? false,
       needsHumanAction: input.needsHumanAction ?? false,
       hardToRevert: input.hardToRevert ?? false,
@@ -263,6 +277,95 @@ async function runNew(args: string[], { ctx, stdout, stderr }: CommandIo): Promi
   } catch (error) {
     throw usageError(`omni item new: ${errorMessage(error)}`);
   }
+}
+
+/** A usage error when the input lacks what the rank `decision` settled needs. */
+function requireSections(input: ItemInput, decision: Decision): void {
+  const humanAction = decision.rank === 'human-action';
+  if (humanAction && !input.personSteps) {
+    throw usageError('omni item new: "personSteps" is required — the decision settled at rank "human-action", which carries no options.');
+  }
+  if (!humanAction && !input.options) {
+    throw usageError('omni item new: "options" is required unless the decision settles at rank "human-action".');
+  }
+}
+
+/** The item's text, at the rank `decision` settled. */
+function renderedItem(input: ItemInput, decision: Decision, { id, prd, slice, laws }: { id: OutboxItemId; prd: PrdNumber; slice: WorkSliceId; laws: ReturnType<typeof lawsFor> }): string {
+  const humanAction = decision.rank === 'human-action';
+  try {
+    return renderOutboxItem({
+      id,
+      prd,
+      slice,
+      wave: input.wave,
+      raised: input.raised ?? todayUtc(),
+      bearsOn: input.bearsOn ?? 'none',
+      rank: defined(decision.rank, 'the rank of a decision that writes an item'),
+      questionPlain: input.questionPlain,
+      decisionPlain: input.decisionPlain,
+      introFun: input.introFun,
+      punchlineFun: input.punchlineFun,
+      decide: input.decide,
+      meanwhile: input.meanwhile,
+      cost: input.cost,
+      gaps: input.gaps,
+      options: humanAction ? null : input.options,
+      personSteps: humanAction ? input.personSteps : null,
+      laws,
+    });
+  } catch (error) {
+    throw usageError(`omni item new: ${errorMessage(error)}`);
+  }
+}
+
+/** Prints why nothing was written: one JSON line under `--json`, else `heading` then each line on stderr. */
+function nothingWritten({ asJson, stdout, stderr }: { asJson: boolean; stdout: Out; stderr: Out }, heading: string, lines: string[]): void {
+  if (asJson) {
+    println(stdout, jsonOutcome({ outcome: null, reason: lines.join('; ') }));
+    return;
+  }
+  println(stderr, heading);
+  for (const line of lines) println(stderr, `  - ${line}`);
+}
+
+/** Adopts a medium item straight to the ledger: no open item file is written. */
+function adoptNew(text: string, id: string, decision: Decision, { ctx, asJson, stdout, stderr }: { ctx: Context; asJson: boolean; stdout: Out; stderr: Out }): number {
+  const result = adoptItem({ ctx, itemText: text });
+  if (!result.ok) {
+    nothingWritten({ asJson, stdout, stderr }, 'omni item new — nothing was written:', result.errors);
+    return 1;
+  }
+  if (asJson) {
+    println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, adopted: true }));
+  } else {
+    println(
+      stdout,
+      `omni item new — ${id} adopted straight to ${result.settledFile}; no open item file was written.`,
+    );
+  }
+  return 0;
+}
+
+/** Writes the item. A `stop` or `blocked` outcome writes it as a `record` would, but exits 1 with the reason. */
+function writeNew(text: string, id: string, decision: Decision, { destination, asJson, stdout, stderr }: { destination: Destination; asJson: boolean; stdout: Out; stderr: Out }): number {
+  const file = writeItemFile(destination, id, text);
+  const stopped = decision.outcome !== 'record';
+  if (asJson) {
+    println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file, ...(stopped ? { reason: decision.reason } : {}) }));
+  } else {
+    println(stdout, file);
+    if (stopped) println(stderr, `omni item new — the slice ${NONZERO_OUTCOME_LABEL[decision.outcome]}: ${decision.reason}`);
+  }
+  return stopped ? 1 : 0;
+}
+
+function runNew(args: string[], { ctx, stdout, stderr }: CommandIo): number {
+  const request = newRequest(args, ctx);
+  const { prd, slice, asJson } = request;
+  const input = readItemInput(ctx, request.file);
+  const laws = lawsFor(ctx);
+  const decision = decisionOn(input, laws);
 
   if (!decision.writesItem) {
     if (asJson) {
@@ -273,39 +376,9 @@ async function runNew(args: string[], { ctx, stdout, stderr }: CommandIo): Promi
     return 1;
   }
 
-  if (decision.rank === 'human-action' && !input.personSteps) {
-    throw usageError('omni item new: "personSteps" is required — the decision settled at rank "human-action", which carries no options.');
-  }
-  if (decision.rank !== 'human-action' && !input.options) {
-    throw usageError('omni item new: "options" is required unless the decision settles at rank "human-action".');
-  }
-
-  const id = nextItemId(prd, slice, input.slug, { ctx, outDir });
-  let text;
-  try {
-    text = renderOutboxItem({
-      id,
-      prd,
-      slice,
-      wave: input.wave,
-      raised: input.raised ?? todayUtc(),
-      bearsOn,
-      rank: decision.rank as string, // ts-allow: a decision that writes an item carries a rank
-      questionPlain: input.questionPlain,
-      decisionPlain: input.decisionPlain,
-      introFun: input.introFun,
-      punchlineFun: input.punchlineFun,
-      decide: input.decide,
-      meanwhile: input.meanwhile,
-      cost: input.cost,
-      gaps: input.gaps,
-      options: decision.rank === 'human-action' ? null : input.options,
-      personSteps: decision.rank === 'human-action' ? input.personSteps : null,
-      laws,
-    });
-  } catch (error) {
-    throw usageError(`omni item new: ${errorMessage(error)}`);
-  }
+  requireSections(input, decision);
+  const id = nextItemId(prd, slice, input.slug, { ctx, outDir: request.outDir });
+  const text = renderedItem(input, decision, { id, prd, slice, laws });
 
   // The same grading `omni check outbox` runs on every open item, run here before anything is
   // written — a raised item that `check outbox` would immediately reject (a below-floor rank, a
@@ -313,62 +386,20 @@ async function runNew(args: string[], { ctx, stdout, stderr }: CommandIo): Promi
   // source instead of surfacing later as a separate, harder-to-attribute failure. This is a
   // usage error: nothing is written, every violation goes to stderr, one per line, and the exit
   // code is 2 — `outcome: 'record'` (or `'stop'` / `'blocked'`) is never reached, `--json` or not.
-  const renderedFile = `${outboxDir}/${id}.md`;
-  const violations = checkItemText(renderedFile, text, { ctx, laws });
+  const violations = checkItemText(`${request.outboxDir}/${id}.md`, text, { ctx, laws });
   if (violations.length > 0) {
-    if (asJson) {
-      println(stdout, jsonOutcome({ outcome: null, reason: violations.join('; ') }));
-    } else {
-      println(stderr, 'omni item new: the rendered item fails "check outbox" — nothing was written:');
-      for (const violation of violations) println(stderr, `  - ${violation}`);
-    }
+    nothingWritten({ asJson, stdout, stderr }, 'omni item new: the rendered item fails "check outbox" — nothing was written:', violations);
     return 2;
   }
 
-  // `outcome !== 'record'` here means `'stop'` (a principles conflict) or `'blocked'`
+  // `outcome !== 'record'` means `'stop'` (a principles conflict) or `'blocked'`
   // (`needsHumanAction`) — both `writesItem: true`. The item is written exactly as a `record`
   // would be, but the slice cannot carry on: a non-zero exit, with the reason on stderr, is the
   // whole difference.
-  if (decision.outcome !== 'record') {
-    const file = writeItemFile(destination, id, text);
-    if (asJson) {
-      println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file, reason: decision.reason }));
-    } else {
-      println(stdout, file);
-      println(stderr, `omni item new — the slice ${NONZERO_OUTCOME_LABEL[decision.outcome]}: ${decision.reason}`);
-    }
-    return 1;
+  if (decision.outcome === 'record' && decision.rank === 'medium' && request.adopt) {
+    return adoptNew(text, id, decision, { ctx, asJson, stdout, stderr });
   }
-
-  if (decision.rank === 'medium' && flags.adopt) {
-    const result = adoptItem({ ctx, itemText: text });
-    if (!result.ok) {
-      if (asJson) {
-        println(stdout, jsonOutcome({ outcome: null, reason: result.errors.join('; ') }));
-      } else {
-        println(stderr, 'omni item new — nothing was written:');
-        for (const error of result.errors) println(stderr, `  - ${error}`);
-      }
-      return 1;
-    }
-    if (asJson) {
-      println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, adopted: true }));
-    } else {
-      println(
-        stdout,
-        `omni item new — ${id} adopted straight to ${result.settledFile}; no open item file was written.`,
-      );
-    }
-    return 0;
-  }
-
-  const file = writeItemFile(destination, id, text);
-  if (asJson) {
-    println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file }));
-  } else {
-    println(stdout, file);
-  }
-  return 0;
+  return writeNew(text, id, decision, { destination: request.destination, asJson, stdout, stderr });
 }
 
 /** Writes `text` as `<id>.md` in the destination folder, creating it if needed, and returns the
@@ -384,17 +415,22 @@ function writeItemFile(destination: Destination, id: string, text: string): stri
 // a target wrote to scratch into the PRD's outbox, through `relayFolder`. Each move is printed on
 // stdout; each refused file on stderr with its reason, left in place, and the exit is 2 while the
 // others still move. An empty folder relays nothing, exit 0.
-async function runRelay(args: string[], { ctx, stdout, stderr }: CommandIo): Promise<number> {
+/** `item relay`'s arguments, checked: the PRD and the folder, as named and as found. */
+function relayRequest(args: string[], ctx: Context): { prd: PrdNumber; named: string; dir: string } {
   const { positional, flags } = parseArgs('item relay', args, { values: ['prd'] });
   const [named] = positional;
   if (positional.length !== 1 || named === undefined || flags.prd === undefined) throw usageError(RELAY_USAGE);
-  const prd = positiveInt('item relay', '--prd', flags.prd);
+  const prd = prdArg('item relay', '--prd', flags.prd);
   if (ctx.layout.outboxDir(prd) === null) throw usageError(`omni item relay: PRD ${prd} has no inbox or shipped folder.`);
   const dir = inRoot(ctx, named);
   if (!existsSync(dir) || !statSync(dir).isDirectory()) {
     throw usageError(`omni item relay: ${named} is not a folder.`);
   }
+  return { prd, named, dir };
+}
 
+function runRelay(args: string[], { ctx, stdout, stderr }: CommandIo): number {
+  const { prd, named, dir } = relayRequest(args, ctx);
   const { moved, refused } = relayFolder({ ctx, laws: lawsFor(ctx), prd, dir });
   if (moved.length === 0 && refused.length === 0) {
     println(stdout, `omni item relay — nothing to relay in ${named}.`);
@@ -406,10 +442,10 @@ async function runRelay(args: string[], { ctx, stdout, stderr }: CommandIo): Pro
 }
 
 export const item: Command = {
-  async run(args: string[], io: CommandIo) {
+  run: synchronous((args: string[], io: CommandIo): number => {
     const [sub, ...rest] = args;
     if (sub === 'new') return runNew(rest, io);
     if (sub === 'relay') return runRelay(rest, io);
     throw usageError(USAGE);
-  },
+  }),
 };

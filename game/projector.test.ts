@@ -3,6 +3,8 @@ import { configFrom } from './config.ts';
 import { projectEvents, type Skip } from './projector.ts';
 import type { GameEvent } from './events.ts';
 import type { Snapshot, SnapshotPlanet } from './types.ts';
+import { present } from './test/present.ts';
+import { parsePrd } from '../kit/lib/ids.ts';
 
 const config = configFrom({
   sectors: [{ name: 'core', repos: ['core-repo'] }],
@@ -45,7 +47,7 @@ describe('projectEvents', () => {
     expect(secured).toMatchObject({ type: 'ZONE_SECURED', at: '2026-09-21T12:00:00Z', planet: 2332, region: 'core-repo', contributor: 'alice', team: 'octopod' });
     const closed = events.find((e) => e.id === 'outbox:core-repo:2332/s1-01-a:closed');
     expect(closed).toMatchObject({ type: 'WOUND_CLOSED', contributor: 'pm', team: 'beaver', data: { kind: 'unconfirmed-ground', rank: 'high', verdict: 'agreed' } });
-    expect(events.find((e) => e.type === 'DISTRESS')!.at).toBe('2026-09-22T11:00:00Z');
+    expect(present(events.find((e) => e.type === 'DISTRESS'), 'the event').at).toBe('2026-09-22T11:00:00Z');
   });
 
   it('emits a rescue when a claim follows a distress', () => {
@@ -147,15 +149,16 @@ describe('projectEvents', () => {
   it('skips an event it cannot build, reports it through onSkip, and still projects the rest (F4)', () => {
     const s = snapshot();
     s.planets.push({
-      prd: 2400, title: 'Broken', captain: null, ownerTeam: null,
+      prd: parsePrd(2400), title: 'Broken', captain: null, ownerTeam: null,
       issue: { createdAt: 'not-a-date', closedAt: null },
       regions: [], featurePr: null, zones: [], outbox: [], bugs: [],
-    } as unknown as SnapshotPlanet);
+    });
     const skipped: Skip[] = [];
     const events = projectEvents(s, { config, now: NOW, onSkip: (err) => skipped.push(err) });
     expect(events.some((e) => e.id === 'planet:2332:charted')).toBe(true);
     expect(events.some((e) => e.planet === 2400)).toBe(false);
-    expect(skipped).toEqual([{ id: 'planet:2400:charted', message: expect.stringMatching(/^at: /) }]);
+    const aBadTime: unknown = expect.stringMatching(/^at: /);
+    expect(skipped).toEqual([{ id: 'planet:2400:charted', message: aBadTime }]);
     expect(() => projectEvents(s, { config, now: NOW })).not.toThrow();
   });
 
@@ -164,7 +167,7 @@ describe('projectEvents', () => {
       { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
       { id: 's1', repo: 'ai-repo', wave: 1, blockedBy: [], pr: { number: 701, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T13:00:00Z', revertedAt: null } },
     ] }), { config, now: NOW });
-    expect(events.find((e) => e.id === 'zone:ai-repo:2332:s1:secured')!.data.pr).toBe(701);
+    expect(present(events.find((e) => e.id === 'zone:ai-repo:2332:s1:secured'), 'the event').data.pr).toBe(701);
   });
 
   describe('a PRD named by its home (PRD 728)', () => {

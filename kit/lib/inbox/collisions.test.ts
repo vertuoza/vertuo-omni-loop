@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { planCollisions, planFromMarkdown } from './collisions.ts';
+import { parsePrd, parseWorkSliceId } from '../ids.ts';
 
 /**
  * A minimal plan in the shape `parsePlanSlices` reads (PRD #985): a slice table with a
@@ -21,8 +22,8 @@ function row(id: string, territory: string) {
 
 describe('planCollisions', () => {
   it('reports two plans declaring an overlapping path as colliding, naming the shared path', () => {
-    const left = planFromMarkdown(1001, plan([row('s1', '`libs/vertuo-domain-tenant/`')]));
-    const right = planFromMarkdown(1002, plan([row('s1', '`libs/vertuo-domain-tenant/`')]));
+    const left = planFromMarkdown(parsePrd(1001), plan([row('s1', '`libs/vertuo-domain-tenant/`')]));
+    const right = planFromMarkdown(parsePrd(1002), plan([row('s1', '`libs/vertuo-domain-tenant/`')]));
 
     expect(planCollisions([left, right])).toEqual([
       { left: 1001, right: 1002, shared: ['libs/vertuo-domain-tenant/'] },
@@ -30,8 +31,8 @@ describe('planCollisions', () => {
   });
 
   it('reports nothing for two plans whose declared territory is disjoint', () => {
-    const left = planFromMarkdown(1001, plan([row('s1', '`libs/vertuo-domain-tenant/`')]));
-    const right = planFromMarkdown(1002, plan([row('s1', '`libs/vertuo-domain-payment/`')]));
+    const left = planFromMarkdown(parsePrd(1001), plan([row('s1', '`libs/vertuo-domain-tenant/`')]));
+    const right = planFromMarkdown(parsePrd(1002), plan([row('s1', '`libs/vertuo-domain-payment/`')]));
 
     expect(planCollisions([left, right])).toEqual([]);
   });
@@ -41,10 +42,10 @@ describe('planCollisions', () => {
     // same as an unwritten cell). Neither should leak into a collision report — only the path the
     // two plans actually share may appear, and only once.
     const left = planFromMarkdown(
-      1001,
+      parsePrd(1001),
       plan([row('s1', '`docs/inbox/`, `scripts/inbox-collisions.mjs`'), row('s2', '—')]),
     );
-    const right = planFromMarkdown(1002, plan([row('s1', '`docs/inbox/`')]));
+    const right = planFromMarkdown(parsePrd(1002), plan([row('s1', '`docs/inbox/`')]));
 
     expect(planCollisions([left, right])).toEqual([
       { left: 1001, right: 1002, shared: ['docs/inbox/'] },
@@ -53,12 +54,12 @@ describe('planCollisions', () => {
 
   it('pairs three or more plans rather than assuming exactly two', () => {
     // A-B share one path, B-C share a different path, A-C share nothing.
-    const a = planFromMarkdown(1, plan([row('s1', '`scripts/inbox-collisions.mjs`')]));
+    const a = planFromMarkdown(parsePrd(1), plan([row('s1', '`scripts/inbox-collisions.mjs`')]));
     const b = planFromMarkdown(
-      2,
+      parsePrd(2),
       plan([row('s1', '`scripts/inbox-collisions.mjs`'), row('s2', '`docs/inbox/`')]),
     );
-    const c = planFromMarkdown(3, plan([row('s1', '`docs/inbox/`')]));
+    const c = planFromMarkdown(parsePrd(3), plan([row('s1', '`docs/inbox/`')]));
 
     expect(planCollisions([a, b, c])).toEqual([
       { left: 1, right: 2, shared: ['scripts/inbox-collisions.mjs'] },
@@ -67,15 +68,15 @@ describe('planCollisions', () => {
   });
 
   it('takes already-parsed plan slices too, with no markdown or I/O involved', () => {
-    const left = { prd: 7, slices: [{ id: 's1', territory: ['CLAUDE.md'] }] };
-    const right = { prd: 8, slices: [{ id: 's1', territory: ['CLAUDE.md'] }] };
+    const left = { prd: parsePrd(7), slices: [{ id: parseWorkSliceId('s1'), territory: ['CLAUDE.md'] }] };
+    const right = { prd: parsePrd(8), slices: [{ id: parseWorkSliceId('s1'), territory: ['CLAUDE.md'] }] };
 
     expect(planCollisions([left, right])).toEqual([{ left: 7, right: 8, shared: ['CLAUDE.md'] }]);
   });
 
   it('reports rather than throwing or blocking when plans collide', () => {
-    const left = planFromMarkdown(1, plan([row('s1', '`docs/inbox/`')]));
-    const right = planFromMarkdown(2, plan([row('s1', '`docs/inbox/`')]));
+    const left = planFromMarkdown(parsePrd(1), plan([row('s1', '`docs/inbox/`')]));
+    const right = planFromMarkdown(parsePrd(2), plan([row('s1', '`docs/inbox/`')]));
 
     expect(() => planCollisions([left, right])).not.toThrow();
   });

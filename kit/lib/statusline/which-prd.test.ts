@@ -3,6 +3,7 @@
 // when the branch names none, from the record of what the session last worked on.
 import { describe, expect, it } from 'vitest';
 import { branchNames, folderOfNumber, folderOfTopic, templatePattern, whichPrd } from './which-prd.ts';
+import { type PrdNumber, parsePrd } from '../ids.ts';
 
 const BRANCHES = {
   feature: 'feat/{topic}',
@@ -112,39 +113,39 @@ describe('whichPrd', () => {
 
 describe('whichPrd: what the session last worked on', () => {
   it('names the PRD of the record on `main`, with no slice, and no PRD without a record', () => {
-    expect(whichPrd({ branch: 'main', branches: BRANCHES, folders: FOLDERS, recorded: 7 })).toEqual({ prd: 7, topic: 'bravo', folder: '0007-bravo', slice: null });
+    expect(whichPrd({ branch: 'main', branches: BRANCHES, folders: FOLDERS, recorded: parsePrd(7) })).toEqual({ prd: 7, topic: 'bravo', folder: '0007-bravo', slice: null });
     expect(whichPrd({ branch: 'main', branches: BRANCHES, folders: FOLDERS, recorded: null })).toBeNull();
-    expect(whichPrd({ branch: null, branches: BRANCHES, folders: FOLDERS, recorded: 3 })).toMatchObject({ prd: 3, topic: 'alpha' });
+    expect(whichPrd({ branch: null, branches: BRANCHES, folders: FOLDERS, recorded: parsePrd(3) })).toMatchObject({ prd: 3, topic: 'alpha' });
   });
 
   it('lets a branch that names a PRD win over the record', () => {
-    expect(whichPrd({ branch: 'feat/charlie', branches: BRANCHES, folders: FOLDERS, recorded: 7 })).toMatchObject({ prd: 9, topic: 'charlie' });
-    expect(whichPrd({ branch: 'feat/bravo--s2', branches: BRANCHES, folders: FOLDERS, recorded: 9 })).toMatchObject({ prd: 7, slice: 's2' });
+    expect(whichPrd({ branch: 'feat/charlie', branches: BRANCHES, folders: FOLDERS, recorded: parsePrd(7) })).toMatchObject({ prd: 9, topic: 'charlie' });
+    expect(whichPrd({ branch: 'feat/bravo--s2', branches: BRANCHES, folders: FOLDERS, recorded: parsePrd(9) })).toMatchObject({ prd: 7, slice: 's2' });
   });
 
   it('reads the record when the branch names a topic with no folder', () => {
-    expect(whichPrd({ branch: 'feat/zulu', branches: BRANCHES, folders: FOLDERS, recorded: 9 })).toEqual({ prd: 9, topic: 'charlie', folder: '0009-charlie', slice: null });
+    expect(whichPrd({ branch: 'feat/zulu', branches: BRANCHES, folders: FOLDERS, recorded: parsePrd(9) })).toEqual({ prd: 9, topic: 'charlie', folder: '0009-charlie', slice: null });
   });
 
   it('names no PRD for a record whose PRD has no folder', () => {
-    expect(whichPrd({ branch: 'main', branches: BRANCHES, folders: FOLDERS, recorded: 42 })).toBeNull();
-    expect(whichPrd({ branch: 'main', branches: BRANCHES, folders: ['notes', '42-x'], recorded: 42 })).toBeNull();
+    expect(whichPrd({ branch: 'main', branches: BRANCHES, folders: FOLDERS, recorded: parsePrd(42) })).toBeNull();
+    expect(whichPrd({ branch: 'main', branches: BRANCHES, folders: ['notes', '42-x'], recorded: parsePrd(42) })).toBeNull();
   });
 });
 
 describe('folderOfNumber', () => {
   it('finds the folder `<nnnn>-<topic>` carrying the number', () => {
-    expect(folderOfNumber(FOLDERS, 11)).toEqual({ prd: 11, topic: 'delta', folder: '0011-delta' });
-    expect(folderOfNumber(['12345-wide'], 12345)).toEqual({ prd: 12345, topic: 'wide', folder: '12345-wide' });
+    expect(folderOfNumber(FOLDERS, parsePrd(11))).toEqual({ prd: 11, topic: 'delta', folder: '0011-delta' });
+    expect(folderOfNumber(['12345-wide'], parsePrd(12345))).toEqual({ prd: 12345, topic: 'wide', folder: '12345-wide' });
   });
 
   it('finds nothing for a number no folder carries, or no number', () => {
-    expect(folderOfNumber(FOLDERS, 42)).toBeNull();
-    expect(folderOfNumber(FOLDERS, null as unknown as number)).toBeNull();
-    expect(folderOfNumber(undefined, 7)).toBeNull();
+    expect(folderOfNumber(FOLDERS, parsePrd(42))).toBeNull();
+    expect(folderOfNumber(FOLDERS, null as unknown as PrdNumber)).toBeNull();
+    expect(folderOfNumber(undefined, parsePrd(7))).toBeNull();
   });
 
   it('reads the first folder carrying the number, in the order found', () => {
-    expect(folderOfNumber(['0007-bravo', '0007-bravo-renamed'], 7)).toMatchObject({ folder: '0007-bravo' });
+    expect(folderOfNumber(['0007-bravo', '0007-bravo-renamed'], parsePrd(7))).toMatchObject({ folder: '0007-bravo' });
   });
 });

@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { cliSignInReturn, type CliCallbackDeps, type CliSession } from '../ask/cli-code';
+import { present } from '../ask/test/test-item';
+import { settled } from '../stages/settled';
 import type { GithubAccount } from './github-orgs';
 import { afterSignIn, appLanding, joinBeforeIssue, settleSignIn, settlingExchange, type SignedIn, type SignInDeps } from './sign-in';
 import { fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 import { joinByGithub } from './workspace';
+
+vi.mock('server-only', () => ({}));
 
 const TOKEN = 'gho_provider-token-of-the-sign-in';
 
@@ -14,16 +19,16 @@ const GITHUB: Record<string, GithubAccount> = {
   [PEOPLE.eve.id]: { login: 'eve-gh', orgs: ['example'] },
 };
 
-function world(person: FakeUser, github = GITHUB[person.id]!) {
+function world(person: FakeUser, github: GithubAccount | undefined = GITHUB[person.id]) {
   const w = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
-  const readGithub = vi.fn(async (token: string) => {
+  const readGithub = vi.fn((token: string) => settled(() => {
     if (token !== TOKEN) throw new Error('GitHub answered 401 to /user');
-    return github;
-  });
-  const joining = vi.fn((userId: string, logins: string[]) => joinByGithub(w.service() as unknown as SupabaseClient, userId, logins));
+    return present(github, `the GitHub account of ${person.email}`);
+  }));
+  const joining = vi.fn((userId: string, logins: string[]) => joinByGithub(w.service() as unknown as SupabaseClient<Database>, userId, logins));
   const deps: SignInDeps = { readGithub, joinByGithub: joining };
   const session: SignedIn = { user: { id: person.id }, provider_token: TOKEN };
-  return { w, db: w.client(person) as unknown as SupabaseClient, deps, session, readGithub, joining };
+  return { w, db: w.client(person) as unknown as SupabaseClient<Database>, deps, session, readGithub, joining };
 }
 
 const memberOf = (w: ReturnType<typeof fakeGalaxyDb>, person: FakeUser) =>
@@ -130,7 +135,7 @@ describe('the landing after a sign-in from HOME', () => {
 describe('a page\'s own callback (ask, knowledge, dossiers)', () => {
   it('exchanges the code, then joins and links before the page reads as the person', async () => {
     const { w, db, deps, session } = world(PEOPLE.bea);
-    const exchange = vi.fn(async () => ({ data: { session }, error: null }));
+    const exchange = vi.fn(() => Promise.resolve({ data: { session }, error: null }));
     expect(await settlingExchange(exchange, db, deps)('code')).toEqual({ error: null });
     expect(exchange).toHaveBeenCalledWith('code');
     expect(memberOf(w, PEOPLE.bea)).toEqual([VERTUOZA]);
@@ -139,7 +144,7 @@ describe('a page\'s own callback (ask, knowledge, dossiers)', () => {
 
   it('answers a refused exchange as it came, and joins nobody', async () => {
     const { w, db, deps } = world(PEOPLE.bea);
-    expect(await settlingExchange(async () => ({ data: null, error: { message: 'expired' } }), db, deps)('old')).toEqual({ error: { message: 'expired' } });
+    expect(await settlingExchange(() => Promise.resolve({ data: null, error: { message: 'expired' } }), db, deps)('old')).toEqual({ error: { message: 'expired' } });
     expect(w.calls).toEqual([]);
   });
 
@@ -147,7 +152,7 @@ describe('a page\'s own callback (ask, knowledge, dossiers)', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { w, db, deps, session } = world(PEOPLE.bea);
     w.state.fail = { message: 'timeout' };
-    expect(await settlingExchange(async () => ({ data: { session }, error: null }), db, deps)('code')).toEqual({ error: null });
+    expect(await settlingExchange(() => Promise.resolve({ data: { session }, error: null }), db, deps)('code')).toEqual({ error: null });
   });
 });
 
@@ -156,9 +161,9 @@ describe('the terminal\'s sign-in (omni signin)', () => {
 
   it('joins before the one-time code is issued', async () => {
     const order: string[] = [];
-    const issue = vi.fn(async () => { order.push('issue'); return { error: null }; });
-    const deps: CliCallbackDeps = { exchange: null, issue, revoke: async () => {} };
-    const join = vi.fn(async () => { order.push('join'); });
+    const issue = vi.fn(() => { order.push('issue'); return Promise.resolve({ error: null }); });
+    const deps: CliCallbackDeps = { exchange: null, issue, revoke: () => Promise.resolve() };
+    const join = vi.fn(() => { order.push('join'); return Promise.resolve(); });
     const s = cli(PEOPLE.bea);
     expect(await joinBeforeIssue(deps, join).issue(s, 'hash')).toEqual({ error: null });
     expect(join).toHaveBeenCalledWith(s);
@@ -168,8 +173,8 @@ describe('the terminal\'s sign-in (omni signin)', () => {
 
   it('still issues the code when joining fails: the code\'s own refusal then speaks', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const issue = vi.fn(async () => ({ error: null }));
-    const wrapped = joinBeforeIssue({ exchange: null, issue, revoke: async () => {} }, async () => { throw new Error('timeout'); });
+    const issue = vi.fn(() => Promise.resolve({ error: null }));
+    const wrapped = joinBeforeIssue({ exchange: null, issue, revoke: () => Promise.resolve() }, () => Promise.reject(new Error('timeout')));
     expect(await wrapped.issue(cli(PEOPLE.bea), 'hash')).toEqual({ error: null });
     expect(issue).toHaveBeenCalled();
     expect(console.error).toHaveBeenCalled();
@@ -179,15 +184,15 @@ describe('the terminal\'s sign-in (omni signin)', () => {
     const { w, deps: signIn } = world(PEOPLE.bea);
     const bea = cli(PEOPLE.bea);
     const deps: CliCallbackDeps = {
-      exchange: async () => ({ session: bea, error: null }),
+      exchange: () => Promise.resolve({ session: bea, error: null }),
       // As ask_cli_code_issue() does: members of a workspace only.
-      issue: async (s) => (w.tables.workspace_members.some((m) => m.user_id === s.user.id)
+      issue: (s) => Promise.resolve(w.tables.workspace_members.some((m) => m.user_id === s.user.id)
         ? { error: null }
         : { error: { message: 'Sign in with an account of a workspace first.' } }),
-      revoke: async () => {},
+      revoke: () => Promise.resolve(),
     };
     const url = new URL('https://galaxy.example/auth/callback?next=ask-cli&port=49152&state=Zm9vYmFyYmF6cXV4LXN0YXRl&code=github');
-    const join = (s: CliSession) => settleSignIn(w.client(PEOPLE.bea) as unknown as SupabaseClient, s as CliSession & SignedIn, signIn);
+    const join = (s: CliSession) => settleSignIn(w.client(PEOPLE.bea), s, signIn);
     expect(await cliSignInReturn(url, 'https://galaxy.example', joinBeforeIssue(deps, join))).toMatch(/^http:\/\/127\.0\.0\.1:49152\/callback\?/);
     expect(memberOf(w, PEOPLE.bea)).toEqual([VERTUOZA]);
   });

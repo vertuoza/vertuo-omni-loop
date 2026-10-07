@@ -1,16 +1,18 @@
 // `omni targets [--json]` (PRD 522): a plan repository's target repositories, one row each, in config
 // order: role, knowledge, loop and state (`kit/lib/plan-repo/targets.ts`). Read-only: it reads each
-// target through `gh api`, never clones one, and never refreshes an imported copy. Exit 0 when every
+// target through `gh api`, never clones one, and never refreshes an imported copy; an imported
+// target whose committed flow is not its copy's reads stale, naming the flow (PRD 1089, s6). Exit 0 when every
 // row is ok, 1 otherwise, and 1 with `not a plan repository` when the config has no `plan` section.
 import { readTargets, targetsTable } from '../../lib/plan-repo/targets.ts';
 import { githubEnv } from '../github.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE = 'usage: omni targets [--json]';
 
 export const targets: Command = {
-  async run(args: string[], { ctx, stdout, exec, env }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
     const { positional, flags } = parseArgs('targets', args, { booleans: ['json'] });
     if (positional.length) throw usageError(USAGE);
     const plan = ctx.config.plan;
@@ -22,5 +24,5 @@ export const targets: Command = {
     if (flags.json) println(stdout, JSON.stringify(rows, null, 2));
     else for (const line of targetsTable(rows)) println(stdout, line);
     return rows.every((row) => row.state === 'ok') ? 0 : 1;
-  },
+  }),
 };

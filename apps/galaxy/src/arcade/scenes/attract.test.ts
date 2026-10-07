@@ -13,6 +13,7 @@ import type { FleetRow } from '../types';
 import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common.ts';
 import { drawBoot, drawStory, drawTitle, hallPage, hallPages, PAGES, TALL_SCENES } from './attract.ts';
 import { BootOverlay, HeroesOverlay, storyLines, TitleOverlay } from './attract.tsx';
+import { sure } from '../test/sure';
 
 // The sprites are drawn on a recording context: which sprite, where and how large.
 vi.mock('@omni/design', async (original) => ({
@@ -104,7 +105,7 @@ describe('the boot on the tall grid', () => {
   it('draws a workspace\'s mark in the middle of the screen, on black to its edges', () => {
     const { ctx, rects } = recorder();
     drawBoot(ctx, frame('boot', TALL, 5));
-    const black = rects.find((r) => r.style === '#000')!;
+    const black = sure(rects.find((r) => r.style === '#000'), 'rects.find((r) => r.style === "#000")');
     expect(black.x).toBeLessThanOrEqual(0);
     expect(black.y).toBeLessThanOrEqual(0);
     expect(black.x + black.w).toBeGreaterThanOrEqual(TALL.w);
@@ -150,7 +151,7 @@ describe('the house brand\'s boot draws the crest\'s mark', () => {
 
   it('centres it on the tall grid, above the words', () => {
     const rects = boot(TALL, 5);
-    const black = rects.find((r) => r.style === '#000')!;
+    const black = sure(rects.find((r) => r.style === '#000'), 'rects.find((r) => r.style === "#000")');
     expect(black.x).toBeLessThanOrEqual(0);
     expect(black.x + black.w).toBeGreaterThanOrEqual(TALL.w);
     expect(black.y + black.h).toBeGreaterThanOrEqual(TALL.h);
@@ -221,7 +222,7 @@ describe('the boot draws the brand\'s letter', () => {
       expect(layer(boot(mark, 0.9), mark.stops), letter).toEqual(mark.runs.map(([x, y, w]) => [x, y, w]));
       // Early on, the top row has begun and the bottom one has not.
       const early = layer(boot(mark, 0.2), mark.stops);
-      const shown = (row: number) => early.filter((_, i) => mark.runs[i]![3] === row).reduce((n, [, , w]) => n + w!, 0);
+      const shown = (row: number) => early.filter((_, i) => sure(mark.runs[i], 'mark.runs[i]')[3] === row).reduce((n, [, , w]) => n + sure(w, 'w'), 0);
       const last = Math.max(...mark.runs.map((r) => r[3]));
       expect(shown(0), letter).toBeGreaterThan(0);
       expect(shown(last), letter).toBe(0);
@@ -357,7 +358,7 @@ describe('the Hall of Heroes', () => {
   it('shows its whole table and no page on the wide grid, as today', () => {
     const wide = text(screen({ form: 'full', grid: WIDE }, createElement(HeroesOverlay, { view, crew: [] })));
     for (const h of view.heroes.slice(0, 8)) expect(wide).toContain(h.name.toUpperCase());
-    expect(wide).not.toContain(view.heroes[8]!.name.toUpperCase());
+    expect(wide).not.toContain(sure(view.heroes[8], 'view.heroes[8]').name.toUpperCase());
     expect(wide).not.toContain('PAGE');
   });
 

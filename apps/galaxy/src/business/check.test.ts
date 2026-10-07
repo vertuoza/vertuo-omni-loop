@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { claimOf, type Claim } from './model';
+import { claimOf, type Claim, type StoredClaim } from './model';
 import { foundRows, thatsUs } from './reveal';
 import {
   additionText, checkRows, FADE_MS, isFaded, lastSeenOf, seenSince, settled, stillTrue,
 } from './check';
+import { sure } from '../arcade/test/sure';
 
 // What the weekly recheck leaves to check (PRD 774 s4), as pure data: an addition (a new value of a kind
 // that holds several, beside confirmed ones), a replacement (a new offering or size that would replace a
@@ -104,12 +105,12 @@ describe('fading', () => {
   it('✓ Still true clears it', () => {
     const c = claim(1, 'rival', 'X', { receipts: [receipt(ago(9 * WEEK))], lastSeen: ago(9 * WEEK) });
     const after = stillTrue([c], 'c-1', new Date(NOW).toISOString());
-    expect(after[0]!.lastSeen).toBe(new Date(NOW).toISOString());
-    expect(isFaded(after[0]!, NOW)).toBe(false);
+    expect(sure(after[0], 'after[0]').lastSeen).toBe(new Date(NOW).toISOString());
+    expect(isFaded(sure(after[0], 'after[0]'), NOW)).toBe(false);
   });
 
   it('reads last_seen from the stored row', () => {
-    const row = { id: 'c-1', seq: 1, kind: 'rival', value: 'X', source: 'evidence', state: 'confirmed', last_seen: '2026-08-12T15:00:00Z' };
+    const row: StoredClaim = { id: 'c-1', seq: 1, kind: 'rival', value: 'X', source: 'evidence', state: 'confirmed', last_seen: '2026-08-12T15:00:00Z' };
     expect(claimOf(row).lastSeen).toBe('2026-08-12T15:00:00Z');
     expect(claimOf({ ...row, last_seen: null })).not.toHaveProperty('lastSeen');
   });

@@ -7,6 +7,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { carriesTrailer, trailerLine } from './signature.ts';
 import type { TrailerSignature } from './signature.ts';
+import type { IssueNumber } from './ids.ts';
 
 /** One commit of the branch being graded. */
 export type Commit = { sha: string; message: string };
@@ -18,7 +19,7 @@ type VerdictContext = { root: string; config: { signature: TrailerSignature | nu
 const RASTER_DATA_URL = /data:image\/(?!svg\+xml)[a-z0-9.+-]+/i;
 
 /** The folder name prefix of an issue's fix: its number, zero-padded to four digits, then `-`. */
-export function issuePrefix(issue: number | string): string {
+export function issuePrefix(issue: IssueNumber): string {
   return `${String(issue).padStart(4, '0')}-`;
 }
 
@@ -50,11 +51,12 @@ function signatureViolations(ctx: VerdictContext, commits: readonly Commit[] | u
 
 /**
  * Grades one issue's fix: exactly one of `folders` (`<root>/<prefix><slug>`), graded by `grade(folder)`,
- * then the commits' signatures.
+ * then the commits' signatures. `number` is the record's: an issue's, or a concept's (which reads
+ * the same).
  */
 export function fixVerdict({
   ctx,
-  issue,
+  number,
   root,
   prefix,
   folders,
@@ -62,20 +64,20 @@ export function fixVerdict({
   commits,
 }: {
   ctx: VerdictContext;
-  issue: number;
+  number: number;
   root: string;
   prefix: string;
   folders: readonly string[];
   grade: (folder: string) => string[];
-  commits?: readonly Commit[];
+  commits?: readonly Commit[] | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   const failures: string[] = [];
   let folder: string | null = null;
   const [only] = folders;
   if (only === undefined) {
-    failures.push(`no folder ${root}/${prefix}<slug>/ for issue ${issue}.`);
+    failures.push(`no folder ${root}/${prefix}<slug>/ for issue ${number}.`);
   } else if (folders.length > 1) {
-    failures.push(`${folders.length} folders for issue ${issue}, one expected: ${folders.join(', ')}.`);
+    failures.push(`${folders.length} folders for issue ${number}, one expected: ${folders.join(', ')}.`);
   } else {
     folder = only;
     failures.push(...grade(only));

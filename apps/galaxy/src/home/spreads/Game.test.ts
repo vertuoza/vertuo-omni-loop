@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
+import { sure } from '../../arcade/test/sure';
 import { EXAMPLE_FLEETS } from './fleets';
 import { Game } from './Game';
 import { heading, html, text } from './render';
@@ -19,7 +20,7 @@ describe('the game', () => {
   });
 
   it('walks three numbered beats: create your fleet, ship value, climb the leaderboard', () => {
-    const heads = [...markup.matchAll(/<h3\b[^>]*>([\s\S]*?)<\/h3>/g)].map(([, h]) => text(h!));
+    const heads = [...markup.matchAll(/<h3\b[^>]*>([\s\S]*?)<\/h3>/g)].map(([, h]) => text(sure(h, 'a heading')));
     expect(heads).toEqual(['CREATE YOUR FLEET', 'SHIP VALUE', 'CLIMB THE LEADERBOARD']);
     expect(markup).toContain('<ol class="home-game-beats">');
     expect(beats).toHaveLength(3);
@@ -29,7 +30,7 @@ describe('the game', () => {
     const cards = [...markup.matchAll(/<button [^>]*class="home-card"[^>]*>[\s\S]*?<\/button>/g)].map(([b]) => b);
     expect(cards).toHaveLength(EXAMPLE_FLEETS.length);
     EXAMPLE_FLEETS.forEach((f, i) => {
-      const card = cards[i]!;
+      const card = sure(cards[i], `the card of ${f.label}`);
       expect(text(card)).toContain(f.label);
       expect(text(card)).toContain(f.motto);
       expect(card).toMatch(/type="button"/);
@@ -48,15 +49,15 @@ describe('the game', () => {
 
   it('says how points come, every number read from the rulebook', () => {
     const closes = Object.values(RULEBOOK.woundClose);
-    expect(text(beats[1]!)).toBe(
+    expect(text(sure(beats[1], 'the second beat'))).toBe(
       `SHIP VALUE A secured zone scores ${RULEBOOK.zoneSecured}. A rescue scores ${RULEBOOK.rescue}. `
       + `Closing Entropy (an unanswered question, stuck work, a shipped bug) scores ${Math.min(...closes)} to ${Math.max(...closes)}, by its kind.`,
     );
   });
 
   it('ranks the example fleets by points, labelled EXAMPLE', () => {
-    const board = /<ol class="home-board">([\s\S]*?)<\/ol>/.exec(beats[2]!)?.[1] ?? '';
-    const rows = [...board.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, r]) => text(r!));
+    const board = /<ol class="home-board">([\s\S]*?)<\/ol>/.exec(sure(beats[2], 'the third beat'))?.[1] ?? '';
+    const rows = [...board.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, r]) => text(sure(r, 'a row')));
     const ranked = [...EXAMPLE_FLEETS].sort((a, b) => b.points - a.points);
     expect(rows).toEqual(ranked.map((f, i) => `${i + 1} ${f.label} ${f.points}`));
     expect(ranked.map((f) => f.label), 'the list is not already in rank order').not.toEqual(EXAMPLE_FLEETS.map((f) => f.label));
@@ -64,9 +65,10 @@ describe('the game', () => {
   });
 
   it('shows the loop\'s real counts under THE LOOP BUILT THIS, and — for one it could not read', () => {
-    const proof = beats[2]!.slice(beats[2]!.indexOf('class="home-game-proof"'));
+    const third = sure(beats[2], 'the third beat');
+    const proof = third.slice(third.indexOf('class="home-game-proof"'));
     expect(text(`<div ${proof}`)).toMatch(/^THE LOOP BUILT THIS /);
-    const scores = [...proof.matchAll(/<div class="home-score">([\s\S]*?)<\/div>/g)].map(([, s]) => text(s!));
+    const scores = [...proof.matchAll(/<div class="home-score">([\s\S]*?)<\/div>/g)].map(([, s]) => text(sure(s, 'a score')));
     expect(scores).toEqual(['FEATURES SHIPPED 21', 'SLICES MERGED 134', 'DECISIONS ADOPTED —']);
     expect(text(proof)).toContain('Counted from Omni Loop\'s own shipped work, each time this page is built.');
   });

@@ -20,7 +20,7 @@ describe('ledger', () => {
   });
 
   it('reads an empty or missing directory as no events', () => {
-    expect(readLedger(join(tmpdir(), 'does-not-exist-' + Date.now()))).toEqual([]);
+    expect(readLedger(join(tmpdir(), `does-not-exist-${Date.now()}`))).toEqual([]);
   });
 
   it('refuses a malformed event instead of writing it', () => {

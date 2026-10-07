@@ -26,6 +26,7 @@ import { LOOPBACK_WAIT_MS, LoopbackError, startLoopback } from '../../lib/ask/lo
 import { loadContext } from '../../lib/context.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 export const ASK_URL_UNSET = 'ask mode is not set up for this repository (ask.url)';
 
@@ -48,7 +49,7 @@ function askUrlOf(cwd: string, exec: Exec): string | null {
 /** `ask.url` and `repo.slug` from the repository's config, each or `null`. */
 function signInConfig(cwd: string, exec: Exec): { askUrl: string | null; repo: string | null } {
   const { config } = loadContext(cwd, { exec });
-  return { askUrl: config.ask.url, repo: config.repo?.slug ?? null };
+  return { askUrl: config.ask.url, repo: config.repo.slug ?? null };
 }
 
 /** The command's arguments: none. */
@@ -110,7 +111,7 @@ export const signin = {
 
 export const signout = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, stderr, exec, home }: FreeIo & { home?: string | undefined }) {
+  run: synchronous((args: string[], { cwd, stdout, stderr, exec, home }: FreeIo & { home?: string | undefined }): number => {
     noArguments('signout', args);
     const askUrl = askUrlOf(cwd, exec);
     if (!askUrl) {
@@ -120,7 +121,7 @@ export const signout = {
     const host = credentialsHost(askUrl);
     println(stdout, credentials({ home }).remove(host) ? `signed out of ${host}` : 'signed out');
     return 0;
-  },
+  }),
 } satisfies FreeCommand;
 
 export const whoami = {
@@ -139,20 +140,26 @@ export const whoami = {
       println(stdout, 'signed out');
       return 0;
     }
-    const who = String(entry.email ?? entry.login ?? `signed in to ${host}`);
+    const who = accountOf(entry, `signed in to ${host}`);
     if (!expired(entry)) {
       println(stdout, who);
       return 0;
     }
     const outcome = await askClient({ baseUrl: askUrl, host, tokens: store, fetch }).renew();
     if (outcome === 'refused') {
-      println(stderr, `the sign-in of ${entry.email ?? entry.login ?? 'this computer'} to ${host} is no longer valid: run \`omni signin\` again`);
+      println(stderr, `the sign-in of ${accountOf(entry, 'this computer')} to ${host} is no longer valid: run \`omni signin\` again`);
       return 1;
     }
     println(stdout, outcome === 'renewed' ? who : `${who} (not checked: ${host} is unreachable)`);
     return 0;
   },
 } satisfies FreeCommand;
+
+/** The account a sign-in names, as the store kept it: its email, else its login, else `fallback`. */
+function accountOf(entry: Tokens, fallback: string): string {
+  const named: unknown = entry.email ?? entry.login;
+  return typeof named === 'string' ? named : fallback;
+}
 
 /** Past its `expires_at`, in seconds as the sign-in server gives it (or milliseconds, read as such). */
 function expired({ expires_at: at }: Tokens, now: number = Date.now()): boolean {

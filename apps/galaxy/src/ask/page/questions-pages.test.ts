@@ -1,30 +1,30 @@
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { item } from '../test/test-item';
 
 // The three Questions pages (PRD 733), called as the server calls them with their reads stubbed: each
 // starts with the Questions tabs, its own tab marked, whatever it shows below; a teammate's session,
 // opened on its own, has no tab row.
 
-const given = vi.hoisted(() => ({
-  mode: 'closed' as 'demo' | 'closed' | 'supabase',
-  read: { kind: 'unavailable' } as unknown,
-  user: null as null | { id: string },
-  pane: null as unknown,
-}));
+type Given = { mode: 'demo' | 'closed' | 'supabase'; read: unknown; user: null | { id: string }; pane: unknown };
+const given = vi.hoisted((): Given => ({ mode: 'closed', read: { kind: 'unavailable' }, user: null, pane: null }));
 
 vi.mock('server-only', () => ({}));
-vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
+vi.mock('../../env', async (actual) => {
+  const env = await actual<typeof import('../../env')>();
+  return { ...env, serverEnv: () => ({ ...env.readEnv({}), mode: given.mode }) };
+});
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
-  supabaseServer: async () => ({ auth: { getUser: async () => ({ data: { user: given.user } }) } }),
+  supabaseServer: () => Promise.resolve({ auth: { getUser: () => Promise.resolve({ data: { user: given.user } }) } }),
 }));
-vi.mock('./for-me-live', () => ({ readForMeLive: async () => given.read }));
-vi.mock('./history-live', () => ({ readHistoryLive: async () => given.read }));
+vi.mock('./for-me-live', () => ({ readForMeLive: () => Promise.resolve(given.read) }));
+vi.mock('./history-live', () => ({ readHistoryLive: () => Promise.resolve(given.read) }));
 vi.mock('./source', () => ({
-  readTabs: async () => [],
-  readSession: async () => given.pane,
-  readMembers: async () => [],
-  sessionPings: () => async () => null,
+  readTabs: () => Promise.resolve([]),
+  readSession: () => Promise.resolve(given.pane),
+  readMembers: () => Promise.resolve([]),
+  sessionPings: () => () => Promise.resolve(null),
 }));
 
 const { QuestionsTabs } = await import('./QuestionsTabs');
@@ -53,7 +53,7 @@ describe('the Questions pages start with their tabs', () => {
     expect(tabsOf(await ForMePage(query))).toBe('/ask/for-me');
     given.read = { kind: 'entries', entries: [] };
     const parts = partsOf(await ForMePage(query));
-    expect(parts[0]!.type).toBe(QuestionsTabs);
+    expect(item(parts, 0).type).toBe(QuestionsTabs);
     expect(parts).toHaveLength(2);
   });
 

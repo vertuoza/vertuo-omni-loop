@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { longestPit, WORLD } from './rules';
 import { LEGEND, MAX_COLS, parseStage, pits, SOLID, STAGE_ROWS, stageProblems, STAGES, StageError } from './stages';
+import { sure } from '../test/sure';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // Super Omni World's stages as data (PRD 817): each one a text map, checked here so a stage that
 // cannot be played never ships.
@@ -28,7 +30,8 @@ describe('every stage', () => {
     expect(new Set(stage.widths)).toEqual(new Set([stage.cols]));
     expect(stage.cols).toBeLessThanOrEqual(MAX_COLS);
     const [start] = stage.starts;
-    expect(SOLID.has(stage.tiles[start!.row + 1]![start!.col]!)).toBe(true);
+    assertDefined(start, 'start');
+    expect(SOLID.has(sure(sure(stage.tiles[start.row + 1], 'stage.tiles[start.row + 1]')[start.col], 'stage.tiles[start.row + 1]![start.col]'))).toBe(true);
   });
 
   it.each(STAGES.map((s) => [s.id, s] as const))('%s has pits, none wider than a run-jump', (_, stage) => {
@@ -37,35 +40,38 @@ describe('every stage', () => {
   });
 
   it('1-1 has ground, bricks, ? blocks and pipes to play on', () => {
-    const tiles = new Set(STAGES[0]!.tiles.flat());
+    const tiles = new Set(sure(STAGES[0], 'STAGES[0]').tiles.flat());
     for (const t of ['ground', 'brick', 'block', 'pipe'] as const) expect(tiles, t).toContain(t);
   });
 
   it('1-1 has coins to take and Entropy blobs to stomp, every blob standing on something solid', () => {
     const [s] = STAGES;
-    expect(s!.coins.length).toBeGreaterThanOrEqual(10);
-    expect(s!.enemies.length).toBeGreaterThanOrEqual(5);
-    for (const e of s!.enemies) expect(SOLID.has(s!.tiles[e.row + 1]![e.col]!), `blob at column ${e.col + 1}`).toBe(true);
+    assertDefined(s, 's');
+    expect(s.coins.length).toBeGreaterThanOrEqual(10);
+    expect(s.enemies.length).toBeGreaterThanOrEqual(5);
+    for (const e of s.enemies) expect(SOLID.has(sure(sure(s.tiles[e.row + 1], 's.tiles[e.row + 1]')[e.col], 's.tiles[e.row + 1]![e.col]')), `blob at column ${e.col + 1}`).toBe(true);
   });
 
   it.each(STAGES.map((s) => [s.id, s] as const))('%s has coins to take and blobs to stomp, every blob standing on something solid', (_, stage) => {
     expect(stage.coins.length).toBeGreaterThanOrEqual(10);
     expect(stage.enemies.length).toBeGreaterThanOrEqual(5);
-    for (const e of stage.enemies) expect(SOLID.has(stage.tiles[e.row + 1]![e.col]!), `blob at column ${e.col + 1}`).toBe(true);
+    for (const e of stage.enemies) expect(SOLID.has(sure(sure(stage.tiles[e.row + 1], 'stage.tiles[e.row + 1]')[e.col], 'stage.tiles[e.row + 1]![e.col]')), `blob at column ${e.col + 1}`).toBe(true);
   });
 
   it('1-2 is underground: a brick ceiling over ground, with pipes and ? blocks', () => {
     const s = STAGES[1];
-    expect(s!.tiles[0]!.filter((t) => t === 'brick').length).toBeGreaterThan(s!.cols / 2);
-    const tiles = new Set(s!.tiles.flat());
+    assertDefined(s, 's');
+    expect(sure(s.tiles[0], 's.tiles[0]').filter((t) => t === 'brick').length).toBeGreaterThan(s.cols / 2);
+    const tiles = new Set(s.tiles.flat());
     for (const t of ['ground', 'brick', 'block', 'pipe'] as const) expect(tiles, t).toContain(t);
   });
 
   it('1-3 is a castle: stone underfoot and overhead, and no grass ground', () => {
     const s = STAGES[2];
-    expect(s!.tiles[0]!.every((t) => t === 'stone')).toBe(true);
-    expect(s!.tiles[s!.rows - 1]!.filter((t) => t !== 'empty').every((t) => t === 'stone')).toBe(true);
-    const tiles = new Set(s!.tiles.flat());
+    assertDefined(s, 's');
+    expect(sure(s.tiles[0], 's.tiles[0]').every((t) => t === 'stone')).toBe(true);
+    expect(sure(s.tiles[s.rows - 1], 's.tiles[s.rows - 1]').filter((t) => t !== 'empty').every((t) => t === 'stone')).toBe(true);
+    const tiles = new Set(s.tiles.flat());
     expect(tiles).toContain('block');
     expect(tiles).not.toContain('ground');
   });
@@ -79,7 +85,7 @@ describe('parseStage', () => {
     expect(s.flags).toEqual([{ col: 8, row: 15 }]);
     expect(s.coins).toEqual([{ col: 8, row: 14 }]);
     expect(s.enemies).toEqual([{ col: 9, row: 14 }]);
-    expect(s.tiles[15]![1]).toBe('empty');
+    expect(sure(s.tiles[15], 's.tiles[15]')[1]).toBe('empty');
   });
 
   it('writes the whole legend above the maps', () => {

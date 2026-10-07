@@ -1,8 +1,10 @@
+import { z } from 'zod';
 import type { ClaimKind, StoredClaim } from '../model';
 import type { Extractor } from './extract';
 import { mergeOf, productFor, snapSize, type MergeOutcome } from './merge';
 import { fileLabel, fileWhere, pageLabel, repoFiles, repoLabel, type FileKind, type RepoListing } from './sources';
 import { MAX_QUOTE, verified, type Candidate } from './verify';
+import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // One run of the draft (PRD 774, spec steps 1 to 4), for a draft row already started: for each tracked
 // repository of the workspace, the files ./sources.ts picks, read as the Omni Loop App; then each pasted
@@ -19,42 +21,46 @@ import { MAX_QUOTE, verified, type Candidate } from './verify';
 // as kept, whatever the extractor answered, since claim_propose_evidence() refuses the kind.
 
 /** What a draft row says it read, by key (`business_drafts.counts`). */
-export interface DraftCounts {
-  readmes: number;
-  docs: number;
-  prds: number;
-  pages: number;
-  skipped: number;
+const DraftCounts = z.object({
+  readmes: z.number(),
+  docs: z.number(),
+  prds: z.number(),
+  pages: z.number(),
+  skipped: z.number(),
   /** Candidates the model answered, and those whose quote was found. */
-  found: number;
-  kept: number;
-  added: number;
-  seen: number;
-  replacing: number;
-  rejected: number;
-}
+  found: z.number(),
+  kept: z.number(),
+  added: z.number(),
+  seen: z.number(),
+  replacing: z.number(),
+  rejected: z.number(),
+});
+export type DraftCounts = z.infer<typeof DraftCounts>;
 
 /** One source as the page lists it while the draft runs: `✓ vertuo-app · README.md`, `– vertuoza.com/pricing · skipped`. */
-export interface Scanned {
-  source: string;
-  state: 'read' | 'skipped';
+const Scanned = z.object({
+  source: z.string(),
+  state: z.enum(['read', 'skipped']),
   /** Why it was skipped, in plain words. */
-  why?: string;
-}
+  why: z.string().optional(),
+});
+export type Scanned = z.infer<typeof Scanned>;
 
-export type DraftState = 'running' | 'done' | 'failed';
+const DraftState = z.enum(['running', 'done', 'failed']);
 
-/** A public.business_drafts row, as PostgREST answers it. */
-export interface DraftRow {
-  id: string;
-  kind: 'draft' | 'recheck';
-  state: DraftState;
-  started_at: string;
-  finished_at: string | null;
-  counts: Partial<DraftCounts>;
-  scanned: Scanned[];
-  reason: string | null;
-}
+/** A public.business_drafts row, as PostgREST answers it: `counts` and `scanned` are the JSON columns
+ * this run writes (PRD 1030: parsed, not trusted). */
+export const DraftRow = z.object({
+  id: z.string(),
+  kind: z.enum(['draft', 'recheck']),
+  state: DraftState,
+  started_at: z.string(),
+  finished_at: z.string().nullable(),
+  counts: DraftCounts.partial(),
+  scanned: z.array(Scanned),
+  reason: z.string().nullable(),
+});
+export type DraftRow = z.infer<typeof DraftRow>;
 
 export type Receipt = { kind: 'file' | 'pr' | 'link'; where: string; quote: string };
 
@@ -108,7 +114,7 @@ const MAX_RECEIPTS = 20;
 
 const zero = (): DraftCounts => ({ readmes: 0, docs: 0, prds: 0, pages: 0, skipped: 0, found: 0, kept: 0, added: 0, seen: 0, replacing: 0, rejected: 0 });
 
-const plainError = (error: unknown) => (error instanceof Error ? error.message : String(error)).split('\n')[0]!.slice(0, 300);
+const plainError = (error: unknown) => firstPart(error instanceof Error ? error.message : String(error), '\n').slice(0, 300);
 
 /** A source's candidates grouped by claim: one value of one kind, with every quote that says it. */
 function grouped(candidates: readonly Candidate[]): Array<{ kind: ClaimKind; value: string; quotes: string[] }> {
@@ -194,7 +200,7 @@ async function read(run: Run, label: string, work: () => Promise<boolean>) {
     why = plainError(error);
   }
   if (!ok) run.counts.skipped += 1;
-  run.scanned.push(ok ? { source: label, state: 'read' } : { source: label, state: 'skipped', why });
+  run.scanned.push(ok ? { source: label, state: 'read' } : { source: label, state: 'skipped', ...(why === undefined ? {} : { why }) });
   await run.deps.store.progress(run.workspace, run.draft, run.counts, run.scanned);
 }
 
@@ -202,14 +208,14 @@ async function read(run: Run, label: string, work: () => Promise<boolean>) {
 async function readRepo(run: Run, extract: Extractor, installation: number | null, repo: { full_name: string; product_id: string | null }, first: string | null) {
   const name = repo.full_name;
   if (installation === null) {
-    await read(run, repoLabel(name), async () => { throw new Error('The Omni Loop App is not installed here.'); });
+    await read(run, repoLabel(name), () => { throw new Error('The Omni Loop App is not installed here.'); });
     return;
   }
   let listing: RepoListing;
   try {
     listing = await run.deps.github.listing(installation, name);
   } catch (error) {
-    await read(run, repoLabel(name), async () => { throw error; });
+    await read(run, repoLabel(name), () => { throw error; });
     return;
   }
   for (const file of repoFiles(listing)) {
@@ -251,7 +257,7 @@ export async function runDraft(deps: DraftDeps, workspace: string, draft: string
   const { store } = deps;
   const run: Run = { deps, workspace, draft, counts: zero(), scanned: [], held: [] };
   const failed = async (why: string) => {
-    await store.finish(workspace, draft, 'failed', run.counts, run.scanned, why).catch((error) => deps.log(`business draft: ${draft} could not be marked failed — ${plainError(error)}`));
+    await store.finish(workspace, draft, 'failed', run.counts, run.scanned, why).catch((error: unknown) => { deps.log(`business draft: ${draft} could not be marked failed — ${plainError(error)}`); });
   };
 
   try {

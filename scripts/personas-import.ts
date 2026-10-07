@@ -23,6 +23,8 @@ import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { PERSONA_TRADES, randomAvatar, validPersonaAvatar } from '../packages/design/src/index.ts';
 import type { PersonaAvatar } from '../packages/design/src/index.ts';
+import { EnvError, readEnv, processEnv, requireGroup, SUPABASE, type EnvSource, type SupabaseEnv } from '../kit/lib/env/read.ts';
+import { plainText } from '../kit/lib/outbox/plain-text.ts';
 import { parseOrThrow } from '../kit/lib/schema/parse-or-throw.ts';
 
 const STANCES = ['excited', 'neutral', 'skeptical'] as const;
@@ -201,7 +203,9 @@ export function restStore({ url, key, fetch = globalThis.fetch }: { url: string;
       const raw: unknown = await res.json().catch(() => ({}));
       const parsed = RefusalSchema.safeParse(raw);
       const body = parsed.success ? parsed.data : {};
-      const said = [body.code, body.message, body.hint && `(${String(body.hint)})`].filter(Boolean).join(' ');
+      // A hint is text; one that is not reads as none, where `String()` wrote out `[object Object]`.
+      const hint = body.hint ? plainText(body.hint) : '';
+      const said = [body.code, body.message, hint && `(${hint})`].filter(Boolean).join(' ');
       throw new Error(`Supabase refused (${res.status})${said ? `: ${said}` : ''}`);
     }
     return res.json();
@@ -250,11 +254,7 @@ function refuse(...lines: string[]): never {
   throw new Refused(lines);
 }
 
-type Env = Record<string, string | undefined>;
-
-// checkEnv has refused the run before `connect` is called when either is unset.
-const connectFromEnv = (e: Env): PersonaStore =>
-  restStore({ url: e.SUPABASE_URL || e.NEXT_PUBLIC_SUPABASE_URL || '', key: e.SUPABASE_SERVICE_ROLE_KEY ?? '' });
+const connectTo = (pair: SupabaseEnv): PersonaStore => restStore(pair);
 const readText = (file: string): string => readFileSync(file, 'utf8');
 
 /** The run's workspace id, file and --write, or a refusal with the usage. */
@@ -274,13 +274,14 @@ function rowsOf(read: (file: string) => string, file: string): unknown {
   }
 }
 
-/** Refuses when a variable the store needs is not set, naming each one. */
-function checkEnv(env: Env): void {
-  const missing = [
-    !(env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL)?.trim() && 'SUPABASE_URL',
-    !env.SUPABASE_SERVICE_ROLE_KEY?.trim() && 'SUPABASE_SERVICE_ROLE_KEY',
-  ].filter(Boolean);
-  if (missing.length) refuse(...missing.map((name) => `personas-import needs ${name}: set it (locally, \`npx supabase status\` prints it)`));
+/** The Supabase pair the store needs, or a refusal naming every variable that is unset or wrong. */
+function supabaseOf(env: EnvSource): SupabaseEnv {
+  try {
+    return requireGroup(readEnv(env).supabase, SUPABASE, 'personas-import writes the personas (locally, `npx supabase status` prints both)');
+  } catch (error) {
+    if (!(error instanceof EnvError)) throw error;
+    return refuse(`personas-import: ${error.message}`);
+  }
 }
 
 /** The workspace with its products and the personas already there; null when no workspace has the id. */
@@ -333,8 +334,8 @@ async function addAll(store: PersonaStore, workspaceId: string, toAdd: ReadyRow[
 
 type ImportInput = {
   argv: string[];
-  env: Env;
-  connect?: (env: Env) => PersonaStore;
+  env: EnvSource;
+  connect?: (pair: SupabaseEnv) => PersonaStore;
   read?: (file: string) => string;
   out?: (line: string) => void;
   err?: (line: string) => void;
@@ -343,8 +344,7 @@ type ImportInput = {
 async function runImport({ argv, env, connect, read, out }: Required<Omit<ImportInput, 'err'>>): Promise<number> {
   const { workspaceId, file, write } = argsOf(argv);
   const rows = rowsOf(read, file);
-  checkEnv(env);
-  const store = connect(env);
+  const store = connect(supabaseOf(env));
   const { workspace, products, existing } = await readWorkspace(store, workspaceId);
   out(`workspace: ${workspace.name} (${workspaceId})`);
   if (!products.length) refuse(`personas-import: ${workspace.name} has no product yet (Settings › Business); nothing written`);
@@ -360,7 +360,7 @@ async function runImport({ argv, env, connect, read, out }: Required<Omit<Import
 }
 
 /** One run of the import; returns the exit code. `connect` gives the store from the environment. */
-export async function importPersonas({ argv, env, connect = connectFromEnv, read = readText, out = console.log, err = console.error }: ImportInput): Promise<number> {
+export async function importPersonas({ argv, env, connect = connectTo, read = readText, out = console.log, err = console.error }: ImportInput): Promise<number> {
   try {
     return await runImport({ argv, env, connect, read, out });
   } catch (error) {
@@ -371,5 +371,5 @@ export async function importPersonas({ argv, env, connect = connectFromEnv, read
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.exit(await importPersonas({ argv: process.argv.slice(2), env: process.env }));
+  process.exit(await importPersonas({ argv: process.argv.slice(2), env: processEnv() }));
 }

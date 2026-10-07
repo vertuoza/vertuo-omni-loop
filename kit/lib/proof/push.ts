@@ -7,16 +7,18 @@
 // at least: its id is minted here, a random UUID as the app's own.
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { at } from '../narrow.ts';
 import type { ProofCriterion, ProofFile, ProofRun } from './run.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** A file of the run, as the upload call asks for it. */
 type UploadRequest = { name: string; bytes: number; type: string };
 
 /** The Omni page's three proof calls (`kit/lib/ask/client.ts`). Their replies are read as unknown. */
 export type ProofClient = {
-  requestProofUploads: (request: { repo: string; prd: number; files: UploadRequest[] }) => Promise<unknown>;
-  upload: (url: string, bytes: Uint8Array, type: string) => Promise<unknown>;
-  registerProof: (request: { repo: string; prd: number; run: string; commit: string; url: string; criteria: ProofCriterion[] }) => Promise<unknown>;
+  requestProofUploads: (request: { repo: string; prd: PrdNumber; files: UploadRequest[] }) => Promise<unknown>;
+  upload: (url: string, bytes: Uint8Array<ArrayBuffer>, type: string) => Promise<unknown>;
+  registerProof: (request: { repo: string; prd: PrdNumber; run: string; commit: string; url: string; criteria: ProofCriterion[] }) => Promise<unknown>;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
@@ -61,16 +63,16 @@ export async function pushProof({
 }: {
   client: ProofClient;
   repo: string;
-  prd: number;
+  prd: PrdNumber;
   run: ProofRun;
-  read?: (path: string) => Uint8Array;
+  read?: (path: string) => Uint8Array<ArrayBuffer>;
   newRunId?: () => string;
 }): Promise<{ tab: string; gif?: string }> {
   let runId: string;
   if (run.files.length) {
     const reply = await client.requestProofUploads({ repo, prd, files: run.files.map(({ name, bytes, type }) => ({ name, bytes, type })) });
     const given = linksOf(reply, run.files);
-    for (const [index, file] of run.files.entries()) await client.upload(given.links[index]!, read(file.path), file.type); // one link per file
+    for (const [index, file] of run.files.entries()) await client.upload(at(given.links, index, `the upload link of ${file.name}`), read(file.path), file.type); // one link per file
     runId = given.runId;
   } else {
     runId = newRunId();

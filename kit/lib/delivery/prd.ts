@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { parsePlanRepositories, parsePlanSlices } from '../inbox/territory.ts';
 import { openItemFiles } from '../outbox/status.ts';
 import type { Context } from '../context.ts';
-import type { PrdNumber } from '../layout.ts';
+import type { PrdNumber } from '../ids.ts';
 import type { PRD } from '../types.ts';
 
 export function whereIs(ctx: Context, prd: PrdNumber): PRD | null {
@@ -17,7 +17,7 @@ export function whereIs(ctx: Context, prd: PrdNumber): PRD | null {
     .sort();
   const outboxDir = ctx.layout.outboxDir(prd);
   return {
-    prd: Number(prd),
+    prd,
     name: where.name,
     state: where.state,
     dir: where.dir,

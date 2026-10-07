@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { fetchedAgo, formatOverview, STAGE_ORDER, STAGE_WORDS } from './format.ts';
 import type { Overview, StagedPrd, YourRow, Yours } from './overview.ts';
+import { assertDefined } from '../../test/assert.ts';
+import { parsePrd } from '../ids.ts';
 
 const NOW = Date.UTC(2026, 8, 28, 12, 0, 0);
 const SECOND = 1000;
@@ -152,8 +154,8 @@ describe('formatOverview — the seven stages (PRD 315 s2, PRD 587 s5)', () => {
 });
 
 describe('formatOverview — yours (PRD 315, slice s3)', () => {
-  const row = (stage: YourRow['stage'], prd: number, topic: string, more: { openItems?: number } = {}): YourRow => ({ stage, prd, topic, ...more });
-  const entry = (prd: number, topic: string): StagedPrd => ({ prd, topic });
+  const row = (stage: YourRow['stage'], prd: number, topic: string, more: { openItems?: number } = {}): YourRow => ({ stage, prd: parsePrd(prd), topic, ...more });
+  const entry = (prd: number, topic: string): StagedPrd => ({ prd: parsePrd(prd), topic });
 
   /** The lines of the yours section: between the blank line after the bar and the one before help. */
   function yoursLines(text: string) {
@@ -195,6 +197,21 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
     ]);
   });
 
+  it("prints a PRD's landings under its row, each with its state and the merge it waits for", () => {
+    const landings = [
+      { landing: 1, landings: 2, name: 'expand', state: 'open' as const, waitsFor: null },
+      { landing: 2, landings: 2, name: 'code', state: 'open' as const, waitsFor: 1 },
+    ];
+    const yours = known({ rows: [{ ...row('building', 12, 'twelve'), landings }] });
+    const text = formatOverview(overview({ building: 1, yours }), { now: NOW });
+    expect(yoursLines(text)).toEqual([
+      '  Yours · me@example.com',
+      '  building   #12  twelve    being built',
+      '             landing 1/2 expand: open',
+      '             landing 2/2 code: open, waits for landing 1 to merge',
+    ]);
+  });
+
   it('says one open item waits, and being built for a building PRD with none open', () => {
     const yours = known({ rows: [row('building', 12, 'twelve', { openItems: 1 }), row('building', 7, 'seven', { openItems: 0 })] });
     expect(yoursLines(formatOverview(overview({ yours }), { now: NOW }))).toEqual([
@@ -219,7 +236,8 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
     const shipped = Array.from({ length: 40 }, (_, index) => entry(400 - index, `topic-number-${index}`));
     const list = yoursLines(formatOverview(overview({ yours: known({ shipped }) }), { now: NOW })).slice(1);
     expect(list.length).toBeGreaterThan(2);
-    expect(list[0]!.startsWith('  shipped    40: #400 topic-number-0 · #399 topic-number-1 · ')).toBe(true);
+    assertDefined(list[0], 'list[0]');
+    expect(list[0].startsWith('  shipped    40: #400 topic-number-0 · #399 topic-number-1 · ')).toBe(true);
     for (const line of list.slice(1)) expect(line).toMatch(/^ {13}#\d/);
     for (const line of list) {
       expect(line.length).toBeLessThanOrEqual(80);
@@ -238,7 +256,8 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
       `  building   #7   ${long.slice(0, 25)}…    2 open items wait for an answer`,
       `  PRD        #12  ${'short'.padEnd(26)}    its phase-0 PR waits for a merge`,
     ]);
-    expect(out[2]!.length).toBe(80);
+    assertDefined(out[2], 'out[2]');
+    expect(out[2].length).toBe(80);
   });
 
   it('cuts with … a shipped topic too long for a line of its own', () => {

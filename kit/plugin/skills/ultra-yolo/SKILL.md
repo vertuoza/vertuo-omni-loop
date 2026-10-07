@@ -36,6 +36,15 @@ from its `.omni-loop/config.yml` on its default branch, as `/omni:do-work`'s
 **Under `--target <name>`** reads it). A target without one runs nothing locally: its target feature
 PR's CI is the check. Never an install, a script, or a command from an imported copy's playbook.
 
+**Flow points,** as `/omni:yolo` follows them: its one point, `yolo.ready`, fires before each
+`gh pr ready` this skill runs, with `flow show yolo.ready` and `flow verdict yolo.ready`. For the plan
+PR it reads the plan repository's flow. For a target PR it reads **that target's own committed
+flow**, as `/omni:ultra-wave`'s **A target's flow** reads it:
+`(cd <clone> && node <plan repository root>/.omni-loop/bin/omni.mjs flow show yolo.ready)`, the
+plan repository's `omni` reading the target's config and hook files in its clone. A target's hooks
+are followed only in its worktree (the clone), never from the imported copy; a target without a
+committed `.omni-loop/config.yml` has no flow, and the kit's step runs alone.
+
 ## Input
 
 A PRD number, in a plan repository. Re-running is safe: the board is rebuilt from GitHub every time,
@@ -82,6 +91,14 @@ lists the changed files it printed. A moved target is never a stop. Adopt it
 `chore(delivery): PRD <n> — <k> targets moved since the plan was read`, and push. An `unreachable`
 target is held (step 2). A re-run that finds the item already there raises none again.
 
+**A target whose flow moved** is reported as one that moved. Run
+`node .omni-loop/bin/omni.mjs targets --json`: each imported target whose `state` is `stale` and whose
+`detail` starts with `flow moved since read at` gets the same medium item, slug
+`<target>-flow-moved`: the question is whether the plan still meets that target's rules, the
+decision is that the build goes on under the target's committed flow (which every point in that
+target reads), and `gaps` holds the detail. It is adopted and committed with the moved targets'
+items, and is never a stop.
+
 ## 2. The targets
 
 Read `## Repositories` from the plan, and each target's `owner/name` from the board
@@ -107,6 +124,25 @@ each target row, the plan repository's own row excepted:
    Its body starts with `Part of <plan slug>#<n>` (the plan repository's `repo.slug`), lists that
    target's slices as a **Slices** checklist, and ends with the `omni sign footer` line. Labels
    follow `/omni:pr --repo`: one missing there is a human step, never created.
+
+**A plan of more than one landing** (`node .omni-loop/bin/omni.mjs plan landings <n> --json` lists
+more than one) is delivered per target as that target's own chain of landings, each built as
+`/omni:yolo`'s **Landings** says. For each target, read its chain:
+
+```bash
+node .omni-loop/bin/omni.mjs plan landings <n> --repo <name> --json
+```
+
+It keeps only the landings with a slice in that target, numbered within it: a target with slices in
+one landing has one feature branch, `branches.feature`, and one target feature PR with no suffix, as
+above; a landing with no slice in a target gets no branch and no pull request there. With more than
+one landing there, item 3 cuts each landing's `branch` (landing 1 from the target's default branch,
+landing k from landing k-1's branch, each with its empty commit when new), and item 4 opens one draft
+target feature PR per landing: base its `base`, title the PRD's title with its `titleSuffix`, body
+`Part of <plan slug>#<n>`, then its `mergeAfterLine` when it has one, then the **Slices** of that
+landing in that target, then the `## Landings` overview of that target's chain, then the
+`omni sign footer` line. Each is opened through `/omni:pr --repo <slug>`, so the target's own
+`pr.open` point (its flow, `pr.openWith` included), read in its clone, decides how it opens. A re-run reuses every branch and PR.
 
 A target that cannot be cloned, fetched or pushed to, or whose pull request cannot open, is
 **held**: name it and the reason, and carry on. Its slices are not claimed; they and what they block
@@ -136,8 +172,19 @@ For each target with a slice merged into its feature branch, in a detached workt
    result, or `none — CI is the check`), **Risk and rollback** and **Reviewer focus**, in the shape
    `/omni:pr` owns (`gh pr edit <n> --repo <slug> --body-file <file>`), keeping the
    `Part of` line first and the `omni sign footer` line last.
-5. **Ready:** `gh pr ready <n> --repo <slug>`, then follow `/omni:pr --repo <slug>`'s lifecycle until
+5. **Ready,** at point `yolo.ready` read in the target's clone (**Flow points**): every `before`
+   hook, then `gh pr ready <n> --repo <slug>`, then every `after` hook; a `not ok` leaves the target
+   PR in draft and the target **stuck**, naming the hook. Then follow `/omni:pr --repo <slug>`'s lifecycle until
    its CI is green or it is stuck. This is the only place a target feature PR is marked ready.
+
+**Landings in a target.** Each landing of a target's chain is finished on its own branch, items 1
+to 4 (item 1 meets its base: the previous landing's branch while that one is open, the target's
+default branch once it has merged), and item 5 marks it ready only under `/omni:yolo`'s ready rule,
+**within that target**: its slices merged into its branch, its CI green, and the previous landing's
+PR **in that target** merged (`gh pr view <previous> --repo <slug> --json state --jq .state` prints
+`MERGED`), never another target's. A landing whose previous one is still open stays in draft, its
+status comment saying which merge it waits for, and the run carries on with the next landing and
+the other targets. The plan PR then waits, below, until every target landing PR is ready or merged.
 
 A stuck target keeps its target PR in draft with `/omni:pr`'s stuck comment, and holds the plan PR
 in draft. The plan repository's own slices, when it has any, finish as `/omni:yolo` step 4 items
@@ -150,8 +197,10 @@ In a detached worktree of the plan feature branch:
 1. **The plan PR's body,** as `/omni:yolo` step 4 item 6, with one more section: **Target pull
    requests, in merge order**, one line per target PR, `<slug>#<n> — <state>, CI <green | red |
    running>`. Merge order is the earliest wave among each target's slices, then the order of
-   `## Repositories`. Tick every merged slice in the grouped **Slices** checklist as
-   `<slug>#<sub-PR> <title>`.
+   `## Repositories`; for a plan of several landings, the plan's landing order first, each target's
+   landing PRs in their own order, each line naming its landing (`landing <k>/<K> <name>`). Tick
+   every merged slice in the grouped **Slices** checklist as `<slug>#<sub-PR> <title>`: grouped by
+   target, then, for a plan of several landings, by landing within each target.
 2. The outbox on the plan PR, then the gate, as `/omni:yolo` steps 4 item 7 and 5:
 
    ```bash
@@ -159,8 +208,10 @@ In a detached worktree of the plan feature branch:
    node .omni-loop/bin/omni.mjs status <n>     # exit 0 green, 1 red
    ```
 
-- **Green, and every target PR ready with green CI:** `/omni:yolo` step 5's green path, as written:
-  the release note, `omni ship`, commit, push, then `gh pr ready <plan PR>`. **This is the only
+- **Green, and every target PR ready with green CI** (for a plan of several landings: every
+  target landing PR ready with green CI, or already merged): `/omni:yolo` step 5's green path, as written:
+  the release note, `omni ship`, commit, push, then `gh pr ready <plan PR>` at point `yolo.ready`,
+  the plan repository's, as `/omni:yolo` step 5 item 4 runs it. **This is the only
   place the plan PR is marked ready,** and always after every target PR.
 - **Green, but a target PR is not ready or its CI is not green:** the plan PR stays draft; do not
   ship. The run is **held** by that target.
@@ -191,14 +242,19 @@ held or stuck with its reason.
 ```markdown
 **What is next?**
 
-1. Merge the target pull requests first, in this order, each once its CI is green:
+1. Merge the target pull requests first, in this order, each once its CI is green (a landing PR
+   only once the landing before it in its target is merged and deployed):
    <slug>#<n> (https://github.com/<slug>/pull/<n>), then <slug>#<n> (…)
 2. Then merge the plan PR last: https://github.com/<owner>/<repo>/pull/<plan PR>
    → PRD <n> is shipped: it closes the PRD.
 3. If the omni-loop app is installed, it then opens a retro PR and a knowledge PR in the plan
    repository: review and merge each.
 
-Nothing to run: merging the target PRs, then #<plan PR>, is yours.
+Merging the target PRs, then #<plan PR>, is yours. Until then, to keep every one of them green,
+conflict-free and its review comments handled while you do other things, type /clear (or open a
+new terminal), then run:
+
+/omni:mega-pr-care <n>
 ```
 
 **Red:** `/omni:yolo` step 7's red ending on the plan PR, its last line `/omni:ultra-yolo-fix <n>`.
@@ -206,7 +262,8 @@ Nothing to run: merging the target PRs, then #<plan PR>, is yours.
 **Held:** `/omni:yolo` step 7's held ending, the PR that holds it being the stuck sub-PR or target
 PR when there is one, the plan PR otherwise; its last line `/omni:ultra-yolo <n>`.
 
-The reply's last line is the ending's own, alone on it. A run that stops before step 1 picks up the
+The reply's last line is the ending's own, alone on it: `/omni:mega-pr-care <n>`,
+`/omni:ultra-yolo-fix <n>` or `/omni:ultra-yolo <n>`. A run that stops before step 1 picks up the
 plan PR keeps its one line and prints no hand-off.
 
 ## Guardrails
@@ -218,7 +275,8 @@ plan PR keeps its one line and prints no hand-off.
 - **Never create a label in a target,** whatever `labels.autoCreate` says: a missing one is a human
   step.
 - **Never run a command in a target other than its own committed preflight** (beyond `git` and
-  `gh`), and never one from an imported copy's playbook.
+  `gh`, the plan repository's own `omni` reading its flow, and its own hooks, followed only in its
+  worktree), and never one from an imported copy's playbook.
 - **Never mark the plan PR ready** while the gate is red, before `omni ship` is committed and pushed,
   or before every target PR is ready with green CI.
 - **Never ask along the way.** One outbox, in the plan repository; the one question is step 5's last

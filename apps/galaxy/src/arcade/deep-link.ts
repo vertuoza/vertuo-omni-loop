@@ -8,10 +8,11 @@
 // galaxy is there to show; a page that holds none (out of reach, or an account outside the crew)
 // starts at the boot, as `/` does.
 import type { GalaxyView } from '@omni/galaxy';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, group, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { allowed } from './onboarding';
 import type { SceneName } from './scenes';
 import type { Session } from './types';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The screens an address may name by their own name. */
 export const DEEP_LINKS: readonly SceneName[] = ['map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'menu'];
@@ -24,10 +25,10 @@ export interface Landing { scene: SceneName; sel?: number }
 const PLANET = /^planet-(?:([^/#]+\/[^/#]+)\/)?(\d+)$/;
 
 /** The planet a link names: its home and number, or its number alone when one planet holds it. */
-function planetIndex(view: GalaxyView, home: string | undefined, prd: number): number {
+function planetIndex(view: GalaxyView, home: string | undefined, prd: PrdNumber): number {
   if (home) return view.planets.findIndex((p) => p.prd === prd && p.home === home.toLowerCase());
   const holders = view.planets.flatMap((p, i) => (p.prd === prd ? [i] : []));
-  return holders.length === 1 ? holders[0]! : -1;
+  return holders.length === 1 ? at(holders, 0, 'the planet the link names') : -1;
 }
 
 /**
@@ -39,7 +40,9 @@ export function readHash(hash: string, view: GalaxyView | null): Landing | null 
   if (isOneOf(DEEP_LINKS, h)) return { scene: h };
   const m = PLANET.exec(h);
   if (m && view) {
-    const sel = planetIndex(view, m[1], Number(m[2]));
+    // A number no PRD has (`planet-0`) names no planet: the map.
+    const prd = PrdNumberSchema.safeParse(Number(group(m, 2)));
+    const sel = prd.success ? planetIndex(view, m[1], prd.data) : -1;
     return sel >= 0 ? { scene: 'planet', sel } : { scene: 'map' };
   }
   return null;

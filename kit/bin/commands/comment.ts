@@ -12,9 +12,10 @@ import {
   upsertOutboxPrComment,
 } from '../../lib/outbox/comment.ts';
 import { githubClientFor } from '../github.ts';
-import { errorMessage, inRoot, list, parseArgs, positiveInt, println, repoSlug, usageError } from '../args.ts';
+import { errorMessage, inRoot, list, parseArgs, prArg, prdArg, println, repoSlug, usageError } from '../args.ts';
 import type { NameStatus } from '../../lib/git.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE =
   'usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] ' +
@@ -22,19 +23,19 @@ const USAGE =
   ' | omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]';
 
 export const comment: Command = {
-  async run(args: string[], { ctx, stdout, exec, env }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
     const { positional, flags } = parseArgs('comment', args, {
       values: ['prd', 'pr', 'repo', 'result', 'branch', 'ref', 'base', 'labels', 'slack-note', 'title', 'owner-slack-id', 'owner-login', 'pr-comment'],
     });
     if (positional.length) throw usageError(USAGE);
-    const prd = positiveInt('comment', '--prd', flags.prd);
+    const prd = prdArg('comment', '--prd', flags.prd);
     const repo = repoSlug('comment', ctx, flags.repo);
     const [owner = '', name = ''] = repo.split('/');
 
     // `--pr` writes the plain-words comment on the feature pull request itself; its absence writes
     // the PRD-issue comment.
     if (flags.pr !== undefined) {
-      const pr = positiveInt('comment', '--pr', flags.pr);
+      const pr = prArg('comment', '--pr', flags.pr);
       const result = upsertOutboxPrComment({ prd, ctx }, githubClientFor(ctx, { repo, issue: pr, exec, env }));
       println(
         stdout,
@@ -83,5 +84,5 @@ export const comment: Command = {
       path: flags['slack-note'] ? inRoot(ctx, flags['slack-note']) : null,
     });
     return 0;
-  },
+  }),
 };

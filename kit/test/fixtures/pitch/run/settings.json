@@ -1,0 +1,11 @@
+{
+  "look": {
+    "preset": "keynote",
+    "heading": { "provider": "system", "family": "System", "weight": 700 },
+    "text": { "provider": "system", "family": "System", "weight": 400 },
+    "logo": "asset:logo.svg"
+  },
+  "outro": { "cta": "Available now", "credits": true },
+  "music": { "provider": "none" },
+  "length": { "min": 15, "max": 40 }
+}

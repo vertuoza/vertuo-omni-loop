@@ -133,7 +133,7 @@ export const MERGE_JOBS = {
  */
 export type AfterMergeMissing = { runs?: number; jobs?: Record<string, number>; files?: Record<string, number> };
 
-export function afterMergeRecording({ missing = {} }: { missing?: AfterMergeMissing } = {}) {
+export function afterMergeRecording({ missing = {} }: { missing?: AfterMergeMissing | undefined } = {}) {
   const entries = [];
   for (const [number, files] of Object.entries(FIX_FILES)) {
     entries.push(recordedRead(ROUTES.files, { pull_number: number, per_page: 100, page: 1 }, files, missing.files?.[number]));

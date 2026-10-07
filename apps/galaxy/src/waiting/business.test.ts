@@ -5,7 +5,7 @@ import { BUSINESS_HREF, BUSINESS_ROUTE, EMPTY_BUSINESS_PART, businessRead, readB
 // Business, read from GET /api/waiting/business; a failed read keeps the last count.
 
 describe('reading the business route', () => {
-  const answer = (status: number, body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
+  const answer = (status: number, body: unknown) => vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status })));
 
   it('asks GET /api/waiting/business and gives its count', async () => {
     const fetch = answer(200, { count: 3 });
@@ -23,7 +23,7 @@ describe('reading the business route', () => {
     expect(await readBusinessCount(answer(200, { count: 'two' }))).toEqual({ ok: false, kind: 'shape' });
     expect(await readBusinessCount(answer(200, { count: -1 }))).toEqual({ ok: false, kind: 'shape' });
     expect(await readBusinessCount(answer(200, { count: 1.5 }))).toEqual({ ok: false, kind: 'shape' });
-    expect(await readBusinessCount(vi.fn(async () => { throw new Error('offline'); }))).toEqual({ ok: false, kind: 'network' });
+    expect(await readBusinessCount(vi.fn(() => Promise.reject(new Error('offline'))))).toEqual({ ok: false, kind: 'network' });
   });
 });
 

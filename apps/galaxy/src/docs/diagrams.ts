@@ -71,7 +71,7 @@ export function readSvg(source: string): HastElement {
   };
 
   for (const match of source.matchAll(TOKEN)) {
-    const index = match.index ?? 0;
+    const index = match.index;
     text(source.slice(at, index), at);
     at = index + match[0].length;
     const [whole, closing, , attributes, selfClosing] = match;
@@ -153,7 +153,7 @@ interface MdNode {
   url?: string;
   alt?: string | null;
   value?: string;
-  children?: MdNode[];
+  children?: MdNode[] | undefined;
   data?: Record<string, unknown>;
 }
 
@@ -168,10 +168,10 @@ function diagramOf(node: MdNode): { url: string; alt: string } | null {
 /** The page being compiled, as the remark plugin sees it: fumadocs-mdx hands it the bundler's
  * dependency tracker, so a page is compiled again when a diagram it shows changes. */
 interface PageFile {
-  dirname?: string;
-  path?: string;
+  dirname?: string | undefined;
+  path?: string | undefined;
   /** VFile's data: fumadocs-mdx's `_compiler` is read from it, when there is one. */
-  data?: object;
+  data?: object | undefined;
 }
 
 /** Makes `path` one of the page's dependencies, through the tracker fumadocs-mdx leaves on the page's data, if any. */

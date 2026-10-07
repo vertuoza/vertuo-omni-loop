@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FORWARD_SCRIPT, forwardOf } from './forward';
+import { runInNewContext } from 'node:vm';
 
 // The arcade's old deep links, opened on HOME: each goes on to the game at /play with the same hash,
 // and any other hash stays on HOME (PRD 261).
@@ -24,7 +25,7 @@ describe('the script HOME runs before it paints', () => {
   const run = (hash: string) => {
     const went: string[] = [];
     const location = { hash, replace: (to: string) => { went.push(to); } };
-    new Function('location', FORWARD_SCRIPT)(location);
+    runInNewContext(FORWARD_SCRIPT, { location });
     return went;
   };
 

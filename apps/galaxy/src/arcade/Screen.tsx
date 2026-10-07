@@ -58,7 +58,7 @@ export function Screen({ scene, frame, info, canvasRef, onTap, children }: {
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => { ro.disconnect(); };
   }, []);
 
   const box = fit(room, frame);
@@ -75,7 +75,7 @@ export function Screen({ scene, frame, info, canvasRef, onTap, children }: {
             width={grid.w}
             height={grid.h}
             className="stage"
-            onClick={(e) => onTap(toGrid(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY, grid))}
+            onClick={(e) => { onTap(toGrid(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY, grid)); }}
             aria-label="Galaxy screen"
           />
           <div className="overlay">

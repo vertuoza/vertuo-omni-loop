@@ -3,14 +3,14 @@
 // neither, the script stops rather than read or write the wrong workspace (spec D11).
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { supabaseFromEnv, loadWorkspace, type SupabaseRest, type Workspace } from '../sources/supabase.ts';
+import { EnvError, processEnv, readEnv, type EnvSource, type KitEnv } from '../../kit/lib/env/read.ts';
+import { supabaseFrom, loadWorkspace, type SupabaseRest, type Workspace } from '../sources/supabase.ts';
 
-type Env = Readonly<Record<string, string | undefined>>;
 /** The GitHub a workspace names. */
 export type Github = { org: string; planRepo: string };
 /** What a script without arguments of its own takes. */
 export type NoArgs = Record<string, never>;
-type Options<A> = { usage: string; parse?: ((argv: string[]) => A) | undefined; github?: boolean; argv?: readonly string[]; env?: Env };
+type Options<A> = { usage: string; parse?: ((argv: string[]) => A) | undefined; github?: boolean; argv?: readonly string[]; env?: EnvSource };
 /** A workspace opened for a script. */
 export type Opened<A, G> = { rest: SupabaseRest; workspace: Workspace; args: A; github: G };
 
@@ -19,8 +19,11 @@ const messageOf = (err: unknown): string => (err instanceof Error ? err.message 
 
 export const WORKSPACE_VARIABLE = 'OMNI_LOOP_WORKSPACE';
 
-/** Takes `--workspace <slug>` (or `--workspace=<slug>`) out of the arguments: { slug, argv: the rest, in order }. */
-export function workspaceArg(argv: readonly string[], env: Env = {}): { slug: string; argv: string[] } {
+/**
+ * Takes `--workspace <slug>` (or `--workspace=<slug>`) out of the arguments: { slug, argv: the rest, in
+ * order }. `workspace` is OMNI_LOOP_WORKSPACE as the env module read it, used when no flag names one.
+ */
+export function workspaceArg(argv: readonly string[], workspace: KitEnv['workspace'] = null): { slug: string; argv: string[] } {
   let flag: string | null = null;
   const rest: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -33,7 +36,7 @@ export function workspaceArg(argv: readonly string[], env: Env = {}): { slug: st
     if (flag !== null) throw new Error(`--workspace is given twice ("${flag}" and "${value}")`);
     flag = value;
   }
-  const slug = flag ?? (env[WORKSPACE_VARIABLE]?.trim() || null);
+  const slug = flag ?? (workspace?.slug || null);
   if (!slug) throw new Error(`no workspace named: pass --workspace <slug>, or set ${WORKSPACE_VARIABLE}`);
   return { slug, argv: rest };
 }
@@ -77,18 +80,25 @@ export async function openWorkspace<A>(options: Options<A> & { parse: (argv: str
 export async function openWorkspace(options: Options<NoArgs> & { parse?: undefined; github: true }): Promise<Opened<NoArgs, Github>>;
 export async function openWorkspace(options: Options<NoArgs> & { parse?: undefined; github?: false }): Promise<Opened<NoArgs, null>>;
 export async function openWorkspace(
-  { usage, parse = noArgs, github = false, argv = process.argv.slice(2), env = process.env }: Options<unknown>,
+  { usage, parse = noArgs, github = false, argv = process.argv.slice(2), env = processEnv() }: Options<unknown>,
 ): Promise<Opened<unknown, Github | null>> {
+  let vars: KitEnv;
+  try {
+    vars = readEnv(env);
+  } catch (err) {
+    if (!(err instanceof EnvError)) throw err;
+    stop(err.message, 2);
+  }
   let slug: string, args: unknown;
   try {
-    const named = workspaceArg(argv, env);
+    const named = workspaceArg(argv, vars.workspace);
     slug = named.slug;
     args = parse(named.argv);
   } catch (err) {
     stop(`${messageOf(err)}\nusage: ${usage}`, 2);
   }
   try {
-    const rest = supabaseFromEnv(env);
+    const rest = supabaseFrom(vars.supabase);
     const workspace = await loadWorkspace(rest, slug);
     return { rest, workspace, args, github: github ? githubOf(workspace) : null };
   } catch (err) {

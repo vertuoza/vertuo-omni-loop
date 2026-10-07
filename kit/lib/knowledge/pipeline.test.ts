@@ -6,6 +6,8 @@ import { parseOutboxItem } from '../outbox/outbox.ts';
 import { renderAdoptedEntry, settledHeader } from '../outbox/settle.ts';
 import type { ClassificationReply } from './classify.ts';
 import { finishHarvest, noEdits, prepareHarvest, type Prepared } from './pipeline.ts';
+import { assertDefined } from '../../test/assert.ts';
+import { parsePr, parsePrd } from '../ids.ts';
 
 /** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
 function itemOf(text: string) {
@@ -19,7 +21,7 @@ const K = '.omni-loop/knowledge';
 const D = '.omni-loop/delivery';
 const INBOX = `${D}/inbox/0042-widgets`;
 const SHIPPED = `${D}/shipped/0042-widgets`;
-const MERGE = { by: 'octocat', at: '2026-09-26T10:30:00Z', pr: 43, url: 'https://github.com/acme/widgets/pull/43' };
+const MERGE = { by: 'octocat', at: '2026-09-26T10:30:00Z', pr: parsePr(43), url: 'https://github.com/acme/widgets/pull/43' };
 
 function adopted(id: string): string {
   const text = [
@@ -81,7 +83,7 @@ function files(prdDir: string): Record<string, string> {
     [`${K}/adr/0001-outbox-check-as-app.md`]: '# ADR-0001 — The outbox check runs as an app\n\nBody.\n',
     [`${prdDir}/spec.md`]: '# Widgets\n',
     [`${prdDir}/plan.md`]: '# Plan\n',
-    [ledger]: [settledHeader(42, { ctx: { config: { paths: { delivery: D } } } }), ...IDS.map(adopted)].join('\n'),
+    [ledger]: [settledHeader(parsePrd(42), { ctx: { config: { paths: { delivery: D } } } }), ...IDS.map(adopted)].join('\n'),
   };
 }
 
@@ -91,16 +93,17 @@ const ADR: ClassificationReply = { kind: 'adr', title: 'Widgets are built the si
 
 const repos: { root: string }[] = [];
 afterEach(() => {
-  while (repos.length) rmSync(repos.pop()!.root, { recursive: true, force: true });
+  for (const repo of repos.splice(0)) rmSync(repo.root, { recursive: true, force: true });
 });
 
 function harvest(prdDir: string, replies: Record<string, ClassificationReply>) {
   const r = makeRepo({ files: files(prdDir), git: true });
   repos.push(r);
-  const prepared = prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE }) as Extract<Prepared, { ok: true }>;
-  const classified = prepared.candidates.map((c) =>
-    replies[c.id] ? { id: c.id, reply: replies[c.id]! } : { id: c.id, reply: null, reason: 'not asked' },
-  );
+  const prepared = prepareHarvest({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE }) as Extract<Prepared, { ok: true }>;
+  const classified = prepared.candidates.map((c) => {
+    const reply = replies[c.id];
+    return reply ? { id: c.id, reply } : { id: c.id, reply: null, reason: 'not asked' };
+  });
   return { prepared, finished: finishHarvest({ ctx: r.ctx, prepared, classified, merge: MERGE, date: '2026-09-27' }) };
 }
 
@@ -139,7 +142,9 @@ describe('finishHarvest with a promotion', () => {
     expect(noEdits(finished.edits)).toBe(false);
     const paths = finished.edits.writes.map((w) => w.path);
     expect(paths).toContain(`${K}/adr/0002-widgets-are-built-the-simple-way.md`);
-    const ledger = finished.edits.writes.find((w) => w.path === `${SHIPPED}/outbox/settled.md`)!.text;
+    const ledgerWrite = finished.edits.writes.find((w) => w.path === `${SHIPPED}/outbox/settled.md`);
+    assertDefined(ledgerWrite, 'the ledger written');
+    const ledger = ledgerWrite.text;
     expect(ledger).toContain('- Stays here: nothing lasting');
     expect(ledger).toContain('- Became: ADR-0002');
     expect(ledger).toContain('- Became: ADR-0001');

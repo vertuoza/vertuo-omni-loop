@@ -852,9 +852,10 @@ Where each PRD is (PRD, inbox, building, outbox, shipped, retro) is stored in `p
 one row per stage with the date it was reached, and each PRD folder's topic in `public.prd_topics`.
 The pages read them and never wait on GitHub. Two ways in write them, as the service role:
 
-- **The sync, every 15 minutes, is the truth.** The `stages` workflow
-  (`.github/workflows/stages.yml`) calls `POST /api/stages/sync` with
-  `Authorization: Bearer <STAGES_SYNC_SECRET>` and fails when the reply is not 2xx. For each
+- **The sync, every 15 minutes, is the truth.** Vercel Cron (`vercel.json` › `crons`) calls
+  `GET /api/stages/sync` with `Authorization: Bearer <CRON_SECRET>`, which the route checks against
+  `STAGES_SYNC_SECRET`: the two hold the same value. Each call shows in the project's Cron Jobs
+  settings, and its logs in the function's. A call by hand is `POST` with the same bearer. For each
   workspace, galaxy lists the repositories its App installation reaches that carry a
   `.omni-loop/config.yml`, and reads each through the App (`src/stages/sync/github.ts`): its config,
   the PRD folders in `inbox/` and `shipped/` on its default branch, the issues carrying `labels.prd`,
@@ -1030,7 +1031,7 @@ releases workflow ─ releases:sync, when a PRD ships ──────┘     
                                                                      ▼
                                                       Vercel, fra1: apps/galaxy
                                                                      ▲
-stages workflow ─ POST /api/stages/sync, every 15 minutes ───────────┘  galaxy reads GitHub as the App
+Vercel Cron ─ GET /api/stages/sync, every 15 minutes ───────────────┘  galaxy reads GitHub as the App
 ```
 
 ### 1. Create the Supabase project
@@ -1054,8 +1055,7 @@ Repository settings › Secrets and variables › Actions:
 | `SUPABASE_ACCESS_TOKEN` | secret | the personal access token | `supabase.yml` › deploy |
 | `SUPABASE_DB_PASSWORD` | secret | the database password | `supabase.yml` › deploy |
 | `SUPABASE_SERVICE_ROLE_KEY` | secret | the secret key | `game.yml` › ledger and rankings; `releases.yml` › sync |
-| `GALAXY_URL` | variable | the production arcade's URL, `https://<production host>` | `stages.yml`; unset, the stages sync stays off |
-| `STAGES_SYNC_SECRET` | secret | the same value as galaxy's `STAGES_SYNC_SECRET` (step 5) | `stages.yml` › sync |
+| `GALAXY_URL` | variable | the production arcade's URL, `https://<production host>` | `business-recheck.yml`; unset, the weekly recheck stays off |
 
 ### 3. Apply the migrations
 
@@ -1113,8 +1113,8 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    several). Without the two variables, the tab still reads the questions and Send says sending is
    not open here; without the callback URL, Send fails with GitHub's reason.
    For the PRD stages (PRD 587), two secrets, server only, each a long random string
-   (`openssl rand -hex 32`): `STAGES_SYNC_SECRET`, the same value as the repository's Actions secret
-   of that name (step 2), which the `stages` workflow sends to `/api/stages/sync`; and
+   (`openssl rand -hex 32`): `STAGES_SYNC_SECRET`, with `CRON_SECRET` set to the same value, which
+   Vercel Cron sends to `/api/stages/sync`; and
    `STAGE_EVENT_SECRET`, the same value as on omni-app, which signs its stage events to
    `/api/stages/event`. Without one, its route refuses every call and stages come from the other way
    in ([PRD stages](#prd-stages-prd-587)).
@@ -1122,6 +1122,19 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    (`openssl rand -base64 32`), which encrypts each workspace's TypeSafe key. Without it,
    Settings › Jev says Jev is not available on this deployment and every decision is made as before
    ([Settings › Jev](#settings--jev-prd-812)).
+
+   Every variable the arcade reads, each optional and read once at startup (`src/env.ts`,
+   `src/env.client.ts`, ADR-0057); [`.env.example`](.env.example) says what each one does:
+   <!-- omni:env-variables -->
+   - the public pair: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - the service role: `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_URL` when it reads another address
+   - the GitHub App: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`,
+     `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`
+   - OpenRouter: `OPENROUTER_API_KEY`
+   - the shared secrets: `STAGES_SYNC_SECRET`, `STAGE_EVENT_SECRET`, `SECRETS_MASTER_KEY`,
+     `CONSTITUENT_JUDGE_SECRET`, `BUSINESS_RECHECK_SECRET`
+   - the demo: `OMNI_LOOP_DEMO`; the screenshots' address (`pnpm shots`): `GALAXY_URL`
+   <!-- /omni:env-variables -->
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    arcade still plays its attract mode and says the galaxy is out of reach. `/releases` reads the
    database at build time instead, as nobody, and again at most every 5 minutes.

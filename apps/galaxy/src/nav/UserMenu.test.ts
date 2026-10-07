@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { SignInButton, UserMenu } from './UserMenu.tsx';
 import type { ViewerView } from './viewer-view';
+import { item } from '../ask/test/test-item';
 
 // The end of the app's top bar (PRD 438) as the server renders it: signed in, the avatar button and
 // its menu (the name and login, then Sign out); signed out, Sign in with GitHub.
@@ -32,7 +33,7 @@ describe('the user menu', () => {
   });
 
   it('makes My profile and Sign out the only items that can be chosen: the name is a heading', () => {
-    const items = [...html.matchAll(/role="menuitem"[^>]*>([\s\S]*?)<\/(?:a|button)>/g)].map((m) => text(m[1]!));
+    const items = [...html.matchAll(/role="menuitem"[^>]*>([\s\S]*?)<\/(?:a|button)>/g)].map((m) => text(item(m, 1)));
     expect(items).toEqual(['My profile', 'Sign out']);
     expect(html).toMatch(/role="presentation"[^>]*>[\s\S]*Ada Lovelace/);
   });

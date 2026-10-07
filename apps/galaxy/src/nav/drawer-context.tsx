@@ -29,7 +29,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState(CLOSED);
   const button = useRef<HTMLButtonElement | null>(null);
   const panel = useRef<HTMLElement | null>(null);
-  const send = useCallback((event: DrawerEvent) => setState((now) => drawer(now, event)), []);
+  const send = useCallback((event: DrawerEvent) => { setState((now) => drawer(now, event)); }, []);
 
   useEffect(() => {
     if (state.focus === 'drawer') focusable(panel.current)[0]?.focus();
@@ -47,7 +47,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
       else items[move.index]?.focus();
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); };
   }, [state.open, send]);
 
   const value = useMemo(() => ({ open: state.open, send, button, panel }), [state.open, send]);

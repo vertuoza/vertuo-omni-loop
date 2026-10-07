@@ -28,7 +28,7 @@ const GROUPS = [attract, join, recruit, menu, map, planet, fleets, chart, games,
 export const TALL_SCENES: ReadonlySet<SceneName> = new Set(GROUPS.flatMap((g) => g.TALL_SCENES));
 
 /** Every page count a group declares. */
-export const PAGES: Pages = Object.assign({}, ...GROUPS.map((g) => g.PAGES));
+export const PAGES: Pages = GROUPS.reduce<Pages>((all, g) => ({ ...all, ...g.PAGES }), {});
 
 /** The grid `scene` is drawn on in `form`: tall on the Game Boy held upright once its group lists it, wide otherwise. */
 export function gridFor(form: Form, scene: SceneName, tall: ReadonlySet<SceneName> = TALL_SCENES): Grid {

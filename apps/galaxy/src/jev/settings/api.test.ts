@@ -1,9 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { JevOutcome } from '../client';
 import { openSecret } from '../secret-box';
 import { JevStoreError, type SealedKey } from '../store';
 import { KEY_CHECK, NOT_AVAILABLE, ONLY_OWNER, keyCheck, removeKeyRoute, saveKeyRoute, testRefusal, type KeyRouteDeps } from './api';
+import { sure } from '../../arcade/test/sure';
+
+vi.mock('server-only', () => ({}));
 
 // Settings › Jev's key routes with fakes (PRD 812 s1): a key is stored only after one test call
 // answered, sealed; a refused test stores nothing and says TypeSafe's reason; a non-owner's key is never
@@ -19,15 +22,16 @@ function fakeStore({ owner = true, refuse }: { owner?: boolean; refuse?: string 
   const saved: Array<[string, SealedKey]> = [];
   const removed: string[] = [];
   const store = {
-    async isOwner() { return owner; },
-    async setKey(workspace: string, sealed: SealedKey) {
-      if (refuse) throw new JevStoreError('save the Jev key', refuse, 'no');
+    isOwner() { return Promise.resolve(owner); },
+    setKey(workspace: string, sealed: SealedKey) {
+      if (refuse) return Promise.reject(new JevStoreError('save the Jev key', refuse, 'no'));
       saved.push([workspace, sealed]);
-      return { stored: true, lastFour: sealed.lastFour, setAt: '2026-09-30T10:00:00Z' };
+      return Promise.resolve({ stored: true, lastFour: sealed.lastFour, setAt: '2026-09-30T10:00:00Z' });
     },
-    async removeKey(workspace: string) {
-      if (refuse) throw new JevStoreError('remove the Jev key', refuse, 'no');
+    removeKey(workspace: string) {
+      if (refuse) return Promise.reject(new JevStoreError('remove the Jev key', refuse, 'no'));
       removed.push(workspace);
+      return Promise.resolve();
     },
   };
   return { store, saved, removed };
@@ -37,9 +41,9 @@ function deps(over: Partial<KeyRouteDeps> & { outcome?: JevOutcome } = {}) {
   const tested: string[] = [];
   const { store, saved, removed } = fakeStore();
   const d: KeyRouteDeps = {
-    store: async () => store,
+    store: () => Promise.resolve(store),
     master: () => MASTER,
-    test: async (key) => { tested.push(key); return over.outcome ?? ANSWERED; },
+    test: (key) => { tested.push(key); return Promise.resolve(over.outcome ?? ANSWERED); },
     ...over,
   };
   return { deps: d, tested, saved, removed };
@@ -53,12 +57,12 @@ describe('POST /api/jev/key', () => {
     const { deps: d, tested, saved } = deps();
     const res = await saveKeyRoute(post({ workspace: W, key: `  ${KEY} ` }), d);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body: unknown = await res.json();
     expect(body).toEqual({ key: { stored: true, lastFour: '1a2b', setAt: '2026-09-30T10:00:00Z' } });
     expect(JSON.stringify(body)).not.toContain(KEY);
     expect(tested).toEqual([KEY]);
     expect(saved).toHaveLength(1);
-    const [workspace, sealed] = saved[0]!;
+    const [workspace, sealed] = sure(saved[0], 'saved[0]');
     expect(workspace).toBe(W);
     expect(sealed.ciphertext).not.toContain(KEY);
     expect(openSecret(sealed, MASTER)).toBe(KEY);
@@ -83,7 +87,7 @@ describe('POST /api/jev/key', () => {
 
   it('never sends a non-owner\'s key to TypeSafe', async () => {
     const { store, saved } = fakeStore({ owner: false });
-    const { deps: d, tested } = deps({ store: async () => store });
+    const { deps: d, tested } = deps({ store: () => Promise.resolve(store) });
     const res = await saveKeyRoute(post({ workspace: W, key: KEY }), d);
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: ONLY_OWNER });
@@ -92,8 +96,8 @@ describe('POST /api/jev/key', () => {
   });
 
   it('refuses the database\'s 42501 as not the owner, and any other failure as 500', async () => {
-    expect((await saveKeyRoute(post({ workspace: W, key: KEY }), deps({ store: async () => fakeStore({ refuse: '42501' }).store }).deps)).status).toBe(403);
-    expect((await saveKeyRoute(post({ workspace: W, key: KEY }), deps({ store: async () => fakeStore({ refuse: 'XX000' }).store }).deps)).status).toBe(500);
+    expect((await saveKeyRoute(post({ workspace: W, key: KEY }), deps({ store: () => Promise.resolve(fakeStore({ refuse: '42501' }).store) }).deps)).status).toBe(403);
+    expect((await saveKeyRoute(post({ workspace: W, key: KEY }), deps({ store: () => Promise.resolve(fakeStore({ refuse: 'XX000' }).store) }).deps)).status).toBe(500);
   });
 
   it('saves nothing, and calls nobody, without SECRETS_MASTER_KEY', async () => {
@@ -106,7 +110,7 @@ describe('POST /api/jev/key', () => {
   });
 
   it('refuses a signed-out caller and a malformed body', async () => {
-    expect((await saveKeyRoute(post({ workspace: W, key: KEY }), deps({ store: async () => null }).deps)).status).toBe(401);
+    expect((await saveKeyRoute(post({ workspace: W, key: KEY }), deps({ store: () => Promise.resolve(null) }).deps)).status).toBe(401);
     for (const body of ['not json', [], { workspace: W }, { key: KEY }, { workspace: W, key: 'short' }, { workspace: W, key: 'has a space in it' }, { workspace: '', key: KEY }]) {
       const { deps: d, tested } = deps();
       expect((await saveKeyRoute(post(body), d)).status, JSON.stringify(body)).toBe(400);
@@ -125,8 +129,8 @@ describe('DELETE /api/jev/key', () => {
   });
 
   it('refuses a non-owner, a signed-out caller and a malformed body', async () => {
-    expect((await removeKeyRoute(post({ workspace: W }, 'DELETE'), { store: async () => fakeStore({ refuse: '42501' }).store })).status).toBe(403);
-    expect((await removeKeyRoute(post({ workspace: W }, 'DELETE'), { store: async () => null })).status).toBe(401);
+    expect((await removeKeyRoute(post({ workspace: W }, 'DELETE'), { store: () => Promise.resolve(fakeStore({ refuse: '42501' }).store) })).status).toBe(403);
+    expect((await removeKeyRoute(post({ workspace: W }, 'DELETE'), { store: () => Promise.resolve(null) })).status).toBe(401);
     expect((await removeKeyRoute(post({}, 'DELETE'), deps().deps)).status).toBe(400);
   });
 });
@@ -134,12 +138,13 @@ describe('DELETE /api/jev/key', () => {
 describe('the test call', () => {
   it('asks a Noul about a fixed text, nothing of the workspace\'s', async () => {
     const bodies: unknown[] = [];
-    const fetch = (async (_url: string, init: RequestInit) => {
-      bodies.push(JSON.parse(String(init.body)));
-      return Response.json({ model: 'jev-1.13.0', answers: { q: { type: 'noul', noul: 0.4 } } });
+    const fetch = ((_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(typeof init.body === 'string' ? init.body : '') as unknown);
+      return Promise.resolve(Response.json({ model: 'jev-1.13.0', answers: { q: { type: 'noul', noul: 0.4 } } }));
     }) as unknown as typeof globalThis.fetch;
     expect(await keyCheck(KEY, fetch)).toMatchObject({ kind: 'answered' });
-    expect(bodies).toEqual([{ model: 'jev-1.13.0', state: expect.any(String), questions: { q: { type: 'noul', instructions: KEY_CHECK.type === 'noul' ? KEY_CHECK.statement : '' } } }]);
+    const A_STRING: unknown = expect.any(String);
+    expect(bodies).toEqual([{ model: 'jev-1.13.0', state: A_STRING, questions: { q: { type: 'noul', instructions: KEY_CHECK.type === 'noul' ? KEY_CHECK.statement : '' } } }]);
   });
 
   it('says why in plain words', () => {

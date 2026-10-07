@@ -8,12 +8,15 @@ import { makeMarkers } from '../lib/markers.ts';
 import { findOutboxViolations } from '../lib/outbox/check-outbox.ts';
 import { parseOutboxItem } from '../lib/outbox/outbox.ts';
 import { parseSettledEntries, renderAdoptedEntry, renderSettledEntry, settledHeader } from '../lib/outbox/settle.ts';
+import { assertDefined } from '../test/assert.ts';
 import { makeRepo } from '../test/fixture.ts';
+import { dig } from './dig.ts';
 import { main } from './omni.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../test/fixture.ts';
 import type { FetchInit } from '../test/fixture.ts';
 import type { Files, Repo } from '../test/fixture.ts';
+import { parsePr, parsePrd } from '../lib/ids.ts';
 
 const markers = makeMarkers('omni-outbox');
 const K = '.omni-loop/knowledge';
@@ -93,7 +96,7 @@ function drifted(id: string) {
 }
 
 const LEDGER_TEXT = [
-  settledHeader(42, { ctx: { config: { paths: { delivery: D } } } }),
+  settledHeader(parsePrd(42), { ctx: { config: { paths: { delivery: D } } } }),
   adopted('s0-01-local-name'),
   adopted('s0-02-cited'),
   adopted('s0-03-refused'),
@@ -170,14 +173,16 @@ function fakeExec(pr: unknown, calls: (readonly string[])[] = []) {
 
 /** A fake OpenRouter: the reply the prompt's decision id is given, from `replies`. */
 function fakeFetch(replies: Record<string, unknown>) {
-  return vi.fn(async (_url: string, init: FetchInit) => {
-    const body = JSON.parse(String(init.body));
-    const user = body.messages.find((m: { role: string }) => m.role === 'user').content;
-    const id = String(/^## The decision: (\S+)$/m.exec(user)![1]);
-    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(replies[id]) } }] }), {
+  return vi.fn((_url: string, init: FetchInit) => {
+    const messages = dig(JSON.parse(String(init.body)), 'messages') as { role: string; content: string }[];
+    const user = messages.find((m) => m.role === 'user');
+    assertDefined(user, 'the user message');
+    const id = /^## The decision: (\S+)$/m.exec(user.content)?.[1];
+    assertDefined(id, 'the decision id');
+    return Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(replies[id]) } }] }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
-    });
+    }));
   });
 }
 
@@ -197,7 +202,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.unstubAllGlobals();
-  while (repos.length) rmSync(repos.pop()!.root, { recursive: true, force: true });
+  for (const made of repos.splice(0)) rmSync(made.root, { recursive: true, force: true });
 });
 
 async function harvest(
@@ -229,9 +234,9 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     expect(ledger.startsWith(LEDGER_TEXT)).toBe(false); // lines were added inside entries
     const latest = Object.fromEntries(parseSettledEntries(ledger, markers).map((e) => [e.id, e]));
     for (const id of ['s1-01-high-one', 's1-02-set-secret', 's0-04-drift']) {
-      expect(latest[id]!.verdict).toBe('adopted');
-      expect(latest[id]!.fields['Approved by']).toBe('@octocat');
-      expect(latest[id]!.fields.Basis).toMatch(/^merged-over-red/);
+      expect(latest[id]?.verdict).toBe('adopted');
+      expect(latest[id]?.fields['Approved by']).toBe('@octocat');
+      expect(latest[id]?.fields.Basis).toMatch(/^merged-over-red/);
     }
     // The plan's paths follow the move.
     expect(r.read(`${SHIPPED}/plan.md`)).toContain(`\`${SHIPPED}/spec.md\``);
@@ -244,10 +249,10 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     expect(r.read(`${K}/product/rules.md`)).toContain('## BR-PRODUCT-1');
     expect(r.read(`${K}/product/rules.md`)).toContain(`Proposed: harvest ${TODAY}`);
     expect(r.read(`${K}/product/principles.md`)).toContain('## P-PRODUCT-2');
-    expect(latest['s1-01-high-one']!.became).toEqual(['ADR-0002']);
-    expect(latest['s1-02-set-secret']!.became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
-    expect(latest['s0-04-drift']!.became).toEqual(['ADR-0001']);
-    expect(latest['s0-01-local-name']!.fields['Stays here']).toBe('a local choice, nothing lasting');
+    expect(latest['s1-01-high-one']?.became).toEqual(['ADR-0002']);
+    expect(latest['s1-02-set-secret']?.became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
+    expect(latest['s0-04-drift']?.became).toEqual(['ADR-0001']);
+    expect(latest['s0-01-local-name']?.fields['Stays here']).toBe('a local choice, nothing lasting');
 
     expect(out).toContain('omni harvest — PRD 42, pull request #43 merged by @octocat on 2026-09-26 (abcdef1):');
     expect(out).toContain('settled at merge: 2 open item(s), 1 drift(s) never reworked, adopted by @octocat');
@@ -273,8 +278,8 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     expect(code).toBe(0);
     expect(out).toMatch(/s0-02-cited — the checks refused it: .*BR-GHOST-9/);
     const latest = Object.fromEntries(parseSettledEntries(r.read(LEDGER), markers).map((e) => [e.id, e]));
-    expect(latest['s0-02-cited']!.became).toEqual([]);
-    expect(latest['s0-02-cited']!.fields['Stays here']).toBeUndefined();
+    expect(latest['s0-02-cited']?.became).toEqual([]);
+    expect(latest['s0-02-cited']?.fields['Stays here']).toBeUndefined();
     expect(r.read(`${K}/product/invariants.md`)).not.toContain('BR-GHOST-9');
   });
 
@@ -283,7 +288,7 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     const { out } = await harvest(r);
     expect(out).toMatch(/s0-03-refused — the model's reply was refused twice/);
     const latest = Object.fromEntries(parseSettledEntries(r.read(LEDGER), markers).map((e) => [e.id, e]));
-    expect(latest['s0-03-refused']!.became).toEqual([]);
+    expect(latest['s0-03-refused']?.became).toEqual([]);
     const refusedCalls = fetch.mock.calls.filter(([, init]) => String(init.body).includes('## The decision: s0-03-refused'));
     expect(refusedCalls).toHaveLength(2);
   });
@@ -322,7 +327,7 @@ describe('omni harvest — refusals', () => {
     [['42', '--pr']],
     [['x', '--pr', '43']],
     [['42', '--pr', '43', '--nope']],
-  ])('exits 2 on a usage error: %j', async (args: any) => {
+  ])('exits 2 on a usage error: %j', async (args: string[]) => {
     const r = repo();
     const { code } = await harvest(r, { args });
     expect(code).toBe(2);
@@ -341,12 +346,12 @@ describe('omni harvest — refusals', () => {
 const preparedOk = (prepared: ReturnType<typeof prepareHarvest>) => prepared as Extract<ReturnType<typeof prepareHarvest>, { ok: true }>;
 
 describe('the pipeline halves', () => {
-  const MERGE = { by: 'octocat', at: '2026-09-26T10:30:00Z', pr: 43, url: 'https://github.com/acme/widgets/pull/43' };
+  const MERGE = { by: 'octocat', at: '2026-09-26T10:30:00Z', pr: parsePr(43), url: 'https://github.com/acme/widgets/pull/43' };
 
   it('return edits as data, touch no file, and give the same edits for the same input', () => {
     const r = repo();
     const run = () => {
-      const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE }));
+      const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE }));
       const classified = prepared.candidates.map((c) =>
         c.id === 's0-03-refused' ? { id: c.id, reply: null, reason: 'refused' } : { id: c.id, reply: REPLIES[c.id as keyof typeof REPLIES] },
       ) as Parameters<typeof finishHarvest>[0]['classified'];
@@ -375,12 +380,12 @@ describe('the pipeline halves', () => {
 
   it('prepare refuses a PRD the tree does not hold', () => {
     const r = repo();
-    expect(prepareHarvest({ ctx: r.ctx, prd: 7, merge: MERGE })).toEqual({ ok: false, errors: ['PRD 7 has no inbox or shipped folder'] });
+    expect(prepareHarvest({ ctx: r.ctx, prd: parsePrd(7), merge: MERGE })).toEqual({ ok: false, errors: ['PRD 7 has no inbox or shipped folder'] });
   });
 
   it('with nothing classified, settles and ships, and places nothing', () => {
     const r = repo();
-    const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE }));
+    const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE }));
     const classified = prepared.candidates.map((c) => ({ id: c.id, reply: null, reason: 'OPENROUTER_API_KEY is not set' }));
     const finished = finishHarvest({ ctx: r.ctx, prepared, classified, merge: MERGE, date: '2026-09-27' });
     expect(finished.placed).toEqual([]);
@@ -394,7 +399,7 @@ describe('the pipeline halves', () => {
     const r = repo();
     await harvest(r);
     execFileSync('git', ['add', '-A'], { cwd: r.root });
-    const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE }));
+    const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE }));
     const leftover = prepared.candidates.map((c) => c.id).sort();
     expect(leftover).toEqual(['s0-02-cited', 's0-03-refused']);
     expect(prepared.edits).toEqual({ deletes: [], moves: [], writes: [] });

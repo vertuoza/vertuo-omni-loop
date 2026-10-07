@@ -1,3 +1,4 @@
+import 'server-only';
 import type { Metadata } from 'next';
 import '../../../../src/jev/settings/jev.css';
 import { memberSession } from '../../../../src/data/member-session';
@@ -5,6 +6,7 @@ import { loadJevPage } from '../../../../src/jev/settings/load';
 import { JevScreen, type JevScreenView } from '../../../../src/jev/settings/JevScreen';
 import { masterKey } from '../../../../src/jev/secret-box';
 import { saveJevDecision } from './actions';
+import { serverEnv } from '../../../../src/env';
 
 // /app/settings/jev (PRD 812 s1): the workspace's Jev settings, under the app's shared top bar
 // (app/app/layout.tsx). Its owner switches Jev on with a TypeSafe key, tested with one call and saved
@@ -23,7 +25,7 @@ async function viewOf(): Promise<JevScreenView> {
   if (session.kind !== 'signed-in') return session;
   const load = await loadJevPage(session.db, session.user);
   if (load.kind !== 'jev') return load;
-  if (!masterKey(process.env)) return { kind: 'unavailable' };
+  if (!masterKey(serverEnv().secretsMasterKey)) return { kind: 'unavailable' };
   return {
     kind: 'jev',
     source: { kind: 'database', workspace: load.workspace.id, saveDecision: saveJevDecision },

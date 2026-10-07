@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { orNull, parseRow } from '../../data/parse-rows';
 import { LIVE_MAX, mcpUrlOf, nameOf, tokenOf, type AgentToken } from './model';
 import { makeToken } from './token';
 
@@ -18,10 +20,14 @@ export const COULD_NOT = 'Couldn’t do that. Try again in a moment.';
 export const DEMO_NAME_RULE = 'A name: 1 to 40 characters, on one line.';
 const ROUTE = '/api/agent-tokens';
 
-async function sent<T extends Record<string, unknown>>(fetch: typeof globalThis.fetch, method: 'POST' | 'DELETE', body: Record<string, string>): Promise<(T & { ok: true }) | { ok: false; message: string }> {
+/** The route's JSON: an object of fields, each read as unknown, which each caller checks. */
+const RouteAnswer = z.record(z.string(), z.unknown());
+
+async function sent(fetch: typeof globalThis.fetch, method: 'POST' | 'DELETE', body: Record<string, string>): Promise<(Record<string, unknown> & { ok: true }) | { ok: false; message: string }> {
   try {
     const res = await fetch(ROUTE, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-    const answer = (await res.json().catch(() => null)) as (T & { error?: unknown }) | null; // ts-allow: the route's own JSON; each caller checks its fields
+    const json: unknown = await res.json().catch(() => null);
+    const answer = json === null ? null : orNull(parseRow(RouteAnswer, json, `agent-connect/tokens: ${method} ${ROUTE}`));
     if (res.ok && answer) return { ...answer, ok: true };
     return { ok: false, message: typeof answer?.error === 'string' ? answer.error : COULD_NOT };
   } catch {
@@ -32,14 +38,14 @@ async function sent<T extends Record<string, unknown>>(fetch: typeof globalThis.
 export function httpTokensPort(workspace: string, fetch: typeof globalThis.fetch = globalThis.fetch): TokensPort {
   return {
     async make(name) {
-      const got = await sent<{ token?: unknown; url?: unknown; listed?: unknown }>(fetch, 'POST', { workspace, name });
+      const got = await sent(fetch, 'POST', { workspace, name });
       if (!got.ok) return got;
       const listed = tokenOf(got.listed);
       if (typeof got.token !== 'string' || typeof got.url !== 'string' || !listed) return { ok: false, message: COULD_NOT };
       return { ok: true, token: got.token, url: got.url, listed };
     },
     async revoke(token) {
-      const got = await sent<{ revoked?: unknown }>(fetch, 'DELETE', { workspace, token: token.id });
+      const got = await sent(fetch, 'DELETE', { workspace, token: token.id });
       if (!got.ok) return got;
       const revoked = tokenOf(got.revoked);
       return revoked ? { ok: true, revoked } : { ok: false, message: COULD_NOT };
@@ -69,11 +75,11 @@ export function demoTokensPort(start: readonly AgentToken[], origin: () => strin
       live = [listed, ...live];
       return { ok: true, token: made.token, url: mcpUrlOf(origin()), listed };
     },
-    async revoke(token) {
+    revoke(token) {
       const there = live.find((t) => t.id === token.id);
-      if (!there) return { ok: false, message: 'That link is no longer here. Reload the page.' };
+      if (!there) return Promise.resolve({ ok: false, message: 'That link is no longer here. Reload the page.' });
       live = live.filter((t) => t.id !== token.id);
-      return { ok: true, revoked: there };
+      return Promise.resolve({ ok: true, revoked: there });
     },
   };
 }

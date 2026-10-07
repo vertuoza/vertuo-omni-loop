@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { PING_COLUMNS } from './store';
+import { item } from '../ask/test/test-item';
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261020090000_working_pings.sql', import.meta.url)), 'utf8');
 const oneLine = MIGRATION.replace(/\s+/g, ' ');
@@ -17,7 +18,7 @@ describe('the working-pings migration', () => {
   });
 
   it('keeps no tool, path or text: only the session, the repository, the work and the time', () => {
-    const columns = [...oneLine.matchAll(/^.*?create table public\.working_pings \((.*?)\);/g)][0]![1];
+    const columns = item([...oneLine.matchAll(/^.*?create table public\.working_pings \((.*?)\);/g)], 0)[1];
     expect(columns).not.toMatch(/\b(tool|path|command|transcript|content)\b/);
   });
 

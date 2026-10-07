@@ -1,5 +1,5 @@
 import 'server-only';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { serviceDb } from '../data/sign-in-live';
 import { supabaseEnv } from '../data/supabase-server';
@@ -7,6 +7,7 @@ import { installUrl } from '../signup/github-app';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { CODE_TTL_MS, type CliCallbackDeps, type CliSession, type Placement, type TokenClient, type TokenDeps } from './cli-code';
 import type { Database } from '../../../../supabase/database.types';
+import { serverEnv } from '../env';
 
 // The terminal's sign-in, wired to the real Supabase (src/ask/cli-code.ts says what each step does).
 // The callback acts as the sign-in it just made, and /api/ask/token trades codes and tokens acting as
@@ -20,7 +21,7 @@ import type { Database } from '../../../../supabase/database.types';
 
 type Env = { url: string; key: string };
 type Cookie = { name: string; value: string };
-type CookieToSet = Cookie & { options?: Record<string, unknown> };
+type CookieToSet = Cookie & { options: CookieOptions };
 
 const CODE_VERIFIER = /-code-verifier$/;
 
@@ -58,7 +59,10 @@ export function cliCallbackDeps(cookies: Cookie[]): { deps: CliCallbackDeps; spe
               },
             },
           });
-          const { data, error } = await client.auth.exchangeCodeForSession(code);
+          // `data` is widened to null: the Auth server's answer is read here unparsed.
+          const exchanged: { data: { session: CliSession | null } | null; error: { message: string } | null } =
+            await client.auth.exchangeCodeForSession(code);
+          const { data, error } = exchanged;
           return { session: data?.session ?? null, error: error ? { message: error.message } : null };
         }
       : null,
@@ -106,7 +110,7 @@ export function tokenDeps(): TokenDeps {
     },
     revoke: (accessToken) => revokeToken(env, accessToken),
     place: placeRepo,
-    installLink: installUrl(process.env.GITHUB_APP_SLUG),
+    installLink: installUrl(serverEnv().githubAppSlug),
   };
 }
 
@@ -121,5 +125,5 @@ async function placeRepo(userId: string, repo: string): Promise<Placement> {
   if (typeof workspaceId !== 'string' || !workspaceId) return { workspace: null, reason: typeof refusal === 'string' ? refusal : null };
   const { data: found, error: readError } = await db.from('workspaces').select('slug, name').eq('id', workspaceId).maybeSingle();
   if (readError || !found) throw new Error(`workspaces: ${readError?.message ?? 'not found'}`);
-  return { workspace: { slug: String(found.slug), name: String(found.name) }, reason: null };
+  return { workspace: { slug: found.slug, name: found.name }, reason: null };
 }

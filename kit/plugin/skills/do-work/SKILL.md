@@ -17,6 +17,19 @@ a paragraph of its own just above your session's own attribution lines, and a bo
 that line. Comments are never signed. A command that prints nothing means signing is off here: add
 nothing.
 
+**Flow points.** A repository may hook the loop at named points (the `flow` of its config). At each
+point this skill names, run `node .omni-loop/bin/omni.mjs flow show <point> --prd <n> --slice <id>`
+and follow what it prints: every `before` hook, then the kit's step (or, when it prints
+`kitStep: replaced`, the `replace` hook in its place), then every `after` hook. A hook is Markdown
+to follow; an input it leaves as `{name}` is filled from this step. Following a hook ends on its
+verdict line (`omni-hook <point>: pass`, or `omni-hook <point>: fail <why>`): write what it produced,
+that line last, to a scratch file and run
+`node .omni-loop/bin/omni.mjs flow verdict <point> --from <file>`. `ok` carries on; `not ok` stops the
+point as a failing kit step would, and so does `flow show` exiting 1 (a hook file missing). A
+`replace` swaps the act, never the guard: signing, labels, link lines, the base check, the territory
+check, the preflight and `omni plan check` run whatever a hook says. With no `flow`, `flow show`
+prints `hooks none` and `kitStep: run`: the step runs as written.
+
 ## Inputs
 
 | input | example | notes |
@@ -66,6 +79,10 @@ Never work on the default branch or on the feature branch.
   branch from the feature branch, makes the claim commit, pushes, opens the draft and posts the
   claimed status) before you build anything.
 
+**Point `do-work.start`.** On the slice branch, before anything is built, run
+`node .omni-loop/bin/omni.mjs flow show do-work.start --prd <n> --slice <id>` and follow it (**Flow
+points**); its kit step is empty: only its hooks run.
+
 **Heartbeat.** A claim reads as stale when its branch has no commit beyond the claim and the claim
 is older than `limits.claimStaleMinutes`; a stale claim can be taken by a second wave. While
 building, commit and push work in progress at least every half of
@@ -77,9 +94,20 @@ building, commit and push work in progress at least every half of
   to choose, what a test must never do). Then name the testable "done" condition, write the
   failing test, watch it fail (red), make it pass (green), then refactor with the tests green.
   Characterization tests first before a risky refactor.
+- **Point `do-work.test`:** every time you run the slice's tests (red, green, after a refactor),
+  run `node .omni-loop/bin/omni.mjs flow show do-work.test --prd <n> --slice <id>` and follow it
+  (**Flow points**). The kit's step is the test command the testing form names; a `replace` hook
+  runs the tests its own way and ends on the verdict line, and `flow verdict` reads red or green
+  from it. The preflight of step 5 is a guard, not this step: it runs whatever the hook says.
 - **Tracer bullets, not layer piles.** Prove the smallest vertical path, then widen.
 - **Territory only.** A change outside the row's territory is a decision (below), not a fix you
   just make.
+- **Generated files: rebuild to test, never commit.** A file the repository builds rather than
+  writes is a `generated` entry of its config (`node .omni-loop/bin/omni.mjs config generated`: its
+  `path`, the sources it is built `from`, its `build`). When a test needs one fresh, run its `build`
+  from the repository root: that is not a change outside the territory, and no decision. Never stage
+  or commit a path under a generated entry's `path`, in a work-in-progress commit or any other: the
+  wave rebuilds it once after merging (step 5, item 1, drops what you rebuilt).
 - **Follow local patterns;** let abstractions earn their keep. Narrow, behavioural seams; small
   ports over broad clients; one responsibility per module.
 - **Reviewable commits:** one coherent change each, no unrelated formatting, each ending with the
@@ -165,6 +193,11 @@ and carry on.
 
 ## 4. Account for the ground you touched
 
+**Point `do-work.review`.** This step is the kit's review of the slice: run
+`node .omni-loop/bin/omni.mjs flow show do-work.review --prd <n> --slice <id>` and follow it
+(**Flow points**) around what follows. A `fail` from a hook is fixed on the slice branch, then the
+point runs again.
+
 After the last code commit, grade your own diff:
 
 ```bash
@@ -199,8 +232,15 @@ Read `omni kb show verification`, `omni kb show pull-requests` and
 `omni kb show definition-of-done` first: what must be green before a push, what a pull request
 carries here, and what done means. What they ask of a push or a hand-off is part of this step.
 
-1. **Preflight:** `commands.preflightFull`, or `commands.preflight` when it is null. Fix until
-   green. Neither set: say so, and name it in the hand-off.
+1. **Preflight:** first rebuild what the slice made stale. Run
+   `node .omni-loop/bin/omni.mjs generated <repo.remote>/<feature branch>...HEAD`: one line per
+   generated entry, `<path>: stale|fresh — <build>`, or `no generated files`. Run the build of every
+   `stale` line from the repository root, so the preflight sees fresh outputs. Then run
+   `commands.preflightFull`, or `commands.preflight` when it is null. Fix until green. Neither set:
+   say so, and name it in the hand-off. Once it is green, drop the rebuilt outputs before anything
+   is committed or pushed: for each `stale` line, `git checkout HEAD -- <path>`, then
+   `git clean -fdq -- <path>`. The slice commits and pushes no generated file: the sub-PR carries
+   sources only.
 2. **Checks:** every command in `commands.checks`, then
    `node .omni-loop/bin/omni.mjs check all`. Fix until green.
 3. **Acceptance,** only when `acceptance.enabled`: a pending scenario file for this slice (its name
@@ -208,7 +248,11 @@ carries here, and what done means. What they ask of a push or a hand-off is part
    drop the suffix. Then run `acceptance.run` **twice**; a scenario that passes once has not been
    shown to pass.
 4. **Push** the slice branch to `repo.remote`.
-5. **Hand off to `/omni:pr`** for the sub-PR into the feature branch: it turns the claim into the
+5. **Point `do-work.ready`:** run
+   `node .omni-loop/bin/omni.mjs flow show do-work.ready --prd <n> --slice <id>` and follow it
+   (**Flow points**) around item 6, the kit's step. A `not ok` leaves the sub-PR draft: name the
+   hook and its reason in the hand-off, as a red preflight would be.
+6. **Hand off to `/omni:pr`** for the sub-PR into the feature branch: it turns the claim into the
    sub-PR (title; a body that ends with the `omni sign footer` line; the co-author trailer and the
    `omni sign trailer` line on every commit), keeps its status comment, marks it ready once the
    preflight is green, and runs its lifecycle. A sub-PR has no CI: its lifecycle
@@ -251,7 +295,8 @@ with these differences.
   claim is already on the target's remote; alone, claim through `/omni:pr --repo <slug>`'s
   **Claim** first. Remove the worktree (`git -C <clone> worktree remove`) once the sub-PR is open.
 - **Territory** is paths in the target, read from the plan row as written. Nothing in the plan
-  repository is part of it.
+  repository is part of it. The plan repository's `generated` entries say nothing about a target:
+  step 5's rebuild and drop do not run on a target slice.
 - **Reading.** Step 1 reads the plan, the spec and the plan repository's knowledge as usual. The
   target's knowledge is read where `plan.targets` says it lives (`own`: in the target;
   `imported`: the draft copy in this repository; `none`: the guide only). Its playbook forms bind
@@ -264,6 +309,15 @@ with these differences.
   outcomes read the same; the item file is not committed anywhere: the orchestrator relays the
   folder into the plan repository's outbox with `omni item relay` after the sub-PR merges. An
   account (step 4) is written at `<scratch dir>/accounts/<slice>.md`, and relayed with them.
+- **A target's flow,** at every point above, is the target's own committed one, never the plan
+  repository's: run the plan repository's `omni` with the slice's worktree as its working directory,
+  `(cd <worktrees>/targets/<name>--<slice> && node <plan repository root>/.omni-loop/bin/omni.mjs flow show <point> --path <p>)`,
+  once per territory entry (the target holds no plan for `--prd` to read), and follow each hook it
+  names once, filling `{prd}` and `{slice}` yourself; `flow verdict` runs the same way. It reads
+  the target's config and hook files in that worktree and runs no code of the target. A target
+  without a committed `.omni-loop/config.yml` has no flow (the command says it is not installed):
+  every point runs the kit's step. A target's hooks are followed only in its worktree, never from
+  the imported copy (`flow show --repo` reads that copy, for planning only).
 - **Checks in the plan repository only.** `omni check coverage` and `omni check all` run in the plan
   repository's checkout, never in the target: this slice changes nothing there, so they only prove
   it stayed so. `commands.checks` and acceptance are the plan repository's, and do not run on a

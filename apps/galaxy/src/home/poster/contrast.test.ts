@@ -5,6 +5,7 @@ import { COLOURS, contrast } from '@omni/design';
 import { describe, expect, it } from 'vitest';
 import { SELECTOR_BACKGROUND, SELECTOR_TEXT } from '../selector/look';
 import { POSTER_BACKGROUND, POSTER_TEXT } from './Poster';
+import { present } from '../../ask/test/test-item';
 
 const css = readFileSync(new URL('../home.css', import.meta.url), 'utf8');
 const colours = COLOURS as Record<string, string>;
@@ -23,7 +24,7 @@ describe('the poster text on the ad purple', () => {
 
   it.each(POSTER_TEXT)('$selector is --$colour and scores at least 4.5', ({ selector, colour }) => {
     expect(colours[colour], `--${colour} is a token`).toMatch(/^#[0-9a-f]{6}$/i);
-    expect(contrast(colours[colour]!, colours[POSTER_BACKGROUND]!)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(present(colours[colour], `--${colour}`), present(colours[POSTER_BACKGROUND], 'the poster background'))).toBeGreaterThanOrEqual(4.5);
     const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const body = new RegExp(`\\n${escaped} \\{([^}]*)\\}`).exec(css)?.[1] ?? '';
     expect(body, selector).toContain(`color: var(--${colour});`);

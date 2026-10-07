@@ -6,10 +6,16 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { z } from 'zod';
+import { readEnv } from '../env';
+import { settled } from '../stages/settled';
 import type { ReleaseRow } from './row';
 import { missingVariables, releasesSync, syncReleases } from './sync-run';
 import type { ReleasesTable } from './sync-table';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
@@ -40,9 +46,9 @@ function checkout(files: Record<string, string>, date = '2026-09-28T11:15:00+02:
 function memoryTable(rows: ReleaseRow[], refuse: Partial<Record<keyof ReleasesTable, string>> = {}) {
   const written: string[] = [];
   const table: ReleasesTable = {
-    async rows() { if (refuse.rows) throw new Error(refuse.rows); return rows; },
-    async insert(list) { if (refuse.insert) throw new Error(refuse.insert); written.push(...list.map((r) => `insert ${r.prd} ${r.release}`)); },
-    async refresh(text) { if (refuse.refresh) throw new Error(refuse.refresh); written.push(`refresh ${text.prd}`); },
+    rows: () => settled(() => { if (refuse.rows) throw new Error(refuse.rows); return rows; }),
+    insert: (list) => settled(() => { if (refuse.insert) throw new Error(refuse.insert); written.push(...list.map((r) => `insert ${r.prd} ${r.release}`)); }),
+    refresh: (text) => settled(() => { if (refuse.refresh) throw new Error(refuse.refresh); written.push(`refresh ${text.prd}`); }),
   };
   return { table, written };
 }
@@ -65,7 +71,7 @@ const FILES = {
 describe('syncReleases — one run', () => {
   it('inserts each newly shipped PRD and refreshes a changed text, printing each PRD it wrote', async () => {
     const root = checkout(FILES);
-    const stored = { prd: 3, release: 1, released_at: '2026-09-27T10:00:00+00:00', title: 'An older title', description: 'The kit packages the loop.' };
+    const stored = { prd: parsePrd(3), release: 1, released_at: '2026-09-27T10:00:00+00:00', title: 'An older title', description: 'The kit packages the loop.' };
     const { table, written } = memoryTable([stored]);
     const { out, err, print } = streams();
 
@@ -83,7 +89,7 @@ describe('syncReleases — one run', () => {
 
   it('writes nothing and says so when the table already holds every release', async () => {
     const root = checkout({ [`${SHIPPED}/0270-next/spec.md`]: spec(270, 'The next PRD') });
-    const { table, written } = memoryTable([{ prd: 270, release: 2, released_at: '2026-09-28T09:15:00+00:00', title: 'The next PRD', description: '' }]);
+    const { table, written } = memoryTable([{ prd: parsePrd(270), release: 2, released_at: '2026-09-28T09:15:00+00:00', title: 'The next PRD', description: '' }]);
     const { out, print } = streams();
     expect(await syncReleases({ root, table, ...print })).toBe(0);
     expect(written).toEqual([]);
@@ -126,19 +132,21 @@ describe('syncReleases — one run', () => {
 
 describe('the credentials', () => {
   it('are SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY: each one unset or empty is named', () => {
-    expect(missingVariables({ SUPABASE_URL: 'http://127.0.0.1:54321', SUPABASE_SERVICE_ROLE_KEY: 'key' })).toEqual([]);
-    expect(missingVariables({ SUPABASE_URL: 'http://127.0.0.1:54321' })).toEqual(['SUPABASE_SERVICE_ROLE_KEY']);
-    expect(missingVariables({ SUPABASE_SERVICE_ROLE_KEY: 'key', NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321' })).toEqual(['SUPABASE_URL']);
-    expect(missingVariables({ SUPABASE_URL: ' ', SUPABASE_SERVICE_ROLE_KEY: '' })).toEqual(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
+    const service = (source: Record<string, string>) => readEnv(source).serviceRole;
+    expect(missingVariables(service({ SUPABASE_URL: 'http://127.0.0.1:54321', SUPABASE_SERVICE_ROLE_KEY: 'key' }))).toEqual([]);
+    expect(() => service({ SUPABASE_URL: 'http://127.0.0.1:54321' })).toThrow(/SUPABASE_SERVICE_ROLE_KEY is not set while SUPABASE_URL is/);
+    const publicPair = { NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon' };
+    expect(missingVariables(service({ SUPABASE_SERVICE_ROLE_KEY: 'key', ...publicPair }))).toEqual(['SUPABASE_URL']);
+    expect(missingVariables(service({ SUPABASE_URL: ' ', SUPABASE_SERVICE_ROLE_KEY: '' }))).toEqual(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
   });
 
   it('stop the run before it connects when one is missing', async () => {
     const { err, print } = streams();
     let connected = false;
-    const code = await releasesSync({ env: { SUPABASE_URL: 'http://127.0.0.1:54321' }, root: '/nowhere', connect: () => { connected = true; return memoryTable([]).table; }, ...print });
+    const code = await releasesSync({ service: readEnv({ SUPABASE_SERVICE_ROLE_KEY: 'key' }).serviceRole, root: '/nowhere', connect: () => { connected = true; return memoryTable([]).table; }, ...print });
     expect(code).toBe(1);
     expect(connected).toBe(false);
-    expect(err).toEqual(['releases:sync needs SUPABASE_SERVICE_ROLE_KEY: set it (locally, `npx supabase status` prints it; in Actions, the releases workflow sets it)']);
+    expect(err).toEqual(['releases:sync needs SUPABASE_URL: set it (locally, `npx supabase status` prints it; in Actions, the releases workflow sets it)']);
   });
 });
 
@@ -147,7 +155,7 @@ describe('pnpm releases:sync', () => {
 
   it('is the root script that runs the sync, with the settings the game scripts read', async () => {
     const { readFileSync } = await import('node:fs');
-    const scripts = JSON.parse(readFileSync(join(repository, 'package.json'), 'utf8')).scripts;
+    const { scripts } = z.object({ scripts: z.record(z.string(), z.string()) }).parse(JSON.parse(readFileSync(join(repository, 'package.json'), 'utf8')));
     expect(scripts['releases:sync']).toBe('node --env-file-if-exists=apps/galaxy/.env.local apps/galaxy/scripts/releases-sync.ts');
   });
 

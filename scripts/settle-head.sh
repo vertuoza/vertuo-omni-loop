@@ -8,13 +8,18 @@
 # gate skips. vnext measured the cost this saves: 599 of 1000 of its CI runs were cancelled by a
 # later push, and a cancelled run cost more than a green one.
 #
-# Reads SETTLE_SECONDS (default 180), GITHUB_HEAD_REF, SETTLE_HEAD_SHA (else GITHUB_SHA) and
+# Here the wait is 30 seconds, not vnext's 180. Agents mark a pull request ready once its work is done,
+# so pushes rarely come in bursts: from 2026-09-30 to 10-07, 58 runs settled, none went stale and 4 were
+# cancelled while waiting, so 180 seconds (4 billed minutes a run) cost about 217 minutes to save about
+# 37. 30 seconds bills one minute and still absorbs a push straight after another.
+#
+# Reads SETTLE_SECONDS (default 30), GITHUB_HEAD_REF, SETTLE_HEAD_SHA (else GITHUB_SHA) and
 # GITHUB_REPOSITORY; writes stale=<true|false> to $GITHUB_OUTPUT. Needs GH_TOKEN with contents: read.
 # If gh cannot read the tip, it says so on one stderr line and answers stale=false: a settle that
 # cannot look never skips the checks.
 set -euo pipefail
 
-wait_s="${SETTLE_SECONDS:-180}"
+wait_s="${SETTLE_SECONDS:-30}"
 branch="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:?}}"
 sha="${SETTLE_HEAD_SHA:-${GITHUB_SHA:?}}"
 out="${GITHUB_OUTPUT:?}"

@@ -3,8 +3,9 @@
 // for the verbs that print a bare verdict, their whole `omni <verb> <n> [--base <ref>]` shell.
 import type { Context, ExecText } from '../lib/context.ts';
 import type { Commit } from '../lib/fix-verdict.ts';
-import { parseArgs, positiveInt, println, usageError } from './args.ts';
+import { parseArgs, println, usageError } from './args.ts';
 import type { Command } from './io.ts';
+import { synchronous } from './synchronous.ts';
 
 /** What the range helpers read of the context: the root and the default remote branch. */
 type RangeContext = { root: string; config: { repo: { remote: string; defaultBranch: string } } };
@@ -65,24 +66,27 @@ export function branchPaths(root: string, base: string, exec: ExecText): string[
  * given, reads the changed paths the grade needs; `grade` returns `{ ok, failures }`. It prints `ok`,
  * or `not ok` then one `- ` line per failure, and exits `0` or `1`.
  */
-export function branchVerdictCommand({
+export function branchVerdictCommand<N extends number>({
   verb,
+  read,
   paths,
   grade,
 }: {
   verb: string;
+  /** How `<n>` is read: the record's own kind of number (an issue's, a concept's). */
+  read: (command: string, what: string, value: string | undefined) => N;
   paths?: (root: string, base: string, exec: ExecText) => string[];
-  grade: (input: { ctx: Context; number: number; changed?: string[] | undefined; commits?: Commit[] | undefined }) => {
+  grade: (input: { ctx: Context; number: N; changed?: string[] | undefined; commits?: Commit[] | undefined }) => {
     ok: boolean;
     failures: string[];
   };
 }): Command {
   const usage = `usage: omni ${verb} <n> [--base <ref>]`;
   return {
-    async run(args, { ctx, stdout, exec }) {
+    run: synchronous((args, { ctx, stdout, exec }): number => {
       const { positional, flags } = parseArgs(verb, args, { values: ['base'] });
       if (positional.length !== 1) throw usageError(usage);
-      const number = positiveInt(verb, '<n>', positional[0]);
+      const number = read(verb, '<n>', positional[0]);
       const base = rangeBase(verb, ctx, flags, exec);
       const changed = paths ? paths(ctx.root, base, exec) : undefined;
       const commits = ctx.config.signature === null ? undefined : rangeCommits(ctx.root, base, exec);
@@ -90,6 +94,6 @@ export function branchVerdictCommand({
       println(stdout, verdict.ok ? 'ok' : 'not ok');
       for (const failure of verdict.failures) println(stdout, `- ${failure}`);
       return verdict.ok ? 0 : 1;
-    },
+    }),
   };
 }

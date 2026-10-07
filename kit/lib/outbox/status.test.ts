@@ -7,6 +7,7 @@ import { flatCtx } from '../../test/flat-layout.ts';
 import { makeMarkers } from '../markers.ts';
 import { adoptItem } from './settle.ts';
 import { formatReport, gateResult, openItemFiles, openItems } from './status.ts';
+import { parsePrd } from '../ids.ts';
 
 /** One `docs/outbox/<prd>/accounts/<slice>.md` file, minimal but well-formed (PRD #1044, slice s2). */
 type FixtureEntry = { path: string; rule: string; account: string };
@@ -32,7 +33,7 @@ function itemText({
   frontMatter = {},
   sections = {},
 }: { frontMatter?: Record<string, string | undefined>; sections?: Record<string, string | undefined> } = {}) {
-  const fm = {
+  const fm: Record<string, string | undefined> = {
     id: 's3-01-example',
     prd: '985',
     slice: 's3',
@@ -44,7 +45,7 @@ function itemText({
   };
   const fmLines = Object.entries(fm)
     .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => `${key}: ${value}`);
+    .map(([key, value]) => `${key}: ${value ?? ''}`);
 
   const body: Record<string, string | undefined> = {
     'The question, in plain words': 'Should this ship as it is?',
@@ -113,13 +114,13 @@ afterEach(() => {
 describe('openItemFiles', () => {
   it('is empty for a PRD with no outbox directory at all', () => {
     const root = fixtureRoot();
-    expect(openItemFiles('985', { ctx: flatCtx(root) })).toEqual([]);
+    expect(openItemFiles(parsePrd('985'), { ctx: flatCtx(root) })).toEqual([]);
   });
 
   it('is empty for a PRD directory holding only settled.md', () => {
     const root = fixtureRoot();
     writeItem(root, '985', 'settled.md', '# settled\n');
-    expect(openItemFiles('985', { ctx: flatCtx(root) })).toEqual([]);
+    expect(openItemFiles(parsePrd('985'), { ctx: flatCtx(root) })).toEqual([]);
   });
 
   it('never crosses into another PRD’s directory', () => {
@@ -130,14 +131,14 @@ describe('openItemFiles', () => {
       's1-01-other.md',
       itemText({ frontMatter: { prd: '111', slice: 's1' } }),
     );
-    expect(openItemFiles('985', { ctx: flatCtx(root) })).toEqual([]);
+    expect(openItemFiles(parsePrd('985'), { ctx: flatCtx(root) })).toEqual([]);
   });
 
   it('lists several open items for one PRD, sorted', () => {
     const root = fixtureRoot();
     writeItem(root, '985', 's3-02-second.md', itemText({ frontMatter: { id: 's3-02-second' } }));
     writeItem(root, '985', 's3-01-first.md', itemText({ frontMatter: { id: 's3-01-first' } }));
-    expect(openItemFiles('985', { ctx: flatCtx(root) })).toEqual([
+    expect(openItemFiles(parsePrd('985'), { ctx: flatCtx(root) })).toEqual([
       'docs/outbox/985/s3-01-first.md',
       'docs/outbox/985/s3-02-second.md',
     ]);
@@ -153,7 +154,7 @@ describe('openItems', () => {
       's3-01-example.md',
       itemText({ frontMatter: { id: 's3-01-example', rank: 'high' } }),
     );
-    expect(openItems('985', { ctx: flatCtx(root) })).toEqual([
+    expect(openItems(parsePrd('985'), { ctx: flatCtx(root) })).toEqual([
       { file: 'docs/outbox/985/s3-01-example.md', id: 's3-01-example', rank: 'high' },
     ]);
   });
@@ -161,7 +162,7 @@ describe('openItems', () => {
   it('still counts a malformed item as open, with a null id and rank', () => {
     const root = fixtureRoot();
     writeItem(root, '985', 's3-01-broken.md', 'not an outbox item at all\n');
-    expect(openItems('985', { ctx: flatCtx(root) })).toEqual([
+    expect(openItems(parsePrd('985'), { ctx: flatCtx(root) })).toEqual([
       { file: 'docs/outbox/985/s3-01-broken.md', id: null, rank: null },
     ]);
   });
@@ -170,7 +171,7 @@ describe('openItems', () => {
 describe('gateResult', () => {
   it('is green on an empty tree', () => {
     const root = fixtureRoot();
-    const result = gateResult('985', { ctx: flatCtx(root) });
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(root) });
     expect(result).toEqual({
       ok: true,
       items: [],
@@ -183,7 +184,7 @@ describe('gateResult', () => {
   it('is red with one open item', () => {
     const root = fixtureRoot();
     writeItem(root, '985', 's3-01-one.md', itemText());
-    const result = gateResult('985', { ctx: flatCtx(root) });
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(root) });
     expect(result.ok).toBe(false);
     expect(result.items).toHaveLength(1);
     expect(result.overridden).toBe(false);
@@ -194,7 +195,7 @@ describe('gateResult', () => {
     writeItem(root, '985', 's3-01-one.md', itemText({ frontMatter: { id: 's3-01-one' } }));
     writeItem(root, '985', 's3-02-two.md', itemText({ frontMatter: { id: 's3-02-two' } }));
     writeItem(root, '985', 's3-03-three.md', itemText({ frontMatter: { id: 's3-03-three' } }));
-    const result = gateResult('985', { ctx: flatCtx(root) });
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(root) });
     expect(result.ok).toBe(false);
     expect(result.items).toHaveLength(3);
   });
@@ -204,7 +205,7 @@ describe('gateResult', () => {
     const ctx = flatCtx(root);
     writeItem(root, '985', 's3-01-one.md', itemText({ frontMatter: { id: 's3-01-one' } }));
     writeItem(root, '985', 's3-02-two.md', itemText({ frontMatter: { id: 's3-02-two' } }));
-    const result = gateResult('985', { ctx, labels: ['omni:feature', ctx.config.labels.outboxGo] });
+    const result = gateResult(parsePrd('985'), { ctx, labels: ['omni:feature', ctx.config.labels.outboxGo] });
     expect(result.ok).toBe(true);
     expect(result.overridden).toBe(true);
     expect(result.items).toHaveLength(2);
@@ -213,7 +214,7 @@ describe('gateResult', () => {
   it('an unrelated label never overrides', () => {
     const root = fixtureRoot();
     writeItem(root, '985', 's3-01-one.md', itemText());
-    const result = gateResult('985', { ctx: flatCtx(root), labels: ['omni:feature'] });
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(root), labels: ['omni:feature'] });
     expect(result.ok).toBe(false);
   });
 });
@@ -230,7 +231,7 @@ describe('gateResult — a medium item adopted at raise time', () => {
     });
     expect(adopted.ok).toBe(true);
 
-    const result = gateResult('985', { ctx });
+    const result = gateResult(parsePrd('985'), { ctx });
     expect(result).toEqual({
       ok: true,
       items: [],
@@ -243,7 +244,7 @@ describe('gateResult — a medium item adopted at raise time', () => {
 
 describe('formatReport', () => {
   it('says plainly that there is no open item', () => {
-    const report = formatReport('985', { ok: true, items: [], overridden: false });
+    const report = formatReport(parsePrd('985'), { ok: true, items: [], overridden: false });
     expect(report).toBe('outbox-status — PRD #985: no open item.');
   });
 
@@ -256,7 +257,7 @@ describe('formatReport', () => {
         { file: 'docs/outbox/985/s3-02-two.md', id: null, rank: null },
       ],
     };
-    const report = formatReport('985', result);
+    const report = formatReport(parsePrd('985'), result);
     expect(report).toContain('2 open item(s)');
     expect(report).toContain('docs/outbox/985/s3-01-one.md (high)');
     expect(report).toContain('docs/outbox/985/s3-02-two.md');
@@ -270,7 +271,7 @@ describe('formatReport', () => {
       overrideLabel: 'omni:outbox-go',
       items: [{ file: 'docs/outbox/985/s3-01-one.md', id: 's3-01-one', rank: 'high' }],
     };
-    expect(formatReport('985', result)).toContain('omni:outbox-go — override in effect');
+    expect(formatReport(parsePrd('985'), result)).toContain('omni:outbox-go — override in effect');
   });
 
   it('names both the open item and the unaccounted change when both are present', () => {
@@ -286,7 +287,7 @@ describe('formatReport', () => {
         },
       ],
     };
-    const report = formatReport('985', result);
+    const report = formatReport(parsePrd('985'), result);
     expect(report).toContain('1 open item(s)');
     expect(report).toContain('unaccounted risky change');
     expect(report).toContain('libs/vertuo-ai-credit/src/server/migrations.ts (stored-shape)');
@@ -301,7 +302,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
 
   it('is red when the range holds one risky change no account names', () => {
     const root = rangeFixtureRoot();
-    const result = gateResult('985', { ctx: flatCtx(root, { risk: RISK }), changes: [RISKY_CHANGE] });
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(root, { risk: RISK }), changes: [RISKY_CHANGE] });
     expect(result.ok).toBe(false);
     expect(result.items).toEqual([]);
     expect(result.unaccounted).toHaveLength(1);
@@ -313,7 +314,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
 
   it('is green when there is no open item and the range holds nothing risky', () => {
     const root = rangeFixtureRoot();
-    const result = gateResult('985', { ctx: flatCtx(root, { risk: RISK }), changes: [] });
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(root, { risk: RISK }), changes: [] });
     expect(result).toEqual({
       ok: true,
       items: [],
@@ -327,7 +328,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
   it('stays red with an open item even when the range has nothing unaccounted, as it does today', () => {
     const root = rangeFixtureRoot();
     writeItem(root, '985', 's3-01-one.md', itemText());
-    const result = gateResult('985', { ctx: flatCtx(root, { risk: RISK }), changes: [] });
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(root, { risk: RISK }), changes: [] });
     expect(result.ok).toBe(false);
     expect(result.items).toHaveLength(1);
     expect(result.unaccounted).toEqual([]);
@@ -337,7 +338,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
     const root = rangeFixtureRoot();
     const ctx = flatCtx(root, { risk: RISK });
     writeItem(root, '985', 's3-01-one.md', itemText());
-    const result = gateResult('985', {
+    const result = gateResult(parsePrd('985'), {
       ctx,
       changes: [RISKY_CHANGE],
       labels: ['omni:feature', ctx.config.labels.outboxGo],
@@ -350,7 +351,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
 
   it('an unrelated label never overrides an unaccounted change', () => {
     const root = rangeFixtureRoot();
-    const result = gateResult('985', {
+    const result = gateResult(parsePrd('985'), {
       ctx: flatCtx(root, { risk: RISK }),
       changes: [RISKY_CHANGE],
       labels: ['omni:feature'],
@@ -374,7 +375,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
         ],
       }),
     );
-    const result = gateResult('985', { ctx: flatCtx(root, { risk: RISK }), changes: [RISKY_CHANGE] });
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(root, { risk: RISK }), changes: [RISKY_CHANGE] });
     expect(result.ok).toBe(true);
     expect(result.unaccounted).toEqual([]);
   });
@@ -396,7 +397,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
         ],
       }),
     );
-    const result = gateResult('985', { ctx: flatCtx(root, { risk: RISK }), changes: [] });
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(root, { risk: RISK }), changes: [] });
     expect(result.ok).toBe(true);
     expect(result.unaccounted).toEqual([]);
   });
@@ -428,10 +429,10 @@ describe('gateResult — unreworked drift (this task)', () => {
         ),
       },
     });
-    const result = gateResult(42, { ctx });
+    const result = gateResult(parsePrd(42), { ctx });
     expect(result.ok).toBe(false);
     expect(result.unreworked.map((e) => e.id)).toEqual(['s1-01-x']);
-    expect(formatReport(42, result)).toMatch(/1 drifted decision not yet reworked/);
+    expect(formatReport(parsePrd(42), result)).toMatch(/1 drifted decision not yet reworked/);
   });
 
   it('goes green once the drifted entry is closed by a rework', () => {
@@ -445,7 +446,7 @@ describe('gateResult — unreworked drift (this task)', () => {
         ),
       },
     });
-    expect(gateResult(42, { ctx }).ok).toBe(true);
+    expect(gateResult(parsePrd(42), { ctx }).ok).toBe(true);
   });
 
   it('the override label still waves everything through', () => {
@@ -459,6 +460,6 @@ describe('gateResult — unreworked drift (this task)', () => {
         ),
       },
     });
-    expect(gateResult(42, { ctx, labels: ['omni:outbox-go'] }).ok).toBe(true);
+    expect(gateResult(parsePrd(42), { ctx, labels: ['omni:outbox-go'] }).ok).toBe(true);
   });
 });

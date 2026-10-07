@@ -73,7 +73,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { z } from 'zod';
 import { parseFrontMatterLines, withFile } from '../front-matter.ts';
-import type { PrdNumber } from '../layout.ts';
+import type { PrdNumber } from '../ids.ts';
 import type { Laws, Resolution } from '../laws.ts';
 import type { makeMarkers } from '../markers.ts';
 import { OutboxItemFrontMatterSchema, RANK_VALUES } from '../schema/front-matter.ts';
@@ -543,7 +543,7 @@ export function plainWordsProblems(text: string | null | undefined): string[] {
 export function funLineProblems(text: string | null | undefined): string[] {
   const value = (text ?? '').trim();
   const problems = plainWordsProblems(value);
-  const length = [...value].length;
+  const length = Array.from(value).length;
   if (length > FUN_LINE_MAX_LENGTH) {
     problems.push(
       `is ${length} characters long — keep it to ${FUN_LINE_MAX_LENGTH} characters at most`,

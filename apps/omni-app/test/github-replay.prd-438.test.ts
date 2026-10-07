@@ -1,24 +1,27 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { inngest, RETRO_EVENT } from '../src/inngest-client.ts';
 import { VERDICT_MARKER, createRetro } from '../src/retro/retro.ts';
-import { replayGitHub } from './github-replay.ts';
+import { Recording, replayGitHub } from './github-replay.ts';
 import { JUDGE_ENV, judge } from './retro-scenario.ts';
+import { readEnv } from '../src/env.ts';
 
 // PRD 438, recorded (PRD 487, "Test seams"): feature PR #440 and its sub-PRs as GitHub returned them,
 // replayed offline through the real retro function with a model reply that keeps nothing. Its retro
 // PR (#467) was closed unmerged: every finding repeated a known pattern. Replayed today, the same
 // findings end in one comment on #440, and no branch, no PR and no issue.
 const FIXTURE = fileURLToPath(new URL('./fixtures/prd-438/', import.meta.url));
-const recording = JSON.parse(readFileSync(`${FIXTURE}recording.json`, 'utf8'));
+const recording = Recording.parse(JSON.parse(readFileSync(`${FIXTURE}recording.json`, 'utf8')));
 
 const BRANCH = 'docs/retro-app-sidebar';
 
 async function replay(fetch = judge({ worthIt: false, reason: 'Every finding repeats a pattern the knowledge already names.' })) {
   const github = replayGitHub({ recording: recording.requests });
-  const fn = createRetro({ client: inngest, octokitFor: () => github.octokit, env: JUDGE_ENV, fetch: fetch as never });
+  const fn = createRetro({ client: inngest, octokitFor: () => github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch });
   const event = {
     name: RETRO_EVENT,
     data: {
@@ -35,7 +38,21 @@ async function replay(fetch = judge({ worthIt: false, reason: 'Every finding rep
   return { github, result, error, fetch, comments: github.state.comments.filter((comment) => comment.issue === 440) };
 }
 
-const writes = (github: any, route: any) => github.state.requests.filter((request: any) => request.route === route);
+const writes = (github: ReturnType<typeof replayGitHub>, route: string) => github.state.requests.filter((request) => request.route === route);
+
+/** What the judge was asked first, as far as these tests read it. */
+const Asked = z.object({
+  knowledge: z.array(z.object({ id: z.unknown() })),
+  earlierLessons: z.unknown(),
+  findings: z.array(z.object({ id: z.unknown() })),
+});
+
+/** The body of the one comment on #440: the test fails when there is none. */
+function onlyBody(comments: readonly { body: string }[]): string {
+  const [comment] = comments;
+  assertDefined(comment, 'the comment on #440');
+  return comment.body;
+}
 
 describe('the PRD 438 recording, replayed offline with a reply that keeps nothing', () => {
   it('ends with the verdict comment on #440: no branch, no PR, no issue', async () => {
@@ -47,30 +64,31 @@ describe('the PRD 438 recording, replayed offline with a reply that keeps nothin
     expect(writes(github, 'POST /repos/{owner}/{repo}/issues')).toEqual([]);
     expect(github.state.refs.has(`heads/${BRANCH}`)).toBe(false);
     expect(comments).toHaveLength(1);
-    expect(comments[0]!.body.startsWith(`${VERDICT_MARKER}\nRetro: no new lesson — `)).toBe(true);
+    expect(onlyBody(comments).startsWith(`${VERDICT_MARKER}\nRetro: no new lesson — `)).toBe(true);
   });
 
   it('gives the judge the knowledge base at the merge commit, and the findings the closed retro PR held', async () => {
     const { fetch } = await replay();
-    const [asked] = fetch.asked;
+    const asked = Asked.parse(fetch.asked[0]);
     expect(asked.knowledge.length).toBeGreaterThan(0);
-    expect(asked.knowledge.map((line: any) => line.id)).toContain('BR-PRODUCT-33');
+    expect(asked.knowledge.map((line) => line.id)).toContain('BR-PRODUCT-33');
     expect(asked.earlierLessons).toEqual([]);
-    expect(asked.findings.map((finding: any) => finding.id)).toContain('churn:apps/galaxy/src/nav/app-bar.css:23-23');
+    expect(asked.findings.map((finding) => finding.id)).toContain('churn:apps/galaxy/src/nav/app-bar.css:23-23');
   });
 
   it('writes the verdict comment pinned beside the recording', async () => {
     const { comments } = await replay();
+    const body = onlyBody(comments);
     const golden = `${FIXTURE}verdict.golden.md`;
-    if (process.env.UPDATE_GOLDEN) writeFileSync(golden, comments[0]!.body);
-    expect(comments[0]!.body).toBe(readFileSync(golden, 'utf8'));
+    if (process.env.UPDATE_GOLDEN) writeFileSync(golden, body);
+    expect(body).toBe(readFileSync(golden, 'utf8'));
   });
 
   it('a replay of the replay rewrites the one comment in place', async () => {
     const github = replayGitHub({ recording: recording.requests });
     const run = () =>
       new InngestTestEngine({
-        function: createRetro({ client: inngest, octokitFor: () => github.octokit, env: JUDGE_ENV, fetch: judge({ worthIt: false }) as never }),
+        function: createRetro({ client: inngest, octokitFor: () => github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge({ worthIt: false }) }),
         events: [
           {
             name: RETRO_EVENT,

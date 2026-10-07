@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
@@ -65,6 +64,21 @@ describe('omni plan check', () => {
     expect(s.out.join('')).toMatch(/collision matrix \(1 pair/);
   });
 
+  it('places two slices that share only a generated path in one wave, read from the config (PRD 1138)', async () => {
+    const generated = 'generated:\n  - path: kit/dist/\n    from: [kit/lib/]\n    build: pnpm kit:build\n';
+    const config = { '.omni-loop/config.yml': `${CONFIG['.omni-loop/config.yml']}${generated}` };
+    const plan = planMd(['| s1 | Alpha | `kit/lib/a.ts` `kit/dist/` | — | 1 |', '| s2 | Beta | `kit/lib/b.ts` `kit/dist/` | — | 1 |']);
+    const { root } = makeRepo({ git: true, files: { ...config, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+    const s = io();
+    expect(await main(['plan', 'check', '7'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).toMatch(/all territories and blocks well-formed/);
+
+    const without = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+    const t = io();
+    expect(await main(['plan', 'check', '7'], { cwd: without.root, ...t })).toBe(1);
+    expect(t.out.join('')).toMatch(/s1 and s2 share kit\/dist\/ and both sit in wave 1/);
+  });
+
   it('flags a "blocked by" id that names no slice in the plan', async () => {
     const plan = planMd(['| s1 | Alpha | `a/` | s9 | 1 |']);
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
@@ -110,6 +124,79 @@ describe('omni plan check', () => {
     expect(s.out.join('')).toMatch(/id "s1" is used by more than one slice row/);
   });
 
+  it('prints one line per landing for a plan of more than one landing, and refuses a cross-landing blocker', async () => {
+    const plan = [
+      '# A plan',
+      '',
+      '| id | slice | territory | blocked by | wave | landing |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| s1 | Expand | `db/` | — | 1 | 1 |',
+      '| s2 | Code | `src/` | — | 1 | 2 |',
+      '| s3 | Screen | `app/` | s2 | 2 | 2 |',
+      '',
+      '## Landings',
+      '',
+      '| landing | name | merge when |',
+      '| --- | --- | --- |',
+      '| 1 | expand | — |',
+      '| 2 | code | landing 1 is deployed |',
+      '',
+    ].join('\n');
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+    const s = io();
+    expect(await main(['plan', 'check', '7'], { cwd: root, ...s })).toBe(0);
+    const out = s.out.join('');
+    expect(out).toMatch(/2 landings, merged in order:/);
+    expect(out).toMatch(/ {2}landing 1 \(expand\): wave\(s\) 1 — s1\n/);
+    expect(out).toMatch(/ {2}landing 2 \(code\): wave\(s\) 1, 2 — s2, s3 — merge when landing 1 is deployed\n/);
+
+    const crossed = makeRepo({
+      git: true,
+      files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan.replace('| s2 | Code | `src/` | — |', '| s2 | Code | `src/` | s1 |') },
+    });
+    const t = io();
+    expect(await main(['plan', 'check', '7'], { cwd: crossed.root, ...t })).toBe(1);
+    expect(t.out.join('')).toMatch(/blocked by: s2 \(landing 2\) is blocked by s1 \(landing 1\)/);
+  });
+
+  it('omni plan landings prints the stacked chain, as JSON with --json, and refuses a plan the check refuses', async () => {
+    const plan = [
+      '| id | slice | territory | blocked by | wave | landing |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| s1 | Expand | `db/` | — | 1 | 1 |',
+      '| s2 | Code | `src/` | — | 1 | 2 |',
+      '',
+    ].join('\n');
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan } });
+    const s = io();
+    expect(await main(['plan', 'landings', '7'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).toBe(
+      'omni plan landings — PRD 7: 2 landings.\n' +
+        '  1/2 landing-1: feat/widgets-1of2-landing-1 ← main — s1\n' +
+        '  2/2 landing-2: feat/widgets-2of2-landing-2 ← feat/widgets-1of2-landing-1 — s2\n',
+    );
+    const j = io();
+    expect(await main(['plan', 'landings', '7', '--json'], { cwd: root, ...j })).toBe(0);
+    const chain = JSON.parse(j.out.join('')) as { branch: string; titleSuffix: string; mergeAfterLine: string | null }[];
+    expect(chain.map(({ titleSuffix, mergeAfterLine }) => [titleSuffix, mergeAfterLine])).toEqual([
+      [' (1/2)', null],
+      [' (2/2)', 'Merge after landing 1 (landing-1) is deployed.'],
+    ]);
+
+    const broken = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan.replace('| 2 |\n', '| 3 |\n') } });
+    const b = io();
+    expect(await main(['plan', 'landings', '7'], { cwd: broken.root, ...b })).toBe(1);
+    expect(b.out.join('')).toMatch(/does not pass omni plan check: landing: no slice sits in landing 2/);
+  });
+
+  it('prints no landing line for a plan of one landing', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |']);
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+    const s = io();
+    expect(await main(['plan', 'check', '7'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).not.toMatch(/landing/);
+  });
+
   it('passes on this repository\'s own PRD 7 plan', async () => {
     const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
     const s = io();
@@ -117,6 +204,68 @@ describe('omni plan check', () => {
     // session in this repository's own `.omni-loop/local/`.
     const code = await main(['plan', 'check', '7'], { cwd: repoRoot, ...s, env: {} });
     expect(s.out.join('')).not.toMatch(/violation/);
+    expect(code).toBe(0);
+  });
+});
+
+// PRD 1089: the flow's areas and their plan rules.
+const FLOW_CONFIG = {
+  '.omni-loop/config.yml': `kit: 1
+repo:
+  slug: acme/widgets
+flow:
+  areas:
+    kernel:
+      paths: ['^src/kernel/']
+      rules:
+        plan:
+          - slice: { alone: true, maxFiles: 5 }
+          - wave: first
+          - blocks: all
+    migrations:
+      paths: ['^database/migrations/']
+      rules:
+        plan:
+          - slice: { alone: true, maxFiles: 1 }
+          - landing: alone
+`,
+};
+
+describe('omni plan check — flow (PRD 1089)', () => {
+  async function check(plan: string) {
+    const { root } = makeRepo({ git: true, files: { ...FLOW_CONFIG, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+    const s = io();
+    const code = await main(['plan', 'check', '7'], { cwd: root, ...s });
+    return { code, out: s.out.join('') };
+  }
+
+  it('refuses a plan that breaks the kernel and migrations rules, naming slice, area and rule', async () => {
+    const { code, out } = await check(
+      planMd([
+        '| s1 | Code | `src/Invoice.php` | — | 1 |',
+        '| s2 | Kernel | `src/kernel/Bus/` | s1 | 2 |',
+        '| s3 | Migration | `database/migrations/x.sql` `src/Total.php` | — | 1 |',
+      ]),
+    );
+    expect(code).toBe(1);
+    expect(out).toMatch(/flow: s2 \(wave 2\) touches area kernel .* — kernel: wave first/);
+    expect(out).toMatch(/flow: s3 touches database\/migrations\/x\.sql \(area migrations\) .* — migrations: slice alone/);
+  });
+
+  it('passes the corrected plan: the kernel first, the migration alone in a landing after it', async () => {
+    const { code, out } = await check(
+      [
+        '# A plan',
+        '',
+        '| id | slice | territory | blocked by | wave | landing |',
+        '| --- | --- | --- | --- | --- | --- |',
+        '| s1 | Kernel | `src/kernel/Bus/` | — | 1 | 1 |',
+        '| s2 | Code | `src/Invoice.php` | s1 | 2 | 1 |',
+        '| s3 | Migration | `database/migrations/x.sql` | — | 1 | 2 |',
+        '',
+      ].join('\n'),
+    );
+    expect(out).toMatch(/all territories and blocks well-formed/);
     expect(code).toBe(0);
   });
 });
@@ -274,6 +423,43 @@ describe('omni plan check — in a plan repository (PRD 549)', () => {
   });
 });
 
+describe("omni plan check — each target's imported flow (PRD 1089, s6)", () => {
+  const config = {
+    '.omni-loop/config.yml': [
+      'kit: 1',
+      'repo:',
+      '  slug: vertuoza/vertuo-automation-plan',
+      'plan:',
+      '  targets:',
+      '    - repo: vertuoza/vertuo-backend-php',
+      '      role: back-end',
+      '      knowledge: imported',
+      `      readAt: ${SHA_BACK}`,
+      '    - repo: vertuoza/vertuo-apps',
+      '      role: front-end',
+      '      knowledge: imported',
+      `      readAt: ${SHA_APPS}`,
+      '',
+    ].join('\n'),
+    '.omni-loop/knowledge/repos/vertuo-backend-php/flow/config.yml':
+      "flow:\n  areas:\n    migrations:\n      paths: ['^database/migrations/']\n      rules:\n        plan:\n          - slice: { alone: true }\n",
+    '.omni-loop/knowledge/repos/vertuo-apps/flow/config.yml': 'flow:\n  rules:\n    plan:\n      - slice: { maxFiles: 1 }\n',
+  };
+  const repos = [`| vertuo-backend-php | back-end | ${SHA_BACK} | imported |`, `| vertuo-apps | front-end | ${SHA_APPS} | imported |`];
+
+  it('grades a back-end row against the back end\'s copy and a front-end row against the front end\'s (acceptance 12)', async () => {
+    const slices = [
+      '| s1 | vertuo-backend-php | mixed | `database/migrations/x.sql` `src/` | — | 1 |',
+      '| s2 | vertuo-apps | mixed | `database/migrations/x.sql` `src/` | — | 1 |',
+    ];
+    const { code, out } = await check(config, multiPlan({ repos, slices }));
+    expect(code).toBe(1);
+    expect(out).toMatch(/flow \(vertuo-backend-php\): s1 touches database\/migrations\/x\.sql \(area migrations\) .* — migrations: slice alone/);
+    expect(out).toMatch(/flow \(vertuo-apps\): s2 touches 2 paths — default: slice maxFiles 1/);
+    expect(out).not.toMatch(/flow \(vertuo-apps\): s2 touches database/);
+  });
+});
+
 describe('omni plan check — outside a plan repository (PRD 549)', () => {
   it('refuses a repo column', async () => {
     const { code, out } = await check(CONFIG, multiPlan({ repos: null }));
@@ -296,7 +482,9 @@ describe('omni plan check — outside a plan repository (PRD 549)', () => {
 });
 
 describe('omni plan check — user-caused errors are one line, exit 2', () => {
-  const oneLine = (s: Io) => expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+  const oneLine = (s: Io) => {
+    expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+  };
 
   it('an unknown plan subcommand', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });

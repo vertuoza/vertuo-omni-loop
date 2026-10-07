@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { PrdNumber } from '../kit/lib/ids.ts';
 
 export const EVENT_TYPES = Object.freeze([
   'PLANET_CHARTED', 'REGION_SURVEYED', 'PLANET_LOCKED', 'PLANET_UNLOCKED',
@@ -15,7 +16,7 @@ const HOME = /^[a-z0-9-]{1,39}\/[a-z0-9._-]{1,100}$/;
 
 export const EventSchema = z.object({
   id: z.string().min(1),
-  at: z.string().datetime({ offset: true }),
+  at: z.iso.datetime({ offset: true }),
   type: z.enum(EVENT_TYPES),
   planet: z.number().int().positive(),
   // Absent on the events written before PRD 728.
@@ -46,10 +47,15 @@ export function makeEvent(fields: unknown): GameEvent {
 
 // A planet's key: `<home>#<n>` (PRD 728), so two repositories' PRD 88 are two planets. A PRD with no
 // home (an event written before PRD 728, a fixture) is keyed by its number alone.
-export function planetKey(home: string | null | undefined, prd: number | string): string {
-  return home ? `${home}#${prd}` : String(prd);
+export function planetKey(home: string | null | undefined, prd: PrdNumber): string {
+  return keyOf(home, prd);
 }
 
+// An event's planet is the number the ledger holds, read by the event's schema: keyed the same way.
 export function planetKeyOf(event: { home?: string | null | undefined; planet: number }): string {
-  return planetKey(event.home, event.planet);
+  return keyOf(event.home, event.planet);
+}
+
+function keyOf(home: string | null | undefined, planet: number): string {
+  return home ? `${home}#${planet}` : String(planet);
 }

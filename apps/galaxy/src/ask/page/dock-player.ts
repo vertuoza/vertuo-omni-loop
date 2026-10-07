@@ -7,6 +7,7 @@ import { loadMe } from '../../data/load-galaxy';
 import { memberWorkspace, type Workspace } from '../../data/workspace';
 import { readXp } from '../../data/xp';
 import type { DockPlayer } from '../../play-dock/dock';
+import type { Database } from '../../../../../supabase/database.types';
 
 // Who plays in the /ask tab's play dock (PRD 757), read on the server as the signed-in person, exactly
 // as the arcade reads them (src/data/arcade.ts): the workspace the arcade plays (the one they joined
@@ -31,13 +32,13 @@ export interface DockReads {
   xp: (workspace: string, login: string) => Promise<XpRead>;
 }
 
-const liveReads = (db: SupabaseClient): DockReads => ({
+const liveReads = (db: SupabaseClient<Database>): DockReads => ({
   workspace: (userId) => memberWorkspace(db, userId),
   me: (workspace, userId) => loadMe(db, workspace, userId),
   xp: (workspace, login) => readXp(db, workspace, login),
 });
 
-export async function readAskDock(db: SupabaseClient, user: User, supabase: AskDock['supabase'], reads: DockReads = liveReads(db)): Promise<AskDock> {
+export async function readAskDock(db: SupabaseClient<Database>, user: User, supabase: AskDock['supabase'], reads: DockReads = liveReads(db)): Promise<AskDock> {
   const linked = linkedLogin(user);
   const none = { hero: null, team: null, workspace: null, supabase };
   try {

@@ -5,8 +5,9 @@
 // its own in `scenes/<group>.ts`, and `scenes/index.ts` picks the one to draw. A colour that is a
 // theme token is read from the frame's theme (`FrameState.theme`), never written here, and every
 // sprite is drawn through `sprite()`, in the theme's stripes.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
-  drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, spriteSize, type Hero, type LogoForm,
+  drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, spriteSize, type Hero, type LogoForm, type Tint,
 } from '@omni/design';
 import type { GalaxyView, Planet } from '@omni/galaxy';
 import { fleet, heroOf, seedOf } from '../fleets';
@@ -15,6 +16,7 @@ import { stripesOf, type Theme } from '../theme';
 import type { Game } from '../games/invaders';
 import type { FleetRow } from '../types';
 import type { ChartLayout, ChartSource, SystemLayout } from './chart-layout.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The wide grid's size: the grid every scene is drawn on until its group lays it out tall. */
 export const W = 640;
@@ -56,7 +58,7 @@ export interface FrameState {
   sceneT: number;       // seconds since this scene opened
   reduced: boolean;     // prefers-reduced-motion
   mark: Mark;           // the brand's mark: its letter, which the boot and the intro draw
-  logo?: LogoForm | null; // the house brand's crest, which the boot draws in place of the mark
+  logo?: LogoForm | null | undefined; // the house brand's crest, which the boot draws in place of the mark
   theme: Theme;         // the brand's theme, resolved: the colours the scenes draw with
   chart?: ChartFrame;   // the star chart (chart, system)
   game?: Game | null;   // the game being played (invaders), laid out for `grid`
@@ -73,7 +75,7 @@ export interface ChartFrame {
   world: number;
 }
 
-export interface MapSlot { prd: number; x: number; y: number; r: number; index: number }
+export interface MapSlot { prd: PrdNumber; x: number; y: number; r: number; index: number }
 
 /**
  * How many pages a scene takes on a grid, for the galaxy it shows: a group that splits its tall
@@ -93,8 +95,12 @@ const SECTOR_NEBULA = [
 
 export function nebulaFor(key: string, i: number, w: number, h: number) {
   nebulae ??= new Map();
-  if (!nebulae.has(key)) nebulae.set(key, makeNebula(100 + i * 7, w, h, SECTOR_NEBULA[i % SECTOR_NEBULA.length]!, 0.75));
-  return nebulae.get(key)!;
+  let nebula = nebulae.get(key);
+  if (!nebula) {
+    nebula = makeNebula(100 + i * 7, w, h, defined(SECTOR_NEBULA[i % SECTOR_NEBULA.length], "a sector's nebula"), 0.75);
+    nebulae.set(key, nebula);
+  }
+  return nebula;
 }
 
 export function space(ctx: CanvasRenderingContext2D, s: FrameState, speed = 0.4) {
@@ -198,12 +204,12 @@ export function heroSelectWall(ctx: CanvasRenderingContext2D) {
   for (let y = 3; y < H; y += 8) for (let x = (y / 8) % 2 ? 4 : 0; x < W; x += 8) ctx.fillRect(x, y, 2, 2);
 }
 
-/** How a sprite is drawn, but its stripes: those are the theme's. */
-export type SpriteOptions = Omit<NonNullable<Parameters<typeof drawSprite>[4]>, 'flat'>;
+/** How a sprite is drawn, but its stripes: those are the theme's. No tint, or an undefined one: its own colours. */
+export type SpriteOptions = Omit<NonNullable<Parameters<typeof drawSprite>[4]>, 'flat' | 'tint'> & { tint?: Tint | undefined };
 
 /** A sprite on the canvas, in the theme's stripes (`stripe-1` to `stripe-4`): every scene draws its sprites through here. */
-export function sprite(ctx: CanvasRenderingContext2D, s: FrameState, name: string, x: number, y: number, o: SpriteOptions = {}) {
-  drawSprite(ctx, name, x, y, { ...o, flat: stripesOf(s.theme) });
+export function sprite(ctx: CanvasRenderingContext2D, s: FrameState, name: string, x: number, y: number, { tint, ...o }: SpriteOptions = {}) {
+  drawSprite(ctx, name, x, y, { ...o, ...(tint ? { tint } : {}), flat: stripesOf(s.theme) });
 }
 
 export function drawFleetMascot(ctx: CanvasRenderingContext2D, s: FrameState, name: string, x: number, y: number, o: { scale?: number; frame?: number; alpha?: number; flip?: boolean } = {}) {
@@ -221,13 +227,13 @@ export function drawHero(ctx: CanvasRenderingContext2D, s: FrameState, hero: Her
 export function pedestal(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, color: string) {
   const ramp = rampFrom(color);
   for (const [dy, tone] of [[3, 3], [0, 1]] as const) {
-    ctx.fillStyle = ramp[tone]!;
+    ctx.fillStyle = defined(ramp[tone], 'a pedestal tone');
     for (let y = -3; y <= 3; y++) {
       const w = Math.round(rx * Math.sqrt(1 - (y / 4) ** 2));
       ctx.fillRect(cx - w, cy + y + dy, w * 2, 1);
     }
   }
-  ctx.fillStyle = ramp[0]!;
+  ctx.fillStyle = defined(ramp[0], "the pedestal's light");
   ctx.fillRect(cx - Math.round(rx * 0.6), cy - 2, Math.round(rx * 0.5), 1);
 }
 

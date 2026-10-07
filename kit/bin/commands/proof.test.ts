@@ -5,6 +5,7 @@ import { existsSync, readFileSync, statSync, truncateSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
+import { dig } from '../dig.ts';
 import { main } from '../omni.ts';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import type { FetchInit } from '../../test/fixture.ts';
@@ -45,20 +46,24 @@ const json = (status: number, body = {}) => new Response(JSON.stringify(body), {
 
 /** A fetch that follows the contract, or answers `over(url, init)` when that gives a Response. */
 function fakeApp(over: (url: string, init: FetchInit) => Response | null = () => null) {
-  const calls: { url: string; method?: string; authorization?: string; type?: string; body?: unknown }[] = [];
-  const fetch = async (url: string, init: FetchInit) => {
-    const href = String(url);
+  const calls: { url: string; method?: string | undefined; authorization?: string | undefined; type?: string | undefined; body?: unknown }[] = [];
+  const answer = (href: string, init: FetchInit) => {
     calls.push({ url: href, method: init.method, authorization: init.headers.authorization, type: init.headers['content-type'], body: init.body });
     const replaced = over(href, init);
     if (replaced) return replaced;
     if (href === `${BASE}/api/proofs/uploads`) {
-      const { files } = JSON.parse(String(init.body));
-      return json(200, { run: RUN_ID, files: files.map(({ name }: { name: string }) => ({ name, path: `d/${RUN_ID}/${name}`, url: `https://files.example/${name}?token=t` })) });
+      const files = dig(JSON.parse(String(init.body)), 'files') as { name: string }[];
+      return json(200, { run: RUN_ID, files: files.map(({ name }) => ({ name, path: `d/${RUN_ID}/${name}`, url: `https://files.example/${name}?token=t` })) });
     }
     if (href.startsWith('https://files.example/')) return json(200, {});
     if (href === `${BASE}/api/proofs`) return json(200, { url: TAB });
     return json(500);
   };
+  // A promise of the answer, rejected when answering throws, as the async fetch it fakes.
+  const fetch = (url: string, init: FetchInit) =>
+    new Promise<Response>((resolve) => {
+      resolve(answer(url, init));
+    });
   return { calls, fetch };
 }
 
@@ -85,12 +90,12 @@ describe('omni proof push', () => {
       ['PUT', 'https://files.example/preview.gif?token=t', null, 'image/gif'],
       ['POST', `${BASE}/api/proofs`, 'Bearer access-1', 'application/json'],
     ]);
-    expect(JSON.parse(calls[0]!.body as string)).toEqual({
+    expect(JSON.parse(calls[0]?.body as string)).toEqual({
       repo: 'acme/widgets', prd: 7,
       files: [{ name: '1-tab.webm', bytes: 4, type: 'video/webm' }, { name: '1-tab.spec.ts', bytes: 6, type: 'text/plain' }, { name: 'preview.gif', bytes: 6, type: 'image/gif' }],
     });
-    expect(Buffer.from(calls[1]!.body as Uint8Array).toString()).toBe('webm');
-    expect(JSON.parse(calls[4]!.body as string)).toEqual({ repo: 'acme/widgets', prd: 7, run: RUN_ID, commit: RUN.commit, url: RUN.url, criteria: RUN.criteria });
+    expect(Buffer.from(calls[1]?.body as Uint8Array).toString()).toBe('webm');
+    expect(JSON.parse(calls[4]?.body as string)).toEqual({ repo: 'acme/widgets', prd: 7, run: RUN_ID, commit: RUN.commit, url: RUN.url, criteria: RUN.criteria });
   });
 
   it('takes an absolute folder as well', async () => {
@@ -138,7 +143,7 @@ describe('omni proof push', () => {
 
   it('the app out of reach: unreachable, exit 1', async () => {
     const { root } = checkout();
-    const fetch = async () => { throw new TypeError('fetch failed'); };
+    const fetch = () => Promise.reject(new TypeError('fetch failed'));
     expect(await push(['7', DIR], { root, fetch })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
   });
 
@@ -197,10 +202,10 @@ describe('omni proof session', () => {
     const result = await session([], { root, tokens, fetch: renewing().fetch, env: { PROOF_STORAGE_STATE: file } });
     expect(result).toMatchObject({ code: 0, err: '' });
     expect(result.out).toMatch(/^signed in as pat@acme\.test until \d\d:\d\d\n$/);
-    const state = JSON.parse(readFileSync(file, 'utf8'));
-    expect(state.cookies[0]).toMatchObject({ name: `sb-${REF}-auth-token`, domain: HOST });
+    const state: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    expect(dig(state, 'cookies', 0)).toMatchObject({ name: `sb-${REF}-auth-token`, domain: HOST });
     expect(statSync(file).mode & 0o777).toBe(0o600);
-    expect(tokens.store[HOST]!.refresh_token).toBe('refresh-2');
+    expect(tokens.store[HOST]?.refresh_token).toBe('refresh-2');
   });
 
   it('puts the cookie on the host PROOF_URL names, the address being filmed (a preview), and still signs in through ask.url', async () => {
@@ -209,7 +214,7 @@ describe('omni proof session', () => {
     const { calls, fetch } = renewing();
     const result = await session([file], { root, fetch, env: { PROOF_URL: 'https://app-git-feat-x.vercel.app/some/page' } });
     expect(result.code).toBe(0);
-    expect(JSON.parse(readFileSync(file, 'utf8')).cookies[0].domain).toBe('app-git-feat-x.vercel.app');
+    expect(dig(JSON.parse(readFileSync(file, 'utf8')), 'cookies', 0, 'domain')).toBe('app-git-feat-x.vercel.app');
     expect(calls.map(({ url }) => url)).toEqual([`${BASE}/api/ask/token`]);
   });
 
@@ -225,7 +230,7 @@ describe('omni proof session', () => {
     const file = join(root, 'state.json');
     expect(await session([file], { root, tokens: memoryTokens(), fetch: renewing().fetch })).toEqual({ code: 1, out: '', err: 'no sign-in (omni signin)\n' });
     expect(await session([file], { root, fetch: renewing(401).fetch })).toEqual({ code: 1, out: '', err: 'no sign-in (omni signin)\n' });
-    expect(await session([file], { root, fetch: async () => { throw new Error('down'); } })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
+    expect(await session([file], { root, fetch: () => Promise.reject(new Error('down')) })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
     expect(existsSync(file)).toBe(false);
   });
 

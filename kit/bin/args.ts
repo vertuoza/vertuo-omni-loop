@@ -2,7 +2,9 @@
 // upstream script's CLI half read); anything else is a usage error — exit 2, one line.
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { isOneOf, messageOf, propertyOf } from '../lib/narrow.ts';
+import { parseIssue, parsePr, parsePrd, WorkSliceIdSchema } from '../lib/ids.ts';
+import type { IssueNumber, PrdNumber, PrNumber, WorkSliceId } from '../lib/ids.ts';
+import { at, isOneOf, messageOf, propertyOf } from '../lib/narrow.ts';
 import type { Out } from './io.ts';
 
 export function usageError(message: string): Error {
@@ -23,26 +25,27 @@ export function parseArgs<V extends string = never, B extends string = never>(
   { values = [], booleans = [] }: { values?: readonly V[]; booleans?: readonly B[] } = {},
 ): { positional: string[]; flags: Flags<V, B> } {
   const positional: string[] = [];
-  const flags: Record<string, string | true> = {};
+  const valueFlags: { [K in V]?: string } = {};
+  const booleanFlags: { [K in B]?: true } = {};
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index]!; // ts-allow: index stays below argv.length
+    const arg = at(argv, index, 'the argument');
     if (!arg.startsWith('--')) {
       positional.push(arg);
       continue;
     }
     const name = arg.slice(2);
     if (isOneOf(booleans, name)) {
-      flags[name] = true;
+      booleanFlags[name] = true;
     } else if (isOneOf(values, name)) {
       const value = argv[index + 1];
       if (value === undefined || value.startsWith('--')) throw usageError(`omni ${command}: ${arg} needs a value.`);
-      flags[name] = value;
+      valueFlags[name] = value;
       index += 1;
     } else {
       throw usageError(`omni ${command}: unknown flag ${arg}.`);
     }
   }
-  return { positional, flags: flags as Flags<V, B> }; // ts-allow: each key was set from `values` (a string) or `booleans` (true)
+  return { positional, flags: { ...valueFlags, ...booleanFlags } };
 }
 
 const DIGITS = /^\d+$/;
@@ -51,10 +54,32 @@ const DIGITS = /^\d+$/;
  * "0x10" or " 16" are refused rather than read as another number (bug #571). */
 export function positiveInt(command: string, what: string, value: string | true | undefined): number {
   const number = Number(value);
-  if (value === undefined || value === true || !DIGITS.test(String(value)) || number <= 0) {
+  if (value === undefined || value === true || !DIGITS.test(value) || number <= 0) {
     throw usageError(`omni ${command}: ${what} must be a positive number${value === undefined ? '' : `, got "${value}"`}.`);
   }
   return number;
+}
+
+/** A PRD number argument, read as `positiveInt` reads one. */
+export function prdArg(command: string, what: string, value: string | true | undefined): PrdNumber {
+  return parsePrd(positiveInt(command, what, value));
+}
+
+/** A pull request number argument, read as `positiveInt` reads one. */
+export function prArg(command: string, what: string, value: string | true | undefined): PrNumber {
+  return parsePr(positiveInt(command, what, value));
+}
+
+/** An issue number argument, read as `positiveInt` reads one. */
+export function issueArg(command: string, what: string, value: string | true | undefined): IssueNumber {
+  return parseIssue(positiveInt(command, what, value));
+}
+
+/** A slice argument (`s1`, a rework's `fix-s1-01-…`), or a `UsageError` naming what it is. */
+export function sliceArg(command: string, what: string, value: string): WorkSliceId {
+  const slice = WorkSliceIdSchema.safeParse(value);
+  if (!slice.success) throw usageError(`omni ${command}: ${what} must be a slice id like s1, got "${value}".`);
+  return slice.data;
 }
 
 /** A comma-separated flag as a trimmed, non-empty list. */

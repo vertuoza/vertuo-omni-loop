@@ -27,6 +27,7 @@ import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { botLogin, carriesTrailer, isSignedBody } from '../signature.ts';
 import type { TrailerSignature } from '../signature.ts';
+import { plainText } from '../outbox/plain-text.ts';
 import { mergedPullRequest } from './classify.ts';
 import type { CreditCommit, CreditLabels, CreditPullRequest } from './classify.ts';
 import { parseGh, SearchedCommitsSchema, SearchedItemsSchema, ViewedPullRequestSchema } from './schema.ts';
@@ -55,7 +56,7 @@ export class GitHubUnreadable extends Error {
   }
 }
 
-const firstLine = (text: unknown): string => String(text ?? '').split('\n').map((line) => line.trim()).find(Boolean) ?? '';
+const firstLine = (text: unknown): string => plainText(text).split('\n').map((line) => line.trim()).find(Boolean) ?? '';
 
 /** What a failed `gh` call means, as a {@link GitHubUnreadable}. */
 export function unreadable(caught: unknown): GitHubUnreadable {
@@ -63,7 +64,7 @@ export function unreadable(caught: unknown): GitHubUnreadable {
   if (error?.code === 'ENOENT') {
     return new GitHubUnreadable('missing', 'gh is not installed: install the GitHub CLI, then run gh auth login.');
   }
-  const said = `${error?.stderr ?? ''}\n${error?.message ?? ''}`;
+  const said = `${plainText(error?.stderr)}\n${plainText(error?.message)}`;
   if (error?.status === 4 || /gh auth login|not logged in|HTTP 401|bad credentials/i.test(said)) {
     return new GitHubUnreadable('logged-out', 'gh is not logged in: run gh auth login.');
   }
@@ -83,7 +84,7 @@ function failureOf(caught: unknown): ExecFailure | null {
 
 /** An ISO timestamp without milliseconds, or `null` when `value` is not a date. */
 function toIso(value: unknown): string | null {
-  const date = new Date(String(value ?? ''));
+  const date = new Date(plainText(value));
   return value && !Number.isNaN(date.getTime()) ? date.toISOString().replace(/\.\d{3}Z$/, 'Z') : null;
 }
 
@@ -101,7 +102,7 @@ function pullRequest(raw: ViewedPullRequest, repo: string): ReadPullRequest {
     repo,
     number: raw.number,
     title: raw.title ?? '',
-    state: String(raw.state ?? '').toLowerCase(),
+    state: (raw.state ?? '').toLowerCase(),
     createdAt: toIso(raw.createdAt),
     labels: (raw.labels ?? []).map((label) => label.name),
     body: raw.body ?? '',
@@ -121,7 +122,7 @@ export type ReadCreditsInput = {
   labels: CreditLabels;
   signature: TrailerSignature | null;
   exec?: CreditsExec;
-  env?: NodeJS.ProcessEnv;
+  env?: NodeJS.ProcessEnv | undefined;
 };
 
 export type CreditsRead = { prs: CreditPullRequest[]; issues: CreditPullRequest[]; commits: CreditCommit[]; warnings: string[] };

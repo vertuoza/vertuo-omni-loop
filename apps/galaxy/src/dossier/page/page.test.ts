@@ -2,11 +2,15 @@ import { readFileSync } from 'node:fs';
 import { createElement, Fragment, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { fakeStageStore } from '../../stages/store.fake';
+import { fakeSnapshotStore } from '../snapshot/store.fake';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { signature } from './live';
+import { StoredSummary } from '../snapshot/schema';
 import { LiveRefresh } from './live-refresh';
 import { SANDBOX_CSP } from './sandbox';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd/<id> and its sandboxed route (PRD 216), called as the server calls them, reading as the viewer
 // through the stubbed client of ../store.fake.ts (the migration's access rules): a member reads the
@@ -20,7 +24,7 @@ const SPEC = '---\nprd: 7\ntitle: Team inbox\n---\n\n# Team inbox\n\n<b>raw</b>\
 const PAGE = '<!doctype html><title>After</title><script>document.title = "ran"</script>';
 
 const given = vi.hoisted(() => ({
-  mode: 'supabase' as 'demo' | 'closed' | 'supabase',
+  mode: 'supabase',
   token: null as string | null,
   fake: null as unknown as ReturnType<typeof import('../store.fake').fakeSupabase>,
   path: '/prd',
@@ -28,6 +32,10 @@ const given = vi.hoisted(() => ({
   summary: null as unknown as import('vitest').Mock,
   // The stored stages (PRD 587), in memory.
   stages: null as unknown as import('../../stages/store.fake').FakeStageStore,
+  // The GitHub snapshots (PRD 902, s2), in memory, the installation's pause, and the work after the response.
+  snapshots: null as unknown as import('../snapshot/store.fake').FakeSnapshotStore,
+  paused: null as number | null,
+  later: [] as (() => Promise<void>)[],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -38,15 +46,38 @@ vi.mock('next/navigation', async (original) => ({
   usePathname: () => given.path,
 }));
 vi.mock('../github/server', () => ({ dossierGithub: () => ({ summary: given.summary }) }));
+// The page's snapshot (PRD 902, s2): the real one, on the fake store and the stubbed reader.
+vi.mock('../snapshot/live', async () => {
+  const { pageSnapshot } = await import('../snapshot/snapshot');
+  const { StoredSummary } = await import('../snapshot/schema');
+  return {
+    livePageSnapshot: (dossier: import('../snapshot/snapshot').SnapshotDossier) => pageSnapshot(dossier, {
+      store: given.snapshots,
+      reader: {
+        summary: async (ref) => {
+          const answer: unknown = await given.summary(ref);
+          return answer === null ? null : StoredSummary.parse(answer);
+        },
+        forget: () => {},
+      },
+      pausedUntil: () => Promise.resolve(given.paused),
+      now: Date.now,
+      later: (task) => { given.later.push(task); },
+    }),
+  };
+});
 vi.mock('../../stages/store', async (original) => ({
   ...(await original<typeof import('../../stages/store')>()),
   stageStore: () => given.stages,
 }));
-vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
+vi.mock('../../env', async (actual) => {
+  const env = await actual<typeof import('../../env')>();
+  return { ...env, serverEnv: () => ({ ...env.readEnv({}), mode: given.mode }) };
+});
 // Who plays in the dock (PRD 757, s4): the fake database keeps no player rows, so the read is given.
 vi.mock('./dock-player', () => ({
-  readDockPlayer: async (_db: unknown, user: { id: string }, workspace: string) =>
-    ({ player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: user.id, workspace }),
+  readDockPlayer: (_db: unknown, user: { id: string }, workspace: string) =>
+    Promise.resolve({ player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: user.id, workspace }),
 }));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
@@ -54,7 +85,7 @@ vi.mock('../../data/supabase-server', () => ({
     const client = given.fake.client(given.token ?? 'signed-out');
     const user = given.token ? await client.auth.getUser(given.token) : { data: { user: null } };
     const claims = user.data.user ? { claims: { sub: user.data.user.id, email: user.data.user.email } } : null;
-    return { ...client, auth: { getUser: async () => user, getClaims: async () => ({ data: claims, error: null }) } };
+    return { ...client, auth: { getUser: () => Promise.resolve(user), getClaims: () => Promise.resolve({ data: claims, error: null }) } };
   },
 }));
 
@@ -62,7 +93,7 @@ const { default: Page } = await import('../../../app/prd/[id]/page.tsx');
 const { default: HistoryPage } = await import('../../../app/prd/page.tsx');
 const { default: Layout } = await import('../../../app/prd/layout.tsx');
 const { GET: sandboxRoute } = await import('../../../app/prd/[id]/v/[version]/page/route.ts');
-const { settled } = await import('./stream/settled');
+const { settledPage } = await import('./stream/settled');
 const { DossierStream } = await import('./stream/DossierStream');
 
 let numbered = '';
@@ -78,8 +109,11 @@ beforeEach(async () => {
     p_artifacts: [{ kind: 'spec', content: SPEC }, { kind: 'before-after', content: PAGE }],
   });
   numbered = (pushed.data as { id: string }).id;
-  given.summary = vi.fn(async () => null);
+  given.summary = vi.fn(() => Promise.resolve(null));
   given.stages = fakeStageStore();
+  given.snapshots = fakeSnapshotStore();
+  given.paused = null;
+  given.later = [];
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -90,15 +124,16 @@ const HERO = { v: 1, body: 'girl', skin: 2, hair: 3, suit: 0, cape: 8 };
 
 // A PRD's page streams (PRD 657 s4): these tests read what it ends as, once its reads have resolved.
 const open = async (id: string, query: Record<string, string> = {}) =>
-  settled(await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) }));
+  settledPage(await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) }));
 const html = async (id: string, query: Record<string, string> = {}) => renderToStaticMarkup(await open(id, query));
 /** The change check of an opened page: beside a streamed PRD page (bug #782), else the page's own. */
 const liveOf = (page: ReactElement): ReactElement | undefined => {
-  const props = page.props as { live?: ReactElement; children?: ReactElement | ReactElement[] };
+  const props = page.props as { live?: ReactElement; children?: ReactElement | null | (ReactElement | null)[] };
   if (page.type !== Fragment) return props.live;
-  return [props.children ?? []].flat().find((child) => child?.type === LiveRefresh);
+  return [props.children ?? []].flat().find((child) => child?.type === LiveRefresh) ?? undefined;
 };
-const notFound = { digest: expect.stringContaining('404') };
+const SAYS_404: unknown = expect.stringContaining('404');
+const notFound = { digest: SAYS_404 };
 
 describe('the page to share', () => {
   it('shows a member of the workspace the dossier', async () => {
@@ -130,7 +165,7 @@ describe('the page to share', () => {
   });
 
   it('chips every repository of the dossier: its home, and for a PRD of the plan repository its planet\'s regions', async () => {
-    given.fake.seedPlanet({ planRepo: 'widgets', prd: 7, regions: ['core', 'web'] });
+    given.fake.seedPlanet({ planRepo: 'widgets', prd: parsePrd(7), regions: ['core', 'web'] });
     given.token = 'bob';
     expect(await html(numbered)).toContain(
       '<ul class="dossier-repos" aria-label="Repositories"><li class="dossier-repo">acme/widgets</li><li class="dossier-repo">acme/core</li><li class="dossier-repo">acme/web</li></ul>',
@@ -148,9 +183,9 @@ describe('the page to share', () => {
   it('shows a member the questions asked while the PRD was delivered, answered out of asked in the tab', async () => {
     const later = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
     given.fake.seedAsk({ owner: ADA.id, repo: 'Acme/Widgets', branch: 'feat/team-inbox--s2' }, [
-      { created_at: later(1), prd: 7, status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: later(3) },
-      { created_at: later(4), prd: 7 },
-      { created_at: later(5), prd: 8 },
+      { created_at: later(1), prd: parsePrd(7), status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: later(3) },
+      { created_at: later(4), prd: parsePrd(7) },
+      { created_at: later(5), prd: parsePrd(8) },
     ]);
     given.token = 'bob';
     const page = await html(numbered, { tab: 'questions' });
@@ -165,21 +200,22 @@ describe('the page to share', () => {
   it('decides on the server who may answer a quick round on the list: its owner and a member it is shared with (PRD 384)', async () => {
     const quick = [{ question: 'Ship it?', header: '', multiSelect: false, options: [{ label: 'Yes', description: '' }, { label: 'No', description: '' }] }];
     const { rounds: [round] } = given.fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
-      { created_at: new Date(Date.now() - 60_000).toISOString(), prd: 7, questions: quick },
+      { created_at: new Date(Date.now() - 60_000).toISOString(), prd: parsePrd(7), questions: quick },
     ]);
+    assertDefined(round, 'the quick round');
     const buttons = (page: string) => [...page.matchAll(/class="dossier-quick-choice"[^>]*><span class="dossier-option-label">([^<]+)/g)].map((m) => m[1]);
 
     given.token = 'ada';
     const owner = await html(numbered, { tab: 'questions' });
     expect(buttons(owner)).toEqual(['Yes', 'No']);
-    expect(owner).toContain(`<li id="${round!.id}" class="dossier-round"`);
+    expect(owner).toContain(`<li id="${round.id}" class="dossier-round"`);
 
     given.token = 'bob';
     const other = await html(numbered, { tab: 'questions' });
     expect(buttons(other)).toEqual([]);
     expect(textOf(other)).toContain('Waiting for ADA');
 
-    given.fake.seedShare(round!.id, BOB.id, ADA.id);
+    given.fake.seedShare(round.id, BOB.id, ADA.id);
     expect(buttons(await html(numbered, { tab: 'questions' }))).toEqual(['Yes', 'No']);
   });
 
@@ -196,7 +232,7 @@ describe('the page to share', () => {
   it('still shows the dossier when its questions cannot be read', async () => {
     const client = given.fake.client('bob');
     given.fake = { ...given.fake, client: () => ({ ...client, rpc: (name: string, args: Record<string, unknown>) =>
-      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) } as never;
+      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) };
     given.token = 'bob';
     const page = await html(numbered, { tab: 'questions' });
     expect(page).toContain('PRD #7');
@@ -205,8 +241,8 @@ describe('the page to share', () => {
 
   it('refreshes itself: a member\'s page carries the change check, starting from the signature it was rendered with', async () => {
     given.fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
-      { created_at: new Date(Date.now() + 60_000).toISOString(), prd: 7, status: 'answered', answered_at: new Date(Date.now() + 120_000).toISOString() },
-      { created_at: new Date(Date.now() + 180_000).toISOString(), prd: 7 },
+      { created_at: new Date(Date.now() + 60_000).toISOString(), prd: parsePrd(7), status: 'answered', answered_at: new Date(Date.now() + 120_000).toISOString() },
+      { created_at: new Date(Date.now() + 180_000).toISOString(), prd: parsePrd(7) },
     ]);
     given.token = 'bob';
     const page = await open(numbered, { tab: 'spec', v: '1' });
@@ -223,6 +259,8 @@ describe('the page to share', () => {
         player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: BOB.id, workspace: FAKE_WORKSPACE,
         answerHref: `/prd/${numbered}?tab=questions`,
       },
+      // PRD 902, s2: a numbered PRD's page also watches when its GitHub snapshot is read again.
+      github: true,
     });
     const markup = renderToStaticMarkup(page);
     expect(markup).not.toContain('Cannot reach the server');
@@ -231,7 +269,7 @@ describe('the page to share', () => {
   it('starts the change check with no signature when the questions could not be read: its first read sets it', async () => {
     const client = given.fake.client('bob');
     given.fake = { ...given.fake, client: () => ({ ...client, rpc: (name: string, args: Record<string, unknown>) =>
-      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) } as never;
+      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) };
     given.token = 'bob';
     const live = liveOf(await open(numbered)) as ReactElement<{ signature: string | null }> | undefined;
     expect(live?.props.signature).toBeNull();
@@ -314,14 +352,14 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
   };
 
   const stored = (stage: 'inbox' | 'shipped') =>
-    given.stages.recordStages([{ workspace_id: FAKE_WORKSPACE, repository: 'acme/widgets', prd: 7, stage, reached_at: '2026-09-28T10:00:00Z' }], '2026-09-29T09:15:00Z');
+    given.stages.recordStages([{ workspace_id: FAKE_WORKSPACE, repository: 'acme/widgets', prd: parsePrd(7), stage, reached_at: '2026-09-28T10:00:00Z' }], '2026-09-29T09:15:00Z');
 
   it('never waits for GitHub before the page: a numbered PRD\'s page streams while the summary is read (PRD 657 s4)', async () => {
     given.summary.mockReturnValue(new Promise(() => {}));
     given.token = 'bob';
     const page = (await Page({ params: Promise.resolve({ id: numbered }), searchParams: Promise.resolve({}) })) as ReactElement;
     expect(page.type).toBe(DossierStream);
-    expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 });
+    await vi.waitFor(() => { expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 }); });
   });
 
   it('reads the stored stage and GitHub for a signed-in member on a numbered dossier, and shows its stage and button', async () => {
@@ -355,6 +393,53 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     expect(page).toContain('PRD #7 ↗');
   });
 
+  const keepSnapshot = (summary: object, staleSince: string | null = null) => {
+    given.snapshots.rows.set(numbered, {
+      workspaceId: FAKE_WORKSPACE, summary: StoredSummary.parse(summary), readAt: '2026-10-05T09:15:00Z', staleSince, refreshingUntil: null,
+    });
+  };
+
+  it('fresh: renders from the stored snapshot without calling GitHub, and says when GitHub was read (PRD 902, s2)', async () => {
+    keepSnapshot(inbox);
+    await stored('inbox');
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(given.summary).not.toHaveBeenCalled();
+    expect(page).toContain('>phase-0 #12</a>');
+    expect(page).toContain('<p class="ask-hint github-as-of">GitHub as of 09:15 UTC</p>');
+    expect(given.later).toEqual([]);
+  });
+
+  it('stale: renders the stored snapshot at once, then refreshes it after the response', async () => {
+    keepSnapshot(inbox, '2026-10-05T09:20:00Z');
+    given.summary.mockResolvedValue({ ...inbox, mergedSlices: 2 });
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(page).toContain('GitHub as of 09:15 UTC');
+    expect(given.summary).not.toHaveBeenCalled();
+    for (const task of given.later.splice(0)) await task();
+    expect(given.summary).toHaveBeenCalledTimes(1);
+    expect(given.snapshots.rows.get(numbered)).toMatchObject({ staleSince: null, summary: { mergedSlices: 2 } });
+  });
+
+  it('none: a first visit reads GitHub once, renders it and stores it after the response', async () => {
+    given.summary.mockResolvedValue(inbox);
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(given.summary).toHaveBeenCalledTimes(1);
+    expect(page).toContain('>phase-0 #12</a>');
+    expect(page).toContain('GitHub as of');
+    for (const task of given.later.splice(0)) await task();
+    expect(given.snapshots.rows.get(numbered)?.summary.phase0).toMatchObject({ number: 12 });
+  });
+
+  it('paused: keeps the snapshot and says when GitHub resumes', async () => {
+    keepSnapshot(inbox);
+    given.paused = Date.parse('2099-01-01T10:00:00Z');
+    given.token = 'bob';
+    expect(await html(numbered)).toContain('GitHub as of 09:15 UTC · <strong>GitHub resumes at 10:00 UTC</strong>');
+  });
+
   it('makes no GitHub call for a signed-out visitor, a draft, or demo mode', async () => {
     await html(numbered);
     given.token = 'ada';
@@ -368,7 +453,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
 
 describe('the history', () => {
   const list = async (query: Record<string, string> = {}) =>
-    renderToStaticMarkup(await settled(await HistoryPage({ searchParams: Promise.resolve(query) })));
+    renderToStaticMarkup(await settledPage(await HistoryPage({ searchParams: Promise.resolve(query) })));
   const rows = (page: string) => [...page.matchAll(/<a class="dossier-history-row" href="\/prd\/([^"]+)">/g)].map((m) => m[1]);
 
   it('lists every dossier of a member\'s workspace under All, newest activity first, each opening its page', async () => {
@@ -381,7 +466,7 @@ describe('the history', () => {
   });
 
   it('filters by a repository: a dossier with three shows under each', async () => {
-    given.fake.seedPlanet({ planRepo: 'widgets', prd: 7, regions: ['core', 'web'] });
+    given.fake.seedPlanet({ planRepo: 'widgets', prd: parsePrd(7), regions: ['core', 'web'] });
     given.token = 'bob';
     for (const repo of ['acme/core', 'acme/web']) expect(rows(await list({ repo, who: 'all' })), repo).toEqual([numbered]);
     expect(rows(await list({ repo: 'acme/widgets', who: 'all' }))).toEqual([numbered, draft]);
@@ -514,7 +599,8 @@ describe('the stylesheet', () => {
     const declarations = [...css.matchAll(painted)];
     expect(declarations.length).toBeGreaterThan(10);
     for (const [, declaration, value] of declarations) {
-      expect(value!.trim(), declaration).toMatch(/var\(--ask-|\btransparent\b|^none$|^inherit$|^0$/);
+      assertDefined(value, `the value of ${declaration ?? 'a declaration'}`);
+      expect(value.trim(), declaration).toMatch(/var\(--ask-|\btransparent\b|^none$|^inherit$|^0$/);
     }
   });
   /** Every rule of the stylesheet, with the media query it sits in ('' at the top level). */

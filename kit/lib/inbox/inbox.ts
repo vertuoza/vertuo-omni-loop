@@ -113,7 +113,7 @@ export function parseSpec(text: string, { file = null }: { file?: string | null 
  * list.
  *
  * @param {{ ctx: object }} options
- * @returns {{ prd: number, title: string, blockedBy: 'none'|number[], spec: 'file'|'issue', file: string, folder: string }[]}
+ * @returns {{ prd: PrdNumber, title: string, blockedBy: 'none'|number[], spec: 'file'|'issue', file: string, folder: string }[]}
  */
 export function readInbox({ ctx }: { ctx: Pick<Context, 'root' | 'layout'> }): InboxRecord[] {
   const records: InboxRecord[] = [];

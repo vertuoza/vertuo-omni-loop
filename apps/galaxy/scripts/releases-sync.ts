@@ -8,7 +8,23 @@
 // Exits 1, having written nothing, when a release note breaks the rules or a variable is missing, and
 // exits 1 when Supabase refuses. The rules live in src/releases/, which plain Node loads as TypeScript.
 import { fileURLToPath } from 'node:url';
-import { releasesSync } from '../src/releases/sync-run.ts';
+import { EnvError } from 'vertuo-omni-plan/kit/lib/env/group.ts';
+import './server-only.ts';
+
+const { serverEnv } = await import('../src/env.ts');
+const { releasesSync } = await import('../src/releases/sync-run.ts');
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-process.exit(await releasesSync({ env: process.env, root }));
+
+/** The service role's group, or the one line naming what is wrong with the environment, and exit 1. */
+function serviceRole() {
+  try {
+    return serverEnv().serviceRole;
+  } catch (error) {
+    if (!(error instanceof EnvError)) throw error;
+    console.error(`releases:sync: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+process.exit(await releasesSync({ service: serviceRole(), root }));

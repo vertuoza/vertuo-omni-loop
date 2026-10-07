@@ -29,9 +29,9 @@ describe('persona trades', () => {
       expect(id).toMatch(/^[a-z]{1,16}$/);
       expect(label.length).toBeGreaterThan(0);
     }
-    expect(PERSONA_TRADES.find((t) => t.id === 'heating')!.label).toBe('Heating engineer');
-    expect(PERSONA_TRADES.find((t) => t.id === 'foreman')!.label).toBe('Site foreman');
-    expect(PERSONA_TRADES.find((t) => t.id === 'office')!.label).toBe('Office manager');
+    expect(PERSONA_TRADES.find((t) => t.id === 'heating')?.label).toBe('Heating engineer');
+    expect(PERSONA_TRADES.find((t) => t.id === 'foreman')?.label).toBe('Site foreman');
+    expect(PERSONA_TRADES.find((t) => t.id === 'office')?.label).toBe('Office manager');
   });
 });
 

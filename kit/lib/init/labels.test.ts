@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ConfigSchema, CONFIG_VERSION } from '../config.ts';
 import { LABEL_STYLES, loopLabels } from './labels.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const defaults = ConfigSchema.parse({ kit: CONFIG_VERSION }).labels;
 
@@ -16,7 +17,8 @@ describe('loop labels', () => {
   });
 
   it('asks for the knowledge label with its own colour and a description', () => {
-    const knowledge = loopLabels(defaults).find((label) => label.name === 'omni:knowledge')!;
+    const knowledge = loopLabels(defaults).find((label) => label.name === 'omni:knowledge');
+    assertDefined(knowledge, 'knowledge');
     expect(knowledge).toEqual({ name: 'omni:knowledge', ...LABEL_STYLES.knowledge });
     expect(knowledge.color).toMatch(/^[0-9a-f]{6}$/);
     const others = Object.entries(LABEL_STYLES).filter(([key]) => key !== 'knowledge');
@@ -26,7 +28,8 @@ describe('loop labels', () => {
   });
 
   it('asks for the retro label with its own colour and a description', () => {
-    const retro = loopLabels(defaults).find((label) => label.name === 'omni:retro')!;
+    const retro = loopLabels(defaults).find((label) => label.name === 'omni:retro');
+    assertDefined(retro, 'retro');
     expect(retro).toEqual({ name: 'omni:retro', ...LABEL_STYLES.retro });
     expect(retro.color).toMatch(/^[0-9a-f]{6}$/);
     const others = Object.entries(LABEL_STYLES).filter(([key]) => key !== 'retro');
@@ -36,7 +39,8 @@ describe('loop labels', () => {
   });
 
   it('asks for the visual label with its own colour and a description', () => {
-    const visual = loopLabels(defaults).find((label) => label.name === 'omni:visual')!;
+    const visual = loopLabels(defaults).find((label) => label.name === 'omni:visual');
+    assertDefined(visual, 'visual');
     expect(visual).toEqual({ name: 'omni:visual', ...LABEL_STYLES.visual });
     expect(visual.color).toMatch(/^[0-9a-f]{6}$/);
     const others = Object.entries(LABEL_STYLES).filter(([key]) => key !== 'visual');
@@ -54,7 +58,8 @@ describe('loop labels', () => {
     ['riskLow', 'omni:risk-low'],
     ['concept', 'omni:concept'],
   ])('asks for the %s label with its own colour and a description (PRD 556, PRD 686)', (key, name) => {
-    const label = loopLabels(defaults).find((l) => l.name === name)!;
+    const label = loopLabels(defaults).find((l) => l.name === name);
+    assertDefined(label, 'label');
     expect(label).toEqual({ name, ...LABEL_STYLES[key as keyof typeof LABEL_STYLES] });
     expect(label.color).toMatch(/^[0-9a-f]{6}$/);
     const others = Object.entries(LABEL_STYLES).filter(([k]) => k !== key);

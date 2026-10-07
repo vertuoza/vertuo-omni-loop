@@ -43,7 +43,7 @@ import { createContext, type Context } from '../context.ts';
 import { movedPath, planShip } from '../delivery/ship.ts';
 import { findOutboxViolations } from '../outbox/check-outbox.ts';
 import { settleAtMerge } from '../outbox/settle-merge.ts';
-import { askModel, NO_KEY, REFUSED } from '../openrouter.ts';
+import { askModel, NO_KEY, REFUSED, type OpenRouterSettings } from '../openrouter.ts';
 import { gradeKnowledge } from './check-knowledge.ts';
 import {
   allowedKinds,
@@ -55,8 +55,10 @@ import {
   type KnowledgeSummary,
   type PromptCandidate,
 } from './classify.ts';
+import { defined } from '../narrow.ts';
 import { harvestCandidates, type Candidate } from './harvest.ts';
 import { writeKnowledge, type Classified, type Merge, type Placed, type Taken, type WriteResult } from './write.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** A move of one path to another, as the tree holds them before and after. */
 export type Move = { from: string; to: string };
@@ -71,7 +73,7 @@ export type HarvestEdits = { deletes: string[]; moves: Move[]; writes: Write[] }
 export type Prepared =
   | {
       ok: true;
-      prd: number;
+      prd: PrdNumber;
       edits: HarvestEdits;
       settled: { id: string; from: 'open' | 'drift' }[];
       shipped: Move[];
@@ -178,8 +180,8 @@ function mergeWrites(writes: readonly Write[]): Write[] {
 // ── Prepare ───────────────────────────────────────────────────────────────────────────────────
 
 /** The first half: settle at merge, plan the ship, list the candidates. Touches no file of `ctx`'s tree. */
-export function prepareHarvest({ ctx, prd, merge }: { ctx: Context; prd: number | string; merge: Merge }): Prepared {
-  const n = Number(prd);
+export function prepareHarvest({ ctx, prd, merge }: { ctx: Context; prd: PrdNumber; merge: Merge }): Prepared {
+  const n = prd;
   if (ctx.layout.whereIs(n) === null) return { ok: false, errors: [`PRD ${n} has no inbox or shipped folder`] };
   return inScratch(ctx, (scratch): Prepared => {
     const settle = settleAtMerge({ ctx: scratch, prd: n, merge });
@@ -193,7 +195,7 @@ export function prepareHarvest({ ctx, prd, merge }: { ctx: Context; prd: number 
 
     let moves: Move[] = [];
     let rewrites: Write[] = [];
-    if (scratch.layout.whereIs(n)!.state === 'inbox') { // ts-allow: the folder exists in `ctx`'s tree, checked above, and the scratch tree copies it
+    if (defined(scratch.layout.whereIs(n), `the folder of PRD ${n}`).state === 'inbox') { // the folder exists in `ctx`'s tree, checked above, and the scratch tree copies it
       const files = loopPaths(scratch).flatMap((path) => filesUnder(scratch.root, path));
       const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file: string) => readFileSync(join(scratch.root, file), 'utf8') });
       if (!plan.ok) return { ok: false, errors: plan.reasons };
@@ -225,29 +227,33 @@ export function prepareHarvest({ ctx, prd, merge }: { ctx: Context; prd: number 
 export async function classifyCandidate({
   candidate,
   summary,
-  env,
+  openrouter,
   fetch,
 }: {
   candidate: PromptCandidate;
   summary: KnowledgeSummary;
-  env?: Record<string, string | undefined>;
-  fetch?: typeof globalThis.fetch;
+  /** OpenRouter's settings, as the runtime's env module reads them; `null` when it is off. */
+  openrouter: OpenRouterSettings | null;
+  fetch?: typeof globalThis.fetch | undefined;
 }): Promise<Classification> {
   if (allowedKinds(summary.places).every((kind) => kind === 'covered' || kind === 'stays-here')) {
     return { id: candidate.id, reply: null, reason: NO_PLACE, error: null };
   }
+  const check = classificationSchema(summary);
   const answer = await askModel({
     system: CLASSIFY_SYSTEM,
     user: classificationPrompt({ candidate, summary }),
-    check: classificationSchema(summary),
+    check,
     schema: { name: 'classification', schema: classificationJsonSchema(summary) },
-    env,
+    openrouter,
     fetch,
     title: 'omni harvest',
   });
   if (answer.ok) {
-    const reply = answer.reply as ClassificationReply; // ts-allow: askModel returns only a reply `check` (classificationSchema) accepted
-    return { id: candidate.id, reply, reason: null, error: null };
+    // askModel returns only a reply `check` accepted, so parsing it again keeps it as it is.
+    const kept = check.safeParse(answer.reply);
+    if (kept.success) return { id: candidate.id, reply: kept.data, reason: null, error: null };
+    return { id: candidate.id, reply: null, reason: `the model's reply could not be read: ${kept.error.message}`, error: null };
   }
   const reason = answer.error === REFUSED ? `${REFUSED_TWICE}: ${answer.reason}` : `the model could not be asked: ${answer.reason}`;
   return { id: candidate.id, reply: null, reason, error: answer.error === NO_KEY ? NO_KEY : answer.error };
@@ -287,7 +293,7 @@ export function finishHarvest({
   date,
 }: {
   ctx: Context;
-  prepared: { prd: number; edits: HarvestEdits };
+  prepared: { prd: PrdNumber; edits: HarvestEdits };
   classified: readonly { id: string; reply?: ClassificationReply | null; reason?: string | null }[];
   merge: Merge;
   taken?: Taken;

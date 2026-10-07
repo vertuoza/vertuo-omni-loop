@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { BAR_CELLS, overviewFor } from './overview.ts';
 import type { OverviewFacts, Yours } from './overview.ts';
+import { parsePrd } from '../ids.ts';
 
 type FeatureFacts = OverviewFacts['features'][number];
 
 /** One PRD folder as `readFacts` reads it: `n` becomes `{ prd: n, topic: 't<n>', name: '000n-t<n>' }`. */
-const folder = (prd: number) => ({ prd, topic: `t${prd}`, name: `${String(prd).padStart(4, '0')}-t${prd}` });
+const folder = (prd: number) => ({ prd: parsePrd(prd), topic: `t${prd}`, name: `${String(prd).padStart(4, '0')}-t${prd}` });
 
 /** Facts as `readFacts` returns them, with a PRD per number, no feature or phase-0 branch, no
  * `user.email` and no commit touching a PRD folder. */
@@ -50,7 +51,7 @@ const CODE = { forked: ['src/widget.mjs'], differs: ['src/widget.mjs'] };
 const phase0 = (prd: number, { inbox = [prd], topic = `t${prd}`, touched = [] }: { inbox?: number[]; topic?: string; touched?: OverviewFacts['touched'] } = {}) => ({ branch: `docs/phase-0-${topic}`, topic, inbox: inbox.map(folder), touched });
 
 /** A commit by `email` touching PRD `prd`'s folder, as `touched` lists it. */
-const touch = (prd: number, email = ME) => ({ prd, email });
+const touch = (prd: number, email = ME) => ({ prd: parsePrd(prd), email });
 
 const ME = 'me@example.com';
 const OTHER = 'other@example.com';
@@ -75,7 +76,7 @@ describe('overviewFor — the shipped and inbox stages', () => {
   });
 
   it('counts two folders of one PRD number once', () => {
-    const overview = overviewFor({ ...facts(), inbox: [{ prd: 7, topic: 'a' }, { prd: 7, topic: 'b' }] });
+    const overview = overviewFor({ ...facts(), inbox: [{ prd: parsePrd(7), topic: 'a' }, { prd: parsePrd(7), topic: 'b' }] });
     expect(overview.counts.inbox).toBe(1);
   });
 
@@ -394,5 +395,47 @@ describe('overviewFor — the seven stages (PRD 587, slice s5)', () => {
       phase0: [phase0(9, { touched: [touch(9)] })],
     }));
     expect(overview.yours.rows.map(({ stage, prd }) => `${stage} ${prd}`)).toEqual(['outbox 5', 'building 4', 'inbox 6', 'prd 9']);
+  });
+});
+
+describe('overviewFor — a PRD of several landings', () => {
+  const landing = (prd: number, n: number, count: number, name: string, more: Partial<Omit<FeatureFacts, 'branch'>> = {}): FeatureFacts => ({
+    ...feature(prd, more),
+    branch: `feat/t${prd}-${n}of${count}-${name}`,
+    landing: { landing: n, landings: count, name },
+  });
+
+  it('lists its landings in order, each merged, open or not started, and what each waits for', () => {
+    const overview = overviewFor(
+      facts({
+        inbox: [4],
+        features: [landing(4, 2, 3, 'code', CODE), landing(4, 3, 3, 'contract')],
+      }),
+    );
+    expect(overview.stages.building).toEqual([
+      {
+        prd: 4,
+        topic: 't4',
+        openItems: 0,
+        landings: [
+          { landing: 1, landings: 3, name: 'landing-1', state: 'merged', waitsFor: null },
+          { landing: 2, landings: 3, name: 'code', state: 'open', waitsFor: null },
+          { landing: 3, landings: 3, name: 'contract', state: 'not started', waitsFor: 2 },
+        ],
+      },
+    ]);
+  });
+
+  it('says landing 2 waits for landing 1 while landing 1 is open', () => {
+    const overview = overviewFor(facts({ inbox: [4], features: [landing(4, 1, 2, 'expand', CODE), landing(4, 2, 2, 'code', CODE)] }));
+    expect(overview.stages.building[0]?.landings?.map(({ state, waitsFor }) => [state, waitsFor])).toEqual([
+      ['open', null],
+      ['open', 1],
+    ]);
+  });
+
+  it('gives a PRD of one feature branch no landings', () => {
+    const overview = overviewFor(facts({ inbox: [4], features: [feature(4, CODE)] }));
+    expect(overview.stages.building).toEqual([{ prd: 4, topic: 't4', openItems: 0 }]);
   });
 });

@@ -9,8 +9,10 @@
 // Since PRD 752 (20261018090000_ask_round_lead.sql) a round may carry its `lead`: the text Claude
 // wrote before asking, sent by the kit with the round.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Category } from './classify';
 import { type Outcome, StoreError } from '../data/store-error';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** A session with no call for this long reads as closed (the spec's 12 hours). */
 export const IDLE_CLOSE_MS = 12 * 60 * 60 * 1000;
@@ -61,7 +63,7 @@ export type AskRound = {
   created_at: string;
   answered_at: string | null;
   /** Where the round came from and what the session had cost by then (PRD 144): null when unknown. */
-  prd: number | null;
+  prd: PrdNumber | null;
   skill: string | null;
   model: string | null;
   tokens: AskTokens | null;
@@ -102,7 +104,7 @@ export function askStore(db: Pick<SupabaseClient, 'from'>) {
   return {
     async openSession(title: string, repo: string | null = null): Promise<{ id: string }> {
       const row: { title: string; repo?: string } = repo === null ? { title } : { title, repo };
-      return settle('open the session', await db.from('ask_sessions').insert(row).select('id').single())!;
+      return defined(settle('open the session', await db.from('ask_sessions').insert(row).select('id').single()), 'the new session');
     },
 
     async session(id: string): Promise<AskSession | null> {
@@ -139,7 +141,7 @@ export function askStore(db: Pick<SupabaseClient, 'from'>) {
     /** A new round; `facts` that are all null are not sent, so an older database takes it too. */
     async addRound(sessionId: string, questions: AskQuestions, facts?: AskRoundFacts): Promise<{ id: string }> {
       const known = Object.fromEntries(Object.entries(facts ?? {}).filter(([, value]) => value !== null));
-      return settle('ask the round', await db.from('ask_rounds').insert({ session_id: sessionId, questions, ...known }).select('id').single())!;
+      return defined(settle('ask the round', await db.from('ask_rounds').insert({ session_id: sessionId, questions, ...known }).select('id').single()), 'the new round');
     },
 
     async round(id: string): Promise<AskRound | null> {
@@ -169,7 +171,9 @@ export function askAttachments(db: Pick<SupabaseClient, 'storage'>) {
     async links(paths: string[]): Promise<Array<string | null>> {
       if (paths.length === 0) return [];
       try {
-        const { data, error } = await db.storage.from(ATTACHMENTS_BUCKET).createSignedUrls(paths, SIGNED_LINK_SECONDS);
+        // `data` is widened to null: Storage's answer is read here unparsed.
+        const { data, error }: { data: Array<{ path: string | null; error: string | null; signedUrl: string | null }> | null; error: unknown } =
+          await db.storage.from(ATTACHMENTS_BUCKET).createSignedUrls(paths, SIGNED_LINK_SECONDS);
         if (error || !data) return paths.map(() => null);
         return paths.map((path, i) => {
           const signed = data.find((d) => d.path === path) ?? data[i];
@@ -186,7 +190,8 @@ export function askAttachments(db: Pick<SupabaseClient, 'storage'>) {
     async removeRounds(roundIds: string[]): Promise<void> {
       const bucket = db.storage.from(ATTACHMENTS_BUCKET);
       const folders = await Promise.all(roundIds.map(async (roundId) => {
-        const { data, error } = await bucket.list(roundId, { limit: 100 });
+        // `data` is widened to null: Storage's answer is read here unparsed.
+        const { data, error }: { data: Array<{ name: string }> | null; error: { message: string } | null } = await bucket.list(roundId, { limit: 100 });
         if (error) throw new AskStoreError('list the screenshots', undefined, error.message);
         return (data ?? []).map((file) => `${roundId}/${file.name}`);
       }));

@@ -28,7 +28,7 @@ type Seen = Awaited<ReturnType<typeof viewer>>;
 async function viewOf(seen: Seen, period: Period, now: Date): Promise<DashboardView> {
   if (seen.kind === 'demo') return { kind: 'dashboard', dashboard: demoDashboard(period, now) };
   if (seen.kind !== 'signed-in') return { kind: seen.kind };
-  return loadDashboard(seen.db, seen.user, period, now, seen.questions);
+  return loadDashboard(seen.db, seen.user, period, now, () => seen.questions());
 }
 
 export default async function AppHome({ searchParams }: Props) {
@@ -42,7 +42,7 @@ export default async function AppHome({ searchParams }: Props) {
   if (seen.kind === 'signed-in') {
     const workspace = await seen.workspace().catch(() => undefined);
     if (workspace === null) return screen({ kind: 'no-workspace' });
-    if (workspace) return <HomeStream parts={homeParts(seen.db, seen.user, workspace.id, period, now, seen.questions)} query={query} />;
+    if (workspace) return <HomeStream parts={homeParts(seen.db, seen.user, workspace.id, period, now, () => seen.questions())} query={query} />;
   }
   return screen(await viewOf(seen, period, now));
 }

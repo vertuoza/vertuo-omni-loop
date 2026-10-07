@@ -1,10 +1,14 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
+import { item } from '../../ask/test/test-item';
 import type { GithubSummary } from '../../dossier/github/summary';
 import { recountOutboxes } from '../outbox/recount';
 import { fakePrdOutboxStore } from '../outbox/store.fake';
 import { fakeStageStore } from '../store.fake';
 import { parseStageEvent, receiveStageEvent, STAGE_SIGNATURE_HEADER, type StageEventDeps, verifySignature } from './event';
+import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 const SECRET = 'stage-secret';
 const WS = 'ws-acme';
@@ -20,7 +24,7 @@ function setup(over: Partial<StageEventDeps> = {}) {
   const deps: StageEventDeps = {
     secret: SECRET,
     store: () => store,
-    workspacesOf: async (repository) => (repository.toLowerCase().startsWith('acme/') ? [WS] : []),
+    workspacesOf: (repository) => Promise.resolve(repository.toLowerCase().startsWith('acme/') ? [WS] : []),
     log,
     ...over,
   };
@@ -45,7 +49,7 @@ describe('the stage event route', () => {
 
   it('writes the stage of a PRD found by its topic when the event names no number', async () => {
     const { store, post } = setup();
-    await store.recordTopic({ workspace_id: WS, repository: 'acme/widgets', prd: 580, topic: 'real-stages' });
+    await store.recordTopic({ workspace_id: WS, repository: 'acme/widgets', prd: parsePrd(580), topic: 'real-stages' });
     const reply = await post(event({ prd: null, stage: 'retro' }));
     expect(reply.status).toBe(200);
     expect(store.stages.map((s) => [s.prd, s.stage])).toEqual([[580, 'retro']]);
@@ -58,7 +62,7 @@ describe('the stage event route', () => {
     await post(event({ at: '2026-09-30T10:00:00Z' }));
     expect(store.writes.length).toBe(writes);
     expect(store.stages).toHaveLength(1);
-    expect(store.stages[0]!.reached_at).toBe('2026-09-29T10:00:00Z');
+    expect(item(store.stages, 0).reached_at).toBe('2026-09-29T10:00:00Z');
   });
 
   it('answers 401 and writes nothing to a bad, missing or foreign signature', async () => {
@@ -99,7 +103,7 @@ describe('the stage event route', () => {
   });
 
   it('places the event in every workspace that owns the repository', async () => {
-    const { store, post } = setup({ workspacesOf: async () => ['ws-a', 'ws-b'] });
+    const { store, post } = setup({ workspacesOf: () => Promise.resolve(['ws-a', 'ws-b']) });
     await post(event());
     expect(store.stages.map((s) => s.workspace_id)).toEqual(['ws-a', 'ws-b']);
   });
@@ -127,22 +131,20 @@ describe('verifySignature', () => {
 
 describe('the open outbox questions (PRD 657, s5)', () => {
   const summary: GithubSummary = {
-    repo: 'acme/widgets', prd: 587, folder: null, topic: null, issue: null, phase0: null, retro: null, mergedSlices: 0,
-    feature: { number: 9, url: 'https://github.com/acme/widgets/pull/9', state: 'open', draft: false },
+    repo: 'acme/widgets', prd: parsePrd(587), folder: null, topic: null, issue: null, phase0: null, retro: null, mergedSlices: 0,
+    feature: { number: parsePr(9), url: 'https://github.com/acme/widgets/pull/9', state: 'open', draft: false },
     outbox: { open: [{ id: 's1-01-a', rank: 'high', question: 'Q?', decision: null, options: [], personSteps: null }], settled: [] },
   };
 
   function withRecount(recountFails = false) {
     const outbox = fakePrdOutboxStore(() => '2026-09-29T12:00:00Z');
     const asked: number[] = [];
-    let stages: ReturnType<typeof fakeStageStore> | undefined;
     const set = setup({
       recount: async (workspace, prds) => {
         if (recountFails) throw new Error('GitHub is down');
-        return recountOutboxes(workspace, prds, { stages: stages!, store: outbox, summary: async (ref) => { asked.push(ref.prd); return summary; } });
+        return recountOutboxes(workspace, prds, { stages: set.store, store: outbox, summary: (ref) => { asked.push(ref.prd); return Promise.resolve(summary); } });
       },
     });
-    stages = set.store;
     return { ...set, outbox, asked };
   }
 

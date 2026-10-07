@@ -6,12 +6,16 @@
 // the repository was last synced (issue 642), it reads only the issues and pull requests updated since
 // then: the folders are still read in full, and a stage already stored keeps its date. Any other
 // failure throws, and the route skips the repository. An installation token is kept in server memory
-// until a minute before it expires, and never leaves this module.
+// until a minute before it expires, and never leaves this module. Every call goes through the shared,
+// budget-aware client (packages/github, PRD 902, s1) at `background` priority: nobody waits on the sync,
+// so it steps back first when the installation's budget runs low, and stops while GitHub has paused it.
+import { githubClient, type GithubStore } from '@omni/github';
 import { z } from 'zod';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import { githubApp, REPO, type AppCredentials } from '../../signup/github-app';
 import { keptInstallationTokens } from '../../signup/installation-tokens';
 import { syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
+import { PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -21,13 +25,14 @@ const CONFIG_PATH = '.omni-loop/config.yml';
 const MAX_PAGES = 20;
 
 const Entries = z.array(z.object({ name: z.string(), type: z.string() }));
+// The `labels.prd` issues: each one's number is its PRD's.
 const Issues = z.array(z.object({
-  number: z.number().int().positive(),
+  number: PrdNumberSchema,
   created_at: z.string(),
   pull_request: z.unknown().optional(),
 }));
 const Pulls = z.array(z.object({
-  number: z.number().int().positive(),
+  number: PrNumberSchema,
   state: z.enum(['open', 'closed']),
   draft: z.boolean().optional().default(false),
   merged_at: z.string().nullable().optional().default(null),
@@ -46,8 +51,11 @@ export type StagesReader = {
   snapshot(installation: number, repository: string, since?: string | null): Promise<RepoSnapshot>;
 };
 
-export function stagesReader(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): StagesReader {
+export function stagesReader(
+  creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now, store: GithubStore | null = null,
+): StagesReader {
   const app = githubApp(creds, fetchImpl, clock);
+  const github = githubClient({ store, fetch: fetchImpl, clock });
   const tokenFor = keptInstallationTokens((id) => app.installationToken(id), clock);
 
   return {
@@ -56,7 +64,9 @@ export function stagesReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       const token = await tokenFor(installation);
       /** A GitHub answer; null on 404. Throws on any other error. */
       async function get(route: string, raw = false): Promise<unknown> {
-        const res = await fetchImpl(`${GITHUB}/repos/${repository}${route}`, {
+        const res = await github.fetch(`${GITHUB}/repos/${repository}${route}`, {
+          installation,
+          priority: 'background',
           headers: {
             authorization: `Bearer ${token}`,
             accept: raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json',
@@ -96,7 +106,7 @@ export function stagesReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       )).filter((i) => i.pull_request === undefined).map(({ number, created_at }) => ({ number, created_at }));
 
       // Since a sync: most recently updated first, up to the first one updated before it.
-      const before = (p: { updated_at?: string }) => since !== null && Date.parse(p.updated_at ?? '') < Date.parse(since);
+      const before = (p: { updated_at?: string | undefined }) => since !== null && Date.parse(p.updated_at ?? '') < Date.parse(since);
       const listed = (await pages(
         (page) => `/pulls?${new URLSearchParams({ state: 'all', sort: since ? 'updated' : 'created', direction: 'desc', per_page: '100', page: String(page) })}`,
         (data) => Pulls.parse(data),

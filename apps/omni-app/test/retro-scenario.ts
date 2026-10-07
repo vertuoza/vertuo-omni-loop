@@ -2,6 +2,9 @@
 // built in three slices over two waves and merged through feature PR #12. Each part can be swapped:
 // the config, where the PRD folder sits, the feature PR, its sub-PRs and its issue events. Test
 // support only; nothing in the app imports it.
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { z } from 'zod';
 import { RETRO_EVENT } from '../src/inngest-client.ts';
 import { type Recorded, replayGitHub } from './github-replay.ts';
 
@@ -39,7 +42,35 @@ export const PLAN = `# Widgets — plan
 | s3 | The colour is shown | \`src/show/\` | s1 | 2 |
 `;
 
-const pull = ({ number, head, base, createdAt, mergedAt, closedAt = mergedAt, title = `slice ${head}`, labels = [] }: any) => ({
+/** A pull request of the scenario, in the REST shape, as far as the retro reads it. */
+export type ScenarioPull = {
+  number: number;
+  title: string;
+  state: string;
+  draft: boolean;
+  merged: boolean;
+  html_url: string;
+  head: { ref: string; sha: string };
+  base: { ref: string; sha: string };
+  labels: { name: string }[];
+  created_at: string;
+  closed_at: string | null;
+  merged_at: string | null;
+  merge_commit_sha: string | null;
+};
+
+type PullOptions = {
+  number: number;
+  head: string;
+  base: string;
+  createdAt: string;
+  mergedAt: string | null;
+  closedAt?: string | null;
+  title?: string;
+  labels?: readonly string[];
+};
+
+const pull = ({ number, head, base, createdAt, mergedAt, closedAt = mergedAt, title = `slice ${head}`, labels = [] }: PullOptions): ScenarioPull => ({
   number,
   title,
   state: closedAt ? 'closed' : 'open',
@@ -48,14 +79,14 @@ const pull = ({ number, head, base, createdAt, mergedAt, closedAt = mergedAt, ti
   html_url: `https://github.com/${OWNER}/${REPO}/pull/${number}`,
   head: { ref: head, sha: `head${number}` },
   base: { ref: base, sha: `base${number}` },
-  labels: labels.map((name: string) => ({ name })),
+  labels: labels.map((name) => ({ name })),
   created_at: createdAt,
   closed_at: closedAt,
   merged_at: mergedAt,
   merge_commit_sha: mergedAt ? `m${number}` : null,
 });
 
-export const FEATURE = {
+export const FEATURE: ScenarioPull = {
   ...pull({
     number: 12,
     title: 'feat(widget): widgets remember their colour (PRD 7)',
@@ -104,7 +135,7 @@ export const recordedRead = (route: string, params: Record<string, unknown>, dat
 /** What one scenario may change: the merge's files, the feature PR, its sub-PRs, its issue events, the recorded reads. */
 export type ScenarioOptions = {
   files?: Record<string, string>;
-  feature?: typeof FEATURE;
+  feature?: ScenarioPull;
   subPulls?: readonly object[];
   events?: object[] | null;
   recording?: readonly Recorded[];
@@ -118,7 +149,7 @@ export function widgetScenario({ files = mergeFiles(), feature = FEATURE, subPul
     events: events ? { [feature.number]: events } : {},
     recording,
   });
-  return { github, event: retroEvent({ prNumber: feature.number, mergeSha: feature.merge_commit_sha ?? MERGE_SHA, mergedAt: feature.merged_at ?? MERGED_AT }) };
+  return { github, event: retroEvent({ prNumber: parsePr(feature.number), mergeSha: feature.merge_commit_sha ?? MERGE_SHA, mergedAt: feature.merged_at ?? MERGED_AT }) };
 }
 
 export function retroEvent(over = {}) {
@@ -129,7 +160,7 @@ export function retroEvent(over = {}) {
       owner: OWNER,
       repo: REPO,
       repository: `${OWNER}/${REPO}`,
-      prNumber: 12,
+      prNumber: parsePr(12),
       mergeSha: MERGE_SHA,
       mergedAt: MERGED_AT,
       ...over,
@@ -145,6 +176,12 @@ export const KEPT_LESSON = 'Keep each slice small enough to merge within the day
 export const KEPT_WHY = 'Neither the knowledge nor an earlier lesson says this yet.';
 export const NOT_KEPT_WHY = 'The knowledge already says this.';
 
+/** The request the retro sends its judge, as far as the stub reads it: the user message is the second. */
+const JudgeRequest = z.object({ messages: z.array(z.object({ content: z.string() })) });
+
+/** The judge's input, as far as the stub reads it: the findings it is asked about. */
+const JudgeInput = z.object({ findings: z.array(z.object({ id: z.string() })) });
+
 /**
  * A stubbed model for the retro's judge (PRD 487), handed to `createRetro` as its `fetch`: it
  * answers every request with a reply about exactly the findings it was asked about, keeping those
@@ -158,16 +195,19 @@ export function judge({
   reason,
   summary = 'The delivery went as planned, and one slice ran long.',
 }: { worthIt?: boolean; keep?: (id: string) => boolean; reason?: string; summary?: string } = {}) {
-  const asked: any[] = [];
-  const fetch = async (_url: any, init: any) => {
-    const input = JSON.parse(JSON.parse(init.body).messages[1].content);
+  const asked: unknown[] = [];
+  const answer = (init: RequestInit | undefined): Response => {
+    const { messages } = JudgeRequest.parse(JSON.parse(z.string().parse(init?.body)));
+    const user = messages[1];
+    assertDefined(user, "the judge request's user message");
+    const input: unknown = JSON.parse(user.content);
     asked.push(input);
-    const ids = input.findings.map((finding: any) => finding.id);
-    const kept = ids.filter((id: any) => keep(id));
+    const ids = JudgeInput.parse(input).findings.map((finding) => finding.id);
+    const kept = ids.filter((id) => keep(id));
     const reply = {
       summary,
       findings: Object.fromEntries(
-        ids.map((id: any) => [id, kept.includes(id) ? { lesson: KEPT_LESSON, keep: true, why: KEPT_WHY } : { keep: false, why: NOT_KEPT_WHY }]),
+        ids.map((id) => [id, kept.includes(id) ? { lesson: KEPT_LESSON, keep: true, why: KEPT_WHY } : { keep: false, why: NOT_KEPT_WHY }]),
       ),
       lessons: kept.length > 0 ? [{ text: KEPT_LESSON, findings: kept }] : [],
       verdict: {
@@ -177,6 +217,11 @@ export function judge({
     };
     return Response.json({ choices: [{ message: { content: JSON.stringify(reply) } }] });
   };
+  // Settled as an async function settles: a request the stub cannot read rejects the promise, never throws.
+  const fetch = (_url: string | URL | Request, init?: RequestInit) =>
+    new Promise<Response>((resolve) => {
+      resolve(answer(init));
+    });
   fetch.asked = asked;
   return fetch;
 }

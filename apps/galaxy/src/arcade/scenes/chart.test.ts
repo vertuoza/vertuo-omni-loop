@@ -15,6 +15,8 @@ import { kindColor, kindCss, TALL_SCENES, WARM_PER_FRAME, worldSeed } from './ch
 import { CARD_FIT, cardPages, ChartOverlay, servesLine, SystemOverlay, wrap } from './chart.tsx';
 import type { FrameState } from './common.ts';
 import { drawFrame, layoutMap } from './index.ts';
+import { sure } from '../test/sure';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const entry = (id: string, kind: KnowledgeEntry['kind'], domain: string | null, over: Partial<KnowledgeEntry> = {}): KnowledgeEntry => ({
   id, kind, domain, domains: domain ? [domain] : [], statement: `${id} holds.`, why: null, status: 'proposed', serves: null,
@@ -31,9 +33,9 @@ const GRAPH: KnowledgeGraph = {
     { name: 'quote', code: 'QUOTE', scope: 'domain', counts: { principles: 1, rules: 0, invariants: 0, laws: 0, proposed: 1 } },
   ],
   entries: [
-    entry('P-PRODUCT-1', 'principle', 'product', { status: 'law', statement: 'Every change is reviewed by a person.', why: 'Nobody merges alone.', prd: 3 }),
-    entry('P-PRODUCT-2', 'principle', 'product', { statement: LONG, why: `${LONG} It says so in P-PRODUCT-1.`, prd: 7 }),
-    entry('BR-PRODUCT-1', 'rule', 'product', { serves: 'P-PRODUCT-1', statement: 'One approval, from outside the team.', prd: 3, enforcedBy: 'unenforced' }),
+    entry('P-PRODUCT-1', 'principle', 'product', { status: 'law', statement: 'Every change is reviewed by a person.', why: 'Nobody merges alone.', prd: parsePrd(3) }),
+    entry('P-PRODUCT-2', 'principle', 'product', { statement: LONG, why: `${LONG} It says so in P-PRODUCT-1.`, prd: parsePrd(7) }),
+    entry('BR-PRODUCT-1', 'rule', 'product', { serves: 'P-PRODUCT-1', statement: 'One approval, from outside the team.', prd: parsePrd(3), enforcedBy: 'unenforced' }),
     entry('BR-PRODUCT-2', 'rule', 'product', { serves: 'P-PRODUCT-1', enforced: true, enforcedBy: 'kit/lib/gate.mjs' }),
     entry('N-PRODUCT-1', 'invariant', 'product', { serves: 'P-PRODUCT-9', statement: 'The ledger is append-only.' }),
     entry('P-QUOTE-1', 'principle', 'quote'),
@@ -47,7 +49,7 @@ const GRAPH: KnowledgeGraph = {
   loose: ['N-PRODUCT-1', 'X-PRODUCT-QUOTE-1'],
   unserved: ['P-PRODUCT-2', 'P-QUOTE-1'],
 };
-const byId = (id: string) => GRAPH.entries.find((e) => e.id === id)!;
+const byId = (id: string) => sure(GRAPH.entries.find((e) => e.id === id), 'GRAPH.entries.find((e) => e.id === id)');
 
 /** The text a screen shows, one run of text per entry, as a player reads it on `grid`. */
 function textOf(el: ReactElement, grid: Grid): string[] {
@@ -76,7 +78,7 @@ describe('the star chart on the tall grid', () => {
 function recorder() {
   const images: { x: number; y: number; w: number; h: number }[] = [];
   const drawn = { fills: 0 };
-  const ctx = new Proxy({} as Record<string | symbol, unknown>, {
+  const ctx = new Proxy<Record<string | symbol, unknown>>({}, {
     get(target, prop) {
       if (prop in target) return target[prop];
       if (prop === 'createImageData') return (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });
@@ -253,7 +255,7 @@ describe('the system\'s text', () => {
     const { chars, lines } = CARD_FIT[grid.name];
     for (const page of pages) {
       expect(page.length).toBeLessThanOrEqual(lines);
-      expect(page[page.length - 1]!.tone === 'label' && page !== pages[pages.length - 1]).toBe(false);
+      expect(sure(page[page.length - 1], 'page[page.length - 1]').tone === 'label' && page !== pages[pages.length - 1]).toBe(false);
       for (const line of page) if (line.tone === 'text') expect(line.text.length).toBeLessThanOrEqual(chars);
     }
     const all = pages.flat().map((l) => l.text).join(' ');

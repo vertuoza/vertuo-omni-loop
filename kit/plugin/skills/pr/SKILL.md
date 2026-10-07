@@ -31,13 +31,53 @@ picks up a PR and watches it until it is done or stuck.
 
 | Kind | Base | Label | Link line | Graded by |
 |---|---|---|---|---|
-| **Feature PR**: the one PR a PRD sends to the default branch | `repo.defaultBranch` | `labels.feature` | `prLinks.feature` | CI, once it leaves draft |
-| **Sub-PR**: one slice, on `branches.slice` | the feature branch (`branches.feature`) | `labels.sub` | `prLinks.sub` | the preflight (below) |
+| **Feature PR**: the one PR a PRD sends to the default branch, or one **landing PR** of a PRD of several landings | `repo.defaultBranch`; for landing n > 1, landing n-1's branch while that landing is open; for a **stacked** feature PR, the branch it is stacked on while that branch's PR is open | `labels.feature` | `prLinks.feature` | CI, once it leaves draft |
+| **Sub-PR**: one slice, on `branches.slice` | the feature branch (`branches.feature`), or its landing's branch | `labels.sub` | `prLinks.sub` | the preflight (below) |
 | **Standalone PR**: a fix or anything with no PRD | `repo.defaultBranch` | none | `Closes #<issue>` when there is one | CI |
+
+A PRD whose plan has more than one landing has one branch and one feature-kind PR per landing,
+stacked: `node .omni-loop/bin/omni.mjs plan landings <prd> --json` gives each landing's `branch`,
+`base`, `titleSuffix` and `mergeAfterLine`. Wherever this skill says "the feature branch" for such a
+PRD, it means the slice's landing's branch, and "the feature PR" means that landing's PR.
+
+**A stacked feature PR** is a feature PR (or landing 1) whose base is not `repo.defaultBranch`:
+the PRD was cut from another open PR's branch, and its PR targets that branch until that PR merges.
+
+- **Find it by its head**, whatever its base: `gh pr list --head <feature branch> --state open
+  --json number,isDraft,labels,baseRefName`, never with `--base <repo.defaultBranch>`. Its
+  `baseRefName` is **its base**.
+- **The base PR** is the PR whose head is its base:
+  `gh pr list --head <base> --state all --json number,state --limit 1`. Once it is `MERGED`, the
+  feature PR is retargeted, `gh pr edit <n> --base <repo.defaultBranch>` (GitHub may have done it
+  already), and is an ordinary feature PR from then on.
+- **Its base stands in for the default branch** wherever this skill meets one for a feature PR: a
+  conflict is resolved by merging `<remote>/<base>`, the diff is read against it, and `BEHIND` is
+  left alone as it is for the default branch. Before merging the base in, check
+  `git merge-base --is-ancestor <remote>/<base> HEAD`; when the branch already holds the base's
+  head there is nothing to meet, and when the base was rewritten (`git cherry HEAD <remote>/<base>`
+  prints a `-` line: a commit of the new base the branch already holds under another id) never
+  merge it: take the **Stuck**
+  path, naming `<feature branch> is not on <base>'s head: rebase it onto <remote>/<base>` as what a
+  person should do.
+- **It is never marked ready while the base PR is open**, or while no PR heads its base:
+  `/omni:yolo` checks that before its `gh pr ready`, as **Merging and ready** says.
 
 In a link line, `{prd}` is the PRD's issue number. Every PR an agent owns also carries
 `labels.inProgress` until the agent stops. A phase-0 PR is opened by `/omni:brainstorm`; it follows
 this lifecycle with `labels.phase0` and `prLinks.phase0`.
+
+**Flow points.** A repository may hook the loop at named points (the `flow` of its config). This
+skill has one, `pr.open` (**Opening: point `pr.open`**). At it, run
+`node .omni-loop/bin/omni.mjs flow show pr.open` and follow what it prints: every `before` hook,
+then the kit's step (or, when it prints `kitStep: replaced`, the `replace` hook in its place), then
+every `after` hook. A hook is Markdown to follow; an input it leaves as `{name}` is filled from this
+step. Following a hook ends on its verdict line (`omni-hook pr.open: pass`, or
+`omni-hook pr.open: fail <why>`): write what it produced, that line last, to a scratch file and run
+`node .omni-loop/bin/omni.mjs flow verdict pr.open --from <file>`. `ok` carries on; `not ok` stops
+the point as a failing kit step would, and so does `flow show` exiting 1 (a hook file missing). A
+`replace` swaps the act, never the guard: signing, labels, link lines, the base check (never a merge
+into the default branch), the territory check and `omni plan check` run whatever a hook says. With
+no `flow`, `flow show` prints `hooks none` and `kitStep: run`: the step runs as written.
 
 **The preflight** is `commands.preflightFull`, or `commands.preflight` when that is null. If both are
 null, say so in the body's **Verified** line and in the status comment.
@@ -95,17 +135,32 @@ differences.
   `git -C <clone> switch --detach` so the slice's own worktree can check the branch out.
 - **Never mark a target feature PR ready**, and never merge one: `/omni:ultra-yolo` marks it ready,
   a person merges it.
+- **`pr.open` is the target's**, never the plan repository's: its flow (`pr.openWith` included) is
+  the target's committed config, read in the clone by the plan repository's `omni`,
+  `(cd <clone> && node <plan repository root>/.omni-loop/bin/omni.mjs flow show pr.open)`, with
+  `flow verdict` run the same way. A target without a committed `.omni-loop/config.yml` has no flow:
+  the kit's step runs. Its hooks, the skill `pr.openWith` names included, live in the target and are
+  followed only in its worktree (the clone), never from the imported copy, as **Opening: point
+  `pr.open`** says.
 
 ## Merging and ready
 
 - **Never merge a PR whose base is `repo.defaultBranch`.** A feature PR or standalone PR is merged by
-  a person.
+  a person. **Never merge a landing PR either**, whatever its base: landing n's base is landing
+  n-1's branch, not the default branch, and a person still merges it, in order. **Nor a stacked
+  feature PR**: its base is another PR's branch, and a person merges it once that PR has merged and
+  it is retargeted. Whatever a PR's kind, a merge whose `baseRefName` is `repo.defaultBranch` is
+  refused.
 - **Never mark a feature PR ready.** `/omni:yolo` does that, after `omni ship` has run on the feature
-  branch. This skill leaves a feature PR in draft, however green it is.
+  branch, and, for a stacked feature PR, only once the PR of its base has merged. This skill leaves a
+  feature PR in draft, however green it is.
 - `/omni:pr` owns `gh pr ready` for a sub-PR, and runs it only once the preflight is green.
 - A **sub-PR** is merged into its feature branch by the orchestrator (`/omni:wave`), one at a time:
-  check `baseRefName` is not the default branch, then `gh pr merge <n> --squash --delete-branch`. A
-  subagent never merges its own sub-PR.
+  check `baseRefName` is not the default branch and `headRefName` is a slice branch (`branches.slice`),
+  never a landing's, then `node .omni-loop/bin/omni.mjs flow check merge --pr <n>` (the repository's
+  merge gate, `/omni:wave` step 4) and, on its `ok`, the merge command it prints, never one written
+  by hand. On `not ok` the sub-PR stays open with the reasons it names. A subagent never merges its
+  own sub-PR.
 
 ## The body
 
@@ -134,6 +189,20 @@ top with **Summary**, **Verified** (real commands and their result, or why a che
 **Risk and rollback** (what to revert), and **Reviewer focus** (the riskiest decisions, not a repeat
 of the summary), then the `omni sign footer` line.
 
+**Landing PR** of a PRD of more than one landing: the feature PR's top, with its landing's
+`mergeAfterLine` as a paragraph right after the link line (none for landing 1), the **Slices** of
+that landing only, and then the overview of every landing:
+
+```markdown
+## Landings
+
+- Landing 1/3 expand — #<pr> — merged — merge when: —
+- Landing 2/3 code — #<pr> — draft — merge when: landing 1 is deployed (this PR)
+- Landing 3/3 contract — #<pr> — draft — merge when: landing 2 is deployed
+```
+
+Its title is the PRD's title followed by the landing's `titleSuffix`, ` (n/N)`.
+
 **Sub-PR**, short, because the feature PR carries the review:
 
 ```markdown
@@ -149,6 +218,43 @@ of the summary), then the `omni sign footer` line.
 
 **Standalone PR**: the template, or Summary / Verified / Risk and rollback / Reviewer focus, then
 `Closes #<issue>` when there is one, then the `omni sign footer` line.
+
+## Opening: point `pr.open`
+
+Every PR this skill opens is opened at point `pr.open` (**Flow points**): run
+`node .omni-loop/bin/omni.mjs flow show pr.open` (for a sub-PR's claim, with `--prd <n> --slice <id>`)
+and follow every `before` hook, then the kit's step, `gh pr create`, or the `replace` hook in its
+place, then every `after` hook. Its inputs are the PR's `base`, `head`, `title`, `body` and `draft`.
+
+A `replace` hook opens a **feature**-kind PR (a landing PR included) and a **standalone** PR: any PR
+whose base is the default branch or a landing branch. A **sub-PR never is**: the claim keeps
+`gh pr create` and the sub-PR body whatever the `replace` says, and follows only the `before` and
+`after` hooks. `pr.openWith` reads as the `replace` of `pr.open`, marked `alias claude` by
+`flow show`: a Claude-only alias naming a skill. With no `replace`, nothing below applies.
+
+1. Push the head branch first, as always. Then follow the `replace` hook, from the checkout the PR's
+   head lives in, handing it the inputs above and nothing else. For the `pr.openWith` alias, run the
+   skill it names with these arguments and nothing else:
+   - `--base <branch>`: the PR's base.
+   - `--draft`, always: a PR this skill opens is a draft.
+   - `--non-interactive`: the skill asks nothing; it never waits on an answer.
+   - `--prd <owner/repo>#<n>`: the PRD, in full form (`repo.slug` of the repository the PRD lives
+     in, which in target mode is the plan repository's).
+   - `--landing <n>/<N>`: only for a PRD of more than one landing.
+   - `--issue #<n>`: only when this repository has an issue the PR closes or answers.
+2. A `replace` hook prints the pull request's URL as its last line before its verdict line; the
+   alias's skill prints it as its **last line**, its verdict being `pass` once it has. Read the
+   number from it, then run `flow verdict pr.open` on the output. When there is no pull request
+   URL, or the verdict is `not ok`, stop: say which hook printed no pull request URL, or why it
+   failed, and open nothing yourself, with `gh` or otherwise.
+3. Complete the body: read it with `gh pr view <n> --json body --jq .body`, then write it back with
+   `gh pr edit <n> --body-file <file>`, **Omni's lines above the skill's**: the link line, the
+   merge-after line for a landing PR, the **Slices** checklist, the `## Landings` overview when there
+   is one, and the **Acceptance** checklist when `acceptance.enabled` is true; then everything the
+   skill wrote, unchanged; then the `omni sign footer` line, last. A later rewrite of the body
+   keeps the skill's part as it is.
+4. The title is the skill's. The labels, the status comment and the lifecycle below are this
+   skill's, as for any PR.
 
 ## The status comment
 
@@ -189,7 +295,8 @@ Claim mode takes one slice of a PRD, given its plan id and title. It does not lo
 2. Make one empty claim commit, `git commit --allow-empty -m "chore(<slice>): claim"`, its message
    ending with the co-author trailer your session requires, then the `omni sign trailer` line
    (**Signing**). Then run `git push -u <remote> <slice branch>`.
-3. Open the draft sub-PR: `gh pr create --draft --base <feature branch> --head <slice branch>
+3. Open the draft sub-PR at point `pr.open` (its `before` and `after` hooks; never a `replace`):
+   `gh pr create --draft --base <feature branch> --head <slice branch>
    --title "<slice>: <title>" --body-file <file>`. Its body starts with `prLinks.sub` filled (the
    sub-PR shape above) and ends with the `omni sign footer` line.
    Its labels are `labels.sub` and `labels.inProgress`, subject to **Labels**.
@@ -206,7 +313,8 @@ preflight, **Labels** and **The body** above.
 **A sub-PR leaves here first.** No CI runs on a sub-PR, so it never enters the check loop, and "no
 checks reported" tells you nothing about it. Go to **A sub-PR's lifecycle**.
 
-For a feature or standalone PR, open it as a draft with its kind label and `labels.inProgress` (both
+For a feature or standalone PR, open it as a draft (at point `pr.open`, through its `replace` hook
+when it has one, as **Opening: point `pr.open`** says) with its kind label and `labels.inProgress` (both
 subject to **Labels**), and post the status comment. Read `node .omni-loop/bin/omni.mjs kb show ci`
 once: which checks exist and which gate a merge, the known reds, and when a re-run is allowed. Then
 loop until it stops:
@@ -225,7 +333,7 @@ workflow; when the app is not installed, that check is simply absent.
 |---|---|
 | `mergeable: CONFLICTING` | `git fetch <remote> && git merge <remote>/<base>`, resolve, run the preflight, push. Not an attempt. |
 | `mergeable: UNKNOWN` | GitHub is still computing. Look again in a minute. |
-| `mergeStateStatus: BEHIND` only | Leave it. A person decides when a PR into the default branch is updated. |
+| `mergeStateStatus: BEHIND` only | Leave it. A person decides when a PR into the default branch, or a stacked feature PR into its base, is updated. |
 | checks pending | Watch in the background (below), then loop. |
 | a counted check red, other than `ci.outboxContext` | Fix it (below). |
 | only `ci.outboxContext` red | Not a failure to fix: run `node .omni-loop/bin/omni.mjs status <prd>`. Red only for items a person must answer is the gate doing its job; say so in the status comment and stop. Anything else, fix it through the outbox, never by adding `labels.outboxGo`. |

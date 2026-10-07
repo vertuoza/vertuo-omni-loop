@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { deriveStatus, findFeaturePr, findSubPrs } from './status.ts';
+import { parsePrd } from '../ids.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-09-23T00:00:00Z').getTime();
@@ -37,7 +38,7 @@ describe('deriveStatus', () => {
   // Feature: Status is derived, never written — Scenario: A PRD nobody has planned is unplanned
   it('is unplanned when no pull request closes the PRD', () => {
     const status = deriveStatus({
-      prd: 1042,
+      prd: parsePrd(1042),
       featurePrs: [],
       lastCommit: null,
       now: NOW,
@@ -50,7 +51,7 @@ describe('deriveStatus', () => {
   it('ignores a pull request that closes a different PRD entirely', () => {
     const prs = [featurePr({ body: 'Closes #9999' })];
     const status = deriveStatus({
-      prd: 1042,
+      prd: parsePrd(1042),
       featurePrs: prs,
       lastCommit: null,
       now: NOW,
@@ -64,7 +65,7 @@ describe('deriveStatus', () => {
   it('is planned when the feature pull request is a draft and no sub-PR has merged', () => {
     const prs = [featurePr(), subPr({ state: 'OPEN', mergedAt: null })];
     const status = deriveStatus({
-      prd: 1042,
+      prd: parsePrd(1042),
       featurePrs: prs,
       lastCommit: new Date(NOW).toISOString(),
       now: NOW,
@@ -77,7 +78,7 @@ describe('deriveStatus', () => {
   it('is planned, never in-flight, with no sub-PR at all and the feature PR still draft', () => {
     const prs = [featurePr()];
     const status = deriveStatus({
-      prd: 1042,
+      prd: parsePrd(1042),
       featurePrs: prs,
       lastCommit: new Date(NOW).toISOString(),
       now: NOW,
@@ -93,7 +94,7 @@ describe('deriveStatus', () => {
       subPr({ state: 'MERGED', mergedAt: new Date(NOW).toISOString() }),
     ];
     const status = deriveStatus({
-      prd: 1042,
+      prd: parsePrd(1042),
       featurePrs: prs,
       lastCommit: new Date(NOW).toISOString(),
       now: NOW,
@@ -106,7 +107,7 @@ describe('deriveStatus', () => {
   it('is in-flight once the feature pull request leaves draft, with no sub-PR merged', () => {
     const prs = [featurePr({ isDraft: false })];
     const status = deriveStatus({
-      prd: 1042,
+      prd: parsePrd(1042),
       featurePrs: prs,
       lastCommit: new Date(NOW).toISOString(),
       now: NOW,
@@ -121,7 +122,7 @@ describe('deriveStatus', () => {
     const prs = [featurePr({ isDraft: false })];
     const lastCommit = new Date(NOW - (STALL_DAYS + 1) * DAY_MS).toISOString();
     const status = deriveStatus({
-      prd: 1042,
+      prd: parsePrd(1042),
       featurePrs: prs,
       lastCommit,
       now: NOW,
@@ -135,7 +136,7 @@ describe('deriveStatus', () => {
     const prs = [featurePr({ isDraft: false })];
     const lastCommit = new Date(NOW - (STALL_DAYS - 1) * DAY_MS).toISOString();
     const status = deriveStatus({
-      prd: 1042,
+      prd: parsePrd(1042),
       featurePrs: prs,
       lastCommit,
       now: NOW,
@@ -156,7 +157,7 @@ describe('deriveStatus', () => {
     ];
     const lastCommit = new Date(NOW - 30 * DAY_MS).toISOString();
     const status = deriveStatus({
-      prd: 1042,
+      prd: parsePrd(1042),
       featurePrs: prs,
       lastCommit,
       now: NOW,
@@ -171,7 +172,7 @@ describe('deriveStatus', () => {
       featurePr({ headRefName: 'totally-unrelated', baseRefName: 'main', isDraft: false }),
     ];
     const status = deriveStatus({
-      prd: 1042,
+      prd: parsePrd(1042),
       featurePrs: prs,
       lastCommit: new Date(NOW).toISOString(),
       now: NOW,
@@ -185,18 +186,18 @@ describe('deriveStatus', () => {
 describe('findFeaturePr', () => {
   it('finds the pull request whose body closes the PRD', () => {
     const prs = [featurePr()];
-    expect(findFeaturePr(1042, prs, prLinks)).toBe(prs[0]);
+    expect(findFeaturePr(parsePrd(1042), prs, prLinks)).toBe(prs[0]);
   });
 
   it('returns null when no pull request closes the PRD', () => {
-    expect(findFeaturePr(1042, [], prLinks)).toBeNull();
+    expect(findFeaturePr(parsePrd(1042), [], prLinks)).toBeNull();
   });
 
   // Task 12's own new requirement: the link regex is built from the configured template with a
   // word boundary right after the number, so a longer PRD number never falsely matches.
   it('does not match a Closes # referring to a different, longer PRD number', () => {
     const prs = [featurePr({ body: 'Closes #1234' })];
-    expect(findFeaturePr(123, prs, prLinks)).toBeNull();
+    expect(findFeaturePr(parsePrd(123), prs, prLinks)).toBeNull();
   });
 });
 
@@ -208,6 +209,6 @@ describe('findSubPrs', () => {
       subPr({ number: 2002, body: 'Part of #1042 · slice s2 of 3' }),
       subPr({ number: 2003, body: 'Part of #9999 · slice s1 of 1' }),
     ];
-    expect(findSubPrs(1042, prs, prLinks)).toHaveLength(2);
+    expect(findSubPrs(parsePrd(1042), prs, prLinks)).toHaveLength(2);
   });
 });

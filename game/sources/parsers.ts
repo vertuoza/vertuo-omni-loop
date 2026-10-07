@@ -1,20 +1,23 @@
 // Readers for the delivery layer's file formats. They read; they never grade — the guards in the
 // engineering repositories do that (spec §8).
 //
-// The game never imports the kit (README: delete game/ and the delivery layer is untouched), so the
-// kit's rules these readers need are mirrored here, and must stay the same as the kit's (PRD 728):
+// The game imports two parts of the kit only (README: delete game/ and the delivery layer is
+// untouched): its ID brands (`ids`, kit/lib/ids.ts, PRD 1049) and its parsed environment (`env`,
+// kit/lib/env/read.ts, PRD 1059). So the kit's rules these readers need are mirrored here, and must
+// stay the same as the kit's (PRD 728):
 //   - the delivery folder: `paths.delivery` of `.omni-loop/config.yml`, else `.omni-loop/delivery`
 //     (kit/lib/config.ts, as game/dossiers/folders.ts mirrors it);
 //   - a PRD folder's name: `<nnnn>-<topic>` (kit/lib/layout.ts);
 //   - a settled entry opens with `<!-- <markers.prefix>-settled: <id> -->` (kit/lib/markers.ts).
 import { parse } from 'yaml';
 import { z } from 'zod';
+import { PrdNumberSchema, SliceIdSchema, type PrdNumber, type SliceId } from '../../kit/lib/ids.ts';
 
 /** One settled entry of an outbox's `settled.md`. */
 export type SettledEntry = { verdict: string | null; at: string | null; by: string | null; rank: string | null };
 
 /** One row of a plan's slice table. */
-export type PlanSlice = { id: string; blockedBy: string[]; wave: number };
+export type PlanSlice = { id: SliceId; blockedBy: string[]; wave: number };
 
 // The one setting the game reads of a repository's config: `paths.delivery`, when it is text.
 const DeliveryConfig = z.looseObject({ paths: z.looseObject({ delivery: z.string() }) });
@@ -33,14 +36,18 @@ export function parseFrontMatter(text: string): Record<string, string> {
   return out;
 }
 
-function numberList(value: string | undefined): number[] {
+// The PRD numbers a front matter list names; an entry that is no PRD number is left out.
+function prdList(value: string | undefined): PrdNumber[] {
   if (!value || value === 'none') return [];
-  return value.replace(/[[\]]/g, '').split(',').map((s) => Number(s.trim().replace(/^#/, ''))).filter(Number.isInteger);
+  return value.replace(/[[\]]/g, '').split(',').flatMap((s) => {
+    const read = PrdNumberSchema.safeParse(Number(s.trim().replace(/^#/, '')));
+    return read.success ? [read.data] : [];
+  });
 }
 
 /** A PRD's spec: the PRDs it is blocked by (front matter `blocked-by`), none when it says none or cannot be read. */
-export function parseSpec(text: string | null | undefined): { blockedBy: number[] } {
-  return { blockedBy: numberList(parseFrontMatter(text ?? '')['blocked-by']) };
+export function parseSpec(text: string | null | undefined): { blockedBy: PrdNumber[] } {
+  return { blockedBy: prdList(parseFrontMatter(text ?? '')['blocked-by']) };
 }
 
 /** A repository's delivery folder, from its `.omni-loop/config.yml`; the kit's default when it names none or does not read. */
@@ -57,9 +64,10 @@ export function deliveryOf(text: string | null | undefined): string {
 }
 
 /** The PRD number a delivery folder's name gives, or null when it does not read as `<nnnn>-<topic>`. */
-export function prdOfFolder(name: string): number | null {
+export function prdOfFolder(name: string): PrdNumber | null {
   const match = FOLDER.exec(name);
-  return match && Number(match[1]) > 0 ? Number(match[1]) : null;
+  const prd = match ? PrdNumberSchema.safeParse(Number(match[1])) : null;
+  return prd?.success ? prd.data : null;
 }
 
 export function parseOutboxItem(text: string): { id: string | undefined; rank: string | undefined; raised: string | undefined } {
@@ -108,10 +116,11 @@ export function parsePlanSlices(text: string | null | undefined): PlanSlice[] {
   const rows: PlanSlice[] = [];
   for (const { cells, header } of sliceTableRows(text)) {
     const cols = header ? { id: header.indexOf('id'), blocked: header.indexOf('blocked by'), wave: header.indexOf('wave'), min: 0 } : FIXED_COLUMNS;
-    if (cells.length < cols.min || !/^s\d+$/.test(cells[cols.id] ?? '')) continue;
+    const id = SliceIdSchema.safeParse(cells[cols.id]);
+    if (cells.length < cols.min || !id.success) continue;
     const cell = cells[cols.blocked] ?? '';
     const blocked = cell === '—' || cell === '-' || cell === '' ? [] : cell.split(',').map((s) => s.trim()).filter(Boolean);
-    rows.push({ id: cells[cols.id] ?? '', blockedBy: blocked, wave: Number(cells[cols.wave]) });
+    rows.push({ id: id.data, blockedBy: blocked, wave: Number(cells[cols.wave]) });
   }
   return rows;
 }
@@ -119,12 +128,12 @@ export function parsePlanSlices(text: string | null | undefined): PlanSlice[] {
 // A plan repository's slice table names the repository each slice lands in, in a `repo` column
 // (PRD 549, as kit/lib/inbox/territory.ts reads it): slice id → that cell, null when empty. An
 // ordinary plan has no such column, and every slice is its home's.
-export function parsePlanRepos(text: string | null | undefined): Map<string, string | null> {
-  const out = new Map<string, string | null>();
+export function parsePlanRepos(text: string | null | undefined): Map<SliceId, string | null> {
+  const out = new Map<SliceId, string | null>();
   for (const { cells, header } of sliceTableRows(text)) {
     if (!header?.includes('repo')) continue;
-    const id = cells[header.indexOf('id')] ?? '';
-    if (/^s\d+$/.test(id)) out.set(id, (cells[header.indexOf('repo')] ?? '').replace(/`/g, '').trim() || null);
+    const id = SliceIdSchema.safeParse(cells[header.indexOf('id')]);
+    if (id.success) out.set(id.data, (cells[header.indexOf('repo')] ?? '').replace(/`/g, '').trim() || null);
   }
   return out;
 }

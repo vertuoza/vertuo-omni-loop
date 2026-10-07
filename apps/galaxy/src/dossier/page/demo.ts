@@ -15,6 +15,7 @@
 // its questions badge. Its outbox (PRD 251, s9) reads like a real one on the Outbox tab: a
 // human action and a decision open, in the pull request's numbering, one answered on GitHub and not
 // yet settled, a medium adopted when raised, and Send off (the dossier is marked `demo`).
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
 import { peopleOf } from '../../people/load';
 import type { StageRow } from '../../stages/stage';
@@ -22,6 +23,7 @@ import type { GithubSummary } from '../github/summary';
 import { DOSSIER_KINDS, latestVersions, type DossierListRow, type DossierRoundRow, type DossierVersionRow } from '../store';
 import type { DossierRead } from './view';
 import type { VoiceCast } from './voice';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const DEMO_DOSSIER_ID = '00000000-0000-4000-8000-00000000d055';
 export const DEMO_VIEWER = DEMO_OWNER;
@@ -127,7 +129,7 @@ export const DEMO_VOICE_CAST: VoiceCast[] = [
   { name: 'Sofia', trade: 'office', avatar: { v: 1, skin: 1, hair: 3, hairColor: 2, outfit: 1, accessory: 2 } },
 ];
 
-const [PAULA, UMA] = [DEMO_MEMBERS[1]!.user_id, DEMO_MEMBERS[2]!.user_id];
+const [PAULA, UMA] = [at(DEMO_MEMBERS, 1, 'Paula').user_id, at(DEMO_MEMBERS, 2, 'Uma').user_id];
 
 const MODE = {
   question: 'How should the questions reach the page?', header: 'Mode', multiSelect: false,
@@ -176,13 +178,13 @@ function demoRounds(opened: number): DossierRoundRow[] {
   const answered = (question: typeof MODE, answer: string, by: string, via: 'page' | 'terminal', at: number) => ({
     status: 'answered' as const, answers: { [question.question]: answer }, answered_by: by, answered_via: via, answered_at: iso(at),
   });
-  const delivery = { rule: 'delivery' as const, prd: 71, branch: 'feat/ask-mode--s2', skill: '/omni:do-work', session_id: 'demo-terminal-2' };
+  const delivery = { rule: 'delivery' as const, prd: parsePrd(71), branch: 'feat/ask-mode--s2', skill: '/omni:do-work', session_id: 'demo-terminal-2' };
   return [
-    round(1, MODE, opened + 5 * MIN, { ...answered(MODE, MODE.options[0]!.label, PAULA, 'page', opened + 7 * MIN + 10_000), category: 'architecture', category_by: 'model' }),
-    round(2, HOST, opened + 12 * MIN, { ...answered(HOST, HOST.options[0]!.label, DEMO_OWNER, 'terminal', opened + 12 * MIN + 40_000), category: 'product', category_by: DEMO_OWNER }),
+    round(1, MODE, opened + 5 * MIN, { ...answered(MODE, at(MODE.options, 0, 'the first option').label, PAULA, 'page', opened + 7 * MIN + 10_000), category: 'architecture', category_by: 'model' }),
+    round(2, HOST, opened + 12 * MIN, { ...answered(HOST, at(HOST.options, 0, 'the first option').label, DEMO_OWNER, 'terminal', opened + 12 * MIN + 40_000), category: 'product', category_by: DEMO_OWNER }),
     round(3, CHECKS, opened + 30 * MIN, { ...answered(CHECKS, 'Row-level security, Handler tests', UMA, 'page', opened + 36 * MIN), category: 'harness', category_by: 'model' }),
     round(4, UPDATES, opened + 2 * 24 * 60 * MIN, {
-      ...delivery, ...answered(UPDATES, UPDATES.options[0]!.label, DEMO_OWNER, 'terminal', opened + 2 * 24 * 60 * MIN + 3 * MIN), category: 'architecture', category_by: 'model',
+      ...delivery, ...answered(UPDATES, at(UPDATES.options, 0, 'the first option').label, DEMO_OWNER, 'terminal', opened + 2 * 24 * 60 * MIN + 3 * MIN), category: 'architecture', category_by: 'model',
     }),
     round(5, THEME, opened + 2 * 24 * 60 * MIN + 40 * MIN, { ...delivery, status: 'abandoned' }),
   ];
@@ -190,6 +192,7 @@ function demoRounds(opened: number): DossierRoundRow[] {
 
 const DEMO_REPO = 'vertuoza/vertuo-omni-loop';
 const pull = (n: number) => `https://github.com/${DEMO_REPO}/pull/${n}`;
+const DEMO_PRD = parsePrd(71);
 
 const DETAILS = (decide: string, meanwhile: string) => ({
   decide, meanwhile, cost: 'A constant: a later answer changes one line.', unknown: 'How people use it once it is live.',
@@ -197,10 +200,10 @@ const DETAILS = (decide: string, meanwhile: string) => ({
 
 /** The demo's GitHub summary: PRD 71 in the outbox stage, two decisions open and two settled, no retro. */
 export const DEMO_GITHUB: GithubSummary = {
-  repo: DEMO_REPO, prd: 71, folder: '0071-ask-mode', topic: 'ask-mode',
-  issue: { number: 71, url: `https://github.com/${DEMO_REPO}/issues/71`, state: 'open' },
-  phase0: { number: 74, url: pull(74), state: 'merged', draft: false },
-  feature: { number: 76, url: pull(76), state: 'open', draft: true },
+  repo: DEMO_REPO, prd: DEMO_PRD, folder: '0071-ask-mode', topic: 'ask-mode',
+  issue: { number: parseIssue(71), url: `https://github.com/${DEMO_REPO}/issues/71`, state: 'open' },
+  phase0: { number: parsePr(74), url: pull(74), state: 'merged', draft: false },
+  feature: { number: parsePr(76), url: pull(76), state: 'open', draft: true },
   retro: null,
   mergedSlices: 3,
   outbox: {
@@ -301,7 +304,7 @@ export function demoDossier(now: number): DossierRead {
   });
   return {
     dossier: {
-      id: DEMO_DOSSIER_ID, workspace_id: 'demo', home_repo: 'vertuoza/vertuo-omni-loop', prd: 71,
+      id: DEMO_DOSSIER_ID, workspace_id: 'demo', home_repo: 'vertuoza/vertuo-omni-loop', prd: DEMO_PRD,
       title: 'Ask mode — Claude\'s questions on a page made for reading', opened_by: DEMO_OWNER,
       created_at: iso(opened), numbered_at: iso(opened + 90 * MIN),
     },
@@ -350,7 +353,7 @@ export function demoHistory(now: number): DossierListRow[] {
       repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-mobile'], latest: {}, asked: 3, answered: 2, last_activity: at(2 * 60),
     },
     {
-      id: '00000000-0000-4000-8000-00000000d057', workspace_id: 'demo', home_repo: 'vertuoza/vertuo-omni-loop', prd: 144,
+      id: '00000000-0000-4000-8000-00000000d057', workspace_id: 'demo', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(144),
       title: 'Question history — every question kept, sorted and shareable', opened_by: null,
       created_at: at(9 * 24 * 60), numbered_at: at(9 * 24 * 60),
       repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-ai-domain'],

@@ -866,6 +866,48 @@ export type Database = {
           },
         ]
       }
+      dossier_github: {
+        Row: {
+          dossier_id: string
+          read_at: string
+          refreshing_until: string | null
+          stale_since: string | null
+          summary: Json
+          workspace_id: string
+        }
+        Insert: {
+          dossier_id: string
+          read_at?: string
+          refreshing_until?: string | null
+          stale_since?: string | null
+          summary: Json
+          workspace_id: string
+        }
+        Update: {
+          dossier_id?: string
+          read_at?: string
+          refreshing_until?: string | null
+          stale_since?: string | null
+          summary?: Json
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossier_github_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: true
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dossier_github_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dossier_versions: {
         Row: {
           bytes: number
@@ -998,6 +1040,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      github_budget: {
+        Row: {
+          installation_id: number
+          limit: number
+          paused_until: string | null
+          remaining: number
+          reset_at: string
+          resource: string
+          updated_at: string
+        }
+        Insert: {
+          installation_id: number
+          limit: number
+          paused_until?: string | null
+          remaining: number
+          reset_at: string
+          resource: string
+          updated_at?: string
+        }
+        Update: {
+          installation_id?: number
+          limit?: number
+          paused_until?: string | null
+          remaining?: number
+          reset_at?: string
+          resource?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      github_etags: {
+        Row: {
+          body: string
+          content_type: string | null
+          etag: string
+          installation_id: number
+          read_at: string
+          url: string
+        }
+        Insert: {
+          body: string
+          content_type?: string | null
+          etag: string
+          installation_id: number
+          read_at?: string
+          url: string
+        }
+        Update: {
+          body?: string
+          content_type?: string | null
+          etag?: string
+          installation_id?: number
+          read_at?: string
+          url?: string
+        }
+        Relationships: []
       }
       jev_calls: {
         Row: {
@@ -1149,6 +1248,144 @@ export type Database = {
           },
         ]
       }
+      loop_plans: {
+        Row: {
+          created_at: string
+          loop_id: string
+          plan: Json
+          reason: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          loop_id: string
+          plan: Json
+          reason: string
+          version: number
+        }
+        Update: {
+          created_at?: string
+          loop_id?: string
+          plan?: Json
+          reason?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loop_plans_loop_id_fkey"
+            columns: ["loop_id"]
+            isOneToOne: false
+            referencedRelation: "loops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loop_ticks: {
+        Row: {
+          action: string
+          at: string
+          id: number
+          items: string[]
+          link: string | null
+          loop_id: string
+          merged: number[]
+          next_wake_at: string | null
+          prd: number
+          result: string
+          step: number
+          steps: number
+        }
+        Insert: {
+          action: string
+          at?: string
+          id?: never
+          items?: string[]
+          link?: string | null
+          loop_id: string
+          merged?: number[]
+          next_wake_at?: string | null
+          prd: number
+          result: string
+          step: number
+          steps: number
+        }
+        Update: {
+          action?: string
+          at?: string
+          id?: never
+          items?: string[]
+          link?: string | null
+          loop_id?: string
+          merged?: number[]
+          next_wake_at?: string | null
+          prd?: number
+          result?: string
+          step?: number
+          steps?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loop_ticks_loop_id_fkey"
+            columns: ["loop_id"]
+            isOneToOne: false
+            referencedRelation: "loops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loops: {
+        Row: {
+          id: string
+          last_tick_at: string | null
+          next_wake_at: string | null
+          parked: Json
+          prds: number[]
+          repo: string
+          seen_at: string
+          started_at: string
+          state: string
+          stopped_at: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          id?: string
+          last_tick_at?: string | null
+          next_wake_at?: string | null
+          parked?: Json
+          prds: number[]
+          repo: string
+          seen_at?: string
+          started_at?: string
+          state?: string
+          stopped_at?: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          id?: string
+          last_tick_at?: string | null
+          next_wake_at?: string | null
+          parked?: Json
+          prds?: number[]
+          repo?: string
+          seen_at?: string
+          started_at?: string
+          state?: string
+          stopped_at?: string | null
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loops_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outbox_sends: {
         Row: {
           comment_url: string | null
@@ -1264,6 +1501,59 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pitch_runs: {
+        Row: {
+          audience: string
+          benefit: string
+          closing: string
+          commit_sha: string
+          created_at: string
+          created_by: string | null
+          dossier_id: string
+          files: string[]
+          hook: string
+          id: string
+          kicker: string
+          look: string
+        }
+        Insert: {
+          audience: string
+          benefit: string
+          closing: string
+          commit_sha: string
+          created_at?: string
+          created_by?: string | null
+          dossier_id: string
+          files: string[]
+          hook: string
+          id: string
+          kicker: string
+          look: string
+        }
+        Update: {
+          audience?: string
+          benefit?: string
+          closing?: string
+          commit_sha?: string
+          created_at?: string
+          created_by?: string | null
+          dossier_id?: string
+          files?: string[]
+          hook?: string
+          id?: string
+          kicker?: string
+          look?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pitch_runs_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
             referencedColumns: ["id"]
           },
         ]
@@ -1464,6 +1754,8 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch: Json
+          pitch_look: string
           workspace_id: string
         }
         Insert: {
@@ -1473,6 +1765,8 @@ export type Database = {
           id?: string
           name: string
           ordinal?: never
+          pitch?: Json
+          pitch_look?: string
           workspace_id: string
         }
         Update: {
@@ -1482,6 +1776,8 @@ export type Database = {
           id?: string
           name?: string
           ordinal?: never
+          pitch?: Json
+          pitch_look?: string
           workspace_id?: string
         }
         Relationships: [
@@ -2325,6 +2621,8 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch: Json
+          pitch_look: string
           workspace_id: string
         }
         SetofOptions: {
@@ -2755,6 +3053,14 @@ export type Database = {
         Returns: string[]
       }
       link_github: { Args: never; Returns: Json }
+      loop_is_silent: {
+        Args: { at: string; l: Database["public"]["Tables"]["loops"]["Row"] }
+        Returns: boolean
+      }
+      loop_push: {
+        Args: { p_body?: Json; p_event: string; p_loop?: string }
+        Returns: Json
+      }
       my_github: {
         Args: never
         Returns: {
@@ -2926,6 +3232,30 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      pitch_asset_product: { Args: { path: string }; Returns: string }
+      pitch_dossier_shipped: { Args: { p_dossier: string }; Returns: boolean }
+      pitch_files: { Args: never; Returns: string[] }
+      pitch_from_look: { Args: { p_look: string }; Returns: Json }
+      pitch_look_for_repo: { Args: { p_repo: string }; Returns: string }
+      pitch_path_dossier: { Args: { path: string }; Returns: string }
+      pitch_path_run: { Args: { path: string }; Returns: string }
+      pitch_refusal: { Args: { p_pitch: Json }; Returns: string }
+      pitch_run_add: {
+        Args: {
+          p_audience: string
+          p_benefit: string
+          p_closing: string
+          p_commit: string
+          p_dossier: string
+          p_files: string[]
+          p_hook: string
+          p_kicker: string
+          p_look: string
+          p_run: string
+        }
+        Returns: string
+      }
+      pitch_settings_for_repo: { Args: { p_repo: string }; Returns: Json }
       product_add: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
@@ -2935,6 +3265,8 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch: Json
+          pitch_look: string
           workspace_id: string
         }
         SetofOptions: {
@@ -2953,6 +3285,8 @@ export type Database = {
           id: string
           name: string
           ordinal: number
+          pitch: Json
+          pitch_look: string
           workspace_id: string
         }
         SetofOptions: {
@@ -3081,6 +3415,46 @@ export type Database = {
           last_four: string
           set_at: string
         }[]
+      }
+      set_pitch_look: {
+        Args: { p_look: string; p_product: string; p_workspace: string }
+        Returns: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_pitch_settings: {
+        Args: { p_pitch: Json; p_product: string; p_workspace: string }
+        Returns: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_repository_tracked: {
         Args: { p_full_name: string; p_tracked: boolean; p_workspace: string }

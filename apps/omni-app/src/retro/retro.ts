@@ -3,7 +3,10 @@
 //
 //   step "qualify"          the config at the merge SHA; a feature PR by the app's rule; its PRD folder
 //   step "gather-pulls"     the sub-PRs into the feature branch
-//   steps "gather-<kind>"   each kind's GitHub reads, one step per kind (`kinds/index.ts`)
+//   steps "target-<name>"   a multi-repository PRD's targets (PRD 1130, `targets.read.ts`): each one's
+//                           installation, looked up as the App, then its feature PRs and sub-PRs
+//   steps "gather-<kind>"   each kind's GitHub reads, one step per kind (`kinds/index.ts`), then
+//                           "gather-<kind>-<name>" for each target read, as its installation
 //   step "facts"            `detect`: the fact sheet — memoized, so a retry never changes a number
 //   step "gather-knowledge" what the judge compares with (PRD 487): the knowledge summary and the
 //                           lessons of the retros already merged, both at the merge commit
@@ -15,6 +18,8 @@
 //   or else — not worth it, or not judged (no verdict, or one `guard` refused):
 //   step "verdict"          no branch, no file, no PR, no issue: one comment on the merged feature PR,
 //                           marked `<markers.prefix>-retro-verdict` and rewritten in place on a replay
+//   steps "comment-target-<name>"  a multi-repository PRD's read targets: one comment on each one's
+//                           merged feature PR, the retro's link and its findings (`target-comment.ts`)
 //   step "clock-day-14"     the time, once the merge run is out
 //   "wait-day-14-<n>"       a day at a time, until the merge plus `THRESHOLDS.afterMergeDays` days:
 //                           each wait ends on the tick of the function's own daily schedule, or after
@@ -43,27 +48,43 @@
 //
 // `createRetro` takes the Inngest client and `octokitFor(installationId)`, so a test runs the real
 // function against a stubbed GitHub; `followUp` adds the day-14 run and the daily schedule that wakes
-// it, and a test passes its fourteen days through the clock and the waits. `retro` is the one the app
-// serves, with its day-14 run.
+// it, and a test passes its fourteen days through the clock and the waits. The app serves it with its
+// day-14 run (../functions.ts).
 //
 // The event's data is parsed by `RetroEventSchema` before use, and every GitHub answer this file reads
-// by its schema in `github.schema.ts`.
+// by its schema in `github.schema.ts`. Every value a step returns is read back through its schema in
+// `retro.schema.ts` (`savedStep`): Inngest saves it as JSON, and the day-14 run reads the merge run's
+// values back fourteen days later, maybe after a deploy that changed what the step returns.
 import { internalEvents } from 'inngest';
 import type { Inngest } from 'inngest';
 import { z } from 'zod';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { foldersLayout } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
-import { inngest, RETRO_EVENT } from '../inngest-client.ts';
-import { installationOctokit } from '../outbox-check/outbox-check.ts';
+import { PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { RETRO_EVENT } from '../inngest-client.ts';
 import { listComments } from '../outbox-check/github.ts';
+import { firstLine } from '../outbox-check/github-schema.ts';
 import { detect } from './detect.ts';
 import { knowledgeSummary } from 'vertuo-omni-plan/kit/lib/knowledge/classify.ts';
 import { withTreeAt } from '../knowledge-harvest/github.ts';
 import type { OctokitFor } from '../octokit-for.ts';
-import { commentOnFailure, upsertComment } from '../verdict-comment/verdict-comment.ts';
+import { parseSaved, savedStep, type StepRun } from '../saved-step.ts';
+import { commentOnFailure, FailureCommentSchema, upsertComment } from '../verdict-comment/verdict-comment.ts';
 import { listPullsInto } from './github.ts';
 import { BlobSchema, CreatedCommentSchema, RetroDocSchema, RetroLessonsSchema, TreeSchema, parseGitHub } from './github.schema.ts';
+import {
+  ClockSchema,
+  CommentedSchema,
+  FactSheetSchema,
+  GuardedSchema,
+  IssueLinksSchema,
+  KnownSchema,
+  NarratedSchema,
+  PublishedSchema,
+  PullsIntoSchema,
+  QualifiedSchema,
+} from './retro.schema.ts';
 import { guard } from './guard.ts';
 import { publishIssues } from './issues.ts';
 import { followUpAt } from './kinds/after-merge.ts';
@@ -71,7 +92,11 @@ import { KINDS, type Kind } from './kinds/index.ts';
 import { narrate } from './narrate.ts';
 import { publishRetro } from './publish.ts';
 import { qualify } from './qualify.ts';
+import { withTargets, type TargetRecords } from './targets.detect.ts';
+import { gatherTarget, readTargets, type AppOctokit } from './targets.read.ts';
 import { verdictComment } from './render.ts';
+import { commentTargets } from './target-comment.ts';
+import type { OpenRouterEnv } from '../env.ts';
 import type {
   Config,
   FactSheet,
@@ -111,7 +136,8 @@ export const DAY_WAIT = 2 * DAY_MS;
 export const FOLLOW_UP_STEP = 'wait-day-14';
 export const CLOCK_STEP = 'clock-day-14';
 
-const SCHEDULED = internalEvents.ScheduledTimer;
+/** The name of the event a cron trigger sends, as the event's name reads it: text, not the enum. */
+const SCHEDULED: string = internalEvents.ScheduledTimer;
 
 /**
  * One retro at a time per repository. The spec asks for one per repository and PRD; the PRD is known
@@ -138,7 +164,7 @@ export const RetroEventSchema = z.object({
   installationId: z.number(),
   owner: z.string(),
   repo: z.string(),
-  prNumber: z.number(),
+  prNumber: PrNumberSchema,
   mergeSha: z.string(),
   mergedAt: z.string().nullish(),
 });
@@ -152,23 +178,29 @@ const FailedEventSchema = z
     installationId: z.number().optional().catch(undefined),
     owner: z.string().optional().catch(undefined),
     repo: z.string().optional().catch(undefined),
-    prNumber: z.number().optional().catch(undefined),
+    prNumber: PrNumberSchema.optional().catch(undefined),
   })
   .catch({});
 
-/** The step tools the retro uses. Every value it hands `run` is plain JSON, so it comes back as given. */
-type RetroStep = {
-  run<T>(id: string, fn: () => T | Promise<T>): Promise<T>;
+/**
+ * The step tools the retro uses. Every value `run` returns is read back through its schema
+ * (`savedStep`), and the event a wait returns through `TickSchema`.
+ */
+type RetroStep = StepRun & {
   sendEvent(id: string, payload: { name: string; data: Record<string, never> }): Promise<unknown>;
-  waitForEvent(id: string, options: { event: string; timeout: number }): Promise<{ ts?: number } | null>;
+  waitForEvent(id: string, options: { event: string; timeout: number }): Promise<unknown>;
 };
 
-type Env = Record<string, string | undefined>;
+/** What a wait reads of the tick that ended it, if one did: its time. */
+const TickSchema = z.looseObject({ ts: z.number().exactOptional() }).nullable();
 
 export type RetroDeps = {
   client: Inngest.Any;
   octokitFor: OctokitFor<Octokit>;
-  env?: Env;
+  /** The App's own client, which looks up its installation on each target of a multi-repository PRD (PRD 1130). */
+  appOctokit?: AppOctokit | null;
+  /** OpenRouter, from the app's environment (../env.ts); `null`: every retro goes out facts only. */
+  openrouter: OpenRouterEnv | null;
   /** The model call's fetch; the global one when not given. */
   fetch?: typeof fetch;
   kinds?: readonly Kind[];
@@ -178,8 +210,8 @@ export type RetroDeps = {
 /** What the judge said, as the retro acts on it. */
 export type VerdictOutcome = { worthIt: boolean; judged: boolean; reason: string };
 
-type Published = Awaited<ReturnType<typeof publishRetro>>;
-type Commented = Awaited<ReturnType<typeof upsertComment>>;
+type Published = z.infer<typeof PublishedSchema>;
+type Commented = z.infer<typeof CommentedSchema>;
 
 /** One run of the retro, as the run after it reads it. */
 type RunResult = {
@@ -192,7 +224,7 @@ type RunResult = {
   verdict: VerdictOutcome;
 };
 
-export function createRetro({ client, octokitFor, env = process.env, fetch = undefined, kinds = KINDS, followUp = false }: RetroDeps) {
+export function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch, kinds = KINDS, followUp = false }: RetroDeps) {
   return client.createFunction(
     {
       id: RETRO_FUNCTION_ID,
@@ -202,8 +234,7 @@ export function createRetro({ client, octokitFor, env = process.env, fetch = und
       retries: 3,
       onFailure: createRetroFailureHandler({ octokitFor }),
     },
-    async ({ event, step: tools }) => {
-      const step = tools as RetroStep; // ts-allow: Inngest types step.run's result as its JSON form; every value the retro hands it is plain JSON already
+    async ({ event, step }) => {
       if (event.name === SCHEDULED) {
         await step.sendEvent(DAY_STEP, { name: DAY_EVENT, data: {} });
         return { sent: DAY_EVENT };
@@ -212,14 +243,15 @@ export function createRetro({ client, octokitFor, env = process.env, fetch = und
       const { installationId, owner, repo, prNumber, mergeSha, mergedAt } = parseEvent(event.data);
       const github = async () => octokitFor(installationId);
 
-      const qualified = await step.run('qualify', async () => qualify(await github(), { owner, repo, prNumber, mergeSha }));
+      const qualified = await savedStep(step, 'qualify', QualifiedSchema, async () => qualify(await github(), { owner, repo, prNumber, mergeSha }));
       if (qualified.skip !== null) return { skipped: qualified.skip };
       const { pr, prd, config } = qualified;
 
-      const pulls = await step.run('gather-pulls', async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
+      const pulls = await savedStep(step, 'gather-pulls', PullsIntoSchema, async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
 
-      const scope: Scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls };
-      const context = { step, github, env, fetch, owner, repo, pr, prd, config, pulls };
+      const targets = await readTargets({ step, appOctokit, octokitFor, planSlug: `${owner}/${repo}`, scope: { config, prd } });
+      const scope: Scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls, ...(targets.length > 0 ? { targets } : {}) };
+      const context = { step, github, octokitFor, openrouter, fetch, owner, repo, pr, prd, config, pulls };
       const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsIn(MERGE_RUN, kinds), scope });
       const result = { prd: prd.number, ...outcome(first) };
 
@@ -256,17 +288,19 @@ function parseEvent(data: unknown): z.infer<typeof RetroEventSchema> {
  */
 async function waitForDay(step: RetroStep, due: string): Promise<void> {
   const until = Date.parse(due);
-  let now = await step.run(CLOCK_STEP, () => Date.now());
+  let now = await savedStep(step, CLOCK_STEP, ClockSchema, () => Date.now());
   for (let turn = 1; now < until; turn += 1) {
-    const tick = await step.waitForEvent(`${FOLLOW_UP_STEP}-${turn}`, { event: DAY_EVENT, timeout: DAY_WAIT });
-    now = tick?.ts ?? (await step.run(`${CLOCK_STEP}-${turn}`, () => Date.now()));
+    const wait = `${FOLLOW_UP_STEP}-${turn}`;
+    const tick = parseSaved(TickSchema, await step.waitForEvent(wait, { event: DAY_EVENT, timeout: DAY_WAIT }), wait);
+    now = tick?.ts ?? (await savedStep(step, `${CLOCK_STEP}-${turn}`, ClockSchema, () => Date.now()));
   }
 }
 
 type RunInput = {
   step: RetroStep;
   github: () => Promise<Octokit>;
-  env: Env;
+  octokitFor: OctokitFor<Octokit>;
+  openrouter: OpenRouterEnv | null;
   fetch: typeof fetch | undefined;
   owner: string;
   repo: string;
@@ -284,64 +318,119 @@ type RunInput = {
  * One run of the retro, from its kinds' reads to its published PR. `earlier` is the run it follows,
  * when there is one: its findings are numbered on from, asked about again, and published again.
  */
-async function runRetro({ step, github, env, fetch, owner, repo, pr, prd, config, pulls, run, kinds, scope, earlier = null }: RunInput): Promise<RunResult> {
-  const id = (name: string) => (run === MERGE_RUN ? name : `${name}-${run}`);
+async function runRetro(input: RunInput): Promise<RunResult> {
+  const id = (name: string) => (input.run === MERGE_RUN ? name : `${name}-${input.run}`);
+  // Read from where the PRD's folder was at the merge; written, always, into its shipped folder.
+  const folder = retroFolder(input.prd, input.config);
+  const sheet = await factSheet(input, id, folder);
+  const judged = await judgeSheet(input, id, sheet);
+  const result = judged.verdict.worthIt ? await publishRun(input, id, folder, sheet, judged) : await commentRun(input, id, sheet, judged);
+  await commentOnTargets(input, id, judged.whole, result);
+  return result;
+}
 
+/**
+ * One comment on each read target's merged feature PR (PRD 1130, `target-comment.ts`): the retro's
+ * link, its PR when one was published, else the plan PR its verdict is on, and that repository's
+ * findings of both runs, with the issues either opened. Nothing for a PRD of one repository.
+ */
+async function commentOnTargets({ step, octokitFor, owner, repo, pr, prd, config, scope, earlier }: RunInput, id: StepId, whole: FactSheet, result: RunResult) {
+  const retroPr = result.published?.pr ?? earlier?.published?.pr ?? null;
+  const link = retroPr ? { label: `retro PR #${retroPr.number}`, url: retroPr.url } : { label: `the verdict on ${owner}/${repo}#${pr.number}`, url: pr.url };
+  const issues = { ...earlier?.record.issues, ...result.record.issues };
+  await commentTargets({ step, octokitFor, id, targets: scope.targets ?? [], prefix: config.markers.prefix, prd, link, findings: whole.findings, issues });
+}
+
+/** The id of a step of one run: the merge run's as named, the day-14 run's with its run after it. */
+type StepId = (name: string) => string;
+
+/** What judging a run's fact sheet gave: the sheet the model was asked about, its prose, the knowledge, the verdict and the record. */
+type Judged = { whole: FactSheet; prose: Prose | null; known: Known; verdict: VerdictOutcome; base: RunRecord };
+
+/** The run's fact sheet: each kind's records gathered, then detected, its findings numbered on from the run before. */
+async function factSheet(input: RunInput, id: StepId, folder: string): Promise<FactSheet> {
+  const { step, github, owner, repo, pr, prd, config, pulls, run, kinds, scope, earlier } = input;
   const records: Record<string, unknown> = {};
   for (const kind of kinds) {
-    records[kind.id] = (await step.run(id(`gather-${kind.id}`), async () => kind.gather(await github(), scope))) ?? null;
+    records[kind.id] = await savedStep(step, id(`gather-${kind.id}`), kind.records.nullable(), async () => (await kind.gather(await github(), scope)) ?? null);
   }
-
-  // Read from where the PRD's folder was at the merge; written, always, into its shipped folder.
-  const folder = retroFolder(prd, config);
+  const targets = await targetRecords(input);
   const before = earlier?.sheet.findings ?? [];
-  const sheet = await step.run(id('facts'), () =>
-    inFolder(numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before.length), folder),
-  );
+  return savedStep(step, id('facts'), FactSheetSchema, () => {
+    const own = detect({ run, pr, prd, config, pulls, records, kinds });
+    const whole = withTargets(own, { planSlug: `${owner}/${repo}`, targets, run, kinds, scope });
+    return inFolder(numberedAfter(whole, before.length), folder);
+  });
+}
 
+/** What each target's kinds gathered, in the merge run only (PRD 1130); a target not read gathers nothing. */
+async function targetRecords({ step, octokitFor, run, kinds, scope }: RunInput): Promise<TargetRecords[]> {
+  if (run !== MERGE_RUN) return [];
+  const out: TargetRecords[] = [];
+  for (const target of scope.targets ?? []) {
+    out.push({ target, records: target.read ? await gatherTarget({ step, octokitFor, kinds, scope }, target) : null });
+  }
+  return out;
+}
+
+/** The model's words on the run, guarded, and the verdict they give. */
+async function judgeSheet({ step, github, openrouter, fetch, owner, repo, prd, config, scope, earlier }: RunInput, id: StepId, sheet: FactSheet): Promise<Judged> {
   // The model writes the words of the whole retro, so at day 14 it is given both runs' findings,
   // and the knowledge the merge run gathered.
-  const whole = earlier ? { ...sheet, findings: [...before, ...sheet.findings] } : sheet;
+  const whole = earlier ? { ...sheet, findings: [...earlier.sheet.findings, ...sheet.findings] } : sheet;
   const known =
     earlier?.known ??
-    (await step.run(id('gather-knowledge'), async () => gatherKnowledge(await github(), { owner, repo, sha: scope.mergeSha, config })));
-  const narrated = await step.run(id('narrate'), () =>
-    narrate({ sheet: whole, prd: { title: prd.title, problem: prd.problem }, knowledge: known.knowledge, lessons: known.lessons, env, fetch }),
+    (await savedStep(step, id('gather-knowledge'), KnownSchema, async () => gatherKnowledge(await github(), { owner, repo, sha: scope.mergeSha, config })));
+  const narrated = await savedStep(step, id('narrate'), NarratedSchema, () =>
+    narrate({ sheet: whole, prd: { title: prd.title, problem: prd.problem }, knowledge: known.knowledge, lessons: known.lessons, openrouter, fetch }),
   );
-  const guarded = await step.run(id('guard'), () => guard({ reply: narrated.reply ?? null, sheet: whole }));
+  const guarded = await savedStep(step, id('guard'), GuardedSchema, () => guard({ reply: narrated.reply ?? null, sheet: whole }));
   const prose = guarded.prose ?? earlier?.prose ?? null;
-  const verdict = verdictOf(prose, narrated.reason);
+  return { whole, prose, known, verdict: verdictOf(prose, narrated.reason), base: recordOf(sheet, prose, narrated, guarded) };
+}
 
+/** The run's record before its issues: the sheet, the narration's outcome, the verdict and the lessons kept. */
+function recordOf(sheet: FactSheet, prose: Prose | null, narrated: z.infer<typeof NarratedSchema>, guarded: z.infer<typeof GuardedSchema>): RunRecord {
   const narration = {
     model: narrated.model ?? null,
     reason: guarded.prose ? null : (narrated.reason ?? 'the prose was refused'),
-    dropped: guarded.dropped ?? [],
+    dropped: guarded.dropped,
   };
-  const base: RunRecord = { ...sheet, narration, verdict: prose?.verdict ?? null, lessons: lessonsOf(prose) };
+  return { ...sheet, narration, verdict: prose?.verdict ?? null, lessons: lessonsOf(prose) };
+}
+
+/** A run not worth a pull request: one comment on the feature PR, saying why. */
+async function commentRun({ step, github, owner, repo, pr, config, earlier }: RunInput, id: StepId, sheet: FactSheet, { prose, known, verdict, base }: Judged): Promise<RunResult> {
   const runs = [...(earlier ? [earlier.record] : []), base];
+  const comment = await savedStep(step, id('verdict'), CommentedSchema, async () =>
+    upsertComment(await github(), {
+      owner,
+      repo,
+      prNumber: pr.number,
+      marker: verdictMarker(config.markers.prefix),
+      text: verdictComment({ judged: verdict.judged, reason: verdict.reason, runs, prose }),
+    }),
+  );
+  return { sheet, prose, known, record: { ...base, issues: {} }, published: null, comment, verdict };
+}
 
-  if (!verdict.worthIt) {
-    const comment = await step.run(id('verdict'), async () =>
-      upsertComment(await github(), {
-        owner,
-        repo,
-        prNumber: pr.number,
-        marker: verdictMarker(config.markers.prefix),
-        text: verdictComment({ judged: verdict.judged, reason: verdict.reason, runs, prose }),
-      }),
-    );
-    return { sheet, prose, known, record: { ...base, issues: {} }, published: null, comment, verdict };
-  }
-
+/** A run worth a pull request: its findings' issues, then the retro's branch and PR. */
+async function publishRun(
+  { step, github, owner, repo, pr, prd, config, earlier }: RunInput,
+  id: StepId,
+  folder: string,
+  sheet: FactSheet,
+  { whole, prose, known, verdict, base }: Judged,
+): Promise<RunResult> {
   // The merge run's kept findings get their issues at day 14 when the merge run opened none.
   const retroPath = `${folder}/retro.md`;
   const issueSheet = earlier && !earlier.published ? whole : sheet;
-  const issues = await step.run(id('publish-issues'), async () =>
+  const issues = await savedStep(step, id('publish-issues'), IssueLinksSchema, async () =>
     publishIssues(await github(), { owner, repo, config, sheet: issueSheet, prose, retroPath }),
   );
 
-  const record = { ...base, issues: issues ?? {} };
-  const published = await step.run(id('publish'), async () =>
+  const record = { ...base, issues };
+  const published = await savedStep(step, id('publish'), PublishedSchema, async () =>
     publishRetro(await github(), { owner, repo, config, prd: { ...prd, folder }, pr, record, prose, earlier: earlier ? [earlier.record] : [] }),
   );
   return { sheet, prose, known, record, published, comment: null, verdict };
@@ -364,8 +453,8 @@ export function verdictOf(prose: Prose | null, narrationReason?: string | null):
 /** The lessons `guard` accepted, as `retro.json` keeps them for the retros after this one. */
 function lessonsOf(prose: Prose | null): Lesson[] {
   return (prose?.lessons ?? [])
-    .filter((lesson) => typeof lesson?.text === 'string' && lesson.text && !lesson.text.startsWith('_Dropped: '))
-    .map((lesson) => ({ text: lesson.text, findings: [...(lesson.findings ?? [])] }));
+    .filter((lesson) => lesson.text && !lesson.text.startsWith('_Dropped: '))
+    .map((lesson) => ({ text: lesson.text, findings: [...lesson.findings] }));
 }
 
 /**
@@ -452,7 +541,7 @@ export function retroFolder(prd: { folder: string }, config: Config): string {
 
 /** The fact sheet naming `folder` as the one its retro is written into. */
 function inFolder(sheet: FactSheet, folder: string): FactSheet {
-  return sheet.prd?.folder === folder ? sheet : { ...sheet, prd: { ...sheet.prd, folder } };
+  return sheet.prd.folder === folder ? sheet : { ...sheet, prd: { ...sheet.prd, folder } };
 }
 
 /** A run's fact sheet with its findings numbered on from the `count` findings of the runs before it. */
@@ -472,7 +561,7 @@ function outcome({ sheet, record, published, comment, verdict }: RunResult) {
 type FailureInput = {
   event: { data: { event: { data?: unknown }; error?: { message?: string } | null } };
   error?: { message?: string } | null;
-  step?: { run?: <T>(id: string, fn: () => Promise<T>) => Promise<T> } | null;
+  step?: Partial<StepRun> | null;
 };
 
 /**
@@ -487,7 +576,7 @@ export function createRetroFailureHandler({ octokitFor }: { octokitFor: OctokitF
     const reason = firstLine(error?.message ?? event.data.error?.message);
     const body = `${FAILURE_MARKER}\nThe retro could not run: ${reason}\n`;
 
-    return commentOnFailure(octokitFor, step, { installationId, owner, repo }, async (octokit, where) => {
+    return commentOnFailure(octokitFor, step, { installationId, owner, repo }, FailureCommentSchema, async (octokit, where) => {
       const comments = await listComments(octokit, { ...where, prNumber });
       const existing = comments.find((comment) => comment.body.includes(FAILURE_MARKER));
       if (existing) {
@@ -510,10 +599,3 @@ export function createRetroFailureHandler({ octokitFor }: { octokitFor: OctokitF
     });
   };
 }
-
-function firstLine(reason: unknown): string {
-  const text = String(reason ?? 'unknown error').trim();
-  return text.split('\n')[0] || 'unknown error';
-}
-
-export const retro = createRetro({ client: inngest, octokitFor: installationOctokit, followUp: true });

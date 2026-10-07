@@ -12,6 +12,7 @@
 // hidden HTML comment, written by `evaluateInbox` on a red canon only. Each posted comment carries a
 // marker of its action, so a second click of the same button edits that comment, never a new one.
 import { z } from 'zod';
+import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { CanonFacts } from '../inngest-client.ts';
 import type { CheckAction } from './github.ts';
 
@@ -54,15 +55,15 @@ export function canonActions(canon: Pick<CanonState, 'state' | 'persona'> | null
  * The hidden line carrying a red canon's facts into the check run's summary, or `null` when the
  * canon is not red or the PRD is unknown.
  */
-export function canonMarker({ prd, canon }: { prd: number | null; canon: CanonState | null | undefined }): string | null {
-  if (!canon || canon.state !== 'red' || !Number.isInteger(prd)) return null;
+export function canonMarker({ prd, canon }: { prd: PrdNumber | null; canon: CanonState | null | undefined }): string | null {
+  if (!canon || canon.state !== 'red' || prd === null) return null;
   const claims = [...new Set(canon.findings.flatMap((finding) => finding.claims))];
   return `<!-- omni-canon ${JSON.stringify({ prd, persona: canon.persona?.name ?? null, claims })} -->`;
 }
 
 /** The facts `canonMarker` hid in a summary, or `null` when there are none. */
 export function readCanonMarker(summary: unknown): CanonFacts | null {
-  const match = FACTS.exec(String(summary ?? ''));
+  const match = FACTS.exec(summary === undefined || summary === null ? '' : printed(summary));
   if (!match) return null;
   let parsed: unknown;
   try {
@@ -73,14 +74,18 @@ export function readCanonMarker(summary: unknown): CanonFacts | null {
   const read = MarkerSchema.safeParse(parsed);
   if (!read.success) return null;
   const facts = read.data;
-  if (typeof facts.prd !== 'number' || !Number.isInteger(facts.prd) || !Array.isArray(facts.claims)) return null;
+  const prd = PrdNumberSchema.safeParse(facts.prd);
+  if (!prd.success || !Array.isArray(facts.claims)) return null;
   const claims: unknown[] = facts.claims;
   return {
-    prd: facts.prd,
+    prd: prd.data,
     persona: typeof facts.persona === 'string' && facts.persona ? facts.persona : null,
     claims: claims.filter((id): id is string => typeof id === 'string'),
   };
 }
+
+/** A summary, as `String` prints it: the webhook hands it over as GitHub sent it, unparsed. */
+const printed = (value: unknown) => String(value);
 
 /** The line that marks the comment an action posted, so the next click finds it. */
 export const commentMarker = (action: string): string => `<!-- omni-canon-action:${action} -->`;

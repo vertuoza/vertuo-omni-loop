@@ -24,7 +24,6 @@ import { join } from 'node:path';
 import { fixVerdict, numberedFolders, rasterFaults } from '../fix-verdict.ts';
 import type { Commit } from '../fix-verdict.ts';
 import { beforeAfterViolation } from '../inbox/check-inbox.ts';
-import { padPrd } from '../layout.ts';
 import { parseConcept } from './parse.ts';
 import type { TrailerSignature } from '../signature.ts';
 
@@ -76,7 +75,7 @@ const SCRIPT_LOADS: readonly Load[] = [
 
 /** The folder name prefix of a concept: its number, zero-padded to four digits, then `-`. */
 export function folderPrefix(concept: number | string): string {
-  return `${padPrd(concept)}-`;
+  return `${String(Number(concept)).padStart(4, '0')}-`;
 }
 
 /** Each `[what, pattern]` of `patterns` found in `texts`, as `<what> <url>`. */
@@ -94,7 +93,9 @@ function tagLoads(name: string, attributes: string, styles: string[]): string[] 
   const loads: string[] = [];
   for (const [, attr = '', ...values] of attributes.matchAll(ATTRIBUTE)) {
     const attribute = attr.toLowerCase();
-    const value = values.find((v) => v !== undefined) ?? '';
+    // A group of an alternative that did not match is `undefined` at run time, whatever the type says.
+    const groups: readonly (string | undefined)[] = values;
+    const value = groups.find((v) => v !== undefined) ?? '';
     if (attribute === 'style') styles.push(value);
     if (FOLLOWED.has(name) || !LOADING.has(attribute)) continue;
     const remote = attributeUrls(attribute, value).filter((url) => REMOTE.test(url));
@@ -203,12 +204,12 @@ export function conceptVerdict({
 }: {
   ctx: ConceptContext;
   concept: number;
-  changed?: readonly string[];
-  commits?: readonly Commit[];
+  changed?: readonly string[] | undefined;
+  commits?: readonly Commit[] | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   return fixVerdict({
     ctx,
-    issue: concept,
+    number: concept,
     commits,
     root: ctx.layout.dirs.concepts,
     prefix: folderPrefix(concept),

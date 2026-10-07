@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { SessionRefused, storageState } from './session.ts';
 import type { StateCookie } from './session.ts';
+import { assertDefined } from '../../test/assert.ts';
+import { dig } from '../../bin/dig.ts';
 
 const REF = 'fzskrlcmmzvvxaeebezc';
 const NOW = Date.UTC(2026, 8, 30, 12, 0, 0);
@@ -9,7 +11,7 @@ const jwt = (claims: Record<string, unknown>) => ['h', Buffer.from(JSON.stringif
 const TOKEN = jwt({ iss: `https://${REF}.supabase.co/auth/v1`, sub: 'u-1', aud: 'authenticated', role: 'authenticated', email: 'pat@acme.test', exp: EXP, app_metadata: {}, user_metadata: { user_name: 'pat' } });
 
 /** The session a cookie carries, read back the way @supabase/ssr reads it. */
-const sessionOf = (cookies: StateCookie[]) => JSON.parse(Buffer.from(cookies.map((c) => c.value).join('').replace(/^base64-/, ''), 'base64url').toString());
+const sessionOf = (cookies: StateCookie[]): unknown => JSON.parse(Buffer.from(cookies.map((c) => c.value).join('').replace(/^base64-/, ''), 'base64url').toString());
 
 describe('storageState', () => {
   it('turns the omni sign-in into the app\'s own auth cookie, on the app\'s host, until the token expires', () => {
@@ -17,7 +19,8 @@ describe('storageState', () => {
     expect(state.origins).toEqual([]);
     expect(state.cookies).toHaveLength(1);
     expect(state.cookies[0]).toMatchObject({ name: `sb-${REF}-auth-token`, domain: 'omni.example', path: '/', expires: EXP, secure: true, sameSite: 'Lax' });
-    expect(state.cookies[0]!.value.startsWith('base64-')).toBe(true);
+    assertDefined(state.cookies[0], 'state.cookies[0]');
+    expect(state.cookies[0].value.startsWith('base64-')).toBe(true);
     expect(email).toBe('pat@acme.test');
     expect(expiresAt).toBe(EXP);
   });
@@ -25,7 +28,7 @@ describe('storageState', () => {
   it('carries the access token and never the refresh token, so the browser cannot rotate the CLI\'s sign-in', () => {
     const session = sessionOf(storageState(TOKEN, { host: 'omni.example', now: NOW }).state.cookies);
     expect(session).toMatchObject({ access_token: TOKEN, refresh_token: '', token_type: 'bearer', expires_at: EXP, expires_in: 3600 });
-    expect(session.user).toMatchObject({ id: 'u-1', email: 'pat@acme.test', user_metadata: { user_name: 'pat' } });
+    expect(dig(session, 'user')).toMatchObject({ id: 'u-1', email: 'pat@acme.test', user_metadata: { user_name: 'pat' } });
   });
 
   it('splits a long session into numbered cookies of at most 3180 characters, as @supabase/ssr does', () => {
@@ -34,12 +37,19 @@ describe('storageState', () => {
     expect(cookies.length).toBeGreaterThan(1);
     expect(cookies.map((c) => c.name)).toEqual(cookies.map((_, i) => `sb-${REF}-auth-token.${i}`));
     expect(Math.max(...cookies.map((c) => c.value.length))).toBeLessThanOrEqual(3180);
-    expect(sessionOf(cookies).access_token).toBe(big);
+    expect(dig(sessionOf(cookies), 'access_token')).toBe(big);
   });
 
   it('refuses a token that is not a Supabase sign-in, or has expired', () => {
     expect(() => storageState('not-a-jwt', { host: 'omni.example', now: NOW })).toThrow(SessionRefused);
     expect(() => storageState(jwt({ iss: 'https://example.com', exp: EXP }), { host: 'omni.example', now: NOW })).toThrow(SessionRefused);
     expect(() => storageState(jwt({ iss: `https://${REF}.supabase.co/auth/v1`, exp: NOW / 1000 - 1 }), { host: 'omni.example', now: NOW })).toThrow(SessionRefused);
+  });
+
+  it('parses the token\'s claims: one with no expiry, an expiry given as text or a null email is not a Supabase session', () => {
+    const iss = `https://${REF}.supabase.co/auth/v1`;
+    for (const claims of [{ iss }, { iss, exp: String(EXP) }, { iss, exp: EXP, email: null }]) {
+      expect(() => storageState(jwt(claims), { host: 'omni.example', now: NOW })).toThrow('the sign-in is not a Supabase session');
+    }
   });
 });

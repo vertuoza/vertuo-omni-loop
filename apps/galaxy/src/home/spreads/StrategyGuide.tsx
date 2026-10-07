@@ -1,5 +1,6 @@
 import { spritePixels } from '@omni/design';
 import { Fragment } from 'react';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { pixelSvg } from '../../design/pixel-svg';
 import { LINGO } from '../lingo';
 import { Svg } from '../poster/Poster';
@@ -117,8 +118,8 @@ const points = (path: readonly Point[]) => path.map(([x, y]) => `${x},${y}`).joi
 
 /** The arrow's head: a triangle on the last point, pointing along the last leg. */
 function head(path: readonly Point[]): string {
-  const [x, y] = path.at(-1)!;
-  const [px, py] = path.at(-2)!;
+  const [x, y] = at(path, -1, 'the last point of the arrow');
+  const [px, py] = at(path, -2, 'the point before the last of the arrow');
   const dx = Math.sign(x - px), dy = Math.sign(y - py);
   const back: Point = [x - dx * 9, y - dy * 9];
   return points([[x, y], [back[0] - dy * 5.5, back[1] + dx * 5.5], [back[0] + dy * 5.5, back[1] - dx * 5.5]]);
@@ -136,7 +137,7 @@ function LoopMap({ layout }: { layout: Layout }) {
     >
       <title id={layout.id}>The Omni Loop</title>
       {LOOP.map((s, i) => {
-        const [x, y] = layout.at[i]!;
+        const [x, y] = at(layout.at, i, `the box of ${s.name}`);
         return (
           <g key={s.name} className="home-loop-box" data-stage={s.name}>
             <rect x={x + 4} y={y + 4} width={box.w} height={box.h} className="home-loop-shadow" />
@@ -150,10 +151,10 @@ function LoopMap({ layout }: { layout: Layout }) {
         );
       })}
       {LOOP.slice(0, -1).map((s, i) => {
-        const arrow = layout.arrows[i]!;
-        const cls = MOVER_CLASS[s.mover!];
+        const arrow = at(layout.arrows, i, `the arrow from ${s.name}`);
+        const cls = MOVER_CLASS[defined(s.mover, `who moves ${s.name} on`)];
         return (
-          <g key={s.name} className={`home-loop-arrow ${cls}`} data-from={s.name} data-to={LOOP[i + 1]!.name}>
+          <g key={s.name} className={`home-loop-arrow ${cls}`} data-from={s.name} data-to={at(LOOP, i + 1, `the stage after ${s.name}`).name}>
             <polyline points={points(arrow.path)} className="home-loop-line-path" />
             <polygon points={head(arrow.path)} className="home-loop-head" />
             <text x={arrow.tag[0]} y={arrow.tag[1]} textAnchor={arrow.anchor} className="home-loop-tag">{s.mover}</text>

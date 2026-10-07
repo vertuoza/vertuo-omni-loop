@@ -1,15 +1,19 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import {
   breaches,
   collisionRows,
   collisions,
   covers,
+  parsePlanLandings,
   parsePlanRepositories,
   parsePlanSlices,
   sameWaveCollisions,
   territoryPrefixes,
   territoryVerdict,
 } from './territory.ts';
+import { assertDefined } from '../../test/assert.ts';
+import { parseWorkSliceId } from '../ids.ts';
+import type { WorkSliceId } from '../ids.ts';
 
 /** A plan in the shape this slice introduces: a `territory` column beside the wave. */
 const PLAN = `# Plan: a plan
@@ -144,8 +148,11 @@ describe('parsePlanSlices — blockedBy', () => {
 | s4  | D     | \`d/\`           | s1 s3      | 2    |
 `;
     const slices = parsePlanSlices(plan);
-    expect(slices.find((slice) => slice.id === 's2')!.blockedBy).toEqual(['s1', 's3']);
-    expect(slices.find((slice) => slice.id === 's4')!.blockedBy).toEqual(['s1', 's3']);
+    const [s2, s4] = [slices.find((slice) => slice.id === 's2'), slices.find((slice) => slice.id === 's4')];
+    assertDefined(s2, 'slice s2');
+    assertDefined(s4, 'slice s4');
+    expect(s2.blockedBy).toEqual(['s1', 's3']);
+    expect(s4.blockedBy).toEqual(['s1', 's3']);
   });
 
   it('reads a bare hyphen or an empty cell as no blockers', () => {
@@ -168,7 +175,8 @@ describe('parsePlanSlices — blockedBy', () => {
 | s1  | A     | \`a/\`      | 1    |
 `;
     const slices = parsePlanSlices(plan);
-    expect(slices[0]!.blockedBy).toEqual([]);
+    assertDefined(slices[0], 'slices[0]');
+    expect(slices[0].blockedBy).toEqual([]);
   });
 
   it('reads a plan shaped like a real multi-wave slice table — a multi-blocker cell and a bare dash both come through', () => {
@@ -188,7 +196,11 @@ describe('parsePlanSlices — blockedBy', () => {
 | s10 | Yolo-fix skill     | \`g/\`        | s6, s7, s9  | 6    |
 `;
     const slices = parsePlanSlices(plan);
-    const byId = (id: string) => slices.find((slice) => slice.id === id)!;
+    const byId = (id: string) => {
+      const found = slices.find((slice) => slice.id === id);
+      assertDefined(found, `slice ${id}`);
+      return found;
+    };
     expect(byId('s1').blockedBy).toEqual([]);
     expect(byId('s3').blockedBy).toEqual(['s2']);
     expect(byId('s10').blockedBy).toEqual(['s6', 's7', 's9']);
@@ -259,6 +271,47 @@ describe('collisions', () => {
   });
 });
 
+describe('generated outputs (PRD 1138)', () => {
+  const GENERATED = [
+    { path: 'kit/dist/', from: ['kit/lib/'], build: 'pnpm kit:build' },
+    { path: 'apps/omni-app/api/', from: ['apps/omni-app/src/'], build: 'node apps/omni-app/build.ts' },
+  ];
+  const slice = (id: string, territory: string[], wave = 1) => ({ id: parseWorkSliceId(id), territory, wave });
+
+  it('breaches drops every path a generated entry covers and keeps every other breach', () => {
+    const changed = ['kit/lib/a.ts', 'kit/dist/omni.mjs', 'apps/omni-app/api/inngest.mjs', 'README.md'];
+    expect(breaches(changed, ['kit/lib/'], GENERATED)).toEqual(['README.md']);
+  });
+
+  it('breaches without generated entries is what it always was', () => {
+    expect(breaches(['kit/dist/omni.mjs', 'README.md'], ['kit/lib/'])).toEqual(['kit/dist/omni.mjs', 'README.md']);
+    expect(breaches(['kit/dist/omni.mjs'], ['kit/lib/'], [])).toEqual(['kit/dist/omni.mjs']);
+  });
+
+  it('collisions ignores a generated path two slices share and keeps every other shared path', () => {
+    const slices = [slice('s1', ['kit/lib/a.ts', 'kit/dist/']), slice('s2', ['kit/lib/b.ts', 'kit/dist/']), slice('s3', ['kit/lib/a.ts', 'kit/dist/omni.mjs'])];
+    expect(collisions(slices, GENERATED)).toEqual([{ left: 's1', right: 's3', shared: ['kit/lib/a.ts'] }]);
+    expect(sameWaveCollisions(slices, GENERATED)).toEqual([{ left: 's1', right: 's3', shared: ['kit/lib/a.ts'], wave: 1 }]);
+    expect(collisionRows(slices, GENERATED)).toEqual([{ pair: 's1 · s3', shared: '`kit/lib/a.ts`', resolved: 's1 w1 · s3 w1' }]);
+  });
+
+  it('collisions reads the ground two prefixes really meet on: the narrower one', () => {
+    // `kit/` and `kit/dist/` meet on `kit/dist/` alone, a generated path; two `kit/` meet on the sources too.
+    expect(collisions([slice('s1', ['kit/']), slice('s2', ['kit/dist/'])], GENERATED)).toEqual([]);
+    expect(collisions([slice('s1', ['kit/']), slice('s2', ['kit/'])], GENERATED)).toEqual([{ left: 's1', right: 's2', shared: ['kit/'] }]);
+  });
+
+  it('collisions without generated entries is what it always was', () => {
+    const slices = [slice('s1', ['kit/dist/']), slice('s2', ['kit/dist/'])];
+    expect(collisions(slices)).toEqual([{ left: 's1', right: 's2', shared: ['kit/dist/'] }]);
+  });
+
+  it('territoryVerdict grades no generated path as a breach', () => {
+    const verdict = territoryVerdict([slice('s1', ['kit/lib/'])], parseWorkSliceId('s1'), ['kit/lib/a.ts', 'kit/dist/omni.mjs'], GENERATED);
+    expect(verdict.breaches).toEqual([]);
+  });
+});
+
 // Scenario: Waves come from the collision matrix
 describe('Feature: Slices declare the ground they stand on — waves come from the collision matrix', () => {
   it('two slices that own an overlapping path may not share a wave', () => {
@@ -282,7 +335,7 @@ describe('Feature: Slices declare the ground they stand on — a slice that reac
   const plan = parsePlanSlices(PLAN);
 
   it('flags the breach, names the path, and stays non-fatal so the merge proceeds', () => {
-    const verdict = territoryVerdict(plan, 's6', [
+    const verdict = territoryVerdict(plan, parseWorkSliceId('s6'), [
       '.claude/skills/vertuo-plan/SKILL.md',
       'docs/glossary.md',
     ]);
@@ -293,14 +346,14 @@ describe('Feature: Slices declare the ground they stand on — a slice that reac
   });
 
   it('says so plainly when the slice stayed inside its ground', () => {
-    const verdict = territoryVerdict(plan, 's6', ['scripts/check-territory.test.mjs']);
+    const verdict = territoryVerdict(plan, parseWorkSliceId('s6'), ['scripts/check-territory.test.mjs']);
     expect(verdict.breaches).toEqual([]);
     expect(verdict.fatal).toBe(false);
     expect(verdict.lines.join('\n')).toMatch(/s6/);
   });
 
   it('reports a slice the plan does not hold rather than pretending it passed', () => {
-    const verdict = territoryVerdict(plan, 's99', ['package.json']);
+    const verdict = territoryVerdict(plan, parseWorkSliceId('s99'), ['package.json']);
     expect(verdict.fatal).toBe(false);
     expect(verdict.lines.join('\n')).toMatch(/s99/);
     expect(verdict.unknownSlice).toBe(true);
@@ -365,6 +418,72 @@ describe('PRD 549: a slice names its repository', () => {
       '| s2 | vertuo-apps | the quote screen shows the total | `src/quote/` | — | 1 |',
     );
     expect(sameWaveCollisions(parsePlanSlices(same))).toEqual([
+      { left: 's2', right: 's3', shared: ['src/'], wave: 1 },
+    ]);
+  });
+});
+
+describe('parsePlanSlices — slice ids (PRD 1049)', () => {
+  it('gives each id and blocker as a slice id', () => {
+    const [, second] = parsePlanSlices(PLAN);
+    assertDefined(second, 'the second slice');
+    expectTypeOf(second.id).toEqualTypeOf<WorkSliceId>();
+    expect(second.blockedBy).toEqual(['s1']);
+  });
+
+  it('fails where it reads a malformed id, naming it', () => {
+    expect(() => parsePlanSlices(PLAN.replace('| s2  |', '| S2  |'))).toThrow('This plan\'s slice table names "S2", which is no slice id like s1.');
+    expect(() => parsePlanSlices(PLAN.replace('| s1         |', '| S1         |'))).toThrow('names "S1"');
+  });
+});
+
+const LANDED_PLAN = `# Plan: in two landings
+
+## Slices
+
+| id | slice | territory | blocked by | wave | landing |
+| --- | --- | --- | --- | --- | --- |
+| s1 | the column exists | \`db/migrations/\` | — | 1 | 1 |
+| s2 | the total reads it | \`src/\` | — | 1 | \`2\` |
+| s3 | the screen shows it | \`src/\` | s2 | 2 | 2 |
+
+## Landings
+
+| landing | name | merge when |
+| --- | --- | --- |
+| 1 | expand | — |
+| \`2\` | code | landing 1 is deployed |
+`;
+
+describe('landings: a slice names the landing it reaches the default branch in', () => {
+  it('reads each slice\'s landing from a landing column, backticks stripped', () => {
+    expect(parsePlanSlices(LANDED_PLAN).map((slice) => slice.landing)).toEqual([1, 2, 2]);
+  });
+
+  it('reads landing 1 on every slice of a table without a landing column, and on an empty cell', () => {
+    expect(parsePlanSlices(PLAN).map((slice) => slice.landing)).toEqual([1, 1, 1]);
+    expect(parsePlanSlices(LANDED_PLAN.replace('| 1 | 1 |', '| 1 | — |'))[0]?.landing).toBe(1);
+  });
+
+  it('reads a cell that is no number as NaN, for the plan check to refuse', () => {
+    expect(parsePlanSlices(LANDED_PLAN.replace('| 1 | 1 |', '| 1 | first |'))[0]?.landing).toBeNaN();
+  });
+
+  it('reads the ## Landings rows in order', () => {
+    expect(parsePlanLandings(LANDED_PLAN)).toEqual([
+      { landing: 1, name: 'expand', mergeWhen: '' },
+      { landing: 2, name: 'code', mergeWhen: 'landing 1 is deployed' },
+    ]);
+  });
+
+  it('reads [] for a plan with no ## Landings table', () => {
+    expect(parsePlanLandings(PLAN)).toEqual([]);
+  });
+
+  it('counts a same-wave collision within one landing only', () => {
+    const slices = parsePlanSlices(LANDED_PLAN.replace('| s2 | 2 | 2 |', '| — | 1 | 1 |'));
+    expect(sameWaveCollisions(slices)).toEqual([]);
+    expect(sameWaveCollisions(parsePlanSlices(LANDED_PLAN.replace('| s2 | 2 | 2 |', '| — | 1 | 2 |')))).toEqual([
       { left: 's2', right: 's3', shared: ['src/'], wave: 1 },
     ]);
   });

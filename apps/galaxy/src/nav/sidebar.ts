@@ -1,6 +1,7 @@
 // The app's sidebar (PRD 438): where a person can go from any app page (/app, /prd, /ask,
 // /knowledge). Since PRD 733 it has two groups, then the foot: Dashboard (the boards: Home, your
-// fleet's, the workspace's, and since PRD 612 Engineering's, at /app/engineering), Work (the workspace's
+// fleet's, since PRD 1139 the workspace's loops beside it, at /app/loop, the workspace's, and since PRD 612
+// Engineering's, at /app/engineering), Work (the workspace's
 // work: PRDs, then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), and at
 // the foot one Settings entry, at /app/settings, which lands on Fleets (SETTINGS_LANDING), then Omni's
 // own pages, Docs and Release notes, which leave the app for the public ones. Since issue 653 each
@@ -12,9 +13,10 @@
 // group (the foot has none), the entry, then the page, with the entry's sprite. The query and the hash
 // never count. An entry that counts what waits for the person (PRD 499) carries its count as a badge,
 // none at 0.
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { WaitingCounts } from '../waiting/waiting';
 
-export type SidebarId = 'home' | 'fleet' | 'workspace' | 'engineering' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
+export type SidebarId = 'home' | 'fleet' | 'loop' | 'workspace' | 'engineering' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
 
 /** A page under an entry, shown as a tab on its pages, never as a menu line (PRD 733). */
 export interface SidebarPage {
@@ -51,6 +53,7 @@ export const SIDEBAR: readonly SidebarGroup[] = [
     items: [
       { id: 'home', label: 'Home', path: '/app', sprite: 'menu-home' },
       { id: 'fleet', label: 'Fleet', path: '/app/fleet', sprite: 'menu-fleet' },
+      { id: 'loop', label: 'Loop', path: '/app/loop', sprite: 'menu-loop' },
       { id: 'workspace', label: 'Workspace', path: '/app/workspace', sprite: 'menu-workspace' },
       { id: 'engineering', label: 'Engineering', path: '/app/engineering', sprite: 'menu-engineering' },
     ],
@@ -90,6 +93,7 @@ export const SETTINGS: SidebarItem = {
     { label: 'Fleets', path: SETTINGS_LANDING },
     { label: 'Repositories', path: '/app/settings/repositories' },
     { label: 'Business', path: '/app/settings/business' },
+    { label: 'Products', path: '/app/settings/products' },
     { label: 'Jev', path: '/app/settings/jev' },
   ],
 };
@@ -110,7 +114,7 @@ const ENTRIES: readonly Entry[] = [
   ...(item.pages ?? []).map((page) => ({ item, page, group, path: page.path })),
 ]);
 
-const bare = (pathname: string) => pathname.split(/[?#]/)[0]!.replace(/(.)\/+$/, '$1');
+const bare = (pathname: string) => at(pathname.split(/[?#]/), 0, 'the path').replace(/(.)\/+$/, '$1');
 
 function entryOf(pathname: string | null | undefined): Entry | null {
   if (!pathname) return null;
@@ -147,7 +151,7 @@ export function pageTrail(pathname: string | null | undefined): Trail | null {
   const entry = entryOf(pathname);
   if (!entry) return null;
   const { item, page, group } = entry;
-  const here = bare(pathname!) === entry.path;
+  const here = bare(defined(pathname, 'the path')) === entry.path;
   const last = page ?? item;
   return {
     crumbs: [

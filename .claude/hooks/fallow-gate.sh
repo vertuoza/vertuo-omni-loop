@@ -90,22 +90,40 @@ if [ "$GIT_WRITE" -eq 0 ]; then
   exit 0
 fi
 
-# The audit runs from the project root, where .fallowrc.jsonc and the pinned
-# install live, whatever directory the Bash command itself runs in.
+# The audit runs from the root of the checkout the command runs in (the input's
+# `cwd`), when that checkout carries a .fallowrc.jsonc: a commit in a git
+# worktree is audited against that worktree, not against whatever the project
+# folder has checked out. Otherwise it runs from the project root.
+PROJECT_ROOT=""
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
-  cd "$CLAUDE_PROJECT_DIR"
+  PROJECT_ROOT="$CLAUDE_PROJECT_DIR"
+fi
+CMD_CWD="$(jq -r '.cwd // empty' <<<"$INPUT")"
+AUDIT_ROOT="$PROJECT_ROOT"
+if [ -n "$CMD_CWD" ] && [ -d "$CMD_CWD" ]; then
+  CMD_TOP="$(git -C "$CMD_CWD" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -n "$CMD_TOP" ] && [ -f "$CMD_TOP/.fallowrc.jsonc" ]; then
+    AUDIT_ROOT="$CMD_TOP"
+  fi
+fi
+if [ -n "$AUDIT_ROOT" ]; then
+  cd "$AUDIT_ROOT"
 fi
 
 # A hook keeps its caller's PATH and does not add node_modules/.bin, so the
 # pnpm install pinned in package.json is invisible to `command -v`.
 # The arms below cover the layouts an install can take, in the order they are
 # cheapest to probe (this repository uses pnpm, so vnext's yarn arm is gone).
+# A worktree with no install of its own uses the project root's.
 if command -v fallow >/dev/null 2>&1; then
   RUNNER=(fallow)
   BIN_DESC="$(command -v fallow)"
 elif [ -x ./node_modules/.bin/fallow ]; then
   RUNNER=(./node_modules/.bin/fallow)
   BIN_DESC="./node_modules/.bin/fallow"
+elif [ -n "$PROJECT_ROOT" ] && [ -x "$PROJECT_ROOT/node_modules/.bin/fallow" ]; then
+  RUNNER=("$PROJECT_ROOT/node_modules/.bin/fallow")
+  BIN_DESC="$PROJECT_ROOT/node_modules/.bin/fallow"
 elif command -v npx >/dev/null 2>&1 && VER_PROBE="$(npx --no-install fallow --version 2>/dev/null || true)" && [[ "$VER_PROBE" == fallow* ]]; then
   RUNNER=(npx --no-install fallow)
   BIN_DESC="npx --no-install fallow"

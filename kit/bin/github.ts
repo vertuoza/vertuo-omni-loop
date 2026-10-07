@@ -5,6 +5,11 @@
 import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import type { ExecText } from '../lib/context.ts';
+import { processEnv, withGithubToken } from '../lib/env/read.ts';
+import { z } from 'zod';
+import { checkState, personApproved, type SubPr } from '../lib/flow/merge-gate.ts';
+import { PrNumberSchema } from '../lib/ids.ts';
+import type { IssueNumber, PrNumber } from '../lib/ids.ts';
 import type { CommentClient } from '../lib/outbox/comment.ts';
 import type { Env } from './io.ts';
 import { GhCommentsSchema, GhPullRequestSchema, GhWrittenCommentSchema } from './schema.ts';
@@ -27,7 +32,8 @@ export function ghClient({
 }: {
   owner: string | undefined;
   repo: string | undefined;
-  issue: number;
+  /** An issue, or a pull request: GitHub's issue-comment API takes either. */
+  issue: IssueNumber | PrNumber;
   exec?: ExecText;
   env?: Env | undefined;
 }): CommentClient {
@@ -64,24 +70,23 @@ export function ghClient({
  * `gh` login), else `env` plus `GH_TOKEN` read once from `gh auth token --user <user>`. The token is
  * only ever passed through `env` — never interpolated into an argument or a shell string.
  */
-export function githubEnv(ctx: GithubContext, { exec = execFileSync, env = process.env }: { exec?: ExecText; env?: Env } = {}): Env | undefined {
+export function githubEnv(ctx: GithubContext, { exec = execFileSync, env = processEnv() }: { exec?: ExecText; env?: Env | undefined } = {}): Env | undefined {
   const user = ctx.config.github.user;
   if (!user) return undefined;
-  const token = String(
-    exec('gh', ['auth', 'token', '--user', user], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }),
-  ).trim();
-  return { ...env, GH_TOKEN: token };
+  const token = exec('gh', ['auth', 'token', '--user', user], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  return withGithubToken(env, token);
 }
 
 /**
  * The comment client for one issue or pull request of `repo` (default `ctx.config.repo.slug`) —
- * what `omni comment` and `omni replies` hand to the library.
+ * what `omni comment` and `omni replies` hand to the library. `issue` is an issue's number or a
+ * pull request's: GitHub's issue-comment API takes either.
  */
 export function githubClientFor(
   ctx: GithubContext,
-  { repo = ctx.config.repo.slug, issue, exec = execFileSync, env = process.env }: { repo?: string | null; issue: number; exec?: ExecText; env?: Env },
+  { repo = ctx.config.repo.slug, issue, exec = execFileSync, env = processEnv() }: { repo?: string | null; issue: IssueNumber | PrNumber; exec?: ExecText; env?: Env },
 ): CommentClient {
-  const [owner, name] = String(repo ?? '').split('/');
+  const [owner, name] = (repo ?? '').split('/');
   let resolved: Env | undefined;
   let fetched = false;
   const lazyEnv = () => {
@@ -101,7 +106,7 @@ export function githubClientFor(
 
 /** One pull request, as the harvest reads it. */
 export type PullRequest = {
-  number: number;
+  number: PrNumber;
   url: string;
   merged: boolean;
   mergedAt: string | null;
@@ -118,7 +123,7 @@ export type PullRequest = {
  */
 export function pullRequestFor(
   ctx: GithubContext,
-  { repo = ctx.config.repo.slug, number, exec = execFileSync, env = process.env }: { repo?: string | null; number: number; exec?: ExecText; env?: Env },
+  { repo = ctx.config.repo.slug, number, exec = execFileSync, env = processEnv() }: { repo?: string | null; number: PrNumber; exec?: ExecText; env?: Env },
 ): PullRequest {
   const ghEnv = githubEnv(ctx, { exec, env });
   const data = GhPullRequestSchema.parse(
@@ -134,4 +139,69 @@ export function pullRequestFor(
     base: data.base?.ref ?? '',
     head: data.head?.ref ?? '',
   };
+}
+
+const GhSubPrSchema = z.looseObject({
+  number: PrNumberSchema,
+  state: z.string(),
+  baseRefName: z.string(),
+  headRefName: z.string(),
+  reviews: z.array(z.looseObject({ author: z.looseObject({ login: z.string().optional() }).nullish(), state: z.string().optional() })).nullish(),
+  statusCheckRollup: z
+    .array(z.looseObject({
+      __typename: z.string().optional(),
+      name: z.string().optional(),
+      context: z.string().optional(),
+      status: z.string().optional(),
+      conclusion: z.string().nullish(),
+      state: z.string().optional(),
+    }))
+    .nullish(),
+});
+
+const GhOpenPrsSchema = z.array(z.looseObject({ number: PrNumberSchema, headRefName: z.string() }));
+
+/**
+ * Sub-PR `number` of `repo` (default `ctx.config.repo.slug`), as `omni flow check merge` reads it:
+ * its state, base and head, each check's state, each person who approved, and every path its diff
+ * changes. Two `gh` calls: `pr view` for the facts, `pr diff --name-only` for the paths, so a diff
+ * past `pr view`'s first hundred files is read whole.
+ */
+export function subPrFor(
+  ctx: GithubContext,
+  { repo = ctx.config.repo.slug, number, exec = execFileSync, env = processEnv() }: { repo?: string | null; number: PrNumber; exec?: ExecText; env?: Env },
+): SubPr {
+  const ghEnv = githubEnv(ctx, { exec, env });
+  const options = { encoding: 'utf8' as const, ...(ghEnv ? { env: ghEnv } : {}) };
+  const where = ['--repo', repo ?? ''];
+  const data = GhSubPrSchema.parse(JSON.parse(
+    exec('gh', ['pr', 'view', String(number), ...where, '--json', 'number,state,baseRefName,headRefName,reviews,statusCheckRollup'], options),
+  ));
+  const files = exec('gh', ['pr', 'diff', String(number), ...where, '--name-only'], options)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+  return {
+    number: data.number,
+    state: data.state,
+    base: data.baseRefName,
+    head: data.headRefName,
+    checks: checkState(data.statusCheckRollup ?? []),
+    approvedBy: personApproved(data.reviews ?? []),
+    files,
+  };
+}
+
+/** Every open pull request of `repo` (default `ctx.config.repo.slug`) into `base`, by number and head branch. */
+export function openPullRequestsInto(
+  ctx: GithubContext,
+  { repo = ctx.config.repo.slug, base, exec = execFileSync, env = processEnv() }: { repo?: string | null; base: string; exec?: ExecText; env?: Env },
+): { number: PrNumber; head: string }[] {
+  const ghEnv = githubEnv(ctx, { exec, env });
+  const listed = GhOpenPrsSchema.parse(JSON.parse(exec(
+    'gh',
+    ['pr', 'list', '--repo', repo ?? '', '--base', base, '--state', 'open', '--json', 'number,headRefName', '--limit', '200'],
+    { encoding: 'utf8', ...(ghEnv ? { env: ghEnv } : {}) },
+  )));
+  return listed.map(({ number, headRefName }) => ({ number, head: headRefName }));
 }

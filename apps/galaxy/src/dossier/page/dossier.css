@@ -122,6 +122,27 @@
 .stage-words { margin: 0; overflow-wrap: anywhere; }
 .stage-copy { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .stage-command { font: 13px/1 var(--ask-mono); color: var(--ask-muted); }
+/* Pitch (PRD 859): the button, and under it a small panel of two choices, the command and Copy. */
+.pitch-action { position: relative; display: inline-flex; }
+.pitch-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: min(360px, calc(100vw - 32px));
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 6px;
+  background: var(--ask-surface);
+}
+.pitch-choices { display: flex; gap: 12px; align-items: center; margin: 0; padding: 0; border: 0; }
+.pitch-choices legend { float: left; margin-right: 4px; }
+.pitch-choice { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.pitch-choices:disabled .pitch-choice { cursor: not-allowed; color: var(--ask-muted); }
+.pitch-command { overflow-wrap: anywhere; }
+.pitch-hint { margin: 0; }
 .stage-links {
   list-style: none;
   margin: 0;
@@ -132,6 +153,8 @@
   font-size: 13px;
 }
 .stage-links li + li::before { content: '·'; color: var(--ask-muted); margin-right: 12px; }
+/* When GitHub was last read, under the links (PRD 902, s2), and when it resumes while paused. */
+.github-as-of { margin: 4px 0 0; font-size: 12px; }
 /* The open feature PR's health chip (PRD 790, s2): green-edged when all is well, red on CI red or a
    conflict, grey while CI runs. */
 .care-chip {
@@ -794,3 +817,29 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
   background: var(--ask-sunk);
   border-radius: 8px;
 }
+
+/* ── The Pitch tab (PRD 859, s3): the latest pitch per audience, Customers first, each in its own card —
+   its picker, facts, the slide and the 16:9 player side by side from 900 px (stacked on a phone), its
+   words, then a download per file and Copy GIF link that wrap rather than widen the page. ── */
+
+.pitch-runs { display: grid; gap: 16px; max-width: 1200px; min-width: 0; }
+.pitch-run {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.pitch-run-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.pitch-run-head h2 { margin: 0; font-size: 18px; }
+.pitch-media { display: grid; gap: 12px; min-width: 0; }
+@media (min-width: 900px) { .pitch-media { grid-template-columns: 1fr 1fr; } }
+.pitch-slide, .pitch-video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: var(--ask-sunk); border-radius: 8px; }
+.pitch-words { display: grid; gap: 4px; overflow-wrap: anywhere; }
+.pitch-words p { margin: 0; }
+.pitch-kicker { font: 700 12px/1.4 var(--ask-mono); letter-spacing: 0.08em; color: var(--ask-muted); }
+.pitch-hook { font-weight: 700; font-size: 17px; }
+.pitch-downloads { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pitch-downloads [aria-disabled='true'] { color: var(--ask-muted); cursor: not-allowed; }

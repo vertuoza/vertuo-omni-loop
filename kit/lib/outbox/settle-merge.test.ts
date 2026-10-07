@@ -1,17 +1,19 @@
 import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, assert, describe, expect, it } from 'vitest';
+import { assertDefined } from '../../test/assert.ts';
 import { makeRepo } from '../../test/fixture.ts';
 import { SETTLED_FILE } from './outbox.ts';
 import { adoptItem, parseSettledEntries, renderSettledEntry } from './settle.ts';
 import { MERGED_OVER_RED_BASIS, settleAtMerge } from './settle-merge.ts';
 import { gateResult } from './status.ts';
 import type { Verdict } from './settle.ts';
+import { parsePrd, parseWorkSliceId } from '../ids.ts';
 
 type Repo = ReturnType<typeof makeRepo>;
 
 /** Whether the outbox gate holds PRD 42 open. */
-const gateOk = (r: Repo): boolean => gateResult(42, { ctx: r.ctx } as Parameters<typeof gateResult>[1]).ok;
+const gateOk = (r: Repo): boolean => gateResult(parsePrd(42), { ctx: r.ctx }).ok;
 
 const D = '.omni-loop/delivery';
 const INBOX = `${D}/inbox/0042-widgets`;
@@ -87,7 +89,7 @@ const MEDIUM = itemText({ id: 's2-01-medium-one', rank: 'medium', slice: 's2' })
 
 const repos: Repo[] = [];
 afterEach(() => {
-  while (repos.length) rmSync(repos.pop()!.root, { recursive: true, force: true });
+  for (const repo of repos.splice(0)) rmSync(repo.root, { recursive: true, force: true });
 });
 
 function repo(files: Record<string, string> = {}) {
@@ -110,7 +112,7 @@ describe('settleAtMerge — open items', () => {
       [`${OUTBOX}/s1-02-set-secret.md`]: HUMAN,
       [`${OUTBOX}/s2-01-medium-one.md`]: MEDIUM,
     });
-    const result = settleAtMerge({ ctx: r.ctx, prd: 42, merge: MERGE });
+    const result = settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE });
 
     assert(result.ok);
     expect(result.settledFile).toBe(LEDGER);
@@ -144,19 +146,22 @@ describe('settleAtMerge — open items', () => {
 
   it('keeps each item’s text verbatim in its entry', () => {
     const r = repo({ [`${OUTBOX}/s1-01-high-one.md`]: HIGH });
-    const result = settleAtMerge({ ctx: r.ctx, prd: 42, merge: MERGE });
+    const result = settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE });
     assert(result.ok);
-    const [parsed] = parseSettledEntries(result.text!, r.ctx.markers);
-    expect(parsed!.itemText).toBe(HIGH);
-    expect(parsed!.verdict).toBe('adopted');
-    expect(parsed!.closed).toBe(true);
+    assertDefined(result.text, 'the text');
+    const [parsed] = parseSettledEntries(result.text, r.ctx.markers);
+    assertDefined(parsed, 'the parsed');
+    expect(parsed.itemText).toBe(HIGH);
+    expect(parsed.verdict).toBe('adopted');
+    expect(parsed.closed).toBe(true);
   });
 
   it('starts a fresh ledger with its header when there is none', () => {
     const r = repo({ [`${OUTBOX}/s1-01-high-one.md`]: HIGH });
-    const result = settleAtMerge({ ctx: r.ctx, prd: 42, merge: MERGE });
+    const result = settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE });
     assert(result.ok);
-    expect(result.text!.startsWith('# Settled outbox items — PRD 42\n')).toBe(true);
+    assertDefined(result.text, 'the text');
+    expect(result.text.startsWith('# Settled outbox items — PRD 42\n')).toBe(true);
   });
 
   it('appends to an existing ledger, leaving every byte already in it untouched', () => {
@@ -165,16 +170,17 @@ describe('settleAtMerge — open items', () => {
     assert(adopted.ok);
     const before = r.read(LEDGER);
 
-    const result = settleAtMerge({ ctx: r.ctx, prd: 42, merge: MERGE });
+    const result = settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE });
     assert(result.ok);
-    expect(result.text!.startsWith(before)).toBe(true);
-    expect(result.text!.slice(before.length)).toBe(result.append);
+    assertDefined(result.text, 'the text');
+    expect(result.text.startsWith(before)).toBe(true);
+    expect(result.text.slice(before.length)).toBe(result.append);
     expect(result.entries.map((e) => e.id)).toEqual(['s1-01-high-one']);
   });
 
   it('touches no file', () => {
     const r = repo({ [`${OUTBOX}/s1-01-high-one.md`]: HIGH });
-    settleAtMerge({ ctx: r.ctx, prd: 42, merge: MERGE });
+    settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE });
     expect(existsSync(join(r.root, LEDGER))).toBe(false);
     expect(existsSync(join(r.root, `${OUTBOX}/s1-01-high-one.md`))).toBe(true);
   });
@@ -185,40 +191,41 @@ describe('settleAtMerge — open items', () => {
       [`${OUTBOX}/s1-02-set-secret.md`]: HUMAN,
     });
     expect(gateOk(r)).toBe(false);
-    apply(r, settleAtMerge({ ctx: r.ctx, prd: 42, merge: MERGE }));
+    apply(r, settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE }));
     expect(gateOk(r)).toBe(true);
   });
 
   it('accepts the merger with or without a leading @', () => {
     const r = repo({ [`${OUTBOX}/s1-01-high-one.md`]: HIGH });
-    const result = settleAtMerge({ ctx: r.ctx, prd: 42, merge: { ...MERGE, by: '@octocat' } });
+    const result = settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: { ...MERGE, by: '@octocat' } });
     assert(result.ok);
-    expect(result.entries[0]!.entry).toContain('- Approved by: @octocat\n');
+    assertDefined(result.entries[0], 'result.entries[0]');
+    expect(result.entries[0].entry).toContain('- Approved by: @octocat\n');
   });
 
   it('refuses, writing nothing, an open item that does not parse', () => {
     const r = repo({ [`${OUTBOX}/s1-01-broken.md`]: 'no front matter here\n' });
-    const result = settleAtMerge({ ctx: r.ctx, prd: 42, merge: MERGE });
+    const result = settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE });
     assert(!result.ok);
     expect(result.errors.join('\n')).toContain('s1-01-broken.md');
   });
 
   it('refuses a malformed merge', () => {
     const r = repo();
-    const result = settleAtMerge({ ctx: r.ctx, prd: 42, merge: { by: '', at: 'yesterday', pr: 0 } });
+    const result = settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: { by: '', at: 'yesterday', pr: 0 } });
     assert(!result.ok);
     expect(result.errors.length).toBeGreaterThan(0);
   });
 
   it('has nothing to settle for a PRD with no open item and no ledger', () => {
     const r = repo();
-    const result = settleAtMerge({ ctx: r.ctx, prd: 42, merge: MERGE });
+    const result = settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE });
     expect(result).toMatchObject({ ok: true, entries: [], deletes: [], text: null, append: '' });
   });
 
   it('refuses a PRD with no folder', () => {
     const r = repo();
-    const result = settleAtMerge({ ctx: r.ctx, prd: 99, merge: MERGE });
+    const result = settleAtMerge({ ctx: r.ctx, prd: parsePrd(99), merge: MERGE });
     assert(!result.ok);
     expect(result.errors[0]).toContain('99');
   });
@@ -232,7 +239,7 @@ function settledEntry(r: Repo, text: string, verdict: Verdict, closed?: string) 
       rank: 'high',
       bearsOn: 'none',
       raised: '2026-09-24',
-      slice: 's1',
+      slice: parseWorkSliceId('s1'),
       wave: 1,
     },
     itemText: text,
@@ -248,21 +255,22 @@ function settledEntry(r: Repo, text: string, verdict: Verdict, closed?: string) 
   });
 }
 
-function ledgerWith(r: Repo, ...entries: string[]) {
+function ledgerWith(...entries: string[]) {
   return ['# Settled outbox items — PRD 42', '', ...entries].join('\n');
 }
 
 describe('settleAtMerge — drift never reworked', () => {
   it('appends an adopted entry that wins, and the gate reads green on the result', () => {
     const r = repo();
-    r.write(LEDGER, ledgerWith(r, settledEntry(r, HIGH, 'drifted')));
+    r.write(LEDGER, ledgerWith(settledEntry(r, HIGH, 'drifted')));
     expect(gateOk(r)).toBe(false);
 
-    const result = settleAtMerge({ ctx: r.ctx, prd: 42, merge: MERGE });
+    const result = settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE });
     assert(result.ok);
     expect(result.entries.map((e) => [e.id, e.from])).toEqual([['s1-01-high-one', 'drift']]);
     expect(result.deletes).toEqual([]);
-    const entry = result.entries[0]!;
+    assertDefined(result.entries[0], 'result.entries[0]');
+    const entry = result.entries[0];
     expect(entry.entry).toContain('- Verdict: adopted\n');
     expect(entry.entry).toContain('- Approved by: @octocat\n');
     expect(entry.entry).toContain('- Closed: yes — merged without rework, by @octocat\n');
@@ -271,8 +279,9 @@ describe('settleAtMerge — drift never reworked', () => {
 
     apply(r, result);
     const [latest] = parseSettledEntries(r.read(LEDGER), r.ctx.markers);
-    expect(latest!.verdict).toBe('adopted');
-    expect(latest!.itemText).toBe(HIGH);
+    assertDefined(latest, 'the latest');
+    expect(latest.verdict).toBe('adopted');
+    expect(latest.itemText).toBe(HIGH);
     expect(gateOk(r)).toBe(true);
     // The answer that asked for something else stays in the ledger, above the adoption.
     expect(r.read(LEDGER)).toContain('No, change it.');
@@ -283,16 +292,15 @@ describe('settleAtMerge — drift never reworked', () => {
     r.write(
       LEDGER,
       ledgerWith(
-        r,
         settledEntry(r, HIGH, 'drifted', 'yes — reworked by #50, the sub-pull request that brought the build back in line'),
       ),
     );
-    const result = settleAtMerge({ ctx: r.ctx, prd: 42, merge: MERGE });
+    const result = settleAtMerge({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE });
     expect(result).toMatchObject({ ok: true, entries: [], deletes: [], text: null });
 
     const adopted = repo();
     adoptItem({ ctx: adopted.ctx, itemText: MEDIUM });
-    const again = settleAtMerge({ ctx: adopted.ctx, prd: 42, merge: MERGE });
+    const again = settleAtMerge({ ctx: adopted.ctx, prd: parsePrd(42), merge: MERGE });
     assert(again.ok);
     expect(again.entries).toEqual([]);
   });

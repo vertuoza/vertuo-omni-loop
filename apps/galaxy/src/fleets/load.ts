@@ -24,7 +24,9 @@ async function ownerOf(db: SupabaseClient<Database>, workspace: string): Promise
   try {
     const { data, error } = await db.rpc('is_owner', { workspace });
     if (error) throw error;
-    return data === true;
+    // The answer as it came, unparsed: only a true makes an owner.
+    const owner: unknown = data;
+    return owner === true;
   } catch (err) {
     console.error(`fleets: your role could not be read (${why(err)})`);
     return false;

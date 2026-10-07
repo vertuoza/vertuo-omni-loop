@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CONFIG_FILE } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { foldersLayout, parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { readBaseConfig } from '../outbox-check/github.ts';
 import { listFolder, readFiles, readPull } from './github.ts';
 import type { Config, FeaturePull, Octokit, Pull, PrdFacts } from './retro.types.ts';
@@ -21,14 +22,15 @@ type Repo = { owner: string; repo: string };
 
 export async function qualify(
   octokit: Octokit,
-  { owner, repo, prNumber, mergeSha }: Repo & { prNumber: number; mergeSha: string },
+  { owner, repo, prNumber, mergeSha }: Repo & { prNumber: PrNumber; mergeSha: string },
 ): Promise<Qualified> {
   const read = await readPull(octokit, { owner, repo, prNumber });
   if (!read.merged) return { skip: `#${prNumber} was closed, not merged.`, pr: read };
   const pr: FeaturePull = Object.assign(read, { mergeSha });
 
   const { config, error } = await configAt(octokit, { owner, repo, sha: mergeSha });
-  if (error) return { skip: error.message.split('\n')[0] ?? '', pr };
+  // A config that cannot be read is a retro that could not run (#1151): `onFailure` says so on the PR.
+  if (error) throw error;
   if (!config) return { skip: `No \`${CONFIG_FILE}\` at the merge ${mergeSha}.`, pr };
 
   const { defaultBranch } = config.repo;
@@ -83,7 +85,8 @@ export function topicOf(headRef: string, featureTemplate: string): string | null
 async function configAt(octokit: Octokit, { owner, repo, sha }: Repo & { sha: string }): Promise<{ config: Config | null; error: Error | null }> {
   const dest = mkdtempSync(join(tmpdir(), 'omni-retro-config-'));
   try {
-    return await readBaseConfig(octokit, { owner, repo, baseSha: sha, dest });
+    // Keys this App does not know yet are left out: the merge may carry a newer kit than this deploy (#1151).
+    return await readBaseConfig(octokit, { owner, repo, baseSha: sha, dest, ignoreUnknownKeys: true });
   } finally {
     rmSync(dest, { recursive: true, force: true });
   }
@@ -93,7 +96,7 @@ async function configAt(octokit: Octokit, { owner, repo, sha }: Repo & { sha: st
 async function prdFolder(
   octokit: Octokit,
   { owner, repo, sha, dirs, topic }: Repo & { sha: string; dirs: Record<PrdFacts['state'], string>; topic: string },
-): Promise<{ state: PrdFacts['state']; name: string; prd: number } | null> {
+): Promise<{ state: PrdFacts['state']; name: string; prd: PrdNumber } | null> {
   for (const state of ['shipped', 'inbox'] as const) {
     const entries = (await listFolder(octokit, { owner, repo, ref: sha, path: dirs[state] })) ?? [];
     for (const entry of entries) {

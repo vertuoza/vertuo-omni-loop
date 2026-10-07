@@ -11,39 +11,31 @@
 //
 // Each finding's evidence links the red runs; a red run whose log was read also carries its last
 // lines as the evidence item's `excerpt`, which `narrate` sends to the model and `render` leaves out.
+import type { SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { LIMITS, THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import { cleanLog, readTestLog, tailOf } from './ci-logs.ts';
+import { runJobs } from './jobs.ts';
 import type { Counts, Reporter } from './ci-logs.ts';
-import type { Evidence, Kind, RetroPrd, RetroPull } from './index.ts';
-import { JobsPageSchema, WorkflowRunsPageSchema } from './schema.ts';
+import type { Evidence, GatherScope, Kind, RetroPrd, RetroPull } from './index.ts';
+import { WorkflowRunsPageSchema } from './schema.ts';
 import type { Job, WorkflowRun } from './schema.ts';
+import { CiRecordsSchema, type JobRecordSchema } from './records.ts';
+import type { z } from 'zod';
 import { sliceOf } from './slice-of.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 
 /** One job of one run, as the kind keeps it. */
-type JobRecord = {
-  id: number;
-  run: number;
-  workflow: string | null;
-  check: string;
-  slice: string;
-  sha: string | null | undefined;
-  attempt: number;
-  status: string | null | undefined;
-  conclusion: string | null;
-  url: string | null;
-  completedAt: string | null;
-};
+type JobRecord = z.infer<typeof JobRecordSchema>;
 
-type Unread = { slice: string; run?: number; status: number };
-type Log = { tail: string | null; status?: number };
-type Records = { slices: string[]; unread: Unread[]; jobs: JobRecord[]; logs: Record<string, Log | undefined> };
+type Records = z.infer<typeof CiRecordsSchema>;
+type Unread = Records['unread'][number];
+type Log = NonNullable<Records['logs'][string]>;
 
 type RedRun = {
   id: number;
   check: string;
-  slice: string;
+  slice: SliceId;
   commit: string;
   attempt: number;
   url: string | null;
@@ -54,7 +46,7 @@ type RedRun = {
   excerpt?: string;
 };
 
-type Flip = { commit: string; slice: string; red: JobRecord; green: JobRecord };
+type Flip = { commit: string; slice: SliceId; red: JobRecord; green: JobRecord };
 type Check = { check: string; runs: number; red: number; redCommits: string[]; redSlices: string[]; flips: Flip[] };
 type Test = { test: string; runs: number; checks: string[]; slices: string[] };
 
@@ -62,7 +54,7 @@ type Facts = {
   slices: string[];
   unread: Unread[];
   totals: { runs: number; red: number; checks: number; commits: number; slices: number };
-  checks: (Omit<Check, 'flips'> & { redThenGreen: { commit: string; slice: string }[] })[];
+  checks: (Omit<Check, 'flips'> & { redThenGreen: { commit: string; slice: SliceId }[] })[];
   redRuns: RedRun[];
   tests: Test[];
 };
@@ -71,7 +63,6 @@ type Facts = {
 type Read<T> = { value: T; status: null } | { value: null; status: number };
 
 const RUNS = 'GET /repos/{owner}/{repo}/actions/runs';
-const JOBS = 'GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs';
 const LOGS = 'GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs';
 
 /** How many runs' jobs, or logs, are read at once. */
@@ -87,16 +78,17 @@ const COUNT_ORDER: readonly string[] = Object.freeze(['failed', 'errors', 'flaky
 
 export const ci: Kind<Records | null, Facts> = Object.freeze({
   id: 'ci',
+  records: CiRecordsSchema.nullable(),
   section: 'Checks',
   runs: Object.freeze(['merge'] as const),
 
-  async gather(octokit, { owner, repo, prd, config, pulls }) {
+  async gather(octokit, { owner, repo, prd, config, pulls }: GatherScope) {
     const branches = sliceBranches(pulls ?? [], prd, config);
     if (branches.length === 0) return null;
 
-    const slices: string[] = [];
+    const slices: SliceId[] = [];
     const unread: Unread[] = [];
-    const runs: { run: WorkflowRun; slice: string }[] = [];
+    const runs: { run: WorkflowRun; slice: SliceId }[] = [];
     for (const { slice, branch } of branches) {
       const read = await readOrRefused(() =>
         paginate((page: number) =>
@@ -112,13 +104,7 @@ export const ci: Kind<Records | null, Facts> = Object.freeze({
     }
 
     const jobsOfRuns = await inParallel(runs, async ({ run, slice }) => {
-      const read = await readOrRefused(() =>
-        paginate((page: number) =>
-          octokit
-            .request(JOBS, { owner, repo, run_id: run.id, filter: 'all', per_page: PER_PAGE, page })
-            .then(({ data }) => JobsPageSchema.parse(data).jobs ?? []),
-        ),
-      );
+      const read = await readOrRefused(() => runJobs(octokit, { owner, repo, runId: run.id, filter: 'all' }));
       if (read.status) unread.push({ slice, run: run.id, status: read.status });
       return (read.value ?? []).map((job: Job) => jobRecord(job, run, slice));
     });
@@ -136,8 +122,8 @@ export const ci: Kind<Records | null, Facts> = Object.freeze({
 
   detect(records) {
     if (!records) return { facts: null, findings: [] };
-    const logs = records.logs ?? {};
-    const jobs = uniqueBy(records.jobs ?? [], (job) => job.id)
+    const { logs } = records;
+    const jobs = uniqueBy(records.jobs, (job) => job.id)
       .filter((job) => job.status === 'completed' && (RED.has(job.conclusion) || GREEN.has(job.conclusion)))
       .sort((a, b) => (a.completedAt ?? '').localeCompare(b.completedAt ?? '') || a.id - b.id);
 
@@ -146,8 +132,8 @@ export const ci: Kind<Records | null, Facts> = Object.freeze({
     const tests = testsOf(redRuns);
 
     const facts: Facts = {
-      slices: records.slices ?? [],
-      unread: records.unread ?? [],
+      slices: records.slices,
+      unread: records.unread,
       totals: {
         runs: jobs.length,
         red: redRuns.length,
@@ -309,7 +295,7 @@ function testsOf(redRuns: readonly RedRun[]): Test[] {
   return [...byName.values()].sort((a, b) => b.runs - a.runs);
 }
 
-function jobRecord(job: Job, run: WorkflowRun, slice: string): JobRecord {
+function jobRecord(job: Job, run: WorkflowRun, slice: SliceId): JobRecord {
   return {
     id: job.id,
     run: job.run_id ?? run.id,
@@ -326,7 +312,7 @@ function jobRecord(job: Job, run: WorkflowRun, slice: string): JobRecord {
 }
 
 /** A job, or a red run, as a label names it. */
-type RunLike = { check: string; slice: string; attempt: number; commit?: string; sha?: string | null | undefined };
+type RunLike = { check: string; slice: SliceId; attempt: number; commit?: string; sha?: string | null | undefined };
 
 /** `fn()`'s value, or the status GitHub answered when it will not let the app read it; anything else is thrown, so Inngest retries the step. */
 async function readOrRefused<T>(fn: () => Promise<T>): Promise<Read<T>> {
@@ -341,7 +327,7 @@ async function readOrRefused<T>(fn: () => Promise<T>): Promise<Read<T>> {
 
 /** `fn` over `items`, at most `PARALLEL_READS` at a time, the results in the items' order. */
 async function inParallel<T, R>(items: readonly T[], fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length);
+  const results = new Array<R>(items.length);
   // One queue the workers share: each takes the next item the moment it is free.
   const queue = items.entries();
   const worker = async () => {
@@ -360,10 +346,10 @@ function asText(data: unknown): string {
 }
 
 /** Each slice branch the pull requests into the feature branch came from, once, with its slice id. */
-function sliceBranches(pulls: readonly RetroPull[], prd: RetroPrd, config: Config): { slice: string; branch: string }[] {
+function sliceBranches(pulls: readonly RetroPull[], prd: RetroPrd, config: Config): { slice: SliceId; branch: string }[] {
   if (pulls.length === 0) return [];
   const template = config.branches.slice.replace('{topic}', prd.topic);
-  const branches: { slice: string; branch: string }[] = [];
+  const branches: { slice: SliceId; branch: string }[] = [];
   for (const pull of pulls) {
     const slice = sliceOf(pull.headRef, template);
     if (slice !== null && !branches.some((known) => known.branch === pull.headRef)) branches.push({ slice, branch: pull.headRef });
@@ -397,7 +383,7 @@ function leafOf(test: string): string | undefined {
 }
 
 function short(sha: string | null | undefined): string {
-  return String(sha ?? '').slice(0, 7);
+  return (sha ?? '').slice(0, 7);
 }
 
 function count(n: number, noun: string): string {
@@ -405,11 +391,11 @@ function count(n: number, noun: string): string {
 }
 
 function cell(text: string): string {
-  return String(text).replaceAll('|', '\\|');
+  return text.replaceAll('|', '\\|');
 }
 
-function uniqueBy<T, K>(items: readonly T[], key: (item: T) => K): T[] {
-  const seen = new Set<K>();
+function uniqueBy<T>(items: readonly T[], key: (item: T) => unknown): T[] {
+  const seen = new Set<unknown>();
   return items.filter((item) => !seen.has(key(item)) && seen.add(key(item)));
 }
 

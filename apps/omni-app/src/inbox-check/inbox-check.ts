@@ -14,7 +14,8 @@
 //
 // It listens to the outbox check's event, so every pull request action that re-evaluates the outbox
 // check re-evaluates this one, and to its own event, which the webhook sends for a re-run of an inbox
-// check run. Debounced per repository and pull request, 3 retries, like the outbox check.
+// check run. Debounced per repository and pull request, 3 retries, like the outbox check. The app
+// serves it with the live canon gate, bound to the app's environment (../functions.ts).
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,13 +23,13 @@ import { NonRetriableError, type Inngest } from 'inngest';
 import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { domainsDir } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
-import { CheckRequestDataSchema, inngest, INBOX_CHECK_EVENT, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { CheckRequestDataSchema, INBOX_CHECK_EVENT, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
-import { installationOctokit, notRetriedPastBound, onFailedRun } from '../outbox-check/outbox-check.ts';
+import { notRetriedPastBound, onFailedRun } from '../outbox-check/outbox-check.ts';
 import { readBaseConfig, readPull, type GitHubClient } from '../outbox-check/github.ts';
 import { publish } from '../publish/publish.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
-import { canonFromEnv } from '../canon/live.ts';
 import { evaluateInbox, inboxPrd, phase0Topic, type CanonGrader, type InboxVerdict } from './evaluate-inbox.ts';
 import { canonActions } from './canon-actions.ts';
 import { addCheckActions, compareFacts, completeInboxAsFailure, readIssue, startInboxCheck } from './github.ts';
@@ -106,7 +107,7 @@ export function createInboxCheck({ client, octokitFor, canon = null }: { client:
  */
 export async function phase0CheckName(
   octokit: GitHubClient,
-  { owner, repo, prNumber }: { owner: string; repo: string; prNumber: number },
+  { owner, repo, prNumber }: { owner: string; repo: string; prNumber: PrNumber },
 ): Promise<string | null> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const folder = mkdtempSync(join(tmpdir(), 'omni-inbox-name-'));
@@ -122,7 +123,7 @@ export async function phase0CheckName(
 /** The step "evaluate": the base config, the head's folders, the compare and the PRD issue, graded. */
 async function evaluateAt(
   octokit: GitHubClient,
-  { owner, repo, prNumber, headSha, canon }: { owner: string; repo: string; prNumber: number; headSha: string; canon: CanonGrader | null },
+  { owner, repo, prNumber, headSha, canon }: { owner: string; repo: string; prNumber: PrNumber; headSha: string; canon: CanonGrader | null },
 ): Promise<InboxVerdict | null> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const base = mkdtempSync(join(tmpdir(), 'omni-inbox-base-'));
@@ -167,5 +168,3 @@ export function createInboxFailureHandler({ octokitFor }: { octokitFor: OctokitF
     return { checkRunIds, name, reason };
   });
 }
-
-export const inboxCheck = createInboxCheck({ client: inngest, octokitFor: installationOctokit, canon: canonFromEnv() });

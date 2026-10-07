@@ -32,6 +32,7 @@ import {
   ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, dossierReader, dossierStore, DossierStoreError, isArtifactKind, isWorkKind, KIND_ARTIFACTS, TITLE_MAX,
   WORK_KINDS, type DossierArtifact, type WorkKind,
 } from './store';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The largest push: three artifacts of 512 KiB and their JSON (a visual fix's page and rounds together). */
 export const MAX_PUSH_BYTES = 2 * 1024 * 1024;
@@ -52,7 +53,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const PRD_MAX = 2 ** 31 - 1;
 /** A PRD's number: a whole number from 1 to the database's largest integer. */
-const isPrdNumber = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= PRD_MAX;
+function isPrdNumber(value: unknown): value is PrdNumber {
+  const parsed = PrdNumberSchema.safeParse(value);
+  return parsed.success && parsed.data <= PRD_MAX;
+}
 
 const reply = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 const refuse = (status: number, error: string) => reply(status, { error });
@@ -120,10 +124,10 @@ function titleOf(value: unknown): string | null {
 const repoOf = (value: unknown): string | null => (typeof value === 'string' && value.length <= 200 && REPO.test(value) ? value : null);
 
 /** A PRD's number as a query sends it: digits only, 1 to 2³¹−1; or null. */
-const prdOf = (value: string | null): number | null => {
+const prdOf = (value: string | null): PrdNumber | null => {
   if (value === null || !/^\d{1,10}$/.test(value)) return null;
   const prd = Number(value);
-  return prd >= 1 && prd <= PRD_MAX ? prd : null;
+  return isPrdNumber(prd) ? prd : null;
 };
 
 /** Where PRD n of a repository lives: its dossier's id and link, as the caller may read it. */

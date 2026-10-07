@@ -33,10 +33,10 @@ const SECTIONS = {
 };
 
 /** A `bug.md`, built from `SECTIONS` with any section replaced (a string) or left out (`null`). */
-function record(overrides = {}) {
+function record(overrides: Record<string, string | null> = {}) {
   const sections = { ...SECTIONS, ...overrides };
   const parts = ['# Bug 12: saving twice duplicates the row', ''];
-  for (const [name, body] of Object.entries(sections)) {
+  for (const [name, body] of Object.entries<string | null>(sections)) {
     if (body === null) continue;
     parts.push(`## ${name}`, '', body, '');
   }
@@ -141,12 +141,12 @@ describe('omni bug', () => {
     expect(await onlyFailure(root, base)).toBe(`- ${RECORD}: missing.`);
   });
 
-  it.each(['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'])('is not ok when the %s section is missing', async (name: any) => {
+  it.each(['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'])('is not ok when the %s section is missing', async (name: string) => {
     const { root, base } = fixBranch({ bug: record({ [name]: null }) });
     expect(await onlyFailure(root, base)).toBe(`- ${RECORD}: no "## ${name}" section.`);
   });
 
-  it.each(['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'])('is not ok when the %s section is empty', async (name: any) => {
+  it.each(['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'])('is not ok when the %s section is empty', async (name: string) => {
     const { root, base } = fixBranch({ bug: record({ [name]: '' }) });
     expect(await onlyFailure(root, base)).toBe(`- ${RECORD}: the "## ${name}" section is empty.`);
   });
@@ -227,5 +227,135 @@ describe('omni bug', () => {
     const root = mkdtempSync(join(tmpdir(), 'omni-bare-'));
     const s = io();
     expect(await main(['bug', String(ISSUE)], { cwd: root, ...s })).toBe(2);
+  });
+});
+
+const PLAN_CONFIG = [
+  'kit: 1',
+  'repo:',
+  '  slug: acme/plan',
+  'plan:',
+  '  targets:',
+  '    - repo: acme/backend',
+  '      role: back-end',
+  '      knowledge: own',
+  '    - repo: acme/frontend',
+  '      role: front-end',
+  '      knowledge: none',
+  '',
+].join('\n');
+
+const FIXES_HEADER = ['| order | repository | pull request | what changes |', '| --- | --- | --- | --- |'];
+const BACKEND_ROW = '| 1 | backend | acme/backend#41 | restore the total field |';
+const FRONTEND_ROW = '| 2 | frontend | https://github.com/acme/frontend/pull/7 | read the total again |';
+
+/** A multi-target record (PRD 1118): `## Fixes` and one line per target, any section replaced or left out. */
+function multiRecord(rows: string[] = [BACKEND_ROW, FRONTEND_ROW], overrides: Record<string, string | null> = {}) {
+  return record({
+    Reproduction: [
+      '- **backend:** `tests/TotalTest.php` — red: Failed asserting that null is 120',
+      '- **frontend:** CI run https://github.com/acme/frontend/actions/runs/9 — red: total is undefined',
+    ].join('\n'),
+    Guard: ['- **backend:** none — the reproduction is the guard', '- **frontend:** a contract test on the total'].join('\n'),
+    Mutation: ['- **backend:** Mutation: not run in a target', '- **frontend:** Mutation: not run in a target'].join('\n'),
+    Fixes: [...FIXES_HEADER, ...rows].join('\n'),
+    ...overrides,
+  });
+}
+
+/** A plan repository's record branch: only bug.md, committed, no reproduction file here. */
+function recordBranch(bug = multiRecord(), configText = PLAN_CONFIG) {
+  const repo = setup(configText);
+  repo.write(RECORD, bug);
+  commit(repo.root, 'docs(delivery): the record of bug #12 across the targets (#12)');
+  return repo;
+}
+
+/** Runs `omni bug` and expects `not ok`, exit 1; returns every failure line. */
+async function allFailures(root: string, base: string) {
+  const { code, out } = await run(root, base);
+  expect(code).toBe(1);
+  expect(out).toMatch(/^not ok$/m);
+  return failures(out);
+}
+
+describe('omni bug, a record with ## Fixes (PRD 1118)', () => {
+  it('is ok for rows in order 1..k naming plan.targets repositories and their PRs, one line per target, no reproduction on the branch', async () => {
+    const { root, base } = recordBranch();
+    const { code, out } = await run(root, base);
+    expect(out).toMatch(/^ok$/m);
+    expect(code).toBe(0);
+  });
+
+  it('reads a row naming the repository by its full slug and its PR as #n, and a line keyed by the slug', async () => {
+    const bug = multiRecord(['| 1 | `acme/backend` | #41 | restore the total |'], {
+      Reproduction: '- **acme/backend:** `tests/TotalTest.php` — red: null is 120',
+      Guard: '- **acme/backend:** none',
+    });
+    const { root, base } = recordBranch(bug);
+    expect((await run(root, base)).code).toBe(0);
+  });
+
+  it('is not ok, naming the row, for a repository not in plan.targets', async () => {
+    const { root, base } = recordBranch(multiRecord([BACKEND_ROW, '| 2 | mobile | acme/mobile#3 | x |']));
+    expect(await allFailures(root, base)).toEqual([`- ${RECORD}: Fixes row 2: mobile is not a repository of plan.targets.`]);
+  });
+
+  it('is not ok, naming the row, for a row without a pull request', async () => {
+    const { root, base } = recordBranch(multiRecord([BACKEND_ROW, '| 2 | frontend | — | read the total |']));
+    expect(await allFailures(root, base)).toEqual([`- ${RECORD}: Fixes row 2 (acme/frontend): no pull request.`]);
+  });
+
+  it('is not ok, naming the row, for a pull request in another repository', async () => {
+    const { root, base } = recordBranch(multiRecord([BACKEND_ROW, '| 2 | frontend | acme/backend#42 | x |']));
+    expect(await allFailures(root, base)).toEqual([
+      `- ${RECORD}: Fixes row 2 (acme/frontend): the pull request acme/backend#42 is not in acme/frontend.`,
+    ]);
+  });
+
+  it('is not ok, naming the row, for a gap in the order', async () => {
+    const { root, base } = recordBranch(multiRecord([BACKEND_ROW, FRONTEND_ROW.replace('| 2 |', '| 3 |')]));
+    expect(await allFailures(root, base)).toEqual([`- ${RECORD}: Fixes row 2 (acme/frontend): order 3, where 2 is next.`]);
+  });
+
+  it('is not ok, naming the row, for a repeat in the order', async () => {
+    const { root, base } = recordBranch(multiRecord([BACKEND_ROW, FRONTEND_ROW.replace('| 2 |', '| 1 |')]));
+    expect(await allFailures(root, base)).toEqual([`- ${RECORD}: Fixes row 2 (acme/frontend): order 1 repeats an earlier row; 2 is next.`]);
+  });
+
+  it('is not ok, naming the row, for an order that is not a number', async () => {
+    const { root, base } = recordBranch(multiRecord([BACKEND_ROW.replace('| 1 |', '| first |'), FRONTEND_ROW]));
+    expect(await allFailures(root, base)).toEqual([`- ${RECORD}: Fixes row 1 (acme/backend): order "first", where 1 is next.`]);
+  });
+
+  it.each([
+    ['Reproduction', '- **backend:** `tests/TotalTest.php` — red: null is 120'],
+    ['Guard', '- **backend:** none'],
+  ])('is not ok, naming the row, for a target missing its %s line', async (name: string, lines: string) => {
+    const { root, base } = recordBranch(multiRecord(undefined, { [name]: lines }));
+    expect(await allFailures(root, base)).toEqual([`- ${RECORD}: Fixes row 2 (acme/frontend): the ${name} has no **frontend:** line.`]);
+  });
+
+  it('is not ok for an empty per-target line', async () => {
+    const { root, base } = recordBranch(multiRecord(undefined, { Guard: '- **backend:** none\n- **frontend:**' }));
+    expect(await allFailures(root, base)).toEqual([`- ${RECORD}: Fixes row 2 (acme/frontend): the Guard has no **frontend:** line.`]);
+  });
+
+  it('is not ok for a Fixes section with no rows', async () => {
+    const { root, base } = recordBranch(multiRecord([]));
+    expect(await allFailures(root, base)).toEqual([`- ${RECORD}: the "## Fixes" table has no rows.`]);
+  });
+
+  it('is not ok, naming every row, in a repository without a plan section', async () => {
+    const { root, base } = recordBranch(multiRecord(), CONFIG_TEXT);
+    expect(await allFailures(root, base)).toEqual([
+      `- ${RECORD}: Fixes row 1: backend is not a repository of plan.targets.`,
+      `- ${RECORD}: Fixes row 2: frontend is not a repository of plan.targets.`,
+    ]);
+  });
+
+  it('still grades the five sections of a multi-target record', async () => {
+    const { root, base } = recordBranch(multiRecord(undefined, { Fix: null }));
+    expect(await allFailures(root, base)).toEqual([`- ${RECORD}: no "## Fix" section.`]);
   });
 });

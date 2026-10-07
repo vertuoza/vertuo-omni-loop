@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { LINGO } from '../lingo';
+import { sure } from '../../arcade/test/sure';
 import { heading, html, text } from './render';
 import { KNOWLEDGE, LOOP, MOVERS, StrategyGuide } from './StrategyGuide';
 
@@ -13,7 +14,7 @@ const css = readFileSync(new URL('./StrategyGuide.css', import.meta.url), 'utf8'
 const sidebar = (markup: string) => {
   const aside = markup.match(/<aside\b[^>]*class="home-lingo"[^>]*>([\s\S]*?)<\/aside>/);
   if (!aside) throw new Error('no LOOP LINGO sidebar');
-  return aside[1]!;
+  return sure(aside[1], 'the sidebar\'s content');
 };
 
 /** The SVG drawings of the map: the wide one and the one-column one. */
@@ -89,14 +90,14 @@ describe('the strategy guide', () => {
   it('names YOU, AGENTS and OMNI APP in a legend', () => {
     const legend = markup.match(/<ul class="home-loop-legend"[^>]*>([\s\S]*?)<\/ul>/);
     expect(legend).not.toBeNull();
-    expect([...legend![1]!.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => text(li!).split(':')[0]!.trim()))
+    expect([...sure(sure(legend, 'the legend')[1], 'the legend\'s items').matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => sure(text(sure(li, 'a legend item')).split(':')[0], 'a mover').trim()))
       .toEqual(['YOU', 'AGENTS', 'OMNI APP']);
   });
 
   it('lists the stages and their lines for a screen reader, the KNOWLEDGE bonus last', () => {
     const list = markup.match(/<ol class="home-loop-list">([\s\S]*?)<\/ol>/);
     expect(list).not.toBeNull();
-    const items = [...list![1]!.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => text(li!));
+    const items = [...sure(sure(list, 'the list')[1], 'the list\'s items').matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => text(sure(li, 'a list item')));
     expect(items).toEqual([
       ...LOOP.map((s) => `${s.level} ${s.name}: ${s.line}`),
       `${KNOWLEDGE.level} ${KNOWLEDGE.name}: ${KNOWLEDGE.line}`,
@@ -134,9 +135,9 @@ describe('the strategy guide', () => {
 
   it('holds a LOOP LINGO sidebar: its h3, then the terms HOME still says, in the loop\'s order', () => {
     const aside = sidebar(markup);
-    expect(text(aside.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/)![1]!)).toBe('Loop lingo');
-    const terms = [...aside.matchAll(/<dt>([\s\S]*?)<\/dt>/g)].map(([, t]) => text(t!));
-    const glosses = [...aside.matchAll(/<dd>([\s\S]*?)<\/dd>/g)].map(([, d]) => text(d!));
+    expect(text(sure(sure(aside.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/), 'the sidebar\'s h3')[1], 'the h3\'s text'))).toBe('Loop lingo');
+    const terms = [...aside.matchAll(/<dt>([\s\S]*?)<\/dt>/g)].map(([, t]) => text(sure(t, 'a term')));
+    const glosses = [...aside.matchAll(/<dd>([\s\S]*?)<\/dd>/g)].map(([, d]) => text(sure(d, 'a gloss')));
     expect(terms).toEqual(['PRD', 'SLICE', 'OUTBOX']);
     expect(glosses).toEqual(LINGO.map((e) => e.gloss));
   });
@@ -144,6 +145,6 @@ describe('the strategy guide', () => {
   it('puts the sidebar beside the map, in the same row as it', () => {
     const board = markup.match(/<div class="home-guide">([\s\S]*)<\/div>/);
     expect(board).not.toBeNull();
-    expect(board![1]).toMatch(/<div class="home-loop">[\s\S]*<aside\b[^>]*class="home-lingo"/);
+    expect(sure(board, 'the guide')[1]).toMatch(/<div class="home-loop">[\s\S]*<aside\b[^>]*class="home-lingo"/);
   });
 });

@@ -5,7 +5,6 @@
 // a planted link never signs anyone in. The first good callback ends it, and so does its wait.
 import { timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 /** The listener `startLoopback` gives: where the browser comes back to, and the code it brings. */
 export type Loopback = {
@@ -62,25 +61,40 @@ export async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }: { s
       response.end(body);
     };
     const url = new URL(request.url ?? '/', `http://${HOST}`);
-    if (request.method !== 'GET' || url.pathname !== PATH || done) return answer(404, 'not found\n', 'text/plain; charset=utf-8');
-    if (!sameText(url.searchParams.get('state') ?? '', state)) return answer(400, NOT_OURS);
+    if (request.method !== 'GET' || url.pathname !== PATH || done) {
+      answer(404, 'not found\n', 'text/plain; charset=utf-8');
+      return;
+    }
+    if (!sameText(url.searchParams.get('state') ?? '', state)) {
+      answer(400, NOT_OURS);
+      return;
+    }
     const given = url.searchParams.get('code');
-    if (!given) return answer(400, NO_CODE);
+    if (!given) {
+      answer(400, NO_CODE);
+      return;
+    }
     done = true;
-    response.on('finish', () => finish(() => settle.resolve(given)));
-    return answer(200, SIGNED_IN);
+    response.on('finish', () => {
+      finish(() => {
+        settle.resolve(given);
+      });
+    });
+    answer(200, SIGNED_IN);
   });
 
   let closedResolve: () => void = () => {};
   const closed = new Promise<void>((resolve) => {
     closedResolve = resolve;
   });
-  let timer: NodeJS.Timeout | undefined;
+  let timer: NodeJS.Timeout | undefined = undefined;
   function finish(outcome: () => void): void {
     done = true;
     clearTimeout(timer);
     outcome();
-    server.close(() => closedResolve());
+    server.close(() => {
+      closedResolve();
+    });
     server.closeAllConnections();
   }
 
@@ -92,10 +106,19 @@ export async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }: { s
     });
   });
   // Listening on a host and port, the server's address is always an `AddressInfo`.
-  const { port, address } = server.address() as AddressInfo; // ts-allow: a TCP listener's address is never a pipe's string or null
+  const listening = server.address();
+  if (listening === null || typeof listening === 'string') {
+    server.close();
+    throw new LoopbackError('the sign-in listener has no TCP address.');
+  }
+  const { port, address } = listening;
   const minutes = Math.round(timeoutMs / 60_000);
   timer = setTimeout(
-    () => finish(() => settle.reject(new LoopbackError(`no sign-in came back within ${minutes >= 1 ? `${minutes} min` : `${timeoutMs} ms`}.`))),
+    () => {
+      finish(() => {
+        settle.reject(new LoopbackError(`no sign-in came back within ${minutes >= 1 ? `${minutes} min` : `${timeoutMs} ms`}.`));
+      });
+    },
     timeoutMs,
   );
 
@@ -106,7 +129,11 @@ export async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }: { s
     code,
     closed,
     async close() {
-      if (server.listening) finish(() => settle.reject(new LoopbackError('the listener was stopped before a sign-in came back.')));
+      if (server.listening) {
+        finish(() => {
+          settle.reject(new LoopbackError('the listener was stopped before a sign-in came back.'));
+        });
+      }
       await closed;
     },
   };

@@ -8,6 +8,7 @@ import { ConfigSchema } from '../config.ts';
 import { FORM_IDS, FORMS, parseForm } from './forms.ts';
 import { fillConfig } from './resolve.ts';
 import { FRONT_DOOR_TEMPLATE, formTemplate, frontDoorTemplate, readTemplates, templatePath } from './templates.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const kitRoot = fileURLToPath(new URL('../..', import.meta.url));
 const DIST = join(kitRoot, 'dist/omni.mjs');
@@ -38,14 +39,17 @@ describe('each form template — the forms table, as the one parser reads it', (
       const parsed = parseForm(formTemplate(form.id), { file: templatePath(form.id) });
       expect(parsed.errors ?? []).toEqual([]);
       expect(parsed.form).toMatchObject({ id: form.id, formVersion: 1, state: 'blank', pointsTo: null, evidence: [], invaded: null, oldSpellings: [], unmarked: [] });
-      expect(parsed.form!.slots.map((slot) => ({ id: slot.id, required: slot.required }))).toEqual(
+      assertDefined(parsed.form, 'parsed.form');
+      expect(parsed.form.slots.map((slot) => ({ id: slot.id, required: slot.required }))).toEqual(
         form.slots.map((slot) => ({ id: slot.id, required: slot.required })),
       );
-      expect(parsed.form!.slots.every((slot) => slot.by === null && slot.verified === null)).toBe(true);
+      assertDefined(parsed.form, 'parsed.form');
+      expect(parsed.form.slots.every((slot) => slot.by === null && slot.verified === null)).toBe(true);
     });
 
     it(`${form.id}: has a title and an opener, and a kit default in every slot`, () => {
-      const parsed = parseForm(formTemplate(form.id)).form!;
+      const parsed = parseForm(formTemplate(form.id)).form;
+      assertDefined(parsed, 'parsed');
       expect(parsed.title).toMatch(/\S/);
       expect(parsed.opener).toMatch(/^Use this page when /);
       for (const slot of parsed.slots) {
@@ -60,7 +64,9 @@ describe('every template — provenance, and the config it names', () => {
     for (const [path, text] of ALL().filter(([path]) => !KIT_ORIGINAL.has(path))) {
       const match = text.match(PROVENANCE);
       expect(match, `${path} has no provenance line`).not.toBeNull();
-      expect(existsSync(join(kitRoot, '..', match![2]!)), `${path}: ${match![2]} is missing`).toBe(true);
+      assertDefined(match, 'match');
+      assertDefined(match[2], 'match[2]');
+      expect(existsSync(join(kitRoot, '..', match[2])), `${path}: ${match[2]} is missing`).toBe(true);
     }
   });
 
@@ -80,7 +86,10 @@ describe('every template — provenance, and the config it names', () => {
 
   it('the testing form’s commands default names the repository’s test command', () => {
     const config = ConfigSchema.parse({ kit: 1, commands: { test: 'make check' } });
-    const commands = parseForm(formTemplate('testing')).form!.slots.find((slot) => slot.id === 'commands')!;
+    const { form } = parseForm(formTemplate('testing'));
+    assertDefined(form, 'the testing form');
+    const commands = form.slots.find((slot) => slot.id === 'commands');
+    assertDefined(commands, 'commands');
     expect(fillConfig(commands.body.text, config).text).toContain('make check');
   });
 

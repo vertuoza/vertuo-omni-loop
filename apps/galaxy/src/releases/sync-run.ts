@@ -3,10 +3,12 @@
 // prints each PRD it inserted or updated, and a count. It writes nothing when a note, a folder or a spec
 // is refused, and exits non-zero then, or when Supabase refuses: the releases workflow fails loudly.
 //
-// The script (apps/galaxy/scripts/releases-sync.ts) calls releasesSync() with the environment. It runs
+// The script (apps/galaxy/scripts/releases-sync.ts) calls releasesSync() with the service role's group. It runs
 // on plain Node, so this module and those it imports name their files with their extension.
 import { createClient } from '@supabase/supabase-js';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
+import type { ServiceRoleEnv } from '../env.ts';
 import type { Git } from './git.ts';
 import { releaseVersion } from './row.ts';
 import { applySync, planSync } from './sync.ts';
@@ -16,12 +18,15 @@ import { releasesTable, type ReleasesTable } from './sync-table.ts';
 /** What the sync needs: the project's URL and the service role's key, which alone writes the table. */
 export const SYNC_VARIABLES = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const;
 
-type Env = Record<string, string | undefined>;
-type Print = { out?: (line: string) => void; err?: (line: string) => void };
+/** Where the sync writes: the project's URL and the service role's key. */
+export type SyncTarget = { url: string; key: string };
 
-/** The variables `env` leaves unset or blank, in the order they are named above. */
-export function missingVariables(env: Env): string[] {
-  return SYNC_VARIABLES.filter((name) => !env[name]?.trim());
+type Print = { out?: ((line: string) => void) | undefined; err?: ((line: string) => void) | undefined };
+
+/** The variables the service role's group leaves unset, in the order they are named above. */
+export function missingVariables(service: ServiceRoleEnv | null): string[] {
+  if (!service) return [...SYNC_VARIABLES];
+  return service.url === undefined ? ['SUPABASE_URL'] : [];
 }
 
 /** Syncs the checkout at `root` into `table`; the exit code: 0 done, 1 refused. */
@@ -42,7 +47,7 @@ export async function syncReleases({ root, table, git, out = console.log, err = 
     const release = new Map(applySync(rows, plan).map((row) => [row.prd, row.release]));
     for (const text of plan.updates) {
       await table.refresh(text);
-      out(`updated PRD ${text.prd} (${releaseVersion(release.get(text.prd)!)}): ${text.title}`);
+      out(`updated PRD ${text.prd} (${releaseVersion(defined(release.get(text.prd), `the release of PRD ${text.prd}`))}): ${text.title}`);
     }
     const unchanged = reading.shipped.length - plan.inserts.length - plan.updates.length;
     out(`releases: ${plan.inserts.length} inserted, ${plan.updates.length} updated, ${unchanged} unchanged`);
@@ -54,20 +59,20 @@ export async function syncReleases({ root, table, git, out = console.log, err = 
 }
 
 /** The table as the service role, keeping no session. */
-function serviceRole(env: Env): ReleasesTable {
-  return releasesTable(createClient<Database>(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
+function serviceRole({ url, key }: SyncTarget): ReleasesTable {
+  return releasesTable(createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   }));
 }
 
-/** The script's run: the credentials from `env`, then the sync. Stops before connecting when one is missing. */
-export async function releasesSync({ env, root, connect = serviceRole, out, err = console.error }: { env: Env; root: string; connect?: (env: Env) => ReleasesTable } & Print): Promise<number> {
-  const missing = missingVariables(env);
-  if (missing.length) {
+/** The script's run: the service role's group, then the sync. Stops before connecting when a variable is missing. */
+export async function releasesSync({ service, root, connect = serviceRole, out, err = console.error }: { service: ServiceRoleEnv | null; root: string; connect?: (target: SyncTarget) => ReleasesTable } & Print): Promise<number> {
+  const missing = missingVariables(service);
+  if (!service || service.url === undefined) {
     for (const name of missing) {
       err(`releases:sync needs ${name}: set it (locally, \`npx supabase status\` prints it; in Actions, the releases workflow sets it)`);
     }
     return 1;
   }
-  return syncReleases({ root, table: connect(env), out, err });
+  return syncReleases({ root, table: connect({ url: service.url, key: service.key }), out, err });
 }

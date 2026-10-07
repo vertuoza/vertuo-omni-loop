@@ -3,13 +3,14 @@
 // when it is missing may be missing or null; what it reads as is stays required. A field missing or
 // of the wrong type fails, naming it.
 import { z } from 'zod';
+import { CommentIdSchema, IssueNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
 
 const label = z.union([z.string(), z.object({ name: z.string() })]);
 
 /** One pull request, as `GET /repos/{owner}/{repo}/pulls/{pull_number}` and the pulls list answer it. */
 export const PullSchema = z.object({
-  number: z.number(),
+  number: PrNumberSchema,
   title: z.string().nullish(),
   html_url: z.string().nullish(),
   state: z.string().nullish(),
@@ -31,7 +32,10 @@ export const ListSchema = z.array(z.unknown());
 export const PullsSchema = z.array(PullSchema.extend({ state: z.string(), created_at: z.string() }));
 
 /** A page of `GET /repos/{owner}/{repo}/pulls?head=…`, as the retro looks for its own PR. */
-export const RetroPullsSchema = z.array(z.object({ number: z.number(), state: z.string(), html_url: z.string() }));
+export const RetroPullsSchema = z.array(z.object({ number: PrNumberSchema, state: z.string(), html_url: z.string() }));
+
+/** `GET /repos/{owner}/{repo}/installation`, the App's own call: its installation on that repository (PRD 1130). */
+export const InstallationSchema = z.object({ id: z.number() });
 
 /** `GET /repos/{owner}/{repo}/git/trees/{tree_sha}`. */
 export const TreeSchema = z.object({
@@ -53,7 +57,7 @@ export const RefSchema = z.object({ object: z.object({ sha: z.string() }) });
 /** A page of `GET /repos/{owner}/{repo}/issues`. */
 export const IssuesSchema = z.array(
   z.object({
-    number: z.number(),
+    number: IssueNumberSchema,
     html_url: z.string(),
     state: z.string(),
     title: z.string(),
@@ -63,10 +67,10 @@ export const IssuesSchema = z.array(
 );
 
 /** The issue `POST /repos/{owner}/{repo}/issues` opened. */
-export const CreatedIssueSchema = z.object({ number: z.number(), html_url: z.string() });
+export const CreatedIssueSchema = z.object({ number: IssueNumberSchema, html_url: z.string() });
 
 /** The comment `POST /repos/{owner}/{repo}/issues/{issue_number}/comments` wrote. */
-export const CreatedCommentSchema = z.object({ id: z.number() });
+export const CreatedCommentSchema = z.object({ id: CommentIdSchema });
 
 /**
  * A `retro.json` read back from a branch: its runs, kept as they were written. A file whose `runs`

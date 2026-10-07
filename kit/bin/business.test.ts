@@ -4,10 +4,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { startFakeAskServer } from '../test/fake-ask-server.ts';
 import { makeRepo } from '../test/fixture.ts';
+import { dig } from './dig.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
 import type { FakeAskServer } from '../test/fake-ask-server.ts';
-import type { Json } from '../test/fake-ask-server.ts';
 
 function io() {
   const out: string[] = [];
@@ -47,20 +47,33 @@ const CAST = [
 ];
 
 let server: FakeAskServer;
+/** Every server a test started, each closed after it: the next test starts its own. */
+const started: FakeAskServer[] = [];
 afterEach(async () => {
-  await server?.close();
-  server = undefined as unknown as FakeAskServer; // the next test starts its own
+  for (const running of started.splice(0)) await running.close();
 });
+
+/** Starts the test's fake server, as `server`. */
+async function startServer(options: Parameters<typeof startFakeAskServer>[0]) {
+  server = await startFakeAskServer(options);
+  started.push(server);
+}
+
+/** The keys of a JSON object a command printed, in order. */
+const keysOf = (value: unknown) => Object.keys(value as object);
+
+/** `value` without its `key`. */
+const without = (value: object, key: string) => Object.fromEntries(Object.entries(value).filter(([name]) => name !== key));
 
 /** A checkout of acme/widgets pointed at the fake server, signed in to it unless `signedIn` is false. */
 /** What a fake server answers a handled call with: its status (200 when not given) and its body. */
 type Answered = { status?: number; body: unknown };
 
-/** What a checkout of the fake server takes: the handler, the sign-in, and the config's ask.url. */
-type Checkout<K extends string> = { [key in K]?: (input: Json) => Answered } & { signedIn?: boolean; url?: string | null };
+/** What a checkout of the fake server takes: the handler (`business` reads the repository, the others the body), the sign-in, and the config's ask.url. */
+type Checkout<K extends string> = { [key in K]?: (input: key extends 'business' ? string : unknown) => Answered } & { signedIn?: boolean; url?: string | null };
 
 async function checkout({ business, signedIn = true, url }: Checkout<'business'> = {}) {
-  server = await startFakeAskServer({ business });
+  await startServer({ business });
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url === undefined ? server.url : url) } });
   const tokens = memoryTokens(signedIn ? { [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } } : {});
   return { root, tokens };
@@ -115,10 +128,10 @@ describe('omni business show', () => {
     const run = await show(['show', '--json'], c);
     expect(run.code).toBe(0);
     expect(run.out.endsWith('\n')).toBe(true);
-    const printed = JSON.parse(run.out);
+    const printed: unknown = JSON.parse(run.out);
     expect(printed).toEqual(withProduct);
-    expect(Object.keys(printed)).toEqual(['state', 'business', 'product', 'claims', 'personas']);
-    expect(Object.keys(printed.claims[0])).toEqual(['id', 'kind', 'value', 'source', 'state', 'receipt', 'lastSeen']);
+    expect(keysOf(printed)).toEqual(['state', 'business', 'product', 'claims', 'personas']);
+    expect(keysOf(dig(printed, 'claims', 0))).toEqual(['id', 'kind', 'value', 'source', 'state', 'receipt', 'lastSeen']);
   });
 
   it('prints a Never line (PRD 839) as never#<seq>, out of the sentence', async () => {
@@ -136,14 +149,14 @@ describe('omni business show', () => {
     const never = claim('never#13', 'Build for groups of companies');
     const body = { ...FILLED, claims: [never] };
     const c = await checkout({ business: () => ({ body }) });
-    const printed = JSON.parse((await show(['show', '--json'], c)).out);
+    const printed: unknown = JSON.parse((await show(['show', '--json'], c)).out);
     expect(printed).toEqual({ ...FILLED, claims: [never] });
   });
 
   it('drops any field outside the contract', async () => {
     const extra = { ...FILLED, secret: 'x', claims: [{ ...claim('region#1', 'Belgium'), seq: 1 }] };
     const c = await checkout({ business: () => ({ body: extra }) });
-    const printed = JSON.parse((await show(['show', '--json'], c)).out);
+    const printed: unknown = JSON.parse((await show(['show', '--json'], c)).out);
     expect(printed).toEqual({ state: 'ok', business: { name: 'Acme' }, product: null, claims: [claim('region#1', 'Belgium')], personas: [] });
   });
 
@@ -165,18 +178,18 @@ describe('omni business show', () => {
   });
 
   it('reads a claim from a server that sends no state as confirmed', async () => {
-    const { state, ...older } = claim('region#1', 'Belgium');
+    const older = without(claim('region#1', 'Belgium'), 'state');
     const c = await checkout({ business: () => ({ body: { ...FILLED, claims: [older] } }) });
-    const printed = JSON.parse((await show(['show', '--json'], c)).out);
-    expect(printed.claims).toEqual([claim('region#1', 'Belgium')]);
+    const printed: unknown = JSON.parse((await show(['show', '--json'], c)).out);
+    expect(dig(printed, 'claims')).toEqual([claim('region#1', 'Belgium')]);
   });
 
   it('--json carries the product\'s personas, oldest first, in the contract\'s shape (PRD 799)', async () => {
     const body = { ...FILLED, personas: CAST.map((p) => ({ ...p, avatar: { v: 1 } })) };
     const c = await checkout({ business: () => ({ body }) });
-    const printed = JSON.parse((await show(['show', '--json'], c)).out);
-    expect(printed.personas).toEqual(CAST);
-    expect(Object.keys(printed.personas[0])).toEqual(['name', 'stance', 'trade', 'who', 'usage']);
+    const printed: unknown = JSON.parse((await show(['show', '--json'], c)).out);
+    expect(dig(printed, 'personas')).toEqual(CAST);
+    expect(keysOf(dig(printed, 'personas', 0))).toEqual(['name', 'stance', 'trade', 'who', 'usage']);
   });
 
   it('prints one line per persona under the claims', async () => {
@@ -192,9 +205,9 @@ describe('omni business show', () => {
   });
 
   it('reads a server that sends no personas as none', async () => {
-    const { personas, ...older } = FILLED;
+    const older = without(FILLED, 'personas');
     const c = await checkout({ business: () => ({ body: older }) });
-    expect(JSON.parse((await show(['show', '--json'], c)).out).personas).toEqual([]);
+    expect(dig(JSON.parse((await show(['show', '--json'], c)).out), 'personas')).toEqual([]);
   });
 
   it('state stays none without a confirmed claim, and the personas still come back', async () => {
@@ -272,11 +285,11 @@ describe('omni business show never blocks an agent: exit 0 and one line in every
       setup: () => checkout({ business: () => ({ body: { ...FILLED, claims: [claim('rival#3', 'Guessed', 'evidence', claimState)] } }) }),
       state: 'refused', line: 'refused (the reply is not a business) — agents carry on',
     })),
-    ...[
+    ...([
       ['a bad stance', { ...CAST[0], stance: 'angry' }],
       ['no name', { ...CAST[0], name: '' }],
       ['not a persona', 'Marc'],
-    ].map(([what, bad]) => ({
+    ] as [string, unknown][]).map(([what, bad]) => ({
       name: `a reply carrying a persona with ${what} (refused)`,
       setup: () => checkout({ business: () => ({ body: { ...FILLED, personas: [bad] } }) }),
       state: 'refused', line: 'refused (the reply is not a business) — agents carry on',
@@ -312,7 +325,7 @@ describe('omni business: usage errors exit 2', () => {
 describe('omni business cited', () => {
   /** A checkout whose fake server logs citations with `cite`, or answers 404 without it. */
   async function citing({ cite, signedIn = true, url }: Checkout<'cite'> = {}) {
-    server = await startFakeAskServer({ cite });
+    await startServer({ cite });
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url === undefined ? server.url : url) } });
     const tokens = memoryTokens(signedIn ? { [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } } : {});
     return { root, tokens };
@@ -320,7 +333,7 @@ describe('omni business cited', () => {
 
   it('appends one citation through POST /api/business/citations, and says so', async () => {
     const sent: unknown[] = [];
-    const c = await citing({ cite: (body: Json) => { sent.push(body); return { body: { cited: body.ids.length } }; } });
+    const c = await citing({ cite: (body: unknown) => { sent.push(body); return { body: { cited: (dig(body, 'ids') as unknown[]).length } }; } });
     const run = await show(['cited', 'rival#4', '--by', 'think-big', '--ref', 'concept #9'], c);
     expect(run).toEqual({ code: 0, err: '', out: 'cited rival#4 (think-big, concept #9)\n' });
     expect(sent).toEqual([{ repo: 'acme/widgets', ids: ['rival#4'], by: 'think-big', ref: 'concept #9' }]);
@@ -331,7 +344,7 @@ describe('omni business cited', () => {
 
   it('cites several ids in one call, and --ref may be left out', async () => {
     const sent: unknown[] = [];
-    const c = await citing({ cite: (body: Json) => { sent.push(body); return { body: { cited: body.ids.length } }; } });
+    const c = await citing({ cite: (body: unknown) => { sent.push(body); return { body: { cited: (dig(body, 'ids') as unknown[]).length } }; } });
     const run = await show(['cited', 'region#1', 'rival#4', '--by', 'think-big'], c);
     expect(run).toEqual({ code: 0, err: '', out: 'cited region#1, rival#4 (think-big)\n' });
     expect(sent).toEqual([{ repo: 'acme/widgets', ids: ['region#1', 'rival#4'], by: 'think-big', ref: null }]);
@@ -401,15 +414,15 @@ describe('omni business cited', () => {
 describe('omni business claim add (PRD 822)', () => {
   /** A checkout whose fake server stores claims with `claim`, or answers 404 without it. */
   async function claiming({ claim: store, signedIn = true, url }: Checkout<'claim'> = {}) {
-    server = await startFakeAskServer({ claim: store });
+    await startServer({ claim: store });
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url === undefined ? server.url : url) } });
     const tokens = memoryTokens(signedIn ? { [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } } : {});
     return { root, tokens };
   }
   const ADD = ['claim', 'add', '--kind', 'size', '--value', '20-50', '--ref', 'brainstorm · PRD 822'];
-  const stored = (sent: unknown[]) => (body: Json) => {
+  const stored = (sent: unknown[]) => (body: unknown) => {
     sent.push(body);
-    return { body: { id: 'size#12', state: body.state, added: true } };
+    return { body: { id: 'size#12', state: dig(body, 'state'), added: true } };
   };
 
   for (const state of ['proposed', 'confirmed']) {

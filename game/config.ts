@@ -59,7 +59,7 @@ export function configFrom({ sectors = [], teams = [], roster = [], repositories
   // PRD 728: the game reads the workspace's tracked repositories (Settings → Repositories), owner/name
   // in lower case. A sector may name a repository by its full name or by its bare name.
   const tracked = [...new Set(repositories.map((r) => RepositoryRowSchema.parse(r)).filter((r) => r.tracked).map((r) => r.full_name.toLowerCase()))].sort();
-  const sectorOf = (repo: string | null | undefined): string | null => (repo ? repoSector.get(repo) ?? repoSector.get(String(repo).split('/').pop() ?? '') ?? null : null);
+  const sectorOf = (repo: string | null | undefined): string | null => (repo ? repoSector.get(repo) ?? repoSector.get(repo.split('/').pop() ?? '') ?? null : null);
   return {
     sectors: sectorMap,
     teams: teamMap,
@@ -68,6 +68,6 @@ export function configFrom({ sectors = [], teams = [], roster = [], repositories
     tracked,
     sectorOf,
     homeOf: (team: string) => teamMap[team]?.home ?? null,
-    teamOf: (login: string | null | undefined) => (login ? rosterMap[String(login).toLowerCase()] ?? null : null),
+    teamOf: (login: string | null | undefined) => (login ? rosterMap[login.toLowerCase()] ?? null : null),
   };
 }

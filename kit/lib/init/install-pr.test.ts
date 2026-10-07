@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { makeRepo } from '../../test/fixture.ts';
 import { INSTALL_BRANCH, INSTALL_COMMIT, installLines, openInstallPr, switchToInstallBranch } from './install-pr.ts';
+import { parsePr } from '../ids.ts';
 
 const PR_URL = 'https://github.com/acme/widgets/pull/12';
 const git = (root: string, ...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -205,7 +206,7 @@ describe('openInstallPr', () => {
 describe('installLines', () => {
   it('names each step done, with the pull request link last', () => {
     const lines = installLines(
-      { branch: { outcome: 'created', branch: INSTALL_BRANCH }, commit: 'committed', push: 'pushed', pr: { url: PR_URL, number: 12, already: false } },
+      { branch: { outcome: 'created', branch: INSTALL_BRANCH }, commit: 'committed', push: 'pushed', pr: { url: PR_URL, number: parsePr(12), already: false } },
       OPTIONS,
     );
     expect(lines).toEqual([

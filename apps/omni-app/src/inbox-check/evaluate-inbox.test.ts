@@ -1,3 +1,4 @@
+import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,7 +17,7 @@ const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@user
 const FOLDER = '.omni-loop/delivery/inbox/0042-widget';
 const COMPLETE_CHANGES = ['spec.md', 'plan.md', 'before-after.html'].map((file) => ({ path: `${FOLDER}/${file}`, status: 'A' }));
 const SIGNED = [{ sha: 'c1', message: `docs(phase-0): widget\n\n${TRAILER}` }];
-const OPEN_ISSUE = { number: 42, state: 'open', labels: ['omni:prd'], isPullRequest: false };
+const OPEN_ISSUE = { number: parseIssue(42), state: 'open', labels: ['omni:prd'], isPullRequest: false };
 
 const BUSINESS = Object.freeze({
   state: 'ok',
@@ -38,8 +39,8 @@ const BREAKS = {
 
 /** The canon gate on a stubbed business and a stubbed model answering `reply`. */
 function stubbedCanon({ business = BUSINESS, reply = FITS, answer }: { business?: unknown; reply?: unknown; answer?: unknown } = {}) {
-  const readBusiness = vi.fn(async (_repo: string) => business);
-  const ask = vi.fn(async ({ check }: { check: (reply: unknown) => { reply: unknown }; user: string }) => answer ?? { ok: true, error: null, reply: check(reply).reply, reason: null });
+  const readBusiness = vi.fn<(repo: string) => Promise<unknown>>(() => Promise.resolve(business));
+  const ask = vi.fn(({ check }: { check: (reply: unknown) => { reply: unknown }; user: string }) => Promise.resolve(answer ?? { ok: true, error: null, reply: check(reply).reply, reason: null }));
   return { canon: createCanon({ readBusiness, ask } as never) as Input['canon'], readBusiness, ask };
 }
 
@@ -87,7 +88,9 @@ describe('inboxPrd — the PRD whose inbox folder carries the topic', () => {
 
 describe('evaluateInbox — silent where it is not a phase-0 PR', () => {
   let empty: string | undefined;
-  afterEach(() => empty && rmSync(empty, { recursive: true, force: true }));
+  afterEach(() => {
+    if (empty) rmSync(empty, { recursive: true, force: true });
+  });
 
   it('is null for a head branch of another shape', async () => {
     expect(await evaluateInbox(input({ pr: { headRef: 'feat/widget' } }))).toBeNull();
@@ -195,7 +198,7 @@ describe('evaluateInbox — the canon gate, fifth', () => {
   });
 
   it('grades with the PRD as its ref, so a Jev call is recorded against it', async () => {
-    const grade = vi.fn(async () => neutral('stub'));
+    const grade = vi.fn(() => Promise.resolve(neutral('stub')));
     const verdict = await graded(input({ canon: { grade } }));
     expect(grade).toHaveBeenCalledWith(expect.objectContaining({ repo: 'acme/widgets', ref: `PRD ${verdict.prd}` }));
   });

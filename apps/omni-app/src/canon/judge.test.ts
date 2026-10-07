@@ -1,7 +1,9 @@
 // The canon gate's judge port, against a recording fetch: nothing here calls galaxy.
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { JUDGE_NOT_CONFIGURED, type JudgeRequest } from './canon.ts';
+import { readEnv } from '../env.ts';
 import { constituentJudge, judgeUrl } from './judge.ts';
 
 type Recorded = { url: string; method: string | undefined; body: string; headers: Headers };
@@ -10,12 +12,23 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 
 function recordingFetch(answer: () => Response) {
   const requests: Recorded[] = [];
-  const fetch = async (input: string, init: RequestInit = {}) => {
-    requests.push({ url: String(input), method: init.method, body: String(init.body), headers: new Headers(init.headers) });
-    return answer();
-  };
+  const fetch = (input: string, init: RequestInit = {}) =>
+    new Promise<Response>((resolve) => {
+      requests.push({ url: input, method: init.method, body: printed(init.body), headers: new Headers(init.headers) });
+      resolve(answer());
+    });
   return { fetch, requests };
 }
+
+/** The request at `index`: the test fails when there is none. */
+function nth<T>(list: readonly T[], index: number): T {
+  const item = list[index];
+  assertDefined(item, `request ${index}`);
+  return item;
+}
+
+/** Any value, as `String` prints it: a request body is whatever the port sent. */
+const printed = (value: unknown) => String(value);
 
 const ASKED: JudgeRequest = Object.freeze({
   repo: 'acme/ux',
@@ -26,8 +39,8 @@ const ASKED: JudgeRequest = Object.freeze({
 
 describe('judgeUrl — galaxy\'s judge route', () => {
   it('on GALAXY_URL when set, else galaxy\'s production host', () => {
-    expect(judgeUrl({ GALAXY_URL: 'https://preview.example/' })).toBe('https://preview.example/api/constituents/judge');
-    expect(judgeUrl({})).toBe('https://www.omni-loop.xyz/api/constituents/judge');
+    expect(judgeUrl(readEnv({ GALAXY_URL: 'https://preview.example/' }).galaxyUrl)).toBe('https://preview.example/api/constituents/judge');
+    expect(judgeUrl(readEnv({}).galaxyUrl)).toBe('https://www.omni-loop.xyz/api/constituents/judge');
   });
 });
 
@@ -36,7 +49,7 @@ describe('constituentJudge — one signed call, the answer that counts', () => {
     const galaxy = recordingFetch(() => json({ answer: 'false', confidence: 0.91, decidedBy: 'jev' }));
     const judge = constituentJudge({ url: 'https://g.example/api/constituents/judge', secret: 's3cret', fetch: galaxy.fetch });
     expect(await judge(ASKED)).toEqual({ ok: true, error: null, answer: 'false', confidence: 0.91, decidedBy: 'jev', reason: null });
-    const request = galaxy.requests[0]!;
+    const request = nth(galaxy.requests, 0);
     expect([request.method, request.url]).toEqual(['POST', 'https://g.example/api/constituents/judge']);
     expect(JSON.parse(request.body)).toEqual(ASKED);
     const expected = `sha256=${createHmac('sha256', 's3cret').update(request.body).digest('hex')}`;

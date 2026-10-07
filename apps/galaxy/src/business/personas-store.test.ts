@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { PersonaFields } from './personas';
 import {
-  COULD_NOT_SAVE, databasePersonas, demoPersonasPort, GONE, INVALID_FIELD, NOT_MEMBER, personaRefusalOf,
+  databasePersonas, demoPersonasPort, INVALID_PERSONA_FIELD, PERSONA_GONE, PERSONA_NOT_MEMBER, personaRefusalOf,
 } from './personas-store';
+import { COULD_NOT_SAVE } from './store';
+import { sure } from '../arcade/test/sure';
 
 // Settings → Business → Personas' calls (PRD 799 s3): the persona functions, called as the signed-in
 // person (stubbed: no test calls Supabase), their refusals as the section says them, and the demo's
@@ -16,11 +18,11 @@ function db(answers: Array<{ data?: unknown; error?: unknown } | Error>) {
   const calls: Array<[string, Record<string, unknown>]> = [];
   return {
     calls,
-    rpc: async (fn: string, args: Record<string, unknown>) => {
+    rpc: (fn: string, args: Record<string, unknown>) => {
       calls.push([fn, args]);
       const next = answers.shift() ?? { data: null };
-      if (next instanceof Error) throw next;
-      return { data: next.data ?? null, error: next.error ?? null };
+      if (next instanceof Error) return Promise.reject(next);
+      return Promise.resolve({ data: next.data ?? null, error: next.error ?? null });
     },
   };
 }
@@ -43,9 +45,9 @@ describe('the persona functions', () => {
     await port.remove('pe-1');
     await port.restore('pe-1');
     expect(d.calls.map(([fn]) => fn)).toEqual(['persona_edit', 'persona_delete', 'persona_restore']);
-    expect(d.calls[0]![1]).toMatchObject({ p_workspace: 'ws-1', p_persona: 'pe-1', p_name: 'Marc', p_avatar: AVATAR });
-    expect(d.calls[1]![1]).toEqual({ p_workspace: 'ws-1', p_persona: 'pe-1' });
-    expect(d.calls[2]![1]).toEqual({ p_workspace: 'ws-1', p_persona: 'pe-1' });
+    expect(sure(d.calls[0], 'd.calls[0]')[1]).toMatchObject({ p_workspace: 'ws-1', p_persona: 'pe-1', p_name: 'Marc', p_avatar: AVATAR });
+    expect(sure(d.calls[1], 'd.calls[1]')[1]).toEqual({ p_workspace: 'ws-1', p_persona: 'pe-1' });
+    expect(sure(d.calls[2], 'd.calls[2]')[1]).toEqual({ p_workspace: 'ws-1', p_persona: 'pe-1' });
   });
 
   it('says each refusal plainly: not a member, gone, the invalid field, anything else', async () => {
@@ -56,12 +58,17 @@ describe('the persona functions', () => {
     const port = databasePersonas(db(answers), 'ws-1');
     const said = [];
     for (let i = 0; i < 7; i++) said.push(await port.add('p-1', FIELDS));
-    expect(said).toEqual([NOT_MEMBER, GONE, INVALID_FIELD.name, INVALID_FIELD.avatar, COULD_NOT_SAVE, COULD_NOT_SAVE, COULD_NOT_SAVE].map((message) => ({ ok: false, message })));
+    expect(said).toEqual([PERSONA_NOT_MEMBER, PERSONA_GONE, INVALID_PERSONA_FIELD.name, INVALID_PERSONA_FIELD.avatar, COULD_NOT_SAVE, COULD_NOT_SAVE, COULD_NOT_SAVE].map((message) => ({ ok: false, message })));
+  });
+
+  it('answers could-not-save when the saved row does not parse (PRD 1030)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await databasePersonas(db([{ data: { ...ROW, avatar: { v: 2 } } }]), 'ws-1').add('p-1', FIELDS)).toEqual({ ok: false, message: COULD_NOT_SAVE });
   });
 
   it('names each field a 22023 can hint at', () => {
     for (const field of ['name', 'stance', 'trade', 'avatar', 'who', 'usage', 'product']) {
-      expect(personaRefusalOf({ code: '22023', hint: field }), field).toBe(INVALID_FIELD[field]);
+      expect(personaRefusalOf({ code: '22023', hint: field }), field).toBe(INVALID_PERSONA_FIELD[field]);
     }
   });
 });
@@ -74,18 +81,18 @@ describe('the demo', () => {
     const id = added.ok ? added.persona.id : '';
     expect(await port.edit(id, { ...FIELDS, name: 'Sofia' })).toMatchObject({ ok: true, persona: { id, name: 'Sofia', ordinal: 1 } });
     expect(await port.remove(id)).toMatchObject({ ok: true });
-    expect(await port.edit(id, FIELDS)).toEqual({ ok: false, message: GONE });
+    expect(await port.edit(id, FIELDS)).toEqual({ ok: false, message: PERSONA_GONE });
     expect(await port.restore(id)).toMatchObject({ ok: true, persona: { id, name: 'Sofia' } });
-    expect(await port.restore(id)).toEqual({ ok: false, message: GONE });
+    expect(await port.restore(id)).toEqual({ ok: false, message: PERSONA_GONE });
   });
 
   it('refuses what the database refuses, naming the field', async () => {
     const port = demoPersonasPort();
-    expect(await port.add('p-1', { ...FIELDS, name: ' ' })).toEqual({ ok: false, message: INVALID_FIELD.name });
-    expect(await port.add('p-1', { ...FIELDS, name: 'x'.repeat(41) })).toEqual({ ok: false, message: INVALID_FIELD.name });
-    expect(await port.add('p-1', { ...FIELDS, who: 'x'.repeat(401) })).toEqual({ ok: false, message: INVALID_FIELD.who });
-    expect(await port.add('p-1', { ...FIELDS, usage: 'x'.repeat(401) })).toEqual({ ok: false, message: INVALID_FIELD.usage });
-    expect(await port.add('p-1', { ...FIELDS, avatar: { ...AVATAR, skin: 6 } })).toEqual({ ok: false, message: INVALID_FIELD.avatar });
-    expect(await port.add('p-1', { ...FIELDS, trade: 'Site Foreman' })).toEqual({ ok: false, message: INVALID_FIELD.trade });
+    expect(await port.add('p-1', { ...FIELDS, name: ' ' })).toEqual({ ok: false, message: INVALID_PERSONA_FIELD.name });
+    expect(await port.add('p-1', { ...FIELDS, name: 'x'.repeat(41) })).toEqual({ ok: false, message: INVALID_PERSONA_FIELD.name });
+    expect(await port.add('p-1', { ...FIELDS, who: 'x'.repeat(401) })).toEqual({ ok: false, message: INVALID_PERSONA_FIELD.who });
+    expect(await port.add('p-1', { ...FIELDS, usage: 'x'.repeat(401) })).toEqual({ ok: false, message: INVALID_PERSONA_FIELD.usage });
+    expect(await port.add('p-1', { ...FIELDS, avatar: { ...AVATAR, skin: 6 } })).toEqual({ ok: false, message: INVALID_PERSONA_FIELD.avatar });
+    expect(await port.add('p-1', { ...FIELDS, trade: 'Site Foreman' })).toEqual({ ok: false, message: INVALID_PERSONA_FIELD.trade });
   });
 });

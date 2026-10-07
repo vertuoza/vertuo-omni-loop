@@ -1,13 +1,15 @@
 // The answers the collector reads (PRD 725, s20): each schema takes a GitHub- or database-shaped
 // answer, extra fields and all, and refuses one missing what the collector uses, naming the field.
 import { describe, expect, it } from 'vitest';
+import { asSaved } from '../saved-step.ts';
 import {
+  BatchOutSchema,
   FailureSchema,
   parseAnswer,
   PullDetailSchema,
   PullsUpdatedSchema,
   RateLimited,
-  StoreEnvSchema,
+  TrackedRepositoriesSchema,
   TrackedRowSchema,
 } from './schema.ts';
 
@@ -58,8 +60,20 @@ describe('the collector answer schemas', () => {
     expect(FailureSchema.safeParse('a string').success).toBe(false);
   });
 
-  it('read the store environment, and refuse a key that is not text', () => {
-    expect(StoreEnvSchema.parse({ SUPABASE_URL: 'https://db.example', HOME: '/root' })).toMatchObject({ SUPABASE_URL: 'https://db.example' });
-    expect(StoreEnvSchema.safeParse({ SUPABASE_SERVICE_ROLE_KEY: 7 }).error?.issues[0]?.path).toEqual(['SUPABASE_SERVICE_ROLE_KEY']);
+  it('read back a step "list-repositories" as Inngest saved it, and refuse a repository missing its installation, of another type or null', () => {
+    const repositories = [{ workspaceId: 'ws', installationId: 7, fullName: 'acme/widgets', collectedUntil: null }];
+    expect(TrackedRepositoriesSchema.parse(asSaved(repositories))).toEqual(repositories);
+    expect(TrackedRepositoriesSchema.safeParse([{ ...repositories[0], installationId: undefined }]).error?.issues[0]?.path).toEqual([0, 'installationId']);
+    expect(TrackedRepositoriesSchema.safeParse([{ ...repositories[0], installationId: '7' }]).success).toBe(false);
+    expect(TrackedRepositoriesSchema.safeParse([{ ...repositories[0], fullName: null }]).success).toBe(false);
+  });
+
+  it('read back a step "collect" as Inngest saved it, and refuse a batch missing its cursor, of another type or null', () => {
+    const out = { saved: 2, cursor: '2026-09-28T10:00:00Z', more: false, error: undefined, budget: { limit: 5000, remaining: 4000, resetAt: null } };
+    expect(BatchOutSchema.parse(asSaved(out))).toEqual({ saved: 2, cursor: '2026-09-28T10:00:00Z', more: false, budget: out.budget });
+    expect(BatchOutSchema.parse(asSaved({ ...out, paused: true, budget: {} }))).toMatchObject({ paused: true, budget: {} });
+    expect(BatchOutSchema.safeParse({ ...out, cursor: undefined }).error?.issues[0]?.path).toEqual(['cursor']);
+    expect(BatchOutSchema.safeParse({ ...out, saved: '2' }).success).toBe(false);
+    expect(BatchOutSchema.safeParse({ ...out, budget: null }).success).toBe(false);
   });
 });

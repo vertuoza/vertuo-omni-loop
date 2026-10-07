@@ -1,8 +1,11 @@
 import {
-  constituentOf, NEVER_MAX, STATEMENT_MAX,
+  constituentOf, NEVER_MAX, SavedConstituentRow, STATEMENT_MAX,
   type Constituent, type ConstituentEvent, type ConstituentKind, type StoredConstituent,
 } from './model';
+import { COULD_NOT_SAVE } from '../business/store';
+import { parseRow } from '../data/parse-rows';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { settled } from '../stages/settled';
 
 // The constituents' writes (PRD 871). In production, the functions of
 // supabase/migrations/20261029090000_constituents.sql, called as the signed-in person:
@@ -25,7 +28,6 @@ export interface ConstituentPort {
 
 export const NOT_OWNER = 'Only an owner of the workspace can change its constituents.';
 export const GONE = 'That line is no longer here. Reload the page.';
-export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 
 /** What a 22023 says, by the field its `hint` names. */
 export const INVALID_FIELD: Readonly<Record<string, string>> = {
@@ -52,7 +54,8 @@ export function databaseConstituents(db: Rpc, workspace: string): ConstituentPor
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return { ok: false, message: constituentRefusalOf(error) };
-      return { ok: true, constituent: constituentOf(data as StoredConstituent) }; // ts-allow: the constituent functions answer the row they wrote
+      const saved = parseRow(SavedConstituentRow, data, `constituents/store: ${fn}`);
+      return saved.ok ? { ok: true, constituent: constituentOf(saved.value) } : { ok: false, message: COULD_NOT_SAVE };
     } catch (err) {
       return { ok: false, message: constituentRefusalOf(err) };
     }
@@ -93,42 +96,48 @@ export function demoConstituentsPort(
   };
   const saved = (row: StoredConstituent): SavedConstituent => ({ ok: true, constituent: constituentOf(row) });
   return {
-    async add(product, kind, text) {
-      const v = textOf(text, kind);
-      if (v === null) return refused('text');
-      if (!products.includes(product)) return { ok: false, message: GONE };
-      const mine = [...rows.values()].filter((r) => r.product_id === product);
-      if (kind === 'statement' && mine.some((r) => r.kind === 'statement' && r.removed_at === null)) return refused('kind');
-      const seq = kind === 'never' ? Math.max(0, ...mine.filter((r) => r.kind === 'never').map((r) => r.seq ?? 0)) + 1 : null;
-      made += 1;
-      const at = now();
-      const row: StoredConstituent = {
-        id: `demo-constituent-${made}`, product_id: product, kind, seq, body: v, created_by: by,
-        created_at: at, updated_at: at, removed_at: null, removed_by: null,
-      };
-      rows.set(row.id, row);
-      log(row, 'added', null, v);
-      return saved(row);
+    add(product, kind, text) {
+      return settled(() => {
+        const v = textOf(text, kind);
+        if (v === null) return refused('text');
+        if (!products.includes(product)) return { ok: false, message: GONE };
+        const mine = [...rows.values()].filter((r) => r.product_id === product);
+        if (kind === 'statement' && mine.some((r) => r.kind === 'statement' && r.removed_at === null)) return refused('kind');
+        const seq = kind === 'never' ? Math.max(0, ...mine.filter((r) => r.kind === 'never').map((r) => r.seq ?? 0)) + 1 : null;
+        made += 1;
+        const at = now();
+        const row: StoredConstituent = {
+          id: `demo-constituent-${made}`, product_id: product, kind, seq, body: v, created_by: by,
+          created_at: at, updated_at: at, removed_at: null, removed_by: null,
+        };
+        rows.set(row.id, row);
+        log(row, 'added', null, v);
+        return saved(row);
+      });
     },
-    async edit(id, text) {
-      const was = live(id);
-      if (!was) return { ok: false, message: GONE };
-      const v = textOf(text, was.kind);
-      if (v === null) return refused('text');
-      if (v === was.body) return saved(was);
-      const row = { ...was, body: v, updated_at: now() };
-      rows.set(id, row);
-      log(row, 'edited', was.body, v);
-      return saved(row);
+    edit(id, text) {
+      return settled(() => {
+        const was = live(id);
+        if (!was) return { ok: false, message: GONE };
+        const v = textOf(text, was.kind);
+        if (v === null) return refused('text');
+        if (v === was.body) return saved(was);
+        const row = { ...was, body: v, updated_at: now() };
+        rows.set(id, row);
+        log(row, 'edited', was.body, v);
+        return saved(row);
+      });
     },
-    async remove(id) {
-      const was = live(id);
-      if (!was) return { ok: false, message: GONE };
-      const at = now();
-      const row = { ...was, removed_at: at, removed_by: by, updated_at: at };
-      rows.set(id, row);
-      log(row, 'removed', was.body, null);
-      return saved(row);
+    remove(id) {
+      return settled(() => {
+        const was = live(id);
+        if (!was) return { ok: false, message: GONE };
+        const at = now();
+        const row = { ...was, removed_at: at, removed_by: by, updated_at: at };
+        rows.set(id, row);
+        log(row, 'removed', was.body, null);
+        return saved(row);
+      });
     },
     constituents: () => [...rows.values()].map(constituentOf),
     history: () => [...events].reverse(),

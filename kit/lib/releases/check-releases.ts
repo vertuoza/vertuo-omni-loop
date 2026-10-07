@@ -8,36 +8,28 @@
  * The notes are read from the working tree, not from git, so a note just written is graded before
  * it is committed.
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseFolderName } from '../layout.ts';
+import { prdFoldersIn } from '../layout.ts';
 import { gradeReleaseNote, RELEASE_NOTE_FILE } from './note.ts';
 import type { Context } from '../context.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** A release note's file, from the root, and the PRD whose folder holds it. */
-export type ReleaseNoteFile = { file: string; prd: number };
+export type ReleaseNoteFile = { file: string; prd: PrdNumber };
 
 /** The release note's path in a PRD's folder, `dir` as the layout names it. */
 export function releaseNotePath(dir: string): string {
   return `${dir}/${RELEASE_NOTE_FILE}`;
 }
 
-/** The PRD folders under `dir`, sorted by name. */
-function prdFolders(ctx: Context, dir: string): string[] {
-  const absolute = join(ctx.root, dir);
-  if (!existsSync(absolute)) return [];
-  return readdirSync(absolute, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && parseFolderName(entry.name))
-    .map((entry) => entry.name)
-    .sort();
-}
 
 /** Every release note in the inbox, then in the shipped folders: `[{ file, prd }]`. */
 export function releaseNoteFiles({ ctx }: { ctx: Context }): ReleaseNoteFile[] {
   const { inbox, shipped } = ctx.layout.dirs;
   return [inbox, shipped].flatMap((dir) =>
-    prdFolders(ctx, dir)
-      .map((name) => ({ file: releaseNotePath(`${dir}/${name}`), prd: parseFolderName(name)?.prd ?? Number.NaN }))
+    prdFoldersIn(join(ctx.root, dir))
+      .map(({ name, prd }) => ({ file: releaseNotePath(`${dir}/${name}`), prd }))
       .filter(({ file }) => existsSync(join(ctx.root, file))),
   );
 }

@@ -1,3 +1,5 @@
+import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { z } from 'zod';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -8,7 +10,7 @@ import { detect } from './detect.ts';
 import { listPullsInto } from './github.ts';
 import { mergeRuns, render, retroTitle, verdictComment } from './render.ts';
 import { refusedWordsIn } from './rules.ts';
-import type { FeaturePull, Finding, IssueLinks, Narration, Octokit, PrdFacts, Prose, RunRecord } from './retro.types.ts';
+import type { FeaturePull, Finding, IssueLinks, Narration, PrdFacts, Prose, RunRecord } from './retro.types.ts';
 import type { Kind } from './kinds/index.ts';
 
 const GOLDEN = fileURLToPath(new URL('./render.golden/', import.meta.url));
@@ -49,19 +51,20 @@ async function widgetSheet({
   extra = [],
   issues = {},
 }: { narration?: Narration; extra?: Finding[]; issues?: IssueLinks } = {}): Promise<RunRecord> {
-  const github = replayGitHub({ pulls: [FEATURE, ...SUB_PULLS] } as never);
-  const pulls = await listPullsInto(github.octokit as Octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
+  const github = replayGitHub({ pulls: [FEATURE, ...SUB_PULLS] });
+  const pulls = await listPullsInto(github.octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
   const records = { timeline: { readyAt: '2026-09-20T11:50:00Z' } };
   const extraKind: Kind = {
     id: 'ci',
     section: 'Checks',
+    records: z.unknown(),
     runs: ['merge'],
-    gather: async () => null,
+    gather: () => Promise.resolve(null),
     detect: () => ({ facts: null, findings: extra }),
     describe: () => null,
   };
   const { timeline } = await import('./kinds/timeline.ts');
-  const sheet = detect({ run: 'merge', pr, prd, config, pulls, records, kinds: [timeline as unknown as Kind, extraKind] });
+  const sheet = detect({ run: 'merge', pr, prd, config, pulls, records, kinds: [timeline, extraKind] });
   return { ...sheet, narration, issues };
 }
 
@@ -94,7 +97,7 @@ describe('render — retro.md, facts only', () => {
   });
 
   it('writes no number that retro.json does not hold, and retro.json holds exactly the run’s sheet', async () => {
-    const issues: IssueLinks = { 'repeated-red:e2e': { number: 88, url: 'https://github.com/acme/widgets/issues/88', state: 'open' } };
+    const issues: IssueLinks = { 'repeated-red:e2e': { number: parseIssue(88), url: 'https://github.com/acme/widgets/issues/88', state: 'open' } };
     const sheet = await widgetSheet({ extra: [RED], issues });
     const out = render({ doc: mergeRuns(null, sheet), featurePr: 12 });
     expect(JSON.parse(out.json)).toEqual({ prd: 7, runs: [sheet] });
@@ -114,8 +117,8 @@ describe('render — retro.md, facts only', () => {
 describe('render — with prose and issue links', () => {
   it('matches its golden file: the model’s summary, titles, why it matters and lessons, the kept finding marked, and each issue linked', async () => {
     const issues: IssueLinks = {
-      'repeated-red:e2e': { number: 88, url: 'https://github.com/acme/widgets/issues/88', state: 'open' },
-      'slow-slice:s3': { number: 89, url: 'https://github.com/acme/widgets/issues/89', state: 'closed' },
+      'repeated-red:e2e': { number: parseIssue(88), url: 'https://github.com/acme/widgets/issues/88', state: 'open' },
+      'slow-slice:s3': { number: parseIssue(89), url: 'https://github.com/acme/widgets/issues/89', state: 'closed' },
     };
     const sheet = await widgetSheet({ narration: { model: 'anthropic/claude-opus-5.5', reason: null, dropped: [] }, extra: [RED], issues });
     const prose: Prose = {
@@ -192,7 +195,7 @@ describe('verdictComment — a retro not worth a pull request', () => {
 
 describe('render — each kind’s section', () => {
   it('places each kind’s findings under the section that kind names, after its own lines', async () => {
-    const sheet = await widgetSheet({ extra: [RED], issues: { 'repeated-red:e2e': { number: 88, url: 'u88', state: 'open' } } });
+    const sheet = await widgetSheet({ extra: [RED], issues: { 'repeated-red:e2e': { number: parseIssue(88), url: 'u88', state: 'open' } } });
     sheet.kinds.ci = { checks: 1 };
     const kinds = [
       { id: 'timeline', section: 'Timeline', runs: ['merge'], describe: () => ['- the timeline'] },
@@ -224,7 +227,7 @@ describe('mergeRuns — retro.json keeps every run', () => {
 
 describe('retroTitle', () => {
   it('is docs(retro): PRD <n> — <PRD title>', () => {
-    expect(retroTitle({ number: 7, title: 'Widgets that remember their colour' })).toBe(
+    expect(retroTitle({ number: parsePrd(7), title: 'Widgets that remember their colour' })).toBe(
       'docs(retro): PRD 7 — Widgets that remember their colour',
     );
   });

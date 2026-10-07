@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-03",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "A cast on a Supabase row is exactly how a bug reaches production unseen. Parsing it where it comes in, and failing loudly, is what I want.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Validating input at the boundary is just good backend practice. Not fluff, as long as the error says which field broke.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 2,
+          "reaction": "Another PRD that ships no feature. At least it's the last of the cleanup.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "One rule for every team: no escape hatch in source, data parsed at the edge. That's the cohesion I'm after.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 2,
+          "reaction": "Strict parsing could turn into an error my customers see, for a type they never cared about.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Irisa",
+        "text": "Failing loudly sounds right to an engineer, but if a page my customers use shows an error tomorrow because a column came back as text instead of a number, that's a regression they feel, for a type they never cared about.",
+        "citations": [
+          "persona:Irisa"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✗ · persona:Irisa ✗ · offering#36 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-03",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "Strict schemas plus a check against production's real rows before ship: that answers my fear of bugs in production.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The verify script running on every migration is a real tool, not a gimmick.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 2,
+          "reaction": "Solid, but still no feature for my roadmap.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "The guard ends with one rule and nothing to count. The safety net is what makes it adoptable.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The production dry run and the screen walk mean my customers shouldn't see a difference. That's what I needed.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ✗ · offering#36 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-03",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "Production's real rows were parsed before ship, 41 reads and none failed. That is the proof I wanted that strict won't break my pages.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A verify script that runs on every migration and once on production is a real tool. The day-14 retro failing loudly is a fair trade.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 2,
+          "reaction": "Still no feature, but at least the next ones fail at the edge instead of in front of a customer.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "No escape hatch anywhere in source, one rule written in the ADR, and a check every team can run. That's the cohesion I was after.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "My customers' pages read the same rows as before, and production was checked first. My objection was answered.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ✗ · offering#36 ✓"
+    }
+  ]
+}

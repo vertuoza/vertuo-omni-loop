@@ -12,27 +12,35 @@
 // per repository a slice names (its `plan.targets` entry, or `repo.slug` for the plan repository),
 // and a repository `gh` cannot read makes its own slices `unreadable` instead of failing the board.
 //
+// A PRD whose plan has more than one landing (`landing` column) is read per landing: one `gh pr list`
+// per landing branch (`branches.landing`) for its sub-PRs, and one by head for the landing's own
+// pull request; the board then names the current landing and prints a line per landing.
+//
 // `buildBoard` is that whole building part, exported so that the status line's background refresh
 // (`omni statusline --refresh <n>`, PRD 324) builds the board exactly as `omni board` does; the
 // command itself only prints what it returns.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardFor, fillBranch } from '../../lib/board.ts';
-import type { BoardPr, BoardRepos, BoardRow } from '../../lib/board.ts';
+import { boardFor, fillBranch, landingBranches } from '../../lib/board.ts';
+import type { BoardLanding, BoardPr, BoardRepos, BoardRow, LandingRow } from '../../lib/board.ts';
+import { gradedLandings } from '../../lib/inbox/plan-grade.ts';
+import { landingPlan } from '../../lib/landings/landing-plan.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Slice } from '../../lib/inbox/territory.ts';
-import { parsePlanSlices } from '../../lib/inbox/territory.ts';
+import { parsePlanLandings, parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { githubEnv } from '../github.ts';
-import { errorCode, errorMessage, parseArgs, positiveInt, println, repoSlug, usageError } from '../args.ts';
-import { propertyOf } from '../../lib/narrow.ts';
+import { errorCode, errorMessage, parseArgs, prdArg, println, repoSlug, usageError } from '../args.ts';
+import { defined, propertyOf } from '../../lib/narrow.ts';
 import type { Command, CommandIo, Env, Exec } from '../io.ts';
 import { GhPrCommitsSchema, GhPrListSchema } from '../schema.ts';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
+import { synchronous } from '../synchronous.ts';
+import type { PrNumber, PrdNumber } from '../../lib/ids.ts';
 
 const USAGE = 'usage: omni board <prd> [--json] [--repo <owner/name>]';
 
-function readPlan(prd: number, { ctx }: { ctx: Context }): { planPath: string; markdown: string } {
+function readPlan(prd: PrdNumber, { ctx }: { ctx: Context }): { planPath: string; markdown: string } {
   const planPath = ctx.layout.planPath(prd);
   if (planPath === null) throw usageError(`omni board: PRD ${prd} has no inbox or shipped folder.`);
   try {
@@ -44,7 +52,7 @@ function readPlan(prd: number, { ctx }: { ctx: Context }): { planPath: string; m
 }
 
 /** The PRD folder's own topic, which fills `{topic}` in `branches.feature` and `branches.slice`. */
-function topicFor(prd: number, { ctx }: { ctx: Context }): string {
+function topicFor(prd: PrdNumber, { ctx }: { ctx: Context }): string {
   const where = ctx.layout.whereIs(prd);
   if (!where) throw usageError(`omni board: PRD ${prd} has no inbox or shipped folder.`);
   const parsed = parseFolderName(where.name);
@@ -69,8 +77,9 @@ function narrowingArgs({ matchBy, featureBranch, subLabel }: Narrowing): string[
   return matchBy === 'label' ? ['--label', subLabel] : ['--base', featureBranch];
 }
 
-/** Every pull request of this feature — never the whole repository's. */
-function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel }: { repo: string; exec: Exec; env: Env | undefined } & Narrowing): BoardPr[] {
+/** Every pull request of this feature — never the whole repository's. With `head`, the pull
+ * requests whose head is that branch instead: a landing's own. */
+function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel, head = null }: { repo: string; exec: Exec; env: Env | undefined; head?: string | null } & Narrowing): BoardPr[] {
   const options: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', ...(env ? { env } : {}) };
   const raw = exec(
     'gh',
@@ -85,7 +94,7 @@ function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel }: { re
       'all',
       '--limit',
       '200',
-      ...narrowingArgs({ matchBy, featureBranch, subLabel }),
+      ...(head === null ? narrowingArgs({ matchBy, featureBranch, subLabel }) : ['--head', head]),
     ],
     options,
   );
@@ -103,7 +112,7 @@ function couldBeStale(pr: BoardPr, now: number, staleMinutes: number): boolean {
 
 /** The head commit's own date for one pull request, read with a second, narrow `gh pr view` call —
  * `null` when the payload carries no commit at all. */
-function fetchHeadCommitDate({ repo, number, exec, env }: { repo: string; number: number | undefined; exec: Exec; env: Env | undefined }): string | null {
+function fetchHeadCommitDate({ repo, number, exec, env }: { repo: string; number: PrNumber | undefined; exec: Exec; env: Env | undefined }): string | null {
   const options: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', ...(env ? { env } : {}) };
   const raw = exec('gh', ['pr', 'view', String(number), '--repo', repo, '--json', 'commits'], options);
   const commits = GhPrCommitsSchema.parse(JSON.parse(raw)).commits ?? [];
@@ -127,16 +136,22 @@ function fetchHeadCommitDates(
 
 const STATE_WIDTH = 'claimed-stale'.length;
 
-/** A plan slice as the board reads it: `board.ts` types its wave as a number, the plan as a number or null. */
-type PlanSlice = Slice & { wave: number };
-
 /** A repository of a plan repository's slices that could not be read. */
 type Unreadable = { repo: string | null | undefined; slug: string | null; reason: string };
 
-function tableLine(row: BoardRow<PlanSlice>, repoWidth: number): string {
+function tableLine(row: BoardRow<Slice>, repoWidth: number): string {
   const prCol = row.pr ? `#${row.pr.number}` : '—';
-  const repoCol = row.repo === undefined ? '' : `${row.repo!.padEnd(repoWidth)}  `; // ts-allow: boardFor sets `repo` to a name or leaves it out
+  const repoCol = row.repo === undefined ? '' : `${defined(row.repo, `the repository of ${row.id}`).padEnd(repoWidth)}  `;
   return `  ${row.id.padEnd(6)} ${repoCol}w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
+}
+
+/** A landing's header line: its number, name and branch, its counts, its pull request's state, and
+ * whether it is the landing a wave takes from now. */
+function landingLine(landing: LandingRow): string {
+  const pr = landing.pr.number === null ? 'no PR' : `#${landing.pr.number} ${landing.pr.state}`;
+  const counts = `${landing.merged}/${landing.slices.length} merged, ${landing.open} open, ${landing.notStarted} not started`;
+  const where = landing.repo === undefined || landing.repo === null ? '' : `${landing.repo} `;
+  return ` ${where}landing ${landing.landing} (${landing.name}) ${landing.branch} — ${counts} — ${pr}${landing.current ? ' — current' : ''}`;
 }
 
 /**
@@ -153,59 +168,99 @@ function tableLine(row: BoardRow<PlanSlice>, repoWidth: number): string {
  * repository).
  */
 export function buildBoard(
-  prd: number,
+  prd: PrdNumber,
   { ctx, exec, env, repo: repoFlag, now = Date.now() }: { ctx: Context; exec: Exec; env?: Env | undefined; repo?: string | undefined; now?: number },
-): { slices: PlanSlice[]; result: ReturnType<typeof boardFor<PlanSlice>>; unreadable: Unreadable[] } {
+): { slices: Slice[]; result: ReturnType<typeof boardFor<Slice>>; unreadable: Unreadable[]; landings: BoardLanding[] } {
   const { markdown } = readPlan(prd, { ctx });
-  let slices: PlanSlice[];
+  let slices: Slice[];
   try {
-    slices = parsePlanSlices(markdown) as PlanSlice[]; // ts-allow: a slice with no wave reaches boardFor as it always has
+    slices = parsePlanSlices(markdown);
   } catch (error) {
     throw usageError(`omni board: ${errorMessage(error)}`);
   }
   const topic = topicFor(prd, { ctx });
-  const featureBranch = fillBranch(ctx.config.branches.feature, { topic });
+  const planLandings = gradedLandings(slices, parsePlanLandings(markdown));
+  const landings = landingBranches(ctx.config.branches, { topic, landings: planLandings });
+  const landed = landings.length > 1 ? landings : null;
   const repo = repoSlug('board', ctx, repoFlag);
-  const ghEnv = githubEnv(ctx, { exec, env });
-  const matchBy = ctx.config.board.matchBy;
-  const subLabel = ctx.config.labels.sub;
-  const staleMinutes = ctx.config.limits.claimStaleMinutes;
-  const read = (slug: string) => {
-    const listed = fetchPrList({ repo: slug, exec, env: ghEnv, matchBy, featureBranch, subLabel });
-    return fetchHeadCommitDates(listed, { repo: slug, exec, env: ghEnv, now, staleMinutes });
+  const reader: Reader = {
+    exec,
+    env: githubEnv(ctx, { exec, env }),
+    now,
+    matchBy: ctx.config.board.matchBy,
+    featureBranch: fillBranch(ctx.config.branches.feature, { topic }),
+    subLabel: ctx.config.labels.sub,
+    staleMinutes: ctx.config.limits.claimStaleMinutes,
   };
+  const board = (prs: BoardPr[], more: { repos?: BoardRepos; landings: BoardLanding[] | null }) =>
+    boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, ...more });
 
   if (slices.every((slice) => slice.repo === null)) {
-    const prs = read(repo);
-    const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic } });
-    return { slices, result, unreadable: [] };
+    return { slices, result: board(readPrs(repo, landed, reader), { landings: landed }), unreadable: [], landings };
   }
 
-  // A plan repository (PRD 563): one pull-request list per repository a slice names, each pull
-  // request tagged with the slug it was read from; a repository gh cannot read holds only its slices.
-  const known = knownRepositories(ctx, repo);
-  const repos: BoardRepos = {};
-  const prs: BoardPr[] = [];
-  const unreadable: Unreadable[] = [];
+  // In a plan repository, each repository's own chain: only its landings, numbered within it.
+  const chainOf = (name: string | null): BoardLanding[] | null =>
+    landed === null
+      ? null
+      : landingPlan({ landings: planLandings, slices, branches: ctx.config.branches, defaultBranch: ctx.config.repo.defaultBranch, topic, repo: name }).map(
+          (step) => ({ landing: step.planLanding, name: step.name, branch: step.branch, repo: name }),
+        );
+  const across = readAcrossRepos(slices, { known: knownRepositories(ctx, repo), chainOf, reader });
+  const chains = landed === null ? null : across.chains;
+  return { slices, result: board(across.prs, { repos: across.repos, landings: chains }), unreadable: across.unreadable, landings: chains ?? landings };
+}
+
+/** What reading a feature's pull requests needs: the `gh` call's means and the config it narrows by. */
+type Reader = { exec: Exec; env: Env | undefined; now: number; staleMinutes: number } & Narrowing;
+
+/** One repository's pull requests of this feature, each that could be `claimed-stale` with its head
+ * commit date. With a landing chain: the sub-PRs into each landing branch (once, by label, in
+ * `label` mode), then each landing's own pull request by head. */
+function readPrs(slug: string, chain: readonly BoardLanding[] | null, reader: Reader): BoardPr[] {
+  const { exec, env, now, staleMinutes, ...narrowing } = reader;
+  const list = (more: Partial<Narrowing> & { head?: string }) => fetchPrList({ repo: slug, exec, env, ...narrowing, ...more });
+  let prs: BoardPr[];
+  if (chain === null) prs = list({});
+  else {
+    const subs = narrowing.matchBy === 'label' ? list({}) : chain.flatMap(({ branch }) => list({ featureBranch: branch }));
+    const byNumber = new Map<number | undefined, BoardPr>();
+    for (const pr of [...subs, ...chain.flatMap(({ branch }) => list({ head: branch }))]) if (!byNumber.has(pr.number)) byNumber.set(pr.number, pr);
+    prs = [...byNumber.values()];
+  }
+  return fetchHeadCommitDates(prs, { repo: slug, exec, env, now, staleMinutes });
+}
+
+/**
+ * A plan repository's pull requests (PRD 563): one list per repository a slice names, each pull
+ * request tagged with the slug it was read from; a repository gh cannot read holds only its slices.
+ * With landings, each repository is read along its own chain, and `chains` gathers them.
+ */
+function readAcrossRepos(
+  slices: readonly Slice[],
+  { known, chainOf, reader }: { known: Map<string, string>; chainOf: (name: string | null) => BoardLanding[] | null; reader: Reader },
+): { prs: BoardPr[]; repos: BoardRepos; unreadable: Unreadable[]; chains: BoardLanding[] } {
+  const out: { prs: BoardPr[]; repos: BoardRepos; unreadable: Unreadable[]; chains: BoardLanding[] } = { prs: [], repos: {}, unreadable: [], chains: [] };
   for (const name of new Set(slices.map((slice) => slice.repo))) {
+    const chain = chainOf(name);
+    out.chains.push(...(chain ?? []));
     // `String(name)` is the key JavaScript itself would use for a slice with no repo name.
     const key = String(name);
     const slug = (typeof name === 'string' ? known.get(name) : undefined) ?? null;
     if (slug === null) {
-      repos[key] = { slug: null, readable: false };
-      unreadable.push({ repo: name, slug: null, reason: 'neither a target nor this plan repository' });
+      out.repos[key] = { slug: null, readable: false };
+      out.unreadable.push({ repo: name, slug: null, reason: 'neither a target nor this plan repository' });
       continue;
     }
     try {
-      prs.push(...read(slug).map((pr) => ({ ...pr, slug })));
-      repos[key] = { slug, readable: true };
+      out.prs.push(...readPrs(slug, chain, reader).map((pr) => ({ ...pr, slug })));
+      out.repos[key] = { slug, readable: true };
     } catch (error) {
-      repos[key] = { slug, readable: false };
-      unreadable.push({ repo: name, slug, reason: ghReason(error) });
+      out.repos[key] = { slug, readable: false };
+      out.unreadable.push({ repo: name, slug, reason: ghReason(error) });
     }
   }
-  const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, repos });
-  return { slices, result, unreadable };
+  return out;
 }
 
 /** The part of an `owner/name` slug after the `/`: the name a plan's `repo` column uses. */
@@ -222,17 +277,53 @@ function knownRepositories(ctx: Context, planSlug: string): Map<string, string> 
   return known;
 }
 
+/** What a process wrote, as text: a string as it is, a buffer decoded, nothing for anything else. */
+function textOf(value: unknown): string {
+  if (typeof value === 'string') return value;
+  return Buffer.isBuffer(value) ? value.toString() : '';
+}
+
 /** What gh said when it could not read a repository, as one line. */
 function ghReason(error: unknown): string {
-  const lines = `${propertyOf(error, 'stderr') ?? ''}\n${propertyOf(error, 'message') ?? ''}`.split('\n').map((line) => line.trim()).filter(Boolean);
+  const lines = `${textOf(propertyOf(error, 'stderr'))}\n${textOf(propertyOf(error, 'message'))}`.split('\n').map((line) => line.trim()).filter(Boolean);
   return lines[0] ?? 'gh could not read it';
 }
 
+/** The board's rows, under a line per landing when it has more than one. */
+function printRows(stdout: CommandIo['stdout'], result: ReturnType<typeof buildBoard>['result']): void {
+  const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? '').length));
+  if (result.landings === undefined) {
+    for (const row of result.slices) println(stdout, tableLine(row, repoWidth));
+    return;
+  }
+  for (const landing of result.landings) {
+    println(stdout, landingLine(landing));
+    for (const row of result.slices.filter((candidate) => landing.slices.includes(candidate.id))) println(stdout, tableLine(row, repoWidth));
+  }
+}
+
+/** The runnable frontier, in words. */
+function printFrontier(stdout: CommandIo['stdout'], result: ReturnType<typeof buildBoard>['result']): void {
+  const { frontier } = result;
+  if (frontier.wave === null) {
+    println(stdout, 'omni board — runnable frontier: none — nothing is takeable right now.');
+    if (result.landings !== undefined && result.currentLanding === null) println(stdout, 'omni board — every landing has all its slices merged.');
+    return;
+  }
+  const takeable = frontier.takeable.join(', ') || '(none — every candidate collides with another)';
+  const where = result.currentLanding === undefined ? '' : ` of landing ${result.currentLanding}`;
+  println(stdout, `omni board — runnable frontier: wave ${frontier.wave}${where} — takeable: ${takeable}`);
+  println(stdout, `omni board — of which runnable (unclaimed): ${frontier.runnable.join(', ') || '(none)'}`);
+  if (frontier.excluded.length > 0) {
+    println(stdout, `omni board — deferred by a same-wave territory collision (kept the earlier slice in plan order): ${frontier.excluded.join(', ')}`);
+  }
+}
+
 export const board: Command = {
-  async run(args: string[], { ctx, stdout, exec, env }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
     const { positional, flags } = parseArgs('board', args, { values: ['repo'], booleans: ['json'] });
     if (positional.length !== 1) throw usageError(USAGE);
-    const prd = positiveInt('board', '<prd>', positional[0]);
+    const prd = prdArg('board', '<prd>', positional[0]);
 
     const { slices, result, unreadable } = buildBoard(prd, { ctx, exec, env, repo: flags.repo });
 
@@ -242,25 +333,11 @@ export const board: Command = {
     }
 
     println(stdout, `omni board — PRD ${prd}: ${slices.length} slice(s).`);
-    const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? '').length));
-    for (const row of result.slices) println(stdout, tableLine(row, repoWidth));
+    printRows(stdout, result);
     for (const { repo, slug, reason } of unreadable) {
       println(stdout, `omni board — cannot read ${slug ?? repo}: ${reason} — its slices are unreadable.`);
     }
-
-    if (result.frontier.wave === null) {
-      println(stdout, 'omni board — runnable frontier: none — nothing is takeable right now.');
-    } else {
-      const takeable = result.frontier.takeable.join(', ') || '(none — every candidate collides with another)';
-      println(stdout, `omni board — runnable frontier: wave ${result.frontier.wave} — takeable: ${takeable}`);
-      println(stdout, `omni board — of which runnable (unclaimed): ${result.frontier.runnable.join(', ') || '(none)'}`);
-      if (result.frontier.excluded.length > 0) {
-        println(
-          stdout,
-          `omni board — deferred by a same-wave territory collision (kept the earlier slice in plan order): ${result.frontier.excluded.join(', ')}`,
-        );
-      }
-    }
+    printFrontier(stdout, result);
     return 0;
-  },
+  }),
 };

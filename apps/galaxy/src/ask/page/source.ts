@@ -144,7 +144,9 @@ export async function sendAnswers(db: Db & Partial<StorageDb>, roundId: string, 
   const tray = trayOf(roundId);
   if (!db.storage || Object.keys(tray.shots).length === 0) return record();
   const bucket: Bucket = db.storage.from(ATTACHMENTS_BUCKET);
-  return sendWithShots(bucket, roundId, tray, record, (progress) => tray.setProgress(progress));
+  return sendWithShots(bucket, roundId, tray, record, (progress) => {
+    tray.setProgress(progress);
+  });
 }
 
 /** Deletes the session and its rounds for good: true when it went, false when the caller is not its
@@ -170,7 +172,7 @@ export async function shareRound(db: Db & SortDb, roundId: string, member: strin
 export async function readMembers(db: Db & SortDb, workspaceId: string | null | undefined): Promise<Member[]> {
   if (!workspaceId) return [];
   try {
-    const [members, people] = await Promise.all([askShares(db).members(workspaceId), loadPeople(db as SupabaseClient, workspaceId)]); // ts-allow: loadPeople reads only `from` and `rpc`
+    const [members, people] = await Promise.all([askShares(db).members(workspaceId), loadPeople(db, workspaceId)]);
     return withFaces(members, people);
   } catch (error) {
     console.error(error);
@@ -193,7 +195,8 @@ export async function readQuestion(db: Db & SortDb, roundId: string): Promise<Qu
   const state = await readSession(db, round.session_id);
   if (!state) return null;
   const shares = await askShares(db).ofRound(round.id);
-  const { session_id: _session, ...only } = round;
+  const only: RoundRow & { session_id?: string } = { ...round };
+  delete only.session_id;
   return { session: state.session, round: only, earlier: state.rounds.filter((r) => r.id !== round.id), sharedWith: shares.map((s) => s.shared_with) };
 }
 

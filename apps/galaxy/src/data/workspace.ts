@@ -7,6 +7,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { Brand } from '../arcade/brand';
+import { z } from 'zod';
+import { orThrow, parseRows } from './parse-rows';
+import { listOf, numberOf } from './unparsed';
 
 export interface Workspace {
   id: string;
@@ -16,7 +19,15 @@ export interface Workspace {
   theme: Record<string, string>;
 }
 
-type MembershipRow = { joined_at: string; workspace: { id: string; slug: string; name: string; theme: unknown } | null };
+/** The columns of a membership, with its workspace. */
+export const MEMBERSHIP_COLUMNS = 'joined_at, workspace:workspaces(id, slug, name, theme)';
+
+/** A membership as MEMBERSHIP_COLUMNS reads it. The theme is a JSON column, read through themeOf(). */
+export const MembershipRow = z.strictObject({
+  joined_at: z.string(),
+  workspace: z.strictObject({ id: z.string(), slug: z.string(), name: z.string(), theme: z.unknown() }).nullable(),
+});
+type MembershipRow = z.infer<typeof MembershipRow>;
 
 /** The stored theme's string entries: the database checks it (valid_theme()); the arcade checks
  * each colour again before applying it. */
@@ -29,10 +40,10 @@ const themeOf = (value: unknown): Record<string, string> =>
 async function firstWorkspace(db: SupabaseClient<Database>, userId: string): Promise<Workspace | null> {
   const { data, error } = await db
     .from('workspace_members')
-    .select('joined_at, workspace:workspaces(id, slug, name, theme)')
+    .select(MEMBERSHIP_COLUMNS)
     .eq('user_id', userId);
   if (error) throw new Error(`Supabase: could not read your workspaces (${error.message})`);
-  const first = ((data ?? []) as unknown as MembershipRow[]) // ts-allow: theme is a JSON column, read through themeOf()
+  const first = orThrow(parseRows(MembershipRow, data, 'data/workspace: workspace_members'))
     .filter((m): m is MembershipRow & { workspace: NonNullable<MembershipRow['workspace']> } => m.workspace !== null)
     .sort((a, b) => Date.parse(a.joined_at) - Date.parse(b.joined_at) || a.workspace.slug.localeCompare(b.workspace.slug))[0];
   if (!first) return null;
@@ -51,11 +62,12 @@ export async function memberGithub(db: SupabaseClient<Database>, userId: string)
     .select('workspace:workspaces(slug, github_org, github_installation_id)')
     .eq('user_id', userId);
   if (error) throw new Error(`Supabase: could not read your workspaces (${error.message})`);
-  return (data ?? [])
+  // Each row is read as PostgREST sent it: the embedded workspace may be absent, its columns unparsed.
+  return listOf<{ workspace: { slug: string; github_org?: string | null; github_installation_id: unknown } | null }>(data)
     .flatMap((row) => (row.workspace ? [{
       slug: row.workspace.slug,
       github_org: row.workspace.github_org ?? null,
-      github_installation_id: row.workspace.github_installation_id === null ? null : Number(row.workspace.github_installation_id),
+      github_installation_id: row.workspace.github_installation_id === null ? null : numberOf(row.workspace.github_installation_id),
     }] : []))
     .sort((a, b) => a.slug.localeCompare(b.slug));
 }
@@ -66,7 +78,7 @@ export async function memberGithub(db: SupabaseClient<Database>, userId: string)
 export async function joinByGithub(db: Pick<SupabaseClient<Database>, 'rpc'>, userId: string, logins: string[]): Promise<string[]> {
   const { data, error } = await db.rpc('join_workspaces_by_github', { p_user_id: userId, p_logins: logins });
   if (error) throw new Error(`Supabase: could not join your workspaces (${error.message})`);
-  return data ?? [];
+  return listOf(data);
 }
 
 /** Each client's member workspace reads, by person: a request's client is shared by the viewer, the
@@ -78,7 +90,7 @@ const readsByClient = new WeakMap<object, Map<string, Promise<Workspace | null>>
  * per client and person; a failed read is not kept. */
 export function memberWorkspace(db: SupabaseClient<Database>, userId: string): Promise<Workspace | null> {
   let reads = readsByClient.get(db);
-  if (!reads) readsByClient.set(db, (reads = new Map()));
+  if (!reads) readsByClient.set(db, (reads = new Map<string, Promise<Workspace | null>>()));
   const kept = reads.get(userId);
   if (kept) return kept;
   const read = firstWorkspace(db, userId);

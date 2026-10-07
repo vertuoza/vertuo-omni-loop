@@ -1,6 +1,5 @@
 // PRD #45, slice s3: `omni kb init | show | status` and `omni check kb`, each through `main()` on a
 // fixture repository. The kit's own templates are the kit defaults throughout.
-import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -10,7 +9,9 @@ import { readKnowledge } from '../lib/knowledge/registers.ts';
 import { FORM_IDS, FORMS, parseForm } from '../lib/playbook/forms.ts';
 import { fillConfig } from '../lib/playbook/resolve.ts';
 import { formTemplate } from '../lib/playbook/templates.ts';
+import { assertDefined } from '../test/assert.ts';
 import { formText, makeRepo } from '../test/fixture.ts';
+import { dig } from './dig.ts';
 import { main } from './omni.ts';
 import { realExec } from '../test/fixture.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
@@ -35,7 +36,11 @@ async function omni(root: string, argv: readonly string[], options = {}) {
 
 /** The kit default of `form`'s slot `slot`, filled from `config` as `omni kb show` fills it. */
 function kitDefault(form: string, slot: string, config = { commands: { test: 'make check' } }) {
-  const body = parseForm(formTemplate(form)).form!.slots.find((entry) => entry.id === slot)!.body.text;
+  const template = parseForm(formTemplate(form)).form;
+  assertDefined(template, `the ${form} template`);
+  const entry = template.slots.find(({ id }) => id === slot);
+  assertDefined(entry, `the ${form} template's ${slot} slot`);
+  const body = entry.body.text;
   return fillConfig(body, ConfigSchema.parse({ kit: 1, ...config })).text;
 }
 
@@ -78,15 +83,19 @@ describe('omni kb init — acceptance criterion 1', () => {
       const file = form.id === 'decisions' ? DECISIONS : `${PLAYBOOK}/${form.id}.md`;
       const kit = parseForm(formTemplate(form.id)).form;
       const written = parseForm(read(file)).form;
-      expect({ title: written!.title, opener: written!.opener }).toEqual({ title: kit!.title, opener: kit!.opener });
-      expect(written!.slots.map(({ id, heading, required, by, verified }) => ({ id, heading, required, by, verified }))).toEqual(
-        kit!.slots.map(({ id, heading, required }) => ({ id, heading, required, by: null, verified: null })),
+      assertDefined(kit, `the ${form.id} template`);
+      assertDefined(written, file);
+      expect({ title: written.title, opener: written.opener }).toEqual({ title: kit.title, opener: kit.opener });
+      expect(written.slots.map(({ id, heading, required, by, verified }) => ({ id, heading, required, by, verified }))).toEqual(
+        kit.slots.map(({ id, heading, required }) => ({ id, heading, required, by: null, verified: null })),
       );
-      expect(written!.slots.every((slot) => slot.body.kind === 'empty'), file).toBe(true);
+      expect(written.slots.every((slot) => slot.body.kind === 'empty'), file).toBe(true);
       expect(read(file)).not.toMatch(/Ported from/);
     }
     const { out } = await omni(root, ['kb', 'show', 'testing']);
-    expect(out.match(/^## .*$/gm)!.every((line) => line.endsWith('[kit default]'))).toBe(true);
+    const headings = out.match(/^## .*$/gm);
+    assertDefined(headings, 'the headings');
+    expect(headings.every((line) => line.endsWith('[kit default]'))).toBe(true);
   });
 
   it('writes the front door README filled from the config, naming where each half lives', async () => {
@@ -202,7 +211,7 @@ describe('omni kb show — acceptance criterion 2: each section says where it ca
     const { root } = makeRepo({ git: true, files: { ...CONFIG, [TESTING]: FILLED, 'guides/never.md': 'x\n' } });
     const { code, out } = await omni(root, ['kb', 'show', 'testing', '--json']);
     expect(code).toBe(0);
-    const json: ResolvedForm = JSON.parse(out);
+    const json = JSON.parse(out) as ResolvedForm;
     expect(json).toMatchObject({ form: 'testing', file: TESTING, state: 'filled', title: 'Testing' });
     expect(json.sections.map(({ slot, source }) => `${slot}:${source}`)).toEqual(['commands:repo', 'layout:repo', 'levels:kit', 'never:pointer', 'data:hole']);
   });
@@ -273,8 +282,8 @@ describe('omni kb show — acceptance criterion 3: a pointer shows its target; t
     );
 
     write('.omni-loop/knowledge/adr/0001-x.md', 'No heading here.\n');
-    const json = JSON.parse((await omni(root, ['kb', 'show', 'decisions', '--json'])).out);
-    expect(json.records).toEqual({
+    const json: unknown = JSON.parse((await omni(root, ['kb', 'show', 'decisions', '--json'])).out);
+    expect(dig(json, 'records')).toEqual({
       dir: '.omni-loop/knowledge/adr',
       records: [{ number: '0001', file: '.omni-loop/knowledge/adr/0001-x.md', title: null }],
       shared: [],
@@ -337,7 +346,7 @@ describe('omni kb status — the map, derived every time', () => {
     const { root } = makeRepo({ git: true, files: FILES });
     const { code, out } = await omni(root, ['kb', 'status', '--json'], { exec });
     expect(code).toBe(0);
-    const status: StatusMap = JSON.parse(out);
+    const status = JSON.parse(out) as StatusMap;
     expect(status.frontDoor).toBe('.omni-loop/knowledge');
     expect(status.forms.map(({ form, kind, state, source }) => `${form} ${kind} ${state} ${source}`)).toEqual([
       'briefing core missing kit',
@@ -364,8 +373,9 @@ describe('omni kb status — the map, derived every time', () => {
         { path: 'gone.json', hash: '7654321', now: null },
       ],
     });
-    expect(testing!.sections.map(({ slot, source }) => `${slot}:${source}`)).toEqual(['commands:repo', 'layout:repo', 'levels:repo', 'never:repo', 'data:hole']);
-    expect(status.forms.find((form) => form.form === 'verification')!.questions).toEqual([{ slot: 'preflight', question: 'which command is the preflight?' }]);
+    assertDefined(testing, 'the testing form');
+    expect(testing.sections.map(({ slot, source }) => `${slot}:${source}`)).toEqual(['commands:repo', 'layout:repo', 'levels:repo', 'never:repo', 'data:hole']);
+    expect(status.forms.find((form) => form.form === 'verification')?.questions).toEqual([{ slot: 'preflight', question: 'which command is the preflight?' }]);
   });
 
   it('prints one line per form, then every open question and every stale evidence entry', async () => {
@@ -416,7 +426,7 @@ describe('omni kb status — laws and proposals per register folder (PRD #68)', 
     const { root } = makeRepo({ git: true, files: FILES });
     const { code, out } = await omni(root, ['kb', 'status', '--json']);
     expect(code).toBe(0);
-    expect(JSON.parse(out).registers).toEqual([
+    expect(dig(JSON.parse(out), 'registers')).toEqual([
       { folder: `${K}/product`, laws: 2, proposals: 1 },
       { folder: `${K}/domains/quote`, laws: 0, proposals: 2 },
     ]);
@@ -433,7 +443,7 @@ describe('omni kb status — laws and proposals per register folder (PRD #68)', 
     ]);
     const { root: empty } = makeRepo({ git: true, files: CONFIG });
     const none = await omni(empty, ['kb', 'status', '--json']);
-    expect(JSON.parse(none.out).registers).toEqual([]);
+    expect(dig(JSON.parse(none.out), 'registers')).toEqual([]);
     expect((await omni(empty, ['kb', 'status'])).out).toMatch(/\nRegisters: none\.\n/);
   });
 
@@ -482,7 +492,7 @@ describe('omni kb graph — the knowledge graph (PRD #149, acceptance criterion 
     const { code, out, err } = await omni(root, ['kb', 'graph', '--json']);
     expect(code).toBe(0);
     expect(err).toBe('');
-    const graph: Graph = JSON.parse(out);
+    const graph = JSON.parse(out) as Graph;
     expect(graph).toMatchObject({ version: 1, repo: 'acme/widgets', loose: ['N-PRODUCT-1', 'BR-QUOTE-2'], unserved: ['P-PRODUCT-2'] });
     expect(graph.domains.map(({ name, counts }) => `${name} ${Object.values(counts).join(' ')}`)).toEqual(['product 2 1 1 3 1', 'quote 0 2 0 0 2']);
     expect(graph.entries.map(({ id }) => id)).toEqual(['P-PRODUCT-1', 'P-PRODUCT-2', 'BR-PRODUCT-1', 'N-PRODUCT-1', 'BR-QUOTE-1', 'BR-QUOTE-2', 'X-ADVISOR-QUOTE-1']);
@@ -588,7 +598,11 @@ describe('omni check kb — acceptance criterion 4: warns, exit 0', () => {
       frontMatter: { evidence: ['package.json@abcdef1', 'vitest.config.ts@1234567'] },
       slots: { data: { body: 'TODO(human): is there a naming rule for fixture repositories?\nTODO(human): who owns the fixtures?' } },
     });
-    const blank = (form: string) => formText({ frontMatter: { form }, slots: FORMS.find((entry) => entry.id === form)!.slots.map(({ id, required }) => ({ id, required })) });
+    const blank = (form: string) => {
+      const kit = FORMS.find((entry) => entry.id === form);
+      assertDefined(kit, `the ${form} form`);
+      return formText({ frontMatter: { form }, slots: kit.slots.map(({ id, required }) => ({ id, required })) });
+    };
     const { root } = makeRepo({
       git: true,
       files: {
@@ -746,9 +760,8 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
       { [`${COPY}/product/invariants.md`]: null },
       `${COPY}: ${COPY}/product/invariants.md: product — is missing.`,
     ],
-  ])('omni check kb fails on a malformed copy (%s) with the own-knowledge message, prefixed by the copy', async (_: any, change: any, line: string) => {
-    const files = { ...FILES, ...change };
-    for (const [path, text] of Object.entries(files)) if (text === null) delete files[path];
+  ])('omni check kb fails on a malformed copy (%s) with the own-knowledge message, prefixed by the copy', async (_: string, change: Record<string, string | null>, line: string) => {
+    const files = Object.fromEntries(Object.entries<string | null>({ ...FILES, ...change }).flatMap(([path, text]) => (text === null ? [] : [[path, text]])));
     const { root } = makeRepo({ git: true, files });
     const { code, out } = await omni(root, ['check', 'kb']);
     expect(code).toBe(1);
@@ -778,18 +791,19 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
     const { root } = makeRepo({ git: true, files: FILES });
     const { code, out } = await omni(root, ['kb', 'status', '--json']);
     expect(code).toBe(0);
-    const status: StatusMap = JSON.parse(out);
+    const status = JSON.parse(out) as StatusMap;
     expect(Object.keys(status)).toEqual(['frontDoor', 'forms', 'registers', 'targets']);
     expect(status.registers).toEqual([{ folder: `${K}/product`, laws: 2, proposals: 0 }]);
     expect(status.targets).toHaveLength(1);
     const [copy] = status.targets;
-    expect(Object.keys(copy!)).toEqual(['repo', 'folder', 'forms', 'registers']);
-    expect(copy!.repo).toBe('acme/vertuo-backend-php');
-    expect(copy!.folder).toBe(COPY);
-    expect(copy!.registers).toEqual([{ folder: `${COPY}/product`, laws: 3, proposals: 0 }]);
-    expect(copy!.forms.map(({ form }) => form)).toEqual(status.forms.map(({ form }) => form));
-    expect(copy!.forms.find(({ form }) => form === 'testing')).toMatchObject({ file: `${COPY}/playbook/testing.md`, state: 'filled', stale: [] });
-    expect(copy!.forms.find(({ form }) => form === 'decisions')).toMatchObject({ file: `${COPY}/adr/README.md`, state: 'missing' });
+    assertDefined(copy, 'the copy');
+    expect(Object.keys(copy)).toEqual(['repo', 'folder', 'forms', 'registers']);
+    expect(copy.repo).toBe('acme/vertuo-backend-php');
+    expect(copy.folder).toBe(COPY);
+    expect(copy.registers).toEqual([{ folder: `${COPY}/product`, laws: 3, proposals: 0 }]);
+    expect(copy.forms.map(({ form }) => form)).toEqual(status.forms.map(({ form }) => form));
+    expect(copy.forms.find(({ form }) => form === 'testing')).toMatchObject({ file: `${COPY}/playbook/testing.md`, state: 'filled', stale: [] });
+    expect(copy.forms.find(({ form }) => form === 'decisions')).toMatchObject({ file: `${COPY}/adr/README.md`, state: 'missing' });
   });
 
   it('omni kb status prints a line per imported copy, and --json says targets: [] without a plan section', async () => {
@@ -800,7 +814,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
       `acme/vertuo-backend-php ${COPY} · 1 filled · 13 missing · 1 register folder(s)`,
     ]);
     const { root: plain } = makeRepo({ git: true, files: CONFIG });
-    expect(JSON.parse((await omni(plain, ['kb', 'status', '--json'])).out).targets).toEqual([]);
+    expect(dig(JSON.parse((await omni(plain, ['kb', 'status', '--json'])).out), 'targets')).toEqual([]);
     expect((await omni(plain, ['kb', 'status'])).out).not.toMatch(/Imported copies/);
   });
 });

@@ -23,7 +23,7 @@
 // gets one repair request.
 //
 // The contract the function relies on:
-//   in:  { sheet, prd: { title, problem }, knowledge?, lessons?, env, fetch }
+//   in:  { sheet, prd: { title, problem }, knowledge?, lessons?, openrouter, fetch }
 //        `knowledge` is what the kit's `knowledgeSummary` returns (its `principles`, `laws` and
 //        `decisions` are read), `lessons` the `lessons[].text` of earlier retros, oldest first.
 //   out: { model: string | null, reply: object | null, reason: string | null }
@@ -43,8 +43,10 @@ import {
   maskSecrets,
 } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
 import { LOOK_RULE } from 'vertuo-omni-plan/kit/lib/knowledge/look-rule.ts';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { z } from 'zod';
 import { FIELD_CAPS, LIMITS, REFUSED_WORDS } from './rules.ts';
+import type { OpenRouterEnv } from '../env.ts';
 
 /** What the model is given of a finding: what `detect` put on the fact sheet. */
 type NarratedFinding = {
@@ -66,15 +68,26 @@ export type NarratePrd = { title?: string | null; problem?: string | null } | nu
 export type KnowledgeInput = { principles?: unknown; laws?: unknown; decisions?: unknown } | null;
 
 /** One finding's words, as the model wrote them. */
-export type ReplyFinding = { title?: string; whyItMatters?: string; lesson?: string; keep?: boolean; why?: string };
+const ReplyFindingSchema = z.object({
+  title: z.string().exactOptional(),
+  whyItMatters: z.string().exactOptional(),
+  lesson: z.string().exactOptional(),
+  keep: z.boolean().exactOptional(),
+  why: z.string().exactOptional(),
+});
+type ReplyFinding = z.infer<typeof ReplyFindingSchema>;
 
-/** The model's JSON, as `checkReply` passed it. */
-export type ModelReply = {
-  summary: string;
-  findings: Record<string, ReplyFinding>;
-  lessons: { text: string; findings: string[] }[];
-  verdict: { worthIt: boolean; reason: string } | null;
-};
+/**
+ * The model's JSON, as `checkReply` passed it, and as the step "narrate" saved it: `checkReply`
+ * says what is wrong in sentences the model is sent back, then this schema gives the reply its type.
+ */
+export const ModelReplySchema = z.object({
+  summary: z.string(),
+  findings: z.record(z.string(), ReplyFindingSchema),
+  lessons: z.array(z.object({ text: z.string(), findings: z.array(z.string()) })),
+  verdict: z.object({ worthIt: z.boolean(), reason: z.string() }).nullable(),
+});
+export type ModelReply = z.infer<typeof ModelReplySchema>;
 
 export type Narrated = { model: string | null; reply: ModelReply | null; reason: string | null };
 
@@ -207,7 +220,7 @@ function capInput(input: ModelInputJson, sources: readonly (string | undefined)[
   const leastSevereFirst = (a: Excerpt, b: Excerpt) => b.i - a.i || b.j - a.j;
   const logs = excerpts.filter((entry) => entry.source === LOGS);
   const latest = new Set(
-    [...new Set(logs.map((entry) => entry.i))].map((i) => logs.filter((entry) => entry.i === i).at(-1)!), // ts-allow: `i` is taken from `logs`, so its list is never empty
+    [...new Set(logs.map((entry) => entry.i))].map((i) => at(logs.filter((entry) => entry.i === i), -1, `the latest log of finding ${String(i)}`)),
   );
   const olderLogs = logs.filter((entry) => !latest.has(entry)).sort((a, b) => a.j - b.j || b.i - a.i);
   const hunks = excerpts.filter((entry) => entry.source === HUNKS).sort(leastSevereFirst);
@@ -294,7 +307,10 @@ export function checkReply(value: unknown): { errors: string[]; reply: ModelRepl
   if (!Array.isArray(value.lessons)) errors.push('lessons must be a list');
   else {
     value.lessons.forEach((lesson: unknown, index: number) => {
-      if (!isObject(lesson)) return errors.push(`lessons[${index}] must be an object`);
+      if (!isObject(lesson)) {
+        errors.push(`lessons[${index}] must be an object`);
+        return;
+      }
       if (typeof lesson.text !== 'string') errors.push(`lessons[${index}].text must be a string`);
       if (!Array.isArray(lesson.findings) || lesson.findings.some((id: unknown) => typeof id !== 'string')) {
         errors.push(`lessons[${index}].findings must be a list of finding ids`);
@@ -310,8 +326,8 @@ export function checkReply(value: unknown): { errors: string[]; reply: ModelRepl
     verdict = { worthIt: value.verdict.worthIt, reason: value.verdict.reason };
   }
   if (errors.length > 0) return { errors, reply: null };
-  const reply = { summary: value.summary, findings, lessons, verdict } as ModelReply; // ts-allow: with no error, every field above has the type its message names
-  return { errors, reply };
+  const reply = ModelReplySchema.safeParse({ summary: value.summary, findings, lessons, verdict });
+  return reply.success ? { errors, reply: reply.data } : { errors: ['the reply must be a JSON object of the shape above'], reply: null };
 }
 
 export type NarrateInput = {
@@ -319,8 +335,9 @@ export type NarrateInput = {
   prd: NarratePrd;
   knowledge?: KnowledgeInput;
   lessons?: readonly unknown[] | null;
-  env?: Record<string, string | undefined>;
-  fetch?: typeof fetch;
+  /** OpenRouter's key and model, from the app's environment (../env.ts); `null`: no model, facts only. */
+  openrouter: OpenRouterEnv | null;
+  fetch?: typeof fetch | undefined;
   sleep?: (ms: number) => Promise<void>;
   call?: typeof MODEL_CALL;
 };
@@ -330,14 +347,14 @@ export async function narrate({
   prd,
   knowledge = null,
   lessons = [],
-  env = process.env,
+  openrouter,
   fetch = globalThis.fetch,
   sleep,
   call = MODEL_CALL,
 }: NarrateInput): Promise<Narrated> {
   const { system, user } = modelInput({ sheet, prd, knowledge, lessons });
-  const out = await askModel({ system, user, check: checkReply, env, fetch, sleep, call, title: TITLE, stream: true });
-  if (out.ok) return { model: out.model, reply: out.reply as ModelReply, reason: null }; // ts-allow: an ok answer's reply is the one `checkReply` gave back
+  const out = await askModel({ system, user, check: checkReply, openrouter, fetch, sleep, call, title: TITLE, stream: true });
+  if (out.ok) return { model: out.model, reply: ModelReplySchema.parse(out.reply), reason: null };
   if (out.error === NO_KEY) return { model: null, reply: null, reason: NO_MODEL_KEY };
   if (out.error === REFUSED) return { model: out.model, reply: null, reason: REPLY_INVALID };
   return { model: out.model, reply: null, reason: out.reason };

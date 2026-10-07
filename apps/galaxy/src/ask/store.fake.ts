@@ -30,9 +30,24 @@ type Result = { data: unknown; error: Failure | null };
 export type FakeAccount = { id: string; email: string; workspaces?: string[]; name?: string };
 
 export const FAKE_WORKSPACE = '00000000-0000-4000-8000-00000000a0a0';
+
+/** What the Auth server's token check answers for a token's account, or for a token it does not know. */
+export function userOf(account: FakeAccount | undefined) {
+  return account
+    ? { data: { user: { id: account.id, email: account.email } }, error: null }
+    : { data: { user: null }, error: { name: 'AuthApiError', status: 401, message: 'invalid JWT' } };
+}
 export type FakeTables = { ask_sessions: Row[]; ask_rounds: Row[]; ask_shares: Row[] };
 
-const clone = <T>(value: T): T => (value === undefined ? value : JSON.parse(JSON.stringify(value)));
+/** A deep copy, as the database answers one: through JSON, so a key holding undefined is dropped. */
+const clone = (value: unknown): unknown => (value === undefined ? value : JSON.parse(JSON.stringify(value)));
+const isRow = (value: unknown): value is Row => typeof value === 'object' && value !== null && !Array.isArray(value);
+/** A row's deep copy, as `clone` makes it. */
+function cloneRow(row: Row): Row {
+  const copy = clone(row);
+  if (!isRow(copy)) throw new Error('a row did not copy as a row');
+  return copy;
+}
 
 export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => number = Date.now) {
   const tables: FakeTables = { ask_sessions: [], ask_rounds: [], ask_shares: [] };
@@ -59,7 +74,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
     Boolean(me && visible('ask_rounds', round, me) && tables.ask_shares.some((s) => s.round_id === round.id && s.shared_with === me.id));
   /** Changing or deleting: the session's owner, who is a member too. */
   const owned = (table: keyof FakeTables, row: Row, me: FakeAccount | null) =>
-    Boolean(visible(table, row, me) && sessionOf(row, table)?.owner === me?.id);
+    visible(table, row, me) && sessionOf(row, table)?.owner === me?.id;
 
   class Query implements PromiseLike<Result> {
     private table: keyof FakeTables;
@@ -76,7 +91,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
       this.me = me;
     }
 
-    select(_columns?: string) { return this; }
+    // Every column, whichever are named: the type keeps the callers' argument, the fake reads none.
+    select: (columns?: string) => Query = () => this;
     insert(values: Row) { this.op = 'insert'; this.values = values; return this; }
     update(values: Row) { this.op = 'update'; this.values = values; return this; }
     delete() { this.op = 'delete'; return this; }
@@ -139,7 +155,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
         const at = stamp();
         const row = {
           id: newId(), owner: this.me.id, status: 'open', created_at: at, last_seen_at: at, repo: null, branch: null, claude_session_id: null,
-          ...clone(this.values),
+          ...cloneRow(this.values),
           workspace_id: workspacesOf(this.me)[0] ?? null,
         };
         // Like the trigger (repo_workspace(), PRD 459): a session with nowhere to go is refused with the reason.
@@ -154,7 +170,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
       const row = {
         id: newId(), answers: null, answered_via: null, status: 'open', created_at: stamp(), answered_at: null,
         prd: null, skill: null, model: null, tokens: null, cost_usd: null,
-        ...clone(this.values),
+        ...cloneRow(this.values),
         answered_by: null, category: null, category_by: null,
       };
       tables.ask_rounds.push(row);
@@ -176,7 +192,10 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
       for (const row of rows) {
         const answering = this.table === 'ask_rounds' && this.values.status === 'answered' && row.status !== 'answered';
         // No grant reaches these columns: the database refuses them, the functions below write them.
-        const { answered_by: _answeredBy, category: _category, category_by: _categoryBy, ...values } = clone(this.values);
+        const values = cloneRow(this.values);
+        delete values.answered_by;
+        delete values.category;
+        delete values.category_by;
         Object.assign(row, values);
         if (answering) {
           row.answered_at = stamp();
@@ -206,21 +225,21 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
     }
     if (name === 'ask_round_classified') {
       const sorted = Boolean(me && round && category !== null && round.category_by === null && owned('ask_rounds', round, me));
-      if (sorted) Object.assign(round!, { category, category_by: 'model' });
+      if (sorted && round) Object.assign(round, { category, category_by: 'model' });
       return { data: sorted, error: null };
     }
     return { data: null, error: { code: 'PGRST202', message: `Could not find the function public.${name}` } };
   }
 
   /** `ask_round_share`: the session's owner shares a round with another member of its workspace. */
-  function share(me: FakeAccount | null, { p_round_id: id, p_member: member }: { p_round_id?: string; p_member?: string }): Result {
+  function share(me: FakeAccount | null, { p_round_id: id, p_member: member }: { p_round_id?: string | undefined; p_member?: string | undefined }): Result {
     const round = tables.ask_rounds.find((r) => r.id === id);
     const session = round && sessionOf(round, 'ask_rounds');
     const place = textOf(session?.workspace_id);
     const target = Object.values(accounts).find((a) => a.id === member);
     const ok = Boolean(me && round && place && owned('ask_rounds', round, me) && target && target.id !== me.id && workspacesOf(target).includes(place));
-    if (ok && !tables.ask_shares.some((s) => s.round_id === id && s.shared_with === member)) {
-      tables.ask_shares.push({ round_id: id, shared_with: member, shared_by: me!.id, created_at: stamp() });
+    if (ok && me && !tables.ask_shares.some((s) => s.round_id === id && s.shared_with === member)) {
+      tables.ask_shares.push({ round_id: id, shared_with: member, shared_by: me.id, created_at: stamp() });
     }
     return { data: ok, error: null };
   }
@@ -255,12 +274,9 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
     return {
       rpc: (name: string, args: Record<string, unknown>) => rpcResult(() => call(me, name, args)),
       auth: {
-        async getUser(jwt: string) {
+        getUser(jwt: string) {
           state.queries += 1;
-          const account = accounts[jwt];
-          return account
-            ? { data: { user: { id: account.id, email: account.email } }, error: null }
-            : { data: { user: null }, error: { name: 'AuthApiError', status: 401, message: 'invalid JWT' } };
+          return Promise.resolve(userOf(accounts[jwt]));
         },
       },
       from: (table: keyof FakeTables) => new Query(table, me),

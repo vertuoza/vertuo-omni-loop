@@ -4,11 +4,16 @@
 import { forge } from './forge.ts';
 import type { Flat, Pixels, Tint } from './forge.ts';
 import { SPRITE_DEFS } from './sprites.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** A 2D context the helpers draw on: a page's canvas or an offscreen one. */
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 /** A canvas the helpers render into: offscreen where the platform has it, else a page canvas. */
 export type Canvas = OffscreenCanvas | HTMLCanvasElement;
+/** What drawPlanet calls on the context it is given: only drawImage, to copy its finished canvas. */
+interface ImageSink { drawImage(image: Canvas, dx: number, dy: number): void }
+/** What drawStarfield calls on the context it is given: only fillStyle and fillRect. */
+interface FillSink { fillStyle: Ctx['fillStyle']; fillRect(x: number, y: number, w: number, h: number): void }
 type Rgb = [number, number, number];
 
 const cache = new Map<string, Canvas>();
@@ -27,12 +32,12 @@ function rgb(hex: string): Rgb {
 function makeCanvas(w: number, h: number): { canvas: Canvas; ctx: Ctx } {
   if (typeof OffscreenCanvas !== 'undefined') {
     const canvas = new OffscreenCanvas(w, h);
-    return { canvas, ctx: canvas.getContext('2d')! };
+    return { canvas, ctx: defined(canvas.getContext('2d'), 'an offscreen 2D context') };
   }
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
-  return { canvas: c, ctx: c.getContext('2d')! };
+  return { canvas: c, ctx: defined(c.getContext('2d'), 'a 2D context') };
 }
 
 // ── Sprites ──────────────────────────────────────────────────────────────────
@@ -40,7 +45,7 @@ function makeCanvas(w: number, h: number): { canvas: Canvas; ctx: Ctx } {
 const forged = new Map<string, Pixels>();
 
 /** How a sprite frame is recoloured: a ramp swap per material, a flat colour per stripe. */
-export interface SpriteLook { frame?: number; tint?: Tint | null; flat?: Flat | null }
+export interface SpriteLook { frame?: number | undefined; tint?: Tint | null | undefined; flat?: Flat | null | undefined }
 
 // The forged pixel grid of one frame of a sprite (pure; also used by the tests). `flat` recolours
 // flat colours, such as the stripes `1` to `4` (see forge.mjs).
@@ -50,7 +55,7 @@ export function spritePixels(name: string, { frame = 0, tint = null, flat = null
   const key = `${name}|${frame % 2}|${tint ? JSON.stringify(tint) : ''}|${flat ? JSON.stringify(flat) : ''}`;
   let pixels = forged.get(key);
   if (!pixels) {
-    pixels = forge(def.w, def.h, (d) => def.draw(d, frame % 2), { tint: tint ?? {}, flat: flat ?? {}, outline: def.outline !== false });
+    pixels = forge(def.w, def.h, (d) => { def.draw(d, frame % 2); }, { tint: tint ?? {}, flat: flat ?? {}, outline: def.outline !== false });
     forged.set(key, pixels);
   }
   return pixels;
@@ -59,7 +64,7 @@ export function spritePixels(name: string, { frame = 0, tint = null, flat = null
 // A sprite frame as an image, rendered once per (name, frame, tint, flat, flip, silhouette).
 export function spriteImage(
   name: string,
-  { tint = null, flat = null, flip = false, frame = 0, silhouette = null }: SpriteLook & { flip?: boolean; silhouette?: string | null } = {},
+  { tint = null, flat = null, flip = false, frame = 0, silhouette = null }: SpriteLook & { flip?: boolean | undefined; silhouette?: string | null | undefined } = {},
 ): Canvas {
   const key = `${name}|${frame % 2}|${tint ? JSON.stringify(tint) : ''}|${flat ? JSON.stringify(flat) : ''}|${flip}|${silhouette ?? ''}`;
   const hit = cache.get(key);
@@ -85,7 +90,7 @@ export function drawSprite(
   name: string,
   x: number,
   y: number,
-  { scale = 1, tint, flat, flip, alpha = 1, frame = 0, glow = null }: { scale?: number; tint?: Tint; flat?: Flat | null; flip?: boolean; alpha?: number; frame?: number; glow?: string | null } = {},
+  { scale = 1, tint, flat, flip, alpha = 1, frame = 0, glow = null }: { scale?: number | undefined; tint?: Tint | undefined; flat?: Flat | null | undefined; flip?: boolean | undefined; alpha?: number | undefined; frame?: number | undefined; glow?: string | null | undefined } = {},
 ): void {
   const prev = ctx.globalAlpha;
   x = Math.round(x); y = Math.round(y);
@@ -126,7 +131,7 @@ export function posterPixels(name: string, scale: number, { frame = 0, tint = nu
   const pixels = Array<string | null>(w * h);
   for (let y = 0; y < h; y++) {
     const row = Math.floor(y / k) * src.w;
-    for (let x = 0; x < w; x++) pixels[y * w + x] = src.pixels[row + Math.floor(x / k)]!;
+    for (let x = 0; x < w; x++) pixels[y * w + x] = src.pixels[row + Math.floor(x / k)] ?? null;
   }
   return { w, h, pixels };
 }
@@ -159,7 +164,7 @@ export function posterImage(name: string, { scale, tint = null, flat = null, fli
 }
 
 export function spriteSize(name: string): { w: number; h: number } {
-  const def = SPRITE_DEFS[name]!;
+  const def = defined(SPRITE_DEFS[name], `sprite ${name}`);
   return { w: def.w, h: def.h };
 }
 
@@ -240,7 +245,7 @@ export function planetTexture(seed: number, tw = 256): PlanetTexture {
   const sorted = Float32Array.from(order).sort();
   for (let k = 0; k < order.length; k++) {
     let lo = 0, hi = sorted.length - 1;
-    while (lo < hi) { const mid = (lo + hi) >> 1; if (sorted[mid]! < order[k]!) lo = mid + 1; else hi = mid; }
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (defined(sorted[mid], 'a sorted texel') < defined(order[k], 'a texel')) lo = mid + 1; else hi = mid; }
     order[k] = lo / sorted.length;
   }
   const tex = { tw, th, height, order, cloud };
@@ -301,7 +306,7 @@ function surfaceAt(h: number, o: number, lat: number, progress: number, mood: Pl
 // light and dither threshold. A frame then only looks colours up.
 interface Geometry { size: number; o: number; kind: Uint8Array; lon: Float32Array; lat: Float32Array; light: Float32Array }
 const geometries = new Map<string, Geometry>();
-const LIGHT = ((): [number, number, number] => { const l = [-0.55, -0.5, 0.67]; const n = Math.hypot(...l); return [l[0]! / n, l[1]! / n, l[2]! / n]; })();
+const LIGHT = ((): [number, number, number] => { const l: Rgb = [-0.55, -0.5, 0.67]; const n = Math.hypot(...l); return [l[0] / n, l[1] / n, l[2] / n]; })();
 
 function geometry(r: number, pad: number): Geometry {
   const key = `${r}|${pad}`;
@@ -340,7 +345,7 @@ function geometry(r: number, pad: number): Geometry {
 }
 
 const SURFACE_NAMES = Object.keys(SURFACES);
-const SURFACE_RGBA = SURFACE_NAMES.map((n) => SURFACES[n]!.map((h) => packed(h)));
+const SURFACE_RGBA = Object.values(SURFACES).map((ramp) => ramp.map((h) => packed(h)));
 const CLOUD_RGBA = {
   alive: CLOUDS.alive.map((h) => packed(h)),
   barren: CLOUDS.barren.map((h) => packed(h)),
@@ -365,7 +370,7 @@ function surfaceMap(tex: PlanetTexture, seed: number, progress: number, mood: Pl
     const lat = (j / (tex.th - 1) - 0.5) * 2;
     for (let i = 0; i < tex.tw; i++) {
       const t = j * tex.tw + i;
-      m[t] = SURFACE_NAMES.indexOf(surfaceAt(tex.height[t]!, tex.order[t]!, lat, progress, mood));
+      m[t] = SURFACE_NAMES.indexOf(surfaceAt(defined(tex.height[t], 'a texel height'), defined(tex.order[t], 'a texel order'), lat, progress, mood));
     }
   }
   surfaceMaps.set(key, m);
@@ -379,7 +384,7 @@ const frames = new Map<string, Frame>(); // last frame per planet look, reused w
  * Draws a lit, rotating, dithered planet with clouds, a terminator and an atmosphere glow.
  * `progress` runs 0 to 1; `ring`, when set, is the four tones of a tilted ring around it.
  */
-export function drawPlanet(ctx: Ctx, o: {
+export function drawPlanet(ctx: ImageSink, o: {
   cx: number; cy: number; r: number; seed: number; rot?: number; progress?: number;
   mood?: PlanetMood; atmosphere?: string | null; ring?: readonly string[] | null;
 }): void {
@@ -413,8 +418,8 @@ export function drawPlanet(ctx: Ctx, o: {
       const k = py * size + px;
       const kd = kind[k];
       if (kd === 0) continue;
-      const q = BAYER[brow + (px & 3)]!;
-      const lk = lon[k]!, lt = light[k]!;
+      const q = at(BAYER, brow + (px & 3), 'the dither threshold');
+      const lk = defined(lon[k], 'a pixel longitude'), lt = defined(light[k], 'a pixel light');
       if (kd === 2) {
         if (!atmo || lk < -0.35) continue;
         const a = Math.max(0, (1 - lt / rim) * (0.35 + Math.max(0, lk) * 0.6));
@@ -424,18 +429,18 @@ export function drawPlanet(ctx: Ctx, o: {
       }
       let u = lk + turn;
       u -= Math.floor(u);
-      const tj = Math.min(th - 1, Math.floor(lat[k]! * th));
+      const tj = Math.min(th - 1, Math.floor(defined(lat[k], 'a pixel latitude') * th));
       const t = tj * tw + Math.min(tw - 1, Math.floor(u * tw));
       // A hard GBA terminator: five bands, dithered at each step, the night side near-black.
       const level = Math.max(0, Math.min(4, Math.floor(lt + q)));
-      const si = surf[t]!;
-      let col = SURFACE_RGBA[si]![EMISSIVE_IDX.has(si) ? Math.max(2, level) : level]!;
+      const si = defined(surf[t], 'a texel surface');
+      let col = at(at(SURFACE_RGBA, si, 'a surface ramp'), EMISSIVE_IDX.has(si) ? Math.max(2, level) : level, 'a surface tone');
       if (cloudPal) {
         let uc = lk + cloudTurn;
         uc -= Math.floor(uc);
-        const c = cloud[tj * tw + Math.min(tw - 1, Math.floor(uc * tw))]!;
-        if (c > cloudCut + (q - 0.5) * 0.05) col = cloudPal[level]!;
-        else if (c > cloudCut - 0.03 && q > 0.72) col = cloudPal[Math.max(0, level - 1)]!;
+        const c = defined(cloud[tj * tw + Math.min(tw - 1, Math.floor(uc * tw))], 'a cloud texel');
+        if (c > cloudCut + (q - 0.5) * 0.05) col = at(cloudPal, level, 'a cloud tone');
+        else if (c > cloudCut - 0.03 && q > 0.72) col = at(cloudPal, Math.max(0, level - 1), 'a cloud tone');
       }
       px32[k] = col;
     }
@@ -460,7 +465,7 @@ function drawRing(data: Uint8ClampedArray, size: number, r: number, ring: readon
     const band = d < 1.36 ? 2 : d < 1.44 ? 1 : d < 1.5 ? 3 : 1;
     const shade = dx > 0.5 ? Math.min(3, band + 1) : band;
     const k = (py * size + px) * 4;
-    const [cr, cg, cb] = rgb(ring[shade]!);
+    const [cr, cg, cb] = rgb(at(ring, shade, 'a ring tone'));
     data[k] = cr; data[k + 1] = cg; data[k + 2] = cb; data[k + 3] = 255;
   }
 }
@@ -502,7 +507,7 @@ export function sunPixels(radius: number, seed: number, frame = 0): SunPixels {
   const key = `${r}|${seed}|${f}`;
   const hit = suns.get(key);
   if (hit) return hit;
-  const ramp = SUN_RAMPS[(seed >>> 0) % SUN_RAMPS.length]!;
+  const ramp = at(SUN_RAMPS, (seed >>> 0) % SUN_RAMPS.length, 'a sun ramp');
   const corona = coronaOf(r);
   const size = sunSize(r);
   const o = size / 2;
@@ -512,20 +517,20 @@ export function sunPixels(radius: number, seed: number, frame = 0): SunPixels {
     for (let px = 0; px < size; px++) {
       const dx = px + 0.5 - o, dy = py + 0.5 - o;
       const d = Math.hypot(dx, dy);
-      const q = BAYER[(py & 3) * 4 + (px & 3)]!;
+      const q = at(BAYER, (py & 3) * 4 + (px & 3), 'the dither threshold');
       if (d <= r) {
         // Limb darkening: the core at the top tone, the rim two tones down; granules boil on top.
         const k = d / r;
         const granule = fbm(dx / 3.2 + Math.cos(phase) * 0.6, dy / 3.2 + Math.sin(phase) * 0.6, seed * 0.01, seed, 3) - 0.5;
         const level = Math.max(0, Math.min(4, Math.floor(4.6 - k * k * 2.6 + granule * 1.6 + (q - 0.5) * 0.6)));
-        pixels[py * size + px] = ramp[level]!;
+        pixels[py * size + px] = at(ramp, level, 'a sun tone');
       } else if (d <= r + corona) {
         // Rays: brighter where the noise around the rim runs high, fading outwards, dithered.
         const a = Math.atan2(dy, dx);
         const ray = fbm(Math.cos(a) * 2.2 + Math.cos(phase) * 0.5, Math.sin(a) * 2.2 + Math.sin(phase) * 0.5, 3.1, seed + 11, 3);
         const fade = 1 - (d - r) / corona;
         const v = fade * (0.35 + ray * 1.1);
-        if (v > q + 0.15) pixels[py * size + px] = ramp[v > 0.9 ? 2 : v > 0.55 ? 1 : 0]!;
+        if (v > q + 0.15) pixels[py * size + px] = at(ramp, v > 0.9 ? 2 : v > 0.55 ? 1 : 0, 'a corona tone');
       }
     }
   }
@@ -577,15 +582,15 @@ export function makeStarfield(seed: number, w: number, h: number, count = 300): 
 
 const STAR_COLORS = ['#2e3270', '#6a70c0', '#c8d0ff', '#ffffff'];
 
-export function drawStarfield(ctx: Ctx, stars: readonly Star[], t: number, { w, h, speed = 0 }: { w: number; h: number; speed?: number }): void {
+export function drawStarfield(ctx: FillSink, stars: readonly Star[], t: number, { w, speed = 0 }: { w: number; h: number; speed?: number }): void {
   for (const s of stars) {
     const x = Math.floor(((s.x - t * speed * (s.layer + 1) * 6) % w + w) % w);
     const y = Math.floor(s.y);
     const twinkle = Math.sin(t * 2 + s.phase);
-    ctx.fillStyle = STAR_COLORS[twinkle > 0.8 ? 3 : s.layer]!;
+    ctx.fillStyle = at(STAR_COLORS, twinkle > 0.8 ? 3 : s.layer, 'a star colour');
     ctx.fillRect(x, y, 1, 1);
     if (s.big) {
-      ctx.fillStyle = STAR_COLORS[Math.max(0, s.layer - 1)]!;
+      ctx.fillStyle = at(STAR_COLORS, Math.max(0, s.layer - 1), 'a star colour');
       ctx.fillRect(x - 1, y, 1, 1); ctx.fillRect(x + 1, y, 1, 1); ctx.fillRect(x, y - 1, 1, 1); ctx.fillRect(x, y + 1, 1, 1);
       if (twinkle > 0.9) {
         ctx.fillStyle = '#6ff0ff';
@@ -605,10 +610,10 @@ export function makeNebula(seed: number, w: number, h: number, colors: readonly 
       const nx = x / w - 0.5, ny = y / h - 0.5;
       const falloff = Math.max(0, 1 - Math.hypot(nx * 1.8, ny * 1.8));
       const v = fbm(x / 52, y / 52, 0.5, seed, 5) * falloff * 1.9 * density;
-      const q = BAYER[(y & 3) * 4 + (x & 3)]!;
+      const q = at(BAYER, (y & 3) * 4 + (x & 3), 'the dither threshold');
       const level = Math.floor(v * (n + 1) + q - 1.1);
       if (level < 0) continue;
-      const [cr, cg, cb] = rgb(colors[Math.min(n - 1, level)]!);
+      const [cr, cg, cb] = rgb(at(colors, Math.min(n - 1, level), 'a nebula tone'));
       const k = (y * w + x) * 4;
       img.data[k] = cr; img.data[k + 1] = cg; img.data[k + 2] = cb; img.data[k + 3] = 255;
     }
