@@ -137,6 +137,10 @@ describe('An approved design lands in the PRD-s own delivery folder', () => {
     expect(bare.missing).toEqual(['before-after']);
     expect(bare.reason).not.toContain('the plan');
     expect(phase0Verdict([paths.spec, paths.beforeAfter], { ctx, prd: PRD }).missing).toEqual(['plan']);
+    expect(phase0Verdict([paths.spec], { ctx, prd: PRD, needsPlan: false, needsBeforeAfter: false }).missing).toEqual([]);
+    expect(phase0Verdict([paths.spec, paths.plan, paths.beforeAfter], { ctx, prd: PRD }).reason).toBe(
+      'docs-only, and it carries the spec, the plan and the before/after a reviewer is being asked to approve',
+    );
   });
 
   // Restored to upstream's own assertion (fix round 1 — the controller's ruling on this task's
