@@ -77,9 +77,12 @@ export function parseOutboxItem(text: string): { id: string | undefined; rank: s
 
 // Who settled an item, from its `Approved by` line: the login it was asked of, or on whose behalf a
 // session answered, else the first word. `nobody` (an item adopted when it was raised) is no one.
+// A leading `@` (a merge over red wrote `@<login>` before PRD 1180) is not part of the login. Any
+// other name that is no login (a dotted one) is kept as written: the projector skips its event until
+// the line is fixed, rather than settling it on no one forever.
 function approver(line: string): string | null {
   const named = line.match(/(?:asked of|delegated by) ([^\s),]+)/);
-  const login = named ? named[1] : line.split(/\s+/)[0];
+  const login = (named ? named[1] : line.split(/\s+/)[0])?.replace(/^@/, '');
   return login && login !== 'nobody' ? login : null;
 }
 

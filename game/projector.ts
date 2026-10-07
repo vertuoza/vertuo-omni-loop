@@ -80,7 +80,15 @@ export function projectEvents(
   return events.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
 }
 
-// Validates and keeps one event, or reports it skipped.
+/**
+ * A GitHub login as the ledger names a player (PRD 1180): lower case, letters, digits and inner
+ * hyphens, at most 39 characters. No `@`, no dot, no upper case.
+ */
+const LOGIN = /^[a-z0-9](?:[a-z0-9-]{0,38})$/;
+
+// Validates and keeps one event, or reports it skipped. An event credited to a name that is no
+// GitHub login is skipped too (PRD 1180): the ledger keeps an event's first copy forever, so it waits
+// for a poll that reads the name right rather than crediting no player.
 function pusher(events: GameEvent[], teams: Readonly<Record<string, string>>, onSkip: (skip: Skip) => void): Push {
   // Logins are case-insensitive; the roster is keyed in lower case.
   const teamOf = (login: string): string | undefined => teams[login] ?? teams[login.toLowerCase()];
@@ -89,6 +97,10 @@ function pusher(events: GameEvent[], teams: Readonly<Record<string, string>>, on
   // omit both `contributor` and `team` instead of passing `null`.
   return (fields: Fields) => {
     const { contributor, ...rest } = fields;
+    if (contributor && !LOGIN.test(contributor)) {
+      onSkip({ id: fields.id, message: `contributor ${JSON.stringify(contributor)} is not a GitHub login` });
+      return;
+    }
     try {
       events.push(makeEvent({
         ...rest,
