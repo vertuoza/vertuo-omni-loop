@@ -25,7 +25,7 @@ import type { PrNumber, PrdNumber, WorkSliceId } from '../../lib/ids.ts';
 import { parseSpec } from '../../lib/inbox/inbox.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
-import { decideNext } from '../../lib/next/decide.ts';
+import { decideNext, stalledSlices } from '../../lib/next/decide.ts';
 import type { BoardFacts, FeatureFacts, OutboxFacts, PrdFacts, Verdict } from '../../lib/next/decide.ts';
 import { followPlan } from '../../lib/next/follow.ts';
 import { formatFollowed, formatPlan, verdictLine } from '../../lib/next/format.ts';
@@ -181,12 +181,15 @@ function boardFacts(prd: PrdNumber, reader: Reader): { board: BoardFacts | null 
   try {
     const { result } = buildBoard(prd, { ctx, exec: reader.exec, env: reader.env });
     const having = (state: string) => result.slices.filter((row) => row.state === state).map((row) => row.id);
+    const { stallDays } = ctx.config.limits;
     const board: BoardFacts = {
       total: result.slices.length,
       merged: having('merged').length,
       wave: result.frontier.wave,
       takeable: [...result.frontier.takeable],
       inFlight: having('in-flight'),
+      stalled: stalledSlices(result.slices, { now: Date.now(), stallDays, prUrl: (pr) => `https://github.com/${reader.slug}/pull/${pr}` }),
+      stallDays,
       stuck: having('stuck'),
       unreadable: having('unreadable'),
     };

@@ -43012,6 +43012,15 @@ import { join as join60 } from "node:path";
 // kit/lib/next/decide.ts
 init_define_OMNI_BUNDLE();
 var WAKE_HINTS = Object.freeze({ ci: 300, claim: 1200, unreadable: 300 });
+var DAY_MS = 24 * 60 * 60 * 1e3;
+function stalledSlices(rows2, { now, stallDays, prUrl }) {
+  return rows2.flatMap(({ id, state, pr }) => {
+    const since = pr?.headCommitDate;
+    if (state !== "in-flight" || pr?.number === void 0 || !since) return [];
+    if (now - new Date(since).getTime() < stallDays * DAY_MS) return [];
+    return [{ id, pr: pr.number, url: prUrl(pr.number), since }];
+  });
+}
 var act = (prd2, skill, why2, link2) => ({ prd: prd2, verdict: "act", skill, why: why2, ...link2 ? { link: link2 } : {} });
 var wait2 = (prd2, why2, wakeHint, link2) => ({ prd: prd2, verdict: "wait", why: why2, wakeHint, ...link2 ? { link: link2 } : {} });
 var park = (prd2, why2, link2) => ({ prd: prd2, verdict: "park", why: why2, ...link2 ? { link: link2 } : {} });
@@ -43044,9 +43053,17 @@ function finished(prd2, feature, outbox) {
   if (feature.checks === "running") return wait2(prd2, "the feature PR's CI is running", WAKE_HINTS.ci, feature.url);
   return park(prd2, "waits on a person: the feature PR is ready to merge", feature.url);
 }
+function stalledPark(prd2, stalled, stallDays) {
+  const named3 = stalled.map(({ id, pr, since }, index) => `${id}'s sub-PR #${pr}${index === 0 ? " has had no commit" : ""} since ${since.slice(0, 10)}`);
+  const them = stalled.length === 1 ? "take it over or close it" : "take them over or close them";
+  return park(prd2, `waits on a person: ${named3.join(", ")} (${stallDays} days or more); ${them}`, stalled[0]?.url);
+}
 function building(prd2, board2, link2) {
   if (board2.takeable.length > 0) return act(prd2, "wave", `wave ${board2.wave ?? "?"} can take ${ids(board2.takeable)}`, link2);
-  if (board2.inFlight.length > 0) return wait2(prd2, `another session holds the claim on ${ids(board2.inFlight)}`, WAKE_HINTS.claim, link2);
+  const stalled = new Set(board2.stalled.map(({ id }) => id));
+  const held = board2.inFlight.filter((id) => !stalled.has(id));
+  if (held.length > 0) return wait2(prd2, `another session holds the claim on ${ids(held)}`, WAKE_HINTS.claim, link2);
+  if (board2.stalled.length > 0) return stalledPark(prd2, board2.stalled, board2.stallDays);
   if (board2.stuck.length > 0) return park(prd2, `waits on a person: ${ids(board2.stuck)} stuck`, link2);
   if (board2.unreadable.length > 0) return wait2(prd2, `cannot read ${ids(board2.unreadable)}`, WAKE_HINTS.unreadable, link2);
   return wait2(prd2, "nothing can move yet", WAKE_HINTS.claim, link2);
@@ -44162,12 +44179,15 @@ function boardFacts(prd2, reader) {
   try {
     const { result } = buildBoard(prd2, { ctx, exec: reader.exec, env: reader.env });
     const having = (state) => result.slices.filter((row) => row.state === state).map((row) => row.id);
+    const { stallDays } = ctx.config.limits;
     const board2 = {
       total: result.slices.length,
       merged: having("merged").length,
       wave: result.frontier.wave,
       takeable: [...result.frontier.takeable],
       inFlight: having("in-flight"),
+      stalled: stalledSlices(result.slices, { now: Date.now(), stallDays, prUrl: (pr) => `https://github.com/${reader.slug}/pull/${pr}` }),
+      stallDays,
       stuck: having("stuck"),
       unreadable: having("unreadable")
     };
