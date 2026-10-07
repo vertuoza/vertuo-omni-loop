@@ -62,8 +62,8 @@ describe('one loop opened', () => {
     const latest = html.slice(html.indexOf('data-version="2"'), html.indexOf('data-version="1"'));
     expect(latest.match(/class="loop-row"/g)).toHaveLength(3);
     for (const prd of [971, 1030, 1017]) expect(latest).toContain(`href="/prd/${prd}"`);
-    expect(latest).toMatch(/class="loop-step is-collision"[^>]*title="after PRD 1030 s3: both touch apps\/galaxy\/src\/nav\/"/);
-    expect(text(latest)).toContain('PRD 1017 s2 after PRD 1030 s3: both touch apps/galaxy/src/nav/');
+    expect(latest).toMatch(/class="loop-step is-collision"[^>]*title="1017 s2 after 1030 s3: both touch apps\/galaxy\/src\/nav\/"/);
+    expect(text(latest)).toContain('Step 4: 1017 s2 after 1030 s3: both touch apps/galaxy/src/nav/');
     expect(latest).toContain('loop-step is-current');
     expect(latest.match(/is-done/g)).toHaveLength(2);
   });

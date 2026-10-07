@@ -110,7 +110,7 @@ function Timeline({ version }: { version: PlanVersion }) {
       </ol>
       {collisions.length > 0 ? (
         <ul className="loop-collisions">
-          {collisions.map(({ prd, cell }) => <li key={`${prd}-${cell.step}`}>Step {cell.step}: PRD {prd} {cell.label} {cell.collision}</li>)}
+          {collisions.map(({ prd, cell }) => <li key={`${prd}-${cell.step}`}>Step {cell.step}: {cell.collision}</li>)}
         </ul>
       ) : null}
     </>

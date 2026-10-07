@@ -1,8 +1,8 @@
 // The Loop page's reads of a loop (PRD 1139 s5), pure, so the page is tested on demo data and rows:
 //
 // - readPlan: the plan `omni next --plan` pushed, which the app stores as it came (store.ts' LoopPlan),
-//   read into its numbered steps. A step names its PRD and, when it builds one, its slice and wave;
-//   `after` names the step it waits on and why (two PRDs touching the same ground run in series);
+//   read into its numbered steps. A step names its PRD, its kind and, for a wave, its slices; `why`
+//   says in the kit's words what it waits on (two PRDs touching the same ground run in series);
 //   `beside` marks one the plan lets run beside another. A plan it cannot read is unreadable, never
 //   guessed: the page says so and still shows the ledger.
 // - timelineOf: those steps as one row per PRD, each step at its place on the plan, collisions
@@ -15,16 +15,16 @@ import { PrdNumberSchema, SliceIdSchema, type PrdNumber, type SliceId } from 've
 import { loopState, type LoopState, type LoopTimes } from '../state';
 import type { LoopPlan } from '../store';
 
-/** One step of a loop plan. */
+/** One step of a loop plan, as `omni next --plan` writes it (kit/lib/next/plan.ts' Step). */
 export interface PlanStep {
   step: number;
   prd: PrdNumber;
-  slice: SliceId | null;
+  /** `plan` (the PRD gets its plan), `wave` (it builds `slices`) or `finish` (gate, ready, care). */
+  kind: string;
   wave: number | null;
-  /** What the step runs when it builds no slice (`pr-care`, `yolo`…), or null. */
-  action: string | null;
-  /** The step it runs after, and why: a collision between PRDs. */
-  after: { prd: PrdNumber; slice: SliceId | null; reason: string } | null;
+  slices: SliceId[];
+  /** Why it waits on another PRD, the kit's own sentences (`1017 s2 after 1030 s3: both touch nav/`), or null. */
+  collision: string | null;
   /** The plan lets it run beside another step. */
   beside: boolean;
 }
@@ -34,11 +34,12 @@ export type ReadPlan = { kind: 'steps'; steps: PlanStep[] } | { kind: 'unreadabl
 const Step = z.looseObject({
   step: z.number().int().min(1),
   prd: PrdNumberSchema,
-  slice: SliceIdSchema.nullish(),
+  kind: z.string().min(1).max(40),
   wave: z.number().int().min(1).nullish(),
-  action: z.string().min(1).max(40).nullish(),
-  after: z.looseObject({ prd: PrdNumberSchema, slice: SliceIdSchema.nullish(), reason: z.string().min(1) }).nullish(),
-  beside: z.union([z.boolean(), z.array(z.number())]).nullish(),
+  slices: z.array(SliceIdSchema),
+  after: z.array(z.number().int().min(1)),
+  why: z.array(z.string().min(1)),
+  beside: z.array(z.number().int().min(1)),
 });
 const Plan = z.looseObject({ steps: z.array(Step) });
 
@@ -49,11 +50,11 @@ export function readPlan(plan: LoopPlan): ReadPlan {
   const steps = parsed.data.steps.map((s): PlanStep => ({
     step: s.step,
     prd: s.prd,
-    slice: s.slice ?? null,
+    kind: s.kind,
     wave: s.wave ?? null,
-    action: s.action ?? null,
-    after: s.after ? { prd: s.after.prd, slice: s.after.slice ?? null, reason: s.after.reason } : null,
-    beside: Array.isArray(s.beside) ? s.beside.length > 0 : s.beside === true,
+    slices: s.slices,
+    collision: s.why.length > 0 ? s.why.join('; ') : null,
+    beside: s.beside.length > 0,
   }));
   return { kind: 'steps', steps: steps.sort((a, b) => a.step - b.step) };
 }
@@ -62,7 +63,7 @@ export function readPlan(plan: LoopPlan): ReadPlan {
 export interface TimelineCell {
   step: number;
   label: string;
-  /** `after PRD 1030 s3: both touch …`, or null. */
+  /** `1017 s2 after 1030 s3: both touch …`, or null. */
   collision: string | null;
   beside: boolean;
   done: boolean;
@@ -74,8 +75,6 @@ export interface TimelineRow {
   cells: TimelineCell[];
 }
 
-const named = (prd: PrdNumber, slice: SliceId | null) => (slice ? `PRD ${prd} ${slice}` : `PRD ${prd}`);
-
 /** One row per PRD, in the order each first appears; `current` is the step the loop's last tick took. */
 export function timelineOf(steps: readonly PlanStep[], current: number | null): TimelineRow[] {
   const rows = new Map<PrdNumber, TimelineCell[]>();
@@ -83,8 +82,8 @@ export function timelineOf(steps: readonly PlanStep[], current: number | null): 
     const cells = rows.get(s.prd) ?? [];
     cells.push({
       step: s.step,
-      label: s.slice ?? s.action ?? `step ${s.step}`,
-      collision: s.after ? `after ${named(s.after.prd, s.after.slice)}: ${s.after.reason}` : null,
+      label: s.slices.length > 0 ? s.slices.join(', ') : s.kind,
+      collision: s.collision,
       beside: s.beside,
       done: current !== null && s.step < current,
       current: s.step === current,

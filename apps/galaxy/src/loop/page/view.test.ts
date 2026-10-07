@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd, parseWorkSliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { planLoop } from 'vertuo-omni-plan/kit/lib/next/plan.ts';
 import { clockOf, ledgerOf, readPlan, stateLineOf, timelineOf } from './view';
 
 // The Loop page's reads of a loop (PRD 1139 s5), pure: the plan the kit pushed, read into steps; the
@@ -8,25 +9,30 @@ import { clockOf, ledgerOf, readPlan, stateLineOf, timelineOf } from './view';
 
 const NOW = Date.parse('2026-10-07T14:25:00Z');
 
+// The shape `omni next --plan` writes (kit/lib/next/plan.ts' Step).
+const step = (n: number, prd: number, kind: string, over: Record<string, unknown> = {}) => ({ step: n, prd, kind, wave: null, slices: [], after: [], waitsFor: [], why: [], beside: [], ...over });
+const NAV = '1017 s2 after 1030 s3: both touch apps/galaxy/src/nav/';
 const PLAN = {
+  version: 1,
+  reason: null,
   steps: [
-    { step: 1, prd: 1030, slice: 's1', wave: 1 },
-    { step: 2, prd: 971, action: 'pr-care', beside: [1] },
-    { step: 3, prd: 1030, slice: 's3', wave: 2 },
-    { step: 4, prd: 1017, slice: 's2', wave: 1, after: { prd: 1030, slice: 's3', reason: 'both touch apps/galaxy/src/nav/' } },
+    step(1, 1030, 'wave', { wave: 1, slices: ['s1'] }),
+    step(2, 971, 'finish', { beside: [1] }),
+    step(3, 1030, 'wave', { wave: 2, slices: ['s3'], after: [1] }),
+    step(4, 1017, 'wave', { wave: 1, slices: ['s2'], after: [3], why: [NAV] }),
   ],
 };
 
 describe('readPlan', () => {
-  it('reads each step: its number, PRD, slice, wave, what it runs beside, and the step it waits on with the reason', () => {
+  it('reads each step as the kit writes it: its number, PRD, kind, wave, slices, what it runs beside, and why it waits', () => {
     const read = readPlan(PLAN);
     expect(read.kind).toBe('steps');
     if (read.kind !== 'steps') return;
-    expect(read.steps.map((s) => [s.step, s.prd, s.slice, s.wave, s.beside])).toEqual([
-      [1, 1030, 's1', 1, false], [2, 971, null, null, true], [3, 1030, 's3', 2, false], [4, 1017, 's2', 1, false],
+    expect(read.steps.map((s) => [s.step, s.prd, s.kind, s.slices, s.wave, s.beside])).toEqual([
+      [1, 1030, 'wave', ['s1'], 1, false], [2, 971, 'finish', [], null, true], [3, 1030, 'wave', ['s3'], 2, false], [4, 1017, 'wave', ['s2'], 1, false],
     ]);
-    expect(read.steps[3]?.after).toEqual({ prd: 1030, slice: 's3', reason: 'both touch apps/galaxy/src/nav/' });
-    expect(read.steps[0]?.after).toBeNull();
+    expect(read.steps[3]?.collision).toBe(NAV);
+    expect(read.steps[0]?.collision).toBeNull();
   });
 
   it('puts the steps in their order, whatever order they came in', () => {
@@ -36,9 +42,34 @@ describe('readPlan', () => {
 
   it('reads a plan with no steps as empty, and one it cannot read as unreadable, never as a guess', () => {
     expect(readPlan({ steps: [] })).toEqual({ kind: 'steps', steps: [] });
-    for (const plan of [{}, { steps: 'x' }, { steps: [{ step: 1 }] }, { steps: [{ step: 0, prd: 5 }] }, { steps: [{ step: 1, prd: -1 }] }, { steps: [{ step: 1, prd: 5, slice: 'nope' }] }]) {
+    const bad = [
+      {}, { steps: 'x' }, { steps: [{ step: 1 }] }, { steps: [step(0, 5, 'wave')] }, { steps: [step(1, -1, 'wave')] },
+      { steps: [step(1, 5, 'wave', { slices: ['nope'] })] },
+      { steps: [step(1, 5, 'wave', { after: { prd: 1030, reason: 'the old shape' } })] },
+    ];
+    for (const plan of bad) {
       expect(readPlan(plan), JSON.stringify(plan)).toEqual({ kind: 'unreadable' });
     }
+  });
+});
+
+describe('readPlan on the kit\'s own plan', () => {
+  it('reads what `omni next --plan` writes: two PRDs on the same ground, the later one marked with the kit\'s reason', () => {
+    const slice = (id: string, territory: string[], wave: number) => ({ id: parseWorkSliceId(id), territory, wave, state: 'runnable' as const });
+    const kit = planLoop({
+      prds: [
+        { prd: parsePrd(1030), blockedBy: [], slices: [slice('s3', ['apps/galaxy/src/nav/'], 1)], ended: null },
+        { prd: parsePrd(1017), blockedBy: [], slices: [slice('s2', ['apps/galaxy/src/nav/'], 1)], ended: null },
+      ],
+      shipped: [],
+    });
+    const read = readPlan(JSON.parse(JSON.stringify(kit)));
+    expect(read.kind).toBe('steps');
+    if (read.kind !== 'steps') return;
+    expect(read.steps.map((s) => s.step)).toEqual(kit.steps.map((s) => s.step));
+    const marked = read.steps.filter((s) => s.collision !== null);
+    expect(marked.length).toBeGreaterThan(0);
+    expect(marked[0]?.collision).toContain('both touch apps/galaxy/src/nav/');
   });
 });
 
@@ -51,10 +82,10 @@ describe('timelineOf', () => {
     expect(rows.map((r) => [r.prd, r.cells.map((c) => c.step)])).toEqual([[1030, [1, 3]], [971, [2]], [1017, [4]]]);
   });
 
-  it('labels each step by its slice, else what it runs, and marks the collision with its reason', () => {
+  it('labels each step by its slices, else its kind, and marks the collision with its reason', () => {
     const cells = timelineOf(steps, null).flatMap((r) => r.cells);
-    expect(cells.map((c) => c.label)).toEqual(['s1', 's3', 'pr-care', 's2']);
-    expect(cells.find((c) => c.step === 4)?.collision).toBe('after PRD 1030 s3: both touch apps/galaxy/src/nav/');
+    expect(cells.map((c) => c.label)).toEqual(['s1', 's3', 'finish', 's2']);
+    expect(cells.find((c) => c.step === 4)?.collision).toBe(NAV);
     expect(cells.filter((c) => c.collision !== null)).toHaveLength(1);
   });
 

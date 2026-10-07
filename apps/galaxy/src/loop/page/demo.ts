@@ -38,25 +38,29 @@ function rowsAt(now: number) {
     loop({ id: '1f2e3d4c-5b6a-4978-8a6b-5c4d3e2f1a0b', user_id: 'demo-carl', repo: 'acme/gears', prds: [prd(990)], next_wake_at: at(-1) }),
     loop({ id: '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f', user_id: 'demo-eli', repo: 'acme/gears', prds: [prd(940)], state: 'stopped', stopped_at: at(-300), seen_at: at(-300), last_tick_at: at(-300) }),
   ];
-  const step = (n: number, p: number, over: Record<string, unknown> = {}) => ({ step: n, prd: p, ...over });
+  // The shape `omni next --plan` writes (kit/lib/next/plan.ts' Step).
+  const step = (n: number, p: number, kind: string, over: Record<string, unknown> = {}) => ({ step: n, prd: p, kind, wave: null, slices: [], after: [], waitsFor: [], why: [], beside: [], ...over });
+  const NAV = '1017 s2 after 1030 s3: both touch apps/galaxy/src/nav/';
   const v1 = {
+    version: 1, reason: null, prds: [971, 1030, 1017],
     steps: [
-      step(1, 971, { action: 'pr-care' }),
-      step(2, 1030, { slice: 's1', wave: 1, beside: [1] }),
-      step(3, 1030, { slice: 's3', wave: 2 }),
-      step(4, 1030, { slice: 's4', wave: 3 }),
-      step(5, 1017, { slice: 's2', wave: 1, after: { prd: 1030, slice: 's3', reason: 'both touch apps/galaxy/src/nav/' } }),
-      step(6, 1017, { slice: 's3', wave: 2 }),
+      step(1, 971, 'finish'),
+      step(2, 1030, 'wave', { wave: 1, slices: ['s1'], beside: [1] }),
+      step(3, 1030, 'wave', { wave: 2, slices: ['s3'], after: [2] }),
+      step(4, 1030, 'wave', { wave: 3, slices: ['s4'], after: [3] }),
+      step(5, 1017, 'wave', { wave: 1, slices: ['s2'], after: [3], why: [NAV] }),
+      step(6, 1017, 'wave', { wave: 2, slices: ['s3'], after: [5] }),
     ],
   };
   const v2 = {
+    version: 2, reason: 's4 of PRD 1030 stuck → PRD 1017 moves up', prds: [971, 1030, 1017],
     steps: [
-      step(1, 971, { action: 'pr-care' }),
-      step(2, 1030, { slice: 's1', wave: 1, beside: [1] }),
-      step(3, 1030, { slice: 's3', wave: 2 }),
-      step(4, 1017, { slice: 's2', wave: 1, after: { prd: 1030, slice: 's3', reason: 'both touch apps/galaxy/src/nav/' } }),
-      step(5, 1017, { slice: 's3', wave: 2 }),
-      step(6, 1030, { slice: 's4', wave: 3 }),
+      step(1, 971, 'finish'),
+      step(2, 1030, 'wave', { wave: 1, slices: ['s1'], beside: [1] }),
+      step(3, 1030, 'wave', { wave: 2, slices: ['s3'], after: [2] }),
+      step(4, 1017, 'wave', { wave: 1, slices: ['s2'], after: [3], why: [NAV] }),
+      step(5, 1017, 'wave', { wave: 2, slices: ['s3'], after: [4] }),
+      step(6, 1030, 'wave', { wave: 3, slices: ['s4'], after: [3] }),
     ],
   };
   const plans: PlanRow[] = [
