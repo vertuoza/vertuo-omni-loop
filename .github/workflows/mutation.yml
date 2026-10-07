@@ -8,6 +8,11 @@
 # files apart, the third shard everything else in it so a new file is never missed), each with its own
 # timeout; `score` merges their JSON reports into one, writes the table to the job summary, uploads the
 # merged report and fails when a module is below its floor or a shard did not finish.
+#
+# Each shard keeps Stryker's incremental file (`reports/mutation/incremental.json`) in the Actions cache,
+# so a night mutates again only what changed since the last one: a whole run bills about 220 minutes,
+# a night with nothing changed a few per shard. A shard with no cache (the first night, or after 7 days
+# unused) runs whole.
 name: mutation
 on:
   schedule:
@@ -22,7 +27,7 @@ jobs:
   mutate:
     name: mutate ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 75          # the slowest shard ran whole in 50
     strategy:
       fail-fast: false
       matrix:
@@ -44,6 +49,11 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: reports/mutation/incremental.json
+          key: mutation-incremental-${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: mutation-incremental-${{ matrix.shard }}-
       - name: Mutate ${{ matrix.shard }}
         run: pnpm exec stryker run stryker.config.ts --mutate '${{ matrix.mutate }},!kit/lib/**/*.test.ts'
       - uses: actions/upload-artifact@v4
