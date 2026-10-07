@@ -16,10 +16,16 @@
 //   `.omni-loop/local/ask/shots/<round id>/`, 30 s a file within the same total, and their absolute
 //   paths appended to that question's answer for Claude to Read; one it could not download is named
 //   instead, and the answer goes through either way.
-// - `post` (PostToolUse on AskUserQuestion): an answer given in the terminal is posted to the page as
-//   well, with `via: "terminal"`; then that question's round file goes.
+//   A round that comes back `closed` keeps its file, for `post` to answer.
+// - `post` (PostToolUse on AskUserQuestion): an answer given in the terminal always reaches the page
+//   (PRD 1180), with `via: "terminal"`: posted to the round `pre` left open, abandoned or closed, or,
+//   when `pre` could not open one, sent with the questions, opening the round answered in one call.
+//   A question left empty is left out; nothing is posted when none was answered, nor for a round the
+//   page answered. A post that fails prints one line on stderr and the session goes on. Then that
+//   question's round file goes.
 // - `end` (SessionEnd): closes this terminal's session and deletes its file.
 // - `prompt` (UserPromptSubmit): one sentence of context, so questions go through the tool.
+import { execFileSync } from 'node:child_process';
 import { loadConfig } from '../config.ts';
 import type { askClient } from './client.ts';
 import { askContext, sessionContext } from './context.ts';
@@ -27,6 +33,7 @@ import { roundLead } from './lead.ts';
 import {
   clearOldShots, clearRound, clearTerminal, isSafeId, isShotName, readMode, readRound, readTerminal, writeRound, writeShot, writeTerminal,
 } from './local-state.ts';
+import { currentBranch, sessionTitle } from './mode.ts';
 import type { RoundStatus } from './schema.ts';
 import { field, jsonObject } from './schema.ts';
 
@@ -76,6 +83,18 @@ export function activeMode(root: string): { host: string; baseUrl: string } | nu
  * labels joined with `, `, typed text kept verbatim. `null` unless every question has an answer.
  */
 export function toolAnswers(questions: unknown, answers: unknown): Answers | null {
+  return shapeAnswers(questions, answers, { partly: false });
+}
+
+/**
+ * `answers` shaped as `toolAnswers` shapes them, keeping only the questions that have one (PRD 1180):
+ * a question left empty is left out. `null` when none has an answer.
+ */
+export function givenAnswers(questions: unknown, answers: unknown): Answers | null {
+  return shapeAnswers(questions, answers, { partly: true });
+}
+
+function shapeAnswers(questions: unknown, answers: unknown, { partly }: { partly: boolean }): Answers | null {
   if (!Array.isArray(questions) || questions.length === 0) return null;
   if (!answers || typeof answers !== 'object' || Array.isArray(answers)) return null;
   const shaped: Answers = {};
@@ -86,10 +105,13 @@ export function toolAnswers(questions: unknown, answers: unknown): Answers | nul
     const question = String(field(entry, 'question'));
     const given = field(answers, question);
     const text = Array.isArray(given) && given.every((label) => typeof label === 'string') ? given.join(', ') : given;
-    if (typeof text !== 'string' || text === '') return null;
+    if (typeof text !== 'string' || text === '') {
+      if (partly) continue;
+      return null;
+    }
     shaped[question] = text;
   }
-  return shaped;
+  return Object.keys(shaped).length > 0 ? shaped : null;
 }
 
 export function promptOutput(): HookOutput {
@@ -299,7 +321,7 @@ export async function preHook({
     const status = field(result, 'status');
     if (status === 'open') continue;
     if (status === 'closed') {
-      clearRound(root, toolUseId);
+      // The round stays: the post hook records the terminal's answer on it (PRD 1180).
       clearTerminal(root, terminalId);
       return null;
     }
@@ -315,25 +337,128 @@ export async function preHook({
   }
 }
 
+/** The status of a call the server refused, or `null`. */
+function statusOf(error: unknown): number | null {
+  const status = field(error, 'status');
+  return typeof status === 'number' ? status : null;
+}
+
+/** The one line a post that failed prints (PRD 1180). */
+function failureLine(error: unknown): string {
+  const reason = error instanceof Error ? error.message : String(error);
+  return `omni ask: this answer was not recorded on the page (${reason.replace(/\s+/g, ' ').trim()})`;
+}
+
+/** The title a post hook opens a session with, read only when it must open one. */
+function defaultTitle(root: string): () => string {
+  return () => sessionTitle({ slug: loadConfig(root).repo.slug, branch: currentBranch(root, execFileSync), root });
+}
+
 /**
- * Posts an answer the person gave in the terminal to the round `pre` left open or abandoned for this
- * tool call, then deletes that round's file — whatever happens. Another call's round is never read.
+ * Opens this question's round already answered in the terminal (PRD 1180): in this terminal's
+ * session, or in a new one when the server no longer takes rounds in it. An older server, which opens
+ * it unanswered, is then sent the answer. Throws when it could not be recorded.
  */
-export async function postHook({ root, client, input }: { root: string; client: Client; input: unknown }): Promise<void> {
-  const toolUseId = idOf(field(input, 'tool_use_id'));
-  const round = readRound(root, toolUseId);
-  if (!round) return;
+async function openAnswered({ root, host, client, input, title, readContext, readSessionContext, readLead, questions, answers, terminalId }: {
+  root: string;
+  host: string;
+  client: Client;
+  input: unknown;
+  title: () => string;
+  readContext: (options: { root: string; input: unknown }) => unknown;
+  readSessionContext: (root: string) => unknown;
+  readLead: (options: { input?: unknown }) => unknown;
+  questions: unknown;
+  answers: Answers;
+  terminalId: string;
+}): Promise<void> {
+  const context = contextOf(() => readContext({ root, input })) ?? undefined;
+  const lead = contextOf(() => readLead({ input }));
+  const send = async (): Promise<unknown> => {
+    const sessionId = await terminalSession({ root, host, client, terminalId, title, readSessionContext });
+    return client.openAnswered(sessionId, questions, answers, context, lead);
+  };
+  let reply: unknown;
   try {
-    if (round.status === 'answered') return;
+    reply = await send();
+  } catch (error) {
+    const status = statusOf(error);
+    if (status === null || !SESSION_GONE.includes(status)) throw error;
+    // Closed or gone on the server: a new session takes it.
+    clearTerminal(root, terminalId);
+    reply = await send();
+  }
+  const roundId = field(reply, 'roundId');
+  if (typeof roundId !== 'string' || roundId === '') throw new Error('the server answered with no round');
+  if (field(reply, 'status') !== 'answered') await client.answer(roundId, answers);
+}
+
+/**
+ * Records an answer the person gave in the terminal on the page (PRD 1180): on the round `pre` left
+ * for this tool call, or on one it opens answered when `pre` left none. Another call's round is never
+ * read. A failure prints one line through `warn` and never throws; the round's file goes whatever
+ * happens.
+ */
+export async function postHook({
+  root,
+  client,
+  input,
+  host = activeMode(root)?.host ?? null,
+  title = defaultTitle(root),
+  readContext = askContext,
+  readSessionContext = sessionContext,
+  readLead = roundLead,
+  warn = (line: string) => {
+    process.stderr.write(`${line}\n`);
+  },
+}: {
+  root: string;
+  client: Client;
+  input: unknown;
+  host?: string | null;
+  title?: () => string;
+  readContext?: (options: { root: string; input: unknown }) => unknown;
+  readSessionContext?: (root: string) => unknown;
+  readLead?: (options: { input?: unknown }) => unknown;
+  warn?: (line: string) => void;
+}): Promise<void> {
+  const toolUseId = idOf(field(input, 'tool_use_id'));
+  if (!toolUseId) return;
+  const round = readRound(root, toolUseId);
+  try {
+    // A page answer is never posted again from the terminal.
+    if (round?.status === 'answered') return;
+    if (!round && field(input, 'tool_name') !== TOOL) return;
     const toolInput = field(input, 'tool_input');
     const toolResponse = field(input, 'tool_response');
     const questions = field(toolInput, 'questions') ?? field(toolResponse, 'questions');
-    const answers = toolAnswers(questions, field(toolResponse, 'answers') ?? field(toolInput, 'answers'));
-    if (answers) await client.answer(round.roundId, answers);
-  } catch {
-    // The page misses one terminal answer; the session goes on.
+    const answers = givenAnswers(questions, field(toolResponse, 'answers') ?? field(toolInput, 'answers'));
+    if (!answers) return;
+    if (round && (await answerRound(client, round.roundId, answers))) return;
+    const terminalId = idOf(field(input, 'session_id'));
+    if (!host || !terminalId) throw new Error('no ask session can be opened for this terminal');
+    await openAnswered({ root, host, client, input, title, readContext, readSessionContext, readLead, questions, answers, terminalId });
+  } catch (error) {
+    warn(failureLine(error));
   } finally {
-    clearRound(root, toolUseId);
+    if (round) clearRound(root, toolUseId);
+  }
+}
+
+/**
+ * Posts the terminal's answer to a round `pre` left: `true` once it is settled (recorded, or answered
+ * on the page meanwhile, the first answer winning), `false` when the round is gone with its session.
+ * Throws on any other failure.
+ */
+async function answerRound(client: Client, roundId: string, answers: Answers): Promise<boolean> {
+  try {
+    await client.answer(roundId, answers);
+    return true;
+  } catch (error) {
+    const status = statusOf(error);
+    if (status === 409) return true;
+    if (status === 404) return false;
+    throw error;
   }
 }
 
