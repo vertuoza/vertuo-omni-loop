@@ -93,11 +93,21 @@ describe('a board', () => {
   it('lists every member in People: 0s kept, the viewer marked, SOLO with no fleet, dashes with no login', () => {
     const html = render();
     const rows = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => text(sure(m[1], 'm[1]')));
-    expect(rows).toContain('Name Fleet Points PRs PRDs open · building · shipped Questions');
-    expect(rows).toContain('Paul Etienne SOLO 0 1 0 · 0 · 0 9');
-    expect(rows).toContain('ADA ◀ (you) OCTO 40 0 0 · 1 · 2 0');
-    expect(rows).toContain('NOGIT SOLO – – 1 · 0 · 0 0');
-    expect(html).toMatch(/<tr aria-current="true"><th scope="row" class="board-name">(?:(?!<\/th>)[\s\S])*ADA/);
+    expect(rows).toContain('Rank Name Fleet Points PRs PRDs open · building · shipped Questions');
+    expect(rows).toContain('2 Paul Etienne SOLO 0 1 0 · 0 · 0 9');
+    expect(rows).toContain('1 ADA ◀ (you) OCTO 40 0 0 · 1 · 2 0');
+    expect(rows).toContain('– NOGIT SOLO – – 1 · 0 · 0 0');
+    expect(html).toMatch(/<tr aria-current="true"><td class="is-num">1<\/td><th scope="row" class="board-name">(?:(?!<\/th>)[\s\S])*ADA/);
+  });
+
+  it('orders People by points and draws RANK first, right-aligned, a dash with no rank (PRD 1017)', () => {
+    const html = render();
+    const people = html.slice(html.indexOf('board-people'), html.indexOf('board-repos'));
+    const names = [...people.matchAll(/<th scope="row" class="board-name">([\s\S]*?)<\/th>/g)].map((m) => text(sure(m[1], 'm[1]')));
+    expect(names).toEqual(['ADA ◀ (you)', 'Paul Etienne', 'NOGIT']);
+    expect(people).toContain('<th scope="col" class="is-num">Rank</th><th scope="col">Name</th>');
+    const ranks = [...people.matchAll(/<tr[^>]*><td class="is-num">([\s\S]*?)<\/td><th scope="row"/g)].map((m) => sure(m[1], 'm[1]'));
+    expect(ranks).toEqual(['1', '2', '<span aria-label="no rank">–</span>']);
   });
 
   it('starts each People row with the member\'s face and shows their fleet as a chip with its mascot', () => {

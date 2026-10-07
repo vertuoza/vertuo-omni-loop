@@ -74,7 +74,7 @@ describe('loadBoard', () => {
     const board = await loadBoard(reads(), WORKSPACE);
     if (board.people === 'unreadable') throw new Error('people unreadable');
     expect(board.people.find((p) => p.userId === 'u-paul')).toMatchObject({ prs: 7, answered: 9, points: 0, name: 'Paul Etienne' });
-    expect(board.people.map((p) => p.userId)).toEqual(['u-paul', 'u-bob', 'u-ada']);
+    expect(board.people.map((p) => p.userId)).toEqual(['u-bob', 'u-ada', 'u-paul']);
   });
 
   it('carries each fleet\'s mascot to its People rows, and each member\'s face', async () => {
@@ -108,7 +108,7 @@ describe('loadBoard', () => {
   it('a fleet: its members\' activity and questions, and its members\' rows', async () => {
     const board = await loadBoard(reads(), { ...WORKSPACE, scope: { kind: 'fleet', fleet: 'octo' }, people: { kind: 'fleet', fleet: 'octo' } });
     expect(board.tiles).toEqual({ prs: 7, prds: tallyOf({ idea: 1, inbox: 1, building: 1, shipped: 1 }), repositories: 2, answered: 9 });
-    expect((board.people as { userId: string }[]).map((p) => p.userId)).toEqual(['u-paul', 'u-ada']);
+    expect((board.people as { userId: string }[]).map((p) => p.userId)).toEqual(['u-ada', 'u-paul']);
   });
 
   it('you: your activity and questions, and the People table of the scope asked for', async () => {
