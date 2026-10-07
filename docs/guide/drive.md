@@ -29,6 +29,18 @@ marks yours. Name PRDs to drive exactly those, someone else's included:
 Leave out the interval: the loop paces itself, waking sooner after it built something and later
 while CI runs or another session holds a claim.
 
+To drive a **roadmap**, a milestone of several PRDs ordered by their blockers, give its number:
+
+```text agent
+/loop /omni:drive --roadmap 1170
+```
+
+It drives exactly the roadmap's PRDs, someone else's included (see **Drive a roadmap**, below).
+
+In a **plan repository**, whose PRDs land in other repositories, the command is
+`/loop /omni:mega-drive` (see **Drive a plan repository**, below). Each command refuses the other's
+kind of repository, printing the line to type instead.
+
 ## The loop plan
 
 Before its first action, the loop orders every slice of the PRDs it drives into one numbered list
@@ -70,6 +82,45 @@ Each tick asks `omni next` for the first step not done, and does one thing about
 A PRD **parks** when only a person can move it: its phase-0 PR is open, its outbox has questions,
 its CI is stuck, or its feature PR is ready to merge. The loop writes why on the feature PR's
 status comment, so whoever opens the pull request sees it.
+
+## Drive a roadmap
+
+With `--roadmap <n>`, a PRD the roadmap says is blocked by others waits until each blocker's feature
+PR is **merged**, not merely built: it builds on reviewed code. Every PRD that waits on nothing runs
+meanwhile, so only what must wait does.
+
+A waiting PRD names the pull request it waits on and that pull request's state, in the terminal, on
+the Loop page, on the roadmap's page and on its own issue:
+
+```text agent
+held: PRD 1213 — waits on app#1201 (p2 Invoices): ready, waiting for your merge
+```
+
+The state is one of `building wave <k>/<m>`, `outbox: <k> questions`, `CI red` or `ready, waiting for
+your merge`: you know which pull request to review first. A question of the roadmap that only a
+person can answer parks the PRDs it blocks, naming the question and the command that answers it
+(`omni roadmap answer`); the next tick takes them up once it is answered. A blocker closed without
+merging parks its dependents until someone fixes the roadmap. After every tick the loop sends the
+roadmap's page where each PRD stands (`omni roadmap push`); with the app out of reach it prints one
+line and carries on.
+
+## Drive a plan repository
+
+In a plan repository, run the same loop with its twin:
+
+```text agent
+/loop /omni:mega-drive
+/loop /omni:mega-drive --roadmap 1170
+```
+
+It drives the multi-repository PRDs exactly as above, with the skills that build across
+repositories: `/omni:ultra-wave`, `/omni:ultra-yolo` (which also writes the plan of a PRD that has
+none yet), `/omni:ultra-yolo-fix` and `/omni:mega-pr-care --once`. Two steps run one after the other
+only when they touch the same path **in the same repository**: a slice in one repository never waits
+for a slice in another that shares nothing with it. A park is written on the plan pull request's
+status comment, naming each pull request still open by repository, and the Loop page shows the
+repositories each tick touched. [Several repositories](/docs/several-repositories) explains plan
+repositories.
 
 ## Stop and restart
 
