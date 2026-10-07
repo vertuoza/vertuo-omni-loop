@@ -48,16 +48,17 @@ function valueOf(row: PersonRow, key: SortKey): Value {
   }
 }
 
+/** Two lists of counts, ascending: the first place they differ decides. */
+function listsAscending(a: readonly number[], b: readonly number[]): number {
+  const at = a.findIndex((n, i) => n !== (b[i] ?? n));
+  return at === -1 ? 0 : (a[at] ?? 0) - (b[at] ?? 0);
+}
+
 /** Two present values, ascending. */
 function ascending(a: number | string | readonly number[], b: number | string | readonly number[]): number {
   if (typeof a === 'number' && typeof b === 'number') return a - b;
   if (typeof a === 'string' && typeof b === 'string') return a.localeCompare(b, 'en', { sensitivity: 'base' });
-  if (typeof a === 'object' && typeof b === 'object') {
-    for (let i = 0; i < Math.min(a.length, b.length); i++) {
-      const d = (a[i] ?? 0) - (b[i] ?? 0);
-      if (d !== 0) return d;
-    }
-  }
+  if (typeof a === 'object' && typeof b === 'object') return listsAscending(a, b);
   return 0;
 }
 
