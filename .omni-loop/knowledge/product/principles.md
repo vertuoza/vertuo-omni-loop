@@ -574,3 +574,39 @@ Why: So a person looking after a bug sees real work only, and nothing missing or
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-02-care-list-reads-bug-fix-plan, PRD #1118
 Merged: @pierrederval, 2026-10-06, PR #1119
 Proposed: harvest 2026-10-06
+
+## P-PRODUCT-68
+
+In the game, every personal credit counts the same way: it scores for the person and for their fleet, and it is withdrawn when the PRD it came from is lost.
+
+Why: Fleet rankings should reflect every member's contribution consistently, and no kind of credit should survive the loss of the work that earned it.
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-01-answers-pay-the-fleet-too, PRD #1180
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-69
+
+In the game, points reward work on the product's tracked features, and only for the people the dashboards list.
+
+Why: So the score never pays for work outside a feature or for people no longer part of the crew.
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-03-which-answers-are-paid, PRD #1180
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-70
+
+In the game, a contributor is credited under the name the code host gives them; a valid name is never refused for how it is spelt.
+
+Why: Refusing capitalised logins would silently stop crediting real members, such as the 12 in the organisation, with every new point.
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-01-capital-login-skipped, PRD #1180
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-71
+
+In the game, a settle's credit is never lost or given to no one because of a malformed name; it waits until it can go to the right person.
+
+Why: Closing a settle on no one would destroy earned credit for good, while waiting costs nothing and keeps the board honest.
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-02-dotted-approver-waits, PRD #1180
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
