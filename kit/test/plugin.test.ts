@@ -936,6 +936,86 @@ describe('the pr-care skill in this repository', () => {
   });
 });
 
+// PRD 1139: `/loop /omni:drive` takes one step of the loop plan per tick through the commands the kit
+// has (`omni next`, `omni loop`), runs one skill per step, parks on the feature PR's status comment,
+// pushes every tick, and stops itself; `/omni:pr-care --once` runs one round and returns.
+describe('the drive skill in this repository', () => {
+  const read = (skill = 'drive') => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const missingInOrder = (text: string, mentions: string[]) => {
+    let from = 0;
+    return mentions.filter((mention) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) return true;
+      from = at + mention.length;
+      return false;
+    });
+  };
+
+  it('is named drive, and triggers on /loop /omni:drive', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('drive');
+    expect(description).toMatch(/\bTriggers on\b.*"\/loop \/omni:drive"/);
+  });
+
+  it('opens or resumes the loop from omni loop status, plans with omni next --plan, then starts it on the Loop page', () => {
+    const open = skillSection(read(), '1. Open or resume');
+    expect(missingInOrder(open, ['omni.mjs loop status --json', '**resume**', '**New loop.**', 'omni.mjs next --plan', 'omni.mjs loop push start [--take-over]', '**carry on**'])).toEqual([]);
+    for (const state of ['`silent`', '`live` or `sleeping`', '`parked`', '`stopped`']) expect(open, state).toContain(state);
+  });
+
+  it('reads the step with omni next --json, by the fields it prints, and never picks another', () => {
+    const step = skillSection(read(), '2. Read the step');
+    expect(step).toContain('omni.mjs next --json');
+    for (const field of ['`replanned`', '`stop`', '`step`', '`verdict`', '`prds`', '`wakeHint`']) expect(step, field).toContain(field);
+    expect(step).toMatch(/Never pick another step/);
+  });
+
+  it('runs one of the four skills the verdict names, and parks on the status comment and the Loop page', () => {
+    const act = skillSection(read(), '3. Act on it');
+    for (const skill of ['/omni:wave <prd>', '/omni:yolo <prd>', '/omni:yolo-fix <prd>', '/omni:pr-care <prd> --once']) expect(act, skill).toContain(skill);
+    expect(act).toMatch(/One skill per tick/);
+    expect(missingInOrder(act, ['**park**', 'status comment', 'omni.mjs loop push park --prd <prd> --who "<who>" --what "<what>"'])).toEqual([]);
+  });
+
+  it('pushes every tick with the flags omni loop push tick has, then stops itself with omni loop push stop', () => {
+    const text = read();
+    const tick = skillSection(text, '4. Record the tick');
+    for (const flag of ['--step <step>', '--steps <of>', '--prd <prd>', '--action <word>', '--result "<one line>"', '--link', '--merged', '--items', '--wake-in <seconds>']) {
+      expect(tick, flag).toContain(flag);
+    }
+    const stop = skillSection(text, '5. Stop');
+    expect(stop).toContain('omni.mjs loop push stop');
+    expect(stop).toMatch(/what waits on whom/);
+  });
+
+  it('names Claude Code only where it schedules the next /loop wake, and in the line pointing there', () => {
+    const text = read();
+    const waking = skillSection(text, 'Waking up');
+    expect(waking).toMatch(/\*\*Claude Code\.\*\*/);
+    expect(waking).toMatch(/schedul/);
+    const body = text.replace(/^---[\s\S]*?\n---\n/, '').replace(waking, '');
+    expect(body.match(/Claude/g)).toHaveLength(2);
+    expect(body).toMatch(/in Claude Code that is `\/loop`\s+\(\*\*Waking up\*\*/);
+  });
+
+  it('keeps its guardrails: never merge, never add the outbox override, never answer the outbox, never push while a wave holds claims', () => {
+    const guardrails = skillSection(read(), 'Guardrails');
+    expect(guardrails).toMatch(/Never merge into `repo\.defaultBranch`/);
+    expect(guardrails).toMatch(/Never add `labels\.outboxGo`/);
+    expect(guardrails).toMatch(/never answer the outbox/);
+    expect(guardrails).toMatch(/Never push while a wave holds claims/);
+    expect(read()).not.toMatch(/\bgh pr (?:merge|ready)\b/);
+  });
+
+  it('/omni:pr-care --once runs one round and returns, without a wait', () => {
+    const text = read('pr-care');
+    expect(frontmatter(text)?.description).toMatch(/--once it runs one round and returns/);
+    expect(skillSection(text, 'Input')).toContain('`/omni:pr-care 790 --once`');
+    expect(skillSection(text, 'Input')).toMatch(/\*\*returns\*\*, skipping \*\*5\. Wait for the next round\*\*/);
+    expect(skillSection(text, '5. Wait')).toMatch(/Under `--once`, there is no next round here/);
+  });
+});
+
 // PRD 563: three skills build a PRD that spans repositories, from its plan repository, each beside
 // its single-repository twin and following it step for step. None merges into a default branch,
 // adds the outbox override, creates a label in a target, or runs anything there but its preflight.
