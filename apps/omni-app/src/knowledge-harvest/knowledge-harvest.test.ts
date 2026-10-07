@@ -5,6 +5,7 @@ import { InngestTestEngine } from '@inngest/test';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { gradeKnowledge } from 'vertuo-omni-plan/kit/lib/knowledge/check-knowledge.ts';
+import { classifyCandidate, finishHarvest, prepareHarvest } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import { gateResult } from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
 import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
 import { findOutboxViolations } from 'vertuo-omni-plan/kit/lib/outbox/check-outbox.ts';
@@ -25,6 +26,7 @@ import {
   KEY,
   LEDGER,
   MERGED_AT,
+  MERGER,
   NOT_HARVESTED,
   OUTBOX,
   REPLIES,
@@ -45,7 +47,7 @@ import {
   verdictMarker,
 } from './knowledge-harvest.ts';
 import type { RequestOctokit } from './github.ts';
-import { parsePrd } from '../../../../kit/lib/ids.ts';
+import { parsePr, parsePrd } from '../../../../kit/lib/ids.ts';
 import { readEnv } from '../env.ts';
 import { appFunctions } from '../functions.ts';
 
@@ -79,6 +81,27 @@ async function execute(run: InngestTestEngine) {
 }
 
 const markers = makeMarkers('omni-outbox');
+
+/** One file of `GET /repos/{owner}/{repo}/pulls/{pull_number}/files`, as GitHub lists it. */
+type PullFile = { filename: string; status: string; previous_filename?: string };
+const FILES_ROUTE = 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files';
+
+/**
+ * Wraps an Octokit so that the merged pull request's files are `files`, a page of `per_page` at a
+ * time; each request for them is added to `asked`.
+ */
+function answeringFiles(octokit: Octokit, files: readonly PullFile[], asked: Record<string, unknown>[]): Octokit {
+  return {
+    async request(route, params = {}) {
+      if (route !== FILES_ROUTE) return octokit.request(route, params);
+      asked.push(params);
+      const perPage = Number(params.per_page ?? 30);
+      const page = Number(params.page ?? 1);
+      return { data: structuredClone(files.slice((page - 1) * perPage, page * perPage)) };
+    },
+  };
+}
+
 const BRANCH = 'docs/knowledge-widgets';
 const TODAY = '2026-09-27';
 
@@ -89,18 +112,22 @@ function engine(
     env = { OPENROUTER_API_KEY: KEY },
     fetch = fetchReplying(),
     octokit = github.octokit,
+    files = [],
     saved,
   }: {
     event?: ReturnType<typeof harvestEvent>;
     env?: Record<string, string | undefined>;
     fetch?: ReturnType<typeof fakeFetch>;
     octokit?: Octokit;
+    /** The files the merged pull request changed, as GitHub lists them. */
+    files?: readonly PullFile[];
     /** Each step's value saved as JSON and read back, as Inngest does, the ids of the steps that were added here. */
     saved?: string[];
   } = {},
 ) {
-  const fn = createKnowledgeHarvest({ client: inngest, octokitFor: () => octokit, openrouter: readEnv(env).openrouter, fetch, now: () => TODAY });
-  return { run: new InngestTestEngine({ function: fn, events: [event], ...(saved ? { transformCtx: savingSteps(saved) } : {}) }), fetch };
+  const asked: Record<string, unknown>[] = [];
+  const fn = createKnowledgeHarvest({ client: inngest, octokitFor: () => answeringFiles(octokit, files, asked), openrouter: readEnv(env).openrouter, fetch, now: () => TODAY });
+  return { run: new InngestTestEngine({ function: fn, events: [event], ...(saved ? { transformCtx: savingSteps(saved) } : {}) }), fetch, asked };
 }
 
 /** A fixture pull request's number. */
@@ -513,5 +540,100 @@ describe('knowledge-harvest — the function’s configuration', () => {
     expect(knowledgeHarvest.opts.triggers).not.toContainEqual({ event: OUTBOX_CHECK_EVENT });
     expect(knowledgeHarvest.opts.concurrency).toEqual(CONCURRENCY);
     expect(CONCURRENCY).toEqual({ key: 'event.data.repository', limit: 1 });
+  });
+});
+
+describe('knowledge-harvest — the proof the feature PR changed (PRD 1171)', () => {
+  const PROOF = 'tests/secret.test.ts';
+  const REMOVED = 'tests/old-secret.test.ts';
+  const UNTOUCHED = 'src/untouched.ts';
+  const GONE = 'tests/gone.test.ts';
+  /** The default branch holds the proof the feature PR renamed, and a file it never touched. */
+  const TREE = { ...FILES, [PROOF]: "it('keeps secrets out', () => {});\n", [UNTOUCHED]: 'export {};\n' };
+  /** A first page of 100 files, then the proof, a removed file and a file gone from the tree on the second. */
+  const CHANGED: PullFile[] = [
+    ...Array.from({ length: 100 }, (_, i) => ({ filename: `docs/page-one-${i}.md`, status: 'modified' })),
+    { filename: PROOF, status: 'renamed', previous_filename: 'tests/secret.spec.ts' },
+    { filename: REMOVED, status: 'removed' },
+    { filename: GONE, status: 'added' },
+  ];
+  const PROVING = {
+    ...REPLIES,
+    's1-02-set-secret': { ...REPLIES['s1-02-set-secret'], enforcedBy: [PROOF, REMOVED, UNTOUCHED] },
+    's0-01-local-name': { kind: 'invariant', place: 'product', statement: 'A widget remembers its name.', enforcedBy: [GONE], reason: 'must always hold' },
+  };
+  const PROOF_PATHS = [`${K}/product/rules.md`, `${K}/product/invariants.md`];
+  const enforcedLines = (files: Record<string, string | null | undefined>) =>
+    PROOF_PATHS.flatMap((path) => (files[path] ?? '').split('\n').filter((line) => line.startsWith('Enforced by:')));
+
+  /** What `omni harvest` writes for the same tree, the same files and the same classification: the kit's pipeline, run locally. */
+  async function locally(): Promise<Record<string, string>> {
+    const root = mkdtempSync(join(tmpdir(), 'omni-harvest-local-'));
+    scratch.push(root);
+    for (const [path, text] of Object.entries(TREE)) {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), text);
+    }
+    const ctx = createContext(root, loadConfig(root));
+    const merge = { by: MERGER, at: MERGED_AT, pr: parsePr(numberOf(FEATURE)), url: z.string().parse(FEATURE.html_url) };
+    const changed = CHANGED.map((file) => ({ path: file.filename, status: file.status }));
+    const prepared = prepareHarvest({ ctx, prd: parsePrd(42), merge, changed });
+    if (!prepared.ok) throw new Error(prepared.errors.join('; '));
+    const openrouter = readEnv({ OPENROUTER_API_KEY: KEY }).openrouter;
+    const classified = [];
+    for (const candidate of prepared.candidates) {
+      classified.push(await classifyCandidate({ candidate, summary: prepared.summary, changed: prepared.changed, openrouter, fetch: fetchReplying(PROVING) }));
+    }
+    const result = finishHarvest({ ctx, prepared, classified, merge, date: TODAY });
+    return Object.fromEntries(result.edits.writes.map((write) => [write.path, write.text]));
+  }
+
+  it('reads every page of the files, lists the kept ones in the prompt, and writes the proof it kept', async () => {
+    const github = scenario({ files: TREE });
+    const { run, fetch, asked } = engine(github, { files: CHANGED, fetch: fetchReplying(PROVING) });
+    const { error } = await execute(run);
+    expect(error).toBeUndefined();
+    expect(asked.map((params) => params.page)).toEqual([1, 2]);
+    expect(asked.every((params) => params.pull_number === numberOf(FEATURE))).toBe(true);
+    const prompts = fetch.mock.calls.map(([, init]) => z.string().parse(init?.body));
+    expect(prompts.some((body) => body.includes(PROOF) && body.includes(GONE))).toBe(true);
+    expect(prompts.some((body) => body.includes(REMOVED))).toBe(false);
+
+    const files = github.filesAt(BRANCH, [...PROOF_PATHS, PROOF]);
+    expect(files[`${K}/product/rules.md`]).toContain(`Enforced by: ${PROOF}`);
+    expect(files[`${K}/product/invariants.md`]).toContain('Enforced by: unenforced');
+    expect(files[`${K}/product/rules.md`]).toContain(`Proposed: harvest ${TODAY}`);
+    const ctx = checkout(github, BRANCH, [...BRANCH_PATHS, PROOF]);
+    expect(gradeKnowledge({ ctx, files: PROOF_PATHS }).violations).toEqual([]);
+  });
+
+  it('names what each new rule is enforced by, and each dropped path with its reason, in the knowledge PR', async () => {
+    const github = scenario({ files: TREE });
+    await execute(engine(github, { files: CHANGED, fetch: fetchReplying(PROVING) }).run);
+    const body = bodyOf(knowledgePull(github));
+    expect(body).toContain(`- BR-PRODUCT-1 — Enforced by: ${PROOF}`);
+    expect(body).toContain(`  - dropped ${REMOVED} — removed by #43`);
+    expect(body).toContain(`  - dropped ${UNTOUCHED} — not changed by #43`);
+    expect(body).toMatch(/^- \S+ — Enforced by: unenforced$/m);
+    expect(body).toContain(`  - dropped ${GONE} — no longer in the tree`);
+  });
+
+  it('writes the same Enforced by: lines as omni harvest, every step read back as Inngest saved it', async () => {
+    const github = scenario({ files: TREE });
+    const saved: string[] = [];
+    const { error } = await execute(engine(github, { files: CHANGED, fetch: fetchReplying(PROVING), saved }).run);
+    expect(error).toBeUndefined();
+    expect(saved).toContain('settle');
+    expect(saved).toContain('write');
+    const app = enforcedLines(github.filesAt(BRANCH, PROOF_PATHS));
+    expect(app).toEqual([`Enforced by: ${PROOF}`, 'Enforced by: unenforced']);
+    expect(app).toEqual(enforcedLines(await locally()));
+    expect(bodyOf(knowledgePull(github))).toContain(`dropped ${REMOVED} — removed by #43`);
+  });
+
+  it('a pull request that changed no file leaves every new rule unenforced, as before', async () => {
+    const github = scenario({ files: TREE });
+    await execute(engine(github, { fetch: fetchReplying(PROVING) }).run);
+    expect(enforcedLines(github.filesAt(BRANCH, PROOF_PATHS))).toEqual(['Enforced by: unenforced', 'Enforced by: unenforced']);
   });
 });

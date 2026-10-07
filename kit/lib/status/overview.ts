@@ -26,6 +26,7 @@
 import { ACCOUNTS_DIR } from '../outbox/account.ts';
 import { SETTLED_FILE } from '../outbox/outbox.ts';
 import type { PrdNumber } from '../ids.ts';
+import type { RulesCount } from './facts.ts';
 
 /** The bar's width, in cells. */
 export const BAR_CELLS = 30;
@@ -72,7 +73,9 @@ export type OverviewFacts = {
   touched: Touched[];
   features: FeatureBranch[];
   phase0: Phase0Branch[];
+  rules: RulesCount | null;
 };
+
 
 /** Every stage the repository can show, each PRD once and newest first. */
 export type Stages = {
@@ -106,6 +109,7 @@ export type Overview = {
   bar: Bar;
   inProgress: { total: number; inbox: number; building: number; outbox: number };
   yours: Yours;
+  rules: RulesCount | null;
 };
 
 /** Each PRD number once, newest first, leaving out the numbers in `taken`. */
@@ -260,5 +264,6 @@ export function overviewFor(facts: OverviewFacts): Overview {
     bar: barFor(delivered.length, delivered.length + inProgress),
     inProgress: { total: inProgress, inbox: inbox.length, building: building.length, outbox: outbox.length },
     yours: yoursOf(facts, stages, onBase),
+    rules: facts.rules,
   };
 }

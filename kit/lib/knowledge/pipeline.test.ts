@@ -5,7 +5,7 @@ import { makeMarkers } from '../markers.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
 import { renderAdoptedEntry, settledHeader } from '../outbox/settle.ts';
 import type { ClassificationReply } from './classify.ts';
-import { finishHarvest, noEdits, prepareHarvest, type Prepared } from './pipeline.ts';
+import { PullFilesSchema, finishHarvest, keptPaths, noEdits, prepareHarvest, type Prepared } from './pipeline.ts';
 import { assertDefined } from '../../test/assert.ts';
 import { parsePr, parsePrd } from '../ids.ts';
 
@@ -129,6 +129,62 @@ describe('finishHarvest without a promotion', () => {
     expect(prepared.edits.moves).toEqual([{ from: INBOX, to: SHIPPED }]);
     expect(finished.edits).toEqual(prepared.edits);
     expect(finished.edits.writes.some((w) => w.text.includes('Stays here'))).toBe(false);
+  });
+});
+
+describe('the files the feature pull request changed (PRD 1171)', () => {
+  const RULE: ClassificationReply = {
+    kind: 'rule',
+    place: 'product',
+    statement: 'A widget is built the simple way.',
+    serves: 'new',
+    principle: { statement: 'Widgets stay simple.', why: 'simple widgets are easy to change.' },
+    enforcedBy: ['kit/lib/foo.test.ts', 'kit/lib/gone.test.ts'],
+    reason: 'a provable rule',
+  };
+
+  it('reads GitHub\'s list of a pull request\'s files: a rename by its new path, a removal kept as removed', () => {
+    expect(
+      PullFilesSchema.parse([
+        { filename: 'a.ts', status: 'added', additions: 3 },
+        { filename: 'new.ts', previous_filename: 'old.ts', status: 'renamed' },
+        { filename: 'b.ts', status: 'removed' },
+      ]),
+    ).toEqual([
+      { path: 'a.ts', status: 'added' },
+      { path: 'new.ts', status: 'renamed' },
+      { path: 'b.ts', status: 'removed' },
+    ]);
+    expect(keptPaths([{ path: 'a.ts', status: 'added' }, { path: 'b.ts', status: 'removed' }, { path: 'c.ts', status: 'modified' }])).toEqual([
+      'a.ts',
+      'c.ts',
+    ]);
+  });
+
+  it('a harvest given the changed files writes a kept proof that passes the knowledge check, still proposed', () => {
+    const r = makeRepo({ files: { ...files(SHIPPED), 'kit/lib/foo.test.ts': 'test\n' }, git: true });
+    repos.push(r);
+    const changed = [
+      { path: 'kit/lib/foo.test.ts', status: 'added' },
+      { path: 'kit/lib/gone.test.ts', status: 'removed' },
+    ];
+    const prepared = prepareHarvest({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE, changed }) as Extract<Prepared, { ok: true }>;
+    expect(prepared.changed).toEqual(changed);
+    const classified = prepared.candidates.map((c) => (c.id === 's1-02-button-colour' ? { id: c.id, reply: RULE } : { id: c.id, reply: null, reason: 'not asked' }));
+    const finished = finishHarvest({ ctx: r.ctx, prepared, classified, merge: MERGE, date: '2026-09-27' });
+    expect(finished.checks.knowledge).toEqual([]);
+    const rules = finished.edits.writes.find((w) => w.path === `${K}/product/rules.md`);
+    assertDefined(rules, 'the rules written');
+    expect(rules.text).toContain('Enforced by: kit/lib/foo.test.ts\n');
+    expect(rules.text).toContain('Proposed: harvest 2026-09-27');
+    const placed = finished.placed.find((p) => p.id === 's1-02-button-colour');
+    expect(placed?.dropped).toEqual([{ path: 'kit/lib/gone.test.ts', reason: 'removed by #43' }]);
+  });
+
+  it('without the changed files, writes unenforced as before', () => {
+    const { finished } = harvest(SHIPPED, { 's1-02-button-colour': RULE });
+    const rules = finished.edits.writes.find((w) => w.path === `${K}/product/rules.md`);
+    expect(rules?.text).toContain('Enforced by: unenforced\n');
   });
 });
 

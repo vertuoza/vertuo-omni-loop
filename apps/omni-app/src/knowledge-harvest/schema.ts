@@ -116,6 +116,7 @@ export const SettledSchema = z.object({
     shipped: z.array(MoveSchema),
     candidates: z.array(CandidateSchema),
     summary: SummarySchema,
+    changed: z.array(z.object({ path: z.string(), status: z.string() })),
   }),
 });
 
@@ -139,6 +140,8 @@ const PlacedSchema = z.object({
   status: z.string().nullable(),
   proposed: z.boolean(),
   reason: z.string(),
+  enforcedBy: z.array(z.string()).exactOptional(),
+  dropped: z.array(z.object({ path: z.string(), reason: z.string() })).exactOptional(),
 });
 
 /** The step "write": the knowledge written, both checks, and the commit that carries it. */

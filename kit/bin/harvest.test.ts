@@ -122,6 +122,9 @@ const FILES = {
   [`${K}/product/invariants.md`]: '# Product invariants\n\nNone yet.\n',
   [`${K}/adr/README.md`]: '# Decisions\n',
   [`${K}/adr/0001-outbox-check-as-app.md`]: '# ADR-0001 — The outbox check runs as an app\n\nBody.\n',
+  'kit/lib/widgets.test.ts': 'test\n',
+  'kit/lib/widgets.ts': 'code\n',
+  'kit/lib/elsewhere.test.ts': 'test\n',
   [`${INBOX}/spec.md`]: '# Widgets\n',
   [`${INBOX}/plan.md`]: `# Plan\n\nThe spec: \`${INBOX}/spec.md\`. The outbox: \`${OUTBOX}\`.\n`,
   [`${OUTBOX}/settled.md`]: LEDGER_TEXT,
@@ -137,6 +140,7 @@ const REPLIES = {
     statement: 'A secret is set in the console, never in the repository.',
     serves: 'new',
     principle: { statement: 'Secrets never live in the repository.', why: 'a leaked file leaks the secret.' },
+    enforcedBy: ['kit/lib/widgets.test.ts', 'kit/lib/legacy.test.ts', 'kit/lib/elsewhere.test.ts'],
     reason: 'a provable rule with no principle yet',
   },
   's0-01-local-name': { kind: 'stays-here', statement: 'A local naming choice.', reason: 'a local choice, nothing lasting' },
@@ -161,11 +165,20 @@ function io() {
   return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-function fakeExec(pr: unknown, calls: (readonly string[])[] = []) {
+/** The merged pull request's files, as `gh api --paginate --slurp` gives them: two pages. */
+const PR_FILES = [
+  [
+    { filename: 'kit/lib/widgets.test.ts', status: 'added' },
+    { filename: 'kit/lib/legacy.test.ts', status: 'removed' },
+  ],
+  [{ filename: 'kit/lib/widgets.ts', status: 'modified' }],
+];
+
+function fakeExec(pr: unknown, calls: (readonly string[])[] = [], files: unknown = PR_FILES) {
   return (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
     if (cmd === 'gh') {
       calls.push(args);
-      return JSON.stringify(pr);
+      return JSON.stringify(String(args[1]).endsWith('/files') ? files : pr);
     }
     return realExec(cmd, args, options);
   };
@@ -222,7 +235,10 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     const { code, out, err, calls } = await harvest(r);
     expect(err).toBe('');
     expect(code).toBe(0);
-    expect(calls).toEqual([['api', 'repos/acme/widgets/pulls/43']]);
+    expect(calls).toEqual([
+      ['api', 'repos/acme/widgets/pulls/43'],
+      ['api', 'repos/acme/widgets/pulls/43/files', '--paginate', '--slurp'],
+    ]);
     expect(head(r.root)).toBe(before);
 
     // Settled at merge: the open items adopted by the merger, their files gone.
@@ -264,6 +280,13 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     expect(out).toContain('s0-01-local-name → stays here');
     expect(out).toContain('checks: omni check knowledge ✓ · omni check outbox ✓');
 
+    // The proof (PRD 1171): a path the pull request added and the tree holds is kept; a removed one
+    // and one the pull request did not change are dropped, each named with its reason.
+    expect(r.read(`${K}/product/rules.md`)).toContain('Enforced by: kit/lib/widgets.test.ts\n');
+    expect(out).toContain('      Enforced by: kit/lib/widgets.test.ts');
+    expect(out).toContain('      dropped kit/lib/legacy.test.ts — removed by #43');
+    expect(out).toContain('      dropped kit/lib/elsewhere.test.ts — not changed by #43');
+
     // Both checks green on the result.
     const ctx = r.ctx;
     const files = ['principles', 'rules', 'invariants'].map((f) => `${K}/product/${f}.md`);
@@ -297,8 +320,9 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
 describe('omni harvest — refusals', () => {
   it('exits 1 for a pull request that is not merged, writing nothing', async () => {
     const r = repo();
-    const { code, err } = await harvest(r, { pr: { ...MERGED_PR, merged_at: null, merged_by: null } });
+    const { code, err, calls } = await harvest(r, { pr: { ...MERGED_PR, merged_at: null, merged_by: null } });
     expect(code).toBe(1);
+    expect(calls).toEqual([['api', 'repos/acme/widgets/pulls/43']]);
     expect(err).toContain('pull request #43 is not merged');
     expect(status(r.root)).toBe('');
   });

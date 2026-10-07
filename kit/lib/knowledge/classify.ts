@@ -92,6 +92,21 @@ const text = (field: string) =>
 const statement = capped('statement', CAPS.statement);
 const reason = capped('reason', CAPS.reason);
 
+/** The most paths a rule or an invariant may propose as its proof. */
+const MAX_ENFORCED_BY = 3;
+
+/**
+ * `enforcedBy` (PRD 1171): one to {@link MAX_ENFORCED_BY} paths of the files the feature pull request
+ * changed whose tests or constraints prove the statement. Optional, and only on a rule or an
+ * invariant. Whether a path was changed and still exists is the writer's call, never the schema's: a
+ * path it cannot keep is dropped and reported, the entry still written.
+ */
+const enforcedBy = z
+  .array(text('enforcedBy path'), { error: 'enforcedBy must be a list of paths' })
+  .min(1, 'enforcedBy names at least one path, or is left out')
+  .max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`)
+  .optional();
+
 /**
  * The reply's shape, one strict object per kind, with the field table of the spec and nothing
  * more: a field the kind does not carry is refused, like one it is missing. Context-free: whether a
@@ -109,7 +124,7 @@ export const ClassificationSchema = z
           reason,
         })
         .strict(),
-      z.object({ kind: z.literal('invariant'), place: text('place'), statement, reason }).strict(),
+      z.object({ kind: z.literal('invariant'), place: text('place'), statement, enforcedBy, reason }).strict(),
       z
         .object({
           kind: z.literal('rule'),
@@ -120,6 +135,7 @@ export const ClassificationSchema = z
             .object({ statement: capped('principle.statement', CAPS.principle), why: capped('principle.why', CAPS.principle) })
             .strict()
             .optional(),
+          enforcedBy,
           reason,
         })
         .strict(),
@@ -189,6 +205,20 @@ export function placesOf(summary: Pick<KnowledgeSummary, 'domains'>): string[] {
   return [PRODUCT_PLACE, ...summary.domains.map((domain) => domain.name)];
 }
 
+/** Why a rule's `serves` names no principle it may serve, or `null` when it may. */
+function servesRefusal(
+  reply: { serves: string; place: string },
+  principles: ReadonlyMap<string, { place: string }>,
+): string | null {
+  if (reply.serves === NEW_PRINCIPLE) return null;
+  const served = principles.get(reply.serves);
+  if (!served) return `serves "${reply.serves}", which is no existing principle — name one, or "${NEW_PRINCIPLE}"`;
+  if (served.place !== PRODUCT_PLACE && served.place !== reply.place) {
+    return `serves ${reply.serves}, a principle of "${served.place}" — a rule of "${reply.place}" serves a ${PRODUCT_PLACE} principle or its own`;
+  }
+  return null;
+}
+
 /**
  * The reply's schema bound to one repository's knowledge base (a {@link knowledgeSummary}): the
  * shape of {@link ClassificationSchema}, and every name in it pointing at something that exists.
@@ -212,13 +242,9 @@ export function classificationSchema(summary: KnowledgeSummary) {
     if ('place' in reply && !places.includes(reply.place)) {
       issue(['place'], `place "${reply.place}" is not "${PRODUCT_PLACE}" nor an existing domain — one of: ${places.join(', ')}`);
     }
-    if (reply.kind === 'rule' && reply.serves !== NEW_PRINCIPLE) {
-      const served = principles.get(reply.serves);
-      if (!served) {
-        issue(['serves'], `serves "${reply.serves}", which is no existing principle — name one, or "${NEW_PRINCIPLE}"`);
-      } else if (served.place !== PRODUCT_PLACE && served.place !== reply.place) {
-        issue(['serves'], `serves ${reply.serves}, a principle of "${served.place}" — a rule of "${reply.place}" serves a ${PRODUCT_PLACE} principle or its own`);
-      }
+    if (reply.kind === 'rule') {
+      const refused = servesRefusal(reply, principles);
+      if (refused) issue(['serves'], refused);
     }
     if (reply.kind === 'covered') {
       const record = reply.covers.match(RECORD_ID);
@@ -252,6 +278,7 @@ export function classificationJsonSchema(summary: KnowledgeSummary) {
         properties: { statement: string(CAPS.principle), why: string(CAPS.principle) },
       },
       covers: string(),
+      enforcedBy: { type: 'array', items: string(), minItems: 1, maxItems: MAX_ENFORCED_BY },
       reason: string(CAPS.reason),
     },
   };
@@ -287,8 +314,8 @@ function kindLines(kinds: readonly ClassificationKind[]): string[] {
   const meaning: Record<ClassificationKind, string> = {
     adr: '- `adr`: a decision record — how something is built, and why. Fields: `title`, `statement`, `reason`.',
     invariant:
-      '- `invariant`: something that must always hold in the code. Fields: `place`, `statement`, `reason`.',
-    rule: `- \`rule\`: a precise, provable business rule. Fields: \`place\`, \`statement\`, \`serves\` (an existing principle's id, of \`${PRODUCT_PLACE}\` or of the rule's own place, or \`${NEW_PRINCIPLE}\`), \`principle\` (\`{ statement, why }\`, only when \`serves\` is \`${NEW_PRINCIPLE}\`), \`reason\`.`,
+      '- `invariant`: something that must always hold in the code. Fields: `place`, `statement`, `enforcedBy` (optional), `reason`.',
+    rule: `- \`rule\`: a precise, provable business rule. Fields: \`place\`, \`statement\`, \`serves\` (an existing principle's id, of \`${PRODUCT_PLACE}\` or of the rule's own place, or \`${NEW_PRINCIPLE}\`), \`principle\` (\`{ statement, why }\`, only when \`serves\` is \`${NEW_PRINCIPLE}\`), \`enforcedBy\` (optional), \`reason\`.`,
     covered:
       '- `covered`: an existing entry or decision record already says this. Fields: `covers` (its id, or `ADR-NNNN`), `reason`.',
     'stays-here':
@@ -298,10 +325,19 @@ function kindLines(kinds: readonly ClassificationKind[]): string[] {
 }
 
 /**
- * The prompt for one candidate (a `harvestCandidates` entry) against a {@link knowledgeSummary}.
- * Pure: the same candidate and summary give the same text, byte for byte.
+ * The prompt for one candidate (a `harvestCandidates` entry) against a {@link knowledgeSummary} and
+ * the paths the feature pull request changed (`changed`, PRD 1171: added, modified or renamed, never
+ * removed). Pure: the same candidate, summary and paths give the same text, byte for byte.
  */
-export function classificationPrompt({ candidate, summary }: { candidate: PromptCandidate; summary: KnowledgeSummary }): string {
+export function classificationPrompt({
+  candidate,
+  summary,
+  changed = [],
+}: {
+  candidate: PromptCandidate;
+  summary: KnowledgeSummary;
+  changed?: readonly string[] | undefined;
+}): string {
   const kinds = allowedKinds(summary.places);
   return [
     'You classify one settled decision of a software delivery loop: where, if anywhere, it belongs in the',
@@ -315,6 +351,7 @@ export function classificationPrompt({ candidate, summary }: { candidate: Prompt
     `\`statement\` and \`principle\`'s fields are one or two plain sentences, at most ${CAPS.statement} characters.`,
     `\`reason\` says why this kind and this place, at most ${CAPS.reason} characters.`,
     'Prefer `covered` when the knowledge base below already says it, and `stays-here` for a local choice.',
+    `\`enforcedBy\`, on a \`rule\` or an \`invariant\` only, names one to ${MAX_ENFORCED_BY} of the files listed under "The files the feature pull request changed": the ones whose tests or constraints prove the statement. Omit \`enforcedBy\` when none of them proves the statement.`,
     LOOK_RULE,
     '',
     `## The decision: ${candidate.id}`,
@@ -341,6 +378,10 @@ export function classificationPrompt({ candidate, summary }: { candidate: Prompt
     '### Rules and invariants',
     '',
     ...list(summary.laws, (law) => `- ${law.id} (${law.kind}, ${law.place}): ${law.statement}`),
+    '',
+    '## The files the feature pull request changed',
+    '',
+    ...list(changed, (path) => `- ${path}`),
     '',
   ].join('\n');
 }
