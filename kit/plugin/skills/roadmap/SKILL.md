@@ -33,7 +33,7 @@ nothing.
 | input | example | notes |
 |---|---|---|
 | a page link | `/omni:roadmap https://example.com/crew-plan` | read as it is served |
-| a file in the repository | `/omni:roadmap docs/plans/crew.md` | read from the checkout |
+| a file in the repository | `/omni:roadmap plans/crew.md` | read from the checkout |
 | pasted text | `/omni:roadmap '<the plan>'` | read as given; the roadmap has no `source` then |
 
 `<n>` everywhere below is the roadmap's number, its issue's; `<prd>` is one PRD's number.

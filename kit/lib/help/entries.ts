@@ -871,7 +871,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     group: 'start',
     when: 'Use it when a milestone needs many PRDs and a plan already says what they are and in which order.',
     example: {
-      type: '/omni:roadmap docs/plans/crew.md',
+      type: '/omni:roadmap plans/crew.md',
       result: 'one map to answer, then every PRD and the roadmap in one phase-0 PR',
     },
   },
