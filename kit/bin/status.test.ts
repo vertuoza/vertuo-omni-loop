@@ -543,3 +543,63 @@ describe('omni status — your PRDs (PRD 315, slice s3)', () => {
     expect(out.some((line) => line.endsWith('3 of 8 · 37%'))).toBe(true);
   });
 });
+
+describe('omni status — the rules enforced (PRD 1171, slice s3)', () => {
+  const KNOWLEDGE = '.omni-loop/knowledge/product';
+  const rule = (n: number, enforcedBy: string, proposed = false) => [
+    `## BR-PRODUCT-${n}`,
+    '',
+    `Rule ${n} holds.`,
+    '',
+    'Serves: P-PRODUCT-1',
+    'Source: spec',
+    `Enforced by: ${enforcedBy}`,
+    'Stated: 2026-10-07',
+    ...(proposed ? ['Proposed: harvest 2026-10-07'] : []),
+    '',
+  ].join('\n');
+  const REGISTERS = {
+    [`${KNOWLEDGE}/principles.md`]: '# Principles\n\n## P-PRODUCT-1\n\nA principle.\n\nWhy: because\nDecided: someone, 2026-10-07\nSource: spec\n',
+    [`${KNOWLEDGE}/rules.md`]: ['# Rules', '', rule(1, 'kit/lib/widget.test.ts'), rule(2, 'unenforced', true), rule(3, 'unenforced')].join('\n'),
+    'kit/lib/widget.test.ts': 'x\n',
+  };
+
+  it('prints how many rules and invariants name a proof, proposed ones included and principles left out', async () => {
+    const { root } = cloned({ ...THREE_AND_TWO, ...REGISTERS });
+    git(root, 'fetch', '-q', 'origin');
+    const s = io();
+    expect(await main(['status'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).toContain([
+      '             2 in progress: 2 in the inbox',
+      '  rules enforced  1 of 3',
+      '',
+      '  Yours · me@example.com',
+    ].join('\n'));
+  });
+
+  it('counts the invariants beside the rules', async () => {
+    const invariants = '# Invariants\n\n## N-PRODUCT-1\n\nIt holds.\n\nSource: spec\nEnforced by: kit/lib/widget.test.ts\nStated: 2026-10-07\n';
+    const { root } = cloned({ ...THREE_AND_TWO, ...REGISTERS, [`${KNOWLEDGE}/invariants.md`]: invariants });
+    git(root, 'fetch', '-q', 'origin');
+    const s = io();
+    expect(await main(['status'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).toContain('\n  rules enforced  2 of 4\n');
+  });
+
+  it('reads the registers of the base, not the working tree', async () => {
+    const { root } = cloned({ ...THREE_AND_TWO, ...REGISTERS });
+    git(root, 'fetch', '-q', 'origin');
+    writeFileSync(join(root, KNOWLEDGE, 'rules.md'), `# Rules\n\n${rule(1, 'unenforced')}`);
+    const s = io();
+    expect(await main(['status'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).toContain('\n  rules enforced  1 of 3\n');
+  });
+
+  it('prints no such line without a knowledge folder', async () => {
+    const { root } = cloned(THREE_AND_TWO);
+    git(root, 'fetch', '-q', 'origin');
+    const s = io();
+    expect(await main(['status'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).not.toContain('rules enforced');
+  });
+});
