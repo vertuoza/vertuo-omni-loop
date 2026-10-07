@@ -9,7 +9,7 @@
 //   marked with their reason, the steps before the loop's current one done.
 // - stateLineOf: live, sleeping, parked, stopped or silent (state.ts' loopState), as one line.
 // - ledgerOf: the ticks and every replan after the first plan, the newest first, each tick linking to
-//   its PRD's page.
+//   its PRD's page and, since PRD 1162, naming the repositories its step touched (a plan repository's).
 import { z } from 'zod';
 import { PrdNumberSchema, SliceIdSchema, type PrdNumber, type SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { loopState, type LoopState, type LoopTimes } from '../state';
@@ -115,10 +115,10 @@ export function stateLineOf(loop: LoopTimes & { last_tick_at: string | null }, n
 export const prdHref = (prd: PrdNumber) => `/prd/${prd}`;
 
 export type LedgerLine =
-  | { kind: 'tick'; at: string; step: number; steps: number; prd: PrdNumber; href: string; action: string; result: string; merged: number; items: number }
+  | { kind: 'tick'; at: string; step: number; steps: number; prd: PrdNumber; href: string; action: string; result: string; merged: number; items: number; repos: string[] }
   | { kind: 'replan'; at: string; version: number; reason: string };
 
-type TickIn = { at: string; step: number; steps: number; prd: PrdNumber; action: string; result: string; merged: readonly unknown[]; items: readonly unknown[] };
+type TickIn = { at: string; step: number; steps: number; prd: PrdNumber; action: string; result: string; merged: readonly unknown[]; items: readonly unknown[]; repos?: readonly string[] | undefined };
 type PlanIn = { version: number; reason: string; created_at: string };
 
 /** The ticks and every plan version after the first, the newest first. */
@@ -126,7 +126,7 @@ export function ledgerOf(ticks: readonly TickIn[], plans: readonly PlanIn[]): Le
   const lines: Array<{ time: number; order: number; line: LedgerLine }> = [
     ...ticks.map((t, i) => ({
       time: Date.parse(t.at), order: i,
-      line: { kind: 'tick' as const, at: clockOf(t.at), step: t.step, steps: t.steps, prd: t.prd, href: prdHref(t.prd), action: t.action, result: t.result, merged: t.merged.length, items: t.items.length },
+      line: { kind: 'tick' as const, at: clockOf(t.at), step: t.step, steps: t.steps, prd: t.prd, href: prdHref(t.prd), action: t.action, result: t.result, merged: t.merged.length, items: t.items.length, repos: [...(t.repos ?? [])] },
     })),
     ...plans.filter((p) => p.version > 1).map((p) => ({
       time: Date.parse(p.created_at), order: p.version,
