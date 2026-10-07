@@ -211,7 +211,7 @@ describe('omni next — the loop plan', () => {
   const PLAN_FILE = '.omni-loop/local/loop-plan.json';
   const planOf = (territory: Record<string, string>) =>
     ['# A plan', '', '| id | slice | territory | blocked by | wave |', '| --- | --- | --- | --- | --- |', ...Object.entries(territory).map(([id, path]) => `| ${id} | ${id} | \`${path}\` | — | 1 |`), ''].join('\n');
-  const versions = (root: string) => JSON.parse(readFileSync(join(root, PLAN_FILE), 'utf8')).versions;
+  const versions = (root: string) => (JSON.parse(readFileSync(join(root, PLAN_FILE), 'utf8')) as { versions: unknown[] }).versions;
 
   /** PRDs 7 and 9 committed by you, 8 by someone else; 9 shares `a/` with 7. */
   function mine() {
@@ -254,7 +254,7 @@ describe('omni next — the loop plan', () => {
     await run(['next', '--plan'], root, fakeExec());
     const { code, out } = await run(['next', '--json'], root, fakeExec());
     expect(code).toBe(0);
-    const json = JSON.parse(out);
+    const json = JSON.parse(out) as { prds: { prd: number }[] };
     expect(json.prds.map((verdict: { prd: number }) => verdict.prd)).toEqual([7, 9]);
     expect(json).toMatchObject({ plan: { version: 1, steps: 4 }, replanned: null, stop: false, step: { step: 1, prd: 7 }, verdict: { prd: 7, verdict: 'wait' } });
     const text = await run(['next'], root, fakeExec());
@@ -290,9 +290,9 @@ describe('omni next — the loop plan', () => {
   it('stops when every PRD is parked or done', async () => {
     const root = mine();
     const { out } = await run(['next', '--plan', '--json'], root, fakeExec());
-    expect(JSON.parse(out).plan.steps).toHaveLength(4);
+    expect((JSON.parse(out) as { plan: { steps: unknown[] } }).plan.steps).toHaveLength(4);
     const parked = await run(['next', '--json'], root, fakeExec({ feature: [featurePr({ state: 'CLOSED' })] }));
-    const json = JSON.parse(parked.out);
+    const json = JSON.parse(parked.out) as { stop: boolean; step: unknown };
     expect(json.stop).toBe(true);
     expect(json.step).toBeNull();
     const text = await run(['next'], root, fakeExec({ feature: [featurePr({ state: 'MERGED' })] }));

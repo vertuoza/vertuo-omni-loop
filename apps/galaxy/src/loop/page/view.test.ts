@@ -63,7 +63,7 @@ describe('readPlan on the kit\'s own plan', () => {
       ],
       shipped: [],
     });
-    const read = readPlan(JSON.parse(JSON.stringify(kit)));
+    const read = readPlan(structuredClone(kit));
     expect(read.kind).toBe('steps');
     if (read.kind !== 'steps') return;
     expect(read.steps.map((s) => s.step)).toEqual(kit.steps.map((s) => s.step));

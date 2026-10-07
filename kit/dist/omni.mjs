@@ -43802,7 +43802,9 @@ var next = {
       ghEnv = void 0;
     }
     const reader = { ctx, exec, env, slug, ghEnv };
-    const io = { reader, out: (line) => println(stdout, line), json: flags.json === true };
+    const io = { reader, out: (line) => {
+      println(stdout, line);
+    }, json: flags.json === true };
     if (flags.plan) return startPlan(named3.length > 0 ? [...new Set(named3)] : yoursOrRefuse(reader, " --plan"), io);
     const kept = readLoopPlans(ctx.root);
     const last = kept.at(-1);

@@ -366,7 +366,7 @@ export const next: Command = {
       ghEnv = undefined;
     }
     const reader: Reader = { ctx, exec, env, slug, ghEnv };
-    const io: Out = { reader, out: (line: string) => println(stdout, line), json: flags.json === true };
+    const io: Out = { reader, out: (line: string) => { println(stdout, line); }, json: flags.json === true };
     if (flags.plan) return startPlan(named.length > 0 ? [...new Set(named)] : yoursOrRefuse(reader, ' --plan'), io);
     const kept = readLoopPlans(ctx.root);
     const last = kept.at(-1);

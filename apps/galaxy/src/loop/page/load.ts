@@ -76,7 +76,7 @@ export function supabaseLoopPageReads(db: SupabaseClient<Database>, user: Pick<U
     async roster(workspace) {
       const { data, error } = await db.rpc('workspace_roster', { workspace });
       if (error) throw new Error(error.message);
-      return RosterRowSchema.array().parse(data ?? []);
+      return RosterRowSchema.array().parse(data);
     },
   };
 }

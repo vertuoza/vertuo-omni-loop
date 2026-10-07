@@ -21,12 +21,12 @@ const plan: PlanRow = { loop_id: ID, version: 1, reason: 'first plan', plan: { s
 
 function reads(over: Partial<LoopPageReads> = {}): LoopPageReads {
   return {
-    workspace: async () => ({ id: 'w-acme', slug: 'acme', name: 'Acme', theme: {} }),
-    loops: async () => [loop(ID, 'w-acme'), loop(OTHER, 'w-other')],
-    loop: async (id) => [loop(ID, 'w-acme'), loop(OTHER, 'w-other')].find((l) => l.id === id) ?? null,
-    ticks: async () => [tick],
-    plans: async () => [plan],
-    roster: async () => [{ user_id: 'u-ada', name: 'Ada', github_login: 'ada', avatar_url: null, fleet: null }],
+    workspace: () => Promise.resolve({ id: 'w-acme', slug: 'acme', name: 'Acme', theme: {} }),
+    loops: () => Promise.resolve([loop(ID, 'w-acme'), loop(OTHER, 'w-other')]),
+    loop: (id) => Promise.resolve([loop(ID, 'w-acme'), loop(OTHER, 'w-other')].find((l) => l.id === id) ?? null),
+    ticks: () => Promise.resolve([tick]),
+    plans: () => Promise.resolve([plan]),
+    roster: () => Promise.resolve([{ user_id: 'u-ada', name: 'Ada', github_login: 'ada', avatar_url: null, fleet: null }]),
     ...over,
   };
 }
@@ -48,7 +48,7 @@ describe('loadLoopPage', () => {
   });
 
   it('in no workspace, the notice; a workspace that cannot be read, unreadable, its error logged', async () => {
-    expect(await loadLoopPage(reads({ workspace: async () => null }), null, NOW)).toEqual({ kind: 'no-workspace' });
+    expect(await loadLoopPage(reads({ workspace: () => Promise.resolve(null) }), null, NOW)).toEqual({ kind: 'no-workspace' });
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(await loadLoopPage(reads({ workspace: () => Promise.reject(new Error('down')) }), null, NOW)).toEqual({ kind: 'unreadable' });
     expect(error).toHaveBeenCalledWith('loop: your workspace could not be read (down)');

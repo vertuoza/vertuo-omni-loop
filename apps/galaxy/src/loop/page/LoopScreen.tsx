@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { cssVars } from '../../arcade/css-vars';
 import { Notice } from '../../ask/page/Notice';
 import { MemberGate } from '../../dashboard/MemberGate';
 import { PersonChip } from '../../people/PersonChip';
@@ -85,7 +85,7 @@ function List({ name, loops }: { name: string; loops: readonly LoopSummary[] }) 
 function Timeline({ version }: { version: PlanVersion }) {
   if (version.plan.kind === 'unreadable') return <p className="loop-muted">This plan cannot be read here.</p>;
   if (version.steps === 0) return <p className="loop-muted">This plan has no step.</p>;
-  const grid = { '--loop-steps': version.steps } as CSSProperties;
+  const grid = cssVars({ '--loop-steps': version.steps });
   const collisions = version.rows.flatMap((row) => row.cells.filter((c) => c.collision).map((c) => ({ prd: row.prd, cell: c })));
   return (
     <>
@@ -98,7 +98,7 @@ function Timeline({ version }: { version: PlanVersion }) {
                 <li
                   key={cell.step}
                   className={['loop-step', cell.collision ? 'is-collision' : null, cell.beside ? 'is-beside' : null, cell.done ? 'is-done' : null, cell.current ? 'is-current' : null].filter(Boolean).join(' ')}
-                  style={{ gridColumn: cell.step } as CSSProperties}
+                  style={{ gridColumn: cell.step }}
                   title={cell.collision ?? undefined}
                 >
                   <span className="loop-step-n">{cell.step}</span> {cell.label}
