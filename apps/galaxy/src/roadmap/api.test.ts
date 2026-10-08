@@ -1,8 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import type { JevOutcome } from '../jev/client';
+import type { JevDecideDeps } from '../jev/resolve';
+import type { JevMode } from '../jev/store';
 import { MAX_PUSH_BYTES, roadmapPush, type RoadmapDeps } from './api';
+import { classifyHumanWork, humanWorkClassifier } from './classify-jev';
 import { fakeRoadmaps, type FakeAccount } from './store.fake';
 import { roadmapReader } from './store';
+
+// The resolver reaches the secret box, which is the server's only.
+vi.mock('server-only', () => ({}));
 
 // What an answer of POST /api/roadmaps carries, checked as it is read.
 const Answer = z.looseObject({
@@ -24,7 +31,7 @@ const NOW = Date.parse('2026-10-07T10:00:00Z');
 
 type Call = { token?: string | null; raw?: string };
 
-function world({ database = true } = {}) {
+function world({ database = true, classify }: { database?: boolean; classify?: (roadmapId: string) => void } = {}) {
   const clock = { now: NOW };
   const fake = fakeRoadmaps(
     { 'ada-token': ADA, 'bob-token': BOB, 'carl-token': CARL, 'nell-token': NELL },
@@ -32,7 +39,7 @@ function world({ database = true } = {}) {
     () => clock.now,
   );
   // The stub answers only the calls the route makes, so it is not a whole Supabase client.
-  const deps: RoadmapDeps = { connect: database ? fake.client as unknown as RoadmapDeps['connect'] : null };
+  const deps: RoadmapDeps = { connect: database ? fake.client as unknown as RoadmapDeps['connect'] : null, ...(classify ? { classify } : {}) };
   const send = async (body: unknown, { token = 'ada-token', raw }: Call = {}) => {
     const response = await roadmapPush(new Request('https://omni.example/api/roadmaps', {
       method: 'POST',
@@ -352,5 +359,99 @@ describe('reading the roadmaps', () => {
     const later = await w.send({ ...PUSH, roadmap: 1300 });
     const reader = roadmapReader(w.fake.client('ada-token') as never);
     expect((await reader.list()).map((r) => r.id)).toEqual([later.body?.roadmapId, first.body?.roadmapId]);
+  });
+});
+
+describe('POST /api/roadmaps: each new key\'s kind through Jev (PRD 1217 s3)', () => {
+  const said = (answer: string): JevOutcome => ({ kind: 'answered', answer, confidence: 0.9, model: 'jev-1.13.0', probabilities: null, ms: 20 });
+
+  /** A push world whose classifier runs after each push, over the fake tables, as the service role would. */
+  function classified(mode: JevMode, answers: Array<JevOutcome | Error> = []) {
+    const offered = new Set<string>();
+    const runs: Array<Promise<unknown>> = [];
+    const asked: unknown[] = [];
+    const jev: JevDecideDeps = {
+      settings: (_workspace, decision) => Promise.resolve({ decision, mode, threshold: 0.5, floor: 0.4 }),
+      key: () => Promise.resolve({ kind: 'key', key: 'ts-key' }),
+      ask: (_key, state) => {
+        asked.push(state);
+        const next = answers.shift() ?? said('business');
+        return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
+      },
+      log: () => Promise.resolve(),
+    };
+    const w = world({ classify: (roadmapId) => { runs.push(classifyHumanWork(humanWorkClassifier(service, jev), roadmapId)); } });
+    const rows = (roadmapId: string) => w.fake.tables.roadmap_human_work.filter((h) => h.roadmap_id === roadmapId);
+    // roadmap_human_work_claim() and roadmap_human_work_set_kind(), over the fake tables.
+    const service = {
+      rpc(fn: string, args: Record<string, unknown>) {
+        const roadmapId = String(args.p_roadmap);
+        if (fn === 'roadmap_human_work_claim') {
+          const roadmap = w.fake.tables.roadmaps.find((r) => r.id === roadmapId);
+          const picked = rows(roadmapId).filter((h) => h.state === 'open' && !offered.has(`${roadmapId} ${h.key}`)).slice(0, Number(args.p_limit));
+          for (const h of picked) offered.add(`${roadmapId} ${h.key}`);
+          return Promise.resolve({ data: { workspace: roadmap?.workspace_id ?? null, entries: picked.map((h) => ({
+            key: h.key, prd: h.prd, prdTitle: null, repo: h.repo, source: h.source, text: h.text, act: h.act, url: h.url, ruleKind: h.kind,
+          })) }, error: null });
+        }
+        const row = rows(roadmapId).find((h) => h.key === args.p_key && h.kind_by === 'rule' && offered.has(`${roadmapId} ${h.key}`));
+        if (row) Object.assign(row, { kind: args.p_kind, kind_by: 'jev' });
+        return Promise.resolve({ data: Boolean(row), error: null });
+      },
+    };
+    const send = async (body: unknown) => {
+      const answer = await w.send(body);
+      await Promise.all(runs);
+      return answer;
+    };
+    return { ...w, send, asked };
+  }
+  const kinds = (w: ReturnType<typeof world>) => w.fake.tables.roadmap_human_work.map((h) => [h.key, h.kind, h.kind_by]);
+
+  it('On: a new key takes Jev\'s kind, chosen by Jev', async () => {
+    const w = classified('on', [said('delivery-ops'), said('business')]);
+    expect((await w.send({ ...PUSH, humanWork: [SECRET, ASK] })).status).toBe(201);
+    expect(kinds(w)).toEqual([['outbox:1213/s2-01', 'delivery-ops', 'jev'], ['question:Q5', 'business', 'jev']]);
+  });
+
+  it('Shadow and Off keep the rule kind', async () => {
+    for (const mode of ['shadow', 'off'] as const) {
+      const w = classified(mode, [said('delivery-ops')]);
+      await w.send({ ...PUSH, humanWork: [SECRET] });
+      expect(kinds(w)).toEqual([['outbox:1213/s2-01', 'dev-ops', 'rule']]);
+      expect(w.asked).toHaveLength(mode === 'shadow' ? 1 : 0);
+    }
+  });
+
+  it('a Jev error, or an answer outside the four, keeps the rule kind, and the push succeeds', async () => {
+    const w = classified('on', [new Error('socket hang up'), said('legal')]);
+    expect((await w.send({ ...PUSH, humanWork: [SECRET, ASK] })).status).toBe(201);
+    expect(kinds(w)).toEqual([['outbox:1213/s2-01', 'dev-ops', 'rule'], ['question:Q5', 'business', 'rule']]);
+  });
+
+  it('a key already stored is never classified again; a new one is', async () => {
+    const w = classified('on', [said('development'), said('delivery-ops'), said('business')]);
+    await w.send({ ...PUSH, humanWork: [SECRET] });
+    await w.send({ ...PUSH, humanWork: [SECRET, ASK] });
+    expect(w.asked).toHaveLength(2);
+    expect(kinds(w)).toEqual([['outbox:1213/s2-01', 'development', 'jev'], ['question:Q5', 'delivery-ops', 'jev']]);
+  });
+
+  it('runs only after a push that carries human work and was recorded', async () => {
+    const classify = vi.fn();
+    const w = world({ classify });
+    await w.send(PUSH);
+    await w.send({ ...PUSH, repo: 'other/plan', humanWork: [SECRET] });
+    expect(classify).not.toHaveBeenCalled();
+    const { body } = await w.send({ ...PUSH, humanWork: [] });
+    expect(classify).toHaveBeenCalledWith(body?.roadmapId);
+  });
+
+  it('a classifier that throws as it starts never fails the push', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const w = world({ classify: () => { throw new Error('after() is unavailable'); } });
+    expect((await w.send({ ...PUSH, humanWork: [SECRET] })).status).toBe(201);
+    expect(String(error.mock.calls[0]?.[0])).toContain('after() is unavailable');
+    error.mockRestore();
   });
 });
