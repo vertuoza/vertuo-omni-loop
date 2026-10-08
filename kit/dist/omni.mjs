@@ -41089,10 +41089,10 @@ var ENTRIES = deepFreeze([
     name: "dossier",
     kind: "command",
     who: "you",
-    usage: ['omni dossier open "<title>"', "omni dossier push <n> [--kind visual|bug]", "omni dossier link <n> [--kind visual|bug]", "omni dossier status"],
+    usage: ['omni dossier open "<title>"', "omni dossier push <n> [--kind visual|bug|concept]", "omni dossier link <n> [--kind visual|bug|concept]", "omni dossier status"],
     label: "omni dossier \u2026",
     summary: "a PRD's dossier on the Omni page",
-    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea and prints its link; push sends PRD n's files and adds a version only where a file changed; link prints PRD n's page, on any computer, or none when it has no dossier, and writes nothing; status says whether dossiers are on here. With --kind visual or --kind bug, push and link work on issue n's fix instead: its visual update or bug fix page, filled from its folder. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
+    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea and prints its link; push sends PRD n's files and adds a version only where a file changed; link prints PRD n's page, on any computer, or none when it has no dossier, and writes nothing; status says whether dossiers are on here. With --kind visual or --kind bug, push and link work on issue n's fix instead: its visual update or bug fix page, filled from its folder. With --kind concept, they work on concept n, its issue's number: its page under Work \u203A Concepts, filled from its concept.md, vision tour, boards and debate. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
   },
   {
     name: "idea",
@@ -41440,7 +41440,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:think-big <brief or n>"],
     label: "/omni:think-big",
     summary: "a vast idea, explored by a studio, to a concept PR",
-    detail: "For a vast idea, one that spans the whole product and would take several PRDs, before anyone commits to building it. A studio of agents goes wide with six to eight rendered concepts, then deepens the ones you keep into clickable prototypes, while a panel (a Visionary, a Craft critic, a Skeptic, a Value critic and real users) argues over each by name; you react at every round and crown one. It opens one concept PR into {defaultBranch} with the vision tour, every board, the debate and an area map of PRD-sized areas, and ends with one /omni:brainstorm --concept <n> <area> line per area, the wedge first. A feature-sized idea is offered /omni:brainstorm or a lite run; a tweak gets the /omni:visual-fix line. It writes no code and never merges.",
+    detail: "For a vast idea, one that spans the whole product and would take several PRDs, before anyone commits to building it. A studio of agents goes wide with six to eight rendered concepts, then deepens the ones you keep into clickable prototypes, while a panel (a Visionary, a Craft critic, a Skeptic, a Value critic and real users) argues over each by name; you react at every round and crown one. It opens one concept PR into {defaultBranch} with the vision tour, every board, the debate and an area map of PRD-sized areas, sends the concept to its page under Work \u203A Concepts on the Omni page, and ends with one /omni:brainstorm --concept <n> <area> line per area, the wedge first. A feature-sized idea is offered /omni:brainstorm or a lite run; a tweak gets the /omni:visual-fix line. It writes no code and never merges.",
     group: "start",
     when: "Use it when an idea spans the whole product and you want bold directions to react to before any scope is cut.",
     example: {
@@ -41455,7 +41455,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:brainstorm", "/omni:brainstorm --concept <n> <area>"],
     label: "/omni:brainstorm",
     summary: "an idea, to a design, to a PRD and its phase-0 PR",
-    detail: "Turns an idea into an approved design, then into a PRD the loop can build: the PRD issue, the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and merges before any code is written. It writes no code and merges nothing, and ends with the /omni:yolo line that builds it. With --concept <n> <area>, it starts from one area of a concept in the inbox: the area's brief, the vision and the verdict.",
+    detail: "Turns an idea into an approved design, then into a PRD the loop can build: the PRD issue, the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and merges before any code is written. It writes no code and merges nothing, and ends with the /omni:yolo line that builds it. With --concept <n> <area>, it starts from one area of a concept in the inbox: the area's brief, the vision and the verdict. Once it fills the area's PRD cell, it pushes the concept again, so the concept's page links that area to its PRD.",
     group: "start",
     when: "Use it when you have an idea for a change and want it designed before any code is written.",
     example: {
@@ -41887,9 +41887,9 @@ var ENTRIES = deepFreeze([
     name: "dossier-push",
     kind: "skill",
     who: "skills",
-    usage: ["/omni:dossier-push <n> [--kind visual|bug]"],
+    usage: ["/omni:dossier-push <n> [--kind visual|bug|concept]"],
     summary: "send a PRD's files to its dossier",
-    detail: "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a version only where a file changed. /omni:brainstorm runs it after each of its pushes, and /omni:plan after it pushes the plan; /omni:visual-fix and /omni:bug-fix run it with --kind visual or --kind bug for their fix's page. It never stops the skill that runs it.",
+    detail: "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a version only where a file changed. /omni:brainstorm runs it after each of its pushes, and /omni:plan after it pushes the plan; /omni:visual-fix and /omni:bug-fix run it with --kind visual or --kind bug for their fix's page, and a concept's record runs it with --kind concept for the concept's page under Work \u203A Concepts. It never stops the skill that runs it.",
     group: "run-by-skills",
     when: "Use it when a PRD's spec, plan or before/after page changed and its dossier should show it.",
     example: {
