@@ -29,8 +29,10 @@ const formOf = (form: HTMLFormElement): IdeaForm => {
   return { title: field('title'), pitch: field('pitch'), lane: field('lane'), prdField: field('prd') };
 };
 
+type Write = { busy: boolean; problem: string | null; run(write: (port: MembersPort | null) => Promise<string | null>): Promise<void> };
+
 /** Runs one write; reloads the board once it is saved, else hands back the refusal. */
-function useWrite(): { busy: boolean; problem: string | null; run(write: (port: MembersPort | null) => Promise<string | null>): Promise<void> } {
+function useWrite(): Write {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   return {
@@ -46,6 +48,13 @@ function useWrite(): { busy: boolean; problem: string | null; run(write: (port: 
     },
   };
 }
+
+/** A form's submit: the idea it holds, sent as a new one, or as the named idea's new fields. */
+const sendForm = (write: Write, repo: string, ideaId?: string) => (event: FormEvent<HTMLFormElement>) => {
+  event.preventDefault();
+  const form = formOf(event.currentTarget);
+  void write.run((port) => submitIdea(port, repo, form, ideaId));
+};
 
 function Problem({ problem }: { problem: string | null }) {
   return problem ? <p className="idea-member-problem" role="alert">{problem}</p> : null;
@@ -82,11 +91,7 @@ function Fields({ idea, lane }: { idea?: Idea; lane: Lane }) {
 /** Add an idea, above the lanes: it goes in the lane chosen, Later unless the member picks another. */
 export function AddIdea({ repo }: { repo: string }) {
   const write = useWrite();
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = formOf(event.currentTarget);
-    void write.run((port) => submitIdea(port, repo, form));
-  };
+  const onSubmit = sendForm(write, repo);
   return (
     <details className="idea-add">
       <summary className="ask-button quiet">{MEMBERS.addHeading}</summary>
@@ -102,11 +107,7 @@ export function AddIdea({ repo }: { repo: string }) {
 /** A card's Edit and Archive, for a member. */
 export function IdeaControls({ repo, idea }: { repo: string; idea: Idea }) {
   const write = useWrite();
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = formOf(event.currentTarget);
-    void write.run((port) => submitIdea(port, repo, form, idea.id));
-  };
+  const onSubmit = sendForm(write, repo, idea.id);
   return (
     <div className="idea-member">
       <details className="idea-edit">
