@@ -11,7 +11,9 @@
 //   contract's 5-second limit and one token refresh, and anything that stops it is exit 1 with one
 //   line — `off` (no `ask.url`), `no sign-in (omni signin)`, `github unreachable`, `unreachable`,
 //   `refused (<status>)` or `refused (<status>): <the app's reason>`, or a roadmap.md that does not
-//   parse.
+//   parse. Once the app took it, it keeps the roadmap page it printed as the roadmap's link in the
+//   main checkout (`../../lib/now/links.ts`, PRD 1208's s4), for `omni now`; a link it cannot keep
+//   changes nothing of the push.
 // - `answer <n> <question> "<answer>"` (slice s6) posts one comment on roadmap n's issue carrying the
 //   answer's marker: how a person's answer reaches the repository's side. The roadmap's page builds
 //   this very line. An unknown question, or an empty or too long answer, is exit 2.
@@ -24,6 +26,8 @@ import { signedInClient } from '../../lib/ask/credentials.ts';
 import { field } from '../../lib/ask/schema.ts';
 import { formatFailure, formatPass, readRepoFile } from '../../lib/check-report.ts';
 import { loadContext } from '../../lib/context.ts';
+import { mainCheckout } from '../../lib/dossier/local.ts';
+import { writeLinks } from '../../lib/now/links.ts';
 import type { Context } from '../../lib/context.ts';
 import type { IssueNumber } from '../../lib/ids.ts';
 import { ANSWER_MAX, answerComment, readAnswers } from '../../lib/roadmap/answers.ts';
@@ -36,12 +40,23 @@ import { issueArg, parseArgs, println, usageError } from '../args.ts';
 import { githubClientFor, githubEnv } from '../github.ts';
 import type { Env, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 
+/** Keeps `page` as roadmap `n`'s link in the main checkout of `cwd`, at `now`; never throws. */
+function keepPage({ cwd, exec, now = Date.now }: Io, n: IssueNumber, page: string): void {
+  try {
+    const main = mainCheckout(cwd, exec);
+    if (main) writeLinks(main, 'roadmap', n, [{ label: 'roadmap page', href: page }], now());
+  } catch {
+    // The checkout refused the file: the push went through all the same.
+  }
+}
+
 /** What a test hands `omni roadmap` beyond `main()`'s own. */
 type RoadmapOptions = {
   tokens?: TokenStore | undefined;
   home?: string | undefined;
   fetch?: Fetch;
   callMs?: number | undefined;
+  now?: () => number;
 };
 
 const USAGE = [
@@ -177,11 +192,14 @@ function pushInputs(n: IssueNumber, io: Io): PushInputs | string {
 }
 
 /** The app's reply to roadmap `n`'s push, printed: its link and any note, exit 0; 1 with no roadmap in it. */
-function reportPush({ stdout, stderr }: Io, n: IssueNumber, { askUrl, body }: PushInputs, reply: unknown): number {
+function reportPush(io: Io, n: IssueNumber, { askUrl, body }: PushInputs, reply: unknown): number {
   const roadmapId = field(reply, 'roadmapId');
+  const { stdout, stderr } = io;
   if (typeof roadmapId !== 'string' || !roadmapId) return refuse(stderr, 'refused (no roadmap in the reply)');
   const how = field(reply, 'created') === true ? 'created' : 'updated';
-  println(stdout, `roadmap ${n}: ${how}, ${body.prds.length} PRD(s) — ${askUrl.replace(/\/+$/, '')}/roadmaps/${roadmapId}`);
+  const page = `${askUrl.replace(/\/+$/, '')}/roadmaps/${roadmapId}`;
+  println(stdout, `roadmap ${n}: ${how}, ${body.prds.length} PRD(s) — ${page}`);
+  keepPage(io, n, page);
   const note = field(reply, 'note');
   if (typeof note === 'string' && note) println(stdout, note);
   return 0;

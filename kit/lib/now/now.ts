@@ -12,9 +12,11 @@
 //   slice of its cached board is not merged; a board with no slice, or none at all, leaves it as PRD
 //   324 says. Its slices are those of the board in flight (`in-flight`, `claimed-stale`) or `stuck`,
 //   in the board's order, each `{ id, name, state }` with `name` `null` when the board keeps none.
-//   Its links are none yet: a later slice reads them.
 // - **A fix's work** (PRD 1208's s2) is `{ kind: 'bug' | 'visual', number, topic, stage, slices,
-//   links }`: its stage `merged` once its folder is on the base, else `in progress`; it has no slices.
+//   links }`: its stage `merged` once its folder is on the base, else `fix PR open` while its links
+//   hold its pull request (s4), else `in progress`; it has no slices.
+// - **The links** (s4) are those the background refresh kept for the work and for a roadmap headline
+//   (`links.ts`), and the Loop page's for a loop headline: `linked()` adds them to an answer.
 // - **Doing**, for a PRD with slices in flight: `building <id> <name>, <id> <name>`; else `null`.
 // - **The plain lines**: the headline when there is one (`roadmap 7 · 3/7 merged`, `loop`), then the work (`PRD <n> <topic> · <stage>`, `bug #<n> <topic> · <stage>`), then, when there is one, a line of
 //   what it is doing and what is stuck (`building s3 tabs · stuck s5`). The session on nothing prints
@@ -35,8 +37,8 @@ export type NowLink = { label: string; href: string };
 /** A slice being built, or stuck. */
 export type NowSlice = { id: string; name: string | null; state: string };
 
-/** A fix's stage: `merged` once its folder is on the base, else `in progress`. */
-export type FixStage = 'in progress' | 'merged';
+/** A fix's stage: `merged` once its folder is on the base, else `fix PR open` while its pull request is, else `in progress`. */
+export type FixStage = 'in progress' | 'fix PR open' | 'merged';
 
 /** The kinds of fix a session works on. */
 export type FixKind = 'bug' | 'visual';
@@ -85,8 +87,30 @@ export function nowOfFix({ kind, number, topic, merged }: { kind: FixKind; numbe
   return { headline: null, work: { kind, number, topic, stage: merged ? 'merged' : 'in progress', slices: [], links: [] }, doing: null };
 }
 
-/** A loop that drives no roadmap, as the headline. */
-export const LOOP_HEADLINE: NowHeadline = Object.freeze({ kind: 'loop', links: [] });
+/** A loop that drives no roadmap, as the headline, with its page's link when it has one. */
+export function loopHeadline(page: string | null): NowHeadline {
+  return { kind: 'loop', links: page ? [{ label: 'loop page', href: page }] : [] };
+}
+
+/** The label of a fix's pull request link, which reads its stage as `fix PR open`. */
+export const FIX_PR = 'fix PR';
+
+/** The links kept for the work, or the roadmap, of `kind` numbered `n`. */
+export type LinksOf = (kind: 'prd' | FixKind | 'roadmap', n: number) => NowLink[];
+
+/** `answer` with the links `linksOf` keeps for its work and its roadmap headline; a fix not merged
+ * whose links hold its pull request reads `fix PR open`. A loop headline keeps its own. */
+export function linked(answer: Now, linksOf: LinksOf): Now {
+  const { headline, work } = answer;
+  const headlineLinks = headline?.kind === 'roadmap' && headline.number !== undefined ? linksOf('roadmap', headline.number) : null;
+  const links = work ? linksOf(work.kind, work.number) : [];
+  const prOpen = links.some((link) => link.label.startsWith(`${FIX_PR} `));
+  return {
+    ...answer,
+    headline: headline && headlineLinks ? { ...headline, links: headlineLinks } : headline,
+    work: work && (work.kind === 'prd' ? { ...work, links } : { ...work, links, stage: work.stage === 'in progress' && prOpen ? 'fix PR open' : work.stage }),
+  };
+}
 
 /** Roadmap `number` as the headline, `merged` of its `rows` PRDs shipped. */
 export function roadmapHeadline(number: IssueNumber, merged: number, rows: number): NowHeadline {

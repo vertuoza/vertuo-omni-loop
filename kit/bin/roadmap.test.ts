@@ -1,6 +1,8 @@
 // `omni roadmap check [<n>]` and `omni check inbox` on a roadmap, through `main()` (PRD 1162, s4);
 // `omni roadmap push` and `omni roadmap answer` (s6).
 import type { ExecFileSyncOptions } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CALL_TIMEOUT_MS } from '../lib/ask/client.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
@@ -302,6 +304,27 @@ describe('omni roadmap push', () => {
     const { code, out } = await omni(['roadmap', 'push', '1200'], { root, exec: fakeGh().exec, fetch });
     expect(code).toBe(0);
     expect(out).toContain('\nNo product named "X" in this workspace: the roadmap is filed under none.\n');
+  });
+
+  it('keeps the roadmap page it printed, which omni now lists under the roadmap (PRD 1208, s4)', async () => {
+    const { root } = pushRepo();
+    const { fetch } = stubFetch(pushed());
+    const s = io();
+    const env = { CLAUDE_CODE_SESSION_ID: 'road-push' };
+    expect(await main(['roadmap', 'push', '1200'], { cwd: root, exec: fakeGh().exec, env, tokens: signedIn(), fetch, stdout: s.stdout, stderr: s.stderr })).toBe(0);
+    const kept: unknown = JSON.parse(readFileSync(join(root, '.omni-loop/local/now/links-roadmap-1200.json'), 'utf8'));
+    expect(kept).toMatchObject({ links: [{ label: 'roadmap page', href: `${BASE}/roadmaps/${ROADMAP_ID}` }] });
+    const shown = io();
+    expect(await main(['now', '--json'], { cwd: root, env, stdout: shown.stdout, stderr: shown.stderr })).toBe(0);
+    const answer: unknown = JSON.parse(shown.out.join(''));
+    expect(answer).toMatchObject({ headline: { kind: 'roadmap', number: 1200, links: [{ label: 'roadmap page', href: `${BASE}/roadmaps/${ROADMAP_ID}` }] } });
+  });
+
+  it('keeps no page when the push stops', async () => {
+    const { root } = pushRepo();
+    const refused = stubFetch(() => json(403, { error: 'no' }));
+    expect((await omni(['roadmap', 'push', '1200'], { root, exec: fakeGh().exec, fetch: refused.fetch })).code).toBe(1);
+    expect(existsSync(join(root, '.omni-loop/local/now'))).toBe(false);
   });
 
   it("has the contract's 5-second limit on its call", async () => {

@@ -640,3 +640,150 @@ describe('omni statusline --refresh <n>', () => {
     expect(neverFetches(shown.calls)).toBe(true);
   });
 });
+
+// PRD #1208, slice s4: `omni statusline --refresh <n> --kind prd|bug|visual` keeps the links of what
+// the session is on in `links-<kind>-<n>.json`, with `gh` and the Omni page stubbed; `omni now` lists
+// them, and a fix with an open pull request reads `fix PR open`.
+describe('omni statusline --refresh <n> --kind', () => {
+  const BASE = 'https://omni.example';
+  const FILES = {
+    '.omni-loop/config.yml': `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${BASE}\ndossier:\n  enabled: true\n`,
+    '.omni-loop/delivery/inbox/0007-widgets/plan.md': '| id | slice | territory | blocked by | wave |\n| --- | --- | --- | --- | --- |\n| s1 | Alpha. More | `a/` | — | 1 |\n',
+  };
+  /** A repository on the fix branch `fix/login-redirect`, whose bug folder is not on `main` yet. */
+  const fixRepo = () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    git(root, 'checkout', '-q', '-b', 'fix/login-redirect');
+    commit(root, { '.omni-loop/delivery/bugs/1180-login-redirect/bug.md': '# login\n' });
+    return root;
+  };
+  const pr = (number: number, state = 'OPEN') => ({ number, url: `https://github.com/acme/widgets/pull/${number}`, state });
+  const HEADS: Record<string, unknown[]> = {
+    'feat/widgets': [pr(30, 'CLOSED'), pr(21)],
+    'docs/phase-0-widgets': [pr(20)],
+    'fix/login-redirect': [pr(40)],
+  };
+  const signedIn = () => {
+    const store: Record<string, unknown> = { 'omni.example': { access_token: 'a', refresh_token: 'r' } };
+    return { read: (host: string) => store[host] ?? null, write: (host: string, tokens: unknown) => { store[host] = tokens; } };
+  };
+
+  /** `execFileSync` for git; `gh pr list` answers by `--head` from `HEADS`, else as the board's empty list. */
+  function stubbedExec() {
+    const calls: string[] = [];
+    const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+      calls.push([file, ...args].join(' '));
+      if (file !== 'gh') return realExec(file, args, options);
+      if (args[0] === 'pr' && args[1] === 'list') {
+        const head = args.includes('--head') ? args[args.indexOf('--head') + 1] ?? '' : null;
+        if (head === null) return '[]';
+        const state = args[args.indexOf('--state') + 1];
+        return JSON.stringify((HEADS[head] ?? []).filter((listed) => state === 'all' || (listed as { state: string }).state === 'OPEN'));
+      }
+      throw new Error(`unexpected gh ${args.join(' ')}`);
+    };
+    return { calls, exec };
+  }
+
+  /** A fetch that answers the dossier lookup with a page per kind and number, recording each URL. */
+  function stubbedFetch(found = true) {
+    const urls: string[] = [];
+    const fetch = (url: string) => {
+      urls.push(url);
+      const query = new URL(url).searchParams;
+      const body = found ? { id: 'd', url: `${BASE}/${query.get('kind') ?? 'prd'}/${query.get('prd')}` } : { error: 'none' };
+      return Promise.resolve(new Response(JSON.stringify(body), { status: found ? 200 : 404 }));
+    };
+    return { urls, fetch };
+  }
+
+  async function refresh(cwd: string, args: string[], { exec = stubbedExec().exec, fetch = stubbedFetch().fetch, tokens = signedIn() } = {}) {
+    const err: string[] = [];
+    const code = await main(['statusline', '--refresh', ...args], {
+      cwd, stdout: { write: () => true }, stderr: { write: (s) => err.push(s) }, exec, env: PLAIN, now: () => NOW, stdin: '', tokens, fetch,
+      spawn: () => {
+        throw new Error('a refresh starts no process');
+      },
+    });
+    return { code, err: err.join('') };
+  }
+
+  async function nowJson(cwd: string, args: string[] = []) {
+    const out: string[] = [];
+    const calls: string[] = [];
+    const exec = (file: string, argv: readonly string[], options?: ExecFileSyncOptions) => {
+      calls.push([file, ...argv].join(' '));
+      return realExec(file, argv, options);
+    };
+    expect(await main(['now', '--json', ...args], { cwd, stdout: { write: (s) => out.push(s) }, stderr: { write: () => true }, exec, env: {}, now: () => NOW + 5 * SECOND })).toBe(0);
+    expect(neverFetches(calls)).toBe(true);
+    const answer: unknown = JSON.parse(out.join(''));
+    return answer;
+  }
+
+  const linksJson = (root: string, name: string): unknown => JSON.parse(readFileSync(join(root, '.omni-loop/local/now', name), 'utf8'));
+
+  it("keeps a PRD's page, its open feature PR and its open phase-0 PR, and writes the board too", async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { urls, fetch } = stubbedFetch();
+    expect(await refresh(root, ['7', '--kind', 'prd'], { fetch })).toEqual({ code: 0, err: '' });
+    const links = [
+      { label: 'PRD page', href: `${BASE}/prd/7` },
+      { label: 'feature PR #21', href: 'https://github.com/acme/widgets/pull/21' },
+      { label: 'phase-0 PR #20', href: 'https://github.com/acme/widgets/pull/20' },
+    ];
+    expect(linksJson(root, 'links-prd-7.json')).toEqual({ at: iso(NOW), links });
+    expect(urls).toEqual([`${BASE}/api/dossiers?repo=acme%2Fwidgets&prd=7`]);
+    expect(existsSync(boardFile(root, parsePrd(7)))).toBe(true);
+    expect(existsSync(join(root, '.omni-loop/local/now/links-prd-7.lock'))).toBe(false);
+    git(root, 'checkout', '-q', '-b', 'feat/widgets');
+    expect(await nowJson(root)).toMatchObject({ work: { kind: 'prd', number: 7, links } });
+  });
+
+  it("keeps a fix's page and its open PR, which omni now reads as fix PR open", async () => {
+    const root = fixRepo();
+    expect(await refresh(root, ['1180', '--kind', 'bug'])).toEqual({ code: 0, err: '' });
+    const links = [{ label: 'fix page', href: `${BASE}/bug/1180` }, { label: 'fix PR #40', href: 'https://github.com/acme/widgets/pull/40' }];
+    expect(linksJson(root, 'links-bug-1180.json')).toEqual({ at: iso(NOW), links });
+    expect(existsSync(join(root, BOARD_DIR))).toBe(false);
+    expect(await nowJson(root)).toEqual({ headline: null, work: { kind: 'bug', number: 1180, topic: 'login-redirect', stage: 'fix PR open', slices: [], links }, doing: null });
+  });
+
+  it('leaves out a link it cannot have: no sign-in, no page, no pull request', async () => {
+    const root = fixRepo();
+    const store = { read: () => null, write: () => {} };
+    expect((await refresh(root, ['1180', '--kind', 'visual'], { tokens: store })).code).toBe(0);
+    expect(linksJson(root, 'links-visual-1180.json')).toEqual({ at: iso(NOW), links: [] });
+    expect((await refresh(root, ['9', '--kind', 'prd'], { fetch: stubbedFetch(false).fetch })).code).toBe(0);
+    expect(linksJson(root, 'links-prd-9.json')).toEqual({ at: iso(NOW), links: [] });
+  });
+
+  it('writes nothing and exits 0 while another refresh holds the lock, or for a kind it does not know', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    mkdirSync(join(root, '.omni-loop/local/now'), { recursive: true });
+    writeFileSync(join(root, '.omni-loop/local/now/links-bug-1180.lock'), JSON.stringify({ at: iso(NOW - 30 * SECOND) }));
+    const { calls, exec } = stubbedExec();
+    expect(await refresh(root, ['1180', '--kind', 'bug'], { exec })).toEqual({ code: 0, err: '' });
+    expect(existsSync(join(root, '.omni-loop/local/now/links-bug-1180.json'))).toBe(false);
+    expect(calls.some((call) => call.startsWith('gh '))).toBe(false);
+    expect(await refresh(root, ['1180', '--kind', 'roadmap'])).toEqual({ code: 0, err: '' });
+    expect(await refresh(root, ['seven', '--kind', 'bug'])).toEqual({ code: 0, err: '' });
+    expect(existsSync(join(root, '.omni-loop/local/now/links-roadmap-1180.json'))).toBe(false);
+  });
+
+  it('shows no links from a file missing, holding an error, or 10 minutes old', async () => {
+    const root = fixRepo();
+    expect(await nowJson(root)).toMatchObject({ work: { stage: 'in progress', links: [] } });
+    const dir = join(root, '.omni-loop/local/now');
+    mkdirSync(dir, { recursive: true });
+    const plant = (body: unknown) => {
+      writeFileSync(join(dir, 'links-bug-1180.json'), JSON.stringify(body));
+    };
+    plant({ at: iso(NOW), error: 'gh: offline' });
+    expect(await nowJson(root)).toMatchObject({ work: { stage: 'in progress', links: [] } });
+    plant({ at: iso(NOW - 10 * MINUTE), links: [{ label: 'fix PR #40', href: 'x' }] });
+    expect(await nowJson(root)).toMatchObject({ work: { stage: 'in progress', links: [] } });
+    plant({ at: iso(NOW), links: [{ label: 'fix PR #40', href: 'x' }, { label: 7 }] });
+    expect(await nowJson(root)).toMatchObject({ work: { stage: 'fix PR open', links: [{ label: 'fix PR #40', href: 'x' }] } });
+  });
+});

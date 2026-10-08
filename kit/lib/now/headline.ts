@@ -3,7 +3,8 @@
 //
 // - **A running loop** is `.omni-loop/local/loop.json` (PRD 1139) in the checkout, live or sleeping by
 //   the app's rule (`loopState`); a parked, stopped or silent loop is no headline. It is the roadmap
-//   its `roadmap` names when that roadmap has a folder, else the loop. Its `last` step (absent in a
+//   its `roadmap` names when that roadmap has a folder, else the loop, linked to its Loop page
+//   (`<ask.url>/app/loop/<loopId>`, PRD 1208's s4) when `ask.url` is set. Its `last` step (absent in a
 //   file of PRD 1139's shape) names the work and what it is doing.
 // - **A roadmap record** (`omni roadmap check|push <n>`, `omni next --roadmap <n>`), with no running
 //   loop, is roadmap n as the headline, with no work under it.
@@ -17,7 +18,7 @@ import { parseFolderName } from '../layout.ts';
 import { loopState, readLocalLoop } from '../loop/local.ts';
 import { roadmapFiles } from '../roadmap/index.ts';
 import { parseRoadmap } from '../roadmap/parse.ts';
-import { LOOP_HEADLINE, roadmapHeadline } from './now.ts';
+import { loopHeadline, roadmapHeadline } from './now.ts';
 import type { LastStep, NowHeadline } from './now.ts';
 import { attempt, foldersAt, textOnBase } from './tree.ts';
 
@@ -43,10 +44,16 @@ export function roadmapNamed(ctx: Context, number: IssueNumber, base: string | n
   return roadmapHeadline(number, merged, parsed.roadmap.prds.length);
 }
 
+/** The Loop page of loop `loopId` on the Omni page (`<ask.url>/app/loop/<id>`), or `null` without `ask.url`. */
+function loopPage(ctx: Context, loopId: string): string | null {
+  const askUrl = ctx.config.ask.url;
+  return askUrl ? `${askUrl.replace(/\/+$/, '')}/app/loop/${encodeURIComponent(loopId)}` : null;
+}
+
 /** The loop this checkout keeps running, live or sleeping at `now`, as the headline; `null` for none. */
 export function runningLoop(ctx: Context, { base, exec, now }: { base: string | null; exec: ExecText; now: number }): { headline: NowHeadline; last: LastStep | null } | null {
   const loop = readLocalLoop(ctx.root);
   if (!loop || !RUNNING.includes(loopState(loop, now))) return null;
   const roadmap = loop.roadmap ? roadmapNamed(ctx, loop.roadmap, base, exec) : null;
-  return { headline: roadmap ?? LOOP_HEADLINE, last: loop.last ?? null };
+  return { headline: roadmap ?? loopHeadline(loopPage(ctx, loop.loopId)), last: loop.last ?? null };
 }

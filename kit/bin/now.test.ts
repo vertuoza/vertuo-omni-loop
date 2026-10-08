@@ -358,6 +358,27 @@ describe('omni now — a loop or a roadmap', () => {
     expect(await nowJson(repo.root, repo.root, ['--session', 'road-2'])).toEqual(NOTHING);
   });
 
+  it('links a loop with no roadmap to its Loop page once ask.url is set (PRD 1208, s4)', async () => {
+    const linked = fixture({ '.omni-loop/config.yml': 'kit: 1\nask:\n  url: https://omni.example/\n' });
+    const kept = { loopId: 'loop-9', repo: 'acme/widgets', prds: [9], state: 'running', startedAt: iso(NOW - 60_000), seenAt: iso(NOW - 60_000), nextWakeAt: null, planVersion: 1, roadmap: null };
+    mkdirSync(join(linked.root, LOOP_FILE, '..'), { recursive: true });
+    writeFileSync(join(linked.root, LOOP_FILE), JSON.stringify(kept));
+    expect(await nowJson(linked.root, linked.root)).toEqual({ headline: { kind: 'loop', links: [{ label: 'loop page', href: 'https://omni.example/app/loop/loop-9' }] }, work: null, doing: null });
+  });
+
+  it("lists a roadmap headline's page from the links file, missing or 10 minutes old as none (PRD 1208, s4)", async () => {
+    loop({ state: 'stopped' });
+    repo.record('road-4', { kind: 'roadmap', number: 12, at: iso(NOW) });
+    const dir = join(repo.root, '.omni-loop/local/now');
+    mkdirSync(dir, { recursive: true });
+    const page = { label: 'roadmap page', href: 'https://omni.example/roadmaps/r-12' };
+    writeFileSync(join(dir, 'links-roadmap-12.json'), JSON.stringify({ at: iso(NOW - 60_000), links: [page] }));
+    expect(await nowJson(repo.root, repo.root, ['--session', 'road-4'])).toMatchObject({ headline: { ...ROADMAP_12, links: [page] } });
+    writeFileSync(join(dir, 'links-roadmap-12.json'), JSON.stringify({ at: iso(NOW - 10 * 60_000), links: [page] }));
+    expect(await nowJson(repo.root, repo.root, ['--session', 'road-4'])).toMatchObject({ headline: ROADMAP_12 });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it('records the roadmap of `omni roadmap check <n>`, which `omni now` then shows', async () => {
     rmSync(join(repo.root, LOOP_FILE), { force: true });
     await main(['roadmap', 'check', '12'], { cwd: repo.root, stdout: { write: () => true }, stderr: { write: () => true }, env: { CLAUDE_CODE_SESSION_ID: 'road-3' } });

@@ -144,7 +144,12 @@ function lockedAt(path: string): number | null {
 
 /** Whether a refresh of PRD `prd` holds the lock: one under 2 minutes old (a time after `now` counts as old). */
 export function lockHeld(root: string, prd: PrdNumber, now: number): boolean {
-  const at = lockedAt(lockFile(root, prd));
+  return lockHeldAt(lockFile(root, prd), now);
+}
+
+/** Whether the lock in `path` is held: one under 2 minutes old (a time after `now` counts as old). */
+function lockHeldAt(path: string, now: number): boolean {
+  const at = lockedAt(path);
   return at !== null && now - at >= 0 && now - at < LOCK_ABANDONED_MS;
 }
 
@@ -201,7 +206,11 @@ function ensureBoardDir(root: string): void {
 /** Writes PRD `prd`'s board entry: to a temporary name, then renamed into place. */
 export function writeBoard(root: string, prd: PrdNumber, entry: WrittenEntry): void {
   ensureBoardDir(root);
-  const path = boardFile(root, prd);
+  writeJsonAt(boardFile(root, prd), entry);
+}
+
+/** Writes `entry` as JSON in `path`, whose folder exists: to a temporary name, then renamed into place. */
+export function writeJsonAt(path: string, entry: unknown): void {
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
   try {
     writeFileSync(temporary, `${JSON.stringify(entry)}\n`);
@@ -233,16 +242,20 @@ function createLock(path: string, now: number): string | null {
  * another refresh holds it. */
 export function takeLock(root: string, prd: PrdNumber, now: number): string | null {
   ensureBoardDir(root);
-  const path = lockFile(root, prd);
+  return takeLockAt(lockFile(root, prd), now);
+}
+
+/** Takes the lock in `path`, whose folder exists, taking over one 2 minutes old or more: its owner
+ * token, or `null` while another refresh holds it. */
+export function takeLockAt(path: string, now: number): string | null {
   const owner = createLock(path, now);
-  if (owner !== null || lockHeld(root, prd, now)) return owner;
+  if (owner !== null || lockHeldAt(path, now)) return owner;
   rmSync(path, { force: true });
   return createLock(path, now);
 }
 
-/** Removes PRD `prd`'s lock, unless another refresh took it over since `owner` took it. */
-function releaseLock(root: string, prd: PrdNumber, owner: string): void {
-  const path = lockFile(root, prd);
+/** Removes the lock in `path`, unless another refresh took it over since `owner` took it. */
+export function releaseLockAt(path: string, owner: string): void {
   const held = attempt(() => readLock(path)?.owner, null);
   if (held === owner) rmSync(path, { force: true });
 }
@@ -268,7 +281,7 @@ export function refreshBoard({ root, prd, now, build }: { root: string; prd: Prd
     }
     writeBoard(root, prd, entry);
   } finally {
-    releaseLock(root, prd, owner);
+    releaseLockAt(lockFile(root, prd), owner);
   }
   return 'written';
 }

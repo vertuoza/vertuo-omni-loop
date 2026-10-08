@@ -17,7 +17,11 @@
 // A fix's folder is `<nnnn>-<topic>` under `<paths.delivery>/bugs/` or `<paths.delivery>/visual/`, in
 // the checkout's working tree or on the base (`<repo.remote>/<repo.defaultBranch>`, else the local
 // default branch); it is `merged` once its folder is on the base. A fix, a PRD or a roadmap with no
-// folder is none. Nothing here prints, fetches, runs `gh`, writes a file or starts a process: the
+// folder is none.
+//
+// The links (s4) are read from the files the background refresh keeps in the main checkout
+// (`links.ts`): the work's, and a roadmap headline's; a file missing or 10 minutes old adds none.
+// Nothing here prints, fetches, runs `gh`, writes a file or starts a process: the
 // board's background refresh is never started from here. Anything that cannot be read reads as the
 // session on nothing; it never throws.
 import { findWork } from '../ask/heartbeat.ts';
@@ -27,6 +31,7 @@ import { loadConfig } from '../config.ts';
 import { createContext } from '../context.ts';
 import type { Context, ExecText } from '../context.ts';
 import type { IssueNumber, PrdNumber } from '../ids.ts';
+import { mainCheckout } from '../dossier/local.ts';
 import { findRoot } from '../init/repo.ts';
 import { parseFolderName } from '../layout.ts';
 import type { NamedSlice } from '../statusline/board-cache.ts';
@@ -36,7 +41,8 @@ import { recordedWork } from '../statusline/sessions.ts';
 import type { RecordedWork } from '../statusline/sessions.ts';
 import { visualRoot } from '../visual/verdict.ts';
 import { roadmapNamed, runningLoop } from './headline.ts';
-import { NOTHING, nowOfFix, nowOfPrd, underHeadline } from './now.ts';
+import { readLinks } from './links.ts';
+import { linked, NOTHING, nowOfFix, nowOfPrd, underHeadline } from './now.ts';
 import type { FixKind, Now } from './now.ts';
 import { attempt, baseOf, foldersAt, QUIET } from './tree.ts';
 import type { Folders } from './tree.ts';
@@ -123,7 +129,10 @@ export function readNow({ cwd, folder, sessionId, exec, now }: { cwd: string; fo
   try {
     const where = folder ?? cwd;
     const ctx = contextOf(where, exec);
-    return ctx ? readSession(ctx, { folder: where, sessionId, exec, now, base: baseOf(ctx, exec) }) : NOTHING;
+    if (!ctx) return NOTHING;
+    const answer = readSession(ctx, { folder: where, sessionId, exec, now, base: baseOf(ctx, exec) });
+    const main = attempt(() => mainCheckout(where, exec), null);
+    return linked(answer, (kind, n) => (main ? readLinks(main, kind, n, now) : []));
   } catch {
     return NOTHING;
   }
