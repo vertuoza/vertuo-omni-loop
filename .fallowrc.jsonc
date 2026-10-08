@@ -3,7 +3,12 @@
   // `.omni-loop/` holds one script, the shim onto `kit/bin/omni.ts` (an entry below), and
   // fallow never walks a hidden directory, even when named as an entry: listed here so the run
   // says so once, in this file, instead of warning on every audit.
-  "ignorePatterns": [".omni-loop/**", "apps/omni-app/api/**"],
+  //
+  // The omni-hud mod (PRD 1208) is a Claude Code plugin: Claude Code loads its hooks module by the
+  // path `hooks/hooks.json` names, resolves `claude-code` itself, and runs its tests under
+  // `claude plugin test`, whose coverage fallow never sees. `claude plugin validate` and
+  // `claude plugin test` check it instead (kit/test/plugin.test.ts).
+  "ignorePatterns": [".omni-loop/**", "apps/omni-app/api/**", "kit/plugin-hud/**"],
   // Files run by path — from a package.json script, a workflow step or a Vercel route —
   // that no import statement names. Listed so no finding exists only because fallow cannot see
   // their caller (PRD 598).

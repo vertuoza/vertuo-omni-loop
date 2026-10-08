@@ -12,11 +12,11 @@ import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { writeMode } from '../ask/local-state.ts';
 import { BOARD_DIR, boardFile, lockFile } from './board-cache.ts';
-import { readFacts } from './facts.ts';
+import { readFacts, startLinksRefresh } from './facts.ts';
 import type { SessionInput } from './input.ts';
 import { writeRecord } from './sessions.ts';
 import { assertDefined } from '../../test/assert.ts';
-import { parsePrd } from '../ids.ts';
+import { parseIssue, parsePrd } from '../ids.ts';
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\n' };
 const DELIVERY = '.omni-loop/delivery';
@@ -280,7 +280,7 @@ describe('readFacts: the board (slice s6)', () => {
     expect(prd).toMatchObject({ number: 7, stage: 'inbox', slices: null });
     expect(spawns).toHaveLength(1);
     assertDefined(spawns[0], 'spawns[0]');
-    expect(spawns[0].args).toEqual([SCRIPT, 'statusline', '--refresh', '7']);
+    expect(spawns[0].args).toEqual([SCRIPT, 'statusline', '--refresh', '7', '--kind', 'prd']);
     assertDefined(spawns[0], 'spawns[0]');
     expect(spawns[0].options).toMatchObject({ cwd: root, detached: true, stdio: 'ignore' });
   });
@@ -329,5 +329,66 @@ describe('readFacts: the board (slice s6)', () => {
     writeRecord(root, 'abc', 7, NOW);
     plantBoard(root, 7, 0);
     expect(read(root, { sessionId: 'abc' })).toMatchObject({ prd: { number: 7, stage: 'outbox', slices: IN_FLIGHT }, spawns: [] });
+  });
+});
+
+describe('startLinksRefresh (PRD 1208, s5)', () => {
+  const NOW = Date.parse('2026-09-28T12:00:00Z');
+  const SECOND = 1000;
+  const SCRIPT = '/work/repo/.omni-loop/bin/omni.mjs';
+  const LINKS = join('.omni-loop', 'local', 'now');
+
+  /** A spawn that starts nothing and records each call. */
+  function fakeSpawn() {
+    const calls: { args: readonly string[]; options: SpawnOptions }[] = [];
+    const spawn = (_command: string, args: readonly string[], options: SpawnOptions) => {
+      calls.push({ args, options });
+      return { unref() {}, on() { return this; } };
+    };
+    return { calls, spawn };
+  }
+
+  /** `name` in the links folder of `root`, holding `{ at }` written `age` milliseconds before `NOW`. */
+  function plant(root: string, name: string, age: number) {
+    mkdirSync(join(root, LINKS), { recursive: true });
+    writeFileSync(join(root, LINKS, name), JSON.stringify({ at: new Date(NOW - age).toISOString(), links: [] }));
+  }
+
+  /** The refreshes `startLinksRefresh` starts for the `kind` work `n` in `folder`. */
+  function start(folder: string, kind: 'prd' | 'bug' | 'visual', n: number, { script = SCRIPT, withSpawn = true } = {}) {
+    const spawned = fakeSpawn();
+    const started = startLinksRefresh({ folder, kind, n: parseIssue(n), now: NOW, spawn: withSpawn ? spawned.spawn : null, script, env: undefined }, execFileSync);
+    return { started, calls: spawned.calls };
+  }
+
+  it('starts `statusline --refresh <n> --kind <kind>` detached in the session folder when the links file is missing', () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { started, calls } = start(root, 'bug', 1180);
+    expect(started).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ args: [SCRIPT, 'statusline', '--refresh', '1180', '--kind', 'bug'], options: { cwd: root, detached: true, stdio: 'ignore' } });
+  });
+
+  it('starts none while the links are under a minute old, and one once they are a minute old', () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    plant(root, 'links-visual-1150.json', 59 * SECOND);
+    expect(start(root, 'visual', 1150).calls).toEqual([]);
+    plant(root, 'links-visual-1150.json', 60 * SECOND);
+    expect(start(root, 'visual', 1150).calls).toHaveLength(1);
+  });
+
+  it('starts none while a refresh holds the lock, and one once the lock is 2 minutes old', () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    plant(root, 'links-prd-7.lock', 30 * SECOND);
+    expect(start(root, 'prd', 7).calls).toEqual([]);
+    plant(root, 'links-prd-7.lock', 120 * SECOND);
+    expect(start(root, 'prd', 7).calls).toHaveLength(1);
+  });
+
+  it('starts none without a spawn, without a script, or outside a repository', () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    expect(start(root, 'prd', 7, { withSpawn: false })).toEqual({ started: false, calls: [] });
+    expect(start(root, 'prd', 7, { script: '' })).toEqual({ started: false, calls: [] });
+    expect(start(mkdtempSync(join(tmpdir(), 'omni-nowhere-')), 'prd', 7)).toEqual({ started: false, calls: [] });
   });
 });

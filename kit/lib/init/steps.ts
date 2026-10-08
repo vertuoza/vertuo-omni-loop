@@ -16,8 +16,8 @@ import type { Invasion } from './installed.ts';
 import type { LabelsResult } from './labels.ts';
 import type { FormatterNotice } from './notices.ts';
 import type { StepLines } from './plugin.ts';
-import { PERSONAL_SETTINGS_FILE, STATUS_LINE_KEY } from './settings.ts';
-import type { StatusLineOutcome } from './settings.ts';
+import { ENABLED_PLUGINS_KEY, HUD_PLUGIN, PERSONAL_SETTINGS_FILE, STATUS_LINE_KEY } from './settings.ts';
+import type { HudOutcome, StatusLineOutcome } from './settings.ts';
 
 // The App a person installs, and the marketplace and plugin init installs (and omni update updates), named once.
 export const APP = { name: 'omni-loop', slug: 'omni-loop-invader' };
@@ -36,6 +36,15 @@ const STATUS_LINE: Record<StatusLineOutcome, (path: string) => string> = {
   invalid: (path) => `  skipped ${path}: not valid JSON, no status line added`,
 };
 const KIT_LINE_IN_PLACE: ReadonlySet<string> = new Set(['wrote', 'kept']);
+
+// What became of the band's line in `enabledPlugins` (PRD 1208); a file that holds no JSON object
+// is already named by the status line's own line, so it adds none.
+const HUD_LINE: Record<HudOutcome, (path: string) => string | null> = {
+  wrote: (path) => `  wrote   ${path}  (${ENABLED_PLUGINS_KEY}: ${HUD_PLUGIN})`,
+  kept: (path) => `  kept    ${path}  (${ENABLED_PLUGINS_KEY}: ${HUD_PLUGIN})`,
+  theirs: (path) => `  kept    ${path}  (its ${HUD_PLUGIN} is someone else's)`,
+  invalid: () => null,
+};
 
 // The closing steps' numbers: the App, then the merge, then the labels step when there is one.
 const LABELS_STEP = 3;
@@ -89,13 +98,14 @@ export function installedSteps({ forms, invaded = null, configPath }: {
  * front door, and each file of it this run wrote — a form is never overwritten, so one already there
  * is not listed — `outside` when the front door lies outside init's folder, and so nothing was
  * written there; `settings` the settings file the status line goes in, and what this run did with
- * it (see settings.ts).
+ * it (see settings.ts); `hud` what it did with the band's line in the same file.
  */
-export function setupLines({ slug, files, forms, settings, labels }: {
+export function setupLines({ slug, files, forms, settings, hud, labels }: {
   slug: string | null;
   files: { path: string; wrote: boolean }[];
   forms: { dir: string; wrote: string[]; outside: boolean };
   settings: { path: string; outcome: StatusLineOutcome };
+  hud: { path: string; outcome: HudOutcome };
   labels: LabelsResult;
 }): string[] {
   const dir = dirname(at(files, 0, 'the first file init wrote').path); // init passes its files, never none
@@ -107,6 +117,8 @@ export function setupLines({ slug, files, forms, settings, labels }: {
   for (const path of forms.wrote) lines.push(`  wrote   ${path}`);
   if (forms.outside) lines.push(`  forms   not written: ${forms.dir}/ is outside ${dir}/ — see step ${formsStep(labels)} below`);
   lines.push(STATUS_LINE[settings.outcome](settings.path));
+  const hudLine = HUD_LINE[hud.outcome](hud.path);
+  if (hudLine) lines.push(hudLine);
   const done = [];
   if (labels.created.length) done.push(`created ${labels.created.join(', ')}`);
   if (labels.present.length) {

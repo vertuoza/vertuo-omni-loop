@@ -794,6 +794,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "0. --refresh is the background half: it rebuilds a PRD's board, as omni board does, into a " +
       'file the status line reads.',
   },
+  {
+    name: 'now',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni now [--json] [--stdin] [--session <id>]'],
+    summary: 'what this Claude session is on now, and the slices being built',
+    detail:
+      'The PRD this session works on, from its branch or else from the last command that named ' +
+      'one, its stage (building while a slice is not merged), and the slices in flight and stuck by ' +
+      'id and name. --json prints the same as one document, for the status line, the omni-hud band ' +
+      "or any other agent. --stdin reads the session's folder and id from Claude Code's status line " +
+      'JSON, --session names the session. It reads only this computer: it never fetches, never calls ' +
+      'GitHub, writes nothing and always exits 0.',
+  },
 
   // Skills you type in Claude. Their order is the overview's.
   {
