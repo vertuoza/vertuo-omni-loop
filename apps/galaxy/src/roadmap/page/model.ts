@@ -6,7 +6,8 @@
 // (closed, signed out, in no workspace) before any of this.
 import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { ganttOf, type Gantt } from '../gantt';
-import type { RoadmapPrdRow, RoadmapQuestion, RoadmapRow } from '../store';
+import type { RoadmapPrdRow, RoadmapPrerequisiteRow, RoadmapQuestion, RoadmapRow } from '../store';
+import { prerequisitesOf, roadmapTabsOf, type PrerequisitesView, type RoadmapTab, type RoadmapTabLink } from './prerequisites';
 
 /** Where the Roadmaps pages live, and one roadmap's page under it. */
 export const ROADMAPS_PATH = '/roadmaps';
@@ -73,6 +74,16 @@ export interface RoadmapDetail extends RoadmapSummary {
   source: string | null;
   gantt: Gantt;
   questions: QuestionView[];
+  /** The tab shown (PRD 1218): Overview, today's page, or Prerequisites. */
+  tab: RoadmapTab;
+  tabs: RoadmapTabLink[];
+  prerequisites: PrerequisitesView;
+}
+
+/** What one roadmap opened adds to its row and PRDs: its prerequisites, and the tab asked for. */
+export interface DetailAsk {
+  prerequisites: readonly RoadmapPrerequisiteRow[];
+  tab: RoadmapTab;
 }
 
 /** Where the page's data came from: the workspace's, or the demo, in development or for a person signed out. */
@@ -116,8 +127,9 @@ function summaryOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], products: re
   };
 }
 
-export function detailOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], products: readonly ProductRef[], now: number): RoadmapDetail {
+export function detailOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], products: readonly ProductRef[], now: number, ask: DetailAsk): RoadmapDetail {
   const summary = summaryOf(row, prds, products);
+  const prerequisites = prerequisitesOf(ask.prerequisites, row.prerequisites_machine ?? null, row.prerequisites_checked_at ?? null);
   return {
     ...summary,
     blocks: blocksOf(row.questions, prds),
@@ -126,6 +138,9 @@ export function detailOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], produc
     source: row.source,
     gantt: ganttOf(prds, now, row.repo),
     questions: row.questions.map((q) => ({ ...q, answerable: q.kind === 'person' && q.answer === null })),
+    tab: ask.tab,
+    tabs: roadmapTabsOf(summary.href, ask.tab, prerequisites.waiting),
+    prerequisites,
   };
 }
 

@@ -12,8 +12,9 @@ import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import { memberWorkspace, type Workspace } from '../../data/workspace';
-import { roadmapReader, type RoadmapPrdRow, type RoadmapRow } from '../store';
+import { roadmapReader, type RoadmapPrdRow, type RoadmapPrerequisiteRow, type RoadmapRow } from '../store';
 import { detailOf, listOf, type ProductRef, type RoadmapPageView } from './model';
+import type { RoadmapTab } from './prerequisites';
 
 export interface RoadmapPageReads {
   /** The workspace the person joined first, or null for none. */
@@ -24,6 +25,8 @@ export interface RoadmapPageReads {
   roadmap(id: string): Promise<RoadmapRow | null>;
   /** A roadmap's PRDs, in its table's order. */
   prds(id: string): Promise<RoadmapPrdRow[]>;
+  /** A roadmap's prerequisites, in its table's order, each with the last result's state (PRD 1218). */
+  prerequisites(id: string): Promise<RoadmapPrerequisiteRow[]>;
   /** The workspace's products, first first. */
   products(workspace: string): Promise<ProductRef[]>;
 }
@@ -37,8 +40,9 @@ async function productsOf(reads: RoadmapPageReads, workspace: string): Promise<P
   }
 }
 
-/** What the page asks for: the list (`id` null), only one product's when `product` is set, or one roadmap. */
-export type RoadmapPageAsk = { id: string | null; product: string | null };
+/** What the page asks for: the list (`id` null), only one product's when `product` is set, or one roadmap,
+ * on the tab `?tab=` names (Overview when none). */
+export type RoadmapPageAsk = { id: string | null; product: string | null; tab?: RoadmapTab };
 
 /** The list or one roadmap; `not-found` for a roadmap the workspace does not hold. */
 /** The person's workspace, or the view that says why there is none to read. */
@@ -63,8 +67,9 @@ export async function loadRoadmapPage(reads: RoadmapPageReads, ask: RoadmapPageA
   }
   const row = await reads.roadmap(ask.id);
   if (!row || row.workspace_id !== id) return { kind: 'not-found' };
-  const [prds, products] = await Promise.all([reads.prds(row.id), productsOf(reads, id)]);
-  return { kind: 'roadmap', name: workspace.name, demo: null, roadmap: detailOf(row, prds, products, now.getTime()) };
+  const [prds, products, prerequisites] = await Promise.all([reads.prds(row.id), productsOf(reads, id), reads.prerequisites(row.id)]);
+  const roadmap = detailOf(row, prds, products, now.getTime(), { prerequisites, tab: ask.tab ?? 'overview' });
+  return { kind: 'roadmap', name: workspace.name, demo: null, roadmap };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -87,6 +92,7 @@ export function supabaseRoadmapPageReads(db: SupabaseClient<Database>, user: Pic
     roadmaps: () => roadmaps.list(),
     roadmap: (id) => roadmaps.roadmap(id),
     prds: (id) => roadmaps.prds(id),
+    prerequisites: (id) => roadmaps.prerequisites(id),
     async products(workspace) {
       const { data, error } = await db.from('products').select(PRODUCT_COLUMNS).eq('workspace_id', workspace).order('ordinal');
       if (error) throw new Error(error.message);
