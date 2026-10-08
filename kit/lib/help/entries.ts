@@ -820,7 +820,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'reaches no network and calls no model. heals pairs the recordings steps, by test id and call ' +
       'index, at the merge-base of the PRD feature branch and at its head, and lists each as healed ' +
       '(old and new action, and the summary), new or removed, as JSON; an identical step is not listed. ' +
-      'The same refusals hold for both sides.',
+      'Each healed step carries screenshots, a before and an after: the framework keeps no screenshot ' +
+      'per step, so each side says kept false and why. The same refusals hold for both sides.',
   },
   {
     name: 'statusline',

@@ -101,6 +101,13 @@ describe('omni e2e heals', () => {
     });
   });
 
+  it('gives each healed step its before and after screenshots, or why none was kept', async () => {
+    const { out } = await heals({ 'e2e/.e2e/cache/a.json': step('Rank') }, { 'e2e/.e2e/cache/a.json': step('Position') });
+    const [healed] = JSON.parse(out).healed;
+    expect(healed.screenshots.before).toMatchObject({ kept: false, reason: expect.stringContaining('merge-base') });
+    expect(healed.screenshots.after).toMatchObject({ kept: false, reason: expect.stringContaining('no artifacts') });
+  });
+
   it('fails naming a recording that is not trace-1 or does not read, at either side', async () => {
     const head = await heals({}, { 'e2e/.e2e/cache/old.json': step('Rank', 0, 'trace-2') });
     expect(head.code).toBe(1);
