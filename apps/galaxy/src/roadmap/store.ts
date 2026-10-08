@@ -32,6 +32,27 @@ export const RoadmapQuestion = z.strictObject({
 });
 export type RoadmapQuestion = z.infer<typeof RoadmapQuestion>;
 
+/** The four kinds of human work (PRD 1217): a product or business choice, a developer's decision, a
+ * right missing in the repository, a step toward production. */
+export const HUMAN_WORK_KINDS = ['business', 'development', 'dev-ops', 'delivery-ops'] as const;
+export const HumanWorkKind = z.enum(HUMAN_WORK_KINDS);
+export type HumanWorkKind = z.infer<typeof HumanWorkKind>;
+
+/** Where a piece of human work was read: a person question of roadmap.md, an outbox item, a park line,
+ * a needs-clarification comment. Each entry's key starts with its source. */
+export const HUMAN_WORK_SOURCES = ['question', 'outbox', 'park', 'clarification'] as const;
+export const HumanWorkSource = z.enum(HUMAN_WORK_SOURCES);
+export type HumanWorkSource = z.infer<typeof HumanWorkSource>;
+
+/** A key of human work: its source, then what it is within the roadmap (`outbox:1213/s2-01`). */
+export const HumanWorkKey = z.string().regex(/^(question|outbox|park|clarification):[A-Za-z0-9._/-]{1,100}$/, 'a key such as outbox:7/s2-01');
+
+/** One piece of human work as `omni roadmap push` sends it, with the kind its rules gave it. */
+export type HumanWorkPush = {
+  key: string; prd: PrdNumber | null; repo: string; source: HumanWorkSource; text: string; act: string | null; url: string | null;
+  ruleKind: HumanWorkKind;
+};
+
 /** One PRD of a pushed roadmap, as roadmap_push() takes it. */
 export type RoadmapPrdPush = {
   id: string; prd: PrdNumber; title: string; repos: string[]; blockers: string[]; wave: number; state: RoadmapPrdState;
@@ -73,11 +94,12 @@ export type RoadmapPrerequisiteResultPush = {
 };
 
 /** One push of `omni roadmap push`, validated: what roadmap_push() takes, and the prerequisites
- * roadmap_prerequisites_push() takes after it. `prerequisites` missing (a kit before PRD 1218) leaves
- * the stored prerequisites as they are. */
+ * roadmap_prerequisites_push() takes after it. `humanWork` missing (a kit before PRD 1217) leaves the
+ * stored human work as it is; `prerequisites` missing (a kit before PRD 1218) leaves the stored
+ * prerequisites as they are. */
 export type RoadmapPush = {
   repo: string; roadmap: IssueNumber; title: string; milestone: string; product: string | null; target: string | null;
-  source: string | null; questions: RoadmapQuestion[]; document: string; prds: RoadmapPrdPush[];
+  source: string | null; questions: RoadmapQuestion[]; document: string; prds: RoadmapPrdPush[]; humanWork?: HumanWorkPush[] | undefined;
   prerequisites?: RoadmapPrerequisitePush[] | undefined; prerequisiteResult?: RoadmapPrerequisiteResultPush | null | undefined;
 };
 
@@ -130,6 +152,25 @@ export const RoadmapPrdRow = z.strictObject({
 });
 export type RoadmapPrdRow = z.infer<typeof RoadmapPrdRow>;
 
+/** A stored piece of human work (PRD 1217): its kind, who chose it (`rule` the kit's rules, `jev` Jev),
+ * and whether it is open or done since `done_at`. */
+export const RoadmapHumanWorkRow = z.strictObject({
+  roadmap_id: z.string(),
+  key: z.string(),
+  prd: PrdNumberSchema.nullable(),
+  repo: z.string(),
+  source: HumanWorkSource,
+  text: z.string(),
+  act: z.string().nullable(),
+  url: z.string().nullable(),
+  kind: HumanWorkKind,
+  kind_by: z.enum(['jev', 'rule']),
+  state: z.enum(['open', 'done']),
+  first_seen_at: z.string(),
+  done_at: z.string().nullable(),
+});
+export type RoadmapHumanWorkRow = z.infer<typeof RoadmapHumanWorkRow>;
+
 /** One prerequisite of a roadmap, as stored (supabase/migrations/20261114090000_roadmap_prerequisites.sql). */
 export const RoadmapPrerequisiteRow = z.strictObject({
   roadmap_id: z.string(),
@@ -155,6 +196,7 @@ export const ROADMAP_ADDED_COLUMNS = 'prerequisites_machine, prerequisites_check
 export const ROADMAP_READ_COLUMNS = `${ROADMAP_COLUMNS}, ${ROADMAP_ADDED_COLUMNS}`;
 export const ROADMAP_PRD_COLUMNS = 'roadmap_id, position, row_id, prd, title, repos, blockers, wave, state, waits_on, waits_on_url, started_at, ended_at';
 export const ROADMAP_PREREQUISITE_COLUMNS = 'roadmap_id, position, row_id, category, need, check_with, fix_with, blocks_all, blocks, who, repos, card, state, detail';
+export const ROADMAP_HUMAN_WORK_COLUMNS = 'roadmap_id, key, prd, repo, source, text, act, url, kind, kind_by, state, first_seen_at, done_at';
 
 type Failure = { code?: string; message: string };
 
@@ -166,10 +208,11 @@ export class RoadmapStoreError extends StoreError {
   }
 }
 
-/** The body roadmap_push() reads: the push without its prerequisites, its roadmap's number under `number`. */
+/** The body roadmap_push() reads: the push without its prerequisites, its roadmap's number under
+ * `number`, and no `humanWork` when the push carried none, so that push closes nothing. */
 function bodyOf(push: RoadmapPush): Record<string, unknown> {
-  const { roadmap, prerequisites: _prerequisites, prerequisiteResult: _result, ...rest } = push;
-  return { ...rest, number: roadmap };
+  const { repo, roadmap, title, milestone, product, target, source, questions, document, prds, humanWork } = push;
+  return { repo, number: roadmap, title, milestone, product, target, source, questions, document, prds, ...(humanWork === undefined ? {} : { humanWork }) };
 }
 
 /** The body roadmap_prerequisites_push() reads: the roadmap, its prerequisites and the result. */
@@ -229,6 +272,14 @@ export function roadmapReader(db: Pick<SupabaseClient, 'from'>) {
     async prerequisites(roadmapId: string): Promise<RoadmapPrerequisiteRow[]> {
       const { data, error } = await db.from('roadmap_prerequisites').select(ROADMAP_PREREQUISITE_COLUMNS).eq('roadmap_id', roadmapId).order('position', { ascending: true });
       return error ? [] : orEmpty(parseRows(RoadmapPrerequisiteRow, data, 'roadmap/store: roadmap_prerequisites'));
+    },
+
+    /** A roadmap's human work (PRD 1217): the open first, each part in the order it was first seen. */
+    async humanWork(roadmapId: string): Promise<RoadmapHumanWorkRow[]> {
+      const { data, error } = await db.from('roadmap_human_work').select(ROADMAP_HUMAN_WORK_COLUMNS).eq('roadmap_id', roadmapId)
+        .order('first_seen_at', { ascending: true });
+      const rows = error ? [] : orEmpty(parseRows(RoadmapHumanWorkRow, data, 'roadmap/store: roadmap_human_work'));
+      return [...rows.filter((h) => h.state === 'open'), ...rows.filter((h) => h.state === 'done')];
     },
   };
 }

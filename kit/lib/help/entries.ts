@@ -157,8 +157,16 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'plan PR and every target PR), its why naming the pull request it waits on and its state, while ' +
       'every other step runs; a person question not answered parks only the PRDs it blocks, and a ' +
       'blocker closed unmerged parks its dependents. ' +
+      'On the loop plan it also returns a pool: steps, up to limits.parallelSteps (1 to 6, default 3) ' +
+      'steps to launch now, counting those running; running, the steps already running, read from ' +
+      'GitHub (a live claim, or omni:in-progress with a fresh status comment), so a closed terminal ' +
+      'launches nothing twice; and held, each step kept back with the rule and the step it waits on. ' +
+      'A step is offered only when it passes four rules against every step running or offered: ' +
+      'another PRD, no open blocker, no shared path in the same repository (generated paths never ' +
+      "collide; a finish stands on all its PRD's slices) and the plan allows it. With " +
+      'limits.parallelSteps: 1 it is one step per tick, as before. ' +
       'It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one ' +
-      'document. Needs gh logged in.',
+      'document: step and verdict as before, then steps, running and held. Needs gh logged in.',
   },
   {
     name: 'loop',
@@ -797,6 +805,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "0. --refresh is the background half: it rebuilds a PRD's board, as omni board does, into a " +
       'file the status line reads.',
   },
+  {
+    name: 'now',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni now [--json] [--stdin] [--session <id>]'],
+    summary: 'what this Claude session is on now, and the slices being built',
+    detail:
+      'The PRD this session works on, from its branch or else from the last command that named ' +
+      'one, its stage (building while a slice is not merged), and the slices in flight and stuck by ' +
+      'id and name. --json prints the same as one document, for the status line, the omni-hud band ' +
+      "or any other agent. --stdin reads the session's folder and id from Claude Code's status line " +
+      'JSON, --session names the session. It reads only this computer: it never fetches, never calls ' +
+      'GitHub, writes nothing and always exits 0.',
+  },
 
   // Skills you type in Claude. Their order is the overview's.
   {
@@ -1196,14 +1218,17 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'you',
     usage: ['/loop /omni:drive [<n>…]', '/loop /omni:drive --roadmap <n>'],
     label: '/omni:drive [<n>…]',
-    summary: 'drive your PRDs, one step per tick',
+    summary: 'drive your PRDs, several steps at once',
     detail:
       'Run under /loop, it drives your own PRDs in inbox, building or outbox, or the ones you name. ' +
       'Its first tick orders every slice of them into a loop plan (omni next --plan), colliding ' +
       'territories in series with the reason, and opens the loop on the Loop page. Each tick then ' +
       'takes the first step not done and runs that one skill (/omni:wave, /omni:yolo, /omni:yolo-fix ' +
       "or /omni:pr-care --once) or waits, parks a PRD waiting on a person on its feature PR's status " +
-      'comment, records the tick on the Loop page and picks when to look again. Once every PRD is ' +
+      'comment, records the tick on the Loop page and picks when to look again. It fills a pool: ' +
+      'each step omni next offers runs as its own background agent in its own worktree, up to ' +
+      'limits.parallelSteps (default 3) at once, and a step that would collide is held with why; ' +
+      'limits.parallelSteps: 1 runs one step per tick. Once nothing runs and every PRD is ' +
       'parked or done it stops itself and lists what waits on whom. A closed terminal resumes the ' +
       "same loop. --roadmap <n> drives exactly roadmap n's PRDs, someone else's included, holding a " +
       "blocked PRD until its blockers' feature PRs merged, naming the pull request it waits on, and " +
@@ -1223,11 +1248,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'you',
     usage: ['/loop /omni:mega-drive [<n>…]', '/loop /omni:mega-drive --roadmap <n>'],
     label: '/omni:mega-drive',
-    summary: 'drive PRDs across repositories, one step per tick',
+    summary: 'drive PRDs across repositories, steps side by side',
     detail:
       'The /omni:drive of a plan repository: run under /loop, it drives your own multi-repository ' +
       'PRDs, the ones you name, or with --roadmap <n> exactly roadmap n\'s. Its loop plan puts two ' +
-      'steps in series only when they touch the same path in the same repository. Each tick runs ' +
+      'steps in series only when they touch the same path in the same repository. Its steps run ' +
+      'as a pool of background agents, up to limits.parallelSteps at once, each PRD with its own ' +
+      'target clones at <worktrees>/targets/<name>@<prd>, so no two steps share a HEAD. Each step runs ' +
       'one skill (/omni:ultra-wave, /omni:ultra-yolo, which plans a PRD with no plan, ' +
       '/omni:ultra-yolo-fix or /omni:mega-pr-care --once) or waits, parks a PRD waiting on a ' +
       "person on its plan PR's status comment naming each open PR by repository, records the " +

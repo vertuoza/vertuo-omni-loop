@@ -44,6 +44,15 @@ describe('the list of roadmaps', () => {
     expect(t).toContain('0 of 3 merged');
   });
 
+  it('shows on each card the open human work of each kind that has some, and nothing for a kind with none', () => {
+    const cards = html.split('<li class="board-card roadmap-card">').slice(1);
+    const work = (card: string | undefined) => text(/<p class="roadmap-chips roadmap-work-counts"[\s\S]*?<\/p>/.exec(card ?? '')?.[0] ?? '');
+    expect(cards).toHaveLength(2);
+    expect(work(cards[0])).toBe('business 1 dev ops 1 delivery ops 2');
+    expect(cards[0]).toContain('aria-label="Open human work"');
+    expect(cards[1]).not.toContain('roadmap-work-counts');
+  });
+
   it('offers every product that files a roadmap as a filter, every product current', () => {
     const filter = present(/<nav class="roadmap-filter"[\s\S]*?<\/nav>/.exec(html)?.[0], 'the filter');
     expect(text(filter)).toBe('Every product 2 Crew 1 Billing 1');
@@ -107,6 +116,41 @@ describe('one roadmap opened', () => {
     expect(t).toContain('Q5 Who may grant a mandate');
     expect([...html.matchAll(/<textarea id="([^"]+)"/g)].map((m) => m[1])).toEqual(['roadmap-answer-Q5']);
     expect(t).toContain('omni roadmap answer 1200 Q5 "…"');
+  });
+
+  const workOf = (page: string) => present(/<section class="board-card roadmap-work"[\s\S]*?<\/section>/.exec(page)?.[0], 'the Human work item');
+
+  it('shows its Human work under the Gantt and above the open questions: a chip per kind with its open count', () => {
+    const work = workOf(html);
+    expect(html.indexOf('roadmap-gantt')).toBeLessThan(html.indexOf('roadmap-work"'));
+    expect(html.indexOf('roadmap-work"')).toBeLessThan(html.indexOf('roadmap-questions'));
+    expect(text(work)).toMatch(/^Human work /);
+    expect(text(present(/<p class="roadmap-chips roadmap-work-kinds"[\s\S]*?<\/p>/.exec(work)?.[0], 'the kinds'))).toBe('business 1 development 0 dev ops 1 delivery ops 2');
+  });
+
+  it('groups the open entries by kind, each with its PRD, its repository, its text, its act word for word and where it is answered', () => {
+    const work = workOf(html);
+    const open = work.slice(0, work.indexOf('<details'));
+    expect([...open.matchAll(/<h3 class="roadmap-work-kind[^"]*">([^<]+)</g)].map((m) => m[1])).toEqual(['business', 'dev ops', 'delivery ops']);
+    const o = text(open);
+    expect(o).toContain('acme/crew-plan Who may grant a mandate: the owner only, or any admin?');
+    expect(o).toContain('PRD 1213 · ai-domain The think endpoint needs the model provider\'s key.');
+    expect(o).toContain('Add the secret MODEL_API_KEY to acme/ai-domain\'s Actions secrets, with the scope read.');
+    expect(open).toContain('href="/prd/at/acme/crew-plan/1213?to=page"');
+    expect(open).toContain('href="https://github.com/acme/ai-domain/pull/310"');
+    expect(o).not.toContain('Which queue does the worker read?');
+  });
+
+  it('folds the done entries, with the same fields and when each was settled', () => {
+    const done = present(/<details class="roadmap-work-done">[\s\S]*?<\/details>/.exec(workOf(html))?.[0], 'the done entries');
+    expect(text(done)).toContain('Done (1)');
+    expect(text(done)).toContain('PRD 1201 · crew Which queue does the worker read?');
+    expect(text(done)).toContain('development · settled 2026-10-04');
+    expect(done).toContain('href="https://github.com/acme/crew-plan/issues/1201"');
+  });
+
+  it('says no human work is recorded yet when there is none', () => {
+    expect(text(workOf(render(opened(DEMO_ROADMAP_ONE_REPO))))).toBe('Human work No human work recorded yet.');
   });
 
   it('sits each bar in its wave, without dates, before any PRD merged', () => {

@@ -106,7 +106,8 @@ reach this skill with its spec merged and no plan) is planned here, before its f
    ```
 
 `/omni:plan` may return `needs clarification`: the run stops there, with its question posted on the
-PRD's issue, and nothing is built. Otherwise carry on below with the plan PR it opened.
+PRD's issue, its first line `<!-- omni-needs-clarification -->` as `/omni:plan` writes it, and
+nothing is built. Otherwise carry on below with the plan PR it opened.
 
 Then read what moved since the plan was written:
 
@@ -137,10 +138,13 @@ Read `## Repositories` from the plan, and each target's `owner/name` from the bo
 (`node .omni-loop/bin/omni.mjs board <n> --json` gives every slice its `repo` and `slug`). For
 each target row, the plan repository's own row excepted:
 
-1. **The clone.** A full clone at `<worktrees>/targets/<name>` of the plan repository
-   (`<worktrees>` is `omni config worktrees`): `gh repo clone <slug> <path>` when it is missing,
-   `git -C <path> fetch --prune` on every run. When `git check-ignore -q <path>` fails, append
-   the path to `.git/info/exclude`, never to a committed file.
+1. **The clone.** A full clone at `<worktrees>/targets/<name>@<prd>` of the plan repository, one
+   per PRD, so two PRDs built at once never share a clone's HEAD (`<worktrees>` is
+   `omni config worktrees`, taken from the plan repository's main checkout: the folder holding
+   `git rev-parse --path-format=absolute --git-common-dir`, so a run in a worktree finds the same
+   clones): `gh repo clone <slug> <path>` when it is missing, `git -C <path> fetch --prune` on every
+   run. When `git check-ignore -q <path>` fails, append the path to `info/exclude` under that
+   common git folder, never to a committed file.
 2. **The default branch** is the target's own:
    `gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`. Never
    `repo.defaultBranch`.

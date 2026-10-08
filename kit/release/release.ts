@@ -5,9 +5,9 @@
 //
 // 1. does nothing, exit 0, when the head commit is itself a release commit;
 // 2. takes the next version from the tags (`next-version.mjs`);
-// 3. writes it into `package.json` and `kit/plugin/.claude-plugin/plugin.json`;
+// 3. writes it into `package.json` and both plugins' manifests, `omni`'s and `omni-hud`'s (PRD 1208);
 // 4. runs `pnpm kit:build`, so the bundle carries it too;
-// 5. commits those three files as `chore(release): v0.0.N`, signed with `omni sign trailer`;
+// 5. commits those four files as `chore(release): v0.0.N`, signed with `omni sign trailer`;
 // 6. pushes the commit to `main`; when that is rejected because `main` moved, rebases onto it once
 //    (rebuilding the bundle, and amending the commit when the rebuild changed it) and pushes again.
 //    A second failure exits 1 with nothing tagged: the next merge takes the next number;
@@ -24,7 +24,7 @@ import { z } from 'zod';
 import { isReleaseSubject, nextVersion } from './next-version.ts';
 import { propertyOf } from '../lib/narrow.ts';
 
-/** A manifest the release stamps (`package.json`, the plugin's `plugin.json`): a JSON object. */
+/** A manifest the release stamps (`package.json`, a plugin's `plugin.json`): a JSON object. */
 const ManifestSchema = z.record(z.string(), z.unknown());
 type Manifest = z.infer<typeof ManifestSchema>;
 
@@ -38,6 +38,7 @@ const REMOTE = 'origin';
 const BRANCH = 'main';
 const PACKAGE = 'package.json';
 const PLUGIN = 'kit/plugin/.claude-plugin/plugin.json';
+const HUD = 'kit/plugin-hud/.claude-plugin/plugin.json';
 const BUNDLE = 'kit/dist/omni.mjs';
 
 /** `package.json` with `version` set, placed right after `name` when it is new. */
@@ -88,11 +89,12 @@ export function release({ root, exec, log = console.log }: { root: string; exec:
   log(`Releasing ${tag}.`);
   stamp(root, PACKAGE, version);
   stamp(root, PLUGIN, version);
+  stamp(root, HUD, version);
   if (!attempt(exec, 'pnpm', ['kit:build'], log)) return 1;
 
   const trailer = exec('node', ['.omni-loop/bin/omni.mjs', 'sign', 'trailer']).trim();
   const message = trailer ? `chore(release): ${tag}\n\n${trailer}` : `chore(release): ${tag}`;
-  exec('git', ['add', '--', PACKAGE, PLUGIN, BUNDLE]);
+  exec('git', ['add', '--', PACKAGE, PLUGIN, HUD, BUNDLE]);
   exec('git', ['commit', '-q', '-m', message]);
 
   if (!attempt(exec, 'git', ['push', REMOTE, `HEAD:${BRANCH}`], log)) {

@@ -7,12 +7,15 @@
 //   roadmap passes; a roadmap number with no folder is a usage error, exit 2.
 // - `push <n>` (slice s6) sends roadmap n's `roadmap.md`, its open questions with the latest answer
 //   to each (read from the roadmap issue's comments, `../../lib/roadmap/answers.ts`) and where each of
-//   its PRDs stands (read from their feature PRs, `../../lib/roadmap/push.ts`) to the app's
+//   its PRDs stands (read from their feature PRs, `../../lib/roadmap/push.ts`) and, since PRD 1217,
+//   the human work across them (`../../lib/roadmap/human-work.ts`) to the app's
 //   `POST /api/roadmaps`, with the terminal's sign-in. It never blocks the tick that runs it: the
 //   contract's 5-second limit and one token refresh, and anything that stops it is exit 1 with one
 //   line — `off` (no `ask.url`), `no sign-in (omni signin)`, `github unreachable`, `unreachable`,
 //   `refused (<status>)` or `refused (<status>): <the app's reason>`, or a roadmap.md that does not
-//   parse.
+//   parse. Once the app took it, it keeps the roadmap page it printed as the roadmap's link in the
+//   main checkout (`../../lib/now/links.ts`, PRD 1208's s4), for `omni now`; a link it cannot keep
+//   changes nothing of the push.
 // - `answer <n> <question> "<answer>"` (slice s6) posts one comment on roadmap n's issue carrying the
 //   answer's marker: how a person's answer reaches the repository's side. The roadmap's page builds
 //   this very line. An unknown question, or an empty or too long answer, is exit 2.
@@ -34,6 +37,8 @@ import { signedInClient } from '../../lib/ask/credentials.ts';
 import { field } from '../../lib/ask/schema.ts';
 import { formatFailure, formatPass, readRepoFile } from '../../lib/check-report.ts';
 import { loadContext } from '../../lib/context.ts';
+import { mainCheckout } from '../../lib/dossier/local.ts';
+import { writeLinks } from '../../lib/now/links.ts';
 import type { Context } from '../../lib/context.ts';
 import type { IssueNumber } from '../../lib/ids.ts';
 import { ANSWER_MAX, answerComment, readAnswers } from '../../lib/roadmap/answers.ts';
@@ -49,14 +54,25 @@ import { liveEnv, machineName } from '../../lib/roadmap/prereqs/live.ts';
 import { isMet, PREREQUISITE_STATES, runPrerequisites } from '../../lib/roadmap/prereqs/run.ts';
 import type { PrerequisiteResult, PrerequisiteState } from '../../lib/roadmap/prereqs/run.ts';
 import { readTicks, tickComment } from '../../lib/roadmap/prereqs/ticks.ts';
-import { readStandings, roadmapPushBody } from '../../lib/roadmap/push.ts';
+import { readRoadmapPrds, roadmapPushBody } from '../../lib/roadmap/push.ts';
 import type { PushedPrerequisiteResult } from '../../lib/roadmap/push.ts';
 import { issueArg, parseArgs, println, usageError } from '../args.ts';
 import { githubClientFor, githubEnv } from '../github.ts';
 import type { Env, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 
+/** Keeps `page` as roadmap `n`'s link in the main checkout of `cwd`, at `now`; never throws. */
+function keepPage({ cwd, exec, now }: Io, n: IssueNumber, page: string): void {
+  try {
+    const main = mainCheckout(cwd, exec);
+    if (main) writeLinks(main, 'roadmap', n, [{ label: 'roadmap page', href: page }], (now?.() ?? new Date()).getTime());
+  } catch {
+    // The checkout refused the file: the push went through all the same.
+  }
+}
+
 /** What a test hands `omni roadmap` beyond `main()`'s own: the sign-in and the app, and for
- * `prereqs` the command runner its checks go through, this machine's name and the clock. */
+ * `prereqs` the command runner its checks go through, this machine's name and the clock (which
+ * also dates the roadmap page `push` keeps). */
 type RoadmapOptions = {
   tokens?: TokenStore | undefined;
   home?: string | undefined;
@@ -165,15 +181,16 @@ function skipLine(error: unknown): string {
   return error.reason ? `refused (${error.status}): ${error.reason}` : `refused (${error.status})`;
 }
 
-/** What GitHub says of the roadmap: each PRD's standing and the answers, or null when it cannot be read. */
+/** What GitHub says of the roadmap: each PRD's standing, their human work (null when it cannot be
+ * read whole, PRD 1217) and the answers; null when GitHub cannot be read. */
 function readGithub(ctx: Context, roadmap: Roadmap, { exec, env }: Io) {
   const ghEnv = ghEnvOf(ctx, exec, env);
   const gh = (args: string[]) => exec('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...(ghEnv ? { env: ghEnv } : {}) });
   const git = (args: string[]) => exec('git', args, { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   try {
-    const standings = readStandings(ctx, roadmap, { gh, git });
+    const { standings, prdWork } = readRoadmapPrds(ctx, roadmap, { gh, git });
     const comments = githubClientFor(ctx, { issue: roadmap.roadmap, exec, env }).listComments();
-    return { standings, answers: readAnswers(comments) };
+    return { standings, prdWork, answers: readAnswers(comments) };
   } catch {
     return null;
   }
@@ -215,11 +232,14 @@ function pushInputs(n: IssueNumber, io: Io, given?: PushedPrerequisiteResult): P
 }
 
 /** The app's reply to roadmap `n`'s push, printed: its link and any note, exit 0; 1 with no roadmap in it. */
-function reportPush({ stdout, stderr }: Io, n: IssueNumber, { askUrl, body }: PushInputs, reply: unknown): number {
+function reportPush(io: Io, n: IssueNumber, { askUrl, body }: PushInputs, reply: unknown): number {
   const roadmapId = field(reply, 'roadmapId');
+  const { stdout, stderr } = io;
   if (typeof roadmapId !== 'string' || !roadmapId) return refuse(stderr, 'refused (no roadmap in the reply)');
   const how = field(reply, 'created') === true ? 'created' : 'updated';
-  println(stdout, `roadmap ${n}: ${how}, ${body.prds.length} PRD(s) — ${askUrl.replace(/\/+$/, '')}/roadmaps/${roadmapId}`);
+  const page = `${askUrl.replace(/\/+$/, '')}/roadmaps/${roadmapId}`;
+  println(stdout, `roadmap ${n}: ${how}, ${body.prds.length} PRD(s) — ${page}`);
+  keepPage(io, n, page);
   const note = field(reply, 'note');
   if (typeof note === 'string' && note) println(stdout, note);
   return 0;

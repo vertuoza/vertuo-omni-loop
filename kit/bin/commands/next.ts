@@ -34,6 +34,13 @@
 // PRD 1218, slice s4: a roadmap's `## Prerequisites` rows hold the PRDs they block too, read from this
 // machine's last `omni roadmap prereqs` result (`.omni-loop/local/prereqs/<n>.json`) and the ticks on
 // the roadmap issue, which the same comment read as the answers brings.
+//
+// PRD 1205, slice s1, the pool: a tick on the kept plan also lists `steps` (up to
+// `limits.parallelSteps` steps to launch now, counting those running, each passing the collision check
+// of `followSteps`), `running` and `held`, read from GitHub so a closed terminal resumes them: a PRD
+// runs a step while a slice holds a live claim (a draft sub-PR, its claim not stale, not stalled), or
+// while its feature PR (in a plan repository, any of its PRs) carries `labels.inProgress` with a
+// status comment updated within `limits.claimStaleMinutes`. `step` and `verdict` stay as they were.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
@@ -60,9 +67,10 @@ import { liveWords, roadmapGates } from '../../lib/next/roadmap.ts';
 import type { Gate } from '../../lib/next/roadmap.ts';
 import { decideNext, stalledSlices } from '../../lib/next/decide.ts';
 import type { AcrossFacts, BoardFacts, FeatureFacts, OutboxFacts, PrdFacts, TargetPr, Verdict } from '../../lib/next/decide.ts';
-import { followPlan } from '../../lib/next/follow.ts';
-import type { Followed } from '../../lib/next/follow.ts';
-import { formatFollowed, formatPlan, verdictLine } from '../../lib/next/format.ts';
+import { followPlan, followSteps } from '../../lib/next/follow.ts';
+import type { Followed, Live, Pool, Running } from '../../lib/next/follow.ts';
+import { formatFollowed, formatPlan, formatPool, verdictLine } from '../../lib/next/format.ts';
+import type { Step } from '../../lib/next/plan.ts';
 import { planLoop } from '../../lib/next/plan.ts';
 import type { Ended, LoopPlan, PlanInputs, PlanSliceInput, PrdInput } from '../../lib/next/plan.ts';
 import { replan, replanLine } from '../../lib/next/replan.ts';
@@ -88,7 +96,11 @@ const GhListedPrSchema = z.looseObject({
   updatedAt: z.string().nullish(),
   body: z.string().nullish(),
   author: z.looseObject({ login: z.string().nullish() }).nullish(),
+  labels: z.array(z.looseObject({ name: z.string().nullish() })).nullish(),
 });
+
+/** What this file reads of a comment beyond its body: when it was last updated. */
+const GhCommentUpdatedSchema = z.looseObject({ body: z.string().nullish(), updated_at: z.string().nullish() });
 type ListedPr = z.infer<typeof GhListedPrSchema>;
 
 /** What every read of this command needs. */
@@ -106,7 +118,7 @@ function git(args: string[], { ctx, exec }: Reader): string {
 }
 
 function listPrs(args: string[], reader: Reader): ListedPr[] {
-  const raw = gh(['pr', 'list', '--repo', reader.slug, ...args, '--json', 'number,url,state,isDraft,updatedAt,body,author', '--limit', '50'], reader);
+  const raw = gh(['pr', 'list', '--repo', reader.slug, ...args, '--json', 'number,url,state,isDraft,updatedAt,body,author,labels', '--limit', '50'], reader);
   return z.array(GhListedPrSchema).parse(JSON.parse(raw));
 }
 
@@ -189,10 +201,10 @@ function outboxFacts(prd: PrdNumber, { branch, pr }: { branch: string; pr: Liste
 
 /** The board's facts and its slices; `null` with no plan, `unreadable` when the board cannot be
  * built, its slices then read from the plan alone, each `unreadable`. */
-function boardFacts(prd: PrdNumber, reader: Reader): { board: BoardFacts | null | 'unreadable'; slices: PlanSliceInput[] | null } {
+function boardFacts(prd: PrdNumber, reader: Reader): { board: BoardFacts | null | 'unreadable'; slices: PlanSliceInput[] | null; claims: Running | null } {
   const { ctx } = reader;
   const planPath = ctx.layout.planPath(prd);
-  if (planPath === null || !existsSync(join(ctx.root, planPath))) return { board: null, slices: null };
+  if (planPath === null || !existsSync(join(ctx.root, planPath))) return { board: null, slices: null, claims: null };
   try {
     const { result } = buildBoard(prd, { ctx, exec: reader.exec, env: reader.env });
     const having = (state: string) => result.slices.filter((row) => row.state === state).map((row) => row.id);
@@ -208,10 +220,53 @@ function boardFacts(prd: PrdNumber, reader: Reader): { board: BoardFacts | null 
       stuck: having('stuck'),
       unreadable: having('unreadable'),
     };
-    return { board, slices: result.slices.map(({ id, territory, wave, state, repo }) => ({ id, territory, wave, state, ...(repo === undefined ? {} : { repo }) })) };
+    const slices = result.slices.map(({ id, territory, wave, state, repo }) => ({ id, territory, wave, state, ...(repo === undefined ? {} : { repo }) }));
+    return { board, slices, claims: liveClaims(result.slices, board.stalled) };
   } catch {
-    return { board: 'unreadable', slices: planSlices(join(ctx.root, planPath)) };
+    return { board: 'unreadable', slices: planSlices(join(ctx.root, planPath)), claims: null };
   }
+}
+
+/** A board row, as far as its live claim is read. */
+type ClaimRow = { id: WorkSliceId; state: string; pr: { isDraft?: boolean | undefined; createdAt?: string | null | undefined } | null };
+
+/** The live claims of a board: the slices in flight on a draft sub-PR, not stalled, since the first
+ * of them was claimed; `null` with none. */
+function liveClaims(rows: readonly ClaimRow[], stalled: BoardFacts['stalled']): Running | null {
+  const cold = new Set(stalled.map(({ id }) => id));
+  const live = rows.filter((row) => row.state === 'in-flight' && row.pr?.isDraft === true && !cold.has(row.id));
+  if (live.length === 0) return null;
+  const since = live.map((row) => row.pr?.createdAt ?? '').filter(Boolean).sort()[0] ?? '';
+  return { kind: 'claims', slices: live.map((row) => row.id), since };
+}
+
+/** Whether a listed PR carries `label`. */
+const hasLabel = (pr: ListedPr, label: string): boolean => (pr.labels ?? []).some((one) => one.name === label);
+
+/** When an open PR's agent was last seen on it: it carries `labels.inProgress` and its status comment
+ * was updated within `limits.claimStaleMinutes`; `null` otherwise, or when its comments cannot be read. */
+function labelSeen(pr: ListedPr, slug: string, reader: Reader): string | null {
+  const { ctx } = reader;
+  if (pr.state !== 'OPEN' || !hasLabel(pr, ctx.config.labels.inProgress)) return null;
+  try {
+    const comments = githubClientFor(ctx, { repo: slug, issue: pr.number, exec: reader.exec, env: reader.env }).listComments();
+    const status = comments.map((comment) => GhCommentUpdatedSchema.parse(comment)).filter((comment) => (comment.body ?? '').includes(ctx.markers.status));
+    const seen = status.map((comment) => comment.updated_at ?? '').filter(Boolean).sort().at(-1);
+    if (seen === undefined) return null;
+    return Date.now() - new Date(seen).getTime() <= ctx.config.limits.claimStaleMinutes * 60 * 1000 ? seen : null;
+  } catch {
+    return null;
+  }
+}
+
+/** What a PRD runs now: its live claims, else a PR of it an agent holds (`labelSeen`); `null` when neither. */
+function runningOf(claims: Running | null, prs: readonly { slug: string; pr: ListedPr }[], reader: Reader): Running | null {
+  if (claims !== null) return claims;
+  for (const { slug, pr } of prs) {
+    const since = labelSeen(pr, slug, reader);
+    if (since !== null) return { kind: 'label', since };
+  }
+  return null;
 }
 
 /** A plan's slices as the plan declares them, each `unreadable`; `null` when the plan cannot be read. */
@@ -243,7 +298,7 @@ function folderOf(prd: PrdNumber, ctx: Context): { topic: string; shipped: boole
 }
 
 /** What one PRD was read as: its facts, its slices, and its feature PRs as a roadmap reads them. */
-type Read = { facts: PrdFacts; slices: PlanSliceInput[] | null; prs: PrStanding[] };
+type Read = { facts: PrdFacts; slices: PlanSliceInput[] | null; prs: PrStanding[]; running: Running | null };
 
 /** Everything PRD `prd`'s verdict is decided on, and its slices. Throws what `gh` throws when GitHub
  * cannot be read. */
@@ -255,11 +310,13 @@ function readFacts(prd: PrdNumber, reader: Reader): Read {
   const pr = featurePr(branch, reader);
   const open = pr?.state === 'OPEN' ? pr : null;
   const feature = pr === null ? null : featureFacts(pr, reader);
-  const { board, slices } = boardFacts(prd, reader);
+  const { board, slices, claims } = boardFacts(prd, reader);
   const across = acrossFacts(branch, slices, reader);
   const outbox = outboxFacts(prd, { branch, pr: open }, reader);
   const facts: PrdFacts = { prd, shipped: folder.shipped, phase0, feature, board, outbox, ...(across ? { across: across.across } : {}) };
-  return { facts, slices, prs: standingsOf(pr, outbox, across, reader) };
+  const targets = (across?.listed ?? []).map(({ repo, pr: listed }) => ({ slug: targetSlug(repo, reader), pr: listed }));
+  const running = runningOf(claims, [...(open ? [{ slug: reader.slug, pr: open }] : []), ...targets], reader);
+  return { facts, slices, prs: standingsOf(pr, outbox, across, reader), running };
 }
 
 /** A PRD with no folder yet: its open phase-0 PR is all there is, or it is a usage error. */
@@ -267,7 +324,7 @@ function beforeInbox(prd: PrdNumber, phase0: { url: string } | null, reader: Rea
   if (phase0 === null) throw usageError(`omni next: PRD ${prd} has no inbox or shipped folder, and no open phase-0 PR.`);
   const read = acrossFacts('', null, reader);
   const facts: PrdFacts = { prd, shipped: false, phase0, feature: null, board: null, outbox: { questions: 0, answered: false }, ...(read ? { across: read.across } : {}) };
-  return { facts, slices: null, prs: [] };
+  return { facts, slices: null, prs: [], running: null };
 }
 
 /** A PRD's feature PRs as a roadmap reads them: its own (with the questions open on its open draft),
@@ -280,6 +337,11 @@ function standingsOf(own: ListedPr | null, outbox: OutboxFacts, across: { listed
 
 /** The part of an `owner/name` slug after the `/`: the name a plan's `repo` column uses. */
 const shortName = (slug: string): string => slug.slice(slug.indexOf('/') + 1);
+
+/** The whole `owner/name` slug of the target `plan.targets` names by its short name. */
+function targetSlug(name: string, reader: Reader): string {
+  return reader.ctx.config.plan?.targets.find((target) => shortName(target.repo) === name)?.repo ?? name;
+}
 
 /** The repositories `slices` land in, by short name, sorted; none outside a plan repository. */
 const reposOf = (slices: readonly PlanSliceInput[] | null): string[] => [...new Set((slices ?? []).flatMap((slice) => (slice.repo ? [slice.repo] : [])))].sort();
@@ -341,7 +403,7 @@ function readPrd(prd: PrdNumber, reader: Reader): { verdict: Verdict; input: Prd
     if (isUsage(error)) throw error;
     const planPath = reader.ctx.layout.planPath(prd);
     const facts: PrdFacts = { prd, shipped: false, phase0: null, feature: 'unreadable', board: 'unreadable', outbox: 'unreadable' };
-    read = { facts, slices: planPath === null ? null : planSlices(join(reader.ctx.root, planPath)), prs: [] };
+    read = { facts, slices: planPath === null ? null : planSlices(join(reader.ctx.root, planPath)), prs: [], running: null };
   }
   const input: PrdInput = { prd, blockedBy: blockersOf(prd, reader.ctx), slices: read.slices, ended: endedOf(read.facts) };
   const repos = reposOf(read.slices);
@@ -465,39 +527,76 @@ function currentPlan(kept: readonly LoopPlan[], inputs: PlanInputs, root: string
   return { plan: next, replanned: replanLine(next) };
 }
 
-/** A tick on the kept plan: replanned when reality broke it, then the first step not done, or the stop. */
-function followKept(prds: readonly PrdNumber[], kept: readonly LoopPlan[], { reader, out, json, roadmap }: Out): number {
-  const { verdicts, inputs, reads } = readAll(prds, reader, roadmap ?? null);
-  const { plan, replanned } = currentPlan(kept, inputs, reader.ctx.root);
+/** What a tick read live, for the plan to be followed on: verdicts, merged slices, shipped PRDs, the
+ * roadmap's gates when there are any, what each PRD runs and each PRD's slices. */
+function liveOf({ verdicts, inputs, reads }: ReturnType<typeof readAll>, gates: ReadonlyMap<PrdNumber, Gate> | null): Live {
   const merged = new Map(inputs.prds.map((input) => [input.prd, new Set<WorkSliceId>((input.slices ?? []).filter((slice) => slice.state === 'merged').map((slice) => slice.id))] as const));
-  const gates = roadmap ? gatesOf(roadmap, reads, reader) : null;
-  const followed = followPlan(plan, { verdicts: new Map(verdicts.map((verdict) => [verdict.prd, verdict] as const)), merged, shipped: new Set(inputs.shipped), ...(gates ? { gates } : {}) });
-  const ticked: Ticked = { plan, replanned, followed, verdicts, held: gates ? heldOf(gates, verdicts) : [], roadmap: roadmap?.roadmap ?? null };
+  const running = new Map([...reads].flatMap(([prd, read]) => (read.running === null ? [] : [[prd, read.running] as const])));
+  return {
+    verdicts: new Map(verdicts.map((verdict) => [verdict.prd, verdict] as const)),
+    merged,
+    shipped: new Set(inputs.shipped),
+    ...(gates ? { gates } : {}),
+    running,
+    slices: new Map(inputs.prds.map((input) => [input.prd, input.slices ?? []] as const)),
+  };
+}
+
+/** A tick on the kept plan: replanned when reality broke it, then the first step not done, or the
+ * stop, and the pool of steps to launch beside it. */
+function followKept(prds: readonly PrdNumber[], kept: readonly LoopPlan[], { reader, out, json, roadmap }: Out): number {
+  const read = readAll(prds, reader, roadmap ?? null);
+  const { plan, replanned } = currentPlan(kept, read.inputs, reader.ctx.root);
+  const gates = roadmap ? gatesOf(roadmap, read.reads, reader) : null;
+  const live = liveOf(read, gates);
+  const { config } = reader.ctx;
+  const pool = followSteps(plan, live, config.limits.parallelSteps, config.generated ?? []);
+  const held = gates ? heldOf(gates, read.verdicts) : [];
+  const ticked: Ticked = { plan, replanned, followed: followPlan(plan, live), pool, verdicts: read.verdicts, held, roadmap: roadmap?.roadmap ?? null };
   for (const line of json ? [JSON.stringify(tickJson(ticked), null, 2)] : tickLines(ticked)) out(line);
   return 0;
 }
 
 /** What a tick on the kept plan came to. */
-type Ticked = { plan: LoopPlan; replanned: string | null; followed: Followed; verdicts: Verdict[]; held: Held[]; roadmap: IssueNumber | null };
+type Ticked = { plan: LoopPlan; replanned: string | null; followed: Followed; pool: Pool; verdicts: Verdict[]; held: Held[]; roadmap: IssueNumber | null };
 
-/** A tick for a person: the replan, the step or the stop, and each PRD a roadmap holds while a step runs. */
-function tickLines({ plan, replanned, followed, held }: Ticked): string[] {
-  const holds = followed.state === 'step' ? held.map((one) => `  ${one.gate === 'park' ? 'parked' : 'held'}: PRD ${one.prd} — ${one.why}${one.link ? ` — ${one.link}` : ''}`) : [];
-  return [...(replanned === null ? [] : [replanned]), ...formatFollowed(plan, followed), ...holds];
+/** The pool's held steps, less those of a PRD the roadmap already holds or parks (its own line says why). */
+function poolHeld(pool: Pool, held: readonly Held[]): Pool['held'] {
+  const gated = new Set(held.map((one) => one.prd));
+  return pool.held.filter(({ step }) => !gated.has(step.prd));
 }
 
-/** A tick as one document; under a roadmap, its number and what it holds. */
-function tickJson({ plan, replanned, followed, verdicts, held, roadmap }: Ticked): Record<string, unknown> {
+/** A tick for a person: the replan, the step or the stop, each PRD a roadmap holds while a step runs,
+ * then the pool: each other step to launch, each step running and each step held. */
+function tickLines({ plan, replanned, followed, pool, held }: Ticked): string[] {
+  const holds = followed.state === 'step' ? held.map((one) => `  ${one.gate === 'park' ? 'parked' : 'held'}: PRD ${one.prd} — ${one.why}${one.link ? ` — ${one.link}` : ''}`) : [];
+  const shown = followed.state === 'step' ? followed.step : null;
+  const rest: Pool = { ...pool, steps: pool.steps.filter(({ step }) => step !== shown), held: poolHeld(pool, held) };
+  return [...(replanned === null ? [] : [replanned]), ...formatFollowed(plan, followed), ...holds, ...formatPool(plan, rest)];
+}
+
+/** One step as the tick document names it. */
+function stepJson(step: Step, plan: LoopPlan): Record<string, unknown> {
+  return { step: step.step, of: plan.steps.length, prd: step.prd, kind: step.kind, wave: step.wave, slices: step.slices, ...(step.repos ? { repos: step.repos } : {}) };
+}
+
+/** A tick as one document: the step and its verdict, the pool, and under a roadmap its number. Under a
+ * roadmap `held` lists each PRD it holds or parks first (with its `gate`), then each step the pool
+ * keeps back. */
+function tickJson({ plan, replanned, followed, pool, verdicts, held, roadmap }: Ticked): Record<string, unknown> {
   const step = followed.state === 'step' ? followed.step : null;
   return {
     plan: { version: plan.version, steps: plan.steps.length },
     replanned,
     stop: followed.state === 'stop',
-    step: step && { step: step.step, of: plan.steps.length, prd: step.prd, kind: step.kind, wave: step.wave, slices: step.slices, ...(step.repos ? { repos: step.repos } : {}) },
+    step: step && stepJson(step, plan),
     verdict: followed.state === 'step' ? followed.verdict : null,
     waiting: followed.state === 'stop' ? followed.waiting : [],
     prds: verdicts,
-    ...(roadmap === null ? {} : { roadmap, held }),
+    steps: pool.steps.map(({ step: one, verdict }) => ({ ...stepJson(one, plan), verdict })),
+    running: pool.running.map(({ step: one, since }) => ({ step: one.step, prd: one.prd, kind: one.kind, ...(one.repos ? { repos: one.repos } : {}), since })),
+    ...(roadmap === null ? {} : { roadmap }),
+    held: [...held, ...poolHeld(pool, held).map(({ step: one, why }) => ({ step: one.step, prd: one.prd, why }))],
   };
 }
 

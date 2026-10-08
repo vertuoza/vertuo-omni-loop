@@ -12,10 +12,24 @@
 // PRD 1162, slice s7, a roadmap (`omni next --roadmap <n>`): the tick also reads each PRD's gate
 // (`roadmap.ts`). A `park` gate parks the PRD as a parked verdict would, its why the gate's; a `hold`
 // gate holds the PRD's first step, its why the waits-on line, while every other step runs.
+//
+// PRD 1205, slice s1, the pool (`followSteps`): a tick launches up to `limits.parallelSteps` steps at
+// once, counting the ones already running (read from GitHub by the command: a live claim on a slice,
+// or the feature PR's in-progress label with a fresh status comment). Each PRD offers its first step
+// not done, the step `followPlan` takes first, and a step is offered only when its verdict acts and it
+// passes four rules against every step running or offered: another PRD, no open blocker, no shared
+// ground in one repository (generated paths ignored), and the plan's order. A step a rule keeps back
+// is held, with one line naming the rule and the other step.
 import type { PrdNumber, WorkSliceId } from '../ids.ts';
+import { sharedGround } from '../inbox/territory.ts';
+import type { Generated } from '../inbox/territory.ts';
 import type { Verdict } from './decide.ts';
-import type { LoopPlan, Step } from './plan.ts';
+import type { LoopPlan, PlanSliceInput, Step } from './plan.ts';
 import type { Gate } from './roadmap.ts';
+
+/** What a PRD runs now, as GitHub shows it: live claims on `slices`, or its feature PR's in-progress
+ * label with a fresh status comment (its finish, yolo-fix or PR care); `since` is when it was seen to. */
+export type Running = { kind: 'claims'; slices: WorkSliceId[]; since: string } | { kind: 'label'; since: string };
 
 /** What a tick read live. */
 export type Live = {
@@ -24,6 +38,10 @@ export type Live = {
   shipped: ReadonlySet<PrdNumber>;
   /** Under a roadmap: what it holds each PRD on; a PRD free to run is absent. */
   gates?: ReadonlyMap<PrdNumber, Gate>;
+  /** PRD 1205: what each PRD runs now; a PRD running nothing is absent. */
+  running?: ReadonlyMap<PrdNumber, Running>;
+  /** PRD 1205: each PRD's slices with their territory, the ground the collision check reads. */
+  slices?: ReadonlyMap<PrdNumber, readonly PlanSliceInput[]>;
 };
 
 /** The tick's step and its verdict, or the loop's stop with what each PRD waits on. */
@@ -47,15 +65,23 @@ function isDone(step: Step, live: Live): boolean {
   return step.slices.every((id) => merged?.has(id) === true);
 }
 
-/** What holds `step`: a roadmap holding its PRD's first step, a PRD outside the loop not shipped, or
- * a step before it not done. */
-function holdOf(step: Step, plan: LoopPlan, done: ReadonlySet<number>, live: Live): Hold {
+/** What blocks `step`: a roadmap holding its PRD's first step, or a PRD outside the loop not shipped. */
+function blockerOf(step: Step, plan: LoopPlan, live: Live): Hold {
   const gate = live.gates?.get(step.prd);
   if (gate?.kind === 'hold' && plan.steps.find((candidate) => candidate.prd === step.prd) === step) {
     return { prd: step.prd, why: gate.why, ...(gate.link ? { link: gate.link } : {}) };
   }
   const unshipped = step.waitsFor.find((prd) => !live.shipped.has(prd));
-  if (unshipped !== undefined) return { prd: step.prd, why: `waits on PRD ${unshipped} to ship` };
+  return unshipped === undefined ? null : { prd: step.prd, why: `waits on PRD ${unshipped} to ship` };
+}
+
+/** What holds `step`: what blocks it, or a step before it not done. */
+function holdOf(step: Step, plan: LoopPlan, done: ReadonlySet<number>, live: Live): Hold {
+  return blockerOf(step, plan, live) ?? orderOf(step, plan, done);
+}
+
+/** The step before `step` that is not done, as a hold; `null` when every one is. */
+function orderOf(step: Step, plan: LoopPlan, done: ReadonlySet<number>): Hold {
   const before = step.after.find((n) => !done.has(n));
   if (before === undefined) return null;
   const other = plan.steps.find((candidate) => candidate.step === before);
@@ -87,9 +113,12 @@ function runnableVerdict(step: Step, { plan, live, done, holds }: Walk): Verdict
   return null;
 }
 
+/** The steps of `plan` done, by number. */
+const doneOf = (plan: LoopPlan, live: Live): Set<number> => new Set(plan.steps.filter((step) => isDone(step, live)).map((step) => step.step));
+
 /** The step a tick takes on `plan`, given what it read `live`. */
 export function followPlan(plan: LoopPlan, live: Live): Followed {
-  const done = new Set(plan.steps.filter((step) => isDone(step, live)).map((step) => step.step));
+  const done = doneOf(plan, live);
   const walk: Walk = { plan, live, done, holds: new Map<PrdNumber, Hold>() };
   let waiting: { step: Step; verdict: Verdict } | null = null;
   for (const step of plan.steps) {
@@ -104,4 +133,107 @@ export function followPlan(plan: LoopPlan, live: Live): Followed {
   }
   if (waiting !== null) return { state: 'step', ...waiting };
   return { state: 'stop', waiting: waitingOf(plan, live, walk.holds) };
+}
+
+/** A tick's pool: the steps to launch now with their verdicts, the steps running, and each step a rule
+ * keeps back with why. */
+export type Pool = { steps: { step: Step; verdict: Verdict }[]; running: { step: Step; since: string }[]; held: { step: Step; why: string }[] };
+
+/** A step running or offered this tick. */
+type Busy = { step: Step; running: boolean };
+
+/** A step in words, for a held line: `step 4 (PRD 12 w1, running)`. */
+function stepRef({ step, running }: Busy): string {
+  return `step ${step.step} (${stepWhat(step)}, ${running ? 'running' : 'starting'})`;
+}
+
+/** What a step is, in a few words: `PRD 12 w1`, `PRD 12 finish`. */
+export function stepWhat(step: Step): string {
+  const what = step.kind !== 'wave' ? step.kind : step.wave === null ? 'slices with no wave' : `w${step.wave}`;
+  return `PRD ${step.prd} ${what}`;
+}
+
+/** The step PRD `prd` runs: the wave holding its claims; else, with its label on, its first step not
+ * done, whichever the agent holding the label is on. */
+function runningStep(prd: PrdNumber, running: Running, plan: LoopPlan, done: ReadonlySet<number>): Step | undefined {
+  const own = plan.steps.filter((step) => step.prd === prd && !done.has(step.step));
+  const claimed = running.kind === 'claims' ? own.find((step) => step.kind === 'wave' && step.slices.some((id) => running.slices.includes(id))) : undefined;
+  return claimed ?? own[0];
+}
+
+/** The ground `step` stands on: its slices, or for a finish every slice of its PRD; none for a plan. */
+function groundOf(step: Step, live: Live): readonly PlanSliceInput[] {
+  const slices = live.slices?.get(step.prd) ?? [];
+  if (step.kind === 'finish') return slices;
+  return slices.filter((slice) => step.slices.includes(slice.id));
+}
+
+/** The paths two steps share in one repository, each `<repo>:<path>` in a named one, generated ones left out. */
+function sharedOf(a: Step, b: Step, live: Live, generated: readonly Generated[]): string[] {
+  const shared = new Set<string>();
+  for (const left of groundOf(a, live)) {
+    for (const right of groundOf(b, live)) {
+      const repo = left.repo ?? null;
+      if (repo !== (right.repo ?? null)) continue;
+      for (const path of sharedGround(left, right, generated)) shared.add(repo === null ? path : `${repo}:${path}`);
+    }
+  }
+  return [...shared].sort();
+}
+
+/** Why the four rules keep `step` back from running beside `busy`, or `null` when they do not. */
+function keptBack(step: Step, busy: readonly Busy[], { plan, live, done, generated }: { plan: LoopPlan; live: Live; done: ReadonlySet<number>; generated: readonly Generated[] }): string | null {
+  const same = busy.find((other) => other.step.prd === step.prd);
+  if (same) return `PRD ${step.prd} runs ${stepRef(same)}`;
+  const blocker = blockerOf(step, plan, live);
+  if (blocker !== null) return blocker.why;
+  for (const other of busy) {
+    const shared = sharedOf(step, other.step, live, generated);
+    if (shared.length > 0) return `${shared.join(', ')} shared with ${stepRef(other)}`;
+  }
+  return orderOf(step, plan, done)?.why ?? null;
+}
+
+/** The steps running, from what each PRD runs; a PRD done runs nothing. */
+function runningOf(plan: LoopPlan, live: Live, done: ReadonlySet<number>): Pool['running'] {
+  const running = [...(live.running ?? new Map<PrdNumber, Running>())].flatMap(([prd, run]) => {
+    if (verdictOf(prd, live)?.verdict === 'done') return [];
+    const step = runningStep(prd, run, plan, done);
+    return step ? [{ step, since: run.since }] : [];
+  });
+  return running.sort((a, b) => a.step.step - b.step.step);
+}
+
+/** The steps a tick may offer, in order: the one `followPlan` takes when it acts, then each PRD's
+ * first step not done, in plan order. */
+function candidatesOf(plan: LoopPlan, live: Live, done: ReadonlySet<number>): Step[] {
+  const followed = followPlan(plan, live);
+  const first = followed.state === 'step' && followed.verdict.verdict === 'act' ? [followed.step] : [];
+  const seen = new Set<PrdNumber>();
+  const firsts = plan.steps.filter((step) => {
+    if (done.has(step.step) || seen.has(step.prd)) return false;
+    seen.add(step.prd);
+    return true;
+  });
+  return [...first, ...firsts.filter((step) => !first.includes(step))];
+}
+
+/** PRD 1205: the pool a tick on `plan` launches, up to `slots` steps running at once, counting those
+ * running; `generated` paths never collide. */
+export function followSteps(plan: LoopPlan, live: Live, slots: number, generated: readonly Generated[] = []): Pool {
+  const done = doneOf(plan, live);
+  const running = runningOf(plan, live, done);
+  const busy: Busy[] = running.map(({ step }) => ({ step, running: true }));
+  const pool: Pool = { steps: [], running, held: [] };
+  for (const step of candidatesOf(plan, live, done)) {
+    const verdict = verdictOf(step.prd, live);
+    if (verdict?.verdict !== 'act' || running.some((one) => one.step === step)) continue;
+    const why = keptBack(step, busy, { plan, live, done, generated });
+    if (why !== null) pool.held.push({ step, why });
+    else if (busy.length < slots) {
+      pool.steps.push({ step, verdict });
+      busy.push({ step, running: false });
+    }
+  }
+  return pool;
 }

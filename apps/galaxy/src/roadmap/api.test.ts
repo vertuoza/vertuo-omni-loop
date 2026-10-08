@@ -1,8 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import type { JevOutcome } from '../jev/client';
+import type { JevDecideDeps } from '../jev/resolve';
+import type { JevMode } from '../jev/store';
 import { DETAIL_MAX, MAX_PUSH_BYTES, roadmapPush, type RoadmapDeps } from './api';
+import { classifyHumanWork, humanWorkClassifier } from './classify-jev';
 import { fakeRoadmaps, type FakeAccount } from './store.fake';
 import { roadmapReader } from './store';
+
+// The resolver reaches the secret box, which is the server's only.
+vi.mock('server-only', () => ({}));
 
 // What an answer of POST /api/roadmaps carries, checked as it is read.
 const Answer = z.looseObject({
@@ -24,7 +31,7 @@ const NOW = Date.parse('2026-10-07T10:00:00Z');
 
 type Call = { token?: string | null; raw?: string };
 
-function world({ database = true } = {}) {
+function world({ database = true, classify }: { database?: boolean; classify?: (roadmapId: string) => void } = {}) {
   const clock = { now: NOW };
   const fake = fakeRoadmaps(
     { 'ada-token': ADA, 'bob-token': BOB, 'carl-token': CARL, 'nell-token': NELL },
@@ -32,7 +39,7 @@ function world({ database = true } = {}) {
     () => clock.now,
   );
   // The stub answers only the calls the route makes, so it is not a whole Supabase client.
-  const deps: RoadmapDeps = { connect: database ? fake.client as unknown as RoadmapDeps['connect'] : null };
+  const deps: RoadmapDeps = { connect: database ? fake.client as unknown as RoadmapDeps['connect'] : null, ...(classify ? { classify } : {}) };
   const send = async (body: unknown, { token = 'ada-token', raw }: Call = {}) => {
     const response = await roadmapPush(new Request('https://omni.example/api/roadmaps', {
       method: 'POST',
@@ -123,7 +130,7 @@ const DOCKER = {
   card: { why: 'The tests start a database in Docker.', command: 'open -a Docker', whatItDoes: 'Starts the Docker app on your Mac.', whoCanDoIt: 'Anyone with this laptop.' },
 };
 const INSTALL = { id: 'p2', category: 'access', need: 'The dependencies install', check: 'base:install', fix: 'base:install', blocks: 'all', who: 'agent', repos: ['Crew'], card: null };
-const SECRET = {
+const PREVIEW_SECRET = {
   id: 'p3', category: 'permissions', need: 'The Vercel preview has DATABASE_URL', check: null, fix: null, blocks: ['P1.1', 'P3.4'], who: 'person',
   card: { why: 'The preview reads the database.', command: 'vercel env add DATABASE_URL preview', whatItDoes: 'Adds the secret to the previews.', whoCanDoIt: 'An admin of the Vercel project.' },
 };
@@ -131,7 +138,7 @@ const RESULT = {
   machine: 'pierre-mac', checkedAt: '2026-10-08T09:00:00.000Z',
   rows: [{ id: 'p1', state: 'waits', detail: 'docker info exited 1' }, { id: 'p2', state: 'fixed', detail: null }, { id: 'p9', state: 'ok', detail: null }],
 };
-const WITH_PREREQUISITES = { ...PUSH, prerequisites: [DOCKER, INSTALL, SECRET], prerequisiteResult: RESULT };
+const WITH_PREREQUISITES = { ...PUSH, prerequisites: [DOCKER, INSTALL, PREVIEW_SECRET], prerequisiteResult: RESULT };
 
 describe('POST /api/roadmaps: a roadmap\'s prerequisites', () => {
   it('stores each prerequisite in order with its card, the state its result row gives, and the machine and time', async () => {
@@ -148,8 +155,8 @@ describe('POST /api/roadmaps: a roadmap\'s prerequisites', () => {
         blocks_all: true, blocks: [], who: 'agent', repos: ['crew'], card: null, state: 'fixed', detail: null,
       },
       {
-        roadmap_id: body?.roadmapId, position: 3, row_id: 'p3', category: 'permissions', need: SECRET.need, check_with: null, fix_with: null,
-        blocks_all: false, blocks: ['P1.1', 'P3.4'], who: 'person', repos: [], card: SECRET.card, state: null, detail: null,
+        roadmap_id: body?.roadmapId, position: 3, row_id: 'p3', category: 'permissions', need: PREVIEW_SECRET.need, check_with: null, fix_with: null,
+        blocks_all: false, blocks: ['P1.1', 'P3.4'], who: 'person', repos: [], card: PREVIEW_SECRET.card, state: null, detail: null,
       },
     ]);
     expect(w.fake.tables.roadmaps[0]).toMatchObject({ prerequisites_machine: 'pierre-mac', prerequisites_checked_at: '2026-10-08T09:00:00.000Z' });
@@ -183,7 +190,7 @@ describe('POST /api/roadmaps: a roadmap\'s prerequisites', () => {
   it('a later push replaces them, and a push with none and no result clears them', async () => {
     const w = world();
     await w.send(WITH_PREREQUISITES);
-    await w.send({ ...PUSH, prerequisites: [SECRET], prerequisiteResult: { ...RESULT, machine: 'ci', rows: [{ id: 'p3', state: 'ticked' }] } }, { token: 'bob-token' });
+    await w.send({ ...PUSH, prerequisites: [PREVIEW_SECRET], prerequisiteResult: { ...RESULT, machine: 'ci', rows: [{ id: 'p3', state: 'ticked' }] } }, { token: 'bob-token' });
     expect(w.fake.tables.roadmap_prerequisites.map((p) => [p.position, p.row_id, p.state])).toEqual([[1, 'p3', 'ticked']]);
     expect(w.fake.tables.roadmaps[0]).toMatchObject({ prerequisites_machine: 'ci' });
     await w.send({ ...PUSH, prerequisites: [], prerequisiteResult: null });
@@ -216,7 +223,7 @@ describe('POST /api/roadmaps: a roadmap\'s prerequisites', () => {
     ['an unknown category', { prerequisites: [{ ...DOCKER, category: 'hardware' }] }],
     ['an unknown who', { prerequisites: [{ ...DOCKER, who: 'robot' }] }],
     ['an id that is not an id', { prerequisites: [{ ...DOCKER, id: 'p 1' }] }],
-    ['an id used twice', { prerequisites: [DOCKER, { ...SECRET, id: 'p1' }] }],
+    ['an id used twice', { prerequisites: [DOCKER, { ...PREVIEW_SECRET, id: 'p1' }] }],
     ['a prerequisite without its need', { prerequisites: [{ ...DOCKER, need: '' }] }],
     ['blocks neither all nor row ids', { prerequisites: [{ ...DOCKER, blocks: 'everything' }] }],
     ['a fix that is not a base fix', { prerequisites: [{ ...INSTALL, fix: 'rm -rf node_modules' }] }],
@@ -351,6 +358,122 @@ describe('refusals', () => {
   });
 });
 
+const SECRET = {
+  key: 'outbox:1213/s2-01', prd: 1213, repo: 'ai-domain', source: 'outbox', text: 'The think endpoint needs its token',
+  act: 'Add the secret CREW_TOKEN to ai-domain\'s Actions secrets.', url: 'https://github.com/acme/ai-domain/pull/9', ruleKind: 'dev-ops',
+};
+const ASK = {
+  key: 'question:Q5', prd: null, repo: 'acme/plan', source: 'question', text: 'Who signs a mandate?', act: null,
+  url: 'https://github.com/acme/plan/issues/1200', ruleKind: 'business',
+};
+
+describe('POST /api/roadmaps: the human work a roadmap waits on (PRD 1217)', () => {
+  const work = (w: ReturnType<typeof world>) => w.fake.tables.roadmap_human_work.map((h) => [h.key, h.kind, h.kind_by, h.state, h.done_at]);
+
+  it('stores each new key with its rule kind, chosen by the rule, open', async () => {
+    const w = world();
+    expect((await w.send({ ...PUSH, humanWork: [SECRET, ASK] })).status).toBe(201);
+    expect(work(w)).toEqual([
+      ['outbox:1213/s2-01', 'dev-ops', 'rule', 'open', null],
+      ['question:Q5', 'business', 'rule', 'open', null],
+    ]);
+    expect(w.fake.tables.roadmap_human_work[0]).toMatchObject({
+      prd: 1213, repo: 'ai-domain', source: 'outbox', text: SECRET.text, act: SECRET.act, url: SECRET.url, first_seen_at: new Date(NOW).toISOString(),
+    });
+    expect(w.fake.tables.roadmap_human_work[1]).toMatchObject({ prd: null, repo: 'acme/plan', act: null });
+  });
+
+  it('sends the human work as given, an entry\'s missing act, PRD and link as none', async () => {
+    const w = world();
+    const bare = { key: 'park:1213', repo: 'ai-domain', source: 'park', text: 'CI red after three attempts', ruleKind: 'development' };
+    await w.send({ ...PUSH, humanWork: [bare] });
+    expect(w.fake.calls[0]?.args).toMatchObject({ p_body: { humanWork: [{ ...bare, prd: null, act: null, url: null }] } });
+  });
+
+  it('a key missing from the next push is done at that push; one that comes back is open again', async () => {
+    const w = world();
+    await w.send({ ...PUSH, humanWork: [SECRET, ASK] });
+    w.clock.now += 60_000;
+    await w.send({ ...PUSH, humanWork: [SECRET] });
+    const done = new Date(NOW + 60_000).toISOString();
+    expect(work(w)).toEqual([
+      ['outbox:1213/s2-01', 'dev-ops', 'rule', 'open', null],
+      ['question:Q5', 'business', 'rule', 'done', done],
+    ]);
+    w.clock.now += 60_000;
+    await w.send({ ...PUSH, humanWork: [SECRET] });
+    expect(w.fake.tables.roadmap_human_work[1]).toMatchObject({ state: 'done', done_at: done });
+    await w.send({ ...PUSH, humanWork: [ASK] });
+    expect(work(w)).toEqual([
+      ['outbox:1213/s2-01', 'dev-ops', 'rule', 'done', new Date(NOW + 120_000).toISOString()],
+      ['question:Q5', 'business', 'rule', 'open', null],
+    ]);
+    expect(w.fake.tables.roadmap_human_work[1]?.first_seen_at).toBe(new Date(NOW).toISOString());
+  });
+
+  it('a key already stored keeps its kind; its text, act and link are refreshed', async () => {
+    const w = world();
+    await w.send({ ...PUSH, humanWork: [SECRET] });
+    Object.assign(w.fake.tables.roadmap_human_work[0] ?? {}, { kind: 'delivery-ops', kind_by: 'jev' });
+    await w.send({ ...PUSH, humanWork: [{ ...SECRET, text: 'Still no token', act: null, url: 'https://github.com/acme/ai-domain/pull/10', ruleKind: 'development' }] });
+    expect(w.fake.tables.roadmap_human_work).toEqual([expect.objectContaining({
+      kind: 'delivery-ops', kind_by: 'jev', text: 'Still no token', act: null, url: 'https://github.com/acme/ai-domain/pull/10',
+    })]);
+  });
+
+  it('a push without humanWork sends none and closes nothing; an empty list closes every open key', async () => {
+    const w = world();
+    await w.send({ ...PUSH, humanWork: [SECRET, ASK] });
+    await w.send(PUSH);
+    expect(w.fake.calls[1]?.args).not.toHaveProperty('p_body.humanWork');
+    expect(work(w).map(([, , , state]) => state)).toEqual(['open', 'open']);
+    await w.send({ ...PUSH, humanWork: [] });
+    expect(work(w).map(([, , , state]) => state)).toEqual(['done', 'done']);
+  });
+
+  it('another roadmap\'s same key is its own', async () => {
+    const w = world();
+    await w.send({ ...PUSH, humanWork: [ASK] });
+    await w.send({ ...PUSH, roadmap: 1300, humanWork: [] });
+    expect(work(w)).toEqual([['question:Q5', 'business', 'rule', 'open', null]]);
+  });
+
+  const malformed: Array<[string, unknown]> = [
+    ['human work that is not a list', { key: 'park:1' }],
+    ['an entry of an unknown kind', [{ ...SECRET, ruleKind: 'legal' }]],
+    ['an entry of an unknown source', [{ ...SECRET, source: 'slack', key: 'slack:1' }]],
+    ['a key that is not its source\'s', [{ ...SECRET, key: 'park:1213' }]],
+    ['a key that is not a key', [{ ...SECRET, key: 'outbox:1213 s2' }]],
+    ['a key used twice', [SECRET, { ...SECRET, text: 'again' }]],
+    ['an entry without its text', [{ ...SECRET, text: ' ' }]],
+    ['an entry without its repository', [{ ...SECRET, repo: undefined }]],
+    ['a repository that is not a name', [{ ...SECRET, repo: 'ai domain' }]],
+    ['a link that is not a web address', [{ ...SECRET, url: 'file:///etc/passwd' }]],
+    ['an entry with an unknown field', [{ ...SECRET, kind: 'business' }]],
+    ['more than 500 entries', Array.from({ length: 501 }, (_, i) => ({ ...SECRET, key: `park:${i + 1}`, source: 'park' }))],
+  ];
+  for (const [name, humanWork] of malformed) {
+    it(`400 on ${name}`, async () => {
+      const w = world();
+      const { status, body } = await w.send({ ...PUSH, humanWork });
+      expect(status).toBe(400);
+      expect(body?.error).toEqual(expect.any(String));
+      expect(w.fake.calls).toEqual([]);
+    });
+  }
+
+  it('a member of the workspace reads the human work, open first; another workspace reads none', async () => {
+    const w = world();
+    const { body } = await w.send({ ...PUSH, humanWork: [SECRET, ASK] });
+    await w.send({ ...PUSH, humanWork: [ASK] });
+    const id = body?.roadmapId ?? '';
+    expect((await roadmapReader(w.fake.client('bob-token') as never).humanWork(id)).map((h) => [h.key, h.state])).toEqual([
+      ['question:Q5', 'open'], ['outbox:1213/s2-01', 'done'],
+    ]);
+    expect(await roadmapReader(w.fake.client('carl-token') as never).humanWork(id)).toEqual([]);
+  });
+});
+
 describe('reading the roadmaps', () => {
   it('a member of the workspace reads the roadmap and its PRDs in order; another workspace reads nothing', async () => {
     const w = world();
@@ -373,5 +496,99 @@ describe('reading the roadmaps', () => {
     const later = await w.send({ ...PUSH, roadmap: 1300 });
     const reader = roadmapReader(w.fake.client('ada-token') as never);
     expect((await reader.list()).map((r) => r.id)).toEqual([later.body?.roadmapId, first.body?.roadmapId]);
+  });
+});
+
+describe('POST /api/roadmaps: each new key\'s kind through Jev (PRD 1217 s3)', () => {
+  const said = (answer: string): JevOutcome => ({ kind: 'answered', answer, confidence: 0.9, model: 'jev-1.13.0', probabilities: null, ms: 20 });
+
+  /** A push world whose classifier runs after each push, over the fake tables, as the service role would. */
+  function classified(mode: JevMode, answers: Array<JevOutcome | Error> = []) {
+    const offered = new Set<string>();
+    const runs: Array<Promise<unknown>> = [];
+    const asked: unknown[] = [];
+    const jev: JevDecideDeps = {
+      settings: (_workspace, decision) => Promise.resolve({ decision, mode, threshold: 0.5, floor: 0.4 }),
+      key: () => Promise.resolve({ kind: 'key', key: 'ts-key' }),
+      ask: (_key, state) => {
+        asked.push(state);
+        const next = answers.shift() ?? said('business');
+        return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
+      },
+      log: () => Promise.resolve(),
+    };
+    const w = world({ classify: (roadmapId) => { runs.push(classifyHumanWork(humanWorkClassifier(service, jev), roadmapId)); } });
+    const rows = (roadmapId: string) => w.fake.tables.roadmap_human_work.filter((h) => h.roadmap_id === roadmapId);
+    // roadmap_human_work_claim() and roadmap_human_work_set_kind(), over the fake tables.
+    const service = {
+      rpc(fn: string, args: Record<string, unknown>) {
+        const roadmapId = String(args.p_roadmap);
+        if (fn === 'roadmap_human_work_claim') {
+          const roadmap = w.fake.tables.roadmaps.find((r) => r.id === roadmapId);
+          const picked = rows(roadmapId).filter((h) => h.state === 'open' && !offered.has(`${roadmapId} ${h.key}`)).slice(0, Number(args.p_limit));
+          for (const h of picked) offered.add(`${roadmapId} ${h.key}`);
+          return Promise.resolve({ data: { workspace: roadmap?.workspace_id ?? null, entries: picked.map((h) => ({
+            key: h.key, prd: h.prd, prdTitle: null, repo: h.repo, source: h.source, text: h.text, act: h.act, url: h.url, ruleKind: h.kind,
+          })) }, error: null });
+        }
+        const row = rows(roadmapId).find((h) => h.key === args.p_key && h.kind_by === 'rule' && offered.has(`${roadmapId} ${h.key}`));
+        if (row) Object.assign(row, { kind: args.p_kind, kind_by: 'jev' });
+        return Promise.resolve({ data: Boolean(row), error: null });
+      },
+    };
+    const send = async (body: unknown) => {
+      const answer = await w.send(body);
+      await Promise.all(runs);
+      return answer;
+    };
+    return { ...w, send, asked };
+  }
+  const kinds = (w: ReturnType<typeof world>) => w.fake.tables.roadmap_human_work.map((h) => [h.key, h.kind, h.kind_by]);
+
+  it('On: a new key takes Jev\'s kind, chosen by Jev', async () => {
+    const w = classified('on', [said('delivery-ops'), said('business')]);
+    expect((await w.send({ ...PUSH, humanWork: [SECRET, ASK] })).status).toBe(201);
+    expect(kinds(w)).toEqual([['outbox:1213/s2-01', 'delivery-ops', 'jev'], ['question:Q5', 'business', 'jev']]);
+  });
+
+  it('Shadow and Off keep the rule kind', async () => {
+    for (const mode of ['shadow', 'off'] as const) {
+      const w = classified(mode, [said('delivery-ops')]);
+      await w.send({ ...PUSH, humanWork: [SECRET] });
+      expect(kinds(w)).toEqual([['outbox:1213/s2-01', 'dev-ops', 'rule']]);
+      expect(w.asked).toHaveLength(mode === 'shadow' ? 1 : 0);
+    }
+  });
+
+  it('a Jev error, or an answer outside the four, keeps the rule kind, and the push succeeds', async () => {
+    const w = classified('on', [new Error('socket hang up'), said('legal')]);
+    expect((await w.send({ ...PUSH, humanWork: [SECRET, ASK] })).status).toBe(201);
+    expect(kinds(w)).toEqual([['outbox:1213/s2-01', 'dev-ops', 'rule'], ['question:Q5', 'business', 'rule']]);
+  });
+
+  it('a key already stored is never classified again; a new one is', async () => {
+    const w = classified('on', [said('development'), said('delivery-ops'), said('business')]);
+    await w.send({ ...PUSH, humanWork: [SECRET] });
+    await w.send({ ...PUSH, humanWork: [SECRET, ASK] });
+    expect(w.asked).toHaveLength(2);
+    expect(kinds(w)).toEqual([['outbox:1213/s2-01', 'development', 'jev'], ['question:Q5', 'delivery-ops', 'jev']]);
+  });
+
+  it('runs only after a push that carries human work and was recorded', async () => {
+    const classify = vi.fn();
+    const w = world({ classify });
+    await w.send(PUSH);
+    await w.send({ ...PUSH, repo: 'other/plan', humanWork: [SECRET] });
+    expect(classify).not.toHaveBeenCalled();
+    const { body } = await w.send({ ...PUSH, humanWork: [] });
+    expect(classify).toHaveBeenCalledWith(body?.roadmapId);
+  });
+
+  it('a classifier that throws as it starts never fails the push', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const w = world({ classify: () => { throw new Error('after() is unavailable'); } });
+    expect((await w.send({ ...PUSH, humanWork: [SECRET] })).status).toBe(201);
+    expect(String(error.mock.calls[0]?.[0])).toContain('after() is unavailable');
+    error.mockRestore();
   });
 });

@@ -24,26 +24,31 @@
 //   - the board, for a PRD whose folder is in the base inbox only: the cached board file in the main
 //     checkout of the session's folder, whose slices count for the stage and show in the outbox
 //     while under 10 minutes old; when it is missing or a minute old, its refresh is started in the
-//     session's folder, never waited for.
+//     session's folder, never waited for, told `--kind prd` so that it keeps the PRD's links too
+//     (PRD 1208).
+//
+// `startLinksRefresh` starts the same refresh for the links of what `omni now` says the session is on
+// (PRD 1208, "Links"), when its links file is missing or a minute old, as the board's is started.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { readMode } from '../ask/local-state.ts';
+import { LOCAL_DIR, readMode } from '../ask/local-state.ts';
 import { fillBranch } from '../board.ts';
 import { loadConfig } from '../config.ts';
 import { createContext } from '../context.ts';
 import type { Context, ExecText } from '../context.ts';
 import { mainCheckout } from '../dossier/local.ts';
 import { findRoot } from '../init/repo.ts';
-import { cachedSlices } from './board-cache.ts';
+import { cachedSlices, LOCK_ABANDONED_MS, REFRESH_AFTER_MS } from './board-cache.ts';
 import type { Spawn } from './board-cache.ts';
+import type { LinksKind } from '../now/links.ts';
 import type { SessionInput } from './input.ts';
 import type { CachedSlice } from './schema.ts';
 import { recordedPrd } from './sessions.ts';
 import { isBuilt, openItemCount, stageOf } from './stage.ts';
 import type { FeatureFacts, PrdStage } from './stage.ts';
 import { branchNames, whichPrd } from './which-prd.ts';
-import type { PrdNumber, WorkSliceId } from '../ids.ts';
+import type { IssueNumber, PrdNumber, WorkSliceId } from '../ids.ts';
 
 /** The PRD line's facts: the PRD, the slice its branch names, where it stands, and its board. */
 export type PrdFacts = {
@@ -62,6 +67,7 @@ export type Facts = { installed: boolean; askOn: boolean; prd: PrdFacts | null }
 type Refresh = { now: number; spawn: Spawn | null; script: string | undefined; env: NodeJS.ProcessEnv | undefined };
 
 const QUIET: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] };
+const KIND_FLAG = '--kind';
 
 /** `fn()`, or `fallback` when it throws. */
 function attempt<T, F>(fn: () => T, fallback: F): T | F {
@@ -153,11 +159,56 @@ function featureFacts(ctx: Context, { base, topic, folder }: { base: string; top
   };
 }
 
+/** `spawn`, each refresh it starts also told `--kind <kind>`, so that it keeps the links too (PRD 1208). */
+function withKind(spawn: Spawn | null, kind: LinksKind): Spawn | null {
+  return spawn ? (command, args, options) => spawn(command, [...args, KIND_FLAG, kind], options) : null;
+}
+
 /** The slices PRD `prd`'s cached board shows, read in the main checkout of `folder`, its refresh
- * started in `folder` when due and `spawn` and `script` are given; `null` for none. */
+ * (`--kind prd`, which keeps the PRD's links too) started in `folder` when due and `spawn` and
+ * `script` are given; `null` for none. */
 function boardSlices({ folder, prd, now, spawn, script, env }: Refresh & { folder: string; prd: PrdNumber }, exec: ExecText): CachedSlice[] | null {
   const root = attempt(() => mainCheckout(folder, exec), null);
-  return root ? cachedSlices({ root, prd, now, cwd: folder, spawn, script, env }) : null;
+  return root ? cachedSlices({ root, prd, now, cwd: folder, spawn: withKind(spawn, 'prd'), script, env }) : null;
+}
+
+/** When the file at `path` was written: its JSON's `at`, else the file's own time; `null` without one. */
+function writtenAt(path: string): number | null {
+  if (!existsSync(path)) return null;
+  const at = attempt(() => Date.parse(String(Reflect.get(Object(JSON.parse(readFileSync(path, 'utf8'))), 'at'))), Number.NaN);
+  return Number.isNaN(at) ? attempt(() => statSync(path).mtimeMs, null) : at;
+}
+
+/** Whether `at` is under `ms` before `now` (a time after `now` counts as old). */
+const within = (at: number | null, now: number, ms: number): boolean => at !== null && now - at >= 0 && now - at < ms;
+
+/**
+ * Starts the refresh of the links of the `kind` work numbered `n` (PRD 1208, "Links"), as the board's
+ * is started: `node <script> statusline --refresh <n> --kind <kind>`, detached, in `folder`, never
+ * waited for, when its file in the main checkout of `folder` is missing or 60 seconds old and no
+ * refresh holds its lock (one under 2 minutes old). Without `spawn` or `script`, nothing starts. A
+ * `prd` refresh keeps the PRD's board too. Never throws: `true` when it started one.
+ */
+export function startLinksRefresh({ folder, kind, n, now, spawn, script, env }: Refresh & { folder: string; kind: Exclude<LinksKind, 'roadmap'>; n: IssueNumber }, exec: ExecText): boolean {
+  if (!spawn || !script) return false;
+  try {
+    const root = mainCheckout(folder, exec);
+    if (!root) return false;
+    const base = join(root, LOCAL_DIR, 'now', `links-${kind}-${n}`);
+    if (within(writtenAt(`${base}.json`), now, REFRESH_AFTER_MS) || within(writtenAt(`${base}.lock`), now, LOCK_ABANDONED_MS)) return false;
+    const child = spawn(process.execPath, [script, 'statusline', '--refresh', String(n), KIND_FLAG, kind], {
+      cwd: folder,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+      ...(env ? { env } : {}),
+    });
+    child?.on?.('error', () => {});
+    child?.unref?.();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** The PRD the branch checked out in `folder` names, else the one session `sessionId`'s record names,

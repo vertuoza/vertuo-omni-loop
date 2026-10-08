@@ -256,6 +256,126 @@ begin
 end $$;
 reset role;
 
+-- ── The human work a roadmap waits on (PRD 1217) ──
+-- Ada pushes roadmap 1400 with two pieces of human work: each new key stored with its rule kind, open.
+-- The next push without one closes it at that push; a push without `humanWork` closes nothing; a key
+-- back is open again; a stored key keeps its kind. Nobody signed in writes the table, and an account
+-- of another workspace reads none of it.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+declare
+  secret  jsonb := jsonb_build_object('key', 'outbox:1213/s2-01', 'prd', 1213, 'repo', 'AI-Domain', 'source', 'outbox',
+                                      'text', 'The think endpoint needs its token', 'act', 'Add the secret CREW_TOKEN to ai-domain.',
+                                      'url', 'https://github.com/vertuoza/ai-domain/pull/9', 'ruleKind', 'dev-ops');
+  ask     jsonb := jsonb_build_object('key', 'question:Q5', 'prd', null, 'repo', 'vertuoza/vertuo-omni-loop', 'source', 'question',
+                                      'text', 'Who signs a mandate?', 'act', null, 'url', null, 'ruleKind', 'business');
+  roadmap uuid;
+  closed  timestamptz;
+begin
+  roadmap := (public.roadmap_push(pg_temp.push_body(jsonb_build_object('number', 1400, 'humanWork', jsonb_build_array(secret, ask)))) ->> 'roadmapId')::uuid;
+  insert into pg_temp.ids values ('human', roadmap);
+  if (select count(*) from public.roadmap_human_work where roadmap_id = roadmap and state = 'open' and kind_by = 'rule' and done_at is null) <> 2
+     or not exists (select 1 from public.roadmap_human_work where roadmap_id = roadmap and key = 'outbox:1213/s2-01' and kind = 'dev-ops'
+                      and prd = 1213 and repo = 'ai-domain' and source = 'outbox' and act like 'Add the secret%')
+     or not exists (select 1 from public.roadmap_human_work where roadmap_id = roadmap and key = 'question:Q5' and kind = 'business'
+                      and prd is null and act is null and url is null) then
+    raise exception 'FAIL: a new key was not stored open with its rule kind';
+  end if;
+
+  -- The question is answered: the next push no longer carries it, and it is done at that push.
+  perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('number', 1400, 'humanWork', jsonb_build_array(secret))));
+  closed := (select done_at from public.roadmap_human_work where roadmap_id = roadmap and key = 'question:Q5' and state = 'done');
+  if closed is null or exists (select 1 from public.roadmap_human_work where roadmap_id = roadmap and key = 'outbox:1213/s2-01' and state <> 'open') then
+    raise exception 'FAIL: a key missing from the push was not done, or one carried was closed';
+  end if;
+
+  -- A push from a kit without the field, or with it null, changes nothing stored.
+  perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('number', 1400)));
+  perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('number', 1400, 'humanWork', null)));
+  if (select array_agg(state order by key) from public.roadmap_human_work where roadmap_id = roadmap) <> '{open,done}'
+     or (select done_at from public.roadmap_human_work where roadmap_id = roadmap and key = 'question:Q5') <> closed then
+    raise exception 'FAIL: a push without humanWork changed the stored human work';
+  end if;
+
+  begin
+    update public.roadmap_human_work set kind = 'delivery-ops' where roadmap_id = roadmap;
+    raise exception 'FAIL: a signed-in account changed human work directly';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+-- The token item is classified by someone else (Jev, from s3): written here as the owner. The question
+-- comes back next: it is open again, and the token item keeps its kind while its text is refreshed.
+update public.roadmap_human_work set kind = 'delivery-ops', kind_by = 'jev'
+ where roadmap_id = (select id from pg_temp.ids where name = 'human') and key = 'outbox:1213/s2-01';
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+declare
+  roadmap uuid := (select id from pg_temp.ids where name = 'human');
+begin
+  perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('number', 1400, 'humanWork', jsonb_build_array(
+    jsonb_build_object('key', 'outbox:1213/s2-01', 'prd', 1213, 'repo', 'ai-domain', 'source', 'outbox', 'text', 'Still no token',
+                       'ruleKind', 'development'),
+    jsonb_build_object('key', 'question:Q5', 'repo', 'vertuoza/vertuo-omni-loop', 'source', 'question', 'text', 'Who signs a mandate?',
+                       'ruleKind', 'business')))));
+  if not exists (select 1 from public.roadmap_human_work where roadmap_id = roadmap and key = 'question:Q5' and state = 'open' and done_at is null)
+     or not exists (select 1 from public.roadmap_human_work where roadmap_id = roadmap and key = 'outbox:1213/s2-01'
+                      and kind = 'delivery-ops' and kind_by = 'jev' and text = 'Still no token' and act is null and url is null) then
+    raise exception 'FAIL: a key back was not reopened, or a stored key did not keep its kind';
+  end if;
+
+  -- Malformed human work is refused, and changes nothing.
+  begin
+    perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('number', 1400, 'humanWork', '{"key": "park:1"}'::jsonb)));
+    raise exception 'FAIL: human work that is not a list was taken';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('number', 1400, 'humanWork', jsonb_build_array(
+      jsonb_build_object('key', 'park:1213', 'repo', 'ai-domain', 'source', 'park', 'text', 'x', 'ruleKind', 'legal')))));
+    raise exception 'FAIL: an unknown kind was taken';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('number', 1400, 'humanWork', jsonb_build_array(
+      jsonb_build_object('key', 'park:1213', 'repo', 'ai-domain', 'source', 'outbox', 'text', 'x', 'ruleKind', 'development')))));
+    raise exception 'FAIL: a key that is not its source''s was taken';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('number', 1400, 'humanWork', jsonb_build_array(
+      jsonb_build_object('key', 'park:1213', 'repo', 'ai-domain', 'source', 'park', 'text', 'x', 'ruleKind', 'development'),
+      jsonb_build_object('key', 'park:1213', 'repo', 'ai-domain', 'source', 'park', 'text', 'y', 'ruleKind', 'development')))));
+    raise exception 'FAIL: a key used twice was taken';
+  exception when invalid_parameter_value then null; end;
+  if (select count(*) from public.roadmap_human_work where roadmap_id = roadmap and state = 'open') <> 2 then
+    raise exception 'FAIL: a refused push changed the human work';
+  end if;
+
+  -- Nothing is written but through the function.
+  begin
+    insert into public.roadmap_human_work (roadmap_id, key, repo, source, text, kind, kind_by)
+    values (roadmap, 'park:9', 'ai-domain', 'park', 'planted', 'development', 'rule');
+    raise exception 'FAIL: a signed-in account wrote human work directly';
+  exception when insufficient_privilege then null; end;
+  begin
+    delete from public.roadmap_human_work where roadmap_id = roadmap;
+    raise exception 'FAIL: a signed-in account deleted human work directly';
+  exception when insufficient_privilege then null; end;
+end $$;
+-- Carl, of another workspace, and the signed out read none of it.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
+do $$
+begin
+  if exists (select 1 from public.roadmap_human_work) then raise exception 'FAIL: an account of another workspace read human work'; end if;
+end $$;
+reset role;
+set local role anon;
+do $$
+begin
+  begin perform 1 from public.roadmap_human_work limit 1; raise exception 'FAIL: anon read human work';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
 -- ── A roadmap's prerequisites and their last result (PRD 1218) ──
 -- The prerequisites of roadmap 1200 and this machine's last result, its fields overridden by `extra`.
 create function pg_temp.prerequisites_body(extra jsonb default '{}'::jsonb) returns jsonb language sql as $$

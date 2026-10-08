@@ -3,12 +3,14 @@
 // the repositories a loop's tick gains. What the rules let through is the database's to prove
 // (supabase/checks/roadmaps.sql, run by the supabase workflow); this pins that each is there, that the
 // stores name the columns and the functions the migration writes, and that the workflow runs the check.
+// And the human work a roadmap waits on (PRD 1217), in its own migration: its table, roadmap_push() its
+// one writer, its reading rules.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  PREREQUISITE_CATEGORIES, PREREQUISITE_STATES, PREREQUISITE_WHO, ROADMAP_ADDED_COLUMNS, ROADMAP_COLUMNS, ROADMAP_PRD_COLUMNS, ROADMAP_PRD_STATES,
-  ROADMAP_PREREQUISITE_COLUMNS, ROADMAP_READ_COLUMNS,
+  HUMAN_WORK_KINDS, HUMAN_WORK_SOURCES, PREREQUISITE_CATEGORIES, PREREQUISITE_STATES, PREREQUISITE_WHO, ROADMAP_ADDED_COLUMNS, ROADMAP_COLUMNS,
+  ROADMAP_HUMAN_WORK_COLUMNS, ROADMAP_PRD_COLUMNS, ROADMAP_PRD_STATES, ROADMAP_PREREQUISITE_COLUMNS, ROADMAP_READ_COLUMNS,
 } from './store';
 import { TICK_ADDED_COLUMNS, TICK_READ_COLUMNS } from '../loop/store';
 
@@ -141,5 +143,53 @@ describe('the roadmap prerequisites migration', () => {
     const checks = read('supabase/checks/roadmaps.sql');
     expect(checks).toContain('public.roadmap_prerequisites_push(');
     expect(checks).toContain("select 'roadmaps checks passed' as result;");
+  });
+});
+
+describe('the human work migration (PRD 1217)', () => {
+  const HUMAN = read('supabase/migrations/20261113090000_roadmap_human_work.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+  const created = () => {
+    const match = /create table public\.roadmap_human_work \((.*?)\);/.exec(HUMAN);
+    if (!match?.[1]) throw new Error('no table roadmap_human_work');
+    return match[1];
+  };
+  const list = (values: readonly string[]) => values.map((v) => `'${v}'`).join(', ');
+
+  it('creates roadmap_human_work with every column the store reads, one row per roadmap and key', () => {
+    for (const column of ROADMAP_HUMAN_WORK_COLUMNS.split(', ')) {
+      expect(created()).toMatch(new RegExp(`(^ ?|, )${column} (uuid|text|integer|timestamptz)\\b`));
+    }
+    expect(created()).toContain('roadmap_id uuid not null references public.roadmaps (id) on delete cascade');
+    expect(created()).toContain('primary key (roadmap_id, key)');
+    expect(created()).not.toMatch(/\b(path|prompt|transcript|command|content)\b/);
+  });
+
+  it('stores exactly the kinds and sources the API takes, who chose the kind, and whether it is open', () => {
+    expect(created()).toContain(`kind text not null check (kind in (${list(HUMAN_WORK_KINDS)}))`);
+    expect(created()).toContain(`source text not null check (source in (${list(HUMAN_WORK_SOURCES)}))`);
+    expect(created()).toContain("kind_by text not null check (kind_by in ('jev', 'rule'))");
+    expect(created()).toContain("state text not null default 'open' check (state in ('open', 'done'))");
+  });
+
+  it('is written only by roadmap_push(), which keeps a stored key\'s kind, closes a missing key and reopens one back', () => {
+    expect(HUMAN).toContain('create or replace function public.roadmap_push(p_body jsonb) returns jsonb language plpgsql security definer set search_path = \'\'');
+    expect(HUMAN).toContain("if jsonb_typeof(body -> 'humanWork') = 'array' then");
+    expect(HUMAN).toContain("on conflict (roadmap_id, key) do update set prd = excluded.prd, repo = excluded.repo, source = excluded.source, text = excluded.text, act = excluded.act, url = excluded.url, state = 'open', done_at = null;");
+    expect(HUMAN).not.toMatch(/on conflict \(roadmap_id, key\) do update set[^;]*\bkind\b/);
+    expect(HUMAN).toContain("update public.roadmap_human_work h set state = 'done', done_at = now() where h.roadmap_id = v_roadmap.id and h.state = 'open'");
+    expect(HUMAN).toContain('revoke execute on function public.roadmap_push(jsonb) from public, anon;');
+    expect(HUMAN).toContain('grant execute on function public.roadmap_push(jsonb) to authenticated;');
+  });
+
+  it('lets a member of the workspace read it, and nobody signed in write it', () => {
+    expect(HUMAN).toContain('alter table public.roadmap_human_work enable row level security;');
+    expect(HUMAN).toContain('on public.roadmap_human_work for select to authenticated using (exists (select 1 from public.roadmaps r where r.id = roadmap_id and public.is_member(r.workspace_id)));');
+    expect(HUMAN).toContain('revoke all on public.roadmap_human_work from public, anon, authenticated, service_role;');
+    expect(HUMAN).toContain('grant select on public.roadmap_human_work to authenticated;');
+    expect(HUMAN).not.toMatch(/grant (insert|update|delete|all)[^;]* on public\.roadmap/);
+  });
+
+  it('is proved by supabase/checks/roadmaps.sql', () => {
+    expect(read('supabase/checks/roadmaps.sql')).toContain('public.roadmap_human_work');
   });
 });

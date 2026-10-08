@@ -40,7 +40,7 @@ function fakeStore(viewer: string): TickStore & { reads: string[] } {
   };
 }
 
-function world({ viewer = 'u-ada' as string | null, gh = fakeGitHub(), clientId = 'Iv1.client' as string | null } = {}) {
+function world({ viewer = 'u-ada', gh = fakeGitHub(), clientId = 'Iv1.client' }: { viewer?: string | null; gh?: ReturnType<typeof fakeGitHub>; clientId?: string | null } = {}) {
   const store = viewer === null ? null : fakeStore(viewer);
   const deps: TickDeps = {
     clientId,

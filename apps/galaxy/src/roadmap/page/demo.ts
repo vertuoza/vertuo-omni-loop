@@ -4,10 +4,12 @@
 // one held on the pull request it waits on and one parked on a question only a person answers; its
 // prerequisites (PRD 1218) checked on one laptop a few minutes ago, two of them waiting on a person.
 // Billing's runs in one repository and nothing merged yet, so its bars sit in wave columns, and it names
-// no prerequisite. Every time is counted back from `now`, so the same `now` draws the same page.
+// no prerequisite. Crew's human work (PRD 1217): its open person question, a missing secret, a
+// production variable, a park waiting on a migration run, and one clarification settled; Billing's has
+// none yet. Every time is counted back from `now`, so the same `now` draws the same page.
 import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { RoadmapPrdRow, RoadmapPrerequisiteRow, RoadmapRow } from '../store';
-import { detailOf, listOf, type Demo, type ProductRef, type RoadmapPageView } from './model';
+import type { RoadmapHumanWorkRow, RoadmapPrdRow, RoadmapPrerequisiteRow, RoadmapRow } from '../store';
+import { detailOf, listOf, type Demo, type ProductRef, type RoadmapPageView, type RoadmapRead } from './model';
 import type { RoadmapTab } from './prerequisites';
 
 const DAY = 86_400_000;
@@ -72,7 +74,38 @@ function rowsAt(now: number) {
     }),
     prd(DEMO_ROADMAP_ONE_REPO, { row_id: 'P3', prd: parsePrd(883), title: 'Reminders', blockers: ['P1'], wave: 2 }),
   ];
-  return [{ row: crew, prds: crewPrds, prerequisites: crewPrerequisites() }, { row: one, prds: onePrds, prerequisites: [] }];
+  const work = (over: Pick<RoadmapHumanWorkRow, 'key' | 'prd' | 'repo' | 'source' | 'text' | 'kind'> & Partial<RoadmapHumanWorkRow>): RoadmapHumanWorkRow => ({
+    roadmap_id: DEMO_ROADMAP, act: null, url: null, kind_by: 'rule', state: 'open', first_seen_at: at(-10), done_at: null, ...over,
+  });
+  const crewWork = [
+    work({
+      key: 'question:Q5', prd: null, repo: 'acme/crew-plan', source: 'question', kind: 'business',
+      text: 'Who may grant a mandate: the owner only, or any admin?', act: 'The owner only, for the first release.',
+      url: 'https://github.com/acme/crew-plan/issues/1200',
+    }),
+    work({
+      key: 'outbox:1213/s2-01', prd: parsePrd(1213), repo: 'ai-domain', source: 'outbox', kind: 'dev-ops',
+      text: 'The think endpoint needs the model provider\'s key.',
+      act: 'Add the secret MODEL_API_KEY to acme/ai-domain\'s Actions secrets, with the scope read.', url: pr('ai-domain', 310),
+    }),
+    work({
+      key: 'outbox:1202/s1-02', prd: parsePrd(1202), repo: 'crew', source: 'outbox', kind: 'delivery-ops',
+      text: 'The worker\'s address must be set in production.', act: 'Set CREW_WORKER_URL in the production environment of acme/crew.', url: pr('crew', 44),
+    }),
+    work({
+      key: 'park:1220', prd: parsePrd(1220), repo: 'workflow', source: 'park', kind: 'delivery-ops',
+      text: 'waits for the messages migration to run on production', url: pr('workflow', 52),
+    }),
+    work({
+      key: 'clarification:1201', prd: parsePrd(1201), repo: 'crew', source: 'clarification', kind: 'development', state: 'done',
+      text: 'Which queue does the worker read?', url: 'https://github.com/acme/crew-plan/issues/1201', first_seen_at: at(-20), done_at: at(-16),
+    }),
+  ];
+  const read: Array<RoadmapRead & { prerequisites: RoadmapPrerequisiteRow[] }> = [
+    { row: crew, prds: crewPrds, humanWork: crewWork, prerequisites: crewPrerequisites() },
+    { row: one, prds: onePrds, humanWork: [], prerequisites: [] },
+  ];
+  return read;
 }
 
 /** Crew's prerequisites, as its last check left them: the base rows, and the ones its PRDs need. */
@@ -125,5 +158,5 @@ export function demoRoadmapPage(now: Date, ask: { id: string | null; product: st
   if (ask.id === null) return listOf(DEMO_NAME, demo, rows, DEMO_PRODUCTS, ask.product);
   const found = rows.find((r) => r.row.id === ask.id);
   if (!found) return null;
-  return { kind: 'roadmap', name: DEMO_NAME, demo, roadmap: detailOf(found.row, found.prds, DEMO_PRODUCTS, now.getTime(), { prerequisites: found.prerequisites, tab: ask.tab ?? 'overview' }) };
+  return { kind: 'roadmap', name: DEMO_NAME, demo, roadmap: detailOf(found, DEMO_PRODUCTS, now.getTime(), { prerequisites: found.prerequisites, tab: ask.tab ?? 'overview' }) };
 }

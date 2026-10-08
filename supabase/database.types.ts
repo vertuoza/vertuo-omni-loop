@@ -2025,6 +2025,65 @@ export type Database = {
           },
         ]
       }
+      roadmap_human_work: {
+        Row: {
+          act: string | null
+          classified_at: string | null
+          done_at: string | null
+          first_seen_at: string
+          key: string
+          kind: string
+          kind_by: string
+          prd: number | null
+          repo: string
+          roadmap_id: string
+          source: string
+          state: string
+          text: string
+          url: string | null
+        }
+        Insert: {
+          act?: string | null
+          classified_at?: string | null
+          done_at?: string | null
+          first_seen_at?: string
+          key: string
+          kind: string
+          kind_by: string
+          prd?: number | null
+          repo: string
+          roadmap_id: string
+          source: string
+          state?: string
+          text: string
+          url?: string | null
+        }
+        Update: {
+          act?: string | null
+          classified_at?: string | null
+          done_at?: string | null
+          first_seen_at?: string
+          key?: string
+          kind?: string
+          kind_by?: string
+          prd?: number | null
+          repo?: string
+          roadmap_id?: string
+          source?: string
+          state?: string
+          text?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_human_work_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roadmap_prds: {
         Row: {
           blockers: string[]
@@ -3579,6 +3638,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      roadmap_human_work_claim: {
+        Args: { p_limit: number; p_roadmap: string }
+        Returns: Json
+      }
+      roadmap_human_work_set_kind: {
+        Args: { p_key: string; p_kind: string; p_roadmap: string }
+        Returns: boolean
       }
       roadmap_prerequisites_push: { Args: { p_body: Json }; Returns: Json }
       roadmap_push: { Args: { p_body: Json }; Returns: Json }

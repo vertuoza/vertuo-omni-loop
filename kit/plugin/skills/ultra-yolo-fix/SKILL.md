@@ -39,7 +39,7 @@ As `/omni:yolo-fix` step 0. The config must have a `plan` section and
 ## 1. Find the plan PR
 
 As `/omni:yolo-fix` step 1, on the plan repository's feature PR (the plan PR). Fetch each target's
-clone (`<worktrees>/targets/<name>`) too; a missing clone is made as `/omni:ultra-yolo` step 2 makes
+clone (`<worktrees>/targets/<name>@<prd>`, the PRD's own) too; a missing clone is made as `/omni:ultra-yolo` step 2 makes
 it. After the plan PR has merged, its after-merge path applies in the plan repository; a target
 whose target PR has merged gets a fresh feature branch and draft target PR, as `/omni:ultra-yolo`
 step 2 opens them.
