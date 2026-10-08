@@ -1493,9 +1493,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a " +
       'version only where a file changed. /omni:brainstorm runs it after each of its pushes, and ' +
       '/omni:plan after it pushes the plan; /omni:visual-fix and /omni:bug-fix run it with --kind ' +
-      'visual or --kind bug for their fix\'s page; /omni:think-big and /omni:brainstorm --concept run ' +
-      'it with --kind concept for the concept\'s page under Work › Concepts. It never stops the skill ' +
-      'that runs it.',
+      'visual or --kind bug for their fix\'s page, and a concept\'s record runs it with --kind concept ' +
+      'for the concept\'s page under Work › Concepts. It never stops the skill that runs it.',
     group: 'run-by-skills',
     when: "Use it when a PRD's spec, plan or before/after page changed and its dossier should show it.",
     example: {

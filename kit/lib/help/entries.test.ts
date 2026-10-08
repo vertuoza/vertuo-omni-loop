@@ -260,7 +260,8 @@ describe('the help table in this repository', () => {
     expect(entry('brainstorm', 'skill').detail).toMatch(/--concept\b.*\bpushes the concept again\b/);
     const push = entry('dossier-push', 'skill');
     expect(push.usage).toEqual(['/omni:dossier-push <n> [--kind visual|bug|concept]']);
-    expect(push.detail).toMatch(/\/omni:think-big\b.*--kind concept/);
+    // The docs page lists a skill as a runner from the names this text gives: think-big's own entry says it pushes.
+    expect(push.detail).toMatch(/--kind concept\b.*\bWork › Concepts\b/);
     const dossier = entry('dossier', 'command');
     expect(dossier.usage).toContain('omni dossier push <n> [--kind visual|bug|concept]');
     expect(dossier.usage).toContain('omni dossier link <n> [--kind visual|bug|concept]');
