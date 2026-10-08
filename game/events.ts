@@ -18,18 +18,21 @@ export const WOUND_KINDS = Object.freeze(['transmission', 'unconfirmed-ground', 
 // spells it (PRD 728).
 const HOME = /^[a-z0-9-]{1,39}\/[a-z0-9._-]{1,100}$/;
 
+// The planet of an answer no PRD claims: never a planet, so the map and the season's planets leave it out.
+export const NO_PLANET = 0;
+
 export const EventSchema = z.object({
   id: z.string().min(1),
   at: z.iso.datetime({ offset: true }),
   type: z.enum(EVENT_TYPES),
-  planet: z.number().int().positive(),
+  planet: z.number().int().nonnegative(),
   // Absent on the events written before PRD 728.
   home: z.string().regex(HOME).optional(),
   region: z.string().optional(),
   contributor: z.string().optional(),
   team: z.string().optional(),
   data: z.record(z.string(), z.unknown()).default({}),
-}).strict();
+}).strict().refine((e) => e.planet !== NO_PLANET || e.type === 'QUESTION_ANSWERED', { message: 'only an answer may belong to no planet', path: ['planet'] });
 
 export type EventType = (typeof EVENT_TYPES)[number];
 /** One ledger event, as the schema parses it. */

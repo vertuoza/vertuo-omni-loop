@@ -249,8 +249,9 @@ export function buildGalaxy(events: readonly LedgerEvent[], { projects, now = ne
   const season = now.toISOString().slice(0, 7);
   const season_ = score(sorted.filter(isGameEvent), { season, now });
 
-  const planets: Planet[] = [...byPlanet.entries()].map(([key, evs]) => {
-    // A planet is in the map only once it has an event.
+  // A planet is in the map only once it has an event other than an answer: an answer on planet 0
+  // belongs to no PRD, and one on a PRD of an untracked repository charts nothing.
+  const planets: Planet[] = [...byPlanet.entries()].filter(([, evs]) => evs.some((e) => e.type !== 'QUESTION_ANSWERED')).map(([key, evs]) => {
     const [first] = evs;
     if (!first) throw new Error(`planet ${key} has no event`);
     // The ledger's planet is a PRD number: the planet takes it as one.

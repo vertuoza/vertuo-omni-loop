@@ -107,7 +107,7 @@ Scoring does not change: every number stays in `game/rulebook.ts`.
 
 ## Answered questions
 
-PRD 1180. Every ask round answered on a numbered PRD pays its answerer `RULEBOOK.questionAnswered`
+PRD 1180. Every answered ask round pays its answerer `RULEBOOK.questionAnswered`
 (2) points and XP at `xp.weights.questionAnswered` (1), whether it was answered on the page or in the
 terminal. After the GitHub snapshot, `game:project` reads `public.game_answered_rounds(workspace,
 since)` (`loadAnsweredRounds`, `game/sources/supabase.ts`) with `since` = the workspace's
@@ -116,12 +116,15 @@ since)` (`loadAnsweredRounds`, `game/sources/supabase.ts`) with `since` = the wo
 - **Which PRD.** The function finds a round's PRD by the two rules of `dossier_rounds()`, over the
   workspace's numbered PRD dossiers: the brainstorm rule (the round's ask session carries the
   dossier's Claude session, inside that dossier's window) first, then the delivery rule (the round's
-  own PRD, asked in the PRD's home repository). A round with no PRD (a draft's brainstorm, a spike, a
-  fix) or whose answerer has no GitHub login is not returned: it still counts in Questions answered,
-  and pays nothing. Only the service role may call it.
+  own PRD, asked in the PRD's home repository). A round no PRD claims (a draft's brainstorm, a spike,
+  a fix, ad-hoc work) comes back with no PRD, its home the repository it was asked in, else the
+  workspace's plan repository. A round whose answerer has no GitHub login is not returned. Only the
+  service role may call it.
 - **The event.** Each round is one `QUESTION_ANSWERED`, id `ask:<round_id>:answered`, at
-  `answered_at`, on the planet `<home>#<prd>`, crediting the answerer's lower-case login and fleet. A
-  round whose planet this poll did not chart waits for a later poll. The id never changes, so a round
+  `answered_at`, on the planet `<home>#<prd>`, or on planet 0 when no PRD claims it, crediting the
+  answerer's lower-case login and fleet. It is written whether or not its PRD is charted (its
+  repository may be untracked). Planet 0 is never a planet, and a planet whose only events are answers
+  is not on the map. The id never changes, so a round
   is paid once, however many polls see it.
 - **The pay.** `score()` pays it in the season of `answered_at`, with no multiplier. It opens no
   wound and joins no crew: threat, decay, the terraform bonus and the planet's state ignore it.
