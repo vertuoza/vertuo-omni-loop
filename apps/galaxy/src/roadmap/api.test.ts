@@ -214,6 +214,122 @@ describe('refusals', () => {
   });
 });
 
+const SECRET = {
+  key: 'outbox:1213/s2-01', prd: 1213, repo: 'ai-domain', source: 'outbox', text: 'The think endpoint needs its token',
+  act: 'Add the secret CREW_TOKEN to ai-domain\'s Actions secrets.', url: 'https://github.com/acme/ai-domain/pull/9', ruleKind: 'dev-ops',
+};
+const ASK = {
+  key: 'question:Q5', prd: null, repo: 'acme/plan', source: 'question', text: 'Who signs a mandate?', act: null,
+  url: 'https://github.com/acme/plan/issues/1200', ruleKind: 'business',
+};
+
+describe('POST /api/roadmaps: the human work a roadmap waits on (PRD 1217)', () => {
+  const work = (w: ReturnType<typeof world>) => w.fake.tables.roadmap_human_work.map((h) => [h.key, h.kind, h.kind_by, h.state, h.done_at]);
+
+  it('stores each new key with its rule kind, chosen by the rule, open', async () => {
+    const w = world();
+    expect((await w.send({ ...PUSH, humanWork: [SECRET, ASK] })).status).toBe(201);
+    expect(work(w)).toEqual([
+      ['outbox:1213/s2-01', 'dev-ops', 'rule', 'open', null],
+      ['question:Q5', 'business', 'rule', 'open', null],
+    ]);
+    expect(w.fake.tables.roadmap_human_work[0]).toMatchObject({
+      prd: 1213, repo: 'ai-domain', source: 'outbox', text: SECRET.text, act: SECRET.act, url: SECRET.url, first_seen_at: new Date(NOW).toISOString(),
+    });
+    expect(w.fake.tables.roadmap_human_work[1]).toMatchObject({ prd: null, repo: 'acme/plan', act: null });
+  });
+
+  it('sends the human work as given, an entry\'s missing act, PRD and link as none', async () => {
+    const w = world();
+    const bare = { key: 'park:1213', repo: 'ai-domain', source: 'park', text: 'CI red after three attempts', ruleKind: 'development' };
+    await w.send({ ...PUSH, humanWork: [bare] });
+    expect(w.fake.calls[0]?.args).toMatchObject({ p_body: { humanWork: [{ ...bare, prd: null, act: null, url: null }] } });
+  });
+
+  it('a key missing from the next push is done at that push; one that comes back is open again', async () => {
+    const w = world();
+    await w.send({ ...PUSH, humanWork: [SECRET, ASK] });
+    w.clock.now += 60_000;
+    await w.send({ ...PUSH, humanWork: [SECRET] });
+    const done = new Date(NOW + 60_000).toISOString();
+    expect(work(w)).toEqual([
+      ['outbox:1213/s2-01', 'dev-ops', 'rule', 'open', null],
+      ['question:Q5', 'business', 'rule', 'done', done],
+    ]);
+    w.clock.now += 60_000;
+    await w.send({ ...PUSH, humanWork: [SECRET] });
+    expect(w.fake.tables.roadmap_human_work[1]).toMatchObject({ state: 'done', done_at: done });
+    await w.send({ ...PUSH, humanWork: [ASK] });
+    expect(work(w)).toEqual([
+      ['outbox:1213/s2-01', 'dev-ops', 'rule', 'done', new Date(NOW + 120_000).toISOString()],
+      ['question:Q5', 'business', 'rule', 'open', null],
+    ]);
+    expect(w.fake.tables.roadmap_human_work[1]?.first_seen_at).toBe(new Date(NOW).toISOString());
+  });
+
+  it('a key already stored keeps its kind; its text, act and link are refreshed', async () => {
+    const w = world();
+    await w.send({ ...PUSH, humanWork: [SECRET] });
+    Object.assign(w.fake.tables.roadmap_human_work[0] ?? {}, { kind: 'delivery-ops', kind_by: 'jev' });
+    await w.send({ ...PUSH, humanWork: [{ ...SECRET, text: 'Still no token', act: null, url: 'https://github.com/acme/ai-domain/pull/10', ruleKind: 'development' }] });
+    expect(w.fake.tables.roadmap_human_work).toEqual([expect.objectContaining({
+      kind: 'delivery-ops', kind_by: 'jev', text: 'Still no token', act: null, url: 'https://github.com/acme/ai-domain/pull/10',
+    })]);
+  });
+
+  it('a push without humanWork sends none and closes nothing; an empty list closes every open key', async () => {
+    const w = world();
+    await w.send({ ...PUSH, humanWork: [SECRET, ASK] });
+    await w.send(PUSH);
+    expect(w.fake.calls[1]?.args).not.toHaveProperty('p_body.humanWork');
+    expect(work(w).map(([, , , state]) => state)).toEqual(['open', 'open']);
+    await w.send({ ...PUSH, humanWork: [] });
+    expect(work(w).map(([, , , state]) => state)).toEqual(['done', 'done']);
+  });
+
+  it('another roadmap\'s same key is its own', async () => {
+    const w = world();
+    await w.send({ ...PUSH, humanWork: [ASK] });
+    await w.send({ ...PUSH, roadmap: 1300, humanWork: [] });
+    expect(work(w)).toEqual([['question:Q5', 'business', 'rule', 'open', null]]);
+  });
+
+  const malformed: Array<[string, unknown]> = [
+    ['human work that is not a list', { key: 'park:1' }],
+    ['an entry of an unknown kind', [{ ...SECRET, ruleKind: 'legal' }]],
+    ['an entry of an unknown source', [{ ...SECRET, source: 'slack', key: 'slack:1' }]],
+    ['a key that is not its source\'s', [{ ...SECRET, key: 'park:1213' }]],
+    ['a key that is not a key', [{ ...SECRET, key: 'outbox:1213 s2' }]],
+    ['a key used twice', [SECRET, { ...SECRET, text: 'again' }]],
+    ['an entry without its text', [{ ...SECRET, text: ' ' }]],
+    ['an entry without its repository', [{ ...SECRET, repo: undefined }]],
+    ['a repository that is not a name', [{ ...SECRET, repo: 'ai domain' }]],
+    ['a link that is not a web address', [{ ...SECRET, url: 'file:///etc/passwd' }]],
+    ['an entry with an unknown field', [{ ...SECRET, kind: 'business' }]],
+    ['more than 500 entries', Array.from({ length: 501 }, (_, i) => ({ ...SECRET, key: `park:${i + 1}`, source: 'park' }))],
+  ];
+  for (const [name, humanWork] of malformed) {
+    it(`400 on ${name}`, async () => {
+      const w = world();
+      const { status, body } = await w.send({ ...PUSH, humanWork });
+      expect(status).toBe(400);
+      expect(body?.error).toEqual(expect.any(String));
+      expect(w.fake.calls).toEqual([]);
+    });
+  }
+
+  it('a member of the workspace reads the human work, open first; another workspace reads none', async () => {
+    const w = world();
+    const { body } = await w.send({ ...PUSH, humanWork: [SECRET, ASK] });
+    await w.send({ ...PUSH, humanWork: [ASK] });
+    const id = body?.roadmapId ?? '';
+    expect((await roadmapReader(w.fake.client('bob-token') as never).humanWork(id)).map((h) => [h.key, h.state])).toEqual([
+      ['question:Q5', 'open'], ['outbox:1213/s2-01', 'done'],
+    ]);
+    expect(await roadmapReader(w.fake.client('carl-token') as never).humanWork(id)).toEqual([]);
+  });
+});
+
 describe('reading the roadmaps', () => {
   it('a member of the workspace reads the roadmap and its PRDs in order; another workspace reads nothing', async () => {
     const w = world();

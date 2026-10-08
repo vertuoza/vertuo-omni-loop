@@ -4,7 +4,8 @@
 //
 //   POST /api/roadmaps {repo, roadmap, title, milestone, product?, target?, source?, questions?, document,
 //                       prds: [{id, prd, title, repos?, blockers?, wave, state, waitsOn?, waitsOnUrl?,
-//                               startedAt?, endedAt?}]}
+//                               startedAt?, endedAt?}],
+//                       humanWork?: [{key, prd?, repo, source, text, act?, url?, ruleKind}]}
 //     → 201 a new roadmap, 200 one pushed again: {roadmapId, created, product, unknownProduct, note}
 //
 // The kit's `omni roadmap push` sends it: roadmap.md's front matter, the questions with any answer, the
@@ -14,6 +15,11 @@
 // rows on every push (roadmap_push(), supabase/migrations/20261110090000_roadmaps.sql). A product named
 // but unknown is filed under none: `unknownProduct` names it and `note` says it in one line.
 //
+// `humanWork` (PRD 1217) is every piece of human work the roadmap's PRDs wait on now, each with the kind
+// the kit's rules gave it. roadmap_push() keeps one row per key (supabase/migrations/
+// 20261113090000_roadmap_human_work.sql): a new key with its kind, a stored key keeping its own, a key
+// missing from the push done. A body without the field, from a kit before it, changes no stored entry.
+//
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed body, 401 no valid bearer
 // token, 403 a repository no workspace of the caller owns (with the App's install link after its hint),
 // 413 a body over its cap, 503 no database here or the sign-in service down, 500 the database failed.
@@ -22,7 +28,7 @@ import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { withInstallLink, type TokenCheck } from '../ask/auth';
 import { Line, receivePush, refuse, WebLink, When } from '../data/kit-push';
-import { RoadmapPrdState, RoadmapQuestion, RowIdSchema, roadmapStore, RoadmapStoreError, type RoadmapPush, type RoadmapPushAnswer } from './store';
+import { HumanWorkKey, HumanWorkKind, HumanWorkSource, RoadmapPrdState, RoadmapQuestion, RowIdSchema, roadmapStore, RoadmapStoreError, type RoadmapPush, type RoadmapPushAnswer } from './store';
 
 /** The largest push: a roadmap.md of two hundred rows and its PRDs, with room to spare. */
 export const MAX_PUSH_BYTES = 256 * 1024;
@@ -55,6 +61,20 @@ const Prd = z.strictObject({
   message: 'it ends before it starts', path: ['endedAt'],
 });
 
+/** A repository human work is in: the roadmap's own (owner/name) or a target's short name. */
+const WorkRepo = z.string().max(200).regex(/^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)?$/, 'a repository\'s name');
+
+const HumanWork = z.strictObject({
+  key: HumanWorkKey,
+  prd: PrdNumberSchema.nullable().default(null),
+  repo: WorkRepo,
+  source: HumanWorkSource,
+  text: Line(1000),
+  act: Line(4000).nullable().default(null),
+  url: WebLink.nullable().default(null),
+  ruleKind: HumanWorkKind,
+}).refine((work) => work.key.startsWith(`${work.source}:`), { message: 'its key is not its source\'s', path: ['key'] });
+
 const Push = z.strictObject({
   repo: z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/, 'owner/name'),
   roadmap: IssueNumberSchema,
@@ -66,8 +86,11 @@ const Push = z.strictObject({
   questions: z.array(RoadmapQuestion).max(100).default([]),
   document: z.string().min(1).max(200_000),
   prds: z.array(Prd).max(200),
+  humanWork: z.array(HumanWork).max(500).optional(),
 }).refine((push) => new Set(push.prds.map((p) => p.id)).size === push.prds.length, {
   message: 'a row id is used twice', path: ['prds'],
+}).refine((push) => push.humanWork === undefined || new Set(push.humanWork.map((h) => h.key)).size === push.humanWork.length, {
+  message: 'a key is used twice', path: ['humanWork'],
 });
 
 /** The status each refusal of the database answers with; any other failure is a 500. */
