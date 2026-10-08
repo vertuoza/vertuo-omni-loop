@@ -545,3 +545,160 @@ Undoing it means removing those two lines and adding a pinned copy of Claude Cod
 ```
 
 <!-- /omni-outbox-settled: s6-02-hud-outside-repo-checks -->
+
+<!-- omni-outbox-settled: s3-01-loop-roadmap-from-its-prds -->
+
+## s3-01-loop-roadmap-from-its-prds — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-loop-roadmap-from-its-prds
+prd: 1208
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+When a loop starts, how does it know which roadmap it drives, since the plan it starts from does not say?
+
+## The decision, in plain words
+
+The loop names the one roadmap whose list of PRDs is exactly the plan's list. If no roadmap or more than one matches, it names none and shows the plain loop instead.
+
+## The intro, for fun
+
+The loop set off on a journey and forgot to write down which map it was holding.
+
+## The punchline, for fun
+
+So it checks every map in the drawer and picks the one that matches its route.
+
+## The options, in plain words
+
+A. Match the plan's PRDs against the roadmaps of the inbox: the one roadmap with exactly those PRDs is the loop's (built).
+B. Have the planning step write the roadmap's number into the plan it makes, and read it at start.
+C. Add a roadmap flag to the start command and have the drive skill pass it.
+
+## What I had to decide
+
+Whether a loop's roadmap is guessed from its list of PRDs, or written down by the planning step that made the plan.
+
+## What I did meanwhile
+
+A loop started from a roadmap's plan shows that roadmap above the work; a loop over the same PRDs started without the roadmap shows the roadmap too.
+
+## What it costs to change later
+
+Moving to B is one field in the plan file, set where the roadmap plan is made, and read at start in place of the match: no data to migrate, since loop.json is rewritten at each start.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The planning step's own files belong to no slice of this PRD, so B could not be built here (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-loop-roadmap-from-its-prds -->
+
+<!-- omni-outbox-settled: s7-01-init-wires-the-band-outside-its-territory -->
+
+## s7-01-init-wires-the-band-outside-its-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: N-PRODUCT-6
+- Raised: 2026-10-08
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-init-wires-the-band-outside-its-territory
+prd: 1208
+slice: s7
+rank: medium
+bears-on: N-PRODUCT-6
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+Setting up the loop now also turns on the band above the prompt, which needed a small change to the setup command this piece of work was not given. Is it fine that setup now writes two settings outside its own folder instead of one?
+
+## The decision, in plain words
+
+Yes: setup now writes one more setting in the same shared settings file, the line that turns the band on, by the same care rules, and commits that file whenever either of its two lines is the loop's.
+
+## The intro, for fun
+
+The setup was allowed to touch exactly one setting. The band politely asked for a second one.
+
+## The punchline, for fun
+
+Same file, same manners, one more line.
+
+## The options, in plain words
+
+A. Setup writes the band's line too, wired by a two-line change in the setup command, and commits the settings file when either line is the loop's (built).
+B. Fold the band's line into the status-line writer so the setup command stays untouched; the settings file then goes uncommitted when the status line is someone else's but the band's line was added.
+C. Leave setup alone and ask each person to turn the band on themselves.
+
+## What I had to decide
+
+Whether setup may write the band's line in the shared settings file, through a small change to the setup command outside this slice's paths, and whether the rule that setup writes only the status line there should now name the band too.
+
+## What I did meanwhile
+
+Setup adds the band's line after the status line. The setup command calls the new writer and commits the settings file when either line is the loop's. A value someone else set is never touched.
+
+## What it costs to change later
+
+A constant: removing the one call in the setup command, and its printed line, takes setup back to the status line alone.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gave this slice the setup library and its tests but not the setup command, which is the only place the new writer can be called from.
+- (author) The knowledge entry saying setup writes only the status line outside its folder is still proposed and was not updated here: its folder is outside this slice.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-init-wires-the-band-outside-its-territory -->
