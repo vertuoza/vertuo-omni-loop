@@ -4,11 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 // signed out (marked so the page shows its sign-in card), closed with no database, the workspace's
 // roadmaps signed in, and not found for a roadmap the demo does not hold.
 
-const given = vi.hoisted((): { session: { kind: string; db?: unknown; user?: { id: string } } } => ({ session: { kind: 'sign-in' } }));
+const given = vi.hoisted((): { session: { kind: string; db?: unknown; user?: { id: string } }; open: boolean } => ({ session: { kind: 'sign-in' }, open: false }));
 const loadRoadmapPage = vi.hoisted(() => vi.fn(() => Promise.resolve({ kind: 'no-workspace' })));
 
 vi.mock('server-only', () => ({}));
 vi.mock('../../data/member-session', () => ({ memberSession: () => Promise.resolve(given.session) }));
+vi.mock('../../outbox/open', () => ({ sendOpen: () => given.open }));
 vi.mock('./load', async (actual) => ({ ...(await actual<typeof import('./load')>()), loadRoadmapPage }));
 
 const { roadmapPageView } = await import('./route');
@@ -40,6 +41,24 @@ describe('roadmapPageView', () => {
   it('reads the workspace\'s roadmaps as the person signed in', async () => {
     given.session = { kind: 'signed-in', db: { from: () => null, rpc: () => null }, user: { id: 'u-1' } };
     expect(await roadmapPageView(LIST, NOW)).toEqual({ kind: 'no-workspace' });
-    expect(loadRoadmapPage).toHaveBeenCalledWith(expect.anything(), LIST, NOW);
+    expect(loadRoadmapPage).toHaveBeenCalledWith(expect.anything(), { ...LIST, tickable: false }, NOW);
+  });
+
+  it('offers Mark as done to the person signed in only where marking is open (s7)', async () => {
+    given.session = { kind: 'signed-in', db: { from: () => null, rpc: () => null }, user: { id: 'u-1' } };
+    given.open = true;
+    await roadmapPageView({ id: DEMO_ROADMAP, product: null, ticked: 'p6' }, NOW);
+    expect(loadRoadmapPage).toHaveBeenLastCalledWith(expect.anything(), { id: DEMO_ROADMAP, product: null, ticked: 'p6', tickable: true }, NOW);
+    given.open = false;
+  });
+
+  it('never offers it on the demo', async () => {
+    given.session = { kind: 'demo' };
+    given.open = true;
+    const view = await roadmapPageView({ id: DEMO_ROADMAP, product: null, tab: 'prerequisites' }, NOW);
+    const rows = view.kind === 'roadmap' ? view.roadmap.prerequisites.groups.flatMap((g) => g.rows) : [];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.some((r) => r.tickable)).toBe(false);
+    given.open = false;
   });
 });

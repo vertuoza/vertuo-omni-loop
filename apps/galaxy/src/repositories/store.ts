@@ -9,7 +9,7 @@ import { rowOf, SavedRepository, type RepositoryRow } from './model';
 // a third, repository_set_product() of supabase/migrations/20261019090000_business_store.sql, any
 // member's: it points a repository at a product of the business, whose claims its agents then read.
 // PRD 1246 s4 adds a fourth, set_repository_public_ideas() of
-// supabase/migrations/20261114090000_ideas.sql, any member's too: it turns the repository's ideas board
+// supabase/migrations/20261115090000_ideas.sql, any member's too: it turns the repository's ideas board
 // public or private. At most one workspace makes a given repository's board public.
 
 export type Saved = { ok: true; repository: RepositoryRow } | { ok: false; message: string };

@@ -1272,6 +1272,66 @@ describe('the roadmap skills (PRD 1162)', () => {
   });
 });
 
+// PRD 1218, slice s8: a roadmap's prerequisites. `/omni:roadmap` and `/omni:mega-roadmap` write the
+// `## Prerequisites` rows (the base rows first, then what each PRD needs) with each card, show them on
+// the map by category, and run `omni roadmap prereqs <n> --fix` once the check is green, listing the
+// open rows in the hand-off. `/omni:drive` and `/omni:mega-drive` run it on the first tick and before
+// a PRD a prerequisite holds starts, and list the open ones when they stop.
+describe('the roadmap prerequisites in the skills (PRD 1218)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const missingInOrder = (text: string, mentions: string[]) => {
+    let from = 0;
+    return mentions.filter((mention) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) return true;
+      from = at + mention.length;
+      return false;
+    });
+  };
+  const PREREQS = 'omni.mjs roadmap prereqs <n> --fix';
+
+  it('/omni:roadmap writes the base rows and each PRD\'s rows with their four-line cards in roadmap.md', () => {
+    const text = read('roadmap');
+    const step1 = skillSection(text, '1. Read the source');
+    expect(step1).toMatch(/\*\*The prerequisites:\*\*/);
+    for (const base of ['`base:gh-auth`', '`base:node`', '`base:install`', '`base:labels`']) expect(step1, base).toContain(base);
+    expect(step1).toMatch(/blocking `all`/);
+    const step4 = skillSection(text, '4. The roadmap');
+    expect(missingInOrder(step4, ['## Open questions', '## Prerequisites', '| id | category | need | check | fix | blocks | who |', '### p', '**Why:**', '**Command:**', '**What it does:**', '**Who can do it:**'])).toEqual([]);
+  });
+
+  it('/omni:roadmap shows the prerequisites on the map by category, runs prereqs --fix once after the check, and lists the open ones in the hand-off', () => {
+    const text = read('roadmap');
+    expect(skillSection(text, '2. The map')).toMatch(/prerequisites[^\n]*grouped by category/i);
+    expect(missingInOrder(text, ['omni.mjs roadmap check <n>', PREREQS])).toEqual([]);
+    expect(skillSection(text, '6. Hand off')).toMatch(/`waits on you`[^]*first/);
+  });
+
+  it('/omni:mega-roadmap adds a repos cell to a prerequisite and never runs one in a clone', () => {
+    const text = read('mega-roadmap');
+    expect(skillSection(text, '2. The map')).toMatch(/prerequisites/i);
+    const step4 = skillSection(text, '4. The roadmap');
+    expect(step4).toContain('| id | category | need | check | fix | blocks | who | repos |');
+    expect(skillSection(text, '5. One phase-0 PR')).toContain(PREREQS);
+    expect(skillSection(text, '5. One phase-0 PR')).toMatch(/never in a clone/);
+  });
+
+  for (const skill of ['drive', 'mega-drive']) {
+    it(`/omni:${skill} runs prereqs --fix on the first tick and before a held PRD starts, and lists the open ones when it stops`, () => {
+      const text = read(skill);
+      expect(skillSection(text, '1. Open or resume'), skill).toContain(PREREQS);
+      expect(skillSection(text, '2. Read the step'), skill).toMatch(/waits on prerequisite/);
+      expect(skillSection(text, '5. Stop'), skill).toMatch(/open prerequisite/i);
+    });
+  }
+
+  it('/omni:drive runs prereqs before it reads the step, so omni next reads a fresh result', () => {
+    const step2 = skillSection(read('drive'), '2. Read the step');
+    expect(missingInOrder(step2, [PREREQS, 'omni.mjs next --json [--roadmap <n>]'])).toEqual([]);
+    expect(skillSection(read('drive'), '5. Stop')).toContain('waits on you');
+  });
+});
+
 // PRD 563: three skills build a PRD that spans repositories, from its plan repository, each beside
 // its single-repository twin and following it step for step. None merges into a default branch,
 // adds the outbox override, creates a label in a target, or runs anything there but its preflight.

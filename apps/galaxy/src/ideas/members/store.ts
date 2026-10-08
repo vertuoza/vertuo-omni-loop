@@ -1,6 +1,6 @@
 // A member's writes on an ideas board (PRD 1246, s4), as the signed-in person, so row-level security
 // has the last word: only a member of the repository's workspace adds or changes an idea, and nobody
-// deletes one (supabase/migrations/20261114090000_ideas.sql). An add files the idea as the terminal's
+// deletes one (supabase/migrations/20261115090000_ideas.sql). An add files the idea as the terminal's
 // `omni idea add` does (../api/store.ts). A change that touches no row was refused: row-level security
 // hides an idea a person may not change rather than failing. Each write answers its refusal in plain
 // words, or null. Also the read behind Work › Ideas: which board of the workspace the sidebar opens.

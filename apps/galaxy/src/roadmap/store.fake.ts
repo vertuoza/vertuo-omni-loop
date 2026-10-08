@@ -13,12 +13,20 @@
 //   with its rule kind, a stored key keeping its kind and reopened, a key missing from the push done at
 //   the push's time; a push without `humanWork` touches none.
 //
+// And roadmap_prerequisites_push() of 20261114090000_roadmap_prerequisites.sql (PRD 1218): refused
+// 42501 as above, 22023 for a roadmap not pushed yet; otherwise the roadmap's prerequisites replaced,
+// each with the state and the waiting detail of the result row naming it, and the result's machine
+// and time on the roadmap.
+//
 // The body is trusted: the route validated it, and the database's own checks are proved by
 // supabase/checks/roadmaps.sql, not here. Reading runs under the migration's policies: a member of the
 // roadmap's workspace reads it, its PRDs and its human work.
 import { parseIssue, parsePrd, type IssueNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { fakeClient, fakeRecorder, listOf, objectOf, placeRepo, refused, tableQuery, textOf, type FakeAccount, type FakeResult as Result } from '../data/repo-tables.fake';
-import { HumanWorkKind, HumanWorkSource, RoadmapPrdState, RoadmapQuestion, type RoadmapHumanWorkRow } from './store';
+import {
+  HumanWorkKind, HumanWorkSource, PrerequisiteCard, PrerequisiteCategory, PrerequisiteState, PrerequisiteWho, RoadmapPrdState, RoadmapQuestion,
+  type RoadmapHumanWorkRow, type RoadmapPrerequisiteRow,
+} from './store';
 
 export type { FakeAccount } from '../data/repo-tables.fake';
 
@@ -30,12 +38,15 @@ export type FakeWorkspace = { org: string; products: string[] };
 type FakeRoadmap = {
   id: string; workspace_id: string; repo: string; number: IssueNumber; title: string; milestone: string; product_id: string | null;
   target_date: string | null; source: string | null; questions: RoadmapQuestion[]; document: string; pushed_by: string | null;
-  created_at: string; pushed_at: string;
+  created_at: string; pushed_at: string; prerequisites_machine: string | null; prerequisites_checked_at: string | null;
 };
 type FakePrd = {
   roadmap_id: string; position: number; row_id: string; prd: PrdNumber; title: string; repos: string[]; blockers: string[];
   wave: number; state: RoadmapPrdState; waits_on: string | null; waits_on_url: string | null; started_at: string | null; ended_at: string | null;
 };
+
+/** A sent value read as trimmed text; null when it is none or empty. */
+const trimmedOf = (value: unknown) => textOf(value)?.trim() || null;
 
 const productId = (workspace: string, name: string) => `product:${workspace}:${name}`;
 
@@ -50,8 +61,8 @@ function workFields(entry: Row) {
 
 /** `accounts`: token → account. `workspaces`: workspace id → its org and products. `now`: the clock, in ms. */
 export function fakeRoadmaps(accounts: Record<string, FakeAccount>, workspaces: Record<string, FakeWorkspace>, now: () => number) {
-  const tables: { roadmaps: FakeRoadmap[]; roadmap_prds: FakePrd[]; roadmap_human_work: RoadmapHumanWorkRow[] } = {
-    roadmaps: [], roadmap_prds: [], roadmap_human_work: [],
+  const tables: { roadmaps: FakeRoadmap[]; roadmap_prds: FakePrd[]; roadmap_human_work: RoadmapHumanWorkRow[]; roadmap_prerequisites: RoadmapPrerequisiteRow[] } = {
+    roadmaps: [], roadmap_prds: [], roadmap_human_work: [], roadmap_prerequisites: [],
   };
   const { calls, at, newId } = fakeRecorder(now);
 
@@ -117,18 +128,26 @@ export function fakeRoadmaps(accounts: Record<string, FakeAccount>, workspaces: 
       Object.assign(found, fields);
       return { roadmap: found, created: false };
     }
-    const roadmap: FakeRoadmap = { id: newId(), workspace_id: workspace, repo, number, created_at: at(), ...fields };
+    const roadmap: FakeRoadmap = {
+      id: newId(), workspace_id: workspace, repo, number, created_at: at(), prerequisites_machine: null, prerequisites_checked_at: null, ...fields,
+    };
     tables.roadmaps.push(roadmap);
     return { roadmap, created: true };
   }
 
-  function roadmapPush(me: FakeAccount | null, args: Row): Result {
-    calls.push({ fn: 'roadmap_push', args });
-    if (!me) return refused('42501', 'Sign in first.');
+  /** A call of `fn`, recorded: its body and where its repository is placed for the caller, or the refusal. */
+  function placedCall(fn: string, me: FakeAccount | null, args: Row): { me: FakeAccount; body: Row; repo: string; workspace: string } | { refusal: Result } {
+    calls.push({ fn, args });
+    if (!me) return { refusal: refused('42501', 'Sign in first.') };
     const body = objectOf(args.p_body);
     const placed = placeRepo(me, body.repo, Object.keys(workspaces), (workspace) => workspaces[workspace]?.org);
+    return 'refusal' in placed ? placed : { me, body, ...placed };
+  }
+
+  function roadmapPush(caller: FakeAccount | null, args: Row): Result {
+    const placed = placedCall('roadmap_push', caller, args);
     if ('refusal' in placed) return placed.refusal;
-    const { repo, workspace } = placed;
+    const { me, body, repo, workspace } = placed;
     const { named, product } = productOf(workspace, body);
     const fields = fieldsOf(me, workspace, body, product);
     const { roadmap, created } = upsert(workspace, repo, parseIssue(Number(body.number)), fields);
@@ -141,6 +160,35 @@ export function fakeRoadmaps(accounts: Record<string, FakeAccount>, workspaces: 
     };
   }
 
+  /** A prerequisite as stored, with the state and the waiting detail of the result row naming it. */
+  function prerequisiteRow(roadmapId: string, value: unknown, index: number, results: Row[]): RoadmapPrerequisiteRow {
+    const row = objectOf(value);
+    const found = results.find((r) => r.id === row.id);
+    const state = PrerequisiteState.nullable().parse(found?.state ?? null);
+    return {
+      roadmap_id: roadmapId, position: index + 1, row_id: String(row.id), category: PrerequisiteCategory.parse(row.category),
+      need: String(row.need).trim(), check_with: trimmedOf(row.check), fix_with: trimmedOf(row.fix),
+      blocks_all: row.blocks === 'all', blocks: listOf(row.blocks).map(String), who: PrerequisiteWho.parse(row.who),
+      repos: listOf(row.repos).map((r) => String(r).toLowerCase()), card: PrerequisiteCard.nullable().parse(row.card ?? null),
+      state, detail: state === 'waits' ? trimmedOf(found?.detail)?.slice(0, 500) ?? null : null,
+    };
+  }
+
+  function prerequisitesPush(caller: FakeAccount | null, args: Row): Result {
+    const placed = placedCall('roadmap_prerequisites_push', caller, args);
+    if ('refusal' in placed) return placed.refusal;
+    const { body, repo, workspace } = placed;
+    const roadmap = tables.roadmaps.find((r) => r.workspace_id === workspace && r.repo === repo && r.number === Number(body.number));
+    if (roadmap === undefined) return refused('22023', 'Push the roadmap before its prerequisites.');
+    const result = objectOf(body.result);
+    const results = listOf(result.rows).map(objectOf);
+    const rows = listOf(body.prerequisites).map((value, index) => prerequisiteRow(roadmap.id, value, index, results));
+    tables.roadmap_prerequisites = [...tables.roadmap_prerequisites.filter((p) => p.roadmap_id !== roadmap.id), ...rows];
+    roadmap.prerequisites_machine = trimmedOf(result.machine);
+    roadmap.prerequisites_checked_at = textOf(result.checkedAt);
+    return { data: { roadmapId: roadmap.id, prerequisites: rows.length }, error: null };
+  }
+
   /** The reads of a caller, under the policies: a member of the roadmap's workspace reads it and its PRDs. */
   const reads = (mine: (workspace: string) => boolean) => {
     const roadmapIsMine = (roadmapId: string) => tables.roadmaps.some((r) => r.id === roadmapId && mine(r.workspace_id));
@@ -148,10 +196,16 @@ export function fakeRoadmaps(accounts: Record<string, FakeAccount>, workspaces: 
       if (table === 'roadmaps') return tableQuery(tables.roadmaps, (r) => mine(r.workspace_id));
       if (table === 'roadmap_prds') return tableQuery(tables.roadmap_prds, (p) => roadmapIsMine(p.roadmap_id));
       if (table === 'roadmap_human_work') return tableQuery(tables.roadmap_human_work, (h) => roadmapIsMine(h.roadmap_id));
+      if (table === 'roadmap_prerequisites') return tableQuery(tables.roadmap_prerequisites, (p) => roadmapIsMine(p.roadmap_id));
       throw new Error(`the fake reads no ${table}`);
     };
   };
-  const client = (token: string) => fakeClient(accounts, token, { fn: 'roadmap_push', call: roadmapPush, reads });
+  /** A client acting as `token`: rpc() answers roadmap_push() and roadmap_prerequisites_push(). */
+  const client = (token: string) => {
+    const base = fakeClient(accounts, token, { fn: 'roadmap_push', call: roadmapPush, reads });
+    const me = accounts[token] ?? null;
+    return { ...base, rpc: (name: string, args: Row) => (name === 'roadmap_prerequisites_push' ? Promise.resolve(prerequisitesPush(me, args)) : base.rpc(name, args)) };
+  };
 
   return { tables, calls, client, productId };
 }

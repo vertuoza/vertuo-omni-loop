@@ -2216,6 +2216,65 @@ export type Database = {
           },
         ]
       }
+      roadmap_prerequisites: {
+        Row: {
+          blocks: string[]
+          blocks_all: boolean
+          card: Json | null
+          category: string
+          check_with: string | null
+          detail: string | null
+          fix_with: string | null
+          need: string
+          position: number
+          repos: string[]
+          roadmap_id: string
+          row_id: string
+          state: string | null
+          who: string
+        }
+        Insert: {
+          blocks?: string[]
+          blocks_all?: boolean
+          card?: Json | null
+          category: string
+          check_with?: string | null
+          detail?: string | null
+          fix_with?: string | null
+          need: string
+          position: number
+          repos?: string[]
+          roadmap_id: string
+          row_id: string
+          state?: string | null
+          who: string
+        }
+        Update: {
+          blocks?: string[]
+          blocks_all?: boolean
+          card?: Json | null
+          category?: string
+          check_with?: string | null
+          detail?: string | null
+          fix_with?: string | null
+          need?: string
+          position?: number
+          repos?: string[]
+          roadmap_id?: string
+          row_id?: string
+          state?: string | null
+          who?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_prerequisites_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roadmaps: {
         Row: {
           created_at: string
@@ -2223,6 +2282,8 @@ export type Database = {
           id: string
           milestone: string
           number: number
+          prerequisites_checked_at: string | null
+          prerequisites_machine: string | null
           product_id: string | null
           pushed_at: string
           pushed_by: string | null
@@ -2239,6 +2300,8 @@ export type Database = {
           id?: string
           milestone: string
           number: number
+          prerequisites_checked_at?: string | null
+          prerequisites_machine?: string | null
           product_id?: string | null
           pushed_at?: string
           pushed_by?: string | null
@@ -2255,6 +2318,8 @@ export type Database = {
           id?: string
           milestone?: string
           number?: number
+          prerequisites_checked_at?: string | null
+          prerequisites_machine?: string | null
           product_id?: string | null
           pushed_at?: string
           pushed_by?: string | null
@@ -3666,6 +3731,7 @@ export type Database = {
         Args: { p_key: string; p_kind: string; p_roadmap: string }
         Returns: boolean
       }
+      roadmap_prerequisites_push: { Args: { p_body: Json }; Returns: Json }
       roadmap_push: { Args: { p_body: Json }; Returns: Json }
       set_jev_decision: {
         Args: {

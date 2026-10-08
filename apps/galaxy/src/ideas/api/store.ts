@@ -1,6 +1,6 @@
 // The ideas board's storage, as the terminal's calls reach it (PRD 1246, s2): a Supabase client acting as
 // the caller's access token, never a service key, so row-level security has the last word
-// (supabase/migrations/20261114090000_ideas.sql).
+// (supabase/migrations/20261115090000_ideas.sql).
 //
 // - `add` files the idea in the caller's own workspace that lists the repository: the one repository
 //   row the caller may read for it (a member reads only their workspace's), the earliest added. None is

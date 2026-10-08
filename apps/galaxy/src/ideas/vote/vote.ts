@@ -3,7 +3,7 @@
 //
 // - Signed in, a press adds the reader's vote, and a second press takes it back: the count moves by
 //   one each time. The database holds one vote per (idea, account) and lets a person add and remove
-//   only their own, on a public board (supabase/migrations/20261114090000_ideas.sql).
+//   only their own, on a public board (supabase/migrations/20261115090000_ideas.sql).
 // - Signed out, a press starts a GitHub sign-in with no `read:org` (a voter needs no workspace) that
 //   comes back through the galaxy's callback with `next=ideas`, the board and the idea: the callback
 //   counts the vote and lands back on the board (./callback.ts), never on /signup.

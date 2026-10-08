@@ -42,7 +42,7 @@ describe('readBoard', () => {
 
 describe('the migration', () => {
   const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../${path}`, import.meta.url)), 'utf8');
-  const migration = read('supabase/migrations/20261114090000_ideas.sql');
+  const migration = read('supabase/migrations/20261115090000_ideas.sql');
   const board = /create function public\.ideas_board[\s\S]*?\n\$\$;/.exec(migration)?.[0] ?? '';
 
   it('answers every key the schema reads, and no other', () => {
