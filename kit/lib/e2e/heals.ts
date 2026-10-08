@@ -19,19 +19,23 @@ const step = ({ testId, callIndex, summary, actions }: Recording): Step => ({ te
 const order = (a: { testId: string; callIndex: number }, b: { testId: string; callIndex: number }): number =>
   a.testId < b.testId ? -1 : a.testId > b.testId ? 1 : a.callIndex - b.callIndex;
 
+/** The steps on both sides with different actions, the recording at `base` and the one at `head`. */
+export function pairHealed(base: readonly Recording[], head: readonly Recording[]): { before: Recording; after: Recording }[] {
+  const before = new Map(base.map((recording) => [key(recording), recording]));
+  return head.flatMap((after) => {
+    const was = before.get(key(after));
+    return was !== undefined && !same(was.actions, after.actions) ? [{ before: was, after }] : [];
+  });
+}
+
 /** Pairs `base` with `head` by test id and call index; an identical step is not listed. Healed steps carry the head's summary. */
 export function compareRecordings(base: readonly Recording[], head: readonly Recording[]): Heals {
   const before = new Map(base.map((recording) => [key(recording), recording]));
   const after = new Map(head.map((recording) => [key(recording), recording]));
-  const healed: Healed[] = [];
-  const added: Step[] = [];
-  for (const [k, now] of after) {
-    const was = before.get(k);
-    if (was === undefined) added.push(step(now));
-    else if (!same(was.actions, now.actions)) {
-      healed.push({ testId: now.testId, callIndex: now.callIndex, summary: now.summary, old: was.actions, new: now.actions });
-    }
-  }
+  const healed: Healed[] = pairHealed(base, head).map(({ before: was, after: now }) => (
+    { testId: now.testId, callIndex: now.callIndex, summary: now.summary, old: was.actions, new: now.actions }
+  ));
+  const added: Step[] = [...after].filter(([k]) => !before.has(k)).map(([, now]) => step(now));
   const removed = [...before].filter(([k]) => !after.has(k)).map(([, recording]) => step(recording));
   return { healed: healed.sort(order), new: added.sort(order), removed: removed.sort(order) };
 }
