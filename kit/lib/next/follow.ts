@@ -27,9 +27,9 @@ import type { Verdict } from './decide.ts';
 import type { LoopPlan, PlanSliceInput, Step } from './plan.ts';
 import type { Gate } from './roadmap.ts';
 
-/** What a PRD runs now, as GitHub shows it: a wave holding live claims on `slices`, or its finish
- * (finish, yolo-fix or PR care) holding the in-progress label; `since` is when it was last seen to. */
-export type Running = { kind: 'wave'; slices: WorkSliceId[]; since: string } | { kind: 'finish'; since: string };
+/** What a PRD runs now, as GitHub shows it: live claims on `slices`, or its feature PR's in-progress
+ * label with a fresh status comment (its finish, yolo-fix or PR care); `since` is when it was seen to. */
+export type Running = { kind: 'claims'; slices: WorkSliceId[]; since: string } | { kind: 'label'; since: string };
 
 /** What a tick read live. */
 export type Live = {
@@ -144,16 +144,21 @@ type Busy = { step: Step; running: boolean };
 
 /** A step in words, for a held line: `step 4 (PRD 12 w1, running)`. */
 function stepRef({ step, running }: Busy): string {
-  const what = step.kind !== 'wave' ? step.kind : step.wave === null ? 'slices with no wave' : `w${step.wave}`;
-  return `step ${step.step} (PRD ${step.prd} ${what}, ${running ? 'running' : 'starting'})`;
+  return `step ${step.step} (${stepWhat(step)}, ${running ? 'running' : 'starting'})`;
 }
 
-/** The step PRD `prd`'s running work is: the wave holding its claims, or its finish; else its first
- * step not done. */
+/** What a step is, in a few words: `PRD 12 w1`, `PRD 12 finish`. */
+export function stepWhat(step: Step): string {
+  const what = step.kind !== 'wave' ? step.kind : step.wave === null ? 'slices with no wave' : `w${step.wave}`;
+  return `PRD ${step.prd} ${what}`;
+}
+
+/** The step PRD `prd` runs: the wave holding its claims; else, with its label on, its first step not
+ * done, whichever the agent holding the label is on. */
 function runningStep(prd: PrdNumber, running: Running, plan: LoopPlan, done: ReadonlySet<number>): Step | undefined {
   const own = plan.steps.filter((step) => step.prd === prd && !done.has(step.step));
-  const found = running.kind === 'wave' ? own.find((step) => step.kind === 'wave' && step.slices.some((id) => running.slices.includes(id))) : own.find((step) => step.kind === 'finish');
-  return found ?? own[0];
+  const claimed = running.kind === 'claims' ? own.find((step) => step.kind === 'wave' && step.slices.some((id) => running.slices.includes(id))) : undefined;
+  return claimed ?? own[0];
 }
 
 /** The ground `step` stands on: its slices, or for a finish every slice of its PRD; none for a plan. */

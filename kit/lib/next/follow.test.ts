@@ -268,7 +268,7 @@ describe('followSteps', () => {
 
   it('a step running counts against the slots, and its PRD gets no second step', () => {
     const four = planLoop({ prds: disjoint, shipped: [] });
-    const running: Record<number, Running> = { 7: { kind: 'wave', slices: [S1], since: NOW } };
+    const running: Record<number, Running> = { 7: { kind: 'claims', slices: [S1], since: NOW } };
     const pool = followSteps(four, pooled(disjoint, [act(P7), act(P8), act(P9), act(P10)], { running }), 3);
     expect(pool.running.map(({ step, since }) => `${step.step}:${step.prd}:${since}`)).toEqual([`1:7:${NOW}`]);
     expect(steps(pool)).toEqual(['2:8', '3:9']);
@@ -276,22 +276,29 @@ describe('followSteps', () => {
   });
 
   it('a running step holds every step sharing its ground', () => {
-    const running: Record<number, Running> = { 7: { kind: 'wave', slices: [S1], since: NOW } };
+    const running: Record<number, Running> = { 7: { kind: 'claims', slices: [S1], since: NOW } };
     const pool = followSteps(plan, pooled(colliding, [wait(P7), act(P8), act(P9)], { running }), 3);
     expect(steps(pool)).toEqual(['2:9']);
     expect(held(pool)).toEqual(['4:a/ shared with step 1 (PRD 7 w1, running)']);
   });
 
   it('a PRD running another step than its first one not done holds that one: no two steps of one PRD', () => {
-    const running: Record<number, Running> = { 7: { kind: 'finish', since: NOW } };
+    const running: Record<number, Running> = { 7: { kind: 'claims', slices: [parseWorkSliceId('s2')], since: NOW } };
     const pool = followSteps(plan, pooled(colliding, [act(P7), done(P8), done(P9)], { running }), 3);
-    expect(pool.running.map(({ step }) => step.step)).toEqual([6]);
+    expect(pool.running.map(({ step }) => step.step)).toEqual([3]);
     expect(pool.steps).toEqual([]);
-    expect(held(pool)).toEqual(['1:PRD 7 runs step 6 (PRD 7 finish, running)']);
+    expect(held(pool)).toEqual(['1:PRD 7 runs step 3 (PRD 7 w2, running)']);
+  });
+
+  it('a feature PR holding the in-progress label runs its first step not done, whatever it is', () => {
+    const running: Record<number, Running> = { 7: { kind: 'label', since: NOW } };
+    const finishing = followSteps(plan, pooled(colliding, [act(P7), done(P8), done(P9)], { merged: { 7: ['s1', 's2'] }, running }), 3);
+    expect(finishing.running.map(({ step }) => `${step.step}:${step.kind}`)).toEqual(['6:finish']);
+    expect(followSteps(plan, pooled(colliding, [act(P7), done(P8), done(P9)], { running }), 3).running.map(({ step }) => step.step)).toEqual([1]);
   });
 
   it('a PRD that is done runs nothing, whatever was read of it', () => {
-    const running: Record<number, Running> = { 9: { kind: 'finish', since: NOW } };
+    const running: Record<number, Running> = { 9: { kind: 'label', since: NOW } };
     expect(followSteps(plan, pooled(colliding, [act(P7), act(P8), done(P9)], { running }), 3).running).toEqual([]);
   });
 
