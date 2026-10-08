@@ -1,11 +1,15 @@
 // `omni roadmap check [<n>]` and `omni check inbox` on a roadmap, through `main()` (PRD 1162, s4);
-// `omni roadmap push` and `omni roadmap answer` (s6).
+// `omni roadmap push` and `omni roadmap answer` (s6); `omni roadmap prereqs` and `omni roadmap tick` (PRD 1218, s3).
 import type { ExecFileSyncOptions } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CALL_TIMEOUT_MS } from '../lib/ask/client.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
-import { parseCommentId } from '../lib/ids.ts';
+import { parseCommentId, parseIssue } from '../lib/ids.ts';
 import { answerComment, readAnswers } from '../lib/roadmap/answers.ts';
+import { readLastResult } from '../lib/roadmap/prereqs/last.ts';
+import { readTicks, tickComment } from '../lib/roadmap/prereqs/ticks.ts';
 import { makeRepo, realExec } from '../test/fixture.ts';
 import type { FetchInit } from '../test/fixture.ts';
 import { main } from './omni.ts';
@@ -386,5 +390,219 @@ describe('omni roadmap answer', () => {
   it('stops with one line when GitHub cannot take the comment', async () => {
     const { root } = pushRepo();
     expect(await omni(['roadmap', 'answer', '1200', 'Q5', 'yes'], { root, exec: fakeGh({ down: true }).exec })).toEqual({ code: 1, out: '', err: 'github unreachable\n' });
+  });
+});
+
+// ── PRD 1218, slice s3: `omni roadmap prereqs` and `omni roadmap tick` ──────────────────────────────
+// Through `main()` with `gh` stubbed as above and the prerequisites' command runner stubbed (never the
+// real machine): `docker info` fails or answers as the test says, `git ls-files` lists one tracked
+// `.env.example`, and anything else exits 0. The machine's name and the clock are handed in.
+
+const PREREQS = [
+  WITH_QUESTIONS.trimEnd(),
+  '',
+  '## Prerequisites',
+  '',
+  '| id | category | need | check | fix | blocks | who |',
+  '|---|---|---|---|---|---|---|',
+  '| p1 | local | Docker is running, for the database tests | `base:docker` | | P2 | check |',
+  '| p2 | local | each settings example has its settings file | `base:env-file` | `base:env-file` | all | agent |',
+  '| p3 | permissions | the preview has its database secret | | | P3 | person |',
+  '| p4 | access | the registry answers | `npm ping` | | all | check |',
+  '',
+  '### p1',
+  '',
+  '- **Why:** The tests start a database in Docker.',
+  '- **Command:** `open -a Docker`',
+  '- **What it does:** Starts the Docker app on your Mac.',
+  '- **Who can do it:** Anyone with this laptop.',
+  '',
+  '### p3',
+  '',
+  '- **Why:** The preview needs its database.',
+  '- **Command:** `vercel env add DATABASE_URL preview`',
+  '- **What it does:** Adds the secret to the preview.',
+  '- **Who can do it:** Whoever owns the Vercel project.',
+  '',
+  '### p4',
+  '',
+  '- **Why:** The libraries come from the registry.',
+  '- **Command:** `npm ping`',
+  '- **What it does:** Asks the registry whether it answers.',
+  '- **Who can do it:** An engineer of your team.',
+  '',
+].join('\n');
+
+const MACHINE = 'pierre-mac';
+const NOW = new Date('2026-10-08T09:00:00.000Z');
+const TICK_P3 = { id: 7, body: '<!-- omni-roadmap-tick: p3 -->\nPrerequisite **p3** is done.\n' };
+
+function prereqsRepo(text = PREREQS) {
+  return makeRepo({ git: true, files: { ...PUSH_CONFIG(), ...SPECS, '.env.example': 'A=1\n', [`${IN}/roadmaps/1200-crew/roadmap.md`]: text } });
+}
+
+/** A command runner that answers as this machine would: Docker up or down. */
+function stubShell({ docker = false }: { docker?: boolean } = {}) {
+  const ran: string[] = [];
+  const shell = (file: string, args: readonly string[]) => {
+    ran.push([file, ...args].join(' '));
+    if (file === 'docker') return Promise.resolve(docker ? { code: 0, stdout: '', stderr: '' } : { code: 1, stdout: '', stderr: 'Cannot connect to the Docker daemon' });
+    if (file === 'git' && args[0] === 'ls-files') return Promise.resolve({ code: 0, stdout: '.env.example\n', stderr: '' });
+    return Promise.resolve({ code: 0, stdout: '', stderr: '' });
+  };
+  return { ran, shell };
+}
+
+async function prereqs(argv: string[], { root, exec = fakeGh().exec, fetch = stubFetch(pushed()).fetch, docker = false }: { root: string; exec?: ReturnType<typeof fakeGh>['exec']; fetch?: unknown; docker?: boolean }) {
+  const s = io();
+  const { ran, shell } = stubShell({ docker });
+  const code = await main(argv, { cwd: root, exec, env: {}, tokens: signedIn(), fetch, prereqShell: shell, machine: MACHINE, now: () => NOW, stdout: s.stdout, stderr: s.stderr });
+  return { code, out: s.out.join(''), err: s.err.join(''), ran };
+}
+
+describe('omni roadmap prereqs', () => {
+  it('prints one line per row grouped by category, the command of each that waits on you, and exits 1', async () => {
+    const { root } = prereqsRepo();
+    const { code, out, err } = await prereqs(['roadmap', 'prereqs', '1200'], { root });
+    expect(err).toBe('');
+    expect(code).toBe(1);
+    expect(out).toBe([
+      `roadmap 1200 — prerequisites on ${MACHINE}: 1 ok · 3 wait on you`,
+      'local',
+      '  p1 waits on you — Docker is running, for the database tests (docker info exited 1: Cannot connect to the Docker daemon)',
+      '     run: open -a Docker',
+      '  p2 waits on you — each settings example has its settings file (missing: .env)',
+      'access',
+      '  p4 ok — the registry answers',
+      'permissions',
+      '  p3 waits on you — the preview has its database secret (nobody has marked it done)',
+      '     run: vercel env add DATABASE_URL preview',
+      `roadmap 1200: the page is updated — ${BASE}/roadmaps/${ROADMAP_ID}`,
+      '',
+    ].join('\n'));
+  });
+
+  it('with --fix, fixes an agent row, reads the ticks, and exits 0 once every row is ok, fixed or ticked', async () => {
+    const { root, read } = prereqsRepo();
+    const { code, out, ran } = await prereqs(['roadmap', 'prereqs', '1200', '--fix'], { root, exec: fakeGh({ comments: [TICK_P3] }).exec, docker: true });
+    expect(code).toBe(0);
+    expect(out).toContain(`roadmap 1200 — prerequisites on ${MACHINE}: 2 ok · 1 fixed · 1 ticked\n`);
+    expect(out).toContain('  p2 fixed — each settings example has its settings file\n');
+    expect(out).toContain('  p3 ticked — the preview has its database secret\n');
+    expect(read('.env')).toBe('A=1\n');
+    expect(ran).toContain('sh -c npm ping');
+  });
+
+  it('runs no fix without --fix', async () => {
+    const { root } = prereqsRepo();
+    await prereqs(['roadmap', 'prereqs', '1200'], { root });
+    expect(existsSync(join(root, '.env'))).toBe(false);
+  });
+
+  it('pushes every row, its state, the machine and the time, and keeps the result for this machine', async () => {
+    const { root } = prereqsRepo();
+    const { calls, fetch } = stubFetch(pushed());
+    await prereqs(['roadmap', 'prereqs', '1200'], { root, fetch, exec: fakeGh({ comments: [TICK_P3] }).exec });
+    const body = calls[0]?.body as Record<string, unknown>;
+    const dockerCard: unknown = expect.objectContaining({ command: 'open -a Docker' });
+    expect(body.prerequisites).toEqual([
+      expect.objectContaining({ id: 'p1', category: 'local', who: 'check', blocks: ['P2'], card: dockerCard }),
+      expect.objectContaining({ id: 'p2', who: 'agent', blocks: 'all', card: null }),
+      expect.objectContaining({ id: 'p3', who: 'person', blocks: ['P3'] }),
+      expect.objectContaining({ id: 'p4', who: 'check', check: 'npm ping' }),
+    ]);
+    const result = {
+      machine: MACHINE,
+      checkedAt: NOW.toISOString(),
+      rows: [
+        { id: 'p1', state: 'waits', detail: 'docker info exited 1: Cannot connect to the Docker daemon' },
+        { id: 'p2', state: 'waits', detail: 'missing: .env' },
+        { id: 'p3', state: 'ticked', detail: null },
+        { id: 'p4', state: 'ok', detail: null },
+      ],
+    };
+    expect(body.prerequisiteResult).toEqual(result);
+    expect(readLastResult(root, parseIssue(1200), MACHINE)).toEqual({ roadmap: 1200, ...result });
+  });
+
+  it('says in one line when the page cannot be reached, and leaves the exit code unchanged', async () => {
+    const down = stubFetch(() => { throw new TypeError('fetch failed'); });
+    const red = await prereqs(['roadmap', 'prereqs', '1200'], { root: prereqsRepo().root, fetch: down.fetch });
+    expect(red.code).toBe(1);
+    expect(red.err).toBe('roadmap 1200: the page is not updated (unreachable)\n');
+    const green = await prereqs(['roadmap', 'prereqs', '1200', '--fix'], { root: prereqsRepo().root, fetch: down.fetch, exec: fakeGh({ comments: [TICK_P3] }).exec, docker: true });
+    expect(green.code).toBe(0);
+    expect(green.err).toBe('roadmap 1200: the page is not updated (unreachable)\n');
+  });
+
+  it('with --json, prints the result alone on stdout', async () => {
+    const { root } = prereqsRepo();
+    const { code, out } = await prereqs(['roadmap', 'prereqs', '1200', '--json'], { root });
+    expect(code).toBe(1);
+    const parsed = JSON.parse(out) as { roadmap: number; machine: string; checkedAt: string; rows: Array<{ id: string; category: string; state: string; command: string | null }> };
+    expect(parsed).toMatchObject({ roadmap: 1200, machine: MACHINE, checkedAt: NOW.toISOString() });
+    expect(parsed.rows.map((row) => [row.id, row.category, row.state, row.command])).toEqual([
+      ['p1', 'local', 'waits', 'open -a Docker'],
+      ['p2', 'local', 'waits', null],
+      ['p4', 'access', 'ok', 'npm ping'],
+      ['p3', 'permissions', 'waits', 'vercel env add DATABASE_URL preview'],
+    ]);
+  });
+
+  it('passes a roadmap without prerequisites, pushing nothing', async () => {
+    const { root } = pushRepo();
+    const { calls, fetch } = stubFetch(pushed());
+    const { code, out } = await prereqs(['roadmap', 'prereqs', '1200'], { root, fetch });
+    expect(code).toBe(0);
+    expect(out).toBe('roadmap 1200 — no prerequisites: nothing to check.\n');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('lets omni roadmap push carry the last result of this machine, and no other', async () => {
+    const { root } = prereqsRepo();
+    await prereqs(['roadmap', 'prereqs', '1200'], { root });
+    const s = io();
+    const here = stubFetch(pushed());
+    expect(await main(['roadmap', 'push', '1200'], { cwd: root, exec: fakeGh().exec, env: {}, tokens: signedIn(), fetch: here.fetch, machine: MACHINE, stdout: s.stdout, stderr: s.stderr })).toBe(0);
+    expect((here.calls[0]?.body as Record<string, unknown>).prerequisiteResult).toMatchObject({ machine: MACHINE, checkedAt: NOW.toISOString() });
+    const elsewhere = stubFetch(pushed());
+    await main(['roadmap', 'push', '1200'], { cwd: root, exec: fakeGh().exec, env: {}, tokens: signedIn(), fetch: elsewhere.fetch, machine: 'other-mac', stdout: s.stdout, stderr: s.stderr });
+    expect((elsewhere.calls[0]?.body as Record<string, unknown>).prerequisiteResult).toBeNull();
+  });
+
+  it('exits 2 with one line on an unknown roadmap or a bad argument', async () => {
+    const { root } = prereqsRepo();
+    const unknown = await prereqs(['roadmap', 'prereqs', '1300'], { root });
+    expect(unknown).toMatchObject({ code: 2, err: "omni roadmap prereqs: roadmap 1300 has no folder under the inbox's roadmaps.\n" });
+    expect((await prereqs(['roadmap', 'prereqs'], { root })).code).toBe(2);
+    expect((await prereqs(['roadmap', 'prereqs', 'x'], { root })).code).toBe(2);
+  });
+});
+
+describe('omni roadmap tick', () => {
+  it('posts the marker comment on the roadmap issue, which reads back as a tick', async () => {
+    const { root } = prereqsRepo();
+    const { exec, posted } = fakeGh();
+    const { code, out } = await omni(['roadmap', 'tick', '1200', 'p3'], { root, exec });
+    expect(code).toBe(0);
+    expect(out).toBe('roadmap 1200: p3 ticked — https://github.com/acme/widgets/issues/1200#issuecomment-99\n');
+    expect(posted).toEqual([{ path: 'repos/acme/widgets/issues/1200/comments', body: tickComment('p3') }]);
+    expect(readTicks([{ id: parseCommentId(99), body: posted[0]?.body }])).toEqual(new Set(['p3']));
+  });
+
+  it('refuses an id that is not a person row, exit 2, posting nothing', async () => {
+    const { root } = prereqsRepo();
+    const { exec, posted } = fakeGh();
+    const checked = await omni(['roadmap', 'tick', '1200', 'p1'], { root, exec });
+    expect(checked).toEqual({ code: 2, out: '', err: 'omni roadmap tick: p1 is a check row of roadmap 1200 — only a person row is ticked (its person rows: p3).\n' });
+    const unknown = await omni(['roadmap', 'tick', '1200', 'p9'], { root, exec });
+    expect(unknown).toEqual({ code: 2, out: '', err: 'omni roadmap tick: roadmap 1200 has no prerequisite p9 (its person rows: p3).\n' });
+    expect((await omni(['roadmap', 'tick', '1200'], { root, exec })).code).toBe(2);
+    expect(posted).toEqual([]);
+  });
+
+  it('stops with one line when GitHub cannot take the comment', async () => {
+    const { root } = prereqsRepo();
+    expect(await omni(['roadmap', 'tick', '1200', 'p3'], { root, exec: fakeGh({ down: true }).exec })).toEqual({ code: 1, out: '', err: 'github unreachable\n' });
   });
 });
