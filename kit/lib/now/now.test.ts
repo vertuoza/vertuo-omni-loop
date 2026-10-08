@@ -3,10 +3,11 @@
 // "doing" line, and the plain lines. Pure: no git, no disk.
 import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd } from '../ids.ts';
-import { LOOP_HEADLINE, NOTHING, nowOfFix, nowOfPrd, nowLines, roadmapHeadline, underHeadline, workStage } from './now.ts';
+import { linked, loopHeadline, NOTHING, nowOfFix, nowOfPrd, nowLines, roadmapHeadline, underHeadline, workStage } from './now.ts';
 
 const slice = (id: string, state: string, name?: string) => ({ id, wave: 1, state, ...(name ? { name } : {}) });
 const BUILDING = [slice('s1', 'merged', 'base'), slice('s3', 'in-flight', 'tabs'), slice('s4', 'claimed-stale', 'board'), slice('s5', 'stuck'), slice('s6', 'blocked', 'later')];
+const LOOP_HEADLINE = loopHeadline(null);
 const PRD = { number: parsePrd(315), topic: 'help-and-status', stage: 'outbox' as const };
 
 describe('the stage of a PRD', () => {
@@ -99,6 +100,7 @@ describe('the headline', () => {
   it('names a roadmap with its PRDs merged over its rows, and a loop with no roadmap', () => {
     expect(roadmapHeadline(parseIssue(7), 3, 7)).toEqual({ kind: 'roadmap', number: 7, progress: '3/7 merged', links: [] });
     expect(LOOP_HEADLINE).toEqual({ kind: 'loop', links: [] });
+    expect(loopHeadline('https://omni.example/app/loop/l-1')).toEqual({ kind: 'loop', links: [{ label: 'loop page', href: 'https://omni.example/app/loop/l-1' }] });
   });
 
   it("puts the work under it, and the loop's last step as what it is doing", () => {
@@ -125,5 +127,39 @@ describe('the headline', () => {
     ]);
     expect(nowLines(underHeadline(NOTHING, headline, null))).toEqual(['roadmap 7 · 3/7 merged']);
     expect(nowLines(underHeadline(NOTHING, LOOP_HEADLINE, LAST))).toEqual(['loop', 'step 4: wave PRD 315 · s3 merged']);
+  });
+});
+
+// PRD #1208, slice s4: the links the background refresh kept, added to the answer; a fix whose
+// links hold its pull request reads `fix PR open` until its folder is on the base.
+describe('the links', () => {
+  const page = (href: string) => ({ label: 'page', href });
+  const kept: Record<string, { label: string; href: string }[]> = {
+    'prd-315': [page('p/315'), { label: 'feature PR #12', href: 'pr/12' }],
+    'bug-1180': [page('b/1180'), { label: 'fix PR #40', href: 'pr/40' }],
+    'visual-1150': [page('v/1150')],
+    'roadmap-7': [{ label: 'roadmap page', href: 'r/7' }],
+  };
+  const linksOf = (kind: string, n: number) => kept[`${kind}-${n}`] ?? [];
+  const bug = (merged: boolean) => nowOfFix({ kind: 'bug', number: parseIssue(1180), topic: 'login', merged });
+
+  it("adds the work's links, and a roadmap headline's", () => {
+    const answer = underHeadline(nowOfPrd({ ...PRD, slices: BUILDING }), roadmapHeadline(parseIssue(7), 3, 7), null);
+    const withLinks = linked(answer, linksOf);
+    expect(withLinks.work?.links).toEqual(kept['prd-315']);
+    expect(withLinks.headline?.links).toEqual(kept['roadmap-7']);
+    expect(linked(NOTHING, linksOf)).toEqual(NOTHING);
+  });
+
+  it("keeps a loop headline's own link", () => {
+    const headline = loopHeadline('l/1');
+    expect(linked(underHeadline(NOTHING, headline, null), linksOf).headline).toEqual(headline);
+  });
+
+  it('reads a fix not merged whose links hold its pull request as fix PR open', () => {
+    expect(linked(bug(false), linksOf).work).toMatchObject({ stage: 'fix PR open', links: kept['bug-1180'] });
+    expect(linked(bug(true), linksOf).work?.stage).toBe('merged');
+    expect(linked(nowOfFix({ kind: 'visual', number: parseIssue(1150), topic: 'sidebar', merged: false }), linksOf).work?.stage).toBe('in progress');
+    expect(nowLines(linked(bug(false), linksOf))).toEqual(['bug #1180 login · fix PR open']);
   });
 });
