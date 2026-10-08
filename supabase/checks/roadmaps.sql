@@ -7,7 +7,9 @@
 -- product named but unknown, or another workspace's, is stored as none and said in the answer. Nobody
 -- signed in writes the two tables directly, and a roadmap never points at another workspace's product.
 -- A member of the workspace reads the roadmap and its PRDs; an account of another workspace, of none,
--- or signed out, nothing. A loop's tick keeps the repositories it touched. One transaction, rolled back
+-- or signed out, nothing. A loop's tick keeps the repositories it touched. A roadmap's prerequisites
+-- (PRD 1218) are stored in order with their cards and the state their last result gives, replaced by
+-- each roadmap_prerequisites_push(), and read by the workspace's members alone. One transaction, rolled back
 -- at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -251,6 +253,144 @@ begin
     perform public.loop_push('tick', loop_a, '{"step": 2, "steps": 2, "prd": 1213, "action": "wait", "result": "x", "repos": ["crew api"], "nextWakeAt": null}');
     raise exception 'FAIL: a tick''s repository that is not a name was taken';
   exception when invalid_parameter_value then null; end;
+end $$;
+reset role;
+
+-- ── A roadmap's prerequisites and their last result (PRD 1218) ──
+-- The prerequisites of roadmap 1200 and this machine's last result, its fields overridden by `extra`.
+create function pg_temp.prerequisites_body(extra jsonb default '{}'::jsonb) returns jsonb language sql as $$
+  select jsonb_build_object(
+    'repo', 'Vertuoza/Vertuo-Omni-Loop', 'number', 1200,
+    'prerequisites', jsonb_build_array(
+      jsonb_build_object('id', 'p1', 'category', 'local', 'need', 'Docker is running, for the database tests', 'check', 'base:docker',
+                         'fix', null, 'blocks', jsonb_build_array('P1.1'), 'who', 'check', 'repos', jsonb_build_array(),
+                         'card', jsonb_build_object('why', 'The tests start a database in Docker.', 'command', 'open -a Docker',
+                                                    'whatItDoes', 'Starts the Docker app on your Mac.', 'whoCanDoIt', 'Anyone with this laptop.')),
+      jsonb_build_object('id', 'p2', 'category', 'access', 'need', 'The dependencies install', 'check', 'base:install',
+                         'fix', 'base:install', 'blocks', 'all', 'who', 'agent', 'repos', jsonb_build_array('Crew'), 'card', null),
+      jsonb_build_object('id', 'p3', 'category', 'permissions', 'need', 'The Vercel preview has DATABASE_URL', 'check', null,
+                         'fix', null, 'blocks', jsonb_build_array('P1.1'), 'who', 'person', 'repos', jsonb_build_array(),
+                         'card', jsonb_build_object('why', 'The preview reads the database.', 'command', 'vercel env add DATABASE_URL preview',
+                                                    'whatItDoes', 'Adds the secret to the previews.', 'whoCanDoIt', 'An admin of the Vercel project.'))),
+    'result', jsonb_build_object('machine', 'pierre-mac', 'checkedAt', '2026-10-08T09:00:00Z', 'rows', jsonb_build_array(
+      jsonb_build_object('id', 'p1', 'state', 'waits', 'detail', 'docker info exited 1'),
+      jsonb_build_object('id', 'p2', 'state', 'fixed', 'detail', null),
+      jsonb_build_object('id', 'p9', 'state', 'ok', 'detail', null)))
+  ) || extra;
+$$;
+
+set local role anon;
+do $$
+begin
+  begin perform 1 from public.roadmap_prerequisites limit 1; raise exception 'FAIL: anon read the roadmap prerequisites';
+  exception when insufficient_privilege then null; end;
+  begin perform public.roadmap_prerequisites_push(pg_temp.prerequisites_body()); raise exception 'FAIL: anon pushed prerequisites';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+declare
+  roadmap uuid := (select id from pg_temp.ids where name = 'crew');
+  answer  jsonb;
+begin
+  answer := public.roadmap_prerequisites_push(pg_temp.prerequisites_body());
+  if (answer ->> 'roadmapId')::uuid <> roadmap or (answer ->> 'prerequisites')::integer <> 3 then
+    raise exception 'FAIL: the prerequisites push did not answer its roadmap and its count: %', answer;
+  end if;
+  if (select array_agg(row_id order by position) from public.roadmap_prerequisites where roadmap_id = roadmap) <> '{p1,p2,p3}'
+     or not exists (select 1 from public.roadmap_prerequisites where roadmap_id = roadmap and row_id = 'p1' and category = 'local'
+                      and check_with = 'base:docker' and fix_with is null and not blocks_all and blocks = '{P1.1}' and who = 'check'
+                      and card ->> 'command' = 'open -a Docker' and state = 'waits' and detail = 'docker info exited 1')
+     or not exists (select 1 from public.roadmap_prerequisites where roadmap_id = roadmap and row_id = 'p2' and fix_with = 'base:install'
+                      and blocks_all and blocks = '{}' and repos = '{crew}' and card is null and state = 'fixed' and detail is null)
+     or not exists (select 1 from public.roadmap_prerequisites where roadmap_id = roadmap and row_id = 'p3' and who = 'person' and state is null) then
+    raise exception 'FAIL: the prerequisites were not stored in order, with their cards and the states their result gives';
+  end if;
+  if not exists (select 1 from public.roadmaps where id = roadmap and prerequisites_machine = 'pierre-mac'
+                   and prerequisites_checked_at = '2026-10-08T09:00:00Z') then
+    raise exception 'FAIL: the last result''s machine and time were not kept on the roadmap';
+  end if;
+
+  -- A roadmap push leaves them as they are; a later prerequisites push replaces them; none and no result clears them.
+  perform public.roadmap_push(pg_temp.push_body());
+  if (select count(*) from public.roadmap_prerequisites where roadmap_id = roadmap) <> 3 then
+    raise exception 'FAIL: a roadmap push changed the stored prerequisites';
+  end if;
+  perform public.roadmap_prerequisites_push(pg_temp.prerequisites_body(jsonb_build_object('result', jsonb_build_object(
+    'machine', 'ci', 'checkedAt', '2026-10-09T09:00:00Z', 'rows', jsonb_build_array(jsonb_build_object('id', 'p3', 'state', 'ticked'))))));
+  if (select array_agg(coalesce(state, '-') order by position) from public.roadmap_prerequisites where roadmap_id = roadmap) <> '{-,-,ticked}'
+     or not exists (select 1 from public.roadmaps where id = roadmap and prerequisites_machine = 'ci') then
+    raise exception 'FAIL: a later push did not replace the prerequisites and their result';
+  end if;
+  perform public.roadmap_prerequisites_push(pg_temp.prerequisites_body(jsonb_build_object('prerequisites', jsonb_build_array(), 'result', null)));
+  if exists (select 1 from public.roadmap_prerequisites where roadmap_id = roadmap)
+     or not exists (select 1 from public.roadmaps where id = roadmap and prerequisites_machine is null and prerequisites_checked_at is null) then
+    raise exception 'FAIL: a push of no prerequisites and no result did not clear them';
+  end if;
+  perform public.roadmap_prerequisites_push(pg_temp.prerequisites_body());
+
+  -- Malformed prerequisites are refused, and change nothing.
+  begin
+    perform public.roadmap_prerequisites_push(pg_temp.prerequisites_body(jsonb_build_object('prerequisites', jsonb_build_array(
+      jsonb_build_object('id', 'p1', 'category', 'hardware', 'need', 'x', 'blocks', 'all', 'who', 'check')))));
+    raise exception 'FAIL: an unknown category was taken';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.roadmap_prerequisites_push(pg_temp.prerequisites_body(jsonb_build_object('prerequisites', jsonb_build_array(
+      jsonb_build_object('id', 'p1', 'category', 'local', 'need', 'x', 'fix', 'base:install', 'blocks', 'all', 'who', 'check')))));
+    raise exception 'FAIL: a fix on a row that is not an agent''s was taken';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.roadmap_prerequisites_push(pg_temp.prerequisites_body(jsonb_build_object('prerequisites', jsonb_build_array(
+      jsonb_build_object('id', 'p1', 'category', 'local', 'need', 'x', 'blocks', 'all', 'who', 'check'),
+      jsonb_build_object('id', 'p1', 'category', 'local', 'need', 'y', 'blocks', 'all', 'who', 'check')))));
+    raise exception 'FAIL: a prerequisite id used twice was taken';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.roadmap_prerequisites_push(pg_temp.prerequisites_body(jsonb_build_object('result', jsonb_build_object(
+      'machine', 'ci', 'checkedAt', '2026-10-09T09:00:00Z', 'rows', jsonb_build_array(jsonb_build_object('id', 'p1', 'state', 'passed'))))));
+    raise exception 'FAIL: an unknown state was taken';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.roadmap_prerequisites_push(pg_temp.prerequisites_body(jsonb_build_object('result', jsonb_build_object(
+      'machine', 'ci', 'rows', jsonb_build_array()))));
+    raise exception 'FAIL: a result without its time was taken';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.roadmap_prerequisites_push(pg_temp.prerequisites_body(jsonb_build_object('number', 4242)));
+    raise exception 'FAIL: the prerequisites of a roadmap not pushed yet were taken';
+  exception when invalid_parameter_value then null; end;
+  if (select count(*) from public.roadmap_prerequisites where roadmap_id = roadmap) <> 3 then
+    raise exception 'FAIL: a refused prerequisites push changed them';
+  end if;
+
+  -- Nothing is written but through the function.
+  begin
+    insert into public.roadmap_prerequisites (roadmap_id, position, row_id, category, need, who) values (roadmap, 9, 'p9', 'local', 'planted', 'check');
+    raise exception 'FAIL: a signed-in account wrote a prerequisite directly';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.roadmap_prerequisites set state = 'ok' where roadmap_id = roadmap;
+    raise exception 'FAIL: a signed-in account changed a prerequisite directly';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- Carl, of another workspace: reads none of them, pushes none there.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
+do $$
+begin
+  if exists (select 1 from public.roadmap_prerequisites) then
+    raise exception 'FAIL: an account of another workspace read a roadmap''s prerequisites';
+  end if;
+  begin
+    perform public.roadmap_prerequisites_push(pg_temp.prerequisites_body());
+    raise exception 'FAIL: an account of another workspace pushed a roadmap''s prerequisites';
+  exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 
