@@ -2028,6 +2028,7 @@ export type Database = {
       roadmap_human_work: {
         Row: {
           act: string | null
+          classified_at: string | null
           done_at: string | null
           first_seen_at: string
           key: string
@@ -2043,6 +2044,7 @@ export type Database = {
         }
         Insert: {
           act?: string | null
+          classified_at?: string | null
           done_at?: string | null
           first_seen_at?: string
           key: string
@@ -2058,6 +2060,7 @@ export type Database = {
         }
         Update: {
           act?: string | null
+          classified_at?: string | null
           done_at?: string | null
           first_seen_at?: string
           key?: string
@@ -3570,6 +3573,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      roadmap_human_work_claim: {
+        Args: { p_limit: number; p_roadmap: string }
+        Returns: Json
+      }
+      roadmap_human_work_set_kind: {
+        Args: { p_key: string; p_kind: string; p_roadmap: string }
+        Returns: boolean
       }
       roadmap_push: { Args: { p_body: Json }; Returns: Json }
       set_jev_decision: {
