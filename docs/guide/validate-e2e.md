@@ -144,6 +144,9 @@ table of criterion, test and verdict: **✓**, **✗**, or "not filmable".
   accepted** until a person confirms it: confirm it if the change was wanted, reject it if the
   product broke.
 - A **removed** step is worth a look: ask where its criterion went.
+- **What the beta does not do yet.** The recordings, a healed one included, are committed in the
+  sub-PR from the start: they count as accepted only when a person merges it, so read the healed items
+  before you do. And an item shows the action before and after, in words: it carries no screenshots yet.
 
 Read the tests too. The same agent may have seen the code, so reading the spec alone is a rule of the
 skill, not a guarantee; a person reading the tests in the sub-PR is the check.

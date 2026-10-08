@@ -107,7 +107,9 @@ Run `node .omni-loop/bin/omni.mjs e2e status <n>`; a non-zero exit (a test with 
 the run before any sub-PR. Then run `node .omni-loop/bin/omni.mjs e2e heals <n>`. On a first pass
 every step is new. On a later pass each healed step becomes an outbox item with its before and after
 (`node .omni-loop/bin/omni.mjs item new --prd <n> --slice e2e --file <file> --json`, the JSON in a
-scratch file outside the repository): none is taken as accepted until a person confirms it.
+scratch file outside the repository): none is taken as accepted until a person confirms it. Say in
+the sub-PR that the recordings, a healed one included, are committed from the start and count as
+accepted only when it is merged, and that an item carries the action before and after, no screenshots.
 
 ## 8. The sub-PR
 
