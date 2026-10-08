@@ -62,7 +62,9 @@ The input is a PRD number. It is also the PRD's issue number, which `{prd}` in a
 contradict the spec itself or an ADR it cites. The criteria are the spec's acceptance section, or,
 when it has none, its scope and test seams. The test is whether you can write every slice's
 "done when" as a condition someone can observe. If you cannot, post the question with
-`gh issue comment <n> --body-file <file>`, one numbered question per gap, and return
+`gh issue comment <n> --body-file <file>`: the file's first line is exactly
+`<!-- omni-needs-clarification -->` (how `omni roadmap push` finds it, as human work of the PRD's
+roadmap), then one numbered question per gap, the most important first. Return
 `needs clarification`. A plan is never written on a guess.
 
 ## 2. The feature branch

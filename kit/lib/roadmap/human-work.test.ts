@@ -1,4 +1,6 @@
 // PRD 1217, slice s1: a roadmap's human work, read from its four sources, each with its rule kind.
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from '../ids.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
@@ -144,5 +146,11 @@ describe('clarificationWork', () => {
     expect(clarificationWork(PRD, comments, { repo: 'widgets', planAt: '2026-10-03T00:00:00Z' })).toEqual([]);
     expect(clarificationWork(PRD, comments, { repo: 'widgets', planAt: '2026-10-01T00:00:00Z' })).toHaveLength(1);
     expect(clarificationWork(PRD, [{ body: 'needs clarification\n1. Which?', url: null, createdAt: '2026-10-02T09:00:00Z' }], { repo: 'widgets', planAt: null })).toEqual([]);
+  });
+
+  it('is the marker /omni:plan opens its comment with, and /omni:ultra-yolo names', () => {
+    const skill = (name: string) => readFileSync(fileURLToPath(new URL(`../../plugin/skills/${name}/SKILL.md`, import.meta.url)), 'utf8');
+    expect(skill('plan')).toContain(`the file's first line is exactly\n\`${CLARIFICATION_MARKER}\``);
+    expect(skill('ultra-yolo')).toContain(`\`${CLARIFICATION_MARKER}\``);
   });
 });
