@@ -34618,17 +34618,18 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
      * one. @returns {Promise<{ id: string, url: string }>} */
     openDossier: ({ title, repo, claudeSessionId = null }) => call("POST", "/api/dossiers", { body: { title, repo, ...claudeSessionId ? { claudeSessionId } : {} } }),
     /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one. Since
-     * PRD 627 a fix's push names its kind (visual or bug); a PRD's names none, as before.
+     * PRD 627 a fix's push names its kind (visual or bug), and since PRD 1272 a concept's (concept); a
+     * PRD's names none, as before.
      * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[] }>} */
     pushDossier: ({ repo, prd: prd2, kind = "prd", title, draftId = null, artifacts }) => call("POST", "/api/dossiers/push", {
       body: { repo, prd: prd2, ...kind && kind !== "prd" ? { kind } : {}, title, ...draftId ? { draftId } : {}, artifacts }
     }),
     /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none. Since
-     * PRD 627, a fix's by its kind (visual or bug). @returns {Promise<{ id: string, url: string }>} */
+     * PRD 627, a fix's by its kind (visual or bug), and since PRD 1272 a concept's. @returns {Promise<{ id: string, url: string }>} */
     /** PRD 757: this Claude session is working on `work` (null: the session alone); `ended` only
      * from the session's end. Answered 204. */
     heartbeat: ({ claudeSessionId, repo, work, ended = false }) => call("POST", "/api/ask/heartbeat", { body: { claudeSessionId, repo, work, ...ended ? { ended: true } : {} } }),
-    // A fix's dossier (`kind` visual or bug) is keyed by its issue, so `prd` is a PRD's number or an issue's.
+    // A fix's or a concept's dossier (`kind` visual, bug or concept) is keyed by its issue, so `prd` is a PRD's number or an issue's.
     findDossier: ({ repo, prd: prd2, kind = "prd" }) => call("GET", `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd2), ...kind && kind !== "prd" ? { kind } : {} })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
@@ -39829,18 +39830,24 @@ function fixFiles(kind, names) {
   return [...page2, ...rounds];
 }
 function readFixFolder(ctx, kind, issue2, { issueTitle: issueTitle2 = null } = {}) {
-  const root = `${ctx.config.paths.delivery}/${FIX_ROOTS[kind]}`;
-  const absolute = join47(ctx.root, root);
+  const found2 = issueFolder(ctx.root, `${ctx.config.paths.delivery}/${FIX_ROOTS[kind]}`, issue2);
+  if (!found2) return null;
+  const { artifacts, tooLarge } = readFiles(ctx.root, found2.dir, fixFiles(kind, readdirSync16(join47(ctx.root, found2.dir))));
+  return { issue: issue2, kind, dir: found2.dir, title: fixTitle(issueTitle2, found2.topic), artifacts, tooLarge };
+}
+function issueFolder(checkout, root, issue2) {
+  const absolute = join47(checkout, root);
   if (!existsSync37(absolute)) return null;
   const prefix = `${String(issue2).padStart(4, "0")}-`;
   const name2 = readdirSync16(absolute, { withFileTypes: true }).filter((entry3) => entry3.isDirectory() && entry3.name.startsWith(prefix) && entry3.name.length > prefix.length).map((entry3) => entry3.name).sort()[0];
-  if (!name2) return null;
-  const dir = `${root}/${name2}`;
+  return name2 ? { dir: `${root}/${name2}`, topic: name2.slice(prefix.length) } : null;
+}
+function readFiles(checkout, dir, files) {
   const artifacts = [];
   const tooLarge = [];
-  for (const file2 of fixFiles(kind, readdirSync16(join47(ctx.root, dir)))) {
+  for (const file2 of files) {
     const path = `${dir}/${file2.name}`;
-    const raw = readFileSync34(join47(ctx.root, path));
+    const raw = readFileSync34(join47(checkout, path));
     if (raw.length > ARTIFACT_MAX_BYTES) {
       tooLarge.push({ kind: file2.kind, path, bytes: raw.length });
       continue;
@@ -39855,13 +39862,40 @@ function readFixFolder(ctx, kind, issue2, { issueTitle: issueTitle2 = null } = {
       ...file2.round ? { round: file2.round } : {}
     });
   }
-  const topic = name2.slice(prefix.length);
-  return { issue: issue2, kind, dir, title: fixTitle(issueTitle2, topic), artifacts, tooLarge };
+  return { artifacts, tooLarge };
+}
+var RECORD4 = "concept.md";
+var BOARD = /^board-r([1-9]\d*)\.html$/;
+function conceptFiles(names) {
+  const boards = names.flatMap((name2) => {
+    const match = BOARD.exec(name2);
+    return match ? [{ kind: "board", name: name2, round: Number(match[1]) }] : [];
+  }).sort((a, b) => a.round - b.round);
+  return [
+    { kind: "concept-record", name: RECORD4 },
+    ...names.includes("vision.html") ? [{ kind: "vision", name: "vision.html" }] : [],
+    ...boards,
+    ...names.includes("debate.md") ? [{ kind: "debate", name: "debate.md" }] : []
+  ];
+}
+function readConceptFolder(ctx, issue2) {
+  const found2 = issueFolder(ctx.root, ctx.layout.dirs.concepts, issue2);
+  if (!found2) return null;
+  const { dir } = found2;
+  const names = readdirSync16(join47(ctx.root, dir));
+  if (!names.includes(RECORD4)) return { ok: false, dir, errors: [`${dir} has no ${RECORD4}.`] };
+  const parsed = parseConcept(readFileSync34(join47(ctx.root, dir, RECORD4), "utf8"));
+  if (!parsed.ok) return { ok: false, dir, errors: parsed.errors };
+  if (parsed.record.concept !== Number(issue2)) {
+    return { ok: false, dir, errors: [`${RECORD4} is concept #${parsed.record.concept}, not #${Number(issue2)}.`] };
+  }
+  const { artifacts, tooLarge } = readFiles(ctx.root, dir, conceptFiles(names));
+  return { ok: true, folder: { issue: issue2, dir, title: parsed.record.title.slice(0, TITLE_MAX3), artifacts, tooLarge } };
 }
 
 // kit/bin/commands/dossier.ts
-var USAGE11 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
-var KINDS4 = ["prd", "visual", "bug"];
+var USAGE11 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status';
+var KINDS4 = ["prd", "visual", "bug", "concept"];
 var ISSUE_TITLE_MS = 5e3;
 var NO_SIGN_IN = "no sign-in (omni signin)";
 function claudeSessionOf(session) {
@@ -39975,6 +40009,23 @@ function recordedLink(home, prd2, kind) {
   if (!home || kind !== "prd") return null;
   return readDossiers(home).filter((entry3) => entry3.prd === prd2).at(-1) ?? null;
 }
+async function pushConcept(issue2, { ctx, repo, client, stdout, stderr }) {
+  const read2 = readConceptFolder(ctx, issue2);
+  if (!read2) throw usageError(`omni dossier push: issue ${issue2} has no concept folder.`);
+  if (!read2.ok) {
+    println(stderr, `invalid concept.md: ${read2.errors.join(" ")}`);
+    return 1;
+  }
+  const { folder } = read2;
+  let result;
+  try {
+    result = await client.pushDossier({ repo, prd: issue2, kind: "concept", title: folder.title, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) });
+  } catch (error62) {
+    println(stderr, skipLine(error62));
+    return 1;
+  }
+  return reportPush(result, folder.tooLarge, { stdout, stderr });
+}
 async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
   let found2;
   try {
@@ -40042,6 +40093,7 @@ var dossier = {
     const options = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(vars.claudeSession), stdout, stderr, now: now2 };
     if (named4 === null) return open2(title, options);
     if (verb2 === "link") return link(named4.kind === "prd" ? named4.prd : named4.issue, named4.kind, options);
+    if (named4.kind === "concept") return pushConcept(named4.issue, options);
     if (named4.kind !== "prd") return pushFix(named4.issue, named4.kind, options);
     return push(named4.prd, options);
   }
