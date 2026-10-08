@@ -8,7 +8,8 @@
 // `../lib/statusline/sessions.ts` writes its kind and number in the main checkout. `omni bug <n>`
 // and `omni dossier push <n> --kind bug` record bug `<n>`; `omni visual <n>` and
 // `omni dossier push <n> --kind visual` record visual fix `<n>`; every other command naming a PRD
-// records it as kind `prd`. A record that cannot be written is ignored: the command runs, prints and exits exactly as
+// records it as kind `prd`. `omni roadmap check <n>`, `omni roadmap push <n>` and
+// `omni next --roadmap <n>` record roadmap `<n>` (PRD 1208's s3). A record that cannot be written is ignored: the command runs, prints and exits exactly as
 // it does without one.
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
@@ -55,6 +56,12 @@ const FIX_KINDS = ['bug', 'visual'] as const;
 type FixKind = (typeof FIX_KINDS)[number];
 const KIND_FLAG = '--kind';
 const PRD_KIND = 'prd';
+
+// The roadmap a command names (PRD 1208's s3): `omni roadmap check <n>`, `omni roadmap push <n>`,
+// `omni next --roadmap <n>`.
+const ROADMAP_KIND = 'roadmap';
+const ROADMAP_SUBCOMMANDS: readonly string[] = ['check', 'push'];
+const ROADMAP_FLAG = '--roadmap';
 
 // The file that runs this `omni`: the bundle when bundled (the build inlines this module into it),
 // else this, the kit source's entry. `main()` hands it to the commands that start `omni` again, so
@@ -112,13 +119,33 @@ function fixNamedBy([name = '', ...rest]: readonly string[]): RecordedWork | nul
 }
 
 /**
- * The one PRD or fix `argv` (`[command, ...args]`) names, as `{ kind, number }`: the fix of
- * `omni bug`, `omni visual` and `omni dossier push --kind bug|visual`, else the PRD `prdNamedBy`
- * reads, else `null`.
+ * The roadmap `argv` (`[command, ...args]`) names: `omni roadmap check <n>`, `omni roadmap push <n>`
+ * and `omni next --roadmap <n>` (given once). `null` when it names one with no issue number;
+ * `undefined` when the command names no roadmap at all.
+ */
+function roadmapNamedBy([name = '', ...rest]: readonly string[]): RecordedWork | null | undefined {
+  let value: string | undefined;
+  if (name === 'roadmap' && ROADMAP_SUBCOMMANDS.includes(rest[0] ?? '')) value = rest[1];
+  else if (name === 'next' && rest.includes(ROADMAP_FLAG)) {
+    const named = rest.filter((_arg, index) => rest[index - 1] === ROADMAP_FLAG);
+    if (named.length !== 1) return null;
+    value = named[0];
+  } else return undefined;
+  const number = issueNumber(value);
+  return number === null ? null : { kind: ROADMAP_KIND, number };
+}
+
+/**
+ * The one PRD, fix or roadmap `argv` (`[command, ...args]`) names, as `{ kind, number }`: the fix of
+ * `omni bug`, `omni visual` and `omni dossier push --kind bug|visual`, the roadmap of
+ * `omni roadmap check|push <n>` and `omni next --roadmap <n>`, else the PRD `prdNamedBy` reads, else
+ * `null`.
  */
 export function workNamedBy(argv: readonly string[]): RecordedWork | null {
   const fix = fixNamedBy(argv);
   if (fix !== undefined) return fix;
+  const roadmap = roadmapNamedBy(argv);
+  if (roadmap !== undefined) return roadmap;
   const prd = prdNamedBy(argv);
   return prd === null ? null : { kind: PRD_KIND, number: prd };
 }

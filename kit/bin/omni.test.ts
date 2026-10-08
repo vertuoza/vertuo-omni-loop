@@ -440,6 +440,25 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
     expect(exists(join(without.root, '.omni-loop/local'))).toBe(false);
   });
 
+  // PRD #1208, slice s3: a command that names a roadmap records it as kind roadmap.
+  const ROADMAP_FORMS: string[][] = [
+    ['roadmap', 'check', '12'],
+    ['roadmap', 'push', '12'],
+    ['next', '--roadmap', '12'],
+    ['next', '--roadmap', '12', '--json'],
+  ];
+
+  it.each(ROADMAP_FORMS.map((argv) => [argv.join(' '), argv]))('`omni %s` records roadmap 12, and prints and exits as it does without', async (_name: string, argv: string[]) => {
+    const without = makeRepo({ git: true, files: FILES });
+    const within = makeRepo({ git: true, files: FILES });
+    const recorded = await omni(argv, { root: within.root, env: SESSION });
+    expect(recorded).toEqual(await omni(argv, { root: without.root }));
+    const { at, ...rest } = JSON.parse(within.read(RECORD)) as { at: string };
+    expect(rest).toEqual({ kind: 'roadmap', number: 12 });
+    expect(new Date(Date.parse(at)).toISOString()).toBe(at);
+    expect(exists(join(without.root, '.omni-loop/local'))).toBe(false);
+  });
+
   it('records nothing without the variable, with an id that is not safe, or for a number that is no PRD', async () => {
     const { root } = makeRepo({ git: true, files: FILES });
     const runs: [string[], Record<string, string>][] = [
@@ -459,6 +478,10 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
       [['bug'], SESSION],
       [['dossier', 'push', '1180', '--kind', 'loop'], SESSION],
       [['dossier', 'push', '1180', '--kind', 'bug', '--kind', 'visual'], SESSION],
+      [['roadmap', 'check'], SESSION],
+      [['roadmap', 'check', 'x'], SESSION],
+      [['roadmap', 'answer', '12', 'Q1', 'yes'], SESSION],
+      [['next', '--roadmap', '0'], SESSION],
     ];
     for (const [argv, env] of runs) await omni(argv, { root, env });
     expect(exists(join(root, '.omni-loop/local'))).toBe(false);
@@ -486,6 +509,19 @@ describe('workNamedBy: the one PRD or fix a command names', () => {
     expect(workNamedBy(['dossier', 'push', '7'])).toEqual({ kind: 'prd', number: 7 });
     expect(workNamedBy(['dossier', 'push', '7', '--kind', 'prd'])).toEqual({ kind: 'prd', number: 7 });
     expect(workNamedBy(['check', '--prd', '7'])).toEqual({ kind: 'prd', number: 7 });
+  });
+
+  it('names a roadmap by `roadmap check <n>`, `roadmap push <n>` and `next --roadmap <n>`', () => {
+    expect(workNamedBy(['roadmap', 'check', '12'])).toEqual({ kind: 'roadmap', number: 12 });
+    expect(workNamedBy(['roadmap', 'push', '12'])).toEqual({ kind: 'roadmap', number: 12 });
+    expect(workNamedBy(['next', '--roadmap', '12', '--plan'])).toEqual({ kind: 'roadmap', number: 12 });
+    expect(workNamedBy(['next', '--json', '--roadmap', '12'])).toEqual({ kind: 'roadmap', number: 12 });
+  });
+
+  it('names no roadmap without its number, by `roadmap answer`, or on two roadmaps', () => {
+    for (const argv of [['roadmap', 'check'], ['roadmap', 'push', 'x'], ['roadmap', 'answer', '12', 'Q1', 'yes'], ['next', '--roadmap'], ['next', '--roadmap', '12', '--roadmap', '13'], ['roadmap', '12']]) {
+      expect(workNamedBy(argv)).toBeNull();
+    }
   });
 
   it('names nothing for a number that is no issue, a kind it does not know, two kinds, or a link', () => {
