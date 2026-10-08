@@ -1098,6 +1098,79 @@ export type Database = {
         }
         Relationships: []
       }
+      idea_votes: {
+        Row: {
+          created_at: string
+          idea_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          idea_id: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          idea_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "idea_votes_idea_id_fkey"
+            columns: ["idea_id"]
+            isOneToOne: false
+            referencedRelation: "ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ideas: {
+        Row: {
+          added_by: string | null
+          archived: boolean
+          created_at: string
+          id: string
+          lane: string
+          pitch: string
+          prd: number | null
+          repo: string
+          title: string
+          workspace_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          archived?: boolean
+          created_at?: string
+          id?: string
+          lane?: string
+          pitch: string
+          prd?: number | null
+          repo: string
+          title: string
+          workspace_id: string
+        }
+        Update: {
+          added_by?: string | null
+          archived?: boolean
+          created_at?: string
+          id?: string
+          lane?: string
+          pitch?: string
+          prd?: number | null
+          repo?: string
+          title?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ideas_workspace_id_repo_fkey"
+            columns: ["workspace_id", "repo"]
+            isOneToOne: false
+            referencedRelation: "repositories"
+            referencedColumns: ["workspace_id", "full_name"]
+          },
+        ]
+      }
       jev_calls: {
         Row: {
           called_at: string
@@ -1983,6 +2056,7 @@ export type Database = {
           collected_until: string | null
           full_name: string
           product_id: string | null
+          public_ideas: boolean
           tracked: boolean
           workspace_id: string
         }
@@ -1994,6 +2068,7 @@ export type Database = {
           collected_until?: string | null
           full_name: string
           product_id?: string | null
+          public_ideas?: boolean
           tracked?: boolean
           workspace_id: string
         }
@@ -2005,6 +2080,7 @@ export type Database = {
           collected_until?: string | null
           full_name?: string
           product_id?: string | null
+          public_ideas?: boolean
           tracked?: boolean
           workspace_id?: string
         }
@@ -2473,6 +2549,7 @@ export type Database = {
           collected_until: string | null
           full_name: string
           product_id: string | null
+          public_ideas: boolean
           tracked: boolean
           workspace_id: string
         }
@@ -3230,6 +3307,12 @@ export type Database = {
       }
       has_workspace: { Args: never; Returns: boolean }
       hook_before_user_created: { Args: { event: Json }; Returns: Json }
+      idea_votable: { Args: { p_idea: string }; Returns: boolean }
+      ideas_board: { Args: { p_full_name: string }; Returns: Json }
+      ideas_public_board: {
+        Args: { p_repo: string; p_workspace: string }
+        Returns: boolean
+      }
       is_member: { Args: { workspace: string }; Returns: boolean }
       is_owner: { Args: { workspace: string }; Returns: boolean }
       jev_decision_names: { Args: never; Returns: string[] }
@@ -3524,6 +3607,7 @@ export type Database = {
           collected_until: string | null
           full_name: string
           product_id: string | null
+          public_ideas: boolean
           tracked: boolean
           workspace_id: string
         }
@@ -3659,6 +3743,27 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_repository_public_ideas: {
+        Args: { p_full_name: string; p_public: boolean; p_workspace: string }
+        Returns: {
+          added_at: string
+          added_by: string | null
+          collect_error: string | null
+          collected_at: string | null
+          collected_until: string | null
+          full_name: string
+          product_id: string | null
+          public_ideas: boolean
+          tracked: boolean
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "repositories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_repository_tracked: {
         Args: { p_full_name: string; p_tracked: boolean; p_workspace: string }
         Returns: {
@@ -3669,6 +3774,7 @@ export type Database = {
           collected_until: string | null
           full_name: string
           product_id: string | null
+          public_ideas: boolean
           tracked: boolean
           workspace_id: string
         }
