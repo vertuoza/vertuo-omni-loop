@@ -1,0 +1,116 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-08",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Three agents at once is three times the chance of slop, but a collision check before launch and the merge-time territory check keep them out of each other's files.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Running the waves side by side is the first thing that would make the loop faster than doing it myself; I'll believe it when it finishes three PRDs without a conflict.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Three PRDs building at once across my repositories is exactly the speed I want from one idea per repository.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 2,
+          "reaction": "Three PRDs landing in parallel across my repositories is three streams of agent decisions to keep coherent at once.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "My quick wins stop waiting behind someone else's big PRD when they touch different files.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "Three PRDs landing in parallel across my repositories is three streams of agent decisions to keep coherent at once. I already only watch the board, and now it moves three times faster with nothing telling me which runs touch which team's code.",
+        "citations": [
+          "persona:Lead Engineer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:F-E Developer ~ · persona:B-E DEv ~ · persona:Lead Engineer ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-08",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Three agents at once is three times the chance of slop, but a collision check before launch and the merge-time territory check keep them out of each other's files.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Running the waves side by side is the first thing that would make the loop faster than doing it myself; I'll believe it when it finishes three PRDs without a conflict.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Three PRDs building at once across my repositories is exactly the speed I want from one idea per repository.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Each tick tells me which steps run in which repository and why one was held: that is the cohesion I watch the board for.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "My quick wins stop waiting behind someone else's big PRD when they touch different files.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ~ · persona:B-E DEv ~"
+    }
+  ]
+}
