@@ -167,10 +167,10 @@ function readJson(root: string, file: string, out: string[]): unknown {
   }
 }
 
-/** The marketplace lists the plugin by its relative source, and both manifests give it one name. */
-function manifestViolations(root: string) {
+/** The marketplace lists the plugin in `pluginDir` by its relative source, and both manifests give it one name. */
+function manifestViolations(root: string, pluginDir = PLUGIN_DIR) {
   const out: string[] = [];
-  const manifestFile = join(PLUGIN_DIR, MANIFEST);
+  const manifestFile = join(pluginDir, MANIFEST);
   const manifest = readJson(root, manifestFile, out);
   const marketplace = readJson(root, MARKETPLACE, out);
   if (!manifest || !marketplace) return out;
@@ -178,9 +178,9 @@ function manifestViolations(root: string) {
   if (!Array.isArray(plugins)) return [...out, `${MARKETPLACE}: plugins is not a list`];
   const entry: unknown = plugins.find((plugin: unknown) => {
     const source = dig(plugin, 'source');
-    return typeof source === 'string' && resolve(root, source) === resolve(root, PLUGIN_DIR);
+    return typeof source === 'string' && resolve(root, source) === resolve(root, pluginDir);
   });
-  if (!entry) return [...out, `${MARKETPLACE}: no plugin entry has source ./${PLUGIN_DIR}`];
+  if (!entry) return [...out, `${MARKETPLACE}: no plugin entry has source ./${pluginDir}`];
   const entryName = dig(entry, 'name');
   const manifestName = dig(manifest, 'name');
   if (entryName !== manifestName) {
@@ -262,6 +262,39 @@ describe('the omni plugin in this repository', () => {
     const unknown = spawnSync(process.execPath, [shim, 'no-such-command'], { cwd: repoRoot, encoding: 'utf8' });
     expect(unknown.status).toBe(2);
     expect(unknown.stderr).toMatch(/^usage: omni/);
+  });
+});
+
+// PRD 1208: the `omni-hud` mod, the band above the prompt, is a plugin of its own beside `omni`. Its
+// tests import Claude Code's own test kit, so `claude plugin test` runs them and vitest never does.
+describe('the omni-hud plugin in this repository', () => {
+  const HUD_DIR = 'kit/plugin-hud';
+  const version = (dir: string) => dig(JSON.parse(readFileSync(join(repoRoot, dir, MANIFEST), 'utf8')), 'version');
+
+  it('the marketplace lists it beside omni, by its source, under its manifest name', () => {
+    expect(manifestViolations(repoRoot, HUD_DIR)).toEqual([]);
+    const plugins = dig(JSON.parse(readFileSync(join(repoRoot, MARKETPLACE), 'utf8')), 'plugins');
+    expect(Array.isArray(plugins) ? plugins.map((plugin: unknown) => [dig(plugin, 'name'), dig(plugin, 'source')]) : plugins).toEqual([
+      ['omni', './kit/plugin'],
+      ['omni-hud', './kit/plugin-hud'],
+    ]);
+  });
+
+  it('carries the version of omni, which the release stamps in both', () => {
+    expect(version(HUD_DIR)).toBe(version(PLUGIN_DIR));
+  });
+
+  it('names its hooks module, and vitest collects none of its tests', () => {
+    expect(JSON.parse(readFileSync(join(repoRoot, HUD_DIR, 'hooks/hooks.json'), 'utf8'))).toEqual({ modules: ['./register.tsx'] });
+    // Read as text: a kit test never imports the repository's config (scripts/import-guard.test.ts).
+    const exclude = /^\s*exclude: \[(.*)\],$/m.exec(readFileSync(join(repoRoot, 'vitest.config.ts'), 'utf8'))?.[1] ?? '';
+    expect(exclude).toContain(`'${HUD_DIR}/**'`);
+  });
+
+  it.skipIf(!claude)(`claude plugin validate and claude plugin test pass on it${reason}`, () => {
+    expect(claudeValidate(join(repoRoot, HUD_DIR))).toBeNull();
+    const run = spawnSync('claude', ['plugin', 'test', join(repoRoot, HUD_DIR)], { encoding: 'utf8' });
+    expect(run.status, `${run.stdout}${run.stderr}`).toBe(0);
   });
 });
 
