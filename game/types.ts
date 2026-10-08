@@ -11,6 +11,9 @@ export type FeaturePr = {
   createdAt: string | null;
   readyAt: string | null;
   mergedAt: string | null;
+  // Once merged: who merged it, and who approved it, its author aside (lower-case logins, no bots).
+  mergedBy?: string | null;
+  approvedBy?: string[];
   lastActivityAt: string | null;
 };
 

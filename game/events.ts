@@ -8,6 +8,8 @@ export const EVENT_TYPES = Object.freeze([
   'PLANET_READY', 'PLANET_TERRAFORMED', 'PLANET_LOST', 'PLANET_DECOMMISSIONED',
   // An ask round answered on a PRD (PRD 1180): born closed, it pays its answerer and nothing else.
   'QUESTION_ANSWERED',
+  // A region's feature PR merged into its default branch: its merger, and each person who approved it.
+  'FEATURE_MERGED', 'FEATURE_REVIEWED',
 ] as const);
 
 export const WOUND_KINDS = Object.freeze(['transmission', 'unconfirmed-ground', 'beacon', 'fault-line', 'under-fire', 'aftershock'] as const);

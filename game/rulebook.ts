@@ -22,6 +22,10 @@ export const RULEBOOK = Object.freeze({
   // An answered ask round tied to a numbered PRD (PRD 1180): below the cheapest outbox answer, so
   // asking many questions never outruns delivery work.
   questionAnswered: 2,
+  // A feature PR merged into its default branch: the person who merged it, and each person who
+  // approved it (its author aside). Paid at the merge, once per region's feature PR.
+  featureMerged: 30,
+  featureReviewed: 10,
   trancheMinutes: 240,
   distressAfterWorkingMinutes: 480,      // 8 working hours
   lostAfterWorkingMinutes: 10 * 9 * 60,  // 10 working days
@@ -36,7 +40,7 @@ export const RULEBOOK = Object.freeze({
   // recomputes every player's XP from the whole ledger (`pnpm game:xp`).
   xp: Object.freeze({
     // Weight of each personal credit. 0 leaves a credit out.
-    weights: Object.freeze({ zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1 }),
+    weights: Object.freeze({ zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1 }),
     // LV 1 at the first point; LV n (n ≥ 2) at step·n·(n−1).
     curve: Object.freeze({ first: 1, step: 25 }),
     cap: 99,

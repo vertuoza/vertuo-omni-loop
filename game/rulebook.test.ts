@@ -26,6 +26,7 @@ describe('rulebook', () => {
     expect(RULEBOOK.nightShiftMultiplier).toBe(1.5);
     expect(RULEBOOK.rescue).toBe(20);
     expect(RULEBOOK.questionAnswered).toBe(2);
+    expect([RULEBOOK.featureMerged, RULEBOOK.featureReviewed]).toEqual([30, 10]);
     expect(RULEBOOK.trancheMinutes).toBe(240);
     expect(RULEBOOK.distressAfterWorkingMinutes).toBe(480);
     expect(RULEBOOK.lostAfterWorkingMinutes).toBe(10 * 9 * 60);
@@ -38,7 +39,7 @@ describe('rulebook xp block', () => {
 
   it('holds the weights, the curve, the cap and the unlocks the game room spec sets out, frozen', () => {
     expect(xp).toEqual({
-      weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1 },
+      weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1 },
       curve: { first: 1, step: 25 },
       cap: 99,
       unlocks: { invaders: 1, platformer: 2 },

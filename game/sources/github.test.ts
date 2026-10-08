@@ -110,6 +110,26 @@ describe('buildSnapshot', () => {
     expect(p.regions).toEqual([{ repo: R, blockedBy: [2300], surveyedAt: '2026-09-01T08:00:00Z', featurePr: null }]);
   });
 
+  it('names who merged a merged feature PR and who approved it: no bot, not its author, not a dismissed approval', async () => {
+    const merged = {
+      ...FP, isDraft: false, mergedAt: '2026-09-23T09:00:00Z', author: { login: 'Alice' }, mergedBy: { login: 'PM', is_bot: false },
+      latestReviews: [
+        { author: { login: 'Eve' }, state: 'APPROVED' },
+        { author: { login: 'eve' }, state: 'APPROVED' },
+        { author: { login: 'alice' }, state: 'APPROVED' },
+        { author: { login: 'bob' }, state: 'CHANGES_REQUESTED' },
+        { author: { login: 'copilot', is_bot: true }, state: 'APPROVED' },
+        { author: { login: 'renovate[bot]' }, state: 'APPROVED' },
+      ],
+    };
+    const p = nth((await snap([[`pr list -R ${R} --search`, [merged]]])).planets, 0, 'the planet');
+    expect(nth(p.regions, 0, 'the home region').featurePr).toMatchObject({ mergedBy: 'pm', approvedBy: ['eve'] });
+    const bot = nth((await snap([[`pr list -R ${R} --search`, [{ ...merged, mergedBy: { login: 'omni-bot', is_bot: true } }]]])).planets, 0, 'the planet');
+    expect(nth(bot.regions, 0, 'the home region').featurePr?.mergedBy).toBeNull();
+    const open = nth((await snap()).planets, 0, 'the planet');
+    expect(nth(open.regions, 0, 'the home region').featurePr).not.toHaveProperty('mergedBy');
+  });
+
   it('takes the feature PR that says Closes #<n>, the omni:feature one first, never #<n>0', async () => {
     const pr = (number: number, over?: Record<string, unknown>) => ({ ...FP, number, labels: [], ...over });
     const p = nth((await snap([[`pr list -R ${R} --search`, [pr(480, { body: 'Closes #23320' }), pr(490, { body: 'Closes #2332' }), pr(500, { labels: [{ name: 'omni:feature' }] })]]])).planets, 0, 'the planet');

@@ -288,6 +288,25 @@ describe('projectEvents', () => {
     });
   });
 
+  describe('a merged feature PR', () => {
+    const merged = (fp: Record<string, unknown>) => snapshot({
+      regions: [{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z', featurePr: { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: '2026-09-22T08:00:00Z', mergedAt: '2026-09-23T09:00:00Z', lastActivityAt: '2026-09-23T09:00:00Z', ...fp } }],
+    });
+    const pay = (events: GameEvent[]) => events.filter((e) => e.type === 'FEATURE_MERGED' || e.type === 'FEATURE_REVIEWED');
+
+    it('becomes one FEATURE_MERGED for its merger and one FEATURE_REVIEWED per approver, at the merge', () => {
+      expect(pay(projectEvents(merged({ mergedBy: 'pm', approvedBy: ['alice'] }), { config, now: NOW }))).toEqual([
+        { id: 'merge:core-repo#500:2332:approved:alice', at: '2026-09-23T09:00:00Z', type: 'FEATURE_REVIEWED', planet: 2332, region: 'core-repo', contributor: 'alice', team: 'octopod', data: { pr: 500 } },
+        { id: 'merge:core-repo#500:2332:merged', at: '2026-09-23T09:00:00Z', type: 'FEATURE_MERGED', planet: 2332, region: 'core-repo', contributor: 'pm', team: 'beaver', data: { pr: 500 } },
+      ]);
+    });
+
+    it('writes nothing before the merge, nor for a merger it cannot name', () => {
+      expect(pay(projectEvents(merged({ mergedAt: null, mergedBy: 'pm', approvedBy: ['alice'] }), { config, now: NOW }))).toEqual([]);
+      expect(pay(projectEvents(merged({ mergedBy: null, approvedBy: [] }), { config, now: NOW }))).toEqual([]);
+    });
+  });
+
   it('is idempotent: the same snapshot yields the same ids and timestamps', () => {
     const a = projectEvents(snapshot(), { config, now: NOW });
     const b = projectEvents(snapshot(), { config, now: NOW });

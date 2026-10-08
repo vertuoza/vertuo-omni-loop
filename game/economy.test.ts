@@ -206,6 +206,20 @@ describe('score', () => {
     });
   });
 
+  describe('a merged feature PR', () => {
+    it('pays its merger 30 and each approver 10, in the season of the merge, outside the crew', () => {
+      const terraformed = E('planet:2332:terraformed', '2026-09-25T21:00:00Z', 'PLANET_TERRAFORMED', { data: { ownerTeam: 'beaver', class: 1 } });
+      const merged = E('merge:r#500:2332:merged', '2026-09-25T21:00:00Z', 'FEATURE_MERGED', { contributor: 'pm', team: 'beaver' });
+      const approved = E('merge:r#500:2332:approved:eve', '2026-09-25T21:00:00Z', 'FEATURE_REVIEWED', { contributor: 'eve', team: 'cia' });
+      const before = score([charted, terraformed], { season: '2026-09', now: NOW });
+      const s = score([charted, terraformed, merged, approved], { season: '2026-09', now: NOW });
+      expect(s.individuals).toEqual({ pm: 30, eve: 10 }); // 23:00 in Brussels: no night shift
+      expect(s.credits.filter((c) => c.reason.startsWith('feature ')).map((c) => [c.to, c.reason])).toEqual([['eve', 'feature reviewed'], ['pm', 'feature merged']]);
+      expect(s.streaks).toEqual(before.streaks);
+      expect(score([charted, merged, approved], { season: '2026-10', now: NOW }).individuals).toEqual({});
+    });
+  });
+
   it('ignores credits outside the season month', () => {
     const s = score([
       charted,

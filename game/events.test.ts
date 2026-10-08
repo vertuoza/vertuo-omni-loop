@@ -13,7 +13,7 @@ describe('events', () => {
       'ZONE_OPENED', 'ZONE_CLAIMED', 'ZONE_SECURED', 'ZONE_REVERTED',
       'WOUND_OPENED', 'WOUND_CLOSED', 'DISTRESS', 'RESCUE',
       'PLANET_READY', 'PLANET_TERRAFORMED', 'PLANET_LOST', 'PLANET_DECOMMISSIONED',
-      'QUESTION_ANSWERED',
+      'QUESTION_ANSWERED', 'FEATURE_MERGED', 'FEATURE_REVIEWED',
     ]);
     expect(WOUND_KINDS).toEqual(['transmission', 'unconfirmed-ground', 'beacon', 'fault-line', 'under-fire', 'aftershock']);
   });

@@ -74,6 +74,7 @@ export function projectEvents(
     distressEvents(push, at, now);
     woundEvents(push, at);
     finishEvents(push, at);
+    mergeEvents(push, at);
     endEvents(push, at);
   }
   answerEvents(push, answers, charted);
@@ -155,6 +156,19 @@ function finishEvents(push: Push, { planet, state, key, on }: At): void {
   const fp = planet.featurePr;
   if (fp?.readyAt && state.zones.length && state.zones.every((z) => z.state === 'secured')) push({ id: `planet:${key}:ready`, at: fp.readyAt, type: 'PLANET_READY', ...on });
   if (fp?.mergedAt) push({ id: `planet:${key}:terraformed`, at: fp.mergedAt, type: 'PLANET_TERRAFORMED', ...on, data: { ownerTeam: planet.ownerTeam, class: state.class, crossSector: state.crossSector } });
+}
+
+// Each region's feature PR merged into its default branch: one FEATURE_MERGED for who merged it, one
+// FEATURE_REVIEWED per person who approved it. Each id names the region's PR and the person, so a
+// merge pays once, however many polls see it.
+function mergeEvents(push: Push, { planet, key, on }: At): void {
+  for (const r of planet.regions) {
+    const fp = r.featurePr;
+    if (!fp?.mergedAt) continue;
+    const pr = `merge:${fp.repo}#${fp.number}:${key}`;
+    if (fp.mergedBy) push({ id: `${pr}:merged`, at: fp.mergedAt, type: 'FEATURE_MERGED', ...on, region: fp.repo, contributor: fp.mergedBy, data: { pr: fp.number } });
+    for (const login of fp.approvedBy ?? []) push({ id: `${pr}:approved:${login}`, at: fp.mergedAt, type: 'FEATURE_REVIEWED', ...on, region: fp.repo, contributor: login, data: { pr: fp.number } });
+  }
 }
 
 // A planet given up: lost, or decommissioned.
