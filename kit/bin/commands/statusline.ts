@@ -1,10 +1,14 @@
 // `omni statusline` — the command Claude Code runs as its status line (PRD 324's spec): it reads the
 // session's JSON on stdin and prints line 1 (the model, the context bar, the 5-hour usage, `ask on`)
-// and, where the loop is installed, line 2: the PRD the session's branch names, else the one the
-// session last worked on (the record its `session_id` names, written by the commands that name a
-// PRD), with its slice, its stage, the wave and the slices of its board in the outbox, and its open
-// items (`PRD 7 bravo · s2 · outbox · wave 2 of 4 · 3/5 slices merged, 1 stuck · 2 open items`), or
-// `no PRD · /omni:brainstorm to start`.
+// and, where the loop is installed, line 2, drawn from `omni now`'s reading (PRD 1208, s5) for every
+// kind: a PRD (`PRD 315 help-and-status · building · wave 2/4 · now s3 tabs, s4 board`, its wave and
+// open items from the PRD the status line's own facts name), a fix (`bug #1180 login-redirect · fix PR
+// open`), a loop or roadmap above the work (`roadmap 7 · 3/7 merged · now PRD 315 · s3`), or
+// `no PRD · /omni:brainstorm to start` (`../../lib/statusline/render.ts`). Both readings run git
+// through one remembering `exec`, so that the second costs no process the first already ran. Besides
+// the board's refresh (told `--kind prd`), it starts the refresh of the links of the work `omni now`
+// names when they are missing or a minute old, as the board's is started, unless one was just started
+// for it, and never for a shipped PRD or a merged fix.
 //
 // It never breaks Claude Code: it always exits 0 and prints at least one line, never writes to
 // stderr, never fetches, never runs `gh` and writes no file; what it cannot read leaves its part out.
@@ -42,9 +46,13 @@ import type { Context } from '../../lib/context.ts';
 import { buildLinks } from '../../lib/now/build-links.ts';
 import type { PageOf } from '../../lib/now/build-links.ts';
 import { refreshLinks } from '../../lib/now/links.ts';
-import type { FixKind } from '../../lib/now/now.ts';
+import type { FixKind, NowWork } from '../../lib/now/now.ts';
+import { readNow } from '../../lib/now/read.ts';
 import { refreshBoard } from '../../lib/statusline/board-cache.ts';
-import { readFacts as readCheckoutFacts } from '../../lib/statusline/facts.ts';
+import type { Spawn } from '../../lib/statusline/board-cache.ts';
+import { readFacts as readCheckoutFacts, startLinksRefresh } from '../../lib/statusline/facts.ts';
+import { SHIPPED } from '../../lib/statusline/stage.ts';
+import type { ExecText } from '../../lib/context.ts';
 import { parseInput } from '../../lib/statusline/input.ts';
 import { renderLines, UNREADABLE_LINE } from '../../lib/statusline/render.ts';
 import type { ExecFileSyncOptions, ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
@@ -71,7 +79,26 @@ async function readText(stdin: HookStdin): Promise<string> {
   return text;
 }
 
-/** The lines to print, never throwing: line 1 from the JSON alone when the reader fails, `omni` when anything else does. */
+/** `exec` for one render: a call made before answers as it did, so that `omni now`'s reading, which
+ * asks git what the status line's facts asked, costs no second process. A call that threw throws again. */
+function rememberedExec(exec: ExecText): ExecText {
+  const answers = new Map<string, { out: string } | { error: unknown }>();
+  return (file, args, options) => {
+    const key = JSON.stringify([file, args, options.cwd ?? null]);
+    let answer = answers.get(key);
+    if (!answer) {
+      try {
+        answer = { out: exec(file, args, options) };
+      } catch (error) {
+        answer = { error };
+      }
+      answers.set(key, answer);
+    }
+    if ('error' in answer) throw answer.error;
+    return answer.out;
+  };
+}
+
 /** What a test hands `omni statusline` beyond `main()`'s own. */
 type StatuslineOptions = {
   stdin?: HookStdin;
@@ -102,18 +129,44 @@ async function statusLines({
   try {
     const input = parseInput(await readText(stdin).catch(() => ''));
     const instant = now();
-    let facts = null;
-    if (input) {
-      try {
-        facts = readFacts(input, { cwd, exec, now: instant, spawn, script, env });
-      } catch {
-        facts = null;
-      }
-    }
-    return renderLines({ input, facts, terminal, now: instant });
+    if (!input) return renderLines({ input, facts: null, terminal, now: instant });
+    const remembered = rememberedExec(exec);
+    const { seen, started } = trackedSpawn(spawn);
+    const facts = attempt(() => readFacts(input, { cwd, exec: remembered, now: instant, spawn: seen, script, env }));
+    if (!facts?.installed) return renderLines({ input, facts, terminal, now: instant });
+    const answer = readNow({ cwd, folder: input.currentDir, sessionId: input.sessionId, exec: remembered, now: instant });
+    const refresh = { folder: input.currentDir ?? cwd, now: instant, spawn: seen, script, env };
+    if (answer.work && !started.has(String(answer.work.number))) refreshLinksOf(answer.work, refresh, remembered);
+    const board = facts.prd ? { number: facts.prd.number, slices: facts.prd.slices, openItems: facts.prd.openItems } : null;
+    return renderLines({ input, facts: { ...facts, now: answer, board }, terminal, now: instant });
   } catch {
     return [UNREADABLE_LINE];
   }
+}
+
+/** `fn()`, or `null` when it throws. */
+function attempt<T>(fn: () => T): T | null {
+  try {
+    return fn();
+  } catch {
+    return null;
+  }
+}
+
+/** `spawn`, noting the number of each refresh it starts in `started`. */
+function trackedSpawn(spawn: Spawn): { seen: Spawn; started: Set<string> } {
+  const started = new Set<string>();
+  const seen: Spawn = (command, args, options) => {
+    started.add(String(args[args.indexOf(REFRESH_FLAG) + 1]));
+    return spawn(command, args, options);
+  };
+  return { seen, started };
+}
+
+/** Starts the refresh of `work`'s links when they are due, never for a shipped PRD or a merged fix. */
+function refreshLinksOf(work: NowWork, refresh: Omit<Parameters<typeof startLinksRefresh>[0], 'kind' | 'n'>, exec: ExecText): void {
+  if (work.stage === SHIPPED || work.stage === 'merged') return;
+  startLinksRefresh({ ...refresh, kind: work.kind, n: work.number }, exec);
 }
 
 /** `value` as a PRD number, or `null`. */
