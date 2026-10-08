@@ -937,3 +937,167 @@ Option B needs a database change to store a tick on the prerequisite row and a w
 ```
 
 <!-- /omni-outbox-settled: s7-02-ticked-shows-until-next-check -->
+
+<!-- omni-outbox-settled: s5-01-prerequisites-saved-apart -->
+
+## s5-01-prerequisites-saved-apart — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-08T11:53:35Z
+- Channel: feature pull request #1223
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1223#issuecomment-6059274379
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s5
+- Wave: 4
+- Stays here: how one roadmap push saves its prerequisites is an implementation detail of this PRD; the spec and the store code already say it.
+
+### The answer, as it was given
+
+```text
+A. Save the prerequisites in a second step after the roadmap; a push without them keeps the saved ones (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-prerequisites-saved-apart
+prd: 1218
+slice: s5
+rank: high
+bears-on: none
+raised: 2026-10-08
+wave: 4
+---
+
+## The question, in plain words
+
+When a roadmap is sent to the app, should its prerequisites be saved in a separate step, and should a roadmap sent without any prerequisites keep the ones saved before?
+
+## The decision, in plain words
+
+Prerequisites are saved in their own step right after the roadmap. A roadmap sent without prerequisites keeps the ones saved before, so a roadmap whose prerequisites section is deleted still shows the old list until a later send carries an empty one.
+
+## The intro, for fun
+
+Two pieces of news arrive by the same post, but in two envelopes.
+
+## The punchline, for fun
+
+The second envelope only gets opened when it is actually in the box.
+
+## The options, in plain words
+
+A. Save the prerequisites in a second step after the roadmap; a push without them keeps the saved ones (built).
+B. Same second step, but a push without prerequisites clears the saved ones.
+C. Fold the prerequisites into the roadmap's own save function, redefined on top of the human-work change already on main.
+
+## What I had to decide
+
+Whether a roadmap sent without prerequisites should keep or clear the prerequisites saved before.
+
+## What I did meanwhile
+
+Roadmaps sent by an older kit, or without the section, store exactly as they did; a removed section leaves its old rows on the page.
+
+## What it costs to change later
+
+Option B is a one-line change in the app's save step; option C rewrites the roadmap's save function in a new migration on top of the human-work change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The kit (s3) leaves the prerequisites out of a push when the roadmap has no section, so the app cannot tell a deleted section from an older kit. (author)
+- The two save steps are not one transaction: if the second fails the roadmap is saved and the push answers an error; the next push repairs it. (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-prerequisites-saved-apart -->
+
+<!-- omni-outbox-settled: s7-01-tick-shares-the-send-callback -->
+
+## s7-01-tick-shares-the-send-callback — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-08T11:53:35Z
+- Channel: feature pull request #1223
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1223#issuecomment-6059274379
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: ADR-0052
+- Raised: 2026-10-08
+- Slice: s7
+- Wave: 6
+- Stays here: reusing the outbox send's GitHub callback is local to the tick and the send; ADR-0052 already holds the rule that GitHub returns only to a listed address.
+
+### The answer, as it was given
+
+```text
+A. A. Reuse the outbox send's callback, which tells a tick from an answer by its state (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-tick-shares-the-send-callback
+prd: 1218
+slice: s7
+rank: high
+bears-on: ADR-0052
+raised: 2026-10-08
+wave: 6
+---
+
+## The question, in plain words
+
+When a member marks a prerequisite as done, GitHub must send them back to the app after they agree. Should it come back to the address the outbox answers already use, or to a new address of its own?
+
+## The decision, in plain words
+
+It comes back to the address the outbox answers already use, which GitHub already knows. That address now tells a tick from an answer and handles each, so nobody has to change the GitHub App's settings before the button works.
+
+## The intro, for fun
+
+Two parcels, one letterbox, and a postman who already knows the way.
+
+## The punchline, for fun
+
+The label on each parcel says which room it goes to.
+
+## The options, in plain words
+
+A. A. Reuse the outbox send's callback, which tells a tick from an answer by its state (built).
+B. B. Give the tick its own callback address, and have a person add it to the GitHub App's settings.
+C. C. Move both onto one shared callback module that dispatches by kind, owned by neither feature.
+
+## What I had to decide
+
+Whether Mark as done should reuse the outbox send's GitHub callback, or have its own one that a person must add to the GitHub App's callback addresses.
+
+## What I did meanwhile
+
+The tick works wherever the outbox send already works; the shared callback reads the authorisation's state, posts a tick for a tick's state and an outbox answer for any other, exactly as before.
+
+## What it costs to change later
+
+Option B is a new route of a few lines plus one callback address added in the GitHub App's settings; the tick's own code does not change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory for this slice does not include the outbox send's callback route, so this touches one file outside it (the callback route), and the roadmap page's route file to pass the two new query values.
+- (author) ADR-0052 says GitHub brings a person back only to a listed address; whether a second address is wanted is the team's call.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-tick-shares-the-send-callback -->
