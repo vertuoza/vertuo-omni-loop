@@ -238,6 +238,19 @@ describe('a board', () => {
     expect(text(render({ roster: 'unreadable' }))).toContain(`People ${UNREADABLE_LINE}`);
   });
 
+  it('says under the People heading how many people the table lists: "N people", "1 person" for one (PRD 1262)', () => {
+    const count = (html: string) => /<p class="board-count">([^<]*)<\/p>/.exec(html)?.[1];
+    const html = render();
+    expect(count(html)).toBe('3 people');
+    expect(html.indexOf('id="board-people">')).toBeLessThan(html.indexOf('class="board-count"'));
+    expect(html.indexOf('class="board-count"')).toBeLessThan(html.indexOf('<table class="board-table">'));
+    expect(count(render({ roster: [member('u-ada', 'ada-gh', 'octo', 'ADA')] }))).toBe('1 person');
+  });
+
+  it('draws no count line when the people cannot be read (PRD 1262)', () => {
+    expect(render({ roster: 'unreadable' })).not.toContain('board-count');
+  });
+
   it('names every day of a week, and every seventh day of a longer period, today always', () => {
     expect(columnLabels(['2026-09-25', '2026-09-26'])).toEqual(['Fri', 'Sat']);
     const month = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2026, 7, 28 + i)).toISOString().slice(0, 10));
