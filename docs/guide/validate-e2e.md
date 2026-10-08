@@ -82,7 +82,7 @@ edits the code under test, merges nothing and marks nothing ready.
 
 ## `omni e2e status <n>`
 
-```bash
+```bash terminal
 node .omni-loop/bin/omni.mjs e2e status 1233
 ```
 
@@ -95,7 +95,7 @@ model.
 
 ## `omni e2e heals <n>`
 
-```bash
+```bash terminal
 node .omni-loop/bin/omni.mjs e2e heals 1233
 ```
 
@@ -115,7 +115,7 @@ An identical step is not listed. The same refusals as `status` hold for both sid
 Nothing replays the suite after a merge in this beta. To check that the committed recordings still
 match the product, run:
 
-```bash
+```bash terminal
 E2E_TELEMETRY_DISABLED=1 npx e2e run --strict-cache --tag prd-1233
 ```
 
@@ -147,3 +147,5 @@ table of criterion, test and verdict: **✓**, **✗**, or "not filmable".
 
 Read the tests too. The same agent may have seen the code, so reading the spec alone is a rule of the
 skill, not a guarantee; a person reading the tests in the sub-PR is the check.
+
+[Next → Use cases](/docs/use-cases)
