@@ -19,6 +19,8 @@
 // the kit's rules gave it. roadmap_push() keeps one row per key (supabase/migrations/
 // 20261113090000_roadmap_human_work.sql): a new key with its kind, a stored key keeping its own, a key
 // missing from the push done. A body without the field, from a kit before it, changes no stored entry.
+// Once such a push is recorded, `classify` offers the new keys to Jev's `hitl-category` (PRD 1217 s3,
+// ./classify-jev.ts), after the answer: the push never waits on it, nor fails because of it.
 //
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed body, 401 no valid bearer
 // token, 403 a repository no workspace of the caller owns (with the App's install link after its hint),
@@ -41,6 +43,12 @@ export type RoadmapDeps = {
   connect: ((token: string) => RoadmapClient) | null;
   /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
   installLink?: string | null;
+  /**
+   * Offers a pushed roadmap's new keys to Jev's `hitl-category` (./classify-jev.ts), once the push has
+   * answered; missing: no Jev here, and every key keeps its rule kind. Called only after a push that
+   * carried `humanWork` was recorded; whatever it does, the push has already succeeded.
+   */
+  classify?: (roadmapId: string) => void;
 };
 
 const RepoName = z.string().regex(/^[A-Za-z0-9_.-]+$/, 'a target\'s short name');
@@ -120,6 +128,14 @@ function refusal(error: RoadmapStoreError, deps: RoadmapDeps): Response {
   return refuse(status, status === 403 ? withInstallLink(error.reason, deps.installLink) : error.reason);
 }
 
+/** Hands the roadmap to the classifier, when there is one; a classifier that cannot start fails nothing. */
+function classifyAfter(deps: RoadmapDeps, roadmapId: string): void {
+  try {
+    deps.classify?.(roadmapId);
+  } catch (error) {
+    console.error(`roadmaps: the human work of roadmap ${roadmapId} keeps its rule kinds (${error instanceof Error ? error.message : String(error)})`);
+  }
+}
 
 /** The answer, with the one line the kit prints when the product matched none. */
 function answered(answer: RoadmapPushAnswer) {
@@ -138,6 +154,7 @@ export async function roadmapPush(request: Request, deps: RoadmapDeps): Promise<
 
   try {
     const answer = await roadmapStore(received.client()).push(push);
+    if (push.humanWork !== undefined) classifyAfter(deps, answer.roadmapId);
     return Response.json(answered(answer), { status: answer.created ? 201 : 200, headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     if (!(error instanceof RoadmapStoreError)) throw error;
