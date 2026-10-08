@@ -6,7 +6,7 @@ import { makeRepo, realExec } from '../../test/fixture.ts';
 import { main } from '../omni.ts';
 
 const trace = (testId: string, version = 'trace-1') =>
-  JSON.stringify({ schemaVersion: version, summary: 's', recordedFor: { testId, callIndex: 0 }, actions: [{ name: 'click', target: 'Rank' }] });
+  JSON.stringify({ schemaVersion: version, payload: { summary: 's', recordedFor: { testId, callIndex: 0 }, actions: [{ name: 'click', target: 'Rank' }] } });
 const ON = 'kit: 1\ne2e:\n  enabled: true\n';
 
 async function run(args: string[], config: string, files: Record<string, string> = {}) {
@@ -65,7 +65,7 @@ describe('omni e2e status', () => {
 describe('omni e2e heals', () => {
   const git = (root: string, ...args: string[]) => realExec('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd: root, encoding: 'utf8' });
   const step = (target: string, callIndex = 0, version = 'trace-1') =>
-    JSON.stringify({ schemaVersion: version, summary: `clicks ${target}`, recordedFor: { testId: 'rank.spec.ts', callIndex }, actions: [{ name: 'click', target }] });
+    JSON.stringify({ schemaVersion: version, payload: { summary: `clicks ${target}`, recordedFor: { testId: 'rank.spec.ts', callIndex }, actions: [{ name: 'click', target }] } });
   const SPEC = { '.omni-loop/delivery/inbox/1233-rank/spec.md': '# spec\n' };
 
   /** main holds `base`; feat/rank adds `head` on top. */

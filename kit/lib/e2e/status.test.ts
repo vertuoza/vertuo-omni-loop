@@ -7,7 +7,7 @@ import { parseRecording, readRecordings, readTaggedTests, RecordingError } from 
 import { testStatus } from './status.ts';
 
 const trace = (testId: string, callIndex = 0, extra: object = {}) =>
-  JSON.stringify({ schemaVersion: 'trace-1', summary: 'clicks Rank', recordedFor: { testId, callIndex }, actions: [{ name: 'click', target: 'Rank' }], ...extra });
+  JSON.stringify({ schemaVersion: 'trace-1', payload: { summary: 'clicks Rank', recordedFor: { testId, callIndex }, actions: [{ name: 'click', target: 'Rank' }] }, ...extra });
 
 function repo(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), 'omni-e2e-'));
@@ -21,8 +21,25 @@ function repo(files: Record<string, string>): string {
 describe('parseRecording', () => {
   it('reads a trace-1 recording', () => {
     expect(parseRecording('a.json', trace('t.spec.ts', 2))).toEqual({
-      file: 'a.json', testId: 't.spec.ts', callIndex: 2, summary: 'clicks Rank', actions: [{ name: 'click', target: 'Rank' }],
+      file: 'a.json', testId: 't.spec.ts', callIndex: 2, instruction: '', summary: 'clicks Rank', actions: [{ name: 'click', target: 'Rank' }],
     });
+  });
+
+  it('reads a recording as the framework writes it: under payload, with an object target', () => {
+    const real = JSON.stringify({
+      schemaVersion: 'trace-1', createdAt: '2026-10-08T14:02:17.180Z',
+      payload: {
+        summary: 'Clicked the "PRs" header a second time.',
+        actions: [{ name: 'tap', summary: 'tap link "PRs" in "Rank"', target: { role: 'link', name: 'PRs', within: 'Rank' } }],
+        executor: { name: 'e2e-default-agent', version: '2' },
+        recordedFor: { testId: 'tests/rank.e2e.ts::PRD%201%20%C2%B7%20Rank::criterion%201', targetId: 'web', instructionDigest: 'abc', callIndex: 0 },
+      },
+    });
+    expect(parseRecording('real.json', real)).toEqual({
+      file: 'real.json', testId: 'tests/rank.e2e.ts::PRD%201%20%C2%B7%20Rank::criterion%201', callIndex: 0, instruction: 'abc',
+      summary: 'Clicked the "PRs" header a second time.', actions: [{ name: 'tap', target: 'tap link "PRs" in "Rank"' }],
+    });
+    expect(testStatus([{ id: 'tests/rank.e2e.ts', file: 'e2e/tests/rank.e2e.ts' }], [parseRecording('real.json', real)])[0]?.recording).toBe(true);
   });
 
   it('names the file when the JSON is bad, the schema is another, or a field is missing', () => {

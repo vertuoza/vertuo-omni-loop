@@ -100,7 +100,7 @@ node .omni-loop/bin/omni.mjs e2e heals 1233
 ```
 
 Reads the recordings (`.e2e/cache/*.json`) at the merge-base of the PRD's feature branch and at its
-head, and pairs their steps by `recordedFor.testId` and `recordedFor.callIndex`, never by file name.
+head, and pairs their steps by `recordedFor.testId`, `recordedFor.callIndex` and `recordedFor.instructionDigest` (two steps of one test can share a call index), never by file name.
 Each step is:
 
 - **healed**: on both sides with a different action (`name` and `target`). The output gives the old

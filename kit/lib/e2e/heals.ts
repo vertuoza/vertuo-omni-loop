@@ -12,7 +12,7 @@ export type Healed = { readonly testId: string; readonly callIndex: number; read
 export type Step = { readonly testId: string; readonly callIndex: number; readonly summary: string; readonly actions: readonly Action[] };
 export type Heals = { readonly healed: Healed[]; readonly new: Step[]; readonly removed: Step[] };
 
-const key = ({ testId, callIndex }: Recording): string => JSON.stringify([testId, callIndex]);
+const key = ({ testId, callIndex, instruction }: Recording): string => JSON.stringify([testId, callIndex, instruction]);
 const same = (a: readonly Action[], b: readonly Action[]): boolean =>
   a.length === b.length && a.every((action, i) => { const other = b.at(i); return other !== undefined && action.name === other.name && action.target === other.target; });
 const step = ({ testId, callIndex, summary, actions }: Recording): Step => ({ testId, callIndex, summary, actions });

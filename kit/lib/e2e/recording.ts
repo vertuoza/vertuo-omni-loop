@@ -16,6 +16,8 @@ export type Recording = {
   readonly file: string;
   readonly testId: string;
   readonly callIndex: number;
+  /** The digest of the step's instruction: two steps of one test can share a call index, never a digest. */
+  readonly instruction: string;
   readonly summary: string;
   readonly actions: readonly Action[];
 };
@@ -44,7 +46,10 @@ export function parseRecording(file: string, text: string): Recording {
   if (json['schemaVersion'] !== SCHEMA_VERSION) {
     throw new RecordingError(file, `schemaVersion ${JSON.stringify(json['schemaVersion'])} is not ${SCHEMA_VERSION}`);
   }
-  const { recordedFor, actions, summary } = json;
+  // The framework nests the recording under `payload`; the version sits beside it.
+  const { payload } = json;
+  if (!isRecord(payload)) throw new RecordingError(file, 'payload is missing');
+  const { recordedFor, actions, summary } = payload;
   if (!isRecord(recordedFor) || typeof recordedFor['testId'] !== 'string' || typeof recordedFor['callIndex'] !== 'number') {
     throw new RecordingError(file, 'recordedFor needs a testId and a callIndex');
   }
@@ -53,11 +58,16 @@ export function parseRecording(file: string, text: string): Recording {
     file,
     testId: recordedFor['testId'],
     callIndex: recordedFor['callIndex'],
+    instruction: typeof recordedFor['instructionDigest'] === 'string' ? recordedFor['instructionDigest'] : '',
     summary: typeof summary === 'string' ? summary : '',
     actions: actions.map((action: unknown) => {
       const item = isRecord(action) ? action : {};
       const text = (value: unknown): string => (typeof value === 'string' || typeof value === 'number' ? String(value) : '');
-      return { name: text(item['name']), target: text(item['target']) };
+      // A target is a string, or an object ({ role, name, within }): then the action's own summary
+      // names it, and its JSON stands in when there is none.
+      const target = item['target'];
+      const named = isRecord(target) ? text(item['summary']) || JSON.stringify(target) : text(target);
+      return { name: text(item['name']), target: named };
     }),
   };
 }

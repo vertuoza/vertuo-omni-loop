@@ -40078,7 +40078,9 @@ function parseRecording(file2, text11) {
   if (json2["schemaVersion"] !== SCHEMA_VERSION) {
     throw new RecordingError(file2, `schemaVersion ${JSON.stringify(json2["schemaVersion"])} is not ${SCHEMA_VERSION}`);
   }
-  const { recordedFor, actions, summary } = json2;
+  const { payload } = json2;
+  if (!isRecord4(payload)) throw new RecordingError(file2, "payload is missing");
+  const { recordedFor, actions, summary } = payload;
   if (!isRecord4(recordedFor) || typeof recordedFor["testId"] !== "string" || typeof recordedFor["callIndex"] !== "number") {
     throw new RecordingError(file2, "recordedFor needs a testId and a callIndex");
   }
@@ -40087,11 +40089,14 @@ function parseRecording(file2, text11) {
     file: file2,
     testId: recordedFor["testId"],
     callIndex: recordedFor["callIndex"],
+    instruction: typeof recordedFor["instructionDigest"] === "string" ? recordedFor["instructionDigest"] : "",
     summary: typeof summary === "string" ? summary : "",
     actions: actions.map((action) => {
       const item2 = isRecord4(action) ? action : {};
       const text12 = (value) => typeof value === "string" || typeof value === "number" ? String(value) : "";
-      return { name: text12(item2["name"]), target: text12(item2["target"]) };
+      const target3 = item2["target"];
+      const named4 = isRecord4(target3) ? text12(item2["summary"]) || JSON.stringify(target3) : text12(target3);
+      return { name: text12(item2["name"]), target: named4 };
     })
   };
 }
@@ -40128,7 +40133,7 @@ function readTaggedTests(root, dir, prd2) {
 }
 
 // kit/lib/e2e/heals.ts
-var key = ({ testId, callIndex }) => JSON.stringify([testId, callIndex]);
+var key = ({ testId, callIndex, instruction }) => JSON.stringify([testId, callIndex, instruction]);
 var same = (a, b) => a.length === b.length && a.every((action, i) => {
   const other = b.at(i);
   return other !== void 0 && action.name === other.name && action.target === other.target;
