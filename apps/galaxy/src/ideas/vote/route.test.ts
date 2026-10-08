@@ -8,8 +8,8 @@ const IDEA = '00000000-0000-4000-8000-000000000001';
 
 const db = vi.hoisted(() => ({
   exchange: vi.fn(() => Promise.resolve({ data: { session: null }, error: null as null | { message: string } })),
-  insert: vi.fn((_row: { idea_id: string }) => Promise.resolve({ error: null as null | { code?: string; message: string } })),
-  env: vi.fn(() => ({ url: 'http://127.0.0.1:54321', key: 'anon' }) as null | { url: string; key: string }),
+  insert: vi.fn<(row: { idea_id: string }) => Promise<{ error: null | { code?: string; message: string } }>>(() => Promise.resolve({ error: null })),
+  env: vi.fn<() => null | { url: string; key: string }>(() => ({ url: 'http://127.0.0.1:54321', key: 'anon' })),
 }));
 const arcade = vi.hoisted(() => ({
   afterSignIn: vi.fn(() => Promise.resolve(['signin', 'ok'])),
@@ -19,7 +19,7 @@ const arcade = vi.hoisted(() => ({
 vi.mock('server-only', () => ({}));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: db.env,
-  supabaseServer: async () => ({
+  supabaseServer: () => Promise.resolve({
     auth: { exchangeCodeForSession: db.exchange },
     from: (table: string) => {
       if (table !== 'idea_votes') throw new Error(`no table ${table} in this test`);

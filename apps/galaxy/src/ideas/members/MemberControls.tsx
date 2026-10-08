@@ -1,5 +1,5 @@
 'use client';
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { clientEnv } from '../../env.client';
@@ -25,7 +25,10 @@ function browserPort(): MembersPort | null {
 
 const formOf = (form: HTMLFormElement): IdeaForm => {
   const data = new FormData(form);
-  const field = (name: string) => String(data.get(name) ?? '');
+  const field = (name: string) => {
+    const value = data.get(name);
+    return typeof value === 'string' ? value : '';
+  };
   return { title: field('title'), pitch: field('pitch'), lane: field('lane'), prdField: field('prd') };
 };
 
@@ -50,7 +53,7 @@ function useWrite(): Write {
 }
 
 /** A form's submit: the idea it holds, sent as a new one, or as the named idea's new fields. */
-const sendForm = (write: Write, repo: string, ideaId?: string) => (event: FormEvent<HTMLFormElement>) => {
+const sendForm = (write: Write, repo: string, ideaId?: string) => (event: SubmitEvent<HTMLFormElement>) => {
   event.preventDefault();
   const form = formOf(event.currentTarget);
   void write.run((port) => submitIdea(port, repo, form, ideaId));

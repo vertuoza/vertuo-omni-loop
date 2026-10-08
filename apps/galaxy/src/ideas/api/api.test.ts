@@ -24,22 +24,22 @@ const idea = (n: number, over: Partial<Idea> = {}): Idea => ({
 });
 
 /** A fake board store: who may add to which repository, and the boards each reader sees. */
-function world({ database = true, member = true, boards = {} as Record<string, Board | null>, failAdd }: {
+function world({ database = true, member = true, boards = {}, failAdd }: {
   database?: boolean; member?: boolean; boards?: Record<string, Board | null>; failAdd?: Error;
 } = {}) {
   const added: (NewIdeaRow & { by: string })[] = [];
   const port = (token: string): IdeasPort => ({
-    async add(row) {
-      if (failAdd) throw failAdd;
-      if (!member) throw new IdeasRefusal(403, `No workspace of yours lists ${row.repo}.`);
+    add(row) {
+      if (failAdd) return Promise.reject(failAdd);
+      if (!member) return Promise.reject(new IdeasRefusal(403, `No workspace of yours lists ${row.repo}.`));
       added.push({ ...row, by: token });
-      return { id: '00000000-0000-4000-8000-0000000000a1' };
+      return Promise.resolve({ id: '00000000-0000-4000-8000-0000000000a1' });
     },
-    board: async (repo) => boards[repo] ?? null,
+    board: (repo) => Promise.resolve(boards[repo] ?? null),
   });
   const deps: IdeasApiDeps = {
     connect: database ? (token) => ({
-      auth: { getUser: async () => (token === 'ada-token' ? { data: { user: { id: 'ada', email: null } }, error: null } : { data: { user: null }, error: new Error('bad') }) },
+      auth: { getUser: () => Promise.resolve(token === 'ada-token' ? { data: { user: { id: 'ada', email: null } }, error: null } : { data: { user: null }, error: new Error('bad') }) },
       ideas: port(token),
     }) : null,
   };
@@ -60,6 +60,9 @@ function world({ database = true, member = true, boards = {} as Record<string, B
   return { added, post, get };
 }
 
+/** An error that names `field`. */
+const naming = (field: string): unknown => expect.stringContaining(field);
+
 const IDEA = { repo: 'Acme/Widgets', title: '  Improve the HUD ', pitch: 'More useful facts.', lane: 'now' };
 
 describe('POST /api/ideas: a member adds an idea', () => {
@@ -77,11 +80,11 @@ describe('POST /api/ideas: a member adds an idea', () => {
 
   it('refuses a malformed body with 400, naming the field', async () => {
     const w = world();
-    expect(await w.post({ ...IDEA, lane: 'soon' })).toMatchObject({ status: 400, body: { error: expect.stringContaining('`lane`') } });
-    expect(await w.post({ ...IDEA, title: 'x'.repeat(121) })).toMatchObject({ status: 400, body: { error: expect.stringContaining('`title`') } });
-    expect(await w.post({ ...IDEA, pitch: 'y'.repeat(601) })).toMatchObject({ status: 400, body: { error: expect.stringContaining('`pitch`') } });
-    expect(await w.post({ ...IDEA, pitch: ' ' })).toMatchObject({ status: 400, body: { error: expect.stringContaining('`pitch`') } });
-    expect(await w.post({ ...IDEA, repo: 'not a repo' })).toMatchObject({ status: 400, body: { error: expect.stringContaining('`repo`') } });
+    expect(await w.post({ ...IDEA, lane: 'soon' })).toMatchObject({ status: 400, body: { error: naming('`lane`') } });
+    expect(await w.post({ ...IDEA, title: 'x'.repeat(121) })).toMatchObject({ status: 400, body: { error: naming('`title`') } });
+    expect(await w.post({ ...IDEA, pitch: 'y'.repeat(601) })).toMatchObject({ status: 400, body: { error: naming('`pitch`') } });
+    expect(await w.post({ ...IDEA, pitch: ' ' })).toMatchObject({ status: 400, body: { error: naming('`pitch`') } });
+    expect(await w.post({ ...IDEA, repo: 'not a repo' })).toMatchObject({ status: 400, body: { error: naming('`repo`') } });
     expect(await w.post({ ...IDEA, votes: 9 })).toMatchObject({ status: 400, body: { error: 'An idea does not carry votes.' } });
     expect(await w.post(null, { raw: '[1]' })).toMatchObject({ status: 400, body: { error: 'The body must be a JSON object.' } });
     expect(await w.post(null, { raw: '{' })).toMatchObject({ status: 400 });

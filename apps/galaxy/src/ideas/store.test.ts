@@ -17,7 +17,7 @@ const answer = {
 };
 
 const db = (data: unknown, error: { message: string } | null = null) => {
-  const rpc = vi.fn<IdeasDb['rpc']>(async () => ({ data, error }));
+  const rpc = vi.fn<IdeasDb['rpc']>(() => Promise.resolve({ data, error }));
   return { rpc };
 };
 

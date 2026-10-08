@@ -51,13 +51,13 @@ function lanes(markup: string): [string, string[]][] {
 
 describe('a public board', () => {
   it('shows Now, Next and Later, each sorted by votes, then the oldest first', async () => {
-    const markup = await page(async () => board([
+    const markup = await page(() => Promise.resolve(board([
       idea({ title: 'Later, 1 vote', lane: 'later', votes: 1 }),
       idea({ title: 'Now, 2 votes, young', lane: 'now', votes: 2, created_at: '2026-10-05T09:00:00+00:00' }),
       idea({ title: 'Now, 2 votes, old', lane: 'now', votes: 2, created_at: '2026-10-01T09:00:00+00:00' }),
       idea({ title: 'Now, 9 votes', lane: 'now', votes: 9, created_at: '2026-10-07T09:00:00+00:00' }),
       idea({ title: 'Next, no vote', lane: 'next' }),
-    ]));
+    ])));
     expect(lanes(markup)).toEqual([
       ['Now 3', ['Now, 9 votes', 'Now, 2 votes, old', 'Now, 2 votes, young']],
       ['Next 1', ['Next, no vote']],
@@ -66,13 +66,13 @@ describe('a public board', () => {
   });
 
   it('says whose board it is and how it reads', async () => {
-    const markup = await page(async () => board([]));
+    const markup = await page(() => Promise.resolve(board([])));
     expect(markup).toMatch(/<h1[^>]*>Ideas for acme\/widgets<\/h1>/);
     expect(text(markup)).toContain('Votes sort the ideas inside a lane, most votes first.');
   });
 
   it('shows a card\'s title, pitch, and its count beside a ▲', async () => {
-    const markup = await page(async () => board([idea({ title: 'Call GitHub less', lane: 'later', votes: 4, pitch: 'Fewer API calls.' })]));
+    const markup = await page(() => Promise.resolve(board([idea({ title: 'Call GitHub less', lane: 'later', votes: 4, pitch: 'Fewer API calls.' })])));
     const card = /<article class="idea-card"[\s\S]*?<\/article>/.exec(markup)?.[0] ?? '';
     expect(card).toContain('<h3 class="idea-title">Call GitHub less</h3>');
     expect(card).toContain('<p class="idea-pitch">Fewer API calls.</p>');
@@ -80,10 +80,10 @@ describe('a public board', () => {
   });
 
   it('makes the ▲ a button to vote with, pressed when the reader voted (PRD 1246, s3)', async () => {
-    const markup = await page(async () => board([
+    const markup = await page(() => Promise.resolve(board([
       idea({ title: 'Mine', lane: 'now', votes: 3, voted: true }),
       idea({ title: 'Not mine', lane: 'now', votes: 2 }),
-    ]));
+    ])));
     const buttons = [...markup.matchAll(/<button [^>]*class="idea-votes[^"]*"[^>]*>/g)].map(([b]) => b);
     expect(buttons).toHaveLength(2);
     expect(buttons[0]).toContain('aria-pressed="true"');
@@ -93,26 +93,26 @@ describe('a public board', () => {
   });
 
   it('leaves an archived idea out', async () => {
-    const markup = await page(async () => board([idea({ title: 'Kept', lane: 'now' }), idea({ title: 'Dropped', lane: 'now', archived: true, votes: 50 })]));
+    const markup = await page(() => Promise.resolve(board([idea({ title: 'Kept', lane: 'now' }), idea({ title: 'Dropped', lane: 'now', archived: true, votes: 50 })])));
     expect(lanes(markup)[0]).toEqual(['Now 1', ['Kept']]);
     expect(markup).not.toContain('Dropped');
   });
 
   it('shows an "In PRD #n" badge linking to the PRD\'s issue', async () => {
-    const markup = await page(async () => board([idea({ title: 'Linked', lane: 'next', prd: parsePrd(1246) }), idea({ title: 'Unlinked', lane: 'next' })]));
+    const markup = await page(() => Promise.resolve(board([idea({ title: 'Linked', lane: 'next', prd: parsePrd(1246) }), idea({ title: 'Unlinked', lane: 'next' })])));
     expect(markup).toContain('<a class="idea-prd" href="https://github.com/acme/widgets/issues/1246">In PRD #1246</a>');
     expect([...markup.matchAll(/class="idea-prd"/g)]).toHaveLength(1);
   });
 
   it('reads an empty board as three empty lanes', async () => {
-    const markup = await page(async () => board([]));
+    const markup = await page(() => Promise.resolve(board([])));
     expect(lanes(markup)).toEqual([['Now 0', []], ['Next 0', []], ['Later 0', []]]);
     expect([...markup.matchAll(/Nothing here yet\./g)]).toHaveLength(3);
   });
 
   it('tells a member their board is private while it is', async () => {
-    expect(text(await page(async () => board([], { public: false, member: true })))).toContain('This board is private');
-    expect(text(await page(async () => board([])))).not.toContain('private');
+    expect(text(await page(() => Promise.resolve(board([], { public: false, member: true }))))).toContain('This board is private');
+    expect(text(await page(() => Promise.resolve(board([]))))).not.toContain('private');
   });
 });
 
@@ -121,7 +121,7 @@ describe('a member\'s board (PRD 1246, s4)', () => {
   const IDEAS_OF = () => [idea({ title: 'Call GitHub less', lane: 'later', pitch: 'Fewer API calls.' }), idea({ title: 'A calmer gate', lane: 'now' })];
 
   it('offers a member to add an idea, with its title, its pitch and its lane, Later chosen', async () => {
-    const markup = await page(async () => board(IDEAS_OF(), { member: true }));
+    const markup = await page(() => Promise.resolve(board(IDEAS_OF(), { member: true })));
     const add = /<details class="idea-add"[\s\S]*?<\/details>/.exec(markup)?.[0] ?? '';
     expect(text(add)).toContain('Add an idea');
     expect(add).toMatch(/<input(?=[^>]*name="title")[^>]*maxLength="120"/);
@@ -131,7 +131,7 @@ describe('a member\'s board (PRD 1246, s4)', () => {
   });
 
   it('gives each card a member\'s Edit and Archive, the edit form holding its title, pitch, lane and PRD', async () => {
-    const markup = await page(async () => board([idea({ title: 'Linked', lane: 'next', prd: parsePrd(1246), pitch: 'Built.' })], { member: true }));
+    const markup = await page(() => Promise.resolve(board([idea({ title: 'Linked', lane: 'next', prd: parsePrd(1246), pitch: 'Built.' })], { member: true })));
     const [card = ''] = cards(markup);
     expect(card).toContain('aria-label="Edit Linked"');
     expect(card).toContain('aria-label="Archive Linked"');
@@ -142,7 +142,7 @@ describe('a member\'s board (PRD 1246, s4)', () => {
   });
 
   it('shows a non-member no add, edit, move, archive or PRD control', async () => {
-    const markup = await page(async () => board(IDEAS_OF(), { member: false }));
+    const markup = await page(() => Promise.resolve(board(IDEAS_OF(), { member: false })));
     expect(markup).not.toContain('idea-add');
     expect(markup).not.toMatch(/aria-label="(Edit|Archive) /);
     expect(markup).not.toMatch(/name="(title|pitch|lane|prd)"/);
@@ -150,7 +150,7 @@ describe('a member\'s board (PRD 1246, s4)', () => {
 
   it('shows every card its "Brainstorm this" line with a copy button, member or not', async () => {
     for (const member of [true, false]) {
-      const [card = ''] = cards(await page(async () => board(IDEAS_OF(), { member })));
+      const [card = ''] = cards(await page(() => Promise.resolve(board(IDEAS_OF(), { member }))));
       expect(text(card)).toContain('Brainstorm this');
       expect(text(card)).toContain('/omni:brainstorm \'A calmer gate: The pitch of A calmer gate.\'');
       expect(card).toMatch(/<button[^>]*aria-label="Copy the brainstorm line of A calmer gate"/);
@@ -161,7 +161,7 @@ describe('a member\'s board (PRD 1246, s4)', () => {
 describe('a private board and a missing one', () => {
   it('answer the same "no public board here" page', async () => {
     const reads: string[] = [];
-    const none: ReadBoard = async (name) => { reads.push(name); return null; };
+    const none: ReadBoard = (name) => { reads.push(name); return Promise.resolve(null); };
     const privateBoard = await page(none, 'acme', 'secret');
     const missing = await page(none, 'Nobody', 'Nothing');
     expect(reads).toEqual(['acme/secret', 'nobody/nothing']);
@@ -172,7 +172,7 @@ describe('a private board and a missing one', () => {
 
   it('is the same page for an address GitHub names no repository by, read from nowhere', async () => {
     const read = vi.fn<ReadBoard>();
-    expect(await page(read, 'not a name', 'x')).toBe(await page(async () => null));
+    expect(await page(read, 'not a name', 'x')).toBe(await page(() => Promise.resolve(null)));
     expect(read).not.toHaveBeenCalled();
   });
 });
@@ -180,7 +180,7 @@ describe('a private board and a missing one', () => {
 describe('a board that cannot be read', () => {
   it('says so in one line, with no error detail', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const markup = await page(async () => { throw new Error('connection refused at 10.0.0.1'); });
+    const markup = await page(() => Promise.reject(new Error('connection refused at 10.0.0.1')));
     expect(text(markup)).toContain('The ideas board is unavailable right now.');
     expect(markup).not.toContain('10.0.0.1');
     expect(log).toHaveBeenCalledOnce();

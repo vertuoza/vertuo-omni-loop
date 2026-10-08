@@ -20,8 +20,7 @@ describe('bodyOf', () => {
   });
 
   it('names the malformed field', () => {
-    expect(bodyOf(Thing, { title: '' }, 'An idea')).toEqual({
-      problem: expect.stringMatching(/^An idea's `title` is malformed: /),
-    });
+    const malformed: unknown = expect.stringMatching(/^An idea's `title` is malformed: /);
+    expect(bodyOf(Thing, { title: '' }, 'An idea')).toEqual({ problem: malformed });
   });
 });

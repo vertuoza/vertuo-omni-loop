@@ -26,7 +26,7 @@ type Call = { url: string; method: string | undefined; body: unknown };
 function fakeIdeas(reply: (call: Call) => Response) {
   const calls: Call[] = [];
   const fetch = (url: string, init: FetchInit) => {
-    const call = { url, method: init.method, body: init.body === undefined ? undefined : JSON.parse(init.body) };
+    const call: Call = { url, method: init.method, body: init.body === undefined ? undefined : JSON.parse(init.body) as unknown };
     calls.push(call);
     return new Promise<Response>((resolve) => { resolve(reply(call)); });
   };

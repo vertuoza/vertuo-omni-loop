@@ -11,10 +11,10 @@ function ports(over: Partial<VotePorts> = {}): VotePorts & { calls: string[] } {
   return {
     calls,
     origin: 'https://galaxy.example',
-    signedIn: vi.fn(async () => true),
-    add: vi.fn(async (id: string) => { calls.push(`add ${id}`); return null; }),
-    remove: vi.fn(async (id: string) => { calls.push(`remove ${id}`); return null; }),
-    signIn: vi.fn(async (to: string) => { calls.push(`sign in ${to}`); return null; }),
+    signedIn: vi.fn(() => Promise.resolve(true)),
+    add: vi.fn((id: string) => { calls.push(`add ${id}`); return Promise.resolve(null); }),
+    remove: vi.fn((id: string) => { calls.push(`remove ${id}`); return Promise.resolve(null); }),
+    signIn: vi.fn((to: string) => { calls.push(`sign in ${to}`); return Promise.resolve(null); }),
     ...over,
   };
 }
@@ -37,20 +37,20 @@ describe('a signed-in press', () => {
   });
 
   it('keeps the count and says so when the database refuses', async () => {
-    const p = ports({ add: async () => 'new row violates row-level security policy' });
+    const p = ports({ add: () => Promise.resolve('new row violates row-level security policy') });
     expect(await press(p, 'acme/widgets', IDEA, { votes: 4, voted: false })).toEqual({ kind: 'failed', problem: 'Your vote could not be counted. Try again.' });
   });
 });
 
 describe('a signed-out press', () => {
   it('starts a GitHub sign-in that comes back to the board with the vote to count, and writes nothing', async () => {
-    const p = ports({ signedIn: async () => false });
+    const p = ports({ signedIn: () => Promise.resolve(false) });
     expect(await press(p, 'acme/widgets', IDEA, { votes: 4, voted: false })).toEqual({ kind: 'signing-in' });
     expect(p.calls).toEqual([`sign in https://galaxy.example/auth/callback?next=ideas&board=acme%2Fwidgets&vote=${IDEA}`]);
   });
 
   it('says why when the sign-in could not start', async () => {
-    const p = ports({ signedIn: async () => false, signIn: async () => 'GitHub sign-in could not start: provider is not enabled' });
+    const p = ports({ signedIn: () => Promise.resolve(false), signIn: () => Promise.resolve('GitHub sign-in could not start: provider is not enabled') });
     expect(await press(p, 'acme/widgets', IDEA, { votes: 4, voted: false })).toEqual({ kind: 'failed', problem: 'GitHub sign-in could not start: provider is not enabled' });
   });
 });

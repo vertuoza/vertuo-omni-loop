@@ -11,8 +11,8 @@ function ports(over: Partial<VoterCallbackPorts> = {}): VoterCallbackPorts & { c
   const calls: string[] = [];
   return {
     calls,
-    exchange: vi.fn(async (code: string) => { calls.push(`exchange ${code}`); return { error: null }; }),
-    vote: vi.fn(async (id: string) => { calls.push(`vote ${id}`); return null; }),
+    exchange: vi.fn((code: string) => { calls.push(`exchange ${code}`); return Promise.resolve({ error: null }); }),
+    vote: vi.fn((id: string) => { calls.push(`vote ${id}`); return Promise.resolve(null); }),
     ...over,
   };
 }
@@ -27,7 +27,7 @@ describe('a voter back from GitHub', () => {
 
   it('lands back on the board even when the vote is refused, and logs why', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const p = ports({ vote: async () => 'new row violates row-level security policy' });
+    const p = ports({ vote: () => Promise.resolve('new row violates row-level security policy') });
     expect(await voterReturn(query({ code: 'c', board: 'acme/widgets', vote: IDEA }), p)).toBe('/ideas/acme/widgets');
     expect(log).toHaveBeenCalledOnce();
     log.mockRestore();
@@ -41,11 +41,12 @@ describe('a voter back from GitHub', () => {
 
   it('counts no vote when the exchange fails, and says the sign-in did not finish', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const p = ports({ exchange: async () => ({ error: 'invalid flow state' }) });
+    const vote = vi.fn<VoterCallbackPorts['vote']>(() => Promise.resolve(null));
+    const p = ports({ exchange: () => Promise.resolve({ error: 'invalid flow state' }), vote });
     const back = new URL(await voterReturn(query({ code: 'c', board: 'acme/widgets', vote: IDEA }), p), 'https://galaxy.example');
     expect(back.pathname).toBe('/ideas/acme/widgets');
     expect(back.searchParams.get('signin_error')).toBe('That sign-in could not be finished. Press ▲ again.');
-    expect(p.vote).not.toHaveBeenCalled();
+    expect(vote).not.toHaveBeenCalled();
     log.mockRestore();
   });
 

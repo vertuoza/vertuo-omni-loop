@@ -101,8 +101,8 @@ describe('a form sent from the page', () => {
     const calls: unknown[] = [];
     return {
       calls,
-      add: vi.fn(async (idea) => { calls.push(['add', idea]); return null; }),
-      change: vi.fn(async (id, change) => { calls.push(['change', id, change]); return null; }),
+      add: vi.fn((idea) => { calls.push(['add', idea]); return Promise.resolve(null); }),
+      change: vi.fn((id, change) => { calls.push(['change', id, change]); return Promise.resolve(null); }),
     };
   };
 
@@ -125,7 +125,7 @@ describe('a form sent from the page', () => {
   });
 
   it('answers the database\'s refusal', async () => {
-    expect(await submitIdea({ ...port(), change: async () => MEMBERS.notMember }, 'acme/widgets', form(), IDEA)).toBe(MEMBERS.notMember);
+    expect(await submitIdea({ ...port(), change: () => Promise.resolve(MEMBERS.notMember) }, 'acme/widgets', form(), IDEA)).toBe(MEMBERS.notMember);
   });
 
   it('archives an idea', async () => {
