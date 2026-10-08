@@ -119,3 +119,25 @@ Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
 Proposed: harvest 2026-09-27
+
+## N-PRODUCT-12
+
+Run in a folder where the loop is not installed, omni now does not refuse: it reads nothing, answers that the session is on nothing, and exits 0. Other commands that need a kit still refuse there.
+
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s1-01-now-runs-without-a-kit, PRD #1208
+Enforced by: kit/lib/launch/launch.test.ts, kit/bin/now.test.ts, kit/bin/omni.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1210
+Proposed: harvest 2026-10-08
+
+## N-PRODUCT-13
+
+omni init writes no file outside .omni-loop/ except two keys of .claude/settings.json, the status line and the band's setting, and never changes a value someone else set; it commits that file whenever either key is the loop's.
+
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s7-01-init-wires-the-band-outside-its-territory, PRD #1208
+Enforced by: kit/lib/init/settings.test.ts, kit/bin/init.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1210
+Proposed: harvest 2026-10-08
