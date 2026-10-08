@@ -103,7 +103,8 @@ async function nowJson(cwd: string, root: string, args: string[] = [], options =
   expect({ code: run.code, err: run.err }).toEqual({ code: 0, err: '' });
   expect(run.calls.filter((call) => /^gh\b/.test(call) || /^git\b.*\bfetch\b/.test(call))).toEqual([]);
   expect(tree(root)).toBe(before);
-  return JSON.parse(run.out);
+  const answer: unknown = JSON.parse(run.out);
+  return answer;
 }
 
 const BOARD = [
@@ -202,7 +203,8 @@ describe('omni now', () => {
         resolve({ code: error ? Number(error.code) : 0, stdout, stderr });
       });
     });
-    expect({ ...run, stdout: JSON.parse(run.stdout) }).toEqual({ code: 0, stdout: NOTHING, stderr: '' });
+    const answer: unknown = JSON.parse(run.stdout);
+    expect({ ...run, stdout: answer }).toEqual({ code: 0, stdout: NOTHING, stderr: '' });
   });
 
   it('prints its help entry', async () => {

@@ -293,7 +293,7 @@ describe('the refresh', () => {
       { id: 's4', wave: 3, state: 'blocked' },
       { id: 's5', wave: 3, state: 'blocked' },
     ]);
-    expect(JSON.parse(readFileSync(boardFile(root, parsePrd(7)), 'utf8')).slices[0]).not.toHaveProperty('title');
+    expect(readFileSync(boardFile(root, parsePrd(7)), 'utf8')).not.toContain('title');
   });
 
   it('writes nothing while another refresh under 2 minutes old holds the lock', () => {
