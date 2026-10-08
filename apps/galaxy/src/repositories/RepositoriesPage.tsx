@@ -9,7 +9,7 @@ import { databaseRepositories, demoRepositoriesPort, type RepositoriesPort, type
 
 // Settings → Repositories in the browser (PRD 612 s1): keeps the page's state (model.ts) and calls the
 // repository functions as the signed-in person (store.ts), one call at a time; the view draws each
-// step. PRD 748 s4 adds the product select's call. In the demo, the same rules run in memory.
+// step. PRD 748 s4 adds the product select's call, PRD 1246 s4 the ideas board's switch. In the demo, the same rules run in memory.
 
 export type RepositoriesSource =
   | { kind: 'demo' }
@@ -45,6 +45,7 @@ export function RepositoriesPage({ source, owner, repositories, access, now, pro
     add: (fullName) => void run((p) => p.add(fullName)),
     setTracked: (fullName, tracked) => void run((p) => p.setTracked(fullName, tracked)),
     setProduct: (fullName, product) => void run((p) => p.setProduct(fullName, product)),
+    setPublicIdeas: (fullName, on) => void run((p) => p.setPublicIdeas(fullName, on)),
   };
 
   return <RepositoriesView state={state} owner={owner} access={access} now={now} products={products} on={on} />;

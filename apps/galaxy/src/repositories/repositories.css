@@ -95,3 +95,6 @@
 .repositories-toggle[aria-checked='true']::after { transform: translateX(20px); background: var(--ask-plasma); }
 .repositories-toggle:disabled { cursor: not-allowed; opacity: 0.6; }
 .repositories-toggle:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
+/* A row's link to its ideas board (PRD 1246 s4), under its name. */
+.repositories-ideas { font-size: 14px; justify-self: start; }
