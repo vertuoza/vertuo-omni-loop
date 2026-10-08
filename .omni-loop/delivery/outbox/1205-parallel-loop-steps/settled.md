@@ -237,3 +237,238 @@ A constant: split the pool's entries into their own field in tickJson (kit/bin/c
 ```
 
 <!-- /omni-outbox-settled: s1-03-roadmap-held-merge -->
+
+<!-- omni-outbox-settled: s2-01-unseen-step-holds-pool -->
+
+## s2-01-unseen-step-holds-pool — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-unseen-step-holds-pool
+prd: 1205
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 2
+---
+
+## The question, in plain words
+
+When the loop has just started a step and GitHub does not show it running yet, may the loop start more steps in the same round?
+
+## The decision, in plain words
+
+No. While a step the loop started is not yet visible on GitHub, the loop starts nothing new, and it never starts a second step for a PRD it is already working on.
+
+## The intro, for fun
+
+A helper just left for work, and the board still shows the desk empty.
+
+## The punchline, for fun
+
+So the loop waits a minute before handing that desk to someone else.
+
+## The options, in plain words
+
+A. An unseen step of this session holds the pool until GitHub shows it or it returns (built).
+B. Launch every entry of steps at once; only skip PRDs this session already runs.
+C. Pass the session's own running steps to omni next so its collision check sees them.
+
+## What I had to decide
+
+omni next reads what runs from GitHub only: a live claim, or the in-progress label with a fresh status comment. A step agent launched a moment ago has neither yet (a yolo that plans first, a pr-care --once that sets no label), so the collision check cannot see its ground and the slot count misses it. Launching beside it could start two steps on one PRD or two steps on one path. So while a step agent of this session runs a step that running does not list, the tick launches nothing, and an entry of steps whose PRD already has a step agent of this session is never launched; the session never has more than limits.parallelSteps agents at once.
+
+## What I did meanwhile
+
+Both drive skills' step 3 Launch paragraph says so; the plugin test checks the launch wording.
+
+## What it costs to change later
+
+A constant: reword the Launch paragraph in kit/plugin/skills/drive/SKILL.md (mega-drive follows it). Nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) How long a fresh step stays invisible on GitHub: a pr-care --once round may never show, so it holds the pool until it returns.
+- (author) Whether the person would rather let steps of other PRDs start at once and accept a rare clash the merge-time territory check still catches.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-unseen-step-holds-pool -->
+
+<!-- omni-outbox-settled: s2-02-mega-step-worktree -->
+
+## s2-02-mega-step-worktree — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-mega-step-worktree
+prd: 1205
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 2
+---
+
+## The question, in plain words
+
+When the loop builds several cross-repository PRDs at once, does each one also get its own copy of the planning repository, or only its own copies of the code repositories?
+
+## The decision, in plain words
+
+Each one gets both: its own working copy of the planning repository, and its own copies of the code repositories, kept in one shared place so every step of that PRD finds them again.
+
+## The intro, for fun
+
+Three builders, one notebook, and everyone wants to write on the same page.
+
+## The punchline, for fun
+
+Everyone gets a notebook; the shared shelf keeps the copies.
+
+## The options, in plain words
+
+A. Step agents run in a worktree too, and the per-PRD clones sit under the main checkout (built).
+B. Step agents run in the loop's checkout, as the spec words it, with per-PRD clones only.
+C. Step agents run in a worktree, and each keeps its clones inside that worktree.
+
+## What I had to decide
+
+The spec gives mega-drive a target clone per PRD and gives the worktree isolation to drive only. But the ultra skills also commit in the plan repository (the plan PR's branch, the outbox relays), so two running in the loop's checkout would fight over its HEAD just as two waves would. So mega-drive's step agents run with isolation worktree too. A worktree would then read omni config worktrees relative to itself and clone the targets afresh each step, so the clone path is taken from the plan repository's main checkout (the folder holding git rev-parse --git-common-dir), and the exclude line goes to info/exclude under that common git folder.
+
+## What I did meanwhile
+
+mega-drive step 3 and ultra-yolo step 2 item 1 say so; the other ultra skills, mega-pr-care, do-work --target and pr --repo read the clone at <worktrees>/targets/<name>@<prd>.
+
+## What it costs to change later
+
+A constant: wording in kit/plugin/skills/mega-drive/SKILL.md and kit/plugin/skills/ultra-yolo/SKILL.md. Old clones at <worktrees>/targets/<name> are left on disk, unused.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Clones made before this change at <worktrees>/targets/<name> are not moved or removed; the next run clones each PRD's afresh.
+
+```
+
+<!-- /omni-outbox-settled: s2-02-mega-step-worktree -->
+
+<!-- omni-outbox-settled: s2-03-slice-worktree-per-prd -->
+
+## s2-03-slice-worktree-per-prd — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-03-slice-worktree-per-prd
+prd: 1205
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 2
+---
+
+## The question, in plain words
+
+Two cross-repository PRDs built at once can both have a first slice in the same code repository: where does each slice's working folder go?
+
+## The decision, in plain words
+
+Each slice's working folder is named after its PRD as well as its slice, beside that PRD's own copy of the code repository, so two PRDs' slices never share a folder.
+
+## The intro, for fun
+
+Two first slices, one folder name, and a very confused filing cabinet.
+
+## The punchline, for fun
+
+Adding the PRD number to the label settles the argument.
+
+## The options, in plain words
+
+A. The slice folder carries the PRD number beside the slice id (built).
+B. Keep the slice folder as it was and accept a clash when two PRDs share a slice id.
+C. Put each slice folder inside the PRD's clone folder instead.
+
+## What I had to decide
+
+do-work --target built each slice in <worktrees>/targets/<name>--<slice>. With a clone per PRD, two PRDs running at once can both reach slice s1 in one target, and the same folder would be asked for twice. The plan does not list it, but the spec's isolation rule (no two running steps share a HEAD) needs it, so the slice worktree is now <worktrees>/targets/<name>@<prd>--<slice>.
+
+## What I did meanwhile
+
+do-work's Under --target section names the new folder in all three places.
+
+## What it costs to change later
+
+A constant: the folder name in kit/plugin/skills/do-work/SKILL.md. Nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) mega-bug-fix keeps <worktrees>/targets/<name> and its own --fix-<n> worktrees: it has no PRD and the loop never runs it, so it was left out of this slice's territory.
+
+```
+
+<!-- /omni-outbox-settled: s2-03-slice-worktree-per-prd -->
