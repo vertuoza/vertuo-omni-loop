@@ -76,6 +76,22 @@ describe('loadRoadmapPage', () => {
     expect(view.roadmap.tabs.map((t) => [t.label, t.current, t.badge])).toEqual([['Overview', false, null], ['Prerequisites', true, 1]]);
   });
 
+  it('offers Mark as done on a person row where the route says marking is open, and shows the row just ticked (s7)', async () => {
+    const person = reads({ prerequisites: () => Promise.resolve([{
+      roadmap_id: ID, position: 1, row_id: 'p3', category: 'permissions', need: 'the preview has its secret', check_with: null, fix_with: null,
+      blocks_all: false, blocks: [], who: 'person', repos: [], card: null, state: 'waits', detail: null,
+    }]) });
+    const rowOf = async (ask: Partial<Parameters<typeof loadRoadmapPage>[1]>) => {
+      const view = await loadRoadmapPage(person, { id: ID, product: null, tab: 'prerequisites', ...ask }, NOW);
+      if (view.kind !== 'roadmap') throw new Error(view.kind);
+      return { row: view.roadmap.prerequisites.groups[0]?.rows[0], tickError: view.roadmap.prerequisites.tickError };
+    };
+    expect((await rowOf({})).row?.tickable).toBe(false);
+    expect((await rowOf({ tickable: true })).row?.tickable).toBe(true);
+    expect((await rowOf({ tickable: true, ticked: 'p3' })).row).toMatchObject({ state: 'ticked', tickable: false });
+    expect((await rowOf({ tickable: true, tickError: 'down' })).tickError).toMatch(/GitHub did not answer/);
+  });
+
   it('finds no roadmap of another workspace, nor one that does not exist', async () => {
     expect(await loadRoadmapPage(reads(), { id: '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d', product: null }, NOW)).toEqual({ kind: 'not-found' });
     expect(await loadRoadmapPage(reads(), { id: '00000000-0000-4000-8000-000000000000', product: null }, NOW)).toEqual({ kind: 'not-found' });

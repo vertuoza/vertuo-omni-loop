@@ -9,7 +9,7 @@ import { RoadmapsScreen } from '../../../src/roadmap/page/RoadmapsScreen';
 
 // /roadmaps/<id> (PRD 1162): one roadmap opened, its milestone, its Gantt, its open questions with an
 // answer box for a `person` one, and each PRD linking to its page; `?tab=prerequisites` (PRD 1218) opens
-// its Prerequisites tab instead. Rendered per request, as /roadmaps is, and it decides the same
+// its Prerequisites tab instead, where `?ticked=` and `?tick_error=` say how a Mark as done went (s7). Rendered per request, as /roadmaps is, and it decides the same
 // situations once. A path that names no roadmap, or a roadmap of another
 // workspace, is not found.
 
@@ -28,7 +28,8 @@ export default async function RoadmapPage({ params, searchParams }: Props) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const roadmapId = roadmapIdOf(id);
   if (!roadmapId) notFound();
-  const view = await roadmapPageView({ id: roadmapId, product: null, tab: roadmapTabOf(one(query.tab)) }, new Date());
+  const ask = { id: roadmapId, product: null, tab: roadmapTabOf(one(query.tab)), ticked: one(query.ticked), tickError: one(query.tick_error) };
+  const view = await roadmapPageView(ask, new Date());
   if (view.kind === 'not-found') notFound();
   return <RoadmapsScreen view={view} supabase={supabaseEnv()} signinError={one(query.signin_error)} />;
 }

@@ -146,7 +146,7 @@ function Detail({ roadmap }: { roadmap: RoadmapDetail }) {
       <p className="roadmap-back-row"><a className="roadmap-back" href={ROADMAPS_PATH}>← Every roadmap</a></p>
       <h1 className="dash-name">{roadmap.title}</h1>
       <Tabs roadmap={roadmap} />
-      {roadmap.tab === 'prerequisites' ? <PrerequisitesPane prerequisites={roadmap.prerequisites} /> : <Overview roadmap={roadmap} />}
+      {roadmap.tab === 'prerequisites' ? <PrerequisitesPane prerequisites={roadmap.prerequisites} roadmap={roadmap.id} /> : <Overview roadmap={roadmap} />}
     </div>
   );
 }

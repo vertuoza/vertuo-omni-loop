@@ -7,7 +7,7 @@
 import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { ganttOf, type Gantt } from '../gantt';
 import type { RoadmapPrdRow, RoadmapPrerequisiteRow, RoadmapQuestion, RoadmapRow } from '../store';
-import { prerequisitesOf, roadmapTabsOf, type PrerequisitesView, type RoadmapTab, type RoadmapTabLink } from './prerequisites';
+import { prerequisitesOf, roadmapTabsOf, type PrerequisitesView, type RoadmapTab, type RoadmapTabLink, type TickAsk } from './prerequisites';
 
 /** Where the Roadmaps pages live, and one roadmap's page under it. */
 export const ROADMAPS_PATH = '/roadmaps';
@@ -84,6 +84,8 @@ export interface RoadmapDetail extends RoadmapSummary {
 export interface DetailAsk {
   prerequisites: readonly RoadmapPrerequisiteRow[];
   tab: RoadmapTab;
+  /** Mark as done (s7): offered to a member where it is open; none on the demo. */
+  tick?: TickAsk;
 }
 
 /** Where the page's data came from: the workspace's, or the demo, in development or for a person signed out. */
@@ -129,7 +131,7 @@ function summaryOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], products: re
 
 export function detailOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], products: readonly ProductRef[], now: number, ask: DetailAsk): RoadmapDetail {
   const summary = summaryOf(row, prds, products);
-  const prerequisites = prerequisitesOf(ask.prerequisites, row.prerequisites_machine ?? null, row.prerequisites_checked_at ?? null);
+  const prerequisites = prerequisitesOf(ask.prerequisites, row.prerequisites_machine ?? null, row.prerequisites_checked_at ?? null, ask.tick);
   return {
     ...summary,
     blocks: blocksOf(row.questions, prds),

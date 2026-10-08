@@ -3,7 +3,10 @@
 // rows grouped by category, the groups holding a row that waits on you first and those rows first in
 // their group, each with its need, its state, what it blocks, who does it, its author card (open when it
 // waits on you or was never checked) and where and when it was last checked. And the roadmap page's two
-// tabs, Overview and Prerequisites, picked by `?tab=` as the PRD page's are.
+// tabs, Overview and Prerequisites, picked by `?tab=` as the PRD page's are. And Mark as done (s7): a
+// `person` row not ticked yet offers it to a member where marking is open; the row a member just ticked
+// shows ticked (`?ticked=`) until the next check records it, and a tick that was not posted says why
+// (`?tick_error=`).
 import { PREREQUISITE_CATEGORIES, type PrerequisiteCard, type PrerequisiteState, type RoadmapPrerequisiteRow } from '../store';
 
 /** The roadmap page's tabs: today's page, and the prerequisites. */
@@ -78,6 +81,8 @@ export interface PrerequisiteView {
   open: boolean;
   /** `last checked on <machine>, <time>`, or null when no result names it. */
   checked: string | null;
+  /** A `person` row not ticked yet, shown to a member where marking is open: Mark as done. */
+  tickable: boolean;
 }
 
 export interface PrerequisiteGroup {
@@ -94,7 +99,34 @@ export interface PrerequisitesView {
   groups: PrerequisiteGroup[];
   /** Where and when the last result was found, or null when none was pushed. */
   checked: string | null;
+  /** Why the last Mark as done posted nothing, in words, or null. */
+  tickError: string | null;
 }
+
+/** What the tab knows of Mark as done: whether it is offered, the row just ticked, why one was not posted. */
+export interface TickAsk {
+  tickable: boolean;
+  ticked: string | null;
+  tickError: string | null;
+}
+
+const NO_TICK: TickAsk = { tickable: false, ticked: null, tickError: null };
+
+const JUST_TICKED = 'ticked by you: the next check records it';
+
+/** Why a tick was not posted (src/roadmap/tick/tick.ts's codes), in words. */
+const TICK_ERROR_WORDS: Record<string, string> = {
+  signin: 'Sign in first, then mark it as done again.',
+  state: 'That authorisation was not this page\'s, so nothing was posted: try again.',
+  gone: 'This roadmap could not be read any more, so nothing was posted.',
+  'not-person': 'Only a row a person ticks is marked as done, so nothing was posted.',
+  refused: 'GitHub\'s authorisation was refused, so nothing was posted.',
+  down: 'GitHub did not answer, so nothing was posted. Try again in a moment.',
+  'no-access': 'Your GitHub account may not comment on the roadmap\'s issue, so nothing was posted.',
+};
+
+const tickErrorWords = (code: string | null): string | null =>
+  code === null ? null : (Object.hasOwn(TICK_ERROR_WORDS, code) ? TICK_ERROR_WORDS[code] : undefined) ?? 'Nothing was posted: try again.';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -126,23 +158,29 @@ function countOf(rows: readonly PrerequisiteView[]): string {
   return parts.join(' · ');
 }
 
-export function prerequisitesOf(rows: readonly RoadmapPrerequisiteRow[], machine: string | null, checkedAt: string | null): PrerequisitesView {
+export function prerequisitesOf(
+  rows: readonly RoadmapPrerequisiteRow[], machine: string | null, checkedAt: string | null, tick: TickAsk = NO_TICK,
+): PrerequisitesView {
   const checked = checkedLine(machine, checkedAt);
   const views = rows.map((row): PrerequisiteView => {
-    const state: PrerequisiteShown = row.state ?? 'unchecked';
+    const person = row.who === 'person';
+    const justTicked = person && row.row_id === tick.ticked && row.state !== 'ticked';
+    const state: PrerequisiteShown = justTicked ? 'ticked' : row.state ?? 'unchecked';
     return {
       id: row.row_id,
       need: row.need,
       state,
-      stateLabel: STATE_LABELS[state],
+      stateLabel: justTicked ? JUST_TICKED : STATE_LABELS[state],
       who: WHO_LABELS[row.who],
       blocks: blocksOf(row),
       card: row.card,
       open: RANK[state] < 2,
       checked: row.state === null ? null : checked,
+      tickable: tick.tickable && person && state !== 'ticked',
     };
   });
-  if (views.length === 0) return { count: null, waiting: 0, groups: [], checked: null };
+  const tickError = tickErrorWords(tick.tickError);
+  if (views.length === 0) return { count: null, waiting: 0, groups: [], checked: null, tickError };
   const first = (list: readonly PrerequisiteView[]) => Math.min(...list.map((r) => RANK[r.state]));
   const groups = PREREQUISITE_CATEGORIES.map((category) => ({
     category,
@@ -152,5 +190,5 @@ export function prerequisitesOf(rows: readonly RoadmapPrerequisiteRow[], machine
   }))
     .filter((g) => g.rows.length > 0)
     .sort((a, b) => first(a.rows) - first(b.rows));
-  return { count: countOf(views), waiting: views.filter((r) => r.state === 'waits').length, groups, checked };
+  return { count: countOf(views), waiting: views.filter((r) => r.state === 'waits').length, groups, checked, tickError };
 }

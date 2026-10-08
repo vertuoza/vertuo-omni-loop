@@ -62,7 +62,45 @@ describe('prerequisitesOf', () => {
   });
 
   it('has no group and no count for a roadmap without prerequisites', () => {
-    expect(prerequisitesOf([], null, null)).toEqual({ count: null, waiting: 0, groups: [], checked: null });
+    expect(prerequisitesOf([], null, null)).toEqual({ count: null, waiting: 0, groups: [], checked: null, tickError: null });
+  });
+});
+
+describe('Mark as done on the tab (s7)', () => {
+  const rows = [
+    row({ row_id: 'p1', category: 'local', state: 'waits', card: CARD }),
+    row({ row_id: 'p2', category: 'permissions', who: 'person', state: 'waits', card: CARD }),
+    row({ row_id: 'p3', category: 'services', who: 'person', state: 'ticked', card: CARD }),
+    row({ row_id: 'p4', category: 'services', who: 'person', state: null, card: CARD }),
+  ];
+  const shown = (view: ReturnType<typeof prerequisitesOf>) => view.groups.flatMap((g) => g.rows);
+
+  it('offers it on a person row not ticked yet, only to a member where marking is open', () => {
+    const member = shown(prerequisitesOf(rows, 'mbp', AT, { tickable: true, ticked: null, tickError: null }));
+    expect(member.filter((r) => r.tickable).map((r) => r.id)).toEqual(['p2', 'p4']);
+    expect(shown(prerequisitesOf(rows, 'mbp', AT)).some((r) => r.tickable)).toBe(false);
+    expect(shown(prerequisitesOf(rows, 'mbp', AT, { tickable: false, ticked: null, tickError: null })).some((r) => r.tickable)).toBe(false);
+  });
+
+  it('shows the person row just ticked as ticked, until the next check records it', () => {
+    const view = prerequisitesOf(rows, 'mbp', AT, { tickable: true, ticked: 'p2', tickError: null });
+    expect(shown(view).find((r) => r.id === 'p2')).toMatchObject({
+      state: 'ticked', stateLabel: 'ticked by you: the next check records it', tickable: false, open: false,
+    });
+    expect(view.count).toBe('0 ok · 0 fixed · 2 ticked · 1 waits on you · 1 not checked yet');
+    // Only a person row is ticked: a `?ticked=` naming another row changes nothing.
+    expect(shown(prerequisitesOf(rows, 'mbp', AT, { tickable: true, ticked: 'p1', tickError: null })).find((r) => r.id === 'p1')?.state).toBe('waits');
+  });
+
+  it('says why a tick was not posted, in words', () => {
+    const words = (code: string) => prerequisitesOf(rows, 'mbp', AT, { tickable: true, ticked: null, tickError: code }).tickError;
+    expect(words('no-access')).toMatch(/may not comment on the roadmap's issue/);
+    expect(words('refused')).toMatch(/authorisation was refused/);
+    expect(words('down')).toMatch(/GitHub did not answer/);
+    expect(words('state')).toMatch(/try again/i);
+    expect(words('whatever')).toMatch(/nothing was posted/i);
+    expect(words('constructor')).toMatch(/nothing was posted/i);
+    expect(prerequisitesOf(rows, 'mbp', AT).tickError).toBeNull();
   });
 });
 
