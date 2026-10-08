@@ -61,3 +61,57 @@ describe('omni e2e status', () => {
     expect((await run(['heal'], ON)).code).toBe(2);
   });
 });
+
+describe('omni e2e heals', () => {
+  const git = (root: string, ...args: string[]) => realExec('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd: root, encoding: 'utf8' });
+  const step = (target: string, callIndex = 0, version = 'trace-1') =>
+    JSON.stringify({ schemaVersion: version, summary: `clicks ${target}`, recordedFor: { testId: 'rank.spec.ts', callIndex }, actions: [{ name: 'click', target }] });
+  const SPEC = { '.omni-loop/delivery/inbox/1233-rank/spec.md': '# spec\n' };
+
+  /** main holds `base`; feat/rank adds `head` on top. */
+  async function heals(base: Record<string, string>, head: Record<string, string>, config = ON) {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, ...SPEC, ...base } });
+    git(root, 'checkout', '-q', '-b', 'feat/rank');
+    for (const [path, text] of Object.entries(head)) {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), text);
+    }
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '--allow-empty', '-m', 'head');
+    const out: string[] = [];
+    const err: string[] = [];
+    const code = await main(['e2e', 'heals', '1233'], { cwd: root, exec: realExec, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
+    return { code, out: out.join(''), err: err.join('') };
+  }
+
+  it('lists healed, new and removed steps between the merge-base and the head', async () => {
+    const { code, out, err } = await heals(
+      { 'e2e/.e2e/cache/a.json': step('Rank'), 'e2e/.e2e/cache/gone.json': step('Gone', 1) },
+      { 'e2e/.e2e/cache/b.json': step('Position'), 'e2e/.e2e/cache/gone.json': step('Gone', 1), 'e2e/.e2e/cache/new.json': step('Fresh', 2) },
+    );
+    expect(out || err).not.toContain('omni e2e heals:');
+    expect(code).toBe(0);
+    const json = JSON.parse(out);
+    expect(json.prd).toBe(1233);
+    expect(json.healed).toEqual([
+      { testId: 'rank.spec.ts', callIndex: 0, summary: 'clicks Position', old: [{ name: 'click', target: 'Rank' }], new: [{ name: 'click', target: 'Position' }] },
+    ]);
+    expect(json.new.map((s: { callIndex: number }) => s.callIndex)).toEqual([2]);
+    expect(json.removed).toEqual([]);
+  });
+
+  it('fails naming a recording that is not trace-1 or does not read, at either side', async () => {
+    const head = await heals({}, { 'e2e/.e2e/cache/old.json': step('Rank', 0, 'trace-2') });
+    expect(head.code).toBe(1);
+    expect(head.err).toContain('e2e/.e2e/cache/old.json');
+    const base = await heals({ 'e2e/.e2e/cache/b.json': '{' }, {});
+    expect(base.code).toBe(1);
+    expect(base.err).toContain('e2e/.e2e/cache/b.json');
+  });
+
+  it('says so in one line when e2e is off', async () => {
+    const { code, err } = await heals({}, {}, 'kit: 1\n');
+    expect(code).toBe(1);
+    expect(err.trim().split('\n')).toHaveLength(1);
+  });
+});

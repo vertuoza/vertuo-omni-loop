@@ -3,6 +3,7 @@
 // no model.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import type { PrdNumber } from '../ids.ts';
 
 /** The only recording schema the kit reads. */
 const SCHEMA_VERSION = 'trace-1';
@@ -98,7 +99,7 @@ export function readRecordings(root: string, dir: string): Recording[] {
 export type TaggedTest = { readonly id: string; readonly file: string };
 
 /** The test files under `<dir>` that carry the tag `prd-<n>` (not `prd-<n>0`), in path order. */
-export function readTaggedTests(root: string, dir: string, prd: number): TaggedTest[] {
+export function readTaggedTests(root: string, dir: string, prd: PrdNumber): TaggedTest[] {
   const tag = new RegExp(`(?<![\\w-])prd-${prd}(?![\\w-])`);
   const base = join(root, dir);
   return filesUnder(base, ['.ts', '.tsx', '.js', '.mjs', '.cjs'])
