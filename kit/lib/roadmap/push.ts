@@ -15,9 +15,13 @@ import { fillBranch } from '../board.ts';
 import type { Context } from '../context.ts';
 import { PrNumberSchema } from '../ids.ts';
 import type { IssueNumber, PrNumber } from '../ids.ts';
+import { parsePlanSlices } from '../inbox/territory.ts';
 import { parseFolderName } from '../layout.ts';
+import { makeMarkers } from '../markers.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
 import type { OutboxItem } from '../types.ts';
+import { clarificationWork, outboxWork, parkWork, questionWork } from './human-work.ts';
+import type { DatedComment, HumanWorkEntry } from './human-work.ts';
 import type { Roadmap, RoadmapRow } from './parse.ts';
 
 /** Where a roadmap's PRD stands, as the app stores it: its bar's colour on the Gantt. */
@@ -56,7 +60,8 @@ type PrdTimes = { startedAt: string | null; endedAt: string | null };
 /** One open question of the push, with the latest answer given, or null. */
 export type PushedQuestion = { id: string; question: string; recommendation: string | null; blocks: string[]; kind: 'default' | 'person'; answer: string | null };
 
-/** The body of `POST /api/roadmaps`: exactly the fields the contract takes. */
+/** The body of `POST /api/roadmaps`: exactly the fields the contract takes. `humanWork` (PRD 1217)
+ * is left out when the PRDs' human work could not be read whole: a push without it closes nothing. */
 export type RoadmapPushBody = {
   repo: string;
   roadmap: IssueNumber;
@@ -68,6 +73,7 @@ export type RoadmapPushBody = {
   questions: PushedQuestion[];
   document: string;
   prds: PushedPrd[];
+  humanWork?: HumanWorkEntry[];
 };
 
 /** The longest waits-on line the app stores. */
@@ -157,14 +163,16 @@ export function rowStates(roadmap: Pick<Roadmap, 'prds'>, standings: ReadonlyMap
   }));
 }
 
-/** The body `omni roadmap push` sends: the roadmap, its document, its answers and each PRD's standing
- * (a row with none read stands as waiting). */
-export function roadmapPushBody({ repo, roadmap, document, standings, answers }: {
+/** The body `omni roadmap push` sends: the roadmap, its document, its answers, each PRD's standing
+ * (a row with none read stands as waiting) and its human work: the roadmap's unanswered person
+ * questions, then `prdWork`; no `humanWork` at all when `prdWork` is null (it could not be read). */
+export function roadmapPushBody({ repo, roadmap, document, standings, answers, prdWork }: {
   repo: string;
   roadmap: Roadmap;
   document: string;
   standings: ReadonlyMap<string, PrdStanding>;
   answers: ReadonlyMap<string, string>;
+  prdWork: readonly HumanWorkEntry[] | null;
 }): RoadmapPushBody {
   const rows = rowStates(roadmap, standings);
   const prds = [...rows.values()].map(({ row, standing, state }) => ({
@@ -187,7 +195,10 @@ export function roadmapPushBody({ repo, roadmap, document, standings, answers }:
     answer: answers.get(q.id) ?? null,
   }));
   const { title, milestone, product, target, source } = roadmap;
-  return { repo, roadmap: roadmap.roadmap, title, milestone, product, target, source, questions, document, prds };
+  const body: RoadmapPushBody = { repo, roadmap: roadmap.roadmap, title, milestone, product, target, source, questions, document, prds };
+  if (prdWork === null) return body;
+  const issueUrl = `https://github.com/${repo}/issues/${roadmap.roadmap}`;
+  return { ...body, humanWork: [...questionWork(roadmap, answers, { repo: shortName(repo), issueUrl }), ...prdWork] };
 }
 
 // ── Reading where each PRD stands ────────────────────────────────────────────────────────────────
@@ -260,16 +271,25 @@ function slugsOf(ctx: Pick<Context, 'config'>, row: RoadmapRow, slug: string): s
   return [slug, ...targets.filter((t) => named.has(shortName(t.repo)) && shortName(t.repo) !== own).map((t) => t.repo)];
 }
 
-/** Where one PRD of the roadmap stands. Throws what `gh` throws when GitHub cannot be read. */
-function readStanding(ctx: Pick<Context, 'config' | 'layout'>, row: RoadmapRow, readers: Readers): PrdStanding {
+/** A PRD's feature branch, filled from its folder's topic; null when it has no folder. */
+function featureBranchOf(ctx: Pick<Context, 'config' | 'layout'>, row: RoadmapRow): string | null {
+  const where = ctx.layout.whereIs(row.prd);
+  const folder = where === null ? null : parseFolderName(where.name);
+  return folder === null ? null : fillBranch(ctx.config.branches.feature, { topic: folder.topic });
+}
+
+/** Where one PRD of the roadmap stands, and its own repository's feature PR as read. Throws what `gh`
+ * throws when GitHub cannot be read. */
+function readStanding(ctx: Pick<Context, 'config' | 'layout'>, row: RoadmapRow, readers: Readers): { standing: PrdStanding; own: GhPr | null } {
   const slug = ctx.config.repo.slug ?? '';
   const slugs = slugsOf(ctx, row, slug);
   const where = ctx.layout.whereIs(row.prd);
-  const folder = where === null ? null : parseFolderName(where.name);
-  if (where === null || folder === null) return { shipped: false, prs: [], expected: slugs.length };
-  const branch = fillBranch(ctx.config.branches.feature, { topic: folder.topic });
+  const branch = featureBranchOf(ctx, row);
+  if (where === null || branch === null) return { standing: { shipped: false, prs: [], expected: slugs.length }, own: null };
+  let own: GhPr | null = null;
   const prs = slugs.flatMap((repo) => {
     const pr = featurePr(repo, branch, readers);
+    if (repo === slug) own = pr;
     if (pr === null) return [];
     const isDraft = Boolean(pr.isDraft);
     const questions = repo === slug && pr.state === 'OPEN' && isDraft ? draftQuestions(ctx, row, branch, readers) : 0;
@@ -278,10 +298,87 @@ function readStanding(ctx: Pick<Context, 'config' | 'layout'>, row: RoadmapRow, 
       createdAt: pr.createdAt ?? null, mergedAt: pr.mergedAt ?? null, closedAt: pr.closedAt ?? null, questions,
     }];
   });
-  return { shipped: where.state === 'shipped', prs, expected: slugs.length };
+  return { standing: { shipped: where.state === 'shipped', prs, expected: slugs.length }, own };
 }
 
-/** Where every PRD of the roadmap stands, by row id. Throws what `gh` throws. */
-export function readStandings(ctx: Pick<Context, 'config' | 'layout'>, roadmap: Roadmap, readers: Readers): Map<string, PrdStanding> {
-  return new Map(roadmap.prds.map((row) => [row.id, readStanding(ctx, row, readers)]));
+// ── Reading each PRD's human work (PRD 1217) ─────────────────────────────────────────────────────
+
+const GhCommentSchema = z.object({ body: z.string().nullish(), url: z.string().nullish(), createdAt: z.string() });
+
+/** Every comment of issue or pull request `n` on `slug`, oldest first. Throws what `gh` throws. */
+function issueComments(slug: string, n: number, { gh }: Readers): DatedComment[] {
+  const raw = gh(['api', `repos/${slug}/issues/${n}/comments`, '--paginate', '--jq', '.[] | {body, url: .html_url, createdAt: .created_at}']);
+  return raw.split('\n').filter((line) => line.trim()).map((line) => {
+    const comment = GhCommentSchema.parse(JSON.parse(line));
+    return { body: comment.body ?? '', url: comment.url ?? null, createdAt: comment.createdAt };
+  });
+}
+
+/** When PRD `row`'s plan was last committed, on its feature branch or on this checkout's HEAD; null
+ * with no plan yet. */
+function planCommittedAt(ctx: Pick<Context, 'config' | 'layout'>, row: RoadmapRow, branch: string, { git }: Readers): string | null {
+  const plan = ctx.layout.planPath(row.prd);
+  if (plan === null) return null;
+  const times = [`${ctx.config.repo.remote}/${branch}`, 'HEAD'].flatMap((ref) => {
+    try {
+      const at = git(['log', '-1', '--format=%cI', ref, '--', plan]).trim();
+      return at ? [new Date(at).toISOString()] : [];
+    } catch {
+      return [];
+    }
+  });
+  return bound(times, 'last');
+}
+
+/** The repository each slice of the plan on `ref` lands in, by slice id; empty when it cannot be read. */
+function sliceRepos(ctx: Pick<Context, 'layout'>, row: RoadmapRow, ref: string, { git }: Readers): Map<string, string> {
+  const plan = ctx.layout.planPath(row.prd);
+  if (plan === null) return new Map();
+  try {
+    return new Map(parsePlanSlices(git(['show', `${ref}:${plan}`])).flatMap((slice) => (slice.repo ? [[String(slice.id), slice.repo] as const] : [])));
+  } catch {
+    return new Map();
+  }
+}
+
+/** The work an open feature PR holds: its outbox items a person must act on, each in its slice's
+ * repository, and its park. Throws when its branch's outbox cannot be read. */
+function openPrWork(ctx: Pick<Context, 'config' | 'layout'>, row: RoadmapRow, branch: string, pr: GhPr, readers: Readers): HumanWorkEntry[] {
+  const slug = ctx.config.repo.slug ?? '';
+  const repo = shortName(slug);
+  const ref = `${ctx.config.repo.remote}/${branch}`;
+  const dir = ctx.layout.outboxDir(row.prd);
+  const items = dir === null ? [] : openItemsOn(ref, dir, readers.git);
+  if (items === null) throw new Error(`${ref} cannot be read`);
+  const repos = sliceRepos(ctx, row, ref, readers);
+  const marker = makeMarkers(ctx.config.markers.prefix).status;
+  const status = issueComments(slug, pr.number, readers).find((comment) => comment.body.includes(marker))?.body ?? null;
+  return [
+    ...outboxWork(row.prd, items, { repoOf: (item) => repos.get(String(item.slice)) ?? repo, url: pr.url }),
+    ...parkWork(row.prd, status, { repo, prUrl: pr.url }),
+  ];
+}
+
+/** PRD `row`'s human work: none once it merged or closed; else its open feature PR's work and its
+ * needs-clarification question. Throws what `gh` throws. */
+function readPrdWork(ctx: Pick<Context, 'config' | 'layout'>, row: RoadmapRow, standing: PrdStanding, own: GhPr | null, readers: Readers): HumanWorkEntry[] {
+  const state = prdState(standing);
+  const branch = featureBranchOf(ctx, row);
+  if (branch === null || state === 'merged' || state === 'closed') return [];
+  const slug = ctx.config.repo.slug ?? '';
+  const prWork = own !== null && own.state === 'OPEN' ? openPrWork(ctx, row, branch, own, readers) : [];
+  const planAt = planCommittedAt(ctx, row, branch, readers);
+  return [...prWork, ...clarificationWork(row.prd, issueComments(slug, row.prd, readers), { repo: shortName(slug), planAt })];
+}
+
+/** What GitHub says of every PRD of the roadmap: each one's standing, by row id, and the human work of
+ * them all, or null when that work could not be read whole. Throws what `gh` throws for a standing. */
+export function readRoadmapPrds(ctx: Pick<Context, 'config' | 'layout'>, roadmap: Roadmap, readers: Readers): { standings: Map<string, PrdStanding>; prdWork: HumanWorkEntry[] | null } {
+  const read = roadmap.prds.map((row) => ({ row, ...readStanding(ctx, row, readers) }));
+  const standings = new Map(read.map(({ row, standing }) => [row.id, standing] as const));
+  try {
+    return { standings, prdWork: read.flatMap(({ row, standing, own }) => readPrdWork(ctx, row, standing, own, readers)) };
+  } catch {
+    return { standings, prdWork: null };
+  }
 }

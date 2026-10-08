@@ -8,14 +8,17 @@
 // - the product matched by name, case aside, among the workspace's own: a name matching none is
 //   filed under none and answered as `unknownProduct`;
 // - the first push of a repository's roadmap number creates it; a later one, by any member, replaces
-//   its fields, document, questions and PRD rows.
+//   its fields, document, questions and PRD rows;
+// - its human work (PRD 1217, supabase/migrations/20261113090000_roadmap_human_work.sql): a new key stored
+//   with its rule kind, a stored key keeping its kind and reopened, a key missing from the push done at
+//   the push's time; a push without `humanWork` touches none.
 //
 // The body is trusted: the route validated it, and the database's own checks are proved by
 // supabase/checks/roadmaps.sql, not here. Reading runs under the migration's policies: a member of the
-// roadmap's workspace reads it and its PRDs.
+// roadmap's workspace reads it, its PRDs and its human work.
 import { parseIssue, parsePrd, type IssueNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { fakeClient, fakeRecorder, listOf, objectOf, placeRepo, refused, tableQuery, textOf, type FakeAccount, type FakeResult as Result } from '../data/repo-tables.fake';
-import { RoadmapPrdState, RoadmapQuestion } from './store';
+import { HumanWorkKind, HumanWorkSource, RoadmapPrdState, RoadmapQuestion, type RoadmapHumanWorkRow } from './store';
 
 export type { FakeAccount } from '../data/repo-tables.fake';
 
@@ -36,9 +39,20 @@ type FakePrd = {
 
 const productId = (workspace: string, name: string) => `product:${workspace}:${name}`;
 
+/** The fields of an entry of human work a push refreshes on every push. */
+function workFields(entry: Row) {
+  const prd = entry.prd ?? null;
+  return {
+    prd: prd === null ? null : parsePrd(Number(prd)), repo: String(entry.repo).trim().toLowerCase(), source: HumanWorkSource.parse(entry.source),
+    text: String(entry.text).trim(), act: textOf(entry.act)?.trim() || null, url: textOf(entry.url),
+  };
+}
+
 /** `accounts`: token → account. `workspaces`: workspace id → its org and products. `now`: the clock, in ms. */
 export function fakeRoadmaps(accounts: Record<string, FakeAccount>, workspaces: Record<string, FakeWorkspace>, now: () => number) {
-  const tables: { roadmaps: FakeRoadmap[]; roadmap_prds: FakePrd[] } = { roadmaps: [], roadmap_prds: [] };
+  const tables: { roadmaps: FakeRoadmap[]; roadmap_prds: FakePrd[]; roadmap_human_work: RoadmapHumanWorkRow[] } = {
+    roadmaps: [], roadmap_prds: [], roadmap_human_work: [],
+  };
   const { calls, at, newId } = fakeRecorder(now);
 
   function prdRows(roadmapId: string, sent: unknown): FakePrd[] {
@@ -50,6 +64,32 @@ export function fakeRoadmaps(accounts: Record<string, FakeAccount>, workspaces: 
         state: RoadmapPrdState.parse(row.state), waits_on: textOf(row.waitsOn)?.trim() || null, waits_on_url: textOf(row.waitsOnUrl),
         started_at: textOf(row.startedAt), ended_at: textOf(row.endedAt),
       };
+    });
+  }
+
+  /** The push's human work, as roadmap_push() keeps it: a new key with its rule kind, a stored one
+   * refreshed and open, a missing one done now. Nothing when the push carries no list. */
+  function keepHumanWork(roadmapId: string, sent: unknown) {
+    if (!Array.isArray(sent)) return;
+    const entries = listOf(sent).map(objectOf);
+    for (const entry of entries) keepEntry(roadmapId, entry);
+    const sentKeys = new Set(entries.map((e) => e.key));
+    tables.roadmap_human_work
+      .filter((h) => h.roadmap_id === roadmapId && h.state === 'open' && !sentKeys.has(h.key))
+      .forEach((h) => Object.assign(h, { state: 'done', done_at: at() }));
+  }
+
+  /** One entry of a push: a stored key refreshed and open, keeping its kind; a new one stored. */
+  function keepEntry(roadmapId: string, entry: Row) {
+    const fields = workFields(entry);
+    const found = tables.roadmap_human_work.find((h) => h.roadmap_id === roadmapId && h.key === entry.key);
+    if (found !== undefined) {
+      Object.assign(found, fields, { state: 'open', done_at: null });
+      return;
+    }
+    tables.roadmap_human_work.push({
+      roadmap_id: roadmapId, key: String(entry.key), ...fields, kind: HumanWorkKind.parse(entry.ruleKind), kind_by: 'rule', state: 'open',
+      first_seen_at: at(), done_at: null,
     });
   }
 
@@ -94,6 +134,7 @@ export function fakeRoadmaps(accounts: Record<string, FakeAccount>, workspaces: 
     const { roadmap, created } = upsert(workspace, repo, parseIssue(Number(body.number)), fields);
     const id = roadmap.id;
     tables.roadmap_prds = [...tables.roadmap_prds.filter((p) => p.roadmap_id !== id), ...prdRows(id, body.prds)];
+    keepHumanWork(id, body.humanWork);
     return {
       data: { roadmapId: id, created, product: product ?? null, unknownProduct: named !== null && product === undefined ? named : null },
       error: null,
@@ -106,6 +147,7 @@ export function fakeRoadmaps(accounts: Record<string, FakeAccount>, workspaces: 
     return (table: string) => {
       if (table === 'roadmaps') return tableQuery(tables.roadmaps, (r) => mine(r.workspace_id));
       if (table === 'roadmap_prds') return tableQuery(tables.roadmap_prds, (p) => roadmapIsMine(p.roadmap_id));
+      if (table === 'roadmap_human_work') return tableQuery(tables.roadmap_human_work, (h) => roadmapIsMine(h.roadmap_id));
       throw new Error(`the fake reads no ${table}`);
     };
   };

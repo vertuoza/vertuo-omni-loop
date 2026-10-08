@@ -1,6 +1,8 @@
 // PRD 1139: `omni next`'s lines for a person — one verdict, the loop plan, and a tick on the plan.
+// PRD 1205: the tick's pool — each step to launch, each step running, each step held.
 import type { Verdict } from './decide.ts';
-import type { Followed } from './follow.ts';
+import { stepWhat } from './follow.ts';
+import type { Followed, Pool } from './follow.ts';
 import { crossOrders } from './plan.ts';
 import type { LoopPlan, Step } from './plan.ts';
 
@@ -37,4 +39,12 @@ export function formatPlan(plan: LoopPlan): string[] {
 export function formatFollowed(plan: LoopPlan, followed: Followed): string[] {
   if (followed.state === 'stop') return ['stop: every PRD is parked or done', ...followed.waiting.map(verdictLine)];
   return [`step ${followed.step.step}/${plan.steps.length} · ${verdictLine(followed.verdict)}`];
+}
+
+/** A tick's pool: one line per step to launch, then one per step running and one per step held. */
+export function formatPool(plan: LoopPlan, pool: Pool): string[] {
+  const launch = pool.steps.map(({ step, verdict }) => `step ${step.step}/${plan.steps.length} · ${verdictLine(verdict)}`);
+  const running = pool.running.map(({ step, since }) => `  step ${step.step} (${stepWhat(step)}) running since ${since}${step.repos ? ` · in ${step.repos.join(', ')}` : ''}`);
+  const held = pool.held.map(({ step, why }) => `  step ${step.step} (${stepWhat(step)}) held: ${why}`);
+  return [...launch, ...running, ...held];
 }

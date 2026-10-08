@@ -3,10 +3,13 @@
 // product, each with its milestone, its progress (PRDs merged of all) and what blocks it now; and one
 // roadmap opened, with its milestone, its Gantt (../gantt.ts), its open questions (an answer box for a
 // `person` one not answered yet) and each PRD linking to its page. The page decides the situation
-// (closed, signed out, in no workspace) before any of this.
-import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+// (closed, signed out, in no workspace) before any of this. Its human work (PRD 1217): each card the open
+// count of each kind that has one; the roadmap's page a chip per kind with its open count, the open
+// entries grouped by kind, and the done ones with when they were settled.
+import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { prdPagePath } from '../../dossier/page/history-at';
 import { ganttOf, type Gantt } from '../gantt';
-import type { RoadmapPrdRow, RoadmapQuestion, RoadmapRow } from '../store';
+import type { HumanWorkKind, RoadmapHumanWorkRow, RoadmapPrdRow, RoadmapQuestion, RoadmapRow } from '../store';
 
 /** Where the Roadmaps pages live, and one roadmap's page under it. */
 export const ROADMAPS_PATH = '/roadmaps';
@@ -52,6 +55,77 @@ export interface RoadmapSummary {
   blocks: string[];
   /** How many more lines block it than `blocks` shows. */
   moreBlocks: number;
+  /** Its open human work, a count per kind that has one, in the kinds' order. */
+  openWork: HumanWorkCount[];
+}
+
+/** Each kind of human work as the page names it, in the order the page shows them. */
+const HUMAN_WORK_LABELS: Readonly<Record<HumanWorkKind, string>> = {
+  business: 'business',
+  development: 'development',
+  'dev-ops': 'dev ops',
+  'delivery-ops': 'delivery ops',
+};
+const KINDS = ['business', 'development', 'dev-ops', 'delivery-ops'] as const satisfies readonly HumanWorkKind[];
+
+/** How much open human work of one kind a roadmap holds. */
+export interface HumanWorkCount {
+  kind: HumanWorkKind;
+  label: string;
+  open: number;
+}
+
+/** One piece of human work, as the roadmap's page shows it. */
+export interface HumanWorkEntry {
+  key: string;
+  kind: HumanWorkKind;
+  label: string;
+  prd: PrdNumber | null;
+  /** The PRD's page, or null when the work is the roadmap's own. */
+  prdHref: string | null;
+  repo: string;
+  text: string;
+  /** What a person does, word for word, or null. */
+  act: string | null;
+  /** Where it is answered, or null. */
+  url: string | null;
+  /** The day it was settled (YYYY-MM-DD), null while it is open. */
+  settled: string | null;
+}
+
+/** The open entries of one kind. */
+export interface HumanWorkGroup {
+  kind: HumanWorkKind;
+  label: string;
+  entries: HumanWorkEntry[];
+}
+
+/** A roadmap's Human work item: a count per kind (every kind), the open entries by kind, the done ones. */
+export interface HumanWorkView {
+  counts: HumanWorkCount[];
+  open: HumanWorkGroup[];
+  done: HumanWorkEntry[];
+}
+
+type Work = Pick<RoadmapHumanWorkRow, 'key' | 'prd' | 'repo' | 'text' | 'act' | 'url' | 'kind' | 'state' | 'done_at'>;
+
+const countsOf = (work: readonly Work[]): HumanWorkCount[] =>
+  KINDS.map((kind) => ({ kind, label: HUMAN_WORK_LABELS[kind], open: work.filter((w) => w.state === 'open' && w.kind === kind).length }));
+
+const entryOf = (w: Work, repo: string): HumanWorkEntry => ({
+  key: w.key, kind: w.kind, label: HUMAN_WORK_LABELS[w.kind], prd: w.prd, prdHref: w.prd === null ? null : prdPagePath(repo, w.prd),
+  repo: w.repo, text: w.text, act: w.act, url: w.url, settled: w.state === 'done' && w.done_at !== null ? w.done_at.slice(0, 10) : null,
+});
+
+/** The Human work item of a roadmap whose repository is `repo` (each PRD's page is under it). */
+function humanWorkOf(work: readonly Work[], repo: string): HumanWorkView {
+  const open = work.filter((w) => w.state === 'open');
+  return {
+    counts: countsOf(work),
+    open: KINDS.map((kind) => ({ kind, label: HUMAN_WORK_LABELS[kind], entries: open.filter((w) => w.kind === kind).map((w) => entryOf(w, repo)) }))
+      .filter((g) => g.entries.length > 0),
+    done: work.filter((w) => w.state === 'done').map((w) => entryOf(w, repo)),
+  };
 }
 
 /** An open question of a roadmap. */
@@ -72,6 +146,7 @@ export interface RoadmapDetail extends RoadmapSummary {
   issueUrl: string;
   source: string | null;
   gantt: Gantt;
+  humanWork: HumanWorkView;
   questions: QuestionView[];
 }
 
@@ -97,7 +172,14 @@ function blocksOf(questions: readonly RoadmapQuestion[], prds: readonly Prd[]): 
 
 const issueUrlOf = (row: Pick<RoadmapRow, 'repo' | 'number'>) => `https://github.com/${row.repo}/issues/${row.number}`;
 
-function summaryOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], products: readonly ProductRef[]): RoadmapSummary {
+/** One roadmap as the pages read it: its row, its PRDs and its human work. */
+export interface RoadmapRead {
+  row: RoadmapRow;
+  prds: readonly RoadmapPrdRow[];
+  humanWork: readonly Work[];
+}
+
+function summaryOf({ row, prds, humanWork }: RoadmapRead, products: readonly ProductRef[]): RoadmapSummary {
   const blocks = blocksOf(row.questions, prds);
   return {
     id: row.id,
@@ -113,11 +195,13 @@ function summaryOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], products: re
     ready: prds.filter((p) => p.state === 'ready').length,
     blocks: blocks.slice(0, SHOWN_BLOCKS),
     moreBlocks: Math.max(0, blocks.length - SHOWN_BLOCKS),
+    openWork: countsOf(humanWork).filter((c) => c.open > 0),
   };
 }
 
-export function detailOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], products: readonly ProductRef[], now: number): RoadmapDetail {
-  const summary = summaryOf(row, prds, products);
+export function detailOf(read: RoadmapRead, products: readonly ProductRef[], now: number): RoadmapDetail {
+  const { row, prds } = read;
+  const summary = summaryOf(read, products);
   return {
     ...summary,
     blocks: blocksOf(row.questions, prds),
@@ -125,6 +209,7 @@ export function detailOf(row: RoadmapRow, prds: readonly RoadmapPrdRow[], produc
     issueUrl: issueUrlOf(row),
     source: row.source,
     gantt: ganttOf(prds, now, row.repo),
+    humanWork: humanWorkOf(read.humanWork, row.repo),
     questions: row.questions.map((q) => ({ ...q, answerable: q.kind === 'person' && q.answer === null })),
   };
 }
@@ -147,7 +232,7 @@ function productChoices(rows: readonly Pick<RoadmapRow, 'product_id'>[], product
 export function listOf(
   name: string,
   demo: Demo,
-  rows: ReadonlyArray<{ row: RoadmapRow; prds: readonly RoadmapPrdRow[] }>,
+  rows: readonly RoadmapRead[],
   products: readonly ProductRef[],
   product: string | null,
 ): Extract<RoadmapPageView, { kind: 'list' }> {
@@ -157,7 +242,7 @@ export function listOf(
     name,
     demo,
     products: productChoices(rows.map((r) => r.row), products, product),
-    roadmaps: shown.map((r) => summaryOf(r.row, r.prds, products)),
+    roadmaps: shown.map((r) => summaryOf(r, products)),
     filtered: product !== null,
   };
 }

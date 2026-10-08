@@ -48,8 +48,8 @@ As `/omni:wave` step 0, with these differences:
 - The config must have a `plan` section, and `node .omni-loop/bin/omni.mjs prd <prd>` must print a
   `repos:` line; otherwise stop in one line, `PRD <prd> is an ordinary PRD: /omni:wave <prd>`.
 - Find the plan PR (the plan repository's feature PR) as `/omni:wave` finds the feature PR. For each
-  target, its clone is `<worktrees>/targets/<name>`, its remote the one `git -C <clone> remote`
-  prints, its default branch
+  target, its clone is `<worktrees>/targets/<name>@<prd>` (the PRD's own, as `/omni:ultra-yolo`
+  step 2 makes it), its remote the one `git -C <clone> remote` prints, its default branch
   `gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`, and its target feature
   PR `gh pr list --repo <slug> --head <feature branch> --state open --json number,body`. A target
   with no clone, no feature branch or no target PR is **held**: its slices are left out of the wave,

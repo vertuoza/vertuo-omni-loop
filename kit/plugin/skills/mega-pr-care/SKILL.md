@@ -73,8 +73,8 @@ across the list, and return.
    `bug-record`), `target`, `state` and `url`. An entry whose `state` is `unreadable` is named in the
    round line and skipped until a round reads it. Every entry already merged or closed: say so in
    one line and stop.
-2. **The clones.** For each target the list names, its full clone at `<worktrees>/targets/<name>`
-   (`<worktrees>` is `omni config worktrees`), cloned or fetched as `/omni:ultra-yolo` step 2 item 1
+2. **The clones.** For each target the list names, its full clone at `<worktrees>/targets/<name>@<prd>`,
+   the PRD's own (`<worktrees>` is `omni config worktrees`), cloned or fetched as `/omni:ultra-yolo` step 2 item 1
    does, its default branch the target's own
    (`gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`). Then, as
    `/omni:pr-care` step 1 item 2, one worktree per pull request, never the person's checkout:

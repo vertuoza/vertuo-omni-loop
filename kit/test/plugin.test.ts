@@ -1006,7 +1006,7 @@ describe('the drive skill in this repository', () => {
   it('runs one of the four skills the verdict names, and parks on the status comment and the Loop page', () => {
     const act = skillSection(read(), '3. Act on it');
     for (const skill of ['/omni:wave <prd>', '/omni:yolo <prd>', '/omni:yolo-fix <prd>', '/omni:pr-care <prd> --once']) expect(act, skill).toContain(skill);
-    expect(act).toMatch(/One skill per tick/);
+    expect(act).toMatch(/One skill per step agent/);
     expect(missingInOrder(act, ['**park**', 'status comment', 'omni.mjs loop push park --prd <prd> --who "<who>" --what "<what>"'])).toEqual([]);
   });
 
@@ -1146,6 +1146,55 @@ describe('the drive across repositories and roadmaps (PRD 1162)', () => {
     const plan = skillSection(text, '1.');
     expect(missingInOrder(plan, ['**A PRD with no plan**', '/omni:mega-brainstorm', '/omni:plan <n>', 'omni.mjs plan check <n>', 'PRD <n> is an ordinary PRD: /omni:yolo <n>'])).toEqual([]);
     expect(text.indexOf('**A PRD with no plan**')).toBeLessThan(text.indexOf('## 3. Loop the waves'));
+  });
+});
+
+// PRD 1205, slice s2: a tick of `/omni:drive` and `/omni:mega-drive` fills a rolling pool of up to
+// `limits.parallelSteps` steps: one background agent per entry of `steps`, each in its own worktree,
+// under `/omni:mega-drive` with its own `<worktrees>/targets/<name>@<prd>` clones; one tick record per
+// step launched and per step finished, listing what runs by repository and every held line; the loop
+// stops only when nothing runs.
+describe('the loop runs a pool of steps (PRD 1205)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const CLONE = '<worktrees>/targets/<name>@<prd>';
+
+  for (const skill of ['drive', 'mega-drive']) {
+    it(`/omni:${skill} reads steps, running and held, and launches one background agent per step, each in its own worktree, in one message`, () => {
+      const text = read(skill);
+      const step = skillSection(text, '2. Read the step');
+      for (const field of ['`steps`', '`running`', '`held`', '`limits.parallelSteps`']) expect(step, field).toContain(field);
+      const act = skillSection(text, '3. Act on it');
+      expect(act).toMatch(/one background agent per entry of `steps`/);
+      expect(act).toMatch(/in one message/);
+      expect(act).toContain('isolation: "worktree"');
+      expect(act).toMatch(/never a step agent/);
+    });
+
+    it(`/omni:${skill} parks only the held entries that carry a gate`, () => {
+      expect(skillSection(read(skill), '3. Act on it')).toMatch(/only the entries of `held` that carry a `gate`/);
+    });
+
+    it(`/omni:${skill} records a tick per step launched and per step finished, naming what runs by repository and every held line`, () => {
+      const tick = skillSection(read(skill), '4. Record the tick');
+      expect(tick).toMatch(/one tick per step launched/);
+      expect(tick).toMatch(/one per step that finished/);
+      expect(tick).toContain('running: ');
+      expect(tick).toContain('held: ');
+    });
+
+    it(`/omni:${skill} stops itself only when nothing runs`, () => {
+      expect(skillSection(read(skill), '5. Stop')).toMatch(/nothing runs/);
+      expect(skillSection(read(skill), 'Guardrails')).toMatch(/`limits\.parallelSteps` steps at once/);
+    });
+  }
+
+  it('/omni:mega-drive gives each PRD its own target clones, and every skill that builds across repositories reads them there', () => {
+    expect(skillSection(read('mega-drive'), '3. Act on it')).toContain(CLONE);
+    for (const skill of ['ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'mega-pr-care', 'do-work', 'pr']) {
+      const text = read(skill);
+      expect(text, skill).toContain(CLONE);
+      expect(text, skill).not.toMatch(/<worktrees>\/targets\/<name>(?!@<prd>)/);
+    }
   });
 });
 

@@ -296,13 +296,20 @@ describe('omni next — the loop plan', () => {
     expect(json.prds.map((verdict: { prd: number }) => verdict.prd)).toEqual([7, 9]);
     expect(json).toMatchObject({ plan: { version: 1, steps: 4 }, replanned: null, stop: false, step: { step: 1, prd: 7 }, verdict: { prd: 7, verdict: 'wait' } });
     const text = await run(['next'], root, fakeExec());
-    expect(text.out).toBe(`step 1/4 · PRD 7 — wait: another session holds the claim on s1, s2 (look again in 20 min) — ${PR_URL}\n`);
+    expect(text.out).toBe(
+      [
+        `step 1/4 · PRD 7 — wait: another session holds the claim on s1, s2 (look again in 20 min) — ${PR_URL}`,
+        `  step 1 (PRD 7 w1) running since ${NOW}`,
+        '  step 3 (PRD 9 w1) held: a/ shared with step 1 (PRD 7 w1, running)',
+        '',
+      ].join('\n'),
+    );
   });
 
   it('with no plan kept yet, a tick makes version 1 and follows it', async () => {
     const root = mine();
     const { out } = await run(['next'], root, fakeExec({ subs: [] }));
-    expect(out).toBe(`step 1/4 · PRD 7 — act wave: wave 1 can take s1, s2 — ${PR_URL}\n`);
+    expect(out).toBe(`step 1/4 · PRD 7 — act wave: wave 1 can take s1, s2 — ${PR_URL}\n  step 3 (PRD 9 w1) held: a/ shared with step 1 (PRD 7 w1, starting)\n`);
     expect(existsSync(join(root, PLAN_FILE))).toBe(true);
   });
 
@@ -534,5 +541,92 @@ describe('omni next --roadmap', () => {
     expect(out).toBe('');
     expect(err.trimEnd().split('\n')).toEqual(['omni next: no roadmap 99 in the inbox; omni roadmap check lists them.']);
     expect((await run(['next', '7', '--roadmap', '12'], root, fakeRoadmap())).code).toBe(2);
+  });
+});
+
+// PRD 1205, slice s1: the pool — `steps`, `running` and `held` beside the step and verdict of today.
+describe('omni next — the pool of steps', () => {
+  const ME = 'me@example.com';
+  const planOf = (territory: Record<string, string>) =>
+    ['# A plan', '', '| id | slice | territory | blocked by | wave |', '| --- | --- | --- | --- | --- |', ...Object.entries(territory).map(([id, path]) => `| ${id} | ${id} | \`${path}\` | — | 1 |`), ''].join('\n');
+  type Tick = { step: unknown; verdict: unknown; waiting: unknown; prds: unknown; steps: { step: number; prd: number; verdict: { verdict: string } }[]; running: { step: number; prd: number; kind: string; since: string }[]; held: { step: number; prd: number; why: string }[] };
+
+  /** PRDs 7, 8 and 9, all yours, on the plans given (by default sharing no ground), with `limits`. */
+  function yours({ limits = '', plans = { '0008-gadgets': planOf({ s1: 'q/' }), '0009-gizmos': planOf({ s1: 'z/' }) } }: { limits?: string; plans?: Record<string, string> } = {}) {
+    const { root, write } = makeRepo({ git: true, files: { '.omni-loop/config.yml': `${CONFIG['.omni-loop/config.yml']}${limits}` } });
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+    for (const [folder, plan] of Object.entries({ '0007-widgets': PLAN, ...plans })) {
+      write(`.omni-loop/delivery/inbox/${folder}/plan.md`, plan);
+      git('add', '-A');
+      git('-c', `user.email=${ME}`, '-c', 'user.name=x', 'commit', '-q', '-m', folder);
+    }
+    git('config', 'user.email', ME);
+    return root;
+  }
+  async function tick(root: string, fake: ReturnType<typeof fakeExec>): Promise<Tick> {
+    const { code, out, err } = await run(['next', '--json'], root, fake);
+    expect(err).toBe('');
+    expect(code).toBe(0);
+    return JSON.parse(out) as Tick;
+  }
+
+  it('three PRDs sharing no ground: one tick lists three steps, each of a different PRD, the first being step', async () => {
+    const json = await tick(yours(), fakeExec({ subs: [] }));
+    expect(json.steps.map((one) => one.prd)).toEqual([7, 8, 9]);
+    expect(json.steps.map((one) => one.verdict.verdict)).toEqual(['act', 'act', 'act']);
+    expect(json.steps[0]).toEqual({ ...(json.step as object), verdict: json.verdict });
+    expect(json).toMatchObject({ running: [], held: [] });
+  });
+
+  it('limits.parallelSteps: 1 keeps step, verdict, waiting and prds byte-identical, and steps holds step alone', async () => {
+    const three = await tick(yours(), fakeExec({ subs: [] }));
+    const one = await tick(yours({ limits: 'limits:\n  parallelSteps: 1\n' }), fakeExec({ subs: [] }));
+    const today = ({ step, verdict, waiting, prds }: Tick) => JSON.stringify({ step, verdict, waiting, prds });
+    expect(today(one)).toBe(today(three));
+    expect(one.steps).toEqual([{ ...(one.step as object), verdict: one.verdict }]);
+  });
+
+  it('two PRDs sharing a path: the first in steps, the second held naming the path and the step it waits on', async () => {
+    const json = await tick(yours({ plans: { '0009-gizmos': planOf({ s1: 'a/x' }) } }), fakeExec({ subs: [] }));
+    expect(json.steps.map((one) => one.prd)).toEqual([7]);
+    expect(json.held).toEqual([{ step: 3, prd: 9, why: 'a/ shared with step 1 (PRD 7 w1, starting)' }]);
+  });
+
+  it('a live claim is a step running: it counts against the slots, its PRD gets no second step', async () => {
+    const json = await tick(yours({ limits: 'limits:\n  parallelSteps: 2\n' }), fakeExec());
+    expect(json.running).toEqual([{ step: 1, prd: 7, kind: 'wave', since: NOW }]);
+    expect(json.steps).toHaveLength(1);
+  });
+
+  it('a stale claim is not running', async () => {
+    const old = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const stale = (slice: string) => subPr(slice, { state: 'OPEN', mergedAt: null, isDraft: true, createdAt: old, updatedAt: old });
+    const json = await tick(yours(), fakeExec({ subs: [stale('s1'), stale('s2')], commits: { commits: [{ committedDate: old }] } }));
+    expect(json.running).toEqual([]);
+    expect(json.steps.map((one) => one.prd)).toEqual([7, 8, 9]);
+  });
+
+  it("the feature PR's in-progress label with a fresh status comment is its step running; a stale comment is not", async () => {
+    const status = (at: string) => [{ id: 5, body: `${markers.status}\nworking`, user: { login: 'omni-loop[bot]' }, created_at: at, updated_at: at, html_url: `${PR_URL}#issuecomment-5` }];
+    const labelled = [featurePr({ labels: [{ name: 'omni:in-progress' }] })];
+    const merged = [subPr('s1'), subPr('s2')];
+    const root = yours({ plans: {} });
+    const fresh = await tick(root, fakeExec({ subs: merged, feature: labelled, comments: status(NOW) }));
+    expect(fresh.running).toEqual([{ step: 2, prd: 7, kind: 'finish', since: NOW }]);
+    expect(fresh.steps).toEqual([]);
+    const old = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const cold = await tick(root, fakeExec({ subs: merged, feature: labelled, comments: status(old) }));
+    expect(cold.running).toEqual([]);
+    expect(cold.steps.map((one) => `${one.prd}:${one.step}`)).toEqual(['7:2']);
+  });
+
+  it('the plain output prints one line per step to launch, per step running and per step held', async () => {
+    const root = yours({ plans: { '0008-gadgets': planOf({ s1: 'q/' }), '0009-gizmos': planOf({ s1: 'a/x' }) } });
+    const { out } = await run(['next'], root, fakeExec({ subs: [] }));
+    expect(out.trimEnd().split('\n')).toEqual([
+      `step 1/6 · PRD 7 — act wave: wave 1 can take s1, s2 — ${PR_URL}`,
+      `step 2/6 · PRD 8 — act wave: wave 1 can take s1 — ${PR_URL}`,
+      '  step 5 (PRD 9 w1) held: a/ shared with step 1 (PRD 7 w1, starting)',
+    ]);
   });
 });

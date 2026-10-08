@@ -6,7 +6,8 @@
 //   roadmap passes; a roadmap number with no folder is a usage error, exit 2.
 // - `push <n>` (slice s6) sends roadmap n's `roadmap.md`, its open questions with the latest answer
 //   to each (read from the roadmap issue's comments, `../../lib/roadmap/answers.ts`) and where each of
-//   its PRDs stands (read from their feature PRs, `../../lib/roadmap/push.ts`) to the app's
+//   its PRDs stands (read from their feature PRs, `../../lib/roadmap/push.ts`) and, since PRD 1217,
+//   the human work across them (`../../lib/roadmap/human-work.ts`) to the app's
 //   `POST /api/roadmaps`, with the terminal's sign-in. It never blocks the tick that runs it: the
 //   contract's 5-second limit and one token refresh, and anything that stops it is exit 1 with one
 //   line — `off` (no `ask.url`), `no sign-in (omni signin)`, `github unreachable`, `unreachable`,
@@ -35,7 +36,7 @@ import { gradeRoadmaps, roadmapFiles } from '../../lib/roadmap/index.ts';
 import type { GradedRoadmap, RoadmapFile } from '../../lib/roadmap/index.ts';
 import { parseRoadmap, roadmapWaves } from '../../lib/roadmap/parse.ts';
 import type { Roadmap } from '../../lib/roadmap/parse.ts';
-import { readStandings, roadmapPushBody } from '../../lib/roadmap/push.ts';
+import { readRoadmapPrds, roadmapPushBody } from '../../lib/roadmap/push.ts';
 import { issueArg, parseArgs, println, usageError } from '../args.ts';
 import { githubClientFor, githubEnv } from '../github.ts';
 import type { Env, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
@@ -155,15 +156,16 @@ function skipLine(error: unknown): string {
   return error.reason ? `refused (${error.status}): ${error.reason}` : `refused (${error.status})`;
 }
 
-/** What GitHub says of the roadmap: each PRD's standing and the answers, or null when it cannot be read. */
+/** What GitHub says of the roadmap: each PRD's standing, their human work (null when it cannot be
+ * read whole, PRD 1217) and the answers; null when GitHub cannot be read. */
 function readGithub(ctx: Context, roadmap: Roadmap, { exec, env }: Io) {
   const ghEnv = ghEnvOf(ctx, exec, env);
   const gh = (args: string[]) => exec('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...(ghEnv ? { env: ghEnv } : {}) });
   const git = (args: string[]) => exec('git', args, { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   try {
-    const standings = readStandings(ctx, roadmap, { gh, git });
+    const { standings, prdWork } = readRoadmapPrds(ctx, roadmap, { gh, git });
     const comments = githubClientFor(ctx, { issue: roadmap.roadmap, exec, env }).listComments();
-    return { standings, answers: readAnswers(comments) };
+    return { standings, prdWork, answers: readAnswers(comments) };
   } catch {
     return null;
   }
