@@ -4,7 +4,9 @@
 //
 //   POST /api/roadmaps {repo, roadmap, title, milestone, product?, target?, source?, questions?, document,
 //                       prds: [{id, prd, title, repos?, blockers?, wave, state, waitsOn?, waitsOnUrl?,
-//                               startedAt?, endedAt?}]}
+//                               startedAt?, endedAt?}],
+//                       prerequisites?: [{id, category, need, check?, fix?, blocks, who, repos?, card?}],
+//                       prerequisiteResult?: {machine, checkedAt, rows: [{id, state, detail?}]} | null}
 //     → 201 a new roadmap, 200 one pushed again: {roadmapId, created, product, unknownProduct, note}
 //
 // The kit's `omni roadmap push` sends it: roadmap.md's front matter, the questions with any answer, the
@@ -14,6 +16,12 @@
 // rows on every push (roadmap_push(), supabase/migrations/20261110090000_roadmaps.sql). A product named
 // but unknown is filed under none: `unknownProduct` names it and `note` says it in one line.
 //
+// `prerequisites` (PRD 1218) is the roadmap's `## Prerequisites` table, each row with its author card, and
+// `prerequisiteResult` what `omni roadmap prereqs` last found on the pushing machine. Once the roadmap is
+// recorded, roadmap_prerequisites_push() replaces its prerequisites and their last result
+// (supabase/migrations/20261114090000_roadmap_prerequisites.sql). A body without the field, from a kit
+// before it or a roadmap without the section, leaves the stored prerequisites as they are.
+//
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed body, 401 no valid bearer
 // token, 403 a repository no workspace of the caller owns (with the App's install link after its hint),
 // 413 a body over its cap, 503 no database here or the sign-in service down, 500 the database failed.
@@ -22,7 +30,10 @@ import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { withInstallLink, type TokenCheck } from '../ask/auth';
 import { Line, receivePush, refuse, WebLink, When } from '../data/kit-push';
-import { RoadmapPrdState, RoadmapQuestion, RowIdSchema, roadmapStore, RoadmapStoreError, type RoadmapPush, type RoadmapPushAnswer } from './store';
+import {
+  PrerequisiteCategory, PrerequisiteState, PrerequisiteWho, RoadmapPrdState, RoadmapQuestion, RowIdSchema, roadmapStore, RoadmapStoreError,
+  type RoadmapPush, type RoadmapPushAnswer,
+} from './store';
 
 /** The largest push: a roadmap.md of two hundred rows and its PRDs, with room to spare. */
 export const MAX_PUSH_BYTES = 256 * 1024;
@@ -55,6 +66,39 @@ const Prd = z.strictObject({
   message: 'it ends before it starts', path: ['endedAt'],
 });
 
+/** A line of an author card: words for a person, or null when the card does not write it. */
+const CardLine = Line(1000).nullable().default(null);
+
+const Card = z.strictObject({ why: CardLine, command: CardLine, whatItDoes: CardLine, whoCanDoIt: CardLine });
+
+/** The longest reason a row waits the app keeps: a longer one, a command's output, is cut. */
+export const DETAIL_MAX = 500;
+
+/** Why a row waits, cut to {@link DETAIL_MAX}; empty reads as none. */
+const Detail = z.string().nullable().default(null).transform((detail) => {
+  const line = detail?.trim() ?? '';
+  if (line === '') return null;
+  return line.length > DETAIL_MAX ? `${line.slice(0, DETAIL_MAX - 1)}…` : line;
+});
+
+const Prerequisite = z.strictObject({
+  id: RowIdSchema,
+  category: PrerequisiteCategory,
+  need: Line(500),
+  check: Line(500).nullable().default(null),
+  fix: z.string().regex(/^base:[a-z0-9-]{1,40}$/, 'a base fix such as base:install').nullable().default(null),
+  blocks: z.union([z.literal('all'), z.array(RowIdSchema).max(200)]),
+  who: PrerequisiteWho,
+  repos: z.array(RepoName).max(20).default([]),
+  card: Card.nullable().default(null),
+}).refine((row) => row.fix === null || row.who === 'agent', { message: 'only an agent row has a fix', path: ['fix'] });
+
+const PrerequisiteResult = z.strictObject({
+  machine: Line(200),
+  checkedAt: When,
+  rows: z.array(z.strictObject({ id: RowIdSchema, state: PrerequisiteState, detail: Detail })).max(100),
+});
+
 const Push = z.strictObject({
   repo: z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/, 'owner/name'),
   roadmap: IssueNumberSchema,
@@ -66,8 +110,12 @@ const Push = z.strictObject({
   questions: z.array(RoadmapQuestion).max(100).default([]),
   document: z.string().min(1).max(200_000),
   prds: z.array(Prd).max(200),
+  prerequisites: z.array(Prerequisite).max(100).optional(),
+  prerequisiteResult: PrerequisiteResult.nullable().optional(),
 }).refine((push) => new Set(push.prds.map((p) => p.id)).size === push.prds.length, {
   message: 'a row id is used twice', path: ['prds'],
+}).refine((push) => push.prerequisites === undefined || new Set(push.prerequisites.map((p) => p.id)).size === push.prerequisites.length, {
+  message: 'a prerequisite id is used twice', path: ['prerequisites'],
 });
 
 /** The status each refusal of the database answers with; any other failure is a 500. */
