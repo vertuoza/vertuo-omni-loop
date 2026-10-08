@@ -1,5 +1,5 @@
 // `omni e2e status` (PRD 1233, s2), through `main()` on a fixture repository with small trace-1 files.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo, realExec } from '../../test/fixture.ts';
@@ -121,5 +121,95 @@ describe('omni e2e heals', () => {
     const { code, err } = await heals({}, {}, 'kit: 1\n');
     expect(code).toBe(1);
     expect(err.trim().split('\n')).toHaveLength(1);
+  });
+});
+
+describe('omni e2e hold, confirm and reject', () => {
+  const git = (root: string, ...args: string[]) => realExec('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd: root, encoding: 'utf8' });
+  const step = (target: string, callIndex = 0) =>
+    JSON.stringify({ schemaVersion: 'trace-1', payload: { summary: `clicks ${target}`, recordedFor: { testId: 'rank.spec.ts', callIndex }, actions: [{ name: 'click', target }] } });
+  const A = 'e2e/.e2e/cache/a.json';
+  const write = (root: string, path: string, text: string) => {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), text);
+  };
+
+  /** main holds a.json (Rank); feat/rank is checked out; the working tree then holds a healed a.json and a new b.json. */
+  function repo() {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': ON, '.omni-loop/delivery/inbox/1233-rank/spec.md': '# spec\n', [A]: step('Rank') } });
+    git(root, 'checkout', '-q', '-b', 'feat/rank');
+    write(root, A, step('Position'));
+    write(root, 'e2e/.e2e/cache/b.json', step('Fresh', 1));
+    const call = async (...args: string[]) => {
+      const out: string[] = [];
+      const err: string[] = [];
+      const code = await main(['e2e', ...args], { cwd: root, exec: realExec, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
+      return { code, out: out.join(''), err: err.join('') };
+    };
+    const read = (path: string) => readFileSync(join(root, path), 'utf8');
+    return { root, call, read };
+  }
+
+  it('hold lists the healed recordings and moves them out, leaving the committed one and the new ones', async () => {
+    const { root, call, read } = repo();
+    const { code, out } = await call('hold', '1233');
+    expect(code).toBe(0);
+    expect(JSON.parse(out).held).toMatchObject([{ testId: 'rank.spec.ts', callIndex: 0, file: A, summary: 'clicks Position' }]);
+    expect(read(A)).toBe(step('Rank'));
+    expect(read('e2e/.e2e/cache/b.json')).toBe(step('Fresh', 1));
+    git(root, 'add', '-A');
+    expect(git(root, 'diff', '--cached', '--name-only').trim()).toBe('e2e/.e2e/cache/b.json');
+  });
+
+  it('hold twice holds nothing more and keeps the first hold', async () => {
+    const { call } = repo();
+    await call('hold', '1233');
+    const again = await call('hold', '1233');
+    expect(again.code).toBe(0);
+    expect(JSON.parse(again.out).held).toHaveLength(1);
+  });
+
+  it('confirm commits the held recording, then a run with no screen change lists no healed step', async () => {
+    const { root, call, read } = repo();
+    await call('hold', '1233');
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'unchanged and new');
+    const confirmed = await call('confirm', '1233');
+    expect(confirmed.code).toBe(0);
+    expect(read(A)).toBe(step('Position'));
+    expect(git(root, 'log', '-1', '--name-only', '--format=%s').trim()).toContain(A);
+    expect(git(root, 'status', '--porcelain').trim()).toBe('');
+    const heals = await call('heals', '1233');
+    expect(JSON.parse(heals.out).healed).toEqual([]);
+    expect((await call('hold', '1233')).code).toBe(0);
+    expect(read(A)).toBe(step('Position'));
+  });
+
+  it('heals lists the step again when the screen changes after a confirmation', async () => {
+    const { root, call } = repo();
+    await call('hold', '1233');
+    await call('confirm', '1233');
+    write(root, A, step('Other'));
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'again');
+    expect(JSON.parse((await call('heals', '1233')).out).healed).toMatchObject([{ summary: 'clicks Other' }]);
+  });
+
+  it('reject leaves the committed recording, drops the held one and exits 1', async () => {
+    const { root, call, read } = repo();
+    await call('hold', '1233');
+    const rejected = await call('reject', '1233');
+    expect(rejected.code).toBe(1);
+    expect(JSON.parse(rejected.out).rejected).toHaveLength(1);
+    expect(read(A)).toBe(step('Rank'));
+    expect((await call('confirm', '1233')).out).toContain('"confirmed": []');
+    expect(git(root, 'log', '-1', '--format=%s').trim()).toBe('fixture');
+  });
+
+  it('say so in one line when e2e is off, and are usage errors without a PRD', async () => {
+    const off = await run(['hold', '7'], 'kit: 1\n');
+    expect(off.code).toBe(1);
+    expect(off.err.trim().split('\n')).toHaveLength(1);
+    for (const sub of ['hold', 'confirm', 'reject']) expect((await run([sub], ON)).code).toBe(2);
   });
 });
