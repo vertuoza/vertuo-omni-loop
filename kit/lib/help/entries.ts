@@ -1375,6 +1375,27 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       result: 'a comment on the feature PR with a ✓, ✗ or — line per criterion, and the Proof tab full of clips',
     },
   },
+  {
+    name: 'validate-e2e',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:validate-e2e <n>'],
+    label: '/omni:validate-e2e <n>',
+    summary: 'beta: keep a PRD criteria as e2e tests',
+    detail:
+      "Writes one e2e test per filmable acceptance criterion of PRD n, tagged prd-n, from the spec " +
+      'alone; records each once, replays it with --strict-cache, and checks the recordings with ' +
+      'omni e2e status and omni e2e heals. It opens a sub-PR into the feature branch holding the ' +
+      'tests, their committed recordings and a criterion, test and verdict table. It stops with one ' +
+      'line when e2e.enabled is false, e2e.url is null or Node is older than 24.8, and merges ' +
+      'nothing.',
+    group: 'everyday',
+    when: 'Use it when a PRD\'s feature PR is ready and its criteria should keep being checked after it merges.',
+    example: {
+      type: '/omni:validate-e2e 1233',
+      result: 'a sub-PR with the e2e tests, their recordings and a verdict per criterion',
+    },
+  },
 
   {
     name: 'pitch',
