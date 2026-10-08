@@ -16,7 +16,7 @@ import { sure } from '../arcade/test/sure';
 const NOW = Date.parse('2026-10-08T12:00:00Z');
 const SETTINGS = 'https://github.com/organizations/vertuoza/settings/installations/5001';
 const row = (fullName: string, over: Partial<RepositoryRow> = {}): RepositoryRow => ({
-  fullName, tracked: true, collectedAt: null, collectError: null, product: null, ...over,
+  fullName, tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false, ...over,
 });
 const APPS = row('vertuoza/vertuo-apps', { collectedAt: '2026-10-08T11:57:00Z' });
 const PDF = row('vertuoza/pdf-builder', { tracked: false, collectError: 'rate limited' });
@@ -28,7 +28,7 @@ const render = (rows: RepositoryRow[], { owner = true, access = INSTALLED, actio
   renderToStaticMarkup(createElement(RepositoriesView, { state: state(rows, ...actions), owner, access, now: NOW }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(sure(m[2], 'm[2]')) }));
-const switches = (html: string) => buttons(html).filter((b) => sure(b.attrs, 'b.attrs').includes('role="switch"'));
+const switches = (html: string, name = 'Track ') => buttons(html).filter((b) => sure(b.attrs, 'b.attrs').includes('role="switch"') && sure(b.attrs, 'b.attrs').includes(`aria-label="${name}`));
 const rowOf = (html: string, name: string) => {
   const from = html.indexOf(`data-repository="${name}"`);
   return from < 0 ? '' : html.slice(from, html.indexOf('</li>', from));
@@ -114,6 +114,44 @@ describe('a member\'s repositories page', () => {
 
   it('says the owner adds them, when the list is empty', () => {
     expect(text(render([], { owner: false }))).toContain('No repositories yet. The workspace’s owner adds them.');
+  });
+});
+
+describe('the ideas board switch (PRD 1246 s4)', () => {
+  const ideas = (html: string) => switches(html, 'Public ideas board of ');
+
+  it('gives each row a Public ideas switch, on while its board is public', () => {
+    const html = render([APPS, row('vertuoza/vertuo-omni-loop', { publicIdeas: true })]);
+    const sw = ideas(html);
+    expect(sw).toHaveLength(2);
+    expect(sw.find((s) => sure(s.attrs, 's.attrs').includes('of vertuoza/vertuo-apps'))?.attrs).toContain('aria-checked="false"');
+    expect(sw.find((s) => sure(s.attrs, 's.attrs').includes('of vertuoza/vertuo-omni-loop'))?.attrs).toContain('aria-checked="true"');
+  });
+
+  it('lets any member switch it, owner or not, but not while a call is on its way', () => {
+    expect(ideas(render([APPS], { owner: false })).every((s) => !/disabled/.test(sure(s.attrs, 's.attrs')))).toBe(true);
+    expect(ideas(render([APPS], { actions: [{ type: 'busy' }] })).every((s) => /disabled=""/.test(sure(s.attrs, 's.attrs')))).toBe(true);
+  });
+
+  it('links each row to its board', () => {
+    expect(rowOf(render([APPS]), 'vertuoza/vertuo-apps')).toContain('href="/ideas/vertuoza/vertuo-apps"');
+  });
+
+  it('turns the board public and private again through its handler', () => {
+    const calls: [string, boolean][] = [];
+    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {}, setPublicIdeas: (name: string, on: boolean) => { calls.push([name, on]); } };
+    const tree = RepositoriesView({ state: state([row('a/b', { publicIdeas: true })]), owner: false, access: INSTALLED, now: NOW, on });
+    const press = (node: unknown): void => {
+      if (!node || typeof node !== 'object') return;
+      const props = (node as { props?: Record<string, unknown> }).props;
+      if (!props) return;
+      if (props['aria-label'] === 'Public ideas board of a/b' && typeof props.onClick === 'function') (props.onClick as () => void)();
+      const kids = props.children;
+      for (const kid of Array.isArray(kids) ? kids.flat(4) : [kids]) press(kid);
+      if (typeof (node as { type?: unknown }).type === 'function') press(((node as { type: (p: unknown) => unknown }).type)(props));
+    };
+    press(tree);
+    expect(calls).toEqual([['a/b', false]]);
   });
 });
 

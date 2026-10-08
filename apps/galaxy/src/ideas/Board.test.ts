@@ -116,6 +116,48 @@ describe('a public board', () => {
   });
 });
 
+describe('a member\'s board (PRD 1246, s4)', () => {
+  const cards = (markup: string) => [...markup.matchAll(/<article class="idea-card"[\s\S]*?<\/article>/g)].map(([card]) => card);
+  const IDEAS_OF = () => [idea({ title: 'Call GitHub less', lane: 'later', pitch: 'Fewer API calls.' }), idea({ title: 'A calmer gate', lane: 'now' })];
+
+  it('offers a member to add an idea, with its title, its pitch and its lane, Later chosen', async () => {
+    const markup = await page(async () => board(IDEAS_OF(), { member: true }));
+    const add = /<details class="idea-add"[\s\S]*?<\/details>/.exec(markup)?.[0] ?? '';
+    expect(text(add)).toContain('Add an idea');
+    expect(add).toMatch(/<input(?=[^>]*name="title")[^>]*maxLength="120"/);
+    expect(add).toMatch(/<textarea(?=[^>]*name="pitch")[^>]*maxLength="600"/);
+    expect(add).toMatch(/<option value="later" selected="">Later<\/option>/);
+    expect(add).not.toContain('name="prd"');
+  });
+
+  it('gives each card a member\'s Edit and Archive, the edit form holding its title, pitch, lane and PRD', async () => {
+    const markup = await page(async () => board([idea({ title: 'Linked', lane: 'next', prd: parsePrd(1246), pitch: 'Built.' })], { member: true }));
+    const [card = ''] = cards(markup);
+    expect(card).toContain('aria-label="Edit Linked"');
+    expect(card).toContain('aria-label="Archive Linked"');
+    expect(card).toMatch(/<input(?=[^>]*name="title")[^>]*value="Linked"/);
+    expect(card).toMatch(/<textarea[^>]*name="pitch"[^>]*>Built\.<\/textarea>/);
+    expect(card).toMatch(/<option value="next" selected="">Next<\/option>/);
+    expect(card).toMatch(/<input(?=[^>]*name="prd")[^>]*value="1246"/);
+  });
+
+  it('shows a non-member no add, edit, move, archive or PRD control', async () => {
+    const markup = await page(async () => board(IDEAS_OF(), { member: false }));
+    expect(markup).not.toContain('idea-add');
+    expect(markup).not.toMatch(/aria-label="(Edit|Archive) /);
+    expect(markup).not.toMatch(/name="(title|pitch|lane|prd)"/);
+  });
+
+  it('shows every card its "Brainstorm this" line with a copy button, member or not', async () => {
+    for (const member of [true, false]) {
+      const [card = ''] = cards(await page(async () => board(IDEAS_OF(), { member })));
+      expect(text(card)).toContain('Brainstorm this');
+      expect(text(card)).toContain('/omni:brainstorm \'A calmer gate: The pitch of A calmer gate.\'');
+      expect(card).toMatch(/<button[^>]*aria-label="Copy the brainstorm line of A calmer gate"/);
+    }
+  });
+});
+
 describe('a private board and a missing one', () => {
   it('answer the same "no public board here" page', async () => {
     const reads: string[] = [];
