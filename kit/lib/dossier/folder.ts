@@ -155,8 +155,8 @@ export function readFixFolder(
 
 /** The first folder under `root` named for issue `issue` (`<nnnn>-<topic>`): its path and its topic; null
  * when there is none. */
-function issueFolder(repoRoot: string, root: string, issue: IssueNumber): { dir: string; topic: string } | null {
-  const absolute = join(repoRoot, root);
+function issueFolder(checkout: string, root: string, issue: IssueNumber): { dir: string; topic: string } | null {
+  const absolute = join(checkout, root);
   if (!existsSync(absolute)) return null;
   const prefix = `${String(issue).padStart(4, '0')}-`;
   const name = readdirSync(absolute, { withFileTypes: true })
@@ -168,12 +168,12 @@ function issueFolder(repoRoot: string, root: string, issue: IssueNumber): { dir:
 
 /** `files` of folder `dir`, each whole with its hash and size (a round carries its number); a file over
  * 512 KiB is named in `tooLarge` instead. */
-function readFiles<K extends string>(repoRoot: string, dir: string, files: readonly { kind: K; name: string; round?: number }[]) {
+function readFiles<K extends string>(checkout: string, dir: string, files: readonly { kind: K; name: string; round?: number }[]) {
   const artifacts: { kind: K; path: string; content: string; sha256: string; bytes: number; round?: number }[] = [];
   const tooLarge: TooLarge[] = [];
   for (const file of files) {
     const path = `${dir}/${file.name}`;
-    const raw = readFileSync(join(repoRoot, path));
+    const raw = readFileSync(join(checkout, path));
     if (raw.length > ARTIFACT_MAX_BYTES) {
       tooLarge.push({ kind: file.kind, path, bytes: raw.length });
       continue;
