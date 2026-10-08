@@ -1,6 +1,6 @@
 ---
 name: validate-e2e
-description: Beta. Turns a PRD's filmable acceptance criteria into e2e tests that stay — one test per criterion, tagged prd-<n>, written from the spec alone, run once to record and once with --strict-cache to replay, checked with omni e2e status and omni e2e heals, then opened as a sub-PR into the feature branch holding the tests, their committed recordings and a criterion, test and verdict table. Stops with one line when e2e.enabled is false, e2e.url is null or Node is older than 24.8. Merges nothing and marks nothing ready. A person runs it on a ready PRD. Triggers on "validate this PRD with e2e", "write e2e tests for the criteria", "/omni:validate-e2e 1233".
+description: Beta. Turns a PRD's filmable acceptance criteria into e2e tests that stay — one test per criterion, tagged prd-<n>, written from the spec alone, set up as a declared workspace on its first run, run once to record (last, after every install) and once with --strict-cache to replay, checked with omni e2e status and omni e2e heals --head, then opened as a sub-PR into the feature branch holding the tests, their committed recordings and a criterion, test and verdict table. Stops with one line when e2e.enabled is false, e2e.url is null, Node is older than 24.8 or the local package manager is newer than CI's. Merges nothing and marks nothing ready. A person runs it on a ready PRD. Triggers on "validate this PRD with e2e", "write e2e tests for the criteria", "/omni:validate-e2e 1233".
 ---
 
 # Validate e2e (beta): keep what a PRD's criteria check
@@ -55,7 +55,9 @@ As `/omni:prove` reaches it, with the `e2e` block in place of `proof`:
   `gh api repos/<repo.slug>/deployments?sha=<headRefOid>`, then the newest deployment's statuses, whose
   `success` status carries `environment_url`. When `e2e.deployment` is set, only the deployments whose
   `environment` is exactly that count. Wait up to **10 minutes**, looking again every 20 seconds.
-  Otherwise `e2e.url` is the fixed URL itself.
+  Otherwise `e2e.url` is the fixed URL itself: a local or hosted demo, for a preview that has no data
+  to draw. Keep the reason in one line (the preview has no database, say), for step 9: the target was
+  not the preview.
 - **The bypass.** When `e2e.bypassEnv` names an environment variable, every request sends its value
   as the `x-vercel-protection-bypass` header. Never print the value, and never write it to a file.
 - **Signed in.** When `e2e.setup` is set, run that command once from the repository's root, with
@@ -74,7 +76,28 @@ criterion:
 - **not filmable**: a config value, a log line, a command's exit code. Say why in one line; it stays
   an ordinary unit or integration test and has no e2e test.
 
-## 4. One test per filmable criterion
+## 4. The e2e project, once
+
+Check what `e2e.dir` holds before any install. When it has no `package.json`, create the project now,
+and it is committed in the sub-PR:
+
+- **Declare it a workspace** of the repository's package manager (a `packages` entry for `e2e.dir` in
+  `pnpm-workspace.yaml`, or `workspaces` in the root `package.json`), so the repository's dependency
+  gate accepts the folder. Give it its own `package.json` with the e2e framework's dependencies. A
+  repository that wants another layout declares it before the run.
+- **Check the package manager against CI first.** Read the version CI uses (the root `packageManager`
+  field, else the version the workflows pin). When the local one (`pnpm -v`, `npm -v`) is newer than
+  that, print one line that names both versions and stop before it installs; the run changes no file:
+
+```text
+e2e package manager is newer than CI's: local <local version>, CI <CI version>
+```
+
+- **Then install the dependencies,** with the local package manager at CI's version. Only the new
+  workspace's lines may enter the lockfile: a lockfile rewritten whole means the versions differ, so
+  stop with the line above.
+
+## 5. One test per filmable criterion
 
 Under `e2e.dir`, one test per filmable criterion, tagged `prd-<n>`.
 
@@ -86,8 +109,9 @@ Under `e2e.dir`, one test per filmable criterion, tagged `prd-<n>`.
 - Remove the framework's `.gitignore` line for `.e2e/cache/` in `e2e.dir`, so the recordings can be
   committed.
 
-## 5. A first run that records
+## 6. A first run that records, last
 
+Record last: run after every install is settled, so a recording is never made before the dependencies.
 Run the tests on the target with `E2E_TELEMETRY_DISABLED=1` set and `e2e.model` as the goal steps'
 model (through OpenRouter, with the `OPENROUTER_API_KEY` the kit already reads; write no key in any
 file): `npx e2e run --tag prd-<n>`.
@@ -96,27 +120,31 @@ A red test is a ✗ on its criterion; the assertion is never weakened to make it
 in the test (an ambiguous locator, a read before the page is drawn) is corrected, at most
 `limits.attempts` times.
 
-## 6. A second run with `--strict-cache`
+## 7. A second run with `--strict-cache`
 
 Run `npx e2e run --strict-cache --tag prd-<n>` with `E2E_TELEMETRY_DISABLED=1`. It must be green.
 When it is not, the test is unstable: say so, name the test, and open no green sub-PR.
 
-## 7. The kit's checks
+A dependency installed or changed after the first run (the lockfile or the e2e `package.json` moved)
+stales the recordings: record again with step 6 before this strict replay, then replay.
+
+## 8. The kit's checks
 
 Run `node .omni-loop/bin/omni.mjs e2e status <n>`; a non-zero exit (a test with no recording) stops
-the run before any sub-PR. Then run `node .omni-loop/bin/omni.mjs e2e heals <n>`. On a first pass
-every step is new. On a later pass each healed step becomes an outbox item with its before and after
+the run before any sub-PR. Then run `node .omni-loop/bin/omni.mjs e2e heals <n> --head <sub-PR branch>`, the branch step 9 pushes: it
+compares the feature branch's steps with that branch's, so on a first pass every step is new. On a later pass each healed step becomes an outbox item with its before and after
 (`node .omni-loop/bin/omni.mjs item new --prd <n> --slice e2e --file <file> --json`, the JSON in a
 scratch file outside the repository): none is taken as accepted until a person confirms it. Say in
 the sub-PR that the recordings, a healed one included, are committed from the start and count as
 accepted only when it is merged, and that an item carries the action before and after, no screenshots.
 
-## 8. The sub-PR
+## 9. The sub-PR
 
-Branch from `<remote>/<feature branch>`, commit the tests and `e2e.dir`'s recordings (nothing else,
+Branch from `<remote>/<feature branch>`, commit the e2e project, the tests and `e2e.dir`'s recordings (the workspace entry and its lockfile lines included, nothing else,
 and no secret), push, and open a sub-PR into the feature branch through `/omni:pr` with the
-`labels.sub` label and `prLinks.sub` (`Part of #<n>`). Its body holds a table, then the healed
-steps, then the footer line:
+`labels.sub` label and `prLinks.sub` (`Part of #<n>`). When `e2e.url` was a fixed URL, its body opens with one line saying the target was not the preview, and
+why (the reason kept in step 2). The body holds that line, a table, then the healed steps, then the
+footer line:
 
 ```markdown
 | criterion | test | verdict |
