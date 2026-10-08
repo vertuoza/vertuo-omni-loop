@@ -1,6 +1,6 @@
 ---
 name: drive
-description: Drives your PRDs one step per tick, run as /loop /omni:drive [<n>…], or a roadmap's PRDs with --roadmap <n> — on its first tick it orders every slice of the PRDs driven into a loop plan (omni next --plan) and opens the loop on the Loop page (omni loop push start); every tick it takes the first step not done (omni next --json) and runs that one skill, /omni:wave, /omni:yolo, /omni:yolo-fix or /omni:pr-care --once, or waits, parks a PRD that waits on a person on its feature PR's status comment, records the tick with omni loop push tick and sets the next wake; under --roadmap it holds a blocked PRD until its blockers merged, naming the pull request it waits on, and pushes the roadmap after each tick; once every PRD is parked or done it stops itself, listing what waits on whom. A closed terminal resumes the same loop and plan. A plan repository gets the /loop /omni:mega-drive line. Never merges into the default branch, never answers the outbox. Triggers on "drive my PRDs", "run the loop", "keep building until it needs me", "/loop /omni:drive", "/omni:drive".
+description: Drives your PRDs one step per tick, run as /loop /omni:drive [<n>…], or a roadmap's PRDs with --roadmap <n> — on its first tick it orders every slice of the PRDs driven into a loop plan (omni next --plan) and opens the loop on the Loop page (omni loop push start); every tick it takes the first step not done (omni next --json) and runs that one skill, /omni:wave, /omni:yolo, /omni:yolo-fix or /omni:pr-care --once, or waits, parks a PRD that waits on a person on its feature PR's status comment, records the tick with omni loop push tick and sets the next wake; under --roadmap it checks the roadmap's prerequisites with omni roadmap prereqs --fix on the first tick and before a PRD one holds starts, holds a blocked PRD until its blockers merged, naming the pull request it waits on, or until the prerequisite it waits on is met, and pushes the roadmap after each tick; once every PRD is parked or done it stops itself, listing what waits on whom and each open prerequisite with its command. A closed terminal resumes the same loop and plan. A plan repository gets the /loop /omni:mega-drive line. Never merges into the default branch, never answers the outbox. Triggers on "drive my PRDs", "run the loop", "keep building until it needs me", "/loop /omni:drive", "/omni:drive".
 ---
 
 # Drive: one step of the loop plan per tick
@@ -84,7 +84,30 @@ Exit 0 prints `start: <loopId> …`. Exit 1 is one line (`off`, `no sign-in (omn
 `unreachable`, `refused (<status>)`, or the loop already here): print it and **carry on**. The loop
 runs the same without the page; its later pushes then each say so in one line.
 
+**The prerequisites,** under `--roadmap` only, on this first tick of the session, whether the loop
+is new or resumed:
+
+```bash
+node .omni-loop/bin/omni.mjs roadmap prereqs <n> --fix
+```
+
+It runs the roadmap's `## Prerequisites` rows on this machine, the `agent` rows' fixes once, keeps
+the result as this machine's last (which `omni next` reads) and sends it to the roadmap's
+**Prerequisites** tab. Print its lines. Exit `1` means a row waits on a person: never a failure, the
+PRDs that row blocks are held and every other PRD builds. A roadmap without the section prints that
+it has none: carry on.
+
 ## 2. Read the step
+
+**Before a held PRD starts,** under `--roadmap`: when the last `next --json` of this session held a
+PRD on a prerequisite (an entry of `held` whose `why` reads `waits on prerequisite <id> (<category>):
+<need>`), check again first, so a row a person fixed since frees its PRDs on this very tick:
+
+```bash
+node .omni-loop/bin/omni.mjs roadmap prereqs <n> --fix
+```
+
+Its exit `1` is not a failure, as in step 1. Then read the step:
 
 ```bash
 node .omni-loop/bin/omni.mjs next --json [--roadmap <n>]
@@ -100,7 +123,7 @@ reach is a `wait`, never a failure. It prints one document:
 | `step` | the first step not done: `step` of `of`, its `prd`, its `kind`, its `wave` and `slices` |
 | `verdict` | that step's verdict: `act` with its `skill`, or `wait` with its `wakeHint` in seconds; its `why`, and its `link` when it has one |
 | `prds` | every PRD's own verdict, `park` and `done` ones included |
-| `held` | under `--roadmap` only: each PRD the roadmap holds or parks, with its `gate` (`hold` or `park`), its `why` and its `link`. A held PRD's `why` names the pull request it waits on and that PR's state (`waits on <repo>#<pr> (<id> <title>): <state>`); a parked one names the question a person must answer, or the blocker closed unmerged |
+| `held` | under `--roadmap` only: each PRD the roadmap holds or parks, with its `gate` (`hold` or `park`), its `why` and its `link`. A held PRD's `why` names the pull request it waits on and that PR's state (`waits on <repo>#<pr> (<id> <title>): <state>`), or the prerequisite not met on this machine (`waits on prerequisite <id> (<category>): <need>`, its link the roadmap's Prerequisites tab); a parked one names the question a person must answer, or the blocker closed unmerged |
 
 Never pick another step than `step`: the plan already chose, and a step it runs beside is one it
 returns itself. Print one line: `step <step>/<of> · PRD <prd> · <verdict> <skill> · <why>`.
@@ -188,6 +211,16 @@ and the tick still counts. Then go to **Waking up**.
    loop stopped: nothing moves until a person acts
    PRD <n> — <verdict>: <why> — <link>
    ```
+
+   Under `--roadmap`, then list each open prerequisite with its card's command, so the person
+   knows what to do: run `node .omni-loop/bin/omni.mjs roadmap prereqs <n> --fix` once more and
+   print each of its `waits on you` lines, under one line:
+
+   ```text
+   open prerequisites: each holds the PRDs it blocks until it is done
+   ```
+
+   None waits on you: leave both out.
 
    Someone starts it again with the same command once they acted; the next first tick plans anew.
 

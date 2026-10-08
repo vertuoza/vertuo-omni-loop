@@ -144,6 +144,132 @@ A PRD's row still passes once that PRD has shipped: its folder counts in the inb
 folder, and its spec is compared wherever it lives. A roadmap does not fail its check because its
 first PRD merged.
 
+## Prerequisites
+
+A roadmap is driven for hours, and it stalls on things nobody wrote down: a company package the
+install cannot reach, a laptop with no Docker for the database tests. The **prerequisites** say what
+has to be true on the machine, on GitHub and around the repository before the PRDs can be built.
+The loop checks them, fixes the ones it safely can, and lists the rest for you, each with the command
+to copy and who can do it.
+
+### The table
+
+An optional `## Prerequisites` section of `roadmap.md`, after `## Open questions`:
+
+```markdown file=.omni-loop/delivery/inbox/roadmaps/1200-crew/roadmap.md
+## Prerequisites
+
+| id | category | need | check | fix | blocks | who |
+|---|---|---|---|---|---|---|
+| p1 | permissions | gh is signed in, with the right to change the repository | `base:gh-auth` | | all | check |
+| p4 | access | the libraries install from the lockfile | `base:install` | `base:install` | all | agent |
+| p6 | local | Docker is running, for the database tests | `base:docker` | | P1.1, P3.4 | check |
+| p7 | permissions | the Vercel preview has `DATABASE_URL` | | | P3.4 | person |
+
+### p6
+
+- **Why:** The tests for this roadmap start a database in Docker. Without Docker running, they
+  cannot run, and no slice can merge.
+- **Command:** `open -a Docker`
+- **What it does:** Starts the Docker app on your Mac. If it is not installed, get it from
+  https://www.docker.com/products/docker-desktop and open it once.
+- **Who can do it:** Anyone with this laptop.
+```
+
+| column | what it holds |
+|---|---|
+| `id` | `p1`, `p2`, …, unique in the table |
+| `category` | where it holds, below |
+| `need` | one plain sentence: what must be true, and for what |
+| `check` | a base check `base:<name>`, a shell command that exits 0 when it holds, or empty when nothing can verify it |
+| `fix` | empty, or a base fix `base:<name>` the loop may run itself: `agent` rows only |
+| `blocks` | the `## PRDs` row ids it blocks, or `all` |
+| `who` | `agent` (the loop checks it and fixes it), `check` (the loop checks it, a person fixes it) or `person` (nothing can verify it: a person ticks it) |
+
+The **categories**:
+
+- `local`: tools on the machine that runs the loop (Docker, Node, pnpm, git).
+- `access`: registries, your company's own packages, other repositories.
+- `permissions`: GitHub scopes, write access, secrets and environment variables.
+- `github`: labels, workflows, branch settings, the Omni Loop app installed.
+- `services`: a database, preview deployments, the Omni app sign-in.
+
+Every `check` and `person` row has its **author card**, a `### <id>` under the table with exactly
+four lines, **Why:**, **Command:**, **What it does:** and **Who can do it:**, written for someone who
+is not technical: one command, the simplest that works on the author's computer, and who on the team
+can do it when it is not you. In a plan repository a row may add a `repos` cell naming the targets it
+concerns; a check on a target only reads, and never installs.
+
+`omni roadmap check` refuses, naming the row: an unknown `category` or `who`, an id used twice, a
+`blocks` naming no row, a `check` naming no base check, a `fix` on a row that is not `agent` or naming
+no base fix, an `agent` row without a fix, a `check` or `person` row without its card, and a card
+missing one of its four lines. A roadmap without the section checks as before.
+
+### The base checks
+
+| check | category | what it checks | what the loop may fix |
+|---|---|---|---|
+| `base:gh-auth` | permissions | `gh` is signed in, with the `repo` scope | – |
+| `base:node` | local | Node is at least the version the repository needs | – |
+| `base:pnpm`, `base:npm`, `base:yarn` | local | the repository's package manager runs | – |
+| `base:install` | access | the dependencies install from the lockfile | runs the install |
+| `base:registry` | access | the registry the lockfile names answers | – |
+| `base:docker` | local | `docker info` answers | – |
+| `base:labels` | github | the loop's labels exist | creates them, when `labels.autoCreate` is true |
+| `base:env-file` | local | each `.env.example` has its `.env` | copies the example when the `.env` is missing, never over one |
+| `base:omni-signin` | services | `omni` is signed in to the Omni app | – |
+
+`/omni:roadmap` and `/omni:mega-roadmap` write the base rows into every roadmap, blocking `all`:
+`base:gh-auth`, `base:node`, the package manager, `base:install` and `base:labels`. Then they read
+each PRD for what it needs (a container, a company package, a secret, a service, a permission) and
+add its rows and cards, show them on the map by category, and check them once the roadmap is
+written.
+
+**What the loop may fix:** only what is inside the repository or its own session and can be undone.
+It never installs software, never starts or stops a system service, never writes a secret, a token or
+a value it was not given, and never changes anyone's access. Everything else is a `check` row: the
+loop checks it, you do it.
+
+### Check them
+
+```bash terminal agent
+omni roadmap prereqs 1200 --fix
+```
+
+It runs every row on this machine, each check within 30 seconds; a check that times out or crashes
+is not ok, never passed. With `--fix` it runs the `agent` rows' fixes once, then checks them again.
+It prints one line per row, grouped by category: `ok`, `fixed`, `ticked`, or `waits on you` with its
+card's command, sends the result to the roadmap's page with this machine's name and the time, and
+exits 0 once every row is ok, fixed or ticked.
+
+A `person` row is ticked once its author did it, from the page's **Mark as done**, or from a
+checkout:
+
+```bash terminal
+omni roadmap tick 1200 p7
+```
+
+The drive runs `omni roadmap prereqs <n> --fix` on its first tick, and again before a PRD a
+prerequisite holds would start. An open prerequisite holds only the PRDs it blocks, while every
+other PRD keeps building:
+
+```text agent
+held: PRD 1213 — waits on prerequisite p6 (local): Docker is running, for the database tests
+```
+
+Once you fixed it, or ticked it, the next tick frees those PRDs. When nothing else can move, the
+drive stops and lists each open prerequisite with its command.
+
+### The Prerequisites tab
+
+A roadmap's page has two tabs: **Overview** (below) and the **Prerequisites** tab. It shows a count
+line (`7 ok · 1 fixed · 2 wait on you`), then the rows by category, those that wait on you first.
+Each row shows its need, its state, the PRDs it blocks, and on which machine and when it was last
+checked. A row that waits on you opens its card: the **Why**, the command with a **Copy** button,
+**What it does** and **Who can do it**, so you can do it or forward it to the person it names. A
+`person` row has **Mark as done** for a signed-in member of the workspace. A roadmap without
+prerequisites says so in one line.
+
 ## Drive it
 
 Once the phase-0 pull request is merged, drive the roadmap:
@@ -207,8 +333,9 @@ has a roadmap filters the list, beside **Every product**.
 ### A roadmap's page
 
 At the top: its milestone, its progress, its repository, a link to its issue and to its source, and
-what blocks it now. Then its Gantt, its open questions and its PRDs, each linking to the PRD's own
-page.
+what blocks it now. Its **Overview** tab holds its Gantt, its open questions and its PRDs, each
+linking to the PRD's own page; its **Prerequisites** tab, what the loop needs before it can build
+them: [The Prerequisites tab](#the-prerequisites-tab).
 
 To read the Gantt:
 
