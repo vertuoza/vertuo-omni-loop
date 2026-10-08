@@ -1,13 +1,16 @@
 // PRD 1139, slice s1: `omni next <prd>` through `main()`, on a fixture repository and a stubbed GitHub.
 import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptions } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
+import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo, realExec } from '../test/fixture.ts';
 import { parseOutboxItemId } from '../lib/ids.ts';
 import { makeMarkers } from '../lib/markers.ts';
 import { formatNumbersMarker } from '../lib/outbox/comment.ts';
+import { parseIssue } from '../lib/ids.ts';
+import { writeLastResult } from '../lib/roadmap/prereqs/last.ts';
 import { main } from './omni.ts';
 
 function io() {
@@ -525,6 +528,65 @@ describe('omni next --roadmap', () => {
     const root = roadmapRepo();
     const { out } = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: { 'feat/widgets': [featurePr({ state: 'CLOSED' })] }, comments: [answer] }));
     expect(JSON.parse(out)).toMatchObject({ stop: true, waiting: [{ prd: 8, verdict: 'park', why: 'blocker #9 closed unmerged: fix the roadmap', link: PR_URL }] });
+  });
+
+  // PRD 1218, slice s4: an open prerequisite holds exactly the PRDs it blocks.
+  const PREREQS = [
+    '## Prerequisites', '',
+    '| id | category | need | check | fix | blocks | who |',
+    '|---|---|---|---|---|---|---|',
+    '| p1 | local | Docker is running, for the database tests | `base:docker` | | P1 | check |',
+    '| p2 | permissions | the preview has DATABASE_URL | | | P2 | person |',
+    '',
+    '### p1', '',
+    '- **Why:** The tests start a database in Docker.',
+    '- **Command:** `open -a Docker`',
+    '- **What it does:** Starts Docker.',
+    '- **Who can do it:** Anyone with this laptop.',
+    '',
+    '### p2', '',
+    '- **Why:** The preview needs its database.',
+    '- **Command:** `vercel env add DATABASE_URL preview`',
+    '- **What it does:** Adds the variable.',
+    '- **Who can do it:** A Vercel admin.',
+    '',
+  ].join('\n');
+  /** The roadmap with a Prerequisites section, and this machine's last result (none for null). */
+  function prereqRepo(states: Record<string, 'ok' | 'waits' | 'ticked'> | null) {
+    const root = roadmapRepo();
+    appendFileSync(join(root, '.omni-loop/delivery/inbox/roadmaps/0012-crew/roadmap.md'), `\n${PREREQS}`);
+    execFileSync('git', ['commit', '-qam', 'prerequisites'], { cwd: root });
+    if (states !== null) {
+      const rows = Object.entries(states).map(([id, state]) => ({ id, state, detail: state === 'waits' ? 'docker info failed' : null }));
+      writeLastResult(root, { roadmap: parseIssue(12), machine: hostname(), checkedAt: NOW, rows });
+      writeLastResult(root, { roadmap: parseIssue(12), machine: 'another-laptop', checkedAt: NOW, rows: rows.map((row) => ({ ...row, state: 'ok' as const })) });
+    }
+    return root;
+  }
+  const tick = { id: 6, body: '<!-- omni-roadmap-tick: p2 -->\nPrerequisite **p2** is done.\n', user: { login: 'pm' }, author_association: 'MEMBER', created_at: NOW, html_url: 'x' };
+
+  it('a prerequisite this machine found waiting holds the PRD it blocks, with its line and the issue\'s link', async () => {
+    const root = prereqRepo({ p1: 'waits', p2: 'waits' });
+    const { code, out } = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: widgets, comments: [answer] }));
+    expect(code).toBe(0);
+    const json = JSON.parse(out) as { held: { prd: number; gate: string; why: string; link: string }[] };
+    expect(json.held).toContainEqual({ prd: 7, gate: 'hold', why: 'waits on prerequisite p1 (local): Docker is running, for the database tests', link: 'https://github.com/acme/widgets/issues/12' });
+  });
+
+  it('ok on this machine frees the PRD; a person row ticked on the issue frees its own', async () => {
+    const root = prereqRepo({ p1: 'ok', p2: 'waits' });
+    const merged = { 'feat/widgets': [featurePr({ state: 'MERGED' })] };
+    const open = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: merged, comments: [answer] }));
+    expect(JSON.parse(open.out)).toMatchObject({ stop: true, waiting: [{ prd: 8, verdict: 'park', why: 'waits on prerequisite p2 (permissions): the preview has DATABASE_URL' }] });
+    const ticked = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: merged, comments: [answer, tick] }));
+    expect(JSON.parse(ticked.out)).toMatchObject({ step: { prd: 8 }, held: [] });
+  });
+
+  it('no result on this machine holds the blocked PRDs, saying how to check them', async () => {
+    const root = prereqRepo(null);
+    const { out } = await run(['next', '--roadmap', '12', '--json'], root, fakeRoadmap({ features: widgets, comments: [answer] }));
+    const json = JSON.parse(out) as { held: { prd: number; why: string }[] };
+    expect(json.held.find((one) => one.prd === 7)?.why).toBe('waits on prerequisite p1 (local): Docker is running, for the database tests — not checked on this machine yet: omni roadmap prereqs 12 --fix');
   });
 
   it('an unknown roadmap exits 2 with one line', async () => {

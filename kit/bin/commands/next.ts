@@ -30,6 +30,10 @@
 // `person` question blocks, and parks the dependents of a blocker closed unmerged. Every other step
 // runs. Each held or parked PRD is printed with its why (`held` in the JSON). An unknown roadmap, or
 // one that does not parse, is a usage error.
+//
+// PRD 1218, slice s4: a roadmap's `## Prerequisites` rows hold the PRDs they block too, read from this
+// machine's last `omni roadmap prereqs` result (`.omni-loop/local/prereqs/<n>.json`) and the ticks on
+// the roadmap issue, which the same comment read as the answers brings.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
@@ -43,6 +47,10 @@ import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { readRepoFile } from '../../lib/check-report.ts';
 import { readAnswers } from '../../lib/roadmap/answers.ts';
+import { readLastResult } from '../../lib/roadmap/prereqs/last.ts';
+import { machineName } from '../../lib/roadmap/prereqs/live.ts';
+import type { PrerequisiteState } from '../../lib/roadmap/prereqs/run.ts';
+import { readTicks } from '../../lib/roadmap/prereqs/ticks.ts';
 import { roadmapFiles } from '../../lib/roadmap/index.ts';
 import { parseRoadmap } from '../../lib/roadmap/parse.ts';
 import type { Roadmap } from '../../lib/roadmap/parse.ts';
@@ -384,14 +392,21 @@ type Out = { reader: Reader; out: (line: string) => void; json: boolean; roadmap
 /** The roadmap's issue on GitHub, where `omni roadmap answer` posts. */
 const issueUrl = (slug: string, n: IssueNumber): string => `https://github.com/${slug}/issues/${n}`;
 
-/** The answers on the roadmap's issue; none when GitHub cannot be read, so a `person` question stays
- * unanswered until it can. */
-function answersOf(roadmap: Roadmap, reader: Reader): Map<string, string> {
+/** The answers and the prerequisite ticks on the roadmap's issue; none when GitHub cannot be read, so
+ * a `person` question stays unanswered, and a `person` row unticked, until it can. */
+function issueReadOf(roadmap: Roadmap, reader: Reader): { answers: Map<string, string>; ticks: Set<string> } {
   try {
-    return readAnswers(githubClientFor(reader.ctx, { issue: roadmap.roadmap, exec: reader.exec, env: reader.env }).listComments());
+    const comments = githubClientFor(reader.ctx, { issue: roadmap.roadmap, exec: reader.exec, env: reader.env }).listComments();
+    return { answers: readAnswers(comments), ticks: readTicks(comments) };
   } catch {
-    return new Map();
+    return { answers: new Map(), ticks: new Set() };
   }
+}
+
+/** Each prerequisite's state in this machine's last result, by row id; null when it has none. */
+function prerequisitesOf(roadmap: Roadmap, reader: Reader): Map<string, PrerequisiteState> | null {
+  const last = readLastResult(reader.ctx.root, roadmap.roadmap, machineName());
+  return last === null ? null : new Map(last.rows.map((row) => [row.id, row.state] as const));
 }
 
 /** What the roadmap holds each of its PRDs on, from what the tick read of them. */
@@ -406,7 +421,12 @@ function gatesOf(roadmap: Roadmap, reads: ReadonlyMap<PrdNumber, Read>, reader: 
     const words = liveWords(prdState(standing), read.facts, read.slices);
     if (words !== null) live.set(row.id, words);
   }
-  return roadmapGates({ roadmap, answers: answersOf(roadmap, reader), standings, live, issueLink: issueUrl(reader.slug, roadmap.roadmap) });
+  const { answers, ticks } = issueReadOf(roadmap, reader);
+  // The roadmap's page is addressed by the app's id, which a tick cannot know: its holds link the issue.
+  return roadmapGates({
+    roadmap, answers, standings, live, issueLink: issueUrl(reader.slug, roadmap.roadmap),
+    prerequisites: prerequisitesOf(roadmap, reader), ticks, prerequisitesLink: null,
+  });
 }
 
 /** A PRD a roadmap holds or parks, as a tick names it. */
