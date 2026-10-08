@@ -41825,20 +41825,45 @@ function parseSettings(text11) {
     return null;
   }
 }
+function loadSettings(file2) {
+  const text11 = readSettings(file2);
+  return text11 === null ? {} : parseSettings(text11 ?? "");
+}
 function writeStatusLine(root, { bin, force = false }) {
   const file2 = join52(root, SETTINGS_FILE);
-  const text11 = readSettings(file2);
-  const settings = text11 === null ? {} : parseSettings(text11 ?? "");
+  const settings = loadSettings(file2);
   if (!settings) return { path: SETTINGS_FILE, outcome: "invalid" };
   if (Object.hasOwn(settings, STATUS_LINE_KEY)) {
     if (!isKitStatusLine(settings[STATUS_LINE_KEY], bin)) return { path: SETTINGS_FILE, outcome: "foreign" };
     if (!force) return { path: SETTINGS_FILE, outcome: "kept" };
   }
   settings[STATUS_LINE_KEY] = statusLineSetting(bin);
+  writeSettings(file2, settings);
+  return { path: SETTINGS_FILE, outcome: "wrote" };
+}
+function writeSettings(file2, settings) {
   mkdirSync11(dirname12(file2), { recursive: true });
   writeFileSync15(file2, `${JSON.stringify(settings, null, 2)}
 `);
+}
+var ENABLED_PLUGINS_KEY = "enabledPlugins";
+var HUD_PLUGIN = "omni-hud@omni-loop";
+function enableHud(root) {
+  const file2 = join52(root, SETTINGS_FILE);
+  const settings = loadSettings(file2);
+  if (!settings) return { path: SETTINGS_FILE, outcome: "invalid" };
+  const present = Object.hasOwn(settings, ENABLED_PLUGINS_KEY);
+  const plugins = present ? JsonObjectSchema.safeParse(settings[ENABLED_PLUGINS_KEY]) : { success: true, data: {} };
+  if (!plugins.success) return { path: SETTINGS_FILE, outcome: "theirs" };
+  if (Object.hasOwn(plugins.data, HUD_PLUGIN)) return { path: SETTINGS_FILE, outcome: plugins.data[HUD_PLUGIN] === true ? "kept" : "theirs" };
+  settings[ENABLED_PLUGINS_KEY] = { ...plugins.data, [HUD_PLUGIN]: true };
+  writeSettings(file2, settings);
   return { path: SETTINGS_FILE, outcome: "wrote" };
+}
+var OWN_LINE = /* @__PURE__ */ new Set(["wrote", "kept"]);
+function ownSettingsPaths(results) {
+  const own2 = results.find((result) => OWN_LINE.has(result.outcome));
+  return own2 ? [own2.path] : [];
 }
 
 // kit/lib/init/steps.ts
@@ -41854,6 +41879,12 @@ var STATUS_LINE = {
   invalid: (path) => `  skipped ${path}: not valid JSON, no status line added`
 };
 var KIT_LINE_IN_PLACE = /* @__PURE__ */ new Set(["wrote", "kept"]);
+var HUD_LINE = {
+  wrote: (path) => `  wrote   ${path}  (${ENABLED_PLUGINS_KEY}: ${HUD_PLUGIN})`,
+  kept: (path) => `  kept    ${path}  (${ENABLED_PLUGINS_KEY}: ${HUD_PLUGIN})`,
+  theirs: (path) => `  kept    ${path}  (its ${HUD_PLUGIN} is someone else's)`,
+  invalid: () => null
+};
 var LABELS_STEP = 3;
 var formsStep = (labels) => labels.byHand.length ? 5 : 4;
 var fillStep = (forms) => [
@@ -41878,7 +41909,7 @@ function installedSteps({ forms, invaded = null, configPath }) {
     `To refresh the forms: /${PLUGIN}:invade --refresh`
   ];
 }
-function setupLines({ slug, files, forms, settings, labels }) {
+function setupLines({ slug, files, forms, settings, hud, labels }) {
   const dir = dirname13(at(files, 0, "the first file init wrote").path);
   const lines = [`omni init \u2014 ${slug ?? "this repository"} is set up.`];
   const width = Math.max(...files.map((file2) => file2.path.length));
@@ -41888,6 +41919,8 @@ function setupLines({ slug, files, forms, settings, labels }) {
   for (const path of forms.wrote) lines.push(`  wrote   ${path}`);
   if (forms.outside) lines.push(`  forms   not written: ${forms.dir}/ is outside ${dir}/ \u2014 see step ${formsStep(labels)} below`);
   lines.push(STATUS_LINE[settings.outcome](settings.path));
+  const hudLine = HUD_LINE[hud.outcome](hud.path);
+  if (hudLine) lines.push(hudLine);
   const done = [];
   if (labels.created.length) done.push(`created ${labels.created.join(", ")}`);
   if (labels.present.length) {
@@ -42248,7 +42281,6 @@ function installLines({ branch, commit, push: push3, pr }, { paths, remote, base
 
 // kit/bin/commands/init.ts
 var BIN_FILE2 = join55(LOOP_DIR2, "bin", "omni.mjs");
-var OWN_STATUS_LINE = /* @__PURE__ */ new Set(["wrote", "kept"]);
 var FLAGS = Object.freeze({ test: "test", preflight: "preflight", preflightFull: "preflight-full" });
 var QUESTIONS = {
   test: "the command that runs the tests",
@@ -42347,12 +42379,13 @@ var init = {
     const outside = !insideLoop2(ctx.layout.frontDoor);
     const forms = outside ? [] : writeForms({ ctx });
     const settings = writeStatusLine(root, { bin: BIN_FILE2, force });
+    const hud = enableHud(root);
     const labels = reconcileLabels(root, { exec, labels: config3.labels });
     const slug = config3.repo.slug ?? readRepo(root, { exec, remote: config3.repo.remote }).slug;
     const filesWritten = [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE2, wrote: copyBin }];
     const formsDone = { dir: ctx.layout.frontDoor, wrote: forms.filter((file2) => file2.wrote).map((file2) => file2.path), outside };
-    const out = setupLines({ slug, files: filesWritten, forms: formsDone, settings, labels });
-    const paths = [LOOP_DIR2, ...OWN_STATUS_LINE.has(settings.outcome) ? [settings.path] : []];
+    const out = setupLines({ slug, files: filesWritten, forms: formsDone, settings, hud, labels });
+    const paths = [LOOP_DIR2, ...ownSettingsPaths([settings, hud])];
     const pr = { paths, remote: config3.repo.remote, base: config3.repo.defaultBranch, slug };
     const install = openInstallPr(root, { exec, branch, ...pr });
     out.push("", "Install pull request:", ...installLines(install, pr));
@@ -43321,6 +43354,13 @@ import { join as join58 } from "node:path";
 var LOOP_FILE = join58(LOCAL_DIR, "loop.json");
 var SILENT_AFTER_MS = 5 * 60 * 1e3;
 var FIRST_TICK_MS = 60 * 60 * 1e3;
+var LastStepSchema = external_exports.object({
+  step: external_exports.number().int().positive(),
+  prd: PrdNumberSchema,
+  action: external_exports.string().min(1),
+  result: external_exports.string(),
+  at: external_exports.string()
+});
 var LocalLoopSchema = external_exports.object({
   loopId: external_exports.string().min(1),
   repo: external_exports.string().min(1),
@@ -43330,7 +43370,11 @@ var LocalLoopSchema = external_exports.object({
   seenAt: external_exports.string(),
   nextWakeAt: external_exports.string().nullable(),
   /** The latest version of the loop plan the app was sent. */
-  planVersion: external_exports.number().int().positive()
+  planVersion: external_exports.number().int().positive(),
+  /** PRD 1208, s3: the step the last tick recorded; absent before the first tick, and in a file of PRD 1139's shape. */
+  last: LastStepSchema.exactOptional(),
+  /** PRD 1208, s3: the roadmap the loop drives, `null` for none; absent in a file of PRD 1139's shape. */
+  roadmap: IssueNumberSchema.nullable().exactOptional()
 });
 function readLocalLoop(root) {
   try {
@@ -43355,6 +43399,22 @@ function loopState(loop2, now2) {
   if (!Number.isFinite(wake)) return "silent";
   if (now2 < wake) return "sleeping";
   return now2 < wake + SILENT_AFTER_MS ? "live" : "silent";
+}
+
+// kit/lib/loop/roadmap.ts
+init_define_OMNI_BUNDLE();
+var keyOf2 = (prds) => [...new Set(prds)].sort((a, b) => a - b).join(",");
+function roadmapDriving(ctx, prds) {
+  const wanted = keyOf2(prds);
+  const matching = roadmapFiles(ctx).filter((entry) => {
+    try {
+      const parsed = parseRoadmap(readRepoFile(ctx, entry.file));
+      return parsed.ok && parsed.roadmap.roadmap === entry.number && keyOf2(parsed.roadmap.prds.map((row) => row.prd)) === wanted;
+    } catch {
+      return false;
+    }
+  });
+  return matching.length === 1 ? matching[0]?.number ?? null : null;
 }
 
 // kit/lib/next/store.ts
@@ -43566,10 +43626,10 @@ function nextWakeAfter(event, wake, kept) {
 function planVersionAfter(event, sentVersion, kept) {
   return event === "tick" ? Math.max(sentVersion, kept?.planVersion ?? 1) : kept?.planVersion ?? sentVersion;
 }
-function loopAfter({ body, plan: plan2, kept, repo, wake, at: at2 }, answer) {
+function loopAfter({ body, plan: plan2, kept, repo, wake, at: at2, roadmap: roadmap2 }, answer) {
   const seenAt = new Date(at2).toISOString();
   if (body.event === "start" && plan2) {
-    return { loopId: answer.loopId, repo, prds: [...plan2.prds], state: answer.state, startedAt: seenAt, seenAt, nextWakeAt: null, planVersion: plan2.version };
+    return { loopId: answer.loopId, repo, prds: [...plan2.prds], state: answer.state, startedAt: seenAt, seenAt, nextWakeAt: null, planVersion: plan2.version, roadmap: roadmap2 };
   }
   const sentVersion = sentVersionOf(plan2, kept);
   return {
@@ -43577,7 +43637,8 @@ function loopAfter({ body, plan: plan2, kept, repo, wake, at: at2 }, answer) {
     state: answer.state,
     seenAt,
     nextWakeAt: nextWakeAfter(body.event, wake, kept),
-    planVersion: planVersionAfter(body.event, sentVersion, kept)
+    planVersion: planVersionAfter(body.event, sentVersion, kept),
+    ...body.event === "tick" ? { last: { step: body.step, prd: body.prd, action: body.action, result: body.result, at: seenAt } } : {}
   };
 }
 function pushedLine(body, answer, loop2) {
@@ -43611,7 +43672,8 @@ async function push2(args, io) {
   const kept = readLocalLoop(ctx.root);
   const body = prepared.needsLoop ? loopBody(prepared.body, kept, plan2) : startingBody(prepared, kept, plan2, at2);
   if (typeof body === "string") return refuse(io.stderr, body);
-  return sendAndKeep({ askUrl: askUrl2, root: ctx.root, repo, body, plan: plan2, kept, wake: prepared.wake, at: at2 }, io);
+  const roadmap2 = body.event === "start" ? roadmapDriving(ctx, body.prds) : null;
+  return sendAndKeep({ askUrl: askUrl2, root: ctx.root, repo, body, plan: plan2, kept, wake: prepared.wake, at: at2, roadmap: roadmap2 }, io);
 }
 function status2(args, { cwd, stdout, exec, now: now2 }) {
   const { positional, flags } = parseArgs("loop status", args, { booleans: ["json"] });
@@ -45503,19 +45565,29 @@ function nowOfPrd({ number: number4, topic, stage: stage2, slices }) {
 function nowOfFix({ kind, number: number4, topic, merged }) {
   return { headline: null, work: { kind, number: number4, topic, stage: merged ? "merged" : "in progress", slices: [], links: [] }, doing: null };
 }
+var LOOP_HEADLINE = Object.freeze({ kind: "loop", links: [] });
+function roadmapHeadline(number4, merged, rows2) {
+  return { kind: "roadmap", number: number4, progress: `${merged}/${rows2} ${MERGED}`, links: [] };
+}
+function underHeadline(answer, headline, last) {
+  const doing = last ? `step ${last.step}: ${last.action} PRD ${last.prd}${SEPARATOR}${last.result}` : answer.doing;
+  return { headline, work: answer.work, doing };
+}
 var workName = ({ kind, number: number4, topic }) => kind === "prd" ? `PRD ${number4} ${topic}` : `${kind} #${number4} ${topic}`;
-function nowLines({ work, doing }) {
-  if (!work) return [NO_WORK_LINE];
-  const head = [workName(work), ...work.stage ? [work.stage] : []].join(SEPARATOR);
-  const stuck = work.slices.filter((slice) => slice.state === STUCK);
+var headlineLine = ({ kind, number: number4, progress }) => [number4 === void 0 ? kind : `${kind} ${number4}`, ...progress ? [progress] : []].join(SEPARATOR);
+function workLines(work, doing) {
+  const stuck = work?.slices.filter((slice) => slice.state === STUCK) ?? [];
   const status4 = [...doing ? [doing] : [], ...stuck.length > 0 ? [`stuck ${stuck.map(label).join(", ")}`] : []];
-  return status4.length > 0 ? [head, status4.join(SEPARATOR)] : [head];
+  const head = work ? [[workName(work), ...work.stage ? [work.stage] : []].join(SEPARATOR)] : [];
+  return status4.length > 0 ? [...head, status4.join(SEPARATOR)] : head;
+}
+function nowLines({ headline, work, doing }) {
+  if (!work && !headline) return [NO_WORK_LINE];
+  return [...headline ? [headlineLine(headline)] : [], ...workLines(work, doing)];
 }
 
 // kit/lib/now/read.ts
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync23 } from "node:fs";
-import { join as join65 } from "node:path";
 
 // kit/lib/statusline/facts.ts
 init_define_OMNI_BUNDLE();
@@ -45891,7 +45963,13 @@ function visualVerdict({ ctx, issue: issue2, commits }) {
   });
 }
 
-// kit/lib/now/read.ts
+// kit/lib/now/headline.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/now/tree.ts
+init_define_OMNI_BUNDLE();
+import { readdirSync as readdirSync23 } from "node:fs";
+import { join as join65 } from "node:path";
 var QUIET12 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 function attempt9(fn, fallback3) {
   try {
@@ -45900,6 +45978,46 @@ function attempt9(fn, fallback3) {
     return fallback3;
   }
 }
+function baseOf(ctx, exec) {
+  const { remote, defaultBranch } = ctx.config.repo;
+  const refs2 = [`refs/remotes/${remote}/${defaultBranch}`, `refs/heads/${defaultBranch}`];
+  return refs2.find((ref) => attempt9(() => exec("git", ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], { cwd: ctx.root, ...QUIET12 }) !== "", false)) ?? null;
+}
+function foldersAt2(ctx, dir, base, exec) {
+  const checkout = attempt9(() => readdirSync23(join65(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name), []);
+  const onBase = base ? attempt9(() => exec("git", ["ls-tree", "-z", "-d", "--name-only", `${base}:${dir}`], { cwd: ctx.root, ...QUIET12 }).split("\0").filter(Boolean), []) : [];
+  return { checkout, base: onBase };
+}
+function textOnBase(ctx, base, path, exec) {
+  return base ? attempt9(() => exec("git", ["show", `${base}:${path}`], { cwd: ctx.root, ...QUIET12 }), null) : null;
+}
+
+// kit/lib/now/headline.ts
+var RUNNING = ["live", "sleeping"];
+function roadmapText(ctx, number4, base, exec) {
+  const local = roadmapFiles(ctx).find((entry) => entry.number === number4);
+  const text11 = local ? attempt9(() => readRepoFile(ctx, local.file), null) : null;
+  if (text11 !== null) return text11;
+  const dir = `${ctx.layout.dirs.inbox}/roadmaps`;
+  const folder = foldersAt2(ctx, dir, base, exec).base.find((name2) => parseFolderName(name2)?.prd === number4);
+  return folder ? textOnBase(ctx, base, `${dir}/${folder}/roadmap.md`, exec) : null;
+}
+function roadmapNamed(ctx, number4, base, exec) {
+  const text11 = roadmapText(ctx, number4, base, exec);
+  const parsed = text11 === null ? null : parseRoadmap(text11);
+  if (!parsed?.ok) return null;
+  const shipped = new Set(foldersAt2(ctx, ctx.layout.dirs.shipped, base, exec).base.map((name2) => parseFolderName(name2)?.prd));
+  const merged = parsed.roadmap.prds.filter((row) => shipped.has(row.prd)).length;
+  return roadmapHeadline(number4, merged, parsed.roadmap.prds.length);
+}
+function runningLoop(ctx, { base, exec, now: now2 }) {
+  const loop2 = readLocalLoop(ctx.root);
+  if (!loop2 || !RUNNING.includes(loopState(loop2, now2))) return null;
+  const roadmap2 = loop2.roadmap ? roadmapNamed(ctx, loop2.roadmap, base, exec) : null;
+  return { headline: roadmap2 ?? LOOP_HEADLINE, last: loop2.last ?? null };
+}
+
+// kit/lib/now/read.ts
 function named3(slice) {
   return "name" in slice && typeof slice.name === "string" ? { ...slice, name: slice.name } : slice;
 }
@@ -45908,16 +46026,6 @@ function contextOf2(folder, exec) {
     const root = findRoot(folder, exec);
     return createContext(root, loadConfig(root));
   }, null);
-}
-function baseOf(ctx, exec) {
-  const { remote, defaultBranch } = ctx.config.repo;
-  const refs2 = [`refs/remotes/${remote}/${defaultBranch}`, `refs/heads/${defaultBranch}`];
-  return refs2.find((ref) => attempt9(() => exec("git", ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], { cwd: ctx.root, ...QUIET12 }) !== "", false)) ?? null;
-}
-function fixFolders(ctx, dir, base, exec) {
-  const checkout = attempt9(() => readdirSync23(join65(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name), []);
-  const onBase = base ? attempt9(() => exec("git", ["ls-tree", "-z", "-d", "--name-only", `${base}:${dir}`], { cwd: ctx.root, ...QUIET12 }).split("\0").filter(Boolean), []) : [];
-  return { checkout, base: onBase };
 }
 function fixNow(kind, number4, { checkout, base }) {
   const folder = [...checkout, ...base].find((name2) => parseFolderName(name2)?.prd === number4);
@@ -45929,23 +46037,42 @@ function fixWorkNow(work, fixes) {
   if (!work?.number || !isFixKind(work.kind)) return void 0;
   return fixNow(work.kind, work.number, fixes[work.kind]) ?? NOTHING2;
 }
-function readWork2(ctx, { folder, sessionId, exec, now: now2 }) {
-  const base = baseOf(ctx, exec);
-  const fixes = { bug: fixFolders(ctx, bugRoot(ctx), base, exec), visual: fixFolders(ctx, visualRoot(ctx), base, exec) };
+function prdNow({ folder, sessionId, exec, now: now2 }, branch = null) {
+  const asked = (file2, args, options) => branch !== null && file2 === "git" && args.join(" ") === "rev-parse --abbrev-ref HEAD" ? `${branch}
+` : exec(file2, args, options);
+  const { prd: prd2 } = readFacts3({ currentDir: folder, projectDir: null, sessionId: branch === null ? sessionId : null }, { cwd: folder, exec: asked, now: now2, spawn: null });
+  return prd2 ? nowOfPrd({ number: prd2.number, topic: prd2.topic, stage: prd2.stage, slices: prd2.slices?.map(named3) ?? null }) : null;
+}
+function prdNumbered(ctx, number4, reading) {
+  const { inbox, shipped } = ctx.layout.dirs;
+  const folders = [inbox, shipped].flatMap((dir) => {
+    const { checkout, base } = foldersAt2(ctx, dir, reading.base, reading.exec);
+    return [...checkout, ...base];
+  });
+  const topic = folders.map(parseFolderName).find((parsed) => parsed?.prd === number4)?.topic;
+  return topic ? prdNow(reading, fillBranch(ctx.config.branches.feature, { topic })) ?? NOTHING2 : NOTHING2;
+}
+function readWork2(ctx, reading, recorded) {
+  const { folder, exec, base } = reading;
+  const fixes = { bug: foldersAt2(ctx, bugRoot(ctx), base, exec), visual: foldersAt2(ctx, visualRoot(ctx), base, exec) };
   const all = (kind) => [...fixes[kind].checkout, ...fixes[kind].base];
   const head = attempt9(() => exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: folder, ...QUIET12 }).trim(), null);
   const onBranch = findWork({ claudeSessionId: null, drafts: null, branch: head, branches: ctx.config.branches, folders: { visual: all("visual"), bugs: all("bug") } });
-  const fromBranch = fixWorkNow(onBranch, fixes);
-  if (fromBranch) return fromBranch;
-  const { prd: prd2 } = readFacts3({ currentDir: folder, projectDir: null, sessionId }, { cwd: folder, exec, now: now2, spawn: null });
-  if (prd2) return nowOfPrd({ number: prd2.number, topic: prd2.topic, stage: prd2.stage, slices: prd2.slices?.map(named3) ?? null });
-  return fixWorkNow(recordedWork({ cwd: folder, exec, sessionId }), fixes) ?? NOTHING2;
+  return fixWorkNow(onBranch, fixes) ?? prdNow(reading) ?? fixWorkNow(recorded, fixes) ?? NOTHING2;
+}
+function readSession(ctx, reading) {
+  const recorded = recordedWork({ cwd: reading.folder, exec: reading.exec, sessionId: reading.sessionId });
+  const loop2 = runningLoop(ctx, reading);
+  if (loop2?.last) return underHeadline(prdNumbered(ctx, loop2.last.prd, reading), loop2.headline, loop2.last);
+  if (loop2) return underHeadline(readWork2(ctx, reading, recorded), loop2.headline, null);
+  const roadmap2 = recorded?.kind === "roadmap" ? roadmapNamed(ctx, recorded.number, reading.base, reading.exec) : null;
+  return roadmap2 ? underHeadline(NOTHING2, roadmap2, null) : readWork2(ctx, reading, recorded);
 }
 function readNow({ cwd, folder, sessionId, exec, now: now2 }) {
   try {
     const where = folder ?? cwd;
     const ctx = contextOf2(where, exec);
-    return ctx ? readWork2(ctx, { folder: where, sessionId, exec, now: now2 }) : NOTHING2;
+    return ctx ? readSession(ctx, { folder: where, sessionId, exec, now: now2, base: baseOf(ctx, exec) }) : NOTHING2;
   } catch {
     return NOTHING2;
   }
@@ -50016,6 +50143,9 @@ var PRD_FLAG = "--prd";
 var FIX_KINDS = ["bug", "visual"];
 var KIND_FLAG = "--kind";
 var PRD_KIND = "prd";
+var ROADMAP_KIND = "roadmap";
+var ROADMAP_SUBCOMMANDS = ["check", "push"];
+var ROADMAP_FLAG = "--roadmap";
 var self = fileURLToPath3(import.meta.url);
 function prdNumber2(value) {
   try {
@@ -50050,9 +50180,22 @@ function fixNamedBy([name2 = "", ...rest]) {
   if (isFixKind2(name2)) return fixOf(name2, rest[0]);
   return name2 === "dossier" && rest[0] === "push" ? pushedFix(rest) : void 0;
 }
+function roadmapNamedBy([name2 = "", ...rest]) {
+  let value;
+  if (name2 === "roadmap" && ROADMAP_SUBCOMMANDS.includes(rest[0] ?? "")) value = rest[1];
+  else if (name2 === "next" && rest.includes(ROADMAP_FLAG)) {
+    const named4 = rest.filter((_arg, index) => rest[index - 1] === ROADMAP_FLAG);
+    if (named4.length !== 1) return null;
+    value = named4[0];
+  } else return void 0;
+  const number4 = issueNumber(value);
+  return number4 === null ? null : { kind: ROADMAP_KIND, number: number4 };
+}
 function workNamedBy(argv) {
   const fix = fixNamedBy(argv);
   if (fix !== void 0) return fix;
+  const roadmap2 = roadmapNamedBy(argv);
+  if (roadmap2 !== void 0) return roadmap2;
   const prd2 = prdNamedBy(argv);
   return prd2 === null ? null : { kind: PRD_KIND, number: prd2 };
 }
