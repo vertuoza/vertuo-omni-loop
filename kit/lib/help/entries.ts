@@ -781,6 +781,19 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'section it prints no generated files. It runs no build, and exits 0 whatever it finds.',
   },
   {
+    name: 'e2e',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni e2e status <prd>'],
+    summary: 'which e2e tests of a PRD have a recording (beta)',
+    detail:
+      'status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each ' +
+      'with whether a recording of it exists in .e2e/cache, and exits 1 when one has none. A recording ' +
+      'that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. ' +
+      'With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, ' +
+      'reaches no network and calls no model.',
+  },
+  {
     name: 'statusline',
     kind: 'command',
     who: 'skills',
