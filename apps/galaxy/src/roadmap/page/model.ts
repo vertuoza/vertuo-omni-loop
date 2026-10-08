@@ -66,7 +66,7 @@ const HUMAN_WORK_LABELS: Readonly<Record<HumanWorkKind, string>> = {
   'dev-ops': 'dev ops',
   'delivery-ops': 'delivery ops',
 };
-const KINDS = Object.keys(HUMAN_WORK_LABELS) as HumanWorkKind[];
+const KINDS = ['business', 'development', 'dev-ops', 'delivery-ops'] as const satisfies readonly HumanWorkKind[];
 
 /** How much open human work of one kind a roadmap holds. */
 export interface HumanWorkCount {
