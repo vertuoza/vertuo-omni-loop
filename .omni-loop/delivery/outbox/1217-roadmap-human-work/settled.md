@@ -396,3 +396,158 @@ A constant: the file is generated, so any other answer is a regeneration.
 ```
 
 <!-- /omni-outbox-settled: s2-02-database-types-outside-territory -->
+
+<!-- omni-outbox-settled: s3-01-territory-tests-and-types -->
+
+## s3-01-territory-tests-and-types — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-territory-tests-and-types
+prd: 1217
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 2
+---
+
+## The question, in plain words
+
+Adding the new sorting setting changes a few files the plan did not list for this part of the work. May it touch them?
+
+## The decision, in plain words
+
+Yes. Two existing tests that count the settings now count one more, and the database's type file gains the new column and the two new database calls, as the database itself now has them.
+
+## The intro, for fun
+
+The plan drew a neat fence around this slice, and two tests stood just outside it.
+
+## The punchline, for fun
+
+They counted five settings, and there are six now, so they had to learn to count.
+
+## The options, in plain words
+
+A. Change the two tests and the types file in this slice (built).
+B. Leave them to a follow-up slice, with the settings tests red until then.
+
+## What I had to decide
+
+Whether this slice may change apps/galaxy/src/jev/settings/render.test.ts, apps/galaxy/src/jev/decisions/question-category.test.ts and supabase/database.types.ts, outside its territory.
+
+## What I did meanwhile
+
+Both tests list the six decisions instead of five, and the settings page test checks hitl-category shows Off by default with what it sends. supabase/database.types.ts is edited by hand as `supabase gen types` would write it (the classified_at column, roadmap_human_work_claim and roadmap_human_work_set_kind); CI's types check confirms it.
+
+## What it costs to change later
+
+Low: these are a list in two tests and generated types; another slice owning them would make the same edit.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The types file was edited by hand, not generated: the supabase CLI was not available here, so CI's types check is the first to compare it (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-territory-tests-and-types -->
+
+<!-- omni-outbox-settled: s3-02-offered-once-even-off -->
+
+## s3-02-offered-once-even-off — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-offered-once-even-off
+prd: 1217
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 2
+---
+
+## The question, in plain words
+
+When the automatic sorting is switched off and a new piece of human work arrives, should it be sorted later if someone switches the sorting on?
+
+## The decision, in plain words
+
+No: each new piece is looked at once, when it first arrives, whatever the setting is then. Pieces that arrived while the sorting was off, and those already stored, keep the kind the simple rules gave them.
+
+## The intro, for fun
+
+The spec says each new piece is sorted once, and is silent on pieces that arrived while sorting was off.
+
+## The punchline, for fun
+
+Once means once, so switching it on later does not reopen the old ones.
+
+## The options, in plain words
+
+A. Offer each key once, at its first push, whatever the mode is then; the backlog keeps the rule kind (built).
+B. Offer only while the decision is Shadow or On; keys stored while Off are offered the first push after it is turned on.
+C. Offer the open keys again whenever the decision is turned On, once per switch.
+
+## What I had to decide
+
+Whether switching the Jev decision On later sorts the pieces that arrived while it was Off, or only the ones that arrive from then on.
+
+## What I did meanwhile
+
+Every key is marked offered the first time a push stores it, Off included; turning hitl-category On only sorts keys first stored after that. The rows stored before the migration count as offered. A key the time budget of one push did not reach is offered after the next push.
+
+## What it costs to change later
+
+Low: offering the backlog instead is one migration that clears the offered mark on the rule-kind keys, and nothing else changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says a new key is classified once but not what turning the decision On does to keys stored while it was Off (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-02-offered-once-even-off -->
