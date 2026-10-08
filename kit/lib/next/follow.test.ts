@@ -1,13 +1,14 @@
 // PRD 1139, slice s3: following the frozen loop plan — the first step not done, never a later one
-// that could run, save one the plan marked beside it. PRD 1162, slice s7: under a roadmap.
+// that could run, save one the plan marked beside it. PRD 1162, slice s7: under a roadmap. PRD 1205,
+// slice s1: the pool of steps a tick launches at once, each passing the collision check.
 import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePr, parsePrd, parseWorkSliceId } from '../ids.ts';
 import type { PrdNumber, WorkSliceId } from '../ids.ts';
 import type { Roadmap, RoadmapQuestion, RoadmapRow } from '../roadmap/parse.ts';
 import type { PrdStanding, PrStanding } from '../roadmap/push.ts';
 import type { PrdFacts, Verdict } from './decide.ts';
-import { followPlan } from './follow.ts';
-import type { Live } from './follow.ts';
+import { followPlan, followSteps } from './follow.ts';
+import type { Live, Pool, Running } from './follow.ts';
 import { planLoop } from './plan.ts';
 import type { PlanSliceInput, PrdInput } from './plan.ts';
 import { liveWords, roadmapGates } from './roadmap.ts';
@@ -192,5 +193,141 @@ describe('followPlan under a roadmap', () => {
     expect(liveWords('ready', facts('red'), slices)).toBe('CI red');
     expect(liveWords('ready', facts('green'), slices)).toBeNull();
     expect(liveWords('outbox', facts('red'), slices)).toBeNull();
+  });
+});
+
+// PRD 1205, slice s1: up to `slots` steps at once, counting those running, each passing the four rules.
+describe('followSteps', () => {
+  const NOW = '2026-10-08T08:00:00Z';
+  /** What a tick read, with each PRD's slices as ground and what each PRD runs. */
+  function pooled(inputs: PrdInput[], verdicts: Verdict[], { merged = {}, shipped = [], running = {} }: { merged?: Record<number, string[]>; shipped?: number[]; running?: Record<number, Running> } = {}): Live {
+    return {
+      ...live(verdicts, merged, shipped),
+      slices: new Map(inputs.map((input) => [input.prd, input.slices ?? []] as const)),
+      running: new Map(Object.entries(running).map(([n, run]) => [parsePrd(Number(n)), run] as const)),
+    };
+  }
+  const steps = (pool: Pool) => pool.steps.map(({ step }) => `${step.step}:${step.prd}`);
+  const held = (pool: Pool) => pool.held.map(({ step, why }) => `${step.step}:${why}`);
+  const P10 = parsePrd(10);
+  const inRepo = (input: PlanSliceInput, repo: string): PlanSliceInput => ({ ...input, repo });
+  const S1 = parseWorkSliceId('s1');
+  const disjoint = [prd(P7, [slice('s1', ['a/'], 1)]), prd(P8, [slice('s1', ['b/'], 1)]), prd(P9, [slice('s1', ['c/'], 1)]), prd(P10, [slice('s1', ['d/'], 1)])];
+  const colliding = [prd(P7, [slice('s1', ['a/'], 1), slice('s2', ['b/'], 2)]), prd(P8, [slice('s1', ['a/x'], 1)]), prd(P9, [slice('s1', ['z/'], 1)])];
+
+  it('PRDs sharing no ground: as many steps as slots, each of a different PRD', () => {
+    const pool = followSteps(planLoop({ prds: disjoint, shipped: [] }), pooled(disjoint, [act(P7), act(P8), act(P9), act(P10)]), 3);
+    expect(steps(pool)).toEqual(['1:7', '2:8', '3:9']);
+    expect(pool.steps.map(({ verdict }) => verdict.verdict)).toEqual(['act', 'act', 'act']);
+    expect(pool).toMatchObject({ running: [], held: [] });
+  });
+
+  it('two PRDs sharing a path in one repository: the first runs, the second is held naming the path and the step', () => {
+    const pool = followSteps(plan, pooled(colliding, [act(P7), act(P8), act(P9)]), 3);
+    expect(steps(pool)).toEqual(['1:7', '2:9']);
+    expect(held(pool)).toEqual(['4:a/ shared with step 1 (PRD 7 w1, starting)']);
+  });
+
+  it('the same path in two repositories never collides', () => {
+    const inputs = [prd(P7, [inRepo(slice('s1', ['apps/api/'], 1), 'crew')]), prd(P8, [inRepo(slice('s1', ['apps/api/'], 1), 'ai-domain')])];
+    const pool = followSteps(planLoop({ prds: inputs, shipped: [] }), pooled(inputs, [act(P7), act(P8)]), 3);
+    expect(steps(pool)).toEqual(['1:7', '2:8']);
+    expect(pool.held).toEqual([]);
+  });
+
+  it('the same path in one named repository collides, the path named by its repository', () => {
+    const inputs = [prd(P7, [inRepo(slice('s1', ['apps/api/'], 1), 'crew')]), prd(P8, [inRepo(slice('s1', ['apps/api/'], 1), 'crew')])];
+    const pool = followSteps(planLoop({ prds: inputs, shipped: [] }), pooled(inputs, [act(P7), act(P8)]), 3);
+    expect(steps(pool)).toEqual(['1:7']);
+    expect(held(pool)).toEqual(['3:crew:apps/api/ shared with step 1 (PRD 7 w1, starting)']);
+  });
+
+  it('generated paths never collide', () => {
+    // Planned on their own ground only, so the plan's order is not what lets them run together.
+    const own = [prd(P7, [slice('s1', ['a/'], 1)]), prd(P8, [slice('s1', ['b/'], 1)])];
+    const beside = planLoop({ prds: own, shipped: [] });
+    const built = [prd(P7, [slice('s1', ['kit/dist/', 'a/'], 1)]), prd(P8, [slice('s1', ['kit/dist/', 'b/'], 1)])];
+    expect(steps(followSteps(beside, pooled(built, [act(P7), act(P8)]), 3, [{ path: 'kit/dist/' }]))).toEqual(['1:7', '2:8']);
+    expect(held(followSteps(beside, pooled(built, [act(P7), act(P8)]), 3))).toEqual(['2:kit/dist/ shared with step 1 (PRD 7 w1, starting)']);
+  });
+
+  it('a step whose PRD is blocked by a PRD not shipped is never offered, and is held saying so', () => {
+    const inputs = [prd(P7, [slice('s1', ['a/'], 1)], { blockedBy: [parsePrd(5)] }), prd(P8, [slice('s1', ['b/'], 1)])];
+    const blocked = planLoop({ prds: inputs, shipped: [] });
+    const pool = followSteps(blocked, pooled(inputs, [act(P7), act(P8)]), 3);
+    expect(steps(pool)).toEqual(['2:8']);
+    expect(held(pool)).toEqual(['1:waits on PRD 5 to ship']);
+    expect(steps(followSteps(blocked, pooled(inputs, [act(P7), act(P8)], { shipped: [5] }), 3))).toEqual(['1:7', '2:8']);
+  });
+
+  it("a step that comes after one not done is held on the plan's order", () => {
+    const pool = followSteps(plan, pooled(colliding, [park(P7), act(P8), act(P9)]), 3);
+    expect(steps(pool)).toEqual(['2:9']);
+    expect(held(pool)).toEqual(['4:waits on PRD 7: step 4 comes after step 1']);
+  });
+
+  it('a step running counts against the slots, and its PRD gets no second step', () => {
+    const four = planLoop({ prds: disjoint, shipped: [] });
+    const running: Record<number, Running> = { 7: { kind: 'wave', slices: [S1], since: NOW } };
+    const pool = followSteps(four, pooled(disjoint, [act(P7), act(P8), act(P9), act(P10)], { running }), 3);
+    expect(pool.running.map(({ step, since }) => `${step.step}:${step.prd}:${since}`)).toEqual([`1:7:${NOW}`]);
+    expect(steps(pool)).toEqual(['2:8', '3:9']);
+    expect(followSteps(four, pooled(disjoint, [act(P7), act(P8), act(P9), act(P10)], { running }), 1).steps).toEqual([]);
+  });
+
+  it('a running step holds every step sharing its ground', () => {
+    const running: Record<number, Running> = { 7: { kind: 'wave', slices: [S1], since: NOW } };
+    const pool = followSteps(plan, pooled(colliding, [wait(P7), act(P8), act(P9)], { running }), 3);
+    expect(steps(pool)).toEqual(['2:9']);
+    expect(held(pool)).toEqual(['4:a/ shared with step 1 (PRD 7 w1, running)']);
+  });
+
+  it('a PRD running another step than its first one not done holds that one: no two steps of one PRD', () => {
+    const running: Record<number, Running> = { 7: { kind: 'finish', since: NOW } };
+    const pool = followSteps(plan, pooled(colliding, [act(P7), done(P8), done(P9)], { running }), 3);
+    expect(pool.running.map(({ step }) => step.step)).toEqual([6]);
+    expect(pool.steps).toEqual([]);
+    expect(held(pool)).toEqual(['1:PRD 7 runs step 6 (PRD 7 finish, running)']);
+  });
+
+  it('a PRD that is done runs nothing, whatever was read of it', () => {
+    const running: Record<number, Running> = { 9: { kind: 'finish', since: NOW } };
+    expect(followSteps(plan, pooled(colliding, [act(P7), act(P8), done(P9)], { running }), 3).running).toEqual([]);
+  });
+
+  it("a finish step's ground is every slice of its PRD", () => {
+    const inputs = [prd(P7, [slice('s1', ['a/'], 1)]), prd(P8, [slice('s1', ['a/x'], 1)])];
+    const finishing = planLoop({ prds: inputs, shipped: [] });
+    const pool = followSteps(finishing, pooled(inputs, [act(P7), act(P8)], { merged: { 7: ['s1'] } }), 3);
+    expect(pool.steps.map(({ step }) => `${step.prd}:${step.kind}`)).toEqual(['7:finish']);
+    const finish = pool.steps[0]?.step.step;
+    expect(pool.held.map(({ step, why }) => `${step.prd}:${why}`)).toEqual([`8:a/ shared with step ${String(finish)} (PRD 7 finish, starting)`]);
+  });
+
+  it('a wait launches nothing, and a parked or done PRD is passed over', () => {
+    expect(followSteps(plan, pooled(colliding, [wait(P7), park(P8), done(P9)]), 3)).toEqual({ steps: [], running: [], held: [] });
+  });
+
+  it("with one slot, the step offered is exactly followPlan's, whenever it acts", () => {
+    const cases: Live[] = [
+      live([act(P7), act(P8), act(P9)]),
+      live([act(P7), act(P8), done(P9)], { 7: ['s1'] }),
+      live([wait(P7), act(P8), act(P9)]),
+      live([wait(P7), act(P8), wait(P9)]),
+      live([park(P7), act(P8), act(P9)]),
+      live([done(P7), act(P8), done(P9)]),
+      live([park(P7), act(P8), done(P9)]),
+      live([done(P7), done(P8), done(P9)]),
+    ];
+    for (const one of cases) {
+      const followed = followPlan(plan, one);
+      const expected = followed.state === 'step' && followed.verdict.verdict === 'act' ? [{ step: followed.step, verdict: followed.verdict }] : [];
+      expect(followSteps(plan, one, 1).steps).toEqual(expected);
+    }
+  });
+
+  it('the step followPlan takes comes first', () => {
+    expect(steps(followSteps(plan, pooled(colliding, [wait(P7), act(P8), act(P9)]), 3))).toEqual(['2:9']);
+    expect(steps(followSteps(plan, pooled(colliding, [act(P7), act(P8), act(P9)]), 3))[0]).toBe('1:7');
   });
 });
