@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { z } from 'zod';
 
 // Mark as done on a roadmap's `person` prerequisite (PRD 1218, s7), shown to a member only: it asks
 // POST /api/roadmaps/tick for GitHub's authorisation of the omni-loop App, then goes there; GitHub brings
@@ -7,6 +8,9 @@ import { useState } from 'react';
 // A refusal says why, and nothing was posted.
 
 const ENDPOINT = '/api/roadmaps/tick';
+
+/** What the endpoint answers: the authorisation to follow, or why it refused; anything else, neither. */
+const Answer = z.object({ authorize: z.string().optional(), error: z.string().optional() }).catch({});
 
 export function TickButton({ roadmap, row }: { roadmap: string; row: string }) {
   const [state, setState] = useState<{ kind: 'idle' | 'going' } | { kind: 'error'; message: string }>({ kind: 'idle' });
@@ -17,7 +21,7 @@ export function TickButton({ roadmap, row }: { roadmap: string; row: string }) {
       const response = await fetch(ENDPOINT, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ roadmap, row }),
       });
-      const body = (await response.json().catch(() => ({}))) as { authorize?: string; error?: string };
+      const body = Answer.parse(await response.json().catch(() => null));
       if (response.ok && body.authorize) {
         window.location.assign(body.authorize);
         return;
