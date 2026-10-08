@@ -12678,9 +12678,9 @@ var memo = {
     if (!bucket)
       return empty2;
     handoff = void 0;
-    const entry = { value: empty2, issues: null };
-    bucket.set(payload.value, entry);
-    open.push(entry);
+    const entry2 = { value: empty2, issues: null };
+    bucket.set(payload.value, entry2);
+    open.push(entry2);
     return empty2;
   },
   guard(inst) {
@@ -12754,16 +12754,16 @@ var memo = {
         const depth = open.length;
         const result = base(payload, ctx);
         handoff = void 0;
-        const entry = open.length > depth ? open.pop() : void 0;
+        const entry2 = open.length > depth ? open.pop() : void 0;
         if (result instanceof Promise) {
           return result.then((r) => {
-            if (entry)
-              entry.issues = r.issues.length ? cloneIssues(r.issues) : NO_ISSUES;
+            if (entry2)
+              entry2.issues = r.issues.length ? cloneIssues(r.issues) : NO_ISSUES;
             return r;
           });
         }
-        if (entry)
-          entry.issues = result.issues.length ? cloneIssues(result.issues) : NO_ISSUES;
+        if (entry2)
+          entry2.issues = result.issues.length ? cloneIssues(result.issues) : NO_ISSUES;
         return result;
       };
       inst._zod.parse = wrapped;
@@ -23241,42 +23241,42 @@ function extractDefs(ctx, schema) {
   if (ctx.external && ctx.sharedDefsExtractedFor === ctx.external)
     return;
   const idToSchema = /* @__PURE__ */ new Map();
-  for (const entry of ctx.seen.entries()) {
-    const id = ctx.metadataRegistry.get(entry[0])?.id;
+  for (const entry2 of ctx.seen.entries()) {
+    const id = ctx.metadataRegistry.get(entry2[0])?.id;
     if (id) {
       const existing = idToSchema.get(id);
-      if (existing && existing !== entry[0]) {
+      if (existing && existing !== entry2[0]) {
         throw new Error(`Duplicate schema id "${id}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
       }
-      idToSchema.set(id, entry[0]);
+      idToSchema.set(id, entry2[0]);
     }
   }
-  const makeURI = (entry) => {
+  const makeURI = (entry2) => {
     const defsSegment = ctx.target === "draft-2020-12" ? "$defs" : "definitions";
     if (ctx.external) {
-      const externalId = ctx.external.registry.get(entry[0])?.id;
+      const externalId = ctx.external.registry.get(entry2[0])?.id;
       const uriGenerator = ctx.external.uri ?? ((id2) => id2);
       if (externalId) {
         return { ref: uriGenerator(externalId) };
       }
-      const id = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
-      entry[1].defId = id;
+      const id = entry2[1].defId ?? entry2[1].schema.id ?? `schema${ctx.counter++}`;
+      entry2[1].defId = id;
       return { defId: id, ref: `${uriGenerator("__shared")}#/${defsSegment}/${encodeJSONPointerSegment(id)}` };
     }
     const uriPrefix = `#`;
     const defUriPrefix = `${uriPrefix}/${defsSegment}/`;
-    if (entry[1] === root && !entry[1].schema.id) {
+    if (entry2[1] === root && !entry2[1].schema.id) {
       return { ref: uriPrefix };
     }
-    const defId = entry[1].schema.id ?? `__schema${ctx.counter++}`;
+    const defId = entry2[1].schema.id ?? `__schema${ctx.counter++}`;
     return { defId, ref: defUriPrefix + encodeJSONPointerSegment(defId) };
   };
-  const extractToDef = (entry) => {
-    if (entry[1].schema.$ref) {
+  const extractToDef = (entry2) => {
+    if (entry2[1].schema.$ref) {
       return;
     }
-    const seen = entry[1];
-    const { ref, defId } = makeURI(entry);
+    const seen = entry2[1];
+    const { ref, defId } = makeURI(entry2);
     seen.def = { ...seen.schema };
     if (defId)
       seen.defId = defId;
@@ -23287,8 +23287,8 @@ function extractDefs(ctx, schema) {
     schema2.$ref = ref;
   };
   if (ctx.cycles === "throw") {
-    for (const entry of ctx.seen.entries()) {
-      const seen = entry[1];
+    for (const entry2 of ctx.seen.entries()) {
+      const seen = entry2[1];
       if (seen.cycle) {
         throw new Error(`Cycle detected: #/${seen.cycle?.join("/")}/<root>
 
@@ -23296,31 +23296,31 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     }
   }
-  for (const entry of ctx.seen.entries()) {
-    const seen = entry[1];
-    if (schema === entry[0]) {
-      extractToDef(entry);
+  for (const entry2 of ctx.seen.entries()) {
+    const seen = entry2[1];
+    if (schema === entry2[0]) {
+      extractToDef(entry2);
       continue;
     }
     if (ctx.external) {
-      const ext = ctx.external.registry.get(entry[0])?.id;
-      if (schema !== entry[0] && ext) {
-        extractToDef(entry);
+      const ext = ctx.external.registry.get(entry2[0])?.id;
+      if (schema !== entry2[0] && ext) {
+        extractToDef(entry2);
         continue;
       }
     }
-    const id = ctx.metadataRegistry.get(entry[0])?.id;
+    const id = ctx.metadataRegistry.get(entry2[0])?.id;
     if (id) {
-      extractToDef(entry);
+      extractToDef(entry2);
       continue;
     }
     if (seen.cycle) {
-      extractToDef(entry);
+      extractToDef(entry2);
       continue;
     }
     if (seen.count > 1) {
       if (ctx.reused === "ref") {
-        extractToDef(entry);
+        extractToDef(entry2);
       }
     }
   }
@@ -23502,12 +23502,12 @@ function finalize(ctx, schema) {
     });
   };
   if (!ctx.external || ctx.sharedEmitDoneFor !== ctx.external) {
-    for (const entry of [...ctx.seen.entries()].reverse()) {
-      flattenRef(entry[0]);
+    for (const entry2 of [...ctx.seen.entries()].reverse()) {
+      flattenRef(entry2[0]);
     }
     if (ctx.target !== "openapi-3.0") {
-      for (const entry of ctx.seen.entries()) {
-        compactTypeUnion(entry[1].def ?? entry[1].schema);
+      for (const entry2 of ctx.seen.entries()) {
+        compactTypeUnion(entry2[1].def ?? entry2[1].schema);
       }
     }
     for (const rewrite of ctx.deferred)
@@ -23554,8 +23554,8 @@ function finalize(ctx, schema) {
     delete result.id;
   const defs = ctx.external?.defs ?? {};
   if (!ctx.external || ctx.sharedEmitDoneFor !== ctx.external) {
-    for (const entry of ctx.seen.entries()) {
-      const seen = entry[1];
+    for (const entry2 of ctx.seen.entries()) {
+      const seen = entry2[1];
       if (seen.def && seen.defId) {
         if (seen.def.id === seen.defId)
           delete seen.def.id;
@@ -24168,9 +24168,9 @@ function stringifyKeyNames(bySchema, json2, visited) {
 var pendingRecords = /* @__PURE__ */ new WeakMap();
 function rewriteKeyNames(ctx) {
   const bySchema = /* @__PURE__ */ new Map();
-  for (const entry of ctx.seen.values()) {
-    if (entry.def && !bySchema.has(entry.schema))
-      bySchema.set(entry.schema, entry);
+  for (const entry2 of ctx.seen.values()) {
+    if (entry2.def && !bySchema.has(entry2.schema))
+      bySchema.set(entry2.schema, entry2);
   }
   const rewrites = /* @__PURE__ */ new Map();
   for (const record2 of pendingRecords.get(ctx) ?? []) {
@@ -24184,8 +24184,8 @@ function rewriteKeyNames(ctx) {
   }
   if (!rewrites.size)
     return;
-  for (const entry of ctx.seen.values()) {
-    for (const carrier of [entry.schema, entry.def]) {
+  for (const entry2 of ctx.seen.values()) {
+    for (const carrier of [entry2.schema, entry2.def]) {
       const rewritten = carrier && rewrites.get(carrier.propertyNames);
       if (rewritten)
         carrier.propertyNames = rewritten;
@@ -24379,8 +24379,8 @@ function toJSONSchema(input2, params) {
     const registry2 = input2;
     const ctx2 = initializeContext({ ...params, processors: allProcessors });
     const defs = {};
-    for (const entry of registry2._idmap.entries()) {
-      const [_, schema] = entry;
+    for (const entry2 of registry2._idmap.entries()) {
+      const [_, schema] = entry2;
       processSchema(schema, ctx2);
     }
     const schemas = {};
@@ -24390,8 +24390,8 @@ function toJSONSchema(input2, params) {
       defs
     };
     ctx2.external = external;
-    for (const entry of registry2._idmap.entries()) {
-      const [key, schema] = entry;
+    for (const entry2 of registry2._idmap.entries()) {
+      const [key, schema] = entry2;
       extractDefs(ctx2, schema);
       assignProp(schemas, key, finalize(ctx2, schema));
     }
@@ -27939,7 +27939,7 @@ var FORMS = Object.freeze([
   form("review", "extended", [req("fix"), req("push-back"), req("ask")]),
   form("glossary", "extended", [req("where")], { pointerOnly: true })
 ]);
-var FORM_IDS = Object.freeze(FORMS.map((entry) => entry.id));
+var FORM_IDS = Object.freeze(FORMS.map((entry2) => entry2.id));
 var DECISIONS_FORM = "decisions";
 var FORM_STATES = ["blank", "filled", "pointer"];
 var OLD_DATE_KEY = "terraformed";
@@ -28098,8 +28098,8 @@ function parseForm(text10, { file: file2 = null } = {}) {
       state: data.state,
       pointsTo: data["points-to"],
       index: data.index ?? null,
-      evidence: (data.evidence ?? []).map((entry) => {
-        const [, path = "", hash2 = ""] = entry.match(EVIDENCE) ?? [];
+      evidence: (data.evidence ?? []).map((entry2) => {
+        const [, path = "", hash2 = ""] = entry2.match(EVIDENCE) ?? [];
         return { path, hash: hash2 };
       }),
       invaded: data.invaded !== void 0 ? data.invaded : data[OLD_DATE_KEY],
@@ -28129,7 +28129,7 @@ function resolvePlaybookId(id, { ctx }) {
   const read2 = readForm(formId, { ctx });
   if (!read2.exists) return { ok: false, reason: `no form file at ${read2.file}` };
   if (!read2.ok) return { ok: false, reason: read2.errors.join("; ") };
-  const slot = read2.form.slots.find((entry) => entry.id === slotId);
+  const slot = read2.form.slots.find((entry2) => entry2.id === slotId);
   if (!slot) return { ok: false, reason: `${read2.file} has no slot "${slotId}"` };
   if (slot.body.kind === "empty") return { ok: false, reason: `${read2.file}: slot "${slotId}" is blank` };
   return { ok: true };
@@ -28146,9 +28146,9 @@ function parseFolderName(name2) {
 }
 function prdFoldersIn(absolute) {
   if (!existsSync4(absolute)) return [];
-  return readdirSync(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory()).flatMap((entry) => {
-    const parsed = parseFolderName(entry.name);
-    return parsed ? [{ name: entry.name, prd: parsed.prd }] : [];
+  return readdirSync(absolute, { withFileTypes: true }).filter((entry2) => entry2.isDirectory()).flatMap((entry2) => {
+    const parsed = parseFolderName(entry2.name);
+    return parsed ? [{ name: entry2.name, prd: parsed.prd }] : [];
   }).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 }
 function foldersLayout(root, paths) {
@@ -28716,12 +28716,12 @@ function parseEntryFile(file2, text10, place) {
 function listDir(root, dir, predicate) {
   const abs = join5(root, dir);
   if (!existsSync5(abs)) return [];
-  return readdirSync2(abs, { withFileTypes: true }).filter(predicate).map((entry) => entry.name).sort();
+  return readdirSync2(abs, { withFileTypes: true }).filter(predicate).map((entry2) => entry2.name).sort();
 }
 function diskSource(root) {
   return {
-    files: (dir) => listDir(root, dir, (entry) => entry.isFile()),
-    dirs: (dir) => listDir(root, dir, (entry) => entry.isDirectory()),
+    files: (dir) => listDir(root, dir, (entry2) => entry2.isFile()),
+    dirs: (dir) => listDir(root, dir, (entry2) => entry2.isDirectory()),
     read: (file2) => readFileSync3(join5(root, file2), "utf8")
   };
 }
@@ -28796,9 +28796,9 @@ function readRegisters({ ctx }) {
   const { entries: entries3 } = readKnowledge({ ctx });
   return {
     entries: entries3,
-    principles: entries3.filter((entry) => entry.kind === "principle"),
-    rules: entries3.filter((entry) => entry.kind === "rule"),
-    invariants: entries3.filter((entry) => entry.kind === "invariant")
+    principles: entries3.filter((entry2) => entry2.kind === "principle"),
+    rules: entries3.filter((entry2) => entry2.kind === "rule"),
+    invariants: entries3.filter((entry2) => entry2.kind === "invariant")
   };
 }
 function registerCounts({ ctx }) {
@@ -28809,16 +28809,16 @@ function registerCounts({ ctx }) {
     ...knowledge2.crossDomainFiles.length > 0 ? [crossDomainDir(ctx)] : []
   ];
   return folders.map((folder) => {
-    const held = knowledge2.entries.filter((entry) => entry.file.startsWith(`${folder}/`));
-    const proposals = held.filter((entry) => entry.proposed !== null).length;
+    const held = knowledge2.entries.filter((entry2) => entry2.file.startsWith(`${folder}/`));
+    const proposals = held.filter((entry2) => entry2.proposed !== null).length;
     return { folder, laws: held.length - proposals, proposals };
   });
 }
 function resolveId(id, { ctx }) {
-  return readKnowledge({ ctx }).entries.find((entry) => entry.id === id) ?? null;
+  return readKnowledge({ ctx }).entries.find((entry2) => entry2.id === id) ?? null;
 }
 function servedBy(entries3, id) {
-  return entries3.filter((entry) => entry.serves === id);
+  return entries3.filter((entry2) => entry2.serves === id);
 }
 
 // kit/lib/playbook/resolve.ts
@@ -28855,7 +28855,7 @@ function readTarget(path, index, { ctx }) {
   if (!statSync2(absolute).isDirectory()) return { text: readFileSync4(absolute, "utf8").trim(), missing: null };
   if (index) return readTarget(index, null, { ctx });
   const dir = path.replace(/\/+$/, "");
-  const pages = readdirSync3(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => `${dir}/${entry.name}`).sort();
+  const pages = readdirSync3(absolute, { withFileTypes: true }).filter((entry2) => entry2.isFile() && entry2.name.endsWith(".md")).map((entry2) => `${dir}/${entry2.name}`).sort();
   return { text: pages.join("\n"), missing: null };
 }
 function repoLabel(slot) {
@@ -29487,21 +29487,21 @@ function readDossiers(root) {
   } catch {
     return [];
   }
-  return Array.isArray(value) ? value.map(entryOf).filter((entry) => entry !== null) : [];
+  return Array.isArray(value) ? value.map(entryOf).filter((entry2) => entry2 !== null) : [];
 }
 function writeDossiers(root, entries3) {
   ensureLocalDir(root);
   writeFileSync3(join13(root, DOSSIERS_FILE), `${JSON.stringify(entries3, null, 2)}
 `);
 }
-function recordDraft(root, entry) {
-  writeDossiers(root, [...readDossiers(root), entry]);
+function recordDraft(root, entry2) {
+  writeDossiers(root, [...readDossiers(root), entry2]);
 }
 function markNumbered(root, draftId, { prd: prd2, id, url: url2 }) {
-  writeDossiers(root, readDossiers(root).map((entry) => entry.id === draftId ? { ...entry, id, url: url2, prd: prd2 } : entry));
+  writeDossiers(root, readDossiers(root).map((entry2) => entry2.id === draftId ? { ...entry2, id, url: url2, prd: prd2 } : entry2));
 }
 function forgetDraft(root, draftId) {
-  writeDossiers(root, readDossiers(root).filter((entry) => entry.id !== draftId));
+  writeDossiers(root, readDossiers(root).filter((entry2) => entry2.id !== draftId));
 }
 
 // kit/lib/statusline/schema.ts
@@ -30093,14 +30093,14 @@ function itemFilesUnder(root, dir) {
   const absolute = join16(root, dir);
   if (!existsSync12(absolute)) return [];
   const files = [];
-  for (const entry of readdirSync7(absolute, { withFileTypes: true })) {
-    if (entry.isDirectory()) {
-      if (entry.name === "accounts") continue;
-      files.push(...itemFilesUnder(root, `${dir}/${entry.name}`));
+  for (const entry2 of readdirSync7(absolute, { withFileTypes: true })) {
+    if (entry2.isDirectory()) {
+      if (entry2.name === "accounts") continue;
+      files.push(...itemFilesUnder(root, `${dir}/${entry2.name}`));
       continue;
     }
-    if (!entry.name.endsWith(".md") || entry.name === SETTLED_FILE) continue;
-    files.push(`${dir}/${entry.name}`);
+    if (!entry2.name.endsWith(".md") || entry2.name === SETTLED_FILE) continue;
+    files.push(`${dir}/${entry2.name}`);
   }
   return files.sort();
 }
@@ -30298,7 +30298,7 @@ function settledHeader(prd2, { ctx }) {
 }
 function renderSettledEntry({
   item: item2,
-  itemText,
+  itemText: itemText2,
   answer,
   judgement,
   markers,
@@ -30332,7 +30332,7 @@ function renderSettledEntry({
     "",
     "### The item, as it was raised",
     "",
-    verbatimBlock(itemText),
+    verbatimBlock(itemText2),
     "",
     markers.settledClose(item2.id),
     ""
@@ -30344,7 +30344,7 @@ function parseSettledEntries(text10, markers) {
 }
 function latestPerId(entries3) {
   const byId = /* @__PURE__ */ new Map();
-  for (const entry of entries3) byId.set(entry.id, entry);
+  for (const entry2 of entries3) byId.set(entry2.id, entry2);
   return [...byId.values()];
 }
 function openedEntry(id) {
@@ -30352,9 +30352,9 @@ function openedEntry(id) {
   return read2.success ? { id: read2.data, fields: {}, blocks: [] } : null;
 }
 function closedEntry({ id, fields, blocks }) {
-  const [answerText2 = "", itemText = ""] = blocks;
+  const [answerText2 = "", itemText2 = ""] = blocks;
   const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
-  return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText: answerText2, itemText, became };
+  return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText: answerText2, itemText: itemText2, became };
 }
 function rawSettledEntries(text10, markers) {
   const lines = text10.split("\n");
@@ -30403,8 +30403,8 @@ function settleItem({
   if (!existsSync13(absoluteFile)) {
     return { ok: false, errors: [`${relativeFile}: no such open item.`] };
   }
-  const itemText = readFileSync11(absoluteFile, "utf8");
-  const parsedItem = parseItem(itemText, relativeFile);
+  const itemText2 = readFileSync11(absoluteFile, "utf8");
+  const parsedItem = parseItem(itemText2, relativeFile);
   if (!parsedItem.ok) return { ok: false, errors: parsedItem.errors };
   const { item: item2 } = parsedItem;
   const outboxDir = ctx.layout.outboxDir(item2.prd);
@@ -30426,20 +30426,20 @@ function settleItem({
   const absoluteSettled = join17(ctx.root, settledFile);
   const existing = existsSync13(absoluteSettled) ? readFileSync11(absoluteSettled, "utf8") : settledHeader(item2.prd, { ctx });
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
-  const entry = renderSettledEntry({
+  const entry2 = renderSettledEntry({
     item: item2,
-    itemText,
+    itemText: itemText2,
     answer: parsedAnswer.data,
     judgement,
     markers: ctx.markers
   });
-  writeFileSync5(absoluteSettled, `${existing}${separator}${entry}`);
+  writeFileSync5(absoluteSettled, `${existing}${separator}${entry2}`);
   rmSync3(absoluteFile);
   return {
     ok: true,
     verdict: judgement.verdict,
     basis: judgement.basis,
-    entry,
+    entry: entry2,
     settledFile,
     removedFile: relativeFile
   };
@@ -30453,12 +30453,12 @@ function adoptedJudgement() {
 }
 function renderAdoptedEntry({
   item: item2,
-  itemText,
+  itemText: itemText2,
   markers
 }) {
   return renderSettledEntry({
     item: item2,
-    itemText,
+    itemText: itemText2,
     answer: {
       approvedBy: "nobody",
       approvedAt: item2.raised,
@@ -30471,9 +30471,9 @@ function renderAdoptedEntry({
 }
 function adoptItem({
   ctx,
-  itemText
+  itemText: itemText2
 }) {
-  const parsedItem = parseItem(itemText, null);
+  const parsedItem = parseItem(itemText2, null);
   if (!parsedItem.ok) return { ok: false, errors: parsedItem.errors };
   const { item: item2 } = parsedItem;
   if (item2.rank !== "medium") {
@@ -30490,10 +30490,10 @@ function adoptItem({
   const absoluteSettled = join17(ctx.root, settledFile);
   const existing = existsSync13(absoluteSettled) ? readFileSync11(absoluteSettled, "utf8") : settledHeader(item2.prd, { ctx });
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
-  const entry = renderAdoptedEntry({ item: item2, itemText, markers: ctx.markers });
+  const entry2 = renderAdoptedEntry({ item: item2, itemText: itemText2, markers: ctx.markers });
   mkdirSync5(dirname5(absoluteSettled), { recursive: true });
-  writeFileSync5(absoluteSettled, `${existing}${separator}${entry}`);
-  return { ok: true, entry, settledFile, item: item2 };
+  writeFileSync5(absoluteSettled, `${existing}${separator}${entry2}`);
+  return { ok: true, entry: entry2, settledFile, item: item2 };
 }
 
 // kit/bin/synchronous.ts
@@ -30515,15 +30515,15 @@ var adopt = {
     const [path] = positional;
     if (positional.length !== 1 || path === void 0) throw usageError("usage: omni adopt <item-text-file>");
     const file2 = relative2(ctx.root, inRoot(ctx, path));
-    const itemText = readUserFile("adopt", ctx, path);
-    const parsedItem = parseOutboxItem(itemText, { file: null });
+    const itemText2 = readUserFile("adopt", ctx, path);
+    const parsedItem = parseOutboxItem(itemText2, { file: null });
     if (parsedItem.ok) {
       const outboxDir = ctx.layout.outboxDir(parsedItem.item.prd);
       if (outboxDir !== null && !isUnder(inRoot(ctx, outboxDir), inRoot(ctx, path))) {
         throw usageError(`omni adopt: ${file2} is not under ${outboxDir}, PRD ${parsedItem.item.prd}'s outbox directory.`);
       }
     }
-    const result = withPrdFolder("adopt", () => adoptItem({ ctx, itemText }));
+    const result = withPrdFolder("adopt", () => adoptItem({ ctx, itemText: itemText2 }));
     if (!result.ok) {
       println(stderr, "omni adopt \u2014 nothing was written:");
       for (const error62 of result.errors) println(stderr, `  - ${error62}`);
@@ -30768,8 +30768,8 @@ function readAccounts(prd2, { ctx }) {
   );
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
   if (existsSync14(`${ctx.root}/${settledFile}`)) {
-    for (const entry of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
-      itemIds.add(entry.id);
+    for (const entry2 of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
+      itemIds.add(entry2.id);
     }
   }
   const names = readdirSync8(`${ctx.root}/${dir}`).filter((name2) => name2.endsWith(".md")).sort();
@@ -30779,7 +30779,7 @@ function readAccounts(prd2, { ctx }) {
     const parsed = parseAccount(text10, { file: file2 });
     if (!parsed.ok) return parsed;
     const unresolved = parsed.account.entries.flatMap(
-      (entry) => entry.account.kind === "item" && !itemIds.has(entry.account.id) ? [entry.account.id] : []
+      (entry2) => entry2.account.kind === "item" && !itemIds.has(entry2.account.id) ? [entry2.account.id] : []
     );
     if (unresolved.length > 0) {
       return {
@@ -30800,13 +30800,13 @@ function entryKey(change) {
 }
 function compare(risky, accounts) {
   const entries3 = accounts.flatMap(
-    (account) => account.entries.map((entry) => ({ ...entry, slice: account.slice, file: account.file }))
+    (account) => account.entries.map((entry2) => ({ ...entry2, slice: account.slice, file: account.file }))
   );
   const namedKeys = new Set(entries3.map(entryKey));
   const riskyKeys = new Set(risky.map(entryKey));
   const accounted = risky.filter((change) => namedKeys.has(entryKey(change)));
   const unaccounted = risky.filter((change) => !namedKeys.has(entryKey(change)));
-  const stale = entries3.filter((entry) => !riskyKeys.has(entryKey(entry)));
+  const stale = entries3.filter((entry2) => !riskyKeys.has(entryKey(entry2)));
   return { accounted, unaccounted, stale };
 }
 
@@ -30822,9 +30822,9 @@ function isStoredShape(change, { ctx }) {
 function enforcedByPaths({ ctx }) {
   const { entries: entries3 } = readRegisters({ ctx });
   const paths = /* @__PURE__ */ new Set();
-  for (const entry of entries3) {
-    if (!entry.enforcedBy || entry.enforcedBy === "unenforced") continue;
-    for (const rawPath of entry.enforcedBy.split(",")) {
+  for (const entry2 of entries3) {
+    if (!entry2.enforcedBy || entry2.enforcedBy === "unenforced") continue;
+    for (const rawPath of entry2.enforcedBy.split(",")) {
       const path = rawPath.replace(/`/g, "").trim();
       if (path) paths.add(path);
     }
@@ -30895,7 +30895,7 @@ function unreworkedDrift(prd2, { ctx }) {
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
   if (!existsSync15(`${ctx.root}/${settledFile}`)) return [];
   const entries3 = parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
-  return entries3.filter((entry) => entry.verdict === "drifted" && !entry.closed).map((entry) => ({ id: entry.id, closedLine: entry.fields.Closed }));
+  return entries3.filter((entry2) => entry2.verdict === "drifted" && !entry2.closed).map((entry2) => ({ id: entry2.id, closedLine: entry2.fields.Closed }));
 }
 function gateResult(prd2, { ctx, labels = [], changes = null }) {
   const items = openItems(prd2, { ctx });
@@ -30916,8 +30916,8 @@ function formatItem(item2) {
 function formatUnaccounted(change) {
   return `  - ${change.path} (${change.rule})`;
 }
-function formatUnreworked(entry) {
-  return `  - ${entry.id}`;
+function formatUnreworked(entry2) {
+  return `  - ${entry2.id}`;
 }
 function formatReport(prd2, result) {
   const lines = [];
@@ -31051,7 +31051,7 @@ function formatOutboxComment({
     );
   } else if (unreworked.length > 0) {
     lines.push(
-      `_No open item on \`${branch}\`, but drifted and not yet reworked: ${unreworked.map((entry) => entry.id).join(", ")} \u2014 run \`${COMMANDS.yoloFix}\`._`
+      `_No open item on \`${branch}\`, but drifted and not yet reworked: ${unreworked.map((entry2) => entry2.id).join(", ")} \u2014 run \`${COMMANDS.yoloFix}\`._`
     );
   } else {
     lines.push(`_Nothing open on \`${branch}\`._`);
@@ -31091,7 +31091,7 @@ function findPrMarkerComment(comments, markers) {
   return findCommentByMarker(comments, markers.prComment);
 }
 function formatNumbersMarker(numbering, markers) {
-  const body = [...numbering].sort((a, b) => a.number - b.number).map((entry) => `${entry.number}=${entry.id}@${entry.since}`).join(",");
+  const body = [...numbering].sort((a, b) => a.number - b.number).map((entry2) => `${entry2.number}=${entry2.id}@${entry2.since}`).join(",");
   return `${markers.numbersPrefix}${body}${markers.numbersSuffix}`;
 }
 function parseNumbersMarker(body, markers) {
@@ -31100,8 +31100,8 @@ function parseNumbersMarker(body, markers) {
   if (!match) return [];
   const value = (match[1] ?? "").trim();
   if (value === "") return [];
-  return value.split(",").flatMap((entry) => {
-    const [numberPart, rest = ""] = entry.split(/=(.*)/s);
+  return value.split(",").flatMap((entry2) => {
+    const [numberPart, rest = ""] = entry2.split(/=(.*)/s);
     const at2 = rest.lastIndexOf("@");
     const id = OutboxItemIdSchema.safeParse(rest.slice(0, at2));
     return id.success ? [{ number: Number(numberPart), id: id.data, since: rest.slice(at2 + 1) }] : [];
@@ -31112,8 +31112,8 @@ function assignNumbers({
   previous = [],
   now = () => (/* @__PURE__ */ new Date()).toISOString()
 }) {
-  const known2 = new Set(previous.map((entry) => entry.id));
-  const maxNumber = previous.reduce((max, entry) => Math.max(max, entry.number), 0);
+  const known2 = new Set(previous.map((entry2) => entry2.id));
+  const maxNumber = previous.reduce((max, entry2) => Math.max(max, entry2.number), 0);
   const fresh = sortItems(items.filter((item2) => !known2.has(item2.id)));
   if (fresh.length === 0) return [...previous];
   const since = now();
@@ -31147,23 +31147,23 @@ function readSettledEntries(prd2, { ctx }) {
   return parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
 }
 function adoptedEntriesForPrd(prd2, { ctx }) {
-  return readSettledEntries(prd2, { ctx }).filter((entry) => entry.verdict === ADOPTED_VERDICT);
+  return readSettledEntries(prd2, { ctx }).filter((entry2) => entry2.verdict === ADOPTED_VERDICT);
 }
 function firstSentence(text10) {
   const trimmed = (text10 ?? "").trim();
   const match = trimmed.match(/[^.!?]+(?:[.!?]+|$)/);
   return (match ? match[0] : trimmed).trim();
 }
-function answeredQuestionText(entry) {
-  const parsed = parseOutboxItem(entry.itemText, { file: null });
+function answeredQuestionText(entry2) {
+  const parsed = parseOutboxItem(entry2.itemText, { file: null });
   if (!parsed.ok) return "";
   const { sections } = parsed.item;
   return sections.questionPlain ?? firstSentence(sections.whatIHadToDecide);
 }
 var REWORKED_BY = /reworked by #(\d+)/;
-function answeredOutcome(entry) {
-  if (entry.verdict === "agreed") return "kept as built";
-  const reworkedBy = entry.closed ? (entry.fields?.Closed ?? "").match(REWORKED_BY)?.[1] : null;
+function answeredOutcome(entry2) {
+  if (entry2.verdict === "agreed") return "kept as built";
+  const reworkedBy = entry2.closed ? (entry2.fields?.Closed ?? "").match(REWORKED_BY)?.[1] : null;
   return reworkedBy ? `reworked in #${reworkedBy}` : "to be reworked";
 }
 function quoteReply(text10) {
@@ -31237,7 +31237,7 @@ function questionBanter({
   const numberOf2 = (question) => numberById.get(question.id) ?? Infinity;
   const questions2 = [
     ...items.map((item2) => ({ id: item2.id, sections: item2.sections })),
-    ...adopted.map((entry) => ({ id: entry.id, sections: adoptedItem(entry)?.sections }))
+    ...adopted.map((entry2) => ({ id: entry2.id, sections: adoptedItem(entry2)?.sections }))
   ].sort((a, b) => numberOf2(a) - numberOf2(b) || a.id.localeCompare(b.id));
   const banter = /* @__PURE__ */ new Map();
   const fromPool = [];
@@ -31291,13 +31291,13 @@ function openQuestionLines(item2, { number: number4, round: round2, banter }) {
   lines.push("");
   return lines;
 }
-function adoptedItem(entry) {
-  const parsed = parseOutboxItem(entry.itemText, { file: null });
+function adoptedItem(entry2) {
+  const parsed = parseOutboxItem(entry2.itemText, { file: null });
   return parsed.ok ? parsed.item : null;
 }
-function adoptedQuestionLines(entry, { number: number4, round: round2, banter }) {
-  const item2 = adoptedItem(entry);
-  const question = item2?.sections.questionPlain ?? answeredQuestionText(entry);
+function adoptedQuestionLines(entry2, { number: number4, round: round2, banter }) {
+  const item2 = adoptedItem(entry2);
+  const question = item2?.sections.questionPlain ?? answeredQuestionText(entry2);
   const options = item2 ? offeredOptions(item2) : [];
   const lines = [
     `### Question ${number4} \xB7 medium \u2014 adopted`,
@@ -31335,7 +31335,7 @@ function formatOutboxPrComment({
   ctx
 }) {
   const sorted = sortItems(items);
-  const numberById = new Map(numbering.map((entry) => [entry.id, entry.number]));
+  const numberById = new Map(numbering.map((entry2) => [entry2.id, entry2.number]));
   const byNumber2 = (a, b) => (numberById.get(a.id) ?? 0) - (numberById.get(b.id) ?? 0);
   const banter = questionBanter({ items: sorted, adopted, numberById });
   const facts = { numberById, roundMarkers, banter };
@@ -31368,20 +31368,20 @@ function formatOutboxPrComment({
       `<details><summary>Adopted unless you object \xB7 ${adopted.length} medium</summary>`,
       ""
     );
-    for (const entry of [...adopted].sort(byNumber2)) {
-      lines.push(...adoptedQuestionLines(entry, questionFacts(entry.id, facts)));
+    for (const entry2 of [...adopted].sort(byNumber2)) {
+      lines.push(...adoptedQuestionLines(entry2, questionFacts(entry2.id, facts)));
     }
     lines.push("</details>", "");
   }
   if (answered2.length > 0) {
     lines.push("**Answered**", "");
-    for (const entry of [...answered2].sort(byNumber2)) {
-      const number4 = numberById.get(entry.id);
-      const question = answeredQuestionText(entry);
+    for (const entry2 of [...answered2].sort(byNumber2)) {
+      const number4 = numberById.get(entry2.id);
+      const question = answeredQuestionText(entry2);
       lines.push(`**Question ${number4}**`, "");
       if (question) lines.push(question, "");
       lines.push(
-        `Reply: ${quoteReply(entry.answerText)} \u2014 @${entry.fields["Approved by"] ?? ""}, ${formatApprovedAt(entry.fields["Approved at"])} \xB7 ${answeredOutcome(entry)}`,
+        `Reply: ${quoteReply(entry2.answerText)} \u2014 @${entry2.fields["Approved by"] ?? ""}, ${formatApprovedAt(entry2.fields["Approved at"])} \xB7 ${answeredOutcome(entry2)}`,
         ""
       );
     }
@@ -31399,16 +31399,16 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
   const settledEntries2 = readSettledEntries(prd2, { ctx });
   const comments = client.listComments();
   const existing = findPrMarkerComment(comments, ctx.markers);
-  const adopted = settledEntries2.filter((entry) => entry.verdict === ADOPTED_VERDICT);
+  const adopted = settledEntries2.filter((entry2) => entry2.verdict === ADOPTED_VERDICT);
   const previous = existing ? parseNumbersMarker(existing.body, ctx.markers) : [];
   const numbering = assignNumbers({
-    items: [...items, ...adopted.map((entry) => ({ id: entry.id, rank: "medium" }))],
+    items: [...items, ...adopted.map((entry2) => ({ id: entry2.id, rank: "medium" }))],
     previous,
     now
   });
-  const numberedIds = new Set(numbering.map((entry) => entry.id));
+  const numberedIds = new Set(numbering.map((entry2) => entry2.id));
   const answered2 = settledEntries2.filter(
-    (entry) => entry.verdict !== ADOPTED_VERDICT && numberedIds.has(entry.id)
+    (entry2) => entry2.verdict !== ADOPTED_VERDICT && numberedIds.has(entry2.id)
   );
   const hasSomethingToList = items.length > 0 || adopted.length > 0 || answered2.length > 0;
   if (!existing && !hasSomethingToList) {
@@ -31423,12 +31423,12 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
       body: null
     };
   }
-  const previouslyNumbered = new Set(previous.map((entry) => entry.id));
+  const previouslyNumbered = new Set(previous.map((entry2) => entry2.id));
   const counted3 = {
     openCount: items.length,
     answeredCount: answered2.length,
     adoptedCount: adopted.length,
-    newAdoptedCount: adopted.filter((entry) => !previouslyNumbered.has(entry.id)).length
+    newAdoptedCount: adopted.filter((entry2) => !previouslyNumbered.has(entry2.id)).length
   };
   const roundMarkers = parseRoundMarkers(
     comments.filter((comment2) => comment2.id !== existing?.id),
@@ -31710,9 +31710,9 @@ function answerableQuestions({
 }) {
   const open3 = new Map(items.map((item2) => [item2.id, item2]));
   const kept = /* @__PURE__ */ new Map();
-  for (const entry of adopted) {
-    const parsed = parseItem(entry.itemText, null);
-    if (parsed.ok) kept.set(entry.id, parsed.item);
+  for (const entry2 of adopted) {
+    const parsed = parseItem(entry2.itemText, null);
+    if (parsed.ok) kept.set(entry2.id, parsed.item);
   }
   const questions2 = [];
   for (const { number: number4, id } of numbering) {
@@ -32185,16 +32185,16 @@ function runState({ status: status4, conclusion }) {
   if (status4 !== "COMPLETED") return "pending";
   return PASSING.has(conclusion ?? "") ? "pass" : "fail";
 }
-function entryState(entry) {
-  const isStatus = entry.__typename === "StatusContext" || entry.context !== void 0;
-  return isStatus ? statusState(entry.state ?? "") : runState(entry);
+function entryState(entry2) {
+  const isStatus = entry2.__typename === "StatusContext" || entry2.context !== void 0;
+  return isStatus ? statusState(entry2.state ?? "") : runState(entry2);
 }
 function checkState(rollup) {
   const byName2 = /* @__PURE__ */ new Map();
-  for (const entry of rollup) {
-    const name2 = entry.name ?? entry.context;
+  for (const entry2 of rollup) {
+    const name2 = entry2.name ?? entry2.context;
     if (name2 === void 0) continue;
-    const state = entryState(entry);
+    const state = entryState(entry2);
     const before2 = byName2.get(name2);
     byName2.set(name2, before2 === void 0 || WORST.indexOf(state) < WORST.indexOf(before2) ? state : before2);
   }
@@ -32403,7 +32403,7 @@ function planShip(ctx, prd2, { files, read: read2 }) {
   }
   const reasons = [
     ...openItemFiles(prd2, { ctx }).map((file2) => `open outbox item: ${file2}`),
-    ...unreworkedDrift(prd2, { ctx }).map((entry) => `drifted, not reworked: ${entry.id}`),
+    ...unreworkedDrift(prd2, { ctx }).map((entry2) => `drifted, not reworked: ${entry2.id}`),
     ...releaseNoteReasons(ctx, prd2, where.dir, read2)
   ];
   if (reasons.length) return { ok: false, reasons };
@@ -32614,12 +32614,12 @@ function findOutboxViolations({ ctx }) {
   for (const { dir } of ctx.layout.outboxDirs()) {
     const settledFile = `${dir}/${SETTLED_FILE}`;
     if (!existsSync20(join22(ctx.root, settledFile))) continue;
-    for (const entry of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
-      for (const id of entry.became) {
+    for (const entry2 of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
+      for (const id of entry2.became) {
         const resolved = isPlaybookId(id) ? resolvePlaybookId(id, { ctx }) : laws.resolve(id);
         if (!resolved.ok) {
           violations.push(
-            describe3(settledFile, `${entry.id} Became: ${id} \u2014 ${resolved.reason}`)
+            describe3(settledFile, `${entry2.id} Became: ${id} \u2014 ${resolved.reason}`)
           );
         }
       }
@@ -32662,10 +32662,10 @@ var JUDGEMENT = {
   basis: MERGED_OVER_RED_BASIS,
   reason: MERGED_OVER_RED_REASON
 };
-function itemFromEntry(entry) {
-  const { fields } = entry;
+function itemFromEntry(entry2) {
+  const { fields } = entry2;
   return {
-    id: entry.id,
+    id: entry2.id,
     rank: fields.Rank,
     bearsOn: fields["Bears on"],
     raised: fields.Raised,
@@ -32694,28 +32694,28 @@ function settleAtMerge({
   const entries3 = [];
   const deletes = [];
   for (const file2 of openItemFiles(prd2, { ctx })) {
-    const itemText = readRepoFile(ctx, file2);
-    const parsed = parseItem(itemText, file2);
+    const itemText2 = readRepoFile(ctx, file2);
+    const parsed = parseItem(itemText2, file2);
     if (!parsed.ok) {
       errors.push(...parsed.errors);
       continue;
     }
-    const entry = renderSettledEntry({
+    const entry2 = renderSettledEntry({
       item: parsed.item,
-      itemText,
+      itemText: itemText2,
       answer,
       judgement: JUDGEMENT,
       markers: ctx.markers,
       closed: `yes \u2014 adopted at the merge by @${facts.by}`
     });
-    entries3.push({ id: parsed.item.id, from: "open", entry });
+    entries3.push({ id: parsed.item.id, from: "open", entry: entry2 });
     deletes.push(file2);
   }
   if (errors.length > 0) return { ok: false, errors };
   const drifted = existing === null ? [] : parseSettledEntries(existing, ctx.markers);
   for (const settled of drifted) {
     if (settled.verdict !== "drifted" || settled.closed) continue;
-    const entry = renderSettledEntry({
+    const entry2 = renderSettledEntry({
       item: itemFromEntry(settled),
       itemText: settled.itemText,
       answer,
@@ -32723,7 +32723,7 @@ function settleAtMerge({
       markers: ctx.markers,
       closed: `yes \u2014 merged without rework, by @${facts.by}`
     });
-    entries3.push({ id: settled.id, from: "drift", entry });
+    entries3.push({ id: settled.id, from: "drift", entry: entry2 });
   }
   if (entries3.length === 0) {
     return { ok: true, settledFile, entries: entries3, append: "", text: null, deletes };
@@ -33073,51 +33073,51 @@ function findReusedIds(entries3) {
   }
   return violations;
 }
-function idShapeViolations(entry) {
-  const parts = defined(idParts(entry.id), `the parts of the id ${entry.id}`);
-  const where = entry.scope === "cross-domain" ? `the pair ${entry.domain}` : `the ${entry.domain} folder`;
-  if (entry.scope === "cross-domain") {
+function idShapeViolations(entry2) {
+  const parts = defined(idParts(entry2.id), `the parts of the id ${entry2.id}`);
+  const where = entry2.scope === "cross-domain" ? `the pair ${entry2.domain}` : `the ${entry2.domain} folder`;
+  if (entry2.scope === "cross-domain") {
     if (parts.type !== "X") {
       return [
-        violation(entry.file, entry.id, "is not an X- id \u2014 a cross-domain entry is X-<A>-<B>-<n>.")
+        violation(entry2.file, entry2.id, "is not an X- id \u2014 a cross-domain entry is X-<A>-<B>-<n>.")
       ];
     }
-    if (entry.keptId) return [];
-    const matches = parts.codes.length === entry.codes.length && parts.codes.every((code, index) => code === entry.codes[index]);
+    if (entry2.keptId) return [];
+    const matches = parts.codes.length === entry2.codes.length && parts.codes.every((code, index) => code === entry2.codes[index]);
     return matches ? [] : [
       violation(
-        entry.file,
-        entry.id,
-        `names ${parts.codes.join("-")}, but it sits in ${where} (X-${entry.codes.join("-")}-<n>), and carries no "Kept id:" line.`
+        entry2.file,
+        entry2.id,
+        `names ${parts.codes.join("-")}, but it sits in ${where} (X-${entry2.codes.join("-")}-<n>), and carries no "Kept id:" line.`
       )
     ];
   }
   if (parts.type === "CORE") {
-    if (entry.scope === "product" && entry.kind === "invariant") return [];
+    if (entry2.scope === "product" && entry2.kind === "invariant") return [];
     return [
       violation(
-        entry.file,
-        entry.id,
+        entry2.file,
+        entry2.id,
         "is a Core Invariant id \u2014 N1\u2026N8 live only in product/invariants.md."
       )
     ];
   }
-  const expected = entry.kind === null ? void 0 : PREFIX_OF_KIND[entry.kind];
+  const expected = entry2.kind === null ? void 0 : PREFIX_OF_KIND[entry2.kind];
   if (parts.type !== expected) {
     return [
       violation(
-        entry.file,
-        entry.id,
-        `is a ${parts.type}- id in a file of ${entry.kind}s, which carry ${expected}- ids.`
+        entry2.file,
+        entry2.id,
+        `is a ${parts.type}- id in a file of ${entry2.kind}s, which carry ${expected}- ids.`
       )
     ];
   }
-  if (entry.keptId || parts.codes[0] === entry.codes[0]) return [];
+  if (entry2.keptId || parts.codes[0] === entry2.codes[0]) return [];
   return [
     violation(
-      entry.file,
-      entry.id,
-      `names ${parts.codes[0]}, but it sits in ${where} (code ${entry.codes[0]}) and carries no "Kept id:" line.`
+      entry2.file,
+      entry2.id,
+      `names ${parts.codes[0]}, but it sits in ${where} (code ${entry2.codes[0]}) and carries no "Kept id:" line.`
     )
   ];
 }
@@ -33136,7 +33136,7 @@ function headingAnchors(text10) {
   }
   return anchors;
 }
-function missingPathViolations(ctx, entry, label, value, { onlyPathLike }) {
+function missingPathViolations(ctx, entry2, label, value, { onlyPathLike }) {
   const violations = [];
   if (ctx.copyOf) return violations;
   for (const part of partsOf(value)) {
@@ -33146,8 +33146,8 @@ function missingPathViolations(ctx, entry, label, value, { onlyPathLike }) {
       if (!headingAnchors(readFileSync17(join24(ctx.root, path), "utf8")).has(anchor2.toLowerCase())) {
         violations.push(
           violation(
-            entry.file,
-            entry.id,
+            entry2.file,
+            entry2.id,
             `links "${label}: ${path}#${anchor2}", but ${path} has no heading with that anchor.`
           )
         );
@@ -33157,8 +33157,8 @@ function missingPathViolations(ctx, entry, label, value, { onlyPathLike }) {
     if (!existsSync22(join24(ctx.root, path))) {
       violations.push(
         violation(
-          entry.file,
-          entry.id,
+          entry2.file,
+          entry2.id,
           `claims "${label}: ${path}" but that file does not exist \u2014 a wrong claim is worse than "unenforced".`
         )
       );
@@ -33166,42 +33166,42 @@ function missingPathViolations(ctx, entry, label, value, { onlyPathLike }) {
   }
   return violations;
 }
-function servesViolations(entry, principles) {
-  if ((entry.fieldCounts.serves ?? 0) > 1) {
+function servesViolations(entry2, principles) {
+  if ((entry2.fieldCounts.serves ?? 0) > 1) {
     return [
       violation(
-        entry.file,
-        entry.id,
+        entry2.file,
+        entry2.id,
         'has more than one "Serves:" line \u2014 a rule serves exactly one principle.'
       )
     ];
   }
-  const target3 = entry.serves.replace(/`/g, "").trim();
+  const target3 = entry2.serves.replace(/`/g, "").trim();
   if (!/^P-[A-Z0-9]+-\d+$/.test(target3)) {
     return [
-      violation(entry.file, entry.id, `serves "${entry.serves}", which is not one principle id.`)
+      violation(entry2.file, entry2.id, `serves "${entry2.serves}", which is not one principle id.`)
     ];
   }
   const principle = principles.find((candidate) => candidate.id === target3);
   if (!principle) {
-    return [violation(entry.file, entry.id, `serves ${target3}, which no principle claims.`)];
+    return [violation(entry2.file, entry2.id, `serves ${target3}, which no principle claims.`)];
   }
-  if (entry.scope === "domain" && principle.scope !== "product" && principle.domain !== entry.domain) {
+  if (entry2.scope === "domain" && principle.scope !== "product" && principle.domain !== entry2.domain) {
     return [
       violation(
-        entry.file,
-        entry.id,
+        entry2.file,
+        entry2.id,
         `serves ${target3}, a principle of "${principle.domain}" \u2014 an entry of one domain serves a product principle or its own; where two domains meet, it is a cross-domain entry.`
       )
     ];
   }
-  if (entry.scope === "cross-domain") {
-    const own2 = principle.scope === "product" || entry.domain.split("--").includes(principle.domain);
+  if (entry2.scope === "cross-domain") {
+    const own2 = principle.scope === "product" || entry2.domain.split("--").includes(principle.domain);
     if (!own2) {
       return [
         violation(
-          entry.file,
-          entry.id,
+          entry2.file,
+          entry2.id,
           `serves ${target3}, a principle of "${principle.domain}" \u2014 a cross-domain entry serves a product principle or one of its own pair's.`
         )
       ];
@@ -33210,70 +33210,70 @@ function servesViolations(entry, principles) {
   return [];
 }
 function findEntryViolations(ctx, entries3) {
-  const principles = entries3.filter((entry) => entry.kind === "principle");
+  const principles = entries3.filter((entry2) => entry2.kind === "principle");
   const violations = [];
-  for (const entry of entries3) {
-    violations.push(...idShapeViolations(entry));
-    violations.push(...entry.problems.map((problem) => ({ text: problem })));
-    if (entry.scope === "cross-domain" && !entry.kind) {
+  for (const entry2 of entries3) {
+    violations.push(...idShapeViolations(entry2));
+    violations.push(...entry2.problems.map((problem) => ({ text: problem })));
+    if (entry2.scope === "cross-domain" && !entry2.kind) {
       violations.push(
-        violation(entry.file, entry.id, 'is missing a "Kind: rule" or "Kind: invariant" line.')
+        violation(entry2.file, entry2.id, 'is missing a "Kind: rule" or "Kind: invariant" line.')
       );
     }
-    if (!entry.statement) violations.push(violation(entry.file, entry.id, "has no statement."));
-    if (!entry.source) {
-      violations.push(violation(entry.file, entry.id, 'is missing a "Source:" line.'));
+    if (!entry2.statement) violations.push(violation(entry2.file, entry2.id, "has no statement."));
+    if (!entry2.source) {
+      violations.push(violation(entry2.file, entry2.id, 'is missing a "Source:" line.'));
     } else {
       violations.push(
-        ...missingPathViolations(ctx, entry, "Source", entry.source, { onlyPathLike: true })
+        ...missingPathViolations(ctx, entry2, "Source", entry2.source, { onlyPathLike: true })
       );
-      const leads = partsOf(entry.source).some(
+      const leads = partsOf(entry2.source).some(
         (part) => PATH_LIKE.test(part) || NUMBER_REFERENCE.test(part)
       );
       if (!leads) {
         violations.push(
           violation(
-            entry.file,
-            entry.id,
-            `has "Source: ${entry.source}", which leads nowhere \u2014 name a file that exists, or a PRD or issue number.`
+            entry2.file,
+            entry2.id,
+            `has "Source: ${entry2.source}", which leads nowhere \u2014 name a file that exists, or a PRD or issue number.`
           )
         );
       }
     }
-    if (entry.kind === "principle") {
-      if (entry.enforcedBy !== null) {
+    if (entry2.kind === "principle") {
+      if (entry2.enforcedBy !== null) {
         violations.push(
           violation(
-            entry.file,
-            entry.id,
+            entry2.file,
+            entry2.id,
             'carries an "Enforced by:" line \u2014 a principle is judged, not proven; a rule serving it carries the proof.'
           )
         );
       }
-      if (!entry.why) violations.push(violation(entry.file, entry.id, 'is missing a "Why:" line.'));
-      if (!entry.decided && entry.proposed === null) {
-        violations.push(violation(entry.file, entry.id, 'is missing a "Decided:" line.'));
+      if (!entry2.why) violations.push(violation(entry2.file, entry2.id, 'is missing a "Why:" line.'));
+      if (!entry2.decided && entry2.proposed === null) {
+        violations.push(violation(entry2.file, entry2.id, 'is missing a "Decided:" line.'));
       }
       continue;
     }
-    if (entry.kind === "rule" && entry.serves === null) {
+    if (entry2.kind === "rule" && entry2.serves === null) {
       violations.push(
         violation(
-          entry.file,
-          entry.id,
+          entry2.file,
+          entry2.id,
           'is missing a "Serves:" line \u2014 every rule serves one principle.'
         )
       );
     }
-    if (entry.serves !== null) violations.push(...servesViolations({ ...entry, serves: entry.serves }, principles));
-    if (!entry.stated || !STATED_DATE.test(entry.stated)) {
-      violations.push(violation(entry.file, entry.id, 'is missing a "Stated: YYYY-MM-DD" line.'));
+    if (entry2.serves !== null) violations.push(...servesViolations({ ...entry2, serves: entry2.serves }, principles));
+    if (!entry2.stated || !STATED_DATE.test(entry2.stated)) {
+      violations.push(violation(entry2.file, entry2.id, 'is missing a "Stated: YYYY-MM-DD" line.'));
     }
-    if (entry.enforcedBy === null) {
-      violations.push(violation(entry.file, entry.id, 'is missing an "Enforced by:" line.'));
-    } else if (entry.enforcedBy !== "unenforced") {
+    if (entry2.enforcedBy === null) {
+      violations.push(violation(entry2.file, entry2.id, 'is missing an "Enforced by:" line.'));
+    } else if (entry2.enforcedBy !== "unenforced") {
       violations.push(
-        ...missingPathViolations(ctx, entry, "Enforced by", entry.enforcedBy, {
+        ...missingPathViolations(ctx, entry2, "Enforced by", entry2.enforcedBy, {
           onlyPathLike: false
         })
       );
@@ -33285,16 +33285,16 @@ function findUnresolvedCitations(file2, text10, resolve8) {
   return idsCitedIn(text10).filter((id) => !resolve8(id)).map((id) => violation(file2, id, `is cited in ${file2} but does not resolve to any entry.`));
 }
 function findWishes(entries3) {
-  return entries3.filter((entry) => entry.kind === "principle" && servedBy(entries3, entry.id).length === 0).map(
-    (entry) => violation(entry.file, entry.id, "is a wish \u2014 no rule or invariant serves it yet.")
+  return entries3.filter((entry2) => entry2.kind === "principle" && servedBy(entries3, entry2.id).length === 0).map(
+    (entry2) => violation(entry2.file, entry2.id, "is a wish \u2014 no rule or invariant serves it yet.")
   );
 }
 function findProposals(entries3) {
-  return entries3.filter((entry) => entry.proposed !== null && entry.proposed.by !== null).map(
-    (entry) => violation(
-      entry.file,
-      entry.id,
-      `is proposed by ${entry.proposed?.by} on ${entry.proposed?.on} \u2014 not a law until a person removes its "Proposed:" line.`
+  return entries3.filter((entry2) => entry2.proposed !== null && entry2.proposed.by !== null).map(
+    (entry2) => violation(
+      entry2.file,
+      entry2.id,
+      `is proposed by ${entry2.proposed?.by} on ${entry2.proposed?.on} \u2014 not a law until a person removes its "Proposed:" line.`
     )
   );
 }
@@ -33304,7 +33304,7 @@ function gradeKnowledge({
   glossaryText
 }) {
   const knowledge2 = readKnowledge({ ctx });
-  const resolve8 = (id) => knowledge2.entries.find((entry) => entry.id === id);
+  const resolve8 = (id) => knowledge2.entries.find((entry2) => entry2.id === id);
   const text10 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
   const violations = [
     ...findLayoutViolations(ctx, knowledge2, { glossaryText: text10 }),
@@ -33335,7 +33335,7 @@ var TITLE2 = /^#\s+(.+?)\s*$/m;
 function readDecisions({ ctx }) {
   const dir = ctx.layout.adrDir.replace(/\/+$/, "");
   const absolute = join25(ctx.root, dir);
-  const names = existsSync23(absolute) ? readdirSync10(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
+  const names = existsSync23(absolute) ? readdirSync10(absolute, { withFileTypes: true }).filter((entry2) => entry2.isFile() && RECORD.test(entry2.name)).map((entry2) => entry2.name).sort() : [];
   const records = names.map((name2) => {
     const file2 = `${dir}/${name2}`;
     const title = readFileSync18(join25(ctx.root, file2), "utf8").match(TITLE2)?.[1] ?? null;
@@ -33407,13 +33407,13 @@ function knowledgeSummary({ ctx }) {
     knowledge: existsSync24(join26(ctx.root, ctx.layout.knowledgeRoot))
   };
   const knowledge2 = readKnowledge({ ctx });
-  const placeOf2 = (entry) => entry.scope === "product" ? PRODUCT_PLACE : entry.domain;
+  const placeOf2 = (entry2) => entry2.scope === "product" ? PRODUCT_PLACE : entry2.domain;
   const domains = knowledge2.domains.map((domain2) => {
     const readme = join26(ctx.root, domainsDir(ctx), domain2.name, "README.md");
     return { name: domain2.name, firstLine: existsSync24(readme) ? firstLine(readFileSync19(readme, "utf8")) : null };
   });
-  const principles = knowledge2.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf2(entry), statement: entry.statement }));
-  const laws = knowledge2.entries.filter((entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, kind: entry.kind, place: placeOf2(entry), statement: entry.statement }));
+  const principles = knowledge2.entries.filter((entry2) => entry2.kind === "principle" && entry2.scope !== "cross-domain").map((entry2) => ({ id: entry2.id, place: placeOf2(entry2), statement: entry2.statement }));
+  const laws = knowledge2.entries.filter((entry2) => (entry2.kind === "rule" || entry2.kind === "invariant") && entry2.scope !== "cross-domain").map((entry2) => ({ id: entry2.id, kind: entry2.kind, place: placeOf2(entry2), statement: entry2.statement }));
   const decisions = places.adr ? readDecisions({ ctx }).records.map((record2) => ({ number: record2.number, title: record2.title })) : [];
   return { places, domains, principles, decisions, laws };
 }
@@ -33440,7 +33440,7 @@ function classificationSchema(summary) {
   const kinds = allowedKinds(summary.places);
   const places = placesOf(summary);
   const principles = new Map(summary.principles.map((principle) => [principle.id, principle]));
-  const entryIds = new Set([...summary.principles, ...summary.laws].map((entry) => entry.id));
+  const entryIds = new Set([...summary.principles, ...summary.laws].map((entry2) => entry2.id));
   const records = new Set(summary.decisions.map((record2) => record2.number));
   return ClassificationSchema.superRefine((reply, context) => {
     const issue2 = (path, message) => {
@@ -33580,29 +33580,29 @@ import { existsSync as existsSync25, readFileSync as readFileSync20 } from "node
 import { join as join27 } from "node:path";
 var BECAME_FIELD = "Became";
 var STAYS_HERE_FIELD = "Stays here";
-function writtenBack(entry) {
-  return entry.became.length > 0 || (entry.fields[STAYS_HERE_FIELD] ?? "").trim().length > 0;
+function writtenBack(entry2) {
+  return entry2.became.length > 0 || (entry2.fields[STAYS_HERE_FIELD] ?? "").trim().length > 0;
 }
-function toCandidate(entry, ledgerFile) {
-  const parsed = parseOutboxItem(entry.itemText, { file: null });
+function toCandidate(entry2, ledgerFile) {
+  const parsed = parseOutboxItem(entry2.itemText, { file: null });
   return {
-    id: entry.id,
+    id: entry2.id,
     ledgerFile,
     item: parsed.ok ? parsed.item : null,
-    itemText: entry.itemText,
-    answer: entry.answerText,
-    verdict: entry.verdict ?? null,
-    approvedBy: entry.fields["Approved by"] ?? null,
-    approvedAt: entry.fields["Approved at"] ?? null,
-    channel: entry.fields.Channel ?? null,
-    channelUrl: entry.fields["Channel URL"] ?? null,
-    closed: entry.fields.Closed ?? null,
-    rank: entry.fields.Rank ?? (parsed.ok ? parsed.item.rank : null) ?? null
+    itemText: entry2.itemText,
+    answer: entry2.answerText,
+    verdict: entry2.verdict ?? null,
+    approvedBy: entry2.fields["Approved by"] ?? null,
+    approvedAt: entry2.fields["Approved at"] ?? null,
+    channel: entry2.fields.Channel ?? null,
+    channelUrl: entry2.fields["Channel URL"] ?? null,
+    closed: entry2.fields.Closed ?? null,
+    rank: entry2.fields.Rank ?? (parsed.ok ? parsed.item.rank : null) ?? null
   };
 }
 function candidatesFromLedger(text10, { markers, ledgerFile = null }) {
   const entries3 = parseSettledEntries(text10, markers);
-  return entries3.filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
+  return entries3.filter((entry2) => !writtenBack(entry2)).map((entry2) => toCandidate(entry2, ledgerFile));
 }
 function harvestCandidates({ ctx, prd: prd2 }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
@@ -33681,7 +33681,7 @@ function proofOf({
 function makeNumbering({ ctx, taken }) {
   const highest = /* @__PURE__ */ new Map();
   const bump2 = (key, n) => highest.set(key, Math.max(highest.get(key) ?? 0, Number(n)));
-  for (const id of [...readKnowledge({ ctx }).entries.map((entry) => entry.id), ...taken.ids ?? []]) {
+  for (const id of [...readKnowledge({ ctx }).entries.map((entry2) => entry2.id), ...taken.ids ?? []]) {
     const parts = idParts(id);
     if (parts && parts.codes.length === 1) bump2(`${parts.type}-${parts.codes[0]}`, parts.n);
   }
@@ -33725,7 +33725,7 @@ function makeFiles(ctx) {
     }
   };
 }
-function appendEntry(text10, entry, { heading: heading2 }) {
+function appendEntry(text10, entry2, { heading: heading2 }) {
   let base = text10 ?? `# ${heading2}
 `;
   if (!/^## /m.test(base)) {
@@ -33741,7 +33741,7 @@ function appendEntry(text10, entry, { heading: heading2 }) {
   base = `${base.replace(/\s+$/, "")}
 
 `;
-  return `${base}${entry}`;
+  return `${base}${entry2}`;
 }
 function sourceLine(candidate, ledgerFile, prd2) {
   return `${ledgerFile}, entry ${candidate.id}, PRD #${prd2}`;
@@ -33907,10 +33907,10 @@ function writeKnowledge({
       landedAs = [`ADR-${number4}`];
     } else if (reply.kind === "rule" || reply.kind === "invariant") {
       const source = sourceLine(candidate, ledgerFile, prd2);
-      const entry = writeRegisterEntry({ ctx, files, numbering, reply, candidate, source, decided, merged, merge: merge2, proposed, proposedLine, changed });
-      touched.push(...entry.touched);
-      landedAs = entry.landedAs;
-      proof2 = entry.proof;
+      const entry2 = writeRegisterEntry({ ctx, files, numbering, reply, candidate, source, decided, merged, merge: merge2, proposed, proposedLine, changed });
+      touched.push(...entry2.touched);
+      landedAs = entry2.landedAs;
+      proof2 = entry2.proof;
     } else if (reply.kind === "covered") {
       landedAs = [reply.covers];
     }
@@ -33982,10 +33982,10 @@ function filesUnder(root, dir) {
   const absolute = join29(root, dir);
   if (!existsSync27(absolute)) return [];
   const out = [];
-  for (const entry of readdirSync11(absolute, { withFileTypes: true })) {
-    const rel = `${dir}/${entry.name}`;
-    if (entry.isDirectory()) out.push(...filesUnder(root, rel));
-    else if (entry.isFile()) out.push(rel);
+  for (const entry2 of readdirSync11(absolute, { withFileTypes: true })) {
+    const rel = `${dir}/${entry2.name}`;
+    if (entry2.isDirectory()) out.push(...filesUnder(root, rel));
+    else if (entry2.isFile()) out.push(rel);
   }
   return out;
 }
@@ -34098,7 +34098,7 @@ function finishHarvest({
   return inScratch(ctx, (scratch) => {
     applyHarvestEdits({ root: scratch.root, edits: prepared.edits });
     const before2 = runChecks(scratch);
-    const replies2 = new Map(classified.map((entry) => [entry.id, entry]));
+    const replies2 = new Map(classified.map((entry2) => [entry2.id, entry2]));
     const candidates = harvestCandidates({ ctx: scratch, prd: prepared.prd });
     const dropped = /* @__PURE__ */ new Map();
     const attempt9 = (keep) => {
@@ -34111,7 +34111,7 @@ function finishHarvest({
       });
       return writeKnowledge({
         ctx: scratch,
-        classified: input2.filter((entry) => entry !== null),
+        classified: input2.filter((entry2) => entry2 !== null),
         merge: merge2,
         taken,
         date: date5,
@@ -34126,15 +34126,15 @@ function finishHarvest({
     let result = attempt9(null);
     if (failures(result).length > 0) {
       const kept = [];
-      for (const entry of result.placed) {
-        const trial = attempt9([...kept, entry.id]);
+      for (const entry2 of result.placed) {
+        const trial = attempt9([...kept, entry2.id]);
         const failed2 = failures(trial);
-        if (failed2.length > 0) dropped.set(entry.id, `the checks refused it: ${failed2.join("; ")}`);
-        else kept.push(entry.id);
+        if (failed2.length > 0) dropped.set(entry2.id, `the checks refused it: ${failed2.join("; ")}`);
+        else kept.push(entry2.id);
       }
       result = attempt9(null);
     }
-    const writes = result.placed.some((entry) => PROMOTIONS.includes(entry.kind)) ? result.writes : [];
+    const writes = result.placed.some((entry2) => PROMOTIONS.includes(entry2.kind)) ? result.writes : [];
     applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves: [], writes } });
     const checks = runChecks(scratch);
     const edits = {
@@ -34666,8 +34666,8 @@ function homeTokens({ home = homedir() } = {}) {
   const file2 = join30(home, ...FILE);
   return {
     read(host) {
-      const entry = TokensSchema.safeParse(readAll(file2)[host]);
-      return entry.success ? entry.data : null;
+      const entry2 = TokensSchema.safeParse(readAll(file2)[host]);
+      return entry2.success ? entry2.data : null;
     },
     write(host, tokens) {
       const all = { ...readAll(file2), [host]: tokens };
@@ -34732,10 +34732,10 @@ function readTranscript(text10) {
   const usage2 = /* @__PURE__ */ new Map();
   for (const raw of typeof text10 === "string" ? text10.split("\n") : []) {
     if (!raw.trim()) continue;
-    const entry = attempt2(() => JSON.parse(raw));
-    const message = field(entry, "message");
+    const entry2 = attempt2(() => JSON.parse(raw));
+    const message = field(entry2, "message");
     if (!message || typeof message !== "object") continue;
-    const type = field(entry, "type");
+    const type = field(entry2, "type");
     if (type === "user") {
       const last = [...textOf(field(message, "content")).matchAll(COMMAND)].at(-1);
       if (last) skill = last[1] ?? null;
@@ -34809,8 +34809,8 @@ function parse5(raw) {
     return null;
   }
 }
-var blocksOf = (entry) => {
-  const content = field(field(entry, "message"), "content");
+var blocksOf = (entry2) => {
+  const content = field(field(entry2, "message"), "content");
   return Array.isArray(content) ? content : [];
 };
 var isQuestion = (block, toolUseId) => field(block, "type") === "tool_use" && field(block, "name") === TOOL && (toolUseId ? field(block, "id") === toolUseId : true);
@@ -34827,9 +34827,9 @@ function cut(text10, max) {
 }
 function readLead(text10, toolUseId) {
   if (typeof text10 !== "string") return null;
-  const entries3 = text10.split("\n").filter((raw) => raw.trim()).map(parse5).filter((entry) => Boolean(entry) && typeof entry === "object");
+  const entries3 = text10.split("\n").filter((raw) => raw.trim()).map(parse5).filter((entry2) => Boolean(entry2) && typeof entry2 === "object");
   let at2 = -1;
-  if (toolUseId) at2 = entries3.findLastIndex((entry) => field(entry, "type") === "assistant" && blocksOf(entry).some((b) => isQuestion(b, toolUseId)));
+  if (toolUseId) at2 = entries3.findLastIndex((entry2) => field(entry2, "type") === "assistant" && blocksOf(entry2).some((b) => isQuestion(b, toolUseId)));
   const parts = [];
   const texts = (blocks) => blocks.flatMap((b) => {
     const text11 = field(b, "text");
@@ -34912,8 +34912,8 @@ function shapeAnswers(questions2, answers2, { partly }) {
   const list3 = questionsToShape(questions2, answers2);
   if (!list3) return null;
   const shaped = {};
-  for (const entry of list3) {
-    const question = questionOf(entry);
+  for (const entry2 of list3) {
+    const question = questionOf(entry2);
     const text10 = answerText(field(answers2, question));
     if (text10 !== null) shaped[question] = text10;
     else if (!partly) return null;
@@ -34926,9 +34926,9 @@ function questionsToShape(questions2, answers2) {
   const list3 = questions2;
   return list3;
 }
-function questionOf(entry) {
-  if (entry === null || entry === void 0) throw new TypeError(`a question is ${String(entry)}`);
-  return String(field(entry, "question"));
+function questionOf(entry2) {
+  if (entry2 === null || entry2 === void 0) throw new TypeError(`a question is ${String(entry2)}`);
+  return String(field(entry2, "question"));
 }
 function answerText(given) {
   const text10 = Array.isArray(given) && given.every((label) => typeof label === "string") ? given.join(", ") : given;
@@ -35274,8 +35274,8 @@ function credentials({ home = homedir2() } = {}) {
     /** The host's entry, or `null`. */
     read: (host) => tokens.read(host),
     /** Keeps the host's entry, and every other host's, at mode 0600. */
-    write: (host, entry) => {
-      tokens.write(host, entry);
+    write: (host, entry2) => {
+      tokens.write(host, entry2);
     },
     /** Forgets the host; `true` when it had an entry. The file goes with its last host. */
     remove(host) {
@@ -35326,13 +35326,13 @@ async function exchangeCode({ askUrl: askUrl2, code, repo = null, fetch = global
     const reason2 = isText(reply?.error) ? reply.error : `HTTP ${response.status}`;
     throw new SignInError(`the sign-in was refused: ${reason2}`);
   }
-  const entry = tokenEntry(reply);
-  if (!entry) throw new SignInError("the sign-in server answered with no tokens.");
+  const entry2 = tokenEntry(reply);
+  if (!entry2) throw new SignInError("the sign-in server answered with no tokens.");
   const workspace = workspaceOf(reply?.workspace);
   return {
-    entry,
-    login: entry.login ?? null,
-    email: entry.email ?? null,
+    entry: entry2,
+    login: entry2.login ?? null,
+    email: entry2.email ?? null,
     workspace,
     reason: !workspace && isText(reply?.reason) ? reply.reason : null
   };
@@ -35496,8 +35496,8 @@ var signin = {
       } catch {
       }
       const code = await listener.code;
-      const { entry, ...where } = await exchangeCode({ askUrl: askUrl2, code, repo, fetch });
-      credentials({ home }).write(credentialsHost(askUrl2), entry);
+      const { entry: entry2, ...where } = await exchangeCode({ askUrl: askUrl2, code, repo, fetch });
+      credentials({ home }).write(credentialsHost(askUrl2), entry2);
       const line = signedInLine({ ...where, repo });
       if (onSignedIn) onSignedIn(line);
       else println(stdout, line);
@@ -35536,27 +35536,27 @@ var whoami = {
     }
     const host = credentialsHost(askUrl2);
     const store = credentials({ home });
-    const entry = store.read(host);
-    if (!entry) {
+    const entry2 = store.read(host);
+    if (!entry2) {
       println(stdout, "signed out");
       return 0;
     }
-    const who2 = accountOf(entry, `signed in to ${host}`);
-    if (!expired(entry)) {
+    const who2 = accountOf(entry2, `signed in to ${host}`);
+    if (!expired(entry2)) {
       println(stdout, who2);
       return 0;
     }
     const outcome = await askClient({ baseUrl: askUrl2, host, tokens: store, fetch }).renew();
     if (outcome === "refused") {
-      println(stderr, `the sign-in of ${accountOf(entry, "this computer")} to ${host} is no longer valid: run \`omni signin\` again`);
+      println(stderr, `the sign-in of ${accountOf(entry2, "this computer")} to ${host} is no longer valid: run \`omni signin\` again`);
       return 1;
     }
     println(stdout, outcome === "renewed" ? who2 : `${who2} (not checked: ${host} is unreachable)`);
     return 0;
   }
 };
-function accountOf(entry, fallback3) {
-  const named3 = entry.email ?? entry.login;
+function accountOf(entry2, fallback3) {
+  const named3 = entry2.email ?? entry2.login;
   return typeof named3 === "string" ? named3 : fallback3;
 }
 function expired({ expires_at: at2 }, now = Date.now()) {
@@ -35781,7 +35781,7 @@ function boardFor({
   const ordered = landings ?? [{ landing: 1, name: "landing-1", branch: fillBranch(config3.branches.feature, { topic }) }];
   const landed = ordered.length > 1;
   const acrossRepos = slices.some((slice) => (slice.repo ?? null) !== null);
-  const entryOf2 = (slice) => ordered.find((entry) => entry.landing === (slice.landing ?? 1) && (!acrossRepos || entry.repo === void 0 || entry.repo === slice.repo));
+  const entryOf2 = (slice) => ordered.find((entry2) => entry2.landing === (slice.landing ?? 1) && (!acrossRepos || entry2.repo === void 0 || entry2.repo === slice.repo));
   const branchOf2 = (slice) => entryOf2(slice)?.branch ?? "";
   const live = prs.filter(isLive);
   const repoOf = (slice) => acrossRepos ? repos?.[String(slice.repo)] ?? { slug: null, readable: false } : null;
@@ -35813,8 +35813,8 @@ function boardFor({
     return { ...rest, repo: slice.repo, slug: repo.slug, pr, state };
   });
   if (!landed) return { prd: { topic }, slices: rows2, frontier: runnableFrontier(rows2) };
-  const slugOf3 = (entry) => acrossRepos && entry.repo !== void 0 ? repos?.[String(entry.repo)]?.slug ?? null : void 0;
-  const counted3 = ordered.map((entry) => landingRow(entry, { rows: rows2, slices, live, slug: slugOf3(entry), acrossRepos }));
+  const slugOf3 = (entry2) => acrossRepos && entry2.repo !== void 0 ? repos?.[String(entry2.repo)]?.slug ?? null : void 0;
+  const counted3 = ordered.map((entry2) => landingRow(entry2, { rows: rows2, slices, live, slug: slugOf3(entry2), acrossRepos }));
   const currentOf = /* @__PURE__ */ new Map();
   for (const row of counted3) {
     const key = row.repo ?? null;
@@ -35834,15 +35834,15 @@ function boardFor({
   };
 }
 var OPEN_STATES = /* @__PURE__ */ new Set(["stuck", "claimed-stale", "in-flight"]);
-function landingRow(entry, { rows: rows2, slices, live, slug, acrossRepos }) {
-  const mine = (slice) => (slice.landing ?? 1) === entry.landing && (!acrossRepos || entry.repo === void 0 || entry.repo === slice.repo);
+function landingRow(entry2, { rows: rows2, slices, live, slug, acrossRepos }) {
+  const mine = (slice) => (slice.landing ?? 1) === entry2.landing && (!acrossRepos || entry2.repo === void 0 || entry2.repo === slice.repo);
   const ids2 = slices.filter(mine).map((slice) => slice.id);
   const own2 = rows2.filter((row) => ids2.includes(row.id));
   const merged = own2.filter((row) => row.state === "merged").length;
   const open3 = own2.filter((row) => OPEN_STATES.has(row.state)).length;
-  const pr = pickPr(live.filter((candidate) => candidate.headRefName === entry.branch && (slug === void 0 || candidate.slug === slug)));
+  const pr = pickPr(live.filter((candidate) => candidate.headRefName === entry2.branch && (slug === void 0 || candidate.slug === slug)));
   return {
-    ...entry,
+    ...entry2,
     slices: ids2,
     merged,
     open: open3,
@@ -36595,9 +36595,9 @@ function compareRanks(left, right) {
 }
 function targetEntry(step) {
   const base = { repo: step.slug, kind: step.landing === null ? "target" : "landing", target: step.name };
-  const entry = foundEntry(base, step.found);
-  if (entry === null || step.landing === null) return entry;
-  return { ...entry, landing: step.landing };
+  const entry2 = foundEntry(base, step.found);
+  if (entry2 === null || step.landing === null) return entry2;
+  return { ...entry2, landing: step.landing };
 }
 function mergeOrder({
   repositories,
@@ -36606,7 +36606,7 @@ function mergeOrder({
   plan: plan2
 }) {
   const ordered = [...targets2].sort((left, right) => compareRanks(rank(left, repositories), rank(right, repositories)));
-  const entries3 = ordered.map(targetEntry).filter((entry) => entry !== null);
+  const entries3 = ordered.map(targetEntry).filter((entry2) => entry2 !== null);
   return [...entries3, ...bugs.flat(), ...plan2 === null ? [] : [plan2]];
 }
 function linksPrd(body, prd2) {
@@ -37003,7 +37003,7 @@ function bugEntries(issue2, reader) {
   const fixPlan = (view.comments ?? []).find((comment2) => (comment2.body ?? "").includes(FIX_PLAN_MARKER));
   const fixes = fixPlanRows(fixPlan?.body).map(({ slug, pr }) => entryOf2("bug-fix", slug, pr));
   const records = (view.closedByPullRequestsReferences ?? []).map((ref) => entryOf2("bug-record", slugOfUrl(ref.url) ?? planSlug, ref.number));
-  return [...fixes, ...records].filter((entry) => entry !== null);
+  return [...fixes, ...records].filter((entry2) => entry2 !== null);
 }
 function linkedBugs(prd2, label, reader) {
   let issues;
@@ -37014,11 +37014,11 @@ function linkedBugs(prd2, label, reader) {
   }
   return issues.filter((issue2) => linksPrd(issue2.body, prd2)).sort((left, right) => left.number - right.number).map((issue2) => bugEntries(issue2.number, reader));
 }
-function listLine(entry, index) {
-  const where = entry.number === null ? entry.repo : `${entry.repo}#${entry.number}`;
-  const landing = entry.landing ? ` \u2014 landing ${entry.landing.landing}/${entry.landing.count} ${entry.landing.name}` : "";
-  const target3 = entry.target === null ? "" : ` \u2014 ${entry.target}`;
-  return `  ${index + 1}. ${entry.kind.padEnd("bug-record".length)} ${where} \u2014 ${entry.state}${target3}${landing}`;
+function listLine(entry2, index) {
+  const where = entry2.number === null ? entry2.repo : `${entry2.repo}#${entry2.number}`;
+  const landing = entry2.landing ? ` \u2014 landing ${entry2.landing.landing}/${entry2.landing.count} ${entry2.landing.name}` : "";
+  const target3 = entry2.target === null ? "" : ` \u2014 ${entry2.target}`;
+  return `  ${index + 1}. ${entry2.kind.padEnd("bug-record".length)} ${where} \u2014 ${entry2.state}${target3}${landing}`;
 }
 function careList(prd2, { ctx, gh: gh2 }) {
   const targets2 = ctx.config.plan?.targets ?? [];
@@ -37041,8 +37041,8 @@ function runList(args, { ctx, stdout, exec, env }) {
     return 0;
   }
   println(stdout, `omni care list \u2014 PRD ${prd2}: ${entries3.length} pull request${entries3.length === 1 ? "" : "s"}, in merge order.`);
-  entries3.forEach((entry, index) => {
-    println(stdout, listLine(entry, index));
+  entries3.forEach((entry2, index) => {
+    println(stdout, listLine(entry2, index));
   });
   return 0;
 }
@@ -37296,7 +37296,7 @@ function issuePrefix(issue2) {
 function numberedFolders(ctx, root, prefix) {
   const absolute = join36(ctx.root, root);
   if (!existsSync29(absolute)) return [];
-  return readdirSync13(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => `${root}/${entry.name}`).sort();
+  return readdirSync13(absolute, { withFileTypes: true }).filter((entry2) => entry2.isDirectory() && entry2.name.startsWith(prefix) && entry2.name.length > prefix.length).map((entry2) => `${root}/${entry2.name}`).sort();
 }
 function rasterFaults(page2, html) {
   return RASTER_DATA_URL.test(html) ? [`${page2}: holds a base64 raster image (a data:image/ URL that is not SVG); draw it in SVG or CSS.`] : [];
@@ -37822,7 +37822,7 @@ function frontMatter(raw) {
 }
 function listCell(cell2) {
   if (NONE_CELL.test(cell2)) return [];
-  return cell2.split(",").map((entry) => entry.trim()).filter((entry) => entry !== "");
+  return cell2.split(",").map((entry2) => entry2.trim()).filter((entry2) => entry2 !== "");
 }
 function columns(table, wanted, where) {
   const position = (name2) => table.header.findIndex((cell3) => cell3.toLowerCase() === name2.toLowerCase());
@@ -37839,7 +37839,7 @@ function rowOpening(id, index, where) {
   return { label, rowFaults };
 }
 function idListFaults(entries3, where) {
-  return entries3.filter((entry) => !ID_CELL.test(entry)).map((entry) => `${where} "${entry}", which is no id.`);
+  return entries3.filter((entry2) => !ID_CELL.test(entry2)).map((entry2) => `${where} "${entry2}", which is no id.`);
 }
 function prdsOf(section5) {
   if (!section5) return { rows: [], repos: false, faults: ['sections: no "## PRDs" section.'] };
@@ -37948,22 +37948,22 @@ function prdFacts(ctx, prd2) {
   const parsed = parseSpec(readRepoFile(ctx, specFile), { file: specFile });
   return parsed.ok ? { blockedBy: parsed.record.blockedBy } : "unreadable";
 }
-function gradeRoadmapFile(ctx, entry) {
-  const at2 = (message) => `${entry.file}: ${message}`;
-  if (!existsSync30(join38(ctx.root, entry.file))) return { ...entry, roadmap: null, violations: [at2("roadmap.md is missing.")] };
-  const parsed = parseRoadmap(readRepoFile(ctx, entry.file));
-  if (!parsed.ok) return { ...entry, roadmap: null, violations: parsed.errors.map(at2) };
+function gradeRoadmapFile(ctx, entry2) {
+  const at2 = (message) => `${entry2.file}: ${message}`;
+  if (!existsSync30(join38(ctx.root, entry2.file))) return { ...entry2, roadmap: null, violations: [at2("roadmap.md is missing.")] };
+  const parsed = parseRoadmap(readRepoFile(ctx, entry2.file));
+  if (!parsed.ok) return { ...entry2, roadmap: null, violations: parsed.errors.map(at2) };
   const { roadmap: roadmap2 } = parsed;
   const violations = [];
-  if (roadmap2.roadmap !== entry.number) {
-    violations.push(`roadmap ${roadmap2.roadmap} does not agree with its folder's number, ${entry.number}.`);
+  if (roadmap2.roadmap !== entry2.number) {
+    violations.push(`roadmap ${roadmap2.roadmap} does not agree with its folder's number, ${entry2.number}.`);
   }
   const targets2 = ctx.config.plan?.targets ?? null;
   violations.push(...gradeRoadmap(roadmap2, { prdFacts: (prd2) => prdFacts(ctx, prd2), targets: targets2 }));
-  return { ...entry, roadmap: roadmap2, violations: violations.map(at2) };
+  return { ...entry2, roadmap: roadmap2, violations: violations.map(at2) };
 }
 function gradeRoadmaps(ctx) {
-  return roadmapFiles(ctx).map((entry) => gradeRoadmapFile(ctx, entry));
+  return roadmapFiles(ctx).map((entry2) => gradeRoadmapFile(ctx, entry2));
 }
 function findRoadmapViolations(ctx) {
   return gradeRoadmaps(ctx).flatMap((graded) => graded.violations);
@@ -38091,7 +38091,7 @@ function knownAreas(ctx) {
   const dir = join39(ctx.root, domainsDir(ctx));
   if (!existsSync31(dir)) return /* @__PURE__ */ new Set();
   return new Set(
-    readdirSync14(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+    readdirSync14(dir, { withFileTypes: true }).filter((entry2) => entry2.isDirectory()).map((entry2) => entry2.name)
   );
 }
 function violationsForFile(file2, folder, text10, ctx) {
@@ -38254,9 +38254,9 @@ function gradeForm({ id, kind }, { ctx, exec }) {
   for (const { where, old, now } of form2.oldSpellings) warnings.push(`${file2}: ${where} says ${old} \u2014 the old spelling; write ${now}`);
   const pointer = form2.state === "pointer";
   for (const slot of form2.slots) {
-    const kitSlot = kit.slots.find((entry) => entry.id === slot.id);
+    const kitSlot = kit.slots.find((entry2) => entry2.id === slot.id);
     if (!kitSlot) {
-      violations.push(`${file2}: slot "${slot.id}" is not a slot of the ${id} form \u2014 its slots are ${kit.slots.map((entry) => entry.id).join(", ")}`);
+      violations.push(`${file2}: slot "${slot.id}" is not a slot of the ${id} form \u2014 its slots are ${kit.slots.map((entry2) => entry2.id).join(", ")}`);
     }
     if (slot.body.kind === "pointer" && gone(slot.body.see.path)) violations.push(`${file2}: "## ${slot.heading}" See: ${slot.body.see.path} does not exist`);
     if (kitSlot?.required && kind === "core" && !pointer && slot.body.kind === "empty") {
@@ -38265,7 +38265,7 @@ function gradeForm({ id, kind }, { ctx, exec }) {
     for (const question of slot.body.questions) warnings.push(`${file2}: "## ${slot.heading}" TODO(human): ${question}`);
   }
   if (!pointer) {
-    for (const kitSlot of kit.slots.filter((entry) => entry.required && !form2.slots.some((slot) => slot.id === entry.id))) {
+    for (const kitSlot of kit.slots.filter((entry2) => entry2.required && !form2.slots.some((slot) => slot.id === entry2.id))) {
       violations.push(`${file2}: required slot "${kitSlot.id}" has no marker \u2014 want "## ${kitSlot.heading}", then <!-- slot: ${kitSlot.id} \xB7 required -->`);
     }
   }
@@ -38274,11 +38274,11 @@ function gradeForm({ id, kind }, { ctx, exec }) {
 function gradePlaybook({ ctx, exec }) {
   const violations = [];
   const warnings = [];
-  const forms = FORMS.map((entry) => {
-    const grade = gradeForm(entry, { ctx, exec });
+  const forms = FORMS.map((entry2) => {
+    const grade = gradeForm(entry2, { ctx, exec });
     violations.push(...grade.violations);
     warnings.push(...grade.warnings);
-    return { form: entry.id, state: grade.state };
+    return { form: entry2.id, state: grade.state };
   });
   return { violations, warnings, forms };
 }
@@ -38381,14 +38381,14 @@ function buildProblem(build, { tracked, scripts }) {
   if (tracked.includes(first.replace(/^\.\//, ""))) return null;
   return `${first} is neither a package.json script runner, node <file>, nor a tracked file`;
 }
-function entryViolations(entry, index, ground) {
-  const name2 = `generated.${index} (${entry.path})`;
+function entryViolations(entry2, index, ground) {
+  const name2 = `generated.${index} (${entry2.path})`;
   const matchesNothing = (prefix) => !ground.tracked.some((file2) => covers([prefix], file2));
   const out = [];
-  if (matchesNothing(entry.path)) out.push(`${name2}: path ${entry.path} matches no tracked file`);
-  for (const prefix of entry.from.filter(matchesNothing)) out.push(`${name2}: from ${prefix} matches no tracked file`);
-  const problem = buildProblem(entry.build, ground);
-  if (problem !== null) out.push(`${name2}: build ${entry.build} \u2014 ${problem}`);
+  if (matchesNothing(entry2.path)) out.push(`${name2}: path ${entry2.path} matches no tracked file`);
+  for (const prefix of entry2.from.filter(matchesNothing)) out.push(`${name2}: from ${prefix} matches no tracked file`);
+  const problem = buildProblem(entry2.build, ground);
+  if (problem !== null) out.push(`${name2}: build ${entry2.build} \u2014 ${problem}`);
   return out;
 }
 var PACKAGE_FILE = "package.json";
@@ -38403,7 +38403,7 @@ function readGround(root) {
   return { tracked: trackedFiles({ root }), scripts: rootScripts(root) };
 }
 function generatedViolations(entries3, ground) {
-  return entries3.flatMap((entry, index) => entryViolations(entry, index, ground));
+  return entries3.flatMap((entry2, index) => entryViolations(entry2, index, ground));
 }
 
 // kit/bin/commands/check.ts
@@ -38451,7 +38451,7 @@ function checkKnowledge({ ctx, stdout, stderr }) {
   for (const wish of wishes) println(stderr, `warning: ${wish}`);
   for (const proposal of proposals) println(stderr, `warning: ${proposal}`);
   const knowledge2 = readKnowledge({ ctx });
-  const count4 = (kind) => knowledge2.entries.filter((entry) => entry.kind === kind).length;
+  const count4 = (kind) => knowledge2.entries.filter((entry2) => entry2.kind === kind).length;
   return report(
     stdout,
     title,
@@ -38505,10 +38505,10 @@ function checkCoverage({ ctx, stdout, exec }, { base, prd: prd2 }) {
   if (prd2 === null) return ok;
   const risky = riskyChanges(rangeChanges({ ctx, base, exec }), { ctx });
   const result = gradePrd(prd2, risky, { ctx });
-  for (const entry of result.stale) {
+  for (const entry2 of result.stale) {
     println(
       stdout,
-      `check coverage \u2014 PRD #${prd2}: stale \u2014 ${entry.file}: \`${entry.path}\` (${entry.rule}) does not match this range; reported, not fatal.`
+      `check coverage \u2014 PRD #${prd2}: stale \u2014 ${entry2.file}: \`${entry2.path}\` (${entry2.rule}) does not match this range; reported, not fatal.`
     );
   }
   const violations = [...result.malformed, ...result.unaccounted.map((change) => describeUnaccounted(prd2, change))];
@@ -39029,22 +39029,22 @@ function recordFaults(ctx, folder, concept2) {
   return parsed.record.concept === concept2 ? [] : [`${file2}: concept is ${parsed.record.concept}, not ${concept2}.`];
 }
 var byName = (a, b) => a < b ? -1 : a > b ? 1 : 0;
-function entryKind(entry) {
-  const round2 = entry.isFile() ? ROUND.exec(entry.name) : null;
+function entryKind(entry2) {
+  const round2 = entry2.isFile() ? ROUND.exec(entry2.name) : null;
   if (round2) return { kind: "round", k: Number(round2[1]) };
-  if (!entry.isFile()) return { kind: "other" };
-  if (REQUIRED2.includes(entry.name)) return { kind: "present" };
-  return { kind: ROUND_LIKE.test(entry.name) ? "misnamed" : "other" };
+  if (!entry2.isFile()) return { kind: "other" };
+  if (REQUIRED2.includes(entry2.name)) return { kind: "present" };
+  return { kind: ROUND_LIKE.test(entry2.name) ? "misnamed" : "other" };
 }
 function folderEntries(ctx, folder) {
   const sorted = { present: /* @__PURE__ */ new Set(), rounds: [], misnamed: [], others: [] };
-  for (const entry of readdirSync15(join46(ctx.root, folder), { withFileTypes: true })) {
-    const found2 = entryKind(entry);
+  for (const entry2 of readdirSync15(join46(ctx.root, folder), { withFileTypes: true })) {
+    const found2 = entryKind(entry2);
     const { kind } = found2;
-    if (found2.kind === "round") sorted.rounds.push({ name: entry.name, k: found2.k });
-    else if (kind === "present") sorted.present.add(entry.name);
-    else if (kind === "misnamed") sorted.misnamed.push(entry.name);
-    else sorted.others.push(entry.name);
+    if (found2.kind === "round") sorted.rounds.push({ name: entry2.name, k: found2.k });
+    else if (kind === "present") sorted.present.add(entry2.name);
+    else if (kind === "misnamed") sorted.misnamed.push(entry2.name);
+    else sorted.others.push(entry2.name);
   }
   sorted.rounds.sort((a, b) => a.k - b.k);
   return sorted;
@@ -39604,14 +39604,14 @@ init_define_OMNI_BUNDLE();
 // kit/lib/dossier/draft.ts
 init_define_OMNI_BUNDLE();
 function chooseDraft(entries3, { prd: prd2, claudeSessionId }) {
-  const unnumbered = entries3.filter((entry) => entry.prd === null);
+  const unnumbered = entries3.filter((entry2) => entry2.prd === null);
   if (claudeSessionId) {
-    const mine = unnumbered.filter((entry) => entry.claudeSessionId === claudeSessionId);
+    const mine = unnumbered.filter((entry2) => entry2.claudeSessionId === claudeSessionId);
     const latest = mine.at(-1);
     if (latest) return latest;
   }
-  if (entries3.some((entry) => entry.prd === prd2)) return null;
-  const free = claudeSessionId ? unnumbered.filter((entry) => entry.claudeSessionId === null) : unnumbered;
+  if (entries3.some((entry2) => entry2.prd === prd2)) return null;
+  const free = claudeSessionId ? unnumbered.filter((entry2) => entry2.claudeSessionId === null) : unnumbered;
   return free.length === 1 ? free[0] ?? null : null;
 }
 
@@ -39680,7 +39680,7 @@ function readFixFolder(ctx, kind, issue2, { issueTitle: issueTitle2 = null } = {
   const absolute = join47(ctx.root, root);
   if (!existsSync37(absolute)) return null;
   const prefix = `${String(issue2).padStart(4, "0")}-`;
-  const name2 = readdirSync16(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => entry.name).sort()[0];
+  const name2 = readdirSync16(absolute, { withFileTypes: true }).filter((entry2) => entry2.isDirectory() && entry2.name.startsWith(prefix) && entry2.name.length > prefix.length).map((entry2) => entry2.name).sort()[0];
   if (!name2) return null;
   const dir = `${root}/${name2}`;
   const artifacts = [];
@@ -39721,9 +39721,9 @@ function skipLine(error62) {
   return error62.status === 403 && error62.reason ? `refused (403): ${error62.reason}` : `refused (${error62.status})`;
 }
 var isText4 = (value) => typeof value === "string" && value.length > 0;
-function versionOf(entry) {
-  const kind = field(entry, "kind");
-  const version3 = field(entry, "version");
+function versionOf(entry2) {
+  const kind = field(entry2, "kind");
+  const version3 = field(entry2, "version");
   return isText4(kind) && typeof version3 === "number" && Number.isInteger(version3) ? { kind, version: version3 } : null;
 }
 function addedLine({ added, unchanged }) {
@@ -39813,14 +39813,14 @@ async function push(prd2, { ctx, repo, client, home, claudeSessionId, stdout, st
   const id = field(result, "id");
   const url2 = field(result, "url");
   if (!isText4(id) || !isText4(url2)) return reportPush(result, [], { stdout, stderr });
-  if (draft && readDossiers(where).some((entry) => entry.id === draft.id)) {
+  if (draft && readDossiers(where).some((entry2) => entry2.id === draft.id)) {
     markNumbered(where, draft.id, { prd: prd2, id, url: url2 });
   }
   return reportPush(result, folder.tooLarge, { stdout, stderr });
 }
 function recordedLink(home, prd2, kind) {
   if (!home || kind !== "prd") return null;
-  return readDossiers(home).filter((entry) => entry.prd === prd2).at(-1) ?? null;
+  return readDossiers(home).filter((entry2) => entry2.prd === prd2).at(-1) ?? null;
 }
 async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
   let found2;
@@ -40260,7 +40260,7 @@ function rangePaths({ root, range, exec }) {
   return parseNameStatus(text10).map(({ path }) => path);
 }
 function staleness(entries3, changed) {
-  return entries3.map((entry) => ({ ...entry, stale: changed.some((path) => covers(entry.from, path)) }));
+  return entries3.map((entry2) => ({ ...entry2, stale: changed.some((path) => covers(entry2.from, path)) }));
 }
 
 // kit/bin/commands/generated.ts
@@ -40293,24 +40293,24 @@ var generated = {
 init_define_OMNI_BUNDLE();
 var USAGE14 = "usage: omni harvest <prd> --pr <feature pull request>";
 var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-function landedText(entry) {
-  const ids2 = entry.landedAs.join(", ");
-  switch (entry.kind) {
+function landedText(entry2) {
+  const ids2 = entry2.landedAs.join(", ");
+  switch (entry2.kind) {
     case "stays-here":
       return "stays here";
     case "covered":
       return `covered by ${ids2}`;
     case "adr":
-      return `${ids2} (new, ${entry.status})`;
+      return `${ids2} (new, ${entry2.status})`;
     case "rule":
     case "invariant":
-      return `${ids2} (new, ${entry.proposed ? "proposed" : "confirmed"})`;
+      return `${ids2} (new, ${entry2.proposed ? "proposed" : "confirmed"})`;
   }
 }
-function proofLines(entry) {
-  if (!entry.enforcedBy) return [];
-  const enforced = entry.enforcedBy.length > 0 ? entry.enforcedBy.join(", ") : "unenforced";
-  return [`      Enforced by: ${enforced}`, ...(entry.dropped ?? []).map((drop) => `      dropped ${drop.path} \u2014 ${drop.reason}`)];
+function proofLines(entry2) {
+  if (!entry2.enforcedBy) return [];
+  const enforced = entry2.enforcedBy.length > 0 ? entry2.enforcedBy.join(", ") : "unenforced";
+  return [`      Enforced by: ${enforced}`, ...(entry2.dropped ?? []).map((drop) => `      dropped ${drop.path} \u2014 ${drop.reason}`)];
 }
 function checkLine(name2, violations) {
   return violations.length === 0 ? `omni check ${name2} \u2713` : `omni check ${name2} \u2717 (${violations.length})`;
@@ -40350,7 +40350,7 @@ var harvest = {
     applyHarvestEdits({ root: ctx.root, edits: result.edits });
     const lines = [`omni harvest \u2014 PRD ${prd2}, pull request #${merge2.pr} merged by @${merge2.by} on ${merge2.at.slice(0, 10)}${pr.mergeSha ? ` (${pr.mergeSha.slice(0, 7)})` : ""}:`];
     if (prepared.settled.length > 0) {
-      const open3 = prepared.settled.filter((entry) => entry.from === "open").length;
+      const open3 = prepared.settled.filter((entry2) => entry2.from === "open").length;
       const drift = prepared.settled.length - open3;
       lines.push(`  settled at merge: ${open3} open item(s), ${drift} drift(s) never reworked, adopted by @${merge2.by} (merged over a red outbox)`);
     }
@@ -40359,11 +40359,11 @@ var harvest = {
     for (const { path } of result.edits.writes) lines.push(`  wrote ${path}`);
     if (result.placed.length > 0) {
       lines.push("  placed:");
-      for (const entry of result.placed) lines.push(`    ${entry.id} \u2192 ${landedText(entry)} \u2014 ${entry.reason}`, ...proofLines(entry));
+      for (const entry2 of result.placed) lines.push(`    ${entry2.id} \u2192 ${landedText(entry2)} \u2014 ${entry2.reason}`, ...proofLines(entry2));
     }
     if (result.notPlaced.length > 0) {
       lines.push("  not placed:");
-      for (const entry of result.notPlaced) lines.push(`    ${entry.id} \u2014 ${entry.reason}`);
+      for (const entry2 of result.notPlaced) lines.push(`    ${entry2.id} \u2014 ${entry2.reason}`);
     }
     if (prepared.candidates.length === 0) lines.push("  nothing to harvest: every settled decision was written back already.");
     lines.push(`  checks: ${checkLine("knowledge", result.checks.knowledge)} \xB7 ${checkLine("outbox", result.checks.outbox)}`);
@@ -40413,7 +40413,7 @@ function findWork({ claudeSessionId, drafts, branch, branches, folders }) {
   return prdWork(branch, branches, folders) ?? fixWork(branch, branches, folders);
 }
 function draftWork(claudeSessionId, drafts) {
-  const own2 = (drafts ?? []).filter((entry) => entry.claudeSessionId === claudeSessionId).sort((a, b) => a.openedAt.localeCompare(b.openedAt)).at(-1);
+  const own2 = (drafts ?? []).filter((entry2) => entry2.claudeSessionId === claudeSessionId).sort((a, b) => a.openedAt.localeCompare(b.openedAt)).at(-1);
   if (!own2) return null;
   return own2.prd === null ? { kind: "draft", draftId: own2.id } : { kind: "prd", number: own2.prd };
 }
@@ -41438,7 +41438,7 @@ var ENTRIES = deepFreeze([
 ]);
 
 // kit/lib/help/render.ts
-var hasLabel2 = (entry) => Boolean(entry.label);
+var hasLabel2 = (entry2) => Boolean(entry2.label);
 var HELP_WIDTH = 78;
 var HELP_INDENT = "  ";
 var LABEL_COLUMN = 24;
@@ -41490,14 +41490,14 @@ function renderOverview(config3, { entries: entries3 = ENTRIES } = {}) {
   }
   lines.push("", ...wrapWords(PRINCIPLES.map(fill3).join(" "), { indent: HELP_INDENT }), "");
   lines.push("IN CLAUDE (type these)");
-  for (const entry of entries3.filter((e) => e.kind === "skill" && e.who === "you")) {
-    lines.push(overviewRow(fill3(entry.label ?? ""), fill3(entry.summary)));
+  for (const entry2 of entries3.filter((e) => e.kind === "skill" && e.who === "you")) {
+    lines.push(overviewRow(fill3(entry2.label ?? ""), fill3(entry2.summary)));
   }
   lines.push("", "IN THE TERMINAL");
   const yours2 = entries3.filter((e) => e.kind === "command" && e.who === "you");
-  for (const entry of yours2.filter(hasLabel2)) {
-    lines.push(overviewRow(fill3(entry.label), fill3(entry.summary)));
-    for (const [label, text10] of entry.also ?? []) lines.push(overviewRow(fill3(label), fill3(text10)));
+  for (const entry2 of yours2.filter(hasLabel2)) {
+    lines.push(overviewRow(fill3(entry2.label), fill3(entry2.summary)));
+    for (const [label, text10] of entry2.also ?? []) lines.push(overviewRow(fill3(label), fill3(text10)));
   }
   const unlabelled = yours2.filter((e) => !e.label).map((e) => e.name);
   if (unlabelled.length) lines.push(`${HELP_INDENT}omni ${unlabelled.join(" \xB7 ")}`);
@@ -41515,30 +41515,30 @@ function labelled(label, text10) {
   const [first = "", ...more] = wrapWords(text10, { width: HELP_WIDTH - DOCS_LABEL_COLUMN });
   return [label.padEnd(DOCS_LABEL_COLUMN) + first, ...more.map((line) => under + line)];
 }
-function docsLines(entry, fill3) {
-  if (!entry.when || !entry.example) return [];
+function docsLines(entry2, fill3) {
+  if (!entry2.when || !entry2.example) return [];
   const under = " ".repeat(DOCS_LABEL_COLUMN);
-  const result = wrapWords(fill3(entry.example.result), { width: HELP_WIDTH - DOCS_LABEL_COLUMN - 2 });
+  const result = wrapWords(fill3(entry2.example.result), { width: HELP_WIDTH - DOCS_LABEL_COLUMN - 2 });
   return [
     "",
-    ...labelled("When", fill3(entry.when)),
-    ...labelled("Example", fill3(entry.example.type)),
+    ...labelled("When", fill3(entry2.when)),
+    ...labelled("Example", fill3(entry2.example.type)),
     ...result.map((line, index) => `${under}${index ? "  " : "\u2192 "}${line}`)
   ];
 }
-function entryLines(entry, fill3) {
-  const [first = "", ...more] = entry.usage.map(fill3);
-  const who2 = WHO_RUNS[entry.who];
+function entryLines(entry2, fill3) {
+  const [first = "", ...more] = entry2.usage.map(fill3);
+  const who2 = WHO_RUNS[entry2.who];
   const head = first.length + 2 + who2.length <= HELP_WIDTH ? [`${first.padEnd(HELP_WIDTH - who2.length)}${who2}`, ...more] : [first, ...more, who2.padStart(HELP_WIDTH)];
-  const paragraphs = entry.detail.split(/\n\s*\n/).map((paragraph) => wrapWords(fill3(paragraph)));
-  return [...head, "", ...paragraphs.flatMap((lines, index) => index ? ["", ...lines] : lines), ...docsLines(entry, fill3)];
+  const paragraphs = entry2.detail.split(/\n\s*\n/).map((paragraph) => wrapWords(fill3(paragraph)));
+  return [...head, "", ...paragraphs.flatMap((lines, index) => index ? ["", ...lines] : lines), ...docsLines(entry2, fill3)];
 }
 function renderEntry(name2, config3, { entries: entries3 = ENTRIES } = {}) {
   const slash = /^\/omni:(.+)$/.exec(name2);
   const found2 = slash ? entries3.filter((e) => e.kind === "skill" && e.name === slash[1]) : ["command", "skill"].flatMap((kind) => entries3.filter((e) => e.kind === kind && e.name === name2));
   if (found2.length === 0) return null;
   const fill3 = fillerFor(repositoryWords(config3));
-  return found2.map((entry) => entryLines(entry, fill3).join("\n")).join("\n\n");
+  return found2.map((entry2) => entryLines(entry2, fill3).join("\n")).join("\n\n");
 }
 
 // kit/bin/commands/help.ts
@@ -42099,11 +42099,11 @@ async function signInStep({ askUrl: askUrl2, home, interactive, signIn }) {
   } catch {
     code = 1;
   }
-  const entry = code === 0 ? store.read(host) : null;
-  if (!entry) return { outcome: "later", host, why: "did not finish" };
-  return { outcome: "signed-in", host, email: who(entry), ...line ? { line } : {} };
+  const entry2 = code === 0 ? store.read(host) : null;
+  if (!entry2) return { outcome: "later", host, why: "did not finish" };
+  return { outcome: "signed-in", host, email: who(entry2), ...line ? { line } : {} };
 }
-var who = (entry) => textOf3(entry.email) ?? textOf3(entry.login);
+var who = (entry2) => textOf3(entry2.email) ?? textOf3(entry2.login);
 function signInLines({ outcome, host, email: email3, line, why: why2 }) {
   if (outcome === "signed-in" && line) return { status: [`  signin  ${line}`], todo: [] };
   if (outcome === "signed-in") return { status: [`  signin  signed in to ${host} as ${email3}`], todo: [] };
@@ -42379,7 +42379,7 @@ function markdownFiles(dir) {
 function settledIds(ctx, outboxDir) {
   const file2 = join56(ctx.root, outboxDir, SETTLED_FILE);
   if (!existsSync45(file2)) return /* @__PURE__ */ new Set();
-  return new Set(parseSettledEntries(readFileSync43(file2, "utf8"), ctx.markers).map((entry) => entry.id));
+  return new Set(parseSettledEntries(readFileSync43(file2, "utf8"), ctx.markers).map((entry2) => entry2.id));
 }
 function move(from, to) {
   try {
@@ -42794,8 +42794,8 @@ function spentIds(prd2, { ctx, outDir = null }) {
   }
   const settledFile = join57(ctx.root, outboxDir, SETTLED_FILE);
   if (existsSync46(settledFile)) {
-    for (const entry of parseSettledEntries(readFileSync44(settledFile, "utf8"), ctx.markers)) {
-      ids2.add(entry.id);
+    for (const entry2 of parseSettledEntries(readFileSync44(settledFile, "utf8"), ctx.markers)) {
+      ids2.add(entry2.id);
     }
   }
   return ids2;
@@ -43002,8 +43002,8 @@ init_define_OMNI_BUNDLE();
 init_define_OMNI_BUNDLE();
 var GRAPH_VERSION = 1;
 var KINDS5 = ["principle", "rule", "invariant"];
-function hasKind(entry) {
-  return KINDS5.includes(entry.kind);
+function hasKind(entry2) {
+  return KINDS5.includes(entry2.kind);
 }
 var PRD_IN_SOURCE = /\bPRD\s*#(\d+)\b/;
 function prdOf(source) {
@@ -43011,54 +43011,54 @@ function prdOf(source) {
   const prd2 = PrdNumberSchema.safeParse(Number(match?.[1]));
   return prd2.success ? prd2.data : null;
 }
-function graphEntry(entry, pairs) {
-  const crossDomain = entry.scope === "cross-domain";
+function graphEntry(entry2, pairs) {
+  const crossDomain = entry2.scope === "cross-domain";
   return {
-    id: entry.id,
-    kind: entry.kind,
-    domain: crossDomain ? null : entry.domain,
-    domains: crossDomain ? [...pairs.get(entry.file) ?? []] : [entry.domain],
-    statement: entry.statement,
-    why: entry.why,
-    status: entry.proposed === null ? "law" : "proposed",
-    serves: entry.serves,
-    enforced: entry.enforced,
-    enforcedBy: entry.enforcedBy,
-    prd: prdOf(entry.source),
-    file: entry.file
+    id: entry2.id,
+    kind: entry2.kind,
+    domain: crossDomain ? null : entry2.domain,
+    domains: crossDomain ? [...pairs.get(entry2.file) ?? []] : [entry2.domain],
+    statement: entry2.statement,
+    why: entry2.why,
+    status: entry2.proposed === null ? "law" : "proposed",
+    serves: entry2.serves,
+    enforced: entry2.enforced,
+    enforcedBy: entry2.enforcedBy,
+    prd: prdOf(entry2.source),
+    file: entry2.file
   };
 }
 function countsOf(entries3) {
   const counts2 = { principles: 0, rules: 0, invariants: 0, laws: 0, proposed: 0 };
-  for (const entry of entries3) {
-    const kindKey = `${entry.kind}s`;
+  for (const entry2 of entries3) {
+    const kindKey = `${entry2.kind}s`;
     counts2[kindKey] += 1;
-    counts2[entry.status === "law" ? "laws" : "proposed"] += 1;
+    counts2[entry2.status === "law" ? "laws" : "proposed"] += 1;
   }
   return counts2;
 }
 function buildGraph(knowledge2, { repo }) {
   const pairs = new Map(knowledge2.crossDomainFiles.map(({ file: file2, pair }) => [file2, pair ?? []]));
-  const entries3 = knowledge2.entries.filter(hasKind).map((entry) => graphEntry(entry, pairs));
-  const byId = new Map(entries3.map((entry) => [entry.id, entry]));
+  const entries3 = knowledge2.entries.filter(hasKind).map((entry2) => graphEntry(entry2, pairs));
+  const byId = new Map(entries3.map((entry2) => [entry2.id, entry2]));
   const domainRows = [
     ...knowledge2.productFiles.length > 0 ? [{ name: "product", code: PRODUCT_CODE, scope: "product" }] : [],
     ...knowledge2.domains.map(({ name: name2, code }) => ({ name: name2, code, scope: "domain" }))
   ];
-  const domains = domainRows.map((row) => ({ ...row, counts: countsOf(entries3.filter((entry) => entry.domain === row.name)) }));
+  const domains = domainRows.map((row) => ({ ...row, counts: countsOf(entries3.filter((entry2) => entry2.domain === row.name)) }));
   const links = [];
-  for (const entry of entries3) {
-    const served2 = entry.kind === "principle" || entry.serves === null ? void 0 : byId.get(entry.serves);
-    if (served2?.kind === "principle") links.push({ from: entry.id, to: served2.id, kind: "serves" });
-    const cited2 = idsCitedIn([entry.statement, entry.why ?? ""].join("\n"));
+  for (const entry2 of entries3) {
+    const served2 = entry2.kind === "principle" || entry2.serves === null ? void 0 : byId.get(entry2.serves);
+    if (served2?.kind === "principle") links.push({ from: entry2.id, to: served2.id, kind: "serves" });
+    const cited2 = idsCitedIn([entry2.statement, entry2.why ?? ""].join("\n"));
     for (const id of cited2) {
-      if (id !== entry.id && byId.has(id)) links.push({ from: entry.id, to: id, kind: "cites" });
+      if (id !== entry2.id && byId.has(id)) links.push({ from: entry2.id, to: id, kind: "cites" });
     }
   }
   const serving = new Set(links.filter((link2) => link2.kind === "serves").map((link2) => link2.from));
   const served = new Set(links.filter((link2) => link2.kind === "serves").map((link2) => link2.to));
-  const loose = entries3.filter((entry) => entry.kind !== "principle" && !serving.has(entry.id)).map((entry) => entry.id);
-  const unserved = entries3.filter((entry) => entry.kind === "principle" && !served.has(entry.id)).map((entry) => entry.id);
+  const loose = entries3.filter((entry2) => entry2.kind !== "principle" && !serving.has(entry2.id)).map((entry2) => entry2.id);
+  const unserved = entries3.filter((entry2) => entry2.kind === "principle" && !served.has(entry2.id)).map((entry2) => entry2.id);
   return { version: GRAPH_VERSION, repo, domains, entries: entries3, links, loose, unserved };
 }
 function readGraph({ ctx }) {
@@ -43157,10 +43157,10 @@ function columns2({ principles, rules, invariants, laws, proposed }) {
     `${count2(laws, "law", "laws")} \xB7 ${proposed} proposed`
   ];
 }
-var pairOf = (entry) => entry.domains.length === 2 ? entry.domains.join("--") : entry.file;
+var pairOf = (entry2) => entry2.domains.length === 2 ? entry2.domains.join("--") : entry2.file;
 function graphText({ domains, entries: entries3, links, loose, unserved }) {
   const pairs = /* @__PURE__ */ new Map();
-  for (const entry of entries3.filter((one) => one.domain === null)) pairs.set(pairOf(entry), [...pairs.get(pairOf(entry)) ?? [], entry]);
+  for (const entry2 of entries3.filter((one) => one.domain === null)) pairs.set(pairOf(entry2), [...pairs.get(pairOf(entry2)) ?? [], entry2]);
   const rows2 = [
     ...domains.map(({ name: name2, counts: counts2 }) => [name2, ...columns2(counts2)]),
     ...[...pairs].map(([name2, held]) => [name2, ...columns2(countsOf(held))])
@@ -43208,32 +43208,32 @@ var LINES = [
   ["stated", "Stated"],
   ["keptId", "Kept id"]
 ];
-function oneLine2(entry) {
-  return `  ${entry.id} (${entry.kind ?? "unknown kind"}, ${entry.file}) \u2014 ${entry.statement}`;
+function oneLine2(entry2) {
+  return `  ${entry2.id} (${entry2.kind ?? "unknown kind"}, ${entry2.file}) \u2014 ${entry2.statement}`;
 }
 function describeEntry(knowledge2, id) {
-  const entry = knowledge2.entries.find((candidate) => candidate.id === id);
-  if (!entry) return null;
+  const entry2 = knowledge2.entries.find((candidate) => candidate.id === id);
+  if (!entry2) return null;
   const out = [
-    `${entry.id} \u2014 a ${entry.kind ?? "entry"} in ${entry.file}`,
+    `${entry2.id} \u2014 a ${entry2.kind ?? "entry"} in ${entry2.file}`,
     "",
-    entry.statement,
+    entry2.statement,
     ""
   ];
   for (const [key, label] of LINES) {
-    if (entry[key]) out.push(`${label}: ${entry[key]}`);
+    if (entry2[key]) out.push(`${label}: ${entry2[key]}`);
   }
-  if (entry.proposed) {
-    const { by, on } = entry.proposed;
+  if (entry2.proposed) {
+    const { by, on } = entry2.proposed;
     const who2 = by === null ? 'proposed (its "Proposed:" line is malformed)' : `proposed by ${by} on ${on}`;
     out.push("", `${who2} \u2014 not a law until a person removes its "Proposed:" line`);
   }
-  if (entry.serves) {
-    const served = knowledge2.entries.find((candidate) => candidate.id === entry.serves);
-    out.push("", "It serves:", served ? oneLine2(served) : `  ${entry.serves} (claimed by nothing)`);
+  if (entry2.serves) {
+    const served = knowledge2.entries.find((candidate) => candidate.id === entry2.serves);
+    out.push("", "It serves:", served ? oneLine2(served) : `  ${entry2.serves} (claimed by nothing)`);
   }
-  const serving = servedBy(knowledge2.entries, entry.id);
-  if (entry.kind === "principle" || serving.length > 0) {
+  const serving = servedBy(knowledge2.entries, entry2.id);
+  if (entry2.kind === "principle" || serving.length > 0) {
     out.push("", "Served by:");
     out.push(
       ...serving.length > 0 ? serving.map(oneLine2) : ["  nothing yet \u2014 this principle is a wish"]
@@ -43668,8 +43668,113 @@ function readAnswers(comments) {
 
 // kit/lib/roadmap/push.ts
 init_define_OMNI_BUNDLE();
-var WAITS_ON_MAX = 300;
+
+// kit/lib/roadmap/human-work.ts
+init_define_OMNI_BUNDLE();
+var CLARIFICATION_MARKER = "<!-- omni-needs-clarification -->";
+var HUMAN_RANKS = /* @__PURE__ */ new Set(["human-action", "high"]);
+var DEV_OPS = /\b(?:secret|token|scope|permission|grant|access|branch protection)(?:e?s)?\b/i;
+var DELIVERY_OPS = /\b(?:deploy|production|prod|migration run|console|environment variable)s?\b/i;
+function ruleKind(source, text10, act2) {
+  if (source === "question") return "business";
+  const words3 = `${text10}
+${act2 ?? ""}`;
+  if (DEV_OPS.test(words3)) return "dev-ops";
+  if (DELIVERY_OPS.test(words3)) return "delivery-ops";
+  return "development";
+}
+var TEXT_MAX = 1e3;
+var ACT_MAX = 4e3;
+var capped2 = (text10, max) => text10.length > max ? `${text10.slice(0, max - 1).trimEnd()}\u2026` : text10;
+var entry = (fields) => ({
+  ...fields,
+  text: capped2(fields.text, TEXT_MAX),
+  act: fields.act === null ? null : capped2(fields.act, ACT_MAX),
+  ruleKind: ruleKind(fields.source, fields.text, fields.act)
+});
+var flat = (text10) => {
+  const line = (text10 ?? "").replace(/\s+/g, " ").trim();
+  return line || null;
+};
 var NO_RECOMMENDATION = /^(?:|-|–|—|none)$/i;
+function questionWork(roadmap2, answers2, { repo, issueUrl: issueUrl2 }) {
+  const prdOf3 = new Map(roadmap2.prds.map((row) => [row.id, row.prd]));
+  return roadmap2.questions.filter((q) => q.kind === "person" && !answers2.has(q.id)).map((q) => {
+    const recommendation = q.recommendation.trim();
+    const first = q.blocks.find((id) => prdOf3.has(id));
+    return entry({
+      key: `question:${q.id}`,
+      prd: first === void 0 ? null : prdOf3.get(first) ?? null,
+      repo,
+      source: "question",
+      text: flat(q.question) ?? q.id,
+      act: NO_RECOMMENDATION.test(recommendation) ? null : recommendation,
+      url: issueUrl2
+    });
+  });
+}
+function itemText(item2) {
+  const { questionPlain, decisionPlain, whatIHadToDecide } = item2.sections;
+  return flat(questionPlain) ?? flat(decisionPlain) ?? flat(whatIHadToDecide) ?? item2.id;
+}
+function outboxWork(prd2, items, { repoOf, url: url2 }) {
+  return items.filter((item2) => HUMAN_RANKS.has(item2.rank)).map((item2) => entry({
+    key: `outbox:${prd2}/${item2.id}`,
+    prd: prd2,
+    repo: repoOf(item2),
+    source: "outbox",
+    text: itemText(item2),
+    act: item2.rank === "human-action" ? item2.sections.personSteps?.trim() || null : null,
+    url: url2
+  }));
+}
+var PARK_LINE = /^\s*-\s*loop:\s*parked\s*·\s*(.+?)\s*$/m;
+function parkOf(body) {
+  const line = PARK_LINE.exec(body)?.[1];
+  if (line === void 0) return null;
+  const parts = line.split("\xB7").map((part) => part.trim());
+  const last = parts.at(-1) ?? "";
+  const link2 = parts.length > 1 && /^https?:\/\/\S+$/.test(last) ? last : null;
+  const why2 = flat((link2 === null ? parts : parts.slice(0, -1)).join(" \xB7 "));
+  return why2 === null ? null : { why: why2, link: link2 };
+}
+function parkWork(prd2, status4, { repo, prUrl }) {
+  const park2 = status4 === null ? null : parkOf(status4);
+  if (park2 === null) return [];
+  return [entry({ key: `park:${prd2}`, prd: prd2, repo, source: "park", text: park2.why, act: null, url: prUrl ?? park2.link })];
+}
+var NUMBERED = /^\s*\d+[.)]\s+(.+)$/;
+function clarificationQuestions(body) {
+  const lines = body.slice(body.indexOf(CLARIFICATION_MARKER) + CLARIFICATION_MARKER.length).split(/\r?\n/);
+  const numbered = lines.flatMap((line) => {
+    const question = flat(NUMBERED.exec(line)?.[1]);
+    return question === null ? [] : [question];
+  });
+  if (numbered.length > 0) return numbered;
+  const first = lines.map((line) => flat(line)).find((line) => line !== null);
+  return first ? [first] : [];
+}
+function clarificationWork(prd2, comments, { repo, planAt }) {
+  const after = planAt === null ? null : Date.parse(planAt);
+  const marked = comments.filter((comment2) => comment2.body.trimStart().startsWith(CLARIFICATION_MARKER)).filter((comment2) => after === null || Number.isNaN(after) || Date.parse(comment2.createdAt) > after).sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  const latest = marked.at(-1);
+  if (latest === void 0) return [];
+  const [text10, ...rest] = clarificationQuestions(latest.body);
+  if (text10 === void 0) return [];
+  return [entry({
+    key: `clarification:${prd2}`,
+    prd: prd2,
+    repo,
+    source: "clarification",
+    text: text10,
+    act: rest.length > 0 ? rest.join("\n") : null,
+    url: latest.url
+  })];
+}
+
+// kit/lib/roadmap/push.ts
+var WAITS_ON_MAX = 300;
+var NO_RECOMMENDATION2 = /^(?:|-|–|—|none)$/i;
 var ASKED_RANKS = /* @__PURE__ */ new Set(["human-action", "high"]);
 function prdState({ shipped, prs, expected }) {
   if (prs.length === 0) return shipped ? "merged" : "waiting";
@@ -43697,8 +43802,8 @@ function stateWords(state, pr) {
   return state === "waiting" ? "not started" : state;
 }
 var cut2 = (line, max) => {
-  const flat = line.replace(/\s+/g, " ").trim();
-  return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}\u2026` : flat;
+  const flat2 = line.replace(/\s+/g, " ").trim();
+  return flat2.length > max ? `${flat2.slice(0, max - 1).trimEnd()}\u2026` : flat2;
 };
 var namedPr = (standing2) => standing2.prs.find((pr) => pr.state === "OPEN") ?? standing2.prs.find((pr) => pr.state === "CLOSED") ?? null;
 function waitsOn(row, rows2, live = /* @__PURE__ */ new Map()) {
@@ -43720,7 +43825,7 @@ function rowStates(roadmap2, standings) {
     return [row.id, { row, standing: standing2, state: prdState(standing2) }];
   }));
 }
-function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers: answers2 }) {
+function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers: answers2, prdWork: prdWork2 }) {
   const rows2 = rowStates(roadmap2, standings);
   const prds = [...rows2.values()].map(({ row, standing: standing2, state }) => ({
     id: row.id,
@@ -43736,13 +43841,16 @@ function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers
   const questions2 = roadmap2.questions.map((q) => ({
     id: q.id,
     question: q.question,
-    recommendation: NO_RECOMMENDATION.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
+    recommendation: NO_RECOMMENDATION2.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
     blocks: [...q.blocks],
     kind: q.kind,
     answer: answers2.get(q.id) ?? null
   }));
   const { title, milestone, product, target: target3, source } = roadmap2;
-  return { repo, roadmap: roadmap2.roadmap, title, milestone, product, target: target3, source, questions: questions2, document, prds };
+  const body = { repo, roadmap: roadmap2.roadmap, title, milestone, product, target: target3, source, questions: questions2, document, prds };
+  if (prdWork2 === null) return body;
+  const issueUrl2 = `https://github.com/${repo}/issues/${roadmap2.roadmap}`;
+  return { ...body, humanWork: [...questionWork(roadmap2, answers2, { repo: shortName7(repo), issueUrl: issueUrl2 }), ...prdWork2] };
 }
 var GhPrSchema2 = external_exports.looseObject({
   number: PrNumberSchema,
@@ -43792,15 +43900,21 @@ function slugsOf(ctx, row, slug) {
   const own2 = shortName7(slug);
   return [slug, ...targets2.filter((t) => named3.has(shortName7(t.repo)) && shortName7(t.repo) !== own2).map((t) => t.repo)];
 }
+function featureBranchOf(ctx, row) {
+  const where = ctx.layout.whereIs(row.prd);
+  const folder = where === null ? null : parseFolderName(where.name);
+  return folder === null ? null : fillBranch(ctx.config.branches.feature, { topic: folder.topic });
+}
 function readStanding(ctx, row, readers) {
   const slug = ctx.config.repo.slug ?? "";
   const slugs = slugsOf(ctx, row, slug);
   const where = ctx.layout.whereIs(row.prd);
-  const folder = where === null ? null : parseFolderName(where.name);
-  if (where === null || folder === null) return { shipped: false, prs: [], expected: slugs.length };
-  const branch = fillBranch(ctx.config.branches.feature, { topic: folder.topic });
+  const branch = featureBranchOf(ctx, row);
+  if (where === null || branch === null) return { standing: { shipped: false, prs: [], expected: slugs.length }, own: null };
+  let own2 = null;
   const prs = slugs.flatMap((repo) => {
     const pr = featurePr(repo, branch, readers);
+    if (repo === slug) own2 = pr;
     if (pr === null) return [];
     const isDraft = Boolean(pr.isDraft);
     const questions2 = repo === slug && pr.state === "OPEN" && isDraft ? draftQuestions(ctx, row, branch, readers) : 0;
@@ -43816,18 +43930,78 @@ function readStanding(ctx, row, readers) {
       questions: questions2
     }];
   });
-  return { shipped: where.state === "shipped", prs, expected: slugs.length };
+  return { standing: { shipped: where.state === "shipped", prs, expected: slugs.length }, own: own2 };
 }
-function readStandings(ctx, roadmap2, readers) {
-  return new Map(roadmap2.prds.map((row) => [row.id, readStanding(ctx, row, readers)]));
+var GhCommentSchema2 = external_exports.object({ body: external_exports.string().nullish(), url: external_exports.string().nullish(), createdAt: external_exports.string() });
+function issueComments(slug, n, { gh: gh2 }) {
+  const raw = gh2(["api", `repos/${slug}/issues/${n}/comments`, "--paginate", "--jq", ".[] | {body, url: .html_url, createdAt: .created_at}"]);
+  return raw.split("\n").filter((line) => line.trim()).map((line) => {
+    const comment2 = GhCommentSchema2.parse(JSON.parse(line));
+    return { body: comment2.body ?? "", url: comment2.url ?? null, createdAt: comment2.createdAt };
+  });
+}
+function planCommittedAt(ctx, row, branch, { git: git7 }) {
+  const plan2 = ctx.layout.planPath(row.prd);
+  if (plan2 === null) return null;
+  const times = [`${ctx.config.repo.remote}/${branch}`, "HEAD"].flatMap((ref) => {
+    try {
+      const at2 = git7(["log", "-1", "--format=%cI", ref, "--", plan2]).trim();
+      return at2 ? [new Date(at2).toISOString()] : [];
+    } catch {
+      return [];
+    }
+  });
+  return bound(times, "last");
+}
+function sliceRepos(ctx, row, ref, { git: git7 }) {
+  const plan2 = ctx.layout.planPath(row.prd);
+  if (plan2 === null) return /* @__PURE__ */ new Map();
+  try {
+    return new Map(parsePlanSlices(git7(["show", `${ref}:${plan2}`])).flatMap((slice) => slice.repo ? [[String(slice.id), slice.repo]] : []));
+  } catch {
+    return /* @__PURE__ */ new Map();
+  }
+}
+function openPrWork(ctx, row, branch, pr, readers) {
+  const slug = ctx.config.repo.slug ?? "";
+  const repo = shortName7(slug);
+  const ref = `${ctx.config.repo.remote}/${branch}`;
+  const dir = ctx.layout.outboxDir(row.prd);
+  const items = dir === null ? [] : openItemsOn(ref, dir, readers.git);
+  if (items === null) throw new Error(`${ref} cannot be read`);
+  const repos = sliceRepos(ctx, row, ref, readers);
+  const marker = makeMarkers(ctx.config.markers.prefix).status;
+  const status4 = issueComments(slug, pr.number, readers).find((comment2) => comment2.body.includes(marker))?.body ?? null;
+  return [
+    ...outboxWork(row.prd, items, { repoOf: (item2) => repos.get(String(item2.slice)) ?? repo, url: pr.url }),
+    ...parkWork(row.prd, status4, { repo, prUrl: pr.url })
+  ];
+}
+function readPrdWork(ctx, row, standing2, own2, readers) {
+  const state = prdState(standing2);
+  const branch = featureBranchOf(ctx, row);
+  if (branch === null || state === "merged" || state === "closed") return [];
+  const slug = ctx.config.repo.slug ?? "";
+  const prWork = own2 !== null && own2.state === "OPEN" ? openPrWork(ctx, row, branch, own2, readers) : [];
+  const planAt = planCommittedAt(ctx, row, branch, readers);
+  return [...prWork, ...clarificationWork(row.prd, issueComments(slug, row.prd, readers), { repo: shortName7(slug), planAt })];
+}
+function readRoadmapPrds(ctx, roadmap2, readers) {
+  const read2 = roadmap2.prds.map((row) => ({ row, ...readStanding(ctx, row, readers) }));
+  const standings = new Map(read2.map(({ row, standing: standing2 }) => [row.id, standing2]));
+  try {
+    return { standings, prdWork: read2.flatMap(({ row, standing: standing2, own: own2 }) => readPrdWork(ctx, row, standing2, own2, readers)) };
+  } catch {
+    return { standings, prdWork: null };
+  }
 }
 
 // kit/lib/next/roadmap.ts
 init_define_OMNI_BUNDLE();
 var QUESTION_MAX = 120;
 function cut3(text10, max) {
-  const flat = text10.replace(/\s+/g, " ").trim();
-  return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}\u2026` : flat;
+  const flat2 = text10.replace(/\s+/g, " ").trim();
+  return flat2.length > max ? `${flat2.slice(0, max - 1).trimEnd()}\u2026` : flat2;
 }
 function liveWords(state, facts, slices) {
   if (state === "building") {
@@ -43952,11 +44126,11 @@ function prRef(url2) {
   const match = /\/([^/]+)\/pull\/(\d+)\/?$/.exec(url2);
   return match ? `${match[1]}#${match[2]}` : url2;
 }
-var known = (entry) => entry.pr === null || entry.pr === "unreadable" ? null : entry.pr;
+var known = (entry2) => entry2.pr === null || entry2.pr === "unreadable" ? null : entry2.pr;
 var isReady = (pr) => pr !== null && pr.state === "OPEN" && !pr.isDraft;
 function allEnded(planPr, targets2) {
   if (planPr === null || planPr.state === "OPEN") return false;
-  return targets2.every((entry) => entry.pr === null || entry.pr !== "unreadable" && entry.pr.state !== "OPEN");
+  return targets2.every((entry2) => entry2.pr === null || entry2.pr !== "unreadable" && entry2.pr.state !== "OPEN");
 }
 function readyAcross(prd2, prs) {
   const ready = prs.map(known).filter(isReady);
@@ -43977,8 +44151,8 @@ function questionsAcross(prd2, planPr, outbox) {
 function finishedAcross(prd2, prs, outbox) {
   const asked = questionsAcross(prd2, prs[0] ? known(prs[0]) : null, outbox);
   if (asked !== null) return asked;
-  const open3 = prs.filter((entry) => entry.pr === null || known(entry)?.state === "OPEN");
-  const notReady = open3.find((entry) => !isReady(known(entry)));
+  const open3 = prs.filter((entry2) => entry2.pr === null || known(entry2)?.state === "OPEN");
+  const notReady = open3.find((entry2) => !isReady(known(entry2)));
   if (notReady) {
     const pr = known(notReady);
     const what = pr === null ? `${notReady.repo}'s feature PR is not opened yet` : `${prRef(pr.url)} is not ready yet`;
@@ -43992,14 +44166,14 @@ function finishedAcross(prd2, prs, outbox) {
 function endedAcross(facts, prs, planPr) {
   const { prd: prd2 } = facts;
   if (allEnded(planPr, prs.slice(1))) return { prd: prd2, verdict: "done", why: "the plan PR and every target PR are merged or closed", ...planPr ? { link: planPr.url } : {} };
-  return facts.shipped && prs.every((entry) => entry.pr === null) ? { prd: prd2, verdict: "done", why: "the PRD has shipped" } : null;
+  return facts.shipped && prs.every((entry2) => entry2.pr === null) ? { prd: prd2, verdict: "done", why: "the PRD has shipped" } : null;
 }
 function stoppedAcross(facts, prs, planPr) {
   const { prd: prd2, phase0: phase02 } = facts;
   const ended = endedAcross(facts, prs, planPr);
   if (ended !== null) return ended;
   if (phase02 !== null) return park(prd2, `waits on a reviewer: the phase-0 PR ${prRef(phase02.url)} is open`, phase02.url);
-  if (prs.some((entry) => entry.pr === "unreadable")) return wait2(prd2, "github unreachable", WAKE_HINTS.unreadable);
+  if (prs.some((entry2) => entry2.pr === "unreadable")) return wait2(prd2, "github unreachable", WAKE_HINTS.unreadable);
   return readyAcross(prd2, prs);
 }
 function plannedAcross(prd2, board2, { prs, outbox }, link2) {
@@ -44312,7 +44486,7 @@ function movedUp(old, fresh, inputs) {
   return [...now.entries()].filter(([prd2, index]) => index < (was.get(prd2) ?? index)).map(([prd2]) => prd2);
 }
 function replan(plan2, inputs) {
-  const seen = new Map(plan2.seen.map((entry) => [entry.prd, entry]));
+  const seen = new Map(plan2.seen.map((entry2) => [entry2.prd, entry2]));
   const changes = [...inputs.prds].sort((a, b) => a.prd - b.prd).flatMap((input2) => changesOf(seen.get(input2.prd), input2));
   if (changes.length === 0) return null;
   const draft = planLoop(inputs, { version: plan2.version + 1 });
@@ -44566,8 +44740,8 @@ function rulesAt(ctx, exec, ref) {
   return unlessUnreadable(() => {
     const source = knowledgeAt(ctx, exec, ref);
     if (source === null) return null;
-    const proven = readKnowledge({ ctx, source }).entries.filter((entry) => entry.kind === "rule" || entry.kind === "invariant");
-    return { enforced: proven.filter((entry) => entry.enforced).length, total: proven.length };
+    const proven = readKnowledge({ ctx, source }).entries.filter((entry2) => entry2.kind === "rule" || entry2.kind === "invariant");
+    return { enforced: proven.filter((entry2) => entry2.enforced).length, total: proven.length };
   });
 }
 function readFacts({ ctx, exec = execFileSync12 }) {
@@ -44630,9 +44804,9 @@ function buildingAndOutboxOf(inbox, features) {
     if (mine.length === 0) continue;
     const openItems3 = mine.reduce((sum, feature) => sum + feature.outbox.filter(isOpenItem).length, 0);
     const landings = landingsOf(mine);
-    const entry = { prd: prd2, topic, openItems: openItems3, ...landings ? { landings } : {} };
-    if (mine.some((feature) => feature.ships)) out.outbox.push(entry);
-    else if (openItems3 > 0 || mine.some(isBuilt)) out.building.push(entry);
+    const entry2 = { prd: prd2, topic, openItems: openItems3, ...landings ? { landings } : {} };
+    if (mine.some((feature) => feature.ships)) out.outbox.push(entry2);
+    else if (openItems3 > 0 || mine.some(isBuilt)) out.building.push(entry2);
   }
   return out;
 }
@@ -44679,7 +44853,7 @@ function yoursOf(facts, stages, onBase) {
   const mine = yourNumbers(facts, onBase, facts.email.toLowerCase());
   const yours2 = (entries3) => entries3.filter(({ prd: prd2 }) => mine.has(prd2));
   const order = ["outbox", "building", "inbox", "prd"];
-  const rows2 = order.flatMap((stage2) => yours2(stages[stage2]).map((entry) => ({ stage: stage2, ...entry })));
+  const rows2 = order.flatMap((stage2) => yours2(stages[stage2]).map((entry2) => ({ stage: stage2, ...entry2 })));
   const delivered = [...stages.shipped, ...stages.retro].sort((a, b) => b.prd - a.prd);
   return { state: "known", email: facts.email, rows: rows2, shipped: yours2(delivered) };
 }
@@ -44808,19 +44982,19 @@ function lastReaskedAt(comments, markers) {
 function answerableQuestions2(numbering, items, adopted) {
   const itemsById = new Map(items.map((item2) => [item2.id, item2]));
   const adoptedById = /* @__PURE__ */ new Map();
-  for (const entry of adopted) {
-    const parsed = parseItem(entry.itemText, null);
-    if (parsed.ok) adoptedById.set(entry.id, { entry, item: parsed.item });
+  for (const entry2 of adopted) {
+    const parsed = parseItem(entry2.itemText, null);
+    if (parsed.ok) adoptedById.set(entry2.id, { entry: entry2, item: parsed.item });
   }
   const questions2 = [];
-  for (const entry of numbering) {
-    const open3 = itemsById.get(entry.id);
-    const kept = adoptedById.get(entry.id);
+  for (const entry2 of numbering) {
+    const open3 = itemsById.get(entry2.id);
+    const kept = adoptedById.get(entry2.id);
     if (open3 !== void 0) {
-      questions2.push({ ...entry, item: open3, adoptedEntry: null });
+      questions2.push({ ...entry2, item: open3, adoptedEntry: null });
     } else if (kept !== void 0) {
       const { entry: adoptedEntry, item: item2 } = kept;
-      questions2.push({ ...entry, item: item2, adoptedEntry });
+      questions2.push({ ...entry2, item: item2, adoptedEntry });
     }
   }
   return questions2.sort((a, b) => a.number - b.number);
@@ -44956,14 +45130,14 @@ function appendObjection({
   }
   const existing = readFileSync48(absoluteSettled, "utf8");
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
-  const entry = renderSettledEntry({
+  const entry2 = renderSettledEntry({
     item: item2,
     itemText: adoptedEntry.itemText,
     answer: parsedAnswer.data,
     judgement,
     markers: ctx.markers
   });
-  writeFileSync22(absoluteSettled, `${existing}${separator}${entry}`);
+  writeFileSync22(absoluteSettled, `${existing}${separator}${entry2}`);
   return { ok: true, settledFile };
 }
 function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
@@ -45023,24 +45197,24 @@ function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
   };
 }
 function summarize2(result) {
-  const agreed = result.settled.filter((entry) => entry.verdict === "agreed").length;
-  const drifted = result.settled.filter((entry) => entry.verdict === "drifted").length;
+  const agreed = result.settled.filter((entry2) => entry2.verdict === "agreed").length;
+  const drifted = result.settled.filter((entry2) => entry2.verdict === "drifted").length;
   const lines = [
     `outbox-replies: settled ${agreed} agreed, ${drifted} drifted; ${result.held.length} held for a round.`
   ];
-  for (const entry of result.settled) {
+  for (const entry2 of result.settled) {
     lines.push(
-      `  question ${entry.number} (${entry.id}): ${entry.verdict}${entry.objection ? " (an objection to an adopted item)" : ""} \u2014 \u201C${entry.answer}\u201D`
+      `  question ${entry2.number} (${entry2.id}): ${entry2.verdict}${entry2.objection ? " (an objection to an adopted item)" : ""} \u2014 \u201C${entry2.answer}\u201D`
     );
   }
-  for (const entry of result.held) {
+  for (const entry2 of result.held) {
     lines.push(
-      `  question ${entry.number} (${entry.id}): unclear \u2014 \u201C${entry.answer}\u201D` + (entry.due ? " \u2014 asked again in this round" : " \u2014 already asked again, no new reply")
+      `  question ${entry2.number} (${entry2.id}): unclear \u2014 \u201C${entry2.answer}\u201D` + (entry2.due ? " \u2014 asked again in this round" : " \u2014 already asked again, no new reply")
     );
   }
-  for (const entry of result.failed) {
+  for (const entry2 of result.failed) {
     lines.push(
-      `  question ${entry.number} (${entry.id}): not settled \u2014 ${entry.errors.join("; ")}`
+      `  question ${entry2.number} (${entry2.id}): not settled \u2014 ${entry2.errors.join("; ")}`
     );
   }
   if (result.settled.length > 0) {
@@ -45389,9 +45563,9 @@ function tick(named3, io) {
   return printVerdicts(named3, io);
 }
 function roadmapOf(n, ctx) {
-  const entry = roadmapFiles(ctx).find((file2) => file2.number === n);
-  if (entry === void 0 || !existsSync48(join61(ctx.root, entry.file))) throw usageError(`omni next: no roadmap ${n} in the inbox; omni roadmap check lists them.`);
-  const parsed = parseRoadmap(readRepoFile(ctx, entry.file));
+  const entry2 = roadmapFiles(ctx).find((file2) => file2.number === n);
+  if (entry2 === void 0 || !existsSync48(join61(ctx.root, entry2.file))) throw usageError(`omni next: no roadmap ${n} in the inbox; omni roadmap check lists them.`);
+  const parsed = parseRoadmap(readRepoFile(ctx, entry2.file));
   if (!parsed.ok) throw usageError(`omni next: roadmap ${n} does not parse; run omni roadmap check ${n}.`);
   return parsed.roadmap;
 }
@@ -45688,7 +45862,7 @@ function answerOf4(schema, answer, what) {
 }
 function hasFilledForm(gh2, repo, playbook, ref) {
   const listed2 = gh2.dir(repo, playbook, ref) ?? [];
-  return listed2.filter((entry) => entry.type === "file" && entry.name.endsWith(".md")).some((entry) => isFilled(gh2.file(repo, entry.path, ref)));
+  return listed2.filter((entry2) => entry2.type === "file" && entry2.name.endsWith(".md")).some((entry2) => isFilled(gh2.file(repo, entry2.path, ref)));
 }
 var plural3 = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 function staleness2(gh2, { repo, readAt }, branch, evidence) {
@@ -46015,7 +46189,7 @@ function whereIs(ctx, prd2) {
   const where = ctx.layout.whereIs(prd2);
   if (!where) return null;
   const absolute = join65(ctx.root, where.dir);
-  const files = readdirSync22(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
+  const files = readdirSync22(absolute, { withFileTypes: true }).filter((entry2) => entry2.isFile()).map((entry2) => `${where.dir}/${entry2.name}`).sort();
   const outboxDir = ctx.layout.outboxDir(prd2);
   return {
     prd: prd2,
@@ -46678,8 +46852,8 @@ function resolvedFrom(from, name2) {
 var playwrightEntries = (cwd) => [join68(cwd, "package.json"), import.meta.url].flatMap((from) => ["playwright", "@playwright/test"].map((name2) => resolvedFrom(from, name2))).filter((file2) => file2 !== null);
 function repositoryBrowser(cwd) {
   return async () => {
-    for (const entry of playwrightEntries(cwd)) {
-      const namespace = await import(pathToFileURL(entry).href);
+    for (const entry2 of playwrightEntries(cwd)) {
+      const namespace = await import(pathToFileURL(entry2).href);
       const launcher = [namespace, propertyOf(namespace, "default")].map((value) => propertyOf(value, "chromium")).find(isLauncher);
       if (launcher !== void 0) return launcher.launch();
     }
@@ -48038,7 +48212,7 @@ var VERDICTS2 = Object.freeze(["pass", "fail", "unfilmable"]);
 var TYPES2 = Object.freeze({ webm: "video/webm", gif: "image/gif", ts: "text/plain", txt: "text/plain" });
 var FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 var COMMIT3 = /^[0-9a-f]{7,64}$/;
-var TEXT_MAX = 2e3;
+var TEXT_MAX2 = 2e3;
 var NOTE_MAX = 1e3;
 var URL_MAX = 2e3;
 var ProofRunRefused = class extends Error {
@@ -48066,8 +48240,8 @@ var isVerdict2 = (value) => KNOWN_VERDICTS2.includes(value);
 var isBlank = (value) => value === void 0 || value === null;
 function textOf4(item2, at2) {
   const text10 = isRecord8(item2) ? item2.text : void 0;
-  const valid = isRecord8(item2) && typeof text10 === "string" && text10.trim() && text10.length <= TEXT_MAX;
-  if (!valid) return refuse3(`${at2}: its text is 1 to ${TEXT_MAX} characters`);
+  const valid = isRecord8(item2) && typeof text10 === "string" && text10.trim() && text10.length <= TEXT_MAX2;
+  if (!valid) return refuse3(`${at2}: its text is 1 to ${TEXT_MAX2} characters`);
   return { text: text10.trim(), sent: item2 };
 }
 function verdictOf2(item2, at2) {
@@ -48353,13 +48527,13 @@ function checkCommand2(rest, { ctx, stdout }) {
   if (positional.length > 1) throw usageError(USAGE23);
   const wanted = positional[0] === void 0 ? null : issueArg("roadmap check", "<n>", positional[0]);
   const all = gradeRoadmaps(ctx);
-  const graded = wanted === null ? all : all.filter((entry) => entry.number === wanted);
+  const graded = wanted === null ? all : all.filter((entry2) => entry2.number === wanted);
   if (wanted !== null && graded.length === 0) throw usageError(`omni roadmap check: roadmap ${wanted} has no folder under the inbox's roadmaps.`);
   if (graded.length === 0) {
     println(stdout, formatPass("omni roadmap check \u2014 no roadmap in the inbox."));
     return 0;
   }
-  const passed = graded.map((entry) => report3(stdout, entry));
+  const passed = graded.map((entry2) => report3(stdout, entry2));
   return passed.every(Boolean) ? 0 : 1;
 }
 function refuse4(stderr, line) {
@@ -48367,19 +48541,19 @@ function refuse4(stderr, line) {
   return 1;
 }
 function roadmapFile(ctx, verb2, n) {
-  const entry = roadmapFiles(ctx).find((file2) => file2.number === n);
-  if (!entry) throw usageError(`omni roadmap ${verb2}: roadmap ${n} has no folder under the inbox's roadmaps.`);
-  return entry;
+  const entry2 = roadmapFiles(ctx).find((file2) => file2.number === n);
+  if (!entry2) throw usageError(`omni roadmap ${verb2}: roadmap ${n} has no folder under the inbox's roadmaps.`);
+  return entry2;
 }
-function readRoadmap(ctx, entry) {
+function readRoadmap(ctx, entry2) {
   let document;
   try {
-    document = readRepoFile(ctx, entry.file);
+    document = readRepoFile(ctx, entry2.file);
   } catch {
-    return `${entry.file} is missing (omni roadmap check ${entry.number})`;
+    return `${entry2.file} is missing (omni roadmap check ${entry2.number})`;
   }
   const parsed = parseRoadmap(document);
-  return parsed.ok ? { document, roadmap: parsed.roadmap } : `${entry.file} does not parse (omni roadmap check ${entry.number})`;
+  return parsed.ok ? { document, roadmap: parsed.roadmap } : `${entry2.file} does not parse (omni roadmap check ${entry2.number})`;
 }
 function repoContext2({ cwd, exec }) {
   const ctx = loadContext(cwd, { exec });
@@ -48404,19 +48578,19 @@ function readGithub(ctx, roadmap2, { exec, env }) {
   const gh2 = (args) => exec("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...ghEnv ? { env: ghEnv } : {} });
   const git7 = (args) => exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   try {
-    const standings = readStandings(ctx, roadmap2, { gh: gh2, git: git7 });
+    const { standings, prdWork: prdWork2 } = readRoadmapPrds(ctx, roadmap2, { gh: gh2, git: git7 });
     const comments = githubClientFor(ctx, { issue: roadmap2.roadmap, exec, env }).listComments();
-    return { standings, answers: readAnswers(comments) };
+    return { standings, prdWork: prdWork2, answers: readAnswers(comments) };
   } catch {
     return null;
   }
 }
 function pushInputs(n, io) {
   const { ctx, repo } = repoContext2(io);
-  const entry = roadmapFile(ctx, "push", n);
+  const entry2 = roadmapFile(ctx, "push", n);
   const askUrl2 = ctx.config.ask.url;
   if (!askUrl2) return "off";
-  const read2 = readRoadmap(ctx, entry);
+  const read2 = readRoadmap(ctx, entry2);
   if (typeof read2 === "string") return read2;
   const client = signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
   if (!client) return "no sign-in (omni signin)";
@@ -48501,7 +48675,7 @@ function settledEntries(settledText, markers) {
 var REWORKED_BY2 = /reworked by (#\d+|https?:\/\/[^\s,]+)/;
 function driftedEntries(settledText, markers) {
   return settledEntries(settledText ?? "", markers).filter(
-    (entry) => entry.verdict === "drifted" && !entry.closed
+    (entry2) => entry2.verdict === "drifted" && !entry2.closed
   );
 }
 function namedPaths(text10) {
@@ -48542,39 +48716,39 @@ function reworkBranch(featureBranch, sliceId, branches = DEFAULT_BRANCHES) {
   }
   return fill2(branches.slice, { topic, slice: sliceId });
 }
-function deriveRework(entry, {
+function deriveRework(entry2, {
   planSlices: planSlices2 = [],
   featureBranch = null,
   branches = DEFAULT_BRANCHES,
   planRepository = false
 } = {}) {
-  const parsed = parseOutboxItem(entry.itemText, { file: `settled entry ${entry.id}` });
+  const parsed = parseOutboxItem(entry2.itemText, { file: `settled entry ${entry2.id}` });
   if (!parsed.ok || !parsed.item) {
     throw new Error(
-      `the settled entry for ${entry.id} does not hold a well-formed item, so no rework can be derived from it:
+      `the settled entry for ${entry2.id} does not hold a well-formed item, so no rework can be derived from it:
   - ${(parsed.errors ?? []).join("\n  - ")}`
     );
   }
   const { item: item2 } = parsed;
   const planSlice = planSlices2.find((slice) => slice.id === item2.slice) ?? null;
   const bound2 = item2.sections.whatItCostsToChangeLater;
-  const { chosenOption: chosenOption2, reason: reason2 } = chosenOptionOf(entry.answerText, item2.sections.options);
+  const { chosenOption: chosenOption2, reason: reason2 } = chosenOptionOf(entry2.answerText, item2.sections.options);
   const territory = [.../* @__PURE__ */ new Set([...planSlice?.territory ?? [], ...namedPaths(bound2)])];
-  const id = reworkSliceId(entry.id, branches);
+  const id = reworkSliceId(entry2.id, branches);
   return {
     id,
-    itemId: entry.id,
+    itemId: entry2.id,
     slice: item2.slice,
     rank: item2.rank,
     bearsOn: item2.bearsOn,
     question: item2.sections.whatIHadToDecide,
     choice: item2.sections.whatIDidMeanwhile,
-    answer: entry.answerText,
+    answer: entry2.answerText,
     chosenOption: chosenOption2,
     reason: reason2,
     bound: bound2,
-    approvedBy: entry.fields["Approved by"] ?? null,
-    channel: entry.fields.Channel ?? null,
+    approvedBy: entry2.fields["Approved by"] ?? null,
+    channel: entry2.fields.Channel ?? null,
     territory,
     territoryKnown: territory.length > 0,
     unknownPlanSlice: planSlice === null,
@@ -48607,7 +48781,7 @@ function planRework({
   const drifted = driftedEntries(settledText, markers);
   const planSlices2 = planMarkdown ? parsePlanSlices(planMarkdown) : [];
   const reworks = assignWaves(
-    drifted.map((entry) => deriveRework(entry, { planSlices: planSlices2, featureBranch, branches, planRepository }))
+    drifted.map((entry2) => deriveRework(entry2, { planSlices: planSlices2, featureBranch, branches, planRepository }))
   );
   return {
     prd: prd2,
@@ -48648,18 +48822,18 @@ function closeDriftedEntry(settledText, { id, pullRequest: pullRequest2, markers
       `${id}: name the rework sub-pull request that closed it \u2014 a closure nobody can follow is not a closure.`
     );
   }
-  const entry = settledEntries(settledText, markers).find((candidate) => candidate.id === id);
-  if (!entry) {
+  const entry2 = settledEntries(settledText, markers).find((candidate) => candidate.id === id);
+  if (!entry2) {
     throw new Error(`${id}: this ledger holds no settled entry with that id.`);
   }
-  if (entry.verdict !== "drifted") {
+  if (entry2.verdict !== "drifted") {
     throw new Error(
-      `${id}: this entry settled as "${entry.verdict}" \u2014 only a drifted item is ever reworked, and ${COMMANDS.yoloFix} re-decides nothing.`
+      `${id}: this entry settled as "${entry2.verdict}" \u2014 only a drifted item is ever reworked, and ${COMMANDS.yoloFix} re-decides nothing.`
     );
   }
-  if (entry.closed) {
+  if (entry2.closed) {
     throw new Error(
-      `${id}: already closed by ${reworkPullRequest(entry) ?? "a rework"} \u2014 the ledger records one closure, not a second opinion.`
+      `${id}: already closed by ${reworkPullRequest(entry2) ?? "a rework"} \u2014 the ledger records one closure, not a second opinion.`
     );
   }
   const open3 = markers.settledOpen(id);
@@ -48676,8 +48850,8 @@ function closeDriftedEntry(settledText, { id, pullRequest: pullRequest2, markers
   lines[closedIndex] = `- Closed: yes \u2014 reworked by ${reference}, the sub-pull request that brought the build back in line`;
   return lines.join("\n");
 }
-function reworkPullRequest(entry) {
-  return (entry?.fields?.Closed ?? "").match(REWORKED_BY2)?.[1] ?? null;
+function reworkPullRequest(entry2) {
+  return (entry2?.fields?.Closed ?? "").match(REWORKED_BY2)?.[1] ?? null;
 }
 
 // kit/bin/commands/rework.ts
@@ -48970,9 +49144,9 @@ function shippedRow(shipped) {
   const out = [];
   let line = `${stageColumn("shipped")}${shipped.length}: `;
   let fresh = true;
-  for (const entry of shipped) {
+  for (const entry2 of shipped) {
     if (!fresh) {
-      const joined3 = `${line}${SEPARATOR}${shippedEntry(entry, Infinity)}`;
+      const joined3 = `${line}${SEPARATOR}${shippedEntry(entry2, Infinity)}`;
       if (joined3.length <= WIDTH) {
         line = joined3;
         continue;
@@ -48980,7 +49154,7 @@ function shippedRow(shipped) {
       out.push(line);
       line = UNDER_BAR;
     }
-    line = `${line}${shippedEntry(entry, WIDTH - line.length)}`;
+    line = `${line}${shippedEntry(entry2, WIDTH - line.length)}`;
     fresh = false;
   }
   out.push(line);
@@ -49165,12 +49339,12 @@ function ensureBoardDir(root) {
   const ignore = join82(root, LOCAL_DIR, ".gitignore");
   if (!existsSync60(ignore)) writeFileSync32(ignore, "*\n");
 }
-function writeBoard(root, prd2, entry) {
+function writeBoard(root, prd2, entry2) {
   ensureBoardDir(root);
   const path = boardFile(root, prd2);
   const temporary = `${path}.${process.pid}.${randomUUID2()}.tmp`;
   try {
-    writeFileSync32(temporary, `${JSON.stringify(entry)}
+    writeFileSync32(temporary, `${JSON.stringify(entry2)}
 `);
     renameSync4(temporary, path);
   } finally {
@@ -49213,13 +49387,13 @@ function refreshBoard({ root, prd: prd2, now, build }) {
   if (owner === null) return "held";
   try {
     const at2 = new Date(now).toISOString();
-    let entry;
+    let entry2;
     try {
-      entry = { at: at2, slices: build().map(({ id, wave, state }) => ({ id, wave, state })) };
+      entry2 = { at: at2, slices: build().map(({ id, wave, state }) => ({ id, wave, state })) };
     } catch (error62) {
-      entry = { at: at2, error: oneLine4(error62) };
+      entry2 = { at: at2, error: oneLine4(error62) };
     }
-    writeBoard(root, prd2, entry);
+    writeBoard(root, prd2, entry2);
   } finally {
     releaseLock(root, prd2, owner);
   }
@@ -49371,7 +49545,7 @@ function treeFiles(ctx, ref, dir, exec) {
 }
 function checkoutFolders(ctx, dir) {
   return attempt8(
-    () => readdirSync23(join83(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
+    () => readdirSync23(join83(ctx.root, dir), { withFileTypes: true }).filter((entry2) => entry2.isDirectory()).map((entry2) => entry2.name),
     []
   );
 }
@@ -49788,12 +49962,12 @@ function folderViolations(ctx, folder) {
   const rounds = [];
   const misnamed = [];
   const others = [];
-  for (const entry of readdirSync24(join85(ctx.root, folder), { withFileTypes: true })) {
-    const { name: name2 } = entry;
-    const round2 = entry.isFile() ? ROUND3.exec(name2) : null;
+  for (const entry2 of readdirSync24(join85(ctx.root, folder), { withFileTypes: true })) {
+    const { name: name2 } = entry2;
+    const round2 = entry2.isFile() ? ROUND3.exec(name2) : null;
     if (round2) rounds.push({ name: name2, k: Number(round2[1]) });
-    else if (name2 === PAGE && entry.isFile()) continue;
-    else if (entry.isFile() && ROUND_LIKE2.test(name2)) misnamed.push(name2);
+    else if (name2 === PAGE && entry2.isFile()) continue;
+    else if (entry2.isFile() && ROUND_LIKE2.test(name2)) misnamed.push(name2);
     else others.push(name2);
   }
   const byName2 = (a, b) => a < b ? -1 : a > b ? 1 : 0;
