@@ -96,7 +96,7 @@ describe('omni loop push: each event sends the body the app takes', () => {
     }]);
     expect(readLocalLoop(root)).toEqual({
       loopId: LOOP_ID, repo: 'acme/widgets', prds: [7, 9], state: 'running', startedAt: new Date(NOW).toISOString(),
-      seenAt: new Date(NOW).toISOString(), nextWakeAt: null, planVersion: 1,
+      seenAt: new Date(NOW).toISOString(), nextWakeAt: null, planVersion: 1, roadmap: null,
     });
   });
 
@@ -312,6 +312,66 @@ describe('one live loop per checkout', () => {
     await omni(['push', 'stop'], { root, fetch });
     expect((await omni(['push', 'start'], { root, fetch })).code).toBe(0);
     expect(calls.map((c) => (c.body as { event: string }).event)).toEqual(['start', 'stop', 'start']);
+  });
+});
+
+// PRD 1208, slice s3: the loop keeps the step its last tick recorded and the roadmap it drives, so
+// that `omni now` names them without asking the app.
+describe('the kept loop: its last step and its roadmap', () => {
+  const ROADMAP_FILE = '.omni-loop/delivery/inbox/roadmaps/0012-launch/roadmap.md';
+  const roadmapMd = (prds: number[]) => [
+    '---', 'roadmap: 12', 'title: Launch', 'milestone: It ships.', '---', '', '## PRDs', '',
+    '| id | PRD | title | blocked by | why | wave |', '|---|---|---|---|---|---|',
+    ...prds.map((n, index) => `| P${index + 1} | #${n} | PRD ${n} | – | – | 1 |`), '',
+  ].join('\n');
+
+  it('a tick keeps its step, PRD, action, result and time as last', async () => {
+    const { root } = checkout();
+    const { fetch } = stubFetch(answers());
+    await omni(['push', 'start'], { root, fetch });
+    expect(readLocalLoop(root)).not.toHaveProperty('last');
+    await omni(['push', 'tick', '--step', '2', '--prd', '9', '--action', 'wave', '--result', 's3\nmerged'], { root, fetch, now: NOW + 1000 });
+    expect(readLocalLoop(root)?.last).toEqual({ step: 2, prd: 9, action: 'wave', result: 's3 merged', at: new Date(NOW + 1000).toISOString() });
+    await omni(['push', ...TICK], { root, fetch, now: NOW + 2000 });
+    expect(readLocalLoop(root)?.last).toEqual({ step: 1, prd: 7, action: 'wave', result: 'wave 1 merged: s1', at: new Date(NOW + 2000).toISOString() });
+  });
+
+  it('a start from the plan of a roadmap keeps its number; from any other plan, null', async () => {
+    const driven = checkout();
+    driven.write(ROADMAP_FILE, roadmapMd([9, 7]));
+    await omni(['push', 'start'], { root: driven.root, fetch: stubFetch(answers()).fetch });
+    expect(readLocalLoop(driven.root)?.roadmap).toBe(12);
+    const other = checkout();
+    other.write(ROADMAP_FILE, roadmapMd([7, 9, 11]));
+    await omni(['push', 'start'], { root: other.root, fetch: stubFetch(answers()).fetch });
+    expect(readLocalLoop(other.root)?.roadmap).toBeNull();
+    const broken = checkout();
+    broken.write(ROADMAP_FILE, 'not a roadmap\n');
+    await omni(['push', 'start'], { root: broken.root, fetch: stubFetch(answers()).fetch });
+    expect(readLocalLoop(broken.root)?.roadmap).toBeNull();
+  });
+
+  it('a park and a stop keep the last step and the roadmap', async () => {
+    const { root, write } = checkout();
+    write(ROADMAP_FILE, roadmapMd([7, 9]));
+    const { fetch } = stubFetch(answers());
+    await omni(['push', 'start'], { root, fetch });
+    await omni(['push', ...TICK], { root, fetch, now: NOW + 1000 });
+    const last = readLocalLoop(root)?.last;
+    await omni(['push', 'park', '--prd', '7', '--who', 'the PM', '--what', 'questions'], { root, fetch });
+    expect(readLocalLoop(root)).toMatchObject({ roadmap: 12, last });
+    await omni(['push', 'stop'], { root, fetch });
+    expect(readLocalLoop(root)).toMatchObject({ state: 'stopped', roadmap: 12, last });
+  });
+
+  it("a loop.json of PRD 1139's shape reads as no last step and no roadmap, and a tick on it adds the step", async () => {
+    const { root, write } = checkout();
+    const old = { loopId: LOOP_ID, repo: 'acme/widgets', prds: [7, 9], state: 'running', startedAt: new Date(NOW).toISOString(), seenAt: new Date(NOW).toISOString(), nextWakeAt: null, planVersion: 1 };
+    write(LOOP_FILE, JSON.stringify(old));
+    expect(readLocalLoop(root)).toEqual(old);
+    await omni(['push', ...TICK], { root, fetch: stubFetch(answers()).fetch, now: NOW + 1000 });
+    expect(readLocalLoop(root)).toMatchObject({ last: { step: 1, prd: 7 } });
+    expect(readLocalLoop(root)).not.toHaveProperty('roadmap');
   });
 });
 

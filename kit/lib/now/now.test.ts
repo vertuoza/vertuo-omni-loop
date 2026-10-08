@@ -3,7 +3,7 @@
 // "doing" line, and the plain lines. Pure: no git, no disk.
 import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd } from '../ids.ts';
-import { NOTHING, nowOfFix, nowOfPrd, nowLines, workStage } from './now.ts';
+import { LOOP_HEADLINE, NOTHING, nowOfFix, nowOfPrd, nowLines, roadmapHeadline, underHeadline, workStage } from './now.ts';
 
 const slice = (id: string, state: string, name?: string) => ({ id, wave: 1, state, ...(name ? { name } : {}) });
 const BUILDING = [slice('s1', 'merged', 'base'), slice('s3', 'in-flight', 'tabs'), slice('s4', 'claimed-stale', 'board'), slice('s5', 'stuck'), slice('s6', 'blocked', 'later')];
@@ -89,5 +89,41 @@ describe('the work of a fix', () => {
   it('prints one line: the kind, #number, topic and stage', () => {
     expect(nowLines(nowOfFix({ kind: 'bug', number: parseIssue(1180), topic: 'login-redirect', merged: false }))).toEqual(['bug #1180 login-redirect · in progress']);
     expect(nowLines(nowOfFix({ kind: 'visual', number: parseIssue(1150), topic: 'sidebar', merged: true }))).toEqual(['visual #1150 sidebar · merged']);
+  });
+});
+
+// PRD #1208, slice s3: a loop, or the roadmap it drives, as the headline above the work.
+describe('the headline', () => {
+  const LAST = { step: 4, prd: parsePrd(315), action: 'wave', result: 's3 merged' };
+
+  it('names a roadmap with its PRDs merged over its rows, and a loop with no roadmap', () => {
+    expect(roadmapHeadline(parseIssue(7), 3, 7)).toEqual({ kind: 'roadmap', number: 7, progress: '3/7 merged', links: [] });
+    expect(LOOP_HEADLINE).toEqual({ kind: 'loop', links: [] });
+  });
+
+  it("puts the work under it, and the loop's last step as what it is doing", () => {
+    const headline = roadmapHeadline(parseIssue(7), 3, 7);
+    expect(underHeadline(nowOfPrd({ ...PRD, slices: BUILDING }), headline, LAST)).toEqual({
+      headline,
+      work: nowOfPrd({ ...PRD, slices: BUILDING }).work,
+      doing: 'step 4: wave PRD 315 · s3 merged',
+    });
+  });
+
+  it("keeps the work's own doing line without a last step, and stands alone over no work", () => {
+    expect(underHeadline(nowOfPrd({ ...PRD, slices: BUILDING }), LOOP_HEADLINE, null).doing).toBe('building s3 tabs, s4 board');
+    expect(underHeadline(NOTHING, LOOP_HEADLINE, null)).toEqual({ headline: LOOP_HEADLINE, work: null, doing: null });
+    expect(underHeadline(NOTHING, LOOP_HEADLINE, LAST)).toEqual({ headline: LOOP_HEADLINE, work: null, doing: 'step 4: wave PRD 315 · s3 merged' });
+  });
+
+  it('prints the headline first, then the work and what it is doing', () => {
+    const headline = roadmapHeadline(parseIssue(7), 3, 7);
+    expect(nowLines(underHeadline(nowOfPrd({ ...PRD, slices: BUILDING }), headline, LAST))).toEqual([
+      'roadmap 7 · 3/7 merged',
+      'PRD 315 help-and-status · building',
+      'step 4: wave PRD 315 · s3 merged · stuck s5',
+    ]);
+    expect(nowLines(underHeadline(NOTHING, headline, null))).toEqual(['roadmap 7 · 3/7 merged']);
+    expect(nowLines(underHeadline(NOTHING, LOOP_HEADLINE, LAST))).toEqual(['loop', 'step 4: wave PRD 315 · s3 merged']);
   });
 });

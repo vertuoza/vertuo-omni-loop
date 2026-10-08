@@ -6,12 +6,14 @@
 // - `push start [--take-over]` opens a loop on this repository with the plan's PRDs and the latest plan
 //   version, sent whole, and keeps the id the app answers. A loop of this checkout still live or
 //   sleeping is printed and the start refused; a silent one (its session died) is taken over only
-//   with `--take-over`, which the app checks again.
+//   with `--take-over`, which the app checks again. It keeps the roadmap the plan drives (PRD 1208,
+//   s3: the one roadmap of the inbox whose PRDs are exactly the plan's), else null.
 // - `push tick --step <k> [--steps <n>] --prd <n> --action <word> --result "<line>" [--link <url>]
 //   [--merged <pr,…>] [--items <id,…>] [--repos <repo,…>] [--wake-in <seconds> | --next-wake <time>]`:
 //   one tick of the kept loop. `--steps` is the latest plan's length when left out. A plan version
 //   newer than the one the app was sent goes with the tick as its replan, once. The repositories the
 //   step touches (PRD 1162) are `--repos`, else the ones the latest plan gives step k, else none.
+//   It keeps the step it recorded as the kept loop's `last` (PRD 1208, s3).
 // - `push park --prd <n> --who "<who>" --what "<what>" [--link <url>]` and `push stop`.
 // - `status [--json]` prints the kept loop, what it is doing (live, sleeping, parked, stopped or silent,
 //   by the app's rule) and its plan, from this checkout alone: a loop whose terminal closed resumes
@@ -31,11 +33,12 @@ import { signedInClient } from '../../lib/ask/credentials.ts';
 import { field } from '../../lib/ask/schema.ts';
 import { loadContext } from '../../lib/context.ts';
 import { OutboxItemIdSchema, PrNumberSchema } from '../../lib/ids.ts';
-import type { OutboxItemId, PrNumber } from '../../lib/ids.ts';
+import type { IssueNumber, OutboxItemId, PrNumber } from '../../lib/ids.ts';
 import { LINE_MAX, oneLine, parkBody, startBody, stopBody, tickBody, WHO_MAX } from '../../lib/loop/body.ts';
 import type { LoopBody } from '../../lib/loop/body.ts';
 import { loopState, readLocalLoop, writeLocalLoop } from '../../lib/loop/local.ts';
 import type { LocalLoop } from '../../lib/loop/local.ts';
+import { roadmapDriving } from '../../lib/loop/roadmap.ts';
 import type { LoopPlan } from '../../lib/next/plan.ts';
 import { readLoopPlans } from '../../lib/next/store.ts';
 import { list, parseArgs, positiveInt, prdArg, println, usageError } from '../args.ts';
@@ -221,7 +224,11 @@ type PushIo = FreeIo & LoopOptions & { now: () => number };
 type Answer = NonNullable<ReturnType<typeof answerOf>>;
 
 /** One push once its body is made: what it sends and what the kept loop is rebuilt from. */
-type Sending = { askUrl: string; root: string; repo: string; body: LoopBody; plan: LoopPlan | null; kept: LocalLoop | null; wake: string | null; at: number };
+type Sending = {
+  askUrl: string; root: string; repo: string; body: LoopBody; plan: LoopPlan | null; kept: LocalLoop | null; wake: string | null; at: number;
+  /** The roadmap a start's plan drives (PRD 1208, s3), else null. */
+  roadmap: IssueNumber | null;
+};
 
 /** Prints the one line a push stops with: exit 1. */
 function refuse(stderr: Out, line: string): number {
@@ -277,10 +284,10 @@ function planVersionAfter(event: LoopBody['event'], sentVersion: number, kept: L
 }
 
 /** The loop this checkout keeps once the app answered. */
-function loopAfter({ body, plan, kept, repo, wake, at }: Sending, answer: Answer): LocalLoop {
+function loopAfter({ body, plan, kept, repo, wake, at, roadmap }: Sending, answer: Answer): LocalLoop {
   const seenAt = new Date(at).toISOString();
   if (body.event === 'start' && plan) {
-    return { loopId: answer.loopId, repo, prds: [...plan.prds], state: answer.state, startedAt: seenAt, seenAt, nextWakeAt: null, planVersion: plan.version };
+    return { loopId: answer.loopId, repo, prds: [...plan.prds], state: answer.state, startedAt: seenAt, seenAt, nextWakeAt: null, planVersion: plan.version, roadmap };
   }
   const sentVersion = sentVersionOf(plan, kept);
   return {
@@ -288,6 +295,7 @@ function loopAfter({ body, plan, kept, repo, wake, at }: Sending, answer: Answer
     state: answer.state, seenAt,
     nextWakeAt: nextWakeAfter(body.event, wake, kept),
     planVersion: planVersionAfter(body.event, sentVersion, kept),
+    ...(body.event === 'tick' ? { last: { step: body.step, prd: body.prd, action: body.action, result: body.result, at: seenAt } } : {}),
   };
 }
 
@@ -328,7 +336,8 @@ async function push(args: string[], io: PushIo): Promise<number> {
   const kept = readLocalLoop(ctx.root);
   const body = prepared.needsLoop ? loopBody(prepared.body, kept, plan) : startingBody(prepared, kept, plan, at);
   if (typeof body === 'string') return refuse(io.stderr, body);
-  return sendAndKeep({ askUrl, root: ctx.root, repo, body, plan, kept, wake: prepared.wake, at }, io);
+  const roadmap = body.event === 'start' ? roadmapDriving(ctx, body.prds) : null;
+  return sendAndKeep({ askUrl, root: ctx.root, repo, body, plan, kept, wake: prepared.wake, at, roadmap }, io);
 }
 
 function status(args: string[], { cwd, stdout, exec, now }: PushIo): number {

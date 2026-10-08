@@ -4,12 +4,13 @@
 // 0, prints nothing on stderr, writes no file and never runs `gh` or `git fetch`.
 import { execFile, execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptions } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from '../lib/ids.ts';
+import { LOOP_FILE } from '../lib/loop/local.ts';
 import { BOARD_DIR, boardFile } from '../lib/statusline/board-cache.ts';
 import { SESSIONS_DIR } from '../lib/statusline/sessions.ts';
 import { makeRepo, realExec } from '../test/fixture.ts';
@@ -40,11 +41,12 @@ function commit(root: string, files: Record<string, string>) {
  * `1150-sidebar`; a phase-0 branch for `0011-delta`, and the fix branches `fix/login-redirect` (bug
  * `1180`) and `fix/tooltip` (visual fix `1160`) holding their folders. `on(branch, start)` checks
  * `branch` out in a worktree of its own; `board(prd, slices)` writes a cached board a few seconds old;
- * `record(session, body)` writes a session's record.
+ * `record(session, body)` writes a session's record. `extra` adds files to the default branch.
  */
-function fixture() {
+function fixture(extra: Record<string, string> = {}) {
   const seed = makeRepo({ git: true, files: CONFIG });
   commit(seed.root, {
+    ...extra,
     [`${DELIVERY}/shipped/0003-alpha/spec.md`]: '# alpha\n',
     [`${DELIVERY}/inbox/0007-bravo/spec.md`]: '# bravo\n',
     [`${DELIVERY}/inbox/0009-charlie/spec.md`]: '# charlie\n',
@@ -285,5 +287,80 @@ describe('omni now — a fix', () => {
     expect(await nowJson(repo.on('feat/charlie'), repo.root, ['--session', 'fix-6'])).toMatchObject({ work: { kind: 'prd', number: 9 } });
     repo.record('fix-7', { kind: 'prd', number: 9, at: new Date(NOW).toISOString() });
     expect(await nowJson(repo.on('fix/crash'), repo.root, ['--session', 'fix-7'])).toEqual(fix('bug', 1170, 'crash', 'merged'));
+  });
+});
+
+// PRD #1208, slice s3: a session driving a loop or a roadmap — the headline (the loop, or the roadmap
+// it drives, with its PRDs merged over its rows) while the loop is live or sleeping, the PRD of its
+// last tick as the work, and that tick as what it is doing; a roadmap record with no loop is a
+// headline with no work.
+describe('omni now — a loop or a roadmap', () => {
+  const ROADMAP = [
+    '---', 'roadmap: 12', 'title: Launch', 'milestone: It ships.', '---', '', '## PRDs', '',
+    '| id | PRD | title | blocked by | why | wave |', '|---|---|---|---|---|---|',
+    '| P1 | #3 | Alpha | – | – | 1 |', '| P2 | #7 | Bravo | P1 | – | 2 |', '| P3 | #9 | Charlie | – | – | 1 |', '| P4 | #15 | Echo | – | – | 3 |', '',
+  ].join('\n');
+  const repo = fixture({ [`${DELIVERY}/inbox/roadmaps/0012-launch/roadmap.md`]: ROADMAP });
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const LAST = { step: 4, prd: 7, action: 'wave', result: 's3 merged', at: iso(NOW - 30_000) };
+  const ROADMAP_12 = { kind: 'roadmap', number: 12, progress: '1/4 merged', links: [] };
+  const LOOP = { kind: 'loop', links: [] };
+
+  /** Keeps `fields` over a loop live since a minute ago, of PRD 1139's shape, as this checkout's loop. */
+  const loop = (fields: Record<string, unknown>) => {
+    const kept = { loopId: 'loop-1', repo: 'acme/widgets', prds: [7, 9], state: 'running', startedAt: iso(NOW - 60_000), seenAt: iso(NOW - 60_000), nextWakeAt: null, planVersion: 1, ...fields };
+    mkdirSync(join(repo.root, LOOP_FILE, '..'), { recursive: true });
+    writeFileSync(join(repo.root, LOOP_FILE), JSON.stringify(kept));
+  };
+
+  it("shows a live loop's roadmap as the headline, the PRD of its last tick as the work, and that tick as doing", async () => {
+    repo.board(7, BOARD);
+    loop({ roadmap: 12, last: LAST });
+    expect(await nowJson(repo.root, repo.root)).toEqual({
+      headline: ROADMAP_12,
+      work: { kind: 'prd', number: 7, topic: 'bravo', stage: 'building', slices: [{ id: 's3', name: 'tabs', state: 'in-flight' }, { id: 's4', name: 'board', state: 'claimed-stale' }, { id: 's5', name: null, state: 'stuck' }], links: [] },
+      doing: 'step 4: wave PRD 7 · s3 merged',
+    });
+    expect((await now(repo.root)).out).toBe('roadmap 12 · 1/4 merged\nPRD 7 bravo · building\nstep 4: wave PRD 7 · s3 merged · stuck s5\n');
+  });
+
+  it('shows a sleeping loop with no roadmap as the loop, over the PRD of its last tick', async () => {
+    loop({ nextWakeAt: iso(NOW + 60_000), roadmap: null, last: { ...LAST, step: 2, prd: 9, action: 'yolo', result: 'ready' } });
+    expect(await nowJson(repo.root, repo.root)).toMatchObject({ headline: LOOP, work: { kind: 'prd', number: 9, topic: 'charlie' }, doing: 'step 2: yolo PRD 9 · ready' });
+    expect((await now(repo.root)).out).toBe('loop\nPRD 9 charlie · inbox\nstep 2: yolo PRD 9 · ready\n');
+  });
+
+  it('shows no headline for a parked, stopped or silent loop', async () => {
+    for (const fields of [{ state: 'parked' }, { state: 'stopped' }, { nextWakeAt: iso(NOW - 10 * 60_000) }, { seenAt: iso(NOW - 2 * 60 * 60_000) }]) {
+      loop({ roadmap: 12, last: LAST, ...fields });
+      expect(await nowJson(repo.root, repo.root)).toEqual(NOTHING);
+    }
+  });
+
+  it("reads a loop.json of PRD 1139's shape as no last step and no roadmap: the loop over the session's own work", async () => {
+    loop({});
+    expect(await nowJson(repo.root, repo.root)).toEqual({ headline: LOOP, work: null, doing: null });
+    repo.record('loop-1', { prd: 9, at: iso(NOW) });
+    expect(await nowJson(repo.root, repo.root, ['--session', 'loop-1'])).toMatchObject({ headline: LOOP, work: { number: 9 }, doing: null });
+  });
+
+  it('shows the loop alone when its roadmap has no folder, and no work when its last PRD has none', async () => {
+    loop({ roadmap: 13, last: { ...LAST, prd: 42 } });
+    expect(await nowJson(repo.root, repo.root)).toEqual({ headline: LOOP, work: null, doing: 'step 4: wave PRD 42 · s3 merged' });
+  });
+
+  it('shows a roadmap record with no running loop as the headline with no work', async () => {
+    loop({ state: 'stopped' });
+    repo.record('road-1', { kind: 'roadmap', number: 12, at: iso(NOW) });
+    expect(await nowJson(repo.root, repo.root, ['--session', 'road-1'])).toEqual({ headline: ROADMAP_12, work: null, doing: null });
+    expect((await now(repo.root, ['--session', 'road-1'])).out).toBe('roadmap 12 · 1/4 merged\n');
+    repo.record('road-2', { kind: 'roadmap', number: 13, at: iso(NOW) });
+    expect(await nowJson(repo.root, repo.root, ['--session', 'road-2'])).toEqual(NOTHING);
+  });
+
+  it('records the roadmap of `omni roadmap check <n>`, which `omni now` then shows', async () => {
+    rmSync(join(repo.root, LOOP_FILE), { force: true });
+    await main(['roadmap', 'check', '12'], { cwd: repo.root, stdout: { write: () => true }, stderr: { write: () => true }, env: { CLAUDE_CODE_SESSION_ID: 'road-3' } });
+    expect(await nowJson(repo.root, repo.root, ['--session', 'road-3'])).toEqual({ headline: ROADMAP_12, work: null, doing: null });
   });
 });

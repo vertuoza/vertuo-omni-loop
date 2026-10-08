@@ -4,6 +4,11 @@
 // with the same id and the same plan. A file that is missing, half-written or not of the shape reads
 // as no loop.
 //
+// PRD 1208, slice s3: `omni loop push tick` keeps the step it recorded as `last`
+// (`{ step, prd, action, result, at }`), and `omni loop push start` keeps the roadmap the loop drives
+// as `roadmap` (`null` for none). A file without them, of PRD 1139's shape, still reads: no last step
+// and no roadmap.
+//
 // What the loop is doing is read by the app's rule (its loop state, and
 // `loop_is_silent()` in the migration), from the times this checkout last pushed:
 //
@@ -16,7 +21,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { ensureLocalDir, LOCAL_DIR } from '../ask/local-state.ts';
-import { PrdNumberSchema } from '../ids.ts';
+import { IssueNumberSchema, PrdNumberSchema } from '../ids.ts';
 
 export const LOOP_FILE = join(LOCAL_DIR, 'loop.json');
 
@@ -24,6 +29,15 @@ export const LOOP_FILE = join(LOCAL_DIR, 'loop.json');
 export const SILENT_AFTER_MS = 5 * 60 * 1000;
 /** How long a loop with no wake yet stays live after its last push. */
 const FIRST_TICK_MS = 60 * 60 * 1000;
+
+/** The step a tick recorded: its number, its PRD, its action, its result line and when. */
+const LastStepSchema = z.object({
+  step: z.number().int().positive(),
+  prd: PrdNumberSchema,
+  action: z.string().min(1),
+  result: z.string(),
+  at: z.string(),
+});
 
 const LocalLoopSchema = z.object({
   loopId: z.string().min(1),
@@ -35,6 +49,10 @@ const LocalLoopSchema = z.object({
   nextWakeAt: z.string().nullable(),
   /** The latest version of the loop plan the app was sent. */
   planVersion: z.number().int().positive(),
+  /** PRD 1208, s3: the step the last tick recorded; absent before the first tick, and in a file of PRD 1139's shape. */
+  last: LastStepSchema.exactOptional(),
+  /** PRD 1208, s3: the roadmap the loop drives, `null` for none; absent in a file of PRD 1139's shape. */
+  roadmap: IssueNumberSchema.nullable().exactOptional(),
 });
 
 export type LocalLoop = z.infer<typeof LocalLoopSchema>;
