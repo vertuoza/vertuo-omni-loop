@@ -6,7 +6,7 @@ import { parsePrd } from '../ids.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
 import type { OutboxItem } from '../types.ts';
 import {
-  CLARIFICATION_MARKER, clarificationWork, outboxWork, parkOf, parkWork, questionWork, ruleKind,
+  ACT_MAX, CLARIFICATION_MARKER, TEXT_MAX, clarificationWork, outboxWork, parkOf, parkWork, questionWork, ruleKind,
 } from './human-work.ts';
 import type { Roadmap, RoadmapRow } from './parse.ts';
 
@@ -100,6 +100,19 @@ describe('outboxWork', () => {
 
   it('gives no entry once nothing is open', () => {
     expect(outboxWork(PRD, [], { repoOf: () => 'widgets', url: null })).toEqual([]);
+  });
+});
+
+describe('the caps the app takes', () => {
+  it('cuts a text over TEXT_MAX and an act over ACT_MAX with an ellipsis, the rule kind read on the whole', () => {
+    const [work] = parkWork(PRD, `- loop: parked · ${'a'.repeat(TEXT_MAX + 50)} secret`, { repo: 'widgets', prUrl: null });
+    expect(work?.text).toHaveLength(TEXT_MAX);
+    expect(work?.text.endsWith('…')).toBe(true);
+    expect(work?.ruleKind).toBe('dev-ops');
+    const item = { id: 's1-01-x', rank: 'human-action', sections: { personSteps: 'b'.repeat(ACT_MAX + 1) } } as unknown as OutboxItem;
+    const [action] = outboxWork(PRD, [item], { repoOf: () => 'widgets', url: null });
+    expect(action?.act).toHaveLength(ACT_MAX);
+    expect(action?.act?.endsWith('…')).toBe(true);
   });
 });
 

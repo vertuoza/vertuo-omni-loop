@@ -59,9 +59,21 @@ export function ruleKind(source: HumanWorkSource, text: string, act: string | nu
   return 'development';
 }
 
-/** An entry with its rule kind worked out. */
-const entry = (fields: Omit<HumanWorkEntry, 'ruleKind'>): HumanWorkEntry =>
-  ({ ...fields, ruleKind: ruleKind(fields.source, fields.text, fields.act) });
+/** The longest text and act the app takes (`POST /api/roadmaps`): a longer one would refuse the push. */
+export const TEXT_MAX = 1000;
+export const ACT_MAX = 4000;
+
+/** `text` cut to `max` characters, the last one an ellipsis. */
+const capped = (text: string, max: number): string => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
+
+/** An entry with its rule kind worked out on the whole text and act, then each cut to what the app
+ * takes. */
+const entry = (fields: Omit<HumanWorkEntry, 'ruleKind'>): HumanWorkEntry => ({
+  ...fields,
+  text: capped(fields.text, TEXT_MAX),
+  act: fields.act === null ? null : capped(fields.act, ACT_MAX),
+  ruleKind: ruleKind(fields.source, fields.text, fields.act),
+});
 
 /** A text on one line, trimmed; null when nothing is left. */
 const flat = (text: string | null | undefined): string | null => {
