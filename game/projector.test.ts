@@ -264,13 +264,14 @@ describe('projectEvents', () => {
       expect(poll().map((e) => e.id)).toEqual(['ask:00000000-0000-4000-8000-0000000000a1:answered']);
     });
 
-    it('writes nothing yet for a round whose planet is not charted in this poll', () => {
+    it('pays a round whose PRD this poll did not chart (an untracked repository), and one no PRD claims, on planet 0', () => {
       const skipped: Skip[] = [];
       const events = projectEvents(homed('acme/plan'), { config, now: NOW, onSkip: (s) => skipped.push(s), answers: [
-        round({ prd: parsePrd(9999) }),
-        round({ home: 'acme/tools' }), // the same number in another home is another planet
+        round({ roundId: 'r1', prd: parsePrd(9999) }),
+        round({ roundId: 'r2', home: 'acme/tools' }), // the same number in another home is another planet
+        round({ roundId: 'r3', prd: null, home: 'acme/tools' }),
       ] });
-      expect(answers(events)).toEqual([]);
+      expect(answers(events).map((e) => [e.id, e.planet, e.home])).toEqual([['ask:r1:answered', 9999, 'acme/plan'], ['ask:r2:answered', 2332, 'acme/tools'], ['ask:r3:answered', 0, 'acme/tools']]);
       expect(skipped).toEqual([]);
     });
 

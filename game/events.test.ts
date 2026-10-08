@@ -23,6 +23,12 @@ describe('events', () => {
     expect(e.data).toEqual({});
   });
 
+  it('takes planet 0 for an answer no PRD claims, and for nothing else', () => {
+    expect(makeEvent({ id: 'ask:r1:answered', at: '2026-09-01T08:00:00Z', type: 'QUESTION_ANSWERED', planet: 0 }).planet).toBe(0);
+    expect(() => makeEvent({ id: 'planet:0:charted', at: '2026-09-01T08:00:00Z', type: 'PLANET_CHARTED', planet: 0 })).toThrow(/no planet/);
+    expect(() => makeEvent({ id: 'ask:r1:answered', at: '2026-09-01T08:00:00Z', type: 'QUESTION_ANSWERED', planet: -1 })).toThrow();
+  });
+
   it('refuses an unknown type', () => {
     expect(() => makeEvent({ id: 'x', at: '2026-09-01T08:00:00Z', type: 'NOPE', planet: 1 })).toThrow();
   });

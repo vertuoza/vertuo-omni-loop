@@ -186,6 +186,12 @@ describe('score', () => {
       expect(score([charted, answered('r3', '2026-08-31T21:00:00Z')], { season: '2026-08', now: NOW }).individuals).toEqual({ alice: 2 });
     });
 
+    it('pays an answer no PRD claims (planet 0) and adds no planet to the season', () => {
+      const s = score([charted, E('ask:r1:answered', '2026-09-21T12:00:00Z', 'QUESTION_ANSWERED', { planet: 0, contributor: 'alice', team: 'octopod' })], { season: '2026-09', now: NOW });
+      expect(s.individuals).toEqual({ alice: 2 });
+      expect(Object.keys(s.planets)).toEqual(['2332']);
+    });
+
     it('changes no threat, decay, terraform or streak number', () => {
       const delivery = [
         charted,
