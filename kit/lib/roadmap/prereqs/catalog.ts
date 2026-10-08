@@ -13,6 +13,7 @@
  */
 import { loopLabels } from '../../init/labels.ts';
 import type { LoopLabel } from '../../init/labels.ts';
+import { PREREQUISITE_BASE_CHECKS } from '../grade.ts';
 import type { RoadmapPrerequisite } from '../parse.ts';
 import { BASE_CARDS } from './cards.ts';
 import type { BaseCard, BaseCheckName } from './cards.ts';
@@ -221,36 +222,31 @@ const copyEnvFiles: Run = async (env) => {
 
 const signedIn: Run = (env) => Promise.resolve(env.signedIn() ? OK : notOk('not signed in to the Omni app'));
 
-const CHECKS: Record<BaseCheckName, Run> = {
-  'gh-auth': ghAuth,
-  node,
-  pnpm: exitsZero('pnpm', '--version'),
-  npm: exitsZero('npm', '--version'),
-  yarn: exitsZero('yarn', '--version'),
-  install: installed,
-  registry,
-  docker: exitsZero('docker', 'info'),
-  labels,
-  'env-file': envFiles,
-  'omni-signin': signedIn,
-};
-
-const FIXES: Partial<Record<BaseCheckName, Run>> = { install, labels: createLabels, 'env-file': copyEnvFiles };
+/** Base check `name`: its card, its check, and its fix when it has one. */
+const entry = (name: BaseCheckName, check: Run, fix?: Run): BaseEntry => ({ ...BASE_CARDS[name], check, ...(fix ? { fix } : {}) });
 
 /** Every base check, by name. */
-export const BASE_CATALOG = Object.fromEntries(
-  Object.entries(BASE_CARDS).map(([name, card]) => {
-    const fix = FIXES[name as BaseCheckName];
-    return [name, { ...card, check: CHECKS[name as BaseCheckName], ...(fix ? { fix } : {}) }];
-  }),
-) as Record<BaseCheckName, BaseEntry>;
+export const BASE_CATALOG: Record<BaseCheckName, BaseEntry> = {
+  'gh-auth': entry('gh-auth', ghAuth),
+  node: entry('node', node),
+  pnpm: entry('pnpm', exitsZero('pnpm', '--version')),
+  npm: entry('npm', exitsZero('npm', '--version')),
+  yarn: entry('yarn', exitsZero('yarn', '--version')),
+  install: entry('install', installed, install),
+  registry: entry('registry', registry),
+  docker: entry('docker', exitsZero('docker', 'info')),
+  labels: entry('labels', labels, createLabels),
+  'env-file': entry('env-file', envFiles, copyEnvFiles),
+  'omni-signin': entry('omni-signin', signedIn),
+};
 
 const BASE = /^base:(.+)$/;
 
 /** The catalog's entry `cell` names (`base:<name>`), or null. */
 function baseEntry(cell: string): BaseEntry | null {
-  const name = BASE.exec(cell)?.[1];
-  return name !== undefined && Object.hasOwn(BASE_CATALOG, name) ? BASE_CATALOG[name as BaseCheckName] : null;
+  const wanted = BASE.exec(cell)?.[1];
+  const name = PREREQUISITE_BASE_CHECKS.find((known) => known === wanted);
+  return name === undefined ? null : BASE_CATALOG[name];
 }
 
 /** A row's check and fix against `env`: a base check or a shell command, and only a base fix. */
