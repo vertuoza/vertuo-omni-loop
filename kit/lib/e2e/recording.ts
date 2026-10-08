@@ -56,7 +56,8 @@ export function parseRecording(file: string, text: string): Recording {
     summary: typeof summary === 'string' ? summary : '',
     actions: actions.map((action: unknown) => {
       const item = isRecord(action) ? action : {};
-      return { name: String(item['name'] ?? ''), target: String(item['target'] ?? '') };
+      const text = (value: unknown): string => (typeof value === 'string' || typeof value === 'number' ? String(value) : '');
+      return { name: text(item['name']), target: text(item['target']) };
     }),
   };
 }

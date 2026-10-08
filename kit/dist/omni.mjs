@@ -40090,7 +40090,8 @@ function parseRecording(file2, text11) {
     summary: typeof summary === "string" ? summary : "",
     actions: actions.map((action) => {
       const item2 = isRecord4(action) ? action : {};
-      return { name: String(item2["name"] ?? ""), target: String(item2["target"] ?? "") };
+      const text12 = (value) => typeof value === "string" || typeof value === "number" ? String(value) : "";
+      return { name: text12(item2["name"]), target: text12(item2["target"]) };
     })
   };
 }
@@ -40128,7 +40129,10 @@ function readTaggedTests(root, dir, prd2) {
 
 // kit/lib/e2e/heals.ts
 var key = ({ testId, callIndex }) => JSON.stringify([testId, callIndex]);
-var same = (a, b) => a.length === b.length && a.every((action, i) => action.name === b[i]?.name && action.target === b[i]?.target);
+var same = (a, b) => a.length === b.length && a.every((action, i) => {
+  const other = b.at(i);
+  return other !== void 0 && action.name === other.name && action.target === other.target;
+});
 var step = ({ testId, callIndex, summary, actions }) => ({ testId, callIndex, summary, actions });
 var order = (a, b) => a.testId < b.testId ? -1 : a.testId > b.testId ? 1 : a.callIndex - b.callIndex;
 function compareRecordings(base, head) {

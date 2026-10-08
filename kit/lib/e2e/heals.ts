@@ -14,7 +14,7 @@ export type Heals = { readonly healed: Healed[]; readonly new: Step[]; readonly 
 
 const key = ({ testId, callIndex }: Recording): string => JSON.stringify([testId, callIndex]);
 const same = (a: readonly Action[], b: readonly Action[]): boolean =>
-  a.length === b.length && a.every((action, i) => action.name === b[i]?.name && action.target === b[i]?.target);
+  a.length === b.length && a.every((action, i) => { const other = b.at(i); return other !== undefined && action.name === other.name && action.target === other.target; });
 const step = ({ testId, callIndex, summary, actions }: Recording): Step => ({ testId, callIndex, summary, actions });
 const order = (a: { testId: string; callIndex: number }, b: { testId: string; callIndex: number }): number =>
   a.testId < b.testId ? -1 : a.testId > b.testId ? 1 : a.callIndex - b.callIndex;

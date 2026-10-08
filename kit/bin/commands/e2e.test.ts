@@ -34,7 +34,7 @@ describe('omni e2e status', () => {
 
   it('exits 1 when a test has no recording, still printing the JSON', async () => {
     const { code, out } = await run(['status', '7'], ON, TEST);
-    expect(JSON.parse(out).tests[0].recording).toBe(false);
+    expect(JSON.parse(out)).toMatchObject({ tests: [{ recording: false }] });
     expect(code).toBe(1);
   });
 
@@ -91,13 +91,14 @@ describe('omni e2e heals', () => {
     );
     expect(out || err).not.toContain('omni e2e heals:');
     expect(code).toBe(0);
-    const json = JSON.parse(out);
-    expect(json.prd).toBe(1233);
-    expect(json.healed).toEqual([
-      { testId: 'rank.spec.ts', callIndex: 0, summary: 'clicks Position', old: [{ name: 'click', target: 'Rank' }], new: [{ name: 'click', target: 'Position' }] },
-    ]);
-    expect(json.new.map((s: { callIndex: number }) => s.callIndex)).toEqual([2]);
-    expect(json.removed).toEqual([]);
+    expect(JSON.parse(out)).toMatchObject({
+      prd: 1233,
+      healed: [
+        { testId: 'rank.spec.ts', callIndex: 0, summary: 'clicks Position', old: [{ name: 'click', target: 'Rank' }], new: [{ name: 'click', target: 'Position' }] },
+      ],
+      new: [{ callIndex: 2 }],
+      removed: [],
+    });
   });
 
   it('fails naming a recording that is not trace-1 or does not read, at either side', async () => {
