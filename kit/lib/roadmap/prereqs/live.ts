@@ -23,9 +23,9 @@ const ranAndFailed = (error: ExecFileException): boolean => typeof error.code ==
 export const liveShell: Shell = (file, args, { cwd, timeoutMs }) =>
   new Promise((resolve, reject) => {
     execFile(file, [...args], { cwd, timeout: timeoutMs, maxBuffer: MAX_OUTPUT, encoding: 'utf8' }, (error, stdout, stderr) => {
-      if (error === null) return resolve({ code: 0, stdout, stderr });
-      if (!ranAndFailed(error)) return reject(error);
-      resolve({ code: typeof error.code === 'number' ? error.code : null, stdout, stderr });
+      if (error === null) resolve({ code: 0, stdout, stderr });
+      else if (ranAndFailed(error)) resolve({ code: typeof error.code === 'number' ? error.code : null, stdout, stderr });
+      else reject(new Error(error.message, { cause: error }));
     });
   });
 
