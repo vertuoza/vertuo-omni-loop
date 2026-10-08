@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD 1279 — before and after</title>
+<style>:root{--bg:#fff;--fg:#1b1f24;--muted:#5b6670;--line:#d7dce1;--card:#f6f8fa}@media (prefers-color-scheme:dark){:root{--bg:#0f1317;--fg:#e8ecef;--muted:#9aa5ae;--line:#2b333b;--card:#161b21}}
+body{margin:0;padding:24px 16px;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}h1{font-size:1.25rem;margin:0 0 4px}p.lead{color:var(--muted);margin:0 0 20px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px}.card h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px}</style></head><body>
+<h1>Hygiene of the e2e suite</h1><p class="lead">PRD 1279 · P7 of the roadmap "Validation e2e: de la bêta à la pratique"</p>
+<div class="cols"><section class="card" aria-label="Today"><h2>Today</h2><p>Every PRD adds tests to the suite and none leaves it: slow or flaky tests pile up, and a test a later PRD replaces keeps running.</p></section>
+<section class="card" aria-label="After"><h2>After</h2><p>Each test is tagged with its PRD; a test that fails then passes without a code change is moved to quarantine, still run but not blocking; a PRD can retire the tests it replaces.</p></section></div></body></html>
