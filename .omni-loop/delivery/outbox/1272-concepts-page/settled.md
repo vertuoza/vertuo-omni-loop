@@ -470,3 +470,163 @@ One line in ConceptPage.view.ts once s4 stores the pull request in fix_facts: li
 ```
 
 <!-- /omni-outbox-settled: s3-02-concept-pr-link-is-a-search -->
+
+<!-- omni-outbox-settled: s4-01-concept-read-in-the-shared-reader -->
+
+## s4-01-concept-read-in-the-shared-reader — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-concept-read-in-the-shared-reader
+prd: 1272
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 4
+---
+
+## The question, in plain words
+
+To know whether a concept is in review or in the inbox, the app must ask GitHub about it. Which part of the app does the asking?
+
+## The decision, in plain words
+
+The same part that already asks GitHub about each fix now asks about concepts too, with its own short memory, so no second connection to GitHub is built.
+
+## The intro, for fun
+
+The concept needed a messenger to GitHub, and one was already walking that road every day.
+
+## The punchline, for fun
+
+So it got one more letter to carry, not a second messenger.
+
+## The options, in plain words
+
+A. A. Ask GitHub about a concept through the part that already asks about fixes, as built.
+B. B. Give concepts their own way of asking GitHub, repeating how the app signs in to GitHub.
+C. C. Ask GitHub nothing about concepts, and show their state only from what the push sends.
+
+## What I had to decide
+
+Whether the concept's GitHub read goes in the shared GitHub reader (outside this slice's ground), or in a reader of its own inside it.
+
+Decided by: Jev (hardToRevert 0.48) · agent said false
+
+## What I did meanwhile
+
+apps/galaxy/src/dossier/github/reader.ts gains a ConceptReader: concept(ref, { priority }) reads the repository's branches.concept from its config and calls readConceptFacts (fix.ts), through its own 60-second cache; the fix and concept reads share one helper (numbered). apps/galaxy/src/dossier/github/server.ts widens dossierGithub()'s type to include it, and reader.test.ts covers the concept read. These three files are outside s4's territory: the token, the installation and the repository's config live only in reader.ts, so no read of a concept could be made from inside the territory without copying them.
+
+## What it costs to change later
+
+Moving the read later is one method and its test moved to another file; nothing is stored differently and no migration is involved.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan names apps/galaxy/src/dossier/github/fix as the territory for the read, but the reader that holds the GitHub token and the config, reader.ts, is not in it.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-concept-read-in-the-shared-reader -->
+
+<!-- omni-outbox-settled: s4-02-concept-state-unknown-until-read -->
+
+## s4-02-concept-state-unknown-until-read — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-concept-state-unknown-until-read
+prd: 1272
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 4
+---
+
+## The question, in plain words
+
+What does a concept show when its review has not been found on GitHub, or has not been checked yet?
+
+## The decision, in plain words
+
+It shows "state unknown" in both cases. The list never asks GitHub itself: it shows what was last stored, which the regular sync or a visit to the concept's page fills in.
+
+## The intro, for fun
+
+Nobody has checked on the concept yet, and the page refuses to guess how it is doing.
+
+## The punchline, for fun
+
+Honest beats hopeful: it says it does not know until someone looks.
+
+## The options, in plain words
+
+A. A. Show "state unknown" for no pull request found and for not read yet, as built.
+B. B. Show a separate "no concept PR" chip when none is found on the concept's branch.
+C. C. Have the list ask GitHub for a concept with no stored facts, at the cost of GitHub reads on every view.
+
+## What I had to decide
+
+Two cases the spec does not name: a concept with no open or merged pull request on its branch (closed without merging, or renamed), and a concept the sync has not read yet.
+
+Decided by: Jev (hardToRevert 0.46) · agent said false
+
+## What I did meanwhile
+
+conceptState (src/concepts/state.ts) gives 'unknown' when the stored pull request is UNREAD or null, as well as with no stored facts. /concepts reads only fix_facts, as the signed-in person, one read per workspace, never GitHub; a new concept reads 'state unknown' until the stages sync (every 15 minutes) or its own page stores its facts. The page reads the stored facts first and, with none, asks GitHub once and stores the answer after the response.
+
+## What it costs to change later
+
+One branch in conceptState to show another word (for example "closed") for a concept with no pull request, or one read in the list to ask GitHub when nothing is stored. No migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names only an open pull request, a merged one, and one that could not be read.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-concept-state-unknown-until-read -->
