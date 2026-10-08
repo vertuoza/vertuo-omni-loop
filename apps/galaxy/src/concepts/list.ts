@@ -6,6 +6,7 @@
 // parsed with the kit's own parser, for its kind, its scale and how many of its areas have a PRD. A
 // concept.md missing or refused by the parser leaves those unknown, and the card still shows.
 import { z } from 'zod';
+import { IssueNumberSchema, type IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { parseConcept, type ConceptKind, type ConceptScale } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
 import { shortDay } from '../dossier/page/dates';
 import { workPath } from '../dossier/page/work';
@@ -18,7 +19,7 @@ const ConceptRowSchema = z.object({
   id: z.string(),
   kind: z.literal('concept'),
   /** The concept's issue. */
-  prd: z.coerce.number().nullable(),
+  prd: IssueNumberSchema.nullable(),
   title: z.string(),
   created_at: z.string(),
   latest: z.object({ 'concept-record': z.object({ id: z.string() }).optional() }),
@@ -30,7 +31,7 @@ export type ConceptCard = {
   id: string;
   href: string;
   /** The concept's issue; null for a row with none. */
-  number: number | null;
+  number: IssueNumber | null;
   title: string;
   /** From concept.md; null when it is missing or does not parse. */
   kind: ConceptKind | null;

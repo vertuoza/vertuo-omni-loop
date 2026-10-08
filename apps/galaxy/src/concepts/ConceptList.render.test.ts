@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { nestedLinks } from '../people/nested-links';
 import { ConceptList, ConceptListLoading, ConceptListScreen } from './ConceptList';
 import { conceptCards, type ConceptCard, type ConceptListState } from './list';
@@ -11,7 +12,7 @@ import { CONCEPT_1269, conceptRow } from './list.fixture';
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const render = (cards: ConceptCard[]) => renderToStaticMarkup(createElement(ConceptList, { cards }));
-const C1269 = conceptCards([conceptRow('c-1269', 1269, '2026-10-06T09:00:00Z')], new Map([['c-1269', CONCEPT_1269]]));
+const C1269 = conceptCards([conceptRow('c-1269', parseIssue(1269), '2026-10-06T09:00:00Z')], new Map([['c-1269', CONCEPT_1269]]));
 
 describe('the Concepts list', () => {
   it('shows concept #1269: its title, kind and scale, "0 of 6 areas have a PRD" and the date it was recorded, linking to its page', () => {
@@ -30,12 +31,12 @@ describe('the Concepts list', () => {
   });
 
   it('keeps a card whose concept.md could not be read, saying so', () => {
-    const [card] = conceptCards([conceptRow('c-9', 9, '2026-10-06T09:00:00Z', null)], new Map());
+    const [card] = conceptCards([conceptRow('c-9', parseIssue(9), '2026-10-06T09:00:00Z', null)], new Map());
     expect(text(render([card as ConceptCard]))).toBe('Concepts #9 Concept 9 record not readable recorded 6 Oct 2026');
   });
 
   it('lists the cards in the order given, newest first', () => {
-    const cards = conceptCards([conceptRow('old', 746, '2026-09-01T09:00:00Z'), conceptRow('new', 1269, '2026-10-06T09:00:00Z')], new Map());
+    const cards = conceptCards([conceptRow('old', parseIssue(746), '2026-09-01T09:00:00Z'), conceptRow('new', parseIssue(1269), '2026-10-06T09:00:00Z')], new Map());
     const html = render(cards);
     expect(html.indexOf('/concepts/new')).toBeLessThan(html.indexOf('/concepts/old'));
   });

@@ -1,6 +1,7 @@
 // The Concepts list's fixtures (PRD 1272, s2): concept #1269 as /omni:think-big recorded it, its
 // sections cut short, its six areas kept, and the rows dossier_list() returns for a concept and for the
 // other kinds.
+import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { ConceptRow } from './list';
 
 /** Concept #1269's concept.md, its sections shortened: six areas, none with a PRD yet. */
@@ -44,7 +45,7 @@ The loop today.
 `;
 
 /** A concept's row of dossier_list(), recorded at `at`, its latest concept.md version `record`. */
-export function conceptRow(id: string, issue: number, at: string, record: string | null = `v-${id}`): ConceptRow {
+export function conceptRow(id: string, issue: IssueNumber, at: string, record: string | null = `v-${id}`): ConceptRow {
   return {
     id, kind: 'concept', prd: issue, title: issue === 1269 ? 'Products replace plan repositories, with phase 0 approved on the server' : `Concept ${issue}`,
     created_at: at, latest: record === null ? {} : { 'concept-record': { id: record } },
