@@ -130,8 +130,9 @@ export async function readPlanSlices(db: Pick<Db, 'from'>, versions: readonly Do
 /** One version's content, or null when the viewer may not read it. */
 export const readContent = (db: Pick<Db, 'from'>, versionId: string) => dossierReader(db).content(versionId);
 
-/** The pages served sandboxed: a before/after page, and a visual fix's rounds of variations (PRD 627). */
-export type SandboxedKind = 'before-after' | 'variations';
+/** The pages served sandboxed: a before/after page, a visual fix's rounds of variations (PRD 627), and a
+ * concept's vision tour and its boards, a round each (PRD 1272). */
+export type SandboxedKind = 'before-after' | 'variations' | 'vision' | 'board';
 
 /** Version `number` of the dossier's before/after page (or its round `number` of variations), or null when
  * there is none the viewer may read. */
