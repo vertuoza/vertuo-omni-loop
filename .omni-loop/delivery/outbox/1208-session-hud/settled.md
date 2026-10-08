@@ -857,3 +857,235 @@ Making the plain refresh fetch links too is a one-line default; nothing stored c
 ```
 
 <!-- /omni-outbox-settled: s4-02-refresh-without-kind-board-only -->
+
+<!-- omni-outbox-settled: s5-01-building-line-keeps-stuck-and-items -->
+
+## s5-01-building-line-keeps-stuck-and-items — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s5
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-building-line-keeps-stuck-and-items
+prd: 1208
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 5
+---
+
+## The question, in plain words
+
+While a PRD is being built, should the bottom line also say which slices are stuck and how many questions are waiting, though the spec's example line shows neither?
+
+## The decision, in plain words
+
+Yes: after the slices being built, the line names the stuck slices in red and the count of waiting questions, as the old line did. The slice the branch names is no longer shown, as the acceptance criteria ask.
+
+## The intro, for fun
+
+The example line looked tidy because nothing was stuck that day.
+
+## The punchline, for fun
+
+Real days come with a red word or two.
+
+## The options, in plain words
+
+A. A. Keep the stuck slices in red and the open item count on the building line (built).
+B. B. Show exactly the spec's parts: stage, wave and the slices in flight, nothing more.
+C. C. Keep the stuck slices, drop the open item count.
+
+## What I had to decide
+
+Whether the second line of a PRD being built keeps the stuck slices and the open item count that PRD 324's line showed, beyond the spec's example.
+
+## What I did meanwhile
+
+The building line reads the stage, the wave, 'now' and the slices in flight, then 'stuck' and the stuck slices in red, then the open items; each part is left out when it has nothing to say. The slice a slice branch names is no longer shown.
+
+## What it costs to change later
+
+Removing either part is one line in the status line's render; the width rule already cuts them last.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec's example building line shows no stuck slice and no open item; it does not say whether they were left out on purpose or only absent in that example. (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-building-line-keeps-stuck-and-items -->
+
+<!-- omni-outbox-settled: s5-02-width-cut-drops-slice-names -->
+
+## s5-02-width-cut-drops-slice-names — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s5
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-width-cut-drops-slice-names
+prd: 1208
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 5
+---
+
+## The question, in plain words
+
+When the bottom line is too wide, should the slice names be dropped whole, keeping only their short ids, or shortened a little at a time?
+
+## The decision, in plain words
+
+Dropped whole: a line too wide shows the slices by their ids only, then shortens the topic, then cuts the line's end.
+
+## The intro, for fun
+
+Every slice has a name, until the terminal gets narrow.
+
+## The punchline, for fun
+
+Then they go by their numbers, like a sports team on a cold day.
+
+## The options, in plain words
+
+A. A. Drop every name at once, keeping the ids (built).
+B. B. Trim the names from the last one back, a few characters at a time, before touching the topic.
+
+## What I had to decide
+
+How 'cut the slice names first' is read: dropping every name at once, or trimming them one by one.
+
+## What I did meanwhile
+
+A line too wide drops every slice name at once and keeps the ids, then cuts the topic down to 8 characters, then cuts the line at its end.
+
+## What it costs to change later
+
+Trimming names one by one instead is a change inside one function of the render, with its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the line cuts the slice names first, then the topic; it does not say whether a name is trimmed or dropped. (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-02-width-cut-drops-slice-names -->
+
+<!-- omni-outbox-settled: s5-03-links-refresh-for-any-live-work -->
+
+## s5-03-links-refresh-for-any-live-work — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s5
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-links-refresh-for-any-live-work
+prd: 1208
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 5
+---
+
+## The question, in plain words
+
+Should the bottom line keep the links fresh for any work that is not finished, including a PRD still in review, and not only where the board is kept?
+
+## The decision, in plain words
+
+Yes: the links are refreshed about once a minute for a PRD that is not shipped, in review included, and for a fix not yet merged; never for finished work.
+
+## The intro, for fun
+
+A PRD in review has the most interesting link of all: its open review.
+
+## The punchline, for fun
+
+So it gets its fresh links too, once a minute, no more.
+
+## The options, in plain words
+
+A. A. Refresh the links of any work not finished, in review included (built).
+B. B. Refresh them only alongside the board, for a PRD in the inbox on the main branch, and for fixes.
+
+## What I had to decide
+
+For which work the status line starts the background refresh of the links, since the board's refresh only runs for a PRD in the inbox on the main branch.
+
+## What I did meanwhile
+
+The board's refresh now also keeps the PRD's links. Beside it, the status line starts a links refresh for the work the session is on when its links are missing or a minute old and no refresh holds them, once per render, for a PRD not shipped and a fix not merged. A PRD refresh also rebuilds its board.
+
+## What it costs to change later
+
+Narrowing it to the PRDs whose board is refreshed is one condition in the status line command.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the links are refreshed as the board is; it does not say whether that covers a PRD in review, whose phase-0 link only exists then. (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-03-links-refresh-for-any-live-work -->
