@@ -20,11 +20,11 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'drive', 'several-repositories', 'roadmaps', 'landings', 'flow', 'use-cases', 'troubleshooting',
+  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'drive', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'use-cases', 'troubleshooting',
 ];
 const TITLES = [
   'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Several repositories',
-  'Roadmaps', 'Landings', 'Repository flow', 'Use cases', 'When something goes wrong',
+  'Roadmaps', 'Ideas board', 'Landings', 'Repository flow', 'Use cases', 'When something goes wrong',
 ];
 
 describe('docs/guide', () => {
@@ -32,7 +32,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its thirteen pages, in order, each with its title', () => {
+  it('holds its fourteen pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -42,7 +42,7 @@ describe('docs/guide', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
       '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories',
-      '/docs/roadmaps', '/docs/landings', '/docs/flow', '/docs/use-cases', '/docs/troubleshooting', '/docs',
+      '/docs/roadmaps', '/docs/landings', '/docs/landings', '/docs/flow', '/docs/use-cases', '/docs/troubleshooting', '/docs',
     ]);
   });
 

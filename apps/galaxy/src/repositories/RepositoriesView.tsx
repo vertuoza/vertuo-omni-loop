@@ -1,4 +1,5 @@
 import { hasProducts, type Product } from '../business/model';
+import { boardPath } from '../ideas/model';
 import { addable, collectionLabel, hasNoAccess, type RepositoriesState, type RepositoryRow } from './model';
 
 // Settings → Repositories drawn from its state (PRD 612 s1). One row per repository of the
@@ -9,6 +10,8 @@ import { addable, collectionLabel, hasNoAccess, type RepositoriesState, type Rep
 // with no installation reads a link to installing the App instead. Drawn on the server first;
 // RepositoriesPage.tsx wires the handlers. Once the business has two products or more (PRD 748 s4),
 // each row has a product select, any member's to change; while it has one, nothing says "Product".
+// PRD 1246 s4: each row also links to the repository's ideas board and has its Public ideas switch,
+// any member's to change: off, only the workspace's members read the board.
 
 /** What a member reads instead of the controls. */
 export const ONLY_OWNER = 'Only @owner can change repositories.';
@@ -29,9 +32,11 @@ export interface RepositoriesHandlers {
   setTracked(fullName: string, tracked: boolean): void;
   /** A row's product select (PRD 748 s4). */
   setProduct(fullName: string, product: string): void;
+  /** A row's Public ideas switch (PRD 1246 s4). */
+  setPublicIdeas(fullName: string, on: boolean): void;
 }
 
-const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {} };
+const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {}, setPublicIdeas() {} };
 
 /** What the head says once each repository has a product select. */
 const PRODUCTS_LINE = 'Each repository’s agents read its product’s business.';
@@ -86,9 +91,18 @@ function Picker({ state, access, on }: { state: RepositoriesState; access: Extra
   );
 }
 
+/** A switch of a row: its name beside it, and who may press it. */
+function Switch({ name, label, on, disabled, press }: { name: string; label: string; on: boolean; disabled: boolean; press: () => void }) {
+  return (
+    <div className="repositories-switch">
+      <span>{name}</span>
+      <button type="button" role="switch" aria-checked={on} aria-label={label} className="repositories-toggle" onClick={press} disabled={disabled} />
+    </div>
+  );
+}
+
 function Row({ row, owner, access, now, busy, products, on }: { row: RepositoryRow; owner: boolean; access: Access; now: number; busy: boolean; products: Product[]; on: RepositoriesHandlers }) {
   const noAccess = access.kind === 'installed' && hasNoAccess(row, access.reachable);
-  const label = `Track ${row.fullName}`;
   return (
     <li className="repositories-row" data-repository={row.fullName}>
       <div className="repositories-name">
@@ -100,20 +114,11 @@ function Row({ row, owner, access, now, busy, products, on }: { row: RepositoryR
             {access.settingsUrl && <> · <a href={access.settingsUrl}>Give access on GitHub →</a></>}
           </span>
         )}
+        <a className="repositories-ideas" href={boardPath(row.fullName)}>Ideas board →</a>
       </div>
       {hasProducts(products) && <ProductSelect row={row} products={products} busy={busy} on={on} />}
-      <div className="repositories-switch">
-        <span>Tracked</span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={row.tracked}
-          aria-label={label}
-          className="repositories-toggle"
-          onClick={() => { on.setTracked(row.fullName, !row.tracked); }}
-          disabled={!owner || busy}
-        />
-      </div>
+      <Switch name="Public ideas" label={`Public ideas board of ${row.fullName}`} on={row.publicIdeas} disabled={busy} press={() => { on.setPublicIdeas(row.fullName, !row.publicIdeas); }} />
+      <Switch name="Tracked" label={`Track ${row.fullName}`} on={row.tracked} disabled={!owner || busy} press={() => { on.setTracked(row.fullName, !row.tracked); }} />
     </li>
   );
 }

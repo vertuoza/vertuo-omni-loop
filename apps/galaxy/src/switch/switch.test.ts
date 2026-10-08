@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { SETTINGS, SIDEBAR } from '../nav/sidebar.ts';
+import { hrefOf, SETTINGS, SIDEBAR } from '../nav/sidebar.ts';
 import { APP_HOME, GAME_HOME } from './switch';
 
 // The app's sections and the two homes (PRD 238): the sidebar's in-app items (src/nav/sidebar.ts, PRD
@@ -12,8 +12,10 @@ const pageOf = (path: string) => new URL(`../../app${path}/page.tsx`, import.met
 
 describe('the app\'s sections', () => {
   it('are the sidebar\'s Dashboard and Work entries and Settings, and their pages, each opening a page that exists', () => {
-    const inApp = [...SIDEBAR.flatMap((g) => g.items), SETTINGS].flatMap((i) => [i, ...(i.pages ?? [])]);
-    expect(inApp.map((i) => i.path)).toEqual(['/app', '/app/fleet', '/app/loop', '/app/workspace', '/app/engineering', '/roadmaps', '/prd', '/bugs', '/visual', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings', '/app/settings/fleets', '/app/settings/repositories', '/app/settings/business', '/app/settings/products', '/app/settings/jev']);
+    // Ideas (PRD 1246) opens a board, /ideas/<owner>/<repo>, or Settings › Repositories with none.
+    const inApp = [...SIDEBAR.flatMap((g) => g.items), SETTINGS].flatMap((i) => [{ path: hrefOf(i, null) }, ...(i.pages ?? [])]);
+    expect(existsSync(new URL('../../app/ideas/[owner]/[repo]/page.tsx', import.meta.url)), 'app/ideas/[owner]/[repo]/page.tsx').toBe(true);
+    expect(inApp.map((i) => i.path)).toEqual(['/app', '/app/fleet', '/app/loop', '/app/workspace', '/app/engineering', '/roadmaps', '/app/settings/repositories', '/prd', '/bugs', '/visual', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings', '/app/settings/fleets', '/app/settings/repositories', '/app/settings/business', '/app/settings/products', '/app/settings/jev']);
     for (const { path } of inApp) expect(existsSync(pageOf(path)), `app${path}/page.tsx`).toBe(true);
   });
 });

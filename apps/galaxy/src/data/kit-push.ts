@@ -16,6 +16,19 @@ export const When = z.iso.datetime({ offset: true });
 /** A refusal, `{error}` in plain words, never cached. */
 export const refuse = (status: number, error: string) => Response.json({ error }, { status, headers: { 'cache-control': 'no-store' } });
 
+/**
+ * What a push sent, read by `schema`, or the first problem zod found, in one line naming the field.
+ * `noun` names what is pushed, capitalised with its article ("An idea").
+ */
+export function bodyOf<S extends z.ZodType>(schema: S, sent: unknown, noun: string): z.output<S> | { problem: string } {
+  if (typeof sent !== 'object' || sent === null || Array.isArray(sent)) return { problem: 'The body must be a JSON object.' };
+  const parsed = schema.safeParse(sent);
+  if (parsed.success) return parsed.data;
+  const issue = parsed.error.issues[0];
+  if (issue?.code === 'unrecognized_keys') return { problem: `${noun} does not carry ${issue.keys.join(', ')}.` };
+  return { problem: `${noun}'s \`${issue?.path.join('.') ?? ''}\` is malformed: ${issue?.message ?? 'see the contract'}.` };
+}
+
 /** What a push sent, read as JSON, or the refusal its size or its syntax earns. */
 async function sentOf(request: Request, maxBytes: number): Promise<{ sent: unknown } | Response> {
   const tooLarge = () => refuse(413, `A push carries ${maxBytes / 1024} KiB at most.`);
