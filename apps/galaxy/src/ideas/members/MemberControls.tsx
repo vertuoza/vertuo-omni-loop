@@ -26,7 +26,7 @@ function browserPort(): MembersPort | null {
 const formOf = (form: HTMLFormElement): IdeaForm => {
   const data = new FormData(form);
   const field = (name: string) => String(data.get(name) ?? '');
-  return { title: field('title'), pitch: field('pitch'), lane: field('lane'), prd: field('prd') };
+  return { title: field('title'), pitch: field('pitch'), lane: field('lane'), prdField: field('prd') };
 };
 
 /** Runs one write; reloads the board once it is saved, else hands back the refusal. */

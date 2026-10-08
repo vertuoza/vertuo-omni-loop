@@ -17,7 +17,7 @@ export type IdeaFields = { title: string; pitch: string; lane: Lane; prd: PrdNum
 export type IdeaChange = IdeaFields | { archived: true };
 
 /** The form as the browser hands it: every field a string. */
-export type IdeaForm = { title: string; pitch: string; lane: string; prd: string };
+export type IdeaForm = { title: string; pitch: string; lane: string; prdField: string };
 
 export type ReadForm = { ok: true; idea: IdeaFields } | { ok: false; problem: string };
 
@@ -42,7 +42,7 @@ export function readForm(form: IdeaForm): ReadForm {
   if (!pitch.success) return { ok: false, problem: MEMBERS.badPitch };
   const lane = LaneField.safeParse(form.lane);
   if (!lane.success) return { ok: false, problem: MEMBERS.badLane };
-  const prd = PrdField.safeParse(form.prd);
+  const prd = PrdField.safeParse(form.prdField);
   if (!prd.success) return { ok: false, problem: MEMBERS.badPrd };
   return { ok: true, idea: { title: title.data, pitch: pitch.data, lane: lane.data, prd: prd.data } };
 }

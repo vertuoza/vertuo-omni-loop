@@ -8,7 +8,7 @@ import { MEMBERS } from './words';
 // line, and the writes, with the database faked.
 
 const IDEA = '00000000-0000-4000-8000-000000000001';
-const form = (over: Record<string, string> = {}) => ({ title: 'Call GitHub less', pitch: 'Fewer API calls.', lane: 'later', prd: '', ...over });
+const form = (over: Record<string, string> = {}) => ({ title: 'Call GitHub less', pitch: 'Fewer API calls.', lane: 'later', prdField: '', ...over });
 
 describe('the "Brainstorm this" line', () => {
   it('is /omni:brainstorm with the title and the pitch, quoted', () => {
@@ -22,8 +22,8 @@ describe('the edit form', () => {
   });
 
   it('reads a PRD number, with or without its #', () => {
-    expect(readForm(form({ prd: '1246' }))).toMatchObject({ ok: true, idea: { prd: parsePrd(1246) } });
-    expect(readForm(form({ prd: ' #1246 ' }))).toMatchObject({ ok: true, idea: { prd: parsePrd(1246) } });
+    expect(readForm(form({ prdField: '1246' }))).toMatchObject({ ok: true, idea: { prd: parsePrd(1246) } });
+    expect(readForm(form({ prdField: ' #1246 ' }))).toMatchObject({ ok: true, idea: { prd: parsePrd(1246) } });
   });
 
   it('refuses an empty title, a title over 120 characters and a pitch over 600, in plain words', () => {
@@ -35,8 +35,8 @@ describe('the edit form', () => {
 
   it('refuses a lane that is not Now, Next or Later, and a PRD that is not a number', () => {
     expect(readForm(form({ lane: 'someday' }))).toEqual({ ok: false, problem: MEMBERS.badLane });
-    expect(readForm(form({ prd: 'abc' }))).toEqual({ ok: false, problem: MEMBERS.badPrd });
-    expect(readForm(form({ prd: '0' }))).toEqual({ ok: false, problem: MEMBERS.badPrd });
+    expect(readForm(form({ prdField: 'abc' }))).toEqual({ ok: false, problem: MEMBERS.badPrd });
+    expect(readForm(form({ prdField: '0' }))).toEqual({ ok: false, problem: MEMBERS.badPrd });
   });
 });
 
@@ -108,13 +108,13 @@ describe('a form sent from the page', () => {
 
   it('adds a new idea to the board, in the lane chosen, with no PRD yet', async () => {
     const p = port();
-    expect(await submitIdea(p, 'acme/widgets', form({ lane: 'next', prd: '12' }))).toBeNull();
+    expect(await submitIdea(p, 'acme/widgets', form({ lane: 'next', prdField: '12' }))).toBeNull();
     expect(p.calls).toEqual([['add', { repo: 'acme/widgets', title: 'Call GitHub less', pitch: 'Fewer API calls.', lane: 'next' }]]);
   });
 
   it('edits, moves and links an idea in one change', async () => {
     const p = port();
-    expect(await submitIdea(p, 'acme/widgets', form({ lane: 'now', prd: '#9' }), IDEA)).toBeNull();
+    expect(await submitIdea(p, 'acme/widgets', form({ lane: 'now', prdField: '#9' }), IDEA)).toBeNull();
     expect(p.calls).toEqual([['change', IDEA, { title: 'Call GitHub less', pitch: 'Fewer API calls.', lane: 'now', prd: parsePrd(9) }]]);
   });
 
