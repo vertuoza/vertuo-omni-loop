@@ -2,8 +2,8 @@
 // worded `building` while a slice is not merged, the slices in flight and stuck by id and name, the
 // "doing" line, and the plain lines. Pure: no git, no disk.
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from '../ids.ts';
-import { NOTHING, nowOfPrd, nowLines, workStage } from './now.ts';
+import { parseIssue, parsePrd } from '../ids.ts';
+import { NOTHING, nowOfFix, nowOfPrd, nowLines, workStage } from './now.ts';
 
 const slice = (id: string, state: string, name?: string) => ({ id, wave: 1, state, ...(name ? { name } : {}) });
 const BUILDING = [slice('s1', 'merged', 'base'), slice('s3', 'in-flight', 'tabs'), slice('s4', 'claimed-stale', 'board'), slice('s5', 'stuck'), slice('s6', 'blocked', 'later')];
@@ -70,5 +70,24 @@ describe('the plain lines', () => {
   it('print the no-PRD line when the session is on nothing', () => {
     expect(NOTHING).toEqual({ headline: null, work: null, doing: null });
     expect(nowLines(NOTHING)).toEqual(['no PRD · /omni:brainstorm to start']);
+  });
+});
+
+// PRD #1208, slice s2: a session on a bug fix or a visual fix.
+describe('the work of a fix', () => {
+  it('names the fix by its kind, number and topic, in progress until its folder is on the base', () => {
+    for (const kind of ['bug', 'visual'] as const) {
+      expect(nowOfFix({ kind, number: parseIssue(1180), topic: 'login-redirect', merged: false })).toEqual({
+        headline: null,
+        work: { kind, number: 1180, topic: 'login-redirect', stage: 'in progress', slices: [], links: [] },
+        doing: null,
+      });
+      expect(nowOfFix({ kind, number: parseIssue(1180), topic: 'login-redirect', merged: true }).work).toMatchObject({ stage: 'merged' });
+    }
+  });
+
+  it('prints one line: the kind, #number, topic and stage', () => {
+    expect(nowLines(nowOfFix({ kind: 'bug', number: parseIssue(1180), topic: 'login-redirect', merged: false }))).toEqual(['bug #1180 login-redirect · in progress']);
+    expect(nowLines(nowOfFix({ kind: 'visual', number: parseIssue(1150), topic: 'sidebar', merged: true }))).toEqual(['visual #1150 sidebar · merged']);
   });
 });

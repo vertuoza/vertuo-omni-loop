@@ -35,8 +35,10 @@ function commit(root: string, files: Record<string, string>) {
 }
 
 /**
- * A clone whose default branch holds the shipped folder `0003-alpha` and the inbox folders
- * `0007-bravo` and `0009-charlie`, and a phase-0 branch for `0011-delta`. `on(branch, start)` checks
+ * A clone whose default branch holds the shipped folder `0003-alpha`, the inbox folders
+ * `0007-bravo` and `0009-charlie`, the merged bug fix `1170-crash` and the merged visual fix
+ * `1150-sidebar`; a phase-0 branch for `0011-delta`, and the fix branches `fix/login-redirect` (bug
+ * `1180`) and `fix/tooltip` (visual fix `1160`) holding their folders. `on(branch, start)` checks
  * `branch` out in a worktree of its own; `board(prd, slices)` writes a cached board a few seconds old;
  * `record(session, body)` writes a session's record.
  */
@@ -46,14 +48,21 @@ function fixture() {
     [`${DELIVERY}/shipped/0003-alpha/spec.md`]: '# alpha\n',
     [`${DELIVERY}/inbox/0007-bravo/spec.md`]: '# bravo\n',
     [`${DELIVERY}/inbox/0009-charlie/spec.md`]: '# charlie\n',
+    [`${DELIVERY}/bugs/1170-crash/bug.md`]: '# crash\n',
+    [`${DELIVERY}/visual/1150-sidebar/before-after.html`]: '<p>sidebar</p>\n',
   });
-  git(seed.root, 'checkout', '-q', '-b', 'docs/phase-0-delta');
-  commit(seed.root, { [`${DELIVERY}/inbox/0011-delta/spec.md`]: '# delta\n' });
-  git(seed.root, 'checkout', '-q', 'main');
+  const branchWith = (branch: string, files: Record<string, string>) => {
+    git(seed.root, 'checkout', '-q', '-b', branch);
+    commit(seed.root, files);
+    git(seed.root, 'checkout', '-q', 'main');
+  };
+  branchWith('docs/phase-0-delta', { [`${DELIVERY}/inbox/0011-delta/spec.md`]: '# delta\n' });
+  branchWith('fix/login-redirect', { [`${DELIVERY}/bugs/1180-login-redirect/bug.md`]: '# login\n' });
+  branchWith('fix/tooltip', { [`${DELIVERY}/visual/1160-tooltip/before-after.html`]: '<p>tooltip</p>\n' });
   const bare = mkdtempSync(join(tmpdir(), 'omni-now-origin-'));
   git(bare, 'init', '-q', '--bare', '-b', 'main');
   git(seed.root, 'remote', 'add', 'origin', bare);
-  git(seed.root, 'push', '-q', 'origin', 'main', 'docs/phase-0-delta');
+  git(seed.root, 'push', '-q', 'origin', 'main', 'docs/phase-0-delta', 'fix/login-redirect', 'fix/tooltip');
   const root = join(mkdtempSync(join(tmpdir(), 'omni-now-clone-')), 'work');
   git(tmpdir(), 'clone', '-q', bare, root);
   const on = (branch: string, start = 'origin/main') => {
@@ -213,5 +222,68 @@ describe('omni now', () => {
     const out: string[] = [];
     expect(await main(['help', 'now'], { cwd: repo.root, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} }, env: {} })).toBe(0);
     expect(out.join('')).toMatch(/^omni now \[--json\]/);
+  });
+});
+
+// PRD #1208, slice s2: a session on a bug fix or a visual fix — from its fix branch with no record,
+// or from the record `omni bug <n>` and `omni visual <n>` leave; `in progress` until its folder is on
+// the base, then `merged`.
+describe('omni now — a fix', () => {
+  const repo = fixture();
+  const fix = (kind: string, number: number, topic: string, stage: string) => ({
+    headline: null,
+    work: { kind, number, topic, stage, slices: [], links: [] },
+    doing: null,
+  });
+
+  /** `omni <argv>` through `main()` in `cwd`, for session `session`: its exit code. */
+  async function omni(cwd: string, argv: string[], session: string) {
+    return main(argv, { cwd, stdout: { write: () => true }, stderr: { write: () => true }, env: { CLAUDE_CODE_SESSION_ID: session } });
+  }
+
+  it('names on a fix branch the bug fix whose folder it holds, with no record', async () => {
+    const dir = repo.on('fix/login-redirect', 'origin/fix/login-redirect');
+    expect(await nowJson(dir, repo.root)).toEqual(fix('bug', 1180, 'login-redirect', 'in progress'));
+    expect(await now(dir)).toMatchObject({ code: 0, err: '', out: 'bug #1180 login-redirect · in progress\n' });
+  });
+
+  it('names on a fix branch the visual fix whose folder it holds, merged once its folder is on the base', async () => {
+    expect(await nowJson(repo.on('fix/tooltip', 'origin/fix/tooltip'), repo.root)).toEqual(fix('visual', 1160, 'tooltip', 'in progress'));
+    const merged = repo.on('fix/sidebar');
+    expect(await nowJson(merged, repo.root)).toEqual(fix('visual', 1150, 'sidebar', 'merged'));
+    expect((await now(merged)).out).toBe('visual #1150 sidebar · merged\n');
+  });
+
+  it('reads a fix branch whose fix has no folder as no work', async () => {
+    expect(await nowJson(repo.on('fix/nowhere'), repo.root)).toEqual(NOTHING);
+  });
+
+  it('names on the default branch the fix of the record `omni bug` and `omni visual` leave', async () => {
+    await omni(repo.root, ['bug', '1170'], 'fix-1');
+    expect(await nowJson(repo.root, repo.root, ['--session', 'fix-1'])).toEqual(fix('bug', 1170, 'crash', 'merged'));
+    expect((await now(repo.root, ['--session', 'fix-1'])).out).toBe('bug #1170 crash · merged\n');
+    await omni(repo.root, ['visual', '1150'], 'fix-1');
+    expect(await nowJson(repo.root, repo.root, [], { env: { CLAUDE_CODE_SESSION_ID: 'fix-1' } })).toEqual(fix('visual', 1150, 'sidebar', 'merged'));
+  });
+
+  it('reads a record of a fix with no folder, or of the wrong kind for its folder, as no work', async () => {
+    repo.record('fix-2', { kind: 'bug', number: 4242, at: new Date(NOW).toISOString() });
+    expect(await nowJson(repo.root, repo.root, ['--session', 'fix-2'])).toEqual(NOTHING);
+    repo.record('fix-3', { kind: 'visual', number: 1170, at: new Date(NOW).toISOString() });
+    expect(await nowJson(repo.root, repo.root, ['--session', 'fix-3'])).toEqual(NOTHING);
+  });
+
+  it('reads a record of PRD 324\'s shape, and one of kind prd, as a PRD', async () => {
+    repo.record('fix-4', { prd: 9, at: new Date(NOW).toISOString() });
+    expect(await nowJson(repo.root, repo.root, ['--session', 'fix-4'])).toMatchObject({ work: { kind: 'prd', number: 9 } });
+    repo.record('fix-5', { kind: 'prd', number: 9, at: new Date(NOW).toISOString() });
+    expect(await nowJson(repo.root, repo.root, ['--session', 'fix-5'])).toMatchObject({ work: { kind: 'prd', number: 9 } });
+  });
+
+  it('takes the branch over the record: a PRD branch over a fix record, a fix branch over a PRD record', async () => {
+    repo.record('fix-6', { kind: 'bug', number: 1170, at: new Date(NOW).toISOString() });
+    expect(await nowJson(repo.on('feat/charlie'), repo.root, ['--session', 'fix-6'])).toMatchObject({ work: { kind: 'prd', number: 9 } });
+    repo.record('fix-7', { kind: 'prd', number: 9, at: new Date(NOW).toISOString() });
+    expect(await nowJson(repo.on('fix/crash'), repo.root, ['--session', 'fix-7'])).toEqual(fix('bug', 1170, 'crash', 'merged'));
   });
 });

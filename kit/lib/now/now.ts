@@ -11,11 +11,13 @@
 //   324 says. Its slices are those of the board in flight (`in-flight`, `claimed-stale`) or `stuck`,
 //   in the board's order, each `{ id, name, state }` with `name` `null` when the board keeps none.
 //   Its links are none yet: a later slice reads them.
+// - **A fix's work** (PRD 1208's s2) is `{ kind: 'bug' | 'visual', number, topic, stage, slices,
+//   links }`: its stage `merged` once its folder is on the base, else `in progress`; it has no slices.
 // - **Doing**, for a PRD with slices in flight: `building <id> <name>, <id> <name>`; else `null`.
-// - **The plain lines**: the work (`PRD <n> <topic> · <stage>`), then, when there is one, a line of
+// - **The plain lines**: the work (`PRD <n> <topic> · <stage>`, `bug #<n> <topic> · <stage>`), then, when there is one, a line of
 //   what it is doing and what is stuck (`building s3 tabs · stuck s5`). The session on nothing prints
 //   the status line's own no-PRD line.
-import type { PrdNumber } from '../ids.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
 import type { NamedSlice } from '../statusline/board-cache.ts';
 import { IN_FLIGHT, MERGED, OUTBOX, STUCK } from '../statusline/stage.ts';
 import type { PrdStage } from '../statusline/stage.ts';
@@ -31,8 +33,16 @@ export type NowLink = { label: string; href: string };
 /** A slice being built, or stuck. */
 export type NowSlice = { id: string; name: string | null; state: string };
 
-/** What the session works on. */
-export type NowWork = { kind: 'prd'; number: PrdNumber; topic: string; stage: WorkStage | null; slices: NowSlice[]; links: NowLink[] };
+/** A fix's stage: `merged` once its folder is on the base, else `in progress`. */
+export type FixStage = 'in progress' | 'merged';
+
+/** The kinds of fix a session works on. */
+export type FixKind = 'bug' | 'visual';
+
+/** What the session works on: a PRD, or a bug or visual fix (which has no slices). */
+export type NowWork =
+  | { kind: 'prd'; number: PrdNumber; topic: string; stage: WorkStage | null; slices: NowSlice[]; links: NowLink[] }
+  | { kind: FixKind; number: IssueNumber; topic: string; stage: FixStage; slices: NowSlice[]; links: NowLink[] };
 
 /** The loop, or the roadmap it drives, above the work. */
 export type NowHeadline = { kind: 'loop' | 'roadmap'; number?: number; progress?: string; links: NowLink[] };
@@ -68,10 +78,18 @@ export function nowOfPrd({ number, topic, stage, slices }: { number: PrdNumber; 
   };
 }
 
+/** The answer for a session on the `kind` fix of issue `number` (`topic`), `merged` once its folder is on the base. */
+export function nowOfFix({ kind, number, topic, merged }: { kind: FixKind; number: IssueNumber; topic: string; merged: boolean }): Now {
+  return { headline: null, work: { kind, number, topic, stage: merged ? 'merged' : 'in progress', slices: [], links: [] }, doing: null };
+}
+
+/** The work's name: `PRD <n> <topic>`, or `<kind> #<n> <topic>` for a fix. */
+const workName = ({ kind, number, topic }: NowWork): string => (kind === 'prd' ? `PRD ${number} ${topic}` : `${kind} #${number} ${topic}`);
+
 /** The answer as plain lines. */
 export function nowLines({ work, doing }: Now): string[] {
   if (!work) return [NO_WORK_LINE];
-  const head = [`PRD ${work.number} ${work.topic}`, ...(work.stage ? [work.stage] : [])].join(SEPARATOR);
+  const head = [workName(work), ...(work.stage ? [work.stage] : [])].join(SEPARATOR);
   const stuck = work.slices.filter((slice) => slice.state === STUCK);
   const status = [...(doing ? [doing] : []), ...(stuck.length > 0 ? [`stuck ${stuck.map(label).join(', ')}`] : [])];
   return status.length > 0 ? [head, status.join(SEPARATOR)] : [head];
