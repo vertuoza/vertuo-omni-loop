@@ -549,3 +549,392 @@ One constant in the voter callback; the allowlist itself stays.
 ```
 
 <!-- /omni-outbox-settled: s3-02-off-board-return-goes-to-play -->
+
+<!-- omni-outbox-settled: s4-01-brainstorm-line-for-everyone -->
+
+## s4-01-brainstorm-line-for-everyone — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-brainstorm-line-for-everyone
+prd: 1246
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+Should the line that turns an idea into a design session show on every card for every visitor, or only for members of the team?
+
+## The decision, in plain words
+
+Every visitor sees it with a copy button, as the acceptance criteria say every card shows it. It only repeats the idea's title and pitch, which the board already shows.
+
+## The intro, for fun
+
+A recipe card pinned on the shop window.
+
+## The punchline, for fun
+
+Anyone can read it; only the kitchen can cook it.
+
+## The options, in plain words
+
+A. Show the line on every card, to every visitor, as built.
+B. Show it only to members of the workspace.
+C. Show it to anyone signed in, members or voters.
+
+## What I had to decide
+
+Whether the Brainstorm this line shows to everyone or only to members: the spec's Members paragraph places it there, while its acceptance criteria say every card shows it.
+
+## What I did meanwhile
+
+BrainstormLine renders on every card in Board.tsx, member or not; Board.test.ts asserts both views.
+
+## What it costs to change later
+
+One condition in apps/galaxy/src/ideas/Board.tsx (wrap BrainstormLine in member ?) and one test line.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec lists the line under Members, yet its acceptance criterion and the plan's done-when say every card shows it.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-brainstorm-line-for-everyone -->
+
+<!-- omni-outbox-settled: s4-02-which-board-work-ideas-opens -->
+
+## s4-02-which-board-work-ideas-opens — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-which-board-work-ideas-opens
+prd: 1246
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+A team can have several repositories, each with its own ideas board. Which board should the Ideas entry in the menu open?
+
+## The decision, in plain words
+
+It opens the board that is public, and when none is, the first repository the team added. A team with no repository yet lands on the settings page where boards are switched on.
+
+## The intro, for fun
+
+One door, several rooms behind it.
+
+## The punchline, for fun
+
+We open the room with the lights on first.
+
+## The options, in plain words
+
+A. Open the public board first, else the first repository's, else Settings › Repositories, as built.
+B. Open a small page listing every board of the workspace to choose from.
+C. Always open Settings › Repositories, where each row links its board.
+
+## What I had to decide
+
+Which repository's board Work › Ideas opens when the workspace lists several, and where it goes when it lists none.
+
+## What I did meanwhile
+
+The viewer reads one repository per page load (public_ideas first, then added_at) through workspaceBoard() in apps/galaxy/src/ideas/members/store.ts; the sidebar links its board, else /app/settings/repositories.
+
+## What it costs to change later
+
+The ordering of one query in apps/galaxy/src/ideas/members/store.ts, or a small board picker page later.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the entry opens the workspace's board, but a workspace holds a board per repository and the spec does not say which one.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-which-board-work-ideas-opens -->
+
+<!-- omni-outbox-settled: s4-03-ideas-menu-icon-borrowed -->
+
+## s4-03-ideas-menu-icon-borrowed — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-ideas-menu-icon-borrowed
+prd: 1246
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+The Ideas entry in the menu needs a small pixel icon like the others. Should it get one drawn for it?
+
+## The decision, in plain words
+
+It borrows the game's question block icon for now, since drawing a new one is outside this part of the work. When the menu is folded, the entry still shows that icon.
+
+## The intro, for fun
+
+Every menu line wears a tiny pixel hat.
+
+## The punchline, for fun
+
+Ideas borrowed one from the game's wardrobe.
+
+## The options, in plain words
+
+A. Keep the borrowed question block icon, as built.
+B. Draw a menu-ideas sprite of its own, such as a light bulb, in a follow-up.
+C. Show the entry with no icon, and only its name.
+
+## What I had to decide
+
+Which 16 px sprite the Ideas entry shows: every Dashboard and Work entry has its own menu-* sprite in packages/design, outside this slice's territory.
+
+## What I did meanwhile
+
+The entry uses the existing tile-block sprite (the ? block); the folded rail shows it like every other entry.
+
+## What it costs to change later
+
+A new menu-ideas sprite in packages/design/src/sprites.ts with its fingerprint in sprites.test.ts, then one word in apps/galaxy/src/nav/sidebar.ts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) packages/design is not in the slice's territory, and the spec says nothing of the entry's icon.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-ideas-menu-icon-borrowed -->
+
+<!-- omni-outbox-settled: s4-04-guide-tests-outside-territory -->
+
+## s4-04-guide-tests-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-04-guide-tests-outside-territory
+prd: 1246
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+Adding the new help page meant updating the two automatic checks that list every help page, which sit outside this part's agreed area. Is that fine?
+
+## The decision, in plain words
+
+Yes: the new page sits after Roadmaps, and both checks now expect it. Without that, the help page could not be added at all.
+
+## The intro, for fun
+
+A new book on the shelf means a new line in the catalogue.
+
+## The punchline, for fun
+
+The librarian's list was in another room.
+
+## The options, in plain words
+
+A. Keep the page after Roadmaps, the two tests updated here, as built.
+B. Also point Roadmaps' Next link at the ideas page, so a reader reaches it in order.
+C. Move the page elsewhere in the guide's order.
+
+## What I had to decide
+
+Whether to change apps/galaxy/src/docs/guide.test.ts and docs.test.ts, outside the slice's territory, so that docs/guide/ideas.md and its meta.json entry pass the docs guard.
+
+## What I did meanwhile
+
+Both tests list Ideas board after Roadmaps, with its Next link to Landings; no other guide page changed, so no page links to it as its Next.
+
+## What it costs to change later
+
+A few lines in each of the two test files, and the page's place in docs/guide/meta.json.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives this slice docs/guide/ideas.md and meta.json but not the tests that pin the guide's page list.
+
+```
+
+<!-- /omni-outbox-settled: s4-04-guide-tests-outside-territory -->
+
+<!-- omni-outbox-settled: s4-05-menu-tests-outside-territory -->
+
+## s4-05-menu-tests-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-05-menu-tests-outside-territory
+prd: 1246
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+Adding Ideas to the menu meant updating two automatic checks that list every menu entry, which sit outside this part's agreed area. Is that fine?
+
+## The decision, in plain words
+
+Yes: both checks now expect Ideas after Roadmaps, and the check that every entry opens a real page follows the Ideas entry to the board, or to the repositories settings when there is none.
+
+## The intro, for fun
+
+A new door in the hallway means a new line on the fire plan.
+
+## The punchline, for fun
+
+The fire plan hung in the next corridor.
+
+## The options, in plain words
+
+A. Keep the two tests updated here, as built.
+B. Give Ideas a fixed page of its own, /ideas, that sends a member on to their board, so the menu entry needs no special case.
+
+## What I had to decide
+
+Whether to change apps/galaxy/src/switch/switch.test.ts and headers.test.ts, outside the slice's territory, so the new Work › Ideas entry passes them.
+
+## What I did meanwhile
+
+headers.test.ts lists Ideas after Roadmaps; switch.test.ts checks the Ideas entry through hrefOf(), whose fallback is /app/settings/repositories, and that the board's route app/ideas/[owner]/[repo]/page.tsx exists.
+
+## What it costs to change later
+
+A few lines in each of the two test files.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives this slice apps/galaxy/src/nav/ but not the tests in apps/galaxy/src/switch/ that pin the menu's entries.
+
+```
+
+<!-- /omni-outbox-settled: s4-05-menu-tests-outside-territory -->
