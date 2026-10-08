@@ -2,11 +2,13 @@
 // roadmaps of two products. Crew's runs across four repositories of a plan repository, one PRD merged
 // (so its Gantt is on dates, projected from that PRD's length), one waiting for a merge, two building,
 // one held on the pull request it waits on and one parked on a question only a person answers. Billing's
-// runs in one repository and nothing merged yet, so its bars sit in wave columns. Every time is counted
-// back from `now`, so the same `now` draws the same page.
+// runs in one repository and nothing merged yet, so its bars sit in wave columns. Crew's human work
+// (PRD 1217): its open person question, a missing secret, a production variable, a park waiting on a
+// migration run, and one clarification settled; Billing's has none yet. Every time is counted back from
+// `now`, so the same `now` draws the same page.
 import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { RoadmapPrdRow, RoadmapRow } from '../store';
-import { detailOf, listOf, type Demo, type ProductRef, type RoadmapPageView } from './model';
+import type { RoadmapHumanWorkRow, RoadmapPrdRow, RoadmapRow } from '../store';
+import { detailOf, listOf, type Demo, type ProductRef, type RoadmapPageView, type RoadmapRead } from './model';
 
 const DAY = 86_400_000;
 const DEMO_NAME = 'Acme';
@@ -70,7 +72,34 @@ function rowsAt(now: number) {
     }),
     prd(DEMO_ROADMAP_ONE_REPO, { row_id: 'P3', prd: parsePrd(883), title: 'Reminders', blockers: ['P1'], wave: 2 }),
   ];
-  return [{ row: crew, prds: crewPrds }, { row: one, prds: onePrds }];
+  const work = (over: Pick<RoadmapHumanWorkRow, 'key' | 'prd' | 'repo' | 'source' | 'text' | 'kind'> & Partial<RoadmapHumanWorkRow>): RoadmapHumanWorkRow => ({
+    roadmap_id: DEMO_ROADMAP, act: null, url: null, kind_by: 'rule', state: 'open', first_seen_at: at(-10), done_at: null, ...over,
+  });
+  const crewWork = [
+    work({
+      key: 'question:Q5', prd: null, repo: 'acme/crew-plan', source: 'question', kind: 'business',
+      text: 'Who may grant a mandate: the owner only, or any admin?', act: 'The owner only, for the first release.',
+      url: 'https://github.com/acme/crew-plan/issues/1200',
+    }),
+    work({
+      key: 'outbox:1213/s2-01', prd: parsePrd(1213), repo: 'ai-domain', source: 'outbox', kind: 'dev-ops',
+      text: 'The think endpoint needs the model provider\'s key.',
+      act: 'Add the secret MODEL_API_KEY to acme/ai-domain\'s Actions secrets, with the scope read.', url: pr('ai-domain', 310),
+    }),
+    work({
+      key: 'outbox:1202/s1-02', prd: parsePrd(1202), repo: 'crew', source: 'outbox', kind: 'delivery-ops',
+      text: 'The worker\'s address must be set in production.', act: 'Set CREW_WORKER_URL in the production environment of acme/crew.', url: pr('crew', 44),
+    }),
+    work({
+      key: 'park:1220', prd: parsePrd(1220), repo: 'workflow', source: 'park', kind: 'delivery-ops',
+      text: 'waits for the messages migration to run on production', url: pr('workflow', 52),
+    }),
+    work({
+      key: 'clarification:1201', prd: parsePrd(1201), repo: 'crew', source: 'clarification', kind: 'development', state: 'done',
+      text: 'Which queue does the worker read?', url: 'https://github.com/acme/crew-plan/issues/1201', first_seen_at: at(-20), done_at: at(-16),
+    }),
+  ];
+  return [{ row: crew, prds: crewPrds, humanWork: crewWork }, { row: one, prds: onePrds, humanWork: [] }] satisfies RoadmapRead[];
 }
 
 /** The demo's Roadmaps page: the list (`id` null), one product's when `product` is set, or the roadmap
@@ -80,5 +109,5 @@ export function demoRoadmapPage(now: Date, ask: { id: string | null; product: st
   if (ask.id === null) return listOf(DEMO_NAME, demo, rows, DEMO_PRODUCTS, ask.product);
   const found = rows.find((r) => r.row.id === ask.id);
   if (!found) return null;
-  return { kind: 'roadmap', name: DEMO_NAME, demo, roadmap: detailOf(found.row, found.prds, DEMO_PRODUCTS, now.getTime()) };
+  return { kind: 'roadmap', name: DEMO_NAME, demo, roadmap: detailOf(found, DEMO_PRODUCTS, now.getTime()) };
 }
