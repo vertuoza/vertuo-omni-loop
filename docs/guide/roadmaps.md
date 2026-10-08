@@ -204,11 +204,14 @@ each: the shortest list of what to do to move it. A card shows three lines and s
 the roadmap's own page shows them all. Above the cards, one chip per product of the workspace that
 has a roadmap filters the list, beside **Every product**.
 
+A card also counts the roadmap's open [human work](#human-work), one chip per kind that has some
+(`business 1 · dev ops 1 · delivery ops 2`); a kind with none shows nothing.
+
 ### A roadmap's page
 
 At the top: its milestone, its progress, its repository, a link to its issue and to its source, and
-what blocks it now. Then its Gantt, its open questions and its PRDs, each linking to the PRD's own
-page.
+what blocks it now. Then its Gantt, its human work, its open questions and its PRDs, each linking to
+the PRD's own page.
 
 To read the Gantt:
 
@@ -224,7 +227,50 @@ To read the Gantt:
 - **In a plan repository, each bar has a lane per repository** the PRD lands in.
 - **The pull request a PRD waits on is on its bar**, linked, until the PRD merges.
 
-Under the Gantt, the **open questions**: each with its recommendation and the rows it blocks, the
-answer once someone gave one, and the answer box for a `person` question still open.
+Under the human work, the **open questions**: each with its recommendation and the rows it blocks,
+the answer once someone gave one, and the answer box for a `person` question still open.
+
+### Human work
+
+Under the Gantt, the **Human work** item lists every piece of work across the roadmap's PRDs that only
+a person can do, sorted into one of four kinds:
+
+| kind | what it holds |
+|---|---|
+| `business` | a product or business choice: scope, priority, wording, who it is for |
+| `development` | a code or design decision a developer makes, a stuck slice, a red CI after its attempts |
+| `dev ops` | a right missing in the repository: a secret, a token scope, a grant, an app permission, branch protection |
+| `delivery ops` | putting the roadmap in production: a deploy, a migration run, a console step, a production setting or variable |
+
+It reads, from top to bottom:
+
+- **a chip per kind** with how many of its entries are open, a kind with none showing `0`;
+- **the open entries, grouped by kind**: each with its PRD (linking to the PRD's page), the repository
+  the work is in, what it is, what a person must do word for word when it says, and a link to where
+  it is answered;
+- **the done entries, folded** under **Done**, with the same fields and the day each was settled.
+
+With nothing recorded, it says `No human work recorded yet.`
+
+`omni roadmap push` gathers it on every push, from four places:
+
+- each `person` question of the roadmap nobody has answered;
+- each outbox item ranked `human-action` or `high` on a PRD's open feature branch (in a plan
+  repository, on each target's);
+- a PRD the drive parked, from the `- loop: parked` line of its feature pull request's status comment;
+- the `needs clarification` comment `/omni:plan` posts on a PRD's issue, until the PRD is planned.
+
+Work the push no longer reads, because the question was answered, the item settled or adopted, the
+PRD taken up again or planned, is marked done with the day of that push, and comes back open if it
+reappears. A push from a kit that sends no human work changes nothing on the page.
+
+**How an entry gets its kind.** The kit sorts each entry by rules: a question is `business`; work that
+names a secret, a token, a scope, a permission, a grant, an access or branch protection is `dev ops`;
+work that names a deploy, production, a migration run, a console or an environment variable is
+`delivery ops`; anything else is `development`. The app can also ask **Jev** to classify each new
+entry once, through its `hitl-category` decision under **Settings › Jev**. It starts **Off**, and the
+rules' kind stands. **Shadow** asks Jev and logs its answer, keeping the rules' kind. **On** keeps
+Jev's answer as the kind. An answer outside the four kinds, or Jev failing, keeps the rules' kind, and
+the push never fails because of it. An entry keeps the kind it was first given on every later push.
 
 [Next → Landings](/docs/landings)
