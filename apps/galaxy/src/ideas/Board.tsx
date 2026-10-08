@@ -1,13 +1,16 @@
 import type { Idea, LaneView } from './model';
 import type { IdeasView } from './source';
 import { IDEAS, prdIssueUrl } from './words';
+import { SignInProblem, VoteButton } from './vote/VoteButton';
 
 // /ideas/<owner>/<repo> (PRD 1246, s1): a repository's ideas board, for anyone. Its heading and line,
 // then three lanes, Now, Next and Later, side by side on a wide screen and stacked on a phone, Now
 // first. A card holds its idea's title, its pitch, its count beside a ▲, and, once a PRD builds it, an
 // "In PRD #n" badge linking to that PRD's issue. One HTML page with no script of its own: everything a
 // reader and a search engine read is in the markup. A private board and a missing one are the same
-// "no public board here" page. The ▲ only shows the count here: voting is s3's.
+// "no public board here" page. The ▲ is a button anyone presses to vote, pressed while the reader's
+// own vote is in its count; signed out, it starts a GitHub sign-in that comes back here (s3,
+// ./vote/). Its count is in the markup, so the page reads the same with no script.
 
 function Card({ idea, repo }: { idea: Idea; repo: string }) {
   return (
@@ -15,9 +18,7 @@ function Card({ idea, repo }: { idea: Idea; repo: string }) {
       <h3 className="idea-title">{idea.title}</h3>
       <p className="idea-pitch">{idea.pitch}</p>
       <footer className="idea-foot">
-        <span className="idea-votes" aria-label={IDEAS.votes(idea.votes)}>
-          <span aria-hidden="true">▲</span>{' '}<span aria-hidden="true">{idea.votes}</span>
-        </span>
+        <VoteButton board={repo} ideaId={idea.id} title={idea.title} votes={idea.votes} voted={idea.voted} />
         {idea.prd ? <a className="idea-prd" href={prdIssueUrl(repo, idea.prd)}>{IDEAS.prd(idea.prd)}</a> : null}
       </footer>
     </article>
@@ -63,6 +64,7 @@ export function BoardPage({ view }: { view: IdeasView }) {
         <h1 className="idea-heading">{IDEAS.heading(board.repo)}</h1>
         <p className="idea-lede">{IDEAS.line}</p>
         {board.public ? null : <p className="idea-notice">{IDEAS.private}</p>}
+        <SignInProblem />
       </div>
       <div className="idea-lanes">
         {lanes.map((lane) => <Lane key={lane.lane} lane={lane} repo={board.repo} />)}
