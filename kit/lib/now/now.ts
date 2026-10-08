@@ -3,8 +3,10 @@
 // module turns them into the answer and its plain lines.
 //
 // - **The answer** is `{ headline, work, doing }`. `headline` is a running loop or the roadmap it
-//   drives (none yet: a later slice reads it); `work` is what the session is on, or `null`; `doing`
-//   is one line, or `null`.
+//   drives, or a recorded roadmap (s3): `{ kind: 'loop', links }`, or
+//   `{ kind: 'roadmap', number, progress: '<m>/<k> merged', links }`; `work` is what the session is
+//   on, or `null`; `doing` is one line, or `null`. Under a loop's last step, `doing` is that step,
+//   `step <k>: <action> PRD <n> · <result>`.
 // - **A PRD's work** is `{ kind: 'prd', number, topic, stage, slices, links }`. Its stage is PRD
 //   324's (`in review`, `inbox`, `outbox`, `shipped`), worded `building` instead of `outbox` while a
 //   slice of its cached board is not merged; a board with no slice, or none at all, leaves it as PRD
@@ -14,7 +16,7 @@
 // - **A fix's work** (PRD 1208's s2) is `{ kind: 'bug' | 'visual', number, topic, stage, slices,
 //   links }`: its stage `merged` once its folder is on the base, else `in progress`; it has no slices.
 // - **Doing**, for a PRD with slices in flight: `building <id> <name>, <id> <name>`; else `null`.
-// - **The plain lines**: the work (`PRD <n> <topic> · <stage>`, `bug #<n> <topic> · <stage>`), then, when there is one, a line of
+// - **The plain lines**: the headline when there is one (`roadmap 7 · 3/7 merged`, `loop`), then the work (`PRD <n> <topic> · <stage>`, `bug #<n> <topic> · <stage>`), then, when there is one, a line of
 //   what it is doing and what is stuck (`building s3 tabs · stuck s5`). The session on nothing prints
 //   the status line's own no-PRD line.
 import type { IssueNumber, PrdNumber } from '../ids.ts';
@@ -83,14 +85,39 @@ export function nowOfFix({ kind, number, topic, merged }: { kind: FixKind; numbe
   return { headline: null, work: { kind, number, topic, stage: merged ? 'merged' : 'in progress', slices: [], links: [] }, doing: null };
 }
 
+/** A loop that drives no roadmap, as the headline. */
+export const LOOP_HEADLINE: NowHeadline = Object.freeze({ kind: 'loop', links: [] });
+
+/** Roadmap `number` as the headline, `merged` of its `rows` PRDs shipped. */
+export function roadmapHeadline(number: IssueNumber, merged: number, rows: number): NowHeadline {
+  return { kind: 'roadmap', number, progress: `${merged}/${rows} ${MERGED}`, links: [] };
+}
+
+/** The step a loop's last tick recorded. */
+export type LastStep = { step: number; prd: PrdNumber; action: string; result: string };
+
+/** `answer` under `headline`: its work, and the loop's `last` step as what it is doing, else its own doing line. */
+export function underHeadline(answer: Now, headline: NowHeadline, last: LastStep | null): Now {
+  const doing = last ? `step ${last.step}: ${last.action} PRD ${last.prd}${SEPARATOR}${last.result}` : answer.doing;
+  return { headline, work: answer.work, doing };
+}
+
 /** The work's name: `PRD <n> <topic>`, or `<kind> #<n> <topic>` for a fix. */
 const workName = ({ kind, number, topic }: NowWork): string => (kind === 'prd' ? `PRD ${number} ${topic}` : `${kind} #${number} ${topic}`);
 
-/** The answer as plain lines. */
-export function nowLines({ work, doing }: Now): string[] {
-  if (!work) return [NO_WORK_LINE];
-  const head = [workName(work), ...(work.stage ? [work.stage] : [])].join(SEPARATOR);
-  const stuck = work.slices.filter((slice) => slice.state === STUCK);
+/** The headline's line: `roadmap <n> · <m>/<k> merged`, or `loop`. */
+const headlineLine = ({ kind, number, progress }: NowHeadline): string => [number === undefined ? kind : `${kind} ${number}`, ...(progress ? [progress] : [])].join(SEPARATOR);
+
+/** The work's lines: its name and stage, then what it is doing and what is stuck. */
+function workLines(work: NowWork | null, doing: string | null): string[] {
+  const stuck = work?.slices.filter((slice) => slice.state === STUCK) ?? [];
   const status = [...(doing ? [doing] : []), ...(stuck.length > 0 ? [`stuck ${stuck.map(label).join(', ')}`] : [])];
-  return status.length > 0 ? [head, status.join(SEPARATOR)] : [head];
+  const head = work ? [[workName(work), ...(work.stage ? [work.stage] : [])].join(SEPARATOR)] : [];
+  return status.length > 0 ? [...head, status.join(SEPARATOR)] : head;
+}
+
+/** The answer as plain lines: the headline, when there is one, then the work. */
+export function nowLines({ headline, work, doing }: Now): string[] {
+  if (!work && !headline) return [NO_WORK_LINE];
+  return [...(headline ? [headlineLine(headline)] : []), ...workLines(work, doing)];
 }
