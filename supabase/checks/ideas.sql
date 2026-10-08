@@ -3,7 +3,9 @@
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/ideas.sql
 -- Each rule of the spec's Storage, on realistic rows: a public board is read signed out, a private one
 -- reads empty; a second vote by one account is refused; nobody removes someone else's vote; an idea
--- written by a non-member is refused; a vote on a private board is refused. And: a board is off by
+-- written by a non-member is refused; a vote on a private board is refused to anyone outside its
+-- workspace, while a member votes there and takes it back, and that vote stays counted once the board
+-- is public (PRD 1258). And: a board is off by
 -- default, only a member switches it, ideas_board() answers a private board and a missing one the
 -- same, counts the votes and never says who voted. One transaction, rolled back at the end. Any
 -- `FAIL:` stops the run.
@@ -225,6 +227,66 @@ begin
     raise exception 'FAIL: a vote was removed from a private board';
   end if;
 end $$;
+
+-- ── A member votes on their own private board (PRD 1258): once per idea, taken back, never on an
+-- archived idea, and still counted once the board goes public ──
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000012a1');
+with made as (
+  insert into public.ideas (workspace_id, repo, title, pitch)
+  values (pg_temp.id('vertuoza'), 'vertuoza/vertuo-apps', 'A shelved private idea', 'Archived before anyone voted.')
+  returning id
+)
+insert into ids select 'private-archived', id from made;
+update public.ideas set archived = true where id = pg_temp.id('private-archived');
+insert into public.idea_votes (idea_id) values (pg_temp.id('private-hud'));
+do $$
+declare
+  board jsonb;
+begin
+  board := public.ideas_board('vertuoza/vertuo-apps');
+  if (board ->> 'public')::boolean
+     or (select (i ->> 'votes')::int from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A private idea') <> 1
+     or (select (i ->> 'voted')::boolean from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A private idea') is not true then
+    raise exception 'FAIL: ideas_board() does not count a member''s vote on their private board: %', board;
+  end if;
+  begin
+    insert into public.idea_votes (idea_id) values (pg_temp.id('private-hud'));
+    raise exception 'FAIL: a member counted two votes on one idea of their private board';
+  exception when unique_violation then null; end;
+  perform pg_temp.forbidden(format('insert into public.idea_votes (idea_id) values (%L)', pg_temp.id('private-archived')), 'a member, on an archived idea of their private board');
+  delete from public.idea_votes where idea_id = pg_temp.id('private-hud');
+  board := public.ideas_board('vertuoza/vertuo-apps');
+  if (select (i ->> 'votes')::int from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A private idea') <> 0
+     or (select (i ->> 'voted')::boolean from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A private idea') is not false then
+    raise exception 'FAIL: a member could not take back their vote on their private board: %', board;
+  end if;
+end $$;
+-- Mia votes again while the board is private, then turns it public: Val, outside the workspace, reads
+-- her vote in the count.
+insert into public.idea_votes (idea_id) values (pg_temp.id('private-hud'));
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000012c1');
+do $$
+begin
+  perform pg_temp.forbidden(format('insert into public.idea_votes (idea_id) values (%L)', pg_temp.id('private-hud')), 'a voter in no workspace, on a private board');
+end $$;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000012a1');
+select public.set_repository_public_ideas(pg_temp.id('vertuoza'), 'vertuoza/vertuo-apps', true);
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000012c1');
+do $$
+declare
+  board jsonb;
+begin
+  board := public.ideas_board('vertuoza/vertuo-apps');
+  if board is null or not (board ->> 'public')::boolean
+     or (select (i ->> 'votes')::int from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A private idea') <> 1
+     or (select (i ->> 'voted')::boolean from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A private idea') is not false then
+    raise exception 'FAIL: a vote cast while the board was private is not counted once it is public: %', board;
+  end if;
+end $$;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000012a1');
+select public.set_repository_public_ideas(pg_temp.id('vertuoza'), 'vertuoza/vertuo-apps', false);
+reset role;
 
 -- ── One public board per owner/name, whichever workspace lists it ──
 do $$
