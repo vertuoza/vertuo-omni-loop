@@ -237,3 +237,315 @@ Filtering by author later is one more field read from the comment and a permissi
 ```
 
 <!-- /omni-outbox-settled: s2-02-tick-from-any-commenter -->
+
+<!-- omni-outbox-settled: s3-01-prerequisites-in-the-roadmap-push -->
+
+## s3-01-prerequisites-in-the-roadmap-push — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-prerequisites-in-the-roadmap-push
+prd: 1218
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+When the computer sends a roadmap to its page, how should the checklist of prerequisites and the latest check of them travel with it?
+
+## The decision, in plain words
+
+The checklist and the latest check on this computer ride along only when the roadmap has a checklist, so an older roadmap is sent exactly as before. A plain send carries this computer's latest check, or none when it never checked.
+
+## The intro, for fun
+
+A checklist nobody can see is just a diary.
+
+## The punchline, for fun
+
+So it travels with the roadmap, but only when there is one.
+
+## The options, in plain words
+
+A. Two optional fields, only with a Prerequisites table; a plain push sends this machine's last result or null (built).
+B. Always send both fields, empty for a roadmap without a table.
+C. Send the prerequisites result through its own call, apart from the roadmap push.
+
+## What I had to decide
+
+The shape of the prerequisites in the body omni roadmap push sends to the app, which the next slice's API validation and storage read.
+
+## What I did meanwhile
+
+roadmapPushBody adds two fields only when the roadmap has a Prerequisites table: prerequisites (each row as parsed, blocks 'all' or row ids, repos [] outside a plan repository, its card or null) and prerequisiteResult ({ machine, checkedAt, rows: [{ id, state, detail }] }, or null). omni roadmap prereqs sends the run it just made; omni roadmap push alone sends this machine's last kept result, null when this machine has none, so the app should keep a stored result when it receives null.
+
+## What it costs to change later
+
+A field renamed or reshaped in one kit module and the API's schema of the next slice, before either ships: no stored shape exists yet.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the push carries every row, its state, the machine and the time, but not the field names or whether a push without a fresh result should clear the stored one.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-prerequisites-in-the-roadmap-push -->
+
+<!-- omni-outbox-settled: s3-02-ticks-unread-when-github-is-down -->
+
+## s3-02-ticks-unread-when-github-is-down — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-ticks-unread-when-github-is-down
+prd: 1218
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+When the check of a roadmap's prerequisites cannot reach GitHub to see which items a person marked as done, what should it do?
+
+## The decision, in plain words
+
+It carries on and treats every item a person must mark as not done yet, saying so in one line, so the loop never moves on something it could not confirm.
+
+## The intro, for fun
+
+If you cannot read the sign-off sheet, nobody signed it.
+
+## The punchline, for fun
+
+Better a short wait than a false all-clear.
+
+## The options, in plain words
+
+A. Carry on with no tick, one line on stderr (built).
+B. Stop with one line and exit 1, checking nothing.
+C. Reuse the ticks of this machine's last result.
+
+## What I had to decide
+
+How omni roadmap prereqs behaves when the roadmap issue's comments, where the ticks live, cannot be read.
+
+## What I did meanwhile
+
+The command prints one line on stderr (the ticks could not be read, every person row waits) and runs the rest; every person row waits, so the exit is 1 while one exists. It does not stop with an error, so the checks of the machine still run and are kept.
+
+## What it costs to change later
+
+One branch of the command: stop with exit 1 instead, or keep the last result's ticks. No stored shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a check that cannot run is not ok, but says nothing of the ticks when GitHub cannot be read.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-ticks-unread-when-github-is-down -->
+
+<!-- omni-outbox-settled: s4-01-hold-links-the-roadmap-issue -->
+
+## s4-01-hold-links-the-roadmap-issue — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-hold-links-the-roadmap-issue
+prd: 1218
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+When the loop pauses a piece of work because a setup step is missing, where should the link next to that pause take you?
+
+## The decision, in plain words
+
+It takes you to the roadmap's discussion on GitHub for now, because the loop cannot know the web address of the roadmap's page without asking the app on every round.
+
+## The intro, for fun
+
+Every pause deserves a signpost, even if it points down the old road.
+
+## The punchline, for fun
+
+The shiny new tab will have to wait until its address is known.
+
+## The options, in plain words
+
+A. A. Link the roadmap issue until the page's address is known here (built).
+B. B. Have the roadmap push keep the page's address locally, and link its Prerequisites tab.
+C. C. Let the app open a roadmap page by repository and roadmap number, and link that with the tab.
+
+## What I had to decide
+
+The spec asks the hold line to carry the Prerequisites tab's link. The roadmap page is addressed by the app's own id, which `omni next` never sees (only `omni roadmap push` gets it back). The gate takes a `prerequisitesLink` and falls back to the roadmap issue's link; the command passes null today.
+
+## What I did meanwhile
+
+Each prerequisite hold links the roadmap issue on GitHub, where `omni roadmap tick` posts and the answers live. The gate already accepts the tab's link, so filling it is one line in the command.
+
+## What it costs to change later
+
+A constant: once the page link is known locally (kept by `omni roadmap push` beside the last result, or the page addressed by repository and roadmap number), the command passes `<page>?tab=prerequisites` instead of null.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether s3's push keeps the page's id anywhere this machine can read (author)
+- Whether the app will open a roadmap page by repository and number (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-hold-links-the-roadmap-issue -->
+
+<!-- omni-outbox-settled: s4-02-unchecked-prerequisite-holds -->
+
+## s4-02-unchecked-prerequisite-holds — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-unchecked-prerequisite-holds
+prd: 1218
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+If this computer has never checked the setup list yet, should the loop wait before building the work that depends on it?
+
+## The decision, in plain words
+
+Yes: anything blocked by a setup step this computer has not checked waits, and the pause says which command checks it.
+
+## The intro, for fun
+
+Nobody has looked under the hood yet, so nobody drives off.
+
+## The punchline, for fun
+
+One quick check and the engine is free to roar.
+
+## The options, in plain words
+
+A. A. A row never checked on this machine holds what it blocks, and says how to check it (built).
+B. B. A row never checked lets the work run, as if the roadmap had no prerequisites.
+
+## What I had to decide
+
+The spec says a row that is not ok, fixed or ticked holds the PRDs it blocks, and that a check that did not run is not ok. It does not say what `omni next` does when this machine has no last result at all, or a row is missing from it (added after the last run).
+
+## What I did meanwhile
+
+Such a row holds what it blocks, with `waits on prerequisite <id> (<category>): <need> — not checked on this machine yet: omni roadmap prereqs <n> --fix`. A person row ticked on the issue frees its PRDs even without a result. The drive runs `prereqs --fix` on its first tick, so this only shows when that was skipped.
+
+## What it costs to change later
+
+A constant: one branch of the gate decides whether a missing result holds or frees.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the author prefers a fresh roadmap to start building before its first prerequisites check (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-02-unchecked-prerequisite-holds -->
