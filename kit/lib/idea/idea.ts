@@ -2,7 +2,7 @@
 // before it sends it, and `omni idea list` reads the board the app answers and lays it out lane by
 // lane. Pure: the calls themselves are the ask client's (`../ask/client.ts`, `addIdea`, `listIdeas`).
 //
-// The limits are the database's own (supabase/migrations/20261114090000_ideas.sql): a title of 1 to
+// The limits are the database's own (supabase/migrations/20261115090000_ideas.sql): a title of 1 to
 // 120 characters, a pitch of 1 to 600, a lane of now, next or later, later when none is given.
 import { z } from 'zod';
 import { PrdNumberSchema } from '../ids.ts';
