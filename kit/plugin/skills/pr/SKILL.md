@@ -122,6 +122,11 @@ differences.
   default branch is the target's, from
   `gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`, never
   `repo.defaultBranch`: a merge checks `baseRefName` against it.
+- **The outbox check defers to the plan PR.** A target feature PR's `ci.outboxContext` check, posted
+  by the omni-loop GitHub App in the target, reads its `Part of <plan slug>#<n>` line and passes,
+  linking the plan PR that grades the PRD: it never grades the PRD in the target, and it does not
+  follow the plan PR's check. The gate that counts is the plan PR's. A red `gate` or `ci/outbox`
+  from a workflow the target wrote itself is not the kit's: name it as a human step, never fix it.
 - **Branches, labels and link lines are the plan repository's** config, filled as usual. A link
   line's `#<n>` points at the plan repository's PRD, so it is written in full:
   `<repo.slug of the plan repository>#<n>`.

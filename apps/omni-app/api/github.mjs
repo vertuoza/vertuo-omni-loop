@@ -795,8 +795,10 @@ var Label = z8.union([z8.string(), z8.looseObject({ name: z8.string().nullish() 
 var PullSchema = z8.looseObject({
   base: z8.looseObject({ ref: z8.string(), sha: z8.string() }),
   head: z8.looseObject({ ref: z8.string(), sha: z8.string() }),
-  labels: z8.array(Label).nullish()
+  labels: z8.array(Label).nullish(),
+  body: z8.string().nullish()
 });
+var PullsPageSchema = z8.array(z8.looseObject({ number: z8.number(), body: z8.string().nullish() }));
 var PullHeadSchema = z8.looseObject({ head: z8.looseObject({ sha: z8.string() }) });
 var IssueSchema = z8.looseObject({
   state: z8.string(),

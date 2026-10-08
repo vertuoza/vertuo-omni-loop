@@ -120,6 +120,9 @@ the order given. What differs:
   re-run the failed checks once (`gh run rerun <run id> --failed --repo <slug>`) and drop the
   `waits on` line. Still red after that run, `fix-ci` comes back, as `/omni:pr-care` counts it. A
   red that is the branch's own is never written as waiting.
+- **A target PR's outbox check** passes by deferring to the plan PR: the omni-loop App reads its
+  `Part of <plan slug>#<n>` line and links the plan PR (`/omni:pr --repo`). It is never a `fix-ci`;
+  the gate to read is the plan PR's.
 - **A bug-fix PR** goes into its target's default branch, not a feature branch: its round is the
   same, and a fix it makes stays inside the bug's fix plan.
 

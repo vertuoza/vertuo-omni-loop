@@ -3,8 +3,9 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { gateResult } from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
-import { evaluate, type Verdict } from './evaluate.ts';
+import { deferredOutput, evaluate, planPrdOf, type Verdict } from './evaluate.ts';
 
 const gateSpy = vi.mocked(gateResult);
 
@@ -191,5 +192,49 @@ describe('evaluate — the range, when changed files are given', () => {
     const changes = [{ path: 'src/a.mjs', status: 'M' }];
     run({ changes });
     expect(gateResult).toHaveBeenCalledWith(42, expect.objectContaining({ changes }));
+  });
+});
+
+describe('planPrdOf — the plan repository PRD a target feature PR is part of (issue 1202)', () => {
+  it('reads `Part of <owner>/<repo>#<n>` naming another repository', () => {
+    expect(planPrdOf('Part of acme/plan#8\n\nThe widgets half.', 'acme/crew')).toEqual({ repo: 'acme/plan', prd: 8 });
+  });
+
+  it('reads the line wherever it sits in the body, with a dot or dashes in the names', () => {
+    expect(planPrdOf('Some intro.\nPart of acme-co/vibe.plan#12', 'acme-co/crew')).toEqual({ repo: 'acme-co/vibe.plan', prd: 12 });
+  });
+
+  it('is null for a line naming this same repository (a sub-PR\'s shape), whatever its case', () => {
+    expect(planPrdOf('Part of acme/crew#8', 'acme/crew')).toBeNull();
+    expect(planPrdOf('Part of Acme/Crew#8', 'acme/crew')).toBeNull();
+  });
+
+  it('is null for a body with neither line, or no body', () => {
+    expect(planPrdOf('Fixes the widget.', 'acme/crew')).toBeNull();
+    expect(planPrdOf('', 'acme/crew')).toBeNull();
+    expect(planPrdOf('Part of #8', 'acme/crew')).toBeNull();
+  });
+
+  it('is null when the body also says `Closes #<n>`: Closes wins, the PR is gated here', () => {
+    expect(planPrdOf('Closes #12\nPart of acme/plan#8', 'acme/crew')).toBeNull();
+  });
+
+  it('reads only a line that starts with `Part of`, never a mention inside a sentence', () => {
+    expect(planPrdOf('This is not Part of acme/plan#8 at all.', 'acme/crew')).toBeNull();
+  });
+});
+
+describe('deferredOutput — the check of a target feature PR', () => {
+  it('names the PRD and the plan repository, links the plan PR, and says the check passes without following it', () => {
+    const output = deferredOutput({ repo: 'acme/plan', prd: parsePrd(8) }, 37);
+    expect(output.title).toBe("PRD 8 is graded on acme/plan's plan PR");
+    expect(output.summary).toContain('[acme/plan#37](https://github.com/acme/plan/pull/37)');
+    expect(output.summary).toContain('passes here without following');
+  });
+
+  it('links the PRD issue when the plan PR could not be found', () => {
+    const output = deferredOutput({ repo: 'acme/plan', prd: parsePrd(8) }, null);
+    expect(output.summary).toContain('[acme/plan#8](https://github.com/acme/plan/issues/8)');
+    expect(output.summary).not.toContain('/pull/');
   });
 });
