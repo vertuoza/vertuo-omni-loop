@@ -22,7 +22,7 @@ function rowOf(key: string, kind = 'development', more: Partial<Row> = {}): Row 
 }
 
 /** The two functions as the migration writes them, over rows in memory. */
-function fakeDb(rows: Row[], { workspace = ACME as string | null, fail = null as string | null } = {}) {
+function fakeDb(rows: Row[], { workspace = ACME, fail = null }: { workspace?: string | null; fail?: string | null } = {}) {
   const calls: Array<[string, Record<string, unknown>]> = [];
   const db = {
     rpc(fn: string, args: Record<string, unknown>) {
