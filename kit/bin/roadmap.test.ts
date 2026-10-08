@@ -504,8 +504,9 @@ describe('omni roadmap prereqs', () => {
     const { calls, fetch } = stubFetch(pushed());
     await prereqs(['roadmap', 'prereqs', '1200'], { root, fetch, exec: fakeGh({ comments: [TICK_P3] }).exec });
     const body = calls[0]?.body as Record<string, unknown>;
+    const dockerCard: unknown = expect.objectContaining({ command: 'open -a Docker' });
     expect(body.prerequisites).toEqual([
-      expect.objectContaining({ id: 'p1', category: 'local', who: 'check', blocks: ['P2'], card: expect.objectContaining({ command: 'open -a Docker' }) }),
+      expect.objectContaining({ id: 'p1', category: 'local', who: 'check', blocks: ['P2'], card: dockerCard }),
       expect.objectContaining({ id: 'p2', who: 'agent', blocks: 'all', card: null }),
       expect.objectContaining({ id: 'p3', who: 'person', blocks: ['P3'] }),
       expect.objectContaining({ id: 'p4', who: 'check', check: 'npm ping' }),

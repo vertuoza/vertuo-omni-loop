@@ -347,19 +347,24 @@ function runRoadmapPrerequisites(ctx: Context, n: IssueNumber, prerequisites: re
 /** Sends the run to the roadmap's page: its link on stdout (stderr under `--json`), or one line on
  * stderr when it could not be sent. Never changes the exit code. */
 async function pushPrereqs(n: IssueNumber, io: Io, result: LastResult, json: boolean): Promise<void> {
-  const { machine, checkedAt, rows } = result;
+  const sent = await sendPrereqs(n, io, result);
+  if (sent.ok) println(json ? io.stderr : io.stdout, `roadmap ${n}: the page is updated — ${sent.url}`);
+  else println(io.stderr, `roadmap ${n}: the page is not updated (${sent.why})`);
+}
+
+/** Roadmap `n`'s push with the run's `result`: the page's link, or why it was not sent. */
+async function sendPrereqs(n: IssueNumber, io: Io, { machine, checkedAt, rows }: LastResult): Promise<{ ok: true; url: string } | { ok: false; why: string }> {
   const inputs = pushInputs(n, io, { machine, checkedAt, rows });
-  const notUpdated = (why: string) => println(io.stderr, `roadmap ${n}: the page is not updated (${why})`);
-  if (typeof inputs === 'string') return notUpdated(inputs);
+  if (typeof inputs === 'string') return { ok: false, why: inputs };
   let reply: unknown;
   try {
     reply = await inputs.client.pushRoadmap(inputs.body);
   } catch (error) {
-    return notUpdated(skipLine(error));
+    return { ok: false, why: skipLine(error) };
   }
   const roadmapId = field(reply, 'roadmapId');
-  if (typeof roadmapId !== 'string' || !roadmapId) return notUpdated('no roadmap in the reply');
-  println(json ? io.stderr : io.stdout, `roadmap ${n}: the page is updated — ${inputs.askUrl.replace(/\/+$/, '')}/roadmaps/${roadmapId}`);
+  if (typeof roadmapId !== 'string' || !roadmapId) return { ok: false, why: 'no roadmap in the reply' };
+  return { ok: true, url: `${inputs.askUrl.replace(/\/+$/, '')}/roadmaps/${roadmapId}` };
 }
 
 /** `omni roadmap prereqs <n> [--fix] [--json]`: runs, prints, keeps and pushes roadmap n's
