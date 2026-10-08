@@ -6,6 +6,7 @@ import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { fillBranch } from '../../lib/board.ts';
 import { compareRecordings, readRecordingsAt } from '../../lib/e2e/heals.ts';
 import { parseFolderName } from '../../lib/layout.ts';
+import { screenshotsFor } from '../../lib/e2e/screenshots.ts';
 import { RecordingError, readRecordings, readTaggedTests } from '../../lib/e2e/recording.ts';
 import { testStatus } from '../../lib/e2e/status.ts';
 import { messageOf } from '../../lib/narrow.ts';
@@ -14,7 +15,8 @@ import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 
 // `omni e2e heals <n>` pairs the recordings' steps at the merge-base of the PRD's feature branch with
-// the default branch and at the feature branch's head; it exits 0, or 1 on the same refusals.
+// the default branch and at the feature branch's head; it exits 0, or 1 on the same refusals. Each healed
+// step carries `screenshots` (PRD 1274): the framework keeps none per step, so each side says why.
 const USAGE = 'usage: omni e2e status <prd>\n       omni e2e heals <prd>';
 
 function status(args: string[], { ctx, stdout, stderr }: CommandIo): number {
@@ -78,7 +80,9 @@ function heals(args: string[], io: CommandIo): number {
       readRecordingsAt({ root: ctx.root, rev: base, dir, exec }),
       readRecordingsAt({ root: ctx.root, rev: head, dir, exec }),
     );
-    println(stdout, JSON.stringify({ prd, base, head, ...result }, null, 2));
+    const screenshots = screenshotsFor(ctx.root, dir);
+    const healed = result.healed.map((step) => ({ ...step, screenshots }));
+    println(stdout, JSON.stringify({ prd, base, head, ...result, healed }, null, 2));
     return 0;
   } catch (error) {
     if (!(error instanceof RecordingError)) throw error;
