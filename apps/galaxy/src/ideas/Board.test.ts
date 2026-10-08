@@ -79,6 +79,19 @@ describe('a public board', () => {
     expect(card).toMatch(/aria-label="4 votes"[\s\S]*?▲[\s\S]*?4/);
   });
 
+  it('makes the ▲ a button to vote with, pressed when the reader voted (PRD 1246, s3)', async () => {
+    const markup = await page(async () => board([
+      idea({ title: 'Mine', lane: 'now', votes: 3, voted: true }),
+      idea({ title: 'Not mine', lane: 'now', votes: 2 }),
+    ]));
+    const buttons = [...markup.matchAll(/<button [^>]*class="idea-votes[^"]*"[^>]*>/g)].map(([b]) => b);
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0]).toContain('aria-pressed="true"');
+    expect(buttons[0]).toContain('title="Take back your vote for Mine"');
+    expect(buttons[1]).toContain('aria-pressed="false"');
+    expect(buttons[1]).toContain('title="Vote for Not mine"');
+  });
+
   it('leaves an archived idea out', async () => {
     const markup = await page(async () => board([idea({ title: 'Kept', lane: 'now' }), idea({ title: 'Dropped', lane: 'now', archived: true, votes: 50 })]));
     expect(lanes(markup)[0]).toEqual(['Now 1', ['Kept']]);
