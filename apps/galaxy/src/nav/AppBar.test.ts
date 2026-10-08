@@ -111,6 +111,7 @@ describe('the top bar', () => {
     expect(tileOf(render('/app/workspace'))).toBe(sprite('menu-workspace'));
     expect(tileOf(render('/app'))).toBe(sprite('menu-home'));
     expect(tileOf(render('/prd/3f2a'))).toBe(sprite('menu-prds'));
+    expect(tileOf(render('/concepts'))).toBe(sprite('menu-concepts'));
     expect(render('/app', ADA)).not.toContain('app-bar-crest');
   });
 

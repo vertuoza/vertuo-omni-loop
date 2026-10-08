@@ -71,9 +71,9 @@ describe('the sidebar', () => {
 
   it('lists Dashboard and Work, then Settings, Docs and Release notes at the foot, in order (PRD 733)', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Dashboard Home Fleet Loop Workspace Engineering Work Roadmaps Ideas PRDs Bug Fixes Visual Updates Questions 5 Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
+    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Dashboard Home Fleet Loop Workspace Engineering Work Roadmaps Ideas Concepts PRDs Bug Fixes Visual Updates Questions 5 Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
-      '/app', '/app/fleet', '/app/loop', '/app/workspace', '/app/engineering', '/roadmaps', '/ideas/acme/widgets', '/prd', '/bugs', '/visual', '/ask', '/knowledge', '/app/settings', '/docs', '/releases',
+      '/app', '/app/fleet', '/app/loop', '/app/workspace', '/app/engineering', '/roadmaps', '/ideas/acme/widgets', '/concepts', '/prd', '/bugs', '/visual', '/ask', '/knowledge', '/app/settings', '/docs', '/releases',
     ]);
   });
 
@@ -208,7 +208,7 @@ describe('« and the rail (PRD 733)', () => {
   it('names every sprite entry by its title and its spoken name, so the rail still says each one', () => {
     const html = render(ADA, '/app', [gate('a')]);
     const entries = links(html).filter((l) => l.attrs.includes('class="app-sidebar-item"') && !l.attrs.includes('target="_blank"'));
-    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Home', 'Fleet', 'Loop', 'Workspace', 'Engineering', 'Roadmaps', 'Ideas', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Questions', 'Knowledge', 'Settings']);
+    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Home', 'Fleet', 'Loop', 'Workspace', 'Engineering', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Questions', 'Knowledge', 'Settings']);
     for (const entry of entries) {
       const title = /title="([^"]+)"/.exec(entry.attrs)?.[1];
       const spoken = /aria-label="([^"]+)"/.exec(entry.attrs)?.[1] ?? entry.text;

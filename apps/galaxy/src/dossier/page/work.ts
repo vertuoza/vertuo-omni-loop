@@ -2,26 +2,29 @@
 // a bug fix's at /bugs/<id>, each list at the bare path. A row read without a kind is a PRD's, as every
 // dossier was before PRD 627. A dossier opened on another kind's route is sent to its own, with the
 // address's query kept, so `/prd/<id>?tab=questions` of a fix lands on its Questions tab.
-import type { DossierRow, WorkKind } from '../store';
+// Since PRD 1272 a concept's is at /concepts/<id>, its list at /concepts. A concept's row is never one of
+// another kind's: every list keeps only its own kind's rows.
+import type { DossierRow, PushKind, WorkKind } from '../store';
 
 /** Each kind's list, and the root of its pages. */
-export const WORK_PATHS: Readonly<Record<WorkKind, string>> = { prd: '/prd', visual: '/visual', bug: '/bugs' };
+export const WORK_PATHS: Readonly<Record<PushKind, string>> = { prd: '/prd', visual: '/visual', bug: '/bugs', concept: '/concepts' };
 
 /** What a list or a page calls one of its kind. */
-export const WORK_NAMES: Readonly<Record<WorkKind, { one: string; many: string; badge: string | null }>> = {
+export const WORK_NAMES: Readonly<Record<PushKind, { one: string; many: string; badge: string | null }>> = {
   prd: { one: 'PRD', many: 'PRDs', badge: null },
   visual: { one: 'visual update', many: 'Visual Updates', badge: 'Visual' },
   bug: { one: 'bug fix', many: 'Bug Fixes', badge: 'Bug' },
+  concept: { one: 'concept', many: 'Concepts', badge: 'Concept' },
 };
 
 /** The dossier's kind: a PRD's when the row carries none. */
 export const kindOf = (row: Pick<DossierRow, 'kind'>): WorkKind => row.kind ?? 'prd';
 
-/** Only the rows of `kind`, in their order. */
-export const ofWork = <R extends Pick<DossierRow, 'kind'>>(rows: readonly R[], kind: WorkKind): R[] => rows.filter((row) => kindOf(row) === kind);
+/** Only the rows of `kind`, in their order: a concept's row (PRD 1272) is never a PRD's or a fix's. */
+export const ofWork = <R extends { kind?: PushKind | undefined }>(rows: readonly R[], kind: WorkKind): R[] => rows.filter((row) => (row.kind ?? 'prd') === kind);
 
 /** A dossier's page, on its kind's route. */
-export const workPath = (kind: WorkKind, id: string) => `${WORK_PATHS[kind]}/${encodeURIComponent(id)}`;
+export const workPath = (kind: PushKind, id: string) => `${WORK_PATHS[kind]}/${encodeURIComponent(id)}`;
 
 type Query = Record<string, string | string[] | undefined>;
 
