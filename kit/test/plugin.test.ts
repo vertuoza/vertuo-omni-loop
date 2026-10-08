@@ -284,10 +284,11 @@ describe('the omni-hud plugin in this repository', () => {
     expect(version(HUD_DIR)).toBe(version(PLUGIN_DIR));
   });
 
-  it('names its hooks module, and vitest collects none of its tests', async () => {
+  it('names its hooks module, and vitest collects none of its tests', () => {
     expect(JSON.parse(readFileSync(join(repoRoot, HUD_DIR, 'hooks/hooks.json'), 'utf8'))).toEqual({ modules: ['./register.tsx'] });
-    const { default: config } = await import('../../vitest.config.ts');
-    expect(config.test.exclude).toContain(`${HUD_DIR}/**`);
+    // Read as text: a kit test never imports the repository's config (scripts/import-guard.test.ts).
+    const exclude = /^\s*exclude: \[(.*)\],$/m.exec(readFileSync(join(repoRoot, 'vitest.config.ts'), 'utf8'))?.[1] ?? '';
+    expect(exclude).toContain(`'${HUD_DIR}/**'`);
   });
 
   it.skipIf(!claude)(`claude plugin validate and claude plugin test pass on it${reason}`, () => {
