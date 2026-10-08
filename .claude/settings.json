@@ -8,7 +8,8 @@
     }
   },
   "enabledPlugins": {
-    "omni@omni-loop": true
+    "omni@omni-loop": true,
+    "omni-hud@omni-loop": true
   },
   "hooks": {
     "SessionStart": [
