@@ -553,17 +553,17 @@ describe('omni statusline --refresh <n>', () => {
 
   const readBoardJson = (root: string, prd = parsePrd(7)) => JSON.parse(readFileSync(boardFile(root, prd), 'utf8')) as { slices: unknown[] };
 
-  it('writes board-7.json with each slice id, wave and state, built as omni board builds it, and removes the lock', async () => {
+  it('writes board-7.json with each slice id, wave, state and name (PRD 1208), built as omni board builds it, and removes the lock', async () => {
     const { root } = makeRepo({ git: true, files: FILES });
     const run = await refresh(root);
     expect(run).toMatchObject({ code: 0, out: '', err: '' });
     expect(readBoardJson(root)).toEqual({
       at: iso(NOW),
       slices: [
-        { id: 's1', wave: 1, state: 'merged' },
-        { id: 's2', wave: 2, state: 'in-flight' },
-        { id: 's3', wave: 2, state: 'stuck' },
-        { id: 's4', wave: 3, state: 'blocked' },
+        { id: 's1', wave: 1, state: 'merged', name: 'Alpha' },
+        { id: 's2', wave: 2, state: 'in-flight', name: 'Beta' },
+        { id: 's3', wave: 2, state: 'stuck', name: 'Gamma' },
+        { id: 's4', wave: 3, state: 'blocked', name: 'Delta' },
       ],
     });
     expect(existsSync(lockFile(root, parsePrd(7)))).toBe(false);

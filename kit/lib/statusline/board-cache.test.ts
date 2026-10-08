@@ -84,10 +84,16 @@ describe('the board file', () => {
     expect(readBoard(root, parsePrd(7))).toEqual({ at: NOW - 5 * SECOND, error: 'gh: not found' });
   });
 
-  it('reads only the id, the wave and the state of each slice', () => {
+  it('reads only the id, the wave, the state and the name of each slice', () => {
     const root = tempRoot();
-    plantBoard(root, 7, 0, { slices: [{ id: 's1', wave: 1, state: 'merged', title: 'extra', pr: { number: 3 } }] });
-    expect(readBoard(root, parsePrd(7))?.slices).toEqual([{ id: 's1', wave: 1, state: 'merged' }]);
+    plantBoard(root, 7, 0, { slices: [{ id: 's1', wave: 1, state: 'merged', name: 'tabs', title: 'extra', pr: { number: 3 } }] });
+    expect(readBoard(root, parsePrd(7))?.slices).toEqual([{ id: 's1', wave: 1, state: 'merged', name: 'tabs' }]);
+  });
+
+  it("reads a board of PRD 324's shape, and a name that is not text, as slices with no name (PRD 1208)", () => {
+    const root = tempRoot();
+    plantBoard(root, 7, 0, { slices: [{ id: 's1', wave: 1, state: 'merged' }, { id: 's2', wave: 2, state: 'in-flight', name: 3 }] });
+    expect(readBoard(root, parsePrd(7))?.slices).toEqual([{ id: 's1', wave: 1, state: 'merged' }, { id: 's2', wave: 2, state: 'in-flight' }]);
   });
 
   it('reads a file with no time it can read as missing, and slices it cannot read as an error', () => {
@@ -268,6 +274,26 @@ describe('the refresh', () => {
     expect(lockedWhileBuilding).toBe(true);
     expect(JSON.parse(readFileSync(boardFile(root, parsePrd(7)), 'utf8'))).toEqual({ at: iso(NOW), slices: SLICES });
     expect(existsSync(lockFile(root, parsePrd(7)))).toBe(false);
+  });
+
+  it("keeps each slice's name: the plan's slice column, cut at the first full stop (PRD 1208)", () => {
+    const root = tempRoot();
+    const titled = [
+      { id: 's1', wave: 1, state: 'merged', title: '`omni now` names the PRD. Covers: the rest, kit/lib/now/ and all.' },
+      { id: 's2', wave: 2, state: 'in-flight', title: 'Reads `kit/lib/now.ts` and v1.2 first' },
+      { id: 's3', wave: 2, state: 'stuck', title: '  Tabs.  ' },
+      { id: 's4', wave: 3, state: 'blocked', title: '' },
+      { id: 's5', wave: 3, state: 'blocked' },
+    ];
+    refreshBoard({ root, prd: parsePrd(7), now: NOW, build: () => titled });
+    expect(readBoard(root, parsePrd(7))?.slices).toEqual([
+      { id: 's1', wave: 1, state: 'merged', name: '`omni now` names the PRD' },
+      { id: 's2', wave: 2, state: 'in-flight', name: 'Reads `kit/lib/now.ts` and v1.2 first' },
+      { id: 's3', wave: 2, state: 'stuck', name: 'Tabs' },
+      { id: 's4', wave: 3, state: 'blocked' },
+      { id: 's5', wave: 3, state: 'blocked' },
+    ]);
+    expect(JSON.parse(readFileSync(boardFile(root, parsePrd(7)), 'utf8')).slices[0]).not.toHaveProperty('title');
   });
 
   it('writes nothing while another refresh under 2 minutes old holds the lock', () => {
