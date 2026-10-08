@@ -3,6 +3,7 @@ import { GithubSignInCard } from '../../ask/page/GithubSignInCard';
 import { MemberGate } from '../../dashboard/MemberGate';
 import { AnswerBox } from './AnswerBox';
 import { GanttChart } from './GanttChart';
+import { PrerequisitesPane } from './PrerequisitesPane';
 import { ROADMAP_SKILL, ROADMAPS_PATH, type Demo, type ProductChoice, type QuestionView, type RoadmapDetail, type RoadmapPageView, type RoadmapSummary } from './model';
 import '../../dashboard/board/board.css';
 import './roadmap.css';
@@ -11,7 +12,8 @@ import './roadmap.css';
 // the shared gate; the demo for a person signed out, under a sign-in card; the list of the workspace's
 // roadmaps with its product filter, or the empty state naming how to write one; one roadmap opened,
 // with its milestone, its Gantt, its open questions (an answer box for a `person` one) and its PRDs,
-// each linking to its page.
+// each linking to its page. One roadmap has two tabs (PRD 1218), picked by `?tab=` in the PRD page's tab
+// style: Overview, all of the above, and Prerequisites (PrerequisitesPane.tsx).
 
 type Supabase = { url: string; key: string };
 
@@ -125,51 +127,71 @@ function Question({ q, roadmap }: { q: QuestionView; roadmap: RoadmapDetail }) {
   );
 }
 
+function Tabs({ roadmap }: { roadmap: RoadmapDetail }) {
+  return (
+    <nav className="roadmap-tabs" aria-label="Roadmap">
+      {roadmap.tabs.map((t) => (
+        <a key={t.tab} className="roadmap-tab" href={t.href} aria-current={t.current ? 'page' : undefined}>
+          {t.label}
+          {t.badge !== null ? <small>{t.badge}</small> : null}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
 function Detail({ roadmap }: { roadmap: RoadmapDetail }) {
-  const { gantt } = roadmap;
   return (
     <div className="dash">
       <p className="roadmap-back-row"><a className="roadmap-back" href={ROADMAPS_PATH}>← Every roadmap</a></p>
       <h1 className="dash-name">{roadmap.title}</h1>
-      <div className="board roadmap">
-        <section className="board-card roadmap-card">
-          <p className="roadmap-milestone"><b>Milestone:</b> {roadmap.milestone}</p>
-          <Progress roadmap={roadmap} />
-          <p className="roadmap-muted">{roadmap.repo} · <a href={roadmap.issueUrl}>roadmap #{roadmap.number}</a>{roadmap.source ? <> · <a href={roadmap.source}>its source</a></> : null}</p>
-          <Blocks roadmap={roadmap} />
-        </section>
-        <section className="board-card roadmap-plan">
-          <h2>Gantt</h2>
-          <GanttChart gantt={gantt} />
-          <p className="roadmap-legend">
-            {(['waiting', 'building', 'outbox', 'ready', 'merged', 'closed'] as const).map((s) => <span key={s} className={`roadmap-key is-${s}`}>{s === 'ready' ? 'waiting for merge' : s === 'closed' ? 'closed unmerged' : s}</span>)}
-          </p>
-          <p className="roadmap-muted">
-            {gantt.dated
-              ? 'Real dates once a PRD starts; dashed bars are projected from the median length of this roadmap\'s merged PRDs.'
-              : 'No PRD has merged yet, so nothing is dated: each bar sits in its wave.'}
-            {gantt.lanes ? ' Each bar has a lane per repository.' : null}
-          </p>
-        </section>
-        <section className="board-card roadmap-questions">
-          <h2>Open questions</h2>
-          {roadmap.questions.length === 0 ? <p className="roadmap-muted">No open question.</p> : (
-            <ul className="roadmap-lines">{roadmap.questions.map((q) => <Question key={q.id} q={q} roadmap={roadmap} />)}</ul>
-          )}
-        </section>
-        <section className="board-card roadmap-prds">
-          <h2>PRDs</h2>
-          <ol className="roadmap-lines">
-            {gantt.rows.map((row) => (
-              <li key={row.id} className="roadmap-line">
-                <span className={`roadmap-key is-${row.state}`}>{row.stateLabel}</span> <b>{row.id}</b> <a href={row.href}>PRD {row.prd}</a> {row.title}
-                <span className="roadmap-muted"> · wave {row.wave}{row.lanes.length > 0 ? ` · ${row.lanes.join(', ')}` : ''}{row.blockers.length > 0 ? ` · after ${row.blockers.join(', ')}` : ''}</span>
-                {row.waitsOn ? <span className="roadmap-muted"> · {row.waitsOn.url ? <a href={row.waitsOn.url}>{row.waitsOn.label}</a> : row.waitsOn.label}</span> : null}
-              </li>
-            ))}
-          </ol>
-        </section>
-      </div>
+      <Tabs roadmap={roadmap} />
+      {roadmap.tab === 'prerequisites' ? <PrerequisitesPane prerequisites={roadmap.prerequisites} /> : <Overview roadmap={roadmap} />}
+    </div>
+  );
+}
+
+function Overview({ roadmap }: { roadmap: RoadmapDetail }) {
+  const { gantt } = roadmap;
+  return (
+    <div className="board roadmap">
+      <section className="board-card roadmap-card">
+        <p className="roadmap-milestone"><b>Milestone:</b> {roadmap.milestone}</p>
+        <Progress roadmap={roadmap} />
+        <p className="roadmap-muted">{roadmap.repo} · <a href={roadmap.issueUrl}>roadmap #{roadmap.number}</a>{roadmap.source ? <> · <a href={roadmap.source}>its source</a></> : null}</p>
+        <Blocks roadmap={roadmap} />
+      </section>
+      <section className="board-card roadmap-plan">
+        <h2>Gantt</h2>
+        <GanttChart gantt={gantt} />
+        <p className="roadmap-legend">
+          {(['waiting', 'building', 'outbox', 'ready', 'merged', 'closed'] as const).map((s) => <span key={s} className={`roadmap-key is-${s}`}>{s === 'ready' ? 'waiting for merge' : s === 'closed' ? 'closed unmerged' : s}</span>)}
+        </p>
+        <p className="roadmap-muted">
+          {gantt.dated
+            ? 'Real dates once a PRD starts; dashed bars are projected from the median length of this roadmap\'s merged PRDs.'
+            : 'No PRD has merged yet, so nothing is dated: each bar sits in its wave.'}
+          {gantt.lanes ? ' Each bar has a lane per repository.' : null}
+        </p>
+      </section>
+      <section className="board-card roadmap-questions">
+        <h2>Open questions</h2>
+        {roadmap.questions.length === 0 ? <p className="roadmap-muted">No open question.</p> : (
+          <ul className="roadmap-lines">{roadmap.questions.map((q) => <Question key={q.id} q={q} roadmap={roadmap} />)}</ul>
+        )}
+      </section>
+      <section className="board-card roadmap-prds">
+        <h2>PRDs</h2>
+        <ol className="roadmap-lines">
+          {gantt.rows.map((row) => (
+            <li key={row.id} className="roadmap-line">
+              <span className={`roadmap-key is-${row.state}`}>{row.stateLabel}</span> <b>{row.id}</b> <a href={row.href}>PRD {row.prd}</a> {row.title}
+              <span className="roadmap-muted"> · wave {row.wave}{row.lanes.length > 0 ? ` · ${row.lanes.join(', ')}` : ''}{row.blockers.length > 0 ? ` · after ${row.blockers.join(', ')}` : ''}</span>
+              {row.waitsOn ? <span className="roadmap-muted"> · {row.waitsOn.url ? <a href={row.waitsOn.url}>{row.waitsOn.label}</a> : row.waitsOn.label}</span> : null}
+            </li>
+          ))}
+        </ol>
+      </section>
     </div>
   );
 }

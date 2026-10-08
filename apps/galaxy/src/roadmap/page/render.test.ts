@@ -18,7 +18,7 @@ const render = (view: RoadmapPageView, supabase: { url: string; key: string } | 
   renderToStaticMarkup(createElement(RoadmapsScreen, { view, supabase, signinError: null }));
 const list = (product: string | null = null, demo: 'development' | 'signed-out' = 'development') =>
   present(demoRoadmapPage(NOW, { id: null, product }, demo), 'the demo list');
-const opened = (id = DEMO_ROADMAP) => present(demoRoadmapPage(NOW, { id, product: null }, 'development'), 'the demo roadmap');
+const opened = (id = DEMO_ROADMAP, tab: 'overview' | 'prerequisites' = 'overview') => present(demoRoadmapPage(NOW, { id, product: null, tab }, 'development'), 'the demo roadmap');
 const [CREW, BILLING, MOBILE] = DEMO_PRODUCTS;
 
 describe('the list of roadmaps', () => {
@@ -113,6 +113,51 @@ describe('one roadmap opened', () => {
     expect(one).not.toContain('is-projected');
     expect(text(one)).toContain('No PRD has merged yet, so nothing is dated: each bar sits in its wave.');
     expect(text(one)).not.toContain(' · crew');
+  });
+});
+
+describe('one roadmap\'s tabs', () => {
+  it('opens on Overview, today\'s page, with a Prerequisites tab counting what waits on you', () => {
+    const html = render(opened());
+    const tabs = present(/<nav class="roadmap-tabs"[\s\S]*?<\/nav>/.exec(html)?.[0], 'the tabs');
+    expect(text(tabs)).toBe('Overview Prerequisites 2');
+    expect(tabs).toContain(`href="/roadmaps/${DEMO_ROADMAP}" aria-current="page">Overview`);
+    expect(tabs).toContain(`href="/roadmaps/${DEMO_ROADMAP}?tab=prerequisites">Prerequisites`);
+    expect(text(html)).toContain('Gantt');
+    expect(text(html)).not.toContain('2 wait on you');
+  });
+
+  it('shows on Prerequisites the count line and the rows grouped by category, those waiting on you first', () => {
+    const html = render(opened(DEMO_ROADMAP, 'prerequisites'));
+    const t = text(html);
+    expect(html).toContain(`href="/roadmaps/${DEMO_ROADMAP}?tab=prerequisites" aria-current="page">Prerequisites`);
+    expect(t).not.toContain('Gantt');
+    expect(t).toContain('4 ok · 1 fixed · 2 wait on you');
+    expect([...html.matchAll(/data-category="([^"]+)"/g)].map((m) => m[1])).toEqual(['local', 'permissions', 'access', 'github', 'services']);
+    expect([...html.matchAll(/data-prereq="([^"]+)"/g)].map((m) => m[1])).toEqual(['p5', 'p2', 'p6', 'p1', 'p3', 'p4', 'p7']);
+  });
+
+  it('opens the card of a row waiting on you: why, the command with a Copy button, what it does, who can do it', () => {
+    const html = render(opened(DEMO_ROADMAP, 'prerequisites'));
+    const p5 = present(/<li class="roadmap-prereq is-waits" data-prereq="p5">[\s\S]*?<\/li>/.exec(html)?.[0], 'p5');
+    expect(p5).toContain('<details class="roadmap-prereq-card" open="">');
+    const t = text(p5);
+    expect(t).toContain('waits on you p5 Docker is running, for the database tests');
+    expect(t).toContain('blocks P2.2, P3.4 · the agent checks it, a person fixes it · last checked on mbp-irisa, 2026-10-20 11:52 UTC');
+    expect(t).toContain('Why The tests for this roadmap start a database in Docker.');
+    expect(p5).toContain('<code id="roadmap-prereq-p5-command">open -a Docker</code><button type="button" class="ask-button quiet">Copy</button>');
+    expect(t).toContain('What it does Starts the Docker app on your Mac.');
+    expect(t).toContain('Who can do it Anyone with this laptop.');
+    const p1 = present(/<li class="roadmap-prereq is-ok" data-prereq="p1">[\s\S]*?<\/li>/.exec(html)?.[0], 'p1');
+    expect(p1).toContain('<details class="roadmap-prereq-card">');
+    expect(text(p1)).toContain('blocks every PRD');
+  });
+
+  it('says so in one line for a roadmap without prerequisites', () => {
+    const html = render(opened(DEMO_ROADMAP_ONE_REPO, 'prerequisites'));
+    expect(text(html)).toContain('This roadmap names no prerequisite: its roadmap.md has no ## Prerequisites section.');
+    expect(html).not.toContain('data-prereq=');
+    expect(text(present(/<nav class="roadmap-tabs"[\s\S]*?<\/nav>/.exec(html)?.[0], 'the tabs'))).toBe('Overview Prerequisites');
   });
 });
 

@@ -28,6 +28,10 @@ function reads(over: Partial<RoadmapPageReads> = {}): RoadmapPageReads {
     roadmaps: () => Promise.resolve(rows),
     roadmap: (id) => Promise.resolve(rows.find((r) => r.id === id) ?? null),
     prds: (id) => Promise.resolve(id === ID ? [prd(ID, 'merged')] : [prd(id, 'building')]),
+    prerequisites: (id) => Promise.resolve(id === ID ? [{
+      roadmap_id: ID, position: 1, row_id: 'p1', category: 'local', need: 'Docker runs', check_with: 'base:docker', fix_with: null,
+      blocks_all: true, blocks: [], who: 'check', repos: [], card: null, state: 'waits', detail: null,
+    }] : []),
     products: () => Promise.resolve([{ id: 'p-1', name: 'Crew' }]),
     ...over,
   };
@@ -60,6 +64,16 @@ describe('loadRoadmapPage', () => {
   it('opens one of the workspace\'s roadmaps with its Gantt', async () => {
     const view = await loadRoadmapPage(reads(), { id: ID, product: null }, NOW);
     expect(view.kind === 'roadmap' ? view.roadmap.gantt.rows.map((r) => r.id) : view.kind).toEqual(['P1']);
+  });
+
+  it('opens a roadmap on Overview, and on the tab asked for with its prerequisites', async () => {
+    const overview = await loadRoadmapPage(reads(), { id: ID, product: null }, NOW);
+    expect(overview.kind === 'roadmap' ? overview.roadmap.tab : overview.kind).toBe('overview');
+    const view = await loadRoadmapPage(reads(), { id: ID, product: null, tab: 'prerequisites' }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    expect(view.roadmap.tab).toBe('prerequisites');
+    expect(view.roadmap.prerequisites.count).toBe('0 ok · 0 fixed · 1 waits on you');
+    expect(view.roadmap.tabs.map((t) => [t.label, t.current, t.badge])).toEqual([['Overview', false, null], ['Prerequisites', true, 1]]);
   });
 
   it('finds no roadmap of another workspace, nor one that does not exist', async () => {
