@@ -288,6 +288,21 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'skill that runs it: anything that stops it exits 1 with one line.',
   },
   {
+    name: 'idea',
+    kind: 'command',
+    who: 'you',
+    usage: ["omni idea add '<title>' --pitch '<pitch>' [--lane now|next|later]", 'omni idea list [--json]'],
+    label: 'omni idea …',
+    summary: "this repository's ideas board on the Omni page",
+    detail:
+      "This repository's ideas board on the Omni page, for a member of its workspace. add puts an " +
+      'idea on the board, in the lane given or in later, and prints the board\'s link: a title of 120 ' +
+      'characters at most, a pitch of 600. list prints the ideas lane by lane, Now, Next then Later, ' +
+      'each with its votes and its PRD when it has one; --json prints the same as JSON. Both use your ' +
+      'sign-in (omni signin). Signed out, the page unreachable or a refusal is one line, and never an ' +
+      'error; a bad lane or a title or pitch too long exits 2.',
+  },
+  {
     name: 'proof',
     kind: 'command',
     who: 'skills',

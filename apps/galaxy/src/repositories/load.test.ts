@@ -101,8 +101,8 @@ describe('the repositories page\'s read', () => {
       workspace: { id: 'ws-1', name: 'Vertuoza' },
       owner: true,
       repositories: [
-        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, product: null },
-        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404', product: null },
+        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, product: null, publicIdeas: false },
+        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404', product: null, publicIdeas: false },
       ],
       products: [{ id: 'p-1', name: 'Vertuoza' }],
       access: {
@@ -115,6 +115,14 @@ describe('the repositories page\'s read', () => {
     expect(d.calls).toContainEqual(['eq', 'workspace_id', 'ws-1']);
     expect(a.asked).toEqual(['installation 5001', 'token 5001']);
     expect(gh.sent.map((c) => [c.url, c.headers.get('authorization')])).toEqual([['https://api.github.com/installation/repositories?per_page=100&page=1', 'Bearer ghs_1']]);
+  });
+
+  it('reads whether each repository\'s ideas board is public (PRD 1246 s4)', async () => {
+    const d = db({ repositories: { data: [{ ...STORED[0], public_ideas: true }] } });
+    expect(await loadRepositoriesPage(d as never, USER, app(), INSTALL, github())).toMatchObject({
+      repositories: [{ fullName: 'vertuoza/vertuo-apps', publicIdeas: true }],
+    });
+    expect(d.calls).toContainEqual(['select', expect.stringContaining('public_ideas')]);
   });
 
   it('reads the business\'s products, first first, and each repository\'s (PRD 748 s4)', async () => {

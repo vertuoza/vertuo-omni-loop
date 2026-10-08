@@ -31,7 +31,7 @@ vi.mock('next/link', async () => {
 
 const { AppBar } = await import('./AppBar.tsx');
 
-const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', waiting: null };
+const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', ideasBoard: null, waiting: null };
 
 const render = (path: string | null, viewer: ViewerView = SIGNED_OUT_VIEWER) => {
   at.path = path;

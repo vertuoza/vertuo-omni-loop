@@ -16,6 +16,8 @@ export interface RepositoryRow {
   collectError: string | null;
   /** The product it serves, whose business its agents read (PRD 748 s4), or null for none. */
   product: string | null;
+  /** Whether its ideas board is public at /ideas/<owner>/<repo> (PRD 1246 s4): any member's to switch. */
+  publicIdeas: boolean;
 }
 
 /** A public.repositories row, as PostgREST answers it. */
@@ -25,6 +27,7 @@ export interface StoredRepository {
   collected_at?: string | null;
   collect_error?: string | null;
   product_id?: string | null;
+  public_ideas?: boolean;
 }
 
 /** The whole public.repositories row the owner's functions answer (`returns public.repositories`). */
@@ -38,6 +41,7 @@ export const SavedRepository = z.strictObject({
   collected_until: z.string().nullable(),
   collect_error: z.string().nullable(),
   product_id: z.string().nullable(),
+  public_ideas: z.boolean(),
 });
 
 export const rowOf = (r: StoredRepository): RepositoryRow => ({
@@ -46,6 +50,7 @@ export const rowOf = (r: StoredRepository): RepositoryRow => ({
   collectedAt: r.collected_at ?? null,
   collectError: r.collect_error ?? null,
   product: r.product_id ?? null,
+  publicIdeas: r.public_ideas ?? false,
 });
 
 const MINUTE = 60_000;

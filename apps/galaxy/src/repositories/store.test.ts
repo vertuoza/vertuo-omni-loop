@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { brokenRows } from '../data/broken-rows.fake';
 import { SavedRepository } from './model';
-import { COULD_NOT_SAVE, databaseRepositories, demoRepositoriesPort, NOT_MEMBER, NOT_OWNER, refusalOf } from './store';
+import { COULD_NOT_SAVE, databaseRepositories, demoRepositoriesPort, NOT_A_BOARD_MEMBER, NOT_MEMBER, NOT_OWNER, PUBLIC_ELSEWHERE, refusalOf } from './store';
 
 const containing = (text: string): unknown => expect.stringContaining(text);
 
@@ -23,14 +23,14 @@ function db(answer: { data?: unknown; error?: unknown } | Error) {
 
 const STORED = {
   workspace_id: 'ws-1', full_name: 'vertuoza/vertuo-apps', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: 'u-1',
-  collected_at: null, collected_until: null, collect_error: null, product_id: null,
+  collected_at: null, collected_until: null, collect_error: null, product_id: null, public_ideas: false,
 };
 
 describe('the database calls', () => {
   it('adds a repository with add_repository(), answering the row it saved', async () => {
     const d = db({ data: STORED });
     expect(await databaseRepositories(d, 'ws-1').add('Vertuoza/vertuo-apps')).toEqual({
-      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: null, collectError: null, product: null },
+      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false },
     });
     expect(d.calls).toEqual([['add_repository', { p_workspace: 'ws-1', p_full_name: 'Vertuoza/vertuo-apps' }]]);
   });
@@ -44,7 +44,7 @@ describe('the database calls', () => {
   });
 
   it('points a repository at a product in the demo', async () => {
-    const port = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: 'p-1' }]);
+    const port = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: 'p-1', publicIdeas: false }]);
     expect(await port.setProduct('acme/widgets', 'p-2')).toMatchObject({ ok: true, repository: { product: 'p-2' } });
     expect(await port.setProduct('acme/nothing', 'p-2')).toMatchObject({ ok: false });
   });
@@ -53,6 +53,21 @@ describe('the database calls', () => {
     const d = db({ data: { ...STORED, tracked: false } });
     expect(await databaseRepositories(d, 'ws-1').setTracked('vertuoza/vertuo-apps', false)).toMatchObject({ ok: true, repository: { tracked: false } });
     expect(d.calls).toEqual([['set_repository_tracked', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps', p_tracked: false }]]);
+  });
+
+  it('turns a repository\'s ideas board public or private with set_repository_public_ideas(), any member\'s to do (PRD 1246 s4)', async () => {
+    const d = db({ data: { ...STORED, public_ideas: true } });
+    expect(await databaseRepositories(d, 'ws-1').setPublicIdeas('vertuoza/vertuo-apps', true)).toMatchObject({ ok: true, repository: { publicIdeas: true } });
+    expect(d.calls).toEqual([['set_repository_public_ideas', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps', p_public: true }]]);
+    expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1').setPublicIdeas('a/b', true)).toEqual({ ok: false, message: NOT_A_BOARD_MEMBER });
+    expect(await databaseRepositories(db({ error: { code: '23505' } }), 'ws-1').setPublicIdeas('a/b', true)).toEqual({ ok: false, message: PUBLIC_ELSEWHERE });
+    expect(await databaseRepositories(db({ error: { code: 'XX000' } }), 'ws-1').setPublicIdeas('a/b', false)).toEqual({ ok: false, message: COULD_NOT_SAVE });
+  });
+
+  it('turns a board public and private again in the demo', async () => {
+    const port = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false }]);
+    expect(await port.setPublicIdeas('acme/widgets', true)).toMatchObject({ ok: true, repository: { publicIdeas: true } });
+    expect(await port.setPublicIdeas('acme/widgets', false)).toMatchObject({ ok: true, repository: { publicIdeas: false } });
   });
 
   it('answers a refusal for a non-owner, an error, nothing, or a failed call', async () => {
@@ -73,7 +88,7 @@ describe('a refusal', () => {
 describe('the demo', () => {
   it('adds a repository tracked, in lower case, and switches it', async () => {
     const port = demoRepositoriesPort([]);
-    expect(await port.add('Acme/Widgets')).toEqual({ ok: true, repository: { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: null } });
+    expect(await port.add('Acme/Widgets')).toEqual({ ok: true, repository: { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false } });
     expect(await port.setTracked('acme/widgets', false)).toMatchObject({ ok: true, repository: { tracked: false } });
   });
 
