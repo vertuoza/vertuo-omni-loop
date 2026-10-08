@@ -25,9 +25,9 @@ Members reach their workspace's board from the sidebar, under **Work › Ideas**
 
 | who | reads | votes | adds, edits, moves, archives, links a PRD |
 |---|---|---|---|
-| anyone, signed out | ✓ | — (▲ asks for a sign-in) | — |
-| anyone signed in with GitHub | ✓ | ✓ one vote per idea | — |
-| a member of the workspace | ✓ | ✓ | ✓ |
+| anyone, signed out | a public board | — (▲ asks for a sign-in) | — |
+| anyone signed in with GitHub | a public board | ✓ one vote per idea, on a public board | — |
+| a member of the workspace | their board, public or private | ✓ one vote per idea, on their board public or private | ✓ |
 
 ## Vote
 
@@ -35,6 +35,10 @@ Each card shows its title, its pitch and its count beside a ▲. Press ▲ to vo
 take the vote back. Signed out, ▲ starts a GitHub sign-in that asks for no access to your
 organizations, needs no workspace, and brings you back to the same board with the vote counted.
 One account counts once per idea.
+
+A member votes on their own board while it is still private, so a team can rank its ideas before
+anyone outside sees them. Those votes stay counted when the board goes public, and turning it private
+again keeps every vote. Nobody outside the workspace votes on a private board.
 
 ## Fill the board
 
