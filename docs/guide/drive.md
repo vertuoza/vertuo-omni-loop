@@ -1,12 +1,13 @@
 ---
 title: Drive the loop
-description: Leave your PRDs building one step at a time, in an order that never collides, and watch it on the Loop page.
+description: Leave your PRDs building, up to three steps at once that never collide, and watch it on the Loop page.
 ---
 
 Once a PRD's phase-0 pull request is merged, every move until its feature PR is ready is
 mechanical: a wave, the next wave, finishing the branch, the outbox gate, a review round. Typing
 each command yourself means coming back to start the next one. **Driving** the loop types them for
-you, one step per tick, until each of your PRDs is ready or waits on a person, and then it stops.
+you, several PRDs at once when they share no ground, until each of your PRDs is ready or waits on a
+person, and then it stops.
 
 It never merges into your default branch and never answers the outbox: everything it decides
 lands in the PRD's outbox, under the same gate as when you run `/omni:yolo` yourself.
@@ -59,16 +60,18 @@ orders across PRDs:
 
 Each PRD's waves keep their order. Two PRDs whose slices touch the same files run those steps one
 after the other, and the plan says why. A PRD whose spec is `blocked-by` another waits until that one
-ships. Steps that share nothing are marked to run beside each other.
+ships. Steps that share nothing are marked to run beside each other, and the loop runs them at the same
+time (see **Several steps at once**, below).
 
 The plan is computed, never written by hand: you can print it any time with
 `omni next --plan`, which is what the first tick runs. It changes only when reality breaks it: a
 slice goes stuck, a slice is added, a PRD ships or closes early. Then the loop writes the next
 version and says why in one line, such as `replanned v2: s4 of PRD 1030 stuck → 1017 moves up`.
 
-## One step per tick
+## One step per tick, up to three at once
 
-Each tick asks `omni next` for the first step not done, and does one thing about it:
+Each tick asks `omni next` for the steps to run, up to three at once (see **Several steps at once**,
+below), and for each one does one thing:
 
 | the step's PRD | the tick |
 |---|---|
@@ -84,6 +87,48 @@ its CI is stuck, its feature PR is ready to merge, or a slice's sub-PR has had n
 `limits.stallDays` (5 days by default): a claim nobody came back to, which a person takes over or
 closes. The loop writes why on the feature PR's
 status comment, so whoever opens the pull request sees it.
+
+## Several steps at once
+
+The loop keeps a **pool**: up to `limits.parallelSteps` steps running at the same time, **3** by
+default. Each tick counts the steps still running, fills the free slots, and launches each new step
+as its own background agent, in its own worktree, running that step's one skill exactly as above.
+When an agent finishes, the loop wakes at once to fill its slot.
+
+A step joins the pool only when it passes four rules against every step already running or launched
+in the same tick:
+
+| rule | a step is held when |
+|---|---|
+| another PRD | a step of the same PRD runs: a PRD's own steps keep their order |
+| no open blocker | its PRD is `blocked-by` a PRD not shipped, or, under `--roadmap`, a blocker not merged |
+| no shared ground | one of its slices touches a path a running step's slices touch, in the same repository; generated files never count, and a finish step stands on every slice of its PRD |
+| the plan allows it | a step it comes `after` in the loop plan is not done |
+
+A step kept back is **held**, with one line naming the rule and the step it waits on, in the terminal
+and on the Loop page:
+
+```text agent
+step 7 (PRD 1030 w2) held: apps/galaxy/src/nav/ shared with step 4 (PRD 1017 w1, running)
+```
+
+It starts at the first tick after that step is done. `omni next --json` returns the pool as
+`steps` (to launch now), `running` and `held`, beside the `step` and `verdict` it always returned.
+
+The loop reads what runs from GitHub, never from your computer: a slice with a live claim, or a
+feature PR carrying `omni:in-progress` with a fresh status comment. A closed terminal, started again,
+counts the steps still running and launches nothing twice; an agent that died frees its slot when its
+claim goes stale (`limits.claimStaleMinutes`).
+
+Each step costs what a tick cost before, so three running steps cost up to three times as much. To
+keep today's loop, one step per tick, set the limit to 1 in `.omni-loop/config.yml`:
+
+```yaml file=.omni-loop/config.yml
+limits:
+  parallelSteps: 1
+```
+
+It takes a whole number from 1 to 6; `omni config` refuses any other.
 
 ## Drive a roadmap
 
@@ -119,14 +164,16 @@ It drives the multi-repository PRDs exactly as above, with the skills that build
 repositories: `/omni:ultra-wave`, `/omni:ultra-yolo` (which also writes the plan of a PRD that has
 none yet), `/omni:ultra-yolo-fix` and `/omni:mega-pr-care --once`. Two steps run one after the other
 only when they touch the same path **in the same repository**: a slice in one repository never waits
-for a slice in another that shares nothing with it. A park is written on the plan pull request's
+for a slice in another that shares nothing with it. Each PRD keeps its own copy of each target, at
+`<worktrees>/targets/<name>@<prd>`, so two steps running at once never switch the same checkout. A park is written on the plan pull request's
 status comment, naming each pull request still open by repository, and the Loop page shows the
 repositories each tick touched. [Several repositories](/docs/several-repositories) explains plan
 repositories.
 
 ## Stop and restart
 
-When every PRD it drives is parked or done, the loop stops itself and lists what waits on whom:
+When nothing is running and every PRD it drives is parked or done, the loop stops itself and lists
+what waits on whom:
 
 ```text agent
 loop stopped: nothing moves until a person acts
@@ -153,7 +200,8 @@ loop of your workspace, who runs it, on which repository, and what it is doing:
 | silent | five minutes past its wake with no tick: the session that ran it died |
 
 Open one to see its plan as a timeline per PRD, with every version and its reason, the ledger of
-its ticks (each line links to its PRD's page), and the PRDs it parked with what each waits on.
+its ticks (each line links to its PRD's page, and lists the steps running by repository and every
+held step with its reason), and the PRDs it parked with what each waits on.
 
 The page needs your terminal signed in to the Omni app (`omni signin`). Signed out, or with the
 app out of reach, the loop still runs: each tick prints one line saying the page missed it.
