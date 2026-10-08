@@ -17,8 +17,7 @@ import type { OutboxItem } from '../types.ts';
 import type { Roadmap } from './parse.ts';
 
 /** The four kinds of human work, the closed set the app's classifier answers in. */
-const HUMAN_WORK_KINDS = ['business', 'development', 'dev-ops', 'delivery-ops'] as const;
-export type HumanWorkKind = (typeof HUMAN_WORK_KINDS)[number];
+export type HumanWorkKind = 'business' | 'development' | 'dev-ops' | 'delivery-ops';
 
 /** Where a piece of human work was read. */
 export type HumanWorkSource = 'question' | 'outbox' | 'park' | 'clarification';
