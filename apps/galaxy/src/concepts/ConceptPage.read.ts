@@ -5,14 +5,20 @@
 // debate.md on the Debate tab only, and, on Areas, which of its areas' PRDs have a page. The framed tabs
 // read nothing here: their sandboxed routes read their own version (../dossier/page/sandbox-live.ts).
 // The demo holds no concept, and a deployment with no database keeps none.
+//
+// PRD 1272 (s4): its facts (its issue and its concept PR), for the state chip and the PR link, are read
+// beside its versions through `facts`: by default ./state.live.ts, the stored ones at once, else GitHub.
+// Facts that cannot be had leave the state unknown, and the page still renders.
 import { parseConcept } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { ConceptFacts } from '../dossier/github/fix';
 import type { ArcadeMode } from '../data/mode';
 import { isDossierId, type Db } from '../dossier/page/source';
 import { rowKind } from '../dossier/page/work';
 import { dossierReader, type DossierReader } from '../dossier/store';
 import { readAreaPages } from './areas';
 import { conceptView, type ConceptPageView, type ConceptPick, type ConceptRead } from './ConceptPage.view';
+import { liveConceptFacts, type ConceptFactsRead } from './state.live';
 
 /** The latest version of `kind` among `versions`, oldest first; undefined when there is none. */
 const latest = (versions: readonly { id: string; kind: string }[], kind: string) => versions.filter((v) => v.kind === kind).at(-1);
@@ -41,20 +47,21 @@ function areaPrds(record: string | null): PrdNumber[] {
 
 /** Concept `id` as the viewer reads it for `pick`; null when they may not read it, it does not exist, or
  * it is not a concept. Rejects when the dossier itself cannot be read. */
-async function readConcept(db: Pick<Db, 'from'>, id: string, pick: ConceptPick): Promise<ConceptRead | null> {
+async function readConcept(db: Pick<Db, 'from'>, id: string, pick: ConceptPick, facts: ConceptFactsRead = liveConceptFacts): Promise<ConceptRead | null> {
   if (!isDossierId(id)) return null;
   const reader = dossierReader(db);
   const row = await reader.dossier(id);
   if (!row || rowKind(row) !== 'concept') return null;
   // Each version's kind as it came: a concept's are not the kinds the store's row type names.
   const versions = (await reader.versions(id)).map((v): { id: string; kind: string } => ({ id: v.id, kind: v.kind }));
-  const [record, debate] = await Promise.all([
+  const [record, debate, read] = await Promise.all([
     latestText(reader, versions, 'concept-record'),
     latestText(reader, versions, 'debate', pick.tab === 'debate'),
+    row.prd === null ? Promise.resolve<ConceptFacts | null>(null) : facts(db, { id: row.id, workspace_id: row.workspace_id, home_repo: row.home_repo, prd: parseIssue(row.prd) }),
   ]);
   const prds = pick.tab === 'areas' ? areaPrds(record) : [];
   const pages = prds.length ? await readAreaPages(reader, row.home_repo, prds) : new Map<PrdNumber, string>();
-  return { id: row.id, repo: row.home_repo, number: row.prd, title: row.title, versions, record, debate, pages };
+  return { id: row.id, repo: row.home_repo, number: row.prd, title: row.title, versions, record, debate, pages, facts: read };
 }
 
 /** What /concepts/<id> shows: no dossier here, a sign-in, a database that did not answer, not found, or the page. */

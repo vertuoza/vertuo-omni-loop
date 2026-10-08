@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { describe, expect, it, vi } from 'vitest';
+import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { ConceptFacts } from '../dossier/github/fix';
+import { UNREAD } from '../dossier/github/summary';
 import type { Db } from '../dossier/page/source';
 import { conceptCards, conceptListState, readConcepts, type ConceptRow } from './list';
 import { CONCEPT_1269, conceptRow, listed } from './list.fixture';
@@ -8,13 +10,27 @@ import { CONCEPT_1269, conceptRow, listed } from './list.fixture';
 // from dossier_list() and each concept's latest concept.md. Nothing here reaches Supabase: the reads go
 // through a stubbed client.
 
+const PULL = (state: 'open' | 'merged') => ({
+  number: parsePr(1270), url: 'https://github.com/acme/widgets/pull/1270', state, mergedAt: state === 'merged' ? '2026-10-07T09:00:00Z' : null, mergedBy: null,
+});
+
 describe('conceptCards', () => {
   it('shows concept #1269 with its title, kind, scale, areas with a PRD and the date it was recorded', () => {
     const [card] = conceptCards([conceptRow('c-1269', parseIssue(1269), '2026-10-06T09:00:00Z')], new Map([['c-1269', CONCEPT_1269]]));
     expect(card).toEqual({
       id: 'c-1269', href: '/concepts/c-1269', number: 1269, title: 'Products replace plan repositories, with phase 0 approved on the server',
       kind: 'platform', scale: 'vast', areas: { withPrd: 0, total: 6 }, recordedAt: '2026-10-06T09:00:00Z', recorded: '6 Oct 2026',
+      state: 'unknown',
     });
+  });
+
+  it('gives each card its state from the concept\'s stored facts (PRD 1272, s4)', () => {
+    const rows = [conceptRow('a', parseIssue(1), '2026-10-06T09:00:00Z'), conceptRow('b', parseIssue(2), '2026-10-05T09:00:00Z'), conceptRow('c', parseIssue(3), '2026-10-04T09:00:00Z')];
+    const facts = new Map<string, ConceptFacts>([
+      ['a', { issue: UNREAD, pull: PULL('open') }],
+      ['b', { issue: UNREAD, pull: PULL('merged') }],
+    ]);
+    expect(conceptCards(rows, new Map(), facts).map((c) => [c.id, c.state])).toEqual([['a', 'in-review'], ['b', 'in-inbox'], ['c', 'unknown']]);
   });
 
   it('counts the areas whose PRD cell is filled', () => {
@@ -37,8 +53,9 @@ describe('conceptCards', () => {
 });
 
 describe('readConcepts', () => {
-  /** A client whose dossier_list() returns `rows` and whose versions hold `contents`, by version id. */
-  function stub(rows: unknown[], contents: Record<string, string>) {
+  /** A client whose dossier_list() returns `rows`, whose versions hold `contents`, by version id, and
+   * whose fix_facts holds `facts`, by dossier id (or refuses, given an Error). */
+  function stub(rows: unknown[], contents: Record<string, string>, facts: Record<string, unknown> | Error = {}) {
     const calls: string[] = [];
     const db = {
       rpc: (fn: string, args: unknown) => {
@@ -52,6 +69,11 @@ describe('readConcepts', () => {
               calls.push(`from ${table} ${id}`);
               return Promise.resolve({ data: id in contents ? { content: contents[id] } : null, error: null });
             },
+            in: (_in: string, ids: string[]) => {
+              calls.push(`from ${table} ${id} ${ids.join(',')}`);
+              if (facts instanceof Error) return Promise.resolve({ data: null, error: { message: facts.message } });
+              return Promise.resolve({ data: ids.flatMap((d) => (d in facts ? [{ dossier_id: d, facts: facts[d] }] : [])), error: null });
+            },
           }),
         }),
       }),
@@ -64,13 +86,26 @@ describe('readConcepts', () => {
     const { db, calls } = stub([listed('p-7', 'prd'), ...rows, listed('b-9', 'bug'), listed('v-3', 'visual')], { 'v-1269': CONCEPT_1269 });
     const cards = await readConcepts(db);
     expect(cards.map((c) => [c.id, c.areas])).toEqual([['c-1269', { withPrd: 0, total: 6 }]]);
-    expect(calls).toEqual(['rpc dossier_list {"p_dossier":null}', 'from dossier_versions v-1269']);
+    expect(calls).toEqual(['rpc dossier_list {"p_dossier":null}', 'from dossier_versions v-1269', 'from fix_facts w-1 c-1269']);
+  });
+
+  it('reads each concept\'s state from its stored facts, once per workspace, and never GitHub (PRD 1272, s4)', async () => {
+    const rows = [conceptRow('c-1269', parseIssue(1269), '2026-10-06T09:00:00Z'), conceptRow('c-746', parseIssue(746), '2026-09-01T09:00:00Z')];
+    const { db } = stub(rows, {}, { 'c-1269': { issue: UNREAD, pull: PULL('open') }, 'c-746': { issue: UNREAD, pull: PULL('merged') } });
+    expect((await readConcepts(db)).map((c) => [c.id, c.state])).toEqual([['c-1269', 'in-review'], ['c-746', 'in-inbox']]);
+  });
+
+  it('shows every state unknown when the stored facts cannot be read, and still lists the concepts', async () => {
+    const { db } = stub([conceptRow('c-1269', parseIssue(1269), '2026-10-06T09:00:00Z')], {}, new Error('down'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect((await readConcepts(db)).map((c) => [c.id, c.state])).toEqual([['c-1269', 'unknown']]);
+    vi.restoreAllMocks();
   });
 
   it('reads no version of a concept that has no concept.md yet', async () => {
     const { db, calls } = stub([conceptRow('c-1', parseIssue(1), '2026-10-06T09:00:00Z', null)], {});
     expect((await readConcepts(db)).map((c) => c.kind)).toEqual([null]);
-    expect(calls).toEqual(['rpc dossier_list {"p_dossier":null}']);
+    expect(calls).toEqual(['rpc dossier_list {"p_dossier":null}', 'from fix_facts w-1 c-1']);
   });
 
   it('lists none when the workspace has no concept', async () => {

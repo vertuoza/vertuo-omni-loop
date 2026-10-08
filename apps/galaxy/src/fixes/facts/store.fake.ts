@@ -2,22 +2,25 @@
 // sync, /bugs, /visual and a fix's own page): the FixFactsStore of ./store.ts with the migration's rules
 // written here as it writes them — one row per fix dossier, a write replacing its facts, a read keeping
 // to the workspace asked. `fail` makes every call throw, as a refused Supabase call does. That the
-// database holds the same rules is proved by supabase/checks/fix_facts.sql, not here.
-import type { FixSummary } from '../../dossier/github/fix';
+// database holds the same rules is proved by supabase/checks/fix_facts.sql, not here. A concept's facts
+// (PRD 1272, s4) keep the same rules in their own fake.
+import type { ConceptFacts, FixSummary } from '../../dossier/github/fix';
 import { settled } from '../../stages/settled';
-import type { FixFactsRow, FixFactsStore } from './store';
+import type { FactsRow, FactsStore } from './store';
 
-export type FakeFixFactsStore = FixFactsStore & {
-  rows: (FixFactsRow & { synced_at: string })[];
-  /** Every write of one or more fixes, in order: `<workspace> <dossier id>, …`. */
+export type FakeFactsStore<T> = FactsStore<T> & {
+  rows: (FactsRow<T> & { synced_at: string })[];
+  /** Every write of one or more dossiers, in order: `<workspace> <dossier id>, …`. */
   writes: string[];
-  /** Every read, in order: `<workspace> <how many fixes asked>`. */
+  /** Every read, in order: `<workspace> <how many dossiers asked>`. */
   reads: string[];
   fail: string | null;
 };
+export type FakeFixFactsStore = FakeFactsStore<FixSummary>;
+export type FakeConceptFactsStore = FakeFactsStore<ConceptFacts>;
 
-export function fakeFixFactsStore(now: () => string = () => new Date().toISOString()): FakeFixFactsStore {
-  const fake: FakeFixFactsStore = {
+function fakeFactsStore<T>(now: () => string): FakeFactsStore<T> {
+  const fake: FakeFactsStore<T> = {
     rows: [],
     writes: [],
     reads: [],
@@ -28,7 +31,7 @@ export function fakeFixFactsStore(now: () => string = () => new Date().toISOStri
         check();
         fake.reads.push(`${workspace} ${ids.length}`);
         const wanted = new Set(ids);
-        const facts = new Map<string, FixSummary>();
+        const facts = new Map<string, T>();
         for (const row of fake.rows) {
           if (row.workspace_id === workspace && wanted.has(row.dossier_id)) facts.set(row.dossier_id, row.facts);
         }
@@ -52,4 +55,12 @@ export function fakeFixFactsStore(now: () => string = () => new Date().toISOStri
     if (fake.fail) throw new Error(`Supabase refused: ${fake.fail}`);
   }
   return fake;
+}
+
+export function fakeFixFactsStore(now: () => string = () => new Date().toISOString()): FakeFixFactsStore {
+  return fakeFactsStore<FixSummary>(now);
+}
+
+export function fakeConceptFactsStore(now: () => string = () => new Date().toISOString()): FakeConceptFactsStore {
+  return fakeFactsStore<ConceptFacts>(now);
 }

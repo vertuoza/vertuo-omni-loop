@@ -9,9 +9,10 @@ import { StageHeaderCopy } from '../dossier/page/StageHeaderCopy';
 import type { AreaView } from './areas';
 import type { ConceptPageState } from './ConceptPage.read';
 import { CONCEPT_TAB_LABELS, NOT_SENT, type ConceptPageView, type ConceptPane } from './ConceptPage.view';
+import { ConceptStateChip } from './state-chip';
 
 // /concepts/<id> (PRD 1272, s3), laid out as a dossier's page: the header box — the Concept badge, `#n ↗`
-// linking to its issue, the title, Copy link, and On GitHub, its issue and its concept PR — then the
+// linking to its issue, the title, Copy link, its state chip (s4), and On GitHub, its issue and its concept PR — then the
 // tabs, Overview, Areas, Vision tour, Boards and Debate (./ConceptPage.view.ts). Overview and Debate are
 // Markdown rendered with raw HTML off; Areas lists the areas, the wedge marked, each PRD a link, and the
 // first area without a PRD its brainstorm line with a Copy button. Vision tour and Boards frame their page
@@ -93,8 +94,12 @@ export function ConceptPage({ view }: { view: ConceptPageView }) {
             <CopyLink path={view.link} />
           </div>
         </div>
-        {view.links.length > 0 && (
-          <dl className="dossier-facts">
+        <dl className="dossier-facts">
+          <div className="dossier-fact">
+            <dt>State</dt>
+            <dd><ConceptStateChip state={view.state} /></dd>
+          </div>
+          {view.links.length > 0 && (
             <div className="dossier-fact">
               <dt>On GitHub</dt>
               <dd>
@@ -105,8 +110,8 @@ export function ConceptPage({ view }: { view: ConceptPageView }) {
                 </ul>
               </dd>
             </div>
-          </dl>
-        )}
+          )}
+        </dl>
         <nav className="dossier-tabs" aria-label="Concept">
           {view.tabs.map((t) => (
             <a key={t.kind} className={t.notSent ? 'dossier-tab dossier-tab-empty' : 'dossier-tab'} href={t.href} aria-current={t.current ? 'page' : undefined}>

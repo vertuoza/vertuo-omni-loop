@@ -2,10 +2,12 @@ import { Notice } from '../ask/page/Notice';
 import { WORK_NAMES, WORK_PATHS } from '../dossier/page/work';
 import { ListSkeleton } from '../skeleton/Skeleton';
 import type { ConceptCard, ConceptListState } from './list';
+import { ConceptStateChip } from './state-chip';
 
 // /concepts (PRD 1272, s2), laid out as the other Work lists: the heading, then one card per concept,
-// newest first, each a link to its page. A card shows #n, the title, its kind and scale, how many of its
-// areas have a PRD and the date it was recorded. Every title is text: React escapes it. With no
+// newest first, each a link to its page. A card shows #n, the title, its kind and scale, its state chip
+// (s4: in review, in the inbox or state unknown), how many of its areas have a PRD and the date it was
+// recorded. Every title is text: React escapes it. With no
 // concept, the page says how to start one.
 
 const THINK_BIG = "/omni:think-big '<your idea>'";
@@ -23,6 +25,7 @@ function Card({ card }: { card: ConceptCard }) {
         </span>
         <span className="dossier-history-facts">
           {card.kind && card.scale && <span className="dossier-history-artifact">{card.kind} · {card.scale}</span>}
+          <ConceptStateChip state={card.state} />
           <span className="ask-hint">{card.areas ? areasLine(card.areas) : 'record not readable'}</span>
           <time className="ask-hint" dateTime={card.recordedAt}>recorded {card.recorded}</time>
         </span>

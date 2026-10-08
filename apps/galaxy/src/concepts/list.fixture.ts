@@ -47,7 +47,7 @@ The loop today.
 /** A concept's row of dossier_list(), recorded at `at`, its latest concept.md version `record`. */
 export function conceptRow(id: string, issue: IssueNumber, at: string, record: string | null = `v-${id}`): ConceptRow {
   return {
-    id, kind: 'concept', prd: issue, title: issue === 1269 ? 'Products replace plan repositories, with phase 0 approved on the server' : `Concept ${issue}`,
+    id, workspace_id: 'w-1', kind: 'concept', prd: issue, title: issue === 1269 ? 'Products replace plan repositories, with phase 0 approved on the server' : `Concept ${issue}`,
     created_at: at, latest: record === null ? {} : { 'concept-record': { id: record } },
   };
 }

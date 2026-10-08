@@ -4,7 +4,8 @@
 // `fix/548-…`), who merged it and when, each approving review, and the first GitHub release published
 // after the merge. Each part is read on its own: `UNREAD` when GitHub could not answer it, so the page
 // says *unknown* rather than failing. ./reader.ts gives it the repository's token, config and 60-second
-// cache; this module only reads through the `get` it is handed.
+// cache; this module only reads through the `get` it is handed. A concept (PRD 1272, s4) is read the same
+// way, its issue and its concept PR only, on a `branches.concept` branch.
 import { z } from 'zod';
 import { readPart, UNREAD, type Read } from './summary';
 import { type IssueNumber, IssueNumberSchema, type PrNumber, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -12,8 +13,8 @@ import { type IssueNumber, IssueNumberSchema, type PrNumber, PrNumberSchema } fr
 /** A GitHub answer on the repository's route, as JSON; null on 404. Throws on any other failure. */
 export type FixGet = (route: string) => Promise<unknown>;
 
-/** The labels the repository's config names: its risk labels, highest first, and its regression label. */
-export type FixLabels = { risk: readonly string[]; regression: string };
+/** The labels the repository's config names: its risk labels, highest first, and its regression label (null: none is read). */
+export type FixLabels = { risk: readonly string[]; regression: string | null };
 
 export type FixIssue = {
   number: IssueNumber; url: string; state: 'open' | 'closed'; author: string | null; createdAt: string;
@@ -64,8 +65,8 @@ const Releases = z.array(z.object({
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** A branch of the fix: `branches.fix` with a topic starting `<n>-`. */
-function fixBranch(shape: string, n: IssueNumber): RegExp {
+/** A branch of `shape` whose topic starts `<n>-`: a fix's (`fix/548-…`) or a concept's (`docs/concept-1269-…`). */
+function numberedBranch(shape: string, n: IssueNumber): RegExp {
   const [before = '', after = ''] = shape.split('{topic}');
   return new RegExp(`^${escape(before)}${n}-[a-z0-9-]+${escape(after)}$`);
 }
@@ -73,28 +74,57 @@ function fixBranch(shape: string, n: IssueNumber): RegExp {
 /** One read on its own: its answer, or UNREAD when it failed. */
 const part = <T>(what: string, run: () => Promise<T>) => readPart('Fix page', what, run);
 
+/** Issue `n`, its risk and regression read from `labels`; null on 404. */
+async function readIssue(get: FixGet, n: IssueNumber, labels: FixLabels): Promise<FixIssue | null> {
+  const answer = await get(`/issues/${n}`);
+  if (answer === null) return null;
+  const read = Issue.parse(answer);
+  const names = read.labels.map((l) => (typeof l === 'string' ? l : l.name ?? ''));
+  return {
+    number: read.number, url: read.html_url, state: read.state, author: read.user?.login ?? null, createdAt: read.created_at,
+    risk: labels.risk.find((label) => names.includes(label)) ?? null,
+    regression: labels.regression !== null && names.includes(labels.regression),
+  };
+}
+
+type FoundPull = { number: PrNumber; url: string; state: 'open' | 'merged'; mergedAt: string | null };
+
+/** The most recent open or merged pull request whose head matches `branch`; null when there is none. */
+async function readBranchPull(get: FixGet, branch: RegExp): Promise<FoundPull | null> {
+  const listed = Pulls.parse((await get(`/pulls?${new URLSearchParams({ state: 'all', per_page: '100', sort: 'created', direction: 'desc' })}`)) ?? []);
+  // As the PRD page counts a branch's PR: the most recent open or merged one; a closed, unmerged one is absent.
+  const [latest] = listed.filter((p) => branch.test(p.head.ref) && (p.state === 'open' || p.merged_at !== null))
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || b.number - a.number);
+  return latest ? { number: latest.number, url: latest.html_url, state: latest.state === 'open' ? 'open' : 'merged', mergedAt: latest.merged_at } : null;
+}
+
+/** What GitHub says of a concept (PRD 1272, s4): its issue, and its concept PR, the most recent open or
+ * merged one on a `branches.concept` branch whose topic starts with the issue's number. Each part
+ * `UNREAD` when that read failed. Who merged it is not read: a concept's state needs only whether it did. */
+export type ConceptFacts = { issue: Read<FixIssue | null>; pull: Read<FixPull | null> };
+
+/** A concept's issue carries no risk or regression label the page reads. */
+const NO_LABELS: FixLabels = { risk: [], regression: null };
+
+/** Concept `n` of the repository `get` reads, its branches shaped as `conceptShape`: two reads. */
+export async function readConceptFacts(get: FixGet, n: IssueNumber, conceptShape: string): Promise<ConceptFacts> {
+  const branch = numberedBranch(conceptShape, n);
+  const [issue, pull] = await Promise.all([
+    part('the concept\'s issue', () => readIssue(get, n, NO_LABELS)),
+    part('the concept PR', async (): Promise<FixPull | null> => {
+      const found = await readBranchPull(get, branch);
+      return found && { ...found, mergedAt: found.state === 'merged' ? found.mergedAt : null, mergedBy: null };
+    }),
+  ]);
+  return { issue, pull };
+}
+
 /** Fix `n` of the repository `get` reads, its branches shaped as `fixShape`. */
 export async function readFix(get: FixGet, n: IssueNumber, fixShape: string, labels: FixLabels): Promise<FixSummary> {
-  const branch = fixBranch(fixShape, n);
+  const branch = numberedBranch(fixShape, n);
   const [issue, found] = await Promise.all([
-    part('the issue', async (): Promise<FixIssue | null> => {
-      const answer = await get(`/issues/${n}`);
-      if (answer === null) return null;
-      const read = Issue.parse(answer);
-      const names = read.labels.map((l) => (typeof l === 'string' ? l : l.name ?? ''));
-      return {
-        number: read.number, url: read.html_url, state: read.state, author: read.user?.login ?? null, createdAt: read.created_at,
-        risk: labels.risk.find((label) => names.includes(label)) ?? null,
-        regression: names.includes(labels.regression),
-      };
-    }),
-    part('the fix PR', async () => {
-      const listed = Pulls.parse((await get(`/pulls?${new URLSearchParams({ state: 'all', per_page: '100', sort: 'created', direction: 'desc' })}`)) ?? []);
-      // As the PRD page counts a branch's PR: the most recent open or merged one; a closed, unmerged one is absent.
-      const [latest] = listed.filter((p) => branch.test(p.head.ref) && (p.state === 'open' || p.merged_at !== null))
-        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || b.number - a.number);
-      return latest ? { number: latest.number, url: latest.html_url, state: latest.state === 'open' ? 'open' as const : 'merged' as const, mergedAt: latest.merged_at } : null;
-    }),
+    part('the issue', () => readIssue(get, n, labels)),
+    part('the fix PR', () => readBranchPull(get, branch)),
   ]);
   if (found === UNREAD) return { issue, pull: UNREAD, approvals: UNREAD, release: UNREAD };
   if (found === null) return { issue, pull: null, approvals: [], release: null };
