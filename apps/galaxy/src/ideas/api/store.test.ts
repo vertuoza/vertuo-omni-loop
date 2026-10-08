@@ -1,7 +1,7 @@
 // The ideas API's storage (PRD 1246, s2), against a stubbed Supabase client that answers only the
 // calls the port makes: the caller's listing of the repository, the insert, and ideas_board().
 import { describe, expect, it } from 'vitest';
-import { ideasPort, IdeasRefusal, type IdeasDb } from './store';
+import { ideasPort, IdeasRefusal, type IdeasApiDb } from './store';
 
 const ACME = '00000000-0000-4000-8000-000000000ace';
 const IDEA_ID = '00000000-0000-4000-8000-0000000000a1';
@@ -30,7 +30,7 @@ function stubDb({ listing = { data: [{ workspace_id: ACME }], error: null }, ins
     rpc: (fn: string, args: unknown) => { asked.push(['rpc', fn, args]); return Promise.resolve(board); },
   };
   // The stub answers only the calls the port makes, so it is not a whole Supabase client.
-  return { asked, db: db as unknown as IdeasDb };
+  return { asked, db: db as unknown as IdeasApiDb };
 }
 
 describe('ideasPort.add', () => {

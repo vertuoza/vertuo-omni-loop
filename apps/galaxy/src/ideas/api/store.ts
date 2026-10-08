@@ -43,13 +43,13 @@ const AddedRow = z.strictObject({ id: z.uuid() });
 /** The database's refusals of an insert, by code; anything else is a failure. */
 const REFUSED: Readonly<Record<string, 400 | 403>> = { '42501': 403, '23503': 403, '23514': 400 };
 
-export type IdeasDb = Pick<SupabaseClient<Database>, 'from' | 'rpc'>;
+export type IdeasApiDb = Pick<SupabaseClient<Database>, 'from' | 'rpc'>;
 
 /** The query `add` reads the caller's listing with, shared with its boundary file. */
-export const listingOf = (db: IdeasDb, repo: string) =>
+export const listingOf = (db: IdeasApiDb, repo: string) =>
   db.from('repositories').select('workspace_id').eq('full_name', repo).order('added_at').limit(1);
 
-export function ideasPort(db: IdeasDb): IdeasPort {
+export function ideasPort(db: IdeasApiDb): IdeasPort {
   return {
     async add(row) {
       const listing = await listingOf(db, row.repo);

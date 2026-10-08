@@ -17,9 +17,9 @@
 // 503 no database here or the sign-in service down, 500 the database failed.
 import { z } from 'zod';
 import { authenticate, callerOrigin, type TokenCheck } from '../../ask/auth';
-import { receivePush, refuse } from '../../data/kit-push';
+import { bodyOf, receivePush, refuse } from '../../data/kit-push';
 import { boardPath, fullNameOf, lanesOf, LANES } from '../model';
-import { IdeasRefusal, type IdeasPort, type NewIdeaRow } from './store';
+import { IdeasRefusal, type IdeasPort } from './store';
 
 /** The largest idea a call sends: a title, a pitch and a repository, with room to spare. */
 export const MAX_ADD_BYTES = 16 * 1024;
@@ -54,20 +54,6 @@ const NewIdea = z.strictObject({
 
 const answer = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 
-/** The first problem zod found, in one line naming the field. */
-function problemOf(error: z.ZodError): string {
-  const issue = error.issues[0];
-  if (issue?.code === 'unrecognized_keys') return `An idea does not carry ${issue.keys.join(', ')}.`;
-  return `An idea's \`${issue?.path.join('.') ?? ''}\` is malformed: ${issue?.message ?? 'see the contract'}.`;
-}
-
-/** The idea a body carries, or the problem with it. */
-function ideaOf(sent: unknown): NewIdeaRow | { problem: string } {
-  if (typeof sent !== 'object' || sent === null || Array.isArray(sent)) return { problem: 'The body must be a JSON object.' };
-  const parsed = NewIdea.safeParse(sent);
-  return parsed.success ? parsed.data : { problem: problemOf(parsed.error) };
-}
-
 /** The refusal a store's error earns: its own words, or a 500 that says nothing of why. */
 function failed(error: unknown, what: string): Response {
   if (error instanceof IdeasRefusal) return refuse(error.status, error.message);
@@ -78,7 +64,7 @@ function failed(error: unknown, what: string): Response {
 export async function addIdea(request: Request, deps: IdeasApiDeps): Promise<Response> {
   const received = await receivePush(request, deps.connect, { unavailable: UNAVAILABLE, maxBytes: MAX_ADD_BYTES });
   if (received instanceof Response) return received;
-  const idea = ideaOf(received.sent);
+  const idea = bodyOf(NewIdea, received.sent, 'An idea');
   if ('problem' in idea) return refuse(400, idea.problem);
   try {
     const { id } = await received.client().ideas.add(idea);
