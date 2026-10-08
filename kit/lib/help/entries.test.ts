@@ -107,11 +107,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 47 commands and the 30 skills', () => {
+  it('holds the 47 commands and the 31 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(47);
-    expect(skillFolders()).toHaveLength(30);
+    expect(skillFolders()).toHaveLength(31);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(47);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(30);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(31);
   });
 
   it('lists /omni:roadmap after /omni:mega-brainstorm and /omni:mega-roadmap after it, each with its drive line (PRD 1162)', () => {
@@ -332,7 +332,7 @@ describe('the help table in this repository', () => {
       build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'help', 'pitch', 'prove', 'status'],
+      everyday: ['ask', 'help', 'pitch', 'prove', 'status', 'validate-e2e'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
   });
