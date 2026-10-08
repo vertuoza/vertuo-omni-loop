@@ -36,7 +36,7 @@ function status(args: string[], { ctx, stdout, stderr }: CommandIo): number {
   }
 }
 
-const gitOptions = (root: string) => ({ cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) as const;
+const gitOptions = (root: string) => ({ cwd: root, encoding: 'utf8' as const, stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'] });
 
 /** The first of `<remote>/<name>` and `<name>` that git knows, else a usage error. */
 function resolveRef(name: string, { ctx, exec }: CommandIo): string {

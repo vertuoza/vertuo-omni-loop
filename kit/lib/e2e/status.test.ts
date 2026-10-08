@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { PrdNumberSchema } from '../ids.ts';
 import { parseRecording, readRecordings, readTaggedTests, RecordingError } from './recording.ts';
 import { testStatus } from './status.ts';
 
@@ -43,7 +44,7 @@ describe('testStatus', () => {
 
   it('finds the tagged tests and their recordings', () => {
     const root = repo(files);
-    const tests = readTaggedTests(root, 'e2e', 1017);
+    const tests = readTaggedTests(root, 'e2e', PrdNumberSchema.parse(1017));
     expect(tests.map((t) => t.id)).toEqual(['nested/sort.spec.ts', 'rank.spec.ts']);
     expect(testStatus(tests, readRecordings(root, 'e2e'))).toEqual([
       { id: 'nested/sort.spec.ts', file: 'e2e/nested/sort.spec.ts', recording: false, recordings: [] },

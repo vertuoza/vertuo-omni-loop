@@ -37,7 +37,7 @@ export function compareRecordings(base: readonly Recording[], head: readonly Rec
 
 /** The recordings under `<dir>/.e2e/cache` as committed at `rev`; throws a `RecordingError` naming the first that does not read. */
 export function readRecordingsAt({ root, rev, dir, exec }: { root: string; rev: string; dir: string; exec: ExecText }): Recording[] {
-  const options = { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] } as const;
+  const options = { cwd: root, encoding: 'utf8' as const, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'] };
   const folder = `${dir.replace(/\/+$/, '')}/.e2e/cache`;
   const listing = exec('git', ['ls-tree', '-r', '--name-only', rev, '--', `${folder}/`], options);
   return listing.split('\n').filter((path) => path.endsWith('.json')).sort().map((path) => {
