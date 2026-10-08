@@ -8,6 +8,8 @@
 -- jev_key_status() tells a member only whether a key is stored, and the owner its last four. Removing
 -- the key sets every decision Off. Only the service role reads a sealed key and appends a call. One
 -- transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- And Jev's Human work kind (PRD 1217 s3): `hitl-category` is set like any decision, and only the service
+-- role hands out a roadmap's new keys, each once, and sets the kind Jev chose on a key offered.
 
 begin;
 
@@ -282,6 +284,104 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000081c1');
 do $$
 begin
   if exists (select 1 from public.jev_calls) then raise exception 'FAIL: another workspace''s owner reads Vertuoza''s Jev calls'; end if;
+end $$;
+reset role;
+
+-- ── Human work kind (PRD 1217 s3): `hitl-category`, and the two functions only the service role runs ──
+-- The owner sets it like any other decision (the key is stored again above).
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000081a1');
+do $$
+declare
+  d public.jev_decisions;
+begin
+  d := public.set_jev_decision(pg_temp.ws('vertuoza'), 'hitl-category', 'on', 0.5, 0.4);
+  if d.mode <> 'on' then raise exception 'FAIL: hitl-category could not be set On: %', d; end if;
+end $$;
+reset role;
+
+-- A roadmap of Vertuoza's with four keys: one stored before the decision (offered already), two new and
+-- open, one new but done.
+insert into public.roadmaps (id, workspace_id, repo, number, title, milestone, document)
+values ('00000000-0000-4000-8000-0000000081f1', pg_temp.ws('vertuoza'), 'vertuoza/plan', 1200, 'Crew', 'A company grants its first mandate.', '# Crew');
+insert into public.roadmap_prds (roadmap_id, position, row_id, prd, title, wave, state)
+values ('00000000-0000-4000-8000-0000000081f1', 1, 'P1.1', 1213, 'Stateless think endpoint', 1, 'building');
+insert into public.roadmap_human_work (roadmap_id, key, prd, repo, source, text, act, kind, kind_by, state, first_seen_at, done_at, classified_at)
+values
+  ('00000000-0000-4000-8000-0000000081f1', 'question:Q1', null, 'vertuoza/plan', 'question', 'Who signs a mandate?', null, 'business', 'rule', 'open', now() - interval '2 days', null, now() - interval '2 days'),
+  ('00000000-0000-4000-8000-0000000081f1', 'outbox:1213/s2-01', 1213, 'ai-domain', 'outbox', 'No token for the queue', 'Add CREW_TOKEN.', 'dev-ops', 'rule', 'open', now() - interval '1 hour', null, null),
+  ('00000000-0000-4000-8000-0000000081f1', 'park:1213', 1213, 'ai-domain', 'park', 'CI red after three attempts', null, 'development', 'rule', 'open', now(), null, null),
+  ('00000000-0000-4000-8000-0000000081f1', 'clarification:1213', 1213, 'ai-domain', 'clarification', 'Which queue?', null, 'development', 'rule', 'done', now(), now(), null);
+
+-- Nobody signed in, nor anyone signed out, runs either function.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000081a1');
+do $$
+begin
+  perform pg_temp.forbidden('select public.roadmap_human_work_claim(''00000000-0000-4000-8000-0000000081f1'', 5)', 'the owner claiming keys');
+  perform pg_temp.forbidden('select public.roadmap_human_work_set_kind(''00000000-0000-4000-8000-0000000081f1'', ''park:1213'', ''business'')', 'the owner setting a kind');
+end $$;
+reset role;
+set local role anon;
+do $$
+begin
+  perform pg_temp.forbidden('select public.roadmap_human_work_claim(''00000000-0000-4000-8000-0000000081f1'', 5)', 'anon claiming keys');
+end $$;
+reset role;
+
+-- The service role: each open key never offered is handed out once, the first seen first, with what Jev
+-- reads; Jev's kind is set once, on a key offered; a kind outside the four is refused.
+set local role service_role;
+do $$
+declare
+  r   constant uuid := '00000000-0000-4000-8000-0000000081f1';
+  got jsonb;
+begin
+  got := public.roadmap_human_work_claim(r, 1);
+  if got ->> 'workspace' is distinct from pg_temp.ws('vertuoza')::text then
+    raise exception 'FAIL: the claim does not name the roadmap''s workspace: %', got;
+  end if;
+  if jsonb_array_length(got -> 'entries') <> 1 or got #>> '{entries,0,key}' <> 'outbox:1213/s2-01'
+     or got #>> '{entries,0,prdTitle}' <> 'Stateless think endpoint' or got #>> '{entries,0,ruleKind}' <> 'dev-ops'
+     or got #>> '{entries,0,act}' <> 'Add CREW_TOKEN.' or got #>> '{entries,0,repo}' <> 'ai-domain' then
+    raise exception 'FAIL: the first claim is not the first new key with what Jev reads: %', got;
+  end if;
+  got := public.roadmap_human_work_claim(r, 10);
+  if jsonb_array_length(got -> 'entries') <> 1 or got #>> '{entries,0,key}' <> 'park:1213' then
+    raise exception 'FAIL: the second claim is not the one open new key left (a key offered before, or done, was handed out): %', got;
+  end if;
+  if jsonb_array_length(public.roadmap_human_work_claim(r, 10) -> 'entries') <> 0 then
+    raise exception 'FAIL: a key was offered twice';
+  end if;
+  if (select count(*) from public.roadmap_human_work h where h.roadmap_id = r and h.classified_at is null) <> 1 then
+    raise exception 'FAIL: a claim marked a key it did not hand out, or left one it did unmarked';
+  end if;
+
+  if not public.roadmap_human_work_set_kind(r, 'outbox:1213/s2-01', 'delivery-ops') then
+    raise exception 'FAIL: Jev''s kind was not set on a key offered';
+  end if;
+  if (select row(h.kind, h.kind_by)::text from public.roadmap_human_work h where h.roadmap_id = r and h.key = 'outbox:1213/s2-01') <> '(delivery-ops,jev)' then
+    raise exception 'FAIL: Jev''s kind is not stored as Jev''s';
+  end if;
+  if public.roadmap_human_work_set_kind(r, 'outbox:1213/s2-01', 'business') then
+    raise exception 'FAIL: a kind Jev chose was changed again';
+  end if;
+  if public.roadmap_human_work_set_kind(r, 'clarification:1213', 'business') then
+    raise exception 'FAIL: a key never offered took Jev''s kind';
+  end if;
+  begin
+    perform public.roadmap_human_work_set_kind(r, 'park:1213', 'legal');
+    raise exception 'FAIL: a kind outside the four was taken';
+  exception when invalid_parameter_value then null;
+  end;
+  if (select h.kind from public.roadmap_human_work h where h.roadmap_id = r and h.key = 'park:1213') <> 'development' then
+    raise exception 'FAIL: a refused kind changed the key';
+  end if;
+
+  got := public.roadmap_human_work_claim('00000000-0000-4000-8000-000000000000', 5);
+  if got ->> 'workspace' is not null or jsonb_array_length(got -> 'entries') <> 0 then
+    raise exception 'FAIL: a roadmap that does not exist hands out keys: %', got;
+  end if;
 end $$;
 reset role;
 

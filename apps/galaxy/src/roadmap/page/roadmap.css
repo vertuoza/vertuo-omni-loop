@@ -1,8 +1,8 @@
 /* The Roadmaps pages (PRD 1162), on the ask pages' reading surface, drawn in the boards' card
    (../../dashboard/board/board.css) and these pieces of their own: the product filter, a roadmap's card
    (its milestone, its progress as chips, what blocks it), the Gantt (bars coloured by state, solid on
-   real dates and dashed where projected, an arrow from each blocker), the questions with their answer
-   box, and the PRDs. Every colour is a token of src/ask/theme-tokens.ts. Nothing is wider than the
+   real dates and dashed where projected, an arrow from each blocker), the human work by kind (PRD 1217),
+   the questions with their answer box, and the PRDs. Every colour is a token of src/ask/theme-tokens.ts. Nothing is wider than the
    window: at 393 px the Gantt scrolls inside its own box and every line wraps. */
 
 .roadmap-lede { margin: 0 0 12px; color: var(--ask-muted); overflow-wrap: anywhere; }
@@ -75,3 +75,26 @@
   border: 1px solid var(--ask-line-strong); border-radius: 6px; padding: 6px 8px;
 }
 .roadmap-answer code { overflow-wrap: anywhere; }
+
+/* ── The human work: a colour per kind, the open grouped by kind, the done folded ── */
+.roadmap-work { display: grid; gap: 8px; min-width: 0; }
+.roadmap-work h2 { margin: 0; }
+.roadmap-work-chip.is-business { color: var(--ask-plasma); border-color: currentColor; }
+.roadmap-work-chip.is-development { color: var(--ask-cyan); border-color: currentColor; }
+.roadmap-work-chip.is-dev-ops { color: var(--ask-yellow); border-color: currentColor; }
+.roadmap-work-chip.is-delivery-ops { color: var(--ask-red); border-color: currentColor; }
+.roadmap-work-chip.is-none { color: var(--ask-muted); border-color: var(--ask-line); }
+.roadmap-work-group { display: grid; gap: 6px; }
+.roadmap-work-kind {
+  margin: 4px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted);
+}
+.roadmap-work-entry { display: grid; gap: 2px; color: var(--ask-ink); overflow-wrap: anywhere; border-left: 3px solid var(--ask-line-strong); padding-left: 8px; }
+.roadmap-work-entry p { margin: 0; }
+.roadmap-work-entry.is-business { border-left-color: var(--ask-plasma); }
+.roadmap-work-entry.is-development { border-left-color: var(--ask-cyan); }
+.roadmap-work-entry.is-dev-ops { border-left-color: var(--ask-yellow); }
+.roadmap-work-entry.is-delivery-ops { border-left-color: var(--ask-red); }
+.roadmap-work-act { white-space: pre-wrap; font-size: 13px; }
+.ask .roadmap-work a { color: var(--ask-plasma); }
+.roadmap-work-done summary { cursor: pointer; color: var(--ask-muted); font-weight: 700; font-size: 13px; }
+.roadmap-work-done .roadmap-lines { margin-top: 8px; }
