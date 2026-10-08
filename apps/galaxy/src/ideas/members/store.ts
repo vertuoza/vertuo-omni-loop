@@ -6,16 +6,11 @@
 // words, or null. Also the read behind Work › Ideas: which board of the workspace the sidebar opens.
 import { z } from 'zod';
 import { orThrow, parseRows } from '../../data/parse-rows';
-import { ideasPort, IdeasRefusal, type IdeasApiDb, type NewIdeaRow } from '../api/store';
-import type { IdeaChange } from './members';
+import { ideasPort, IdeasRefusal, type IdeasApiDb } from '../api/store';
+import type { MembersPort } from './members';
 import { MEMBERS } from './words';
 
 export type MembersDb = IdeasApiDb;
-
-export interface MembersPort {
-  add(idea: NewIdeaRow): Promise<string | null>;
-  change(id: string, change: IdeaChange): Promise<string | null>;
-}
 
 const WHERE_CHANGE = 'ideas/members/store: ideas';
 const WHERE_BOARD = 'ideas/members/store: repositories';

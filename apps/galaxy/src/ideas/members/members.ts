@@ -3,6 +3,7 @@
 // (the database checks them again: supabase/migrations/20261114090000_ideas.sql).
 import { z } from 'zod';
 import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { NewIdeaRow } from '../api/store';
 import { LANES, type Idea, type Lane } from '../model';
 import { MEMBERS } from './words';
 
@@ -44,4 +45,26 @@ export function readForm(form: IdeaForm): ReadForm {
   const prd = PrdField.safeParse(form.prd);
   if (!prd.success) return { ok: false, problem: MEMBERS.badPrd };
   return { ok: true, idea: { title: title.data, pitch: pitch.data, lane: lane.data, prd: prd.data } };
+}
+
+/** A member's two writes (./store.ts): each answers its refusal in plain words, or null. */
+export interface MembersPort {
+  add(idea: NewIdeaRow): Promise<string | null>;
+  change(id: string, change: IdeaChange): Promise<string | null>;
+}
+
+/** A form sent: a new idea on the board when it names no idea, else that idea's new fields. The
+ * refusal, in plain words, or null once saved. With no port (the demo), nothing is saved. */
+export async function submitIdea(port: MembersPort | null, repo: string, form: IdeaForm, ideaId?: string): Promise<string | null> {
+  const read = readForm(form);
+  if (!read.ok) return read.problem;
+  if (!port) return MEMBERS.demo;
+  if (ideaId) return port.change(ideaId, read.idea);
+  const { title, pitch, lane } = read.idea;
+  return port.add({ repo, title, pitch, lane });
+}
+
+/** Archives an idea: it leaves the board, and nobody deletes it. */
+export async function archiveIdea(port: MembersPort | null, ideaId: string): Promise<string | null> {
+  return port ? port.change(ideaId, { archived: true }) : MEMBERS.demo;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { brainstormLine, readForm } from './members';
+import { archiveIdea, brainstormLine, readForm, submitIdea, type MembersPort } from './members';
 import { membersPort, workspaceBoard, type MembersDb } from './store';
 import { MEMBERS } from './words';
 
@@ -93,6 +93,50 @@ describe('a member\'s writes', () => {
     expect(await membersPort(fakeDb({ error: { code: '08006', message: 'down' } }).db).change(IDEA, { archived: true })).toBe(MEMBERS.failed);
     expect(log).toHaveBeenCalledOnce();
     log.mockRestore();
+  });
+});
+
+describe('a form sent from the page', () => {
+  const port = (): MembersPort & { calls: unknown[] } => {
+    const calls: unknown[] = [];
+    return {
+      calls,
+      add: vi.fn(async (idea) => { calls.push(['add', idea]); return null; }),
+      change: vi.fn(async (id, change) => { calls.push(['change', id, change]); return null; }),
+    };
+  };
+
+  it('adds a new idea to the board, in the lane chosen, with no PRD yet', async () => {
+    const p = port();
+    expect(await submitIdea(p, 'acme/widgets', form({ lane: 'next', prd: '12' }))).toBeNull();
+    expect(p.calls).toEqual([['add', { repo: 'acme/widgets', title: 'Call GitHub less', pitch: 'Fewer API calls.', lane: 'next' }]]);
+  });
+
+  it('edits, moves and links an idea in one change', async () => {
+    const p = port();
+    expect(await submitIdea(p, 'acme/widgets', form({ lane: 'now', prd: '#9' }), IDEA)).toBeNull();
+    expect(p.calls).toEqual([['change', IDEA, { title: 'Call GitHub less', pitch: 'Fewer API calls.', lane: 'now', prd: parsePrd(9) }]]);
+  });
+
+  it('writes nothing when the form is refused, and says why', async () => {
+    const p = port();
+    expect(await submitIdea(p, 'acme/widgets', form({ title: '' }))).toBe(MEMBERS.badTitle);
+    expect(p.calls).toEqual([]);
+  });
+
+  it('answers the database\'s refusal', async () => {
+    expect(await submitIdea({ ...port(), change: async () => MEMBERS.notMember }, 'acme/widgets', form(), IDEA)).toBe(MEMBERS.notMember);
+  });
+
+  it('archives an idea', async () => {
+    const p = port();
+    expect(await archiveIdea(p, IDEA)).toBeNull();
+    expect(p.calls).toEqual([['change', IDEA, { archived: true }]]);
+  });
+
+  it('saves nothing in the demo, and says so', async () => {
+    expect(await submitIdea(null, 'acme/widgets', form())).toBe(MEMBERS.demo);
+    expect(await archiveIdea(null, IDEA)).toBe(MEMBERS.demo);
   });
 });
 
