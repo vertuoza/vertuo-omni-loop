@@ -6,7 +6,8 @@
 //   `update --apply`: that is a release bundle `omni update` downloaded to install its own version,
 //   and handing it back to the older pinned bin would install the old version again (#643);
 // - otherwise it runs itself. Outside a repository that has the kit (neither its bin nor its config),
-//   only the commands that need no kit run (`init`, `help`, `version` and their flags, and the ask
+//   only the commands that need no kit run (`init`, `help`, `version` and their flags, `now`, which
+//   answers that the session is on nothing (PRD 1208), and the ask
 //   hooks, which must stay silent wherever Claude Code fires them); any other command is refused with
 //   one line, exit 2.
 // Only the running bundle (or `node kit/bin/omni.ts`) launches: `main()` itself never does, so a
@@ -32,7 +33,7 @@ export type SpawnRun = (command: string, args: readonly string[], options: Spawn
 };
 
 // What runs with no kit: no command at all (the usage line), and the commands that need none.
-const WITHOUT_KIT = new Set<string | undefined>([undefined, 'init', 'help', '--help', '-h', 'version', '--version']);
+const WITHOUT_KIT = new Set<string | undefined>([undefined, 'init', 'help', '--help', '-h', 'version', '--version', 'now']);
 
 /** Whether `argv` may run in a place with no kit. */
 export function runsWithoutKit(argv: readonly string[]): boolean {
