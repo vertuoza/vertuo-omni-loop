@@ -549,3 +549,235 @@ A constant: one branch of the gate decides whether a missing result holds or fre
 ```
 
 <!-- /omni-outbox-settled: s4-02-unchecked-prerequisite-holds -->
+
+<!-- omni-outbox-settled: s5-02-database-types-by-hand -->
+
+## s5-02-database-types-by-hand — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-database-types-by-hand
+prd: 1218
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 4
+---
+
+## The question, in plain words
+
+The app's list of database tables had to learn the new prerequisites table, but that file was not in this step's planned area. Was it right to update it here?
+
+## The decision, in plain words
+
+The list was updated here, by hand, in the exact form the generator writes, so the app builds. The database check in the pipeline compares it with what the migrations generate and fails if it differs.
+
+## The intro, for fun
+
+The new room was built, so the floor plan by the door needed a new box too.
+
+## The punchline, for fun
+
+The inspector compares the drawing with the walls on the next visit anyway.
+
+## The options, in plain words
+
+A. Keep the hand-written entry, checked by the pipeline's database job (built).
+B. Regenerate the file with the database tool before the feature merges.
+
+## What I had to decide
+
+Whether the hand-written entry stays, or is regenerated with the database tool before the feature merges.
+
+## What I did meanwhile
+
+The app type-checks with the new table; the pipeline's database job proves the entry matches the migrations.
+
+## What it costs to change later
+
+Regenerating it is one command against a local database, then one commit.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No local database with the latest migrations was free on this machine, so the entry was written by hand, not generated. (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-02-database-types-by-hand -->
+
+<!-- omni-outbox-settled: s8-01-skill-tests-outside-territory -->
+
+## s8-01-skill-tests-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-01-skill-tests-outside-territory
+prd: 1218
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 4
+---
+
+## The question, in plain words
+
+The new steps in the roadmap and drive instructions, and the new guide section, needed tests, but the files that test them were not on this slice's list of files it may change. Should the tests go there anyway?
+
+## The decision, in plain words
+
+The tests were added to the two existing test files that already check these instructions and the guide, next to the earlier roadmap tests, so a later change cannot quietly drop the new steps.
+
+## The intro, for fun
+
+A rule with no test is a wish written in nice words.
+
+## The punchline, for fun
+
+So the wish got a test, two files over.
+
+## The options, in plain words
+
+A. A. Add the tests to the existing plugin and guide test files (built).
+B. B. Leave the new steps untested and rely on review.
+C. C. Move the tests into a new file inside the slice's own folders.
+
+## What I had to decide
+
+Whether a slice that only changes instructions and the guide may add its tests to the shared test files that already check them.
+
+## What I did meanwhile
+
+The new tests run with every other test; nothing else in those files changed.
+
+## What it costs to change later
+
+Undoing it is deleting two blocks of tests; nothing depends on them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- none known (author)
+
+```
+
+<!-- /omni-outbox-settled: s8-01-skill-tests-outside-territory -->
+
+<!-- omni-outbox-settled: s8-02-plan-repository-prereqs-run-here-only -->
+
+## s8-02-plan-repository-prereqs-run-here-only — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-02-plan-repository-prereqs-run-here-only
+prd: 1218
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 4
+---
+
+## The question, in plain words
+
+In a setup where one planning repository drives several code repositories, the spec says a prerequisite may concern another repository and be checked in a read-only copy of it, where nothing may run. Where should those checks run?
+
+## The decision, in plain words
+
+The check always runs from the planning repository. A row about another repository names it, and its check must only ask something (a package registry, GitHub), never install, build or run that repository's code.
+
+## The intro, for fun
+
+Read only means read only, even when a checklist asks nicely.
+
+## The punchline, for fun
+
+So the checklist asks from the outside.
+
+## The options, in plain words
+
+A. A. Check every row from the planning repository; rows about another repository only read (built).
+B. B. Run read-only checks inside a fresh copy of the other repository.
+
+## What I had to decide
+
+Whether a prerequisite about another repository may ever run inside that repository's copy, or only ask from the planning repository.
+
+## What I did meanwhile
+
+Rows about another repository are checked from the planning repository with a read-only command; the install check never targets another repository.
+
+## What it costs to change later
+
+Running checks in the copy later is a change to two instructions, not to stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- none known (author)
+
+```
+
+<!-- /omni-outbox-settled: s8-02-plan-repository-prereqs-run-here-only -->
