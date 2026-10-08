@@ -4,7 +4,7 @@ import { assertDefined } from '../../test/assert.ts';
 import { startFakeAskServer, type FakeAskServer } from '../../test/fake-ask-server.ts';
 import { askClient as typedClient, AskCallError } from './client.ts';
 import type { Tokens } from './client.ts';
-import { parsePrd } from '../ids.ts';
+import { parseIssue, parsePrd } from '../ids.ts';
 
 /** A request as the client builds it: its headers a plain object, its body JSON text. */
 type Init = { method: string; headers: Record<string, string>; body?: unknown; signal?: AbortSignal };
@@ -320,6 +320,15 @@ describe('the dossier lookup (PRD 413)', () => {
       { repo: 'acme/widgets', prd: 548, kind: 'visual', title: 'Links', artifacts },
       { repo: 'acme/widgets', prd: 7, title: 'Team inbox', artifacts: [] },
     ]);
+  });
+
+  it('pushes and asks for a concept by its kind, keyed by its issue (PRD 1272)', async () => {
+    const { calls, client } = stubbed(() => new Response(JSON.stringify({ id: 'd-4', url: 'https://omni.example/concepts/d-4', added: [], unchanged: [] }), { status: 200 }));
+    const artifacts = [{ kind: 'concept-record', content: '# concept' }, { kind: 'board', content: 'b1' }, { kind: 'board', content: 'b2' }];
+    await client.pushDossier({ repo: 'acme/widgets', prd: 1269, kind: 'concept', title: 'Products', artifacts });
+    await client.findDossier({ repo: 'acme/widgets', prd: parseIssue(1269), kind: 'concept' });
+    expect(sentJson(calls[0]?.body)).toEqual({ repo: 'acme/widgets', prd: 1269, kind: 'concept', title: 'Products', artifacts });
+    expect(calls[1]?.url).toBe('https://omni.example/api/dossiers?repo=acme%2Fwidgets&prd=1269&kind=concept');
   });
 });
 

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
-import { ARTIFACT_MAX_BYTES, fixTitle, readDossierFolder, readFixFolder } from './folder.ts';
+import { ARTIFACT_MAX_BYTES, fixTitle, readConceptFolder, readDossierFolder, readFixFolder } from './folder.ts';
 import { assertDefined } from '../../test/assert.ts';
 import { parseIssue, parsePrd } from '../ids.ts';
 
@@ -171,5 +171,86 @@ describe('readFixFolder (PRD 627)', () => {
     const fixFolder = readFixFolder(ctx, 'visual', parseIssue(548));
     assertDefined(fixFolder, 'the fix folder');
     expect(fixFolder.dir).toBe(VISUAL);
+  });
+});
+
+describe('readConceptFolder (PRD 1272)', () => {
+  const CONCEPT = '.omni-loop/delivery/inbox/concepts/1269-products-umbrella';
+  const RECORD = [
+    '---', 'concept: 1269', 'title: Products replace plan repositories', 'kind: platform', 'scale: vast', '---', '',
+    ...['The brief', 'The vision', 'Why this one', 'Killed and why', 'Fuel'].flatMap((name) => [`## ${name}`, '', `What ${name} says.`, '']),
+    '## Areas', '', '| id | area | brief | PRD |', '|---|---|---|---|',
+    '| server-approval | Server approval | Approve on the page | |', '| products | Products | The umbrella | |', '',
+  ].join('\n');
+  const files = (extra: Record<string, string> = {}) => ({
+    [`${CONCEPT}/concept.md`]: RECORD,
+    [`${CONCEPT}/vision.html`]: '<p>tour</p>',
+    [`${CONCEPT}/board-r2.html`]: 'board 2',
+    [`${CONCEPT}/board-r10.html`]: 'board 10',
+    [`${CONCEPT}/board-r1.html`]: 'board 1',
+    [`${CONCEPT}/debate.md`]: '# Debate',
+    ...extra,
+  });
+
+  it('reads the record, the vision tour, each board a round in numeric order and the debate, titled from the front matter', () => {
+    const { ctx } = makeRepo({ files: files() });
+    const read = readConceptFolder(ctx, parseIssue(1269));
+    assertDefined(read, 'the concept folder');
+    if (!read.ok) throw new Error(read.errors.join('; '));
+    const { folder } = read;
+    expect(folder.dir).toBe(CONCEPT);
+    expect(folder.title).toBe('Products replace plan repositories');
+    expect(folder.artifacts.map(({ kind, path, round: k }) => ({ kind, path, round: k }))).toEqual([
+      { kind: 'concept-record', path: `${CONCEPT}/concept.md`, round: undefined },
+      { kind: 'vision', path: `${CONCEPT}/vision.html`, round: undefined },
+      { kind: 'board', path: `${CONCEPT}/board-r1.html`, round: 1 },
+      { kind: 'board', path: `${CONCEPT}/board-r2.html`, round: 2 },
+      { kind: 'board', path: `${CONCEPT}/board-r10.html`, round: 10 },
+      { kind: 'debate', path: `${CONCEPT}/debate.md`, round: undefined },
+    ]);
+    expect(folder.artifacts[0]).toMatchObject({ content: RECORD, sha256: sha256(RECORD), bytes: Buffer.byteLength(RECORD) });
+    expect(folder.tooLarge).toEqual([]);
+  });
+
+  it('sends the rest when there is no vision.html', () => {
+    const { ctx } = makeRepo({ files: Object.fromEntries(Object.entries(files()).filter(([path]) => !path.endsWith('/vision.html'))) });
+    const read = readConceptFolder(ctx, parseIssue(1269));
+    assertDefined(read, 'the concept folder');
+    if (!read.ok) throw new Error(read.errors.join('; '));
+    expect(read.folder.artifacts.map((a) => a.kind)).toEqual(['concept-record', 'board', 'board', 'board', 'debate']);
+  });
+
+  it('names a file over 512 KiB as too large and sends the others', () => {
+    const big = 'x'.repeat(ARTIFACT_MAX_BYTES + 1);
+    const { ctx } = makeRepo({ files: files({ [`${CONCEPT}/board-r2.html`]: big }) });
+    const read = readConceptFolder(ctx, parseIssue(1269));
+    assertDefined(read, 'the concept folder');
+    if (!read.ok) throw new Error(read.errors.join('; '));
+    expect(read.folder.artifacts.map((a) => a.round ?? a.kind)).toEqual(['concept-record', 'vision', 1, 10, 'debate']);
+    expect(read.folder.tooLarge).toEqual([{ kind: 'board', path: `${CONCEPT}/board-r2.html`, bytes: big.length }]);
+  });
+
+  it('refuses a concept.md the parser refuses, or one missing, naming its errors', () => {
+    const { ctx } = makeRepo({ files: files({ [`${CONCEPT}/concept.md`]: RECORD.replace('kind: platform', 'kind: rocket') }) });
+    const read = readConceptFolder(ctx, parseIssue(1269));
+    assertDefined(read, 'the concept folder');
+    expect(read.ok).toBe(false);
+    if (read.ok) return;
+    expect(read.errors.join('\n')).toMatch(/kind/);
+
+    const { ctx: none } = makeRepo({ files: { [`${CONCEPT}/vision.html`]: '<p>tour</p>' } });
+    const missing = readConceptFolder(none, parseIssue(1269));
+    expect(missing).toMatchObject({ ok: false, errors: [expect.stringMatching(/concept\.md/)] });
+  });
+
+  it('refuses a concept.md that names another concept', () => {
+    const { ctx } = makeRepo({ files: files({ [`${CONCEPT}/concept.md`]: RECORD.replace('concept: 1269', 'concept: 746') }) });
+    expect(readConceptFolder(ctx, parseIssue(1269))).toMatchObject({ ok: false, errors: [expect.stringMatching(/746/)] });
+  });
+
+  it('is null for an issue with no concept folder', () => {
+    const { ctx } = makeRepo({ files: files() });
+    expect(readConceptFolder(ctx, parseIssue(126))).toBeNull();
+    expect(readConceptFolder(makeRepo({ files: {} }).ctx, parseIssue(1269))).toBeNull();
   });
 });
