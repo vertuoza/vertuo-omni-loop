@@ -1903,6 +1903,78 @@ describe('the prove skill and the skills that lead to it (PRD 798)', () => {
   });
 });
 
+// PRD 1233: /omni:validate-e2e (beta) stops in one line when e2e is off, writes tests from the spec
+// alone, runs them twice, checks them with omni e2e, and opens a sub-PR it never merges.
+describe('the validate-e2e skill (PRD 1233)', () => {
+  const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', 'validate-e2e', 'SKILL.md'), 'utf8');
+
+  it('is named validate-e2e, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('validate-e2e');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:validate-e2e/);
+  });
+
+  it('stops in one line, writing and posting nothing, when e2e is off, has no url, or Node is too old', () => {
+    const step = skillSection(read(), '1.');
+    for (const phrase of ['omni.mjs config e2e', '`enabled`', '`url`', '`null`', '24.8', 'node -v', 'writes nothing and posts nothing']) {
+      expect(step, phrase).toContain(phrase);
+    }
+  });
+
+  it('reaches the target as prove does, with the bypass never printed', () => {
+    const step = skillSection(read(), '2.');
+    for (const phrase of ['github-deployment', '10 minutes', 'e2e.bypassEnv', 'x-vercel-protection-bypass', 'e2e.setup', 'Never print']) {
+      expect(step, phrase).toContain(phrase);
+    }
+  });
+
+  it('reads the criteria from the spec alone and never the diff, and classes each as filmable or not', () => {
+    const step = skillSection(read(), '3.');
+    expect(step).toMatch(/never the diff/i);
+    expect(step).toContain('**filmable**');
+    expect(step).toContain('**not filmable**');
+  });
+
+  it('writes one prd-tagged test per filmable criterion with exact expects, and says why for agent.assert', () => {
+    const step = skillSection(read(), '4.');
+    for (const phrase of ['prd-<n>', 'e2e.dir', 'agent.act', 'expect()', 'agent.assert', 'why nothing exact exists', 'unique to the run', '.e2e/cache/']) {
+      expect(step, phrase).toContain(phrase);
+    }
+    expect(step).toMatch(/waits for it/);
+  });
+
+  it('records on a first run, never weakens a red test, then replays with --strict-cache', () => {
+    const text = read();
+    const first = skillSection(text, '5.');
+    expect(first).toContain('E2E_TELEMETRY_DISABLED=1');
+    expect(first).toContain('✗');
+    expect(first).toMatch(/never weakened/);
+    expect(first).toContain('limits.attempts');
+    const second = skillSection(text, '6.');
+    expect(second).toContain('npx e2e run --strict-cache --tag prd-<n>');
+    expect(second).toMatch(/unstable/);
+  });
+
+  it('runs omni e2e status then heals, and turns each healed step into an outbox item', () => {
+    const step = skillSection(read(), '7.');
+    const status = step.indexOf('omni.mjs e2e status <n>');
+    expect(status).toBeGreaterThan(-1);
+    expect(step.indexOf('omni.mjs e2e heals <n>')).toBeGreaterThan(status);
+    expect(step).toContain('omni.mjs item new');
+    expect(step).toMatch(/none is taken as accepted/);
+  });
+
+  it('opens a Part of sub-PR with the table, signed, and never merges or marks anything ready', () => {
+    const text = read();
+    expect(skillSection(text, '8.')).toMatch(/criterion \| test \| verdict/);
+    for (const phrase of ['labels.sub', 'Part of #<n>', 'not filmable', 'omni sign footer', 'omni sign trailer']) {
+      expect(text, phrase).toContain(phrase);
+    }
+    expect(skillSection(text, 'Never')).toMatch(/merge/);
+    for (const verb of [/\bgh pr ready\b/, /\bgh pr merge\b/]) expect(text).not.toMatch(verb);
+  });
+});
+
 // PRD 859 and PRD 1108: /omni:pitch makes a shipped PRD's launch video on the person's computer from the
 // product's Pitch settings, and sends it to the Pitch tab: it refuses with one line first, films a
 // walk-through on production that never changes anything and writes its moments, writes the storyboard

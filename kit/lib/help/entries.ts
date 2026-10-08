@@ -807,6 +807,22 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'section it prints no generated files. It runs no build, and exits 0 whatever it finds.',
   },
   {
+    name: 'e2e',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni e2e status <prd>', 'omni e2e heals <prd>'],
+    summary: 'which e2e tests of a PRD have a recording, and which steps healed (beta)',
+    detail:
+      'status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each ' +
+      'with whether a recording of it exists in .e2e/cache, and exits 1 when one has none. A recording ' +
+      'that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. ' +
+      'With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, ' +
+      'reaches no network and calls no model. heals pairs the recordings steps, by test id and call ' +
+      'index, at the merge-base of the PRD feature branch and at its head, and lists each as healed ' +
+      '(old and new action, and the summary), new or removed, as JSON; an identical step is not listed. ' +
+      'The same refusals hold for both sides.',
+  },
+  {
     name: 'statusline',
     kind: 'command',
     who: 'skills',
@@ -1397,6 +1413,27 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:prove 798',
       result: 'a comment on the feature PR with a ✓, ✗ or — line per criterion, and the Proof tab full of clips',
+    },
+  },
+  {
+    name: 'validate-e2e',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:validate-e2e <n>'],
+    label: '/omni:validate-e2e <n>',
+    summary: 'beta: keep a PRD criteria as e2e tests',
+    detail:
+      "Writes one e2e test per filmable acceptance criterion of PRD n, tagged prd-n, from the spec " +
+      'alone; records each once, replays it with --strict-cache, and checks the recordings with ' +
+      'omni e2e status and omni e2e heals. It opens a sub-PR into the feature branch holding the ' +
+      'tests, their committed recordings and a criterion, test and verdict table. It stops with one ' +
+      'line when e2e.enabled is false, e2e.url is null or Node is older than 24.8, and merges ' +
+      'nothing.',
+    group: 'everyday',
+    when: 'Use it when a PRD\'s feature PR is ready and its criteria should keep being checked after it merges.',
+    example: {
+      type: '/omni:validate-e2e 1233',
+      result: 'a sub-PR with the e2e tests, their recordings and a verdict per criterion',
     },
   },
 
