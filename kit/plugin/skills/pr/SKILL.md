@@ -117,8 +117,8 @@ differences.
   `gh pr edit` for labels, the status comment, and every call of the lifecycle (`gh pr view`,
   `gh pr checks`, `gh pr ready`, `gh pr merge`, `gh run view`, `gh run rerun`). In the status
   comment's recipe, `REPO` is `<slug>`, and `gh pr comment` takes `--repo "$REPO"` too.
-- **Git runs in the target's clone** (`<worktrees>/targets/<name>`, or the slice's worktree beside
-  it), and `<remote>` is the remote `git -C <clone> remote` prints, not `repo.remote`. The
+- **Git runs in the target's clone** (`<worktrees>/targets/<name>@<prd>`, the PRD's own, or the
+  slice's worktree beside it), and `<remote>` is the remote `git -C <clone> remote` prints, not `repo.remote`. The
   default branch is the target's, from
   `gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`, never
   `repo.defaultBranch`: a merge checks `baseRefName` against it.
