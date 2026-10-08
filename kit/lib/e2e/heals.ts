@@ -1,6 +1,7 @@
 // PRD 1233: the steps of the e2e recordings at the merge-base and at the head of a feature branch,
 // paired by test id and call index (never by file name), as healed, new or removed. Pure except
 // `readRecordingsAt`, which reads git objects only: no network, no browser, no model.
+import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import type { ExecText } from '../context.ts';
 import { parseRecording, RecordingError } from './recording.ts';
 import type { Action, Recording } from './recording.ts';
@@ -37,7 +38,7 @@ export function compareRecordings(base: readonly Recording[], head: readonly Rec
 
 /** The recordings under `<dir>/.e2e/cache` as committed at `rev`; throws a `RecordingError` naming the first that does not read. */
 export function readRecordingsAt({ root, rev, dir, exec }: { root: string; rev: string; dir: string; exec: ExecText }): Recording[] {
-  const options = { cwd: root, encoding: 'utf8' as const, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'] };
+  const options: ExecFileSyncOptionsWithStringEncoding = { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] };
   const folder = `${dir.replace(/\/+$/, '')}/.e2e/cache`;
   const listing = exec('git', ['ls-tree', '-r', '--name-only', rev, '--', `${folder}/`], options);
   return listing.split('\n').filter((path) => path.endsWith('.json')).sort().map((path) => {

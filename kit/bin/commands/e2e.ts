@@ -2,6 +2,7 @@
 // it has a recording, as JSON. Exit 1 when one has none, when `e2e` is off, or when a recording does not
 // read or is not `trace-1` (the message names the file); exit 2 for a usage error. It reads files only:
 // no network, no browser, no model.
+import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { fillBranch } from '../../lib/board.ts';
 import { compareRecordings, readRecordingsAt } from '../../lib/e2e/heals.ts';
 import { parseFolderName } from '../../lib/layout.ts';
@@ -36,7 +37,7 @@ function status(args: string[], { ctx, stdout, stderr }: CommandIo): number {
   }
 }
 
-const gitOptions = (root: string) => ({ cwd: root, encoding: 'utf8' as const, stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'] });
+const gitOptions = (root: string): ExecFileSyncOptionsWithStringEncoding => ({ cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
 /** The first of `<remote>/<name>` and `<name>` that git knows, else a usage error. */
 function resolveRef(name: string, { ctx, exec }: CommandIo): string {
