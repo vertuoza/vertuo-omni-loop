@@ -66,6 +66,20 @@ describe('docs/guide', () => {
     }
   });
 
+  it('explains a roadmap\'s prerequisites: the table, the categories, the base checks, what the agent may fix, and the tab (PRD 1218)', () => {
+    const roadmaps = readGuide(GUIDE).pages.find((page) => page.slug === 'roadmaps')?.body ?? '';
+    const at = roadmaps.indexOf('## Prerequisites');
+    expect(at).toBeGreaterThan(0);
+    const section = roadmaps.slice(at);
+    for (const phrase of [
+      '| id | category | need | check | fix | blocks | who |', '`local`', '`access`', '`permissions`', '`github`', '`services`',
+      '`base:docker`', '`base:install`', '**Who can do it:**', 'omni roadmap prereqs', '--fix', 'omni roadmap tick',
+      'never installs software', '**Prerequisites** tab', 'waits on prerequisite',
+    ]) {
+      expect(section, phrase).toContain(phrase);
+    }
+  });
+
   it('sends someone joining a team past Invade, which their repository needs no more', () => {
     const join = readGuide(GUIDE).pages.find((page) => page.slug === 'join');
     expect(join?.next).toBe('/docs/loop');

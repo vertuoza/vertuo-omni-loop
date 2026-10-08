@@ -1,6 +1,6 @@
 ---
 name: mega-drive
-description: Drives a plan repository's multi-repository PRDs one step per tick, run as /loop /omni:mega-drive [<n>…], or a roadmap's PRDs with --roadmap <n> — /omni:drive for a plan repository, step for step. Its first tick orders every slice of the PRDs driven into a loop plan whose steps collide only on a path in the same repository (omni next --plan) and opens the loop on the Loop page; every tick it takes the first step not done (omni next --json) and runs that one skill, /omni:ultra-wave, /omni:ultra-yolo, /omni:ultra-yolo-fix or /omni:mega-pr-care --once, or waits, parks a PRD that waits on a person on its plan PR's status comment naming each open PR by repository, records the tick and the repositories it touched with omni loop push tick, pushes the roadmap under --roadmap, and sets the next wake; once every PRD is parked or done it stops itself. Outside a plan repository it prints the /loop /omni:drive line. Never merges into any repository's default branch, never answers the outbox. Triggers on "drive the plan repository", "drive my PRDs across the repositories", "run the loop across repositories", "/loop /omni:mega-drive", "/omni:mega-drive".
+description: Drives a plan repository's multi-repository PRDs one step per tick, run as /loop /omni:mega-drive [<n>…], or a roadmap's PRDs with --roadmap <n> — /omni:drive for a plan repository, step for step. Its first tick orders every slice of the PRDs driven into a loop plan whose steps collide only on a path in the same repository (omni next --plan) and opens the loop on the Loop page; every tick it takes the first step not done (omni next --json) and runs that one skill, /omni:ultra-wave, /omni:ultra-yolo, /omni:ultra-yolo-fix or /omni:mega-pr-care --once, or waits, parks a PRD that waits on a person on its plan PR's status comment naming each open PR by repository, records the tick and the repositories it touched with omni loop push tick, under --roadmap checks the roadmap's prerequisites with omni roadmap prereqs --fix on the first tick and before a PRD one holds starts and pushes the roadmap, and sets the next wake; once every PRD is parked or done it stops itself, listing each open prerequisite with its command. Outside a plan repository it prints the /loop /omni:drive line. Never merges into any repository's default branch, never answers the outbox. Triggers on "drive the plan repository", "drive my PRDs across the repositories", "run the loop across repositories", "/loop /omni:mega-drive", "/omni:mega-drive".
 ---
 
 # Mega drive: one step of the loop plan per tick, across repositories
@@ -69,9 +69,21 @@ slices touch the same path **in the same repository**, the reason naming it
 hold each other. Each step names the repositories it touches (`· in crew, ai-domain`). Print the plan
 as it comes.
 
+**The prerequisites,** under `--roadmap`, as `/omni:drive` step 1 checks them on the first tick, in
+the plan repository:
+
+```bash
+node .omni-loop/bin/omni.mjs roadmap prereqs <n> --fix
+```
+
+It runs in the plan repository's checkout, never in a target or a clone; a row naming targets in its
+`repos` cell is checked by the command it holds, which only reads. Exit `1` is not a failure.
+
 ## 2. Read the step
 
-As `/omni:drive` step 2, with:
+As `/omni:drive` step 2, its **Before a held PRD starts** included: when the last `next --json`
+held a PRD with `waits on prerequisite <id> (<category>): <need>`, run
+`node .omni-loop/bin/omni.mjs roadmap prereqs <n> --fix` again first, in the plan repository. Then:
 
 ```bash
 node .omni-loop/bin/omni.mjs next --json [--roadmap <n>]
@@ -145,8 +157,10 @@ Exit 1 is one line: print it, and the tick still counts. Then go to **Waking up*
 As `/omni:drive` step 5: park what is not parked yet (on the plan PR's status comment), under
 `--roadmap` send what `held` names and run `node .omni-loop/bin/omni.mjs roadmap push <n>` once, then
 `node .omni-loop/bin/omni.mjs loop push stop`, and print what waits on whom, one line per PRD, each
-naming its open pull requests by repository. Someone starts it again with the same command once they
-acted.
+naming its open pull requests by repository. Under `--roadmap`, then each open prerequisite with its
+card's command and the repositories it concerns, as `/omni:drive` step 5 lists them from one more
+`node .omni-loop/bin/omni.mjs roadmap prereqs <n> --fix`. Someone starts it again with the same
+command once they acted.
 
 ## Waking up
 
