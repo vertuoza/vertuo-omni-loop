@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.239" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.242" };
   }
 });
 
@@ -27734,6 +27734,9 @@ var ConfigSchema = external_exports.object({
     attempts: external_exports.number().int().positive().default(3),
     claimStaleMinutes: external_exports.number().int().positive().default(60),
     beforeAfterMaxBytes: external_exports.number().int().positive().default(512e3),
+    // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
+    // was before, one step at a time.
+    parallelSteps: external_exports.number().int().min(1).max(6).default(3),
     // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
     // and a config that does not set it parses exactly as before.
     hookMaxBytes: external_exports.number().int().positive().optional()
@@ -40603,7 +40606,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni next [<prd>\u2026] [--json] [--plan]", "omni next --roadmap <n> [--json] [--plan]"],
     label: "omni next [<n>\u2026]",
     summary: "the loop's next step, for PRD n or across your PRDs",
-    detail: "PRD n's next step, read from its phase-0 PR, its feature PR, its open outbox questions and its board: act with the skill to run (a wave, yolo, yolo-fix or one PR care round), wait with when to look again, park with who it waits on and the link where they act, or done. With no number it drives your own PRDs in inbox, building or outbox, as omni status marks them. --plan orders every slice of them into numbered steps (colliding territories in series with the reason, blocked-by held, the rest beside each other) and keeps the plan in this checkout; each later call returns the first step not done, and writes a new plan version with a one-line reason when a slice goes stuck, a slice is added or a PRD ends early. --roadmap <n> drives exactly roadmap n's PRDs, someone else's included: a blocked PRD's first step is held until its blockers' feature PRs merged (in a plan repository, the plan PR and every target PR), its why naming the pull request it waits on and its state, while every other step runs; a person question not answered parks only the PRDs it blocks, and a blocker closed unmerged parks its dependents. It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one document. Needs gh logged in."
+    detail: "PRD n's next step, read from its phase-0 PR, its feature PR, its open outbox questions and its board: act with the skill to run (a wave, yolo, yolo-fix or one PR care round), wait with when to look again, park with who it waits on and the link where they act, or done. With no number it drives your own PRDs in inbox, building or outbox, as omni status marks them. --plan orders every slice of them into numbered steps (colliding territories in series with the reason, blocked-by held, the rest beside each other) and keeps the plan in this checkout; each later call returns the first step not done, and writes a new plan version with a one-line reason when a slice goes stuck, a slice is added or a PRD ends early. --roadmap <n> drives exactly roadmap n's PRDs, someone else's included: a blocked PRD's first step is held until its blockers' feature PRs merged (in a plan repository, the plan PR and every target PR), its why naming the pull request it waits on and its state, while every other step runs; a person question not answered parks only the PRDs it blocks, and a blocker closed unmerged parks its dependents. On the loop plan it also returns a pool: steps, up to limits.parallelSteps (1 to 6, default 3) steps to launch now, counting those running; running, the steps already running, read from GitHub (a live claim, or omni:in-progress with a fresh status comment), so a closed terminal launches nothing twice; and held, each step kept back with the rule and the step it waits on. A step is offered only when it passes four rules against every step running or offered: another PRD, no open blocker, no shared path in the same repository (generated paths never collide; a finish stands on all its PRD's slices) and the plan allows it. With limits.parallelSteps: 1 it is one step per tick, as before. It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one document: step and verdict as before, then steps, running and held. Needs gh logged in."
   },
   {
     name: "loop",
@@ -41277,8 +41280,8 @@ var ENTRIES = deepFreeze([
     who: "you",
     usage: ["/loop /omni:drive [<n>\u2026]", "/loop /omni:drive --roadmap <n>"],
     label: "/omni:drive [<n>\u2026]",
-    summary: "drive your PRDs, one step per tick",
-    detail: "Run under /loop, it drives your own PRDs in inbox, building or outbox, or the ones you name. Its first tick orders every slice of them into a loop plan (omni next --plan), colliding territories in series with the reason, and opens the loop on the Loop page. Each tick then takes the first step not done and runs that one skill (/omni:wave, /omni:yolo, /omni:yolo-fix or /omni:pr-care --once) or waits, parks a PRD waiting on a person on its feature PR's status comment, records the tick on the Loop page and picks when to look again. Once every PRD is parked or done it stops itself and lists what waits on whom. A closed terminal resumes the same loop. --roadmap <n> drives exactly roadmap n's PRDs, someone else's included, holding a blocked PRD until its blockers' feature PRs merged, naming the pull request it waits on, and sends the roadmap's page where each PRD stands after every tick. In a plan repository it prints the /omni:mega-drive line and stops. It never answers the outbox and never merges into {defaultBranch}.",
+    summary: "drive your PRDs, several steps at once",
+    detail: "Run under /loop, it drives your own PRDs in inbox, building or outbox, or the ones you name. Its first tick orders every slice of them into a loop plan (omni next --plan), colliding territories in series with the reason, and opens the loop on the Loop page. Each tick then takes the first step not done and runs that one skill (/omni:wave, /omni:yolo, /omni:yolo-fix or /omni:pr-care --once) or waits, parks a PRD waiting on a person on its feature PR's status comment, records the tick on the Loop page and picks when to look again. It fills a pool: each step omni next offers runs as its own background agent in its own worktree, up to limits.parallelSteps (default 3) at once, and a step that would collide is held with why; limits.parallelSteps: 1 runs one step per tick. Once nothing runs and every PRD is parked or done it stops itself and lists what waits on whom. A closed terminal resumes the same loop. --roadmap <n> drives exactly roadmap n's PRDs, someone else's included, holding a blocked PRD until its blockers' feature PRs merged, naming the pull request it waits on, and sends the roadmap's page where each PRD stands after every tick. In a plan repository it prints the /omni:mega-drive line and stops. It never answers the outbox and never merges into {defaultBranch}.",
     group: "build",
     when: "Use it when PRDs are merged into the inbox and you want them built, finished and cared for without typing each next command.",
     example: {
@@ -41292,8 +41295,8 @@ var ENTRIES = deepFreeze([
     who: "you",
     usage: ["/loop /omni:mega-drive [<n>\u2026]", "/loop /omni:mega-drive --roadmap <n>"],
     label: "/omni:mega-drive",
-    summary: "drive PRDs across repositories, one step per tick",
-    detail: "The /omni:drive of a plan repository: run under /loop, it drives your own multi-repository PRDs, the ones you name, or with --roadmap <n> exactly roadmap n's. Its loop plan puts two steps in series only when they touch the same path in the same repository. Each tick runs one skill (/omni:ultra-wave, /omni:ultra-yolo, which plans a PRD with no plan, /omni:ultra-yolo-fix or /omni:mega-pr-care --once) or waits, parks a PRD waiting on a person on its plan PR's status comment naming each open PR by repository, records the repositories the tick touched on the Loop page, and under --roadmap sends the roadmap's page. Outside a plan repository it prints the /omni:drive line and stops. It never answers the outbox and never merges into any default branch.",
+    summary: "drive PRDs across repositories, steps side by side",
+    detail: "The /omni:drive of a plan repository: run under /loop, it drives your own multi-repository PRDs, the ones you name, or with --roadmap <n> exactly roadmap n's. Its loop plan puts two steps in series only when they touch the same path in the same repository. Its steps run as a pool of background agents, up to limits.parallelSteps at once, each PRD with its own target clones at <worktrees>/targets/<name>@<prd>, so no two steps share a HEAD. Each step runs one skill (/omni:ultra-wave, /omni:ultra-yolo, which plans a PRD with no plan, /omni:ultra-yolo-fix or /omni:mega-pr-care --once) or waits, parks a PRD waiting on a person on its plan PR's status comment naming each open PR by repository, records the repositories the tick touched on the Loop page, and under --roadmap sends the roadmap's page. Outside a plan repository it prints the /omni:drive line and stops. It never answers the outbox and never merges into any default branch.",
     group: "multi-repo",
     when: "Use it when multi-repository PRDs are merged into the inbox of a plan repository and you want them built in every target without typing each next command.",
     example: {
@@ -44206,13 +44209,18 @@ function isDone(step, live) {
   const merged = live.merged.get(step.prd);
   return step.slices.every((id) => merged?.has(id) === true);
 }
-function holdOf(step, plan2, done, live) {
+function blockerOf(step, plan2, live) {
   const gate = live.gates?.get(step.prd);
   if (gate?.kind === "hold" && plan2.steps.find((candidate) => candidate.prd === step.prd) === step) {
     return { prd: step.prd, why: gate.why, ...gate.link ? { link: gate.link } : {} };
   }
   const unshipped = step.waitsFor.find((prd2) => !live.shipped.has(prd2));
-  if (unshipped !== void 0) return { prd: step.prd, why: `waits on PRD ${unshipped} to ship` };
+  return unshipped === void 0 ? null : { prd: step.prd, why: `waits on PRD ${unshipped} to ship` };
+}
+function holdOf(step, plan2, done, live) {
+  return blockerOf(step, plan2, live) ?? orderOf(step, plan2, done);
+}
+function orderOf(step, plan2, done) {
   const before2 = step.after.find((n) => !done.has(n));
   if (before2 === void 0) return null;
   const other = plan2.steps.find((candidate) => candidate.step === before2);
@@ -44236,8 +44244,9 @@ function runnableVerdict(step, { plan: plan2, live, done, holds: holds2 }) {
   if (!holds2.has(step.prd)) holds2.set(step.prd, hold);
   return null;
 }
+var doneOf = (plan2, live) => new Set(plan2.steps.filter((step) => isDone(step, live)).map((step) => step.step));
 function followPlan(plan2, live) {
-  const done = new Set(plan2.steps.filter((step) => isDone(step, live)).map((step) => step.step));
+  const done = doneOf(plan2, live);
   const walk = { plan: plan2, live, done, holds: /* @__PURE__ */ new Map() };
   let waiting = null;
   for (const step of plan2.steps) {
@@ -44252,6 +44261,81 @@ function followPlan(plan2, live) {
   }
   if (waiting !== null) return { state: "step", ...waiting };
   return { state: "stop", waiting: waitingOf(plan2, live, walk.holds) };
+}
+function stepRef({ step, running }) {
+  return `step ${step.step} (${stepWhat(step)}, ${running ? "running" : "starting"})`;
+}
+function stepWhat(step) {
+  const what = step.kind !== "wave" ? step.kind : step.wave === null ? "slices with no wave" : `w${step.wave}`;
+  return `PRD ${step.prd} ${what}`;
+}
+function runningStep(prd2, running, plan2, done) {
+  const own2 = plan2.steps.filter((step) => step.prd === prd2 && !done.has(step.step));
+  const claimed2 = running.kind === "claims" ? own2.find((step) => step.kind === "wave" && step.slices.some((id) => running.slices.includes(id))) : void 0;
+  return claimed2 ?? own2[0];
+}
+function groundOf(step, live) {
+  const slices = live.slices?.get(step.prd) ?? [];
+  if (step.kind === "finish") return slices;
+  return slices.filter((slice) => step.slices.includes(slice.id));
+}
+function sharedOf(a, b, live, generated2) {
+  const shared = /* @__PURE__ */ new Set();
+  for (const left of groundOf(a, live)) {
+    for (const right of groundOf(b, live)) {
+      const repo = left.repo ?? null;
+      if (repo !== (right.repo ?? null)) continue;
+      for (const path of sharedGround(left, right, generated2)) shared.add(repo === null ? path : `${repo}:${path}`);
+    }
+  }
+  return [...shared].sort();
+}
+function keptBack(step, busy, { plan: plan2, live, done, generated: generated2 }) {
+  const same = busy.find((other) => other.step.prd === step.prd);
+  if (same) return `PRD ${step.prd} runs ${stepRef(same)}`;
+  const blocker = blockerOf(step, plan2, live);
+  if (blocker !== null) return blocker.why;
+  for (const other of busy) {
+    const shared = sharedOf(step, other.step, live, generated2);
+    if (shared.length > 0) return `${shared.join(", ")} shared with ${stepRef(other)}`;
+  }
+  return orderOf(step, plan2, done)?.why ?? null;
+}
+function runningOf(plan2, live, done) {
+  const running = [...live.running ?? /* @__PURE__ */ new Map()].flatMap(([prd2, run]) => {
+    if (verdictOf(prd2, live)?.verdict === "done") return [];
+    const step = runningStep(prd2, run, plan2, done);
+    return step ? [{ step, since: run.since }] : [];
+  });
+  return running.sort((a, b) => a.step.step - b.step.step);
+}
+function candidatesOf(plan2, live, done) {
+  const followed = followPlan(plan2, live);
+  const first = followed.state === "step" && followed.verdict.verdict === "act" ? [followed.step] : [];
+  const seen = /* @__PURE__ */ new Set();
+  const firsts = plan2.steps.filter((step) => {
+    if (done.has(step.step) || seen.has(step.prd)) return false;
+    seen.add(step.prd);
+    return true;
+  });
+  return [...first, ...firsts.filter((step) => !first.includes(step))];
+}
+function followSteps(plan2, live, slots, generated2 = []) {
+  const done = doneOf(plan2, live);
+  const running = runningOf(plan2, live, done);
+  const busy = running.map(({ step }) => ({ step, running: true }));
+  const pool = { steps: [], running, held: [] };
+  for (const step of candidatesOf(plan2, live, done)) {
+    const verdict2 = verdictOf(step.prd, live);
+    if (verdict2?.verdict !== "act" || running.some((one) => one.step === step)) continue;
+    const why2 = keptBack(step, busy, { plan: plan2, live, done, generated: generated2 });
+    if (why2 !== null) pool.held.push({ step, why: why2 });
+    else if (busy.length < slots) {
+      pool.steps.push({ step, verdict: verdict2 });
+      busy.push({ step, running: false });
+    }
+  }
+  return pool;
 }
 
 // kit/lib/next/format.ts
@@ -44308,7 +44392,7 @@ function unitsOf(input2, order) {
   }
   return units;
 }
-function groundOf(a, b) {
+function groundOf2(a, b) {
   const repo = a.repo ?? null;
   if (repo !== (b.repo ?? null)) return [];
   const ground = sharedGround(a, b);
@@ -44320,7 +44404,7 @@ function meeting(first, second) {
   const right = /* @__PURE__ */ new Set();
   for (const a of first.slices) {
     for (const b of second.slices) {
-      const ground = groundOf(a, b);
+      const ground = groundOf2(a, b);
       if (ground.length === 0) continue;
       for (const path of ground) shared.add(path);
       left.add(a.id);
@@ -44432,6 +44516,12 @@ function formatPlan(plan2) {
 function formatFollowed(plan2, followed) {
   if (followed.state === "stop") return ["stop: every PRD is parked or done", ...followed.waiting.map(verdictLine2)];
   return [`step ${followed.step.step}/${plan2.steps.length} \xB7 ${verdictLine2(followed.verdict)}`];
+}
+function formatPool(plan2, pool) {
+  const launch = pool.steps.map(({ step, verdict: verdict2 }) => `step ${step.step}/${plan2.steps.length} \xB7 ${verdictLine2(verdict2)}`);
+  const running = pool.running.map(({ step, since }) => `  step ${step.step} (${stepWhat(step)}) running since ${since}${step.repos ? ` \xB7 in ${step.repos.join(", ")}` : ""}`);
+  const held = pool.held.map(({ step, why: why2 }) => `  step ${step.step} (${stepWhat(step)}) held: ${why2}`);
+  return [...launch, ...running, ...held];
 }
 
 // kit/lib/next/replan.ts
@@ -45231,8 +45321,10 @@ var GhListedPrSchema = external_exports.looseObject({
   isDraft: external_exports.boolean().nullish(),
   updatedAt: external_exports.string().nullish(),
   body: external_exports.string().nullish(),
-  author: external_exports.looseObject({ login: external_exports.string().nullish() }).nullish()
+  author: external_exports.looseObject({ login: external_exports.string().nullish() }).nullish(),
+  labels: external_exports.array(external_exports.looseObject({ name: external_exports.string().nullish() })).nullish()
 });
+var GhCommentUpdatedSchema = external_exports.looseObject({ body: external_exports.string().nullish(), updated_at: external_exports.string().nullish() });
 var ASKED_RANKS2 = /* @__PURE__ */ new Set(["human-action", "high"]);
 function gh(args, { exec, ghEnv }) {
   return exec("gh", args, { encoding: "utf8", ...ghEnv ? { env: ghEnv } : {} });
@@ -45241,7 +45333,7 @@ function git4(args, { ctx, exec }) {
   return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 function listPrs(args, reader) {
-  const raw = gh(["pr", "list", "--repo", reader.slug, ...args, "--json", "number,url,state,isDraft,updatedAt,body,author", "--limit", "50"], reader);
+  const raw = gh(["pr", "list", "--repo", reader.slug, ...args, "--json", "number,url,state,isDraft,updatedAt,body,author,labels", "--limit", "50"], reader);
   return external_exports.array(GhListedPrSchema).parse(JSON.parse(raw));
 }
 function phase0Link(prd2, ctx) {
@@ -45310,7 +45402,7 @@ function outboxFacts(prd2, { branch, pr }, reader) {
 function boardFacts(prd2, reader) {
   const { ctx } = reader;
   const planPath = ctx.layout.planPath(prd2);
-  if (planPath === null || !existsSync48(join61(ctx.root, planPath))) return { board: null, slices: null };
+  if (planPath === null || !existsSync48(join61(ctx.root, planPath))) return { board: null, slices: null, claims: null };
   try {
     const { result } = buildBoard(prd2, { ctx, exec: reader.exec, env: reader.env });
     const having = (state) => result.slices.filter((row) => row.state === state).map((row) => row.id);
@@ -45326,10 +45418,40 @@ function boardFacts(prd2, reader) {
       stuck: having("stuck"),
       unreadable: having("unreadable")
     };
-    return { board: board2, slices: result.slices.map(({ id, territory, wave, state, repo }) => ({ id, territory, wave, state, ...repo === void 0 ? {} : { repo } })) };
+    const slices = result.slices.map(({ id, territory, wave, state, repo }) => ({ id, territory, wave, state, ...repo === void 0 ? {} : { repo } }));
+    return { board: board2, slices, claims: liveClaims(result.slices, board2.stalled) };
   } catch {
-    return { board: "unreadable", slices: planSlices(join61(ctx.root, planPath)) };
+    return { board: "unreadable", slices: planSlices(join61(ctx.root, planPath)), claims: null };
   }
+}
+function liveClaims(rows2, stalled) {
+  const cold = new Set(stalled.map(({ id }) => id));
+  const live = rows2.filter((row) => row.state === "in-flight" && row.pr?.isDraft === true && !cold.has(row.id));
+  if (live.length === 0) return null;
+  const since = live.map((row) => row.pr?.createdAt ?? "").filter(Boolean).sort()[0] ?? "";
+  return { kind: "claims", slices: live.map((row) => row.id), since };
+}
+var hasLabel3 = (pr, label) => (pr.labels ?? []).some((one) => one.name === label);
+function labelSeen(pr, slug, reader) {
+  const { ctx } = reader;
+  if (pr.state !== "OPEN" || !hasLabel3(pr, ctx.config.labels.inProgress)) return null;
+  try {
+    const comments = githubClientFor(ctx, { repo: slug, issue: pr.number, exec: reader.exec, env: reader.env }).listComments();
+    const status4 = comments.map((comment2) => GhCommentUpdatedSchema.parse(comment2)).filter((comment2) => (comment2.body ?? "").includes(ctx.markers.status));
+    const seen = status4.map((comment2) => comment2.updated_at ?? "").filter(Boolean).sort().at(-1);
+    if (seen === void 0) return null;
+    return Date.now() - new Date(seen).getTime() <= ctx.config.limits.claimStaleMinutes * 60 * 1e3 ? seen : null;
+  } catch {
+    return null;
+  }
+}
+function runningOf2(claims, prs, reader) {
+  if (claims !== null) return claims;
+  for (const { slug, pr } of prs) {
+    const since = labelSeen(pr, slug, reader);
+    if (since !== null) return { kind: "label", since };
+  }
+  return null;
 }
 function planSlices(path) {
   try {
@@ -45361,17 +45483,19 @@ function readFacts2(prd2, reader) {
   const pr = featurePr2(branch, reader);
   const open3 = pr?.state === "OPEN" ? pr : null;
   const feature = pr === null ? null : featureFacts(pr, reader);
-  const { board: board2, slices } = boardFacts(prd2, reader);
+  const { board: board2, slices, claims } = boardFacts(prd2, reader);
   const across = acrossFacts(branch, slices, reader);
   const outbox = outboxFacts(prd2, { branch, pr: open3 }, reader);
   const facts = { prd: prd2, shipped: folder.shipped, phase0: phase02, feature, board: board2, outbox, ...across ? { across: across.across } : {} };
-  return { facts, slices, prs: standingsOf(pr, outbox, across, reader) };
+  const targets2 = (across?.listed ?? []).map(({ repo, pr: listed2 }) => ({ slug: targetSlug(repo, reader), pr: listed2 }));
+  const running = runningOf2(claims, [...open3 ? [{ slug: reader.slug, pr: open3 }] : [], ...targets2], reader);
+  return { facts, slices, prs: standingsOf(pr, outbox, across, reader), running };
 }
 function beforeInbox(prd2, phase02, reader) {
   if (phase02 === null) throw usageError(`omni next: PRD ${prd2} has no inbox or shipped folder, and no open phase-0 PR.`);
   const read2 = acrossFacts("", null, reader);
   const facts = { prd: prd2, shipped: false, phase0: phase02, feature: null, board: null, outbox: { questions: 0, answered: false }, ...read2 ? { across: read2.across } : {} };
-  return { facts, slices: null, prs: [] };
+  return { facts, slices: null, prs: [], running: null };
 }
 function standingsOf(own2, outbox, across, reader) {
   const questions2 = own2?.state === "OPEN" && own2.isDraft ? outbox.questions : 0;
@@ -45379,6 +45503,9 @@ function standingsOf(own2, outbox, across, reader) {
   return [...own2 === null ? [] : [standingPr(shortName8(reader.slug), own2, questions2)], ...targets2].filter((standing2) => standing2 !== null);
 }
 var shortName8 = (slug) => slug.slice(slug.indexOf("/") + 1);
+function targetSlug(name2, reader) {
+  return reader.ctx.config.plan?.targets.find((target3) => shortName8(target3.repo) === name2)?.repo ?? name2;
+}
 var reposOf2 = (slices) => [...new Set((slices ?? []).flatMap((slice) => slice.repo ? [slice.repo] : []))].sort();
 function targetPr(branch, reader) {
   try {
@@ -45422,7 +45549,7 @@ function readPrd(prd2, reader) {
     if (isUsage(error62)) throw error62;
     const planPath = reader.ctx.layout.planPath(prd2);
     const facts = { prd: prd2, shipped: false, phase0: null, feature: "unreadable", board: "unreadable", outbox: "unreadable" };
-    read2 = { facts, slices: planPath === null ? null : planSlices(join61(reader.ctx.root, planPath)), prs: [] };
+    read2 = { facts, slices: planPath === null ? null : planSlices(join61(reader.ctx.root, planPath)), prs: [], running: null };
   }
   const input2 = { prd: prd2, blockedBy: blockersOf2(prd2, reader.ctx), slices: read2.slices, ended: endedOf(read2.facts) };
   const repos = reposOf2(read2.slices);
@@ -45506,31 +45633,57 @@ function currentPlan(kept, inputs, root) {
   writeLoopPlans(root, [...kept, next2]);
   return { plan: next2, replanned: replanLine(next2) };
 }
-function followKept(prds, kept, { reader, out, json: json2, roadmap: roadmap2 }) {
-  const { verdicts, inputs, reads } = readAll2(prds, reader, roadmap2 ?? null);
-  const { plan: plan2, replanned } = currentPlan(kept, inputs, reader.ctx.root);
+function liveOf({ verdicts, inputs, reads }, gates) {
   const merged = new Map(inputs.prds.map((input2) => [input2.prd, new Set((input2.slices ?? []).filter((slice) => slice.state === "merged").map((slice) => slice.id))]));
-  const gates = roadmap2 ? gatesOf(roadmap2, reads, reader) : null;
-  const followed = followPlan(plan2, { verdicts: new Map(verdicts.map((verdict2) => [verdict2.prd, verdict2])), merged, shipped: new Set(inputs.shipped), ...gates ? { gates } : {} });
-  const ticked = { plan: plan2, replanned, followed, verdicts, held: gates ? heldOf(gates, verdicts) : [], roadmap: roadmap2?.roadmap ?? null };
+  const running = new Map([...reads].flatMap(([prd2, read2]) => read2.running === null ? [] : [[prd2, read2.running]]));
+  return {
+    verdicts: new Map(verdicts.map((verdict2) => [verdict2.prd, verdict2])),
+    merged,
+    shipped: new Set(inputs.shipped),
+    ...gates ? { gates } : {},
+    running,
+    slices: new Map(inputs.prds.map((input2) => [input2.prd, input2.slices ?? []]))
+  };
+}
+function followKept(prds, kept, { reader, out, json: json2, roadmap: roadmap2 }) {
+  const read2 = readAll2(prds, reader, roadmap2 ?? null);
+  const { plan: plan2, replanned } = currentPlan(kept, read2.inputs, reader.ctx.root);
+  const gates = roadmap2 ? gatesOf(roadmap2, read2.reads, reader) : null;
+  const live = liveOf(read2, gates);
+  const { config: config3 } = reader.ctx;
+  const pool = followSteps(plan2, live, config3.limits.parallelSteps, config3.generated ?? []);
+  const held = gates ? heldOf(gates, read2.verdicts) : [];
+  const ticked = { plan: plan2, replanned, followed: followPlan(plan2, live), pool, verdicts: read2.verdicts, held, roadmap: roadmap2?.roadmap ?? null };
   for (const line of json2 ? [JSON.stringify(tickJson(ticked), null, 2)] : tickLines(ticked)) out(line);
   return 0;
 }
-function tickLines({ plan: plan2, replanned, followed, held }) {
-  const holds2 = followed.state === "step" ? held.map((one) => `  ${one.gate === "park" ? "parked" : "held"}: PRD ${one.prd} \u2014 ${one.why}${one.link ? ` \u2014 ${one.link}` : ""}`) : [];
-  return [...replanned === null ? [] : [replanned], ...formatFollowed(plan2, followed), ...holds2];
+function poolHeld(pool, held) {
+  const gated = new Set(held.map((one) => one.prd));
+  return pool.held.filter(({ step }) => !gated.has(step.prd));
 }
-function tickJson({ plan: plan2, replanned, followed, verdicts, held, roadmap: roadmap2 }) {
+function tickLines({ plan: plan2, replanned, followed, pool, held }) {
+  const holds2 = followed.state === "step" ? held.map((one) => `  ${one.gate === "park" ? "parked" : "held"}: PRD ${one.prd} \u2014 ${one.why}${one.link ? ` \u2014 ${one.link}` : ""}`) : [];
+  const shown4 = followed.state === "step" ? followed.step : null;
+  const rest = { ...pool, steps: pool.steps.filter(({ step }) => step !== shown4), held: poolHeld(pool, held) };
+  return [...replanned === null ? [] : [replanned], ...formatFollowed(plan2, followed), ...holds2, ...formatPool(plan2, rest)];
+}
+function stepJson(step, plan2) {
+  return { step: step.step, of: plan2.steps.length, prd: step.prd, kind: step.kind, wave: step.wave, slices: step.slices, ...step.repos ? { repos: step.repos } : {} };
+}
+function tickJson({ plan: plan2, replanned, followed, pool, verdicts, held, roadmap: roadmap2 }) {
   const step = followed.state === "step" ? followed.step : null;
   return {
     plan: { version: plan2.version, steps: plan2.steps.length },
     replanned,
     stop: followed.state === "stop",
-    step: step && { step: step.step, of: plan2.steps.length, prd: step.prd, kind: step.kind, wave: step.wave, slices: step.slices, ...step.repos ? { repos: step.repos } : {} },
+    step: step && stepJson(step, plan2),
     verdict: followed.state === "step" ? followed.verdict : null,
     waiting: followed.state === "stop" ? followed.waiting : [],
     prds: verdicts,
-    ...roadmap2 === null ? {} : { roadmap: roadmap2, held }
+    steps: pool.steps.map(({ step: one, verdict: verdict2 }) => ({ ...stepJson(one, plan2), verdict: verdict2 })),
+    running: pool.running.map(({ step: one, since }) => ({ step: one.step, prd: one.prd, kind: one.kind, ...one.repos ? { repos: one.repos } : {}, since })),
+    ...roadmap2 === null ? {} : { roadmap: roadmap2 },
+    held: [...held, ...poolHeld(pool, held).map(({ step: one, why: why2 }) => ({ step: one.step, prd: one.prd, why: why2 }))]
   };
 }
 function samePrds(prds, plan2) {
