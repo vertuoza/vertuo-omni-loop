@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "trace-1",
+  "createdAt": "2026-10-08T16:05:11.098Z",
+  "payload": {
+    "actions": [
+      {
+        "name": "tap",
+        "summary": "tap link \"Name\" in \"Rank\"",
+        "target": {
+          "role": "link",
+          "name": "Name",
+          "within": "Rank"
+        }
+      }
+    ],
+    "executor": {
+      "name": "e2e-default-agent",
+      "version": "2"
+    },
+    "recordedFor": {
+      "testId": "tests/people-count.e2e.ts::PRD%201262%20%C2%B7%20People%20count::criterion%203%3A%20sorting%20by%20a%20header%20does%20not%20change%20the%20number%20the%20line%20shows",
+      "targetId": "web",
+      "instructionDigest": "45ccd3377fdd678897892fad8daa2f09966bc0c1a37f0e6cab14c3dd4646b03b",
+      "paramsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "callIndex": 0,
+      "agent": "default"
+    },
+    "summary": "Clicked the Name header in the People table. The URL became /app/workspace?sort=name#board-people and the 14 rows are now in ascending alphabetical order by name (AGENT-K, BO-BUILDER, BONNY-B, … PM-PENNY).",
+    "startPath": "/app/workspace",
+    "endPath": "/app/workspace?sort=name#board-people",
+    "endWaitMs": 16001
+  }
+}
