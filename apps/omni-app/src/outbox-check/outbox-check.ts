@@ -3,7 +3,9 @@
 //   step "in-progress"  create the check run, `in_progress`, on the head SHA — unless the base branch
 //                       has no `.omni-loop/config.yml`: then the run ends there, and nothing is posted;
 //                       or unless the pull request is not an Omni Loop feature PR: then the check is
-//                       posted already `skipped`, and the run ends there (issue 876)
+//                       posted already `skipped`, and the run ends there (issue 876) — or, on a
+//                       target feature PR (`Part of <plan repo>#<prd>`), already `success`, pointing
+//                       to the plan PR that grades its PRD (issue 1202)
 //   step "evaluate"     snapshot into /tmp + evaluate — one step, because /tmp does not survive steps
 //   step "publish"      complete the check run; rewrite the comment unless the head moved on
 //   onFailure           complete the check run as `failure` — never left `in_progress`; on a pull
@@ -39,8 +41,10 @@ import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.ts';
 import {
   changedFiles,
   checkTarget,
+  completeAsDeferred,
   completeAsFailure,
   completeAsSkipped,
+  planPrOf,
   listComments,
   readBaseConfig,
   readPull,
@@ -97,17 +101,22 @@ export function createOutboxCheck({
 
       const started = await step.run('in-progress', () => budgeted(async () => {
         const octokit = await octokitFor(installationId);
-        const { active, name, gated, reason } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
+        const { active, name, gated, reason, deferTo } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
         if (!active) return null;
+        if (!gated && deferTo) {
+          const planPr = await planPrOf(octokit, deferTo);
+          const [checkRunId] = await completeAsDeferred(octokit, { owner, repo, headSha, name, plan: deferTo, planPr });
+          return { checkRunId, name, skipped: true as const, conclusion: 'success' as const };
+        }
         if (!gated) {
           const [checkRunId] = await completeAsSkipped(octokit, { owner, repo, headSha, name, reason });
-          return { checkRunId, name, skipped: true as const };
+          return { checkRunId, name, skipped: true as const, conclusion: 'skipped' as const };
         }
         const checkRunId = await startCheck(octokit, { owner, repo, headSha, name });
         return { checkRunId, name, skipped: false as const };
       }));
       if (!started) return { ...SILENT };
-      if (started.skipped) return { checkRunId: started.checkRunId, name: started.name, conclusion: 'skipped' };
+      if (started.skipped) return { checkRunId: started.checkRunId, name: started.name, conclusion: started.conclusion };
 
       const verdict = await step.run('evaluate', () =>
         budgeted(() => notRetriedPastBound(async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha }))),
@@ -207,7 +216,7 @@ async function evaluateAt(
 /**
  * The failure handler: once the run has failed after its retries, complete the check as `failure`
  * with the reason ("omni-loop could not evaluate: …"); on a pull request the gate does not run on,
- * `skipped` instead (issue 876). Inngest hands it the original event under
+ * `skipped` instead (issue 876), or `success` on a target feature PR (issue 1202). Inngest hands it the original event under
  * `event.data.event` and the final error.
  */
 export function createFailureHandler({ octokitFor }: { octokitFor: OctokitFor<GitHubClient> }) {
@@ -219,10 +228,7 @@ export function createFailureHandler({ octokitFor }: { octokitFor: OctokitFor<Gi
       // The failure may be GitHub itself: what the pull request is stays unknown.
     }
     if (target && !target.active) return { ...SILENT };
-    if (target && !target.gated) {
-      const checkRunIds = await completeAsSkipped(octokit, { owner, repo, headSha, name: target.name, reason: target.reason });
-      return { checkRunIds, name: target.name, conclusion: 'skipped' };
-    }
+    if (target && !target.gated) return completeUngated(octokit, { owner, repo, headSha, target });
     // Gated, or unknown: an open check run of this name was started by step "in-progress", on a gated
     // pull request only, so failing it is safe. A new failed check is created only once the pull
     // request is known to be gated: never red on one that is not (issue 876).
@@ -240,6 +246,23 @@ export function createFailureHandler({ octokitFor }: { octokitFor: OctokitFor<Gi
     if (checkRunIds.length === 0) return { posted: false, reason: UNKNOWN_PR };
     return { checkRunIds, name, reason };
   });
+}
+
+/**
+ * The failure handler's completion of a pull request the gate does not run on: `success` pointing to
+ * the plan PR on a target feature PR (issue 1202), `skipped` on any other (issue 876).
+ */
+async function completeUngated(
+  octokit: GitHubClient,
+  { owner, repo, headSha, target }: { owner: string; repo: string; headSha: string; target: CheckTarget },
+) {
+  const { name, reason, deferTo } = target;
+  if (deferTo) {
+    const checkRunIds = await completeAsDeferred(octokit, { owner, repo, headSha, name, plan: deferTo, planPr: await planPrOf(octokit, deferTo) });
+    return { checkRunIds, name, conclusion: 'success' };
+  }
+  const checkRunIds = await completeAsSkipped(octokit, { owner, repo, headSha, name, reason });
+  return { checkRunIds, name, conclusion: 'skipped' };
 }
 
 /** What a failure handler's work is handed: the installation's GitHub, the failed run's event data, the reason. */

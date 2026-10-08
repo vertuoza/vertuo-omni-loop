@@ -155,7 +155,9 @@ each target row, the plan repository's own row excepted:
    `gh pr create --repo <slug> --draft --base <target default branch> --head <feature branch> --body-file <file>`.
    Its body starts with `Part of <plan slug>#<n>` (the plan repository's `repo.slug`), lists that
    target's slices as a **Slices** checklist, and ends with the `omni sign footer` line. Labels
-   follow `/omni:pr --repo`: one missing there is a human step, never created.
+   follow `/omni:pr --repo`: one missing there is a human step, never created. That `Part of` line
+   is what makes the omni-loop App pass the target's outbox check, linking the plan PR, rather
+   than grade the PRD there: the one gate is the plan PR's (`/omni:pr --repo`).
 
 **A plan of more than one landing** (`node .omni-loop/bin/omni.mjs plan landings <n> --json` lists
 more than one) is delivered per target as that target's own chain of landings, each built as

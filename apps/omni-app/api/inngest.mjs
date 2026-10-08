@@ -1478,8 +1478,10 @@ var labelName2 = (label2) => typeof label2 === "string" ? label2 : label2.name ?
 var PullSchema = z10.looseObject({
   base: z10.looseObject({ ref: z10.string(), sha: z10.string() }),
   head: z10.looseObject({ ref: z10.string(), sha: z10.string() }),
-  labels: z10.array(Label).nullish()
+  labels: z10.array(Label).nullish(),
+  body: z10.string().nullish()
 });
+var PullsPageSchema = z10.array(z10.looseObject({ number: z10.number(), body: z10.string().nullish() }));
 var PullHeadSchema = z10.looseObject({ head: z10.looseObject({ sha: z10.string() }) });
 var IssueSchema = z10.looseObject({
   state: z10.string(),
@@ -3692,6 +3694,28 @@ function featurePrd(pr, config, foldersIn) {
   if ("skip" in feature) return feature;
   return prdOfTopic(feature.topic, prdDirs(config).flatMap(foldersIn), config);
 }
+var CLOSES = /Closes #\d+/;
+var PART_OF = /^Part of ([\w.-]+\/[\w.-]+)#(\d+)\b/m;
+function planPrdOf(body, slug) {
+  if (CLOSES.test(body)) return null;
+  const match = PART_OF.exec(body);
+  if (!match) return null;
+  const [, repo = "", prd = ""] = match;
+  if (repo.toLowerCase() === slug.toLowerCase()) return null;
+  return { repo, prd: parsePrd(prd) };
+}
+function deferredOutput(plan, planPr) {
+  const where = planPr === null ? `[${plan.repo}#${plan.prd}](https://github.com/${plan.repo}/issues/${plan.prd}), the PRD (its plan PR could not be read from here)` : `[${plan.repo}#${planPr}](https://github.com/${plan.repo}/pull/${planPr}), the plan PR`;
+  return {
+    title: `PRD ${plan.prd} is graded on ${plan.repo}'s plan PR`,
+    summary: [
+      `This pull request is part of ${plan.repo}'s PRD ${plan.prd}, whose outbox lives in that repository, not here.`,
+      `Its outbox check is graded on ${where}.`,
+      "",
+      "Mode: deferred. This check passes here without following the plan PR's check: read that one before merging."
+    ].join("\n")
+  };
+}
 function folderNames(absolute) {
   if (!existsSync11(absolute)) return [];
   return readdirSync5(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
@@ -4057,7 +4081,8 @@ async function readPull2(octokit, { owner, repo, prNumber }) {
     baseSha: data.base.sha,
     headRef: data.head.ref,
     headSha: data.head.sha,
-    labels: (data.labels ?? []).map(labelName2).filter((name) => name !== void 0)
+    labels: (data.labels ?? []).map(labelName2).filter((name) => name !== void 0),
+    body: data.body ?? ""
   };
 }
 async function readBaseConfig(octokit, { owner, repo, baseSha, dest, ignoreUnknownKeys = false }) {
@@ -4088,13 +4113,28 @@ async function checkTarget(octokit, { owner, repo, prNumber, headSha }) {
   if (!config && !error) return { active: false, name: DEFAULT_CHECK_NAME, gated: false, reason: null };
   if (!config) return { active: true, name: DEFAULT_CHECK_NAME, gated: true, reason: null };
   const name = config.ci.outboxContext;
+  const deferTo = pr.baseRef === config.repo.defaultBranch ? planPrdOf(pr.body, `${owner}/${repo}`) : null;
   const feature = featureTopic(pr, config);
-  if ("skip" in feature) return { active: true, name, gated: false, reason: feature.skip };
+  if ("skip" in feature) return { active: true, name, gated: false, reason: feature.skip, deferTo };
   const ref = headSha ?? pr.headSha;
   const names = [];
   for (const dir of prdDirs(config)) names.push(...await folderNamesAt(octokit, { owner, repo, ref, dir }));
   const prd = prdOfTopic(feature.topic, names, config);
-  return "skip" in prd ? { active: true, name, gated: false, reason: prd.skip } : { active: true, name, gated: true, reason: null };
+  return "skip" in prd ? { active: true, name, gated: false, reason: prd.skip, deferTo } : { active: true, name, gated: true, reason: null };
+}
+async function planPrOf(octokit, plan) {
+  const [owner = "", repo = ""] = plan.repo.split("/");
+  const closes = new RegExp(`Closes #${plan.prd}(?!\\d)`);
+  try {
+    const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls", { owner, repo, state: "open", per_page: PER_PAGE });
+    return PullsPageSchema.parse(data).find((pull) => closes.test(pull.body ?? ""))?.number ?? null;
+  } catch (error) {
+    if (statusOf3(error) === 403 || statusOf3(error) === 404) return null;
+    throw error;
+  }
+}
+function statusOf3(error) {
+  return typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : null;
 }
 async function folderNamesAt(octokit, { owner, repo, ref, dir }) {
   const treeAt = async (treeSha2) => TreeSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/git/trees/{tree_sha}", { owner, repo, tree_sha: treeSha2 })).data).tree;
@@ -4148,6 +4188,9 @@ async function completeAsFailure(octokit, {
 }
 async function completeAsSkipped(octokit, { owner, repo, headSha, name, reason: reason2 }) {
   return completeOpen(octokit, { owner, repo, headSha, name, conclusion: "skipped", output: skippedOutput(reason2), create: true });
+}
+async function completeAsDeferred(octokit, { owner, repo, headSha, name, plan, planPr }) {
+  return completeOpen(octokit, { owner, repo, headSha, name, conclusion: "success", output: deferredOutput(plan, planPr), create: true });
 }
 function skippedOutput(reason2) {
   return { title: NOT_ACTIVE_ON_PR, summary: reason2 ?? NOT_ACTIVE_ON_PR };
@@ -4292,17 +4335,22 @@ function createOutboxCheck({
       const budgeted = (work) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log, work);
       const started = await step.run("in-progress", () => budgeted(async () => {
         const octokit = await octokitFor(installationId);
-        const { active, name, gated, reason: reason2 } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
+        const { active, name, gated, reason: reason2, deferTo } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
         if (!active) return null;
+        if (!gated && deferTo) {
+          const planPr = await planPrOf(octokit, deferTo);
+          const [checkRunId2] = await completeAsDeferred(octokit, { owner, repo, headSha, name, plan: deferTo, planPr });
+          return { checkRunId: checkRunId2, name, skipped: true, conclusion: "success" };
+        }
         if (!gated) {
           const [checkRunId2] = await completeAsSkipped(octokit, { owner, repo, headSha, name, reason: reason2 });
-          return { checkRunId: checkRunId2, name, skipped: true };
+          return { checkRunId: checkRunId2, name, skipped: true, conclusion: "skipped" };
         }
         const checkRunId = await startCheck(octokit, { owner, repo, headSha, name });
         return { checkRunId, name, skipped: false };
       }));
       if (!started) return { ...SILENT };
-      if (started.skipped) return { checkRunId: started.checkRunId, name: started.name, conclusion: "skipped" };
+      if (started.skipped) return { checkRunId: started.checkRunId, name: started.name, conclusion: started.conclusion };
       const verdict = await step.run(
         "evaluate",
         () => budgeted(() => notRetriedPastBound(async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha })))
@@ -4381,10 +4429,7 @@ function createFailureHandler({ octokitFor }) {
     } catch {
     }
     if (target2 && !target2.active) return { ...SILENT };
-    if (target2 && !target2.gated) {
-      const checkRunIds2 = await completeAsSkipped(octokit, { owner, repo, headSha, name: target2.name, reason: target2.reason });
-      return { checkRunIds: checkRunIds2, name: target2.name, conclusion: "skipped" };
-    }
+    if (target2 && !target2.gated) return completeUngated(octokit, { owner, repo, headSha, target: target2 });
     if (target2) {
       const checkRunIds2 = await completeAsFailure(octokit, { owner, repo, headSha, name: target2.name, reason: reason2 });
       return { checkRunIds: checkRunIds2, name: target2.name, reason: reason2 };
@@ -4398,6 +4443,15 @@ function createFailureHandler({ octokitFor }) {
     if (checkRunIds.length === 0) return { posted: false, reason: UNKNOWN_PR };
     return { checkRunIds, name, reason: reason2 };
   });
+}
+async function completeUngated(octokit, { owner, repo, headSha, target: target2 }) {
+  const { name, reason: reason2, deferTo } = target2;
+  if (deferTo) {
+    const checkRunIds2 = await completeAsDeferred(octokit, { owner, repo, headSha, name, plan: deferTo, planPr: await planPrOf(octokit, deferTo) });
+    return { checkRunIds: checkRunIds2, name, conclusion: "success" };
+  }
+  const checkRunIds = await completeAsSkipped(octokit, { owner, repo, headSha, name, reason: reason2 });
+  return { checkRunIds, name, conclusion: "skipped" };
 }
 function onFailedRun(octokitFor, work) {
   return async ({ event, error, step }) => {
@@ -9662,12 +9716,12 @@ async function readOrRefused(read) {
   try {
     return { value: await read(), status: null };
   } catch (error) {
-    const status = statusOf3(error);
+    const status = statusOf4(error);
     if (typeof status === "number" && UNREADABLE.has(status)) return { value: null, status };
     throw error;
   }
 }
-function statusOf3(error) {
+function statusOf4(error) {
   return typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
 }
 
@@ -10631,7 +10685,7 @@ async function unlessMissing(statuses, read) {
   try {
     return await read();
   } catch (error) {
-    if (statuses.includes(statusOf4(error))) return null;
+    if (statuses.includes(statusOf5(error))) return null;
     throw error;
   }
 }
@@ -10641,7 +10695,7 @@ function unique2(values) {
 function and2(items) {
   return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
 }
-function statusOf4(error) {
+function statusOf5(error) {
   return typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
 }
 
@@ -11004,7 +11058,7 @@ async function readOrRefused2(fn) {
   try {
     return { value: await fn(), status: null };
   } catch (error) {
-    const status = statusOf5(error);
+    const status = statusOf6(error);
     if (typeof status === "number" && UNREADABLE2.has(status)) return { value: null, status };
     throw error;
   }
@@ -11065,7 +11119,7 @@ function uniqueBy(items, key) {
   const seen = /* @__PURE__ */ new Set();
   return items.filter((item) => !seen.has(key(item)) && seen.add(key(item)));
 }
-function statusOf5(error) {
+function statusOf6(error) {
   return typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
 }
 
@@ -11370,7 +11424,7 @@ async function readOrNull2(read) {
   try {
     return await read();
   } catch (error) {
-    if (UNREADABLE3.has(statusOf6(error))) return null;
+    if (UNREADABLE3.has(statusOf7(error))) return null;
     throw error;
   }
 }
@@ -11464,7 +11518,7 @@ async function listReviewThreads(octokit, { owner, repo, number }) {
   }
   return threads;
 }
-function statusOf6(error) {
+function statusOf7(error) {
   return typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
 }
 
@@ -11595,7 +11649,7 @@ var timeline = Object.freeze({
         }).then(({ data }) => parseGitHub(ListSchema, data, EVENTS))
       );
     } catch (error) {
-      const status = statusOf7(error);
+      const status = statusOf8(error);
       if (status === 404 || status === 403) return { readyAt: null };
       throw error;
     }
@@ -11702,7 +11756,7 @@ function median(values) {
   const at2 = (index) => sorted[index] ?? 0;
   return sorted.length % 2 === 1 ? at2(middle) : Math.round((at2(middle - 1) + at2(middle)) / 2);
 }
-function statusOf7(error) {
+function statusOf8(error) {
   return typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
 }
 

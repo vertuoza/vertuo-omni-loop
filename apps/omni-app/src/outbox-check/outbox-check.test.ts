@@ -278,6 +278,54 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
     });
   }
 
+  describe('a target feature PR (issue 1202)', () => {
+    const targetPr = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/crew-api', sha: 'head1' }, body: 'Part of acme/plan#8' };
+    const planPulls = { 'acme/plan': [{ number: 37, body: 'Closes #8' }] };
+
+    it('passes before any gate read, pointing to the plan PR', async () => {
+      const github = featureGitHub({ pull: targetPr, others: planPulls });
+      const { result } = await engine(github).execute();
+      expect(result).toMatchObject({ conclusion: 'success' });
+      expect(github.state.checkRuns).toEqual([expect.objectContaining({ name: 'outbox', status: 'completed', conclusion: 'success' })]);
+      const reads = github.state.requests.map((r) => r.route);
+      expect(reads).not.toContain('GET /repos/{owner}/{repo}/compare/{basehead}');
+      expect(reads).not.toContain('GET /repos/{owner}/{repo}/issues/{issue_number}/comments');
+    });
+
+    it('the failure handler, run with no check yet, passes it too — never failure, never skipped', async () => {
+      const github = featureGitHub({ pull: targetPr, others: planPulls });
+      await createFailureHandler({ octokitFor: () => github.octokit })(failed(RATE_LIMIT));
+      expect(github.state.checkRuns).toEqual([expect.objectContaining({ status: 'completed', conclusion: 'success' })]);
+    });
+
+    it('a sub-PR in the target, into its feature branch, stays skipped whatever its body says', async () => {
+      const github = featureGitHub({ pull: { ...targetPr, base: { ref: 'feat/crew-api', sha: 'base1' }, head: { ref: 'feat/crew-api--s1', sha: 'head1' } }, others: planPulls });
+      const { result } = await engine(github).execute();
+      expect(result).toMatchObject({ conclusion: 'skipped' });
+    });
+
+    it('a body naming this same repository stays skipped, as today', async () => {
+      const github = featureGitHub({ pull: { ...targetPr, body: 'Part of acme/widgets#8' } });
+      const { result } = await engine(github).execute();
+      expect(result).toMatchObject({ conclusion: 'skipped' });
+    });
+
+    it('a body saying Closes #<n> too is gated here: Closes wins', async () => {
+      const github = featureGitHub({ pull: { ...targetPr, head: { ref: 'feat/widget', sha: 'head1' }, body: 'Closes #42\nPart of acme/plan#8' }, others: planPulls });
+      const { result } = await engine(github).execute();
+      expect(result).toMatchObject({ conclusion: 'failure' });
+    });
+
+    it('a GitHub error other than 403 or 404 on the plan repository is not swallowed', async () => {
+      const github = featureGitHub({ pull: targetPr });
+      const broken = { request: (route: string, params?: Params) =>
+        route === 'GET /repos/{owner}/{repo}/pulls' ? Promise.reject(Object.assign(new Error('boom'), { status: 500 })) : github.octokit.request(route, params) };
+      const fn = createOutboxCheck({ client: inngest, octokitFor: () => broken });
+      const { error } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
+      expect(error).toBeDefined();
+    });
+  });
+
   it('the failure handler posts nothing when it cannot tell what the pull request is', async () => {
     const github = featureGitHub({ pull: dependabotPr });
     const down = { request: (route: string, params?: Params) => {
