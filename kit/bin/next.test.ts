@@ -562,7 +562,7 @@ describe('omni next --roadmap', () => {
   function prereqRepo(states: Record<string, 'ok' | 'waits' | 'ticked'> | null) {
     const root = roadmapRepo();
     appendFileSync(join(root, '.omni-loop/delivery/inbox/roadmaps/0012-crew/roadmap.md'), `\n${PREREQS}`);
-    execFileSync('git', ['commit', '-qam', 'prerequisites'], { cwd: root });
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qam', 'prerequisites'], { cwd: root });
     if (states !== null) {
       const rows = Object.entries(states).map(([id, state]) => ({ id, state, detail: state === 'waits' ? 'docker info failed' : null }));
       writeLastResult(root, { roadmap: parseIssue(12), machine: hostname(), checkedAt: NOW, rows });
