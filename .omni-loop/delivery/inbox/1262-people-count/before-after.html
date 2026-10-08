@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD 1262 — before and after</title>
+<style>
+:root{--bg:#fff;--fg:#1b1f24;--muted:#5b6670;--line:#d7dce1;--card:#f6f8fa;--mark:#0a7a3e}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1317;--fg:#e8ecef;--muted:#9aa5ae;--line:#2b333b;--card:#161b21;--mark:#4cc38a}}
+body{margin:0;padding:24px 16px;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+h1{font-size:1.25rem;margin:0 0 4px}p.lead{color:var(--muted);margin:0 0 20px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px}
+.card h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px}
+.card h3{margin:0 0 6px;font-size:1rem}.count{margin:0 0 8px;color:var(--mark);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left}
+</style></head><body>
+<h1>The People table says how many people it lists</h1>
+<p class="lead">PRD 1262 · a test PRD for the e2e beta · /app/workspace</p>
+<div class="cols">
+<section class="card" aria-label="Today"><h2>Today</h2><h3>People</h3>
+<table><tr><th>Rank</th><th>Name</th><th>Points</th></tr><tr><td>1</td><td>Ada</td><td>420</td></tr><tr><td>2</td><td>Grace</td><td>390</td></tr><tr><td>3</td><td>Linus</td><td>310</td></tr></table></section>
+<section class="card" aria-label="After"><h2>After</h2><h3>People</h3><p class="count">3 people</p>
+<table><tr><th>Rank</th><th>Name</th><th>Points</th></tr><tr><td>1</td><td>Ada</td><td>420</td></tr><tr><td>2</td><td>Grace</td><td>390</td></tr><tr><td>3</td><td>Linus</td><td>310</td></tr></table></section>
+</div></body></html>
