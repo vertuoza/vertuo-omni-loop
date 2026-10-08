@@ -235,6 +235,7 @@ function People({ people, title, note, table }: { people: Read<PersonRow[]>; tit
       <h2 id="board-people">{title}</h2>
       {people === UNREADABLE ? <CouldNotLoad /> : (
         <>
+          <p className="board-count">{people.length === 1 ? '1 person' : `${people.length} people`}</p>
           <div className="board-scroll">
             <table className="board-table">
               <thead>
