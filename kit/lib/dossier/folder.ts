@@ -11,6 +11,12 @@
 // `<delivery>/visual/<nnnn>-<slug>/` gives its `before-after.html` and each `variations-r<k>.html`, a
 // round each in numeric order; a bug fix's `<delivery>/bugs/<nnnn>-<slug>/` gives its `bug.md` as its
 // record. Its title is its issue's without the `Visual: ` or `Bug: ` prefix, else the folder's topic.
+//
+// A concept's folder (PRD 1272) is read by `readConceptFolder`: `<delivery>/inbox/concepts/<nnnn>-<slug>/`
+// gives its `concept.md` as its record, its `vision.html` as its vision tour, each `board-r<k>.html` as a
+// board, a round each in numeric order, and its `debate.md`. Its title is concept.md's front-matter
+// `title`. A concept.md the kit's parser refuses, missing or naming another concept, refuses the whole
+// folder, so nothing is sent.
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -18,6 +24,7 @@ import { parseFrontMatterLines } from '../front-matter.ts';
 import { parseFolderName } from '../layout.ts';
 import { defined } from '../narrow.ts';
 import type { IssueNumber, PrdNumber } from '../ids.ts';
+import { parseConcept } from '../concept/parse.ts';
 import type { Layout } from '../layout.ts';
 import { VOICE_FILE } from '../voice/voice.ts';
 
@@ -140,21 +147,33 @@ export function readFixFolder(
   issue: IssueNumber,
   { issueTitle = null }: { issueTitle?: string | null } = {},
 ): FixFolder | null {
-  const root = `${ctx.config.paths.delivery}/${FIX_ROOTS[kind]}`;
-  const absolute = join(ctx.root, root);
+  const found = issueFolder(ctx.root, `${ctx.config.paths.delivery}/${FIX_ROOTS[kind]}`, issue);
+  if (!found) return null;
+  const { artifacts, tooLarge } = readFiles(ctx.root, found.dir, fixFiles(kind, readdirSync(join(ctx.root, found.dir))));
+  return { issue, kind, dir: found.dir, title: fixTitle(issueTitle, found.topic), artifacts, tooLarge };
+}
+
+/** The first folder under `root` named for issue `issue` (`<nnnn>-<topic>`): its path and its topic; null
+ * when there is none. */
+function issueFolder(repoRoot: string, root: string, issue: IssueNumber): { dir: string; topic: string } | null {
+  const absolute = join(repoRoot, root);
   if (!existsSync(absolute)) return null;
   const prefix = `${String(issue).padStart(4, '0')}-`;
   const name = readdirSync(absolute, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length)
     .map((entry) => entry.name)
     .sort()[0];
-  if (!name) return null;
-  const dir = `${root}/${name}`;
-  const artifacts: FixArtifact[] = [];
+  return name ? { dir: `${root}/${name}`, topic: name.slice(prefix.length) } : null;
+}
+
+/** `files` of folder `dir`, each whole with its hash and size (a round carries its number); a file over
+ * 512 KiB is named in `tooLarge` instead. */
+function readFiles<K extends string>(repoRoot: string, dir: string, files: readonly { kind: K; name: string; round?: number }[]) {
+  const artifacts: { kind: K; path: string; content: string; sha256: string; bytes: number; round?: number }[] = [];
   const tooLarge: TooLarge[] = [];
-  for (const file of fixFiles(kind, readdirSync(join(ctx.root, dir)))) {
+  for (const file of files) {
     const path = `${dir}/${file.name}`;
-    const raw = readFileSync(join(ctx.root, path));
+    const raw = readFileSync(join(repoRoot, path));
     if (raw.length > ARTIFACT_MAX_BYTES) {
       tooLarge.push({ kind: file.kind, path, bytes: raw.length });
       continue;
@@ -165,6 +184,58 @@ export function readFixFolder(
       ...(file.round ? { round: file.round } : {}),
     });
   }
-  const topic = name.slice(prefix.length);
-  return { issue, kind, dir, title: fixTitle(issueTitle, topic), artifacts, tooLarge };
+  return { artifacts, tooLarge };
+}
+
+/** The kinds of artifact a concept's dossier carries (PRD 1272). */
+export type ConceptArtifactKind = 'concept-record' | 'vision' | 'board' | 'debate';
+
+/** One artifact of a concept's folder; a board carries its round. */
+export type ConceptArtifact = { kind: ConceptArtifactKind; path: string; content: string; sha256: string; bytes: number; round?: number };
+
+/** A concept's folder as its dossier is pushed. */
+export type ConceptFolder = { issue: IssueNumber; dir: string; title: string; artifacts: ConceptArtifact[]; tooLarge: TooLarge[] };
+
+/** A concept's folder read: its folder, or why its concept.md refuses it. */
+export type ConceptRead = { ok: true; folder: ConceptFolder } | { ok: false; dir: string; errors: string[] };
+
+const RECORD = 'concept.md';
+const BOARD = /^board-r([1-9]\d*)\.html$/;
+
+/** The files of a concept's folder that are sent, in the order they are sent. */
+function conceptFiles(names: readonly string[]): { kind: ConceptArtifactKind; name: string; round?: number }[] {
+  const boards = names
+    .flatMap((name) => {
+      const match = BOARD.exec(name);
+      return match ? [{ kind: 'board' as const, name, round: Number(match[1]) }] : [];
+    })
+    .sort((a, b) => a.round - b.round);
+  return [
+    { kind: 'concept-record' as const, name: RECORD },
+    ...(names.includes('vision.html') ? [{ kind: 'vision' as const, name: 'vision.html' }] : []),
+    ...boards,
+    ...(names.includes('debate.md') ? [{ kind: 'debate' as const, name: 'debate.md' }] : []),
+  ];
+}
+
+/**
+ * Concept `issue`'s folder under `<delivery>/inbox/concepts/`, as its dossier is pushed (PRD 1272): its
+ * record, its vision tour, each board a round in numeric order and its debate, whole with their hashes and
+ * sizes, and its title, concept.md's front-matter `title`. A file over 512 KiB is named in `tooLarge` and
+ * not sent. A concept.md missing, refused by the parser, or naming another concept refuses the folder,
+ * every fault named. Null when the issue has no concept folder.
+ */
+export function readConceptFolder(ctx: { root: string; layout: Layout }, issue: IssueNumber): ConceptRead | null {
+  const found = issueFolder(ctx.root, ctx.layout.dirs.concepts, issue);
+  if (!found) return null;
+  const { dir } = found;
+  const names = readdirSync(join(ctx.root, dir));
+  if (!names.includes(RECORD)) return { ok: false, dir, errors: [`${dir} has no ${RECORD}.`] };
+  const parsed = parseConcept(readFileSync(join(ctx.root, dir, RECORD), 'utf8'));
+  if (!parsed.ok) return { ok: false, dir, errors: parsed.errors };
+  if (parsed.record.concept !== Number(issue)) {
+    return { ok: false, dir, errors: [`${RECORD} is concept #${parsed.record.concept}, not #${Number(issue)}.`] };
+  }
+  const { artifacts, tooLarge } = readFiles(ctx.root, dir, conceptFiles(names));
+  return { ok: true, folder: { issue, dir, title: parsed.record.title.slice(0, TITLE_MAX), artifacts, tooLarge } };
 }
