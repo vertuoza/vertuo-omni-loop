@@ -61,6 +61,21 @@ and leaves a file that is not valid JSON as it is. A person who wants their own 
 fetches and never waits on GitHub (the slices come from a board refreshed in the background at most
 once a minute), and it always exits `0`. Deleting the key switches it off.
 
+**The band** (the HUD) shows what the session is on in up to three rows above the prompt: a loop or
+roadmap it drives on top, with the roadmap's merged count; then the PRD, bug or visual fix it works
+on, with its stage and the slices being built (or, while a loop runs, the step it is doing); then
+links to open with one click: the PRD's page, its feature PR and its phase-0 PR while open, a fix's
+page and PR, the roadmap's page. It hides itself while the session is on nothing. It is the
+`omni-hud` plugin of the kit's marketplace, beside `omni`: `omni init` adds
+`"omni-hud@omni-loop": true` to `enabledPlugins` in the committed `.claude/settings.json`, by the same
+rules as the status line (the file created when missing, every other key kept, a value set by
+anyone else never touched). Typing `/omni-hud` hides the band for you, in this and later sessions,
+and typing it again shows it; setting the line to `false` removes it for the repository, and the
+status line stays. The band and the status line's second line only draw `omni now`, which any agent
+or person can run: it prints what the session is on (the headline, the work and its stage, what is
+being done now, and the links), `--json` prints the same as `{ "headline", "work", "doing" }`, with
+each one `null` when there is nothing. It reads files only, never the network, and always exits `0`.
+
 **Dossiers** keep each PRD's `spec.md`, `plan.md` and `before-after.html` on the same page, every
 version of each, with the questions that shaped it, for the whole workspace to read.
 `omni dossier open "<title>"` opens a draft for an idea and prints its link;

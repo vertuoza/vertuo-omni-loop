@@ -650,8 +650,11 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'roadmap',
     kind: 'command',
     who: 'skills',
-    usage: ['omni roadmap check [<n>]', 'omni roadmap push <n>', 'omni roadmap answer <n> <question> "<answer>"'],
-    summary: 'grade, push or answer the roadmaps of the inbox',
+    usage: [
+      'omni roadmap check [<n>]', 'omni roadmap push <n>', 'omni roadmap answer <n> <question> "<answer>"',
+      'omni roadmap prereqs <n> [--fix] [--json]', 'omni roadmap tick <n> <id>',
+    ],
+    summary: 'grade, push, answer or check the prerequisites of the roadmaps of the inbox',
     detail:
       "check grades every roadmap under {inbox}roadmaps/, or roadmap n alone: a milestone's PRDs, each " +
       'with its blockers, the why of each, and its wave. It refuses a table that does not parse, an id ' +
@@ -666,7 +669,15 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'never holds up the loop: a 5-second limit and one sign-in refresh, and anything that stops it ' +
       'exits 1 with one line (off, no sign-in, github unreachable, unreachable or refused). answer ' +
       "posts a person's answer to one question as a comment on the roadmap's issue, with the marker " +
-      "push reads the answers back from; the roadmap's page writes the same line.",
+      "push reads the answers back from; the roadmap's page writes the same line. prereqs runs " +
+      "roadmap n's Prerequisites rows on this machine, each check within 30 seconds (one that times " +
+      'out or crashes is not ok), with --fix the agent rows\' fixes once, and prints one line per row ' +
+      'grouped by category: ok, fixed, ticked, or waits on you with the command of its card (--json ' +
+      "prints the result instead). It keeps the result as this machine's last and pushes it to the " +
+      "roadmap's page with the machine's name and the time; a page it cannot reach is one line and " +
+      'never changes the exit: 0 when every row is ok, fixed or ticked, 1 otherwise. tick posts the ' +
+      "comment that marks a person row done on the roadmap's issue; the page's Mark as done posts the " +
+      'same one.',
   },
   {
     name: 'rework',
@@ -809,6 +820,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'and in the outbox its wave and slices. It never fetches, never calls GitHub and always exits ' +
       "0. --refresh is the background half: it rebuilds a PRD's board, as omni board does, into a " +
       'file the status line reads.',
+  },
+  {
+    name: 'now',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni now [--json] [--stdin] [--session <id>]'],
+    summary: 'what this Claude session is on now, and the slices being built',
+    detail:
+      'The PRD this session works on, from its branch or else from the last command that named ' +
+      'one, its stage (building while a slice is not merged), and the slices in flight and stuck by ' +
+      'id and name. --json prints the same as one document, for the status line, the omni-hud band ' +
+      "or any other agent. --stdin reads the session's folder and id from Claude Code's status line " +
+      'JSON, --session names the session. It reads only this computer: it never fetches, never calls ' +
+      'GitHub, writes nothing and always exits 0.',
   },
 
   // Skills you type in Claude. Their order is the overview's.

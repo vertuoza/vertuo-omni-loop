@@ -107,11 +107,23 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 47 commands and the 31 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(47);
+  it('holds the 48 commands and the 31 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(48);
     expect(skillFolders()).toHaveLength(31);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(47);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(48);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(31);
+  });
+
+  it('names omni roadmap prereqs and omni roadmap tick, with what each does (PRD 1218)', () => {
+    const command = ENTRIES.find((e) => e.kind === 'command' && e.name === 'roadmap');
+    assertDefined(command, 'roadmap');
+    expect(command.usage).toEqual([
+      'omni roadmap check [<n>]', 'omni roadmap push <n>', 'omni roadmap answer <n> <question> "<answer>"',
+      'omni roadmap prereqs <n> [--fix] [--json]', 'omni roadmap tick <n> <id>',
+    ]);
+    for (const words of [/\bprereqs runs\b/, /grouped by category/, /waits on you/, /--fix/, /machine/, /\btick posts\b/, /person row/]) {
+      expect(command.detail, String(words)).toMatch(words);
+    }
   });
 
   it('lists /omni:roadmap after /omni:mega-brainstorm and /omni:mega-roadmap after it, each with its drive line (PRD 1162)', () => {

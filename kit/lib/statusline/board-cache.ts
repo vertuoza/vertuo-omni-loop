@@ -2,8 +2,9 @@
 // in the main checkout, so that the status line itself never waits on GitHub (the spec's D5 and D12).
 //
 // - The file is `.omni-loop/local/statusline/board-<n>.json`, in the repository's main checkout,
-//   holding `{ "at": "<iso time>", "slices": [{ "id", "wave", "state" }] }` after a refresh that
-//   worked, or `{ "at": "<iso time>", "error": "<one line>" }` after one that failed. The local
+//   holding `{ "at": "<iso time>", "slices": [{ "id", "wave", "state", "name" }] }` after a refresh
+//   that worked (`name`, PRD 1208: the plan's slice column cut at its first full stop, left out when
+//   empty; a board of PRD 324's shape, with none, still reads), or `{ "at": "<iso time>", "error": "<one line>" }` after one that failed. The local
 //   folder carries its own `.gitignore` (`*`), as ask mode's does: nothing in it is ever committed.
 // - **Shown** when it holds slices and its `at` is under 10 minutes old. An error, a missing file or
 //   an older board shows none. A file whose `at` cannot be read reads as missing; one whose slices
@@ -23,16 +24,28 @@ import type { SpawnOptions } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { z } from 'zod';
 import { LOCAL_DIR } from '../ask/local-state.ts';
 import { BoardFileSchema, LockFileSchema } from './schema.ts';
 import type { CachedSlice } from './schema.ts';
 import type { PrdNumber } from '../ids.ts';
 
+/** A slice of a cached board with its name, when the board keeps one (PRD 1208). */
+export type NamedSlice = CachedSlice & { name?: string };
+
 /** A PRD's cached board, `at` in milliseconds: its slices after a refresh that worked, else its error. */
-export type Board = { at: number; slices: CachedSlice[]; error?: undefined } | { at: number; error: string; slices?: undefined };
+export type Board = { at: number; slices: NamedSlice[]; error?: undefined } | { at: number; error: string; slices?: undefined };
 
 /** A slice as a refresh writes it: one of a plan with no `wave` column writes `null`, which reads back as no slices. */
-type WrittenSlice = { id: string; wave: number | null; state: string };
+type WrittenSlice = { id: string; wave: number | null; state: string; name?: string };
+
+/** A slice as the refresh is handed it: a board row, whose `title` is the plan's slice column. */
+type BuiltSlice = { id: string; wave: number | null; state: string; title?: string | undefined };
+
+/** The names a board file keeps, slice by slice: a name that is not text reads as none. */
+const SliceNamesSchema = z.object({
+  slices: z.array(z.object({ name: z.string().min(1).optional().catch(undefined) }).catch({})).catch([]),
+});
 
 /** An entry as a refresh writes it. */
 type WrittenEntry = { at: string; slices: WrittenSlice[] } | { at: string; error: string };
@@ -76,8 +89,25 @@ export function readBoard(root: string, prd: PrdNumber): Board | null {
   const at = Date.parse(parsed.data.at);
   if (Number.isNaN(at)) return null;
   const { slices, error } = parsed.data;
-  if (slices) return { at, slices };
+  if (slices) {
+    const names = SliceNamesSchema.safeParse(value).data?.slices ?? [];
+    return { at, slices: slices.map((slice, index) => withName(slice, names[index]?.name)) };
+  }
   return { at, error: error ?? UNREADABLE };
+}
+
+/** `slice` with `name`, when there is one. */
+function withName<S extends object>(slice: S, name: string | undefined): S & { name?: string } {
+  return name ? { ...slice, name } : slice;
+}
+
+/** A slice's name from its plan title: the text before its first full stop (a `.` followed by a
+ * space or the end), trimmed; `undefined` when nothing is left. */
+function sliceName(title: string | undefined): string | undefined {
+  const text = (title ?? '').trim();
+  const stop = /\.(\s|$)/u.exec(text);
+  const name = (stop ? text.slice(0, stop.index) : text).trim();
+  return name === '' ? undefined : name;
 }
 
 /** How long before `now` the board was written; `null` for no board or one written after `now`. */
@@ -88,7 +118,7 @@ function ageOf(board: Board | null | undefined, now: number): number | null {
 }
 
 /** The slices to show: the board's, when it holds slices under 10 minutes old; else `null`. */
-export function shownSlices(board: Board | null | undefined, now: number): CachedSlice[] | null {
+export function shownSlices(board: Board | null | undefined, now: number): NamedSlice[] | null {
   const age = ageOf(board, now);
   return board?.slices && age !== null && age < SHOWN_UNDER_MS ? board.slices : null;
 }
@@ -114,7 +144,12 @@ function lockedAt(path: string): number | null {
 
 /** Whether a refresh of PRD `prd` holds the lock: one under 2 minutes old (a time after `now` counts as old). */
 export function lockHeld(root: string, prd: PrdNumber, now: number): boolean {
-  const at = lockedAt(lockFile(root, prd));
+  return lockHeldAt(lockFile(root, prd), now);
+}
+
+/** Whether the lock in `path` is held: one under 2 minutes old (a time after `now` counts as old). */
+function lockHeldAt(path: string, now: number): boolean {
+  const at = lockedAt(path);
   return at !== null && now - at >= 0 && now - at < LOCK_ABANDONED_MS;
 }
 
@@ -153,7 +188,7 @@ export function cachedSlices({ root, prd, now, cwd, spawn = null, script, env }:
   spawn?: Spawn | null;
   script?: string | undefined;
   env?: NodeJS.ProcessEnv | undefined;
-}): CachedSlice[] | null {
+}): NamedSlice[] | null {
   const board = attempt(() => readBoard(root, prd), null);
   if (spawn && script && refreshDue(board, now) && !attempt(() => lockHeld(root, prd, now), true)) {
     startRefresh({ spawn, script, cwd, prd, env });
@@ -171,7 +206,11 @@ function ensureBoardDir(root: string): void {
 /** Writes PRD `prd`'s board entry: to a temporary name, then renamed into place. */
 export function writeBoard(root: string, prd: PrdNumber, entry: WrittenEntry): void {
   ensureBoardDir(root);
-  const path = boardFile(root, prd);
+  writeJsonAt(boardFile(root, prd), entry);
+}
+
+/** Writes `entry` as JSON in `path`, whose folder exists: to a temporary name, then renamed into place. */
+export function writeJsonAt(path: string, entry: unknown): void {
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
   try {
     writeFileSync(temporary, `${JSON.stringify(entry)}\n`);
@@ -203,16 +242,20 @@ function createLock(path: string, now: number): string | null {
  * another refresh holds it. */
 export function takeLock(root: string, prd: PrdNumber, now: number): string | null {
   ensureBoardDir(root);
-  const path = lockFile(root, prd);
+  return takeLockAt(lockFile(root, prd), now);
+}
+
+/** Takes the lock in `path`, whose folder exists, taking over one 2 minutes old or more: its owner
+ * token, or `null` while another refresh holds it. */
+export function takeLockAt(path: string, now: number): string | null {
   const owner = createLock(path, now);
-  if (owner !== null || lockHeld(root, prd, now)) return owner;
+  if (owner !== null || lockHeldAt(path, now)) return owner;
   rmSync(path, { force: true });
   return createLock(path, now);
 }
 
-/** Removes PRD `prd`'s lock, unless another refresh took it over since `owner` took it. */
-function releaseLock(root: string, prd: PrdNumber, owner: string): void {
-  const path = lockFile(root, prd);
+/** Removes the lock in `path`, unless another refresh took it over since `owner` took it. */
+export function releaseLockAt(path: string, owner: string): void {
   const held = attempt(() => readLock(path)?.owner, null);
   if (held === owner) rmSync(path, { force: true });
 }
@@ -223,22 +266,22 @@ const oneLine = (error: unknown): string => (String(prop(error, 'message') ?? er
 /**
  * The refresh of PRD `prd`'s board in the main checkout at `root`: takes the lock (`'held'`, and
  * nothing written, while another refresh holds it), writes what `build()` returns as the board's
- * slices, or what it throws as the error entry, then removes the lock (`'written'`).
+ * slices (each with the name its `title` gives), or what it throws as the error entry, then removes the lock (`'written'`).
  */
-export function refreshBoard({ root, prd, now, build }: { root: string; prd: PrdNumber; now: number; build: () => readonly WrittenSlice[] }): 'written' | 'held' {
+export function refreshBoard({ root, prd, now, build }: { root: string; prd: PrdNumber; now: number; build: () => readonly BuiltSlice[] }): 'written' | 'held' {
   const owner = takeLock(root, prd, now);
   if (owner === null) return 'held';
   try {
     const at = new Date(now).toISOString();
     let entry: WrittenEntry;
     try {
-      entry = { at, slices: build().map(({ id, wave, state }) => ({ id, wave, state })) };
+      entry = { at, slices: build().map(({ id, wave, state, title }) => withName({ id, wave, state }, sliceName(title))) };
     } catch (error) {
       entry = { at, error: oneLine(error) };
     }
     writeBoard(root, prd, entry);
   } finally {
-    releaseLock(root, prd, owner);
+    releaseLockAt(lockFile(root, prd), owner);
   }
   return 'written';
 }

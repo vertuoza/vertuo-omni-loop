@@ -696,6 +696,7 @@ const FIRST_RUN = [
   '  wrote   .omni-loop/bin/omni.mjs',
   ...FORM_FILES.map((path) => `  wrote   ${path}`),
   '  wrote   .claude/settings.json  (statusLine)',
+  '  wrote   .claude/settings.json  (enabledPlugins: omni-hud@omni-loop)',
   '  labels  created omni:prd, omni:phase-0, omni:feature, omni:sub, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual, omni:bug, omni:regression, omni:risk-critical, omni:risk-high, omni:risk-medium, omni:risk-low, omni:concept',
   '',
   'Install pull request:',
@@ -782,17 +783,18 @@ describe('omni init — the closing steps (AC 8)', () => {
     await init(root, [], { fake });
     const { code, out } = await init(root, [], { fake });
     expect(code).toBe(0);
-    expect(out.split('\n').slice(0, 5)).toEqual([
+    expect(out.split('\n').slice(0, 6)).toEqual([
       'omni init — acme/widgets is set up.',
       '  kept    .omni-loop/config.yml    (pass --force to overwrite)',
       '  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)',
       '  kept    .claude/settings.json  (statusLine)',
+      '  kept    .claude/settings.json  (enabledPlugins: omni-hud@omni-loop)',
       `  labels  already there: ${LOOP_LABELS.join(', ')}`,
     ]);
     // A form is never overwritten, so a kept one is never listed: the steps follow the labels line.
-    const secondRun = FIRST_RUN.slice(5 + FORM_FILES.length);
+    const secondRun = FIRST_RUN.slice(6 + FORM_FILES.length);
     secondRun[secondRun.indexOf('  branch  created chore/install-omni-loop')] = '  branch  on chore/install-omni-loop already';
-    expect(out.split('\n').slice(5)).toEqual(secondRun);
+    expect(out.split('\n').slice(6)).toEqual(secondRun);
   });
 
   it('a second run with --force wrote the files and the key again, and commits them on the install branch', async () => {
@@ -936,11 +938,12 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
     const { code, out } = await init(root);
     expect(code).toBe(0);
     expect(gitStatus(root)).toEqual([...FORM_FILES, SETTINGS].sort());
-    expect(out.split('\n').slice(1, 4 + FORM_FILES.length)).toEqual([
+    expect(out.split('\n').slice(1, 5 + FORM_FILES.length)).toEqual([
       '  kept    .omni-loop/config.yml    (pass --force to overwrite)',
       '  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)',
       ...FORM_FILES.map((path) => `  wrote   ${path}`),
       '  wrote   .claude/settings.json  (statusLine)',
+      '  wrote   .claude/settings.json  (enabledPlugins: omni-hud@omni-loop)',
     ]);
     expect(installBlock(out)).toContain('  commit  chore: install the Omni Loop');
   });
@@ -967,13 +970,15 @@ describe('omni init — the status line (PRD 324)', () => {
   const settingsText = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
   const THEIRS = settingsText({ model: 'opus', statusLine: { type: 'command', command: 'npx claude-hud' } });
   const ON = `\n${STATUS_LINE_STEPS.join('\n')}\n\n${REMOVAL.join('\n')}\n`;
+  // The band's line init adds beside it (PRD 1208).
+  const HUD_ON = { 'omni-hud@omni-loop': true };
 
   it('creates .claude/settings.json holding the key, prints that it wrote it, and says who sees it and how to remove it', async () => {
     const { root, read } = makeRepo({ git: true });
     const { code, out } = await init(root);
     expect(code).toBe(0);
-    expect(read(SETTINGS)).toBe(settingsText({ statusLine: KIT_LINE }));
-    expect(out).toContain('\n  wrote   .claude/settings.json  (statusLine)\n');
+    expect(read(SETTINGS)).toBe(settingsText({ statusLine: KIT_LINE, enabledPlugins: HUD_ON }));
+    expect(out).toContain('\n  wrote   .claude/settings.json  (statusLine)\n  wrote   .claude/settings.json  (enabledPlugins: omni-hud@omni-loop)\n');
     expect(closing(out).endsWith(ON)).toBe(true);
   });
 
@@ -982,23 +987,23 @@ describe('omni init — the status line (PRD 324)', () => {
     const { root, read } = makeRepo({ git: true, files: { [SETTINGS]: JSON.stringify(before) } });
     const { code, out } = await init(root);
     expect(code).toBe(0);
-    expect(read(SETTINGS)).toBe(settingsText({ ...before, statusLine: KIT_LINE }));
+    expect(read(SETTINGS)).toBe(settingsText({ ...before, statusLine: KIT_LINE, enabledPlugins: { ...before.enabledPlugins, ...HUD_ON } }));
     expect(out).toContain('\n  wrote   .claude/settings.json  (statusLine)\n');
   });
 
   it('keeps the kit\'s own line as it is, and rewrites it with --force', async () => {
-    const older = settingsText({ statusLine: { type: 'command', command: 'node "$(git rev-parse --show-toplevel)/.omni-loop/bin/omni.mjs" statusline' }, model: 'opus' });
-    const { root, read } = makeRepo({ git: true, files: { [SETTINGS]: older } });
+    const olderLine = { type: 'command', command: 'node "$(git rev-parse --show-toplevel)/.omni-loop/bin/omni.mjs" statusline' };
+    const { root, read } = makeRepo({ git: true, files: { [SETTINGS]: settingsText({ statusLine: olderLine, model: 'opus' }) } });
     const kept = await init(root);
     expect(kept.code).toBe(0);
-    expect(read(SETTINGS)).toBe(older);
+    expect(read(SETTINGS)).toBe(settingsText({ statusLine: olderLine, model: 'opus', enabledPlugins: HUD_ON }));
     expect(kept.out).toContain('\n  kept    .claude/settings.json  (statusLine)\n');
     expect(closing(kept.out).endsWith(ON)).toBe(true);
 
     const forced = await init(root, ['--force']);
     expect(forced.code).toBe(0);
-    expect(read(SETTINGS)).toBe(settingsText({ statusLine: KIT_LINE, model: 'opus' }));
-    expect(forced.out).toContain('\n  wrote   .claude/settings.json  (statusLine)\n');
+    expect(read(SETTINGS)).toBe(settingsText({ statusLine: KIT_LINE, model: 'opus', enabledPlugins: HUD_ON }));
+    expect(forced.out).toContain('\n  wrote   .claude/settings.json  (statusLine)\n  kept    .claude/settings.json  (enabledPlugins: omni-hud@omni-loop)\n');
   });
 
   it('never touches someone else\'s line, even with --force, and then claims no status line of its own', async () => {
@@ -1006,10 +1011,28 @@ describe('omni init — the status line (PRD 324)', () => {
       const { root, read } = makeRepo({ git: true, files: { [SETTINGS]: THEIRS } });
       const { code, out } = await init(root, argv);
       expect(code, argv.join(' ')).toBe(0);
-      expect(read(SETTINGS)).toBe(THEIRS);
-      expect(out).toContain('\n  kept    .claude/settings.json  (its statusLine is not the kit\'s)\n');
+      // Their line is theirs; the band's line is added beside it, by its own rule.
+      expect(read(SETTINGS)).toBe(settingsText({ ...JSON.parse(THEIRS), enabledPlugins: HUD_ON }));
+      expect(out).toContain('\n  kept    .claude/settings.json  (its statusLine is not the kit\'s)\n  wrote   .claude/settings.json  (enabledPlugins: omni-hud@omni-loop)\n');
+      expect(installBlock(out)).toContain('  commit  chore: install the Omni Loop');
       expect(out).not.toContain('settings.local.json');
       expect(closing(out).endsWith(`\n\n${REMOVAL_WITHOUT_KEY}\n`)).toBe(true);
+    }
+  });
+
+  it('turns the band on beside the plugins already there, and never over a false someone else set (PRD 1208)', async () => {
+    const mine = settingsText({ enabledPlugins: { 'omni@omni-loop': true } });
+    const fresh = makeRepo({ git: true, files: { [SETTINGS]: mine } });
+    expect((await init(fresh.root)).code).toBe(0);
+    expect(fresh.read(SETTINGS)).toBe(settingsText({ enabledPlugins: { 'omni@omni-loop': true, ...HUD_ON }, statusLine: KIT_LINE }));
+
+    for (const argv of [[], ['--force']] as string[][]) {
+      const off = settingsText({ enabledPlugins: { 'omni-hud@omni-loop': false }, statusLine: KIT_LINE });
+      const { root, read } = makeRepo({ git: true, files: { [SETTINGS]: off } });
+      const { code, out } = await init(root, argv);
+      expect(code, argv.join(' ')).toBe(0);
+      expect(read(SETTINGS)).toBe(off);
+      expect(out).toContain('\n  kept    .claude/settings.json  (its omni-hud@omni-loop is someone else\'s)\n');
     }
   });
 
@@ -1037,11 +1060,12 @@ describe('omni init — the status line (PRD 324)', () => {
     const { code, out } = await init(root, [], { fake });
     expect(code).toBe(0);
     expect(read('.omni-loop/config.yml')).toBe(config);
-    expect(read(SETTINGS)).toBe(settingsText({ statusLine: KIT_LINE }));
-    expect(out.split('\n').slice(1, 5)).toEqual([
+    expect(read(SETTINGS)).toBe(settingsText({ statusLine: KIT_LINE, enabledPlugins: HUD_ON }));
+    expect(out.split('\n').slice(1, 6)).toEqual([
       '  kept    .omni-loop/config.yml    (pass --force to overwrite)',
       '  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)',
       '  wrote   .claude/settings.json  (statusLine)',
+      '  wrote   .claude/settings.json  (enabledPlugins: omni-hud@omni-loop)',
       `  labels  already there: ${LOOP_LABELS.join(', ')}`,
     ]);
     expect(installBlock(out)).toContain('  commit  chore: install the Omni Loop');

@@ -106,7 +106,8 @@ reach this skill with its spec merged and no plan) is planned here, before its f
    ```
 
 `/omni:plan` may return `needs clarification`: the run stops there, with its question posted on the
-PRD's issue, and nothing is built. Otherwise carry on below with the plan PR it opened.
+PRD's issue, its first line `<!-- omni-needs-clarification -->` as `/omni:plan` writes it, and
+nothing is built. Otherwise carry on below with the plan PR it opened.
 
 Then read what moved since the plan was written:
 

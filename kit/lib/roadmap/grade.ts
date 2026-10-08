@@ -6,13 +6,17 @@
  * What it refuses: an id used twice; a blocker that is not a row; a cycle; a wave that does not
  * follow its blockers (1 with none, else one more than the highest blocker's); a blocker without its
  * `why`; a row whose PRD has no folder, or whose spec's `blocked-by` differs from the row's blockers;
- * a question blocking a row that does not exist. Outside a plan repository, a `repos` column. In a
+ * a question blocking a row that does not exist; a prerequisite (PRD 1218) whose `blocks` names no
+ * row, whose check names no base check, with a fix on a row that is not `agent` or naming no base
+ * fix, an `agent` row without a fix, a `check` or `person` row without its card or with a card
+ * missing one of its four lines. Outside a plan repository, a `repos` column. In a
  * plan repository: a row with no repo, a repo outside `plan.targets`, a `readOnly` repo, and a PRD
  * changing a consumer target in a wave not after a PRD it waits on (directly or not) that changes a
  * target it consumes.
  */
 import type { PrdNumber } from '../ids.ts';
-import type { Roadmap, RoadmapRow } from './parse.ts';
+import { CARD_LINES } from './parse.ts';
+import type { Roadmap, RoadmapPrerequisite, RoadmapRow } from './parse.ts';
 
 /** What a PRD's folder says: its spec's `blocked-by`, or that it has no folder or no readable spec. */
 export type PrdFacts = { blockedBy: 'none' | readonly PrdNumber[] } | 'no-folder' | 'unreadable';
@@ -25,11 +29,22 @@ export type RoadmapFacts = { prdFacts: (prd: PrdNumber) => PrdFacts; targets: re
 
 const shortName = (slug: string): string => slug.slice(slug.indexOf('/') + 1);
 
+/**
+ * The base checks a prerequisite may name as `base:<name>` (spec section 2). The catalog that runs
+ * them (`prereqs/`) is keyed by these names.
+ */
+export const PREREQUISITE_BASE_CHECKS = ['gh-auth', 'node', 'pnpm', 'npm', 'yarn', 'install', 'registry', 'docker', 'labels', 'env-file', 'omni-signin'] as const;
+
+/** The base checks the agent may also fix itself: only what is in the repository and can be undone. */
+export const PREREQUISITE_BASE_FIXES = ['install', 'labels', 'env-file'] as const;
+
+const BASE = /^base:(.*)$/;
+
 /** Each id listed twice, once. */
 function duplicateIds(roadmap: Roadmap): string[] {
   const seen = new Set<string>();
   const twice = new Set<string>();
-  for (const { id } of [...roadmap.prds, ...roadmap.questions]) {
+  for (const { id } of [...roadmap.prds, ...roadmap.questions, ...(roadmap.prerequisites ?? [])]) {
     if (seen.has(id)) twice.add(id);
     seen.add(id);
   }
@@ -117,6 +132,46 @@ function unknownQuestionRows(roadmap: Roadmap, rows: ReadonlyMap<string, Roadmap
   );
 }
 
+/** A base name the cell names (`base:<name>`), or `null` when the cell is a shell command or empty. */
+function baseName(cell: string | null): string | null {
+  return cell === null ? null : (BASE.exec(cell)?.[1] ?? null);
+}
+
+/** A prerequisite's fault when its check names a base check the catalog does not have. */
+function checkFaults({ id, check }: RoadmapPrerequisite): string[] {
+  const name = baseName(check);
+  const known: readonly string[] = PREREQUISITE_BASE_CHECKS;
+  if (name === null || known.includes(name)) return [];
+  return [`${id}: checks ${check}, which is no base check (${PREREQUISITE_BASE_CHECKS.join(', ')}).`];
+}
+
+/** A prerequisite's faults of its fix: only an agent row has one, and it names a base fix. */
+function fixFaults({ id, fix, who }: RoadmapPrerequisite): string[] {
+  if (fix === null) return who === 'agent' ? [`${id}: is an agent row without a fix; an agent row names the base fix it runs.`] : [];
+  if (who !== 'agent') return [`${id}: has the fix ${fix}, but only an agent row has a fix.`];
+  const known: readonly string[] = PREREQUISITE_BASE_FIXES;
+  return known.includes(baseName(fix) ?? '') ? [] : [`${id}: has the fix ${fix}, which is no base fix (${PREREQUISITE_BASE_FIXES.join(', ')}).`];
+}
+
+/** One prerequisite's faults of its card: none for an agent row, else one with its four lines. */
+function cardFaults({ id, who, card }: RoadmapPrerequisite): string[] {
+  if (who === 'agent') return [];
+  if (card === null) return [`${id}: has no card; a check or person row has a "### ${id}" card under the table.`];
+  return CARD_LINES.filter(([field]) => card[field] === null || card[field] === '').map(([, label]) => `${id}: its card has no "${label}" line.`);
+}
+
+/** Every prerequisite's faults: what it blocks, its check, its fix and its card. */
+function prerequisiteViolations(roadmap: Roadmap, rows: ReadonlyMap<string, RoadmapRow>): string[] {
+  return (roadmap.prerequisites ?? []).flatMap((prerequisite) => [
+    ...(prerequisite.blocks === 'all' ? [] : prerequisite.blocks)
+      .filter((id) => !rows.has(id))
+      .map((id) => `${prerequisite.id}: blocks ${id}, which is not a row of the roadmap.`),
+    ...checkFaults(prerequisite),
+    ...fixFaults(prerequisite),
+    ...cardFaults(prerequisite),
+  ]);
+}
+
 /** Every row a row waits on, directly or through others. */
 function upstream(row: RoadmapRow, rows: ReadonlyMap<string, RoadmapRow>): RoadmapRow[] {
   const found = new Map<string, RoadmapRow>();
@@ -189,6 +244,7 @@ export function gradeRoadmap(roadmap: Roadmap, { prdFacts, targets }: RoadmapFac
     ...missingWhy(roadmap),
     ...specAgreement(roadmap, rows, prdFacts),
     ...unknownQuestionRows(roadmap, rows),
+    ...prerequisiteViolations(roadmap, rows),
     ...repoRule,
   ];
 }

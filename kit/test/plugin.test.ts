@@ -167,10 +167,10 @@ function readJson(root: string, file: string, out: string[]): unknown {
   }
 }
 
-/** The marketplace lists the plugin by its relative source, and both manifests give it one name. */
-function manifestViolations(root: string) {
+/** The marketplace lists the plugin in `pluginDir` by its relative source, and both manifests give it one name. */
+function manifestViolations(root: string, pluginDir = PLUGIN_DIR) {
   const out: string[] = [];
-  const manifestFile = join(PLUGIN_DIR, MANIFEST);
+  const manifestFile = join(pluginDir, MANIFEST);
   const manifest = readJson(root, manifestFile, out);
   const marketplace = readJson(root, MARKETPLACE, out);
   if (!manifest || !marketplace) return out;
@@ -178,9 +178,9 @@ function manifestViolations(root: string) {
   if (!Array.isArray(plugins)) return [...out, `${MARKETPLACE}: plugins is not a list`];
   const entry: unknown = plugins.find((plugin: unknown) => {
     const source = dig(plugin, 'source');
-    return typeof source === 'string' && resolve(root, source) === resolve(root, PLUGIN_DIR);
+    return typeof source === 'string' && resolve(root, source) === resolve(root, pluginDir);
   });
-  if (!entry) return [...out, `${MARKETPLACE}: no plugin entry has source ./${PLUGIN_DIR}`];
+  if (!entry) return [...out, `${MARKETPLACE}: no plugin entry has source ./${pluginDir}`];
   const entryName = dig(entry, 'name');
   const manifestName = dig(manifest, 'name');
   if (entryName !== manifestName) {
@@ -262,6 +262,39 @@ describe('the omni plugin in this repository', () => {
     const unknown = spawnSync(process.execPath, [shim, 'no-such-command'], { cwd: repoRoot, encoding: 'utf8' });
     expect(unknown.status).toBe(2);
     expect(unknown.stderr).toMatch(/^usage: omni/);
+  });
+});
+
+// PRD 1208: the `omni-hud` mod, the band above the prompt, is a plugin of its own beside `omni`. Its
+// tests import Claude Code's own test kit, so `claude plugin test` runs them and vitest never does.
+describe('the omni-hud plugin in this repository', () => {
+  const HUD_DIR = 'kit/plugin-hud';
+  const version = (dir: string) => dig(JSON.parse(readFileSync(join(repoRoot, dir, MANIFEST), 'utf8')), 'version');
+
+  it('the marketplace lists it beside omni, by its source, under its manifest name', () => {
+    expect(manifestViolations(repoRoot, HUD_DIR)).toEqual([]);
+    const plugins = dig(JSON.parse(readFileSync(join(repoRoot, MARKETPLACE), 'utf8')), 'plugins');
+    expect(Array.isArray(plugins) ? plugins.map((plugin: unknown) => [dig(plugin, 'name'), dig(plugin, 'source')]) : plugins).toEqual([
+      ['omni', './kit/plugin'],
+      ['omni-hud', './kit/plugin-hud'],
+    ]);
+  });
+
+  it('carries the version of omni, which the release stamps in both', () => {
+    expect(version(HUD_DIR)).toBe(version(PLUGIN_DIR));
+  });
+
+  it('names its hooks module, and vitest collects none of its tests', () => {
+    expect(JSON.parse(readFileSync(join(repoRoot, HUD_DIR, 'hooks/hooks.json'), 'utf8'))).toEqual({ modules: ['./register.tsx'] });
+    // Read as text: a kit test never imports the repository's config (scripts/import-guard.test.ts).
+    const exclude = /^\s*exclude: \[(.*)\],$/m.exec(readFileSync(join(repoRoot, 'vitest.config.ts'), 'utf8'))?.[1] ?? '';
+    expect(exclude).toContain(`'${HUD_DIR}/**'`);
+  });
+
+  it.skipIf(!claude)(`claude plugin validate and claude plugin test pass on it${reason}`, () => {
+    expect(claudeValidate(join(repoRoot, HUD_DIR))).toBeNull();
+    const run = spawnSync('claude', ['plugin', 'test', join(repoRoot, HUD_DIR)], { encoding: 'utf8' });
+    expect(run.status, `${run.stdout}${run.stderr}`).toBe(0);
   });
 });
 
@@ -1236,6 +1269,66 @@ describe('the roadmap skills (PRD 1162)', () => {
     expect(missingInOrder(skillSection(text, '3. Write every PRD'), ['/omni:mega-brainstorm', '## Repositories'])).toEqual([]);
     expect(skillSection(text, '4. The roadmap')).toContain('| id | PRD | title | repos | blocked by | why | wave |');
     expect(skillSection(text, 'Guardrails')).toMatch(/never a branch, a commit, a pull request, an issue or a comment in a target/);
+  });
+});
+
+// PRD 1218, slice s8: a roadmap's prerequisites. `/omni:roadmap` and `/omni:mega-roadmap` write the
+// `## Prerequisites` rows (the base rows first, then what each PRD needs) with each card, show them on
+// the map by category, and run `omni roadmap prereqs <n> --fix` once the check is green, listing the
+// open rows in the hand-off. `/omni:drive` and `/omni:mega-drive` run it on the first tick and before
+// a PRD a prerequisite holds starts, and list the open ones when they stop.
+describe('the roadmap prerequisites in the skills (PRD 1218)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const missingInOrder = (text: string, mentions: string[]) => {
+    let from = 0;
+    return mentions.filter((mention) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) return true;
+      from = at + mention.length;
+      return false;
+    });
+  };
+  const PREREQS = 'omni.mjs roadmap prereqs <n> --fix';
+
+  it('/omni:roadmap writes the base rows and each PRD\'s rows with their four-line cards in roadmap.md', () => {
+    const text = read('roadmap');
+    const step1 = skillSection(text, '1. Read the source');
+    expect(step1).toMatch(/\*\*The prerequisites:\*\*/);
+    for (const base of ['`base:gh-auth`', '`base:node`', '`base:install`', '`base:labels`']) expect(step1, base).toContain(base);
+    expect(step1).toMatch(/blocking `all`/);
+    const step4 = skillSection(text, '4. The roadmap');
+    expect(missingInOrder(step4, ['## Open questions', '## Prerequisites', '| id | category | need | check | fix | blocks | who |', '### p', '**Why:**', '**Command:**', '**What it does:**', '**Who can do it:**'])).toEqual([]);
+  });
+
+  it('/omni:roadmap shows the prerequisites on the map by category, runs prereqs --fix once after the check, and lists the open ones in the hand-off', () => {
+    const text = read('roadmap');
+    expect(skillSection(text, '2. The map')).toMatch(/prerequisites[^\n]*grouped by category/i);
+    expect(missingInOrder(text, ['omni.mjs roadmap check <n>', PREREQS])).toEqual([]);
+    expect(skillSection(text, '6. Hand off')).toMatch(/`waits on you`[^]*first/);
+  });
+
+  it('/omni:mega-roadmap adds a repos cell to a prerequisite and never runs one in a clone', () => {
+    const text = read('mega-roadmap');
+    expect(skillSection(text, '2. The map')).toMatch(/prerequisites/i);
+    const step4 = skillSection(text, '4. The roadmap');
+    expect(step4).toContain('| id | category | need | check | fix | blocks | who | repos |');
+    expect(skillSection(text, '5. One phase-0 PR')).toContain(PREREQS);
+    expect(skillSection(text, '5. One phase-0 PR')).toMatch(/never in a clone/);
+  });
+
+  for (const skill of ['drive', 'mega-drive']) {
+    it(`/omni:${skill} runs prereqs --fix on the first tick and before a held PRD starts, and lists the open ones when it stops`, () => {
+      const text = read(skill);
+      expect(skillSection(text, '1. Open or resume'), skill).toContain(PREREQS);
+      expect(skillSection(text, '2. Read the step'), skill).toMatch(/waits on prerequisite/);
+      expect(skillSection(text, '5. Stop'), skill).toMatch(/open prerequisite/i);
+    });
+  }
+
+  it('/omni:drive runs prereqs before it reads the step, so omni next reads a fresh result', () => {
+    const step2 = skillSection(read('drive'), '2. Read the step');
+    expect(missingInOrder(step2, [PREREQS, 'omni.mjs next --json [--roadmap <n>]'])).toEqual([]);
+    expect(skillSection(read('drive'), '5. Stop')).toContain('waits on you');
   });
 });
 

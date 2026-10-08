@@ -32,13 +32,22 @@ describe('StatusInputSchema', () => {
 });
 
 describe('SessionRecordSchema', () => {
-  it('reads a record, its time as null when it is not text', () => {
-    expect(SessionRecordSchema.parse({ prd: 7, at: '2026-09-28T12:00:00.000Z' })).toEqual({ prd: 7, at: '2026-09-28T12:00:00.000Z' });
-    expect(SessionRecordSchema.parse({ prd: 7, at: 42 })).toEqual({ prd: 7, at: null });
+  it('reads a record of a kind and a number, its time as null when it is not text', () => {
+    for (const kind of ['prd', 'bug', 'visual', 'roadmap']) {
+      expect(SessionRecordSchema.parse({ kind, number: 7, at: '2026-09-28T12:00:00.000Z' })).toEqual({ kind, number: 7, at: '2026-09-28T12:00:00.000Z' });
+    }
+    expect(SessionRecordSchema.parse({ kind: 'bug', number: 7, at: 42 })).toEqual({ kind: 'bug', number: 7, at: null });
   });
 
-  it('names the PRD when it is not a positive whole number', () => {
-    for (const prd of [0, -3, 2.5, '7', undefined]) expect(issuePaths(SessionRecordSchema.safeParse({ prd }))).toEqual(['prd']);
+  it("reads a record of PRD 324's shape as kind prd", () => {
+    expect(SessionRecordSchema.parse({ prd: 7, at: '2026-09-28T12:00:00.000Z' })).toEqual({ kind: 'prd', number: 7, at: '2026-09-28T12:00:00.000Z' });
+    expect(SessionRecordSchema.parse({ prd: 7, at: 42 })).toEqual({ kind: 'prd', number: 7, at: null });
+  });
+
+  it('refuses a number that is not a positive whole number, and a kind it does not know', () => {
+    for (const prd of [0, -3, 2.5, '7', undefined]) expect(SessionRecordSchema.safeParse({ prd }).success).toBe(false);
+    for (const number of [0, -3, 2.5, '7', undefined]) expect(SessionRecordSchema.safeParse({ kind: 'bug', number }).success).toBe(false);
+    for (const kind of ['loop', 'draft', '', undefined]) expect(SessionRecordSchema.safeParse({ kind, number: 7 }).success).toBe(false);
   });
 });
 
