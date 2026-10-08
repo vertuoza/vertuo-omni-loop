@@ -6,28 +6,34 @@
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { z } from 'zod';
 import type { ExecText } from '../context.ts';
+import type { PrdNumber } from '../ids.ts';
 import { pairHealed } from './heals.ts';
 import type { Healed } from './heals.ts';
 import { RecordingError, parseRecording, readRecordings } from './recording.ts';
 import type { Action } from './recording.ts';
 
+const ActionSchema = z.object({ name: z.string(), target: z.string() });
+
 /** A healed recording that waits: where it belongs, what it says, and the file that holds it. */
-export type Held = {
-  readonly testId: string;
-  readonly callIndex: number;
-  readonly summary: string;
+const HeldSchema = z.object({
+  testId: z.string(),
+  callIndex: z.number(),
+  summary: z.string(),
   /** The recording's path in the repository. */
-  readonly file: string;
+  file: z.string(),
   /** The path the committed recording had at the merge-base. */
-  readonly was: string;
-  readonly actions: readonly Action[];
+  was: z.string(),
+  actions: z.array(ActionSchema).readonly(),
   /** Its name in the hold folder. */
-  readonly heldAs: string;
-};
+  heldAs: z.string(),
+}).readonly();
+export type Held = z.infer<typeof HeldSchema>;
 
 /** A healed step a person confirmed: found again by its test, its call index and the actions it has now. */
-export type Confirmed = { readonly testId: string; readonly callIndex: number; readonly actions: readonly Action[] };
+const ConfirmedSchema = z.object({ testId: z.string(), callIndex: z.number(), actions: z.array(ActionSchema).readonly() }).readonly();
+export type Confirmed = z.infer<typeof ConfirmedSchema>;
 
 const sameActions = (a: readonly Action[], b: readonly Action[]): boolean =>
   a.length === b.length && a.every((action, i) => action.name === b.at(i)?.name && action.target === b.at(i)?.target);
@@ -43,8 +49,9 @@ function parseLedger(file: string, text: string): Confirmed[] {
   } catch {
     throw new RecordingError(file, 'not valid JSON');
   }
-  if (!Array.isArray(json)) throw new RecordingError(file, 'not a list');
-  return json as Confirmed[];
+  const parsed = z.array(ConfirmedSchema).safeParse(json);
+  if (!parsed.success) throw new RecordingError(file, 'not a list of confirmed steps');
+  return parsed.data;
 }
 
 /** The healed steps a person has not confirmed with the actions they have now. */
@@ -71,7 +78,7 @@ function readLedger(root: string, dir: string): Confirmed[] {
   return existsSync(join(root, file)) ? parseLedger(file, readFileSync(join(root, file), 'utf8')) : [];
 }
 
-type Where = { root: string; dir: string; prd: number; exec: ExecText };
+type Where = { root: string; dir: string; prd: PrdNumber; exec: ExecText };
 
 function holdFolder({ root, prd, exec }: Where): string {
   return join(exec('git', ['rev-parse', '--absolute-git-dir'], gitOptions(root)).trim(), 'omni-e2e-hold', String(prd));
@@ -79,7 +86,7 @@ function holdFolder({ root, prd, exec }: Where): string {
 
 function readIndex(folder: string): Held[] {
   const file = join(folder, 'index.json');
-  return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Held[]) : [];
+  return existsSync(file) ? z.array(HeldSchema).parse(JSON.parse(readFileSync(file, 'utf8'))) : [];
 }
 
 /**
