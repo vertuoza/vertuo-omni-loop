@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "trace-1",
+  "createdAt": "2026-10-08T16:05:11.099Z",
+  "payload": {
+    "actions": [
+      {
+        "name": "tap",
+        "summary": "tap link \"PRs\" in \"Rank\"",
+        "target": {
+          "role": "link",
+          "name": "PRs",
+          "within": "Rank"
+        }
+      }
+    ],
+    "executor": {
+      "name": "e2e-default-agent",
+      "version": "2"
+    },
+    "recordedFor": {
+      "testId": "tests/people-count.e2e.ts::PRD%201262%20%C2%B7%20People%20count::criterion%203%3A%20sorting%20by%20a%20header%20does%20not%20change%20the%20number%20the%20line%20shows",
+      "targetId": "web",
+      "instructionDigest": "c8e505d0200bb41db6d975e6c31a09a80c5da706d632e899b09847a6d7377206",
+      "paramsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "callIndex": 0,
+      "agent": "default"
+    },
+    "summary": "Clicked the \"PRs\" header in the People table. The URL became /app/workspace?sort=prs#board-people. The 14 rows are now in descending PRs order (PAUL 4, then the 2s, then the 1s, then AGENT-K and NEWBIE at 0). The \"14 people\" count still shows.",
+    "startPath": "/app/workspace?sort=name#board-people",
+    "endPath": "/app/workspace?sort=prs#board-people",
+    "endWaitMs": 13464
+  }
+}
