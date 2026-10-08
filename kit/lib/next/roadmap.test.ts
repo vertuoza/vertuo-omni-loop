@@ -95,7 +95,9 @@ describe('roadmapGates — prerequisites', () => {
 
   it('a roadmap without the section, or a read without prerequisites, gates as before', () => {
     expect(roadmapGates(read(undefined, { states: null })).size).toBe(0);
-    const { prerequisites: _p, ticks: _t, prerequisitesLink: _l, ...bare } = read([prereq('p1', 'all')]);
+    const full = read([prereq('p1', 'all')]);
+    const bare: RoadmapRead = { roadmap: full.roadmap, answers: full.answers, standings: full.standings, live: full.live, issueLink: ISSUE };
     expect(held(roadmapGates(bare))).toEqual([1201, 1202, 1203]);
+    expect(roadmapGates(bare).get(A)?.link).toBe(ISSUE);
   });
 });
