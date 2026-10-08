@@ -41,8 +41,12 @@ async function productsOf(reads: RoadmapPageReads, workspace: string): Promise<P
 }
 
 /** What the page asks for: the list (`id` null), only one product's when `product` is set, or one roadmap,
- * on the tab `?tab=` names (Overview when none). */
-export type RoadmapPageAsk = { id: string | null; product: string | null; tab?: RoadmapTab };
+ * on the tab `?tab=` names (Overview when none). And Mark as done (s7): whether the route offers it, the
+ * row just ticked (`?ticked=`) and why one was not posted (`?tick_error=`). */
+export type RoadmapPageAsk = {
+  id: string | null; product: string | null; tab?: RoadmapTab;
+  tickable?: boolean; ticked?: string | null; tickError?: string | null;
+};
 
 /** The list or one roadmap; `not-found` for a roadmap the workspace does not hold. */
 /** The person's workspace, or the view that says why there is none to read. */
@@ -68,7 +72,8 @@ export async function loadRoadmapPage(reads: RoadmapPageReads, ask: RoadmapPageA
   const row = await reads.roadmap(ask.id);
   if (!row || row.workspace_id !== id) return { kind: 'not-found' };
   const [prds, products, prerequisites] = await Promise.all([reads.prds(row.id), productsOf(reads, id), reads.prerequisites(row.id)]);
-  const roadmap = detailOf(row, prds, products, now.getTime(), { prerequisites, tab: ask.tab ?? 'overview' });
+  const tick = { tickable: ask.tickable ?? false, ticked: ask.ticked ?? null, tickError: ask.tickError ?? null };
+  const roadmap = detailOf(row, prds, products, now.getTime(), { prerequisites, tab: ask.tab ?? 'overview', tick });
   return { kind: 'roadmap', name: workspace.name, demo: null, roadmap };
 }
 

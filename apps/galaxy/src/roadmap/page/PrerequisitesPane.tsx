@@ -1,11 +1,13 @@
 import { CopyCommand } from './CopyCommand';
 import type { PrerequisiteView, PrerequisitesView } from './prerequisites';
+import { TickButton } from './TickButton';
 
 // A roadmap's Prerequisites tab (PRD 1218, s6): the count line, then the rows grouped by category, those
 // waiting on you first. Each row shows its need, its state, what it blocks, who does it and where and when
 // it was last checked; its author card (Why, the command with a Copy button, What it does, Who can do it)
 // opens by itself when the row waits on you or was never checked. A roadmap whose roadmap.md has no
-// `## Prerequisites` section says so in one line.
+// `## Prerequisites` section says so in one line. A `person` row not ticked yet has Mark as done for a
+// member where it is open (s7, TickButton.tsx), and a tick that posted nothing says why above the rows.
 
 function Card({ row }: { row: PrerequisiteView }) {
   const { card } = row;
@@ -23,7 +25,7 @@ function Card({ row }: { row: PrerequisiteView }) {
   );
 }
 
-function Row({ row }: { row: PrerequisiteView }) {
+function Row({ row, roadmap }: { row: PrerequisiteView; roadmap: string }) {
   return (
     <li className={`roadmap-prereq is-${row.state}`} data-prereq={row.id}>
       <p>
@@ -33,11 +35,12 @@ function Row({ row }: { row: PrerequisiteView }) {
         {row.blocks} · {row.who}{row.checked ? ` · ${row.checked}` : null}
       </p>
       <Card row={row} />
+      {row.tickable ? <TickButton roadmap={roadmap} row={row.id} /> : null}
     </li>
   );
 }
 
-export function PrerequisitesPane({ prerequisites }: { prerequisites: PrerequisitesView }) {
+export function PrerequisitesPane({ prerequisites, roadmap }: { prerequisites: PrerequisitesView; roadmap: string }) {
   if (prerequisites.count === null) {
     return (
       <section className="board-card roadmap-prereqs">
@@ -51,10 +54,11 @@ export function PrerequisitesPane({ prerequisites }: { prerequisites: Prerequisi
     <section className="board-card roadmap-prereqs">
       <h2>Prerequisites</h2>
       <p className="roadmap-prereq-count">{prerequisites.count}</p>
+      {prerequisites.tickError ? <p className="roadmap-tick-error" role="alert">{prerequisites.tickError}</p> : null}
       {prerequisites.groups.map((group) => (
         <section key={group.category} className="roadmap-prereq-group" data-category={group.category}>
           <h3>{group.label}</h3>
-          <ul className="roadmap-lines">{group.rows.map((row) => <Row key={row.id} row={row} />)}</ul>
+          <ul className="roadmap-lines">{group.rows.map((row) => <Row key={row.id} row={row} roadmap={roadmap} />)}</ul>
         </section>
       ))}
     </section>

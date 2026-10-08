@@ -116,3 +116,5 @@
   font-family: var(--ask-mono); background: var(--ask-surface); border: 1px solid var(--ask-line-strong);
   border-radius: 4px; padding: 4px 8px; overflow-wrap: anywhere; min-width: 0;
 }
+.roadmap-tick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.roadmap-tick-error { margin: 0; border-left: 3px solid var(--ask-yellow); padding-left: 8px; color: var(--ask-ink); }
