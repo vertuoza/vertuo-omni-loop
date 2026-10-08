@@ -56,9 +56,9 @@ var init_define_OMNI_BUNDLE = __esm({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/identity.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/identity.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/identity.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var ALIAS = /* @__PURE__ */ Symbol.for("yaml.alias");
@@ -114,9 +114,9 @@ var require_identity = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/visit.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/visit.js
 var require_visit = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/visit.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/visit.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -273,9 +273,9 @@ var require_visit = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/directives.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/directives.js
 var require_directives = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/directives.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/directives.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -445,9 +445,9 @@ var require_directives = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/anchors.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/anchors.js
 var require_anchors = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/anchors.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/anchors.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -516,9 +516,9 @@ var require_anchors = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/applyReviver.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/applyReviver.js
 var require_applyReviver = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/applyReviver.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/applyReviver.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     function applyReviver(reviver, obj, key, val) {
@@ -567,9 +567,9 @@ var require_applyReviver = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/toJS.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/toJS.js
 var require_toJS = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/toJS.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/toJS.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -598,9 +598,9 @@ var require_toJS = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Node.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Node.js
 var require_Node = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Node.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Node.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var applyReviver = require_applyReviver();
@@ -640,9 +640,9 @@ var require_Node = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Alias.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Alias.js
 var require_Alias = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Alias.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Alias.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var anchors = require_anchors();
@@ -759,9 +759,9 @@ var require_Alias = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Scalar.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Scalar.js
 var require_Scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Scalar.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Scalar.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -790,9 +790,9 @@ var require_Scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/createNode.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/createNode.js
 var require_createNode = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/createNode.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/createNode.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Alias = require_Alias();
@@ -866,9 +866,9 @@ var require_createNode = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Collection.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Collection.js
 var require_Collection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Collection.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Collection.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var createNode = require_createNode();
@@ -1010,9 +1010,9 @@ var require_Collection = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyComment.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyComment.js
 var require_stringifyComment = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
@@ -1028,9 +1028,9 @@ var require_stringifyComment = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/foldFlowLines.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/foldFlowLines.js
 var require_foldFlowLines = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var FOLD_FLOW = "flow";
@@ -1165,9 +1165,9 @@ ${indent}${text10.slice(fold + 1, end2)}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyString.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyString.js
 var require_stringifyString = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -1449,9 +1449,9 @@ ${indent}`);
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringify.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringify.js
 var require_stringify = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringify.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringify.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var anchors = require_anchors();
@@ -1574,9 +1574,9 @@ ${ctx.indent}${str}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyPair.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyPair.js
 var require_stringifyPair = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -1708,9 +1708,9 @@ ${ctx.indent}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/log.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/log.js
 var require_log = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/log.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/log.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var node_process = __require("process");
@@ -1731,9 +1731,9 @@ var require_log = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/merge.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/merge.js
 var require_merge = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -1792,9 +1792,9 @@ var require_merge = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/addPairToJSMap.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/addPairToJSMap.js
 var require_addPairToJSMap = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var log = require_log();
@@ -1857,9 +1857,9 @@ var require_addPairToJSMap = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Pair.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Pair.js
 var require_Pair = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Pair.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Pair.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var createNode = require_createNode();
@@ -1898,9 +1898,9 @@ var require_Pair = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyCollection.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyCollection.js
 var require_stringifyCollection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -2050,9 +2050,9 @@ ${indent}${end}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLMap.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLMap.js
 var require_YAMLMap = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringifyCollection = require_stringifyCollection();
@@ -2195,9 +2195,9 @@ var require_YAMLMap = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/map.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/map.js
 var require_map = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/map.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/map.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -2218,9 +2218,9 @@ var require_map = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLSeq.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLSeq.js
 var require_YAMLSeq = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var createNode = require_createNode();
@@ -2335,9 +2335,9 @@ var require_YAMLSeq = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/seq.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/seq.js
 var require_seq = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/seq.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/seq.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -2358,9 +2358,9 @@ var require_seq = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/string.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/string.js
 var require_string = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/string.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/string.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringifyString = require_stringifyString();
@@ -2378,9 +2378,9 @@ var require_string = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/null.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/null.js
 var require_null = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/null.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/null.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -2397,9 +2397,9 @@ var require_null = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/bool.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/bool.js
 var require_bool = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/bool.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/bool.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -2422,9 +2422,9 @@ var require_bool = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyNumber.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyNumber.js
 var require_stringifyNumber = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     function stringifyNumber({ format, minFractionDigits, tag, value }) {
@@ -2450,9 +2450,9 @@ var require_stringifyNumber = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/float.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/float.js
 var require_float = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/float.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/float.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -2497,9 +2497,9 @@ var require_float = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/int.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/int.js
 var require_int = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/int.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/int.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringifyNumber = require_stringifyNumber();
@@ -2543,9 +2543,9 @@ var require_int = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/schema.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/schema.js
 var require_schema = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/schema.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/schema.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var map2 = require_map();
@@ -2572,9 +2572,9 @@ var require_schema = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/json/schema.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/json/schema.js
 var require_schema2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/json/schema.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/json/schema.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -2640,9 +2640,9 @@ var require_schema2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/binary.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/binary.js
 var require_binary = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var node_buffer = __require("buffer");
@@ -2707,9 +2707,9 @@ var require_binary = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
 var require_pairs = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -2786,9 +2786,9 @@ ${cn.comment}` : item2.comment;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/omap.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/omap.js
 var require_omap = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -2865,9 +2865,9 @@ var require_omap = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/bool.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/bool.js
 var require_bool2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -2898,9 +2898,9 @@ var require_bool2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/float.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/float.js
 var require_float2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -2948,9 +2948,9 @@ var require_float2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/int.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/int.js
 var require_int2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringifyNumber = require_stringifyNumber();
@@ -3028,9 +3028,9 @@ var require_int2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/set.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/set.js
 var require_set = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -3118,9 +3118,9 @@ var require_set = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
 var require_timestamp = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringifyNumber = require_stringifyNumber();
@@ -3207,9 +3207,9 @@ var require_timestamp = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/schema.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/schema.js
 var require_schema3 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var map2 = require_map();
@@ -3252,9 +3252,9 @@ var require_schema3 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/tags.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/tags.js
 var require_tags = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/tags.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/tags.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var map2 = require_map();
@@ -3347,9 +3347,9 @@ var require_tags = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/Schema.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/Schema.js
 var require_Schema = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/Schema.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/Schema.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -3380,9 +3380,9 @@ var require_Schema = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyDocument.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyDocument.js
 var require_stringifyDocument = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -3461,9 +3461,9 @@ var require_stringifyDocument = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/Document.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/Document.js
 var require_Document = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/Document.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/Document.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Alias = require_Alias();
@@ -3771,9 +3771,9 @@ var require_Document = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/errors.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/errors.js
 var require_errors = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/errors.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/errors.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var YAMLError = class extends Error {
@@ -3837,9 +3837,9 @@ ${pointer}
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-props.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-props.js
 var require_resolve_props = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-props.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-props.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     function resolveProps(tokens, { flow: flow2, indicator, next: next2, offset, onError, parentIndent, startOnNewline }) {
@@ -3972,9 +3972,9 @@ var require_resolve_props = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-contains-newline.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-contains-newline.js
 var require_util_contains_newline = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     function containsNewline(key) {
@@ -4015,9 +4015,9 @@ var require_util_contains_newline = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-flow-indent-check.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-flow-indent-check.js
 var require_util_flow_indent_check = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var utilContainsNewline = require_util_contains_newline();
@@ -4034,9 +4034,9 @@ var require_util_flow_indent_check = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-map-includes.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-map-includes.js
 var require_util_map_includes = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -4051,9 +4051,9 @@ var require_util_map_includes = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-map.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-map.js
 var require_resolve_block_map = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Pair = require_Pair();
@@ -4071,10 +4071,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start: start2, key, sep: sep3, value } = collItem;
+        const { start: start2, key, sep: sep4, value } = collItem;
         const keyProps = resolveProps.resolveProps(start2, {
           indicator: "explicit-key-ind",
-          next: key ?? sep3?.[0],
+          next: key ?? sep4?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -4088,7 +4088,7 @@ var require_resolve_block_map = __commonJS({
             else if ("indent" in key && key.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
-          if (!keyProps.anchor && !keyProps.tag && !sep3) {
+          if (!keyProps.anchor && !keyProps.tag && !sep4) {
             commentEnd = keyProps.end;
             if (keyProps.comment) {
               if (map2.comment)
@@ -4112,7 +4112,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map2.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        const valueProps = resolveProps.resolveProps(sep3 ?? [], {
+        const valueProps = resolveProps.resolveProps(sep4 ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -4128,7 +4128,7 @@ var require_resolve_block_map = __commonJS({
             if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
               onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep3, null, valueProps, onError);
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep4, null, valueProps, onError);
           if (ctx.schema.compat)
             utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
           offset = valueNode.range[2];
@@ -4160,9 +4160,9 @@ var require_resolve_block_map = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-seq.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-seq.js
 var require_resolve_block_seq = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var YAMLSeq = require_YAMLSeq();
@@ -4212,16 +4212,16 @@ var require_resolve_block_seq = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-end.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-end.js
 var require_resolve_end = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-end.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-end.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     function resolveEnd(end, offset, reqSpace, onError) {
       let comment2 = "";
       if (end) {
         let hasSpace = false;
-        let sep3 = "";
+        let sep4 = "";
         for (const token of end) {
           const { source, type } = token;
           switch (type) {
@@ -4235,13 +4235,13 @@ var require_resolve_end = __commonJS({
               if (!comment2)
                 comment2 = cb;
               else
-                comment2 += sep3 + cb;
-              sep3 = "";
+                comment2 += sep4 + cb;
+              sep4 = "";
               break;
             }
             case "newline":
               if (comment2)
-                sep3 += source;
+                sep4 += source;
               hasSpace = true;
               break;
             default:
@@ -4256,9 +4256,9 @@ var require_resolve_end = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-collection.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-collection.js
 var require_resolve_flow_collection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -4285,18 +4285,18 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start: start2, key, sep: sep3, value } = collItem;
+        const { start: start2, key, sep: sep4, value } = collItem;
         const props = resolveProps.resolveProps(start2, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep3?.[0],
+          next: key ?? sep4?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: false
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep3 && !value) {
+          if (!props.anchor && !props.tag && !sep4 && !value) {
             if (i === 0 && props.comma)
               onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
             else if (i < fc.items.length - 1)
@@ -4350,8 +4350,8 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep3 && !props.found) {
-          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep3, null, props, onError);
+        if (!isMap && !sep4 && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep4, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
           if (isBlock(value))
@@ -4363,7 +4363,7 @@ var require_resolve_flow_collection = __commonJS({
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
-          const valueProps = resolveProps.resolveProps(sep3 ?? [], {
+          const valueProps = resolveProps.resolveProps(sep4 ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -4374,8 +4374,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep3)
-                for (const st of sep3) {
+              if (sep4)
+                for (const st of sep4) {
                   if (st === valueProps.found)
                     break;
                   if (st.type === "newline") {
@@ -4392,7 +4392,7 @@ var require_resolve_flow_collection = __commonJS({
             else
               onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep3, null, valueProps, onError) : null;
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep4, null, valueProps, onError) : null;
           if (valueNode) {
             if (isBlock(value))
               onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
@@ -4451,9 +4451,9 @@ var require_resolve_flow_collection = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-collection.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-collection.js
 var require_compose_collection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-collection.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-collection.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -4517,9 +4517,9 @@ var require_compose_collection = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-scalar.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-scalar.js
 var require_resolve_block_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -4574,7 +4574,7 @@ var require_resolve_block_scalar = __commonJS({
           chompStart = i + 1;
       }
       let value = "";
-      let sep3 = "";
+      let sep4 = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
@@ -4591,24 +4591,24 @@ var require_resolve_block_scalar = __commonJS({
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep3 + indent.slice(trimIndent) + content;
-          sep3 = "\n";
+          value += sep4 + indent.slice(trimIndent) + content;
+          sep4 = "\n";
         } else if (indent.length > trimIndent || content[0] === "	") {
-          if (sep3 === " ")
-            sep3 = "\n";
-          else if (!prevMoreIndented && sep3 === "\n")
-            sep3 = "\n\n";
-          value += sep3 + indent.slice(trimIndent) + content;
-          sep3 = "\n";
+          if (sep4 === " ")
+            sep4 = "\n";
+          else if (!prevMoreIndented && sep4 === "\n")
+            sep4 = "\n\n";
+          value += sep4 + indent.slice(trimIndent) + content;
+          sep4 = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
-          if (sep3 === "\n")
+          if (sep4 === "\n")
             value += "\n";
           else
-            sep3 = "\n";
+            sep4 = "\n";
         } else {
-          value += sep3 + content;
-          sep3 = " ";
+          value += sep4 + content;
+          sep4 = " ";
           prevMoreIndented = false;
         }
       }
@@ -4701,9 +4701,9 @@ var require_resolve_block_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-scalar.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-scalar.js
 var require_resolve_flow_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -4792,25 +4792,25 @@ var require_resolve_flow_scalar = __commonJS({
         trimBoth = /^[ \t]+|[ \t]+$/g;
       }
       let res = match[1].replace(trimEnd, "");
-      let sep3 = " ";
+      let sep4 = " ";
       let pos = line.lastIndex;
       while (match = line.exec(source)) {
         const lm = match[1].replace(trimBoth, "");
         if (lm === "") {
-          if (sep3 === "\n")
-            res += sep3;
+          if (sep4 === "\n")
+            res += sep4;
           else
-            sep3 = "\n";
+            sep4 = "\n";
         } else {
-          res += sep3 + lm;
-          sep3 = " ";
+          res += sep4 + lm;
+          sep4 = " ";
         }
         pos = line.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
       match = last.exec(source);
-      return res + sep3 + (match?.[1] ?? "");
+      return res + sep4 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -4923,9 +4923,9 @@ var require_resolve_flow_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-scalar.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-scalar.js
 var require_compose_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -5005,9 +5005,9 @@ var require_compose_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-empty-scalar-position.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-empty-scalar-position.js
 var require_util_empty_scalar_position = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     function emptyScalarPosition(offset, before2, pos) {
@@ -5036,9 +5036,9 @@ var require_util_empty_scalar_position = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-node.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-node.js
 var require_compose_node = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-node.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-node.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Alias = require_Alias();
@@ -5143,9 +5143,9 @@ var require_compose_node = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-doc.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-doc.js
 var require_compose_doc = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-doc.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-doc.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Document = require_Document();
@@ -5187,9 +5187,9 @@ var require_compose_doc = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/composer.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/composer.js
 var require_composer = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/composer.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/composer.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var node_process = __require("process");
@@ -5396,9 +5396,9 @@ ${end.comment}` : end.comment;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-scalar.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-scalar.js
 var require_cst_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var resolveBlockScalar = require_resolve_block_scalar();
@@ -5582,9 +5582,9 @@ var require_cst_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-stringify.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-stringify.js
 var require_cst_stringify = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringify4 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
@@ -5627,14 +5627,14 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start: start2, key, sep: sep3, value }) {
+    function stringifyItem({ start: start2, key, sep: sep4, value }) {
       let res = "";
       for (const st of start2)
         res += st.source;
       if (key)
         res += stringifyToken(key);
-      if (sep3)
-        for (const st of sep3)
+      if (sep4)
+        for (const st of sep4)
           res += st.source;
       if (value)
         res += stringifyToken(value);
@@ -5644,9 +5644,9 @@ var require_cst_stringify = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-visit.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-visit.js
 var require_cst_visit = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-visit.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-visit.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var BREAK = /* @__PURE__ */ Symbol("break visit");
@@ -5707,9 +5707,9 @@ var require_cst_visit = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst.js
 var require_cst = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var cstScalar = require_cst_scalar();
@@ -5810,9 +5810,9 @@ var require_cst = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/lexer.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/lexer.js
 var require_lexer = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/lexer.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/lexer.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var cst = require_cst();
@@ -6400,9 +6400,9 @@ var require_lexer = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/line-counter.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/line-counter.js
 var require_line_counter = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/line-counter.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/line-counter.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var LineCounter = class {
@@ -6432,9 +6432,9 @@ var require_line_counter = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/parser.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/parser.js
 var require_parser = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/parser.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/parser.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var node_process = __require("process");
@@ -6806,18 +6806,18 @@ var require_parser = __commonJS({
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start2 = getFirstKeyStartProps(prev);
-          let sep3;
+          let sep4;
           if (scalar.end) {
-            sep3 = scalar.end;
-            sep3.push(this.sourceToken);
+            sep4 = scalar.end;
+            sep4.push(this.sourceToken);
             delete scalar.end;
           } else
-            sep3 = [this.sourceToken];
+            sep4 = [this.sourceToken];
           const map2 = {
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start: start2, key: scalar, sep: sep3 }]
+            items: [{ start: start2, key: scalar, sep: sep4 }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map2;
@@ -6970,15 +6970,15 @@ var require_parser = __commonJS({
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start3 = getFirstKeyStartProps(it.start);
                   const key = it.key;
-                  const sep3 = it.sep;
-                  sep3.push(this.sourceToken);
+                  const sep4 = it.sep;
+                  sep4.push(this.sourceToken);
                   delete it.key;
                   delete it.sep;
                   this.stack.push({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start3, key, sep: sep3 }]
+                    items: [{ start: start3, key, sep: sep4 }]
                   });
                 } else if (start2.length > 0) {
                   it.sep = it.sep.concat(start2, this.sourceToken);
@@ -7172,13 +7172,13 @@ var require_parser = __commonJS({
             const prev = getPrevProps(parent);
             const start2 = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            const sep3 = fc.end.splice(1, fc.end.length);
-            sep3.push(this.sourceToken);
+            const sep4 = fc.end.splice(1, fc.end.length);
+            sep4.push(this.sourceToken);
             const map2 = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start: start2, key: fc, sep: sep3 }]
+              items: [{ start: start2, key: fc, sep: sep4 }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map2;
@@ -7307,9 +7307,9 @@ var require_parser = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/public-api.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/public-api.js
 var require_public_api = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/public-api.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/public-api.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var composer = require_composer();
@@ -7405,9 +7405,9 @@ var require_public_api = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js
 var require_dist = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var composer = require_composer();
@@ -7473,10 +7473,10 @@ var import_yaml = __toESM(require_dist(), 1);
 import { existsSync as existsSync2, readFileSync } from "node:fs";
 import { join as join2 } from "node:path";
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/index.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/index.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/external.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/external.js
 var external_exports = {};
 __export(external_exports, {
   $brand: () => $brand,
@@ -7740,7 +7740,7 @@ __export(external_exports, {
 });
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/index.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/index.js
 var core_exports2 = {};
 __export(core_exports2, {
   $ZodAny: () => $ZodAny,
@@ -8058,10 +8058,10 @@ __export(core_exports2, {
 });
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/core.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/core.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/util.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/util.js
 var util_exports = {};
 __export(util_exports, {
   BIGINT_FORMAT_RANGES: () => BIGINT_FORMAT_RANGES,
@@ -8905,7 +8905,7 @@ function constantCatch(value) {
   return fn;
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/core.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/core.js
 var _a;
 var NEVER = /* @__PURE__ */ Object.freeze({
   status: "aborted"
@@ -9027,10 +9027,10 @@ function config(newConfig) {
   return globalConfig;
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/parse.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/parse.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/errors.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/errors.js
 init_define_OMNI_BUNDLE();
 function _getMessage() {
   const internals = this._zod;
@@ -9223,7 +9223,7 @@ function prettifyError(error62) {
   return lines.join("\n");
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/parse.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/parse.js
 function finalizeParams(callee, params) {
   return { callee: params?.callee ?? callee, Err: params?.Err };
 }
@@ -9383,13 +9383,13 @@ var _safeDecodeAsync = (_Err) => async (schema, value, _ctx) => {
 };
 var safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync($ZodRealError);
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/schemas.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/schemas.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/checks.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/checks.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/regexes.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/regexes.js
 var regexes_exports = {};
 __export(regexes_exports, {
   anyString: () => anyString,
@@ -9562,7 +9562,7 @@ var sha512_hex = /^[0-9a-fA-F]{128}$/;
 var sha512_base64 = /* @__PURE__ */ fixedBase64(86, "==");
 var sha512_base64url = /* @__PURE__ */ fixedBase64url(86);
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/checks.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/checks.js
 var $ZodCheck = /* @__PURE__ */ $constructor("$ZodCheck", (inst, def) => {
   var _a3;
   inst._zod ?? (inst._zod = {});
@@ -10038,7 +10038,7 @@ var $ZodCheckOverwrite = /* @__PURE__ */ $constructor("$ZodCheckOverwrite", (ins
   };
 });
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/doc.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/doc.js
 init_define_OMNI_BUNDLE();
 var Doc = class {
   constructor(args = [], closed = {}) {
@@ -10080,7 +10080,7 @@ ${content.join("\n")}
   }
 };
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/versions.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/versions.js
 init_define_OMNI_BUNDLE();
 var version = {
   major: 4,
@@ -10088,7 +10088,7 @@ var version = {
   patch: 5
 };
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/schemas.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/schemas.js
 var $ZodType = /* @__PURE__ */ $constructor("$ZodType", (inst, def) => {
   var _a3;
   inst ?? (inst = {});
@@ -12502,7 +12502,7 @@ function handleRefineResult(result, payload, input2, inst) {
   }
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/memoizer.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/memoizer.js
 init_define_OMNI_BUNDLE();
 var $ZodCyclicError = class extends Error {
   constructor() {
@@ -12780,7 +12780,7 @@ function isBackEdge(ctx, value) {
   return backEdges !== void 0 && isRef(value) && backEdges.has(value);
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/index.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/index.js
 var locales_exports = {};
 __export(locales_exports, {
   ar: () => ar_default,
@@ -12849,7 +12849,7 @@ __export(locales_exports, {
 });
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ar.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ar.js
 init_define_OMNI_BUNDLE();
 var error = () => {
   const Sizable = {
@@ -12962,7 +12962,7 @@ function ar_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/az.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/az.js
 init_define_OMNI_BUNDLE();
 var error2 = () => {
   const Sizable = {
@@ -13074,7 +13074,7 @@ function az_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/be.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/be.js
 init_define_OMNI_BUNDLE();
 function getBelarusianPlural(count4, one, few, many) {
   const absCount = Math.abs(count4);
@@ -13244,7 +13244,7 @@ function be_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/bg.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/bg.js
 init_define_OMNI_BUNDLE();
 var error4 = () => {
   const Sizable = {
@@ -13371,7 +13371,7 @@ function bg_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/bn.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/bn.js
 init_define_OMNI_BUNDLE();
 var error5 = () => {
   const Sizable = {
@@ -13486,7 +13486,7 @@ function bn_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ca.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ca.js
 init_define_OMNI_BUNDLE();
 var error6 = () => {
   const Sizable = {
@@ -13601,7 +13601,7 @@ function ca_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ckb.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ckb.js
 init_define_OMNI_BUNDLE();
 var error7 = () => {
   const Sizable = {
@@ -13735,7 +13735,7 @@ function ckb_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/cs.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/cs.js
 init_define_OMNI_BUNDLE();
 var error8 = () => {
   const Sizable = {
@@ -13853,7 +13853,7 @@ function cs_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/da.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/da.js
 init_define_OMNI_BUNDLE();
 var error9 = () => {
   const Sizable = {
@@ -13975,7 +13975,7 @@ function da_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/de.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/de.js
 init_define_OMNI_BUNDLE();
 var error10 = () => {
   const Sizable = {
@@ -14090,7 +14090,7 @@ function de_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/el.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/el.js
 init_define_OMNI_BUNDLE();
 var error11 = () => {
   const Sizable = {
@@ -14204,7 +14204,7 @@ function el_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/en.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/en.js
 init_define_OMNI_BUNDLE();
 var error12 = () => {
   const Sizable = {
@@ -14330,7 +14330,7 @@ function en_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/eo.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/eo.js
 init_define_OMNI_BUNDLE();
 var error13 = () => {
   const Sizable = {
@@ -14446,7 +14446,7 @@ function eo_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/es.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/es.js
 init_define_OMNI_BUNDLE();
 var error14 = () => {
   const Sizable = {
@@ -14584,7 +14584,7 @@ function es_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/fa.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/fa.js
 init_define_OMNI_BUNDLE();
 var error15 = () => {
   const Sizable = {
@@ -14705,7 +14705,7 @@ function fa_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/fi.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/fi.js
 init_define_OMNI_BUNDLE();
 var error16 = () => {
   const Sizable = {
@@ -14824,7 +14824,7 @@ function fi_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/fr.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/fr.js
 init_define_OMNI_BUNDLE();
 var error17 = () => {
   const Sizable = {
@@ -14955,7 +14955,7 @@ function fr_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/fr-CA.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/fr-CA.js
 init_define_OMNI_BUNDLE();
 var error18 = () => {
   const Sizable = {
@@ -15069,7 +15069,7 @@ function fr_CA_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/gu.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/gu.js
 init_define_OMNI_BUNDLE();
 var error19 = () => {
   const Sizable = {
@@ -15184,7 +15184,7 @@ function gu_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/he.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/he.js
 init_define_OMNI_BUNDLE();
 var error20 = () => {
   const TypeNames = {
@@ -15387,7 +15387,7 @@ function he_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hi.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hi.js
 init_define_OMNI_BUNDLE();
 var error21 = () => {
   const Sizable = {
@@ -15500,7 +15500,7 @@ function hi_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hr.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hr.js
 init_define_OMNI_BUNDLE();
 var error22 = () => {
   const Sizable = {
@@ -15628,7 +15628,7 @@ function hr_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hu.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hu.js
 init_define_OMNI_BUNDLE();
 var error23 = () => {
   const Sizable = {
@@ -15743,7 +15743,7 @@ function hu_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hy.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hy.js
 init_define_OMNI_BUNDLE();
 function getArmenianPlural(count4, one, many) {
   return Math.abs(count4) === 1 ? one : many;
@@ -15903,7 +15903,7 @@ function hy_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/id.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/id.js
 init_define_OMNI_BUNDLE();
 var error25 = () => {
   const Sizable = {
@@ -16016,7 +16016,7 @@ function id_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/is.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/is.js
 init_define_OMNI_BUNDLE();
 var error26 = () => {
   const Sizable = {
@@ -16132,7 +16132,7 @@ function is_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/it.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/it.js
 init_define_OMNI_BUNDLE();
 var error27 = () => {
   const Sizable = {
@@ -16247,7 +16247,7 @@ function it_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ja.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ja.js
 init_define_OMNI_BUNDLE();
 var error28 = () => {
   const Sizable = {
@@ -16361,7 +16361,7 @@ function ja_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ka.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ka.js
 init_define_OMNI_BUNDLE();
 var error29 = () => {
   const Sizable = {
@@ -16480,10 +16480,10 @@ function ka_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/kh.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/kh.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/km.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/km.js
 init_define_OMNI_BUNDLE();
 var error30 = () => {
   const Sizable = {
@@ -16600,12 +16600,12 @@ function km_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/kh.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/kh.js
 function kh_default() {
   return km_default();
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/kn.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/kn.js
 init_define_OMNI_BUNDLE();
 var error31 = () => {
   const Sizable = {
@@ -16722,7 +16722,7 @@ function kn_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ko.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ko.js
 init_define_OMNI_BUNDLE();
 var error32 = () => {
   const Sizable = {
@@ -16840,7 +16840,7 @@ function ko_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/lt.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/lt.js
 init_define_OMNI_BUNDLE();
 var capitalizeFirstCharacter = (text10) => {
   return text10.charAt(0).toUpperCase() + text10.slice(1);
@@ -17049,7 +17049,7 @@ function lt_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/mk.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/mk.js
 init_define_OMNI_BUNDLE();
 var error34 = () => {
   const Sizable = {
@@ -17165,7 +17165,7 @@ function mk_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ms.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ms.js
 init_define_OMNI_BUNDLE();
 var error35 = () => {
   const Sizable = {
@@ -17279,7 +17279,7 @@ function ms_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ne.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ne.js
 init_define_OMNI_BUNDLE();
 var error36 = () => {
   const Sizable = {
@@ -17392,7 +17392,7 @@ function ne_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/nl.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/nl.js
 init_define_OMNI_BUNDLE();
 var error37 = () => {
   const Sizable = {
@@ -17509,7 +17509,7 @@ function nl_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/nn.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/nn.js
 init_define_OMNI_BUNDLE();
 var error38 = () => {
   const Sizable = {
@@ -17624,7 +17624,7 @@ function nn_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/no.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/no.js
 init_define_OMNI_BUNDLE();
 var error39 = () => {
   const Sizable = {
@@ -17739,7 +17739,7 @@ function no_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ota.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ota.js
 init_define_OMNI_BUNDLE();
 var error40 = () => {
   const Sizable = {
@@ -17855,7 +17855,7 @@ function ota_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ps.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ps.js
 init_define_OMNI_BUNDLE();
 var error41 = () => {
   const Sizable = {
@@ -17976,7 +17976,7 @@ function ps_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/pl.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/pl.js
 init_define_OMNI_BUNDLE();
 var error42 = () => {
   const Sizable = {
@@ -18092,7 +18092,7 @@ function pl_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/pt.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/pt.js
 init_define_OMNI_BUNDLE();
 var error43 = () => {
   const Sizable = {
@@ -18237,7 +18237,7 @@ function pt_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/pt-BR.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/pt-BR.js
 init_define_OMNI_BUNDLE();
 var error44 = () => {
   const Sizable = {
@@ -18383,7 +18383,7 @@ function pt_BR_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ro.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ro.js
 init_define_OMNI_BUNDLE();
 var error45 = () => {
   const Sizable = {
@@ -18507,7 +18507,7 @@ function ro_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ru.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ru.js
 init_define_OMNI_BUNDLE();
 function getRussianPlural(count4, one, few, many) {
   const absCount = Math.abs(count4);
@@ -18677,7 +18677,7 @@ function ru_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/sk.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/sk.js
 init_define_OMNI_BUNDLE();
 var error47 = () => {
   const Sizable = {
@@ -18795,7 +18795,7 @@ function sk_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/sl.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/sl.js
 init_define_OMNI_BUNDLE();
 var error48 = () => {
   const Sizable = {
@@ -18911,7 +18911,7 @@ function sl_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/sv.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/sv.js
 init_define_OMNI_BUNDLE();
 var error49 = () => {
   const Sizable = {
@@ -19028,7 +19028,7 @@ function sv_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ta.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ta.js
 init_define_OMNI_BUNDLE();
 var error50 = () => {
   const Sizable = {
@@ -19145,7 +19145,7 @@ function ta_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/tg.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/tg.js
 init_define_OMNI_BUNDLE();
 var error51 = () => {
   const Sizable = {
@@ -19263,7 +19263,7 @@ function tg_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/th.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/th.js
 init_define_OMNI_BUNDLE();
 var error52 = () => {
   const Sizable = {
@@ -19380,7 +19380,7 @@ function th_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/tk.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/tk.js
 init_define_OMNI_BUNDLE();
 var error53 = () => {
   const Sizable = {
@@ -19489,7 +19489,7 @@ function tk_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/tr.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/tr.js
 init_define_OMNI_BUNDLE();
 var error54 = () => {
   const Sizable = {
@@ -19601,10 +19601,10 @@ function tr_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ua.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ua.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/uk.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/uk.js
 init_define_OMNI_BUNDLE();
 var error55 = () => {
   const Sizable = {
@@ -19719,12 +19719,12 @@ function uk_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ua.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ua.js
 function ua_default() {
   return uk_default();
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ur.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ur.js
 init_define_OMNI_BUNDLE();
 var error56 = () => {
   const Sizable = {
@@ -19841,7 +19841,7 @@ function ur_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/uz.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/uz.js
 init_define_OMNI_BUNDLE();
 var error57 = () => {
   const Sizable = {
@@ -19956,7 +19956,7 @@ function uz_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/vi.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/vi.js
 init_define_OMNI_BUNDLE();
 var error58 = () => {
   const Sizable = {
@@ -20071,7 +20071,7 @@ function vi_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/zh-CN.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/zh-CN.js
 init_define_OMNI_BUNDLE();
 var error59 = () => {
   const Sizable = {
@@ -20187,7 +20187,7 @@ function zh_CN_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/zh-TW.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/zh-TW.js
 init_define_OMNI_BUNDLE();
 var error60 = () => {
   const Sizable = {
@@ -20301,7 +20301,7 @@ function zh_TW_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/yo.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/yo.js
 init_define_OMNI_BUNDLE();
 var error61 = () => {
   const Sizable = {
@@ -20415,7 +20415,7 @@ function yo_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/registries.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/registries.js
 init_define_OMNI_BUNDLE();
 var _a2;
 var $output = /* @__PURE__ */ Symbol("ZodOutput");
@@ -20466,7 +20466,7 @@ function registry() {
 (_a2 = globalThis).__zod_globalRegistry ?? (_a2.__zod_globalRegistry = registry());
 var globalRegistry = globalThis.__zod_globalRegistry;
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/compile.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/compile.js
 init_define_OMNI_BUNDLE();
 var INVALID = /* @__PURE__ */ Symbol.for("zod.compile.invalid");
 var FALLBACK_FLAG = /* @__PURE__ */ Symbol.for("zod.compile.fallback");
@@ -22069,7 +22069,7 @@ function generateTransformCheck(doc, ctx, schema, accessor) {
   return accessor;
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/api.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/api.js
 init_define_OMNI_BUNDLE();
 function snapshotChecks(def) {
   if (def.checks)
@@ -23129,7 +23129,7 @@ function _stringFormat(Class2, format, fnOrRegex, _params = {}) {
   return inst;
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/to-json-schema.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/to-json-schema.js
 init_define_OMNI_BUNDLE();
 function assignProps(target3, ...sources2) {
   for (const source of sources2) {
@@ -23660,7 +23660,7 @@ var createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) =
   return finalize(ctx, schema);
 };
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/json-schema-processors.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/json-schema-processors.js
 init_define_OMNI_BUNDLE();
 var narrowMin = (agg, key, value) => {
   if (agg[key] === void 0 || value > agg[key])
@@ -24409,7 +24409,7 @@ function toJSONSchema(input2, params) {
   return finalize(ctx, input2);
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/json-schema-generator.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/json-schema-generator.js
 init_define_OMNI_BUNDLE();
 var JSONSchemaGenerator = class {
   /** @deprecated Access via ctx instead */
@@ -24488,11 +24488,11 @@ var JSONSchemaGenerator = class {
   }
 };
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/json-schema.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/json-schema.js
 var json_schema_exports = {};
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/schemas.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/schemas.js
 var schemas_exports2 = {};
 __export(schemas_exports2, {
   ZodAny: () => ZodAny,
@@ -24674,7 +24674,7 @@ __export(schemas_exports2, {
 });
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/checks.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/checks.js
 var checks_exports2 = {};
 __export(checks_exports2, {
   endsWith: () => _endsWith,
@@ -24710,10 +24710,10 @@ __export(checks_exports2, {
 });
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/parse.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/parse.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/errors.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/errors.js
 init_define_OMNI_BUNDLE();
 var _installedErrorProtos = /* @__PURE__ */ new WeakSet([Object.prototype, Error.prototype]);
 function _lazyMethod(proto, key, make) {
@@ -24760,7 +24760,7 @@ var ZodRealError = /* @__PURE__ */ $constructor("ZodError", initializer2, void 0
   Parent: Error
 });
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/parse.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/parse.js
 var parse2 = /* @__PURE__ */ _parse(ZodRealError);
 var parseAsync2 = /* @__PURE__ */ _parseAsync(ZodRealError);
 var safeParse2 = /* @__PURE__ */ _safeParse(ZodRealError);
@@ -24774,7 +24774,7 @@ var safeDecode2 = /* @__PURE__ */ _safeDecode(ZodRealError);
 var safeEncodeAsync2 = /* @__PURE__ */ _safeEncodeAsync(ZodRealError);
 var safeDecodeAsync2 = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/schemas.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/schemas.js
 function _ensureDefaultLocale() {
   if (!globalConfig.localeError)
     config(en_default());
@@ -26239,7 +26239,7 @@ function preprocess(fn, schema) {
   });
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/compat.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/compat.js
 init_define_OMNI_BUNDLE();
 var ZodIssueCode = {
   invalid_type: "invalid_type",
@@ -26266,10 +26266,10 @@ var ZodFirstPartyTypeKind;
 /* @__PURE__ */ (function(ZodFirstPartyTypeKind2) {
 })(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/from-json-schema.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/from-json-schema.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/iso.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/iso.js
 var iso_exports = {};
 __export(iso_exports, {
   ZodISODate: () => ZodISODate,
@@ -26295,7 +26295,7 @@ function duration2(params) {
   return _isoDuration(ZodISODuration, params);
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/from-json-schema.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/from-json-schema.js
 var z = {
   ...schemas_exports2,
   ...checks_exports2,
@@ -27028,10 +27028,10 @@ function fromJSONSchema(schema, params) {
   return convertSchema(normalized, ctx);
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/deep-partial.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/deep-partial.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/visit.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/visit.js
 init_define_OMNI_BUNDLE();
 var RESOLVING = /* @__PURE__ */ Symbol("z.visit/resolving");
 function visit(schema, fnOrHandlers) {
@@ -27187,7 +27187,7 @@ function visit(schema, fnOrHandlers) {
   return run(schema);
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/deep-partial.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/deep-partial.js
 function deepPartial(schema) {
   return visit(schema, {
     object: (s) => s.partial(),
@@ -27199,7 +27199,7 @@ function deepPartial(schema) {
   });
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/in-out.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/in-out.js
 init_define_OMNI_BUNDLE();
 function withChecks(side, checks) {
   if (!checks?.length)
@@ -27230,7 +27230,7 @@ function output(schema) {
   });
 }
 
-// node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/coerce.js
+// ../../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/coerce.js
 var coerce_exports = {};
 __export(coerce_exports, {
   bigint: () => bigint3,
@@ -29424,8 +29424,8 @@ function readRound(root, toolUseId) {
   const round2 = RoundFileSchema.safeParse(readJson(root, roundFile(toolUseId)));
   return round2.success ? round2.data : null;
 }
-function writeRound(root, toolUseId, { roundId, status: status4 }) {
-  writeJson(root, roundFile(toolUseId), { roundId, status: status4 });
+function writeRound(root, toolUseId, { roundId, status: status5 }) {
+  writeJson(root, roundFile(toolUseId), { roundId, status: status5 });
 }
 function clearRound(root, toolUseId) {
   if (isSafeId(toolUseId)) rmSync(localFile(root, roundFile(toolUseId)), { force: true });
@@ -30972,8 +30972,8 @@ function git(args, cwd, exec) {
 }
 function parseNameStatus(nameStatus) {
   return nameStatus.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
-    const [status4 = "", ...paths] = line.split("	");
-    return { status: status4[0] ?? "", path: paths.at(-1) ?? "" };
+    const [status5 = "", ...paths] = line.split("	");
+    return { status: status5[0] ?? "", path: paths.at(-1) ?? "" };
   });
 }
 function rangeChanges({ ctx, base, exec = execFileSync5 }) {
@@ -32196,8 +32196,8 @@ function statusState(state) {
   if (state === "SUCCESS") return "pass";
   return WAITING.has(state) ? "pending" : "fail";
 }
-function runState({ status: status4, conclusion }) {
-  if (status4 !== "COMPLETED") return "pending";
+function runState({ status: status5, conclusion }) {
+  if (status5 !== "COMPLETED") return "pending";
   return PASSING.has(conclusion ?? "") ? "pass" : "fail";
 }
 function entryState(entry) {
@@ -32827,7 +32827,7 @@ async function askModel({
 function failure2(error62, model, reason2) {
   return { ok: false, error: error62, model, reply: null, reason: reason2 };
 }
-var unavailable = (status4) => `model unavailable (${status4})`;
+var unavailable = (status5) => `model unavailable (${status5})`;
 function runCheck(check4, value) {
   try {
     if (value === void 0) return { errors: ["the reply must be one JSON object"], reply: null };
@@ -32889,8 +32889,8 @@ async function once({
     return { ok: false, status: "network error", retry: true };
   }
 }
-function retriable(status4) {
-  const code = Number(status4);
+function retriable(status5) {
+  const code = Number(status5);
   return code === 408 || code === 429 || code >= 500;
 }
 var ModelError = class extends Error {
@@ -33681,11 +33681,11 @@ function proofOf({
   pr,
   exists
 }) {
-  const status4 = new Map(changed.map((file2) => [file2.path, file2.status]));
+  const status5 = new Map(changed.map((file2) => [file2.path, file2.status]));
   const kept = [];
   const dropped = [];
   for (const path of new Set(proposed.map((p) => p.trim()))) {
-    const given = status4.get(path);
+    const given = status5.get(path);
     if (given === "removed") dropped.push({ path, reason: `removed by #${pr}` });
     else if (!KEPT_STATUSES.includes(given ?? "")) dropped.push({ path, reason: `not changed by #${pr}` });
     else if (!exists(path)) dropped.push({ path, reason: "no longer in the tree" });
@@ -33768,7 +33768,7 @@ function renderRecord({
   number: number4,
   reply,
   candidate,
-  status: status4,
+  status: status5,
   decided,
   merged,
   merge: merge2,
@@ -33779,7 +33779,7 @@ function renderRecord({
   return [
     `# ADR-${number4} \u2014 ${oneLine(reply.title)}`,
     "",
-    `**Status:** ${status4} \xB7 **Date:** ${day(merge2.at)} \xB7 **PRD:** #${prd2} \xB7 **Decided:** ${decided} \xB7 **Merged:** ${merged}`,
+    `**Status:** ${status5} \xB7 **Date:** ${day(merge2.at)} \xB7 **PRD:** #${prd2} \xB7 **Decided:** ${decided} \xB7 **Merged:** ${merged}`,
     "",
     "## Context",
     "",
@@ -33911,13 +33911,13 @@ function writeKnowledge({
     const proposed = !answered2;
     const touched = [];
     let landedAs = [];
-    let status4 = null;
+    let status5 = null;
     let proof2 = null;
     if (reply.kind === "adr") {
       const number4 = numbering.record();
-      status4 = answered2 ? "accepted" : ADOPTED_VERDICT;
+      status5 = answered2 ? "accepted" : ADOPTED_VERDICT;
       const path = `${ctx.layout.adrDir.replace(/\/+$/, "")}/${number4}-${slugOf(reply.title)}.md`;
-      files.write(path, renderRecord({ number: number4, reply, candidate, status: status4, decided, merged, merge: merge2, prd: prd2, ledgerFile }));
+      files.write(path, renderRecord({ number: number4, reply, candidate, status: status5, decided, merged, merge: merge2, prd: prd2, ledgerFile }));
       touched.push(path);
       landedAs = [`ADR-${number4}`];
     } else if (reply.kind === "rule" || reply.kind === "invariant") {
@@ -33945,7 +33945,7 @@ function writeKnowledge({
       ledgerFile,
       ledgerLine,
       decided,
-      status: status4,
+      status: status5,
       proposed: proposed && (reply.kind === "rule" || reply.kind === "invariant" || reply.kind === "adr"),
       reason: oneLine(reply.reason),
       ...proof2 ? { enforcedBy: proof2.kept, dropped: proof2.dropped } : {}
@@ -34454,10 +34454,10 @@ var AskCallError = class extends Error {
   /** `status`: the server's, null when it could not be reached. `reason`: its `{error}`, when it gave one. */
   status;
   reason;
-  constructor(message, { status: status4 = null, reason: reason2 = null } = {}) {
+  constructor(message, { status: status5 = null, reason: reason2 = null } = {}) {
     super(message);
     this.name = "AskCallError";
-    this.status = status4;
+    this.status = status5;
     this.reason = reason2;
   }
 };
@@ -35028,8 +35028,8 @@ async function openRoundFor({ root, host, client, input: input2, title, readCont
       const context = contextOf(() => readContext({ root, input: input2 })) ?? void 0;
       roundId = field(await client.openRound(sessionId, questions2, context, contextOf(() => readLead2({ input: input2 }))), "roundId");
     } catch (error62) {
-      const status4 = field(error62, "status");
-      if (typeof status4 === "number" && SESSION_GONE.includes(status4)) clearTerminal(root, terminalId);
+      const status5 = field(error62, "status");
+      if (typeof status5 === "number" && SESSION_GONE.includes(status5)) clearTerminal(root, terminalId);
       return null;
     }
   } catch {
@@ -35056,8 +35056,8 @@ async function preHook({
   sweepOldShots(root, now);
   const roundId = await openRoundFor({ root, host, client, input: input2, title, readContext, readSessionContext, readLead: readLead2, questions: questions2, terminalId });
   if (!roundId) return null;
-  const keep = (status4) => {
-    writeRound(root, toolUseId, { roundId, status: status4 });
+  const keep = (status5) => {
+    writeRound(root, toolUseId, { roundId, status: status5 });
   };
   keep("open");
   const giveUp = async () => {
@@ -35075,17 +35075,17 @@ async function preHook({
     } catch {
       return giveUp();
     }
-    const status4 = field(result, "status");
-    if (status4 === "open") continue;
-    if (status4 === "closed") {
+    const status5 = field(result, "status");
+    if (status5 === "open") continue;
+    if (status5 === "closed") {
       clearTerminal(root, terminalId);
       return null;
     }
-    if (status4 === "abandoned") {
+    if (status5 === "abandoned") {
       keep("abandoned");
       return null;
     }
-    const answers2 = status4 === "answered" ? toolAnswers(questions2, field(result, "answers")) : null;
+    const answers2 = status5 === "answered" ? toolAnswers(questions2, field(result, "answers")) : null;
     if (!answers2) return giveUp();
     keep("answered");
     const attachments = field(result, "attachments");
@@ -35093,8 +35093,8 @@ async function preHook({
   }
 }
 function statusOf(error62) {
-  const status4 = field(error62, "status");
-  return typeof status4 === "number" ? status4 : null;
+  const status5 = field(error62, "status");
+  return typeof status5 === "number" ? status5 : null;
 }
 function failureLine(error62) {
   const reason2 = error62 instanceof Error ? error62.message : String(error62);
@@ -35114,8 +35114,8 @@ async function openAnswered({ root, host, client, input: input2, title, readCont
   try {
     reply = await send3();
   } catch (error62) {
-    const status4 = statusOf(error62);
-    if (status4 === null || !SESSION_GONE.includes(status4)) throw error62;
+    const status5 = statusOf(error62);
+    if (status5 === null || !SESSION_GONE.includes(status5)) throw error62;
     clearTerminal(root, terminalId);
     reply = await send3();
   }
@@ -35163,9 +35163,9 @@ async function answerRound(client, roundId, answers2) {
     await client.answer(roundId, answers2);
     return true;
   } catch (error62) {
-    const status4 = statusOf(error62);
-    if (status4 === 409) return true;
-    if (status4 === 404) return false;
+    const status5 = statusOf(error62);
+    if (status5 === 409) return true;
+    if (status5 === 404) return false;
     throw error62;
   }
 }
@@ -35389,8 +35389,8 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
   });
   let done = false;
   const server = createServer((request, response) => {
-    const answer = (status4, body, type = "text/html; charset=utf-8") => {
-      response.writeHead(status4, { "content-type": type, "cache-control": "no-store", connection: "close" });
+    const answer = (status5, body, type = "text/html; charset=utf-8") => {
+      response.writeHead(status5, { "content-type": type, "cache-control": "no-store", connection: "close" });
       response.end(body);
     };
     const url2 = new URL(request.url ?? "/", `http://${HOST}`);
@@ -39909,10 +39909,128 @@ var dossier = {
   }
 };
 
+// kit/bin/commands/e2e.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/e2e/recording.ts
+init_define_OMNI_BUNDLE();
+import { readdirSync as readdirSync17, readFileSync as readFileSync35 } from "node:fs";
+import { join as join48, relative as relative3, sep } from "node:path";
+var SCHEMA_VERSION = "trace-1";
+var RecordingError = class extends Error {
+  constructor(file2, why2) {
+    super(`${file2}: ${why2}`);
+    this.name = "RecordingError";
+  }
+};
+function isRecord4(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function parseRecording(file2, text10) {
+  let json2;
+  try {
+    json2 = JSON.parse(text10);
+  } catch {
+    throw new RecordingError(file2, "not valid JSON");
+  }
+  if (!isRecord4(json2)) throw new RecordingError(file2, "not a JSON object");
+  if (json2["schemaVersion"] !== SCHEMA_VERSION) {
+    throw new RecordingError(file2, `schemaVersion ${JSON.stringify(json2["schemaVersion"])} is not ${SCHEMA_VERSION}`);
+  }
+  const { recordedFor, actions, summary } = json2;
+  if (!isRecord4(recordedFor) || typeof recordedFor["testId"] !== "string" || typeof recordedFor["callIndex"] !== "number") {
+    throw new RecordingError(file2, "recordedFor needs a testId and a callIndex");
+  }
+  if (!Array.isArray(actions)) throw new RecordingError(file2, "actions is not a list");
+  return {
+    file: file2,
+    testId: recordedFor["testId"],
+    callIndex: recordedFor["callIndex"],
+    summary: typeof summary === "string" ? summary : "",
+    actions: actions.map((action) => {
+      const item2 = isRecord4(action) ? action : {};
+      return { name: String(item2["name"] ?? ""), target: String(item2["target"] ?? "") };
+    })
+  };
+}
+function filesUnder2(folder, extensions) {
+  let entries3;
+  try {
+    entries3 = readdirSync17(folder, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries3.filter((entry) => entry.name !== "node_modules").flatMap((entry) => {
+    const path = join48(folder, entry.name);
+    if (entry.isDirectory()) return filesUnder2(path, extensions);
+    return extensions.some((extension) => entry.name.endsWith(extension)) ? [path] : [];
+  }).sort();
+}
+var posix5 = (path) => path.split(sep).join("/");
+function readRecordings(root, dir) {
+  return filesUnder2(join48(root, dir, ".e2e", "cache"), [".json"]).map((path) => {
+    const name2 = posix5(relative3(root, path));
+    let text10;
+    try {
+      text10 = readFileSync35(path, "utf8");
+    } catch {
+      throw new RecordingError(name2, "cannot be read");
+    }
+    return parseRecording(name2, text10);
+  });
+}
+function readTaggedTests(root, dir, prd2) {
+  const tag = new RegExp(`(?<![\\w-])prd-${prd2}(?![\\w-])`);
+  const base = join48(root, dir);
+  return filesUnder2(base, [".ts", ".tsx", ".js", ".mjs", ".cjs"]).filter((path) => !relative3(base, path).split(sep).includes(".e2e")).filter((path) => tag.test(readFileSync35(path, "utf8"))).map((path) => ({ id: posix5(relative3(base, path)), file: posix5(relative3(root, path)) }));
+}
+
+// kit/lib/e2e/status.ts
+init_define_OMNI_BUNDLE();
+function belongsTo(testId, id) {
+  return testId === id || [":", ">", "#"].some((separator) => testId.startsWith(`${id}${separator}`));
+}
+function testStatus(tests, recordings) {
+  return tests.map(({ id, file: file2 }) => {
+    const files = recordings.filter((recording) => belongsTo(recording.testId, id)).map((recording) => recording.file);
+    return { id, file: file2, recording: files.length > 0, recordings: files };
+  });
+}
+
+// kit/bin/commands/e2e.ts
+var USAGE12 = "usage: omni e2e status <prd>";
+function status(args, { ctx, stdout, stderr }) {
+  const { positional } = parseArgs("e2e status", args);
+  if (positional.length !== 1) throw usageError(USAGE12);
+  const prd2 = prdArg("e2e status", "<prd>", positional[0]);
+  const { enabled, dir } = ctx.config.e2e;
+  if (!enabled) {
+    println(stderr, "omni e2e: e2e.enabled is false in the config, so nothing was read");
+    return 1;
+  }
+  try {
+    const tests = testStatus(readTaggedTests(ctx.root, dir, prd2), readRecordings(ctx.root, dir));
+    println(stdout, JSON.stringify({ prd: prd2, dir, tests }, null, 2));
+    return tests.some((test) => !test.recording) ? 1 : 0;
+  } catch (error62) {
+    if (!(error62 instanceof RecordingError)) throw error62;
+    println(stderr, `omni e2e: ${messageOf(error62)}`);
+    return 1;
+  }
+}
+var e2e = {
+  run: synchronous((args, io) => {
+    const [sub, ...rest] = args;
+    if (sub === "status") return status(rest, io);
+    throw usageError(`${USAGE12}
+omni e2e: unknown subcommand ${sub ?? "(none)"}`);
+  })
+};
+
 // kit/bin/commands/flow.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync38, readFileSync as readFileSync35, statSync as statSync9 } from "node:fs";
-import { join as join48 } from "node:path";
+import { existsSync as existsSync38, readFileSync as readFileSync36, statSync as statSync9 } from "node:fs";
+import { join as join49 } from "node:path";
 
 // kit/lib/flow/show.ts
 init_define_OMNI_BUNDLE();
@@ -40049,7 +40167,7 @@ function flowDifferences(flow2) {
 }
 
 // kit/bin/commands/flow.ts
-var USAGE12 = "usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--repo <target>] [--json] | omni flow verdict <point> --from <file> | omni flow check merge --pr <n> [--repo <target>] [--json]";
+var USAGE13 = "usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--repo <target>] [--json] | omni flow verdict <point> --from <file> | omni flow check merge --pr <n> [--repo <target>] [--json]";
 var KNOWN = FLOW_POINTS.map(({ point: point2 }) => point2).join(", ");
 function pointArg(verb2, name2) {
   const point2 = flowPoint(name2);
@@ -40057,8 +40175,8 @@ function pointArg(verb2, name2) {
   return point2;
 }
 var hookReader = (root) => (path) => {
-  const file2 = join48(root, path);
-  return existsSync38(file2) && statSync9(file2).isFile() ? readFileSync35(file2, "utf8") : null;
+  const file2 = join49(root, path);
+  return existsSync38(file2) && statSync9(file2).isFile() ? readFileSync36(file2, "utf8") : null;
 };
 function sliceInputs(ctx, prdText, sliceText) {
   const prd2 = prdArg("flow show", "--prd", prdText);
@@ -40066,9 +40184,9 @@ function sliceInputs(ctx, prdText, sliceText) {
   const where = ctx.layout.whereIs(prd2);
   const planPath = ctx.layout.planPath(prd2);
   if (where === null || planPath === null) throw usageError(`omni flow show: PRD ${prd2} has no inbox or shipped folder.`);
-  const file2 = join48(ctx.root, planPath);
+  const file2 = join49(ctx.root, planPath);
   if (!existsSync38(file2)) throw usageError(`omni flow show: no plan at ${planPath}.`);
-  const row = parsePlanSlices(readFileSync35(file2, "utf8")).find(({ id }) => id === slice);
+  const row = parsePlanSlices(readFileSync36(file2, "utf8")).find(({ id }) => id === slice);
   if (!row) throw usageError(`omni flow show: PRD ${prd2}'s plan has no slice ${slice}.`);
   const topic = parseFolderName(where.name)?.topic;
   return {
@@ -40131,7 +40249,7 @@ function shownFlow(ctx, repo) {
     throw usageError(`omni flow show: ${errorMessage(error62)}`);
   }
   if (copy === null) {
-    throw usageError(`omni flow show: ${repo} has no copied flow at ${join48(copyFlowFolder(slug, ctx), COPY_FLOW_FILE)} \u2014 /omni:mega-invade copies an imported target's flow there.`);
+    throw usageError(`omni flow show: ${repo} has no copied flow at ${join49(copyFlowFolder(slug, ctx), COPY_FLOW_FILE)} \u2014 /omni:mega-invade copies an imported target's flow there.`);
   }
   return { flow: resolveFlow(copy.config), readHook: copy.readHook };
 }
@@ -40169,7 +40287,7 @@ function showOnePoint({ ctx, stdout }, shown4, name2, { flags, bySlice, print: p
 }
 function show2(args, io) {
   const { positional, flags } = parseArgs("flow show", args, { values: ["prd", "slice", "path", "repo"], booleans: ["json"] });
-  if (positional.length > 1) throw usageError(USAGE12);
+  if (positional.length > 1) throw usageError(USAGE13);
   const shown4 = shownFlow(io.ctx, flags.repo);
   const [name2] = positional;
   const bySlice = bySliceOf(flags);
@@ -40201,11 +40319,11 @@ function sliceTerritories(ctx) {
 }
 function sliceGround(ctx) {
   const byBranch = /* @__PURE__ */ new Map();
-  for (const { name: name2 } of prdFoldersIn(join48(ctx.root, ctx.layout.dirs.inbox))) {
+  for (const { name: name2 } of prdFoldersIn(join49(ctx.root, ctx.layout.dirs.inbox))) {
     const topic = parseFolderName(name2)?.topic;
-    const plan2 = join48(ctx.root, ctx.layout.dirs.inbox, name2, "plan.md");
+    const plan2 = join49(ctx.root, ctx.layout.dirs.inbox, name2, "plan.md");
     if (topic === void 0 || !existsSync38(plan2)) continue;
-    for (const { id, territory } of parsePlanSlices(readFileSync35(plan2, "utf8"))) {
+    for (const { id, territory } of parsePlanSlices(readFileSync36(plan2, "utf8"))) {
       byBranch.set(fillBranch(ctx.config.branches.slice, { topic, slice: id }), { territory, outbox: `${ctx.layout.dirs.outbox}/${name2}/` });
     }
   }
@@ -40261,7 +40379,7 @@ var flow = {
     if (sub === "show") return show2(rest, io);
     if (sub === "verdict") return verdict(rest, io);
     if (sub === "check") return checkMerge(rest, io);
-    throw usageError(USAGE12);
+    throw usageError(USAGE13);
   })
 };
 
@@ -40279,7 +40397,7 @@ function staleness(entries3, changed) {
 }
 
 // kit/bin/commands/generated.ts
-var USAGE13 = "usage: omni generated <range> [--json]";
+var USAGE14 = "usage: omni generated <range> [--json]";
 function changedPaths({ ctx, exec }, range) {
   try {
     return rangePaths({ root: ctx.root, range, exec });
@@ -40291,7 +40409,7 @@ var generated = {
   run: synchronous((args, io) => {
     const { positional, flags } = parseArgs("generated", args, { booleans: ["json"] });
     const [range] = positional;
-    if (positional.length !== 1 || range === void 0) throw usageError(USAGE13);
+    if (positional.length !== 1 || range === void 0) throw usageError(USAGE14);
     const entries3 = io.ctx.config.generated;
     if (entries3 === void 0 || entries3.length === 0) {
       println(io.stdout, flags.json ? "[]" : "no generated files");
@@ -40306,7 +40424,7 @@ var generated = {
 
 // kit/bin/commands/harvest.ts
 init_define_OMNI_BUNDLE();
-var USAGE14 = "usage: omni harvest <prd> --pr <feature pull request>";
+var USAGE15 = "usage: omni harvest <prd> --pr <feature pull request>";
 var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 function landedText(entry) {
   const ids2 = entry.landedAs.join(", ");
@@ -40333,7 +40451,7 @@ function checkLine(name2, violations) {
 var harvest = {
   async run(args, { ctx, stdout, stderr, exec, env, vars }) {
     const { positional, flags } = parseArgs("harvest", args, { values: ["pr"] });
-    if (positional.length !== 1 || flags.pr === void 0) throw usageError(USAGE14);
+    if (positional.length !== 1 || flags.pr === void 0) throw usageError(USAGE15);
     const prd2 = prdArg("harvest", "<prd>", positional[0]);
     const number4 = prArg("harvest", "--pr", flags.pr);
     if (!vars.openrouter) throw usageError(`omni harvest: ${KEY_VAR} is not set \u2014 the harvest asks a model where each decision belongs.`);
@@ -40395,8 +40513,8 @@ init_define_OMNI_BUNDLE();
 // kit/lib/ask/heartbeat.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync11 } from "node:child_process";
-import { existsSync as existsSync39, mkdirSync as mkdirSync10, readdirSync as readdirSync17, readFileSync as readFileSync36, rmSync as rmSync7, writeFileSync as writeFileSync14 } from "node:fs";
-import { join as join49 } from "node:path";
+import { existsSync as existsSync39, mkdirSync as mkdirSync10, readdirSync as readdirSync18, readFileSync as readFileSync37, rmSync as rmSync7, writeFileSync as writeFileSync14 } from "node:fs";
+import { join as join50 } from "node:path";
 var HEARTBEAT_EVERY_MS = 6e4;
 var HEARTBEAT_LIMIT_MS = 2e3;
 var WINDOWS_DIR = "heartbeat";
@@ -40455,20 +40573,20 @@ function readWork({ cwd, config: config3, claudeSessionId, exec = execFileSync11
   const head = attempt4(() => exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd, ...QUIET7 }).trim());
   const branch = head && head !== "HEAD" ? head : null;
   const top = attempt4(() => exec("git", ["rev-parse", "--show-toplevel"], { cwd, ...QUIET7 }).trim());
-  const list3 = (folder) => top ? attempt4(() => readdirSync17(join49(top, config3.paths.delivery, folder))) ?? [] : [];
+  const list3 = (folder) => top ? attempt4(() => readdirSync18(join50(top, config3.paths.delivery, folder))) ?? [] : [];
   const folders = { inbox: list3("inbox"), shipped: list3("shipped"), visual: list3("visual"), bugs: list3("bugs") };
   return attempt4(() => findWork({ claudeSessionId, drafts, branch, branches: config3.branches, folders })) ?? null;
 }
-var windowFile = (root, claudeSessionId) => join49(root, LOCAL_DIR, WINDOWS_DIR, `${claudeSessionId}.json`);
+var windowFile = (root, claudeSessionId) => join50(root, LOCAL_DIR, WINDOWS_DIR, `${claudeSessionId}.json`);
 function claimWindow(root, claudeSessionId, now) {
   if (!isSafeId(claudeSessionId)) return false;
   const file2 = windowFile(root, claudeSessionId);
-  const window = HeartbeatWindowSchema.safeParse(attempt4(() => JSON.parse(readFileSync36(file2, "utf8"))));
+  const window = HeartbeatWindowSchema.safeParse(attempt4(() => JSON.parse(readFileSync37(file2, "utf8"))));
   const last = window.success ? window.data.sentAt : null;
   if (last !== null && Number.isFinite(last) && now - last < HEARTBEAT_EVERY_MS && now >= last) return false;
-  const dir = join49(root, LOCAL_DIR);
-  mkdirSync10(join49(dir, WINDOWS_DIR), { recursive: true });
-  if (!existsSync39(join49(dir, ".gitignore"))) writeFileSync14(join49(dir, ".gitignore"), "*\n");
+  const dir = join50(root, LOCAL_DIR);
+  mkdirSync10(join50(dir, WINDOWS_DIR), { recursive: true });
+  if (!existsSync39(join50(dir, ".gitignore"))) writeFileSync14(join50(dir, ".gitignore"), "*\n");
   writeFileSync14(file2, `${JSON.stringify({ sentAt: now })}
 `);
   return true;
@@ -40991,6 +41109,14 @@ var ENTRIES = deepFreeze([
     usage: ["omni generated <range> [--json]"],
     summary: "which built files a range made stale, and how to rebuild them",
     detail: "For each output the config's generated section lists, a file the repository builds rather than writes, says stale when a path the range changed is under one of its sources, fresh otherwise, with the build that rebuilds it. A wave runs the stale builds once, after merging, and commits the rebuilt files alone. --json prints the same as one document. Without the section it prints no generated files. It runs no build, and exits 0 whatever it finds."
+  },
+  {
+    name: "e2e",
+    kind: "command",
+    who: "skills",
+    usage: ["omni e2e status <prd>"],
+    summary: "which e2e tests of a PRD have a recording (beta)",
+    detail: "status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each with whether a recording of it exists in .e2e/cache, and exits 1 when one has none. A recording that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, reaches no network and calls no model."
   },
   {
     name: "statusline",
@@ -41585,13 +41711,13 @@ var help = {
 
 // kit/bin/commands/init.ts
 init_define_OMNI_BUNDLE();
-import { chmodSync as chmodSync4, copyFileSync as copyFileSync2, existsSync as existsSync44, mkdirSync as mkdirSync12, readFileSync as readFileSync42, writeFileSync as writeFileSync16 } from "node:fs";
+import { chmodSync as chmodSync4, copyFileSync as copyFileSync2, existsSync as existsSync44, mkdirSync as mkdirSync12, readFileSync as readFileSync43, writeFileSync as writeFileSync16 } from "node:fs";
 import { createInterface } from "node:readline/promises";
-import { dirname as dirname15, join as join55 } from "node:path";
+import { dirname as dirname15, join as join56 } from "node:path";
 
 // kit/lib/init/bundle.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync37 } from "node:fs";
+import { readFileSync as readFileSync38 } from "node:fs";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 var MARKER2 = typeof define_OMNI_BUNDLE_default === "undefined" ? null : define_OMNI_BUNDLE_default;
 function runningBundle() {
@@ -41610,7 +41736,7 @@ function runningKit({ exec }) {
   if (MARKER2) return { home: MARKER2.home ?? null, version: MARKER2.version ?? null, source: false };
   let version3 = null;
   try {
-    const text10 = readFileSync37(fileURLToPath2(new URL("../../../package.json", import.meta.url)), "utf8");
+    const text10 = readFileSync38(fileURLToPath2(new URL("../../../package.json", import.meta.url)), "utf8");
     version3 = KitPackageSchema.parse(JSON.parse(text10)).version;
   } catch {
     version3 = null;
@@ -41663,14 +41789,14 @@ function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
 
 // kit/lib/init/detect.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync40, readFileSync as readFileSync38 } from "node:fs";
-import { join as join50 } from "node:path";
+import { existsSync as existsSync40, readFileSync as readFileSync39 } from "node:fs";
+import { join as join51 } from "node:path";
 var COMMAND_KEYS = Object.freeze(["test", "preflight", "preflightFull"]);
 var NONE2 = Object.freeze({ test: null, preflight: null, preflightFull: null });
 function readScripts(file2) {
   let value;
   try {
-    value = JSON.parse(readFileSync38(file2, "utf8"));
+    value = JSON.parse(readFileSync39(file2, "utf8"));
   } catch {
     return {};
   }
@@ -41678,13 +41804,13 @@ function readScripts(file2) {
   return parsed.success ? parsed.data.scripts ?? {} : {};
 }
 function packageManager(root) {
-  if (existsSync40(join50(root, "pnpm-lock.yaml"))) return "pnpm";
-  if (existsSync40(join50(root, "yarn.lock"))) return "yarn";
-  if (existsSync40(join50(root, "bun.lockb")) || existsSync40(join50(root, "bun.lock"))) return "bun";
+  if (existsSync40(join51(root, "pnpm-lock.yaml"))) return "pnpm";
+  if (existsSync40(join51(root, "yarn.lock"))) return "yarn";
+  if (existsSync40(join51(root, "bun.lockb")) || existsSync40(join51(root, "bun.lock"))) return "bun";
   return "npm";
 }
 function fromPackageJson(root) {
-  const scripts = readScripts(join50(root, "package.json"));
+  const scripts = readScripts(join51(root, "package.json"));
   const pm = packageManager(root);
   const has = (name2) => Object.hasOwn(scripts, name2);
   const test = has("test") ? `${pm} test` : null;
@@ -41694,13 +41820,13 @@ function fromPackageJson(root) {
   return { test, preflight, preflightFull };
 }
 function fromComposer(root) {
-  const scripts = readScripts(join50(root, "composer.json"));
+  const scripts = readScripts(join51(root, "composer.json"));
   const test = Object.hasOwn(scripts, "test") ? "composer test" : null;
   const preflight = Object.hasOwn(scripts, "preflight") ? "composer preflight" : test;
   return { test, preflight, preflightFull: preflight };
 }
 function fromMakefile(root) {
-  const text10 = readFileSync38(join50(root, "Makefile"), "utf8");
+  const text10 = readFileSync39(join51(root, "Makefile"), "utf8");
   const target3 = (name2) => new RegExp(`^${name2}\\s*:(?!=)`, "m").test(text10);
   const test = target3("test") ? "make test" : null;
   const preflight = target3("preflight") ? "make preflight" : test;
@@ -41712,15 +41838,15 @@ var SOURCES2 = [
   { file: "Makefile", read: fromMakefile }
 ];
 function detectCommands(root) {
-  const source = SOURCES2.find(({ file: file2 }) => existsSync40(join50(root, file2)));
+  const source = SOURCES2.find(({ file: file2 }) => existsSync40(join51(root, file2)));
   return source ? source.read(root) : { ...NONE2 };
 }
 function detectLawsSource({ ctx }) {
   const { principles, rules, invariants } = readRegisters({ ctx });
   if (principles.length + rules.length + invariants.length > 0) return "knowledge";
-  const claudeMd = join50(ctx.root, "CLAUDE.md");
+  const claudeMd = join51(ctx.root, "CLAUDE.md");
   const heading2 = ctx.config.laws.claudeMdHeading;
-  if (existsSync40(claudeMd) && readFileSync38(claudeMd, "utf8").split("\n").some((line) => line.trim() === heading2)) {
+  if (existsSync40(claudeMd) && readFileSync39(claudeMd, "utf8").split("\n").some((line) => line.trim() === heading2)) {
     return "claudeMdInvariants";
   }
   return "none";
@@ -41728,9 +41854,9 @@ function detectLawsSource({ ctx }) {
 
 // kit/lib/init/notices.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync41, readdirSync as readdirSync18, readFileSync as readFileSync39 } from "node:fs";
-import { join as join51 } from "node:path";
-var WORKFLOWS = join51(".github", "workflows");
+import { existsSync as existsSync41, readdirSync as readdirSync19, readFileSync as readFileSync40 } from "node:fs";
+import { join as join52 } from "node:path";
+var WORKFLOWS = join52(".github", "workflows");
 var PRETTIER_CONFIGS = [
   ".prettierrc",
   ".prettierrc.json",
@@ -41750,7 +41876,7 @@ var PRETTIER_IGNORE = ".prettierignore";
 var BIOME_CONFIGS = ["biome.json", "biome.jsonc"];
 function read(root, path) {
   try {
-    return readFileSync39(join51(root, path), "utf8");
+    return readFileSync40(join52(root, path), "utf8");
   } catch {
     return null;
   }
@@ -41758,11 +41884,11 @@ function read(root, path) {
 function legacyLoopWorkflows(root) {
   let names = [];
   try {
-    names = readdirSync18(join51(root, WORKFLOWS));
+    names = readdirSync19(join52(root, WORKFLOWS));
   } catch {
     return [];
   }
-  return names.filter((name2) => /\.ya?ml$/.test(name2)).map((name2) => join51(WORKFLOWS, name2)).filter((path) => /outbox/i.test(read(root, path) ?? "")).sort();
+  return names.filter((name2) => /\.ya?ml$/.test(name2)).map((name2) => join52(WORKFLOWS, name2)).filter((path) => /outbox/i.test(read(root, path) ?? "")).sort();
 }
 function ignores(text10, dir) {
   return text10.split("\n").map((line) => line.trim()).some((line) => line && !line.startsWith("#") && line.replace(/^\/+/, "").startsWith(dir));
@@ -41775,11 +41901,11 @@ function formatterToExclude(root, dir) {
   } catch {
     prettierInPackage = false;
   }
-  if (prettierInPackage || PRETTIER_CONFIGS.some((file2) => existsSync41(join51(root, file2)))) {
+  if (prettierInPackage || PRETTIER_CONFIGS.some((file2) => existsSync41(join52(root, file2)))) {
     const ignore = read(root, PRETTIER_IGNORE);
     return ignore !== null && ignores(ignore, dir) ? null : { tool: "Prettier", file: PRETTIER_IGNORE };
   }
-  const biome = BIOME_CONFIGS.find((file2) => existsSync41(join51(root, file2)));
+  const biome = BIOME_CONFIGS.find((file2) => existsSync41(join52(root, file2)));
   if (biome) return (read(root, biome) ?? "").includes(dir) ? null : { tool: "Biome", file: biome };
   return null;
 }
@@ -41790,13 +41916,13 @@ import { dirname as dirname13 } from "node:path";
 
 // kit/lib/init/settings.ts
 init_define_OMNI_BUNDLE();
-import { mkdirSync as mkdirSync11, readFileSync as readFileSync40, writeFileSync as writeFileSync15 } from "node:fs";
-import { dirname as dirname12, join as join52, posix as posix5, sep } from "node:path";
-var SETTINGS_FILE = posix5.join(".claude", "settings.json");
-var PERSONAL_SETTINGS_FILE = posix5.join(".claude", "settings.local.json");
+import { mkdirSync as mkdirSync11, readFileSync as readFileSync41, writeFileSync as writeFileSync15 } from "node:fs";
+import { dirname as dirname12, join as join53, posix as posix6, sep as sep2 } from "node:path";
+var SETTINGS_FILE = posix6.join(".claude", "settings.json");
+var PERSONAL_SETTINGS_FILE = posix6.join(".claude", "settings.local.json");
 var STATUS_LINE_KEY = "statusLine";
 var REFRESH_SECONDS = 30;
-var commandPath = (bin) => bin.split(sep).join(posix5.sep);
+var commandPath = (bin) => bin.split(sep2).join(posix6.sep);
 function statusLineSetting(bin) {
   return {
     type: "command",
@@ -41810,7 +41936,7 @@ function isKitStatusLine(value, bin) {
 }
 function readSettings(file2) {
   try {
-    return readFileSync40(file2, "utf8");
+    return readFileSync41(file2, "utf8");
   } catch (error62) {
     return typeof error62 === "object" && error62 !== null && "code" in error62 && error62.code === "ENOENT" ? null : void 0;
   }
@@ -41824,7 +41950,7 @@ function parseSettings(text10) {
   }
 }
 function writeStatusLine(root, { bin, force = false }) {
-  const file2 = join52(root, SETTINGS_FILE);
+  const file2 = join53(root, SETTINGS_FILE);
   const text10 = readSettings(file2);
   const settings = text10 === null ? {} : parseSettings(text10 ?? "");
   if (!settings) return { path: SETTINGS_FILE, outcome: "invalid" };
@@ -41972,8 +42098,8 @@ function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr, forms,
 
 // kit/lib/init/installed.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync42, readFileSync as readFileSync41 } from "node:fs";
-import { dirname as dirname14, join as join53, posix as posix6 } from "node:path";
+import { existsSync as existsSync42, readFileSync as readFileSync42 } from "node:fs";
+import { dirname as dirname14, join as join54, posix as posix7 } from "node:path";
 
 // kit/lib/playbook/filled.ts
 init_define_OMNI_BUNDLE();
@@ -42017,7 +42143,7 @@ function invadedOn(text10) {
 // kit/lib/init/installed.ts
 var LOOP_DIR2 = dirname14(CONFIG_FILE);
 function insideLoop2(path) {
-  const clean = posix6.normalize(path).replace(/\/+$/, "");
+  const clean = posix7.normalize(path).replace(/\/+$/, "");
   return clean === LOOP_DIR2 || clean.startsWith(`${LOOP_DIR2}/`);
 }
 var QUIET8 = {
@@ -42033,8 +42159,8 @@ function attempt5(fn) {
   }
 }
 function target2(root, exec) {
-  const path = join53(root, CONFIG_FILE);
-  const onDisk = existsSync42(path) ? attempt5(() => parseConfig(readFileSync41(path, "utf8"), CONFIG_FILE)) : null;
+  const path = join54(root, CONFIG_FILE);
+  const onDisk = existsSync42(path) ? attempt5(() => parseConfig(readFileSync42(path, "utf8"), CONFIG_FILE)) : null;
   if (onDisk) return { remote: onDisk.repo.remote, defaultBranch: onDisk.repo.defaultBranch };
   const { remote } = ConfigSchema.parse({ kit: CONFIG_VERSION }).repo;
   return { remote, defaultBranch: readRepo(root, { exec, remote }).defaultBranch };
@@ -42130,7 +42256,7 @@ function signInLines({ outcome, host, email: email3, line, why: why2 }) {
 // kit/lib/init/install-pr.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync43 } from "node:fs";
-import { join as join54 } from "node:path";
+import { join as join55 } from "node:path";
 var QUIET10 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var INSTALL_BRANCH = "chore/install-omni-loop";
 var INSTALL_COMMIT = "chore: install the Omni Loop";
@@ -42166,7 +42292,7 @@ function findPr2(root, exec) {
 }
 var prNumberOf = (url2) => PrNumberSchema.safeParse(Number(/\/pull\/(\d+)/.exec(url2)?.[1])).data ?? null;
 function openInstallPr(root, { exec, paths: wanted, remote, base, branch }) {
-  const paths = wanted.filter((path) => existsSync43(join54(root, path)));
+  const paths = wanted.filter((path) => existsSync43(join55(root, path)));
   const on = currentBranch2(root, exec) === INSTALL_BRANCH;
   const result = {
     branch: branch ?? { outcome: on ? "stayed" : "failed", branch: INSTALL_BRANCH },
@@ -42245,7 +42371,7 @@ function installLines({ branch, commit, push: push3, pr }, { paths, remote, base
 }
 
 // kit/bin/commands/init.ts
-var BIN_FILE2 = join55(LOOP_DIR2, "bin", "omni.mjs");
+var BIN_FILE2 = join56(LOOP_DIR2, "bin", "omni.mjs");
 var OWN_STATUS_LINE = /* @__PURE__ */ new Set(["wrote", "kept"]);
 var FLAGS = Object.freeze({ test: "test", preflight: "preflight", preflightFull: "preflight-full" });
 var QUESTIONS = {
@@ -42301,8 +42427,8 @@ var init = {
     const force = flags.force === true;
     const root = findRoot(cwd, exec);
     const defaults = ConfigSchema.parse({ kit: CONFIG_VERSION });
-    const configPath = join55(root, CONFIG_FILE);
-    const binPath = join55(root, BIN_FILE2);
+    const configPath = join56(root, CONFIG_FILE);
+    const binPath = join56(root, BIN_FILE2);
     const interactive = Boolean(stdin.isTTY && stdout.isTTY);
     const computer = (config4) => thisComputer({ root, config: config4, interactive, stdout, stderr, exec, env, vars, home: userHome, signIn });
     const installed = force ? null : detectInstall(root, { exec });
@@ -42315,7 +42441,7 @@ var init = {
       return 0;
     }
     const keepConfig = !force && existsSync44(configPath);
-    const kept = keepConfig ? parseConfig(readFileSync42(configPath, "utf8"), CONFIG_FILE) : null;
+    const kept = keepConfig ? parseConfig(readFileSync43(configPath, "utf8"), CONFIG_FILE) : null;
     const copyBin = force || !existsSync44(binPath);
     if (copyBin && !bundle) {
       throw usageError(
@@ -42380,28 +42506,28 @@ var init = {
 
 // kit/bin/commands/item.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync46, mkdirSync as mkdirSync14, readdirSync as readdirSync20, readFileSync as readFileSync44, statSync as statSync11, writeFileSync as writeFileSync18 } from "node:fs";
-import { basename as basename8, join as join57 } from "node:path";
+import { existsSync as existsSync46, mkdirSync as mkdirSync14, readdirSync as readdirSync21, readFileSync as readFileSync45, statSync as statSync11, writeFileSync as writeFileSync18 } from "node:fs";
+import { basename as basename8, join as join58 } from "node:path";
 
 // kit/lib/outbox/relay.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync45, mkdirSync as mkdirSync13, readdirSync as readdirSync19, readFileSync as readFileSync43, renameSync as renameSync2, statSync as statSync10, unlinkSync, writeFileSync as writeFileSync17 } from "node:fs";
-import { basename as basename7, join as join56 } from "node:path";
+import { existsSync as existsSync45, mkdirSync as mkdirSync13, readdirSync as readdirSync20, readFileSync as readFileSync44, renameSync as renameSync2, statSync as statSync10, unlinkSync, writeFileSync as writeFileSync17 } from "node:fs";
+import { basename as basename7, join as join57 } from "node:path";
 function markdownFiles(dir) {
   if (!existsSync45(dir)) return [];
-  return readdirSync19(dir).filter((name2) => name2.endsWith(".md") && statSync10(join56(dir, name2)).isFile()).sort();
+  return readdirSync20(dir).filter((name2) => name2.endsWith(".md") && statSync10(join57(dir, name2)).isFile()).sort();
 }
 function settledIds(ctx, outboxDir) {
-  const file2 = join56(ctx.root, outboxDir, SETTLED_FILE);
+  const file2 = join57(ctx.root, outboxDir, SETTLED_FILE);
   if (!existsSync45(file2)) return /* @__PURE__ */ new Set();
-  return new Set(parseSettledEntries(readFileSync43(file2, "utf8"), ctx.markers).map((entry) => entry.id));
+  return new Set(parseSettledEntries(readFileSync44(file2, "utf8"), ctx.markers).map((entry) => entry.id));
 }
 function move(from, to) {
   try {
     renameSync2(from, to);
   } catch (error62) {
     if (!(error62 instanceof Error) || !("code" in error62) || error62.code !== "EXDEV") throw error62;
-    writeFileSync17(to, readFileSync43(from));
+    writeFileSync17(to, readFileSync44(from));
     unlinkSync(from);
   }
 }
@@ -42448,31 +42574,31 @@ function relayFolder({
   const moved2 = [];
   const refused2 = [];
   const taken = settledIds(ctx, outboxDir);
-  for (const name2 of markdownFiles(join56(ctx.root, outboxDir))) taken.add(basename7(name2, ".md"));
+  for (const name2 of markdownFiles(join57(ctx.root, outboxDir))) taken.add(basename7(name2, ".md"));
   for (const name2 of markdownFiles(dir)) {
-    const from = join56(dir, name2);
-    const reason2 = itemRefusal({ ctx, laws, prd: prd2, outboxDir, name: name2, text: readFileSync43(from, "utf8"), taken });
+    const from = join57(dir, name2);
+    const reason2 = itemRefusal({ ctx, laws, prd: prd2, outboxDir, name: name2, text: readFileSync44(from, "utf8"), taken });
     if (reason2 !== null) {
       refused2.push({ file: from, reason: reason2 });
       continue;
     }
     const to = `${outboxDir}/${name2}`;
-    mkdirSync13(join56(ctx.root, outboxDir), { recursive: true });
-    move(from, join56(ctx.root, to));
+    mkdirSync13(join57(ctx.root, outboxDir), { recursive: true });
+    move(from, join57(ctx.root, to));
     taken.add(basename7(name2, ".md"));
     moved2.push({ from, to });
   }
-  const accountsDir = join56(dir, ACCOUNTS_DIR);
+  const accountsDir = join57(dir, ACCOUNTS_DIR);
   for (const name2 of markdownFiles(accountsDir)) {
-    const from = join56(accountsDir, name2);
+    const from = join57(accountsDir, name2);
     const to = `${outboxDir}/${ACCOUNTS_DIR}/${name2}`;
-    const reason2 = accountRefusal({ prd: prd2, destination: join56(ctx.root, to), name: from, text: readFileSync43(from, "utf8") });
+    const reason2 = accountRefusal({ prd: prd2, destination: join57(ctx.root, to), name: from, text: readFileSync44(from, "utf8") });
     if (reason2 !== null) {
       refused2.push({ file: from, reason: reason2 });
       continue;
     }
-    mkdirSync13(join56(ctx.root, outboxDir, ACCOUNTS_DIR), { recursive: true });
-    move(from, join56(ctx.root, to));
+    mkdirSync13(join57(ctx.root, outboxDir, ACCOUNTS_DIR), { recursive: true });
+    move(from, join57(ctx.root, to));
     moved2.push({ from, to });
   }
   return { moved: moved2, refused: refused2 };
@@ -42738,7 +42864,7 @@ var ACCOUNT_FORMS = Object.freeze({
 // kit/bin/commands/item.ts
 var NEW_USAGE = "usage: omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]";
 var RELAY_USAGE = "usage: omni item relay <dir> --prd <n>";
-var USAGE15 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
+var USAGE16 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
 var SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function funLine2(field2) {
   return external_exports.string().trim().min(1, `${field2} must not be empty`).superRefine((value, refinement) => {
@@ -42803,13 +42929,13 @@ function spentIds(prd2, { ctx, outDir = null }) {
     outboxItemFiles({ ctx }).filter((path) => path.startsWith(prefix)).map((path) => basename8(path, ".md"))
   );
   if (outDir !== null && existsSync46(outDir)) {
-    for (const name2 of readdirSync20(outDir)) {
-      if (name2.endsWith(".md") && statSync11(join57(outDir, name2)).isFile()) ids2.add(basename8(name2, ".md"));
+    for (const name2 of readdirSync21(outDir)) {
+      if (name2.endsWith(".md") && statSync11(join58(outDir, name2)).isFile()) ids2.add(basename8(name2, ".md"));
     }
   }
-  const settledFile = join57(ctx.root, outboxDir, SETTLED_FILE);
+  const settledFile = join58(ctx.root, outboxDir, SETTLED_FILE);
   if (existsSync46(settledFile)) {
-    for (const entry of parseSettledEntries(readFileSync44(settledFile, "utf8"), ctx.markers)) {
+    for (const entry of parseSettledEntries(readFileSync45(settledFile, "utf8"), ctx.markers)) {
       ids2.add(entry.id);
     }
   }
@@ -42857,7 +42983,7 @@ function newRequest(args, ctx) {
   return { prd: prd2, slice: sliceArg("item new", "--slice", flags.slice), asJson: Boolean(flags.json), adopt: Boolean(flags.adopt), outboxDir, ...destinationOf(ctx, outboxDir, flags.out), file: flags.file };
 }
 function destinationOf(ctx, outboxDir, out) {
-  if (out === void 0) return { outDir: null, destination: { abs: join57(ctx.root, outboxDir), shown: outboxDir } };
+  if (out === void 0) return { outDir: null, destination: { abs: join58(ctx.root, outboxDir), shown: outboxDir } };
   const outDir = inRoot(ctx, out);
   return { outDir, destination: { abs: outDir, shown: out } };
 }
@@ -42975,8 +43101,8 @@ function runNew(args, { ctx, stdout, stderr }) {
 }
 function writeItemFile(destination, id, text10) {
   mkdirSync14(destination.abs, { recursive: true });
-  writeFileSync18(join57(destination.abs, `${id}.md`), text10);
-  return join57(destination.shown, `${id}.md`);
+  writeFileSync18(join58(destination.abs, `${id}.md`), text10);
+  return join58(destination.shown, `${id}.md`);
 }
 function relayRequest(args, ctx) {
   const { positional, flags } = parseArgs("item relay", args, { values: ["prd"] });
@@ -43006,7 +43132,7 @@ var item = {
     const [sub, ...rest] = args;
     if (sub === "new") return runNew(rest, io);
     if (sub === "relay") return runRelay(rest, io);
-    throw usageError(USAGE15);
+    throw usageError(USAGE16);
   })
 };
 
@@ -43081,7 +43207,7 @@ function readGraph({ ctx }) {
 }
 
 // kit/bin/commands/kb.ts
-var USAGE16 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]";
+var USAGE17 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]";
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -43159,7 +43285,7 @@ function statusText({ frontDoor, forms, registers, targets: targets2 }) {
   lines.push(stale.length > 0 ? `Stale evidence: ${stale.length}` : "Stale evidence: none.", ...stale);
   return lines.join("\n");
 }
-function status(positional, flags, { ctx, stdout, exec }) {
+function status2(positional, flags, { ctx, stdout, exec }) {
   if (positional.length > 0) throw usageError("usage: omni kb status [--json]");
   const map2 = { ...playbookStatus({ ctx, exec }), targets: copiesStatus({ ctx, exec }) };
   println(stdout, flags.json ? JSON.stringify(map2, null, 2) : statusText(map2));
@@ -43185,7 +43311,7 @@ function graphText({ domains, entries: entries3, links, loose, unserved }) {
   const ids2 = (label, list3) => `  ${label}${list3.length > 0 ? ` (${list3.length}): ${list3.join(", ")}` : ": none"}`;
   return [
     `kb graph \u2014 ${count2(domains.length, "domain", "domains")}, ${count2(entries3.length, "entry", "entries")}, ${count2(links.length, "link", "links")}`,
-    ...rows2.map(([name2, kinds, status4]) => `  ${name2.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status4}`),
+    ...rows2.map(([name2, kinds, status5]) => `  ${name2.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status5}`),
     ids2("unserved principles", unserved),
     ids2("loose entries", loose)
   ].join("\n");
@@ -43202,9 +43328,9 @@ var kb = {
     const [sub, ...rest] = positional;
     if (sub === "init") return init2(rest, flags, io);
     if (sub === "show") return show3(rest, flags, io);
-    if (sub === "status") return status(rest, flags, io);
+    if (sub === "status") return status2(rest, flags, io);
     if (sub === "graph") return graph(rest, flags, io);
-    throw usageError(USAGE16);
+    throw usageError(USAGE17);
   })
 };
 
@@ -43314,9 +43440,9 @@ function stopBody(loopId) {
 
 // kit/lib/loop/local.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync45, writeFileSync as writeFileSync19 } from "node:fs";
-import { join as join58 } from "node:path";
-var LOOP_FILE = join58(LOCAL_DIR, "loop.json");
+import { readFileSync as readFileSync46, writeFileSync as writeFileSync19 } from "node:fs";
+import { join as join59 } from "node:path";
+var LOOP_FILE = join59(LOCAL_DIR, "loop.json");
 var SILENT_AFTER_MS = 5 * 60 * 1e3;
 var FIRST_TICK_MS = 60 * 60 * 1e3;
 var LocalLoopSchema = external_exports.object({
@@ -43332,7 +43458,7 @@ var LocalLoopSchema = external_exports.object({
 });
 function readLocalLoop(root) {
   try {
-    const parsed = LocalLoopSchema.safeParse(JSON.parse(readFileSync45(join58(root, LOOP_FILE), "utf8")));
+    const parsed = LocalLoopSchema.safeParse(JSON.parse(readFileSync46(join59(root, LOOP_FILE), "utf8")));
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
@@ -43340,7 +43466,7 @@ function readLocalLoop(root) {
 }
 function writeLocalLoop(root, loop2) {
   ensureLocalDir(root);
-  writeFileSync19(join58(root, LOOP_FILE), `${JSON.stringify(loop2, null, 2)}
+  writeFileSync19(join59(root, LOOP_FILE), `${JSON.stringify(loop2, null, 2)}
 `);
 }
 function loopState(loop2, now) {
@@ -43357,9 +43483,9 @@ function loopState(loop2, now) {
 
 // kit/lib/next/store.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync46, writeFileSync as writeFileSync20 } from "node:fs";
-import { join as join59 } from "node:path";
-var LOOP_PLAN_FILE = join59(LOCAL_DIR, "loop-plan.json");
+import { readFileSync as readFileSync47, writeFileSync as writeFileSync20 } from "node:fs";
+import { join as join60 } from "node:path";
+var LOOP_PLAN_FILE = join60(LOCAL_DIR, "loop-plan.json");
 var EndedSchema = external_exports.enum(["merged", "closed", "shipped"]).nullable();
 var StepSchema = external_exports.object({
   step: external_exports.number().int().positive(),
@@ -43384,7 +43510,7 @@ var LoopPlanSchema = external_exports.object({
 var LoopPlanFileSchema = external_exports.object({ versions: external_exports.array(LoopPlanSchema).min(1) });
 function readLoopPlans(root) {
   try {
-    const parsed = LoopPlanFileSchema.safeParse(JSON.parse(readFileSync46(join59(root, LOOP_PLAN_FILE), "utf8")));
+    const parsed = LoopPlanFileSchema.safeParse(JSON.parse(readFileSync47(join60(root, LOOP_PLAN_FILE), "utf8")));
     return parsed.success ? parsed.data.versions : [];
   } catch {
     return [];
@@ -43392,12 +43518,12 @@ function readLoopPlans(root) {
 }
 function writeLoopPlans(root, versions) {
   ensureLocalDir(root);
-  writeFileSync20(join59(root, LOOP_PLAN_FILE), `${JSON.stringify({ versions }, null, 2)}
+  writeFileSync20(join60(root, LOOP_PLAN_FILE), `${JSON.stringify({ versions }, null, 2)}
 `);
 }
 
 // kit/bin/commands/loop.ts
-var USAGE17 = [
+var USAGE18 = [
   "usage: omni loop push start [--take-over]",
   '       omni loop push tick --step <k> [--steps <n>] --prd <n> --action <word> --result "<line>" [--link <url>] [--merged <pr,\u2026>] [--items <id,\u2026>] [--repos <repo,\u2026>] [--wake-in <seconds> | --next-wake <time>]',
   '       omni loop push park --prd <n> --who "<who>" --what "<what>" [--link <url>]',
@@ -43452,7 +43578,7 @@ function wakeArg({ wakeIn, nextWake }, now) {
 }
 function prepareStart(args, { repo }) {
   const { positional, flags } = parseArgs("loop push start", args, { booleans: ["take-over"] });
-  if (positional.length) throw usageError(USAGE17);
+  if (positional.length) throw usageError(USAGE18);
   const takeOver = flags["take-over"] === true;
   return { needsLoop: false, takeOver, wake: null, body: (plan2) => startBody({ repo, plan: plan2, takeOver }) };
 }
@@ -43469,7 +43595,7 @@ function actionArg(value) {
 }
 function prepareTick(args, { now }) {
   const { positional, flags } = parseArgs("loop push tick", args, { values: ["step", "steps", "prd", "action", "result", "link", "merged", "items", "repos", "wake-in", "next-wake"] });
-  if (positional.length) throw usageError(USAGE17);
+  if (positional.length) throw usageError(USAGE18);
   const { step, given } = stepArgs(flags);
   const prd2 = prdArg("loop push tick", "--prd", flags.prd);
   const action = actionArg(flags.action);
@@ -43493,7 +43619,7 @@ function prepareTick(args, { now }) {
 }
 function preparePark(args) {
   const { positional, flags } = parseArgs("loop push park", args, { values: ["prd", "who", "what", "link"] });
-  if (positional.length) throw usageError(USAGE17);
+  if (positional.length) throw usageError(USAGE18);
   const prd2 = prdArg("loop push park", "--prd", flags.prd);
   const who2 = lineArg("who", flags.who, WHO_MAX);
   const what = lineArg("what", flags.what, LINE_MAX);
@@ -43501,7 +43627,7 @@ function preparePark(args) {
   return { needsLoop: true, takeOver: false, wake: null, body: (loop2) => parkBody({ loopId: loop2.loopId, prd: prd2, who: who2, what, link: link2 }) };
 }
 function prepareStop(args) {
-  if (args.length) throw usageError(USAGE17);
+  if (args.length) throw usageError(USAGE18);
   return { needsLoop: true, takeOver: false, wake: null, body: (loop2) => stopBody(loop2.loopId) };
 }
 var PREPARERS = /* @__PURE__ */ new Map([
@@ -43512,7 +43638,7 @@ var PREPARERS = /* @__PURE__ */ new Map([
 ]);
 function prepare(event, args, options) {
   const read2 = PREPARERS.get(event);
-  if (!read2) throw usageError(USAGE17);
+  if (!read2) throw usageError(USAGE18);
   return read2(args, options);
 }
 function standingLine(loop2, state) {
@@ -43611,9 +43737,9 @@ async function push2(args, io) {
   if (typeof body === "string") return refuse(io.stderr, body);
   return sendAndKeep({ askUrl: askUrl2, root: ctx.root, repo, body, plan: plan2, kept, wake: prepared.wake, at: at2 }, io);
 }
-function status2(args, { cwd, stdout, exec, now }) {
+function status3(args, { cwd, stdout, exec, now }) {
   const { positional, flags } = parseArgs("loop status", args, { booleans: ["json"] });
-  if (positional.length) throw usageError(USAGE17);
+  if (positional.length) throw usageError(USAGE18);
   const ctx = loadContext(cwd, { exec });
   const kept = readLocalLoop(ctx.root);
   const plan2 = readLoopPlans(ctx.root).at(-1) ?? null;
@@ -43631,7 +43757,7 @@ function status2(args, { cwd, stdout, exec, now }) {
   return 0;
 }
 function usage(stderr) {
-  println(stderr, USAGE17);
+  println(stderr, USAGE18);
   return 2;
 }
 var loop = {
@@ -43640,15 +43766,15 @@ var loop = {
     const [verb2 = "", ...rest] = args;
     const withClock = { ...io, now: io.now ?? Date.now };
     if (verb2 === "push") return push2(rest, withClock);
-    if (verb2 === "status") return status2(rest, withClock);
+    if (verb2 === "status") return status3(rest, withClock);
     return usage(io.stderr);
   }
 };
 
 // kit/bin/commands/next.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync48, readFileSync as readFileSync49 } from "node:fs";
-import { join as join61 } from "node:path";
+import { existsSync as existsSync48, readFileSync as readFileSync50 } from "node:fs";
+import { join as join62 } from "node:path";
 
 // kit/lib/roadmap/answers.ts
 init_define_OMNI_BUNDLE();
@@ -44429,7 +44555,7 @@ function replanLine(plan2) {
 // kit/lib/status/facts.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync12 } from "node:child_process";
-import { readFileSync as readFileSync47, rmSync as rmSync8, statSync as statSync12, utimesSync, writeFileSync as writeFileSync21 } from "node:fs";
+import { readFileSync as readFileSync48, rmSync as rmSync8, statSync as statSync12, utimesSync, writeFileSync as writeFileSync21 } from "node:fs";
 import { resolve as resolve3 } from "node:path";
 function fieldOf(error62, key) {
   return typeof error62 === "object" && error62 !== null ? Reflect.get(error62, key) : void 0;
@@ -44499,7 +44625,7 @@ function snapshot(path) {
   if (path === null) return null;
   try {
     const stat = statSync12(path);
-    return { path, bytes: readFileSync47(path), atime: stat.atime, mtime: stat.mtime };
+    return { path, bytes: readFileSync48(path), atime: stat.atime, mtime: stat.mtime };
   } catch {
     return { path, bytes: null };
   }
@@ -44543,7 +44669,7 @@ function changedOutside(ctx, exec, range) {
   const delivery = `${ctx.config.paths.delivery}/`;
   return entries(git3(ctx, exec, ["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", ...range, "--"])).filter((path) => !path.startsWith(delivery));
 }
-function filesUnder2(ctx, exec, ref, dir) {
+function filesUnder3(ctx, exec, ref, dir) {
   return entries(git3(ctx, exec, ["ls-tree", "-r", "-z", "--name-only", ref, "--", `${dir}/`])).map((path) => path.slice(dir.length + 1));
 }
 function userEmail(ctx, exec) {
@@ -44609,7 +44735,7 @@ function featuresOf(ctx, exec, base, inbox, remote) {
           ...landing ? { landing } : {},
           forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
           differs: changedOutside(ctx, exec, [base, ref]),
-          outbox: filesUnder2(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name2}`),
+          outbox: filesUnder3(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name2}`),
           ships: foldersAt(ctx, exec, ref, ctx.layout.dirs.shipped).some((folder) => folder.prd === prd2),
           authors: authorsOf(beyond),
           touched: touchedBy(ctx, beyond)
@@ -44820,8 +44946,8 @@ function overviewFor(facts) {
 
 // kit/lib/outbox/replies.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync47, readFileSync as readFileSync48, writeFileSync as writeFileSync22 } from "node:fs";
-import { join as join60 } from "node:path";
+import { existsSync as existsSync47, readFileSync as readFileSync49, writeFileSync as writeFileSync22 } from "node:fs";
+import { join as join61 } from "node:path";
 var ReplyCommentSchema = external_exports.object({
   id: CommentIdSchema,
   body: external_exports.string().nullish(),
@@ -45052,11 +45178,11 @@ function appendObjection({
   const parsedAnswer = AnswerSchema.safeParse(answer);
   if (!parsedAnswer.success) return { ok: false, errors: answerErrors(parsedAnswer.error) };
   const settledFile = `${ctx.layout.outboxDir(prd2)}/${SETTLED_FILE}`;
-  const absoluteSettled = join60(ctx.root, settledFile);
+  const absoluteSettled = join61(ctx.root, settledFile);
   if (!existsSync47(absoluteSettled)) {
     return { ok: false, errors: [`${settledFile}: no ledger holds the adopted item ${item2.id}.`] };
   }
-  const existing = readFileSync48(absoluteSettled, "utf8");
+  const existing = readFileSync49(absoluteSettled, "utf8");
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
   const entry = renderSettledEntry({
     item: item2,
@@ -45240,7 +45366,7 @@ function outboxFacts(prd2, { branch, pr }, reader) {
 function boardFacts(prd2, reader) {
   const { ctx } = reader;
   const planPath = ctx.layout.planPath(prd2);
-  if (planPath === null || !existsSync48(join61(ctx.root, planPath))) return { board: null, slices: null, claims: null };
+  if (planPath === null || !existsSync48(join62(ctx.root, planPath))) return { board: null, slices: null, claims: null };
   try {
     const { result } = buildBoard(prd2, { ctx, exec: reader.exec, env: reader.env });
     const having = (state) => result.slices.filter((row) => row.state === state).map((row) => row.id);
@@ -45259,7 +45385,7 @@ function boardFacts(prd2, reader) {
     const slices = result.slices.map(({ id, territory, wave, state, repo }) => ({ id, territory, wave, state, ...repo === void 0 ? {} : { repo } }));
     return { board: board2, slices, claims: liveClaims(result.slices, board2.stalled) };
   } catch {
-    return { board: "unreadable", slices: planSlices(join61(ctx.root, planPath)), claims: null };
+    return { board: "unreadable", slices: planSlices(join62(ctx.root, planPath)), claims: null };
   }
 }
 function liveClaims(rows2, stalled) {
@@ -45275,8 +45401,8 @@ function labelSeen(pr, slug, reader) {
   if (pr.state !== "OPEN" || !hasLabel3(pr, ctx.config.labels.inProgress)) return null;
   try {
     const comments = githubClientFor(ctx, { repo: slug, issue: pr.number, exec: reader.exec, env: reader.env }).listComments();
-    const status4 = comments.map((comment2) => GhCommentUpdatedSchema.parse(comment2)).filter((comment2) => (comment2.body ?? "").includes(ctx.markers.status));
-    const seen = status4.map((comment2) => comment2.updated_at ?? "").filter(Boolean).sort().at(-1);
+    const status5 = comments.map((comment2) => GhCommentUpdatedSchema.parse(comment2)).filter((comment2) => (comment2.body ?? "").includes(ctx.markers.status));
+    const seen = status5.map((comment2) => comment2.updated_at ?? "").filter(Boolean).sort().at(-1);
     if (seen === void 0) return null;
     return Date.now() - new Date(seen).getTime() <= ctx.config.limits.claimStaleMinutes * 60 * 1e3 ? seen : null;
   } catch {
@@ -45293,7 +45419,7 @@ function runningOf2(claims, prs, reader) {
 }
 function planSlices(path) {
   try {
-    return parsePlanSlices(readFileSync49(path, "utf8")).map(({ id, territory, wave, repo }) => ({ id, territory, wave, state: "unreadable", repo }));
+    return parsePlanSlices(readFileSync50(path, "utf8")).map(({ id, territory, wave, repo }) => ({ id, territory, wave, state: "unreadable", repo }));
   } catch {
     return null;
   }
@@ -45302,7 +45428,7 @@ function blockersOf2(prd2, ctx) {
   const path = ctx.layout.specPath(prd2);
   if (path === null) return [];
   try {
-    const parsed = parseSpec(readFileSync49(join61(ctx.root, path), "utf8"));
+    const parsed = parseSpec(readFileSync50(join62(ctx.root, path), "utf8"));
     return parsed.ok && parsed.record.blockedBy !== "none" ? [...parsed.record.blockedBy] : [];
   } catch {
     return [];
@@ -45387,7 +45513,7 @@ function readPrd(prd2, reader) {
     if (isUsage(error62)) throw error62;
     const planPath = reader.ctx.layout.planPath(prd2);
     const facts = { prd: prd2, shipped: false, phase0: null, feature: "unreadable", board: "unreadable", outbox: "unreadable" };
-    read2 = { facts, slices: planPath === null ? null : planSlices(join61(reader.ctx.root, planPath)), prs: [], running: null };
+    read2 = { facts, slices: planPath === null ? null : planSlices(join62(reader.ctx.root, planPath)), prs: [], running: null };
   }
   const input2 = { prd: prd2, blockedBy: blockersOf2(prd2, reader.ctx), slices: read2.slices, ended: endedOf(read2.facts) };
   const repos = reposOf2(read2.slices);
@@ -45555,7 +45681,7 @@ function tick(named3, io) {
 }
 function roadmapOf(n, ctx) {
   const entry = roadmapFiles(ctx).find((file2) => file2.number === n);
-  if (entry === void 0 || !existsSync48(join61(ctx.root, entry.file))) throw usageError(`omni next: no roadmap ${n} in the inbox; omni roadmap check lists them.`);
+  if (entry === void 0 || !existsSync48(join62(ctx.root, entry.file))) throw usageError(`omni next: no roadmap ${n} in the inbox; omni roadmap check lists them.`);
   const parsed = parseRoadmap(readRepoFile(ctx, entry.file));
   if (!parsed.ok) throw usageError(`omni next: roadmap ${n} does not parse; run omni roadmap check ${n}.`);
   return parsed.roadmap;
@@ -45695,7 +45821,7 @@ function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned, nee
 }
 
 // kit/bin/commands/phase0.ts
-var USAGE18 = "usage: omni phase0 <prd> [--base <ref>]";
+var USAGE19 = "usage: omni phase0 <prd> [--base <ref>]";
 function git5(args, cwd, exec) {
   return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
@@ -45735,7 +45861,7 @@ function printVerdict(stdout, prd2, base, verdict2) {
 var phase0 = {
   run: synchronous((args, { ctx, stdout, exec }) => {
     const { positional, flags } = parseArgs("phase0", args, { values: ["base"] });
-    if (positional.length !== 1) throw usageError(USAGE18);
+    if (positional.length !== 1) throw usageError(USAGE19);
     const prd2 = prdArg("phase0", "<prd>", positional[0]);
     const base = rangeBase("phase0", ctx, flags, exec);
     const paths = changedPaths2(ctx, base, exec);
@@ -45748,8 +45874,8 @@ var phase0 = {
 
 // kit/bin/commands/plan.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync52 } from "node:fs";
-import { join as join64 } from "node:path";
+import { readFileSync as readFileSync53 } from "node:fs";
+import { join as join65 } from "node:path";
 
 // kit/lib/plan-repo/moved.ts
 init_define_OMNI_BUNDLE();
@@ -45758,23 +45884,23 @@ import { execFileSync as execFileSync14 } from "node:child_process";
 // kit/lib/plan-repo/targets.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync13 } from "node:child_process";
-import { existsSync as existsSync50, readdirSync as readdirSync21, readFileSync as readFileSync51 } from "node:fs";
-import { join as join63 } from "node:path";
+import { existsSync as existsSync50, readdirSync as readdirSync22, readFileSync as readFileSync52 } from "node:fs";
+import { join as join64 } from "node:path";
 
 // kit/lib/update/installed.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync49, readFileSync as readFileSync50 } from "node:fs";
-import { join as join62 } from "node:path";
+import { existsSync as existsSync49, readFileSync as readFileSync51 } from "node:fs";
+import { join as join63 } from "node:path";
 var STAMP = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
 function bundleVersion(text10) {
   const match = STAMP.exec(text10);
   return match ? parseVersion(match[1]) : null;
 }
 function installedVersion({ root, running, bundle }) {
-  const bin = join62(root, BIN_FILE);
+  const bin = join63(root, BIN_FILE);
   if (!existsSync49(bin)) return null;
-  const text10 = readFileSync50(bin);
-  if (bundle && existsSync49(bundle) && readFileSync50(bundle).equals(text10)) return running.version;
+  const text10 = readFileSync51(bin);
+  if (bundle && existsSync49(bundle) && readFileSync51(bundle).equals(text10)) return running.version;
   return bundleVersion(text10.toString("utf8"));
 }
 
@@ -45939,11 +46065,11 @@ function readTarget2(target3, {
   }
 }
 function copyEvidence(repo, { ctx }) {
-  const dir = join63(ctx.root, copyFolder(repo, { ctx }), "playbook");
+  const dir = join64(ctx.root, copyFolder(repo, { ctx }), "playbook");
   const paths = /* @__PURE__ */ new Set();
   if (!existsSync50(dir)) return paths;
-  for (const name2 of readdirSync21(dir).filter((n) => n.endsWith(".md")).sort()) {
-    const parsed = parseForm(readFileSync51(join63(dir, name2), "utf8"), { file: name2 });
+  for (const name2 of readdirSync22(dir).filter((n) => n.endsWith(".md")).sort()) {
+    const parsed = parseForm(readFileSync52(join64(dir, name2), "utf8"), { file: name2 });
     if (!parsed.ok) continue;
     for (const { path } of parsed.form.evidence) paths.add(path);
   }
@@ -46029,7 +46155,7 @@ function movedTable(rows2) {
 }
 
 // kit/bin/commands/plan.ts
-var USAGE19 = "usage: omni plan check <prd> | omni plan moved <prd> [--json] | omni plan landings <prd> [--json] [--repo <name>]";
+var USAGE20 = "usage: omni plan check <prd> | omni plan moved <prd> [--json] | omni plan landings <prd> [--json] [--repo <name>]";
 function counted2(count4, singular, pluralForm) {
   return `${count4} ${count4 === 1 ? singular : pluralForm}`;
 }
@@ -46037,7 +46163,7 @@ function readPlanText(prd2, { ctx, verb: verb2 }) {
   const planPath = ctx.layout.planPath(prd2);
   if (planPath === null) throw usageError(`omni plan ${verb2}: PRD ${prd2} has no inbox or shipped folder.`);
   try {
-    return { planPath, markdown: readFileSync52(join64(ctx.root, planPath), "utf8") };
+    return { planPath, markdown: readFileSync53(join65(ctx.root, planPath), "utf8") };
   } catch (error62) {
     if (errorCode(error62) === "ENOENT") throw usageError(`omni plan ${verb2}: no plan at ${planPath}.`);
     throw error62;
@@ -46061,7 +46187,7 @@ function checkPlan(prd2, { ctx }) {
 }
 function moved(rest, { ctx, stdout, exec, env }) {
   const { positional, flags } = parseArgs("plan moved", rest, { booleans: ["json"] });
-  if (positional.length !== 1) throw usageError(USAGE19);
+  if (positional.length !== 1) throw usageError(USAGE20);
   const prd2 = prdArg("plan moved", "<prd>", positional[0]);
   const planSection2 = ctx.config.plan ?? null;
   if (planSection2 === null) {
@@ -46079,7 +46205,7 @@ function moved(rest, { ctx, stdout, exec, env }) {
 }
 function landingsCommand(rest, { ctx, stdout }) {
   const { positional, flags } = parseArgs("plan landings", rest, { values: ["repo"], booleans: ["json"] });
-  if (positional.length !== 1) throw usageError(USAGE19);
+  if (positional.length !== 1) throw usageError(USAGE20);
   const prd2 = prdArg("plan landings", "<prd>", positional[0]);
   const { planPath, slices, landings, violations } = checkPlan(prd2, { ctx });
   if (violations.length > 0) {
@@ -46138,7 +46264,7 @@ function printMatrices(stdout, { matrices }) {
 }
 function checkCommand(rest, { ctx, stdout }) {
   const { positional } = parseArgs("plan check", rest);
-  if (positional.length !== 1) throw usageError(USAGE19);
+  if (positional.length !== 1) throw usageError(USAGE20);
   const prd2 = prdArg("plan check", "<prd>", positional[0]);
   const checked2 = checkPlan(prd2, { ctx });
   const { planPath, slices, waves, violations } = checked2;
@@ -46164,7 +46290,7 @@ var plan = {
     const [sub, ...rest] = args;
     if (sub === "moved") return moved(rest, { ctx, stdout, exec, env });
     if (sub === "landings") return landingsCommand(rest, { ctx, stdout });
-    if (sub !== "check") throw usageError(USAGE19);
+    if (sub !== "check") throw usageError(USAGE20);
     return checkCommand(rest, { ctx, stdout });
   })
 };
@@ -46174,13 +46300,13 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/delivery/prd.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync51, readFileSync as readFileSync53, readdirSync as readdirSync22 } from "node:fs";
-import { join as join65 } from "node:path";
+import { existsSync as existsSync51, readFileSync as readFileSync54, readdirSync as readdirSync23 } from "node:fs";
+import { join as join66 } from "node:path";
 function whereIs(ctx, prd2) {
   const where = ctx.layout.whereIs(prd2);
   if (!where) return null;
-  const absolute = join65(ctx.root, where.dir);
-  const files = readdirSync22(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
+  const absolute = join66(ctx.root, where.dir);
+  const files = readdirSync23(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
   const outboxDir = ctx.layout.outboxDir(prd2);
   return {
     prd: prd2,
@@ -46190,12 +46316,12 @@ function whereIs(ctx, prd2) {
     files,
     outboxDir,
     openItems: openItemFiles(prd2, { ctx }),
-    repos: planRepos(join65(absolute, "plan.md"))
+    repos: planRepos(join66(absolute, "plan.md"))
   };
 }
 function planRepos(planPath) {
   if (!existsSync51(planPath)) return [];
-  const markdown = readFileSync53(planPath, "utf8");
+  const markdown = readFileSync54(planPath, "utf8");
   let slices;
   try {
     slices = parsePlanSlices(markdown);
@@ -46243,20 +46369,20 @@ import { isAbsolute as isAbsolute7, resolve as resolve6 } from "node:path";
 
 // kit/lib/pitch/push.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync54 } from "node:fs";
+import { readFileSync as readFileSync55 } from "node:fs";
 var PitchReplyError = class extends Error {
   constructor(message) {
     super(message);
     this.name = "PitchReplyError";
   }
 };
-var isRecord4 = (value) => typeof value === "object" && value !== null;
+var isRecord5 = (value) => typeof value === "object" && value !== null;
 var isText5 = (value) => typeof value === "string" && value.length > 0;
 function linksOf(reply, files) {
-  const run = isRecord4(reply) ? reply.run : void 0;
-  if (!isRecord4(reply) || !isText5(run)) throw new PitchReplyError("no run in the reply");
+  const run = isRecord5(reply) ? reply.run : void 0;
+  if (!isRecord5(reply) || !isText5(run)) throw new PitchReplyError("no run in the reply");
   const given = Array.isArray(reply.files) ? reply.files : [];
-  const byName2 = new Map(given.map((file2) => isRecord4(file2) ? [file2.name, file2.url] : [void 0, void 0]));
+  const byName2 = new Map(given.map((file2) => isRecord5(file2) ? [file2.name, file2.url] : [void 0, void 0]));
   const links = files.map(({ name: name2 }) => {
     const url2 = byName2.get(name2);
     if (!isText5(url2)) throw new PitchReplyError(`no upload link for ${name2} in the reply`);
@@ -46269,15 +46395,15 @@ async function pushPitch({
   repo,
   prd: prd2,
   run,
-  read: read2 = readFileSync54
+  read: read2 = readFileSync55
 }) {
   const reply = await client.requestPitchUploads({ repo, prd: prd2, files: run.files.map(({ name: name2, bytes, type }) => ({ name: name2, bytes, type })) });
   const { runId, links } = linksOf(reply, run.files);
   for (const [index, file2] of run.files.entries()) await client.upload(at(links, index, `the upload link of ${file2.name}`), read2(file2.path), file2.type);
   const { audience, look, commit, hook, benefit, kicker, closing } = run;
   const registered = await client.registerPitch({ repo, prd: prd2, run: runId, audience, look, commit, hook, benefit, kicker, closing });
-  const tab = isRecord4(registered) ? registered.url : void 0;
-  const gif = isRecord4(registered) ? registered.gif : void 0;
+  const tab = isRecord5(registered) ? registered.url : void 0;
+  const gif = isRecord5(registered) ? registered.gif : void 0;
   if (!isText5(tab)) throw new PitchReplyError("no link in the reply");
   if (!isText5(gif)) throw new PitchReplyError("no GIF link in the reply");
   return { tab, gif };
@@ -46285,8 +46411,8 @@ async function pushPitch({
 
 // kit/lib/pitch/push-run.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync52, readFileSync as readFileSync55, statSync as statSync13 } from "node:fs";
-import { join as join66 } from "node:path";
+import { existsSync as existsSync52, readFileSync as readFileSync56, statSync as statSync13 } from "node:fs";
+import { join as join67 } from "node:path";
 var PITCH_RUN_FILE = "pitch.json";
 var PITCH_FILE_MAX_BYTES = 50 * 1024 * 1024;
 var PITCH_FILES = Object.freeze({
@@ -46302,16 +46428,16 @@ var WORD_MAX = Object.freeze({ hook: 200, benefit: 400, kicker: 100, closing: 30
 var COMMIT2 = /^[0-9a-f]{7,64}$/;
 var PitchRunRefused = class extends Error {
   status;
-  constructor(status4, message) {
+  constructor(status5, message) {
     super(message);
     this.name = "PitchRunRefused";
-    this.status = status4;
+    this.status = status5;
   }
 };
-var refuse2 = (message, status4 = 400) => {
-  throw new PitchRunRefused(status4, message);
+var refuse2 = (message, status5 = 400) => {
+  throw new PitchRunRefused(status5, message);
 };
-var isRecord5 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isRecord6 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var shown3 = (value) => String(value);
 function parsedOrNull(text10) {
   try {
@@ -46321,7 +46447,7 @@ function parsedOrNull(text10) {
   }
 }
 function fileOf(dir, name2) {
-  const path = join66(dir, name2);
+  const path = join67(dir, name2);
   if (!existsSync52(path) || !statSync13(path).isFile()) refuse2(`${name2}: not in the run folder`);
   const { size } = statSync13(path);
   if (size > PITCH_FILE_MAX_BYTES) refuse2(`${name2}: over ${PITCH_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
@@ -46337,10 +46463,10 @@ function wordsOf(sent) {
   return { hook: word("hook"), benefit: word("benefit"), kicker: word("kicker"), closing: word("closing") };
 }
 function readPitchRun(dir, prd2) {
-  const file2 = join66(dir, PITCH_RUN_FILE);
+  const file2 = join67(dir, PITCH_RUN_FILE);
   if (!existsSync52(file2)) return null;
-  const sent = parsedOrNull(readFileSync55(file2, "utf8"));
-  if (!isRecord5(sent)) return refuse2(`${PITCH_RUN_FILE} is not a JSON object`);
+  const sent = parsedOrNull(readFileSync56(file2, "utf8"));
+  if (!isRecord6(sent)) return refuse2(`${PITCH_RUN_FILE} is not a JSON object`);
   const { audience, look, commit } = sent;
   if (sent.prd !== void 0 && sent.prd !== prd2) refuse2(`${PITCH_RUN_FILE} is for PRD ${shown3(sent.prd)}, not ${prd2}`);
   if (!isOneOf(AUDIENCES, audience)) return refuse2(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(audience)}`);
@@ -46354,12 +46480,12 @@ function readPitchRun(dir, prd2) {
 // kit/bin/commands/pitch-make.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync58, mkdirSync as mkdirSync19, writeFileSync as writeFileSync29 } from "node:fs";
-import { isAbsolute as isAbsolute6, join as join79, resolve as resolve5 } from "node:path";
+import { isAbsolute as isAbsolute6, join as join80, resolve as resolve5 } from "node:path";
 
 // kit/lib/pitch/check.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync53, readFileSync as readFileSync56 } from "node:fs";
-import { isAbsolute as isAbsolute5, join as join67, normalize as normalize3 } from "node:path";
+import { existsSync as existsSync53, readFileSync as readFileSync57 } from "node:fs";
+import { isAbsolute as isAbsolute5, join as join68, normalize as normalize3 } from "node:path";
 
 // kit/lib/pitch/storyboard.ts
 init_define_OMNI_BUNDLE();
@@ -46457,11 +46583,11 @@ var plural4 = (count4, word) => `${count4} ${word}${count4 === 1 ? "" : "s"}`;
 function checkRunFolder(dir) {
   let value;
   try {
-    value = JSON.parse(readFileSync56(join67(dir, STORYBOARD_FILE), "utf8"));
+    value = JSON.parse(readFileSync57(join68(dir, STORYBOARD_FILE), "utf8"));
   } catch (error62) {
     return refused([{ path: "", message: `${STORYBOARD_FILE} does not read as JSON: ${messageOf(error62)}` }]);
   }
-  return checkStoryboard(value, { hasFile: (file2) => existsSync53(join67(dir, file2)) });
+  return checkStoryboard(value, { hasFile: (file2) => existsSync53(join68(dir, file2)) });
 }
 var findingLine = ({ path, message }) => path ? `${path}: ${message}` : message;
 function checkStoryboard(value, { hasFile }) {
@@ -46678,9 +46804,9 @@ function changingClick({ words: words3, submits }) {
 
 // kit/lib/pitch/moments-film.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync54, mkdirSync as mkdirSync15, readFileSync as readFileSync57, rmSync as rmSync9, writeFileSync as writeFileSync23 } from "node:fs";
+import { existsSync as existsSync54, mkdirSync as mkdirSync15, readFileSync as readFileSync58, rmSync as rmSync9, writeFileSync as writeFileSync23 } from "node:fs";
 import { createRequire } from "node:module";
-import { join as join68 } from "node:path";
+import { join as join69 } from "node:path";
 import { pathToFileURL } from "node:url";
 var STORAGE_STATE = "storage-state.json";
 var FILM_DIR = "film";
@@ -46759,12 +46885,12 @@ async function play(filming, step, index) {
   return actOn(filming, step, label);
 }
 async function filmWalk(dir, walk, { launch, now }) {
-  const storage = join68(dir, STORAGE_STATE);
+  const storage = join69(dir, STORAGE_STATE);
   const browser = await launch();
   try {
     const context = await browser.newContext({
       viewport: { ...FILM_SIZE },
-      recordVideo: { dir: join68(dir, FILM_DIR), size: { ...FILM_SIZE } },
+      recordVideo: { dir: join69(dir, FILM_DIR), size: { ...FILM_SIZE } },
       ...existsSync54(storage) ? { storageState: storage } : {}
     });
     await context.addInitScript(CURSOR);
@@ -46820,11 +46946,11 @@ function clipSeconds(exec, file2) {
   return Math.round(seconds4 * 100) / 100;
 }
 function readWalk(dir) {
-  const file2 = join68(dir, WALK_FILE);
+  const file2 = join69(dir, WALK_FILE);
   if (!existsSync54(file2)) throw new FilmRefused([`the run holds no ${WALK_FILE} yet`]);
   let value;
   try {
-    value = JSON.parse(readFileSync57(file2, "utf8"));
+    value = JSON.parse(readFileSync58(file2, "utf8"));
   } catch (error62) {
     throw new FilmRefused([`${WALK_FILE} does not read as JSON: ${messageOf(error62)}`]);
   }
@@ -46840,7 +46966,7 @@ function resolvedFrom(from, name2) {
     return null;
   }
 }
-var playwrightEntries = (cwd) => [join68(cwd, "package.json"), import.meta.url].flatMap((from) => ["playwright", "@playwright/test"].map((name2) => resolvedFrom(from, name2))).filter((file2) => file2 !== null);
+var playwrightEntries = (cwd) => [join69(cwd, "package.json"), import.meta.url].flatMap((from) => ["playwright", "@playwright/test"].map((name2) => resolvedFrom(from, name2))).filter((file2) => file2 !== null);
 function repositoryBrowser(cwd) {
   return async () => {
     for (const entry of playwrightEntries(cwd)) {
@@ -46853,15 +46979,15 @@ function repositoryBrowser(cwd) {
 }
 async function filmRun(dir, { exec, launch, now = Date.now }) {
   const walk = readWalk(dir);
-  const work = join68(dir, FILM_DIR);
+  const work = join69(dir, FILM_DIR);
   rmSync9(work, { recursive: true, force: true });
   mkdirSync15(work, { recursive: true });
   try {
     const { webm, moments } = await filmWalk(dir, walk, { launch, now });
-    const clip = join68(dir, WALK_CLIP);
+    const clip = join69(dir, WALK_CLIP);
     exec("ffmpeg", remuxArgs(webm, clip), { stdio: ["ignore", "ignore", "pipe"] });
     const result = { moments: 1, clip: WALK_CLIP, width: FILM_SIZE.width, height: FILM_SIZE.height, seconds: clipSeconds(exec, clip), steps: moments };
-    writeFileSync23(join68(dir, MOMENTS_FILE), `${JSON.stringify(result, null, 2)}
+    writeFileSync23(join69(dir, MOMENTS_FILE), `${JSON.stringify(result, null, 2)}
 `);
     return result;
   } finally {
@@ -46871,8 +46997,8 @@ async function filmRun(dir, { exec, launch, now = Date.now }) {
 
 // kit/lib/pitch/render-input.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync56, readFileSync as readFileSync59, writeFileSync as writeFileSync28 } from "node:fs";
-import { join as join77 } from "node:path";
+import { existsSync as existsSync56, readFileSync as readFileSync60, writeFileSync as writeFileSync28 } from "node:fs";
+import { join as join78 } from "node:path";
 
 // kit/lib/pitch/providers/registry.ts
 init_define_OMNI_BUNDLE();
@@ -46880,7 +47006,7 @@ init_define_OMNI_BUNDLE();
 // kit/lib/pitch/providers/capture/playwright.ts
 init_define_OMNI_BUNDLE();
 import { createRequire as createRequire2 } from "node:module";
-import { join as join69 } from "node:path";
+import { join as join70 } from "node:path";
 import { pathToFileURL as pathToFileURL2 } from "node:url";
 
 // kit/lib/pitch/providers/types.ts
@@ -46897,7 +47023,7 @@ var PACKAGES = ["playwright", "@playwright/test"];
 var isLauncher2 = (value) => typeof propertyOf(value, "launch") === "function";
 function repositoryChromium(cwd) {
   return async () => {
-    const require2 = createRequire2(join69(cwd, "package.json"));
+    const require2 = createRequire2(join70(cwd, "package.json"));
     for (const name2 of PACKAGES) {
       let resolved;
       try {
@@ -46917,7 +47043,7 @@ async function capture(page2, url2, frames, dir) {
   await page2.goto(url2);
   for (const n of frames) {
     await page2.evaluate(`window.${PAGE_SEEK}(${String(n)})`);
-    await page2.screenshot({ path: join69(dir, frameFile(n)) });
+    await page2.screenshot({ path: join70(dir, frameFile(n)) });
   }
 }
 var playwrightCapture = Object.freeze({
@@ -46932,13 +47058,13 @@ var playwrightCapture = Object.freeze({
     } finally {
       await browser.close();
     }
-    return Array.from({ length: count4 }, (_, n) => join69(dir, frameFile(n)));
+    return Array.from({ length: count4 }, (_, n) => join70(dir, frameFile(n)));
   }
 });
 
 // kit/lib/pitch/providers/encode/ffmpeg.ts
 init_define_OMNI_BUNDLE();
-import { join as join70 } from "node:path";
+import { join as join71 } from "node:path";
 
 // kit/lib/pitch/ffmpeg.ts
 init_define_OMNI_BUNDLE();
@@ -47000,16 +47126,16 @@ var ffmpegEncode = Object.freeze({
   kind: "encode",
   id: "ffmpeg",
   video: ({ frames, audio, shape }, { dir, exec }) => Promise.resolve().then(() => {
-    const { output: output2, args } = framesArgs({ frames: { pattern: join70(frames.dir, FRAME_PATTERN), count: frames.count, fps: frames.fps }, audio, shape });
+    const { output: output2, args } = framesArgs({ frames: { pattern: join71(frames.dir, FRAME_PATTERN), count: frames.count, fps: frames.fps }, audio, shape });
     exec("ffmpeg", ["-hide_banner", "-loglevel", "error", ...args], { cwd: dir, stdio: ["ignore", "ignore", "pipe"] });
-    return join70(dir, output2);
+    return join71(dir, output2);
   })
 });
 
 // kit/lib/pitch/providers/fonts/file.ts
 init_define_OMNI_BUNDLE();
 import { copyFileSync as copyFileSync3, mkdirSync as mkdirSync16 } from "node:fs";
-import { extname as extname2, join as join71 } from "node:path";
+import { extname as extname2, join as join72 } from "node:path";
 
 // kit/lib/pitch/providers/fonts/css.ts
 init_define_OMNI_BUNDLE();
@@ -47034,8 +47160,8 @@ var fileFonts = Object.freeze({
     if (asset2 === void 0) throw new Error(`no uploaded file for the font "${family}"`);
     const source = await context.asset(asset2);
     const path = `${FONTS_DIR}/${slugOf2(family)}-${String(weight)}${extname2(source).toLowerCase()}`;
-    mkdirSync16(join71(context.dir, FONTS_DIR), { recursive: true });
-    copyFileSync3(source, join71(context.dir, path));
+    mkdirSync16(join72(context.dir, FONTS_DIR), { recursive: true });
+    copyFileSync3(source, join72(context.dir, path));
     return { css: fontFace({ family, weight, path }), files: [path], stack: stackOf(family) };
   }
 });
@@ -47043,7 +47169,7 @@ var fileFonts = Object.freeze({
 // kit/lib/pitch/providers/fonts/google-fonts.ts
 init_define_OMNI_BUNDLE();
 import { mkdirSync as mkdirSync17, writeFileSync as writeFileSync24 } from "node:fs";
-import { join as join72 } from "node:path";
+import { join as join73 } from "node:path";
 var API = "https://fonts.googleapis.com/css2";
 var BROWSER = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 var FONT_URL = /url\((https:\/\/fonts\.gstatic\.com\/[^)\s]+)\)/g;
@@ -47061,12 +47187,12 @@ var googleFonts = Object.freeze({
     const sheet = await (await answered(fetch, cssUrl(request), what)).text();
     const urls = [...new Set([...sheet.matchAll(FONT_URL)].map((match) => match[1] ?? ""))];
     if (urls.length === 0) throw new Error(`Google Fonts named no file for ${what}`);
-    mkdirSync17(join72(dir, FONTS_DIR), { recursive: true });
+    mkdirSync17(join73(dir, FONTS_DIR), { recursive: true });
     let css = sheet;
     const files = [];
     for (const [index, url2] of urls.entries()) {
       const path = `${FONTS_DIR}/${slugOf2(request.family)}-${String(request.weight)}-${String(index)}.woff2`;
-      writeFileSync24(join72(dir, path), new Uint8Array(await (await answered(fetch, url2, what)).arrayBuffer()));
+      writeFileSync24(join73(dir, path), new Uint8Array(await (await answered(fetch, url2, what)).arrayBuffer()));
       css = css.split(url2).join(path);
       files.push(path);
     }
@@ -47085,14 +47211,14 @@ var systemFonts = Object.freeze({
 // kit/lib/pitch/providers/music/file.ts
 init_define_OMNI_BUNDLE();
 import { copyFileSync as copyFileSync4 } from "node:fs";
-import { extname as extname3, join as join73 } from "node:path";
+import { extname as extname3, join as join74 } from "node:path";
 var fileMusic = Object.freeze({
   kind: "music",
   id: "file",
   pick: async ({ asset: asset2 }, context) => {
     if (asset2 === void 0) throw new Error("no uploaded track: the music settings name no file");
     const source = await context.asset(asset2);
-    const file2 = join73(context.dir, `music${extname3(source).toLowerCase() || ".mp3"}`);
+    const file2 = join74(context.dir, `music${extname3(source).toLowerCase() || ".mp3"}`);
     copyFileSync4(source, file2);
     return { file: file2, licence: "the product's own file", credit: null };
   }
@@ -47101,7 +47227,7 @@ var fileMusic = Object.freeze({
 // kit/lib/pitch/providers/music/freepd.ts
 init_define_OMNI_BUNDLE();
 import { writeFileSync as writeFileSync25 } from "node:fs";
-import { join as join74 } from "node:path";
+import { join as join75 } from "node:path";
 var ARCHIVE = "https://archive.org/download/freepd";
 var METADATA = "https://archive.org/metadata/freepd";
 var LICENCE = "CC0 1.0 Universal (public domain)";
@@ -47176,7 +47302,7 @@ var freepdMusic = Object.freeze({
   id: "freepd",
   pick: async ({ mood, seconds: seconds4 }, { dir, fetch }) => {
     const track = pickTrack(mood, seconds4);
-    const file2 = join74(dir, "music.mp3");
+    const file2 = join75(dir, "music.mp3");
     const credit = `"${track.title}" from FreePD.com (public domain), archived at archive.org/details/freepd`;
     writeFileSync25(file2, await download(track, fetch));
     return { file: file2, licence: LICENCE, credit };
@@ -47186,7 +47312,7 @@ var freepdMusic = Object.freeze({
 // kit/lib/pitch/providers/music/none.ts
 init_define_OMNI_BUNDLE();
 import { writeFileSync as writeFileSync26 } from "node:fs";
-import { join as join75 } from "node:path";
+import { join as join76 } from "node:path";
 
 // kit/lib/pitch/music.ts
 init_define_OMNI_BUNDLE();
@@ -47220,7 +47346,7 @@ var noneMusic = Object.freeze({
   kind: "music",
   id: "none",
   pick: ({ seconds: seconds4 }, { dir }) => Promise.resolve().then(() => {
-    const file2 = join75(dir, "silence.wav");
+    const file2 = join76(dir, "silence.wav");
     writeFileSync26(file2, silenceWav(seconds4));
     return { file: file2, licence: null, credit: null };
   })
@@ -47278,8 +47404,8 @@ function enginePage() {
 
 // kit/lib/pitch/run.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync55, readFileSync as readFileSync58, writeFileSync as writeFileSync27 } from "node:fs";
-import { join as join76 } from "node:path";
+import { existsSync as existsSync55, readFileSync as readFileSync59, writeFileSync as writeFileSync27 } from "node:fs";
+import { join as join77 } from "node:path";
 
 // kit/lib/pitch/settings.ts
 init_define_OMNI_BUNDLE();
@@ -47412,22 +47538,22 @@ function hasFfmpeg(exec) {
 var pad = (value) => String(value).padStart(2, "0");
 function pitchRunDir(worktrees, prd2, audience, now = /* @__PURE__ */ new Date()) {
   const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-  return join76(worktrees, `pitch-${prd2}`, `${audience}-${stamp}`);
+  return join77(worktrees, `pitch-${prd2}`, `${audience}-${stamp}`);
 }
 var PITCH_JSON = "pitch.json";
-var isRecord6 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isRecord7 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 function readPitchJson(dir) {
-  const file2 = join76(dir, PITCH_JSON);
+  const file2 = join77(dir, PITCH_JSON);
   if (!existsSync55(file2)) return null;
   try {
-    const value = JSON.parse(readFileSync58(file2, "utf8"));
-    return isRecord6(value) ? value : null;
+    const value = JSON.parse(readFileSync59(file2, "utf8"));
+    return isRecord7(value) ? value : null;
   } catch {
     return null;
   }
 }
 function writePitchJson(dir, value) {
-  writeFileSync27(join76(dir, PITCH_JSON), `${JSON.stringify(value, null, 2)}
+  writeFileSync27(join77(dir, PITCH_JSON), `${JSON.stringify(value, null, 2)}
 `);
 }
 var fallback2 = (reason2) => ({
@@ -47463,14 +47589,14 @@ var RenderRefused = class extends Error {
   }
 };
 function runSettings(dir) {
-  const file2 = join77(dir, RUN_SETTINGS);
+  const file2 = join78(dir, RUN_SETTINGS);
   if (!existsSync56(file2)) {
     const look = readPitchJson(dir)?.["look"];
     return defaultPitchSettings(isOneOf(PITCH_PRESETS, look) ? look : void 0);
   }
   let value;
   try {
-    value = JSON.parse(readFileSync59(file2, "utf8"));
+    value = JSON.parse(readFileSync60(file2, "utf8"));
   } catch (error62) {
     throw new RenderRefused([`${RUN_SETTINGS} does not read as JSON: ${messageOf(error62)}`]);
   }
@@ -47479,14 +47605,14 @@ function runSettings(dir) {
   return parsed.settings;
 }
 function runStoryboard(dir) {
-  const parsed = parseStoryboard(JSON.parse(readFileSync59(join77(dir, STORYBOARD_FILE), "utf8")));
+  const parsed = parseStoryboard(JSON.parse(readFileSync60(join78(dir, STORYBOARD_FILE), "utf8")));
   if (parsed.storyboard === void 0) throw new RenderRefused(parsed.problems.map(({ path, message }) => `${path}: ${message}`));
   return parsed.storyboard;
 }
 function runAssets(dir) {
   return (ref) => {
     const name2 = ref.replace(/^asset:/, "");
-    const file2 = join77(dir, ASSETS_DIR, name2);
+    const file2 = join78(dir, ASSETS_DIR, name2);
     return existsSync56(file2) ? Promise.resolve(file2) : Promise.reject(new Error(`the run holds no ${ASSETS_DIR}/${name2}`));
   };
 }
@@ -47501,7 +47627,7 @@ async function fontsOf(dir, look, { fetch, warn }) {
 function logoOf(dir, logo, warn) {
   if (logo === null) return null;
   const path = `${ASSETS_DIR}/${logo.replace(/^asset:/, "")}`;
-  if (existsSync56(join77(dir, path))) return path;
+  if (existsSync56(join78(dir, path))) return path;
   warn(`logo: the run holds no ${path}, so the video shows none`);
   return null;
 }
@@ -47513,7 +47639,7 @@ async function writePageInput(dir, { storyboard, settings, credits: credits2, fe
     logo: logoOf(dir, settings.look.logo, warn),
     credits: credits2
   };
-  writeFileSync28(join77(dir, PAGE_INPUT), `${JSON.stringify(input2, null, 2)}
+  writeFileSync28(join78(dir, PAGE_INPUT), `${JSON.stringify(input2, null, 2)}
 `);
   return input2;
 }
@@ -47521,7 +47647,7 @@ async function writePageInput(dir, { storyboard, settings, credits: credits2, fe
 // kit/lib/pitch/render.ts
 init_define_OMNI_BUNDLE();
 import { mkdirSync as mkdirSync18, renameSync as renameSync3, rmSync as rmSync10 } from "node:fs";
-import { join as join78 } from "node:path";
+import { join as join79 } from "node:path";
 
 // kit/lib/pitch/render-music.ts
 init_define_OMNI_BUNDLE();
@@ -47540,9 +47666,9 @@ function audioOf(music2, syncSeconds) {
 
 // kit/lib/pitch/render-server.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync57, readFileSync as readFileSync60, statSync as statSync14 } from "node:fs";
+import { existsSync as existsSync57, readFileSync as readFileSync61, statSync as statSync14 } from "node:fs";
 import { createServer as createServer2 } from "node:http";
-import { extname as extname4, resolve as resolve4, sep as sep2 } from "node:path";
+import { extname as extname4, resolve as resolve4, sep as sep3 } from "node:path";
 var TYPES = Object.freeze({
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -47597,7 +47723,7 @@ var contactSize = (count4) => ({
 function runFile(dir, path) {
   const root = resolve4(dir);
   const file2 = resolve4(root, path);
-  if (!file2.startsWith(`${root}${sep2}`) || !existsSync57(file2) || !statSync14(file2).isFile()) return null;
+  if (!file2.startsWith(`${root}${sep3}`) || !existsSync57(file2) || !statSync14(file2).isFile()) return null;
   return file2;
 }
 var found = (body, type) => ({ status: 200, type, body });
@@ -47625,7 +47751,7 @@ function ranged(body, type, range) {
 function runAnswer(dir, path, range) {
   const file2 = path.startsWith("/run/") ? runFile(dir, path.slice("/run/".length)) : null;
   if (file2 === null) return { status: 404 };
-  return ranged(readFileSync60(file2), TYPES[extname4(file2).toLowerCase()] ?? "application/octet-stream", range);
+  return ranged(readFileSync61(file2), TYPES[extname4(file2).toLowerCase()] ?? "application/octet-stream", range);
 }
 function answerGet(dir, page2, url2, range) {
   const path = decodeURIComponent(url2.pathname);
@@ -47735,7 +47861,7 @@ function infoOf(value) {
   throw new RenderRefused([`the page could not draw the storyboard: ${error62}`]);
 }
 async function captureInto(session, name2, request) {
-  const dir = join78(session.work, name2);
+  const dir = join79(session.work, name2);
   mkdirSync18(dir, { recursive: true });
   const { cwd, launch } = session.tools;
   return session.capture.frames(request, { dir, cwd, ...launch === void 0 ? {} : { launch } });
@@ -47748,17 +47874,17 @@ async function captureFrames(session, { frames, names, width, height }) {
   const captured2 = await captureInto(session, `frames-${String(width)}x${String(height)}`, { url: session.server.page({ frames: frames.join(",") }), count: frames.length, width, height });
   return captured2.map((file2, index) => {
     const name2 = names[index] ?? "";
-    renameSync3(file2, join78(session.dir, name2));
+    renameSync3(file2, join79(session.dir, name2));
     return name2;
   });
 }
 async function writeStills(session, info) {
-  mkdirSync18(join78(session.dir, STILLS_DIR), { recursive: true });
+  mkdirSync18(join79(session.dir, STILLS_DIR), { recursive: true });
   const names = info.scenes.map((scene2, index) => `${STILLS_DIR}/${String(index + 1).padStart(2, "0")}-${scene2.type}.png`);
   const stills = await captureFrames(session, { frames: info.scenes.map((scene2) => scene2.still), names, width: info.width, height: info.height });
   const [sheet] = await captureInto(session, "contact", { url: session.server.contact(stills), count: 1, pages: 1, ...contactSize(stills.length) });
   const contact = `${STILLS_DIR}/${CONTACT_SHEET}`;
-  renameSync3(sheet ?? "", join78(session.dir, contact));
+  renameSync3(sheet ?? "", join79(session.dir, contact));
   return [...stills, contact];
 }
 function syncSecondsOf(storyboard, info) {
@@ -47773,7 +47899,7 @@ async function writeVideos(session, info, audio) {
     ...await captureFrames(session, { frames: [intro], names: [SLIDES.wide], width: info.width, height: info.height }),
     ...await captureFrames(session, { frames: [intro], names: [SLIDES.square], width: SQUARE, height: SQUARE })
   ];
-  const framesDir = join78(session.work, "video");
+  const framesDir = join79(session.work, "video");
   await captureInto(session, "video", { url: session.server.page(), count: info.frames, width: info.width, height: info.height });
   const encode3 = providerFor("encode", DEFAULTS.encode, session.tools.warn, session.tools.registry);
   const videos = [];
@@ -47788,7 +47914,7 @@ function warnOnLength(seconds4, { min, max }, warn) {
   if (seconds4 < min || seconds4 > max) warn(`length: the video lasts ${String(seconds4)} s, outside the settings' ${String(min)} to ${String(max)} s`);
 }
 async function inSession(dir, tools, run) {
-  const work = join78(dir, WORK_DIR);
+  const work = join79(dir, WORK_DIR);
   rmSync10(work, { recursive: true, force: true });
   mkdirSync18(work, { recursive: true });
   const server = await serveRun({ dir });
@@ -47867,7 +47993,7 @@ async function openStudio(dir, { fetch, warn, onReload }) {
 }
 
 // kit/bin/commands/pitch-make.ts
-var USAGE20 = {
+var USAGE21 = {
   start: "usage: omni pitch start <n> --for customers|inside",
   film: "usage: omni pitch film <dir>",
   check: "usage: omni pitch check <dir>",
@@ -47878,14 +48004,14 @@ function oneArg(verb2, args, values = []) {
   const { positional, flags } = parseArgs("pitch", args, { values });
   const [arg] = positional;
   const given = flags;
-  if (positional.length !== 1 || arg === void 0 || !hasAll(given, values)) throw usageError(USAGE20[verb2]);
+  if (positional.length !== 1 || arg === void 0 || !hasAll(given, values)) throw usageError(USAGE21[verb2]);
   return { arg, flags: given };
 }
 function hasAll(flags, values) {
   return values.every((name2) => flags[name2] !== void 0);
 }
 function audienceOf(verb2, value) {
-  if (!isOneOf(AUDIENCES2, value)) throw usageError(`${USAGE20[verb2]} \u2014 --for is customers or inside, not ${value}`);
+  if (!isOneOf(AUDIENCES2, value)) throw usageError(`${USAGE21[verb2]} \u2014 --for is customers or inside, not ${value}`);
   return value;
 }
 var folderOf2 = (cwd, dir) => isAbsolute6(dir) ? dir : resolve5(cwd, dir);
@@ -47922,9 +48048,9 @@ function refusalHere(ctx, prd2, { exec, store }) {
 }
 function openRun(ctx, { prd: prd2, audience, settings, exec, now }) {
   const commit = exec("git", ["rev-parse", "HEAD"], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-  const dir = pitchRunDir(join79(ctx.root, ctx.config.worktrees), prd2, audience, now());
-  mkdirSync19(join79(dir, "assets"), { recursive: true });
-  writeFileSync29(join79(dir, RUN_SETTINGS), `${JSON.stringify(settings, null, 2)}
+  const dir = pitchRunDir(join80(ctx.root, ctx.config.worktrees), prd2, audience, now());
+  mkdirSync19(join80(dir, "assets"), { recursive: true });
+  writeFileSync29(join80(dir, RUN_SETTINGS), `${JSON.stringify(settings, null, 2)}
 `);
   const look = settings.look.preset;
   writePitchJson(dir, { prd: prd2, audience, look, commit });
@@ -47966,8 +48092,8 @@ async function film(args, { cwd, stdout, stderr, exec, film: launch }) {
     for (const line of error62 instanceof FilmRefused ? error62.lines : [`film failed: ${firstLine5(error62)}`]) println(stderr, line);
     return 1;
   }
-  println(stdout, join79(dir, WALK_CLIP));
-  println(stdout, join79(dir, MOMENTS_FILE));
+  println(stdout, join80(dir, WALK_CLIP));
+  println(stdout, join80(dir, MOMENTS_FILE));
   for (const moment of moments.steps) println(stdout, momentLine(moment));
   println(stdout, `${String(moments.seconds)} s`);
   return 0;
@@ -47975,7 +48101,7 @@ async function film(args, { cwd, stdout, stderr, exec, film: launch }) {
 function check3(args, { cwd, stdout, stderr }) {
   const { arg } = oneArg("check", args);
   const dir = runFolder("check", cwd, arg);
-  if (!existsSync58(join79(dir, STORYBOARD_FILE))) throw usageError(`omni pitch check: ${arg} holds no ${STORYBOARD_FILE} yet.`);
+  if (!existsSync58(join80(dir, STORYBOARD_FILE))) throw usageError(`omni pitch check: ${arg} holds no ${STORYBOARD_FILE} yet.`);
   const { errors, warnings, scenes, seconds: seconds4 } = checkRunFolder(dir);
   for (const finding of errors) println(stderr, `error: ${findingLine(finding)}`);
   for (const finding of warnings) println(stderr, `warning: ${findingLine(finding)}`);
@@ -47986,7 +48112,7 @@ function check3(args, { cwd, stdout, stderr }) {
 }
 function storyboardFolder(verb2, cwd, dir) {
   const folder = runFolder(verb2, cwd, dir);
-  if (!existsSync58(join79(folder, STORYBOARD_FILE))) throw usageError(`omni pitch ${verb2}: ${dir} holds no ${STORYBOARD_FILE} yet.`);
+  if (!existsSync58(join80(folder, STORYBOARD_FILE))) throw usageError(`omni pitch ${verb2}: ${dir} holds no ${STORYBOARD_FILE} yet.`);
   return folder;
 }
 var providerFetch = (fetch) => (url2, init3) => fetch(url2, { ...init3 });
@@ -48002,7 +48128,7 @@ function failureLines(error62) {
 function folderAndSwitch(verb2, args, name2) {
   const { positional, flags } = parseArgs("pitch", args, { booleans: [name2] });
   const [arg] = positional;
-  if (positional.length !== 1 || arg === void 0) throw usageError(USAGE20[verb2]);
+  if (positional.length !== 1 || arg === void 0) throw usageError(USAGE21[verb2]);
   return { arg, on: flags[name2] === true };
 }
 async function render(args, { cwd, stdout, stderr, exec, fetch, launch }) {
@@ -48022,7 +48148,7 @@ async function render(args, { cwd, stdout, stderr, exec, fetch, launch }) {
     for (const line of failureLines(error62)) println(stderr, line);
     return 1;
   }
-  for (const file2 of rendered.files) println(stdout, join79(dir, file2));
+  for (const file2 of rendered.files) println(stdout, join80(dir, file2));
   println(stdout, `${String(rendered.seconds)} s, music: ${rendered.music.provider}${rendered.music.licence === null ? "" : ` (${rendered.music.licence})`}`);
   return 0;
 }
@@ -48064,7 +48190,7 @@ async function studio(args, { cwd, stdout, stderr, fetch, openBrowser = openInBr
 var PITCH_MAKERS = Object.freeze({ start, film, check: check3, render, studio });
 
 // kit/bin/commands/pitch.ts
-var USAGE21 = "usage: omni pitch push <n> <dir>";
+var USAGE22 = "usage: omni pitch push <n> <dir>";
 var VERBS = "usage: omni pitch start|film|check|render|studio|push \u2026";
 var NO_SIGN_IN2 = "no sign-in (omni signin)";
 function skipLine3(error62) {
@@ -48078,7 +48204,7 @@ function skipLine3(error62) {
 function argsOf(args) {
   const { positional } = parseArgs("pitch", args);
   const [verb2, first, second, ...rest] = positional;
-  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE21);
+  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE22);
   return { prd: prdArg("pitch push", "<n>", first), dir: second };
 }
 function localRun(cwd, dir, prd2) {
@@ -48144,8 +48270,8 @@ import { isAbsolute as isAbsolute8, resolve as resolve7 } from "node:path";
 // kit/lib/proof/push.ts
 init_define_OMNI_BUNDLE();
 import { randomUUID } from "node:crypto";
-import { readFileSync as readFileSync61 } from "node:fs";
-var isRecord7 = (value) => typeof value === "object" && value !== null;
+import { readFileSync as readFileSync62 } from "node:fs";
+var isRecord8 = (value) => typeof value === "object" && value !== null;
 var GIF = "preview.gif";
 var ProofReplyError = class extends Error {
   constructor(message) {
@@ -48155,12 +48281,12 @@ var ProofReplyError = class extends Error {
 };
 var isText6 = (value) => typeof value === "string" && value.length > 0;
 function linksOf2(reply, files) {
-  const run = isRecord7(reply) ? reply.run : void 0;
-  if (!isRecord7(reply) || !isText6(run)) throw new ProofReplyError("no run in the reply");
+  const run = isRecord8(reply) ? reply.run : void 0;
+  if (!isRecord8(reply) || !isText6(run)) throw new ProofReplyError("no run in the reply");
   const given = Array.isArray(reply.files) ? reply.files : [];
   const links = files.map(({ name: name2 }) => {
-    const found2 = given.find((file2) => isRecord7(file2) && file2.name === name2);
-    const url2 = isRecord7(found2) ? found2.url : void 0;
+    const found2 = given.find((file2) => isRecord8(file2) && file2.name === name2);
+    const url2 = isRecord8(found2) ? found2.url : void 0;
     if (!isText6(url2)) throw new ProofReplyError(`no upload link for ${name2} in the reply`);
     return url2;
   });
@@ -48171,7 +48297,7 @@ async function pushProof({
   repo,
   prd: prd2,
   run,
-  read: read2 = readFileSync61,
+  read: read2 = readFileSync62,
   newRunId = randomUUID
 }) {
   let runId;
@@ -48184,7 +48310,7 @@ async function pushProof({
     runId = newRunId();
   }
   const registered = await client.registerProof({ repo, prd: prd2, run: runId, commit: run.commit, url: run.url, criteria: run.criteria });
-  const tab = isRecord7(registered) ? registered.url : void 0;
+  const tab = isRecord8(registered) ? registered.url : void 0;
   if (!isText6(tab)) throw new ProofReplyError("no link in the reply");
   if (!run.files.some(({ name: name2 }) => name2 === GIF)) return { tab };
   return { tab, gif: `${new URL(tab).origin}/api/proofs/${runId}/${GIF}` };
@@ -48192,8 +48318,8 @@ async function pushProof({
 
 // kit/lib/proof/run.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync59, readFileSync as readFileSync62, statSync as statSync15 } from "node:fs";
-import { join as join80 } from "node:path";
+import { existsSync as existsSync59, readFileSync as readFileSync63, statSync as statSync15 } from "node:fs";
+import { join as join81 } from "node:path";
 var RUN_FILE = "run.json";
 var PROOF_GIF_NAME = "preview.gif";
 var PROOF_FILE_MAX_BYTES = 50 * 1024 * 1024;
@@ -48208,16 +48334,16 @@ var NOTE_MAX = 1e3;
 var URL_MAX = 2e3;
 var ProofRunRefused = class extends Error {
   status;
-  constructor(status4, message) {
+  constructor(status5, message) {
     super(message);
     this.name = "ProofRunRefused";
-    this.status = status4;
+    this.status = status5;
   }
 };
-var refuse3 = (message, status4 = 400) => {
-  throw new ProofRunRefused(status4, message);
+var refuse3 = (message, status5 = 400) => {
+  throw new ProofRunRefused(status5, message);
 };
-var isRecord8 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isRecord9 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 function isHttpUrl(value) {
   if (typeof value !== "string" || value.length > URL_MAX) return false;
   try {
@@ -48230,8 +48356,8 @@ var KNOWN_VERDICTS2 = VERDICTS2;
 var isVerdict2 = (value) => KNOWN_VERDICTS2.includes(value);
 var isBlank = (value) => value === void 0 || value === null;
 function textOf4(item2, at2) {
-  const text10 = isRecord8(item2) ? item2.text : void 0;
-  const valid = isRecord8(item2) && typeof text10 === "string" && text10.trim() && text10.length <= TEXT_MAX;
+  const text10 = isRecord9(item2) ? item2.text : void 0;
+  const valid = isRecord9(item2) && typeof text10 === "string" && text10.trim() && text10.length <= TEXT_MAX;
   if (!valid) return refuse3(`${at2}: its text is 1 to ${TEXT_MAX} characters`);
   return { text: text10.trim(), sent: item2 };
 }
@@ -48260,7 +48386,7 @@ function criterionOf(item2, index) {
   return extrasOf(sent, at2, { text: text10, verdict: verdictOf2(sent, at2) });
 }
 function fileOf2(dir, name2) {
-  const path = join80(dir, name2);
+  const path = join81(dir, name2);
   if (!existsSync59(path) || !statSync15(path).isFile()) refuse3(`${name2}: not in the run folder`);
   const type = TYPES2[name2.slice(name2.lastIndexOf(".") + 1).toLowerCase()];
   if (!type) return refuse3(`${name2}: a proof takes .webm, .gif, .ts or .txt files`);
@@ -48269,15 +48395,15 @@ function fileOf2(dir, name2) {
   return { name: name2, path, bytes: size, type };
 }
 function readRun(dir) {
-  const file2 = join80(dir, RUN_FILE);
+  const file2 = join81(dir, RUN_FILE);
   if (!existsSync59(file2)) return null;
   let sent;
   try {
-    sent = JSON.parse(readFileSync62(file2, "utf8"));
+    sent = JSON.parse(readFileSync63(file2, "utf8"));
   } catch {
     sent = null;
   }
-  if (!isRecord8(sent)) return refuse3(`${RUN_FILE} is not a JSON object`);
+  if (!isRecord9(sent)) return refuse3(`${RUN_FILE} is not a JSON object`);
   const { commit, url: url2, criteria: given } = sent;
   if (typeof commit !== "string" || !COMMIT3.test(commit)) return refuse3(`${RUN_FILE}: commit is the hash of the commit the run proved`);
   if (!isHttpUrl(url2)) return refuse3(`${RUN_FILE}: url is the http(s) address the run was recorded on`);
@@ -48286,7 +48412,7 @@ function readRun(dir) {
   }
   const criteria = given.map(criterionOf);
   const names = [...new Set(criteria.flatMap((c) => [c.video, c.script]).filter((name2) => Boolean(name2)))];
-  if (existsSync59(join80(dir, PROOF_GIF_NAME)) && !names.includes(PROOF_GIF_NAME)) names.push(PROOF_GIF_NAME);
+  if (existsSync59(join81(dir, PROOF_GIF_NAME)) && !names.includes(PROOF_GIF_NAME)) names.push(PROOF_GIF_NAME);
   if (names.length > PROOF_FILES_MAX) refuse3(`a run uploads ${PROOF_FILES_MAX} files at most: this one has ${names.length}`);
   const files = names.map((name2) => fileOf2(dir, name2));
   return { commit, url: url2, criteria, files };
@@ -48354,7 +48480,7 @@ function storageState(accessToken, { host, now = Date.now() }) {
 }
 
 // kit/bin/commands/proof.ts
-var USAGE22 = "usage: omni proof push <n> <dir> | omni proof session [<file>]";
+var USAGE23 = "usage: omni proof push <n> <dir> | omni proof session [<file>]";
 var NO_SIGN_IN3 = "no sign-in (omni signin)";
 function skipLine4(error62) {
   if (error62 instanceof ProofReplyError) return `refused (${error62.message})`;
@@ -48368,10 +48494,10 @@ function argsOf2(args, proof2) {
   const [verb2, first, second, ...rest] = positional;
   if (verb2 === "session") {
     const file2 = first ?? proof2?.storageState;
-    if (!file2 || second !== void 0) throw usageError(`${USAGE22} (session needs <file> or PROOF_STORAGE_STATE)`);
+    if (!file2 || second !== void 0) throw usageError(`${USAGE23} (session needs <file> or PROOF_STORAGE_STATE)`);
     return { verb: verb2, file: file2 };
   }
-  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE22);
+  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE23);
   return { verb: verb2, prd: prdArg("proof push", "<n>", first), dir: second };
 }
 function localRun2(cwd, dir) {
@@ -48491,7 +48617,7 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
 
 // kit/bin/commands/roadmap.ts
 init_define_OMNI_BUNDLE();
-var USAGE23 = [
+var USAGE24 = [
   "usage: omni roadmap check [<n>]",
   "       omni roadmap push <n>",
   '       omni roadmap answer <n> <question> "<answer>"'
@@ -48515,7 +48641,7 @@ function report3(stdout, graded) {
 }
 function checkCommand2(rest, { ctx, stdout }) {
   const { positional } = parseArgs("roadmap check", rest);
-  if (positional.length > 1) throw usageError(USAGE23);
+  if (positional.length > 1) throw usageError(USAGE24);
   const wanted = positional[0] === void 0 ? null : issueArg("roadmap check", "<n>", positional[0]);
   const all = gradeRoadmaps(ctx);
   const graded = wanted === null ? all : all.filter((entry) => entry.number === wanted);
@@ -48600,7 +48726,7 @@ function reportPush2({ stdout, stderr }, n, { askUrl: askUrl2, body }, reply) {
 }
 async function pushCommand(rest, io) {
   const { positional } = parseArgs("roadmap push", rest);
-  if (positional.length !== 1) throw usageError(USAGE23);
+  if (positional.length !== 1) throw usageError(USAGE24);
   const n = issueArg("roadmap push", "<n>", positional[0]);
   const inputs = pushInputs(n, io);
   if (typeof inputs === "string") return refuse4(io.stderr, inputs);
@@ -48614,7 +48740,7 @@ async function pushCommand(rest, io) {
 }
 function answerArgs(rest) {
   const { positional } = parseArgs("roadmap answer", rest);
-  if (positional.length !== 3) throw usageError(USAGE23);
+  if (positional.length !== 3) throw usageError(USAGE24);
   const [number4, question = "", given = ""] = positional;
   const n = issueArg("roadmap answer", "<n>", number4);
   const answer = given.trim();
@@ -48649,14 +48775,14 @@ var roadmap = {
     if (sub === "check") return checkCommand2(rest, { ctx: loadContext(io.cwd, { exec: io.exec }), stdout: io.stdout });
     if (sub === "push") return pushCommand(rest, io);
     if (sub === "answer") return answerCommand(rest, io);
-    throw usageError(USAGE23);
+    throw usageError(USAGE24);
   }
 };
 
 // kit/bin/commands/rework.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync63, writeFileSync as writeFileSync31 } from "node:fs";
-import { join as join81 } from "node:path";
+import { readFileSync as readFileSync64, writeFileSync as writeFileSync31 } from "node:fs";
+import { join as join82 } from "node:path";
 
 // kit/lib/policy/rework.ts
 init_define_OMNI_BUNDLE();
@@ -48846,12 +48972,12 @@ function reworkPullRequest(entry) {
 }
 
 // kit/bin/commands/rework.ts
-var USAGE24 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
+var USAGE25 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
 var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync63(join81(ctx.root, path), "utf8");
+    return readFileSync64(join82(ctx.root, path), "utf8");
   } catch (error62) {
     if (errorCode(error62) === "ENOENT") return "";
     throw error62;
@@ -48928,7 +49054,7 @@ function runClose(args, { ctx, stdout }) {
   } catch (error62) {
     throw usageError(errorMessage(error62).split("\n")[0] ?? "");
   }
-  writeFileSync31(join81(ctx.root, settledFile), closedText);
+  writeFileSync31(join82(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
@@ -48940,25 +49066,25 @@ var rework = {
     const [sub, ...rest] = args;
     if (sub === "plan") return runPlan(rest, io);
     if (sub === "close") return runClose(rest, io);
-    throw usageError(USAGE24);
+    throw usageError(USAGE25);
   })
 };
 
 // kit/bin/commands/settle.ts
 init_define_OMNI_BUNDLE();
-import { relative as relative3 } from "node:path";
-var USAGE25 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
+import { relative as relative4 } from "node:path";
+var USAGE26 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
 var settle2 = {
   run: synchronous((args, { ctx, stdout, stderr }) => {
     const { positional, flags } = parseArgs("settle", args, {
       values: ["by", "at", "channel", "number", "answer", "answer-file", "url", "verdict"]
     });
     const [path] = positional;
-    if (positional.length !== 1 || path === void 0) throw usageError(USAGE25);
+    if (positional.length !== 1 || path === void 0) throw usageError(USAGE26);
     if (flags.answer !== void 0 && flags["answer-file"] !== void 0) {
       throw usageError("omni settle: give --answer or --answer-file, not both.");
     }
-    const file2 = relative3(ctx.root, inRoot(ctx, path));
+    const file2 = relative4(ctx.root, inRoot(ctx, path));
     const text10 = flags["answer-file"] ? readUserFile("settle", ctx, flags["answer-file"]) : flags.answer;
     const result = withPrdFolder("settle", () => settleItem({
       ctx,
@@ -49014,13 +49140,13 @@ var ship = {
 
 // kit/bin/commands/sign.ts
 init_define_OMNI_BUNDLE();
-var USAGE26 = "usage: omni sign trailer|footer";
+var USAGE27 = "usage: omni sign trailer|footer";
 var LINES2 = { trailer: trailerLine, footer: footerLine };
 var sign = {
   run: synchronous((args, { ctx, stdout }) => {
     const { positional } = parseArgs("sign", args);
     const [which = ""] = positional;
-    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE26);
+    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE27);
     const line = LINES2[which](ctx.config.signature);
     if (line !== null) println(stdout, line);
     return 0;
@@ -49174,7 +49300,7 @@ function formatOverview(overview2, { now }) {
 }
 
 // kit/bin/commands/status.ts
-var USAGE27 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
+var USAGE28 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 function overview({ ctx, stdout, exec, fetch }) {
   if (fetch) {
     const failure3 = fetchRemote({ ctx, exec });
@@ -49188,12 +49314,12 @@ function overview({ ctx, stdout, exec, fetch }) {
   println(stdout, formatOverview(overviewFor(facts), { now: Date.now() }));
   return 0;
 }
-var status3 = {
+var status4 = {
   run: synchronous((args, { ctx, stdout, exec, vars }) => {
     const { positional, flags } = parseArgs("status", args, { values: ["labels", "base"], booleans: ["changes", "fetch"] });
     const gateFlags = flags.labels !== void 0 || flags.base !== void 0 || flags.changes === true;
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true });
-    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE27);
+    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE28);
     const prd2 = prdArg("status", "<prd>", positional[0]);
     const labels = list(flags.labels);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
@@ -49226,11 +49352,11 @@ var status3 = {
 
 // kit/bin/commands/targets.ts
 init_define_OMNI_BUNDLE();
-var USAGE28 = "usage: omni targets [--json]";
+var USAGE29 = "usage: omni targets [--json]";
 var targets = {
   run: synchronous((args, { ctx, stdout, exec, env }) => {
     const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
-    if (positional.length) throw usageError(USAGE28);
+    if (positional.length) throw usageError(USAGE29);
     const plan2 = ctx.config.plan;
     if (!plan2) {
       println(stdout, "not a plan repository");
@@ -49250,16 +49376,16 @@ import { spawn as spawnProcess } from "node:child_process";
 // kit/lib/statusline/board-cache.ts
 init_define_OMNI_BUNDLE();
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { closeSync, existsSync as existsSync60, mkdirSync as mkdirSync20, openSync, readFileSync as readFileSync64, renameSync as renameSync4, rmSync as rmSync11, statSync as statSync16, writeFileSync as writeFileSync32 } from "node:fs";
-import { join as join82 } from "node:path";
+import { closeSync, existsSync as existsSync60, mkdirSync as mkdirSync20, openSync, readFileSync as readFileSync65, renameSync as renameSync4, rmSync as rmSync11, statSync as statSync16, writeFileSync as writeFileSync32 } from "node:fs";
+import { join as join83 } from "node:path";
 var prop2 = (value, key) => typeof value === "object" && value !== null ? Reflect.get(value, key) : void 0;
-var BOARD_DIR = join82(LOCAL_DIR, "statusline");
+var BOARD_DIR = join83(LOCAL_DIR, "statusline");
 var REFRESH_AFTER_MS = 60 * 1e3;
 var SHOWN_UNDER_MS = 10 * 60 * 1e3;
 var LOCK_ABANDONED_MS = 2 * 60 * 1e3;
 var UNREADABLE = "the board file holds no slices it can read";
-var boardFile = (root, prd2) => join82(root, BOARD_DIR, `board-${prd2}.json`);
-var lockFile = (root, prd2) => join82(root, BOARD_DIR, `board-${prd2}.lock`);
+var boardFile = (root, prd2) => join83(root, BOARD_DIR, `board-${prd2}.json`);
+var lockFile = (root, prd2) => join83(root, BOARD_DIR, `board-${prd2}.lock`);
 function attempt7(fn, fallback3) {
   try {
     return fn();
@@ -49268,7 +49394,7 @@ function attempt7(fn, fallback3) {
   }
 }
 function readBoard(root, prd2) {
-  const value = attempt7(() => JSON.parse(readFileSync64(boardFile(root, prd2), "utf8")), null);
+  const value = attempt7(() => JSON.parse(readFileSync65(boardFile(root, prd2), "utf8")), null);
   const parsed = BoardFileSchema.safeParse(value);
   if (!parsed.success) return null;
   const at2 = Date.parse(parsed.data.at);
@@ -49291,7 +49417,7 @@ function refreshDue(board2, now) {
   return age === null || age >= REFRESH_AFTER_MS;
 }
 function readLock(path) {
-  const parsed = LockFileSchema.safeParse(JSON.parse(readFileSync64(path, "utf8")));
+  const parsed = LockFileSchema.safeParse(JSON.parse(readFileSync65(path, "utf8")));
   return parsed.success ? parsed.data : null;
 }
 function lockedAt(path) {
@@ -49326,8 +49452,8 @@ function cachedSlices({ root, prd: prd2, now, cwd, spawn: spawn2 = null, script:
   return shownSlices(board2, now);
 }
 function ensureBoardDir(root) {
-  mkdirSync20(join82(root, BOARD_DIR), { recursive: true });
-  const ignore = join82(root, LOCAL_DIR, ".gitignore");
+  mkdirSync20(join83(root, BOARD_DIR), { recursive: true });
+  const ignore = join83(root, LOCAL_DIR, ".gitignore");
   if (!existsSync60(ignore)) writeFileSync32(ignore, "*\n");
 }
 function writeBoard(root, prd2, entry) {
@@ -49393,8 +49519,8 @@ function refreshBoard({ root, prd: prd2, now, build }) {
 
 // kit/lib/statusline/facts.ts
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync23 } from "node:fs";
-import { join as join83 } from "node:path";
+import { readdirSync as readdirSync24 } from "node:fs";
+import { join as join84 } from "node:path";
 
 // kit/lib/statusline/stage.ts
 init_define_OMNI_BUNDLE();
@@ -49536,7 +49662,7 @@ function treeFiles(ctx, ref, dir, exec) {
 }
 function checkoutFolders(ctx, dir) {
   return attempt8(
-    () => readdirSync23(join83(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
+    () => readdirSync24(join84(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
     []
   );
 }
@@ -49814,7 +49940,7 @@ var statusline = {
 init_define_OMNI_BUNDLE();
 import { mkdtempSync as mkdtempSync2, rmSync as rmSync12 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join84 } from "node:path";
+import { join as join85 } from "node:path";
 
 // kit/lib/update/plugin.ts
 init_define_OMNI_BUNDLE();
@@ -49834,9 +49960,9 @@ function updatePlugin({ version: version3 = null, exec, println: println2 }) {
 }
 
 // kit/bin/commands/update.ts
-var USAGE29 = "usage: omni update [--to <version>]";
+var USAGE30 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
-  const dir = mkdtempSync2(join84(tmpdir2(), "omni-update-"));
+  const dir = mkdtempSync2(join85(tmpdir2(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home: defined(home, "the kit home"), version: target3, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
@@ -49844,8 +49970,8 @@ function handOver2({ cwd, home, from, target: target3, exec }) {
       exec("node", [bundle, "update", "--apply", ...fromFlag], { cwd, stdio: "inherit" });
       return 0;
     } catch (error62) {
-      const status4 = propertyOf(error62, "status");
-      return typeof status4 === "number" && Number.isInteger(status4) ? status4 : 1;
+      const status5 = propertyOf(error62, "status");
+      return typeof status5 === "number" && Number.isInteger(status5) ? status5 : 1;
     }
   } finally {
     rmSync12(dir, { recursive: true, force: true });
@@ -49886,7 +50012,7 @@ var update = {
   withoutContext: true,
   run: synchronous((args, { cwd, stdout, stderr, exec, kit, bundle }) => {
     const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
-    if (positional.length) throw usageError(USAGE29);
+    if (positional.length) throw usageError(USAGE30);
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
@@ -49933,8 +50059,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/visual/verdict.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync61, readdirSync as readdirSync24, readFileSync as readFileSync65 } from "node:fs";
-import { join as join85 } from "node:path";
+import { existsSync as existsSync61, readdirSync as readdirSync25, readFileSync as readFileSync66 } from "node:fs";
+import { join as join86 } from "node:path";
 var PAGE = "before-after.html";
 var ROUND3 = /^variations-r([1-9]\d*)\.html$/;
 var ROUND_LIKE2 = /^variations/i;
@@ -49942,18 +50068,18 @@ function visualRoot(ctx) {
   return `${ctx.config.paths.delivery}/visual`;
 }
 function pageViolations(ctx, page2) {
-  if (!existsSync61(join85(ctx.root, page2))) return [`${page2}: missing.`];
+  if (!existsSync61(join86(ctx.root, page2))) return [`${page2}: missing.`];
   const violations = [];
   const size = beforeAfterViolation(page2, ctx);
   if (size) violations.push(size);
-  violations.push(...rasterFaults(page2, readFileSync65(join85(ctx.root, page2), "utf8")));
+  violations.push(...rasterFaults(page2, readFileSync66(join86(ctx.root, page2), "utf8")));
   return violations;
 }
 function folderViolations(ctx, folder) {
   const rounds = [];
   const misnamed = [];
   const others = [];
-  for (const entry of readdirSync24(join85(ctx.root, folder), { withFileTypes: true })) {
+  for (const entry of readdirSync25(join86(ctx.root, folder), { withFileTypes: true })) {
     const { name: name2 } = entry;
     const round2 = entry.isFile() ? ROUND3.exec(name2) : null;
     if (round2) rounds.push({ name: name2, k: Number(round2[1]) });
@@ -49988,10 +50114,10 @@ var visual = branchVerdictCommand({
 });
 
 // kit/bin/commands/index.ts
-var COMMAND_TABLE = Object.freeze({ config: config2, prd, status: status3, settle: settle2, adopt, replies, answers, comment, ship, harvest, check: check2, generated, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask: ask3, heartbeat, signin, signout, whoami, sign, credits, dossier, flow, proof, pitch, business, constituents, decide, version: version2, update, help, statusline, targets });
+var COMMAND_TABLE = Object.freeze({ config: config2, prd, status: status4, settle: settle2, adopt, replies, answers, comment, ship, harvest, check: check2, generated, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask: ask3, heartbeat, signin, signout, whoami, sign, credits, dossier, flow, e2e, proof, pitch, business, constituents, decide, version: version2, update, help, statusline, targets });
 
 // kit/bin/omni.ts
-var USAGE30 = `usage: omni <command> [args]
+var USAGE31 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -50048,7 +50174,7 @@ async function main(argv, {
   const name2 = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command = Object.hasOwn(COMMAND_TABLE, name2) ? COMMAND_TABLE[name2] : void 0;
   if (!command) {
-    stderr.write(USAGE30);
+    stderr.write(USAGE31);
     return 2;
   }
   try {
