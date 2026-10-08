@@ -15,14 +15,17 @@
 // sent: too large", never missing. The tab lives in the address (`?tab=areas`, `?tab=boards&round=2`), so
 // every view is a link and the page works before any script runs.
 //
-// The concept PR's link is GitHub's search for the pull request that refers to the concept's issue
-// (`Refs #<n>`, as /omni:think-big writes it): the page reads no GitHub here.
+// The header carries the concept's state chip (PRD 1272, s4, ./state.ts), from the facts the route read.
+// The concept PR's link is that pull request once the facts name it; until then, GitHub's search for the
+// pull request that refers to the concept's issue (`Refs #<n>`, as /omni:think-big writes it).
 import { CONCEPT_SECTIONS, parseConcept } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
 import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { renderMarkdown, renderMarkdownBody } from '../dossier/markdown';
 import { WORK_NAMES, workPath } from '../dossier/page/work';
+import type { ConceptFacts } from '../dossier/github/fix';
 import { areaViews, issueLink, type AreaView } from './areas';
+import { conceptPull, conceptState, type ConceptState } from './state';
 
 const CONCEPT_TABS = ['overview', 'areas', 'vision', 'boards', 'debate'] as const;
 export type ConceptTab = (typeof CONCEPT_TABS)[number];
@@ -75,6 +78,8 @@ export type ConceptRead = {
   debate: string | null;
   /** The dossier id of each PRD of its areas that has a page. */
   pages: ReadonlyMap<PrdNumber, string>;
+  /** Its issue and its concept PR, as stored or read (PRD 1272, s4); null when neither could be had. */
+  facts: ConceptFacts | null;
 };
 
 export type ConceptTabEntry = { kind: ConceptTab; label: string; href: string; current: boolean; notSent: boolean };
@@ -99,6 +104,8 @@ export type ConceptPageView = {
   link: string;
   /** The concept's issue; null with no number. */
   issueUrl: string | null;
+  /** In review, in the inbox, or state unknown. */
+  state: ConceptState;
   /** On GitHub: its issue and its concept PR. */
   links: { label: string; href: string }[];
   tabs: ConceptTabEntry[];
@@ -150,6 +157,7 @@ export function conceptView(read: ConceptRead, pick: ConceptPick): ConceptPageVi
   const link = workPath('concept', read.id);
   const count = (kind: string) => read.versions.filter((v) => v.kind === kind).length;
   const issueUrl = read.number === null ? null : issueLink(read.repo, read.number);
+  const pull = conceptPull(read.facts);
   return {
     id: read.id,
     heading: read.number === null ? null : `#${read.number}`,
@@ -157,9 +165,10 @@ export function conceptView(read: ConceptRead, pick: ConceptPick): ConceptPageVi
     title: read.title,
     link,
     issueUrl,
+    state: conceptState(read.facts),
     links: read.number === null || issueUrl === null ? [] : [
       { label: `issue #${read.number}`, href: issueUrl },
-      { label: 'concept PR', href: conceptPrSearch(read.repo, read.number) },
+      pull ? { label: `concept PR #${pull.number}`, href: pull.url } : { label: 'concept PR', href: conceptPrSearch(read.repo, read.number) },
     ],
     tabs: CONCEPT_TABS.map((tab) => ({
       kind: tab, label: CONCEPT_TAB_LABELS[tab], href: tabHref(link, tab), current: tab === pick.tab, notSent: count(TAB_FILE[tab].kind) === 0,

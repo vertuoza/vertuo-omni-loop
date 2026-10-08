@@ -84,6 +84,8 @@ describe('/concepts/<id>', () => {
     expect(html).toContain('#1269 ↗');
     expect(html).toContain('Products replace plan repositories, with phase 0 approved on the server');
     expect(html).toContain('<h2>The brief</h2>');
+    // PRD 1272, s4: no stored facts and no GitHub here, so the state is unknown and the page still renders.
+    expect(html).toContain('<span class="fix-state fix-state-unknown">state unknown</span>');
     expect(await page(ConceptRoute, concept, { tab: 'debate' })).toContain('<h2>The panel</h2>');
     expect(await page(ConceptRoute, concept, { tab: 'boards', round: '1' })).toContain(`src="/concepts/${concept}/r/1/page"`);
   });

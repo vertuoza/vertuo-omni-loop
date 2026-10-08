@@ -18,7 +18,7 @@ describe('the Concepts list', () => {
   it('shows concept #1269: its title, kind and scale, "0 of 6 areas have a PRD" and the date it was recorded, linking to its page', () => {
     const html = render(C1269);
     expect(text(html)).toBe(
-      'Concepts #1269 Products replace plan repositories, with phase 0 approved on the server platform · vast 0 of 6 areas have a PRD recorded 6 Oct 2026',
+      'Concepts #1269 Products replace plan repositories, with phase 0 approved on the server platform · vast state unknown 0 of 6 areas have a PRD recorded 6 Oct 2026',
     );
     expect(html).toContain('href="/concepts/c-1269"');
     expect(html).toContain('<time class="ask-hint" dateTime="2026-10-06T09:00:00Z">recorded 6 Oct 2026</time>');
@@ -32,7 +32,15 @@ describe('the Concepts list', () => {
 
   it('keeps a card whose concept.md could not be read, saying so', () => {
     const [card] = conceptCards([conceptRow('c-9', parseIssue(9), '2026-10-06T09:00:00Z', null)], new Map());
-    expect(text(render([card as ConceptCard]))).toBe('Concepts #9 Concept 9 record not readable recorded 6 Oct 2026');
+    expect(text(render([card as ConceptCard]))).toBe('Concepts #9 Concept 9 state unknown record not readable recorded 6 Oct 2026');
+  });
+
+  it('shows each concept\'s state chip: in review, in the inbox, state unknown (PRD 1272, s4)', () => {
+    const [card] = C1269;
+    const chips = (['in-review', 'in-inbox', 'unknown'] as const).map((state) => render([{ ...(card as ConceptCard), state }]));
+    expect(chips[0]).toContain('<span class="fix-state fix-state-in-review">in review</span>');
+    expect(chips[1]).toContain('<span class="fix-state fix-state-merged">in the inbox</span>');
+    expect(chips[2]).toContain('<span class="fix-state fix-state-unknown">state unknown</span>');
   });
 
   it('lists the cards in the order given, newest first', () => {
