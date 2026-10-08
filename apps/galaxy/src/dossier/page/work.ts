@@ -3,8 +3,10 @@
 // dossier was before PRD 627. A dossier opened on another kind's route is sent to its own, with the
 // address's query kept, so `/prd/<id>?tab=questions` of a fix lands on its Questions tab.
 // Since PRD 1272 a concept's is at /concepts/<id>, its list at /concepts. A concept's row is never one of
-// another kind's: every list keeps only its own kind's rows.
-import type { DossierRow, PushKind, WorkKind } from '../store';
+// another kind's: every list keeps only its own kind's rows. A concept opened on a PRD's or a fix's route
+// is sent to /concepts/<id>; its own page reads the row's kind as it came (`rowKind`), since the store's
+// row type names only the kinds the PRD page shows.
+import { isPushKind, type DossierRow, type PushKind, type WorkKind } from '../store';
 
 /** Each kind's list, and the root of its pages. */
 export const WORK_PATHS: Readonly<Record<PushKind, string>> = { prd: '/prd', visual: '/visual', bug: '/bugs', concept: '/concepts' };
@@ -20,6 +22,13 @@ export const WORK_NAMES: Readonly<Record<PushKind, { one: string; many: string; 
 /** The dossier's kind: a PRD's when the row carries none. */
 export const kindOf = (row: Pick<DossierRow, 'kind'>): WorkKind => row.kind ?? 'prd';
 
+/** A row's kind as it came from the database, a concept's included: a PRD's when it carries none, null
+ * for a kind nobody knows. */
+export function rowKind(row: { kind?: unknown }): PushKind | null {
+  if (row.kind === undefined || row.kind === null) return 'prd';
+  return isPushKind(row.kind) ? row.kind : null;
+}
+
 /** Only the rows of `kind`, in their order: a concept's row (PRD 1272) is never a PRD's or a fix's. */
 export const ofWork = <R extends { kind?: PushKind | undefined }>(rows: readonly R[], kind: WorkKind): R[] => rows.filter((row) => (row.kind ?? 'prd') === kind);
 
@@ -29,7 +38,7 @@ export const workPath = (kind: PushKind, id: string) => `${WORK_PATHS[kind]}/${e
 type Query = Record<string, string | string[] | undefined>;
 
 /** Where a dossier of `kind` opened on `route`'s page goes, the query kept; null when it is on its own route. */
-export function misrouted(kind: WorkKind, route: WorkKind, id: string, query: Query = {}): string | null {
+export function misrouted(kind: PushKind, route: PushKind, id: string, query: Query = {}): string | null {
   if (kind === route) return null;
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
