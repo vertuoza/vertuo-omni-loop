@@ -77,6 +77,8 @@ function logLine(e: LedgerEvent): string {
     case 'PLANET_LOST': return textOf(data, 'reason') === 'closed' ? 'Planet lost: PRD closed mid-terraform' : 'Planet lost: 10 working days of silence';
     case 'PLANET_DECOMMISSIONED': return 'Planet decommissioned';
     case 'QUESTION_ANSWERED': return `${who ?? 'Someone'} answered a question`;
+    case 'FEATURE_MERGED': return `${who ?? 'Someone'} merged the feature${where}`;
+    case 'FEATURE_REVIEWED': return `${who ?? 'Someone'} approved the feature${where}`;
     default: return e.type;
   }
 }

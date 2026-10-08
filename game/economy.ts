@@ -89,6 +89,14 @@ export function score(events: readonly GameEvent[], { season, now }: { season: s
         // It opens no wound and joins no crew, so threat, decay and the terraform bonus ignore it.
         credit(e, RULEBOOK.questionAnswered, 'question answered');
         break;
+      case 'FEATURE_MERGED':
+        // A feature PR merged into its default branch pays who merged it, and each person who
+        // approved it, in the season of the merge, with no multiplier. Neither joins a crew.
+        credit(e, RULEBOOK.featureMerged, 'feature merged');
+        break;
+      case 'FEATURE_REVIEWED':
+        credit(e, RULEBOOK.featureReviewed, 'feature reviewed');
+        break;
       case 'PLANET_TERRAFORMED': {
         const team = ownerFor(e);
         const prior = (team ? streak.get(team) : undefined) ?? 0;

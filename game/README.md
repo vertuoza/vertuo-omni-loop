@@ -131,6 +131,23 @@ since)` (`loadAnsweredRounds`, `game/sources/supabase.ts`) with `since` = the wo
 Rollback: set `questionAnswered` and its XP weight to 0; the next `game:score` and `game:xp` remove
 those points, and the events stay, paying nothing.
 
+## Merged feature PRs
+
+A feature PR merged into its default branch pays the people who landed it, once per region's feature
+PR, in the season of the merge, with no multiplier:
+
+- **who merged it**: `RULEBOOK.featureMerged` (30) points, one `FEATURE_MERGED`, id
+  `merge:<repo>#<pr>:<planet key>:merged`;
+- **each person who approved it**: `RULEBOOK.featureReviewed` (10) points, one `FEATURE_REVIEWED`
+  per approver, id `merge:<repo>#<pr>:<planet key>:approved:<login>`. An approver is a reviewer whose
+  latest review approves it (`latestReviews`), the PR's author aside.
+
+A bot is never paid. Both earn XP (`xp.weights.featureMerged`, `featureReviewed`). Neither joins the
+crew, so the terraform bonus pays as before. `game:project` reads `mergedBy` and `latestReviews` with
+the feature PR lists it already makes, so past merges since `game_since` are paid on the first poll.
+
+Rollback: set both numbers and their XP weights to 0; the events stay, paying nothing.
+
 ## The fresh start
 
 PRD 728 started the game again, once. `public.workspaces.game_since` is the moment a workspace's
@@ -170,7 +187,7 @@ call:
 
 - **XP** is the sum, over every season in the ledger, of a login's positive personal credits as
   `score()` pays them, each multiplied by its kind's weight in `xp.weights` (`zoneSecured`,
-  `woundClosed`, `rescue`, `expedition`, `closer`, `questionAnswered`), rounded once after summing. Night-shift and
+  `woundClosed`, `rescue`, `expedition`, `closer`, `questionAnswered`, `featureMerged`, `featureReviewed`), rounded once after summing. Night-shift and
   cross-fleet multipliers count, as they do for points. A zone reverted and a clawback never lower
   it, and fleet credits (a terraform, a decay) are not personal. A weight of 0 leaves a kind out. A
   personal credit whose kind has no weight fails `game/experience.test.ts`, so a new kind of

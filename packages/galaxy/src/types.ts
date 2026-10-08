@@ -68,7 +68,7 @@ export interface GalaxyView {
 
 /** The rulebook's `xp` block (game/rulebook.ts): every XP number, in one place. */
 export interface XpRules {
-  weights: Readonly<Record<'zoneSecured' | 'woundClosed' | 'rescue' | 'expedition' | 'closer' | 'questionAnswered', number>>;
+  weights: Readonly<Record<'zoneSecured' | 'woundClosed' | 'rescue' | 'expedition' | 'closer' | 'questionAnswered' | 'featureMerged' | 'featureReviewed', number>>;
   curve: Readonly<{ first: number; step: number }>;
   cap: number;
   /** The level each game unlocks at, by game id. */

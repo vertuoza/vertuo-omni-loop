@@ -37,6 +37,7 @@ describe('experience', () => {
     expect(experience([charted, ...answers], { now: NOW })).toEqual({ alice: 4 });
     expect(experience([charted, ...answers], { now: NOW, rules: rules({ weights: { questionAnswered: 0 } }) })).toEqual({ alice: 0 });
     expect(xpKindOf('question answered')).toBe('questionAnswered');
+    expect([xpKindOf('feature merged'), xpKindOf('feature reviewed')]).toEqual(['featureMerged', 'featureReviewed']);
   });
 
   it('counts the cross-fleet multiplier of a wound close, rounding once after summing', () => {
@@ -152,6 +153,8 @@ describe('xpKindOf', () => {
       E('planet:7:lost', '2026-09-25T12:00:00Z', 'PLANET_LOST', { planet: lostPlanet, data: { ownerTeam: 'beaver', reason: 'closed' } }),
       E('planet:7:decommissioned', '2026-09-26T12:00:00Z', 'PLANET_DECOMMISSIONED', { planet: lostPlanet }),
       E('ask:r1:answered', '2026-09-22T09:00:00Z', 'QUESTION_ANSWERED', { contributor: 'pm', team: 'beaver' }),
+      E('merge:r#500:2332:merged', '2026-09-22T14:00:00Z', 'FEATURE_MERGED', { contributor: 'pm', team: 'beaver' }),
+      E('merge:r#500:2332:approved:eve', '2026-09-22T14:00:00Z', 'FEATURE_REVIEWED', { contributor: 'eve', team: 'octopod' }),
     ];
     expect(new Set(events.map((e) => e.type))).toEqual(new Set(EVENT_TYPES));
 
