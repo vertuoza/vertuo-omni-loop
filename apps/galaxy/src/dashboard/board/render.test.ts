@@ -251,6 +251,15 @@ describe('a board', () => {
     expect(render({ roster: 'unreadable' })).not.toContain('board-count');
   });
 
+  it('shows the same count line whatever header the People table is sorted by (PRD 1262)', () => {
+    const count = (html: string) => /<p class="board-count">([^<]*)<\/p>/.exec(html)?.[1];
+    const byDefault = count(render());
+    expect(byDefault).toBe('3 people');
+    for (const query of [{ sort: 'name' }, { sort: 'prs', dir: 'asc' }, { sort: 'points', dir: 'asc' }]) {
+      expect(count(render({}, {}, query)), JSON.stringify(query)).toBe(byDefault);
+    }
+  });
+
   it('names every day of a week, and every seventh day of a longer period, today always', () => {
     expect(columnLabels(['2026-09-25', '2026-09-26'])).toEqual(['Fri', 'Sat']);
     const month = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2026, 7, 28 + i)).toISOString().slice(0, 10));
