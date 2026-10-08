@@ -1,7 +1,7 @@
 // apps/omni-app/src/env.ts
 import { z as z3 } from "zod";
 
-// kit/lib/env/group.ts
+// ../../../../../../kit/lib/env/group.ts
 import "zod";
 var EnvError = class extends Error {
   problems;
@@ -95,10 +95,10 @@ function envReader(source, { production = false } = {}) {
   };
 }
 
-// kit/lib/openrouter.ts
+// ../../../../../../kit/lib/openrouter.ts
 import { z as z2 } from "zod";
 
-// kit/lib/schema/messages.ts
+// ../../../../../../kit/lib/schema/messages.ts
 var NAMED_CLASSES = [
   [Date, "date"],
   [Map, "map"],
@@ -175,7 +175,7 @@ function wordIssue(issue) {
 }
 var KIT_MESSAGES = (issue) => wordIssue(issue);
 
-// kit/lib/openrouter.ts
+// ../../../../../../kit/lib/openrouter.ts
 var KEY_VAR = "OPENROUTER_API_KEY";
 var MODEL_VAR = "OPENROUTER_MODEL";
 var MODEL_CALL = Object.freeze({
@@ -262,7 +262,7 @@ function processEnv() {
 import { Inngest } from "inngest";
 import { z as z5 } from "zod";
 
-// kit/lib/ids.ts
+// ../../../../../../kit/lib/ids.ts
 import { z as z4 } from "zod";
 var IssueNumberSchema = z4.number().int().positive().brand();
 var PrdNumberSchema = IssueNumberSchema.brand();
@@ -312,13 +312,13 @@ var FailureEventDataSchema = z5.looseObject({
 import { createHmac } from "node:crypto";
 import { z as z9 } from "zod";
 
-// kit/lib/config.ts
+// ../../../../../../kit/lib/config.ts
 import { existsSync as existsSync2, readFileSync } from "node:fs";
 import { join as join2 } from "node:path";
 import { parse } from "yaml";
 import { z as z7 } from "zod";
 
-// kit/lib/narrow.ts
+// ../../../../../../kit/lib/narrow.ts
 function propertyOf(value, key) {
   return value === null || value === void 0 ? void 0 : Reflect.get(Object(value), key);
 }
@@ -327,12 +327,12 @@ function messageOf(error) {
   return typeof message === "string" ? message : String(error);
 }
 
-// kit/lib/flow/schema.ts
+// ../../../../../../kit/lib/flow/schema.ts
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z as z6 } from "zod";
 
-// kit/lib/flow/points.ts
+// ../../../../../../kit/lib/flow/points.ts
 var HOOK_MODES = Object.freeze(["before", "after", "replace"]);
 var EXTEND = Object.freeze(["before", "after"]);
 var ANY = HOOK_MODES;
@@ -358,7 +358,7 @@ function flowPoint(name) {
   return FLOW_POINTS.find(({ point }) => point === name);
 }
 
-// kit/lib/flow/schema.ts
+// ../../../../../../kit/lib/flow/schema.ts
 var CLAUDE_ALIAS = "claude";
 var DEFAULT_AREA = "default";
 var text = z6.string().min(1);
@@ -462,7 +462,7 @@ var FlowSchema = z6.object({
   }
 });
 
-// kit/lib/config.ts
+// ../../../../../../kit/lib/config.ts
 var CONFIG_FILE = ".omni-loop/config.yml";
 var CONFIG_VERSION = 1;
 var ConfigError = class extends Error {
@@ -982,11 +982,11 @@ function escape(text3) {
 import { posix as posix2 } from "node:path";
 import { z as z11 } from "zod";
 
-// kit/lib/layout.ts
+// ../../../../../../kit/lib/layout.ts
 import { existsSync as existsSync4, readdirSync } from "node:fs";
 import { join as join4, posix } from "node:path";
 
-// kit/lib/playbook/forms.ts
+// ../../../../../../kit/lib/playbook/forms.ts
 import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
 import { join as join3 } from "node:path";
 import { parse as parse2 } from "yaml";
@@ -1043,7 +1043,7 @@ var FrontMatterSchema = z10.object({
   }
 });
 
-// kit/lib/layout.ts
+// ../../../../../../kit/lib/layout.ts
 var FOLDER = /^(\d{4,})-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
 function parseFolderName(name) {
   const match2 = FOLDER.exec(name);

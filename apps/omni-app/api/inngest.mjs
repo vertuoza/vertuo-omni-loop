@@ -4,7 +4,7 @@ import { serve } from "inngest/edge";
 // apps/omni-app/src/env.ts
 import { z as z3 } from "zod";
 
-// kit/lib/env/group.ts
+// ../../../../../../kit/lib/env/group.ts
 import "zod";
 var EnvError = class extends Error {
   problems;
@@ -103,10 +103,10 @@ function requireGroup(value, group2, need) {
   throw new EnvError([{ variables: names, reason: `${sentence(names)} ${verb(names)} not set: ${need}` }]);
 }
 
-// kit/lib/openrouter.ts
+// ../../../../../../kit/lib/openrouter.ts
 import { z as z2 } from "zod";
 
-// kit/lib/outbox/plain-text.ts
+// ../../../../../../kit/lib/outbox/plain-text.ts
 function plainText(value) {
   if (typeof value === "string") return value;
   return typeof value === "number" || typeof value === "boolean" ? String(value) : "";
@@ -115,7 +115,7 @@ function isList(value) {
   return Array.isArray(value);
 }
 
-// kit/lib/schema/messages.ts
+// ../../../../../../kit/lib/schema/messages.ts
 var NAMED_CLASSES = [
   [Date, "date"],
   [Map, "map"],
@@ -192,7 +192,7 @@ function wordIssue(issue) {
 }
 var KIT_MESSAGES = (issue) => wordIssue(issue);
 
-// kit/lib/openrouter.ts
+// ../../../../../../kit/lib/openrouter.ts
 var DEFAULT_MODEL = "anthropic/claude-opus-5.5";
 var OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 var NO_KEY = "no-key";
@@ -474,7 +474,7 @@ function processEnv() {
   return process.env;
 }
 
-// packages/github/src/client.ts
+// ../../../../../../packages/github/src/client.ts
 var BACKGROUND_FLOOR = 0.2;
 var DEFAULT_PAUSE_MS = 6e4;
 var SECONDARY = /secondary rate limit/i;
@@ -606,7 +606,7 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
   };
 }
 
-// packages/github/src/supabase-store.ts
+// ../../../../../../packages/github/src/supabase-store.ts
 import { z as z4 } from "zod";
 var ETAG_COLUMNS = "etag, body, content_type, read_at";
 var StoredEtagRow = z4.strictObject({ etag: z4.string(), body: z4.string(), content_type: z4.string().nullable(), read_at: z4.string() });
@@ -930,13 +930,13 @@ import { z as z12 } from "zod";
 import { createHmac } from "node:crypto";
 import { z as z11 } from "zod";
 
-// kit/lib/config.ts
+// ../../../../../../kit/lib/config.ts
 import { existsSync as existsSync2, readFileSync } from "node:fs";
 import { join as join2 } from "node:path";
 import { parse } from "yaml";
 import { z as z8 } from "zod";
 
-// kit/lib/narrow.ts
+// ../../../../../../kit/lib/narrow.ts
 function isOneOf(values, value) {
   return values.some((member) => member === value);
 }
@@ -965,12 +965,12 @@ function keysOf(record) {
   return Object.keys(record).filter((key) => Object.hasOwn(record, key));
 }
 
-// kit/lib/flow/schema.ts
+// ../../../../../../kit/lib/flow/schema.ts
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z as z7 } from "zod";
 
-// kit/lib/flow/points.ts
+// ../../../../../../kit/lib/flow/points.ts
 var HOOK_MODES = Object.freeze(["before", "after", "replace"]);
 var EXTEND = Object.freeze(["before", "after"]);
 var ANY = HOOK_MODES;
@@ -996,7 +996,7 @@ function flowPoint(name) {
   return FLOW_POINTS.find(({ point }) => point === name);
 }
 
-// kit/lib/flow/schema.ts
+// ../../../../../../kit/lib/flow/schema.ts
 var CLAUDE_ALIAS = "claude";
 var DEFAULT_AREA = "default";
 var text2 = z7.string().min(1);
@@ -1100,7 +1100,7 @@ var FlowSchema = z7.object({
   }
 });
 
-// kit/lib/config.ts
+// ../../../../../../kit/lib/config.ts
 var CONFIG_FILE = ".omni-loop/config.yml";
 var CONFIG_VERSION = 1;
 var ConfigError = class extends Error {
@@ -1449,10 +1449,10 @@ function loadConfig(root) {
   return parseConfig(readFileSync(file, "utf8"), CONFIG_FILE);
 }
 
-// kit/lib/ids.ts
+// ../../../../../../kit/lib/ids.ts
 import { z as z9 } from "zod";
 
-// kit/lib/schema/parse-or-throw.ts
+// ../../../../../../kit/lib/schema/parse-or-throw.ts
 function parseOrThrow(schema, value, shape) {
   const parsed2 = schema.safeParse(value, { error: KIT_MESSAGES });
   if (parsed2.success) return parsed2.data;
@@ -1461,7 +1461,7 @@ function parseOrThrow(schema, value, shape) {
   throw new Error(`${shape}: ${field3}${issue?.message ?? "invalid"}`);
 }
 
-// kit/lib/ids.ts
+// ../../../../../../kit/lib/ids.ts
 var IssueNumberSchema = z9.number().int().positive().brand();
 var PrdNumberSchema = IssueNumberSchema.brand();
 var PrNumberSchema = z9.number().int().positive().brand();
@@ -1700,15 +1700,15 @@ import { join as join12 } from "node:path";
 import { existsSync as existsSync11, readdirSync as readdirSync5, readFileSync as readFileSync7 } from "node:fs";
 import { join as join9 } from "node:path";
 
-// kit/lib/context.ts
+// ../../../../../../kit/lib/context.ts
 import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 
-// kit/lib/layout.ts
+// ../../../../../../kit/lib/layout.ts
 import { existsSync as existsSync4, readdirSync } from "node:fs";
 import { join as join4, posix } from "node:path";
 
-// kit/lib/playbook/forms.ts
+// ../../../../../../kit/lib/playbook/forms.ts
 import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
 import { join as join3 } from "node:path";
 import { parse as parse2 } from "yaml";
@@ -1928,7 +1928,7 @@ function resolvePlaybookId(id, { ctx }) {
   return { ok: true };
 }
 
-// kit/lib/layout.ts
+// ../../../../../../kit/lib/layout.ts
 var FOLDER = /^(\d{4,})-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
 function parseFolderName(name) {
   const match = FOLDER.exec(name);
@@ -2007,7 +2007,7 @@ function foldersLayout(root, paths) {
   });
 }
 
-// kit/lib/markers.ts
+// ../../../../../../kit/lib/markers.ts
 var escape = (text8) => text8.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function makeMarkers(prefix) {
   const p = escape(prefix);
@@ -2032,7 +2032,7 @@ function makeMarkers(prefix) {
   });
 }
 
-// kit/lib/context.ts
+// ../../../../../../kit/lib/context.ts
 function createContext(root, config) {
   const { delivery: delivery2, adr, knowledge, playbook } = config.paths;
   return Object.freeze({
@@ -2043,11 +2043,11 @@ function createContext(root, config) {
   });
 }
 
-// kit/lib/outbox/comment.ts
+// ../../../../../../kit/lib/outbox/comment.ts
 import { existsSync as existsSync10, readFileSync as readFileSync6, writeFileSync as writeFileSync2 } from "node:fs";
 import { z as z17 } from "zod";
 
-// kit/lib/check-report.ts
+// ../../../../../../kit/lib/check-report.ts
 import { execFileSync as execFileSync2 } from "node:child_process";
 import { readFileSync as readFileSync3 } from "node:fs";
 import { join as join5 } from "node:path";
@@ -2056,7 +2056,7 @@ function readRepoFile(ctx, path) {
   return readFileSync3(join5(ctx.root, path), "utf8");
 }
 
-// kit/lib/commands.ts
+// ../../../../../../kit/lib/commands.ts
 var COMMANDS = Object.freeze({
   brainstorm: "/omni:brainstorm",
   yolo: "/omni:yolo",
@@ -2064,7 +2064,7 @@ var COMMANDS = Object.freeze({
   deliver: "/omni:deliver"
 });
 
-// kit/lib/outbox/banter.ts
+// ../../../../../../kit/lib/outbox/banter.ts
 var INTROS = Object.freeze([
   "Here is a small question with surprisingly strong opinions.",
   "This one looked simple right up until it did not.",
@@ -2152,11 +2152,11 @@ function assignBanter(ids, { pool = BANTER_POOL } = {}) {
   return new Map(ids.map((id) => [id, { intro: intros.get(id), punchline: punchlines.get(id) }]));
 }
 
-// kit/lib/outbox/outbox.ts
+// ../../../../../../kit/lib/outbox/outbox.ts
 import { existsSync as existsSync5, readdirSync as readdirSync2 } from "node:fs";
 import { join as join6 } from "node:path";
 
-// kit/lib/front-matter.ts
+// ../../../../../../kit/lib/front-matter.ts
 var FRONT_MATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
 function withFile2(file, message) {
   return file ? `${file}: ${message}` : message;
@@ -2189,7 +2189,7 @@ function parseFrontMatterLines(rawFrontMatter) {
   return { data, errors };
 }
 
-// kit/lib/schema/front-matter.ts
+// ../../../../../../kit/lib/schema/front-matter.ts
 import { z as z15 } from "zod";
 var SPEC_VALUES = ["file", "issue"];
 var PROOF_VALUES = ["video"];
@@ -2257,7 +2257,7 @@ var AccountFrontMatterSchema = z15.object({
   graded: z15.string().regex(DATE2, "graded must be a YYYY-MM-DD date")
 }).strict();
 
-// kit/lib/outbox/outbox.ts
+// ../../../../../../kit/lib/outbox/outbox.ts
 var SETTLED_FILE = "settled.md";
 var RANK_ORDER = { medium: 0, high: 1, "human-action": 2 };
 var REQUIRED_SECTIONS = [
@@ -2563,7 +2563,7 @@ function outboxItemFiles({ ctx }) {
   return files;
 }
 
-// kit/lib/outbox/settle.ts
+// ../../../../../../kit/lib/outbox/settle.ts
 import { existsSync as existsSync6, mkdirSync, readFileSync as readFileSync4, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join as join7, relative } from "node:path";
 import { z as z16 } from "zod";
@@ -2719,10 +2719,10 @@ function rawSettledEntries(text8, markers) {
   return entries;
 }
 
-// kit/lib/outbox/status.ts
+// ../../../../../../kit/lib/outbox/status.ts
 import { existsSync as existsSync9 } from "node:fs";
 
-// kit/lib/outbox/account.ts
+// ../../../../../../kit/lib/outbox/account.ts
 import { existsSync as existsSync7, readdirSync as readdirSync3 } from "node:fs";
 import { basename } from "node:path";
 var ACCOUNTS_DIR = "accounts";
@@ -2871,7 +2871,7 @@ function compare(risky, accounts) {
   return { accounted, unaccounted, stale };
 }
 
-// kit/lib/knowledge/registers.ts
+// ../../../../../../kit/lib/knowledge/registers.ts
 import { existsSync as existsSync8, readFileSync as readFileSync5, readdirSync as readdirSync4 } from "node:fs";
 import { basename as basename2, join as join8 } from "node:path";
 var PRODUCT_CODE = "PRODUCT";
@@ -3099,7 +3099,7 @@ function servedBy(entries, id) {
   return entries.filter((entry) => entry.serves === id);
 }
 
-// kit/lib/outbox/decision-coverage.ts
+// ../../../../../../kit/lib/outbox/decision-coverage.ts
 var TEST_OR_FEATURE_PATH = /\.test\.[^/]+$|\.feature$/;
 function escapeRegExp(source) {
   return source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -3157,7 +3157,7 @@ function riskyChanges(changes, { ctx }) {
   return risky;
 }
 
-// kit/lib/outbox/status.ts
+// ../../../../../../kit/lib/outbox/status.ts
 function openItemFiles(prd, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
@@ -3237,10 +3237,10 @@ function formatReport(prd, result) {
   return lines.join("\n");
 }
 
-// kit/lib/git.ts
+// ../../../../../../kit/lib/git.ts
 import { execFileSync as execFileSync3 } from "node:child_process";
 
-// kit/lib/outbox/comment.ts
+// ../../../../../../kit/lib/outbox/comment.ts
 function openItemsForPrd(prd, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
@@ -4482,15 +4482,15 @@ function onFailedRun(octokitFor, work) {
 import { existsSync as existsSync16, readdirSync as readdirSync7, readFileSync as readFileSync11 } from "node:fs";
 import { join as join18 } from "node:path";
 
-// kit/lib/inbox/check-inbox.ts
+// ../../../../../../kit/lib/inbox/check-inbox.ts
 import { existsSync as existsSync14, readdirSync as readdirSync6, statSync as statSync2 } from "node:fs";
 import { basename as basename4, dirname as dirname4, join as join16 } from "node:path";
 
-// kit/lib/roadmap/index.ts
+// ../../../../../../kit/lib/roadmap/index.ts
 import { existsSync as existsSync13 } from "node:fs";
 import { join as join15 } from "node:path";
 
-// kit/lib/inbox/inbox.ts
+// ../../../../../../kit/lib/inbox/inbox.ts
 import { existsSync as existsSync12 } from "node:fs";
 import { basename as basename3, dirname as dirname3, join as join14 } from "node:path";
 var FRONT_MATTER_BLOCK3 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
@@ -4541,10 +4541,10 @@ function parseSpec(text8, { file = null } = {}) {
   return { ok: true, record };
 }
 
-// kit/lib/roadmap/parse.ts
+// ../../../../../../kit/lib/roadmap/parse.ts
 import { z as z20 } from "zod";
 
-// kit/lib/markdown-body.ts
+// ../../../../../../kit/lib/markdown-body.ts
 var SEPARATOR_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
 function sectionsOf(body) {
   const sections = [];
@@ -4580,7 +4580,7 @@ function firstTable(lines) {
   return { header: cells(header), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells) };
 }
 
-// kit/lib/roadmap/parse.ts
+// ../../../../../../kit/lib/roadmap/parse.ts
 var PRD_COLUMNS = ["id", "PRD", "title", "blocked by", "why", "wave"];
 var QUESTION_COLUMNS = ["id", "question", "recommendation", "blocks", "kind"];
 var QUESTION_KINDS = ["default", "person"];
@@ -4813,7 +4813,7 @@ function roadmapWaves(roadmap) {
   return waves.map((wave) => ({ wave, rows: roadmap.prds.filter((row) => row.wave === wave) }));
 }
 
-// kit/lib/roadmap/grade.ts
+// ../../../../../../kit/lib/roadmap/grade.ts
 var shortName = (slug) => slug.slice(slug.indexOf("/") + 1);
 var PREREQUISITE_BASE_CHECKS = ["gh-auth", "node", "pnpm", "npm", "yarn", "install", "registry", "docker", "labels", "env-file", "omni-signin"];
 var PREREQUISITE_BASE_FIXES = ["install", "labels", "env-file"];
@@ -4980,7 +4980,7 @@ function gradeRoadmap(roadmap, { prdFacts: prdFacts2, targets }) {
   ];
 }
 
-// kit/lib/roadmap/index.ts
+// ../../../../../../kit/lib/roadmap/index.ts
 function roadmapsDir(ctx) {
   return `${ctx.layout.dirs.inbox}/roadmaps`;
 }
@@ -5017,7 +5017,7 @@ function gradeRoadmaps(ctx) {
   return roadmapFiles(ctx).map((entry) => gradeRoadmapFile(ctx, entry));
 }
 
-// kit/lib/voice/voice.ts
+// ../../../../../../kit/lib/voice/voice.ts
 import { z as z21 } from "zod";
 var VOICE_FILE = "voice.json";
 var STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
@@ -5134,7 +5134,7 @@ function parseVoice(text8) {
   return { ok: true, voice: read.data, errors: [] };
 }
 
-// kit/lib/inbox/check-inbox.ts
+// ../../../../../../kit/lib/inbox/check-inbox.ts
 function knownAreas(ctx) {
   const dir = join16(ctx.root, domainsDir(ctx));
   if (!existsSync14(dir)) return /* @__PURE__ */ new Set();
@@ -5215,7 +5215,7 @@ function inboxViolationsFor({ ctx, prd }) {
   return [...violations, ...blockedByViolations(record ? [record] : [], ctx)];
 }
 
-// kit/lib/flow/resolve.ts
+// ../../../../../../kit/lib/flow/resolve.ts
 var LANDINGS_ALIAS_AREA = "landings.alone";
 var noRules = () => ({
   plan: { alone: false, maxFiles: null, waveFirst: false, blocksAll: false, landingAlone: false },
@@ -5364,7 +5364,7 @@ function hooksAt(touched, point) {
   };
 }
 
-// kit/lib/flow/plan-rules.ts
+// ../../../../../../kit/lib/flow/plan-rules.ts
 var LANDINGS_ALIAS_AREA2 = "landings.alone";
 function planRuleViolations(slices, flow) {
   const graded = slices.map((slice) => ({ slice, territory: resolveTerritory(flow, slice.territory) }));
@@ -5480,7 +5480,7 @@ function landingAloneViolations(slices, flow) {
   return violations;
 }
 
-// kit/lib/plan-repo/copy-flow.ts
+// ../../../../../../kit/lib/plan-repo/copy-flow.ts
 import { existsSync as existsSync15, readFileSync as readFileSync10, statSync as statSync3 } from "node:fs";
 import { join as join17 } from "node:path";
 import { parse as parse3, stringify } from "yaml";
@@ -5535,7 +5535,7 @@ function targetFlows({ root, config }) {
   return flows;
 }
 
-// kit/lib/inbox/territory.ts
+// ../../../../../../kit/lib/inbox/territory.ts
 var NOTHING = /^[—–-]?$/;
 function sliceIdOf(text8) {
   const id = WorkSliceIdSchema.safeParse(text8);
@@ -5714,7 +5714,7 @@ function collisionRows(slices, generated = []) {
   }));
 }
 
-// kit/lib/inbox/plan-grade.ts
+// ../../../../../../kit/lib/inbox/plan-grade.ts
 var COMMIT = /^[0-9a-f]{40}$/;
 var NO_COMMIT = /^[—–-]$/;
 function duplicateIds2(slices) {
@@ -5934,7 +5934,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
   return { slices, repositories, landings, waves, multi, collisions: collisions2, matrices, violations, parseError: null };
 }
 
-// kit/lib/signature.ts
+// ../../../../../../kit/lib/signature.ts
 var SIGNED_MARKER = "<!-- omni-loop:signed -->";
 var NOREPLY = /^(?:\d+\+)?([^\s@+]+)@users\.noreply\.github\.com$/i;
 function trailerLine(signature) {
@@ -5953,7 +5953,7 @@ function botLogin(email) {
   return match?.[1] ?? null;
 }
 
-// kit/lib/policy/phase-0.ts
+// ../../../../../../kit/lib/policy/phase-0.ts
 var PHASE_0_REQUIRED_KINDS = ["spec", "plan", "before-after"];
 function normalize(path) {
   return plainText(path).trim().replace(/^\.\//, "").replace(/^\/+/, "");
@@ -6543,7 +6543,7 @@ function createCanonAction({ client, octokitFor, galaxyUrl }) {
 // apps/omni-app/src/knowledge-harvest/knowledge-harvest.ts
 import { NonRetriableError as NonRetriableError3 } from "inngest";
 
-// kit/lib/knowledge/pipeline.ts
+// ../../../../../../kit/lib/knowledge/pipeline.ts
 import {
   cpSync,
   existsSync as existsSync27,
@@ -6561,16 +6561,16 @@ import { tmpdir as tmpdir6 } from "node:os";
 import { dirname as dirname8, join as join30 } from "node:path";
 import { z as z24 } from "zod";
 
-// kit/lib/delivery/ship.ts
+// ../../../../../../kit/lib/delivery/ship.ts
 import { execFileSync as execFileSync4 } from "node:child_process";
 import { existsSync as existsSync18, readFileSync as readFileSync13, writeFileSync as writeFileSync4, mkdirSync as mkdirSync3 } from "node:fs";
 import { basename as basename5, join as join21, dirname as dirname6 } from "node:path";
 
-// kit/lib/releases/check-releases.ts
+// ../../../../../../kit/lib/releases/check-releases.ts
 import { existsSync as existsSync17, readFileSync as readFileSync12 } from "node:fs";
 import { join as join20 } from "node:path";
 
-// kit/lib/releases/note.ts
+// ../../../../../../kit/lib/releases/note.ts
 import { dirname as dirname5 } from "node:path";
 var RELEASE_NOTE_FILE = "release.md";
 var INITIAL_VERSION = "0.0.1";
@@ -6701,12 +6701,12 @@ function gradeReleaseNote(text8, { prd }) {
   return out;
 }
 
-// kit/lib/releases/check-releases.ts
+// ../../../../../../kit/lib/releases/check-releases.ts
 function releaseNotePath(dir) {
   return `${dir}/${RELEASE_NOTE_FILE}`;
 }
 
-// kit/lib/delivery/ship.ts
+// ../../../../../../kit/lib/delivery/ship.ts
 var REWRITTEN = /\.(md|html|yml|yaml|json)$/;
 function releaseNoteReasons(ctx, prd, dir, read) {
   if (!ctx.config.releaseNotes.enabled) return [];
@@ -6746,11 +6746,11 @@ function movedPath(moves, file) {
   return moves.reduce((path, { from, to }) => path.startsWith(`${from}/`) ? to + path.slice(from.length) : path, file);
 }
 
-// kit/lib/outbox/check-outbox.ts
+// ../../../../../../kit/lib/outbox/check-outbox.ts
 import { existsSync as existsSync20 } from "node:fs";
 import { join as join23 } from "node:path";
 
-// kit/lib/laws.ts
+// ../../../../../../kit/lib/laws.ts
 import { existsSync as existsSync19, readdirSync as readdirSync8, readFileSync as readFileSync14 } from "node:fs";
 import { join as join22 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
@@ -6809,7 +6809,7 @@ function lawsFor(ctx) {
   return Object.freeze({ source, resolve, floorsHigh });
 }
 
-// kit/lib/outbox/check-outbox.ts
+// ../../../../../../kit/lib/outbox/check-outbox.ts
 var RANKS_NEEDING_OPTIONS = ["high", "medium"];
 var PLAIN_SECTION_FIELDS = [
   { heading: "The question, in plain words", field: "questionPlain" },
@@ -6921,7 +6921,7 @@ function findOutboxViolations({ ctx }) {
   return violations;
 }
 
-// kit/lib/outbox/settle-merge.ts
+// ../../../../../../kit/lib/outbox/settle-merge.ts
 import { existsSync as existsSync21 } from "node:fs";
 import { join as join24 } from "node:path";
 import { z as z22 } from "zod";
@@ -7027,7 +7027,7 @@ function settleAtMerge({
   return { ok: true, settledFile, entries, append, text: `${base}${append}`, deletes };
 }
 
-// kit/lib/knowledge/check-knowledge.ts
+// ../../../../../../kit/lib/knowledge/check-knowledge.ts
 import { existsSync as existsSync22, readFileSync as readFileSync15 } from "node:fs";
 import { join as join25 } from "node:path";
 function violation(file, id, detail) {
@@ -7385,12 +7385,12 @@ function gradeKnowledge({
   };
 }
 
-// kit/lib/knowledge/classify.ts
+// ../../../../../../kit/lib/knowledge/classify.ts
 import { existsSync as existsSync24, readFileSync as readFileSync17 } from "node:fs";
 import { join as join27 } from "node:path";
 import { z as z23 } from "zod";
 
-// kit/lib/playbook/decisions.ts
+// ../../../../../../kit/lib/playbook/decisions.ts
 import { existsSync as existsSync23, readdirSync as readdirSync9, readFileSync as readFileSync16 } from "node:fs";
 import { join as join26 } from "node:path";
 var RECORD = /^(\d{4})-.+\.md$/;
@@ -7411,10 +7411,10 @@ function readDecisions({ ctx }) {
   return { dir, records, shared, next: String(highest + 1).padStart(4, "0") };
 }
 
-// kit/lib/knowledge/look-rule.ts
+// ../../../../../../kit/lib/knowledge/look-rule.ts
 var LOOK_RULE = "An entry states what the product does and guarantees, never how it looks: no colour, size, layout, position, count of visual elements, font, or exact label or copy. A candidate that is only about the look stays local. A candidate that mixes both is written as the behaviour alone.";
 
-// kit/lib/knowledge/classify.ts
+// ../../../../../../kit/lib/knowledge/classify.ts
 var CLASSIFICATION_KINDS = ["adr", "invariant", "rule", "covered", "stays-here"];
 var PRODUCT_PLACE = PRODUCT_CODE.toLowerCase();
 var NEW_PRINCIPLE = "new";
@@ -7636,7 +7636,7 @@ function classificationPrompt({
   ].join("\n");
 }
 
-// kit/lib/knowledge/harvest.ts
+// ../../../../../../kit/lib/knowledge/harvest.ts
 import { existsSync as existsSync25, readFileSync as readFileSync18 } from "node:fs";
 import { join as join28 } from "node:path";
 var BECAME_FIELD = "Became";
@@ -7674,7 +7674,7 @@ function harvestCandidates({ ctx, prd }) {
   return candidatesFromLedger(readFileSync18(absolute, "utf8"), { markers: ctx.markers, ledgerFile });
 }
 
-// kit/lib/knowledge/write.ts
+// ../../../../../../kit/lib/knowledge/write.ts
 import { existsSync as existsSync26, mkdirSync as mkdirSync4, readFileSync as readFileSync19, writeFileSync as writeFileSync5 } from "node:fs";
 import { dirname as dirname7, join as join29 } from "node:path";
 var KEPT_STATUSES = Object.freeze(["added", "modified", "renamed"]);
@@ -7999,7 +7999,7 @@ function writeKnowledge({
   return { writes: files.writes(), placed, notPlaced };
 }
 
-// kit/lib/knowledge/pipeline.ts
+// ../../../../../../kit/lib/knowledge/pipeline.ts
 var REFUSED_TWICE = "the model's reply was refused twice";
 var NO_PLACE = "this repository has no knowledge folder and no decision-record folder";
 var CLASSIFY_SYSTEM = "You place settled decisions of a software delivery loop into its knowledge base. You never invent an id, a file or a place. Reply with one JSON object.";
@@ -8960,7 +8960,7 @@ function githubStoreOf(supabase) {
 // apps/omni-app/src/pr-stats/schema.ts
 import { z as z28 } from "zod";
 
-// kit/lib/plan-repo/gh-schema.ts
+// ../../../../../../kit/lib/plan-repo/gh-schema.ts
 import { z as z27 } from "zod";
 var GhRepositorySchema = z27.looseObject({ default_branch: z27.string() });
 var GhContentEntrySchema = z27.looseObject({ type: z27.string(), name: z27.string(), path: z27.string() });
@@ -9960,7 +9960,7 @@ var ChurnAtMergeSchema = z30.object({ ranges: z30.array(RangeSchema).exactOption
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
 import { z as z31 } from "zod";
 
-// kit/lib/care/list.ts
+// ../../../../../../kit/lib/care/list.ts
 var FIX_PLAN_MARKER = "<!-- omni-bug:fix-plan -->";
 function linksPrd(body, prd) {
   return new RegExp(`\\bFor PRD #${prd}(?!\\d)`).test(body ?? "");
@@ -9983,7 +9983,7 @@ function fixPlanRows(body) {
   return rows;
 }
 
-// kit/lib/board.ts
+// ../../../../../../kit/lib/board.ts
 function fillBranch(template, values) {
   return template.replace(/\{(topic|slice|landings|landing|name)\}/g, (whole, key) => {
     const value = values[key];
@@ -10001,7 +10001,7 @@ function landingBranches(branches, { topic, landings }) {
   }));
 }
 
-// kit/lib/landings/landing-plan.ts
+// ../../../../../../kit/lib/landings/landing-plan.ts
 function landingPlan({
   landings,
   slices,
@@ -11258,7 +11258,7 @@ function statusOf6(error) {
   return typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
 }
 
-// kit/lib/policy/rework.ts
+// ../../../../../../kit/lib/policy/rework.ts
 var REWORKED_BY2 = /reworked by (#\d+|https?:\/\/[^\s,]+)/;
 var DEFAULT_BRANCHES = Object.freeze(ConfigSchema.shape.branches.parse(void 0));
 function reworkPullRequest(entry) {
