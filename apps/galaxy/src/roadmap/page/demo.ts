@@ -1,14 +1,16 @@
 // The demo's roadmaps (PRD 1162), for development, OMNI_LOOP_DEMO=1 and a person signed out: two
 // roadmaps of two products. Crew's runs across four repositories of a plan repository, one PRD merged
 // (so its Gantt is on dates, projected from that PRD's length), one waiting for a merge, two building,
-// one held on the pull request it waits on and one parked on a question only a person answers. Billing's
-// runs in one repository and nothing merged yet, so its bars sit in wave columns. Crew's human work
-// (PRD 1217): its open person question, a missing secret, a production variable, a park waiting on a
-// migration run, and one clarification settled; Billing's has none yet. Every time is counted back from
-// `now`, so the same `now` draws the same page.
+// one held on the pull request it waits on and one parked on a question only a person answers; its
+// prerequisites (PRD 1218) checked on one laptop a few minutes ago, two of them waiting on a person.
+// Billing's runs in one repository and nothing merged yet, so its bars sit in wave columns, and it names
+// no prerequisite. Crew's human work (PRD 1217): its open person question, a missing secret, a
+// production variable, a park waiting on a migration run, and one clarification settled; Billing's has
+// none yet. Every time is counted back from `now`, so the same `now` draws the same page.
 import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { RoadmapHumanWorkRow, RoadmapPrdRow, RoadmapRow } from '../store';
+import type { RoadmapHumanWorkRow, RoadmapPrdRow, RoadmapPrerequisiteRow, RoadmapRow } from '../store';
 import { detailOf, listOf, type Demo, type ProductRef, type RoadmapPageView, type RoadmapRead } from './model';
+import type { RoadmapTab } from './prerequisites';
 
 const DAY = 86_400_000;
 const DEMO_NAME = 'Acme';
@@ -39,7 +41,7 @@ function rowsAt(now: number) {
   const crew = roadmap({
     id: DEMO_ROADMAP, repo: 'acme/crew-plan', number: parseIssue(1200), title: 'Crew — from skeleton to earned autonomy',
     milestone: 'A company grants its first mandate after a trial week.', product_id: CREW?.id ?? null, target_date: '2027-03-31',
-    source: 'https://acme.example/crew-plan',
+    source: 'https://acme.example/crew-plan', prerequisites_machine: 'mbp-irisa', prerequisites_checked_at: at(-0.005),
     questions: [
       { id: 'Q2', question: 'Does a persona keep its memory across companies?', recommendation: 'No: one memory per company.', blocks: ['P2.2'], kind: 'default', answer: null },
       { id: 'Q5', question: 'Who may grant a mandate: the owner only, or any admin?', recommendation: 'The owner only, for the first release.', blocks: ['P4.4'], kind: 'person', answer: null },
@@ -99,15 +101,62 @@ function rowsAt(now: number) {
       text: 'Which queue does the worker read?', url: 'https://github.com/acme/crew-plan/issues/1201', first_seen_at: at(-20), done_at: at(-16),
     }),
   ];
-  return [{ row: crew, prds: crewPrds, humanWork: crewWork }, { row: one, prds: onePrds, humanWork: [] }] satisfies RoadmapRead[];
+  const read: Array<RoadmapRead & { prerequisites: RoadmapPrerequisiteRow[] }> = [
+    { row: crew, prds: crewPrds, humanWork: crewWork, prerequisites: crewPrerequisites() },
+    { row: one, prds: onePrds, humanWork: [], prerequisites: [] },
+  ];
+  return read;
+}
+
+/** Crew's prerequisites, as its last check left them: the base rows, and the ones its PRDs need. */
+function crewPrerequisites(): RoadmapPrerequisiteRow[] {
+  let position = 0;
+  const row = (over: Partial<RoadmapPrerequisiteRow> & Pick<RoadmapPrerequisiteRow, 'row_id' | 'category' | 'need' | 'who' | 'state'>): RoadmapPrerequisiteRow => ({
+    roadmap_id: DEMO_ROADMAP, position: ++position, check_with: null, fix_with: null, blocks_all: true, blocks: [], repos: [], card: null, detail: null, ...over,
+  });
+  return [
+    row({
+      row_id: 'p1', category: 'permissions', need: 'gh is signed in, with the repo scope', who: 'check', state: 'ok', check_with: 'base:gh-auth',
+      card: { why: 'The loop opens pull requests as you.', command: 'gh auth login', whatItDoes: 'Signs the GitHub command line in, in your browser.', whoCanDoIt: 'Anyone with this laptop and a GitHub account in acme.' },
+    }),
+    row({
+      row_id: 'p2', category: 'local', need: 'Node 22 or later runs', who: 'check', state: 'ok', check_with: 'base:node',
+      card: { why: 'Every command of the loop runs on Node.', command: 'brew install node@22', whatItDoes: 'Installs Node 22 on your Mac.', whoCanDoIt: 'Anyone with this laptop.' },
+    }),
+    row({ row_id: 'p3', category: 'access', need: 'the dependencies install from a clean lockfile', who: 'agent', state: 'fixed', check_with: 'base:install', fix_with: 'base:install' }),
+    row({ row_id: 'p4', category: 'github', need: 'the loop\'s labels exist', who: 'agent', state: 'ok', check_with: 'base:labels', fix_with: 'base:labels' }),
+    row({
+      row_id: 'p5', category: 'local', need: 'Docker is running, for the database tests', who: 'check', state: 'waits', check_with: 'base:docker',
+      blocks_all: false, blocks: ['P2.2', 'P3.4'], detail: 'docker info: Cannot connect to the Docker daemon',
+      card: {
+        why: 'The tests for this roadmap start a database in Docker. Without Docker running, they cannot run, and no slice can merge.',
+        command: 'open -a Docker',
+        whatItDoes: 'Starts the Docker app on your Mac. If it is not installed, get it from https://www.docker.com/products/docker-desktop and open it once.',
+        whoCanDoIt: 'Anyone with this laptop.',
+      },
+    }),
+    row({
+      row_id: 'p6', category: 'permissions', need: 'the Vercel preview has DATABASE_URL', who: 'person', state: 'waits', blocks_all: false, blocks: ['P4.3'],
+      card: {
+        why: 'The messages screen reads the database on its preview; without the address, the preview shows an error.',
+        command: 'vercel env add DATABASE_URL preview',
+        whatItDoes: 'Asks for the database address and saves it to the preview deployments only.',
+        whoCanDoIt: 'An owner of the acme team on Vercel: ask Sam in #platform.',
+      },
+    }),
+    row({
+      row_id: 'p7', category: 'services', need: 'omni is signed in to the Omni app', who: 'check', state: 'ok', check_with: 'base:omni-signin',
+      card: { why: 'The loop shows its progress on this page.', command: 'omni signin', whatItDoes: 'Signs this checkout in to the Omni app, in your browser.', whoCanDoIt: 'Anyone in the workspace.' },
+    }),
+  ];
 }
 
 /** The demo's Roadmaps page: the list (`id` null), one product's when `product` is set, or the roadmap
  * `id` opened; null for an id it does not hold. */
-export function demoRoadmapPage(now: Date, ask: { id: string | null; product: string | null }, demo: Exclude<Demo, null>): RoadmapPageView | null {
+export function demoRoadmapPage(now: Date, ask: { id: string | null; product: string | null; tab?: RoadmapTab }, demo: Exclude<Demo, null>): RoadmapPageView | null {
   const rows = rowsAt(now.getTime());
   if (ask.id === null) return listOf(DEMO_NAME, demo, rows, DEMO_PRODUCTS, ask.product);
   const found = rows.find((r) => r.row.id === ask.id);
   if (!found) return null;
-  return { kind: 'roadmap', name: DEMO_NAME, demo, roadmap: detailOf(found, DEMO_PRODUCTS, now.getTime()) };
+  return { kind: 'roadmap', name: DEMO_NAME, demo, roadmap: detailOf(found, DEMO_PRODUCTS, now.getTime(), { prerequisites: found.prerequisites, tab: ask.tab ?? 'overview' }) };
 }

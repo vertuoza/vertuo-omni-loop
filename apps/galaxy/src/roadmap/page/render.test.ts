@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { present } from '../../ask/test/test-item';
 import { DEMO_PRODUCTS, DEMO_ROADMAP, DEMO_ROADMAP_ONE_REPO, demoRoadmapPage } from './demo';
 import type { RoadmapPageView } from './model';
+import { prerequisitesOf, type TickAsk } from './prerequisites';
+import type { RoadmapPrerequisiteRow } from '../store';
 import { RoadmapsScreen } from './RoadmapsScreen';
 
 // /roadmaps as the server renders it (PRD 1162), to static markup, on the demo's roadmaps: the list,
@@ -18,7 +20,7 @@ const render = (view: RoadmapPageView, supabase: { url: string; key: string } | 
   renderToStaticMarkup(createElement(RoadmapsScreen, { view, supabase, signinError: null }));
 const list = (product: string | null = null, demo: 'development' | 'signed-out' = 'development') =>
   present(demoRoadmapPage(NOW, { id: null, product }, demo), 'the demo list');
-const opened = (id = DEMO_ROADMAP) => present(demoRoadmapPage(NOW, { id, product: null }, 'development'), 'the demo roadmap');
+const opened = (id = DEMO_ROADMAP, tab: 'overview' | 'prerequisites' = 'overview') => present(demoRoadmapPage(NOW, { id, product: null, tab }, 'development'), 'the demo roadmap');
 const [CREW, BILLING, MOBILE] = DEMO_PRODUCTS;
 
 describe('the list of roadmaps', () => {
@@ -160,6 +162,51 @@ describe('one roadmap opened', () => {
   });
 });
 
+describe('one roadmap\'s tabs', () => {
+  it('opens on Overview, today\'s page, with a Prerequisites tab counting what waits on you', () => {
+    const html = render(opened());
+    const tabs = present(/<nav class="roadmap-tabs"[\s\S]*?<\/nav>/.exec(html)?.[0], 'the tabs');
+    expect(text(tabs)).toBe('Overview Prerequisites 2');
+    expect(tabs).toContain(`href="/roadmaps/${DEMO_ROADMAP}" aria-current="page">Overview`);
+    expect(tabs).toContain(`href="/roadmaps/${DEMO_ROADMAP}?tab=prerequisites">Prerequisites`);
+    expect(text(html)).toContain('Gantt');
+    expect(text(html)).not.toContain('2 wait on you');
+  });
+
+  it('shows on Prerequisites the count line and the rows grouped by category, those waiting on you first', () => {
+    const html = render(opened(DEMO_ROADMAP, 'prerequisites'));
+    const t = text(html);
+    expect(html).toContain(`href="/roadmaps/${DEMO_ROADMAP}?tab=prerequisites" aria-current="page">Prerequisites`);
+    expect(t).not.toContain('Gantt');
+    expect(t).toContain('4 ok · 1 fixed · 2 wait on you');
+    expect([...html.matchAll(/data-category="([^"]+)"/g)].map((m) => m[1])).toEqual(['local', 'permissions', 'access', 'github', 'services']);
+    expect([...html.matchAll(/data-prereq="([^"]+)"/g)].map((m) => m[1])).toEqual(['p5', 'p2', 'p6', 'p1', 'p3', 'p4', 'p7']);
+  });
+
+  it('opens the card of a row waiting on you: why, the command with a Copy button, what it does, who can do it', () => {
+    const html = render(opened(DEMO_ROADMAP, 'prerequisites'));
+    const p5 = present(/<li class="roadmap-prereq is-waits" data-prereq="p5">[\s\S]*?<\/li>/.exec(html)?.[0], 'p5');
+    expect(p5).toContain('<details class="roadmap-prereq-card" open="">');
+    const t = text(p5);
+    expect(t).toContain('waits on you p5 Docker is running, for the database tests');
+    expect(t).toContain('blocks P2.2, P3.4 · the agent checks it, a person fixes it · last checked on mbp-irisa, 2026-10-20 11:52 UTC');
+    expect(t).toContain('Why The tests for this roadmap start a database in Docker.');
+    expect(p5).toContain('<code id="roadmap-prereq-p5-command">open -a Docker</code><button type="button" class="ask-button quiet">Copy</button>');
+    expect(t).toContain('What it does Starts the Docker app on your Mac.');
+    expect(t).toContain('Who can do it Anyone with this laptop.');
+    const p1 = present(/<li class="roadmap-prereq is-ok" data-prereq="p1">[\s\S]*?<\/li>/.exec(html)?.[0], 'p1');
+    expect(p1).toContain('<details class="roadmap-prereq-card">');
+    expect(text(p1)).toContain('blocks every PRD');
+  });
+
+  it('says so in one line for a roadmap without prerequisites', () => {
+    const html = render(opened(DEMO_ROADMAP_ONE_REPO, 'prerequisites'));
+    expect(text(html)).toContain('This roadmap names no prerequisite: its roadmap.md has no ## Prerequisites section.');
+    expect(html).not.toContain('data-prereq=');
+    expect(text(present(/<nav class="roadmap-tabs"[\s\S]*?<\/nav>/.exec(html)?.[0], 'the tabs'))).toBe('Overview Prerequisites');
+  });
+});
+
 describe('signed out', () => {
   it('shows the demo under a sign-in card that comes back to /roadmaps', () => {
     const html = render(list(null, 'signed-out'), SUPABASE);
@@ -185,5 +232,38 @@ describe('before the list', () => {
 
   it('says the roadmaps could not be read', () => {
     expect(text(render({ kind: 'unreadable' }))).toContain('The roadmaps could not be read.');
+  });
+});
+
+describe('Mark as done on the Prerequisites tab (s7)', () => {
+  const CARD = { why: 'The preview reads the database.', command: 'vercel env add DATABASE_URL preview', whatItDoes: 'Saves the address.', whoCanDoIt: 'An admin of the Vercel project.' };
+  const rows: RoadmapPrerequisiteRow[] = [
+    { roadmap_id: DEMO_ROADMAP, position: 1, row_id: 'p5', category: 'local', need: 'Docker runs', check_with: 'base:docker', fix_with: null, blocks_all: true, blocks: [], who: 'check', repos: [], card: CARD, state: 'waits', detail: null },
+    { roadmap_id: DEMO_ROADMAP, position: 2, row_id: 'p6', category: 'permissions', need: 'the preview has DATABASE_URL', check_with: null, fix_with: null, blocks_all: false, blocks: ['P4.3'], who: 'person', repos: [], card: CARD, state: 'waits', detail: null },
+  ];
+  const withTick = (tick: TickAsk): RoadmapPageView => {
+    const view = opened(DEMO_ROADMAP, 'prerequisites');
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    return { ...view, roadmap: { ...view.roadmap, prerequisites: prerequisitesOf(rows, 'mbp', '2026-10-20T11:58:00Z', tick) } };
+  };
+  const rowOf = (html: string, id: string) => present(new RegExp(`<li class="roadmap-prereq[^"]*" data-prereq="${id}">[\\s\\S]*?</li>`).exec(html)?.[0], id);
+
+  it('shows the button on a person row to a member, and on no other row', () => {
+    const html = render(withTick({ tickable: true, ticked: null, tickError: null }));
+    expect(rowOf(html, 'p6')).toMatch(/<button type="button" class="ask-button"[^>]*>Mark as done<\/button>/);
+    expect(rowOf(html, 'p5')).not.toContain('Mark as done');
+  });
+
+  it('shows no button to anyone else: the demo, or where marking is not open', () => {
+    expect(render(opened(DEMO_ROADMAP, 'prerequisites'))).not.toContain('Mark as done');
+    expect(render(withTick({ tickable: false, ticked: null, tickError: null }))).not.toContain('Mark as done');
+  });
+
+  it('shows the row just ticked as ticked, and why a tick posted nothing', () => {
+    const ticked = render(withTick({ tickable: true, ticked: 'p6', tickError: null }));
+    expect(text(rowOf(ticked, 'p6'))).toContain('ticked by you: the next check records it');
+    expect(ticked).not.toContain('Mark as done');
+    const failed = render(withTick({ tickable: true, ticked: null, tickError: 'no-access' }));
+    expect(text(failed)).toContain('Your GitHub account may not comment on the roadmap\'s issue, so nothing was posted.');
   });
 });

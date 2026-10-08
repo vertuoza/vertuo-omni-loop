@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from '../ids.ts';
 import type { PrdNumber } from '../ids.ts';
-import { gradeRoadmap } from './grade.ts';
+import { PREREQUISITE_BASE_CHECKS, PREREQUISITE_BASE_FIXES, gradeRoadmap } from './grade.ts';
 import type { PrdFacts, RoadmapTarget } from './grade.ts';
 import { parseRoadmap } from './parse.ts';
 import type { Roadmap } from './parse.ts';
 
 /** A roadmap from its PRD rows (`id | PRD | title | [repos |] blocked by | why | wave`) and its questions. */
-function roadmap(rows: string[], { repos = false, questions = [] as string[] } = {}): Roadmap {
+function roadmap(rows: string[], { repos = false, questions = [] as string[], prerequisites = [] as string[] } = {}): Roadmap {
   const header = repos ? '| id | PRD | title | repos | blocked by | why | wave |' : '| id | PRD | title | blocked by | why | wave |';
   const text = [
     '---',
@@ -21,6 +21,8 @@ function roadmap(rows: string[], { repos = false, questions = [] as string[] } =
     ...rows,
     '',
     ...(questions.length > 0 ? ['## Open questions', '| id | question | recommendation | blocks | kind |', '|---|---|---|---|---|', ...questions] : []),
+    '',
+    ...(prerequisites.length > 0 ? ['## Prerequisites', '| id | category | need | check | fix | blocks | who |', '|---|---|---|---|---|---|---|', ...prerequisites] : []),
     '',
   ].join('\n');
   const parsed = parseRoadmap(text);
@@ -177,5 +179,96 @@ describe('gradeRoadmap — a plan repository', () => {
       { prdFacts: specs({ 1201: [], 1202: [] }), targets: TARGETS },
     );
     expect(graded).toEqual([]);
+  });
+});
+
+/** A card for `id`, with every line but those named in `without`. */
+function card(id: string, without: string[] = []): string[] {
+  const lines: [string, string][] = [
+    ['Why', 'The tests need it.'],
+    ['Command', '`open -a Docker`'],
+    ['What it does', 'Starts Docker.'],
+    ['Who can do it', 'Anyone with this laptop.'],
+  ];
+  return ['', `### ${id}`, ...lines.filter(([label]) => !without.includes(label)).map(([label, text]) => `- **${label}:** ${text}`)];
+}
+
+/** The ONE_REPO roadmap with these prerequisite rows and cards, graded. */
+const gradePrerequisites = (lines: string[]): string[] =>
+  gradeRoadmap(roadmap(ONE_REPO, { prerequisites: lines }), { prdFacts: ONE_REPO_SPECS, targets: null });
+
+describe('gradeRoadmap — prerequisites', () => {
+  it('passes a valid table whose check and person rows have their cards', () => {
+    expect(
+      gradePrerequisites([
+        '| p1 | local | Docker is running | `base:docker` | | P2, P3 | check |',
+        '| p2 | access | the private package installs | `npm view @acme/ui version` | | all | check |',
+        '| p3 | permissions | the preview has its secret | | | P3 | person |',
+        '| p4 | access | the dependencies install | `base:install` | `base:install` | all | agent |',
+        '| p5 | github | the labels exist | `base:labels` | `base:labels` | all | agent |',
+        '| p6 | local | each .env exists | `base:env-file` | `base:env-file` | P1 | agent |',
+        ...card('p1'),
+        ...card('p2'),
+        ...card('p3'),
+      ]),
+    ).toEqual([]);
+  });
+
+  it('knows every base check of the catalog', () => {
+    const names = ['gh-auth', 'node', 'pnpm', 'npm', 'yarn', 'install', 'registry', 'docker', 'labels', 'env-file', 'omni-signin'];
+    expect(PREREQUISITE_BASE_CHECKS).toEqual(names);
+    expect(PREREQUISITE_BASE_FIXES).toEqual(['install', 'labels', 'env-file']);
+    const rows = names.map((name, index) => `| p${index + 1} | local | ${name} works | \`base:${name}\` | | all | check |`);
+    expect(gradePrerequisites([...rows, ...names.flatMap((_, index) => card(`p${index + 1}`))])).toEqual([]);
+  });
+
+  it('refuses a duplicate id, also against a PRD row', () => {
+    expect(gradePrerequisites(['| p1 | local | A | `base:node` | | all | person |', '| p1 | local | B | | | all | person |', '| P1 | local | C | | | all | person |', ...card('p1'), ...card('P1')])).toEqual([
+      'p1: the id is used twice.',
+      'P1: the id is used twice.',
+    ]);
+  });
+
+  it('refuses a blocks naming no row of the PRDs table', () => {
+    expect(gradePrerequisites(['| p1 | local | A | | | P2, P9 | person |', ...card('p1')])).toEqual(['p1: blocks P9, which is not a row of the roadmap.']);
+  });
+
+  it('refuses a check naming no base check', () => {
+    expect(gradePrerequisites(['| p1 | local | A | `base:podman` | | all | check |', ...card('p1')])).toEqual([
+      'p1: checks base:podman, which is no base check (gh-auth, node, pnpm, npm, yarn, install, registry, docker, labels, env-file, omni-signin).',
+    ]);
+  });
+
+  it('refuses a fix on a row that is not agent, a fix naming no base fix, and an agent row without a fix', () => {
+    expect(
+      gradePrerequisites([
+        '| p1 | local | A | `base:install` | `base:install` | all | check |',
+        '| p2 | local | B | `base:docker` | `base:docker` | all | agent |',
+        '| p3 | local | C | `base:docker` | `docker start` | all | agent |',
+        '| p4 | local | D | `base:node` | | all | agent |',
+        ...card('p1'),
+      ]),
+    ).toEqual([
+      'p1: has the fix base:install, but only an agent row has a fix.',
+      'p2: has the fix base:docker, which is no base fix (install, labels, env-file).',
+      'p3: has the fix docker start, which is no base fix (install, labels, env-file).',
+      'p4: is an agent row without a fix; an agent row names the base fix it runs.',
+    ]);
+  });
+
+  it('refuses a check or person row without its card, and a card missing a line', () => {
+    expect(
+      gradePrerequisites([
+        '| p1 | local | A | `base:docker` | | all | check |',
+        '| p2 | local | B | | | all | person |',
+        '| p3 | local | C | | | all | person |',
+        ...card('p3', ['Command', 'Who can do it']),
+      ]),
+    ).toEqual([
+      'p1: has no card; a check or person row has a "### p1" card under the table.',
+      'p2: has no card; a check or person row has a "### p2" card under the table.',
+      'p3: its card has no "Command" line.',
+      'p3: its card has no "Who can do it" line.',
+    ]);
   });
 });

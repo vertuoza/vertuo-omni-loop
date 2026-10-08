@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { JevOutcome } from '../jev/client';
 import type { JevDecideDeps } from '../jev/resolve';
 import type { JevMode } from '../jev/store';
-import { MAX_PUSH_BYTES, roadmapPush, type RoadmapDeps } from './api';
+import { DETAIL_MAX, MAX_PUSH_BYTES, roadmapPush, type RoadmapDeps } from './api';
 import { classifyHumanWork, humanWorkClassifier } from './classify-jev';
 import { fakeRoadmaps, type FakeAccount } from './store.fake';
 import { roadmapReader } from './store';
@@ -121,6 +121,143 @@ describe('POST /api/roadmaps: a roadmap is pushed', () => {
     await w.send(PUSH);
     expect((await w.send({ ...PUSH, repo: 'acme/crew' })).status).toBe(201);
     expect(w.fake.tables.roadmaps).toHaveLength(2);
+  });
+});
+
+// PRD 1218, slice s5: the prerequisites and this machine's last result, as `omni roadmap push` sends them.
+const DOCKER = {
+  id: 'p1', category: 'local', need: 'Docker is running, for the database tests', check: 'base:docker', fix: null, blocks: ['P3.4'], who: 'check', repos: [],
+  card: { why: 'The tests start a database in Docker.', command: 'open -a Docker', whatItDoes: 'Starts the Docker app on your Mac.', whoCanDoIt: 'Anyone with this laptop.' },
+};
+const INSTALL = { id: 'p2', category: 'access', need: 'The dependencies install', check: 'base:install', fix: 'base:install', blocks: 'all', who: 'agent', repos: ['Crew'], card: null };
+const PREVIEW_SECRET = {
+  id: 'p3', category: 'permissions', need: 'The Vercel preview has DATABASE_URL', check: null, fix: null, blocks: ['P1.1', 'P3.4'], who: 'person',
+  card: { why: 'The preview reads the database.', command: 'vercel env add DATABASE_URL preview', whatItDoes: 'Adds the secret to the previews.', whoCanDoIt: 'An admin of the Vercel project.' },
+};
+const RESULT = {
+  machine: 'pierre-mac', checkedAt: '2026-10-08T09:00:00.000Z',
+  rows: [{ id: 'p1', state: 'waits', detail: 'docker info exited 1' }, { id: 'p2', state: 'fixed', detail: null }, { id: 'p9', state: 'ok', detail: null }],
+};
+const WITH_PREREQUISITES = { ...PUSH, prerequisites: [DOCKER, INSTALL, PREVIEW_SECRET], prerequisiteResult: RESULT };
+
+describe('POST /api/roadmaps: a roadmap\'s prerequisites', () => {
+  it('stores each prerequisite in order with its card, the state its result row gives, and the machine and time', async () => {
+    const w = world();
+    const { status, body } = await w.send(WITH_PREREQUISITES);
+    expect(status).toBe(201);
+    expect(w.fake.tables.roadmap_prerequisites).toEqual([
+      {
+        roadmap_id: body?.roadmapId, position: 1, row_id: 'p1', category: 'local', need: DOCKER.need, check_with: 'base:docker', fix_with: null,
+        blocks_all: false, blocks: ['P3.4'], who: 'check', repos: [], card: DOCKER.card, state: 'waits', detail: 'docker info exited 1',
+      },
+      {
+        roadmap_id: body?.roadmapId, position: 2, row_id: 'p2', category: 'access', need: INSTALL.need, check_with: 'base:install', fix_with: 'base:install',
+        blocks_all: true, blocks: [], who: 'agent', repos: ['crew'], card: null, state: 'fixed', detail: null,
+      },
+      {
+        roadmap_id: body?.roadmapId, position: 3, row_id: 'p3', category: 'permissions', need: PREVIEW_SECRET.need, check_with: null, fix_with: null,
+        blocks_all: false, blocks: ['P1.1', 'P3.4'], who: 'person', repos: [], card: PREVIEW_SECRET.card, state: null, detail: null,
+      },
+    ]);
+    expect(w.fake.tables.roadmaps[0]).toMatchObject({ prerequisites_machine: 'pierre-mac', prerequisites_checked_at: '2026-10-08T09:00:00.000Z' });
+  });
+
+  it('sends the prerequisites after the roadmap, apart from it, every field defaulted', async () => {
+    const w = world();
+    const bare = { id: 'p1', category: 'github', need: 'The loop\'s labels exist', blocks: 'all', who: 'agent', fix: 'base:labels' };
+    await w.send({ ...PUSH, prerequisites: [bare] });
+    expect(w.fake.calls.map((c) => c.fn)).toEqual(['roadmap_push', 'roadmap_prerequisites_push']);
+    expect(w.fake.calls[0]?.args.p_body).not.toHaveProperty('prerequisites');
+    expect(w.fake.calls[0]?.args.p_body).not.toHaveProperty('prerequisiteResult');
+    expect(w.fake.calls[1]?.args).toEqual({ p_body: {
+      repo: 'acme/plan', number: 1200,
+      prerequisites: [{ id: 'p1', category: 'github', need: 'The loop\'s labels exist', check: null, fix: 'base:labels', blocks: 'all', who: 'agent', repos: [], card: null }],
+      result: null,
+    } });
+    expect(w.fake.tables.roadmaps[0]).toMatchObject({ prerequisites_machine: null, prerequisites_checked_at: null });
+  });
+
+  it('a push without the field stores as before and leaves the stored prerequisites as they are', async () => {
+    const w = world();
+    await w.send(WITH_PREREQUISITES);
+    const again = await w.send(PUSH);
+    expect(again.status).toBe(200);
+    expect(w.fake.calls.map((c) => c.fn)).toEqual(['roadmap_push', 'roadmap_prerequisites_push', 'roadmap_push']);
+    expect(w.fake.tables.roadmap_prerequisites.map((p) => p.row_id)).toEqual(['p1', 'p2', 'p3']);
+    expect(w.fake.tables.roadmaps[0]).toMatchObject({ prerequisites_machine: 'pierre-mac' });
+  });
+
+  it('a later push replaces them, and a push with none and no result clears them', async () => {
+    const w = world();
+    await w.send(WITH_PREREQUISITES);
+    await w.send({ ...PUSH, prerequisites: [PREVIEW_SECRET], prerequisiteResult: { ...RESULT, machine: 'ci', rows: [{ id: 'p3', state: 'ticked' }] } }, { token: 'bob-token' });
+    expect(w.fake.tables.roadmap_prerequisites.map((p) => [p.position, p.row_id, p.state])).toEqual([[1, 'p3', 'ticked']]);
+    expect(w.fake.tables.roadmaps[0]).toMatchObject({ prerequisites_machine: 'ci' });
+    await w.send({ ...PUSH, prerequisites: [], prerequisiteResult: null });
+    expect(w.fake.tables.roadmap_prerequisites).toEqual([]);
+    expect(w.fake.tables.roadmaps[0]).toMatchObject({ prerequisites_machine: null, prerequisites_checked_at: null });
+  });
+
+  it(`cuts a reason it waits past ${DETAIL_MAX} characters, and keeps none for a row that does not wait`, async () => {
+    const w = world();
+    const rows = [{ id: 'p1', state: 'waits', detail: `  ${'x'.repeat(2000)}` }, { id: 'p2', state: 'ok', detail: 'fine' }];
+    await w.send({ ...WITH_PREREQUISITES, prerequisiteResult: { ...RESULT, rows } });
+    const [docker, install] = w.fake.tables.roadmap_prerequisites;
+    expect(docker?.detail).toHaveLength(DETAIL_MAX);
+    expect(docker?.detail?.endsWith('…')).toBe(true);
+    expect(install).toMatchObject({ state: 'ok', detail: null });
+  });
+
+  it('a member of the workspace reads the prerequisites in order, with the machine and time; another workspace reads none', async () => {
+    const w = world();
+    const { body } = await w.send(WITH_PREREQUISITES);
+    const id = body?.roadmapId ?? '';
+    const asBob = roadmapReader(w.fake.client('bob-token') as never);
+    expect((await asBob.prerequisites(id)).map((p) => [p.row_id, p.state])).toEqual([['p1', 'waits'], ['p2', 'fixed'], ['p3', null]]);
+    expect(await asBob.roadmap(id)).toMatchObject({ prerequisites_machine: 'pierre-mac', prerequisites_checked_at: RESULT.checkedAt });
+    expect(await roadmapReader(w.fake.client('carl-token') as never).prerequisites(id)).toEqual([]);
+  });
+
+  const malformed: Array<[string, unknown]> = [
+    ['a prerequisites field that is not a list', { prerequisites: DOCKER }],
+    ['an unknown category', { prerequisites: [{ ...DOCKER, category: 'hardware' }] }],
+    ['an unknown who', { prerequisites: [{ ...DOCKER, who: 'robot' }] }],
+    ['an id that is not an id', { prerequisites: [{ ...DOCKER, id: 'p 1' }] }],
+    ['an id used twice', { prerequisites: [DOCKER, { ...PREVIEW_SECRET, id: 'p1' }] }],
+    ['a prerequisite without its need', { prerequisites: [{ ...DOCKER, need: '' }] }],
+    ['blocks neither all nor row ids', { prerequisites: [{ ...DOCKER, blocks: 'everything' }] }],
+    ['a fix that is not a base fix', { prerequisites: [{ ...INSTALL, fix: 'rm -rf node_modules' }] }],
+    ['a fix on a row that is not an agent\'s', { prerequisites: [{ ...DOCKER, fix: 'base:install' }] }],
+    ['a card with an unknown line', { prerequisites: [{ ...DOCKER, card: { ...DOCKER.card, secret: 'x' } }] }],
+    ['a card with an empty line', { prerequisites: [{ ...DOCKER, card: { ...DOCKER.card, command: '' } }] }],
+    ['a prerequisite with an unknown field', { prerequisites: [{ ...DOCKER, path: 'kit/lib' }] }],
+    ['a result without its machine', { prerequisites: [DOCKER], prerequisiteResult: { ...RESULT, machine: undefined } }],
+    ['a result whose time is not a time', { prerequisites: [DOCKER], prerequisiteResult: { ...RESULT, checkedAt: 'this morning' } }],
+    ['a result row of an unknown state', { prerequisites: [DOCKER], prerequisiteResult: { ...RESULT, rows: [{ id: 'p1', state: 'passed' }] } }],
+  ];
+  for (const [name, extra] of malformed) {
+    it(`400 on ${name}, and nothing is written`, async () => {
+      const w = world();
+      const { status, body } = await w.send({ ...PUSH, ...(extra as object) });
+      expect(status).toBe(400);
+      expect(body?.error).toEqual(expect.any(String));
+      expect(w.fake.calls).toEqual([]);
+    });
+  }
+
+  it('400 when the database refuses the prerequisites, after the roadmap was recorded', async () => {
+    const w = world();
+    const deps: RoadmapDeps = {
+      connect: (token) => {
+        const client = w.fake.client(token);
+        return { ...client, rpc: (name: string, args: Record<string, unknown>) => (name === 'roadmap_prerequisites_push' ? Promise.resolve({ data: null, error: { code: '22023', message: 'malformed' } }) : client.rpc(name, args)) } as unknown as ReturnType<NonNullable<RoadmapDeps['connect']>>;
+      },
+    };
+    const response = await roadmapPush(new Request('https://omni.example/api/roadmaps', {
+      method: 'POST', headers: { authorization: 'Bearer ada-token' }, body: JSON.stringify(WITH_PREREQUISITES),
+    }), deps);
+    expect(response.status).toBe(400);
+    expect(w.fake.tables.roadmaps).toHaveLength(1);
   });
 });
 

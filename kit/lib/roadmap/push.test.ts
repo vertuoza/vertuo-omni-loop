@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd, parsePr } from '../ids.ts';
 import { makeRepo } from '../../test/fixture.ts';
-import type { Roadmap, RoadmapRow } from './parse.ts';
+import type { Roadmap, RoadmapPrerequisite, RoadmapRow } from './parse.ts';
 import { prdState, prdTimes, readRoadmapPrds, roadmapPushBody, waitsOn, WAITS_ON_MAX } from './push.ts';
 import type { PrdStanding, PrStanding } from './push.ts';
 
@@ -125,9 +125,43 @@ describe('roadmapPushBody', () => {
     });
   });
 
+  // PRD 1218, slice s3: the prerequisites and this machine's last result ride along, only when the
+  // roadmap has the section, so a roadmap without it pushes exactly as before.
+  const docker: RoadmapPrerequisite = {
+    id: 'p1', category: 'local', need: 'Docker is running', check: 'base:docker', fix: null, blocks: ['P2'], who: 'check', repos: null,
+    card: { why: 'The tests need it.', command: 'open -a Docker', whatItDoes: 'Starts Docker.', whoCanDoIt: 'Anyone with this laptop.' },
+  };
+  const preview: RoadmapPrerequisite = { id: 'p2', category: 'permissions', need: 'The preview has its secret', check: null, fix: null, blocks: 'all', who: 'person', repos: ['crew'], card: null };
+  const plain = { repo: 'acme/widgets', document: '# the file\n', standings: new Map<string, PrdStanding>(), answers: new Map<string, string>(), prdWork: null };
+
+  it('leaves the prerequisites out of a roadmap without the section, whatever result is given', () => {
+    const body = roadmapPushBody({ ...plain, roadmap: { ...roadmap, prerequisites: [] }, result: { machine: 'mac', checkedAt: '2026-10-08T09:00:00.000Z', rows: [] } });
+    expect(body).not.toHaveProperty('prerequisites');
+    expect(body).not.toHaveProperty('prerequisiteResult');
+  });
+
+  it('carries every prerequisite with its card, and the result with its machine and time', () => {
+    const result = {
+      machine: 'pierre-mac', checkedAt: '2026-10-08T09:00:00.000Z',
+      rows: [{ id: 'p1', state: 'waits' as const, detail: 'docker info exited 1' }, { id: 'p2', state: 'ticked' as const, detail: null }],
+    };
+    const body = roadmapPushBody({ ...plain, roadmap: { ...roadmap, prerequisites: [docker, preview] }, result });
+    expect(body.prerequisites).toEqual([
+      { id: 'p1', category: 'local', need: 'Docker is running', check: 'base:docker', fix: null, blocks: ['P2'], who: 'check', repos: [], card: docker.card },
+      { id: 'p2', category: 'permissions', need: 'The preview has its secret', check: null, fix: null, blocks: 'all', who: 'person', repos: ['crew'], card: null },
+    ]);
+    expect(body.prerequisiteResult).toEqual(result);
+  });
+
+  it('sends a null result when this machine has none', () => {
+    const body = roadmapPushBody({ ...plain, roadmap: { ...roadmap, prerequisites: [docker] }, result: null });
+    expect(body.prerequisites).toHaveLength(1);
+    expect(body.prerequisiteResult).toBeNull();
+  });
+
   it('carries the unanswered person questions, then the PRDs\' work; no humanWork when it could not be read', () => {
     const park = { key: 'park:1201', prd: parsePrd(1201), repo: 'widgets', source: 'park' as const, text: 'waits on you', act: null, url: 'https://x/21', ruleKind: 'development' as const };
-    const args = { repo: 'acme/widgets', roadmap, document: '', standings: new Map(), answers: new Map<string, string>() };
+    const args = { repo: 'acme/widgets', roadmap, document: '', standings: new Map(), answers: new Map<string, string>(), prdWork: null };
     expect(roadmapPushBody({ ...args, prdWork: [park] }).humanWork).toEqual([
       { key: 'question:Q5', prd: 1202, repo: 'widgets', source: 'question', text: 'Trial week?', act: null, url: 'https://github.com/acme/widgets/issues/1200', ruleKind: 'business' },
       park,

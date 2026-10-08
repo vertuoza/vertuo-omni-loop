@@ -22,7 +22,8 @@ import { parseOutboxItem } from '../outbox/outbox.ts';
 import type { OutboxItem } from '../types.ts';
 import { clarificationWork, outboxWork, parkWork, questionWork } from './human-work.ts';
 import type { DatedComment, HumanWorkEntry } from './human-work.ts';
-import type { Roadmap, RoadmapRow } from './parse.ts';
+import type { Roadmap, RoadmapPrerequisite, RoadmapRow } from './parse.ts';
+import type { LastResult } from './prereqs/last.ts';
 
 /** Where a roadmap's PRD stands, as the app stores it: its bar's colour on the Gantt. */
 export type RoadmapPrdState = 'waiting' | 'building' | 'outbox' | 'ready' | 'merged' | 'closed';
@@ -60,8 +61,18 @@ type PrdTimes = { startedAt: string | null; endedAt: string | null };
 /** One open question of the push, with the latest answer given, or null. */
 export type PushedQuestion = { id: string; question: string; recommendation: string | null; blocks: string[]; kind: 'default' | 'person'; answer: string | null };
 
+/** One prerequisite of the push (PRD 1218): its row and its card, `repos` empty outside a plan
+ * repository. */
+export type PushedPrerequisite = Omit<RoadmapPrerequisite, 'repos'> & { repos: string[] };
+
+/** This machine's last prerequisites result, as the push carries it: the machine, the time, and each
+ * row's state and why it waits. */
+export type PushedPrerequisiteResult = Omit<LastResult, 'roadmap'>;
+
 /** The body of `POST /api/roadmaps`: exactly the fields the contract takes. `humanWork` (PRD 1217)
- * is left out when the PRDs' human work could not be read whole: a push without it closes nothing. */
+ * is left out when the PRDs' human work could not be read whole: a push without it closes nothing.
+ * `prerequisites` and `prerequisiteResult` (PRD 1218) are there only when the roadmap has a
+ * `## Prerequisites` table, so a roadmap without one pushes as before PRD 1218. */
 export type RoadmapPushBody = {
   repo: string;
   roadmap: IssueNumber;
@@ -73,6 +84,8 @@ export type RoadmapPushBody = {
   questions: PushedQuestion[];
   document: string;
   prds: PushedPrd[];
+  prerequisites?: PushedPrerequisite[];
+  prerequisiteResult?: PushedPrerequisiteResult | null;
   humanWork?: HumanWorkEntry[];
 };
 
@@ -163,16 +176,28 @@ export function rowStates(roadmap: Pick<Roadmap, 'prds'>, standings: ReadonlyMap
   }));
 }
 
+/** The push's prerequisites and `result`, or nothing for a roadmap without any. */
+function prerequisitesOf(roadmap: Roadmap, result: PushedPrerequisiteResult | null): Pick<RoadmapPushBody, 'prerequisites' | 'prerequisiteResult'> {
+  const rows = roadmap.prerequisites ?? [];
+  if (rows.length === 0) return {};
+  return {
+    prerequisites: rows.map(({ repos, blocks, ...row }) => ({ ...row, blocks: blocks === 'all' ? 'all' : [...blocks], repos: repos ?? [] })),
+    prerequisiteResult: result,
+  };
+}
+
 /** The body `omni roadmap push` sends: the roadmap, its document, its answers, each PRD's standing
- * (a row with none read stands as waiting) and its human work: the roadmap's unanswered person
- * questions, then `prdWork`; no `humanWork` at all when `prdWork` is null (it could not be read). */
-export function roadmapPushBody({ repo, roadmap, document, standings, answers, prdWork }: {
+ * (a row with none read stands as waiting), its human work: the roadmap's unanswered person
+ * questions, then `prdWork`; no `humanWork` at all when `prdWork` is null (it could not be read),
+ * and its prerequisites with this machine's last `result`. */
+export function roadmapPushBody({ repo, roadmap, document, standings, answers, prdWork, result = null }: {
   repo: string;
   roadmap: Roadmap;
   document: string;
   standings: ReadonlyMap<string, PrdStanding>;
   answers: ReadonlyMap<string, string>;
   prdWork: readonly HumanWorkEntry[] | null;
+  result?: PushedPrerequisiteResult | null;
 }): RoadmapPushBody {
   const rows = rowStates(roadmap, standings);
   const prds = [...rows.values()].map(({ row, standing, state }) => ({
@@ -195,7 +220,7 @@ export function roadmapPushBody({ repo, roadmap, document, standings, answers, p
     answer: answers.get(q.id) ?? null,
   }));
   const { title, milestone, product, target, source } = roadmap;
-  const body: RoadmapPushBody = { repo, roadmap: roadmap.roadmap, title, milestone, product, target, source, questions, document, prds };
+  const body: RoadmapPushBody = { repo, roadmap: roadmap.roadmap, title, milestone, product, target, source, questions, document, prds, ...prerequisitesOf(roadmap, result) };
   if (prdWork === null) return body;
   const issueUrl = `https://github.com/${repo}/issues/${roadmap.roadmap}`;
   return { ...body, humanWork: [...questionWork(roadmap, answers, { repo: shortName(repo), issueUrl }), ...prdWork] };
