@@ -314,3 +314,159 @@ One small text change to kit/plugin/skills/dossier-push/SKILL.md, in any later s
 ```
 
 <!-- /omni-outbox-settled: s5-01-dossier-push-skill-concept -->
+
+<!-- omni-outbox-settled: s3-01-missing-file-reads-too-large -->
+
+## s3-01-missing-file-reads-too-large — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-missing-file-reads-too-large
+prd: 1272
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+When one of a concept's files is not on the page, how can the page tell whether it was too large to send or simply never existed?
+
+## The decision, in plain words
+
+It cannot tell, so any file of a concept that is not on the page reads "not sent: too large" on its tab, as the spec asks, never as missing.
+
+## The intro, for fun
+
+A parcel never arrived, and the post office only remembers that it did not come.
+
+## The punchline, for fun
+
+So the note on the door blames the size of the box, every time.
+
+## The options, in plain words
+
+A. A. Every absent file of a concept reads "not sent: too large", as built.
+B. B. The push tells the server which files it held back, and only those read "not sent: too large"; any other absent file reads as not recorded.
+C. C. An absent file reads "not sent: too large, or not recorded".
+
+## What I had to decide
+
+Whether a tab with no version reads "not sent: too large" for every absent file, or whether the push should also tell the server which files it held back, so the page can say "too large" only when that is true.
+
+## What I did meanwhile
+
+ConceptPage.view.ts marks a tab "not sent: too large" (badge and pane) whenever the concept dossier holds no version of its kind: concept-record for Overview and Areas, vision, board, debate. omni dossier push --kind concept names a file over 512 KiB on stderr and sends nothing about it, and a folder with no vision.html sends the rest (s1), so the server never learns why a file is absent.
+
+## What it costs to change later
+
+To say it only when true: the push sends the names of the files it held back, the migration stores them per dossier, and the page reads them. A follow-up migration plus a change in the kit and the page; nothing to undo here but one condition.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a file too large "never shows as missing" but the push from s1 does not tell the server which files were too large.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-missing-file-reads-too-large -->
+
+<!-- omni-outbox-settled: s3-02-concept-pr-link-is-a-search -->
+
+## s3-02-concept-pr-link-is-a-search — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-08
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-08
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-concept-pr-link-is-a-search
+prd: 1272
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-08
+wave: 3
+---
+
+## The question, in plain words
+
+The concept's page links to its review on GitHub, but it does not yet know that review's number. Where should the link go?
+
+## The decision, in plain words
+
+The link opens GitHub's search for the review that refers to the concept's issue, which finds it in one click, until the next part of the work reads the review itself.
+
+## The intro, for fun
+
+The page knows the review exists, it just has not been told the room number.
+
+## The punchline, for fun
+
+So it points at the corridor and trusts you to read the doors.
+
+## The options, in plain words
+
+A. A. Link GitHub's search for the pull request that refers to the issue, until s4 reads the pull request.
+B. B. Show no concept PR link until s4 reads the pull request.
+C. C. Read the pull request from GitHub on the page now, ahead of s4.
+
+## What I had to decide
+
+Whether the header's concept PR link is a GitHub search until s4 stores the pull request, or waits to appear until then.
+
+## What I did meanwhile
+
+ConceptPage.view.ts links "concept PR" to https://github.com/<repo>/pulls?q=is:pr "Refs #<n>", the line /omni:think-big puts first in the concept PR's body. The page reads no GitHub; the concept's slug, which names its branch, is not stored in the dossier, so the exact branch cannot be named either.
+
+## What it costs to change later
+
+One line in ConceptPage.view.ts once s4 stores the pull request in fix_facts: link its url instead.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives the PR's facts to s4, and the dossier keeps no slug to build the branch name from.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-concept-pr-link-is-a-search -->
