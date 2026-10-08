@@ -197,10 +197,11 @@ async function refreshFixes(deps: SyncDeps, workspace: SyncWorkspace, syncedAt: 
 /** Reads and stores the facts of the workspace's concepts whose concept PR has not merged; logs, never throws. */
 async function refreshConcepts(deps: SyncDeps, workspace: SyncWorkspace, syncedAt: string): Promise<void> {
   if (!deps.concepts) return;
-  const { dossiers, reader, store } = deps.concepts;
+  const concepts = deps.concepts;
   try {
     const log = (error: unknown) => { deps.log(`stages sync: a concept of ${workspace.slug} was not read — ${why(error)}`); };
-    await refreshConceptFacts(workspace.id, await dossiers(workspace), { reader, store, now: () => syncedAt, log });
+    const found = await concepts.dossiers(workspace);
+    await refreshConceptFacts(workspace.id, found, { reader: concepts.reader, store: concepts.store, now: () => syncedAt, log });
   } catch (error) {
     deps.log(`stages sync: the concept facts of ${workspace.slug} were not refreshed — ${why(error)}`);
   }
