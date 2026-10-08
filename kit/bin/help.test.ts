@@ -83,6 +83,21 @@ describe('omni help', () => {
     expect(loop.out.replace(/\s+/g, ' ')).toMatch(/the repositories it touches \(--repos, else the plan's\)/);
   });
 
+  it('prints omni next: the pool of steps, running and held, the collision check and limits.parallelSteps (PRD 1205)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'next'], root);
+    expect(code).toBe(0);
+    const text = out.replace(/\s+/g, ' ');
+    expect(text).toMatch(/\bsteps\b.*\brunning\b.*\bheld\b/);
+    expect(text).toMatch(/limits\.parallelSteps \(1 to 6, default 3\)/);
+    expect(text).toMatch(/another PRD.*no open blocker.*no shared path in the same repository.*the plan allows it/);
+    expect(text).toMatch(/limits\.parallelSteps: 1 .* one step per tick/);
+    const drive = await run(['help', '/omni:drive'], root);
+    expect(drive.out.replace(/\s+/g, ' ')).toMatch(/background agent.*own worktree.*limits\.parallelSteps/);
+    const mega = await run(['help', '/omni:mega-drive'], root);
+    expect(mega.out.replace(/\s+/g, ' ')).toMatch(/<worktrees>\/targets\/<name>@<prd>/);
+  });
+
   it('prints omni loop: its verbs, run by the skills, and how it never blocks (PRD 1139)', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out } = await run(['help', 'loop'], root);

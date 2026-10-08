@@ -17,7 +17,7 @@ describe('parseConfig', () => {
     expect(config.markers.prefix).toBe('omni-outbox');
     expect(config.laws.source).toBe('none');
     expect(config.ci.outboxContext).toBe('outbox');
-    expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000 });
+    expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000, parallelSteps: 3 });
     expect(config.risk).toEqual({ storedShape: [], sharedContract: [] });
     expect(config.notify.slack).toBeNull();
     expect(config.ask).toEqual({ url: null });
@@ -588,6 +588,16 @@ describe('the flow section (PRD 1089)', () => {
 
   it('refuses an unknown key under flow, naming it', () => {
     expect(() => parseConfig('kit: 1\nflow:\n  steps: {}\n', 'c.yml')).toThrow(/c\.yml.*flow.*steps/);
+  });
+});
+
+describe('limits.parallelSteps (PRD 1205)', () => {
+  it('defaults to 3, and refuses a value outside 1 to 6 or a fraction, naming it', () => {
+    expect(parseConfig('kit: 1\n').limits.parallelSteps).toBe(3);
+    expect(parseConfig('kit: 1\nlimits:\n  parallelSteps: 1\n').limits.parallelSteps).toBe(1);
+    for (const value of ['0', '7', '2.5']) {
+      expect(() => parseConfig(`kit: 1\nlimits:\n  parallelSteps: ${value}\n`, 'c.yml')).toThrow(/c\.yml.*limits\.parallelSteps/);
+    }
   });
 });
 

@@ -106,6 +106,14 @@ each by its own agent in its own copy of the repository, each ending in its own 
 The loop merges them into the feature branch one at a time, checks the wave as a whole, then starts
 the next wave.
 
+When `/loop /omni:drive` drives several PRDs, their waves also run side by side: a **pool** of up to
+`limits.parallelSteps` steps at once, 3 by default, each step its own agent in its own worktree. A
+step joins the pool only when it passes four rules against every step running: it is of **another
+PRD**, its PRD has **no open blocker**, its slices share **no path in the same repository** with a
+running step's, and **the plan allows it** (the steps it comes after are done). A step kept back is
+held, with the rule and the step it waits on. Set `limits.parallelSteps: 1` in
+`.omni-loop/config.yml` to run one step per tick, as before ([Drive the loop](/docs/drive)).
+
 A slice that stays red after its tries gets `omni:needs-fix`; it holds only the slices that wait for
 it, and the rest go on. To see a PRD's slices, which are merged, in flight, stuck, ready or waiting,
 and what can run next:
@@ -125,7 +133,7 @@ omni board 7
 | `/omni:yolo <n>` | the phase-0 pull request is merged | every slice merged into the feature branch; the feature pull request ready, or questions for you |
 | `/omni:yolo-fix <n>` | you answered the questions | what you changed rebuilt, and the feature pull request ready |
 | `/omni:roadmap <source>` | a milestone takes several PRDs, and you have its plan | every PRD's issue and spec, `roadmap.md`, and one phase-0 pull request; its last line is the `/loop /omni:drive --roadmap` line ([Roadmaps](/docs/roadmaps)) |
-| `/loop /omni:drive` | PRDs, or with `--roadmap <n>` a roadmap, are approved and you want them built without typing each next command | each PRD ready, or parked with what it waits on; the loop stops itself ([Drive the loop](/docs/drive)) |
+| `/loop /omni:drive` | PRDs, or with `--roadmap <n>` a roadmap, are approved and you want them built without typing each next command | each PRD ready, or parked with what it waits on; up to `limits.parallelSteps` steps (3 by default) run at once when they share no ground, and the loop stops itself ([Drive the loop](/docs/drive)) |
 | `/omni:plan <n>` | a PRD has no plan yet; `/omni:yolo` runs it for you | `plan.md`, and the draft feature pull request |
 | `/omni:wave <n>` | you want one wave at a time; `/omni:yolo` runs it for you | the wave's slices merged into the feature branch |
 | `/omni:do-work <n> <slice>` | you want one slice alone; `/omni:wave` runs it for you | one sub-pull request into the feature branch |
