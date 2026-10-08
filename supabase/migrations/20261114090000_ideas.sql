@@ -9,8 +9,8 @@
 --   paragraph, at most 600), its lane (now, next or later, set by a member), who added it and when, an
 --   optional PRD number, and whether it is archived. Nothing deletes an idea: a member archives it.
 -- - idea_votes: one row per (idea, account). The count is read through ideas_board(), never who voted.
--- - ideas_board(): the board as a page reads it, by owner/name: the ideas not archived, each with its
---   vote count and whether the caller voted for it, or null when the board is private (to anyone but a
+-- - ideas_board(): the board as a page reads it, by owner/name: its ideas, each with its vote count,
+--   whether the caller voted for it and whether it is archived (the page leaves those out), or null when the board is private (to anyone but a
 --   member) or there is no such repository: the two answer the same.
 --
 -- Row-level security (proven by supabase/checks/ideas.sql):
@@ -95,8 +95,9 @@ $$;
 
 -- The board as a page reads it, by owner/name: null when there is no such repository, or when its
 -- board is private and the caller is no member of a workspace listing it. Otherwise the board's
--- repository, whether it is public, whether the caller is a member, and its ideas not archived, each
--- with its vote count and whether the caller voted for it. The order is the page's to make.
+-- repository, whether it is public, whether the caller is a member, and its ideas, each with its vote
+-- count, whether the caller voted for it and whether it is archived. The order and what is shown are
+-- the page's to make.
 create function public.ideas_board(p_full_name text) returns jsonb
 language plpgsql stable
 security definer
@@ -131,12 +132,13 @@ begin
                'lane', i.lane,
                'prd', i.prd,
                'created_at', i.created_at,
+               'archived', i.archived,
                'votes', (select count(*) from public.idea_votes v where v.idea_id = i.id),
                'voted', auth.uid() is not null
                         and exists (select 1 from public.idea_votes v where v.idea_id = i.id and v.user_id = auth.uid())
              ) order by i.created_at, i.id)
         from public.ideas i
-       where i.workspace_id = board.workspace_id and i.repo = board.full_name and not i.archived
+       where i.workspace_id = board.workspace_id and i.repo = board.full_name
     ), '[]'::jsonb)
   );
 end;

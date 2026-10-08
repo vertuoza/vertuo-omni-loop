@@ -120,8 +120,9 @@ begin
   if board is null or board ->> 'repo' <> 'vertuoza/vertuo-omni-loop' or not (board ->> 'public')::boolean or (board ->> 'member')::boolean then
     raise exception 'FAIL: ideas_board() does not answer a public board signed out: %', board;
   end if;
-  if jsonb_array_length(board -> 'ideas') <> 2 then
-    raise exception 'FAIL: ideas_board() does not leave the archived idea out: %', board -> 'ideas';
+  if jsonb_array_length(board -> 'ideas') <> 3
+     or (select count(*) from jsonb_array_elements(board -> 'ideas') i where (i ->> 'archived')::boolean and i ->> 'title' = 'Archived idea') <> 1 then
+    raise exception 'FAIL: ideas_board() does not mark the archived idea: %', board -> 'ideas';
   end if;
   if public.ideas_board('vertuoza/vertuo-apps') is not null or public.ideas_board('nobody/nothing') is not null then
     raise exception 'FAIL: ideas_board() tells a private board from a missing one';
