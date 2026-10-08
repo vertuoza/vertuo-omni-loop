@@ -574,3 +574,30 @@ Why: So a person looking after a bug sees real work only, and nothing missing or
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-02-care-list-reads-bug-fix-plan, PRD #1118
 Merged: @pierrederval, 2026-10-06, PR #1119
 Proposed: harvest 2026-10-06
+
+## P-PRODUCT-76
+
+The loop never launches an agent for a step with nothing to start, and never launches the same running step twice.
+
+Why: Launching an agent only to wait spends tokens for nothing, and a second launch of a running step duplicates the work.
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s1-01-steps-only-act, PRD #1205
+Merged: @pierrederval, 2026-10-08, PR #1206
+Proposed: harvest 2026-10-08
+
+## P-PRODUCT-77
+
+The loop never starts a second agent on a PRD someone is already working on; what is running is read from what GitHub actually shows.
+
+Why: Two agents on one PRD would collide, and GitHub is the only shared record of who is working where.
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s1-02-running-read, PRD #1205
+Merged: @pierrederval, 2026-10-08, PR #1206
+Proposed: harvest 2026-10-08
+
+## P-PRODUCT-78
+
+The loop never runs two steps on the same work at once, even before the code host shows the first one running.
+
+Why: Two steps on one PRD or one path collide and waste work; GitHub lags behind what the session has just started.
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s2-01-unseen-step-holds-pool, PRD #1205
+Merged: @pierrederval, 2026-10-08, PR #1206
+Proposed: harvest 2026-10-08
