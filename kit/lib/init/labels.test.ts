@@ -57,6 +57,7 @@ describe('loop labels', () => {
     ['riskMedium', 'omni:risk-medium'],
     ['riskLow', 'omni:risk-low'],
     ['concept', 'omni:concept'],
+    ['approved', 'omni:approved'],
   ])('asks for the %s label with its own colour and a description (PRD 556, PRD 686)', (key, name) => {
     const label = loopLabels(defaults).find((l) => l.name === name);
     assertDefined(label, 'label');
