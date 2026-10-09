@@ -315,3 +315,317 @@ Adding one optional field to the judge and to its two callers.
 ```
 
 <!-- /omni-outbox-settled: s3-02-law-worth-state-shape -->
+
+<!-- omni-outbox-settled: s2-01-law-demoted-needs-the-base -->
+
+## s2-01-law-demoted-needs-the-base — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-law-demoted-needs-the-base
+prd: 1342
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+The new check that spots a law losing its test needs to see the knowledge base as it was before the change. Who hands it that earlier copy?
+
+## The decision, in plain words
+
+The check is built and works when it is given the earlier copy, but the commands that run the gate today do not hand it over yet. The pull request check on the server can pass it in the later slice that already reworks that check; the terminal commands wait for a follow-up.
+
+## The intro, for fun
+
+A law quietly losing its test is only visible if you remember what the law used to say.
+
+## The punchline, for fun
+
+The detective is hired; someone still has to give it yesterday's photo.
+
+## The options, in plain words
+
+A. A. The check takes the earlier copy when it is given one; the server check and the terminal commands learn to give it later, in the work that owns them
+B. B. Teach the server check and the two terminal commands to give it now, in this slice
+C. C. Add the server check's part to the later slice's to-do list, and the terminal commands to a new slice of this PRD
+
+## What I had to decide
+
+`law-demoted` compares register entries at the base with the head, so `riskyChanges` needs the base knowledge folder. Its callers, `kit/bin/commands/check.ts` (`omni check coverage`), `kit/bin/commands/status.ts` (`omni status --base`) and `apps/omni-app/src/evaluate/evaluate.ts`, sit outside s2's territory. Wire them now outside the territory, or expose an optional `base` (a `KnowledgeSource`) on `riskyChanges`, `unaccountedChanges` and `gateResult` and leave wiring to the slices that own those files?
+
+## What I did meanwhile
+
+Added an optional `base?: KnowledgeSource | null` to `riskyChanges`, `unaccountedChanges` and `gateResult`; omitted, `law-demoted` never fires and every caller behaves as before. Tests cover it through `gateResult` with `memorySource`. No caller outside the territory changed.
+
+## What it costs to change later
+
+A constant-sized change: each caller passes `diskSource(<base checkout>)` (the app already has the base checked out) or a git-backed source built from `git show <base>:<file>` in the CLI. No stored shape moves.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether s7, which owns `apps/omni-app/src/evaluate/`, will pass `base` to `gateResult`: its plan row does not say so.
+- (author) No slice of this PRD owns `kit/bin/commands/check.ts` or `kit/bin/commands/status.ts`, so `omni check coverage` and `omni status --base` will not grade `law-demoted` until someone wires them.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-law-demoted-needs-the-base -->
+
+<!-- omni-outbox-settled: s2-02-comment-test-names-a-high-item -->
+
+## s2-02-comment-test-names-a-high-item — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-comment-test-names-a-high-item
+prd: 1342
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+One older test outside this slice's area expected a note in the plan to cover a change to a law, which the new rule no longer allows. Should that test change here?
+
+## The decision, in plain words
+
+Yes. The test now covers the change with a question ranked high, which is exactly what the new rule asks, and it checks the same thing it always did: a covered change is not reported.
+
+## The intro, for fun
+
+An old test still believed a note in the plan was enough to touch a law.
+
+## The punchline, for fun
+
+It has been gently told the rules changed, and it took the news well.
+
+## The options, in plain words
+
+A. A. Update the one test here, so the feature branch stays green
+B. B. Revert it and leave the fix to another slice, the branch red meanwhile
+
+## What I had to decide
+
+`kit/lib/outbox/comment.test.ts` ('excludes a risky change an account names') accounted a `law-text` change with `spec <where>`, which the spec now refuses. The file is outside s2's territory. Edit it here, or leave it red for another slice?
+
+## What I did meanwhile
+
+Changed that one test to seed an item ranked `high` (`writeItem`) and account the change with `item s5-01-adr`. Its assertion is unchanged; no other line of the file moved.
+
+## What it costs to change later
+
+One test fixture; reverting it is a two-line edit.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The wave's territory check may flag `kit/lib/outbox/comment.test.ts` as outside s2's territory.
+
+```
+
+<!-- /omni-outbox-settled: s2-02-comment-test-names-a-high-item -->
+
+<!-- omni-outbox-settled: s4-01-worth-a-law-missing-reads-as-today -->
+
+## s4-01-worth-a-law-missing-reads-as-today — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-worth-a-law-missing-reads-as-today
+prd: 1342
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+When the harvest reads an answer about a rule that does not say whether the rule is worth a test, what should happen to that rule?
+
+## The decision, in plain words
+
+It is written as it was before this change: kept as a rule with no test named. Fresh answers always say it; only answers saved before this change, or from the hosted harvest until its own update, can lack it.
+
+## The intro, for fun
+
+A rule shows up at the door without its ticket, the one that says whether it deserves a test.
+
+## The punchline, for fun
+
+We let it in the old way: it got in before tickets were printed.
+
+## The options, in plain words
+
+A. Read an answer without the field the old way: written with no test named, no law issue (built).
+B. Refuse an answer without the field, so the model is asked again and the rule is not placed if it still leaves it out.
+C. Treat a missing field as worth a law, so a law issue is opened for it.
+
+## What I had to decide
+
+Whether an answer without the new 'worth a law?' field is refused, or read the old way.
+
+## What I did meanwhile
+
+The field is optional in the answer's shape and asked for in the question to the model on every rule and invariant; an answer without it is written unenforced, exactly as before, and no law issue is opened for it.
+
+## What it costs to change later
+
+A constant: one optional flag in the answer's shape and one branch in the writer, plus their tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan says the contract 'has worthALaw on every rule and invariant reply' without saying whether a reply missing it is refused.
+- (author) The hosted harvest (a later slice) and its saved steps still send answers without the field until that slice lands; refusing them would break its tests and saved runs now.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-worth-a-law-missing-reads-as-today -->
+
+<!-- omni-outbox-settled: s4-02-law-issue-opens-before-its-entry -->
+
+## s4-02-law-issue-opens-before-its-entry — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-law-issue-opens-before-its-entry
+prd: 1342
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+When a rule is judged worth a test, in what order should the harvest open its tracking issue and write the rule down?
+
+## The decision, in plain words
+
+The harvest works out every rule first and lists the issues to open, opens them, then writes each rule pointing at its issue. A rule the final checks refuse after its issue opened leaves that issue open with no rule, which a person closes.
+
+## The intro, for fun
+
+Which comes first, the rule or the ticket that says the rule needs a test?
+
+## The punchline, for fun
+
+The ticket, so the rule never points at a number that does not exist yet.
+
+## The options, in plain words
+
+A. Open the issues first from a first pass, then write the rules pending them in a second pass (built).
+B. Write the rules with a placeholder number, then replace it once each issue is open.
+C. Write the rules first as untested, and point them at their issues in a later pull request.
+
+## What I had to decide
+
+How the harvest learns each law issue's number before it writes 'pending' with that number, while staying a pure function that returns edits as data.
+
+## What I did meanwhile
+
+finishHarvest returns the law issues to open and writes no entry for them; the caller opens them and calls it again with their numbers, and the same entries, with the same ids, are written pending those issues. A 'no' is written as a 'not worth a law' note in the ledger, even when nothing else became knowledge, with who decided and Jev's score when Jev decided.
+
+## What it costs to change later
+
+A small change in two functions and the command that calls them: the second call could become one call with a placeholder, or the issues could open after the knowledge is written.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the harvest opens the law issue and writes pending #<issue>, not how it learns the number before writing it.
+- (author) The spec's note reads 'not worth a law (<decided by> <score>)'; the classifier has no score, so its note reads 'not worth a law (classifier)'.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-law-issue-opens-before-its-entry -->
