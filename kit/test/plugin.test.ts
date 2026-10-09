@@ -1886,6 +1886,15 @@ describe('the prove skill and the skills that lead to it (PRD 798)', () => {
     expect(spec).toMatch(/^- `proof: video` only when the person said yes/m);
   });
 
+  it('/omni:brainstorm asks the e2e question only when e2e is enabled, and a yes writes e2e: validate (PRD 1275)', () => {
+    const text = read('brainstorm');
+    const design = skillSection(text, '1.');
+    expect(inOrder(design, ['**The e2e question**', 'omni.mjs config e2e', '`enabled`', 'Validate with e2e once it ships?', '`e2e: validate`'])).toEqual([]);
+    expect(design).toContain('asks nothing and writes nothing');
+    const spec = text.slice(text.indexOf('## 4. Write the spec'), text.indexOf('## 5. '));
+    expect(spec).toMatch(/^- `e2e: validate` only when the person said yes/m);
+  });
+
   it('/omni:yolo follows /omni:prove after it marks the PR ready, only when the spec says proof: video', () => {
     const step = skillSection(read('yolo'), '5.');
     const red = step.indexOf('**Gate red.**');
