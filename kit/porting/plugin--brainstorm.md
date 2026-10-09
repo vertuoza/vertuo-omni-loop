@@ -204,3 +204,14 @@ the hand-off's blocks, step 2's issue template, the dossier pushes after `git pu
 
 `pnpm vitest run kit/test/` and `pnpm test`, green but `kit/test/dist.test.ts`, which reads only the
 kit's sources and none of the skills.
+
+## PRD #1322, slice s8 — the approval handshake
+
+- **Intro** and **Step 10:** a ◆ PRD's hand-off names `omni wait approval <n>` beside the page link:
+  `/omni:yolo <n>` runs it, asks the product's approvers by phone and email, and starts wave 1 the
+  moment one approves. The Next command line says so in place of "once it is approved on its PRD
+  page", and the **What is next?** block no longer tells the person to wait before running it.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green.
