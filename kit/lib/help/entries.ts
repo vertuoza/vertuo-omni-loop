@@ -734,7 +734,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'prints the state, who, when and the pinned files. omni approval flag reads where this ' +
       "repository's new PRDs are born instead: phase 0: server (approved on the PRD's page) or " +
       'phase 0: pr (a phase-0 PR), as an owner set it on the Omni page; when it cannot be read it ' +
-      'says pr, with why, and exits 1.',
+      'says pr, with why, and exits 1. To wait until someone approves rather than read it once, ' +
+      'use omni wait approval <n> (omni help wait).',
+  },
+  {
+    name: 'wait',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni wait approval <n> [--timeout <minutes>]'],
+    summary: 'ask for approval of a PRD born on the server, and wait until it lands',
+    detail:
+      "Asks PRD n's approvers on the Omni page, by the phone alerts and emails each one turned on: the " +
+      "product's members asked to approve, except the author, or the author when nobody else is. It " +
+      'prints one waiting line naming them, then follows the approval as it streams and prints the ' +
+      'approved line, who and when and how many files are pinned, and exits 0. An approval already in ' +
+      'force answers at once and asks nobody. A change pushed after approval voids it: the voided line ' +
+      'prints, the approvers are asked again, and it keeps waiting. A cut stream resumes where it left ' +
+      'off; after three failed tries in a row it prints server unreachable · held, not failed, and keeps ' +
+      'trying. With no sign-in it exits 1 (no sign-in (omni signin) · held), and so it does past ' +
+      '--timeout minutes, 60 by default (held: still waiting for …). The HUD shows the same lines.',
   },
   {
     name: 'visual',
