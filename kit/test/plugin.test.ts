@@ -2010,6 +2010,19 @@ describe('the validate-e2e skill (PRD 1233)', () => {
     expect(pr).toMatch(/healed recording[^.]*(is not|never|left out|waits)/);
   });
 
+  it('in a plan repository, writes tests and recordings in the plan repository and never in a target repository (PRD 1276)', () => {
+    const text = read();
+    const flat = (step: string) => step.replace(/\s+/g, ' ');
+    const target = flat(skillSection(text, '2.'));
+    const project = flat(skillSection(text, '4.'));
+    expect(target).toContain('(its config has a `plan` section)');
+    expect(target).toContain('the environment the plan repository builds from the target PRs together');
+    expect(target).toContain('`e2e.url` and `e2e.setup` are read from config, never guessed');
+    expect(project).toContain("the tests and the recordings are all in the plan repository's `e2e.dir`");
+    expect(project).toContain('never writes a target repository');
+    expect(project).toContain('Outside a plan repository the skill runs exactly as before');
+  });
+
   it('says in the sub-PR body when the target was not the preview, and why (PRD 1273)', () => {
     const target = skillSection(read(), '2.');
     expect(target).toMatch(/fixed URL/);
