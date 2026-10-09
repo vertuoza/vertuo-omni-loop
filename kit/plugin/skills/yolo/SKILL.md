@@ -311,7 +311,7 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
    (`gh pr list --head <base> --state all --json number,state --limit 1`). `MERGED`: retarget it
    (**A stacked feature PR**, item 2) and carry on. Open, or no PR heads the base: leave the feature
    PR in draft, write its status comment with `waits for the merge of #<base PR>` (or `waits for
-   <base> to reach <repo.defaultBranch>`), skip the rest of this item and item 5, and end the run
+   <base> to reach <repo.defaultBranch>`), skip the rest of this item and items 5 and 6, and end the run
    **held** (step 6, then step 7's held ending, whose one thing to do is that merge): re-running
    `/omni:yolo <n>` once it merged resumes here. **This is the only place in this skill a feature PR is
    marked ready**; `/omni:yolo-fix` follows this same green path after its own ship. CI runs on it
@@ -319,6 +319,11 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
 5. **The proof,** only when the spec's front matter says `proof: video` (PRD 798): follow
    `/omni:prove <prd>`. Whatever it prints, a stop line included, this run goes on to step 6: a proof
    never changes the PR's state, its labels or its checks.
+6. **The e2e validation,** only when the spec's front matter says `e2e: validate` (PRD 1275) and
+   `node .omni-loop/bin/omni.mjs config e2e` prints `enabled` true: follow `/omni:validate-e2e <prd>`.
+   Otherwise there is no e2e step. Whatever it prints, a ✗ verdict, a stop line or a failed run
+   included, this run goes on to step 6: an e2e validation never changes the PR's state (draft or
+   ready), its labels or its checks.
 
 The **omni-loop** GitHub App, when installed on the repository, posts this same gate on the feature
 PR as the check named `ci.outboxContext`; this skill never posts it and never waits on it.
