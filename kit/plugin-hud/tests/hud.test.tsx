@@ -145,6 +145,94 @@ describe('the band', () => {
   })
 })
 
+// PRD 1322 s5: the approval wait's line while `omni wait approval` waits, and the approved or voided
+// line highlighted for 10 seconds (the toast), as `omni now` answers them.
+const WAITING = { prd: 315, line: '◌ PRD 315 · waiting for Irisa or Paul', toast: false, until: null }
+const APPROVED = '✓ PRD 315 approved by irisa · 2026-10-09T12:00:00.000Z · 3 files pinned'
+const toast = (line: string, until: number) => ({ prd: 315, line, toast: true, until })
+const highlighted = async (ui: { findAll: (query: { type: string }) => Promise<{ props: Record<string, unknown> }[]> }) =>
+  (await ui.findAll({ type: 'Text' })).filter((text) => text.props.inverse === true)
+
+describe('the approval wait', () => {
+  test('draws the waiting line below the work, before its links, not highlighted', async ($, on) => {
+    world(on, json({ ...PRD, wait: WAITING }))
+    await start($)
+    for (const surface of SURFACES) {
+      const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: BAND })
+      expect((await ui.find({ key: 'wait' }))?.text).toBe(WAITING.line)
+      expect((await ui.find({ key: 'work' }))?.text).toBe('PRD 315 help-and-status · building · now: s3 tabs, s4 board')
+      expect(await ui.find({ key: 'links' })).toBeDefined()
+      expect(await ui.find({ key: 'toast' })).toBeUndefined()
+      expect(await highlighted(ui)).toHaveLength(0)
+      await ui.unmount()
+    }
+  })
+
+  test('draws the waiting line alone for a session on nothing else', async ($, on) => {
+    world(on, json({ ...NOTHING, wait: WAITING }))
+    await start($)
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: BAND })
+    expect((await ui.find({ key: 'wait' }))?.text).toBe(WAITING.line)
+    expect(await ui.find({ key: 'work' })).toBeUndefined()
+  })
+
+  test('draws nothing on a wait of another shape', async ($, on) => {
+    world(on, json({ ...PRD, wait: { prd: 315, line: 'x', toast: 'yes', until: null } }))
+    await start($)
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: BAND })
+    expect(await ui.find({ key: 'work' })).toBeUndefined()
+    expect(await ui.find({ key: 'wait' })).toBeUndefined()
+  })
+
+  test('asks every 5 seconds while it waits, and shows the approved line within seconds', async ($, on) => {
+    const { runs, clock, answer } = world(on, json({ ...PRD, wait: WAITING }))
+    await start($)
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: BAND })
+    await clock.advance(4_999)
+    expect(runs).toHaveLength(1)
+    answer(json({ ...PRD, wait: toast(APPROVED, 1_015_000) }))
+    await clock.advance(1)
+    expect(runs).toHaveLength(2)
+    expect((await ui.find({ key: 'toast' }))?.text).toBe(APPROVED)
+    expect(await ui.find({ key: 'wait' })).toBeUndefined()
+  })
+
+  test('highlights the approved line for 10 seconds, then asks again and draws what follows', async ($, on) => {
+    const { runs, clock, answer } = world(on, json({ ...PRD, wait: toast(APPROVED, 1_010_000) }))
+    await start($)
+    for (const surface of SURFACES) {
+      const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: BAND })
+      expect((await ui.find({ key: 'toast' }))?.text).toBe(APPROVED)
+      expect((await highlighted(ui)).length).toBeGreaterThan(0)
+      await ui.unmount()
+    }
+    answer(json(PRD))
+    await clock.advance(9_999)
+    expect(runs).toHaveLength(1)
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: BAND })
+    expect(await ui.find({ key: 'toast' })).toBeDefined()
+    await clock.advance(1)
+    expect(runs).toHaveLength(2)
+    expect(await ui.find({ key: 'toast' })).toBeUndefined()
+    expect(await highlighted(ui)).toHaveLength(0)
+    expect(await ui.find({ key: 'work' })).toBeDefined()
+    await clock.advance(20_000)
+    expect(runs).toHaveLength(3)
+  })
+
+  test('highlights the voided line, then draws the waiting line again', async ($, on) => {
+    const voided = "✗ approval voided by paul's push 1234567→89abcde · asked again"
+    const { clock, answer } = world(on, json({ ...PRD, wait: toast(voided, 1_010_000) }))
+    await start($)
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: BAND })
+    expect((await ui.find({ key: 'toast' }))?.text).toBe(voided)
+    answer(json({ ...PRD, wait: WAITING }))
+    await clock.advance(10_000)
+    expect(await ui.find({ key: 'toast' })).toBeUndefined()
+    expect((await ui.find({ key: 'wait' }))?.text).toBe(WAITING.line)
+  })
+})
+
 describe('when it asks omni now', () => {
   test('every 30 seconds, and redraws from the latest answer', async ($, on) => {
     const { runs, clock, answer } = world(on, json(PRD))

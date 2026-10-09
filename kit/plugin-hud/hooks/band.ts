@@ -2,17 +2,21 @@
 //
 // - **The answer** is read only when it parses and has the shape `omni now` prints; anything else
 //   is no answer, and the band hides.
-// - **At most three rows.** The headline (`roadmap 7 · 3/7 merged · roadmap page`), only with one;
+// - **At most four rows.** The headline (`roadmap 7 · 3/7 merged · roadmap page`), only with one;
 //   the work (`PRD 315 help-and-status · building · now: s3 tabs, s4 board`), with `doing` in place
-//   of the "now" part while a loop runs; the work's links, only with some.
-// - **Nothing** while the session is on nothing: no headline and no work.
-import type { HudHeadline, HudLink, HudNow, HudSlice, HudWork } from '../types/index.d.ts'
+//   of the "now" part while a loop runs; the approval wait's line, below; the work's links, only
+//   with some.
+// - **The approval wait** (PRD 1322's spec, §6): while `omni wait approval` runs, its line, the
+//   `wait` row, after the work and before its links; the approved or voided line is the `toast` row,
+//   drawn highlighted, until the answer says it is over.
+// - **Nothing** while the session is on nothing: no headline, no work and no wait.
+import type { HudHeadline, HudLink, HudNow, HudSlice, HudWait, HudWork } from '../types/index.d.ts'
 
 /** One piece of a row: plain text, or a link. */
 export type BandPart = { text: string } | HudLink
 
-/** One row of the band: its pieces, drawn with ` · ` between them. */
-export type BandRow = { key: string; parts: BandPart[] }
+/** One row of the band: its pieces, drawn with ` · ` between them; highlighted when `toast`. */
+export type BandRow = { key: string; parts: BandPart[]; toast?: boolean }
 
 const IN_FLIGHT = ['in-flight', 'claimed-stale']
 
@@ -63,6 +67,15 @@ function asHeadline(value: unknown): HudHeadline | null | undefined {
   return headline
 }
 
+function asWait(value: unknown): HudWait | null | undefined {
+  if (value === null) return null
+  if (!isRecord(value)) return undefined
+  const { prd, line, toast, until } = value
+  if (typeof prd !== 'number' || typeof line !== 'string' || typeof toast !== 'boolean') return undefined
+  if (until !== null && typeof until !== 'number') return undefined
+  return { prd, line, toast, until }
+}
+
 /** `omni now --json`'s stdout as an answer, or `null` when it does not parse or has another shape. */
 export function parseNow(stdout: string): HudNow | null {
   let data: unknown
@@ -75,9 +88,10 @@ export function parseNow(stdout: string): HudNow | null {
   const headline = asHeadline(data.headline ?? null)
   const work = asWork(data.work ?? null)
   const doing = data.doing ?? null
-  if (headline === undefined || work === undefined) return null
+  const wait = asWait(data.wait ?? null)
+  if (headline === undefined || work === undefined || wait === undefined) return null
   if (doing !== null && typeof doing !== 'string') return null
-  return { headline, work, doing }
+  return { headline, work, doing, wait }
 }
 
 const slug = (kind: string, number: number): string =>
@@ -103,13 +117,32 @@ function workRow(now: HudNow): BandRow | null {
   return { key: 'work', parts }
 }
 
+const waitRow = ({ line, toast }: HudWait): BandRow =>
+  toast ? { key: 'toast', parts: [{ text: line }], toast: true } : { key: 'wait', parts: [{ text: line }] }
+
 /** The band's rows for an answer: none while the session is on nothing. */
 export function bandRows(now: HudNow | null): BandRow[] {
-  if (!now || (!now.work && !now.headline)) return []
+  if (!now || (!now.work && !now.headline && !now.wait)) return []
   const rows: BandRow[] = []
   if (now.headline) rows.push(headlineRow(now.headline))
   const work = workRow(now)
   if (work) rows.push(work)
+  if (now.wait) rows.push(waitRow(now.wait))
   if (now.work && now.work.links.length > 0) rows.push({ key: 'links', parts: now.work.links })
   return rows
 }
+
+/** How often the band asks `omni now` while a wait waits. */
+const WAITING_EVERY_MS = 5_000
+
+/**
+ * When the band asks `omni now` again for the wait in `now`, in milliseconds from `at`: when the
+ * toast ends, every 5 seconds while it waits so the approval shows within seconds, else `null`.
+ */
+export function waitAgainIn(now: HudNow | null, at: number): number | null {
+  const wait = now?.wait
+  if (!wait) return null
+  if (wait.toast && wait.until !== null) return Math.max(0, wait.until - at)
+  return WAITING_EVERY_MS
+}
+
