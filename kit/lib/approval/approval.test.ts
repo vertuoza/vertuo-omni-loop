@@ -3,7 +3,9 @@
 // content, whitespace only or missing.
 import { rmSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { assertDefined } from '../../test/assert.ts';
 import { makeRepo } from '../../test/fixture.ts';
+import type { Repo } from '../../test/fixture.ts';
 import { sha256 } from '../dossier/folder.ts';
 import { AskCallError } from '../ask/client.ts';
 import { parsePrd } from '../ids.ts';
@@ -29,6 +31,13 @@ function repo(files: Record<string, string> = {}, dir = INBOX) {
   return makeRepo({ files: { [`${dir}/spec.md`]: SPEC, [`${dir}/plan.md`]: PLAN, [`${dir}/before-after.html`]: PAGE, ...files } });
 }
 
+/** `body` read as the approval route's reply, then judged against `ctx`'s tree. */
+function judge(ctx: Repo['ctx'], body: unknown) {
+  const parsed = parseApprovalReply(body);
+  assertDefined(parsed, 'the approval reply');
+  return judgeApproval(ctx, PRD, parsed);
+}
+
 describe('parseApprovalReply', () => {
   it('reads the approval in force, and a dossier with none yet', () => {
     expect(parseApprovalReply(reply())).toEqual(reply());
@@ -52,33 +61,33 @@ describe('parseApprovalReply', () => {
 describe('judgeApproval', () => {
   it('is approved when the approver is a member and every pinned file matches', () => {
     const { ctx } = repo();
-    const reading = judgeApproval(ctx, PRD, reply());
+    const reading = judge(ctx, reply());
     expect(reading).toMatchObject({ state: 'approved', lines: ['approved by ada · 2026-10-09T10:00:00Z'], url: URL_, drift: [] });
     expect(reading.approval?.files).toHaveLength(3);
   });
 
   it('pairs files by kind, so a folder moved to shipped still matches', () => {
     const { ctx } = repo({}, SHIPPED);
-    expect(judgeApproval(ctx, PRD, reply()).state).toBe('approved');
+    expect(judge(ctx, reply()).state).toBe('approved');
   });
 
   it('is pending with the dossier link when nothing is approved yet', () => {
     const { ctx } = repo();
-    expect(judgeApproval(ctx, PRD, reply(null))).toMatchObject({
+    expect(judge(ctx, reply(null))).toMatchObject({
       state: 'pending', lines: ['PRD 1299 waits for approval: https://omni.test/prd/acme/widgets/1299'], approval: null,
     });
   });
 
   it('is refused when the approver is no longer a workspace member, before any file is compared', () => {
     const { ctx } = repo({ [`${INBOX}/plan.md`]: 'changed' });
-    expect(judgeApproval(ctx, PRD, reply({ approver: { login: 'ada', member: false }, approvedAt: 't', files: PINNED }))).toMatchObject({
+    expect(judge(ctx, reply({ approver: { login: 'ada', member: false }, approvedAt: 't', files: PINNED }))).toMatchObject({
       state: 'refused', lines: ['approver ada is not a workspace member'], drift: [],
     });
   });
 
   it('is drifted when a pinned file changed, saying content', () => {
     const { ctx } = repo({ [`${INBOX}/plan.md`]: `${PLAN}| s9 | more |\n` });
-    expect(judgeApproval(ctx, PRD, reply())).toMatchObject({
+    expect(judge(ctx, reply())).toMatchObject({
       state: 'drifted',
       lines: ['≠ plan.md · content · ✗ refuse · restore it, or approve again: https://omni.test/prd/acme/widgets/1299'],
       drift: [{ kind: 'plan', file: `${INBOX}/plan.md`, how: 'content' }],
@@ -88,7 +97,7 @@ describe('judgeApproval', () => {
   it('says whitespace only when the server sent the approved text and only spacing differs, and still refuses', () => {
     const { ctx } = repo({ [`${INBOX}/plan.md`]: `${PLAN}\n\n` });
     const files = [pinned('plan', `${INBOX}/plan.md`, PLAN, { content: PLAN })];
-    const reading = judgeApproval(ctx, PRD, reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files }));
+    const reading = judge(ctx, reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files }));
     expect(reading.state).toBe('drifted');
     expect(reading.lines).toEqual(['≠ plan.md · whitespace only · ✗ refuse · restore it, or approve again: https://omni.test/prd/acme/widgets/1299']);
   });
@@ -96,7 +105,7 @@ describe('judgeApproval', () => {
   it('says content when the approved text the server sent differs beyond spacing', () => {
     const { ctx } = repo({ [`${INBOX}/plan.md`]: 'another plan' });
     const files = [pinned('plan', `${INBOX}/plan.md`, PLAN, { content: PLAN })];
-    expect(judgeApproval(ctx, PRD, reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files })).drift).toEqual([
+    expect(judge(ctx, reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files })).drift).toEqual([
       { kind: 'plan', file: `${INBOX}/plan.md`, how: 'content' },
     ]);
   });
@@ -104,7 +113,7 @@ describe('judgeApproval', () => {
   it('is drifted when a pinned file is missing, one line per file', () => {
     const { ctx, root } = repo();
     rmSync(`${root}/${INBOX}/before-after.html`);
-    const reading = judgeApproval(ctx, PRD, reply({
+    const reading = judge(ctx, reply({
       approver: { login: 'ada', member: true }, approvedAt: 't',
       files: [...PINNED, pinned('voice', `${INBOX}/voice.json`, '{}')],
     }));
@@ -120,12 +129,12 @@ describe('judgeApproval', () => {
     const path = 'features/approve.feature';
     const { ctx } = repo({ [path]: scenario });
     const files = [...PINNED, pinned('scenario', path, scenario)];
-    expect(judgeApproval(ctx, PRD, reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files })).state).toBe('approved');
+    expect(judge(ctx, reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files })).state).toBe('approved');
   });
 
   it('is drifted for every pinned file when the PRD has no folder at all', () => {
     const { ctx } = makeRepo();
-    expect(judgeApproval(ctx, PRD, reply()).drift.map((d) => d.how)).toEqual(['missing', 'missing', 'missing']);
+    expect(judge(ctx, reply()).drift.map((d) => d.how)).toEqual(['missing', 'missing', 'missing']);
   });
 });
 
@@ -163,17 +172,17 @@ describe('failedReading', () => {
 describe('readApproval', () => {
   it('judges the reply the call answered', async () => {
     const { ctx } = repo();
-    expect((await readApproval(ctx, PRD, async () => reply())).state).toBe('approved');
+    expect((await readApproval(ctx, PRD, () => Promise.resolve(reply()))).state).toBe('approved');
   });
 
   it('refuses a reply that is not an approval', async () => {
     const { ctx } = repo();
-    expect(await readApproval(ctx, PRD, async () => ({ nope: true }))).toMatchObject({ state: 'refused', lines: ['refused (malformed reply)'] });
+    expect(await readApproval(ctx, PRD, () => Promise.resolve({ nope: true }))).toMatchObject({ state: 'refused', lines: ['refused (malformed reply)'] });
   });
 
   it('holds a call that failed to answer, and refuses one the page refused', async () => {
     const { ctx } = repo();
-    expect((await readApproval(ctx, PRD, async () => { throw new AskCallError('down'); })).state).toBe('unreachable');
-    expect((await readApproval(ctx, PRD, async () => { throw new AskCallError('no', { status: 500 }); })).lines).toEqual(['refused (500)']);
+    expect((await readApproval(ctx, PRD, () => Promise.reject(new AskCallError('down')))).state).toBe('unreachable');
+    expect((await readApproval(ctx, PRD, () => Promise.reject(new AskCallError('no', { status: 500 })))).lines).toEqual(['refused (500)']);
   });
 });

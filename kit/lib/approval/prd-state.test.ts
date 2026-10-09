@@ -18,7 +18,7 @@ const reading = (state: ApprovalState): ApprovalReading => ({ state, lines: [`${
 /** A fake approval call answering `state`, counting its calls. */
 function fake(state: ApprovalState) {
   const asked: number[] = [];
-  return { asked, approval: async (prd: number) => { asked.push(prd); return reading(state); } };
+  return { asked, approval: (prd: number) => { asked.push(prd); return Promise.resolve(reading(state)); } };
 }
 
 describe('birthplaceOf', () => {
@@ -86,9 +86,9 @@ describe('approvalReader', () => {
   it('asks the approval route with the sign-in and judges what it answers', async () => {
     const { ctx } = makeRepo({ config: config('https://omni.test'), files: { [`${IN}/spec.md`]: spec('server') } });
     const urls: string[] = [];
-    const fetch = async (url: string) => {
+    const fetch = (url: string) => {
       urls.push(url);
-      return new Response(JSON.stringify({ url: 'https://omni.test/d', approval: null }), { status: 200 });
+      return Promise.resolve(new Response(JSON.stringify({ url: 'https://omni.test/d', approval: null }), { status: 200 }));
     };
     const read = await approvalReader(ctx, { repo: 'acme/widgets', tokens: signedIn('omni.test'), fetch })(PRD);
     expect(read).toMatchObject({ state: 'pending', lines: ['PRD 1299 waits for approval: https://omni.test/d'] });

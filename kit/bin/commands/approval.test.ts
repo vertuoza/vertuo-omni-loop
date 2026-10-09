@@ -4,7 +4,6 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
-import type { FetchInit } from '../../test/fixture.ts';
 import { main } from '../omni.ts';
 import type { Tokens } from '../../lib/ask/schema.ts';
 
@@ -44,9 +43,9 @@ function checkout({ dir = IN, files = {}, url = 'https://omni.test', slug }: { d
 /** Answers every call with `status` and `body`, recording each URL. */
 function stub(status: number, body: unknown) {
   const urls: string[] = [];
-  const fetch = async (url: string, _init: FetchInit) => {
+  const fetch = (url: string) => {
     urls.push(url);
-    return new Response(JSON.stringify(body), { status });
+    return Promise.resolve(new Response(JSON.stringify(body), { status }));
   };
   return { urls, fetch };
 }
@@ -93,7 +92,7 @@ describe('omni approval', () => {
   });
 
   it('holds the PRD when the server cannot be reached', async () => {
-    const down = async () => { throw new TypeError('fetch failed'); };
+    const down = () => Promise.reject(new TypeError('fetch failed'));
     expect(await approvalOf(checkout(), ['1299'], down)).toEqual({ code: 1, out: 'server unreachable · held, not failed\n', err: '' });
   });
 

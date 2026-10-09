@@ -23,8 +23,7 @@ import { ARTIFACT_KINDS, sha256 } from '../dossier/folder.ts';
 import type { Layout } from '../layout.ts';
 import type { PrdNumber } from '../ids.ts';
 
-const APPROVAL_STATES = ['approved', 'pending', 'drifted', 'unreachable', 'refused'] as const;
-export type ApprovalState = (typeof APPROVAL_STATES)[number];
+export type ApprovalState = 'approved' | 'pending' | 'drifted' | 'unreachable' | 'refused';
 
 const text = z.string().min(1);
 
