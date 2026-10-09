@@ -369,6 +369,34 @@ describe('POST /api/dossiers/push: a push lands versions', () => {
   });
 });
 
+describe('POST /api/dossiers/push: the approver of a voided approval is told (PRD 1322)', () => {
+  function telling() {
+    const w = world();
+    const told: Array<{ dossier: string; origin: string }> = [];
+    const deps: DossierDeps = {
+      ...w.deps,
+      tellVoids: (_db, dossier, origin) => { told.push({ dossier, origin }); return Promise.resolve(); },
+    };
+    const push = async (body: unknown) => w.read(await pushDossier(w.request('/api/dossiers/push', { body }), deps));
+    return { told, push };
+  }
+
+  it('hands a PRD push that added a version to the void teller, after the versions landed', async () => {
+    const t = telling();
+    const { status, body } = await t.push(PUSH);
+    expect(status).toBe(200);
+    expect(t.told).toEqual([{ dossier: body.id, origin: 'https://omni.example' }]);
+  });
+
+  it('tells nothing for a push that added nothing, or a fix', async () => {
+    const t = telling();
+    await t.push(PUSH);
+    await t.push(PUSH);
+    await t.push({ ...PUSH, kind: 'visual', artifacts: [{ kind: 'before-after', content: PAGE }] });
+    expect(t.told).toHaveLength(1);
+  });
+});
+
 describe('GET /api/dossiers: a PRD\'s link by its number', () => {
   it('answers 200 {id, url} for a dossier the caller can read, with the link the caller reached', async () => {
     const w = world();

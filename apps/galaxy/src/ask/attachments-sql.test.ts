@@ -67,7 +67,7 @@ describe('the ask-attachments migration', () => {
 });
 
 describe('the 4 MB migration (PRD 1318, s3)', () => {
-  const LOWER = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261124090000_ask_attachments_4mb.sql', import.meta.url)), 'utf8');
+  const LOWER = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261128090000_ask_attachments_4mb.sql', import.meta.url)), 'utf8');
 
   it('lowers the bucket to the 4 MB the controller takes, one screenshot per request', () => {
     expect(LOWER.replace(/\s+/g, ' ')).toContain(`update storage.buckets set file_size_limit = ${SHOT_MAX_BYTES} where id = '${ATTACHMENTS_BUCKET}';`);

@@ -5,7 +5,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { demoGalaxy, loadGalaxy } from '../data/load-galaxy';
 import { memberWorkspace, type Workspace } from '../data/workspace';
-import { once } from '../dashboard/part';
+import { once, settle } from '../dashboard/part';
 import { demoActivity, demoAnswered, demoPrds, demoRoster, DEMO_VIEWER } from '../dashboard/board/demo';
 import { supabaseReads } from '../dashboard/board/load';
 import type { Period } from '../dashboard/board/period';
@@ -18,6 +18,8 @@ import { readCurrentStages } from '../dossier/page/history';
 import { readHistory } from '../dossier/page/source';
 import type { DossierListRow } from '../dossier/store';
 import { stageStore } from '../stages/store';
+import { serverEnv } from '../env';
+import { alertStore } from '../push/store';
 import { loadProfile, profileOf, type ProfileReads, type ProfileValue } from './load';
 import { PR_COLUMNS, readTracked, REVIEW_COLUMNS, StoredPullRequest, StoredReview } from './stored';
 
@@ -84,8 +86,15 @@ function supabaseProfileReads(db: SupabaseClient, workspace: string, galaxy: () 
   };
 }
 
-/** The profile of `login` in the workspace the viewer joined first. */
-export async function loadProfileBoard(db: SupabaseClient<Database>, user: Pick<User, 'id'>, login: string, period: Period, now: Date): Promise<ProfileBoard> {
+/** Your own alert switches (PRD 1322 s9), added to your own profile only: read as you, so no one else's. */
+async function withAlerts(value: ProfileValue, db: SupabaseClient<Database>, user: Pick<User, 'id' | 'email'>): Promise<ProfileValue> {
+  if (value.kind !== 'profile' || !value.own) return value;
+  const channels = await settle('your alert channels', () => alertStore(db).channels(user.id));
+  return { ...value, alerts: { channels, email: user.email?.trim() || null, publicKey: serverEnv().webPush?.publicKey ?? null } };
+}
+
+/** The profile of `login` in the workspace the viewer joined first; on your own, your alert switches. */
+export async function loadProfileBoard(db: SupabaseClient<Database>, user: Pick<User, 'id' | 'email'>, login: string, period: Period, now: Date): Promise<ProfileBoard> {
   let workspace: Workspace | null;
   try {
     workspace = await memberWorkspace(db, user.id);
@@ -95,7 +104,8 @@ export async function loadProfileBoard(db: SupabaseClient<Database>, user: Pick<
   }
   if (!workspace) return { kind: 'no-workspace' };
   const id = workspace.id;
-  return loadProfile(supabaseProfileReads(db, id, once(() => loadGalaxy(db, id, now))), { login, viewerId: user.id, period, now });
+  const value = await loadProfile(supabaseProfileReads(db, id, once(() => loadGalaxy(db, id, now))), { login, viewerId: user.id, period, now });
+  return withAlerts(value, db, user);
 }
 
 const DEMO_TRACKED = ['vertuoza/vertuo-core', 'vertuoza/vertuo-api', 'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-web', 'vertuoza/vertuo-mobile'];

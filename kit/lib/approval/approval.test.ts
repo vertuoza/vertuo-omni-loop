@@ -55,6 +55,7 @@ describe('parseApprovalReply', () => {
     expect(parseApprovalReply({ url: URL_ })).toBeNull();
     expect(parseApprovalReply(reply({ approver: { login: 'ada' }, approvedAt: 't', files: [] }))).toBeNull();
     expect(parseApprovalReply(reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files: [{ kind: 'plan' }] }))).toBeNull();
+    expect(parseApprovalReply(reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files: PINNED, voids: [{ pusher: 'ada' }] }))).toBeNull();
   });
 });
 
@@ -110,7 +111,7 @@ describe('judgeApproval', () => {
     ]);
   });
 
-  it('is drifted when a pinned file is missing, one line per file', () => {
+  it('is drifted when a pinned file is missing, one line per file, the voice aside', () => {
     const { ctx, root } = repo();
     rmSync(`${root}/${INBOX}/before-after.html`);
     const reading = judge(ctx, reply({
@@ -120,8 +121,38 @@ describe('judgeApproval', () => {
     expect(reading.state).toBe('drifted');
     expect(reading.lines).toEqual([
       '≠ before-after.html · missing · ✗ refuse · restore it, or approve again: https://omni.test/prd/acme/widgets/1299',
-      '≠ voice.json · missing · ✗ refuse · restore it, or approve again: https://omni.test/prd/acme/widgets/1299',
     ]);
+  });
+
+  it('never drifts on the voice, which the loop appends rounds to after approval', () => {
+    const { ctx } = repo();
+    const reading = judge(ctx, reply({
+      approver: { login: 'ada', member: true }, approvedAt: 't',
+      files: [...PINNED, pinned('voice', `${INBOX}/voice.json`, '{"rounds":[]}')],
+    }));
+    expect(reading.state).toBe('approved');
+  });
+
+  it('is drifted, naming the push, when a push voided the approval, even with the tree as approved', () => {
+    const { ctx } = repo();
+    const voids = [
+      { pusher: 'ada', kind: 'plan', from: 'a'.repeat(64), to: 'b'.repeat(64), voidedAt: '2026-10-09T11:00:00Z' },
+      { pusher: 'ada', kind: 'scenario', from: 'c'.repeat(64), to: 'd'.repeat(64), voidedAt: '2026-10-09T11:00:00Z' },
+    ];
+    const reading = judge(ctx, reply({ approver: { login: 'irisa', member: false }, approvedAt: 't', files: PINNED, voids }));
+    expect(reading).toMatchObject({
+      state: 'drifted',
+      lines: [
+        '≠ plan.md · voided by ada\'s push aaaaaaa→bbbbbbb · ✗ refuse · approve again: https://omni.test/prd/acme/widgets/1299',
+        '≠ scenario · voided by ada\'s push ccccccc→ddddddd · ✗ refuse · approve again: https://omni.test/prd/acme/widgets/1299',
+      ],
+      drift: [{ kind: 'plan', file: `${INBOX}/plan.md`, how: 'voided' }, { kind: 'scenario', file: 'scenario', how: 'voided' }],
+    });
+  });
+
+  it('is approved when the server says the approval has no void', () => {
+    const { ctx } = repo();
+    expect(judge(ctx, reply({ approver: { login: 'ada', member: true }, approvedAt: 't', files: PINNED, voids: [] })).state).toBe('approved');
   });
 
   it('reads a kind the folder does not keep (a scenario) at its pinned path', () => {

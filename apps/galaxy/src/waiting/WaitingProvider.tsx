@@ -6,13 +6,14 @@ import {
   type DesktopState, type NotificationApi, type Store,
 } from './alerts';
 import { DOCS_MS, groupDocuments, noticeDocuments, readSeen, type Announced, type DocumentGroup } from './documents';
+import { APPROVALS_MS, EMPTY_APPROVALS_PART, approvalsRead, readApprovals, type ApprovalsPart } from './approvals';
 import { BUSINESS_MS, EMPTY_BUSINESS_PART, businessRead, readBusinessCount, type BusinessPart } from './business';
 import { iconHref } from './icon';
 import { EMPTY_OUTBOX_PART, outboxRead, pollOutbox, readOutbox, type OutboxPart } from './outbox';
 import { pollQuestions } from './questions-poll';
 import type { WaitingView } from './view';
 import { partTick, waitingClient, type SignedOutGate } from './waiting.client';
-import { EMPTY_WAITING, titled, waitingCounts, type WaitingCounts, type WaitingItem, type WaitingList, type WaitingOutbox } from './waiting';
+import { EMPTY_WAITING, titled, waitingCounts, type WaitingApproval, type WaitingCounts, type WaitingItem, type WaitingList, type WaitingOutbox } from './waiting';
 
 // The waiting provider (PRD 499), mounted once by the app shell around the sidebar, the top bar and
 // the page: the one place that reads what waits for the person looking. It starts from the Questions
@@ -43,21 +44,30 @@ import { EMPTY_WAITING, titled, waitingCounts, type WaitingCounts, type WaitingI
 // PRD 774 (s5) adds the Business part (src/waiting/business.ts): how many things wait to be checked on
 // Settings › Business, read from GET /api/waiting/business once after load and every 60 s while
 // visible. Like New documents it never adds to the counts, and it raises no alert (no email, no sound).
+//
+// PRD 1322 (s2) adds the Approvals part (src/waiting/approvals.ts): the approval requests waiting on the
+// person, read from GET /api/waiting/approvals once after load and every 15 s while visible. It is a
+// wait: it adds to the total, and a new request alerts like a new question.
 
 export type Waiting = {
   list: WaitingList;
   counts: WaitingCounts;
   /** A part whose last read failed: it holds what it last had. */
-  unread: { questions: boolean; outbox: boolean; documents: boolean; business: boolean };
+  unread: { questions: boolean; outbox: boolean; documents: boolean; business: boolean; approvals: boolean };
   /** How many PRDs the outbox route could not read, the items of the others kept. */
   unreadPrds: number;
   /** The New documents part: one group per PRD, newest first. Never counted. */
   documents: DocumentGroup[];
   /** The Business part: how many things wait to be checked on Settings › Business. Never counted. */
   business: number;
+  /** The Approvals part: the approval requests waiting on the person, oldest first. Counted. */
+  approvals: WaitingApproval[];
 };
 
-const EMPTY: Waiting = { list: EMPTY_WAITING, counts: waitingCounts(EMPTY_WAITING), unread: { questions: false, outbox: false, documents: false, business: false }, unreadPrds: 0, documents: [], business: 0 };
+const EMPTY: Waiting = {
+  list: EMPTY_WAITING, counts: waitingCounts(EMPTY_WAITING), unread: { questions: false, outbox: false, documents: false, business: false, approvals: false },
+  unreadPrds: 0, documents: [], business: 0, approvals: [],
+};
 
 const Context = createContext<Waiting>(EMPTY);
 
@@ -113,6 +123,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
   const [outbox, setOutbox] = useState<OutboxPart>(() => ({ ...EMPTY_OUTBOX_PART, items: first }));
   const [documents, setDocuments] = useState<{ groups: DocumentGroup[]; unread: boolean }>({ groups: [], unread: false });
   const [business, setBusiness] = useState<BusinessPart>(EMPTY_BUSINESS_PART);
+  const [approvals, setApprovals] = useState<ApprovalsPart>(EMPTY_APPROVALS_PART);
   // The routes read as whoever the sign-in cookie names: a database source only says someone is signed in.
   const source = view?.source ?? null;
   const signedIn = source?.kind === 'database' && Boolean(source.me);
@@ -124,6 +135,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
   // it could read it), the Outbox part from its own first read.
   const seenQuestions = useRef<ReadonlySet<string> | null>(view && !view.unread ? new Set(view.questions.map((q) => q.id)) : null);
   const seenOutbox = useRef<ReadonlySet<string> | null>(null);
+  const seenApprovals = useRef<ReadonlySet<string> | null>(null);
 
   useEffect(() => {
     if (!signedIn) return;
@@ -208,6 +220,22 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
     }, document, () => Date.now(), BUSINESS_MS);
   }, [signedIn]);
 
+  // The Approvals part: the route answers the cookie session. A new request alerts like a new question.
+  useEffect(() => {
+    if (!signedIn) return;
+    const log = onceEach();
+    return pollOutbox(async () => {
+      const read = await readApprovals((input, init) => fetch(input, init));
+      if (!read.ok) log(read.kind, new Error(`The waiting approvals could not be read: ${read.kind}`));
+      setApprovals((part) => approvalsRead(part, read));
+      if (read.ok) {
+        const { fresh, seen } = announce(seenApprovals.current, read.items);
+        seenApprovals.current = seen;
+        notice(fresh);
+      }
+    }, document, () => Date.now(), APPROVALS_MS);
+  }, [signedIn, notice]);
+
   // The New documents part: read as `me` at once, then every 10 s while visible. Seen is read again at
   // each read, so a PRD page opened in any tab clears its group at the next one.
   useEffect(() => {
@@ -241,10 +269,11 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
   const value = useMemo<Waiting>(() => {
     const list = { questions, outbox: outbox.items };
     return {
-      list, counts: waitingCounts(list), unread: { questions: unread, outbox: outbox.unread, documents: documents.unread, business: business.unread },
-      unreadPrds: outbox.unreadPrds, documents: documents.groups, business: business.count,
+      list, counts: waitingCounts(list, approvals.items.length),
+      unread: { questions: unread, outbox: outbox.unread, documents: documents.unread, business: business.unread, approvals: approvals.unread },
+      unreadPrds: outbox.unreadPrds, documents: documents.groups, business: business.count, approvals: approvals.items,
     };
-  }, [questions, unread, outbox, documents, business]);
+  }, [questions, unread, outbox, documents, business, approvals]);
 
   const total = value.counts.total;
   useEffect(() => {

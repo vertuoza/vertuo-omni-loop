@@ -47,13 +47,27 @@ export type WaitingOutbox = {
   question: string;
 };
 
-export type WaitingItem = WaitingQuestion | WaitingOutbox;
+/** One approval request waiting on the person asked (PRD 1322): a ◆ PRD to approve, by the request's id. */
+export type WaitingApproval = {
+  kind: 'approval';
+  /** The request's id. */
+  id: string;
+  prd: PrdNumber;
+  dossierId: string;
+  title: string;
+  /** The PRD's repository, as owner/name. */
+  repo: string;
+  /** When it was asked, in ms. */
+  askedAt: number;
+};
+
+export type WaitingItem = WaitingQuestion | WaitingOutbox | WaitingApproval;
 
 export type WaitingList = { questions: WaitingQuestion[]; outbox: WaitingOutbox[] };
 
 export const EMPTY_WAITING: WaitingList = { questions: [], outbox: [] };
 
-export type WaitingCounts = { questions: number; shared: number; outbox: number; total: number };
+export type WaitingCounts = { questions: number; shared: number; outbox: number; approvals: number; total: number };
 
 /** A session's text, trimmed; none when it has none (its row is read unparsed, so a title may be missing). */
 const trimmedOf = (text: string | null | undefined): string => text?.trim() ?? '';
@@ -105,11 +119,12 @@ export function mergeQuestions(own: readonly WaitingQuestion[], shared: readonly
   return [...byId.values()].sort((a, b) => a.askedAt - b.askedAt || a.id.localeCompare(b.id));
 }
 
-/** The list's counts: the Questions part, the shared ones among them, the Outbox part, and both. */
-export function waitingCounts(list: WaitingList): WaitingCounts {
+/** The list's counts: the Questions part, the shared ones among them, the Outbox part, the approval
+ * requests waiting on the person (PRD 1322, read beside the list), and all three. */
+export function waitingCounts(list: WaitingList, approvals = 0): WaitingCounts {
   const questions = list.questions.length;
   const outbox = list.outbox.length;
-  return { questions, shared: list.questions.filter((q) => q.sharedBy !== null).length, outbox, total: questions + outbox };
+  return { questions, shared: list.questions.filter((q) => q.sharedBy !== null).length, outbox, approvals, total: questions + outbox + approvals };
 }
 
 const PREFIX = /^\(\d+\) /;
