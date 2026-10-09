@@ -34461,10 +34461,8 @@ var answers = {
 // kit/bin/commands/approval.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/approval/prd-state.ts
+// kit/lib/approval/flag.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync30, readFileSync as readFileSync27 } from "node:fs";
-import { join as join34 } from "node:path";
 
 // kit/lib/ask/client.ts
 init_define_OMNI_BUNDLE();
@@ -34648,6 +34646,9 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
      * @returns {Promise<{ url: string, approval: { approver: { login: string, member: boolean }, approvedAt: string,
      *   files: Array<{ kind: string, path: string, sha256: string, versionId: string, content?: string }> } | null }>} */
     readApproval: ({ repo, prd: prd2 }) => call("GET", `/api/dossiers/approval?${new URLSearchParams({ repo, prd: String(prd2) })}`),
+    /** PRD 1299: where `repo`'s (owner/name) new PRDs are born, `pr` or `server`, as its row on the Omni
+     * page says. `../approval/flag.ts` reads the reply. @returns {Promise<{ phase0: 'pr' | 'server' }>} */
+    readPhase0Flag: (repo) => call("GET", `/api/repositories/phase0?${new URLSearchParams({ repo })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
     requestProofUploads: ({ repo, prd: prd2, files }) => call("POST", "/api/proofs/uploads", { body: { repo, prd: prd2, files } }),
@@ -34847,6 +34848,33 @@ async function exchangeCode({ askUrl: askUrl2, code, repo = null, fetch = global
     reason: !workspace && isText(reply?.reason) ? reply.reason : null
   };
 }
+
+// kit/lib/approval/flag.ts
+var fallback = (why2) => ({ flag: "pr", why: why2 });
+async function flagReading(call) {
+  let body;
+  try {
+    body = await call();
+  } catch (error62) {
+    if (!(error62 instanceof AskCallError)) throw error62;
+    return fallback(error62.status === null ? "unreachable" : `refused (${error62.status})`);
+  }
+  const flag = typeof body === "object" && body !== null ? body.phase0 : void 0;
+  return flag === "pr" || flag === "server" ? { flag, why: null } : fallback("malformed reply");
+}
+function readFlag(askUrl2, { repo, tokens, home, fetch, callMs }) {
+  if (!askUrl2) return Promise.resolve(fallback("no Omni page is set here (ask.url)"));
+  const host = credentialsHost(askUrl2);
+  const store = tokens ?? homeTokens(home ? { home } : void 0);
+  if (!store.read(host)) return Promise.resolve(fallback("no sign-in (omni signin)"));
+  const client = askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
+  return flagReading(() => client.readPhase0Flag(repo));
+}
+
+// kit/lib/approval/prd-state.ts
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync30, readFileSync as readFileSync27 } from "node:fs";
+import { join as join34 } from "node:path";
 
 // kit/lib/approval/approval.ts
 init_define_OMNI_BUNDLE();
@@ -35349,7 +35377,8 @@ function approvalReader(ctx, { repo, tokens, home, fetch, callMs }) {
 }
 
 // kit/bin/commands/approval.ts
-var USAGE2 = "usage: omni approval <n> [--json]";
+var USAGE2 = "usage: omni approval <n> [--json] \xB7 omni approval flag [--json]";
+var flagLine = ({ flag, why: why2 }) => why2 === null ? `phase 0: ${flag}` : `phase 0: ${flag} \xB7 the flag could not be read: ${why2}`;
 function shown(prd2, reading) {
   const { approval: approval3 } = reading;
   return {
@@ -35372,10 +35401,15 @@ var approval2 = {
   async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
     const { positional, flags } = parseArgs("approval", args, { booleans: ["json"] });
     if (positional.length !== 1) throw usageError(USAGE2);
-    const prd2 = prdArg("approval", "<n>", positional[0]);
     const ctx = loadContext(cwd, { exec });
     const repo = ctx.config.repo.slug;
     if (!repo) throw usageError("omni approval: no repository slug \u2014 set repo.slug in the config.");
+    if (positional[0] === "flag") {
+      const reading2 = await readFlag(ctx.config.ask.url, { repo, tokens, home, fetch, callMs });
+      println(stdout, flags.json ? JSON.stringify(reading2) : flagLine(reading2));
+      return reading2.why === null ? 0 : 1;
+    }
+    const prd2 = prdArg("approval", "<n>", positional[0]);
     if (!ctx.layout.whereIs(prd2)) {
       println(stderr, `omni approval: PRD ${Number(prd2)} is in neither ${ctx.layout.dirs.inbox} nor ${ctx.layout.dirs.shipped}.`);
       return 1;
@@ -36146,9 +36180,9 @@ var whoami = {
     return 0;
   }
 };
-function accountOf(entry3, fallback3) {
+function accountOf(entry3, fallback4) {
   const named4 = entry3.email ?? entry3.login;
-  return typeof named4 === "string" ? named4 : fallback3;
+  return typeof named4 === "string" ? named4 : fallback4;
 }
 function expired({ expires_at: at2 }, now2 = Date.now()) {
   if (typeof at2 !== "number") return false;
@@ -39340,7 +39374,7 @@ function reach2({ cwd, exec, tokens, home, fetch, signal }) {
   const client = askClient({ baseUrl: askUrl2, host, tokens: store, fetch: withDeadline(fetch, signal) });
   return { repo, root, client };
 }
-function fallback({ repo, root, state, why: why2 }, now2) {
+function fallback2({ repo, root, state, why: why2 }, now2) {
   const cached3 = repo ? readCache(root, repo) : null;
   if (!repo || !cached3) return [bodyOf(state), [`no constituents: ${why2} ${CARRY_ON2}`]];
   const synced = `synced ${ageOf(cached3.syncedAt, now2)}, ${why2}`;
@@ -39355,16 +39389,16 @@ async function sync(env) {
     if (!(error62 instanceof Error) || error62.name !== "ConfigError") throw error62;
     return [bodyOf("no-kit"), [`no constituents: ${error62.message.split("\n")[0]} ${CARRY_ON2}`]];
   }
-  if (reached.client === void 0) return fallback(reached, env.now());
+  if (reached.client === void 0) return fallback2(reached, env.now());
   const { client, repo, root } = reached;
   let reply;
   try {
     reply = await readWithin(client, repo, controller, env.budgetMs);
   } catch (error62) {
-    return fallback({ repo, root, ...stopped2(error62) }, env.now());
+    return fallback2({ repo, root, ...stopped2(error62) }, env.now());
   }
   const read2 = constituentsOf(reply);
-  if (!read2) return fallback({ repo, root, state: "refused", why: "refused (the reply is not constituents)" }, env.now());
+  if (!read2) return fallback2({ repo, root, state: "refused", why: "refused (the reply is not constituents)" }, env.now());
   const syncedAt = new Date(env.now()).toISOString();
   try {
     writeCache(root, { repo, syncedAt, read: read2 });
@@ -41515,9 +41549,9 @@ var ENTRIES = deepFreeze([
     name: "approval",
     kind: "command",
     who: "you",
-    usage: ["omni approval <n> [--json]"],
+    usage: ["omni approval <n> [--json]", "omni approval flag [--json]"],
     summary: "whether a PRD born on the server is approved, and still what was approved",
-    detail: "Reads PRD n's approval in force on the Omni page, with your sign-in, and compares each file it pinned with the file of the same kind in this checkout. It prints one line: approved by whom and when; waiting for approval, with the PRD page link; a changed or missing file (its content, or its whitespace only), which refuses until you restore it or approve again; the server unreachable, which holds the PRD rather than failing it; or refused, when the approver left the workspace or the page answered an error. It exits 0 only when approved. --json prints the state, who, when and the pinned files."
+    detail: "Reads PRD n's approval in force on the Omni page, with your sign-in, and compares each file it pinned with the file of the same kind in this checkout. It prints one line: approved by whom and when; waiting for approval, with the PRD page link; a changed or missing file (its content, or its whitespace only), which refuses until you restore it or approve again; the server unreachable, which holds the PRD rather than failing it; or refused, when the approver left the workspace or the page answered an error. It exits 0 only when approved. --json prints the state, who, when and the pinned files. omni approval flag reads where this repository's new PRDs are born instead: phase 0: server (approved on the PRD's page) or phase 0: pr (a phase-0 PR), as an owner set it on the Omni page; when it cannot be read it says pr, with why, and exits 1."
   },
   {
     name: "visual",
@@ -46997,11 +47031,11 @@ var LOCK_ABANDONED_MS = 2 * 60 * 1e3;
 var UNREADABLE = "the board file holds no slices it can read";
 var boardFile = (root, prd2) => join69(root, BOARD_DIR, `board-${prd2}.json`);
 var lockFile = (root, prd2) => join69(root, BOARD_DIR, `board-${prd2}.lock`);
-function attempt8(fn, fallback3) {
+function attempt8(fn, fallback4) {
   try {
     return fn();
   } catch {
-    return fallback3;
+    return fallback4;
   }
 }
 function readBoard(root, prd2) {
@@ -47203,11 +47237,11 @@ function whichPrd({ branch, branches, folders, recorded = null }) {
 // kit/lib/statusline/facts.ts
 var QUIET11 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 var KIND_FLAG = "--kind";
-function attempt9(fn, fallback3) {
+function attempt9(fn, fallback4) {
   try {
     return fn();
   } catch {
-    return fallback3;
+    return fallback4;
   }
 }
 var git5 = (exec, cwd, args) => exec("git", args, { cwd, ...QUIET11 });
@@ -47396,11 +47430,11 @@ init_define_OMNI_BUNDLE();
 import { readdirSync as readdirSync25 } from "node:fs";
 import { join as join72 } from "node:path";
 var QUIET12 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
-function attempt10(fn, fallback3) {
+function attempt10(fn, fallback4) {
   try {
     return fn();
   } catch {
-    return fallback3;
+    return fallback4;
   }
 }
 function baseOf(ctx, exec) {
@@ -49240,26 +49274,26 @@ var REGISTRY = Object.freeze({
 });
 var DEFAULTS = Object.freeze({ music: "none", fonts: "system", capture: "playwright", encode: "ffmpeg" });
 function defaultOf(kind, registry3) {
-  const fallback3 = registry3[kind].find((provider2) => provider2.id === DEFAULTS[kind]);
-  if (fallback3 === void 0) throw new Error(`no ${kind} provider to fall back to: ${DEFAULTS[kind]} is not registered`);
-  return fallback3;
+  const fallback4 = registry3[kind].find((provider2) => provider2.id === DEFAULTS[kind]);
+  if (fallback4 === void 0) throw new Error(`no ${kind} provider to fall back to: ${DEFAULTS[kind]} is not registered`);
+  return fallback4;
 }
 function providerFor(kind, id, warn, registry3 = REGISTRY) {
   const found2 = registry3[kind].find((provider2) => provider2.id === id);
   if (found2 !== void 0) return found2;
-  const fallback3 = defaultOf(kind, registry3);
-  warn(`the ${kind} provider "${id}" is not registered: using ${fallback3.id}`);
-  return fallback3;
+  const fallback4 = defaultOf(kind, registry3);
+  warn(`the ${kind} provider "${id}" is not registered: using ${fallback4.id}`);
+  return fallback4;
 }
 async function withFallback(kind, id, run, warn, registry3) {
   const chosen = providerFor(kind, id, warn, registry3);
   try {
     return { ...await run(chosen), provider: chosen.id };
   } catch (error62) {
-    const fallback3 = defaultOf(kind, registry3);
-    if (fallback3 === chosen) throw error62;
-    warn(`the ${kind} from ${chosen.id} failed (${messageOf(error62)}): using ${fallback3.id}`);
-    return { ...await run(fallback3), provider: fallback3.id };
+    const fallback4 = defaultOf(kind, registry3);
+    if (fallback4 === chosen) throw error62;
+    warn(`the ${kind} from ${chosen.id} failed (${messageOf(error62)}): using ${fallback4.id}`);
+    return { ...await run(fallback4), provider: fallback4.id };
   }
 }
 function pickMusic({ provider: provider2, ...request }, context, warn, registry3 = REGISTRY) {
@@ -49435,14 +49469,14 @@ function writePitchJson(dir, value) {
   writeFileSync29(join87(dir, PITCH_JSON), `${JSON.stringify(value, null, 2)}
 `);
 }
-var fallback2 = (reason2) => ({
+var fallback3 = (reason2) => ({
   settings: defaultPitchSettings(),
   why: `settings: the ${DEFAULT_PRESET} preset (the product's Pitch settings could not be read: ${reason2})`
 });
 function startSettings(answer) {
-  if ("failure" in answer) return fallback2(answer.failure);
+  if ("failure" in answer) return fallback3(answer.failure);
   const parsed = parsePitchSettings(propertyOf(answer.reply, "settings") ?? null);
-  return parsed.ok ? { settings: parsed.settings, why: null } : fallback2(`out of shape, ${parsed.errors[0] ?? "no settings"}`);
+  return parsed.ok ? { settings: parsed.settings, why: null } : fallback3(`out of shape, ${parsed.errors[0] ?? "no settings"}`);
 }
 var ASSET = "asset:";
 var assetName = (ref) => ref?.startsWith(ASSET) ? ref.slice(ASSET.length) : null;

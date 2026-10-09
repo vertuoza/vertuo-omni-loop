@@ -1556,8 +1556,8 @@ var printed = (value) => String(value);
 // apps/omni-app/src/stage-forward/stage-forward.ts
 var STAGE_SIGNATURE_HEADER = "x-omni-signature-256";
 var DEFAULT_SHAPES = (() => {
-  const { branches, prLinks } = parseConfig("kit: 1");
-  return Object.freeze({ branches, prLinks });
+  const { branches, prLinks, labels } = parseConfig("kit: 1");
+  return Object.freeze({ branches, prLinks, approved: labels.approved });
 })();
 var PullEventSchema = z11.looseObject({
   action: z11.unknown(),
@@ -1571,6 +1571,12 @@ var PullEventSchema = z11.looseObject({
     updated_at: z11.string().nullish(),
     body: z11.unknown()
   })
+});
+var LabeledEventSchema = z11.looseObject({
+  action: z11.literal("labeled"),
+  repository: z11.looseObject({ full_name: z11.string().min(1) }),
+  label: z11.looseObject({ name: z11.string() }),
+  issue: z11.looseObject({ number: PrdNumberSchema, updated_at: z11.string().min(1), pull_request: z11.unknown().optional() })
 });
 function signStageEvent(secret, body) {
   return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
