@@ -141,6 +141,8 @@ const XP_CREDITS: Record<keyof XpRules['weights'], string> = {
   expedition: 'EXPEDITION BONUS',
   closer: 'CLOSER BONUS',
   questionAnswered: 'QUESTION ANSWERED',
+  featureMerged: 'FEATURE MERGED',
+  featureReviewed: 'FEATURE APPROVED',
 };
 
 /** How many of the curve's first levels LEVELS shows (fewer when the cap comes sooner). */

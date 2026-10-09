@@ -107,11 +107,23 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 47 commands and the 30 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(47);
-    expect(skillFolders()).toHaveLength(30);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(47);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(30);
+  it('holds the 49 commands and the 31 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(49);
+    expect(skillFolders()).toHaveLength(31);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(49);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(31);
+  });
+
+  it('names omni roadmap prereqs and omni roadmap tick, with what each does (PRD 1218)', () => {
+    const command = ENTRIES.find((e) => e.kind === 'command' && e.name === 'roadmap');
+    assertDefined(command, 'roadmap');
+    expect(command.usage).toEqual([
+      'omni roadmap check [<n>]', 'omni roadmap push <n>', 'omni roadmap answer <n> <question> "<answer>"',
+      'omni roadmap prereqs <n> [--fix] [--json]', 'omni roadmap tick <n> <id>',
+    ]);
+    for (const words of [/\bprereqs runs\b/, /grouped by category/, /waits on you/, /--fix/, /machine/, /\btick posts\b/, /person row/]) {
+      expect(command.detail, String(words)).toMatch(words);
+    }
   });
 
   it('lists /omni:roadmap after /omni:mega-brainstorm and /omni:mega-roadmap after it, each with its drive line (PRD 1162)', () => {
@@ -238,6 +250,24 @@ describe('the help table in this repository', () => {
     expect(dossierOpen.detail).toMatch(/\/omni:brainstorm\b.*\/omni:think-big\b/);
   });
 
+  it('says /omni:think-big and /omni:brainstorm --concept send the concept to its page under Work › Concepts (PRD 1272)', () => {
+    const entry = (name: string, kind: string) => {
+      const found = ENTRIES.find((e) => e.name === name && e.kind === kind);
+      assertDefined(found, name);
+      return found;
+    };
+    expect(entry('think-big', 'skill').detail).toMatch(/\bConcepts\b/);
+    expect(entry('brainstorm', 'skill').detail).toMatch(/--concept\b.*\bpushes the concept again\b/);
+    const push = entry('dossier-push', 'skill');
+    expect(push.usage).toEqual(['/omni:dossier-push <n> [--kind visual|bug|concept]']);
+    // The docs page lists a skill as a runner from the names this text gives: think-big's own entry says it pushes.
+    expect(push.detail).toMatch(/--kind concept\b.*\bWork › Concepts\b/);
+    const dossier = entry('dossier', 'command');
+    expect(dossier.usage).toContain('omni dossier push <n> [--kind visual|bug|concept]');
+    expect(dossier.usage).toContain('omni dossier link <n> [--kind visual|bug|concept]');
+    expect(dossier.detail).toMatch(/--kind concept\b.*\bconcept\b/);
+  });
+
   it('lists omni concept for skills, after omni bug, with its usage and what it checks (PRD 686)', () => {
     const commands = ENTRIES.filter((e) => e.kind === 'command');
     const concept = commands.find((e) => e.name === 'concept');
@@ -332,7 +362,7 @@ describe('the help table in this repository', () => {
       build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'help', 'pitch', 'prove', 'status'],
+      everyday: ['ask', 'help', 'pitch', 'prove', 'status', 'validate-e2e'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
   });
@@ -356,7 +386,7 @@ describe('the help table in this repository', () => {
   it('lists every verb of omni dossier, link included (PRD 413)', () => {
     const dossier = ENTRIES.find((e) => e.name === 'dossier' && e.kind === 'command');
     assertDefined(dossier, 'dossier');
-    expect(dossier.usage).toEqual(['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug]', 'omni dossier link <n> [--kind visual|bug]', 'omni dossier status']);
+    expect(dossier.usage).toEqual(['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status']);
     expect(dossier.detail).toMatch(/\blink prints PRD n's page\b/);
   });
 
@@ -367,7 +397,7 @@ describe('the help table in this repository', () => {
       return entry;
     };
     expect(find('dossier', 'command').detail).toMatch(/--kind visual or --kind bug\b.*\bissue n's fix\b/);
-    expect(find('dossier-push', 'skill').usage).toEqual(['/omni:dossier-push <n> [--kind visual|bug]']);
+    expect(find('dossier-push', 'skill').usage).toEqual(['/omni:dossier-push <n> [--kind visual|bug|concept]']);
     expect(find('dossier-push', 'skill').detail).toMatch(/\/omni:visual-fix\b.*\/omni:bug-fix\b.*--kind/);
     expect(find('visual-fix', 'skill').detail).toMatch(/\/omni:dossier-push <n> --kind visual\b/);
     expect(find('visual-fix', 'skill').detail).toMatch(/\bevery round of variations\b/);

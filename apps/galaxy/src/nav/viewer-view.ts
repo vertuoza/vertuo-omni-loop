@@ -14,9 +14,12 @@ export interface ViewerView {
   heroSvg: string | null;
   /** The workspace they joined first, as a label under the crest. */
   workspaceName: string | null;
+  /** The repository whose ideas board Work › Ideas opens (PRD 1246): the workspace's public board
+   * first, else its first repository; null with none, or when it could not be read. */
+  ideasBoard: string | null;
   /** What waits for them (PRD 499): the Questions part as the page rendered it, for the waiting
    * provider; null when signed out. */
   waiting: WaitingView | null;
 }
 
-export const SIGNED_OUT_VIEWER: ViewerView = { signedIn: false, name: null, login: null, avatarUrl: null, heroSvg: null, workspaceName: null, waiting: null };
+export const SIGNED_OUT_VIEWER: ViewerView = { signedIn: false, name: null, login: null, avatarUrl: null, heroSvg: null, workspaceName: null, ideasBoard: null, waiting: null };

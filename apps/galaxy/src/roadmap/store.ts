@@ -1,7 +1,9 @@
 // The roadmaps (supabase/migrations/20261110090000_roadmaps.sql, PRD 1162): one row per roadmap and one
 // per PRD of it, written as the caller through roadmap_push(), which files a roadmap in the workspace
 // its repository belongs to for the caller and replaces its document, questions and PRD rows on every
-// later push. A member of the workspace reads both; row-level security decides, so a roadmap of another
+// later push; and one per prerequisite of it (20261114090000_roadmap_prerequisites.sql, PRD 1218),
+// replaced with the last result through roadmap_prerequisites_push() by a push that carries them. A
+// member of the workspace reads them all; row-level security decides, so a roadmap of another
 // workspace reads as missing. Every answer is parsed where it comes in (data/parse-rows.ts).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
@@ -57,11 +59,48 @@ export type RoadmapPrdPush = {
   waitsOn: string | null; waitsOnUrl: string | null; startedAt: string | null; endedAt: string | null;
 };
 
-/** One push of `omni roadmap push`, validated: what roadmap_push() takes. `humanWork` missing (a kit
- * before PRD 1217) leaves the stored human work as it is. */
+/** Where a prerequisite holds (PRD 1218): the machine, a registry, a grant, GitHub, a service. */
+export const PREREQUISITE_CATEGORIES = ['local', 'access', 'permissions', 'github', 'services'] as const;
+export const PrerequisiteCategory = z.enum(PREREQUISITE_CATEGORIES);
+
+/** Who does a prerequisite: the agent checks and fixes it, the agent checks it and a person fixes it,
+ * or a person ticks it. */
+export const PREREQUISITE_WHO = ['agent', 'check', 'person'] as const;
+export const PrerequisiteWho = z.enum(PREREQUISITE_WHO);
+
+/** What the last check found of a prerequisite: `waits` is on a person. */
+export const PREREQUISITE_STATES = ['ok', 'fixed', 'waits', 'ticked'] as const;
+export const PrerequisiteState = z.enum(PREREQUISITE_STATES);
+export type PrerequisiteState = z.infer<typeof PrerequisiteState>;
+
+/** A prerequisite's author card, as stored: its four lines, a line it does not write null. */
+export const PrerequisiteCard = z.strictObject({
+  why: z.string().nullable(),
+  command: z.string().nullable(),
+  whatItDoes: z.string().nullable(),
+  whoCanDoIt: z.string().nullable(),
+});
+export type PrerequisiteCard = z.infer<typeof PrerequisiteCard>;
+
+/** One prerequisite of a pushed roadmap, as roadmap_prerequisites_push() takes it. */
+export type RoadmapPrerequisitePush = {
+  id: string; category: z.infer<typeof PrerequisiteCategory>; need: string; check: string | null; fix: string | null;
+  blocks: 'all' | string[]; who: z.infer<typeof PrerequisiteWho>; repos: string[]; card: PrerequisiteCard | null;
+};
+
+/** The last prerequisites result a push carries: the machine, the time, and each row's state. */
+export type RoadmapPrerequisiteResultPush = {
+  machine: string; checkedAt: string; rows: Array<{ id: string; state: PrerequisiteState; detail: string | null }>;
+};
+
+/** One push of `omni roadmap push`, validated: what roadmap_push() takes, and the prerequisites
+ * roadmap_prerequisites_push() takes after it. `humanWork` missing (a kit before PRD 1217) leaves the
+ * stored human work as it is; `prerequisites` missing (a kit before PRD 1218) leaves the stored
+ * prerequisites as they are. */
 export type RoadmapPush = {
   repo: string; roadmap: IssueNumber; title: string; milestone: string; product: string | null; target: string | null;
   source: string | null; questions: RoadmapQuestion[]; document: string; prds: RoadmapPrdPush[]; humanWork?: HumanWorkPush[] | undefined;
+  prerequisites?: RoadmapPrerequisitePush[] | undefined; prerequisiteResult?: RoadmapPrerequisiteResultPush | null | undefined;
 };
 
 /** What roadmap_push() answers: the roadmap, whether this push created it, the product it was filed
@@ -89,6 +128,10 @@ export const RoadmapRow = z.strictObject({
   pushed_by: z.string().nullable(),
   created_at: z.string(),
   pushed_at: z.string(),
+  // Where and when the last prerequisites result was found (PRD 1218): always read
+  // (ROADMAP_READ_COLUMNS); optional so a roadmap built before it (the page's demo) still parses.
+  prerequisites_machine: z.string().nullable().optional(),
+  prerequisites_checked_at: z.string().nullable().optional(),
 });
 export type RoadmapRow = z.infer<typeof RoadmapRow>;
 
@@ -128,8 +171,31 @@ export const RoadmapHumanWorkRow = z.strictObject({
 });
 export type RoadmapHumanWorkRow = z.infer<typeof RoadmapHumanWorkRow>;
 
-export const ROADMAP_COLUMNS ='id, workspace_id, repo, number, title, milestone, product_id, target_date, source, questions, document, pushed_by, created_at, pushed_at';
+/** One prerequisite of a roadmap, as stored (supabase/migrations/20261114090000_roadmap_prerequisites.sql). */
+export const RoadmapPrerequisiteRow = z.strictObject({
+  roadmap_id: z.string(),
+  position: z.number().int(),
+  row_id: z.string(),
+  category: PrerequisiteCategory,
+  need: z.string(),
+  check_with: z.string().nullable(),
+  fix_with: z.string().nullable(),
+  blocks_all: z.boolean(),
+  blocks: z.array(z.string()),
+  who: PrerequisiteWho,
+  repos: z.array(z.string()),
+  card: PrerequisiteCard.nullable(),
+  state: PrerequisiteState.nullable(),
+  detail: z.string().nullable(),
+});
+export type RoadmapPrerequisiteRow = z.infer<typeof RoadmapPrerequisiteRow>;
+
+export const ROADMAP_COLUMNS = 'id, workspace_id, repo, number, title, milestone, product_id, target_date, source, questions, document, pushed_by, created_at, pushed_at';
+/** The columns 20261114090000_roadmap_prerequisites.sql adds to a roadmap. */
+export const ROADMAP_ADDED_COLUMNS = 'prerequisites_machine, prerequisites_checked_at';
+export const ROADMAP_READ_COLUMNS = `${ROADMAP_COLUMNS}, ${ROADMAP_ADDED_COLUMNS}`;
 export const ROADMAP_PRD_COLUMNS = 'roadmap_id, position, row_id, prd, title, repos, blockers, wave, state, waits_on, waits_on_url, started_at, ended_at';
+export const ROADMAP_PREREQUISITE_COLUMNS = 'roadmap_id, position, row_id, category, need, check_with, fix_with, blocks_all, blocks, who, repos, card, state, detail';
 export const ROADMAP_HUMAN_WORK_COLUMNS = 'roadmap_id, key, prd, repo, source, text, act, url, kind, kind_by, state, first_seen_at, done_at';
 
 type Failure = { code?: string; message: string };
@@ -142,11 +208,16 @@ export class RoadmapStoreError extends StoreError {
   }
 }
 
-/** The body roadmap_push() reads: the push, its roadmap's number under `number`, and no `humanWork`
- * when the push carried none, so that push closes nothing. */
+/** The body roadmap_push() reads: the push without its prerequisites, its roadmap's number under
+ * `number`, and no `humanWork` when the push carried none, so that push closes nothing. */
 function bodyOf(push: RoadmapPush): Record<string, unknown> {
-  const { roadmap, humanWork, ...rest } = push;
-  return { ...rest, number: roadmap, ...(humanWork === undefined ? {} : { humanWork }) };
+  const { repo, roadmap, title, milestone, product, target, source, questions, document, prds, humanWork } = push;
+  return { repo, number: roadmap, title, milestone, product, target, source, questions, document, prds, ...(humanWork === undefined ? {} : { humanWork }) };
+}
+
+/** The body roadmap_prerequisites_push() reads: the roadmap, its prerequisites and the result. */
+function prerequisitesBodyOf(push: RoadmapPush, prerequisites: RoadmapPrerequisitePush[]): Record<string, unknown> {
+  return { repo: push.repo, number: push.roadmap, prerequisites, result: push.prerequisiteResult ?? null };
 }
 
 /** roadmap_push()'s answer, parsed; its refusal or an answer that does not parse, thrown. */
@@ -157,11 +228,21 @@ function settled({ data, error }: { data: unknown; error: Failure | null }): Roa
   return parsed.value;
 }
 
+/** roadmap_prerequisites_push()'s refusal, thrown; its answer is not needed. */
+function prerequisitesSettled({ error }: { error: Failure | null }): void {
+  if (error) throw new RoadmapStoreError('store the roadmap\'s prerequisites', error);
+}
+
 export function roadmapStore(db: Pick<SupabaseClient, 'rpc'>) {
   return {
-    /** Records one push of a roadmap; answers the roadmap, whether it is new, and its product. */
+    /** Records one push of a roadmap, then its prerequisites when it carries them; answers the
+     * roadmap, whether it is new, and its product. */
     async push(push: RoadmapPush): Promise<RoadmapPushAnswer> {
-      return settled(await db.rpc('roadmap_push', { p_body: bodyOf(push) }));
+      const answer = settled(await db.rpc('roadmap_push', { p_body: bodyOf(push) }));
+      if (push.prerequisites !== undefined) {
+        prerequisitesSettled(await db.rpc('roadmap_prerequisites_push', { p_body: prerequisitesBodyOf(push, push.prerequisites) }));
+      }
+      return answer;
     },
   };
 }
@@ -171,13 +252,13 @@ export function roadmapReader(db: Pick<SupabaseClient, 'from'>) {
   return {
     /** Every roadmap of the caller's workspaces, the most recently pushed first. */
     async list(): Promise<RoadmapRow[]> {
-      const { data, error } = await db.from('roadmaps').select(ROADMAP_COLUMNS).order('pushed_at', { ascending: false });
+      const { data, error } = await db.from('roadmaps').select(ROADMAP_READ_COLUMNS).order('pushed_at', { ascending: false });
       return error ? [] : orEmpty(parseRows(RoadmapRow, data, 'roadmap/store: roadmaps'));
     },
 
     /** One roadmap, or null when it does not exist or is another workspace's. */
     async roadmap(id: string): Promise<RoadmapRow | null> {
-      const { data, error } = await db.from('roadmaps').select(ROADMAP_COLUMNS).eq('id', id).maybeSingle();
+      const { data, error } = await db.from('roadmaps').select(ROADMAP_READ_COLUMNS).eq('id', id).maybeSingle();
       return error ? null : orNull(parseRow(RoadmapRow.nullable(), data, 'roadmap/store: roadmaps'));
     },
 
@@ -185,6 +266,12 @@ export function roadmapReader(db: Pick<SupabaseClient, 'from'>) {
     async prds(roadmapId: string): Promise<RoadmapPrdRow[]> {
       const { data, error } = await db.from('roadmap_prds').select(ROADMAP_PRD_COLUMNS).eq('roadmap_id', roadmapId).order('position', { ascending: true });
       return error ? [] : orEmpty(parseRows(RoadmapPrdRow, data, 'roadmap/store: roadmap_prds'));
+    },
+
+    /** A roadmap's prerequisites, in its table's order, each with the last result's state. */
+    async prerequisites(roadmapId: string): Promise<RoadmapPrerequisiteRow[]> {
+      const { data, error } = await db.from('roadmap_prerequisites').select(ROADMAP_PREREQUISITE_COLUMNS).eq('roadmap_id', roadmapId).order('position', { ascending: true });
+      return error ? [] : orEmpty(parseRows(RoadmapPrerequisiteRow, data, 'roadmap/store: roadmap_prerequisites'));
     },
 
     /** A roadmap's human work (PRD 1217): the open first, each part in the order it was first seen. */

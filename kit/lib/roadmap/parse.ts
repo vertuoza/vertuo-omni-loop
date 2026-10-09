@@ -12,6 +12,11 @@
  *    `repos` or `blocked by` cell a comma-separated list, and a dash or an empty cell means none.
  * 3. An optional `## Open questions` section; its table, when it has one, has the columns of
  *    {@link QUESTION_COLUMNS}, and each `kind` is one of {@link QUESTION_KINDS}.
+ * 4. An optional `## Prerequisites` section (PRD 1218); its table, when it has one, has the columns
+ *    of {@link PREREQUISITE_COLUMNS} (plus `repos` in a plan repository), each `category` one of
+ *    {@link PREREQUISITE_CATEGORIES}, each `who` one of {@link PREREQUISITE_WHO}, and `blocks` is
+ *    `all` or a list of ids. Under the table, a `### <id>` card per row, its lines labelled as
+ *    {@link CARD_LINES} says; a card for no row is refused.
  *
  * Whether the rows hold together (ids, blockers, waves, specs, targets) is `grade.ts`'s question.
  */
@@ -34,6 +39,46 @@ const QUESTION_COLUMNS = ['id', 'question', 'recommendation', 'blocks', 'kind'] 
 const QUESTION_KINDS = ['default', 'person'] as const;
 
 export type QuestionKind = (typeof QUESTION_KINDS)[number];
+
+/** The Prerequisites table's columns; a plan repository's roadmap may add `repos`. */
+const PREREQUISITE_COLUMNS = ['id', 'category', 'need', 'check', 'fix', 'blocks', 'who'] as const;
+
+/** Where a prerequisite holds: the machine, a registry, a grant, GitHub, a service. */
+export const PREREQUISITE_CATEGORIES = ['local', 'access', 'permissions', 'github', 'services'] as const;
+
+/** `agent` checks and fixes it, `check` is checked and fixed by a person, `person` is ticked by one. */
+export const PREREQUISITE_WHO = ['agent', 'check', 'person'] as const;
+
+export type PrerequisiteCategory = (typeof PREREQUISITE_CATEGORIES)[number];
+export type PrerequisiteWho = (typeof PREREQUISITE_WHO)[number];
+
+/** An author card's four lines; a line the card does not write is `null`. */
+export type PrerequisiteCard = { why: string | null; command: string | null; whatItDoes: string | null; whoCanDoIt: string | null };
+
+/** A card's labels, as written, by the field each fills. */
+export const CARD_LINES = [
+  ['why', 'Why'],
+  ['command', 'Command'],
+  ['whatItDoes', 'What it does'],
+  ['whoCanDoIt', 'Who can do it'],
+] as const satisfies readonly (readonly [keyof PrerequisiteCard, string])[];
+
+/**
+ * One prerequisite. `check` and `fix` are the cells unquoted (`base:<name>` or a shell command), `null`
+ * when empty; `blocks` is `'all'` or PRD row ids; `repos` is `null` when the table has no `repos`
+ * column; `card` is its `### <id>` card, `null` when it has none.
+ */
+export type RoadmapPrerequisite = {
+  id: string;
+  category: PrerequisiteCategory;
+  need: string;
+  check: string | null;
+  fix: string | null;
+  blocks: 'all' | string[];
+  who: PrerequisiteWho;
+  repos: string[] | null;
+  card: PrerequisiteCard | null;
+};
 
 /** One PRD of the roadmap. `repos` is `null` when the table has no `repos` column. */
 export type RoadmapRow = {
@@ -61,6 +106,9 @@ export type Roadmap = {
   repos: boolean;
   prds: RoadmapRow[];
   questions: RoadmapQuestion[];
+  /** The `## Prerequisites` rows, none without the section. Always set by the parser; optional so a
+   * roadmap built by hand (a test's) need not name it. */
+  prerequisites?: RoadmapPrerequisite[];
 };
 
 export type RoadmapParse = { ok: true; roadmap: Roadmap } | { ok: false; errors: string[] };
@@ -194,6 +242,101 @@ function questionsOf(section: Section | undefined): { questions: RoadmapQuestion
   return { questions, faults };
 }
 
+/** A cell with its surrounding backticks dropped; a "none" cell is `null`. */
+function codeCell(cell: string): string | null {
+  if (NONE_CELL.test(cell)) return null;
+  return /^`([^`]*)`$/.exec(cell)?.[1]?.trim() ?? cell;
+}
+
+const CARD_HEADING = /^###\s+(.+?)\s*#*\s*$/;
+const CARD_LINE = /^\s*[-*]\s+\*\*(.+?):\*\*\s*(.*)$/;
+
+/** The field a card's label fills, or `null` for a label that is not one of its four. */
+function cardField(label: string): keyof PrerequisiteCard | null {
+  const wanted = label.trim().toLowerCase();
+  return CARD_LINES.find(([, name]) => name.toLowerCase() === wanted)?.[0] ?? null;
+}
+
+/** One card from the lines under its heading: each labelled line, its indented lines joined on. */
+function cardOf(lines: readonly string[]): PrerequisiteCard {
+  const card: PrerequisiteCard = { why: null, command: null, whatItDoes: null, whoCanDoIt: null };
+  let field: keyof PrerequisiteCard | null = null;
+  for (const line of lines) {
+    const labelled = CARD_LINE.exec(line);
+    if (labelled) {
+      field = cardField(group(labelled, 1));
+      if (field !== null) card[field] = group(labelled, 2).trim();
+    } else if (line.trim() === '') {
+      field = null;
+    } else if (field !== null) {
+      card[field] = `${card[field] ?? ''} ${line.trim()}`.trim();
+    }
+  }
+  return { ...card, command: card.command === null ? null : codeCell(card.command) };
+}
+
+/** The `### <id>` cards among a section's lines, by id. */
+function cardsOf(lines: readonly string[]): Map<string, PrerequisiteCard> {
+  const blocks: { id: string; lines: string[] }[] = [];
+  for (const line of lines) {
+    const heading = CARD_HEADING.exec(line);
+    if (heading) blocks.push({ id: group(heading, 1), lines: [] });
+    else blocks.at(-1)?.lines.push(line);
+  }
+  return new Map(blocks.map(({ id, lines: under }) => [id, cardOf(under)]));
+}
+
+/** One of `names` when `value` is one, else `null`. */
+function oneOf<T extends string>(names: readonly T[], value: string): T | null {
+  return names.find((name) => name === value) ?? null;
+}
+
+type Cell = (row: readonly string[], name: string) => string;
+const WHERE = 'Prerequisites';
+
+/** The faults of a cell that must be one of `names`, by its column's name. */
+function enumFault(value: string, names: readonly string[], column: string, label: string): string[] {
+  return names.includes(value) ? [] : [`${WHERE}: ${label} has the ${column} "${value}", not one of ${names.join(', ')}.`];
+}
+
+/** One prerequisite row: the record when it holds, and its faults. */
+function prerequisiteRow(row: readonly string[], index: number, cell: Cell): { record: Omit<RoadmapPrerequisite, 'repos' | 'card'> | null; faults: string[] } {
+  const id = cell(row, 'id');
+  const { label, rowFaults } = rowOpening(id, index, WHERE);
+  const category = oneOf(PREREQUISITE_CATEGORIES, cell(row, 'category'));
+  const who = oneOf(PREREQUISITE_WHO, cell(row, 'who'));
+  const need = cell(row, 'need');
+  const blocksCell = cell(row, 'blocks');
+  const blocks = blocksCell.toLowerCase() === 'all' ? 'all' : listCell(blocksCell);
+  const faults = [
+    ...rowFaults,
+    ...enumFault(cell(row, 'category'), PREREQUISITE_CATEGORIES, 'category', label),
+    ...enumFault(cell(row, 'who'), PREREQUISITE_WHO, 'who', label),
+    ...(need === '' ? [`${WHERE}: ${label} needs nothing: its need is empty.`] : []),
+    ...(blocks === 'all' ? [] : idListFaults(blocks, `${WHERE}: ${label} blocks`)),
+  ];
+  if (faults.length > 0 || category === null || who === null) return { record: null, faults };
+  return { record: { id, category, need, check: codeCell(cell(row, 'check')), fix: codeCell(cell(row, 'fix')), blocks, who }, faults };
+}
+
+function prerequisitesOf(section: Section | undefined): { prerequisites: RoadmapPrerequisite[]; faults: string[] } {
+  const table = section ? firstTable(section.lines) : null;
+  if (!section || !table) return { prerequisites: [], faults: [] };
+  const { faults, has, cell } = columns(table, PREREQUISITE_COLUMNS, WHERE);
+  if (faults.length > 0) return { prerequisites: [], faults };
+  const cards = cardsOf(section.lines);
+  const ids = new Set(table.rows.map((row) => cell(row, 'id')));
+  const prerequisites: RoadmapPrerequisite[] = [];
+  table.rows.forEach((row, index) => {
+    const { record, faults: rowFaults } = prerequisiteRow(row, index, cell);
+    faults.push(...rowFaults);
+    if (record === null) return;
+    prerequisites.push({ ...record, repos: has('repos') ? listCell(cell(row, 'repos')) : null, card: cards.get(record.id) ?? null });
+  });
+  for (const id of cards.keys()) if (!ids.has(id)) faults.push(`${WHERE}: the card "### ${id}" is for no row of the table.`);
+  return { prerequisites, faults };
+}
+
 /** Parses one roadmap.md (`text`, the file's text) into a typed record, or every fault it has. */
 export function parseRoadmap(text: string): RoadmapParse {
   const block = FRONT_MATTER_BLOCK.exec(text);
@@ -203,7 +346,8 @@ export function parseRoadmap(text: string): RoadmapParse {
   const sections = sectionsOf(body);
   const prds = prdsOf(sections.find((section) => section.name === 'PRDs'));
   const questions = questionsOf(sections.find((section) => section.name === 'Open questions'));
-  const errors = [...front.errors, ...prds.faults, ...questions.faults];
+  const prerequisites = prerequisitesOf(sections.find((section) => section.name === 'Prerequisites'));
+  const errors = [...front.errors, ...prds.faults, ...questions.faults, ...prerequisites.faults];
   if (errors.length > 0 || front.data === null) return { ok: false, errors };
   const { roadmap, title, milestone, product, target, source } = front.data;
   return {
@@ -218,6 +362,7 @@ export function parseRoadmap(text: string): RoadmapParse {
       repos: prds.repos,
       prds: prds.rows,
       questions: questions.questions,
+      prerequisites: prerequisites.prerequisites,
     },
   };
 }

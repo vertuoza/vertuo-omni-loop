@@ -1,6 +1,6 @@
 ---
 name: mega-roadmap
-description: The roadmap of a plan repository — turns a milestone plan whose items span several target repositories into a roadmap in one sitting. Surveys the targets through omni targets and reads each one the roadmap touches from a shallow read-only clone in the scratch folder (nothing runs in it), shows one map of its PRDs (the repositories of each, every blocker with its why, each wave, every read-only target and consumer order the check would refuse) and takes every answer in one message; then writes every PRD as /omni:mega-brainstorm writes one (issue, inbox folder, spec with its Repositories section and its blocked-by, before/after grouped by repository) with no plan, opens the roadmap issue, writes roadmap.md with its repos column, runs omni roadmap check and omni check inbox until green, opens one phase-0 PR, pushes it to the roadmap's page with omni roadmap push, and hands off the /loop /omni:mega-drive --roadmap line. Outside a plan repository it prints the /omni:roadmap line. Writes nothing in any target, merges nothing. Triggers on "mega-roadmap", "a roadmap across repositories", "turn the crew plan into PRDs across the repositories", "/omni:mega-roadmap".
+description: The roadmap of a plan repository — turns a milestone plan whose items span several target repositories into a roadmap in one sitting. Surveys the targets through omni targets and reads each one the roadmap touches from a shallow read-only clone in the scratch folder (nothing runs in it), shows one map of its PRDs (the repositories of each, every blocker with its why, each wave, every read-only target and consumer order the check would refuse) and takes every answer in one message; then writes every PRD as /omni:mega-brainstorm writes one (issue, inbox folder, spec with its Repositories section and its blocked-by, before/after grouped by repository) with no plan, opens the roadmap issue, writes roadmap.md with its repos column, runs omni roadmap check and omni check inbox until green, opens one phase-0 PR, pushes it to the roadmap's page with omni roadmap push, checks its prerequisites (each naming the targets it concerns) once with omni roadmap prereqs --fix in the plan repository, and hands off the /loop /omni:mega-drive --roadmap line. Outside a plan repository it prints the /omni:roadmap line. Writes nothing in any target, merges nothing. Triggers on "mega-roadmap", "a roadmap across repositories", "turn the crew plan into PRDs across the repositories", "/omni:mega-roadmap".
 ---
 
 # Mega-roadmap: a milestone into PRDs across repositories
@@ -96,6 +96,11 @@ names every row the check would refuse in a plan repository, with the fix applie
   after the provider row's (`omni help roadmap`): the consumer installs what the provider publishes
   from its default branch, so it waits for the provider's merge.
 
+The prerequisites are shown grouped by category as `/omni:roadmap` shows them, each with the
+repositories it concerns when it concerns a target rather than the plan repository (a private
+package a target installs, a secret a target's preview needs): read from the clones, never by running
+anything in one.
+
 ## 3. Write every PRD
 
 As `/omni:roadmap` step 3 (the one phase-0 worktree, the issues first in wave order, each folder,
@@ -123,8 +128,23 @@ repository's roadmap:
 | P3.4 | #1213 | Stateless think endpoint | ai-domain | P1.1 | the endpoint is called by the worker | 2 |
 ```
 
-A row in several repositories lists them comma-separated. Commit, then run, fixing until both are
-green, in the plan repository:
+A row in several repositories lists them comma-separated.
+
+`## Prerequisites` is `/omni:roadmap`'s, rows and cards alike, with a `repos` column naming the
+targets each row concerns, or `–` for a row of the plan repository and the machine (the base rows):
+
+```markdown
+| id | category | need | check | fix | blocks | who | repos |
+|---|---|---|---|---|---|---|---|
+| p1 | permissions | gh is signed in, with the right to change the repository | `base:gh-auth` | | all | check | – |
+| p6 | access | the private `@acme/ui` package installs | `npm view @acme/ui version` | | P3.4 | check | crew |
+```
+
+A row that concerns a target is checked by a command that only reads (asking a registry, `gh api`),
+never by one that installs, builds or runs the target's code: no `base:install` on a target row, and
+no `agent` row names a target.
+
+Commit, then run, fixing until both are green, in the plan repository:
 
 ```bash
 node .omni-loop/bin/omni.mjs roadmap check <n>
@@ -135,8 +155,15 @@ node .omni-loop/bin/omni.mjs check inbox
 
 As `/omni:roadmap` step 5, in the plan repository: `node .omni-loop/bin/omni.mjs phase0 <prd>` for
 every PRD (its one expected fault `missing: plan`), the push and `/omni:dossier-push <prd>` for each,
-**one phase-0 PR** and then `node .omni-loop/bin/omni.mjs roadmap push <n>`. There is **no phase-0 PR
-in any target.**
+**one phase-0 PR**, then `node .omni-loop/bin/omni.mjs roadmap push <n>`, then the prerequisites
+checked once, as `/omni:roadmap` step 5 checks them:
+
+```bash
+node .omni-loop/bin/omni.mjs roadmap prereqs <n> --fix
+```
+
+It runs in the plan repository's worktree, never in a clone: the clones are gone by now, and nothing
+runs in one. There is **no phase-0 PR in any target.**
 
 Its body adds, after Summary, a **What lands where** table, so each team finds its part:
 
@@ -153,7 +180,8 @@ in.
 
 ## 6. Hand off
 
-As `/omni:roadmap` step 6, adding the targets' table from step 1 and every warning it printed. The
+As `/omni:roadmap` step 6, the open prerequisites first among their lines, each naming its
+repositories, adding the targets' table from step 1 and every warning it printed. The
 command on the reply's last line drives the roadmap across the repositories:
 
 ```markdown

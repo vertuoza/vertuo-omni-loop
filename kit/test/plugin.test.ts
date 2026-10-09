@@ -1272,6 +1272,66 @@ describe('the roadmap skills (PRD 1162)', () => {
   });
 });
 
+// PRD 1218, slice s8: a roadmap's prerequisites. `/omni:roadmap` and `/omni:mega-roadmap` write the
+// `## Prerequisites` rows (the base rows first, then what each PRD needs) with each card, show them on
+// the map by category, and run `omni roadmap prereqs <n> --fix` once the check is green, listing the
+// open rows in the hand-off. `/omni:drive` and `/omni:mega-drive` run it on the first tick and before
+// a PRD a prerequisite holds starts, and list the open ones when they stop.
+describe('the roadmap prerequisites in the skills (PRD 1218)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const missingInOrder = (text: string, mentions: string[]) => {
+    let from = 0;
+    return mentions.filter((mention) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) return true;
+      from = at + mention.length;
+      return false;
+    });
+  };
+  const PREREQS = 'omni.mjs roadmap prereqs <n> --fix';
+
+  it('/omni:roadmap writes the base rows and each PRD\'s rows with their four-line cards in roadmap.md', () => {
+    const text = read('roadmap');
+    const step1 = skillSection(text, '1. Read the source');
+    expect(step1).toMatch(/\*\*The prerequisites:\*\*/);
+    for (const base of ['`base:gh-auth`', '`base:node`', '`base:install`', '`base:labels`']) expect(step1, base).toContain(base);
+    expect(step1).toMatch(/blocking `all`/);
+    const step4 = skillSection(text, '4. The roadmap');
+    expect(missingInOrder(step4, ['## Open questions', '## Prerequisites', '| id | category | need | check | fix | blocks | who |', '### p', '**Why:**', '**Command:**', '**What it does:**', '**Who can do it:**'])).toEqual([]);
+  });
+
+  it('/omni:roadmap shows the prerequisites on the map by category, runs prereqs --fix once after the check, and lists the open ones in the hand-off', () => {
+    const text = read('roadmap');
+    expect(skillSection(text, '2. The map')).toMatch(/prerequisites[^\n]*grouped by category/i);
+    expect(missingInOrder(text, ['omni.mjs roadmap check <n>', PREREQS])).toEqual([]);
+    expect(skillSection(text, '6. Hand off')).toMatch(/`waits on you`[^]*first/);
+  });
+
+  it('/omni:mega-roadmap adds a repos cell to a prerequisite and never runs one in a clone', () => {
+    const text = read('mega-roadmap');
+    expect(skillSection(text, '2. The map')).toMatch(/prerequisites/i);
+    const step4 = skillSection(text, '4. The roadmap');
+    expect(step4).toContain('| id | category | need | check | fix | blocks | who | repos |');
+    expect(skillSection(text, '5. One phase-0 PR')).toContain(PREREQS);
+    expect(skillSection(text, '5. One phase-0 PR')).toMatch(/never in a clone/);
+  });
+
+  for (const skill of ['drive', 'mega-drive']) {
+    it(`/omni:${skill} runs prereqs --fix on the first tick and before a held PRD starts, and lists the open ones when it stops`, () => {
+      const text = read(skill);
+      expect(skillSection(text, '1. Open or resume'), skill).toContain(PREREQS);
+      expect(skillSection(text, '2. Read the step'), skill).toMatch(/waits on prerequisite/);
+      expect(skillSection(text, '5. Stop'), skill).toMatch(/open prerequisite/i);
+    });
+  }
+
+  it('/omni:drive runs prereqs before it reads the step, so omni next reads a fresh result', () => {
+    const step2 = skillSection(read('drive'), '2. Read the step');
+    expect(missingInOrder(step2, [PREREQS, 'omni.mjs next --json [--roadmap <n>]'])).toEqual([]);
+    expect(skillSection(read('drive'), '5. Stop')).toContain('waits on you');
+  });
+});
+
 // PRD 563: three skills build a PRD that spans repositories, from its plan repository, each beside
 // its single-repository twin and following it step for step. None merges into a default branch,
 // adds the outbox override, creates a label in a target, or runs anything there but its preflight.
@@ -1840,6 +1900,78 @@ describe('the prove skill and the skills that lead to it (PRD 798)', () => {
     expect(row('proof.url')).toMatch(/preview/);
     expect(row('proof.setup')).toMatch(/sign-in helper/);
     expect(step).toMatch(/proof\.bypassEnv[^\n]*name/);
+  });
+});
+
+// PRD 1233: /omni:validate-e2e (beta) stops in one line when e2e is off, writes tests from the spec
+// alone, runs them twice, checks them with omni e2e, and opens a sub-PR it never merges.
+describe('the validate-e2e skill (PRD 1233)', () => {
+  const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', 'validate-e2e', 'SKILL.md'), 'utf8');
+
+  it('is named validate-e2e, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('validate-e2e');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:validate-e2e/);
+  });
+
+  it('stops in one line, writing and posting nothing, when e2e is off, has no url, or Node is too old', () => {
+    const step = skillSection(read(), '1.');
+    for (const phrase of ['omni.mjs config e2e', '`enabled`', '`url`', '`null`', '24.8', 'node -v', 'writes nothing and posts nothing']) {
+      expect(step, phrase).toContain(phrase);
+    }
+  });
+
+  it('reaches the target as prove does, with the bypass never printed', () => {
+    const step = skillSection(read(), '2.');
+    for (const phrase of ['github-deployment', '10 minutes', 'e2e.bypassEnv', 'x-vercel-protection-bypass', 'e2e.setup', 'Never print']) {
+      expect(step, phrase).toContain(phrase);
+    }
+  });
+
+  it('reads the criteria from the spec alone and never the diff, and classes each as filmable or not', () => {
+    const step = skillSection(read(), '3.');
+    expect(step).toMatch(/never the diff/i);
+    expect(step).toContain('**filmable**');
+    expect(step).toContain('**not filmable**');
+  });
+
+  it('writes one prd-tagged test per filmable criterion with exact expects, and says why for agent.assert', () => {
+    const step = skillSection(read(), '4.');
+    for (const phrase of ['prd-<n>', 'e2e.dir', 'agent.act', 'expect()', 'agent.assert', 'why nothing exact exists', 'unique to the run', '.e2e/cache/']) {
+      expect(step, phrase).toContain(phrase);
+    }
+    expect(step).toMatch(/waits for it/);
+  });
+
+  it('records on a first run, never weakens a red test, then replays with --strict-cache', () => {
+    const text = read();
+    const first = skillSection(text, '5.');
+    expect(first).toContain('E2E_TELEMETRY_DISABLED=1');
+    expect(first).toContain('✗');
+    expect(first).toMatch(/never weakened/);
+    expect(first).toContain('limits.attempts');
+    const second = skillSection(text, '6.');
+    expect(second).toContain('npx e2e run --strict-cache --tag prd-<n>');
+    expect(second).toMatch(/unstable/);
+  });
+
+  it('runs omni e2e status then heals, and turns each healed step into an outbox item', () => {
+    const step = skillSection(read(), '7.');
+    const status = step.indexOf('omni.mjs e2e status <n>');
+    expect(status).toBeGreaterThan(-1);
+    expect(step.indexOf('omni.mjs e2e heals <n>')).toBeGreaterThan(status);
+    expect(step).toContain('omni.mjs item new');
+    expect(step).toMatch(/none is taken as accepted/);
+  });
+
+  it('opens a Part of sub-PR with the table, signed, and never merges or marks anything ready', () => {
+    const text = read();
+    expect(skillSection(text, '8.')).toMatch(/criterion \| test \| verdict/);
+    for (const phrase of ['labels.sub', 'Part of #<n>', 'not filmable', 'omni sign footer', 'omni sign trailer']) {
+      expect(text, phrase).toContain(phrase);
+    }
+    expect(skillSection(text, 'Never')).toMatch(/merge/);
+    for (const verb of [/\bgh pr ready\b/, /\bgh pr merge\b/]) expect(text).not.toMatch(verb);
   });
 });
 

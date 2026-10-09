@@ -1336,6 +1336,18 @@ var ConfigSchema = z8.object({
     bypassEnv: envName.nullable().default(null),
     maxSeconds: z8.number().int().positive().default(60)
   }),
+  // PRD 1233 (beta): how `/omni:validate-e2e` keeps a PRD's acceptance criteria as e2e tests. Off by
+  // default. `url`, `deployment`, `setup` and `bypassEnv` mean what they mean under `proof`; `dir` is
+  // where the tests and their recordings live; `model` is the goal steps' OpenRouter id.
+  e2e: section({
+    enabled: z8.boolean().default(false),
+    url: proofUrl.nullable().default(null),
+    deployment: nullableText.default(null),
+    setup: nullableText.default(null),
+    bypassEnv: envName.nullable().default(null),
+    dir: text3.default("e2e"),
+    model: text3.default("anthropic/claude-sonnet-5.5")
+  }),
   markers: section({ prefix: z8.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
   // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
@@ -4529,141 +4541,6 @@ function parseSpec(text8, { file = null } = {}) {
   return { ok: true, record };
 }
 
-// kit/lib/roadmap/grade.ts
-var shortName = (slug) => slug.slice(slug.indexOf("/") + 1);
-function duplicateIds(roadmap) {
-  const seen = /* @__PURE__ */ new Set();
-  const twice = /* @__PURE__ */ new Set();
-  for (const { id } of [...roadmap.prds, ...roadmap.questions]) {
-    if (seen.has(id)) twice.add(id);
-    seen.add(id);
-  }
-  return [...twice].map((id) => `${id}: the id is used twice.`);
-}
-function unknownBlockers(roadmap, rows) {
-  return roadmap.prds.flatMap(
-    (row) => row.blockedBy.filter((blocker) => !rows.has(blocker)).map((blocker) => `${row.id}: blocked by ${blocker}, which is not a row of the roadmap.`)
-  );
-}
-function cycles(roadmap, rows) {
-  const found = [];
-  const seenCycles = /* @__PURE__ */ new Set();
-  const done = /* @__PURE__ */ new Set();
-  const walk2 = (id, path) => {
-    const start = path.indexOf(id);
-    if (start !== -1) {
-      const loop = path.slice(start);
-      const key = [...loop].sort().join(",");
-      if (!seenCycles.has(key)) {
-        seenCycles.add(key);
-        found.push(`${loop[0]}: a cycle \u2014 ${[...loop, id].join(" \u2192 ")}.`);
-      }
-      return;
-    }
-    if (done.has(id)) return;
-    for (const blocker of rows.get(id)?.blockedBy ?? []) walk2(blocker, [...path, id]);
-    done.add(id);
-  };
-  for (const row of roadmap.prds) walk2(row.id, []);
-  return found;
-}
-function waveOrder(roadmap, rows) {
-  const violations = [];
-  for (const row of roadmap.prds) {
-    const blockers = row.blockedBy.flatMap((id) => rows.get(id) ?? []);
-    const expected = blockers.length === 0 ? 1 : Math.max(...blockers.map((blocker) => blocker.wave)) + 1;
-    if (row.wave === expected) continue;
-    const reason2 = blockers.length === 0 ? "it has no blocker" : `its highest blocker, ${blockers.find((blocker) => blocker.wave === expected - 1)?.id}, is in wave ${expected - 1}`;
-    violations.push(`${row.id}: in wave ${row.wave}, but ${reason2}, so its wave is ${expected}.`);
-  }
-  return violations;
-}
-function missingWhy(roadmap) {
-  return roadmap.prds.filter((row) => row.blockedBy.length > 0 && row.why === null).map((row) => `${row.id}: blocked by ${row.blockedBy.join(", ")} with no why \u2014 every blocker says why it blocks.`);
-}
-var prdList = (prds) => prds.length === 0 ? "none" : prds.map((prd) => `#${prd}`).join(", ");
-function specAgreement(roadmap, rows, prdFacts2) {
-  const violations = [];
-  for (const row of roadmap.prds) {
-    const facts = prdFacts2(row.prd);
-    if (facts === "no-folder") {
-      violations.push(`${row.id}: PRD #${row.prd} has no inbox or shipped folder.`);
-      continue;
-    }
-    if (facts === "unreadable") {
-      violations.push(`${row.id}: PRD #${row.prd}'s spec does not parse, so its blocked-by cannot be compared.`);
-      continue;
-    }
-    const wanted = [...new Set(row.blockedBy.flatMap((id) => rows.get(id)?.prd ?? []))].sort((a, b) => a - b);
-    const declared = [...new Set(facts.blockedBy === "none" ? [] : facts.blockedBy)].sort((a, b) => a - b);
-    if (wanted.join(",") === declared.join(",")) continue;
-    violations.push(`${row.id}: PRD #${row.prd}'s spec is blocked by ${prdList(declared)}, but its row by ${prdList(wanted)}.`);
-  }
-  return violations;
-}
-function unknownQuestionRows(roadmap, rows) {
-  return roadmap.questions.flatMap(
-    (question) => question.blocks.filter((id) => !rows.has(id)).map((id) => `${question.id}: blocks ${id}, which is not a row of the roadmap.`)
-  );
-}
-function upstream(row, rows) {
-  const found = /* @__PURE__ */ new Map();
-  const queue = [...row.blockedBy];
-  while (queue.length > 0) {
-    const id = queue.shift() ?? "";
-    const blocker = rows.get(id);
-    if (blocker === void 0 || found.has(id) || id === row.id) continue;
-    found.set(id, blocker);
-    queue.push(...blocker.blockedBy);
-  }
-  return [...found.values()];
-}
-function rowRepoViolations(row, { names, readOnly }) {
-  const repos = row.repos ?? [];
-  if (repos.length === 0) return [`${row.id}: names no repository.`];
-  return repos.flatMap((repo) => {
-    if (!names.includes(repo)) return [`${row.id}: ${repo} is not a target of plan.targets (${names.join(", ")}).`];
-    return readOnly.has(repo) ? [`${row.id}: ${repo} is a read-only target \u2014 no roadmap row may name it.`] : [];
-  });
-}
-function consumerViolations(row, blocker, consumes) {
-  if (blocker.wave < row.wave) return [];
-  return (row.repos ?? []).flatMap((consumer) => {
-    const provider = (blocker.repos ?? []).find((repo) => consumes.get(consumer)?.includes(repo) === true);
-    if (provider === void 0) return [];
-    return [
-      `${row.id}: changes ${consumer}, which consumes ${provider}, in wave ${row.wave}, not after ${blocker.id} (wave ${blocker.wave}) that changes ${provider} and that it waits on.`
-    ];
-  });
-}
-function targetViolations(roadmap, rows, targets) {
-  if (!roadmap.repos) return ['PRDs: the table has no "repos" column; in a plan repository each row names its repositories.'];
-  const rules = {
-    names: targets.map((target2) => shortName(target2.repo)),
-    readOnly: new Set(targets.filter((target2) => target2.readOnly === true).map((target2) => shortName(target2.repo))),
-    consumes: new Map(targets.map((target2) => [shortName(target2.repo), target2.consumes ?? []]))
-  };
-  return roadmap.prds.flatMap((row) => [
-    ...rowRepoViolations(row, rules),
-    ...upstream(row, rows).flatMap((blocker) => consumerViolations(row, blocker, rules.consumes))
-  ]);
-}
-function gradeRoadmap(roadmap, { prdFacts: prdFacts2, targets }) {
-  const rows = /* @__PURE__ */ new Map();
-  for (const row of roadmap.prds) if (!rows.has(row.id)) rows.set(row.id, row);
-  const repoRule = targets === null ? roadmap.repos ? ["PRDs: a repos column needs a plan repository (a config with plan.targets)."] : [] : targetViolations(roadmap, rows, targets);
-  return [
-    ...duplicateIds(roadmap),
-    ...unknownBlockers(roadmap, rows),
-    ...cycles(roadmap, rows),
-    ...waveOrder(roadmap, rows),
-    ...missingWhy(roadmap),
-    ...specAgreement(roadmap, rows, prdFacts2),
-    ...unknownQuestionRows(roadmap, rows),
-    ...repoRule
-  ];
-}
-
 // kit/lib/roadmap/parse.ts
 import { z as z20 } from "zod";
 
@@ -4707,6 +4584,15 @@ function firstTable(lines) {
 var PRD_COLUMNS = ["id", "PRD", "title", "blocked by", "why", "wave"];
 var QUESTION_COLUMNS = ["id", "question", "recommendation", "blocks", "kind"];
 var QUESTION_KINDS = ["default", "person"];
+var PREREQUISITE_COLUMNS = ["id", "category", "need", "check", "fix", "blocks", "who"];
+var PREREQUISITE_CATEGORIES = ["local", "access", "permissions", "github", "services"];
+var PREREQUISITE_WHO = ["agent", "check", "person"];
+var CARD_LINES = [
+  ["why", "Why"],
+  ["command", "Command"],
+  ["whatItDoes", "What it does"],
+  ["whoCanDoIt", "Who can do it"]
+];
 var FRONT_MATTER_BLOCK4 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 var PRD_CELL = /^#([1-9]\d*)$/;
 var WAVE_CELL = /^[1-9]\d*$/;
@@ -4817,6 +4703,83 @@ function questionsOf(section4) {
   });
   return { questions, faults };
 }
+function codeCell(cell3) {
+  if (NONE_CELL.test(cell3)) return null;
+  return /^`([^`]*)`$/.exec(cell3)?.[1]?.trim() ?? cell3;
+}
+var CARD_HEADING = /^###\s+(.+?)\s*#*\s*$/;
+var CARD_LINE = /^\s*[-*]\s+\*\*(.+?):\*\*\s*(.*)$/;
+function cardField(label2) {
+  const wanted = label2.trim().toLowerCase();
+  return CARD_LINES.find(([, name]) => name.toLowerCase() === wanted)?.[0] ?? null;
+}
+function cardOf(lines) {
+  const card = { why: null, command: null, whatItDoes: null, whoCanDoIt: null };
+  let field3 = null;
+  for (const line of lines) {
+    const labelled = CARD_LINE.exec(line);
+    if (labelled) {
+      field3 = cardField(group(labelled, 1));
+      if (field3 !== null) card[field3] = group(labelled, 2).trim();
+    } else if (line.trim() === "") {
+      field3 = null;
+    } else if (field3 !== null) {
+      card[field3] = `${card[field3] ?? ""} ${line.trim()}`.trim();
+    }
+  }
+  return { ...card, command: card.command === null ? null : codeCell(card.command) };
+}
+function cardsOf(lines) {
+  const blocks = [];
+  for (const line of lines) {
+    const heading = CARD_HEADING.exec(line);
+    if (heading) blocks.push({ id: group(heading, 1), lines: [] });
+    else blocks.at(-1)?.lines.push(line);
+  }
+  return new Map(blocks.map(({ id, lines: under }) => [id, cardOf(under)]));
+}
+function oneOf(names, value) {
+  return names.find((name) => name === value) ?? null;
+}
+var WHERE = "Prerequisites";
+function enumFault(value, names, column, label2) {
+  return names.includes(value) ? [] : [`${WHERE}: ${label2} has the ${column} "${value}", not one of ${names.join(", ")}.`];
+}
+function prerequisiteRow(row, index, cell3) {
+  const id = cell3(row, "id");
+  const { label: label2, rowFaults } = rowOpening(id, index, WHERE);
+  const category = oneOf(PREREQUISITE_CATEGORIES, cell3(row, "category"));
+  const who = oneOf(PREREQUISITE_WHO, cell3(row, "who"));
+  const need = cell3(row, "need");
+  const blocksCell = cell3(row, "blocks");
+  const blocks = blocksCell.toLowerCase() === "all" ? "all" : listCell(blocksCell);
+  const faults = [
+    ...rowFaults,
+    ...enumFault(cell3(row, "category"), PREREQUISITE_CATEGORIES, "category", label2),
+    ...enumFault(cell3(row, "who"), PREREQUISITE_WHO, "who", label2),
+    ...need === "" ? [`${WHERE}: ${label2} needs nothing: its need is empty.`] : [],
+    ...blocks === "all" ? [] : idListFaults(blocks, `${WHERE}: ${label2} blocks`)
+  ];
+  if (faults.length > 0 || category === null || who === null) return { record: null, faults };
+  return { record: { id, category, need, check: codeCell(cell3(row, "check")), fix: codeCell(cell3(row, "fix")), blocks, who }, faults };
+}
+function prerequisitesOf(section4) {
+  const table = section4 ? firstTable(section4.lines) : null;
+  if (!section4 || !table) return { prerequisites: [], faults: [] };
+  const { faults, has, cell: cell3 } = columns(table, PREREQUISITE_COLUMNS, WHERE);
+  if (faults.length > 0) return { prerequisites: [], faults };
+  const cards = cardsOf(section4.lines);
+  const ids = new Set(table.rows.map((row) => cell3(row, "id")));
+  const prerequisites = [];
+  table.rows.forEach((row, index) => {
+    const { record, faults: rowFaults } = prerequisiteRow(row, index, cell3);
+    faults.push(...rowFaults);
+    if (record === null) return;
+    prerequisites.push({ ...record, repos: has("repos") ? listCell(cell3(row, "repos")) : null, card: cards.get(record.id) ?? null });
+  });
+  for (const id of cards.keys()) if (!ids.has(id)) faults.push(`${WHERE}: the card "### ${id}" is for no row of the table.`);
+  return { prerequisites, faults };
+}
 function parseRoadmap(text8) {
   const block = FRONT_MATTER_BLOCK4.exec(text8);
   if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
@@ -4825,7 +4788,8 @@ function parseRoadmap(text8) {
   const sections = sectionsOf(body);
   const prds = prdsOf(sections.find((section4) => section4.name === "PRDs"));
   const questions = questionsOf(sections.find((section4) => section4.name === "Open questions"));
-  const errors = [...front.errors, ...prds.faults, ...questions.faults];
+  const prerequisites = prerequisitesOf(sections.find((section4) => section4.name === "Prerequisites"));
+  const errors = [...front.errors, ...prds.faults, ...questions.faults, ...prerequisites.faults];
   if (errors.length > 0 || front.data === null) return { ok: false, errors };
   const { roadmap, title, milestone, product, target: target2, source } = front.data;
   return {
@@ -4839,13 +4803,181 @@ function parseRoadmap(text8) {
       source: source ?? null,
       repos: prds.repos,
       prds: prds.rows,
-      questions: questions.questions
+      questions: questions.questions,
+      prerequisites: prerequisites.prerequisites
     }
   };
 }
 function roadmapWaves(roadmap) {
   const waves = [...new Set(roadmap.prds.map((row) => row.wave))].sort((a, b) => a - b);
   return waves.map((wave) => ({ wave, rows: roadmap.prds.filter((row) => row.wave === wave) }));
+}
+
+// kit/lib/roadmap/grade.ts
+var shortName = (slug) => slug.slice(slug.indexOf("/") + 1);
+var PREREQUISITE_BASE_CHECKS = ["gh-auth", "node", "pnpm", "npm", "yarn", "install", "registry", "docker", "labels", "env-file", "omni-signin"];
+var PREREQUISITE_BASE_FIXES = ["install", "labels", "env-file"];
+var BASE = /^base:(.*)$/;
+function duplicateIds(roadmap) {
+  const seen = /* @__PURE__ */ new Set();
+  const twice = /* @__PURE__ */ new Set();
+  for (const { id } of [...roadmap.prds, ...roadmap.questions, ...roadmap.prerequisites ?? []]) {
+    if (seen.has(id)) twice.add(id);
+    seen.add(id);
+  }
+  return [...twice].map((id) => `${id}: the id is used twice.`);
+}
+function unknownBlockers(roadmap, rows) {
+  return roadmap.prds.flatMap(
+    (row) => row.blockedBy.filter((blocker) => !rows.has(blocker)).map((blocker) => `${row.id}: blocked by ${blocker}, which is not a row of the roadmap.`)
+  );
+}
+function cycles(roadmap, rows) {
+  const found = [];
+  const seenCycles = /* @__PURE__ */ new Set();
+  const done = /* @__PURE__ */ new Set();
+  const walk2 = (id, path) => {
+    const start = path.indexOf(id);
+    if (start !== -1) {
+      const loop = path.slice(start);
+      const key = [...loop].sort().join(",");
+      if (!seenCycles.has(key)) {
+        seenCycles.add(key);
+        found.push(`${loop[0]}: a cycle \u2014 ${[...loop, id].join(" \u2192 ")}.`);
+      }
+      return;
+    }
+    if (done.has(id)) return;
+    for (const blocker of rows.get(id)?.blockedBy ?? []) walk2(blocker, [...path, id]);
+    done.add(id);
+  };
+  for (const row of roadmap.prds) walk2(row.id, []);
+  return found;
+}
+function waveOrder(roadmap, rows) {
+  const violations = [];
+  for (const row of roadmap.prds) {
+    const blockers = row.blockedBy.flatMap((id) => rows.get(id) ?? []);
+    const expected = blockers.length === 0 ? 1 : Math.max(...blockers.map((blocker) => blocker.wave)) + 1;
+    if (row.wave === expected) continue;
+    const reason2 = blockers.length === 0 ? "it has no blocker" : `its highest blocker, ${blockers.find((blocker) => blocker.wave === expected - 1)?.id}, is in wave ${expected - 1}`;
+    violations.push(`${row.id}: in wave ${row.wave}, but ${reason2}, so its wave is ${expected}.`);
+  }
+  return violations;
+}
+function missingWhy(roadmap) {
+  return roadmap.prds.filter((row) => row.blockedBy.length > 0 && row.why === null).map((row) => `${row.id}: blocked by ${row.blockedBy.join(", ")} with no why \u2014 every blocker says why it blocks.`);
+}
+var prdList = (prds) => prds.length === 0 ? "none" : prds.map((prd) => `#${prd}`).join(", ");
+function specAgreement(roadmap, rows, prdFacts2) {
+  const violations = [];
+  for (const row of roadmap.prds) {
+    const facts = prdFacts2(row.prd);
+    if (facts === "no-folder") {
+      violations.push(`${row.id}: PRD #${row.prd} has no inbox or shipped folder.`);
+      continue;
+    }
+    if (facts === "unreadable") {
+      violations.push(`${row.id}: PRD #${row.prd}'s spec does not parse, so its blocked-by cannot be compared.`);
+      continue;
+    }
+    const wanted = [...new Set(row.blockedBy.flatMap((id) => rows.get(id)?.prd ?? []))].sort((a, b) => a - b);
+    const declared = [...new Set(facts.blockedBy === "none" ? [] : facts.blockedBy)].sort((a, b) => a - b);
+    if (wanted.join(",") === declared.join(",")) continue;
+    violations.push(`${row.id}: PRD #${row.prd}'s spec is blocked by ${prdList(declared)}, but its row by ${prdList(wanted)}.`);
+  }
+  return violations;
+}
+function unknownQuestionRows(roadmap, rows) {
+  return roadmap.questions.flatMap(
+    (question) => question.blocks.filter((id) => !rows.has(id)).map((id) => `${question.id}: blocks ${id}, which is not a row of the roadmap.`)
+  );
+}
+function baseName(cell3) {
+  return cell3 === null ? null : BASE.exec(cell3)?.[1] ?? null;
+}
+function checkFaults({ id, check }) {
+  const name = baseName(check);
+  const known = PREREQUISITE_BASE_CHECKS;
+  if (name === null || known.includes(name)) return [];
+  return [`${id}: checks ${check}, which is no base check (${PREREQUISITE_BASE_CHECKS.join(", ")}).`];
+}
+function fixFaults({ id, fix, who }) {
+  if (fix === null) return who === "agent" ? [`${id}: is an agent row without a fix; an agent row names the base fix it runs.`] : [];
+  if (who !== "agent") return [`${id}: has the fix ${fix}, but only an agent row has a fix.`];
+  const known = PREREQUISITE_BASE_FIXES;
+  return known.includes(baseName(fix) ?? "") ? [] : [`${id}: has the fix ${fix}, which is no base fix (${PREREQUISITE_BASE_FIXES.join(", ")}).`];
+}
+function cardFaults({ id, who, card }) {
+  if (who === "agent") return [];
+  if (card === null) return [`${id}: has no card; a check or person row has a "### ${id}" card under the table.`];
+  return CARD_LINES.filter(([field3]) => card[field3] === null || card[field3] === "").map(([, label2]) => `${id}: its card has no "${label2}" line.`);
+}
+function prerequisiteViolations(roadmap, rows) {
+  return (roadmap.prerequisites ?? []).flatMap((prerequisite) => [
+    ...(prerequisite.blocks === "all" ? [] : prerequisite.blocks).filter((id) => !rows.has(id)).map((id) => `${prerequisite.id}: blocks ${id}, which is not a row of the roadmap.`),
+    ...checkFaults(prerequisite),
+    ...fixFaults(prerequisite),
+    ...cardFaults(prerequisite)
+  ]);
+}
+function upstream(row, rows) {
+  const found = /* @__PURE__ */ new Map();
+  const queue = [...row.blockedBy];
+  while (queue.length > 0) {
+    const id = queue.shift() ?? "";
+    const blocker = rows.get(id);
+    if (blocker === void 0 || found.has(id) || id === row.id) continue;
+    found.set(id, blocker);
+    queue.push(...blocker.blockedBy);
+  }
+  return [...found.values()];
+}
+function rowRepoViolations(row, { names, readOnly }) {
+  const repos = row.repos ?? [];
+  if (repos.length === 0) return [`${row.id}: names no repository.`];
+  return repos.flatMap((repo) => {
+    if (!names.includes(repo)) return [`${row.id}: ${repo} is not a target of plan.targets (${names.join(", ")}).`];
+    return readOnly.has(repo) ? [`${row.id}: ${repo} is a read-only target \u2014 no roadmap row may name it.`] : [];
+  });
+}
+function consumerViolations(row, blocker, consumes) {
+  if (blocker.wave < row.wave) return [];
+  return (row.repos ?? []).flatMap((consumer) => {
+    const provider = (blocker.repos ?? []).find((repo) => consumes.get(consumer)?.includes(repo) === true);
+    if (provider === void 0) return [];
+    return [
+      `${row.id}: changes ${consumer}, which consumes ${provider}, in wave ${row.wave}, not after ${blocker.id} (wave ${blocker.wave}) that changes ${provider} and that it waits on.`
+    ];
+  });
+}
+function targetViolations(roadmap, rows, targets) {
+  if (!roadmap.repos) return ['PRDs: the table has no "repos" column; in a plan repository each row names its repositories.'];
+  const rules = {
+    names: targets.map((target2) => shortName(target2.repo)),
+    readOnly: new Set(targets.filter((target2) => target2.readOnly === true).map((target2) => shortName(target2.repo))),
+    consumes: new Map(targets.map((target2) => [shortName(target2.repo), target2.consumes ?? []]))
+  };
+  return roadmap.prds.flatMap((row) => [
+    ...rowRepoViolations(row, rules),
+    ...upstream(row, rows).flatMap((blocker) => consumerViolations(row, blocker, rules.consumes))
+  ]);
+}
+function gradeRoadmap(roadmap, { prdFacts: prdFacts2, targets }) {
+  const rows = /* @__PURE__ */ new Map();
+  for (const row of roadmap.prds) if (!rows.has(row.id)) rows.set(row.id, row);
+  const repoRule = targets === null ? roadmap.repos ? ["PRDs: a repos column needs a plan repository (a config with plan.targets)."] : [] : targetViolations(roadmap, rows, targets);
+  return [
+    ...duplicateIds(roadmap),
+    ...unknownBlockers(roadmap, rows),
+    ...cycles(roadmap, rows),
+    ...waveOrder(roadmap, rows),
+    ...missingWhy(roadmap),
+    ...specAgreement(roadmap, rows, prdFacts2),
+    ...unknownQuestionRows(roadmap, rows),
+    ...prerequisiteViolations(roadmap, rows),
+    ...repoRule
+  ];
 }
 
 // kit/lib/roadmap/index.ts

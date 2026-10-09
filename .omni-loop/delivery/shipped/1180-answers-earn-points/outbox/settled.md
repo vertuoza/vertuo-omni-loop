@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-07
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-77, P-PRODUCT-68
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ Changing it later is one line in the scoring code; the stored history stays the 
 - Raised: 2026-10-07
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off scope choice about which files this slice touched; it sets no lasting rule. The How to play line already follows P-PRODUCT-32.
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ Each change is a few lines and can be reverted on its own; none changes stored d
 - Raised: 2026-10-07
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-78, P-PRODUCT-69
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ A change is a new version of one database function; past answers would be paid o
 - Raised: 2026-10-07
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-79, P-PRODUCT-70
 
 ### The answer, as it was given
 
@@ -328,6 +332,7 @@ One flag in the projector and a test, no migration.
 - Raised: 2026-10-07
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-80, P-PRODUCT-71
 
 ### The answer, as it was given
 
@@ -405,6 +410,7 @@ Switching to B is one line in the settled-ledger reader and one test, no migrati
 - Raised: 2026-10-07
 - Slice: s3
 - Wave: 2
+- Stays here: A one-off scope choice for this slice; the bundle rebuild is already ADR-0071, and nothing else lasting remains to record.
 
 ### The answer, as it was given
 
