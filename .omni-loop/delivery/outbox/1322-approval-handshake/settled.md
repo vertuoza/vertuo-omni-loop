@@ -939,3 +939,394 @@ A constant: moving it to /sw.js later is a route or a rewrite, and the path the 
 ```
 
 <!-- /omni-outbox-settled: s9-03-service-worker-address -->
+
+<!-- omni-outbox-settled: s3-01-what-the-stream-replays-and-its-event-ids -->
+
+## s3-01-what-the-stream-replays-and-its-event-ids — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-what-the-stream-replays-and-its-event-ids
+prd: 1322
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+When the waiting terminal connects to the live approval feed, what does it hear first, and how does it pick up where it left off after the connection is cut?
+
+## The decision, in plain words
+
+Each event is numbered by its place in the PRD's history, so a resumed connection hears only what came after the last number it saw. A fresh connection hears the latest request, then only what followed it or the latest void, so an approval that a later change cancelled is never heard as if it still held.
+
+## The intro, for fun
+
+A feed that starts at the beginning tells the old ending first.
+
+## The punchline, for fun
+
+So it opens at the latest chapter and skips the spoilers.
+
+## The options, in plain words
+
+A. Ids are places in the time-ordered history; a fresh connection starts at the latest request, skipping an approval a later void ended (built).
+B. Ids are each row's time in microseconds, and a fresh connection is sent the whole history.
+C. A fresh connection is sent nothing old, only what lands after it opens.
+
+## What I had to decide
+
+The spec asks for increasing ids and a replay after Last-Event-ID, but not what the ids are, nor what a connection without an id is sent first. The kit exits 0 on the first approved event, so replaying a voided approval would end a wait wrongly.
+
+## What I did meanwhile
+
+stream.service.ts numbers events 1, 2, 3… by their place in the PRD's requests, approvals and voids sorted by time (microseconds kept; a request sorts before an approval before a void at the same instant). Last-Event-ID n resumes after the n-th; an id it does not know (not a number, or beyond the history) is read as none. With none, the stream sends the latest asked or re-asked event, then every event after the later of that request and the latest void. Realtime only triggers a fresh read of the history; every ping (15 s) reads it again too, so a missed notification costs at most one ping's delay. The stream lives until 15 s before the route's 300 s limit, then sends reconnect.
+
+## What it costs to change later
+
+Low: the numbering and the starting rule are two functions of one file; no stored shape depends on them, and the kit only compares ids it has seen.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say what an id is; a place in the history assumes the rows stay append-only, which they are, though a deleted dossier or a row committed late with an earlier time could shift places.
+- (author) The spec does not say what a connection without Last-Event-ID is sent first; the kit always checks for an approval in force before asking, so an older approval still in force is not replayed.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-what-the-stream-replays-and-its-event-ids -->
+
+<!-- omni-outbox-settled: s3-02-stream-reads-outside-its-own-files-and-names-people-by-player -->
+
+## s3-02-stream-reads-outside-its-own-files-and-names-people-by-player — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-stream-reads-outside-its-own-files-and-names-people-by-player
+prd: 1322
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+The live approval feed needs to read the PRD's history and say who was asked by name. Where does that reading live, and where do the names come from?
+
+## The decision, in plain words
+
+The reading joins the shared approvals storage file, as the spec's layering asks, and the sign-in check is shared with the request route. Names come from each person's player profile in the workspace, the same place the page shows them, falling back to their account number when they have none.
+
+## The intro, for fun
+
+The feed knew everything that happened, but not everyone's name.
+
+## The punchline, for fun
+
+So it asked the team roster, the one everybody signed.
+
+## The options, in plain words
+
+A. Read in the approvals repository, shape in a stream service, names from player profiles with the account id as fallback (built).
+B. Add a database function that names people exactly as the request does, in a migration outside this slice.
+C. Read the names with the server's service key, which may call the login function.
+
+## What I had to decide
+
+The plan gives this slice files starting with stream, while the spec says the approvals repository is the only file that reaches the database; and the request rows store who was asked as accounts, not names, while the function that turns an account into a login is closed to signed-in members.
+
+## What I did meanwhile
+
+approvals.repository.ts gains historyRepository (the history read and the Realtime watch, as the caller), approvals.controller.ts exports refusalOf and a new callerOf (the sign-in check both routes use), and the event shaping lives in stream.service.ts rather than approvals.service.ts. The asked people, the author and their names come from the players table (GitHub login in lower case, display name), falling back to the account id when a member has no player row; the product's name from the products table; the approver and the pusher from the logins their rows recorded.
+
+## What it costs to change later
+
+Low: moving the read is a rename; reading names through a database function instead is one migration and one call, with no row changing shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) A member with no player row is named by their account id in the stream, where the request's own reply names them by GitHub identity or email; the kit then prints the waiting line again with that id.
+- (author) Whether the stream's shaping belongs in approvals.service.ts rather than its own stream file is not settled by the plan.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-stream-reads-outside-its-own-files-and-names-people-by-player -->
+
+<!-- omni-outbox-settled: s6-01-one-void-per-changed-file-one-alert-per-push -->
+
+## s6-01-one-void-per-changed-file-one-alert-per-push — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-one-void-per-changed-file-one-alert-per-push
+prd: 1322
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+When one push changes two approved files, is the approval voided once or once per file, and how many alerts does the approver get?
+
+## The decision, in plain words
+
+Each changed file leaves its own void record, so the page can show exactly what changed, but the approver gets one alert and one email per push, listing every changed file. A later push does not void the same approval again.
+
+## The intro, for fun
+
+Two files changed in one push, and the approver's phone braced for twins.
+
+## The punchline, for fun
+
+It got one buzz with a list instead.
+
+## The options, in plain words
+
+A. A. A void per changed file, one alert per push listing them (built).
+B. B. One void per approval, naming only the first changed file, and one alert.
+C. C. A void and an alert per changed file.
+
+## What I had to decide
+
+How many approval_voids rows a push writes and how many notifications follow, and how the push route learns which voids its own push left.
+
+## What I did meanwhile
+
+dossier_push reads the approval in force once before adding versions, then appends one approval_voids row per added version of a pinned kind with another sha256. approval_voids gained version_id (the version that voided), so approval_voids_of_push(dossier) names the caller's voids whose version is still the latest of its kind; the route sends one message per push to the approver through approval_void_recipients() (service role). Push payload {title: `approval voided by <pusher>'s push`, body: `PRD <n> · <title>` and each `<kind> <old7>→<new7>`, url /prd/<dossier>}.
+
+## What it costs to change later
+
+Low: one loop in dossier_push and one function of the service; the column is additive and nothing read the table before.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names one void per approval (the kind, the old and new hash) but not a push that changes several pinned files at once.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-one-void-per-changed-file-one-alert-per-push -->
+
+<!-- omni-outbox-settled: s6-02-approval-route-carries-voids -->
+
+## s6-02-approval-route-carries-voids — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-approval-route-carries-voids
+prd: 1322
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+The server's approval page, which no step of this plan owns, drops the news of a void before the checking command reads it. Should this step teach it to pass the void on?
+
+## The decision, in plain words
+
+Yes: the approval page now passes on, with each approval, the pushes that voided it, so the command reads a voided approval as drifted and names who pushed. Nothing else on that page changed.
+
+## The intro, for fun
+
+The news of a void was ready, and the messenger had no pocket for it.
+
+## The punchline, for fun
+
+So the messenger got one more pocket, and nothing else.
+
+## The options, in plain words
+
+A. A. Pass the voids on through the existing approval route (built).
+B. B. Have dossier_approval() answer no approval at all once voided, so nothing outside the territory changes, and the kit reads it as pending instead of drifted.
+C. C. Add a separate route for voids that the kit calls after the approval route.
+
+## What I had to decide
+
+Whether s6 may change apps/galaxy/src/approval/approval-api.ts, outside its territory, so GET /api/dossiers/approval passes dossier_approval()'s new `voids` on to the kit.
+
+## What I did meanwhile
+
+approval-api.ts's InForce schema reads an optional `voids: [{pusher, kind, from, to, voidedAt}]` and answerOf passes it on with voidedAt in ISO 8601; a test in approval-api.test.ts proves the kit's parseApprovalReply reads it. The kit's ApprovalSchema takes `voids` as optional, so a server without it reads as before.
+
+## What it costs to change later
+
+Low: one optional field in one schema and one line of its mapping; reverting it only makes the kit fall back to comparing files.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives s6 kit/lib/approval/approval and the migration, but not the route between them; no other slice owns apps/galaxy/src/approval/.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-approval-route-carries-voids -->
+
+<!-- omni-outbox-settled: s7-01-approvers-unread-shows-approve -->
+
+## s7-01-approvers-unread-shows-approve — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-approvers-unread-shows-approve
+prd: 1322
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+When the page cannot read who a product asks to approve, should a member still see the Approve button?
+
+## The decision, in plain words
+
+Yes: the page shows Approve to every member in that case, and the server still refuses anyone the product does not ask, with its own words.
+
+## The intro, for fun
+
+The guest list fell behind the sofa for a moment.
+
+## The punchline, for fun
+
+So the door stays open, and the bouncer at the server still checks every name.
+
+## The options, in plain words
+
+A. Show Approve to every member while the list cannot be read; the server refuses anyone not asked.
+B. Hide Approve from everyone while the list cannot be read, and say why on the page.
+
+## What I had to decide
+
+Whether a failed read of the product's approvers shows Approve to every member, the server deciding, or hides it from everyone until the page reloads.
+
+## What I did meanwhile
+
+A member the product does not ask may see Approve during such a failure; pressing it shows the server's refusal and nothing is approved.
+
+## What it costs to change later
+
+One line in the page's approval view: switching to hiding the button is a constant change, no data moves.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- How often that read fails in production is not known (author).
+
+```
+
+<!-- /omni-outbox-settled: s7-01-approvers-unread-shows-approve -->
