@@ -1935,37 +1935,53 @@ describe('the validate-e2e skill (PRD 1233)', () => {
     expect(step).toContain('**not filmable**');
   });
 
+  it('sets the e2e project up as a declared workspace, checks the package manager against CI, then installs (PRD 1273)', () => {
+    const text = read();
+    const step = skillSection(text, '4.');
+    for (const phrase of ['workspace', 'e2e.dir', 'packageManager', 'committed in the sub-PR', 'one line', 'before it installs']) {
+      expect(step, phrase).toContain(phrase);
+    }
+    expect(step).toMatch(/newer than/);
+    expect(step).toMatch(/names both versions/);
+    expect(step.indexOf('packageManager')).toBeLessThan(step.indexOf('install the dependencies'));
+    expect(step).toMatch(/lockfile/);
+  });
+
   it('writes one prd-tagged test per filmable criterion with exact expects, and says why for agent.assert', () => {
-    const step = skillSection(read(), '4.');
+    const step = skillSection(read(), '5.');
     for (const phrase of ['prd-<n>', 'e2e.dir', 'agent.act', 'expect()', 'agent.assert', 'why nothing exact exists', 'unique to the run', '.e2e/cache/']) {
       expect(step, phrase).toContain(phrase);
     }
     expect(step).toMatch(/waits for it/);
   });
 
-  it('records on a first run, never weakens a red test, then replays with --strict-cache', () => {
+  it('records last, on a first run, never weakens a red test, then replays with --strict-cache', () => {
     const text = read();
-    const first = skillSection(text, '5.');
+    const first = skillSection(text, '6.');
     expect(first).toContain('E2E_TELEMETRY_DISABLED=1');
     expect(first).toContain('✗');
     expect(first).toMatch(/never weakened/);
     expect(first).toContain('limits.attempts');
-    const second = skillSection(text, '6.');
+    expect(first).toMatch(/after every install/);
+    const second = skillSection(text, '7.');
     expect(second).toContain('npx e2e run --strict-cache --tag prd-<n>');
     expect(second).toMatch(/unstable/);
+    expect(second).toMatch(/dependency/);
+    expect(second).toMatch(/record again/);
   });
 
-  it('runs omni e2e status then heals, and turns each healed step into an outbox item', () => {
-    const step = skillSection(read(), '7.');
+  it('runs omni e2e status then heals with the sub-PR branch as head, and turns each healed step into an outbox item', () => {
+    const step = skillSection(read(), '8.');
     const status = step.indexOf('omni.mjs e2e status <n>');
     expect(status).toBeGreaterThan(-1);
-    expect(step.indexOf('omni.mjs e2e heals <n>')).toBeGreaterThan(status);
+    expect(step.indexOf('omni.mjs e2e heals <n> --head <sub-PR branch>')).toBeGreaterThan(status);
+    expect(step).toMatch(/every step is new/);
     expect(step).toContain('omni.mjs item new');
     expect(step).toMatch(/none is taken as accepted/i);
   });
 
   it('puts the before and after screenshots, or the none-kept reason, in each healed step item (PRD 1274)', () => {
-    const step = skillSection(read(), '7.');
+    const step = skillSection(read(), '8.');
     expect(step).toMatch(/screenshots/);
     expect(step).toMatch(/before and after\s+screenshots/);
     expect(step).toMatch(/none was\s+kept/);
@@ -1975,8 +1991,8 @@ describe('the validate-e2e skill (PRD 1233)', () => {
 
   it('holds healed recordings, commits only unchanged and new ones, and names confirm and reject without saying who confirms (PRD 1274)', () => {
     const text = read();
-    const items = skillSection(text, '7.');
-    const pr = skillSection(text, '8.');
+    const items = skillSection(text, '8.');
+    const pr = skillSection(text, '9.');
     expect(items).toContain('omni.mjs e2e hold <n>');
     expect(items.indexOf('omni.mjs e2e hold <n>')).toBeGreaterThan(items.indexOf('omni.mjs e2e heals <n>'));
     for (const cmd of ['omni.mjs e2e confirm <n>', 'omni.mjs e2e reject <n>']) expect(items, cmd).toContain(cmd);
@@ -1988,15 +2004,22 @@ describe('the validate-e2e skill (PRD 1233)', () => {
   });
 
   it('guards that the sub-PR step never commits a healed recording (PRD 1274)', () => {
-    const pr = skillSection(read(), '8.');
+    const pr = skillSection(read(), '9.');
     // the commit sentence must not take every recording of e2e.dir: it must name the held ones as left out
     expect(pr).not.toMatch(/commit the tests and `e2e\.dir`'s recordings \(nothing else/);
     expect(pr).toMatch(/healed recording[^.]*(is not|never|left out|waits)/);
   });
 
+  it('says in the sub-PR body when the target was not the preview, and why (PRD 1273)', () => {
+    const target = skillSection(read(), '2.');
+    expect(target).toMatch(/fixed URL/);
+    expect(target).toMatch(/not the preview/);
+    expect(skillSection(read(), '9.')).toMatch(/was not the preview/);
+  });
+
   it('opens a Part of sub-PR with the table, signed, and never merges or marks anything ready', () => {
     const text = read();
-    expect(skillSection(text, '8.')).toMatch(/criterion \| test \| verdict/);
+    expect(skillSection(text, '9.')).toMatch(/criterion \| test \| verdict/);
     for (const phrase of ['labels.sub', 'Part of #<n>', 'not filmable', 'omni sign footer', 'omni sign trailer']) {
       expect(text, phrase).toContain(phrase);
     }

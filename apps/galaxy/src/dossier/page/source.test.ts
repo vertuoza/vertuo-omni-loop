@@ -111,6 +111,23 @@ describe('reading a version', () => {
     expect(await readSandboxed(as('bob'), fix, 3, 'variations')).toBeNull();
     expect(await readSandboxed(as('carl'), fix, 1, 'variations')).toBeNull();
   });
+
+  it('serves a concept\'s vision tour by its version and its boards by their round, never another kind\'s page (PRD 1272)', async () => {
+    const { fake, as, numbered } = await world();
+    const pushed = await fake.client('ada').rpc('dossier_push', {
+      p_repo: 'acme/widgets', p_prd: 1269, p_kind: 'concept', p_title: 'Products', p_draft: null,
+      p_artifacts: [{ kind: 'vision', content: '<title>tour</title>' }, { kind: 'board', content: '<title>b1</title>' }, { kind: 'board', content: '<title>b2</title>' }],
+    });
+    const concept = (pushed.data as { id: string }).id;
+    expect(await readSandboxed(as('bob'), concept, 1, 'vision')).toBe('<title>tour</title>');
+    expect(await readSandboxed(as('bob'), concept, 2, 'board')).toBe('<title>b2</title>');
+    expect(await readSandboxed(as('bob'), concept, 1, 'board')).toBe('<title>b1</title>');
+    expect(await readSandboxed(as('bob'), concept, 3, 'board')).toBeNull();
+    expect(await readSandboxed(as('bob'), concept, 1)).toBeNull();
+    expect(await readSandboxed(as('carl'), concept, 1, 'vision')).toBeNull();
+    expect(await readSandboxed(as('bob'), numbered, 1, 'vision')).toBeNull();
+    expect(await readSandboxed(as('bob'), numbered, 1, 'board')).toBeNull();
+  });
 });
 
 describe('deleting a draft', () => {

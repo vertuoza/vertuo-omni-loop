@@ -4,7 +4,7 @@
 // Engineering's, at /app/engineering), Work (the workspace's
 // work: since PRD 1162 Roadmaps, the milestones its PRDs deliver, since PRD 1246 Ideas, the workspace's
 // ideas board (its public page, /ideas/<owner>/<repo>, read from the viewer; Settings › Repositories while
-// the workspace lists none), then PRDs, then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), and at
+// the workspace lists none), since PRD 1272 Concepts, the vast ideas /omni:think-big recorded, then PRDs, then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), and at
 // the foot one Settings entry, at /app/settings, which lands on Fleets (SETTINGS_LANDING), then Omni's
 // own pages, Docs and Release notes, which leave the app for the public ones. Since issue 653 each
 // Dashboard and Work section names its sprite, and since PRD 733 Settings too. A new section is one
@@ -19,7 +19,7 @@ import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
 
-export type SidebarId = 'home' | 'fleet' | 'loop' | 'workspace' | 'engineering' | 'roadmaps' | 'ideas' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
+export type SidebarId = 'home' | 'fleet' | 'loop' | 'workspace' | 'engineering' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
 
 /** A page under an entry, shown as a tab on its pages, never as a menu line (PRD 733). */
 export interface SidebarPage {
@@ -73,6 +73,7 @@ export const SIDEBAR: readonly SidebarGroup[] = [
     items: [
       { id: 'roadmaps', label: 'Roadmaps', path: '/roadmaps', sprite: 'menu-roadmaps' },
       { id: 'ideas', label: 'Ideas', path: IDEAS_PATH, sprite: 'tile-block' },
+      { id: 'concepts', label: 'Concepts', path: '/concepts', sprite: 'menu-concepts' },
       { id: 'prds', label: 'PRDs', path: '/prd', sprite: 'menu-prds' },
       { id: 'bugs', label: 'Bug Fixes', path: '/bugs', sprite: 'menu-bugs' },
       { id: 'visual', label: 'Visual Updates', path: '/visual', sprite: 'menu-visual' },

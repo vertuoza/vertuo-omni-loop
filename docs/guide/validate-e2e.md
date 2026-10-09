@@ -40,7 +40,8 @@ e2e:
 - **`enabled`**: `false` by default. While it is false, or `url` is `null`, the skill prints one line
   and stops, having written and posted nothing.
 - **`url`**: where the tests run. A fixed address, or `github-deployment` for the preview of the
-  feature pull request's head commit, as `proof.url` does.
+  feature pull request's head commit, as `proof.url` does. See **A fixed address** below when the
+  preview has no data.
 - **`deployment`**: which deployment, when a commit has several previews.
 - **`setup`**: a command that signs the browser in, run once, as `proof.setup`.
 - **`bypassEnv`**: the name of the environment variable that holds the preview-protection bypass
@@ -59,6 +60,31 @@ repository builds from the target pull requests.
 Node 24.8 or newer. Under an older Node the skill prints one line naming the version it needs and
 stops. The framework sends anonymous telemetry; the skill sets `E2E_TELEMETRY_DISABLED=1`, and you
 should set it too when you run a test by hand.
+
+## The e2e project, set up on the first run
+
+The first run in a repository sets the e2e project up, and commits it in the sub-PR. You do not edit
+workspace files by hand.
+
+- **The scaffold.** `e2e.dir` becomes a declared workspace of the repository's package manager, with
+  its own `package.json` and the framework's dependencies. Declaring it matters: a repository's
+  dependency gate (fallow, for one) refuses a folder with its own `package.json` that is not a
+  workspace, so the gate passes on the sub-PR's commit. A repository that wants another layout
+  declares it first, and the skill leaves it alone.
+- **The version check.** The workspace is pinned to the package-manager version the repository's CI
+  uses. Before it installs, the skill compares that version with the one on your machine. When yours
+  is newer, it stops with one line naming both versions, having installed nothing: installing with a
+  newer manager would rewrite the whole lockfile. Switch to CI's version and run it again.
+- **Record last.** The install comes first, then the recording, then the strict replay. Change an
+  installed dependency after recording and the recordings are stale (`REPLAY_STALE`), so the skill
+  records again before the strict replay.
+
+## A fixed address
+
+A preview without a database draws nothing, so a criterion cannot be filmed there. Set `e2e.url` to a
+fixed address, a local or hosted demo that has data, instead of `github-deployment`. The run then
+targets that address, and the sub-PR body says the target was **not the preview**, and why. A reader
+of the sub-PR sees that the tests were not run against the pull request's own build.
 
 ## Run it
 
@@ -98,16 +124,21 @@ model.
 
 ```bash terminal
 node .omni-loop/bin/omni.mjs e2e heals 1233
+node .omni-loop/bin/omni.mjs e2e heals 1233 --head feat/my-topic--s9
 ```
 
-Reads the recordings (`.e2e/cache/*.json`) at the merge-base of the PRD's feature branch and at its
-head, and pairs their steps by `recordedFor.testId`, `recordedFor.callIndex` and `recordedFor.instructionDigest` (two steps of one test can share a call index), never by file name.
+Reads the recordings (`.e2e/cache/*.json`) at the merge-base of the trunk and the head, and pairs their steps by `recordedFor.testId`, `recordedFor.callIndex` and `recordedFor.instructionDigest` (two steps of one test can share a call index), never by file name.
 Each step is:
 
 - **healed**: on both sides with a different action (`name` and `target`). The output gives the old
   action, the new action and the recording's `summary`.
 - **new**: only at the head.
 - **removed**: only at the merge-base. A test that disappeared can hide a criterion that was lost.
+
+**`--head <ref>`** names the head. Without it the head is the PRD's feature branch, so existing use
+does not change. The skill passes the sub-PR's own branch, so the recordings it just made are
+compared with the merge-base and, on a first pass, every step is listed as **new**. An unknown `<ref>`
+fails with a usage error naming it.
 
 An identical step is not listed. The same refusals as `status` hold for both sides.
 

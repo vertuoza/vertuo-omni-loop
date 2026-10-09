@@ -275,7 +275,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'dossier',
     kind: 'command',
     who: 'you',
-    usage: ['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug]', 'omni dossier link <n> [--kind visual|bug]', 'omni dossier status'],
+    usage: ['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status'],
     label: 'omni dossier …',
     summary: "a PRD's dossier on the Omni page",
     detail:
@@ -284,7 +284,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "PRD n's files and adds a version only where a file changed; link prints PRD n's page, on " +
       'any computer, or none when it has no dossier, and writes nothing; status says whether ' +
       'dossiers are on here. With --kind visual or --kind bug, push and link work on issue n\'s fix ' +
-      'instead: its visual update or bug fix page, filled from its folder. It never holds up the ' +
+      'instead: its visual update or bug fix page, filled from its folder. With --kind concept, they ' +
+      'work on concept n, its issue\'s number: its page under Work › Concepts, filled from its ' +
+      'concept.md, vision tour, boards and debate. It never holds up the ' +
       'skill that runs it: anything that stops it exits 1 with one line.',
   },
   {
@@ -810,7 +812,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'e2e',
     kind: 'command',
     who: 'skills',
-    usage: ['omni e2e status <prd>', 'omni e2e heals <prd>', 'omni e2e hold <prd>', 'omni e2e confirm <prd>', 'omni e2e reject <prd>'],
+    usage: ['omni e2e status <prd>', 'omni e2e heals <prd> [--head <ref>]', 'omni e2e hold <prd>', 'omni e2e confirm <prd>', 'omni e2e reject <prd>'],
     summary: 'which e2e tests of a PRD have a recording, and which steps healed (beta)',
     detail:
       'status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each ' +
@@ -818,7 +820,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. ' +
       'With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, ' +
       'reaches no network and calls no model. heals pairs the recordings steps, by test id and call ' +
-      'index, at the merge-base of the PRD feature branch and at its head, and lists each as healed ' +
+      'index, at the merge-base of the default branch and the head, and at the head, which is the PRD ' +
+      'feature branch unless --head names another ref (a sub-PR branch): a ref git does not know is a ' +
+      'usage error naming it, and on a first pass, with no recordings at the merge-base, every step is ' +
+      'new. It lists each as healed ' +
       '(old and new action, and the summary), new or removed, as JSON; an identical step is not listed. ' +
       'Each healed step carries screenshots, a before and an after: the framework keeps no screenshot ' +
       'per step, so each side says kept false and why. The same refusals hold for both sides. hold moves ' +
@@ -871,7 +876,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'deepens the ones you keep into clickable prototypes, while a panel (a Visionary, a Craft ' +
       'critic, a Skeptic, a Value critic and real users) argues over each by name; you react at every ' +
       'round and crown one. It opens one concept PR into {defaultBranch} with the vision tour, every ' +
-      'board, the debate and an area map of PRD-sized areas, and ends with one ' +
+      'board, the debate and an area map of PRD-sized areas, sends the concept to its page under ' +
+      'Work › Concepts on the Omni page, and ends with one ' +
       '/omni:brainstorm --concept <n> <area> line per area, the wedge first. A feature-sized idea is ' +
       'offered /omni:brainstorm or a lite run; a tweak gets the /omni:visual-fix line. It writes no ' +
       'code and never merges.',
@@ -894,7 +900,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and ' +
       'merges before any code is written. It writes no code and merges nothing, and ends with the ' +
       '/omni:yolo line that builds it. With --concept <n> <area>, it starts from one area of a ' +
-      "concept in the inbox: the area's brief, the vision and the verdict.",
+      "concept in the inbox: the area's brief, the vision and the verdict. Once it fills the area's " +
+      "PRD cell, it pushes the concept again, so the concept's page links that area to its PRD.",
     group: 'start',
     when: 'Use it when you have an idea for a change and want it designed before any code is written.',
     example: {
@@ -1489,13 +1496,14 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'dossier-push',
     kind: 'skill',
     who: 'skills',
-    usage: ['/omni:dossier-push <n> [--kind visual|bug]'],
+    usage: ['/omni:dossier-push <n> [--kind visual|bug|concept]'],
     summary: "send a PRD's files to its dossier",
     detail:
       "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a " +
       'version only where a file changed. /omni:brainstorm runs it after each of its pushes, and ' +
       '/omni:plan after it pushes the plan; /omni:visual-fix and /omni:bug-fix run it with --kind ' +
-      'visual or --kind bug for their fix\'s page. It never stops the skill that runs it.',
+      'visual or --kind bug for their fix\'s page, and a concept\'s record runs it with --kind concept ' +
+      'for the concept\'s page under Work › Concepts. It never stops the skill that runs it.',
     group: 'run-by-skills',
     when: "Use it when a PRD's spec, plan or before/after page changed and its dossier should show it.",
     example: {

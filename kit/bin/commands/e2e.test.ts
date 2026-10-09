@@ -69,9 +69,9 @@ describe('omni e2e heals', () => {
   const SPEC = { '.omni-loop/delivery/inbox/1233-rank/spec.md': '# spec\n' };
 
   /** main holds `base`; feat/rank adds `head` on top. */
-  async function heals(base: Record<string, string>, head: Record<string, string>, config = ON) {
+  async function heals(base: Record<string, string>, head: Record<string, string>, config = ON, extra: string[] = [], branch = 'feat/rank') {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, ...SPEC, ...base } });
-    git(root, 'checkout', '-q', '-b', 'feat/rank');
+    git(root, 'checkout', '-q', '-b', branch);
     for (const [path, text] of Object.entries(head)) {
       mkdirSync(dirname(join(root, path)), { recursive: true });
       writeFileSync(join(root, path), text);
@@ -80,7 +80,7 @@ describe('omni e2e heals', () => {
     git(root, 'commit', '-q', '--allow-empty', '-m', 'head');
     const out: string[] = [];
     const err: string[] = [];
-    const code = await main(['e2e', 'heals', '1233'], { cwd: root, exec: realExec, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
+    const code = await main(['e2e', 'heals', '1233', ...extra], { cwd: root, exec: realExec, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
     return { code, out: out.join(''), err: err.join('') };
   }
 
@@ -115,6 +115,29 @@ describe('omni e2e heals', () => {
     const base = await heals({ 'e2e/.e2e/cache/b.json': '{' }, {});
     expect(base.code).toBe(1);
     expect(base.err).toContain('e2e/.e2e/cache/b.json');
+  });
+
+  it('with --head, pairs the merge-base with that ref and lists every step as new on a first pass', async () => {
+    const { code, out, err } = await heals(
+      {},
+      { 'e2e/.e2e/cache/a.json': step('Rank'), 'e2e/.e2e/cache/b.json': step('Position', 1) },
+      ON,
+      ['--head', 'feat/rank--s1'],
+      'feat/rank--s1',
+    );
+    expect(err).toBe('');
+    expect(code).toBe(0);
+    expect(JSON.parse(out)).toMatchObject({ prd: 1233, healed: [], new: [{ callIndex: 0 }, { callIndex: 1 }], removed: [] });
+  });
+
+  it('fails with a usage error naming an unknown --head ref', async () => {
+    const { code, err } = await heals({}, {}, ON, ['--head', 'no-such-ref']);
+    expect(code).toBe(2);
+    expect(err).toContain('no-such-ref');
+  });
+
+  it('is a usage error when --head has no value', async () => {
+    expect((await heals({}, {}, ON, ['--head'])).code).toBe(2);
   });
 
   it('says so in one line when e2e is off', async () => {

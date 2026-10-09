@@ -19,11 +19,15 @@
 // /bugs and /visual never read GitHub. A released fix is final and is not read again. A refresh that
 // fails, or a workspace whose fixes cannot be listed, is logged; the stages still land and the run
 // answers 200.
+//
+// PRD 1272 (s4): then each workspace's concept dossiers whose concept PR has not merged are read through the
+// concept reader and stored in fix_facts too, so /concepts and a concept's page show its state without
+// GitHub. A merged concept is in the inbox for good and is not read again. A failure is logged the same way.
 import 'server-only';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import type { DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
-import { isFinal, refreshFixFacts } from '../../fixes/facts/refresh';
-import type { FixFactsStore } from '../../fixes/facts/store';
+import type { ConceptReader, DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
+import { isFinal, refreshConceptFacts, refreshFixFacts } from '../../fixes/facts/refresh';
+import type { ConceptFactsStore, FixFactsStore } from '../../fixes/facts/store';
 import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
 import { changedPrds, stagesOfRepo, type RepoSnapshot } from './core';
@@ -46,6 +50,8 @@ export type SyncDeps = {
   outbox?: Pick<RecountDeps, 'summary' | 'store'>;
   /** The workspace's fix dossiers, the reader their facts are read with and where they are stored; none, no refresh. */
   fixes?: FixSyncDeps;
+  /** The workspace's concept dossiers, the reader their facts are read with and where they are stored; none, no refresh. */
+  concepts?: ConceptSyncDeps;
   /** The PRD dossiers' GitHub snapshots and the client's ETags; none, the sync leaves them alone. */
   snapshots?: SnapshotSyncDeps;
   now(): string;
@@ -58,6 +64,14 @@ export type FixSyncDeps = {
   dossiers(workspace: SyncWorkspace): Promise<FixRef[]>;
   reader: FixReader;
   store: FixFactsStore;
+};
+
+/** What the sync needs to keep a workspace's concept facts fresh (PRD 1272, s4). */
+export type ConceptSyncDeps = {
+  /** The workspace's numbered concept dossiers. */
+  dossiers(workspace: SyncWorkspace): Promise<FixRef[]>;
+  reader: ConceptReader;
+  store: ConceptFactsStore;
 };
 
 /** What the sync needs to be the snapshots' safety net (PRD 902, s4). Times are ISO. */
@@ -180,6 +194,19 @@ async function refreshFixes(deps: SyncDeps, workspace: SyncWorkspace, syncedAt: 
   }
 }
 
+/** Reads and stores the facts of the workspace's concepts whose concept PR has not merged; logs, never throws. */
+async function refreshConcepts(deps: SyncDeps, workspace: SyncWorkspace, syncedAt: string): Promise<void> {
+  if (!deps.concepts) return;
+  const concepts = deps.concepts;
+  try {
+    const log = (error: unknown) => { deps.log(`stages sync: a concept of ${workspace.slug} was not read — ${why(error)}`); };
+    const found = await concepts.dossiers(workspace);
+    await refreshConceptFacts(workspace.id, found, { reader: concepts.reader, store: concepts.store, now: () => syncedAt, log });
+  } catch (error) {
+    deps.log(`stages sync: the concept facts of ${workspace.slug} were not refreshed — ${why(error)}`);
+  }
+}
+
 export async function syncStages(request: Request, deps: SyncDeps): Promise<Response> {
   if (!bearerMatches(request, deps.secret)) return json(401, { error: 'A valid bearer secret is required.' });
   const syncedAt = deps.now();
@@ -214,6 +241,7 @@ export async function syncStages(request: Request, deps: SyncDeps): Promise<Resp
       }
     }
     await refreshFixes(deps, workspace, syncedAt);
+    await refreshConcepts(deps, workspace, syncedAt);
   }
   return json(200, reply);
 }

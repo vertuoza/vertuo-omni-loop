@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.257" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.272" };
   }
 });
 
@@ -34618,17 +34618,18 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
      * one. @returns {Promise<{ id: string, url: string }>} */
     openDossier: ({ title, repo, claudeSessionId = null }) => call("POST", "/api/dossiers", { body: { title, repo, ...claudeSessionId ? { claudeSessionId } : {} } }),
     /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one. Since
-     * PRD 627 a fix's push names its kind (visual or bug); a PRD's names none, as before.
+     * PRD 627 a fix's push names its kind (visual or bug), and since PRD 1272 a concept's (concept); a
+     * PRD's names none, as before.
      * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[] }>} */
     pushDossier: ({ repo, prd: prd2, kind = "prd", title, draftId = null, artifacts }) => call("POST", "/api/dossiers/push", {
       body: { repo, prd: prd2, ...kind && kind !== "prd" ? { kind } : {}, title, ...draftId ? { draftId } : {}, artifacts }
     }),
     /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none. Since
-     * PRD 627, a fix's by its kind (visual or bug). @returns {Promise<{ id: string, url: string }>} */
+     * PRD 627, a fix's by its kind (visual or bug), and since PRD 1272 a concept's. @returns {Promise<{ id: string, url: string }>} */
     /** PRD 757: this Claude session is working on `work` (null: the session alone); `ended` only
      * from the session's end. Answered 204. */
     heartbeat: ({ claudeSessionId, repo, work, ended = false }) => call("POST", "/api/ask/heartbeat", { body: { claudeSessionId, repo, work, ...ended ? { ended: true } : {} } }),
-    // A fix's dossier (`kind` visual or bug) is keyed by its issue, so `prd` is a PRD's number or an issue's.
+    // A fix's or a concept's dossier (`kind` visual, bug or concept) is keyed by its issue, so `prd` is a PRD's number or an issue's.
     findDossier: ({ repo, prd: prd2, kind = "prd" }) => call("GET", `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd2), ...kind && kind !== "prd" ? { kind } : {} })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
@@ -39829,18 +39830,24 @@ function fixFiles(kind, names) {
   return [...page2, ...rounds];
 }
 function readFixFolder(ctx, kind, issue2, { issueTitle: issueTitle2 = null } = {}) {
-  const root = `${ctx.config.paths.delivery}/${FIX_ROOTS[kind]}`;
-  const absolute = join47(ctx.root, root);
+  const found2 = issueFolder(ctx.root, `${ctx.config.paths.delivery}/${FIX_ROOTS[kind]}`, issue2);
+  if (!found2) return null;
+  const { artifacts, tooLarge } = readFiles(ctx.root, found2.dir, fixFiles(kind, readdirSync16(join47(ctx.root, found2.dir))));
+  return { issue: issue2, kind, dir: found2.dir, title: fixTitle(issueTitle2, found2.topic), artifacts, tooLarge };
+}
+function issueFolder(checkout, root, issue2) {
+  const absolute = join47(checkout, root);
   if (!existsSync37(absolute)) return null;
   const prefix = `${String(issue2).padStart(4, "0")}-`;
   const name2 = readdirSync16(absolute, { withFileTypes: true }).filter((entry3) => entry3.isDirectory() && entry3.name.startsWith(prefix) && entry3.name.length > prefix.length).map((entry3) => entry3.name).sort()[0];
-  if (!name2) return null;
-  const dir = `${root}/${name2}`;
+  return name2 ? { dir: `${root}/${name2}`, topic: name2.slice(prefix.length) } : null;
+}
+function readFiles(checkout, dir, files) {
   const artifacts = [];
   const tooLarge = [];
-  for (const file2 of fixFiles(kind, readdirSync16(join47(ctx.root, dir)))) {
+  for (const file2 of files) {
     const path = `${dir}/${file2.name}`;
-    const raw = readFileSync34(join47(ctx.root, path));
+    const raw = readFileSync34(join47(checkout, path));
     if (raw.length > ARTIFACT_MAX_BYTES) {
       tooLarge.push({ kind: file2.kind, path, bytes: raw.length });
       continue;
@@ -39855,13 +39862,40 @@ function readFixFolder(ctx, kind, issue2, { issueTitle: issueTitle2 = null } = {
       ...file2.round ? { round: file2.round } : {}
     });
   }
-  const topic = name2.slice(prefix.length);
-  return { issue: issue2, kind, dir, title: fixTitle(issueTitle2, topic), artifacts, tooLarge };
+  return { artifacts, tooLarge };
+}
+var RECORD4 = "concept.md";
+var BOARD = /^board-r([1-9]\d*)\.html$/;
+function conceptFiles(names) {
+  const boards = names.flatMap((name2) => {
+    const match = BOARD.exec(name2);
+    return match ? [{ kind: "board", name: name2, round: Number(match[1]) }] : [];
+  }).sort((a, b) => a.round - b.round);
+  return [
+    { kind: "concept-record", name: RECORD4 },
+    ...names.includes("vision.html") ? [{ kind: "vision", name: "vision.html" }] : [],
+    ...boards,
+    ...names.includes("debate.md") ? [{ kind: "debate", name: "debate.md" }] : []
+  ];
+}
+function readConceptFolder(ctx, issue2) {
+  const found2 = issueFolder(ctx.root, ctx.layout.dirs.concepts, issue2);
+  if (!found2) return null;
+  const { dir } = found2;
+  const names = readdirSync16(join47(ctx.root, dir));
+  if (!names.includes(RECORD4)) return { ok: false, dir, errors: [`${dir} has no ${RECORD4}.`] };
+  const parsed = parseConcept(readFileSync34(join47(ctx.root, dir, RECORD4), "utf8"));
+  if (!parsed.ok) return { ok: false, dir, errors: parsed.errors };
+  if (parsed.record.concept !== Number(issue2)) {
+    return { ok: false, dir, errors: [`${RECORD4} is concept #${parsed.record.concept}, not #${Number(issue2)}.`] };
+  }
+  const { artifacts, tooLarge } = readFiles(ctx.root, dir, conceptFiles(names));
+  return { ok: true, folder: { issue: issue2, dir, title: parsed.record.title.slice(0, TITLE_MAX3), artifacts, tooLarge } };
 }
 
 // kit/bin/commands/dossier.ts
-var USAGE11 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
-var KINDS4 = ["prd", "visual", "bug"];
+var USAGE11 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status';
+var KINDS4 = ["prd", "visual", "bug", "concept"];
 var ISSUE_TITLE_MS = 5e3;
 var NO_SIGN_IN = "no sign-in (omni signin)";
 function claudeSessionOf(session) {
@@ -39975,6 +40009,23 @@ function recordedLink(home, prd2, kind) {
   if (!home || kind !== "prd") return null;
   return readDossiers(home).filter((entry3) => entry3.prd === prd2).at(-1) ?? null;
 }
+async function pushConcept(issue2, { ctx, repo, client, stdout, stderr }) {
+  const read2 = readConceptFolder(ctx, issue2);
+  if (!read2) throw usageError(`omni dossier push: issue ${issue2} has no concept folder.`);
+  if (!read2.ok) {
+    println(stderr, `invalid concept.md: ${read2.errors.join(" ")}`);
+    return 1;
+  }
+  const { folder } = read2;
+  let result;
+  try {
+    result = await client.pushDossier({ repo, prd: issue2, kind: "concept", title: folder.title, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) });
+  } catch (error62) {
+    println(stderr, skipLine(error62));
+    return 1;
+  }
+  return reportPush(result, folder.tooLarge, { stdout, stderr });
+}
 async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
   let found2;
   try {
@@ -40042,6 +40093,7 @@ var dossier = {
     const options = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(vars.claudeSession), stdout, stderr, now: now2 };
     if (named4 === null) return open2(title, options);
     if (verb2 === "link") return link(named4.kind === "prd" ? named4.prd : named4.issue, named4.kind, options);
+    if (named4.kind === "concept") return pushConcept(named4.issue, options);
     if (named4.kind !== "prd") return pushFix(named4.issue, named4.kind, options);
     return push(named4.prd, options);
   }
@@ -40316,7 +40368,7 @@ function testStatus(tests, recordings) {
 }
 
 // kit/bin/commands/e2e.ts
-var USAGE12 = ["status", "heals", "hold", "confirm", "reject"].map((sub, i) => `${i === 0 ? "usage:" : "      "} omni e2e ${sub} <prd>`).join("\n");
+var USAGE12 = ["status <prd>", "heals <prd> [--head <ref>]", "hold <prd>", "confirm <prd>", "reject <prd>"].map((sub, i) => `${i === 0 ? "usage:" : "      "} omni e2e ${sub}`).join("\n");
 function status(args, { ctx, stdout, stderr }) {
   const { positional } = parseArgs("e2e status", args);
   if (positional.length !== 1) throw usageError(USAGE12);
@@ -40345,11 +40397,11 @@ function resolveRef2(name2, { ctx, exec }, command2) {
     } catch {
     }
   }
-  throw usageError(`omni e2e ${command2}: cannot find branch ${name2} - fetch it first`);
+  throw usageError(`omni e2e ${command2}: cannot find ref ${name2} - fetch it first`);
 }
 function range(command2, args, io) {
   const { ctx, stderr, exec } = io;
-  const { positional } = parseArgs(`e2e ${command2}`, args);
+  const { positional, flags } = parseArgs(`e2e ${command2}`, args, { values: ["head"] });
   if (positional.length !== 1) throw usageError(USAGE12);
   const prd2 = prdArg(`e2e ${command2}`, "<prd>", positional[0]);
   const { enabled, dir } = ctx.config.e2e;
@@ -40360,7 +40412,7 @@ function range(command2, args, io) {
   const where = ctx.layout.whereIs(prd2);
   const parsed = where ? parseFolderName(where.name) : null;
   if (!parsed) throw usageError(`omni e2e ${command2}: PRD ${prd2} has no inbox or shipped folder`);
-  const head = resolveRef2(fillBranch(ctx.config.branches.feature, { topic: parsed.topic }), io, command2);
+  const head = resolveRef2(flags.head ?? fillBranch(ctx.config.branches.feature, { topic: parsed.topic }), io, command2);
   const trunk = resolveRef2(ctx.config.repo.defaultBranch, io, command2);
   try {
     return { prd: prd2, dir, head, base: exec("git", ["merge-base", trunk, head], gitOptions2(ctx.root)).trim() };
@@ -41212,10 +41264,10 @@ var ENTRIES = deepFreeze([
     name: "dossier",
     kind: "command",
     who: "you",
-    usage: ['omni dossier open "<title>"', "omni dossier push <n> [--kind visual|bug]", "omni dossier link <n> [--kind visual|bug]", "omni dossier status"],
+    usage: ['omni dossier open "<title>"', "omni dossier push <n> [--kind visual|bug|concept]", "omni dossier link <n> [--kind visual|bug|concept]", "omni dossier status"],
     label: "omni dossier \u2026",
     summary: "a PRD's dossier on the Omni page",
-    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea and prints its link; push sends PRD n's files and adds a version only where a file changed; link prints PRD n's page, on any computer, or none when it has no dossier, and writes nothing; status says whether dossiers are on here. With --kind visual or --kind bug, push and link work on issue n's fix instead: its visual update or bug fix page, filled from its folder. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
+    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea and prints its link; push sends PRD n's files and adds a version only where a file changed; link prints PRD n's page, on any computer, or none when it has no dossier, and writes nothing; status says whether dossiers are on here. With --kind visual or --kind bug, push and link work on issue n's fix instead: its visual update or bug fix page, filled from its folder. With --kind concept, they work on concept n, its issue's number: its page under Work \u203A Concepts, filled from its concept.md, vision tour, boards and debate. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
   },
   {
     name: "idea",
@@ -41535,9 +41587,9 @@ var ENTRIES = deepFreeze([
     name: "e2e",
     kind: "command",
     who: "skills",
-    usage: ["omni e2e status <prd>", "omni e2e heals <prd>", "omni e2e hold <prd>", "omni e2e confirm <prd>", "omni e2e reject <prd>"],
+    usage: ["omni e2e status <prd>", "omni e2e heals <prd> [--head <ref>]", "omni e2e hold <prd>", "omni e2e confirm <prd>", "omni e2e reject <prd>"],
     summary: "which e2e tests of a PRD have a recording, and which steps healed (beta)",
-    detail: "status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each with whether a recording of it exists in .e2e/cache, and exits 1 when one has none. A recording that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, reaches no network and calls no model. heals pairs the recordings steps, by test id and call index, at the merge-base of the PRD feature branch and at its head, and lists each as healed (old and new action, and the summary), new or removed, as JSON; an identical step is not listed. Each healed step carries screenshots, a before and an after: the framework keeps no screenshot per step, so each side says kept false and why. The same refusals hold for both sides. hold moves each healed recording of the working tree out of the branch, into a folder inside the git directory that no commit holds, and puts the committed recording back, so a commit of e2e.dir holds only unchanged or new recordings. confirm commits the held recordings and notes them in e2e.dir/.e2e/confirmed.json, so heals no longer lists them until the screen changes again. reject drops the held recordings, leaves the committed ones and exits 1 so the test stays red."
+    detail: "status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each with whether a recording of it exists in .e2e/cache, and exits 1 when one has none. A recording that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, reaches no network and calls no model. heals pairs the recordings steps, by test id and call index, at the merge-base of the default branch and the head, and at the head, which is the PRD feature branch unless --head names another ref (a sub-PR branch): a ref git does not know is a usage error naming it, and on a first pass, with no recordings at the merge-base, every step is new. It lists each as healed (old and new action, and the summary), new or removed, as JSON; an identical step is not listed. Each healed step carries screenshots, a before and an after: the framework keeps no screenshot per step, so each side says kept false and why. The same refusals hold for both sides. hold moves each healed recording of the working tree out of the branch, into a folder inside the git directory that no commit holds, and puts the committed recording back, so a commit of e2e.dir holds only unchanged or new recordings. confirm commits the held recordings and notes them in e2e.dir/.e2e/confirmed.json, so heals no longer lists them until the screen changes again. reject drops the held recordings, leaves the committed ones and exits 1 so the test stays red."
   },
   {
     name: "statusline",
@@ -41563,7 +41615,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:think-big <brief or n>"],
     label: "/omni:think-big",
     summary: "a vast idea, explored by a studio, to a concept PR",
-    detail: "For a vast idea, one that spans the whole product and would take several PRDs, before anyone commits to building it. A studio of agents goes wide with six to eight rendered concepts, then deepens the ones you keep into clickable prototypes, while a panel (a Visionary, a Craft critic, a Skeptic, a Value critic and real users) argues over each by name; you react at every round and crown one. It opens one concept PR into {defaultBranch} with the vision tour, every board, the debate and an area map of PRD-sized areas, and ends with one /omni:brainstorm --concept <n> <area> line per area, the wedge first. A feature-sized idea is offered /omni:brainstorm or a lite run; a tweak gets the /omni:visual-fix line. It writes no code and never merges.",
+    detail: "For a vast idea, one that spans the whole product and would take several PRDs, before anyone commits to building it. A studio of agents goes wide with six to eight rendered concepts, then deepens the ones you keep into clickable prototypes, while a panel (a Visionary, a Craft critic, a Skeptic, a Value critic and real users) argues over each by name; you react at every round and crown one. It opens one concept PR into {defaultBranch} with the vision tour, every board, the debate and an area map of PRD-sized areas, sends the concept to its page under Work \u203A Concepts on the Omni page, and ends with one /omni:brainstorm --concept <n> <area> line per area, the wedge first. A feature-sized idea is offered /omni:brainstorm or a lite run; a tweak gets the /omni:visual-fix line. It writes no code and never merges.",
     group: "start",
     when: "Use it when an idea spans the whole product and you want bold directions to react to before any scope is cut.",
     example: {
@@ -41578,7 +41630,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:brainstorm", "/omni:brainstorm --concept <n> <area>"],
     label: "/omni:brainstorm",
     summary: "an idea, to a design, to a PRD and its phase-0 PR",
-    detail: "Turns an idea into an approved design, then into a PRD the loop can build: the PRD issue, the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and merges before any code is written. It writes no code and merges nothing, and ends with the /omni:yolo line that builds it. With --concept <n> <area>, it starts from one area of a concept in the inbox: the area's brief, the vision and the verdict.",
+    detail: "Turns an idea into an approved design, then into a PRD the loop can build: the PRD issue, the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and merges before any code is written. It writes no code and merges nothing, and ends with the /omni:yolo line that builds it. With --concept <n> <area>, it starts from one area of a concept in the inbox: the area's brief, the vision and the verdict. Once it fills the area's PRD cell, it pushes the concept again, so the concept's page links that area to its PRD.",
     group: "start",
     when: "Use it when you have an idea for a change and want it designed before any code is written.",
     example: {
@@ -42010,9 +42062,9 @@ var ENTRIES = deepFreeze([
     name: "dossier-push",
     kind: "skill",
     who: "skills",
-    usage: ["/omni:dossier-push <n> [--kind visual|bug]"],
+    usage: ["/omni:dossier-push <n> [--kind visual|bug|concept]"],
     summary: "send a PRD's files to its dossier",
-    detail: "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a version only where a file changed. /omni:brainstorm runs it after each of its pushes, and /omni:plan after it pushes the plan; /omni:visual-fix and /omni:bug-fix run it with --kind visual or --kind bug for their fix's page. It never stops the skill that runs it.",
+    detail: "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a version only where a file changed. /omni:brainstorm runs it after each of its pushes, and /omni:plan after it pushes the plan; /omni:visual-fix and /omni:bug-fix run it with --kind visual or --kind bug for their fix's page, and a concept's record runs it with --kind concept for the concept's page under Work \u203A Concepts. It never stops the skill that runs it.",
     group: "run-by-skills",
     when: "Use it when a PRD's spec, plan or before/after page changed and its dossier should show it.",
     example: {

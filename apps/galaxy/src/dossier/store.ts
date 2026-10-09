@@ -6,6 +6,8 @@
 // database, differs from the latest. A member of the workspace reads a dossier and its versions.
 // Since PRD 627 a dossier has a kind — a PRD's, a visual fix's or a bug fix's — keyed with the repository
 // and the number (supabase/migrations/20261011090000_fix_dossiers.sql), each kind taking its own versions.
+// Since PRD 1272 a concept is a kind too (supabase/migrations/20261119090000_concept_dossiers.sql),
+// numbered by its issue, with its record, its vision tour, a board per round and its debate.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -15,27 +17,47 @@ import { type Outcome, StoreError } from '../data/store-error';
 export const DOSSIER_KINDS = ['spec', 'plan', 'before-after'] as const;
 export type DossierKind = (typeof DOSSIER_KINDS)[number];
 
-/** Every kind of version a dossier may hold (PRD 627): a PRD's three and, since PRD 822, its personas'
+/** The kinds of version the pages read (PRD 627): a PRD's three and, since PRD 822, its personas'
  * voice (supabase/migrations/20261024090000_customer_voice.sql), a visual fix's rounds of variations,
  * and a bug fix's record. */
 export const ARTIFACT_KINDS = ['spec', 'plan', 'before-after', 'variations', 'bug-record', 'voice'] as const;
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
-/** What a dossier is of (PRD 627, supabase/migrations/20261011090000_fix_dossiers.sql): a PRD, a visual
- * fix or a bug fix. A fix is numbered by its issue, and is never a draft. */
+/** What a dossier the pages read is of (PRD 627, supabase/migrations/20261011090000_fix_dossiers.sql): a
+ * PRD, a visual fix or a bug fix. A fix is numbered by its issue, and is never a draft. */
 export const WORK_KINDS = ['prd', 'visual', 'bug'] as const;
 export type WorkKind = (typeof WORK_KINDS)[number];
+
+/** A concept's versions (PRD 1272, supabase/migrations/20261119090000_concept_dossiers.sql): its
+ * concept.md, its vision tour, a board per round and its debate. */
+const CONCEPT_ARTIFACT_KINDS = ['concept-record', 'vision', 'board', 'debate'] as const;
+
+/** Every kind of version a push may send: the pages' kinds and, since PRD 1272, a concept's four. The
+ * pages learn a concept's with its own pages. */
+export const PUSHED_ARTIFACT_KINDS = [...ARTIFACT_KINDS, ...CONCEPT_ARTIFACT_KINDS] as const;
+export type PushedArtifactKind = (typeof PUSHED_ARTIFACT_KINDS)[number];
+
+/** Every kind of dossier a push or a lookup may name: the pages' kinds and, since PRD 1272, a concept,
+ * numbered by its issue and never a draft. */
+export const PUSH_KINDS = [...WORK_KINDS, 'concept'] as const;
+export type PushKind = (typeof PUSH_KINDS)[number];
 
 /** The kinds a PRD's page watches (its change check): its three artifacts and, since PRD 822, its voice. */
 export const PULSE_KINDS = [...DOSSIER_KINDS, 'voice'] as const;
 export type PulseKind = (typeof PULSE_KINDS)[number];
 
 /** The versions each kind of dossier takes: the database refuses any other pairing. */
-export const KIND_ARTIFACTS: Readonly<Record<WorkKind, readonly ArtifactKind[]>> = {
+export const KIND_ARTIFACTS: Readonly<Record<PushKind, readonly PushedArtifactKind[]>> = {
   prd: PULSE_KINDS,
   visual: ['before-after', 'variations'],
   bug: ['bug-record'],
+  concept: CONCEPT_ARTIFACT_KINDS,
 };
+
+/** The kinds a push may send more than once, a round each, oldest first. */
+const ROUND_KINDS: readonly PushedArtifactKind[] = ['variations', 'board'];
+/** Whether a push may send `kind` more than once. */
+export const isRoundKind = (kind: PushedArtifactKind): boolean => ROUND_KINDS.includes(kind);
 
 /** The largest artifact a version holds (the table's own check). */
 export const ARTIFACT_MAX_BYTES = 512 * 1024;
@@ -44,25 +66,26 @@ export const TITLE_MAX = 200;
 
 export const isPulseKind = (value: unknown): value is PulseKind => isOneOf(PULSE_KINDS, value);
 export const isArtifactKind = (value: unknown): value is ArtifactKind => isOneOf(ARTIFACT_KINDS, value);
-export const isWorkKind = (value: unknown): value is WorkKind => isOneOf(WORK_KINDS, value);
+export const isPushedArtifactKind = (value: unknown): value is PushedArtifactKind => isOneOf(PUSHED_ARTIFACT_KINDS, value);
+export const isPushKind = (value: unknown): value is PushKind => isOneOf(PUSH_KINDS, value);
 
-export type DossierArtifact = { kind: ArtifactKind; content: string };
+export type DossierArtifact = { kind: PushedArtifactKind; content: string };
 
 export type DossierPush = {
   repo: string;
   /** A PRD's number; a fix's dossier is keyed by its issue's (PRD 627), so either fits. */
   prd: PrdNumber | IssueNumber;
   /** What the dossier is of; a PRD's when not given. */
-  kind?: WorkKind;
+  kind?: PushKind;
   title: string;
   /** The draft to number, or null: the dossier keyed by repo, kind and number, or a new one. */
   draftId: string | null;
-  /** Each kind once, but variations: a round each, oldest first. */
+  /** Each kind once, but variations and boards: a round each, oldest first. */
   artifacts: DossierArtifact[];
 };
 
 /** What a push did: every kind it received is either added (with its new version) or unchanged. */
-export type DossierPushed = { id: string; added: Array<{ kind: ArtifactKind; version: number }>; unchanged: ArtifactKind[] };
+export type DossierPushed = { id: string; added: Array<{ kind: PushedArtifactKind; version: number }>; unchanged: PushedArtifactKind[] };
 
 /**
  * The database refused or failed; `code` is Postgres's: 42501 the caller belongs to no workspace,
@@ -162,7 +185,7 @@ export function dossierReader(db: Pick<SupabaseClient, 'from'>) {
     /** The id of dossier `prd` of `kind` (a PRD's when not given) in `repo` (compared lower-cased, as the
      * table keeps it), or null when the caller may read none. Two workspaces of the caller may each hold
      * one: the most recently numbered is the answer. */
-    async numbered(repo: string, prd: PrdNumber | IssueNumber, kind: WorkKind = 'prd'): Promise<string | null> {
+    async numbered(repo: string, prd: PrdNumber | IssueNumber, kind: PushKind = 'prd'): Promise<string | null> {
       const rows = settle<Array<{ id: string }>>('find the dossier', await db.from('dossiers').select('id')
         .eq('home_repo', repo.toLowerCase()).eq('kind', kind).eq('prd', prd)
         .order('numbered_at', { ascending: false, nullsFirst: false }).order('id', { ascending: true }).limit(1));

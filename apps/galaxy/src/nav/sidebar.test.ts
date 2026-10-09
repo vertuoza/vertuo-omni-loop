@@ -27,7 +27,7 @@ describe('SIDEBAR', () => {
     const drawn = [...dashboard.items, ...work.items, SETTINGS];
     expect(drawn.map((i) => [i.id, i.sprite])).toEqual([
       ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['loop', 'menu-loop'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
-      ['roadmaps', 'menu-roadmaps'], ['ideas', 'tile-block'], ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
+      ['roadmaps', 'menu-roadmaps'], ['ideas', 'tile-block'], ['concepts', 'menu-concepts'], ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
       ['settings', 'menu-settings'],
     ]);
     for (const item of drawn) expect([SPRITE_DEFS[present(item.sprite, item.id)]?.w, SPRITE_DEFS[present(item.sprite, item.id)]?.h], item.id).toEqual([16, 16]);
@@ -49,13 +49,14 @@ describe('SIDEBAR', () => {
     expect(dashboard.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds Roadmaps first (PRD 1162), Ideas (PRD 1246), then PRDs, Bug Fixes, Visual Updates, Questions and Knowledge under Work, Questions\' pages not drawn as menu lines (PRD 733)', () => {
+  it('holds Roadmaps first (PRD 1162), Ideas (PRD 1246), Concepts (PRD 1272), then PRDs, Bug Fixes, Visual Updates, Questions and Knowledge under Work, Questions\' pages not drawn as menu lines (PRD 733)', () => {
     const [, work] = SIDEBAR;
     assertDefined(work, 'the Work group');
     expect(work.items[0]?.id).toBe('roadmaps');
     expect(rows(work.items)).toEqual([
       ['roadmaps', 'Roadmaps', '/roadmaps', []],
       ['ideas', 'Ideas', '/ideas', []],
+      ['concepts', 'Concepts', '/concepts', []],
       ['prds', 'PRDs', '/prd', []],
       ['bugs', 'Bug Fixes', '/bugs', []],
       ['visual', 'Visual Updates', '/visual', []],
@@ -136,6 +137,9 @@ describe('currentItem and pageTrail', () => {
     ['/knowledge', 'knowledge', 'Work › Knowledge'],
     ['/ideas/acme/widgets', 'ideas', 'Work › Ideas'],
     ['/ideasx', null, null],
+    ['/concepts', 'concepts', 'Work › Concepts'],
+    ['/concepts/3f2a?tab=boards', 'concepts', 'Work › Concepts'],
+    ['/conceptsx', null, null],
     ['/knowledge?domain=x', 'knowledge', 'Work › Knowledge'],
     ['/nowhere', null, null],
     ['/application', null, null],

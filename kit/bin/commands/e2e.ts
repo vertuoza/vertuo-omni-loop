@@ -17,9 +17,12 @@ import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 
 // `omni e2e heals <n>` pairs the recordings' steps at the merge-base of the PRD's feature branch with
-// the default branch and at the feature branch's head; it exits 0, or 1 on the same refusals. Each healed
-// step carries `screenshots` (PRD 1274): the framework keeps none per step, so each side says why.
-const USAGE = ['status', 'heals', 'hold', 'confirm', 'reject'].map((sub, i) => `${i === 0 ? 'usage:' : '      '} omni e2e ${sub} <prd>`).join('\n');
+// the default branch and at the head (`--head <ref>`, the feature branch when absent); it exits 0, or 1
+// on the same refusals. Each healed step carries `screenshots` (PRD 1274): the framework keeps none per
+// step, so each side says why.
+const USAGE = ['status <prd>', 'heals <prd> [--head <ref>]', 'hold <prd>', 'confirm <prd>', 'reject <prd>']
+  .map((sub, i) => `${i === 0 ? 'usage:' : '      '} omni e2e ${sub}`)
+  .join('\n');
 
 function status(args: string[], { ctx, stdout, stderr }: CommandIo): number {
   const { positional } = parseArgs('e2e status', args);
@@ -53,13 +56,13 @@ function resolveRef(name: string, { ctx, exec }: CommandIo, command: string): st
       // try the next
     }
   }
-  throw usageError(`omni e2e ${command}: cannot find branch ${name} - fetch it first`);
+  throw usageError(`omni e2e ${command}: cannot find ref ${name} - fetch it first`);
 }
 
-/** The PRD's merge-base and feature-branch head, or null (with a line on stderr) when e2e is off; a usage error otherwise. */
+/** The PRD's merge-base and head (`--head <ref>`, else the feature branch), or null (with a line on stderr) when e2e is off; a usage error otherwise. */
 function range(command: string, args: string[], io: CommandIo): { prd: PrdNumber; dir: string; base: string; head: string } | null {
   const { ctx, stderr, exec } = io;
-  const { positional } = parseArgs(`e2e ${command}`, args);
+  const { positional, flags } = parseArgs(`e2e ${command}`, args, { values: ['head'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const prd = prdArg(`e2e ${command}`, '<prd>', positional[0]);
   const { enabled, dir } = ctx.config.e2e;
@@ -70,7 +73,7 @@ function range(command: string, args: string[], io: CommandIo): { prd: PrdNumber
   const where = ctx.layout.whereIs(prd);
   const parsed = where ? parseFolderName(where.name) : null;
   if (!parsed) throw usageError(`omni e2e ${command}: PRD ${prd} has no inbox or shipped folder`);
-  const head = resolveRef(fillBranch(ctx.config.branches.feature, { topic: parsed.topic }), io, command);
+  const head = resolveRef(flags.head ?? fillBranch(ctx.config.branches.feature, { topic: parsed.topic }), io, command);
   const trunk = resolveRef(ctx.config.repo.defaultBranch, io, command);
   try {
     return { prd, dir, head, base: exec('git', ['merge-base', trunk, head], gitOptions(ctx.root)).trim() };

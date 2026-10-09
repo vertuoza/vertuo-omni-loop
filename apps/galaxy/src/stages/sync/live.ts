@@ -5,14 +5,14 @@ import type { FixRef } from '../../dossier/github/reader';
 import { serverEnv, type ArcadeEnv } from '../../env';
 import { dossierGithub, githubStore } from '../../dossier/github/server';
 import { liveRecountSummary } from '../../dossier/snapshot/live';
-import { fixFactsStore } from '../../fixes/facts/store';
+import { conceptFactsStore, fixFactsStore } from '../../fixes/facts/store';
 import { knowledgeReader, type KnowledgeReader } from '../../knowledge/github';
 import { appCredentials } from '../../signup/github-app';
 import { outboxDeps } from '../outbox/live';
 import { stageStore, type StageStore } from '../store';
 import { stagesReader, type StagesReader } from './github';
 import { syncSnapshotStore } from './snapshots';
-import type { FixSyncDeps, SnapshotSyncDeps, SyncDeps, SyncWorkspace } from './sync';
+import type { ConceptSyncDeps, FixSyncDeps, SnapshotSyncDeps, SyncDeps, SyncWorkspace } from './sync';
 import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The stages sync's real deps (PRD 587, s2): the bearer secret (STAGES_SYNC_SECRET), the service role's
@@ -29,6 +29,8 @@ import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // or pull requests it saw change, and any read over 6 hours ago, refreshes only the stale ones through the
 // snapshot (under its lease), recounts from the snapshots (../outbox/live.ts), and drops the ETags nobody
 // read for 7 days.
+// PRD 1272 (s4): each workspace's numbered concept dossiers are read the same way, through the reader's
+// concept read, and stored in fix_facts until their concept PR merges.
 
 let knowledge: KnowledgeReader | undefined;
 let reader: StagesReader | undefined;
@@ -63,19 +65,35 @@ function fixReader() {
   return reader;
 }
 
+/** The workspace's numbered dossiers of `kinds`, on the service role's client; `what` names them in a refusal. */
+async function numberedDossiers(workspace: SyncWorkspace, kinds: readonly string[], what: string): Promise<FixRef[]> {
+  fixReader();
+  const { data, error } = await serviceDb().from('dossiers').select('id, home_repo, prd')
+    .eq('workspace_id', workspace.id).in('kind', kinds).not('prd', 'is', null);
+  if (error) throw new Error(`Supabase refused to read the ${what} dossiers: ${error.message}`);
+  // Each row is read as PostgREST sent it, its columns unparsed.
+  return listOf(data).map((row: { id: unknown; home_repo: unknown; prd: unknown }): FixRef => ({ id: String(row.id), home_repo: String(row.home_repo), prd: parseIssue(numberOf(row.prd)) }));
+}
+
 /** The fix deps on the service role's client and the server's reader, each made at its first call. */
 function fixDeps(): FixSyncDeps {
   const store = () => fixFactsStore(serviceDb());
   return {
-    async dossiers(workspace) {
-      fixReader();
-      const { data, error } = await serviceDb().from('dossiers').select('id, home_repo, prd')
-        .eq('workspace_id', workspace.id).in('kind', ['visual', 'bug']).not('prd', 'is', null);
-      if (error) throw new Error(`Supabase refused to read the fix dossiers: ${error.message}`);
-      // Each row is read as PostgREST sent it, its columns unparsed.
-      return listOf(data).map((row: { id: unknown; home_repo: unknown; prd: unknown }): FixRef => ({ id: String(row.id), home_repo: String(row.home_repo), prd: parseIssue(numberOf(row.prd)) }));
-    },
+    dossiers: (workspace) => numberedDossiers(workspace, ['visual', 'bug'], 'fix'),
     reader: { fix: (ref) => fixReader().fix(ref, { priority: 'background' }) },
+    store: {
+      readFacts: (workspace, ids) => store().readFacts(workspace, ids),
+      writeFacts: (rows, syncedAt) => store().writeFacts(rows, syncedAt),
+    },
+  };
+}
+
+/** The concept deps on the service role's client and the server's reader, each made at its first call. */
+function conceptDeps(): ConceptSyncDeps {
+  const store = () => conceptFactsStore(serviceDb());
+  return {
+    dossiers: (workspace) => numberedDossiers(workspace, ['concept'], 'concept'),
+    reader: { concept: (ref) => fixReader().concept(ref, { priority: 'background' }) },
     store: {
       readFacts: (workspace, ids) => store().readFacts(workspace, ids),
       writeFacts: (rows, syncedAt) => store().writeFacts(rows, syncedAt),
@@ -114,6 +132,7 @@ export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv())
     store: lazyStore(),
     outbox: outboxDeps(),
     fixes: fixDeps(),
+    concepts: conceptDeps(),
     snapshots: snapshotDeps(),
     now: () => new Date().toISOString(),
     log: (line) => { console.error(line); },

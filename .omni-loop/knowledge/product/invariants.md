@@ -1,16 +1,5 @@
 # Product invariants
 
-## N-PRODUCT-1
-
-Library modules under kit/lib never perform network I/O; any client for the code-hosting service lives in the command-line layer (kit/bin) and is injected into the library.
-
-Source: .omni-loop/delivery/shipped/0003-omni-loop-kit/outbox/settled.md, entry s15-02-github-client-in-bin, PRD #3
-Enforced by: unenforced
-Stated: 2026-09-25
-Decided: nobody — adopted when raised (medium), 2026-09-25
-Merged: @pierrederval, 2026-09-25, PR #4
-Proposed: harvest 2026-09-26
-
 ## N-PRODUCT-2
 
 The kit runs only inside a repository under git; tracked files always come from version control, and there is no fallback that walks plain folders.
@@ -20,7 +9,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #4
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-3
 
@@ -31,7 +19,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-4
 
@@ -42,7 +29,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #29
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-5
 
@@ -53,18 +39,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #40
-Proposed: harvest 2026-09-26
-
-## N-PRODUCT-6
-
-omni init writes no file in the repository outside .omni-loop/ and the statusLine key of .claude/settings.json; it also creates a branch, commits, pushes and opens a pull request with what it wrote, and installs the Claude Code plugin on the computer it runs on. When a kept config puts the playbook elsewhere, it writes no knowledge forms, says so in its closing message and leaves them to /omni:terraform, which runs omni kb init.
-
-Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s4-04-install-writes-no-form-outside-its-folder, PRD #45
-Enforced by: unenforced
-Stated: 2026-09-25
-Decided: nobody — adopted when raised (medium), 2026-09-25
-Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-7
 
@@ -75,7 +49,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-8
 
@@ -86,7 +59,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-9
 
@@ -97,7 +69,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-10
 
@@ -118,4 +89,23 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
-Proposed: harvest 2026-09-27
+
+## N-PRODUCT-12
+
+Run in a folder where the loop is not installed, omni now does not refuse: it reads nothing, answers that the session is on nothing, and exits 0. Other commands that need a kit still refuse there.
+
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s1-01-now-runs-without-a-kit, PRD #1208
+Enforced by: kit/lib/launch/launch.test.ts, kit/bin/now.test.ts, kit/bin/omni.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1210
+
+## N-PRODUCT-13
+
+omni init writes no file outside .omni-loop/ except two keys of .claude/settings.json, the status line and the band's setting, and never changes a value someone else set; it commits that file whenever either key is the loop's.
+
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s7-01-init-wires-the-band-outside-its-territory, PRD #1208
+Enforced by: kit/lib/init/settings.test.ts, kit/bin/init.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1210
