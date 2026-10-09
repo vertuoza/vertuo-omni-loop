@@ -1,32 +1,35 @@
 // `omni prd <n>` — where PRD <n> lives today, as text: the one lookup an agent runs before following
 // any delivery path.
-import { whereIs } from '../../lib/delivery/prd.ts';
+//
+// PRD 1299, slice s5: its stage is read through `prdState()`. A ◇ PRD prints exactly as before and
+// never calls the server; a ◆ PRD reads `inbox` only once approved, else `prd` while it waits, or
+// `drifted`, `unreachable` or `refused`, with its birthplace and its approval's lines. It runs before
+// a context exists, like `omni approval`, so that a test can hand it `tokens`, `home`, `fetch` and
+// `callMs`; it loads the context itself. With no sign-in, no Omni page or no slug it holds a ◆ PRD and
+// says why on stderr.
+import { prdState } from '../../lib/approval/prd-state.ts';
+import { loadContext } from '../../lib/context.ts';
+import { gateApproval, heldWhy, prdLines, whereIs } from '../../lib/delivery/prd.ts';
+import type { GateOptions } from '../../lib/delivery/prd.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
-import type { Command, CommandIo } from '../io.ts';
-import { synchronous } from '../synchronous.ts';
+import type { FreeCommand, FreeIo } from '../io.ts';
 
-export const prd: Command = {
-  run: synchronous((args: string[], { ctx, stdout, stderr }: CommandIo): number => {
+export const prd = {
+  withoutContext: true,
+  async run(args: string[], { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & GateOptions) {
     const { positional } = parseArgs('prd', args);
     if (positional.length !== 1) throw usageError('usage: omni prd <n>');
     const number = prdArg('prd', '<n>', positional[0]);
+    const ctx = loadContext(cwd, { exec });
     const where = whereIs(ctx, number);
     if (!where) {
       println(stderr, `omni prd: PRD ${number} is in neither ${ctx.layout.dirs.inbox} nor ${ctx.layout.dirs.shipped}.`);
       return 1;
     }
-    const lines = [
-      `PRD ${where.prd} — ${where.name}`,
-      `state: ${where.state}`,
-      `dir: ${where.dir}`,
-      'files:',
-      ...where.files.map((file) => `  - ${file}`),
-      `outbox: ${where.outboxDir ?? 'none'}`,
-      `open items: ${where.openItems.length === 0 ? 'none' : ''}`.trimEnd(),
-      ...where.openItems.map((file) => `  - ${file}`),
-      ...(where.repos.length === 0 ? [] : [`repos: ${where.repos.join(', ')}`]),
-    ];
-    println(stdout, lines.join('\n'));
+    const state = await prdState(ctx, number, { approval: gateApproval(ctx, { tokens, home, fetch, callMs }) });
+    const why = heldWhy(state);
+    if (why !== null) println(stderr, `omni prd: ${why}`);
+    println(stdout, prdLines(where, state).join('\n'));
     return 0;
-  }),
-};
+  },
+} satisfies FreeCommand;
