@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { SHOT_MAX_BYTES } from './answer-model';
 import { ATTACHMENTS_BUCKET } from './store';
 import { present } from './test/test-item';
 
@@ -62,5 +63,14 @@ describe('the ask-attachments migration', () => {
     expect(oneLine).toContain("raise exception 'This round is already %: its answer cannot change.'");
     expect(oneLine).toContain("raise exception 'An ask round cannot go from % to %.'");
     expect(oneLine).toContain('new.answered_by := case');
+  });
+});
+
+describe('the 4 MB migration (PRD 1318, s3)', () => {
+  const LOWER = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261128090000_ask_attachments_4mb.sql', import.meta.url)), 'utf8');
+
+  it('lowers the bucket to the 4 MB the controller takes, one screenshot per request', () => {
+    expect(LOWER.replace(/\s+/g, ' ')).toContain(`update storage.buckets set file_size_limit = ${SHOT_MAX_BYTES} where id = '${ATTACHMENTS_BUCKET}';`);
+    expect(SHOT_MAX_BYTES).toBe(4194304);
   });
 });

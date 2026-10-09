@@ -345,6 +345,30 @@ Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
 - **Any other build** (a Vercel deployment missing its variables, say): **closed**. The attract mode
   plays, and INSERT COIN says sign-in is not open yet. No simulated sign-in, and no galaxy data.
 
+### Layers: client → controller → service → repository (PRD 1318)
+
+Each feature folder (`src/<area>/`) splits a request into five roles, named by the file's suffix
+(ADR-0095, after vertuo-ai-domain's `libs/LIBRARY_STYLE_RULES.md` §5):
+
+| role | file | does | never |
+|---|---|---|---|
+| contract | `<area>.contract.ts` | zod schemas of each request and response, and the error shape `{"error": <kind>}` | imports anything server-only |
+| client | `<area>.client.ts` | fetches the area's routes and parses every response with the contract | imports a controller, a service, a repository or `@supabase/*` |
+| controller | `<area>.controller.ts` | checks the session first (none: `401 {"error":"signed-out"}`), parses the input, calls services, maps results to HTTP | imports a repository, `@supabase/*` or the database module |
+| service | `<area>.service.ts` | holds the rules, calls one or more repositories | imports `@supabase/*` or the database module |
+| repository | `<area>.repository.ts` | calls `.from`, `.rpc` or `.storage` on the client it is given | imports another repository or a service |
+
+A route (`app/api/**/route.ts`) only re-exports a controller's handlers, and a server page is a
+controller. Only repositories import the database module, `src/data/db.ts` (`userDb()`, as the
+signed-in person; `serviceRoleDb()`, for the reads ADR-0051 names), so row-level security stays the
+second wall. Signing in and out is the one thing the browser still does with Supabase, in
+`src/data/sign-in.client.ts`.
+
+`scripts/layering-guard.test.ts` checks every file here, naming the file, the line and the rule, and
+runs with `pnpm test`. Today's breaches are listed in `layering/baseline.json` at the repository's
+root, one line per file and rule: a breach it does not list fails, and so does a line whose breach is
+gone, so the list only shrinks. Moving an area onto the layers deletes its lines.
+
 ## Sign-in and sign-up
 
 GitHub is the only way in (PRD 359). Every sign-in surface (the arcade, `/ask`, the terminal's code

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
-import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, LEAD_MAX_BYTES, LEAD_NOTE_BYTES, openSession, shareRound, waitRound, whereQuestionsGo, type AskDeps } from './api';
+import { abandonRound, addAttachment, addRound, answerRound, categorizeRound, closeSession, deleteSession, LEAD_MAX_BYTES, removeAttachment, LEAD_NOTE_BYTES, openSession, shareRound, waitRound, whereQuestionsGo, type AskDeps, type CookieSession } from './api';
 import type { JevOutcome } from '../jev/client';
 import type { JevDecideDeps } from '../jev/resolve';
 import type { JevCall, JevMode } from '../jev/store';
@@ -72,11 +72,21 @@ function world() {
   // with how many rounds were still there at the time.
   const bucket = {
     objects: [] as string[],
-    calls: [] as Array<{ op: 'list' | 'remove'; name: string; arg: string | string[]; rounds: number }>,
+    calls: [] as Array<{ op: 'list' | 'remove' | 'upload'; name: string; arg: string | string[]; rounds: number }>,
     fail: false,
+    /** What an upload answers instead of storing it, when set (PRD 1318). */
+    refuse: null as { message: string; statusCode: string } | null,
   };
   const storage = {
     from: (name: string) => ({
+      upload(path: string, file: Blob, options: { contentType: string; upsert: boolean }) {
+        bucket.calls.push({ op: 'upload', name, arg: [path, options.contentType, String(file.size), String(options.upsert)], rounds: fake.tables.ask_rounds.length });
+        if (bucket.fail) return Promise.resolve({ data: null, error: { message: 'storage is down', statusCode: '500' } });
+        if (bucket.refuse) return Promise.resolve({ data: null, error: bucket.refuse });
+        if (bucket.objects.includes(path)) return Promise.resolve({ data: null, error: { message: 'The resource already exists', statusCode: '409' } });
+        bucket.objects.push(path);
+        return Promise.resolve({ data: { path }, error: null });
+      },
       list(folder: string) {
         bucket.calls.push({ op: 'list', name, arg: folder, rounds: fake.tables.ask_rounds.length });
         if (bucket.fail) return Promise.resolve({ data: null, error: { message: 'storage is down' } });
@@ -109,6 +119,18 @@ function world() {
       headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': 'application/json', ...headers },
       body: raw ?? (body === undefined ? null : JSON.stringify(body)),
     });
+  /** The deps of a page signed in by cookie as the person `token` names, or signed out with null
+   * (PRD 1318, s3): a request with no Authorization header reads it. */
+  const byCookie = (token: string | null): AskDeps => ({
+    ...deps,
+    cookie: () => {
+      const person = token === null ? null : { 'ada-token': ADA, 'bob-token': BOB, 'dan-token': DAN }[token];
+      if (!token || !person) return Promise.resolve(null);
+      // The stub answers only the query shapes the store sends, so it is not a whole Supabase client.
+      const client = { ...fake.client(token), storage } as unknown as CookieSession['client'];
+      return Promise.resolve({ caller: { id: person.id, email: person.email }, client });
+    },
+  });
   const read = async (response: Response) => ({ status: response.status, body: Answer.parse(await response.json()) });
 
   async function session(token = 'ada-token') {
@@ -127,7 +149,7 @@ function world() {
     return found;
   };
   return {
-    clock, fake, bucket, deps, sleeps, request, read, session, round, row,
+    clock, fake, bucket, deps, byCookie, sleeps, request, read, session, round, row,
     whileWaiting(fn: () => void) { onSleep = fn; },
   };
 }
@@ -1306,6 +1328,8 @@ describe('the ask routes', () => {
     ['rounds/[id]/abandon', 'POST', 'abandonRound'],
     ['rounds/[id]/category', 'PATCH', 'categorizeRound'],
     ['rounds/[id]/shares', 'POST', 'shareRound'],
+    ['rounds/[id]/attachments/[name]', 'POST', 'addAttachment'],
+    ['rounds/[id]/attachments/[name]', 'DELETE', 'removeAttachment'],
     ['workspace', 'GET', 'whereQuestionsGo'],
   ];
 
@@ -1317,4 +1341,168 @@ describe('the ask routes', () => {
       expect(source).toContain(`${handler}(`);
     });
   }
+});
+
+describe('a page\'s cookie session (PRD 1318, s3)', () => {
+  const page = { token: null };
+
+  it('takes a request with no Authorization header as the person its cookie names, on every call', async () => {
+    const w = world();
+    const ada = w.byCookie('ada-token');
+    const sessionId = await w.session();
+    const roundId = await w.round(sessionId);
+    const category = await w.read(await categorizeRound(w.request('PATCH', `/api/ask/rounds/${roundId}/category`, { ...page, body: { category: 'product' } }), roundId, ada));
+    expect(category).toEqual({ status: 200, body: { id: roundId, category: 'product', category_by: ADA.id } });
+    const shared = await w.read(await shareRound(w.request('POST', `/api/ask/rounds/${roundId}/shares`, { ...page, body: { member: BOB.id } }), roundId, ada));
+    expect(shared).toEqual({ status: 200, body: { roundId, sharedWith: BOB.id, url: `https://ask.example/ask/q/${roundId}` } });
+    expect((await abandonRound(w.request('POST', `/api/ask/rounds/${roundId}/abandon`, page), roundId, ada)).status).toBe(200);
+    expect((await closeSession(w.request('POST', `/api/ask/sessions/${sessionId}/close`, page), sessionId, ada)).status).toBe(200);
+    expect(w.row('ask_sessions', sessionId).status).toBe('closed');
+    expect(await w.read(await deleteSession(w.request('DELETE', `/api/ask/sessions/${sessionId}`, page), sessionId, ada))).toEqual({ status: 200, body: { id: sessionId, deleted: true } });
+    expect(w.fake.tables.ask_sessions).toEqual([]);
+  });
+
+  it('refuses a signed-out page with 401, and changes nothing', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const roundId = await w.round(sessionId);
+    const out = w.byCookie(null);
+    for (const response of [
+      await closeSession(w.request('POST', `/api/ask/sessions/${sessionId}/close`, page), sessionId, out),
+      await deleteSession(w.request('DELETE', `/api/ask/sessions/${sessionId}`, page), sessionId, out),
+      await answerRound(w.request('POST', `/api/ask/rounds/${roundId}/answers`, { ...page, body: { answers: ANSWERS, via: 'page' } }), roundId, out),
+      await addAttachment(w.request('POST', `/api/ask/rounds/${roundId}/attachments/1.png`, { ...page, raw: 'png', headers: { 'content-type': 'image/png' } }), roundId, '1.png', out),
+    ]) {
+      expect(response.status).toBe(401);
+    }
+    expect(w.row('ask_sessions', sessionId).status).toBe('open');
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ status: 'open', answers: null });
+    expect(w.bucket.objects).toEqual([]);
+  });
+
+  it('still reads the bearer token first when a request carries one, cookie or not', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const asBob = await closeSession(w.request('POST', `/api/ask/sessions/${sessionId}/close`, { token: 'bob-token' }), sessionId, w.byCookie('ada-token'));
+    expect(asBob.status).toBe(404);
+    expect(w.row('ask_sessions', sessionId).status).toBe('open');
+  });
+
+  it('refuses another owner\'s session through the cookie as through the token: 404, and 403 on a delete', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const bob = w.byCookie('bob-token');
+    expect((await closeSession(w.request('POST', `/api/ask/sessions/${sessionId}/close`, page), sessionId, bob)).status).toBe(404);
+    expect((await deleteSession(w.request('DELETE', `/api/ask/sessions/${sessionId}`, page), sessionId, bob)).status).toBe(403);
+  });
+});
+
+describe('an answer given on the page (PRD 1318, s3)', () => {
+  const page = { token: null };
+  const answer = (w: ReturnType<typeof world>, id: string, body: unknown, token = 'ada-token') =>
+    answerRound(w.request('POST', `/api/ask/rounds/${id}/answers`, { ...page, body }), id, w.byCookie(token));
+
+  it('records it, via the page, only while the round is open', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    expect(await w.read(await answer(w, roundId, { answers: ANSWERS, via: 'page' }))).toEqual({ status: 200, body: { id: roundId, status: 'answered', via: 'page' } });
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ status: 'answered', answers: ANSWERS, answered_via: 'page' });
+    const again = await w.read(await answer(w, roundId, { answers: { 'Which checks run?': 'RLS' }, via: 'page' }));
+    expect(again).toMatchObject({ status: 409, body: { status: 'answered' } });
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ answers: ANSWERS });
+  });
+
+  it('leaves a round the terminal took over as it is, with 409', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    await abandonRound(w.request('POST', `/api/ask/rounds/${roundId}/abandon`), roundId, w.deps);
+    expect(await w.read(await answer(w, roundId, { answers: ANSWERS, via: 'page' }))).toMatchObject({ status: 409, body: { status: 'abandoned' } });
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ status: 'abandoned', answers: null });
+  });
+
+  it('records its screenshots with it, each a file of the round\'s own folder', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    const attachments = { 'Which checks run?': [`${roundId}/1.png`, `${roundId}/2.webp`] };
+    expect((await answer(w, roundId, { answers: ANSWERS, via: 'page', attachments })).status).toBe(200);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ status: 'answered', answered_via: 'page', attachments });
+  });
+
+  it('refuses answers that are not text, and screenshots of another round or another name, with 400', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    for (const body of [
+      { answers: {}, via: 'page' },
+      { answers: ANSWERS, via: 'page', attachments: { 'Which checks run?': [`${MISSING}/1.png`] } },
+      { answers: ANSWERS, via: 'page', attachments: { 'Which checks run?': [`${roundId}/6.png`] } },
+      { answers: ANSWERS, via: 'page', attachments: { 'Which checks run?': `${roundId}/1.png` } },
+      { answers: ANSWERS, via: 'page', attachments: [`${roundId}/1.png`] },
+    ]) {
+      expect((await answer(w, roundId, body)).status, JSON.stringify(body)).toBe(400);
+    }
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ status: 'open', answers: null });
+  });
+
+  it('answers 404 for a round that is missing or no uuid', async () => {
+    const w = world();
+    for (const id of [MISSING, 'not-a-uuid']) expect((await answer(w, id, { answers: ANSWERS, via: 'page' })).status).toBe(404);
+  });
+});
+
+describe('a screenshot uploaded by the page, one per call (PRD 1318, s3)', () => {
+  const page = { token: null };
+  const MB = 1024 * 1024;
+  const upload = (w: ReturnType<typeof world>, id: string, name: string, bytes: number | string, type = 'image/png', headers: Record<string, string> = {}) =>
+    addAttachment(
+      w.request('POST', `/api/ask/rounds/${id}/attachments/${name}`, { ...page, raw: typeof bytes === 'string' ? bytes : 'x'.repeat(bytes), headers: { 'content-type': type, ...headers } }),
+      id, name, w.byCookie('ada-token'),
+    );
+
+  it('stores one at or under 4 MB in the round\'s folder, as the caller, and names its path', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    expect(await w.read(await upload(w, roundId, '1.png', 4 * MB))).toEqual({ status: 200, body: { path: `${roundId}/1.png` } });
+    expect(w.bucket.objects).toEqual([`${roundId}/1.png`]);
+    expect(w.bucket.calls).toEqual([{ op: 'upload', name: 'ask-attachments', arg: [`${roundId}/1.png`, 'image/png', String(4 * MB), 'false'], rounds: 1 }]);
+  });
+
+  it('refuses one over 4 MB with 413 too-large, by its length before reading it, and by its size', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    expect(await w.read(await upload(w, roundId, '1.png', 'small', 'image/png', { 'content-length': String(4 * MB + 1) }))).toEqual({ status: 413, body: { error: 'too-large' } });
+    expect(await w.read(await upload(w, roundId, '1.png', 4 * MB + 1))).toEqual({ status: 413, body: { error: 'too-large' } });
+    expect(w.bucket.calls).toEqual([]);
+  });
+
+  it('answers 409 for one already there, and 403 when the bucket\'s rules refuse the caller', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    await upload(w, roundId, '1.png', 10);
+    expect(await w.read(await upload(w, roundId, '1.png', 10))).toMatchObject({ status: 409, body: { path: `${roundId}/1.png` } });
+    w.bucket.refuse = { message: 'new row violates row-level security policy', statusCode: '403' };
+    expect((await upload(w, roundId, '2.png', 10)).status).toBe(403);
+    w.bucket.refuse = null;
+    w.bucket.fail = true;
+    expect((await upload(w, roundId, '3.png', 10)).status).toBe(500);
+  });
+
+  it('refuses a name or a type the bucket does not take, with 400, and a round that is no uuid with 404', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    expect((await upload(w, roundId, '6.png', 10)).status).toBe(400);
+    expect((await upload(w, roundId, 'a.png', 10)).status).toBe(400);
+    expect((await upload(w, roundId, '1.png', 10, 'image/svg+xml')).status).toBe(400);
+    expect((await upload(w, 'not-a-uuid', '1.png', 10)).status).toBe(404);
+    expect(w.bucket.calls).toEqual([]);
+  });
+
+  it('removes one the page dropped, as the caller', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    await upload(w, roundId, '1.png', 10);
+    const removed = await removeAttachment(w.request('DELETE', `/api/ask/rounds/${roundId}/attachments/1.png`, page), roundId, '1.png', w.byCookie('ada-token'));
+    expect(await w.read(removed)).toEqual({ status: 200, body: { path: `${roundId}/1.png`, removed: true } });
+    expect(w.bucket.objects).toEqual([]);
+    expect((await removeAttachment(w.request('DELETE', `/api/ask/rounds/${roundId}/attachments/x.png`, page), roundId, 'x.png', w.byCookie('ada-token'))).status).toBe(404);
+  });
 });
