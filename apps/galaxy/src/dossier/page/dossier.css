@@ -185,6 +185,58 @@
 /* PRD 1299 s3: Approve, on a ◆ PRD's page, and its Approval cell. */
 .dossier-approve { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .dossier-approval dd p { margin: 2px 0 0; }
+/* PRD 1322 s7: the approve screen, under the head: the changed files' diffs, Problem, Solution, Approve. */
+.dossier-approve-screen {
+  display: grid; gap: 12px; min-width: 0; margin: 16px 0; padding: 16px;
+  background: var(--ask-surface); border: 1.5px solid var(--ask-plasma); border-radius: 12px;
+}
+.dossier-approve-screen h2 { margin: 0; font-size: 15px; }
+.dossier-approve-screen h3 { margin: 0 0 4px; font: 600 12px/1.3 var(--ask-mono); }
+.dossier-approve-changed,
+.dossier-approve-section { display: grid; gap: 6px; min-width: 0; }
+.dossier-diff {
+  margin: 0; padding: 8px 0; max-height: 360px; overflow: auto;
+  font: 12px/1.45 var(--ask-mono); background: var(--ask-sunk); border-radius: 8px;
+}
+.dossier-diff span { display: block; padding: 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dossier-diff-add { color: var(--ask-green); }
+.dossier-diff-del { color: var(--ask-red); }
+.dossier-diff-same,
+.dossier-diff-gap { color: var(--ask-muted); }
+/* #1351, on a phone: Approve takes the card's width, larger, at the end of the Problem and the Solution.
+   Only the page's header is ever pinned (PRD 476), so it is not pinned to the screen. */
+@media (max-width: 899px) {
+  .dossier-approve-screen .dossier-approve { display: grid; }
+  .dossier-approve-screen .dossier-approve-button { width: 100%; padding-block: 12px; font-size: 16px; }
+}
+/* #1351: the seal of an approval in force, where the approve screen was. */
+.dossier-seal-card {
+  display: grid; justify-items: center; gap: 6px; min-width: 0; margin: 16px 0; padding: 18px 16px;
+  text-align: center; background: var(--ask-surface); border: 1.5px solid var(--ask-plasma); border-radius: 12px;
+  scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 12px);
+}
+.dossier-seal { width: 136px; height: 136px; }
+.dossier-seal-disc { fill: var(--ask-plasma); }
+.dossier-seal-line { fill: none; stroke: var(--ask-on-plasma); stroke-width: 2; }
+.dossier-seal-dash { stroke-width: 1.2; stroke-dasharray: 2 2; }
+.dossier-seal-ring { font: 7.4px var(--ask-mono); letter-spacing: 1.1px; fill: var(--ask-on-plasma); }
+.dossier-seal-number { font: 25px Impact, 'Anton', var(--ask-body); fill: var(--ask-on-plasma); }
+@media (prefers-reduced-motion: no-preference) {
+  .dossier-seal { animation: dossier-seal-stamp 420ms cubic-bezier(.2, 1.4, .4, 1) both; }
+}
+@keyframes dossier-seal-stamp {
+  from { transform: scale(1.6) rotate(-12deg); }
+  to { transform: none; }
+}
+.dossier-seal-who { margin: 0; font-size: 17px; font-weight: 800; }
+.dossier-seal-card .ask-hint { margin: 0; }
+.dossier-seal-files {
+  display: grid; gap: 3px; width: 100%; max-width: 420px; margin: 6px 0 0; padding: 0; list-style: none;
+  font: 12px var(--ask-mono); text-align: left;
+}
+.dossier-seal-files li { display: flex; justify-content: space-between; gap: 10px; padding-bottom: 2px; border-bottom: 1px dashed var(--ask-line); min-width: 0; }
+.dossier-seal-files span { overflow-wrap: anywhere; }
+.dossier-seal-files code { color: var(--ask-cyan); flex: none; }
 .dossier-copy .ask-share-link { flex: 1 1 260px; }
 
 /* ── The artifact tabs, on the header's bottom edge, their rule across its full width: links, the current one underlined ── */

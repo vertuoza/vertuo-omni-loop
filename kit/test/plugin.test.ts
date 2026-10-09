@@ -1977,7 +1977,81 @@ describe('the validate-e2e skill (PRD 1233)', () => {
     expect(step.indexOf('omni.mjs e2e heals <n> --head <sub-PR branch>')).toBeGreaterThan(status);
     expect(step).toMatch(/every step is new/);
     expect(step).toContain('omni.mjs item new');
-    expect(step).toMatch(/none is taken as accepted/);
+    expect(step).toMatch(/none is taken as accepted/i);
+  });
+
+  it('puts the before and after screenshots, or the none-kept reason, in each healed step item (PRD 1274)', () => {
+    const step = skillSection(read(), '8.');
+    expect(step).toMatch(/screenshots/);
+    expect(step).toMatch(/before and after\s+screenshots/);
+    expect(step).toMatch(/none was\s+kept/);
+    expect(step).toMatch(/\bwhy\b/);
+    expect(step).not.toMatch(/no screenshots/);
+  });
+
+  it('holds healed recordings, commits only unchanged and new ones, and names confirm and reject without saying who confirms (PRD 1274)', () => {
+    const text = read();
+    const items = skillSection(text, '8.');
+    const pr = skillSection(text, '9.');
+    expect(items).toContain('omni.mjs e2e hold <n>');
+    expect(items.indexOf('omni.mjs e2e hold <n>')).toBeGreaterThan(items.indexOf('omni.mjs e2e heals <n>'));
+    for (const cmd of ['omni.mjs e2e confirm <n>', 'omni.mjs e2e reject <n>']) expect(items, cmd).toContain(cmd);
+    expect(pr).toMatch(/only unchanged and new\s+recordings/);
+    expect(pr).toMatch(/holds no healed\s+recording/);
+    expect(text).not.toMatch(/count as\s+accepted only when it is merged/);
+    expect(text).not.toMatch(/committed from the start/);
+    expect(text).not.toMatch(/\bQA confirms\b|\bthe reviewer confirms\b|\bconfirmed by (QA|the)\b/i);
+  });
+
+  it('guards that the sub-PR step never commits a healed recording (PRD 1274)', () => {
+    const pr = skillSection(read(), '9.');
+    // the commit sentence must not take every recording of e2e.dir: it must name the held ones as left out
+    expect(pr).not.toMatch(/commit the tests and `e2e\.dir`'s recordings \(nothing else/);
+    expect(pr).toMatch(/healed recording[^.]*(is not|never|left out|waits)/);
+  });
+
+  it('in a plan repository, writes tests and recordings in the plan repository and never in a target repository (PRD 1276)', () => {
+    const text = read();
+    const flat = (step: string) => step.replace(/\s+/g, ' ');
+    const target = flat(skillSection(text, '2.'));
+    const project = flat(skillSection(text, '4.'));
+    expect(target).toContain('(its config has a `plan` section)');
+    expect(target).toContain('the environment the plan repository builds from the target PRs together');
+    expect(target).toContain('`e2e.url` and `e2e.setup` are read from config, never guessed');
+    expect(project).toContain("the tests and the recordings are all in the plan repository's `e2e.dir`");
+    expect(project).toContain('never writes a target repository');
+    expect(project).toContain('Outside a plan repository the skill runs exactly as before');
+  });
+
+  it('gives every created record a name built from a per-run value, in a plan repository and elsewhere, unless the spec answers otherwise (PRD 1276)', () => {
+    const step = skillSection(read(), '5.').replace(/\s+/g, ' ');
+    expect(step).toContain('built from a value that is new on every run');
+    expect(step).toContain('in a plan repository and outside one');
+    expect(step).toContain("unless the spec's answer says otherwise");
+  });
+
+  it('signs in from the saved session e2e.setup writes, and never prints, logs, commits or shows a credential (PRD 1276)', () => {
+    const text = read();
+    const target = skillSection(text, '2.').replace(/\s+/g, ' ');
+    expect(target).toContain('the run signs in from the saved session `e2e.setup` writes');
+    expect(target).toMatch(/never prints, logs or commits a credential and never shows one to the model/);
+    expect(skillSection(text, 'Never').replace(/\s+/g, ' ')).toMatch(/Never print, log, save or show a credential to the model/);
+  });
+
+  it('runs omni e2e guard <n> before the commit, and a non-zero exit stops the run (PRD 1276)', () => {
+    const text = read();
+    const checks = skillSection(text, '8.').replace(/\s+/g, ' ');
+    const pr = skillSection(text, '9.').replace(/\s+/g, ' ');
+    expect(checks).toContain('omni.mjs e2e guard <n>');
+    expect(checks).toMatch(/non-zero exit stops the run/);
+    expect(pr.indexOf('Branch from')).toBeGreaterThan(-1);
+    expect(text.indexOf('omni.mjs e2e guard <n>')).toBeLessThan(text.indexOf('Branch from'));
+  });
+
+  it('states in the sub-PR body which QA flow and which account (by label, never the secret) the run used (PRD 1276)', () => {
+    const pr = skillSection(read(), '9.').replace(/\s+/g, ' ');
+    expect(pr).toContain('which QA flow and which account');
+    expect(pr).toContain('by label, never the secret');
   });
 
   it('says in the sub-PR body when the target was not the preview, and why (PRD 1273)', () => {

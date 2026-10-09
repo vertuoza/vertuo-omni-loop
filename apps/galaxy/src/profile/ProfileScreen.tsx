@@ -14,6 +14,7 @@ import type { ProfileBoard } from './profile';
 import type { HistoryItem } from '../dossier/page/history';
 import type { FixItem } from '../fixes/list';
 import { StagePill } from '../stages/stage-pill';
+import { AlertsSection } from './AlertsSection';
 import type { DossierList, ProfileHead, ProfileLists, ProfileWork, WorkList } from './load';
 import { profilePath, type ProfilePullRequest, type ProfileReview } from './select';
 import '../dossier/page/dossier.css';
@@ -25,7 +26,7 @@ import './profile.css';
 // each, then **see all**; "not in this workspace" for a login no member holds, with no data; and, as
 // on /app/fleet, closed, signed out and in no workspace. An empty list reads "Nothing in this period";
 // a workspace that tracks no repository says so under both pull request lists, linking to Settings ›
-// Repositories. Read-only: nothing on it is editable, your own profile included.
+// Repositories. Read-only, but for your own alert switches (PRD 1322 s9, ./AlertsSection.tsx).
 // PRD 698 s5: above those, the PRDs they opened (#n, the title and the stage pill, to the dossier's page)
 // and the bug fixes and visual updates they asked for (the fix lists' row: #n, the title, the state pill,
 // a bug's risk and regression badges, to the fix's page), of the period, at most 10 each, then **see
@@ -217,6 +218,7 @@ export function ProfileScreen({ view, supabase, signinError, query }: ProfileScr
       return (
         <div className="dash">
           <Head person={view.person} season={view.board.season.name} />
+          {view.alerts && <AlertsSection alerts={view.alerts} />}
           <Board board={view.board} path={profilePath(view.person.login)} query={query} peopleTitle="Season and counts" />
           <Lists lists={view.lists} />
           <Work work={view.work} />

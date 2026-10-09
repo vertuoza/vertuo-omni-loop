@@ -107,10 +107,10 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 50 commands and the 31 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(50);
+  it('holds the 51 commands and the 31 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(51);
     expect(skillFolders()).toHaveLength(31);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(50);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(51);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(31);
   });
 
@@ -493,5 +493,12 @@ describe('the help table guard catches what it is for', () => {
   it('flags a command entry carrying a group, a when line or an example', () => {
     const table = [entry({ name: 'x', group: 'build', when: 'Use it when x.', example: EXAMPLE }), good[1], good[2]];
     expect(entryViolations(table, live)).toEqual(['command x: a command has no group, when, example']);
+  });
+});
+
+describe('the e2e entry', () => {
+  it('names heals, hold, confirm and reject', () => {
+    const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'e2e');
+    for (const sub of ['heals', 'hold', 'confirm', 'reject']) expect(entry?.usage.join('\n')).toContain(`omni e2e ${sub} <prd>`);
   });
 });

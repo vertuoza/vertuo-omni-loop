@@ -19,7 +19,8 @@ model the first time and its actions are recorded; later runs replay the recordi
 call. That is also the danger: when a screen changes, the model can click the new thing, the test
 stays green and the recording is silently overwritten. A suite that heals itself past a changed
 screen protects nothing. So the recordings are **committed**, they are the reference, and a change to
-one is something a person reads.
+one is something a person reads. A **healed** recording is the exception: it waits outside the
+branch until someone confirms it (below).
 
 ## The `e2e:` block
 
@@ -85,6 +86,43 @@ fixed address, a local or hosted demo that has data, instead of `github-deployme
 targets that address, and the sub-PR body says the target was **not the preview**, and why. A reader
 of the sub-PR sees that the tests were not run against the pull request's own build.
 
+## In a plan repository
+
+When the repository is a plan repository (its config has a `plan` section) and the product spans
+several repositories, the skill works differently in four ways.
+
+- **Where it lands.** The e2e project, the tests and the recordings are written in the **plan
+  repository's** `e2e.dir`, and the sub-PR is opened there. A target repository is never written.
+- **What the tests run against.** The target is the environment the plan repository builds from the
+  target pull requests together, not one repository's preview. `e2e.url` and `e2e.setup` name that
+  environment, and the skill reads them from config; it never guesses them.
+- **A name unique to the run.** Every record a test creates carries a name built from a value that is
+  new on every run (a timestamp or a random suffix), so two runs on the shared QA tenant do not
+  collide. This holds outside a plan repository too, unless the PRD's answer says otherwise.
+- **A saved session.** Google refuses to sign in a browser an automated tool drives, so the run does
+  not type a password. `e2e.setup` writes a saved session (`storage-state.json`) in the run's own
+  folder, outside `e2e.dir`, as `/omni:prove` does, and the tests load that file. The skill never
+  prints, logs or commits a credential and never shows one to the model.
+
+### The guard
+
+```bash terminal
+node .omni-loop/bin/omni.mjs e2e guard 1276
+```
+
+Before anything is committed, the skill runs the guard. It exits non-zero and names `file:line` and
+the kind of shape (a password, a token, a key, a session state), **never the value**, when a file of
+`e2e.dir` (other than the recording cache) holds one. A `storage-state.json` found under `e2e.dir` is
+refused by name. A non-zero exit stops the run: no commit and no sub-PR follow, until the file it
+names is fixed. With `e2e.enabled` false it says so in one line and exits non-zero.
+
+### QA chooses the flows and the account
+
+The kit does not choose what to test or who signs in. **QA chooses the flows** to cover first and **the
+test account** the runs use, and keeps its credentials out of the code (in the environment that runs
+`e2e.setup`). The sub-PR states which QA flow and which account the run used, the account **by
+label**, never the secret. The first real run is done by QA in the plan repository.
+
 ## Run it
 
 ```text agent
@@ -141,6 +179,33 @@ fails with a usage error naming it.
 
 An identical step is not listed. The same refusals as `status` hold for both sides.
 
+Each healed step also carries its **screenshots**, a before (at the merge-base) and an after (at the
+head), paired by the same keys. The framework keeps no screenshot per step, so today each side says
+`kept: false` and gives the reason; when a framework keeps one, the path or reference is listed
+instead.
+
+## `omni e2e hold <n>`, `confirm <n>` and `reject <n>`
+
+```bash terminal
+node .omni-loop/bin/omni.mjs e2e hold 1233
+node .omni-loop/bin/omni.mjs e2e confirm 1233
+node .omni-loop/bin/omni.mjs e2e reject 1233
+```
+
+A healed recording is not committed with the rest. Three commands decide where it goes:
+
+- **`hold`** lists the healed recordings of the working tree and moves each out of the branch, into a
+  folder inside the git directory that no commit holds. The committed recording is put back, so a
+  commit of `e2e.dir` holds only recordings that are unchanged or new.
+- **`confirm`** commits the held recordings and notes them in `e2e.dir/.e2e/confirmed.json`. It is
+  the follow-up step: the change was wanted. A later run with no screen change then lists no healed
+  step in `omni e2e heals`.
+- **`reject`** drops the held recordings, leaves the committed ones as they were, and exits non-zero,
+  so the test stays red: the product broke, or the change was not wanted.
+
+**Who confirms is a separate decision.** These commands say what happens on each answer, not who
+gives it: that is asked of QA in the PRD that wires this into `/omni:yolo`.
+
 ## The strict replay, by hand
 
 Nothing replays the suite after a merge in this beta. To check that the committed recordings still
@@ -170,14 +235,14 @@ The sub-PR goes into the feature branch (`Part of #<n>`). It holds the tests, th
 table of criterion, test and verdict: **✓**, **✗**, or "not filmable".
 
 - On a first pass every step is **new**.
-- On a later pass, each **healed** step becomes an outbox item with its action before and after. It
-  means the product changed under a test and a model found its way to the new screen. It is **not
-  accepted** until a person confirms it: confirm it if the change was wanted, reject it if the
-  product broke.
+- On a later pass, each **healed** step becomes an outbox item with its action before and after and
+  its before and after screenshots, or a line saying that none was kept and why. It means the product
+  changed under a test and a model found its way to the new screen. The healed recording is **not in
+  the sub-PR**: it waits, held outside the branch, until a person runs `omni e2e confirm` (the change
+  was wanted: the recording is committed) or `omni e2e reject` (the product broke: the committed
+  recording stays and the test stays red).
 - A **removed** step is worth a look: ask where its criterion went.
-- **What the beta does not do yet.** The recordings, a healed one included, are committed in the
-  sub-PR from the start: they count as accepted only when a person merges it, so read the healed items
-  before you do. And an item shows the action before and after, in words: it carries no screenshots yet.
+- The sub-PR holds only recordings that are unchanged or new, so merging it accepts no healed step.
 
 Read the tests too. The same agent may have seen the code, so reading the spec alone is a rule of the
 skill, not a guarantee; a person reading the tests in the sub-PR is the check.

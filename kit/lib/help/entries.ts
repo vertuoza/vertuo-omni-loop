@@ -734,7 +734,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'prints the state, who, when and the pinned files. omni approval flag reads where this ' +
       "repository's new PRDs are born instead: phase 0: server (approved on the PRD's page) or " +
       'phase 0: pr (a phase-0 PR), as an owner set it on the Omni page; when it cannot be read it ' +
-      'says pr, with why, and exits 1.',
+      'says pr, with why, and exits 1. To wait until someone approves rather than read it once, ' +
+      'use omni wait approval <n> (omni help wait).',
+  },
+  {
+    name: 'wait',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni wait approval <n> [--timeout <minutes>]'],
+    summary: 'ask for approval of a PRD born on the server, and wait until it lands',
+    detail:
+      "Asks PRD n's approvers on the Omni page, by the phone alerts and emails each one turned on: the " +
+      "product's members asked to approve, except the author, or the author when nobody else is. It " +
+      'prints one waiting line naming them, then follows the approval as it streams and prints the ' +
+      'approved line, who and when and how many files are pinned, and exits 0. An approval already in ' +
+      'force answers at once and asks nobody. A change pushed after approval voids it: the voided line ' +
+      'prints, the approvers are asked again, and it keeps waiting. A cut stream resumes where it left ' +
+      'off; after three failed tries in a row it prints server unreachable · held, not failed, and keeps ' +
+      'trying. With no sign-in it exits 1 (no sign-in (omni signin) · held), and so it does past ' +
+      '--timeout minutes, 60 by default (held: still waiting for …). The HUD shows the same lines.',
   },
   {
     name: 'visual',
@@ -830,7 +848,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'e2e',
     kind: 'command',
     who: 'skills',
-    usage: ['omni e2e status <prd>', 'omni e2e heals <prd> [--head <ref>]'],
+    usage: ['omni e2e status <prd>', 'omni e2e heals <prd> [--head <ref>]', 'omni e2e hold <prd>', 'omni e2e confirm <prd>', 'omni e2e reject <prd>', 'omni e2e guard <prd>'],
     summary: 'which e2e tests of a PRD have a recording, and which steps healed (beta)',
     detail:
       'status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each ' +
@@ -843,7 +861,16 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'usage error naming it, and on a first pass, with no recordings at the merge-base, every step is ' +
       'new. It lists each as healed ' +
       '(old and new action, and the summary), new or removed, as JSON; an identical step is not listed. ' +
-      'The same refusals hold for both sides.',
+      'Each healed step carries screenshots, a before and an after: the framework keeps no screenshot ' +
+      'per step, so each side says kept false and why. The same refusals hold for both sides. hold moves ' +
+      'each healed recording of the working tree out of the branch, into a folder inside the git ' +
+      'directory that no commit holds, and puts the committed recording back, so a commit of e2e.dir ' +
+      'holds only unchanged or new recordings. confirm commits the held recordings and notes them in ' +
+      'e2e.dir/.e2e/confirmed.json, so heals no longer lists them until the screen changes again. ' +
+      'reject drops the held recordings, leaves the committed ones and exits 1 so the test stays red. guard reads the files of e2e.dir (the .e2e/cache recordings apart) and the ' +
+      'files this branch changed since the default branch, and exits 1 naming file:line and the kind, ' +
+      'never the value, for a password, token, key or session-state shape; storage-state.json is ' +
+      'refused by name. With e2e.enabled false it says so in one line and exits 1, reading no file.',
   },
   {
     name: 'statusline',

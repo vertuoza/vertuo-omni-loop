@@ -92,6 +92,17 @@ describe('GET /api/dossiers/approval', () => {
     expect(parseApprovalReply(body)).not.toBeNull();
   });
 
+  it('passes a voided approval\'s voids on, each time in ISO 8601, so the kit reads it drifted (PRD 1322)', async () => {
+    const voids = [{ pusher: 'ada-gh', kind: 'plan', from: 'b'.repeat(64), to: 'c'.repeat(64), voidedAt: AT }];
+    const w = world({ answers: { dossier_approval: { data: { dossier: DOSSIER, approval: { ...APPROVED.approval, voids } }, error: null } } });
+    const body = (await w.get('?repo=acme/widgets&prd=1299')).body;
+    const expected = [{ ...voids[0], voidedAt: '2026-10-09T10:00:00.123Z' }];
+    expect(body).toMatchObject({ approval: { voids: expected } });
+    expect(parseApprovalReply(body)?.approval?.voids).toEqual(expected);
+    const none = world({ answers: { dossier_approval: { data: { dossier: DOSSIER, approval: { ...APPROVED.approval, voids: [] } }, error: null } } });
+    expect((await none.get('?repo=acme/widgets&prd=1299')).body).toMatchObject({ approval: { voids: [] } });
+  });
+
   it('answers 404 for a PRD with no dossier the caller reads', async () => {
     const w = world({ answers: { dossier_approval: { data: null, error: null } } });
     expect(await w.get('?repo=acme/widgets&prd=7')).toMatchObject({ status: 404, body: { error: 'No dossier for PRD #7 of acme/widgets.' } });

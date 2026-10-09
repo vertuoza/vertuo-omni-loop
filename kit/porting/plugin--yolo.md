@@ -238,3 +238,17 @@ and `pnpm test`, green.
 
 `pnpm vitest run kit/test/` and `pnpm test`, green but `kit/test/dist.test.ts`, which reads only the
 kit's sources.
+
+## PRD #1322, slice s8 — the approval handshake
+
+- **Step 1, item 3:** a ◆ PRD in state `prd` no longer stops the run. It runs `omni wait approval
+  <n>` (in the background when the shell bounds a command below its `--timeout`), prints its lines,
+  and on exit 0 reads `omni prd` again and goes on into wave 1 without being typed again; on exit 1
+  it ends held on the wait's last line (`no sign-in (omni signin) · held`, or `held: still waiting
+  for …`). `--timeout` is passed only when the person gave one. `drifted`, `unreachable` and
+  `refused` still stop the run on their lines; a ◇ PRD never waits.
+- **Step 7:** a run held by the wait ends on its line alone, as a run stopped at the gate does.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green.

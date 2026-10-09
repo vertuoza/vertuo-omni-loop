@@ -14,7 +14,9 @@
 // constituents (`GET /api/constituents`), for `omni constituents`. Since PRD 1108 it reads a
 // repository's product's Pitch settings (`GET /api/pitch-settings`), for `omni pitch start`. Since
 // PRD 1139 it pushes where a loop stands (`POST /api/loops`), for `omni loop push`. Since PRD 1299 it
-// reads a PRD's approval in force (`GET /api/dossiers/approval`), for `omni approval`.
+// reads a PRD's approval in force (`GET /api/dossiers/approval`), for `omni approval`. Since PRD 1322 it
+// asks a PRD's approvers (`POST /api/dossiers/approval/request`) and follows its approval as Server-Sent
+// Events (`GET /api/dossiers/approval/stream`, the one call whose body is a stream), for `omni wait approval`.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -99,8 +101,11 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
   const root = baseUrl.replace(/\/+$/, '');
   const segment = (value: string | number): string => encodeURIComponent(value);
 
-  async function send(method: string, path: string, { body, token, timeoutMs }: { body?: unknown; token?: string; timeoutMs: number }): Promise<Response> {
-    const headers: Record<string, string> = { accept: 'application/json' };
+  /** One request. `signal`, when given, replaces the timeout: a stream's body outlives `timeoutMs`. */
+  async function send(method: string, path: string, { body, token, timeoutMs, accept = 'application/json', extra = {}, signal }: {
+    body?: unknown; token?: string; timeoutMs: number; accept?: string; extra?: Record<string, string>; signal?: AbortSignal | undefined;
+  }): Promise<Response> {
+    const headers: Record<string, string> = { accept, ...extra };
     if (body !== undefined) headers['content-type'] = 'application/json';
     if (token) headers.authorization = `Bearer ${token}`;
     try {
@@ -108,7 +113,7 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
         method,
         headers,
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: signal ?? AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
       throw new AskCallError(`${method} ${path}: ${timedOut(error) ? 'timed out' : 'unreachable'}`);
@@ -149,20 +154,45 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     return kept;
   }
 
-  async function call(method: string, path: string, { body, timeoutMs = callMs }: { body?: unknown; timeoutMs?: number } = {}): Promise<unknown> {
+  /** A 2xx response to an authorized request: a 401 refreshes the sign-in once and retries. */
+  async function authorized(method: string, path: string, options: { body?: unknown; timeoutMs: number; accept?: string; extra?: Record<string, string>; signal?: AbortSignal }): Promise<Response> {
     const current = tokens.read(host);
     if (!current?.access_token) throw new AskCallError(`not signed in to ${host}`);
-    let response = await send(method, path, { body, token: current.access_token, timeoutMs });
+    let response = await send(method, path, { ...options, token: current.access_token });
     if (response.status === 401) {
       const fresh = await refresh(current);
       if (!fresh) throw new AskCallError(`${method} ${path}: sign-in refused`, { status: 401 });
-      response = await send(method, path, { body, token: fresh.access_token, timeoutMs });
+      response = await send(method, path, { ...options, token: fresh.access_token });
     }
     if (!response.ok) {
       const reason = reasonOf(await bodyOf(response));
       throw new AskCallError(`${method} ${path}: ${response.status}${reason ? ` ${reason}` : ''}`, { status: response.status, reason });
     }
-    return bodyOf(response);
+    return response;
+  }
+
+  async function call(method: string, path: string, { body, timeoutMs = callMs }: { body?: unknown; timeoutMs?: number } = {}): Promise<unknown> {
+    return bodyOf(await authorized(method, path, { body, timeoutMs }));
+  }
+
+  /**
+   * Opens a Server-Sent Events stream: the response once its headers arrive, its body left to read.
+   * Connecting may take `callMs`; the body then lasts until the server closes it or `signal` aborts.
+   * `lastEventId`, when given, goes as `Last-Event-ID`, for the server to replay what came after it.
+   */
+  async function stream(path: string, { lastEventId, signal }: { lastEventId: string | null; signal: AbortSignal }): Promise<Response> {
+    const connect = new AbortController();
+    const timer = setTimeout(() => { connect.abort(); }, callMs);
+    try {
+      return await authorized('GET', path, {
+        timeoutMs: callMs,
+        accept: 'text/event-stream',
+        extra: lastEventId === null ? {} : { 'last-event-id': lastEventId },
+        signal: AbortSignal.any([signal, connect.signal]),
+      });
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /**
@@ -280,6 +310,16 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      *   files: Array<{ kind: string, path: string, sha256: string, versionId: string, content?: string }> } | null }>} */
     readApproval: ({ repo, prd }: { repo: string; prd: PrdNumber }) =>
       call('GET', `/api/dossiers/approval?${new URLSearchParams({ repo, prd: String(prd) })}`),
+    /** PRD 1322: asks PRD `prd`'s approvers for `repo` (owner/name) to approve, by each one's
+     * channels, and answers who was asked; `../approval/stream.ts` reads the reply (`AskingSchema`).
+     * @returns {Promise<{ asked: Array<{ login: string, name?: string | null }>, nobodyElse: boolean,
+     *   author: string, product: string | null }>} */
+    requestApproval: ({ repo, prd }: { repo: string; prd: PrdNumber }) =>
+      call('POST', '/api/dossiers/approval/request', { body: { repo, prd: Number(prd) } }),
+    /** PRD 1322: PRD `prd`'s approval events for `repo` (owner/name), as Server-Sent Events, after
+     * `lastEventId` when given; `../approval/stream.ts` reads them. */
+    streamApproval: ({ repo, prd, lastEventId, signal }: { repo: string; prd: PrdNumber; lastEventId: string | null; signal: AbortSignal }) =>
+      stream(`/api/dossiers/approval/stream?${new URLSearchParams({ repo, prd: String(prd) })}`, { lastEventId, signal }),
     /** PRD 1299: where `repo`'s (owner/name) new PRDs are born, `pr` or `server`, as its row on the Omni
      * page says. `../approval/flag.ts` reads the reply. @returns {Promise<{ phase0: 'pr' | 'server' }>} */
     readPhase0Flag: (repo: string) => call('GET', `/api/repositories/phase0?${new URLSearchParams({ repo })}`),

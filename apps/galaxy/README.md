@@ -595,6 +595,38 @@ Without `SECRETS_MASTER_KEY` (32 random bytes, base64: `openssl rand -base64 32`
 is not available on this deployment* and nothing can be saved. Losing it makes every stored key
 unreadable: each call then fails, today's path decides, and the owner pastes the key again.
 
+### Settings › Products: who approves (PRD 1322)
+
+**Settings › Products › <product>** (`/app/settings/products/<id>`, `src/products/`) has an
+**Approvers** list: members of the workspace, each **asked to approve** or **skipped**
+(`public.product_approvers`, one row per listed member). The workspace's owners add a member and set
+or change their state through the owner-only `product_approver_set()` and `product_approver_remove()`;
+every other member reads the list. A member who leaves the workspace leaves every list.
+
+The list decides two things for a PRD born on the server (◆), whose product is its repository's
+(`repositories.product_id`):
+
+- **Who may approve.** Once the product lists a member asked to approve, `dossier_approve()` refuses
+  anyone else, a skipped member included, and the PRD's page shows them no **Approve**. A repository
+  with no product, or a product with nobody asked, keeps PRD 1299's rule: any member of the workspace.
+  The author may approve when they are one of the product's approvers.
+- **Who is asked** ([The approval handshake](#the-approval-handshake-prd-1322)): the members asked to
+  approve, except the PRD's author, or the author when that leaves nobody.
+
+Proven by `supabase/checks/product_approvers.sql`
+(`supabase/migrations/20261124090000_product_approvers.sql`).
+
+**How each person is reached** is their own choice, on their profile page (`/app/people/<login>`,
+`src/profile/`), both off by default and stored in `public.alert_channels`, which only that person
+reads and writes:
+
+- **Phone alerts on this device**: Web Push. The Omni page is installable (`app/manifest.ts`) and
+  registers its service worker, `/sw.js`; turning the switch on subscribes this device
+  (`public.push_subscriptions`: the member, the endpoint, its `p256dh` and `auth` keys, a device
+  label), and turning it off removes it, through `app/api/push/`. An iPhone is told first to add the
+  page to its home screen (iOS 16.4 and later).
+- **Email · <address>**: to the address of their GitHub sign-in, sent through Resend.
+
 ## The knowledge map
 
 The repository's knowledge base (`.omni-loop/knowledge`: its principles, business rules and
@@ -783,20 +815,65 @@ nobody deletes a numbered dossier.
 A PRD born on the server (◆: its spec says `phase0: server`, and `dossiers.birthplace` is `server`,
 set once from the first spec version) shows an **Approval** cell on its page:
 
-- **waiting for approval**, with **Approve**, which only a member of the workspace sees;
-- **approved**, with who and when;
+- **waiting for approval**, with **Approve**, which only a member allowed to approve sees (the product's
+  approvers once it lists one, [PRD 1322](#the-approval-handshake-prd-1322); otherwise any member);
+- **approved**, with the seal card (#1351): the PRD's number stamped `APPROVED · PINNED`, who approved
+  it and when, and each pinned file with its short hash; right after Approve the page scrolls to it;
 - **drifted · approve again**, naming each pinned file a newer version replaced, with **Approve**
   back.
 
 **Approve** posts `POST /api/dossiers/approval`, and the `dossier_approve()` RPC writes one row of the
 append-only `approvals` table (never updated, never deleted), pinning the latest spec, plan,
-before/after and voice by version and `sha256`. It refuses a non-member, a ◇ dossier, a draft and a
+before/after and voice by version and `sha256` (a newer voice never drifts or voids it: the loop
+appends the personas' rounds after approval). It refuses a non-member, a ◇ dossier, a draft and a
 dossier missing a spec, a plan or a before/after. The PRD's issue then gets the repository's
 `labels.approved` (`omni:approved` by default) through the App. A failed label is logged, and the
 approval stands. The kit reads the approval in force with `GET /api/dossiers/approval?repo=&prd=`
 (`omni approval <n>`), answered by `dossier_approval()`, and judges it against the feature branch's
 files. The stage sync dates a ◆ PRD's `inbox` stage at its first approval. A ◇ PRD's page is
 unchanged.
+
+### The approval handshake (PRD 1322)
+
+A ◆ PRD waiting for approval is asked for, followed, and voided when a change no longer matches what
+was approved. The kit's side is `omni wait approval <n> [--timeout <minutes>]`, which `/omni:yolo`
+runs instead of stopping ([`docs/guide/loop.md`](../../docs/guide/loop.md#the-approval-handshake)).
+
+- **The request.** `POST /api/dossiers/approval/request` `{repo, prd}` appends one row to the
+  append-only `public.approval_requests` (the dossier, its product, who asked, who is asked, when)
+  and answers who was asked: the product's members asked to approve, except the author, or the author
+  when nobody else is ([Settings › Products](#settings--products-who-approves-prd-1322)). A skipped
+  member is never asked; a signed-out caller gets 401. Each person asked gets a push on every device
+  they subscribed, if their **Phone alerts** are on, and an email, if their **Email** is on:
+  `PRD <n> waits for your approval`, the spec's title, its before → after, the repositories and the
+  short pinned hashes, the email adding the spec's **Problem** and **Solution**. Both open the PRD's
+  page on its approve screen. Asked people also see the request in the page's bell. Asking again
+  after a void appends a new row (`re-asked`).
+- **The senders.** Web Push goes through the `web-push` library with `VAPID_PUBLIC_KEY` and
+  `VAPID_PRIVATE_KEY`; a push service answering 404 or 410 deletes that subscription. Email goes
+  through Resend with `RESEND_API_KEY` and `RESEND_FROM`. A channel whose keys are missing is skipped
+  with one log line; the other still goes out, and the request still stands in the bell.
+- **The stream.** `GET /api/dossiers/approval/stream?repo=&prd=` serves Server-Sent Events, laid out
+  repository → service → controller in `src/approvals/`: `approvals.repository.ts`, the only file
+  that reaches Supabase here, reads requests, approvals and voids and subscribes, as the signed-in
+  member, to Supabase Realtime on `approvals` and `approval_voids` for one dossier;
+  `approvals.service.ts` shapes them into `asked`, `approved`, `voided` and `re-asked` events, each
+  with an increasing id, and a `ping` every 15 seconds; `approvals.controller.ts` answers 401 to a
+  signed-out caller, replays the events after `Last-Event-ID`, and closes with `event: reconnect`
+  before the function's time limit. The kit reconnects with the last id it read, so no event is lost
+  or printed twice.
+- **The void.** `dossier_push()`, adding a version of a kind the approval in force pinned (spec,
+  plan, before/after; never the voice), compares its `sha256` with the pin; when they differ it appends a row
+  to the append-only `public.approval_voids` (the approval, the kind, the old and new hash, who
+  pushed) in the same transaction. The approval itself is never edited: one with a void after it is
+  no longer in force, and `omni approval <n>` reads it as `drifted`, naming the push. The approver
+  is pushed and emailed `approval voided by <pusher>'s push`, a waiting stream gets `voided` and the
+  wait asks again, and the page shows **voided · approve again** with only the changed files' diff
+  above **Approve**. A file changed by a `git push` alone voids nothing: `omni approval` stays the
+  gates' backstop.
+- **The approve screen.** A ◆ PRD's approval cell opens with the spec's **Problem** and **Solution**
+  above **Approve**, which only someone allowed to approve sees, then the pinned files. A ◇ PRD's page
+  is unchanged.
 
 ### The Outbox tab (PRD 251)
 
@@ -1149,6 +1226,11 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    (`openssl rand -base64 32`), which encrypts each workspace's TypeSafe key. Without it,
    Settings › Jev says Jev is not available on this deployment and every decision is made as before
    ([Settings › Jev](#settings--jev-prd-812)).
+   For the approval alerts (PRD 1322), four more, server only: `VAPID_PUBLIC_KEY` and
+   `VAPID_PRIVATE_KEY`, a Web Push key pair (`npx web-push generate-vapid-keys`), and
+   `RESEND_API_KEY` and `RESEND_FROM`, a Resend key and the sender address of a domain verified on
+   Resend. Without a pair, that channel is skipped with one log line, and approval requests still
+   show in the bell ([The approval handshake](#the-approval-handshake-prd-1322)).
 
    Every variable the arcade reads, each optional and read once at startup (`src/env.ts`,
    `src/env.client.ts`, ADR-0057); [`.env.example`](.env.example) says what each one does:
@@ -1160,6 +1242,8 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    - OpenRouter: `OPENROUTER_API_KEY`
    - the shared secrets: `STAGES_SYNC_SECRET`, `STAGE_EVENT_SECRET`, `SECRETS_MASTER_KEY`,
      `CONSTITUENT_JUDGE_SECRET`, `BUSINESS_RECHECK_SECRET`
+   - the approval alerts: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (Web Push), `RESEND_API_KEY`,
+     `RESEND_FROM` (email)
    - the demo: `OMNI_LOOP_DEMO`; the screenshots' address (`pnpm shots`): `GALAXY_URL`
    <!-- /omni:env-variables -->
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
