@@ -231,6 +231,13 @@ jobs:
         # approval adds a row; nobody updates or deletes one. dossier_approval() answers the approval
         # in force, and nothing to another workspace (PRD 1299).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/approvals.sql
+      - name: Who approves a product's PRDs, and how each person is reached
+        # Only a workspace's owner lists a product's approvers, each asked or skipped; a member, another
+        # workspace's owner and anyone signed out are refused (42501), a stranger to the workspace or
+        # another state (22023). Every member reads the list. Once a member is asked, only asked members
+        # approve the product's PRDs; with no product or nobody asked, any member does. Each person's
+        # alert channels and push subscriptions are theirs alone (PRD 1322).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_approvers.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

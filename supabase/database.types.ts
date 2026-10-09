@@ -196,6 +196,27 @@ export type Database = {
           },
         ]
       }
+      alert_channels: {
+        Row: {
+          email: boolean
+          push: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          email?: boolean
+          push?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          email?: boolean
+          push?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       approvals: {
         Row: {
           approved_at: string
@@ -1860,6 +1881,48 @@ export type Database = {
           },
         ]
       }
+      product_approvers: {
+        Row: {
+          product_id: string
+          set_at: string
+          set_by: string | null
+          state: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          product_id: string
+          set_at?: string
+          set_by?: string | null
+          state: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          product_id?: string
+          set_at?: string
+          set_by?: string | null
+          state?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_approvers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_approvers_workspace_id_user_id_fkey"
+            columns: ["workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_members"
+            referencedColumns: ["workspace_id", "user_id"]
+          },
+        ]
+      }
       products: {
         Row: {
           business_id: string
@@ -2060,6 +2123,36 @@ export type Database = {
             referencedColumns: ["workspace_id", "full_name"]
           },
         ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          device_label: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          device_label?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          device_label?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       releases: {
         Row: {
@@ -3664,6 +3757,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      product_approver_remove: {
+        Args: { p_member: string; p_product: string }
+        Returns: boolean
+      }
+      product_approver_set: {
+        Args: { p_member: string; p_product: string; p_state: string }
+        Returns: Json
       }
       product_rename: {
         Args: { p_name: string; p_product: string; p_workspace: string }
