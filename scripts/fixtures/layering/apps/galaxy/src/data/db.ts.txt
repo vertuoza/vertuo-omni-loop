@@ -1,0 +1,6 @@
+import 'server-only';
+import { createClient } from '@supabase/supabase-js';
+
+// The database module: it builds the client, and only repositories import it.
+export const userDb = async () => createClient('https://db.example', 'key');
+export type Db = Awaited<ReturnType<typeof userDb>>;

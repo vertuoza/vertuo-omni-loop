@@ -1,0 +1,4 @@
+// `.from(` on a built-in is not a database call.
+export const ids = (rows: Iterable<string>) => Array.from(rows);
+export const bytes = (text: string) => Buffer.from(text, 'utf8');
+export const seen = (rows: string[]) => Array.from(new Set(rows));

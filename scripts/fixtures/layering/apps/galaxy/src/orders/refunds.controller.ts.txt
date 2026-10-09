@@ -1,0 +1,3 @@
+import { listOrders } from './orders.repository';
+
+export const GET = async () => Response.json(await listOrders(undefined as never));

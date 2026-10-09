@@ -1,0 +1,6 @@
+import type { Db } from '../data/db';
+
+export const listOrders = async (db: Db) => (await db.from('orders').select('id, total')).data ?? [];
+export const recordRefund = async (db: Db, id: string) => db.rpc('record_refund', { id });
+export const ordersRepository = (db: Db) => ({ list: () => listOrders(db) });
+export type OrdersRepository = ReturnType<typeof ordersRepository>;

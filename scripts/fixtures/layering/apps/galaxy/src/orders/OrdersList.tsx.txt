@@ -1,0 +1,12 @@
+'use client';
+import { createBrowserClient } from '@supabase/ssr';
+import { useEffect, useState } from 'react';
+
+export function OrdersList({ url, key }: { url: string; key: string }) {
+  const [rows, setRows] = useState<{ id: string }[]>([]);
+  useEffect(() => {
+    const supabase = createBrowserClient(url, key);
+    void supabase.from('orders').select('id').then(({ data }) => setRows(data ?? []));
+  }, [url, key]);
+  return <ul>{rows.map((row) => <li key={row.id}>{row.id}</li>)}</ul>;
+}

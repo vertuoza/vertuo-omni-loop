@@ -1,0 +1,6 @@
+'use client';
+import { use } from 'react';
+import { fetchOrders } from './orders.client';
+import type { Order } from './orders.contract';
+
+export const OrdersView = ({ orders }: { orders: Promise<Order[]> }) => <p>{use(orders).length || fetchOrders.name}</p>;
