@@ -1,0 +1,35 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-09",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "Screens that use our tokens and components is what I want; a generic taste list flagging our choices is not.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "I never touch a screen, so a review that only runs on UI slices costs me nothing.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Screens that come back already checked on mobile and desktop let me ship UI ideas without a design pass in between.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Our design system written once in the playbook, read by every agent, is the cohesion I look for.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "Mobile screens checked at phone width before I see them means fewer quick wins sent back by customers.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "I fear AI slop, but a generic rule list that flags our deliberate choices, and a screenshot round on every slice, is noise that slows me down.",
+        "citations": ["persona:F-E Developer"],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-09",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "The deliberate slot winning over the refuse list, and a review that never turns a check red, answer my worry.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "A UI check that prints ui: no on my diffs and exits 0 stays out of my way.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "The Design review section with screenshots on every UI sub-PR is what I will show the teams.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Invade filling the form from our real files with evidence, not an invented direction, keeps it honest.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "The 390 width by default means my mobile screens are looked at every time.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓"
+    }
+  ]
+}
