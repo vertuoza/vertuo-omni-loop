@@ -66,6 +66,10 @@ As `/omni:prove` reaches it, with the `e2e` block in place of `proof`:
 - **Reachable, or stop.** Fetch the URL once. A 401, a 403, a 5xx or a timeout of 30 seconds stops
   the run: `preview not reachable: <status>` (`timeout` for a timeout).
 
+- **In a plan repository** (its config has a `plan` section), the target is the environment the plan
+  repository builds from the target PRs together, not one target repository's preview. `e2e.url` and
+  `e2e.setup` are read from config, never guessed, and name that environment.
+
 ## 3. The criteria, from the spec alone
 
 Read the spec's **Acceptance criteria** (`omni prd <n>` names the spec), and nothing of the code:
@@ -96,6 +100,11 @@ e2e package manager is newer than CI's: local <local version>, CI <CI version>
 - **Then install the dependencies,** with the local package manager at CI's version. Only the new
   workspace's lines may enter the lockfile: a lockfile rewritten whole means the versions differ, so
   stop with the line above.
+
+**In a plan repository** (its config has a `plan` section), the e2e project, the tests and the
+recordings are all in the plan repository's `e2e.dir`, and the sub-PR is opened there. The skill never
+writes a target repository: no test, recording, workspace entry or lockfile line goes into one.
+Outside a plan repository the skill runs exactly as before.
 
 ## 5. One test per filmable criterion
 
