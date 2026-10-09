@@ -1059,3 +1059,27 @@ Stated: 2026-10-08
 Decided: nobody — adopted when raised (medium), 2026-10-08
 Merged: @pierrederval, 2026-10-08, PR #1206
 Proposed: harvest 2026-10-08
+
+## BR-PRODUCT-90
+
+When a session's branch names a feature or a fix, the session shows that work, even if its record says it last worked on something else. Only on a branch that names nothing does it show the last recorded work.
+
+Serves: P-PRODUCT-79
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s2-01-branch-before-record, PRD #1208
+Enforced by: kit/lib/now/now.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1210
+Proposed: harvest 2026-10-08
+
+## BR-PRODUCT-91
+
+The status line refreshes the links of the work a session is on when they are missing or a minute old and no refresh holds them, for a PRD not yet shipped (in review included) and a fix not yet merged; finished work is never refreshed.
+
+Serves: P-PRODUCT-80
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s5-03-links-refresh-for-any-live-work, PRD #1208
+Enforced by: kit/bin/statusline.test.ts, kit/lib/statusline/board-cache.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1210
+Proposed: harvest 2026-10-08

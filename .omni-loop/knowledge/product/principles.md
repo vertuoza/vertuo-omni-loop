@@ -700,3 +700,21 @@ Why: Two steps on one PRD or one path collide and waste work; GitHub lags behind
 Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s2-01-unseen-step-holds-pool, PRD #1205
 Merged: @pierrederval, 2026-10-08, PR #1206
 Proposed: harvest 2026-10-08
+
+## P-PRODUCT-79
+
+A session always shows the work it is actually on now, not merely the work it touched last.
+
+Why: The branch is where the work is happening, so showing older recorded work would mislead the person about what the session is doing.
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s2-01-branch-before-record, PRD #1208
+Merged: @pierrederval, 2026-10-08, PR #1210
+Proposed: harvest 2026-10-08
+
+## P-PRODUCT-80
+
+The status line keeps the links of any unfinished work current, and spends no refresh on work that is finished.
+
+Why: A person reading the status line during review or a fix needs links that still lead where the work now is, not only where the board is kept.
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s5-03-links-refresh-for-any-live-work, PRD #1208
+Merged: @pierrederval, 2026-10-08, PR #1210
+Proposed: harvest 2026-10-08
