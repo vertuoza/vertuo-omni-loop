@@ -9,13 +9,15 @@ phase0: server
 # The approval handshake
 
 **Date:** 2026-10-09 · **PRD:** #1322 · **From:** concept #1269, area `approval-handshake`, after PRD
-#1299 · **Touches:** `supabase/migrations/` (opt-ins, push subscriptions, approval requests, voids, and
-`dossier_push` voiding a changed pinned file), `apps/galaxy` (the installable page, the service
-worker, the approvals repository, service and controller, the request and stream routes, Web Push and
-Resend senders, the profile page's switches, the approve screen, the bell), `kit/lib` and
+#1299 · **Touches:** `supabase/migrations/` (product approvers, alert channels, push subscriptions, approval
+requests, voids, `dossier_approve` checking the product's approvers, and `dossier_push` voiding a
+changed pinned file), `apps/galaxy` (a product's **Approvers** list on Settings › Products, the
+installable page, the service worker, the approvals repository, service and controller, the request
+and stream routes, Web Push and Resend senders, the profile page's alert switches, the approve
+screen, the bell), `kit/lib` and
 `kit/bin/commands` (`omni wait approval`, the stream client, the HUD's waiting file),
 `kit/plugin-hud/` (the band's waiting line and toast), the skills `yolo` and `drive`, and the guide.
-**Out of scope:** approvers per product (area `product-home`), the `omni/approved` check on target
+**Out of scope:** a repository shared by several products (area `product-home`), the `omni/approved` check on target
 pull requests (area `product-gate`), voiding on a `git push` that bypasses `omni dossier push`,
 approving from the notification itself, and SMS or Slack.
 
@@ -29,18 +31,27 @@ reads `omni approval`, and the approver is never told their approval no longer h
 
 ## Solution
 
-### 1. Who is asked
+### 1. Who approves: per product
 
-A member opts in on their profile page with **Ask me to approve** (per workspace), and chooses how:
-**Phone alerts** (Web Push on this device) and **Email** (to their GitHub sign-in address). A request
-asks every opted-in member of the PRD's workspace **except the PRD's author**. When nobody has opted
-in, it asks **the PRD's author**, by both channels their profile allows (email always, push when this
-device subscribed). Any member may still approve on the page.
+A PRD's product is its repository's product (`repositories.product_id`). Each product gets an
+**Approvers** list on Settings › Products › <product>: workspace members, each one **asked to
+approve** or **skipped**. Workspace owners edit the list; every member reads it.
+
+- **Who is asked:** the product's members marked *asked to approve*, **except the PRD's author**.
+  When that leaves nobody (the product has no approver but the author, its list is empty, or the
+  repository has no product), the request asks **the PRD's author**.
+- **Who may approve:** when the PRD's product has at least one member *asked to approve*, only those
+  members may press **Approve**; a skipped member, and anyone outside the list, may not
+  (`dossier_approve` refuses them, and the page shows no button). A repository with no product, or
+  a product with no approver yet, keeps #1299's rule: any member of the workspace. The author may
+  approve when they are one of the product's approvers.
+- **How each person is reached** stays personal: on their own profile page, **Phone alerts** (Web
+  Push on this device) and **Email** (to their GitHub sign-in address), both off by default.
 
 ### 2. The phone and the email
 
 - The Omni page becomes installable: a web manifest and a service worker (`/sw.js`). **Phone alerts**
-  subscribes this device (`push_subscriptions`: the member, the endpoint, the keys, a device label);
+  on the profile page subscribes this device (`push_subscriptions`: the member, the endpoint, the keys, a device label);
   on an iPhone the switch first says to add the page to the home screen (iOS 16.4 and later).
 - Web Push is sent with the `web-push` library and the `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`
   environment variables; email through Resend with `RESEND_API_KEY` and `RESEND_FROM`. A channel
@@ -53,8 +64,8 @@ device subscribed). Any member may still approve on the page.
 ### 3. The request
 
 `omni wait approval <n>` posts `POST /api/dossiers/approval/request` `{repo, prd}`. The server appends
-an `approval_requests` row (the dossier, who asked, who is asked, when) and sends the push and the
-email. Asked members also see it in the page's bell, with the PRD's link. Asking again after a void
+an `approval_requests` row (the dossier, its product, who asked, who is asked, when) and sends the
+push and the email to each asked person's channels. Asked people also see it in the page's bell, with the PRD's link. Asking again after a void
 appends a new row (`re-asked`).
 
 ### 4. The stream: repository → service → controller
@@ -77,7 +88,7 @@ reconnecting with the last event id. It also writes the HUD's waiting file under
 | state | the line | exit |
 |---|---|---|
 | waiting | `◌ PRD <n> · waiting for Irisa or Paul` (`… for 4 members` past three names) | — |
-| nobody to ask | `◌ PRD <n> · waiting for <author> · nobody has opted in` | — |
+| nobody to ask | `◌ PRD <n> · waiting for <author> · <product> has no other approver` | — |
 | approved | `✓ PRD <n> approved by <login> · <time> · <k> files pinned` | 0 |
 | voided | `✗ approval voided by <pusher>'s push <old>→<new> · asked again` | — (keeps waiting) |
 | held | `server unreachable · held, not failed` after 3 failed reconnects in a row; it keeps retrying | — |
@@ -117,10 +128,17 @@ PRD, never waiting in a tick.
 
 ## Decisions
 
-- **Web Push plus Resend email**, both opt-in per member and per workspace. No third-party push
+- **Web Push plus Resend email**, each turned on by the person, off by default. No third-party push
   service, no SMS, no Slack.
-- **Opted-in members are asked, never the author; with nobody opted in, the author is asked.** The
-  person asked for the author as the last resort. Approving one's own PRD stays allowed (#1299).
+- **Approvers are per product, with a list of members, each asked or skipped** (the person, after
+  reading the draft: "that's the whole idea behind the concept"). Workspace owners edit it on
+  Settings › Products. This replaces the per-workspace "Ask me to approve" opt-in first designed.
+- **Only the product's approvers may approve** once the list has one; with no product or no
+  approver, any member may, as in #1299. A repository belongs to one product today, so a repository
+  shared by several products stays with area `product-home`.
+- **The author is never asked, unless nobody else is.** Approving one's own PRD is allowed when one
+  is among the product's approvers.
+- **Channels are personal:** phone alerts and email are each person's choice on their profile.
 - **The stream follows repository → service → controller**, as PRD #1318 lays down for the galaxy,
   but this PRD does not wait for #1318 (the person chose not blocked): it lays out its own three files
   in that shape, which #1318's guard will accept as they are.
@@ -136,9 +154,12 @@ PRD, never waiting in a tick.
 
 - As a PM, I run `/omni:yolo` on a ◆ PRD and the agent waits for approval instead of stopping, then
   starts wave 1 the moment someone approves.
-- As an approver who opted in, I get a notification on my phone and an email, open the PRD, read its
-  problem and solution, and approve.
-- As the author in a workspace where nobody opted in, I am the one asked.
+- As a workspace owner, I list Mobile's approvers (Irisa and Paul asked, the developers skipped) on
+  Settings › Products.
+- As one of Mobile's approvers with phone alerts on, I get a notification on my phone and an email,
+  open the PRD, read its problem and solution, and approve.
+- As a skipped member, I am never asked, and the page shows me no Approve button.
+- As the author of a PRD whose product has no other approver, I am the one asked.
 - As an approver, I am told when my approval is voided by a change, and see only what changed.
 
 ## Scope
@@ -153,13 +174,16 @@ Every test runs on fixtures: none calls Supabase, a push service or Resend (`omn
 - **The controller**: SSE framing, 401 signed out, `Last-Event-ID` replay, `reconnect` before the limit.
 - **The senders**: Web Push and Resend behind fakes; a 404/410 deletes that subscription; a missing key
   skips the channel.
-- **Who is asked**: opted-in members minus the author; the author when nobody opted in.
+- **Who is asked and who may approve**: the product's approvers minus the author; the author when
+  nobody else; a skipped member and an outsider refused by `dossier_approve`; no product or no
+  approver keeps any member.
 - **The migration**: a SQL check that `dossier_push` voids only when a pinned kind's hash changes,
   and never edits an approval.
 - **`omni wait approval`**, through `main()` with a stubbed stream: approved, already approved,
   voided then approved, held after 3 failures, signed out, timeout.
 - **The HUD band**: the waiting line and the 10-second toast.
-- **The page**: the approve screen's Problem and Solution, the voided diff, the profile switches.
+- **The page**: the product's Approvers list (owners edit, members read), the approve screen's
+  Problem and Solution, the voided diff, the profile's alert switches.
 
 ## Risks
 
@@ -170,25 +194,30 @@ Every test runs on fixtures: none calls Supabase, a push service or Resend (`omn
   `/sw.js`.
 - **New secrets**: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `RESEND_API_KEY`, `RESEND_FROM` must be
   set on the galaxy's Vercel project; without them each channel is skipped and the bell still works.
-- **Email reaches real people**: only members who opted in, or the author.
+- **Email reaches real people**: only a product's approvers who turned email on, or the author.
+- **Approval narrows**: once a product lists approvers, other members can no longer approve its
+  PRDs. A product with no approver keeps today's rule, so nothing changes until an owner fills a list.
 - **A long wait holds a terminal**: `--timeout` bounds it, and `/omni:drive` never waits.
 
 ## Acceptance criteria
 
-1. A member turns on **Ask me to approve** with **Phone alerts** and **Email** on their profile page;
-   the device is subscribed.
-2. `omni wait approval <n>` on a ◆ PRD prints `◌ PRD <n> · waiting for <names>`, and every opted-in
-   member except the author gets a push and an email naming the PRD, its before → after and its
-   repositories.
-3. With nobody opted in, the author is asked, and the line says `nobody has opted in`.
-4. The approve screen shows the spec's Problem and Solution above **Approve**.
-5. Approving prints `✓ PRD <n> approved by <login> · <time> · <k> files pinned` in the waiting
+1. A workspace owner lists a product's approvers on Settings › Products, each **asked to approve** or
+   **skipped**; a member who is not an owner reads the list but cannot edit it.
+2. A member turns on **Phone alerts** and **Email** on their profile page; the device is subscribed.
+3. `omni wait approval <n>` on a ◆ PRD prints `◌ PRD <n> · waiting for <names>`, and each of the
+   product's approvers except the author gets a push and an email (by the channels they turned on)
+   naming the PRD, its before → after and its repositories; a skipped member gets nothing.
+4. With no other approver, the author is asked, and the line says `<product> has no other approver`.
+5. Once the product lists approvers, a skipped member or a member outside the list sees no
+   **Approve** and `dossier_approve` refuses them; a repository with no product keeps any member.
+6. The approve screen shows the spec's Problem and Solution above **Approve**.
+7. Approving prints `✓ PRD <n> approved by <login> · <time> · <k> files pinned` in the waiting
    terminal within seconds, the HUD band shows it highlighted, and `omni wait approval` exits 0;
    `/omni:yolo` then starts wave 1 without being typed again.
-6. A stream cut before the function's limit is resumed with no event lost.
-7. An `omni dossier push` that changes a pinned file voids the approval: the approver is pushed and
+8. A stream cut before the function's limit is resumed with no event lost.
+9. An `omni dossier push` that changes a pinned file voids the approval: the approver is pushed and
    emailed, the page shows **voided · approve again** with only that file's diff, `omni approval <n>`
    reads `drifted`, and a waiting terminal prints the voided line and keeps waiting.
-8. Signed out, the wait exits 1 with `no sign-in (omni signin) · held`; past `--timeout`, it exits 1
+10. Signed out, the wait exits 1 with `no sign-in (omni signin) · held`; past `--timeout`, it exits 1
    with `held: still waiting for …`.
-9. Without VAPID or Resend keys, that channel is skipped and the request still stands in the bell.
+11. Without VAPID or Resend keys, that channel is skipped and the request still stands in the bell.
