@@ -21,6 +21,8 @@
 //
 // The links (s4) are read from the files the background refresh keeps in the main checkout
 // (`links.ts`): the work's, and a roadmap headline's; a file missing or 10 minutes old adds none.
+// The approval wait (PRD 1322's s5, `wait.ts`) is read from the checkout's waiting files, the work's
+// PRD first.
 // Nothing here prints, fetches, runs `gh`, writes a file or starts a process: the
 // board's background refresh is never started from here. Anything that cannot be read reads as the
 // session on nothing; it never throws.
@@ -42,10 +44,11 @@ import type { RecordedWork } from '../statusline/sessions.ts';
 import { visualRoot } from '../visual/verdict.ts';
 import { roadmapNamed, runningLoop } from './headline.ts';
 import { readLinks } from './links.ts';
-import { linked, NOTHING, nowOfFix, nowOfPrd, underHeadline } from './now.ts';
+import { linked, NOTHING, nowOfFix, nowOfPrd, underHeadline, withWait } from './now.ts';
 import type { FixKind, Now } from './now.ts';
 import { attempt, baseOf, foldersAt, QUIET } from './tree.ts';
 import type { Folders } from './tree.ts';
+import { readWait } from './wait.ts';
 
 /** What every read of one session needs. */
 type Reading = { folder: string; sessionId: string | null; exec: ExecText; now: number; base: string | null };
@@ -132,7 +135,8 @@ export function readNow({ cwd, folder, sessionId, exec, now }: { cwd: string; fo
     if (!ctx) return NOTHING;
     const answer = readSession(ctx, { folder: where, sessionId, exec, now, base: baseOf(ctx, exec) });
     const main = attempt(() => mainCheckout(where, exec), null);
-    return linked(answer, (kind, n) => (main ? readLinks(main, kind, n, now) : []));
+    const withLinks = linked(answer, (kind, n) => (main ? readLinks(main, kind, n, now) : []));
+    return withWait(withLinks, readWait(ctx.root, answer.work?.kind === 'prd' ? answer.work.number : null, now));
   } catch {
     return NOTHING;
   }
