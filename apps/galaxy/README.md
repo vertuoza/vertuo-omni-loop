@@ -567,6 +567,13 @@ GitHub. Vertuoza, and only Vertuoza, starts with six tracked repositories; any o
 with none. omni-app's `prStats` Inngest function collects the tracked repositories every 15 minutes
 into `pull_requests` and `pull_request_reviews` ([`apps/omni-app/README.md`](../omni-app/README.md)).
 
+**Phase 0 on the server** (PRD 1299). Each row also has a **Phase 0 on the server** switch
+(`repositories.phase0`, `pr` or `server`, `pr` by default), which only the owner flips, through the
+owner-only `set_repository_phase0()`. The kit reads it with `GET /api/repositories/phase0?repo=`
+(`omni approval flag`), answered by `repository_phase0()`: `pr` for a repository the workspace does
+not list. With `server`, `/omni:brainstorm` opens no phase-0 pull request; the PRD is approved on its
+page instead ([Approving a PRD](#approving-a-prd-prd-1299)).
+
 **Dashboard › Engineering** (`/app/engineering`, `app/app/engineering/page.tsx`,
 `src/engineering/`) is every member's, and counts the tracked repositories only: switching one off
 takes it out of every number at the next page load, and switching it back brings its history back.
@@ -827,6 +834,29 @@ nobody deletes a numbered dossier.
   Omni, Light and Dark themes, Omni the default, as the `/ask` pages.
 - **Without a database**, in development, both pages play a demo dossier.
 
+### Approving a PRD (PRD 1299)
+
+A PRD born on the server (◆: its spec says `phase0: server`, and `dossiers.birthplace` is `server`,
+set once from the first spec version) shows an **Approval** cell on its page:
+
+- **waiting for approval**, with **Approve**, which only a member allowed to approve sees (the product's
+  approvers once it lists one, [PRD 1322](#the-approval-handshake-prd-1322); otherwise any member);
+- **approved**, with the seal card (#1351): the PRD's number stamped `APPROVED · PINNED`, who approved
+  it and when, and each pinned file with its short hash; right after Approve the page scrolls to it;
+- **drifted · approve again**, naming each pinned file a newer version replaced, with **Approve**
+  back.
+
+**Approve** posts `POST /api/dossiers/approval`, and the `dossier_approve()` RPC writes one row of the
+append-only `approvals` table (never updated, never deleted), pinning the latest spec, plan,
+before/after and voice by version and `sha256` (a newer voice never drifts or voids it: the loop
+appends the personas' rounds after approval). It refuses a non-member, a ◇ dossier, a draft and a
+dossier missing a spec, a plan or a before/after. The PRD's issue then gets the repository's
+`labels.approved` (`omni:approved` by default) through the App. A failed label is logged, and the
+approval stands. The kit reads the approval in force with `GET /api/dossiers/approval?repo=&prd=`
+(`omni approval <n>`), answered by `dossier_approval()`, and judges it against the feature branch's
+files. The stage sync dates a ◆ PRD's `inbox` stage at its first approval. A ◇ PRD's page is
+unchanged.
+
 ### The approval handshake (PRD 1322)
 
 A ◆ PRD waiting for approval is asked for, followed, and voided when a change no longer matches what
@@ -857,7 +887,7 @@ runs instead of stopping ([`docs/guide/loop.md`](../../docs/guide/loop.md#the-ap
   before the function's time limit. The kit reconnects with the last id it read, so no event is lost
   or printed twice.
 - **The void.** `dossier_push()`, adding a version of a kind the approval in force pinned (spec,
-  plan, before/after, voice), compares its `sha256` with the pin; when they differ it appends a row
+  plan, before/after; never the voice), compares its `sha256` with the pin; when they differ it appends a row
   to the append-only `public.approval_voids` (the approval, the kind, the old and new hash, who
   pushed) in the same transaction. The approval itself is never edited: one with a void after it is
   no longer in force, and `omni approval <n>` reads it as `drifted`, naming the push. The approver
