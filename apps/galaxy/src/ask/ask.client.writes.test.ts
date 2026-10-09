@@ -18,12 +18,12 @@ type Sent = { url: string; method: string | undefined; body: unknown; type: stri
 /** A fetch answering each request with `answer(url, method)`, and every request it was sent. */
 function fakeFetch(answer: (url: string, method: string) => { status: number; body?: unknown }) {
   const sent: Sent[] = [];
-  const fetchFn: Fetch = async (url, init) => {
+  const fetchFn: Fetch = (url, init) => {
     const headers = new Headers(init.headers);
-    const body = init.body instanceof Blob ? `blob:${init.body.size}` : typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
+    const body: unknown = init.body instanceof Blob ? `blob:${init.body.size}` : typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
     sent.push({ url, method: init.method, body, type: headers.get('content-type'), credentials: init.credentials, auth: headers.get('authorization') });
     const { status, body: reply = {} } = answer(url, init.method ?? 'GET');
-    return Response.json(reply, { status });
+    return Promise.resolve(Response.json(reply, { status }));
   };
   return { sent, fetchFn };
 }
