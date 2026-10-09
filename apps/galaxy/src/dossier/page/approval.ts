@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { Member } from '../../ask/page/question';
 import { renderMarkdownBody } from '../markdown';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { DossierRow, DossierVersionRow } from '../store';
 import { lineDiff, type DiffLine } from './approval-diff';
 import { stamp } from './dates';
@@ -35,7 +36,7 @@ const ApprovalRowSchema = z.object({
   id: z.string().min(1),
   approver_login: z.string().min(1),
   approved_at: z.string().refine((at) => !Number.isNaN(Date.parse(at))),
-  files: z.array(z.looseObject({ kind: z.string().min(1), path: z.string().min(1), version_id: z.string().min(1) })),
+  files: z.array(z.looseObject({ kind: z.string().min(1), path: z.string().min(1), version_id: z.string().min(1), sha256: z.string().min(1).optional() })),
 });
 export type ApprovalRow = z.infer<typeof ApprovalRowSchema>;
 
@@ -90,7 +91,13 @@ export type ApprovalView = {
   dossier: string;
   /** What the viewer reads above Approve; null without the button, or when it was not read. */
   screen: ApproveScreen | null;
+  /** The seal an approval in force shows on the page (#1351): the PRD, who approved it and when, and each
+   * pinned file with its short hash (null when the row kept none); null unless approved. */
+  seal: ApprovalSeal | null;
 };
+
+/** What the seal of an approval in force shows. */
+export type ApprovalSeal = { prd: PrdNumber; approver: string; at: string; files: Array<{ path: string; hash: string | null }> };
 
 const WORDS: Record<ApprovalState, string> = {
   waiting: 'waiting for approval',
@@ -177,9 +184,9 @@ export function approvalView(
   const asked = read.approvalFacts?.asked ?? [];
   const member = me !== null && read.members.some((m) => m.user_id === me);
   const allowed = member && (asked === 'unread' || !asked.length || asked.includes(me));
-  const view = (state: ApprovalState, detail: string | null = null, changed: string[] = []): ApprovalView => {
+  const view = (state: ApprovalState, detail: string | null = null, changed: string[] = [], seal: ApprovalSeal | null = null): ApprovalView => {
     const canApprove = allowed && (state === 'waiting' || state === 'drifted' || state === 'voided');
-    return { state, words: WORDS[state], detail, changed, canApprove, dossier: dossier.id, screen: canApprove ? read.approvalFacts?.screen ?? null : null };
+    return { state, words: WORDS[state], detail, changed, canApprove, dossier: dossier.id, screen: canApprove ? read.approvalFacts?.screen ?? null : null, seal };
   };
   const { approval } = read;
   if (approval === null) return view('waiting');
@@ -192,7 +199,10 @@ export function approvalView(
     const push = `voided by ${last.pusher_login}'s push ${short(last.from_sha256)}→${short(last.to_sha256)} · ${stamp(last.voided_at)}`;
     return view('voided', `${push} · ${approval.approver_login} had approved it ${at}`, changed);
   }
-  if (!changed.length) return view('approved', `by ${approval.approver_login} · ${at}`);
+  if (!changed.length) {
+    const files = approval.files.map((file) => ({ path: file.path, hash: file.sha256 ? short(file.sha256) : null }));
+    return view('approved', `by ${approval.approver_login} · ${at}`, [], { prd: dossier.prd, approver: approval.approver_login, at, files });
+  }
   return view('drifted', `${changed.join(', ')} changed since ${approval.approver_login} approved it · ${at}`, changed);
 }
 

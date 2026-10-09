@@ -1,0 +1,106 @@
+<title>Visual fix #1351 · Before and after</title>
+<style>
+:root{--ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--strong:#5a60c4;--ink:#f2f4ff;--muted:#8a90d6;--yel:#ffd84a;--on:#07061c;--green:#4ee08a;--cyan:#6ff0ff;--red:#ff3b5c;
+--body:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',system-ui,-apple-system,sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:#050414;color:var(--ink);font:14px/1.45 var(--body)}
+.wrap{padding:24px 16px 48px;display:grid;gap:36px;max-width:1500px;margin:0 auto}
+h1{margin:0;font-size:26px}h2.v{margin:0 0 4px;font-size:20px}.why{margin:0 0 12px;color:var(--muted);max-width:80ch}
+.row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+.cap{font:600 12px var(--mono);color:var(--muted);margin:0 0 6px;letter-spacing:.06em;text-transform:uppercase}
+.phone{width:320px;max-width:100%;height:640px;border:9px solid #1d1b3d;border-radius:38px;background:var(--ground);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.sb{height:34px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font:600 13px var(--body);color:var(--ink);position:relative;z-index:5}
+.sb.over{position:absolute;inset:0 0 auto 0;background:transparent}
+.scroll{flex:1;overflow:hidden;padding:0 14px 14px;display:grid;gap:10px;align-content:start}
+.head{background:var(--surface);margin:0 -14px;padding:10px 14px 0;border-bottom:1.5px solid var(--strong);display:grid;gap:8px}
+.t{font-weight:800;font-size:19px;line-height:1.2}.t b{color:var(--cyan)}
+.chips{display:flex;gap:4px;flex-wrap:wrap}.chip{font:11px var(--mono);border:1px solid var(--strong);border-radius:99px;padding:2px 7px;color:var(--muted)}
+.chip.on{background:var(--yel);color:var(--on);border-color:var(--yel)}
+.tabs{display:flex;gap:12px;font-weight:700;font-size:13px;padding:6px 0 0}.tabs span{padding-bottom:6px}.tabs .cur{border-bottom:3px solid var(--yel)}
+.lbl{font:600 10.5px var(--mono);letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.card{background:var(--surface);border:1.5px solid var(--yel);border-radius:12px;padding:12px;display:grid;gap:8px}
+.card h4{margin:0;font-size:13px}.card p{margin:0;font-size:12.5px;color:var(--ink)}
+.btn{display:block;text-align:center;background:var(--yel);color:var(--on);font-weight:800;border-radius:10px;padding:11px;font-size:15px}
+.btn.small{display:inline-block;padding:6px 12px;font-size:13px}
+.frame{border:1.5px solid var(--strong);border-radius:10px;height:180px;background:#040313;padding:10px;font-size:12px;color:var(--muted)}
+.ok{color:var(--green);font-weight:700}
+.dim{color:var(--muted);font-size:12px}
+.sticky{position:absolute;left:0;right:0;bottom:0;padding:10px 14px 18px;background:linear-gradient(transparent,var(--ground) 30%)}
+.seal{flex:none}
+.banner{background:#0f3a2a;border:1.5px solid var(--green);border-radius:10px;padding:10px;display:flex;gap:10px;align-items:center}
+.files{font:11.5px var(--mono);display:grid;gap:3px}.files div{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding-bottom:2px}.files i{color:var(--cyan);font-style:normal}
+.stampwrap{position:relative}.stampwrap .stamp{position:absolute;right:6px;top:40px;transform:rotate(-14deg);opacity:.95}
+.hero{background:var(--surface);border:2px solid var(--yel);border-radius:14px;padding:14px;display:grid;justify-items:center;gap:6px;text-align:center}
+.pill{display:inline-flex;gap:6px;align-items:center;background:var(--yel);color:var(--on);border-radius:99px;padding:3px 10px;font-weight:800;font-size:12px}
+.bar{position:absolute;left:10px;right:10px;bottom:14px;background:var(--surface);border:1.5px solid var(--yel);border-radius:14px;padding:10px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+</style>
+<svg width="0" height="0" style="position:absolute"><defs>
+<path id="ring" d="M50 50 m-36 0 a36 36 0 1 1 72 0 a36 36 0 1 1 -72 0"/>
+<symbol id="seal" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" fill="#ffd84a"/><circle cx="50" cy="50" r="41" fill="none" stroke="#07061c" stroke-width="2"/><circle cx="50" cy="50" r="29" fill="none" stroke="#07061c" stroke-width="1.2" stroke-dasharray="2 2"/><text font-family="ui-monospace,Menlo,monospace" font-size="7.4" letter-spacing="1.1" fill="#07061c"><textPath href="#ring">APPROVED · PINNED · 9c41 41b0 c77e ·</textPath></text><text x="50" y="59" text-anchor="middle" font-family="Impact,Anton,sans-serif" font-size="25" fill="#07061c">1348</text></symbol>
+</defs></svg>
+
+<style>.small{zoom:.62}.small .why{max-width:120ch}.notpicked{margin:8px 0 0;font-size:22px}
+.note{color:var(--muted);max-width:80ch;margin:0}</style><div class="wrap">
+<header><h1>The approve moment, on a phone · #1351</h1>
+<p data-omni-pick>Picked A by @pierrederval on 2026-10-09</p>
+<p class="note">As built: Approve is full-width at the end of the card rather than pinned to the bottom of the screen, because only the page's header is ever pinned (PRD 476); the seal stamps by scale and turn, never by fading text. The header no longer slides under the iPhone status bar.</p></header>
+<section><h2 class="v">Today</h2><p class="why">Approve sits at the end of a long card; after pressing it the page reloads onto the Before/after tab, the approval is a single line in the facts, and the scrolled header slides under the status bar.</p>
+<div class="row">
+<div><p class="cap">before approve</p><div class="phone"><div class="sb"><span>15:24</span><span>▮▮ ◔</span></div><div class="scroll">
+<div class="head"><div class="t"><b>PRD #1348</b> [test] approval handshake</div><div class="chips"><span class="chip">idea</span><span class="chip">PRD</span><span class="chip">inbox</span><span class="chip">building</span></div><span class="lbl">Approval</span><b>waiting for approval</b><div class="tabs"><span>Questions</span><span class="cur">Before/after</span><span>Spec</span></div></div>
+<div class="card" style="border-color:var(--strong)"><h4>Problem</h4><p>A throwaway PRD to test PRD #1322 end to end: nobody is told a PRD waits for approval.</p><h4>Solution</h4><p><code>omni wait approval 1348</code> asks the product's approver by phone alert and email…</p><span class="btn small">Approve</span></div>
+<div class="frame">before/after page…</div></div></div></div>
+<div><p class="cap">after approve</p><div class="phone"><div class="sb over"><span>15:26</span><span>▮▮ ◔</span></div><div class="scroll" style="padding-top:0">
+<div class="tabs" style="padding-top:8px"><span>Questions</span><span class="cur">Before/after v1</span><span>Spec v1</span></div>
+<div class="dim">Version · v1 · 9 Oct · PIERRE (kit) · Show</div>
+<div class="frame" style="height:420px"><b style="color:var(--ink);font-size:18px">[test] approval handshake</b><p>Before: nobody is told this PRD waits…</p></div></div></div></div>
+</div></section>
+<section><h2 class="v">The pick · A · The seal card</h2><p class="why">Phone-first card: Problem and Solution, then a full-width Approve pinned to the bottom of the screen. After: the card turns into the seal, with who, when and the pinned files, and the page stays on it.</p>
+<div class="row">
+<div><p class="cap">before</p><div class="phone"><div class="sb"><span>15:24</span><span>▮▮ ◔</span></div><div class="scroll">
+<div class="head"><div class="t"><b>PRD #1348</b> [test] approval handshake</div><div class="chips"><span class="chip">PRD</span><span class="chip">inbox</span></div><div class="tabs"><span>Questions</span><span class="cur">Before/after</span><span>Spec</span></div></div>
+<span class="lbl">Approve phase 0</span>
+<div class="card"><h4>Problem</h4><p>Nobody is told a PRD waits for approval.</p><h4>Solution</h4><p><code>omni wait approval</code> asks the product's approver by phone alert and email; approving prints the seal in the terminal.</p><div class="files"><div>spec.md <i>9c41…e07b</i></div><div>plan.md <i>41b0…0cd2</i></div><div>before-after.html <i>c77e…19fa</i></div></div></div>
+</div><div class="sticky"><span class="btn">Approve PRD 1348</span></div></div></div>
+<div><p class="cap">after</p><div class="phone"><div class="sb"><span>15:26</span><span>▮▮ ◔</span></div><div class="scroll">
+<div class="head"><div class="t"><b>PRD #1348</b> [test] approval handshake</div><div class="chips"><span class="chip">PRD</span><span class="chip on">inbox</span></div><div class="tabs"><span>Questions</span><span class="cur">Before/after</span><span>Spec</span></div></div>
+<div class="card" style="justify-items:center;text-align:center"><svg class="seal" width="132" height="132"><use href="#seal"/></svg><b style="font-size:17px">Approved by you</b><span class="dim">9 Oct · 15:26 · 3 files pinned</span><div class="files" style="width:100%"><div>spec.md <i>9c41…e07b</i></div><div>plan.md <i>41b0…0cd2</i></div><div>before-after.html <i>c77e…19fa</i></div></div></div>
+</div></div></div>
+</div></section>
+<h2 class="notpicked">Not picked</h2>
+<section class="small"><h2 class="v">B · The receipt</h2><p class="why">No graphic: a calm, compact approve card. After: a green banner across the top of the page, "Approved by you", and a receipt of the pinned files under it.</p>
+<div class="row">
+<div><p class="cap">before</p><div class="phone"><div class="sb"><span>15:24</span><span>▮▮ ◔</span></div><div class="scroll">
+<div class="head"><div class="t"><b>PRD #1348</b> [test] approval handshake</div><div class="tabs"><span>Questions</span><span class="cur">Before/after</span><span>Spec</span></div></div>
+<div class="card" style="border-color:var(--strong)"><span class="lbl">Waiting for your approval</span><h4>Problem</h4><p>Nobody is told a PRD waits for approval.</p><h4>Solution</h4><p>The approver is asked by phone alert and email…</p><span class="btn">Approve</span></div></div></div></div>
+<div><p class="cap">after</p><div class="phone"><div class="sb"><span>15:26</span><span>▮▮ ◔</span></div><div class="scroll">
+<div class="banner"><span class="ok" style="font-size:20px">✓</span><div><b>Approved by you</b><div class="dim">9 Oct · 15:26 · building can start</div></div></div>
+<div class="card" style="border-color:var(--strong)"><span class="lbl">Receipt</span><div class="files"><div>spec.md <i>9c41…e07b</i></div><div>plan.md <i>41b0…0cd2</i></div><div>before-after.html <i>c77e…19fa</i></div></div></div>
+<div class="head" style="margin:0;border-radius:10px;border:1px solid var(--line)"><div class="t"><b>PRD #1348</b> [test] approval handshake</div><div class="tabs"><span>Questions</span><span class="cur">Before/after</span><span>Spec</span></div></div></div></div></div>
+</div></section><section class="small"><h2 class="v">C · The stamp</h2><p class="why">The approve screen stays exactly where you read it; after pressing Approve, the seal lands on it, tilted like a rubber stamp, and the button becomes "Approved by you · 15:26".</p>
+<div class="row">
+<div><p class="cap">before</p><div class="phone"><div class="sb"><span>15:24</span><span>▮▮ ◔</span></div><div class="scroll">
+<div class="head"><div class="t"><b>PRD #1348</b> [test] approval handshake</div><div class="tabs"><span>Questions</span><span class="cur">Before/after</span></div></div>
+<div class="card"><h4>Problem</h4><p>Nobody is told a PRD waits for approval.</p><h4>Solution</h4><p>The approver is asked by phone alert and email, and the terminal prints the seal.</p><span class="btn">Approve</span></div></div></div></div>
+<div><p class="cap">after</p><div class="phone"><div class="sb"><span>15:26</span><span>▮▮ ◔</span></div><div class="scroll">
+<div class="head"><div class="t"><b>PRD #1348</b> [test] approval handshake</div><div class="tabs"><span>Questions</span><span class="cur">Before/after</span></div></div>
+<div class="card stampwrap" style="opacity:1"><h4 style="opacity:.55">Problem</h4><p style="opacity:.55">Nobody is told a PRD waits for approval.</p><h4 style="opacity:.55">Solution</h4><p style="opacity:.55">The approver is asked by phone alert and email, and the terminal prints the seal.</p><svg class="seal stamp" width="118" height="118"><use href="#seal"/></svg><span class="btn" style="background:transparent;color:var(--yel);border:1.5px solid var(--yel)">Approved by you · 15:26</span></div></div></div></div>
+</div></section><section class="small"><h2 class="v">D · The thumb bar</h2><p class="why">Approve lives in a bar at the bottom of the screen, within thumb reach, wherever you scroll; the Problem and Solution open the page. After: the bar becomes a small seal and a line, and the title gets an "approved" pill.</p>
+<div class="row">
+<div><p class="cap">before</p><div class="phone"><div class="sb"><span>15:24</span><span>▮▮ ◔</span></div><div class="scroll">
+<div class="head"><div class="t"><b>PRD #1348</b> [test] approval handshake</div><div class="tabs"><span>Questions</span><span class="cur">Before/after</span></div></div>
+<span class="lbl">Problem</span><p style="margin:0;font-size:12.5px">Nobody is told a PRD waits for approval.</p><span class="lbl">Solution</span><p style="margin:0;font-size:12.5px">The approver is asked by phone alert and email…</p><div class="frame">before/after page…</div></div>
+<div class="bar"><div><b style="font-size:13px">Waiting for your approval</b><div class="dim">3 files will be pinned</div></div><span class="btn small">Approve</span></div></div></div>
+<div><p class="cap">after</p><div class="phone"><div class="sb"><span>15:26</span><span>▮▮ ◔</span></div><div class="scroll">
+<div class="head"><div class="t"><b>PRD #1348</b> [test] approval handshake <span class="pill">✓ approved</span></div><div class="tabs"><span>Questions</span><span class="cur">Before/after</span></div></div>
+<span class="lbl">Problem</span><p style="margin:0;font-size:12.5px">Nobody is told a PRD waits for approval.</p><div class="frame">before/after page…</div></div>
+<div class="bar"><svg class="seal" width="44" height="44"><use href="#seal"/></svg><div style="flex:1"><b style="font-size:13px">Approved by you</b><div class="dim">15:26 · 3 files pinned</div></div></div></div></div>
+</div></section><section class="small"><h2 class="v">E · The hero</h2><p class="why">The approval becomes the top of the page while it is the thing to do: a hero with the Problem, Solution and a big Approve. After: the hero holds a large seal, who and when, and the tabs follow below.</p>
+<div class="row">
+<div><p class="cap">before</p><div class="phone"><div class="sb"><span>15:24</span><span>▮▮ ◔</span></div><div class="scroll">
+<div class="hero"><span class="lbl">PRD #1348 waits for your approval</span><b style="font-size:18px">[test] approval handshake</b><p style="margin:0;font-size:12.5px;text-align:left"><b>Problem.</b> Nobody is told a PRD waits for approval.</p><p style="margin:0;font-size:12.5px;text-align:left"><b>Solution.</b> The approver is asked by phone alert and email…</p><span class="btn" style="width:100%">Approve</span></div>
+<div class="tabs"><span>Questions</span><span class="cur">Before/after</span><span>Spec</span></div><div class="frame">before/after page…</div></div></div></div>
+<div><p class="cap">after</p><div class="phone"><div class="sb"><span>15:26</span><span>▮▮ ◔</span></div><div class="scroll">
+<div class="hero"><svg class="seal" width="150" height="150"><use href="#seal"/></svg><b style="font-size:18px">Approved by you</b><span class="dim">9 Oct · 15:26 · spec, plan and before/after pinned</span></div>
+<div class="tabs"><span>Questions</span><span class="cur">Before/after</span><span>Spec</span></div><div class="frame">before/after page…</div></div></div></div>
+</div></section>
+</div>
