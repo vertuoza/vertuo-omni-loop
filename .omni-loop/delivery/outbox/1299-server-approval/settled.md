@@ -314,3 +314,314 @@ Changing it is one branch in the approval reader and its tests.
 ```
 
 <!-- /omni-outbox-settled: s4-03-signed-out-is-held -->
+
+<!-- omni-outbox-settled: s2-01-birthplace-from-the-spec -->
+
+## s2-01-birthplace-from-the-spec — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-birthplace-from-the-spec
+prd: 1299
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+How does the page learn that a PRD was born on the server, so that only those PRDs can be approved there?
+
+## The decision, in plain words
+
+The page reads it from the first spec it receives: when that spec says it was born on the server, the PRD is marked so for good; any other first spec marks it as born in the repository. Nothing new has to be sent.
+
+## The intro, for fun
+
+Every PRD gets a birth certificate, and nobody had said who signs it.
+
+## The punchline, for fun
+
+The first spec signs it, and the ink never dries off.
+
+## The options, in plain words
+
+A. The database reads it from the first spec pushed, as built.
+B. The kit's push sends the birthplace as its own field, and the brainstorm passes it.
+C. The page sets it when the repository's phase 0 is on the server at the dossier's opening.
+
+## What I had to decide
+
+Whether the dossier's birthplace is read from the first pushed spec's front matter by the database, or sent as its own field of the push by the kit.
+
+## What I did meanwhile
+
+A trigger on new versions sets dossiers.birthplace from the first spec of a PRD dossier (server when its front matter says phase0: server, repo otherwise) and refuses any later change. Every existing PRD dossier with a spec is marked repo. The kit sends nothing new.
+
+## What it costs to change later
+
+Switching to a push field later is one optional field on the push and one line in the push function; the column and the set-once rule stay.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec writes the birthplace twice, in the front matter and on the dossier, but does not say which call carries it to the dossier. Reading it from the spec keeps the kit's push and the brainstorm skill (another slice) unchanged.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-birthplace-from-the-spec -->
+
+<!-- omni-outbox-settled: s2-02-scenarios-not-pinned -->
+
+## s2-02-scenarios-not-pinned — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-scenarios-not-pinned
+prd: 1299
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+An approval should pin the scenarios too, but the page never receives a PRD's scenarios. What does an approval pin?
+
+## The decision, in plain words
+
+An approval pins the spec, the plan, the before and after page and the voice, the latest of each the page holds. Scenarios are not pinned until the page keeps them.
+
+## The intro, for fun
+
+The guest list says five guests, and only four ever reached the door.
+
+## The punchline, for fun
+
+We seated the four and kept the fifth chair ready.
+
+## The options, in plain words
+
+A. Pin the four kinds the page holds, as built.
+B. Add a scenario kind to the push and the page first, then pin it.
+
+## What I had to decide
+
+Whether an approval waits for the page to keep scenarios, or pins the four kinds the page holds today.
+
+## What I did meanwhile
+
+dossier_approve pins the latest spec, plan, before-after and voice versions; the pinned files list is open, so a scenario kind can join it once the push carries one, and the kit already reads any other kind at its pinned path.
+
+## What it costs to change later
+
+Pinning scenarios later is adding their kind to the push, to the versions the page keeps and to the list the approval pins; approvals already written stay valid.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan says the approval pins scenarios, but the dossier has no scenario kind and acceptance is off in this repository, so nothing sends one.
+
+```
+
+<!-- /omni-outbox-settled: s2-02-scenarios-not-pinned -->
+
+<!-- omni-outbox-settled: s2-03-approval-database-check -->
+
+## s2-03-approval-database-check — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-03-approval-database-check
+prd: 1299
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+The rules about who may approve and that an approval is never changed live in the database. Should the automatic database check prove them, even though that check sits outside this slice's files?
+
+## The decision, in plain words
+
+Yes: a new database check proves who may approve, what is refused and that approvals are only ever added, and the database workflow runs it on every pull request.
+
+## The intro, for fun
+
+A lock was fitted, and the plan forgot to order someone to rattle the handle.
+
+## The punchline, for fun
+
+We rattled it ourselves, and left a note on who did.
+
+## The options, in plain words
+
+A. Add the check and its workflow step in this slice, as built.
+B. Leave them out and add them in a follow-up slice.
+
+## What I had to decide
+
+Whether this slice adds its own database check and its workflow step, outside the files the plan gave it.
+
+## What I did meanwhile
+
+supabase/checks/approvals.sql proves the birthplace, each refusal, the pinned files, the second approval and that nobody updates or deletes a row; one step of the supabase workflow runs it. Both are new lines that touch no other check.
+
+## What it costs to change later
+
+Removing them is deleting one file and one workflow step; nothing depends on them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory names the migration but neither supabase/checks/ nor the workflow, while its done-when asks that rows cannot be updated or deleted, which only a database check can show.
+
+```
+
+<!-- /omni-outbox-settled: s2-03-approval-database-check -->
+
+<!-- omni-outbox-settled: s5-01-gates-read-the-checkout -->
+
+## s5-01-gates-read-the-checkout — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-gates-read-the-checkout
+prd: 1299
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+A PRD approved on the page keeps its files on its own feature branch until it ships. When someone looks at the overview or the loop's next step from a copy of the project that does not hold those files, should the PRD still show up?
+
+## The decision, in plain words
+
+The overview, the PRD lookup and the loop's next step judge a page-approved PRD from the files the person's own copy holds. A copy without them, the main line for example, does not show that PRD until it ships.
+
+## The intro, for fun
+
+A PRD that lives on its own branch is a bit like a cat: you only see it in the room it chose.
+
+## The punchline, for fun
+
+So the overview counts it where its files are, and nowhere else, until it ships.
+
+## The options, in plain words
+
+A. A. Judge a page-approved PRD from the copy's own files; a copy without them does not show it (built).
+B. B. Read its files from its feature branch on the remote, so every copy shows it, at the cost of reading files from git in the approval reader.
+C. C. Show it from any copy as waiting, without judging its files, until the copy holds them.
+
+## What I had to decide
+
+Whether the overview and the loop's next step must find a page-approved PRD on its feature branch from any copy, or only where the copy holds its folder, as built. The approval reader judges the files on disk, so reading them from a branch would change that reader too.
+
+## What I did meanwhile
+
+`omni prd`, `omni status` and `omni next` read a ◆ PRD's stage through `prdState()` from the checkout's own inbox folder. `omni status` adds the ◆ PRDs of the checkout's inbox to its overview (waiting for approval is PRD, approved is inbox, drifted, unreachable and refused are listed as held with their lines). `omni next <n>` on a checkout with no folder for n refuses as before. A ◇ PRD reads exactly as before and never calls the server.
+
+## What it costs to change later
+
+A constant change: reading the PRD folder from `<remote>/<feature branch>` instead of the working tree means `kit/lib/approval/approval.ts` hashing files from a git ref, plus the status facts listing each feature branch's inbox folders. No stored shape, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether /omni:drive runs `omni next` from a checkout of the feature branch or of the default branch for a ◆ PRD: if the latter, a ◆ PRD is invisible to the loop until s7's skills check out its branch.
+- (author) `omni prd <n>` still exits 0 on every stage and prints `state: prd`, `drifted`, `unreachable` or `refused`; the skills (s7) read that line, as they read `state: inbox` today.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-gates-read-the-checkout -->
