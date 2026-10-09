@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ship Receipt Vision Tour</title>
+<meta name="description" content="R · Ship Receipt: a seven-step walk through the crowned direction, with sample data.">
+<style>
+:root{--void:#07061c;--deep:#0e0d33;--cab:#120f3a;--navy:#2f3fc4;--wh:#f2f4ff;--dim:#8a90d6;--sl:#5b5f80;--pl:#a45cff;--ye:#ffd84a;--go:#d99a14;--hi:#fff3a8;--re:#ff3b5c;--cy:#6ff0ff;--gr:#4ee08a;--or:#ff9b30;--ma:#ff3ea5;--sf:#05040f;--paper:#f2f4ff;--row:#1a1650;
+--f-px:'Press Start 2P',ui-monospace,Menlo,Consolas,monospace;--f-mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,'Courier New',monospace;--f-body:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--f-dsp:Anton,Impact,Haettenschweiler,'Arial Narrow Bold','Arial Narrow',sans-serif;--f-gm:'Jersey 10','Arial Narrow',system-ui,sans-serif;color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+html,body{height:100%;background:var(--void);color:var(--wh)}
+body{font:15px/1.45 var(--f-body);-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:inherit}
+button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--cy);outline-offset:2px}
+.px{font-family:var(--f-px);font-weight:400;letter-spacing:.02em;text-transform:uppercase}
+.mono{font-family:var(--f-mono)}
+.yl{color:var(--ye)}.dm{color:var(--dim)}.sl{color:var(--sl)}
+.app{position:relative;display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:100vh;height:100dvh;overflow:hidden;isolation:isolate}
+.sky{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
+.sky .tw,.csky .tw{animation:tw 2.4s steps(2,end) infinite}
+.scan{position:absolute;inset:0;pointer-events:none;z-index:50;background:repeating-linear-gradient(180deg,rgba(5,4,15,.12) 0 1px,transparent 1px 3px)}
+/* header */
+.top{display:flex;align-items:center;gap:12px;padding:10px 20px;background:var(--deep);box-shadow:inset 0 -2px 0 var(--navy);z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-size:9px;color:var(--ye);white-space:nowrap}
+.brand b{font-weight:400;color:var(--sf);background:var(--ye);padding:4px 5px 3px}
+.brand em{font-style:normal;color:var(--sl)}
+.dots{display:flex;gap:4px;flex:1;justify-content:center;flex-wrap:wrap}
+.dots button{display:flex;align-items:center;gap:6px;padding:6px 8px 5px;background:var(--cab);box-shadow:inset 0 0 0 1px var(--navy);font:7px var(--f-px);text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.dots button i{font-style:normal;color:var(--ye)}
+.dots button:hover{color:var(--wh)}
+.dots button[aria-current="step"]{background:var(--ye);color:var(--void);box-shadow:0 2px 0 var(--go)}
+.dots button[aria-current="step"] i{color:var(--void)}
+.dots button.seen:not([aria-current]){box-shadow:inset 0 0 0 1px var(--dim)}
+.snd{font-size:7px;color:var(--sl);white-space:nowrap}
+.sample{font-size:7px;color:var(--or);box-shadow:inset 0 0 0 1px var(--or);padding:5px 6px 4px;white-space:nowrap}
+/* main */
+.main{position:relative;overflow-y:auto;overflow-x:hidden;outline:none;touch-action:pan-y}
+.step{display:none}
+.step.on{position:relative;display:grid;grid-template-columns:minmax(240px,330px) minmax(0,1fr);gap:30px;align-items:start;max-width:1260px;margin:0 auto;padding:26px 28px 34px;animation:wipe .3s steps(5,end)}
+.copy{position:relative;min-width:0}
+.num{position:absolute;right:0;top:-6px;font:400 64px/1 var(--f-dsp);color:transparent;-webkit-text-stroke:1px var(--navy);transform:skewX(-12deg);pointer-events:none}
+.kick{font-size:8px;color:var(--ye);margin-bottom:10px}
+.copy h1{font-size:27px;line-height:1.15;font-weight:700;margin-bottom:12px;padding-right:56px}
+.copy p.lead{font-size:15px;line-height:1.5;color:var(--dim)}
+.copy p.lead b{color:var(--wh);font-weight:700}
+.fix{list-style:none;margin-top:16px;padding:10px 12px;background:var(--sf);box-shadow:inset 2px 0 0 var(--pl)}
+.fix .px{display:block;font-size:6.5px;color:var(--pl);margin-bottom:6px}
+.fix li{position:relative;padding-left:16px;font-size:12.5px;line-height:1.4;color:var(--dim);margin-top:4px}
+.fix li::before{content:"\2713";position:absolute;left:0;color:var(--gr)}
+.try{margin-top:14px;font-size:12.5px;color:var(--sl)}
+.try .kc{margin:0 2px}
+.vis{position:relative;display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;min-width:0}
+.vis>.pane{flex:1 1 340px}
+.pane{position:relative;min-width:0;background:var(--deep);box-shadow:inset 0 0 0 2px var(--navy),4px 4px 0 var(--sf)}
+.legend{flex:1 1 100%;font-size:12px;line-height:1.5;color:var(--sl)}
+.legend b{color:var(--dim);font-weight:700}
+.legend .no{color:var(--re)}
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;min-height:26px;padding:0 11px;font:7px var(--f-px);text-transform:uppercase;white-space:nowrap;color:var(--void);background:var(--ye);box-shadow:0 3px 0 var(--go),inset -2px -2px 0 var(--go),inset 2px 2px 0 var(--hi)}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--go),inset -2px -2px 0 var(--go),inset 2px 2px 0 var(--hi)}
+.btn.gh{background:var(--cab);color:var(--wh);box-shadow:0 3px 0 var(--sf),inset 0 0 0 2px var(--navy)}
+.btn.sm{min-height:22px;padding:0 8px;font-size:6.5px}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+.kc{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 3px;background:var(--void);color:var(--ye);font:7px var(--f-px);box-shadow:inset 0 0 0 1px var(--ye);vertical-align:middle}
+.chip{display:inline-block;font:6px var(--f-px);text-transform:uppercase;padding:3px 5px 2px;box-shadow:inset 0 0 0 1px currentColor;white-space:nowrap}
+.chip.ok{color:var(--gr)}.chip.bl{color:var(--cy)}.chip.pk{color:var(--pl)}.chip.or{color:var(--or)}
+.chip.fill{background:var(--pl);color:var(--void);box-shadow:none}
+/* page chrome */
+.url{height:20px;display:flex;align-items:center;gap:6px;padding:0 10px;background:var(--cab);box-shadow:inset 0 -2px 0 var(--navy),inset 2px 2px 0 var(--navy),inset -2px 0 0 var(--navy);font-size:6.5px;color:var(--dim);white-space:nowrap;overflow:hidden}
+.url b{color:var(--ye);font-weight:400}
+.phd{padding:10px 14px 6px}
+.crumb{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:7px;color:var(--dim)}
+.ptl{margin-top:5px;font-size:16px;line-height:1.2;font-weight:700}
+.tabs{display:flex;flex-wrap:wrap;gap:4px 11px;padding:0 14px;min-height:20px;align-items:flex-end;box-shadow:inset 0 -1px 0 var(--navy);font-size:6px;color:var(--sl)}
+.tabs span{padding-bottom:6px;white-space:nowrap}
+.tabs .tcur{color:var(--ye);box-shadow:inset 0 -2px 0 var(--ye)}
+/* paper */
+.paper{position:relative;width:232px;max-width:100%;background:var(--paper);color:var(--void);padding:8px 10px 7px;font:8px/10.5px var(--f-mono);box-shadow:4px 0 0 rgba(47,63,196,.35)}
+.paper::before{content:"";position:absolute;left:0;right:0;top:-4px;height:4px;background:linear-gradient(transparent 2px,var(--paper) 2px),repeating-linear-gradient(90deg,var(--paper) 0 4px,transparent 4px 8px)}
+.paper.torn::after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:4px;background:linear-gradient(var(--paper) 2px,transparent 2px),repeating-linear-gradient(90deg,var(--paper) 0 3px,transparent 3px 6px)}
+.paper .ln{display:none}
+.paper .ln.on{display:block}
+.paper .p-kv.on,.paper .p-bc.on{display:flex}
+.ln.new{animation:print .22s steps(4,end)}
+.p-hd{font-size:6px;line-height:12px;text-align:center;letter-spacing:.06em;white-space:nowrap}
+.p-ti{text-align:center;font-weight:800;font-size:9px;line-height:12px}
+.p-me{text-align:center;color:var(--sl);font-size:7.5px}
+.p-ru{border-top:1px dashed var(--sl);margin:4px 0}
+.p-hl{position:relative;z-index:0;margin:3px 0 2px;padding:2px 4px 1px;font-weight:800;font-size:11.5px;line-height:15px;white-space:nowrap}
+.p-hl::before{content:"";position:absolute;inset:0 -3px 0 -2px;background:var(--ye);transform:skewX(-12deg) rotate(-1deg);z-index:-1}
+.p-hl.s2{font-size:9.5px;line-height:13px;margin:3px 0 4px}
+.p-nt{font-size:7.5px;color:var(--sl);text-align:center}
+.p-dn{font-size:7px;color:var(--sl);padding-left:8px}
+.p-sc{font-size:5.5px;line-height:10px;color:var(--sl);margin-top:3px;white-space:nowrap}
+.p-kv{align-items:baseline;white-space:nowrap}
+.p-kv i{flex:1;border-bottom:1px dotted var(--dim);margin:0 4px 2px;min-width:6px}
+.p-kv b{font-weight:800}
+.p-rt{font-size:7.5px;font-weight:800}
+.p-bc{align-items:center;justify-content:space-between;margin-top:5px}
+.p-bc span{font-size:7px;color:var(--sl)}
+.p-pf{position:relative;height:10px;margin:6px -10px 3px}
+.p-pf::before{content:"";position:absolute;left:0;right:0;top:4px;height:2px;background:repeating-linear-gradient(90deg,var(--sl) 0 2px,transparent 2px 5px)}
+.p-pf span{position:absolute;left:6px;top:-2px;background:var(--paper);padding:0 2px;font-size:10px;line-height:12px}
+.p-os{color:var(--re);font-weight:800}
+.p-tk{margin-top:4px;font-size:7px;color:var(--sl)}
+.p-tk .kc{margin-right:4px;min-width:14px;height:14px;font-size:6.5px}
+.p-lk{display:block;width:100%;margin:1px 0 3px;font:700 7.5px/11px var(--f-mono);color:var(--navy);text-decoration:underline;text-align:left;cursor:pointer}
+.p-sp{font:7px/10px var(--f-mono);color:var(--navy);padding-left:6px}
+.p-sp button{font:inherit;color:inherit;text-decoration:underline;cursor:pointer}
+.stub{position:relative;background:var(--paper)}
+.stub.lift{cursor:pointer}
+.stub.lift:hover{box-shadow:0 0 0 1px var(--ye)}
+.stub.fly{animation:fly .75s steps(9,end) forwards;z-index:40}
+/* till */
+.tillbox{position:relative;height:338px}
+.tillbox .paper{position:absolute;left:50%;margin-left:-116px;bottom:24px}
+.till{position:absolute;left:50%;margin-left:-128px;bottom:6px;width:256px;height:22px;background:var(--cab);box-shadow:inset 0 0 0 2px var(--navy),3px 3px 0 var(--sf);z-index:3}
+.till::before{content:"";position:absolute;left:10px;right:10px;top:4px;height:2px;background:var(--void)}
+.till .led{position:absolute;right:9px;top:11px;width:4px;height:4px;background:var(--sl)}
+.till.busy .led{background:var(--gr);animation:blink .3s steps(2,end) infinite}
+.till .nm{position:absolute;left:10px;top:11px;font-size:5px;color:var(--sl)}
+/* step 1: PR */
+.prh{padding:12px 14px 8px}
+.prh h3{font-size:16px;line-height:1.2;margin:4px 0 6px}
+.prh .mrg{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--dim)}
+.cmt{margin:4px 14px 14px;box-shadow:inset 0 0 0 1px var(--navy)}
+.cmh{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 10px;background:var(--cab);font-size:12px;color:var(--dim);box-shadow:inset 0 -1px 0 var(--navy)}
+.cmh .bot{font:6px var(--f-px);padding:3px 4px 2px;background:var(--cy);color:var(--void)}
+.cmh b{color:var(--wh)}
+.pre{padding:10px 12px;font-size:10px;line-height:13.5px;white-space:pre;color:#cfd3ff;background:var(--sf);min-height:300px;overflow:hidden}
+.pre .ln{display:none}
+.pre .ln.on{display:block}
+.t-w{color:var(--wh);font-weight:700}.t-d{color:var(--sl)}.t-n{color:#343a8a}.t-p{color:var(--cy)}.t-v{color:var(--pl);font-weight:700}.t-g{color:var(--gr)}.t-r{color:var(--re)}.t-c{color:var(--ye)}.t-o{color:var(--or)}
+.t-y{background:var(--ye);color:var(--void);font-weight:800}
+.cur{display:inline-block;width:7px;height:12px;background:var(--wh);vertical-align:-2px;animation:blink 1s steps(2,end) infinite}
+/* step 2 */
+.side2{padding:14px 16px 16px}
+.bq{margin-top:10px;padding:10px 12px;background:var(--sf);box-shadow:inset 0 0 0 1px var(--navy);font:12.5px/1.45 var(--f-mono);color:#cfd3ff}
+.bq .q{color:var(--wh);font-weight:700;margin:4px 0 8px;font-family:var(--f-body);font-size:14px}
+.opt{display:block;width:100%;margin-top:5px;padding:6px 8px;background:var(--cab);box-shadow:inset 0 0 0 1px var(--navy);font:12.5px/1.35 var(--f-body);color:var(--dim)}
+.opt:hover{color:var(--wh)}
+.opt.sel{box-shadow:inset 0 0 0 2px var(--ye);color:var(--wh)}
+.opt b{font:7px var(--f-px);color:var(--ye);margin-right:6px}
+.ans{margin-top:10px;font-size:12.5px;line-height:1.45;color:var(--dim);min-height:36px}
+.ans b{color:var(--wh)}
+.rail{position:relative;height:112px;margin-top:10px}
+.rail::before{content:"";position:absolute;left:0;right:0;top:4px;height:3px;background:var(--dim);box-shadow:0 3px 0 var(--navy)}
+.mini{position:absolute;top:12px;width:80px;height:92px;background:#dfe2ff;color:var(--void);padding:9px 6px 0;font:7px/9.5px var(--f-mono);transform:rotate(var(--r,0deg));transform-origin:50% 0}
+.mini::before{content:"";position:absolute;left:37px;top:-8px;width:6px;height:8px;background:var(--ye);box-shadow:0 1px 0 var(--go)}
+.mini b{display:block;font-size:8px;font-weight:800;border-bottom:1px solid var(--dim);margin-bottom:3px;padding-bottom:1px}
+.mini .mh{display:block;position:relative;z-index:0;font-weight:800;margin:2px 0 3px;padding:0 2px}
+.mini .mh::before{content:"";position:absolute;inset:0 -1px;background:var(--ye);transform:skewX(-12deg);z-index:-1}
+.mini em{display:block;font-style:normal;color:var(--navy)}
+.mini svg{position:absolute;left:6px;bottom:5px}
+.rnote{position:absolute;left:190px;right:0;top:18px;font-size:12px;line-height:1.35;color:var(--dim)}
+.rnote b{color:var(--wh)}
+.center{display:flex;justify-content:center;padding:18px 14px 16px}
+/* step 3 */
+.rl{padding:14px}
+.rst{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:12.5px;color:var(--dim)}
+.rlab{margin:12px 0 7px;font-size:12px;line-height:1.4;color:var(--dim)}
+.rlab b{color:var(--wh)}
+.rows{display:flex;flex-direction:column;gap:4px}
+.row{position:relative;display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:40px;padding:5px 9px;background:var(--cab);box-shadow:inset 0 0 0 1px var(--navy);width:100%}
+.row:hover{box-shadow:inset 0 0 0 1px var(--dim)}
+.row.sel{box-shadow:inset 0 0 0 2px var(--ye);background:var(--row)}
+.row .id{font-size:7px;color:var(--ye)}
+.row .tx{font-size:13px;line-height:1.25;color:var(--wh)}
+.row .mt{display:block;font-size:11px;color:var(--sl)}
+.row .go{font-size:6px;color:var(--dim);white-space:nowrap}
+.row .stp{font-size:6px;padding:3px 4px 2px;transform:rotate(-3deg);white-space:nowrap;animation:stamp .3s steps(3,end)}
+.row .stp.w{color:var(--or);box-shadow:inset 0 0 0 1px var(--or)}
+.row .stp.n{color:var(--cy);box-shadow:inset 0 0 0 1px var(--cy)}
+.rmore{margin-top:8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--sl)}
+.rr{padding:14px 16px 16px;min-height:300px}
+.rr h4{margin:8px 0 6px;font-size:17px;line-height:1.25}
+.rr p.b{font-size:13px;line-height:1.5;color:var(--dim)}
+.how{list-style:none;margin-top:12px;counter-reset:h}
+.how li{position:relative;padding:0 0 10px 30px;font-size:13px;line-height:1.4}
+.how li::before{counter-increment:h;content:counter(h);position:absolute;left:0;top:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:var(--cab);box-shadow:inset 0 0 0 1px var(--navy);color:var(--ye);font:7px var(--f-px)}
+.dq{margin-top:6px;font-size:15px;line-height:1.3;font-weight:700}
+.dm2{margin-top:3px;font-size:12px;color:var(--sl)}
+.fl{display:block;margin:14px 0 6px;font-size:6.5px;color:var(--sl)}
+.inp{width:100%;height:34px;padding:0 9px;background:var(--sf);color:var(--wh);border:0;box-shadow:inset 0 0 0 2px var(--navy);font:13px var(--f-body)}
+.inp:focus{box-shadow:inset 0 0 0 2px var(--ye);outline:none}
+.acts{display:flex;gap:10px;margin-top:12px;align-items:center;flex-wrap:wrap}
+.fnote{margin-top:12px;font-size:12px;line-height:1.45;color:var(--sl)}
+.iss{margin-top:8px;padding:11px 12px;background:var(--sf);box-shadow:inset 0 0 0 1px var(--navy);animation:pop .3s steps(3,end)}
+.iss .top2{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:6.5px}
+.iss .op{color:var(--gr)}
+.iss h5{margin-top:7px;font-size:14px;line-height:1.3}
+.lbs{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
+.lb{font-size:6px;padding:3px 4px 2px}
+.lb.ret{background:var(--or);color:var(--void)}
+.lb.pc{background:var(--pl);color:var(--void)}
+.lb.prd{box-shadow:inset 0 0 0 1px var(--dim);color:var(--dim)}
+.iss .im{margin-top:6px;font-size:12px;color:var(--sl)}
+.iss q{display:block;margin-top:6px;font-size:13px;line-height:1.4;color:var(--dim)}
+.nx3{margin-top:10px;font-size:13px;line-height:1.5;color:var(--dim)}
+.nx3 b{color:var(--wh)}
+.wait{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:8px 10px;background:var(--cab);box-shadow:inset 0 0 0 1px var(--navy);font-size:12.5px;color:var(--dim)}
+.wait.old{box-shadow:inset 0 0 0 1px var(--or);animation:pop .3s steps(3,end)}
+/* step 4 */
+.pg4{min-height:470px}
+.lh{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px 8px}
+.lh .px{font-size:7px}
+.row4{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;align-items:center;margin:0 14px 5px;padding:8px 10px;background:var(--cab);box-shadow:inset 0 0 0 1px var(--navy);width:calc(100% - 28px)}
+.row4 .a{font-size:13.5px;line-height:1.25}
+.row4 .a b{font:400 7px var(--f-px);color:var(--dim);margin-right:6px}
+.row4 .z{font-size:6px;color:var(--sl);grid-column:1}
+.row4.dimr{opacity:.55;cursor:default}
+button.row4:hover{box-shadow:inset 0 0 0 1px var(--dim)}
+button.row4.hot{box-shadow:inset 0 0 0 2px var(--ye)}
+.row4 .nw{color:var(--ye)}
+.lnote{margin:12px 14px 14px;padding:9px 11px;font-size:13px;line-height:1.45;color:var(--dim);box-shadow:inset 2px 0 0 var(--pl);background:var(--sf)}
+.lnote b{color:var(--wh)}
+.kv4{display:flex;flex-wrap:wrap;gap:18px 22px;padding:16px 14px 18px}
+.kv4 .paper{flex:none}
+.side4{flex:1 1 150px;min-width:0;font-size:13px;line-height:1.45;color:var(--dim)}
+.side4 .px{display:block;font-size:6px;color:var(--sl);margin:0 0 6px}
+.side4 p{margin-bottom:8px}
+.side4 .btn{margin:2px 8px 14px 0}
+.toast{margin:0 14px 12px;padding:8px 10px;background:var(--sf);box-shadow:inset 0 0 0 1px var(--cy);font-size:12.5px;line-height:1.4;display:flex;gap:10px;align-items:center;flex-wrap:wrap;animation:pop .25s steps(3,end)}
+.toast .btn{margin-left:auto}
+/* credits */
+.cred{position:absolute;inset:0;z-index:6;background:var(--sf);overflow:hidden;display:grid;grid-template-columns:minmax(0,270px) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;gap:6px 22px;padding:16px 20px 14px;cursor:pointer}
+.cred.out{animation:out .4s steps(4,end) forwards}
+.csky{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.cred .ch{grid-column:1/-1;font-size:7px;color:var(--cy);position:relative}
+.cred .ch span{color:var(--sl)}
+.art{position:relative;align-self:center;height:260px}
+.halo{position:absolute;left:4px;top:18px;width:224px;height:224px;border-radius:50%;background:radial-gradient(closest-side,rgba(111,240,255,.26),rgba(111,240,255,.07) 70%,rgba(111,240,255,0))}
+.planet{position:absolute;left:26px;top:40px;width:180px;height:180px;image-rendering:pixelated}
+.om{position:absolute;left:196px;top:170px;width:48px;height:60px;image-rendering:pixelated}
+.cred.cheer .om{animation:hop .8s steps(1,end) infinite}
+.conf{position:absolute;left:0;top:0;opacity:0}
+.cred.cheer .conf{opacity:1}
+.conf .c1{animation:tw 1.1s steps(2,end) infinite}
+.conf .c2{animation:tw 1.1s steps(2,end) .55s infinite}
+.ctxt{position:relative;min-width:0;display:flex;flex-direction:column}
+.ttl{font:400 44px/1.15 var(--f-dsp);text-transform:uppercase;color:var(--ye);transform:skewX(-12deg);transform-origin:0 100%;text-shadow:2px 2px 0 var(--go),4px 4px 0 var(--go),6px 6px 0 var(--navy);white-space:nowrap;opacity:0;padding-left:6px}
+.cred.cheer .ttl{opacity:1;animation:pop .35s steps(4,end)}
+.sub4{font-size:6.5px;color:var(--cy);margin:8px 0 6px;opacity:0}
+.cred.cheer .sub4{opacity:1}
+.roll{position:relative;height:250px;overflow:hidden;-webkit-mask:linear-gradient(transparent,#000 12%,#000 88%,transparent);mask:linear-gradient(transparent,#000 12%,#000 88%,transparent)}
+.roll-in{list-style:none;transform:translateY(250px)}
+.roll-in li{display:flex;flex-wrap:wrap;align-items:baseline;min-height:30px}
+.roll-in .k2{font:7px var(--f-px);text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.roll-in .dots2{flex:1;margin:0 6px;border-bottom:2px dotted var(--navy);transform:translateY(-3px);min-width:10px}
+.roll-in .v{font:19px/22px var(--f-gm);white-space:nowrap}
+.roll-in .v.y{color:var(--ye)}
+.roll-in .post{display:block;margin-top:14px;padding:10px 12px;background:var(--cab);box-shadow:inset 0 0 0 2px var(--pl)}
+.roll-in .post .px{display:block;font-size:6.5px;color:var(--ma);margin-bottom:6px}
+.roll-in .post p{font:17px/19px var(--f-gm)}
+.roll-in .post b{font-weight:400;color:var(--ye)}
+.cred.still .roll{-webkit-mask:none;mask:none;overflow:auto;height:auto;max-height:290px}
+.cred.still .roll-in{transform:none}
+.cred.still .roll-in li{min-height:26px}
+.ak{grid-column:1/-1;position:relative;display:flex;gap:10px;align-items:center;justify-content:space-between}
+.ak .akt{font-size:6.5px;color:var(--dim);animation:blink 1.2s steps(2,end) infinite}
+.ak .s2{font-size:6px;color:var(--sl)}
+/* step 5 */
+.box{padding:14px 16px 16px}
+.bxh{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.bxh .px{font-size:7px}
+.bxh .n5{font-size:6.5px;color:var(--dim)}
+.bxs{margin:6px 0 12px;font-size:13px;line-height:1.4;color:var(--dim)}
+.slot{position:relative;min-height:92px;margin-bottom:9px;box-shadow:inset 0 0 0 1px var(--navy);background:repeating-linear-gradient(135deg,transparent 0 6px,rgba(47,63,196,.12) 6px 8px)}
+.slot .emp{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:6.5px;color:var(--sl)}
+.kit{position:relative;min-height:92px;padding:9px 11px;background:var(--cab);box-shadow:inset 0 0 0 2px var(--navy),3px 3px 0 var(--sf)}
+.kit.new{box-shadow:inset 0 0 0 2px var(--ye),3px 3px 0 var(--sf);animation:pop .35s steps(4,end)}
+.kit .kt{font-size:6px;color:var(--ma)}
+.kit h5{margin-top:6px;font-size:14px;line-height:1.25;padding-right:64px}
+.kit .km{margin-top:4px;font-size:12px;line-height:1.35;color:var(--sl);padding-right:64px}
+.kit .km b{color:var(--dim)}
+.kit .to{position:absolute;right:10px;top:26px;font:6px var(--f-px);color:var(--void);background:var(--cy);padding:4px 5px 3px}
+.bxf{margin-top:6px;font-size:12px;line-height:1.45;color:var(--sl)}
+/* step 6 */
+.wk{padding:14px 16px 16px}
+.wk .px{font-size:7px}
+.l6{margin-top:12px;padding:10px 11px;background:var(--sf);box-shadow:inset 0 0 0 2px var(--navy);font:12px/1.55 var(--f-mono);color:var(--wh);-webkit-user-select:all;user-select:all;overflow-wrap:anywhere}
+.l6 b{color:var(--ye)}
+.shot{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-top:12px}
+.shot canvas{width:240px;max-width:100%;height:auto;image-rendering:auto;box-shadow:4px 4px 0 rgba(47,63,196,.35)}
+.shot .cap6{flex:1 1 140px;font-size:12px;line-height:1.45;color:var(--sl)}
+.cps{margin-top:10px;font-size:12.5px;color:var(--gr);min-height:18px}
+.cps.warn{color:var(--or)}
+.tm6{padding:14px 16px 18px}
+.tm6 .hd6{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tm6 .hd6 .px{font-size:7px}
+.tm6 .paper{margin:0 auto;width:272px}
+.tnote{margin-top:14px;font-size:12px;line-height:1.45;color:var(--sl)}
+.tnote.hl{color:var(--cy)}
+/* step 7 */
+.term{background:var(--sf)}
+.tbar{height:20px;display:flex;align-items:center;gap:5px;padding:0 9px;background:var(--cab);box-shadow:inset 0 -2px 0 var(--navy),inset 2px 2px 0 var(--navy),inset -2px 0 0 var(--navy)}
+.tbar i{width:7px;height:7px;display:block}
+.tbar span{margin-left:6px;font-size:6.5px;color:var(--dim);white-space:nowrap;overflow:hidden}
+.tb7{padding:12px 14px 16px;font:12px/1.6 var(--f-mono);color:#cfd3ff;white-space:pre-wrap;overflow-wrap:anywhere;min-height:230px}
+.tb7 .ln{display:none}
+.tb7 .ln.on{display:block}
+.ml{margin:4px 0;padding:2px 0 2px 10px;box-shadow:inset 2px 0 0 var(--navy)}
+.ml .ret{color:var(--wh);background:rgba(78,224,138,.12)}
+.phone{max-width:300px;margin:14px auto 16px;padding:12px 10px 16px;background:var(--void);box-shadow:inset 0 0 0 2px var(--navy),0 0 0 6px var(--cab),0 0 0 8px var(--navy);border-radius:18px}
+.phone .sb{display:flex;justify-content:space-between;font-size:6px;color:var(--sl);padding:0 6px 8px}
+.card7{padding:10px 11px;background:var(--cab);box-shadow:inset 0 0 0 1px var(--gr)}
+.card7 .px{font-size:6px;color:var(--gr)}
+.card7 p{margin-top:5px;font-size:13.5px;line-height:1.35}
+.card7 .s{font-size:12px;color:var(--sl);margin-top:4px}
+.qt{margin-top:8px;padding:9px 11px;font-size:12.5px;color:var(--sl);box-shadow:inset 0 0 0 1px var(--navy)}
+.end7{flex:1 1 100%;display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 14px;background:var(--sf);box-shadow:inset 2px 0 0 var(--ye);font-size:13px;line-height:1.5;color:var(--dim)}
+.end7 b{color:var(--wh)}
+/* footer */
+.foot{display:flex;align-items:center;gap:12px;padding:8px 16px;background:var(--deep);box-shadow:inset 0 2px 0 var(--navy);z-index:5}
+.nb{flex:none;display:inline-flex;align-items:center;gap:8px;height:34px;line-height:1;padding:0 14px;font:7.5px var(--f-px);text-transform:uppercase;color:var(--void);background:var(--ye);box-shadow:0 3px 0 var(--go),inset -2px -2px 0 var(--go),inset 2px 2px 0 var(--hi)}
+.nb:disabled{opacity:.3;filter:grayscale(1);cursor:default}
+.hint{flex:1;text-align:center;font-size:12.5px;color:var(--dim)}
+.hint .cnt{font-size:7px;color:var(--ye);margin-right:8px}
+@keyframes wipe{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes print{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes blink{50%{opacity:0}}
+@keyframes tw{0%{opacity:1}50%{opacity:.15}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.04);opacity:1}100%{transform:scale(1)}}
+@keyframes stamp{0%{transform:rotate(-3deg) scale(2);opacity:0}100%{transform:rotate(-3deg) scale(1);opacity:1}}
+@keyframes hop{0%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes out{to{opacity:0}}
+@keyframes fly{0%{transform:none}25%{transform:translate(4px,6px) rotate(-7deg)}100%{transform:translate(var(--tx),var(--ty)) rotate(6deg) scale(.55);opacity:.2}}
+@media (max-width:899px){
+  body{font-size:14px}
+  .top{display:grid;grid-template-columns:auto 1fr auto;gap:8px 10px;padding:8px 16px}
+  .brand em,.snd{display:none}
+  .sample{justify-self:end}
+  .dots{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .dots button{justify-content:center;padding:7px 0 6px}
+  .dots button span{display:none}
+  .step.on{grid-template-columns:minmax(0,1fr);gap:0;padding:16px 16px 28px}
+  .copy{display:contents}
+  .copy .kick,.copy h1,.copy .lead{order:0}
+  .vis{order:1;margin-top:16px}
+  .copy .fix{order:2;margin-top:18px}
+  .copy .try{order:3}
+  .num{right:16px;top:10px}
+  .copy h1{font-size:22px}
+  .num{font-size:48px}
+  .cred{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto;padding:12px 14px}
+  .art{height:130px;align-self:start}
+  .halo{left:0;top:0;width:130px;height:130px}
+  .planet{left:12px;top:12px;width:106px;height:106px}
+  .om{left:130px;top:62px}
+  .conf{width:220px;height:130px}
+  .ttl{font-size:32px}
+  .roll{height:210px}
+  .hint .kh{display:none}
+  .nb span{display:none}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<svg class="sky" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges" aria-hidden="true"></svg>
+
+<header class="top">
+  <p class="brand px"><b>R</b><span>Ship receipt</span><em>&middot; vision tour</em></p>
+  <nav class="dots" aria-label="Tour steps">
+    <button data-go="0"><i>1</i><span>Last merge</span></button>
+    <button data-go="1"><i>2</i><span>No measure</span></button>
+    <button data-go="2"><i>3</i><span>Returns</span></button>
+    <button data-go="3"><i>4</i><span>Credits</span></button>
+    <button data-go="4"><i>5</i><span>The stub</span></button>
+    <button data-go="5"><i>6</i><span>Stand-up</span></button>
+    <button data-go="6"><i>7</i><span>Tomorrow</span></button>
+  </nav>
+  <span class="px snd" title="Sound is off">&#9834; off</span>
+  <span class="px sample" title="Every figure, name and number on this page is illustrative, not a measurement of a real PRD">Sample data</span>
+</header>
+
+<main class="main" tabindex="-1">
+
+<!-- 1 · THE LAST MERGE -->
+<section class="step" aria-label="Step 1 of 7: the last merge">
+  <div class="copy">
+    <span class="num" aria-hidden="true">01</span>
+    <p class="px kick">Step 1 &middot; The last merge</p>
+    <h1>The last merge prints a receipt.</h1>
+    <p class="lead">CI prints it on the pull request, because the merge itself prints nothing, and the same strip lands on the PRD&rsquo;s page. It leads with <b>what users get</b>, only when it was measured. Then <b>your part</b>, <b>what the loop did</b>, and what&rsquo;s <b>out of stock</b>, not billed.</p>
+    <ul class="fix"><li class="px">Since round 2</li>
+      <li>Printed by CI on the PR, not by a terminal command.</li>
+      <li>It opens mid-print: the headline is already coming out.</li>
+      <li>&ldquo;Approved by: nobody&rdquo; is said once, not on every line.</li></ul>
+  </div>
+  <div class="vis">
+    <div class="pane pr">
+      <div class="url px"><b>&#9670;</b> pull request &middot; #903</div>
+      <div class="prh">
+        <p class="px dm" style="font-size:6.5px">PRD 901 &middot; feature PR</p>
+        <h3>Snappier PRD list</h3>
+        <p class="mrg"><span class="chip fill">&#8644; Merged</span><span>by you &middot; Tue 29.09.2026 &middot; 11:05 &middot; into main</span></p>
+      </div>
+      <div class="cmt">
+        <p class="cmh"><span class="bot">CI</span><b>omni receipt</b><span>ran after the merge</span></p>
+        <div class="pre mono pre1"></div>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="url px"><b>&#9670;</b> omni &middot; /prd/901</div>
+      <div class="phd"><div class="crumb px"><span>PRD 901</span><span class="chip ok">&#10003; Shipped</span></div><div class="ptl">Snappier PRD list</div></div>
+      <div class="tabs px"><span>Before/after</span><span>Spec</span><span>Plan</span><span>Outbox</span><span class="tcur">Receipt</span><span>Retro</span></div>
+      <div class="tillbox"><div class="paper p1"></div><div class="till t1"><span class="px nm">Omni till</span><i class="led"></i></div></div>
+    </div>
+    <p class="legend"><b>Where each line comes from:</b> the headline from the measure the spec named &middot; your part from git and the outbox &middot; the loop from the plan, PRs and tests &middot; out of stock from the plan against what shipped. <span class="no">Never printed: hours saved, a rank, a score.</span> <button class="btn sm gh rp1" style="margin-left:6px">&#8635; Print again</button></p>
+  </div>
+</section>
+
+<!-- 2 · NOTHING MEASURED -->
+<section class="step" aria-label="Step 2 of 7: nothing measured">
+  <div class="copy">
+    <span class="num" aria-hidden="true">02</span>
+    <p class="px kick">Step 2 &middot; Nothing measured</p>
+    <h1>No measure, no headline.</h1>
+    <p class="lead">PRD 904&rsquo;s spec named nothing to measure, so its receipt has <b>no yellow line at all</b>: no guess, no estimate, never an hours-saved line. It nudges once: <b>name one measure in the spec next time</b>, and brainstorm will ask for it.</p>
+    <ul class="fix"><li class="px">Since round 2</li>
+      <li>The nudge moves into brainstorm&rsquo;s own questions, where the measure gets named.</li></ul>
+  </div>
+  <div class="vis">
+    <div class="pane">
+      <div class="url px"><b>&#9670;</b> omni &middot; /prd/904</div>
+      <div class="phd"><div class="crumb px"><span>PRD 904</span><span class="chip ok">&#10003; Shipped</span></div><div class="ptl">Dossier export to PDF</div></div>
+      <div class="tabs px"><span>Before/after</span><span>Spec</span><span>Plan</span><span>Outbox</span><span class="tcur">Receipt</span><span>Retro</span></div>
+      <div class="center"><div class="paper p2"></div></div>
+    </div>
+    <div class="pane side2">
+      <p class="px yl" style="font-size:7px">Next time, in brainstorm</p>
+      <div class="bq">
+        <span class="t-v">/omni:brainstorm</span> <span class="t-d">&middot; question 5 of 7</span>
+        <p class="q">What one thing will you measure once it ships?</p>
+        <button class="opt" data-o="0"><b>A</b>Export time for a 40-page dossier</button>
+        <button class="opt" data-o="1"><b>B</b>Share of exports that finish</button>
+        <button class="opt" data-o="2"><b>C</b>Nothing for this one</button>
+      </div>
+      <p class="ans">Pick an answer to see what the next receipt does with it.</p>
+      <p class="px sl" style="font-size:6px;margin-top:12px">Your receipts &middot; this week</p>
+      <div class="rail r2"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 · RETURNS -->
+<section class="step" aria-label="Step 3 of 7: returns">
+  <div class="copy">
+    <span class="num" aria-hidden="true">03</span>
+    <p class="px kick">Step 3 &middot; Returns, 30 days</p>
+    <h1>Object to any decision taken for you.</h1>
+    <p class="lead">Pick one of the 14 decisions, write one line. A return is <b>a product decision</b>, so it opens <b>a lite brainstorm</b>, not /omni:bug-fix. The PRD stays shipped. A filed return shows <b>how long it has waited</b>, in plain sight, without a ping.</p>
+    <ul class="fix"><li class="px">Since round 2</li>
+      <li>Returns go to a lite brainstorm, since bug-fix refuses product calls (Skeptic).</li>
+      <li>A waiting return shows its age: &ldquo;no one on it &middot; 6 days&rdquo; (Craft).</li></ul>
+    <p class="try">Try it: tap a decision, or <span class="kc">&uarr;</span><span class="kc">&darr;</span> to pick and <span class="kc">&#9166;</span> to return it.</p>
+  </div>
+  <div class="vis">
+    <div class="pane rl">
+      <p class="px yl" style="font-size:7px">Returns &middot; PRD 901</p>
+      <div class="ptl">Snappier PRD list</div>
+      <div class="rst"><span class="chip ok">Open</span><span>30 days &middot; until 29.10.2026</span></div>
+      <p class="rlab"><b>14 decisions taken for you</b>, all adopted, approved by: nobody. Any of them can come back.</p>
+      <div class="rows" role="listbox" aria-label="Decisions taken for you"></div>
+      <div class="rmore"><span>+ 8 more on the Outbox tab</span></div>
+    </div>
+    <div class="pane rr"></div>
+  </div>
+</section>
+
+<!-- 4 · CREDITS -->
+<section class="step" aria-label="Step 4 of 7: the credits skin">
+  <div class="copy">
+    <span class="num" aria-hidden="true">04</span>
+    <p class="px kick">Step 4 &middot; The credits skin</p>
+    <h1>The credits play once, when you open it.</h1>
+    <p class="lead">The first time you open a shipped PRD, its record plays as film credits. <b>Any key skips</b>, and it ends on the receipt. Later openings land straight on the receipt, and so does <b>any opening after hours</b>. Nothing plays on its own.</p>
+    <ul class="fix"><li class="px">Since round 2</li>
+      <li>Kept as built: one record, two skins, the receipt stays the truth.</li></ul>
+    <p class="try">Try it: open PRD 901, then press any key or tap to skip.</p>
+  </div>
+  <div class="vis">
+    <div class="pane pg4">
+      <div class="v-list">
+        <div class="url px"><b>&#9670;</b> omni &middot; /prd</div>
+        <div class="lh"><span class="px yl">Dossiers</span><span class="px sl" style="font-size:6px">All &middot; Needs an answer &middot; Shipped</span></div>
+        <button class="row4 hot o901"><span class="a"><b>PRD 901</b>Snappier PRD list</span><span class="chip ok">&#10003; Shipped</span><span class="z px nw nw901">Receipt &middot; not opened yet</span><span class="kc">&#9166;</span></button>
+        <div class="row4 dimr"><span class="a"><b>PRD 904</b>Dossier export to PDF</span><span class="chip ok">&#10003; Shipped</span><span class="z px">Receipt &middot; opened</span></div>
+        <div class="row4 dimr"><span class="a"><b>PRD 899</b>Bell sorts by owner</span><span class="chip pk">Building</span><span class="z px">Wave 2 of 3 &middot; 5/8 slices merged</span></div>
+        <p class="lnote">The <b>first time you open</b> a shipped PRD, its credits play once. <b>Any key skips.</b> Opened after hours, or any later time, it lands straight on the receipt.</p>
+      </div>
+      <div class="v-rcpt" hidden>
+        <div class="url px"><b>&#9670;</b> omni &middot; /prd/901</div>
+        <div class="phd"><div class="crumb px"><span>PRD 901</span><span class="chip ok">&#10003; Shipped</span></div><div class="ptl">Snappier PRD list</div></div>
+        <div class="tabs px"><span>Before/after</span><span>Spec</span><span>Plan</span><span>Outbox</span><span class="tcur">Receipt</span><span>Retro</span></div>
+        <div class="toast t4" hidden></div>
+        <div class="kv4">
+          <div class="paper p4"></div>
+          <div class="side4">
+            <span class="px">Credits</span>
+            <p class="cst">Played once.</p>
+            <p>Later openings land here, on the receipt.</p>
+            <button class="btn sm gh again">&#9654; Play again</button><button class="btn sm gh back4">&#9664; /prd</button>
+          </div>
+        </div>
+      </div>
+      <div class="cred" hidden role="dialog" aria-label="Credits for PRD 901. Any key skips.">
+        <svg class="csky" viewBox="0 0 760 480" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges" aria-hidden="true"></svg>
+        <p class="px ch">&#9733; Ship day &middot; PRD 901 <span>&middot; credits</span></p>
+        <div class="art">
+          <div class="halo"></div>
+          <canvas class="planet" width="48" height="48" aria-hidden="true"></canvas>
+          <canvas class="om" width="16" height="20" aria-hidden="true"></canvas>
+          <svg class="conf" width="260" height="260" viewBox="0 0 260 260" shape-rendering="crispEdges" aria-hidden="true">
+            <g class="c1"><rect x="20" y="14" width="4" height="4" fill="#ffd84a"/><rect x="210" y="22" width="4" height="4" fill="#ff3ea5"/><rect x="236" y="120" width="4" height="4" fill="#6ff0ff"/><rect x="6" y="170" width="4" height="4" fill="#a45cff"/><rect x="120" y="4" width="4" height="4" fill="#4ee08a"/><path fill="#fff3a8" d="M190 60h1v7h-1zM187 63h7v1h-7z"/></g>
+            <g class="c2"><rect x="80" y="2" width="4" height="4" fill="#ff9b30"/><rect x="246" y="60" width="4" height="4" fill="#ffd84a"/><rect x="2" y="100" width="4" height="4" fill="#6ff0ff"/><rect x="160" y="240" width="4" height="4" fill="#ff3ea5"/><rect x="40" y="236" width="4" height="4" fill="#ffd84a"/><path fill="#fff3a8" d="M34 64h1v7h-1zM31 67h7v1h-7z"/></g>
+          </svg>
+        </div>
+        <div class="ctxt">
+          <p class="ttl">Terraformed</p>
+          <p class="px sub4">Snappier PRD list &middot; the record, as a film</p>
+          <div class="roll"><ul class="roll-in"></ul></div>
+        </div>
+        <div class="ak"><span class="px s2">&#9834; sound off</span><span class="px akt">Any key skips</span><button class="btn sm skip">Skip &#9656;</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 · THE STUB -->
+<section class="step" aria-label="Step 5 of 7: the stub">
+  <div class="copy">
+    <span class="num" aria-hidden="true">05</span>
+    <p class="px kick">Step 5 &middot; The stub</p>
+    <h1>Tear off what didn&rsquo;t ship.</h1>
+    <p class="lead"><b>T</b> tears off the out-of-stock line. It flies into <b>next week&rsquo;s box</b> as a kit, addressed to <b>whoever set the missed target</b>. <b>U</b> puts it back within 10 seconds.</p>
+    <ul class="fix"><li class="px">Since round 2</li>
+      <li>The kit goes to whoever set the target, not to whoever merged (PM).</li></ul>
+    <p class="try">Try it: press <span class="kc">T</span>, or tap the stub.</p>
+  </div>
+  <div class="vis">
+    <div class="pane">
+      <div class="url px"><b>&#9670;</b> omni &middot; /prd/901 &middot; receipt</div>
+      <div class="center" style="padding-bottom:22px"><div class="paper p5"></div></div>
+    </div>
+    <div class="pane box">
+      <div class="bxh"><span class="px yl">Next week&rsquo;s box &middot; week 41</span><span class="px n5">1 of 3 kits</span></div>
+      <p class="bxs">At most three kits a week, each from a real leftover, sent to whoever wrote it.</p>
+      <div class="slot sl1"><div class="kit"><p class="px kt">Kit &middot; from PRD 897&rsquo;s &ldquo;Out:&rdquo; line</p><h5>Retry a red slice once before asking anyone</h5><p class="km">for <b>Marc</b>: he wrote that line</p><span class="to">Marc</span></div></div>
+      <div class="slot sl2"><span class="emp px">Room for a kit</span></div>
+      <div class="slot sl3"><span class="emp px">Room for a kit</span></div>
+      <div class="toast t5" hidden style="margin:4px 0 10px"></div>
+      <p class="bxf">Unpicked by Friday: back on the shelf, or closed as &ldquo;won&rsquo;t do&rdquo; in one tap. Nothing counts against anyone.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6 · STAND-UP AND TEAM -->
+<section class="step" aria-label="Step 6 of 7: stand-up and team">
+  <div class="copy">
+    <span class="num" aria-hidden="true">06</span>
+    <p class="px kick">Step 6 &middot; Stand-up and team</p>
+    <h1>One line for stand-up. One receipt a month for leads.</h1>
+    <p class="lead">Your week copies as <b>a small receipt image</b> with the line beside it, so the thread gets the strip itself. The team receipt says how many ships were <b>measured</b>, links the specs that named no measure, and counts <b>who started a PRD</b> as a team total. <b>Nothing ranks people.</b></p>
+    <ul class="fix"><li class="px">Since round 2</li>
+      <li>Copied as an image (Visionary).</li>
+      <li>&ldquo;Measured on 3 of 9&rdquo; links the six specs with no measure (PM).</li>
+      <li>&ldquo;Started a PRD: 5 people&rdquo;, as a team total (Value).</li></ul>
+  </div>
+  <div class="vis">
+    <div class="pane wk">
+      <p class="px yl">Your week 40 &middot; 28 Sep &ndash; 2 Oct</p>
+      <div class="l6" title="Click to select the whole line"></div>
+      <div class="shot"><canvas class="wimg" width="480" height="352" role="img" aria-label="Your week as a small receipt image"></canvas><p class="cap6">What the stand-up thread gets: this strip as an image, and the line as text. Built from your own receipts only; nobody else&rsquo;s line is shown or compared.</p></div>
+      <div class="acts"><button class="btn cp">Copy for stand-up <span class="kc">C</span></button></div>
+      <p class="cps" aria-live="polite"></p>
+    </div>
+    <div class="pane tm6">
+      <div class="hd6"><span class="px yl">Team receipt &middot; monthly</span><span class="px sl" style="font-size:6px">for leads &middot; /app/workspace</span></div>
+      <div class="paper p6"></div>
+      <p class="tnote" aria-live="polite">Team totals only. Each person&rsquo;s part stays on their own receipts.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 7 · TOMORROW -->
+<section class="step" aria-label="Step 7 of 7: tomorrow">
+  <div class="copy">
+    <span class="num" aria-hidden="true">07</span>
+    <p class="px kick">Step 7 &middot; Tomorrow</p>
+    <h1>A fixed return comes back as one line.</h1>
+    <p class="lead">When a return is fixed, <b>the next morning&rsquo;s first minute</b> says so in one line: in the first <b>claude</b> of the day and on the Omni page. No ping when it happens, no badge. It is the bridge to the Morning Line.</p>
+    <ul class="fix"><li class="px">Since round 2</li>
+      <li>The developer&rsquo;s bridge: a fixed return shows up in tomorrow&rsquo;s Morning Line.</li></ul>
+  </div>
+  <div class="vis">
+    <div class="pane term">
+      <div class="tbar"><i style="background:#ff3b5c"></i><i style="background:#ffd84a"></i><i style="background:#4ee08a"></i><span class="px">claude &middot; ~/vertuo &middot; Thu 08.10.2026 &middot; 08:52</span></div>
+      <div class="tb7"></div>
+    </div>
+    <div class="pane">
+      <div class="url px"><b>&#9670;</b> omni &middot; /app &middot; on a phone</div>
+      <div class="phone">
+        <div class="sb px"><span>08:52</span><span>Thu 08.10</span></div>
+        <div class="card7"><span class="px">&#8617; Fixed &middot; your return</span><p>Return #1312 is fixed: PRD 901&rsquo;s list now refreshes the moment you answer.</p><p class="s">You filed it 30.09 &middot; Marc took it on day 6 &middot; merged Wed 07.10, 15:20</p></div>
+        <p class="qt">No question waits on you this morning.</p>
+      </div>
+    </div>
+    <div class="end7"><span><b>R proves the loop.</b> Every ship ends on an honest receipt; every return and every stub feeds a next step; and the first minute of tomorrow closes the loop you opened.</span><button class="btn restart">&#8634; From the start</button></div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <button class="nb prv" aria-label="Previous step">&#9664; <span>Back</span></button>
+  <p class="hint"><span class="px cnt">1 / 7</span><span class="kh">&larr; &rarr; keys, or swipe</span></p>
+  <button class="nb nxt" aria-label="Next step"><span>Next</span> &#9654;</button>
+</footer>
+<div class="scan" aria-hidden="true"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var d = document;
+  var q = function (s, el) { return (el || d).querySelector(s); };
+  var qa = function (s, el) { return Array.prototype.slice.call((el || d).querySelectorAll(s)); };
+  var RM = function () { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+  var T = [], raf = 0, anims = [];
+  var later = function (f, ms) { var t = setTimeout(f, ms); T.push(t); return t; };
+  var halt = function () { T.forEach(clearTimeout); T = []; if (raf) { cancelAnimationFrame(raf); raf = 0; } anims.forEach(function (a) { try { a.cancel(); } catch (e) {} }); anims = []; };
+
+  function rng(seed) { var s = (seed >>> 0) || 1; return function () { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+  function stars(svg, seed, n, w, h) {
+    var r = rng(seed), out = '';
+    for (var i = 0; i < n; i++) {
+      var x = Math.floor(r() * w), y = Math.floor(r() * h), z = r() < 0.2 ? 2 : 1;
+      var c = r() < 0.15 ? '#6ff0ff' : (r() < 0.5 ? '#8a90d6' : '#5b5f80');
+      out += '<rect x="' + x + '" y="' + y + '" width="' + z + '" height="' + z + '" fill="' + c + '"' + (r() < 0.25 ? ' class="tw"' : '') + '/>';
+    }
+    svg.innerHTML = out;
+  }
+  stars(q('.sky'), 7, 90, 1200, 800);
+  stars(q('.csky'), 23, 80, 760, 480);
+
+  function barcode(seed, w, h) {
+    var r = rng(seed * 7919 + 13), x = 0, s = '';
+    while (x < w - 3) { var bw = 1 + Math.floor(r() * 3); s += '<rect x="' + x + '" y="0" width="' + bw + '" height="' + h + '"/>'; x += bw + 1 + Math.floor(r() * 3); }
+    return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" shape-rendering="crispEdges" aria-hidden="true"><g fill="#07061c">' + s + '</g></svg>';
+  }
+  function bars(seed) { var r = rng(seed * 31 + 5), s = ''; for (var i = 0; i < 22; i++) s += r() < 0.62 ? '|' : ' '; return s; }
+
+  /* ---------- the record (sample data) ---------- */
+  var R1 = { prd: 901, title: 'Snappier PRD list', when: 'Tue 29.09.2026 · 11:05', pr: 903,
+    head: '/prd loads 401 ms faster', note: 'median 788 → 387 ms, before vs after',
+    merges: 3, answers: 1, slices: 10, tests: 42, dec: 14, until: '29.10.2026', oos: ['first byte 386 ms', 'target 200 ms'] };
+  var R2 = { prd: 904, title: 'Dossier export to PDF', when: 'Tue 29.09.2026 · 16:10', pr: 905,
+    merges: 2, answers: 1, slices: 8, tests: 19, dec: 7, until: '29.10.2026' };
+
+  function sem(r) {
+    var L = [['hd', 'Omni Loop · shipped'], ['ti', 'PRD ' + r.prd + ' · ' + r.title], ['me', r.when + ' · PR #' + r.pr], ['ru']];
+    if (r.head) L.push(['hl', r.head], ['hn', r.note], ['ru']);
+    L.push(['sc', 'Your part'], ['kv', 'merges', r.merges], ['kv', 'answers', r.answers],
+      ['sc', 'What the loop did'], ['kv', 'slices merged', r.slices], ['kv', 'test & check files', r.tests], ['kv', 'decisions taken for you', r.dec],
+      ['dn', 'all adopted · approved by: nobody'],
+      ['ru'], ['rt', 'Returns open 30 days · until ' + r.until], ['bc', r.pr]);
+    if (r.oos) L.push(['pf'], ['os', 'Out of stock · not billed'], ['on', r.oos[0] + ' · ' + r.oos[1]]);
+    else L.push(['ok', 'nothing out of stock']);
+    return L;
+  }
+  function pline(l) {
+    switch (l[0]) {
+      case 'hd': return '<div class="ln px p-hd">' + esc(l[1]) + '</div>';
+      case 'ti': return '<div class="ln p-ti">' + esc(l[1]) + '</div>';
+      case 'me': return '<div class="ln p-me">' + esc(l[1]) + '</div>';
+      case 'ru': return '<div class="ln p-ru"></div>';
+      case 'hl': return '<div class="ln p-hl"><span>' + esc(l[1]) + '</span></div>';
+      case 'hl2': return '<div class="ln p-hl s2"><span>' + esc(l[1]) + '</span></div>';
+      case 'hn': case 'nt': return '<div class="ln p-nt">' + esc(l[1]) + '</div>';
+      case 'dn': return '<div class="ln p-dn">' + esc(l[1]) + '</div>';
+      case 'sc': return '<div class="ln px p-sc">' + esc(l[1]) + '</div>';
+      case 'kv': return '<div class="ln p-kv"><span>' + esc(l[1]) + '</span><i></i><b>' + esc(l[2]) + '</b></div>';
+      case 'rt': return '<div class="ln p-rt">' + esc(l[1]) + '</div>';
+      case 'bc': return '<div class="ln p-bc">' + barcode(+String(l[1]).replace(/\D/g, '') || 9, 118, 12) + '<span>' + esc(typeof l[1] === 'number' ? '#' + l[1] : l[1]) + '</span></div>';
+      case 'pf': return '<div class="ln p-pf" aria-hidden="true"><span>✂</span></div>';
+      case 'os': return '<div class="ln p-os">✗ ' + esc(l[1]) + '</div>';
+      case 'on': return '<div class="ln p-on">' + esc(l[1]) + '</div>';
+      case 'ok': return '<div class="ln p-nt">✓ ' + esc(l[1]) + '</div>';
+      case 'lk': return '<button class="ln p-lk mlink" aria-expanded="false">' + esc(l[1]) + '</button>';
+      case 'sp': return '<div class="ln p-sp">' + l[1] + '</div>';
+    }
+    return '';
+  }
+  function paperHTML(L, tear) {
+    var main = '', stub = '', inStub = false;
+    L.forEach(function (l) { if (l[0] === 'pf') inStub = true; if (inStub) stub += pline(l); else main += pline(l); });
+    if (stub) stub = '<div class="stub' + (tear ? ' lift' : '') + '"' + (tear ? ' role="button" tabindex="0" aria-label="Out-of-stock stub. Press T to tear it off into a kit."' : '') + '>' + stub +
+      (tear ? '<div class="ln p-tk on"><span class="kc">T</span>tear off → a kit for next week</div>' : '') + '</div>';
+    return main + stub;
+  }
+  function tline(l, r) {
+    var W = 36, h = '';
+    switch (l[0]) {
+      case 'hd': h = '<b class="t-w">' + esc(l[1].toUpperCase()) + '</b>'; break;
+      case 'ti': h = '<b class="t-w">' + esc(l[1]) + '</b>'; break;
+      case 'me': h = '<span class="t-d">' + esc(l[1]) + '</span>'; break;
+      case 'ru': h = '<span class="t-n">' + new Array(W + 1).join('─') + '</span>'; break;
+      case 'hl': h = '<span class="t-y"> ' + esc(l[1]) + ' </span>'; break;
+      case 'hn': h = '<span class="t-d">  ' + esc(l[1]) + '</span>'; break;
+      case 'dn': h = '<span class="t-d">  ' + esc(l[1]) + '</span>'; break;
+      case 'sc': h = '<span class="t-p">' + esc(l[1].toUpperCase()) + '</span>'; break;
+      case 'kv': var v = String(l[2]), n = Math.max(2, W - 4 - l[1].length - v.length);
+        h = '  ' + esc(l[1]) + ' <span class="t-n">' + new Array(n + 1).join('.') + '</span> <b class="t-w">' + esc(v) + '</b>'; break;
+      case 'rt': h = '<span class="t-c">RETURNS</span> ' + esc(l[1].replace(/^Returns /, '')); break;
+      case 'bc': h = '<span class="t-d">' + bars(l[1]) + '  #' + esc(l[1]) + '</span>'; break;
+      case 'pf': h = '<span class="t-d">- - - - - - - - - - - - - - ✂ - -</span>'; break;
+      case 'os': h = '<b class="t-r">✗ OUT OF STOCK</b> · not billed'; break;
+      case 'on': h = '  ' + esc(l[1]); break;
+      case 'ok': h = '<span class="t-g">✓</span> ' + esc(l[1]); break;
+    }
+    return '<div class="ln">' + h + '</div>';
+  }
+  function allOn(el) { qa('.ln', el).forEach(function (n) { n.classList.add('on'); n.classList.remove('new'); }); }
+  function mini(r, rot, left) {
+    return '<div class="mini" style="left:' + left + 'px;--r:' + rot + 'deg"><b>PRD ' + r.prd + '</b>' + (r.head ? '<span class="mh">401 ms faster</span>' : '') +
+      '<em>' + r.slices + ' slices</em><em>' + r.dec + ' for you</em>' + barcode(r.prd, 50, 7) + '</div>';
+  }
+
+  var S = [];
+
+  /* ---------- 1 · the last merge ---------- */
+  S[0] = {
+    done: false, running: false,
+    build: function () {
+      var L = sem(R1);
+      q('.pre1').innerHTML = L.map(function (l) { return tline(l, R1); }).join('');
+      q('.p1').innerHTML = paperHTML(L, false);
+      this.first = L.findIndex(function (l) { return l[0] === 'hl'; });
+      var tl = qa('.pre1 .ln'), pl = qa('.p1 .ln'), k = this.first;
+      /* never an empty strip: the first frame already shows the headline coming out */
+      for (var i = 0; i <= k; i++) { tl[i].classList.add('on'); pl[i].classList.add('on'); }
+      tl[k].classList.add('new'); pl[k].classList.add('new');
+    },
+    finish: function () { allOn(q('.pre1')); allOn(q('.p1')); q('.t1').classList.remove('busy'); this.done = true; this.running = false; },
+    run: function () {
+      var self = this; halt(); this.build(); this.running = true;
+      if (RM()) { this.finish(); return; }
+      q('.t1').classList.add('busy');
+      var tl = qa('.pre1 .ln'), pl = qa('.p1 .ln'), t = 420;
+      for (var i = this.first + 1; i < tl.length; i++) (function (n, at) {
+        later(function () { tl[n].classList.add('on', 'new'); if (pl[n]) pl[n].classList.add('on', 'new'); }, at);
+      })(i, t + (i - this.first - 1) * 170);
+      later(function () { self.finish(); }, t + (tl.length - this.first) * 170 + 120);
+    },
+    enter: function () { if (!this.done) this.run(); },
+    leave: function () { if (this.running) this.finish(); },
+    key: function (e) { if (e.key === 'r' || e.key === 'R') { this.run(); return true; } return false; }
+  };
+  q('.rp1').addEventListener('click', function () { S[0].run(); });
+
+  /* ---------- 2 · nothing measured ---------- */
+  var ANS = [
+    '<b>The next receipt gets a headline</b> once that time is measured after it ships. Until then, no yellow line prints.',
+    '<b>The next receipt gets a headline</b> once that share is measured after it ships. Until then, no yellow line prints.',
+    '<b>That is allowed.</b> The receipt simply has no headline, like PRD 904&rsquo;s, and nothing else changes.'
+  ];
+  qa('.opt').forEach(function (b) {
+    b.addEventListener('click', function () {
+      qa('.opt').forEach(function (o) { o.classList.toggle('sel', o === b); });
+      q('.ans').innerHTML = ANS[+b.getAttribute('data-o')];
+    });
+  });
+  S[1] = {
+    done: false,
+    enter: function () {
+      if (this.done) return;
+      var p = q('.p2');
+      p.innerHTML = paperHTML(sem(R2), false);
+      q('.r2').innerHTML = mini(R1, -4, 6) + mini(R2, 3, 96) + '<p class="rnote"><b>901</b> measured: its headline prints.<br><b>904</b> measured nothing: no headline, and nothing else changes.</p>';
+      var self = this;
+      if (RM()) { allOn(p); this.done = true; return; }
+      var ls = qa('.ln', p);
+      /* opens mid-print as well */
+      for (var i = 0; i < 4; i++) ls[i].classList.add('on');
+      ls.slice(4).forEach(function (n, k) { later(function () { n.classList.add('on', 'new'); }, 250 + k * 120); });
+      later(function () { self.done = true; }, 260 + ls.length * 120);
+    },
+    leave: function () { if (!this.done) { allOn(q('.p2')); this.done = true; } }
+  };
+
+  /* ---------- 3 · returns ---------- */
+  var DEC = [
+    ['D1', 'Cache the PRD list for 60 s', 'wave 1', 'Answering a question should refresh the list at once, not up to 60 s later.'],
+    ['D3', 'Load the timings once per session', 'wave 1', ''],
+    ['D4', 'Keep the scroll position on back', 'wave 2', ''],
+    ['D6', 'Paint the frame before the data', 'wave 2', ''],
+    ['D9', 'Read GitHub state from the nightly cache', 'wave 3', ''],
+    ['D12', 'Show the timing panel to admins only', 'wave 3', '']
+  ];
+  var S3 = { sel: -1, mode: 'idle', filed: null, waited: false };
+  function renderRows() {
+    q('.rows').innerHTML = DEC.map(function (dd, i) {
+      var right;
+      if (S3.filed && S3.filed.id === dd[0]) right = S3.waited ? '<span class="px stp w">#1312 &middot; no one on it &middot; 6 days</span>' : '<span class="px stp n">Returned &middot; #1312</span>';
+      else right = '<span class="px go">' + (S3.filed ? '' : 'Return &#9656;') + '</span>';
+      return '<button class="row' + (i === S3.sel ? ' sel' : '') + '" role="option" aria-selected="' + (i === S3.sel) + '" data-i="' + i + '"' + (S3.filed ? ' disabled' : '') + '>' +
+        '<span class="px id">' + dd[0] + '</span><span class="tx">' + esc(dd[1]) + '<span class="mt">' + dd[2] + '</span></span>' + right + '</button>';
+    }).join('');
+  }
+  function renderRR() {
+    var rr = q('.rr'), dd = DEC[S3.sel];
+    if (S3.mode === 'idle' || (!dd && S3.mode !== 'filed')) {
+      rr.innerHTML = '<p class="px yl" style="font-size:7px">Object to one decision</p><h4>30 days to say &ldquo;not like that&rdquo;.</h4>' +
+        '<p class="b">A shipped PRD has no feature branch to reopen, and a return is a product call, so it becomes its own small piece of work.</p>' +
+        '<ol class="how"><li>You object, in one line.</li><li>A return issue is filed in your name, linked to the receipt.</li><li>Whoever takes it runs a <b>lite brainstorm</b>: a short round of questions, then a small PRD you merge.</li></ol>';
+      return;
+    }
+    if (S3.mode === 'form') {
+      rr.innerHTML = '<p class="px yl" style="font-size:7px">Return ' + dd[0] + '</p><p class="dq">&ldquo;' + esc(dd[1]) + '&rdquo;</p>' +
+        '<p class="dm2">taken by an agent in ' + dd[2] + '</p>' +
+        '<label class="px fl">What should happen instead?</label>' +
+        '<input class="inp" type="text" maxlength="140" placeholder="One line is enough" value="' + esc(dd[3]) + '" aria-label="What should happen instead">' +
+        '<div class="acts"><button class="btn fileb">File the return <span class="kc">⏎</span></button><button class="btn sm gh cancel">Cancel &middot; esc</button></div>' +
+        '<p class="fnote">Filed in your name. Nothing is reworked until someone takes it.</p>';
+      var inp = q('.inp', rr), fb = q('.fileb', rr);
+      var sync = function () { fb.disabled = !inp.value.trim(); };
+      inp.addEventListener('input', sync); sync();
+      fb.addEventListener('click', fileReturn);
+      q('.cancel', rr).addEventListener('click', function () { S3.mode = 'idle'; renderRR(); });
+      setTimeout(function () { try { inp.focus({ preventScroll: true }); inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) {} }, 0);
+      return;
+    }
+    var f = S3.filed;
+    rr.innerHTML = '<p class="px yl" style="font-size:7px">Return filed</p>' +
+      '<div class="iss"><div class="top2 px"><span class="op">&#9679; Open</span><span class="dm">#1312</span></div>' +
+      '<h5>Return from PRD 901 &middot; ' + f.id + ' &middot; ' + esc(f.title) + '</h5>' +
+      '<div class="lbs"><span class="px lb ret">return</span><span class="px lb pc">product call</span><span class="px lb prd">PRD 901</span></div>' +
+      '<p class="im">opened by you &middot; Wed 30.09.2026 &middot; 10:12</p><q>' + esc(f.why) + '</q></div>' +
+      '<p class="nx3">Next: <b>a lite brainstorm</b>. It is a product decision, so /omni:bug-fix would refuse it; the lite run asks a short round of questions and writes a small PRD.</p>' +
+      (S3.waited
+        ? '<div class="wait old"><span class="px chip or">#1312 &middot; no one on it &middot; 6 days</span><span>It waits in plain sight: on the receipt, in the PRD&rsquo;s returns and in your weekly line. No ping, no reminder.</span></div>'
+        : '<div class="wait"><span class="px chip bl">#1312 &middot; no one on it yet</span><button class="btn sm gh later6">&#9656; 6 days later</button></div>') +
+      '<div class="acts"><button class="btn sm gh reset3">&#8634; Reset this step</button></div>';
+    var l6 = q('.later6', rr);
+    if (l6) l6.addEventListener('click', function () { S3.waited = true; renderRows(); renderRR(); });
+    q('.reset3', rr).addEventListener('click', function () { S3.sel = -1; S3.mode = 'idle'; S3.filed = null; S3.waited = false; renderRows(); renderRR(); });
+  }
+  function pick(i, open) {
+    if (S3.filed) return;
+    S3.sel = Math.max(0, Math.min(DEC.length - 1, i));
+    S3.mode = open ? 'form' : 'idle';
+    renderRows(); if (open) renderRR();
+    var b = q('.row.sel'); if (b && !open) b.focus({ preventScroll: true });
+  }
+  function fileReturn() {
+    var inp = q('.rr .inp'); if (!inp || !inp.value.trim()) return;
+    var dd = DEC[S3.sel];
+    S3.filed = { id: dd[0], title: dd[1], why: inp.value.trim() }; S3.mode = 'filed';
+    renderRows(); renderRR();
+    var w = q('.rr .later6'); if (w) w.focus({ preventScroll: true });
+  }
+  q('.rows').addEventListener('click', function (e) { var b = e.target.closest('.row'); if (b && !b.disabled) pick(+b.getAttribute('data-i'), true); });
+  S[2] = {
+    enter: function () { renderRows(); renderRR(); },
+    key: function (e) {
+      var k = e.key;
+      if (S3.filed) { if (k === 'Enter' && !S3.waited) { S3.waited = true; renderRows(); renderRR(); return true; } return false; }
+      if (k === 'ArrowDown') { pick(S3.sel < 0 ? 0 : S3.sel + 1, false); return true; }
+      if (k === 'ArrowUp') { pick(S3.sel < 0 ? 0 : S3.sel - 1, false); return true; }
+      if (k === 'Enter') { if (S3.mode === 'form') { fileReturn(); return true; } pick(S3.sel < 0 ? 0 : S3.sel, true); return true; }
+      if (k === 'Escape' && S3.mode === 'form') { S3.mode = 'idle'; renderRR(); return true; }
+      return false;
+    }
+  };
+
+  /* ---------- 4 · credits ---------- */
+  var S4 = { view: 'list', played: false, active: false };
+  var cred = q('.cred');
+  var CR = [['What users get', '/prd loads 401 ms faster', 'y'], ['Slices', '10 in 3 waves'], ['Test & check files', '42'], ['Decisions taken for you', '14'],
+    ['Your part', '3 merges · 1 answer'], ['Steered by', 'you'], ['Shipped', 'Tue 29.09.2026 · 11:05']];
+  q('.roll-in').innerHTML = CR.map(function (c) {
+    return '<li><span class="k2">' + esc(c[0]) + '</span><span class="dots2"></span><span class="v' + (c[2] ? ' y' : '') + '">' + esc(c[1]) + '</span></li>';
+  }).join('') + '<li class="post"><span class="px">▶ Post-credits scene</span><p>First byte is <b>386 ms</b>; the target was 200. It waits on the receipt’s stub.</p></li>';
+
+  function drawPlanet(p) {
+    var cv = q('.planet'), x = cv.getContext && cv.getContext('2d'); if (!x) return;
+    var N = 48, c = 24, R = 20, B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    var barren = ['#3a2e14', '#6b5a2a', '#a38b45', '#d6bd6a'], sea = ['#0c1a5c', '#1e44b0', '#2f5fd8', '#4a8cff'], land = ['#16663a', '#2a9a56', '#4ee08a', '#9cf5b8'];
+    x.clearRect(0, 0, N, N);
+    for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) {
+      var dx = i - c + 0.5, dy = j - c + 0.5, dd = Math.sqrt(dx * dx + dy * dy), th = B[(j & 3) * 4 + (i & 3)] / 16;
+      if (dd > R) { if (p >= 1 && dd < R + 2.3 && th < 0.5) { x.fillStyle = 'rgba(111,240,255,.6)'; x.fillRect(i, j, 1, 1); } continue; }
+      var z = Math.sqrt(R * R - dd * dd), l = (-dx * 0.55 - dy * 0.6 + z * 0.62) / R;
+      var t = Math.max(0, Math.min(3, Math.floor((l * 0.5 + 0.5) * 3.1 + th * 0.9)));
+      var n = Math.sin(i * 0.37 + Math.cos(j * 0.23) * 2) + Math.sin(j * 0.41 + i * 0.11) + Math.cos((i + j) * 0.19);
+      var alive = Math.sqrt((i - 15) * (i - 15) + (j - 14) * (j - 14)) / 34 + (n + 3) / 18 < p * 1.35;
+      x.fillStyle = (alive ? (n < 0.1 ? sea : land) : barren)[t]; x.fillRect(i, j, 1, 1);
+      if (alive && p > 0.75 && n > 1.55 && th < 0.45) { x.fillStyle = '#f2f4ff'; x.fillRect(i, j, 1, 1); }
+    }
+  }
+  (function drawOM() {
+    var cv = q('.om'), x = cv.getContext && cv.getContext('2d'); if (!x) return;
+    var G = ['.s............s.', '.b............b.', '..b...hhhh...b..', '..b..hhhhhh..b..', '...b.hssssh.b...', '...b.sesses.b...', '....bsssddsb....',
+      '....bwwwwwwb....', '...nbwwyywwbn...', '...nbwwyywwbn...', '...nbbwwwwbbn...', '...nbbrrrrbbn...', '...nbbbbbbbbn...', '....bbb..bbb....',
+      '....bbb..bbb....', '....bb....bb....', '....bb....bb....', '....ll....ll....', '...kkk....kkk...', '................'];
+    var C = { s: '#f5c19a', d: '#d38c64', h: '#2a2436', e: '#38b4e0', w: '#e4e8ff', b: '#3346cc', l: '#5a6cf0', n: '#141c62', r: '#ff3b5c', y: '#ffd84a', k: '#0c0a12' };
+    G.forEach(function (row, j) { for (var i = 0; i < row.length; i++) { var ch = row[i]; if (C[ch]) { x.fillStyle = C[ch]; x.fillRect(i, j, 1, 1); } } });
+  })();
+
+  function show4(view) {
+    S4.view = view;
+    q('.v-list').hidden = view !== 'list';
+    q('.v-rcpt').hidden = view !== 'rcpt';
+    q('.cst').textContent = S4.played ? 'Played once.' : 'Not played.';
+    q('.nw901').textContent = S4.played ? 'Receipt · opened' : 'Receipt · not opened yet';
+  }
+  q('.p4').innerHTML = paperHTML(sem(R1), false); allOn(q('.p4'));
+  function playCredits() {
+    halt(); cred.hidden = false; cred.className = 'cred'; S4.active = true;
+    var roll = q('.roll'), rin = q('.roll-in');
+    roll.scrollTop = 0;
+    if (RM()) {
+      drawPlanet(1); cred.classList.add('cheer', 'still');
+      q('.akt').textContent = 'Any key: to the receipt'; q('.skip').innerHTML = 'To the receipt ▸';
+      return;
+    }
+    q('.akt').textContent = 'Any key skips'; q('.skip').innerHTML = 'Skip ▸';
+    drawPlanet(0);
+    var t0 = 0, dur = 2600;
+    var step = function (ts) { if (!t0) t0 = ts; var p = Math.min(1, (ts - t0) / dur); drawPlanet(Math.floor(p * 14) / 14); if (p < 1) raf = requestAnimationFrame(step); else raf = 0; };
+    raf = requestAnimationFrame(step);
+    later(function () { cred.classList.add('cheer'); }, 2650);
+    later(function () {
+      var h = roll.clientHeight, H = rin.scrollHeight;
+      if (rin.animate) anims.push(rin.animate([{ transform: 'translateY(' + h + 'px)' }, { transform: 'translateY(' + (h - H) + 'px)' }], { duration: 7200, easing: 'linear', fill: 'forwards' }));
+    }, 3000);
+    later(endCredits, 3000 + 7200 + 1600);
+  }
+  function closeCredits() { S4.active = false; S4.played = true; cred.hidden = true; cred.className = 'cred'; show4('rcpt'); }
+  function endCredits() {
+    if (!S4.active) return;
+    halt(); S4.active = false; S4.played = true;
+    var fin = function () { closeCredits(); var b = q('.again'); if (b) b.focus({ preventScroll: true }); };
+    if (RM()) fin(); else { cred.classList.add('out'); later(fin, 400); }
+  }
+  function toast4(msg) {
+    var t = q('.t4'); t.hidden = false; t.innerHTML = '<span>' + msg + '</span>';
+    clearTimeout(S4.tt); S4.tt = setTimeout(function () { t.hidden = true; }, 4200);
+  }
+  function open901() {
+    if (!S4.played) { playCredits(); return; }
+    show4('rcpt'); toast4('Opened on the receipt: the credits played once. ▶ plays them again.');
+  }
+  q('.o901').addEventListener('click', open901);
+  q('.again').addEventListener('click', playCredits);
+  q('.back4').addEventListener('click', function () { show4('list'); q('.o901').focus({ preventScroll: true }); });
+  q('.skip').addEventListener('click', function (e) { e.stopPropagation(); endCredits(); });
+  cred.addEventListener('click', endCredits);
+  S[3] = {
+    enter: function () { show4(S4.view); },
+    leave: function () { if (S4.active || !cred.hidden) closeCredits(); },
+    key: function (e) {
+      var k = e.key;
+      if (S4.view === 'list' && (k === 'Enter' || k === 'o' || k === 'O')) { open901(); return true; }
+      if (S4.view === 'rcpt') {
+        if (k === 'p' || k === 'P') { playCredits(); return true; }
+        if (k === 'Escape' || k === 'Backspace') { show4('list'); return true; }
+      }
+      return false;
+    }
+  };
+
+  /* ---------- 5 · the stub ---------- */
+  var S5 = { torn: false, canUndo: false, ut: 0, cd: 0 };
+  function buildP5() {
+    var p = q('.p5');
+    p.innerHTML = paperHTML(sem(R1), true); allOn(p);
+    p.classList.toggle('torn', S5.torn);
+    var st = q('.stub', p);
+    if (S5.torn) st.hidden = true;
+    st.addEventListener('click', tear);
+    st.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); tear(); } });
+  }
+  function kitHTML() {
+    return '<div class="kit new"><p class="px kt">Kit &middot; from PRD 901&rsquo;s out-of-stock stub</p><h5>First byte under 200 ms on /prd</h5>' +
+      '<p class="km">for <b>L&eacute;a</b>: she set the 200 ms target in the spec &middot; pitch and before/after prepped overnight</p><span class="to">L&eacute;a</span></div>';
+  }
+  function toast5(msg, undo) {
+    var t = q('.t5'); t.hidden = false;
+    t.innerHTML = '<span>' + msg + '</span>' + (undo ? '<button class="btn sm gh undo5">Undo <span class="kc">U</span> <span class="cd">10</span></button>' : '');
+    clearTimeout(S5.ut); clearInterval(S5.cd);
+    if (undo) {
+      S5.canUndo = true;
+      q('.undo5', t).addEventListener('click', untear);
+      var n = 10; S5.cd = setInterval(function () { n--; var c = q('.cd', t); if (c) c.textContent = n; if (n <= 0) clearInterval(S5.cd); }, 1000);
+      S5.ut = setTimeout(function () { t.hidden = true; S5.canUndo = false; }, 10000);
+    } else { S5.canUndo = false; S5.ut = setTimeout(function () { t.hidden = true; }, 4000); }
+  }
+  function tear() {
+    if (S5.torn) return;
+    var p = q('.p5'), st = q('.stub', p), slot = q('.sl2');
+    S5.torn = true;
+    var done = function () {
+      st.hidden = true; st.classList.remove('fly'); p.classList.add('torn');
+      slot.innerHTML = kitHTML();
+      q('.n5').textContent = '2 of 3 kits';
+      toast5('Stub torn off: a kit for Léa in next week’s box.', true);
+    };
+    if (RM()) { done(); return; }
+    var a = st.getBoundingClientRect(), b = slot.getBoundingClientRect();
+    st.style.setProperty('--tx', (b.left - a.left) + 'px');
+    st.style.setProperty('--ty', (b.top - a.top) + 'px');
+    st.classList.add('fly');
+    later(done, 760);
+  }
+  function untear() {
+    if (!S5.torn || !S5.canUndo) return;
+    S5.torn = false; S5.canUndo = false;
+    q('.sl2').innerHTML = '<span class="emp px">Room for a kit</span>';
+    q('.n5').textContent = '1 of 3 kits';
+    buildP5();
+    toast5('Put back: the stub is on the receipt again.', false);
+  }
+  buildP5();
+  S[4] = {
+    enter: function () {},
+    leave: function () { var st = q('.p5 .stub'); if (S5.torn && st && !st.hidden) { st.hidden = true; st.classList.remove('fly'); q('.p5').classList.add('torn'); q('.sl2').innerHTML = kitHTML(); q('.n5').textContent = '2 of 3 kits'; } },
+    key: function (e) {
+      if (e.key === 't' || e.key === 'T') { tear(); return true; }
+      if (e.key === 'u' || e.key === 'U') { untear(); return true; }
+      return false;
+    }
+  };
+
+  /* ---------- 6 · stand-up and team ---------- */
+  var NOMEASURE = [[904, 'Dossier export to PDF'], [902, 'Bell groups by PRD'], [897, 'Retry a red slice once'], [893, 'Outbox keyboard map'], [889, 'Release notes by week'], [886, 'Knowledge search filters']];
+  function teamLines(open) {
+    var L = [['hd', 'Omni Loop · team receipt'], ['ti', 'Beaver fleet · September 2026'], ['me', '1–30 Sep 2026 · 9 ships'], ['ru'],
+      ['sc', 'What users get'], ['lk', (open ? '▾' : '▸') + ' measured on 3 of 9: see the 6 specs with none']];
+    if (open) NOMEASURE.forEach(function (n) { L.push(['sp', '<button class="spec" data-p="' + n[0] + '">PRD ' + n[0] + ' · ' + esc(n[1]) + '</button>']); });
+    L.push(['hl2', '/prd loads 401 ms faster'], ['hl2', '/ask answers land 2.1 s sooner'], ['hl2', 'CI runs 6 min shorter per PR'], ['ru'],
+      ['sc', 'What the loop did'], ['kv', 'PRDs shipped', 9], ['kv', 'slices merged', 71], ['kv', 'decisions taken for the team', 96], ['kv', 'returns filed', '2 (1 fixed)'], ['kv', 'out of stock → kits', 3], ['ru'],
+      ['sc', 'Who took part · team totals'], ['kv', 'started a PRD', '5 people'], ['kv', 'steered a ship', '4 people'], ['nt', 'No per-person lines. Nothing ranks people.'], ['bc', 'SEP-2026']);
+    return L;
+  }
+  var S6 = { open: false, printed: false };
+  function renderTeam(animate) {
+    var p = q('.p6');
+    p.innerHTML = teamLines(S6.open).map(pline).join('');
+    if (!animate || RM()) { allOn(p); return; }
+    var ls = qa('.ln', p);
+    for (var i = 0; i < 4; i++) ls[i].classList.add('on');
+    ls.slice(4).forEach(function (n, k) { later(function () { n.classList.add('on', 'new'); }, 200 + k * 100); });
+    later(function () { allOn(p); }, 260 + ls.length * 100);
+  }
+  q('.p6').addEventListener('click', function (e) {
+    if (e.target.closest('.mlink')) { S6.open = !S6.open; halt(); renderTeam(false); var m = q('.p6 .mlink'); if (m) { m.setAttribute('aria-expanded', String(S6.open)); m.focus({ preventScroll: true }); } return; }
+    var s = e.target.closest('.spec');
+    if (s) q('.tnote').textContent = 'In the product, this opens PRD ' + s.getAttribute('data-p') + '’s spec at its Measure line, where one measure can still be named.';
+  });
+  function weekText() {
+    var r = S3.filed ? '1 returned (#1312' + (S3.waited ? ', waiting 6 days' : '') + ')' : 'none returned';
+    return 'Week 40 so far, through the Omni Loop: shipped PRD 901 Snappier PRD list (/prd loads 401 ms faster) and PRD 904 Dossier export to PDF · 18 slices · 21 decisions taken for me, ' + r +
+      ' · my part: 5 merges, 2 answers' + (S5.torn ? ' · 1 stub sent to next week’s box' : '') + '.';
+  }
+  function drawWeek() {
+    var cv = q('.wimg'), x = cv.getContext && cv.getContext('2d'); if (!x) return;
+    var W = 240, H = 176, s = 2;
+    x.setTransform(s, 0, 0, s, 0, 0); x.clearRect(0, 0, W, H);
+    x.fillStyle = '#f2f4ff'; x.fillRect(0, 4, W, H - 8);
+    for (var i = 0; i < W; i += 8) { x.fillRect(i, 2, 4, 2); x.fillRect(i + 2, H - 4, 4, 2); }
+    var mono = function (w, px) { return w + ' ' + px + 'px "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace'; };
+    x.textBaseline = 'alphabetic'; x.fillStyle = '#07061c'; x.textAlign = 'center';
+    x.font = mono(700, 8); x.fillText('OMNI LOOP · MY WEEK 40', W / 2, 20);
+    x.fillStyle = '#5b5f80'; x.font = mono(400, 7.5); x.fillText('28 Sep – 2 Oct 2026', W / 2, 31);
+    x.strokeStyle = '#5b5f80'; x.setLineDash([2, 2]); x.beginPath(); x.moveTo(10, 38.5); x.lineTo(W - 10, 38.5); x.stroke();
+    x.save(); x.translate(14, 44); x.transform(1, 0, -0.2, 1, 0, 0); x.fillStyle = '#ffd84a'; x.fillRect(0, 0, W - 26, 16); x.restore();
+    x.fillStyle = '#07061c'; x.textAlign = 'left'; x.font = mono(800, 10); x.fillText('/prd loads 401 ms faster', 18, 56);
+    var rows = [['shipped', 'PRD 901, PRD 904'], ['slices merged', '18'], ['decisions taken for me', '21'], ['returned', S3.filed ? '1 (#1312)' : 'none'], ['my part', '5 merges, 2 answers']];
+    x.font = mono(400, 8);
+    rows.forEach(function (r, k) {
+      var y = 78 + k * 14; x.fillStyle = '#07061c'; x.textAlign = 'left'; x.fillText(r[0], 12, y);
+      x.textAlign = 'right'; x.font = mono(700, 8); x.fillText(r[1], W - 12, y); x.font = mono(400, 8);
+      var a = x.measureText(r[0]).width + 16, b = W - 16 - (function () { x.font = mono(700, 8); var m = x.measureText(r[1]).width; x.font = mono(400, 8); return m; })();
+      x.fillStyle = '#8a90d6'; for (var dx = a; dx < b - 4; dx += 3) x.fillRect(dx, y - 1, 1, 1);
+    });
+    x.fillStyle = '#5b5f80'; x.textAlign = 'center'; x.font = mono(400, 7); x.fillText('sample data · from my own receipts', W / 2, H - 14);
+  }
+  function copyWeek() {
+    var cps = q('.cps'), txt = weekText();
+    var ok = function (what) { cps.className = 'cps'; cps.textContent = '✓ Copied ' + what + ': paste it in the stand-up thread.'; };
+    var no = function () { cps.className = 'cps warn'; cps.textContent = 'Copy is blocked here. Click the line to select it, or right-click the image to copy it.'; };
+    var textOnly = function () { try { navigator.clipboard.writeText(txt).then(function () { cps.className = 'cps warn'; cps.textContent = '\u2713 Copied the line. This browser blocked the image: right-click it to copy it.'; }, no); } catch (e) { no(); } };
+    if (!navigator.clipboard) { no(); return; }
+    try {
+      if (window.ClipboardItem && navigator.clipboard.write) {
+        q('.wimg').toBlob(function (blob) {
+          if (!blob) { textOnly(); return; }
+          try {
+            navigator.clipboard.write([new ClipboardItem({ 'image/png': blob, 'text/plain': new Blob([txt], { type: 'text/plain' }) })]).then(function () { ok('the receipt image and the line'); }, textOnly);
+          } catch (e) { textOnly(); }
+        }, 'image/png');
+      } else textOnly();
+    } catch (e) { no(); }
+  }
+  q('.cp').addEventListener('click', copyWeek);
+  S[5] = {
+    enter: function () {
+      q('.l6').innerHTML = esc(weekText()).replace('/prd loads 401 ms faster', '<b>/prd loads 401 ms faster</b>');
+      q('.cps').textContent = '';
+      drawWeek();
+      if (!S6.printed) { S6.printed = true; renderTeam(true); }
+    },
+    key: function (e) { if (e.key === 'c' || e.key === 'C') { copyWeek(); return true; } return false; }
+  };
+
+  /* ---------- 7 · tomorrow ---------- */
+  var S7 = { done: false };
+  function build7() {
+    q('.tb7').innerHTML =
+      '<div class="ln l0"><span class="t-p">~/vertuo</span> <span class="t-d">(main)</span> $ <span class="typ"></span><i class="cur c7"></i></div>' +
+      '<div class="ml"><div class="ln l1"><span class="t-v">omni ▸</span> <span class="t-d">this morning</span></div>' +
+      '<div class="ln l2"><span class="ret"><span class="t-g">↩ fixed:</span> your return #1312 · PRD 901’s list now refreshes the moment you answer.</span></div>' +
+      '<div class="ln l3"><span class="t-d">· no question waits on you today</span></div></div>' +
+      '<div class="ln l4">&gt; <i class="cur"></i></div>';
+  }
+  S[6] = {
+    enter: function () {
+      if (S7.done) return;
+      halt(); build7();
+      var ls = qa('.tb7 .ln'), typ = q('.tb7 .typ');
+      var fin = function () { typ.textContent = 'claude'; var c = q('.tb7 .c7'); if (c) c.remove(); ls.forEach(function (n) { n.classList.add('on'); }); S7.done = true; };
+      if (RM()) { fin(); return; }
+      ls[0].classList.add('on');
+      'claude'.split('').forEach(function (ch, i) { later(function () { typ.textContent = 'claude'.slice(0, i + 1); }, 300 + i * 70); });
+      later(function () { var c = q('.tb7 .c7'); if (c) c.remove(); }, 800);
+      [1, 2, 3, 4].forEach(function (n, k) { later(function () { ls[n].classList.add('on', 'new'); }, 1000 + k * 380); });
+      later(function () { S7.done = true; }, 2600);
+      S7.fin = fin;
+    },
+    leave: function () { if (!S7.done && S7.fin) S7.fin(); }
+  };
+  q('.restart').addEventListener('click', function () { go(0); });
+
+  /* ---------- navigation ---------- */
+  var steps = qa('.step'), dots = qa('.dots button'), cur = -1, main = q('.main');
+  function go(i) {
+    if (i < 0 || i >= steps.length || i === cur) return;
+    halt();
+    if (cur >= 0 && S[cur].leave) S[cur].leave();
+    cur = i;
+    steps.forEach(function (s, k) { s.classList.toggle('on', k === i); });
+    dots.forEach(function (b, k) {
+      if (k === i) { b.setAttribute('aria-current', 'step'); b.classList.add('seen'); } else b.removeAttribute('aria-current');
+    });
+    q('.cnt').textContent = (i + 1) + ' / ' + steps.length;
+    q('.prv').disabled = i === 0;
+    q('.nxt').disabled = i === steps.length - 1;
+    main.scrollTop = 0;
+    try { history.replaceState(null, '', '#' + (i + 1)); } catch (e) {}
+    S[i].enter();
+  }
+  dots.forEach(function (b) { b.addEventListener('click', function () { go(+b.getAttribute('data-go')); }); });
+  q('.prv').addEventListener('click', function () { go(cur - 1); });
+  q('.nxt').addEventListener('click', function () { go(cur + 1); });
+
+  d.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.metaKey) return;
+    if (S4.active) { e.preventDefault(); endCredits(); return; }
+    if (e.altKey) return;
+    var ae = d.activeElement, k = e.key;
+    var typing = ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName);
+    if (typing) { if ((k === 'Enter' || k === 'Escape') && S[cur].key && S[cur].key(e)) e.preventDefault(); return; }
+    if (ae && ae.tagName === 'BUTTON' && (k === 'Enter' || k === ' ')) return;
+    if (k === 'ArrowRight' || k === 'PageDown') { e.preventDefault(); go(cur + 1); return; }
+    if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); go(cur - 1); return; }
+    if (/^[1-7]$/.test(k)) { e.preventDefault(); go(+k - 1); return; }
+    if (S[cur] && S[cur].key && S[cur].key(e)) e.preventDefault();
+  });
+
+  /* swipe: a clear horizontal drag steps; vertical scrolling is left alone */
+  var sx = 0, sy = 0, st0 = 0, tracking = false;
+  main.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 1) { tracking = false; return; }
+    if (S4.active) { tracking = false; return; }
+    if (e.target.closest('input, .l6')) { tracking = false; return; }
+    tracking = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; st0 = Date.now();
+  }, { passive: true });
+  main.addEventListener('touchend', function (e) {
+    if (!tracking) return; tracking = false;
+    var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6 && Date.now() - st0 < 900) go(dx < 0 ? cur + 1 : cur - 1);
+  }, { passive: true });
+
+  var start = 0;
+  try { var h = parseInt(String(location.hash).replace(/\D/g, ''), 10); if (h >= 1 && h <= 7) start = h - 1; } catch (e) {}
+  go(start);
+})();
+</script>
+</body>
+</html>
