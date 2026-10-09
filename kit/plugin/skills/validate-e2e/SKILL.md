@@ -66,6 +66,13 @@ As `/omni:prove` reaches it, with the `e2e` block in place of `proof`:
 - **Reachable, or stop.** Fetch the URL once. A 401, a 403, a 5xx or a timeout of 30 seconds stops
   the run: `preview not reachable: <status>` (`timeout` for a timeout).
 
+- **In a plan repository** (its config has a `plan` section), the target is the environment the plan
+  repository builds from the target PRs together, not one target repository's preview. `e2e.url` and
+  `e2e.setup` are read from config, never guessed, and name that environment.
+- **The session.** Here and elsewhere, the run signs in from the saved session `e2e.setup` writes
+  (`storage-state.json` in the run dir, outside `e2e.dir`), as `/omni:prove` does. The skill never prints, logs or commits a credential and never shows one to the model: the
+  tests load the session file, and no password, token or key is typed, echoed or written anywhere.
+
 ## 3. The criteria, from the spec alone
 
 Read the spec's **Acceptance criteria** (`omni prd <n>` names the spec), and nothing of the code:
@@ -97,6 +104,11 @@ e2e package manager is newer than CI's: local <local version>, CI <CI version>
   workspace's lines may enter the lockfile: a lockfile rewritten whole means the versions differ, so
   stop with the line above.
 
+**In a plan repository** (its config has a `plan` section), the e2e project, the tests and the
+recordings are all in the plan repository's `e2e.dir`, and the sub-PR is opened there. The skill never
+writes a target repository: no test, recording, workspace entry or lockfile line goes into one.
+Outside a plan repository the skill runs exactly as before.
+
 ## 5. One test per filmable criterion
 
 Under `e2e.dir`, one test per filmable criterion, tagged `prd-<n>`.
@@ -104,8 +116,9 @@ Under `e2e.dir`, one test per filmable criterion, tagged `prd-<n>`.
 - Navigate with `agent.act`; pin every outcome with an exact `expect()`.
 - Use `agent.assert` only where nothing exact exists, with a comment line saying
   why nothing exact exists: it calls the model on every run, replayed or not.
-- Every read of the screen begins with an `expect` that waits for it to be drawn, and every record a
-  test creates carries a name unique to the run.
+- Every read of the screen begins with an `expect` that waits for it to be drawn.
+- Every record a test creates carries a name unique to the run, built from a value that is new on every run (a
+  timestamp or a random suffix), in a plan repository and outside one, unless the spec's answer says otherwise.
 - Remove the framework's `.gitignore` line for `.e2e/cache/` in `e2e.dir`, so the recordings can be
   committed.
 
@@ -145,12 +158,16 @@ until `node .omni-loop/bin/omni.mjs e2e confirm <n>` commits it, or
 red. Name both commands in each healed step's item. This skill runs neither, and does not say who
 confirms.
 
+Then run `node .omni-loop/bin/omni.mjs e2e guard <n>` before anything is committed: a non-zero exit stops the
+run, and no commit or sub-PR follows. Fix the file it names (`file:line`, never the value) and run it again.
+
 ## 9. The sub-PR
 
 Branch from `<remote>/<feature branch>`, commit the e2e project, the tests and only unchanged and new recordings of `e2e.dir` (the workspace entry and its lockfile lines included, nothing else,
 and no secret): a healed recording is not committed, it waits held until a person confirms it, so the sub-PR holds no healed recording. Push, and open a sub-PR into the feature branch through `/omni:pr` with the
 `labels.sub` label and `prLinks.sub` (`Part of #<n>`). When `e2e.url` was a fixed URL, its body opens with one line saying the target was not the preview, and
-why (the reason kept in step 2). The body holds that line, a table, then the healed steps, then the
+why (the reason kept in step 2). The body holds that line, a line stating which QA flow and which account the run used (the account
+by label, never the secret), a table, then the healed steps, then the
 footer line:
 
 ```markdown
@@ -170,4 +187,5 @@ Print the sub-PR's link and the ✓/✗/not filmable counts.
 - Never read the code's diff, and never edit the code under test.
 - Never weaken an assertion to turn a test green, and never use `agent.assert` without its line.
 - Never print, log or save the bypass secret or the model key.
+- Never print, log, save or show a credential to the model.
 - Never run without `E2E_TELEMETRY_DISABLED=1`.

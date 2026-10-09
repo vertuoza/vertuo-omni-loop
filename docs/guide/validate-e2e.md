@@ -86,6 +86,43 @@ fixed address, a local or hosted demo that has data, instead of `github-deployme
 targets that address, and the sub-PR body says the target was **not the preview**, and why. A reader
 of the sub-PR sees that the tests were not run against the pull request's own build.
 
+## In a plan repository
+
+When the repository is a plan repository (its config has a `plan` section) and the product spans
+several repositories, the skill works differently in four ways.
+
+- **Where it lands.** The e2e project, the tests and the recordings are written in the **plan
+  repository's** `e2e.dir`, and the sub-PR is opened there. A target repository is never written.
+- **What the tests run against.** The target is the environment the plan repository builds from the
+  target pull requests together, not one repository's preview. `e2e.url` and `e2e.setup` name that
+  environment, and the skill reads them from config; it never guesses them.
+- **A name unique to the run.** Every record a test creates carries a name built from a value that is
+  new on every run (a timestamp or a random suffix), so two runs on the shared QA tenant do not
+  collide. This holds outside a plan repository too, unless the PRD's answer says otherwise.
+- **A saved session.** Google refuses to sign in a browser an automated tool drives, so the run does
+  not type a password. `e2e.setup` writes a saved session (`storage-state.json`) in the run's own
+  folder, outside `e2e.dir`, as `/omni:prove` does, and the tests load that file. The skill never
+  prints, logs or commits a credential and never shows one to the model.
+
+### The guard
+
+```bash terminal
+node .omni-loop/bin/omni.mjs e2e guard 1276
+```
+
+Before anything is committed, the skill runs the guard. It exits non-zero and names `file:line` and
+the kind of shape (a password, a token, a key, a session state), **never the value**, when a file of
+`e2e.dir` (other than the recording cache) holds one. A `storage-state.json` found under `e2e.dir` is
+refused by name. A non-zero exit stops the run: no commit and no sub-PR follow, until the file it
+names is fixed. With `e2e.enabled` false it says so in one line and exits non-zero.
+
+### QA chooses the flows and the account
+
+The kit does not choose what to test or who signs in. **QA chooses the flows** to cover first and **the
+test account** the runs use, and keeps its credentials out of the code (in the environment that runs
+`e2e.setup`). The sub-PR states which QA flow and which account the run used, the account **by
+label**, never the secret. The first real run is done by QA in the plan repository.
+
 ## Run it
 
 ```text agent
