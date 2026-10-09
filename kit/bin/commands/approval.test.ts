@@ -132,3 +132,34 @@ describe('omni approval', () => {
     expect((await approvalOf(checkout({ slug: 'null' }), ['1299'], stub(200, {}).fetch)).code).toBe(2);
   });
 });
+
+describe('omni approval flag', () => {
+  it('prints the flag the page answers, after one call with the repository, and exits 0', async () => {
+    const { urls, fetch } = stub(200, { phase0: 'server' });
+    const { code, out } = await approvalOf(checkout(), ['flag'], fetch);
+    expect(code).toBe(0);
+    expect(out).toBe('phase 0: server\n');
+    expect(urls).toEqual(['https://omni.test/api/repositories/phase0?repo=acme%2Fwidgets']);
+  });
+
+  it('falls back to pr, saying why, when the page refuses, and exits 1', async () => {
+    const { fetch } = stub(403, { error: 'not a member' });
+    const { code, out } = await approvalOf(checkout(), ['flag'], fetch);
+    expect(code).toBe(1);
+    expect(out).toBe('phase 0: pr · the flag could not be read: refused (403)\n');
+  });
+
+  it('falls back to pr with no sign-in, and calls nothing', async () => {
+    const { urls, fetch } = stub(200, { phase0: 'server' });
+    const { code, out } = await approvalOf(checkout(), ['flag'], fetch, false);
+    expect(code).toBe(1);
+    expect(out).toBe('phase 0: pr · the flag could not be read: no sign-in (omni signin)\n');
+    expect(urls).toEqual([]);
+  });
+
+  it('prints --json as the flag and why', async () => {
+    const { fetch } = stub(200, { phase0: 'pr' });
+    const { out } = await approvalOf(checkout(), ['flag', '--json'], fetch);
+    expect(JSON.parse(out)).toEqual({ flag: 'pr', why: null });
+  });
+});

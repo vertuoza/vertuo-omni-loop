@@ -51,14 +51,14 @@ never overrides this skill's rules.
 
 **Where its phase 0 is approved.** Each repository's phase-0 flag is kept on the Omni page, never in
 the config: `pr`, a phase-0 PR a person merges, as always; or `server`, an approval on the PRD's
-page. The page answers it at `GET /api/repositories/phase0?repo=<repo.slug>`, with the terminal's
-sign-in. Read it now, once, and keep it for every step below:
+page. Read it now, once, with `node .omni-loop/bin/omni.mjs approval flag`, and keep it for every
+step below. It prints one line:
 
-- `server`: the PRD is born on the server (◆). Say `phase 0: server · approved on the PRD's page`.
-- `pr`: the PRD is born in the repository (◇), and the brainstorm runs as it always has.
-- It cannot be read (no `omni` command reads it in this kit, no Omni page, no sign-in, no answer
-  within 5 seconds, or the page refused): take `pr`, and say why in one line,
-  `phase 0: pr · the flag could not be read: <why>`. The run carries on as ◇.
+- `phase 0: server`: the PRD is born on the server (◆). Say `phase 0: server · approved on the
+  PRD's page`.
+- `phase 0: pr`: the PRD is born in the repository (◇), and the brainstorm runs as it always has.
+- `phase 0: pr · the flag could not be read: <why>` (exit 1: no Omni page, no sign-in, no answer
+  within 5 seconds, or the page refused): print the line as is. The run carries on as ◇.
 
 The birthplace is for life: a flag flipped later changes no PRD that already exists. Under `server`,
 step 4 writes it in the spec, step 7's first dossier push records it on the dossier, step 9 opens no

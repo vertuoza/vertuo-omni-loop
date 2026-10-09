@@ -6,8 +6,14 @@
 // unreachable and says why on stderr. `--json` prints the state, who approved and when, whether they
 // are a member today, the dossier's link, the pinned files, what drifted and the lines.
 //
+// `omni approval flag [--json]` (item s7-01) reads this repository's phase-0 flag on the Omni page
+// instead: `phase 0: server` or `phase 0: pr`, exit 0; or, when it cannot be read,
+// `phase 0: pr · the flag could not be read: <why>`, exit 1. `/omni:brainstorm` reads it at step 0.
+//
 // It runs before a context exists, like `decide`, so that a test can hand it `tokens` (the token
 // store), `home` (where the real one lives), `fetch` and `callMs`; it loads the context itself.
+import { readFlag } from '../../lib/approval/flag.ts';
+import type { FlagReading } from '../../lib/approval/flag.ts';
 import { approvalReader } from '../../lib/approval/prd-state.ts';
 import type { ApprovalReading } from '../../lib/approval/approval.ts';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
@@ -16,7 +22,11 @@ import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo, Out } from '../io.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 
-const USAGE = 'usage: omni approval <n> [--json]';
+const USAGE = 'usage: omni approval <n> [--json] · omni approval flag [--json]';
+
+/** The flag's line, as `omni approval flag` prints it. */
+const flagLine = ({ flag, why }: FlagReading): string =>
+  why === null ? `phase 0: ${flag}` : `phase 0: ${flag} · the flag could not be read: ${why}`;
 
 /** What a test hands `omni approval` beyond `main()`'s own. */
 type ApprovalOptions = { tokens?: TokenStore | undefined; home?: string | undefined; fetch?: Fetch; callMs?: number | undefined };
@@ -46,10 +56,15 @@ export const approval = {
   async run(args: string[], { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & ApprovalOptions) {
     const { positional, flags } = parseArgs('approval', args, { booleans: ['json'] });
     if (positional.length !== 1) throw usageError(USAGE);
-    const prd = prdArg('approval', '<n>', positional[0]);
     const ctx = loadContext(cwd, { exec });
     const repo = ctx.config.repo.slug;
     if (!repo) throw usageError('omni approval: no repository slug — set repo.slug in the config.');
+    if (positional[0] === 'flag') {
+      const reading = await readFlag(ctx.config.ask.url, { repo, tokens, home, fetch, callMs });
+      println(stdout, flags.json ? JSON.stringify(reading) : flagLine(reading));
+      return reading.why === null ? 0 : 1;
+    }
+    const prd = prdArg('approval', '<n>', positional[0]);
     if (!ctx.layout.whereIs(prd)) {
       println(stderr, `omni approval: PRD ${Number(prd)} is in neither ${ctx.layout.dirs.inbox} nor ${ctx.layout.dirs.shipped}.`);
       return 1;

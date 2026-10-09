@@ -280,6 +280,9 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      *   files: Array<{ kind: string, path: string, sha256: string, versionId: string, content?: string }> } | null }>} */
     readApproval: ({ repo, prd }: { repo: string; prd: PrdNumber }) =>
       call('GET', `/api/dossiers/approval?${new URLSearchParams({ repo, prd: String(prd) })}`),
+    /** PRD 1299: where `repo`'s (owner/name) new PRDs are born, `pr` or `server`, as its row on the Omni
+     * page says. `../approval/flag.ts` reads the reply. @returns {Promise<{ phase0: 'pr' | 'server' }>} */
+    readPhase0Flag: (repo: string) => call('GET', `/api/repositories/phase0?${new URLSearchParams({ repo })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
     requestProofUploads: ({ repo, prd, files }: { repo: unknown; prd: unknown; files: unknown }) => call('POST', '/api/proofs/uploads', { body: { repo, prd, files } }),
