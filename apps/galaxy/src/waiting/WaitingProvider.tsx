@@ -12,6 +12,7 @@ import { BUSINESS_MS, EMPTY_BUSINESS_PART, businessRead, readBusinessCount, type
 import { iconHref } from './icon';
 import { EMPTY_OUTBOX_PART, outboxRead, pollOutbox, readOutbox, type OutboxPart } from './outbox';
 import { pollQuestions } from './questions-poll';
+import { SignedOut } from './session';
 import { questionsReader } from './source';
 import type { WaitingView } from './view';
 import { EMPTY_WAITING, titled, waitingCounts, type WaitingCounts, type WaitingItem, type WaitingList, type WaitingOutbox } from './waiting';
@@ -23,7 +24,8 @@ import { EMPTY_WAITING, titled, waitingCounts, type WaitingCounts, type WaitingI
 // load and every 60 s while visible (src/waiting/outbox.ts). It keeps the browser tab's title prefixed
 // with the count, whatever the page or Next writes there, and the tab's icon dotted while the count is
 // above 0. A failed read keeps the part's last items and is logged once per kind of failure per page
-// load. Signed out, there is no view: the list stays empty and nothing is read.
+// load. Signed out, there is no view: the list stays empty and nothing is read; a tab whose sign-in
+// expires stops its database polls at their next read (bug #1316, src/waiting/session.ts).
 //
 // It also alerts for what is new (s5, src/waiting/alerts.ts): each part remembers the ids of its last
 // read, starting from what the server rendered (the Questions part) or from its first read (the Outbox
@@ -172,6 +174,8 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
         seenQuestions.current = seen;
         notice(fresh);
       } catch (error) {
+        // Signed out (bug #1316): nothing was read, and the tab stops asking the database.
+        if (error instanceof SignedOut) return false;
         log('questions', error);
         setUnread(true);
       }
@@ -226,6 +230,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
           notifications: notifications(), play: () => { playChime(audio()); }, open: openFromAlert,
         });
       } catch (error) {
+        if (error instanceof SignedOut) return false;
         log('documents', error);
         setDocuments((part) => ({ ...part, unread: true }));
       }

@@ -3,6 +3,7 @@ import { claimChime, documentAlertOf, raiseEach, type DesktopState, type Notific
 import { defined, isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { z } from 'zod';
 import { orThrow, parseRows } from '../data/parse-rows';
+import { holdSession, type SessionAuth } from './session';
 import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The waiting list's New documents part (PRD 579, s1): the spec, plan and before/after versions pushed
@@ -99,9 +100,11 @@ export const DocumentRead = z.object({
 });
 
 /** A reader of the versions pushed to the numbered dossiers `me` opened, in the last 7 days, the 50
- * newest. Throws when a read fails. */
-export function documentsReader(db: Db, me: string): (now: number) => Promise<DocumentRow[]> {
+ * newest. Throws when a read fails, and SignedOut, having read nothing, when the client holds no session
+ * (bug #1316). */
+export function documentsReader(db: Db & SessionAuth, me: string): (now: number) => Promise<DocumentRow[]> {
   return async (now) => {
+    await holdSession(db);
     const { data, error } = await db.from('dossier_versions')
       .select(DOCUMENT_COLUMNS)
       .eq('dossier.opened_by', me)

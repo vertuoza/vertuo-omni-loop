@@ -278,6 +278,10 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
           state.queries += 1;
           return Promise.resolve(userOf(accounts[jwt]));
         },
+        /** The session the client holds: one for a known account, none signed out. No query. */
+        getSession() {
+          return Promise.resolve({ data: { session: me ? { access_token: token } : null }, error: null });
+        },
       },
       from: (table: keyof FakeTables) => new Query(table, me),
     };
