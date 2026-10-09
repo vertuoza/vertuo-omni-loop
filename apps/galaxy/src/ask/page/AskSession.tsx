@@ -1,6 +1,5 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
 import { emptyDraft, roundAnswers, type Draft } from '../answer-model';
 import type { Category } from '../classify';
 import { CategoryChip } from './CategoryChip';
@@ -8,19 +7,22 @@ import { ContextLine } from './ContextLine';
 import { demoPort } from './demo';
 import { History } from './History';
 import { LeadMessage } from './LeadMessage';
-import { poll } from './poll';
+import { CANNOT_REACH, poll, readTick } from './poll';
 import type { Member } from './question';
 import { shareCandidates } from './share';
 import { ShareButton } from './ShareButton';
 import { RoundForm } from './RoundForm';
-import { databasePort, type AskPort } from './source';
+import type { AskPort } from './source';
+import { askClient } from '../ask.client';
+import { sessionWrites } from './browser-writes';
+import { SignInCard } from './SignInCard';
+import { callbackPath } from './sign-in';
 import { QuestionList } from './QuestionText';
 import {
   categoryChip, contextParts, keepSent, minutesLeft, sessionView, tabWorking, withCategory, withPageAnswer, type RoundRow, type Sent, type SessionState,
 } from './view';
 import { PlayDock } from '../../play-dock/PlayDock';
 import type { AskDock } from './dock-player';
-import type { Database } from '../../../../../supabase/database.types';
 
 // One ask session: the open round at the top (or Claude is working, moved to the terminal, session
 // closed), the history below, read again every 2 s while the tab is visible. The server rendered the
@@ -30,6 +32,9 @@ import type { Database } from '../../../../../supabase/database.types';
 // share it with another member of the workspace (PRD 144), who answers it at /ask/q/<round>.
 // A tab of the person's own (`dock` given) also offers the play dock beside "Claude is working" (PRD
 // 757) while its terminal's heartbeat says it works, pausing on the open question and leading to it.
+// It reads through GET /api/ask/sessions/:id (src/ask/ask.client.ts, PRD 1318): signed out, the poll
+// stops and the page shows the sign-in card (or tells the tab list, which shows it); a failed read
+// keeps what it last showed.
 
 /** Where the dock's ⏸ CLAUDE ASKED · ANSWER leads: the top of the open question, on this page. */
 const QUESTION_ANCHOR = 'ask-question';
@@ -53,14 +58,17 @@ type Props = {
   onState?: (state: SessionState) => void;
   /** Who plays in the play dock, and where the score goes: none, no dock (a teammate's session). */
   dock?: AskDock | null;
+  /** Hears that the person is signed out; without it, the pane shows the sign-in card itself. */
+  onSignedOut?: () => void;
 };
 
 function makePort(source: SourceConfig, seed: SessionState): AskPort {
   if (source.kind === 'demo') return demoPort(seed);
-  return databasePort(createBrowserClient<Database>(source.url, source.key), seed);
+  const client = askClient();
+  return { read: () => client.session(seed.session.id), ...sessionWrites(source, seed.session.id) };
 }
 
-export function AskSession({ source, initial, serverNow, viewer, me = null, members = [], onState, dock = null }: Props) {
+export function AskSession({ source, initial, serverNow, viewer, me = null, members = [], onState, dock = null, onSignedOut }: Props) {
   const owner = viewer === 'owner';
   const [state, setState] = useState(initial);
   // The server's clock, as the page counts it (a round moves to the terminal on the hook's clock).
@@ -73,6 +81,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
   const [deleting, setDeleting] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [sorting, setSorting] = useState<string | null>(null);
+  const [signedOut, setSignedOut] = useState(false);
   const port = useRef<AskPort | null>(null);
   const sent = useRef<Sent>(new Map());
   const getPort = useCallback(() => (port.current ??= makePort(source, initial)), [source, initial]);
@@ -86,27 +95,29 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
   }, [state, onState]);
 
   useEffect(() => {
-    if (closed) return;
-    return poll(async () => {
-      try {
-        const next = await getPort().read();
-        // Gone, or no longer this person's (signed out elsewhere): the server says which.
-        if (!next) {
-          window.location.reload();
-          return false;
-        }
+    if (closed || signedOut) return;
+    return poll(readTick({
+      read: () => getPort().read(),
+      // Gone, or no longer this person's: the server says which.
+      gone: () => {
+        window.location.reload();
+      },
+      seen: (next) => {
         const at = clock();
         setState(keepSent(next, sent.current));
         setNow(at);
         setProblem(null);
         return sessionView(next, at).kind !== 'closed';
-      } catch {
+      },
+      failed: () => {
         setNow(clock());
-        setProblem('Cannot reach the server. Trying again every few seconds.');
-        return true;
-      }
-    }, document);
-  }, [closed, getPort, clock]);
+        setProblem(CANNOT_REACH);
+      },
+      signedOut: onSignedOut ?? (() => {
+        setSignedOut(true);
+      }),
+    }), document);
+  }, [closed, signedOut, getPort, clock, onSignedOut]);
 
   const round = owner && view.kind === 'open' ? view.round : null;
   const questions = owner && view.kind === 'open' ? view.questions : null;
@@ -180,6 +191,8 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
       saving={sorting === round.id}
     />
   );
+
+  if (signedOut && source.kind === 'database') return <SignInCard supabase={source} returnPath={callbackPath(state.session.id)} />;
 
   if (deleted) {
     return (

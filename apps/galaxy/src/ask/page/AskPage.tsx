@@ -1,17 +1,18 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { createBrowserClient } from '@supabase/ssr';
 import { AskSession, type SourceConfig } from './AskSession';
+import { askClient, AskSignedOut, untilSignedOut } from '../ask.client';
 import { useWaiting } from '../../waiting/WaitingProvider';
 import { titled } from '../../waiting/waiting';
 import { poll } from './poll';
-import { databaseTabs, type TabsPort } from './source';
+import type { TabsPort } from './source';
+import { SignInCard } from './SignInCard';
+import { callbackPath } from './sign-in';
 import { needsYou, pageTabs, pageWithList, pageWithPane, pickTab, tabsTitle, toggleList, type Page, type Tab } from './tabs';
 import type { Member } from './question';
 import type { SessionState } from './view';
 import type { AskDock } from './dock-player';
-import type { Database } from '../../../../../supabase/database.types';
 
 // The person's ask page (PRD 142): every open ask session they own as a tab, one per terminal, the
 // selected one's pane beside the list. The list is read again every 2 s while the page is visible;
@@ -19,7 +20,9 @@ import type { Database } from '../../../../../supabase/database.types';
 // question arriving elsewhere badges that tab. The browser title is Claude asks, prefixed with the
 // waiting list's count like every app page (PRD 499). Below 720 px the list
 // folds into one row at the top that says how many terminals there are and how many need the person;
-// pressing it opens the list, and picking a tab closes it.
+// pressing it opens the list, and picking a tab closes it. The list and the pane read through
+// /api/ask/* (src/ask/ask.client.ts, PRD 1318); once either is told the person is signed out, every
+// poll of the page stops and the sign-in card shows, until a reload.
 
 type Props = {
   source: SourceConfig;
@@ -38,9 +41,10 @@ type Props = {
   dock?: AskDock | null;
 };
 
-function makeTabs(source: SourceConfig, page: Page, me: string): TabsPort {
+function makeTabs(source: SourceConfig, page: Page): TabsPort {
   if (source.kind === 'demo') return { list: () => Promise.resolve(structuredClone(page.rows)) };
-  return databaseTabs(createBrowserClient<Database>(source.url, source.key), me);
+  const client = askClient();
+  return { list: () => client.tabs() };
 }
 
 function TabState({ tab }: { tab: Tab }) {
@@ -52,8 +56,12 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
   const [page, setPage] = useState(initial);
   const [offset] = useState(() => serverNow - Date.now());
   const [now, setNow] = useState(serverNow);
+  const [signedOut, setSignedOut] = useState(false);
   const port = useRef<TabsPort | null>(null);
-  const getPort = useCallback(() => (port.current ??= makeTabs(source, initial, me)), [source, initial, me]);
+  const getPort = useCallback(() => (port.current ??= makeTabs(source, initial)), [source, initial]);
+  const onSignedOut = useCallback(() => {
+    setSignedOut(true);
+  }, []);
 
   const tabs = useMemo(() => pageTabs(page, now), [page, now]);
   const waiting = needsYou(tabs);
@@ -64,25 +72,27 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
     document.title = titled(tabsTitle(), counts.total);
   }, [counts.total, now]);
 
-  useEffect(
-    () =>
-      poll(async () => {
-        const at = Date.now() + offset;
-        try {
-          const rows = await getPort().list(at);
-          setPage((p) => pageWithList(p, rows));
-        } catch {
-          /* the list keeps what it last read; the pane says when the server cannot be reached */
-        }
-        setNow(at);
-        return true;
-      }, document),
-    [getPort, offset],
-  );
+  useEffect(() => {
+    if (signedOut) return;
+    return poll(untilSignedOut(async () => {
+      const at = Date.now() + offset;
+      try {
+        const rows = await getPort().list(at);
+        setPage((p) => pageWithList(p, rows));
+      } catch (error) {
+        if (error instanceof AskSignedOut) throw error;
+        /* the list keeps what it last read; the pane says when the server cannot be reached */
+      }
+      setNow(at);
+      return true;
+    }, onSignedOut), document);
+  }, [getPort, offset, signedOut, onSignedOut]);
 
   const onPane = useCallback((state: SessionState) => {
     setPage((p) => pageWithPane(p, state));
   }, []);
+
+  if (signedOut && source.kind === 'database') return <SignInCard supabase={source} returnPath={callbackPath(page.selected)} />;
 
   if (tabs.length === 0) {
     return (
@@ -146,7 +156,7 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
       </nav>
       <div className="ask-pane">
         {pane && page.selected === pane.session.id ? (
-          <AskSession source={source} initial={pane} serverNow={serverNow} onState={onPane} viewer="owner" me={me} members={members} dock={dock} />
+          <AskSession source={source} initial={pane} serverNow={serverNow} onState={onPane} viewer="owner" me={me} members={members} dock={dock} onSignedOut={onSignedOut} />
         ) : (
           <div className="ask-col">
             <section className="ask-card">
