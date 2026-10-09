@@ -38,7 +38,7 @@ import { defined } from '../narrow.ts';
 import { plainText } from '../outbox/plain-text.ts';
 import { BECAME_FIELD, STAYS_HERE_FIELD } from './harvest.ts';
 import { PRODUCT_CODE, codeOf, domainsDir, idParts, productDir, readKnowledge, type EntryKind } from './registers.ts';
-import type { PrNumber, PrdNumber } from '../ids.ts';
+import type { IssueNumber, PrNumber, PrdNumber } from '../ids.ts';
 
 /** The merge a harvest runs after: who merged, when, and which pull request. */
 export type Merge = { by: string; at: string; pr: PrNumber; url?: string };
@@ -108,7 +108,7 @@ export type Placed = {
   /** A rule's or an invariant's proposed proof the writer did not keep, each with its reason. */
   dropped?: DroppedPath[];
   /** A rule or an invariant with no test kept: the `law-worth` answer, and its law issue on a "yes". */
-  law?: LawWorth & { issue: number | null };
+  law?: LawWorth & { issue: IssueNumber | null };
 };
 
 /** What {@link writeKnowledge} returns: the files to write, and where every candidate landed. */
@@ -557,7 +557,7 @@ export function writeKnowledge({
   /** The files the feature pull request changed (PRD 1171); none keeps every proposed proof out. */
   changed?: readonly ChangedFile[] | undefined;
   /** The law issue already open for a "yes", by candidate id (PRD 1342). */
-  lawIssues?: Readonly<Record<string, number>> | undefined;
+  lawIssues?: Readonly<Record<string, IssueNumber>> | undefined;
 }): WriteResult {
   const files = makeFiles(ctx);
   const numbering = makeNumbering({ ctx, taken });
@@ -653,7 +653,7 @@ function landLaw({
 }: Omit<EntryRun, 'enforced' | 'write'> & {
   changed: readonly ChangedFile[];
   worth: LawWorth | null | undefined;
-  issue: number | null;
+  issue: IssueNumber | null;
 }): Landing | { heldBack: LawIssue } {
   const { ctx, merge, candidate, source } = run;
   const proof = proofOf({ proposed: reply.enforcedBy, changed, pr: merge.pr, exists: (path) => existsSync(join(ctx.root, path)) });

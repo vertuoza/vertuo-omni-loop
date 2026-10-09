@@ -25,7 +25,11 @@ import {
   type WriteResult,
 } from './write.ts';
 import { assertDefined } from '../../test/assert.ts';
-import { parsePr, parsePrd } from '../ids.ts';
+import { parseIssue, parsePr, parsePrd } from '../ids.ts';
+
+/** Law issue numbers, by candidate id, as the writer takes them. */
+const issueNumbers = (numbers?: Record<string, number>) =>
+  numbers && Object.fromEntries(Object.entries(numbers).map(([id, n]) => [id, parseIssue(n)]));
 
 /** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
 function itemOf(text: string) {
@@ -546,7 +550,7 @@ describe('writeKnowledge — worth a law? The three paths of a rule or an invari
     const repo = makeRepo({ files: TREE });
     const candidates = harvestCandidates({ ctx: repo.ctx, prd: parsePrd(28) }).filter((c) => c.id in replies);
     const classified = candidates.map((candidate) => ({ candidate, reply: replies[candidate.id] ?? null, worth: worth[candidate.id] ?? null }));
-    const result = writeKnowledge({ ctx: repo.ctx, classified, merge: MERGE, date: DATE, changed: CHANGED, lawIssues });
+    const result = writeKnowledge({ ctx: repo.ctx, classified, merge: MERGE, date: DATE, changed: CHANGED, lawIssues: issueNumbers(lawIssues) });
     return { ...repo, result, files: byPath(result) };
   }
   const ledgerOf = (files: Record<string, string>) =>

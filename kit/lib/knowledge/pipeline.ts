@@ -16,7 +16,7 @@
  *
  * **Worth a law?** (PRD 1342) A rule or an invariant no changed test proves takes the answer to
  * `law-worth` that counts: {@link lawQuestions} lists the ones to ask, with the state Jev reads and
- * the classifier's own `worthALaw`; the caller asks (`omni decide law-worth`, or Galaxy's judge) and
+ * the classifier's own `worthALaw`; the caller asks (`omni decide law-worth`, or the Omni page's law judge) and
  * hands each answer that counted back as `worth`. A "no" stays in the ledger, `not worth a law`. A
  * "yes" needs its law issue open first: {@link finishHarvest} returns it in `lawIssues` and writes no
  * entry for it; the caller opens each one and calls it again with their numbers (`lawIssues` in), and
@@ -84,7 +84,7 @@ import {
   type Taken,
   type WriteResult,
 } from './write.ts';
-import type { PrdNumber } from '../ids.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
 
 /** A move of one path to another, as the tree holds them before and after. */
 export type Move = { from: string; to: string };
@@ -335,7 +335,7 @@ const newOnes = (after: readonly string[], before: readonly string[]): string[] 
 /** The kinds that make a candidate knowledge: a new register entry or a decision record. */
 export const PROMOTIONS: readonly string[] = Object.freeze(['adr', 'rule', 'invariant']);
 
-/** The state `law-worth` reads (Galaxy's `LawWorthInput`): exactly these five fields. */
+/** The state `law-worth` reads (the Omni page's `LawWorthInput`): exactly these five fields. */
 export type LawWorthState = { statement: string; why: string | null; principle: string | null; domain: string | null; prdTitle: string | null };
 
 /** One `law-worth` question: the candidate, the state Jev reads, and the classifier's own answer. */
@@ -397,7 +397,7 @@ export function finishHarvest({
   taken?: Taken;
   date: string;
   /** The law issue opened for each "yes", by candidate id: the `lawIssues` a first call returned. */
-  lawIssues?: Readonly<Record<string, number>> | undefined;
+  lawIssues?: Readonly<Record<string, IssueNumber>> | undefined;
 }): {
   edits: HarvestEdits;
   placed: Placed[];

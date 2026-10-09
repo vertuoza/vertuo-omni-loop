@@ -32,7 +32,7 @@ import { decide } from './decide.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Command, CommandIo } from '../io.ts';
 import type { LawIssue, LawWorth, Merge, Placed } from '../../lib/knowledge/write.ts';
-import type { PrdNumber } from '../../lib/ids.ts';
+import { IssueNumberSchema, type IssueNumber, type PrdNumber } from '../../lib/ids.ts';
 
 const USAGE = 'usage: omni harvest <prd> --pr <feature pull request>';
 
@@ -95,10 +95,10 @@ async function askLawWorth(question: LawQuestion, { ctx, exec, env, vars, prd }:
   }
 }
 
-const OpenedSchema = z.looseObject({ number: z.number().int().positive() });
+const OpenedSchema = z.looseObject({ number: IssueNumberSchema });
 
 /** Opens one law issue through `gh`, labelled `labels.law` and signed; returns its number. */
-function openLawIssue(issue: LawIssue, { ctx, exec, env }: Pick<CommandIo, 'ctx' | 'exec' | 'env'>): number {
+function openLawIssue(issue: LawIssue, { ctx, exec, env }: Pick<CommandIo, 'ctx' | 'exec' | 'env'>): IssueNumber {
   const footer = footerLine(ctx.config.signature);
   const body = footer ? `${issue.body}\n\n${footer}` : issue.body;
   const ghEnv = githubEnv(ctx, { exec, env });

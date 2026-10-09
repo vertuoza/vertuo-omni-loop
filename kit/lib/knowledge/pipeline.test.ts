@@ -8,7 +8,11 @@ import type { ClassificationReply } from './classify.ts';
 import { PullFilesSchema, finishHarvest, keptPaths, lawQuestions, noEdits, prepareHarvest, type Prepared } from './pipeline.ts';
 import type { LawWorth } from './write.ts';
 import { assertDefined } from '../../test/assert.ts';
-import { parsePr, parsePrd } from '../ids.ts';
+import { parseIssue, parsePr, parsePrd } from '../ids.ts';
+
+/** Law issue numbers, by candidate id, as the writer takes them. */
+const issueNumbers = (numbers?: Record<string, number>) =>
+  numbers && Object.fromEntries(Object.entries(numbers).map(([id, n]) => [id, parseIssue(n)]));
 
 /** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
 function itemOf(text: string) {
@@ -209,7 +213,7 @@ describe('worth a law? The harvest\'s three paths, as data (PRD 1342)', () => {
       const reply = replies[c.id];
       return reply ? { id: c.id, reply, worth: options.worth?.[c.id] ?? null } : { id: c.id, reply: null, reason: 'not asked' };
     });
-    const finish = (lawIssues?: Record<string, number>) => finishHarvest({ ctx: r.ctx, prepared, classified, merge: MERGE, date: '2026-09-27', lawIssues });
+    const finish = (lawIssues?: Record<string, number>) => finishHarvest({ ctx: r.ctx, prepared, classified, merge: MERGE, date: '2026-09-27', lawIssues: issueNumbers(lawIssues) });
     return { r, prepared, classified, finish };
   }
   const ledgerOf = (finished: ReturnType<typeof finishHarvest>) => finished.edits.writes.find((w) => w.path === `${SHIPPED}/outbox/settled.md`)?.text ?? '';
