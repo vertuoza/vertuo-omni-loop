@@ -217,6 +217,108 @@ export type Database = {
         }
         Relationships: []
       }
+      approval_requests: {
+        Row: {
+          asked: string[]
+          asked_at: string
+          asked_by: string
+          dossier_id: string
+          id: string
+          kind: string
+          nobody_else: boolean
+          product_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          asked: string[]
+          asked_at?: string
+          asked_by: string
+          dossier_id: string
+          id?: string
+          kind: string
+          nobody_else: boolean
+          product_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          asked?: string[]
+          asked_at?: string
+          asked_by?: string
+          dossier_id?: string
+          id?: string
+          kind?: string
+          nobody_else?: boolean
+          product_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_requests_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval_voids: {
+        Row: {
+          approval_id: string
+          dossier_id: string
+          from_sha256: string
+          id: string
+          kind: string
+          pushed_by: string | null
+          pusher_login: string
+          to_sha256: string
+          voided_at: string
+        }
+        Insert: {
+          approval_id: string
+          dossier_id: string
+          from_sha256: string
+          id?: string
+          kind: string
+          pushed_by?: string | null
+          pusher_login: string
+          to_sha256: string
+          voided_at?: string
+        }
+        Update: {
+          approval_id?: string
+          dossier_id?: string
+          from_sha256?: string
+          id?: string
+          kind?: string
+          pushed_by?: string | null
+          pusher_login?: string
+          to_sha256?: string
+          voided_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_voids_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_voids_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approvals: {
         Row: {
           approved_at: string
@@ -2872,6 +2974,9 @@ export type Database = {
           user_id: string
         }[]
       }
+      approval_recipients: { Args: { p_request: string }; Returns: Json }
+      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }
+      approval_requests_waiting: { Args: never; Returns: Json }
       ask_answers_valid: { Args: { a: Json }; Returns: boolean }
       ask_attachment_round: { Args: { path: string }; Returns: string }
       ask_attachments_valid: {
@@ -3542,6 +3647,10 @@ export type Database = {
       loop_push: {
         Args: { p_body?: Json; p_event: string; p_loop?: string }
         Returns: Json
+      }
+      member_login: {
+        Args: { p_user: string; p_workspace: string }
+        Returns: string
       }
       my_github: {
         Args: never
