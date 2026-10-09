@@ -495,3 +495,10 @@ describe('the help table guard catches what it is for', () => {
     expect(entryViolations(table, live)).toEqual(['command x: a command has no group, when, example']);
   });
 });
+
+describe('the e2e entry', () => {
+  it('names heals, hold, confirm and reject', () => {
+    const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'e2e');
+    for (const sub of ['heals', 'hold', 'confirm', 'reject']) expect(entry?.usage.join('\n')).toContain(`omni e2e ${sub} <prd>`);
+  });
+});
