@@ -21,7 +21,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-3
 
@@ -33,7 +32,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-4
 
@@ -45,7 +43,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-5
 
@@ -57,7 +54,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-6
 
@@ -69,7 +65,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #29
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-7
 
@@ -81,7 +76,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-8
 
@@ -93,7 +87,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-9
 
@@ -105,7 +98,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-10
 
@@ -153,7 +145,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-14
 
@@ -165,7 +156,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-15
 
@@ -189,7 +179,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-17
 
@@ -201,7 +190,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-18
 
@@ -213,7 +201,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-19
 
@@ -225,7 +212,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-20
 
@@ -237,7 +223,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-21
 
@@ -249,7 +234,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-22
 
@@ -261,7 +245,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-23
 
@@ -273,7 +256,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #103
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-24
 
@@ -285,7 +267,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-25
 
@@ -297,7 +278,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-26
 
@@ -309,7 +289,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-27
 
@@ -321,7 +300,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-28
 
@@ -333,7 +311,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-29
 
@@ -357,7 +334,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-31
 
@@ -369,7 +345,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #153
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-32
 
