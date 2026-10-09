@@ -856,6 +856,234 @@ Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
 Proposed: harvest 2026-10-06
 
+## BR-PRODUCT-73
+
+A loop that has not yet said when it will wake next reads live until one hour after the last thing it pushed; only then is it shown silent and may it be taken over.
+
+Serves: P-PRODUCT-2
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-01-loop-silent-before-first-wake, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-74
+
+Parking a PRD records who it waits on and the loop keeps running; a later round of that PRD takes it off the parked list. A stopping loop ends parked if PRDs still wait, else stopped, and an ended loop refuses any push.
+
+Serves: P-PRODUCT-65
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-02-loop-park-and-stop, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-75
+
+A signed-out visitor to the Loop page or one loop's page is asked to sign in, the same as on the Engineering page. The demo loops show only where every page shows its demo: in development or when the demo mode is switched on.
+
+Serves: P-PRODUCT-66
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s5-02-loop-page-signed-out, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-76
+
+omni loop push counts as off, printing off and exiting 1, only when ask.url is not set. It never reads dossier.enabled, so a repository with the dossier switched off still sends its loop state to the Loop page.
+
+Serves: P-PRODUCT-67
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s4-01-loop-push-off-switch, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-77
+
+Answering a question on a PRD earns the answerer 2 points and earns their fleet the same 2 points. If that PRD is later lost, those answer points are taken back in its season, like the rest of that PRD's points.
+
+Serves: P-PRODUCT-68
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-01-answers-pay-the-fleet-too, PRD #1180
+Enforced by: game/rulebook.test.ts, game/projector.test.ts, game/economy.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-78
+
+An answered question earns points only when it is tied to a numbered PRD, never a bug or visual fix, and only for a current workspace member with a GitHub login. Unpaid answers still count in Questions answered.
+
+Serves: P-PRODUCT-69
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-03-which-answers-are-paid, PRD #1180
+Enforced by: supabase/checks/game_answered_rounds.sql, supabase/migrations/20261109090000_game_answered_rounds.sql, game/sources/supabase.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-79
+
+A point credited to a GitHub login is credited under that login as GitHub spells it, capitals included. The event is skipped only when the name holds an at sign, a dot, a space or another character no GitHub login can hold.
+
+Serves: P-PRODUCT-70
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-01-capital-login-skipped, PRD #1180
+Enforced by: game/projector.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-80
+
+When a settled decision names an approver that no GitHub login can have, such as a dotted name, its settle is skipped with a warning and earns no one credit. The decision stays open until the name is corrected, then it is credited to that login.
+
+Serves: P-PRODUCT-71
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-02-dotted-approver-waits, PRD #1180
+Enforced by: game/sources/parsers.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-81
+
+Any member of a roadmap's workspace may push an update to it, replacing its document and PRD rows, and the roadmap records the member who pushed last.
+
+Serves: P-PRODUCT-72
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s2-02-roadmap-any-member-pushes, PRD #1162
+Enforced by: supabase/checks/roadmaps.sql, apps/galaxy/src/roadmap/migration.test.ts, kit/lib/roadmap/push.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-82
+
+The plan check refuses a target only for blockers in the repositories its own consumes list names; a chain through a middle repository is not followed. A repository installed indirectly must be listed in the target's consumes list to be refused.
+
+Serves: P-PRODUCT-61
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s3-01-consumes-is-direct-only, PRD #1162
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-83
+
+The roadmap check refuses a project that installs another repository's package unless its wave comes after every project it waits on, directly or through others, that changes that repository. Projects that do not wait on each other may share a wave.
+
+Serves: P-PRODUCT-61
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-01-consumer-rule-follows-blockers, PRD #1162
+Enforced by: kit/lib/roadmap/grade.test.ts, kit/lib/roadmap/grade.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-84
+
+The roadmap check accepts a row when its project's folder is in the inbox or the shipped folder, and compares its spec wherever it lives; only a row whose project is in neither is refused.
+
+Serves: P-PRODUCT-73
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-02-shipped-prd-still-counts, PRD #1162
+Enforced by: kit/lib/roadmap/grade.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-85
+
+In a plan repository's roadmap, every project must name at least one repository; outside a plan repository, a repositories column is refused. The source line, like the product and target date, is optional.
+
+Serves: P-PRODUCT-74
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-03-repos-column-and-source, PRD #1162
+Enforced by: kit/lib/roadmap/parse.test.ts, kit/lib/roadmap/grade.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-86
+
+omni roadmap push marks a PRD building once its feature PR is open, outbox when its draft holds open questions, ready once every part is ready, merged once every part merged; a PRD not started names its first unmerged blocker. If GitHub is unreadable, nothing is pushed.
+
+Serves: P-PRODUCT-75
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s6-01-roadmap-push-reads-the-prs, PRD #1162
+Enforced by: kit/lib/roadmap/push.test.ts, kit/bin/roadmap.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-87
+
+The steps to launch list only steps that have work to start and are not already running; a step that only waits is left out. Held names only steps a rule keeps back, never a step left out because every slot is full.
+
+Serves: P-PRODUCT-76
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s1-01-steps-only-act, PRD #1205
+Enforced by: kit/lib/next/follow.test.ts, kit/bin/next.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1206
+Proposed: harvest 2026-10-08
+
+## BR-PRODUCT-88
+
+A PRD runs the wave holding a live claim (a draft sub-PR in flight, not stale or stalled) on one of its slices. Otherwise, when its feature PR has the in-progress label and a status comment fresh within the claim limit, it runs its first step not done.
+
+Serves: P-PRODUCT-77
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s1-02-running-read, PRD #1205
+Enforced by: kit/lib/next/follow.test.ts, kit/bin/next.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1206
+Proposed: harvest 2026-10-08
+
+## BR-PRODUCT-89
+
+While a step the drive session started is not yet shown running on GitHub, the session launches no new step. It never launches a step for a PRD it already has a step agent on, and never runs more than limits.parallelSteps agents at once.
+
+Serves: P-PRODUCT-78
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s2-01-unseen-step-holds-pool, PRD #1205
+Enforced by: kit/test/plugin.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1206
+Proposed: harvest 2026-10-08
+
+## BR-PRODUCT-90
+
+When a session's branch names a feature or a fix, the session shows that work, even if its record says it last worked on something else. Only on a branch that names nothing does it show the last recorded work.
+
+Serves: P-PRODUCT-79
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s2-01-branch-before-record, PRD #1208
+Enforced by: kit/lib/now/now.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1210
+Proposed: harvest 2026-10-08
+
+## BR-PRODUCT-91
+
+The status line refreshes the links of the work a session is on when they are missing or a minute old and no refresh holds them, for a PRD not yet shipped (in review included) and a fix not yet merged; finished work is never refreshed.
+
+Serves: P-PRODUCT-80
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s5-03-links-refresh-for-any-live-work, PRD #1208
+Enforced by: kit/bin/statusline.test.ts, kit/lib/statusline/board-cache.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1210
+Proposed: harvest 2026-10-08
+
 ## BR-PRODUCT-92
 
 The dashboard counts only PRDs and fixes. A concept stored in the workspace is read without failing the dashboard and is left out of its counts, since concepts have their own list.

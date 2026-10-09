@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-08
 - Slice: s1
 - Wave: 1
+- Became: N-PRODUCT-12
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ One word in the launcher's list of commands that need no kit; removing it brings
 - Raised: 2026-10-08
 - Slice: s1
 - Wave: 1
+- Stays here: A cheap, one-line precedence choice inside the statusline command, adopted without review; no existing principle or domain needs it kept as lasting knowledge.
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ One line of order in the command; swapping it is a one-line change.
 - Raised: 2026-10-08
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off territory call about editing one test; nothing lasting for the product to guarantee, and a later slice may reshape it freely.
 
 ### The answer, as it was given
 
@@ -249,6 +252,7 @@ Four names in one test; a later slice that owns the status line can reshape them
 - Raised: 2026-10-08
 - Slice: s2
 - Wave: 2
+- Became: BR-PRODUCT-90, P-PRODUCT-79
 
 ### The answer, as it was given
 
@@ -327,6 +331,7 @@ Switching the order is a few lines in one reading module and its tests.
 - Raised: 2026-10-08
 - Slice: s2
 - Wave: 2
+- Stays here: A local compatibility choice, cheap to reverse with one line; no lasting product guarantee or architectural decision to record.
 
 ### The answer, as it was given
 
@@ -404,6 +409,7 @@ Adding the old field back is one line where the note is written, plus its tests.
 - Raised: 2026-10-08
 - Slice: s6
 - Wave: 2
+- Became: ADR-0091
 
 ### The answer, as it was given
 
@@ -482,6 +488,7 @@ A rename is one string in the mod, its reply line and its tests: no stored data 
 - Raised: 2026-10-08
 - Slice: s6
 - Wave: 2
+- Became: ADR-0092
 
 ### The answer, as it was given
 
@@ -560,6 +567,7 @@ Undoing it means removing those two lines and adding a pinned copy of Claude Cod
 - Raised: 2026-10-08
 - Slice: s3
 - Wave: 3
+- Became: ADR-0093
 
 ### The answer, as it was given
 
@@ -638,6 +646,7 @@ Moving to B is one field in the plan file, set where the roadmap plan is made, a
 - Raised: 2026-10-08
 - Slice: s7
 - Wave: 3
+- Became: N-PRODUCT-13
 
 ### The answer, as it was given
 
@@ -717,6 +726,7 @@ A constant: removing the one call in the setup command, and its printed line, ta
 - Raised: 2026-10-08
 - Slice: s4
 - Wave: 4
+- Stays here: A small, easily reversed choice inside one reader. Nothing is stored, and no lasting product guarantee or architectural decision needs keeping.
 
 ### The answer, as it was given
 
@@ -795,6 +805,7 @@ Switching to a refreshed file later is a small change in one reader; nothing is 
 - Raised: 2026-10-08
 - Slice: s4
 - Wave: 4
+- Stays here: A transitional default for an internal refresh call, cheap to change and storing nothing; no lasting product guarantee to record.
 
 ### The answer, as it was given
 
@@ -872,6 +883,7 @@ Making the plain refresh fetch links too is a one-line default; nothing stored c
 - Raised: 2026-10-08
 - Slice: s5
 - Wave: 5
+- Stays here: A local, cheaply reversed choice about what one status line displays beyond the spec's example; it sets no lasting guarantee for the knowledge base.
 
 ### The answer, as it was given
 
@@ -950,6 +962,7 @@ Removing either part is one line in the status line's render; the width rule alr
 - Raised: 2026-10-08
 - Slice: s5
 - Wave: 5
+- Stays here: A local truncation choice about how the status line looks, changeable inside one render function; nothing lasting for the knowledge base.
 
 ### The answer, as it was given
 
@@ -1027,6 +1040,7 @@ Trimming names one by one instead is a change inside one function of the render,
 - Raised: 2026-10-08
 - Slice: s5
 - Wave: 5
+- Became: BR-PRODUCT-91, P-PRODUCT-80
 
 ### The answer, as it was given
 
