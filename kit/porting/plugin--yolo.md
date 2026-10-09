@@ -222,3 +222,19 @@ as before; and the guardrail reads "Never ask along the way".
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs kit/test/no-game-words.test.mjs`
 and `pnpm test`, green.
+
+## PRD #1299, slice s7 — the approval gate
+
+- **Step 1, item 3** gates on `omni prd`'s `state:` line, never its exit code. A ◆ PRD
+  (`birthplace: server`) builds only in `inbox`, approved and matching the feature branch; `prd`,
+  `drifted`, `unreachable` and `refused` each stop the run on their line, before any plan, claim or
+  wave: `PRD <n> waits for approval: <link>`, the `≠ <file> …` lines, `server unreachable · held, not
+  failed`, `approver <login> is not a workspace member` or `refused (<status>)`. A ◇ PRD reads as
+  before and calls no server.
+- **Step 7:** a ◆ PRD's **Where it is** takes the brainstorm's ◆ PRD and inbox lines; a run stopped
+  at the approval gate ends on its line alone.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green but `kit/test/dist.test.ts`, which reads only the
+kit's sources.
