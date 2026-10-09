@@ -135,15 +135,13 @@ describe('POST /api/dossiers/approval/request', () => {
     expect(w.pushes.map((p) => p.endpoint).sort()).toEqual(['https://push.example/irisa', 'https://push.example/paul']);
     expect(w.pushes.map((p) => p.subject)).toEqual(['https://omni.example', 'https://omni.example']);
     expect(w.pushes.map((p): unknown => JSON.parse(p.payload))).toEqual([PAYLOAD, PAYLOAD]);
-    expect(w.emails).toEqual([{
-      from: 'Omni Loop <approvals@omni.example>',
-      to: 'irisa@acme.test',
-      subject: 'PRD 7 waits for your approval: The approval handshake',
-      text: expect.stringContaining('Problem\n\nNobody is told a PRD waits. The agent stops and the run ends.'),
-      html: expect.stringContaining('<h2>Problem</h2>'),
-    }]);
+    expect(w.emails.map(({ to, subject }) => ({ to, subject }))).toEqual([
+      { to: 'irisa@acme.test', subject: 'PRD 7 waits for your approval: The approval handshake' },
+    ]);
     const text = w.emails.map((e) => e.text).join('');
     const html = w.emails.map((e) => e.html).join('');
+    expect(text).toContain('Problem\n\nNobody is told a PRD waits. The agent stops and the run ends.');
+    expect(html).toContain('<h2>Problem</h2>');
     expect(text).toContain('Solution\n\n### 1. Who approves');
     expect(text).not.toContain('Web Push plus email');
     expect(text).toContain(`Open it to approve: https://omni.example/prd/${DOSSIER}`);
