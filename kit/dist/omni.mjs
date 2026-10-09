@@ -39878,8 +39878,8 @@ function folderEntries(ctx, folder) {
 function roundFaults(folder, rounds) {
   const last = rounds.at(-1)?.k ?? 0;
   if (last === 0) return [`${folder}/board-r1.html: missing.`];
-  const shown5 = new Set(rounds.map((round2) => round2.k));
-  return Array.from({ length: last - 1 }, (_, index) => index + 1).filter((k) => !shown5.has(k)).map((k) => `${folder}/board-r${k}.html: missing; the rounds are numbered from 1 with no gap.`);
+  const shown6 = new Set(rounds.map((round2) => round2.k));
+  return Array.from({ length: last - 1 }, (_, index) => index + 1).filter((k) => !shown6.has(k)).map((k) => `${folder}/board-r${k}.html: missing; the rounds are numbered from 1 with no gap.`);
 }
 function folderFaults(ctx, folder, concept2) {
   const { present, rounds, misnamed, others } = folderEntries(ctx, folder);
@@ -40405,8 +40405,8 @@ function readArgs(args) {
 }
 function report3({ stdout, stderr, decision, read: read2, json: json3 }) {
   if (json3) {
-    const shown5 = read2.answer !== void 0 ? { decision, answer: read2.answer, confidence: read2.confidence, decidedBy: "jev", reason: null } : { decision, answer: null, confidence: null, decidedBy: "old", reason: read2.reason };
-    println(stdout, JSON.stringify(shown5));
+    const shown6 = read2.answer !== void 0 ? { decision, answer: read2.answer, confidence: read2.confidence, decidedBy: "jev", reason: null } : { decision, answer: null, confidence: null, decidedBy: "old", reason: read2.reason };
+    println(stdout, JSON.stringify(shown6));
   } else {
     println(stdout, read2.answer !== void 0 ? `${read2.answer} ${read2.confidence.toFixed(2)}` : UNSET);
   }
@@ -40919,18 +40919,18 @@ function showPoint(flow2, point2, { territory, values = {}, readHook }) {
   const problems = [];
   const verdict2 = expectedVerdict(point2.point);
   const show4 = (mode, hook) => {
-    const shown5 = { area: hook.area, mode, path: hook.path, alias: hook.alias, inputs, text: null, verdict: verdict2 };
-    if (hook.alias !== null && hook.path.startsWith("/")) return shown5;
+    const shown6 = { area: hook.area, mode, path: hook.path, alias: hook.alias, inputs, text: null, verdict: verdict2 };
+    if (hook.alias !== null && hook.path.startsWith("/")) return shown6;
     const where = `${hook.path} (${hook.area}, ${mode})`;
     const raw = readHook(hook.path);
     if (raw === null) {
       problems.push(`${where} does not exist`);
-      return shown5;
+      return shown6;
     }
     const file2 = parseHookFile(raw);
     if (file2.omniHook !== null && file2.omniHook !== point2.point) problems.push(`${where} says omni-hook: ${file2.omniHook}, not ${point2.point}`);
     const declared = file2.inputs ?? point2.inputs;
-    return { ...shown5, inputs: Object.fromEntries(declared.map((name2) => [name2, values[name2] ?? null])), text: fill(file2.body, values) };
+    return { ...shown6, inputs: Object.fromEntries(declared.map((name2) => [name2, values[name2] ?? null])), text: fill(file2.body, values) };
   };
   const before2 = hooks.before.map((hook) => show4("before", hook));
   const replace = hooks.replace === null ? null : show4("replace", hooks.replace);
@@ -41109,9 +41109,9 @@ function pointGround(ctx, flags, bySlice) {
     ...slice === null ? {} : { values: slice.values }
   };
 }
-function showOnePoint({ ctx, stdout }, shown5, name2, { flags, bySlice, print: print2 }) {
+function showOnePoint({ ctx, stdout }, shown6, name2, { flags, bySlice, print: print2 }) {
   const point2 = pointArg("show", name2);
-  const view = showPoint(shown5.flow, point2, { ...pointGround(ctx, flags, bySlice), readHook: shown5.readHook });
+  const view = showPoint(shown6.flow, point2, { ...pointGround(ctx, flags, bySlice), readHook: shown6.readHook });
   print2(view, pointText(view));
   for (const problem of view.problems) println(stdout, `not ok ${point2.point} ${problem}`);
   return view.problems.length > 0 ? 1 : 0;
@@ -41119,14 +41119,14 @@ function showOnePoint({ ctx, stdout }, shown5, name2, { flags, bySlice, print: p
 function show2(args, io) {
   const { positional, flags } = parseArgs("flow show", args, { values: ["prd", "slice", "path", "repo"], booleans: ["json"] });
   if (positional.length > 1) throw usageError(USAGE15);
-  const shown5 = shownFlow(io.ctx, flags.repo);
+  const shown6 = shownFlow(io.ctx, flags.repo);
   const [name2] = positional;
   const bySlice = bySliceOf(flags);
   const print2 = (json3, text13) => {
     println(io.stdout, flags.json ? JSON.stringify(json3, null, 2) : text13);
   };
-  if (name2 === void 0) return showWhole(shown5.flow, flags, bySlice, print2);
-  return showOnePoint(io, shown5, name2, { flags, bySlice, print: print2 });
+  if (name2 === void 0) return showWhole(shown6.flow, flags, bySlice, print2);
+  return showOnePoint(io, shown6, name2, { flags, bySlice, print: print2 });
 }
 function verdict(args, { ctx, stdout }) {
   const { positional, flags } = parseArgs("flow verdict", args, { values: ["from"] });
@@ -47182,8 +47182,8 @@ function poolHeld(pool, held2) {
 }
 function tickLines({ plan: plan2, replanned, followed, pool, held: held2 }) {
   const holds2 = followed.state === "step" ? held2.map((one) => `  ${one.gate === "park" ? "parked" : "held"}: PRD ${one.prd} \u2014 ${one.why}${one.link ? ` \u2014 ${one.link}` : ""}`) : [];
-  const shown5 = followed.state === "step" ? followed.step : null;
-  const rest = { ...pool, steps: pool.steps.filter(({ step: step2 }) => step2 !== shown5), held: poolHeld(pool, held2) };
+  const shown6 = followed.state === "step" ? followed.step : null;
+  const rest = { ...pool, steps: pool.steps.filter(({ step: step2 }) => step2 !== shown6), held: poolHeld(pool, held2) };
   return [...replanned === null ? [] : [replanned], ...formatFollowed(plan2, followed), ...holds2, ...formatPool(plan2, rest)];
 }
 function stepJson(step2, plan2) {
@@ -47324,11 +47324,11 @@ function workStage(stage2, slices) {
 var inFlight = (slice) => IN_FLIGHT.includes(slice.state);
 var label = ({ id, name: name2 }) => name2 ? `${id} ${name2}` : id;
 function nowOfPrd({ number: number4, topic, stage: stage2, slices }) {
-  const shown5 = (slices ?? []).filter((slice) => IN_FLIGHT.includes(slice.state) || slice.state === STUCK).map(({ id, name: name2, state }) => ({ id, name: name2 ?? null, state }));
-  const building2 = shown5.filter(inFlight);
+  const shown6 = (slices ?? []).filter((slice) => IN_FLIGHT.includes(slice.state) || slice.state === STUCK).map(({ id, name: name2, state }) => ({ id, name: name2 ?? null, state }));
+  const building2 = shown6.filter(inFlight);
   return {
     headline: null,
-    work: { kind: "prd", number: number4, topic, stage: workStage(stage2, slices), slices: shown5, links: [] },
+    work: { kind: "prd", number: number4, topic, stage: workStage(stage2, slices), slices: shown6, links: [] },
     doing: building2.length > 0 ? `${BUILDING} ${building2.map(label).join(", ")}` : null
   };
 }
@@ -47365,10 +47365,12 @@ function workLines(work, doing) {
   const head = work ? [[workName(work), ...work.stage ? [work.stage] : []].join(SEPARATOR)] : [];
   return status5.length > 0 ? [...head, status5.join(SEPARATOR)] : head;
 }
-function nowLines({ headline, work, doing }) {
-  if (!work && !headline) return [NO_WORK_LINE];
-  return [...headline ? [headlineLine(headline)] : [], ...workLines(work, doing)];
+function nowLines({ headline, work, doing, wait: wait4 }) {
+  const waitLines = wait4 ? [wait4.line] : [];
+  if (!work && !headline) return waitLines.length > 0 ? waitLines : [NO_WORK_LINE];
+  return [...headline ? [headlineLine(headline)] : [], ...workLines(work, doing), ...waitLines];
 }
+var withWait = (answer, wait4) => wait4 ? { ...answer, wait: wait4 } : answer;
 
 // kit/lib/now/read.ts
 init_define_OMNI_BUNDLE();
@@ -47902,6 +47904,43 @@ async function refreshLinks({ root, kind, n, now: now2, build }) {
   return "written";
 }
 
+// kit/lib/now/wait.ts
+init_define_OMNI_BUNDLE();
+import { readdirSync as readdirSync26, readFileSync as readFileSync60 } from "node:fs";
+import { join as join75 } from "node:path";
+var WAIT_DIR = "approval-wait";
+var TOAST_MS = 1e4;
+var WaitFileSchema = external_exports.object({
+  prd: PrdNumberSchema,
+  state: external_exports.enum(["waiting", "approved", "voided", "held", "signed-out", "timeout", "refused"]),
+  line: external_exports.string().min(1),
+  waiting: external_exports.string().min(1).nullable(),
+  at: external_exports.iso.datetime({ offset: true })
+});
+function shown4(file2, now2) {
+  const { prd: prd2, state, line, waiting } = file2;
+  const until = Date.parse(file2.at) + TOAST_MS;
+  if (state === "waiting" || state === "held") return { prd: prd2, line: waiting ?? line, toast: false, until: null };
+  if ((state === "approved" || state === "voided") && now2 < until) return { prd: prd2, line, toast: true, until };
+  return state === "voided" && waiting ? { prd: prd2, line: waiting, toast: false, until: null } : null;
+}
+function readFile(path) {
+  const parsed = WaitFileSchema.safeParse(attempt10(() => JSON.parse(readFileSync60(path, "utf8")), null));
+  return parsed.success ? parsed.data : null;
+}
+function readWait(root, prd2, now2) {
+  const dir = join75(root, LOCAL_DIR, WAIT_DIR);
+  const names = attempt10(() => readdirSync26(dir).filter((name2) => name2.endsWith(".json")), []);
+  const files = names.map((name2) => readFile(join75(dir, name2))).filter((file2) => file2 !== null);
+  const latest = [...files].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const ordered = [...latest.filter((file2) => file2.prd === prd2), ...latest.filter((file2) => file2.prd !== prd2)];
+  for (const file2 of ordered) {
+    const wait4 = shown4(file2, now2);
+    if (wait4) return wait4;
+  }
+  return null;
+}
+
 // kit/lib/now/read.ts
 function named3(slice) {
   return "name" in slice && typeof slice.name === "string" ? { ...slice, name: slice.name } : slice;
@@ -47960,7 +47999,8 @@ function readNow({ cwd, folder, sessionId, exec, now: now2 }) {
     if (!ctx) return NOTHING2;
     const answer = readSession(ctx, { folder: where, sessionId, exec, now: now2, base: baseOf(ctx, exec) });
     const main2 = attempt10(() => mainCheckout(where, exec), null);
-    return linked(answer, (kind, n) => main2 ? readLinks(main2, kind, n, now2) : []);
+    const withLinks = linked(answer, (kind, n) => main2 ? readLinks(main2, kind, n, now2) : []);
+    return withWait(withLinks, readWait(ctx.root, answer.work?.kind === "prd" ? answer.work.number : null, now2));
   } catch {
     return NOTHING2;
   }
@@ -48196,8 +48236,8 @@ var phase0 = {
 
 // kit/bin/commands/plan.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync62 } from "node:fs";
-import { join as join77 } from "node:path";
+import { readFileSync as readFileSync63 } from "node:fs";
+import { join as join78 } from "node:path";
 
 // kit/lib/plan-repo/moved.ts
 init_define_OMNI_BUNDLE();
@@ -48206,23 +48246,23 @@ import { execFileSync as execFileSync14 } from "node:child_process";
 // kit/lib/plan-repo/targets.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync13 } from "node:child_process";
-import { existsSync as existsSync57, readdirSync as readdirSync26, readFileSync as readFileSync61 } from "node:fs";
-import { join as join76 } from "node:path";
+import { existsSync as existsSync57, readdirSync as readdirSync27, readFileSync as readFileSync62 } from "node:fs";
+import { join as join77 } from "node:path";
 
 // kit/lib/update/installed.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync56, readFileSync as readFileSync60 } from "node:fs";
-import { join as join75 } from "node:path";
+import { existsSync as existsSync56, readFileSync as readFileSync61 } from "node:fs";
+import { join as join76 } from "node:path";
 var STAMP = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
 function bundleVersion(text13) {
   const match = STAMP.exec(text13);
   return match ? parseVersion(match[1]) : null;
 }
 function installedVersion({ root, running, bundle }) {
-  const bin = join75(root, BIN_FILE);
+  const bin = join76(root, BIN_FILE);
   if (!existsSync56(bin)) return null;
-  const text13 = readFileSync60(bin);
-  if (bundle && existsSync56(bundle) && readFileSync60(bundle).equals(text13)) return running.version;
+  const text13 = readFileSync61(bin);
+  if (bundle && existsSync56(bundle) && readFileSync61(bundle).equals(text13)) return running.version;
   return bundleVersion(text13.toString("utf8"));
 }
 
@@ -48387,11 +48427,11 @@ function readTarget2(target3, {
   }
 }
 function copyEvidence(repo, { ctx }) {
-  const dir = join76(ctx.root, copyFolder(repo, { ctx }), "playbook");
+  const dir = join77(ctx.root, copyFolder(repo, { ctx }), "playbook");
   const paths = /* @__PURE__ */ new Set();
   if (!existsSync57(dir)) return paths;
-  for (const name2 of readdirSync26(dir).filter((n) => n.endsWith(".md")).sort()) {
-    const parsed = parseForm(readFileSync61(join76(dir, name2), "utf8"), { file: name2 });
+  for (const name2 of readdirSync27(dir).filter((n) => n.endsWith(".md")).sort()) {
+    const parsed = parseForm(readFileSync62(join77(dir, name2), "utf8"), { file: name2 });
     if (!parsed.ok) continue;
     for (const { path } of parsed.form.evidence) paths.add(path);
   }
@@ -48462,8 +48502,8 @@ function detailOf(row) {
     const count4 = `${row.files.length} ${row.files.length === 1 ? "file" : "files"}`;
     const owners = row.slices.map((id) => `${id}'s`).join(", ");
     const where = row.slices.length === 1 ? "territory" : "territories";
-    const shown5 = row.files.slice(0, SHOWN).join(", ") + (row.files.length > SHOWN ? ", \u2026" : "");
-    return `${count4} under ${owners} ${where} (${shown5})`;
+    const shown6 = row.files.slice(0, SHOWN).join(", ") + (row.files.length > SHOWN ? ", \u2026" : "");
+    return `${count4} under ${owners} ${where} (${shown6})`;
   }
   return row.detail ?? "";
 }
@@ -48485,7 +48525,7 @@ function readPlanText(prd2, { ctx, verb: verb2 }) {
   const planPath = ctx.layout.planPath(prd2);
   if (planPath === null) throw usageError(`omni plan ${verb2}: PRD ${prd2} has no inbox or shipped folder.`);
   try {
-    return { planPath, markdown: readFileSync62(join77(ctx.root, planPath), "utf8") };
+    return { planPath, markdown: readFileSync63(join78(ctx.root, planPath), "utf8") };
   } catch (error62) {
     if (errorCode(error62) === "ENOENT") throw usageError(`omni plan ${verb2}: no plan at ${planPath}.`);
     throw error62;
@@ -48645,7 +48685,7 @@ import { isAbsolute as isAbsolute7, resolve as resolve6 } from "node:path";
 
 // kit/lib/pitch/push.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync63 } from "node:fs";
+import { readFileSync as readFileSync64 } from "node:fs";
 var PitchReplyError = class extends Error {
   constructor(message2) {
     super(message2);
@@ -48671,7 +48711,7 @@ async function pushPitch({
   repo,
   prd: prd2,
   run,
-  read: read2 = readFileSync63
+  read: read2 = readFileSync64
 }) {
   const reply = await client.requestPitchUploads({ repo, prd: prd2, files: run.files.map(({ name: name2, bytes, type }) => ({ name: name2, bytes, type })) });
   const { runId, links } = linksOf(reply, run.files);
@@ -48687,8 +48727,8 @@ async function pushPitch({
 
 // kit/lib/pitch/push-run.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync58, readFileSync as readFileSync64, statSync as statSync15 } from "node:fs";
-import { join as join78 } from "node:path";
+import { existsSync as existsSync58, readFileSync as readFileSync65, statSync as statSync15 } from "node:fs";
+import { join as join79 } from "node:path";
 var PITCH_RUN_FILE = "pitch.json";
 var PITCH_FILE_MAX_BYTES = 50 * 1024 * 1024;
 var PITCH_FILES = Object.freeze({
@@ -48714,7 +48754,7 @@ var refuse2 = (message2, status5 = 400) => {
   throw new PitchRunRefused(status5, message2);
 };
 var isRecord6 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
-var shown4 = (value) => String(value);
+var shown5 = (value) => String(value);
 function parsedOrNull(text13) {
   try {
     return JSON.parse(text13);
@@ -48723,7 +48763,7 @@ function parsedOrNull(text13) {
   }
 }
 function fileOf(dir, name2) {
-  const path = join78(dir, name2);
+  const path = join79(dir, name2);
   if (!existsSync58(path) || !statSync15(path).isFile()) refuse2(`${name2}: not in the run folder`);
   const { size } = statSync15(path);
   if (size > PITCH_FILE_MAX_BYTES) refuse2(`${name2}: over ${PITCH_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
@@ -48739,12 +48779,12 @@ function wordsOf(sent) {
   return { hook: word("hook"), benefit: word("benefit"), kicker: word("kicker"), closing: word("closing") };
 }
 function readPitchRun(dir, prd2) {
-  const file2 = join78(dir, PITCH_RUN_FILE);
+  const file2 = join79(dir, PITCH_RUN_FILE);
   if (!existsSync58(file2)) return null;
-  const sent = parsedOrNull(readFileSync64(file2, "utf8"));
+  const sent = parsedOrNull(readFileSync65(file2, "utf8"));
   if (!isRecord6(sent)) return refuse2(`${PITCH_RUN_FILE} is not a JSON object`);
   const { audience, look, commit } = sent;
-  if (sent.prd !== void 0 && sent.prd !== prd2) refuse2(`${PITCH_RUN_FILE} is for PRD ${shown4(sent.prd)}, not ${prd2}`);
+  if (sent.prd !== void 0 && sent.prd !== prd2) refuse2(`${PITCH_RUN_FILE} is for PRD ${shown5(sent.prd)}, not ${prd2}`);
   if (!isOneOf(AUDIENCES, audience)) return refuse2(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(audience)}`);
   if (!isOneOf(LOOKS, look)) return refuse2(`${PITCH_RUN_FILE}: look is arcade or keynote, not ${String(look)}`);
   if (typeof commit !== "string" || !COMMIT2.test(commit)) return refuse2(`${PITCH_RUN_FILE}: commit is the hash of the commit the pitch was made at`);
@@ -48756,12 +48796,12 @@ function readPitchRun(dir, prd2) {
 // kit/bin/commands/pitch-make.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync64, mkdirSync as mkdirSync23, writeFileSync as writeFileSync32 } from "node:fs";
-import { isAbsolute as isAbsolute6, join as join91, resolve as resolve5 } from "node:path";
+import { isAbsolute as isAbsolute6, join as join92, resolve as resolve5 } from "node:path";
 
 // kit/lib/pitch/check.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync59, readFileSync as readFileSync65 } from "node:fs";
-import { isAbsolute as isAbsolute5, join as join79, normalize as normalize3 } from "node:path";
+import { existsSync as existsSync59, readFileSync as readFileSync66 } from "node:fs";
+import { isAbsolute as isAbsolute5, join as join80, normalize as normalize3 } from "node:path";
 
 // kit/lib/pitch/storyboard.ts
 init_define_OMNI_BUNDLE();
@@ -48859,11 +48899,11 @@ var plural4 = (count4, word) => `${count4} ${word}${count4 === 1 ? "" : "s"}`;
 function checkRunFolder(dir) {
   let value;
   try {
-    value = JSON.parse(readFileSync65(join79(dir, STORYBOARD_FILE), "utf8"));
+    value = JSON.parse(readFileSync66(join80(dir, STORYBOARD_FILE), "utf8"));
   } catch (error62) {
     return refused([{ path: "", message: `${STORYBOARD_FILE} does not read as JSON: ${messageOf(error62)}` }]);
   }
-  return checkStoryboard(value, { hasFile: (file2) => existsSync59(join79(dir, file2)) });
+  return checkStoryboard(value, { hasFile: (file2) => existsSync59(join80(dir, file2)) });
 }
 var findingLine = ({ path, message: message2 }) => path ? `${path}: ${message2}` : message2;
 function checkStoryboard(value, { hasFile }) {
@@ -49080,9 +49120,9 @@ function changingClick({ words: words3, submits }) {
 
 // kit/lib/pitch/moments-film.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync60, mkdirSync as mkdirSync19, readFileSync as readFileSync66, rmSync as rmSync10, writeFileSync as writeFileSync26 } from "node:fs";
+import { existsSync as existsSync60, mkdirSync as mkdirSync19, readFileSync as readFileSync67, rmSync as rmSync10, writeFileSync as writeFileSync26 } from "node:fs";
 import { createRequire } from "node:module";
-import { join as join80 } from "node:path";
+import { join as join81 } from "node:path";
 import { pathToFileURL } from "node:url";
 var STORAGE_STATE = "storage-state.json";
 var FILM_DIR = "film";
@@ -49161,12 +49201,12 @@ async function play(filming, step2, index) {
   return actOn(filming, step2, label2);
 }
 async function filmWalk(dir, walk, { launch, now: now2 }) {
-  const storage = join80(dir, STORAGE_STATE);
+  const storage = join81(dir, STORAGE_STATE);
   const browser = await launch();
   try {
     const context = await browser.newContext({
       viewport: { ...FILM_SIZE },
-      recordVideo: { dir: join80(dir, FILM_DIR), size: { ...FILM_SIZE } },
+      recordVideo: { dir: join81(dir, FILM_DIR), size: { ...FILM_SIZE } },
       ...existsSync60(storage) ? { storageState: storage } : {}
     });
     await context.addInitScript(CURSOR);
@@ -49222,11 +49262,11 @@ function clipSeconds(exec, file2) {
   return Math.round(seconds4 * 100) / 100;
 }
 function readWalk(dir) {
-  const file2 = join80(dir, WALK_FILE);
+  const file2 = join81(dir, WALK_FILE);
   if (!existsSync60(file2)) throw new FilmRefused([`the run holds no ${WALK_FILE} yet`]);
   let value;
   try {
-    value = JSON.parse(readFileSync66(file2, "utf8"));
+    value = JSON.parse(readFileSync67(file2, "utf8"));
   } catch (error62) {
     throw new FilmRefused([`${WALK_FILE} does not read as JSON: ${messageOf(error62)}`]);
   }
@@ -49242,7 +49282,7 @@ function resolvedFrom(from, name2) {
     return null;
   }
 }
-var playwrightEntries = (cwd) => [join80(cwd, "package.json"), import.meta.url].flatMap((from) => ["playwright", "@playwright/test"].map((name2) => resolvedFrom(from, name2))).filter((file2) => file2 !== null);
+var playwrightEntries = (cwd) => [join81(cwd, "package.json"), import.meta.url].flatMap((from) => ["playwright", "@playwright/test"].map((name2) => resolvedFrom(from, name2))).filter((file2) => file2 !== null);
 function repositoryBrowser(cwd) {
   return async () => {
     for (const entry3 of playwrightEntries(cwd)) {
@@ -49255,15 +49295,15 @@ function repositoryBrowser(cwd) {
 }
 async function filmRun(dir, { exec, launch, now: now2 = Date.now }) {
   const walk = readWalk(dir);
-  const work = join80(dir, FILM_DIR);
+  const work = join81(dir, FILM_DIR);
   rmSync10(work, { recursive: true, force: true });
   mkdirSync19(work, { recursive: true });
   try {
     const { webm, moments } = await filmWalk(dir, walk, { launch, now: now2 });
-    const clip = join80(dir, WALK_CLIP);
+    const clip = join81(dir, WALK_CLIP);
     exec("ffmpeg", remuxArgs(webm, clip), { stdio: ["ignore", "ignore", "pipe"] });
     const result = { moments: 1, clip: WALK_CLIP, width: FILM_SIZE.width, height: FILM_SIZE.height, seconds: clipSeconds(exec, clip), steps: moments };
-    writeFileSync26(join80(dir, MOMENTS_FILE), `${JSON.stringify(result, null, 2)}
+    writeFileSync26(join81(dir, MOMENTS_FILE), `${JSON.stringify(result, null, 2)}
 `);
     return result;
   } finally {
@@ -49273,8 +49313,8 @@ async function filmRun(dir, { exec, launch, now: now2 = Date.now }) {
 
 // kit/lib/pitch/render-input.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync62, readFileSync as readFileSync68, writeFileSync as writeFileSync31 } from "node:fs";
-import { join as join89 } from "node:path";
+import { existsSync as existsSync62, readFileSync as readFileSync69, writeFileSync as writeFileSync31 } from "node:fs";
+import { join as join90 } from "node:path";
 
 // kit/lib/pitch/providers/registry.ts
 init_define_OMNI_BUNDLE();
@@ -49282,7 +49322,7 @@ init_define_OMNI_BUNDLE();
 // kit/lib/pitch/providers/capture/playwright.ts
 init_define_OMNI_BUNDLE();
 import { createRequire as createRequire2 } from "node:module";
-import { join as join81 } from "node:path";
+import { join as join82 } from "node:path";
 import { pathToFileURL as pathToFileURL2 } from "node:url";
 
 // kit/lib/pitch/providers/types.ts
@@ -49299,7 +49339,7 @@ var PACKAGES = ["playwright", "@playwright/test"];
 var isLauncher2 = (value) => typeof propertyOf(value, "launch") === "function";
 function repositoryChromium(cwd) {
   return async () => {
-    const require2 = createRequire2(join81(cwd, "package.json"));
+    const require2 = createRequire2(join82(cwd, "package.json"));
     for (const name2 of PACKAGES) {
       let resolved;
       try {
@@ -49319,7 +49359,7 @@ async function capture(page2, url2, frames, dir) {
   await page2.goto(url2);
   for (const n of frames) {
     await page2.evaluate(`window.${PAGE_SEEK}(${String(n)})`);
-    await page2.screenshot({ path: join81(dir, frameFile(n)) });
+    await page2.screenshot({ path: join82(dir, frameFile(n)) });
   }
 }
 var playwrightCapture = Object.freeze({
@@ -49334,13 +49374,13 @@ var playwrightCapture = Object.freeze({
     } finally {
       await browser.close();
     }
-    return Array.from({ length: count4 }, (_, n) => join81(dir, frameFile(n)));
+    return Array.from({ length: count4 }, (_, n) => join82(dir, frameFile(n)));
   }
 });
 
 // kit/lib/pitch/providers/encode/ffmpeg.ts
 init_define_OMNI_BUNDLE();
-import { join as join82 } from "node:path";
+import { join as join83 } from "node:path";
 
 // kit/lib/pitch/ffmpeg.ts
 init_define_OMNI_BUNDLE();
@@ -49402,16 +49442,16 @@ var ffmpegEncode = Object.freeze({
   kind: "encode",
   id: "ffmpeg",
   video: ({ frames, audio, shape }, { dir, exec }) => Promise.resolve().then(() => {
-    const { output: output2, args } = framesArgs({ frames: { pattern: join82(frames.dir, FRAME_PATTERN), count: frames.count, fps: frames.fps }, audio, shape });
+    const { output: output2, args } = framesArgs({ frames: { pattern: join83(frames.dir, FRAME_PATTERN), count: frames.count, fps: frames.fps }, audio, shape });
     exec("ffmpeg", ["-hide_banner", "-loglevel", "error", ...args], { cwd: dir, stdio: ["ignore", "ignore", "pipe"] });
-    return join82(dir, output2);
+    return join83(dir, output2);
   })
 });
 
 // kit/lib/pitch/providers/fonts/file.ts
 init_define_OMNI_BUNDLE();
 import { copyFileSync as copyFileSync4, mkdirSync as mkdirSync20 } from "node:fs";
-import { extname as extname2, join as join83 } from "node:path";
+import { extname as extname2, join as join84 } from "node:path";
 
 // kit/lib/pitch/providers/fonts/css.ts
 init_define_OMNI_BUNDLE();
@@ -49436,8 +49476,8 @@ var fileFonts = Object.freeze({
     if (asset2 === void 0) throw new Error(`no uploaded file for the font "${family}"`);
     const source = await context.asset(asset2);
     const path = `${FONTS_DIR}/${slugOf2(family)}-${String(weight)}${extname2(source).toLowerCase()}`;
-    mkdirSync20(join83(context.dir, FONTS_DIR), { recursive: true });
-    copyFileSync4(source, join83(context.dir, path));
+    mkdirSync20(join84(context.dir, FONTS_DIR), { recursive: true });
+    copyFileSync4(source, join84(context.dir, path));
     return { css: fontFace({ family, weight, path }), files: [path], stack: stackOf(family) };
   }
 });
@@ -49445,7 +49485,7 @@ var fileFonts = Object.freeze({
 // kit/lib/pitch/providers/fonts/google-fonts.ts
 init_define_OMNI_BUNDLE();
 import { mkdirSync as mkdirSync21, writeFileSync as writeFileSync27 } from "node:fs";
-import { join as join84 } from "node:path";
+import { join as join85 } from "node:path";
 var API = "https://fonts.googleapis.com/css2";
 var BROWSER = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 var FONT_URL = /url\((https:\/\/fonts\.gstatic\.com\/[^)\s]+)\)/g;
@@ -49463,12 +49503,12 @@ var googleFonts = Object.freeze({
     const sheet = await (await answered(fetch, cssUrl(request2), what)).text();
     const urls = [...new Set([...sheet.matchAll(FONT_URL)].map((match) => match[1] ?? ""))];
     if (urls.length === 0) throw new Error(`Google Fonts named no file for ${what}`);
-    mkdirSync21(join84(dir, FONTS_DIR), { recursive: true });
+    mkdirSync21(join85(dir, FONTS_DIR), { recursive: true });
     let css = sheet;
     const files = [];
     for (const [index, url2] of urls.entries()) {
       const path = `${FONTS_DIR}/${slugOf2(request2.family)}-${String(request2.weight)}-${String(index)}.woff2`;
-      writeFileSync27(join84(dir, path), new Uint8Array(await (await answered(fetch, url2, what)).arrayBuffer()));
+      writeFileSync27(join85(dir, path), new Uint8Array(await (await answered(fetch, url2, what)).arrayBuffer()));
       css = css.split(url2).join(path);
       files.push(path);
     }
@@ -49487,14 +49527,14 @@ var systemFonts = Object.freeze({
 // kit/lib/pitch/providers/music/file.ts
 init_define_OMNI_BUNDLE();
 import { copyFileSync as copyFileSync5 } from "node:fs";
-import { extname as extname3, join as join85 } from "node:path";
+import { extname as extname3, join as join86 } from "node:path";
 var fileMusic = Object.freeze({
   kind: "music",
   id: "file",
   pick: async ({ asset: asset2 }, context) => {
     if (asset2 === void 0) throw new Error("no uploaded track: the music settings name no file");
     const source = await context.asset(asset2);
-    const file2 = join85(context.dir, `music${extname3(source).toLowerCase() || ".mp3"}`);
+    const file2 = join86(context.dir, `music${extname3(source).toLowerCase() || ".mp3"}`);
     copyFileSync5(source, file2);
     return { file: file2, licence: "the product's own file", credit: null };
   }
@@ -49503,7 +49543,7 @@ var fileMusic = Object.freeze({
 // kit/lib/pitch/providers/music/freepd.ts
 init_define_OMNI_BUNDLE();
 import { writeFileSync as writeFileSync28 } from "node:fs";
-import { join as join86 } from "node:path";
+import { join as join87 } from "node:path";
 var ARCHIVE = "https://archive.org/download/freepd";
 var METADATA = "https://archive.org/metadata/freepd";
 var LICENCE = "CC0 1.0 Universal (public domain)";
@@ -49578,7 +49618,7 @@ var freepdMusic = Object.freeze({
   id: "freepd",
   pick: async ({ mood, seconds: seconds4 }, { dir, fetch }) => {
     const track = pickTrack(mood, seconds4);
-    const file2 = join86(dir, "music.mp3");
+    const file2 = join87(dir, "music.mp3");
     const credit = `"${track.title}" from FreePD.com (public domain), archived at archive.org/details/freepd`;
     writeFileSync28(file2, await download(track, fetch));
     return { file: file2, licence: LICENCE, credit };
@@ -49588,7 +49628,7 @@ var freepdMusic = Object.freeze({
 // kit/lib/pitch/providers/music/none.ts
 init_define_OMNI_BUNDLE();
 import { writeFileSync as writeFileSync29 } from "node:fs";
-import { join as join87 } from "node:path";
+import { join as join88 } from "node:path";
 
 // kit/lib/pitch/music.ts
 init_define_OMNI_BUNDLE();
@@ -49622,7 +49662,7 @@ var noneMusic = Object.freeze({
   kind: "music",
   id: "none",
   pick: ({ seconds: seconds4 }, { dir }) => Promise.resolve().then(() => {
-    const file2 = join87(dir, "silence.wav");
+    const file2 = join88(dir, "silence.wav");
     writeFileSync29(file2, silenceWav(seconds4));
     return { file: file2, licence: null, credit: null };
   })
@@ -49680,8 +49720,8 @@ function enginePage() {
 
 // kit/lib/pitch/run.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync61, readFileSync as readFileSync67, writeFileSync as writeFileSync30 } from "node:fs";
-import { join as join88 } from "node:path";
+import { existsSync as existsSync61, readFileSync as readFileSync68, writeFileSync as writeFileSync30 } from "node:fs";
+import { join as join89 } from "node:path";
 
 // kit/lib/pitch/settings.ts
 init_define_OMNI_BUNDLE();
@@ -49814,22 +49854,22 @@ function hasFfmpeg(exec) {
 var pad = (value) => String(value).padStart(2, "0");
 function pitchRunDir(worktrees, prd2, audience, now2 = /* @__PURE__ */ new Date()) {
   const stamp = `${now2.getFullYear()}${pad(now2.getMonth() + 1)}${pad(now2.getDate())}-${pad(now2.getHours())}${pad(now2.getMinutes())}${pad(now2.getSeconds())}`;
-  return join88(worktrees, `pitch-${prd2}`, `${audience}-${stamp}`);
+  return join89(worktrees, `pitch-${prd2}`, `${audience}-${stamp}`);
 }
 var PITCH_JSON = "pitch.json";
 var isRecord7 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 function readPitchJson(dir) {
-  const file2 = join88(dir, PITCH_JSON);
+  const file2 = join89(dir, PITCH_JSON);
   if (!existsSync61(file2)) return null;
   try {
-    const value = JSON.parse(readFileSync67(file2, "utf8"));
+    const value = JSON.parse(readFileSync68(file2, "utf8"));
     return isRecord7(value) ? value : null;
   } catch {
     return null;
   }
 }
 function writePitchJson(dir, value) {
-  writeFileSync30(join88(dir, PITCH_JSON), `${JSON.stringify(value, null, 2)}
+  writeFileSync30(join89(dir, PITCH_JSON), `${JSON.stringify(value, null, 2)}
 `);
 }
 var fallback3 = (reason2) => ({
@@ -49865,14 +49905,14 @@ var RenderRefused = class extends Error {
   }
 };
 function runSettings(dir) {
-  const file2 = join89(dir, RUN_SETTINGS);
+  const file2 = join90(dir, RUN_SETTINGS);
   if (!existsSync62(file2)) {
     const look = readPitchJson(dir)?.["look"];
     return defaultPitchSettings(isOneOf(PITCH_PRESETS, look) ? look : void 0);
   }
   let value;
   try {
-    value = JSON.parse(readFileSync68(file2, "utf8"));
+    value = JSON.parse(readFileSync69(file2, "utf8"));
   } catch (error62) {
     throw new RenderRefused([`${RUN_SETTINGS} does not read as JSON: ${messageOf(error62)}`]);
   }
@@ -49881,14 +49921,14 @@ function runSettings(dir) {
   return parsed.settings;
 }
 function runStoryboard(dir) {
-  const parsed = parseStoryboard(JSON.parse(readFileSync68(join89(dir, STORYBOARD_FILE), "utf8")));
+  const parsed = parseStoryboard(JSON.parse(readFileSync69(join90(dir, STORYBOARD_FILE), "utf8")));
   if (parsed.storyboard === void 0) throw new RenderRefused(parsed.problems.map(({ path, message: message2 }) => `${path}: ${message2}`));
   return parsed.storyboard;
 }
 function runAssets(dir) {
   return (ref) => {
     const name2 = ref.replace(/^asset:/, "");
-    const file2 = join89(dir, ASSETS_DIR, name2);
+    const file2 = join90(dir, ASSETS_DIR, name2);
     return existsSync62(file2) ? Promise.resolve(file2) : Promise.reject(new Error(`the run holds no ${ASSETS_DIR}/${name2}`));
   };
 }
@@ -49903,7 +49943,7 @@ async function fontsOf(dir, look, { fetch, warn }) {
 function logoOf(dir, logo, warn) {
   if (logo === null) return null;
   const path = `${ASSETS_DIR}/${logo.replace(/^asset:/, "")}`;
-  if (existsSync62(join89(dir, path))) return path;
+  if (existsSync62(join90(dir, path))) return path;
   warn(`logo: the run holds no ${path}, so the video shows none`);
   return null;
 }
@@ -49915,7 +49955,7 @@ async function writePageInput(dir, { storyboard, settings, credits: credits2, fe
     logo: logoOf(dir, settings.look.logo, warn),
     credits: credits2
   };
-  writeFileSync31(join89(dir, PAGE_INPUT), `${JSON.stringify(input2, null, 2)}
+  writeFileSync31(join90(dir, PAGE_INPUT), `${JSON.stringify(input2, null, 2)}
 `);
   return input2;
 }
@@ -49923,7 +49963,7 @@ async function writePageInput(dir, { storyboard, settings, credits: credits2, fe
 // kit/lib/pitch/render.ts
 init_define_OMNI_BUNDLE();
 import { mkdirSync as mkdirSync22, renameSync as renameSync4, rmSync as rmSync11 } from "node:fs";
-import { join as join90 } from "node:path";
+import { join as join91 } from "node:path";
 
 // kit/lib/pitch/render-music.ts
 init_define_OMNI_BUNDLE();
@@ -49942,7 +49982,7 @@ function audioOf(music2, syncSeconds) {
 
 // kit/lib/pitch/render-server.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync63, readFileSync as readFileSync69, statSync as statSync16 } from "node:fs";
+import { existsSync as existsSync63, readFileSync as readFileSync70, statSync as statSync16 } from "node:fs";
 import { createServer as createServer2 } from "node:http";
 import { extname as extname4, resolve as resolve4, sep as sep3 } from "node:path";
 var TYPES = Object.freeze({
@@ -50027,7 +50067,7 @@ function ranged(body, type, range) {
 function runAnswer(dir, path, range) {
   const file2 = path.startsWith("/run/") ? runFile(dir, path.slice("/run/".length)) : null;
   if (file2 === null) return { status: 404 };
-  return ranged(readFileSync69(file2), TYPES[extname4(file2).toLowerCase()] ?? "application/octet-stream", range);
+  return ranged(readFileSync70(file2), TYPES[extname4(file2).toLowerCase()] ?? "application/octet-stream", range);
 }
 function answerGet(dir, page2, url2, range) {
   const path = decodeURIComponent(url2.pathname);
@@ -50137,7 +50177,7 @@ function infoOf(value) {
   throw new RenderRefused([`the page could not draw the storyboard: ${error62}`]);
 }
 async function captureInto(session, name2, request2) {
-  const dir = join90(session.work, name2);
+  const dir = join91(session.work, name2);
   mkdirSync22(dir, { recursive: true });
   const { cwd, launch } = session.tools;
   return session.capture.frames(request2, { dir, cwd, ...launch === void 0 ? {} : { launch } });
@@ -50150,17 +50190,17 @@ async function captureFrames(session, { frames, names, width, height }) {
   const captured2 = await captureInto(session, `frames-${String(width)}x${String(height)}`, { url: session.server.page({ frames: frames.join(",") }), count: frames.length, width, height });
   return captured2.map((file2, index) => {
     const name2 = names[index] ?? "";
-    renameSync4(file2, join90(session.dir, name2));
+    renameSync4(file2, join91(session.dir, name2));
     return name2;
   });
 }
 async function writeStills(session, info) {
-  mkdirSync22(join90(session.dir, STILLS_DIR), { recursive: true });
+  mkdirSync22(join91(session.dir, STILLS_DIR), { recursive: true });
   const names = info.scenes.map((scene2, index) => `${STILLS_DIR}/${String(index + 1).padStart(2, "0")}-${scene2.type}.png`);
   const stills = await captureFrames(session, { frames: info.scenes.map((scene2) => scene2.still), names, width: info.width, height: info.height });
   const [sheet] = await captureInto(session, "contact", { url: session.server.contact(stills), count: 1, pages: 1, ...contactSize(stills.length) });
   const contact = `${STILLS_DIR}/${CONTACT_SHEET}`;
-  renameSync4(sheet ?? "", join90(session.dir, contact));
+  renameSync4(sheet ?? "", join91(session.dir, contact));
   return [...stills, contact];
 }
 function syncSecondsOf(storyboard, info) {
@@ -50175,7 +50215,7 @@ async function writeVideos(session, info, audio) {
     ...await captureFrames(session, { frames: [intro], names: [SLIDES.wide], width: info.width, height: info.height }),
     ...await captureFrames(session, { frames: [intro], names: [SLIDES.square], width: SQUARE, height: SQUARE })
   ];
-  const framesDir = join90(session.work, "video");
+  const framesDir = join91(session.work, "video");
   await captureInto(session, "video", { url: session.server.page(), count: info.frames, width: info.width, height: info.height });
   const encode3 = providerFor("encode", DEFAULTS.encode, session.tools.warn, session.tools.registry);
   const videos = [];
@@ -50190,7 +50230,7 @@ function warnOnLength(seconds4, { min, max }, warn) {
   if (seconds4 < min || seconds4 > max) warn(`length: the video lasts ${String(seconds4)} s, outside the settings' ${String(min)} to ${String(max)} s`);
 }
 async function inSession(dir, tools, run) {
-  const work = join90(dir, WORK_DIR);
+  const work = join91(dir, WORK_DIR);
   rmSync11(work, { recursive: true, force: true });
   mkdirSync22(work, { recursive: true });
   const server = await serveRun({ dir });
@@ -50324,9 +50364,9 @@ function refusalHere(ctx, prd2, { exec, store }) {
 }
 function openRun(ctx, { prd: prd2, audience, settings, exec, now: now2 }) {
   const commit = exec("git", ["rev-parse", "HEAD"], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-  const dir = pitchRunDir(join91(ctx.root, ctx.config.worktrees), prd2, audience, now2());
-  mkdirSync23(join91(dir, "assets"), { recursive: true });
-  writeFileSync32(join91(dir, RUN_SETTINGS), `${JSON.stringify(settings, null, 2)}
+  const dir = pitchRunDir(join92(ctx.root, ctx.config.worktrees), prd2, audience, now2());
+  mkdirSync23(join92(dir, "assets"), { recursive: true });
+  writeFileSync32(join92(dir, RUN_SETTINGS), `${JSON.stringify(settings, null, 2)}
 `);
   const look = settings.look.preset;
   writePitchJson(dir, { prd: prd2, audience, look, commit });
@@ -50368,8 +50408,8 @@ async function film(args, { cwd, stdout, stderr, exec, film: launch }) {
     for (const line of error62 instanceof FilmRefused ? error62.lines : [`film failed: ${firstLine5(error62)}`]) println(stderr, line);
     return 1;
   }
-  println(stdout, join91(dir, WALK_CLIP));
-  println(stdout, join91(dir, MOMENTS_FILE));
+  println(stdout, join92(dir, WALK_CLIP));
+  println(stdout, join92(dir, MOMENTS_FILE));
   for (const moment of moments.steps) println(stdout, momentLine(moment));
   println(stdout, `${String(moments.seconds)} s`);
   return 0;
@@ -50377,7 +50417,7 @@ async function film(args, { cwd, stdout, stderr, exec, film: launch }) {
 function check3(args, { cwd, stdout, stderr }) {
   const { arg } = oneArg("check", args);
   const dir = runFolder("check", cwd, arg);
-  if (!existsSync64(join91(dir, STORYBOARD_FILE))) throw usageError(`omni pitch check: ${arg} holds no ${STORYBOARD_FILE} yet.`);
+  if (!existsSync64(join92(dir, STORYBOARD_FILE))) throw usageError(`omni pitch check: ${arg} holds no ${STORYBOARD_FILE} yet.`);
   const { errors, warnings, scenes, seconds: seconds4 } = checkRunFolder(dir);
   for (const finding of errors) println(stderr, `error: ${findingLine(finding)}`);
   for (const finding of warnings) println(stderr, `warning: ${findingLine(finding)}`);
@@ -50388,7 +50428,7 @@ function check3(args, { cwd, stdout, stderr }) {
 }
 function storyboardFolder(verb2, cwd, dir) {
   const folder = runFolder(verb2, cwd, dir);
-  if (!existsSync64(join91(folder, STORYBOARD_FILE))) throw usageError(`omni pitch ${verb2}: ${dir} holds no ${STORYBOARD_FILE} yet.`);
+  if (!existsSync64(join92(folder, STORYBOARD_FILE))) throw usageError(`omni pitch ${verb2}: ${dir} holds no ${STORYBOARD_FILE} yet.`);
   return folder;
 }
 var providerFetch = (fetch) => (url2, init3) => fetch(url2, { ...init3 });
@@ -50424,7 +50464,7 @@ async function render(args, { cwd, stdout, stderr, exec, fetch, launch }) {
     for (const line of failureLines(error62)) println(stderr, line);
     return 1;
   }
-  for (const file2 of rendered2.files) println(stdout, join91(dir, file2));
+  for (const file2 of rendered2.files) println(stdout, join92(dir, file2));
   println(stdout, `${String(rendered2.seconds)} s, music: ${rendered2.music.provider}${rendered2.music.licence === null ? "" : ` (${rendered2.music.licence})`}`);
   return 0;
 }
@@ -50546,7 +50586,7 @@ import { isAbsolute as isAbsolute8, resolve as resolve7 } from "node:path";
 // kit/lib/proof/push.ts
 init_define_OMNI_BUNDLE();
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { readFileSync as readFileSync70 } from "node:fs";
+import { readFileSync as readFileSync71 } from "node:fs";
 var isRecord8 = (value) => typeof value === "object" && value !== null;
 var GIF = "preview.gif";
 var ProofReplyError = class extends Error {
@@ -50573,7 +50613,7 @@ async function pushProof({
   repo,
   prd: prd2,
   run,
-  read: read2 = readFileSync70,
+  read: read2 = readFileSync71,
   newRunId = randomUUID2
 }) {
   let runId;
@@ -50594,8 +50634,8 @@ async function pushProof({
 
 // kit/lib/proof/run.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync65, readFileSync as readFileSync71, statSync as statSync17 } from "node:fs";
-import { join as join92 } from "node:path";
+import { existsSync as existsSync65, readFileSync as readFileSync72, statSync as statSync17 } from "node:fs";
+import { join as join93 } from "node:path";
 var RUN_FILE = "run.json";
 var PROOF_GIF_NAME = "preview.gif";
 var PROOF_FILE_MAX_BYTES = 50 * 1024 * 1024;
@@ -50662,7 +50702,7 @@ function criterionOf(item2, index) {
   return extrasOf(sent, at2, { text: text13, verdict: verdictOf2(sent, at2) });
 }
 function fileOf2(dir, name2) {
-  const path = join92(dir, name2);
+  const path = join93(dir, name2);
   if (!existsSync65(path) || !statSync17(path).isFile()) refuse3(`${name2}: not in the run folder`);
   const type = TYPES2[name2.slice(name2.lastIndexOf(".") + 1).toLowerCase()];
   if (!type) return refuse3(`${name2}: a proof takes .webm, .gif, .ts or .txt files`);
@@ -50671,11 +50711,11 @@ function fileOf2(dir, name2) {
   return { name: name2, path, bytes: size, type };
 }
 function readRun(dir) {
-  const file2 = join92(dir, RUN_FILE);
+  const file2 = join93(dir, RUN_FILE);
   if (!existsSync65(file2)) return null;
   let sent;
   try {
-    sent = JSON.parse(readFileSync71(file2, "utf8"));
+    sent = JSON.parse(readFileSync72(file2, "utf8"));
   } catch {
     sent = null;
   }
@@ -50688,7 +50728,7 @@ function readRun(dir) {
   }
   const criteria = given.map(criterionOf);
   const names = [...new Set(criteria.flatMap((c) => [c.video, c.script]).filter((name2) => Boolean(name2)))];
-  if (existsSync65(join92(dir, PROOF_GIF_NAME)) && !names.includes(PROOF_GIF_NAME)) names.push(PROOF_GIF_NAME);
+  if (existsSync65(join93(dir, PROOF_GIF_NAME)) && !names.includes(PROOF_GIF_NAME)) names.push(PROOF_GIF_NAME);
   if (names.length > PROOF_FILES_MAX) refuse3(`a run uploads ${PROOF_FILES_MAX} files at most: this one has ${names.length}`);
   const files = names.map((name2) => fileOf2(dir, name2));
   return { commit, url: url2, criteria, files };
@@ -50998,9 +51038,9 @@ function failure3(line, result) {
   const last = lastLine(result);
   return last === "" ? `${line} ${how}` : `${line} ${how}: ${last}`;
 }
-async function command(env, file2, args, timeoutMs = CHECK_LIMIT_MS, shown5 = [file2, ...args].join(" ")) {
+async function command(env, file2, args, timeoutMs = CHECK_LIMIT_MS, shown6 = [file2, ...args].join(" ")) {
   const result = await env.shell(file2, args, { cwd: env.root, timeoutMs });
-  return { result, outcome: result.code === 0 ? OK : notOk(failure3(shown5, result)) };
+  return { result, outcome: result.code === 0 ? OK : notOk(failure3(shown6, result)) };
 }
 var exitsZero = (file2, ...args) => async (env) => (await command(env, file2, args)).outcome;
 function packageJson(env) {
@@ -51460,8 +51500,8 @@ var roadmap = {
 
 // kit/bin/commands/rework.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync72, writeFileSync as writeFileSync34 } from "node:fs";
-import { join as join93 } from "node:path";
+import { readFileSync as readFileSync73, writeFileSync as writeFileSync34 } from "node:fs";
+import { join as join94 } from "node:path";
 
 // kit/lib/policy/rework.ts
 init_define_OMNI_BUNDLE();
@@ -51656,7 +51696,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync72(join93(ctx.root, path), "utf8");
+    return readFileSync73(join94(ctx.root, path), "utf8");
   } catch (error62) {
     if (errorCode(error62) === "ENOENT") return "";
     throw error62;
@@ -51733,7 +51773,7 @@ function runClose(args, { ctx, stdout }) {
   } catch (error62) {
     throw usageError(errorMessage(error62).split("\n")[0] ?? "");
   }
-  writeFileSync34(join93(ctx.root, settledFile), closedText);
+  writeFileSync34(join94(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
@@ -52139,10 +52179,10 @@ function contextColour(percent) {
 }
 function contextPart(percent, { color = false } = {}) {
   if (typeof percent !== "number" || !Number.isFinite(percent)) return "context \u2014";
-  const shown5 = Math.floor(percent);
-  const filled = Math.max(0, Math.min(BAR_CELLS2, Math.floor(shown5 / 10)));
+  const shown6 = Math.floor(percent);
+  const filled = Math.max(0, Math.min(BAR_CELLS2, Math.floor(shown6 / 10)));
   const bar2 = FILLED.repeat(filled) + EMPTY.repeat(BAR_CELLS2 - filled);
-  return `context ${paint(`${bar2} ${shown5}%`, contextColour(shown5), color)}`;
+  return `context ${paint(`${bar2} ${shown6}%`, contextColour(shown6), color)}`;
 }
 function resetIn(ms) {
   const minutes = Math.ceil(ms / MINUTE3);
@@ -52164,7 +52204,7 @@ function visibleLength(line) {
 function fit2(line, width) {
   if (visibleLength(line) <= width) return line;
   let out = "";
-  let shown5 = 0;
+  let shown6 = 0;
   let open3 = false;
   for (const [token] of line.matchAll(TOKEN)) {
     if (SGR.test(token)) {
@@ -52172,9 +52212,9 @@ function fit2(line, width) {
       open3 = token !== RESET;
       continue;
     }
-    if (shown5 === width - 1) break;
+    if (shown6 === width - 1) break;
     out += token;
-    shown5 += 1;
+    shown6 += 1;
   }
   return `${out}${open3 ? RESET : ""}${CUT}`;
 }
@@ -52408,7 +52448,7 @@ var statusline = {
 init_define_OMNI_BUNDLE();
 import { mkdtempSync as mkdtempSync2, rmSync as rmSync12 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join94 } from "node:path";
+import { join as join95 } from "node:path";
 
 // kit/lib/update/plugin.ts
 init_define_OMNI_BUNDLE();
@@ -52430,7 +52470,7 @@ function updatePlugin({ version: version3 = null, exec, println: println2 }) {
 // kit/bin/commands/update.ts
 var USAGE33 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
-  const dir = mkdtempSync2(join94(tmpdir2(), "omni-update-"));
+  const dir = mkdtempSync2(join95(tmpdir2(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home: defined(home, "the kit home"), version: target3, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
