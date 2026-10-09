@@ -99,14 +99,15 @@ export type ReachRepository = ReturnType<typeof reachRepository>;
 // ── The approval stream's side (PRD 1322 s3) ──────────────────────────────────────
 //
 // As the caller (a terminal's access token), so row-level security decides what they read: a PRD's
-// dossier, its requests, approvals and voids, the players they name and their products' names; and
+// dossier, its requests, approvals and voids, the people they name (approval_people(), with the
+// login member_login() gives each, as the request route names them) and their products' names; and
 // Supabase Realtime on the three tables for that dossier, which only says that something landed.
 
 /** A Supabase client acting as the caller: its tables, and Realtime. */
-type StreamDb = Pick<SupabaseClient<Database>, 'from' | 'channel' | 'removeChannel' | 'realtime'>;
+type StreamDb = Pick<SupabaseClient<Database>, 'from' | 'rpc' | 'channel' | 'removeChannel' | 'realtime'>;
 
 /** A PRD's approval history, as the stream reads it: requests (with their product's name), approvals
- * and voids, the author (whoever opened the dossier, when anyone did) and the players they name. */
+ * and voids, the author (whoever opened the dossier, when anyone did) and the people they name. */
 export type ApprovalHistory = {
   dossier: string;
   author: string | null;
@@ -122,7 +123,7 @@ const RequestRows = z.array(z.object({
 }));
 const ApprovalRows = z.array(z.object({ id: UUID, approver_login: text, approved_at: at, files: z.array(z.unknown()) }));
 const VoidRows = z.array(z.object({ id: UUID, pusher_login: text, kind: text, from_sha256: text, to_sha256: text, voided_at: at }));
-const PlayerRows = z.array(z.object({ user_id: UUID, github_login: z.string().nullable(), display_name: z.string().nullable() }));
+const PeopleRows = z.array(z.object({ user: UUID, login: z.string().nullable(), name: z.string().nullable() }));
 const ProductRows = z.array(z.object({ id: UUID, name: text }));
 
 /** The tables whose new rows the stream follows. */
@@ -132,7 +133,7 @@ const none = <T>(): Promise<Answer<T[]>> => Promise.resolve({ ok: true, value: [
 
 type Dossier = z.infer<typeof DossierRows>[number];
 type Rows = { requests: z.infer<typeof RequestRows>; approvals: z.infer<typeof ApprovalRows>; voids: z.infer<typeof VoidRows> };
-type Names = { players: z.infer<typeof PlayerRows>; products: z.infer<typeof ProductRows> };
+type Names = { people: z.infer<typeof PeopleRows>; products: z.infer<typeof ProductRows> };
 
 /** The numbered PRD dossier the caller reads, the latest numbered first; none when there is no such. */
 const dossierOf = (db: StreamDb, repo: string, prd: PrdNumber) => parsed(
@@ -152,12 +153,8 @@ async function rowsOf(db: StreamDb, dossier: string): Promise<Answer<Rows>> {
   return voids.ok ? { ok: true, value: { requests: requests.value, approvals: approvals.value, voids: voids.value } } : voids;
 }
 
-/** The players the dossier and its requests name, in its workspace. */
-function playersOf(db: StreamDb, dossier: Dossier, requests: Rows['requests']) {
-  const users = [...new Set([dossier.opened_by, ...requests.flatMap((r) => [r.asked_by, ...r.asked])].filter((u): u is string => u !== null))];
-  if (!users.length) return none<Names['players'][number]>();
-  return parsed(db.from('players').select('user_id, github_login, display_name').eq('workspace_id', dossier.workspace_id).in('user_id', users), PlayerRows, 'players');
-}
+/** The people the dossier and its requests name, each with the login the request route gives them. */
+const peopleOf = (db: StreamDb, dossier: Dossier) => parsed(db.rpc('approval_people', { p_dossier: dossier.id }), PeopleRows, 'approval_people');
 
 /** The products the requests name. */
 function productsOf(db: StreamDb, requests: Rows['requests']) {
@@ -166,15 +163,15 @@ function productsOf(db: StreamDb, requests: Rows['requests']) {
   return parsed(db.from('products').select('id, name').in('id', ids), ProductRows, 'products');
 }
 
-/** The players and the products the requests name. */
+/** The people and the products the requests name. */
 async function namesOf(db: StreamDb, dossier: Dossier, requests: Rows['requests']): Promise<Answer<Names>> {
-  const [players, products] = await Promise.all([playersOf(db, dossier, requests), productsOf(db, requests)]);
-  if (!players.ok) return players;
-  return products.ok ? { ok: true, value: { players: players.value, products: products.value } } : products;
+  const [people, products] = await Promise.all([peopleOf(db, dossier), productsOf(db, requests)]);
+  if (!people.ok) return people;
+  return products.ok ? { ok: true, value: { people: people.value, products: products.value } } : products;
 }
 
 /** The rows read, as the stream's history. */
-function historyOf(dossier: Dossier, { requests, approvals, voids }: Rows, { players, products }: Names): ApprovalHistory {
+function historyOf(dossier: Dossier, { requests, approvals, voids }: Rows, { people, products }: Names): ApprovalHistory {
   const productName = new Map(products.map((p) => [p.id, p.name]));
   return {
     dossier: dossier.id,
@@ -185,7 +182,7 @@ function historyOf(dossier: Dossier, { requests, approvals, voids }: Rows, { pla
     })),
     approvals: approvals.map((a) => ({ id: a.id, approver: a.approver_login, approvedAt: a.approved_at, pinned: a.files.length })),
     voids: voids.map((v) => ({ id: v.id, pusher: v.pusher_login, kind: v.kind, from: v.from_sha256, to: v.to_sha256, voidedAt: v.voided_at })),
-    people: players.map((p) => ({ user: p.user_id, login: p.github_login, name: p.display_name })),
+    people,
   };
 }
 

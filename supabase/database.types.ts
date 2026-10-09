@@ -2984,6 +2984,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      approval_people: { Args: { p_dossier: string }; Returns: Json }
       approval_recipients: { Args: { p_request: string }; Returns: Json }
       approval_request: {
         Args: { p_prd: number; p_repo: string }
