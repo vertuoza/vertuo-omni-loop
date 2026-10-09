@@ -196,6 +196,41 @@ export type Database = {
           },
         ]
       }
+      approvals: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          approver_login: string
+          dossier_id: string
+          files: Json
+          id: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          approver_login: string
+          dossier_id: string
+          files: Json
+          id?: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          approver_login?: string
+          dossier_id?: string
+          files?: Json
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approvals_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       arcade_scores: {
         Row: {
           at: string
@@ -960,6 +995,7 @@ export type Database = {
       }
       dossiers: {
         Row: {
+          birthplace: string | null
           claude_session_id: string | null
           created_at: string
           home_repo: string
@@ -972,6 +1008,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          birthplace?: string | null
           claude_session_id?: string | null
           created_at?: string
           home_repo: string
@@ -984,6 +1021,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          birthplace?: string | null
           claude_session_id?: string | null
           created_at?: string
           home_repo?: string
@@ -3292,6 +3330,11 @@ export type Database = {
         }
         Returns: number
       }
+      dossier_approval: {
+        Args: { p_prd: number; p_repo: string }
+        Returns: Json
+      }
+      dossier_approve: { Args: { p_dossier: string }; Returns: Json }
       dossier_list: {
         Args: { p_dossier?: string; p_workspace?: string }
         Returns: {
@@ -3881,6 +3924,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      spec_says_server: { Args: { p_content: string }; Returns: boolean }
       submit_score: {
         Args: { game: string; score: number; workspace: string }
         Returns: number
