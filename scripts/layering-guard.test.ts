@@ -15,28 +15,230 @@
 // Unlike the import guard (ADR-0058), this one starts from a baseline: `layering/baseline.json` lists
 // today's breaches, one line per file and rule, so an old file never blocks a feature. The check fails
 // on a breach the baseline does not list, and on a baseline line whose breach is gone, so the list
-// only shrinks. The rules are proven on the fixture tree under `scripts/fixtures/layering/` first
-// (each file there carries a `.txt` suffix, so no typecheck, linter or dead-code audit reads it as
-// source), then the baseline's two rules, then the guard runs on every file git tracks.
+// only shrinks. The rules are proven on an inline fixture tree first, as the import guard proves
+// its own, then the baseline's two rules, then the guard runs on every file git tracks.
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, posix, relative, sep } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
-const fixtureRoot = join(repoRoot, 'scripts', 'fixtures', 'layering');
 const BASELINE = 'layering/baseline.json';
 
-/** The fixture tree, each file at the path it stands for (its `.txt` suffix dropped). */
-const fixtures: readonly File[] = readdirSync(fixtureRoot, { recursive: true, withFileTypes: true })
-  .filter((entry) => entry.isFile() && entry.name.endsWith('.txt'))
-  .map((entry) => {
-    const full = join(entry.parentPath, entry.name);
-    return { path: relative(fixtureRoot, full).split(sep).join('/').replace(/\.txt$/, ''), text: readFileSync(full, 'utf8') };
-  });
+/** One fixture file's text, a line per argument. */
+const src = (...lines: string[]): string => `${lines.join('\n')}\n`;
+
+/** The fixture tree: a small galaxy app, each file at the path it stands for. */
+const fixtures: readonly File[] = [
+  {
+    path: 'apps/galaxy/app/api/orders/[id]/route.ts',
+    text: src(
+      "export { GET } from '../../../../src/orders/orders.controller';",
+    ),
+  },
+  {
+    path: 'apps/galaxy/app/api/orders/route.ts',
+    text: src(
+      "import { userDb } from '../../../src/data/db';",
+      '',
+      'export const GET = async () => Response.json((await userDb()).auth);',
+    ),
+  },
+  {
+    path: 'apps/galaxy/app/orders/[id]/page.tsx',
+    text: src(
+      "import { orderService } from '../../../src/orders/orders.service';",
+      '',
+      'export default async function OrderPage() {',
+      '  const orders = await orderService(undefined as never).list();',
+      '  return <p>{orders.length}</p>;',
+      '}',
+    ),
+  },
+  {
+    path: 'apps/galaxy/app/orders/page.tsx',
+    text: src(
+      "import { createServerClient } from '@supabase/ssr';",
+      '',
+      'export default function OrdersPage() {',
+      '  return <p>{typeof createServerClient}</p>;',
+      '}',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/data/db.ts',
+    text: src(
+      "import 'server-only';",
+      "import { createClient } from '@supabase/supabase-js';",
+      '',
+      '// The database module: it builds the client, and only repositories import it.',
+      "export const userDb = async () => createClient('https://db.example', 'key');",
+      'export type Db = Awaited<ReturnType<typeof userDb>>;',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/data/sign-in.client.ts',
+    text: src(
+      "import { createBrowserClient } from '@supabase/ssr';",
+      '',
+      '// The sign-in module: the one browser module that builds a Supabase client, for authentication only.',
+      'export const signOutHere = async ({ url, key }: { url: string; key: string }) => {',
+      '  await createBrowserClient(url, key).auth.signOut();',
+      '};',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/OrdersList.tsx',
+    text: src(
+      "'use client';",
+      "import { createBrowserClient } from '@supabase/ssr';",
+      "import { useEffect, useState } from 'react';",
+      '',
+      'export function OrdersList({ url, key }: { url: string; key: string }) {',
+      '  const [rows, setRows] = useState<{ id: string }[]>([]);',
+      '  useEffect(() => {',
+      '    const supabase = createBrowserClient(url, key);',
+      "    void supabase.from('orders').select('id').then(({ data }) => setRows(data ?? []));",
+      '  }, [url, key]);',
+      '  return <ul>{rows.map((row) => <li key={row.id}>{row.id}</li>)}</ul>;',
+      '}',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/OrdersPanel.tsx',
+    text: src(
+      "'use client';",
+      "import { listOrders } from './orders.repository';",
+      "import { orderService } from './orders.service';",
+      "import { GET } from './orders.controller';",
+      '',
+      'export const OrdersPanel = () => <p>{[listOrders, orderService, GET].length}</p>;',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/OrdersView.tsx',
+    text: src(
+      "'use client';",
+      "import { use } from 'react';",
+      "import { fetchOrders } from './orders.client';",
+      "import type { Order } from './orders.contract';",
+      '',
+      'export const OrdersView = ({ orders }: { orders: Promise<Order[]> }) => <p>{use(orders).length || fetchOrders.name}</p>;',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/arrays.ts',
+    text: src(
+      '// `.from(` on a built-in is not a database call.',
+      'export const ids = (rows: Iterable<string>) => Array.from(rows);',
+      "export const bytes = (text: string) => Buffer.from(text, 'utf8');",
+      'export const seen = (rows: string[]) => Array.from(new Set(rows));',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/orders.client.ts',
+    text: src(
+      "import { OrdersSchema } from './orders.contract';",
+      '',
+      "export const fetchOrders = async () => OrdersSchema.parse(await (await fetch('/api/orders')).json());",
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/orders.contract.ts',
+    text: src(
+      "import { z } from 'zod';",
+      '',
+      'export const OrderSchema = z.object({ id: z.string(), total: z.number() });',
+      'export const OrdersSchema = z.array(OrderSchema);',
+      'export type Order = z.infer<typeof OrderSchema>;',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/orders.controller.ts',
+    text: src(
+      "import { OrdersSchema } from './orders.contract';",
+      "import { orderService } from './orders.service';",
+      '',
+      'export async function GET() {',
+      '  return Response.json(OrdersSchema.parse(await orderService(undefined as never).list()));',
+      '}',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/orders.repository.ts',
+    text: src(
+      "import type { Db } from '../data/db';",
+      '',
+      "export const listOrders = async (db: Db) => (await db.from('orders').select('id, total')).data ?? [];",
+      "export const recordRefund = async (db: Db, id: string) => db.rpc('record_refund', { id });",
+      'export const ordersRepository = (db: Db) => ({ list: () => listOrders(db) });',
+      'export type OrdersRepository = ReturnType<typeof ordersRepository>;',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/orders.service.ts',
+    text: src(
+      "import type { Order } from './orders.contract';",
+      "import type { OrdersRepository } from './orders.repository';",
+      '',
+      'export const orderService = (orders: OrdersRepository) => ({',
+      '  list: () => orders.list(),',
+      '  total: (rows: Order[]) => rows.reduce((sum, order) => sum + order.total, 0),',
+      '});',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/pricing.service.ts',
+    text: src(
+      "import type { SupabaseClient } from '@supabase/supabase-js';",
+      "import { userDb } from '../data/db';",
+      '',
+      'export const pricing = async (db?: SupabaseClient) => db ?? (await userDb());',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/refunds.client.ts',
+    text: src(
+      "import { userDb } from '../data/db';",
+      '',
+      'export const refunds = async () => (await userDb()).auth.getUser();',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/refunds.controller.ts',
+    text: src(
+      "import { listOrders } from './orders.repository';",
+      '',
+      'export const GET = async () => Response.json(await listOrders(undefined as never));',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/totals.repository.ts',
+    text: src(
+      "import type { Db } from '../data/db';",
+      "import { listOrders } from './orders.repository';",
+      "import { orderService } from './orders.service';",
+      '',
+      'export const totals = async (db: Db) => orderService(db).total(await listOrders(db));',
+    ),
+  },
+  {
+    path: 'apps/galaxy/src/orders/uploads.ts',
+    text: src(
+      "import type { Db } from '../data/db';",
+      '',
+      '// Not a repository, yet it reaches the database: two calls a repository should make.',
+      '',
+      'export async function upload(db: Db, file: Blob) {',
+      "  await db.storage.from('order-files').upload('receipt', file);",
+      "  return db.rpc('order_total');",
+      '}',
+    ),
+  },
+];
 
 /** The fixture tree's findings for one file, as `line rule`. */
 const foundIn = (path: string): string[] =>

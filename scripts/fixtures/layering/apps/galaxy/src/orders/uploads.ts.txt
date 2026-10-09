@@ -1,8 +1,0 @@
-import type { Db } from '../data/db';
-
-// Not a repository, yet it reaches the database: two calls a repository should make.
-
-export async function upload(db: Db, file: Blob) {
-  await db.storage.from('order-files').upload('receipt', file);
-  return db.rpc('order_total');
-}

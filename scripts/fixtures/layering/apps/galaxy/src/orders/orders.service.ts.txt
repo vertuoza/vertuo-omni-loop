@@ -1,7 +1,0 @@
-import type { Order } from './orders.contract';
-import type { OrdersRepository } from './orders.repository';
-
-export const orderService = (orders: OrdersRepository) => ({
-  list: () => orders.list(),
-  total: (rows: Order[]) => rows.reduce((sum, order) => sum + order.total, 0),
-});

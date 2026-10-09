@@ -1,6 +1,0 @@
-import { OrdersSchema } from './orders.contract';
-import { orderService } from './orders.service';
-
-export async function GET() {
-  return Response.json(OrdersSchema.parse(await orderService(undefined as never).list()));
-}

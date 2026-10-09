@@ -1,3 +1,0 @@
-import { OrdersSchema } from './orders.contract';
-
-export const fetchOrders = async () => OrdersSchema.parse(await (await fetch('/api/orders')).json());

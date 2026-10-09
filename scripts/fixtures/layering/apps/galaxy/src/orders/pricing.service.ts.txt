@@ -1,4 +1,0 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { userDb } from '../data/db';
-
-export const pricing = async (db?: SupabaseClient) => db ?? (await userDb());

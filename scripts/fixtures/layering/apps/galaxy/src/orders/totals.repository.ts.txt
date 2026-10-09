@@ -1,5 +1,0 @@
-import type { Db } from '../data/db';
-import { listOrders } from './orders.repository';
-import { orderService } from './orders.service';
-
-export const totals = async (db: Db) => orderService(db).total(await listOrders(db));

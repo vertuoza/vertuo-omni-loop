@@ -1,3 +1,0 @@
-import { userDb } from '../../../src/data/db';
-
-export const GET = async () => Response.json((await userDb()).auth);

@@ -1,6 +1,0 @@
-import { createBrowserClient } from '@supabase/ssr';
-
-// The sign-in module: the one browser module that builds a Supabase client, for authentication only.
-export const signOutHere = async ({ url, key }: { url: string; key: string }) => {
-  await createBrowserClient(url, key).auth.signOut();
-};

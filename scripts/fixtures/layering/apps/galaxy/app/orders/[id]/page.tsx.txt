@@ -1,6 +1,0 @@
-import { orderService } from '../../../src/orders/orders.service';
-
-export default async function OrderPage() {
-  const orders = await orderService(undefined as never).list();
-  return <p>{orders.length}</p>;
-}

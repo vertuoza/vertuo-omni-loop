@@ -1,3 +1,0 @@
-import { userDb } from '../data/db';
-
-export const refunds = async () => (await userDb()).auth.getUser();

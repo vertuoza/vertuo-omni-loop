@@ -1,6 +1,0 @@
-'use client';
-import { listOrders } from './orders.repository';
-import { orderService } from './orders.service';
-import { GET } from './orders.controller';
-
-export const OrdersPanel = () => <p>{[listOrders, orderService, GET].length}</p>;
