@@ -23,6 +23,11 @@
 // PRD 1272 (s4): then each workspace's concept dossiers whose concept PR has not merged are read through the
 // concept reader and stored in fix_facts too, so /concepts and a concept's page show its state without
 // GitHub. A merged concept is in the inbox for good and is not read again. A failure is logged the same way.
+//
+// PRD 1299 (s6): with each repository's snapshot, the PRDs it holds that were born on the server (◆) are
+// read with their first approval (`approvals`), so their inbox is dated at that approval and never at a
+// phase-0 merge (./core.ts). Approvals that cannot be read are logged, and the repository's stages are
+// dated as for a PRD born in the repository.
 import 'server-only';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { ConceptReader, DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
@@ -30,7 +35,7 @@ import { isFinal, refreshConceptFacts, refreshFixFacts } from '../../fixes/facts
 import type { ConceptFactsStore, FixFactsStore } from '../../fixes/facts/store';
 import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
-import { changedPrds, stagesOfRepo, type RepoSnapshot } from './core';
+import { changedPrds, stagesOfRepo, type RepoSnapshot, type ServerBorn } from './core';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { firstPart, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
@@ -45,6 +50,8 @@ export type SyncDeps = {
   repositories(workspace: SyncWorkspace): Promise<string[]>;
   /** Given `since`, only the issues and pull requests updated since then; null reads everything. */
   snapshot(workspace: SyncWorkspace, repository: string, since: string | null): Promise<RepoSnapshot>;
+  /** The repository's PRDs born on the server, each with its first approval; none given, there are none. */
+  approvals?(workspace: SyncWorkspace, repository: string): Promise<ServerBorn[]>;
   store: StageStore;
   /** The GitHub summaries and the outbox store the open questions are recounted with; none, no recount. */
   outbox?: Pick<RecountDeps, 'summary' | 'store'>;
@@ -150,11 +157,22 @@ function bearerMatches(request: Request, secret: string | undefined): boolean {
   return timingSafeEqual(digest(group(match, 1)), digest(secret));
 }
 
+/** The repository's ◆ PRDs and their first approval; none, logged, when they cannot be read. */
+async function serverBornOf(deps: SyncDeps, workspace: SyncWorkspace, repository: string): Promise<ServerBorn[]> {
+  if (!deps.approvals) return [];
+  try {
+    return await deps.approvals(workspace, repository);
+  } catch (error) {
+    deps.log(`stages sync: the approvals of ${repository} cannot be read — ${why(error)}`);
+    return [];
+  }
+}
+
 /** Reads and records one repository; its counts, or throws with why it was skipped. */
 async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: string, syncedAt: string): Promise<SyncedRepo> {
   const since = await sinceOf(deps, workspace, repository);
   const snapshot = await deps.snapshot(workspace, repository, since);
-  const { stages, topics } = stagesOfRepo(snapshot, syncedAt);
+  const { stages, topics } = stagesOfRepo(snapshot, syncedAt, await serverBornOf(deps, workspace, repository));
   await deps.store.recordStages(stages.map((s) => ({ ...s, workspace_id: workspace.id })), syncedAt);
   let learnt = 0;
   for (const topic of topics) {
