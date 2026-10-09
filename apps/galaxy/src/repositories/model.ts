@@ -3,8 +3,13 @@
 // when it was last collected; what Add repository offers (what the workspace's Omni App installation
 // can see, minus what is listed); which listed repositories the App cannot read; and the page's state
 // through its actions. GitHub spells a repository in any case; the list keeps it in lower case, so
-// every comparison ignores case.
+// every comparison ignores case. PRD 1299 s1 adds where its phase 0 is approved: a docs-only phase-0
+// pull request (`pr`, the default) or the PRD page (`server`), the owner's to switch.
 import { z } from 'zod';
+
+/** Where a repository's phase 0 is approved (PRD 1299): a phase-0 pull request, or the PRD page. */
+export const Phase0Schema = z.enum(['pr', 'server']);
+export type Phase0 = z.infer<typeof Phase0Schema>;
 
 export interface RepositoryRow {
   /** `owner/name`, in lower case. */
@@ -18,6 +23,8 @@ export interface RepositoryRow {
   product: string | null;
   /** Whether its ideas board is public at /ideas/<owner>/<repo> (PRD 1246 s4): any member's to switch. */
   publicIdeas: boolean;
+  /** Where its phase 0 is approved (PRD 1299 s1): the owner's to switch. Absent reads as `pr`. */
+  phase0?: Phase0 | undefined;
 }
 
 /** A public.repositories row, as PostgREST answers it. */
@@ -28,6 +35,7 @@ export interface StoredRepository {
   collect_error?: string | null;
   product_id?: string | null;
   public_ideas?: boolean;
+  phase0?: string | null;
 }
 
 /** The whole public.repositories row the owner's functions answer (`returns public.repositories`). */
@@ -42,6 +50,7 @@ export const SavedRepository = z.strictObject({
   collect_error: z.string().nullable(),
   product_id: z.string().nullable(),
   public_ideas: z.boolean(),
+  phase0: Phase0Schema,
 });
 
 export const rowOf = (r: StoredRepository): RepositoryRow => ({
@@ -51,7 +60,11 @@ export const rowOf = (r: StoredRepository): RepositoryRow => ({
   collectError: r.collect_error ?? null,
   product: r.product_id ?? null,
   publicIdeas: r.public_ideas ?? false,
+  phase0: r.phase0 === 'server' ? 'server' : 'pr',
 });
+
+/** Where the repository's phase 0 is approved, `pr` when its row does not say. */
+export const phase0Of = (row: RepositoryRow): Phase0 => row.phase0 ?? 'pr';
 
 const MINUTE = 60_000;
 

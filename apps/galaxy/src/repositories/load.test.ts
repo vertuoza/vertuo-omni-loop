@@ -101,8 +101,8 @@ describe('the repositories page\'s read', () => {
       workspace: { id: 'ws-1', name: 'Vertuoza' },
       owner: true,
       repositories: [
-        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, product: null, publicIdeas: false },
-        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404', product: null, publicIdeas: false },
+        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, product: null, publicIdeas: false, phase0: 'pr' },
+        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404', product: null, publicIdeas: false, phase0: 'pr' },
       ],
       products: [{ id: 'p-1', name: 'Vertuoza' }],
       access: {
@@ -123,6 +123,14 @@ describe('the repositories page\'s read', () => {
       repositories: [{ fullName: 'vertuoza/vertuo-apps', publicIdeas: true }],
     });
     expect(d.calls).toContainEqual(['select', expect.stringContaining('public_ideas')]);
+  });
+
+  it('reads where each repository\'s phase 0 is approved (PRD 1299 s1)', async () => {
+    const d = db({ repositories: { data: [{ ...STORED[0], phase0: 'server' }] } });
+    expect(await loadRepositoriesPage(d as never, USER, app(), INSTALL, github())).toMatchObject({
+      repositories: [{ fullName: 'vertuoza/vertuo-apps', phase0: 'server' }],
+    });
+    expect(d.calls).toContainEqual(['select', expect.stringContaining('phase0')]);
   });
 
   it('reads the business\'s products, first first, and each repository\'s (PRD 748 s4)', async () => {
