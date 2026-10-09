@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { supabaseEnv } from '../data/supabase-server';
 import { installUrl } from '../signup/github-app';
+import { liveTellVoids } from '../approvals/void-live';
 import type { DossierDeps } from './api';
 import { serverEnv } from '../env';
 
@@ -10,7 +11,8 @@ import { serverEnv } from '../env';
 // token (never a service key), so dossier_open() and dossier_push() check who calls and row-level
 // security has the last word. Without Supabase configured (the demo galaxy, a closed build) every
 // dossier call answers 503. A refusal for a repository no workspace owns ends with the App's install
-// link (GITHUB_APP_SLUG), when this deployment has one.
+// link (GITHUB_APP_SLUG), when this deployment has one. A PRD push that voided an approval tells its
+// approver (src/approvals/void-live.ts, PRD 1322).
 export function dossierDeps(): DossierDeps {
   const env = supabaseEnv();
   if (!env) return { connect: null };
@@ -21,5 +23,6 @@ export function dossierDeps(): DossierDeps {
         auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       }),
     installLink: installUrl(serverEnv().githubAppSlug),
+    tellVoids: liveTellVoids,
   };
 }

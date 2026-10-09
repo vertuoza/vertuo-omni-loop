@@ -208,7 +208,7 @@ describe('currentItem and pageTrail', () => {
 });
 
 describe('badgeOf', () => {
-  const counts = { questions: 3, shared: 1, outbox: 2, total: 5 };
+  const counts = { questions: 3, shared: 1, outbox: 2, approvals: 0, total: 5 };
 
   it('gives Questions the Questions part, the shared ones included', () => {
     expect(badgeOf('questions', counts)).toBe(3);

@@ -38,6 +38,9 @@ const given = vi.hoisted(() => ({
   later: [] as (() => Promise<void>)[],
   // A ◆ PRD's approval in force (PRD 1299 s3), read as the member: the fake database keeps no approvals.
   approval: null as unknown as import('vitest').Mock<(db: unknown, id: string) => Promise<unknown>>,
+  // Its voids and the members its product asks to approve (PRD 1322 s7): none of either by default.
+  voids: null as unknown as import('vitest').Mock<() => Promise<unknown[]>>,
+  asked: null as unknown as import('vitest').Mock<() => Promise<string[]>>,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -71,6 +74,8 @@ vi.mock('../snapshot/live', async () => {
 vi.mock('./approval', async (original) => ({
   ...(await original<typeof import('./approval')>()),
   readApproval: (db: unknown, id: string) => given.approval(db, id),
+  readVoids: () => given.voids(),
+  readAskedApprovers: () => given.asked(),
 }));
 vi.mock('../../stages/store', async (original) => ({
   ...(await original<typeof import('../../stages/store')>()),
@@ -121,6 +126,8 @@ beforeEach(async () => {
   given.paused = null;
   given.later = [];
   given.approval = vi.fn(() => Promise.resolve(null));
+  given.voids = vi.fn(() => Promise.resolve([]));
+  given.asked = vi.fn(() => Promise.resolve([]));
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -502,6 +509,85 @@ describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
     expect(page).toContain('The approval could not be read');
     expect(page).not.toMatch(APPROVE);
     expect(page).toContain('PRD #7 ↗');
+  });
+
+  // PRD 1322 s7: the approve screen.
+  const PROBLEM_SPEC = `${SPEC}\n## Problem\n\nNobody is told it waits.\n\n## Solution\n\nAsk the approvers.\n\n## Scope\n\nIn: all.\n`;
+  const pushSpec = async (content: string) => {
+    await given.fake.client('ada').rpc('dossier_push', {
+      p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'spec', content }],
+    });
+  };
+  const versionsOf = (kind: string) => given.fake.tables.dossier_versions.filter((v) => v.dossier_id === numbered && v.kind === kind);
+
+  it('opens the approve screen with the spec\'s Problem and Solution above Approve', async () => {
+    bornOnServer();
+    await pushSpec(PROBLEM_SPEC);
+    given.token = 'bob';
+    const page = await html(numbered);
+    const screen = /<section class="dossier-approve-screen"[\s\S]*?<\/section>/.exec(page)?.[0] ?? '';
+    expect(screen).toContain('<h2>Problem</h2>');
+    expect(screen).toContain('Nobody is told it waits.');
+    expect(screen).toContain('<h2>Solution</h2>');
+    expect(screen).toContain('Ask the approvers.');
+    expect(screen).not.toContain('Scope');
+    expect(screen.indexOf('Ask the approvers.')).toBeLessThan(screen.search(APPROVE));
+    expect(page.match(new RegExp(APPROVE, 'g'))).toHaveLength(1);
+  });
+
+  it('shows no Approve and no screen to a member the product does not ask, once it asks someone', async () => {
+    bornOnServer();
+    await pushSpec(PROBLEM_SPEC);
+    given.asked.mockResolvedValue([ADA.id]);
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(page).toContain('<strong>waiting for approval</strong>');
+    expect(page).not.toMatch(APPROVE);
+    expect(page).not.toContain('dossier-approve-screen');
+    given.token = 'ada';
+    expect(await html(numbered)).toMatch(APPROVE);
+  });
+
+  it('leaves Approve to any member when the product\'s approvers cannot be read', async () => {
+    bornOnServer();
+    given.asked.mockRejectedValue(new Error('down'));
+    given.token = 'bob';
+    expect(await html(numbered)).toMatch(APPROVE);
+  });
+
+  it('says the approval could not be read when its voids cannot be', async () => {
+    bornOnServer();
+    given.voids.mockRejectedValue(new Error('down'));
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(page).toContain('The approval could not be read');
+    expect(page).not.toMatch(APPROVE);
+  });
+
+  it('shows a voided approval as voided · approve again, with only the changed file\'s diff above Approve', async () => {
+    bornOnServer();
+    const [spec] = versionsOf('spec');
+    const [page_] = versionsOf('before-after');
+    assertDefined(spec, 'its spec');
+    assertDefined(page_, 'its before/after');
+    given.approval.mockResolvedValue({
+      id: 'a-1', approver_login: 'ada', approved_at: '2026-10-09T09:12:00Z',
+      files: [{ kind: 'spec', path: 'spec.md', version_id: spec.id }, { kind: 'before-after', path: 'before-after.html', version_id: page_.id }],
+    });
+    await pushSpec(PROBLEM_SPEC);
+    given.voids.mockResolvedValue([{
+      approval_id: 'a-1', kind: 'spec', from_sha256: 'a'.repeat(64), to_sha256: 'b'.repeat(64), pusher_login: 'bob', voided_at: '2026-10-09T10:00:00Z',
+    }]);
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(page).toContain('<strong>voided · approve again</strong>');
+    expect(page).toContain('voided by bob&#x27;s push aaaaaaa→bbbbbbb · 9 Oct 2026, 10:00 UTC');
+    const screen = /<section class="dossier-approve-screen"[\s\S]*?<\/section>/.exec(page)?.[0] ?? '';
+    expect(screen).toContain('<h3>spec.md</h3>');
+    expect(screen).not.toContain('before-after.html');
+    expect(screen).toContain('+ ## Problem');
+    expect(screen.indexOf('<h3>spec.md</h3>')).toBeLessThan(screen.indexOf('<h2>Problem</h2>'));
+    expect(screen).toMatch(APPROVE);
   });
 
   it('reads no approval for a PRD born in the repository, and shows none', async () => {

@@ -71,6 +71,39 @@ reasons:
   code, and the PRD's folder moving from `inbox/` to `shipped/`. You read the documents once, at
   phase 0, and the code once, at the end.
 
+### The approval handshake
+
+In a repository whose phase 0 is approved on the server, there is no phase-0 pull request: a PRD
+born there (◆) is approved with **Approve** on its page on the Omni page. The loop asks for that
+approval, and waits for it, instead of stopping.
+
+- **Who approves: per product.** A workspace owner lists each product's **Approvers** on
+  **Settings › Products**: workspace members, each one *asked to approve* or *skipped*. Every member
+  reads the list. Once a product lists someone asked to approve, only those members may approve its
+  PRDs; a skipped member, or anyone outside the list, sees no **Approve**. A repository with no
+  product, or a product with nobody asked yet, keeps the earlier rule: any member of the workspace.
+- **Who is asked.** The product's members asked to approve, except the PRD's author. When that
+  leaves nobody, the author is asked.
+- **How each person is reached** is their own choice, on their profile page: **Phone alerts** (a
+  notification on this device, once the Omni page is installed on it; on an iPhone, added to the home
+  screen first) and **Email**, both off by default. Each request also shows in the page's bell.
+- **The wait.** `/omni:yolo <n>` on a ◆ PRD waiting for approval runs `omni wait approval <n>`: it
+  asks the approvers, prints `◌ PRD <n> · waiting for Irisa or Paul`, and follows the approval as it
+  happens. The moment someone approves, it prints `✓ PRD <n> approved by <login> · <time> · <k> files
+  pinned` and the build starts wave 1, with nothing typed again. The status line's band shows the same
+  lines. You can run `omni wait approval <n>` alone too: it exits 0 once approved.
+- **When it holds.** Signed out, it ends with `no sign-in (omni signin) · held`; past its
+  `--timeout` (60 minutes by default), with `held: still waiting for <names> after <minutes> min`.
+  Both exit 1, and `/omni:yolo` ends held on that line: run it again later. A lost connection is
+  resumed on its own; after three failed tries in a row it says `server unreachable · held, not
+  failed`, and keeps trying.
+- **A change voids the approval.** An `omni dossier push` that changes an approved file (spec, plan,
+  before/after, voice) voids the approval: the approver is told by phone and email, the page shows
+  **voided · approve again** with only what changed, `omni approval <n>` reads `drifted`, and a
+  waiting terminal prints `✗ approval voided by <pusher>'s push` and asks again.
+- **`/loop /omni:drive` never waits.** It parks a PRD waiting for approval, as it parks one whose
+  phase-0 pull request is open, and a later tick builds it once it is approved.
+
 ## The pull requests you will see
 
 ![The pull requests of one PRD over time: the phase-0 pull request, the feature branch and its sub-pull requests wave by wave, the merge of the feature pull request, then the retro and knowledge pull requests](diagrams/pull-requests.svg)

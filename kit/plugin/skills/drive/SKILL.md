@@ -186,7 +186,9 @@ page`, and `link` is its dossier link, which both park items carry. Drifted from
 not a workspace member`, `refused (<status>)`), it parks on a person, its `why` carrying those
 lines. Its approval unanswered (`server unreachable · held, not failed`) is a `wait`, never a park
 and never a failure: a later tick reads it again. Never approve one: a workspace member does, on its
-page.
+page. A tick never waits for an approval either: it never runs `omni wait approval`, which holds a
+terminal until someone approves, and launches no step for a PRD still waiting. Whoever runs
+`/omni:yolo <n>` by hand waits on it there; the loop parks it, and a later tick finds it approved.
 
 **Held.** Under `--roadmap`, only the entries of `held` that carry a `gate` are the roadmap's, and
 only they are parked or held here; the pool's entries (no `gate`) are steps kept back for this tick,
