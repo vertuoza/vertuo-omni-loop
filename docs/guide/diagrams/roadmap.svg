@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 486" width="800" height="486">
+  <title>A roadmap, from the plan you have to the end</title>
+  <desc>Your plan (a page, a file or pasted text) goes through /omni:roadmap, or /omni:mega-roadmap in a plan repository: one map, one answer from you. It writes roadmap.md and every PRD's issue, spec and before/after, in one phase-0 PR a person reviews and merges, which puts the whole roadmap in the inbox, with no plan yet. You start /loop /omni:drive --roadmap, or /loop /omni:mega-drive --roadmap, once; the loop plans and builds each PRD once its blockers merged, up to its feature PR. A person merges each feature PR, which unblocks the next PRDs, and the next tick takes them up, until every PRD of the roadmap has merged.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <!-- the source -->
+  <rect x="23" y="19" width="150" height="112" class="dg-shadow"/>
+  <rect x="20" y="16" width="150" height="112" class="dg-box"/>
+  <text x="34" y="42" class="dg-px">SOURCE</text>
+  <text x="34" y="66" class="dg-small">the plan you have:</text>
+  <text x="34" y="82" class="dg-small">a page, a file</text>
+  <text x="34" y="98" class="dg-small">or pasted text</text>
+  <text x="34" y="118" class="dg-code dg-muted">no PRD yet</text>
+  <!-- the roadmap, written -->
+  <rect x="328" y="19" width="150" height="112" class="dg-shadow"/>
+  <rect x="325" y="16" width="150" height="112" class="dg-box"/>
+  <text x="339" y="42" class="dg-px">ROADMAP</text>
+  <text x="339" y="66" class="dg-small">roadmap.md, and</text>
+  <text x="339" y="82" class="dg-small">every PRD's issue,</text>
+  <text x="339" y="98" class="dg-small">spec, before/after</text>
+  <text x="339" y="118" class="dg-code dg-muted">one phase-0 PR</text>
+  <!-- the inbox -->
+  <rect x="633" y="19" width="150" height="112" class="dg-shadow"/>
+  <rect x="630" y="16" width="150" height="112" class="dg-box"/>
+  <text x="644" y="42" class="dg-px">INBOX</text>
+  <text x="644" y="66" class="dg-small">the whole roadmap,</text>
+  <text x="644" y="82" class="dg-small">approved at once;</text>
+  <text x="644" y="98" class="dg-small">no plan yet</text>
+  <text x="644" y="118" class="dg-code dg-muted">inbox/roadmaps/</text>
+  <!-- building -->
+  <rect x="633" y="299" width="150" height="112" class="dg-shadow"/>
+  <rect x="630" y="296" width="150" height="112" class="dg-box"/>
+  <text x="644" y="322" class="dg-px">BUILDING</text>
+  <text x="644" y="346" class="dg-small">each PRD planned</text>
+  <text x="644" y="362" class="dg-small">and built once its</text>
+  <text x="644" y="378" class="dg-small">blockers merged</text>
+  <text x="644" y="398" class="dg-code dg-muted">its feature PR</text>
+  <!-- shipped -->
+  <rect x="328" y="299" width="150" height="112" class="dg-shadow"/>
+  <rect x="325" y="296" width="150" height="112" class="dg-box"/>
+  <text x="339" y="322" class="dg-px">SHIPPED</text>
+  <text x="339" y="346" class="dg-small">a PRD merged into</text>
+  <text x="339" y="362" class="dg-small">the default branch</text>
+  <text x="339" y="398" class="dg-code dg-muted">delivery/shipped/</text>
+  <!-- the milestone -->
+  <rect x="23" y="299" width="150" height="112" class="dg-shadow"/>
+  <rect x="20" y="296" width="150" height="112" class="dg-box"/>
+  <text x="34" y="322" class="dg-px">MILESTONE</text>
+  <text x="34" y="346" class="dg-small">every PRD of the</text>
+  <text x="34" y="362" class="dg-small">roadmap merged</text>
+  <text x="34" y="398" class="dg-code dg-muted">the end</text>
+  <!-- source → roadmap -->
+  <path d="M176 64 L310 64" class="dg-line dg-edge-you"/>
+  <polygon points="319,64 310,69.5 310,58.5" class="dg-head dg-you"/>
+  <text x="247.5" y="52" class="dg-tag dg-you" text-anchor="middle">YOU + CLAUDE</text>
+  <text x="247.5" y="86" class="dg-code" text-anchor="middle">/omni:roadmap</text>
+  <text x="247.5" y="102" class="dg-code" text-anchor="middle">/omni:mega-roadmap</text>
+  <text x="247.5" y="122" class="dg-small dg-muted" text-anchor="middle">one map, one answer</text>
+  <!-- roadmap → inbox -->
+  <path d="M481 64 L615 64" class="dg-line dg-edge-you"/>
+  <polygon points="624,64 615,69.5 615,58.5" class="dg-head dg-you"/>
+  <text x="552.5" y="52" class="dg-tag dg-you" text-anchor="middle">YOU</text>
+  <text x="552.5" y="86" class="dg-small" text-anchor="middle">review, merge</text>
+  <text x="552.5" y="102" class="dg-small" text-anchor="middle">the one phase-0 PR</text>
+  <!-- inbox → building -->
+  <path d="M705 134 L705 281" class="dg-line dg-edge-agents"/>
+  <polygon points="705,290 699.5,281 710.5,281" class="dg-head dg-agents"/>
+  <text x="693" y="166" class="dg-tag dg-agents" text-anchor="end">THE LOOP</text>
+  <text x="693" y="186" class="dg-code" text-anchor="end">/loop /omni:drive --roadmap &lt;n&gt;</text>
+  <text x="693" y="204" class="dg-code" text-anchor="end">/loop /omni:mega-drive --roadmap &lt;n&gt;</text>
+  <text x="693" y="224" class="dg-small dg-muted" text-anchor="end">you start it once;</text>
+  <text x="693" y="240" class="dg-small dg-muted" text-anchor="end">it runs one step per tick</text>
+  <!-- building → shipped -->
+  <path d="M624 340 L490 340" class="dg-line dg-edge-you"/>
+  <polygon points="481,340 490,334.5 490,345.5" class="dg-head dg-you"/>
+  <text x="552.5" y="328" class="dg-tag dg-you" text-anchor="middle">YOU</text>
+  <text x="552.5" y="362" class="dg-small" text-anchor="middle">review, merge</text>
+  <text x="552.5" y="378" class="dg-small" text-anchor="middle">its feature PR</text>
+  <!-- shipped → the next PRDs, unblocked -->
+  <path d="M400 416 C400 452, 705 452, 705 425" class="dg-line dg-edge-agents dg-dash"/>
+  <polygon points="705,416 699.5,425 710.5,425" class="dg-head dg-agents"/>
+  <text x="552.5" y="472" class="dg-small dg-agents" text-anchor="middle">the next PRDs are unblocked: the next tick takes them up</text>
+  <!-- shipped → the milestone -->
+  <path d="M319 340 L185 340" class="dg-line dg-dash"/>
+  <polygon points="176,340 185,334.5 185,345.5" class="dg-head"/>
+  <text x="247.5" y="328" class="dg-tag dg-muted" text-anchor="middle">THE LAST ONE</text>
+  <text x="247.5" y="362" class="dg-small dg-muted" text-anchor="middle">once every PRD</text>
+  <text x="247.5" y="378" class="dg-small dg-muted" text-anchor="middle">has merged</text>
+  <!-- who acts -->
+  <text x="200" y="168" class="dg-tag dg-muted">WHO ACTS</text>
+  <rect x="200" y="180" width="11" height="11" class="dg-you"/>
+  <text x="220" y="190" class="dg-small"><tspan class="dg-you">you:</tspan> a person decides</text>
+  <rect x="200" y="202" width="11" height="11" class="dg-agents"/>
+  <text x="220" y="212" class="dg-small"><tspan class="dg-agents">the loop:</tspan> agents plan and build</text>
+  <text x="320" y="262" class="dg-small dg-muted" text-anchor="middle">Only a person merges into the default branch.</text>
+</svg>

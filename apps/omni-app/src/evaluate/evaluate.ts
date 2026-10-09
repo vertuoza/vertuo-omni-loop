@@ -16,7 +16,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext, type Context } from 'vertuo-omni-plan/kit/lib/context.ts';
-import type { CommentId, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd, type CommentId, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { foldersLayout, parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import { upsertOutboxPrComment } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
 import { formatReport, gateResult, type GateResult } from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
@@ -121,6 +121,48 @@ function featurePrd(pr: PrFacts, config: Config, foldersIn: (dir: string) => str
   const feature = featureTopic(pr, config);
   if ('skip' in feature) return feature;
   return prdOfTopic(feature.topic, prdDirs(config).flatMap(foldersIn), config);
+}
+
+/** A plan repository's PRD, as `owner/repo` and its number. */
+export type PlanPrd = { repo: string; prd: PrdNumber };
+
+const CLOSES = /Closes #\d+/;
+const PART_OF = /^Part of ([\w.-]+\/[\w.-]+)#(\d+)\b/m;
+
+/**
+ * The plan repository's PRD a target feature PR is part of, read from its body (issue 1202): a line
+ * `Part of <owner>/<repo>#<n>` naming a repository other than `slug`, the one `/omni:ultra-yolo` opens
+ * a target feature PR with. Null for any other body: one saying `Closes #<n>` (the single-repository
+ * feature PR, gated here), one naming this same repository (a sub-PR's shape), or neither.
+ */
+export function planPrdOf(body: string, slug: string): PlanPrd | null {
+  if (CLOSES.test(body)) return null;
+  const match = PART_OF.exec(body);
+  if (!match) return null;
+  const [, repo = '', prd = ''] = match;
+  if (repo.toLowerCase() === slug.toLowerCase()) return null;
+  return { repo, prd: parsePrd(prd) };
+}
+
+/**
+ * The check of a target feature PR: its PRD has no outbox in this repository, so it passes here and
+ * points to the plan PR that grades it, or to the PRD issue when that PR could not be found. It does
+ * not follow the plan PR's check: nothing would re-run it when that check changes, so a red copy here
+ * would stay red after the plan PR went green.
+ */
+export function deferredOutput(plan: PlanPrd, planPr: number | null): { title: string; summary: string } {
+  const where = planPr === null
+    ? `[${plan.repo}#${plan.prd}](https://github.com/${plan.repo}/issues/${plan.prd}), the PRD (its plan PR could not be read from here)`
+    : `[${plan.repo}#${planPr}](https://github.com/${plan.repo}/pull/${planPr}), the plan PR`;
+  return {
+    title: `PRD ${plan.prd} is graded on ${plan.repo}'s plan PR`,
+    summary: [
+      `This pull request is part of ${plan.repo}'s PRD ${plan.prd}, whose outbox lives in that repository, not here.`,
+      `Its outbox check is graded on ${where}.`,
+      '',
+      'Mode: deferred. This check passes here without following the plan PR\'s check: read that one before merging.',
+    ].join('\n'),
+  };
 }
 
 /** The folder names directly under `absolute`, or none when it is missing. */

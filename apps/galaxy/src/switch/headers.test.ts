@@ -86,7 +86,7 @@ describe('every app page', () => {
   it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists « and » (PRD 733), Dashboard, Work, then Settings and Omni at the foot', async (name, layout) => {
     const side = part(await renderAt(layout, pathOf(name)), '<aside', '</aside>');
     expect(side).toMatch(new RegExp(`<a class="brand-logo app-sidebar-crest" href="${APP_HOME}">`));
-    expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', 'Home', 'Fleet', 'Loop', 'Workspace', 'Engineering', 'Roadmaps', 'PRDs', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), 'Knowledge', 'Settings', 'Docs', 'Release notes']);
+    expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', 'Home', 'Fleet', 'Loop', 'Workspace', 'Engineering', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), 'Knowledge', 'Settings', 'Docs', 'Release notes']);
   });
 
   it.each(APP_PAGES)('%s: marks exactly one sidebar item current: %s', async (name, layout, current) => {

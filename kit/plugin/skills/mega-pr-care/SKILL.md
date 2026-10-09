@@ -73,8 +73,8 @@ across the list, and return.
    `bug-record`), `target`, `state` and `url`. An entry whose `state` is `unreadable` is named in the
    round line and skipped until a round reads it. Every entry already merged or closed: say so in
    one line and stop.
-2. **The clones.** For each target the list names, its full clone at `<worktrees>/targets/<name>`
-   (`<worktrees>` is `omni config worktrees`), cloned or fetched as `/omni:ultra-yolo` step 2 item 1
+2. **The clones.** For each target the list names, its full clone at `<worktrees>/targets/<name>@<prd>`,
+   the PRD's own (`<worktrees>` is `omni config worktrees`), cloned or fetched as `/omni:ultra-yolo` step 2 item 1
    does, its default branch the target's own
    (`gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`). Then, as
    `/omni:pr-care` step 1 item 2, one worktree per pull request, never the person's checkout:
@@ -120,6 +120,9 @@ the order given. What differs:
   re-run the failed checks once (`gh run rerun <run id> --failed --repo <slug>`) and drop the
   `waits on` line. Still red after that run, `fix-ci` comes back, as `/omni:pr-care` counts it. A
   red that is the branch's own is never written as waiting.
+- **A target PR's outbox check** passes by deferring to the plan PR: the omni-loop App reads its
+  `Part of <plan slug>#<n>` line and links the plan PR (`/omni:pr --repo`). It is never a `fix-ci`;
+  the gate to read is the plan PR's.
 - **A bug-fix PR** goes into its target's default branch, not a feature branch: its round is the
   same, and a fix it makes stays inside the bug's fix plan.
 

@@ -247,6 +247,9 @@ export const ConfigSchema = z
       attempts: z.number().int().positive().default(3),
       claimStaleMinutes: z.number().int().positive().default(60),
       beforeAfterMaxBytes: z.number().int().positive().default(512000),
+      // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
+      // was before, one step at a time.
+      parallelSteps: z.number().int().min(1).max(6).default(3),
       // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
       // and a config that does not set it parses exactly as before.
       hookMaxBytes: z.number().int().positive().optional(),
@@ -273,6 +276,18 @@ export const ConfigSchema = z
       setup: nullableText.default(null),
       bypassEnv: envName.nullable().default(null),
       maxSeconds: z.number().int().positive().default(60),
+    }),
+    // PRD 1233 (beta): how `/omni:validate-e2e` keeps a PRD's acceptance criteria as e2e tests. Off by
+    // default. `url`, `deployment`, `setup` and `bypassEnv` mean what they mean under `proof`; `dir` is
+    // where the tests and their recordings live; `model` is the goal steps' OpenRouter id.
+    e2e: section({
+      enabled: z.boolean().default(false),
+      url: proofUrl.nullable().default(null),
+      deployment: nullableText.default(null),
+      setup: nullableText.default(null),
+      bypassEnv: envName.nullable().default(null),
+      dir: text.default('e2e'),
+      model: text.default('anthropic/claude-sonnet-5.5'),
     }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By

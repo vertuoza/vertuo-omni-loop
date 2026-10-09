@@ -41,7 +41,7 @@ const question = (id: string, sharedBy: string | null = null): WaitingQuestion =
 const FIVE = [question('a'), question('b'), question('c', 'Bob'), question('d', 'Bob'), question('e', 'Bob')];
 const waiting = (questions: WaitingQuestion[]): WaitingView => ({ questions, unread: false, source: null });
 
-const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', waiting: waiting(FIVE) };
+const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', ideasBoard: 'acme/widgets', waiting: waiting(FIVE) };
 
 const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: WaitingOutbox[] = []) => {
   at.path = path;
@@ -71,9 +71,9 @@ describe('the sidebar', () => {
 
   it('lists Dashboard and Work, then Settings, Docs and Release notes at the foot, in order (PRD 733)', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Dashboard Home Fleet Loop Workspace Engineering Work Roadmaps PRDs Bug Fixes Visual Updates Questions 5 Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
+    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Dashboard Home Fleet Loop Workspace Engineering Work Roadmaps Ideas Concepts PRDs Bug Fixes Visual Updates Questions 5 Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
-      '/app', '/app/fleet', '/app/loop', '/app/workspace', '/app/engineering', '/roadmaps', '/prd', '/bugs', '/visual', '/ask', '/knowledge', '/app/settings', '/docs', '/releases',
+      '/app', '/app/fleet', '/app/loop', '/app/workspace', '/app/engineering', '/roadmaps', '/ideas/acme/widgets', '/concepts', '/prd', '/bugs', '/visual', '/ask', '/knowledge', '/app/settings', '/docs', '/releases',
     ]);
   });
 
@@ -89,6 +89,12 @@ describe('the sidebar', () => {
     for (const [path, label] of [['/app', 'Home'], ['/app/fleet', 'Fleet'], ['/app/loop', 'Loop'], ['/roadmaps', 'Roadmaps'], ['/prd', 'PRDs'], ['/bugs', 'Bug Fixes'], ['/visual', 'Visual Updates'], ['/knowledge', 'Knowledge'], ['/app/settings', 'Settings']]) {
       expect(html).toMatch(new RegExp(`<a class="app-sidebar-item" href="${path}" title="${label}"[^>]*><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*width="16" height="16"[^>]*>.*?</svg></span><span class="app-sidebar-text">${label}</span>`));
     }
+  });
+
+  it('opens the workspace\'s ideas board from Work › Ideas, else Settings › Repositories, where a board is made public (PRD 1246)', () => {
+    expect(render()).toMatch(/<a class="app-sidebar-item" href="\/ideas\/acme\/widgets" title="Ideas"[^>]*>.*?<span class="app-sidebar-text">Ideas<\/span><\/a>/);
+    expect(render({ ...ADA, ideasBoard: null })).toMatch(/<a class="app-sidebar-item" href="\/app\/settings\/repositories" title="Ideas"/);
+    expect(render(ADA, '/ideas/acme/widgets')).toMatch(/href="\/ideas\/acme\/widgets" title="Ideas" aria-current="page"/);
   });
 
   it('draws Questions with no nested lines (PRD 733)', () => {
@@ -202,7 +208,7 @@ describe('« and the rail (PRD 733)', () => {
   it('names every sprite entry by its title and its spoken name, so the rail still says each one', () => {
     const html = render(ADA, '/app', [gate('a')]);
     const entries = links(html).filter((l) => l.attrs.includes('class="app-sidebar-item"') && !l.attrs.includes('target="_blank"'));
-    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Home', 'Fleet', 'Loop', 'Workspace', 'Engineering', 'Roadmaps', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Questions', 'Knowledge', 'Settings']);
+    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Home', 'Fleet', 'Loop', 'Workspace', 'Engineering', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Questions', 'Knowledge', 'Settings']);
     for (const entry of entries) {
       const title = /title="([^"]+)"/.exec(entry.attrs)?.[1];
       const spoken = /aria-label="([^"]+)"/.exec(entry.attrs)?.[1] ?? entry.text;

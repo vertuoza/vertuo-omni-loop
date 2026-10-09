@@ -4,7 +4,7 @@
 // wrong kind reads as absent, and a file that is not the shape reads as none, so each schema is used
 // through `safeParse` and a value that fails it is dropped, not reported.
 import { z } from 'zod';
-import { PrdNumberSchema } from '../ids.ts';
+import { IssueNumberSchema, PrdNumberSchema } from '../ids.ts';
 
 /** A string with at least one character, else `null`. */
 const textOrNull = z.string().min(1).nullable().catch(null);
@@ -37,11 +37,23 @@ export const StatusInputSchema = z.object({
   session_id: textOrNull,
 });
 
-/** `.omni-loop/local/sessions/<session id>.json`: the PRD a session last worked on, and when. */
-export const SessionRecordSchema = z.object({
-  prd: whole.refine((value) => value > 0, 'expected a positive PRD number').pipe(PrdNumberSchema),
-  at: z.string().nullable().catch(null),
-});
+/** The kinds of work a session's record names (PRD 1208's spec, "The record, widened"). */
+export const RECORD_KINDS = ['prd', 'bug', 'visual', 'roadmap'] as const;
+export type RecordKind = (typeof RECORD_KINDS)[number];
+
+/** A whole number above 0, as `Number.isInteger` counts one. */
+const positive = whole.refine((value) => value > 0, 'expected a positive number');
+/** A record's time: text, else `null`. */
+const recordedAt = z.string().nullable().catch(null);
+
+/**
+ * `.omni-loop/local/sessions/<session id>.json`: the work a session last worked on, and when,
+ * `{ kind, number, at }`. A record of PRD 324's shape, `{ prd, at }`, reads as kind `prd`.
+ */
+export const SessionRecordSchema = z.union([
+  z.object({ kind: z.enum(RECORD_KINDS), number: positive.pipe(IssueNumberSchema), at: recordedAt }),
+  z.object({ prd: positive.pipe(PrdNumberSchema), at: recordedAt }).transform(({ prd, at }) => ({ kind: 'prd' as const, number: prd, at })),
+]);
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 
 /** One slice of a cached board: its id, its wave and its state on the board. */

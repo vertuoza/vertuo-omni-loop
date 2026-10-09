@@ -1,0 +1,17 @@
+/* A card's ▲ (PRD 1246, s3), on top of .idea-votes (../ideas.css): a button a reader presses to vote,
+   filled while their own vote is in the count. Every colour is an ask token; nothing here names one. */
+
+.idea-vote {
+  background: transparent;
+  cursor: pointer;
+  min-height: 32px;
+}
+.idea-vote:hover { border-color: var(--ask-plasma); }
+.idea-vote:focus-visible { outline: 2px solid var(--ask-plasma); outline-offset: 2px; }
+.idea-vote:disabled { cursor: progress; opacity: 0.7; }
+.idea-vote.idea-voted {
+  border-color: var(--ask-plasma);
+  background: var(--ask-plasma-soft);
+  color: var(--ask-plasma);
+}
+.idea-vote-problem { flex-basis: 100%; font-size: 13px; color: var(--ask-muted); }

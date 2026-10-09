@@ -1,0 +1,35 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-09",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 2, "reaction": "No phase-0 PR means no engineer sees the plan on GitHub before code is written. Pinned hashes help, but self-approval worries me.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "The files stay on the feature branch, so I can still read the spec in my editor. Fewer Markdown PRs is the first part of this I like.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "One click to approve and no phase-0 PR to babysit is exactly what I need to ship faster. The flag on the page means I never wait on a config PR.", "citations": ["persona:Paul - Product Manager", "offering#316"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 3, "reaction": "Approval moves to a page I do not watch, so I lose a cohesion point. The drift refusal is the part I trust.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "Approving a quick win on the page, without touching GitHub, fits how I work. I would like to be told when one waits for me.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "Without a phase-0 PR no engineer sees the spec and plan on GitHub, and with self-approval a PM can approve what nobody technical read.",
+        "citations": ["persona:F-E Developer", "persona:Lead Engineer"],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:F-E Developer ✗ · offering#316 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-09",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "Drift refuses even whitespace and the folder stays on the branch, so what is built is what was approved. Self-approval is still there.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "A repository left on pr runs exactly as today, so I can ignore it until it proves itself.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Zero phase-0 PRs for a one-repository PRD, and the hand-off sends me straight to the page.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 3, "reaction": "Held, not failed, when the server is down is the right call. I still want approvers per product.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "Who approved and when is on the page, and drifted says what to do next. The push notification can wait for the handshake.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · size#37 ✓ · offering#316 ✓"
+    }
+  ]
+}

@@ -1,11 +1,11 @@
 // Every `omni` subcommand, by name. Each is `{ run(args, { ctx, stdout, stderr, exec, env }) → exit code }`;
-// one marked `withoutContext` (init, ask, heartbeat, signin, signout, whoami, dossier, loop, proof, pitch, business, constituents, decide, version, update, help, statusline)
+// one marked `withoutContext` (init, ask, heartbeat, signin, signout, whoami, dossier, idea, loop, proof, pitch, business, constituents, decide, version, update, help, statusline, now)
 // gets `{ cwd, stdout, stderr, exec, env }` instead, plus whatever a caller injects (init's `stdin`, `bundle`
 // and `ask`; ask's `stdin`, `tokens` and `limits`; heartbeat's `stdin`, `tokens`, `fetch` and `now`; signin's `home`, `openBrowser`, `fetch` and `waitMs`;
-// signout's and whoami's `home`; dossier's and loop's `tokens`, `home`, `fetch`, `callMs` and `now`; proof's `tokens`, `home`, `fetch` and `callMs`;
+// signout's and whoami's `home`; dossier's and loop's `tokens`, `home`, `fetch`, `callMs` and `now`; idea's and proof's `tokens`, `home`, `fetch` and `callMs`;
 // pitch's `tokens`, `home`, `fetch`, `callMs`, `now`, `launch`, `openBrowser` and `studioUntil`;
 // business's and decide's `tokens`, `home`, `fetch` and `callMs`; constituents' `tokens`, `home`, `fetch`, `now` and `budgetMs`;
-// version's `kit`; update's `kit` and `bundle`; statusline's `stdin`, `now`, `readFacts` and `spawn`).
+// version's `kit`; update's `kit` and `bundle`; statusline's `stdin`, `now`, `readFacts` and `spawn`; now's `stdin` and `now`).
 import type { Command, FreeCommand } from '../io.ts';
 import { adopt } from './adopt.ts';
 import { answers } from './answers.ts';
@@ -22,17 +22,20 @@ import { config } from './config.ts';
 import { credits } from './credits.ts';
 import { decide } from './decide.ts';
 import { dossier } from './dossier.ts';
+import { e2e } from './e2e.ts';
 import { flow } from './flow.ts';
 import { generated } from './generated.ts';
 import { harvest } from './harvest.ts';
 import { heartbeat } from './heartbeat.ts';
 import { help } from './help.ts';
+import { idea } from './idea.ts';
 import { init } from './init.ts';
 import { item } from './item.ts';
 import { kb } from './kb.ts';
 import { knowledge } from './knowledge.ts';
 import { loop } from './loop.ts';
 import { next } from './next.ts';
+import { now } from './now.ts';
 import { phase0 } from './phase0.ts';
 import { plan } from './plan.ts';
 import { prd } from './prd.ts';
@@ -52,4 +55,4 @@ import { update } from './update.ts';
 import { version } from './version.ts';
 import { visual } from './visual.ts';
 
-export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, generated, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, sign, credits, dossier, flow, proof, pitch, business, constituents, decide, version, update, help, statusline, targets });
+export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, generated, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, decide, version, update, help, statusline, now, targets });

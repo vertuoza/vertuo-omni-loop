@@ -856,6 +856,102 @@ Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
 Proposed: harvest 2026-10-06
 
+## BR-PRODUCT-73
+
+A loop that has not yet said when it will wake next reads live until one hour after the last thing it pushed; only then is it shown silent and may it be taken over.
+
+Serves: P-PRODUCT-2
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-01-loop-silent-before-first-wake, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-74
+
+Parking a PRD records who it waits on and the loop keeps running; a later round of that PRD takes it off the parked list. A stopping loop ends parked if PRDs still wait, else stopped, and an ended loop refuses any push.
+
+Serves: P-PRODUCT-65
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-02-loop-park-and-stop, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-75
+
+A signed-out visitor to the Loop page or one loop's page is asked to sign in, the same as on the Engineering page. The demo loops show only where every page shows its demo: in development or when the demo mode is switched on.
+
+Serves: P-PRODUCT-66
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s5-02-loop-page-signed-out, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-76
+
+omni loop push counts as off, printing off and exiting 1, only when ask.url is not set. It never reads dossier.enabled, so a repository with the dossier switched off still sends its loop state to the Loop page.
+
+Serves: P-PRODUCT-67
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s4-01-loop-push-off-switch, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-77
+
+Answering a question on a PRD earns the answerer 2 points and earns their fleet the same 2 points. If that PRD is later lost, those answer points are taken back in its season, like the rest of that PRD's points.
+
+Serves: P-PRODUCT-68
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-01-answers-pay-the-fleet-too, PRD #1180
+Enforced by: game/rulebook.test.ts, game/projector.test.ts, game/economy.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-78
+
+An answered question earns points only when it is tied to a numbered PRD, never a bug or visual fix, and only for a current workspace member with a GitHub login. Unpaid answers still count in Questions answered.
+
+Serves: P-PRODUCT-69
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-03-which-answers-are-paid, PRD #1180
+Enforced by: supabase/checks/game_answered_rounds.sql, supabase/migrations/20261109090000_game_answered_rounds.sql, game/sources/supabase.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-79
+
+A point credited to a GitHub login is credited under that login as GitHub spells it, capitals included. The event is skipped only when the name holds an at sign, a dot, a space or another character no GitHub login can hold.
+
+Serves: P-PRODUCT-70
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-01-capital-login-skipped, PRD #1180
+Enforced by: game/projector.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-80
+
+When a settled decision names an approver that no GitHub login can have, such as a dotted name, its settle is skipped with a warning and earns no one credit. The decision stays open until the name is corrected, then it is credited to that login.
+
+Serves: P-PRODUCT-71
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-02-dotted-approver-waits, PRD #1180
+Enforced by: game/sources/parsers.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
 ## BR-PRODUCT-81
 
 Any member of a roadmap's workspace may push an update to it, replacing its document and PRD rows, and the roadmap records the member who pushed last.

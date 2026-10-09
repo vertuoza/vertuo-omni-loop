@@ -106,6 +106,14 @@ each by its own agent in its own copy of the repository, each ending in its own 
 The loop merges them into the feature branch one at a time, checks the wave as a whole, then starts
 the next wave.
 
+When `/loop /omni:drive` drives several PRDs, their waves also run side by side: a **pool** of up to
+`limits.parallelSteps` steps at once, 3 by default, each step its own agent in its own worktree. A
+step joins the pool only when it passes four rules against every step running: it is of **another
+PRD**, its PRD has **no open blocker**, its slices share **no path in the same repository** with a
+running step's, and **the plan allows it** (the steps it comes after are done). A step kept back is
+held, with the rule and the step it waits on. Set `limits.parallelSteps: 1` in
+`.omni-loop/config.yml` to run one step per tick, as before ([Drive the loop](/docs/drive)).
+
 A slice that stays red after its tries gets `omni:needs-fix`; it holds only the slices that wait for
 it, and the rest go on. To see a PRD's slices, which are merged, in flight, stuck, ready or waiting,
 and what can run next:
@@ -116,14 +124,16 @@ omni board 7
 
 ## Which skill runs which
 
-![Which skill runs which: you type /omni:brainstorm, /omni:yolo and /omni:yolo-fix; they run /omni:plan, /omni:wave, /omni:do-work and the dossier skills; every pull request goes through /omni:pr](diagrams/skills.svg)
+![Which skill runs which: you type /omni:brainstorm, /omni:yolo and /omni:yolo-fix; they run /omni:plan, /omni:wave, /omni:do-work and the dossier skills; every pull request goes through /omni:pr; for a milestone of several PRDs, you type /omni:roadmap, then /loop /omni:drive --roadmap](diagrams/skills.svg)
 
 | Skill | Type it when | It ends with |
 |---|---|---|
-| `/omni:think-big` | you have a vast idea, one that would take several PRDs, and want to see bold directions before any is cut | the concept pull request, with its vision tour and its areas; its last line is the `/omni:brainstorm --concept` line of the first area |
+| `/omni:think-big` | you have a vast idea, one that would take several PRDs, and want to see bold directions before any is cut | the concept pull request, with its vision tour and its areas, and the concept's page under **Work › Concepts** on the Omni page; its last line is the `/omni:brainstorm --concept` line of the first area |
 | `/omni:brainstorm` | you have an idea | the PRD issue, the phase-0 pull request and the draft feature pull request; its last line is the `/omni:yolo` line |
 | `/omni:yolo <n>` | the phase-0 pull request is merged | every slice merged into the feature branch; the feature pull request ready, or questions for you |
 | `/omni:yolo-fix <n>` | you answered the questions | what you changed rebuilt, and the feature pull request ready |
+| `/omni:roadmap <source>` | a milestone takes several PRDs, and you have its plan | every PRD's issue and spec, `roadmap.md`, and one phase-0 pull request; its last line is the `/loop /omni:drive --roadmap` line ([Roadmaps](/docs/roadmaps)) |
+| `/loop /omni:drive` | PRDs, or with `--roadmap <n>` a roadmap, are approved and you want them built without typing each next command | each PRD ready, or parked with what it waits on; up to `limits.parallelSteps` steps (3 by default) run at once when they share no ground, and the loop stops itself ([Drive the loop](/docs/drive)) |
 | `/omni:plan <n>` | a PRD has no plan yet; `/omni:yolo` runs it for you | `plan.md`, and the draft feature pull request |
 | `/omni:wave <n>` | you want one wave at a time; `/omni:yolo` runs it for you | the wave's slices merged into the feature branch |
 | `/omni:do-work <n> <slice>` | you want one slice alone; `/omni:wave` runs it for you | one sub-pull request into the feature branch |
@@ -132,7 +142,7 @@ omni board 7
 | `/omni:status` | you want to see where the PRDs are | one screen |
 | `/omni:help` | you want to know what a command does | one screen |
 | `/omni:ask on` | you would rather answer Claude's questions on a web page | the page's link |
-| `/omni:dossier-open`, `/omni:dossier-push` | never: `/omni:brainstorm`, `/omni:think-big` and `/omni:plan` run them | the PRD's page on the Omni page |
+| `/omni:dossier-open`, `/omni:dossier-push` | never: `/omni:brainstorm`, `/omni:think-big` and `/omni:plan` run them | the PRD's page on the Omni page, or a concept's page under **Work › Concepts** |
 
 Every skill, what it does and when to use it: [Skills](/docs/skills).
 
@@ -141,7 +151,9 @@ Given a name, `/omni:help` explains one skill or command: `/omni:help yolo`.
 ## In a terminal
 
 A few `omni` commands are for you, in a terminal at the root of the repository or from Claude Code
-with `!` before them. None of them changes anything, except `omni signin` and `omni update`.
+with `!` before them. None of them changes anything, except `omni signin`, `omni update`, and the
+last two: `omni roadmap answer` comments on the roadmap's issue, and `omni roadmap push` updates the
+roadmap's page.
 
 | Command | What it says |
 |---|---|
@@ -149,12 +161,15 @@ with `!` before them. None of them changes anything, except `omni signin` and `o
 | `omni status 7` | whether PRD 7 still has open questions: its outbox gate |
 | `omni prd 7` | where PRD 7 lives, and its files |
 | `omni board 7` | PRD 7's slices, and what can run next |
+| `omni roadmap check 1200` | whether roadmap 1200 holds together: its PRDs wave by wave, or what it refuses |
 | `omni kb show briefing` | one form of the playbook, as the agents read it: `briefing`, `testing`… |
 | `omni knowledge BR-QUOTE-1` | one rule of the knowledge base, by its id |
 | `omni signin` | signs this laptop in to the Omni page |
 | `omni version` | which kit the repository runs, and whether a newer one exists |
 | `omni update` | opens the pull request that brings the repository to the newer kit |
 | `omni help` | every command, on one screen |
+| `omni roadmap answer 1200 Q5 "…"` | answers question Q5 of roadmap 1200, in a comment on its issue |
+| `omni roadmap push 1200` | sends where each PRD of roadmap 1200 stands to its page; the drive runs it after every tick |
 
 The skills run the others themselves, such as `omni ship` or `omni adopt`: you never need to.
 

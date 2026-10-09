@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { RoadmapPrdRow, RoadmapRow } from '../store';
+import type { RoadmapHumanWorkRow, RoadmapPrdRow, RoadmapRow } from '../store';
 import { loadRoadmapPage, productOf, roadmapIdOf, type RoadmapPageReads } from './load';
 
 // The Roadmaps pages' read (PRD 1162) on fake reads: the workspace first, then the list of its
@@ -20,6 +20,10 @@ const prd = (roadmapId: string, state: RoadmapPrdRow['state']): RoadmapPrdRow =>
   roadmap_id: roadmapId, position: 1, row_id: 'P1', prd: parsePrd(881), title: 'Invoice links', repos: [], blockers: [], wave: 1, state,
   waits_on: null, waits_on_url: null, started_at: null, ended_at: null,
 });
+const work = (roadmapId: string, key: string, kind: RoadmapHumanWorkRow['kind'], state: RoadmapHumanWorkRow['state']): RoadmapHumanWorkRow => ({
+  roadmap_id: roadmapId, key, prd: parsePrd(881), repo: 'acme/widgets', source: 'outbox', text: `Work ${key}`, act: null, url: null,
+  kind, kind_by: 'rule', state, first_seen_at: NOW.toISOString(), done_at: state === 'done' ? NOW.toISOString() : null,
+});
 
 function reads(over: Partial<RoadmapPageReads> = {}): RoadmapPageReads {
   const rows = [roadmap(ID, OURS, 'p-1'), roadmap(OTHER, OURS, null), roadmap('9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d', 'w-2', null)];
@@ -28,7 +32,12 @@ function reads(over: Partial<RoadmapPageReads> = {}): RoadmapPageReads {
     roadmaps: () => Promise.resolve(rows),
     roadmap: (id) => Promise.resolve(rows.find((r) => r.id === id) ?? null),
     prds: (id) => Promise.resolve(id === ID ? [prd(ID, 'merged')] : [prd(id, 'building')]),
+    prerequisites: (id) => Promise.resolve(id === ID ? [{
+      roadmap_id: ID, position: 1, row_id: 'p1', category: 'local', need: 'Docker runs', check_with: 'base:docker', fix_with: null,
+      blocks_all: true, blocks: [], who: 'check', repos: [], card: null, state: 'waits', detail: null,
+    }] : []),
     products: () => Promise.resolve([{ id: 'p-1', name: 'Crew' }]),
+    humanWork: (id) => Promise.resolve(id === ID ? [work(ID, 'outbox:881/s1-01', 'dev-ops', 'open'), work(ID, 'park:881', 'business', 'done')] : []),
     ...over,
   };
 }
@@ -60,6 +69,41 @@ describe('loadRoadmapPage', () => {
   it('opens one of the workspace\'s roadmaps with its Gantt', async () => {
     const view = await loadRoadmapPage(reads(), { id: ID, product: null }, NOW);
     expect(view.kind === 'roadmap' ? view.roadmap.gantt.rows.map((r) => r.id) : view.kind).toEqual(['P1']);
+  });
+
+  it('opens a roadmap on Overview, and on the tab asked for with its prerequisites', async () => {
+    const overview = await loadRoadmapPage(reads(), { id: ID, product: null }, NOW);
+    expect(overview.kind === 'roadmap' ? overview.roadmap.tab : overview.kind).toBe('overview');
+    const view = await loadRoadmapPage(reads(), { id: ID, product: null, tab: 'prerequisites' }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    expect(view.roadmap.tab).toBe('prerequisites');
+    expect(view.roadmap.prerequisites.count).toBe('0 ok · 0 fixed · 1 waits on you');
+    expect(view.roadmap.tabs.map((t) => [t.label, t.current, t.badge])).toEqual([['Overview', false, null], ['Prerequisites', true, 1]]);
+  });
+
+  it('offers Mark as done on a person row where the route says marking is open, and shows the row just ticked (s7)', async () => {
+    const person = reads({ prerequisites: () => Promise.resolve([{
+      roadmap_id: ID, position: 1, row_id: 'p3', category: 'permissions', need: 'the preview has its secret', check_with: null, fix_with: null,
+      blocks_all: false, blocks: [], who: 'person', repos: [], card: null, state: 'waits', detail: null,
+    }]) });
+    const rowOf = async (ask: Partial<Parameters<typeof loadRoadmapPage>[1]>) => {
+      const view = await loadRoadmapPage(person, { id: ID, product: null, tab: 'prerequisites', ...ask }, NOW);
+      if (view.kind !== 'roadmap') throw new Error(view.kind);
+      return { row: view.roadmap.prerequisites.groups[0]?.rows[0], tickError: view.roadmap.prerequisites.tickError };
+    };
+    expect((await rowOf({})).row?.tickable).toBe(false);
+    expect((await rowOf({ tickable: true })).row?.tickable).toBe(true);
+    expect((await rowOf({ tickable: true, ticked: 'p3' })).row).toMatchObject({ state: 'ticked', tickable: false });
+    expect((await rowOf({ tickable: true, tickError: 'down' })).tickError).toMatch(/GitHub did not answer/);
+  });
+
+  it('reads each roadmap\'s human work: the open counts on its card, the open and the done on its page', async () => {
+    const list = await loadRoadmapPage(reads(), { id: null, product: null }, NOW);
+    expect(list.kind === 'list' ? list.roadmaps.map((r) => r.openWork.map((c) => [c.kind, c.open])) : list.kind).toEqual([[['dev-ops', 1]], []]);
+    const view = await loadRoadmapPage(reads(), { id: ID, product: null }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    expect(view.roadmap.humanWork.open.map((g) => [g.kind, g.entries.map((e) => e.key)])).toEqual([['dev-ops', ['outbox:881/s1-01']]]);
+    expect(view.roadmap.humanWork.done.map((e) => e.key)).toEqual(['park:881']);
   });
 
   it('finds no roadmap of another workspace, nor one that does not exist', async () => {

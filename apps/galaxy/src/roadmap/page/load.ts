@@ -4,7 +4,8 @@
 // notice, and when it cannot be read, a line saying so. Then the list, each roadmap with its PRDs, or
 // one roadmap with its PRDs; a roadmap of another workspace, or none, is not found. The workspace's
 // products name each roadmap's and fill the filter; they fail soft, their error logged: no product
-// then shows. The reads are a port (RoadmapPageReads) so the loader is tested on fakes;
+// then shows. Each roadmap's human work (PRD 1217) is read beside its PRDs; a failed read is none, as
+// the store's reads are. The reads are a port (RoadmapPageReads) so the loader is tested on fakes;
 // supabaseRoadmapPageReads is the page's.
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { z } from 'zod';
@@ -12,8 +13,9 @@ import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import { memberWorkspace, type Workspace } from '../../data/workspace';
-import { roadmapReader, type RoadmapPrdRow, type RoadmapRow } from '../store';
-import { detailOf, listOf, type ProductRef, type RoadmapPageView } from './model';
+import { roadmapReader, type RoadmapHumanWorkRow, type RoadmapPrdRow, type RoadmapPrerequisiteRow, type RoadmapRow } from '../store';
+import { detailOf, listOf, type ProductRef, type RoadmapPageView, type RoadmapRead } from './model';
+import type { RoadmapTab } from './prerequisites';
 
 export interface RoadmapPageReads {
   /** The workspace the person joined first, or null for none. */
@@ -24,6 +26,10 @@ export interface RoadmapPageReads {
   roadmap(id: string): Promise<RoadmapRow | null>;
   /** A roadmap's PRDs, in its table's order. */
   prds(id: string): Promise<RoadmapPrdRow[]>;
+  /** A roadmap's human work, the open first. */
+  humanWork(id: string): Promise<RoadmapHumanWorkRow[]>;
+  /** A roadmap's prerequisites, in its table's order, each with the last result's state (PRD 1218). */
+  prerequisites(id: string): Promise<RoadmapPrerequisiteRow[]>;
   /** The workspace's products, first first. */
   products(workspace: string): Promise<ProductRef[]>;
 }
@@ -37,8 +43,19 @@ async function productsOf(reads: RoadmapPageReads, workspace: string): Promise<P
   }
 }
 
-/** What the page asks for: the list (`id` null), only one product's when `product` is set, or one roadmap. */
-export type RoadmapPageAsk = { id: string | null; product: string | null };
+/** A roadmap with its PRDs and its human work. */
+async function readOf(reads: RoadmapPageReads, row: RoadmapRow): Promise<RoadmapRead> {
+  const [prds, humanWork] = await Promise.all([reads.prds(row.id), reads.humanWork(row.id)]);
+  return { row, prds, humanWork };
+}
+
+/** What the page asks for: the list (`id` null), only one product's when `product` is set, or one roadmap,
+ * on the tab `?tab=` names (Overview when none). And Mark as done (s7): whether the route offers it, the
+ * row just ticked (`?ticked=`) and why one was not posted (`?tick_error=`). */
+export type RoadmapPageAsk = {
+  id: string | null; product: string | null; tab?: RoadmapTab;
+  tickable?: boolean; ticked?: string | null; tickError?: string | null;
+};
 
 /** The list or one roadmap; `not-found` for a roadmap the workspace does not hold. */
 /** The person's workspace, or the view that says why there is none to read. */
@@ -58,13 +75,15 @@ export async function loadRoadmapPage(reads: RoadmapPageReads, ask: RoadmapPageA
   if (ask.id === null) {
     const [rows, products] = await Promise.all([reads.roadmaps(), productsOf(reads, id)]);
     const ours = rows.filter((r) => r.workspace_id === id);
-    const withPrds = await Promise.all(ours.map(async (row) => ({ row, prds: await reads.prds(row.id) })));
-    return listOf(workspace.name, null, withPrds, products, ask.product);
+    const read = await Promise.all(ours.map((row) => readOf(reads, row)));
+    return listOf(workspace.name, null, read, products, ask.product);
   }
   const row = await reads.roadmap(ask.id);
   if (!row || row.workspace_id !== id) return { kind: 'not-found' };
-  const [prds, products] = await Promise.all([reads.prds(row.id), productsOf(reads, id)]);
-  return { kind: 'roadmap', name: workspace.name, demo: null, roadmap: detailOf(row, prds, products, now.getTime()) };
+  const [read, products, prerequisites] = await Promise.all([readOf(reads, row), productsOf(reads, id), reads.prerequisites(row.id)]);
+  const tick = { tickable: ask.tickable ?? false, ticked: ask.ticked ?? null, tickError: ask.tickError ?? null };
+  const roadmap = detailOf(read, products, now.getTime(), { prerequisites, tab: ask.tab ?? 'overview', tick });
+  return { kind: 'roadmap', name: workspace.name, demo: null, roadmap };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -87,6 +106,8 @@ export function supabaseRoadmapPageReads(db: SupabaseClient<Database>, user: Pic
     roadmaps: () => roadmaps.list(),
     roadmap: (id) => roadmaps.roadmap(id),
     prds: (id) => roadmaps.prds(id),
+    humanWork: (id) => roadmaps.humanWork(id),
+    prerequisites: (id) => roadmaps.prerequisites(id),
     async products(workspace) {
       const { data, error } = await db.from('products').select(PRODUCT_COLUMNS).eq('workspace_id', workspace).order('ordinal');
       if (error) throw new Error(error.message);

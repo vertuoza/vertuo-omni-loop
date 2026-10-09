@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { DossierListRow } from '../store';
-import { findAt, outboxTabPath, readAt, atCallbackPath, atPath, atSignInReturn } from './history-at';
+import { findAt, outboxTabPath, readAt, atCallbackPath, atLanding, atPath, atSignInReturn, prdPagePath } from './history-at';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd/at/<owner>/<repo>/<n> (PRD 251, s10): the short address the kit's outbox comment writes, knowing
@@ -33,6 +33,11 @@ describe('the address', () => {
     expect(atPath(key)).toBe('/prd/at/vertuoza/vertuo-omni-loop/251');
     expect(atCallbackPath(key)).toBe('/prd/at/vertuoza/vertuo-omni-loop/251/callback');
   });
+
+  it('names a PRD\'s own page by its repository\'s slug and its number (#1199)', () => {
+    expect(prdPagePath('vertuoza/vertuo-vibe-master-plan', parsePrd(8))).toBe('/prd/at/vertuoza/vertuo-vibe-master-plan/8?to=page');
+    expect(prdPagePath('Acme/my.repo', parsePrd(12))).toBe('/prd/at/Acme/my.repo/12?to=page');
+  });
 });
 
 describe('the dossier it names', () => {
@@ -55,6 +60,12 @@ describe('the dossier it names', () => {
 
   it('lands on its Outbox tab', () => {
     expect(outboxTabPath('00000000-0000-4000-8000-0000000000d1')).toBe('/prd/00000000-0000-4000-8000-0000000000d1?tab=outbox');
+    expect(atLanding('00000000-0000-4000-8000-0000000000d1', null)).toBe('/prd/00000000-0000-4000-8000-0000000000d1?tab=outbox');
+    expect(atLanding('00000000-0000-4000-8000-0000000000d1', 'elsewhere')).toBe('/prd/00000000-0000-4000-8000-0000000000d1?tab=outbox');
+  });
+
+  it('lands on its page itself when the address asks `?to=page`, as a roadmap or a loop links a PRD (#1199)', () => {
+    expect(atLanding('00000000-0000-4000-8000-0000000000d1', 'page')).toBe('/prd/00000000-0000-4000-8000-0000000000d1');
   });
 });
 

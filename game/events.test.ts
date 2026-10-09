@@ -13,7 +13,7 @@ describe('events', () => {
       'ZONE_OPENED', 'ZONE_CLAIMED', 'ZONE_SECURED', 'ZONE_REVERTED',
       'WOUND_OPENED', 'WOUND_CLOSED', 'DISTRESS', 'RESCUE',
       'PLANET_READY', 'PLANET_TERRAFORMED', 'PLANET_LOST', 'PLANET_DECOMMISSIONED',
-      'QUESTION_ANSWERED',
+      'QUESTION_ANSWERED', 'FEATURE_MERGED', 'FEATURE_REVIEWED',
     ]);
     expect(WOUND_KINDS).toEqual(['transmission', 'unconfirmed-ground', 'beacon', 'fault-line', 'under-fire', 'aftershock']);
   });
@@ -21,6 +21,12 @@ describe('events', () => {
   it('validates an event and defaults data', () => {
     const e = makeEvent({ id: 'planet:2332:charted', at: '2026-09-01T08:00:00Z', type: 'PLANET_CHARTED', planet: 2332 });
     expect(e.data).toEqual({});
+  });
+
+  it('takes planet 0 for an answer no PRD claims, and for nothing else', () => {
+    expect(makeEvent({ id: 'ask:r1:answered', at: '2026-09-01T08:00:00Z', type: 'QUESTION_ANSWERED', planet: 0 }).planet).toBe(0);
+    expect(() => makeEvent({ id: 'planet:0:charted', at: '2026-09-01T08:00:00Z', type: 'PLANET_CHARTED', planet: 0 })).toThrow(/no planet/);
+    expect(() => makeEvent({ id: 'ask:r1:answered', at: '2026-09-01T08:00:00Z', type: 'QUESTION_ANSWERED', planet: -1 })).toThrow();
   });
 
   it('refuses an unknown type', () => {

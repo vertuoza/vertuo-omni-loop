@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
-import { readFix, type FixGet } from './fix';
+import { readConceptFacts, readFix, type FixGet } from './fix';
 import { UNREAD } from './summary';
 import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
@@ -110,5 +110,36 @@ describe('a fix read from GitHub', () => {
     }, /^\/releases/);
     expect(noRelease.release).toBe(UNREAD);
     expect(noRelease.pull).not.toBe(UNREAD);
+  });
+});
+
+describe('a concept read from GitHub (PRD 1272, s4)', () => {
+  const CONCEPT = 'docs/concept-{topic}';
+  const concept = (routes: Record<string, unknown>, fail: RegExp | null = null) => {
+    const github = fixture(routes, fail);
+    return { calls: github.calls, facts: readConceptFacts(github.get, parseIssue(548), CONCEPT) };
+  };
+
+  it('gives its issue and the open pull request on its docs/concept-548- branch, and reads nothing more', async () => {
+    const { calls, facts } = concept({
+      '/issues/548': issue(), '/pulls': [pull(3, 'fix/548-x'), pull(4, 'docs/concept-5480-other'), pull(5, 'docs/concept-548-products-umbrella')],
+    });
+    expect(await facts).toEqual({
+      issue: { number: 548, url: 'https://github.com/acme/widgets/issues/548', state: 'open', author: 'anna', createdAt: '2026-09-29T08:00:00Z', risk: null, regression: false },
+      pull: { number: 5, url: `${PR}/5`, state: 'open', mergedAt: null, mergedBy: null },
+    });
+    expect(calls.map((route) => route.split('?')[0])).toEqual(['/issues/548', '/pulls']);
+  });
+
+  it('gives the merged pull request, with when it merged', async () => {
+    const mergedAt = '2026-09-29T12:00:00Z';
+    const { facts } = concept({ '/issues/548': issue(), '/pulls': [pull(5, 'docs/concept-548-x', { state: 'closed', merged_at: mergedAt })] });
+    expect((await facts).pull).toEqual({ number: 5, url: `${PR}/5`, state: 'merged', mergedAt, mergedBy: null });
+  });
+
+  it('gives no pull request while none is open or merged on its branch, and unknown for a part GitHub could not answer', async () => {
+    expect((await concept({ '/issues/548': issue(), '/pulls': [pull(5, 'docs/concept-548-x', { state: 'closed' })] }).facts).pull).toBeNull();
+    expect(await concept({ '/issues/548': issue() }, /^\/pulls/).facts).toMatchObject({ pull: UNREAD });
+    expect(await concept({ '/pulls': [] }, /^\/issues\//).facts).toEqual({ issue: UNREAD, pull: null });
   });
 });

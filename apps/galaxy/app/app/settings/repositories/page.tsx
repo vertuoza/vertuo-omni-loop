@@ -19,8 +19,8 @@ import { serverEnv } from '../../../../src/env';
 export const metadata: Metadata = { title: 'Repositories · OMNI LOOP' };
 
 const DEMO: RepositoryRow[] = [
-  { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: 'demo-product-1' },
-  { fullName: 'acme/legacy', tracked: false, collectedAt: null, collectError: null, product: 'demo-product-2' },
+  { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: 'demo-product-1', publicIdeas: false },
+  { fullName: 'acme/legacy', tracked: false, collectedAt: null, collectError: null, product: 'demo-product-2', publicIdeas: false },
 ];
 
 /** The demo's two products (PRD 748 s4), so each row shows its product select. */

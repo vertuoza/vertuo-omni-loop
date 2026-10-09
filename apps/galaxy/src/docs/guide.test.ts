@@ -20,11 +20,11 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'drive', 'several-repositories', 'roadmaps', 'landings', 'flow', 'use-cases', 'troubleshooting',
+  'index', 'install', 'join', 'invade', 'loop', 'first-prd', 'drive', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'validate-e2e', 'use-cases', 'troubleshooting',
 ];
 const TITLES = [
   'Getting started', 'Install', 'Join a team', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Several repositories',
-  'Roadmaps', 'Landings', 'Repository flow', 'Use cases', 'When something goes wrong',
+  'Roadmaps', 'Ideas board', 'Landings', 'Repository flow', 'Validate with e2e (beta)', 'Use cases', 'When something goes wrong',
 ];
 
 describe('docs/guide', () => {
@@ -32,7 +32,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its thirteen pages, in order, each with its title', () => {
+  it('holds its fourteen pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -42,7 +42,7 @@ describe('docs/guide', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
       '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories',
-      '/docs/roadmaps', '/docs/landings', '/docs/flow', '/docs/use-cases', '/docs/troubleshooting', '/docs',
+      '/docs/roadmaps', '/docs/landings', '/docs/landings', '/docs/flow', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs',
     ]);
   });
 
@@ -63,6 +63,20 @@ describe('docs/guide', () => {
     }
     for (const phrase of ['/omni:roadmap', '/omni:mega-roadmap', 'one map', 'one phase-0', 'omni roadmap check', '/loop /omni:drive --roadmap', '/loop /omni:mega-drive --roadmap', 'waits on', 'omni roadmap answer']) {
       expect(roadmaps, phrase).toContain(phrase);
+    }
+  });
+
+  it('explains a roadmap\'s prerequisites: the table, the categories, the base checks, what the agent may fix, and the tab (PRD 1218)', () => {
+    const roadmaps = readGuide(GUIDE).pages.find((page) => page.slug === 'roadmaps')?.body ?? '';
+    const at = roadmaps.indexOf('## Prerequisites');
+    expect(at).toBeGreaterThan(0);
+    const section = roadmaps.slice(at);
+    for (const phrase of [
+      '| id | category | need | check | fix | blocks | who |', '`local`', '`access`', '`permissions`', '`github`', '`services`',
+      '`base:docker`', '`base:install`', '**Who can do it:**', 'omni roadmap prereqs', '--fix', 'omni roadmap tick',
+      'never installs software', '**Prerequisites** tab', 'waits on prerequisite',
+    ]) {
+      expect(section, phrase).toContain(phrase);
     }
   });
 
@@ -135,6 +149,28 @@ describe('docs/guide', () => {
     for (const skill of ['/omni:mega-pr-care', '/omni:mega-bug-fix']) {
       expect(desc, `the <desc> names ${skill}`).toContain(skill);
       expect(typed.some((text) => text.startsWith(skill)), `${skill} is drawn as a command you type`).toBe(true);
+    }
+  });
+
+  it('draws a roadmap from its source to the end, and its PRDs over time, on the roadmaps page (PRD 1162)', () => {
+    const page = readGuide(GUIDE).pages.find((p) => p.slug === 'roadmaps');
+    expect(diagramsNamed(page?.body ?? '').map((diagram) => [diagram.src, diagram.alone])).toEqual([
+      ['diagrams/roadmap.svg', true], ['diagrams/roadmap-waves.svg', true],
+    ]);
+  });
+
+  it('draws the roadmap skills among what you type, in one repository and in a plan repository (PRD 1162)', () => {
+    for (const [file, skills] of [
+      ['diagrams/skills.svg', ['/omni:roadmap', '/loop /omni:drive --roadmap']],
+      ['diagrams/skills-repositories.svg', ['/omni:mega-roadmap', '/loop /omni:mega-drive --roadmap']],
+    ] as const) {
+      const svg = readFileSync(join(GUIDE, file), 'utf8');
+      const desc = /<desc>([\s\S]*?)<\/desc>/.exec(svg)?.[1] ?? '';
+      const typed = [...svg.matchAll(/<text [^>]*class="dg-code dg-you"[^>]*>([^<]*)<\/text>/g)].map((m) => sure(m[1], 'm[1]'));
+      for (const skill of skills) {
+        expect(desc, `${file}: the <desc> names ${skill}`).toContain(skill);
+        expect(typed.some((text) => text.startsWith(skill)), `${file}: ${skill} is drawn as a command you type`).toBe(true);
+      }
     }
   });
 

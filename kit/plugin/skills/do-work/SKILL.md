@@ -284,12 +284,12 @@ repository is built there. `<name>` is that row's `repo`: the part after the `/`
 `plan.targets` entry's `repo`, whose whole `owner/name` is `<slug>` below. Everything above holds,
 with these differences.
 
-- **Where it is built.** The target's full clone is `<worktrees>/targets/<name>` of the plan
+- **Where it is built.** The target's full clone is `<worktrees>/targets/<name>@<prd>` of the plan
   repository (`<worktrees>` is `omni config worktrees`), made by `/omni:ultra-yolo`; its remote is
   the one `git -C <clone> remote` prints. Build in a worktree of that clone, one per slice, beside
-  it at `<worktrees>/targets/<name>--<slice>`:
+  it at `<worktrees>/targets/<name>@<prd>--<slice>`:
   `git -C <clone> fetch <clone remote>`, then
-  `git -C <clone> worktree add -B <slice branch> <worktrees>/targets/<name>--<slice> <clone remote>/<slice branch>`.
+  `git -C <clone> worktree add -B <slice branch> <worktrees>/targets/<name>@<prd>--<slice> <clone remote>/<slice branch>`.
   The slice branch and the feature branch are the plan repository's `branches.slice` and
   `branches.feature`, filled with the PRD's topic, in the target as here. Under `--in-wave` the
   claim is already on the target's remote; alone, claim through `/omni:pr --repo <slug>`'s
@@ -311,7 +311,7 @@ with these differences.
   account (step 4) is written at `<scratch dir>/accounts/<slice>.md`, and relayed with them.
 - **A target's flow,** at every point above, is the target's own committed one, never the plan
   repository's: run the plan repository's `omni` with the slice's worktree as its working directory,
-  `(cd <worktrees>/targets/<name>--<slice> && node <plan repository root>/.omni-loop/bin/omni.mjs flow show <point> --path <p>)`,
+  `(cd <worktrees>/targets/<name>@<prd>--<slice> && node <plan repository root>/.omni-loop/bin/omni.mjs flow show <point> --path <p>)`,
   once per territory entry (the target holds no plan for `--prd` to read), and follow each hook it
   names once, filling `{prd}` and `{slice}` yourself; `flow verdict` runs the same way. It reads
   the target's config and hook files in that worktree and runs no code of the target. A target

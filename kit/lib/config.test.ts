@@ -17,7 +17,7 @@ describe('parseConfig', () => {
     expect(config.markers.prefix).toBe('omni-outbox');
     expect(config.laws.source).toBe('none');
     expect(config.ci.outboxContext).toBe('outbox');
-    expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000 });
+    expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000, parallelSteps: 3 });
     expect(config.risk).toEqual({ storedShape: [], sharedContract: [] });
     expect(config.notify.slack).toBeNull();
     expect(config.ask).toEqual({ url: null });
@@ -426,7 +426,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'markers', 'signature',
+      'acceptance', 'laws', 'risk', 'landings', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'markers', 'signature',
     ]);
   });
 
@@ -572,6 +572,51 @@ describe('the proof section (PRD 798)', () => {
   });
 });
 
+describe('the e2e section (PRD 1233)', () => {
+  const firstLine = (source: string) => {
+    try { parseConfig(source, 'c.yml'); } catch (error) { return messageOf(error).split('\n')[0]; }
+    return 'parsed';
+  };
+  const defaults = {
+    enabled: false, url: null, deployment: null, setup: null, bypassEnv: null, dir: 'e2e', model: 'anthropic/claude-sonnet-5.5',
+  };
+
+  it('is off, with dir e2e and the default model, when the file has no e2e section', () => {
+    expect(parseConfig('kit: 1\n').e2e).toEqual(defaults);
+  });
+
+  it('reads back every key the file sets', () => {
+    const config = parseConfig(
+      'kit: 1\ne2e:\n  enabled: true\n  url: github-deployment\n  deployment: Preview\n  setup: pnpm signin\n  bypassEnv: BYPASS_SECRET\n  dir: tests/e2e\n  model: openai/gpt-x\n',
+    );
+    expect(config.e2e).toEqual({
+      enabled: true, url: 'github-deployment', deployment: 'Preview', setup: 'pnpm signin', bypassEnv: 'BYPASS_SECRET', dir: 'tests/e2e', model: 'openai/gpt-x',
+    });
+  });
+
+  it('accepts a fixed http(s) URL and refuses any other address', () => {
+    expect(parseConfig('kit: 1\ne2e:\n  url: https://preview.example.com\n').e2e.url).toBe('https://preview.example.com');
+    expect(firstLine('kit: 1\ne2e:\n  url: preview\n')).toMatch(/^c\.yml.*e2e\.url/);
+    expect(firstLine('kit: 1\ne2e:\n  url: ftp://x.example.com\n')).toMatch(/e2e\.url/);
+  });
+
+  it('refuses an empty dir or model, a non-boolean enabled, a bad bypassEnv and an unknown key', () => {
+    expect(firstLine("kit: 1\ne2e:\n  dir: ''\n")).toMatch(/^c\.yml.*e2e\.dir/);
+    expect(firstLine("kit: 1\ne2e:\n  model: ''\n")).toMatch(/^c\.yml.*e2e\.model/);
+    expect(firstLine('kit: 1\ne2e:\n  enabled: yes please\n')).toMatch(/e2e\.enabled/);
+    expect(firstLine('kit: 1\ne2e:\n  bypassEnv: the secret value\n')).toMatch(/e2e\.bypassEnv/);
+    expect(firstLine('kit: 1\ne2e:\n  browser: chrome\n')).toMatch(/e2e.*browser/);
+  });
+
+  it('is printed by omni config', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\n' } });
+    const out: string[] = [];
+    const code = await main(['config', 'e2e'], { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => {} } });
+    expect(code).toBe(0);
+    expect(JSON.parse(out.join(''))).toEqual(defaults);
+  });
+});
+
 describe('the flow section (PRD 1089)', () => {
   it('leaves a config with no flow exactly as it parses today: no flow key, no hookMaxBytes', () => {
     const config = parseConfig('kit: 1\n');
@@ -588,6 +633,16 @@ describe('the flow section (PRD 1089)', () => {
 
   it('refuses an unknown key under flow, naming it', () => {
     expect(() => parseConfig('kit: 1\nflow:\n  steps: {}\n', 'c.yml')).toThrow(/c\.yml.*flow.*steps/);
+  });
+});
+
+describe('limits.parallelSteps (PRD 1205)', () => {
+  it('defaults to 3, and refuses a value outside 1 to 6 or a fraction, naming it', () => {
+    expect(parseConfig('kit: 1\n').limits.parallelSteps).toBe(3);
+    expect(parseConfig('kit: 1\nlimits:\n  parallelSteps: 1\n').limits.parallelSteps).toBe(1);
+    for (const value of ['0', '7', '2.5']) {
+      expect(() => parseConfig(`kit: 1\nlimits:\n  parallelSteps: ${value}\n`, 'c.yml')).toThrow(/c\.yml.*limits\.parallelSteps/);
+    }
   });
 });
 
