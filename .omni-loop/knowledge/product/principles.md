@@ -317,12 +317,12 @@ Merged: @pierrederval, 2026-09-27, PR #147
 
 ## P-PRODUCT-37
 
-In the game, a person's choice always outranks the model's guess; the model only fills what nobody has decided.
+A person's choice always outranks the model's guess; the model only fills what nobody has decided.
 
 Why: People must trust that what they sorted stays sorted, and the app holds no key that could write over them.
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s3-02-model-guess-never-overrides, PRD #144
 Merged: @pierrederval, 2026-09-27, PR #147
-Proposed: harvest 2026-09-27
+Proposed: rewrite 2026-10-09
 
 ## P-PRODUCT-38
 
@@ -533,12 +533,12 @@ Merged: @pierrederval, 2026-10-01, PR #874
 
 ## P-PRODUCT-61
 
-A part of the code that others depend on is always built before them, never alongside or after the work that needs it.
+Work that installs a part of the code always comes after the work that changes that part and that it waits on, never alongside it; work that does not wait on the change may go at the same time.
 
-Why: Work that builds on a part that is not yet finished would rest on ground that may still change.
+Why: Work that builds on a part that is not yet finished would rest on ground that may still change, while holding back unrelated work gains nothing.
 Source: .omni-loop/delivery/shipped/1089-repo-flow/outbox/settled.md, entry s3-01-plan-rules-order-and-reach, PRD #1089
 Merged: @pierrederval, 2026-10-06, PR #1090
-Proposed: harvest 2026-10-06
+Proposed: rewrite 2026-10-09
 
 ## P-PRODUCT-62
 
@@ -605,12 +605,12 @@ Merged: @pierrederval, 2026-10-07, PR #1181
 
 ## P-PRODUCT-69
 
-In the game, points reward work on the product's tracked features, and only for the people the dashboards list.
+In the game, every question a crew member answers pays them, whatever work it belongs to, and only the people the dashboards list are paid.
 
-Why: So the score never pays for work outside a feature or for people no longer part of the crew.
+Why: Answers on fixes, spikes and unnumbered drafts are real work too, and the score never pays people no longer part of the crew.
 Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-03-which-answers-are-paid, PRD #1180
 Merged: @pierrederval, 2026-10-07, PR #1181
-Proposed: harvest 2026-10-07
+Proposed: rewrite 2026-10-09
 
 ## P-PRODUCT-70
 
