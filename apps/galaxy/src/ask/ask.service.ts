@@ -3,8 +3,9 @@
 // session, the session's other rounds and who it is shared with (PRD 144). Every member of a session's
 // workspace reads it; a session or round of another workspace reads as missing (null). A failed read
 // throws, so the controller answers 500 rather than an empty page.
-import { sessionClosed } from './store';
-import { askReadRepository, type AskReadDb, type AskReadRepository, type RoundHead } from './ask.repository';
+import { sessionClosed } from './rows';
+import { askReadRepository, wayBackRepository, type AskReadDb, type AskReadRepository, type RoundHead, type WayBackDb } from './ask.repository';
+import type { BackRounds } from './page/back';
 import type { QuestionState } from './page/question';
 import { headerOf, type TabRound, type TabRow } from './page/tabs';
 import type { RoundRow, SessionRow, SessionState } from './page/view';
@@ -83,3 +84,13 @@ export type AskReads = ReturnType<typeof askReadService>;
 
 /** The reads on `db`, the client the controller was handed for this request. */
 export const askReads = (db: AskReadDb): AskReads => askReadService(askReadRepository(db));
+
+/** The way back from a question page (PRD 384): which of a dossier's rounds are open, in the order
+ * asked, and nothing else of them. */
+export type WayBack = (dossierId: string) => Promise<NonNullable<BackRounds>>;
+
+/** The way back's read on `db`, the client the controller was handed for this request. */
+export const askWayBack = (db: WayBackDb): WayBack => {
+  const repo = wayBackRepository(db);
+  return async (dossierId) => (await repo.rounds(dossierId)).map((r) => ({ round_id: r.round_id, status: r.status, created_at: r.created_at }));
+};
