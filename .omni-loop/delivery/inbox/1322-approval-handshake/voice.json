@@ -167,6 +167,60 @@
       ],
       "objection": null,
       "fit": "fits persona:Irisa ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · offering#316 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-09",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The problem and the solution sit above Approve, and a changed file voids the approval. Being skipped means my phone stays quiet.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Nothing pings me unless I am an approver who turned alerts on. The terminal part is just a command that waits.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The build starts the moment someone approves, so I never retype a command. Exactly what I wanted.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Owners decide each product's approvers, which keeps cohesion. A timeout keeps a waiting terminal from hanging.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "A push on my phone for my product, the before and after in front of me, and one tap to approve.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Irisa ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · offering#316 ✓"
     }
   ]
 }
