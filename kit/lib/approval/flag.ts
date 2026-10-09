@@ -2,6 +2,7 @@
 // row on the Omni page (`GET /api/repositories/phase0`). `server` means born on the server (◆),
 // approved on the PRD's page; `pr` means born in the repository (◇), approved by a phase-0 PR. Any
 // reading that is not a clear answer is `pr`, with why, so a brainstorm falls back to today's way.
+import { z } from 'zod';
 import { askClient, AskCallError } from '../ask/client.ts';
 import type { Fetch, TokenStore } from '../ask/client.ts';
 import { homeTokens } from '../ask/client-tokens.ts';
@@ -12,6 +13,9 @@ export type FlagReading = { flag: 'pr' | 'server'; why: string | null };
 
 const fallback = (why: string): FlagReading => ({ flag: 'pr', why });
 
+/** The flag route's reply. */
+const FlagReplySchema = z.object({ phase0: z.enum(['pr', 'server']) });
+
 /** Asks the flag through `call` and reads its reply. */
 export async function flagReading(call: () => Promise<unknown>): Promise<FlagReading> {
   let body: unknown;
@@ -21,8 +25,8 @@ export async function flagReading(call: () => Promise<unknown>): Promise<FlagRea
     if (!(error instanceof AskCallError)) throw error;
     return fallback(error.status === null ? 'unreachable' : `refused (${error.status})`);
   }
-  const flag = typeof body === 'object' && body !== null ? (body as { phase0?: unknown }).phase0 : undefined;
-  return flag === 'pr' || flag === 'server' ? { flag, why: null } : fallback('malformed reply');
+  const reply = FlagReplySchema.safeParse(body);
+  return reply.success ? { flag: reply.data.phase0, why: null } : fallback('malformed reply');
 }
 
 /** The flag of `repo` (owner/name) in production: the flag route of `askUrl`, with the terminal's
