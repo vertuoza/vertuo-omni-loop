@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-09
 - Slice: s1
 - Wave: 1
+- Stays here: A sequencing choice within one feature's slices; nothing lasting to keep once the sending step lands, and it is cheap to change.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ Low: adding two dependencies later is a one-line change in the package list and 
 - Raised: 2026-10-09
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off sequencing choice about when two README lines land; the lasting behaviour, that the guide and code agree, is already enforced by the existing check.
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ Low: two lines in a list; the later step can reword them.
 - Raised: 2026-10-09
 - Slice: s4
 - Wave: 1
+- Became: ADR-0095
 
 ### The answer, as it was given
 
@@ -250,6 +253,7 @@ A renamed field is a one-line change in the kit's schema and in the server's ser
 - Raised: 2026-10-09
 - Slice: s4
 - Wave: 1
+- Became: ADR-0096
 
 ### The answer, as it was given
 
@@ -328,6 +332,7 @@ Moving or reshaping the file is a constant in the kit's wait module and in the b
 - Raised: 2026-10-09
 - Slice: s2
 - Wave: 2
+- Stays here: A one-off scope choice for this slice; the lasting part, that database rules are proven in supabase/checks by the workflow, is already ADR-0028.
 
 ### The answer, as it was given
 
@@ -407,6 +412,7 @@ Low: the bell group is one function and one prop; the route is two lines; the ch
 - Raised: 2026-10-09
 - Slice: s2
 - Wave: 2
+- Stays here: It is mostly message copy, and the payload is built in one function and read by one worker. Nothing is stored in this shape, so it is cheap to change and nothing lasting is kept.
 
 ### The answer, as it was given
 
@@ -486,6 +492,7 @@ Low: the payload is built in one function and read by one service worker; nothin
 - Raised: 2026-10-09
 - Slice: s2
 - Wave: 2
+- Became: BR-PRODUCT-94, P-PRODUCT-81
 
 ### The answer, as it was given
 
@@ -565,6 +572,7 @@ Low: each rule is one line of one function, changed by a later migration; no row
 - Raised: 2026-10-09
 - Slice: s5
 - Wave: 2
+- Became: BR-PRODUCT-95
 
 ### The answer, as it was given
 
@@ -644,6 +652,7 @@ Low: the poll interval, the order of preference and the row's place are constant
 - Raised: 2026-10-09
 - Slice: s8
 - Wave: 2
+- Stays here: A small internal tweak to a docs guard's lookup, cheap to reverse by renaming one file; it guarantees no product behaviour and sets no lasting design direction.
 
 ### The answer, as it was given
 
@@ -721,6 +730,7 @@ Small either way: renaming the file later means one move and dropping the extra 
 - Raised: 2026-10-09
 - Slice: s9
 - Wave: 2
+- Became: N-PRODUCT-14
 
 ### The answer, as it was given
 
@@ -799,6 +809,7 @@ A constant: renaming a field is one edit in the service worker (src/push/worker.
 - Raised: 2026-10-09
 - Slice: s9
 - Wave: 2
+- Became: BR-PRODUCT-96, P-PRODUCT-82
 
 ### The answer, as it was given
 
@@ -876,6 +887,7 @@ A constant: a per-device switch would only change what the off press saves, and 
 - Raised: 2026-10-09
 - Slice: s9
 - Wave: 2
+- Became: ADR-0097
 
 ### The answer, as it was given
 
@@ -954,6 +966,7 @@ A constant: moving it to /sw.js later is a route or a rewrite, and the path the 
 - Raised: 2026-10-09
 - Slice: s3
 - Wave: 3
+- Became: BR-PRODUCT-97, P-PRODUCT-83
 
 ### The answer, as it was given
 
@@ -1033,6 +1046,7 @@ Low: the numbering and the starting rule are two functions of one file; no store
 - Raised: 2026-10-09
 - Slice: s3
 - Wave: 3
+- Stays here: A local layering and naming-source choice for one slice, cheap to change. It sets no lasting product guarantee beyond the spec's layering and the existing naming rules.
 
 ### The answer, as it was given
 
@@ -1112,6 +1126,7 @@ Low: moving the read is a rename; reading names through a database function inst
 - Raised: 2026-10-09
 - Slice: s6
 - Wave: 3
+- Became: BR-PRODUCT-98, P-PRODUCT-84
 
 ### The answer, as it was given
 
@@ -1190,6 +1205,7 @@ Low: one loop in dossier_push and one function of the service; the column is add
 - Raised: 2026-10-09
 - Slice: s6
 - Wave: 3
+- Stays here: The decision only lets this step edit one route outside its territory to carry a field. That is plumbing, cheap to revert, with no lasting rule or design choice to record.
 
 ### The answer, as it was given
 
@@ -1268,6 +1284,7 @@ Low: one optional field in one schema and one line of its mapping; reverting it 
 - Raised: 2026-10-09
 - Slice: s7
 - Wave: 3
+- Became: BR-PRODUCT-99, P-PRODUCT-85
 
 ### The answer, as it was given
 
