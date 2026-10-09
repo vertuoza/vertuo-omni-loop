@@ -1023,3 +1023,39 @@ Stated: 2026-10-07
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1163
 Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-87
+
+The steps to launch list only steps that have work to start and are not already running; a step that only waits is left out. Held names only steps a rule keeps back, never a step left out because every slot is full.
+
+Serves: P-PRODUCT-76
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s1-01-steps-only-act, PRD #1205
+Enforced by: kit/lib/next/follow.test.ts, kit/bin/next.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1206
+Proposed: harvest 2026-10-08
+
+## BR-PRODUCT-88
+
+A PRD runs the wave holding a live claim (a draft sub-PR in flight, not stale or stalled) on one of its slices. Otherwise, when its feature PR has the in-progress label and a status comment fresh within the claim limit, it runs its first step not done.
+
+Serves: P-PRODUCT-77
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s1-02-running-read, PRD #1205
+Enforced by: kit/lib/next/follow.test.ts, kit/bin/next.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1206
+Proposed: harvest 2026-10-08
+
+## BR-PRODUCT-89
+
+While a step the drive session started is not yet shown running on GitHub, the session launches no new step. It never launches a step for a PRD it already has a step agent on, and never runs more than limits.parallelSteps agents at once.
+
+Serves: P-PRODUCT-78
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s2-01-unseen-step-holds-pool, PRD #1205
+Enforced by: kit/test/plugin.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1206
+Proposed: harvest 2026-10-08

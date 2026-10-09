@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-08
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-87, P-PRODUCT-76
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A constant: let a wait verdict through in candidatesOf and add a slot-full held 
 - Raised: 2026-10-08
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-88, P-PRODUCT-77
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ A constant: change runningStep in kit/lib/next/follow.ts or the claim filter in 
 - Raised: 2026-10-08
 - Slice: s1
 - Wave: 1
+- Became: ADR-0088
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ A constant: split the pool's entries into their own field in tickJson (kit/bin/c
 - Raised: 2026-10-08
 - Slice: s2
 - Wave: 2
+- Became: BR-PRODUCT-89, P-PRODUCT-78
 
 ### The answer, as it was given
 
@@ -331,6 +335,7 @@ A constant: reword the Launch paragraph in kit/plugin/skills/drive/SKILL.md (meg
 - Raised: 2026-10-08
 - Slice: s2
 - Wave: 2
+- Became: ADR-0089
 
 ### The answer, as it was given
 
@@ -409,6 +414,7 @@ A constant: wording in kit/plugin/skills/mega-drive/SKILL.md and kit/plugin/skil
 - Raised: 2026-10-08
 - Slice: s2
 - Wave: 2
+- Became: ADR-0090
 
 ### The answer, as it was given
 
