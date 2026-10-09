@@ -278,6 +278,7 @@ export type Database = {
           pushed_by: string | null
           pusher_login: string
           to_sha256: string
+          version_id: string
           voided_at: string
         }
         Insert: {
@@ -289,6 +290,7 @@ export type Database = {
           pushed_by?: string | null
           pusher_login: string
           to_sha256: string
+          version_id: string
           voided_at?: string
         }
         Update: {
@@ -300,6 +302,7 @@ export type Database = {
           pushed_by?: string | null
           pusher_login?: string
           to_sha256?: string
+          version_id?: string
           voided_at?: string
         }
         Relationships: [
@@ -315,6 +318,13 @@ export type Database = {
             columns: ["dossier_id"]
             isOneToOne: false
             referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_voids_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "dossier_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -2975,8 +2985,13 @@ export type Database = {
         }[]
       }
       approval_recipients: { Args: { p_request: string }; Returns: Json }
-      approval_request: { Args: { p_prd: number; p_repo: string }; Returns: Json }
+      approval_request: {
+        Args: { p_prd: number; p_repo: string }
+        Returns: Json
+      }
       approval_requests_waiting: { Args: never; Returns: Json }
+      approval_void_recipients: { Args: { p_void: string }; Returns: Json }
+      approval_voids_of_push: { Args: { p_dossier: string }; Returns: Json }
       ask_answers_valid: { Args: { a: Json }; Returns: boolean }
       ask_attachment_round: { Args: { path: string }; Returns: string }
       ask_attachments_valid: {
