@@ -31,7 +31,7 @@ const fixtureRoot = join(repoRoot, 'scripts', 'fixtures', 'layering');
 const BASELINE = 'layering/baseline.json';
 
 /** The fixture tree, each file at the path it stands for (its `.txt` suffix dropped). */
-const fixtures: readonly File[] = (readdirSync(fixtureRoot, { recursive: true, withFileTypes: true }) as import('node:fs').Dirent[])
+const fixtures: readonly File[] = readdirSync(fixtureRoot, { recursive: true, withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith('.txt'))
   .map((entry) => {
     const full = join(entry.parentPath, entry.name);

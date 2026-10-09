@@ -5,9 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const env = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
+const env: { current: Record<string, unknown> } = vi.hoisted(() => ({ current: {} }));
 const createClient = vi.fn((url: string, key: string, options: unknown) => ({ url, key, options }));
-const supabaseServer = vi.fn(async () => ({ as: 'the signed-in person' }));
+const supabaseServer = vi.fn(() => Promise.resolve({ as: 'the signed-in person' }));
 vi.mock('@supabase/supabase-js', () => ({ createClient }));
 vi.mock('./supabase-server', () => ({ supabaseServer }));
 vi.mock('../env', () => ({ serverEnv: () => env.current }));
