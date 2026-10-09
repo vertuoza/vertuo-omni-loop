@@ -34,7 +34,7 @@ import { InvadersOverlay } from './scenes/invaders.tsx';
 import { LevelUpOverlay } from './scenes/levelup.tsx';
 import { PlatformerOverlay } from './scenes/platformer.tsx';
 import { KartOverlay } from './scenes/kart.tsx';
-import { kartPress, loadKart, type ArcadeKart } from './scenes/kart.ts';
+import { kartPress, loadKart, sameKartHud, type ArcadeKart, type KartGame } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
 import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
@@ -77,7 +77,15 @@ const PLATFORMER = GAMES.find((g) => g.scene === 'platformer')?.id ?? 'platforme
 const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', 'kart']);
 
 /** The loaded game OMNI KART draws with, while its scene shows. */
-const kartDrawOf = (scene: SceneName, kart: ArcadeKart | null) => (scene === 'kart' ? kart?.game ?? null : null);
+const kartDrawOf = (scene: SceneName, kart: ArcadeKart | null): KartGame | null => (scene === 'kart' ? kart?.game ?? null : null);
+
+/** The race plays the time since the last frame, with the buttons held now, and the text layer follows it. */
+function stepKart(scene: SceneName, kart: ArcadeKart | null, buttons: ReadonlySet<Action>, dt: number, show: (game: KartGame) => void) {
+  const game = kartDrawOf(scene, kart);
+  if (!game) return;
+  game.step(buttons, dt);
+  show(game);
+}
 
 /** The grid `scene` is drawn on: a game keeps the one it started on; any other scene gets its form's. */
 function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf: ArcadePf | null, kart: ArcadeKart | null): Grid {
@@ -283,12 +291,24 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   useEffect(() => {
     if (kartTry < 0) return undefined;
     let gone = false;
-    void loadKart(() => import('./kart/index')).then((game) => {
+    void loadKart(() => import('./kart/index'), Math.floor(Math.random() * 2 ** 31)).then((game) => {
       if (gone) return;
-      setKart((k) => (k ? { ...k, status: game ? 'ready' : 'failed', game } : k));
+      setKart((k) => (k ? { ...k, status: game ? 'ready' : 'failed', game, hud: game ? game.hud() : null } : k));
     });
     return () => { gone = true; };
   }, [kartTry]);
+  /** What the race shows, set only when it changes: the canvas loop reads it every frame. */
+  const showKartHud = useCallback((game: KartGame) => {
+    const hud = game.hud();
+    setKart((k) => (k && k.game === game && !sameKartHud(k.hud, hud) ? { ...k, hud } : k));
+  }, []);
+  /** A race paused from outside: a blurred window, a hidden tab, leaving for OPEN THE APP?. */
+  const pauseKart = useCallback(() => {
+    const game = uiRef.current.scene === 'kart' ? kartRef.current?.game ?? null : null;
+    if (!game) return;
+    game.pause();
+    showKartHud(game);
+  }, [showKartHud]);
 
   // The level-up: the levels each login last celebrated on this device, and the one due now, if any.
   const seen = useMemo(() => createSeen(LOCAL), []);
@@ -353,7 +373,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     held.clear();
     runRef.current += 1;
     showSend(null);
-    setKart({ status: 'loading', retry: 0, grid: gridFor(formRef.current, 'kart'), game: null });
+    setKart({ status: 'loading', retry: 0, grid: gridFor(formRef.current, 'kart'), game: null, hud: null });
     go({ scene: 'kart' }, 'start');
   }, [go, held, showSend]);
 
@@ -368,9 +388,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const under = openOver(g);
     if (under !== g) { gameRef.current = under; showHud(under); }
     pausePlatformer();
+    pauseKart();
     held.clear();
     go({ ...patch, leaving: true }, 'select');
-  }, [app, go, showHud, held, pausePlatformer]);
+  }, [app, go, showHud, held, pausePlatformer, pauseKart]);
 
   const save = useCallback(async (patch: PlayerPatch) => {
     const row = await account.save(patch, meRef.current);
@@ -456,6 +477,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const lost = () => {
       held.clear();
       pausePlatformer();
+      pauseKart();
       const g = gameRef.current;
       if (uiRef.current.scene !== 'invaders' || !g) return;
       gameRef.current = pauseGame(g);
@@ -468,7 +490,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       window.removeEventListener('blur', lost);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [held, showHud, pausePlatformer]);
+  }, [held, showHud, pausePlatformer, pauseKart]);
 
   // ── Timed hand-overs ──
   // They wait while OPEN THE APP? is up, so B finds the scene it covered, and start again from there.
@@ -776,9 +798,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         // The race reads ◀ ▶, A and ▼ held; a press answers START, SELECT, B and the screens. Silent, as Super Omni World is.
         const k = kartRef.current;
         if (!k) { if (action === 'b') go({ scene: 'games' }, 'back'); return; }
-        const press = kartPress(k.status, action);
+        const press = kartPress(k.status, action, k.hud?.phase);
         if (press === 'back') { setKart(null); go({ scene: 'games' }, 'back'); return; }
-        if (press === 'retry') setKart({ ...k, status: 'loading', retry: k.retry + 1 });
+        if (press === 'retry') { setKart({ ...k, status: 'loading', retry: k.retry + 1 }); return; }
+        if (k.status === 'ready' && k.game) {
+          // START starts the countdown and pauses; SELECT on the pause leaves, and sends nothing.
+          if (k.game.press(action).quit) { setKart(null); go({ scene: 'games' }, 'back'); return; }
+          showKartHud(k.game);
+        }
         return;
       }
       case 'fleets': {
@@ -803,7 +830,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') { go({ scene: 'menu' }, 'back'); return; }
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, showHud, sendScore, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, showHud, showKartHud, sendScore, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): on a phone the
@@ -890,6 +917,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         showHud(game);
         if (game.over && !sendRef.current) sendScoreRef.current(INVADERS, game.score); // once a game: sendRef is set at once
       }
+      stepKart(u.scene, kartRef.current, held.buttons(), dt, showKartHud);
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
         scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches, mark: f.mark, logo: f.logo, theme: f.theme,
@@ -907,7 +935,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     };
     raf = requestAnimationFrame(loop);
     return () => { cancelAnimationFrame(raf); };
-  }, [held, showHud]);
+  }, [held, showHud, showKartHud]);
 
   // A click on a key hint ("[A] SIGN IN WITH GITHUB"), or a press of a Game Boy's control, presses that key.
   const press = useCallback((action: Action) => { unlock(); act(action); }, [act]);
@@ -988,7 +1016,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           <PlatformerOverlay session={pf.session} status={pf.status} send={send} />
         </>
       ) : null;
-      case 'kart': return kart ? <KartOverlay status={kart.status} /> : null;
+      case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;

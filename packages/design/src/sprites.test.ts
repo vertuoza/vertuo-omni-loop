@@ -59,6 +59,8 @@ const FORGED: Record<string, string> = {
   'tile-stone': 'dd2d27c6129a5003',
   // SELECT YOUR APP's pedestals (PRD 932), pinned as first drawn.
   'code-mark': 'ece31e0c07fdde23', 'arcade-cabinet': '7ccdd5e5b8ec8405',
+  // OMNI KART's kart (PRD 1359), seen from behind: straight, leaning left, leaning right, pinned as first drawn.
+  kart: '35afa0f7192d15fa', 'kart-left': '6be5ee4133dc3f94', 'kart-right': 'e8f72f74d8a0c11f',
 };
 const FORGED_WOUNDED: Record<string, string> = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',

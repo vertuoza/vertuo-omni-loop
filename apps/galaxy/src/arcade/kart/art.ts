@@ -1,10 +1,17 @@
 // OMNI KART on the arcade's canvas (PRD 1359): the Omni sky over the circuit in Mode 7, seen from
-// behind the player's kart. The one file under arcade/kart/ that draws: everything it draws from is
-// pure (track.ts, mode7.ts, texture.ts). The circuit's texture is painted once, the first time a race
-// is drawn, and the floor goes through one pixel buffer per grid, allocated once and reused.
-import { drawPlanet, drawStarfield } from '@omni/design';
-import { H, nebulaFor, stars, W, type FrameState, type KartDraw } from '../scenes/common.ts';
+// behind the player's kart, which is drawn over it with its driver in the seat. The one file under
+// arcade/kart/ that draws: everything it draws from is pure (track.ts, mode7.ts, texture.ts, race.ts).
+// The circuit's texture is painted once, the first time a race is drawn, and the floor goes through
+// one pixel buffer per grid, allocated once and reused. It also holds the race the arcade steps.
+import { drawPlanet, drawStarfield, spriteImage } from '@omni/design';
+import type { Action } from '../keys';
+import { heroOf } from '../fleets';
+import { stripesOf } from '../theme';
+import { H, nebulaFor, sprite, stars, W, type FrameState } from '../scenes/common.ts';
+import type { KartGame, KartQuit } from '../scenes/kart.ts';
+import type { Kart } from './kart';
 import { chaseCamera, renderFloor, skyShift, viewOf, type Texture, type View } from './mode7';
+import { hudOf, newRace, pause, press, step, type Race } from './race';
 import { BEYOND, paintTrack } from './texture';
 import { parseTrack, type Track } from './track';
 
@@ -42,9 +49,41 @@ function skyOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View) {
   ctx.globalAlpha = 1;
 }
 
-/** The race as the arcade draws it: the circuit loaded, the camera behind the player's starting place. */
-export function createKart(): KartDraw {
+/** The kart's art, in sprite pixels: its sprite's size, where the driver's shoulders meet the seat, and how much of the hero sits above it. */
+const KART_W = 28;
+const SEAT = 8;
+const DRIVER_ROWS = 26;
+const DRIVER_W = 32;
+
+/** The kart's sprite for the way it is steered: leaning into the turn. */
+const viewOfKart = (k: Kart): string => (k.steer < 0 ? 'kart-left' : k.steer > 0 ? 'kart-right' : 'kart');
+
+/**
+ * The player's kart, seen from behind at the bottom of the screen, tinted with the hero's suit, and
+ * the hero in its seat (head and shoulders, half the kart's scale). The wheels' tread turns with the
+ * speed.
+ */
+function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
+  const scale = s.grid.w >= W ? 4 : 2;
+  const look = heroOf(s.join.hero, s.join.team);
+  const kart = race.player;
+  const frame = s.reduced ? 0 : Math.floor(race.clock * Math.abs(kart.speed) * 0.12) % 2;
+  const x = Math.round((s.grid.w - KART_W * scale) / 2), y = s.grid.h - 18 * scale - 6;
+  const half = scale / 2;
+  const driver = spriteImage(look.sprite, { tint: look.tint, flat: stripesOf(s.theme), frame });
+  const lean = kart.steer * half;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2 + lean), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
+  sprite(ctx, s, viewOfKart(kart), x, y, { scale, tint: look.tint, frame });
+}
+
+/** What `createKart` needs: the race's seed. */
+export interface KartOptions { seed: number }
+
+/** The race as the arcade drives and draws it: the circuit loaded, the camera behind the player's kart. */
+export function createKart({ seed }: KartOptions = { seed: 1359 }): KartGame {
   const track: Track = parseTrack();
+  let race = newRace({ seed, track });
   let texture: Texture | null = null;
   const floors = new Map<string, Floor>();
   const floorFor = (v: View): Floor => {
@@ -62,16 +101,23 @@ export function createKart(): KartDraw {
   };
 
   return {
+    step(held: ReadonlySet<Action>, dt: number) { race = step(race, held, dt).race; },
+    press(action: Action): KartQuit {
+      const r = press(race, action);
+      race = r.race;
+      return { quit: r.events.some((e) => e.kind === 'quit') };
+    },
+    pause() { race = pause(race); },
+    hud: () => hudOf(race),
     draw(ctx, s) {
-      const start = track.places[track.places.length - 1];
-      if (!start) return;
       texture ??= paintTrack(track);
-      const v = viewOf(s.grid, chaseCamera({ x: start.x, y: start.y, angle: track.heading }));
+      const v = viewOf(s.grid, chaseCamera(race.player));
       skyOf(ctx, s, v);
       const floor = floorFor(v);
       renderFloor(v, texture, floor.pixels, BEYOND);
       floor.canvas.getContext('2d')?.putImageData(floor.image, 0, 0);
       ctx.drawImage(floor.canvas, 0, 0);
+      playerKart(ctx, s, race);
     },
   };
 }

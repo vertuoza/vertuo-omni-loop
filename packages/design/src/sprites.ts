@@ -714,7 +714,32 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
       d.pxs([[3, y + 3], [11, y + 4], [6, y + 5]], 'A', 2);
     }
   } },
+
+  // OMNI KART's kart (PRD 1359), seen from behind: straight, leaning left and leaning right, two
+  // frames each (the tread). Its body is the suit's white and its trim the suit's navy, so a hero's
+  // tint (heroLook) paints the kart in the hero's suit; the driver is drawn behind it, in the seat.
+  kart: { w: 28, h: 18, draw: kartDraw(0) },
+  'kart-left': { w: 28, h: 18, draw: kartDraw(-1) },
+  'kart-right': { w: 28, h: 18, draw: kartDraw(1) },
 });
+
+/** A kart seen from behind, leaning `lean` (-1 left, 0 straight, 1 right): the body leans over, the inside wheel lifts and the outside one digs in. */
+function kartDraw(lean: -1 | 0 | 1): SpriteDef['draw'] {
+  return (d, f) => {
+    const tread = (x: number, y: number) => { for (let r = 0; r < 4; r++) d.rect(x + 1, y + 1 + r * 2 + f, 4, 1, 'n', 3); };
+    const left = lean < 0 ? -1 : lean > 0 ? 1 : 0; // the body's slide over its wheels
+    const wl = lean < 0 ? 7 : lean > 0 ? 9 : 8, wr = lean > 0 ? 7 : lean < 0 ? 9 : 8; // each wheel's top: the inside one is higher
+    d.rect(1, wl, 6, 9, 'n', 1); tread(1, wl);
+    d.rect(21, wr, 6, 9, 'n', 1); tread(21, wr);
+    const s = left * 2;
+    d.rect(6, 12, 16, 2, 'L', 2); // the rear axle between the wheels
+    d.poly([[6 + s, 5], [22 + s, 5], [25 + s, 14], [3 + s, 14]], 'W');
+    d.rect(4 + s, 13, 20, 3, 'N');
+    d.ellipse(14 + s, 6, 5, 2.5, 'N'); // the seat back, the driver's shoulders sit over it
+    d.rect(10 + s, 15, 2, 2, 'L', 1).rect(16 + s, 15, 2, 2, 'L', 1); // the exhausts
+    d.px(5 + s, 11, 'R').px(6 + s, 11, 'R').px(21 + s, 11, 'R').px(22 + s, 11, 'R'); // the tail lights
+  };
+}
 
 // The tiles' shared parts: the soil under the grass, a block's riveted frame, a pipe's half.
 function soil(d: Painter): void {

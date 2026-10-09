@@ -7,16 +7,19 @@ import { DEFAULT_THEME } from '../theme';
 import { LAPS } from '../kart/track';
 import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
-import { kartPress, loadKart, NOT_LOADED, PAGES, READY_LINE, TALL_SCENES, type KartStatus } from './kart.ts';
+import { kartPress, loadKart, NOT_LOADED, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, TALL_SCENES, type KartGame, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
 
 // OMNI KART's text layer and scene (PRD 1359, slice 1): the loading and failure lines, the ready
 // screen, the loader and what a press does before the race.
 
-const text = (status: KartStatus, grid: Grid = WIDE, form: 'full' | 'handheld' = 'full') =>
-  renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form, grid, page: 0, pages: 1 } }, createElement(KartOverlay, { status })))
+const text = (status: KartStatus, grid: Grid = WIDE, form: 'full' | 'handheld' = 'full', hud: KartHud | null = null) =>
+  renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form, grid, page: 0, pages: 1 } }, createElement(KartOverlay, { status, hud })))
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** A game that does nothing, as the loader hands it over. */
+const stubGame = (): KartGame => ({ draw: () => {}, step: () => {}, press: () => ({ quit: false }), pause: () => {}, hud: () => ({ phase: 'ready', beat: null }) });
 
 describe('the kart scene on its grids', () => {
   it('is laid out on the tall grid on the Game Boy held upright, and on the wide grid elsewhere', () => {
@@ -55,6 +58,11 @@ describe('what a press does before the race', () => {
     for (const status of ['loading', 'ready', 'failed'] as const) expect(kartPress(status, 'b'), status).toBe('back');
   });
 
+  it('leaves B to the race once it began: the room is left from the pause', () => {
+    for (const phase of ['countdown', 'race', 'paused'] as const) expect(kartPress('ready', 'b', phase), phase).toBeNull();
+    expect(kartPress('ready', 'b', 'ready')).toBe('back');
+  });
+
   it('reads nothing else yet: A while loading or ready, START, SELECT and the arrows', () => {
     for (const action of ['a', 'start', 'select', 'left', 'right', 'up', 'down'] as const) {
       expect(kartPress('loading', action), `loading ${action}`).toBeNull();
@@ -64,12 +72,54 @@ describe('what a press does before the race', () => {
   });
 });
 
+describe('the race on the text layer', () => {
+  const hud = (phase: KartHud['phase'], beat: KartHud['beat'] = null): KartHud => ({ phase, beat });
+
+  it('shows the countdown number, on both grids', () => {
+    for (const beat of ['3', '2', '1'] as const) {
+      expect(text('ready', WIDE, 'full', hud('countdown', beat))).toBe(beat);
+      expect(text('ready', TALL, 'handheld', hud('countdown', beat))).toBe(beat);
+    }
+    expect(renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: hud('countdown', '3') })))).toContain('role="status"');
+  });
+
+  it('shows GO as the race begins, with the way to pause', () => {
+    expect(text('ready', WIDE, 'full', hud('race', 'GO'))).toBe('GO ENTER PAUSE');
+    expect(text('ready', TALL, 'handheld', hud('race', 'GO'))).toBe('GO START PAUSE');
+    expect(text('ready', WIDE, 'full', hud('race'))).toBe('ENTER PAUSE');
+  });
+
+  it('shows the pause with its two ways out: START resumes, SELECT goes back to the room', () => {
+    expect(PAUSED_LINE).toBe('PAUSED');
+    expect(text('ready', WIDE, 'full', hud('paused'))).toBe('PAUSED ENTER RESUME TAB GAME ROOM');
+    expect(text('ready', TALL, 'handheld', hud('paused'))).toBe('PAUSED START RESUME SELECT GAME ROOM');
+  });
+
+  it('shows the ready screen again for a race that has not begun', () => {
+    expect(text('ready', WIDE, 'full', hud('ready'))).toBe(text('ready'));
+  });
+
+  it('tells two text layers apart by their phase and their number', () => {
+    expect(sameKartHud(null, null)).toBe(true);
+    expect(sameKartHud(null, hud('ready'))).toBe(false);
+    expect(sameKartHud(hud('countdown', '3'), hud('countdown', '3'))).toBe(true);
+    expect(sameKartHud(hud('countdown', '3'), hud('countdown', '2'))).toBe(false);
+    expect(sameKartHud(hud('race', 'GO'), hud('paused', 'GO'))).toBe(false);
+  });
+});
+
 describe('loadKart', () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
   it('makes the game from the module it imports', async () => {
-    const game: KartDraw = { draw: () => {} };
+    const game = stubGame();
     expect(await loadKart(() => Promise.resolve({ createKart: () => game }))).toBe(game);
+  });
+
+  it('hands the game the seed it races from', async () => {
+    const createKart = vi.fn(() => stubGame());
+    await loadKart(() => Promise.resolve({ createKart }), 42);
+    expect(createKart).toHaveBeenCalledWith({ seed: 42 });
   });
 
   it('answers null and logs the error with console.error when the import fails', async () => {
@@ -87,7 +137,7 @@ describe('loadKart', () => {
 
   it('imports once per call: a retry imports again', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const load = vi.fn<() => Promise<{ createKart: () => KartDraw }>>().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ createKart: () => ({ draw: () => {} }) });
+    const load = vi.fn<() => Promise<{ createKart: () => KartGame }>>().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ createKart: () => stubGame() });
     expect(await loadKart(load)).toBeNull();
     expect(await loadKart(load)).not.toBeNull();
     expect(load).toHaveBeenCalledTimes(2);
