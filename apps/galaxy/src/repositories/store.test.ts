@@ -23,14 +23,14 @@ function db(answer: { data?: unknown; error?: unknown } | Error) {
 
 const STORED = {
   workspace_id: 'ws-1', full_name: 'vertuoza/vertuo-apps', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: 'u-1',
-  collected_at: null, collected_until: null, collect_error: null, product_id: null, public_ideas: false,
+  collected_at: null, collected_until: null, collect_error: null, product_id: null, public_ideas: false, phase0: 'pr',
 };
 
 describe('the database calls', () => {
   it('adds a repository with add_repository(), answering the row it saved', async () => {
     const d = db({ data: STORED });
     expect(await databaseRepositories(d, 'ws-1').add('Vertuoza/vertuo-apps')).toEqual({
-      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false },
+      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false, phase0: 'pr' },
     });
     expect(d.calls).toEqual([['add_repository', { p_workspace: 'ws-1', p_full_name: 'Vertuoza/vertuo-apps' }]]);
   });
@@ -70,6 +70,22 @@ describe('the database calls', () => {
     expect(await port.setPublicIdeas('acme/widgets', false)).toMatchObject({ ok: true, repository: { publicIdeas: false } });
   });
 
+  it('switches where a repository\'s phase 0 is approved with set_repository_phase0(), the owner\'s only (PRD 1299 s1)', async () => {
+    const d = db({ data: { ...STORED, phase0: 'server' } });
+    expect(await databaseRepositories(d, 'ws-1').setPhase0('vertuoza/vertuo-apps', 'server')).toMatchObject({ ok: true, repository: { phase0: 'server' } });
+    expect(d.calls).toEqual([['set_repository_phase0', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps', p_phase0: 'server' }]]);
+    expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1').setPhase0('a/b', 'server')).toEqual({ ok: false, message: NOT_OWNER });
+    expect(await databaseRepositories(db({ error: { code: 'P0002' } }), 'ws-1').setPhase0('a/b', 'pr')).toMatchObject({ ok: false, message: containing('Reload') });
+    expect(await databaseRepositories(db({ data: { ...STORED, phase0: 'both' } }), 'ws-1').setPhase0('a/b', 'pr')).toEqual({ ok: false, message: COULD_NOT_SAVE });
+  });
+
+  it('switches phase 0 to the server and back in the demo', async () => {
+    const port = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false }]);
+    expect(await port.setPhase0('acme/widgets', 'server')).toMatchObject({ ok: true, repository: { phase0: 'server' } });
+    expect(await port.setPhase0('acme/widgets', 'pr')).toMatchObject({ ok: true, repository: { phase0: 'pr' } });
+    expect(await port.setPhase0('acme/nothing', 'server')).toMatchObject({ ok: false });
+  });
+
   it('answers a refusal for a non-owner, an error, nothing, or a failed call', async () => {
     expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1').add('a/b')).toEqual({ ok: false, message: NOT_OWNER });
     expect(await databaseRepositories(db({ error: { code: 'XX000' } }), 'ws-1').add('a/b')).toEqual({ ok: false, message: COULD_NOT_SAVE });
@@ -88,7 +104,7 @@ describe('a refusal', () => {
 describe('the demo', () => {
   it('adds a repository tracked, in lower case, and switches it', async () => {
     const port = demoRepositoriesPort([]);
-    expect(await port.add('Acme/Widgets')).toEqual({ ok: true, repository: { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false } });
+    expect(await port.add('Acme/Widgets')).toEqual({ ok: true, repository: { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false, phase0: 'pr' } });
     expect(await port.setTracked('acme/widgets', false)).toMatchObject({ ok: true, repository: { tracked: false } });
   });
 

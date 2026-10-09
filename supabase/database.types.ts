@@ -2055,6 +2055,7 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
+          phase0: string
           product_id: string | null
           public_ideas: boolean
           tracked: boolean
@@ -2067,6 +2068,7 @@ export type Database = {
           collected_at?: string | null
           collected_until?: string | null
           full_name: string
+          phase0?: string
           product_id?: string | null
           public_ideas?: boolean
           tracked?: boolean
@@ -2079,6 +2081,7 @@ export type Database = {
           collected_at?: string | null
           collected_until?: string | null
           full_name?: string
+          phase0?: string
           product_id?: string | null
           public_ideas?: boolean
           tracked?: boolean
@@ -2613,6 +2616,7 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
+          phase0: string
           product_id: string | null
           public_ideas: boolean
           tracked: boolean
@@ -3662,6 +3666,7 @@ export type Database = {
         Args: { p_workspace: string }
         Returns: undefined
       }
+      repository_phase0: { Args: { p_repo: string }; Returns: string }
       repository_set_product: {
         Args: { p_full_name: string; p_product: string; p_workspace: string }
         Returns: {
@@ -3671,6 +3676,7 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
+          phase0: string
           product_id: string | null
           public_ideas: boolean
           tracked: boolean
@@ -3809,6 +3815,28 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_repository_phase0: {
+        Args: { p_full_name: string; p_phase0: string; p_workspace: string }
+        Returns: {
+          added_at: string
+          added_by: string | null
+          collect_error: string | null
+          collected_at: string | null
+          collected_until: string | null
+          full_name: string
+          phase0: string
+          product_id: string | null
+          public_ideas: boolean
+          tracked: boolean
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "repositories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_repository_public_ideas: {
         Args: { p_full_name: string; p_public: boolean; p_workspace: string }
         Returns: {
@@ -3818,6 +3846,7 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
+          phase0: string
           product_id: string | null
           public_ideas: boolean
           tracked: boolean
@@ -3839,6 +3868,7 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
+          phase0: string
           product_id: string | null
           public_ideas: boolean
           tracked: boolean

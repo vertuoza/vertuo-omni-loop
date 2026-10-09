@@ -23,7 +23,7 @@ import type { Access } from './RepositoriesView';
 // the repositories the installation reaches are read with its token through the shared, budget-aware
 // client, `interactive` (the person waits on the page), on the budget the whole server shares; a paused
 // budget reads as a listing that cannot be read. PRD 1246 s4 reads whether each repository's ideas
-// board is public.
+// board is public. PRD 1299 s1 reads where each repository's phase 0 is approved.
 
 /** What the page asks GitHub as the Omni App, with its JWT (src/signup/github-app.ts). */
 export interface RepositoriesApp {
@@ -69,7 +69,7 @@ async function rowsOf(db: SupabaseClient<Database>, workspace: string): Promise<
   // `data` is widened to null: the rows are read here unparsed.
   const { data, error }: { data: StoredRepository[] | null; error: Error | null } = await db
     .from('repositories')
-    .select('full_name, tracked, collected_at, collect_error, product_id, public_ideas')
+    .select('full_name, tracked, collected_at, collect_error, product_id, public_ideas, phase0')
     .eq('workspace_id', workspace);
   if (error) throw new Error(`Supabase: could not read the repositories (${error.message})`);
   return (data ?? []).map(rowOf);
