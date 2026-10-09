@@ -812,7 +812,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'e2e',
     kind: 'command',
     who: 'skills',
-    usage: ['omni e2e status <prd>', 'omni e2e heals <prd>'],
+    usage: ['omni e2e status <prd>', 'omni e2e heals <prd> [--head <ref>]'],
     summary: 'which e2e tests of a PRD have a recording, and which steps healed (beta)',
     detail:
       'status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each ' +
@@ -820,7 +820,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. ' +
       'With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, ' +
       'reaches no network and calls no model. heals pairs the recordings steps, by test id and call ' +
-      'index, at the merge-base of the PRD feature branch and at its head, and lists each as healed ' +
+      'index, at the merge-base of the default branch and the head, and at the head, which is the PRD ' +
+      'feature branch unless --head names another ref (a sub-PR branch): a ref git does not know is a ' +
+      'usage error naming it, and on a first pass, with no recordings at the merge-base, every step is ' +
+      'new. It lists each as healed ' +
       '(old and new action, and the summary), new or removed, as JSON; an identical step is not listed. ' +
       'The same refusals hold for both sides.',
   },

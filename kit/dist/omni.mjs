@@ -40235,7 +40235,7 @@ function testStatus(tests, recordings) {
 }
 
 // kit/bin/commands/e2e.ts
-var USAGE12 = "usage: omni e2e status <prd>\n       omni e2e heals <prd>";
+var USAGE12 = "usage: omni e2e status <prd>\n       omni e2e heals <prd> [--head <ref>]";
 function status(args, { ctx, stdout, stderr }) {
   const { positional } = parseArgs("e2e status", args);
   if (positional.length !== 1) throw usageError(USAGE12);
@@ -40264,11 +40264,11 @@ function resolveRef2(name2, { ctx, exec }) {
     } catch {
     }
   }
-  throw usageError(`omni e2e heals: cannot find branch ${name2} - fetch it first`);
+  throw usageError(`omni e2e heals: cannot find ref ${name2} - fetch it first`);
 }
 function heals(args, io) {
   const { ctx, stdout, stderr, exec } = io;
-  const { positional } = parseArgs("e2e heals", args);
+  const { positional, flags } = parseArgs("e2e heals", args, { values: ["head"] });
   if (positional.length !== 1) throw usageError(USAGE12);
   const prd2 = prdArg("e2e heals", "<prd>", positional[0]);
   const { enabled, dir } = ctx.config.e2e;
@@ -40279,7 +40279,7 @@ function heals(args, io) {
   const where = ctx.layout.whereIs(prd2);
   const parsed = where ? parseFolderName(where.name) : null;
   if (!parsed) throw usageError(`omni e2e heals: PRD ${prd2} has no inbox or shipped folder`);
-  const head = resolveRef2(fillBranch(ctx.config.branches.feature, { topic: parsed.topic }), io);
+  const head = resolveRef2(flags.head ?? fillBranch(ctx.config.branches.feature, { topic: parsed.topic }), io);
   const trunk = resolveRef2(ctx.config.repo.defaultBranch, io);
   let base;
   try {
@@ -41412,9 +41412,9 @@ var ENTRIES = deepFreeze([
     name: "e2e",
     kind: "command",
     who: "skills",
-    usage: ["omni e2e status <prd>", "omni e2e heals <prd>"],
+    usage: ["omni e2e status <prd>", "omni e2e heals <prd> [--head <ref>]"],
     summary: "which e2e tests of a PRD have a recording, and which steps healed (beta)",
-    detail: "status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each with whether a recording of it exists in .e2e/cache, and exits 1 when one has none. A recording that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, reaches no network and calls no model. heals pairs the recordings steps, by test id and call index, at the merge-base of the PRD feature branch and at its head, and lists each as healed (old and new action, and the summary), new or removed, as JSON; an identical step is not listed. The same refusals hold for both sides."
+    detail: "status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each with whether a recording of it exists in .e2e/cache, and exits 1 when one has none. A recording that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, reaches no network and calls no model. heals pairs the recordings steps, by test id and call index, at the merge-base of the default branch and the head, and at the head, which is the PRD feature branch unless --head names another ref (a sub-PR branch): a ref git does not know is a usage error naming it, and on a first pass, with no recordings at the merge-base, every step is new. It lists each as healed (old and new action, and the summary), new or removed, as JSON; an identical step is not listed. The same refusals hold for both sides."
   },
   {
     name: "statusline",
