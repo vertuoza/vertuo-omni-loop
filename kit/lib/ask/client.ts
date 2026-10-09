@@ -13,7 +13,8 @@
 // (`POST /api/decide/<decision>`), for `omni decide`. Since PRD 871 it reads a repository's product's
 // constituents (`GET /api/constituents`), for `omni constituents`. Since PRD 1108 it reads a
 // repository's product's Pitch settings (`GET /api/pitch-settings`), for `omni pitch start`. Since
-// PRD 1139 it pushes where a loop stands (`POST /api/loops`), for `omni loop push`.
+// PRD 1139 it pushes where a loop stands (`POST /api/loops`), for `omni loop push`. Since PRD 1299 it
+// reads a PRD's approval in force (`GET /api/dossiers/approval`), for `omni approval`.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -273,6 +274,12 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     // A fix's or a concept's dossier (`kind` visual, bug or concept) is keyed by its issue, so `prd` is a PRD's number or an issue's.
     findDossier: ({ repo, prd, kind = 'prd' }: { repo: string; prd: PrdNumber | IssueNumber; kind?: string | null }) =>
       call('GET', `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd), ...(kind && kind !== 'prd' ? { kind } : {}) })}`),
+    /** PRD 1299: PRD `prd`'s approval in force for `repo` (owner/name), with its dossier's link; a 404
+     * when it has no dossier. `../approval/approval.ts` reads the reply.
+     * @returns {Promise<{ url: string, approval: { approver: { login: string, member: boolean }, approvedAt: string,
+     *   files: Array<{ kind: string, path: string, sha256: string, versionId: string, content?: string }> } | null }>} */
+    readApproval: ({ repo, prd }: { repo: string; prd: PrdNumber }) =>
+      call('GET', `/api/dossiers/approval?${new URLSearchParams({ repo, prd: String(prd) })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
     requestProofUploads: ({ repo, prd, files }: { repo: unknown; prd: unknown; files: unknown }) => call('POST', '/api/proofs/uploads', { body: { repo, prd, files } }),

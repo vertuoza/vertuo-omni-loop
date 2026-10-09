@@ -719,6 +719,21 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "loop's signature, unless signing is off. --base defaults to {remote}/{defaultBranch}.",
   },
   {
+    name: 'approval',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni approval <n> [--json]'],
+    summary: "whether a PRD born on the server is approved, and still what was approved",
+    detail:
+      "Reads PRD n's approval in force on the Omni page, with your sign-in, and compares each file " +
+      'it pinned with the file of the same kind in this checkout. It prints one line: approved by ' +
+      'whom and when; waiting for approval, with the PRD page link; a changed or missing file (its ' +
+      'content, or its whitespace only), which refuses until you restore it or approve again; the ' +
+      'server unreachable, which holds the PRD rather than failing it; or refused, when the approver ' +
+      'left the workspace or the page answered an error. It exits 0 only when approved. --json ' +
+      'prints the state, who, when and the pinned files.',
+  },
+  {
     name: 'visual',
     kind: 'command',
     who: 'skills',

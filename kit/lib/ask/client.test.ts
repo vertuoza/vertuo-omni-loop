@@ -322,6 +322,15 @@ describe('the dossier lookup (PRD 413)', () => {
     ]);
   });
 
+  it('asks GET /api/dossiers/approval by repository and number, with the bearer token (PRD 1299)', async () => {
+    const answer = { url: 'https://omni.example/prd/d-1', approval: null };
+    const { calls, client } = stubbed(() => new Response(JSON.stringify(answer), { status: 200 }));
+    expect(await client.readApproval({ repo: 'acme/widgets', prd: parsePrd(1299) })).toEqual(answer);
+    expect(calls).toEqual([
+      { url: 'https://omni.example/api/dossiers/approval?repo=acme%2Fwidgets&prd=1299', method: 'GET', authorization: 'Bearer access-1', body: undefined },
+    ]);
+  });
+
   it('pushes and asks for a concept by its kind, keyed by its issue (PRD 1272)', async () => {
     const { calls, client } = stubbed(() => new Response(JSON.stringify({ id: 'd-4', url: 'https://omni.example/concepts/d-4', added: [], unchanged: [] }), { status: 200 }));
     const artifacts = [{ kind: 'concept-record', content: '# concept' }, { kind: 'board', content: 'b1' }, { kind: 'board', content: 'b2' }];

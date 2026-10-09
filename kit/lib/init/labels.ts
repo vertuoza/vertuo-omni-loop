@@ -41,6 +41,7 @@ export const LABEL_STYLES = {
   riskMedium: { color: 'fef2c0', description: 'Omni Loop: bug triage — medium risk' },
   riskLow: { color: 'ededed', description: 'Omni Loop: bug triage — low risk' },
   concept: { color: 'fbbf24', description: 'Omni Loop: a vast idea explored as a concept, before it becomes PRDs' },
+  approved: { color: '2da44e', description: 'Omni Loop: a PRD approved on its PRD page, the server holding who and when' },
 } satisfies Record<string, LabelStyle>;
 
 /** `[{ name, color, description }]` for every loop label `labels` names, first name wins. */
