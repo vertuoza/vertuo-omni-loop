@@ -14,6 +14,9 @@ import { parseTrack, type Track } from './track';
 /** Frames add up to a countdown's end only to within what a float keeps. */
 const EPSILON = 1e-9;
 
+/** The countdown's numbers, one a second. */
+const BEATS: readonly ('3' | '2' | '1')[] = ['3', '2', '1'];
+
 export type Phase = 'ready' | 'countdown' | 'race' | 'paused';
 
 export interface Race {
@@ -79,7 +82,7 @@ export function pause(race: Race): Race {
 /** What the text layer shows of the race: its phase, and the countdown's number or the GO that follows it. */
 export function hudOf(race: Race): KartHud {
   const { phase } = race;
-  if (race.phase === 'countdown') return { phase, beat: String(Math.max(1, RULES.countdown - Math.floor(race.clock))) as '3' | '2' | '1' };
+  if (race.phase === 'countdown') return { phase, beat: BEATS[Math.min(BEATS.length - 1, Math.floor(race.clock))] ?? '1' };
   if (race.phase === 'race' && race.clock < RULES.goBanner) return { phase, beat: 'GO' };
   return { phase, beat: null };
 }
