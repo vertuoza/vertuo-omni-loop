@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-09",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The ask pages and the bell import no Supabase any more and every read has a test pinned before it moved. A signed-out bell going quiet without a sign-in card is a small gap I would notice.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Repositories hold every query of the ask folder and the guard names the file and the rule. The shared write actions staying in one module is pragmatic, not the full split.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "Nothing new for customers, but the baseline only blocks new breaches, so my feature PRs were never held up, and screenshots now fail early with a clear limit.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "One rule, one ADR and a baseline down by the ask and waiting folders: the cohesion I asked for, checked on every test run.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "The bell and the ask pages work as before, which is what I cared about. Signing out stops them cleanly.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓"
     }
   ]
 }
