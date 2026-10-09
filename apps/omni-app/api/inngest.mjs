@@ -1218,7 +1218,9 @@ var ConfigSchema = z8.object({
     // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
     megaInvade: branchTemplate.default("docs/omni-mega-invade"),
     // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
-    concept: branchTemplate.default("docs/concept-{topic}")
+    concept: branchTemplate.default("docs/concept-{topic}"),
+    // PRD 1342: the branch `/omni:enforce` proves a law's test on; `{id}` is the law's register id.
+    law: branchTemplate.default("test/law-{id}")
   }),
   worktrees: text3.default(".claude/worktrees"),
   paths: section({
@@ -1252,6 +1254,8 @@ var ConfigSchema = z8.object({
     // PRD 1299: the label the GitHub App adds to a PRD's issue once it is approved on the server. For
     // display: nothing reads it.
     approved: labelName.default("omni:approved"),
+    // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
+    law: labelName.default("omni:law"),
     autoCreate: z8.boolean().default(false)
   }),
   prLinks: section({
@@ -1291,7 +1295,11 @@ var ConfigSchema = z8.object({
   }).prefault({}),
   laws: section({
     source: z8.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
-    claudeMdHeading: text3.default("## Invariants")
+    claudeMdHeading: text3.default("## Invariants"),
+    // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
+    // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
+    // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
+    requireProof: z8.boolean().default(false)
   }),
   risk: section({
     storedShape: z8.array(regexSource).default([]),
@@ -2967,6 +2975,20 @@ function readProposed(file, id, value) {
     problems: [`${file}: ${id} \u2014 "Proposed: ${value}" is not "Proposed: <who> <YYYY-MM-DD>".`]
   };
 }
+var PENDING_VALUE = /^pending #([1-9]\d*)$/;
+var PENDING_INTENT = /^pending(?![\w./-])/i;
+function meansPending(value) {
+  return PENDING_INTENT.test(value);
+}
+function readPending(file, id, value) {
+  if (value === null || !meansPending(value)) return { pending: null, problems: [] };
+  const match = value.match(PENDING_VALUE);
+  if (match) return { pending: parseIssue(group(match, 1)), problems: [] };
+  return {
+    pending: null,
+    problems: [`${file}: ${id} \u2014 "Enforced by: ${value}" is not "Enforced by: pending #<n>", its law issue's number.`]
+  };
+}
 function splitEntries(text8) {
   const entries = [];
   let current = null;
@@ -2991,7 +3013,8 @@ function parseEntryFile(file, text8, place) {
     const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
     const enforcedBy2 = fields.enforcedBy ?? null;
-    const { proposed, problems } = readProposed(file, id, fields.proposedLine);
+    const { proposed, problems: proposedProblems } = readProposed(file, id, fields.proposedLine);
+    const { pending, problems: pendingProblems } = readPending(file, id, enforcedBy2);
     return {
       id,
       kind,
@@ -3006,13 +3029,14 @@ function parseEntryFile(file, text8, place) {
       source: fields.source ?? null,
       serves: fields.serves ?? null,
       enforcedBy: enforcedBy2,
-      enforced: enforcedBy2 !== null && enforcedBy2 !== "unenforced",
+      enforced: enforcedBy2 !== null && enforcedBy2 !== "unenforced" && !meansPending(enforcedBy2),
+      pending,
       stated: fields.stated ?? null,
       proposed,
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
       fieldCounts: counts,
-      problems
+      problems: [...proposedProblems, ...pendingProblems]
     };
   });
 }
@@ -7286,6 +7310,7 @@ function servesViolations(entry, principles) {
   return [];
 }
 function findEntryViolations(ctx, entries) {
+  const requireProof = ctx.config.laws?.requireProof === true && !ctx.copyOf;
   const principles = entries.filter((entry) => entry.kind === "principle");
   const violations = [];
   for (const entry of entries) {
@@ -7345,17 +7370,24 @@ function findEntryViolations(ctx, entries) {
     if (!entry.stated || !STATED_DATE.test(entry.stated)) {
       violations.push(violation(entry.file, entry.id, 'is missing a "Stated: YYYY-MM-DD" line.'));
     }
-    if (entry.enforcedBy === null) {
-      violations.push(violation(entry.file, entry.id, 'is missing an "Enforced by:" line.'));
-    } else if (entry.enforcedBy !== "unenforced") {
-      violations.push(
-        ...missingPathViolations(ctx, entry, "Enforced by", entry.enforcedBy, {
-          onlyPathLike: false
-        })
-      );
-    }
+    violations.push(...proofViolations(ctx, entry, requireProof));
   }
   return violations;
+}
+function proofViolations(ctx, entry, requireProof) {
+  if (entry.enforcedBy === null) return [violation(entry.file, entry.id, 'is missing an "Enforced by:" line.')];
+  if (entry.enforcedBy === "unenforced") {
+    if (!requireProof || entry.proposed !== null) return [];
+    return [
+      violation(
+        entry.file,
+        entry.id,
+        `is "Enforced by: unenforced", and laws.requireProof is true \u2014 name the test's path, or "pending #<n>", its law issue.`
+      )
+    ];
+  }
+  if (meansPending(entry.enforcedBy)) return [];
+  return missingPathViolations(ctx, entry, "Enforced by", entry.enforcedBy, { onlyPathLike: false });
 }
 function findUnresolvedCitations(file, text8, resolve) {
   return idsCitedIn(text8).filter((id) => !resolve(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));

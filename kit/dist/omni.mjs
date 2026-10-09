@@ -27646,7 +27646,9 @@ var ConfigSchema = external_exports.object({
     // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
     megaInvade: branchTemplate.default("docs/omni-mega-invade"),
     // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
-    concept: branchTemplate.default("docs/concept-{topic}")
+    concept: branchTemplate.default("docs/concept-{topic}"),
+    // PRD 1342: the branch `/omni:enforce` proves a law's test on; `{id}` is the law's register id.
+    law: branchTemplate.default("test/law-{id}")
   }),
   worktrees: text2.default(".claude/worktrees"),
   paths: section({
@@ -27680,6 +27682,8 @@ var ConfigSchema = external_exports.object({
     // PRD 1299: the label the GitHub App adds to a PRD's issue once it is approved on the server. For
     // display: nothing reads it.
     approved: labelName.default("omni:approved"),
+    // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
+    law: labelName.default("omni:law"),
     autoCreate: external_exports.boolean().default(false)
   }),
   prLinks: section({
@@ -27719,7 +27723,11 @@ var ConfigSchema = external_exports.object({
   }).prefault({}),
   laws: section({
     source: external_exports.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
-    claudeMdHeading: text2.default("## Invariants")
+    claudeMdHeading: text2.default("## Invariants"),
+    // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
+    // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
+    // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
+    requireProof: external_exports.boolean().default(false)
   }),
   risk: section({
     storedShape: external_exports.array(regexSource).default([]),
@@ -28529,7 +28537,8 @@ var LABEL_STYLES = {
   riskMedium: { color: "fef2c0", description: "Omni Loop: bug triage \u2014 medium risk" },
   riskLow: { color: "ededed", description: "Omni Loop: bug triage \u2014 low risk" },
   concept: { color: "fbbf24", description: "Omni Loop: a vast idea explored as a concept, before it becomes PRDs" },
-  approved: { color: "2da44e", description: "Omni Loop: a PRD approved on its PRD page, the server holding who and when" }
+  approved: { color: "2da44e", description: "Omni Loop: a PRD approved on its PRD page, the server holding who and when" },
+  law: { color: "5a32a3", description: "Omni Loop: a law waiting for its test \u2014 /omni:enforce proves it red, then green" }
 };
 function loopLabels(labels2) {
   const seen = /* @__PURE__ */ new Set();
@@ -28683,6 +28692,20 @@ function readProposed(file2, id, value) {
     problems: [`${file2}: ${id} \u2014 "Proposed: ${value}" is not "Proposed: <who> <YYYY-MM-DD>".`]
   };
 }
+var PENDING_VALUE = /^pending #([1-9]\d*)$/;
+var PENDING_INTENT = /^pending(?![\w./-])/i;
+function meansPending(value) {
+  return PENDING_INTENT.test(value);
+}
+function readPending(file2, id, value) {
+  if (value === null || !meansPending(value)) return { pending: null, problems: [] };
+  const match = value.match(PENDING_VALUE);
+  if (match) return { pending: parseIssue(group(match, 1)), problems: [] };
+  return {
+    pending: null,
+    problems: [`${file2}: ${id} \u2014 "Enforced by: ${value}" is not "Enforced by: pending #<n>", its law issue's number.`]
+  };
+}
 function splitEntries(text12) {
   const entries4 = [];
   let current = null;
@@ -28707,7 +28730,8 @@ function parseEntryFile(file2, text12, place) {
     const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
     const enforcedBy2 = fields.enforcedBy ?? null;
-    const { proposed, problems } = readProposed(file2, id, fields.proposedLine);
+    const { proposed, problems: proposedProblems } = readProposed(file2, id, fields.proposedLine);
+    const { pending, problems: pendingProblems } = readPending(file2, id, enforcedBy2);
     return {
       id,
       kind,
@@ -28722,13 +28746,14 @@ function parseEntryFile(file2, text12, place) {
       source: fields.source ?? null,
       serves: fields.serves ?? null,
       enforcedBy: enforcedBy2,
-      enforced: enforcedBy2 !== null && enforcedBy2 !== "unenforced",
+      enforced: enforcedBy2 !== null && enforcedBy2 !== "unenforced" && !meansPending(enforcedBy2),
+      pending,
       stated: fields.stated ?? null,
       proposed,
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
       fieldCounts: counts2,
-      problems
+      problems: [...proposedProblems, ...pendingProblems]
     };
   });
 }
@@ -33241,6 +33266,7 @@ function servesViolations(entry3, principles) {
   return [];
 }
 function findEntryViolations(ctx, entries4) {
+  const requireProof = ctx.config.laws?.requireProof === true && !ctx.copyOf;
   const principles = entries4.filter((entry3) => entry3.kind === "principle");
   const violations = [];
   for (const entry3 of entries4) {
@@ -33300,17 +33326,24 @@ function findEntryViolations(ctx, entries4) {
     if (!entry3.stated || !STATED_DATE.test(entry3.stated)) {
       violations.push(violation(entry3.file, entry3.id, 'is missing a "Stated: YYYY-MM-DD" line.'));
     }
-    if (entry3.enforcedBy === null) {
-      violations.push(violation(entry3.file, entry3.id, 'is missing an "Enforced by:" line.'));
-    } else if (entry3.enforcedBy !== "unenforced") {
-      violations.push(
-        ...missingPathViolations(ctx, entry3, "Enforced by", entry3.enforcedBy, {
-          onlyPathLike: false
-        })
-      );
-    }
+    violations.push(...proofViolations(ctx, entry3, requireProof));
   }
   return violations;
+}
+function proofViolations(ctx, entry3, requireProof) {
+  if (entry3.enforcedBy === null) return [violation(entry3.file, entry3.id, 'is missing an "Enforced by:" line.')];
+  if (entry3.enforcedBy === "unenforced") {
+    if (!requireProof || entry3.proposed !== null) return [];
+    return [
+      violation(
+        entry3.file,
+        entry3.id,
+        `is "Enforced by: unenforced", and laws.requireProof is true \u2014 name the test's path, or "pending #<n>", its law issue.`
+      )
+    ];
+  }
+  if (meansPending(entry3.enforcedBy)) return [];
+  return missingPathViolations(ctx, entry3, "Enforced by", entry3.enforcedBy, { onlyPathLike: false });
 }
 function findUnresolvedCitations(file2, text12, resolve8) {
   return idsCitedIn(text12).filter((id) => !resolve8(id)).map((id) => violation(file2, id, `is cited in ${file2} but does not resolve to any entry.`));
