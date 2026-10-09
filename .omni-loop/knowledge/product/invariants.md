@@ -1,16 +1,5 @@
 # Product invariants
 
-## N-PRODUCT-1
-
-Library modules under kit/lib never perform network I/O; any client for the code-hosting service lives in the command-line layer (kit/bin) and is injected into the library.
-
-Source: .omni-loop/delivery/shipped/0003-omni-loop-kit/outbox/settled.md, entry s15-02-github-client-in-bin, PRD #3
-Enforced by: unenforced
-Stated: 2026-09-25
-Decided: nobody — adopted when raised (medium), 2026-09-25
-Merged: @pierrederval, 2026-09-25, PR #4
-Proposed: harvest 2026-09-26
-
 ## N-PRODUCT-2
 
 The kit runs only inside a repository under git; tracked files always come from version control, and there is no fallback that walks plain folders.
@@ -50,17 +39,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #40
-
-## N-PRODUCT-6
-
-omni init writes no file in the repository outside .omni-loop/ and the statusLine key of .claude/settings.json; it also creates a branch, commits, pushes and opens a pull request with what it wrote, and installs the Claude Code plugin on the computer it runs on. When a kept config puts the playbook elsewhere, it writes no knowledge forms, says so in its closing message and leaves them to /omni:terraform, which runs omni kb init.
-
-Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s4-04-install-writes-no-form-outside-its-folder, PRD #45
-Enforced by: unenforced
-Stated: 2026-09-25
-Decided: nobody — adopted when raised (medium), 2026-09-25
-Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-7
 
