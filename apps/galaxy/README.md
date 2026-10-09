@@ -543,6 +543,13 @@ GitHub. Vertuoza, and only Vertuoza, starts with six tracked repositories; any o
 with none. omni-app's `prStats` Inngest function collects the tracked repositories every 15 minutes
 into `pull_requests` and `pull_request_reviews` ([`apps/omni-app/README.md`](../omni-app/README.md)).
 
+**Phase 0 on the server** (PRD 1299). Each row also has a **Phase 0 on the server** switch
+(`repositories.phase0`, `pr` or `server`, `pr` by default), which only the owner flips, through the
+owner-only `set_repository_phase0()`. The kit reads it with `GET /api/repositories/phase0?repo=`
+(`omni approval flag`), answered by `repository_phase0()`: `pr` for a repository the workspace does
+not list. With `server`, `/omni:brainstorm` opens no phase-0 pull request; the PRD is approved on its
+page instead ([Approving a PRD](#approving-a-prd-prd-1299)).
+
 **Dashboard › Engineering** (`/app/engineering`, `app/app/engineering/page.tsx`,
 `src/engineering/`) is every member's, and counts the tracked repositories only: switching one off
 takes it out of every number at the next page load, and switching it back brings its history back.
@@ -770,6 +777,26 @@ nobody deletes a numbered dossier.
   member of another workspace included, gets not found, in the words a dossier that never was gets.
   Omni, Light and Dark themes, Omni the default, as the `/ask` pages.
 - **Without a database**, in development, both pages play a demo dossier.
+
+### Approving a PRD (PRD 1299)
+
+A PRD born on the server (◆: its spec says `phase0: server`, and `dossiers.birthplace` is `server`,
+set once from the first spec version) shows an **Approval** cell on its page:
+
+- **waiting for approval**, with **Approve**, which only a member of the workspace sees;
+- **approved**, with who and when;
+- **drifted · approve again**, naming each pinned file a newer version replaced, with **Approve**
+  back.
+
+**Approve** posts `POST /api/dossiers/approval`, and the `dossier_approve()` RPC writes one row of the
+append-only `approvals` table (never updated, never deleted), pinning the latest spec, plan,
+before/after and voice by version and `sha256`. It refuses a non-member, a ◇ dossier, a draft and a
+dossier missing a spec, a plan or a before/after. The PRD's issue then gets the repository's
+`labels.approved` (`omni:approved` by default) through the App. A failed label is logged, and the
+approval stands. The kit reads the approval in force with `GET /api/dossiers/approval?repo=&prd=`
+(`omni approval <n>`), answered by `dossier_approval()`, and judges it against the feature branch's
+files. The stage sync dates a ◆ PRD's `inbox` stage at its first approval. A ◇ PRD's page is
+unchanged.
 
 ### The Outbox tab (PRD 251)
 

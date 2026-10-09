@@ -99,8 +99,8 @@ it: `omni update` is how the repository moves to a newer kit.
 ## A missing `omni:` label
 
 The loop marks its issues and pull requests with labels: `omni:prd`, `omni:phase-0`,
-`omni:feature`, `omni:sub`, `omni:in-progress`, `omni:needs-fix`, `omni:outbox-go`, `omni:retro`
-and `omni:knowledge`. The install creates them. When one is missing, the skills never create it:
+`omni:feature`, `omni:sub`, `omni:in-progress`, `omni:needs-fix`, `omni:outbox-go`, `omni:retro`,
+`omni:knowledge` and `omni:approved`. The install creates them. When one is missing, the skills never create it:
 they open the pull request without it and tell you, as a step for you, "create label" followed by
 its name. Typed by hand, `gh` refuses with `could not add label: 'omni:prd' not found`.
 

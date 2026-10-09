@@ -15,7 +15,7 @@ shows the loop three ways: its stages, its pull requests, and its skills.
 | Stage | What it means | Where you see it | What moves it on |
 |---|---|---|---|
 | **idea** | talked through with Claude, nothing written yet | your Claude Code session | `/omni:brainstorm` writes the PRD; a vast idea goes through `/omni:think-big` first |
-| **PRD** | a spec, a plan and a before/after page, waiting for a person's approval | the PRD issue, the phase-0 pull request | you merge the phase-0 pull request |
+| **PRD** | a spec, a plan and a before/after page, waiting for a person's approval | the PRD issue, the phase-0 pull request, or the PRD's page when phase 0 is approved on the server | you merge the phase-0 pull request, or approve on the PRD's page |
 | **inbox** | approved, ready to build | `.omni-loop/delivery/inbox/` | `/omni:yolo` builds it |
 | **outbox** | being built; what the agents decided alone waits for you | the feature pull request, a draft | you answer the questions, then merge the feature pull request |
 | **shipped** | the change is on the default branch | `.omni-loop/delivery/shipped/` | the Omni App opens the retro and knowledge pull requests |
@@ -35,7 +35,8 @@ Three rules hold the loop together:
 
 1. **The phase-0 pull request.** Merging it approves the PRD and puts it in the inbox, on the
    default branch (why, below). It holds documents only, no code: this is the cheapest moment to
-   change your mind.
+   change your mind. In a repository whose phase 0 is approved on the server, there is no phase-0
+   pull request: you approve the PRD on its page instead ([below](#phase-0-approved-on-the-server)).
 2. **The outbox.** When the build is done, the feature pull request lists every question the agents
    met, in plain words, each with the option they built (always A) and the others. You answer them
    all in one comment, and `/omni:yolo-fix` rebuilds what you changed. The lighter decisions are
@@ -71,6 +72,35 @@ reasons:
   code, and the PRD's folder moving from `inbox/` to `shipped/`. You read the documents once, at
   phase 0, and the code once, at the end.
 
+### Phase 0 approved on the server
+
+A workspace owner can switch a repository so that its phase 0 is approved on the Omni page instead
+of through a phase-0 pull request: **Settings › Repositories**, the **Phase 0 on the server** switch
+on its row. It is off (`pr`) by default, and only an owner can flip it, both ways.
+
+- **Where a PRD is born.** `/omni:brainstorm` reads the switch once, with `omni approval flag`. On, the
+  PRD is born on the server (◆): its spec says `phase0: server`, its dossier records it, and no
+  phase-0 pull request is opened. Off, or when the switch cannot be read, the PRD is born in the
+  repository (◇) and runs as above. A PRD keeps its birthplace for life: flipping the switch later
+  changes no PRD that already exists.
+- **Approving.** Any member of the workspace approves a ◆ PRD with **Approve** on its page. The page
+  records who and when, and pins the hash of each approved file (spec, plan, before/after, voice).
+  The PRD's issue gets the `omni:approved` label, for display only.
+- **What the loop trusts.** `/omni:plan`, `/omni:yolo`, `/omni:wave` and `/omni:drive` read the
+  approval through `omni prd`, never a label. `omni approval <n>` says where it stands:
+
+  | state | what you see | what to do |
+  |---|---|---|
+  | waiting | `PRD <n> waits for approval: <link>` | approve it on its page |
+  | approved | `approved by <login> · <time>` | nothing: building may start |
+  | drifted | `≠ plan.md · content`, or `· whitespace only` | restore the file, or approve again: the page shows **drifted · approve again** |
+  | unreachable | `server unreachable · held, not failed` | wait: the PRD carries on once the page answers |
+  | refused | `approver <login> is not a workspace member` | approve again, as a member |
+
+- **What stays the same.** The PRD's folder still lives on its feature branch, and reaches the
+  default branch when the feature pull request merges. Everything after the approval (building, the
+  outbox, shipping) runs as above.
+
 ## The pull requests you will see
 
 ![The pull requests of one PRD over time: the phase-0 pull request, the feature branch and its sub-pull requests wave by wave, the merge of the feature pull request, then the retro and knowledge pull requests](diagrams/pull-requests.svg)
@@ -80,7 +110,7 @@ Every PRD opens the same few issues and pull requests, each with its label:
 | Label | What it is | Opened by | Merged by |
 |---|---|---|---|
 | `omni:prd` | the PRD's issue: its number is the PRD's number | `/omni:brainstorm` | closed when the PRD ships |
-| `omni:phase-0` | the PRD's folder alone: spec, plan, before/after | `/omni:brainstorm` | you, into the default branch |
+| `omni:phase-0` | the PRD's folder alone: spec, plan, before/after; none when phase 0 is approved on the server | `/omni:brainstorm` | you, into the default branch |
 | `omni:feature` | the whole change: a draft until no question is open | `/omni:plan`, run by `/omni:brainstorm` | you, into the default branch |
 | `omni:sub` | one slice, or one rework | `/omni:wave`, `/omni:do-work` | the loop, into the feature branch |
 | `omni:retro` | how the delivery went | the Omni App, once shipped | you |
@@ -94,6 +124,8 @@ Three more labels say a state rather than a kind:
   a person must do.
 - **`omni:outbox-go`**: a person lets the outbox gate pass while questions are still open. The loop
   never adds it.
+- **`omni:approved`**: on a PRD's issue, once a member approved it on its page (phase 0 on the
+  server). For display: the loop reads the approval from the page, never from the label.
 
 Each of the loop's pull requests carries a status comment, kept current: where it is, and the steps
 left to a person.
@@ -129,8 +161,8 @@ omni board 7
 | Skill | Type it when | It ends with |
 |---|---|---|
 | `/omni:think-big` | you have a vast idea, one that would take several PRDs, and want to see bold directions before any is cut | the concept pull request, with its vision tour and its areas, and the concept's page under **Work › Concepts** on the Omni page; its last line is the `/omni:brainstorm --concept` line of the first area |
-| `/omni:brainstorm` | you have an idea | the PRD issue, the phase-0 pull request and the draft feature pull request; its last line is the `/omni:yolo` line |
-| `/omni:yolo <n>` | the phase-0 pull request is merged | every slice merged into the feature branch; the feature pull request ready, or questions for you |
+| `/omni:brainstorm` | you have an idea | the PRD issue, the phase-0 pull request (none when phase 0 is approved on the server) and the draft feature pull request; its last line is the `/omni:yolo` line |
+| `/omni:yolo <n>` | the phase-0 pull request is merged, or the PRD is approved on its page | every slice merged into the feature branch; the feature pull request ready, or questions for you |
 | `/omni:yolo-fix <n>` | you answered the questions | what you changed rebuilt, and the feature pull request ready |
 | `/omni:roadmap <source>` | a milestone takes several PRDs, and you have its plan | every PRD's issue and spec, `roadmap.md`, and one phase-0 pull request; its last line is the `/loop /omni:drive --roadmap` line ([Roadmaps](/docs/roadmaps)) |
 | `/loop /omni:drive` | PRDs, or with `--roadmap <n>` a roadmap, are approved and you want them built without typing each next command | each PRD ready, or parked with what it waits on; up to `limits.parallelSteps` steps (3 by default) run at once when they share no ground, and the loop stops itself ([Drive the loop](/docs/drive)) |

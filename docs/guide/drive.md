@@ -82,7 +82,8 @@ below), and for each one does one thing:
 | CI running, or another session holding a claim | waits |
 | waiting on a person | parks |
 
-A PRD **parks** when only a person can move it: its phase-0 PR is open, its outbox has questions,
+A PRD **parks** when only a person can move it: its phase-0 PR is open, or, when phase 0 is approved
+on the server, it waits for approval on its page (or a file changed since it was approved), its outbox has questions,
 its CI is stuck, its feature PR is ready to merge, or a slice's sub-PR has had no commit for
 `limits.stallDays` (5 days by default): a claim nobody came back to, which a person takes over or
 closes. The loop writes why on the feature PR's
