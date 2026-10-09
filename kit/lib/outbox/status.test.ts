@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { flatCtx } from '../../test/flat-layout.ts';
+import { memorySource } from '../knowledge/registers.ts';
 import { makeMarkers } from '../markers.ts';
 import { adoptItem } from './settle.ts';
 import { formatReport, gateResult, openItemFiles, openItems } from './status.ts';
@@ -461,5 +462,59 @@ describe('gateResult — unreworked drift (this task)', () => {
       },
     });
     expect(gateResult(parsePrd(42), { ctx, labels: ['omni:outbox-go'] }).ok).toBe(true);
+  });
+});
+
+// PRD 1342, slice s2: a person answers every change to a law — the four law rules are accounted
+// only by an item ranked high, and the report says why an account was refused.
+describe('gateResult — a change to a law (PRD 1342)', () => {
+  const REMOVED_TEST = { path: 'kit/lib/proof.test.ts', status: 'D' };
+
+  function lawAccount(root: string, account: string) {
+    writeAccount(root, '985', 's1.md', accountText({ entries: [{ path: REMOVED_TEST.path, rule: 'test-removed', account }] }));
+  }
+
+  it('stays red while the account is spec <where>, and its report says why', () => {
+    const root = rangeFixtureRoot();
+    lawAccount(root, 'spec Solution, §2');
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(root), changes: [REMOVED_TEST] });
+    expect(result.ok).toBe(false);
+    expect(formatReport(parsePrd('985'), result)).toContain(
+      '  - kit/lib/proof.test.ts (test-removed) — its account "spec Solution, §2" is refused: a change to a law is accounted only by an item ranked high',
+    );
+  });
+
+  it('stays red while the account names a medium item, even adopted', () => {
+    const root = rangeFixtureRoot();
+    const ctx = flatCtx(root);
+    expect(adoptItem({ ctx, itemText: itemText({ frontMatter: { slice: 's1', id: 's1-01-example' } }) }).ok).toBe(true);
+    lawAccount(root, 'item s1-01-example');
+    const result = gateResult(parsePrd('985'), { ctx, changes: [REMOVED_TEST] });
+    expect(result.ok).toBe(false);
+    expect(result.unaccounted).toEqual([
+      { ...REMOVED_TEST, rule: 'test-removed', refused: expect.stringContaining('ranked medium') },
+    ]);
+  });
+
+  it('accounts for the change once the account names an item ranked high', () => {
+    const root = rangeFixtureRoot();
+    writeItem(root, '985', 's1-01-example.md', itemText({ frontMatter: { slice: 's1', id: 's1-01-example', rank: 'high' } }));
+    lawAccount(root, 'item s1-01-example');
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(root), changes: [REMOVED_TEST] });
+    expect(result.unaccounted).toEqual([]);
+    // Still red: the high item is open until a person answers it.
+    expect(result.ok).toBe(false);
+    expect(result.items).toHaveLength(1);
+  });
+
+  it('grades law-demoted when the caller gives the base knowledge folder', () => {
+    const root = rangeFixtureRoot();
+    const INVARIANTS = 'docs/knowledge/product/invariants.md';
+    const base = memorySource({ [INVARIANTS]: ['## N1', '', 'An invariant.', '', 'Enforced by: kit/lib/proof.test.ts', ''].join('\n') });
+    const changes = [{ path: INVARIANTS, status: 'M' }];
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(root), changes, base });
+    expect(result.unaccounted?.map((change) => change.rule)).toEqual(['law-text', 'law-demoted']);
+    const without = gateResult(parsePrd('985'), { ctx: flatCtx(root), changes });
+    expect(without.unaccounted?.map((change) => change.rule)).toEqual(['law-text']);
   });
 });

@@ -51,6 +51,7 @@ import type { OutboxContext } from './outbox.ts';
 import type { CoverageContext, RiskyChange } from './decision-coverage.ts';
 import { parseSettledEntries } from './settle.ts';
 import type { PrdNumber } from '../ids.ts';
+import type { KnowledgeSource } from '../knowledge/registers.ts';
 
 /** The part of the context the gate reads. */
 type GateContext = OutboxContext & CoverageContext;
@@ -61,13 +62,16 @@ export type OpenItem = { file: string; id: string | null; rank: string | null };
 /** A drifted decision not yet reworked: its id and its `Closed:` line. */
 export type UnreworkedEntry = { id: string; closedLine: string | undefined };
 
+/** A risky change no account accounts for; `refused` says why the account naming it did not (PRD 1342). */
+export type UnaccountedChange = RiskyChange & { refused?: string };
+
 /** What {@link gateResult} returns; `unaccounted` is there only when the range was graded. */
 export type GateResult = {
   ok: boolean;
   items: OpenItem[];
   overridden: boolean;
   unreworked: UnreworkedEntry[];
-  unaccounted?: RiskyChange[];
+  unaccounted?: UnaccountedChange[];
   overrideLabel: string;
 };
 
@@ -107,17 +111,19 @@ export function openItems(prd: PrdNumber, { ctx }: { ctx: Pick<OutboxContext, 'r
  * successfully-parsed account (`ok: true`) is handed to `compare` — a malformed account file is not
  * this function's failure to report; `check-decision-coverage.mjs` is what refuses one.
  *
+ * `base`, the knowledge folder as the range's base holds it, also grades `law-demoted` (PRD 1342).
+ *
  * @param {string | number} prd
  * @param {{ path: string, status: string }[]} changes
- * @param {{ ctx: object }} options
- * @returns {{ path: string, status: string, rule: string }[]}
+ * @param {{ ctx: object, base?: object | null }} options
+ * @returns {{ path: string, status: string, rule: string, refused?: string }[]}
  */
 export function unaccountedChanges(
   prd: PrdNumber,
   changes: readonly Change[],
-  { ctx }: { ctx: GateContext },
-): RiskyChange[] {
-  const risky: RiskyChange[] = riskyChanges(changes, { ctx });
+  { ctx, base = null }: { ctx: GateContext; base?: KnowledgeSource | null },
+): UnaccountedChange[] {
+  const risky: RiskyChange[] = riskyChanges(changes, { ctx, base });
   const accounts = readAccounts(prd, { ctx }).flatMap((result) => (result.ok ? [result.account] : []));
   return compare(risky, accounts).unaccounted;
 }
@@ -155,12 +161,19 @@ export function unreworkedDrift(prd: PrdNumber, { ctx }: { ctx: OutboxContext })
  * it is omitted, the range is never graded and the result carries no `unaccounted` field at all —
  * every existing caller of this function keeps its exact old shape and behavior.
  *
+ * `base`, the knowledge folder as the range's base holds it, also grades `law-demoted` (PRD 1342).
+ *
  * @param {string | number} prd
- * @param {{ ctx: object, labels?: string[], changes?: { path: string, status: string }[] | null }} options
+ * @param {{ ctx: object, labels?: string[], changes?: { path: string, status: string }[] | null, base?: object | null }} options
  */
 export function gateResult(
   prd: PrdNumber,
-  { ctx, labels = [], changes = null }: { ctx: GateContext; labels?: readonly string[]; changes?: readonly Change[] | null },
+  {
+    ctx,
+    labels = [],
+    changes = null,
+    base = null,
+  }: { ctx: GateContext; labels?: readonly string[]; changes?: readonly Change[] | null; base?: KnowledgeSource | null },
 ): GateResult {
   const items = openItems(prd, { ctx });
   const unreworked = unreworkedDrift(prd, { ctx });
@@ -172,7 +185,7 @@ export function gateResult(
     return { ok, items, overridden, unreworked, overrideLabel };
   }
 
-  const unaccounted = unaccountedChanges(prd, changes, { ctx });
+  const unaccounted = unaccountedChanges(prd, changes, { ctx, base });
   const ok =
     overridden || (items.length === 0 && unreworked.length === 0 && unaccounted.length === 0);
   return { ok, items, overridden, unreworked, unaccounted, overrideLabel };
@@ -182,8 +195,9 @@ function formatItem(item: OpenItem): string {
   return item.rank ? `  - ${item.file} (${item.rank})` : `  - ${item.file}`;
 }
 
-function formatUnaccounted(change: RiskyChange): string {
-  return `  - ${change.path} (${change.rule})`;
+function formatUnaccounted(change: UnaccountedChange): string {
+  const line = `  - ${change.path} (${change.rule})`;
+  return change.refused === undefined ? line : `${line} — ${change.refused}`;
 }
 
 function formatUnreworked(entry: UnreworkedEntry): string {
@@ -204,7 +218,7 @@ export function formatReport(
     overridden?: boolean;
     overrideLabel?: string;
     unreworked?: readonly UnreworkedEntry[];
-    unaccounted?: readonly RiskyChange[];
+    unaccounted?: readonly UnaccountedChange[];
   },
 ): string {
   const lines: string[] = [];

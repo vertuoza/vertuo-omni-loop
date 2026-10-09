@@ -372,12 +372,14 @@ describe('unaccountedChanges (PRD #1044 s5)', () => {
   it('excludes a risky change an account names', () => {
     withFixtureRoot((root: string) => {
       seedInvariants(root);
+      // A change to a law is accounted only by an item ranked high (PRD 1342).
+      writeItem(root, 985, 's5-01-adr.md', { id: 's5-01-adr', rank: 'high' });
       writeAccount(root, 985, 's5', {
         entries: [
           {
             path: 'docs/adr/0099-example.md',
             rule: 'law-text',
-            account: 'spec docs/inbox/1044-decision-coverage.md#example',
+            account: 'item s5-01-adr',
           },
         ],
       });
