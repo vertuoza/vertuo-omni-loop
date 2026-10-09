@@ -93,9 +93,9 @@ function bounceOff(map: readonly string[], k: Kart): Kart {
   return kart;
 }
 
-/** One short step of a kart: the speed the pad asks for, the turn, the move, and the walls. */
-export function driveKart(map: readonly string[], k: Kart, pad: Pad, dt: number): Kart {
-  const speed = speedAfter(k.speed, pad, topSpeedAt(map, k.x, k.y), dt);
+/** One short step of a kart: the speed the pad asks for, the turn, the move, and the walls. `pace` scales its top speed (a rival's skill). */
+export function driveKart(map: readonly string[], k: Kart, pad: Pad, dt: number, pace = 1): Kart {
+  const speed = speedAfter(k.speed, pad, topSpeedAt(map, k.x, k.y) * pace, dt);
   const dir = (pad.right ? 1 : 0) - (pad.left ? 1 : 0);
   const angle = k.angle + dir * Math.sign(speed) * turnRate(speed) * dt;
   const x = k.x + Math.cos(angle) * speed * dt, y = k.y + Math.sin(angle) * speed * dt;

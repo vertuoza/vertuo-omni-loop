@@ -25,6 +25,18 @@ export const RULES = Object.freeze({
   maxDt: 0.05,
   subStep: 1 / 120,
   /** The countdown before the race, and how long GO shows once it has begun. */
+  /** The rivals: the slowest top speed (a share of the player's), how far off the line they drive, how close a waypoint counts as passed, the angle a turn is steered from, and when a turn is sharp. */
+  skillMin: 0.92,
+  lineOffset: 14,
+  waypointReach: 40,
+  rivalAim: 0.04,
+  rivalSharp: 0.7,
+  rivalCorner: 60,
+  /** The rubber band: the most a rival's pace moves, and the gap in game pixels at which it moves that much. */
+  rubber: 0.05,
+  rubberRange: 400,
+  /** How long FINAL LAP shows once the third lap starts. */
+  finalBanner: 2.5,
   countdown: 3,
   goBanner: 0.75,
 } as const);

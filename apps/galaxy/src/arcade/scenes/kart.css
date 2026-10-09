@@ -16,8 +16,21 @@
   position: absolute; left: 50%; top: 36%; transform: translate(-50%, -50%); margin: 0;
   font-size: 40px; letter-spacing: 2px; color: var(--yellow); text-shadow: 3px 3px 0 var(--red), 6px 6px 0 #0b0a26;
 }
-.kt-foot { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; }
+.kt-foot { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; }
+
+/* The race's line: the place, the lap and the time, over the top of the road; FINAL LAP under it. */
+.kt-run {
+  position: absolute; top: 8px; left: 8px; right: 8px; margin: 0; display: flex; gap: 14px;
+  font-size: 10px; letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26;
+}
+.kt-place { color: var(--yellow); }
+.kt-final {
+  position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%); margin: 0; white-space: nowrap;
+  font-size: 18px; letter-spacing: 2px; color: var(--yellow); text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26;
+}
 
 /* ── On the tall grid (320×288) ───────────────────────────────────────────── */
 .grid-tall .kt-panel { padding: 8px 10px; white-space: normal; max-width: 280px; }
 .grid-tall .kt-beat { font-size: 28px; }
+.grid-tall .kt-run { font-size: 8px; }
+.grid-tall .kt-final { font-size: 14px; }

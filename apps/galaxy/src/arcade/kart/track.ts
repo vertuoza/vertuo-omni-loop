@@ -16,7 +16,7 @@ export const LAPS = 3;
 /** The par time for the three laps, in seconds: the score's time bonus counts under it. */
 export const PAR_SECONDS = 150;
 /** The karts on the grid: the player and five rivals. */
-const PLACES = 6;
+export const PLACES = 6;
 
 const LEGEND = Object.freeze({
   '#': 'road', '.': 'grass', X: 'wall', r: 'kerb', '=': 'line', '?': 'box', S: 'start',
@@ -274,9 +274,18 @@ export interface Track {
   readonly places: readonly { x: number; y: number }[];
   /** The item boxes' centres. */
   readonly boxes: readonly { x: number; y: number }[];
+  /** The start line: its middle, and how far along `forward` the line stands (the dot product of the two). */
+  readonly line: { readonly x: number; readonly y: number; readonly at: number };
 }
 
 const centre = ([x, y]: readonly [number, number]) => ({ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE });
+
+/** The middle of the start line's tiles, and where it stands along the way forward. */
+function lineCentre(tiles: readonly (readonly [number, number])[], forward: readonly [number, number]): Track['line'] {
+  const cs = tiles.map(centre);
+  const x = cs.reduce((sum, c) => sum + c.x, 0) / cs.length, y = cs.reduce((sum, c) => sum + c.y, 0) / cs.length;
+  return { x, y, at: x * forward[0] + y * forward[1] };
+}
 
 /** The circuit as the game uses it; throws, naming the problems, when `trackProblems` finds any. */
 export function parseTrack(src: TrackSource = COMET_RING): Track {
@@ -293,6 +302,6 @@ export function parseTrack(src: TrackSource = COMET_RING): Track {
   return {
     cols, rows: src.rows.length, size: { w: cols * TILE, h: src.rows.length * TILE }, map: src.rows,
     waypoints: src.waypoints.map(centre), forward: line.forward, heading: Math.atan2(line.forward[1], line.forward[0]),
-    places, boxes: tilesOf(src.rows, '?').map(centre),
+    places, boxes: tilesOf(src.rows, '?').map(centre), line: lineCentre(line.tiles, line.forward),
   };
 }

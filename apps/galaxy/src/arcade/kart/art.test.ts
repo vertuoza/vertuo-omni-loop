@@ -3,7 +3,7 @@ import { DEFAULT_THEME, resolveTheme, TOKENS, type Theme, type Token } from '../
 import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
-import { createKart } from './art';
+import { createKart, viewFacing } from './art';
 import type { Action } from '../keys';
 import { horizonOf } from './mode7';
 
@@ -171,7 +171,7 @@ describe('the player\'s kart', () => {
   it('shows the hero in its seat: head and shoulders, drawn before the kart so the kart covers the rest', () => {
     const { ctx, images } = recorder();
     createKart().draw(ctx, frame(WIDE));
-    const driver = images.find((i) => i.length === 8);
+    const driver = images.filter((i) => i.length === 8).at(-1); // the rivals' drivers come first, the player's last
     expect(driver).toBeDefined();
     const [sx, sy, sw, sh, dx, dy, dw, dh] = sure(driver, 'the driver');
     expect([sx, sy, sw, sh]).toEqual([0, 0, 32, 26]);
@@ -250,5 +250,55 @@ describe('the game the arcade drives', () => {
     puts.length = 0;
     a.draw(recorder().ctx, frame(WIDE)); b.draw(recorder().ctx, frame(WIDE));
     expect(sure(puts[0], 'a').pixels).toEqual(sure(puts[1], 'b').pixels);
+  });
+});
+
+describe('the rivals on the floor', () => {
+  const held = (...a: Action[]): ReadonlySet<Action> => new Set(a);
+  /** The images the frame puts on the canvas: five-number calls are a rival's kart, eight-number ones a driver in a seat. */
+  const drawn = (kart: ReturnType<typeof createKart>) => { const { ctx, images } = recorder(); kart.draw(ctx, frame(WIDE)); return images; };
+
+  it('draws the rivals standing ahead of the player on the grid: a kart and its driver each, scaled by the distance', () => {
+    const images = drawn(createKart({ seed: 3 }));
+    const bodies = images.filter((i) => i.length === 4);
+    const drivers = images.filter((i) => i.length === 8);
+    expect(bodies.length).toBeGreaterThan(0);
+    expect(drivers.length).toBe(bodies.length + 1); // and the player's
+    for (const [, , w, h] of bodies) expect((w ?? 0) / (h ?? 1)).toBeCloseTo(28 / 18, 5);
+  });
+
+  it('draws the farthest rival first and the nearest last, so the near ones cover the far ones', () => {
+    const widths = drawn(createKart({ seed: 3 })).filter((i) => i.length === 4).map((i) => i[2] ?? 0);
+    expect(widths).toEqual([...widths].sort((a, b) => a - b));
+  });
+
+  it('draws them from where the race put them: the rivals move away from the player\'s view once the race runs', () => {
+    const kart = createKart({ seed: 3 });
+    const before = drawn(kart);
+    kart.press('start');
+    for (let t = 0; t < 8; t += 0.05) kart.step(held(), 0.05);
+    expect(drawn(kart)).not.toEqual(before);
+  });
+
+  it('draws the same rivals for the same seed, and from the cast it is given', () => {
+    expect(drawn(createKart({ seed: 3 }))).toEqual(drawn(createKart({ seed: 3 })));
+    const kart = createKart({ seed: 3, cast: [{ sprite: 'shark', tint: null, color: '#123456' }] });
+    expect(drawn(kart).filter((i) => i.length === 8).length).toBe(6);
+  });
+});
+
+describe('the view a rival is seen from', () => {
+  it('is the kart from behind when it faces the way the camera looks, and leans left or right as it turns away', () => {
+    expect(viewFacing(0, 0)).toBe('kart');
+    expect(viewFacing(0.1, 0)).toBe('kart');
+    expect(viewFacing(-0.1, 0)).toBe('kart');
+    expect(viewFacing(0.8, 0)).toBe('kart-right');
+    expect(viewFacing(-0.8, 0)).toBe('kart-left');
+  });
+
+  it('measures the angle the short way round', () => {
+    expect(viewFacing(Math.PI * 2 - 0.8, 0)).toBe('kart-left');
+    expect(viewFacing(0.1, Math.PI * 2)).toBe('kart');
+    expect(viewFacing(0.1 + Math.PI * 2, 0)).toBe('kart');
   });
 });

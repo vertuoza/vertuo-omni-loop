@@ -34,7 +34,7 @@ import { InvadersOverlay } from './scenes/invaders.tsx';
 import { LevelUpOverlay } from './scenes/levelup.tsx';
 import { PlatformerOverlay } from './scenes/platformer.tsx';
 import { KartOverlay } from './scenes/kart.tsx';
-import { kartPress, loadKart, sameKartHud, type ArcadeKart, type KartGame } from './scenes/kart.ts';
+import { kartCast, kartPress, loadKart, sameKartHud, type ArcadeKart, type KartGame } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
 import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
@@ -291,7 +291,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   useEffect(() => {
     if (kartTry < 0) return undefined;
     let gone = false;
-    void loadKart(() => import('./kart/index'), Math.floor(Math.random() * 2 ** 31)).then((game) => {
+    void loadKart(() => import('./kart/index'), Math.floor(Math.random() * 2 ** 31), kartCast(active, meRef.current?.team ?? null)).then((game) => {
       if (gone) return;
       setKart((k) => (k ? { ...k, status: game ? 'ready' : 'failed', game, hud: game ? game.hud() : null } : k));
     });
