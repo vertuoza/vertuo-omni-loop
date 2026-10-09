@@ -1,0 +1,5 @@
+import { createServerClient } from '@supabase/ssr';
+
+export default function OrdersPage() {
+  return <p>{typeof createServerClient}</p>;
+}
