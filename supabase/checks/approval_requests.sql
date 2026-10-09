@@ -225,8 +225,8 @@ end $$;
 reset role;
 
 -- A void is never changed either.
-insert into public.approval_voids (approval_id, dossier_id, kind, from_sha256, to_sha256, pusher_login)
-select a.id, a.dossier_id, 'spec', repeat('a', 64), repeat('b', 64), 'ada' from public.approvals a limit 1;
+insert into public.approval_voids (approval_id, dossier_id, kind, from_sha256, to_sha256, pusher_login, version_id)
+select a.id, a.dossier_id, 'spec', repeat('a', 64), repeat('b', 64), 'ada', (a.files -> 0 ->> 'version_id')::uuid from public.approvals a limit 1;
 do $$
 begin
   begin
