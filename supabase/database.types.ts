@@ -2035,6 +2035,60 @@ export type Database = {
           },
         ]
       }
+      product_repositories: {
+        Row: {
+          added_at: string
+          added_by: string
+          consumes: string[]
+          knowledge: string
+          product_id: string
+          read_at: string | null
+          read_only: boolean
+          repository: string
+          role: string | null
+          workspace_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by: string
+          consumes?: string[]
+          knowledge?: string
+          product_id: string
+          read_at?: string | null
+          read_only?: boolean
+          repository: string
+          role?: string | null
+          workspace_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string
+          consumes?: string[]
+          knowledge?: string
+          product_id?: string
+          read_at?: string | null
+          read_only?: boolean
+          repository?: string
+          role?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_repositories_product_id_workspace_id_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "product_repositories_workspace_id_repository_fkey"
+            columns: ["workspace_id", "repository"]
+            isOneToOne: false
+            referencedRelation: "repositories"
+            referencedColumns: ["workspace_id", "full_name"]
+          },
+        ]
+      }
       products: {
         Row: {
           business_id: string
@@ -3910,6 +3964,59 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      product_repository_link: {
+        Args: {
+          p_consumes?: string[]
+          p_knowledge?: string
+          p_product: string
+          p_read_at?: string
+          p_read_only?: boolean
+          p_repository: string
+          p_role?: string
+        }
+        Returns: {
+          added_at: string
+          added_by: string
+          consumes: string[]
+          knowledge: string
+          product_id: string
+          read_at: string | null
+          read_only: boolean
+          repository: string
+          role: string | null
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_repositories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_repository_owned: {
+        Args: { p_product: string }
+        Returns: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_repository_unlink: {
+        Args: { p_product: string; p_repository: string }
+        Returns: boolean
       }
       proof_criteria_valid: { Args: { c: Json }; Returns: boolean }
       proof_file_name_valid: { Args: { name: string }; Returns: boolean }
