@@ -55,7 +55,7 @@ async function bodyOf(request: Request): Promise<z.infer<typeof Body> | Response
 }
 
 /** The database's refusal as the route answers it; anything else is a 500, never a guess. */
-function refusalOf(refusal: { code: string | null; message: string | null }, failed: string, log: (line: string) => void): Response {
+export function refusalOf(refusal: { code: string | null; message: string | null }, failed: string, log: (line: string) => void): Response {
   const { code, message } = refusal;
   if (code === '42501') return refuse(403, message || 'Not a member of the workspace that owns this PRD.');
   if (code === 'P0002') return refuse(404, message || 'No such PRD.');
@@ -64,15 +64,21 @@ function refusalOf(refusal: { code: string | null; message: string | null }, fai
   return refuse(500, failed);
 }
 
+/** A client acting as the caller's sign-in, or the Response that refuses them: 503 with no database
+ * here or the sign-in service down, 401 no valid sign-in. Shared with the stream (PRD 1322 s3). */
+export async function callerOf<C extends TokenCheck>(request: Request, connect: ((token: string) => C) | null): Promise<C | Response> {
+  if (!connect) return refuse(503, NO_DATABASE);
+  const auth = await authenticate(request.headers.get('authorization'), connect);
+  return auth.ok ? connect(auth.caller.token) : refuse(auth.status, auth.error);
+}
+
 /** POST: asks a ◆ PRD's approvers, reaches each one, and answers who was asked. */
 export async function requestApproval(request: Request, deps: RequestDeps): Promise<Response> {
   const { connect, ...ask } = deps;
-  if (!connect) return refuse(503, NO_DATABASE);
-  const auth = await authenticate(request.headers.get('authorization'), connect);
-  if (!auth.ok) return refuse(auth.status, auth.error);
+  const client = await callerOf(request, connect);
+  if (client instanceof Response) return client;
   const body = await bodyOf(request);
   if (body instanceof Response) return body;
-  const client = connect(auth.caller.token);
   const asked = await askApprovers({ ...ask, approvals: client.approvals }, body.repo.toLowerCase(), body.prd, callerOrigin(request));
   if (!asked.ok) return refusalOf(asked.refusal, NOT_ASKED, deps.log);
   const shaped = AskingSchema.safeParse(asked.reply);
