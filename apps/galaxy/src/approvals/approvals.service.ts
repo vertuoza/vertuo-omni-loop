@@ -57,8 +57,11 @@ const escape = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCo
 
 /** What reaches each asked person: `PRD <n> waits for your approval`, the title, the one-line before →
  * after (the first sentence of the spec's Problem, then of its Solution), the repository and the short
- * hashes; the email adds the Problem and the Solution. Both open the PRD's page at `url`. */
-function approvalMessage(request: Requested, url: string): Message {
+ * hashes; the email adds the Problem and the Solution. Both open the PRD's page. The push carries the
+ * title and the before → after only. */
+function approvalMessage(request: Requested, origin: string): Message {
+  const path = `/prd/${request.dossier}`;
+  const url = `${origin}${path}`;
   const heading = `PRD ${request.prd} waits for your approval`;
   const problem = request.spec === null ? null : sectionOf(request.spec, 'Problem');
   const solution = request.spec === null ? null : sectionOf(request.spec, 'Solution');
@@ -76,7 +79,9 @@ function approvalMessage(request: Requested, url: string): Message {
     `<p><a href="${escape(url)}">Open PRD ${request.prd} to approve it</a></p>`,
   ].join('\n');
   return {
-    push: JSON.stringify({ title: heading, body: facts.join('\n'), url, tag: `approval-${request.dossier}` }),
+    // The service worker reads exactly {title, body, url}, url a path on this site (settled with s9,
+    // item s9-01-push-payload-shape).
+    push: JSON.stringify({ title: heading, body: [request.title, line].filter(Boolean).join('\n'), url: path }),
     email: { subject: `${heading}: ${request.title}`, text, html },
   };
 }
@@ -102,7 +107,7 @@ async function reachAll(deps: AskDeps, request: Requested, origin: string): Prom
     return;
   }
   const channels = deps.channels(origin, (device) => reach.forget(device));
-  await notifyAll(recipients.value, approvalMessage(request, `${origin}/prd/${request.dossier}`), channels, deps.log);
+  await notifyAll(recipients.value, approvalMessage(request, origin), channels, deps.log);
 }
 
 /** Asks PRD `prd` of `repo`'s approvers as the caller, reaches each one, and answers who was asked.

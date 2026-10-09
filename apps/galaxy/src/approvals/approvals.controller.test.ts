@@ -108,13 +108,8 @@ function world({ database = true, service = true, keys = { push: true, email: tr
 
 const PAYLOAD = {
   title: 'PRD 7 waits for your approval',
-  body: [
-    'The approval handshake',
-    'Nobody is told a PRD waits. → Each product lists its approvers, and each one is asked.',
-    'acme/mobile · spec aaaaaaa · plan bbbbbbb · before-after ccccccc',
-  ].join('\n'),
-  url: `https://omni.example/prd/${DOSSIER}`,
-  tag: `approval-${DOSSIER}`,
+  body: 'The approval handshake\nNobody is told a PRD waits. → Each product lists its approvers, and each one is asked.',
+  url: `/prd/${DOSSIER}`,
 };
 
 const REPLY = { asked: [{ login: 'irisa-gh', name: 'IRISA' }, { login: 'paul-gh', name: null }], nobodyElse: false, author: 'ada-gh', product: 'Mobile' };
@@ -144,6 +139,7 @@ describe('POST /api/dossiers/approval/request', () => {
     expect(html).toContain('<h2>Problem</h2>');
     expect(text).toContain('Solution\n\n### 1. Who approves');
     expect(text).not.toContain('Web Push plus email');
+    expect(text).toContain('acme/mobile · spec aaaaaaa · plan bbbbbbb · before-after ccccccc');
     expect(text).toContain(`Open it to approve: https://omni.example/prd/${DOSSIER}`);
     expect(html).toContain('<strong>approvers</strong>');
     expect(html).toContain(`<a href="https://omni.example/prd/${DOSSIER}">`);
@@ -184,7 +180,7 @@ describe('POST /api/dossiers/approval/request', () => {
     const answer = await w.post({ repo: 'acme/loose', prd: 7 });
     expect(answer.body).toEqual({ asked: [{ login: 'ada-gh', name: null }], nobodyElse: true, author: 'ada-gh', product: null });
     expect(w.pushes.map((p): unknown => JSON.parse(p.payload))).toContainEqual({
-      ...PAYLOAD, body: 'The approval handshake\nacme/mobile · spec aaaaaaa · plan bbbbbbb · before-after ccccccc',
+      ...PAYLOAD, body: 'The approval handshake',
     });
   });
 
