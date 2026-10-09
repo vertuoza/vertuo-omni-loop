@@ -160,12 +160,13 @@ In:
 - `law-demoted`, and the item-only, `high`-floor account for the four law rules;
 - the server check grading fix PRs, knowledge PRs and enforce PRs, and the fix's outbox;
 - the bug-fix and visual-fix skills raising law items;
-- `docs/guide` and the app READMEs: what a law is now, `/omni:enforce`, the sweep;
-- running the sweep on this repository, as the last slice, in its own knowledge PR.
+- `docs/guide` and the app READMEs: what a law is now, `/omni:enforce`, the sweep.
 
 Out:
 
 - writing the tests for this repository's laws: each one is a law issue `/omni:enforce` takes later;
+- running the sweep on this repository: a person runs `omni knowledge judge` once this PRD has shipped
+  and `law-worth` is deployed, and opens its knowledge PR, as every other repository does;
 - `/omni:drive` picking up law issues by itself: a person runs `/omni:enforce` until a later PRD;
 - principles: they stay unenforced by design, served by the rules under them;
 - any change to how a person answers an outbox item.
@@ -203,8 +204,9 @@ A merge to `main` publishes:
   to `skipped` on fix PRs.
 - **Galaxy** (`apps/galaxy`): a new Jev decision row, Off by default, and a new route. Rollback: revert;
   no stored data depends on it beyond logged calls.
-- **No migration**, unless the Jev registry needs a row seeded in the database; if it does, it is
-  additive, and its rollback is a follow-up migration deleting the row.
+- **the database**: one additive migration, `jev_decision_names()` gaining `law-worth` as earlier
+  decisions did (`supabase/migrations/20261028110000_unknown_worth_asking.sql`). Rollback: a follow-up
+  migration that removes the name and any `law-worth` row.
 
 The sweep of this repository writes nothing until a person merges its knowledge PR.
 
