@@ -151,3 +151,18 @@ has a row for exits `0`, `1` and `2`.
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs kit/test/no-game-words.test.mjs`
 and `pnpm test`, green.
+
+## PRD #1299, slice s7 — the approval gate
+
+- **Step 1, item 1** gates on `omni prd`'s `state:` line, never its exit code (it always exits 0).
+  A ◆ PRD (`birthplace: server`) runs in `inbox` and also in `prd`, waiting for approval, because
+  `/omni:brainstorm` plans it before anyone approves and the plan is part of what is approved. It
+  stops on `drifted`, `unreachable` (held, not failed) and `refused`, printing their `approval:`
+  lines. A ◇ PRD reads as before.
+- **Step 7**, run alone, names `PRD <n> waits for approval: <link>` before the two steps when the PRD
+  waits for approval.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green but `kit/test/dist.test.ts`, which reads only the
+kit's sources.
