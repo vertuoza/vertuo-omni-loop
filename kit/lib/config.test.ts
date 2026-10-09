@@ -120,6 +120,11 @@ describe('parseConfig', () => {
     });
   });
 
+  it('names the approved label when the config does not set it, and reads back one it sets (PRD 1299)', () => {
+    expect(parseConfig('kit: 1\n').labels.approved).toBe('omni:approved');
+    expect(parseConfig('kit: 1\nlabels:\n  approved: signed-off\n').labels.approved).toBe('signed-off');
+  });
+
   it('names the concept label and the concept branch when the config sets neither (PRD 686)', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.labels.concept).toBe('omni:concept');

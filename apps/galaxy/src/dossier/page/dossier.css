@@ -182,6 +182,9 @@
 .dossier-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .dossier-copy,
 .dossier-delete { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* PRD 1299 s3: Approve, on a ◆ PRD's page, and its Approval cell. */
+.dossier-approve { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dossier-approval dd p { margin: 2px 0 0; }
 .dossier-copy .ask-share-link { flex: 1 1 260px; }
 
 /* ── The artifact tabs, on the header's bottom edge, their rule across its full width: links, the current one underlined ── */

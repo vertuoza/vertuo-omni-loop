@@ -178,6 +178,16 @@ that same `why`, **park** it. A park's `why` reads `waits on <who>: <what>`:
 
    Exit 1 is one line: print it and carry on.
 
+**A PRD born on the server** (◆, its spec saying `phase0: server`) is approved on its PRD page, not
+by a phase-0 PR, and `omni next` reads its approval for you. Waiting for approval, it parks the way
+an open phase-0 PR parks a ◇ PRD: `why` is `waits on a reviewer: the PRD waits for approval on its
+page`, and `link` is its dossier link, which both park items carry. Drifted from its approval
+(`≠ <file> · … · ✗ refuse · restore it, or approve again: <link>`) or refused (`approver <login> is
+not a workspace member`, `refused (<status>)`), it parks on a person, its `why` carrying those
+lines. Its approval unanswered (`server unreachable · held, not failed`) is a `wait`, never a park
+and never a failure: a later tick reads it again. Never approve one: a workspace member does, on its
+page.
+
 **Held.** Under `--roadmap`, only the entries of `held` that carry a `gate` are the roadmap's, and
 only they are parked or held here; the pool's entries (no `gate`) are steps kept back for this tick,
 which step 4 lists and a later tick launches. For every gated entry this session has not sent yet

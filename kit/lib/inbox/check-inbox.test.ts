@@ -250,6 +250,16 @@ it('refuses a prd: that disagrees with the folder number', () => {
     /0042-a.*43|43.*0042-a/s,
   );
 });
+it('accepts phase0: server, a PRD born on the server (PRD 1299)', () => {
+  expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ phase0: 'server' }) })).toBe('');
+});
+it('refuses any other phase0, naming the field and the one value it takes (PRD 1299)', () => {
+  for (const value of ['pr', 'repo', 'Server']) {
+    expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ phase0: value }) })).toBe(
+      `${IN}/0042-a/spec.md: phase0: phase0 must be server, or left out`,
+    );
+  }
+});
 it('refuses a missing spec.md in an inbox folder', () => {
   expect(violations({ [`${IN}/0042-a/plan.md`]: 'x' })).toMatch(/0042-a\/spec\.md/);
 });

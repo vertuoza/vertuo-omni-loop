@@ -8,6 +8,9 @@
 // | ------------------------------------------------------------------------- | ------------------------ |
 // | its feature PR merged or closed, or its folder shipped with no open PR    | `done`                   |
 // | its phase-0 PR open                                                       | `park` (a reviewer)      |
+// | a ◆ PRD waiting for approval (PRD 1299)                                   | `park` (a reviewer)      |
+// | a ◆ PRD drifted from its approval, or its approval refused                | `park` (a person)        |
+// | a ◆ PRD whose approval the server did not answer                          | `wait` (held)            |
 // | GitHub or its board could not be read                                     | `wait`                   |
 // | feature PR ready, and red CI to fix, a conflict, or a thread to handle    | `act pr-care --once`     |
 // | feature PR ready, and red CI marked stuck                                 | `park` (a person)        |
@@ -32,6 +35,7 @@
 // | --------------------------------------------------------------------------- | ------------------------------ |
 // | the plan PR and every target PR merged or closed, or shipped with none open | `done`                         |
 // | its phase-0 PR open                                                         | `park` (a reviewer), naming it |
+// | a ◆ PRD not approved: waiting, drifted, refused or unreachable              | as in one repository           |
 // | GitHub, a target or its board could not be read                             | `wait`                         |
 // | a ready PR in any repository, and red CI to fix, a conflict, or a thread    | `act mega-pr-care --once`      |
 // | a ready PR in any repository, and red CI marked stuck                       | `park` (a person)              |
@@ -44,6 +48,7 @@
 // | slices takeable in the next wave, in any repository                         | `act ultra-wave`               |
 // | then as in one repository: a claim held, a slice stuck, anything else       | `wait`, `park`, `wait`         |
 
+import type { PrdState } from '../approval/prd-state.ts';
 import type { CheckState } from '../care/state.ts';
 import type { PrNumber, PrdNumber, WorkSliceId } from '../ids.ts';
 
@@ -124,6 +129,17 @@ export type TargetPr = { repo: string; pr: FeatureFacts | null | 'unreadable' };
 /** In a plan repository: the plan repository's short name, and each target the plan lands in. */
 export type AcrossFacts = { repo: string; targets: TargetPr[] };
 
+/** A ◆ PRD (PRD 1299) whose approval keeps it out of the inbox, as `prdState()` read it: its stage,
+ * the lines that say why, and its dossier's link. */
+export type ApprovalGate = { state: 'prd' | 'drifted' | 'unreachable' | 'refused'; lines: string[]; link: string | null };
+
+/** The gate PRD `state` stands at, or `null` when nothing holds it there: no folder, a ◇ PRD, a shipped
+ * one, or a ◆ PRD approved. */
+export function approvalGate(state: PrdState | null): ApprovalGate | null {
+  if (state === null || state.approval === null || state.state === 'inbox' || state.state === 'shipped') return null;
+  return { state: state.state, lines: state.approval.lines, link: state.approval.url };
+}
+
 /** Everything the verdict is decided on. `null` means there is none; `unreadable`, it could not be
  * read. In a plan repository `feature` is the plan PR, and `across` names the targets. */
 export type PrdFacts = {
@@ -134,11 +150,24 @@ export type PrdFacts = {
   board: BoardFacts | null | 'unreadable';
   outbox: OutboxFacts | 'unreadable';
   across?: AcrossFacts;
+  /** A ◆ PRD not approved (PRD 1299); absent otherwise. */
+  approval?: ApprovalGate | null;
 };
 
 const act = (prd: PrdNumber, skill: NextSkill, why: string, link?: string): Verdict => ({ prd, verdict: 'act', skill, why, ...(link ? { link } : {}) });
 const wait = (prd: PrdNumber, why: string, wakeHint: number, link?: string): Verdict => ({ prd, verdict: 'wait', why, wakeHint, ...(link ? { link } : {}) });
 const park = (prd: PrdNumber, why: string, link?: string): Verdict => ({ prd, verdict: 'park', why, ...(link ? { link } : {}) });
+
+/** The verdict a ◆ PRD's approval forces before its work is read, or `null` when it forces none:
+ * waiting parks it on a reviewer as an open phase-0 PR does, naming its page; drifted and refused park
+ * it on a person with their lines; unreachable holds it, never fails it. */
+function gated(prd: PrdNumber, gate: ApprovalGate | null | undefined): Verdict | null {
+  if (!gate) return null;
+  const link = gate.link ?? undefined;
+  if (gate.state === 'prd') return park(prd, 'waits on a reviewer: the PRD waits for approval on its page', link);
+  if (gate.state === 'unreachable') return wait(prd, gate.lines.join('; '), WAKE_HINTS.unreadable, link);
+  return park(prd, `waits on a person: ${gate.lines.join('; ')}`, link);
+}
 
 /** A list of slice ids, in words. */
 const ids = (list: readonly string[]): string => list.join(', ');
@@ -200,15 +229,24 @@ function building(prd: PrdNumber, board: BoardFacts, link: string | undefined): 
   return wait(prd, 'nothing can move yet', WAKE_HINTS.claim, link);
 }
 
-/** PRD `facts.prd`'s verdict. */
-export function decideNext(facts: PrdFacts): Verdict {
-  if (facts.across !== undefined) return decideAcross(facts, facts.across);
-  const { prd, feature, board, outbox } = facts;
+/** The verdict that stops a PRD before its work is read: ended, its phase-0 PR open, or a ◆ PRD not
+ * approved; `null` when none does. */
+function stopped(facts: PrdFacts): Verdict | null {
+  const { prd, feature } = facts;
   if (feature !== null && feature !== 'unreadable' && feature.state !== 'OPEN') {
     return { prd, verdict: 'done', why: `the feature PR is ${feature.state.toLowerCase()}`, link: feature.url };
   }
   if (facts.shipped && (feature === null || feature === 'unreadable')) return { prd, verdict: 'done', why: 'the PRD has shipped' };
   if (facts.phase0 !== null) return park(prd, 'waits on a reviewer: the phase-0 PR is open', facts.phase0.url);
+  return gated(prd, facts.approval);
+}
+
+/** PRD `facts.prd`'s verdict. */
+export function decideNext(facts: PrdFacts): Verdict {
+  if (facts.across !== undefined) return decideAcross(facts, facts.across);
+  const { prd, feature, board, outbox } = facts;
+  const stop = stopped(facts);
+  if (stop !== null) return stop;
   if (feature === 'unreadable' || outbox === 'unreadable') return wait(prd, 'github unreachable', WAKE_HINTS.unreadable);
   if (board === 'unreadable') return wait(prd, 'the board cannot be read', WAKE_HINTS.unreadable, feature?.url);
 
@@ -289,6 +327,8 @@ function stoppedAcross(facts: PrdFacts, prs: readonly TargetPr[], planPr: Featur
   const ended = endedAcross(facts, prs, planPr);
   if (ended !== null) return ended;
   if (phase0 !== null) return park(prd, `waits on a reviewer: the phase-0 PR ${prRef(phase0.url)} is open`, phase0.url);
+  const held = gated(prd, facts.approval);
+  if (held !== null) return held;
   if (prs.some((entry) => entry.pr === 'unreadable')) return wait(prd, 'github unreachable', WAKE_HINTS.unreadable);
   return readyAcross(prd, prs);
 }

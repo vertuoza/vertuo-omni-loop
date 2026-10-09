@@ -50,6 +50,19 @@ The input is a PRD number. It is also the PRD's issue number, which `{prd}` in a
 1. `node .omni-loop/bin/omni.mjs prd <n>`. The PRD must be in state `inbox`, and its files must
    include a `spec.md`. Otherwise stop and say which is missing. The folder `dir` names is
    `<n>-<topic>` (the number zero-padded). Its `<topic>` fills `{topic}` in `branches.feature`.
+   It always exits 0: gate on its `state:` line, never on the exit code. A PRD born on the server
+   (◆) also prints `birthplace: server` and its `approval:` lines; its `state:` reads `inbox` only
+   once a member approved it on its page. For a ◆ PRD:
+
+   | `state:` | the plan |
+   |---|---|
+   | `inbox` | runs as written |
+   | `prd` (`approval: PRD <n> waits for approval: <link>`) | runs too: the plan is part of what the page approves, so `/omni:brainstorm` plans it before anyone approves |
+   | `drifted` (`approval: ≠ <file> · … · ✗ refuse · restore it, or approve again: <link>`) | stops, printing its `approval:` lines as they are |
+   | `unreachable` (`approval: server unreachable · held, not failed`) | stops with that line: held, not failed; run it again once the server answers |
+   | `refused` (`approval: approver <login> is not a workspace member`, or `refused (<status>)`) | stops, printing its line |
+
+   A ◇ PRD (no `birthplace:` line) never reads any of the four: it is `inbox` or not, as always.
 2. The spec, in full. Then every file in `paths.context`, the glossary at `paths.glossary` when it
    is set, and each ADR the spec cites under `paths.adr`.
 3. `gh issue view <n> --json body,comments`: the issue and any answer a person already gave on it.
@@ -345,7 +358,9 @@ never stops the hand-off. Then:
 ```
 
 No folder and no stages here: run alone, this skill cannot tell whether the PRD's phase-0 PR has
-merged, so a stage marker could be wrong.
+merged, so a stage marker could be wrong. A ◆ PRD that step 1 read as `prd` gets one more line
+before the two steps: `PRD <n> waits for approval: <link>`, its `approval:` line as printed, so the
+person approves it on its page before `/omni:yolo` runs.
 
 ## Guardrails
 
