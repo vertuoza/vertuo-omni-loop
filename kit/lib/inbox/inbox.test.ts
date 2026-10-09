@@ -111,6 +111,30 @@ describe('parseSpec — the proof field (PRD 798)', () => {
   });
 });
 
+describe('parseSpec — the e2e field (PRD 1275)', () => {
+  it('accepts e2e: validate and carries it on the record', () => {
+    const result = parseSpec(specText({ frontMatter: { e2e: 'validate' } }));
+    expect(result.ok).toBe(true);
+    assertDefined(result.record, 'result.record');
+    expect(result.record.e2e).toBe('validate');
+  });
+
+  it('leaves e2e off the record when the spec has none', () => {
+    const result = parseSpec(specText());
+    expect(result.ok).toBe(true);
+    expect(result.record).not.toHaveProperty('e2e');
+  });
+
+  it('refuses any other value, naming the field', () => {
+    for (const value of ['yes', 'true', 'run', '']) {
+      const result = parseSpec(specText({ frontMatter: { e2e: value } }), { file: 'x/spec.md' });
+      expect(result.ok).toBe(false);
+      assertDefined(result.errors, 'result.errors');
+      expect(result.errors.join('\n')).toMatch(/^x\/spec\.md: e2e: /m);
+    }
+  });
+});
+
 describe('parseSpec — the inbox spec records no status', () => {
   it('refuses a file carrying a status field, naming it', () => {
     const text = specText().replace('---\n', '---\nstatus: in-flight\n');

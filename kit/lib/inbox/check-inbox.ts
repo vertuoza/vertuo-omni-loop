@@ -5,7 +5,7 @@
  * the file and a reason a human can act on:
  *
  * 1. The spec exists and parses: well-formed front matter holding exactly `prd`, `title`,
- *    `blocked-by`, `spec`, and an optional `areas`, `proof` and `phase0` (PRD 1299: `server` only, a
+ *    `blocked-by`, `spec`, and an optional `areas`, `proof`, `e2e` and `phase0` (PRD 1299: `server` only, a
  *    PRD approved on its PRD page) — nothing else. A `status`, `branch`, `value`,
  *    `priority` or `plan` field is refused by name here — the plan is always the sibling
  *    `plan.md`, never a front-matter value.
