@@ -86,6 +86,12 @@ describe('approvalView', () => {
     expect(approvalView(read(born('server'), APPROVED, voice), ADA.user_id)?.state).toBe('approved');
   });
 
+  it('never drifts on a newer voice, which the loop appends after approval', () => {
+    const pinnedVoice: ApprovalRow = { ...APPROVED, files: [...APPROVED.files, { kind: 'voice', path: 'voice.json', version_id: 'v-voice-1' }] };
+    const voice = [...VERSIONS, version('v-voice-2', 'voice', '2026-10-09T12:00:00Z')];
+    expect(approvalView(read(born('server'), pinnedVoice, voice), ADA.user_id)?.state).toBe('approved');
+  });
+
   it('says so when the approval could not be read, and offers no button', () => {
     expect(approvalView(read(born('server'), 'unread'), ADA.user_id)).toMatchObject({ state: 'unread', canApprove: false });
     expect(approvalView(read(born('server'), undefined), ADA.user_id)).toMatchObject({ state: 'unread', canApprove: false });

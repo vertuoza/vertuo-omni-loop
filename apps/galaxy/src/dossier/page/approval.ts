@@ -154,6 +154,9 @@ function changedSince(approval: ApprovalRow, voids: readonly ApprovalVoid[], ver
   const latest = latestOf(versions);
   const voided = new Set(voids.map((v) => v.kind));
   return approval.files.filter((file) => {
+    // The personas' rounds (voice) are appended by the loop after approval, its shipped round
+    // included: a newer voice never drifts an approval (PRD 1322).
+    if (file.kind === 'voice') return false;
     const now = latest.get(file.kind);
     return voided.has(file.kind) || (now !== undefined && now !== file.version_id);
   }).map((file) => file.path);

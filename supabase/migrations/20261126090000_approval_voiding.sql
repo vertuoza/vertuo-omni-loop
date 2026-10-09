@@ -162,6 +162,7 @@ begin
         select f.value ->> 'sha256' into pinned
           from jsonb_array_elements(in_force.files) f
          where f.value ->> 'kind' = item ->> 'kind'
+           and f.value ->> 'kind' <> 'voice'
          limit 1;
         if pinned is not null then
           select v.* into latest

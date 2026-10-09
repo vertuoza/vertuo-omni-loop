@@ -105,7 +105,9 @@ export function judgeApproval(ctx: { root: string; layout: Layout }, prd: PrdNum
   }
   const { login, member } = approval.approver;
   if (!member) return reading('refused', [`approver ${login} is not a workspace member`]);
-  const drift = approval.files.flatMap((file) => driftOf(ctx, prd, file) ?? []);
+  // The personas' rounds (voice) are appended by the loop after approval, its shipped round included:
+  // a changed voice never drifts an approval (PRD 1322).
+  const drift = approval.files.filter((file) => file.kind !== 'voice').flatMap((file) => driftOf(ctx, prd, file) ?? []);
   if (drift.length > 0) {
     return reading('drifted', drift.map((d) => `≠ ${basename(d.file)} · ${d.how} · ✗ refuse · restore it, or approve again: ${url}`), drift);
   }
