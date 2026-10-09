@@ -52,7 +52,7 @@ export type Drift = { kind: string; file: string; how: 'content' | 'whitespace o
 export type ApprovalReading = { state: ApprovalState; lines: string[]; url: string | null; approval: Approval | null; drift: Drift[] };
 
 /** The line of a state the server never got to judge. */
-const UNREACHABLE_LINE = 'server unreachable · held, not failed';
+export const UNREACHABLE_LINE = 'server unreachable · held, not failed';
 
 /** The approval route's reply, or null when it is not one. */
 export function parseApprovalReply(body: unknown): ApprovalReply | null {
