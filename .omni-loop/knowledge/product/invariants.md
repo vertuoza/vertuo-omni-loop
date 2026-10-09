@@ -20,7 +20,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #4
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-3
 
@@ -31,7 +30,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-4
 
@@ -42,7 +40,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #29
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-5
 
@@ -53,7 +50,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #40
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-6
 
@@ -75,7 +71,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-8
 
@@ -86,7 +81,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-9
 
@@ -97,7 +91,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-10
 
