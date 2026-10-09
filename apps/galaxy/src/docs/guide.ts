@@ -180,7 +180,7 @@ export function guideProblems(dir: string, kit: Kit): string[] {
     }
     if (page.slug !== OLD_WRAPPER_PAGE && page.body.includes(OLD_WRAPPER)) problems.push(`${where}: names ${OLD_WRAPPER}, the old PATH wrapper: only troubleshooting may`);
     for (const command of commandsNamed(page.body)) {
-      if (!isCommand(kit, command)) problems.push(`${where}: omni ${command} is no command of the CLI`);
+      if (!command || !isCommand(kit, command)) problems.push(`${where}: omni ${command} is no command of the CLI`);
     }
   }
   return problems;
