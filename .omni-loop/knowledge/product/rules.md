@@ -855,3 +855,27 @@ Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
 Proposed: harvest 2026-10-06
+
+## BR-PRODUCT-92
+
+The dashboard counts only PRDs and fixes. A concept stored in the workspace is read without failing the dashboard and is left out of its counts, since concepts have their own list.
+
+Serves: P-PRODUCT-30
+Source: .omni-loop/delivery/shipped/1272-concepts-page/outbox/settled.md, entry s2-01-dashboard-skips-concepts, PRD #1272
+Enforced by: apps/galaxy/src/data/dossiers.test.ts
+Stated: 2026-10-09
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-09, PR #1282
+Proposed: harvest 2026-10-09
+
+## BR-PRODUCT-93
+
+A concept's review state is unknown when no facts are stored for it, or its stored pull request is unread or missing. The concepts list reads only stored facts and never asks GitHub; the sync or the concept's own page fills them in.
+
+Serves: P-PRODUCT-7
+Source: .omni-loop/delivery/shipped/1272-concepts-page/outbox/settled.md, entry s4-02-concept-state-unknown-until-read, PRD #1272
+Enforced by: apps/galaxy/src/concepts/state.test.ts, apps/galaxy/src/concepts/list.test.ts
+Stated: 2026-10-09
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-09, PR #1282
+Proposed: harvest 2026-10-09
