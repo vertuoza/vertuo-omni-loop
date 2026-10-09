@@ -129,6 +129,15 @@ export interface Kit {
   commands: string;
 }
 
+/** Whether the CLI has `command`: a file of that name in the kit's commands, or, for a command whose
+ * file has another name (`wait`, in `approval-wait.ts`, PRD 1322), an import of it by that name in
+ * the commands' `index.ts`. */
+function isCommand(kit: Kit, command: string): boolean {
+  if (existsSync(join(kit.commands, `${command}.ts`))) return true;
+  const index = join(kit.commands, 'index.ts');
+  return existsSync(index) && new RegExp(`^import \\{ ${command} \\} from `, 'm').test(readFileSync(index, 'utf8'));
+}
+
 /** The page whose TERMINAL blocks must each be one line (PRD 420): a newcomer pastes them one by one. */
 const ONE_LINE_PAGE = 'install';
 /** The PATH wrapper PRD 373 had people write, which the global `omni` replaced (PRD 420): only the
@@ -171,7 +180,7 @@ export function guideProblems(dir: string, kit: Kit): string[] {
     }
     if (page.slug !== OLD_WRAPPER_PAGE && page.body.includes(OLD_WRAPPER)) problems.push(`${where}: names ${OLD_WRAPPER}, the old PATH wrapper: only troubleshooting may`);
     for (const command of commandsNamed(page.body)) {
-      if (!existsSync(join(kit.commands, `${command}.ts`))) problems.push(`${where}: omni ${command} is no command of the CLI`);
+      if (!isCommand(kit, command)) problems.push(`${where}: omni ${command} is no command of the CLI`);
     }
   }
   return problems;
