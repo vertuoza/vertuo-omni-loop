@@ -40,7 +40,7 @@ describe('omni e2e guard', () => {
   it('refuses a token, a key and a session-state shape', async () => {
     const { code, err } = await run(ON, {
       'e2e/t.ts': `fetch(u, { headers: { Authorization: 'Bearer ${'a'.repeat(24)}' } });\n`,
-      'e2e/k.ts': `-----BEGIN RSA ${'PRIVATE'} KEY-----\n`,
+      'e2e/k.ts': ['-----BEGIN RSA', 'PRIVATE', 'KEY-----'].join(' ') + '\n',
       'e2e/s.json': '{ "cookies": [], "origins": [] }\n',
     });
     expect(code).toBe(1);
