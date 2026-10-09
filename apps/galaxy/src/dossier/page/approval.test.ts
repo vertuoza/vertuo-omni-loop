@@ -44,8 +44,8 @@ const APPROVED: ApprovalRow = {
   approver_login: 'ada',
   approved_at: '2026-10-09T09:12:00Z',
   files: [
-    { kind: 'spec', path: 'spec.md', version_id: 'v-spec-1' },
-    { kind: 'plan', path: 'plan.md', version_id: 'v-plan-1' },
+    { kind: 'spec', path: 'spec.md', version_id: 'v-spec-1', sha256: '9c41aa00e07b' },
+    { kind: 'plan', path: 'plan.md', version_id: 'v-plan-1', sha256: '41b0bb000cd2' },
     { kind: 'before-after', path: 'before-after.html', version_id: 'v-ba-1' },
   ],
 };
@@ -59,20 +59,33 @@ const page = (r: DossierRead, me: string | null = ADA.user_id) =>
 describe('approvalView', () => {
   it('waits for approval while none was given, with the button for a member', () => {
     expect(approvalView(read(born('server'), null), ADA.user_id)).toEqual({
-      state: 'waiting', words: 'waiting for approval', detail: null, changed: [], canApprove: true, dossier: ID, screen: null,
+      state: 'waiting', words: 'waiting for approval', detail: null, changed: [], canApprove: true, dossier: ID, screen: null, seal: null,
     });
   });
 
   it('is approved, with who and when, while every pinned file is still the latest of its kind', () => {
     expect(approvalView(read(born('server'), APPROVED), ADA.user_id)).toEqual({
       state: 'approved', words: 'approved', detail: 'by ada · 9 Oct 2026, 09:12 UTC', changed: [], canApprove: false, dossier: ID, screen: null,
+      seal: {
+        prd: 1299, approver: 'ada', at: '9 Oct 2026, 09:12 UTC',
+        files: [{ path: 'spec.md', hash: '9c41aa0' }, { path: 'plan.md', hash: '41b0bb0' }, { path: 'before-after.html', hash: null }],
+      },
     });
+  });
+
+  it('shows the seal on the page once approved, as the approval, with who, when and the pinned files (#1351)', () => {
+    const html = page(read(born('server'), APPROVED));
+    expect(html).toContain('id="approval"');
+    expect(html).toContain('APPROVED · PINNED');
+    expect(html).toContain('Approved by ada');
+    expect(html).toContain('9c41aa0');
+    expect(page(read(born('server'), null))).not.toContain('APPROVED · PINNED');
   });
 
   it('drifts once a version newer than a pinned one was pushed, naming the file, with the button back', () => {
     expect(approvalView(read(born('server'), APPROVED, [...VERSIONS, NEWER_PLAN]), ADA.user_id)).toEqual({
       state: 'drifted', words: 'drifted · approve again', detail: 'plan.md changed since ada approved it · 9 Oct 2026, 09:12 UTC',
-      changed: ['plan.md'], canApprove: true, dossier: ID, screen: null,
+      changed: ['plan.md'], canApprove: true, dossier: ID, screen: null, seal: null,
     });
   });
 

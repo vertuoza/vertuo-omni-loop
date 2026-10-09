@@ -2,11 +2,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { APPROVAL_ROUTE } from './approval';
+import { rememberApproved } from './SealScroll';
 
 // Approve, on a ◆ PRD's page (PRD 1299 s3), shown to a member while it waits for approval or drifted:
 // it approves as the signed-in person, through the approval route (src/approval/approval-api.ts), which
 // pins the dossier's latest files and labels the PRD's issue, then re-renders the page, which reads the
-// new approval in force. A refusal shows the route's own words.
+// new approval in force, its seal brought into view (SealScroll, #1351). A refusal shows the route's own words.
 
 export function ApproveButton({ dossier }: { dossier: string }) {
   const router = useRouter();
@@ -22,6 +23,7 @@ export function ApproveButton({ dossier }: { dossier: string }) {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dossier }),
       });
       if (answer.ok) {
+        rememberApproved(dossier);
         router.refresh();
       } else {
         const body: unknown = await answer.json().catch(() => null);
@@ -36,7 +38,7 @@ export function ApproveButton({ dossier }: { dossier: string }) {
 
   return (
     <span className="dossier-approve">
-      <button type="button" className="ask-button" disabled={busy} onClick={() => void approve()}>{busy ? 'Approving…' : 'Approve'}</button>
+      <button type="button" className="ask-button dossier-approve-button" disabled={busy} onClick={() => void approve()}>{busy ? 'Approving…' : 'Approve'}</button>
       {problem && <span className="ask-problem" role="alert">{problem}</span>}
     </span>
   );
