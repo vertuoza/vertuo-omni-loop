@@ -1132,7 +1132,7 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
      `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`
    - OpenRouter: `OPENROUTER_API_KEY`
    - the shared secrets: `STAGES_SYNC_SECRET`, `STAGE_EVENT_SECRET`, `SECRETS_MASTER_KEY`,
-     `CONSTITUENT_JUDGE_SECRET`, `BUSINESS_RECHECK_SECRET`
+     `CONSTITUENT_JUDGE_SECRET`, `LAW_JUDGE_SECRET`, `BUSINESS_RECHECK_SECRET`
    - the demo: `OMNI_LOOP_DEMO`; the screenshots' address (`pnpm shots`): `GALAXY_URL`
    <!-- /omni:env-variables -->
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
