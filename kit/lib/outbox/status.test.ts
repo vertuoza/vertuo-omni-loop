@@ -291,7 +291,7 @@ describe('formatReport', () => {
     const report = formatReport(parsePrd('985'), result);
     expect(report).toContain('1 open item(s)');
     expect(report).toContain('unaccounted risky change');
-    expect(report).toContain('libs/vertuo-ai-credit/src/server/migrations.ts (stored-shape)');
+    expect(report.split('\n')).toContain('  - libs/vertuo-ai-credit/src/server/migrations.ts (stored-shape)');
   });
 });
 

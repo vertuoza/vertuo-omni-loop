@@ -114,8 +114,7 @@ describe('gradePrd', () => {
 
     assertDefined(result.unaccounted[0], 'result.unaccounted[0]');
     const line = describeUnaccounted(parsePrd(1044), result.unaccounted[0]);
-    expect(line).toContain('libs/vertuo-ai-credit/src/server/migrations.ts');
-    expect(line).toContain('stored-shape');
+    expect(line).toBe('PRD #1044: `libs/vertuo-ai-credit/src/server/migrations.ts` is risky (stored-shape) and no account names it.');
   });
 
   it('a risky change named by an account is accounted for', () => {

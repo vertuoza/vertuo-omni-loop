@@ -437,6 +437,11 @@ describe('compare — a law change is accounted only by an item ranked high (PRD
     expect(result.unaccounted).toEqual([]);
   });
 
+  it('carries no refused reason on a change no entry names', () => {
+    const risky = [{ path: PATH, status: 'M', rule: 'law-text' }];
+    expect(compare(risky, []).unaccounted[0]).not.toHaveProperty('refused');
+  });
+
   it('still accepts a medium item for a rule that is not a law rule', () => {
     const risky = [{ path: PATH, status: 'M', rule: 'stored-shape' }];
     expect(compare(risky, oneEntry('stored-shape', { kind: 'item', id: 's2-01-a', rank: 'medium' })).accounted).toEqual(risky);

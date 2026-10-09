@@ -168,12 +168,7 @@ export function unreworkedDrift(prd: PrdNumber, { ctx }: { ctx: OutboxContext })
  */
 export function gateResult(
   prd: PrdNumber,
-  {
-    ctx,
-    labels = [],
-    changes = null,
-    base = null,
-  }: { ctx: GateContext; labels?: readonly string[]; changes?: readonly Change[] | null; base?: KnowledgeSource | null },
+  { ctx, labels = [], changes = null, base = null }: { ctx: GateContext; labels?: readonly string[]; changes?: readonly Change[] | null; base?: KnowledgeSource | null },
 ): GateResult {
   const items = openItems(prd, { ctx });
   const unreworked = unreworkedDrift(prd, { ctx });

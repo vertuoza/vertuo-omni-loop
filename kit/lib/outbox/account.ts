@@ -222,7 +222,7 @@ export function readAccounts(prd: PrdNumber, { ctx }: { ctx: OutboxContext }): P
   // Each item id this PRD holds, with its rank: `null` when the file does not parse.
   const ranks = new Map<string, string | null>();
   for (const path of outboxItemFiles({ ctx }).filter((file) => file.startsWith(prdPrefix))) {
-    const parsed = parseOutboxItem(readRepoFile(ctx, path), { file: path });
+    const parsed = parseOutboxItem(readRepoFile(ctx, path));
     ranks.set(basename(path, '.md'), parsed.ok ? parsed.item.rank : null);
   }
   // A settled item is still the decision the account points at: settling moves it into

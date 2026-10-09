@@ -361,6 +361,12 @@ describe('riskyChanges — law-demoted (PRD 1342)', () => {
     expect(demotedOver(baseWith([['N1', 'unenforced']])).map((entry) => entry.rule)).toEqual(['law-text', 'law-demoted']);
   });
 
+  it('counts a rule removed as a law removed', () => {
+    const RULES_FILE = 'docs/knowledge/product/rules.md';
+    const base = memorySource({ [RULES_FILE]: ['## BR-PRODUCT-1', '', 'A rule.', '', 'Serves: P-PRODUCT-1', 'Enforced by: unenforced', ''].join('\n') });
+    expect(riskyChanges([change(RULES_FILE)], { ctx, base }).map((entry) => entry.rule)).toEqual(['law-text', 'law-demoted']);
+  });
+
   it('does not count a principle removed as a law removed', () => {
     const PRINCIPLES = 'docs/knowledge/product/principles.md';
     const base = memorySource({ [PRINCIPLES]: ['## P-PRODUCT-1', '', 'A principle.', '', 'Why: because.', ''].join('\n') });
