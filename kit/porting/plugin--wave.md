@@ -110,3 +110,15 @@ SKILL.md names exists now covers `sign`.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## PRD #1299, slice s7 — the approval gate
+
+- **Step 0** gains **A PRD born on the server**: the `omni prd <prd>` it already runs is gated on its
+  `state:` line. A ◆ PRD (`birthplace: server`) must read `inbox`; `prd`, `drifted`, `unreachable`
+  and `refused` stop the wave before any claim or dispatch, on the same lines `/omni:yolo` names. A ◇
+  PRD runs as written.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green but `kit/test/dist.test.ts`, which reads only the
+kit's sources.

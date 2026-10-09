@@ -122,6 +122,20 @@ and the merge it waits for, and "the feature PR" there is the last landing's.
    spans repositories**). It must be in state `inbox`. `shipped`, with the feature
    PR still a draft, means a previous run shipped and stopped before ready: go to step 5, green path,
    item 4. Anything else: stop and say where it is.
+   It always exits 0: gate on its `state:` line, never on the exit code. A PRD born on the server
+   (◆) also prints `birthplace: server` and its `approval:` lines, and reads `inbox` only once a
+   workspace member approved it on its page and every approved file on the feature branch still
+   matches. Otherwise stop with the line its state gives, as `omni prd` prints it after `approval: `,
+   and nothing else runs (no plan, no claim, no wave):
+
+   | `state:` | the line the run stops on |
+   |---|---|
+   | `prd` | `PRD <n> waits for approval: <link>`: approve it on its page, then run this again |
+   | `drifted` | each `≠ <file> · content` (or `· whitespace only`) `· ✗ refuse · restore it, or approve again: <link>` |
+   | `unreachable` | `server unreachable · held, not failed`: the PRD is held, not failed; run this again once the server answers |
+   | `refused` | `approver <login> is not a workspace member`, or `refused (<status>)` |
+
+   A ◇ PRD (no `birthplace:` line) never reads any of the four and calls no server.
 4. No feature branch, no feature PR, or no `plan.md` in the PRD's files: follow `/omni:plan` first.
    It may return `needs clarification`: stop, and say what the PRD must answer. Otherwise go back to
    item 1 with its feature PR.
@@ -443,7 +457,12 @@ building instead, and the rest of the block is the same:
 ```
 
 "merging the feature PR moves it here" is always under shipped, because whatever the gate read, the
-feature PR is not merged.
+feature PR is not merged. For a ◆ PRD (`birthplace: server`), the PRD and inbox lines are the
+brainstorm's ◆ ones: `PRD       spec, plan and before/after written, on its PRD page, waiting for
+approval` and `inbox     approved on its PRD page: ready to build`.
+
+A run stopped at step 1's approval gate builds nothing and ends on that gate's line alone, with no
+blocks.
 
 **3. What is next?** One of three, by how the run ended: three short numbered steps, then the
 ending's last line.

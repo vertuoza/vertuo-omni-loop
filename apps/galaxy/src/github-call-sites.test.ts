@@ -21,6 +21,7 @@ type Kind =
   | 'person';
 
 const SITES: Record<string, Kind> = {
+  'apps/galaxy/src/approval/label.ts': 'client',
   'apps/galaxy/src/business/draft/github.ts': 'client',
   'apps/galaxy/src/data/github-orgs.ts': 'person',
   'apps/galaxy/src/dossier/github/reader.ts': 'client',

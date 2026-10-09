@@ -35,6 +35,7 @@ function overview({ prd = 0, inbox = 2, building = 0, openItems = 0, outbox = 0,
     inProgress: { total: inProgress, inbox, building, outbox },
     yours,
     rules,
+    held: [],
   };
 }
 
@@ -341,5 +342,22 @@ describe('fetchedAgo', () => {
   it('counts days from a day on', () => {
     expect(fetchedAgo(NOW - DAY, NOW)).toBe('fetched 1 day ago');
     expect(fetchedAgo(NOW - 40 * DAY, NOW)).toBe('fetched 40 days ago');
+  });
+});
+
+// PRD 1299, slice s5: a ◆ PRD waiting for approval, and the ◆ PRDs held.
+describe('formatOverview — ◆ PRDs (PRD 1299)', () => {
+  it('a ◆ PRD of yours at PRD says it waits for approval on its page', () => {
+    const text = formatOverview(overview({ prd: 1, yours: known({ rows: [{ stage: 'prd', prd: parsePrd(9), topic: 'quote', approval: true }] }) }), { now: NOW });
+    expect(text).toMatch(/^ {2}PRD +#9 {2}quote {4}waits for approval on its page$/m);
+  });
+
+  it('prints each held ◆ PRD and its lines under the bar, and nothing without one', () => {
+    const held = [{ prd: parsePrd(9), topic: 'quote', lines: ['≠ plan.md · content', 'server unreachable · held, not failed'] }];
+    const text = lines(formatOverview({ ...overview(), held }, { now: NOW }));
+    const at = text.indexOf('  held       #9 quote');
+    expect(at).toBeGreaterThan(0);
+    expect(text.slice(at + 1, at + 3)).toEqual(['             ≠ plan.md · content', '             server unreachable · held, not failed']);
+    expect(formatOverview(overview(), { now: NOW })).not.toMatch(/held/);
   });
 });

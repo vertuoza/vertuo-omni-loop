@@ -4,6 +4,7 @@ import type { Member } from '../ask/page/question';
 import { readForMe, readMembers, tabsReader, type Db, type SortDb } from '../ask/page/source';
 import { orThrow, parseRows } from '../data/parse-rows';
 import { loadPeople, type People } from '../people/load';
+import { holdSession, type SessionAuth } from './session';
 import { mergeQuestions, ownQuestions, sharedQuestions, type WaitingQuestion } from './waiting';
 
 // Where the waiting list's Questions part is read (PRD 499): the ask pages' own readers, as the
@@ -16,13 +17,15 @@ import { mergeQuestions, ownQuestions, sharedQuestions, type WaitingQuestion } f
 const QUESTION_COLUMNS = 'id, questions';
 export const WaitingRound = z.object({ id: z.string(), questions: z.unknown() });
 
-/** A reader of the Questions part for `me`, keeping what it read before. Throws when a read fails. */
-export function questionsReader(db: Db & SortDb, me: string): (now: number) => Promise<WaitingQuestion[]> {
+/** A reader of the Questions part for `me`, keeping what it read before. Throws when a read fails, and
+ * SignedOut, having read nothing, when the client holds no session (bug #1316). */
+export function questionsReader(db: Db & SortDb & SessionAuth, me: string): (now: number) => Promise<WaitingQuestion[]> {
   const tabs = tabsReader(db, me);
   const texts = new Map<string, string>();
   const members = new Map<string, Member[]>();
   const people = new Map<string, People>();
   return async (now) => {
+    await holdSession(db);
     const [rows, shared] = await Promise.all([tabs(now), readForMe(db, me)]);
     const waiting = rows.flatMap((r) => (r.newest?.status === 'open' && !texts.has(r.newest.id) ? [r.newest.id] : []));
     if (waiting.length) {

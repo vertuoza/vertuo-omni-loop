@@ -611,6 +611,9 @@ var ConfigSchema = z7.object({
     riskLow: labelName.default("omni:risk-low"),
     // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
     concept: labelName.default("omni:concept"),
+    // PRD 1299: the label the GitHub App adds to a PRD's issue once it is approved on the server. For
+    // display: nothing reads it.
+    approved: labelName.default("omni:approved"),
     autoCreate: z7.boolean().default(false)
   }),
   prLinks: section({
@@ -864,8 +867,8 @@ function messageOf2(error) {
 // apps/omni-app/src/stage-forward/stage-forward.ts
 var STAGE_SIGNATURE_HEADER = "x-omni-signature-256";
 var DEFAULT_SHAPES = (() => {
-  const { branches, prLinks } = parseConfig("kit: 1");
-  return Object.freeze({ branches, prLinks });
+  const { branches, prLinks, labels } = parseConfig("kit: 1");
+  return Object.freeze({ branches, prLinks, approved: labels.approved });
 })();
 var PullEventSchema = z9.looseObject({
   action: z9.unknown(),
@@ -880,7 +883,21 @@ var PullEventSchema = z9.looseObject({
     body: z9.unknown()
   })
 });
+var LabeledEventSchema = z9.looseObject({
+  action: z9.literal("labeled"),
+  repository: z9.looseObject({ full_name: z9.string().min(1) }),
+  label: z9.looseObject({ name: z9.string() }),
+  issue: z9.looseObject({ number: PrdNumberSchema, updated_at: z9.string().min(1), pull_request: z9.unknown().optional() })
+});
+function approvedStage(payload, approved) {
+  const read = LabeledEventSchema.safeParse(payload);
+  if (!read.success) return null;
+  const { repository, label, issue } = read.data;
+  if (label.name !== approved || issue.pull_request !== void 0) return null;
+  return { repository: repository.full_name, topic: String(issue.number), prd: issue.number, stage: "inbox", at: issue.updated_at };
+}
 function toStageEvent(event, payload, shapes = DEFAULT_SHAPES) {
+  if (event === "issues") return approvedStage(payload, shapes.approved ?? DEFAULT_SHAPES.approved);
   const read = event === "pull_request" ? PullEventSchema.safeParse(payload) : null;
   if (!read?.success) return null;
   const pull = pullOf(read.data);

@@ -3,6 +3,8 @@ import { PersonChip } from '../../people/PersonChip';
 import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
+import type { ApprovalView } from './approval';
+import { ApproveButton } from './ApproveButton';
 import { CarePane } from './CarePane';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
@@ -51,6 +53,9 @@ import { VoicePane } from './VoicePane';
 // under its version picker; with none, it says so in the spec's words.
 // PRD 902, s2: a PRD's On GitHub cell says when GitHub was last read (`GitHub as of 09:15 UTC`), and
 // while the installation's budget is paused, when GitHub resumes.
+// PRD 1299, s3: a PRD born on the server has an Approval cell after Stage (waiting for approval, approved
+// by whom and when, or drifted · approve again with the files changed), and, for a member while it waits
+// or drifted, the Approve button first among its actions. A PRD born in the repository is unchanged.
 
 type Props = {
   view: DossierView;
@@ -152,14 +157,28 @@ function MarkdownVersion({ markdown }: { markdown: RenderedMarkdown | null }) {
   );
 }
 
+/** A ◆ PRD's Approval cell (PRD 1299 s3): its state, then who approved it and when, or what changed since. */
+function ApprovalFact({ approval }: { approval: ApprovalView }) {
+  return (
+    <div className={`dossier-fact dossier-approval dossier-approval-${approval.state}`}>
+      <dt>Approval</dt>
+      <dd>
+        {approval.state === 'unread' ? <p className="ask-problem" role="alert">{approval.words}</p> : <strong>{approval.words}</strong>}
+        {approval.detail && <p className="ask-hint">{approval.detail}</p>}
+      </dd>
+    </div>
+  );
+}
+
 export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
-  const { stage, fix } = view;
+  const { stage, fix, approval } = view;
   return (
     <div className="dossier">
       <PinnedHead>
         <div className="dossier-head-top">
           <DossierTitle heading={view.heading} draft={view.draft} title={view.title} issueUrl={view.issueUrl} badge={view.badge} />
           <div className="dossier-actions">
+            {approval?.canApprove && <ApproveButton dossier={approval.dossier} />}
             <StageAction stage={stage} demo={view.demo ?? false} />
             <CopyLink path={view.link} />
             {view.canDelete && supabase && <DeleteDraft supabase={supabase} id={view.id} />}
@@ -172,6 +191,7 @@ export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
               <dd><StageTrack stage={stage} /></dd>
             </div>
           )}
+          {approval && <ApprovalFact approval={approval} />}
           <div className="dossier-fact">
             <dt>{view.repos.length > 1 ? 'Repos' : 'Repo'}</dt>
             <dd>

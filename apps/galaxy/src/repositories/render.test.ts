@@ -139,7 +139,7 @@ describe('the ideas board switch (PRD 1246 s4)', () => {
 
   it('turns the board public and private again through its handler', () => {
     const calls: [string, boolean][] = [];
-    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {}, setPublicIdeas: (name: string, on: boolean) => { calls.push([name, on]); } };
+    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {}, setPhase0() {}, setPublicIdeas: (name: string, on: boolean) => { calls.push([name, on]); } };
     const tree = RepositoriesView({ state: state([row('a/b', { publicIdeas: true })]), owner: false, access: INSTALLED, now: NOW, on });
     const press = (node: unknown): void => {
       if (!node || typeof node !== 'object') return;
@@ -152,6 +152,46 @@ describe('the ideas board switch (PRD 1246 s4)', () => {
     };
     press(tree);
     expect(calls).toEqual([['a/b', false]]);
+  });
+});
+
+describe('the phase 0 switch (PRD 1299 s1)', () => {
+  const phase0 = (html: string) => switches(html, 'Phase 0 on the server for ');
+  const press = (node: unknown, label: string): void => {
+    if (!node || typeof node !== 'object') return;
+    const props = (node as { props?: Record<string, unknown> }).props;
+    if (!props) return;
+    if (props['aria-label'] === label && typeof props.onClick === 'function') (props.onClick as () => void)();
+    const kids = props.children;
+    for (const kid of Array.isArray(kids) ? kids.flat(4) : [kids]) press(kid, label);
+    if (typeof (node as { type?: unknown }).type === 'function') press(((node as { type: (p: unknown) => unknown }).type)(props), label);
+  };
+
+  it('shows each row\'s flag, on while its phase 0 is approved on the server, off for pr or a row that does not say', () => {
+    const html = render([APPS, row('vertuoza/vertuo-omni-loop', { phase0: 'server' }), row('vertuoza/legacy', { phase0: 'pr' })]);
+    const sw = phase0(html);
+    expect(sw).toHaveLength(3);
+    expect(sw.find((s) => sure(s.attrs, 's.attrs').includes('for vertuoza/vertuo-apps'))?.attrs).toContain('aria-checked="false"');
+    expect(sw.find((s) => sure(s.attrs, 's.attrs').includes('for vertuoza/legacy'))?.attrs).toContain('aria-checked="false"');
+    expect(sw.find((s) => sure(s.attrs, 's.attrs').includes('for vertuoza/vertuo-omni-loop'))?.attrs).toContain('aria-checked="true"');
+    expect(text(rowOf(html, 'vertuoza/vertuo-omni-loop'))).toContain('Phase 0 on the server');
+  });
+
+  it('lets only the owner switch it, and not while a call is on its way', () => {
+    expect(phase0(render([APPS, PDF]))).toHaveLength(2);
+    expect(phase0(render([APPS])).every((s) => !/disabled/.test(sure(s.attrs, 's.attrs')))).toBe(true);
+    expect(phase0(render([APPS], { owner: false }))).toHaveLength(1);
+    expect(phase0(render([APPS], { owner: false })).every((s) => /disabled=""/.test(sure(s.attrs, 's.attrs')))).toBe(true);
+    expect(phase0(render([APPS], { actions: [{ type: 'busy' }] })).every((s) => /disabled=""/.test(sure(s.attrs, 's.attrs')))).toBe(true);
+  });
+
+  it('switches it both ways through its handler', () => {
+    const calls: [string, string][] = [];
+    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {}, setPublicIdeas() {}, setPhase0: (name: string, to: string) => { calls.push([name, to]); } };
+    const view = (r: RepositoryRow) => RepositoriesView({ state: state([r]), owner: true, access: INSTALLED, now: NOW, on });
+    press(view(row('a/b')), 'Phase 0 on the server for a/b');
+    press(view(row('a/b', { phase0: 'server' })), 'Phase 0 on the server for a/b');
+    expect(calls).toEqual([['a/b', 'server'], ['a/b', 'pr']]);
   });
 });
 

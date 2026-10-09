@@ -182,6 +182,9 @@ export const ConfigSchema = z
       riskLow: labelName.default('omni:risk-low'),
       // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
       concept: labelName.default('omni:concept'),
+      // PRD 1299: the label the GitHub App adds to a PRD's issue once it is approved on the server. For
+      // display: nothing reads it.
+      approved: labelName.default('omni:approved'),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({

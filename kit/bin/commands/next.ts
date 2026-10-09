@@ -41,12 +41,23 @@
 // runs a step while a slice holds a live claim (a draft sub-PR, its claim not stale, not stalled), or
 // while its feature PR (in a plan repository, any of its PRs) carries `labels.inProgress` with a
 // status comment updated within `limits.claimStaleMinutes`. `step` and `verdict` stay as they were.
+//
+// PRD 1299, slice s5: a ◆ PRD's stage is read through `prdState()` before its facts: waiting for
+// approval parks it on a reviewer naming its page, as an open phase-0 PR does; drifted and refused park
+// it on a person with their line; unreachable holds it (`wait`). A ◇ PRD never calls the server. Your
+// PRDs count a ◆ PRD by its approval, as `omni status` does. It runs before a context exists, like
+// `omni approval`, so that a test can hand it `tokens`, `home`, `fetch` and `callMs`.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { prdState as stageAtGate } from '../../lib/approval/prd-state.ts';
+import type { ApprovalCall } from '../../lib/approval/prd-state.ts';
 import { fillBranch } from '../../lib/board.ts';
 import { CARE_QUERY, CareResponseSchema, careState } from '../../lib/care/state.ts';
+import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
+import { gateApproval } from '../../lib/delivery/prd.ts';
+import type { GateOptions } from '../../lib/delivery/prd.ts';
 import { PrNumberSchema } from '../../lib/ids.ts';
 import type { IssueNumber, PrNumber, PrdNumber, WorkSliceId } from '../../lib/ids.ts';
 import { parseSpec } from '../../lib/inbox/inbox.ts';
@@ -65,8 +76,8 @@ import { openItemsOn, prdState } from '../../lib/roadmap/push.ts';
 import type { PrdStanding, PrStanding } from '../../lib/roadmap/push.ts';
 import { liveWords, roadmapGates } from '../../lib/next/roadmap.ts';
 import type { Gate } from '../../lib/next/roadmap.ts';
-import { decideNext, stalledSlices } from '../../lib/next/decide.ts';
-import type { AcrossFacts, BoardFacts, FeatureFacts, OutboxFacts, PrdFacts, TargetPr, Verdict } from '../../lib/next/decide.ts';
+import { approvalGate, decideNext, stalledSlices } from '../../lib/next/decide.ts';
+import type { AcrossFacts, ApprovalGate, BoardFacts, FeatureFacts, OutboxFacts, PrdFacts, TargetPr, Verdict } from '../../lib/next/decide.ts';
 import { followPlan, followSteps } from '../../lib/next/follow.ts';
 import type { Followed, Live, Pool, Running } from '../../lib/next/follow.ts';
 import { formatFollowed, formatPlan, formatPool, verdictLine } from '../../lib/next/format.ts';
@@ -77,14 +88,14 @@ import { replan, replanLine } from '../../lib/next/replan.ts';
 import { readLoopPlans, writeLoopPlans } from '../../lib/next/store.ts';
 import { readFacts as readStatusFacts } from '../../lib/status/facts.ts';
 import { overviewFor } from '../../lib/status/overview.ts';
+import { serverPrds } from '../../lib/status/server.ts';
 import { openItemsForPrd } from '../../lib/outbox/comment.ts';
 import type { OutboxItem } from '../../lib/types.ts';
 import { planReplies } from '../../lib/outbox/replies.ts';
 import { issueArg, parseArgs, prdArg, println, repoSlug, usageError } from '../args.ts';
 import { githubClientFor, githubEnv } from '../github.ts';
-import type { Command, CommandIo, Env, Exec } from '../io.ts';
+import type { Env, Exec, FreeCommand, FreeIo } from '../io.ts';
 import { GhGraphqlSchema } from '../schema.ts';
-import { synchronous } from '../synchronous.ts';
 import { buildBoard } from './board.ts';
 
 /** The answers of `gh pr list` this file reads: each names only the fields read. */
@@ -104,7 +115,7 @@ const GhCommentUpdatedSchema = z.looseObject({ body: z.string().nullish(), updat
 type ListedPr = z.infer<typeof GhListedPrSchema>;
 
 /** What every read of this command needs. */
-type Reader = { ctx: Context; exec: Exec; env: Env; slug: string; ghEnv: Env | undefined };
+type Reader = { ctx: Context; exec: Exec; env: Env; slug: string; ghEnv: Env | undefined; approval: ApprovalCall };
 
 /** Ranks a person must answer: a medium decision is adopted, never asked. */
 const ASKED_RANKS = new Set(['human-action', 'high']);
@@ -302,7 +313,7 @@ type Read = { facts: PrdFacts; slices: PlanSliceInput[] | null; prs: PrStanding[
 
 /** Everything PRD `prd`'s verdict is decided on, and its slices. Throws what `gh` throws when GitHub
  * cannot be read. */
-function readFacts(prd: PrdNumber, reader: Reader): Read {
+function readFacts(prd: PrdNumber, reader: Reader, gate: ApprovalGate | null): Read {
   const folder = folderOf(prd, reader.ctx);
   const phase0 = openPhase0(prd, reader);
   if (folder === null) return beforeInbox(prd, phase0, reader);
@@ -313,7 +324,7 @@ function readFacts(prd: PrdNumber, reader: Reader): Read {
   const { board, slices, claims } = boardFacts(prd, reader);
   const across = acrossFacts(branch, slices, reader);
   const outbox = outboxFacts(prd, { branch, pr: open }, reader);
-  const facts: PrdFacts = { prd, shipped: folder.shipped, phase0, feature, board, outbox, ...(across ? { across: across.across } : {}) };
+  const facts: PrdFacts = { prd, shipped: folder.shipped, phase0, feature, board, outbox, ...(across ? { across: across.across } : {}), approval: gate };
   const targets = (across?.listed ?? []).map(({ repo, pr: listed }) => ({ slug: targetSlug(repo, reader), pr: listed }));
   const running = runningOf(claims, [...(open ? [{ slug: reader.slug, pr: open }] : []), ...targets], reader);
   return { facts, slices, prs: standingsOf(pr, outbox, across, reader), running };
@@ -394,15 +405,16 @@ function endedOf(facts: PrdFacts): Ended | null {
 }
 
 /** PRD `prd`'s verdict, what the loop plan reads of it, and what it was read as; GitHub unreachable
- * is a `wait`. */
-function readPrd(prd: PrdNumber, reader: Reader): { verdict: Verdict; input: PrdInput; read: Read } {
+ * is a `wait`. A ◆ PRD's approval is read first, through `prdState()`. */
+async function readPrd(prd: PrdNumber, reader: Reader): Promise<{ verdict: Verdict; input: PrdInput; read: Read }> {
+  const gate = approvalGate(await stageAtGate(reader.ctx, prd, { approval: reader.approval }));
   let read: Read;
   try {
-    read = readFacts(prd, reader);
+    read = readFacts(prd, reader, gate);
   } catch (error) {
     if (isUsage(error)) throw error;
     const planPath = reader.ctx.layout.planPath(prd);
-    const facts: PrdFacts = { prd, shipped: false, phase0: null, feature: 'unreadable', board: 'unreadable', outbox: 'unreadable' };
+    const facts: PrdFacts = { prd, shipped: false, phase0: null, feature: 'unreadable', board: 'unreadable', outbox: 'unreadable', approval: gate };
     read = { facts, slices: planPath === null ? null : planSlices(join(reader.ctx.root, planPath)), prs: [], running: null };
   }
   const input: PrdInput = { prd, blockedBy: blockersOf(prd, reader.ctx), slices: read.slices, ended: endedOf(read.facts) };
@@ -411,11 +423,13 @@ function readPrd(prd: PrdNumber, reader: Reader): { verdict: Verdict; input: Prd
   return { verdict: repos.length > 0 ? { ...verdict, repos } : verdict, input, read };
 }
 
-/** The PRDs `omni status` marks yours, in inbox, building or outbox, lowest first. */
-function yourPrds(reader: Reader): PrdNumber[] {
+/** The PRDs `omni status` marks yours, in inbox, building or outbox, lowest first: a ◆ PRD by its
+ * approval, as `omni status` reads it. */
+async function yourPrds(reader: Reader): Promise<PrdNumber[]> {
   const facts = readStatusFacts({ ctx: reader.ctx, exec: reader.exec });
   if (facts === null) throw usageError('omni next: cannot read the default branch to tell which PRDs are yours; run omni status --fetch, or name them: omni next <prd>…');
-  const { yours } = overviewFor(facts);
+  const server = await serverPrds(reader.ctx, new Set(facts.shipped.map(({ prd }) => prd)), reader.approval);
+  const { yours } = overviewFor({ ...facts, server });
   if (yours.state !== 'known') {
     const why = yours.state === 'no-email' ? 'no user.email is set here' : 'this clone is shallow';
     throw usageError(`omni next: cannot tell which PRDs are yours (${why}); name them: omni next <prd>…`);
@@ -425,8 +439,9 @@ function yourPrds(reader: Reader): PrdNumber[] {
 
 /** Every driven PRD read once: the verdicts, what the plan is computed from (a roadmap's rows adding
  * their blockers), and each PRD as read. */
-function readAll(prds: readonly PrdNumber[], reader: Reader, roadmap: Roadmap | null = null): { verdicts: Verdict[]; inputs: PlanInputs; reads: Map<PrdNumber, Read> } {
-  const read = prds.map((prd) => readPrd(prd, reader));
+async function readAll(prds: readonly PrdNumber[], reader: Reader, roadmap: Roadmap | null = null): Promise<{ verdicts: Verdict[]; inputs: PlanInputs; reads: Map<PrdNumber, Read> }> {
+  const read: Awaited<ReturnType<typeof readPrd>>[] = [];
+  for (const prd of prds) read.push(await readPrd(prd, reader));
   const driven = new Set(prds);
   const rowBlockers = roadmapBlockers(roadmap);
   const inputs = read.map(({ input }) => {
@@ -504,8 +519,8 @@ function heldOf(gates: ReadonlyMap<PrdNumber, Gate>, verdicts: readonly Verdict[
 }
 
 /** `--plan`: a new loop plan, version 1, kept and printed. */
-function startPlan(prds: readonly PrdNumber[], { reader, out, json, roadmap }: Out): number {
-  const plan = planLoop(readAll(prds, reader, roadmap ?? null).inputs);
+async function startPlan(prds: readonly PrdNumber[], { reader, out, json, roadmap }: Out): Promise<number> {
+  const plan = planLoop((await readAll(prds, reader, roadmap ?? null)).inputs);
   writeLoopPlans(reader.ctx.root, [plan]);
   if (json) out(JSON.stringify({ plan }, null, 2));
   else for (const line of formatPlan(plan)) out(line);
@@ -529,7 +544,7 @@ function currentPlan(kept: readonly LoopPlan[], inputs: PlanInputs, root: string
 
 /** What a tick read live, for the plan to be followed on: verdicts, merged slices, shipped PRDs, the
  * roadmap's gates when there are any, what each PRD runs and each PRD's slices. */
-function liveOf({ verdicts, inputs, reads }: ReturnType<typeof readAll>, gates: ReadonlyMap<PrdNumber, Gate> | null): Live {
+function liveOf({ verdicts, inputs, reads }: Awaited<ReturnType<typeof readAll>>, gates: ReadonlyMap<PrdNumber, Gate> | null): Live {
   const merged = new Map(inputs.prds.map((input) => [input.prd, new Set<WorkSliceId>((input.slices ?? []).filter((slice) => slice.state === 'merged').map((slice) => slice.id))] as const));
   const running = new Map([...reads].flatMap(([prd, read]) => (read.running === null ? [] : [[prd, read.running] as const])));
   return {
@@ -544,8 +559,8 @@ function liveOf({ verdicts, inputs, reads }: ReturnType<typeof readAll>, gates: 
 
 /** A tick on the kept plan: replanned when reality broke it, then the first step not done, or the
  * stop, and the pool of steps to launch beside it. */
-function followKept(prds: readonly PrdNumber[], kept: readonly LoopPlan[], { reader, out, json, roadmap }: Out): number {
-  const read = readAll(prds, reader, roadmap ?? null);
+async function followKept(prds: readonly PrdNumber[], kept: readonly LoopPlan[], { reader, out, json, roadmap }: Out): Promise<number> {
+  const read = await readAll(prds, reader, roadmap ?? null);
   const { plan, replanned } = currentPlan(kept, read.inputs, reader.ctx.root);
   const gates = roadmap ? gatesOf(roadmap, read.reads, reader) : null;
   const live = liveOf(read, gates);
@@ -607,8 +622,8 @@ function samePrds(prds: readonly PrdNumber[], plan: LoopPlan): boolean {
 }
 
 /** The PRDs that are yours, or a usage error when none is. */
-function yoursOrRefuse(reader: Reader, flag: string): PrdNumber[] {
-  const prds = yourPrds(reader);
+async function yoursOrRefuse(reader: Reader, flag: string): Promise<PrdNumber[]> {
+  const prds = await yourPrds(reader);
   if (prds.length === 0) throw usageError(`omni next: no PRD of yours is in inbox, building or outbox; name one: omni next <prd>…${flag}`);
   return prds;
 }
@@ -623,18 +638,19 @@ function ghEnvOf(ctx: Context, exec: Exec, env: Env): Env | undefined {
 }
 
 /** One verdict per PRD named, outside any loop plan. */
-function printVerdicts(named: readonly PrdNumber[], { reader, out, json }: Out): number {
-  const verdicts = named.map((prd) => readPrd(prd, reader).verdict);
+async function printVerdicts(named: readonly PrdNumber[], { reader, out, json }: Out): Promise<number> {
+  const verdicts: Verdict[] = [];
+  for (const prd of named) verdicts.push((await readPrd(prd, reader)).verdict);
   if (json) out(JSON.stringify({ prds: verdicts }, null, 2));
   else for (const verdict of verdicts) out(verdictLine(verdict));
   return 0;
 }
 
 /** A tick: the kept plan followed (or yours, planned now), or one verdict per PRD named. */
-function tick(named: readonly PrdNumber[], io: Out): number {
+async function tick(named: readonly PrdNumber[], io: Out): Promise<number> {
   const kept = readLoopPlans(io.reader.ctx.root);
   const last = kept.at(-1);
-  if (named.length === 0) return last === undefined ? followKept(yoursOrRefuse(io.reader, ''), [], io) : followKept(last.prds, kept, io);
+  if (named.length === 0) return last === undefined ? followKept(await yoursOrRefuse(io.reader, ''), [], io) : followKept(last.prds, kept, io);
   if (last !== undefined && samePrds(named, last)) return followKept(last.prds, kept, io);
   return printVerdicts(named, io);
 }
@@ -649,7 +665,7 @@ function roadmapOf(n: IssueNumber, ctx: Context): Roadmap {
 }
 
 /** `--roadmap <n>`: exactly its PRDs, on the kept plan when it drives the same ones, else a new one. */
-function driveRoadmap(roadmap: Roadmap, plan: boolean, io: Out): number {
+function driveRoadmap(roadmap: Roadmap, plan: boolean, io: Out): Promise<number> {
   const prds = [...new Set(roadmap.prds.map((row) => row.prd))].sort((a, b) => a - b);
   if (plan) return startPlan(prds, io);
   const kept = readLoopPlans(io.reader.ctx.root);
@@ -657,17 +673,19 @@ function driveRoadmap(roadmap: Roadmap, plan: boolean, io: Out): number {
   return followKept(prds, last !== undefined && samePrds(prds, last) ? kept : [], io);
 }
 
-export const next: Command = {
-  run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
+export const next = {
+  withoutContext: true,
+  async run(args: string[], { cwd, stdout, exec, env, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & GateOptions) {
     const { positional, flags } = parseArgs('next', args, { booleans: ['json', 'plan'], values: ['roadmap'] });
     const named = positional.map((value) => prdArg('next', '<prd>', value));
+    const ctx = loadContext(cwd, { exec });
     if (flags.roadmap !== undefined && named.length > 0) throw usageError("omni next: --roadmap <n> drives the roadmap's PRDs; name no PRD beside it.");
     const roadmap = flags.roadmap === undefined ? null : roadmapOf(issueArg('next', '--roadmap', flags.roadmap), ctx);
     const slug = repoSlug('next', ctx, undefined);
-    const reader: Reader = { ctx, exec, env, slug, ghEnv: ghEnvOf(ctx, exec, env) };
+    const reader: Reader = { ctx, exec, env, slug, ghEnv: ghEnvOf(ctx, exec, env), approval: gateApproval(ctx, { tokens, home, fetch, callMs }) };
     const io: Out = { reader, out: (line: string) => { println(stdout, line); }, json: flags.json === true, ...(roadmap ? { roadmap } : {}) };
     if (roadmap !== null) return driveRoadmap(roadmap, flags.plan === true, io);
-    if (flags.plan) return startPlan(named.length > 0 ? [...new Set(named)] : yoursOrRefuse(reader, ' --plan'), io);
+    if (flags.plan) return startPlan(named.length > 0 ? [...new Set(named)] : await yoursOrRefuse(reader, ' --plan'), io);
     return tick(named, io);
-  }),
-};
+  },
+} satisfies FreeCommand;

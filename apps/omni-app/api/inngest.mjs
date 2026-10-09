@@ -1249,6 +1249,9 @@ var ConfigSchema = z8.object({
     riskLow: labelName.default("omni:risk-low"),
     // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
     concept: labelName.default("omni:concept"),
+    // PRD 1299: the label the GitHub App adds to a PRD's issue once it is approved on the server. For
+    // display: nothing reads it.
+    approved: labelName.default("omni:approved"),
     autoCreate: z8.boolean().default(false)
   }),
   prLinks: section({
@@ -1553,8 +1556,8 @@ var printed = (value) => String(value);
 // apps/omni-app/src/stage-forward/stage-forward.ts
 var STAGE_SIGNATURE_HEADER = "x-omni-signature-256";
 var DEFAULT_SHAPES = (() => {
-  const { branches, prLinks } = parseConfig("kit: 1");
-  return Object.freeze({ branches, prLinks });
+  const { branches, prLinks, labels } = parseConfig("kit: 1");
+  return Object.freeze({ branches, prLinks, approved: labels.approved });
 })();
 var PullEventSchema = z11.looseObject({
   action: z11.unknown(),
@@ -1568,6 +1571,12 @@ var PullEventSchema = z11.looseObject({
     updated_at: z11.string().nullish(),
     body: z11.unknown()
   })
+});
+var LabeledEventSchema = z11.looseObject({
+  action: z11.literal("labeled"),
+  repository: z11.looseObject({ full_name: z11.string().min(1) }),
+  label: z11.looseObject({ name: z11.string() }),
+  issue: z11.looseObject({ number: PrdNumberSchema, updated_at: z11.string().min(1), pull_request: z11.unknown().optional() })
 });
 function signStageEvent(secret, body) {
   return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
@@ -2193,6 +2202,7 @@ function parseFrontMatterLines(rawFrontMatter) {
 import { z as z15 } from "zod";
 var SPEC_VALUES = ["file", "issue"];
 var PROOF_VALUES = ["video"];
+var PHASE0_VALUES = ["server"];
 var RANK_VALUES = ["human-action", "high", "medium"];
 var BLOCKED_BY_MESSAGE = 'blocked-by must be "none" or a bracketed list of PRD numbers, e.g. [966]';
 var BLOCKED_BY_LIST = /^\[\s*(\d+\s*(?:,\s*\d+\s*)*)?\]$/;
@@ -2238,7 +2248,9 @@ var SpecFrontMatterSchema = z15.object({
   spec: z15.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(", ")}` }),
   areas: AreasSchema,
   // PRD 798: `proof: video` asks `/omni:yolo` to follow `/omni:prove` once the feature PR is ready.
-  proof: z15.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(" or ")}, or left out` }).optional()
+  proof: z15.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(" or ")}, or left out` }).optional(),
+  // PRD 1299: `phase0: server` says the PRD is approved on its PRD page, not by a phase-0 PR.
+  phase0: z15.enum(PHASE0_VALUES, { message: `phase0 must be ${PHASE0_VALUES.join(" or ")}, or left out` }).optional()
 }).strict();
 var OutboxItemFrontMatterSchema = z15.object({
   id: z15.string().trim().min(1, "id is required").pipe(OutboxItemIdSchema),

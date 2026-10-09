@@ -171,3 +171,36 @@ SKILL.md names exists, signing) cover the two new skills, which make no commit a
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs kit/test/no-game-words.test.mjs`
 and `pnpm test`, green.
+
+## PRD #1299, slice s7 — a PRD born on the server
+
+- **Step 0** gains **Where its phase 0 is approved**: the repository's phase-0 flag, kept on the
+  Omni page (`GET /api/repositories/phase0`), is read once. `server` makes the PRD ◆ (born on the
+  server); `pr` makes it ◇ and the brainstorm runs as it always has. A flag that cannot be read
+  (no `omni` command reads it in this kit yet, no Omni page, no sign-in, no answer, a refusal) is
+  `pr`, said in one line. Until the kit has such a command, every brainstorm is ◇ (outbox item
+  `s7-01-brainstorm-cannot-read-the-flag`).
+- **Step 2:** a ◆ PRD's issue says `/omni:yolo <n>` waits for its approval on its page, not for a
+  phase-0 merge. The template's own line is unchanged.
+- **Step 4** writes `phase0: server` in a ◆ spec's front matter, the one value `omni check inbox`
+  accepts; a ◇ spec leaves it out.
+- **Step 7:** for a ◆ PRD, `omni prd` reads `birthplace: server` and a `state:` other than `inbox`
+  before the approval, which is expected; the first dossier push is what records the dossier's
+  birthplace on the server.
+- **Step 8:** `/omni:plan` plans a ◆ PRD while it waits for approval.
+- **Step 9:** a ◆ PRD opens no phase-0 PR and runs no `omni phase0`; its page is where it is
+  reviewed and approved.
+- **Step 10:** a ◆ hand-off links the PRD's page, says "approve it there, then `/omni:yolo <n>`",
+  and its **Where it is** block marks approval, not a merge, as the move into the inbox.
+- **Rework** item 6 opens no PR for a ◆ PRD: its new versions drift the approval until a member
+  approves again. **Guardrails:** never approve a ◆ PRD, never change a birthplace.
+
+### Tests
+
+No test changed: the existing rules on the skill (every `omni` command it names exists, signing,
+the hand-off's blocks, step 2's issue template, the dossier pushes after `git push -u`) still hold.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/` and `pnpm test`, green but `kit/test/dist.test.ts`, which reads only the
+kit's sources and none of the skills.

@@ -1,8 +1,8 @@
 // PRD 1139, slice s1: one row per verdict of the spec's table, and an unreadable board.
 import { describe, expect, it } from 'vitest';
 import { parsePr, parsePrd, parseWorkSliceId } from '../ids.ts';
-import { WAKE_HINTS, decideNext, stalledSlices } from './decide.ts';
-import type { BoardFacts, FeatureFacts, PrdFacts, StalledSlice } from './decide.ts';
+import { WAKE_HINTS, approvalGate, decideNext, stalledSlices } from './decide.ts';
+import type { ApprovalGate, BoardFacts, FeatureFacts, PrdFacts, StalledSlice } from './decide.ts';
 
 const PRD = parsePrd(7);
 const URL = 'https://github.com/acme/widgets/pull/9';
@@ -315,5 +315,70 @@ describe('stalledSlices', () => {
   it('only in-flight slices stall: stuck, merged and claimed-stale ones have their own verdict', () => {
     const old = { number: 20, headCommitDate: at(9) };
     expect(read([row('s1', 'stuck', old), row('s2', 'merged', old), row('s3', 'claimed-stale', old), row('s4', 'runnable', null)])).toEqual([]);
+  });
+});
+
+// PRD 1299, slice s5: a ◆ PRD's approval, read through `prdState()`, gates the verdict.
+describe('decideNext — a ◆ PRD not approved (PRD 1299)', () => {
+  const LINK = 'https://omni.test/prd/acme/widgets/7';
+  const gate = (state: ApprovalGate['state'], lines: string[], link: string | null = LINK): ApprovalGate => ({ state, lines, link });
+
+  it('waiting for approval parks it on a reviewer, naming its dossier link, as an open phase-0 PR does', () => {
+    const verdict = decideNext(facts({ approval: gate('prd', [`PRD 7 waits for approval: ${LINK}`]) }));
+    expect(verdict).toEqual({ prd: PRD, verdict: 'park', why: 'waits on a reviewer: the PRD waits for approval on its page', link: LINK });
+  });
+
+  it('drifted parks it on a person with its lines', () => {
+    const lines = ['≠ plan.md · content · ✗ refuse · restore it, or approve again: x'];
+    const verdict = decideNext(facts({ approval: gate('drifted', lines) }));
+    expect(verdict).toEqual({ prd: PRD, verdict: 'park', why: `waits on a person: ${lines[0]}`, link: LINK });
+  });
+
+  it('refused parks it on a person with its line, and without a link when it has none', () => {
+    const verdict = decideNext(facts({ approval: gate('refused', ['approver ada is not a workspace member', 'and more'], null) }));
+    expect(verdict).toEqual({ prd: PRD, verdict: 'park', why: 'waits on a person: approver ada is not a workspace member; and more' });
+  });
+
+  it('unreachable is held, not failed: a wait with the unreadable hint', () => {
+    const verdict = decideNext(facts({ approval: gate('unreachable', ['server unreachable · held, not failed'], null) }));
+    expect(verdict).toEqual({ prd: PRD, verdict: 'wait', why: 'server unreachable · held, not failed', wakeHint: WAKE_HINTS.unreadable });
+  });
+
+  it('comes after done: a merged feature PR is done whatever the approval says', () => {
+    const verdict = decideNext(facts({ feature: feature({ state: 'MERGED' }), approval: gate('prd', ['x']) }));
+    expect(verdict.verdict).toBe('done');
+  });
+
+  it('comes before GitHub unreachable', () => {
+    const verdict = decideNext(facts({ feature: 'unreadable', approval: gate('prd', ['x']) }));
+    expect(verdict.verdict).toBe('park');
+  });
+
+  it('in a plan repository, gates the same way', () => {
+    const across = { repo: 'plan', targets: [] };
+    expect(decideNext(facts({ across, approval: gate('prd', ['x']) }))).toMatchObject({ verdict: 'park', link: LINK });
+    expect(decideNext(facts({ across, approval: gate('unreachable', ['y'], null) }))).toMatchObject({ verdict: 'wait', why: 'y' });
+  });
+});
+
+describe('approvalGate', () => {
+  const where = { prd: PRD, name: '0007-widgets', dir: 'd' };
+  const reading = (state: 'approved' | 'pending' | 'drifted' | 'unreachable' | 'refused', url: string | null = 'L') =>
+    ({ state, lines: [`${state} line`], url, approval: null, drift: [] });
+
+  it('is null with no folder, for a ◇ PRD, for a shipped one and for an approved one', () => {
+    expect(approvalGate(null)).toBeNull();
+    expect(approvalGate({ ...where, birthplace: 'repo', state: 'inbox', approval: null })).toBeNull();
+    expect(approvalGate({ ...where, birthplace: 'server', state: 'shipped', approval: null })).toBeNull();
+    expect(approvalGate({ ...where, birthplace: 'server', state: 'inbox', approval: reading('approved') })).toBeNull();
+  });
+
+  it.each([
+    ['prd', 'pending'],
+    ['drifted', 'drifted'],
+    ['unreachable', 'unreachable'],
+    ['refused', 'refused'],
+  ] as const)('stage %s carries its reading lines and link', (stage, state) => {
+    expect(approvalGate({ ...where, birthplace: 'server', state: stage, approval: reading(state) })).toEqual({ state: stage, lines: [`${state} line`], link: 'L' });
   });
 });

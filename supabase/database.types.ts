@@ -196,6 +196,41 @@ export type Database = {
           },
         ]
       }
+      approvals: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          approver_login: string
+          dossier_id: string
+          files: Json
+          id: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          approver_login: string
+          dossier_id: string
+          files: Json
+          id?: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          approver_login?: string
+          dossier_id?: string
+          files?: Json
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approvals_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       arcade_scores: {
         Row: {
           at: string
@@ -960,6 +995,7 @@ export type Database = {
       }
       dossiers: {
         Row: {
+          birthplace: string | null
           claude_session_id: string | null
           created_at: string
           home_repo: string
@@ -972,6 +1008,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          birthplace?: string | null
           claude_session_id?: string | null
           created_at?: string
           home_repo: string
@@ -984,6 +1021,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          birthplace?: string | null
           claude_session_id?: string | null
           created_at?: string
           home_repo?: string
@@ -2055,6 +2093,7 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
+          phase0: string
           product_id: string | null
           public_ideas: boolean
           tracked: boolean
@@ -2067,6 +2106,7 @@ export type Database = {
           collected_at?: string | null
           collected_until?: string | null
           full_name: string
+          phase0?: string
           product_id?: string | null
           public_ideas?: boolean
           tracked?: boolean
@@ -2079,6 +2119,7 @@ export type Database = {
           collected_at?: string | null
           collected_until?: string | null
           full_name?: string
+          phase0?: string
           product_id?: string | null
           public_ideas?: boolean
           tracked?: boolean
@@ -2613,6 +2654,7 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
+          phase0: string
           product_id: string | null
           public_ideas: boolean
           tracked: boolean
@@ -3288,6 +3330,11 @@ export type Database = {
         }
         Returns: number
       }
+      dossier_approval: {
+        Args: { p_prd: number; p_repo: string }
+        Returns: Json
+      }
+      dossier_approve: { Args: { p_dossier: string }; Returns: Json }
       dossier_list: {
         Args: { p_dossier?: string; p_workspace?: string }
         Returns: {
@@ -3662,6 +3709,7 @@ export type Database = {
         Args: { p_workspace: string }
         Returns: undefined
       }
+      repository_phase0: { Args: { p_repo: string }; Returns: string }
       repository_set_product: {
         Args: { p_full_name: string; p_product: string; p_workspace: string }
         Returns: {
@@ -3671,6 +3719,7 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
+          phase0: string
           product_id: string | null
           public_ideas: boolean
           tracked: boolean
@@ -3809,6 +3858,28 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_repository_phase0: {
+        Args: { p_full_name: string; p_phase0: string; p_workspace: string }
+        Returns: {
+          added_at: string
+          added_by: string | null
+          collect_error: string | null
+          collected_at: string | null
+          collected_until: string | null
+          full_name: string
+          phase0: string
+          product_id: string | null
+          public_ideas: boolean
+          tracked: boolean
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "repositories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_repository_public_ideas: {
         Args: { p_full_name: string; p_public: boolean; p_workspace: string }
         Returns: {
@@ -3818,6 +3889,7 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
+          phase0: string
           product_id: string | null
           public_ideas: boolean
           tracked: boolean
@@ -3839,6 +3911,7 @@ export type Database = {
           collected_at: string | null
           collected_until: string | null
           full_name: string
+          phase0: string
           product_id: string | null
           public_ideas: boolean
           tracked: boolean
@@ -3851,6 +3924,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      spec_says_server: { Args: { p_content: string }; Returns: boolean }
       submit_score: {
         Args: { game: string; score: number; workspace: string }
         Returns: number

@@ -1,6 +1,6 @@
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { parseRow } from '../data/parse-rows';
-import { rowOf, SavedRepository, type RepositoryRow } from './model';
+import { rowOf, SavedRepository, type Phase0, type RepositoryRow } from './model';
 
 // Settings → Repositories's two calls (PRD 612 s1). In production, the owner-only functions of
 // supabase/migrations/20261008090000_repositories.sql, add_repository() and set_repository_tracked(),
@@ -10,7 +10,9 @@ import { rowOf, SavedRepository, type RepositoryRow } from './model';
 // member's: it points a repository at a product of the business, whose claims its agents then read.
 // PRD 1246 s4 adds a fourth, set_repository_public_ideas() of
 // supabase/migrations/20261115090000_ideas.sql, any member's too: it turns the repository's ideas board
-// public or private. At most one workspace makes a given repository's board public.
+// public or private. At most one workspace makes a given repository's board public. PRD 1299 s1 adds a
+// fifth, set_repository_phase0() of supabase/migrations/20261122090000_phase0_flag.sql, the owner's
+// only: it switches where the repository's phase 0 is approved, a phase-0 pull request or the PRD page.
 
 export type Saved = { ok: true; repository: RepositoryRow } | { ok: false; message: string };
 
@@ -22,6 +24,8 @@ export interface RepositoriesPort {
   setProduct(fullName: string, product: string): Promise<Saved>;
   /** Turns its ideas board public or private (PRD 1246 s4): any member's to do. */
   setPublicIdeas(fullName: string, on: boolean): Promise<Saved>;
+  /** Switches where its phase 0 is approved (PRD 1299 s1): the owner's only. */
+  setPhase0(fullName: string, phase0: Phase0): Promise<Saved>;
 }
 
 export const NOT_OWNER = 'Only the workspace’s owner can change its repositories.';
@@ -64,6 +68,7 @@ export function databaseRepositories(db: Rpc, workspace: string): RepositoriesPo
     setTracked: (fullName, tracked) => call('set_repository_tracked', { p_full_name: fullName, p_tracked: tracked }),
     setProduct: (fullName, product) => call('repository_set_product', { p_full_name: fullName, p_product: product }, memberRefusal),
     setPublicIdeas: (fullName, on) => call('set_repository_public_ideas', { p_full_name: fullName, p_public: on }, boardRefusal),
+    setPhase0: (fullName, phase0) => call('set_repository_phase0', { p_full_name: fullName, p_phase0: phase0 }),
   };
 }
 
@@ -82,12 +87,13 @@ export function demoRepositoriesPort(initial: RepositoryRow[]): RepositoriesPort
     add(fullName) {
       const kept = find(fullName);
       if (kept) return Promise.resolve({ ok: true, repository: kept });
-      const repository: RepositoryRow = { fullName: fullName.trim().toLowerCase(), tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false };
+      const repository: RepositoryRow = { fullName: fullName.trim().toLowerCase(), tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false, phase0: 'pr' };
       rows = [...rows, repository];
       return Promise.resolve({ ok: true, repository });
     },
     setTracked: (fullName, tracked) => change(fullName, { tracked }),
     setProduct: (fullName, product) => change(fullName, { product }),
     setPublicIdeas: (fullName, publicIdeas) => change(fullName, { publicIdeas }),
+    setPhase0: (fullName, phase0) => change(fullName, { phase0 }),
   };
 }

@@ -10,6 +10,7 @@ import { knowledgeReader, type KnowledgeReader } from '../../knowledge/github';
 import { appCredentials } from '../../signup/github-app';
 import { outboxDeps } from '../outbox/live';
 import { stageStore, type StageStore } from '../store';
+import { serverBornStore } from './approvals';
 import { stagesReader, type StagesReader } from './github';
 import { syncSnapshotStore } from './snapshots';
 import type { ConceptSyncDeps, FixSyncDeps, SnapshotSyncDeps, SyncDeps, SyncWorkspace } from './sync';
@@ -31,6 +32,8 @@ import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // read for 7 days.
 // PRD 1272 (s4): each workspace's numbered concept dossiers are read the same way, through the reader's
 // concept read, and stored in fix_facts until their concept PR merges.
+// PRD 1299 (s6): each repository's PRDs born on the server are read with their first approval, as the
+// service role (./approvals.ts), so their inbox is dated at it.
 
 let knowledge: KnowledgeReader | undefined;
 let reader: StagesReader | undefined;
@@ -129,6 +132,7 @@ export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv())
     },
     repositories: async (workspace) => github().repos(await installationOf(workspace)),
     snapshot: async (workspace, repository, since) => stages().snapshot(await installationOf(workspace), repository, since),
+    approvals: (workspace, repository) => serverBornStore(serviceDb()).serverBorn(workspace.id, repository),
     store: lazyStore(),
     outbox: outboxDeps(),
     fixes: fixDeps(),

@@ -1,6 +1,6 @@
 import { hasProducts, type Product } from '../business/model';
 import { boardPath } from '../ideas/model';
-import { addable, collectionLabel, hasNoAccess, type RepositoriesState, type RepositoryRow } from './model';
+import { addable, collectionLabel, hasNoAccess, phase0Of, type Phase0, type RepositoriesState, type RepositoryRow } from './model';
 
 // Settings → Repositories drawn from its state (PRD 612 s1). One row per repository of the
 // workspace: `owner/name`, when it was last collected, and its Tracked switch. The owner reads Add
@@ -11,7 +11,9 @@ import { addable, collectionLabel, hasNoAccess, type RepositoriesState, type Rep
 // RepositoriesPage.tsx wires the handlers. Once the business has two products or more (PRD 748 s4),
 // each row has a product select, any member's to change; while it has one, nothing says "Product".
 // PRD 1246 s4: each row also links to the repository's ideas board and has its Public ideas switch,
-// any member's to change: off, only the workspace's members read the board.
+// any member's to change: off, only the workspace's members read the board. PRD 1299 s1: each row has
+// its Phase 0 on the server switch, the owner's only: on, a PRD born in it is approved on its PRD page
+// rather than by a phase-0 pull request.
 
 /** What a member reads instead of the controls. */
 export const ONLY_OWNER = 'Only @owner can change repositories.';
@@ -34,9 +36,11 @@ export interface RepositoriesHandlers {
   setProduct(fullName: string, product: string): void;
   /** A row's Public ideas switch (PRD 1246 s4). */
   setPublicIdeas(fullName: string, on: boolean): void;
+  /** A row's Phase 0 on the server switch (PRD 1299 s1). */
+  setPhase0(fullName: string, phase0: Phase0): void;
 }
 
-const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {}, setPublicIdeas() {} };
+const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {}, setPublicIdeas() {}, setPhase0() {} };
 
 /** What the head says once each repository has a product select. */
 const PRODUCTS_LINE = 'Each repository’s agents read its product’s business.';
@@ -118,6 +122,7 @@ function Row({ row, owner, access, now, busy, products, on }: { row: RepositoryR
       </div>
       {hasProducts(products) && <ProductSelect row={row} products={products} busy={busy} on={on} />}
       <Switch name="Public ideas" label={`Public ideas board of ${row.fullName}`} on={row.publicIdeas} disabled={busy} press={() => { on.setPublicIdeas(row.fullName, !row.publicIdeas); }} />
+      <Switch name="Phase 0 on the server" label={`Phase 0 on the server for ${row.fullName}`} on={phase0Of(row) === 'server'} disabled={!owner || busy} press={() => { on.setPhase0(row.fullName, phase0Of(row) === 'server' ? 'pr' : 'server'); }} />
       <Switch name="Tracked" label={`Track ${row.fullName}`} on={row.tracked} disabled={!owner || busy} press={() => { on.setTracked(row.fullName, !row.tracked); }} />
     </li>
   );
