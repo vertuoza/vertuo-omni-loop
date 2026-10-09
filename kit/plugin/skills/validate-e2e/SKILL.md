@@ -1,6 +1,6 @@
 ---
 name: validate-e2e
-description: Beta. Turns a PRD's filmable acceptance criteria into e2e tests that stay — one test per criterion, tagged prd-<n>, written from the spec alone, set up as a declared workspace on its first run, run once to record (last, after every install) and once with --strict-cache to replay, checked with omni e2e status and omni e2e heals --head, then opened as a sub-PR into the feature branch holding the tests, their committed recordings and a criterion, test and verdict table. Stops with one line when e2e.enabled is false, e2e.url is null, Node is older than 24.8 or the local package manager is newer than CI's. Merges nothing and marks nothing ready. A person runs it on a ready PRD. Triggers on "validate this PRD with e2e", "write e2e tests for the criteria", "/omni:validate-e2e 1233".
+description: Beta. Turns a PRD's filmable acceptance criteria into e2e tests that stay — one test per criterion, tagged prd-<n>, written from the spec alone, set up as a declared workspace on its first run, run once to record (last, after every install) and once with --strict-cache to replay, checked with omni e2e status and omni e2e heals --head, healed recordings held back with omni e2e hold, then opened as a sub-PR into the feature branch holding the tests, their unchanged and new recordings and a criterion, test and verdict table. Stops with one line when e2e.enabled is false, e2e.url is null, Node is older than 24.8 or the local package manager is newer than CI's. Merges nothing and marks nothing ready. A person runs it on a ready PRD. Triggers on "validate this PRD with e2e", "write e2e tests for the criteria", "/omni:validate-e2e 1233".
 ---
 
 # Validate e2e (beta): keep what a PRD's criteria check
@@ -132,16 +132,23 @@ stales the recordings: record again with step 6 before this strict replay, then 
 
 Run `node .omni-loop/bin/omni.mjs e2e status <n>`; a non-zero exit (a test with no recording) stops
 the run before any sub-PR. Then run `node .omni-loop/bin/omni.mjs e2e heals <n> --head <sub-PR branch>`, the branch step 9 pushes: it
-compares the feature branch's steps with that branch's, so on a first pass every step is new. On a later pass each healed step becomes an outbox item with its before and after
+compares the feature branch's steps with that branch's, so on a first pass every step is new. On a later pass each healed step becomes an outbox item
 (`node .omni-loop/bin/omni.mjs item new --prd <n> --slice e2e --file <file> --json`, the JSON in a
-scratch file outside the repository): none is taken as accepted until a person confirms it. Say in
-the sub-PR that the recordings, a healed one included, are committed from the start and count as
-accepted only when it is merged, and that an item carries the action before and after, no screenshots.
+scratch file outside the repository) holding the action before and after and the before and after
+screenshots `heals` lists for it. When `heals` says none was kept, the item says so and says why, in
+the reason `heals` gives. None is taken as accepted until a person confirms it.
+
+Then run `node .omni-loop/bin/omni.mjs e2e hold <n>`: it takes each healed recording out of the
+branch, so a commit of `e2e.dir` holds only unchanged or new recordings. A held recording waits there
+until `node .omni-loop/bin/omni.mjs e2e confirm <n>` commits it, or
+`node .omni-loop/bin/omni.mjs e2e reject <n>` drops it, leaves the committed one and keeps the test
+red. Name both commands in each healed step's item. This skill runs neither, and does not say who
+confirms.
 
 ## 9. The sub-PR
 
-Branch from `<remote>/<feature branch>`, commit the e2e project, the tests and `e2e.dir`'s recordings (the workspace entry and its lockfile lines included, nothing else,
-and no secret), push, and open a sub-PR into the feature branch through `/omni:pr` with the
+Branch from `<remote>/<feature branch>`, commit the e2e project, the tests and only unchanged and new recordings of `e2e.dir` (the workspace entry and its lockfile lines included, nothing else,
+and no secret): a healed recording is not committed, it waits held until a person confirms it, so the sub-PR holds no healed recording. Push, and open a sub-PR into the feature branch through `/omni:pr` with the
 `labels.sub` label and `prLinks.sub` (`Part of #<n>`). When `e2e.url` was a fixed URL, its body opens with one line saying the target was not the preview, and
 why (the reason kept in step 2). The body holds that line, a table, then the healed steps, then the
 footer line:

@@ -830,7 +830,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'e2e',
     kind: 'command',
     who: 'skills',
-    usage: ['omni e2e status <prd>', 'omni e2e heals <prd> [--head <ref>]'],
+    usage: ['omni e2e status <prd>', 'omni e2e heals <prd> [--head <ref>]', 'omni e2e hold <prd>', 'omni e2e confirm <prd>', 'omni e2e reject <prd>'],
     summary: 'which e2e tests of a PRD have a recording, and which steps healed (beta)',
     detail:
       'status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each ' +
@@ -843,7 +843,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'usage error naming it, and on a first pass, with no recordings at the merge-base, every step is ' +
       'new. It lists each as healed ' +
       '(old and new action, and the summary), new or removed, as JSON; an identical step is not listed. ' +
-      'The same refusals hold for both sides.',
+      'Each healed step carries screenshots, a before and an after: the framework keeps no screenshot ' +
+      'per step, so each side says kept false and why. The same refusals hold for both sides. hold moves ' +
+      'each healed recording of the working tree out of the branch, into a folder inside the git ' +
+      'directory that no commit holds, and puts the committed recording back, so a commit of e2e.dir ' +
+      'holds only unchanged or new recordings. confirm commits the held recordings and notes them in ' +
+      'e2e.dir/.e2e/confirmed.json, so heals no longer lists them until the screen changes again. ' +
+      'reject drops the held recordings, leaves the committed ones and exits 1 so the test stays red.',
   },
   {
     name: 'statusline',
