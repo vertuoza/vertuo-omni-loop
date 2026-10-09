@@ -266,62 +266,54 @@ Merged: @pierrederval, 2026-09-26, PR #153
 In the game, one part that cannot be read never hides the parts that were read; the unreadable part is named as out of reach, and no made-up data fills the gap.
 
 Why: People should still see and play what loaded, and be told honestly which piece is missing rather than losing the whole page.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entries s2-01-xp-read-in-the-workspace-played and s5-04-scores-read-on-their-own, PRD #160
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## P-PRODUCT-31
 
 Turning the phone never changes the state of a game in progress; only the next game adapts to the new screen.
 
 Why: A player who turns the phone mid-game should not lose or disrupt their game.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-03-a-game-keeps-its-field, PRD #160
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## P-PRODUCT-32
 
 In the arcade games, what a player sees reflects the game's actual rules, so a change to the rules never leaves the screen telling a different story.
 
 Why: The person asked that the top row pay most; tying the layout to the values keeps that promise when the scoring changes.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-04-rows-follow-the-close-values, PRD #160
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## P-PRODUCT-33
 
 A person who leaves a workspace takes their game record with them; nothing of theirs stays on show to the crew.
 
 Why: A departed person should not keep a public presence in a space they no longer belong to, and removing a member should never be blocked by leftover data.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-01-scores-leave-with-the-player, PRD #160
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
-
-## P-PRODUCT-34
-
-Merged into P-PRODUCT-30, which says the same thing.
-
-Why: The harvest found this decision already stated as P-PRODUCT-30; the id stays so it is never given to another decision.
-Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, see P-PRODUCT-30, PRD #160
-Proposed: harvest 2026-09-28
 
 ## P-PRODUCT-35
 
 A player is always told about a game they unlocked, even when they climbed past its unlock level between two visits.
 
 Why: Returning players and the demo guest skip levels, and a game that opened silently would never be announced.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s6-02-levels-climbed-between-visits, PRD #160
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-28
 
 ## P-PRODUCT-36
 
 The app never shows a guessed cost; what it cannot price from its own list stays blank.
 
 Why: A cost estimated from a similar model looks exact but may be wrong, so people would trust a number nobody checked.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s1-03-price-table-values, PRD #144
 Merged: @pierrederval, 2026-09-27, PR #147
-Proposed: harvest 2026-09-27
 
 ## P-PRODUCT-37
 
@@ -337,81 +329,81 @@ Proposed: harvest 2026-09-27
 A person's name or email address is shown only to people who share a workspace with them, never to anyone outside it.
 
 Why: Members need a recognisable label to share questions with each other, but outsiders must not learn who belongs to a workspace.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s4-01-teammates-named-by-email, PRD #144
 Merged: @pierrederval, 2026-09-27, PR #147
-Proposed: harvest 2026-09-28
 
 ## P-PRODUCT-39
 
 Every way into the game's menu behaves the same, so a player never misses a celebration because of the route they took.
 
 Why: A deep link that skipped the level-up would make the celebration depend on navigation, not on the player's progress.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-02-level-up-before-menu-link, PRD #238
 Merged: @pierrederval, 2026-09-27, PR #239
-Proposed: harvest 2026-09-27
 
 ## P-PRODUCT-40
 
 A link into the game never lands a person somewhere the home address would not take them.
 
 Why: So a person always reaches the screen meant for them, never a menu they cannot use.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-03-menu-link-without-galaxy, PRD #238
 Merged: @pierrederval, 2026-09-27, PR #239
-Proposed: harvest 2026-09-27
 
 ## P-PRODUCT-41
 
 While the arcade asks a person a question, the game never moves on beneath it; declining leaves them on the screen they were on.
 
 Why: A person who says no should find the same screen they left, not one that changed while they were deciding.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s3-02-timed-screens-wait-under-confirm, PRD #238
 Merged: @pierrederval, 2026-09-27, PR #239
-Proposed: harvest 2026-09-28
 
 ## P-PRODUCT-42
 
 A page-wide keyboard shortcut in the game never takes over a control that has the focus; the focused control keeps its own meaning.
 
 Why: Keyboard and assistive-technology users must be able to rely on Enter activating what they focused, not something else.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s3-02-enter-on-focused-controls, PRD #261
 Merged: @pierrederval, 2026-09-27, PR #263
-Proposed: harvest 2026-09-27
 
 ## P-PRODUCT-43
 
 An owner can only pick a fleet mascot from a fixed list of fleet characters the game already draws; arbitrary keys are never stored.
 
 Why: Rejecting unknown keys at the database means the app never has to guess or fall back to a stand-in picture.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-01-mascot-choices, PRD #400
 Merged: @pierrederval, 2026-09-28, PR #403
-Proposed: harvest 2026-09-28
 
 ## P-PRODUCT-44
 
 A fleet's key never changes once made and never names more than one fleet, retired fleets included.
 
 Why: Anything that points at a fleet by its key must keep reaching that fleet and never be silently redirected to a newer one.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-03-fleet-key-from-label, PRD #400
 Merged: @pierrederval, 2026-09-28, PR #403
-Proposed: harvest 2026-09-28
 
 ## P-PRODUCT-45
 
 In the game, a person can always reach the way forward from an empty state; hiding an empty view never hides the invitation to fill it.
 
 Why: If both the fleet step and the menu entry vanished, owners and members would never learn how to set fleets up.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-01-fleets-menu-with-none, PRD #400
 Merged: @pierrederval, 2026-09-28, PR #403
-Proposed: harvest 2026-09-28
 
 ## P-PRODUCT-46
 
 In the game, a player is never left on a screen with no way forward; when no choice exists, they play on as they are.
 
 Why: A pick screen with nothing to pick is a dead end, and a fleet is optional, so blocking play there would lock a player out.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
 Merged: @pierrederval, 2026-09-28, PR #403
-Proposed: harvest 2026-09-28
 
 ## P-PRODUCT-47
 
@@ -427,54 +419,54 @@ Merged: @pierrederval, 2026-09-29, PR #664
 The app never offers a link that leads only to a page with nothing to show.
 
 Why: A click that ends on an empty 'not in this workspace' page wastes the person's time and reads as a broken link.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s1-01-chip-links-members-only, PRD #698
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## P-PRODUCT-49
 
 A count that is a link opens exactly the items it counted, never a wider or different set.
 
 Why: A person who follows a number should see what that number described, so the count and the list never tell different stories.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s3-02-profile-stage-links, PRD #698
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## P-PRODUCT-50
 
 Narrowing a list to a person means the same thing whoever that person is, you included.
 
 Why: A filter that changes meaning with the person chosen would make the same list tell different stories about the same work.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s4-01-prd-opener-rule, PRD #698
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## P-PRODUCT-51
 
 A person's profile shows the work that actually moved in the chosen period, not only the work begun in it.
 
 Why: Long-running work that moves this week is part of the person's recent contribution, and it matches how the lists already sort by latest activity.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-01-profile-work-period-by-activity, PRD #698
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## P-PRODUCT-52
 
 A view about one workspace shows only that workspace's work; anything spanning more workspaces is reached deliberately.
 
 Why: So a workspace's profile stays consistent with its board and never mixes in work from other workspaces unasked.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-02-profile-work-one-workspace, PRD #698
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## P-PRODUCT-53
 
 In the arcade games, play never resumes on its own after a setback; the player always chooses when to go again.
 
 Why: A player who just lost a life should never be thrown back into play before they are ready.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0817-super-omni-world/outbox/settled.md, entry s2-01-ready-screen-after-a-life-lost, PRD #817
 Merged: @pierrederval, 2026-09-30, PR #818
-Proposed: harvest 2026-09-30
 
 ## P-PRODUCT-54
 
@@ -490,9 +482,9 @@ Merged: @pierrederval, 2026-09-30, PR #818
 Jev never appears switched on when it cannot run; its on state and every decision follow from whether a key is actually stored.
 
 Why: A separate switch could show Jev or a decision as on with no key behind it, telling owners and members something that is not true.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s1-02-jev-on-means-key-stored, PRD #812
 Merged: @pierrederval, 2026-09-30, PR #814
-Proposed: harvest 2026-09-30
 
 ## P-PRODUCT-56
 
@@ -508,9 +500,9 @@ Merged: @pierrederval, 2026-09-30, PR #814
 A repository's spec is always judged against one workspace's business, chosen the same way every time.
 
 Why: Mixing or switching between workspaces' claims would make the check's verdict unpredictable and unfair to the repository's owners.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0839-canon-check/outbox/settled.md, entry s1-01-app-read-workspace-choice, PRD #839
 Merged: @pierrederval, 2026-09-30, PR #840
-Proposed: harvest 2026-09-30
 
 ## P-PRODUCT-58
 
@@ -526,18 +518,18 @@ Merged: @pierrederval, 2026-10-01, PR #856
 Each product owns its own Statement and Never list, and another product's lines never shift or claim its numbers.
 
 Why: People cite Never lines by number, so numbering must stay local to a product and stable once cited.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s1-02-statement-shape-and-never-numbers, PRD #871
 Merged: @pierrederval, 2026-10-01, PR #874
-Proposed: harvest 2026-10-01
 
 ## P-PRODUCT-60
 
 A check turns red only on a finding it can show. A model's judgement may confirm or clear that finding, but never raises one on its own.
 
 Why: Every red can then be checked by a person against quoted text, rather than taken on a model's word.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s5-02-jev-broken-without-quote-is-not-red, PRD #871
 Merged: @pierrederval, 2026-10-01, PR #874
-Proposed: harvest 2026-10-01
 
 ## P-PRODUCT-61
 
@@ -553,63 +545,63 @@ Proposed: harvest 2026-10-06
 Who may change how a product is presented always follows who may edit that product's business, never a separate grant.
 
 Why: One source of edit rights means presentation and business can never drift apart in who controls them.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/0859-pitch/outbox/settled.md, entry s1-02-every-member-edits-the-look, PRD #859
 Merged: @pierrederval, 2026-10-06, PR #860
-Proposed: harvest 2026-10-06
 
 ## P-PRODUCT-63
 
 Care spends a fix attempt only on what it has confirmed; an unreadable dependency never triggers work on a guess.
 
 Why: Fix attempts are limited, and acting on a guessed state wastes them or fixes the wrong thing, while a dependency confirmed dead no longer justifies waiting.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-01-waits-on-closed-or-unreadable, PRD #1118
 Merged: @pierrederval, 2026-10-06, PR #1119
-Proposed: harvest 2026-10-06
 
 ## P-PRODUCT-64
 
 The care list shows a bug's fixes only from what the bug's plan and the code host actually record, never a guessed or not-yet-existing pull request.
 
 Why: So a person looking after a bug sees real work only, and nothing missing or invented is presented as a fix.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, entry s1-02-care-list-reads-bug-fix-plan, PRD #1118
 Merged: @pierrederval, 2026-10-06, PR #1119
-Proposed: harvest 2026-10-06
 
 ## P-PRODUCT-65
 
 Waiting on a person holds back only the PRD that waits, never the rest of the loop, and a loop that has ended is final.
 
 Why: One open question should not stall unrelated work, and a fresh run with its own ledger keeps each loop's history clear.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-02-loop-park-and-stop, PRD #1139
 Merged: @pierrederval, 2026-10-07, PR #1142
-Proposed: harvest 2026-10-07
 
 ## P-PRODUCT-66
 
 Every member page treats a signed-out visitor the same way: it asks them to sign in, and shows demo content only in the app's demo mode.
 
 Why: A visitor should never get a different experience depending on which member page they reached first.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s5-02-loop-page-signed-out, PRD #1139
 Merged: @pierrederval, 2026-10-07, PR #1142
-Proposed: harvest 2026-10-07
 
 ## P-PRODUCT-67
 
 Watching a repository's loops on the Omni page never depends on also sharing its PRD documents; each kind of sending stands on its own.
 
 Why: A team can follow its loops without being made to send documents it chose to keep back.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s4-01-loop-push-off-switch, PRD #1139
 Merged: @pierrederval, 2026-10-07, PR #1142
-Proposed: harvest 2026-10-07
 
 ## P-PRODUCT-68
 
 In the game, every personal credit counts the same way: it scores for the person and for their fleet, and it is withdrawn when the PRD it came from is lost.
 
 Why: Fleet rankings should reflect every member's contribution consistently, and no kind of credit should survive the loss of the work that earned it.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-01-answers-pay-the-fleet-too, PRD #1180
 Merged: @pierrederval, 2026-10-07, PR #1181
-Proposed: harvest 2026-10-07
 
 ## P-PRODUCT-69
 
@@ -625,96 +617,96 @@ Proposed: harvest 2026-10-07
 In the game, a contributor is credited under the name the code host gives them; a valid name is never refused for how it is spelt.
 
 Why: Refusing capitalised logins would silently stop crediting real members, such as the 12 in the organisation, with every new point.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-01-capital-login-skipped, PRD #1180
 Merged: @pierrederval, 2026-10-07, PR #1181
-Proposed: harvest 2026-10-07
 
 ## P-PRODUCT-71
 
 In the game, a settle's credit is never lost or given to no one because of a malformed name; it waits until it can go to the right person.
 
 Why: Closing a settle on no one would destroy earned credit for good, while waiting costs nothing and keeps the board honest.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-02-dotted-approver-waits, PRD #1180
 Merged: @pierrederval, 2026-10-07, PR #1181
-Proposed: harvest 2026-10-07
 
 ## P-PRODUCT-72
 
 A roadmap belongs to its workspace, not to the person who first sent it, so every member can keep it current.
 
 Why: Several people often drive one roadmap, and its page must stay current whoever pushed last.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s2-02-roadmap-any-member-pushes, PRD #1162
 Merged: @pierrederval, 2026-10-07, PR #1163
-Proposed: harvest 2026-10-07
 
 ## P-PRODUCT-73
 
 A roadmap stays valid as its projects ship; shipping a project never makes the roadmap that planned it fail its check.
 
 Why: Otherwise every roadmap would fail as soon as its first project merged, forcing an edit on each ship.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-02-shipped-prd-still-counts, PRD #1162
 Merged: @pierrederval, 2026-10-07, PR #1163
-Proposed: harvest 2026-10-07
 
 ## P-PRODUCT-74
 
 A roadmap in a plan repository always says which repositories each project's work lands in, never leaving it to be assumed.
 
 Why: With several repositories in play, a project with no named repository would be sent to a guessed place.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-03-repos-column-and-source, PRD #1162
 Merged: @pierrederval, 2026-10-07, PR #1163
-Proposed: harvest 2026-10-07
 
 ## P-PRODUCT-75
 
 A roadmap shows each piece's standing only from what the code host records; when the host cannot be read, nothing is sent rather than a guessed state.
 
 Why: People plan around the roadmap, so a guessed or stale state would mislead them about what is waiting and on what.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s6-01-roadmap-push-reads-the-prs, PRD #1162
 Merged: @pierrederval, 2026-10-07, PR #1163
-Proposed: harvest 2026-10-07
 
 ## P-PRODUCT-76
 
 The loop never launches an agent for a step with nothing to start, and never launches the same running step twice.
 
 Why: Launching an agent only to wait spends tokens for nothing, and a second launch of a running step duplicates the work.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s1-01-steps-only-act, PRD #1205
 Merged: @pierrederval, 2026-10-08, PR #1206
-Proposed: harvest 2026-10-08
 
 ## P-PRODUCT-77
 
 The loop never starts a second agent on a PRD someone is already working on; what is running is read from what GitHub actually shows.
 
 Why: Two agents on one PRD would collide, and GitHub is the only shared record of who is working where.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s1-02-running-read, PRD #1205
 Merged: @pierrederval, 2026-10-08, PR #1206
-Proposed: harvest 2026-10-08
 
 ## P-PRODUCT-78
 
 The loop never runs two steps on the same work at once, even before the code host shows the first one running.
 
 Why: Two steps on one PRD or one path collide and waste work; GitHub lags behind what the session has just started.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s2-01-unseen-step-holds-pool, PRD #1205
 Merged: @pierrederval, 2026-10-08, PR #1206
-Proposed: harvest 2026-10-08
 
 ## P-PRODUCT-79
 
 A session always shows the work it is actually on now, not merely the work it touched last.
 
 Why: The branch is where the work is happening, so showing older recorded work would mislead the person about what the session is doing.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s2-01-branch-before-record, PRD #1208
 Merged: @pierrederval, 2026-10-08, PR #1210
-Proposed: harvest 2026-10-08
 
 ## P-PRODUCT-80
 
 The status line keeps the links of any unfinished work current, and spends no refresh on work that is finished.
 
 Why: A person reading the status line during review or a fix needs links that still lead where the work now is, not only where the board is kept.
+Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s5-03-links-refresh-for-any-live-work, PRD #1208
 Merged: @pierrederval, 2026-10-08, PR #1210
-Proposed: harvest 2026-10-08

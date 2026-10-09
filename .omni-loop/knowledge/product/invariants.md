@@ -89,7 +89,6 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
-Proposed: harvest 2026-09-27
 
 ## N-PRODUCT-12
 
@@ -100,7 +99,6 @@ Enforced by: kit/lib/launch/launch.test.ts, kit/bin/now.test.ts, kit/bin/omni.te
 Stated: 2026-10-08
 Decided: nobody — adopted when raised (medium), 2026-10-08
 Merged: @pierrederval, 2026-10-08, PR #1210
-Proposed: harvest 2026-10-08
 
 ## N-PRODUCT-13
 
@@ -111,4 +109,3 @@ Enforced by: kit/lib/init/settings.test.ts, kit/bin/init.test.ts
 Stated: 2026-10-08
 Decided: nobody — adopted when raised (medium), 2026-10-08
 Merged: @pierrederval, 2026-10-08, PR #1210
-Proposed: harvest 2026-10-08
