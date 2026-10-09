@@ -19,7 +19,8 @@ model the first time and its actions are recorded; later runs replay the recordi
 call. That is also the danger: when a screen changes, the model can click the new thing, the test
 stays green and the recording is silently overwritten. A suite that heals itself past a changed
 screen protects nothing. So the recordings are **committed**, they are the reference, and a change to
-one is something a person reads.
+one is something a person reads. A **healed** recording is the exception: it waits outside the
+branch until someone confirms it (below).
 
 ## The `e2e:` block
 
@@ -110,6 +111,33 @@ Each step is:
 
 An identical step is not listed. The same refusals as `status` hold for both sides.
 
+Each healed step also carries its **screenshots**, a before (at the merge-base) and an after (at the
+head), paired by the same keys. The framework keeps no screenshot per step, so today each side says
+`kept: false` and gives the reason; when a framework keeps one, the path or reference is listed
+instead.
+
+## `omni e2e hold <n>`, `confirm <n>` and `reject <n>`
+
+```bash terminal
+node .omni-loop/bin/omni.mjs e2e hold 1233
+node .omni-loop/bin/omni.mjs e2e confirm 1233
+node .omni-loop/bin/omni.mjs e2e reject 1233
+```
+
+A healed recording is not committed with the rest. Three commands decide where it goes:
+
+- **`hold`** lists the healed recordings of the working tree and moves each out of the branch, into a
+  folder inside the git directory that no commit holds. The committed recording is put back, so a
+  commit of `e2e.dir` holds only recordings that are unchanged or new.
+- **`confirm`** commits the held recordings and notes them in `e2e.dir/.e2e/confirmed.json`. It is
+  the follow-up step: the change was wanted. A later run with no screen change then lists no healed
+  step in `omni e2e heals`.
+- **`reject`** drops the held recordings, leaves the committed ones as they were, and exits non-zero,
+  so the test stays red: the product broke, or the change was not wanted.
+
+**Who confirms is a separate decision.** These commands say what happens on each answer, not who
+gives it: that is asked of QA in the PRD that wires this into `/omni:yolo`.
+
 ## The strict replay, by hand
 
 Nothing replays the suite after a merge in this beta. To check that the committed recordings still
@@ -139,14 +167,14 @@ The sub-PR goes into the feature branch (`Part of #<n>`). It holds the tests, th
 table of criterion, test and verdict: **✓**, **✗**, or "not filmable".
 
 - On a first pass every step is **new**.
-- On a later pass, each **healed** step becomes an outbox item with its action before and after. It
-  means the product changed under a test and a model found its way to the new screen. It is **not
-  accepted** until a person confirms it: confirm it if the change was wanted, reject it if the
-  product broke.
+- On a later pass, each **healed** step becomes an outbox item with its action before and after and
+  its before and after screenshots, or a line saying that none was kept and why. It means the product
+  changed under a test and a model found its way to the new screen. The healed recording is **not in
+  the sub-PR**: it waits, held outside the branch, until a person runs `omni e2e confirm` (the change
+  was wanted: the recording is committed) or `omni e2e reject` (the product broke: the committed
+  recording stays and the test stays red).
 - A **removed** step is worth a look: ask where its criterion went.
-- **What the beta does not do yet.** The recordings, a healed one included, are committed in the
-  sub-PR from the start: they count as accepted only when a person merges it, so read the healed items
-  before you do. And an item shows the action before and after, in words: it carries no screenshots yet.
+- The sub-PR holds only recordings that are unchanged or new, so merging it accepts no healed step.
 
 Read the tests too. The same agent may have seen the code, so reading the spec alone is a rule of the
 skill, not a guarantee; a person reading the tests in the sub-PR is the check.
