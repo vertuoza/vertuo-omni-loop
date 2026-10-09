@@ -183,6 +183,12 @@ question, yes or no: *"Record a proof video once it ships?"*. A yes writes `proo
 front matter (step 4), and `/omni:yolo` then follows `/omni:prove` once the feature PR is ready. A no,
 or `proof.url` unset, writes nothing and asks nothing.
 
+**The e2e question** (PRD 1275), right after the proof question and only when
+`node .omni-loop/bin/omni.mjs config e2e` prints `enabled` as true, ask one question, yes or no:
+*"Validate with e2e once it ships?"*. A yes writes `e2e: validate` in the spec's front matter
+(step 4), and `/omni:yolo` then follows `/omni:validate-e2e` once the feature PR is ready. A no, or
+e2e off, asks nothing and writes nothing.
+
 ## The voice
 
 Only when step 0's read listed personas. They speak for the people the product is sold to: all of
@@ -314,6 +320,8 @@ spec: file
   domain folders the PRD bears on.
 - `proof: video` only when the person said yes to the proof question (step 1); its only value is
   `video`, and `omni check inbox` refuses any other.
+- `e2e: validate` only when the person said yes to the e2e question (step 1); its only value is
+  `validate`, and `omni check inbox` refuses any other.
 - `phase0: server` only for a ◆ PRD (step 0 read the flag as `server`), written under `spec: file`;
   its only value is `server`, and `omni check inbox` refuses any other by name. A ◇ PRD leaves it
   out. It tells every gate, offline, that this PRD is approved on the server, and the server reads it
