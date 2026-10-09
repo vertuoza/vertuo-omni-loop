@@ -3,6 +3,8 @@ import { fakeSupabase } from './store.fake';
 import { AskStoreError } from './store';
 import { readQuestion, readSession, readTabs, shareRound, type Db, type SortDb } from './page/source';
 import { item } from './test/test-item';
+import { askReadRepository } from './ask.repository';
+import { askReadService } from './ask.service';
 
 // The ask pages' three reads (PRD 1318, s2): the tabs, a session with its rounds, and a round with its
 // session and shares. Characterization first: what the page's readers (src/ask/page/source.ts) gave
@@ -82,5 +84,57 @@ describe('the ask pages\' reads, as the page read them before the move', () => {
     expect(await readQuestion(w.as('carl'), w.second)).toBeNull();
     w.fake.state.fail = { code: '08006', message: 'connection lost' };
     await expect(readSession(w.as('ada'), w.sessionId)).rejects.toBeInstanceOf(AskStoreError);
+  });
+});
+
+describe('the same reads, through the service after the move', () => {
+  const reads = (w: Awaited<ReturnType<typeof world>>, token: string) =>
+    askReadService({ ...askReadRepository(w.as(token)), ping: pings });
+
+  it('a session with its rounds and its terminal\'s heartbeat', async () => {
+    const w = await world();
+    const state = await reads(w, 'ada').session(w.sessionId);
+    expect(state?.session).toMatchObject(pinned(w).session);
+    expect(roundsOf(state?.rounds ?? [])).toEqual(pinned(w).rounds);
+    expect(state?.ping).toEqual(PING);
+  });
+
+  it('a session read for a shared round carries no heartbeat', async () => {
+    const w = await world();
+    expect(await reads(w, 'ada').session(w.sessionId, { ping: false })).not.toHaveProperty('ping');
+  });
+
+  it('the tabs, each newest round\'s header read once for a caller that reads again', async () => {
+    const w = await world();
+    const tabs = await reads(w, 'ada').tabs(ADA.id, w.clock.now);
+    expect(tabs.map((t) => ({ id: t.session.id, newest: t.newest }))).toEqual(pinned(w).tabs);
+    expect(await reads(w, 'bob').tabs(BOB.id, w.clock.now)).toEqual([]);
+    const headers = new Map([[w.second, 'Kept']]);
+    expect((await reads(w, 'ada').tabs(ADA.id, w.clock.now, headers))[0]?.newest?.header).toBe('Kept');
+  });
+
+  it('a round with its session, the session\'s other rounds and who it is shared with', async () => {
+    const w = await world();
+    const state = await reads(w, 'bob').question(w.second);
+    expect(state?.session).toMatchObject(pinned(w).session);
+    expect(state?.round).toMatchObject({ id: w.second, questions: LATER, status: 'open' });
+    expect(state?.round).not.toHaveProperty('session_id');
+    expect(roundsOf(state?.earlier ?? [])).toEqual([[w.first, 'open', QUESTIONS]]);
+    expect(state?.sharedWith).toEqual([BOB.id]);
+  });
+
+  it('another workspace\'s session or round reads as missing; a failed read throws', async () => {
+    const w = await world();
+    expect(await reads(w, 'carl').session(w.sessionId)).toBeNull();
+    expect(await reads(w, 'carl').question(w.second)).toBeNull();
+    w.fake.state.fail = { code: '08006', message: 'connection lost' };
+    await expect(reads(w, 'ada').session(w.sessionId)).rejects.toBeInstanceOf(AskStoreError);
+  });
+
+  it('a heartbeat out of reach reads as none, and the session is still read', async () => {
+    const w = await world();
+    const state = await askReadService({ ...askReadRepository(w.as('ada')), ping: () => Promise.reject(new Error('gone')) }).session(w.sessionId);
+    expect(state?.ping).toBeNull();
+    expect(state?.rounds).toHaveLength(2);
   });
 });

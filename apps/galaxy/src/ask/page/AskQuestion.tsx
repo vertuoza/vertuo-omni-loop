@@ -1,9 +1,12 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
 import { emptyDraft, roundAnswers, type Draft } from '../answer-model';
 import type { Category } from '../classify';
-import { backAfterSend, dossierRoundsReader, noRounds } from './back';
+import { backAfterSend, noRounds } from './back';
+import { askClient } from '../ask.client';
+import { dossierRoundsOf, questionWrites } from './browser-writes';
+import { SignInCard } from './SignInCard';
+import { questionCallbackPath } from './sign-in';
 import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoQuestionPort } from './demo';
@@ -12,14 +15,13 @@ import { LeadMessage } from './LeadMessage';
 import { PersonChip } from '../../people/PersonChip';
 import { useWaiting } from '../../waiting/WaitingProvider';
 import { titled } from '../../waiting/waiting';
-import { poll } from './poll';
+import { CANNOT_REACH, poll, readTick } from './poll';
 import { answeredTitle, questionView, type Member, type QuestionState } from './question';
 import { RoundForm } from './RoundForm';
-import { questionPort, type QuestionPort } from './source';
+import type { QuestionPort } from './source';
 import { askTitle } from './tabs';
 import { categoryChip, contextParts, minutesLeft, withCategory } from './view';
 import { QuestionList } from './QuestionText';
-import type { Database } from '../../../../../supabase/database.types';
 
 // One question, at /ask/q/<round> (PRD 144): the link a session's owner shares. While it is open, the
 // owner and the member it is shared with answer it here, with the session's earlier rounds below for
@@ -27,7 +29,9 @@ import type { Database } from '../../../../../supabase/database.types';
 // Once answered, whoever comes second reads who answered first, with the answer. Read again every 2 s
 // while the tab is visible, until it is answered, moved or closed. Once this person's answer is read
 // back, the page goes back where it came from (PRD 384, src/ask/page/back.ts): the PRD page it was
-// opened from, at its next open round, or the session's ask page.
+// opened from, at its next open round, or the session's ask page. It reads through
+// GET /api/ask/rounds/:id (src/ask/ask.client.ts, PRD 1318): signed out, the poll stops and the page
+// shows the sign-in card; a failed read keeps what it last showed.
 
 export type QuestionSource = { kind: 'database'; url: string; key: string } | { kind: 'demo' };
 
@@ -38,11 +42,12 @@ type Props = {
 };
 
 function makePort(source: QuestionSource, seed: QuestionState): QuestionPort {
-  return source.kind === 'demo' ? demoQuestionPort(seed) : questionPort(createBrowserClient<Database>(source.url, source.key), seed.round.id);
+  if (source.kind === 'demo') return demoQuestionPort(seed);
+  const client = askClient();
+  return { read: () => client.round(seed.round.id), ...questionWrites(source) };
 }
 
-const roundsOf = (source: QuestionSource) =>
-  source.kind === 'demo' ? noRounds : dossierRoundsReader(createBrowserClient<Database>(source.url, source.key));
+const roundsOf = (source: QuestionSource) => (source.kind === 'demo' ? noRounds : dossierRoundsOf(source));
 
 export function AskQuestion({ source, initial, serverNow, me, members, from = null }: Props) {
   const [state, setState] = useState(initial);
@@ -52,6 +57,7 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
   const [sending, setSending] = useState(false);
   const [sorting, setSorting] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [signedOut, setSignedOut] = useState(false);
   const port = useRef<QuestionPort | null>(null);
   const getPort = useCallback(() => (port.current ??= makePort(source, initial)), [source, initial]);
   const clock = useCallback(() => Date.now() + offset, [offset]);
@@ -65,26 +71,28 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
   }, [view, total]);
 
   useEffect(() => {
-    if (!live) return;
-    return poll(async () => {
-      try {
-        const next = await getPort().read();
-        if (!next) {
-          window.location.reload();
-          return false;
-        }
+    if (!live || signedOut) return;
+    return poll(readTick({
+      read: () => getPort().read(),
+      gone: () => {
+        window.location.reload();
+      },
+      seen: (next) => {
         const at = clock();
         setState(next);
         setNow(at);
         setProblem(null);
         return questionView(next, me, members, at).kind === 'open';
-      } catch {
+      },
+      failed: () => {
         setNow(clock());
-        setProblem('Cannot reach the server. Trying again every few seconds.');
-        return true;
-      }
-    }, document);
-  }, [live, getPort, clock, me, members]);
+        setProblem(CANNOT_REACH);
+      },
+      signedOut: () => {
+        setSignedOut(true);
+      },
+    }), document);
+  }, [live, signedOut, getPort, clock, me, members]);
 
   const questions = view.kind === 'open' && view.canAnswer ? view.questions : null;
   const current = questions ? draft ?? emptyDraft(questions) : null;
@@ -129,6 +137,8 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
       setSorting(false);
     }
   }, [getPort, state.round.id]);
+
+  if (signedOut && source.kind === 'database') return <SignInCard supabase={source} returnPath={questionCallbackPath(state.round.id)} />;
 
   return (
     <div className="ask-col">
