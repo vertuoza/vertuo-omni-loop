@@ -1886,11 +1886,29 @@ describe('the prove skill and the skills that lead to it (PRD 798)', () => {
     expect(spec).toMatch(/^- `proof: video` only when the person said yes/m);
   });
 
+  it('/omni:brainstorm asks the e2e question only when e2e is enabled, and a yes writes e2e: validate (PRD 1275)', () => {
+    const text = read('brainstorm');
+    const design = skillSection(text, '1.');
+    expect(inOrder(design, ['**The e2e question**', 'omni.mjs config e2e', '`enabled`', 'Validate with e2e once it ships?', '`e2e: validate`'])).toEqual([]);
+    expect(design).toContain('asks nothing and writes nothing');
+    const spec = text.slice(text.indexOf('## 4. Write the spec'), text.indexOf('## 5. '));
+    expect(spec).toMatch(/^- `e2e: validate` only when the person said yes/m);
+  });
+
   it('/omni:yolo follows /omni:prove after it marks the PR ready, only when the spec says proof: video', () => {
     const step = skillSection(read('yolo'), '5.');
     const red = step.indexOf('**Gate red.**');
     expect(inOrder(step.slice(0, red), ['gh pr ready', '`proof: video`', '/omni:prove <prd>'])).toEqual([]);
     expect(step.slice(red)).not.toContain('/omni:prove');
+  });
+
+  it('/omni:yolo follows /omni:validate-e2e after the proof item, only when the spec says e2e: validate and e2e is enabled, and never changes the PR', () => {
+    const step = skillSection(read('yolo'), '5.');
+    const red = step.indexOf('**Gate red.**');
+    const body = step.slice(0, red);
+    expect(inOrder(body, ['gh pr ready', '/omni:prove <prd>', '`e2e: validate`', 'omni.mjs config e2e', '`enabled`', '/omni:validate-e2e <prd>', 'goes on to step 6'])).toEqual([]);
+    expect(body).toContain('never changes the PR');
+    expect(step.slice(red)).not.toContain('/omni:validate-e2e');
   });
 
   it('/omni:invade step 7 proposes proof.url and proof.setup, with when, and only the name of proof.bypassEnv', () => {

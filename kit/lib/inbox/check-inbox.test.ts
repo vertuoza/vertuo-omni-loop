@@ -373,3 +373,8 @@ describe('roadmaps (PRD 1162)', () => {
     );
   });
 });
+
+it('accepts e2e: validate and refuses e2e: yes, naming the PRD (PRD 1275)', () => {
+  expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ e2e: 'validate' }) })).toBe('');
+  expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ e2e: 'yes' }) })).toMatch(/0042-a\/spec\.md: e2e: /);
+});

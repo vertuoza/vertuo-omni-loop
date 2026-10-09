@@ -9,8 +9,28 @@ recording of each, committed in a sub-PR so the next PRD that breaks the same sc
 test, not by a person.
 
 This is a **beta**. The block is **off by default**, a repository that does not turn it on sees no
-change, and **nothing runs after a merge**: the skill is run by a person, once a feature pull request
+change, and **nothing runs after a merge**: the skill is run by a person, or by `/omni:yolo` when the spec asks (below), once a feature pull request
 is ready, and the replay after a merge is a command someone types (below).
+
+## Ask for it in the spec
+
+Add `e2e: validate` to a spec's front matter, as `proof: video` asks for the proof:
+
+```yaml file=spec.md
+---
+prd: 1275
+e2e: validate
+---
+```
+
+`/omni:brainstorm` asks the question when the repository has `e2e.enabled`, and writes the field on a
+yes. With the field set and e2e enabled, `/omni:yolo` follows `/omni:validate-e2e` by itself **after
+the feature PR is ready**, before it reports. A spec without the field, or a repository with e2e off,
+sees no e2e step. `validate` is the only value: `omni check inbox` refuses any other and names the PRD.
+
+**It never blocks.** A ✗ verdict, a stop line or a failed run is reported, and never changes the
+feature PR's draft or ready state, its labels or its checks. You find the verdict table as a sub-PR on
+the feature PR. Each automatic run costs a model session and a few minutes.
 
 ## How it keeps a check
 

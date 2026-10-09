@@ -2202,6 +2202,7 @@ function parseFrontMatterLines(rawFrontMatter) {
 import { z as z15 } from "zod";
 var SPEC_VALUES = ["file", "issue"];
 var PROOF_VALUES = ["video"];
+var E2E_VALUES = ["validate"];
 var PHASE0_VALUES = ["server"];
 var RANK_VALUES = ["human-action", "high", "medium"];
 var BLOCKED_BY_MESSAGE = 'blocked-by must be "none" or a bracketed list of PRD numbers, e.g. [966]';
@@ -2249,6 +2250,8 @@ var SpecFrontMatterSchema = z15.object({
   areas: AreasSchema,
   // PRD 798: `proof: video` asks `/omni:yolo` to follow `/omni:prove` once the feature PR is ready.
   proof: z15.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(" or ")}, or left out` }).optional(),
+  // PRD 1275: `e2e: validate` asks `/omni:yolo` to follow `/omni:validate-e2e` once the feature PR is ready.
+  e2e: z15.enum(E2E_VALUES, { message: `e2e must be ${E2E_VALUES.join(" or ")}, or left out` }).optional(),
   // PRD 1299: `phase0: server` says the PRD is approved on its PRD page, not by a phase-0 PR.
   phase0: z15.enum(PHASE0_VALUES, { message: `phase0 must be ${PHASE0_VALUES.join(" or ")}, or left out` }).optional()
 }).strict();
@@ -4512,7 +4515,7 @@ function unrecognizedKeyMessage(key) {
     return 'unexpected field "plan" \u2014 the plan is always the sibling plan.md, never a front-matter value';
   }
   const named = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` \u2014 an inbox spec names no ${key}` : "";
-  return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas and proof`;
+  return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas, proof and e2e`;
 }
 function parseSpec(text8, { file = null } = {}) {
   const blockMatch = text8.match(FRONT_MATTER_BLOCK3);
@@ -4548,6 +4551,7 @@ function parseSpec(text8, { file = null } = {}) {
     spec: fm.spec,
     ...fm.areas !== void 0 ? { areas: fm.areas } : {},
     ...fm.proof !== void 0 ? { proof: fm.proof } : {},
+    ...fm.e2e !== void 0 ? { e2e: fm.e2e } : {},
     file
   };
   return { ok: true, record };
