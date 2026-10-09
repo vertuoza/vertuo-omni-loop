@@ -35355,7 +35355,7 @@ function judgeApproval(ctx, prd2, reply) {
   }
   const { login: login2, member } = approval3.approver;
   if (!member) return reading("refused", [`approver ${login2} is not a workspace member`]);
-  const drift = approval3.files.flatMap((file2) => driftOf(ctx, prd2, file2) ?? []);
+  const drift = approval3.files.filter((file2) => file2.kind !== "voice").flatMap((file2) => driftOf(ctx, prd2, file2) ?? []);
   if (drift.length > 0) {
     return reading("drifted", drift.map((d) => `\u2260 ${basename5(d.file)} \xB7 ${d.how} \xB7 \u2717 refuse \xB7 restore it, or approve again: ${url2}`), drift);
   }
