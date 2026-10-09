@@ -14,9 +14,22 @@ import {
 import { gradeKnowledge } from './check-knowledge.ts';
 import { harvestCandidates } from './harvest.ts';
 import type { ClassificationReply } from './classify.ts';
-import { applyKnowledgeWrites, decidedLine, writeKnowledge, type ChangedFile, type Taken, type WriteResult } from './write.ts';
+import {
+  applyKnowledgeWrites,
+  decidedLine,
+  lawWorthNote,
+  writeKnowledge,
+  type ChangedFile,
+  type LawWorth,
+  type Taken,
+  type WriteResult,
+} from './write.ts';
 import { assertDefined } from '../../test/assert.ts';
-import { parsePr, parsePrd } from '../ids.ts';
+import { parseIssue, parsePr, parsePrd } from '../ids.ts';
+
+/** Law issue numbers, by candidate id, as the writer takes them. */
+const issueNumbers = (numbers?: Record<string, number>) =>
+  numbers && Object.fromEntries(Object.entries(numbers).map(([id, n]) => [id, parseIssue(n)]));
 
 /** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
 function itemOf(text: string) {
@@ -515,5 +528,134 @@ describe('decidedLine', () => {
     expect(decidedLine({ verdict: 'adopted', approvedBy: '@grace', approvedAt: '2026-09-26T09:30:00Z' })).toBe(
       '@grace — merged over a red outbox, 2026-09-26',
     );
+  });
+});
+
+describe('writeKnowledge — worth a law? The three paths of a rule or an invariant (PRD 1342)', () => {
+  const CHANGED: ChangedFile[] = [{ path: 'kit/lib/foo.test.ts', status: 'added' }];
+  const TREE = { ...FILES, 'kit/lib/foo.test.ts': 'test\n' };
+  const INVARIANT: ClassificationReply = { kind: 'invariant', place: 'billing', statement: 'One billing run at a time per account.', reason: 'must always hold' };
+  const RULE: ClassificationReply = {
+    kind: 'rule',
+    place: 'billing',
+    statement: 'An invoice is read from the head.',
+    serves: 'P-PRODUCT-1',
+    reason: 'a billing rule',
+  };
+
+  function run(
+    replies: Record<string, ClassificationReply>,
+    { worth = {}, lawIssues }: { worth?: Record<string, LawWorth>; lawIssues?: Record<string, number> } = {},
+  ) {
+    const repo = makeRepo({ files: TREE });
+    const candidates = harvestCandidates({ ctx: repo.ctx, prd: parsePrd(28) }).filter((c) => c.id in replies);
+    const classified = candidates.map((candidate) => ({ candidate, reply: replies[candidate.id] ?? null, worth: worth[candidate.id] ?? null }));
+    const result = writeKnowledge({ ctx: repo.ctx, classified, merge: MERGE, date: DATE, changed: CHANGED, lawIssues: issueNumbers(lawIssues) });
+    return { ...repo, result, files: byPath(result) };
+  }
+  const ledgerOf = (files: Record<string, string>) =>
+    Object.fromEntries(parseSettledEntries(files[LEDGER] ?? '', markers).map((entry) => [entry.id, entry]));
+
+  it('a law whose test the pull request changed is written with that test, whatever worthALaw says', () => {
+    const { files, result } = run({ 's1-03-one-run': { ...INVARIANT, enforcedBy: ['kit/lib/foo.test.ts'], worthALaw: false } });
+    expect(files[`${K}/domains/billing/invariants.md`]).toContain('Enforced by: kit/lib/foo.test.ts\n');
+    expect(result.placed[0]).toMatchObject({ kind: 'invariant', landedAs: ['N-BILLING-1'] });
+    expect(result.placed[0]?.law).toBeUndefined();
+    expect(result.lawIssues).toEqual([]);
+  });
+
+  it('a "no" from the classifier stays in the ledger: not worth a law, no register entry', () => {
+    const { files, result } = run({ 's1-03-one-run': { ...INVARIANT, worthALaw: false } });
+    expect(files[`${K}/domains/billing/invariants.md`]).toBeUndefined();
+    expect(result.placed).toEqual([
+      expect.objectContaining({
+        id: 's1-03-one-run',
+        kind: 'stays-here',
+        landedAs: [],
+        files: [],
+        ledgerLine: '- Stays here: not worth a law (classifier)',
+        proposed: false,
+        law: { worth: false, decidedBy: 'classifier', confidence: null, issue: null },
+      }),
+    ]);
+    expect(ledgerOf(files)['s1-03-one-run']?.fields['Stays here']).toBe('not worth a law (classifier)');
+    expect(result.lawIssues).toEqual([]);
+  });
+
+  it('a "no" from Jev names Jev and its score, even against the classifier', () => {
+    const { result } = run(
+      { 's1-03-one-run': { ...INVARIANT, worthALaw: true } },
+      { worth: { 's1-03-one-run': { worth: false, decidedBy: 'Jev', confidence: 0.8 } } },
+    );
+    expect(result.placed[0]?.ledgerLine).toBe('- Stays here: not worth a law (Jev 0.80)');
+    expect(result.lawIssues).toEqual([]);
+  });
+
+  it('a "yes" whose law issue is not open yet is held back, its ids kept, and names the issue to open', () => {
+    const { files, result } = run({
+      's1-03-one-run': { ...INVARIANT, worthALaw: true },
+      's1-06-reworked': { ...RULE, enforcedBy: ['kit/lib/foo.test.ts'] },
+    });
+    expect(files[`${K}/domains/billing/invariants.md`]).toBeUndefined();
+    expect(result.notPlaced).toEqual([{ id: 's1-03-one-run', reason: 'its law issue opens first' }]);
+    expect(ledgerOf(files)['s1-03-one-run']?.became).toEqual([]);
+    expect(result.lawIssues).toEqual([
+      {
+        id: 's1-03-one-run',
+        entry: 'N-BILLING-1',
+        register: `${K}/domains/billing/invariants.md`,
+        statement: 'One billing run at a time per account.',
+        source: `${LEDGER}, entry s1-03-one-run, PRD #28`,
+        title: 'Law: One billing run at a time per account.',
+        body: expect.stringContaining('`N-BILLING-1`') as unknown as string,
+      },
+    ]);
+    const body = result.lawIssues[0]?.body ?? '';
+    expect(body).toContain(`${K}/domains/billing/invariants.md`);
+    expect(body).toContain(`${LEDGER}, entry s1-03-one-run, PRD #28`);
+    expect(body).toContain('One billing run at a time per account.');
+    expect(body).toContain('Where its test would live');
+    expect(body).toContain('/omni:enforce');
+    // The rule after it keeps the id it gets once the law is written.
+    expect(files[`${K}/domains/billing/rules.md`]).toContain('## BR-BILLING-1');
+  });
+
+  it('a "yes" with its law issue open is written pending that issue', () => {
+    const { files, result, ctx } = run(
+      { 's1-03-one-run': { ...INVARIANT, worthALaw: false }, 's1-06-reworked': RULE },
+      {
+        worth: { 's1-03-one-run': { worth: true, decidedBy: 'Jev', confidence: 0.91 } },
+        lawIssues: { 's1-03-one-run': 77 },
+      },
+    );
+    expect(files[`${K}/domains/billing/invariants.md`]).toContain('## N-BILLING-1');
+    expect(files[`${K}/domains/billing/invariants.md`]).toContain('Enforced by: pending #77\n');
+    expect(result.placed.find((entry) => entry.id === 's1-03-one-run')).toMatchObject({
+      kind: 'invariant',
+      landedAs: ['N-BILLING-1'],
+      enforcedBy: [],
+      law: { worth: true, decidedBy: 'Jev', confidence: 0.91, issue: 77 },
+    });
+    expect(result.lawIssues).toEqual([]);
+    // A reply without worthALaw and no decision is written as before: unenforced.
+    expect(files[`${K}/domains/billing/rules.md`]).toContain('Enforced by: unenforced\n');
+    applyKnowledgeWrites({ ctx, writes: result.writes });
+    expect(gradeKnowledge({ ctx, files: [`${K}/domains/billing/invariants.md`, `${K}/domains/billing/rules.md`] }).violations).toEqual([]);
+  });
+
+  it('a rule serving new, held back, keeps both its ids and its principle out', () => {
+    const intro = REPLIES['s1-02-intro-cap'];
+    assertDefined(intro, 'the intro-cap reply');
+    const { files, result } = run({ 's1-02-intro-cap': { ...intro, worthALaw: true } as ClassificationReply });
+    expect(files[`${K}/product/rules.md`]).toBeUndefined();
+    expect(files[`${K}/product/principles.md`]).toBeUndefined();
+    expect(result.lawIssues.map((issue) => issue.entry)).toEqual(['BR-PRODUCT-1']);
+  });
+});
+
+describe('lawWorthNote', () => {
+  it('names who decided, and the score when there is one', () => {
+    expect(lawWorthNote({ worth: false, decidedBy: 'classifier', confidence: null })).toBe('not worth a law (classifier)');
+    expect(lawWorthNote({ worth: false, decidedBy: 'Jev', confidence: 0.6 })).toBe('not worth a law (Jev 0.60)');
   });
 });

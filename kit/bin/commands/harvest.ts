@@ -4,12 +4,35 @@
 // into the working tree: nothing is staged, nothing committed. Exit 0 when it wrote; 1 when refused
 // (the pull request is not merged, or not into the default branch), naming why; 2 on a usage error or
 // with no OPENROUTER_API_KEY, with nothing written.
+//
+// Worth a law? (PRD 1342) Each rule or invariant no changed test proves is asked of `omni decide
+// law-worth`, its state the statement, its why, its principle, its domain and the PRD's title, `--old`
+// the classifier's `worthALaw`; when it prints `unset` the classifier's answer counts. A "no" stays in
+// the ledger, `not worth a law`. A "yes" has its law issue opened through `gh` first (`Law: <statement>`,
+// labelled `labels.law`, signed), then is written `Enforced by: pending #<that issue>`.
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { z } from 'zod';
+import { frontMatterTitle } from '../../lib/dossier/folder.ts';
 import { KEY_VAR } from '../../lib/openrouter.ts';
-import { applyHarvestEdits, classifyCandidate, finishHarvest, noEdits, prepareHarvest } from '../../lib/knowledge/pipeline.ts';
+import {
+  applyHarvestEdits,
+  classifyCandidate,
+  finishHarvest,
+  lawQuestions,
+  noEdits,
+  prepareHarvest,
+  type LawQuestion,
+} from '../../lib/knowledge/pipeline.ts';
+import { footerLine } from '../../lib/signature.ts';
 import { parseArgs, prArg, prdArg, println, usageError } from '../args.ts';
-import { pullRequestFilesFor, pullRequestFor } from '../github.ts';
+import { githubEnv, pullRequestFilesFor, pullRequestFor } from '../github.ts';
+import { decide } from './decide.ts';
+import type { Context } from '../../lib/context.ts';
 import type { Command, CommandIo } from '../io.ts';
-import type { Merge, Placed } from '../../lib/knowledge/write.ts';
+import type { LawIssue, LawWorth, Merge, Placed } from '../../lib/knowledge/write.ts';
+import { IssueNumberSchema, type IssueNumber, type PrdNumber } from '../../lib/ids.ts';
 
 const USAGE = 'usage: omni harvest <prd> --pr <feature pull request>';
 
@@ -19,7 +42,7 @@ function landedText(entry: Placed): string {
   const ids = entry.landedAs.join(', ');
   switch (entry.kind) {
     case 'stays-here':
-      return 'stays here';
+      return entry.law ? entry.ledgerLine.replace(/^- [^:]+: /, '') : 'stays here';
     case 'covered':
       return `covered by ${ids}`;
     case 'adr':
@@ -33,8 +56,59 @@ function landedText(entry: Placed): string {
 /** A rule's or an invariant's proof: what `Enforced by:` says, then each proposed path dropped. */
 function proofLines(entry: Placed): string[] {
   if (!entry.enforcedBy) return [];
-  const enforced = entry.enforcedBy.length > 0 ? entry.enforcedBy.join(', ') : 'unenforced';
+  const pending = entry.law?.issue ? `pending #${entry.law.issue}` : null;
+  const enforced = pending ?? (entry.enforcedBy.length > 0 ? entry.enforcedBy.join(', ') : 'unenforced');
   return [`      Enforced by: ${enforced}`, ...(entry.dropped ?? []).map((drop) => `      dropped ${drop.path} — ${drop.reason}`)];
+}
+
+/** The title of PRD `prd`: its spec's `title:`, else its first `# ` heading; `null` when neither reads. */
+function prdTitle(ctx: Context, prd: PrdNumber): string | null {
+  const spec = ctx.layout.specPath(prd);
+  if (spec === null) return null;
+  try {
+    const text = readFileSync(join(ctx.root, spec), 'utf8');
+    return frontMatterTitle(text) ?? (/^# (.+)$/m.exec(text)?.[1]?.trim() || null);
+  } catch {
+    return null;
+  }
+}
+
+const DecidedSchema = z.object({ answer: z.enum(['true', 'false']), confidence: z.number(), decidedBy: z.literal('jev') });
+
+/**
+ * Asks `omni decide law-worth` one question; Jev's answer when it counted, `null` when it printed
+ * unset or anything else, and the classifier's answer counts. Never throws for a decision outcome.
+ */
+async function askLawWorth(question: LawQuestion, { ctx, exec, env, vars, prd }: Pick<CommandIo, 'ctx' | 'exec' | 'env' | 'vars'> & { prd: PrdNumber }): Promise<LawWorth | null> {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-law-worth-'));
+  try {
+    const file = join(dir, 'state.json');
+    writeFileSync(file, JSON.stringify(question.state));
+    const out: string[] = [];
+    const quiet = { write: () => true };
+    const args = ['law-worth', '--state-file', file, '--old', String(question.old), '--ref', `PRD ${prd} ${question.id}`, '--json'];
+    await decide.run(args, { cwd: ctx.root, stdout: { write: (text: string) => out.push(text) }, stderr: quiet, exec, env, vars });
+    const read = DecidedSchema.safeParse(JSON.parse(out.join('') || 'null'));
+    return read.success ? { worth: read.data.answer === 'true', decidedBy: 'Jev', confidence: read.data.confidence } : null;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const OpenedSchema = z.looseObject({ number: IssueNumberSchema });
+
+/** Opens one law issue through `gh`, labelled `labels.law` and signed; returns its number. */
+function openLawIssue(issue: LawIssue, { ctx, exec, env }: Pick<CommandIo, 'ctx' | 'exec' | 'env'>): IssueNumber {
+  const footer = footerLine(ctx.config.signature);
+  const body = footer ? `${issue.body}\n\n${footer}` : issue.body;
+  const ghEnv = githubEnv(ctx, { exec, env });
+  const input = JSON.stringify({ title: issue.title, body, labels: [ctx.config.labels.law] });
+  const reply = exec('gh', ['api', `repos/${ctx.config.repo.slug}/issues`, '--method', 'POST', '--input', '-'], {
+    encoding: 'utf8',
+    input,
+    ...(ghEnv ? { env: ghEnv } : {}),
+  });
+  return OpenedSchema.parse(JSON.parse(reply)).number;
 }
 
 function checkLine(name: string, violations: readonly string[]): string {
@@ -75,7 +149,15 @@ export const harvest: Command = {
         await classifyCandidate({ candidate, summary: prepared.summary, changed: prepared.changed, openrouter: vars.openrouter, fetch: globalThis.fetch }),
       );
     }
-    const result = finishHarvest({ ctx, prepared, classified, merge, date: today() });
+    const worth: Record<string, LawWorth | null> = {};
+    for (const question of lawQuestions({ ctx, prepared, classified, prdTitle: prdTitle(ctx, prd) })) {
+      worth[question.id] = await askLawWorth(question, { ctx, exec, env, vars, prd });
+    }
+    const judged = classified.map((entry) => ({ ...entry, worth: worth[entry.id] ?? null }));
+    const date = today();
+    const first = finishHarvest({ ctx, prepared, classified: judged, merge, date });
+    const opened = Object.fromEntries(first.lawIssues.map((issue) => [issue.id, openLawIssue(issue, { ctx, exec, env })]));
+    const result = first.lawIssues.length === 0 ? first : finishHarvest({ ctx, prepared, classified: judged, merge, date, lawIssues: opened });
     applyHarvestEdits({ root: ctx.root, edits: result.edits });
 
     const lines = [`omni harvest — PRD ${prd}, pull request #${merge.pr} merged by @${merge.by} on ${merge.at.slice(0, 10)}${pr.mergeSha ? ` (${pr.mergeSha.slice(0, 7)})` : ''}:`];
@@ -87,6 +169,7 @@ export const harvest: Command = {
     for (const { from, to } of prepared.shipped) lines.push(`  shipped: ${from} → ${to}`);
     for (const path of result.edits.deletes) lines.push(`  deleted ${path}`);
     for (const { path } of result.edits.writes) lines.push(`  wrote ${path}`);
+    for (const issue of first.lawIssues) lines.push(`  opened law issue #${opened[issue.id]}: ${issue.title}`);
     if (result.placed.length > 0) {
       lines.push('  placed:');
       for (const entry of result.placed) lines.push(`    ${entry.id} → ${landedText(entry)} — ${entry.reason}`, ...proofLines(entry));
