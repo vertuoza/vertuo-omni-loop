@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { approvalsRepository, reachRepository } from './approvals.repository';
 
 // The approvals' storage (PRD 1322 s2), on a stubbed Supabase client: which function it calls with
@@ -9,6 +10,7 @@ import { approvalsRepository, reachRepository } from './approvals.repository';
 const DOSSIER = '11111111-1111-4111-8111-111111111111';
 const REQUEST = '22222222-2222-4222-8222-222222222222';
 const USER = '00000000-0000-4000-8000-0000000000a4';
+const PRD = parsePrd(7);
 
 type Raw = { data: unknown; error: { code?: string; message?: string } | null };
 
@@ -38,18 +40,18 @@ const REQUESTED = {
 describe('approvalsRepository', () => {
   it('calls approval_request() with the repository and the number, and parses its answer', async () => {
     const s = stub({ approval_request: { data: REQUESTED, error: null } });
-    expect(await approvalsRepository(s.db).request('acme/mobile', 7)).toEqual({ ok: true, value: REQUESTED });
+    expect(await approvalsRepository(s.db).request('acme/mobile', PRD)).toEqual({ ok: true, value: REQUESTED });
     expect(s.calls).toEqual([{ fn: 'approval_request', args: { p_repo: 'acme/mobile', p_prd: 7 } }]);
   });
 
   it("passes the database's refusal on, and calls an answer out of shape `shape`", async () => {
     const refused = stub({ approval_request: { data: null, error: { code: 'P0002', message: 'No dossier for PRD #7 of acme/mobile.' } } });
-    expect(await approvalsRepository(refused.db).request('acme/mobile', 7))
+    expect(await approvalsRepository(refused.db).request('acme/mobile', PRD))
       .toEqual({ ok: false, refusal: { code: 'P0002', message: 'No dossier for PRD #7 of acme/mobile.' } });
     const bare = stub({ approval_request: { data: null, error: {} } });
-    expect(await approvalsRepository(bare.db).request('acme/mobile', 7)).toEqual({ ok: false, refusal: { code: null, message: null } });
+    expect(await approvalsRepository(bare.db).request('acme/mobile', PRD)).toEqual({ ok: false, refusal: { code: null, message: null } });
     const odd = stub({ approval_request: { data: { ...REQUESTED, kind: 'maybe' }, error: null } });
-    expect(await approvalsRepository(odd.db).request('acme/mobile', 7))
+    expect(await approvalsRepository(odd.db).request('acme/mobile', PRD))
       .toEqual({ ok: false, refusal: { code: 'shape', message: 'approval_request() answered out of shape' } });
   });
 

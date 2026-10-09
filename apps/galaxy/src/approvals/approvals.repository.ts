@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The approvals' storage (PRD 1322 s2): the only file of this folder that reaches Supabase. It calls the
 // database's functions (supabase/migrations/20261125090000_approval_requests.sql) and parses what they
@@ -72,7 +72,7 @@ async function parsed<T>(call: PromiseLike<Raw>, schema: z.ZodType<T>, fn: strin
 export function approvalsRepository(db: CallerDb) {
   return {
     /** Records a request to approve PRD `prd` of `repo`, asking its approvers. */
-    request: (repo: string, prd: number) => parsed(db.rpc('approval_request', { p_repo: repo, p_prd: prd }), Requested, 'approval_request'),
+    request: (repo: string, prd: PrdNumber) => parsed(db.rpc('approval_request', { p_repo: repo, p_prd: prd }), Requested, 'approval_request'),
     /** The requests that wait on the caller, oldest first. */
     waiting: () => parsed(db.rpc('approval_requests_waiting'), Waiting, 'approval_requests_waiting'),
   };
