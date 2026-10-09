@@ -220,6 +220,13 @@ jobs:
         # repository's product's settings, {} for none. A member uploads, replaces, reads and removes their
         # products' files in the private pitch-assets bucket; nobody else touches them.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/pitch_settings.sql
+      - name: Who may approve a PRD born on the server
+        # A PRD dossier's first spec sets its birthplace once (server when it says phase0: server). A
+        # member approves a numbered ◆ PRD holding a spec, a plan and a before/after, pinning the latest
+        # version of each kind; a non-member, a ◇ dossier and a missing file are refused. A second
+        # approval adds a row; nobody updates or deletes one. dossier_approval() answers the approval
+        # in force, and nothing to another workspace (PRD 1299).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/approvals.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

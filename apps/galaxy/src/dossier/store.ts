@@ -144,7 +144,13 @@ export type DossierRow = {
   opened_by: string | null;
   created_at: string;
   numbered_at: string | null;
+  /** Where its phase 0 is approved (PRD 1299): `server` (◆, on its page) or `repo` (◇, by its phase-0 PR), set
+   * once by its first spec; null before, and on a fix or a concept. A row read without it is unknown. */
+  birthplace?: Birthplace | null | undefined;
 };
+
+/** Where a PRD's phase 0 is approved (PRD 1299, supabase/migrations/20261121090000_approvals.sql). */
+export type Birthplace = 'server' | 'repo';
 
 /** A version without its content: what the version picker lists. */
 export type DossierVersionRow = {
@@ -160,7 +166,7 @@ export type DossierVersionRow = {
   created_at: string;
 };
 
-export const DOSSIER_COLUMNS = 'id, workspace_id, home_repo, prd, kind, title, opened_by, created_at, numbered_at';
+export const DOSSIER_COLUMNS = 'id, workspace_id, home_repo, prd, kind, title, opened_by, created_at, numbered_at, birthplace';
 export const VERSION_COLUMNS = 'id, dossier_id, kind, bytes, source, uploaded_by, commit_sha, created_at';
 
 export function dossierReader(db: Pick<SupabaseClient, 'from'>) {

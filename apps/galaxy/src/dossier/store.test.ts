@@ -20,6 +20,8 @@ const FIX_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/m
 const VOICE_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261024090000_customer_voice.sql', import.meta.url)), 'utf8');
 // PRD 1272: the concept kind and its four version kinds.
 const CONCEPT_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261119090000_concept_dossiers.sql', import.meta.url)), 'utf8');
+// PRD 1299 s2: a PRD dossier's birthplace, granted to the signed-in.
+const APPROVALS_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261121090000_approvals.sql', import.meta.url)), 'utf8');
 
 /** The parameter names `create function public.<name>(…)` declares, in order. */
 function parameters(name: string, migration = MIGRATION): string[] {
@@ -113,7 +115,7 @@ describe('the dossier store', () => {
 /** The columns `grant select (…) on public.<table> to authenticated` names. */
 function granted(table: string): string[] {
   const pattern = new RegExp(`grant select \\(([^)]*)\\)\\s+on public\\.${table} to authenticated`, 'g');
-  const columns = [MIGRATION, FIX_MIGRATION].flatMap((migration) => [...migration.matchAll(pattern)].flatMap((m) => {
+  const columns = [MIGRATION, FIX_MIGRATION, APPROVALS_MIGRATION].flatMap((migration) => [...migration.matchAll(pattern)].flatMap((m) => {
     const list = m[1];
     assertDefined(list, `the columns granted on ${table}`);
     return list.split(',').map((c) => c.trim());
