@@ -3,7 +3,7 @@
 // session, the session's other rounds and who it is shared with (PRD 144). Every member of a session's
 // workspace reads it; a session or round of another workspace reads as missing (null). A failed read
 // throws, so the controller answers 500 rather than an empty page.
-import { sessionClosed } from './store';
+import { sessionClosed } from './rows';
 import { askReadRepository, type AskReadDb, type AskReadRepository, type RoundHead } from './ask.repository';
 import type { QuestionState } from './page/question';
 import { headerOf, type TabRound, type TabRow } from './page/tabs';

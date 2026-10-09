@@ -5,6 +5,7 @@ import { serviceDb } from '../data/sign-in-live';
 import { supabaseEnv } from '../data/supabase-server';
 import { installUrl } from '../signup/github-app';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { issueCode, redeemerOf, repoWorkspace, storeCode, workspaceNamed } from './cli-code.repository';
 import { CODE_TTL_MS, type CliCallbackDeps, type CliSession, type Placement, type TokenClient, type TokenDeps } from './cli-code';
 import type { Database } from '../../../../supabase/database.types';
 import { serverEnv } from '../env';
@@ -68,22 +69,17 @@ export function cliCallbackDeps(cookies: Cookie[]): { deps: CliCallbackDeps; spe
       : null,
     async issue(session, codeHash) {
       if (!env) return { error: { message: 'no database' } };
-      const { error } = await detached(env, session.access_token).rpc('ask_cli_code_issue', {
-        p_code_hash: codeHash,
-        p_refresh_token: session.refresh_token,
-      });
+      const { error } = await issueCode(detached(env, session.access_token), codeHash, session.refresh_token);
       return { error: error ? { message: error.message, code: error.code } : null };
     },
     async issueOutsideWorkspaces(session, codeHash) {
       try {
-        const db = serviceDb();
-        await db.from('ask_cli_codes').delete().lt('expires_at', new Date().toISOString());
-        const { error } = await db.from('ask_cli_codes').insert({
+        const { error } = await storeCode(serviceDb(), {
           code_hash: codeHash,
           owner: session.user.id,
           refresh_token: session.refresh_token,
           expires_at: new Date(Date.now() + CODE_TTL_MS).toISOString(),
-        });
+        }, new Date());
         return { error: error ? { message: error.message } : null };
       } catch (error) {
         return { error: { message: error instanceof Error ? error.message : String(error) } };
@@ -105,7 +101,7 @@ export function tokenDeps(): TokenDeps {
       const client = detached(env);
       return {
         auth: { refreshSession: (current) => client.auth.refreshSession(current) },
-        rpc: (fn, args) => client.rpc(fn, args),
+        ...redeemerOf(client),
       };
     },
     revoke: (accessToken) => revokeToken(env, accessToken),
@@ -117,13 +113,13 @@ export function tokenDeps(): TokenDeps {
 /** repo_workspace() for a person and a repository, as the service role, with the workspace's slug and name. */
 async function placeRepo(userId: string, repo: string): Promise<Placement> {
   const db = serviceDb();
-  const { data, error } = await db.rpc('repo_workspace', { person: userId, repo });
+  const { data, error } = await repoWorkspace(db, userId, repo);
   if (error) throw new Error(`repo_workspace: ${error.message}`);
   const row: unknown = Array.isArray(data) ? data[0] : data;
   const workspaceId = propertyOf(row, 'workspace_id');
   const refusal = propertyOf(row, 'refusal');
   if (typeof workspaceId !== 'string' || !workspaceId) return { workspace: null, reason: typeof refusal === 'string' ? refusal : null };
-  const { data: found, error: readError } = await db.from('workspaces').select('slug, name').eq('id', workspaceId).maybeSingle();
+  const { data: found, error: readError } = await workspaceNamed(db, workspaceId);
   if (readError || !found) throw new Error(`workspaces: ${readError?.message ?? 'not found'}`);
   return { workspace: { slug: found.slug, name: found.name }, reason: null };
 }

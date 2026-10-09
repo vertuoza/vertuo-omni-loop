@@ -27,6 +27,7 @@ import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { messageOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { withInstallLink } from './auth';
+import { redeemCode, type Called, type CodeRedeemer } from './cli-code.repository';
 
 /** How long a one-time code works. */
 export const CODE_TTL_MS = 2 * 60_000;
@@ -134,12 +135,10 @@ export async function cliSignInReturn(url: URL, origin: string, deps: CliCallbac
 
 // `data` is widened to null: the Auth server's answer is read here unparsed.
 type Refreshed = { data: { session: CliSession | null } | null; error: unknown };
-type Called = { data: unknown; error: { message: string; code?: string } | null };
 
 /** The one thing each half asks of a Supabase client acting as nobody (the anon key). */
-export type TokenClient = {
+export type TokenClient = CodeRedeemer & {
   auth: { refreshSession(current: { refresh_token: string }): Promise<Refreshed> };
-  rpc(fn: 'ask_cli_code_redeem', args: { p_code_hash: string }): PromiseLike<Called>;
 };
 
 export type TokenDeps = {
@@ -224,7 +223,7 @@ async function placement(deps: TokenDeps, userId: string, repo: string | null): 
 
 /** The code's row, redeemed (and so deleted), or null for an unknown or used code. */
 async function redeem(client: TokenClient, code: string) {
-  const { data, error } = await client.rpc('ask_cli_code_redeem', { p_code_hash: hashCode(code) });
+  const { data, error }: Called = await redeemCode(client, hashCode(code));
   if (error) throw Object.assign(new Error(`ask_cli_code_redeem: ${error.message}`), { name: 'AskCodeStoreError' });
   const row: unknown = Array.isArray(data) ? data[0] : data;
   const owner = propertyOf(row, 'owner');

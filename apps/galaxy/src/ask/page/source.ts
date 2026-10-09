@@ -14,14 +14,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadPeople, type People } from '../../people/load';
 import type { Category } from '../classify';
-import {
-  askCategories, askShares, askStore, ATTACHMENTS_BUCKET, memberLabel, settle, type AskAnswers, type AskAttachments, type AskCategory,
-} from '../store';
+import { memberLabel, type AskAnswers, type AskAttachments, type AskCategory } from '../rows';
 import { sendWithShots, trayOf, type Bucket } from './attachments';
 import type { ForMeRow, Member, QuestionState } from './question';
 import type { TabRow } from './tabs';
 import type { RoundRow, SessionRow, SessionState } from './view';
-import { askReadRepository } from '../ask.repository';
+import { askAttachments, askCategories, askReadRepository, askShares, askStore, type RoundWithSession } from '../ask.repository';
 import { askReadService } from '../ask.service';
 import type { WorkingPing } from '../../working/state';
 import { workingReader } from '../../working/store';
@@ -32,9 +30,6 @@ export type Db = Pick<SupabaseClient, 'from'>;
 export type StorageDb = Pick<SupabaseClient, 'storage'>;
 /** What sorting a round needs: the database's functions. */
 export type SortDb = Pick<SupabaseClient, 'rpc'>;
-
-const SESSION = 'id, owner, title, status, created_at, last_seen_at, workspace_id, repo, branch, claude_session_id';
-const ROUND = 'id, questions, answers, answered_via, status, created_at, answered_at, attachments, prd, skill, model, tokens, cost_usd, answered_by, category, category_by, lead';
 
 /** Reads the latest heartbeat of a Claude session (PRD 757): `workingReader(db).forSession`. */
 export type PingRead = (claudeSessionId: string) => Promise<WorkingPing | null>;
@@ -77,7 +72,7 @@ export async function sendAnswers(db: Db & Partial<StorageDb>, roundId: string, 
   };
   const tray = trayOf(roundId);
   if (!db.storage || Object.keys(tray.shots).length === 0) return record();
-  const bucket: Bucket = db.storage.from(ATTACHMENTS_BUCKET);
+  const bucket: Bucket = askAttachments({ storage: db.storage }).bucket();
   return sendWithShots(bucket, roundId, tray, record, (progress) => {
     tray.setProgress(progress);
   });
@@ -119,8 +114,6 @@ export async function readMembers(db: Db & SortDb, workspaceId: string | null | 
 export const withFaces = (members: Member[], people: People): Member[] =>
   members.map((m) => ({ ...m, face: people.byId(m.user_id, memberLabel(m)).face }));
 
-type RoundWithSession = RoundRow & { session_id: string };
-
 /** One round, its session, the session's other rounds and who the round is shared with; null when
  * the caller may not read it (another workspace) or it does not exist. */
 export async function readQuestion(db: Db, roundId: string): Promise<QuestionState | null> {
@@ -130,8 +123,7 @@ export async function readQuestion(db: Db, roundId: string): Promise<QuestionSta
 /** Each round with the session it belongs to; a round whose session is not readable is left out. */
 async function withSessions(db: Db, rounds: RoundWithSession[]): Promise<Array<{ round: RoundRow; session: SessionRow }>> {
   if (rounds.length === 0) return [];
-  const sessions = settle<SessionRow[]>('read the sessions',
-    await db.from('ask_sessions').select(SESSION).in('id', [...new Set(rounds.map((r) => r.session_id))])) ?? [];
+  const sessions = await askReadRepository(db).sessionsIn([...new Set(rounds.map((r) => r.session_id))]);
   return rounds.flatMap(({ session_id: sessionId, ...round }) => {
     const session = sessions.find((s) => s.id === sessionId);
     return session ? [{ round, session }] : [];
@@ -142,8 +134,7 @@ async function withSessions(db: Db, rounds: RoundWithSession[]): Promise<Array<{
 export async function readForMe(db: Db & SortDb, me: string): Promise<ForMeRow[]> {
   const shares = await askShares(db).withMe(me);
   if (shares.length === 0) return [];
-  const rounds = settle<RoundWithSession[]>('read the rounds',
-    await db.from('ask_rounds').select(`${ROUND}, session_id`).in('id', shares.map((s) => s.round_id)).eq('status', 'open')) ?? [];
+  const rounds = await askReadRepository(db).openRoundsIn(shares.map((s) => s.round_id));
   return (await withSessions(db, rounds)).flatMap(({ round, session }) => {
     const share = shares.find((s) => s.round_id === round.id);
     return share ? [{ round, session, sharedBy: share.shared_by }] : [];
@@ -156,9 +147,7 @@ export const HISTORY_LIMIT = 1000;
 /** The newest rounds of every workspace the caller belongs to (row-level security reads no other),
  * each with its session, newest first. */
 export async function readHistory(db: Db, limit = HISTORY_LIMIT): Promise<HistoryRow[]> {
-  const rounds = settle<RoundWithSession[]>('read the history',
-    await db.from('ask_rounds').select(`${ROUND}, session_id`).order('created_at', { ascending: false }).limit(limit)) ?? [];
-  return withSessions(db, rounds);
+  return withSessions(db, await askReadRepository(db).newestRounds(limit));
 }
 
 /** What the page needs from wherever its session lives: the database, or the demo in the browser. */
