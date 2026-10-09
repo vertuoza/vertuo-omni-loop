@@ -4,6 +4,7 @@
 // no network, no browser, no model.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { fillBranch } from '../../lib/board.ts';
+import { filesUnder, guardFiles } from '../../lib/e2e/guard.ts';
 import { compareRecordings, readRecordingsAt } from '../../lib/e2e/heals.ts';
 import { confirmHeld, holdHealed, readLedgerAt, rejectHeld, withoutConfirmed } from '../../lib/e2e/hold.ts';
 import { parseFolderName } from '../../lib/layout.ts';
@@ -20,7 +21,7 @@ import { synchronous } from '../synchronous.ts';
 // the default branch and at the head (`--head <ref>`, the feature branch when absent); it exits 0, or 1
 // on the same refusals. Each healed step carries `screenshots` (PRD 1274): the framework keeps none per
 // step, so each side says why.
-const USAGE = ['status <prd>', 'heals <prd> [--head <ref>]', 'hold <prd>', 'confirm <prd>', 'reject <prd>']
+const USAGE = ['status <prd>', 'heals <prd> [--head <ref>]', 'hold <prd>', 'confirm <prd>', 'reject <prd>', 'guard <prd>']
   .map((sub, i) => `${i === 0 ? 'usage:' : '      '} omni e2e ${sub}`)
   .join('\n');
 
@@ -144,6 +145,36 @@ function reject(args: string[], io: CommandIo): number {
   return rejected.length === 0 ? 0 : 1;
 }
 
+// `omni e2e guard <n>` (PRD 1276) refuses a credential in `e2e.dir` and in the files this branch changed
+// since the default branch: exit 1 with `file:line (kind)` per finding, never the value.
+function guard(args: string[], io: CommandIo): number {
+  const { ctx, stdout, stderr, exec } = io;
+  const { positional } = parseArgs('e2e guard', args);
+  if (positional.length !== 1) throw usageError(USAGE);
+  const prd = prdArg('e2e guard', '<prd>', positional[0]);
+  const { enabled, dir } = ctx.config.e2e;
+  if (!enabled) {
+    println(stderr, 'omni e2e: e2e.enabled is false in the config, so nothing was read');
+    return 1;
+  }
+  const files = new Set(filesUnder(ctx.root, dir));
+  const lines = (...gitArgs: string[]): string[] => {
+    try {
+      return exec('git', gitArgs, gitOptions(ctx.root)).split('\n').filter((l) => l !== '');
+    } catch {
+      return [];
+    }
+  };
+  const { remote, defaultBranch } = ctx.config.repo;
+  const trunk = [`${remote}/${defaultBranch}`, defaultBranch].find((ref) => lines('rev-parse', '--verify', '--quiet', `${ref}^{commit}`).length > 0);
+  if (trunk) for (const file of lines('diff', '--name-only', '--diff-filter=d', `${trunk}...HEAD`)) files.add(file);
+  for (const file of [...lines('diff', '--name-only', '--diff-filter=d', 'HEAD'), ...lines('ls-files', '--others', '--exclude-standard')]) files.add(file);
+  const findings = guardFiles(ctx.root, [...files]);
+  for (const f of findings) println(stderr, `omni e2e guard: ${f.file}:${f.line} (${f.kind})`);
+  println(stdout, JSON.stringify({ prd, dir, checked: files.size, findings: findings.length }));
+  return findings.length === 0 ? 0 : 1;
+}
+
 export const e2e: Command = {
   run: synchronous((args: string[], io: CommandIo): number => {
     const [sub, ...rest] = args;
@@ -152,6 +183,7 @@ export const e2e: Command = {
     if (sub === 'hold') return hold(rest, io);
     if (sub === 'confirm') return confirm(rest, io);
     if (sub === 'reject') return reject(rest, io);
+    if (sub === 'guard') return guard(rest, io);
     throw usageError(`${USAGE}\nomni e2e: unknown subcommand ${sub ?? '(none)'}`);
   }),
 };
