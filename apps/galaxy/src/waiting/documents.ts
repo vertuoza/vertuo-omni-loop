@@ -1,14 +1,11 @@
-import type { Db } from '../ask/page/source';
 import { claimChime, documentAlertOf, raiseEach, type DesktopState, type NotificationApi, type Store } from './alerts';
-import { defined, isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { z } from 'zod';
-import { orThrow, parseRows } from '../data/parse-rows';
-import { holdSession, type SessionAuth } from './session';
-import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { defined, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The waiting list's New documents part (PRD 579, s1): the spec, plan and before/after versions pushed
-// in the last 7 days to the numbered dossiers the signed-in person opened, read by the browser straight
-// from Supabase as them (row-level security decides), every 10 s while the tab is visible. The rows are
+// in the last 7 days to the numbered dossiers the signed-in person opened, read on the server as them
+// (row-level security decides; src/waiting/waiting.service.ts) and polled by the browser from
+// GET /api/waiting/documents every 10 s while the tab is visible (PRD 1318, s4). The rows are
 // grouped per PRD, newest first, less what this browser has seen: a map of dossier id to when its page
 // was last opened, and a `since` set the first time this browser ran it, so no history floods in. A
 // new document is news, not a wait: it never adds to the bell's count, the tab's `(N)`, the favicon dot
@@ -18,8 +15,6 @@ import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts
 export const DOCS_MS = 10_000;
 /** How far back a version counts, in days. */
 export const DOCS_DAYS = 7;
-/** How many of the newest versions one read takes. */
-export const DOCS_LIMIT = 50;
 /** Where this browser keeps what it has seen. */
 export const DOCS_SEEN_KEY = 'omni-waiting-docs-seen';
 
@@ -86,37 +81,6 @@ export function groupDocuments(rows: readonly DocumentRow[], seen: Seen): Docume
   return [...groups.values()]
     .map(({ group, kinds }) => ({ ...group, kinds: DOCUMENT_KINDS.filter((k) => kinds.has(k)) }))
     .sort((a, b) => b.newestAt - a.newestAt || a.dossierId.localeCompare(b.dossierId));
-}
-
-export const DOCUMENT_COLUMNS = 'id, kind, created_at, dossier:dossiers!inner(id, prd, title, opened_by)';
-
-/** A version as the read answers it, with its dossier: a row of another kind, or of an unnumbered
- * dossier, is left out by the reader, not refused. */
-export const DocumentRead = z.object({
-  id: z.string(),
-  kind: z.string(),
-  created_at: z.string(),
-  dossier: z.object({ id: z.string(), prd: PrdNumberSchema.nullable(), title: z.string() }).nullable(),
-});
-
-/** A reader of the versions pushed to the numbered dossiers `me` opened, in the last 7 days, the 50
- * newest. Throws when a read fails, and SignedOut, having read nothing, when the client holds no session
- * (bug #1316). */
-export function documentsReader(db: Db & SessionAuth, me: string): (now: number) => Promise<DocumentRow[]> {
-  return async (now) => {
-    await holdSession(db);
-    const { data, error } = await db.from('dossier_versions')
-      .select(DOCUMENT_COLUMNS)
-      .eq('dossier.opened_by', me)
-      .not('dossier.prd', 'is', null)
-      .gt('created_at', new Date(now - WINDOW).toISOString())
-      .order('created_at', { ascending: false })
-      .limit(DOCS_LIMIT);
-    if (error) throw new Error(`read the new documents: ${error.message}`);
-    return orThrow(parseRows(DocumentRead, data, 'waiting/documents: dossier_versions')).flatMap((r) => (r.dossier && typeof r.dossier.prd === 'number' && isOneOf(DOCUMENT_KINDS, r.kind)
-      ? [{ id: r.id, kind: r.kind, created_at: r.created_at, dossier: { id: r.dossier.id, prd: r.dossier.prd, title: r.dossier.title } }]
-      : []));
-  };
 }
 
 function parse(raw: string | null): Seen | null {

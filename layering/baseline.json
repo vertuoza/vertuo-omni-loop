@@ -137,11 +137,6 @@
     "apps/galaxy/src/stages/sync/snapshots.ts database-call",
     "apps/galaxy/src/touched/store.boundary.ts database-call",
     "apps/galaxy/src/touched/store.ts database-call",
-    "apps/galaxy/src/waiting/WaitingProvider.tsx client-import",
-    "apps/galaxy/src/waiting/business-count.ts database-call",
-    "apps/galaxy/src/waiting/documents.boundary.ts database-call",
-    "apps/galaxy/src/waiting/documents.ts database-call",
-    "apps/galaxy/src/waiting/source.ts database-call",
     "apps/galaxy/src/working/store.ts database-call"
   ]
 }
