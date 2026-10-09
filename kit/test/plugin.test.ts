@@ -1893,6 +1893,15 @@ describe('the prove skill and the skills that lead to it (PRD 798)', () => {
     expect(step.slice(red)).not.toContain('/omni:prove');
   });
 
+  it('/omni:yolo follows /omni:validate-e2e after the proof item, only when the spec says e2e: validate and e2e is enabled, and never changes the PR', () => {
+    const step = skillSection(read('yolo'), '5.');
+    const red = step.indexOf('**Gate red.**');
+    const body = step.slice(0, red);
+    expect(inOrder(body, ['gh pr ready', '/omni:prove <prd>', '`e2e: validate`', 'omni.mjs config e2e', '`enabled`', '/omni:validate-e2e <prd>', 'goes on to step 6'])).toEqual([]);
+    expect(body).toContain('never changes the PR');
+    expect(step.slice(red)).not.toContain('/omni:validate-e2e');
+  });
+
   it('/omni:invade step 7 proposes proof.url and proof.setup, with when, and only the name of proof.bypassEnv', () => {
     const step = skillSection(read('invade'), '7.');
     const row = (key: string) => step.split('\n').find((line: string) => line.startsWith(`| \`${key}\``)) ?? '';
