@@ -20,7 +20,7 @@ describe('screenshotsFor', () => {
     mkdirSync(join(root, 'e2e/.e2e/artifacts/web/t/default/attempt-0/trace'), { recursive: true });
     writeFileSync(join(root, 'e2e/.e2e/artifacts/web/t/default/attempt-0/trace/trace.zip'), 'x');
     const { before, after } = screenshotsFor(root, 'e2e');
-    expect(after).toEqual({ kept: false, reason: expect.stringContaining('one trace per attempt') });
-    expect(before).toEqual({ kept: false, reason: expect.stringContaining('merge-base') });
+    expect(after).toEqual({ kept: false, reason: expect.stringContaining('one trace per attempt') as unknown });
+    expect(before).toEqual({ kept: false, reason: expect.stringContaining('merge-base') as unknown });
   });
 });

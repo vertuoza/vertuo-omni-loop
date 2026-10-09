@@ -7,6 +7,8 @@ import { main } from '../omni.ts';
 
 const trace = (testId: string, version = 'trace-1') =>
   JSON.stringify({ schemaVersion: version, payload: { summary: 's', recordedFor: { testId, callIndex: 0 }, actions: [{ name: 'click', target: 'Rank' }] } });
+/** One top-level field of a command's JSON output. */
+const field = (out: string, key: string): unknown => (JSON.parse(out) as Record<string, unknown>)[key];
 const ON = 'kit: 1\ne2e:\n  enabled: true\n';
 
 async function run(args: string[], config: string, files: Record<string, string> = {}) {
@@ -103,9 +105,9 @@ describe('omni e2e heals', () => {
 
   it('gives each healed step its before and after screenshots, or why none was kept', async () => {
     const { out } = await heals({ 'e2e/.e2e/cache/a.json': step('Rank') }, { 'e2e/.e2e/cache/a.json': step('Position') });
-    const [healed] = JSON.parse(out).healed;
-    expect(healed.screenshots.before).toMatchObject({ kept: false, reason: expect.stringContaining('merge-base') });
-    expect(healed.screenshots.after).toMatchObject({ kept: false, reason: expect.stringContaining('no artifacts') });
+    const [healed] = field(out, 'healed') as { screenshots: { before: unknown; after: unknown } }[];
+    expect(healed?.screenshots.before).toMatchObject({ kept: false, reason: expect.stringContaining('merge-base') as unknown });
+    expect(healed?.screenshots.after).toMatchObject({ kept: false, reason: expect.stringContaining('no artifacts') as unknown });
   });
 
   it('fails naming a recording that is not trace-1 or does not read, at either side', async () => {
@@ -160,6 +162,9 @@ describe('omni e2e hold, confirm and reject', () => {
   /** main holds a.json (Rank); feat/rank is checked out; the working tree then holds a healed a.json and a new b.json. */
   function repo() {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': ON, '.omni-loop/delivery/inbox/1233-rank/spec.md': '# spec\n', [A]: step('Rank') } });
+    // the command commits through plain git, so the repository itself names the author (a CI runner has none)
+    git(root, 'config', 'user.email', 't@t');
+    git(root, 'config', 'user.name', 't');
     git(root, 'checkout', '-q', '-b', 'feat/rank');
     write(root, A, step('Position'));
     write(root, 'e2e/.e2e/cache/b.json', step('Fresh', 1));
@@ -177,7 +182,7 @@ describe('omni e2e hold, confirm and reject', () => {
     const { root, call, read } = repo();
     const { code, out } = await call('hold', '1233');
     expect(code).toBe(0);
-    expect(JSON.parse(out).held).toMatchObject([{ testId: 'rank.spec.ts', callIndex: 0, file: A, summary: 'clicks Position' }]);
+    expect(field(out, 'held')).toMatchObject([{ testId: 'rank.spec.ts', callIndex: 0, file: A, summary: 'clicks Position' }]);
     expect(read(A)).toBe(step('Rank'));
     expect(read('e2e/.e2e/cache/b.json')).toBe(step('Fresh', 1));
     git(root, 'add', '-A');
@@ -189,7 +194,7 @@ describe('omni e2e hold, confirm and reject', () => {
     await call('hold', '1233');
     const again = await call('hold', '1233');
     expect(again.code).toBe(0);
-    expect(JSON.parse(again.out).held).toHaveLength(1);
+    expect(field(again.out, 'held')).toHaveLength(1);
   });
 
   it('confirm commits the held recording, then a run with no screen change lists no healed step', async () => {
@@ -203,7 +208,7 @@ describe('omni e2e hold, confirm and reject', () => {
     expect(git(root, 'log', '-1', '--name-only', '--format=%s').trim()).toContain(A);
     expect(git(root, 'status', '--porcelain').trim()).toBe('');
     const heals = await call('heals', '1233');
-    expect(JSON.parse(heals.out).healed).toEqual([]);
+    expect(field(heals.out, 'healed')).toEqual([]);
     expect((await call('hold', '1233')).code).toBe(0);
     expect(read(A)).toBe(step('Position'));
   });
@@ -215,7 +220,7 @@ describe('omni e2e hold, confirm and reject', () => {
     write(root, A, step('Other'));
     git(root, 'add', '-A');
     git(root, 'commit', '-q', '-m', 'again');
-    expect(JSON.parse((await call('heals', '1233')).out).healed).toMatchObject([{ summary: 'clicks Other' }]);
+    expect(field((await call('heals', '1233')).out, 'healed')).toMatchObject([{ summary: 'clicks Other' }]);
   });
 
   it('reject leaves the committed recording, drops the held one and exits 1', async () => {
@@ -223,7 +228,7 @@ describe('omni e2e hold, confirm and reject', () => {
     await call('hold', '1233');
     const rejected = await call('reject', '1233');
     expect(rejected.code).toBe(1);
-    expect(JSON.parse(rejected.out).rejected).toHaveLength(1);
+    expect(field(rejected.out, 'rejected')).toHaveLength(1);
     expect(read(A)).toBe(step('Rank'));
     expect((await call('confirm', '1233')).out).toContain('"confirmed": []');
     expect(git(root, 'log', '-1', '--format=%s').trim()).toBe('fixture');
