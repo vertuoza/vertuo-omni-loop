@@ -445,3 +445,58 @@ describe('overviewFor — a PRD of several landings', () => {
     expect(overview.stages.building).toEqual([{ prd: 4, topic: 't4', openItems: 0 }]);
   });
 });
+
+// PRD 1299, slice s5: a ◆ PRD's stage, as `prdState()` read it from the checkout, replaces the
+// phase-0 fact only.
+describe('overviewFor — a ◆ PRD read through prdState (PRD 1299)', () => {
+  const server = (prd: number, stage: 'inbox' | 'prd' | 'drifted' | 'unreachable' | 'refused', lines: string[] = [`${stage} line`]) =>
+    ({ prd: parsePrd(prd), topic: `t${prd}`, stage, lines });
+
+  it('with no ◆ PRD reads exactly as before, and holds none', () => {
+    const before = overviewFor(facts({ shipped: [1], inbox: [2], phase0: [phase0(3)] }));
+    const after = overviewFor(facts({ shipped: [1], inbox: [2], phase0: [phase0(3)], server: [] }));
+    expect(after).toEqual(before);
+    expect(before.held).toEqual([]);
+  });
+
+  it('waiting for approval is stage PRD, kept out of the bar', () => {
+    const overview = overviewFor(facts({ shipped: [1], server: [server(5, 'prd')] }));
+    expect(overview.stages.prd).toEqual([{ prd: 5, topic: 't5' }]);
+    expect(overview.counts).toMatchObject({ prd: 1, inbox: 0 });
+    expect(overview.bar).toMatchObject({ delivered: 1, total: 1 });
+  });
+
+  it('approved is in the inbox, then building or outbox by its feature branch as any inbox PRD', () => {
+    expect(overviewFor(facts({ server: [server(5, 'inbox')] })).stages.inbox).toEqual([{ prd: 5, topic: 't5' }]);
+    const built = overviewFor(facts({ server: [server(5, 'inbox')], features: [feature(5, CODE)] }));
+    expect(built.stages.building).toEqual([{ prd: 5, topic: 't5', openItems: 0 }]);
+    expect(built.stages.inbox).toEqual([]);
+  });
+
+  it('approved is counted once when the base holds its folder too', () => {
+    expect(overviewFor(facts({ inbox: [5], server: [server(5, 'inbox')] })).counts.inbox).toBe(1);
+  });
+
+  it('drifted, unreachable and refused are held with their lines, in no stage', () => {
+    const overview = overviewFor(facts({ inbox: [5, 6], server: [server(5, 'drifted', ['a', 'b']), server(6, 'unreachable'), server(7, 'refused')] }));
+    expect(overview.held).toEqual([
+      { prd: 7, topic: 't7', lines: ['refused line'] },
+      { prd: 6, topic: 't6', lines: ['unreachable line'] },
+      { prd: 5, topic: 't5', lines: ['a', 'b'] },
+    ]);
+    expect(overview.counts).toMatchObject({ prd: 0, inbox: 0 });
+  });
+
+  it('a ◆ PRD the base shipped is shipped, whatever the checkout read', () => {
+    const overview = overviewFor(facts({ shipped: [5], server: [server(5, 'prd')] }));
+    expect(overview.stages.prd).toEqual([]);
+    expect(overview.held).toEqual([]);
+    expect(overview.counts.shipped).toBe(1);
+  });
+
+  it('waiting for approval wins over a phase-0 branch of the same PRD, and a row of yours says it waits for approval', () => {
+    const overview = overviewFor(facts({ email: ME, phase0: [phase0(5)], server: [server(5, 'prd')], touched: [touch(5)] }));
+    expect(overview.stages.prd).toEqual([{ prd: 5, topic: 't5' }]);
+    expect(overview.yours.rows).toEqual([{ stage: 'prd', prd: 5, topic: 't5', approval: true }]);
+  });
+});
