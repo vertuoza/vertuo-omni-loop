@@ -21,7 +21,9 @@ const APPROVED = { dossier: DOSSIER, approval: { approver: { login: 'bob-gh', me
 
 type Answer = { data: unknown; error: { code?: string; message?: string } | null };
 
-function world({ database = true, session = true, answers = {} as Record<string, Answer>, label = (): Promise<void> => Promise.resolve() } = {}) {
+type World = { database?: boolean; session?: boolean; answers?: Record<string, Answer>; label?: () => Promise<void> };
+
+function world({ database = true, session = true, answers = {}, label = () => Promise.resolve() }: World = {}) {
   const calls: Array<{ fn: string; args: unknown; as: string }> = [];
   const labelled: Array<[string, number]> = [];
   const rpcAs = (as: string) => (fn: string, args: unknown) => {
