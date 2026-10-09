@@ -209,6 +209,33 @@ describe('the stages sync route', () => {
   });
 });
 
+describe('the PRDs born on the server (PRD 1299, s6)', () => {
+  const inboxOf = (store: ReturnType<typeof fakeStageStore>, repository: string, prd: number) =>
+    store.stages.filter((s) => s.repository === repository && s.prd === prd && s.stage === 'inbox').map((s) => s.reached_at);
+
+  it('dates a ◆ PRD\'s inbox at its approval, read for each repository', async () => {
+    const asked: string[] = [];
+    const { d, store } = deps({
+      approvals: (w, repo) => {
+        asked.push(`${w.slug} ${repo}`);
+        return Promise.resolve(repo === 'acme/gears' ? [{ prd: parsePrd(7), approved_at: '2026-09-21T08:00:00Z' }] : []);
+      },
+    });
+    const res = await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(res.status).toBe(200);
+    expect(asked).toEqual(['acme acme/widgets', 'acme acme/gears', 'globex globex/core']);
+    expect(inboxOf(store, 'acme/gears', 7)).toEqual(['2026-09-21T08:00:00Z']);
+  });
+
+  it('logs approvals it cannot read, and dates the repository\'s stages as today', async () => {
+    const { d, store, lines } = deps({ approvals: () => Promise.reject(new Error('Supabase is down')) });
+    const res = await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(res.status).toBe(200);
+    expect(inboxOf(store, 'acme/gears', 7)).toEqual([NOW]);
+    expect(lines).toContain('stages sync: the approvals of acme/gears cannot be read — Supabase is down');
+  });
+});
+
 describe('the open outbox questions (PRD 657, s5)', () => {
   const building = { number: parsePr(5), head: 'feat/teeth--s1', base: 'feat/teeth', state: 'closed' as const, draft: false, merged_at: '2026-09-20T00:00:00Z', created_at: '2026-09-19T00:00:00Z', ready_at: null };
   const outboxOf = (open: number): GithubSummary => ({
