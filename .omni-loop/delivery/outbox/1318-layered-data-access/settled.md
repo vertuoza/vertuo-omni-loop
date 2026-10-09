@@ -238,3 +238,160 @@ Adding the incremental read later is a query parameter on the route and a filter
 ```
 
 <!-- /omni-outbox-settled: s2-03-session-poll-reads-every-round -->
+
+<!-- omni-outbox-settled: s3-02-way-back-reads-through-a-route -->
+
+## s3-02-way-back-reads-through-a-route — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-way-back-reads-through-a-route
+prd: 1318
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+After someone answers a question opened from a PRD page, the page goes back to the next open question there, which it read straight from the database. With the database gone from the page, where should that read go?
+
+## The decision, in plain words
+
+The page reads which of the PRD's questions are still open through a new read of its own on the server, which hands back only whether each is open and when it was asked.
+
+## The intro, for fun
+
+The way home needed a map, and the map was kept in the database.
+
+## The punchline, for fun
+
+Now the server reads it out, one street name at a time.
+
+## The options, in plain words
+
+A. As built: a read of its own that hands back only which questions are open and when each was asked.
+B. Fold it into the question's own read, which then carries the PRD's open questions when the page was opened from one.
+C. Drop the read: after an answer the page goes back to the PRD's questions without jumping to the next open one.
+
+## What I had to decide
+
+GET /api/ask/dossiers/:id/rounds → {rounds: [{round_id, status, created_at}]}, a new route the plan does not list, in ask.controller.ts (401 signed-out first, 422 for an id that is no dossier's, 500 database), through askWayBack in ask.service.ts and wayBackRepository in ask.repository.ts, which calls the dossier area's dossier_rounds() reader. It replaces the browser client src/ask/page/back.ts used.
+Decided by: Jev (hardToRevert 0.42) · agent said false
+
+## What I did meanwhile
+
+The question page reads it once after its answer, as before; the demo still goes to the Questions tab alone.
+
+## What it costs to change later
+
+Folding it into GET /api/ask/rounds/:id later is a query parameter and a field in the contract: no stored change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan lists the ask pages' three reads and their writes; the way back's dossier read is neither, and the page could not keep its browser client.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-way-back-reads-through-a-route -->
+
+<!-- omni-outbox-settled: s3-04-screenshot-route-and-page-delete -->
+
+## s3-04-screenshot-route-and-page-delete — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-04-screenshot-route-and-page-delete
+prd: 1318
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+Screenshots now go to the server one at a time before the answer, and deleting a session from the page now goes through the terminal's delete. At which address do screenshots go, and what does that delete do with them?
+
+## The decision, in plain words
+
+Each screenshot is sent to its own address under its question, and a dropped one is deleted there. Deleting a session from the page now removes its screenshots too, as the terminal's delete always did, and fails rather than leaving them behind when they cannot be listed.
+
+## The intro, for fun
+
+Every screenshot now gets its own little envelope.
+
+## The punchline, for fun
+
+And throwing the folder away finally empties it too.
+
+## The options, in plain words
+
+A. As built: one address per screenshot under its question, and the page's delete removes the screenshots too.
+B. One upload address per question that takes the screenshot's number in the body, the delete as built.
+C. The addresses as built, and the page's delete leaves the screenshots as it did before.
+
+## What I had to decide
+
+The upload route: POST /api/ask/rounds/:id/attachments/:name (one screenshot per request, its body the file, its type the content-type, at most 4 MB, 413 {error: "too-large"}, 409 when the file is already there, 403 when the bucket's rules refuse) and DELETE on the same path. The page's delete now calls DELETE /api/ask/sessions/:id (src/ask/api.ts deleteSession), which removes the session's screenshots before its rows; before s3 the page deleted the rows only.
+
+## What I did meanwhile
+
+src/ask/ask.client.ts's bucket() serves src/ask/page/attachments.ts's uploads unchanged: same numbering, same retry, same clean-up when the round was taken.
+
+## What it costs to change later
+
+Moving the route is a rename of one route folder and one client path; the delete change is api.ts's existing behaviour, with no stored change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says one screenshot per POST through the controller, not its address, and does not mention the page's delete.
+
+```
+
+<!-- /omni-outbox-settled: s3-04-screenshot-route-and-page-delete -->
