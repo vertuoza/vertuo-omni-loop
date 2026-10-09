@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD 1276 — before and after</title>
+<style>:root{--bg:#fff;--fg:#1b1f24;--muted:#5b6670;--line:#d7dce1;--card:#f6f8fa}@media (prefers-color-scheme:dark){:root{--bg:#0f1317;--fg:#e8ecef;--muted:#9aa5ae;--line:#2b333b;--card:#161b21}}
+body{margin:0;padding:24px 16px;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}h1{font-size:1.25rem;margin:0 0 4px}p.lead{color:var(--muted);margin:0 0 20px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px}.card h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px}</style></head><body>
+<h1>First e2e use on a Vertuoza product</h1><p class="lead">PRD 1276 · P4 of the roadmap "Validation e2e: de la bêta à la pratique"</p>
+<div class="cols"><section class="card" aria-label="Today"><h2>Today</h2><p>The beta has only run on this repository&#x27;s own galaxy. Vertuoza&#x27;s products span several repositories, whose tests the idea places in the plan repository, against an environment built from the target PRs together, with a seeded QA tenant, a test account and a login Google refuses to type into an automated browser.</p></section>
+<section class="card" aria-label="After"><h2>After</h2><p>The kit supports the plan-repository case: the e2e folder and recordings live in the plan repository, the target is the environment it builds, each run creates records with a name unique to the run, and a saved session signs the run in, as `/omni:prove` already does. The first real use is then done on one flow QA picks.</p></section></div></body></html>

@@ -329,6 +329,83 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     expect(calls.map((c) => c.url)).toEqual([`${BASE}/api/dossiers?repo=acme%2Fwidgets&prd=571&kind=bug`]);
   });
 
+  describe('--kind concept (PRD 1272)', () => {
+    const CONCEPT = '.omni-loop/delivery/inbox/concepts/1269-products-umbrella';
+    const RECORD = [
+      '---', 'concept: 1269', 'title: Products replace plan repositories', 'kind: platform', 'scale: vast', '---', '',
+      ...['The brief', 'The vision', 'Why this one', 'Killed and why', 'Fuel'].flatMap((name) => [`## ${name}`, '', `What ${name} says.`, '']),
+      '## Areas', '', '| id | area | brief | PRD |', '|---|---|---|---|',
+      '| server-approval | Server approval | Approve on the page | |', '| products | Products | The umbrella | |', '',
+    ].join('\n');
+    const concept = (write: (path: string, text: string) => void, record = RECORD) => {
+      write(`${CONCEPT}/concept.md`, record);
+      write(`${CONCEPT}/vision.html`, '<p>tour</p>');
+      write(`${CONCEPT}/board-r2.html`, 'board 2');
+      write(`${CONCEPT}/board-r1.html`, 'board 1');
+      write(`${CONCEPT}/debate.md`, '# Debate');
+    };
+
+    it('push <n> --kind concept sends the record, the tour, each board in round order and the debate, titled from the front matter', async () => {
+      const { root, write } = checkout();
+      concept(write);
+      const { calls, fetch } = recordingFetch(() => json(200, {
+        id: 'd-1', url: `${BASE}/concepts/d-1`, added: [{ kind: 'concept-record', version: 1 }, { kind: 'board', version: 2 }], unchanged: ['vision'],
+      }));
+      const seen: never[] | undefined = [];
+      const result = await run(['push', '1269', '--kind', 'concept'], { root, fetch, exec: withIssue('never asked', seen) });
+      expect(result).toEqual({ code: 0, out: `${BASE}/concepts/d-1\nadded: concept-record v1, board v2 · unchanged: vision\n`, err: '' });
+      expect(calls).toEqual([{
+        url: `${BASE}/api/dossiers/push`, method: 'POST',
+        body: {
+          repo: 'acme/widgets', prd: 1269, kind: 'concept', title: 'Products replace plan repositories',
+          artifacts: [
+            { kind: 'concept-record', content: RECORD }, { kind: 'vision', content: '<p>tour</p>' },
+            { kind: 'board', content: 'board 1' }, { kind: 'board', content: 'board 2' }, { kind: 'debate', content: '# Debate' },
+          ],
+        },
+      }]);
+      expect(seen).toEqual([]);
+      expect(existsSync(join(root, DOSSIERS_FILE))).toBe(false);
+    });
+
+    it('refuses a concept.md the parser refuses, naming its errors, and sends nothing', async () => {
+      const { root, write } = checkout();
+      concept(write, RECORD.replace('kind: platform', 'kind: rocket'));
+      const { calls, fetch } = recordingFetch(() => pushed(LINK));
+      const result = await run(['push', '1269', '--kind', 'concept'], { root, fetch });
+      expect(result.code).toBe(1);
+      expect(result.out).toBe('');
+      expect(result.err).toMatch(/^invalid concept\.md: .*kind/);
+      expect(result.err.trim().split('\n')).toHaveLength(1);
+      expect(calls).toEqual([]);
+    });
+
+    it('names a file over 512 KiB as too large, sends the rest, and exits 1', async () => {
+      const { root, write } = checkout();
+      concept(write);
+      write(`${CONCEPT}/board-r2.html`, 'x'.repeat(512 * 1024 + 1));
+      const { calls, fetch } = recordingFetch(() => json(200, { id: 'd-1', url: `${BASE}/concepts/d-1`, added: [], unchanged: [] }));
+      const result = await run(['push', '1269', '--kind', 'concept'], { root, fetch });
+      expect(result).toEqual({ code: 1, out: `${BASE}/concepts/d-1\nadded: none\n`, err: `too large: ${CONCEPT}/board-r2.html\n` });
+      expect((calls[0]?.body?.artifacts as { kind: string }[]).map((a) => a.kind)).toEqual(['concept-record', 'vision', 'board', 'debate']);
+    });
+
+    it('exits 2 for a concept with no folder, and calls nothing', async () => {
+      const { root } = checkout();
+      const { calls, fetch } = recordingFetch(() => pushed(LINK));
+      const result = await run(['push', '1269', '--kind', 'concept'], { root, fetch });
+      expect(result.code).toBe(2);
+      expect(calls).toEqual([]);
+    });
+
+    it('link <n> --kind concept asks the app for the concept, and prints its link', async () => {
+      const { root } = checkout({ record: RECORD });
+      const { calls, fetch } = recordingFetch(() => json(200, { id: 'd-3', url: `${BASE}/concepts/d-3` }));
+      expect(await run(['link', '1269', '--kind', 'concept'], { root, fetch })).toEqual({ code: 0, out: `${BASE}/concepts/d-3\n`, err: '' });
+      expect(calls.map((c) => c.url)).toEqual([`${BASE}/api/dossiers?repo=acme%2Fwidgets&prd=1269&kind=concept`]);
+    });
+  });
+
   it('link <n> --kind visual never falls back to a PRD the local record holds', async () => {
     const { root } = checkout({ record: RECORD });
     const { fetch } = recordingFetch(down);

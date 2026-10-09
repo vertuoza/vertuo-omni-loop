@@ -8,13 +8,22 @@
 // | a blocker's feature PR was closed without merging              | `park`: `blocker #<pr> closed unmerged: …`  |
 // | a blocker not merged (in a plan repository: the plan PR and    | `hold` its first step: `waits on <repo>#<pr>|
 // | every target PR it lands in)                                   | (<id> <title>): <state>`                    |
+// | a `## Prerequisites` row that blocks it is not ok, fixed or     | `hold` its first step: `waits on            |
+// | ticked on this machine (PRD 1218, s4)                          | prerequisite <id> (<category>): <need>`     |
 // | anything else                                                  | none: its steps run                         |
+//
+// A prerequisite is read from this machine's last `omni roadmap prereqs` result (`prerequisites`, by
+// row id), a `person` row also from the ticks on the roadmap issue since then (`ticks`). A row this
+// machine never checked holds too, saying how to check it: a check that did not run never counts as
+// passed. The first open row in table order names the hold; its link is the Prerequisites tab's.
 //
 // The waits-on line is s6's (`../roadmap/push.ts`, the one the roadmap's page shows), given the finer
 // words only a tick reads: `building wave <k>/<m>` from the blocker's board, `CI red` from its ready
 // PR's checks. A PRD with no gate, or whose blockers all merged, runs as `omni next` decides it.
 import type { PrdNumber } from '../ids.ts';
-import type { Roadmap } from '../roadmap/parse.ts';
+import type { Roadmap, RoadmapPrerequisite, RoadmapRow } from '../roadmap/parse.ts';
+import { isMet } from '../roadmap/prereqs/run.ts';
+import type { PrerequisiteState } from '../roadmap/prereqs/run.ts';
 import { prdState, rowStates, waitsOn } from '../roadmap/push.ts';
 import type { PrdStanding, PrStanding, RoadmapPrdState } from '../roadmap/push.ts';
 import type { PrdFacts } from './decide.ts';
@@ -24,13 +33,18 @@ import type { PlanSliceInput } from './plan.ts';
 export type Gate = { kind: 'hold' | 'park'; why: string; link?: string };
 
 /** What the command read of a roadmap. `standings` and `live` are by row id; `issueLink` is the roadmap
- * issue's link, where `omni roadmap answer` posts. */
+ * issue's link, where `omni roadmap answer` posts. `prerequisites` is this machine's last result, by
+ * row id (null or absent: none); `ticks` the rows ticked on the issue; `prerequisitesLink` the
+ * Prerequisites tab's link (null or absent: the issue's stands in). */
 export type RoadmapRead = {
   roadmap: Roadmap;
   answers: ReadonlyMap<string, string>;
   standings: ReadonlyMap<string, PrdStanding>;
   live: ReadonlyMap<string, string>;
   issueLink: string | null;
+  prerequisites?: ReadonlyMap<string, PrerequisiteState> | null;
+  ticks?: ReadonlySet<string>;
+  prerequisitesLink?: string | null;
 };
 
 /** The longest question a park line quotes. */
@@ -69,8 +83,30 @@ function closedBlocker(blockedBy: readonly string[], standings: ReadonlyMap<stri
   return null;
 }
 
+/** The first prerequisite in table order that blocks `row` and is not met on this machine, as the
+ * words of its hold; null when none is open. */
+function openPrerequisite(row: RoadmapRow, read: RoadmapRead): string | null {
+  const blocking = (read.roadmap.prerequisites ?? []).filter((p) => p.blocks === 'all' || p.blocks.includes(row.id));
+  for (const prerequisite of blocking) {
+    const words = prerequisiteWords(prerequisite, read);
+    if (words !== null) return words;
+  }
+  return null;
+}
+
+/** Why `prerequisite` holds what it blocks, or null when it is met: ok, fixed or ticked on this
+ * machine, or a `person` row ticked on the issue since. */
+function prerequisiteWords(prerequisite: RoadmapPrerequisite, read: RoadmapRead): string | null {
+  if (prerequisite.who === 'person' && read.ticks?.has(prerequisite.id)) return null;
+  const state = read.prerequisites?.get(prerequisite.id);
+  if (state !== undefined && isMet(state)) return null;
+  const line = `waits on prerequisite ${prerequisite.id} (${prerequisite.category}): ${prerequisite.need}`;
+  return state === undefined ? `${line} — not checked on this machine yet: omni roadmap prereqs ${read.roadmap.roadmap} --fix` : line;
+}
+
 /** Each PRD of the roadmap the roadmap holds, with its gate; a PRD free to run is absent. */
-export function roadmapGates({ roadmap, answers, standings, live, issueLink }: RoadmapRead): Map<PrdNumber, Gate> {
+export function roadmapGates(read: RoadmapRead): Map<PrdNumber, Gate> {
+  const { roadmap, answers, standings, live, issueLink } = read;
   const rows = rowStates(roadmap, standings);
   const gates = new Map<PrdNumber, Gate>();
   const withLink = (gate: Gate, link: string | null): Gate => (link ? { ...gate, link } : gate);
@@ -87,7 +123,12 @@ export function roadmapGates({ roadmap, answers, standings, live, issueLink }: R
       continue;
     }
     const wait = waitsOn(row, rows, live);
-    if (wait.waitsOn !== null) gates.set(row.prd, withLink({ kind: 'hold', why: wait.waitsOn }, wait.waitsOnUrl));
+    if (wait.waitsOn !== null) {
+      gates.set(row.prd, withLink({ kind: 'hold', why: wait.waitsOn }, wait.waitsOnUrl));
+      continue;
+    }
+    const open = openPrerequisite(row, read);
+    if (open !== null) gates.set(row.prd, withLink({ kind: 'hold', why: open }, read.prerequisitesLink ?? issueLink));
   }
   return gates;
 }

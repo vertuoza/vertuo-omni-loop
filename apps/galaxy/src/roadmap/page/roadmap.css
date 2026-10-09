@@ -1,8 +1,8 @@
 /* The Roadmaps pages (PRD 1162), on the ask pages' reading surface, drawn in the boards' card
    (../../dashboard/board/board.css) and these pieces of their own: the product filter, a roadmap's card
    (its milestone, its progress as chips, what blocks it), the Gantt (bars coloured by state, solid on
-   real dates and dashed where projected, an arrow from each blocker), the questions with their answer
-   box, and the PRDs. Every colour is a token of src/ask/theme-tokens.ts. Nothing is wider than the
+   real dates and dashed where projected, an arrow from each blocker), the human work by kind (PRD 1217),
+   the questions with their answer box, and the PRDs. Every colour is a token of src/ask/theme-tokens.ts. Nothing is wider than the
    window: at 393 px the Gantt scrolls inside its own box and every line wraps. */
 
 .roadmap-lede { margin: 0 0 12px; color: var(--ask-muted); overflow-wrap: anywhere; }
@@ -75,3 +75,68 @@
   border: 1px solid var(--ask-line-strong); border-radius: 6px; padding: 6px 8px;
 }
 .roadmap-answer code { overflow-wrap: anywhere; }
+
+/* ── The human work: a colour per kind, the open grouped by kind, the done folded ── */
+.roadmap-work { display: grid; gap: 8px; min-width: 0; }
+.roadmap-work h2 { margin: 0; }
+.roadmap-work-chip.is-business { color: var(--ask-plasma); border-color: currentColor; }
+.roadmap-work-chip.is-development { color: var(--ask-cyan); border-color: currentColor; }
+.roadmap-work-chip.is-dev-ops { color: var(--ask-yellow); border-color: currentColor; }
+.roadmap-work-chip.is-delivery-ops { color: var(--ask-red); border-color: currentColor; }
+.roadmap-work-chip.is-none { color: var(--ask-muted); border-color: var(--ask-line); }
+.roadmap-work-group { display: grid; gap: 6px; }
+.roadmap-work-kind {
+  margin: 4px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted);
+}
+.roadmap-work-entry { display: grid; gap: 2px; color: var(--ask-ink); overflow-wrap: anywhere; border-left: 3px solid var(--ask-line-strong); padding-left: 8px; }
+.roadmap-work-entry p { margin: 0; }
+.roadmap-work-entry.is-business { border-left-color: var(--ask-plasma); }
+.roadmap-work-entry.is-development { border-left-color: var(--ask-cyan); }
+.roadmap-work-entry.is-dev-ops { border-left-color: var(--ask-yellow); }
+.roadmap-work-entry.is-delivery-ops { border-left-color: var(--ask-red); }
+.roadmap-work-act { white-space: pre-wrap; font-size: 13px; }
+.ask .roadmap-work a { color: var(--ask-plasma); }
+.roadmap-work-done summary { cursor: pointer; color: var(--ask-muted); font-weight: 700; font-size: 13px; }
+.roadmap-work-done .roadmap-lines { margin-top: 8px; }
+/* ── One roadmap's tabs (PRD 1218), in the PRD page's tab style: a row of links, the current one in ink
+   over its plasma underline; the Prerequisites tab counts what waits on you ── */
+.roadmap-tabs {
+  display: flex; gap: 4px; margin: 0 0 12px; border-bottom: 1px solid var(--ask-line-strong);
+  overflow-x: auto; scrollbar-width: thin;
+}
+.ask a.roadmap-tab {
+  display: inline-flex; align-items: baseline; gap: 6px; padding: 10px 14px; color: var(--ask-muted);
+  font-weight: 700; text-decoration: none; white-space: nowrap; border-bottom: 3px solid transparent;
+}
+.ask a.roadmap-tab:hover { border-bottom-color: var(--ask-line-strong); }
+.ask a.roadmap-tab[aria-current='page'] { color: var(--ask-ink); border-bottom-color: var(--ask-plasma); }
+.roadmap-tab small { font: 600 12px/1 var(--ask-mono); color: var(--ask-yellow); }
+
+/* ── The Prerequisites tab: the count line, a group per category, a row per prerequisite, its card ── */
+.roadmap-prereqs { display: grid; gap: 12px; min-width: 0; }
+.roadmap-prereqs h2, .roadmap-prereq-group h3 { margin: 0; }
+.roadmap-prereq-group { display: grid; gap: 8px; }
+.roadmap-prereq-group h3 { font-size: 13px; color: var(--ask-muted); letter-spacing: .06em; text-transform: uppercase; }
+.roadmap-prereq-count { margin: 0; font-weight: 700; color: var(--ask-ink); }
+.roadmap-prereq { display: grid; gap: 4px; color: var(--ask-ink); overflow-wrap: anywhere; }
+.roadmap-prereq p { margin: 0; }
+.roadmap-prereq.is-waits { border-left: 3px solid var(--ask-yellow); padding-left: 8px; }
+.roadmap-prereq.is-unchecked { border-left: 3px solid var(--ask-line-strong); padding-left: 8px; }
+.roadmap-prereq-state {
+  font-size: 12px; font-weight: 700; padding: 1px 6px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid currentColor; color: var(--ask-muted);
+}
+.roadmap-prereq-state.is-ok, .roadmap-prereq-state.is-fixed, .roadmap-prereq-state.is-ticked { color: var(--ask-green); }
+.roadmap-prereq-state.is-waits { color: var(--ask-yellow); }
+.roadmap-prereq-card { background: var(--ask-sunk); border: 1px solid var(--ask-line); border-radius: 6px; padding: 6px 10px; }
+.roadmap-prereq-card summary { cursor: pointer; font-weight: 700; font-size: 13px; }
+.roadmap-prereq-card dl { display: grid; gap: 4px; margin: 6px 0 0; }
+.roadmap-prereq-card dt { font-weight: 700; font-size: 12px; color: var(--ask-muted); }
+.roadmap-prereq-card dd { margin: 0 0 4px; }
+.roadmap-command { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.roadmap-command code {
+  font-family: var(--ask-mono); background: var(--ask-surface); border: 1px solid var(--ask-line-strong);
+  border-radius: 4px; padding: 4px 8px; overflow-wrap: anywhere; min-width: 0;
+}
+.roadmap-tick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.roadmap-tick-error { margin: 0; border-left: 3px solid var(--ask-yellow); padding-left: 8px; color: var(--ask-ink); }

@@ -18,7 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { readQuestions, shownLabel } from '../ask/answer-model';
 import { dossierPath } from '../dossier/page/view';
-import { ARTIFACT_KINDS, dossierList, dossierRounds, WORK_KINDS, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
+import { ARTIFACT_KINDS, dossierList, dossierRounds, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, WORK_KINDS, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
 import type { DossierAnswer, DossierLatest, DossiersRead, PlanetDossier, PlanetDossierRead } from '../arcade/types';
 import { z } from 'zod';
 import { type PrdNumber, PrdNumberSchema, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -36,23 +36,36 @@ const LatestVersionEntry = z.strictObject({
   created_at: z.string(),
 });
 
-/** A row of dossier_list(), as the dossier layer's DossierListRow names it (supabase/migrations/
- * 20261011090000_fix_dossiers.sql). Its counts and versions are read as numbers on purpose. */
-export const DossierListEntry: z.ZodType<DossierListRow> = z.strictObject({
+/** The fields of a row of dossier_list() whatever its kind. */
+const LIST_SHAPE = {
   id: z.string(),
   workspace_id: z.string(),
   home_repo: z.string(),
   prd: PrdNumberSchema.nullable(),
-  kind: z.enum(WORK_KINDS).optional(),
   title: z.string(),
   opened_by: z.string().nullable(),
   created_at: z.string(),
   numbered_at: z.string().nullable(),
   repos: z.array(z.string()),
-  latest: z.partialRecord(z.enum(ARTIFACT_KINDS), LatestVersionEntry),
   asked: z.coerce.number(),
   answered: z.coerce.number(),
   last_activity: z.string(),
+};
+
+/** A row of dossier_list(), as the dossier layer's DossierListRow names it (supabase/migrations/
+ * 20261011090000_fix_dossiers.sql). Its counts and versions are read as numbers on purpose. */
+export const DossierListEntry: z.ZodType<DossierListRow> = z.strictObject({
+  ...LIST_SHAPE,
+  kind: z.enum(WORK_KINDS).optional(),
+  latest: z.partialRecord(z.enum(ARTIFACT_KINDS), LatestVersionEntry),
+});
+
+/** Any row dossier_list() returns: since PRD 1272 (supabase/migrations/20261119090000_concept_dossiers.sql)
+ * a concept's too, with its own version kinds. Read so that a concept never breaks the read of the rest. */
+const AnyListEntry = z.strictObject({
+  ...LIST_SHAPE,
+  kind: z.enum(PUSH_KINDS).optional(),
+  latest: z.partialRecord(z.enum(PUSHED_ARTIFACT_KINDS), LatestVersionEntry),
 });
 
 /** A round's first question with its answer, as one line of the tab; null when it has no answer to show. */
@@ -146,13 +159,15 @@ export async function readDossiers(db: Db, workspace: string, prds: readonly num
 /**
  * Every dossier of `workspace` the caller may read, newest activity first, as dossier_list(p_workspace)
  * lists them (supabase/migrations/20261012100000_dossier_list_workspace.sql): the database keeps the one
- * workspace, set-based, so a dashboard never reads every workspace of its viewer to keep one. Rejects
+ * workspace, set-based, so a dashboard never reads every workspace of its viewer to keep one. A concept
+ * (PRD 1272) is left out: the dashboard counts PRDs and fixes, and concepts have their own list. Rejects
  * when the list cannot be read.
  */
 export async function workspaceDossiers(db: Pick<SupabaseClient<Database>, 'rpc'>, workspace: string): Promise<DossierListRow[]> {
   const { data, error } = await db.rpc('dossier_list', { p_workspace: workspace });
   if (error) throw new Error(`Supabase: could not read the workspace's dossiers (${error.message})`);
-  return orThrow(parseRows(DossierListEntry, data, 'data/dossiers: dossier_list'));
+  const rows = orThrow(parseRows(AnyListEntry, data, 'data/dossiers: dossier_list'));
+  return orThrow(parseRows(DossierListEntry, rows.filter((row) => row.kind !== 'concept'), 'data/dossiers: dossier_list'));
 }
 
 // ── The demo's dossiers ─────────────────────────────────────────────────────────

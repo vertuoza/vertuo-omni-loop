@@ -1,7 +1,7 @@
 // Ledger events + rulebook + calendar + season → credits and rankings (spec §6). Pure.
 import { RULEBOOK } from './rulebook.ts';
 import { isWorkingTime, tranchesBetween } from './calendar.ts';
-import { planetKeyOf, textOf, type GameEvent } from './events.ts';
+import { NO_PLANET, planetKeyOf, textOf, type GameEvent } from './events.ts';
 import type { Credit, PlanetSeason, Season } from './types.ts';
 
 // A rulebook table's number for a key read off an event's data, or undefined.
@@ -53,7 +53,7 @@ export function score(events: readonly GameEvent[], { season, now }: { season: s
   for (const e of sorted) {
     if (e.contributor && e.team) teamOfLogin.set(e.contributor, e.team);
     const key = planetKeyOf(e);
-    planetOf(key);
+    if (e.planet !== NO_PLANET) planetOf(key);
     switch (e.type) {
       case 'ZONE_SECURED': {
         const points = RULEBOOK.zoneSecured * (isWorkingTime(new Date(e.at)) ? 1 : RULEBOOK.nightShiftMultiplier);
@@ -88,6 +88,14 @@ export function score(events: readonly GameEvent[], { season, now }: { season: s
         // PRD 1180: an answer pays its answerer, in the season it was answered, with no multiplier.
         // It opens no wound and joins no crew, so threat, decay and the terraform bonus ignore it.
         credit(e, RULEBOOK.questionAnswered, 'question answered');
+        break;
+      case 'FEATURE_MERGED':
+        // A feature PR merged into its default branch pays who merged it, and each person who
+        // approved it, in the season of the merge, with no multiplier. Neither joins a crew.
+        credit(e, RULEBOOK.featureMerged, 'feature merged');
+        break;
+      case 'FEATURE_REVIEWED':
+        credit(e, RULEBOOK.featureReviewed, 'feature reviewed');
         break;
       case 'PLANET_TERRAFORMED': {
         const team = ownerFor(e);
@@ -148,7 +156,7 @@ export function score(events: readonly GameEvent[], { season, now }: { season: s
     const p = c.clawed ? 0 : c.points;
     if (c.to) individuals[c.to] = (individuals[c.to] ?? 0) + p;
     if (c.team) teams[c.team] = (teams[c.team] ?? 0) + p;
-    if (!c.clawed) planetOf(c.key).earned += c.points;
+    if (!c.clawed && c.planet !== NO_PLANET) planetOf(c.key).earned += c.points;
   }
   return { season, generatedAt: now.toISOString(), credits, individuals, teams, planets, streaks: Object.fromEntries(streak) };
 }

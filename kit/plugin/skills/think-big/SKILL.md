@@ -1,6 +1,6 @@
 ---
 name: think-big
-description: Explores a vast idea before /omni:brainstorm with a studio of agents that talk to each other — judges its scale and kind (a tweak gets the /omni:visual-fix line, a feature is offered /omni:brainstorm or a lite run), fuels the studio with today's product and world-class references, then runs rounds of rendered concepts, six to eight storyboard cards then clickable prototypes, that a panel of a Visionary, a Craft critic, a Skeptic, a Value critic and real users debates by name while the person reacts at every round and crowns one. Records the crowned concept, its vision tour, every board, the debate and an area map of PRD-sized areas in the inbox, proves it with omni concept, and opens one concept PR a person merges. Writes no code, merges nothing. Ends with the /omni:brainstorm --concept line of the first area. Triggers on "think big", "explore this vast idea", "a brand new identity for the app", "go wide first", "/omni:think-big".
+description: Explores a vast idea before /omni:brainstorm with a studio of agents that talk to each other — judges its scale and kind (a tweak gets the /omni:visual-fix line, a feature is offered /omni:brainstorm or a lite run), fuels the studio with today's product and world-class references, then runs rounds of rendered concepts, six to eight storyboard cards then clickable prototypes, that a panel of a Visionary, a Craft critic, a Skeptic, a Value critic and real users debates by name while the person reacts at every round and crowns one. Records the crowned concept, its vision tour, every board, the debate and an area map of PRD-sized areas in the inbox, proves it with omni concept, opens one concept PR a person merges, and sends the concept to its page under Work › Concepts. Writes no code, merges nothing. Ends with the /omni:brainstorm --concept line of the first area. Triggers on "think big", "explore this vast idea", "a brand new identity for the app", "go wide first", "/omni:think-big".
 ---
 
 # Think big: a vast idea into a concept
@@ -55,7 +55,7 @@ never overrides this skill's rules.
 Then, before your first question, follow `/omni:dossier-open` with one line of the brief: it opens a
 draft dossier for it on the Omni page, linked to this Claude session, and prints its link as
 "follow along at …". Whatever it prints, carry on: a draft that did not open stops nothing. The
-draft stays a draft; no step below pushes to it.
+draft stays a draft; no step below pushes to it: step 6 sends the concept to a page of its own.
 
 Then say, once and plainly, that a full run is token-heavy (about 8 to 12 agents over 3 to 4 turns
 a round), that the person can stop after any round, and that nothing is written in the repository
@@ -461,6 +461,13 @@ crowned concept.
    Paths in the body are repository paths, never URLs. `/omni:pr` watches it until it is green or
    stuck.
 
+9. **Send the concept to its page:** right after the PR opens, follow
+   `/omni:dossier-push <n> --kind concept` from the concept's worktree. It sends `concept.md`,
+   `vision.html`, every board and `debate.md` to the concept's page on the Omni page, under Work ›
+   Concepts, where it shows as in review until the PR merges. Whatever it prints, carry on: a push
+   that was skipped or refused is said in one line and stops nothing. Keep the link it printed for
+   the hand-off.
+
 **A person merges it;** only then is the concept in the inbox, where `/omni:brainstorm --concept`
 reads it. Never merge it yourself.
 
@@ -471,9 +478,14 @@ reads it. Never merge it yourself.
 boards shown, a line saying nothing was written in the repository or on GitHub and that a new run
 starts over, and the `/omni:think-big '<the brief>'` line to start again.
 
-**Recorded.** Report the concept's issue, its PR, the kind and scale, the rounds shown, and every
-check that ran or did not (`omni concept <n>`, whether the references were looked up or the session
-could not search). Then always end the reply with two blocks, in this order, written for someone
+**Recorded.** Report the concept's issue, its PR, the concept's page, the kind and scale, the rounds
+shown, and every check that ran or did not (`omni concept <n>`, the push, whether the references
+were looked up or the session could not search).
+
+The concept's page is the link step 6's push printed. When the push was skipped, run
+`node .omni-loop/bin/omni.mjs dossier link <n> --kind concept`; when it prints `none` or cannot
+reach the app, say the concept has no page yet and give its issue,
+`https://github.com/<repo.slug>/issues/<n>`. Then always end the reply with two blocks, in this order, written for someone
 who knows nothing about the loop and just does what it says. Fill every placeholder with a real
 path, number, id or link.
 
@@ -492,8 +504,8 @@ Concept <n>'s folder: on the concept PR now, in the inbox once it merges
 ```
 
 **2. What is next?** Three short numbered steps, then the wedge's command alone on the reply's last
-line. Step 1 links the concept PR, and its second line, in brackets, gives the concept's issue,
-`https://github.com/<repo.slug>/issues/<n>`. Step 3 lists one `/omni:brainstorm --concept` line per
+line. Step 1 links the concept PR, its second line, in brackets, gives the concept's issue,
+`https://github.com/<repo.slug>/issues/<n>`, and its third the concept's page, when it has one. Step 3 lists one `/omni:brainstorm --concept` line per
 area, in build order, the wedge first.
 
 ```markdown
@@ -501,6 +513,7 @@ area, in build order, the wedge first.
 
 1. Review the concept: https://github.com/<owner>/<repo>/pull/<concept PR>
    (its thread, where each area's PRD will be named: https://github.com/<owner>/<repo>/issues/<n>)
+   (its page, with the vision tour and every board: <concept page link>)
 2. Merge that PR. → concept <n> moves into the inbox.
 3. Once it's merged, type /clear (or open a new terminal), then brainstorm one area at a time, in
    this order, the wedge first:

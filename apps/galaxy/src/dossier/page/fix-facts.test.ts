@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Priority } from '@omni/github';
-import type { FixSummary } from '../github/fix';
+import type { ConceptFacts, FixSummary } from '../github/fix';
 import { UNREAD } from '../github/summary';
-import { fixFacts, type FixFactsDeps } from './fix-facts';
+import { conceptFacts, fixFacts, type FixFactsDeps, type StoredFactsDeps } from './fix-facts';
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // A fix's page renders from fix_facts (PRD 902, s2): stored facts at once, refreshed after the response
 // while not final; none stored, one interactive read, stored after.
@@ -67,5 +68,36 @@ describe('a fix page\'s facts', () => {
     expect(await fixFacts(deps)).toEqual(OPEN);
     expect(reads).toEqual(['interactive']);
     expect(deps.log).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a concept page\'s facts (PRD 1272, s4)', () => {
+  const pull = (state: 'open' | 'merged') => ({
+    number: parsePr(1270), url: 'https://github.com/acme/widgets/pull/1270', state, mergedAt: state === 'merged' ? '2026-10-07T09:00:00Z' : null, mergedBy: null,
+  });
+
+  function conceptDeps(stored: ConceptFacts | null, read: ConceptFacts | null) {
+    const reads: Priority[] = [];
+    const later: (() => Promise<void>)[] = [];
+    const deps: StoredFactsDeps<ConceptFacts> = {
+      stored: () => Promise.resolve(stored),
+      read: (priority) => { reads.push(priority); return Promise.resolve(read); },
+      keep: () => Promise.resolve(),
+      later: (task) => { later.push(task); },
+      log: vi.fn(),
+    };
+    const runLater = async () => { for (const task of later.splice(0)) await task(); };
+    return { deps, reads, runLater };
+  }
+
+  it('refreshes stored facts after the response while the concept PR is open, and never once it merged', async () => {
+    const open = conceptDeps({ issue: UNREAD, pull: pull('open') }, { issue: UNREAD, pull: pull('merged') });
+    expect(await conceptFacts(open.deps)).toEqual({ issue: UNREAD, pull: pull('open') });
+    await open.runLater();
+    expect(open.reads).toEqual(['background']);
+    const merged = conceptDeps({ issue: UNREAD, pull: pull('merged') }, null);
+    expect(await conceptFacts(merged.deps)).toEqual({ issue: UNREAD, pull: pull('merged') });
+    await merged.runLater();
+    expect(merged.reads).toEqual([]);
   });
 });

@@ -56,6 +56,16 @@ describe('buildGalaxy', () => {
     expect(shape(after)).toEqual(shape(before));
   });
 
+  it('pays an answer no PRD claims, and one on an uncharted PRD, and charts no planet for either', () => {
+    const g = buildGalaxy([
+      charted,
+      ev('ask:r1:answered', '2026-09-22T09:00:00Z', 'QUESTION_ANSWERED', 0, { contributor: 'alice', team: 'octopod' }),
+      ev('ask:r2:answered', '2026-09-22T10:00:00Z', 'QUESTION_ANSWERED', 8, { contributor: 'alice', team: 'octopod' }),
+    ], { projects, now: NOW });
+    expect(g.heroes).toMatchObject([{ name: 'alice', points: 2 * RULEBOOK.questionAnswered }]);
+    expect(g.planets.map((p) => p.prd)).toEqual([7]);
+  });
+
   it('orders the planet state as the spec does: lost beats terraformed, locked beats distress', () => {
     const lost = buildGalaxy([charted, ev('planet:7:lost', '2026-09-20T08:00:00Z', 'PLANET_LOST', 7, { data: { reason: 'closed' } })], { projects, now: NOW });
     expect(lost.planets[0]?.state).toBe('lost');
@@ -138,7 +148,7 @@ describe('the rules the view carries', () => {
     const g = buildGalaxy([charted], { projects, now: NOW });
     expect(g.rules.xp).toBe(RULEBOOK.xp);
     expect(g.rules.xp).toEqual({
-      weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1 },
+      weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1 },
       curve: { first: 1, step: 25 },
       cap: 99,
       unlocks: { invaders: 1, platformer: 2 },

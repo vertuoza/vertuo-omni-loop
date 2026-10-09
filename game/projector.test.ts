@@ -264,13 +264,14 @@ describe('projectEvents', () => {
       expect(poll().map((e) => e.id)).toEqual(['ask:00000000-0000-4000-8000-0000000000a1:answered']);
     });
 
-    it('writes nothing yet for a round whose planet is not charted in this poll', () => {
+    it('pays a round whose PRD this poll did not chart (an untracked repository), and one no PRD claims, on planet 0', () => {
       const skipped: Skip[] = [];
       const events = projectEvents(homed('acme/plan'), { config, now: NOW, onSkip: (s) => skipped.push(s), answers: [
-        round({ prd: parsePrd(9999) }),
-        round({ home: 'acme/tools' }), // the same number in another home is another planet
+        round({ roundId: 'r1', prd: parsePrd(9999) }),
+        round({ roundId: 'r2', home: 'acme/tools' }), // the same number in another home is another planet
+        round({ roundId: 'r3', prd: null, home: 'acme/tools' }),
       ] });
-      expect(answers(events)).toEqual([]);
+      expect(answers(events).map((e) => [e.id, e.planet, e.home])).toEqual([['ask:r1:answered', 9999, 'acme/plan'], ['ask:r2:answered', 2332, 'acme/tools'], ['ask:r3:answered', 0, 'acme/tools']]);
       expect(skipped).toEqual([]);
     });
 
@@ -285,6 +286,25 @@ describe('projectEvents', () => {
       const without = projectEvents(homed('acme/plan'), { config, now: NOW });
       const withAnswers = projectEvents(homed('acme/plan'), { config, now: NOW, answers: [round()] });
       expect(withAnswers.filter((e) => e.type !== 'QUESTION_ANSWERED')).toEqual(without);
+    });
+  });
+
+  describe('a merged feature PR', () => {
+    const merged = (fp: Record<string, unknown>) => snapshot({
+      regions: [{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z', featurePr: { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: '2026-09-22T08:00:00Z', mergedAt: '2026-09-23T09:00:00Z', lastActivityAt: '2026-09-23T09:00:00Z', ...fp } }],
+    });
+    const pay = (events: GameEvent[]) => events.filter((e) => e.type === 'FEATURE_MERGED' || e.type === 'FEATURE_REVIEWED');
+
+    it('becomes one FEATURE_MERGED for its merger and one FEATURE_REVIEWED per approver, at the merge', () => {
+      expect(pay(projectEvents(merged({ mergedBy: 'pm', approvedBy: ['alice'] }), { config, now: NOW }))).toEqual([
+        { id: 'merge:core-repo#500:2332:approved:alice', at: '2026-09-23T09:00:00Z', type: 'FEATURE_REVIEWED', planet: 2332, region: 'core-repo', contributor: 'alice', team: 'octopod', data: { pr: 500 } },
+        { id: 'merge:core-repo#500:2332:merged', at: '2026-09-23T09:00:00Z', type: 'FEATURE_MERGED', planet: 2332, region: 'core-repo', contributor: 'pm', team: 'beaver', data: { pr: 500 } },
+      ]);
+    });
+
+    it('writes nothing before the merge, nor for a merger it cannot name', () => {
+      expect(pay(projectEvents(merged({ mergedAt: null, mergedBy: 'pm', approvedBy: ['alice'] }), { config, now: NOW }))).toEqual([]);
+      expect(pay(projectEvents(merged({ mergedBy: null, approvedBy: [] }), { config, now: NOW }))).toEqual([]);
     });
   });
 

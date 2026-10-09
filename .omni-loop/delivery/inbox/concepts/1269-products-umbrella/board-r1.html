@@ -1,0 +1,752 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Round 1 board</title><style>
+:root{--void:#07061c;--deep:#0e0d33;--navy:#2f3fc4;--yel:#ffd84a;--cyan:#6ff0ff;--red:#ff3b5c;--green:#4ee08a;--tx:#f2f4ff;--dim:#8a90d6}
+body{margin:0;background:var(--void);color:var(--tx);font:15px/1.5 'Atkinson Hyperlegible Next',system-ui,sans-serif}
+main{max-width:1500px;margin:0 auto;padding:24px 16px 120px}h1{font-family:Anton,Impact,sans-serif;letter-spacing:.02em;font-size:40px;margin:0 0 4px}
+.lede{color:var(--dim);max-width:900px}.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:18px;margin-top:20px}
+.c{background:var(--deep);border:1px solid #23215a;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px}
+header{display:flex;gap:12px;align-items:center}.l{font-family:Anton,Impact,sans-serif;font-size:34px;color:var(--void);background:var(--yel);border-radius:10px;width:52px;height:52px;display:grid;place-items:center}
+h2{margin:0;font-family:Anton,Impact,sans-serif;font-weight:400;font-size:24px}small{color:var(--dim)}.wow{color:var(--yel);margin:0}.ax{margin:0;color:#cfd3ff}
+iframe{width:100%;height:420px;border:1px solid #2a2870;border-radius:10px;background:var(--void)}
+table{border-collapse:collapse;font:13px 'JetBrains Mono',ui-monospace,monospace}th,td{padding:3px 8px;text-align:center;border-bottom:1px solid #23215a}th:first-child{text-align:left;color:var(--dim)}
+.st{margin:0;padding-left:18px;font-size:14px}.cons{margin:0;color:var(--green)}.dis{margin:0;color:#ff9fc6}.obj{margin:0;color:#ffb3c0;font-size:14px}.fit{margin:0;font:12px 'JetBrains Mono',monospace;color:var(--cyan)}
+.t{display:flex;flex-wrap:wrap;gap:10px;align-items:center;border-top:1px solid #23215a;padding-top:8px}.t label{cursor:pointer}.n{flex:1;min-width:140px;background:var(--void);color:var(--tx);border:1px solid #2a2870;border-radius:6px;padding:4px 8px}
+select{background:var(--void);color:var(--tx);border:1px solid #2a2870}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#0b0a28ee;border-top:1px solid var(--navy);padding:12px 16px;display:flex;gap:12px;align-items:center}
+.bar button{background:var(--yel);color:var(--void);border:0;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer}#out{font-family:'JetBrains Mono',monospace;color:var(--yel);overflow-wrap:anywhere}
+.verdict{background:#120f3a;border-left:4px solid var(--yel);padding:12px 16px;border-radius:8px;margin-top:16px;max-width:1000px}
+@media(max-width:520px){.g{grid-template-columns:1fr}}</style></head><body><p data-omni-reactions>I like C D F - But we need an &quot;Umbrella&quot; for the &#x27;project&#x27; (as well am not sure if project is the best name..  )</p><main>
+<h1>Round 1 — go wide</h1><p class=lede>Omni projects replace plan repositories, with phase 0 approved on the server behind a flag. Eight concepts from four lenses (clean slate, strangler, tooling first, contrarian). Scores 1–5 from the Visionary, Craft, the Skeptic, Value and the five personas (averaged); Feasibility is not scored in round 1. Cards are drawn by the artists; names and numbers on them are placeholders.</p>
+<div class=verdict><b>Moderator's read of the debate.</b> The panel converged on <b>C (The Ledger) as the destination</b>, reached through <b>B (Born on the Server)</b> as rollout and seam, with <b>F's</b> wait-and-tap handshake as its moment and <b>E's</b> refusal grammar as its voice. <b>Dissent kept:</b> the Visionary wants <b>D's graph</b> as C's face, not a later upsell; persona:B-E DEv wants B alone, “I notice nothing”. Every concept still owes a drawn <i>server-down</i> and <i>flag-flipped-mid-PRD</i> screen. The Skeptic's first proof for any winner: one prdState() reader across the ~110 files that read <code>inbox</code>, with no behaviour change.</div>
+<div class=g><section class=c data-l="A"><header><span class=l>A</span><div><h2>Job by Job</h2><small>strangler · st-1</small></div></header>
+<p class=wow>“I flipped one switch — Approval — and the next PRD had zero phase-0 PRs, while the plan repository kept doing everything else.”</p><p class=ax><b>Axis.</b> The unit of migration is the job: one capability moves to the server at a time, for every PRD, behind 7 ordered switches.</p>
+<iframe srcdoc="&lt;!doctype html&gt;&lt;meta charset=utf-8&gt;&lt;style&gt;body{margin:0;background:#07061c;color:#f2f4ff;font-family:&#x27;Atkinson Hyperlegible Next&#x27;,system-ui,sans-serif}&lt;/style&gt;&lt;div class=&quot;st1&quot;&gt;
+&lt;style&gt;
+.st1{--void:#07061c;--deep:#0e0d33;--navy:#2f3fc4;--plasma:#a45cff;--y:#ffd84a;--cyan:#6ff0ff;--green:#4ee08a;--red:#ff3b5c;--text:#f2f4ff;--dim:#8a90d6;
+background:var(--void);color:var(--text);font-family:&quot;Atkinson Hyperlegible Next&quot;,&quot;Atkinson Hyperlegible&quot;,system-ui,sans-serif;padding:24px;border-radius:14px;max-width:760px;box-sizing:border-box}
+.st1 *{box-sizing:border-box}
+.st1 .eyebrow{font-family:&quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+.st1 h2{font-family:Anton,Impact,&quot;Arial Narrow&quot;,sans-serif;font-weight:400;font-size:34px;line-height:1;margin:6px 0 4px;letter-spacing:.01em}
+.st1 h2 em{font-style:normal;color:var(--y)}
+.st1 .sub{color:var(--dim);font-size:14px;margin:0 0 18px}
+.st1 .wrap{display:grid;grid-template-columns:1fr 150px;gap:18px}
+.st1 .rows{display:flex;flex-direction:column;gap:6px}
+.st1 .row{display:grid;grid-template-columns:22px 1fr 54px 92px;align-items:center;gap:10px;background:var(--deep);border:1px solid #1d1b52;border-radius:10px;padding:9px 12px}
+.st1 .n{font-family:&quot;JetBrains Mono&quot;,ui-monospace,monospace;font-size:11px;color:var(--dim)}
+.st1 .job{font-size:14px;font-weight:600}
+.st1 .job small{display:block;font-weight:400;color:var(--dim);font-size:11.5px;margin-top:2px}
+.st1 .sw{width:44px;height:22px;border-radius:11px;background:#25235e;position:relative}
+.st1 .sw::after{content:&quot;&quot;;position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--dim)}
+.st1 .on .sw{background:var(--y)}
+.st1 .on .sw::after{left:25px;background:var(--void)}
+.st1 .where{font-family:&quot;JetBrains Mono&quot;,ui-monospace,monospace;font-size:10.5px;text-align:right;color:var(--dim)}
+.st1 .on .where{color:var(--y)}
+.st1 .on{border-color:#4a3f1a}
+.st1 .now{border-color:var(--y);box-shadow:0 0 0 1px var(--y) inset}
+.st1 .now .job::after{content:&quot;flipping now&quot;;margin-left:8px;font-family:&quot;JetBrains Mono&quot;,monospace;font-size:9.5px;background:var(--y);color:var(--void);padding:2px 6px;border-radius:4px;vertical-align:2px}
+.st1 .repo{background:var(--deep);border:1px solid #1d1b52;border-radius:12px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.st1 .repo .lbl{font-family:&quot;JetBrains Mono&quot;,monospace;font-size:10.5px;color:var(--dim);text-align:center}
+.st1 .meter{width:56px;height:220px;border-radius:8px;background:#141244;position:relative;overflow:hidden;border:1px solid #2a2870}
+.st1 .meter .left{position:absolute;left:0;right:0;bottom:0;height:57%;background:repeating-linear-gradient(135deg,#2f3fc4 0 6px,#29379f 6px 12px)}
+.st1 .meter .gone{position:absolute;left:0;right:0;top:0;height:43%;background:repeating-linear-gradient(135deg,transparent 0 5px,rgba(255,216,74,.18) 5px 7px)}
+.st1 .big{font-family:Anton,Impact,sans-serif;font-size:30px;color:var(--y);line-height:1}
+.st1 .foot{margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.st1 .k{background:#0b0a29;border-radius:8px;padding:8px 10px;font-size:12px;color:var(--dim)}
+.st1 .k b{display:block;font-family:&quot;JetBrains Mono&quot;,monospace;color:var(--text);font-size:15px;font-weight:600}
+.st1 .k b.g{color:var(--green)}
+.st1 .note{margin-top:12px;font-size:12px;color:var(--dim);border-left:2px solid var(--red);padding-left:10px}
+.st1 .note b{color:var(--red)}
+@media (max-width:620px){.st1 .wrap{grid-template-columns:1fr}.st1 .meter{width:100%;height:40px}.st1 .meter .left{top:0;bottom:0;right:auto;width:57%;height:auto}.st1 .meter .gone{display:none}.st1 .foot{grid-template-columns:1fr}}
+&lt;/style&gt;
+&lt;div class=&quot;eyebrow&quot;&gt;Project · vertuo-mobile + vertuo-api · Settings › Jobs&lt;/div&gt;
+&lt;h2&gt;THE PLAN REPO &lt;em&gt;HANDS OVER&lt;/em&gt;, JOB BY JOB&lt;/h2&gt;
+&lt;p class=&quot;sub&quot;&gt;Each switch moves one job of the plan repository to the server. Off puts it back. Nothing is copied twice: the job lives where its switch says.&lt;/p&gt;
+&lt;div class=&quot;wrap&quot;&gt;
+ &lt;div class=&quot;rows&quot;&gt;
+  &lt;div class=&quot;row on&quot;&gt;&lt;span class=&quot;n&quot;&gt;01&lt;/span&gt;&lt;div class=&quot;job&quot;&gt;Approval&lt;small&gt;signed record over pinned hashes; issue gets a display label&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;sw&quot;&gt;&lt;/span&gt;&lt;span class=&quot;where&quot;&gt;server&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;row on&quot;&gt;&lt;span class=&quot;n&quot;&gt;02&lt;/span&gt;&lt;div class=&quot;job&quot;&gt;Phase 0&lt;small&gt;spec, plan, before-after, voice, scenarios in the dossier&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;sw&quot;&gt;&lt;/span&gt;&lt;span class=&quot;where&quot;&gt;server&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;row on&quot;&gt;&lt;span class=&quot;n&quot;&gt;03&lt;/span&gt;&lt;div class=&quot;job&quot;&gt;Targets &amp;amp; loop state&lt;small&gt;project table replaces plan.targets[]; read-at sha per PRD&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;sw&quot;&gt;&lt;/span&gt;&lt;span class=&quot;where&quot;&gt;server&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;row now&quot;&gt;&lt;span class=&quot;n&quot;&gt;04&lt;/span&gt;&lt;div class=&quot;job&quot;&gt;Outbox gate&lt;small&gt;one gate page instead of the plan PR; targets&#x27; check points here&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;sw&quot;&gt;&lt;/span&gt;&lt;span class=&quot;where&quot;&gt;plan repo&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;row&quot;&gt;&lt;span class=&quot;n&quot;&gt;05&lt;/span&gt;&lt;div class=&quot;job&quot;&gt;Roadmaps&lt;small&gt;roadmap.md + many specs in one phase-0 PR today&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;sw&quot;&gt;&lt;/span&gt;&lt;span class=&quot;where&quot;&gt;plan repo&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;row&quot;&gt;&lt;span class=&quot;n&quot;&gt;06&lt;/span&gt;&lt;div class=&quot;job&quot;&gt;Bug records&lt;small&gt;bugs/&amp;lt;n&amp;gt;/bug.md, the record PR merged last&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;sw&quot;&gt;&lt;/span&gt;&lt;span class=&quot;where&quot;&gt;plan repo&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;row&quot;&gt;&lt;span class=&quot;n&quot;&gt;07&lt;/span&gt;&lt;div class=&quot;job&quot;&gt;Imported knowledge&lt;small&gt;knowledge/repos/&amp;lt;name&amp;gt;/ served as a bundle to scratch&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;sw&quot;&gt;&lt;/span&gt;&lt;span class=&quot;where&quot;&gt;plan repo&lt;/span&gt;&lt;/div&gt;
+ &lt;/div&gt;
+ &lt;div class=&quot;repo&quot;&gt;
+  &lt;div class=&quot;lbl&quot;&gt;vertuo-plan&lt;br&gt;still does&lt;/div&gt;
+  &lt;div class=&quot;meter&quot;&gt;&lt;div class=&quot;gone&quot;&gt;&lt;/div&gt;&lt;div class=&quot;left&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;div class=&quot;big&quot;&gt;4/7&lt;/div&gt;
+  &lt;div class=&quot;lbl&quot;&gt;jobs left.&lt;br&gt;At 0/7: archive it.&lt;/div&gt;
+ &lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;foot&quot;&gt;
+ &lt;div class=&quot;k&quot;&gt;&lt;b class=&quot;g&quot;&gt;0&lt;/b&gt;phase-0 PRs since job 02 flipped&lt;/div&gt;
+ &lt;div class=&quot;k&quot;&gt;&lt;b&gt;−38%&lt;/b&gt;App API calls, stages sync&lt;/div&gt;
+ &lt;div class=&quot;k&quot;&gt;&lt;b&gt;PRD 912&lt;/b&gt;first gate on the server, next&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;note&quot;&gt;&lt;b&gt;Fallback, per job:&lt;/b&gt; flip 04 off and /omni:ultra-yolo opens the plan PR again. Server unreachable on 01: yolo refuses, it never guesses from a label.&lt;/div&gt;
+&lt;/div&gt;
+" loading=lazy title="card A"></iframe>
+<table><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th></tr><tr><th>Visionary</th><td>2</td><td>2</td><td>3</td><td>4</td></tr><tr><th>Craft</th><td>2</td><td>3</td><td>2</td><td>4</td></tr><tr><th>Skeptic</th><td>2</td><td>4</td><td>3</td><td>4</td></tr><tr><th>Value</th><td>3</td><td>4</td><td>4</td><td>5</td></tr><tr><th>Users (avg)</th><td>2.8</td><td>3.2</td><td>3.6</td><td>3.4</td></tr></table>
+<ul class=st><li><b>Visionary:</b> The rollout plan under the winner, not a concept.</li><li><b>Craft:</b> Right sequencing, wrong surface — nobody should see seven switches.</li><li><b>Skeptic:</b> Right migration logic; collapse the matrix into a ladder.</li><li><b>Value:</b> Safest revenue path, but it sells as plumbing.</li></ul><p class=cons>Consensus: keep it only as an ordered ladder inside B.</p>
+<p class=obj><b>Objection.</b> persona:B-E DEv — “I try not to use this stuff; seven ordered switches is seven reasons to keep ignoring it.”</p><p class=fit>fits persona:Paul ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✗ · size#37 ✗ (2-person teams won&#x27;t touch 7 switches)</p>
+<div class=t><label><input type=radio name=aA value=keep>keep</label><label><input type=radio name=aA value=kill>kill</label><label><input type=radio name=aA value=merge>merge into <select><option></option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select></label><label><input type=radio name=aA value=push>push further</label><input class=n placeholder="note"></div></section><section class=c data-l="B"><header><span class=l>B</span><div><h2>Born on the Server</h2><small>strangler · st-2</small></div></header>
+<p class=wow>“We never migrated — new PRDs were simply born on the server, and eight weeks later the old repo had drained to zero and we archived it with one click.”</p><p class=ax><b>Axis.</b> The unit of migration is the PRD cohort: the flag decides where a NEW PRD is born; it keeps that home for life. A prdState() seam replaces every “folder in inbox/” reader first.</p>
+<iframe srcdoc="&lt;!doctype html&gt;&lt;meta charset=utf-8&gt;&lt;style&gt;body{margin:0;background:#07061c;color:#f2f4ff;font-family:&#x27;Atkinson Hyperlegible Next&#x27;,system-ui,sans-serif}&lt;/style&gt;&lt;div class=&quot;st2&quot;&gt;
+&lt;style&gt;
+.st2{--void:#07061c;--deep:#0e0d33;--navy:#2f3fc4;--plasma:#a45cff;--y:#ffd84a;--cyan:#6ff0ff;--green:#4ee08a;--text:#f2f4ff;--dim:#8a90d6;
+background:var(--void);color:var(--text);font-family:&quot;Atkinson Hyperlegible Next&quot;,&quot;Atkinson Hyperlegible&quot;,system-ui,sans-serif;padding:24px;border-radius:14px;max-width:760px;box-sizing:border-box}
+.st2 *{box-sizing:border-box}
+.st2 .eyebrow{font-family:&quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+.st2 h2{font-family:Anton,Impact,&quot;Arial Narrow&quot;,sans-serif;font-weight:400;font-size:34px;line-height:1;margin:6px 0 4px}
+.st2 h2 em{font-style:normal;color:var(--y)}
+.st2 .sub{color:var(--dim);font-size:14px;margin:0 0 14px}
+.st2 svg{width:100%;height:auto;display:block}
+.st2 .lanes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.st2 .lane{background:var(--deep);border:1px solid #1d1b52;border-radius:10px;padding:10px 12px}
+.st2 .lane h3{margin:0 0 8px;font-family:&quot;JetBrains Mono&quot;,ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.st2 .lane.srv h3{color:var(--y)}
+.st2 .chip{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:6px 8px;border-radius:6px;background:#0b0a29;margin-bottom:5px}
+.st2 .chip span{font-family:&quot;JetBrains Mono&quot;,monospace;font-size:10.5px;color:var(--dim)}
+.st2 .chip .ok{color:var(--green)}
+.st2 .chip .y{color:var(--y)}
+.st2 .seam{margin-top:12px;background:#0b0a29;border:1px dashed var(--plasma);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--dim)}
+.st2 .seam code{font-family:&quot;JetBrains Mono&quot;,monospace;color:var(--cyan);font-size:12px}
+.st2 .seam b{color:var(--text)}
+@media (max-width:620px){.st2 .lanes{grid-template-columns:1fr}}
+&lt;/style&gt;
+&lt;div class=&quot;eyebrow&quot;&gt;Workspace › Projects › Migration&lt;/div&gt;
+&lt;h2&gt;NEW PRDS ARE BORN ON THE SERVER. &lt;em&gt;OLD ONES FINISH WHERE THEY STARTED.&lt;/em&gt;&lt;/h2&gt;
+&lt;p class=&quot;sub&quot;&gt;The flag decides where a PRD is born, and the PRD keeps that birthplace for life. The plan repository is never migrated: it drains.&lt;/p&gt;
+&lt;svg viewBox=&quot;0 0 700 210&quot; role=&quot;img&quot; aria-label=&quot;Open PRDs per week: plan repository cohort falls to zero while server cohort grows&quot;&gt;
+ &lt;defs&gt;
+  &lt;pattern id=&quot;st2h&quot; width=&quot;8&quot; height=&quot;8&quot; patternUnits=&quot;userSpaceOnUse&quot; patternTransform=&quot;rotate(45)&quot;&gt;&lt;rect width=&quot;4&quot; height=&quot;8&quot; fill=&quot;#2f3fc4&quot;/&gt;&lt;rect x=&quot;4&quot; width=&quot;4&quot; height=&quot;8&quot; fill=&quot;#29379f&quot;/&gt;&lt;/pattern&gt;
+ &lt;/defs&gt;
+ &lt;g stroke=&quot;#1d1b52&quot; stroke-width=&quot;1&quot;&gt;
+  &lt;line x1=&quot;40&quot; y1=&quot;20&quot; x2=&quot;680&quot; y2=&quot;20&quot;/&gt;&lt;line x1=&quot;40&quot; y1=&quot;80&quot; x2=&quot;680&quot; y2=&quot;80&quot;/&gt;&lt;line x1=&quot;40&quot; y1=&quot;140&quot; x2=&quot;680&quot; y2=&quot;140&quot;/&gt;&lt;line x1=&quot;40&quot; y1=&quot;180&quot; x2=&quot;680&quot; y2=&quot;180&quot;/&gt;
+ &lt;/g&gt;
+ &lt;path d=&quot;M40 180 L40 40 L120 46 L200 62 L280 92 L360 120 L440 150 L520 168 L600 178 L680 180 Z&quot; fill=&quot;url(#st2h)&quot;/&gt;
+ &lt;path d=&quot;M40 180 L120 176 L200 162 L280 138 L360 112 L440 86 L520 70 L600 60 L680 54 L680 180 Z&quot; fill=&quot;#ffd84a&quot; fill-opacity=&quot;.22&quot;/&gt;
+ &lt;path d=&quot;M40 180 L120 176 L200 162 L280 138 L360 112 L440 86 L520 70 L600 60 L680 54&quot; fill=&quot;none&quot; stroke=&quot;#ffd84a&quot; stroke-width=&quot;2.5&quot;/&gt;
+ &lt;line x1=&quot;120&quot; y1=&quot;12&quot; x2=&quot;120&quot; y2=&quot;186&quot; stroke=&quot;#a45cff&quot; stroke-dasharray=&quot;4 4&quot;/&gt;
+ &lt;text x=&quot;126&quot; y=&quot;24&quot; fill=&quot;#a45cff&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;flag on: vertuo-mobile&lt;/text&gt;
+ &lt;line x1=&quot;280&quot; y1=&quot;12&quot; x2=&quot;280&quot; y2=&quot;186&quot; stroke=&quot;#a45cff&quot; stroke-dasharray=&quot;4 4&quot;/&gt;
+ &lt;text x=&quot;286&quot; y=&quot;24&quot; fill=&quot;#a45cff&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;flag on: vertuo-api (project)&lt;/text&gt;
+ &lt;circle cx=&quot;600&quot; cy=&quot;178&quot; r=&quot;5&quot; fill=&quot;#4ee08a&quot;/&gt;
+ &lt;text x=&quot;560&quot; y=&quot;166&quot; fill=&quot;#4ee08a&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;last plan PR merged&lt;/text&gt;
+ &lt;text x=&quot;680&quot; y=&quot;200&quot; text-anchor=&quot;end&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;week 8 · archive vertuo-plan&lt;/text&gt;
+ &lt;text x=&quot;40&quot; y=&quot;200&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;week 0&lt;/text&gt;
+ &lt;text x=&quot;60&quot; y=&quot;70&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;12&quot;&gt;born in vertuo-plan&lt;/text&gt;
+ &lt;text x=&quot;560&quot; y=&quot;100&quot; fill=&quot;#ffd84a&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;12&quot;&gt;born on the server&lt;/text&gt;
+&lt;/svg&gt;
+&lt;div class=&quot;lanes&quot;&gt;
+ &lt;div class=&quot;lane&quot;&gt;&lt;h3&gt;Draining · vertuo-plan&lt;/h3&gt;
+  &lt;div class=&quot;chip&quot;&gt;#871 Offline sync&lt;span&gt;plan PR · gate red&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;chip&quot;&gt;#884 Quote PDF v2&lt;span&gt;wave 3/4&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;chip&quot;&gt;bug 902 Totals rounding&lt;span class=&quot;ok&quot;&gt;record PR merged&lt;/span&gt;&lt;/div&gt;
+ &lt;/div&gt;
+ &lt;div class=&quot;lane srv&quot;&gt;&lt;h3&gt;Born on server&lt;/h3&gt;
+  &lt;div class=&quot;chip&quot;&gt;#915 Site photos&lt;span class=&quot;y&quot;&gt;approved · 3 hashes pinned&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;chip&quot;&gt;#917 Push reminders&lt;span&gt;dossier v4 · no phase-0 PR&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;chip&quot;&gt;#921 Invoice export&lt;span&gt;gate on page · 2 open&lt;/span&gt;&lt;/div&gt;
+ &lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;seam&quot;&gt;&lt;b&gt;The seam lands first.&lt;/b&gt; Every reader of &quot;folder in inbox/ = approved&quot; (omni next, board, stages sync, scores) asks one function, &lt;code&gt;prdState(prd)&lt;/code&gt;, which reads the PRD&#x27;s birthplace. Flip the flag off: new PRDs are born in the repo again; the ones born on the server keep running there, or export their pinned versions as one phase-0 PR.&lt;/div&gt;
+&lt;/div&gt;
+" loading=lazy title="card B"></iframe>
+<table><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th></tr><tr><th>Visionary</th><td>3</td><td>3</td><td>4</td><td>5</td></tr><tr><th>Craft</th><td>3</td><td>4</td><td>4</td><td>5</td></tr><tr><th>Skeptic</th><td>3</td><td>5</td><td>4</td><td>5</td></tr><tr><th>Value</th><td>3</td><td>5</td><td>4</td><td>5</td></tr><tr><th>Users (avg)</th><td>3.2</td><td>3.8</td><td>4</td><td>4</td></tr></table>
+<ul class=st><li><b>Visionary:</b> Keep the seam and the cohort rule — whatever wins needs both.</li><li><b>Craft:</b> The safest transition; only one that answers flag-flipped-mid-flight structurally.</li><li><b>Skeptic:</b> My favourite carrier — build prdState() first (~110 files mention inbox).</li><li><b>Value:</b> Front-runner for HOW to ship; default for new workspaces.</li></ul><p class=cons>Consensus: the rollout and the seam for whichever destination wins.</p><p class=dis>Dissent — persona:B-E DEv picks B as the whole answer: “I notice nothing.”</p>
+<p class=obj><b>Objection.</b> persona:Lead Engineer — “Two homes for PRDs at once makes the board harder to trust for the person who keeps cohesion.”</p><p class=fit>fits persona:Irisa ✓ · persona:B-E DEv ✓ · persona:Paul ✓ · persona:Lead Engineer ✗ · offering#316 ✓</p>
+<div class=t><label><input type=radio name=aB value=keep>keep</label><label><input type=radio name=aB value=kill>kill</label><label><input type=radio name=aB value=merge>merge into <select><option></option><option>A</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select></label><label><input type=radio name=aB value=push>push further</label><input class=n placeholder="note"></div></section><section class=c data-l="C"><header><span class=l>C</span><div><h2>The Ledger</h2><small>clean slate · cs-1</small></div></header>
+<p class=wow>Irisa approves on the PRD page and within a second every target&#x27;s feature PR shows one omni/approved check signed over the five pinned hashes — no phase-0 PR, no plan PR, no CI on Markdown.</p><p class=ax><b>Axis.</b> Where truth lives: the server is the only record, GitHub only receives signals (the Linear model). One gate posts a status per target PR; approval = an attestation row (who, when, hashes) checked against workspace membership.</p>
+<iframe srcdoc="&lt;!doctype html&gt;&lt;meta charset=utf-8&gt;&lt;style&gt;body{margin:0;background:#07061c;color:#f2f4ff;font-family:&#x27;Atkinson Hyperlegible Next&#x27;,system-ui,sans-serif}&lt;/style&gt;&lt;div class=&quot;cs1&quot;&gt;
+&lt;style&gt;
+.cs1{--void:#07061c;--deep:#0e0d33;--navy:#2f3fc4;--plasma:#a45cff;--yel:#ffd84a;--cyan:#6ff0ff;--grn:#4ee08a;--red:#ff3b5c;--txt:#f2f4ff;--dim:#8a90d6;
+background:var(--void);color:var(--txt);font-family:&quot;Atkinson Hyperlegible Next&quot;,&quot;Atkinson Hyperlegible&quot;,system-ui,sans-serif;padding:20px;border-radius:14px;max-width:880px;box-sizing:border-box}
+.cs1 *{box-sizing:border-box}
+.cs1 .mono{font-family:&quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace}
+.cs1 .disp{font-family:Anton,Impact,&quot;Arial Narrow&quot;,sans-serif;letter-spacing:.02em;text-transform:uppercase}
+.cs1 .tag{font-size:11px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase}
+.cs1 .top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;border-bottom:1px solid #2a2960;padding-bottom:12px}
+.cs1 h2{margin:2px 0 0;font-size:34px;line-height:1}
+.cs1 .crumbs{font-size:12px;color:var(--dim)}
+.cs1 .crumbs b{color:var(--yel);font-weight:600}
+.cs1 .grid{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;margin-top:14px}
+@media(max-width:640px){.cs1 .grid{grid-template-columns:1fr}}
+.cs1 .panel{background:var(--deep);border:1px solid #23225a;border-radius:10px;padding:14px}
+.cs1 .files{list-style:none;margin:8px 0 0;padding:0}
+.cs1 .files li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px dashed #23225a;font-size:13px}
+.cs1 .files li:last-child{border:0}
+.cs1 .h{color:var(--cyan);font-size:11px}
+.cs1 .v{color:var(--dim);font-size:11px}
+.cs1 .stamp{margin-top:12px;background:var(--yel);color:var(--void);border-radius:10px;padding:14px;position:relative;overflow:hidden}
+.cs1 .stamp .disp{font-size:26px;line-height:1}
+.cs1 .stamp p{margin:6px 0 0;font-size:13px}
+.cs1 .stamp .mono{font-size:11px}
+.cs1 .stamp svg{position:absolute;right:-8px;top:-8px;opacity:.18}
+.cs1 .repo{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed #23225a;font-size:13px}
+.cs1 .repo:last-child{border:0}
+.cs1 .dot{width:10px;height:10px;border-radius:50%;flex:none}
+.cs1 .g{background:var(--grn);box-shadow:0 0 8px var(--grn)}
+.cs1 .p{background:var(--plasma)}
+.cs1 .y{background:var(--yel)}
+.cs1 .repo .n{flex:1}
+.cs1 .repo .s{font-size:11px;color:var(--dim)}
+.cs1 .meter{margin-top:12px}
+.cs1 .bar{height:8px;background:#1b1a48;border-radius:4px;overflow:hidden;margin-top:6px}
+.cs1 .bar i{display:block;height:100%;width:12%;background:var(--grn)}
+.cs1 .row{display:flex;justify-content:space-between;font-size:12px;margin-top:4px}
+.cs1 .gh{margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media(max-width:640px){.cs1 .gh{grid-template-columns:repeat(2,1fr)}}
+.cs1 .gh div{border:1px solid #23225a;border-radius:8px;padding:8px;text-align:center}
+.cs1 .gh b{display:block;font-family:Anton,Impact,sans-serif;font-size:24px;color:var(--yel)}
+.cs1 .gh s{color:var(--red);font-size:11px}
+.cs1 .gh span{font-size:11px;color:var(--dim)}
+.cs1 .caption{margin-top:14px;font-size:13px;color:var(--dim);border-left:3px solid var(--yel);padding-left:10px}
+.cs1 .flag{display:inline-flex;align-items:center;gap:6px;font-size:11px;border:1px solid var(--grn);color:var(--grn);border-radius:999px;padding:3px 9px}
+&lt;/style&gt;
+
+&lt;div class=&quot;top&quot;&gt;
+  &lt;div&gt;
+    &lt;div class=&quot;crumbs mono&quot;&gt;PROJECT &lt;b&gt;vertuoza-estimates&lt;/b&gt; / PRD 1302 / dossier&lt;/div&gt;
+    &lt;h2 class=&quot;disp&quot;&gt;Quotes in the mobile app&lt;/h2&gt;
+  &lt;/div&gt;
+  &lt;span class=&quot;flag mono&quot;&gt;● phase&amp;#8209;0 on server · 3/3 repos&lt;/span&gt;
+&lt;/div&gt;
+
+&lt;div class=&quot;grid&quot;&gt;
+  &lt;div class=&quot;panel&quot;&gt;
+    &lt;div class=&quot;tag&quot;&gt;Phase 0 — the dossier is the record&lt;/div&gt;
+    &lt;ul class=&quot;files mono&quot;&gt;
+      &lt;li&gt;&lt;span&gt;spec.md &lt;span class=&quot;v&quot;&gt;v4&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;h&quot;&gt;sha256 9f2c…a71e&lt;/span&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;span&gt;plan.md &lt;span class=&quot;v&quot;&gt;v3 · 9 slices&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;h&quot;&gt;sha256 41b0…0cd2&lt;/span&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;span&gt;before-after.html &lt;span class=&quot;v&quot;&gt;v2&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;h&quot;&gt;sha256 c77e…19fa&lt;/span&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;span&gt;voice.json &lt;span class=&quot;v&quot;&gt;v1&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;h&quot;&gt;sha256 0a3d…e550&lt;/span&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;span&gt;scenarios/ &lt;span class=&quot;v&quot;&gt;6 pending&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;h&quot;&gt;sha256 5be1…7704&lt;/span&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+    &lt;div class=&quot;stamp&quot;&gt;
+      &lt;svg width=&quot;120&quot; height=&quot;120&quot; viewBox=&quot;0 0 120 120&quot; aria-hidden=&quot;true&quot;&gt;&lt;circle cx=&quot;60&quot; cy=&quot;60&quot; r=&quot;52&quot; fill=&quot;none&quot; stroke=&quot;#07061c&quot; stroke-width=&quot;6&quot;/&gt;&lt;path d=&quot;M34 62l18 18 36-40&quot; fill=&quot;none&quot; stroke=&quot;#07061c&quot; stroke-width=&quot;10&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;&lt;/svg&gt;
+      &lt;div class=&quot;disp&quot;&gt;Approved · pinned&lt;/div&gt;
+      &lt;p&gt;Irisa Martens, workspace member · 8 Oct 14:02 CET&lt;/p&gt;
+      &lt;p class=&quot;mono&quot;&gt;attestation #a-5521 · 5 hashes · policy: members of vertuoza&lt;/p&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;panel&quot;&gt;
+    &lt;div class=&quot;tag&quot;&gt;Targets — code stays on GitHub&lt;/div&gt;
+    &lt;div class=&quot;repo&quot;&gt;&lt;span class=&quot;dot g&quot;&gt;&lt;/span&gt;&lt;span class=&quot;n mono&quot;&gt;quotes-api&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;feature PR #412 · check &lt;b style=&quot;color:var(--grn)&quot;&gt;omni/approved ✓&lt;/b&gt;&lt;/span&gt;&lt;/div&gt;
+    &lt;div class=&quot;repo&quot;&gt;&lt;span class=&quot;dot g&quot;&gt;&lt;/span&gt;&lt;span class=&quot;n mono&quot;&gt;mobile-app&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;feature PR #88 · hashes match&lt;/span&gt;&lt;/div&gt;
+    &lt;div class=&quot;repo&quot;&gt;&lt;span class=&quot;dot y&quot;&gt;&lt;/span&gt;&lt;span class=&quot;n mono&quot;&gt;web-front&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;wave 2 · waits on api s3&lt;/span&gt;&lt;/div&gt;
+
+    &lt;div class=&quot;meter&quot;&gt;
+      &lt;div class=&quot;tag&quot;&gt;Outbox gate — one, on the server&lt;/div&gt;
+      &lt;div class=&quot;row&quot;&gt;&lt;span&gt;items relayed from 3 repos&lt;/span&gt;&lt;span class=&quot;mono&quot;&gt;14 · 2 open&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;bar&quot;&gt;&lt;i style=&quot;width:86%&quot;&gt;&lt;/i&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;meter&quot;&gt;
+      &lt;div class=&quot;tag&quot;&gt;GitHub App quota this PRD&lt;/div&gt;
+      &lt;div class=&quot;bar&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;
+      &lt;div class=&quot;row&quot;&gt;&lt;span&gt;12% used&lt;/span&gt;&lt;span class=&quot;mono&quot; style=&quot;color:var(--dim)&quot;&gt;was ~60%&lt;/span&gt;&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;div class=&quot;gh&quot;&gt;
+  &lt;div&gt;&lt;b&gt;0&lt;/b&gt;&lt;s&gt;was 2&lt;/s&gt;&lt;br&gt;&lt;span&gt;phase-0 PRs&lt;/span&gt;&lt;/div&gt;
+  &lt;div&gt;&lt;b&gt;0&lt;/b&gt;&lt;s&gt;was 1&lt;/s&gt;&lt;br&gt;&lt;span&gt;plan PRs&lt;/span&gt;&lt;/div&gt;
+  &lt;div&gt;&lt;b&gt;0&lt;/b&gt;&lt;s&gt;was 4&lt;/s&gt;&lt;br&gt;&lt;span&gt;CI runs on .md&lt;/span&gt;&lt;/div&gt;
+  &lt;div&gt;&lt;b&gt;1&lt;/b&gt;&lt;span&gt; issue kept · label &quot;approved&quot;&lt;/span&gt;&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;div class=&quot;caption&quot;&gt;&lt;b style=&quot;color:var(--yel)&quot;&gt;The Ledger.&lt;/b&gt; Irisa approves on the page; within a second every target feature branch carries one &lt;span class=&quot;mono&quot;&gt;omni/approved&lt;/span&gt; status that the server signed over the five pinned hashes. /omni:ultra-yolo reads only that record, and stops if a file drifts, the server is unreachable or the approver isn&#x27;t a member.&lt;/div&gt;
+&lt;/div&gt;
+" loading=lazy title="card C"></iframe>
+<table><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th></tr><tr><th>Visionary</th><td>4</td><td>5</td><td>4</td><td>5</td></tr><tr><th>Craft</th><td>4</td><td>4</td><td>3</td><td>4</td></tr><tr><th>Skeptic</th><td>4</td><td>5</td><td>4</td><td>5</td></tr><tr><th>Value</th><td>4</td><td>5</td><td>4</td><td>5</td></tr><tr><th>Users (avg)</th><td>4.2</td><td>4.4</td><td>4.2</td><td>4.4</td></tr></table>
+<ul class=st><li><b>Visionary:</b> The spine — it lacks a face (D&#x27;s graph?).</li><li><b>Craft:</b> Best end state; still owes its server-down and drift screens.</li><li><b>Skeptic:</b> The target end state; reach it through B. Hashes must match git blobs byte-for-byte.</li><li><b>Value:</b> The destination: the hosted app becomes where work is decided.</li></ul><p class=cons>Consensus: #1 for Value, Craft, Skeptic and 4 of 5 personas.</p><p class=dis>Dissent — Visionary: “a ledger nobody screenshots” without D&#x27;s graph as its face.</p>
+<p class=obj><b>Objection.</b> persona:B-E DEv — “If the server is the only record I cannot read it in my editor.”</p><p class=fit>fits persona:Paul ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✗ · offering#316 ✓</p>
+<div class=t><label><input type=radio name=aC value=keep>keep</label><label><input type=radio name=aC value=kill>kill</label><label><input type=radio name=aC value=merge>merge into <select><option></option><option>A</option><option>B</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select></label><label><input type=radio name=aC value=push>push further</label><input class=n placeholder="note"></div></section><section class=c data-l="D"><header><span class=l>D</span><div><h2>The Contract Graph</h2><small>clean slate · cs-2</small></div></header>
+<p class=wow>Paul drops one idea on the project graph, the contract edges it crosses light up, the plan lays itself out provider-first, and each repo owner co-signs only their slice.</p><p class=ax><b>Axis.</b> The project is a dependency graph of repos and contracts (synthetic monorepo); approval is a quorum; the flag-off fallback works one node at a time (a “docked” repo keeps its phase-0 PR).</p>
+<iframe srcdoc="&lt;!doctype html&gt;&lt;meta charset=utf-8&gt;&lt;style&gt;body{margin:0;background:#07061c;color:#f2f4ff;font-family:&#x27;Atkinson Hyperlegible Next&#x27;,system-ui,sans-serif}&lt;/style&gt;&lt;div class=&quot;cs2&quot;&gt;
+&lt;style&gt;
+.cs2{--void:#07061c;--deep:#0e0d33;--navy:#2f3fc4;--plasma:#a45cff;--yel:#ffd84a;--cyan:#6ff0ff;--grn:#4ee08a;--red:#ff3b5c;--mag:#ff3ea5;--txt:#f2f4ff;--dim:#8a90d6;
+background:var(--void);color:var(--txt);font-family:&quot;Atkinson Hyperlegible Next&quot;,&quot;Atkinson Hyperlegible&quot;,system-ui,sans-serif;padding:20px;border-radius:14px;max-width:880px;box-sizing:border-box}
+.cs2 *{box-sizing:border-box}
+.cs2 .mono{font-family:&quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace}
+.cs2 .disp{font-family:Anton,Impact,&quot;Arial Narrow&quot;,sans-serif;text-transform:uppercase;letter-spacing:.02em}
+.cs2 .tag{font-size:11px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase}
+.cs2 h2{margin:2px 0 4px;font-size:32px;line-height:1}
+.cs2 .sub{font-size:13px;color:var(--dim);margin:0 0 10px}
+.cs2 svg{width:100%;height:auto;display:block}
+.cs2 .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--dim);margin-top:8px}
+.cs2 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.cs2 .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+@media(max-width:640px){.cs2 .cols{grid-template-columns:1fr}}
+.cs2 .c{background:var(--deep);border:1px solid #23225a;border-radius:10px;padding:10px;font-size:12.5px}
+.cs2 .c b{color:var(--yel)}
+.cs2 .caption{margin-top:12px;font-size:13px;color:var(--dim);border-left:3px solid var(--plasma);padding-left:10px}
+&lt;/style&gt;
+
+&lt;div class=&quot;tag&quot;&gt;Target architecture · project = contract graph on the Omni server&lt;/div&gt;
+&lt;h2 class=&quot;disp&quot;&gt;The Contract Graph&lt;/h2&gt;
+&lt;p class=&quot;sub&quot;&gt;A PRD is a cut across the graph. Each repository it crosses co-signs its own slice; the plan is ordered by the edges, provider first.&lt;/p&gt;
+
+&lt;svg viewBox=&quot;0 0 840 380&quot; role=&quot;img&quot; aria-label=&quot;Omni server holding the project graph above GitHub repositories&quot;&gt;
+  &lt;defs&gt;
+    &lt;marker id=&quot;cs2a&quot; viewBox=&quot;0 0 10 10&quot; refX=&quot;9&quot; refY=&quot;5&quot; markerWidth=&quot;7&quot; markerHeight=&quot;7&quot; orient=&quot;auto&quot;&gt;&lt;path d=&quot;M0 0L10 5L0 10z&quot; fill=&quot;#6ff0ff&quot;/&gt;&lt;/marker&gt;
+  &lt;/defs&gt;
+  &lt;!-- server band --&gt;
+  &lt;rect x=&quot;10&quot; y=&quot;10&quot; width=&quot;820&quot; height=&quot;230&quot; rx=&quot;14&quot; fill=&quot;#0e0d33&quot; stroke=&quot;#2f3fc4&quot;/&gt;
+  &lt;text x=&quot;28&quot; y=&quot;34&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot; letter-spacing=&quot;1.5&quot;&gt;OMNI SERVER · project &quot;estimates&quot; (supabase)&lt;/text&gt;
+  &lt;!-- stores --&gt;
+  &lt;g font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10.5&quot; fill=&quot;#f2f4ff&quot;&gt;
+    &lt;rect x=&quot;28&quot; y=&quot;48&quot; width=&quot;170&quot; height=&quot;176&quot; rx=&quot;8&quot; fill=&quot;#07061c&quot; stroke=&quot;#23225a&quot;/&gt;
+    &lt;text x=&quot;40&quot; y=&quot;68&quot; fill=&quot;#ffd84a&quot;&gt;PRD 1302 dossier&lt;/text&gt;
+    &lt;text x=&quot;40&quot; y=&quot;88&quot;&gt;spec · plan · b/a · voice&lt;/text&gt;
+    &lt;text x=&quot;40&quot; y=&quot;104&quot;&gt;scenarios (pending)&lt;/text&gt;
+    &lt;text x=&quot;40&quot; y=&quot;124&quot; fill=&quot;#ffd84a&quot;&gt;attestations&lt;/text&gt;
+    &lt;text x=&quot;40&quot; y=&quot;142&quot;&gt;PM  Irisa   ✓ spec#9f2c&lt;/text&gt;
+    &lt;text x=&quot;40&quot; y=&quot;158&quot;&gt;api Marc    ✓ s1-s3&lt;/text&gt;
+    &lt;text x=&quot;40&quot; y=&quot;174&quot;&gt;mob Lea     ✓ s4-s7&lt;/text&gt;
+    &lt;text x=&quot;40&quot; y=&quot;190&quot; fill=&quot;#ff3ea5&quot;&gt;web …       waiting&lt;/text&gt;
+    &lt;text x=&quot;40&quot; y=&quot;212&quot; fill=&quot;#8a90d6&quot;&gt;outbox · per edge&lt;/text&gt;
+  &lt;/g&gt;
+  &lt;!-- graph --&gt;
+  &lt;g font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot; text-anchor=&quot;middle&quot;&gt;
+    &lt;path d=&quot;M430 92 L330 170&quot; stroke=&quot;#6ff0ff&quot; stroke-width=&quot;2&quot; marker-end=&quot;url(#cs2a)&quot;/&gt;
+    &lt;path d=&quot;M490 92 L590 170&quot; stroke=&quot;#6ff0ff&quot; stroke-width=&quot;2&quot; marker-end=&quot;url(#cs2a)&quot;/&gt;
+    &lt;path d=&quot;M520 78 L700 78&quot; stroke=&quot;#8a90d6&quot; stroke-width=&quot;1.5&quot; stroke-dasharray=&quot;5 5&quot;/&gt;
+    &lt;text x=&quot;360&quot; y=&quot;128&quot; fill=&quot;#6ff0ff&quot; font-size=&quot;9.5&quot;&gt;GET /quotes v2&lt;/text&gt;
+    &lt;text x=&quot;565&quot; y=&quot;128&quot; fill=&quot;#6ff0ff&quot; font-size=&quot;9.5&quot;&gt;GET /quotes v2&lt;/text&gt;
+    &lt;circle cx=&quot;460&quot; cy=&quot;78&quot; r=&quot;34&quot; fill=&quot;#07061c&quot; stroke=&quot;#4ee08a&quot; stroke-width=&quot;3&quot;/&gt;
+    &lt;text x=&quot;460&quot; y=&quot;74&quot; fill=&quot;#f2f4ff&quot;&gt;quotes&lt;/text&gt;&lt;text x=&quot;460&quot; y=&quot;88&quot; fill=&quot;#f2f4ff&quot;&gt;-api&lt;/text&gt;
+    &lt;circle cx=&quot;310&quot; cy=&quot;190&quot; r=&quot;32&quot; fill=&quot;#07061c&quot; stroke=&quot;#4ee08a&quot; stroke-width=&quot;3&quot;/&gt;
+    &lt;text x=&quot;310&quot; y=&quot;186&quot; fill=&quot;#f2f4ff&quot;&gt;mobile&lt;/text&gt;&lt;text x=&quot;310&quot; y=&quot;200&quot; fill=&quot;#f2f4ff&quot;&gt;-app&lt;/text&gt;
+    &lt;circle cx=&quot;610&quot; cy=&quot;190&quot; r=&quot;32&quot; fill=&quot;#07061c&quot; stroke=&quot;#ff3ea5&quot; stroke-width=&quot;3&quot; stroke-dasharray=&quot;4 3&quot;/&gt;
+    &lt;text x=&quot;610&quot; y=&quot;186&quot; fill=&quot;#f2f4ff&quot;&gt;web&lt;/text&gt;&lt;text x=&quot;610&quot; y=&quot;200&quot; fill=&quot;#f2f4ff&quot;&gt;-front&lt;/text&gt;
+    &lt;!-- docked node, flag off --&gt;
+    &lt;rect x=&quot;700&quot; y=&quot;52&quot; width=&quot;114&quot; height=&quot;52&quot; rx=&quot;8&quot; fill=&quot;#07061c&quot; stroke=&quot;#8a90d6&quot; stroke-dasharray=&quot;3 3&quot;/&gt;
+    &lt;text x=&quot;757&quot; y=&quot;74&quot; fill=&quot;#8a90d6&quot;&gt;legacy-php&lt;/text&gt;
+    &lt;text x=&quot;757&quot; y=&quot;92&quot; fill=&quot;#8a90d6&quot; font-size=&quot;9.5&quot;&gt;flag off · docked&lt;/text&gt;
+    &lt;!-- knowledge chips --&gt;
+    &lt;rect x=&quot;410&quot; y=&quot;122&quot; width=&quot;100&quot; height=&quot;18&quot; rx=&quot;9&quot; fill=&quot;#a45cff&quot; opacity=&quot;.25&quot;/&gt;
+    &lt;text x=&quot;460&quot; y=&quot;135&quot; fill=&quot;#a45cff&quot; font-size=&quot;9.5&quot;&gt;knowledge: own&lt;/text&gt;
+    &lt;rect x=&quot;260&quot; y=&quot;230&quot; width=&quot;100&quot; height=&quot;0&quot; /&gt;
+  &lt;/g&gt;
+  &lt;!-- github band --&gt;
+  &lt;rect x=&quot;10&quot; y=&quot;262&quot; width=&quot;820&quot; height=&quot;108&quot; rx=&quot;14&quot; fill=&quot;none&quot; stroke=&quot;#23225a&quot;/&gt;
+  &lt;text x=&quot;28&quot; y=&quot;284&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot; letter-spacing=&quot;1.5&quot;&gt;GITHUB · code only&lt;/text&gt;
+  &lt;g font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10.5&quot; fill=&quot;#f2f4ff&quot;&gt;
+    &lt;rect x=&quot;200&quot; y=&quot;298&quot; width=&quot;150&quot; height=&quot;56&quot; rx=&quot;8&quot; fill=&quot;#0e0d33&quot; stroke=&quot;#4ee08a&quot;/&gt;
+    &lt;text x=&quot;212&quot; y=&quot;318&quot;&gt;mobile-app&lt;/text&gt;&lt;text x=&quot;212&quot; y=&quot;336&quot; fill=&quot;#4ee08a&quot;&gt;feat PR · omni ✓&lt;/text&gt;
+    &lt;rect x=&quot;385&quot; y=&quot;298&quot; width=&quot;150&quot; height=&quot;56&quot; rx=&quot;8&quot; fill=&quot;#0e0d33&quot; stroke=&quot;#4ee08a&quot;/&gt;
+    &lt;text x=&quot;397&quot; y=&quot;318&quot;&gt;quotes-api&lt;/text&gt;&lt;text x=&quot;397&quot; y=&quot;336&quot; fill=&quot;#4ee08a&quot;&gt;feat PR · merge 1st&lt;/text&gt;
+    &lt;rect x=&quot;570&quot; y=&quot;298&quot; width=&quot;110&quot; height=&quot;56&quot; rx=&quot;8&quot; fill=&quot;#0e0d33&quot; stroke=&quot;#ff3ea5&quot;/&gt;
+    &lt;text x=&quot;582&quot; y=&quot;318&quot;&gt;web-front&lt;/text&gt;&lt;text x=&quot;582&quot; y=&quot;336&quot; fill=&quot;#ff3ea5&quot;&gt;held&lt;/text&gt;
+    &lt;rect x=&quot;700&quot; y=&quot;298&quot; width=&quot;114&quot; height=&quot;56&quot; rx=&quot;8&quot; fill=&quot;#0e0d33&quot; stroke=&quot;#ffd84a&quot;/&gt;
+    &lt;text x=&quot;712&quot; y=&quot;318&quot;&gt;legacy-php&lt;/text&gt;&lt;text x=&quot;712&quot; y=&quot;336&quot; fill=&quot;#ffd84a&quot;&gt;phase-0 PR&lt;/text&gt;
+  &lt;/g&gt;
+  &lt;g stroke=&quot;#2f3fc4&quot; stroke-width=&quot;1.5&quot; stroke-dasharray=&quot;2 4&quot;&gt;
+    &lt;line x1=&quot;310&quot; y1=&quot;222&quot; x2=&quot;275&quot; y2=&quot;298&quot;/&gt;&lt;line x1=&quot;460&quot; y1=&quot;112&quot; x2=&quot;460&quot; y2=&quot;298&quot;/&gt;
+    &lt;line x1=&quot;610&quot; y1=&quot;222&quot; x2=&quot;625&quot; y2=&quot;298&quot;/&gt;&lt;line x1=&quot;757&quot; y1=&quot;104&quot; x2=&quot;757&quot; y2=&quot;298&quot;/&gt;
+  &lt;/g&gt;
+&lt;/svg&gt;
+
+&lt;div class=&quot;legend&quot;&gt;
+  &lt;span&gt;&lt;i style=&quot;background:#4ee08a&quot;&gt;&lt;/i&gt;co-signed, hashes pinned&lt;/span&gt;
+  &lt;span&gt;&lt;i style=&quot;background:#ff3ea5&quot;&gt;&lt;/i&gt;owner hasn&#x27;t signed: slice held&lt;/span&gt;
+  &lt;span&gt;&lt;i style=&quot;background:#8a90d6&quot;&gt;&lt;/i&gt;flag off: docked on today&#x27;s phase-0 PR&lt;/span&gt;
+  &lt;span&gt;&lt;i style=&quot;background:#6ff0ff&quot;&gt;&lt;/i&gt;contract edge (consumes)&lt;/span&gt;
+&lt;/div&gt;
+
+&lt;div class=&quot;cols&quot;&gt;
+  &lt;div class=&quot;c&quot;&gt;&lt;b&gt;Paul, PM&lt;/b&gt;&lt;br&gt;Drops one idea on the project. The edges it crosses light up, and the plan writes itself in merge order.&lt;/div&gt;
+  &lt;div class=&quot;c&quot;&gt;&lt;b&gt;Lead engineer&lt;/b&gt;&lt;br&gt;Sees every repository&#x27;s sign-off at once. web-front waits on Lea and nothing else.&lt;/div&gt;
+  &lt;div class=&quot;c&quot;&gt;&lt;b&gt;B-E dev&lt;/b&gt;&lt;br&gt;Signs only his slice. A broken contract test on api re-plans the consumers before they build on it.&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;div class=&quot;caption&quot;&gt;Wow: a repository with its flag off sits in the same graph, docked on today&#x27;s docs-only phase-0 PR, while the others build from the server. Fallback works one repository at a time.&lt;/div&gt;
+&lt;/div&gt;
+" loading=lazy title="card D"></iframe>
+<table><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th></tr><tr><th>Visionary</th><td>5</td><td>4</td><td>4</td><td>4</td></tr><tr><th>Craft</th><td>5</td><td>3</td><td>3</td><td>3</td></tr><tr><th>Skeptic</th><td>5</td><td>3</td><td>4</td><td>3</td></tr><tr><th>Value</th><td>5</td><td>4</td><td>3</td><td>4</td></tr><tr><th>Users (avg)</th><td>4</td><td>3.2</td><td>3.2</td><td>3.2</td></tr></table>
+<ul class=st><li><b>Visionary:</b> My pick as the face of C — PM signs alone, an edge asks its owner only when its contract changes.</li><li><b>Craft:</b> Real wow, real noise: graph for the PM, a list for the signer.</li><li><b>Skeptic:</b> A later layer — edges must be inferred, not hand-kept config.</li><li><b>Value:</b> The premium tier of C, not the first release.</li></ul><p class=cons>Consensus: a later layer; quorum only opt-in per edge.</p><p class=dis>Dissent — Visionary: the graph is the front door, not an upsell.</p>
+<p class=obj><b>Objection.</b> persona:Irisa — “Waiting on several repo owners is the technical harness I already cannot master.”</p><p class=fit>fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul ✗ (quorum) · persona:Irisa ✗ · rival#44 — no gap claimed</p>
+<div class=t><label><input type=radio name=aD value=keep>keep</label><label><input type=radio name=aD value=kill>kill</label><label><input type=radio name=aD value=merge>merge into <select><option></option><option>A</option><option>B</option><option>C</option><option>E</option><option>F</option><option>G</option><option>H</option></select></label><label><input type=radio name=aD value=push>push further</label><input class=n placeholder="note"></div></section><section class=c data-l="E"><header><span class=l>E</span><div><h2>Ghost Checkout</h2><small>tooling first · tf-1</small></div></header>
+<p class=wow>“I deleted the plan repo and the agent didn&#x27;t notice — ls prds/912 still shows spec.md — and when I edited voice.json after approval, ultra-yolo refused.”</p><p class=ax><b>Axis.</b> Where the files live: on the server, but every path the skills use keeps its shape (a project folder with the server as remote); `omni project eject` writes a real plan repo back.</p>
+<iframe srcdoc="&lt;!doctype html&gt;&lt;meta charset=utf-8&gt;&lt;style&gt;body{margin:0;background:#07061c;color:#f2f4ff;font-family:&#x27;Atkinson Hyperlegible Next&#x27;,system-ui,sans-serif}&lt;/style&gt;&lt;div class=&quot;tf1&quot;&gt;
+&lt;style&gt;
+.tf1{--void:#07061c;--deep:#0e0d33;--navy:#2f3fc4;--plasma:#a45cff;--y:#ffd84a;--cyan:#6ff0ff;--green:#4ee08a;--red:#ff3b5c;--text:#f2f4ff;--dim:#8a90d6;
+background:var(--void);color:var(--text);font-family:&quot;Atkinson Hyperlegible Next&quot;,&quot;Atkinson Hyperlegible&quot;,system-ui,sans-serif;padding:24px;border-radius:14px;max-width:960px;box-sizing:border-box}
+.tf1 *{box-sizing:border-box}
+.tf1 .k{font:600 11px/1 &quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--y)}
+.tf1 h2{font-family:Anton,Impact,&quot;Arial Narrow Bold&quot;,sans-serif;font-weight:400;font-size:40px;line-height:1;margin:8px 0 6px;letter-spacing:.01em}
+.tf1 .sub{color:var(--dim);font-size:15px;margin:0 0 18px;max-width:62ch}
+.tf1 .row{display:grid;grid-template-columns:1.35fr 1fr;gap:16px}
+@media (max-width:720px){.tf1 .row{grid-template-columns:1fr}.tf1 h2{font-size:30px}}
+.tf1 .term{background:#03020f;border:1px solid #23215a;border-radius:10px;overflow:hidden}
+.tf1 .bar{display:flex;gap:6px;align-items:center;padding:8px 12px;background:var(--deep);font:11px &quot;JetBrains Mono&quot;,ui-monospace,monospace;color:var(--dim)}
+.tf1 .bar i{width:9px;height:9px;border-radius:50%;background:#2a285e;display:inline-block}
+.tf1 pre{margin:0;padding:14px 14px 16px;font:12.5px/1.6 &quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word;color:#cfd3ff}
+.tf1 .p{color:var(--y)} .tf1 .c{color:var(--cyan)} .tf1 .g{color:var(--green)} .tf1 .r{color:var(--red)} .tf1 .d{color:var(--dim)} .tf1 .m{color:var(--plasma)}
+.tf1 .side{display:flex;flex-direction:column;gap:12px}
+.tf1 .card{background:var(--deep);border:1px solid #23215a;border-radius:10px;padding:14px}
+.tf1 .card h3{margin:0 0 8px;font:600 12px/1.2 &quot;JetBrains Mono&quot;,ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.tf1 .tree{font:12px/1.7 &quot;JetBrains Mono&quot;,ui-monospace,monospace;color:var(--text)}
+.tf1 .tree span{color:var(--dim)}
+.tf1 .pill{display:inline-block;font:600 10px/1 &quot;JetBrains Mono&quot;,ui-monospace,monospace;padding:3px 6px;border-radius:4px;background:var(--y);color:var(--void);margin-left:6px;vertical-align:1px}
+.tf1 .pill.o{background:transparent;border:1px solid var(--navy);color:var(--cyan)}
+.tf1 .quote{border-left:3px solid var(--y);padding:4px 0 4px 12px;font-size:15px;line-height:1.45}
+.tf1 .quote b{color:var(--y);font-weight:600}
+.tf1 .who{color:var(--dim);font-size:12px;margin-top:6px}
+&lt;/style&gt;
+&lt;div class=&quot;k&quot;&gt;tf-1 · Ghost checkout · the moment&lt;/div&gt;
+&lt;h2&gt;The plan repo is gone. &lt;span style=&quot;color:var(--y)&quot;&gt;ls&lt;/span&gt; still works.&lt;/h2&gt;
+&lt;p class=&quot;sub&quot;&gt;A project is a folder on your disk that no git owns: the server is its remote. Skills read and write files as they always did; the server keeps every version, and the approval pins their hashes.&lt;/p&gt;
+&lt;div class=&quot;row&quot;&gt;
+ &lt;div class=&quot;term&quot;&gt;
+  &lt;div class=&quot;bar&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&amp;nbsp; ~/.omni/projects/checkout-v2 — zsh&lt;/div&gt;
+&lt;pre&gt;&lt;span class=&quot;p&quot;&gt;$&lt;/span&gt; omni project open checkout-v2
+&lt;span class=&quot;d&quot;&gt;  mounted 2 repos · vertuoza/api (provider) · vertuoza/web (consumer)&lt;/span&gt;
+&lt;span class=&quot;d&quot;&gt;  ~/.omni/projects/checkout-v2 ← galaxy · 41 files · 0 git&lt;/span&gt;
+
+&lt;span class=&quot;p&quot;&gt;$&lt;/span&gt; ls prds/912
+spec.md  plan.md  before-after.html  voice.json  scenarios/  outbox/
+
+&lt;span class=&quot;p&quot;&gt;$&lt;/span&gt; omni project status 912
+&lt;span class=&quot;c&quot;&gt;  PRD 912 · Split payment&lt;/span&gt;  approved by &lt;span class=&quot;g&quot;&gt;Paul&lt;/span&gt; · 14:02 · 4 hashes pinned
+  spec.md            &lt;span class=&quot;g&quot;&gt;= pinned&lt;/span&gt;  sha 3f9a…c1
+  plan.md            &lt;span class=&quot;g&quot;&gt;= pinned&lt;/span&gt;  sha 77be…02
+  before-after.html  &lt;span class=&quot;g&quot;&gt;= pinned&lt;/span&gt;  sha a41d…9e
+  voice.json         &lt;span class=&quot;r&quot;&gt;≠ edited locally&lt;/span&gt;  (2 lines)
+
+&lt;span class=&quot;p&quot;&gt;$&lt;/span&gt; /omni:ultra-yolo 912
+&lt;span class=&quot;r&quot;&gt;  ✗ refuse&lt;/span&gt; voice.json differs from what Paul approved.
+&lt;span class=&quot;d&quot;&gt;    omni project restore 912 voice.json   — take back the approved one&lt;/span&gt;
+&lt;span class=&quot;d&quot;&gt;    omni project push 912                  — new version, asks for re-approval&lt;/span&gt;
+
+&lt;span class=&quot;p&quot;&gt;$&lt;/span&gt; omni project restore 912 voice.json &amp;&amp; /omni:ultra-yolo 912
+&lt;span class=&quot;g&quot;&gt;  ✓ attestation ok&lt;/span&gt; · workspace member · server reachable
+&lt;span class=&quot;m&quot;&gt;  → api@912&lt;/span&gt;  feature/912-split-payment  &lt;span class=&quot;d&quot;&gt;draft PR #4410&lt;/span&gt;
+&lt;span class=&quot;m&quot;&gt;  → web@912&lt;/span&gt;  feature/912-split-payment  &lt;span class=&quot;d&quot;&gt;draft PR #2287&lt;/span&gt;
+&lt;span class=&quot;d&quot;&gt;  wave 1 · 3 slices · outbox lives in prds/912/outbox/ → galaxy&lt;/span&gt;&lt;/pre&gt;
+ &lt;/div&gt;
+ &lt;div class=&quot;side&quot;&gt;
+  &lt;div class=&quot;card&quot;&gt;
+   &lt;h3&gt;What is where&lt;/h3&gt;
+   &lt;div class=&quot;tree&quot;&gt;
+   prds/912/ &lt;span&gt;→ dossier&lt;/span&gt;&lt;span class=&quot;pill&quot;&gt;server&lt;/span&gt;&lt;br&gt;
+   roadmaps/7/roadmap.md &lt;span&gt;→ roadmap&lt;/span&gt;&lt;span class=&quot;pill&quot;&gt;server&lt;/span&gt;&lt;br&gt;
+   bugs/533/bug.md &lt;span&gt;→ bug record&lt;/span&gt;&lt;span class=&quot;pill&quot;&gt;server&lt;/span&gt;&lt;br&gt;
+   knowledge/repos/web/ &lt;span&gt;→ imported&lt;/span&gt;&lt;span class=&quot;pill&quot;&gt;server&lt;/span&gt;&lt;br&gt;
+   feature branches, sub-PRs &lt;span&gt;→&lt;/span&gt;&lt;span class=&quot;pill o&quot;&gt;GitHub&lt;/span&gt;&lt;br&gt;
+   issue #912 + label &lt;span&gt;→ display&lt;/span&gt;&lt;span class=&quot;pill o&quot;&gt;GitHub&lt;/span&gt;
+   &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;card&quot;&gt;
+   &lt;h3&gt;Flag off, or done with it&lt;/h3&gt;
+   &lt;div class=&quot;tree&quot;&gt;&lt;span&gt;config.yml&lt;/span&gt; phase0: &lt;span style=&quot;color:var(--y)&quot;&gt;server&lt;/span&gt; | pr&lt;br&gt;&lt;span&gt;omni project eject → a real plan repo, one commit&lt;/span&gt;&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;card&quot;&gt;
+   &lt;div class=&quot;quote&quot;&gt;“I &lt;b&gt;deleted the plan repo&lt;/b&gt; and the agent didn’t notice. Same paths, same files — and when I nudged voice.json after approval, yolo just said no.”&lt;/div&gt;
+   &lt;div class=&quot;who&quot;&gt;— B-E Dev, to the Lead Engineer&lt;/div&gt;
+  &lt;/div&gt;
+ &lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+" loading=lazy title="card E"></iframe>
+<table><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th></tr><tr><th>Visionary</th><td>3</td><td>3</td><td>4</td><td>4</td></tr><tr><th>Craft</th><td>4</td><td>4</td><td>3</td><td>4</td></tr><tr><th>Skeptic</th><td>4</td><td>4</td><td>4</td><td>3</td></tr><tr><th>Value</th><td>3</td><td>3</td><td>3</td><td>4</td></tr><tr><th>Users (avg)</th><td>2.6</td><td>2.8</td><td>3.8</td><td>3.2</td></tr></table>
+<ul class=st><li><b>Visionary:</b> A good way to build it, not the vision.</li><li><b>Craft:</b> Its refusal copy (≠ edited · ✗ refuse · restore / push) is the template for every failure.</li><li><b>Skeptic:</b> A writable folder is a second copy — keep only a read-only resolver view.</li><li><b>Value:</b> An implementation trick under C.</li></ul><p class=cons>Consensus: harvest its refusal grammar and read-only view; drop the writable folder.</p>
+<p class=obj><b>Objection.</b> persona:Irisa — “I want to tap, not run omni project open; this is built for someone who is not me.”</p><p class=fit>fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul ✗ · persona:Irisa ✗</p>
+<div class=t><label><input type=radio name=aE value=keep>keep</label><label><input type=radio name=aE value=kill>kill</label><label><input type=radio name=aE value=merge>merge into <select><option></option><option>A</option><option>B</option><option>C</option><option>D</option><option>F</option><option>G</option><option>H</option></select></label><label><input type=radio name=aE value=push>push further</label><input class=n placeholder="note"></div></section><section class=c data-l="F"><header><span class=l>F</span><div><h2>Handshake Ledger</h2><small>tooling first · tf-2</small></div></header>
+<p class=wow>“The terminal waits for the click — the agent parks on omni wait approval 912, Irisa taps Approve on her phone, and within a second wave 1 starts.”</p><p class=ax><b>Axis.</b> Documents never leave git; the server keeps only a ledger (attestation over git blob hashes + loop state as rows). Skills write state through typed verbs (omni outbox raise, omni settle).</p>
+<iframe srcdoc="&lt;!doctype html&gt;&lt;meta charset=utf-8&gt;&lt;style&gt;body{margin:0;background:#07061c;color:#f2f4ff;font-family:&#x27;Atkinson Hyperlegible Next&#x27;,system-ui,sans-serif}&lt;/style&gt;&lt;div class=&quot;tf2&quot;&gt;
+&lt;style&gt;
+.tf2{--void:#07061c;--deep:#0e0d33;--navy:#2f3fc4;--plasma:#a45cff;--y:#ffd84a;--cyan:#6ff0ff;--green:#4ee08a;--red:#ff3b5c;--text:#f2f4ff;--dim:#8a90d6;
+background:var(--void);color:var(--text);font-family:&quot;Atkinson Hyperlegible Next&quot;,&quot;Atkinson Hyperlegible&quot;,system-ui,sans-serif;padding:24px;border-radius:14px;max-width:960px;box-sizing:border-box}
+.tf2 *{box-sizing:border-box}
+.tf2 .k{font:600 11px/1 &quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--y)}
+.tf2 h2{font-family:Anton,Impact,&quot;Arial Narrow Bold&quot;,sans-serif;font-weight:400;font-size:40px;line-height:1;margin:8px 0 6px}
+.tf2 .sub{color:var(--dim);font-size:15px;margin:0 0 18px;max-width:64ch}
+.tf2 .row{display:grid;grid-template-columns:1.15fr 54px 1fr;gap:0;align-items:center}
+@media (max-width:760px){.tf2 .row{grid-template-columns:1fr}.tf2 .wire{transform:rotate(90deg);height:54px}.tf2 h2{font-size:30px}}
+.tf2 .term{background:#03020f;border:1px solid #23215a;border-radius:10px;overflow:hidden}
+.tf2 .bar{display:flex;gap:6px;align-items:center;padding:8px 12px;background:var(--deep);font:11px &quot;JetBrains Mono&quot;,ui-monospace,monospace;color:var(--dim)}
+.tf2 .bar i{width:9px;height:9px;border-radius:50%;background:#2a285e;display:inline-block}
+.tf2 pre{margin:0;padding:14px;font:12.5px/1.6 &quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word;color:#cfd3ff}
+.tf2 .p{color:var(--y)} .tf2 .c{color:var(--cyan)} .tf2 .g{color:var(--green)} .tf2 .d{color:var(--dim)} .tf2 .m{color:var(--plasma)}
+.tf2 .blink{display:inline-block;width:8px;height:14px;background:var(--y);vertical-align:-2px}
+.tf2 .wire{display:flex;justify-content:center}
+.tf2 .page{background:var(--deep);border:1px solid #2b2970;border-radius:12px;overflow:hidden}
+.tf2 .ptop{padding:10px 14px;border-bottom:1px solid #23215a;font:11px &quot;JetBrains Mono&quot;,ui-monospace,monospace;color:var(--dim);display:flex;justify-content:space-between}
+.tf2 .pbody{padding:16px}
+.tf2 .ttl{font-family:Anton,Impact,sans-serif;font-size:26px;line-height:1.05;margin:0 0 4px}
+.tf2 .repos{display:flex;gap:6px;margin:8px 0 12px;flex-wrap:wrap}
+.tf2 .chip{font:600 10px/1 &quot;JetBrains Mono&quot;,ui-monospace,monospace;padding:4px 7px;border-radius:4px;border:1px solid var(--navy);color:var(--cyan)}
+.tf2 table{width:100%;border-collapse:collapse;font:11.5px/1.5 &quot;JetBrains Mono&quot;,ui-monospace,monospace}
+.tf2 td{padding:4px 0;border-bottom:1px dashed #23215a;color:var(--text)}
+.tf2 td.h{color:var(--dim);text-align:right}
+.tf2 .btn{margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--y);color:var(--void);font:700 15px/1 &quot;Atkinson Hyperlegible Next&quot;,system-ui,sans-serif;padding:13px;border-radius:8px;box-shadow:0 0 0 4px rgba(255,216,74,.18),0 0 28px rgba(255,216,74,.35)}
+.tf2 .stamp{margin-top:10px;font:11px/1.5 &quot;JetBrains Mono&quot;,ui-monospace,monospace;color:var(--dim)}
+.tf2 .stamp b{color:var(--green);font-weight:600}
+.tf2 .foot{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px}
+@media (max-width:760px){.tf2 .foot{grid-template-columns:1fr}}
+.tf2 .f{background:var(--deep);border:1px solid #23215a;border-radius:10px;padding:12px;font-size:13px;line-height:1.45}
+.tf2 .f h3{margin:0 0 6px;font:600 11px/1 &quot;JetBrains Mono&quot;,ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--y)}
+.tf2 .q{font-size:15px;line-height:1.45;border-left:3px solid var(--y);padding-left:12px}
+.tf2 .q span{display:block;color:var(--dim);font-size:12px;margin-top:4px}
+&lt;/style&gt;
+&lt;div class=&quot;k&quot;&gt;tf-2 · Handshake ledger · the moment&lt;/div&gt;
+&lt;h2&gt;The terminal waits for &lt;span style=&quot;color:var(--y)&quot;&gt;the click.&lt;/span&gt;&lt;/h2&gt;
+&lt;p class=&quot;sub&quot;&gt;Documents never leave git: the spec rides on the feature branch. The server keeps only a ledger: who approved, which blob hashes, what the outbox says. The agent parks on &lt;code&gt;omni wait&lt;/code&gt;, the PM approves on her phone, the build starts within a second.&lt;/p&gt;
+&lt;div class=&quot;row&quot;&gt;
+ &lt;div class=&quot;term&quot;&gt;
+  &lt;div class=&quot;bar&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&amp;nbsp; api@912 — claude&lt;/div&gt;
+&lt;pre&gt;&lt;span class=&quot;p&quot;&gt;›&lt;/span&gt; /omni:mega-brainstorm &quot;split payment&quot;
+&lt;span class=&quot;d&quot;&gt;  …spec, plan, before-after committed on&lt;/span&gt;
+&lt;span class=&quot;d&quot;&gt;  api: feature/912-split-payment @ e41c09a&lt;/span&gt;
+&lt;span class=&quot;d&quot;&gt;  phase 0: ledger (flag on) · 0 PRs opened&lt;/span&gt;
+
+&lt;span class=&quot;p&quot;&gt;$&lt;/span&gt; omni wait approval 912
+&lt;span class=&quot;c&quot;&gt;  ◌ waiting for a workspace member&lt;/span&gt;
+&lt;span class=&quot;d&quot;&gt;    galaxy.omni/p/checkout-v2/912&lt;/span&gt;
+&lt;span class=&quot;d&quot;&gt;    pinned on request: 4 blobs @ e41c09a&lt;/span&gt;
+&lt;span class=&quot;blink&quot;&gt;&lt;/span&gt;
+
+&lt;span class=&quot;g&quot;&gt;  ● approved&lt;/span&gt; by &lt;span class=&quot;p&quot;&gt;Irisa&lt;/span&gt; · 14:02:11
+&lt;span class=&quot;d&quot;&gt;    attestation 9b2e… over&lt;/span&gt;
+&lt;span class=&quot;d&quot;&gt;    spec.md 3f9a  plan.md 77be&lt;/span&gt;
+&lt;span class=&quot;d&quot;&gt;    before-after.html a41d  voice.json 0c55&lt;/span&gt;
+&lt;span class=&quot;d&quot;&gt;    issue #912 label &quot;approved&quot; (display)&lt;/span&gt;
+
+&lt;span class=&quot;p&quot;&gt;›&lt;/span&gt; /omni:ultra-yolo 912
+&lt;span class=&quot;g&quot;&gt;  ✓ blobs match the attestation&lt;/span&gt;
+&lt;span class=&quot;m&quot;&gt;  → api&lt;/span&gt; wave 1 · &lt;span class=&quot;m&quot;&gt;web&lt;/span&gt; wave 1 · 3 slices&lt;/pre&gt;
+ &lt;/div&gt;
+ &lt;div class=&quot;wire&quot;&gt;
+  &lt;svg width=&quot;54&quot; height=&quot;120&quot; viewBox=&quot;0 0 54 120&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M4 60 H50&quot; stroke=&quot;#ffd84a&quot; stroke-width=&quot;2&quot; stroke-dasharray=&quot;4 5&quot;/&gt;&lt;circle cx=&quot;27&quot; cy=&quot;60&quot; r=&quot;7&quot; fill=&quot;#07061c&quot; stroke=&quot;#ffd84a&quot; stroke-width=&quot;2&quot;/&gt;&lt;circle cx=&quot;27&quot; cy=&quot;60&quot; r=&quot;2.5&quot; fill=&quot;#ffd84a&quot;/&gt;&lt;path d=&quot;M8 54 L2 60 L8 66&quot; fill=&quot;none&quot; stroke=&quot;#ffd84a&quot; stroke-width=&quot;2&quot;/&gt;&lt;/svg&gt;
+ &lt;/div&gt;
+ &lt;div class=&quot;page&quot;&gt;
+  &lt;div class=&quot;ptop&quot;&gt;&lt;span&gt;Omni · checkout-v2 · PRD 912&lt;/span&gt;&lt;span&gt;phase 0&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;pbody&quot;&gt;
+   &lt;div class=&quot;ttl&quot;&gt;Split payment&lt;/div&gt;
+   &lt;div style=&quot;color:var(--dim);font-size:13px&quot;&gt;Read straight from the branch, not copied.&lt;/div&gt;
+   &lt;div class=&quot;repos&quot;&gt;&lt;span class=&quot;chip&quot;&gt;vertuoza/api · provider&lt;/span&gt;&lt;span class=&quot;chip&quot;&gt;vertuoza/web · consumer&lt;/span&gt;&lt;/div&gt;
+   &lt;table&gt;
+    &lt;tr&gt;&lt;td&gt;spec.md&lt;/td&gt;&lt;td class=&quot;h&quot;&gt;3f9a…c1&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td&gt;plan.md · 5 slices · 2 repos&lt;/td&gt;&lt;td class=&quot;h&quot;&gt;77be…02&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td&gt;before-after.html&lt;/td&gt;&lt;td class=&quot;h&quot;&gt;a41d…9e&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td&gt;voice.json&lt;/td&gt;&lt;td class=&quot;h&quot;&gt;0c55…7a&lt;/td&gt;&lt;/tr&gt;
+   &lt;/table&gt;
+   &lt;div class=&quot;btn&quot;&gt;Approve these 4 files&lt;/div&gt;
+   &lt;div class=&quot;stamp&quot;&gt;signs: &lt;b&gt;you · member of vertuoza&lt;/b&gt; · branch @ e41c09a&lt;br&gt;a later push to these files voids the approval&lt;/div&gt;
+  &lt;/div&gt;
+ &lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;foot&quot;&gt;
+ &lt;div class=&quot;f&quot;&gt;&lt;h3&gt;Ledger rows&lt;/h3&gt;approvals, outbox items, settled answers, roadmap edges, bug fixes table, knowledge packs by target sha&lt;/div&gt;
+ &lt;div class=&quot;f&quot;&gt;&lt;h3&gt;Git keeps&lt;/h3&gt;spec, plan, before-after on the feature branch; sub-PRs; one feature PR per repo; the issue&lt;/div&gt;
+ &lt;div class=&quot;f&quot;&gt;&lt;div class=&quot;q&quot;&gt;“I didn’t open a single Markdown PR. I tapped Approve on the train and the agent was already on wave 1.”&lt;span&gt;— Irisa, to Paul&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+" loading=lazy title="card F"></iframe>
+<table><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th></tr><tr><th>Visionary</th><td>5</td><td>4</td><td>4</td><td>3</td></tr><tr><th>Craft</th><td>5</td><td>4</td><td>4</td><td>3</td></tr><tr><th>Skeptic</th><td>4</td><td>4</td><td>4</td><td>3</td></tr><tr><th>Value</th><td>5</td><td>4</td><td>4</td><td>4</td></tr><tr><th>Users (avg)</th><td>4</td><td>3.8</td><td>3.6</td><td>3.8</td></tr></table>
+<ul class=st><li><b>Visionary:</b> The most cinematic beat — steal the handshake, drop docs-in-git.</li><li><b>Craft:</b> Best transition; the approval must survive a dead terminal (HUD toast).</li><li><b>Skeptic:</b> Steal the verbs and the wait; docs in targets means CI on Markdown again.</li><li><b>Value:</b> Steal its handshake as C&#x27;s signature interaction.</li></ul><p class=cons>Consensus: graft the wait-and-tap moment and typed verbs onto C.</p>
+<p class=obj><b>Objection.</b> persona:Lead Engineer — “One lead repo for a multi-repo spec makes one team the owner of everyone&#x27;s PRD.”</p><p class=fit>fits persona:Irisa ✓ · persona:Paul ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ✗ · persona:B-E DEv ✗</p>
+<div class=t><label><input type=radio name=aF value=keep>keep</label><label><input type=radio name=aF value=kill>kill</label><label><input type=radio name=aF value=merge>merge into <select><option></option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>G</option><option>H</option></select></label><label><input type=radio name=aF value=push>push further</label><input class=n placeholder="note"></div></section><section class=c data-l="G"><header><span class=l>G</span><div><h2>The Lead Repo</h2><small>contrarian · ct-1</small></div></header>
+<p class=wow>The plan repo AND the server row vanish — a PRD is approved with GitHub&#x27;s own “Review deployments” button, tied to the exact commit sha of phase 0.</p><p class=ax><b>Axis.</b> State moves INTO the target repos and onto GitHub primitives; the server is a webhook projection that decides nothing; if it is down, the loop still builds.</p>
+<iframe srcdoc="&lt;!doctype html&gt;&lt;meta charset=utf-8&gt;&lt;style&gt;body{margin:0;background:#07061c;color:#f2f4ff;font-family:&#x27;Atkinson Hyperlegible Next&#x27;,system-ui,sans-serif}&lt;/style&gt;&lt;div class=&quot;ct1&quot;&gt;
+&lt;style&gt;
+.ct1{--void:#07061c;--deep:#0e0d33;--navy:#2f3fc4;--plasma:#a45cff;--y:#ffd84a;--cyan:#6ff0ff;--green:#4ee08a;--red:#ff3b5c;--text:#f2f4ff;--dim:#8a90d6;
+background:var(--void);color:var(--text);font-family:&quot;Atkinson Hyperlegible Next&quot;,&quot;Atkinson Hyperlegible&quot;,system-ui,sans-serif;padding:20px 16px;border-radius:14px;max-width:960px;box-sizing:border-box}
+.ct1 *{box-sizing:border-box}
+.ct1 .k{font-family:&quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+.ct1 h2{font-family:Anton,Impact,&quot;Arial Narrow&quot;,sans-serif;font-weight:400;font-size:34px;line-height:1;margin:6px 0 4px;letter-spacing:.01em}
+.ct1 h2 b{color:var(--y);font-weight:400}
+.ct1 .sub{color:var(--dim);font-size:14px;margin:0 0 14px;max-width:62ch}
+.ct1 svg{width:100%;height:auto;display:block}
+.ct1 .legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px;font-size:12px;color:var(--dim)}
+.ct1 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.ct1 .gone{margin-top:12px;border:1px dashed #3a3a6a;border-radius:10px;padding:10px 12px;font-size:13px;color:var(--dim)}
+.ct1 .gone s{color:#5d6099}
+.ct1 .gone b{color:var(--y);font-weight:700}
+&lt;/style&gt;
+&lt;div class=&quot;k&quot;&gt;ct-1 · contrarian · axis: where the state lives&lt;/div&gt;
+&lt;h2&gt;THE PRD LIVES WHERE &lt;b&gt;ITS CODE LANDS&lt;/b&gt;&lt;/h2&gt;
+&lt;p class=&quot;sub&quot;&gt;No plan repository, and no project the server owns. Each PRD picks a lead target and keeps its folder on that target&#x27;s feature branch. GitHub&#x27;s own primitives carry approval, roadmaps and links. The Omni server only draws what GitHub already holds.&lt;/p&gt;
+&lt;svg viewBox=&quot;0 0 920 470&quot; role=&quot;img&quot; aria-label=&quot;Lead-repo architecture: the PRD folder sits on the lead target&#x27;s feature branch, a protected environment approves a commit sha, sub-issues hold the roadmap, and the Omni server is a read-only projection fed by webhooks&quot;&gt;
+&lt;defs&gt;
+&lt;marker id=&quot;ct1a&quot; viewBox=&quot;0 0 10 10&quot; refX=&quot;9&quot; refY=&quot;5&quot; markerWidth=&quot;7&quot; markerHeight=&quot;7&quot; orient=&quot;auto&quot;&gt;&lt;path d=&quot;M0 0L10 5L0 10z&quot; fill=&quot;#8a90d6&quot;/&gt;&lt;/marker&gt;
+&lt;marker id=&quot;ct1y&quot; viewBox=&quot;0 0 10 10&quot; refX=&quot;9&quot; refY=&quot;5&quot; markerWidth=&quot;7&quot; markerHeight=&quot;7&quot; orient=&quot;auto&quot;&gt;&lt;path d=&quot;M0 0L10 5L0 10z&quot; fill=&quot;#ffd84a&quot;/&gt;&lt;/marker&gt;
+&lt;/defs&gt;
+&lt;!-- GitHub band --&gt;
+&lt;rect x=&quot;8&quot; y=&quot;8&quot; width=&quot;904&quot; height=&quot;330&quot; rx=&quot;14&quot; fill=&quot;#0e0d33&quot; stroke=&quot;#2f3fc4&quot;/&gt;
+&lt;text x=&quot;24&quot; y=&quot;32&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot; letter-spacing=&quot;1.5&quot;&gt;GITHUB · THE ONLY SOURCE OF TRUTH&lt;/text&gt;
+
+&lt;!-- lead target --&gt;
+&lt;rect x=&quot;24&quot; y=&quot;46&quot; width=&quot;430&quot; height=&quot;276&quot; rx=&quot;10&quot; fill=&quot;#07061c&quot; stroke=&quot;#ffd84a&quot; stroke-width=&quot;1.5&quot;/&gt;
+&lt;text x=&quot;40&quot; y=&quot;70&quot; fill=&quot;#ffd84a&quot; font-family=&quot;Anton,Impact,sans-serif&quot; font-size=&quot;20&quot;&gt;api · LEAD TARGET of PRD 812&lt;/text&gt;
+&lt;text x=&quot;40&quot; y=&quot;90&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;branch feat/812-quote-sync  ·  feature PR #431 (draft)&lt;/text&gt;
+&lt;rect x=&quot;40&quot; y=&quot;102&quot; width=&quot;220&quot; height=&quot;132&quot; rx=&quot;8&quot; fill=&quot;#0e0d33&quot; stroke=&quot;#3a3a6a&quot;/&gt;
+&lt;text x=&quot;52&quot; y=&quot;122&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;12&quot;&gt;.omni/prd/812/&lt;/text&gt;
+&lt;text x=&quot;64&quot; y=&quot;142&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;spec.md · plan.md&lt;/text&gt;
+&lt;text x=&quot;64&quot; y=&quot;159&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;before-after.html&lt;/text&gt;
+&lt;text x=&quot;64&quot; y=&quot;176&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;voice.json · scenarios/&lt;/text&gt;
+&lt;text x=&quot;64&quot; y=&quot;193&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;outbox/ · settled.md&lt;/text&gt;
+&lt;text x=&quot;64&quot; y=&quot;214&quot; fill=&quot;#6ff0ff&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;phase 0 = commit 9f3c1e&lt;/text&gt;
+&lt;!-- environment approval --&gt;
+&lt;rect x=&quot;276&quot; y=&quot;102&quot; width=&quot;164&quot; height=&quot;132&quot; rx=&quot;8&quot; fill=&quot;#ffd84a&quot;/&gt;
+&lt;text x=&quot;288&quot; y=&quot;124&quot; fill=&quot;#07061c&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot; letter-spacing=&quot;1&quot;&gt;ENVIRONMENT&lt;/text&gt;
+&lt;text x=&quot;288&quot; y=&quot;146&quot; fill=&quot;#07061c&quot; font-family=&quot;Anton,Impact,sans-serif&quot; font-size=&quot;19&quot;&gt;omni-approve&lt;/text&gt;
+&lt;text x=&quot;288&quot; y=&quot;168&quot; fill=&quot;#07061c&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;12&quot;&gt;required reviewers =&lt;/text&gt;
+&lt;text x=&quot;288&quot; y=&quot;184&quot; fill=&quot;#07061c&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;12&quot;&gt;the PRD&#x27;s approvers&lt;/text&gt;
+&lt;text x=&quot;288&quot; y=&quot;208&quot; fill=&quot;#07061c&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;✓ irisa · 9f3c1e&lt;/text&gt;
+&lt;text x=&quot;288&quot; y=&quot;224&quot; fill=&quot;#07061c&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;one 2-second job&lt;/text&gt;
+&lt;path d=&quot;M260 168H274&quot; stroke=&quot;#ffd84a&quot; stroke-width=&quot;2&quot; marker-end=&quot;url(#ct1y)&quot;/&gt;
+&lt;text x=&quot;40&quot; y=&quot;258&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;13&quot;&gt;The reviewer clicks GitHub&#x27;s &quot;Review deployments&quot;. GitHub&lt;/text&gt;
+&lt;text x=&quot;40&quot; y=&quot;276&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;13&quot;&gt;checks who may approve and ties the approval to the sha.&lt;/text&gt;
+&lt;text x=&quot;40&quot; y=&quot;300&quot; fill=&quot;#4ee08a&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;yolo: git diff 9f3c1e..HEAD -- .omni/prd/812/{spec,plan}.md must be empty&lt;/text&gt;
+
+&lt;!-- second target --&gt;
+&lt;rect x=&quot;474&quot; y=&quot;46&quot; width=&quot;200&quot; height=&quot;150&quot; rx=&quot;10&quot; fill=&quot;#07061c&quot; stroke=&quot;#a45cff&quot;/&gt;
+&lt;text x=&quot;490&quot; y=&quot;70&quot; fill=&quot;#a45cff&quot; font-family=&quot;Anton,Impact,sans-serif&quot; font-size=&quot;20&quot;&gt;web · target&lt;/text&gt;
+&lt;text x=&quot;490&quot; y=&quot;92&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;feat/812-quote-sync&lt;/text&gt;
+&lt;text x=&quot;490&quot; y=&quot;110&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;feature PR #88&lt;/text&gt;
+&lt;text x=&quot;490&quot; y=&quot;136&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;12&quot;&gt;&quot;Part of api#431&quot;&lt;/text&gt;
+&lt;text x=&quot;490&quot; y=&quot;156&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;12&quot;&gt;outbox items relayed&lt;/text&gt;
+&lt;text x=&quot;490&quot; y=&quot;172&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;12&quot;&gt;to the lead&#x27;s outbox/&lt;/text&gt;
+&lt;path d=&quot;M474 150C462 150 460 170 442 186&quot; stroke=&quot;#a45cff&quot; stroke-width=&quot;1.5&quot; fill=&quot;none&quot; marker-end=&quot;url(#ct1a)&quot;/&gt;
+
+&lt;!-- sub-issues roadmap --&gt;
+&lt;rect x=&quot;694&quot; y=&quot;46&quot; width=&quot;202&quot; height=&quot;150&quot; rx=&quot;10&quot; fill=&quot;#07061c&quot; stroke=&quot;#6ff0ff&quot;/&gt;
+&lt;text x=&quot;710&quot; y=&quot;70&quot; fill=&quot;#6ff0ff&quot; font-family=&quot;Anton,Impact,sans-serif&quot; font-size=&quot;20&quot;&gt;roadmap = issue&lt;/text&gt;
+&lt;text x=&quot;710&quot; y=&quot;92&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;native sub-issues,&lt;/text&gt;
+&lt;text x=&quot;710&quot; y=&quot;108&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;across repos&lt;/text&gt;
+&lt;text x=&quot;710&quot; y=&quot;132&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;├ api#812  lead&lt;/text&gt;
+&lt;text x=&quot;710&quot; y=&quot;150&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;├ web#90   blocked by&lt;/text&gt;
+&lt;text x=&quot;710&quot; y=&quot;168&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;└ app#41   api#812&lt;/text&gt;
+
+&lt;!-- gate --&gt;
+&lt;rect x=&quot;474&quot; y=&quot;212&quot; width=&quot;422&quot; height=&quot;110&quot; rx=&quot;10&quot; fill=&quot;#07061c&quot; stroke=&quot;#4ee08a&quot;/&gt;
+&lt;text x=&quot;490&quot; y=&quot;236&quot; fill=&quot;#4ee08a&quot; font-family=&quot;Anton,Impact,sans-serif&quot; font-size=&quot;20&quot;&gt;outbox gate = one check run&lt;/text&gt;
+&lt;text x=&quot;490&quot; y=&quot;258&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;12&quot;&gt;On the lead&#x27;s feature PR. Each other target&#x27;s outbox check&lt;/text&gt;
+&lt;text x=&quot;490&quot; y=&quot;276&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;12&quot;&gt;points at it. The lead PR is the last one marked ready.&lt;/text&gt;
+&lt;text x=&quot;490&quot; y=&quot;300&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;bug record = Fixes table in the cause repo&#x27;s PR body&lt;/text&gt;
+
+&lt;!-- server --&gt;
+&lt;rect x=&quot;8&quot; y=&quot;356&quot; width=&quot;560&quot; height=&quot;106&quot; rx=&quot;14&quot; fill=&quot;#07061c&quot; stroke=&quot;#3a3a6a&quot; stroke-dasharray=&quot;5 4&quot;/&gt;
+&lt;text x=&quot;24&quot; y=&quot;380&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot; letter-spacing=&quot;1.5&quot;&gt;OMNI SERVER · PROJECTION ONLY, REBUILT FROM WEBHOOKS&lt;/text&gt;
+&lt;text x=&quot;24&quot; y=&quot;404&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;13&quot;&gt;project = a saved filter: workspace repos where &quot;omni.lead&quot; is on&lt;/text&gt;
+&lt;text x=&quot;24&quot; y=&quot;424&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;13&quot;&gt;dossier page renders the files at the approved sha, read once&lt;/text&gt;
+&lt;text x=&quot;24&quot; y=&quot;446&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot;&gt;server down → the board goes stale, the loop keeps building&lt;/text&gt;
+&lt;path d=&quot;M240 338V354&quot; stroke=&quot;#8a90d6&quot; stroke-width=&quot;1.5&quot; marker-end=&quot;url(#ct1a)&quot;/&gt;
+&lt;text x=&quot;248&quot; y=&quot;350&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;deployment_status · check_run · push (events, no polling)&lt;/text&gt;
+
+&lt;!-- flag --&gt;
+&lt;rect x=&quot;584&quot; y=&quot;356&quot; width=&quot;328&quot; height=&quot;106&quot; rx=&quot;14&quot; fill=&quot;#0e0d33&quot; stroke=&quot;#ffd84a&quot;/&gt;
+&lt;text x=&quot;600&quot; y=&quot;380&quot; fill=&quot;#ffd84a&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;11&quot; letter-spacing=&quot;1.5&quot;&gt;ON/OFF · PER REPOSITORY&lt;/text&gt;
+&lt;text x=&quot;600&quot; y=&quot;404&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;12&quot;&gt;phase0: environment | pr&lt;/text&gt;
+&lt;text x=&quot;600&quot; y=&quot;426&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;12&quot;&gt;off: open today&#x27;s docs-only PR from commit&lt;/text&gt;
+&lt;text x=&quot;600&quot; y=&quot;444&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;Atkinson Hyperlegible Next,system-ui,sans-serif&quot; font-size=&quot;12&quot;&gt;9f3c1e. Same bytes, nothing to convert.&lt;/text&gt;
+&lt;/svg&gt;
+&lt;div class=&quot;legend&quot;&gt;&lt;span&gt;&lt;i style=&quot;background:#ffd84a&quot;&gt;&lt;/i&gt;approval: GitHub checks the reviewers, tied to a sha&lt;/span&gt;&lt;span&gt;&lt;i style=&quot;background:#a45cff&quot;&gt;&lt;/i&gt;other targets&lt;/span&gt;&lt;span&gt;&lt;i style=&quot;background:#6ff0ff&quot;&gt;&lt;/i&gt;roadmap in GitHub sub-issues&lt;/span&gt;&lt;span&gt;&lt;i style=&quot;background:#4ee08a&quot;&gt;&lt;/i&gt;one gate&lt;/span&gt;&lt;/div&gt;
+&lt;div class=&quot;gone&quot;&gt;Removed: &lt;s&gt;plan repository&lt;/s&gt; · &lt;s&gt;phase-0 PR&lt;/s&gt; · &lt;s&gt;plan PR&lt;/s&gt; · &lt;s&gt;record PR&lt;/s&gt; · &lt;s&gt;invade PR into a plan repository&lt;/s&gt; · &lt;s&gt;knowledge/repos copies&lt;/s&gt;. A target with no knowledge base gets its own &lt;b&gt;.omni/knowledge&lt;/b&gt; on the first feature branch that touches it, so nothing is copied to keep in sync.&lt;/div&gt;
+&lt;/div&gt;
+" loading=lazy title="card G"></iframe>
+<table><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th></tr><tr><th>Visionary</th><td>2</td><td>2</td><td>3</td><td>2</td></tr><tr><th>Craft</th><td>3</td><td>2</td><td>2</td><td>3</td></tr><tr><th>Skeptic</th><td>3</td><td>2</td><td>3</td><td>1</td></tr><tr><th>Value</th><td>3</td><td>3</td><td>3</td><td>2</td></tr><tr><th>Users (avg)</th><td>3</td><td>2.4</td><td>3.4</td><td>2.6</td></tr></table>
+<ul class=st><li><b>Visionary:</b> Against — it spends the hosted app&#x27;s reason to exist.</li><li><b>Craft:</b> A clever proof with a poor face.</li><li><b>Skeptic:</b> Against the brief; but its “which reads must fail closed?” question is right.</li><li><b>Value:</b> Works against offering#316 — harvest webhooks-without-polling only.</li></ul><p class=cons>Consensus: last; harvest the webhook projection (with a slow reconcile sweep).</p><p class=dis>Dissent — persona:Lead Engineer and persona:F-E Developer like “no server to trust”.</p>
+<p class=obj><b>Objection.</b> persona:Paul — “Making PMs approve in GitHub&#x27;s UI throws away the speed I came for.”</p><p class=fit>fits persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Paul ✗ · persona:Irisa ✗ · offering#316 ✗</p>
+<div class=t><label><input type=radio name=aG value=keep>keep</label><label><input type=radio name=aG value=kill>kill</label><label><input type=radio name=aG value=merge>merge into <select><option></option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>H</option></select></label><label><input type=radio name=aG value=push>push further</label><input class=n placeholder="note"></div></section><section class=c data-l="H"><header><span class=l>H</span><div><h2>The Signed Bundle</h2><small>contrarian · ct-2</small></div></header>
+<p class=wow>The PM signs phase 0 with a passkey, the signature travels with the code into every target, and ultra-yolo verifies it offline — a server outage is no longer a reason to refuse.</p><p class=ax><b>Axis.</b> An approval is a signature the approver carries, not a server row; approver keys live in each target&#x27;s .omni/approvers.yml; the project lives only as long as its PRD.</p>
+<iframe srcdoc="&lt;!doctype html&gt;&lt;meta charset=utf-8&gt;&lt;style&gt;body{margin:0;background:#07061c;color:#f2f4ff;font-family:&#x27;Atkinson Hyperlegible Next&#x27;,system-ui,sans-serif}&lt;/style&gt;&lt;div class=&quot;ct2&quot;&gt;
+&lt;style&gt;
+.ct2{--void:#07061c;--deep:#0e0d33;--navy:#2f3fc4;--plasma:#a45cff;--y:#ffd84a;--cyan:#6ff0ff;--green:#4ee08a;--red:#ff3b5c;--text:#f2f4ff;--dim:#8a90d6;--line:#26265a;
+background:var(--void);color:var(--text);font-family:&quot;Atkinson Hyperlegible Next&quot;,&quot;Atkinson Hyperlegible&quot;,system-ui,sans-serif;padding:20px 16px;border-radius:14px;max-width:960px;box-sizing:border-box}
+.ct2 *{box-sizing:border-box}
+.ct2 .mono{font-family:&quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace}
+.ct2 .k{font-family:&quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+.ct2 h2{font-family:Anton,Impact,&quot;Arial Narrow&quot;,sans-serif;font-weight:400;font-size:34px;line-height:1;margin:6px 0 4px}
+.ct2 h2 b{color:var(--y);font-weight:400}
+.ct2 .sub{color:var(--dim);font-size:14px;margin:0 0 16px;max-width:64ch}
+.ct2 .grid{display:grid;grid-template-columns:1.25fr 1fr;gap:14px}
+@media (max-width:720px){.ct2 .grid{grid-template-columns:1fr}}
+.ct2 .panel{background:var(--deep);border:1px solid var(--line);border-radius:12px;padding:14px}
+.ct2 .crumb{font-size:12px;color:var(--dim)}
+.ct2 .crumb b{color:var(--text)}
+.ct2 .title{font-family:Anton,Impact,sans-serif;font-size:22px;margin:4px 0 10px}
+.ct2 table{width:100%;border-collapse:collapse;font-size:12px}
+.ct2 td{padding:6px 4px;border-top:1px solid var(--line)}
+.ct2 td.h{color:var(--cyan);text-align:right;white-space:nowrap}
+.ct2 .root{margin-top:10px;padding:10px;border-radius:8px;background:var(--void);border:1px solid var(--line);font-size:12px;color:var(--dim)}
+.ct2 .root b{color:var(--y);font-weight:700;word-break:break-all}
+.ct2 .btn{margin-top:12px;display:flex;align-items:center;gap:10px;background:var(--y);color:var(--void);border-radius:10px;padding:12px 14px;font-weight:700;font-size:15px}
+.ct2 .btn small{display:block;font-weight:400;font-size:12px}
+.ct2 .who{margin-top:8px;font-size:12px;color:var(--dim)}
+.ct2 .chk{list-style:none;margin:8px 0 0;padding:0;font-size:12.5px}
+.ct2 .chk li{padding:7px 0;border-top:1px solid var(--line);display:flex;gap:8px}
+.ct2 .ok{color:var(--green)} .ct2 .no{color:var(--red)}
+.ct2 .tag{display:inline-block;font-size:10px;letter-spacing:.08em;padding:2px 6px;border-radius:4px;border:1px solid var(--dim);color:var(--dim);text-transform:uppercase}
+.ct2 .foot{margin-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12px;color:var(--dim)}
+@media (max-width:720px){.ct2 .foot{grid-template-columns:1fr}}
+.ct2 .foot div{border:1px dashed #3a3a6a;border-radius:10px;padding:10px}
+.ct2 .foot b{color:var(--text);display:block;margin-bottom:2px}
+.ct2 svg{display:block;width:100%;height:auto;margin-top:10px}
+&lt;/style&gt;
+&lt;div class=&quot;k&quot;&gt;ct-2 · contrarian · axis: what an approval is&lt;/div&gt;
+&lt;h2&gt;APPROVAL IS &lt;b&gt;A SIGNATURE YOU CARRY&lt;/b&gt;, NOT A ROW&lt;/h2&gt;
+&lt;p class=&quot;sub&quot;&gt;The PM signs the phase-0 bundle with a passkey. The signature goes with the code: it sits in each target feature branch&#x27;s first commit, and anyone can check it without asking the server. The project lives only as long as the PRD.&lt;/p&gt;
+&lt;div class=&quot;grid&quot;&gt;
+ &lt;div class=&quot;panel&quot;&gt;
+  &lt;div class=&quot;crumb mono&quot;&gt;Omni › project &lt;b&gt;quote-sync&lt;/b&gt; (ends at ship) › PRD &lt;b&gt;812&lt;/b&gt;&lt;/div&gt;
+  &lt;div class=&quot;title&quot;&gt;Sign phase 0 of PRD 812&lt;/div&gt;
+  &lt;table class=&quot;mono&quot;&gt;
+   &lt;tr&gt;&lt;td&gt;spec.md&lt;/td&gt;&lt;td class=&quot;h&quot;&gt;sha256 4be1…09a2&lt;/td&gt;&lt;/tr&gt;
+   &lt;tr&gt;&lt;td&gt;plan.md &lt;span class=&quot;tag&quot;&gt;api · web&lt;/span&gt;&lt;/td&gt;&lt;td class=&quot;h&quot;&gt;sha256 c07f…7d11&lt;/td&gt;&lt;/tr&gt;
+   &lt;tr&gt;&lt;td&gt;before-after.html&lt;/td&gt;&lt;td class=&quot;h&quot;&gt;sha256 e2aa…b340&lt;/td&gt;&lt;/tr&gt;
+   &lt;tr&gt;&lt;td&gt;voice.json&lt;/td&gt;&lt;td class=&quot;h&quot;&gt;sha256 11d9…f0c8&lt;/td&gt;&lt;/tr&gt;
+   &lt;tr&gt;&lt;td&gt;scenarios/ (6)&lt;/td&gt;&lt;td class=&quot;h&quot;&gt;sha256 9a03…62be&lt;/td&gt;&lt;/tr&gt;
+   &lt;tr&gt;&lt;td&gt;targets read at&lt;/td&gt;&lt;td class=&quot;h&quot;&gt;api@a91c · web@77e0&lt;/td&gt;&lt;/tr&gt;
+  &lt;/table&gt;
+  &lt;div class=&quot;root mono&quot;&gt;bundle root&lt;br&gt;&lt;b&gt;sha256:7e5d0c94b2…f31a&lt;/b&gt;&lt;/div&gt;
+  &lt;div class=&quot;btn&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;22&quot; height=&quot;22&quot; style=&quot;margin:0;width:22px&quot; aria-hidden=&quot;true&quot;&gt;&lt;circle cx=&quot;8&quot; cy=&quot;12&quot; r=&quot;4&quot; fill=&quot;none&quot; stroke=&quot;#07061c&quot; stroke-width=&quot;2.2&quot;/&gt;&lt;path d=&quot;M12 12h9M18 12v3M21 12v2&quot; stroke=&quot;#07061c&quot; stroke-width=&quot;2.2&quot; fill=&quot;none&quot;/&gt;&lt;/svg&gt;&lt;span&gt;Sign with your passkey&lt;small&gt;Irisa · key 3f…a8, listed in api and web&lt;/small&gt;&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;who&quot;&gt;The server only stores the signature for display. It does not decide anything, and a label adds nothing.&lt;/div&gt;
+ &lt;/div&gt;
+ &lt;div class=&quot;panel&quot;&gt;
+  &lt;div class=&quot;k&quot;&gt;/omni:ultra-yolo 812 · verify, offline&lt;/div&gt;
+  &lt;ul class=&quot;chk mono&quot;&gt;
+   &lt;li&gt;&lt;span class=&quot;ok&quot;&gt;✓&lt;/span&gt;&lt;span&gt;signature valid over root 7e5d…f31a&lt;/span&gt;&lt;/li&gt;
+   &lt;li&gt;&lt;span class=&quot;ok&quot;&gt;✓&lt;/span&gt;&lt;span&gt;key 3f…a8 listed in &lt;b&gt;.omni/approvers.yml&lt;/b&gt; of api and web (a CODEOWNERS file, changed only by a reviewed PR)&lt;/span&gt;&lt;/li&gt;
+   &lt;li&gt;&lt;span class=&quot;ok&quot;&gt;✓&lt;/span&gt;&lt;span&gt;bundle on feat/812 hashes to the same root&lt;/span&gt;&lt;/li&gt;
+   &lt;li&gt;&lt;span class=&quot;ok&quot;&gt;✓&lt;/span&gt;&lt;span&gt;web feature branch commit 1: trailer &lt;b&gt;Omni-Bundle: 7e5d…f31a&lt;/b&gt;&lt;/span&gt;&lt;/li&gt;
+   &lt;li&gt;&lt;span class=&quot;no&quot;&gt;✗&lt;/span&gt;&lt;span&gt;server unreachable: &lt;b&gt;no longer a reason to refuse&lt;/b&gt;&lt;/span&gt;&lt;/li&gt;
+  &lt;/ul&gt;
+  &lt;svg viewBox=&quot;0 0 360 150&quot; role=&quot;img&quot; aria-label=&quot;The signed bundle goes to the dossier as a cache and to each target feature branch as a commit trailer&quot;&gt;
+   &lt;defs&gt;&lt;marker id=&quot;ct2a&quot; viewBox=&quot;0 0 10 10&quot; refX=&quot;9&quot; refY=&quot;5&quot; markerWidth=&quot;6&quot; markerHeight=&quot;6&quot; orient=&quot;auto&quot;&gt;&lt;path d=&quot;M0 0L10 5L0 10z&quot; fill=&quot;#ffd84a&quot;/&gt;&lt;/marker&gt;&lt;/defs&gt;
+   &lt;rect x=&quot;120&quot; y=&quot;6&quot; width=&quot;120&quot; height=&quot;40&quot; rx=&quot;8&quot; fill=&quot;#ffd84a&quot;/&gt;
+   &lt;text x=&quot;180&quot; y=&quot;31&quot; text-anchor=&quot;middle&quot; fill=&quot;#07061c&quot; font-family=&quot;Anton,Impact,sans-serif&quot; font-size=&quot;15&quot;&gt;signed bundle&lt;/text&gt;
+   &lt;path d=&quot;M150 46L60 92&quot; stroke=&quot;#ffd84a&quot; stroke-width=&quot;1.5&quot; marker-end=&quot;url(#ct2a)&quot;/&gt;
+   &lt;path d=&quot;M180 46V92&quot; stroke=&quot;#ffd84a&quot; stroke-width=&quot;1.5&quot; marker-end=&quot;url(#ct2a)&quot;/&gt;
+   &lt;path d=&quot;M210 46L300 92&quot; stroke=&quot;#ffd84a&quot; stroke-width=&quot;1.5&quot; marker-end=&quot;url(#ct2a)&quot;/&gt;
+   &lt;rect x=&quot;4&quot; y=&quot;96&quot; width=&quot;112&quot; height=&quot;48&quot; rx=&quot;8&quot; fill=&quot;#07061c&quot; stroke=&quot;#3a3a6a&quot; stroke-dasharray=&quot;4 3&quot;/&gt;
+   &lt;text x=&quot;60&quot; y=&quot;116&quot; text-anchor=&quot;middle&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;dossier&lt;/text&gt;
+   &lt;text x=&quot;60&quot; y=&quot;132&quot; text-anchor=&quot;middle&quot; fill=&quot;#8a90d6&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;cache · display&lt;/text&gt;
+   &lt;rect x=&quot;124&quot; y=&quot;96&quot; width=&quot;112&quot; height=&quot;48&quot; rx=&quot;8&quot; fill=&quot;#07061c&quot; stroke=&quot;#a45cff&quot;/&gt;
+   &lt;text x=&quot;180&quot; y=&quot;116&quot; text-anchor=&quot;middle&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;api feat/812&lt;/text&gt;
+   &lt;text x=&quot;180&quot; y=&quot;132&quot; text-anchor=&quot;middle&quot; fill=&quot;#a45cff&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;trailer + .sig&lt;/text&gt;
+   &lt;rect x=&quot;244&quot; y=&quot;96&quot; width=&quot;112&quot; height=&quot;48&quot; rx=&quot;8&quot; fill=&quot;#07061c&quot; stroke=&quot;#a45cff&quot;/&gt;
+   &lt;text x=&quot;300&quot; y=&quot;116&quot; text-anchor=&quot;middle&quot; fill=&quot;#f2f4ff&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;web feat/812&lt;/text&gt;
+   &lt;text x=&quot;300&quot; y=&quot;132&quot; text-anchor=&quot;middle&quot; fill=&quot;#a45cff&quot; font-family=&quot;JetBrains Mono,monospace&quot; font-size=&quot;10&quot;&gt;trailer + .sig&lt;/text&gt;
+  &lt;/svg&gt;
+ &lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;foot&quot;&gt;
+ &lt;div&gt;&lt;b&gt;Project ends at ship&lt;/b&gt;Created by mega-brainstorm and archived when the last target PR merges. The only lasting thing is the workspace&#x27;s list of repositories.&lt;/div&gt;
+ &lt;div&gt;&lt;b&gt;Knowledge keyed by sha&lt;/b&gt;Each target&#x27;s knowledge is read from its clone at a fixed sha and cached as repo@sha. It is never copied, so it can&#x27;t drift. Outbox, roadmap and bug records stay in the dossier.&lt;/div&gt;
+ &lt;div&gt;&lt;b&gt;Flag per target&lt;/b&gt;&lt;span class=&quot;mono&quot;&gt;phase0: signed | pr&lt;/span&gt;. Off: the bundle opens today&#x27;s docs-only PR, and a review approval replaces the signature.&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+" loading=lazy title="card H"></iframe>
+<table><tr><th></th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th></tr><tr><th>Visionary</th><td>4</td><td>3</td><td>4</td><td>3</td></tr><tr><th>Craft</th><td>4</td><td>3</td><td>4</td><td>3</td></tr><tr><th>Skeptic</th><td>5</td><td>3</td><td>4</td><td>2</td></tr><tr><th>Value</th><td>4</td><td>3</td><td>4</td><td>3</td></tr><tr><th>Users (avg)</th><td>2.8</td><td>2.6</td><td>3</td><td>2.4</td></tr></table>
+<ul class=st><li><b>Visionary:</b> Graft “the Omni seal” onto C as the visible mark.</li><li><b>Craft:</b> Best offline story, with an onboarding cliff (passkeys, per-repo approver PRs).</li><li><b>Skeptic:</b> Flips your stated rule (refuse when the server is unreachable).</li><li><b>Value:</b> C&#x27;s export format — an audit trail a customer can verify without us.</li></ul><p class=cons>Consensus: the seal as C&#x27;s export/audit mark; offline verify optional.</p>
+<p class=obj><b>Objection.</b> persona:B-E DEv — “A new approver needs a PR in every target — exactly the overhead that makes me call tools fluff.”</p><p class=fit>fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✗ · persona:Irisa ✗ · size#37 ✗</p>
+<div class=t><label><input type=radio name=aH value=keep>keep</label><label><input type=radio name=aH value=kill>kill</label><label><input type=radio name=aH value=merge>merge into <select><option></option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select></label><label><input type=radio name=aH value=push>push further</label><input class=n placeholder="note"></div></section></div></main>
+<div class=bar><button id=cp>copy my reactions</button><span id=out></span></div>
+<script>
+document.getElementById('cp').onclick=()=>{const k=[],m=[],p=[],x=[];document.querySelectorAll('.c').forEach(s=>{const L=s.dataset.l,r=s.querySelector('input[type=radio]:checked'),n=s.querySelector('.n').value.trim();if(!r)return;if(r.value==='keep')k.push(L+(n?' ('+n+')':''));if(r.value==='kill')x.push(L);if(r.value==='merge'){const t=s.querySelector('select').value||'?';m.push(L+'→'+t+(n?' ('+n+')':''))}if(r.value==='push')p.push(L+(n?': '+n:''))});const parts=[];if(k.length)parts.push('keep '+k.join(' '));if(m.length)parts.push('merge '+m.join(' '));if(p.length)parts.push(p.map(v=>'push '+v).join(' · '));if(x.length)parts.push('kill '+x.join(' '));const line=parts.join(' · ')||'(nothing picked)';document.getElementById('out').textContent=line;try{navigator.clipboard.writeText(line)}catch(e){}};
+</script></body></html>

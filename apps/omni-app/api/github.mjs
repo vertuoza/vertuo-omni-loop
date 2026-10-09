@@ -698,6 +698,18 @@ var ConfigSchema = z7.object({
     bypassEnv: envName.nullable().default(null),
     maxSeconds: z7.number().int().positive().default(60)
   }),
+  // PRD 1233 (beta): how `/omni:validate-e2e` keeps a PRD's acceptance criteria as e2e tests. Off by
+  // default. `url`, `deployment`, `setup` and `bypassEnv` mean what they mean under `proof`; `dir` is
+  // where the tests and their recordings live; `model` is the goal steps' OpenRouter id.
+  e2e: section({
+    enabled: z7.boolean().default(false),
+    url: proofUrl.nullable().default(null),
+    deployment: nullableText.default(null),
+    setup: nullableText.default(null),
+    bypassEnv: envName.nullable().default(null),
+    dir: text2.default("e2e"),
+    model: text2.default("anthropic/claude-sonnet-5.5")
+  }),
   markers: section({ prefix: z7.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
   // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a

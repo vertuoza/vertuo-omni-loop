@@ -31,6 +31,8 @@ const KIND_OF: Readonly<Record<string, string>> = Object.freeze({
   'expedition bonus': 'expedition',
   'closer bonus': 'closer',
   'question answered': 'questionAnswered',
+  'feature merged': 'featureMerged',
+  'feature reviewed': 'featureReviewed',
 });
 const WOUND_CLOSED = 'wound closed: ';
 

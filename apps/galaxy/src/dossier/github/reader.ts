@@ -29,7 +29,7 @@ import { githubClient, type GithubStore, type Priority } from '@omni/github';
 import { z } from 'zod';
 import { orThrow, parseRow } from '../../data/parse-rows';
 import { CARE_QUERY, parseCare, type CareState } from './care';
-import { readFix, type FixSummary } from './fix';
+import { readConceptFacts, readFix, type ConceptFacts, type FixSummary } from './fix';
 import { outboxReplies, type KitAdopted, type KitItem, type PrComment } from './replies';
 import { readRetro } from './retro';
 import { githubApp, REPO, type AppCredentials, type InstallationToken } from '../../signup/github-app';
@@ -61,6 +61,8 @@ type RepoConfig = {
   markers: ReturnType<typeof makeMarkers>;
   /** A fix's branch shape and the labels its list row reads (PRD 627, s5). */
   fix: { branch: string; risk: string[]; regression: string };
+  /** A concept's branch shape (PRD 1272, s4). */
+  concept: string;
 };
 
 const Pull = z.object({
@@ -114,6 +116,7 @@ function repoConfig(text: string): RepoConfig {
       risk: [config.labels.riskCritical, config.labels.riskHigh, config.labels.riskMedium, config.labels.riskLow],
       regression: config.labels.regression,
     },
+    concept: config.branches.concept,
   };
 }
 
@@ -198,16 +201,24 @@ export type FixReader = {
   fix(ref: FixRef, options?: ReadOptions): Promise<FixSummary | null>;
 };
 
+/** The same reader, for a concept (PRD 1272, s4): numbered by its issue, as a fix is. */
+export type ConceptReader = {
+  /** What GitHub says of a concept (./fix.ts), through its own 60-second cache; null when the App is not
+   * installed on its repository, or its config could not be read. */
+  concept(ref: FixRef, options?: ReadOptions): Promise<ConceptFacts | null>;
+};
+
 /** `store` is the budget's store (github_etags, github_budget); without one, the client still reads the
  * pause and floor of nothing, and every call goes out plain. */
 export function githubReader(
   creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now, store: GithubStore | null = null,
-): GithubReader & FixReader {
+): GithubReader & FixReader & ConceptReader {
   const app = githubApp(creds, fetchImpl, clock);
   const github = githubClient({ store, fetch: fetchImpl, clock });
   const tokens = new Map<string, InstallationToken & { installation: number }>();
   const summaries = keptFor<GithubSummary | null>(clock);
   const fixes = keptFor<FixSummary | null>(clock);
+  const concepts = keptFor<ConceptFacts | null>(clock);
   const configs = keptFor<RepoConfig>(clock);
 
   /** A token for `repo` and its installation, reused until a minute before it expires; null when the App is not installed there. */
@@ -395,6 +406,34 @@ export function githubReader(
     if (!isBudgetRefusal(error)) console.error(`${page}: GitHub could not be read for ${repo}: ${error instanceof Error ? error.message : String(error)}`);
   };
 
+  /** A fix's or a concept's read (`what` names it in the log), through `cache`: null when the App is not
+   * installed on its repository, or a read failed; a read the budget refused is not kept. */
+  function numbered<T>(
+    cache: ReturnType<typeof keptFor<T | null>>, what: string, ref: FixRef, priority: Priority,
+    run: (json: (route: string) => Promise<unknown>, config: RepoConfig) => Promise<T>,
+  ): Promise<T | null> {
+    return cache.get(ref.id, async () => {
+      let refused = false;
+      try {
+        const token = REPO.test(ref.home_repo) ? await tokenFor(ref.home_repo) : null;
+        if (!token) return null;
+        const gh = read(ref.home_repo, token, priority);
+        const config = await gh.config();
+        const json = (route: string) => gh.json(route).catch((error: unknown) => {
+          if (isBudgetRefusal(error)) refused = true;
+          throw error;
+        });
+        return await run(json, config);
+      } catch (error) {
+        failed(what, ref.home_repo, error);
+        if (isBudgetRefusal(error)) refused = true;
+        return null;
+      } finally {
+        if (refused) cache.forget(ref.id);
+      }
+    });
+  }
+
   return {
     summary(dossier, { priority = 'interactive' } = {}) {
       return summaries.get(dossier.id, async () => {
@@ -413,26 +452,10 @@ export function githubReader(
       summaries.forget(dossierId);
     },
     fix(ref, { priority = 'interactive' } = {}) {
-      return fixes.get(ref.id, async () => {
-        let refused = false;
-        try {
-          const token = REPO.test(ref.home_repo) ? await tokenFor(ref.home_repo) : null;
-          if (!token) return null;
-          const gh = read(ref.home_repo, token, priority);
-          const { fix } = await gh.config();
-          const json = (route: string) => gh.json(route).catch((error: unknown) => {
-            if (isBudgetRefusal(error)) refused = true;
-            throw error;
-          });
-          return await readFix(json, ref.prd, fix.branch, { risk: fix.risk, regression: fix.regression });
-        } catch (error) {
-          failed('Fix page', ref.home_repo, error);
-          if (isBudgetRefusal(error)) refused = true;
-          return null;
-        } finally {
-          if (refused) fixes.forget(ref.id);
-        }
-      });
+      return numbered(fixes, 'Fix page', ref, priority, (json, { fix }) => readFix(json, ref.prd, fix.branch, { risk: fix.risk, regression: fix.regression }));
+    },
+    concept(ref, { priority = 'interactive' } = {}) {
+      return numbered(concepts, 'Concept page', ref, priority, (json, { concept }) => readConceptFacts(json, ref.prd, concept));
     },
   };
 }

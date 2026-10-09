@@ -8,6 +8,9 @@ import { rowOf, SavedRepository, type RepositoryRow } from './model';
 // the demo, the same rules kept in memory, so the page can be tried with no database. PRD 748 s4 adds
 // a third, repository_set_product() of supabase/migrations/20261019090000_business_store.sql, any
 // member's: it points a repository at a product of the business, whose claims its agents then read.
+// PRD 1246 s4 adds a fourth, set_repository_public_ideas() of
+// supabase/migrations/20261115090000_ideas.sql, any member's too: it turns the repository's ideas board
+// public or private. At most one workspace makes a given repository's board public.
 
 export type Saved = { ok: true; repository: RepositoryRow } | { ok: false; message: string };
 
@@ -17,11 +20,15 @@ export interface RepositoriesPort {
   setTracked(fullName: string, tracked: boolean): Promise<Saved>;
   /** Points the repository at a product of the business (PRD 748 s4): any member's to do. */
   setProduct(fullName: string, product: string): Promise<Saved>;
+  /** Turns its ideas board public or private (PRD 1246 s4): any member's to do. */
+  setPublicIdeas(fullName: string, on: boolean): Promise<Saved>;
 }
 
 export const NOT_OWNER = 'Only the workspace’s owner can change its repositories.';
 export const NOT_MEMBER = 'Only a member of the workspace can change what a repository serves.';
 const GONE = 'That repository is no longer in this workspace. Reload the page.';
+export const NOT_A_BOARD_MEMBER = 'Only a member of the workspace can make its ideas board public or private.';
+export const PUBLIC_ELSEWHERE = 'Another workspace already shows this repository’s ideas board in public.';
 export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 
 /** An error as PostgREST answers it, or anything thrown, as the page says it. */
@@ -47,10 +54,16 @@ export function databaseRepositories(db: Rpc, workspace: string): RepositoriesPo
   };
   // repository_set_product() is a member's, not only the owner's: its 42501 says so.
   const memberRefusal = (error: unknown) => (propertyOf(error, 'code') === '42501' ? NOT_MEMBER : refusalOf(error));
+  // set_repository_public_ideas() is a member's too; 23505: another workspace's board for it is public.
+  const boardRefusal = (error: unknown) => {
+    const code = propertyOf(error, 'code');
+    return code === '42501' ? NOT_A_BOARD_MEMBER : code === '23505' ? PUBLIC_ELSEWHERE : refusalOf(error);
+  };
   return {
     add: (fullName) => call('add_repository', { p_full_name: fullName }),
     setTracked: (fullName, tracked) => call('set_repository_tracked', { p_full_name: fullName, p_tracked: tracked }),
     setProduct: (fullName, product) => call('repository_set_product', { p_full_name: fullName, p_product: product }, memberRefusal),
+    setPublicIdeas: (fullName, on) => call('set_repository_public_ideas', { p_full_name: fullName, p_public: on }, boardRefusal),
   };
 }
 
@@ -69,11 +82,12 @@ export function demoRepositoriesPort(initial: RepositoryRow[]): RepositoriesPort
     add(fullName) {
       const kept = find(fullName);
       if (kept) return Promise.resolve({ ok: true, repository: kept });
-      const repository: RepositoryRow = { fullName: fullName.trim().toLowerCase(), tracked: true, collectedAt: null, collectError: null, product: null };
+      const repository: RepositoryRow = { fullName: fullName.trim().toLowerCase(), tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false };
       rows = [...rows, repository];
       return Promise.resolve({ ok: true, repository });
     },
     setTracked: (fullName, tracked) => change(fullName, { tracked }),
     setProduct: (fullName, product) => change(fullName, { product }),
+    setPublicIdeas: (fullName, publicIdeas) => change(fullName, { publicIdeas }),
   };
 }

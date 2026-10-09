@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeRepo } from '../../test/fixture.ts';
 import { BIN_FILE } from '../../bin/commands/init.ts';
-import { SETTINGS_FILE, writeStatusLine } from './settings.ts';
+import { enableHud, HUD_PLUGIN, ownSettingsPaths, SETTINGS_FILE, writeStatusLine } from './settings.ts';
 
 // The spec's key, verbatim (PRD 324, "The install"): what a repository's settings file gains.
 const KIT_LINE = {
@@ -106,5 +106,63 @@ describe('writeStatusLine', () => {
     const { root } = makeRepo({ files: { [`${SETTINGS_FILE}/inside`]: 'x\n' } });
     expect(writeStatusLine(root, { bin: BIN_FILE }).outcome).toBe('invalid');
     expect(readdirSync(join(root, SETTINGS_FILE))).toEqual(['inside']);
+  });
+});
+
+describe('enableHud (PRD 1208)', () => {
+  it('names the band\'s plugin by its marketplace id', () => {
+    expect(HUD_PLUGIN).toBe('omni-hud@omni-loop');
+  });
+
+  it('creates .claude/settings.json, and its folder, turning the band on', () => {
+    const { root, read } = makeRepo();
+    expect(enableHud(root)).toEqual({ path: SETTINGS_FILE, outcome: 'wrote' });
+    expect(read(SETTINGS_FILE)).toBe(settingsText({ enabledPlugins: { 'omni-hud@omni-loop': true } }));
+  });
+
+  it('adds the line beside the plugins already there, keeping every other key in its order', () => {
+    const before = { model: 'opus', enabledPlugins: { 'omni@omni-loop': true, 'mine@elsewhere': false }, statusLine: KIT_LINE };
+    const { root, read } = makeRepo({ files: { [SETTINGS_FILE]: JSON.stringify(before) } });
+    expect(enableHud(root).outcome).toBe('wrote');
+    expect(read(SETTINGS_FILE)).toBe(settingsText({ ...before, enabledPlugins: { ...before.enabledPlugins, 'omni-hud@omni-loop': true } }));
+  });
+
+  it('adds enabledPlugins last when the file has none', () => {
+    const { root, read } = makeRepo({ files: { [SETTINGS_FILE]: settingsText({ statusLine: KIT_LINE }) } });
+    expect(enableHud(root).outcome).toBe('wrote');
+    expect(read(SETTINGS_FILE)).toBe(settingsText({ statusLine: KIT_LINE, enabledPlugins: { 'omni-hud@omni-loop': true } }));
+  });
+
+  it('keeps the band on as it is, writing nothing', () => {
+    const text = '{ "enabledPlugins": { "omni-hud@omni-loop": true } }';
+    const { root, read } = makeRepo({ files: { [SETTINGS_FILE]: text } });
+    expect(enableHud(root)).toEqual({ path: SETTINGS_FILE, outcome: 'kept' });
+    expect(read(SETTINGS_FILE)).toBe(text);
+  });
+
+  it('never touches a value someone else set, nor an enabledPlugins that is not an object', () => {
+    for (const enabledPlugins of [{ 'omni-hud@omni-loop': false }, { 'omni-hud@omni-loop': 'yes' }, [], 'all', null]) {
+      const text = settingsText({ enabledPlugins });
+      const { root, read } = makeRepo({ files: { [SETTINGS_FILE]: text } });
+      expect(enableHud(root), JSON.stringify(enabledPlugins)).toEqual({ path: SETTINGS_FILE, outcome: 'theirs' });
+      expect(read(SETTINGS_FILE)).toBe(text);
+    }
+  });
+
+  it('commits the settings file once while either of the kit\'s lines is in it, and never otherwise', () => {
+    const at = (outcome: string) => ({ path: SETTINGS_FILE, outcome });
+    expect(ownSettingsPaths([at('wrote'), at('kept')])).toEqual([SETTINGS_FILE]);
+    expect(ownSettingsPaths([at('foreign'), at('wrote')])).toEqual([SETTINGS_FILE]);
+    expect(ownSettingsPaths([at('kept'), at('theirs')])).toEqual([SETTINGS_FILE]);
+    expect(ownSettingsPaths([at('foreign'), at('theirs')])).toEqual([]);
+    expect(ownSettingsPaths([at('invalid'), at('invalid')])).toEqual([]);
+  });
+
+  it('leaves a file that holds no JSON object byte-identical', () => {
+    for (const text of ['{ "model": "opus", }\n', '[]\n', '']) {
+      const { root, read } = makeRepo({ files: { [SETTINGS_FILE]: text } });
+      expect(enableHud(root).outcome, JSON.stringify(text)).toBe('invalid');
+      expect(read(SETTINGS_FILE)).toBe(text);
+    }
   });
 });

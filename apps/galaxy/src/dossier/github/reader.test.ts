@@ -570,6 +570,35 @@ describe('a fix, through the same reader (PRD 627, s5)', () => {
   });
 });
 
+describe('a concept, through the same reader (PRD 1272, s4)', () => {
+  const CONCEPT = { id: 'd-concept-426', home_repo: 'acme/widgets', prd: parseIssue(426) };
+
+  it('reads the concept PR on the config\'s concept branch shape, cached 60 s apart from the fix\'s', async () => {
+    let now = NOW;
+    const gh = fakeGithub({
+      config: CONFIG.replace('  feature: feature/{topic}\n', '  feature: feature/{topic}\n  concept: ideas/{topic}\n'),
+      issue: { ...ISSUE, created_at: '2026-09-27T08:00:00Z', labels: [] },
+      pulls: [pull(9, 'docs/concept-426-umbrella'), pull(12, 'ideas/426-umbrella')],
+    });
+    const reader = githubReader(CREDS, gh.fetchImpl, () => now);
+    const first = await reader.concept(CONCEPT);
+    expect(first).toMatchObject({ issue: { number: 426, state: 'open' }, pull: { number: 12, state: 'open' } });
+    expect(Object.keys(first ?? {})).toEqual(['issue', 'pull']);
+    const count = gh.fetchImpl.mock.calls.length;
+    now += SUMMARY_TTL_MS - 1;
+    expect(await reader.concept(CONCEPT)).toEqual(first);
+    expect(gh.fetchImpl.mock.calls.length).toBe(count);
+    now += 1;
+    await reader.concept(CONCEPT);
+    expect(gh.fetchImpl.mock.calls.length).toBeGreaterThan(count);
+  });
+
+  it('is null when the App is not installed, and when GitHub is unreachable', async () => {
+    expect(await githubReader(CREDS, fakeGithub({ installed: false }).fetchImpl, () => NOW).concept(CONCEPT)).toBeNull();
+    expect(await githubReader(CREDS, () => Promise.reject(new TypeError('fetch failed')), () => NOW).concept(CONCEPT)).toBeNull();
+  });
+});
+
 describe('the budget (PRD 902, s1)', () => {
   const RESET = NOW + 30 * 60_000;
   /** The repository's calls only: the App's own (JWT) calls spend another budget. */

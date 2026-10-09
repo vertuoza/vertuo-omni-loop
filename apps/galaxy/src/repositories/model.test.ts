@@ -9,13 +9,13 @@ import {
 
 const NOW = Date.parse('2026-10-08T12:00:00Z');
 const row = (fullName: string, over: Partial<RepositoryRow> = {}): RepositoryRow => ({
-  fullName, tracked: true, collectedAt: null, collectError: null, product: null, ...over,
+  fullName, tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false, ...over,
 });
 
 describe('a stored repository row', () => {
   it('reads as the page draws it', () => {
     expect(rowOf({ full_name: 'vertuoza/vertuo-apps', tracked: false, collected_at: '2026-10-08T11:57:00Z', collect_error: null }))
-      .toEqual({ fullName: 'vertuoza/vertuo-apps', tracked: false, collectedAt: '2026-10-08T11:57:00Z', collectError: null, product: null });
+      .toEqual({ fullName: 'vertuoza/vertuo-apps', tracked: false, collectedAt: '2026-10-08T11:57:00Z', collectError: null, product: null, publicIdeas: false });
   });
 
   it('reads the product it serves (PRD 748 s4)', () => {

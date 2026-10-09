@@ -131,6 +131,18 @@ describe('/omni:brainstorm --concept <n> <area> (PRD 686)', () => {
     expect(step7.indexOf(fill)).toBeLessThan(step7.indexOf('`docs(prd): <topic>`'));
   });
 
+  // PRD 1272: the concept is a dossier kind, so its page links the area to its PRD at once.
+  it("step 7 pushes the concept again from the feature worktree, after its PRD cell is filled and the PRD is pushed", () => {
+    const step7 = flat(section(TEXT, '7.'));
+    const prdPush = step7.indexOf('`/omni:dossier-push <n>`');
+    const conceptPush = paragraphWith(section(TEXT, '7.'), '`/omni:dossier-push <concept> --kind concept`');
+    expect(conceptPush).toContain('With `--concept`');
+    expect(conceptPush).toContain('from this worktree');
+    expect(conceptPush).toMatch(/Whatever it prints, carry on/);
+    expect(step7.indexOf(conceptPush)).toBeGreaterThan(prdPush);
+    expect(step7.indexOf(conceptPush)).toBeGreaterThan(step7.indexOf("fill the area's `PRD` cell"));
+  });
+
   it("step 9 carries the concept's concept.md into the phase-0 PR", () => {
     const step9 = section(TEXT, '9.');
     const checkout = step9.split('\n').find((line: string) => line.trim().startsWith('git checkout <remote>/<feature branch> --'));

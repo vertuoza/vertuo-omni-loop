@@ -38,7 +38,7 @@ describe('launchDecision', () => {
   });
 
   it('with no kit, runs init, help and the version, and refuses anything else with one line', () => {
-    for (const argv of [[], ['init'], ['help'], ['--help'], ['-h'], ['version'], ['--version'], ['ask', 'hook', 'pre']]) {
+    for (const argv of [[], ['init'], ['help'], ['--help'], ['-h'], ['version'], ['--version'], ['now', '--json'], ['ask', 'hook', 'pre']]) {
       expect(launchDecision({ argv, self: SELF, bin: null, hasConfig: false }), argv.join(' ')).toEqual({ kind: 'self' });
     }
     for (const argv of [['status'], ['config'], ['ask', 'on'], ['update'], ['nope']]) {

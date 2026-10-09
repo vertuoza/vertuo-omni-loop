@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { present } from '../../ask/test/test-item';
 import type { FixSummary } from '../../dossier/github/fix';
-import type { DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
-import type { GithubSummary } from '../../dossier/github/summary';
-import { fakeFixFactsStore } from '../../fixes/facts/store.fake';
+import type { ConceptReader, DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
+import { UNREAD, type GithubSummary } from '../../dossier/github/summary';
+import { fakeConceptFactsStore, fakeFixFactsStore } from '../../fixes/facts/store.fake';
 import { fakePrdOutboxStore } from '../outbox/store.fake';
 import { settled } from '../settled';
 import { fakeStageStore } from '../store.fake';
@@ -324,6 +324,40 @@ describe('the fix facts (PRD 691, s2)', () => {
     await syncStages(post(`Bearer ${SECRET}`), d);
     expect(facts.rows.find((r) => r.dossier_id === 'f2')).toMatchObject({ synced_at: '2026-09-28T00:00:00Z' });
     expect(lines.some((l) => l.includes('502'))).toBe(true);
+  });
+});
+
+describe('the concept facts (PRD 1272, s4)', () => {
+  const REPO = 'acme/widgets';
+  const conceptRef = (id: string, n: number): FixRef => ({ id, home_repo: REPO, prd: parseIssue(n) });
+  const pull = (state: 'open' | 'merged') => ({
+    number: parsePr(1270), url: `https://github.com/${REPO}/pull/1270`, state, mergedAt: state === 'merged' ? '2026-10-07T09:00:00Z' : null, mergedBy: null,
+  });
+
+  /** The sync with its concept deps: acme holds the concepts c1 and c2, globex none. */
+  function withConcepts(dossiers?: (w: SyncWorkspace) => Promise<FixRef[]>) {
+    const setup = deps();
+    const facts = fakeConceptFactsStore(() => NOW);
+    const asked: string[] = [];
+    const reader: ConceptReader = { concept: (r) => { asked.push(r.id); return Promise.resolve({ issue: UNREAD, pull: pull('open') }); } };
+    const listed: Record<string, FixRef[]> = { acme: [conceptRef('c1', 1269), conceptRef('c2', 746)] };
+    setup.d.concepts = { dossiers: dossiers ?? ((w) => Promise.resolve(listed[w.slug] ?? [])), reader, store: facts };
+    return { ...setup, facts, asked };
+  }
+
+  it('reads and stores each concept whose pull request has not merged, and leaves a merged one alone', async () => {
+    const { d, facts, asked } = withConcepts();
+    await facts.writeFacts([{ dossier_id: 'c2', workspace_id: 'w-acme', facts: { issue: UNREAD, pull: pull('merged') } }], '2026-10-07T10:00:00Z');
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(asked).toEqual(['c1']);
+    expect(facts.rows.find((r) => r.dossier_id === 'c1')).toMatchObject({ workspace_id: 'w-acme', facts: { pull: pull('open') }, synced_at: NOW });
+    expect(facts.rows.find((r) => r.dossier_id === 'c2')).toMatchObject({ synced_at: '2026-10-07T10:00:00Z' });
+  });
+
+  it('logs a workspace whose concepts cannot be refreshed, and still answers 200', async () => {
+    const { d, lines } = withConcepts(() => Promise.reject(new Error('Supabase refused: nope')));
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(lines.filter((l) => l.includes('concept facts') && l.includes('nope')).length).toBe(2);
   });
 });
 

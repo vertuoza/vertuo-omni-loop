@@ -1,6 +1,6 @@
 ---
 name: roadmap
-description: Turns a milestone plan into a roadmap in one sitting — reads a page, a file or pasted text, shows one map of its PRDs (each blocker with its why, each wave) and its open questions, and takes every answer in one message; then writes every PRD as /omni:brainstorm writes one (issue, inbox folder, spec with its blocked-by, before/after) with no plan, opens the roadmap issue, writes roadmap.md, runs omni roadmap check and omni check inbox until green, opens one phase-0 PR for the whole roadmap, pushes it to the roadmap's page with omni roadmap push, and hands off the /loop /omni:drive --roadmap line. In a plan repository it prints the /omni:mega-roadmap line. Writes no code, merges nothing. Triggers on "write a roadmap", "turn this plan into PRDs", "a milestone of PRDs", "/omni:roadmap".
+description: Turns a milestone plan into a roadmap in one sitting — reads a page, a file or pasted text, shows one map of its PRDs (each blocker with its why, each wave), its open questions and its prerequisites by category, and takes every answer in one message; then writes every PRD as /omni:brainstorm writes one (issue, inbox folder, spec with its blocked-by, before/after) with no plan, opens the roadmap issue, writes roadmap.md with its Prerequisites rows and their author cards, runs omni roadmap check and omni check inbox until green, opens one phase-0 PR for the whole roadmap, pushes it to the roadmap's page with omni roadmap push, checks the prerequisites once with omni roadmap prereqs --fix, and hands off the open ones and the /loop /omni:drive --roadmap line. In a plan repository it prints the /omni:mega-roadmap line. Writes no code, merges nothing. Triggers on "write a roadmap", "turn this plan into PRDs", "a milestone of PRDs", "/omni:roadmap".
 ---
 
 # Roadmap: a milestone into PRDs, in one sitting
@@ -77,6 +77,25 @@ the text. Then draw from it, writing nothing yet:
   is `default` when the source recommends an answer: the PRDs it blocks run on it. It is `person`
   when the source recommends nothing, or when two principles pull the answer apart: the PRDs it
   blocks park until a person answers it.
+- **The prerequisites:** what has to be true on the machine, on GitHub and around the repository
+  before the PRDs can be built and tested (`omni help roadmap` names the catalog). First the base
+  rows every roadmap gets, blocking `all`: `base:gh-auth`, `base:node`, the repository's package
+  manager (`base:pnpm`, `base:npm` or `base:yarn`, from its lockfile), `base:install` and
+  `base:labels`. Then, for each PRD, what it needs that the base rows do not cover (a container, a
+  private package, a secret, a service, a permission), blocking only the rows that need it: a base
+  check when the catalog has one (`base:docker`, `base:registry`, `base:env-file`,
+  `base:omni-signin`), else a shell command that exits 0 when it holds, else nothing. Each row's
+  `category` is `local`, `access`, `permissions`, `github` or `services`, and its `who`:
+  - `agent` only for a row with a base fix (`base:install`, `base:labels`, `base:env-file`): what
+    stays inside the repository and can be undone;
+  - `check` when something verifies it and a person fixes it;
+  - `person` when nothing can verify it, so its author ticks it.
+
+  The agent never installs software, starts or stops a system service, writes a secret, a token or a
+  value it was not given, or changes anyone's access: whatever needs one of those is a `check` or
+  `person` row. Every `check` and `person` row gets its **author card**, four lines for someone who
+  is not technical (step 4): a base check's card starts from the kit's own card for it, adapted to
+  the platform the author uses.
 
 Read the repository's knowledge the way `/omni:brainstorm` step 1 reads it before designing: the
 files in `paths.context`, the glossary at `paths.glossary` when set, the knowledge folder, and the
@@ -96,14 +115,24 @@ The one place this skill asks. Print **one map** in chat:
    ```
 
 3. The open questions, each with its recommendation, the rows it blocks and its kind.
-4. **Every row `omni roadmap check` would refuse,** by its rules (`omni help roadmap` lists them): a
+4. The prerequisites, grouped by category (`local`, `access`, `permissions`, `github`,
+   `services`), one line each: its id, its need, its check, its `who` and the rows it blocks, the
+   base rows first:
+
+   ```text
+   local        p1  Docker is running, for the database tests   base:docker   check   P1.1, P3.4
+   permissions  p3  the preview has DATABASE_URL                 –             person  P3.4
+   ```
+
+5. **Every row `omni roadmap check` would refuse,** by its rules (`omni help roadmap` lists them): a
    cycle, a wave that does not follow its blockers, a blocker without its why, a blocker that is no
-   row, a question blocking no row. Each is named with the fix you propose, already applied to the
-   table above.
-5. The rows the source holds that you left out, and why.
+   row, a question blocking no row, and among the prerequisites an unknown category or `who`, an id
+   used twice, a `blocks` naming no row, a `fix` on a row that is not `agent`. Each is named with the
+   fix you propose, already applied to the table above.
+6. The rows the source holds that you left out, and why.
 
 Then ask, as **one numbered list**: the title and the milestone as drawn; each row, its blockers and
-its wave; each question's kind; anything the source left unclear, with your recommendation as its
+its wave; each question's kind; the prerequisites and who can do each; anything the source left unclear, with your recommendation as its
 default. Say what the answer produces: "`<k>` PRD issues, `<k>` spec folders and one phase-0 PR".
 
 The person answers in **one message**. **Nothing is written before that answer:** no issue, no
@@ -184,12 +213,36 @@ No plan: no `plan.md` is written, and `/omni:plan` is not run.
    | id | question | recommendation | blocks | kind |
    |---|---|---|---|---|
    | Q2 | … | … | P3.1, P3.2 | default |
+
+   ## Prerequisites
+
+   | id | category | need | check | fix | blocks | who |
+   |---|---|---|---|---|---|---|
+   | p1 | permissions | gh is signed in, with the right to change the repository | `base:gh-auth` | | all | check |
+   | p4 | access | the libraries install from the lockfile | `base:install` | `base:install` | all | agent |
+   | p6 | local | Docker is running, for the database tests | `base:docker` | | P1.1, P3.4 | check |
+
+   ### p1
+
+   - **Why:** The loop opens pull requests and reads issues on GitHub as you. It needs to be signed
+     in, with the right to change the repository.
+   - **Command:** `gh auth login --scopes repo`
+   - **What it does:** Opens GitHub in your browser so you can sign the gh tool in.
+   - **Who can do it:** Anyone with this laptop and a GitHub account that can write to the repository.
    ```
 
    `product` only when the source names one, `target` only when the person gave a date, `source`
    only when the source is a page or a file: each line is left out otherwise. A row with several
    blockers lists them comma-separated and gives one `why` that covers each. No `repos` column: that
    is a plan repository's.
+
+   `## Prerequisites` holds the rows step 1 drew as the map's answer settled them, ids `p1`, `p2`, …
+   in the map's order, the base rows first; `blocks` is `all` or the PRD row ids. Under the table,
+   one `### <id>` card per `check` and `person` row (an `agent` row needs none), with exactly its
+   four labelled lines: **Why:** (what breaks without it, in plain words), **Command:** (one command
+   in backticks, the simplest one that works on the author's platform, the install step spelled out
+   when a tool is missing), **What it does:** (one plain sentence) and **Who can do it:** (who on the
+   team, not only "you"). No jargon without its meaning.
 3. **Commit** the PRD folders and the roadmap folder as `docs(roadmap): <topic>`, with the co-author
    trailer, then the `omni sign trailer` line. Then run, fixing until both are green:
 
@@ -233,6 +286,17 @@ The roadmap is written and checked, and not one line of source exists. One revie
 
    Exit `0` prints the page's link. Anything else prints one line (`off`, `no sign-in (omni signin)`,
    `github unreachable`, `unreachable`, `refused (<status>)`): say it, and carry on.
+5. **Check the prerequisites once,** from the worktree, now that `omni roadmap check` is green:
+
+   ```bash
+   node .omni-loop/bin/omni.mjs roadmap prereqs <n> --fix
+   ```
+
+   It runs every row on this machine, the `agent` rows' fixes once, and prints one line per row
+   grouped by category: `ok`, `fixed`, `ticked`, or `waits on you` with its card's command. It sends
+   the result to the roadmap's **Prerequisites** tab itself. Exit `1` means a row waits on a person,
+   which is the hand-off's to report, never a fault to fix here: carry on. Keep its lines. Nothing it
+   fixed is committed: an install or a copied `.env` is no part of the phase-0 PR.
 
 **A person reviews and merges it.** Never merge it yourself.
 
@@ -240,7 +304,10 @@ The roadmap is written and checked, and not one line of source exists. One revie
 
 Report the roadmap issue, every PRD issue with its row id, the phase-0 PR, the waves, every question
 with its kind, the roadmap's page (the link `omni roadmap push` printed, or its one line), and every
-check that ran or did not. Then end the reply with **What is next?**: three short numbered steps,
+check that ran or did not. Then the prerequisites, as `omni roadmap prereqs` printed them: the
+`waits on you` rows first, each with its need, its card's command and its **Who can do it** line,
+then one line counting the others (`7 ok · 1 fixed`). Each open row holds only the PRDs it blocks
+once the drive starts. Then end the reply with **What is next?**: three short numbered steps,
 then the command alone on the reply's last line.
 
 ```markdown
@@ -264,5 +331,7 @@ with `omni roadmap answer <n> <question> "<answer>"`.
 - One map, one answer: nothing is written before it, and nothing is asked after it.
 - Every PRD gets its issue, folder, spec and before/after; none gets a plan.
 - Every blocker carries its why; a dependency nobody can explain is not written.
+- The only fixes the agent runs are the kit's base fixes on `agent` rows: never install software,
+  start a service, write a secret or change anyone's access. That is a person's, on a card.
 - One roadmap, one phase-0 PR. Never merge, never add `labels.outboxGo`, never create a label
   unless `labels.autoCreate` is true, and never write a line of source.

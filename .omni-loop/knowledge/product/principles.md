@@ -575,6 +575,105 @@ Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, en
 Merged: @pierrederval, 2026-10-06, PR #1119
 Proposed: harvest 2026-10-06
 
+## P-PRODUCT-65
+
+Waiting on a person holds back only the PRD that waits, never the rest of the loop, and a loop that has ended is final.
+
+Why: One open question should not stall unrelated work, and a fresh run with its own ledger keeps each loop's history clear.
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-02-loop-park-and-stop, PRD #1139
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-66
+
+Every member page treats a signed-out visitor the same way: it asks them to sign in, and shows demo content only in the app's demo mode.
+
+Why: A visitor should never get a different experience depending on which member page they reached first.
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s5-02-loop-page-signed-out, PRD #1139
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-67
+
+Watching a repository's loops on the Omni page never depends on also sharing its PRD documents; each kind of sending stands on its own.
+
+Why: A team can follow its loops without being made to send documents it chose to keep back.
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s4-01-loop-push-off-switch, PRD #1139
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-68
+
+In the game, every personal credit counts the same way: it scores for the person and for their fleet, and it is withdrawn when the PRD it came from is lost.
+
+Why: Fleet rankings should reflect every member's contribution consistently, and no kind of credit should survive the loss of the work that earned it.
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-01-answers-pay-the-fleet-too, PRD #1180
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-69
+
+In the game, points reward work on the product's tracked features, and only for the people the dashboards list.
+
+Why: So the score never pays for work outside a feature or for people no longer part of the crew.
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-03-which-answers-are-paid, PRD #1180
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-70
+
+In the game, a contributor is credited under the name the code host gives them; a valid name is never refused for how it is spelt.
+
+Why: Refusing capitalised logins would silently stop crediting real members, such as the 12 in the organisation, with every new point.
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-01-capital-login-skipped, PRD #1180
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-71
+
+In the game, a settle's credit is never lost or given to no one because of a malformed name; it waits until it can go to the right person.
+
+Why: Closing a settle on no one would destroy earned credit for good, while waiting costs nothing and keeps the board honest.
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-02-dotted-approver-waits, PRD #1180
+Merged: @pierrederval, 2026-10-07, PR #1181
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-72
+
+A roadmap belongs to its workspace, not to the person who first sent it, so every member can keep it current.
+
+Why: Several people often drive one roadmap, and its page must stay current whoever pushed last.
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s2-02-roadmap-any-member-pushes, PRD #1162
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-73
+
+A roadmap stays valid as its projects ship; shipping a project never makes the roadmap that planned it fail its check.
+
+Why: Otherwise every roadmap would fail as soon as its first project merged, forcing an edit on each ship.
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-02-shipped-prd-still-counts, PRD #1162
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-74
+
+A roadmap in a plan repository always says which repositories each project's work lands in, never leaving it to be assumed.
+
+Why: With several repositories in play, a project with no named repository would be sent to a guessed place.
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-03-repos-column-and-source, PRD #1162
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-75
+
+A roadmap shows each piece's standing only from what the code host records; when the host cannot be read, nothing is sent rather than a guessed state.
+
+Why: People plan around the roadmap, so a guessed or stale state would mislead them about what is waiting and on what.
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s6-01-roadmap-push-reads-the-prs, PRD #1162
+Merged: @pierrederval, 2026-10-07, PR #1163
+Proposed: harvest 2026-10-07
+
 ## P-PRODUCT-76
 
 The loop never launches an agent for a step with nothing to start, and never launches the same running step twice.
