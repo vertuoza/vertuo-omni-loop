@@ -21,7 +21,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-3
 
@@ -33,7 +32,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-4
 
@@ -45,7 +43,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-5
 
@@ -57,7 +54,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #9
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-6
 
@@ -69,7 +65,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #29
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-7
 
@@ -81,7 +76,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-8
 
@@ -93,7 +87,6 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-9
 
@@ -105,43 +98,39 @@ Enforced by: unenforced
 Stated: 2026-09-25
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-10
 
-Terraform rewrites a knowledge-page section only when it is empty, holds nothing but TODO(human) lines, or its marker says by: terraform; any other written section, labelled or not, is a person's and is left alone.
+Invade rewrites a knowledge-page section only when it is empty, holds nothing but TODO(human) lines, or its marker says by: invade; any other written section, labelled or not, is a person's and is left alone.
 
 Serves: P-PRODUCT-9
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s5-03-terraform-treats-an-unmarked-section-as-a-persons, PRD #45
 Enforced by: unenforced
-Stated: 2026-09-25
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-11
 
-Terraform marks a form state: filled with terraformed: <today> when any section holds text, a See: line or a TODO(human) question; only a wholly empty form stays state: blank with terraformed: null.
+Invade marks a form state: filled with invaded: <today> when any section holds text, a See: line or a TODO(human) question; only a wholly empty form stays state: blank with invaded: null.
 
 Serves: P-PRODUCT-10
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s5-05-terraform-marks-a-form-holding-only-questions-filled, PRD #45
 Enforced by: unenforced
-Stated: 2026-09-25
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-12
 
-A round moves only from open to answered, from open to abandoned, or from abandoned to answered from the terminal, and an answer never changes. Only the clean-up deletes sessions; their owners cannot.
+A round moves only from open to answered, from open to abandoned, or from abandoned to answered from the terminal, and an answer never changes. A session is deleted only by its owner, its rounds with it; the hourly clean-up closes idle sessions and deletes nothing.
 
 Serves: P-PRODUCT-11
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s2-04-round-moves-forward, PRD #71
 Enforced by: unenforced
-Stated: 2026-09-26
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-13
 
@@ -153,7 +142,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-14
 
@@ -165,19 +153,17 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-15
 
-omni ask on changes nothing unless a new session was opened, so a session already on stays on. omni ask off always stops ask mode on this computer and exits 0, with one warning line when the page could not be told.
+omni ask on opens no session and closes none, so switching it on in one terminal never touches another. omni ask off closes every terminal's session of this checkout and always stops ask mode there, exiting 0, with one warning line per session the page could not be told; that session closes by itself after 12 hours without a call.
 
 Serves: P-PRODUCT-14
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s5-02-switching-when-the-page-is-away, PRD #71
 Enforced by: unenforced
-Stated: 2026-09-26
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-16
 
@@ -189,7 +175,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-17
 
@@ -201,7 +186,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-18
 
@@ -213,7 +197,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-19
 
@@ -225,7 +208,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-20
 
@@ -237,7 +219,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-21
 
@@ -249,7 +230,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-22
 
@@ -261,7 +241,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #75
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-23
 
@@ -273,7 +252,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #103
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-24
 
@@ -285,7 +263,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-25
 
@@ -297,7 +274,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-26
 
@@ -309,7 +285,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-27
 
@@ -321,7 +296,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-28
 
@@ -333,19 +307,17 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-29
 
-Ask mode is open to any workspace member, whatever the account's email or with none: membership is the only gate, never an email domain. A session goes to the workspace that owns its repository, and is refused when the person is not a member of it; a repository no workspace owns goes to the person's first workspace. An account in no workspace is refused, and each person sees only their own sessions and rounds.
+Ask mode is open to any workspace member, whatever the account's email or with none: membership is the only gate, never an email domain. A session goes to the workspace that owns its repository, and is refused when the person is not a member of it; a repository no workspace owns goes to the person's first workspace. An account in no workspace is refused. Every member of a workspace reads its sessions and rounds; only a session's owner keeps, closes or deletes it.
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace, PRD #100
 Enforced by: unenforced
-Stated: 2026-09-26
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-30
 
@@ -357,7 +329,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-31
 
@@ -369,7 +340,6 @@ Enforced by: unenforced
 Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #153
-Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-32
 
@@ -381,7 +351,6 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-33
 
@@ -393,7 +362,6 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-34
 
@@ -405,7 +373,6 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-35
 
@@ -417,7 +384,6 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-36
 
@@ -429,7 +395,6 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-37
 
@@ -452,7 +417,6 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-39
 
@@ -464,7 +428,6 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-40
 
@@ -476,7 +439,6 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #147
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-41
 
@@ -499,7 +461,6 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-43
 
@@ -511,7 +472,6 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-44
 
@@ -526,15 +486,14 @@ Merged: @pierrederval, 2026-09-27, PR #239
 
 ## BR-PRODUCT-45
 
-On HOME, pressing Enter starts the game unless the focus is on a button, link or field, which then does what that control does; a focused PRESS START still starts the game.
+On HOME, pressing Enter runs PRESS START unless the focus is on a button, link or field, which then does what that control does. PRESS START opens the app last picked, or SELECT YOUR APP when none is remembered.
 
 Serves: P-PRODUCT-42
 Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s3-02-enter-on-focused-controls, PRD #261
 Enforced by: unenforced
-Stated: 2026-09-27
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
-Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-46
 
@@ -546,7 +505,6 @@ Enforced by: unenforced
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
-Proposed: harvest 2026-09-28
 
 ## BR-PRODUCT-47
 
@@ -558,7 +516,6 @@ Enforced by: unenforced
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
-Proposed: harvest 2026-09-28
 
 ## BR-PRODUCT-48
 
@@ -570,7 +527,6 @@ Enforced by: unenforced
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
-Proposed: harvest 2026-09-28
 
 ## BR-PRODUCT-49
 
@@ -582,7 +538,6 @@ Enforced by: unenforced
 Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
-Proposed: harvest 2026-09-28
 
 ## BR-PRODUCT-50
 
@@ -605,7 +560,6 @@ Enforced by: unenforced
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## BR-PRODUCT-52
 
@@ -617,7 +571,6 @@ Enforced by: unenforced
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## BR-PRODUCT-53
 
@@ -629,7 +582,6 @@ Enforced by: unenforced
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## BR-PRODUCT-54
 
@@ -641,7 +593,6 @@ Enforced by: unenforced
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## BR-PRODUCT-55
 
@@ -653,7 +604,6 @@ Enforced by: unenforced
 Stated: 2026-09-29
 Decided: nobody — adopted when raised (medium), 2026-09-29
 Merged: @pierrederval, 2026-09-29, PR #699
-Proposed: harvest 2026-09-29
 
 ## BR-PRODUCT-56
 
@@ -665,7 +615,6 @@ Enforced by: unenforced
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818
-Proposed: harvest 2026-09-30
 
 ## BR-PRODUCT-57
 
@@ -677,7 +626,6 @@ Enforced by: unenforced
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #818
-Proposed: harvest 2026-09-30
 
 ## BR-PRODUCT-58
 
@@ -700,7 +648,6 @@ Enforced by: unenforced
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
-Proposed: harvest 2026-09-30
 
 ## BR-PRODUCT-60
 
@@ -712,7 +659,6 @@ Enforced by: unenforced
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
-Proposed: harvest 2026-09-30
 
 ## BR-PRODUCT-61
 
@@ -735,7 +681,6 @@ Enforced by: unenforced
 Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #840
-Proposed: harvest 2026-09-30
 
 ## BR-PRODUCT-63
 
@@ -747,7 +692,6 @@ Enforced by: unenforced
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
-Proposed: harvest 2026-10-01
 
 ## BR-PRODUCT-64
 
@@ -759,7 +703,6 @@ Enforced by: unenforced
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
-Proposed: harvest 2026-10-01
 
 ## BR-PRODUCT-65
 
@@ -771,7 +714,6 @@ Enforced by: unenforced
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #856
-Proposed: harvest 2026-10-01
 
 ## BR-PRODUCT-66
 
@@ -794,7 +736,6 @@ Enforced by: unenforced
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #874
-Proposed: harvest 2026-10-01
 
 ## BR-PRODUCT-68
 
@@ -806,7 +747,6 @@ Enforced by: unenforced
 Stated: 2026-10-01
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-01, PR #874
-Proposed: harvest 2026-10-01
 
 ## BR-PRODUCT-69
 
@@ -818,7 +758,6 @@ Enforced by: unenforced
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1090
-Proposed: harvest 2026-10-06
 
 ## BR-PRODUCT-70
 
@@ -830,7 +769,6 @@ Enforced by: unenforced
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-01
 Merged: @pierrederval, 2026-10-06, PR #860
-Proposed: harvest 2026-10-06
 
 ## BR-PRODUCT-71
 
@@ -842,7 +780,6 @@ Enforced by: unenforced
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
-Proposed: harvest 2026-10-06
 
 ## BR-PRODUCT-72
 
@@ -854,4 +791,234 @@ Enforced by: unenforced
 Stated: 2026-10-06
 Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
-Proposed: harvest 2026-10-06
+
+## BR-PRODUCT-73
+
+A loop that has not yet said when it will wake next reads live until one hour after the last thing it pushed; only then is it shown silent and may it be taken over.
+
+Serves: P-PRODUCT-2
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-01-loop-silent-before-first-wake, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+
+## BR-PRODUCT-74
+
+Parking a PRD records who it waits on and the loop keeps running; a later round of that PRD takes it off the parked list. A stopping loop ends parked if PRDs still wait, else stopped, and an ended loop refuses any push.
+
+Serves: P-PRODUCT-65
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-02-loop-park-and-stop, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+
+## BR-PRODUCT-75
+
+A signed-out visitor to the Loop page or one loop's page is asked to sign in, the same as on the Engineering page. The demo loops show only where every page shows its demo: in development or when the demo mode is switched on.
+
+Serves: P-PRODUCT-66
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s5-02-loop-page-signed-out, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+
+## BR-PRODUCT-76
+
+omni loop push counts as off, printing off and exiting 1, only when ask.url is not set. It never reads dossier.enabled, so a repository with the dossier switched off still sends its loop state to the Loop page.
+
+Serves: P-PRODUCT-67
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s4-01-loop-push-off-switch, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+
+## BR-PRODUCT-77
+
+Answering a question on a PRD earns the answerer 2 points and earns their fleet the same 2 points. If that PRD is later lost, those answer points are taken back in its season, like the rest of that PRD's points.
+
+Serves: P-PRODUCT-68
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-01-answers-pay-the-fleet-too, PRD #1180
+Enforced by: game/rulebook.test.ts, game/projector.test.ts, game/economy.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+
+## BR-PRODUCT-78
+
+Every answered question earns points for the answerer when they are a current workspace member with a GitHub login, whether or not a numbered PRD claims it. An answer no PRD claims is credited on planet 0, which the map and the season's planets leave out.
+
+Serves: P-PRODUCT-69
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-03-which-answers-are-paid, PRD #1180
+Enforced by: supabase/checks/game_answered_rounds.sql, supabase/migrations/20261109090000_game_answered_rounds.sql, game/sources/supabase.test.ts, supabase/migrations/20261118090000_every_answer_pays.sql
+Stated: 2026-10-09
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+
+## BR-PRODUCT-79
+
+A point credited to a GitHub login is credited under that login; a login with capitals is accepted, never skipped, and answer points arrive already in lower case. The event is skipped only when the name holds an at sign, a dot, a space or another character no GitHub login can hold.
+
+Serves: P-PRODUCT-70
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-01-capital-login-skipped, PRD #1180
+Enforced by: game/projector.test.ts
+Stated: 2026-10-09
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+
+## BR-PRODUCT-80
+
+When a settled decision names an approver that no GitHub login can have, such as a dotted name, its settle is skipped with a warning and earns no one credit. The decision stays open until the name is corrected, then it is credited to that login.
+
+Serves: P-PRODUCT-71
+Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-02-dotted-approver-waits, PRD #1180
+Enforced by: game/sources/parsers.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1181
+
+## BR-PRODUCT-81
+
+Any member of a roadmap's workspace may push an update to it, replacing its document and PRD rows, and the roadmap records the member who pushed last.
+
+Serves: P-PRODUCT-72
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s2-02-roadmap-any-member-pushes, PRD #1162
+Enforced by: supabase/checks/roadmaps.sql, apps/galaxy/src/roadmap/migration.test.ts, kit/lib/roadmap/push.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+
+## BR-PRODUCT-82
+
+The plan check refuses a target only for blockers in the repositories its own consumes list names; a chain through a middle repository is not followed. A repository installed indirectly must be listed in the target's consumes list to be refused.
+
+Serves: P-PRODUCT-61
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s3-01-consumes-is-direct-only, PRD #1162
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+
+## BR-PRODUCT-83
+
+The roadmap check refuses a project that installs another repository's package unless its wave comes after every project it waits on, directly or through others, that changes that repository. Projects that do not wait on each other may share a wave.
+
+Serves: P-PRODUCT-61
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-01-consumer-rule-follows-blockers, PRD #1162
+Enforced by: kit/lib/roadmap/grade.test.ts, kit/lib/roadmap/grade.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+
+## BR-PRODUCT-84
+
+The roadmap check accepts a row when its project's folder is in the inbox or the shipped folder, and compares its spec wherever it lives; only a row whose project is in neither is refused.
+
+Serves: P-PRODUCT-73
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-02-shipped-prd-still-counts, PRD #1162
+Enforced by: kit/lib/roadmap/grade.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+
+## BR-PRODUCT-85
+
+In a plan repository's roadmap, every project must name at least one repository; outside a plan repository, a repositories column is refused. The source line, like the product and target date, is optional.
+
+Serves: P-PRODUCT-74
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-03-repos-column-and-source, PRD #1162
+Enforced by: kit/lib/roadmap/parse.test.ts, kit/lib/roadmap/grade.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+
+## BR-PRODUCT-86
+
+omni roadmap push marks a PRD building once its feature PR is open, outbox when its draft holds open questions, ready once every part is ready, merged once every part merged; a PRD not started names its first unmerged blocker. If GitHub is unreadable, nothing is pushed.
+
+Serves: P-PRODUCT-75
+Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s6-01-roadmap-push-reads-the-prs, PRD #1162
+Enforced by: kit/lib/roadmap/push.test.ts, kit/bin/roadmap.test.ts
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1163
+
+## BR-PRODUCT-87
+
+The steps to launch list only steps that have work to start and are not already running; a step that only waits is left out. Held names only steps a rule keeps back, never a step left out because every slot is full.
+
+Serves: P-PRODUCT-76
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s1-01-steps-only-act, PRD #1205
+Enforced by: kit/lib/next/follow.test.ts, kit/bin/next.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1206
+
+## BR-PRODUCT-88
+
+A PRD runs the wave holding a live claim (a draft sub-PR in flight, not stale or stalled) on one of its slices. Otherwise, when its feature PR has the in-progress label and a status comment fresh within the claim limit, it runs its first step not done.
+
+Serves: P-PRODUCT-77
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s1-02-running-read, PRD #1205
+Enforced by: kit/lib/next/follow.test.ts, kit/bin/next.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1206
+
+## BR-PRODUCT-89
+
+While a step the drive session started is not yet shown running on GitHub, the session launches no new step. It never launches a step for a PRD it already has a step agent on, and never runs more than limits.parallelSteps agents at once.
+
+Serves: P-PRODUCT-78
+Source: .omni-loop/delivery/shipped/1205-parallel-loop-steps/outbox/settled.md, entry s2-01-unseen-step-holds-pool, PRD #1205
+Enforced by: kit/test/plugin.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1206
+
+## BR-PRODUCT-90
+
+When a session's branch names a feature or a fix, the session shows that work, even if its record says it last worked on something else. Only on a branch that names nothing does it show the last recorded work.
+
+Serves: P-PRODUCT-79
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s2-01-branch-before-record, PRD #1208
+Enforced by: kit/lib/now/now.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1210
+
+## BR-PRODUCT-91
+
+The status line refreshes the links of the work a session is on when they are missing or a minute old and no refresh holds them, for a PRD not yet shipped (in review included) and a fix not yet merged; finished work is never refreshed.
+
+Serves: P-PRODUCT-80
+Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s5-03-links-refresh-for-any-live-work, PRD #1208
+Enforced by: kit/bin/statusline.test.ts, kit/lib/statusline/board-cache.test.ts
+Stated: 2026-10-08
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-08, PR #1210
+
+## BR-PRODUCT-92
+
+The dashboard counts only PRDs and fixes. A concept stored in the workspace is read without failing the dashboard and is left out of its counts, since concepts have their own list.
+
+Serves: P-PRODUCT-30
+Source: .omni-loop/delivery/shipped/1272-concepts-page/outbox/settled.md, entry s2-01-dashboard-skips-concepts, PRD #1272
+Enforced by: apps/galaxy/src/data/dossiers.test.ts
+Stated: 2026-10-09
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-09, PR #1282
+
+## BR-PRODUCT-93
+
+A concept's review state is unknown when no facts are stored for it, or its stored pull request is unread or missing. The concepts list reads only stored facts and never asks GitHub; the sync or the concept's own page fills them in.
+
+Serves: P-PRODUCT-7
+Source: .omni-loop/delivery/shipped/1272-concepts-page/outbox/settled.md, entry s4-02-concept-state-unknown-until-read, PRD #1272
+Enforced by: apps/galaxy/src/concepts/state.test.ts, apps/galaxy/src/concepts/list.test.ts
+Stated: 2026-10-09
+Decided: nobody — adopted when raised (medium), 2026-10-08
+Merged: @pierrederval, 2026-10-09, PR #1282

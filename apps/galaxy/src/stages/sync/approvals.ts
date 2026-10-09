@@ -1,5 +1,5 @@
 // The sync's read of the PRDs born on the server (PRD 1299, s6), as the service role: a repository's PRD
-// dossiers whose birthplace is `server` (supabase/migrations/20261121090000_approvals.sql), each with the
+// dossiers whose birthplace is `server` (supabase/migrations/20261123090000_approvals.sql), each with the
 // time of its first approval, which dates its inbox (./core.ts); null while nobody approved it. A refusal
 // throws with Supabase's reason, and the sync logs it.
 import type { SupabaseClient } from '@supabase/supabase-js';

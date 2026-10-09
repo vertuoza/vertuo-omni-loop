@@ -12,7 +12,7 @@
 //
 // The kit reads with the terminal's sign-in (a bearer token). The page approves with the person's own
 // session; a POST that carries a bearer token approves as that sign-in instead. Both run as the caller:
-// dossier_approve() and dossier_approval() (supabase/migrations/20261121090000_approvals.sql) check who
+// dossier_approve() and dossier_approval() (supabase/migrations/20261123090000_approvals.sql) check who
 // calls. Once an approval is written, the PRD's issue gets its approved label (./label.ts): a label that
 // cannot be added is logged and never undoes the approval, which is the record.
 //

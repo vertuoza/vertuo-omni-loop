@@ -149,7 +149,7 @@ export type DossierRow = {
   birthplace?: Birthplace | null | undefined;
 };
 
-/** Where a PRD's phase 0 is approved (PRD 1299, supabase/migrations/20261121090000_approvals.sql). */
+/** Where a PRD's phase 0 is approved (PRD 1299, supabase/migrations/20261123090000_approvals.sql). */
 export type Birthplace = 'server' | 'repo';
 
 /** A version without its content: what the version picker lists. */

@@ -11,7 +11,7 @@ import { rowOf, SavedRepository, type Phase0, type RepositoryRow } from './model
 // PRD 1246 s4 adds a fourth, set_repository_public_ideas() of
 // supabase/migrations/20261115090000_ideas.sql, any member's too: it turns the repository's ideas board
 // public or private. At most one workspace makes a given repository's board public. PRD 1299 s1 adds a
-// fifth, set_repository_phase0() of supabase/migrations/20261120090000_phase0_flag.sql, the owner's
+// fifth, set_repository_phase0() of supabase/migrations/20261122090000_phase0_flag.sql, the owner's
 // only: it switches where the repository's phase 0 is approved, a phase-0 pull request or the PRD page.
 
 export type Saved = { ok: true; repository: RepositoryRow } | { ok: false; message: string };

@@ -21,7 +21,7 @@ const VOICE_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase
 // PRD 1272: the concept kind and its four version kinds.
 const CONCEPT_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261119090000_concept_dossiers.sql', import.meta.url)), 'utf8');
 // PRD 1299 s2: a PRD dossier's birthplace, granted to the signed-in.
-const APPROVALS_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261121090000_approvals.sql', import.meta.url)), 'utf8');
+const APPROVALS_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261123090000_approvals.sql', import.meta.url)), 'utf8');
 
 /** The parameter names `create function public.<name>(…)` declares, in order. */
 function parameters(name: string, migration = MIGRATION): string[] {

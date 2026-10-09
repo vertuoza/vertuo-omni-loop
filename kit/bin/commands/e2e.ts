@@ -14,8 +14,9 @@ import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 
 // `omni e2e heals <n>` pairs the recordings' steps at the merge-base of the PRD's feature branch with
-// the default branch and at the feature branch's head; it exits 0, or 1 on the same refusals.
-const USAGE = 'usage: omni e2e status <prd>\n       omni e2e heals <prd>';
+// the default branch and at the head (`--head <ref>`, the feature branch when absent); it exits 0, or 1
+// on the same refusals.
+const USAGE = 'usage: omni e2e status <prd>\n       omni e2e heals <prd> [--head <ref>]';
 
 function status(args: string[], { ctx, stdout, stderr }: CommandIo): number {
   const { positional } = parseArgs('e2e status', args);
@@ -49,12 +50,12 @@ function resolveRef(name: string, { ctx, exec }: CommandIo): string {
       // try the next
     }
   }
-  throw usageError(`omni e2e heals: cannot find branch ${name} - fetch it first`);
+  throw usageError(`omni e2e heals: cannot find ref ${name} - fetch it first`);
 }
 
 function heals(args: string[], io: CommandIo): number {
   const { ctx, stdout, stderr, exec } = io;
-  const { positional } = parseArgs('e2e heals', args);
+  const { positional, flags } = parseArgs('e2e heals', args, { values: ['head'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const prd = prdArg('e2e heals', '<prd>', positional[0]);
   const { enabled, dir } = ctx.config.e2e;
@@ -65,7 +66,7 @@ function heals(args: string[], io: CommandIo): number {
   const where = ctx.layout.whereIs(prd);
   const parsed = where ? parseFolderName(where.name) : null;
   if (!parsed) throw usageError(`omni e2e heals: PRD ${prd} has no inbox or shipped folder`);
-  const head = resolveRef(fillBranch(ctx.config.branches.feature, { topic: parsed.topic }), io);
+  const head = resolveRef(flags.head ?? fillBranch(ctx.config.branches.feature, { topic: parsed.topic }), io);
   const trunk = resolveRef(ctx.config.repo.defaultBranch, io);
   let base: string;
   try {

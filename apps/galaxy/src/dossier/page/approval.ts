@@ -5,7 +5,7 @@ import type { DossierRow, DossierVersionRow } from '../store';
 import { stamp } from './dates';
 
 // The approval of a PRD born on the server (◆, PRD 1299 s3), on its page, as pure functions of what the
-// viewer reads: its latest row of `approvals` (supabase/migrations/20261121090000_approvals.sql), which a
+// viewer reads: its latest row of `approvals` (supabase/migrations/20261123090000_approvals.sql), which a
 // member reads under the table's policy, and the dossier's versions. It reads one of three states:
 //
 // - waiting for approval: nobody approved it yet;

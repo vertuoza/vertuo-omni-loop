@@ -4,7 +4,7 @@
 //   GET /api/repositories/phase0?repo=<owner/name>   → 200 {phase0: 'pr' | 'server'}
 //
 // The kit (`/omni:brainstorm`) calls it with the terminal's sign-in. The database's repository_phase0()
-// (supabase/migrations/20261120090000_phase0_flag.sql), run as the caller, answers the flag of the
+// (supabase/migrations/20261122090000_phase0_flag.sql), run as the caller, answers the flag of the
 // repository in the caller's workspace, `pr` for one the workspace does not list. Refusals follow
 // ADR-0029, each `{error}` in plain words: 400 a malformed repository, 401 no valid bearer token, 403 a
 // repository outside the caller's workspaces (the database's reason, and the App's install link after
