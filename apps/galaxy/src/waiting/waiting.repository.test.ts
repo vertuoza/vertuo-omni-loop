@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WaitingRound } from './source';
+import { WaitingRound } from './waiting.repository';
 
 // The waiting rounds' questions the Questions part reads, parsed where they come in (PRD 1030). No
 // boundary registers this read: `pnpm schemas:verify` reads with the service role, which is granted
