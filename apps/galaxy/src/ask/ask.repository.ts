@@ -180,6 +180,24 @@ export function askAttachments(db: Pick<SupabaseClient, 'storage'>) {
       }
     },
 
+    /** Stores one screenshot at `path`, never over one already there: `exists` when one is, `refused`
+     * when the bucket's rules say no (the caller may not answer the round). Throws when Storage fails. */
+    async upload(path: string, file: Blob, contentType: string): Promise<'stored' | 'exists' | 'refused'> {
+      // `error` is widened: Storage's answer is read here unparsed.
+      const { error }: { error: { message: string; statusCode?: string | undefined } | null } =
+        await db.storage.from(ATTACHMENTS_BUCKET).upload(path, file, { contentType, upsert: false });
+      if (!error) return 'stored';
+      if (error.statusCode === '409' || /already exists|duplicate/i.test(error.message)) return 'exists';
+      if (error.statusCode === '403' || error.statusCode === '400' || /row-level security/i.test(error.message)) return 'refused';
+      throw new AskStoreError('store the screenshot', undefined, error.message);
+    },
+
+    /** Removes these screenshots, as far as the bucket's rules let the caller. Throws when Storage fails. */
+    async remove(paths: string[]): Promise<void> {
+      const { error } = await db.storage.from(ATTACHMENTS_BUCKET).remove(paths);
+      if (error) throw new AskStoreError('remove the screenshots', undefined, error.message);
+    },
+
     /** The bucket itself, for the uploads a page sends as the caller (PRD 620). */
     bucket() {
       return db.storage.from(ATTACHMENTS_BUCKET);
