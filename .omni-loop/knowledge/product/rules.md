@@ -1028,7 +1028,7 @@ Merged: @pierrederval, 2026-10-09, PR #1282
 Every ask call the terminal makes also accepts the page's own sign-in when the request carries no terminal token. An answer marked as given on the page is taken only from the page's sign-in, never from a terminal token.
 
 Serves: P-PRODUCT-66
-Source: .omni-loop/delivery/outbox/1318-layered-data-access/settled.md, entry s3-01-cookie-session-on-every-ask-route, PRD #1318
+Source: .omni-loop/delivery/shipped/1318-layered-data-access/outbox/settled.md, entry s3-01-cookie-session-on-every-ask-route, PRD #1318
 Enforced by: apps/galaxy/src/ask/api.test.ts
 Stated: 2026-10-09
 Decided: @pierrederval, 2026-10-09
