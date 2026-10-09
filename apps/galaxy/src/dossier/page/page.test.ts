@@ -36,6 +36,8 @@ const given = vi.hoisted(() => ({
   snapshots: null as unknown as import('../snapshot/store.fake').FakeSnapshotStore,
   paused: null as number | null,
   later: [] as (() => Promise<void>)[],
+  // A ◆ PRD's approval in force (PRD 1299 s3), read as the member: the fake database keeps no approvals.
+  approval: null as unknown as import('vitest').Mock<(db: unknown, id: string) => Promise<unknown>>,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -66,6 +68,10 @@ vi.mock('../snapshot/live', async () => {
     }),
   };
 });
+vi.mock('./approval', async (original) => ({
+  ...(await original<typeof import('./approval')>()),
+  readApproval: (db: unknown, id: string) => given.approval(db, id),
+}));
 vi.mock('../../stages/store', async (original) => ({
   ...(await original<typeof import('../../stages/store')>()),
   stageStore: () => given.stages,
@@ -114,6 +120,7 @@ beforeEach(async () => {
   given.snapshots = fakeSnapshotStore();
   given.paused = null;
   given.later = [];
+  given.approval = vi.fn(() => Promise.resolve(null));
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -448,6 +455,61 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     given.mode = 'demo';
     await html('anything');
     expect(given.summary).not.toHaveBeenCalled();
+  });
+});
+
+describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
+  const bornOnServer = () => {
+    const row = given.fake.tables.dossiers.find((d) => d.id === numbered);
+    assertDefined(row, 'the numbered dossier');
+    // The fake keeps no birthplace column: the row carries it as the migration's trigger would set it.
+    Object.assign(row, { birthplace: 'server' });
+  };
+  const APPROVE = /<button[^>]*>Approve<\/button>/;
+
+  it('reads the approval in force as the member and shows a ◆ PRD waiting for approval, with the Approve button', async () => {
+    bornOnServer();
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(given.approval).toHaveBeenCalledWith(expect.anything(), numbered);
+    expect(page).toContain('<dt>Approval</dt>');
+    expect(page).toContain('<strong>waiting for approval</strong>');
+    expect(page).toMatch(APPROVE);
+  });
+
+  it('shows who approved it and when, with no button', async () => {
+    bornOnServer();
+    const spec = given.fake.tables.dossier_versions.find((v) => v.dossier_id === numbered && v.kind === 'spec');
+    const page_ = given.fake.tables.dossier_versions.find((v) => v.dossier_id === numbered && v.kind === 'before-after');
+    assertDefined(spec, 'its spec');
+    assertDefined(page_, 'its before/after');
+    given.approval.mockResolvedValue({
+      approver_login: 'ada', approved_at: '2026-10-09T09:12:00Z',
+      files: [{ kind: 'spec', path: 'spec.md', version_id: spec.id }, { kind: 'before-after', path: 'before-after.html', version_id: page_.id }],
+    });
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(page).toContain('<strong>approved</strong>');
+    expect(page).toContain('by ada · 9 Oct 2026, 09:12 UTC');
+    expect(page).not.toMatch(APPROVE);
+  });
+
+  it('says the approval could not be read, and still shows the dossier', async () => {
+    bornOnServer();
+    given.approval.mockRejectedValue(new Error('down'));
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(page).toContain('The approval could not be read');
+    expect(page).not.toMatch(APPROVE);
+    expect(page).toContain('PRD #7 ↗');
+  });
+
+  it('reads no approval for a PRD born in the repository, and shows none', async () => {
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(given.approval).not.toHaveBeenCalled();
+    expect(page).not.toContain('Approval');
+    expect(page).not.toMatch(APPROVE);
   });
 });
 

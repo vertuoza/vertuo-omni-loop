@@ -34,6 +34,7 @@ import { proofStore } from '../../proof/store';
 import { readProofs } from './proof-read';
 import { pitchStore } from '../../pitch/store';
 import { readPitches } from './pitch-read';
+import { readApproval, type ApprovalRead } from './approval';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
@@ -77,6 +78,9 @@ import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // the Proof tab out, never the page.
 // PRD 859 s3: its pitches are read the same way (./pitch-read.ts), and on the Pitch tab only the shown
 // pitch of each audience has its five files signed; pitches that cannot be read leave the tab out.
+// PRD 1299 s3: a numbered PRD born on the server (◆) has its approval in force read as the member beside
+// the page's own reads (./approval.ts); one that cannot be read says so on the page, never hides it. A PRD
+// born in the repository (◇) reads none.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -84,6 +88,17 @@ export type DossierRouteProps = {
 };
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
+
+/** A ◆ PRD's approval in force, `unread` when it could not be read; nothing for any other dossier. */
+async function approvalOf(db: Db, dossier: DossierRead['dossier']): Promise<{ approval?: ApprovalRead }> {
+  if (dossier.birthplace !== 'server') return {};
+  try {
+    return { approval: await readApproval(db, dossier.id) };
+  } catch (error) {
+    console.error(error);
+    return { approval: 'unread' };
+  }
+}
 
 /** The GitHub summary, the plan's slice count and the stored stages of a numbered PRD dossier the member
  * reads, each started now and awaited by the page's own blocks (PRD 657 s4); the summary reads null when
@@ -230,7 +245,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   };
   const { prd } = read.dossier;
   if (prd !== null && kindOf(read.dossier) === 'prd') {
-    read = { ...read, proofs: await proofs, pitches: await pitches };
+    const approval = approvalOf(db, read.dossier);
+    read = { ...read, proofs: await proofs, pitches: await pitches, ...(await approval) };
     // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
     const first = dossierView(read, user.id, pick);
     const markdown = shownMarkdown(first, (shownId) => readContent(db, shownId));
