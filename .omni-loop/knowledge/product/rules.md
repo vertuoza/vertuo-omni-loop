@@ -491,15 +491,15 @@ Merged: @pierrederval, 2026-09-27, PR #239
 
 ## BR-PRODUCT-45
 
-On HOME, pressing Enter starts the game unless the focus is on a button, link or field, which then does what that control does; a focused PRESS START still starts the game.
+On HOME, pressing Enter runs PRESS START unless the focus is on a button, link or field, which then does what that control does. PRESS START opens the app last picked, or SELECT YOUR APP when none is remembered.
 
 Serves: P-PRODUCT-42
 Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s3-02-enter-on-focused-controls, PRD #261
 Enforced by: unenforced
-Stated: 2026-09-27
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
-Proposed: harvest 2026-09-27
+Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-46
 
@@ -855,27 +855,27 @@ Merged: @pierrederval, 2026-10-07, PR #1181
 
 ## BR-PRODUCT-78
 
-An answered question earns points only when it is tied to a numbered PRD, never a bug or visual fix, and only for a current workspace member with a GitHub login. Unpaid answers still count in Questions answered.
+Every answered question earns points for the answerer when they are a current workspace member with a GitHub login, whether or not a numbered PRD claims it. An answer no PRD claims is credited on planet 0, which the map and the season's planets leave out.
 
 Serves: P-PRODUCT-69
 Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s1-03-which-answers-are-paid, PRD #1180
-Enforced by: supabase/checks/game_answered_rounds.sql, supabase/migrations/20261109090000_game_answered_rounds.sql, game/sources/supabase.test.ts
-Stated: 2026-10-07
+Enforced by: supabase/checks/game_answered_rounds.sql, supabase/migrations/20261109090000_game_answered_rounds.sql, game/sources/supabase.test.ts, supabase/migrations/20261118090000_every_answer_pays.sql
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1181
-Proposed: harvest 2026-10-07
+Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-79
 
-A point credited to a GitHub login is credited under that login as GitHub spells it, capitals included. The event is skipped only when the name holds an at sign, a dot, a space or another character no GitHub login can hold.
+A point credited to a GitHub login is credited under that login; a login with capitals is accepted, never skipped, and answer points arrive already in lower case. The event is skipped only when the name holds an at sign, a dot, a space or another character no GitHub login can hold.
 
 Serves: P-PRODUCT-70
 Source: .omni-loop/delivery/shipped/1180-answers-earn-points/outbox/settled.md, entry s3-01-capital-login-skipped, PRD #1180
 Enforced by: game/projector.test.ts
-Stated: 2026-10-07
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1181
-Proposed: harvest 2026-10-07
+Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-80
 
