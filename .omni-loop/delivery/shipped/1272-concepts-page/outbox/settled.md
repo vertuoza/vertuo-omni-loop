@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-08
 - Slice: s1
 - Wave: 1
+- Stays here: This is a temporary sequencing choice between slices with a one-edit reversal and no lasting behaviour or guarantee to record.
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ One edit in s2 or s3: fold PUSH_KINDS into WORK_KINDS and PUSHED_ARTIFACT_KINDS 
 - Raised: 2026-10-08
 - Slice: s2
 - Wave: 2
+- Became: BR-PRODUCT-92
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ One filter to remove in workspaceDossiers() if the dashboard should count concep
 - Raised: 2026-10-08
 - Slice: s2
 - Wave: 2
+- Stays here: A slice-territory routing choice, cheap to change by adding one callback route; it guarantees nothing lasting the knowledge base should keep.
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ One callback route, app/concepts/callback/route.ts, copied from app/bugs/callbac
 - Raised: 2026-10-08
 - Slice: s5
 - Wave: 2
+- Stays here: A local, cheaply reversible wording choice about one skill's text; nothing lasting about product behaviour to record.
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ One small text change to kit/plugin/skills/dossier-push/SKILL.md, in any later s
 - Raised: 2026-10-08
 - Slice: s3
 - Wave: 3
+- Stays here: An interim, cheap-to-change page choice tied to exact label copy. Nobody approved it, and it awaits a push change, so no lasting guarantee belongs in the knowledge base.
 
 ### The answer, as it was given
 
@@ -407,6 +412,7 @@ To say it only when true: the push sends the names of the files it held back, th
 - Raised: 2026-10-08
 - Slice: s3
 - Wave: 3
+- Stays here: A temporary stopgap that one line in ConceptPage.view.ts replaces once s4 lands, so there is no lasting guarantee for the knowledge base to keep.
 
 ### The answer, as it was given
 
@@ -485,6 +491,7 @@ One line in ConceptPage.view.ts once s4 stores the pull request in fix_facts: li
 - Raised: 2026-10-08
 - Slice: s4
 - Wave: 4
+- Became: ADR-0094
 
 ### The answer, as it was given
 
@@ -565,6 +572,7 @@ Moving the read later is one method and its test moved to another file; nothing 
 - Raised: 2026-10-08
 - Slice: s4
 - Wave: 4
+- Became: BR-PRODUCT-93
 
 ### The answer, as it was given
 
