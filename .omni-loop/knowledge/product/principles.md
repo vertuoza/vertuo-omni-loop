@@ -236,12 +236,12 @@ Merged: @pierrederval, 2026-09-26, PR #101
 
 ## P-PRODUCT-27
 
-Who may use the game's features is decided by workspace membership, never by the domain of an email address, and a person's questions stay theirs alone.
+Who may use the game's features is decided by workspace membership, never by the domain of an email address.
 
-Why: Workspaces are now how people reach the game, so access follows them, and an asker's questions must not be shown to anyone else.
+Why: Workspaces are how people reach the game, so access follows them.
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace, PRD #100
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
+Proposed: rewrite 2026-10-09
 
 ## P-PRODUCT-28
 

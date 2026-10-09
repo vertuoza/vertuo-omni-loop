@@ -101,39 +101,39 @@ Merged: @pierrederval, 2026-09-25, PR #46
 
 ## BR-PRODUCT-10
 
-Terraform rewrites a knowledge-page section only when it is empty, holds nothing but TODO(human) lines, or its marker says by: terraform; any other written section, labelled or not, is a person's and is left alone.
+Invade rewrites a knowledge-page section only when it is empty, holds nothing but TODO(human) lines, or its marker says by: invade; any other written section, labelled or not, is a person's and is left alone.
 
 Serves: P-PRODUCT-9
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s5-03-terraform-treats-an-unmarked-section-as-a-persons, PRD #45
 Enforced by: unenforced
-Stated: 2026-09-25
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
+Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-11
 
-Terraform marks a form state: filled with terraformed: <today> when any section holds text, a See: line or a TODO(human) question; only a wholly empty form stays state: blank with terraformed: null.
+Invade marks a form state: filled with invaded: <today> when any section holds text, a See: line or a TODO(human) question; only a wholly empty form stays state: blank with invaded: null.
 
 Serves: P-PRODUCT-10
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s5-05-terraform-marks-a-form-holding-only-questions-filled, PRD #45
 Enforced by: unenforced
-Stated: 2026-09-25
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: harvest 2026-09-26
+Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-12
 
-A round moves only from open to answered, from open to abandoned, or from abandoned to answered from the terminal, and an answer never changes. Only the clean-up deletes sessions; their owners cannot.
+A round moves only from open to answered, from open to abandoned, or from abandoned to answered from the terminal, and an answer never changes. A session is deleted only by its owner, its rounds with it; the hourly clean-up closes idle sessions and deletes nothing.
 
 Serves: P-PRODUCT-11
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s2-04-round-moves-forward, PRD #71
 Enforced by: unenforced
-Stated: 2026-09-26
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
+Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-13
 
@@ -159,15 +159,15 @@ Merged: @pierrederval, 2026-09-26, PR #73
 
 ## BR-PRODUCT-15
 
-omni ask on changes nothing unless a new session was opened, so a session already on stays on. omni ask off always stops ask mode on this computer and exits 0, with one warning line when the page could not be told.
+omni ask on opens no session and closes none, so switching it on in one terminal never touches another. omni ask off closes every terminal's session of this checkout and always stops ask mode there, exiting 0, with one warning line per session the page could not be told; that session closes by itself after 12 hours without a call.
 
 Serves: P-PRODUCT-14
 Source: .omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md, entry s5-02-switching-when-the-page-is-away, PRD #71
 Enforced by: unenforced
-Stated: 2026-09-26
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: harvest 2026-09-26
+Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-16
 
@@ -314,15 +314,15 @@ Merged: @pierrederval, 2026-09-26, PR #101
 
 ## BR-PRODUCT-29
 
-Ask mode is open to any workspace member, whatever the account's email or with none: membership is the only gate, never an email domain. A session goes to the workspace that owns its repository, and is refused when the person is not a member of it; a repository no workspace owns goes to the person's first workspace. An account in no workspace is refused, and each person sees only their own sessions and rounds.
+Ask mode is open to any workspace member, whatever the account's email or with none: membership is the only gate, never an email domain. A session goes to the workspace that owns its repository, and is refused when the person is not a member of it; a repository no workspace owns goes to the person's first workspace. An account in no workspace is refused. Every member of a workspace reads its sessions and rounds; only a session's owner keeps, closes or deletes it.
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace, PRD #100
 Enforced by: unenforced
-Stated: 2026-09-26
+Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: harvest 2026-09-26
+Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-30
 
