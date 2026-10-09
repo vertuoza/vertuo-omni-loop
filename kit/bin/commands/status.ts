@@ -42,8 +42,8 @@ async function overview({ ctx, stdout, exec, fetch, gate }: { ctx: Context; stdo
 }
 
 /** The outbox gate of PRD `prd`: exit 0 green, 1 red. */
-function outboxGate({ prd: value, labels: named, base }: { prd: string | undefined; labels: string | undefined; base: string | null }, { ctx, stdout, exec, vars }: { ctx: Context; stdout: Out; exec: Exec; vars: Vars }): number {
-  const prd = prdArg('status', '<prd>', value);
+function outboxGate({ number, labels: named, base }: { number: string | undefined; labels: string | undefined; base: string | null }, { ctx, stdout, exec, vars }: { ctx: Context; stdout: Out; exec: Exec; vars: Vars }): number {
+  const prd = prdArg('status', '<prd>', number);
   const labels = list(named);
 
   let changes = null;
@@ -82,6 +82,6 @@ export const status = {
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true, gate: { tokens, home, fetch, callMs } });
     if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
-    return outboxGate({ prd: positional[0], labels: flags.labels, base }, { ctx, stdout, exec, vars });
+    return outboxGate({ number: positional[0], labels: flags.labels, base }, { ctx, stdout, exec, vars });
   },
 } satisfies FreeCommand;
