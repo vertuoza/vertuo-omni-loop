@@ -16,6 +16,7 @@ import {
 import type { RoundRow, SessionRow } from './page/view';
 import type { WorkingPing } from '../working/state';
 import { workingReader } from '../working/store';
+import { dossierRounds, type DossierRoundRow } from '../dossier/store';
 
 /** What the reads need: the tables. */
 export type AskReadDb = Pick<SupabaseClient, 'from'>;
@@ -92,6 +93,14 @@ export function askReadRepository(db: AskReadDb) {
 }
 
 export type AskReadRepository = ReturnType<typeof askReadRepository>;
+
+/** What the way back's read needs (PRD 384): the database's functions. */
+export type WayBackDb = Pick<SupabaseClient, 'rpc'>;
+
+/** A dossier's rounds (dossier_rounds()), as the caller may read them: none when they may not. */
+export const wayBackRepository = (db: WayBackDb) => ({
+  rounds: (dossierId: string): Promise<DossierRoundRow[]> => dossierRounds(db, dossierId),
+});
 
 // The sessions', rounds', screenshots', categories' and shares' reads and writes the ask API and the
 // pages send (moved here from store.ts by PRD 1318, s3), as the caller.

@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { emptyDraft, roundAnswers, type Draft } from '../answer-model';
 import type { Category } from '../classify';
 import { backAfterSend, noRounds } from './back';
-import { askClient } from '../ask.client';
-import { dossierRoundsOf, questionWrites } from './browser-writes';
+import { askClient, AskSignedOut } from '../ask.client';
+import { questionWrites } from './writes';
 import { SignInCard } from './SignInCard';
 import { questionCallbackPath } from './sign-in';
 import { CategoryChip } from './CategoryChip';
@@ -44,10 +44,10 @@ type Props = {
 function makePort(source: QuestionSource, seed: QuestionState): QuestionPort {
   if (source.kind === 'demo') return demoQuestionPort(seed);
   const client = askClient();
-  return { read: () => client.round(seed.round.id), ...questionWrites(source) };
+  return { read: () => client.round(seed.round.id), ...questionWrites(client) };
 }
 
-const roundsOf = (source: QuestionSource) => (source.kind === 'demo' ? noRounds : dossierRoundsOf(source));
+const roundsOf = (source: QuestionSource) => (source.kind === 'demo' ? noRounds : (dossierId: string) => askClient().dossierRounds(dossierId));
 
 export function AskQuestion({ source, initial, serverNow, me, members, from = null }: Props) {
   const [state, setState] = useState(initial);
@@ -113,8 +113,9 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
         view: questionView(next, me, members, at), from, sessionId: next.session.id, roundId: next.round.id, readRounds: roundsOf(source),
       });
       if (target) window.location.assign(target);
-    } catch {
-      setProblem('Your answer did not go through. Check your connection and send it again.');
+    } catch (error) {
+      if (error instanceof AskSignedOut) setSignedOut(true);
+      else setProblem('Your answer did not go through. Check your connection and send it again.');
     } finally {
       setSending(false);
     }
@@ -131,8 +132,9 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
       const set = await getPort().sort(state.round.id, category);
       if (set) setState((s) => ({ ...s, round: withCategory({ session: s.session, rounds: [s.round] }, s.round.id, set).rounds[0] ?? s.round }));
       else setProblem('This question could not be sorted: it is no longer in your workspace.');
-    } catch {
-      setProblem('The category was not saved. Check your connection and try again.');
+    } catch (error) {
+      if (error instanceof AskSignedOut) setSignedOut(true);
+      else setProblem('The category was not saved. Check your connection and try again.');
     } finally {
       setSorting(false);
     }

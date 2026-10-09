@@ -5,6 +5,10 @@
 //   GET /api/ask/tabs           → { tabs: TabRow[] }    the person's open terminals (PRD 142)
 //   GET /api/ask/sessions/:id   → SessionState          a session, its rounds and its heartbeat
 //   GET /api/ask/rounds/:id     → QuestionState         a round, its session, its earlier rounds, its shares
+//   GET /api/ask/dossiers/:id/rounds → DossierRounds    a dossier's rounds, for the way back (PRD 384)
+//
+// The page's writes (PRD 1318, s3) go through the routes the terminal calls (src/ask/api.ts), which
+// answer a sort with CategorySet; their other answers are read by status alone.
 //
 // A refusal is `{ error: <kind> }` (with the `field` of an `invalid` one): 401 `signed-out`, 404
 // `not-found` (missing, or of another workspace), 422 `invalid`, 500 `database`.
@@ -81,3 +85,12 @@ export const QuestionStateSchema = z.object({
   earlier: z.array(RoundRowSchema),
   sharedWith: z.array(z.string()),
 });
+
+/** A dossier's rounds, as the question page's way back reads them (PRD 384): which is still open, in
+ * the order asked. */
+export const DossierRoundsSchema = z.object({
+  rounds: z.array(z.object({ round_id: z.string(), status: z.enum(['open', 'answered', 'abandoned']), created_at: z.string() })),
+});
+
+/** A round's category once a member set it (PATCH /api/ask/rounds/:id/category). */
+export const CategorySetSchema = z.object({ id: z.string(), category: z.enum(CATEGORIES).nullable(), category_by: z.string().nullable() });

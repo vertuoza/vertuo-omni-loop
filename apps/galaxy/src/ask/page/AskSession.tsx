@@ -13,8 +13,8 @@ import { shareCandidates } from './share';
 import { ShareButton } from './ShareButton';
 import { RoundForm } from './RoundForm';
 import type { AskPort } from './source';
-import { askClient } from '../ask.client';
-import { sessionWrites } from './browser-writes';
+import { askClient, AskSignedOut } from '../ask.client';
+import { sessionWrites } from './writes';
 import { SignInCard } from './SignInCard';
 import { callbackPath } from './sign-in';
 import { QuestionList } from './QuestionText';
@@ -65,7 +65,7 @@ type Props = {
 function makePort(source: SourceConfig, seed: SessionState): AskPort {
   if (source.kind === 'demo') return demoPort(seed);
   const client = askClient();
-  return { read: () => client.session(seed.session.id), ...sessionWrites(source, seed.session.id) };
+  return { read: () => client.session(seed.session.id), ...sessionWrites(client, seed.session.id) };
 }
 
 export function AskSession({ source, initial, serverNow, viewer, me = null, members = [], onState, dock = null, onSignedOut }: Props) {
@@ -86,6 +86,13 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
   const sent = useRef<Sent>(new Map());
   const getPort = useCallback(() => (port.current ??= makePort(source, initial)), [source, initial]);
   const clock = useCallback(() => Date.now() + offset, [offset]);
+  /** A write that found the person signed out stops the page as a read does (PRD 1318): true when it did. */
+  const stopped = useCallback((error: unknown) => {
+    if (!(error instanceof AskSignedOut)) return false;
+    if (onSignedOut) onSignedOut();
+    else setSignedOut(true);
+    return true;
+  }, [onSignedOut]);
 
   const view = useMemo(() => sessionView(state, now), [state, now]);
   const closed = view.kind === 'closed' || deleted;
@@ -145,12 +152,12 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
         if (next) setState(next);
       }
       setNow(clock());
-    } catch {
-      setProblem('Your answer did not go through. Check your connection and send it again.');
+    } catch (error) {
+      if (!stopped(error)) setProblem('Your answer did not go through. Check your connection and send it again.');
     } finally {
       setSending(false);
     }
-  }, [round, answers, sending, getPort, clock]);
+  }, [round, answers, sending, getPort, clock, stopped]);
   // What RoundForm calls, stable while onSend is: its keyboard effect runs on the same changes as before.
   const send = useCallback(() => {
     void onSend();
@@ -163,12 +170,12 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
     try {
       if (await getPort().remove()) setDeleted(true);
       else setProblem('This session could not be deleted: only the person who opened it can.');
-    } catch {
-      setProblem('The session was not deleted. Check your connection and try again.');
+    } catch (error) {
+      if (!stopped(error)) setProblem('The session was not deleted. Check your connection and try again.');
     } finally {
       setDeleting(false);
     }
-  }, [deleting, getPort]);
+  }, [deleting, getPort, stopped]);
 
   const onSort = useCallback(async (roundId: string, category: Category | null) => {
     setSorting(roundId);
@@ -177,12 +184,12 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
       const set = await getPort().sort(roundId, category);
       if (set) setState((s) => withCategory(s, roundId, set));
       else setProblem('This question could not be sorted: it is no longer in your workspace.');
-    } catch {
-      setProblem('The category was not saved. Check your connection and try again.');
+    } catch (error) {
+      if (!stopped(error)) setProblem('The category was not saved. Check your connection and try again.');
     } finally {
       setSorting(null);
     }
-  }, [getPort]);
+  }, [getPort, stopped]);
 
   const chip = (round: Pick<RoundRow, 'id' | 'category' | 'category_by'>) => (
     <CategoryChip

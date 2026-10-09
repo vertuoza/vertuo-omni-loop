@@ -19,7 +19,7 @@ import { sendWithShots, trayOf, type Bucket } from './attachments';
 import type { ForMeRow, Member, QuestionState } from './question';
 import type { TabRow } from './tabs';
 import type { RoundRow, SessionRow, SessionState } from './view';
-import { askAttachments, askCategories, askReadRepository, askShares, askStore, type RoundWithSession } from '../ask.repository';
+import { askAttachments, askReadRepository, askShares, askStore, type RoundWithSession } from '../ask.repository';
 import { askReadService } from '../ask.service';
 import type { WorkingPing } from '../../working/state';
 import { workingReader } from '../../working/store';
@@ -76,18 +76,6 @@ export async function sendAnswers(db: Db & Partial<StorageDb>, roundId: string, 
   return sendWithShots(bucket, roundId, tray, record, (progress) => {
     tray.setProgress(progress);
   });
-}
-
-/** Deletes the session and its rounds for good: true when it went, false when the caller is not its
- * owner (row-level security deletes nothing) or it was already gone. */
-export async function removeSession(db: Db, id: string): Promise<boolean> {
-  return askStore(db).deleteSession(id);
-}
-
-/** Sets a round's category, or clears it with null: the category and who set it, or null when the
- * caller may not read the round. */
-export async function sortRound(db: SortDb, roundId: string, category: Category | null): Promise<AskCategory | null> {
-  return askCategories(db).set(roundId, category);
 }
 
 /** Shares a round with another member of the session's workspace: false when the caller does not own

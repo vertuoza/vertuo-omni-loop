@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AskReads } from './ask.service';
-import { QuestionStateSchema, SessionStateSchema, TabsSchema } from './ask.contract';
+import { DossierRoundsSchema, QuestionStateSchema, SessionStateSchema, TabsSchema } from './ask.contract';
 
 vi.mock('server-only', () => ({}));
 vi.mock('../data/viewer', () => ({ viewer: () => Promise.resolve({ kind: 'sign-in' }) }));
@@ -104,5 +104,34 @@ describe('signed in', () => {
     for (const response of [await handlers.tabs(), await handlers.session(request, params(SESSION_ID))]) {
       expect([response.status, await response.json()]).toEqual([500, { error: 'database' }]);
     }
+  });
+});
+
+describe('GET /api/ask/dossiers/:id/rounds: the way back (PRD 384; PRD 1318, s3)', () => {
+  const DOSSIER = '00000000-0000-4000-8000-00000000d055';
+  const rounds = [{ round_id: ROUND_ID, status: 'open' as const, created_at: '2026-10-09T08:30:00Z' }];
+  const withWayBack = (wayBack: (id: string) => Promise<typeof rounds>) =>
+    askReadHandlers({ signedIn: () => Promise.resolve({ userId: ME, reads: fakeReads().reads, wayBack }), now: () => NOW });
+
+  it('answers 401 signed-out, and reads nothing', async () => {
+    const response = await signedOut().dossierRounds(request, params(DOSSIER));
+    expect([response.status, await response.json()]).toEqual([401, { error: 'signed-out' }]);
+  });
+
+  it('reads which of the dossier\'s rounds are open, as the person', async () => {
+    const asked: string[] = [];
+    const response = await withWayBack((id) => {
+      asked.push(id);
+      return Promise.resolve(rounds);
+    }).dossierRounds(request, params(DOSSIER));
+    expect([response.status, DossierRoundsSchema.parse(await response.json())]).toEqual([200, { rounds }]);
+    expect(asked).toEqual([DOSSIER]);
+  });
+
+  it('answers 422 for an id that is no dossier\'s, and 500 database when the read fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const handlers = withWayBack(() => Promise.reject(new Error('connection lost')));
+    expect((await handlers.dossierRounds(request, params('nope'))).status).toBe(422);
+    expect((await handlers.dossierRounds(request, params(DOSSIER))).status).toBe(500);
   });
 });

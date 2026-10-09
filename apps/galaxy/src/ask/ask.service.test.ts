@@ -4,7 +4,7 @@ import { AskStoreError } from './store';
 import { readQuestion, readSession, readTabs, shareRound, type Db, type SortDb } from './page/source';
 import { item } from './test/test-item';
 import { askReadRepository } from './ask.repository';
-import { askReadService } from './ask.service';
+import { askReadService, askWayBack } from './ask.service';
 
 // The ask pages' three reads (PRD 1318, s2): the tabs, a session with its rounds, and a round with its
 // session and shares. Characterization first: what the page's readers (src/ask/page/source.ts) gave
@@ -136,5 +136,17 @@ describe('the same reads, through the service after the move', () => {
     const state = await askReadService({ ...askReadRepository(w.as('ada')), ping: () => Promise.reject(new Error('gone')) }).session(w.sessionId);
     expect(state?.ping).toBeNull();
     expect(state?.rounds).toHaveLength(2);
+  });
+});
+
+describe('the way back (PRD 384; PRD 1318, s3)', () => {
+  it('hands back which of a dossier\'s rounds are open and when each was asked, and nothing else of them', async () => {
+    const asked: Array<{ fn: string; args: unknown }> = [];
+    const row = { rule: 'asked', round_id: 'r1', session_id: 's1', asked_by: 'ada', repo: null, branch: null, questions: [], answers: null, status: 'open', answered_via: null,
+      answered_by: null, category: null, category_by: null, prd: null, skill: null, created_at: '2026-10-09T08:30:00Z', answered_at: null };
+    const db = { rpc: (fn: string, args: unknown) => { asked.push({ fn, args }); return Promise.resolve({ data: [row], error: null }); } };
+    // The stub answers only dossier_rounds(), so it is not a whole Supabase client.
+    expect(await askWayBack(db as unknown as Parameters<typeof askWayBack>[0])('d1')).toEqual([{ round_id: 'r1', status: 'open', created_at: '2026-10-09T08:30:00Z' }]);
+    expect(asked).toEqual([{ fn: 'dossier_rounds', args: { p_dossier: 'd1' } }]);
   });
 });

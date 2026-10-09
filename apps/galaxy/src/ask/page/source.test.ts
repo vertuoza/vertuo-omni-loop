@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { fakeSupabase } from '../store.fake';
-import { AskStoreError } from '../store';
+import { askCategories, askStore, AskStoreError } from '../store';
 import {
-  readForMe, readHistory, readMembers, readQuestion, readSession, readTabs, removeSession, sendAnswers, shareRound, sortRound, tabsReader, withFaces,
+  readForMe, readHistory, readMembers, readQuestion, readSession, readTabs, sendAnswers, shareRound, tabsReader, withFaces,
   type Db, type SortDb, type StorageDb,
 } from './source';
 import { stageShots, type Bucket } from './attachments';
@@ -214,7 +214,7 @@ describe('deleting the session (PRD 144)', () => {
   it('deletes it and its rounds for its owner', async () => {
     const w = await world();
     await w.ask();
-    expect(await removeSession(w.as('ada'), w.sessionId)).toBe(true);
+    expect(await askStore(w.as('ada')).deleteSession(w.sessionId)).toBe(true);
     expect(w.fake.tables.ask_sessions).toEqual([]);
     expect(w.fake.tables.ask_rounds).toEqual([]);
   });
@@ -222,8 +222,8 @@ describe('deleting the session (PRD 144)', () => {
   it('deletes nothing for a member who is not the owner, nor for another workspace', async () => {
     const w = await world();
     await w.ask();
-    expect(await removeSession(w.as('bob'), w.sessionId)).toBe(false);
-    expect(await removeSession(w.as('carl'), w.sessionId)).toBe(false);
+    expect(await askStore(w.as('bob')).deleteSession(w.sessionId)).toBe(false);
+    expect(await askStore(w.as('carl')).deleteSession(w.sessionId)).toBe(false);
     expect(w.fake.tables.ask_sessions).toHaveLength(1);
     expect(w.fake.tables.ask_rounds).toHaveLength(1);
   });
@@ -236,15 +236,15 @@ describe('sorting a round (PRD 144)', () => {
   it('lets any member of the workspace set one of the six, or clear it, and says who did', async () => {
     const w = await world();
     const id = await w.ask();
-    expect(await sortRound(sorter(w, 'bob'), id, 'product')).toEqual({ category: 'product', category_by: BOB.id });
-    expect(await sortRound(sorter(w, 'ada'), id, null)).toEqual({ category: null, category_by: ADA.id });
+    expect(await askCategories(sorter(w, 'bob')).set(id, 'product')).toEqual({ category: 'product', category_by: BOB.id });
+    expect(await askCategories(sorter(w, 'ada')).set(id, null)).toEqual({ category: null, category_by: ADA.id });
     expect(w.fake.tables.ask_rounds[0]).toMatchObject({ category: null, category_by: ADA.id });
   });
 
   it('sorts nothing for an account of another workspace', async () => {
     const w = await world();
     const id = await w.ask();
-    expect(await sortRound(sorter(w, 'carl'), id, 'business')).toBeNull();
+    expect(await askCategories(sorter(w, 'carl')).set(id, 'business')).toBeNull();
     expect(w.fake.tables.ask_rounds[0]).toMatchObject({ category: null, category_by: null });
   });
 
@@ -252,7 +252,7 @@ describe('sorting a round (PRD 144)', () => {
     const w = await world();
     const id = await w.ask();
     expect((await readSession(w.recording('ada'), w.sessionId))?.rounds[0]).toMatchObject({ category: null });
-    await sortRound(sorter(w, 'bob'), id, 'ux-ui');
+    await askCategories(sorter(w, 'bob')).set(id, 'ux-ui');
     expect((await readSession(w.recording('ada'), w.sessionId))?.rounds[0]).toMatchObject({ category: 'ux-ui', category_by: BOB.id });
   });
 });
