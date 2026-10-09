@@ -60,13 +60,13 @@ describe('the countdown', () => {
     const go = step(before, NONE, 0.05);
     expect(go.events).toEqual([{ kind: 'go' }]);
     expect(go.race.phase).toBe('race');
-    expect(hudOf(go.race)).toEqual({ phase: 'race', beat: 'GO' });
+    expect(hudOf(go.race)).toMatchObject({ phase: 'race', beat: 'GO' });
   });
 
   it('shows GO for a moment, then the race alone', () => {
     const r = racing();
     expect(hudOf(r).beat).toBe('GO');
-    expect(hudOf(play(r, NONE, RULES.goBanner))).toEqual({ phase: 'race', beat: null });
+    expect(hudOf(play(r, NONE, RULES.goBanner))).toMatchObject({ phase: 'race', beat: null });
   });
 
   it('moves nothing when A is held before GO', () => {
@@ -129,7 +129,7 @@ describe('the pause', () => {
     const r = play(racing(), GAS, 1);
     const paused = press(r, 'start').race;
     expect(paused.phase).toBe('paused');
-    expect(hudOf(paused)).toEqual({ phase: 'paused', beat: null });
+    expect(hudOf(paused)).toMatchObject({ phase: 'paused', beat: null });
     expect(play(paused, GAS, 3)).toEqual(paused);
     for (const a of ['a', 'b', 'left', 'right', 'up', 'down'] as const) expect(press(paused, a), a).toEqual({ race: paused, events: [] });
     const resumed = press(paused, 'start').race;

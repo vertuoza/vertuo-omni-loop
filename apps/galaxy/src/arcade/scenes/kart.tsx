@@ -3,7 +3,8 @@
 // its way back, the ready screen (COMET RING · 3 LAPS · PRESS START), the countdown and its GO, and the
 // pause. Later slices add the race's own screens. Laid out for the grid the game is drawn on (kart.css).
 import { Hint } from '../hint';
-import { NOT_LOADED, PAUSED_LINE, READY_LINE, type KartHud, type KartStatus } from './kart.ts';
+import { ordinal } from '../fleets';
+import { NOT_LOADED, PAUSED_LINE, raceTime, READY_LINE, type KartHud, type KartStatus } from './kart.ts';
 import './common.css';
 import './invaders.css';
 import './kart.css';
@@ -36,6 +37,14 @@ export function KartOverlay({ status, hud = null, back = 'GAME ROOM' }: {
     return (
       <div className="kt">
         {hud.beat && <p className="kt-beat" role="status">{hud.beat}</p>}
+        {hud.run && (
+          <p className="kt-run">
+            <span className="kt-place">{ordinal(hud.run.place)}</span>
+            <span>LAP {hud.run.lap}/{hud.run.laps}</span>
+            <span>{raceTime(hud.run.tenths)}</span>
+          </p>
+        )}
+        {hud.run?.final && hud.phase === 'race' && <p className="kt-final" role="status">FINAL LAP</p>}
         {hud.phase === 'paused' && (
           <div className="j-panel kt-panel kt-mid">
             <p className="inv-title">{PAUSED_LINE}</p>

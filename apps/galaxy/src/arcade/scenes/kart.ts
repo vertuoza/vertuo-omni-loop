@@ -3,10 +3,12 @@
 // that folder at run time (guard.test.ts): the loaded game comes in as `FrameState.kart` and draws
 // itself, and until then, or if it never loads, the canvas is the dark behind the text layer's line
 // (kart.tsx). The grid the race is drawn on is the one it started on, as SUPER OMNI WORLD keeps its own.
+import type { Tint } from '@omni/design';
 import type { Action } from '../keys';
 import type { Grid } from '../grid';
 import type { FrameState, KartDraw, Pages, SceneName } from './common.ts';
 import { space } from './common.ts';
+import { fleet } from '../fleets';
 
 /** The race is laid out on the tall grid too: the Game Boy held upright plays it on 320×288. */
 export const TALL_SCENES: readonly SceneName[] = ['kart'];
@@ -14,7 +16,39 @@ export const TALL_SCENES: readonly SceneName[] = ['kart'];
 export const PAGES: Pages = {};
 
 /** What the text layer shows of the race: its phase, and the countdown's number or the GO that follows it. */
-export interface KartHud { phase: 'ready' | 'countdown' | 'race' | 'paused'; beat: '3' | '2' | '1' | 'GO' | null }
+export interface KartHud {
+  phase: 'ready' | 'countdown' | 'race' | 'paused';
+  beat: '3' | '2' | '1' | 'GO' | null;
+  /** The race's own line, once it has begun: the player's place (1 to 6), the lap (1 to `laps`), the race time in tenths of a second and whether FINAL LAP shows. */
+  run?: KartRun;
+}
+
+export interface KartRun { place: number; lap: number; laps: number; tenths: number; final: boolean }
+
+/** A rival's driver: its sprite and tint, as the fleet's look gives them. */
+export interface KartDriver { sprite: string; tint: Tint | null; color: string | null }
+
+/** The most rivals on the grid: the other five karts. */
+export const RIVALS = 5;
+
+/**
+ * The rivals the workspace gives the race: its fleets other than the player's own, in the order the
+ * arcade lists them, each with its mascot in its colour; at most five. Fewer, and the game fills the
+ * rest with mascots no rival drives yet.
+ */
+export function kartCast(fleets: readonly { name: string }[], team: string | null): KartDriver[] {
+  return fleets.filter((f) => f.name !== team).slice(0, RIVALS).map((f) => {
+    const { sprite, tint, color } = fleet(f.name);
+    return { sprite, tint, color };
+  });
+}
+
+/** The race time as the clock shows it: minutes, seconds and tenths, as 1:05.3. */
+export function raceTime(tenths: number): string {
+  const total = Math.max(0, Math.floor(tenths));
+  const seconds = Math.floor(total / 10);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}.${total % 10}`;
+}
 
 /** The player left the race from its pause. */
 export interface KartQuit { quit: boolean }
@@ -49,9 +83,9 @@ export type KartModule = typeof import('../kart/index');
  * Imports the game and makes it. A failed import (offline, or a chunk gone after a deploy) is logged
  * with `console.error` and answers null, so the screen can say so and A can try again.
  */
-export async function loadKart(load: () => Promise<Pick<KartModule, 'createKart'>>, seed = 1359): Promise<KartGame | null> {
+export async function loadKart(load: () => Promise<Pick<KartModule, 'createKart'>>, seed = 1359, cast: readonly KartDriver[] = []): Promise<KartGame | null> {
   try {
-    return (await load()).createKart({ seed });
+    return (await load()).createKart({ seed, cast });
   } catch (err) {
     console.error(err);
     return null;
@@ -72,7 +106,11 @@ export function kartPress(status: KartStatus, action: Action, phase: KartHud['ph
 }
 
 /** Whether two text layers say the same: the arcade re-renders only when they differ. */
-export const sameKartHud = (a: KartHud | null, b: KartHud | null): boolean => a === b || (!!a && !!b && a.phase === b.phase && a.beat === b.beat);
+export const sameKartHud = (a: KartHud | null, b: KartHud | null): boolean =>
+  a === b || (!!a && !!b && a.phase === b.phase && a.beat === b.beat && sameRun(a.run, b.run));
+
+const sameRun = (a: KartRun | undefined, b: KartRun | undefined): boolean =>
+  a === b || (!!a && !!b && a.place === b.place && a.lap === b.lap && a.laps === b.laps && a.tenths === b.tenths && a.final === b.final);
 
 export function drawKart(ctx: CanvasRenderingContext2D, s: FrameState) {
   if (s.kart) { s.kart.draw(ctx, s); return; }

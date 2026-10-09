@@ -7,7 +7,9 @@ import { DEFAULT_THEME } from '../theme';
 import { LAPS } from '../kart/track';
 import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
-import { kartPress, loadKart, NOT_LOADED, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, TALL_SCENES, type KartGame, type KartHud, type KartStatus } from './kart.ts';
+import { setFleets } from '../fleets';
+import type { FleetRow } from '../types';
+import { kartCast, kartPress, loadKart, NOT_LOADED, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, TALL_SCENES, type KartGame, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
 
@@ -119,7 +121,7 @@ describe('loadKart', () => {
   it('hands the game the seed it races from', async () => {
     const createKart = vi.fn(() => stubGame());
     await loadKart(() => Promise.resolve({ createKart }), 42);
-    expect(createKart).toHaveBeenCalledWith({ seed: 42 });
+    expect(createKart).toHaveBeenCalledWith({ seed: 42, cast: [] });
   });
 
   it('answers null and logs the error with console.error when the import fails', async () => {
@@ -172,5 +174,64 @@ describe('the kart canvas', () => {
     drawFrame(ctx, f, 'title');
     expect(seen).toEqual([f]);
     expect(calls).not.toContain('fillRect');
+  });
+});
+
+describe('the race line of the text layer (slice 3)', () => {
+  const run = (o: Partial<NonNullable<KartHud['run']>> = {}): KartHud => ({ phase: 'race', beat: null, run: { place: 3, lap: 2, laps: 3, tenths: 652, final: false, ...o } });
+
+  it('shows the place, the lap and the race time over the road, on both grids, with the way to pause', () => {
+    expect(text('ready', WIDE, 'full', run())).toBe('3RD LAP 2/3 1:05.2 ENTER PAUSE');
+    expect(text('ready', TALL, 'handheld', run({ place: 1, lap: 1, tenths: 0 }))).toBe('1ST LAP 1/3 0:00.0 START PAUSE');
+    expect(['1ST', '2ND', '3RD', '4TH', '5TH', '6TH'].map((o, i) => text('ready', WIDE, 'full', run({ place: i + 1 })).split(' ')[0])).toEqual(['1ST', '2ND', '3RD', '4TH', '5TH', '6TH']);
+  });
+
+  it('shows FINAL LAP as the third lap starts, and only while racing', () => {
+    expect(text('ready', WIDE, 'full', run({ lap: 3, final: true }))).toContain('FINAL LAP');
+    expect(text('ready', WIDE, 'full', run({ lap: 3 }))).not.toContain('FINAL LAP');
+    expect(text('ready', WIDE, 'full', { ...run({ lap: 3, final: true }), phase: 'paused' })).not.toContain('FINAL LAP');
+  });
+
+  it('keeps the race line on the pause', () => {
+    expect(text('ready', WIDE, 'full', { ...run(), phase: 'paused' })).toContain('LAP 2/3');
+  });
+
+  it('tells two race lines apart by place, lap, time and the banner', () => {
+    expect(sameKartHud(run(), run())).toBe(true);
+    for (const o of [{ place: 4 }, { lap: 3 }, { laps: 4 }, { tenths: 653 }, { final: true }]) expect(sameKartHud(run(), run(o))).toBe(false);
+    expect(sameKartHud(run(), { phase: 'race', beat: null })).toBe(false);
+    expect(sameKartHud({ phase: 'race', beat: null }, { phase: 'race', beat: null })).toBe(true);
+  });
+
+  it('writes the race time as minutes, seconds and tenths', () => {
+    expect([0, 9, 10, 599, 600, 652, 1799, -5].map(raceTime)).toEqual(['0:00.0', '0:00.9', '0:01.0', '0:59.9', '1:00.0', '1:05.2', '2:59.9', '0:00.0']);
+  });
+});
+
+describe('the cast of the race', () => {
+  const row = (name: string, mascot: string | null, color: string): FleetRow => ({ name, home: null, label: name.toUpperCase(), color, motto: '', mascot, sort: 0, retired: false });
+  setFleets([row('alpha', 'beaver', '#ff0000'), row('bravo', 'octopod', '#00ff00'), row('charlie', null, '#0000ff')]);
+
+  it('takes the workspace\'s fleets other than the player\'s own, each with its mascot and colour', () => {
+    const cast = kartCast([{ name: 'alpha' }, { name: 'bravo' }, { name: 'charlie' }], 'bravo');
+    expect(cast.map((c) => c.sprite).slice(0, 1)).toEqual(['beaver']);
+    expect(cast).toHaveLength(2);
+    expect(cast.map((c) => c.color)).toEqual(['#ff0000', '#0000ff']);
+    expect(cast[1]?.sprite).not.toBe('octopod'); // a fleet with no mascot flies as a hero in its colour
+    expect(cast[1]?.tint).toBeTruthy();
+  });
+
+  it('takes every fleet for a player flying solo, and never more than five', () => {
+    expect(kartCast([{ name: 'alpha' }, { name: 'bravo' }], null)).toHaveLength(2);
+    const seven = Array.from({ length: 7 }, (_, i) => ({ name: `f${i}` }));
+    expect(kartCast(seven, null)).toHaveLength(5);
+    expect(kartCast([], 'alpha')).toEqual([]);
+  });
+
+  it('hands the cast to the game with the seed', async () => {
+    const createKart = vi.fn(() => stubGame());
+    const cast = [{ sprite: 'beaver', tint: null, color: '#ff0000' }];
+    await loadKart(() => Promise.resolve({ createKart }), 7, cast);
+    expect(createKart).toHaveBeenCalledWith({ seed: 7, cast });
   });
 });

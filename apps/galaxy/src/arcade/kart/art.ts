@@ -3,15 +3,16 @@
 // arcade/kart/ that draws: everything it draws from is pure (track.ts, mode7.ts, texture.ts, race.ts).
 // The circuit's texture is painted once, the first time a race is drawn, and the floor goes through
 // one pixel buffer per grid, allocated once and reused. It also holds the race the arcade steps.
-import { drawPlanet, drawStarfield, spriteImage } from '@omni/design';
+import { drawPlanet, drawStarfield, fleetSprite, spriteImage } from '@omni/design';
 import type { Action } from '../keys';
 import { heroOf } from '../fleets';
 import { stripesOf } from '../theme';
 import { H, nebulaFor, sprite, stars, W, type FrameState } from '../scenes/common.ts';
 import type { KartGame, KartQuit } from '../scenes/kart.ts';
 import type { Kart } from './kart';
-import { chaseCamera, renderFloor, skyShift, viewOf, type Texture, type View } from './mode7';
+import { chaseCamera, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
 import { hudOf, newRace, pause, press, step, type Race } from './race';
+import type { Driver, Rival } from './rivals';
 import { BEYOND, paintTrack } from './texture';
 import { parseTrack, type Track } from './track';
 
@@ -77,13 +78,38 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
   sprite(ctx, s, viewOfKart(kart), x, y, { scale, tint: look.tint, frame });
 }
 
-/** What `createKart` needs: the race's seed. */
-export interface KartOptions { seed: number }
+/** How wide a kart stands in the world, in game pixels: a rival is drawn this wide, scaled by its distance. */
+const KART_WORLD = 14;
+
+/** The kart's sprite for the way a rival faces, seen from the camera: the view closest to the angle it is seen from (the sprite is drawn from behind, leaning left or right). */
+export function viewFacing(rival: number, camera: number): string {
+  const rel = Math.atan2(Math.sin(rival - camera), Math.cos(rival - camera));
+  return rel < -LEAN ? 'kart-left' : rel > LEAN ? 'kart-right' : 'kart';
+}
+const LEAN = 0.3;
+
+/** A rival's kart on the floor at `at`, its driver in the seat, as big as its distance makes it. */
+function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Rival, at: Projected) {
+  const scale = (KART_WORLD * at.scale) / KART_W;
+  if (scale < 0.15) return;
+  const frame = s.reduced ? 0 : Math.floor(s.t * Math.abs(r.kart.speed) * 0.12) % 2;
+  const flat = stripesOf(s.theme);
+  const body = spriteImage(viewFacing(r.kart.angle, v.angle), { tint: fleetSprite(null, r.driver.color).tint, flat, frame });
+  const driver = spriteImage(r.driver.sprite, { tint: r.driver.tint, flat, frame });
+  const x = at.sx - (KART_W * scale) / 2, y = at.sy - 18 * scale;
+  const half = scale / 2;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
+  ctx.drawImage(body, Math.round(x), Math.round(y), KART_W * scale, 18 * scale);
+}
+
+/** What `createKart` needs: the race's seed, and the rivals' drivers (the workspace's fleets). */
+export interface KartOptions { seed: number; cast?: readonly Driver[] }
 
 /** The race as the arcade drives and draws it: the circuit loaded, the camera behind the player's kart. */
-export function createKart({ seed }: KartOptions = { seed: 1359 }): KartGame {
+export function createKart({ seed, cast = [] }: KartOptions = { seed: 1359 }): KartGame {
   const track: Track = parseTrack();
-  let race = newRace({ seed, track });
+  let race = newRace({ seed, track, cast });
   let texture: Texture | null = null;
   const floors = new Map<string, Floor>();
   const floorFor = (v: View): Floor => {
@@ -117,6 +143,7 @@ export function createKart({ seed }: KartOptions = { seed: 1359 }): KartGame {
       renderFloor(v, texture, floor.pixels, BEYOND);
       floor.canvas.getContext('2d')?.putImageData(floor.image, 0, 0);
       ctx.drawImage(floor.canvas, 0, 0);
+      for (const { sprite: r, at } of spritesInView(v, race.rivals.map((rival) => ({ ...rival, x: rival.kart.x, y: rival.kart.y })))) rivalKart(ctx, s, v, r, at);
       playerKart(ctx, s, race);
     },
   };
