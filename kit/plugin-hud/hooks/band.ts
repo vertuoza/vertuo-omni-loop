@@ -70,10 +70,10 @@ function asHeadline(value: unknown): HudHeadline | null | undefined {
 function asWait(value: unknown): HudWait | null | undefined {
   if (value === null) return null
   if (!isRecord(value)) return undefined
-  const { prd, line, toast, until } = value
-  if (typeof prd !== 'number' || typeof line !== 'string' || typeof toast !== 'boolean') return undefined
+  const { line, toast, until } = value
+  if (typeof line !== 'string' || typeof toast !== 'boolean') return undefined
   if (until !== null && typeof until !== 'number') return undefined
-  return { prd, line, toast, until }
+  return { line, toast, until }
 }
 
 /** `omni now --json`'s stdout as an answer, or `null` when it does not parse or has another shape. */

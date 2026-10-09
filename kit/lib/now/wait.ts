@@ -14,6 +14,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { LOCAL_DIR } from '../ask/local-state.ts';
+import { PrdNumberSchema } from '../ids.ts';
+import type { PrdNumber } from '../ids.ts';
 import type { NowWait } from './now.ts';
 import { attempt } from './tree.ts';
 
@@ -22,7 +24,7 @@ const WAIT_DIR = 'approval-wait';
 const TOAST_MS = 10_000;
 
 const WaitFileSchema = z.object({
-  prd: z.number().int().positive(),
+  prd: PrdNumberSchema,
   state: z.enum(['waiting', 'approved', 'voided', 'held', 'signed-out', 'timeout', 'refused']),
   line: z.string().min(1),
   waiting: z.string().min(1).nullable(),
@@ -46,7 +48,7 @@ function readFile(path: string): WaitFile | null {
 }
 
 /** The approval wait the checkout at `root` shows at `now` (milliseconds): PRD `prd`'s first, else the one last written; `null` when none shows. */
-export function readWait(root: string, prd: number | null, now: number): NowWait | null {
+export function readWait(root: string, prd: PrdNumber | null, now: number): NowWait | null {
   const dir = join(root, LOCAL_DIR, WAIT_DIR);
   const names = attempt(() => readdirSync(dir).filter((name) => name.endsWith('.json')), []);
   const files = names.map((name) => readFile(join(dir, name))).filter((file) => file !== null);

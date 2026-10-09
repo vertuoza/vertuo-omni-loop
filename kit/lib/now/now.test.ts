@@ -76,7 +76,7 @@ describe('the plain lines', () => {
 
 // PRD #1322, slice s5: the approval wait, added only while it shows something, printed last.
 describe('the approval wait', () => {
-  const WAIT = { prd: 1322, line: '◌ PRD 1322 · waiting for Irisa or Paul', toast: false, until: null };
+  const WAIT = { prd: parsePrd(1322), line: '◌ PRD 1322 · waiting for Irisa or Paul', toast: false, until: null };
 
   it('is added to the answer only when there is one', () => {
     const answer = nowOfPrd({ ...PRD, slices: null });

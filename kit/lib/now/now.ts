@@ -56,7 +56,7 @@ export type NowWork =
 export type NowHeadline = { kind: 'loop' | 'roadmap'; number?: number; progress?: string; links: NowLink[] };
 
 /** The approval wait's line, a toast until `until` (milliseconds) when `toast`. */
-export type NowWait = { prd: number; line: string; toast: boolean; until: number | null };
+export type NowWait = { prd: PrdNumber; line: string; toast: boolean; until: number | null };
 
 /** `omni now`'s answer; `wait` only while an approval wait shows something. */
 export type Now = { headline: NowHeadline | null; work: NowWork | null; doing: string | null; wait?: NowWait };

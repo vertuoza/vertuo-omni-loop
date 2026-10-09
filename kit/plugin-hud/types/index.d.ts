@@ -13,7 +13,7 @@ export type HudWork = { kind: string; number: number; topic: string; stage: stri
 export type HudHeadline = { kind: string; number?: number; progress?: string; links: HudLink[] };
 
 /** The approval wait's line (PRD 1322's s5), a toast until `until` (milliseconds since the epoch) when `toast`. */
-export type HudWait = { prd: number; line: string; toast: boolean; until: number | null };
+export type HudWait = { line: string; toast: boolean; until: number | null };
 
 /** `omni now --json`'s answer, as the band reads it; `wait` only while an approval wait shows something. */
 export type HudNow = { headline: HudHeadline | null; work: HudWork | null; doing: string | null; wait: HudWait | null };
