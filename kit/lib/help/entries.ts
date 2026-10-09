@@ -830,7 +830,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'e2e',
     kind: 'command',
     who: 'skills',
-    usage: ['omni e2e status <prd>', 'omni e2e heals <prd> [--head <ref>]', 'omni e2e hold <prd>', 'omni e2e confirm <prd>', 'omni e2e reject <prd>'],
+    usage: ['omni e2e status <prd>', 'omni e2e heals <prd> [--head <ref>]', 'omni e2e hold <prd>', 'omni e2e confirm <prd>', 'omni e2e reject <prd>', 'omni e2e guard <prd>'],
     summary: 'which e2e tests of a PRD have a recording, and which steps healed (beta)',
     detail:
       'status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each ' +
@@ -849,7 +849,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'directory that no commit holds, and puts the committed recording back, so a commit of e2e.dir ' +
       'holds only unchanged or new recordings. confirm commits the held recordings and notes them in ' +
       'e2e.dir/.e2e/confirmed.json, so heals no longer lists them until the screen changes again. ' +
-      'reject drops the held recordings, leaves the committed ones and exits 1 so the test stays red.',
+      'reject drops the held recordings, leaves the committed ones and exits 1 so the test stays red. guard reads the files of e2e.dir (the .e2e/cache recordings apart) and the ' +
+      'files this branch changed since the default branch, and exits 1 naming file:line and the kind, ' +
+      'never the value, for a password, token, key or session-state shape; storage-state.json is ' +
+      'refused by name. With e2e.enabled false it says so in one line and exits 1, reading no file.',
   },
   {
     name: 'statusline',
