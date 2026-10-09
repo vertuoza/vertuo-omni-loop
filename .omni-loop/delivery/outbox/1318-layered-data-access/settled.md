@@ -552,3 +552,408 @@ A signed-out flag in the provider's context and one line in the bell's panel: no
 ```
 
 <!-- /omni-outbox-settled: s4-02-signed-out-bell-goes-quiet -->
+
+<!-- omni-outbox-settled: s1-02-db-module-wraps-cookie-builder -->
+
+## s1-02-db-module-wraps-cookie-builder — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-09T13:02:01Z
+- Channel: feature pull request #1320
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1320#issuecomment-6081417662
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: ADR-0051
+- Raised: 2026-10-09
+- Slice: s1
+- Wave: 1
+- Stays here: a step on the way; moving the cookie builder into db.ts later is a file move and an import change per caller
+
+### The answer, as it was given
+
+```text
+A. As built: the new module reuses the old builder for the signed-in person and builds the service role's client itself.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-02-db-module-wraps-cookie-builder
+prd: 1318
+slice: s1
+rank: high
+bears-on: ADR-0051
+raised: 2026-10-09
+wave: 1
+---
+
+## The question, in plain words
+
+The new database module should build the signed-in person's client, but the old builder lives in a file this slice may not change. Should the new module copy it or reuse it?
+
+## The decision, in plain words
+
+The new database module reuses the old cookie builder for the signed-in person and builds the service role's client itself, so nothing is copied and no file outside the slice changes.
+
+## The intro, for fun
+
+Two doors into the same database room, and only one of them is new.
+
+## The punchline, for fun
+
+The old door stays until everyone has learnt to use the new one.
+
+## The options, in plain words
+
+A. As built: the new module reuses the old builder for the signed-in person and builds the service role's client itself.
+B. Move the old builder into the new module in a later slice, and leave the old file pointing at it.
+C. Copy the old builder into the new module now, leaving two builders side by side.
+
+## What I had to decide
+
+Whether apps/galaxy/src/data/db.ts wraps supabaseServer() from supabase-server.ts for userDb(), rather than moving that builder into db.ts now.
+
+## What I did meanwhile
+
+Repositories written by later slices import db.ts only; supabase-server.ts keeps its current callers until each area moves.
+
+## What it costs to change later
+
+Moving the builder into db.ts later is a file move and an import change per caller, with no stored change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) supabase-server.ts and its callers are outside this slice's territory, so the builder could not move without touching them.
+
+```
+
+<!-- /omni-outbox-settled: s1-02-db-module-wraps-cookie-builder -->
+
+<!-- omni-outbox-settled: s2-01-ask-writes-stay-in-browser-until-s3 -->
+
+## s2-01-ask-writes-stay-in-browser-until-s3 — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-09T13:02:01Z
+- Channel: feature pull request #1320
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1320#issuecomment-6081417662
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: ADR-0095
+- Raised: 2026-10-09
+- Slice: s2
+- Wave: 2
+- Stays here: temporary between s2 and s3; s3 deleted browser-writes.ts
+
+### The answer, as it was given
+
+```text
+A. A. As built: the writes keep a browser client in one file of their own, outside the pages, until s3.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-ask-writes-stay-in-browser-until-s3
+prd: 1318
+slice: s2
+rank: high
+bears-on: ADR-0095
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+This slice moves the ask pages' reading behind the server, but answering, sorting, sharing and deleting move in the next slice. Where do those actions go in between?
+
+## The decision, in plain words
+
+Until the next slice, the ask pages still answer, sort, share and delete straight from the browser, through one small file of their own, so the pages themselves no longer open a database connection.
+
+## The intro, for fun
+
+The front door moved this week; the back door moves next week.
+
+## The punchline, for fun
+
+Meanwhile the back door has one key, kept on one hook.
+
+## The options, in plain words
+
+A. A. As built: the writes keep a browser client in one file of their own, outside the pages, until s3.
+B. B. List that file on the layering baseline as a browser breach until s3 removes it.
+C. C. Keep building the browser client inside the pages, and leave their baseline lines until s3.
+
+## What I had to decide
+
+Where the ask pages' writes (sendAnswers, removeSession, sortRound, shareRound, and back.ts's dossier read) build their browser Supabase client while s3 has not moved them behind controllers. They now sit in apps/galaxy/src/ask/page/browser-writes.ts, which is neither a 'use client' file nor a *.client.ts, so the layering guard does not read its @supabase/ssr import as a breach, and it is not on the baseline.
+
+## What I did meanwhile
+
+AskPage, AskSession and AskQuestion import no @supabase/*; their reads go through ask.client.ts and their writes through browser-writes.ts. s3 replaces browser-writes.ts with ask.client.ts calls and deletes it.
+
+## What it costs to change later
+
+s3 already plans the move: delete one file and point four calls at the client.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec moves writes in s3 and asks s2's pages to import no @supabase/*; it does not say where the writes live in between.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-ask-writes-stay-in-browser-until-s3 -->
+
+<!-- omni-outbox-settled: s2-02-ask-repository-client-handed-in -->
+
+## s2-02-ask-repository-client-handed-in — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-09T13:02:01Z
+- Channel: feature pull request #1320
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1320#issuecomment-6081417662
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: ADR-0095
+- Raised: 2026-10-09
+- Slice: s2
+- Wave: 2
+- Stays here: temporary until ask.repository.ts takes its client from db.ts; nothing lasting about the product
+
+### The answer, as it was given
+
+```text
+A. A. As built: the ask reads are handed the request's connection by the server code above them, until the bell moves off its browser reads.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-ask-repository-client-handed-in
+prd: 1318
+slice: s2
+rank: high
+bears-on: ADR-0095
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+The ask reads now live in one place on the server, but the bell still runs the same reads from the browser until its own slice. Should that one place build its own database connection, or be handed the one the request already has?
+
+## The decision, in plain words
+
+The ask reads are handed the signed-in person's connection, the one the page already opened to check who is signed in, so the bell and the dashboard keep sharing the same reads without a second copy.
+
+## The intro, for fun
+
+One kitchen, two doors: the waiter and the chef both need the same pantry key.
+
+## The punchline, for fun
+
+So the key is passed hand to hand instead of cut twice.
+
+## The options, in plain words
+
+A. A. As built: the ask reads are handed the request's connection by the server code above them, until the bell moves off its browser reads.
+B. B. The ask reads open their own connection now, and the old readers the bell uses keep their own copies of the queries until its slice.
+C. C. The ask reads open their own connection only when the server calls them, and stay shared with the bell meanwhile.
+
+## What I had to decide
+
+Whether apps/galaxy/src/ask/ask.repository.ts imports the database module (src/data/db.ts) itself, or takes its client as a parameter. The controller passes viewer().db through askReads(db) in ask.service.ts; src/ask/page/source.ts delegates readSession, tabsReader, readTabs and readQuestion to the same service, and source.ts is still reached from the browser by src/waiting/source.ts (s4's), so a repository importing the server-only db.ts would break the browser build.
+Decided by: Jev (hardToRevert 0.56) · agent said false
+
+## What I did meanwhile
+
+ask.repository.ts imports neither db.ts nor supabase-server.ts; the controller hands it the viewer's client, read once per request. No query is copied: source.ts delegates to the service.
+
+## What it costs to change later
+
+Once s4 moves the bell off source.ts, the repository can import userDb() from db.ts and the controller stops handing a client down: one import and one parameter, no stored change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says only repositories import the database module; it does not say a repository must build its own client.
+
+```
+
+<!-- /omni-outbox-settled: s2-02-ask-repository-client-handed-in -->
+
+<!-- omni-outbox-settled: s3-01-cookie-session-on-every-ask-route -->
+
+## s3-01-cookie-session-on-every-ask-route — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-09T13:02:01Z
+- Channel: feature pull request #1320
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1320#issuecomment-6081417662
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: ADR-0095
+- Raised: 2026-10-09
+- Slice: s3
+- Wave: 3
+- Became: BR-PRODUCT-94
+
+### The answer, as it was given
+
+```text
+A. As built: every ask call accepts the page's sign-in when no terminal token is sent.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-cookie-session-on-every-ask-route
+prd: 1318
+slice: s3
+rank: high
+bears-on: ADR-0095
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+The spec lets the page answer, share, give up on, close and sort questions with its own sign-in. Should the page's sign-in also be accepted by the terminal's other ask calls?
+
+## The decision, in plain words
+
+Every ask call the terminal makes now also accepts the page's own sign-in when no terminal token is sent, since they all share one entrance; an answer marked as given on the page is taken only from the page's sign-in.
+
+## The intro, for fun
+
+One key was cut for five doors, and it turned out to fit the whole corridor.
+
+## The punchline, for fun
+
+The terminal's key still opens every one of them first.
+
+## The options, in plain words
+
+A. As built: every ask call accepts the page's sign-in when no terminal token is sent.
+B. Only the calls the page makes (answer, delete, sort, share, upload) accept the page's sign-in; the others keep asking for the terminal's token.
+
+## What I had to decide
+
+Whether the cookie session is read only on the answer, share, abandon, close and category routes, or on every route that goes through src/ask/api.ts's signIn (opening a session, asking a round, waiting, the workspace lookup, the delete). It is read on every one, only when the request carries no Authorization header; a bearer token is always read first. An answer with via "page" is refused with a token and taken from a cookie session only.
+
+## What I did meanwhile
+
+A same-site page could open a session or ask a round as the signed-in person; the Supabase cookies are SameSite=Lax, so another site's form posts carry none.
+
+## What it costs to change later
+
+Limiting the cookie to some routes is a flag on each handler in api.ts: no stored change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the answer, share, abandon, close and category routes and does not say whether the others must refuse a cookie.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-cookie-session-on-every-ask-route -->
+
+<!-- omni-outbox-settled: s3-03-ask-writes-stay-in-api-handlers -->
+
+## s3-03-ask-writes-stay-in-api-handlers — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-09T13:02:01Z
+- Channel: feature pull request #1320
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1320#issuecomment-6081417662
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: ADR-0095
+- Raised: 2026-10-09
+- Slice: s3
+- Wave: 3
+- Became: ADR-0095
+
+### The answer, as it was given
+
+```text
+A. As built: the shared actions stay in their one module, now taking the page's sign-in too, and keep their plain-words refusals.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-ask-writes-stay-in-api-handlers
+prd: 1318
+slice: s3
+rank: high
+bears-on: ADR-0095
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+The plan asks the ask actions the page and the terminal share to go through the new layered files, but they already live in one tested place that answers the terminal in its own words. Should they be split into the new layers now?
+
+## The decision, in plain words
+
+The shared actions stay where they were, in one place that checks who is calling and then acts, and keep answering in the words the terminal already reads. The page now goes through them too; only their database calls moved into the layer that reaches the database.
+
+## The intro, for fun
+
+Two front doors were about to get one shared hallway.
+
+## The punchline, for fun
+
+The hallway works; nobody repainted it yet.
+
+## The options, in plain words
+
+A. As built: the shared actions stay in their one module, now taking the page's sign-in too, and keep their plain-words refusals.
+B. Split them now into a controller and a service, keeping the plain-words refusals the terminal reads.
+C. Split them and move every refusal to the contract's short kinds, changing the terminal to read those.
+
+## What I had to decide
+
+Whether the shared write routes under /api/ask/* move from src/ask/api.ts (one module that checks the caller, holds the rules and calls the repository) into ask.controller.ts and ask.service.ts, and whether their refusals switch to the contract's {error: <kind>} shape. They stay in api.ts with their plain-words {error} bodies, which the kit's omni ask reads; the browser's client reads them by status. The layering guard does not name api.ts a controller or a service, so it passes, and its database calls now sit in ask.repository.ts.
+
+## What I did meanwhile
+
+src/ask/api.ts takes the cookie session as well as the bearer token (AskDeps.cookie); src/ask/ask.client.ts maps 401, 403, 404 and 409 by status. The read routes of s2 and the new way-back route answer the contract's kinds.
+
+## What it costs to change later
+
+Splitting api.ts later is a move of its handlers into a controller and a service, with the same tests (src/ask/api.test.ts); changing the error bodies also changes the kit's ask client, which prints them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the shared controllers call ask.service.ts and that errors have one shape, but the terminal prints the plain-words error the routes answer today, and the plan's done-when asks only that both sign-ins are accepted.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-ask-writes-stay-in-api-handlers -->

@@ -60,3 +60,8 @@ app.
   the bell off it, and each other browser area is its own later PRD.
 - A file's role comes from its name, so a misnamed file escapes the role rules (not the
   `database-call` rule, which holds for every non-repository file).
+- The ask actions the page and the terminal share (answer, delete, sort, share, upload) stay in
+  `src/ask/api.ts`, one module that checks the caller (terminal token or page sign-in) and acts,
+  and keep their plain-words `{error}` refusals, which the kit's terminal client reads. Only their
+  database calls moved into repositories. Splitting them into a controller and a service is a later
+  change, not a breach (PRD 1318, s3-03).
