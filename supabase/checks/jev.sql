@@ -10,6 +10,8 @@
 -- transaction, rolled back at the end. Any `FAIL:` stops the run.
 -- And Jev's Human work kind (PRD 1217 s3): `hitl-category` is set like any decision, and only the service
 -- role hands out a roadmap's new keys, each once, and sets the kind Jev chose on a key offered.
+-- And Worth a law (PRD 1342 s3): `law-worth` is a decision name, Off until the owner sets it, set like any
+-- decision by the owner only.
 
 begin;
 
@@ -381,6 +383,31 @@ begin
   got := public.roadmap_human_work_claim('00000000-0000-4000-8000-000000000000', 5);
   if got ->> 'workspace' is not null or jsonb_array_length(got -> 'entries') <> 0 then
     raise exception 'FAIL: a roadmap that does not exist hands out keys: %', got;
+  end if;
+end $$;
+reset role;
+
+-- ── Worth a law (PRD 1342 s3): `law-worth`, Off until the owner sets it, set by the owner only ──
+do $$
+begin
+  if not ('law-worth' = any (public.jev_decision_names())) then
+    raise exception 'FAIL: law-worth is not a Jev decision name';
+  end if;
+  if exists (select 1 from public.jev_decisions d where d.decision = 'law-worth') then
+    raise exception 'FAIL: a workspace starts with law-worth set';
+  end if;
+end $$;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000081b1');
+select pg_temp.forbidden(format('select public.set_jev_decision(%L, ''law-worth'', ''on'', 0.5, 0.4)', pg_temp.ws('vertuoza')), 'a member');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000081a1');
+do $$
+declare
+  d public.jev_decisions;
+begin
+  d := public.set_jev_decision(pg_temp.ws('vertuoza'), 'law-worth', 'shadow', 0.6, 0.5);
+  if d.mode <> 'shadow' or d.threshold <> 0.6 or d.confidence_floor <> 0.5 then
+    raise exception 'FAIL: law-worth could not be set to Shadow: %', d;
   end if;
 end $$;
 reset role;
