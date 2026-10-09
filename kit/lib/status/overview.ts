@@ -20,6 +20,12 @@
 // (built, or shipping), or `not started`, and the landing each waits for when the one before it is not
 // merged. Git cannot tell a draft from a ready pull request: `omni board <n>` reads those.
 //
+// A ◆ PRD (PRD 1299, born on the server: its spec says `phase0: server`) has no phase-0 PR: the facts
+// carry its stage as `prdState()` read it from the checkout (`server`), which replaces the phase-0 fact
+// only. Waiting for approval is PRD; approved is in the inbox, then building or outbox by its feature
+// branch as any inbox PRD; drifted, unreachable and refused are held, in no stage, with the lines
+// that say why. A PRD the base shipped is shipped whatever the checkout read.
+//
 // A PRD is yours when a commit authored with `user.email` (compared ignoring case) touched its
 // folder, on the base or on a feature or phase-0 branch read, or sits on its feature branch beyond
 // the base.
@@ -60,6 +66,13 @@ type FeatureBranch = {
 /** A phase-0 branch, as the facts read it. */
 type Phase0Branch = { branch: string; topic: string; inbox: StagedPrd[]; touched: Touched[] };
 
+/** A ◆ PRD as `prdState()` read it from the checkout: its stage and the lines its approval said. */
+export type ServerPrd = StagedPrd & { stage: 'inbox' | 'prd' | 'drifted' | 'unreachable' | 'refused'; lines: string[] };
+
+/** A ◆ PRD held out of every stage: drifted from its approval, its approval refused, or the server
+ * unreachable; with the lines that say so. */
+export type HeldPrd = StagedPrd & { lines: string[] };
+
 /** What {@link overviewFor} reads: the facts `readFacts` returns (`kit/lib/status/facts.ts`). */
 export type OverviewFacts = {
   slug: string | null;
@@ -74,6 +87,8 @@ export type OverviewFacts = {
   features: FeatureBranch[];
   phase0: Phase0Branch[];
   rules: RulesCount | null;
+  /** The ◆ PRDs the checkout holds, read through `prdState()` (PRD 1299); none when absent. */
+  server?: ServerPrd[];
 };
 
 
@@ -94,7 +109,7 @@ export type Counts = Record<keyof Stages, number> & { openItems: number };
 export type Bar = { delivered: number; total: number; percent: number | null; filled: number };
 
 /** One row of yours: a PRD in progress or at PRD, with its stage. */
-export type YourRow = StagedPrd & { stage: 'outbox' | 'building' | 'inbox' | 'prd'; openItems?: number; landings?: LandingStatus[] };
+export type YourRow = StagedPrd & { stage: 'outbox' | 'building' | 'inbox' | 'prd'; openItems?: number; landings?: LandingStatus[]; approval?: true };
 
 /** Your PRDs, or why the overview cannot tell which they are. */
 export type Yours = { state: 'no-email' | 'shallow' | 'known'; email: string | null; rows: YourRow[]; shipped: StagedPrd[] };
@@ -110,6 +125,8 @@ export type Overview = {
   inProgress: { total: number; inbox: number; building: number; outbox: number };
   yours: Yours;
   rules: RulesCount | null;
+  /** The ◆ PRDs held out of every stage, newest first (PRD 1299). */
+  held: HeldPrd[];
 };
 
 /** Each PRD number once, newest first, leaving out the numbers in `taken`. */
@@ -222,14 +239,16 @@ function yourNumbers(facts: OverviewFacts, onBase: readonly StagedPrd[], me: str
  * `shallow` in a shallow clone, whose history cannot tell, and `known` otherwise. `rows` are your
  * PRDs in the outbox, then building, then the inbox, then PRD, each newest first and each with its
  * `stage`; `shipped` your delivered PRDs (shipped or retro), newest first. */
-function yoursOf(facts: OverviewFacts, stages: Stages, onBase: readonly StagedPrd[]): Yours {
+function yoursOf(facts: OverviewFacts, stages: Stages, onBase: readonly StagedPrd[], waiting: ReadonlySet<number>): Yours {
   const none: Omit<Yours, 'state'> = { email: facts.email ?? null, rows: [], shipped: [] };
   if (!facts.email) return { state: 'no-email', ...none };
   if (facts.shallow) return { state: 'shallow', ...none };
   const mine = yourNumbers(facts, onBase, facts.email.toLowerCase());
   const yours = <T extends StagedPrd>(entries: readonly T[]): T[] => entries.filter(({ prd }) => mine.has(prd));
   const order: YourRow['stage'][] = ['outbox', 'building', 'inbox', 'prd'];
-  const rows = order.flatMap((stage): YourRow[] => yours<StagedPrd & { openItems?: number; landings?: LandingStatus[] }>(stages[stage]).map((entry) => ({ stage, ...entry })));
+  const rows = order.flatMap((stage): YourRow[] =>
+    yours<StagedPrd & { openItems?: number; landings?: LandingStatus[] }>(stages[stage]).map((entry) => ({ stage, ...entry, ...(stage === 'prd' && waiting.has(entry.prd) ? { approval: true as const } : {}) })),
+  );
   const delivered = [...stages.shipped, ...stages.retro].sort((a, b) => b.prd - a.prd);
   return { state: 'known', email: facts.email, rows, shipped: yours(delivered) };
 }
@@ -240,11 +259,22 @@ export function overviewFor(facts: OverviewFacts): Overview {
   const withRetro = new Set(facts.retro);
   const retro = delivered.filter(({ prd }) => withRetro.has(prd));
   const shipped = delivered.filter(({ prd }) => !withRetro.has(prd));
-  const onBase = stage(facts.inbox, new Set(delivered.map(({ prd }) => prd)));
+  const shippedNumbers = new Set(delivered.map(({ prd }) => prd));
+  const server = (facts.server ?? []).filter(({ prd }) => !shippedNumbers.has(prd));
+  const approved = server.filter((entry) => entry.stage === 'inbox');
+  const notApproved = new Set(server.filter((entry) => entry.stage !== 'inbox').map(({ prd }) => prd));
+  const onBase = stage([...facts.inbox, ...approved], new Set([...shippedNumbers, ...notApproved]));
   const { building, outbox } = buildingAndOutboxOf(onBase, facts.features);
   const past = new Set([...building, ...outbox].map(({ prd }) => prd));
   const inbox = onBase.filter(({ prd }) => !past.has(prd));
-  const prd = prdOf(facts.phase0, new Set([...facts.shipped, ...facts.inbox].map((folder) => folder.prd)));
+  const waiting = server.filter((entry) => entry.stage === 'prd');
+  const waitingNumbers = new Set(waiting.map(({ prd }) => prd));
+  const taken = new Set([...facts.shipped, ...facts.inbox, ...server].map((folder) => folder.prd));
+  const prd = stage([...waiting, ...prdOf(facts.phase0, taken)]);
+  const held = server
+    .filter((entry) => entry.stage !== 'inbox' && entry.stage !== 'prd')
+    .sort((a, b) => b.prd - a.prd)
+    .map(({ prd: number, topic, lines }) => ({ prd: number, topic, lines }));
   const inProgress = inbox.length + building.length + outbox.length;
   const stages: Stages = { prd, inbox, building, outbox, shipped, retro };
   return {
@@ -263,7 +293,8 @@ export function overviewFor(facts: OverviewFacts): Overview {
     },
     bar: barFor(delivered.length, delivered.length + inProgress),
     inProgress: { total: inProgress, inbox: inbox.length, building: building.length, outbox: outbox.length },
-    yours: yoursOf(facts, stages, onBase),
+    yours: yoursOf(facts, stages, onBase, waitingNumbers),
     rules: facts.rules,
+    held,
   };
 }
