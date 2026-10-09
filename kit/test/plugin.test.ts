@@ -1961,7 +1961,37 @@ describe('the validate-e2e skill (PRD 1233)', () => {
     expect(status).toBeGreaterThan(-1);
     expect(step.indexOf('omni.mjs e2e heals <n>')).toBeGreaterThan(status);
     expect(step).toContain('omni.mjs item new');
-    expect(step).toMatch(/none is taken as accepted/);
+    expect(step).toMatch(/none is taken as accepted/i);
+  });
+
+  it('puts the before and after screenshots, or the none-kept reason, in each healed step item (PRD 1274)', () => {
+    const step = skillSection(read(), '7.');
+    expect(step).toMatch(/screenshots/);
+    expect(step).toMatch(/before and after\s+screenshots/);
+    expect(step).toMatch(/none was\s+kept/);
+    expect(step).toMatch(/\bwhy\b/);
+    expect(step).not.toMatch(/no screenshots/);
+  });
+
+  it('holds healed recordings, commits only unchanged and new ones, and names confirm and reject without saying who confirms (PRD 1274)', () => {
+    const text = read();
+    const items = skillSection(text, '7.');
+    const pr = skillSection(text, '8.');
+    expect(items).toContain('omni.mjs e2e hold <n>');
+    expect(items.indexOf('omni.mjs e2e hold <n>')).toBeGreaterThan(items.indexOf('omni.mjs e2e heals <n>'));
+    for (const cmd of ['omni.mjs e2e confirm <n>', 'omni.mjs e2e reject <n>']) expect(items, cmd).toContain(cmd);
+    expect(pr).toMatch(/only unchanged and new\s+recordings/);
+    expect(pr).toMatch(/holds no healed\s+recording/);
+    expect(text).not.toMatch(/count as\s+accepted only when it is merged/);
+    expect(text).not.toMatch(/committed from the start/);
+    expect(text).not.toMatch(/\bQA confirms\b|\bthe reviewer confirms\b|\bconfirmed by (QA|the)\b/i);
+  });
+
+  it('guards that the sub-PR step never commits a healed recording (PRD 1274)', () => {
+    const pr = skillSection(read(), '8.');
+    // the commit sentence must not take every recording of e2e.dir: it must name the held ones as left out
+    expect(pr).not.toMatch(/commit the tests and `e2e\.dir`'s recordings \(nothing else/);
+    expect(pr).toMatch(/healed recording[^.]*(is not|never|left out|waits)/);
   });
 
   it('opens a Part of sub-PR with the table, signed, and never merges or marks anything ready', () => {
