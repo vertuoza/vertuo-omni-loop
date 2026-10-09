@@ -109,7 +109,6 @@ Enforced by: unenforced
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-11
 
@@ -121,7 +120,6 @@ Enforced by: unenforced
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-25, PR #46
-Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-12
 
@@ -133,7 +131,6 @@ Enforced by: unenforced
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-13
 
@@ -167,7 +164,6 @@ Enforced by: unenforced
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
-Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-16
 
@@ -322,7 +318,6 @@ Enforced by: unenforced
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
-Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-30
 
@@ -499,7 +494,6 @@ Enforced by: unenforced
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
-Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-46
 
@@ -863,7 +857,6 @@ Enforced by: supabase/checks/game_answered_rounds.sql, supabase/migrations/20261
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1181
-Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-79
 
@@ -875,7 +868,6 @@ Enforced by: game/projector.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-07
 Merged: @pierrederval, 2026-10-07, PR #1181
-Proposed: rewrite 2026-10-09
 
 ## BR-PRODUCT-80
 
