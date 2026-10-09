@@ -18,10 +18,12 @@ vi.mock('next/navigation', async (original) => ({ ...(await original<typeof impo
 const ID = '00000000-0000-4000-8000-0000000000d1';
 const ADA = { user_id: 'u-ada', email: 'ada@vertuoza.com', name: 'Ada' };
 
-const born = (birthplace: DossierRow['birthplace']): DossierRow => ({
+/** A dossier row as it read before PRD 1299: no birthplace. */
+const unborn = (): DossierRow => ({
   id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(1299), title: 'Phase 0 approved on the server',
-  opened_by: ADA.user_id, created_at: '2026-10-09T08:00:00Z', numbered_at: '2026-10-09T08:05:00Z', birthplace,
+  opened_by: ADA.user_id, created_at: '2026-10-09T08:00:00Z', numbered_at: '2026-10-09T08:05:00Z',
 });
+const born = (birthplace: DossierRow['birthplace']): DossierRow => ({ ...unborn(), birthplace });
 
 const version = (id: string, kind: DossierVersionRow['kind'], at: string): DossierVersionRow => ({
   id, dossier_id: ID, kind, bytes: 10, source: 'kit', uploaded_by: ADA.user_id, commit_sha: null, created_at: at,
@@ -170,7 +172,6 @@ describe('the PRD page', () => {
     const repo = page(read(born('repo'), null));
     expect(repo).not.toContain('Approval');
     expect(repo).not.toContain('Approve');
-    const { birthplace: _unknown, ...before } = born('repo');
-    expect(repo).toBe(page({ dossier: before, versions: VERSIONS, members: [ADA], rounds: [] }));
+    expect(repo).toBe(page({ dossier: unborn(), versions: VERSIONS, members: [ADA], rounds: [] }));
   });
 });
