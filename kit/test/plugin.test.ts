@@ -2023,6 +2023,37 @@ describe('the validate-e2e skill (PRD 1233)', () => {
     expect(project).toContain('Outside a plan repository the skill runs exactly as before');
   });
 
+  it('gives every created record a name built from a per-run value, in a plan repository and elsewhere, unless the spec answers otherwise (PRD 1276)', () => {
+    const step = skillSection(read(), '5.').replace(/\s+/g, ' ');
+    expect(step).toContain('built from a value that is new on every run');
+    expect(step).toContain('in a plan repository and outside one');
+    expect(step).toContain("unless the spec's answer says otherwise");
+  });
+
+  it('signs in from the saved session e2e.setup writes, and never prints, logs, commits or shows a credential (PRD 1276)', () => {
+    const text = read();
+    const target = skillSection(text, '2.').replace(/\s+/g, ' ');
+    expect(target).toContain('the run signs in from the saved session `e2e.setup` writes');
+    expect(target).toMatch(/never prints, logs or commits a credential and never shows one to the model/);
+    expect(skillSection(text, 'Never').replace(/\s+/g, ' ')).toMatch(/Never print, log, save or show a credential to the model/);
+  });
+
+  it('runs omni e2e guard <n> before the commit, and a non-zero exit stops the run (PRD 1276)', () => {
+    const text = read();
+    const checks = skillSection(text, '8.').replace(/\s+/g, ' ');
+    const pr = skillSection(text, '9.').replace(/\s+/g, ' ');
+    expect(checks).toContain('omni.mjs e2e guard <n>');
+    expect(checks).toMatch(/non-zero exit stops the run/);
+    expect(pr.indexOf('Branch from')).toBeGreaterThan(-1);
+    expect(text.indexOf('omni.mjs e2e guard <n>')).toBeLessThan(text.indexOf('Branch from'));
+  });
+
+  it('states in the sub-PR body which QA flow and which account (by label, never the secret) the run used (PRD 1276)', () => {
+    const pr = skillSection(read(), '9.').replace(/\s+/g, ' ');
+    expect(pr).toContain('which QA flow and which account');
+    expect(pr).toContain('by label, never the secret');
+  });
+
   it('says in the sub-PR body when the target was not the preview, and why (PRD 1273)', () => {
     const target = skillSection(read(), '2.');
     expect(target).toMatch(/fixed URL/);
