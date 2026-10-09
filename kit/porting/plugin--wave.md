@@ -110,3 +110,18 @@ SKILL.md names exists now covers `sign`.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## Issue 1179 — never a wave on a branch behind the default branch
+
+Step 1 gained **Behind the default branch**: when `omni board --json`'s new `base.behind` is `true`,
+the wave follows `/omni:yolo`'s **Meet the default branch** before any claim, then reads the board
+again. The guardrails gained "Never claim on a branch behind the default branch".
+
+### Tests
+
+`kit/test/plugin.test.ts`, `the default branch met before the plan, the board and the first wave
+(issue 1179)`.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.ts kit/bin/board.test.ts` and `pnpm test`, green.

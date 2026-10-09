@@ -115,7 +115,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       "PRD n's slices as the loop sees them, rebuilt from GitHub on every run: each slice's state " +
       '(merged, stuck, in flight, runnable, blocked) and the wave that can run next. --json prints ' +
-      'it as one document, the one /omni:wave acts on. Needs gh logged in.',
+      'it as one document, the one /omni:wave acts on, with base: whether the branch the next wave ' +
+      'builds on is behind the default branch (a phase-0 merged after the plan), so the wave merges ' +
+      'it in first. Needs gh logged in.',
   },
   {
     name: 'care',

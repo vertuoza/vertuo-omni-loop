@@ -222,3 +222,32 @@ as before; and the guardrail reads "Never ask along the way".
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs kit/test/no-game-words.test.mjs`
 and `pnpm test`, green.
+
+## Issue 1179 — the default branch met before the plan, the board and the first wave
+
+A feature branch cut by `/omni:plan` while the phase-0 PR was still open never took what that PR
+merged after review: the run read the plan on it and built every wave there, meeting the default
+branch only at step 4. The slices followed the spec and plan before review, and the feature PR
+conflicted on the PRD's folder as soon as phase-0 merged.
+
+- **Step 1, item 2** meets the default branch before the first read, then switches again.
+- **Meet the default branch** (new, under step 1): for a feature PR, or a landing, based on the
+  default branch, `git merge-base --is-ancestor`, then a merge in a detached worktree; a conflict in
+  the PRD's folder takes the default branch's side (the merged phase-0 is the approved version), a
+  generated path either side, anything else the **Stuck** path; the merge commit is signed and
+  pushed; a slice merged before it is named in the report, never rebuilt here.
+- **Step 3** meets it before each wave when `omni board --json`'s new `base.behind` is `true`.
+- **Landings, item 1** meets it on a landing whose base is the default branch.
+- **Guardrails** gained "Never run a wave on a feature branch behind the default branch".
+
+`/omni:plan` needed no change: its step 2 already merges the default branch into an existing
+feature branch, and the add/add on `spec.md` and `plan.md` is resolved by the new step here.
+
+### Tests
+
+`kit/test/plugin.test.ts` gained `the default branch met before the plan, the board and the first
+wave (issue 1179)`; `kit/bin/board.test.ts` gained `a feature branch behind the default branch`.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.ts kit/bin/board.test.ts` and `pnpm test`, green.

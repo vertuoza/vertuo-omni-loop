@@ -497,3 +497,100 @@ describe('omni board — a plan repository (PRD 563)', () => {
     expect(row).not.toHaveProperty('slug');
   });
 });
+
+/** A fake `exec` as `fakeExec`, whose `git merge-base --is-ancestor <base> <branch>` exits 0 when
+ * `<branch>` is in `onBase` and 1 (as git does when `<base>` is not an ancestor) otherwise. */
+function fakeExecWithAncestry(root: string, prs: unknown[], onBase: readonly string[]) {
+  const inner = fakeExec(root, prs);
+  const exec = (file: string, args: readonly string[], options: unknown = {}) => {
+    if (file === 'git' && args[0] === 'merge-base') {
+      inner.calls.push({ file, args, options });
+      if (onBase.includes(String(args[3]))) return '';
+      throw Object.assign(new Error(`Command failed: git ${args.join(' ')}`), { status: 1 });
+    }
+    return inner.exec(file, args, options);
+  };
+  return { exec, calls: inner.calls };
+}
+
+const ancestryCalls = (calls: ExecCall[]) => calls.filter((call) => call.file === 'git' && call.args[0] === 'merge-base').map((call) => call.args.join(' '));
+
+describe('omni board — a feature branch behind the default branch (issue 1179)', () => {
+  it('says the feature branch is behind <remote>/<default branch> — a phase-0 merged after the plan — so the wave merges it in first', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |']);
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan } });
+    const { exec, calls } = fakeExecWithAncestry(root, [], []);
+
+    const json = io();
+    expect(await main(['board', '7', '--json'], { cwd: root, exec, ...json })).toBe(0);
+    expect(dig(JSON.parse(json.out.join('')), 'base')).toEqual({ branch: 'feat/widgets', onto: 'origin/main', behind: true });
+    expect(ancestryCalls(calls)).toEqual(['merge-base --is-ancestor origin/main origin/feat/widgets']);
+
+    const text = io();
+    await main(['board', '7'], { cwd: root, exec, ...text });
+    expect(text.out.join('')).toMatch(/omni board — feat\/widgets is behind origin\/main: merge origin\/main into it before reading the plan or running a wave\.\n/);
+  });
+
+  it('says nothing more when the default branch is already in the feature branch', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |']);
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan } });
+    const { exec } = fakeExecWithAncestry(root, [], ['origin/feat/widgets']);
+
+    const json = io();
+    await main(['board', '7', '--json'], { cwd: root, exec, ...json });
+    expect(dig(JSON.parse(json.out.join('')), 'base')).toEqual({ branch: 'feat/widgets', onto: 'origin/main', behind: false });
+    const text = io();
+    await main(['board', '7'], { cwd: root, exec, ...text });
+    expect(text.out.join('')).not.toMatch(/is behind/);
+  });
+
+  it('reads `behind: null` when git cannot answer (the branch was never pushed), and still prints the board', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |']);
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan } });
+    const { exec } = fakeExec(root, []);
+    const json = io();
+    expect(await main(['board', '7', '--json'], { cwd: root, exec, ...json })).toBe(0);
+    expect(dig(JSON.parse(json.out.join('')), 'base')).toEqual({ branch: 'feat/widgets', onto: 'origin/main', behind: null });
+  });
+
+  const LANDINGS_PLAN = [
+    '# A plan',
+    '',
+    '| id | slice | territory | blocked by | wave | landing |',
+    '| --- | --- | --- | --- | --- | --- |',
+    '| s1 | Expand | `db/` | — | 1 | 1 |',
+    '| s2 | Code | `src/` | — | 1 | 2 |',
+    '',
+    '## Landings',
+    '',
+    '| landing | name | merge when |',
+    '| --- | --- | --- |',
+    '| 1 | expand | — |',
+    '| 2 | code | landing 1 is deployed |',
+    '',
+  ].join('\n');
+
+  it('checks landing 1, the current landing, against the default branch', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': LANDINGS_PLAN } });
+    const { exec, calls } = fakeExecWithAncestry(root, [pr({ number: 5, headRefName: 'feat/widgets-1of2-expand', baseRefName: 'main', isDraft: true })], []);
+    const json = io();
+    await main(['board', '7', '--json'], { cwd: root, exec, ...json });
+    expect(dig(JSON.parse(json.out.join('')), 'base')).toEqual({ branch: 'feat/widgets-1of2-expand', onto: 'origin/main', behind: true });
+    expect(ancestryCalls(calls)).toEqual(['merge-base --is-ancestor origin/main origin/feat/widgets-1of2-expand']);
+  });
+
+  it('checks a later landing only once its PR is based on the default branch (landing 1 merged), never while it is stacked', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': LANDINGS_PLAN } });
+    const merged = pr({ number: 1, baseRefName: 'feat/widgets-1of2-expand', state: 'MERGED', mergedAt: new Date().toISOString() });
+    const stacked = fakeExecWithAncestry(root, [merged, pr({ number: 6, headRefName: 'feat/widgets-2of2-code', baseRefName: 'feat/widgets-1of2-expand', isDraft: true })], []);
+    const json = io();
+    await main(['board', '7', '--json'], { cwd: root, exec: stacked.exec, ...json });
+    expect(dig(JSON.parse(json.out.join('')), 'base')).toBeNull();
+    expect(ancestryCalls(stacked.calls)).toEqual([]);
+
+    const retargeted = fakeExecWithAncestry(root, [merged, pr({ number: 6, headRefName: 'feat/widgets-2of2-code', baseRefName: 'main', isDraft: true })], []);
+    const again = io();
+    await main(['board', '7', '--json'], { cwd: root, exec: retargeted.exec, ...again });
+    expect(dig(JSON.parse(again.out.join('')), 'base')).toEqual({ branch: 'feat/widgets-2of2-code', onto: 'origin/main', behind: true });
+  });
+});

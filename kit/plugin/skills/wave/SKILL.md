@@ -85,6 +85,15 @@ do not re-derive blockers, staleness or collisions.
 carries `labels.inProgress` is finished work a previous run never merged. Nobody is on it: it skips
 steps 2 and 3 and joins step 4 as `done`. Every other `in-flight` slice is someone else's; leave it.
 
+**Behind the default branch.** When the board's `base.behind` is `true`, the feature branch (or the
+current landing's branch, the one `base.branch` names) does not carry what the default branch
+merged since it was cut: most often the phase-0 PR, reviewed after the plan was written, whose spec
+and plan are the approved ones. Never claim or dispatch on it: first follow `/omni:yolo`'s **Meet
+the default branch** (its step 1) — merge `base.onto` into it in a detached worktree, the PRD's
+folder taking the default branch's side, any other conflict the **Stuck** path — then read the
+board again, from a checkout refreshed onto the pushed branch, and act on that board. `base` `null`
+(the current landing is stacked on the one before) or `behind` `false` or `null`: carry on.
+
 `takeable` empty and nothing awaiting merge: print the board and stop.
 
 ## 2. Claim every slice first
@@ -249,6 +258,8 @@ sits beside a merged slice, never instead of it.
   `wave.merge` `replace` hook after that same `ok`. Never a merge command written by hand.
 - Subagents never merge. One slice per worktree, branch and sub-PR.
 - Claim before you dispatch; take the board's frontier as it is.
+- Never claim on a branch behind the default branch (the board's `base.behind` `true`): meet it
+  first, then read the board again.
 - A question never takes the wave down: only `stopped` and `blocked` hold a slice, and only that one.
 - A territory breach is reported, never fatal.
 - Never mark a sub-PR ready yourself (`/omni:pr` does), and never a feature PR at all.
