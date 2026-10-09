@@ -152,6 +152,8 @@ export const ConfigSchema = z
       megaInvade: branchTemplate.default('docs/omni-mega-invade'),
       // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
       concept: branchTemplate.default('docs/concept-{topic}'),
+      // PRD 1342: the branch `/omni:enforce` proves a law's test on; `{id}` is the law's register id.
+      law: branchTemplate.default('test/law-{id}'),
     }),
     worktrees: text.default('.claude/worktrees'),
     paths: section({
@@ -185,6 +187,8 @@ export const ConfigSchema = z
       // PRD 1299: the label the GitHub App adds to a PRD's issue once it is approved on the server. For
       // display: nothing reads it.
       approved: labelName.default('omni:approved'),
+      // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
+      law: labelName.default('omni:law'),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({
@@ -229,6 +233,10 @@ export const ConfigSchema = z
     laws: section({
       source: z.enum(['knowledge', 'claudeMdInvariants', 'none']).default('none'),
       claudeMdHeading: text.default('## Invariants'),
+      // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
+      // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
+      // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
+      requireProof: z.boolean().default(false),
     }),
     risk: section({
       storedShape: z.array(regexSource).default([]),
