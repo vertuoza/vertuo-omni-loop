@@ -506,7 +506,7 @@ describe('the e2e entry', () => {
 describe('the e2e field', () => {
   const detail = (kind: string, name: string) => {
     const entry = ENTRIES.find((e) => e.kind === kind && e.name === name);
-    return entry && 'detail' in entry ? String(entry.detail) : '';
+    return entry && 'detail' in entry ? entry.detail : '';
   };
   it('is named by the check and yolo entries and the validate-e2e entry', () => {
     expect(detail('command', 'check')).toContain('e2e: validate');
