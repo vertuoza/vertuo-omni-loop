@@ -1,0 +1,179 @@
+<title>PRD 1322 · Before and after</title>
+<style>
+/* Layout: two columns, today | after, one row per moment of phase 0; stacks to one column on a phone. Single dark look, the concept's vision tour. */
+:root{--void:#07061c;--deep:#0e0d33;--deep2:#141346;--line:#2f2e70;--yel:#ffd84a;--cyan:#6ff0ff;--grn:#4ee08a;--red:#ff3b5c;--txt:#f2f4ff;--dim:#8a90d6;
+--disp:Anton,Impact,"Arial Narrow Bold","Arial Narrow",sans-serif;--body:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--void);color:var(--txt);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1160px;margin:0 auto;padding-inline:20px;padding-block:28px 48px;display:grid;gap:28px}
+h1{font-family:var(--disp);font-weight:400;font-size:clamp(30px,5vw,46px);letter-spacing:.01em;margin:0;text-wrap:balance}
+h2{font-family:var(--disp);font-weight:400;font-size:24px;margin:0;text-wrap:balance}
+h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 8px;font-weight:600}
+p{margin:0;max-width:68ch}
+.tag{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.lede{display:grid;gap:10px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.cols>*{min-width:0}
+.colhead{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;padding:6px 10px;border-radius:4px;justify-self:start}
+.before .colhead{background:var(--deep2);color:var(--dim)}
+.after .colhead{background:var(--yel);color:var(--void)}
+.moment{display:grid;gap:12px}
+.mtitle{display:flex;gap:12px;align-items:baseline;border-top:1px solid var(--line);padding-top:16px}
+.mtitle b{font-family:var(--mono);color:var(--yel);font-weight:600}
+.side{display:grid;gap:10px;align-content:start}
+.panel{background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:14px;display:grid;gap:10px}
+.term{background:#040313;border:1px solid var(--line);border-radius:8px;font-family:var(--mono);font-size:12.5px;padding:12px 14px;overflow-x:auto;white-space:pre;color:var(--txt)}
+.term .p{color:var(--dim)} .term .ok{color:var(--grn)} .term .no{color:var(--red)} .term .hold{color:var(--yel)}
+.chip{display:inline-block;font-family:var(--mono);font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+.chip.srv{border-color:var(--yel);color:var(--yel)} .chip.rep{border-color:var(--dim)} .chip.grn{border-color:var(--grn);color:var(--grn)} .chip.red{border-color:var(--red);color:var(--red)}
+.files{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-family:var(--mono);font-size:12.5px}
+.files li{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding-bottom:4px}
+.files .h{color:var(--cyan);font-variant-numeric:tabular-nums}
+.files li.bad .h{color:var(--red)}
+.btn{font:inherit;font-weight:700;border:0;border-radius:6px;padding:9px 16px;background:var(--yel);color:var(--void);justify-self:start}
+.btn.ghost{background:transparent;color:var(--dim);border:1px solid var(--line);font-weight:500}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.seal{flex:none}
+.gh{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px 14px;display:grid;gap:8px;font-size:13.5px}
+.gh .t{font-weight:700} .gh .m{color:#8b949e;font-size:12.5px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.toggle{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;font-family:var(--mono);font-size:12px}
+.toggle span{padding:5px 12px;color:var(--dim)} .toggle span.on{background:var(--yel);color:var(--void)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+td,th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.tw{overflow-x:auto}
+.dim{color:var(--dim)}
+code{font-family:var(--mono);font-size:.92em;color:var(--cyan)}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.phone{width:min(300px,100%);justify-self:center;border:10px solid #1b1a3f;border-radius:34px;background:linear-gradient(160deg,#141346,#07061c);padding:34px 12px 22px;display:grid;gap:10px}
+.phone .clock{text-align:center;font-family:var(--disp);font-size:44px}
+.notif{background:rgba(242,244,255,.92);color:#07061c;border-radius:14px;padding:10px 12px;font-size:12.5px;display:grid;gap:3px}
+.notif b{font-size:13px}
+.notif .m{font-family:var(--mono);font-size:11px;color:#3a3a6a}
+.mail{background:#f6f7fb;color:#15152b;border-radius:8px;padding:12px 14px;font-size:13px;display:grid;gap:6px}
+.mail .h{font-size:12px;color:#55557a}
+.hud{font-family:var(--mono);font-size:12.5px;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:#040313}
+.hud.toast{border-color:var(--grn);color:var(--grn);box-shadow:0 0 0 2px rgba(78,224,138,.18)}
+.diff{font-family:var(--mono);font-size:12px;background:#040313;border:1px solid var(--line);border-radius:6px;padding:8px 10px;white-space:pre;overflow-x:auto}
+.diff .a{color:var(--grn)} .diff .r{color:var(--red)}
+.sw{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13.5px}
+.knob{width:38px;height:22px;border-radius:99px;background:var(--yel);position:relative;flex:none}
+.knob::after{content:"";position:absolute;right:3px;top:3px;width:16px;height:16px;border-radius:50%;background:var(--void)}
+.knob.off{background:var(--line)} .knob.off::after{left:3px;right:auto;background:var(--dim)}
+</style>
+
+<div class="wrap">
+  <header class="lede">
+    <div class="tag">PRD 1322 · from concept #1269, area approval-handshake · after PRD 1299</div>
+    <h1>The approval handshake</h1>
+    <p>Today a PRD born on the server waits silently until someone happens to open its page, and the run ends. After this PRD, the agent waits, the people who opted in are asked on their phone and by email, the approve screen shows what is being approved, the terminal and the HUD fire together, and a later change voids the approval on the spot.</p>
+  </header>
+
+  <div class="cols" aria-hidden="true">
+    <span class="colhead" style="background:var(--deep2);color:var(--dim)">Today · after PRD 1299</span>
+    <span class="colhead" style="background:var(--yel);color:var(--void)">After · the handshake</span>
+  </div>
+
+  <section class="moment">
+    <div class="mtitle"><b>1</b><h2>Who is asked</h2></div>
+    <div class="cols">
+      <div class="side"><div class="panel"><p>Nobody. Any member may approve, but no one is told a PRD waits.</p></div></div>
+      <div class="side">
+        <div class="panel">
+          <h3>Profile · vertuoza</h3>
+          <div class="sw"><span>Ask me to approve</span><span class="knob"></span></div>
+          <div class="sw"><span>Phone alerts on this device</span><span class="knob"></span></div>
+          <div class="sw"><span>Email · irisa@vertuoza.com</span><span class="knob"></span></div>
+          <p class="dim" style="font-size:12.5px">On an iPhone, add the Omni page to your home screen first. The PRD's author is never asked, unless nobody in the workspace opted in.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="moment">
+    <div class="mtitle"><b>2</b><h2>The agent asks, and waits</h2></div>
+    <div class="cols">
+      <div class="side">
+        <div class="term"><span class="p">$ /omni:yolo 918</span>
+<span class="hold">PRD 918 waits for approval: omni-loop.xyz/prd/918</span>
+<span class="p">— the run ends; someone retypes /omni:yolo later</span></div>
+      </div>
+      <div class="side">
+        <div class="term"><span class="p">$ /omni:yolo 918</span>
+<span class="p">$ omni wait approval 918</span>
+<span class="hold">◌ PRD 918 · waiting for Irisa or Paul</span></div>
+        <div class="phone" aria-label="phone lock screen">
+          <div class="clock">14:01</div>
+          <div class="notif"><b>PRD 918 waits for your approval</b><span>Offline photo upload</span><span>“Upload failed” → “3 photos waiting for signal”</span><span class="m">vertuo-mobile · vertuo-api · 9c41 41b0 c77e</span></div>
+        </div>
+        <div class="mail"><span class="h">From Omni · to irisa@vertuoza.com</span><b>PRD 918 waits for your approval</b><span>Problem: site managers lose photos taken with no signal.</span><span>Solution: queue them on the phone and upload when signal is back.</span><span style="color:#2f3fc4">Open PRD 918 →</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="moment">
+    <div class="mtitle"><b>3</b><h2>The approve screen</h2></div>
+    <div class="cols">
+      <div class="side">
+        <div class="panel">
+          <h3>Approve phase 0</h3>
+          <ul class="files"><li><span>spec.md v4</span><span class="h">9c41…e07b</span></li><li><span>plan.md v3</span><span class="h">41b0…0cd2</span></li><li><span>before-after.html v2</span><span class="h">c77e…19fa</span></li></ul>
+          <button class="btn" type="button">Approve</button>
+          <p class="dim" style="font-size:12.5px">What is being approved sits in three other tabs.</p>
+        </div>
+      </div>
+      <div class="side">
+        <div class="panel">
+          <h3>Problem</h3>
+          <p style="font-size:13.5px">Site managers lose photos taken in basements with no signal: the upload fails and the photo is gone.</p>
+          <h3>Solution</h3>
+          <p style="font-size:13.5px">Queue photos on the phone with their taken-at time, and upload them when signal is back.</p>
+          <ul class="files"><li><span>spec.md v4</span><span class="h">9c41…e07b</span></li><li><span>plan.md v3</span><span class="h">41b0…0cd2</span></li><li><span>before-after.html v2</span><span class="h">c77e…19fa</span></li></ul>
+          <button class="btn" type="button">Approve</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="moment">
+    <div class="mtitle"><b>4</b><h2>Approved: the terminal and the HUD together</h2></div>
+    <div class="cols">
+      <div class="side"><div class="panel"><p>Nothing tells the terminal. Someone runs <code>/omni:yolo 918</code> again.</p></div></div>
+      <div class="side">
+        <div class="term"><span class="ok">✓ PRD 918 approved by irisa · 14:02 · 4 files pinned</span>
+<span class="ok">wave 1 starts</span></div>
+        <div class="hud toast">✓ PRD 918 approved by irisa · 14:02</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="moment">
+    <div class="mtitle"><b>5</b><h2>A change voids it</h2></div>
+    <div class="cols">
+      <div class="side"><div class="panel"><p>The page says <span class="chip red">drifted</span> once someone opens it; the approver is never told.</p></div></div>
+      <div class="side">
+        <div class="term"><span class="p">$ omni dossier push 918</span>
+<span class="no">✗ approval voided by paul's push 41b0→f02a · asked again</span>
+<span class="hold">◌ PRD 918 · waiting for Irisa</span></div>
+        <div class="panel">
+          <div class="row"><span class="chip red">voided</span><b>approve again</b></div>
+          <div class="diff"><span class="p">plan.md v3 → v4</span>
+<span class="r">- | s3 | gallery sorts by upload time | … |</span>
+<span class="a">+ | s3 | gallery sorts by taken-at time | … |</span></div>
+          <button class="btn" type="button">Approve v4</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="moment">
+    <div class="mtitle"><b>·</b><h2>What does not change</h2></div>
+    <div class="tw"><table>
+      <tr><th>Stays as it is</th><th>Comes later</th></tr>
+      <tr><td>Approving on the PRD page, signed in; any member may approve</td><td>Approvers per product (product-home)</td></tr>
+      <tr><td><code>omni approval</code> as the gates' backstop</td><td>The <code>omni/approved</code> check on target PRs (product-gate)</td></tr>
+      <tr><td><code>/omni:drive</code> parks a waiting PRD; it never waits in a tick</td><td>Voiding on a git push that skips <code>omni dossier push</code></td></tr>
+    </table></div>
+  </section>
+</div>
