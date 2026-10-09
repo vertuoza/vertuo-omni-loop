@@ -238,6 +238,13 @@ jobs:
         # approve the product's PRDs; with no product or nobody asked, any member does. Each person's
         # alert channels and push subscriptions are theirs alone (PRD 1322).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_approvers.sql
+      - name: Asking a PRD's approvers
+        # approval_request() asks the product's members asked to approve except the author, or the
+        # author alone when nobody else is; a skipped member is never asked, a second request is
+        # re-asked. Requests and voids are read by members and never written or changed directly. Only
+        # the service role reads how each asked person is reached, behind their switches; the bell lists
+        # the latest request with no approval since (PRD 1322).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/approval_requests.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
