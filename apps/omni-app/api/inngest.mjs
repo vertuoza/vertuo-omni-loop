@@ -1623,8 +1623,8 @@ function constituentJudge({ url, secret, fetch: post = fetch, timeoutMs = JUDGE_
     }
     const reply = await response.json().catch(() => null);
     if (!response.ok) {
-      const refusal3 = RefusalSchema.safeParse(reply);
-      const said = refusal3.success && refusal3.data.error ? `: ${stringOf(refusal3.data.error)}` : "";
+      const refusal4 = RefusalSchema.safeParse(reply);
+      const said = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
       return failed("judge", `galaxy answered ${response.status}${said}`);
     }
     const verdict = VerdictSchema.safeParse(reply);
@@ -2844,13 +2844,15 @@ function readAccounts(prd, { ctx }) {
   const dir = `${outboxDir}/${ACCOUNTS_DIR}`;
   if (!existsSync7(`${ctx.root}/${dir}`)) return [];
   const prdPrefix = `${outboxDir}/`;
-  const itemIds = new Set(
-    outboxItemFiles({ ctx }).filter((path) => path.startsWith(prdPrefix)).map((path) => basename(path, ".md"))
-  );
+  const ranks = /* @__PURE__ */ new Map();
+  for (const path of outboxItemFiles({ ctx }).filter((file) => file.startsWith(prdPrefix))) {
+    const parsed2 = parseOutboxItem(readRepoFile(ctx, path));
+    ranks.set(basename(path, ".md"), parsed2.ok ? parsed2.item.rank : null);
+  }
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
   if (existsSync7(`${ctx.root}/${settledFile}`)) {
     for (const entry of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
-      itemIds.add(entry.id);
+      ranks.set(entry.id, entry.fields.Rank ?? null);
     }
   }
   const names = readdirSync3(`${ctx.root}/${dir}`).filter((name) => name.endsWith(".md")).sort();
@@ -2860,7 +2862,7 @@ function readAccounts(prd, { ctx }) {
     const parsed2 = parseAccount(text8, { file });
     if (!parsed2.ok) return parsed2;
     const unresolved = parsed2.account.entries.flatMap(
-      (entry) => entry.account.kind === "item" && !itemIds.has(entry.account.id) ? [entry.account.id] : []
+      (entry) => entry.account.kind === "item" && !ranks.has(entry.account.id) ? [entry.account.id] : []
     );
     if (unresolved.length > 0) {
       return {
@@ -2873,8 +2875,22 @@ function readAccounts(prd, { ctx }) {
         )
       };
     }
-    return parsed2;
+    const entries = parsed2.account.entries.map(
+      (entry) => entry.account.kind === "item" ? { ...entry, account: { ...entry.account, rank: ranks.get(entry.account.id) ?? null } } : entry
+    );
+    return { ok: true, account: { ...parsed2.account, entries } };
   });
+}
+var LAW_RULES = ["law-proof", "law-text", "test-removed", "law-demoted"];
+var LAW_RANKS = ["high", "human-action"];
+function refusal2(entry) {
+  if (!LAW_RULES.includes(entry.rule)) return null;
+  const { account } = entry;
+  if (account.kind === "spec") {
+    return `its account "spec ${account.where}" is refused: a change to a law is accounted only by an item ranked high`;
+  }
+  if (LAW_RANKS.includes(account.rank)) return null;
+  return `its account names item ${account.id}, ranked ${account.rank ?? "unknown"}: a change to a law needs an item ranked high`;
 }
 function entryKey(change) {
   return `${change.path}\0${change.rule}`;
@@ -2883,10 +2899,19 @@ function compare(risky, accounts) {
   const entries = accounts.flatMap(
     (account) => account.entries.map((entry) => ({ ...entry, slice: account.slice, file: account.file }))
   );
-  const namedKeys = new Set(entries.map(entryKey));
+  const accepted = /* @__PURE__ */ new Set();
+  const refused3 = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    const why = refusal2(entry);
+    if (why === null) accepted.add(entryKey(entry));
+    else refused3.set(entryKey(entry), why);
+  }
   const riskyKeys = new Set(risky.map(entryKey));
-  const accounted = risky.filter((change) => namedKeys.has(entryKey(change)));
-  const unaccounted = risky.filter((change) => !namedKeys.has(entryKey(change)));
+  const accounted = risky.filter((change) => accepted.has(entryKey(change)));
+  const unaccounted = risky.filter((change) => !accepted.has(entryKey(change))).map((change) => {
+    const why = refused3.get(entryKey(change));
+    return why === void 0 ? change : { ...change, refused: why };
+  });
   const stale = entries.filter((entry) => !riskyKeys.has(entryKey(entry)));
   return { accounted, unaccounted, stale };
 }
@@ -3147,8 +3172,8 @@ function enforcedByPaths({ ctx }) {
   const { entries } = readRegisters({ ctx });
   const paths = /* @__PURE__ */ new Set();
   for (const entry of entries) {
-    if (!entry.enforcedBy || entry.enforcedBy === "unenforced") continue;
-    for (const rawPath of entry.enforcedBy.split(",")) {
+    if (!entry.enforced) continue;
+    for (const rawPath of String(entry.enforcedBy).split(",")) {
       const path = rawPath.replace(/`/g, "").trim();
       if (path) paths.add(path);
     }
@@ -3180,8 +3205,23 @@ var RULES = [
   { id: "test-removed", matches: isTestRemoved },
   { id: "shared-contract", matches: isSharedContract }
 ];
-var RULE_IDS = RULES.map((rule) => rule.id);
-function riskyChanges(changes, { ctx }) {
+var LAW_DEMOTED = "law-demoted";
+var RULE_IDS = [...RULES.map((rule) => rule.id), LAW_DEMOTED];
+function isLaw(entry) {
+  return (entry.kind === "rule" || entry.kind === "invariant") && entry.proposed === null;
+}
+function demotedFiles({ ctx, base }) {
+  if (ctx.config.laws.source !== "knowledge") return [];
+  const head = new Map(readRegisters({ ctx }).entries.map((entry) => [entry.id, entry]));
+  const files = /* @__PURE__ */ new Set();
+  for (const was of readKnowledge({ ctx, source: base }).entries.filter(isLaw)) {
+    const now = head.get(was.id);
+    if (now === void 0) files.add(was.file);
+    else if (was.enforced && !now.enforced) files.add(now.file);
+  }
+  return [...files];
+}
+function riskyChanges(changes, { ctx, base = null }) {
   const risky = [];
   for (const change of changes) {
     for (const rule of RULES) {
@@ -3189,6 +3229,11 @@ function riskyChanges(changes, { ctx }) {
         risky.push({ path: change.path, status: change.status, rule: rule.id });
       }
     }
+  }
+  if (base === null) return risky;
+  const statuses = new Map(changes.map((change) => [change.path, change.status]));
+  for (const path of demotedFiles({ ctx, base })) {
+    risky.push({ path, status: statuses.get(path) ?? "M", rule: LAW_DEMOTED });
   }
   return risky;
 }
@@ -3208,8 +3253,8 @@ function describeItem(file, { ctx }) {
 function openItems(prd, { ctx }) {
   return openItemFiles(prd, { ctx }).map((file) => describeItem(file, { ctx }));
 }
-function unaccountedChanges(prd, changes, { ctx }) {
-  const risky = riskyChanges(changes, { ctx });
+function unaccountedChanges(prd, changes, { ctx, base = null }) {
+  const risky = riskyChanges(changes, { ctx, base });
   const accounts = readAccounts(prd, { ctx }).flatMap((result) => result.ok ? [result.account] : []);
   return compare(risky, accounts).unaccounted;
 }
@@ -3221,7 +3266,7 @@ function unreworkedDrift(prd, { ctx }) {
   const entries = parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
   return entries.filter((entry) => entry.verdict === "drifted" && !entry.closed).map((entry) => ({ id: entry.id, closedLine: entry.fields.Closed }));
 }
-function gateResult(prd, { ctx, labels = [], changes = null }) {
+function gateResult(prd, { ctx, labels = [], changes = null, base = null }) {
   const items = openItems(prd, { ctx });
   const unreworked = unreworkedDrift(prd, { ctx });
   const overrideLabel = ctx.config.labels.outboxGo;
@@ -3230,7 +3275,7 @@ function gateResult(prd, { ctx, labels = [], changes = null }) {
     const ok2 = overridden || items.length === 0 && unreworked.length === 0;
     return { ok: ok2, items, overridden, unreworked, overrideLabel };
   }
-  const unaccounted = unaccountedChanges(prd, changes, { ctx });
+  const unaccounted = unaccountedChanges(prd, changes, { ctx, base });
   const ok = overridden || items.length === 0 && unreworked.length === 0 && unaccounted.length === 0;
   return { ok, items, overridden, unreworked, unaccounted, overrideLabel };
 }
@@ -3238,7 +3283,8 @@ function formatItem(item) {
   return item.rank ? `  - ${item.file} (${item.rank})` : `  - ${item.file}`;
 }
 function formatUnaccounted(change) {
-  return `  - ${change.path} (${change.rule})`;
+  const line = `  - ${change.path} (${change.rule})`;
+  return change.refused === void 0 ? line : `${line} \u2014 ${change.refused}`;
 }
 function formatUnreworked(entry) {
   return `  - ${entry.id}`;
@@ -7472,6 +7518,7 @@ var statement = capped("statement", CAPS.statement);
 var reason = capped("reason", CAPS.reason);
 var MAX_ENFORCED_BY = 3;
 var enforcedBy = z23.array(text4("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
+var worthALaw = z23.boolean({ error: "worthALaw must be true or false" }).optional();
 var ClassificationSchema = z23.discriminatedUnion(
   "kind",
   [
@@ -7481,7 +7528,7 @@ var ClassificationSchema = z23.discriminatedUnion(
       statement,
       reason
     }).strict(),
-    z23.object({ kind: z23.literal("invariant"), place: text4("place"), statement, enforcedBy, reason }).strict(),
+    z23.object({ kind: z23.literal("invariant"), place: text4("place"), statement, enforcedBy, worthALaw, reason }).strict(),
     z23.object({
       kind: z23.literal("rule"),
       place: text4("place"),
@@ -7489,6 +7536,7 @@ var ClassificationSchema = z23.discriminatedUnion(
       serves: text4("serves"),
       principle: z23.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
       enforcedBy,
+      worthALaw,
       reason
     }).strict(),
     z23.object({ kind: z23.literal("covered"), covers: text4("covers"), reason }).strict(),
@@ -7591,6 +7639,7 @@ function classificationJsonSchema(summary2) {
       },
       covers: string(),
       enforcedBy: { type: "array", items: string(), minItems: 1, maxItems: MAX_ENFORCED_BY },
+      worthALaw: { type: "boolean" },
       reason: string(CAPS.reason)
     }
   };
@@ -7620,8 +7669,8 @@ function list(items, render2, empty = "(none)") {
 function kindLines(kinds) {
   const meaning = {
     adr: "- `adr`: a decision record \u2014 how something is built, and why. Fields: `title`, `statement`, `reason`.",
-    invariant: "- `invariant`: something that must always hold in the code. Fields: `place`, `statement`, `enforcedBy` (optional), `reason`.",
-    rule: `- \`rule\`: a precise, provable business rule. Fields: \`place\`, \`statement\`, \`serves\` (an existing principle's id, of \`${PRODUCT_PLACE}\` or of the rule's own place, or \`${NEW_PRINCIPLE}\`), \`principle\` (\`{ statement, why }\`, only when \`serves\` is \`${NEW_PRINCIPLE}\`), \`enforcedBy\` (optional), \`reason\`.`,
+    invariant: "- `invariant`: something that must always hold in the code. Fields: `place`, `statement`, `enforcedBy` (optional), `worthALaw` (true or false), `reason`.",
+    rule: `- \`rule\`: a precise, provable business rule. Fields: \`place\`, \`statement\`, \`serves\` (an existing principle's id, of \`${PRODUCT_PLACE}\` or of the rule's own place, or \`${NEW_PRINCIPLE}\`), \`principle\` (\`{ statement, why }\`, only when \`serves\` is \`${NEW_PRINCIPLE}\`), \`enforcedBy\` (optional), \`worthALaw\` (true or false), \`reason\`.`,
     covered: "- `covered`: an existing entry or decision record already says this. Fields: `covers` (its id, or `ADR-NNNN`), `reason`.",
     "stays-here": "- `stays-here`: a local choice with nothing lasting to keep; it stays in the ledger. Fields: `statement`, `reason`."
   };
@@ -7646,6 +7695,7 @@ function classificationPrompt({
     `\`reason\` says why this kind and this place, at most ${CAPS.reason} characters.`,
     "Prefer `covered` when the knowledge base below already says it, and `stays-here` for a local choice.",
     `\`enforcedBy\`, on a \`rule\` or an \`invariant\` only, names one to ${MAX_ENFORCED_BY} of the files listed under "The files the feature pull request changed": the ones whose tests or constraints prove the statement. Omit \`enforcedBy\` when none of them proves the statement.`,
+    "`worthALaw`, on every `rule` and `invariant`, says whether it is worth a law: an executable test that fails when it is broken. `true` when breaking it would hurt the product or the people who rely on it, it holds for a long time and code can check it; `false` for a one-off choice, a taste, or a fact no test can see.",
     LOOK_RULE,
     "",
     `## The decision: ${candidate.id}`,
@@ -7722,6 +7772,8 @@ function harvestCandidates({ ctx, prd }) {
 import { existsSync as existsSync26, mkdirSync as mkdirSync4, readFileSync as readFileSync19, writeFileSync as writeFileSync5 } from "node:fs";
 import { dirname as dirname7, join as join29 } from "node:path";
 var KEPT_STATUSES = Object.freeze(["added", "modified", "renamed"]);
+var LAW_ISSUE_FIRST = "its law issue opens first";
+var CLASSIFIER = "classifier";
 var HARVEST_PROPOSER = "harvest";
 var SLUG_MAX = 64;
 var PREFIX = { principle: "P", rule: "BR", invariant: "N" };
@@ -7923,31 +7975,32 @@ function writeRegisterEntry({
   merge,
   proposed,
   proposedLine,
-  changed
+  enforced,
+  write
 }) {
   const place = placeOf2(ctx, reply.place);
   const id = numbering.entry(reply.kind, place.code);
   const { serves, principleId } = servedBy2(reply, () => numbering.entry("principle", place.code));
-  const proof = proofOf({ proposed: reply.enforcedBy, changed, pr: merge.pr, exists: (path2) => existsSync26(join29(ctx.root, path2)) });
+  const path = `${place.dir}/${LAYER[reply.kind]}`;
+  if (!write) return { touched: [], landedAs: [id, ...principleId ? [principleId] : []], path };
   const fields = [
     ...serves ? [["Serves", serves]] : [],
     ["Source", source],
-    ["Enforced by", enforcedValue(proof.kept)],
+    ["Enforced by", enforced],
     ["Stated", day(merge.at)],
     ["Decided", decided],
     ["Merged", merged],
     ...proposed ? [["Proposed", proposedLine]] : []
   ];
-  const path = `${place.dir}/${LAYER[reply.kind]}`;
   files.write(
     path,
     appendEntry(files.read(path), renderRegisterEntry({ id, statement: reply.statement, fields }), {
       heading: `${place.title} ${reply.kind}s`
     })
   );
-  if (!principleId) return { touched: [path], landedAs: [id], proof };
+  if (!principleId) return { touched: [path], landedAs: [id], path };
   const principlePath = writeProposedPrinciple({ files, place, id: principleId, reply, candidate, source, merged, proposedLine });
-  return { touched: [path, principlePath], landedAs: [id, principleId], proof };
+  return { touched: [path, principlePath], landedAs: [id, principleId], path };
 }
 function writeProposedPrinciple({
   files,
@@ -7974,13 +8027,36 @@ function writeProposedPrinciple({
   files.write(path, appendEntry(files.read(path), principle, { heading: `${place.title} principles` }));
   return path;
 }
+function lawWorthNote(worth) {
+  const score = worth.confidence === null ? "" : ` ${worth.confidence.toFixed(2)}`;
+  return `not worth a law (${worth.decidedBy}${score})`;
+}
+function lawIssueBody({ entry, register, statement: statement2, source }) {
+  return [
+    statement2,
+    "",
+    `- Entry: \`${entry}\``,
+    `- Register: \`${register}\``,
+    `- Source: ${source}`,
+    "- Where its test would live: where the repository's testing form puts tests (`omni kb show testing`), beside the code that keeps the law.",
+    "",
+    "The law is written `Enforced by: pending #<this issue>` until `/omni:enforce` writes its test, sees it red with the law broken and green restored, and names the test there."
+  ].join("\n");
+}
+function lawPath(kept2, worth, worthALaw2) {
+  if (kept2.length > 0) return { path: "proven" };
+  const counted2 = worth ?? (worthALaw2 === void 0 ? null : { worth: worthALaw2, decidedBy: CLASSIFIER, confidence: null });
+  if (counted2 === null) return { path: "legacy" };
+  return { path: counted2.worth ? "yes" : "no", worth: counted2 };
+}
 function writeKnowledge({
   ctx,
   classified,
   merge,
   taken = {},
   date,
-  changed = []
+  changed = [],
+  lawIssues = {}
 }) {
   const files = makeFiles(ctx);
   const numbering = makeNumbering({ ctx, taken });
@@ -7988,7 +8064,8 @@ function writeKnowledge({
   const proposedLine = `${HARVEST_PROPOSER} ${date}`;
   const placed = [];
   const notPlaced = [];
-  for (const { candidate, reply, reason: reason2 } of classified) {
+  const toOpen = [];
+  for (const { candidate, reply, reason: reason2, worth } of classified) {
     if (!reply) {
       notPlaced.push({ id: candidate.id, reason: reason2 ?? "not classified" });
       continue;
@@ -7997,28 +8074,27 @@ function writeKnowledge({
     const prd = candidate.item?.prd ?? null;
     const answered = answeredByPerson(candidate);
     const decided = decidedLine(candidate);
-    const proposed = !answered;
-    const touched = [];
-    let landedAs2 = [];
-    let status = null;
-    let proof = null;
+    const run = { ctx, files, numbering, candidate, decided, merged, merge, proposed: !answered, proposedLine };
+    let landing;
     if (reply.kind === "adr") {
       const number = numbering.record();
-      status = answered ? "accepted" : ADOPTED_VERDICT;
+      const status = answered ? "accepted" : ADOPTED_VERDICT;
       const path = `${ctx.layout.adrDir.replace(/\/+$/, "")}/${number}-${slugOf(reply.title)}.md`;
       files.write(path, renderRecord({ number, reply, candidate, status, decided, merged, merge, prd, ledgerFile }));
-      touched.push(path);
-      landedAs2 = [`ADR-${number}`];
+      landing = { kind: "adr", touched: [path], landedAs: [`ADR-${number}`], status, note: null, extra: {} };
     } else if (reply.kind === "rule" || reply.kind === "invariant") {
-      const source = sourceLine(candidate, ledgerFile, prd);
-      const entry = writeRegisterEntry({ ctx, files, numbering, reply, candidate, source, decided, merged, merge, proposed, proposedLine, changed });
-      touched.push(...entry.touched);
-      landedAs2 = entry.landedAs;
-      proof = entry.proof;
-    } else if (reply.kind === "covered") {
-      landedAs2 = [reply.covers];
+      const landed = landLaw({ ...run, reply, source: sourceLine(candidate, ledgerFile, prd), changed, worth, issue: lawIssues[candidate.id] ?? null });
+      if ("heldBack" in landed) {
+        toOpen.push(landed.heldBack);
+        notPlaced.push({ id: candidate.id, reason: LAW_ISSUE_FIRST });
+        continue;
+      }
+      landing = landed;
+    } else {
+      const note = reply.kind === "stays-here" ? oneLine2(reply.reason) : null;
+      landing = { kind: reply.kind, touched: [], landedAs: reply.kind === "covered" ? [reply.covers] : [], status: null, note, extra: {} };
     }
-    const ledgerLine = reply.kind === "stays-here" ? `- ${STAYS_HERE_FIELD}: ${oneLine2(reply.reason)}` : `- ${BECAME_FIELD}: ${landedAs2.join(", ")}`;
+    const ledgerLine = landing.note === null ? `- ${BECAME_FIELD}: ${landing.landedAs.join(", ")}` : `- ${STAYS_HERE_FIELD}: ${landing.note}`;
     const ledger = files.read(ledgerFile);
     const withLine = ledger === null ? null : addLedgerLine(ledger, { id: candidate.id, line: ledgerLine, markers: ctx.markers });
     if (withLine === null) {
@@ -8028,19 +8104,44 @@ function writeKnowledge({
     files.write(ledgerFile, withLine);
     placed.push({
       id: candidate.id,
-      kind: reply.kind,
-      landedAs: landedAs2,
-      files: touched,
+      kind: landing.kind,
+      landedAs: landing.landedAs,
+      files: landing.touched,
       ledgerFile,
       ledgerLine,
       decided,
-      status,
-      proposed: proposed && (reply.kind === "rule" || reply.kind === "invariant" || reply.kind === "adr"),
+      status: landing.status,
+      proposed: !answered && PROPOSABLE.includes(landing.kind),
       reason: oneLine2(reply.reason),
-      ...proof ? { enforcedBy: proof.kept, dropped: proof.dropped } : {}
+      ...landing.extra
     });
   }
-  return { writes: files.writes(), placed, notPlaced };
+  return { writes: files.writes(), placed, notPlaced, lawIssues: toOpen };
+}
+var PROPOSABLE = ["rule", "invariant", "adr"];
+function landLaw({
+  reply,
+  changed,
+  worth,
+  issue,
+  ...run
+}) {
+  const { ctx, merge, candidate, source } = run;
+  const proof = proofOf({ proposed: reply.enforcedBy, changed, pr: merge.pr, exists: (path) => existsSync26(join29(ctx.root, path)) });
+  const chosen = lawPath(proof.kept, worth, reply.worthALaw);
+  if (chosen.path === "no") {
+    const law = { ...chosen.worth, issue: null };
+    return { kind: "stays-here", touched: [], landedAs: [], status: null, note: lawWorthNote(chosen.worth), extra: { law } };
+  }
+  const yes = chosen.path === "yes";
+  const write = !yes || issue !== null;
+  const entry = writeRegisterEntry({ ...run, reply, enforced: issue === null ? enforcedValue(proof.kept) : `pending #${issue}`, write });
+  if (!write) {
+    const at2 = { entry: defined(entry.landedAs[0], `the id of ${candidate.id}`), register: entry.path, statement: oneLine2(reply.statement), source };
+    return { heldBack: { id: candidate.id, ...at2, title: `Law: ${at2.statement}`, body: lawIssueBody(at2) } };
+  }
+  const extra = { enforcedBy: proof.kept, dropped: proof.dropped, ...yes ? { law: { ...chosen.worth, issue } } : {} };
+  return { kind: reply.kind, touched: entry.touched, landedAs: entry.landedAs, status: null, note: null, extra };
 }
 
 // kit/lib/knowledge/pipeline.ts
@@ -8197,7 +8298,8 @@ function finishHarvest({
   classified,
   merge,
   taken = {},
-  date
+  date,
+  lawIssues
 }) {
   return inScratch(ctx, (scratch) => {
     applyHarvestEdits({ root: scratch.root, edits: prepared.edits });
@@ -8211,7 +8313,7 @@ function finishHarvest({
         if (dropped.has(candidate.id)) return { candidate, reply: null, reason: dropped.get(candidate.id) };
         if (!given) return { candidate, reply: null, reason: "not classified" };
         if (keep && !keep.includes(candidate.id)) return null;
-        return { candidate, reply: given.reply ?? null, reason: given.reason ?? void 0 };
+        return { candidate, reply: given.reply ?? null, reason: given.reason ?? void 0, worth: given.worth ?? null };
       });
       return writeKnowledge({
         ctx: scratch,
@@ -8219,7 +8321,8 @@ function finishHarvest({
         merge,
         taken,
         date,
-        changed: prepared.changed ?? []
+        changed: prepared.changed ?? [],
+        lawIssues
       });
     };
     const failures = (result2) => inScratch(scratch, (trial) => {
@@ -8238,7 +8341,7 @@ function finishHarvest({
       }
       result = attempt2(null);
     }
-    const writes = result.placed.some((entry) => PROMOTIONS.includes(entry.kind)) ? result.writes : [];
+    const writes = result.placed.some((entry) => PROMOTIONS.includes(entry.kind) || entry.law !== void 0) ? result.writes : [];
     applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves: [], writes } });
     const checks = runChecks(scratch);
     const edits = {
@@ -8246,7 +8349,7 @@ function finishHarvest({
       moves: prepared.edits.moves,
       writes: mergeWrites([...prepared.edits.writes, ...writes])
     };
-    return { edits, placed: result.placed, notPlaced: result.notPlaced, checks };
+    return { edits, placed: result.placed, notPlaced: result.notPlaced, checks, lawIssues: result.lawIssues };
   });
 }
 function noEdits(edits) {
@@ -12363,7 +12466,7 @@ function guard({ reply, sheet }) {
   const evidence = evidenceOf(sheet);
   const dropped = [];
   const check = (field3, value, cap) => {
-    const reason2 = refusal2(value, cap, evidence);
+    const reason2 = refusal3(value, cap, evidence);
     if (reason2 === null && typeof value === "string") return value;
     const why = reason2 ?? DROPPED.notText;
     dropped.push({ field: field3, reason: why });
@@ -12391,7 +12494,7 @@ function guard({ reply, sheet }) {
     const entry = isObject2(lesson) ? lesson : {};
     const cited = Array.isArray(entry.findings) ? entry.findings : [];
     const known = cited.filter((id) => typeof id === "string" && evidence.ids.has(id));
-    const reason2 = refusal2(entry.text, FIELD_CAPS.lesson, evidence) ?? (cited.length === 0 ? DROPPED.noFinding : known.length < cited.length ? DROPPED.unknownFinding : null);
+    const reason2 = refusal3(entry.text, FIELD_CAPS.lesson, evidence) ?? (cited.length === 0 ? DROPPED.noFinding : known.length < cited.length ? DROPPED.unknownFinding : null);
     if (reason2 === null && typeof entry.text === "string") {
       prose.lessons.push({ text: entry.text, findings: [...known] });
       return;
@@ -12426,7 +12529,7 @@ function judge(reply, findings, prose, evidence, dropped) {
 function verdictOf(verdict, evidence) {
   if (!isObject2(verdict)) return { ok: false, field: "verdict", reason: DROPPED.noVerdict };
   if (typeof verdict.worthIt !== "boolean") return { ok: false, field: "verdict.worthIt", reason: DROPPED.notYesOrNo };
-  const reasonRefused = refusal2(verdict.reason, FIELD_CAPS.reason, evidence, VERDICT_WORDS);
+  const reasonRefused = refusal3(verdict.reason, FIELD_CAPS.reason, evidence, VERDICT_WORDS);
   if (reasonRefused !== null || typeof verdict.reason !== "string") return { ok: false, field: "verdict.reason", reason: reasonRefused ?? DROPPED.notText };
   return { ok: true, worthIt: verdict.worthIt, reason: verdict.reason };
 }
@@ -12437,7 +12540,7 @@ function marksOf(words, kept2, field3, evidence) {
     marks.keep = words.keep;
   }
   if (words.why !== void 0) {
-    const whyRefused = refusal2(words.why, FIELD_CAPS.why, evidence, VERDICT_WORDS);
+    const whyRefused = refusal3(words.why, FIELD_CAPS.why, evidence, VERDICT_WORDS);
     if (whyRefused !== null || typeof words.why !== "string") return { ok: false, field: `${field3}.why`, reason: whyRefused ?? DROPPED.notText };
     marks.why = words.why;
   }
@@ -12445,7 +12548,7 @@ function marksOf(words, kept2, field3, evidence) {
   return { ok: true, marks };
 }
 var VERDICT_WORDS = Object.freeze({ digits: true });
-function refusal2(value, cap, evidence, { digits = false } = {}) {
+function refusal3(value, cap, evidence, { digits = false } = {}) {
   if (typeof value !== "string") return DROPPED.notText;
   if (value.length > cap) return DROPPED.tooLong;
   if (refusedWordsIn(value).length > 0) return DROPPED.refusedWord;
