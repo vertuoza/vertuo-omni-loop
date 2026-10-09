@@ -9,6 +9,11 @@ import { z } from 'zod';
 export const AlertChannels = z.strictObject({ push: z.boolean(), email: z.boolean() });
 export type AlertChannels = z.infer<typeof AlertChannels>;
 
+/** Where the service worker is served (app/api/push/sw.js, ./worker.ts), and the scope it is
+ * registered with: the whole site. */
+export const WORKER_PATH = '/api/push/sw.js';
+export const WORKER_SCOPE = '/';
+
 /** Both switches off: a person who never turned one on. */
 export const CHANNELS_OFF: AlertChannels = Object.freeze({ push: false, email: false });
 

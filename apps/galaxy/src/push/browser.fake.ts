@@ -15,7 +15,7 @@ interface FakeOptions {
   existing?: boolean;
   permission?: 'granted' | 'denied';
   answer?: Answer;
-  /** /sw.js is registered already. */
+  /** The service worker is registered already. */
   registered?: boolean;
 }
 

@@ -1,15 +1,15 @@
-import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import manifest from '../../app/manifest';
+import { GET } from '../../app/api/push/sw.js/route';
+import { WORKER_SOURCE } from './worker';
 
-// The installable page (PRD 1322 s9): the web manifest, and the service worker at /sw.js run in a
-// sandbox with a fake `self`: a push shows one notification from its JSON, a push it cannot read still
-// shows one, a url off this site is never opened, and a tap focuses the tab already on the url or
-// opens it.
+// The installable page (PRD 1322 s9): the web manifest, and the service worker GET /api/push/sw.js
+// serves, allowed the whole site, run in a sandbox with a fake `self`: a push shows one notification
+// from its JSON, a push it cannot read still shows one, a url off this site is never opened, and a tap
+// focuses the tab already on the url or opens it.
 
 const ORIGIN = 'https://omni.example';
-const SOURCE = readFileSync(new URL('../../public/sw.js', import.meta.url), 'utf8');
 
 type Listener = (event: Record<string, unknown>) => void;
 
@@ -27,7 +27,7 @@ function worker(tabs: Array<{ url: string }> = []) {
       openWindow: (url: string) => { opened.push(url); return Promise.resolve(); },
     },
   };
-  runInNewContext(SOURCE, { self, URL });
+  runInNewContext(WORKER_SOURCE, { self, URL });
   const fire = async (type: string, event: Record<string, unknown>) => {
     let waited: Promise<unknown> = Promise.resolve();
     const listener = listeners.get(type);
@@ -41,7 +41,17 @@ function worker(tabs: Array<{ url: string }> = []) {
 const data = (json: unknown) => ({ json: () => (json instanceof Error ? (() => { throw json; })() : json) });
 const tap = (url: unknown) => ({ notification: { data: { url }, close: () => {} } });
 
-describe('/sw.js', () => {
+describe('GET /api/push/sw.js', () => {
+  it('serves the worker as JavaScript, allowed the whole site, revalidated each time', async () => {
+    const res = GET();
+    expect(res.headers.get('content-type')).toBe('text/javascript; charset=utf-8');
+    expect(res.headers.get('service-worker-allowed')).toBe('/');
+    expect(res.headers.get('cache-control')).toBe('no-cache');
+    expect(await res.text()).toBe(WORKER_SOURCE);
+  });
+});
+
+describe('the service worker', () => {
   it('shows a push as one notification, its url kept for the tap', async () => {
     const { fire, shown } = worker();
     await fire('push', { data: data({ title: 'PRD 1322 waits for your approval', body: 'The approval handshake', url: '/prd/1322?tab=approval' }) });
@@ -59,10 +69,12 @@ describe('/sw.js', () => {
     }
   });
 
-  it('never keeps a url off this site', async () => {
-    const { fire, shown } = worker();
-    await fire('push', { data: data({ title: 'x', body: 'y', url: 'https://evil.example/phish' }) });
-    expect(shown[0]?.options).toMatchObject({ data: { url: `${ORIGIN}/app` } });
+  it('never keeps a url off this site, nor one it cannot read', async () => {
+    for (const url of ['https://evil.example/phish', 'http://[bad']) {
+      const { fire, shown } = worker();
+      await fire('push', { data: data({ title: 'x', body: 'y', url }) });
+      expect(shown[0]?.options).toMatchObject({ data: { url: `${ORIGIN}/app` } });
+    }
   });
 
   it('a tap focuses the tab already on the url, or opens it', async () => {

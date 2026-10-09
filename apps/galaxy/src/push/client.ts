@@ -1,14 +1,11 @@
 import { z } from 'zod';
-import { AlertChannels, applicationServerKey, deviceLabel, PushDevice, type BrowserFacts } from './device';
+import { AlertChannels, applicationServerKey, deviceLabel, PushDevice, WORKER_PATH, WORKER_SCOPE, type BrowserFacts } from './device';
 
 // The profile page's alert switches in the browser (PRD 1322 s9): this device subscribed to Web Push
-// through the service worker at /sw.js and stored by POST /api/push/subscription; unsubscribed and
+// through the service worker at /api/push/sw.js and stored by POST /api/push/subscription; unsubscribed and
 // removed by DELETE; and both switches saved by POST /api/push/channels. The browser's own objects are
 // behind PushBrowser, so every step runs on fakes in a test. Each call answers what it did, or why
 // not in plain words: it never throws.
-
-/** The service worker the page registers, at the site's root so it covers every page. */
-const SERVICE_WORKER = '/sw.js';
 
 /** What the browser serialises a subscription to, read as a PushDevice once labelled. */
 interface PushSubscriptionLike {
@@ -25,9 +22,9 @@ interface PushManagerLike {
 /** The browser's objects the switches use: `navigator.serviceWorker`, `Notification`, `fetch`. */
 export interface PushBrowser {
   userAgent: string;
-  /** Registers /sw.js (or answers the registration already there) and its push manager. */
+  /** Registers the service worker (or answers the registration already there) and its push manager. */
   register(): Promise<{ pushManager: PushManagerLike }>;
-  /** The push manager of /sw.js when it is registered already, else null. */
+  /** The service worker's push manager when it is registered already, else null. */
   registered(): Promise<{ pushManager: PushManagerLike } | null>;
   /** Asks the person to allow notifications, once; answers what they chose (or chose before). */
   permission(): Promise<'granted' | 'denied' | 'default'>;
@@ -95,8 +92,8 @@ export async function subscribeThisDevice(browser: PushBrowser, publicKey: strin
 export function livePushBrowser(): PushBrowser {
   return {
     userAgent: navigator.userAgent,
-    register: () => navigator.serviceWorker.register(SERVICE_WORKER, { scope: '/', updateViaCache: 'none' }),
-    registered: async () => (await navigator.serviceWorker.getRegistration('/')) ?? null,
+    register: () => navigator.serviceWorker.register(WORKER_PATH, { scope: WORKER_SCOPE, updateViaCache: 'none' }),
+    registered: async () => (await navigator.serviceWorker.getRegistration(WORKER_SCOPE)) ?? null,
     permission: () => Notification.requestPermission(),
     fetch: (input, init) => globalThis.fetch(input, init),
   };

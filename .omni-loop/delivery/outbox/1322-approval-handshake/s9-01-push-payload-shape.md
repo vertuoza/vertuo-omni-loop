@@ -40,7 +40,7 @@ The service worker reads JSON {title, body, url}; s2's Web Push sender must send
 
 ## What it costs to change later
 
-A constant: renaming a field is one edit in public/sw.js and one in s2's sender.
+A constant: renaming a field is one edit in the service worker (src/push/worker.ts) and one in s2's sender.
 
 ## What I could not know
 
