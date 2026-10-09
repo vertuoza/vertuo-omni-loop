@@ -313,3 +313,629 @@ Moving or reshaping the file is a constant in the kit's wait module and in the b
 ```
 
 <!-- /omni-outbox-settled: s4-02-waiting-file -->
+
+<!-- omni-outbox-settled: s2-01-bell-and-check-outside-the-plan-ground -->
+
+## s2-01-bell-and-check-outside-the-plan-ground — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-bell-and-check-outside-the-plan-ground
+prd: 1322
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+Showing an approval request in the bell, and proving the new database rules in the automatic checks, both need files the plan did not give to this step. Should this step change them?
+
+## The decision, in plain words
+
+Yes: this step adds an Approvals group to the bell with its own small read, and adds a database check that the automatic checks run, as every new database rule here must have.
+
+## The intro, for fun
+
+The bell had room for one more line, but the bell lives next door.
+
+## The punchline, for fun
+
+So this step knocked, borrowed a nail and hung it.
+
+## The options, in plain words
+
+A. A. Change the bell, add its route, the database check and the publication here (built).
+B. B. Leave the bell's drawing and the check to a later slice, and show nothing in the bell until then.
+C. C. Read the requests straight from the database in the browser, without a route, as the older bell parts still do.
+
+## What I had to decide
+
+Whether the bell's drawing, its new read route and a new database check are changed by this step, outside the ground the plan gave it.
+
+## What I did meanwhile
+
+The bell (apps/galaxy/src/nav/bell.ts, Bell.tsx, and the count in sidebar.test.ts) gains an Approvals group after Questions, counted in the badge, read from GET /api/waiting/approvals (apps/galaxy/app/api/waiting/approvals/route.ts, served by approvals.controller.ts) every 15 s. supabase/checks/approval_requests.sql proves who is asked, the bell's read and the recipients function, and .github/workflows/supabase.yml runs it, as the conventions require. The migration also adds approvals, approval_voids and approval_requests to Supabase Realtime's publication, which the stream (s3) follows and which no later slice has a migration to do.
+
+## What it costs to change later
+
+Low: the bell group is one function and one prop; the route is two lines; the check is a file and a workflow step. Moving any of them is a rename.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan lists apps/galaxy/src/waiting/ for the bell, but the bell is drawn in apps/galaxy/src/nav/, and PRD 1318 asks new reads to go through a route rather than the browser's database client.
+- (author) Whether s3 wants the requests table in the Realtime publication as well as approvals and voids is not known; it is added so re-asked events can be streamed.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-bell-and-check-outside-the-plan-ground -->
+
+<!-- omni-outbox-settled: s2-02-what-the-phone-alert-and-email-say -->
+
+## s2-02-what-the-phone-alert-and-email-say — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-what-the-phone-alert-and-email-say
+prd: 1322
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+The spec says the phone alert and the email show the PRD's one-line before and after, but nothing writes such a line down, and the phone's page must read what the alert carries. What do they hold?
+
+## The decision, in plain words
+
+The before and after line is the first sentence of the spec's Problem, then the first sentence of its Solution. The phone alert carries a title, the spec's title with that line, and the PRD page's link; the email adds the repository, the file hashes and the whole Problem and Solution.
+
+## The intro, for fun
+
+A one-line summary was promised, and nobody had written the line.
+
+## The punchline, for fun
+
+So the spec's own first sentences were asked to speak up.
+
+## The options, in plain words
+
+A. A. First sentences of Problem and Solution; push payload {title, body, url} as s9's service worker reads it (built).
+B. B. Add a one-line before → after field to the spec's front matter, and show it only when present.
+C. C. Leave the line out and show only the title, the repository and the hashes.
+
+## What I had to decide
+
+Where the notification's one-line before → after comes from, and the payload the service worker (s9) reads from a push.
+
+## What I did meanwhile
+
+approvals.service.ts builds the message: title `PRD <n> waits for your approval`; lines: the spec's title, `<first sentence of Problem> → <first sentence of Solution>` (each cut at 140 characters, a line dropped when the spec has neither section), and `<repo> · spec <7 chars> · plan <7 chars> · before-after <7 chars>` from the latest version of each kind. The push payload is exactly the JSON {title, body, url} that s9's service worker reads (item s9-01-push-payload-shape): body the spec's title and the before → after line, url the path /prd/<dossier id>. The email's subject is `PRD <n> waits for your approval: <title>`, its text and HTML hold the same lines, then the Problem and Solution sections, then the link.
+
+## What it costs to change later
+
+Low: the payload is built in one function and read by one service worker; nothing is stored in this shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names a one-line before → after but not where it is written; the before/after page has no such line either.
+- (author) The payload follows s9's item s9-01-push-payload-shape, relayed by the wave while both slices ran.
+
+```
+
+<!-- /omni-outbox-settled: s2-02-what-the-phone-alert-and-email-say -->
+
+<!-- omni-outbox-settled: s2-03-who-the-author-is-and-when-a-request-stops-waiting -->
+
+## s2-03-who-the-author-is-and-when-a-request-stops-waiting — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-03-who-the-author-is-and-when-a-request-stops-waiting
+prd: 1322
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+Who counts as a PRD's author when nobody is recorded as having opened it, when is a request asked again, and when does it leave the asked person's bell?
+
+## The decision, in plain words
+
+The author is whoever opened the PRD on the page, or the person asking when nobody is recorded, and any request after the first is an asking again. A request leaves the bell once someone approves the PRD after it was asked.
+
+## The intro, for fun
+
+Every PRD has a parent, except the ones that do not.
+
+## The punchline, for fun
+
+Then whoever rings the bell is the parent for the day.
+
+## The options, in plain words
+
+A. A. Opener else asker; any later request re-asked; leaves the bell at the next approval (built).
+B. B. Refuse a request when the PRD has no recorded opener, and call a request re-asked only after a void.
+C. C. Also drop a request from the bell after a fixed time, such as a week.
+
+## What I had to decide
+
+Three small rules the spec leaves open: the author's identity, what `re-asked` means, and when the bell stops listing a request.
+
+## What I did meanwhile
+
+approval_request() takes dossiers.opened_by as the author, falling back to the caller; any request for a dossier that already has one is `re-asked`; approval_requests_waiting() lists, per dossier, the latest request that names the caller, until an approval dated at or after it exists. Logins follow dossier_approve()'s rule (player login, GitHub identity, email), names are the player's display name.
+
+## What it costs to change later
+
+Low: each rule is one line of one function, changed by a later migration; no row changes shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says re-asked follows a void; voids land in s6, so for now any later request is re-asked.
+- (author) A request nobody ever approves stays in the bell; the spec says nothing of expiry.
+
+```
+
+<!-- /omni-outbox-settled: s2-03-who-the-author-is-and-when-a-request-stops-waiting -->
+
+<!-- omni-outbox-settled: s5-01-which-wait-the-band-shows -->
+
+## s5-01-which-wait-the-band-shows — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-which-wait-the-band-shows
+prd: 1322
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+The spec says the band above the prompt shows the waiting line and a ten-second highlight, but not which wait it shows when several are kept, nor how quickly it notices the approval.
+
+## The decision, in plain words
+
+The band shows the wait of the PRD the session is on first, else the most recent one still waiting. While a wait runs it checks every five seconds, so the approval appears within seconds and stays highlighted for its ten seconds.
+
+## The intro, for fun
+
+The band only looks up every thirty seconds, and the highlight lasts ten.
+
+## The punchline, for fun
+
+So while someone waits, it glances up every five.
+
+## The options, in plain words
+
+A. A. The session's PRD first, else the latest live wait; check every 5 seconds while waiting (built).
+B. B. Only the session's PRD's wait, never another PRD's.
+C. C. Keep the 30-second check and start the 10 seconds when the band first sees the approval rather than when it was written.
+
+## What I had to decide
+
+omni now adds an optional wait key { prd, line, toast, until } to its answer, read from .omni-loop/local/approval-wait/<n>.json (the folder name repeated as a constant in kit/lib/now/wait.ts): the work's PRD's file first, else the latest file by its at time that shows something. waiting or held shows the waiting line (the line itself when no one was asked yet); approved or voided shows that line as a toast until at + 10 s, then the waiting line again after a void and nothing after an approval; signed-out, timeout and refused show nothing. The key is absent when nothing shows, so answers without a wait are unchanged. The band adds a wait row after the work and before its links (a toast row drawn inverse and bold), asks omni now every 5 s while a wait shows and once more when the toast ends.
+
+## What I did meanwhile
+
+Built as decided, with tests on the reading (kit/lib/now/wait.test.ts) and on the band (kit/plugin-hud/tests/hud.test.tsx). The plain omni now output prints the wait's line last.
+
+## What it costs to change later
+
+Low: the poll interval, the order of preference and the row's place are constants in kit/lib/now/wait.ts and kit/plugin-hud/hooks/band.ts; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) A wait killed with Ctrl-C leaves its file in the waiting state, and the band keeps showing the waiting line until a later wait rewrites it; the wait command, outside this slice, could clear it on exit.
+- (author) Polling omni now every 5 seconds runs a short node process that often for as long as a wait lasts (60 minutes by default).
+
+```
+
+<!-- /omni-outbox-settled: s5-01-which-wait-the-band-shows -->
+
+<!-- omni-outbox-settled: s8-01-docs-guard-knows-wait -->
+
+## s8-01-docs-guard-knows-wait — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s8
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-01-docs-guard-knows-wait
+prd: 1322
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+The documentation check refused the guide because the new waiting command lives in a file named differently from the command. Should the check learn that, or should the command's file be renamed?
+
+## The decision, in plain words
+
+The documentation check now also accepts a command the command list registers under that name, so the guide can name the waiting command as it is typed.
+
+## The intro, for fun
+
+The guide named a command, and the checker swore it had never met it.
+
+## The punchline, for fun
+
+They have now been introduced.
+
+## The options, in plain words
+
+A. The guard also accepts a command the commands' index imports by that name (built).
+B. Rename the waiting command's file after the command, and leave the documentation check as it was.
+
+## What I had to decide
+
+Whether the docs guard reads a command from the commands' index when its file has another name, or the wait command's file is renamed to match.
+
+## What I did meanwhile
+
+The guard accepts a command its index imports by that name; every other check is as before.
+
+## What it costs to change later
+
+Small either way: renaming the file later means one move and dropping the extra lookup.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- None known: the guard's test covers both a command's own file and an import in the commands' index.
+
+```
+
+<!-- /omni-outbox-settled: s8-01-docs-guard-knows-wait -->
+
+<!-- omni-outbox-settled: s9-01-push-payload-shape -->
+
+## s9-01-push-payload-shape — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s9
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-01-push-payload-shape
+prd: 1322
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+The phone receives a small message when someone is asked to approve. What should that message hold, so the phone can show it and open the right page when tapped?
+
+## The decision, in plain words
+
+The message holds a title, a line of text and the page to open, and a tap only ever opens a page on the Omni site. A message the phone cannot read still shows a short generic alert.
+
+## The intro, for fun
+
+A phone buzzes, and somebody has to agree on what the buzz says.
+
+## The punchline, for fun
+
+Title, a line, a link: the haiku of approval alerts.
+
+## The options, in plain words
+
+A. Send a title, one line and the page to open, and keep taps on the Omni site (what was built).
+B. Send only the PRD number and let the phone build the text and the link itself.
+C. Send the whole text with the problem and solution, as the email does.
+
+## What I had to decide
+
+Whether the phone's message is a title, one line and a page to open, which the sending side (slice s2) must follow.
+
+## What I did meanwhile
+
+The service worker reads JSON {title, body, url}; s2's Web Push sender must send that shape. A url off the site falls back to /app.
+
+## What it costs to change later
+
+A constant: renaming a field is one edit in the service worker (src/push/worker.ts) and one in s2's sender.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec names what the notification reads but not the payload's shape between the sender and the service worker (author).
+
+```
+
+<!-- /omni-outbox-settled: s9-01-push-payload-shape -->
+
+<!-- omni-outbox-settled: s9-02-phone-alerts-off-is-per-person -->
+
+## s9-02-phone-alerts-off-is-per-person — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s9
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-02-phone-alerts-off-is-per-person
+prd: 1322
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+Someone uses phone alerts on two devices and turns them off on one. Should the other device keep getting alerts?
+
+## The decision, in plain words
+
+Turning phone alerts off on one device removes that device and turns phone alerts off for the person, so none of their devices is alerted until they turn it on again.
+
+## The intro, for fun
+
+Two phones, one switch, and a polite disagreement about who is in charge.
+
+## The punchline, for fun
+
+Off means off, everywhere, until someone says otherwise.
+
+## The options, in plain words
+
+A. Off on one device turns phone alerts off for the person and removes that device (what was built).
+B. Off on one device removes only that device; the person stays on while any other device is subscribed.
+
+## What I had to decide
+
+Whether turning phone alerts off is for this device only or for the person.
+
+## What I did meanwhile
+
+The switch is stored once per person, as the spec's tables hold it; off also removes this device's subscription. Other devices keep their subscription but are not sent anything while the switch is off.
+
+## What it costs to change later
+
+A constant: a per-device switch would only change what the off press saves, and the sender's check.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the switch is per person and the subscription per device, but not what off on one of several devices means (author).
+
+```
+
+<!-- /omni-outbox-settled: s9-02-phone-alerts-off-is-per-person -->
+
+<!-- omni-outbox-settled: s9-03-service-worker-address -->
+
+## s9-03-service-worker-address — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s9
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-03-service-worker-address
+prd: 1322
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 2
+---
+
+## The question, in plain words
+
+The spec puts the small background program that receives phone alerts at the site's root address. This repository allows no hand-written script files, so where should that program be served from?
+
+## The decision, in plain words
+
+The program is served by the app from an address under its alert routes, and it is allowed to cover the whole site, so phone alerts work exactly as the spec describes.
+
+## The intro, for fun
+
+The spec booked a room at the front door, but the house rules ban the furniture.
+
+## The punchline, for fun
+
+So the program moved in through the side door and still got the master key.
+
+## The options, in plain words
+
+A. Serve the worker from the alert routes, allowed the whole site (what was built).
+B. Serve it at the site's root through a rewrite, which a later slice adds outside this one's ground.
+C. Allow one hand-written script file in the public folder, as an exception to the guard.
+
+## What I had to decide
+
+Whether the service worker is served at /api/push/sw.js with scope '/' instead of a static /sw.js.
+
+## What I did meanwhile
+
+GET /api/push/sw.js serves the worker's source (src/push/worker.ts) with Service-Worker-Allowed: /, and the switch registers it with scope '/'. The typescript guard refuses a JavaScript source file such as public/sw.js, and the plan's territory has no route at /sw.js.
+
+## What it costs to change later
+
+A constant: moving it to /sw.js later is a route or a rewrite, and the path the switch registers; browsers keep the old worker until it is unregistered or replaced.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec and the plan name /sw.js, a static file the repository's typescript guard refuses (author).
+
+```
+
+<!-- /omni-outbox-settled: s9-03-service-worker-address -->
