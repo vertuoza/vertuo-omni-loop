@@ -135,9 +135,14 @@ export type Alert = { title: string; body: string; tag: string; href: string };
 
 /** What a desktop alert says of an item, and where clicking it goes. */
 export function alertOf(item: WaitingItem): Alert {
-  return item.kind === 'question'
-    ? { title: `Claude is asking: ${item.question}`, body: item.sessionTitle, tag: item.id, href: `/ask/q/${encodeURIComponent(item.id)}` }
-    : { title: `PRD ${item.prd} outbox: ${item.question}`, body: item.title, tag: item.id, href: `/prd/${encodeURIComponent(item.dossierId)}?tab=outbox` };
+  switch (item.kind) {
+    case 'question':
+      return { title: `Claude is asking: ${item.question}`, body: item.sessionTitle, tag: item.id, href: `/ask/q/${encodeURIComponent(item.id)}` };
+    case 'outbox':
+      return { title: `PRD ${item.prd} outbox: ${item.question}`, body: item.title, tag: item.id, href: `/prd/${encodeURIComponent(item.dossierId)}?tab=outbox` };
+    case 'approval':
+      return { title: `PRD ${item.prd} waits for your approval`, body: item.title, tag: item.id, href: `/prd/${encodeURIComponent(item.dossierId)}` };
+  }
 }
 
 const KIND_WORDS: Record<DocumentKind, string> = { spec: 'spec', plan: 'plan', 'before-after': 'before/after' };

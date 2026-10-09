@@ -29,6 +29,10 @@
 // by workspace membership (PRD 459: its reason as it wrote it, and the App's install link after its install
 // hint; any signed-in account is let through to it, whatever its address), 404 a draft the caller cannot read (or no dossier for a lookup), 413 a body over its cap or an artifact over
 // 512 KiB, 503 no database here or the sign-in service down; 500 the database failed.
+//
+// Since PRD 1322 a PRD push that changed a file an approval in force pinned voids that approval, in the
+// database, in the push's own transaction. Once the versions landed, the push hands the dossier to
+// `tellVoids` (src/approvals/void.service.ts), which tells the approver; telling never fails a push.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, callerOrigin as origin, withInstallLink, type TokenCheck } from '../ask/auth';
 import {
@@ -51,6 +55,9 @@ export type DossierDeps = {
   connect: ((token: string) => DossierClient) | null;
   /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
   installLink?: string | null;
+  /** Tells the approver whose approval the caller's push of `dossier` voided, as the caller's `db`;
+   * `origin` is where the caller reached this app. Never throws. Missing: nobody is told. */
+  tellVoids?: (db: DossierClient, dossier: string, origin: string) => Promise<void>;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -204,6 +211,12 @@ function kindAndDraftOf(sent: Record<string, unknown>): { kind: PushKind; draftI
   return { kind, draftId };
 }
 
+/** Hands a PRD push that added a version to `tellVoids`: only such a push can void an approval. */
+async function tellVoidsOf(deps: DossierDeps, client: DossierClient, request: Request, kind: PushKind, pushed: { id: string; added: unknown[] }) {
+  if (kind !== 'prd' || pushed.added.length === 0 || !deps.tellVoids) return;
+  await deps.tellVoids(client, pushed.id, origin(request));
+}
+
 export function pushDossier(request: Request, deps: DossierDeps): Promise<Response> {
   return handle(request, deps, async (client) => {
     const store = dossierStore(client);
@@ -221,6 +234,7 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
     const read = artifactsOf(sent.artifacts, kind);
     if ('problem' in read) return refuse(read.status, read.problem);
     const pushed = await store.push({ repo, prd, kind, title, draftId, artifacts: read.artifacts });
+    await tellVoidsOf(deps, client, request, kind, pushed);
     return reply(200, { id: pushed.id, url: linkTo(request, pushed.id, kind), added: pushed.added, unchanged: pushed.unchanged });
   });
 }

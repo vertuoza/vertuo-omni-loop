@@ -43,13 +43,17 @@ describe('the Questions part', () => {
 
   it('counts the entries, the shared ones apart, and the outbox, empty for now', () => {
     const list = { ...EMPTY_WAITING, questions: mergeQuestions([q('a', MIN), q('b', MIN)], [q('b', MIN, 'Bob'), q('c', MIN, 'Bob')]) };
-    expect(waitingCounts(list)).toEqual({ questions: 3, shared: 2, outbox: 0, total: 3 });
-    expect(waitingCounts(EMPTY_WAITING)).toEqual({ questions: 0, shared: 0, outbox: 0, total: 0 });
+    expect(waitingCounts(list)).toEqual({ questions: 3, shared: 2, outbox: 0, approvals: 0, total: 3 });
+    expect(waitingCounts(EMPTY_WAITING)).toEqual({ questions: 0, shared: 0, outbox: 0, approvals: 0, total: 0 });
   });
 
   it('counts an outbox item in the total', () => {
     const list = { questions: [q('a', MIN)], outbox: [{ kind: 'outbox' as const, id: 'o1', prd: parsePrd(459), dossierId: 'd1', title: 'Gate', rank: 'high' as const, question: 'Why?' }] };
     expect(waitingCounts(list)).toMatchObject({ outbox: 1, total: 2 });
+  });
+
+  it('counts the approval requests waiting on the person in the total (PRD 1322)', () => {
+    expect(waitingCounts({ ...EMPTY_WAITING, questions: [q('a', MIN)] }, 2)).toEqual({ questions: 1, shared: 0, outbox: 0, approvals: 2, total: 3 });
   });
 });
 

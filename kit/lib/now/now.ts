@@ -19,8 +19,12 @@
 //   (`links.ts`), and the Loop page's for a loop headline: `linked()` adds them to an answer.
 // - **Doing**, for a PRD with slices in flight: `building <id> <name>, <id> <name>`; else `null`.
 // - **The plain lines**: the headline when there is one (`roadmap 7 · 3/7 merged`, `loop`), then the work (`PRD <n> <topic> · <stage>`, `bug #<n> <topic> · <stage>`), then, when there is one, a line of
-//   what it is doing and what is stuck (`building s3 tabs · stuck s5`). The session on nothing prints
-//   the status line's own no-PRD line.
+//   what it is doing and what is stuck (`building s3 tabs · stuck s5`), and last the approval wait's
+//   line when there is one. The session on nothing prints the status line's own no-PRD line, or the
+//   wait's line alone.
+// - **The approval wait** (PRD 1322's s5, `wait.ts`), only while `omni wait approval` has something
+//   to show: `wait: { prd, line, toast, until }`, the line the band draws, `toast` while it is the
+//   approved or voided line highlighted until `until` (milliseconds). No wait, no `wait` key.
 import type { IssueNumber, PrdNumber } from '../ids.ts';
 import type { NamedSlice } from '../statusline/board-cache.ts';
 import { IN_FLIGHT, MERGED, OUTBOX, STUCK } from '../statusline/stage.ts';
@@ -51,8 +55,11 @@ export type NowWork =
 /** The loop, or the roadmap it drives, above the work. */
 export type NowHeadline = { kind: 'loop' | 'roadmap'; number?: number; progress?: string; links: NowLink[] };
 
-/** `omni now`'s answer. */
-export type Now = { headline: NowHeadline | null; work: NowWork | null; doing: string | null };
+/** The approval wait's line, a toast until `until` (milliseconds) when `toast`. */
+export type NowWait = { prd: PrdNumber; line: string; toast: boolean; until: number | null };
+
+/** `omni now`'s answer; `wait` only while an approval wait shows something. */
+export type Now = { headline: NowHeadline | null; work: NowWork | null; doing: string | null; wait?: NowWait };
 
 /** The answer for a session on nothing. */
 export const NOTHING: Now = Object.freeze({ headline: null, work: null, doing: null });
@@ -141,7 +148,11 @@ function workLines(work: NowWork | null, doing: string | null): string[] {
 }
 
 /** The answer as plain lines: the headline, when there is one, then the work. */
-export function nowLines({ headline, work, doing }: Now): string[] {
-  if (!work && !headline) return [NO_WORK_LINE];
-  return [...(headline ? [headlineLine(headline)] : []), ...workLines(work, doing)];
+export function nowLines({ headline, work, doing, wait }: Now): string[] {
+  const waitLines = wait ? [wait.line] : [];
+  if (!work && !headline) return waitLines.length > 0 ? waitLines : [NO_WORK_LINE];
+  return [...(headline ? [headlineLine(headline)] : []), ...workLines(work, doing), ...waitLines];
 }
+
+/** `answer` with the approval `wait` it shows, when there is one. */
+export const withWait = (answer: Now, wait: NowWait | null): Now => (wait ? { ...answer, wait } : answer);

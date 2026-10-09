@@ -231,6 +231,26 @@ jobs:
         # approval adds a row; nobody updates or deletes one. dossier_approval() answers the approval
         # in force, and nothing to another workspace (PRD 1299).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/approvals.sql
+      - name: Who approves a product's PRDs, and how each person is reached
+        # Only a workspace's owner lists a product's approvers, each asked or skipped; a member, another
+        # workspace's owner and anyone signed out are refused (42501), a stranger to the workspace or
+        # another state (22023). Every member reads the list. Once a member is asked, only asked members
+        # approve the product's PRDs; with no product or nobody asked, any member does. Each person's
+        # alert channels and push subscriptions are theirs alone (PRD 1322).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_approvers.sql
+      - name: Asking a PRD's approvers
+        # approval_request() asks the product's members asked to approve except the author, or the
+        # author alone when nobody else is; a skipped member is never asked, a second request is
+        # re-asked. Requests and voids are read by members and never written or changed directly. Only
+        # the service role reads how each asked person is reached, behind their switches; the bell lists
+        # the latest request with no approval since (PRD 1322).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/approval_requests.sql
+      - name: A push that changes a pinned file voids the approval
+        # dossier_push() appends a void only when it adds a version of a kind the approval in force
+        # pinned, with another sha256, never editing the approval; dossier_approval() answers its voids,
+        # and a new approval is in force again. approval_voids_of_push() names the caller's last push's
+        # voids only; only the service role reads how the approver is reached (PRD 1322).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/approval_voiding.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

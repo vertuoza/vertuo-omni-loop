@@ -4,6 +4,8 @@ import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { listOf } from '../data/unparsed';
 import { memberWorkspace } from '../data/workspace';
+import type { Approvers } from './approvers';
+import { approversDbOf, loadApprovers } from './approvers-load';
 import { pitchedOf, PRODUCT_COLUMNS, rowOf, type PitchedProduct, type ProductRow, type StoredProduct } from './model';
 
 // Settings › Products's reads (PRD 859 s1), as the signed-in person, so row-level security decides
@@ -62,4 +64,15 @@ export async function loadProduct(db: SupabaseClient<Database>, user: User, id: 
   const stored = read.products.find((p) => p.id === id);
   if (!stored) return { kind: 'not-found' };
   return { kind: 'product', workspace: read.workspace, editable: EDITABLE_BY_MEMBERS, product: pitchedOf(stored) };
+}
+
+/** One product's page: the product, and its Approvers list (PRD 1322 s1), null when that could not be read. */
+export type ProductPageLoad =
+  | Exclude<ProductLoad, { kind: 'product' }>
+  | (Extract<ProductLoad, { kind: 'product' }> & { approvers: Approvers | null });
+
+export async function loadProductPage(db: SupabaseClient<Database>, user: User, id: string): Promise<ProductPageLoad> {
+  const read = await loadProduct(db, user, id);
+  if (read.kind !== 'product') return read;
+  return { ...read, approvers: await loadApprovers(approversDbOf(db), read.workspace.id, id) };
 }

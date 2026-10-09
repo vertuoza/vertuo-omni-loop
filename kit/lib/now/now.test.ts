@@ -3,7 +3,7 @@
 // "doing" line, and the plain lines. Pure: no git, no disk.
 import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd } from '../ids.ts';
-import { linked, loopHeadline, NOTHING, nowOfFix, nowOfPrd, nowLines, roadmapHeadline, underHeadline, workStage } from './now.ts';
+import { linked, loopHeadline, NOTHING, nowOfFix, nowOfPrd, nowLines, roadmapHeadline, underHeadline, withWait, workStage } from './now.ts';
 
 const slice = (id: string, state: string, name?: string) => ({ id, wave: 1, state, ...(name ? { name } : {}) });
 const BUILDING = [slice('s1', 'merged', 'base'), slice('s3', 'in-flight', 'tabs'), slice('s4', 'claimed-stale', 'board'), slice('s5', 'stuck'), slice('s6', 'blocked', 'later')];
@@ -71,6 +71,27 @@ describe('the plain lines', () => {
   it('print the no-PRD line when the session is on nothing', () => {
     expect(NOTHING).toEqual({ headline: null, work: null, doing: null });
     expect(nowLines(NOTHING)).toEqual(['no PRD · /omni:brainstorm to start']);
+  });
+});
+
+// PRD #1322, slice s5: the approval wait, added only while it shows something, printed last.
+describe('the approval wait', () => {
+  const WAIT = { prd: parsePrd(1322), line: '◌ PRD 1322 · waiting for Irisa or Paul', toast: false, until: null };
+
+  it('is added to the answer only when there is one', () => {
+    const answer = nowOfPrd({ ...PRD, slices: null });
+    expect(withWait(answer, null)).toEqual(answer);
+    expect(withWait(answer, null)).not.toHaveProperty('wait');
+    expect(withWait(answer, WAIT)).toEqual({ ...answer, wait: WAIT });
+  });
+
+  it('prints its line last, and alone in place of the no-PRD line', () => {
+    expect(nowLines(withWait(nowOfPrd({ ...PRD, slices: BUILDING }), WAIT))).toEqual([
+      'PRD 315 help-and-status · building',
+      'building s3 tabs, s4 board · stuck s5',
+      '◌ PRD 1322 · waiting for Irisa or Paul',
+    ]);
+    expect(nowLines(withWait(NOTHING, WAIT))).toEqual(['◌ PRD 1322 · waiting for Irisa or Paul']);
   });
 });
 

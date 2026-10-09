@@ -8,7 +8,10 @@
 // {approver: {login, member}, approvedAt, files: [{kind, path, sha256, versionId, content?}]}, the shape
 // the kit reads (kit/lib/approval/approval.ts; settled item s4-02-approval-route-shape). `url` is the
 // PRD page. `member` is whether the approver belongs to the dossier's workspace today; `content` is the
-// approved text, so the kit tells a whitespace-only drift from a change of content.
+// approved text, so the kit tells a whitespace-only drift from a change of content. Since PRD 1322 the
+// approval carries `voids`, [{pusher, kind, from, to, voidedAt}], the pushes that changed a pinned file
+// since (supabase/migrations/20261126090000_approval_voiding.sql): with one, it is no longer in force,
+// and the kit reads it as drifted.
 //
 // The kit reads with the terminal's sign-in (a bearer token). The page approves with the person's own
 // session; a POST that carries a bearer token approves as that sign-in instead. Both run as the caller:
@@ -60,6 +63,7 @@ const InForce = z.object({
     approver: z.object({ login: text, member: z.boolean() }),
     approvedAt: z.string().refine((at) => !Number.isNaN(Date.parse(at))),
     files: z.array(z.object({ kind: text, path: text, sha256: text, versionId: text, content: z.string().nullable() })),
+    voids: z.array(z.object({ pusher: text, kind: text, from: text, to: text, voidedAt: z.string().refine((at) => !Number.isNaN(Date.parse(at))) })).optional(),
   }).nullable(),
 });
 
@@ -71,13 +75,14 @@ const Approved = z.object({ id: text, repo: z.string().regex(REPO), prd: PrdNumb
 function answerOf(request: Request, read: z.infer<typeof InForce>) {
   const url = `${callerOrigin(request)}/prd/${read.dossier}`;
   if (!read.approval) return { url, approval: null };
-  const { approver, approvedAt, files } = read.approval;
+  const { approver, approvedAt, files, voids } = read.approval;
   return {
     url,
     approval: {
       approver,
       approvedAt: new Date(approvedAt).toISOString(),
       files: files.map(({ content, ...file }) => (content === null ? file : { ...file, content })),
+      ...(voids ? { voids: voids.map((v) => ({ ...v, voidedAt: new Date(v.voidedAt).toISOString() })) } : {}),
     },
   };
 }

@@ -37,6 +37,14 @@ describe('the bell', () => {
     expect(text(panel(html))).toBe('Nothing waiting for you.');
   });
 
+  it('counts the PRDs waiting for the person\'s approval in its badge, and lists them (PRD 1322)', () => {
+    const approval = { kind: 'approval' as const, id: 'r1', prd: parsePrd(1322), dossierId: 'd-1322', title: 'Handshake', repo: 'acme/mobile', askedAt: NOW - MIN };
+    const html = renderToStaticMarkup(createElement(BellView, { list: { questions: [q('a', MIN)], outbox: [] }, approvals: [approval], unread: {}, now: NOW }));
+    expect(button(html)).toContain('aria-label="Waiting for you: 2"');
+    expect(text(panel(html))).toContain('Approvals PRD 1322 · Handshake Waits for your approval');
+    expect(panel(html)).toContain('href="/prd/d-1322"');
+  });
+
   it('carries the count as a badge, and says it in its name', () => {
     const html = render({ questions: [q('a', MIN)], outbox: [o('i1', 459, 'high')] });
     expect(button(html)).toContain('aria-label="Waiting for you: 2"');
