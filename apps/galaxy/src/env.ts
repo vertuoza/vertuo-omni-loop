@@ -85,6 +85,29 @@ const SECRETS_MASTER = oneSecret('Jev\'s master key', 'SECRETS_MASTER_KEY');
 const CONSTITUENT_JUDGE = oneSecret('the constituent judge', 'CONSTITUENT_JUDGE_SECRET');
 const BUSINESS_RECHECK = oneSecret('the business recheck', 'BUSINESS_RECHECK_SECRET');
 
+/**
+ * Web Push, which phones an approver a PRD that waits for them (PRD 1322): the VAPID pair the
+ * `web-push` library signs with, each base64url, the public one also handed to the browser to subscribe.
+ */
+const WEB_PUSH = envGroup({
+  label: 'Web Push',
+  schema: z.object({
+    publicKey: z.string().regex(/^[A-Za-z0-9_-]+$/, 'base64url'),
+    privateKey: z.string().regex(/^[A-Za-z0-9_-]+$/, 'base64url'),
+  }),
+  variables: { publicKey: 'VAPID_PUBLIC_KEY', privateKey: 'VAPID_PRIVATE_KEY' },
+});
+
+/** An email address, alone or after a name: `approvals@omni-loop.xyz`, `Omni Loop <approvals@…>`. */
+const SENDER = /^(?:[^<>]+<[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>|[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+)$/;
+
+/** Resend, which emails an approver a PRD that waits for them (PRD 1322): its key, and who it sends as. */
+const RESEND = envGroup({
+  label: 'Resend',
+  schema: z.object({ key: secret, from: z.string().regex(SENDER, 'an email address, or Name <address>') }),
+  variables: { key: 'RESEND_API_KEY', from: 'RESEND_FROM' },
+});
+
 /** A build that asks for the demo by name (`OMNI_LOOP_DEMO=1`, ./data/mode.ts). */
 const DEMO = envGroup({
   label: 'the demo',
@@ -105,7 +128,8 @@ const GALAXY = envGroup({
  */
 export const VARIABLES: readonly string[] = variablesOf([
   SUPABASE, SERVICE_ROLE, GITHUB_APP, GITHUB_APP_SLUG, GITHUB_OAUTH, OPENROUTER,
-  STAGES_SYNC, STAGE_EVENT, SECRETS_MASTER, CONSTITUENT_JUDGE, BUSINESS_RECHECK, DEMO, GALAXY,
+  STAGES_SYNC, STAGE_EVENT, SECRETS_MASTER, CONSTITUENT_JUDGE, BUSINESS_RECHECK, WEB_PUSH, RESEND, DEMO,
+  GALAXY,
 ]);
 
 /**
@@ -143,6 +167,8 @@ export function readEnv(raw: EnvSource) {
     secretsMasterKey: reader.group(SECRETS_MASTER)?.secret ?? null,
     constituentJudgeSecret: reader.group(CONSTITUENT_JUDGE)?.secret ?? null,
     businessRecheckSecret: reader.group(BUSINESS_RECHECK)?.secret ?? null,
+    webPush: reader.group(WEB_PUSH),
+    resend: reader.group(RESEND),
     demo: reader.group(DEMO)?.flag ?? null,
     galaxyUrl: reader.group(GALAXY)?.url ?? null,
   };
@@ -162,7 +188,6 @@ export type GithubAppEnv = z.output<typeof GITHUB_APP.schema>;
 export type GithubOAuthEnv = z.output<typeof GITHUB_OAUTH.schema>;
 /** OpenRouter's key. */
 export type OpenRouterEnv = z.output<typeof OPENROUTER.schema>;
-
 let parsed: ArcadeEnv | undefined;
 
 /**
