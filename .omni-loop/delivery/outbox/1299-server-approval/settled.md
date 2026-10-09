@@ -625,3 +625,235 @@ A constant change: reading the PRD folder from `<remote>/<feature branch>` inste
 ```
 
 <!-- /omni-outbox-settled: s5-01-gates-read-the-checkout -->
+
+<!-- omni-outbox-settled: s3-01-page-drift-by-version -->
+
+## s3-01-page-drift-by-version — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-page-drift-by-version
+prd: 1299
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+The PRD page says an approved PRD has drifted when a newer version of one of the approved files was pushed. Should a file that was not part of the approval, pushed later, also count as drift?
+
+## The decision, in plain words
+
+Only the files the approval covered count. A newer version of any of them shows drifted and brings the Approve button back; a file pushed for the first time after the approval leaves the page saying approved.
+
+## The intro, for fun
+
+An approval is a photo of the files on the day it was taken.
+
+## The punchline, for fun
+
+Someone walking into the frame afterwards does not spoil the photo.
+
+## The options, in plain words
+
+A. Only the approved files count toward drift (built).
+B. Any file of a kind the approval would pin today, pushed after the approval, also shows drifted.
+
+## What I had to decide
+
+Whether a file first pushed after the approval should also make the page say drifted.
+
+## What I did meanwhile
+
+The page compares each approved file with the newest version of the same kind and ignores kinds the approval did not cover.
+
+## What it costs to change later
+
+Changing it is one condition in the page's approval view and one test; nothing is stored differently.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec does not say whether drift covers a kind the approval did not pin, such as a voice file pushed for the first time after it (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-page-drift-by-version -->
+
+<!-- omni-outbox-settled: s6-01-inbox-at-first-approval -->
+
+## s6-01-inbox-at-first-approval — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-inbox-at-first-approval
+prd: 1299
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+When a PRD approved on its page is approved again after a change, which approval dates its arrival in the inbox?
+
+## The decision, in plain words
+
+The first approval dates it. A later approval does not move the date, the same way the first phase-0 merge dates a PRD born in the repository.
+
+## The intro, for fun
+
+A PRD can be approved twice, but it only walks into the inbox once.
+
+## The punchline, for fun
+
+So the first approval holds the door, and the second one just waves.
+
+## The options, in plain words
+
+A. A. The first approval dates the inbox, and a later one never moves it.
+B. B. The approval in force (the latest) dates the inbox, moving it at each new approval.
+
+## What I had to decide
+
+Which approval dates a PRD's inbox stage when it was approved more than once.
+
+## What I did meanwhile
+
+The stage sync dates a server-born PRD's inbox at its earliest approval row.
+
+## What it costs to change later
+
+A constant: picking the latest row instead is a one-line change in the sync's read.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says 'dated at its approval' without saying which one when there are several (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-01-inbox-at-first-approval -->
+
+<!-- omni-outbox-settled: s6-02-stage-forward-reads-approved-label -->
+
+## s6-02-stage-forward-reads-approved-label — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-stage-forward-reads-approved-label
+prd: 1299
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+How does the GitHub App learn, the moment it happens, that a PRD was approved on its page?
+
+## The decision, in plain words
+
+It reads the approved label being added to the PRD's issue, and dates the inbox at that moment, a second or so after the approval itself. When the label is missed, the 15-minute sync dates it at the approval's exact time.
+
+## The intro, for fun
+
+The approval happens on the page, but the App only hears what GitHub tells it.
+
+## The punchline, for fun
+
+Luckily the page leaves a label behind, like a note on the fridge.
+
+## The options, in plain words
+
+A. A. The App reads the approved label being added and forwards the inbox stage, as built.
+B. B. The approval route on the page records the inbox stage itself, and the App reads no label.
+
+## What I had to decide
+
+Whether the App's live stage update for an approval rides on the approved label, or the page records the stage itself.
+
+## What I did meanwhile
+
+The App turns the approved label added to an issue into the PRD's inbox stage, dated at the issue's update time, with the PRD number standing in for its folder name.
+
+## What it costs to change later
+
+A constant: the page could record the stage directly instead, and the label reading would simply be removed.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The label event carries no approval time, so the live date is the label's, a moment late, and the stage store keeps the first date it is given (author).
+- A repository that renames its approved label gets the live update from the sync alone, as with renamed branch shapes (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-02-stage-forward-reads-approved-label -->
