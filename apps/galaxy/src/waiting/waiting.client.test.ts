@@ -9,7 +9,7 @@ const question = { kind: 'question', id: 'r1', sessionTitle: 'feat/x', question:
 const document = { id: 'v1', kind: 'spec', created_at: '2026-10-09T08:00:00Z', dossier: { id: 'd1', prd: 7, title: 'Widgets' } } as const;
 
 function fetching(status: number, body: unknown) {
-  return vi.fn((_url: string, _init: RequestInit) => Promise.resolve(Response.json(body, { status })));
+  return vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() => Promise.resolve(Response.json(body, { status })));
 }
 
 describe('the waiting client', () => {
