@@ -41897,7 +41897,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni check [config|inbox|outbox|knowledge|kb|releases|coverage|all]", "  [--base <ref>] [--prd <n>]"],
     label: "omni check [all]",
     summary: "the repository's guards",
-    detail: "The repository's guards, each printing its violations or one line saying it passed: config (the config file, its flow and every hook file the flow names, each refusal naming its key), inbox (the PRDs waiting to be built), outbox (the open items), knowledge (the registers), kb (the playbook's forms), releases (the release notes) and coverage (every risky change of a branch accounted for, against --base). all, the default, runs every one, and skips coverage when {remote}/{defaultBranch} has not been fetched. Exit 1 on any violation."
+    detail: "The repository's guards, each printing its violations or one line saying it passed: config (the config file, its flow and every hook file the flow names, each refusal naming its key), inbox (the PRDs waiting to be built, a spec's front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers), kb (the playbook's forms), releases (the release notes) and coverage (every risky change of a branch accounted for, against --base). all, the default, runs every one, and skips coverage when {remote}/{defaultBranch} has not been fetched. Exit 1 on any violation."
   },
   {
     name: "flow",
@@ -42386,7 +42386,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:yolo <n>"],
     label: "/omni:yolo <n>",
     summary: "build a whole PRD: plan, waves, the outbox gate, ship",
-    detail: "Builds a whole PRD with nothing asked along the way: plans it if needed, runs /omni:wave until every slice is merged into the feature branch or nothing more can move, then runs the outbox gate. Green, it ships and marks the feature PR ready for a person to merge; red, the PR stays a draft with the outbox questions posted on it. It never merges into {defaultBranch}.",
+    detail: "Builds a whole PRD with nothing asked along the way: plans it if needed, runs /omni:wave until every slice is merged into the feature branch or nothing more can move, then runs the outbox gate. Green, it ships and marks the feature PR ready for a person to merge; red, the PR stays a draft with the outbox questions posted on it. When the spec says e2e: validate and e2e is enabled, it runs the e2e validation after ready and never changes the PR for it. It never merges into {defaultBranch}.",
     group: "build",
     when: "Use it when a PRD's phase-0 PR is merged and you want it all built with nothing asked.",
     example: {
@@ -42716,7 +42716,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:validate-e2e <n>"],
     label: "/omni:validate-e2e <n>",
     summary: "beta: keep a PRD criteria as e2e tests",
-    detail: "Writes one e2e test per filmable acceptance criterion of PRD n, tagged prd-n, from the spec alone; records each once, replays it with --strict-cache, and checks the recordings with omni e2e status and omni e2e heals. It opens a sub-PR into the feature branch holding the tests, their committed recordings and a criterion, test and verdict table. It stops with one line when e2e.enabled is false, e2e.url is null or Node is older than 24.8, and merges nothing.",
+    detail: "Writes one e2e test per filmable acceptance criterion of PRD n, tagged prd-n, from the spec alone; records each once, replays it with --strict-cache, and checks the recordings with omni e2e status and omni e2e heals. It opens a sub-PR into the feature branch holding the tests, their committed recordings and a criterion, test and verdict table. It stops with one line when e2e.enabled is false, e2e.url is null or Node is older than 24.8, and merges nothing. /omni:yolo runs it by itself after ready when the spec says e2e: validate.",
     group: "everyday",
     when: "Use it when a PRD's feature PR is ready and its criteria should keep being checked after it merges.",
     example: {
