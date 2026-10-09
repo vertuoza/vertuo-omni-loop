@@ -4,12 +4,14 @@ import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
 import { createKart } from './art';
+import type { Action } from '../keys';
 import { horizonOf } from './mode7';
 
 // The ready screen's drawing, under a canvas that only counts (PRD 1359): the sky above the horizon in
 // the theme's colours, then the floor from one reused pixel buffer, on both grids. The planets and
 // nebulae of @omni/design are its own, and stubbed out here.
 const planets = vi.hoisted(() => [] as { cy: number; r: number }[]);
+const sprites = vi.hoisted(() => [] as { name: string; x: number; y: number; scale: number | undefined; tint: unknown; frame: number | undefined }[]);
 vi.mock('@omni/design', async (original) => {
   const m = await original<typeof import('@omni/design')>();
   return {
@@ -17,6 +19,8 @@ vi.mock('@omni/design', async (original) => {
     drawPlanet: (_ctx: unknown, o: { cy: number; r: number }) => { planets.push({ cy: o.cy, r: o.r }); },
     drawStarfield: () => {},
     makeNebula: () => ({}),
+    spriteImage: () => ({ width: 32, height: 48 }),
+    drawSprite: (_ctx: unknown, name: string, x: number, y: number, o: { scale?: number; tint?: unknown; frame?: number } = {}) => { sprites.push({ name, x, y, scale: o.scale, tint: o.tint, frame: o.frame }); },
   };
 });
 
@@ -32,7 +36,7 @@ class FakeImageData {
 }
 
 beforeEach(() => {
-  puts.length = 0; created.length = 0; planets.length = 0;
+  puts.length = 0; created.length = 0; planets.length = 0; sprites.length = 0;
   vi.stubGlobal('ImageData', FakeImageData);
   vi.stubGlobal('document', {
     createElement: () => {
@@ -70,7 +74,7 @@ const frame = (grid: Grid, theme: Theme = DEFAULT_THEME): FrameState => ({
   view: null, layout: [], sel: 0, fleetSel: 0, t: 3, sceneT: 3, reduced: false, mark: markFor('Vertuoza', theme), theme,
 });
 
-describe('the ready screen\'s drawing', () => {
+describe('the race\'s drawing', () => {
   it.each([['wide', WIDE], ['tall', TALL]] as const)('draws the sky above the horizon and the floor under it on the %s grid', (_name, grid) => {
     const { ctx, fills, images } = recorder();
     createKart().draw(ctx, frame(grid));
@@ -85,7 +89,7 @@ describe('the ready screen\'s drawing', () => {
     // The floor is one buffer the size of the grid, put on a canvas once and drawn at the corner.
     expect(puts).toHaveLength(1);
     expect(puts[0]).toMatchObject({ w: grid.w, h: grid.h });
-    expect(images.at(-1)).toEqual([0, 0]);
+    expect(images.filter((i) => i.length === 2).at(-1)).toEqual([0, 0]);
     // One planet in the sky, standing on the horizon.
     expect(planets).toHaveLength(1);
     expect(sure(planets[0], 'the planet').cy).toBeLessThan(horizon);
@@ -133,5 +137,118 @@ describe('the ready screen\'s drawing', () => {
     createKart().draw(a.ctx, { ...frame(WIDE), reduced: true, t: 1 });
     createKart().draw(b.ctx, { ...frame(WIDE), reduced: true, t: 9 });
     expect(a.images).toEqual(b.images);
+  });
+});
+
+describe('the player\'s kart', () => {
+  const held = (...a: Action[]): ReadonlySet<Action> => new Set(a);
+  /** A game raced for `seconds` of 50 ms frames, after START and the countdown. */
+  function raced(seconds: number, ...buttons: Action[]) {
+    const kart = createKart({ seed: 5 });
+    kart.press('start');
+    for (let t = 0; t < 3.1; t += 0.05) kart.step(held(), 0.05);
+    for (let t = 0; t < seconds; t += 0.05) kart.step(held(...buttons), 0.05);
+    return kart;
+  }
+  const floorOf = (kart: ReturnType<typeof createKart>, grid: Grid = WIDE) => { puts.length = 0; kart.draw(recorder().ctx, frame(grid)); return sure(puts[0], 'the floor').pixels; };
+
+  it.each([['wide', WIDE, 4], ['tall', TALL, 2]] as const)('is drawn from behind at the bottom of the %s grid, at a whole number of pixels', (_n, grid, scale) => {
+    createKart().draw(recorder().ctx, frame(grid));
+    const [kart] = sprites;
+    expect(kart).toMatchObject({ name: 'kart', scale });
+    expect(sure(kart, 'the kart').x).toBe((grid.w - 28 * scale) / 2);
+    expect(sure(kart, 'the kart').y + 18 * scale).toBeLessThan(grid.h);
+    expect(sure(kart, 'the kart').y + 18 * scale).toBeGreaterThan(grid.h - 12);
+  });
+
+  it('is tinted with the hero\'s suit, the look the arcade draws the hero with', () => {
+    createKart().draw(recorder().ctx, frame(WIDE));
+    const [kart] = sprites;
+    expect(sure(kart, 'the kart').tint).toBeTruthy();
+    expect(sure(kart, 'the kart').tint).toHaveProperty('Y');
+  });
+
+  it('shows the hero in its seat: head and shoulders, drawn before the kart so the kart covers the rest', () => {
+    const { ctx, images } = recorder();
+    createKart().draw(ctx, frame(WIDE));
+    const driver = images.find((i) => i.length === 8);
+    expect(driver).toBeDefined();
+    const [sx, sy, sw, sh, dx, dy, dw, dh] = sure(driver, 'the driver');
+    expect([sx, sy, sw, sh]).toEqual([0, 0, 32, 26]);
+    expect([dw, dh]).toEqual([64, 52]);
+    const kart = sure(sprites[0], 'the kart');
+    expect(sure(dx, 'dx')).toBeGreaterThan(kart.x);
+    expect(sure(dx, 'dx') + sure(dw, 'width')).toBeLessThan(kart.x + 28 * 4);
+    expect(sure(dy, 'dy') + sure(dh, 'dh')).toBeLessThanOrEqual(kart.y + 10 * 4);
+  });
+
+  it('leans into the turn: left, straight, right', () => {
+    const lean = (...b: Action[]) => { sprites.length = 0; raced(0.5, ...b).draw(recorder().ctx, frame(WIDE)); return sure(sprites[0], 'the kart').name; };
+    expect(lean('a')).toBe('kart');
+    expect(lean('a', 'left')).toBe('kart-left');
+    expect(lean('a', 'right')).toBe('kart-right');
+  });
+
+  it('turns its tread with the speed, and holds still at rest or when motion is reduced', () => {
+    const frameOf = (kart: ReturnType<typeof createKart>, reduced = false) => { sprites.length = 0; kart.draw(recorder().ctx, { ...frame(WIDE), reduced }); return sure(sprites[0], 'the kart').frame; };
+    expect(frameOf(createKart())).toBe(0);
+    expect(new Set([0, 1, 2, 3, 4, 5].map((n) => frameOf(raced(0.5 + n * 0.1, 'a')))).size).toBe(2);
+    expect(frameOf(raced(1, 'a'), true)).toBe(0);
+  });
+
+  it('turns the floor with it: the camera follows behind the kart', () => {
+    const straight = floorOf(raced(1, 'a'));
+    const turned = floorOf(raced(1, 'a', 'right'));
+    expect(turned).not.toEqual(straight);
+    expect(floorOf(raced(1, 'a'))).toEqual(straight);
+  });
+
+  it('draws what the race holds: nothing moves on the floor before GO and during the pause', () => {
+    const kart = createKart({ seed: 5 });
+    const before = floorOf(kart);
+    kart.press('start');
+    kart.step(held('a'), 0.05);
+    expect(floorOf(kart)).toEqual(before);
+    const racing = raced(1, 'a');
+    racing.press('start');
+    const paused = floorOf(racing);
+    racing.step(held('a'), 0.05);
+    expect(floorOf(racing)).toEqual(paused);
+  });
+});
+
+describe('the game the arcade drives', () => {
+  const held = (...a: Action[]): ReadonlySet<Action> => new Set(a);
+
+  it('reads its text layer from the race: ready, the countdown, GO, the pause and back', () => {
+    const kart = createKart();
+    expect(kart.hud()).toEqual({ phase: 'ready', beat: null });
+    expect(kart.press('start')).toEqual({ quit: false });
+    expect(kart.hud()).toEqual({ phase: 'countdown', beat: '3' });
+    kart.step(held(), 1.05 / 21);
+    for (let t = 0; t < 3; t += 0.05) kart.step(held(), 0.05);
+    expect(kart.hud().phase).toBe('race');
+    kart.press('start');
+    expect(kart.hud().phase).toBe('paused');
+    expect(kart.press('select')).toEqual({ quit: true });
+    kart.press('start');
+    expect(kart.hud().phase).toBe('race');
+  });
+
+  it('pauses from outside, in the countdown and in the race', () => {
+    const kart = createKart();
+    kart.pause();
+    expect(kart.hud().phase).toBe('ready');
+    kart.press('start');
+    kart.pause();
+    expect(kart.hud().phase).toBe('paused');
+  });
+
+  it('starts from the seed it is given: the same seed and inputs give the same drawing', () => {
+    const a = createKart({ seed: 9 }), b = createKart({ seed: 9 });
+    for (const k of [a, b]) { k.press('start'); for (let i = 0; i < 100; i++) k.step(held('a', i < 50 ? 'left' : 'right'), 0.05); }
+    puts.length = 0;
+    a.draw(recorder().ctx, frame(WIDE)); b.draw(recorder().ctx, frame(WIDE));
+    expect(sure(puts[0], 'a').pixels).toEqual(sure(puts[1], 'b').pixels);
   });
 });

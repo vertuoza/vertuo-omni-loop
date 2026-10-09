@@ -10,6 +10,14 @@
 .kt-back { position: absolute; left: 50%; top: calc(50% + 18px); transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; }
 .kt-panel { left: 50%; bottom: 14%; transform: translateX(-50%); gap: 6px; justify-items: center; text-align: center; white-space: nowrap; line-height: 1.2; }
 .kt-panel .hint { font-size: 8px; }
+.kt-panel.kt-mid { bottom: auto; top: 50%; transform: translate(-50%, -50%); }
+/* The countdown's number and the GO after it, over the middle of the road. */
+.kt-beat {
+  position: absolute; left: 50%; top: 36%; transform: translate(-50%, -50%); margin: 0;
+  font-size: 40px; letter-spacing: 2px; color: var(--yellow); text-shadow: 3px 3px 0 var(--red), 6px 6px 0 #0b0a26;
+}
+.kt-foot { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; }
 
 /* ── On the tall grid (320×288) ───────────────────────────────────────────── */
 .grid-tall .kt-panel { padding: 8px 10px; white-space: normal; max-width: 280px; }
+.grid-tall .kt-beat { font-size: 28px; }
