@@ -20,3 +20,22 @@
 .profile-line, .profile-more { margin: 0; overflow-wrap: anywhere; }
 .profile-more { margin-top: 8px; }
 .profile-list a.profile-title { font-family: inherit; }
+
+/* PRD 1322 s9: your own alert switches, under your header: each a label, a switch and, when the device
+   cannot take phone alerts, why, beneath them. The switch draws as Settings › Repositories' does. */
+.profile-alerts { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.profile-alert { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; overflow-wrap: anywhere; }
+.profile-alert-hint, .profile-alert-message { flex-basis: 100%; margin: 0; color: var(--ask-muted); font-size: 14px; }
+.profile-alert-message { margin-top: 8px; }
+.profile-alert-toggle {
+  position: relative; flex: none; width: 44px; height: 24px; padding: 0; border-radius: 12px;
+  border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); cursor: pointer;
+}
+.profile-alert-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%;
+  background: var(--ask-muted); transition: transform 0.15s ease;
+}
+.profile-alert-toggle[aria-checked='true'] { background: var(--ask-plasma-soft); border-color: var(--ask-plasma); }
+.profile-alert-toggle[aria-checked='true']::after { transform: translateX(20px); background: var(--ask-plasma); }
+.profile-alert-toggle:disabled { cursor: not-allowed; opacity: 0.6; }
+.profile-alert-toggle:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
