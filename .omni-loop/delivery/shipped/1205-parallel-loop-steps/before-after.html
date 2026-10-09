@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parallel loop steps</title>
+<style>
+/* Layout: three moments (the ticks over time, what omni next answers, a tick on the Loop page), each today | after side by side, stacking at phone width. Look: PRD 1139 page tokens. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --red:#b3122f;--redSoft:#fbe8ec;--amber:#8a5a00;--amberSoft:#fdf1d8;--green:#15703f;--greenSoft:#e4f4ea;
+ --term:#14123a;--termInk:#e6e8ff;--termMuted:#9aa0d8;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+ --display:Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
+ --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#08072a;--termInk:#e6e8ff;--termMuted:#8f95d0;
+ color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#08072a;--termInk:#e6e8ff;--termMuted:#8f95d0;
+ color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.55 var(--body)}
+main{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:32px 56px;display:grid;gap:40px}
+header{display:grid;gap:8px}
+h1{font:400 clamp(30px,5vw,46px)/1 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance}
+.lede{color:var(--muted);max-width:68ch;margin:0}
+section{display:grid;gap:14px}
+h2{font:400 24px/1.1 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+.why{color:var(--muted);margin:0;max-width:72ch}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.side{min-width:0;display:grid;gap:8px;align-content:start}
+.tag{font:700 11px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tag.after{color:var(--plasma)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.svgbox{overflow-x:auto}
+svg{display:block;width:100%;min-width:420px;height:auto}
+svg text{font:12px var(--mono);fill:var(--ink)}
+svg .m{fill:var(--muted)}
+pre{margin:0;background:var(--term);color:var(--termInk);border-radius:10px;padding:14px;overflow-x:auto;font:12.5px/1.55 var(--mono)}
+pre .c{color:var(--termMuted)}
+pre .k{color:var(--plasmaSoft)}
+.row{display:grid;gap:6px;font:13px/1.45 var(--mono)}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font:700 11px/1.6 var(--body);letter-spacing:.04em}
+.run{background:var(--greenSoft);color:var(--green)}
+.held{background:var(--amberSoft);color:var(--amber)}
+.idle{background:var(--sunk);color:var(--muted)}
+.note{color:var(--muted);font-size:13px;margin:0}
+</style>
+</head>
+<body>
+<main>
+<header>
+<span class="tag">PRD 1205 · before / after</span>
+<h1>Parallel loop steps</h1>
+<p class="lede">Driving PRDs 12, 13 and 14 with <code>/loop /omni:mega-drive 12 13 14</code>. Today each tick builds one wave of one PRD while the others wait. After, each tick keeps up to three steps running (<code>limits.parallelSteps</code>, default 3), and checks before launching each one that it shares no PRD, no open blocker and no path in the same repository with any step already running.</p>
+</header>
+
+<section>
+<h2>The ticks over time</h2>
+<p class="why">Three PRDs, two waves each. PRD 14's first wave touches <code>galaxy:apps/galaxy/src/nav</code>, which PRD 12's first wave also touches, so it is held.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today: one step per tick</span>
+<div class="card svgbox"><svg viewBox="0 0 520 170" role="img" aria-label="Six steps run one after another">
+<rect x="0" y="0" width="520" height="170" fill="none"/>
+<text x="0" y="40">PRD 12</text><text x="0" y="85">PRD 13</text><text x="0" y="130">PRD 14</text>
+<rect x="60" y="26" width="70" height="22" rx="4" fill="var(--plasma)"/><rect x="130" y="26" width="70" height="22" rx="4" fill="var(--plasma)" opacity=".6"/>
+<rect x="200" y="71" width="70" height="22" rx="4" fill="var(--plasma)"/><rect x="270" y="71" width="70" height="22" rx="4" fill="var(--plasma)" opacity=".6"/>
+<rect x="340" y="116" width="70" height="22" rx="4" fill="var(--plasma)"/><rect x="410" y="116" width="70" height="22" rx="4" fill="var(--plasma)" opacity=".6"/>
+<line x1="60" y1="158" x2="490" y2="158" stroke="var(--line)"/>
+<text x="60" y="168" class="m">t0</text><text x="440" y="168" class="m">6 waves later</text>
+</svg></div>
+<p class="note">Two PRDs always sit idle, even when nothing they touch overlaps.</p></div>
+<div class="side"><span class="tag after">After: up to 3 running, checked first</span>
+<div class="card svgbox"><svg viewBox="0 0 520 170" role="img" aria-label="Steps of three PRDs run side by side; PRD 14 waits for PRD 12's first wave">
+<rect x="0" y="0" width="520" height="170" fill="none"/>
+<text x="0" y="40">PRD 12</text><text x="0" y="85">PRD 13</text><text x="0" y="130">PRD 14</text>
+<rect x="60" y="26" width="70" height="22" rx="4" fill="var(--plasma)"/><rect x="130" y="26" width="70" height="22" rx="4" fill="var(--plasma)" opacity=".6"/>
+<rect x="60" y="71" width="70" height="22" rx="4" fill="var(--plasma)"/><rect x="130" y="71" width="70" height="22" rx="4" fill="var(--plasma)" opacity=".6"/>
+<rect x="60" y="116" width="70" height="22" rx="4" fill="var(--amberSoft)" stroke="var(--amber)" stroke-dasharray="4 3"/>
+<text x="66" y="131" style="fill:var(--amber)">held</text>
+<rect x="130" y="116" width="70" height="22" rx="4" fill="var(--plasma)"/><rect x="200" y="116" width="70" height="22" rx="4" fill="var(--plasma)" opacity=".6"/>
+<line x1="60" y1="158" x2="490" y2="158" stroke="var(--line)"/>
+<text x="60" y="168" class="m">t0</text><text x="230" y="168" class="m">3 waves later</text>
+</svg></div>
+<p class="note">PRD 14 starts the moment PRD 12's first wave is done; its slot is never left empty while something else could run.</p></div>
+</div>
+</section>
+
+<section>
+<h2>What <code>omni next --json</code> answers</h2>
+<p class="why"><code>step</code> and <code>verdict</code> stay as they are, so older readers keep working. <code>steps</code>, <code>running</code> and <code>held</code> are new.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<pre>{
+  <span class="k">"step"</span>: { "step": 1, "prd": 12, "kind": "wave", "wave": 1 },
+  <span class="k">"verdict"</span>: { "verdict": "act", "skill": "ultra-wave" },
+  <span class="k">"prds"</span>: [ <span class="c">… 13 and 14: act, but never run</span> ]
+}</pre></div>
+<div class="side"><span class="tag after">After</span>
+<pre>{
+  <span class="k">"step"</span>: { "step": 3, "prd": 13, … },     <span class="c">// = steps[0]</span>
+  <span class="k">"steps"</span>: [
+    { "step": 3, "prd": 13, "kind": "wave", "wave": 1, "verdict": … }
+  ],
+  <span class="k">"running"</span>: [
+    { "step": 1, "prd": 12, "repos": ["galaxy"], "since": "10:02" }
+  ],
+  <span class="k">"held"</span>: [
+    { "step": 5, "prd": 14, "why": "galaxy:apps/galaxy/src/nav
+       shared with step 1 (PRD 12 w1, running)" }
+  ]
+}</pre></div>
+</div>
+</section>
+
+<section>
+<h2>A tick on the Loop page</h2>
+<p class="why">Answers the Lead Engineer's objection: each tick says which steps run in which repository, and why a step was held.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<div class="card row">
+<div>tick 4 · <b>PRD 12 w1</b> · ultra-wave</div>
+<div><span class="chip idle">waiting</span> PRD 13, PRD 14</div>
+</div></div>
+<div class="side"><span class="tag after">After</span>
+<div class="card row">
+<div>tick 4 · launched <b>PRD 13 w1</b> · ultra-wave</div>
+<div><span class="chip run">running</span> PRD 12 w1 · galaxy</div>
+<div><span class="chip run">running</span> PRD 13 w1 · omni-app, kit</div>
+<div><span class="chip held">held</span> PRD 14 w1 · galaxy:apps/galaxy/src/nav shared with PRD 12 w1</div>
+</div></div>
+</div>
+<p class="note">Unchanged: one loop per checkout, sub-PRs merged one at a time inside each wave, never a merge into a default branch. <code>limits.parallelSteps: 1</code> is today's loop.</p>
+</section>
+</main>
+</body>
+</html>

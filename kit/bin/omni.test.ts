@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeRepo } from '../test/fixture.ts';
 import { dig } from './dig.ts';
-import { main, prdNamedBy } from './omni.ts';
+import { main, prdNamedBy, workNamedBy } from './omni.ts';
 import { sliceTimeGuardCommand } from '../lib/policy/outbox-policy.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../test/fixture.ts';
@@ -392,8 +392,8 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
     const recorded = await omni(argv, { root: within.root, env: SESSION });
     const after = Date.now();
     expect(recorded).toEqual(await omni(argv, { root: without.root }));
-    const { prd, at, ...rest } = JSON.parse(within.read(RECORD)) as { prd: unknown; at: string };
-    expect({ prd, rest }).toEqual({ prd: 7, rest: {} });
+    const { kind, number, at, ...rest } = JSON.parse(within.read(RECORD)) as { kind: unknown; number: unknown; at: string };
+    expect({ kind, number, rest }).toEqual({ kind: 'prd', number: 7, rest: {} });
     expect(new Date(Date.parse(at)).toISOString()).toBe(at);
     expect(Date.parse(at)).toBeGreaterThanOrEqual(before);
     expect(Date.parse(at)).toBeLessThanOrEqual(after);
@@ -406,7 +406,7 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
     execFileSync('git', ['worktree', 'add', '-q', '-b', 'feat/bravo--s1', worktree], { cwd: root, stdio: 'ignore' });
     const run = await omni(['prd', '7'], { root, cwd: worktree, env: SESSION });
     expect(run.code).toBe(0);
-    expect(dig(JSON.parse(read(RECORD)), 'prd')).toBe(7);
+    expect(dig(JSON.parse(read(RECORD)), 'number')).toBe(7);
     expect(exists(join(worktree, '.omni-loop/local'))).toBe(false);
   });
 
@@ -414,7 +414,49 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
     const { root, read } = makeRepo({ git: true, files: FILES });
     expect((await omni(['prd', '7'], { root, env: SESSION })).code).toBe(0);
     expect((await omni(['prd', '42'], { root, env: SESSION })).code).toBe(1);
-    expect(dig(JSON.parse(read(RECORD)), 'prd')).toBe(42);
+    expect(dig(JSON.parse(read(RECORD)), 'number')).toBe(42);
+    await omni(['bug', '1180'], { root, env: SESSION });
+    expect(JSON.parse(read(RECORD))).toMatchObject({ kind: 'bug', number: 1180 });
+  });
+
+  // PRD #1208, slice s2: a command that names a fix records its kind and its number.
+  const FIX_FORMS: [string[], string][] = [
+    [['bug', '1180'], 'bug'],
+    [['bug', '1180', '--base', 'main'], 'bug'],
+    [['visual', '1180'], 'visual'],
+    [['dossier', 'push', '1180', '--kind', 'bug'], 'bug'],
+    [['dossier', 'push', '1180', '--kind', 'visual'], 'visual'],
+    [['dossier', 'push', '--kind', 'visual', '1180'], 'visual'],
+  ];
+
+  it.each(FIX_FORMS.map(([argv, kind]) => [argv.join(' '), argv, kind]))('`omni %s` records its fix, and prints and exits as it does without', async (_name: string, argv: string[], kind: string) => {
+    const without = makeRepo({ git: true, files: FILES });
+    const within = makeRepo({ git: true, files: FILES });
+    const recorded = await omni(argv, { root: within.root, env: SESSION });
+    expect(recorded).toEqual(await omni(argv, { root: without.root }));
+    const { at, ...rest } = JSON.parse(within.read(RECORD)) as { at: string };
+    expect(rest).toEqual({ kind, number: 1180 });
+    expect(new Date(Date.parse(at)).toISOString()).toBe(at);
+    expect(exists(join(without.root, '.omni-loop/local'))).toBe(false);
+  });
+
+  // PRD #1208, slice s3: a command that names a roadmap records it as kind roadmap.
+  const ROADMAP_FORMS: string[][] = [
+    ['roadmap', 'check', '12'],
+    ['roadmap', 'push', '12'],
+    ['next', '--roadmap', '12'],
+    ['next', '--roadmap', '12', '--json'],
+  ];
+
+  it.each(ROADMAP_FORMS.map((argv) => [argv.join(' '), argv]))('`omni %s` records roadmap 12, and prints and exits as it does without', async (_name: string, argv: string[]) => {
+    const without = makeRepo({ git: true, files: FILES });
+    const within = makeRepo({ git: true, files: FILES });
+    const recorded = await omni(argv, { root: within.root, env: SESSION });
+    expect(recorded).toEqual(await omni(argv, { root: without.root }));
+    const { at, ...rest } = JSON.parse(within.read(RECORD)) as { at: string };
+    expect(rest).toEqual({ kind: 'roadmap', number: 12 });
+    expect(new Date(Date.parse(at)).toISOString()).toBe(at);
+    expect(exists(join(without.root, '.omni-loop/local'))).toBe(false);
   });
 
   it('records nothing without the variable, with an id that is not safe, or for a number that is no PRD', async () => {
@@ -431,6 +473,15 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
       [['check', '--prd', 'seven'], SESSION],
       [['config'], SESSION],
       [['nope', '--prd', '7'], SESSION],
+      [['bug', 'seven'], SESSION],
+      [['visual', '0'], SESSION],
+      [['bug'], SESSION],
+      [['dossier', 'push', '1180', '--kind', 'loop'], SESSION],
+      [['dossier', 'push', '1180', '--kind', 'bug', '--kind', 'visual'], SESSION],
+      [['roadmap', 'check'], SESSION],
+      [['roadmap', 'check', 'x'], SESSION],
+      [['roadmap', 'answer', '12', 'Q1', 'yes'], SESSION],
+      [['next', '--roadmap', '0'], SESSION],
     ];
     for (const [argv, env] of runs) await omni(argv, { root, env });
     expect(exists(join(root, '.omni-loop/local'))).toBe(false);
@@ -442,6 +493,41 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
     const recorded = await omni(['prd', '7'], { root: within.root, env: SESSION });
     expect(recorded).toEqual(await omni(['prd', '7'], { root: without.root }));
     expect(recorded.code).toBe(0);
+  });
+});
+
+describe('workNamedBy: the one PRD or fix a command names', () => {
+  it('names a fix by its kind and number', () => {
+    expect(workNamedBy(['bug', '1180'])).toEqual({ kind: 'bug', number: 1180 });
+    expect(workNamedBy(['visual', '1150', '--base', 'origin/main'])).toEqual({ kind: 'visual', number: 1150 });
+    expect(workNamedBy(['dossier', 'push', '1180', '--kind', 'bug'])).toEqual({ kind: 'bug', number: 1180 });
+    expect(workNamedBy(['dossier', 'push', '--kind', 'visual', '1150'])).toEqual({ kind: 'visual', number: 1150 });
+  });
+
+  it('names a PRD as prdNamedBy does, `--kind prd` included', () => {
+    expect(workNamedBy(['prd', '7'])).toEqual({ kind: 'prd', number: 7 });
+    expect(workNamedBy(['dossier', 'push', '7'])).toEqual({ kind: 'prd', number: 7 });
+    expect(workNamedBy(['dossier', 'push', '7', '--kind', 'prd'])).toEqual({ kind: 'prd', number: 7 });
+    expect(workNamedBy(['check', '--prd', '7'])).toEqual({ kind: 'prd', number: 7 });
+  });
+
+  it('names a roadmap by `roadmap check <n>`, `roadmap push <n>` and `next --roadmap <n>`', () => {
+    expect(workNamedBy(['roadmap', 'check', '12'])).toEqual({ kind: 'roadmap', number: 12 });
+    expect(workNamedBy(['roadmap', 'push', '12'])).toEqual({ kind: 'roadmap', number: 12 });
+    expect(workNamedBy(['next', '--roadmap', '12', '--plan'])).toEqual({ kind: 'roadmap', number: 12 });
+    expect(workNamedBy(['next', '--json', '--roadmap', '12'])).toEqual({ kind: 'roadmap', number: 12 });
+  });
+
+  it('names no roadmap without its number, by `roadmap answer`, or on two roadmaps', () => {
+    for (const argv of [['roadmap', 'check'], ['roadmap', 'push', 'x'], ['roadmap', 'answer', '12', 'Q1', 'yes'], ['next', '--roadmap'], ['next', '--roadmap', '12', '--roadmap', '13'], ['roadmap', '12']]) {
+      expect(workNamedBy(argv)).toBeNull();
+    }
+  });
+
+  it('names nothing for a number that is no issue, a kind it does not know, two kinds, or a link', () => {
+    for (const argv of [['bug'], ['bug', 'x'], ['visual', '0'], ['bug', '--base', 'main'], ['dossier', 'push', '1180', '--kind', 'loop'], ['dossier', 'push', '1180', '--kind', 'bug', '--kind', 'visual'], ['dossier', 'push', '--kind', 'bug'], ['dossier', 'link', '1180', '--kind', 'bug'], ['config']]) {
+      expect(workNamedBy(argv)).toBeNull();
+    }
   });
 });
 

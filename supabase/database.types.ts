@@ -1098,6 +1098,79 @@ export type Database = {
         }
         Relationships: []
       }
+      idea_votes: {
+        Row: {
+          created_at: string
+          idea_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          idea_id: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          idea_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "idea_votes_idea_id_fkey"
+            columns: ["idea_id"]
+            isOneToOne: false
+            referencedRelation: "ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ideas: {
+        Row: {
+          added_by: string | null
+          archived: boolean
+          created_at: string
+          id: string
+          lane: string
+          pitch: string
+          prd: number | null
+          repo: string
+          title: string
+          workspace_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          archived?: boolean
+          created_at?: string
+          id?: string
+          lane?: string
+          pitch: string
+          prd?: number | null
+          repo: string
+          title: string
+          workspace_id: string
+        }
+        Update: {
+          added_by?: string | null
+          archived?: boolean
+          created_at?: string
+          id?: string
+          lane?: string
+          pitch?: string
+          prd?: number | null
+          repo?: string
+          title?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ideas_workspace_id_repo_fkey"
+            columns: ["workspace_id", "repo"]
+            isOneToOne: false
+            referencedRelation: "repositories"
+            referencedColumns: ["workspace_id", "full_name"]
+          },
+        ]
+      }
       jev_calls: {
         Row: {
           called_at: string
@@ -1291,6 +1364,7 @@ export type Database = {
           merged: number[]
           next_wake_at: string | null
           prd: number
+          repos: string[]
           result: string
           step: number
           steps: number
@@ -1305,6 +1379,7 @@ export type Database = {
           merged?: number[]
           next_wake_at?: string | null
           prd: number
+          repos?: string[]
           result: string
           step: number
           steps: number
@@ -1319,6 +1394,7 @@ export type Database = {
           merged?: number[]
           next_wake_at?: string | null
           prd?: number
+          repos?: string[]
           result?: string
           step?: number
           steps?: number
@@ -1980,6 +2056,7 @@ export type Database = {
           collected_until: string | null
           full_name: string
           product_id: string | null
+          public_ideas: boolean
           tracked: boolean
           workspace_id: string
         }
@@ -1991,6 +2068,7 @@ export type Database = {
           collected_until?: string | null
           full_name: string
           product_id?: string | null
+          public_ideas?: boolean
           tracked?: boolean
           workspace_id: string
         }
@@ -2002,6 +2080,7 @@ export type Database = {
           collected_until?: string | null
           full_name?: string
           product_id?: string | null
+          public_ideas?: boolean
           tracked?: boolean
           workspace_id?: string
         }
@@ -2015,6 +2094,252 @@ export type Database = {
           },
           {
             foreignKeyName: "repositories_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_human_work: {
+        Row: {
+          act: string | null
+          classified_at: string | null
+          done_at: string | null
+          first_seen_at: string
+          key: string
+          kind: string
+          kind_by: string
+          prd: number | null
+          repo: string
+          roadmap_id: string
+          source: string
+          state: string
+          text: string
+          url: string | null
+        }
+        Insert: {
+          act?: string | null
+          classified_at?: string | null
+          done_at?: string | null
+          first_seen_at?: string
+          key: string
+          kind: string
+          kind_by: string
+          prd?: number | null
+          repo: string
+          roadmap_id: string
+          source: string
+          state?: string
+          text: string
+          url?: string | null
+        }
+        Update: {
+          act?: string | null
+          classified_at?: string | null
+          done_at?: string | null
+          first_seen_at?: string
+          key?: string
+          kind?: string
+          kind_by?: string
+          prd?: number | null
+          repo?: string
+          roadmap_id?: string
+          source?: string
+          state?: string
+          text?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_human_work_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_prds: {
+        Row: {
+          blockers: string[]
+          ended_at: string | null
+          position: number
+          prd: number
+          repos: string[]
+          roadmap_id: string
+          row_id: string
+          started_at: string | null
+          state: string
+          title: string
+          waits_on: string | null
+          waits_on_url: string | null
+          wave: number
+        }
+        Insert: {
+          blockers?: string[]
+          ended_at?: string | null
+          position: number
+          prd: number
+          repos?: string[]
+          roadmap_id: string
+          row_id: string
+          started_at?: string | null
+          state: string
+          title: string
+          waits_on?: string | null
+          waits_on_url?: string | null
+          wave: number
+        }
+        Update: {
+          blockers?: string[]
+          ended_at?: string | null
+          position?: number
+          prd?: number
+          repos?: string[]
+          roadmap_id?: string
+          row_id?: string
+          started_at?: string | null
+          state?: string
+          title?: string
+          waits_on?: string | null
+          waits_on_url?: string | null
+          wave?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_prds_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_prerequisites: {
+        Row: {
+          blocks: string[]
+          blocks_all: boolean
+          card: Json | null
+          category: string
+          check_with: string | null
+          detail: string | null
+          fix_with: string | null
+          need: string
+          position: number
+          repos: string[]
+          roadmap_id: string
+          row_id: string
+          state: string | null
+          who: string
+        }
+        Insert: {
+          blocks?: string[]
+          blocks_all?: boolean
+          card?: Json | null
+          category: string
+          check_with?: string | null
+          detail?: string | null
+          fix_with?: string | null
+          need: string
+          position: number
+          repos?: string[]
+          roadmap_id: string
+          row_id: string
+          state?: string | null
+          who: string
+        }
+        Update: {
+          blocks?: string[]
+          blocks_all?: boolean
+          card?: Json | null
+          category?: string
+          check_with?: string | null
+          detail?: string | null
+          fix_with?: string | null
+          need?: string
+          position?: number
+          repos?: string[]
+          roadmap_id?: string
+          row_id?: string
+          state?: string | null
+          who?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_prerequisites_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmaps: {
+        Row: {
+          created_at: string
+          document: string
+          id: string
+          milestone: string
+          number: number
+          prerequisites_checked_at: string | null
+          prerequisites_machine: string | null
+          product_id: string | null
+          pushed_at: string
+          pushed_by: string | null
+          questions: Json
+          repo: string
+          source: string | null
+          target_date: string | null
+          title: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          document: string
+          id?: string
+          milestone: string
+          number: number
+          prerequisites_checked_at?: string | null
+          prerequisites_machine?: string | null
+          product_id?: string | null
+          pushed_at?: string
+          pushed_by?: string | null
+          questions?: Json
+          repo: string
+          source?: string | null
+          target_date?: string | null
+          title: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          document?: string
+          id?: string
+          milestone?: string
+          number?: number
+          prerequisites_checked_at?: string | null
+          prerequisites_machine?: string | null
+          product_id?: string | null
+          pushed_at?: string
+          pushed_by?: string | null
+          questions?: Json
+          repo?: string
+          source?: string | null
+          target_date?: string | null
+          title?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmaps_product_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "roadmaps_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -2289,6 +2614,7 @@ export type Database = {
           collected_until: string | null
           full_name: string
           product_id: string | null
+          public_ideas: boolean
           tracked: boolean
           workspace_id: string
         }
@@ -3046,6 +3372,12 @@ export type Database = {
       }
       has_workspace: { Args: never; Returns: boolean }
       hook_before_user_created: { Args: { event: Json }; Returns: Json }
+      idea_votable: { Args: { p_idea: string }; Returns: boolean }
+      ideas_board: { Args: { p_full_name: string }; Returns: Json }
+      ideas_public_board: {
+        Args: { p_repo: string; p_workspace: string }
+        Returns: boolean
+      }
       is_member: { Args: { workspace: string }; Returns: boolean }
       is_owner: { Args: { workspace: string }; Returns: boolean }
       jev_decision_names: { Args: never; Returns: string[] }
@@ -3340,6 +3672,7 @@ export type Database = {
           collected_until: string | null
           full_name: string
           product_id: string | null
+          public_ideas: boolean
           tracked: boolean
           workspace_id: string
         }
@@ -3390,6 +3723,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      roadmap_human_work_claim: {
+        Args: { p_limit: number; p_roadmap: string }
+        Returns: Json
+      }
+      roadmap_human_work_set_kind: {
+        Args: { p_key: string; p_kind: string; p_roadmap: string }
+        Returns: boolean
+      }
+      roadmap_prerequisites_push: { Args: { p_body: Json }; Returns: Json }
+      roadmap_push: { Args: { p_body: Json }; Returns: Json }
       set_jev_decision: {
         Args: {
           p_decision: string
@@ -3466,6 +3809,27 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_repository_public_ideas: {
+        Args: { p_full_name: string; p_public: boolean; p_workspace: string }
+        Returns: {
+          added_at: string
+          added_by: string | null
+          collect_error: string | null
+          collected_at: string | null
+          collected_until: string | null
+          full_name: string
+          product_id: string | null
+          public_ideas: boolean
+          tracked: boolean
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "repositories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_repository_tracked: {
         Args: { p_full_name: string; p_tracked: boolean; p_workspace: string }
         Returns: {
@@ -3476,6 +3840,7 @@ export type Database = {
           collected_until: string | null
           full_name: string
           product_id: string | null
+          public_ideas: boolean
           tracked: boolean
           workspace_id: string
         }

@@ -51,6 +51,7 @@ export const ghExec: Exec = async (args) => (await run('gh', args, { maxBuffer: 
 // What gh prints for the lists and views below. A field the code reads only when it is there may be
 // missing; one it counts on is required, so a gh that answers another shape fails naming the field.
 const Login = z.looseObject({ login: z.string().nullish() }).nullish();
+const Person = z.looseObject({ login: z.string().nullish(), is_bot: z.boolean().nullish() }).nullish();
 const Labels = z.array(z.looseObject({ name: z.string() })).nullish();
 const IssueRows = z.array(z.looseObject({
   number: PrdNumberSchema,
@@ -69,8 +70,13 @@ const PrRow = z.looseObject({
   updatedAt: z.string().nullish(),
   labels: Labels,
   body: z.string().nullish(),
+  author: Person,
+  mergedBy: Person,
+  latestReviews: z.array(z.looseObject({ author: Person, state: z.string().nullish() })).nullish(),
 });
 const PrRows = z.array(PrRow);
+// The fields every feature PR list reads: what PrRow parses.
+const FEATURE_FIELDS = 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt,labels,body,author,mergedBy,latestReviews';
 const SubRowSchema = z.looseObject({
   number: PrNumberSchema,
   title: z.string(),
@@ -184,7 +190,7 @@ function partOfRegions(exec: Exec, tracked: readonly string[]): RegionsOf {
       const index = (async () => {
         const defaultBranch = lines(await soft(exec(['api', `repos/${slug}`, '--jq', '.default_branch'])))[0] ?? 'main';
         const byPrd = new Map<string, PrRow[]>();
-        const prs = PrRows.parse(json(await soft(exec(['pr', 'list', '-R', slug, '--search', '"Part of" in:body', '--base', defaultBranch, '--state', 'all', '--limit', '500', '--json', 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt,labels,body']))));
+        const prs = PrRows.parse(json(await soft(exec(['pr', 'list', '-R', slug, '--search', '"Part of" in:body', '--base', defaultBranch, '--state', 'all', '--limit', '500', '--json', FEATURE_FIELDS]))));
         for (const pr of prs) {
           const m = PART_OF.exec(pr.body ?? '');
           if (!m || !toIso(pr.createdAt)) continue; // F4: no creation time, no feature PR
@@ -273,7 +279,7 @@ function chartPlanet(home: string, issue: IssueRow, teams: Record<string, string
 // The home's feature PR: a PR into its default branch whose body says `Closes #<n>`.
 async function homeFeaturePr(exec: Exec, { home, repo, prd }: { home: string; repo: Repository; prd: PrdNumber }): Promise<PrRow | undefined> {
   const closes = new RegExp(`\\bCloses #${prd}(?!\\d)`, 'i');
-  const prs = PrRows.parse(json(await exec(['pr', 'list', '-R', home, '--search', `"Closes #${prd}" in:body`, '--base', repo.defaultBranch, '--state', 'all', '--json', 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt,labels,body'])))
+  const prs = PrRows.parse(json(await exec(['pr', 'list', '-R', home, '--search', `"Closes #${prd}" in:body`, '--base', repo.defaultBranch, '--state', 'all', '--json', FEATURE_FIELDS])))
     .filter((pr) => toIso(pr.createdAt) && closes.test(pr.body ?? '')); // F4: no creation time, no feature PR
   return pickFeaturePr(prs);
 }
@@ -349,7 +355,23 @@ function regionResolver({ home, tracked, parts }: { home: string; tracked: reado
 async function readFeaturePr(exec: Exec, slug: string, fp: PrRow): Promise<FeaturePr> {
   const createdAt = toIso(fp.createdAt);
   const readyAt = fp.isDraft ? null : (firstIso(await soft(exec(['api', `repos/${slug}/issues/${fp.number}/timeline`, '--paginate', '--jq', '[.[] | select(.event=="ready_for_review")][0].created_at']))) ?? createdAt);
-  return { repo: slug, number: fp.number, createdAt, readyAt, mergedAt: toIso(fp.mergedAt), lastActivityAt: toIso(fp.updatedAt) ?? createdAt };
+  const mergedAt = toIso(fp.mergedAt);
+  return {
+    repo: slug, number: fp.number, createdAt, readyAt, mergedAt, lastActivityAt: toIso(fp.updatedAt) ?? createdAt,
+    ...(mergedAt ? { mergedBy: personOf(fp.mergedBy), approvedBy: approversOf(fp) } : {}),
+  };
+}
+
+// A person's lower-case login; null for a bot or no one.
+function personOf(p: z.infer<typeof Person>): string | null {
+  return p?.login && !p.is_bot && !p.login.endsWith('[bot]') ? p.login.toLowerCase() : null;
+}
+
+// Who approved a feature PR: each reviewer whose latest review approves it, the PR's author aside.
+function approversOf(fp: PrRow): string[] {
+  const author = personOf(fp.author);
+  const logins = (fp.latestReviews ?? []).filter((r) => r.state === 'APPROVED').map((r) => personOf(r.author));
+  return [...new Set(logins.filter((l): l is string => Boolean(l) && l !== author))].sort();
 }
 
 async function readPlan(exec: Exec, { home, repo, folder, ref }: { home: string; repo: Repository; folder: Folder; ref: string }): Promise<string> {

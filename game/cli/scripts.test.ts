@@ -119,17 +119,18 @@ describe('the game scripts name their workspace', () => {
     expect(present(tables.ledger_events, 'ledger_events').filter((r) => r.workspace_id === ACME).map((r) => [r.id, r.home])).toEqual([['planet:acme-gh/acme-rockets#12:charted', 'acme-gh/acme-rockets']]);
   });
 
-  it('game:project appends one QUESTION_ANSWERED per answered round on a charted PRD (PRD 1180)', async () => {
+  it('game:project appends one QUESTION_ANSWERED per answered round, on its PRD or on none (PRD 1180)', async () => {
     tables.game_answered_rounds = [
       { round_id: 'r1', answered_at: '2026-09-02T10:00:00.5+00:00', prd: 12, home: 'acme-gh/acme-rockets', login: 'alice' },
-      { round_id: 'r2', answered_at: '2026-09-02T11:00:00+00:00', prd: 99, home: 'acme-gh/acme-rockets', login: 'alice' }, // not charted: waits
+      { round_id: 'r2', answered_at: '2026-09-02T11:00:00+00:00', prd: null, home: 'acme-gh/acme-rockets', login: 'alice' },
+      { round_id: 'r3', answered_at: '2026-09-02T12:00:00+00:00', prd: null, home: null, login: 'alice' }, // nowhere to count
     ];
     const run = await game('project', ['--workspace', 'acme']);
     expect(run.code, run.stderr).toBe(0);
     const call = present(server.calls.find((c) => c.table === 'game_answered_rounds'), 'the read of the answered rounds');
     expect(call.body).toEqual({ workspace: ACME, since: new Date(0).toISOString() });
     expect(present(tables.ledger_events, 'ledger_events').filter((r) => r.type === 'QUESTION_ANSWERED').map((r) => [r.workspace_id, r.id, r.at, r.planet, r.home, r.contributor]))
-      .toEqual([[ACME, 'ask:r1:answered', '2026-09-02T10:00:00Z', 12, 'acme-gh/acme-rockets', 'alice']]);
+      .toEqual([[ACME, 'ask:r1:answered', '2026-09-02T10:00:00Z', 12, 'acme-gh/acme-rockets', 'alice'], [ACME, 'ask:r2:answered', '2026-09-02T11:00:00Z', 0, 'acme-gh/acme-rockets', 'alice']]);
   });
 
   it('game:project keeps its GitHub events when the answered rounds cannot be read, and says why', async () => {

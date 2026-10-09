@@ -373,7 +373,12 @@ node .omni-loop/bin/omni.mjs prd <n>        # state inbox, and the folder's file
 Fix until `omni check inbox` is green, then `git push -u <remote> <feature branch>`.
 
 Then follow `/omni:dossier-push <n>` from this worktree: the draft becomes PRD n's dossier, and the
-spec and the before/after page go up as its first versions. Whatever it prints, carry on to step 8.
+spec and the before/after page go up as its first versions. Whatever it prints, carry on.
+
+With `--concept`, then follow `/omni:dossier-push <concept> --kind concept` from this worktree too:
+the concept's page gets the `concept.md` whose area now names PRD n, so its Areas tab links that
+area to its PRD at once. Whatever it prints, carry on to step 8: a push that was skipped or refused
+stops nothing.
 
 ## 8. Plan it
 

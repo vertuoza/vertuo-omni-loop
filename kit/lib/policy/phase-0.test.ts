@@ -124,6 +124,25 @@ describe('An approved design lands in the PRD-s own delivery folder', () => {
     expect(verdict.ok, verdict.reason).toBe(true);
   });
 
+  it('a roadmap row is planned when the loop reaches it: with needsPlan false, no plan is missing (issue 1198)', () => {
+    const { ctx } = docsOnlyRepo();
+    const paths = phase0Paths(PRD, { ctx });
+
+    const verdict = phase0Verdict([paths.spec, paths.beforeAfter], { ctx, prd: PRD, needsPlan: false });
+    expect(verdict.ok, verdict.reason).toBe(true);
+    expect(verdict.missing).toEqual([]);
+    expect(verdict.reason).toBe('docs-only, and it carries the spec and the before/after a reviewer is being asked to approve');
+
+    const bare = phase0Verdict([paths.spec], { ctx, prd: PRD, needsPlan: false });
+    expect(bare.missing).toEqual(['before-after']);
+    expect(bare.reason).not.toContain('the plan');
+    expect(phase0Verdict([paths.spec, paths.beforeAfter], { ctx, prd: PRD }).missing).toEqual(['plan']);
+    expect(phase0Verdict([paths.spec], { ctx, prd: PRD, needsPlan: false, needsBeforeAfter: false }).missing).toEqual([]);
+    expect(phase0Verdict([paths.spec, paths.plan, paths.beforeAfter], { ctx, prd: PRD }).reason).toBe(
+      'docs-only, and it carries the spec, the plan and the before/after a reviewer is being asked to approve',
+    );
+  });
+
   // Restored to upstream's own assertion (fix round 1 — the controller's ruling on this task's
   // report): a `docs` kind survives in the folders layout too, checked AFTER the PRD-specific and
   // acceptance-pending kinds, exactly as upstream checked its specific kinds before falling back to

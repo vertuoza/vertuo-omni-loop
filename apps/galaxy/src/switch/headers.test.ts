@@ -10,7 +10,7 @@ const at = { path: '/app' };
 vi.mock('next/navigation', () => ({ usePathname: () => at.path, useRouter: () => ({ refresh: () => {} }) }));
 
 // Every header of the app, as the server renders it (PRD 238). Two kinds since PRD 438:
-// - the app's pages (/app, /prd, /ask, /knowledge) sit in the app shell: the sidebar (the crest to
+// - the app's pages (/app, /roadmaps, /prd, /ask, /knowledge) sit in the app shell: the sidebar (the crest to
 //   /app, the Dashboard and Work groups since PRD 572, then Settings, Docs and Release notes at the foot since PRD 733, the
 //   page's entry marked current) and the top bar (the trail
 //   to the page since issue 704, the theme switch, then Game mode, last);
@@ -20,6 +20,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => at.path, useRouter: () =>
 
 const { default: AppLayout } = await import('../../app/app/layout.tsx');
 const { default: DossierLayout } = await import('../../app/prd/layout.tsx');
+const { default: RoadmapsLayout } = await import('../../app/roadmaps/layout.tsx');
 const { default: AskLayout } = await import('../../app/ask/layout.tsx');
 const { default: KnowledgeLayout } = await import('../../app/knowledge/layout.tsx');
 const { default: ReleasesLayout } = await import('../../app/releases/layout.tsx');
@@ -58,6 +59,8 @@ const APP_PAGES: Array<[string, Layout, string, string]> = [
   ['/app/settings/fleets', AppLayout, '/app/settings', 'Settings › Fleets'],
   ['/app/settings/repositories', AppLayout, '/app/settings', 'Settings › Repositories'],
   ['/app/settings/business', AppLayout, '/app/settings', 'Settings › Business'],
+  ['/roadmaps', RoadmapsLayout, '/roadmaps', 'Work › Roadmaps'],
+  ['/roadmaps/<id>', RoadmapsLayout, '/roadmaps', 'Work › Roadmaps'],
   ['/prd', DossierLayout, '/prd', 'Work › PRDs'],
   ['/prd/<id>', DossierLayout, '/prd', 'Work › PRDs'],
   ['/ask', AskLayout, '/ask', 'Work › Questions'],
@@ -83,7 +86,7 @@ describe('every app page', () => {
   it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists « and » (PRD 733), Dashboard, Work, then Settings and Omni at the foot', async (name, layout) => {
     const side = part(await renderAt(layout, pathOf(name)), '<aside', '</aside>');
     expect(side).toMatch(new RegExp(`<a class="brand-logo app-sidebar-crest" href="${APP_HOME}">`));
-    expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', 'Home', 'Fleet', 'Loop', 'Workspace', 'Engineering', 'PRDs', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), 'Knowledge', 'Settings', 'Docs', 'Release notes']);
+    expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', 'Home', 'Fleet', 'Loop', 'Workspace', 'Engineering', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), 'Knowledge', 'Settings', 'Docs', 'Release notes']);
   });
 
   it.each(APP_PAGES)('%s: marks exactly one sidebar item current: %s', async (name, layout, current) => {

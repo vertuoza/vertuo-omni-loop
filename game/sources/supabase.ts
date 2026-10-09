@@ -264,13 +264,13 @@ export async function exportWorkspace(rest: SupabaseRest, workspaceId: string): 
 const AnsweredRow = z.object({
   round_id: z.string().min(1),
   answered_at: z.string().min(1),
-  prd: PrdNumberSchema,
-  home: z.string().min(1),
+  prd: PrdNumberSchema.nullable(),
+  home: z.string().min(1).nullable(),
   login: z.string().min(1),
 });
 
 /**
- * One workspace's ask rounds answered on a numbered PRD since its `game_since`, through
+ * One workspace's answered ask rounds since its `game_since`, each on its numbered PRD or on none, through
  * public.game_answered_rounds() (PRD 1180; the service role's only). A failed read, a workspace it
  * cannot find or a row it cannot read throws: game:project then appends the GitHub events alone.
  */
@@ -279,13 +279,14 @@ export async function loadAnsweredRounds(rest: SupabaseRest, workspaceId: string
   const [row] = GameSince.parse(await rest.select('workspaces', `select=game_since&id=eq.${encodeURIComponent(workspaceId)}`));
   if (!row) throw new Error(`Supabase: no workspace ${workspaceId}: its answered rounds are read from its game_since`);
   const rows = z.array(AnsweredRow).parse(await rest.rpc('game_answered_rounds', { workspace: workspaceId, since: row.game_since ?? new Date(0).toISOString() }));
-  return rows.map((r) => ({
+  // A round with no home (no repository and no plan repository) has nowhere to count, and pays nothing.
+  return rows.flatMap((r) => (r.home ? [{
     roundId: r.round_id,
     answeredAt: new Date(r.answered_at).toISOString().replace(/\.\d{3}Z$/, 'Z'),
     prd: r.prd,
     home: r.home.toLowerCase(),
     login: r.login.toLowerCase(),
-  }));
+  }] : []));
 }
 
 /**

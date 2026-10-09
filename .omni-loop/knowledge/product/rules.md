@@ -856,6 +856,54 @@ Decided: nobody — adopted when raised (medium), 2026-10-06
 Merged: @pierrederval, 2026-10-06, PR #1119
 Proposed: harvest 2026-10-06
 
+## BR-PRODUCT-73
+
+A loop that has not yet said when it will wake next reads live until one hour after the last thing it pushed; only then is it shown silent and may it be taken over.
+
+Serves: P-PRODUCT-2
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-01-loop-silent-before-first-wake, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-74
+
+Parking a PRD records who it waits on and the loop keeps running; a later round of that PRD takes it off the parked list. A stopping loop ends parked if PRDs still wait, else stopped, and an ended loop refuses any push.
+
+Serves: P-PRODUCT-65
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-02-loop-park-and-stop, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-75
+
+A signed-out visitor to the Loop page or one loop's page is asked to sign in, the same as on the Engineering page. The demo loops show only where every page shows its demo: in development or when the demo mode is switched on.
+
+Serves: P-PRODUCT-66
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s5-02-loop-page-signed-out, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## BR-PRODUCT-76
+
+omni loop push counts as off, printing off and exiting 1, only when ask.url is not set. It never reads dossier.enabled, so a repository with the dossier switched off still sends its loop state to the Loop page.
+
+Serves: P-PRODUCT-67
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s4-01-loop-push-off-switch, PRD #1139
+Enforced by: unenforced
+Stated: 2026-10-07
+Decided: nobody — adopted when raised (medium), 2026-10-07
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
 ## BR-PRODUCT-77
 
 Answering a question on a PRD earns the answerer 2 points and earns their fleet the same 2 points. If that PRD is later lost, those answer points are taken back in its season, like the rest of that PRD's points.

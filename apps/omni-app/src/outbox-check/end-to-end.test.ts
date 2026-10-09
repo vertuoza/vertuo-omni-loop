@@ -39,7 +39,7 @@ const RATE = Object.freeze({
 });
 
 /** A pull request as a delivery carries it. */
-type Pull = { number: PrNumber; base: { ref: string; sha: string }; head: { ref: string; sha: string }; labels?: string[] };
+type Pull = { number: PrNumber; base: { ref: string; sha: string }; head: { ref: string; sha: string }; labels?: string[]; body?: string };
 /** A delivery to `/api/github`: its event and its payload. */
 type Delivery = { event: string; payload: Record<string, unknown> };
 type GitHub = ReturnType<typeof fakeGitHub>;
@@ -174,6 +174,28 @@ describe('end to end — a signed webhook to a completed check', () => {
       output: { title: 'omni-loop is not active on this PR' },
     });
     expect(github.state.comments).toHaveLength(0);
+  });
+
+  it('9. a target feature PR (body "Part of <plan repo>#<prd>") passes, linking the plan PR that grades its PRD (issue 1202)', async () => {
+    const pull = { ...featurePull(), head: { ref: 'feat/gadget', sha: 'head1' }, body: 'Part of acme/plan#8\n\nThe widgets half of PRD 8.' };
+    const github = fakeGitHub({
+      commits: { base1: fixture('base-active'), head1: fixture('head-open') },
+      pull,
+      others: { 'acme/plan': [{ number: 36, body: 'Closes #80' }, { number: 37, body: 'Closes #8\n\nThe plan PR.' }] },
+    });
+    await deliver(github, pullRequestDelivery(pull, 'opened'));
+    expect(latest(github)).toMatchObject({ name: 'outbox', status: 'completed', conclusion: 'success' });
+    expect(outputOf(latest(github)).title).toBe("PRD 8 is graded on acme/plan's plan PR");
+    expect(outputOf(latest(github)).summary).toContain('https://github.com/acme/plan/pull/37');
+    expect(github.state.comments).toHaveLength(0);
+  });
+
+  it('10. a target feature PR whose plan repository the App cannot read still passes, linking the PRD issue', async () => {
+    const pull = { ...featurePull(), head: { ref: 'feat/gadget', sha: 'head1' }, body: 'Part of acme/plan#8' };
+    const github = fakeGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-open') }, pull });
+    await deliver(github, pullRequestDelivery(pull, 'opened'));
+    expect(latest(github)).toMatchObject({ conclusion: 'success' });
+    expect(outputOf(latest(github)).summary).toContain('https://github.com/acme/plan/issues/8');
   });
 
   it('5. a repository with no .omni-loop/config.yml gets no outbox check at all (PRD 359)', async () => {

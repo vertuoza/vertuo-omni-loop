@@ -139,3 +139,11 @@ the kit does not own are covered by **Merging and ready**'s new rule: wait for t
 run before `gh pr ready`, then rerun a cancelled `ready_for_review` run, and never count a check
 that only skipped or was cancelled as green. `/omni:yolo` §5 item 4, `/omni:yolo-fix`'s ship and
 `/omni:ultra-yolo`'s target ready point to it.
+
+## Issue 1202 — a target PR's outbox check defers to the plan PR
+
+Not a re-port: a kit-local bug fix. The omni-loop App skipped a target feature PR's outbox check
+("not active on this PR"), with no word of the plan PR that grades its PRD. The App now reads the
+`Part of <plan slug>#<n>` line `/omni:ultra-yolo` writes and passes the check, linking the plan PR.
+`--repo <slug>` gains one bullet saying so, and that a `gate` or `ci/outbox` red from a workflow the
+target wrote itself is a human step; `/omni:ultra-yolo` §2 item 4 and `/omni:mega-pr-care` point to it.

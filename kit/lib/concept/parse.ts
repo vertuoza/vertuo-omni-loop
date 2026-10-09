@@ -15,8 +15,10 @@
  */
 import { z } from 'zod';
 import { parseFrontMatterLines } from '../front-matter.ts';
+import { firstTable, sectionsOf } from '../markdown-body.ts';
+import type { MarkdownSection as Section } from '../markdown-body.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
-import { at, defined, group } from '../narrow.ts';
+import { at, defined } from '../narrow.ts';
 import { parsePrd } from '../ids.ts';
 import type { PrdNumber } from '../ids.ts';
 
@@ -54,8 +56,6 @@ export type ConceptParse = { ok: true; record: ConceptRecord } | { ok: false; er
 /** An area as read from its row: a cell is `undefined` while the table lacks its column. */
 type AreaRow = { id: string | undefined; area: string | undefined; brief: string | undefined; prd: PrdNumber | null };
 
-type Section = { name: string; lines: string[] };
-
 const KNOWN_SCALES: readonly unknown[] = CONCEPT_SCALES;
 const isScale = (value: unknown): value is ConceptScale => KNOWN_SCALES.includes(value);
 
@@ -66,7 +66,6 @@ const FRONT_FIELDS = ['concept', 'title', 'kind', 'scale'] as const;
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const PRD_CELL = /^#([1-9]\d*)$/;
-const SEPARATOR_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
 
 const FrontMatterSchema = z
   .object({
@@ -103,24 +102,6 @@ function frontMatter(raw: string): { data: z.infer<typeof FrontMatterSchema> | n
   return { data: null, errors, scale };
 }
 
-/** The body's `## ` sections, in the order written, as `{ name, lines }`; the first of a name wins. */
-function sectionsOf(body: string): Section[] {
-  const sections: Section[] = [];
-  let current: Section | null = null;
-  for (const line of body.split(/\r?\n/)) {
-    const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
-    if (heading && !line.startsWith('###')) {
-      current = { name: group(heading, 1), lines: [] }; // group 1 always matches
-      sections.push(current);
-    } else if (/^#\s/.test(line)) {
-      current = null;
-    } else if (current) {
-      current.lines.push(line);
-    }
-  }
-  return sections;
-}
-
 function sectionFaults(sections: readonly Section[]): string[] {
   const position = new Map<string, number>();
   sections.forEach((section, index) => {
@@ -136,27 +117,6 @@ function sectionFaults(sections: readonly Section[]): string[] {
     }
   }
   return faults;
-}
-
-/** A table row's cells, trimmed; a `\|` is a pipe inside a cell. */
-function cells(line: string): string[] {
-  let inner = line.trim();
-  if (inner.startsWith('|')) inner = inner.slice(1);
-  if (inner.endsWith('|') && !inner.endsWith('\\|')) inner = inner.slice(0, -1);
-  return inner.split(/(?<!\\)\|/).map((cell) => cell.trim().replace(/\\\|/g, '|'));
-}
-
-/** The first table among `lines`: its header's cells and its rows' cells, or `null` with none. */
-function firstTable(lines: readonly string[]): { header: string[]; rows: string[][] } | null {
-  const start = lines.findIndex((line) => line.trim().startsWith('|'));
-  if (start === -1) return null;
-  const block: string[] = [];
-  for (const line of lines.slice(start)) {
-    if (!line.trim().startsWith('|')) break;
-    block.push(line.trim());
-  }
-  const [header = '', ...rest] = block; // the line at `start` opens the block
-  return { header: cells(header), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells) };
 }
 
 /** An id listed twice, once; else an id that is not kebab-case. A missing id column reads `undefined`. */

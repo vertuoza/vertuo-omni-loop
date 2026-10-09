@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Concepts page</title>
+<style>
+/* Layout: two app screens side by side (today | after), stacked on a phone; the after side shows the menu, the list and one concept's Areas tab. Single dark look: the arcade's own palette. */
+:root{
+  --void:#07061c;--deep:#0e0d33;--cab:#120f3a;--line:#2a2870;
+  --tx:#f2f4ff;--dim:#8a90d6;--yel:#ffd84a;--cyan:#6ff0ff;--green:#4ee08a;--red:#ff3b5c;--plasma:#a45cff;
+  --display:Anton,Impact,'Arial Narrow',sans-serif;
+  --body:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--void);color:var(--tx);font:15px/1.5 var(--body);padding-inline:16px;padding-block:28px 48px}
+main{max-width:1280px;margin:0 auto;display:grid;gap:22px}
+h1{font:400 clamp(28px,4vw,40px)/1.1 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance}
+.lede{color:var(--dim);max-width:72ch;margin:6px 0 0}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+.side{min-width:0;display:grid;gap:10px;align-content:start}
+.tag{font:700 12px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.tag.b{color:var(--dim)}.tag.a{color:var(--yel)}
+.app{background:var(--deep);border:1px solid var(--line);border-radius:12px;display:grid;grid-template-columns:170px 1fr;min-height:430px;overflow:hidden}
+@media(max-width:520px){.app{grid-template-columns:1fr}.nav{display:none}}
+.nav{background:var(--cab);border-right:1px solid var(--line);padding:14px 10px;display:grid;align-content:start;gap:2px;font-size:13px}
+.grp{font:700 11px var(--mono);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin:10px 6px 4px}
+.it{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;color:#cfd3ff}
+.it i{width:12px;height:12px;border-radius:2px;background:var(--line);flex:none}
+.it.on{background:var(--yel);color:var(--void);font-weight:700}.it.on i{background:var(--void)}
+.it.new{outline:1px dashed var(--yel);outline-offset:-1px}
+.pane{padding:16px;min-width:0;display:grid;gap:12px;align-content:start}
+.crumb{font:12px var(--mono);color:var(--dim)}
+h2{font:400 24px/1.1 var(--display);margin:0}
+.muted{color:var(--dim);font-size:14px}
+.gh{background:#0b0a24;border:1px solid var(--line);border-radius:8px;padding:12px;font:13px var(--mono);display:grid;gap:6px}
+.file{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #1d1b4d;padding:4px 0}
+.file span:last-child{color:var(--dim)}
+.note{border-left:3px solid var(--red);padding:6px 10px;font-size:14px;color:#ffc3cd;background:#1a0d22}
+.note.ok{border-color:var(--green);color:#c9f7dc;background:#0c1d1b}
+.cards{display:grid;gap:10px}
+.card{background:var(--cab);border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:6px}
+.card .t{font-weight:700}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px}
+.chip{font:700 11px var(--mono);padding:2px 8px;border-radius:99px;border:1px solid currentColor}
+.chip.rev{color:var(--cyan)}.chip.in{color:var(--green)}.chip.k{color:var(--dim)}
+.bar{height:6px;border-radius:3px;background:#1d1b4d;overflow:hidden}.bar b{display:block;height:100%;background:var(--yel)}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line)}
+.tabs span{padding:6px 10px;font-size:13px;color:var(--dim)}.tabs span.on{color:var(--yel);border-bottom:2px solid var(--yel)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:420px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #1d1b4d;vertical-align:top}
+th{font:700 11px var(--mono);color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+td code{font:12px var(--mono);color:var(--cyan)}
+.wedge{font:700 10px var(--mono);color:var(--void);background:var(--yel);border-radius:3px;padding:1px 5px;margin-left:6px}
+.cmd{display:flex;gap:8px;align-items:center;background:#0b0a24;border:1px solid var(--yel);border-radius:6px;padding:6px 8px;font:12px var(--mono);color:var(--yel);overflow-x:auto}
+.cmd button{margin-left:auto;background:var(--yel);color:var(--void);border:0;border-radius:4px;font:700 11px var(--mono);padding:3px 8px}
+.same{background:var(--deep);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+.same h3{font:400 20px var(--display);margin:0 0 6px}
+.same ul{margin:0;padding-left:18px;display:grid;gap:4px;max-width:90ch}
+.ex{font:11px var(--mono);color:var(--dim)}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>PRD 1272 · A Concepts page under Work</h1>
+    <p class="lede">Today a concept that <code>/omni:think-big</code> recorded lives only in its pull request, as HTML files to download. After, Work in the menu has a <b>Concepts</b> entry: a list of every concept, and a page per concept with its overview, areas, vision tour, boards and debate. The example is concept #1269.</p>
+  </header>
+
+  <div class="cols">
+    <section class="side" aria-label="Today">
+      <span class="tag b">Today</span>
+      <div class="app">
+        <nav class="nav" aria-label="Menu today">
+          <span class="grp">Work</span>
+          <span class="it"><i></i>Roadmaps</span>
+          <span class="it"><i></i>Ideas</span>
+          <span class="it on"><i></i>PRDs</span>
+          <span class="it"><i></i>Bug Fixes</span>
+          <span class="it"><i></i>Visual Updates</span>
+          <span class="it"><i></i>Questions</span>
+          <span class="it"><i></i>Knowledge</span>
+        </nav>
+        <div class="pane">
+          <span class="crumb">github.com › vertuo-omni-loop › pull/1270 › Files changed</span>
+          <h2>docs(concept): Products replace plan repositories…</h2>
+          <div class="gh" aria-label="Files of the concept PR">
+            <div class="file"><span>…/1269-products-umbrella/board-r1.html</span><span>98 KB</span></div>
+            <div class="file"><span>…/1269-products-umbrella/board-r2.html</span><span>210 KB</span></div>
+            <div class="file"><span>…/1269-products-umbrella/concept.md</span><span>12 KB</span></div>
+            <div class="file"><span>…/1269-products-umbrella/debate.md</span><span>78 KB</span></div>
+            <div class="file"><span>…/1269-products-umbrella/vision.html</span><span>101 KB</span></div>
+          </div>
+          <p class="note">No Concepts entry under Work. To see the vision tour, a person finds the PR, downloads <code>vision.html</code> and opens it locally. Once merged, the concept is a folder on <code>main</code> that only a terminal reaches.</p>
+          <p class="muted">Which of the six areas already became a PRD? Read the Areas table in <code>concept.md</code> by hand.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="side" aria-label="After">
+      <span class="tag a">After</span>
+      <div class="app">
+        <nav class="nav" aria-label="Menu after">
+          <span class="grp">Work</span>
+          <span class="it"><i></i>Roadmaps</span>
+          <span class="it"><i></i>Ideas</span>
+          <span class="it on new"><i></i>Concepts</span>
+          <span class="it"><i></i>PRDs</span>
+          <span class="it"><i></i>Bug Fixes</span>
+          <span class="it"><i></i>Visual Updates</span>
+          <span class="it"><i></i>Questions</span>
+          <span class="it"><i></i>Knowledge</span>
+        </nav>
+        <div class="pane">
+          <span class="crumb">Work › Concepts</span>
+          <div class="cards">
+            <div class="card">
+              <span class="t">Products replace plan repositories, with phase 0 approved on the server</span>
+              <div class="row"><span class="chip rev">in review</span><span class="chip k">platform · vast</span><span class="muted">#1269 · recorded 2026-10-08</span></div>
+              <div class="row muted">0 of 6 areas have a PRD</div><div class="bar"><b style="width:0%"></b></div>
+            </div>
+            <div class="card">
+              <span class="t">Business context every agent reads</span>
+              <div class="row"><span class="chip in">in the inbox</span><span class="chip k">product · vast</span><span class="muted">#746</span></div>
+              <div class="row muted">5 of 5 areas have a PRD</div><div class="bar"><b style="width:100%"></b></div>
+            </div>
+          </div>
+          <span class="ex">Both cards are the workspace's real concepts.</span>
+        </div>
+      </div>
+
+      <div class="app" style="grid-template-columns:1fr;min-height:0">
+        <div class="pane">
+          <span class="crumb">Work › Concepts › #1269</span>
+          <h2>Products replace plan repositories</h2>
+          <div class="row"><span class="chip rev">in review</span><span class="muted">issue #1269 · concept PR #1270</span></div>
+          <div class="tabs" role="tablist"><span>Overview</span><span class="on">Areas</span><span>Vision tour</span><span>Boards</span><span>Debate</span></div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Area</th><th>Brief</th><th>PRD</th></tr></thead>
+              <tbody>
+                <tr><td><code>server-approval</code><span class="wedge">WEDGE</span></td><td>Phase 0 approved on the server, behind a per-repository flag</td><td class="muted">none yet</td></tr>
+                <tr><td><code>approval-handshake</code></td><td>omni wait approval, phone push, HUD toast</td><td class="muted">none yet</td></tr>
+                <tr><td><code>product-home</code></td><td>Products hold everything</td><td class="muted">none yet</td></tr>
+                <tr><td><code>product-gate</code></td><td>One gate, no plan PR</td><td class="muted">none yet</td></tr>
+                <tr><td><code>product-records</code></td><td>Roadmaps, bugs and knowledge move in</td><td class="muted">none yet</td></tr>
+                <tr><td><code>constellation-tab</code></td><td>How the product is looking</td><td class="muted">none yet</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="cmd"><span>/omni:brainstorm --concept 1269 server-approval</span><button type="button">copy</button></div>
+          <p class="note ok">The Vision tour and Boards tabs play the recorded pages in the same sandboxed frame the before/after pages use. Once an area's PRD exists, its row links to that PRD's page.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="same" aria-label="What stays the same">
+    <h3>What stays the same</h3>
+    <ul>
+      <li>The concept's folder, <code>omni concept</code>'s checks and the concept PR a person merges. The page reads what the skills push; it never writes a concept.</li>
+      <li>PRDs, Bug Fixes and Visual Updates: their dossiers, pages and pushes are unchanged. The migration only widens the kinds a dossier takes.</li>
+      <li>Who may read: a member of the workspace, as for every dossier. Anyone else gets the not-found page.</li>
+      <li>The step-0 draft dossier of <code>/omni:think-big</code> stays a draft.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

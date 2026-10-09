@@ -349,9 +349,9 @@ describe('POST /api/dossiers/push: a push lands versions', () => {
     expect(w.dossier(draft.id)?.prd).toBe(7);
   });
 
-  it('refuses 413 a body over 2 MiB, and an artifact over 512 KiB, and takes one of exactly 512 KiB', async () => {
+  it('refuses 413 a body over 4 MiB (PRD 1272), and an artifact over 512 KiB, and takes one of exactly 512 KiB', async () => {
     const w = world();
-    expect(MAX_PUSH_BYTES).toBe(2 * 1024 * 1024);
+    expect(MAX_PUSH_BYTES).toBe(4 * 1024 * 1024);
     expect(ARTIFACT_MAX_BYTES).toBe(512 * 1024);
     const raw = JSON.stringify({ ...PUSH, padding: 'x'.repeat(MAX_PUSH_BYTES) });
     expect((await w.push(undefined, { raw })).status).toBe(413);
@@ -544,6 +544,72 @@ describe('a fix is a dossier with a kind (PRD 627)', () => {
     for (const query of ['?repo=acme/widgets&prd=7&kind=epic', '?repo=acme/widgets&prd=7&kind=']) {
       expect((await w.find(query)).status, query).toBe(400);
     }
+  });
+});
+
+describe('a concept is a dossier with a kind (PRD 1272)', () => {
+  const RECORD = '---\nconcept: 1269\ntitle: Products\nkind: platform\nscale: vast\n---\n';
+  const CONCEPT = {
+    repo: 'acme/widgets', prd: 1269, kind: 'concept', title: 'Products',
+    artifacts: [
+      { kind: 'concept-record', content: RECORD }, { kind: 'vision', content: '<p>tour</p>' },
+      { kind: 'board', content: 'board 1' }, { kind: 'board', content: 'board 2' }, { kind: 'debate', content: '# Debate' },
+    ],
+  };
+
+  it('takes its record, its vision tour, a board per round and its debate, linked under /concepts', async () => {
+    const w = world();
+    const { status, body } = await w.push(CONCEPT);
+    expect(status).toBe(200);
+    expect(body).toEqual({
+      id: A_STRING, url: `https://omni.example/concepts/${body.id}`,
+      added: [
+        { kind: 'concept-record', version: 1 }, { kind: 'vision', version: 1 },
+        { kind: 'board', version: 1 }, { kind: 'board', version: 2 }, { kind: 'debate', version: 1 },
+      ],
+      unchanged: [],
+    });
+    expect(w.dossier(body.id)).toMatchObject({ kind: 'concept', prd: 1269, title: 'Products' });
+  });
+
+  it('adds a board round once: the same boards again add nothing, a third is round 3', async () => {
+    const w = world();
+    await w.push(CONCEPT);
+    const again = await w.push({ ...CONCEPT, artifacts: [...CONCEPT.artifacts, { kind: 'board', content: 'board 3' }] });
+    expect(again.body.added).toEqual([{ kind: 'board', version: 3 }]);
+    expect(again.body.unchanged).toEqual(['concept-record', 'vision', 'board', 'board', 'debate']);
+  });
+
+  it('refuses 400 a spec on a concept, a board on a PRD or a fix, a record twice, and a concept naming a draft', async () => {
+    const w = world();
+    const draft = (await w.open({ title: 'A draft', repo: 'acme/widgets' })).body.id;
+    for (const push of [
+      { ...CONCEPT, artifacts: [{ kind: 'spec', content: SPEC }] },
+      { ...PUSH, artifacts: [{ kind: 'board', content: 'board 1' }] },
+      { ...PUSH, kind: 'visual', artifacts: [{ kind: 'vision', content: 'tour' }] },
+      { ...CONCEPT, artifacts: [{ kind: 'concept-record', content: 'a' }, { kind: 'concept-record', content: 'b' }] },
+      { ...CONCEPT, draftId: draft },
+    ]) {
+      const { status, body } = await w.push(push);
+      expect(status, JSON.stringify(push).slice(0, 120)).toBe(400);
+      expect(body.error).toEqual(A_STRING);
+    }
+    expect(w.fake.tables.dossier_versions).toEqual([]);
+  });
+
+  it('takes a push of 4 MiB: a record, a vision tour and six boards of 512 KiB less a little', async () => {
+    const w = world();
+    const page = 'x'.repeat(ARTIFACT_MAX_BYTES - 1024);
+    const artifacts = [{ kind: 'concept-record', content: RECORD }, { kind: 'vision', content: page }, ...Array.from({ length: 6 }, (_, k) => ({ kind: 'board', content: `${k}${page}` }))];
+    expect(JSON.stringify({ ...CONCEPT, artifacts }).length).toBeGreaterThan(2 * 1024 * 1024);
+    expect((await w.push({ ...CONCEPT, artifacts })).status).toBe(200);
+  });
+
+  it('a lookup finds a concept by its issue, linked under /concepts', async () => {
+    const w = world();
+    const pushed = (await w.push(CONCEPT)).body.id;
+    expect((await w.find('?repo=acme/widgets&prd=1269&kind=concept')).body).toEqual({ id: pushed, url: `https://omni.example/concepts/${pushed}` });
+    expect((await w.find('?repo=acme/widgets&prd=1269')).status).toBe(404);
   });
 });
 

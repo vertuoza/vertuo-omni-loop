@@ -140,7 +140,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'next',
     kind: 'command',
     who: 'you',
-    usage: ['omni next [<prd>…] [--json] [--plan]'],
+    usage: ['omni next [<prd>…] [--json] [--plan]', 'omni next --roadmap <n> [--json] [--plan]'],
     label: 'omni next [<n>…]',
     summary: "the loop's next step, for PRD n or across your PRDs",
     detail:
@@ -152,8 +152,21 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'series with the reason, blocked-by held, the rest beside each other) and keeps the plan in ' +
       'this checkout; each later call returns the first step not done, and writes a new plan ' +
       'version with a one-line reason when a slice goes stuck, a slice is added or a PRD ends ' +
-      'early. It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one ' +
-      'document. Needs gh logged in.',
+      "early. --roadmap <n> drives exactly roadmap n's PRDs, someone else's included: a blocked " +
+      "PRD's first step is held until its blockers' feature PRs merged (in a plan repository, the " +
+      'plan PR and every target PR), its why naming the pull request it waits on and its state, while ' +
+      'every other step runs; a person question not answered parks only the PRDs it blocks, and a ' +
+      'blocker closed unmerged parks its dependents. ' +
+      'On the loop plan it also returns a pool: steps, up to limits.parallelSteps (1 to 6, default 3) ' +
+      'steps to launch now, counting those running; running, the steps already running, read from ' +
+      'GitHub (a live claim, or omni:in-progress with a fresh status comment), so a closed terminal ' +
+      'launches nothing twice; and held, each step kept back with the rule and the step it waits on. ' +
+      'A step is offered only when it passes four rules against every step running or offered: ' +
+      'another PRD, no open blocker, no shared path in the same repository (generated paths never ' +
+      "collide; a finish stands on all its PRD's slices) and the plan allows it. With " +
+      'limits.parallelSteps: 1 it is one step per tick, as before. ' +
+      'It writes nothing on GitHub; GitHub out of reach is a wait. --json prints it as one ' +
+      'document: step and verdict as before, then steps, running and held. Needs gh logged in.',
   },
   {
     name: 'loop',
@@ -172,8 +185,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'start opens a loop on this repository with the loop plan omni next --plan keeps, and keeps ' +
       "the loop's id and plan in this checkout, so a loop whose terminal closed resumes with the " +
       'same ones; it refuses a second live loop here, and takes over a silent one, whose session ' +
-      'died, only with --take-over. tick records one step, its result, its links and the next ' +
-      'wake, and carries a new plan version when omni next wrote one; park records a PRD waiting ' +
+      'died, only with --take-over. tick records one step, its result, its links, the repositories ' +
+      "it touches (--repos, else the plan's) and the next wake, and carries a new plan version when " +
+      'omni next wrote one; park records a PRD waiting ' +
       'on a person; stop ends the loop. status prints the loop kept here and what it is doing, and ' +
       'calls nothing. It never holds up the loop: a 5-second limit and one sign-in refresh, and ' +
       'anything that stops it exits 1 with one line (off, no sign-in, unreachable or refused).',
@@ -261,7 +275,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'dossier',
     kind: 'command',
     who: 'you',
-    usage: ['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug]', 'omni dossier link <n> [--kind visual|bug]', 'omni dossier status'],
+    usage: ['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status'],
     label: 'omni dossier …',
     summary: "a PRD's dossier on the Omni page",
     detail:
@@ -270,8 +284,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "PRD n's files and adds a version only where a file changed; link prints PRD n's page, on " +
       'any computer, or none when it has no dossier, and writes nothing; status says whether ' +
       'dossiers are on here. With --kind visual or --kind bug, push and link work on issue n\'s fix ' +
-      'instead: its visual update or bug fix page, filled from its folder. It never holds up the ' +
+      'instead: its visual update or bug fix page, filled from its folder. With --kind concept, they ' +
+      'work on concept n, its issue\'s number: its page under Work › Concepts, filled from its ' +
+      'concept.md, vision tour, boards and debate. It never holds up the ' +
       'skill that runs it: anything that stops it exits 1 with one line.',
+  },
+  {
+    name: 'idea',
+    kind: 'command',
+    who: 'you',
+    usage: ["omni idea add '<title>' --pitch '<pitch>' [--lane now|next|later]", 'omni idea list [--json]'],
+    label: 'omni idea …',
+    summary: "this repository's ideas board on the Omni page",
+    detail:
+      "This repository's ideas board on the Omni page, for a member of its workspace. add puts an " +
+      'idea on the board, in the lane given or in later, and prints the board\'s link: a title of 120 ' +
+      'characters at most, a pitch of 600. list prints the ideas lane by lane, Now, Next then Later, ' +
+      'each with its votes and its PRD when it has one; --json prints the same as JSON. Both use your ' +
+      'sign-in (omni signin). Signed out, the page unreachable or a refusal is one line, and never an ' +
+      'error; a bad lane or a title or pitch too long exits 2.',
   },
   {
     name: 'proof',
@@ -633,6 +664,39 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'landing it is merged after and its slices; --repo keeps one target of a plan repository.',
   },
   {
+    name: 'roadmap',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni roadmap check [<n>]', 'omni roadmap push <n>', 'omni roadmap answer <n> <question> "<answer>"',
+      'omni roadmap prereqs <n> [--fix] [--json]', 'omni roadmap tick <n> <id>',
+    ],
+    summary: 'grade, push, answer or check the prerequisites of the roadmaps of the inbox',
+    detail:
+      "check grades every roadmap under {inbox}roadmaps/, or roadmap n alone: a milestone's PRDs, each " +
+      'with its blockers, the why of each, and its wave. It refuses a table that does not parse, an id ' +
+      'used twice, a blocker that is not a row, a cycle, a wave that does not follow its blockers, a ' +
+      "blocker without its why, a row whose PRD has no folder or whose spec's blocked-by differs, and a " +
+      'question blocking a row that does not exist; in a plan repository also a repo that is not a ' +
+      'target, a read-only one, and a consumer PRD not after the provider PRD it waits on. It prints ' +
+      'the PRDs wave by wave, then every violation; exit 1 on any. omni check inbox runs it too. ' +
+      "push sends roadmap n, its open questions with the latest answer to each, and where each PRD " +
+      'stands (waiting, building, outbox, ready, merged or closed, and the pull request a PRD not ' +
+      "started waits on) to the roadmap's page on the Omni page, with this computer's sign-in. It " +
+      'never holds up the loop: a 5-second limit and one sign-in refresh, and anything that stops it ' +
+      'exits 1 with one line (off, no sign-in, github unreachable, unreachable or refused). answer ' +
+      "posts a person's answer to one question as a comment on the roadmap's issue, with the marker " +
+      "push reads the answers back from; the roadmap's page writes the same line. prereqs runs " +
+      "roadmap n's Prerequisites rows on this machine, each check within 30 seconds (one that times " +
+      'out or crashes is not ok), with --fix the agent rows\' fixes once, and prints one line per row ' +
+      'grouped by category: ok, fixed, ticked, or waits on you with the command of its card (--json ' +
+      "prints the result instead). It keeps the result as this machine's last and pushes it to the " +
+      "roadmap's page with the machine's name and the time; a page it cannot reach is one line and " +
+      'never changes the exit: 0 when every row is ok, fixed or ticked, 1 otherwise. tick posts the ' +
+      "comment that marks a person row done on the roadmap's issue; the page's Mark as done posts the " +
+      'same one.',
+  },
+  {
     name: 'rework',
     kind: 'command',
     who: 'skills',
@@ -745,6 +809,22 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'section it prints no generated files. It runs no build, and exits 0 whatever it finds.',
   },
   {
+    name: 'e2e',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni e2e status <prd>', 'omni e2e heals <prd>'],
+    summary: 'which e2e tests of a PRD have a recording, and which steps healed (beta)',
+    detail:
+      'status lists, as JSON, the tests tagged prd-<n> under the e2e.dir folder of the config, each ' +
+      'with whether a recording of it exists in .e2e/cache, and exits 1 when one has none. A recording ' +
+      'that does not read, or whose schemaVersion is not trace-1, fails the command and names the file. ' +
+      'With e2e.enabled false it says so in one line and exits 1, reading no file. It runs no test, ' +
+      'reaches no network and calls no model. heals pairs the recordings steps, by test id and call ' +
+      'index, at the merge-base of the PRD feature branch and at its head, and lists each as healed ' +
+      '(old and new action, and the summary), new or removed, as JSON; an identical step is not listed. ' +
+      'The same refusals hold for both sides.',
+  },
+  {
     name: 'statusline',
     kind: 'command',
     who: 'skills',
@@ -757,6 +837,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'and in the outbox its wave and slices. It never fetches, never calls GitHub and always exits ' +
       "0. --refresh is the background half: it rebuilds a PRD's board, as omni board does, into a " +
       'file the status line reads.',
+  },
+  {
+    name: 'now',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni now [--json] [--stdin] [--session <id>]'],
+    summary: 'what this Claude session is on now, and the slices being built',
+    detail:
+      'The PRD this session works on, from its branch or else from the last command that named ' +
+      'one, its stage (building while a slice is not merged), and the slices in flight and stuck by ' +
+      'id and name. --json prints the same as one document, for the status line, the omni-hud band ' +
+      "or any other agent. --stdin reads the session's folder and id from Claude Code's status line " +
+      'JSON, --session names the session. It reads only this computer: it never fetches, never calls ' +
+      'GitHub, writes nothing and always exits 0.',
   },
 
   // Skills you type in Claude. Their order is the overview's.
@@ -773,7 +867,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'deepens the ones you keep into clickable prototypes, while a panel (a Visionary, a Craft ' +
       'critic, a Skeptic, a Value critic and real users) argues over each by name; you react at every ' +
       'round and crown one. It opens one concept PR into {defaultBranch} with the vision tour, every ' +
-      'board, the debate and an area map of PRD-sized areas, and ends with one ' +
+      'board, the debate and an area map of PRD-sized areas, sends the concept to its page under ' +
+      'Work › Concepts on the Omni page, and ends with one ' +
       '/omni:brainstorm --concept <n> <area> line per area, the wedge first. A feature-sized idea is ' +
       'offered /omni:brainstorm or a lite run; a tweak gets the /omni:visual-fix line. It writes no ' +
       'code and never merges.',
@@ -796,7 +891,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and ' +
       'merges before any code is written. It writes no code and merges nothing, and ends with the ' +
       '/omni:yolo line that builds it. With --concept <n> <area>, it starts from one area of a ' +
-      "concept in the inbox: the area's brief, the vision and the verdict.",
+      "concept in the inbox: the area's brief, the vision and the verdict. Once it fills the area's " +
+      "PRD cell, it pushes the concept again, so the concept's page links that area to its PRD.",
     group: 'start',
     when: 'Use it when you have an idea for a change and want it designed before any code is written.',
     example: {
@@ -822,6 +918,51 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:mega-brainstorm show invoices in the mobile app',
       result: 'one PRD whose plan says which slice lands in which repository',
+    },
+  },
+  {
+    name: 'roadmap',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:roadmap <source>'],
+    label: '/omni:roadmap',
+    summary: 'a milestone plan, to all its PRDs in one sitting',
+    detail:
+      'Turns a milestone plan (a page, a file or pasted text) into a roadmap: one PRD per item that ' +
+      'delivers something, ordered by blockers that each say why. It shows one map of the PRDs, their ' +
+      'waves and the open questions, and takes every answer in one message. Then it writes every ' +
+      "PRD's issue, spec and before/after up front, with no plan (each is planned when the loop " +
+      'reaches it), the roadmap issue and roadmap.md, checked by omni roadmap check, in one phase-0 PR ' +
+      "a person merges, and pushes the roadmap's page. It ends with the /loop /omni:drive --roadmap <n> " +
+      'line. In a plan repository it prints the /omni:mega-roadmap line and stops. It writes no code ' +
+      'and merges nothing.',
+    group: 'start',
+    when: 'Use it when a milestone needs many PRDs and a plan already says what they are and in which order.',
+    example: {
+      type: '/omni:roadmap plans/crew.md',
+      result: 'one map to answer, then every PRD and the roadmap in one phase-0 PR',
+    },
+  },
+  {
+    name: 'mega-roadmap',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-roadmap <source>'],
+    label: '/omni:mega-roadmap',
+    summary: 'a milestone across repositories, to all its PRDs',
+    detail:
+      'The roadmap of a plan repository: it turns a milestone plan whose items span several target ' +
+      'repositories into a roadmap whose PRDs each name the repositories they land in, read from a ' +
+      'read-only clone of each, in which nothing runs. Its one map, refusing a read-only target and a ' +
+      'consumer before its provider, takes every answer in one message; every spec is written up ' +
+      'front with no plan, all in one phase-0 PR in the plan repository, and it never writes in a ' +
+      'target. It ends with the /loop /omni:mega-drive --roadmap <n> line. Outside a plan repository ' +
+      'it prints the /omni:roadmap line and stops.',
+    group: 'multi-repo',
+    when: 'Use it when a milestone needs PRDs in several repositories and this is their plan repository.',
+    example: {
+      type: '/omni:mega-roadmap https://example.com/crew-plan',
+      result: 'one map to answer, then every PRD across the repositories in one phase-0 PR',
     },
   },
   {
@@ -868,7 +1009,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'mega-pr-care',
     kind: 'skill',
     who: 'you',
-    usage: ['/omni:mega-pr-care <n>'],
+    usage: ['/omni:mega-pr-care <n> [--once]'],
     label: '/omni:mega-pr-care <n>',
     summary: 'look after every PR of a PRD across repositories',
     detail:
@@ -876,7 +1017,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'and every bug-fix PR linked to PRD n, round by round in merge order, until each is merged or ' +
       "closed or you stop it. Each target PR is read against the target's own default branch, " +
       "landings, wave claims and review form; a red that waits on another repository's PR spends " +
-      'no attempt. In a target it runs only its own committed preflight, and it never merges.',
+      'no attempt. In a target it runs only its own committed preflight, and it never merges. ' +
+      '--once runs one round and returns, for /omni:mega-drive.',
     group: 'multi-repo',
     when: "Use it when a multi-repository PRD's pull requests are open and you want CI, conflicts and review comments handled in every repository.",
     example: {
@@ -1109,23 +1251,56 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'drive',
     kind: 'skill',
     who: 'you',
-    usage: ['/loop /omni:drive [<n>…]'],
+    usage: ['/loop /omni:drive [<n>…]', '/loop /omni:drive --roadmap <n>'],
     label: '/omni:drive [<n>…]',
-    summary: 'drive your PRDs, one step per tick',
+    summary: 'drive your PRDs, several steps at once',
     detail:
       'Run under /loop, it drives your own PRDs in inbox, building or outbox, or the ones you name. ' +
       'Its first tick orders every slice of them into a loop plan (omni next --plan), colliding ' +
       'territories in series with the reason, and opens the loop on the Loop page. Each tick then ' +
       'takes the first step not done and runs that one skill (/omni:wave, /omni:yolo, /omni:yolo-fix ' +
       "or /omni:pr-care --once) or waits, parks a PRD waiting on a person on its feature PR's status " +
-      'comment, records the tick on the Loop page and picks when to look again. Once every PRD is ' +
+      'comment, records the tick on the Loop page and picks when to look again. It fills a pool: ' +
+      'each step omni next offers runs as its own background agent in its own worktree, up to ' +
+      'limits.parallelSteps (default 3) at once, and a step that would collide is held with why; ' +
+      'limits.parallelSteps: 1 runs one step per tick. Once nothing runs and every PRD is ' +
       'parked or done it stops itself and lists what waits on whom. A closed terminal resumes the ' +
-      'same loop. It never answers the outbox and never merges into {defaultBranch}.',
+      "same loop. --roadmap <n> drives exactly roadmap n's PRDs, someone else's included, holding a " +
+      "blocked PRD until its blockers' feature PRs merged, naming the pull request it waits on, and " +
+      "sends the roadmap's page where each PRD stands after every tick. In a plan repository it " +
+      'prints the /omni:mega-drive line and stops. It never answers the outbox and never merges ' +
+      'into {defaultBranch}.',
     group: 'build',
     when: 'Use it when PRDs are merged into the inbox and you want them built, finished and cared for without typing each next command.',
     example: {
       type: '/omni:drive',
       result: 'one tick: the loop plan, then its first step; under /loop, every tick until your PRDs wait on you',
+    },
+  },
+  {
+    name: 'mega-drive',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/loop /omni:mega-drive [<n>…]', '/loop /omni:mega-drive --roadmap <n>'],
+    label: '/omni:mega-drive',
+    summary: 'drive PRDs across repositories, steps side by side',
+    detail:
+      'The /omni:drive of a plan repository: run under /loop, it drives your own multi-repository ' +
+      'PRDs, the ones you name, or with --roadmap <n> exactly roadmap n\'s. Its loop plan puts two ' +
+      'steps in series only when they touch the same path in the same repository. Its steps run ' +
+      'as a pool of background agents, up to limits.parallelSteps at once, each PRD with its own ' +
+      'target clones at <worktrees>/targets/<name>@<prd>, so no two steps share a HEAD. Each step runs ' +
+      'one skill (/omni:ultra-wave, /omni:ultra-yolo, which plans a PRD with no plan, ' +
+      '/omni:ultra-yolo-fix or /omni:mega-pr-care --once) or waits, parks a PRD waiting on a ' +
+      "person on its plan PR's status comment naming each open PR by repository, records the " +
+      'repositories the tick touched on the Loop page, and under --roadmap sends the roadmap\'s ' +
+      'page. Outside a plan repository it prints the /omni:drive line and stops. It never answers ' +
+      'the outbox and never merges into any default branch.',
+    group: 'multi-repo',
+    when: 'Use it when multi-repository PRDs are merged into the inbox of a plan repository and you want them built in every target without typing each next command.',
+    example: {
+      type: '/omni:mega-drive',
+      result: 'one tick across the repositories; under /loop, every tick until your PRDs wait on you',
     },
   },
   {
@@ -1244,6 +1419,27 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       result: 'a comment on the feature PR with a ✓, ✗ or — line per criterion, and the Proof tab full of clips',
     },
   },
+  {
+    name: 'validate-e2e',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:validate-e2e <n>'],
+    label: '/omni:validate-e2e <n>',
+    summary: 'beta: keep a PRD criteria as e2e tests',
+    detail:
+      "Writes one e2e test per filmable acceptance criterion of PRD n, tagged prd-n, from the spec " +
+      'alone; records each once, replays it with --strict-cache, and checks the recordings with ' +
+      'omni e2e status and omni e2e heals. It opens a sub-PR into the feature branch holding the ' +
+      'tests, their committed recordings and a criterion, test and verdict table. It stops with one ' +
+      'line when e2e.enabled is false, e2e.url is null or Node is older than 24.8, and merges ' +
+      'nothing.',
+    group: 'everyday',
+    when: 'Use it when a PRD\'s feature PR is ready and its criteria should keep being checked after it merges.',
+    example: {
+      type: '/omni:validate-e2e 1233',
+      result: 'a sub-PR with the e2e tests, their recordings and a verdict per criterion',
+    },
+  },
 
   {
     name: 'pitch',
@@ -1291,13 +1487,14 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'dossier-push',
     kind: 'skill',
     who: 'skills',
-    usage: ['/omni:dossier-push <n> [--kind visual|bug]'],
+    usage: ['/omni:dossier-push <n> [--kind visual|bug|concept]'],
     summary: "send a PRD's files to its dossier",
     detail:
       "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a " +
       'version only where a file changed. /omni:brainstorm runs it after each of its pushes, and ' +
       '/omni:plan after it pushes the plan; /omni:visual-fix and /omni:bug-fix run it with --kind ' +
-      'visual or --kind bug for their fix\'s page. It never stops the skill that runs it.',
+      'visual or --kind bug for their fix\'s page, and a concept\'s record runs it with --kind concept ' +
+      'for the concept\'s page under Work › Concepts. It never stops the skill that runs it.',
     group: 'run-by-skills',
     when: "Use it when a PRD's spec, plan or before/after page changed and its dossier should show it.",
     example: {

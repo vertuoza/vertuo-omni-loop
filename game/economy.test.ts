@@ -186,6 +186,12 @@ describe('score', () => {
       expect(score([charted, answered('r3', '2026-08-31T21:00:00Z')], { season: '2026-08', now: NOW }).individuals).toEqual({ alice: 2 });
     });
 
+    it('pays an answer no PRD claims (planet 0) and adds no planet to the season', () => {
+      const s = score([charted, E('ask:r1:answered', '2026-09-21T12:00:00Z', 'QUESTION_ANSWERED', { planet: 0, contributor: 'alice', team: 'octopod' })], { season: '2026-09', now: NOW });
+      expect(s.individuals).toEqual({ alice: 2 });
+      expect(Object.keys(s.planets)).toEqual(['2332']);
+    });
+
     it('changes no threat, decay, terraform or streak number', () => {
       const delivery = [
         charted,
@@ -203,6 +209,20 @@ describe('score', () => {
       expect(after.planets[2332]).toMatchObject({ terraformed: true, lost: false });
       // An answerer is no expedition and no closer: the terraform pays the same crew.
       expect(after.credits.filter((c) => c.reason === 'question answered').map((c) => [c.to, c.points])).toEqual([['eve', 2], ['pm', 2]]);
+    });
+  });
+
+  describe('a merged feature PR', () => {
+    it('pays its merger 30 and each approver 10, in the season of the merge, outside the crew', () => {
+      const terraformed = E('planet:2332:terraformed', '2026-09-25T21:00:00Z', 'PLANET_TERRAFORMED', { data: { ownerTeam: 'beaver', class: 1 } });
+      const merged = E('merge:r#500:2332:merged', '2026-09-25T21:00:00Z', 'FEATURE_MERGED', { contributor: 'pm', team: 'beaver' });
+      const approved = E('merge:r#500:2332:approved:eve', '2026-09-25T21:00:00Z', 'FEATURE_REVIEWED', { contributor: 'eve', team: 'cia' });
+      const before = score([charted, terraformed], { season: '2026-09', now: NOW });
+      const s = score([charted, terraformed, merged, approved], { season: '2026-09', now: NOW });
+      expect(s.individuals).toEqual({ pm: 30, eve: 10 }); // 23:00 in Brussels: no night shift
+      expect(s.credits.filter((c) => c.reason.startsWith('feature ')).map((c) => [c.to, c.reason])).toEqual([['eve', 'feature reviewed'], ['pm', 'feature merged']]);
+      expect(s.streaks).toEqual(before.streaks);
+      expect(score([charted, merged, approved], { season: '2026-10', now: NOW }).individuals).toEqual({});
     });
   });
 

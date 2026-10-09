@@ -6,6 +6,9 @@ import { afterSignIn, appLanding, joinBeforeIssue, settleSignIn } from '../../..
 import { signInDeps } from '../../../src/data/sign-in-live';
 import { supabaseAs, supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
 import { landingAfterSignIn } from '../../../src/data/workspace';
+import { voterReturn } from '../../../src/ideas/vote/callback';
+import { addVote } from '../../../src/ideas/vote/store';
+import { VOTER_NEXT } from '../../../src/ideas/vote/vote';
 
 // Where GitHub sends the player back (PRD 359). The code becomes a session cookie, and every
 // sign-in joins the workspaces of the person's GitHub orgs, then runs link_github(), which copies
@@ -20,6 +23,9 @@ import { landingAfterSignIn } from '../../../src/data/workspace';
 // terminal, not a cookie, which joins and links as well before its one-time code is issued, and the
 // browser goes on to the terminal's loopback address with that code, or back to /ask/signin with the
 // reason (src/ask/cli-code.ts).
+// With `?next=ideas` it is a voter on a public ideas board (PRD 1246): their sign-in asked no
+// `read:org`, the vote they pressed is counted as them, and they land back on that board, allowlisted,
+// never on /signup and joining nothing (src/ideas/vote/callback.ts).
 // The arcade's own address, as the browser sees it (behind Vercel's proxy too): the session cookie
 // is bound to that host, so the player must come back to exactly it.
 function origin(request: NextRequest) {
@@ -36,6 +42,15 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(await cliSignInReturn(request.nextUrl, origin(request), joining));
     for (const { name, value, options } of spent) response.cookies.set(name, value, options);
     return response;
+  }
+  if (params.get('next') === VOTER_NEXT) {
+    const ports = supabaseEnv()
+      ? await supabaseServer().then((db) => ({
+          exchange: async (code: string) => ({ error: (await db.auth.exchangeCodeForSession(code)).error?.message ?? null }),
+          vote: (ideaId: string) => addVote(db, ideaId),
+        }))
+      : null;
+    return NextResponse.redirect(new URL(await voterReturn(params, ports), origin(request)));
   }
   const home = new URL('/play', origin(request));
   const back = (key: string, value: string) => { home.searchParams.set(key, value); return NextResponse.redirect(home); };

@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import {
   ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierPulse, dossierReader, dossierRounds, dossierStore, DossierStoreError, KIND_ARTIFACTS, LIST_FIELDS,
-  ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS, WORK_KINDS,
+  PUSH_KINDS, PUSHED_ARTIFACT_KINDS, ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS, WORK_KINDS,
 } from './store';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
@@ -18,6 +18,8 @@ const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migra
 const FIX_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261011090000_fix_dossiers.sql', import.meta.url)), 'utf8');
 // PRD 822: the voice artifact, on a PRD's dossier only.
 const VOICE_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261024090000_customer_voice.sql', import.meta.url)), 'utf8');
+// PRD 1272: the concept kind and its four version kinds.
+const CONCEPT_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261119090000_concept_dossiers.sql', import.meta.url)), 'utf8');
 
 /** The parameter names `create function public.<name>(…)` declares, in order. */
 function parameters(name: string, migration = MIGRATION): string[] {
@@ -95,6 +97,16 @@ describe('the dossier store', () => {
       expect(VOICE_MIGRATION).toContain(takes.length === 1 ? `when '${kind}' then p_version_kind = '${takes[0]}'` : `when '${kind}' then p_version_kind in (${takes.map((k) => `'${k}'`).join(', ')})`);
     }
     expect(FIX_MIGRATION).toContain(`kind in (${WORK_KINDS.map((k) => `'${k}'`).join(', ')})`);
+  });
+
+  it('checks the concept kind and its versions the concept migration adds (PRD 1272)', () => {
+    const quoted = (kinds: readonly string[]) => kinds.map((k) => `'${k}'`).join(', ');
+    expect(CONCEPT_MIGRATION).toContain(`kind in (${quoted(PUSH_KINDS)})`);
+    expect(CONCEPT_MIGRATION).toContain(`kind in (${quoted(PUSHED_ARTIFACT_KINDS)})`);
+    for (const kind of PUSH_KINDS) {
+      const takes = KIND_ARTIFACTS[kind];
+      expect(CONCEPT_MIGRATION).toContain(takes.length === 1 ? `when '${kind}' then p_version_kind = '${takes[0]}'` : `when '${kind}' then p_version_kind in (${quoted(takes)})`);
+    }
   });
 });
 

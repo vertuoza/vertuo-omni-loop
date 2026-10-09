@@ -71,6 +71,45 @@ It redraws only what changed, never rewrites what a person wrote, proposes to dr
 target that now has its own knowledge base, and opens one pull request, or none when there is
 nothing to do.
 
+### Read-only and consumer targets
+
+The targets are listed under `plan.targets` in `.omni-loop/config.yml`. Two optional keys on a
+target say what may change in it, and in what order:
+
+```yaml file=.omni-loop/config.yml
+plan:
+  targets:
+    - repo: vertuoza/vertuo-backend-php
+      role: back-end
+      knowledge: imported
+      readAt: 3f9c2a7e1b0d4c8a9e6f5d2b1a0c9e8d7f6a5b4c
+    - repo: vertuoza/vertuo-apps
+      role: front-end
+      knowledge: own
+      consumes: [vertuo-backend-php]
+    - repo: vertuoza/vertuo-legacy
+      role: legacy
+      knowledge: none
+      readOnly: true
+```
+
+- **`readOnly: true`**: the loop still reads the target, surveys it and can import its knowledge, but
+  nothing may land in it.
+- **`consumes`**: the short names of the other targets whose packages this one installs, from their
+  default branch. A change in such a provider reaches the consumer only once it has merged there, so
+  it cannot be built in the same PRD as the code that uses it: it must be an earlier PRD. Only the
+  targets the list names count; a chain through a third target is not followed.
+
+Two checks hold them:
+
+- **`omni plan check`** refuses a plan with a slice in a `readOnly` target, and a slice in a consumer
+  target blocked by a slice in a target it consumes. Move the provider's change into an earlier PRD,
+  and block this one on it.
+- **`omni roadmap check`** applies them to a roadmap's rows: no row may name a `readOnly` target, and
+  a PRD in a consumer target sits in a later wave than every PRD it waits on, directly or through
+  others, that changes a target it consumes. The rule follows the blockers: two PRDs that do not wait
+  on each other may share a wave. [What the check refuses](/docs/roadmaps#what-the-check-refuses).
+
 ## Plan across them
 
 Once the targets are set, plan a feature across them. In the plan repository, type:
@@ -124,9 +163,29 @@ with your PRD's number. It is `/omni:yolo` for several repositories:
 
 It never merges into any repository's default branch. You do.
 
+A PRD whose spec was merged without a plan, as a roadmap leaves them, is planned first: the plan says
+which slice lands in which target, and `omni plan check` grades it before the first wave.
+
+## Drive it
+
+To leave several multi-repository PRDs building without typing each next command, drive them from
+the plan repository:
+
+```text agent
+/loop /omni:mega-drive
+```
+
+It is [driving the loop](/docs/drive) for a plan repository: one step per tick, each running
+`/omni:ultra-wave`, `/omni:ultra-yolo`, `/omni:ultra-yolo-fix` or `/omni:mega-pr-care --once`. A step
+in one repository never waits for a step in another unless they touch the same path in the same
+repository. When a PRD waits on you, the loop says so on the plan pull request, naming each pull
+request still open by repository, and stops itself once nothing moves without you. With
+`--roadmap <n>` it drives a roadmap's PRDs, each held until its blockers' plan and target pull
+requests all merged. `/loop /omni:drive` in a plan repository prints this line instead.
+
 ## Which skill runs which
 
-![Which skill runs which across repositories: you type /omni:mega-invade, /omni:mega-brainstorm, /omni:ultra-yolo and /omni:ultra-yolo-fix, /omni:mega-pr-care and /omni:mega-bug-fix; ultra-yolo runs /omni:ultra-wave, which runs /omni:do-work in each target; /omni:do-work and /omni:pr are shared with the single-repository loop](diagrams/skills-repositories.svg)
+![Which skill runs which across repositories: you type /omni:mega-invade, /omni:mega-brainstorm, /omni:ultra-yolo and /omni:ultra-yolo-fix, /omni:mega-pr-care and /omni:mega-bug-fix, and for a milestone /omni:mega-roadmap then /loop /omni:mega-drive --roadmap; ultra-yolo runs /omni:ultra-wave, which runs /omni:do-work in each target; /omni:do-work and /omni:pr are shared with the single-repository loop](diagrams/skills-repositories.svg)
 
 | Skill | Type it when | It ends with |
 |---|---|---|
@@ -136,6 +195,8 @@ It never merges into any repository's default branch. You do.
 | `/omni:ultra-yolo-fix <n>` | you answered the questions on the plan pull request | each rework built in its own target, and the plan pull request ready |
 | `/omni:ultra-wave <n>` | you want one wave at a time; `/omni:ultra-yolo` runs it for you | the wave's slices merged into their targets' feature branches |
 | `/omni:mega-pr-care <n>` | the pull requests are open, after `/omni:ultra-yolo` or alongside it; leave it running | every pull request of the PRD, the plan's, each target's and each linked bug fix's, kept conflict-free, green and review-handled round by round, until each is merged or closed; it never merges |
+| `/omni:mega-roadmap <source>` | a milestone takes several multi-repository PRDs, and you have its plan | every PRD's issue and spec, each saying where it lands, `roadmap.md`, and one phase-0 pull request; its last line is the `/loop /omni:mega-drive --roadmap` line |
+| `/loop /omni:mega-drive` | several PRDs are merged into the inbox, or a roadmap with `--roadmap <n>`, and you want them built without typing each next command | each PRD ready, or parked on its plan pull request with what it waits on; the loop stops itself |
 | `/omni:mega-bug-fix` | a bug shows in one target and its cause may sit in another; `--prd <n>` links it to a PRD | one bug issue with a fix plan, one fix pull request per target in merge order, provider first, and a record pull request that closes the issue, merged last |
 
 `/omni:do-work` and `/omni:pr` are the same skills the single-repository loop runs: `--target`
@@ -156,4 +217,4 @@ It reads your answers on the plan pull request and reworks each decision you cha
 repository it was taken in**: a sub-pull request into that target's feature branch. Then it runs the
 same gate again, and marks the plan pull request ready once no question is left.
 
-[Next → Landings](/docs/landings)
+[Next → Roadmaps](/docs/roadmaps)

@@ -575,6 +575,33 @@ Source: .omni-loop/delivery/shipped/1118-mega-care-bug-fix/outbox/settled.md, en
 Merged: @pierrederval, 2026-10-06, PR #1119
 Proposed: harvest 2026-10-06
 
+## P-PRODUCT-65
+
+Waiting on a person holds back only the PRD that waits, never the rest of the loop, and a loop that has ended is final.
+
+Why: One open question should not stall unrelated work, and a fresh run with its own ledger keeps each loop's history clear.
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s2-02-loop-park-and-stop, PRD #1139
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-66
+
+Every member page treats a signed-out visitor the same way: it asks them to sign in, and shows demo content only in the app's demo mode.
+
+Why: A visitor should never get a different experience depending on which member page they reached first.
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s5-02-loop-page-signed-out, PRD #1139
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
+## P-PRODUCT-67
+
+Watching a repository's loops on the Omni page never depends on also sharing its PRD documents; each kind of sending stands on its own.
+
+Why: A team can follow its loops without being made to send documents it chose to keep back.
+Source: .omni-loop/delivery/shipped/1139-loop-drive/outbox/settled.md, entry s4-01-loop-push-off-switch, PRD #1139
+Merged: @pierrederval, 2026-10-07, PR #1142
+Proposed: harvest 2026-10-07
+
 ## P-PRODUCT-68
 
 In the game, every personal credit counts the same way: it scores for the person and for their fleet, and it is withdrawn when the PRD it came from is lost.

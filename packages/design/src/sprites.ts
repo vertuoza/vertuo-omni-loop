@@ -629,6 +629,18 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
     for (const [x, y] of COGS) d.rect(x, y, 2, 2, 'L');
     d.ellipse(8, 8, 2.2, 2.2, f ? 'C' : 'O');
   } },
+  // The Roadmaps entry (PRD 1162): a star chart, three waypoints joined by a route, the last one blinking.
+  'menu-roadmaps': { w: 16, h: 16, draw(d, f) { // a route across three stars, the goal flag at its end
+    d.rect(1, 1, 14, 14, 'N').line(3, 12, 7, 7, 'C').line(7, 7, 11, 9, 'C').line(11, 9, 13, 4, 'C');
+    d.rect(2, 11, 2, 2, 'Y').rect(6, 6, 2, 2, 'Y').rect(10, 8, 2, 2, 'Y');
+    d.rect(13, 1, 1, 4, 'L').rect(14, 1, 1, 2, f ? 'O' : 'R');
+  } },
+  // The Concepts entry (PRD 1272): a vast idea, a bulb lit over its base, its rays blinking.
+  'menu-concepts': { w: 16, h: 16, draw(d, f) { // a light bulb, its filament glowing
+    d.ellipse(8, 6, 4.5, 4.5, 'Y').rect(6, 10, 4, 2, 'Y').rect(6, 12, 4, 2, 'L').rect(7, 14, 2, 1, 'L');
+    d.rect(7, 5, 2, 4, f ? 'O' : 'R').px(6, 4, 'W');
+    d.pxs(f ? [[1, 6], [14, 6], [8, 0]] : [[2, 2], [13, 2]], 'C');
+  } },
   'menu-prds': { w: 16, h: 16, draw(d, f) { // a rocket, flame flickering
     d.poly([[8, 0], [11, 4], [11, 11], [5, 11], [5, 4]], 'W').poly([[8, 0], [11, 4], [5, 4]], 'R');
     d.poly([[5, 8], [2, 12], [5, 11]], 'R').poly([[11, 8], [14, 12], [11, 11]], 'R');

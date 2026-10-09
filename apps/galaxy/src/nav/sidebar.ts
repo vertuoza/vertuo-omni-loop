@@ -2,7 +2,9 @@
 // /knowledge). Since PRD 733 it has two groups, then the foot: Dashboard (the boards: Home, your
 // fleet's, since PRD 1139 the workspace's loops beside it, at /app/loop, the workspace's, and since PRD 612
 // Engineering's, at /app/engineering), Work (the workspace's
-// work: PRDs, then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), and at
+// work: since PRD 1162 Roadmaps, the milestones its PRDs deliver, since PRD 1246 Ideas, the workspace's
+// ideas board (its public page, /ideas/<owner>/<repo>, read from the viewer; Settings › Repositories while
+// the workspace lists none), since PRD 1272 Concepts, the vast ideas /omni:think-big recorded, then PRDs, then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), and at
 // the foot one Settings entry, at /app/settings, which lands on Fleets (SETTINGS_LANDING), then Omni's
 // own pages, Docs and Release notes, which leave the app for the public ones. Since issue 653 each
 // Dashboard and Work section names its sprite, and since PRD 733 Settings too. A new section is one
@@ -14,9 +16,10 @@
 // never count. An entry that counts what waits for the person (PRD 499) carries its count as a badge,
 // none at 0.
 import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
 
-export type SidebarId = 'home' | 'fleet' | 'loop' | 'workspace' | 'engineering' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
+export type SidebarId = 'home' | 'fleet' | 'loop' | 'workspace' | 'engineering' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
 
 /** A page under an entry, shown as a tab on its pages, never as a menu line (PRD 733). */
 export interface SidebarPage {
@@ -45,6 +48,12 @@ export interface SidebarGroup {
   items: readonly SidebarItem[];
 }
 
+/** Where every ideas board lives (PRD 1246): /ideas/<owner>/<repo>. */
+const IDEAS_PATH = '/ideas';
+
+/** Where a workspace with no repository makes its first board: Settings › Repositories. */
+const REPOSITORIES_PATH = '/app/settings/repositories';
+
 /** The sidebar's two groups, in order. */
 export const SIDEBAR: readonly SidebarGroup[] = [
   {
@@ -62,6 +71,9 @@ export const SIDEBAR: readonly SidebarGroup[] = [
     id: 'work',
     label: 'Work',
     items: [
+      { id: 'roadmaps', label: 'Roadmaps', path: '/roadmaps', sprite: 'menu-roadmaps' },
+      { id: 'ideas', label: 'Ideas', path: IDEAS_PATH, sprite: 'tile-block' },
+      { id: 'concepts', label: 'Concepts', path: '/concepts', sprite: 'menu-concepts' },
       { id: 'prds', label: 'PRDs', path: '/prd', sprite: 'menu-prds' },
       { id: 'bugs', label: 'Bug Fixes', path: '/bugs', sprite: 'menu-bugs' },
       { id: 'visual', label: 'Visual Updates', path: '/visual', sprite: 'menu-visual' },
@@ -91,12 +103,19 @@ export const SETTINGS: SidebarItem = {
   sprite: 'menu-settings',
   pages: [
     { label: 'Fleets', path: SETTINGS_LANDING },
-    { label: 'Repositories', path: '/app/settings/repositories' },
+    { label: 'Repositories', path: REPOSITORIES_PATH },
     { label: 'Business', path: '/app/settings/business' },
     { label: 'Products', path: '/app/settings/products' },
     { label: 'Jev', path: '/app/settings/jev' },
   ],
 };
+
+/** Where an entry's link goes: its path, but for Ideas (PRD 1246) the board of the workspace's
+ * repository the viewer read, or Settings › Repositories when it lists none. */
+export function hrefOf(item: SidebarItem, ideasBoard: string | null): string {
+  if (item.id !== 'ideas') return item.path;
+  return ideasBoard ? boardPath(ideasBoard) : REPOSITORIES_PATH;
+}
 
 /** Omni's own pages, in the foot's unlabelled row: they leave the app. */
 export const OMNI: readonly SidebarItem[] = [

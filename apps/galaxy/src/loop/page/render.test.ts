@@ -61,7 +61,7 @@ describe('one loop opened', () => {
   it('draws the latest plan as one timeline row per PRD, each linking to its page, the collision marked with its reason', () => {
     const latest = html.slice(html.indexOf('data-version="2"'), html.indexOf('data-version="1"'));
     expect(latest.match(/class="loop-row"/g)).toHaveLength(3);
-    for (const prd of [971, 1030, 1017]) expect(latest).toContain(`href="/prd/${prd}"`);
+    for (const prd of [971, 1030, 1017]) expect(latest).toContain(`href="/prd/at/acme/widgets/${prd}?to=page"`);
     expect(latest).toMatch(/class="loop-step is-collision"[^>]*title="1017 s2 after 1030 s3: both touch apps\/galaxy\/src\/nav\/"/);
     expect(text(latest)).toContain('Step 4: 1017 s2 after 1030 s3: both touch apps/galaxy/src/nav/');
     expect(latest).toContain('loop-step is-current');
@@ -81,7 +81,16 @@ describe('one loop opened', () => {
     expect(ledger.indexOf('step 3/6 · wait')).toBeLessThan(ledger.indexOf('replanned v2'));
     expect(ledger.indexOf('replanned v2')).toBeLessThan(ledger.indexOf('step 2/6 · wave'));
     expect(ledger).toContain('step 2/6 · wave · PRD 1030 → 3 sub-PRs merged, 2 outbox items');
-    expect(html).toMatch(/<li class="loop-line"><time>13:25 UTC<\/time> step 2\/6 · wave · <a href="\/prd\/1030">PRD 1030<\/a>/);
+    expect(html).toMatch(/<li class="loop-line"><time>13:25 UTC<\/time> step 2\/6 · wave · <a href="\/prd\/at\/acme\/widgets\/1030\?to=page">PRD 1030<\/a>/);
+  });
+
+  it('names the repositories a tick\'s step touched on its ledger line, in a plan repository (PRD 1162)', () => {
+    const view = opened();
+    if (view.kind !== 'loop') throw new Error('the demo loop');
+    const ledger = view.loop.ledger.map((line) => (line.kind === 'tick' && line.step === 2 ? { ...line, repos: ['crew', 'ai-domain'] } : line));
+    const shown = text(render({ ...view, loop: { ...view.loop, ledger } }));
+    expect(shown).toContain('step 2/6 · wave · PRD 1030 · in crew, ai-domain → 3 sub-PRs merged');
+    expect(shown).toContain('step 3/6 · wait · PRD 1030 → CI running');
   });
 
   it('says it has no parked PRD when none waits', () => {
@@ -95,7 +104,7 @@ describe('a parked loop opened', () => {
 
   it('lists each parked PRD with who it waits on, on what, and where to act', () => {
     expect(t).toContain('PRD 1101 waits on the PM for answers to 2 outbox questions');
-    expect(html).toContain('href="/prd/1101"');
+    expect(html).toContain('href="/prd/at/acme/mobile/1101?to=page"');
     expect(html).toContain('href="https://github.com/acme/mobile/pull/1102"');
   });
 

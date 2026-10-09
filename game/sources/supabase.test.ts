@@ -300,7 +300,7 @@ describe('the answered rounds (PRD 1180)', () => {
   });
 
   it('throws on a row it cannot read, and on a workspace it cannot find, before calling the function', async () => {
-    await expect(loadAnsweredRounds(withRpc(tables(), { rows: [row({ prd: null })] }).rest, VERTUOZA)).rejects.toThrow(/prd/);
+    await expect(loadAnsweredRounds(withRpc(tables(), { rows: [row({ login: null })] }).rest, VERTUOZA)).rejects.toThrow(/login/);
     const ghost = withRpc({ workspaces: [] });
     await expect(loadAnsweredRounds(ghost.rest, VERTUOZA)).rejects.toThrow(/no workspace/);
     expect(ghost.rpcCalls).toEqual([]);

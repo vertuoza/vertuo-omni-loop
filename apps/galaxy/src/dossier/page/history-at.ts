@@ -35,11 +35,22 @@ export function readAt({ owner, repo, n }: { owner: string; repo: string; n: str
 
 export const atPath = (key: AtKey) => `/prd/at/${encodeURIComponent(key.owner)}/${encodeURIComponent(key.repo)}/${key.prd}`;
 
+/** A PRD's own page, by its repository's slug (`owner/name`) and its number: the short address, asked to
+ * land on the dossier rather than its Outbox tab. What a roadmap's Gantt and a loop link a PRD to, since
+ * they know its number but not its dossier's id, the only thing /prd/<id> opens (#1199). */
+export const prdPagePath = (slug: string, prd: PrdNumber) => {
+  const [owner = '', repo = ''] = slug.split('/');
+  return `${atPath({ owner, repo, prd })}?to=page`;
+};
+
 /** Where GitHub sends the person back after signing in on the short address. */
 export const atCallbackPath = (key: AtKey) => `${atPath(key)}/callback`;
 
 /** The dossier's Outbox tab. */
 export const outboxTabPath = (id: string) => `${dossierPath(id)}?tab=outbox`;
+
+/** Where the short address lands on dossier `id`: its page when it asks `?to=page`, else its Outbox tab. */
+export const atLanding = (id: string, to: string | null) => (to === 'page' ? dossierPath(id) : outboxTabPath(id));
 
 /** The id of the dossier the key names among `rows` (the viewer's), or null: its home repository (in lower
  * case, as dossier_list() gives it) and its PRD. */

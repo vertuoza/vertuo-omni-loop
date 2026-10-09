@@ -1,5 +1,6 @@
 // PRD #324, slice s5: the per-session record — the PRD a Claude session last worked on, written in
 // the repository's main checkout by the commands that name one, read back by the status line.
+// PRD #1208, slice s2: the record widened to `{ kind, number, at }`, PRD 324's shape still read as a PRD.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -7,7 +8,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { ExecText } from '../context.ts';
 import { makeRepo } from '../../test/fixture.ts';
-import { readRecord, recordedPrd, recordSession, SESSIONS_DIR, writeRecord } from './sessions.ts';
+import { readRecord, recordedPrd, recordedWork, recordSession, SESSIONS_DIR, writeRecord } from './sessions.ts';
 import { dig } from '../../bin/dig.ts';
 
 const NOW = Date.parse('2026-09-28T12:00:00Z');
@@ -24,12 +25,29 @@ function plant(root: string, id: string, at: number, prd = 3) {
 }
 
 describe('writeRecord and readRecord', () => {
-  it('writes `{ prd, at }` under the local folder, and reads it back', () => {
+  it('writes `{ kind, number, at }` under the local folder, and reads it back', () => {
     const root = tempRoot();
     expect(writeRecord(root, 'abc', 7, NOW)).toBe(true);
     expect(SESSIONS_DIR).toBe(join('.omni-loop', 'local', 'sessions'));
-    expect(readJson(recordFile(root, 'abc'))).toEqual({ prd: 7, at: '2026-09-28T12:00:00.000Z' });
-    expect(readRecord(root, 'abc')).toEqual({ prd: 7, at: '2026-09-28T12:00:00.000Z' });
+    expect(readJson(recordFile(root, 'abc'))).toEqual({ kind: 'prd', number: 7, at: '2026-09-28T12:00:00.000Z' });
+    expect(readRecord(root, 'abc')).toEqual({ kind: 'prd', number: 7, at: '2026-09-28T12:00:00.000Z' });
+    for (const kind of ['bug', 'visual', 'roadmap'] as const) {
+      expect(writeRecord(root, kind, 1180, NOW, kind)).toBe(true);
+      expect(readJson(recordFile(root, kind))).toEqual({ kind, number: 1180, at: '2026-09-28T12:00:00.000Z' });
+      expect(readRecord(root, kind)).toEqual({ kind, number: 1180, at: '2026-09-28T12:00:00.000Z' });
+    }
+  });
+
+  it("reads a record of PRD 324's shape as kind prd", () => {
+    const root = tempRoot();
+    plant(root, 'old-shape', NOW, 7);
+    expect(readRecord(root, 'old-shape')).toEqual({ kind: 'prd', number: 7, at: '2026-09-28T12:00:00.000Z' });
+  });
+
+  it('writes nothing for a kind it does not know', () => {
+    const root = tempRoot();
+    for (const kind of ['loop', 'draft', '', null, 7]) expect(writeRecord(root, 'abc', 7, NOW, kind)).toBe(false);
+    expect(existsSync(join(root, '.omni-loop'))).toBe(false);
   });
 
   it('keeps the local folder out of every commit with its own `.gitignore`, written once', () => {
@@ -45,7 +63,9 @@ describe('writeRecord and readRecord', () => {
     const root = tempRoot();
     writeRecord(root, 'abc', 7, NOW);
     writeRecord(root, 'abc', 9, NOW + 1000);
-    expect(readRecord(root, 'abc')).toEqual({ prd: 9, at: '2026-09-28T12:00:01.000Z' });
+    expect(readRecord(root, 'abc')).toEqual({ kind: 'prd', number: 9, at: '2026-09-28T12:00:01.000Z' });
+    writeRecord(root, 'abc', 1180, NOW + 2000, 'bug');
+    expect(readRecord(root, 'abc')).toEqual({ kind: 'bug', number: 1180, at: '2026-09-28T12:00:02.000Z' });
   });
 
   it('writes and reads nothing for an id that is not a safe file name', () => {
@@ -67,7 +87,7 @@ describe('writeRecord and readRecord', () => {
     const root = tempRoot();
     expect(readRecord(root, 'abc')).toBeNull();
     mkdirSync(join(root, SESSIONS_DIR), { recursive: true });
-    for (const text of ['{"prd": 7', '[7]', '{"prd": "7", "at": "2026-09-28T12:00:00.000Z"}', '{"prd": 0}', '{"prd": 2.5}', 'null']) {
+    for (const text of ['{"prd": 7', '[7]', '{"prd": "7", "at": "2026-09-28T12:00:00.000Z"}', '{"prd": 0}', '{"prd": 2.5}', 'null', '{"kind": "bug"}', '{"kind": "loop", "number": 7}', '{"kind": "bug", "number": 0}']) {
       writeFileSync(recordFile(root, 'abc'), text);
       expect(readRecord(root, 'abc')).toBeNull();
     }
@@ -109,11 +129,13 @@ describe('recordSession and recordedPrd: the main checkout', () => {
 
   it('writes in the main checkout, from the checkout itself and from any of its worktrees', () => {
     const { root, worktree } = withWorktree();
-    expect(recordSession({ cwd: worktree, exec: execFileSync, sessionId: 'abc', prd: 7, now: NOW })).toBe(true);
-    expect(dig(readJson(recordFile(root, 'abc')), 'prd')).toBe(7);
+    expect(recordSession({ cwd: worktree, exec: execFileSync, sessionId: 'abc', number: 7, now: NOW })).toBe(true);
+    expect(dig(readJson(recordFile(root, 'abc')), 'number')).toBe(7);
     expect(existsSync(join(worktree, '.omni-loop'))).toBe(false);
-    expect(recordSession({ cwd: root, exec: execFileSync, sessionId: 'def', prd: 9, now: NOW })).toBe(true);
-    expect(dig(readJson(recordFile(root, 'def')), 'prd')).toBe(9);
+    expect(recordSession({ cwd: root, exec: execFileSync, sessionId: 'def', number: 9, now: NOW })).toBe(true);
+    expect(dig(readJson(recordFile(root, 'def')), 'number')).toBe(9);
+    expect(recordSession({ cwd: worktree, exec: execFileSync, sessionId: 'ghi', kind: 'visual', number: 1150, now: NOW })).toBe(true);
+    expect(readJson(recordFile(root, 'ghi'))).toEqual({ kind: 'visual', number: 1150, at: '2026-09-28T12:00:00.000Z' });
   });
 
   it('reads the record from the main checkout, from the checkout or any of its worktrees', () => {
@@ -124,9 +146,20 @@ describe('recordSession and recordedPrd: the main checkout', () => {
     expect(recordedPrd({ cwd: root, exec: execFileSync, sessionId: 'other' })).toBeNull();
   });
 
+  it('reads the work of a record of any kind, and a PRD only from a record of kind prd', () => {
+    const { root, worktree } = withWorktree();
+    writeRecord(root, 'abc', 7, NOW);
+    expect(recordedWork({ cwd: worktree, exec: execFileSync, sessionId: 'abc' })).toEqual({ kind: 'prd', number: 7 });
+    writeRecord(root, 'abc', 1180, NOW, 'bug');
+    expect(recordedWork({ cwd: worktree, exec: execFileSync, sessionId: 'abc' })).toEqual({ kind: 'bug', number: 1180 });
+    expect(recordedPrd({ cwd: worktree, exec: execFileSync, sessionId: 'abc' })).toBeNull();
+    expect(recordedWork({ cwd: root, exec: execFileSync, sessionId: 'other' })).toBeNull();
+    expect(recordedWork({ cwd: root, exec: execFileSync, sessionId: '../x' })).toBeNull();
+  });
+
   it('writes and reads nothing outside a repository, or for an unsafe id, and calls nothing for one', () => {
     const outside = tempRoot();
-    expect(recordSession({ cwd: outside, exec: execFileSync, sessionId: 'abc', prd: 7, now: NOW })).toBe(false);
+    expect(recordSession({ cwd: outside, exec: execFileSync, sessionId: 'abc', number: 7, now: NOW })).toBe(false);
     expect(recordedPrd({ cwd: outside, exec: execFileSync, sessionId: 'abc' })).toBeNull();
     expect(existsSync(join(outside, '.omni-loop'))).toBe(false);
     const { root } = withWorktree();
@@ -135,7 +168,7 @@ describe('recordSession and recordedPrd: the main checkout', () => {
       calls.push(args);
       return execFileSync(...args);
     };
-    expect(recordSession({ cwd: root, exec, sessionId: '../x', prd: 7, now: NOW })).toBe(false);
+    expect(recordSession({ cwd: root, exec, sessionId: '../x', number: 7, now: NOW })).toBe(false);
     expect(recordedPrd({ cwd: root, exec, sessionId: undefined })).toBeNull();
     expect(calls).toEqual([]);
     expect(existsSync(join(root, '.omni-loop'))).toBe(false);
@@ -146,6 +179,7 @@ describe('recordSession and recordedPrd: the main checkout', () => {
       throw new Error('no git');
     };
     expect(recordedPrd({ cwd: tempRoot(), exec, sessionId: 'abc' })).toBeNull();
-    expect(recordSession({ cwd: tempRoot(), exec, sessionId: 'abc', prd: 7, now: NOW })).toBe(false);
+    expect(recordedWork({ cwd: tempRoot(), exec, sessionId: 'abc' })).toBeNull();
+    expect(recordSession({ cwd: tempRoot(), exec, sessionId: 'abc', number: 7, now: NOW })).toBe(false);
   });
 });

@@ -27,7 +27,7 @@ describe('SIDEBAR', () => {
     const drawn = [...dashboard.items, ...work.items, SETTINGS];
     expect(drawn.map((i) => [i.id, i.sprite])).toEqual([
       ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['loop', 'menu-loop'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
-      ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
+      ['roadmaps', 'menu-roadmaps'], ['ideas', 'tile-block'], ['concepts', 'menu-concepts'], ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
       ['settings', 'menu-settings'],
     ]);
     for (const item of drawn) expect([SPRITE_DEFS[present(item.sprite, item.id)]?.w, SPRITE_DEFS[present(item.sprite, item.id)]?.h], item.id).toEqual([16, 16]);
@@ -49,10 +49,14 @@ describe('SIDEBAR', () => {
     expect(dashboard.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds PRDs, Bug Fixes, Visual Updates, Questions and Knowledge under Work, Questions\' pages not drawn as menu lines (PRD 733)', () => {
+  it('holds Roadmaps first (PRD 1162), Ideas (PRD 1246), Concepts (PRD 1272), then PRDs, Bug Fixes, Visual Updates, Questions and Knowledge under Work, Questions\' pages not drawn as menu lines (PRD 733)', () => {
     const [, work] = SIDEBAR;
     assertDefined(work, 'the Work group');
+    expect(work.items[0]?.id).toBe('roadmaps');
     expect(rows(work.items)).toEqual([
+      ['roadmaps', 'Roadmaps', '/roadmaps', []],
+      ['ideas', 'Ideas', '/ideas', []],
+      ['concepts', 'Concepts', '/concepts', []],
       ['prds', 'PRDs', '/prd', []],
       ['bugs', 'Bug Fixes', '/bugs', []],
       ['visual', 'Visual Updates', '/visual', []],
@@ -112,6 +116,10 @@ describe('currentItem and pageTrail', () => {
     ['/app/settings/products/p-1', 'settings', 'Settings › Products'],
     ['/app/settings/jev', 'settings', 'Settings › Jev'],
     ['/app/settingsx', 'home', 'Dashboard › Home'],
+    ['/roadmaps', 'roadmaps', 'Work › Roadmaps'],
+    ['/roadmaps?product=p-1', 'roadmaps', 'Work › Roadmaps'],
+    ['/roadmaps/0b7c6a2e-1f00-4d6a-9c55-2f1f3e4a5b6c', 'roadmaps', 'Work › Roadmaps'],
+    ['/roadmapsx', null, null],
     ['/prd', 'prds', 'Work › PRDs'],
     ['/prd/3f2a', 'prds', 'Work › PRDs'],
     ['/prd?who=all', 'prds', 'Work › PRDs'],
@@ -127,6 +135,11 @@ describe('currentItem and pageTrail', () => {
     ['/ask/history', 'questions', 'Work › Questions › History'],
     ['/ask/history?page=2', 'questions', 'Work › Questions › History'],
     ['/knowledge', 'knowledge', 'Work › Knowledge'],
+    ['/ideas/acme/widgets', 'ideas', 'Work › Ideas'],
+    ['/ideasx', null, null],
+    ['/concepts', 'concepts', 'Work › Concepts'],
+    ['/concepts/3f2a?tab=boards', 'concepts', 'Work › Concepts'],
+    ['/conceptsx', null, null],
     ['/knowledge?domain=x', 'knowledge', 'Work › Knowledge'],
     ['/nowhere', null, null],
     ['/application', null, null],
@@ -208,6 +221,6 @@ describe('badgeOf', () => {
 
   it('gives no badge at 0, nor to any other entry: only Questions and PRDs count (PRD 733)', () => {
     expect(badgeOf('questions', { ...counts, questions: 0 })).toBeNull();
-    for (const id of ['home', 'fleet', 'loop', 'workspace', 'engineering', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
+    for (const id of ['home', 'fleet', 'loop', 'workspace', 'engineering', 'roadmaps', 'ideas', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
   });
 });

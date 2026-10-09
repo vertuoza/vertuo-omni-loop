@@ -1,6 +1,6 @@
 ---
 name: mega-pr-care
-description: Looks after every pull request of one multi-repository PRD from its plan repository until each is merged or closed, or the person stops it — the plan PR, every target and target landing PR, and every bug-fix and record PR linked to the PRD — round by round, in merge order, as /omni:pr-care does for one feature PR. Reads each target PR against the target's own default branch, landings and wave claims, holds a CI fix while a PR waits on another repository's PR, judges review threads against each target's own review form, may fix a comment in another open PR of the list and names the commit, keeps the plan PR's target table and every PR's care line current. Runs nothing in a target but its own committed preflight, never merges, never marks ready, never creates a label in a target. Triggers on "look after every PR of PRD 1200", "keep the target PRs green", "handle the review comments across the repositories", "/omni:mega-pr-care".
+description: Looks after every pull request of one multi-repository PRD from its plan repository until each is merged or closed, or the person stops it — the plan PR, every target and target landing PR, and every bug-fix and record PR linked to the PRD — round by round, in merge order, as /omni:pr-care does for one feature PR. Reads each target PR against the target's own default branch, landings and wave claims, holds a CI fix while a PR waits on another repository's PR, judges review threads against each target's own review form, may fix a comment in another open PR of the list and names the commit, keeps the plan PR's target table and every PR's care line current. With --once it runs one round and returns, for a loop that calls it each tick (/omni:mega-drive). Runs nothing in a target but its own committed preflight, never merges, never marks ready, never creates a label in a target. Triggers on "look after every PR of PRD 1200", "keep the target PRs green", "handle the review comments across the repositories", "/omni:mega-pr-care".
 ---
 
 # Mega PR care: every pull request of a multi-repository PRD
@@ -35,8 +35,18 @@ target it means this one, or nothing.
 | input | example | what it is |
 |---|---|---|
 | a PRD number | `/omni:mega-pr-care 1200` | the multi-repository PRD whose pull requests to look after |
+| `--once` | `/omni:mega-pr-care 1200 --once` | run one round over the whole list, then return: no wait, no next round |
 
 Without a number, say that this skill takes the PRD number and stop.
+
+**`--once`** is for a loop that calls this skill each tick (`/omni:mega-drive`), which already
+decides when to look again, as `/omni:pr-care`'s `--once` is for `/omni:drive`. Everything below
+holds, with the same three differences: step 1 keeps the `watching since` each status comment's care
+line already carries, when it has one; after the round has rewritten every status comment and the
+plan PR's target table, the run **returns**, skipping **5. Wait for the next round**; and the
+worktrees under `<worktrees>/mega-pr-care-<n>/` stay for the next call, which reuses them, unless
+every pull request of the list is merged or closed (**6. Stop**). Say in one line what the round did
+across the list, and return.
 
 ## Step 0
 
@@ -63,8 +73,8 @@ Without a number, say that this skill takes the PRD number and stop.
    `bug-record`), `target`, `state` and `url`. An entry whose `state` is `unreadable` is named in the
    round line and skipped until a round reads it. Every entry already merged or closed: say so in
    one line and stop.
-2. **The clones.** For each target the list names, its full clone at `<worktrees>/targets/<name>`
-   (`<worktrees>` is `omni config worktrees`), cloned or fetched as `/omni:ultra-yolo` step 2 item 1
+2. **The clones.** For each target the list names, its full clone at `<worktrees>/targets/<name>@<prd>`,
+   the PRD's own (`<worktrees>` is `omni config worktrees`), cloned or fetched as `/omni:ultra-yolo` step 2 item 1
    does, its default branch the target's own
    (`gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`). Then, as
    `/omni:pr-care` step 1 item 2, one worktree per pull request, never the person's checkout:
@@ -72,7 +82,8 @@ Without a number, say that this skill takes the PRD number and stop.
    `<worktrees>/mega-pr-care-<n>/plan-<pr>` from the plan repository for the plan PR and a bug's
    record PR. A target that cannot be cloned or fetched is named in the round line and skipped,
    never a stop for the others.
-3. Note the time the watch starts, as `/omni:pr-care` step 1 item 3.
+3. Note the time the watch starts, as `/omni:pr-care` step 1 item 3 (under `--once`, keep the one
+   each care line already carries).
 4. Say, in one line,
    `Looking after <k> pull requests of PRD <n> until each is merged or closed. Stop me any time.`,
    then run the first round.
@@ -109,6 +120,9 @@ the order given. What differs:
   re-run the failed checks once (`gh run rerun <run id> --failed --repo <slug>`) and drop the
   `waits on` line. Still red after that run, `fix-ci` comes back, as `/omni:pr-care` counts it. A
   red that is the branch's own is never written as waiting.
+- **A target PR's outbox check** passes by deferring to the plan PR: the omni-loop App reads its
+  `Part of <plan slug>#<n>` line and links the plan PR (`/omni:pr --repo`). It is never a `fix-ci`;
+  the gate to read is the plan PR's.
 - **A bug-fix PR** goes into its target's default branch, not a feature branch: its round is the
   same, and a fix it makes stays inside the bug's fix plan.
 
@@ -159,7 +173,8 @@ body is kept as it is, the `omni sign footer` line last
 
 ## 5. Wait for the next round
 
-As `/omni:pr-care` step 5, over the whole list: a round runs when a CI run on any open pull request
+Under `--once`, there is no next round here: the round is done, so return (the caller wakes it
+again). Without it, as `/omni:pr-care` step 5, over the whole list: a round runs when a CI run on any open pull request
 of the list finishes, and otherwise every 5 minutes. Watch one running PR at a time in the
 background (`gh pr checks <pr> --repo <slug> --watch --interval 30`, `run_in_background: true`, a
 `timeout` of 300000 ms), or a background `sleep 300` when none runs.

@@ -255,7 +255,8 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     openDossier: ({ title, repo, claudeSessionId = null }: { title: unknown; repo: unknown; claudeSessionId?: unknown }) =>
       call('POST', '/api/dossiers', { body: { title, repo, ...(claudeSessionId ? { claudeSessionId } : {}) } }),
     /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one. Since
-     * PRD 627 a fix's push names its kind (visual or bug); a PRD's names none, as before.
+     * PRD 627 a fix's push names its kind (visual or bug), and since PRD 1272 a concept's (concept); a
+     * PRD's names none, as before.
      * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[] }>} */
     pushDossier: ({ repo, prd, kind = 'prd', title, draftId = null, artifacts }: {
       repo: unknown; prd: unknown; kind?: string | null; title: unknown; draftId?: unknown; artifacts: unknown;
@@ -264,12 +265,12 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
         body: { repo, prd, ...(kind && kind !== 'prd' ? { kind } : {}), title, ...(draftId ? { draftId } : {}), artifacts },
       }),
     /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none. Since
-     * PRD 627, a fix's by its kind (visual or bug). @returns {Promise<{ id: string, url: string }>} */
+     * PRD 627, a fix's by its kind (visual or bug), and since PRD 1272 a concept's. @returns {Promise<{ id: string, url: string }>} */
     /** PRD 757: this Claude session is working on `work` (null: the session alone); `ended` only
      * from the session's end. Answered 204. */
     heartbeat: ({ claudeSessionId, repo, work, ended = false }: { claudeSessionId: unknown; repo: unknown; work: unknown; ended?: boolean }) =>
       call('POST', '/api/ask/heartbeat', { body: { claudeSessionId, repo, work, ...(ended ? { ended: true } : {}) } }),
-    // A fix's dossier (`kind` visual or bug) is keyed by its issue, so `prd` is a PRD's number or an issue's.
+    // A fix's or a concept's dossier (`kind` visual, bug or concept) is keyed by its issue, so `prd` is a PRD's number or an issue's.
     findDossier: ({ repo, prd, kind = 'prd' }: { repo: string; prd: PrdNumber | IssueNumber; kind?: string | null }) =>
       call('GET', `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd), ...(kind && kind !== 'prd' ? { kind } : {}) })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
@@ -314,5 +315,16 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     /** PRD 1139: one push of a loop (`../loop/body.ts` shapes it), sent as it is.
      * @returns {Promise<{ loopId: string, state: 'running' | 'parked' | 'stopped', planVersion: number }>} */
     pushLoop: (body: unknown) => call('POST', '/api/loops', { body }),
+    /** PRD 1162: one push of a roadmap (`../roadmap/push.ts` shapes it), sent as it is.
+     * @returns {Promise<{ roadmapId: string, created: boolean, product: unknown, unknownProduct: string | null, note: string | null }>} */
+    pushRoadmap: (body: unknown) => call('POST', '/api/roadmaps', { body }),
+    /** PRD 1246: adds an idea to `repo`'s board (owner/name), for a member of the workspace that lists
+     * it. @returns {Promise<{ id: string, url: string }>} */
+    addIdea: ({ repo, title, pitch, lane }: { repo: string; title: string; pitch: string; lane: string }) =>
+      call('POST', '/api/ideas', { body: { repo, title, pitch, lane } }),
+    /** PRD 1246: `repo`'s board (owner/name), its ideas lane by lane, as a member of its workspace reads it.
+     * @returns {Promise<{ repo: string, url: string, ideas: Array<{ id: string, title: string, pitch: string,
+     *   lane: 'now' | 'next' | 'later', prd: number | null, votes: number }> }>} */
+    listIdeas: (repo: string) => call('GET', `/api/ideas?${new URLSearchParams({ repo })}`),
   };
 }

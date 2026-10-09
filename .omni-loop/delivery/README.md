@@ -32,6 +32,9 @@ enters the inbox through its own docs-only pull request into `main`, labelled `o
 proven by `omni concept <n>` before it opens, which a person merges. `concepts` is no
 `<prd>-<topic>` name, so no reader of PRD folders counts it as a PRD. Each area becomes a PRD through
 `/omni:brainstorm --concept <n> <area>`, whose phase-0 pull request fills that area's `PRD` cell.
+The concept also has a page on the Omni page, under **Work › Concepts**, filled from this folder by
+`omni dossier push <n> --kind concept`: `/omni:think-big` pushes it right after opening the concept's
+pull request, and `/omni:brainstorm --concept` pushes it again once it fills an area's `PRD` cell.
 
 **`release.md`** says what the PRD shipped, in plain words for anyone outside: a title and a
 one-paragraph description, which `omni check releases` grades. The loop writes it when it ships the

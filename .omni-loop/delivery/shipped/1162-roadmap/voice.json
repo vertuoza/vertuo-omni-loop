@@ -119,6 +119,66 @@
         "settled": "none"
       },
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ · persona:F-E Developer ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-07",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Every PRD still goes through its own waves and outbox gate, and the loop names the PR it waits on instead of guessing.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A check that refuses a change to a read-only repository, or a consumer ahead of its provider, is a rule I can trust.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Paste the plan, review once, then mega-drive builds the milestone across every repository.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Each blocker carries its reason and the Gantt shows what waits on which merge.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "The Roadmaps page tells me which merge I owe, but answering a question there still means copying a command.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Irisa",
+        "text": "The answer box on the roadmap's page gives me a command to copy instead of sending my answer. I don't run commands, so my answer waits for someone who does.",
+        "citations": [
+          "persona:Irisa"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ~ · persona:B-E DEv ~ · persona:Irisa ~"
     }
   ]
 }
