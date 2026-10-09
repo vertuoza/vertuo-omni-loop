@@ -74,6 +74,10 @@ jobs:
         # role adds versions through the same rule: a version only when its content changed, never
         # rewritten. Only the opener deletes a draft; nobody deletes a numbered dossier.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossiers.sql
+      - name: The PRD list loads at a real workspace's size
+        # A member lists 1400 dossiers, with their versions and 25,200 answered rounds, through
+        # dossier_list() as /prd does, inside production's 8 second statement timeout (bug #1308).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossier_list_volume.sql
       - name: Who may read and write the heartbeats
         # working_ping() upserts the caller's own row and resolves its dossier (a draft, a PRD, a visual
         # or bug fix, or null); another account cannot write it, nobody signed in writes the table, a
