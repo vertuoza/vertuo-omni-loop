@@ -19,10 +19,15 @@
 //   of `gh`; the folder's topic when that fails) and sends its kind; no draft is chosen or recorded, a
 //   fix never having one. `link` asks for the fix's dossier, with no fallback to the local record, which
 //   holds PRDs only. `--kind prd`, or no `--kind`, is the PRD's call, sent exactly as before.
+// - `--kind concept` (PRD 1272), on `push` and `link`: concept n (its issue's number) instead. `push`
+//   reads the concept's folder (`readConceptFolder`), titles it after concept.md's front matter, and
+//   sends its record, vision tour, boards (a round each) and debate with its kind; no draft, and GitHub
+//   is not asked. A concept.md the parser refuses sends nothing: `invalid concept.md: <errors>`, exit 1.
 //
 // It never blocks the skill that runs it: every call has the contract's 5-second limit and one token
 // refresh, and anything that stops it is exit 1 with one line — `off`, `no sign-in (omni signin)`,
-// `unreachable`, `refused (<status>)`, `refused (403): <the server's reason>` or `too large: <file>`.
+// `unreachable`, `refused (<status>)`, `refused (403): <the server's reason>`, `too large: <file>` or
+// `invalid concept.md: <errors>`.
 // Exit 2 is the kit not installed here, a config that does not read, or arguments it cannot run.
 //
 // It runs before a context exists, like `ask`, so that a test can hand it `tokens` (the token store),
@@ -36,7 +41,7 @@ import { signedInClient } from '../../lib/ask/credentials.ts';
 import { dossierSwitch } from '../../lib/config.ts';
 import { loadContext } from '../../lib/context.ts';
 import { chooseDraft } from '../../lib/dossier/draft.ts';
-import { fixTitle, readDossierFolder, readFixFolder, TITLE_MAX } from '../../lib/dossier/folder.ts';
+import { fixTitle, readConceptFolder, readDossierFolder, readFixFolder, TITLE_MAX } from '../../lib/dossier/folder.ts';
 import { forgetDraft, mainCheckout, markNumbered, readDossiers, recordDraft } from '../../lib/dossier/local.ts';
 import type { IssueNumber, PrdNumber } from '../../lib/ids.ts';
 import { isOneOf } from '../../lib/narrow.ts';
@@ -65,8 +70,10 @@ type VerbIo = {
   now: () => number;
 };
 
-const USAGE = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
-const KINDS = ['prd', 'visual', 'bug'] as const;
+const USAGE = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status';
+const KINDS = ['prd', 'visual', 'bug', 'concept'] as const;
+/** What a dossier other than a PRD's is of: a fix of its kind, or a concept (PRD 1272), each keyed by its issue. */
+type IssueKind = FixKind | 'concept';
 /** How long asking GitHub for a fix's issue title may take. */
 const ISSUE_TITLE_MS = 5000;
 const NO_SIGN_IN = 'no sign-in (omni signin)';
@@ -202,6 +209,26 @@ function recordedLink(home: string | null, prd: PrdNumber | IssueNumber, kind: s
   return readDossiers(home).filter((entry) => entry.prd === prd).at(-1) ?? null;
 }
 
+/** Concept n's folder, sent with its kind (PRD 1272). No draft, and GitHub is not asked: its title is
+ * concept.md's. A concept.md the parser refuses sends nothing. */
+async function pushConcept(issue: IssueNumber, { ctx, repo, client, stdout, stderr }: VerbIo): Promise<number> {
+  const read = readConceptFolder(ctx, issue);
+  if (!read) throw usageError(`omni dossier push: issue ${issue} has no concept folder.`);
+  if (!read.ok) {
+    println(stderr, `invalid concept.md: ${read.errors.join(' ')}`);
+    return 1;
+  }
+  const { folder } = read;
+  let result;
+  try {
+    result = await client.pushDossier({ repo, prd: issue, kind: 'concept', title: folder.title, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) });
+  } catch (error) {
+    println(stderr, skipLine(error));
+    return 1;
+  }
+  return reportPush(result, folder.tooLarge, { stdout, stderr });
+}
+
 /** PRD n's link, or with a fix's kind issue n's: a fix's dossier is keyed by its issue, so `prd` is
  * a PRD's number or an issue's. */
 async function link(prd: PrdNumber | IssueNumber, kind: string, { repo, client, home, stdout, stderr }: VerbIo): Promise<number> {
@@ -231,17 +258,17 @@ async function link(prd: PrdNumber | IssueNumber, kind: string, { repo, client, 
   return 0;
 }
 
-/** What `push` and `link` name: PRD n, or with `--kind visual|bug` issue n's fix. */
-type Named = { kind: 'prd'; prd: PrdNumber } | { kind: FixKind; issue: IssueNumber };
+/** What `push` and `link` name: PRD n, or with `--kind visual|bug|concept` issue n's fix or concept. */
+type Named = { kind: 'prd'; prd: PrdNumber } | { kind: IssueKind; issue: IssueNumber };
 
 /** `<n>` read as the kind names it: a PRD's number, or a fix's issue. */
-function namedBy(verb: string, kind: 'prd' | FixKind, value: string | undefined): Named {
+function namedBy(verb: string, kind: 'prd' | IssueKind, value: string | undefined): Named {
   const command = `dossier ${verb}`;
   return kind === 'prd' ? { kind, prd: prdArg(command, '<n>', value) } : { kind, issue: issueArg(command, '<n>', value) };
 }
 
 /** The kind `--kind` names (prd when it names none); only push and link take one. */
-function kindOf(flag: string | undefined, numbered: boolean): 'prd' | FixKind {
+function kindOf(flag: string | undefined, numbered: boolean): 'prd' | IssueKind {
   if (flag === undefined) return 'prd';
   if (!numbered || !isOneOf(KINDS, flag)) throw usageError(USAGE);
   return flag;
@@ -286,6 +313,7 @@ export const dossier = {
     // `named` is set for `push` and `link`, the two verbs that read a number, and null for `open`.
     if (named === null) return open(title, options);
     if (verb === 'link') return link(named.kind === 'prd' ? named.prd : named.issue, named.kind, options);
+    if (named.kind === 'concept') return pushConcept(named.issue, options);
     if (named.kind !== 'prd') return pushFix(named.issue, named.kind, options);
     return push(named.prd, options);
   },
