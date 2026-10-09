@@ -35312,10 +35312,12 @@ function readConceptFolder(ctx, issue2) {
 // kit/lib/approval/approval.ts
 var text6 = external_exports.string().min(1);
 var PinnedFileSchema = external_exports.object({ kind: text6, path: text6, sha256: text6, versionId: text6, content: external_exports.string().optional() });
+var VoidSchema = external_exports.object({ pusher: text6, kind: text6, from: text6, to: text6, voidedAt: text6 });
 var ApprovalSchema = external_exports.object({
   approver: external_exports.object({ login: text6, member: external_exports.boolean() }),
   approvedAt: text6,
-  files: external_exports.array(PinnedFileSchema)
+  files: external_exports.array(PinnedFileSchema),
+  voids: external_exports.array(VoidSchema).optional()
 });
 var ApprovalReplySchema = external_exports.object({ url: text6, approval: ApprovalSchema.nullable() });
 var UNREACHABLE_LINE = "server unreachable \xB7 held, not failed";
@@ -35342,6 +35344,15 @@ function judgeApproval(ctx, prd2, reply) {
   const { url: url2, approval: approval3 } = reply;
   const reading = (state, lines, drift2 = []) => ({ state, lines, url: url2, approval: approval3, drift: drift2 });
   if (!approval3) return reading("pending", [`PRD ${Number(prd2)} waits for approval: ${url2}`]);
+  const voids = approval3.voids ?? [];
+  if (voids.length > 0) {
+    const fileOf3 = (kind) => {
+      const file2 = approval3.files.find((f) => f.kind === kind);
+      return file2 ? treeFileOf(ctx, prd2, file2) : kind;
+    };
+    const lines = voids.map((v) => `\u2260 ${basename5(fileOf3(v.kind))} \xB7 voided by ${v.pusher}'s push ${v.from.slice(0, 7)}\u2192${v.to.slice(0, 7)} \xB7 \u2717 refuse \xB7 approve again: ${url2}`);
+    return reading("drifted", lines, voids.map((v) => ({ kind: v.kind, file: fileOf3(v.kind), how: "voided" })));
+  }
   const { login: login2, member } = approval3.approver;
   if (!member) return reading("refused", [`approver ${login2} is not a workspace member`]);
   const drift = approval3.files.flatMap((file2) => driftOf(ctx, prd2, file2) ?? []);
@@ -35454,7 +35465,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/approval/wait.ts
 init_define_OMNI_BUNDLE();
-import { mkdirSync as mkdirSync10, writeFileSync as writeFileSync12 } from "node:fs";
+import { mkdirSync as mkdirSync10, rmSync as rmSync7, writeFileSync as writeFileSync12 } from "node:fs";
 import { join as join35 } from "node:path";
 
 // kit/lib/approval/stream.ts
@@ -35603,14 +35614,17 @@ async function* messages(body, signal, idleMs) {
   }
 }
 var over = (run) => run.options.deadline.aborted;
+var waitFile = (root, prd2) => join35(root, LOCAL_DIR, "approval-wait", `${Number(prd2)}.json`);
 function write(run, state, line) {
   const { ctx, prd: prd2 } = run.options;
   ensureLocalDir(ctx.root);
-  const dir = join35(ctx.root, LOCAL_DIR, "approval-wait");
-  mkdirSync10(dir, { recursive: true });
+  mkdirSync10(join35(ctx.root, LOCAL_DIR, "approval-wait"), { recursive: true });
   const file2 = { prd: Number(prd2), state, line, waiting: run.waiting, at: run.now().toISOString() };
-  writeFileSync12(join35(dir, `${Number(prd2)}.json`), `${JSON.stringify(file2, null, 2)}
+  writeFileSync12(waitFile(ctx.root, prd2), `${JSON.stringify(file2, null, 2)}
 `);
+}
+function forgetWait(root, prd2) {
+  rmSync7(waitFile(root, prd2), { force: true });
 }
 function say(run, state, line) {
   run.options.print(line);
@@ -35758,21 +35772,32 @@ var wait2 = {
       println(stdout, SIGNED_OUT_LINE);
       return 1;
     }
-    const { code } = await waitForApproval({
-      ctx,
-      prd: prd2,
-      repo,
-      client,
-      timeoutMinutes,
-      sleep: sleep2,
-      now: now2,
-      idleMs,
-      print: (line) => {
-        println(stdout, line);
-      },
-      deadline: deadline(timeoutMinutes * 6e4)
-    });
-    return code;
+    const interrupted = () => {
+      forgetWait(ctx.root, prd2);
+      process.exit(130);
+    };
+    process.once("SIGINT", interrupted);
+    process.once("SIGTERM", interrupted);
+    try {
+      const { code } = await waitForApproval({
+        ctx,
+        prd: prd2,
+        repo,
+        client,
+        timeoutMinutes,
+        sleep: sleep2,
+        now: now2,
+        idleMs,
+        print: (line) => {
+          println(stdout, line);
+        },
+        deadline: deadline(timeoutMinutes * 6e4)
+      });
+      return code;
+    } finally {
+      process.off("SIGINT", interrupted);
+      process.off("SIGTERM", interrupted);
+    }
   }
 };
 
@@ -41344,7 +41369,7 @@ init_define_OMNI_BUNDLE();
 // kit/lib/ask/heartbeat.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync11 } from "node:child_process";
-import { existsSync as existsSync41, mkdirSync as mkdirSync11, readdirSync as readdirSync18, readFileSync as readFileSync39, rmSync as rmSync7, writeFileSync as writeFileSync15 } from "node:fs";
+import { existsSync as existsSync41, mkdirSync as mkdirSync11, readdirSync as readdirSync18, readFileSync as readFileSync39, rmSync as rmSync8, writeFileSync as writeFileSync15 } from "node:fs";
 import { join as join53 } from "node:path";
 var HEARTBEAT_EVERY_MS = 6e4;
 var HEARTBEAT_LIMIT_MS = 2e3;
@@ -41423,7 +41448,7 @@ function claimWindow(root, claudeSessionId, now2) {
   return true;
 }
 function forgetWindow(root, claudeSessionId) {
-  if (isSafeId(claudeSessionId)) rmSync7(windowFile(root, claudeSessionId), { force: true });
+  if (isSafeId(claudeSessionId)) rmSync8(windowFile(root, claudeSessionId), { force: true });
 }
 
 // kit/bin/commands/heartbeat.ts
@@ -46067,7 +46092,7 @@ function replanLine(plan2) {
 // kit/lib/status/facts.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync12 } from "node:child_process";
-import { readFileSync as readFileSync53, rmSync as rmSync8, statSync as statSync12, utimesSync, writeFileSync as writeFileSync23 } from "node:fs";
+import { readFileSync as readFileSync53, rmSync as rmSync9, statSync as statSync12, utimesSync, writeFileSync as writeFileSync23 } from "node:fs";
 import { resolve as resolve3 } from "node:path";
 function fieldOf2(error62, key2) {
   return typeof error62 === "object" && error62 !== null ? Reflect.get(error62, key2) : void 0;
@@ -46146,7 +46171,7 @@ function putBack(saved) {
   if (saved === null) return;
   try {
     if (saved.bytes === null) {
-      rmSync8(saved.path, { force: true });
+      rmSync9(saved.path, { force: true });
     } else {
       writeFileSync23(saved.path, saved.bytes);
       utimesSync(saved.path, saved.atime, saved.mtime);
@@ -47383,7 +47408,7 @@ import { join as join71 } from "node:path";
 // kit/lib/statusline/board-cache.ts
 init_define_OMNI_BUNDLE();
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync as existsSync53, mkdirSync as mkdirSync17, openSync, readFileSync as readFileSync56, renameSync as renameSync3, rmSync as rmSync9, statSync as statSync13, writeFileSync as writeFileSync25 } from "node:fs";
+import { closeSync, existsSync as existsSync53, mkdirSync as mkdirSync17, openSync, readFileSync as readFileSync56, renameSync as renameSync3, rmSync as rmSync10, statSync as statSync13, writeFileSync as writeFileSync25 } from "node:fs";
 import { join as join70 } from "node:path";
 var SliceNamesSchema = external_exports.object({
   slices: external_exports.array(external_exports.object({ name: external_exports.string().min(1).optional().catch(void 0) }).catch({})).catch([])
@@ -47492,7 +47517,7 @@ function writeJsonAt(path, entry3) {
 `);
     renameSync3(temporary, path);
   } finally {
-    rmSync9(temporary, { force: true });
+    rmSync10(temporary, { force: true });
   }
 }
 function createLock(path, now2) {
@@ -47519,12 +47544,12 @@ function takeLock(root, prd2, now2) {
 function takeLockAt(path, now2) {
   const owner = createLock(path, now2);
   if (owner !== null || lockHeldAt(path, now2)) return owner;
-  rmSync9(path, { force: true });
+  rmSync10(path, { force: true });
   return createLock(path, now2);
 }
 function releaseLockAt(path, owner) {
   const held2 = attempt8(() => readLock(path)?.owner, null);
-  if (held2 === owner) rmSync9(path, { force: true });
+  if (held2 === owner) rmSync10(path, { force: true });
 }
 var oneLine4 = (error62) => (String(prop2(error62, "message") ?? error62).split("\n")[0] ?? "").trim() || "the board could not be built";
 function refreshBoard({ root, prd: prd2, now: now2, build }) {
@@ -49120,7 +49145,7 @@ function changingClick({ words: words3, submits }) {
 
 // kit/lib/pitch/moments-film.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync60, mkdirSync as mkdirSync19, readFileSync as readFileSync67, rmSync as rmSync10, writeFileSync as writeFileSync26 } from "node:fs";
+import { existsSync as existsSync60, mkdirSync as mkdirSync19, readFileSync as readFileSync67, rmSync as rmSync11, writeFileSync as writeFileSync26 } from "node:fs";
 import { createRequire } from "node:module";
 import { join as join81 } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -49296,7 +49321,7 @@ function repositoryBrowser(cwd) {
 async function filmRun(dir, { exec, launch, now: now2 = Date.now }) {
   const walk = readWalk(dir);
   const work = join81(dir, FILM_DIR);
-  rmSync10(work, { recursive: true, force: true });
+  rmSync11(work, { recursive: true, force: true });
   mkdirSync19(work, { recursive: true });
   try {
     const { webm, moments } = await filmWalk(dir, walk, { launch, now: now2 });
@@ -49307,7 +49332,7 @@ async function filmRun(dir, { exec, launch, now: now2 = Date.now }) {
 `);
     return result;
   } finally {
-    rmSync10(work, { recursive: true, force: true });
+    rmSync11(work, { recursive: true, force: true });
   }
 }
 
@@ -49962,7 +49987,7 @@ async function writePageInput(dir, { storyboard, settings, credits: credits2, fe
 
 // kit/lib/pitch/render.ts
 init_define_OMNI_BUNDLE();
-import { mkdirSync as mkdirSync22, renameSync as renameSync4, rmSync as rmSync11 } from "node:fs";
+import { mkdirSync as mkdirSync22, renameSync as renameSync4, rmSync as rmSync12 } from "node:fs";
 import { join as join91 } from "node:path";
 
 // kit/lib/pitch/render-music.ts
@@ -50231,14 +50256,14 @@ function warnOnLength(seconds4, { min, max }, warn) {
 }
 async function inSession(dir, tools, run) {
   const work = join91(dir, WORK_DIR);
-  rmSync11(work, { recursive: true, force: true });
+  rmSync12(work, { recursive: true, force: true });
   mkdirSync22(work, { recursive: true });
   const server = await serveRun({ dir });
   try {
     return await run({ dir, work, server, capture: providerFor("capture", DEFAULTS.capture, tools.warn, tools.registry), tools });
   } finally {
     await server.close();
-    rmSync11(work, { recursive: true, force: true });
+    rmSync12(work, { recursive: true, force: true });
   }
 }
 async function prepare2(dir, tools) {
@@ -52446,7 +52471,7 @@ var statusline = {
 
 // kit/bin/commands/update.ts
 init_define_OMNI_BUNDLE();
-import { mkdtempSync as mkdtempSync2, rmSync as rmSync12 } from "node:fs";
+import { mkdtempSync as mkdtempSync2, rmSync as rmSync13 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
 import { join as join95 } from "node:path";
 
@@ -52482,7 +52507,7 @@ function handOver2({ cwd, home, from, target: target3, exec }) {
       return typeof status5 === "number" && Number.isInteger(status5) ? status5 : 1;
     }
   } finally {
-    rmSync12(dir, { recursive: true, force: true });
+    rmSync13(dir, { recursive: true, force: true });
   }
 }
 function rootOf(cwd, exec) {
