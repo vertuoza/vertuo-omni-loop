@@ -710,3 +710,48 @@ Why: A person reading the status line during review or a fix needs links that st
 Decided: @pierrederval, 2026-10-09
 Source: .omni-loop/delivery/shipped/1208-session-hud/outbox/settled.md, entry s5-03-links-refresh-for-any-live-work, PRD #1208
 Merged: @pierrederval, 2026-10-08, PR #1210
+
+## P-PRODUCT-81
+
+An approval request keeps waiting on the person asked until the PRD is actually approved; time passing alone never clears it.
+
+Why: A request that vanished on a timer would silently drop work someone is still waiting on, and a missing opener should never block asking.
+Source: .omni-loop/delivery/shipped/1322-approval-handshake/outbox/settled.md, entry s2-03-who-the-author-is-and-when-a-request-stops-waiting, PRD #1322
+Merged: @pierrederval, 2026-10-09, PR #1324
+Proposed: harvest 2026-10-09
+
+## P-PRODUCT-82
+
+When a person turns phone alerts off, the choice holds for the person, never for one device; no device is alerted after they said stop.
+
+Why: Someone who silences alerts expects silence, not alerts arriving on another device they forgot was subscribed.
+Source: .omni-loop/delivery/shipped/1322-approval-handshake/outbox/settled.md, entry s9-02-phone-alerts-off-is-per-person, PRD #1322
+Merged: @pierrederval, 2026-10-09, PR #1324
+Proposed: harvest 2026-10-09
+
+## P-PRODUCT-83
+
+A waiting terminal never hears a cancelled approval as if it still held, and a reconnect never repeats or skips what it was told.
+
+Why: The kit ends a wait on the first approval it hears, so a voided approval replayed would end a wait wrongly.
+Source: .omni-loop/delivery/shipped/1322-approval-handshake/outbox/settled.md, entry s3-01-what-the-stream-replays-and-its-event-ids, PRD #1322
+Merged: @pierrederval, 2026-10-09, PR #1324
+Proposed: harvest 2026-10-09
+
+## P-PRODUCT-84
+
+An approver is told once about each push that voids their approval, and that one message names everything the push changed.
+
+Why: So the approver knows exactly what changed without being flooded with repeated alerts about a single push.
+Source: .omni-loop/delivery/shipped/1322-approval-handshake/outbox/settled.md, entry s6-01-one-void-per-changed-file-one-alert-per-push, PRD #1322
+Merged: @pierrederval, 2026-10-09, PR #1324
+Proposed: harvest 2026-10-09
+
+## P-PRODUCT-85
+
+An unreadable approver list never takes the approval action away from a member; the server alone decides who may approve.
+
+Why: A failed read should not block the people who are asked, and the server's check keeps anyone else from approving.
+Source: .omni-loop/delivery/shipped/1322-approval-handshake/outbox/settled.md, entry s7-01-approvers-unread-shows-approve, PRD #1322
+Merged: @pierrederval, 2026-10-09, PR #1324
+Proposed: harvest 2026-10-09
