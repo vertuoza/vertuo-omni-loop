@@ -21,7 +21,7 @@
 // The HUD reads the current state from the waiting file, `.omni-loop/local/approval-wait/<n>.json`:
 // `{ prd, state, line, waiting, at }`, `waiting` being the waiting line (null before anyone is asked)
 // and `at` when the state was written. The command owns the file and leaves its last state there.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AskCallError } from '../ask/client.ts';
 import { ensureLocalDir, LOCAL_DIR } from '../ask/local-state.ts';
@@ -151,13 +151,20 @@ type Cursor = { lastEventId: string | null; seen: Set<string> };
 /** Read through a call: the deadline aborts while the wait awaits. */
 const over = (run: Run): boolean => run.options.deadline.aborted;
 
+/** The waiting file of PRD `prd` under the checkout at `root`. */
+const waitFile = (root: string, prd: PrdNumber): string => join(root, LOCAL_DIR, 'approval-wait', `${Number(prd)}.json`);
+
 function write(run: Run, state: WaitState, line: string): void {
   const { ctx, prd } = run.options;
   ensureLocalDir(ctx.root);
-  const dir = join(ctx.root, LOCAL_DIR, 'approval-wait');
-  mkdirSync(dir, { recursive: true });
+  mkdirSync(join(ctx.root, LOCAL_DIR, 'approval-wait'), { recursive: true });
   const file = { prd: Number(prd), state, line, waiting: run.waiting, at: run.now().toISOString() };
-  writeFileSync(join(dir, `${Number(prd)}.json`), `${JSON.stringify(file, null, 2)}\n`);
+  writeFileSync(waitFile(ctx.root, prd), `${JSON.stringify(file, null, 2)}\n`);
+}
+
+/** Forgets PRD `prd`'s waiting file, so the HUD stops showing a wait that was interrupted. */
+export function forgetWait(root: string, prd: PrdNumber): void {
+  rmSync(waitFile(root, prd), { force: true });
 }
 
 function say(run: Run, state: WaitState, line: string): void {

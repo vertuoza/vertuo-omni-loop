@@ -8,7 +8,7 @@
 // `idleMs` and `deadline` (the signal the timeout aborts, from the minutes); it loads the context itself.
 import { signedInClient } from '../../lib/ask/credentials.ts';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
-import { SIGNED_OUT_LINE, waitForApproval } from '../../lib/approval/wait.ts';
+import { forgetWait, SIGNED_OUT_LINE, waitForApproval } from '../../lib/approval/wait.ts';
 import { loadContext } from '../../lib/context.ts';
 import { parseArgs, positiveInt, prdArg, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo } from '../io.ts';
@@ -53,11 +53,23 @@ export const wait = {
       println(stdout, SIGNED_OUT_LINE);
       return 1;
     }
-    const { code } = await waitForApproval({
-      ctx, prd, repo, client, timeoutMinutes, sleep, now, idleMs,
-      print: (line) => { println(stdout, line); },
-      deadline: deadline(timeoutMinutes * 60_000),
-    });
-    return code;
+    // Interrupted (Ctrl-C), the wait forgets its file, so the HUD does not keep a wait nobody runs.
+    const interrupted = (): void => {
+      forgetWait(ctx.root, prd);
+      process.exit(130);
+    };
+    process.once('SIGINT', interrupted);
+    process.once('SIGTERM', interrupted);
+    try {
+      const { code } = await waitForApproval({
+        ctx, prd, repo, client, timeoutMinutes, sleep, now, idleMs,
+        print: (line) => { println(stdout, line); },
+        deadline: deadline(timeoutMinutes * 60_000),
+      });
+      return code;
+    } finally {
+      process.off('SIGINT', interrupted);
+      process.off('SIGTERM', interrupted);
+    }
   },
 } satisfies FreeCommand;
