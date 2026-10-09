@@ -857,3 +857,82 @@ A constant: the page could record the stage directly instead, and the label read
 ```
 
 <!-- /omni-outbox-settled: s6-02-stage-forward-reads-approved-label -->
+
+<!-- omni-outbox-settled: s7-01-brainstorm-cannot-read-the-flag -->
+
+## s7-01-brainstorm-cannot-read-the-flag — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-09
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-brainstorm-cannot-read-the-flag
+prd: 1299
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-09
+wave: 3
+---
+
+## The question, in plain words
+
+The brainstorm should check whether a repository approves its PRDs on the page, but the kit has no way to ask the page that yet. What should the brainstorm do until it can?
+
+## The decision, in plain words
+
+Option B, built in wave 3's check: `omni approval flag` reads the repository's switch on the page, and the brainstorm's step 0 runs it. A brainstorm in a repository switched to the page starts its PRD there; when the switch cannot be read, it falls back to a pull request and says why in one line.
+
+## The intro, for fun
+
+The switch is on the page, and the brainstorm cannot see the page yet.
+
+## The punchline, for fun
+
+So it plays it safe and does things the old way, out loud.
+
+## The options, in plain words
+
+A. A. Keep falling back to a pull request until a kit command reads the switch, saying why in one line
+B. B. Add a kit command now that reads the switch, and name it in the brainstorm's step 0 (built)
+C. C. Let the person tell the brainstorm the repository is on the page, and take their word for it
+
+## What I had to decide
+
+Whether to add a small kit command that reads the repository's switch, so the brainstorm can start a PRD on the page when the switch says so.
+
+## What I did meanwhile
+
+The orchestrator added `omni approval flag` (kit/lib/approval/flag.ts, the ask client's `readPhase0Flag`, tests) and pointed the brainstorm's step 0 and `omni help approval` at it, in the wave's check.
+
+## What it costs to change later
+
+Low: adding the command later is one small slice in the kit plus one line in the brainstorm's step 0; nothing already written has to change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The slice brief says s4 merged a kit client for GET /api/repositories/phase0, but no kit code or omni command calls that route on this branch; only the galaxy route exists.
+- (author) The plugin test refuses a SKILL.md that names an omni command that does not exist, so the skill cannot name a future command.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-brainstorm-cannot-read-the-flag -->
