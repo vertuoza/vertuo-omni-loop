@@ -113,7 +113,7 @@ function prdOf(value: string | null): PrdNumber | null {
 }
 
 /** GET: the approval in force, for the kit's `omni approval`. */
-export async function readApproval(request: Request, deps: ApprovalDeps): Promise<Response> {
+export async function answerApproval(request: Request, deps: ApprovalDeps): Promise<Response> {
   if (!deps.connect) return refuse(503, NO_DATABASE);
   const auth = await authenticate(request.headers.get('authorization'), deps.connect);
   if (!auth.ok) return refuse(auth.status, auth.error);

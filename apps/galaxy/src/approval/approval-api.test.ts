@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseApprovalReply } from 'vertuo-omni-plan/kit/lib/approval/approval.ts';
-import { approveDossier, readApproval, type ApprovalDeps } from './approval-api';
+import { approveDossier, answerApproval, type ApprovalDeps } from './approval-api';
 
 // The approval route (PRD 1299 s2), with a stubbed Supabase client and a stubbed labeller:
 //
@@ -48,7 +48,7 @@ function world({ database = true, session = true, answers = {}, label = () => Pr
     installLink: 'https://github.com/apps/omni/installations/new',
   };
   const get = async (query: string, token: string | null = 'ada-token') => {
-    const response = await readApproval(new Request(`https://omni.example/api/dossiers/approval${query}`, {
+    const response = await answerApproval(new Request(`https://omni.example/api/dossiers/approval${query}`, {
       headers: token ? { authorization: `Bearer ${token}` } : {},
     }), deps);
     return { status: response.status, body: (await response.json()) as unknown, cache: response.headers.get('cache-control') };

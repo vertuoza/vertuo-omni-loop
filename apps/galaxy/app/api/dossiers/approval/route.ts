@@ -1,4 +1,4 @@
-import { approveDossier, readApproval } from '../../../../src/approval/approval-api';
+import { approveDossier, answerApproval } from '../../../../src/approval/approval-api';
 import { approvalDeps } from '../../../../src/approval/approval-live';
 
 // GET /api/dossiers/approval?repo=<owner/name>&prd=<n> → 200 {url, approval}: the approval in force of a
@@ -7,7 +7,7 @@ import { approvalDeps } from '../../../../src/approval/approval-live';
 export const maxDuration = 60;
 
 export function GET(request: Request) {
-  return readApproval(request, approvalDeps());
+  return answerApproval(request, approvalDeps());
 }
 
 export function POST(request: Request) {
