@@ -33,6 +33,8 @@ import { GamesOverlay } from './scenes/games.tsx';
 import { InvadersOverlay } from './scenes/invaders.tsx';
 import { LevelUpOverlay } from './scenes/levelup.tsx';
 import { PlatformerOverlay } from './scenes/platformer.tsx';
+import { KartOverlay } from './scenes/kart.tsx';
+import { kartPress, loadKart, type ArcadeKart } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
 import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
@@ -72,12 +74,16 @@ const INVADERS = GAMES.find((g) => g.scene === 'invaders')?.id ?? 'invaders';
 // Super Omni World's key in the registry: its scores are sent under it (PRD 817).
 const PLATFORMER = GAMES.find((g) => g.scene === 'platformer')?.id ?? 'platformer';
 // The games: they read the pad's buttons held, so a key held down is never a repeat of its press.
-const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer']);
+const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', 'kart']);
+
+/** The loaded game OMNI KART draws with, while its scene shows. */
+const kartDrawOf = (scene: SceneName, kart: ArcadeKart | null) => (scene === 'kart' ? kart?.game ?? null : null);
 
 /** The grid `scene` is drawn on: a game keeps the one it started on; any other scene gets its form's. */
-function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf: ArcadePf | null): Grid {
+function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf: ArcadePf | null, kart: ArcadeKart | null): Grid {
   if (scene === 'invaders' && hud) return GAME_GRID[hud.layout];
   if (scene === 'platformer' && pf) return pf.grid;
+  if (scene === 'kart' && kart) return kart.grid;
   return gridFor(form, scene);
 }
 
@@ -267,6 +273,23 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const { pf, pfRef, setPf, onEvent: onPlatformerEvent, onStatus: onPlatformerStatus, pause: pausePlatformer } =
     usePlatformer(sendScoreRef, PLATFORMER, () => uiRef.current.scene === 'platformer');
 
+  // OMNI KART (PRD 1359): the game is imported when its cabinet opens, never before, so the arcade
+  // holds only where the import stands, the retries asked for, the grid it started on and the game
+  // once loaded (a failed import is logged, and A tries again).
+  const [kart, setKart] = useState<ArcadeKart | null>(null);
+  const kartRef = useRef(kart);
+  kartRef.current = kart;
+  const kartTry = kart?.status === 'loading' ? kart.retry : -1;
+  useEffect(() => {
+    if (kartTry < 0) return undefined;
+    let gone = false;
+    void loadKart(() => import('./kart/index')).then((game) => {
+      if (gone) return;
+      setKart((k) => (k ? { ...k, status: game ? 'ready' : 'failed', game } : k));
+    });
+    return () => { gone = true; };
+  }, [kartTry]);
+
   // The level-up: the levels each login last celebrated on this device, and the one due now, if any.
   const seen = useMemo(() => createSeen(LOCAL), []);
   const loginOf = () => meRef.current?.github_login ?? sessionRef.current?.github ?? null;
@@ -324,6 +347,15 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     setPf({ session: newSession(), status: 'loading', retry: 0, grid: gridFor(formRef.current, 'platformer') });
     go({ scene: 'platformer' }, 'start');
   }, [go, held, showSend, setPf]);
+
+  /** A on OMNI KART's unlocked cabinet: the game's code is imported now, on the grid the cabinet is shown on. */
+  const playKart = useCallback(() => {
+    held.clear();
+    runRef.current += 1;
+    showSend(null);
+    setKart({ status: 'loading', retry: 0, grid: gridFor(formRef.current, 'kart'), game: null });
+    go({ scene: 'kart' }, 'start');
+  }, [go, held, showSend]);
 
   /**
    * Opens OPEN THE APP? over whatever scene is showing: the one way to it, from the menu's APP MODE
@@ -415,7 +447,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (ui.scene !== 'invaders' && gameRef.current) { gameRef.current = null; showHud(null); }
     if (ui.scene === 'platformer' && !pfRef.current) go({ scene: 'games' });
     if (ui.scene !== 'platformer' && pfRef.current) setPf(null);
-  }, [ui.scene, go, showHud, pfRef, setPf]);
+    if (ui.scene === 'kart' && !kartRef.current) go({ scene: 'games' });
+    if (ui.scene !== 'kart' && kartRef.current) setKart(null);
+  }, [ui.scene, go, showHud, pfRef, setPf, kartRef]);
   // A window that loses focus or a hidden tab never hears its keys and fingers go up: nothing stays
   // held, and a game pauses.
   useEffect(() => {
@@ -681,6 +715,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           const door = cabinetDoor(at(room, spot, 'the cabinet under the cursor'), status);
           if (!('scene' in door)) { go({ toast: door.refused }, 'buzz'); return; }
           if (door.scene === 'platformer') { playPlatformer(); return; }
+          if (door.scene === 'kart') { playKart(); return; }
           if (door.scene === 'invaders') playInvaders(); else go({ scene: door.scene }, 'select');
           return;
         }
@@ -699,6 +734,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           return;
         }
         if (game?.scene === 'platformer') { playPlatformer(); return; }
+        if (game?.scene === 'kart') { playKart(); return; }
         if (game?.scene) { go({ scene: game.scene }, 'start'); return; }
         open('menu', {}, action === 'b' ? 'back' : 'select'); return;
       }
@@ -736,6 +772,15 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (r.session !== p.session) setPf({ ...p, session: r.session });
         return;
       }
+      case 'kart': {
+        // The race reads ◀ ▶, A and ▼ held; a press answers START, SELECT, B and the screens. Silent, as Super Omni World is.
+        const k = kartRef.current;
+        if (!k) { if (action === 'b') go({ scene: 'games' }, 'back'); return; }
+        const press = kartPress(k.status, action);
+        if (press === 'back') { setKart(null); go({ scene: 'games' }, 'back'); return; }
+        if (press === 'retry') setKart({ ...k, status: 'loading', retry: k.retry + 1 });
+        return;
+      }
       case 'fleets': {
         const n = view?.teams.length ?? 0;
         if (!view || !n) { if (action === 'b') go({ scene: 'menu' }, 'back'); return; }
@@ -758,7 +803,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') { go({ scene: 'menu' }, 'back'); return; }
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, showHud, sendScore, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, showHud, sendScore, seen, problem, dossiers, app, account.kind, pfRef, setPf]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): on a phone the
@@ -819,7 +864,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   // ── Canvas loop ──
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const grid = sceneGrid(ui.scene, form, hud, pf);
+  const grid = sceneGrid(ui.scene, form, hud, pf, kart);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
   const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system });
@@ -855,6 +900,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         },
         chart: { source: f.knowledge, layout: f.chart, system: f.system, sun: u.sun, world: u.world },
         game,
+        kart: kartDrawOf(u.scene, kartRef.current),
       };
       const phase = titlePhaseAt(t - u.since);
       drawFrame(ctx, frame, !f.view && phase === 'hiscore' ? 'title' : phase); // no high scores without the galaxy
@@ -942,6 +988,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           <PlatformerOverlay session={pf.session} status={pf.status} send={send} />
         </>
       ) : null;
+      case 'kart': return kart ? <KartOverlay status={kart.status} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => { go({ fleet: i }, 'move'); }} owner={owner} /> : null;

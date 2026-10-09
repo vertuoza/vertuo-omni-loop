@@ -1,0 +1,15 @@
+/* The kart group: OMNI KART's loading and failure lines and its ready screen (PRD 1359), over the
+   arcade's canvas. Laid out on the wide grid (640×360) first; the rules at the end rearrange it for
+   the tall grid (320×288). A screen's title is Entropy Invaders' own (`.inv-title`, invaders.css). */
+
+.kt { position: absolute; inset: 0; }
+.kt-notice {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0;
+  font-size: 8px; letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26; white-space: nowrap;
+}
+.kt-back { position: absolute; left: 50%; top: calc(50% + 18px); transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; }
+.kt-panel { left: 50%; bottom: 14%; transform: translateX(-50%); gap: 6px; justify-items: center; text-align: center; white-space: nowrap; line-height: 1.2; }
+.kt-panel .hint { font-size: 8px; }
+
+/* ── On the tall grid (320×288) ───────────────────────────────────────────── */
+.grid-tall .kt-panel { padding: 8px 10px; white-space: normal; max-width: 280px; }
