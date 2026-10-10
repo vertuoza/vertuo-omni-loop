@@ -1,6 +1,6 @@
 // PRD 1369: whether a diff touches a screen, as `omni design touched` says it.
 import { describe, expect, it } from 'vitest';
-import { designTouched, formatTouched } from './touched.ts';
+import { designTouched, formatScreensTouched, formatTouched, screensTouched, type ScreenTouch } from './touched.ts';
 
 const CHANGED = ['src/ui/Button.tsx', 'src/api/route.ts', 'styles/global.css', 'README.md'];
 
@@ -34,5 +34,36 @@ describe('formatTouched', () => {
     expect(formatTouched({ ui: 'unknown' })).toEqual(['ui: unknown', 'design.paths is empty: judge from the diff whether a screen changed']);
     expect(formatTouched({ ui: 'unknown', reason: 'cannot read origin/main' })).toEqual(['ui: unknown', 'cannot read origin/main']);
     expect(formatTouched({ ui: 'yes', paths: ['a.css', 'b.tsx'] })).toEqual(['ui: yes', '  a.css', '  b.tsx']);
+  });
+});
+
+// PRD 1407: the library screens a diff touches, matched by their `implements` entries.
+const EDITOR: ScreenTouch = { screen: 'quote-editor', status: 'locked', routes: ['/quotes/:id'], implements: ['src/quotes/editor/'] };
+const LIST: ScreenTouch = { screen: 'quote-list', status: 'draft', routes: [], implements: ['src/quotes/list/**/*.tsx', 'src/quotes/List.tsx'] };
+const OLD: ScreenTouch = { screen: 'old-editor', status: 'superseded', routes: ['/q', '/q/:id'], implements: ['./src/old/{a,b}.tsx'] };
+
+describe('screensTouched', () => {
+  it('keeps each screen an implements entry matches, with the design.paths semantics, in the library order', () => {
+    const changed = ['src/quotes/editor/Toolbar.tsx', 'src/quotes/list/deep/Row.tsx', 'src/old/b.tsx'];
+    expect(screensTouched([EDITOR, LIST, OLD], changed)).toEqual([EDITOR, LIST, OLD]);
+    expect(screensTouched([EDITOR, LIST, OLD], ['src/quotes/List.tsx'])).toEqual([LIST]);
+    expect(screensTouched([EDITOR, LIST, OLD], ['src/quotes/editor'])).toEqual([EDITOR]);
+  });
+
+  it('keeps none when no entry matches, a screen implements nothing, or nothing changed', () => {
+    expect(screensTouched([EDITOR, LIST, OLD], ['src/quotes/editorial.tsx', 'src/quotes/list/Row.ts', 'src/old/c.tsx'])).toEqual([]);
+    expect(screensTouched([{ ...EDITOR, implements: [] }], ['src/quotes/editor/a.tsx'])).toEqual([]);
+    expect(screensTouched([EDITOR], [])).toEqual([]);
+  });
+});
+
+describe('formatScreensTouched', () => {
+  it('prints one screens: line, a lock on a locked screen, the status of any other, then its routes', () => {
+    expect(formatScreensTouched([EDITOR, LIST, OLD])).toEqual(['screens: quote-editor 🔒 (/quotes/:id) · quote-list (draft) · old-editor (superseded) (/q, /q/:id)']);
+    expect(formatScreensTouched([{ ...EDITOR, routes: [] }])).toEqual(['screens: quote-editor 🔒']);
+  });
+
+  it('prints no line when no screen is touched', () => {
+    expect(formatScreensTouched([])).toEqual([]);
   });
 });

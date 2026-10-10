@@ -92,6 +92,50 @@ describe('omni design touched', () => {
     expect(fallback.out).toMatch(/^ui: unknown\ncannot read origin\/main — fetch it or pass another base\n$/);
   });
 
+  describe('the screens: line (PRD 1407)', () => {
+    const LIB = '.omni-loop/knowledge/design/screens';
+    const EDITOR = '---\nscreen: quote-editor\nstatus: locked\nlocked-by: "@ana"\nlocked-on: 2026-10-10\nquote: "build it"\nimplements: [src/ui/]\nroutes: [/quotes/:id]\n---\n';
+    const LIST = '---\nscreen: quote-list\nstatus: draft\nimplements: ["**/*.css"]\n---\n';
+    const API = '---\nscreen: api-docs\nstatus: draft\nimplements: [src/api/route.ts]\nroutes: [/docs]\n---\n';
+
+    /** A branch changing `changed`, with the three screens in its library. */
+    function withLibrary(config: string, changed: readonly string[]) {
+      const repo = repoChanging(config, changed);
+      repo.write(`${LIB}/editor.md`, EDITOR);
+      repo.write(`${LIB}/list.md`, LIST);
+      repo.write(`${LIB}/api.md`, API);
+      repo.write(`${LIB}/broken.md`, 'no front matter');
+      return repo.root;
+    }
+
+    it('adds one screens: line below the unchanged answer for every screen whose implements the diff touches', async () => {
+      const root = withLibrary(HEAD + ON, ['src/ui/Button.tsx', 'styles/global.css']);
+      expect(await touched(root, ['main'])).toEqual({
+        code: 0,
+        out: 'ui: yes\n  src/ui/Button.tsx\n  styles/global.css\nscreens: quote-editor 🔒 (/quotes/:id) · quote-list (draft)\n',
+        err: '',
+      });
+    });
+
+    it('matches implements whatever design.paths says, below ui: no and ui: unknown too', async () => {
+      expect((await touched(withLibrary(HEAD + ON, ['src/api/route.ts']), ['main'])).out).toBe('ui: no\nscreens: api-docs (draft) (/docs)\n');
+      const unknown = await touched(withLibrary(HEAD + 'design:\n  enabled: true\n', ['src/ui/Button.tsx']), ['main']);
+      expect(unknown).toEqual({ code: 0, out: 'ui: unknown\ndesign.paths is empty: judge from the diff whether a screen changed\nscreens: quote-editor 🔒 (/quotes/:id)\n', err: '' });
+    });
+
+    it('adds no line when no screen matches, the base cannot be read, or the flag is off', async () => {
+      expect(await touched(withLibrary(HEAD + ON, ['README.md']), ['main'])).toEqual({ code: 0, out: 'ui: no\n', err: '' });
+      expect((await touched(withLibrary(HEAD + ON, ['src/ui/Button.tsx']), ['nope'])).out).toBe('ui: unknown\ncannot read nope — fetch it or pass another base\n');
+      expect(await touched(withLibrary(HEAD + 'design:\n  paths: [src/ui/**]\n', ['src/ui/Button.tsx']), ['main'])).toEqual({ code: 0, out: 'design: off\n', err: '' });
+    });
+
+    it('reads the library from design.screens', async () => {
+      const repo = repoChanging(HEAD + ON + '  screens: docs/screens/\n', ['src/ui/Button.tsx']);
+      repo.write('docs/screens/editor.md', EDITOR);
+      expect((await touched(repo.root, ['main'])).out).toBe('ui: yes\n  src/ui/Button.tsx\nscreens: quote-editor 🔒 (/quotes/:id)\n');
+    });
+  });
+
   it('prints the screen library: name, status, locker, date and routes, sorted, then each file that does not read, exit 0', async () => {
     const lib = '.omni-loop/knowledge/design/screens';
     const files = {
