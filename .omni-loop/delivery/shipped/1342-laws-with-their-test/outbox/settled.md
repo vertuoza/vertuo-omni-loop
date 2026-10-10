@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-09
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-95, P-PRODUCT-81
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ A constant: two conditions in one function of the knowledge check, and their tes
 - Raised: 2026-10-09
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off scoping choice about a label's colour and wording; the look stays local and there is no lasting behaviour to keep beyond existing setup conventions.
 
 ### The answer, as it was given
 
@@ -175,6 +177,7 @@ A constant: one style line and the label lists of two test files.
 - Raised: 2026-10-09
 - Slice: s3
 - Wave: 1
+- Became: ADR-0096
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ Removing the variable from four files and pointing the law judge at the other se
 - Raised: 2026-10-09
 - Slice: s3
 - Wave: 1
+- Stays here: An internal request-shape choice that is cheap to change; it is neither a product guarantee nor a lasting architectural decision worth a record.
 
 ### The answer, as it was given
 
@@ -330,6 +334,7 @@ Adding one optional field to the judge and to its two callers.
 - Raised: 2026-10-09
 - Slice: s2
 - Wave: 2
+- Stays here: An interim wiring and sequencing choice within the PRD. The lasting guarantee, that the gate compares head knowledge with the base's, is already N-PRODUCT-4.
 
 ### The answer, as it was given
 
@@ -409,6 +414,7 @@ A constant-sized change: each caller passes `diskSource(<base checkout>)` (the a
 - Raised: 2026-10-09
 - Slice: s2
 - Wave: 2
+- Stays here: A one-off test fixture edit made to keep the branch green; it records no lasting product behaviour or build decision.
 
 ### The answer, as it was given
 
@@ -486,6 +492,7 @@ One test fixture; reverting it is a two-line edit.
 - Raised: 2026-10-09
 - Slice: s4
 - Wave: 2
+- Stays here: A transitional compatibility choice for old saved answers and the not-yet-updated hosted harvest, cheap to change; nothing lasting for the knowledge base.
 
 ### The answer, as it was given
 
@@ -565,6 +572,7 @@ A constant: one optional flag in the answer's shape and one branch in the writer
 - Raised: 2026-10-09
 - Slice: s4
 - Wave: 2
+- Became: ADR-0097
 
 ### The answer, as it was given
 
@@ -644,6 +652,7 @@ A small change in two functions and the command that calls them: the second call
 - Raised: 2026-10-10
 - Slice: s5
 - Wave: 3
+- Stays here: A one-off territory exception for this slice's wiring and docs bullet. It sets no lasting rule, guarantee or architecture choice for the product.
 
 ### The answer, as it was given
 
@@ -722,6 +731,7 @@ Reverting is two small hunks; s9 may reword the README bullet freely.
 - Raised: 2026-10-10
 - Slice: s6
 - Wave: 3
+- Became: ADR-0098
 
 ### The answer, as it was given
 
@@ -800,6 +810,7 @@ One branch in the sweep command: dropping the model call or setting requireProof
 - Raised: 2026-10-10
 - Slice: s6
 - Wave: 3
+- Became: ADR-0099
 
 ### The answer, as it was given
 
@@ -878,6 +889,7 @@ One branch: keeping the entry instead, or writing a note somewhere else, is a fe
 - Raised: 2026-10-10
 - Slice: s6
 - Wave: 3
+- Stays here: A local code-sharing choice that is cheap to change later (an import rename); it states no product guarantee or lasting architectural decision.
 
 ### The answer, as it was given
 
@@ -956,6 +968,7 @@ Moving the helpers to a shared module later is a rename of imports.
 - Raised: 2026-10-10
 - Slice: s7
 - Wave: 3
+- Became: N-PRODUCT-14
 
 ### The answer, as it was given
 
@@ -1035,6 +1048,7 @@ A constant: each command drops its base argument and law-demoted goes back to fi
 - Raised: 2026-10-10
 - Slice: s7
 - Wave: 3
+- Became: ADR-0100
 
 ### The answer, as it was given
 
@@ -1114,6 +1128,7 @@ A constant: one function in apps/omni-app/src/evaluate/evaluate.ts and one branc
 - Raised: 2026-10-10
 - Slice: s8
 - Wave: 4
+- Stays here: Where a skill sits in the help's grouping is a local presentation choice; it guarantees no lasting product behaviour and nothing in the knowledge base covers it.
 
 ### The answer, as it was given
 
@@ -1192,6 +1207,7 @@ A constant: the entry's group, and the pinned list in apps/galaxy/src/docs/skill
 - Raised: 2026-10-10
 - Slice: s8
 - Wave: 4
+- Stays here: An interim workaround that a later slice replaces with omni item new --fix. The lasting guarantee, that items are graded at the source, is already N-PRODUCT-3.
 
 ### The answer, as it was given
 

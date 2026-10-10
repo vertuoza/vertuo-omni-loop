@@ -68,20 +68,21 @@ describe('the game room, for a player with a level', () => {
     expect(wide).toContain('120 XP to LV 4');
   });
 
-  it('stands the three cabinets side by side on the wide grid: Entropy Invaders lit, Super Omni World, then one SOON', () => {
+  it('stands the three cabinets side by side on the wide grid: Entropy Invaders lit, Super Omni World, then OMNI KART, and no SOON', () => {
     expect(CABINETS).toBe(3);
     expect(wide).toContain('ENTROPY INVADERS');
     expect(wide).toContain('SUPER OMNI WORLD');
     expect(wide).toContain('CREW TOP 5');
     expect(wide).toContain('NO SCORES YET');
     expect(wide).toContain('A · PLAY');
-    expect(wide.filter((s) => s === 'SOON')).toHaveLength(1);
-    expect(wide.filter((s) => s === 'Its own PRD sets its level')).toHaveLength(1);
+    expect(wide).toContain('OMNI KART');
+    expect(wide.filter((s) => s === 'SOON')).toHaveLength(0);
+    expect(wide.filter((s) => s === 'Its own PRD sets its level')).toHaveLength(0);
     expect(wide.some((s) => s.startsWith('PAGE'))).toBe(false);
   });
 
-  it('shows no level on a SOON cabinet: only Super Omni World\'s, locked until the stored row unlocks it', () => {
-    expect(levels(wide).sort()).toEqual(['120 XP to LV 4', `P1 INKY · ${sure(fleets[1], 'fleets[1]').label} · LV 3`, 'LV 2', 'LV 3'].sort());
+  it('shows a level on each locked cabinet: Super Omni World\'s LV 2 and OMNI KART\'s LV 3, locked until the stored row unlocks them', () => {
+    expect(levels(wide).sort()).toEqual(['120 XP to LV 4', `P1 INKY · ${sure(fleets[1], 'fleets[1]').label} · LV 3`, 'LV 2', 'LV 3', 'LV 3'].sort());
   });
 
   it('shows the XP and the cap without a next level at the top', () => {
@@ -154,7 +155,7 @@ describe('the game room without a level', () => {
       expect(text.some((s) => /\d XP\b/.test(s)), grid.name).toBe(false);
       // The only levels on screen are the ones the games unlock at, on their locked cabinets: the
       // tall grid shows one cabinet a page.
-      expect(levels(text), grid.name).toEqual(grid === TALL ? ['LV 1'] : ['LV 1', 'LV 2']);
+      expect(levels(text), grid.name).toEqual(grid === TALL ? ['LV 1'] : ['LV 1', 'LV 2', 'LV 3']);
     }
   });
 });
@@ -173,10 +174,9 @@ describe('the game room on the tall grid', () => {
     expect(pages[0]).not.toContain('SOON');
     expect(pages[1]).toContain('SUPER OMNI WORLD');
     expect(pages[1]).not.toContain('ENTROPY INVADERS');
-    for (const page of pages.slice(2)) {
-      expect(page).toContain('SOON');
-      expect(page).not.toContain('ENTROPY INVADERS');
-    }
+    expect(pages[2]).toContain('OMNI KART');
+    expect(pages[2]).not.toContain('SOON');
+    expect(pages[2]).not.toContain('ENTROPY INVADERS');
   });
 
   it('shows every line the wide room shows, across its pages', () => {

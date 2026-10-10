@@ -83,7 +83,8 @@ textarea.pitch-input { width: 100%; resize: vertical; }
 
 /* The Approvers list (PRD 1322 s1): one row per listed member, their state beside their name and Remove
    after it, wrapping under the name at 393 px; the member to add and Add below. */
-.approvers-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; width: 100%; }
+.approvers-list,
+.links-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; width: 100%; }
 .approvers-row {
   display: flex;
   align-items: center;
@@ -96,3 +97,81 @@ textarea.pitch-input { width: 100%; resize: vertical; }
 }
 .approvers-row strong { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
 .approvers-add { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+/* The product's repositories (PRD 1364 s11), on its home's Repositories & approvers tab: one row per
+   repository, its fields side by side and wrapping under its name at 393 px, never wider than the row;
+   a member reads them as one line of text. */
+.links-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  padding: 12px 16px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.links-row strong { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.links-facts { flex: 1 1 100%; font-size: 14px; overflow-wrap: anywhere; }
+.links-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; width: 100%; min-width: 0; }
+.links-added { flex: 1 1 100%; margin-top: -6px; font-size: 14px; }
+.links-field { display: grid; gap: 4px; min-width: 0; max-width: 100%; font-size: 14px; color: var(--ask-muted); }
+.links-input {
+  max-width: 100%;
+  width: 12ch;
+  font: 600 15px/1.2 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.links-commit { width: 42ch; }
+.links-input:disabled { cursor: not-allowed; opacity: 0.6; }
+.links-input:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.links-check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--ask-ink); overflow-wrap: anywhere; }
+.links-consumes { display: flex; flex-wrap: wrap; gap: 6px 14px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.links-consumes legend { padding: 0; margin-bottom: 4px; font-size: 14px; color: var(--ask-muted); }
+.links-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+
+/* Products in the sidebar (PRD 1364 s8): /app/products, one card per product, linking to its product
+   home: its name, its repositories as chips (a shared one marked), its PRD count and what waits on the
+   reader; then the repositories in no product, each with Add to a product. At 393 px a card's chips and
+   counts wrap under its name. */
+.products-cards { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.products-card {
+  display: grid;
+  gap: 10px;
+  height: 100%;
+  padding: 14px 16px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+  color: var(--ask-ink);
+  text-decoration: none;
+  min-width: 0;
+}
+.products-card:hover { border-color: var(--ask-plasma); }
+.products-card:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.products-card-name { font-size: 18px; overflow-wrap: anywhere; }
+.products-card-repos { display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px; }
+.products-chip { padding: 2px 8px; border: 1px solid var(--ask-line-strong); border-radius: 999px; overflow-wrap: anywhere; }
+.products-shared { font-style: normal; color: var(--ask-muted); }
+.products-card-counts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--ask-muted); }
+.products-waiting[data-waiting] { color: var(--ask-ink); font-weight: 700; }
+
+.products-unlinked h2 { margin: 0; font-size: 16px; }
+.products-repo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 10px 16px;
+  border: 1px dashed var(--ask-line-strong);
+  border-radius: 12px;
+}
+.products-repo-name { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.products-add { font-size: 14px; }
+/* Add to a product, with several products (PRD 1364 s11): a list of them, each opening its tab. */
+details.products-add summary { cursor: pointer; color: var(--ask-ink); }
+.products-add-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }

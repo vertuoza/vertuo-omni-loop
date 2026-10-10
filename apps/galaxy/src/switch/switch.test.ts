@@ -15,7 +15,7 @@ describe('the app\'s sections', () => {
     // Ideas (PRD 1246) opens a board, /ideas/<owner>/<repo>, or Settings › Repositories with none.
     const inApp = [...SIDEBAR.flatMap((g) => g.items), SETTINGS].flatMap((i) => [{ path: hrefOf(i, null) }, ...(i.pages ?? [])]);
     expect(existsSync(new URL('../../app/ideas/[owner]/[repo]/page.tsx', import.meta.url)), 'app/ideas/[owner]/[repo]/page.tsx').toBe(true);
-    expect(inApp.map((i) => i.path)).toEqual(['/app', '/app/fleet', '/app/loop', '/app/workspace', '/app/engineering', '/roadmaps', '/app/settings/repositories', '/concepts', '/prd', '/bugs', '/visual', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings', '/app/settings/fleets', '/app/settings/repositories', '/app/settings/business', '/app/settings/products', '/app/settings/jev']);
+    expect(inApp.map((i) => i.path)).toEqual(['/app', '/app/fleet', '/app/loop', '/app/workspace', '/app/engineering', '/app/products', '/roadmaps', '/app/settings/repositories', '/concepts', '/prd', '/bugs', '/visual', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings', '/app/settings/fleets', '/app/settings/repositories', '/app/settings/business', '/app/settings/products', '/app/settings/jev']);
     for (const { path } of inApp) expect(existsSync(pageOf(path)), `app${path}/page.tsx`).toBe(true);
   });
 });

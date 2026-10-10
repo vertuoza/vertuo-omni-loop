@@ -7,8 +7,8 @@ GitHub makes you a member of the workspace of every GitHub org of yours that has
 fleet, enter a name and build a hero, and your pull requests score for that fleet. Every point also
 counts as XP, which never resets (it restarted at 0 once, at PRD 728's fresh start, keeping every
 game already unlocked: [`game/README.md` › The fresh start](../../game/README.md#the-fresh-start)),
-and levels open arcade games in the game room: Entropy Invaders from LV 1, then SUPER OMNI WORLD
-from LV 2 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
+and levels open arcade games in the game room: Entropy Invaders from LV 1, SUPER OMNI WORLD
+from LV 2, then OMNI KART from LV 3 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
 Game Boy's buttons on a phone (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
 
@@ -120,9 +120,10 @@ HOME.
 | System | One domain as an orrery: its entries as worlds on still orbits, laws terraformed and proposed entries barren; the selected world's links, its panel, and the reading card |
 | Fleets | A hero-select wall of the fleets with season points, streak, planets, crew (players by name) |
 | Hall of Heroes | Season high-score table from `game/economy.ts`, with each player's hero and name |
-| Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) and a SOON cabinet ([The game room](#the-game-room)) |
+| Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) ([The game room](#the-game-room)) |
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
 | SUPER OMNI WORLD | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
+| OMNI KART | The third game, from LV 3: a Mode 7 kart race of three laps on COMET RING against five rivals, item boxes (BOOST, BLOB, ORB), the score sent at the finish |
 | How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.ts` so they never drift |
 
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#menu`, `#planet-2332`
@@ -634,20 +635,84 @@ Without `SECRETS_MASTER_KEY` (32 random bytes, base64: `openssl rand -base64 32`
 is not available on this deployment* and nothing can be saved. Losing it makes every stored key
 unreadable: each call then fails, today's path decides, and the owner pastes the key again.
 
-### Settings › Products: who approves (PRD 1322)
+### Products: the product home, its repositories and approvers (PRD 1364, PRD 1322)
 
-**Settings › Products › <product>** (`/app/settings/products/<id>`, `src/products/`) has an
-**Approvers** list: members of the workspace, each **asked to approve** or **skipped**
-(`public.product_approvers`, one row per listed member). The workspace's owners add a member and set
-or change their state through the owner-only `product_approver_set()` and `product_approver_remove()`;
-every other member reads the list. A member who leaves the workspace leaves every list.
+Products are optional ([`docs/guide/products.md`](../../docs/guide/products.md)). A repository is in
+no product, one or several, and a PRD has one product or none; the loop works the same with none.
+**Settings › Products** (`/app/settings/products`, `src/products/`) still creates, renames and
+deletes a product and holds its Pitch; a product's Settings page links to its product home for the
+Approvers list that used to live there.
 
-The list decides two things for a PRD born on the server (◆), whose product is its repository's
-(`repositories.product_id`):
+**Many to many.** `public.product_repositories` holds one row per product and repository: its
+`role` (one kebab-case word, or null until set), `knowledge` (`own`, `imported` or `none`),
+`read_at` (the 40-hex commit, only and always for `imported`), `read_only`, `consumes` (repositories
+of the same product, never itself) and `added_by` (`person` or `prd`). Members read the links; the
+workspace's owners write them through `product_repository_link()` and `product_repository_unlink()`,
+which refuses to remove a repository another one of the product still consumes. The migration copied
+each `repositories.product_id` into one link, and a new repository is in no product;
+`repositories.product_id` and `repository_set_product()`, which now moves the link, stay only until
+PRD 1364's contract landing drops them. Proven by `supabase/checks/product_repositories.sql`
+(`supabase/migrations/20261129090000_product_repositories.sql`).
+
+**A PRD's product.** `dossiers.product_id` and `ideas.product_id` are nullable. A dossier's first
+push takes its repository's product when the repository is in exactly one, none when it is in none,
+and, in several, the product the push names (`omni dossier push --product`, which `/omni:brainstorm`
+sends after asking *Which product is this PRD for?*) or none. Ideas, bug and visual fixes follow the
+same rule without the question. Giving a PRD a product links its home repository, and every
+repository its plan names, with `added_by = 'prd'`. The PRD's page has a **Product** picker
+(`GET`/`POST /api/dossiers/product`, `src/dossier/product/`) for every member until an approval is in
+force; then `dossier_set_product()` refuses with `product is locked: PRD <n> is approved`, and a void
+unlocks it. Proven by `supabase/checks/prd_product.sql`.
+
+**The lookups** (`lookup_product()`): the PRD's own product when the call names a PRD the server
+holds, else the repository's only product, else none, for `business_for_repo`, `business_for_token`,
+`dossier_approve`, `approval_request`, the voice's claims, agent questions, constituents and pitch. A
+PRD with no product reads none even in a repository with one product. With none, any member
+approves and the asked are every member but the author, as before; `business_for_token` with several
+products and no repository answers none instead of raising. Approvals know their PRD today; the
+kit's other calls do not send it yet, so they read the repository's only product. Proven by
+`supabase/checks/product_lookups.sql`.
+
+**Products in the sidebar** (`/app/products`, `src/products/ProductsHome.tsx`), first under Work:
+the workspace's products as cards, each with its repositories (one another product links too marked
+shared), its PRD count and how many of its PRDs wait on the viewer's approval; under them, the
+repositories in no product, each with **Add to a product**, which opens a product's Repositories &
+approvers tab with it picked.
+
+**The product home** (`/app/products/<id>`, `app/app/products/[id]/`, `src/product-home/`), each tab
+at its own address and reading only the product's rows:
+
+| tab | address | shows |
+|---|---|---|
+| **Ledger** | `/app/products/<id>` | three lanes, *on you* (waiting for the viewer's approval or answer), *on GitHub review*, *on the agent*; each PRD with its number or seal, ◆/◇, one state word and the open PRs of its feature and landing branches; a summary of building, waiting on a person and drifted |
+| **PRDs** | `…/prds` | the product's PRDs, newest first, birthplace and state |
+| **Ideas**, **Roadmap**, **Bug fixes**, **Visual fixes** | `…/ideas`, `…/roadmap`, `…/bugs`, `…/visual` | the product's ideas (with their `/omni:brainstorm` line), roadmaps, bug and visual dossiers |
+| **Questions** | `…/questions` | the open outbox questions of its PRDs that wait on a person, each linking to the PRD page's Outbox tab |
+| **Repositories & approvers** | `…/repositories` | the links, every field editable by an owner, and **Add a repository** (`POST`/`DELETE …/repositories/links`); under them the **Approvers** list (`POST`/`DELETE …/repositories/approvers`); a member reads both |
+
+**Settings › Repositories** shows each repository's products as chips linking to their homes, and
+no longer offers a product select. `/prd`, `/ideas/<owner>/<repo>` (to members), `/bugs` and
+`/visual` gain a product filter: all, one product, or no product.
+
+**The kit's routes** (`src/product-repositories/product-repositories.controller.ts`):
+`GET /api/products/targets?repo=&product=` for `omni targets` when a plan repository's config names
+`plan.product`, `POST /api/products/import` for `omni product import --product <name>`, and
+`GET /api/products/which?repo=` for `omni product which`. Each answers 401 signed out.
+
+#### Who approves (PRD 1322)
+
+The product home's **Approvers** list holds members of the workspace, each **asked to approve** or
+**skipped** (`public.product_approvers`, one row per listed member). The workspace's owners add a
+member and set or change their state through the owner-only `product_approver_set()` and
+`product_approver_remove()`; every other member reads the list. A member who leaves the workspace
+leaves every list.
+
+The list decides two things for a PRD born on the server (◆), through its product (the PRD's own,
+else its repository's only one, as above):
 
 - **Who may approve.** Once the product lists a member asked to approve, `dossier_approve()` refuses
-  anyone else, a skipped member included, and the PRD's page shows them no **Approve**. A repository
-  with no product, or a product with nobody asked, keeps PRD 1299's rule: any member of the workspace.
+  anyone else, a skipped member included, and the PRD's page shows them no **Approve**. A PRD with no
+  product, or a product with nobody asked, keeps PRD 1299's rule: any member of the workspace.
   The author may approve when they are one of the product's approvers.
 - **Who is asked** ([The approval handshake](#the-approval-handshake-prd-1322)): the members asked to
   approve, except the PRD's author, or the author when that leaves nobody.
@@ -761,7 +826,7 @@ off, no row exists, and every player sees NO XP YET.
   level (`LV 3 · 180 / 300 XP`, `120 XP to LV 4`), then a cabinet per game in the registry
   (`src/arcade/games/index.ts`). A lit cabinet shows the crew's top five, the player's own line
   highlighted, and A · PLAY; a locked one is dark and shows the level it opens at (SUPER OMNI WORLD:
-  `REACH LV 2 TO PLAY`); a dark SOON cabinet stands for the game to come, with no level. A visitor sees every cabinet locked and
+  `REACH LV 2 TO PLAY`; OMNI KART: `REACH LV 3 TO PLAY`). A visitor sees every cabinet locked and
   "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE YOUR FIRST POINT", and XP that
   could not be read "XP OUT OF REACH". The wide grid stands the three cabinets side by side, ◀ ▶
   choosing; the tall grid shows one a page.
@@ -803,6 +868,31 @@ off, no row exists, and every player sees NO XP YET.
   Phaser does the physics and the drawing and reports what happened. It is silent. At the game over
   or WORLD CLEAR the score is sent once under `platformer`, with the same SAVING SCORE…, NEW BEST,
   YOUR BEST n or SCORE NOT SAVED (A retries once) as Invaders.
+- **`kart`**, OMNI KART (PRD 1359), opened at LV 3 (`xp.unlocks.kart` in the rulebook): an original
+  Mode 7 kart race, three laps of one circuit, COMET RING, against five rivals. Its code is
+  `src/arcade/kart/`, imported only when the cabinet opens (a failed import says
+  `GAME DID NOT LOAD · A TO RETRY`); nothing outside that folder imports it at run time. The floor is
+  the circuit's text map (`track.ts`) painted once from `@omni/design` ramps and projected line by
+  line (`mode7.ts`); the karts, item boxes, BLOBs and ORBs are sprites scaled by distance, drawn from the
+  farthest to the nearest. The player drives their own hero in a kart tinted with the hero's suit
+  (◀ ▶ steer, A accelerates, ▼ brakes and reverses, START pauses); the rivals are the workspace's
+  other fleets, each driven by its mascot, who follow the racing line at 92% to 100% of the player's
+  pace under a light rubber band (`rivals.ts`). A lap counts when the line is crossed forwards after
+  every waypoint, in order; the HUD shows the place (1ST to 6TH), `LAP n/3`, the race time and the item
+  held, and `FINAL LAP` on the third lap. The race is a seeded, pure phase machine (`race.ts`).
+  **Items** (`items.ts`): two rows of four boxes across the road give one item to a kart holding
+  none (the box is back after 3 seconds), drawn from the race's seed and weighted by place, the
+  leaders drawing more BLOBs and the karts behind more BOOSTs and ORBs. B uses the player's item.
+  **BOOST** is 1.5 seconds at 1.4 times the top speed, grass included. **BLOB** is an Entropy blob
+  dropped behind: the first kart over it spins out and it is gone, and a seventh removes the oldest
+  of six. **ORB** (a 16×16 `@omni/design` sprite) is thrown straight ahead at twice the top speed,
+  bounces off walls, and is gone at its third bounce, after 4 seconds, or on a kart, which spins out.
+  A spin-out lasts 1 second at 30% of the speed with no input, and never stops the race. The rivals
+  use theirs by rule: a BOOST at once on a straight, a BLOB with a kart close behind, an ORB with a
+  kart ahead, in range and in line. Its numbers are one block, `rules.ts`. At the finish the score
+  (1000, 700, 500, 350, 200 or 100 for the place, plus a point per tenth of a second under 150
+  seconds) is sent once under `kart`, with the same SAVING SCORE…, NEW BEST, YOUR BEST n or SCORE NOT
+  SAVED (A retries once) as Invaders. It is silent.
 - **The play dock**, the corner Game Boy that plays while Claude works (PRD 757,
   `src/play-dock/`): below LV 2 it goes straight into Entropy Invaders; from LV 2 it opens on a
   picker, `ENTROPY INVADERS` and `SUPER OMNI WORLD`, ▲ ▼ to choose, A to play, B to fold. B on a
@@ -881,7 +971,7 @@ runs instead of stopping ([`docs/guide/loop.md`](../../docs/guide/loop.md#the-ap
 - **The request.** `POST /api/dossiers/approval/request` `{repo, prd}` appends one row to the
   append-only `public.approval_requests` (the dossier, its product, who asked, who is asked, when)
   and answers who was asked: the product's members asked to approve, except the author, or the author
-  when nobody else is ([Settings › Products](#settings--products-who-approves-prd-1322)). A skipped
+  when nobody else is ([Who approves](#who-approves-prd-1322)). A skipped
   member is never asked; a signed-out caller gets 401. Each person asked gets a push on every device
   they subscribed, if their **Phone alerts** are on, and an email, if their **Email** is on:
   `PRD <n> waits for your approval`, the spec's title, its before → after, the repositories and the

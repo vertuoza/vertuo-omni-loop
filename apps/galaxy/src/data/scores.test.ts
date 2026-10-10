@@ -65,14 +65,14 @@ describe('every game\'s crew table, as the page reads it', () => {
   it('reads each game of the registry', async () => {
     const { db } = world(PEOPLE.ada);
     const scores = await readScores(db, VERTUOZA, PEOPLE.ada.id);
-    expect(Object.keys(scores)).toEqual(['invaders', 'platformer']);
+    expect(Object.keys(scores)).toEqual(['invaders', 'platformer', 'kart']);
     expect(scores.invaders).toEqual({ top: [expect.objectContaining({ name: 'ADA', best: 1240 }), expect.objectContaining({ name: 'BOTH', best: 385 })], mine: 1240 });
   });
 
   it('marks a table out of reach as unreadable, and says why in the log', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { db } = world(PEOPLE.ada, (w) => { w.state.failOn = 'arcade_scores'; });
-    expect(await readScores(db, VERTUOZA, PEOPLE.ada.id)).toEqual({ invaders: 'unreadable', platformer: 'unreadable' });
+    expect(await readScores(db, VERTUOZA, PEOPLE.ada.id)).toEqual({ invaders: 'unreadable', platformer: 'unreadable', kart: 'unreadable' });
     expect(console.error).toHaveBeenCalled();
   });
 });

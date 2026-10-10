@@ -195,6 +195,16 @@ or `proof.url` unset, writes nothing and asks nothing.
 (step 4), and `/omni:yolo` then follows `/omni:validate-e2e` once the feature PR is ready. A no, or
 e2e off, asks nothing and writes nothing.
 
+**The product question** (PRD 1364), right after the e2e question: run
+`node .omni-loop/bin/omni.mjs product which`, which prints the products this repository is in, one per
+line, or `none`. Only when it prints more than one product, ask one question: *"Which product is this
+PRD for?"*, its options each product it printed, by name, and **No product**. Keep the answer for
+step 7's first push; it is the PRD's product, so its approvers, claims and personas are that
+product's. With one product or `none`, ask nothing: the Omni page gives the PRD that one product, or
+none, by itself. When the command exits 1 (no Omni page, no sign-in, the page unreachable or its
+refusal), print its line as is and ask nothing: the PRD is born with whatever the page decides, and
+its page's Product picker changes it until it is approved.
+
 ## The voice
 
 Only when step 0's read listed personas. They speak for the people the product is sold to: all of
@@ -481,7 +491,10 @@ exist yet): that is expected here, never a failure. A ◆ PRD whose `omni prd` p
 Then follow `/omni:dossier-push <n>` from this worktree: the draft becomes PRD n's dossier, and the
 spec and the before/after page go up as its first versions. For a ◆ PRD, this first push is what
 makes the dossier's birthplace `server`: the server reads it from the spec's `phase0: server`.
-Whatever it prints, carry on.
+When step 1's product question picked a product, this first push carries it: run it as
+`node .omni-loop/bin/omni.mjs dossier push <n> --product '<name>'` and read what it prints as
+`/omni:dossier-push` says; **No product**, or no question asked, sends none. Only this first push
+names a product: every later push leaves it out. Whatever it prints, carry on.
 
 With `--concept`, then follow `/omni:dossier-push <concept> --kind concept` from this worktree too:
 the concept's page gets the `concept.md` whose area now names PRD n, so its Areas tab links that

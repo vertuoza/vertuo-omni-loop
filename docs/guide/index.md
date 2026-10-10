@@ -24,6 +24,10 @@ Either way, [How the loop works](/docs/loop) then shows the loop in three drawin
 [Your first PRD](/docs/first-prd) takes an idea of yours all the way through it. Each page ends
 with a link to the next.
 
+You need no product to start. A [product](/docs/products) on the Omni page is optional: it gathers
+the repositories it is built from, gives its PRDs a home and approvers, and a repository can be in
+none, one or several.
+
 ## What you will have at the end
 
 - **A laptop ready for the loop.** The `omni` command, the loop's skills in your Claude Code, your
