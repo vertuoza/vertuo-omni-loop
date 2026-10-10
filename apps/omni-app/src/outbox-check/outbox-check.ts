@@ -195,7 +195,11 @@ async function evaluateAt(
     let comments: Comment[] = [];
     let changes: Change[] | null = null;
     if (config) {
-      await snapshot(octokit, { owner, repo, ref: headSha, paths: [config.paths.delivery], dest: head });
+      // With laws in the knowledge folder (PRD 1342), the gate reads it at both ends of the range: a
+      // law's proof at the head, a law demoted since the base. The rules still come from the base.
+      const knowledge = config.laws.source === 'knowledge' ? [config.paths.knowledge] : [];
+      if (knowledge.length > 0) await snapshot(octokit, { owner, repo, ref: pr.baseSha, paths: knowledge, dest: base });
+      await snapshot(octokit, { owner, repo, ref: headSha, paths: [config.paths.delivery, ...knowledge], dest: head });
       comments = await listComments(octokit, { owner, repo, prNumber });
       changes = await changedFiles(octokit, { owner, repo, baseSha: pr.baseSha, headSha });
     }
