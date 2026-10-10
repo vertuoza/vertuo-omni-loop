@@ -218,6 +218,20 @@ describe('omni --help, omni -h and a bare omni', () => {
     expect(out.replace(/\s+/g, ' ')).toMatch(/omni check inbox runs it too/);
   });
 
+  it('explains omni knowledge judge, the sweep of the unenforced laws (PRD 1342)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'knowledge'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni knowledge <id> +for you$/m);
+    expect(out).toMatch(/^omni knowledge judge$/m);
+    const flat = out.replace(/\s+/g, ' ');
+    expect(flat).toMatch(/every rule and invariant whose Enforced by: is unenforced/);
+    expect(flat).toMatch(/pending #<n>/);
+    expect(flat).toMatch(/settled\.md/);
+    expect(flat).toMatch(/laws\.requireProof: true/);
+    expect(flat).toMatch(/omni decide law-worth/);
+  });
+
   it('explains roadmap push and answer (PRD 1162, s6)', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out } = await run(['help', 'roadmap'], root);

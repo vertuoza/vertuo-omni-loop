@@ -62,7 +62,7 @@ function proofLines(entry: Placed): string[] {
 }
 
 /** The title of PRD `prd`: its spec's `title:`, else its first `# ` heading; `null` when neither reads. */
-function prdTitle(ctx: Context, prd: PrdNumber): string | null {
+export function prdTitle(ctx: Context, prd: PrdNumber): string | null {
   const spec = ctx.layout.specPath(prd);
   if (spec === null) return null;
   try {
@@ -79,14 +79,14 @@ const DecidedSchema = z.object({ answer: z.enum(['true', 'false']), confidence: 
  * Asks `omni decide law-worth` one question; Jev's answer when it counted, `null` when it printed
  * unset or anything else, and the classifier's answer counts. Never throws for a decision outcome.
  */
-async function askLawWorth(question: LawQuestion, { ctx, exec, env, vars, prd }: Pick<CommandIo, 'ctx' | 'exec' | 'env' | 'vars'> & { prd: PrdNumber }): Promise<LawWorth | null> {
+export async function askLawWorth(question: LawQuestion, { ctx, exec, env, vars, ref }: Pick<CommandIo, 'ctx' | 'exec' | 'env' | 'vars'> & { ref: string }): Promise<LawWorth | null> {
   const dir = mkdtempSync(join(tmpdir(), 'omni-law-worth-'));
   try {
     const file = join(dir, 'state.json');
     writeFileSync(file, JSON.stringify(question.state));
     const out: string[] = [];
     const quiet = { write: () => true };
-    const args = ['law-worth', '--state-file', file, '--old', String(question.old), '--ref', `PRD ${prd} ${question.id}`, '--json'];
+    const args = ['law-worth', '--state-file', file, '--old', String(question.old), '--ref', ref, '--json'];
     await decide.run(args, { cwd: ctx.root, stdout: { write: (text: string) => out.push(text) }, stderr: quiet, exec, env, vars });
     const read = DecidedSchema.safeParse(JSON.parse(out.join('') || 'null'));
     return read.success ? { worth: read.data.answer === 'true', decidedBy: 'Jev', confidence: read.data.confidence } : null;
@@ -98,7 +98,7 @@ async function askLawWorth(question: LawQuestion, { ctx, exec, env, vars, prd }:
 const OpenedSchema = z.looseObject({ number: IssueNumberSchema });
 
 /** Opens one law issue through `gh`, labelled `labels.law` and signed; returns its number. */
-function openLawIssue(issue: LawIssue, { ctx, exec, env }: Pick<CommandIo, 'ctx' | 'exec' | 'env'>): IssueNumber {
+export function openLawIssue(issue: LawIssue, { ctx, exec, env }: Pick<CommandIo, 'ctx' | 'exec' | 'env'>): IssueNumber {
   const footer = footerLine(ctx.config.signature);
   const body = footer ? `${issue.body}\n\n${footer}` : issue.body;
   const ghEnv = githubEnv(ctx, { exec, env });
@@ -151,7 +151,7 @@ export const harvest: Command = {
     }
     const worth: Record<string, LawWorth | null> = {};
     for (const question of lawQuestions({ ctx, prepared, classified, prdTitle: prdTitle(ctx, prd) })) {
-      worth[question.id] = await askLawWorth(question, { ctx, exec, env, vars, prd });
+      worth[question.id] = await askLawWorth(question, { ctx, exec, env, vars, ref: `PRD ${prd} ${question.id}` });
     }
     const judged = classified.map((entry) => ({ ...entry, worth: worth[entry.id] ?? null }));
     const date = today();
