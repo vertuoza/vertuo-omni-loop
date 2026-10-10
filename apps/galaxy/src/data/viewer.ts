@@ -1,7 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import type { JwtPayload, User, UserIdentity } from '@supabase/supabase-js';
-import { readWaitingQuestions } from '../waiting/source';
+import { readWaitingQuestions } from '../waiting/waiting.service';
 import type { WaitingQuestion } from '../waiting/waiting';
 import type { ArcadeMode } from './mode';
 import { serverEnv } from '../env';

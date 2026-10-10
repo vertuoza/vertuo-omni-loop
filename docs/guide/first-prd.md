@@ -98,6 +98,13 @@ inbox on the default branch, so until then `omni status` shows the PRD as `in re
 merge is your approval on record. [How the loop works](/docs/loop#why-the-phase-0-pull-request-goes-into-the-default-branch)
 gives all four reasons.
 
+**Phase 0 approved on the server.** When a workspace owner has switched your repository so its
+phase 0 is approved on the Omni page, the brainstorm says `phase 0: server` and opens no phase-0 pull
+request. Review the same three files on the PRD's page, then press **Approve** there: the page
+records who approved and when, and pins the files you approved. If one changes on the feature branch
+afterwards, the build refuses until you restore it or approve again.
+[Phase 0 approved on the server](/docs/loop#phase-0-approved-on-the-server) says more.
+
 ## 3. Build it: `/clear`, then `/omni:yolo <n>`
 
 Start from a clean session: type `/clear` (or open a new terminal and run `claude` again).

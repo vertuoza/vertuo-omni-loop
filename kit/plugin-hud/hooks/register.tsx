@@ -4,15 +4,17 @@
 //
 // - **When it asks.** `node <project root>/.omni-loop/bin/omni.mjs now --json --session <id>`, at
 //   the session's start, after a tool call (at most once every 10 seconds) and every 30 seconds.
-//   The latest answer is held in `$.state`, so the band redraws when it changes.
+//   The latest answer is held in `$.state`, so the band redraws when it changes. While the answer
+//   holds an approval wait (PRD 1322's s5), it asks again every 5 seconds, so the approved line shows
+//   within seconds, and once more when its toast ends, so the highlight lasts 10 seconds.
 // - **Hidden** while the session is on nothing, while the command fails or prints no answer of
 //   `omni now`'s shape, while a survey holds the band, and while the person turned it off.
 // - **The command** turns the band off, or on again, for this person across sessions (`$.store`).
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import type { HudNow } from '../types/index.d.ts'
-import { bandRows, parseNow } from './band.ts'
+import { bandRows, parseNow, waitAgainIn } from './band.ts'
 
 const OFF_KEY = 'isOff'
 const EVERY_MS = 30_000
@@ -23,6 +25,8 @@ const isOff = atom({ plugin: 'omni-hud', key: 'isOff' } as const, false)
 
 /** When the band last asked `omni now`, in `$.clock.now()`'s milliseconds. */
 let askedAt = Number.NEGATIVE_INFINITY
+/** The next ask an approval wait asked for, cancelled by any ask before it. */
+let waitAgain: Timer | null = null
 
 /** Asks `omni now --json` and holds its answer, `null` when it failed or had another shape. */
 async function ask($: EngineInterface): Promise<void> {
@@ -37,6 +41,9 @@ async function ask($: EngineInterface): Promise<void> {
     answer = null
   }
   await update($, now, () => answer)
+  waitAgain?.cancel()
+  const again = waitAgainIn(answer, await $.clock.now())
+  waitAgain = again === null ? null : $.clock.after(again, () => void ask($))
 }
 
 export const register: Register = on => {
@@ -71,7 +78,7 @@ export const register: Register = on => {
       <Box key="omni-hud" flexDirection="column">
         {rows.map(row => (
           <Box key={row.key}>
-            <Text wrap="truncate-end">
+            <Text wrap="truncate-end" {...(row.toast ? { inverse: true, bold: true } : {})}>
               {row.parts.flatMap((part, index) => [
                 ...(index > 0 ? [<Text dimColor> · </Text>] : []),
                 'href' in part ? <Link href={part.href} label={part.label} /> : <Text>{part.text}</Text>,

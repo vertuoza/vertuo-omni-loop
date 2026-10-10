@@ -50,7 +50,7 @@ function unrecognizedKeyMessage(key: string): string {
     return 'unexpected field "plan" — the plan is always the sibling plan.md, never a front-matter value';
   }
   const named = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` — an inbox spec names no ${key}` : '';
-  return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas and proof`;
+  return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas, proof and e2e`;
 }
 
 /**
@@ -100,6 +100,7 @@ export function parseSpec(text: string, { file = null }: { file?: string | null 
     spec: fm.spec,
     ...(fm.areas !== undefined ? { areas: fm.areas } : {}),
     ...(fm.proof !== undefined ? { proof: fm.proof } : {}),
+    ...(fm.e2e !== undefined ? { e2e: fm.e2e } : {}),
     file,
   };
   return { ok: true, record };

@@ -10,8 +10,9 @@ description: Turns an idea into an approved design, then into a PRD the loop can
 An idea in; out come an approved design, the PRD issue, its inbox folder (spec, before/after page,
 pending acceptance scenarios), its plan and draft feature PR, and a docs-only **phase-0 PR**. It ends
 at a review gate, not at delivery: a person merges the phase-0 PR, then runs `/omni:yolo`. In a
-repository whose phase 0 is on the server, the PRD is born there (◆): no phase-0 PR is opened, and a
-person approves it on its PRD page, then runs `/omni:yolo` (**Where its phase 0 is approved**).
+repository whose phase 0 is on the server, the PRD is born there (◆): no phase-0 PR is opened, and
+`/omni:yolo` asks its approvers with `omni wait approval` and waits until one approves it on its
+PRD page (**Where its phase 0 is approved**).
 
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
@@ -182,6 +183,12 @@ question, yes or no: *"Record a proof video once it ships?"*. A yes writes `proo
 front matter (step 4), and `/omni:yolo` then follows `/omni:prove` once the feature PR is ready. A no,
 or `proof.url` unset, writes nothing and asks nothing.
 
+**The e2e question** (PRD 1275), right after the proof question and only when
+`node .omni-loop/bin/omni.mjs config e2e` prints `enabled` as true, ask one question, yes or no:
+*"Validate with e2e once it ships?"*. A yes writes `e2e: validate` in the spec's front matter
+(step 4), and `/omni:yolo` then follows `/omni:validate-e2e` once the feature PR is ready. A no, or
+e2e off, asks nothing and writes nothing.
+
 ## The voice
 
 Only when step 0's read listed personas. They speak for the people the product is sold to: all of
@@ -260,8 +267,8 @@ The PRD's number is its issue's number, and it names the inbox folder, so the is
 ```
 
 The `Before/after:` line is a repository path, never a URL. For a ◆ PRD, the Next command line
-ends `once it is approved on its PRD page` in place of `once the phase-0 PR is merged`: it has no
-phase-0 PR.
+ends `: it runs omni wait approval <n> and waits for the approval on its PRD page` in place of
+`, once the phase-0 PR is merged`: it has no phase-0 PR.
 
 With `--concept`, the paragraph names where the PRD comes from, as `concept #<concept>, area <area>`:
 GitHub links the concept's issue, which stays open as the concept's thread and so lists each PRD
@@ -313,6 +320,8 @@ spec: file
   domain folders the PRD bears on.
 - `proof: video` only when the person said yes to the proof question (step 1); its only value is
   `video`, and `omni check inbox` refuses any other.
+- `e2e: validate` only when the person said yes to the e2e question (step 1); its only value is
+  `validate`, and `omni check inbox` refuses any other.
 - `phase0: server` only for a ◆ PRD (step 0 read the flag as `server`), written under `spec: file`;
   its only value is `server`, and `omni check inbox` refuses any other by name. A ◇ PRD leaves it
   out. It tells every gate, offline, that this PRD is approved on the server, and the server reads it
@@ -540,7 +549,8 @@ It never stops the hand-off.
 ```
 
 **A ◆ PRD's hand-off.** It has no phase-0 PR, so the report names none, and the three blocks say
-"approve it on its page, then `/omni:yolo <n>`". The folder's first line reads
+"`/omni:yolo <n>` asks its approvers with `omni wait approval <n>` and waits; one approves it on its
+page". The folder's first line reads
 `PRD <n>'s folder: on <feature branch> now, on <repo.defaultBranch> once the feature PR merges`.
 **Where it is** keeps the stages line and its markers, but the inbox marker reads
 `└─ approving it on its PRD page moves it here`, and two stage lines change:
@@ -558,8 +568,10 @@ fallback when it has none):
 
 1. Review the PRD on its page: <dossier link>
    (spec, plan and before/after side by side, every version kept)
-2. Approve it there. → PRD <n> moves into the inbox.
-3. Once it's approved, type /clear (or open a new terminal), then run:
+2. Its approvers approve it there. → PRD <n> moves into the inbox.
+   `omni wait approval <n>` asks them by phone and email, and waits for the approval.
+3. Type /clear (or open a new terminal), then run the line below: it runs
+   `omni wait approval <n>` and starts wave 1 the moment the PRD is approved.
 
 /omni:yolo <n>
 ```

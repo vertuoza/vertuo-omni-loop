@@ -125,17 +125,35 @@ and the merge it waits for, and "the feature PR" there is the last landing's.
    It always exits 0: gate on its `state:` line, never on the exit code. A PRD born on the server
    (◆) also prints `birthplace: server` and its `approval:` lines, and reads `inbox` only once a
    workspace member approved it on its page and every approved file on the feature branch still
-   matches. Otherwise stop with the line its state gives, as `omni prd` prints it after `approval: `,
-   and nothing else runs (no plan, no claim, no wave):
+   matches.
+
+   **Waiting for approval, it waits.** In state `prd`, the run does not stop: run
+   `node .omni-loop/bin/omni.mjs wait approval <n>` and wait for it to end, printing each line it
+   prints. It may run up to its `--timeout` (60 minutes by default): when your shell bounds a
+   command's time below that, run it in the background and read its exit code once it ends. It
+   asks the PRD's approvers (the product's members asked to approve, except the author, or the
+   author when nobody else is) by the alerts each one turned on, prints the waiting line
+   (`◌ PRD <n> · waiting for …`), then follows the approval until it lands; a voided approval prints
+   the voided line, asks again and keeps waiting, and a cut stream is resumed on its own.
+   - Exit `0` (`✓ PRD <n> approved by <login> · <time> · <k> files pinned`): run `omni prd <n>`
+     again and gate on it as above. In `inbox`, go on (item 4, then wave 1) without being typed
+     again.
+   - Exit `1`: the run ends held, on the last line the wait printed (`no sign-in (omni signin) ·
+     held`, or `held: still waiting for <names> after <minutes> min`). Nothing else runs.
+
+   Pass `--timeout <minutes>` only when the person gave one. Never approve the PRD yourself: an
+   approver does, on its page.
+
+   In any other state but `inbox`, stop with the line its state gives, as `omni prd` prints it after
+   `approval: `, and nothing else runs (no plan, no claim, no wave):
 
    | `state:` | the line the run stops on |
    |---|---|
-   | `prd` | `PRD <n> waits for approval: <link>`: approve it on its page, then run this again |
    | `drifted` | each `≠ <file> · content` (or `· whitespace only`) `· ✗ refuse · restore it, or approve again: <link>` |
    | `unreachable` | `server unreachable · held, not failed`: the PRD is held, not failed; run this again once the server answers |
    | `refused` | `approver <login> is not a workspace member`, or `refused (<status>)` |
 
-   A ◇ PRD (no `birthplace:` line) never reads any of the four and calls no server.
+   A ◇ PRD (no `birthplace:` line) never reads any of the four, never waits and calls no server.
 4. No feature branch, no feature PR, or no `plan.md` in the PRD's files: follow `/omni:plan` first.
    It may return `needs clarification`: stop, and say what the PRD must answer. Otherwise go back to
    item 1 with its feature PR.
@@ -293,7 +311,7 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
    (`gh pr list --head <base> --state all --json number,state --limit 1`). `MERGED`: retarget it
    (**A stacked feature PR**, item 2) and carry on. Open, or no PR heads the base: leave the feature
    PR in draft, write its status comment with `waits for the merge of #<base PR>` (or `waits for
-   <base> to reach <repo.defaultBranch>`), skip the rest of this item and item 5, and end the run
+   <base> to reach <repo.defaultBranch>`), skip the rest of this item and items 5 and 6, and end the run
    **held** (step 6, then step 7's held ending, whose one thing to do is that merge): re-running
    `/omni:yolo <n>` once it merged resumes here. **This is the only place in this skill a feature PR is
    marked ready**; `/omni:yolo-fix` follows this same green path after its own ship. CI runs on it
@@ -301,6 +319,11 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
 5. **The proof,** only when the spec's front matter says `proof: video` (PRD 798): follow
    `/omni:prove <prd>`. Whatever it prints, a stop line included, this run goes on to step 6: a proof
    never changes the PR's state, its labels or its checks.
+6. **The e2e validation,** only when the spec's front matter says `e2e: validate` (PRD 1275) and
+   `node .omni-loop/bin/omni.mjs config e2e` prints `enabled` true: follow `/omni:validate-e2e <prd>`.
+   Otherwise there is no e2e step. Whatever it prints, a ✗ verdict, a stop line or a failed run
+   included, this run goes on to step 6: an e2e validation never changes the PR's state (draft or
+   ready), its labels or its checks.
 
 The **omni-loop** GitHub App, when installed on the repository, posts this same gate on the feature
 PR as the check named `ci.outboxContext`; this skill never posts it and never waits on it.
@@ -461,8 +484,8 @@ feature PR is not merged. For a ◆ PRD (`birthplace: server`), the PRD and inbo
 brainstorm's ◆ ones: `PRD       spec, plan and before/after written, on its PRD page, waiting for
 approval` and `inbox     approved on its PRD page: ready to build`.
 
-A run stopped at step 1's approval gate builds nothing and ends on that gate's line alone, with no
-blocks.
+A run stopped at step 1's approval gate, or held by its wait, builds nothing and ends on that line
+alone, with no blocks. A wait that ended approved is no ending: the run went on into wave 1.
 
 **3. What is next?** One of three, by how the run ended: three short numbered steps, then the
 ending's last line.

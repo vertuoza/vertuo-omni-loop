@@ -3,8 +3,9 @@ import { PersonChip } from '../../people/PersonChip';
 import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
-import type { ApprovalView } from './approval';
+import type { ApprovalSeal, ApprovalView, ApproveScreen } from './approval';
 import { ApproveButton } from './ApproveButton';
+import { SealScroll } from './SealScroll';
 import { CarePane } from './CarePane';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
@@ -56,6 +57,9 @@ import { VoicePane } from './VoicePane';
 // PRD 1299, s3: a PRD born on the server has an Approval cell after Stage (waiting for approval, approved
 // by whom and when, or drifted · approve again with the files changed), and, for a member while it waits
 // or drifted, the Approve button first among its actions. A PRD born in the repository is unchanged.
+// PRD 1322 s7: Approve moves out of the actions into the approve screen, under the head, shown only to a
+// viewer allowed to approve: after a void (voided · approve again) or a drift, each changed file's diff
+// first, then the spec's Problem and Solution, then the button.
 
 type Props = {
   view: DossierView;
@@ -170,6 +174,80 @@ function ApprovalFact({ approval }: { approval: ApprovalView }) {
   );
 }
 
+const DIFF_CLASS = { '+': 'dossier-diff-add', '-': 'dossier-diff-del', ' ': 'dossier-diff-same', '…': 'dossier-diff-gap' } as const;
+
+/** One changed file's diff since it was approved (PRD 1322 s7). */
+function ChangedFile({ diff }: { diff: ApproveScreen['diffs'][number] }) {
+  return (
+    <div className="dossier-approve-diff">
+      <h3>{diff.path}</h3>
+      {diff.rows === null
+        ? <p className="ask-problem" role="alert">This file’s change could not be read. Reload the page in a moment.</p>
+        : (
+          <pre className="dossier-diff" aria-label={`Changes to ${diff.path}`}>
+            {diff.rows.map((row, at) => (
+              <span key={at} className={DIFF_CLASS[row.sign]}>{row.sign === '…' ? '…' : `${row.sign} ${row.text}`}{'\n'}</span>
+            ))}
+          </pre>
+        )}
+    </div>
+  );
+}
+
+/** The approve screen of a ◆ PRD (PRD 1322 s7), for a viewer who may approve it: after a void or a drift,
+ * the diff of each changed file first; then the spec's Problem and Solution; then Approve. */
+function ApproveScreenSection({ approval }: { approval: ApprovalView }) {
+  const { screen } = approval;
+  return (
+    <section className="dossier-approve-screen" aria-label="Approve">
+      {screen && screen.diffs.length > 0 && (
+        <div className="dossier-approve-changed">
+          <h2>What changed since it was approved</h2>
+          {screen.diffs.map((diff) => <ChangedFile key={diff.path} diff={diff} />)}
+        </div>
+      )}
+      {screen?.sections.map((section) => (
+        <div key={section.name} className="dossier-approve-section">
+          <h2>{section.name}</h2>
+          <article className="dossier-md" dangerouslySetInnerHTML={{ __html: section.html }} />
+        </div>
+      ))}
+      {screen?.spec === 'unread' && <p className="ask-problem" role="alert">The spec could not be read. Reload the page in a moment.</p>}
+      <ApproveButton dossier={approval.dossier} />
+    </section>
+  );
+}
+
+/** The seal of an approval in force (#1351): stamped with the PRD's number and APPROVED · PINNED, then who
+ * approved it and when, and each pinned file with its short hash. */
+function SealCard({ seal, dossier }: { seal: ApprovalSeal; dossier: string }) {
+  const hashes = seal.files.flatMap((file) => (file.hash ? [file.hash.slice(0, 4)] : [])).join(' ');
+  return (
+    <section id="approval" className="dossier-seal-card" aria-label="Approved">
+      <svg className="dossier-seal" viewBox="0 0 100 100" role="img" aria-label={`Seal of PRD ${seal.prd}: approved and pinned`}>
+        <defs><path id="dossier-seal-ring" d="M50 50 m-36 0 a36 36 0 1 1 72 0 a36 36 0 1 1 -72 0" /></defs>
+        <circle cx="50" cy="50" r="47" className="dossier-seal-disc" />
+        <circle cx="50" cy="50" r="41" className="dossier-seal-line" />
+        <circle cx="50" cy="50" r="29" className="dossier-seal-line dossier-seal-dash" />
+        <text className="dossier-seal-ring"><textPath href="#dossier-seal-ring">{`APPROVED · PINNED · ${hashes} ·`}</textPath></text>
+        <text x="50" y="59" textAnchor="middle" className="dossier-seal-number">{seal.prd}</text>
+      </svg>
+      <p className="dossier-seal-who">Approved by {seal.approver}</p>
+      <p className="ask-hint">{seal.at} · {seal.files.length} {seal.files.length === 1 ? 'file' : 'files'} pinned</p>
+      <ul className="dossier-seal-files">
+        {seal.files.map((file) => <li key={file.path}><span>{file.path}</span><code>{file.hash ?? '—'}</code></li>)}
+      </ul>
+      <SealScroll dossier={dossier} />
+    </section>
+  );
+}
+
+/** Under the head of a ◆ PRD: the approve screen for whoever may approve it, or the seal once approved. */
+function ApprovalArea({ approval }: { approval: ApprovalView }) {
+  if (approval.canApprove) return <ApproveScreenSection approval={approval} />;
+  return approval.seal ? <SealCard seal={approval.seal} dossier={approval.dossier} /> : null;
+}
+
 export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
   const { stage, fix, approval } = view;
   return (
@@ -178,7 +256,6 @@ export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
         <div className="dossier-head-top">
           <DossierTitle heading={view.heading} draft={view.draft} title={view.title} issueUrl={view.issueUrl} badge={view.badge} />
           <div className="dossier-actions">
-            {approval?.canApprove && <ApproveButton dossier={approval.dossier} />}
             <StageAction stage={stage} demo={view.demo ?? false} />
             <CopyLink path={view.link} />
             {view.canDelete && supabase && <DeleteDraft supabase={supabase} id={view.id} />}
@@ -242,6 +319,7 @@ export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
           ))}
         </nav>
       </PinnedHead>
+      {approval && <ApprovalArea approval={approval} />}
       <MarkSeen id={view.id} signature={seenSignature(view.tabs)} />
       {live}
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>

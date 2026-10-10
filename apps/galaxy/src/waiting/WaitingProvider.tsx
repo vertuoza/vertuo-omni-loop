@@ -1,21 +1,19 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
-import type { Database } from '../../../../supabase/database.types.ts';
 import { poll } from '../ask/page/poll';
 import {
   announce, claimChime, desktopAtLoad, playChime, raiseAlerts, readSwitches, switchDesktopOn, writeSwitches,
   type DesktopState, type NotificationApi, type Store,
 } from './alerts';
-import { DOCS_MS, documentsReader, groupDocuments, noticeDocuments, readSeen, type Announced, type DocumentGroup } from './documents';
+import { DOCS_MS, groupDocuments, noticeDocuments, readSeen, type Announced, type DocumentGroup } from './documents';
+import { APPROVALS_MS, EMPTY_APPROVALS_PART, approvalsRead, readApprovals, type ApprovalsPart } from './approvals';
 import { BUSINESS_MS, EMPTY_BUSINESS_PART, businessRead, readBusinessCount, type BusinessPart } from './business';
 import { iconHref } from './icon';
 import { EMPTY_OUTBOX_PART, outboxRead, pollOutbox, readOutbox, type OutboxPart } from './outbox';
 import { pollQuestions } from './questions-poll';
-import { SignedOut } from './session';
-import { questionsReader } from './source';
 import type { WaitingView } from './view';
-import { EMPTY_WAITING, titled, waitingCounts, type WaitingCounts, type WaitingItem, type WaitingList, type WaitingOutbox } from './waiting';
+import { partTick, waitingClient, type SignedOutGate } from './waiting.client';
+import { EMPTY_WAITING, titled, waitingCounts, type WaitingApproval, type WaitingCounts, type WaitingItem, type WaitingList, type WaitingOutbox } from './waiting';
 
 // The waiting provider (PRD 499), mounted once by the app shell around the sidebar, the top bar and
 // the page: the one place that reads what waits for the person looking. It starts from the Questions
@@ -24,8 +22,10 @@ import { EMPTY_WAITING, titled, waitingCounts, type WaitingCounts, type WaitingI
 // load and every 60 s while visible (src/waiting/outbox.ts). It keeps the browser tab's title prefixed
 // with the count, whatever the page or Next writes there, and the tab's icon dotted while the count is
 // above 0. A failed read keeps the part's last items and is logged once per kind of failure per page
-// load. Signed out, there is no view: the list stays empty and nothing is read; a tab whose sign-in
-// expires stops its database polls at their next read (bug #1316, src/waiting/session.ts).
+// load. Signed out, there is no view: the list stays empty and nothing is read. Since PRD 1318 (s4) the
+// Questions and New documents parts are read from GET /api/waiting/questions and
+// GET /api/waiting/documents through src/waiting/waiting.client.ts, and the provider builds no Supabase
+// client; a tab whose sign-in expires hears 401 from either route and stops both polls (bug #1316).
 //
 // It also alerts for what is new (s5, src/waiting/alerts.ts): each part remembers the ids of its last
 // read, starting from what the server rendered (the Questions part) or from its first read (the Outbox
@@ -34,8 +34,8 @@ import { EMPTY_WAITING, titled, waitingCounts, type WaitingCounts, type WaitingI
 // first tab to claim it. The two switches, off until switched on, are kept per browser.
 //
 // PRD 579 adds the New documents part (src/waiting/documents.ts): the spec, plan and before/after
-// versions pushed to the numbered dossiers the person opened, read straight from Supabase as them once
-// after load and every 10 s while the tab is visible, grouped per PRD less what this browser has seen
+// versions pushed to the numbered dossiers the person opened, read as them once after load and every
+// 10 s while the tab is visible, grouped per PRD less what this browser has seen
 // (a PRD's page marks it seen). It is news, not a wait: it never adds to the counts, so never to the
 // bell's badge, the tab's `(N)`, the favicon dot or the sidebar badges. A PRD's group is announced
 // once it settles (s2, `noticeDocuments`): one desktop alert per PRD and one chime per read, behind the
@@ -44,21 +44,30 @@ import { EMPTY_WAITING, titled, waitingCounts, type WaitingCounts, type WaitingI
 // PRD 774 (s5) adds the Business part (src/waiting/business.ts): how many things wait to be checked on
 // Settings › Business, read from GET /api/waiting/business once after load and every 60 s while
 // visible. Like New documents it never adds to the counts, and it raises no alert (no email, no sound).
+//
+// PRD 1322 (s2) adds the Approvals part (src/waiting/approvals.ts): the approval requests waiting on the
+// person, read from GET /api/waiting/approvals once after load and every 15 s while visible. It is a
+// wait: it adds to the total, and a new request alerts like a new question.
 
 export type Waiting = {
   list: WaitingList;
   counts: WaitingCounts;
   /** A part whose last read failed: it holds what it last had. */
-  unread: { questions: boolean; outbox: boolean; documents: boolean; business: boolean };
+  unread: { questions: boolean; outbox: boolean; documents: boolean; business: boolean; approvals: boolean };
   /** How many PRDs the outbox route could not read, the items of the others kept. */
   unreadPrds: number;
   /** The New documents part: one group per PRD, newest first. Never counted. */
   documents: DocumentGroup[];
   /** The Business part: how many things wait to be checked on Settings › Business. Never counted. */
   business: number;
+  /** The Approvals part: the approval requests waiting on the person, oldest first. Counted. */
+  approvals: WaitingApproval[];
 };
 
-const EMPTY: Waiting = { list: EMPTY_WAITING, counts: waitingCounts(EMPTY_WAITING), unread: { questions: false, outbox: false, documents: false, business: false }, unreadPrds: 0, documents: [], business: 0 };
+const EMPTY: Waiting = {
+  list: EMPTY_WAITING, counts: waitingCounts(EMPTY_WAITING), unread: { questions: false, outbox: false, documents: false, business: false, approvals: false },
+  unreadPrds: 0, documents: [], business: 0, approvals: [],
+};
 
 const Context = createContext<Waiting>(EMPTY);
 
@@ -114,11 +123,10 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
   const [outbox, setOutbox] = useState<OutboxPart>(() => ({ ...EMPTY_OUTBOX_PART, items: first }));
   const [documents, setDocuments] = useState<{ groups: DocumentGroup[]; unread: boolean }>({ groups: [], unread: false });
   const [business, setBusiness] = useState<BusinessPart>(EMPTY_BUSINESS_PART);
+  const [approvals, setApprovals] = useState<ApprovalsPart>(EMPTY_APPROVALS_PART);
+  // The routes read as whoever the sign-in cookie names: a database source only says someone is signed in.
   const source = view?.source ?? null;
-  const url = source?.kind === 'database' ? source.url : null;
-  const key = source?.kind === 'database' ? source.key : null;
-  const me = source?.kind === 'database' ? source.me : null;
-  const signedIn = Boolean(me);
+  const signedIn = source?.kind === 'database' && Boolean(source.me);
 
   const [switches, setSwitches] = useState<{ desktop: DesktopState; chime: boolean }>({ desktop: 'off', chime: false });
   const live = useRef(switches);
@@ -127,6 +135,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
   // it could read it), the Outbox part from its own first read.
   const seenQuestions = useRef<ReadonlySet<string> | null>(view && !view.unread ? new Set(view.questions.map((q) => q.id)) : null);
   const seenOutbox = useRef<ReadonlySet<string> | null>(null);
+  const seenApprovals = useRef<ReadonlySet<string> | null>(null);
 
   useEffect(() => {
     if (!signedIn) return;
@@ -161,27 +170,28 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
 
   const alerts = useMemo<WaitingAlerts>(() => ({ ...switches, onDesktop, onChime }), [switches, onDesktop, onChime]);
 
+  // Signed out (bug #1316): once either part's route answers 401, both polls stop, asking nothing.
+  const gate = useRef<SignedOutGate>({ out: false });
+
   useEffect(() => {
-    if (!url || !key || !me) return;
-    const read = questionsReader(createBrowserClient<Database>(url, key), me);
+    if (!signedIn) return;
+    const client = waitingClient();
     const log = onceEach();
-    return pollQuestions(async () => {
-      try {
-        const next = await read(Date.now());
+    return pollQuestions(partTick(gate.current, {
+      read: () => client.questions(),
+      seen: (next) => {
         setQuestions(next);
         setUnread(false);
         const { fresh, seen } = announce(seenQuestions.current, next);
         seenQuestions.current = seen;
         notice(fresh);
-      } catch (error) {
-        // Signed out (bug #1316): nothing was read, and the tab stops asking the database.
-        if (error instanceof SignedOut) return false;
+      },
+      failed: (error) => {
         log('questions', error);
         setUnread(true);
-      }
-      return true;
-    }, document);
-  }, [url, key, me, notice]);
+      },
+    }), document);
+  }, [signedIn, notice]);
 
   // The outbox route answers the cookie session, so it is read wherever the questions are.
   useEffect(() => {
@@ -210,18 +220,34 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
     }, document, () => Date.now(), BUSINESS_MS);
   }, [signedIn]);
 
+  // The Approvals part: the route answers the cookie session. A new request alerts like a new question.
+  useEffect(() => {
+    if (!signedIn) return;
+    const log = onceEach();
+    return pollOutbox(async () => {
+      const read = await readApprovals((input, init) => fetch(input, init));
+      if (!read.ok) log(read.kind, new Error(`The waiting approvals could not be read: ${read.kind}`));
+      setApprovals((part) => approvalsRead(part, read));
+      if (read.ok) {
+        const { fresh, seen } = announce(seenApprovals.current, read.items);
+        seenApprovals.current = seen;
+        notice(fresh);
+      }
+    }, document, () => Date.now(), APPROVALS_MS);
+  }, [signedIn, notice]);
+
   // The New documents part: read as `me` at once, then every 10 s while visible. Seen is read again at
   // each read, so a PRD page opened in any tab clears its group at the next one.
   useEffect(() => {
-    if (!url || !key || !me) return;
-    const read = documentsReader(createBrowserClient<Database>(url, key), me);
+    if (!signedIn) return;
+    const client = waitingClient();
     const loadedAt = Date.now();
     const log = onceEach();
     // What this tab announced, standing in for storage that cannot be read (s2).
     let announced: Announced = [];
-    const tick = async () => {
-      try {
-        const rows = await read(Date.now());
+    const tick = partTick(gate.current, {
+      read: () => client.documents(),
+      seen: (rows) => {
         const groups = groupDocuments(rows, readSeen(storage, loadedAt));
         setDocuments({ groups, unread: false });
         const { desktop, chime } = live.current;
@@ -229,25 +255,25 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
           groups, now: Date.now(), store: storage, kept: announced, desktop, chime,
           notifications: notifications(), play: () => { playChime(audio()); }, open: openFromAlert,
         });
-      } catch (error) {
-        if (error instanceof SignedOut) return false;
+      },
+      failed: (error) => {
         log('documents', error);
         setDocuments((part) => ({ ...part, unread: true }));
-      }
-      return true;
-    };
+      },
+    });
     const stop = poll(tick, document, DOCS_MS);
     if (document.visibilityState === 'visible') void tick();
     return stop;
-  }, [url, key, me]);
+  }, [signedIn]);
 
   const value = useMemo<Waiting>(() => {
     const list = { questions, outbox: outbox.items };
     return {
-      list, counts: waitingCounts(list), unread: { questions: unread, outbox: outbox.unread, documents: documents.unread, business: business.unread },
-      unreadPrds: outbox.unreadPrds, documents: documents.groups, business: business.count,
+      list, counts: waitingCounts(list, approvals.items.length),
+      unread: { questions: unread, outbox: outbox.unread, documents: documents.unread, business: business.unread, approvals: approvals.unread },
+      unreadPrds: outbox.unreadPrds, documents: documents.groups, business: business.count, approvals: approvals.items,
     };
-  }, [questions, unread, outbox, documents, business]);
+  }, [questions, unread, outbox, documents, business, approvals]);
 
   const total = value.counts.total;
   useEffect(() => {

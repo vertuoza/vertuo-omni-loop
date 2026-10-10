@@ -266,13 +266,14 @@ describe('the guard', () => {
   afterEach(() => { if (dir) rmSync(dir, { recursive: true, force: true }); });
 
   /** A guide and a kit in a scratch folder: the kit has the skill `plan` and the command `config`;
-   * `files` are more files of the guide, such as its diagrams. */
-  function guide(pages: Record<string, string>, order = Object.keys(pages), files: Record<string, string> = {}) {
+   * `files` are more files of the guide, such as its diagrams; `commandFiles`, more files of the kit's commands. */
+  function guide(pages: Record<string, string>, order = Object.keys(pages), files: Record<string, string> = {}, commandFiles: Record<string, string> = {}) {
     dir = mkdtempSync(join(tmpdir(), 'omni-guide-'));
     const kit = { skills: join(dir, 'skills'), commands: join(dir, 'commands') };
     mkdirSync(join(kit.skills, 'plan'), { recursive: true });
     mkdirSync(kit.commands);
     writeFileSync(join(kit.commands, 'config.ts'), '');
+    for (const [name, text] of Object.entries(commandFiles)) writeFileSync(join(kit.commands, name), text);
     mkdirSync(join(dir, 'guide'));
     writeFileSync(join(dir, 'guide/meta.json'), JSON.stringify({ pages: order }));
     for (const [slug, text] of Object.entries(pages)) writeFileSync(join(dir, 'guide', `${slug}.md`), text);
@@ -294,6 +295,13 @@ describe('the guard', () => {
 
   it('fails on an omni command the CLI does not have', () => {
     expect(guide({ index: page('A', '/docs/b', '```bash terminal\nomni nope\n```'), b: page('B', '/docs') })).toEqual(['index.md: omni nope is no command of the CLI']);
+  });
+
+  it('knows a command its index imports from a file of another name, as `omni wait` from approval-wait.ts (PRD 1322)', () => {
+    const named = page('A', '/docs/b', '```bash terminal\nomni wait approval 7\n```');
+    expect(guide({ index: named, b: page('B', '/docs') }, undefined, {}, { 'index.ts': "import { wait } from './approval-wait.ts';\n" })).toEqual([]);
+    expect(guide({ index: named, b: page('B', '/docs') }, undefined, {}, { 'index.ts': "import { waits } from './approval-wait.ts';\n" }))
+      .toEqual(['index.md: omni wait is no command of the CLI']);
   });
 
   it('fails on a page with no title', () => {

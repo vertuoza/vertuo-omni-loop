@@ -1,5 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { dossierRounds } from '../../dossier/store';
 import { wayBack, type WayBack } from '../../dossier/page/view';
 import { isDossierId } from '../../dossier/page/source';
 import type { QuestionView } from './question';
@@ -35,9 +33,6 @@ export async function backAfterSend({ view, from, sessionId, roundId, readRounds
   }
   return wayBack({ from, sessionId, roundId, rounds });
 }
-
-/** The dossier's rounds, read from the browser as the signed-in person. */
-export const dossierRoundsReader = (db: Pick<SupabaseClient, 'rpc'>) => (dossierId: string): Promise<BackRounds> => dossierRounds(db, dossierId);
 
 /** The demo keeps no dossier: the way back goes to the Questions tab alone. */
 export const noRounds = (): Promise<BackRounds> => Promise.resolve(null);

@@ -1886,11 +1886,29 @@ describe('the prove skill and the skills that lead to it (PRD 798)', () => {
     expect(spec).toMatch(/^- `proof: video` only when the person said yes/m);
   });
 
+  it('/omni:brainstorm asks the e2e question only when e2e is enabled, and a yes writes e2e: validate (PRD 1275)', () => {
+    const text = read('brainstorm');
+    const design = skillSection(text, '1.');
+    expect(inOrder(design, ['**The e2e question**', 'omni.mjs config e2e', '`enabled`', 'Validate with e2e once it ships?', '`e2e: validate`'])).toEqual([]);
+    expect(design).toContain('asks nothing and writes nothing');
+    const spec = text.slice(text.indexOf('## 4. Write the spec'), text.indexOf('## 5. '));
+    expect(spec).toMatch(/^- `e2e: validate` only when the person said yes/m);
+  });
+
   it('/omni:yolo follows /omni:prove after it marks the PR ready, only when the spec says proof: video', () => {
     const step = skillSection(read('yolo'), '5.');
     const red = step.indexOf('**Gate red.**');
     expect(inOrder(step.slice(0, red), ['gh pr ready', '`proof: video`', '/omni:prove <prd>'])).toEqual([]);
     expect(step.slice(red)).not.toContain('/omni:prove');
+  });
+
+  it('/omni:yolo follows /omni:validate-e2e after the proof item, only when the spec says e2e: validate and e2e is enabled, and never changes the PR', () => {
+    const step = skillSection(read('yolo'), '5.');
+    const red = step.indexOf('**Gate red.**');
+    const body = step.slice(0, red);
+    expect(inOrder(body, ['gh pr ready', '/omni:prove <prd>', '`e2e: validate`', 'omni.mjs config e2e', '`enabled`', '/omni:validate-e2e <prd>', 'goes on to step 6'])).toEqual([]);
+    expect(body).toContain('never changes the PR');
+    expect(step.slice(red)).not.toContain('/omni:validate-e2e');
   });
 
   it('/omni:invade step 7 proposes proof.url and proof.setup, with when, and only the name of proof.bypassEnv', () => {
@@ -2008,6 +2026,50 @@ describe('the validate-e2e skill (PRD 1233)', () => {
     // the commit sentence must not take every recording of e2e.dir: it must name the held ones as left out
     expect(pr).not.toMatch(/commit the tests and `e2e\.dir`'s recordings \(nothing else/);
     expect(pr).toMatch(/healed recording[^.]*(is not|never|left out|waits)/);
+  });
+
+  it('in a plan repository, writes tests and recordings in the plan repository and never in a target repository (PRD 1276)', () => {
+    const text = read();
+    const flat = (step: string) => step.replace(/\s+/g, ' ');
+    const target = flat(skillSection(text, '2.'));
+    const project = flat(skillSection(text, '4.'));
+    expect(target).toContain('(its config has a `plan` section)');
+    expect(target).toContain('the environment the plan repository builds from the target PRs together');
+    expect(target).toContain('`e2e.url` and `e2e.setup` are read from config, never guessed');
+    expect(project).toContain("the tests and the recordings are all in the plan repository's `e2e.dir`");
+    expect(project).toContain('never writes a target repository');
+    expect(project).toContain('Outside a plan repository the skill runs exactly as before');
+  });
+
+  it('gives every created record a name built from a per-run value, in a plan repository and elsewhere, unless the spec answers otherwise (PRD 1276)', () => {
+    const step = skillSection(read(), '5.').replace(/\s+/g, ' ');
+    expect(step).toContain('built from a value that is new on every run');
+    expect(step).toContain('in a plan repository and outside one');
+    expect(step).toContain("unless the spec's answer says otherwise");
+  });
+
+  it('signs in from the saved session e2e.setup writes, and never prints, logs, commits or shows a credential (PRD 1276)', () => {
+    const text = read();
+    const target = skillSection(text, '2.').replace(/\s+/g, ' ');
+    expect(target).toContain('the run signs in from the saved session `e2e.setup` writes');
+    expect(target).toMatch(/never prints, logs or commits a credential and never shows one to the model/);
+    expect(skillSection(text, 'Never').replace(/\s+/g, ' ')).toMatch(/Never print, log, save or show a credential to the model/);
+  });
+
+  it('runs omni e2e guard <n> before the commit, and a non-zero exit stops the run (PRD 1276)', () => {
+    const text = read();
+    const checks = skillSection(text, '8.').replace(/\s+/g, ' ');
+    const pr = skillSection(text, '9.').replace(/\s+/g, ' ');
+    expect(checks).toContain('omni.mjs e2e guard <n>');
+    expect(checks).toMatch(/non-zero exit stops the run/);
+    expect(pr.indexOf('Branch from')).toBeGreaterThan(-1);
+    expect(text.indexOf('omni.mjs e2e guard <n>')).toBeLessThan(text.indexOf('Branch from'));
+  });
+
+  it('states in the sub-PR body which QA flow and which account (by label, never the secret) the run used (PRD 1276)', () => {
+    const pr = skillSection(read(), '9.').replace(/\s+/g, ' ');
+    expect(pr).toContain('which QA flow and which account');
+    expect(pr).toContain('by label, never the secret');
   });
 
   it('says in the sub-PR body when the target was not the preview, and why (PRD 1273)', () => {

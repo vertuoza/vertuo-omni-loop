@@ -107,10 +107,10 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 50 commands and the 32 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(50);
+  it('holds the 51 commands and the 32 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(51);
     expect(skillFolders()).toHaveLength(32);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(50);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(51);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(32);
   });
 
@@ -513,5 +513,18 @@ describe('the e2e entry', () => {
   it('names heals, hold, confirm and reject', () => {
     const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'e2e');
     for (const sub of ['heals', 'hold', 'confirm', 'reject']) expect(entry?.usage.join('\n')).toContain(`omni e2e ${sub} <prd>`);
+  });
+});
+
+describe('the e2e field', () => {
+  const detail = (kind: string, name: string) => {
+    const entry = ENTRIES.find((e) => e.kind === kind && e.name === name);
+    return entry && 'detail' in entry ? entry.detail : '';
+  };
+  it('is named by the check and yolo entries and the validate-e2e entry', () => {
+    expect(detail('command', 'check')).toContain('e2e: validate');
+    expect(detail('skill', 'yolo')).toContain('e2e: validate');
+    expect(detail('skill', 'yolo')).not.toContain('/omni:validate-e2e');
+    expect(detail('skill', 'validate-e2e')).toContain('e2e: validate');
   });
 });

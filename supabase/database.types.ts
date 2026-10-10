@@ -196,6 +196,139 @@ export type Database = {
           },
         ]
       }
+      alert_channels: {
+        Row: {
+          email: boolean
+          push: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          email?: boolean
+          push?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          email?: boolean
+          push?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      approval_requests: {
+        Row: {
+          asked: string[]
+          asked_at: string
+          asked_by: string
+          dossier_id: string
+          id: string
+          kind: string
+          nobody_else: boolean
+          product_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          asked: string[]
+          asked_at?: string
+          asked_by: string
+          dossier_id: string
+          id?: string
+          kind: string
+          nobody_else: boolean
+          product_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          asked?: string[]
+          asked_at?: string
+          asked_by?: string
+          dossier_id?: string
+          id?: string
+          kind?: string
+          nobody_else?: boolean
+          product_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_requests_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval_voids: {
+        Row: {
+          approval_id: string
+          dossier_id: string
+          from_sha256: string
+          id: string
+          kind: string
+          pushed_by: string | null
+          pusher_login: string
+          to_sha256: string
+          version_id: string
+          voided_at: string
+        }
+        Insert: {
+          approval_id: string
+          dossier_id: string
+          from_sha256: string
+          id?: string
+          kind: string
+          pushed_by?: string | null
+          pusher_login: string
+          to_sha256: string
+          version_id: string
+          voided_at?: string
+        }
+        Update: {
+          approval_id?: string
+          dossier_id?: string
+          from_sha256?: string
+          id?: string
+          kind?: string
+          pushed_by?: string | null
+          pusher_login?: string
+          to_sha256?: string
+          version_id?: string
+          voided_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_voids_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_voids_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_voids_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "dossier_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approvals: {
         Row: {
           approved_at: string
@@ -1860,6 +1993,48 @@ export type Database = {
           },
         ]
       }
+      product_approvers: {
+        Row: {
+          product_id: string
+          set_at: string
+          set_by: string | null
+          state: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          product_id: string
+          set_at?: string
+          set_by?: string | null
+          state: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          product_id?: string
+          set_at?: string
+          set_by?: string | null
+          state?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_approvers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_approvers_workspace_id_user_id_fkey"
+            columns: ["workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_members"
+            referencedColumns: ["workspace_id", "user_id"]
+          },
+        ]
+      }
       products: {
         Row: {
           business_id: string
@@ -2060,6 +2235,36 @@ export type Database = {
             referencedColumns: ["workspace_id", "full_name"]
           },
         ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          device_label: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          device_label?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          device_label?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       releases: {
         Row: {
@@ -2779,6 +2984,15 @@ export type Database = {
           user_id: string
         }[]
       }
+      approval_people: { Args: { p_dossier: string }; Returns: Json }
+      approval_recipients: { Args: { p_request: string }; Returns: Json }
+      approval_request: {
+        Args: { p_prd: number; p_repo: string }
+        Returns: Json
+      }
+      approval_requests_waiting: { Args: never; Returns: Json }
+      approval_void_recipients: { Args: { p_void: string }; Returns: Json }
+      approval_voids_of_push: { Args: { p_dossier: string }; Returns: Json }
       ask_answers_valid: { Args: { a: Json }; Returns: boolean }
       ask_attachment_round: { Args: { path: string }; Returns: string }
       ask_attachments_valid: {
@@ -3450,6 +3664,10 @@ export type Database = {
         Args: { p_body?: Json; p_event: string; p_loop?: string }
         Returns: Json
       }
+      member_login: {
+        Args: { p_user: string; p_workspace: string }
+        Returns: string
+      }
       my_github: {
         Args: never
         Returns: {
@@ -3664,6 +3882,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      product_approver_remove: {
+        Args: { p_member: string; p_product: string }
+        Returns: boolean
+      }
+      product_approver_set: {
+        Args: { p_member: string; p_product: string; p_state: string }
+        Returns: Json
       }
       product_rename: {
         Args: { p_name: string; p_product: string; p_workspace: string }

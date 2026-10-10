@@ -13,6 +13,9 @@ export const SPEC_VALUES = ['file', 'issue'] as const;
 /** The one value an optional `proof` field may take (PRD 798). */
 export const PROOF_VALUES = ['video'] as const;
 
+/** The one value an optional `e2e` field may take (PRD 1275). */
+export const E2E_VALUES = ['validate'] as const;
+
 /** The one value an optional `phase0` field may take (PRD 1299): the PRD was born on the server. */
 const PHASE0_VALUES = ['server'] as const;
 
@@ -91,6 +94,8 @@ export const SpecFrontMatterSchema = z
     areas: AreasSchema,
     // PRD 798: `proof: video` asks `/omni:yolo` to follow `/omni:prove` once the feature PR is ready.
     proof: z.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(' or ')}, or left out` }).optional(),
+    // PRD 1275: `e2e: validate` asks `/omni:yolo` to follow `/omni:validate-e2e` once the feature PR is ready.
+    e2e: z.enum(E2E_VALUES, { message: `e2e must be ${E2E_VALUES.join(' or ')}, or left out` }).optional(),
     // PRD 1299: `phase0: server` says the PRD is approved on its PRD page, not by a phase-0 PR.
     phase0: z.enum(PHASE0_VALUES, { message: `phase0 must be ${PHASE0_VALUES.join(' or ')}, or left out` }).optional(),
   })
