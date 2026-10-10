@@ -1,6 +1,6 @@
 ---
 name: bug-fix
-description: Takes a bug from one line, or an existing issue, to one pull request a person merges — opens (or reads) its issue, classifies it, posts a triage (domain, risk, regression), proves a reproduction red before any fix, fixes it test-first on a fix branch, adds the guard that would have caught it, runs mutation testing when the repository has it, records the fix, proves it with omni bug, opens the PR into the default branch and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch, wave or outbox. Stops on a flaky check (tooling, not a bug), on a reproduction that passes before the fix, and hands over the /omni:brainstorm line when the fix needs a product decision, a stored shape, a shared contract or a new screen, route or API. Never merges. Triggers on "fix this bug", "fix #612", "this is broken", "bug fix", "/omni:bug-fix".
+description: Takes a bug from one line, or an existing issue, to one pull request a person merges — opens (or reads) its issue, classifies it, posts a triage (domain, risk, regression), proves a reproduction red before any fix, fixes it test-first on a fix branch, adds the guard that would have caught it, runs mutation testing when the repository has it, records the fix, proves it with omni bug, opens the PR into the default branch and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch or wave, and an outbox only when the range changes a law — one high item per change, in the fix's folder, for a person to answer. Stops on a flaky check (tooling, not a bug), on a reproduction that passes before the fix, and hands over the /omni:brainstorm line when the fix needs a product decision, a stored shape, a shared contract or a new screen, route or API. Never merges. Triggers on "fix this bug", "fix #612", "this is broken", "bug fix", "/omni:bug-fix".
 ---
 
 <!-- Ported from vertuo-ai-domain@47a1a194a:.claude/skills/vertuo-fix-bug/SKILL.md — changes in kit/porting/plugin--bug-fix.md -->
@@ -10,13 +10,15 @@ description: Takes a bug from one line, or an existing issue, to one pull reques
 A fast lane beside the loop, not inside it. A bug something a user, a browser or an API caller can
 observe gets an issue, a triage, a reproduction seen failing before the fix, one fix branch and one
 pull request. There is no PRD, inbox folder, spec, plan, phase-0 PR, feature branch, wave or
-outbox: the red reproduction is the spec. The record is committed with the fix and sent to the
+outbox, except one item per change to a law the fix makes (**A change to a law**): the red
+reproduction is the spec. The record is committed with the fix and sent to the
 fix's own page on the Omni page, a Bug Fix. No release note and no retro follow a bug fix. It ends
 at a review gate: **a person merges.**
 
 In order: **start** (step 0); open or read the **issue** (1); **classify** (2); **triage** (3);
 check the **boundary** (4, and at every step after); cut the **branch** (5); **words first** (6);
-**prove red** (7); **fix** (8); **guard** (9); **mutation** (10); **record** (11); **ship** (12);
+**prove red** (7); **fix** (8); **guard** (9); **mutation** (10); **record** (11), with **a change to
+a law** when the range makes one; **ship** (12);
 **hand off** (13). Announce each step in one line as you start it. Every step leaves something on
 disk or on GitHub, so a `/clear` or a crash loses nothing. **Nothing is reported as proven that was
 not run.**
@@ -275,6 +277,107 @@ future Bugs view reads:
 <The last line | not set here | not run — <why>>
 ```
 
+## A change to a law
+
+Only when `laws.source` is `knowledge`; otherwise skip this section. A law is a rule or an invariant
+of the knowledge base, and its proof is the test its `Enforced by:` line names. A fix may change a
+law only with a person's answer. Step 12's `node .omni-loop/bin/omni.mjs bug <n>` names each
+change to a law the range makes, one `not ok` line each, by its rule:
+
+| rule | the range |
+|---|---|
+| `law-proof` | changes a file a law's `Enforced by:` names |
+| `law-text` | rewords, adds or removes a law in a register |
+| `test-removed` | deletes a test, a law's among them |
+| `law-demoted` | turns a law's `Enforced by:` path back to `pending` or `unenforced`, or removes the law |
+
+Each line reads `- <path> (<rule>): a change to a law needs an item ranked high in
+<folder>/outbox/ and an account naming it in <folder>/outbox/accounts/.`
+
+First ask whether the fix needs that change. When it does not, undo it and rerun: that is the most
+reversible answer. When it does, keep it and raise it for a person, in the fix's folder
+(`<paths.delivery>/bugs/<nnnn>-<slug>/`), under `outbox/`: **one item per change**, never two changes in one item.
+
+1. **The items.** `omni item new` writes a PRD's items only, so write each by hand as
+   `outbox/s1-<k>-<slug>.md`, in the shape every outbox item takes, `<k>` counting `01`, `02` … in
+   the order the lines came:
+
+   ```markdown
+   ---
+   id: s1-<k>-<slug>
+   prd: <n>
+   slice: s1
+   rank: high
+   bears-on: <law id>
+   raised: <YYYY-MM-DD>
+   wave: 1
+   ---
+
+   ## The question, in plain words
+
+   <one or two sentences a business person reads: what the fix changes about the rule, and why>
+
+   ## The decision, in plain words
+
+   <what this fix did, in the same plain words>
+
+   ## The intro, for fun
+
+   <one sentence, at most 120 characters, about the question, never about a person>
+
+   ## The punchline, for fun
+
+   <one sentence, at most 120 characters, following the intro>
+
+   ## The options, in plain words
+
+   A. <what the fix did> (built).
+   B. <keep the law as it was, and what the fix then does instead>
+
+   ## What I had to decide
+
+   <the law, its id, and the change the range makes to it>
+
+   ## What I did meanwhile
+
+   <what the branch holds now>
+
+   ## What it costs to change later
+
+   <what undoing it takes>
+
+   ## What I could not know
+
+   <what the knowledge, the issue and the code do not settle, each line marked (author)>
+   ```
+
+   The plain-words fields name no path, no code and no id. `<law id>` is the law's register id,
+   the one `omni knowledge <id>` explains. Never invent a rationale: a gap goes in the last
+   section, marked `(author)`.
+2. **The account.** Write `outbox/accounts/s1.md` in the same folder, naming each change once per
+   rule, as a line of `omni bug <n>` names it:
+
+   ```markdown
+   ---
+   prd: <n>
+   slice: s1
+   graded: <YYYY-MM-DD>
+   ---
+
+   ## Risky changes
+
+   - `<path>`
+     <rule>
+     item s1-<k>-<slug>
+   ```
+
+3. **Commit** the items and the account on the fix branch, signed (**Signing**), and rerun
+   `omni bug <n>` until it prints `ok`: an open item is not a failure there.
+
+On the pull request, the outbox check posts each item and stays red until a person answers it,
+through the same replies as a feature PR's outbox: a person answers, never this skill. That red is
+not an attempt at the fix. The PR's body and the hand-off name each item and the law it bears on.
+
 ## 12. Ship
 
 1. **Commit** on the fix branch as `fix(<scope>): <what the user gets back> (#<n>)`, with the
@@ -285,7 +388,7 @@ future Bugs view reads:
    | exit | what you do |
    |---|---|
    | `0` | `ok`: carry on. |
-   | `1` | `not ok`, one line per failed check: fix each (a second folder, a missing or empty section, a risk outside the four levels, a reproduction the branch does not change, an empty red line, an unsigned commit), commit, and rerun. |
+   | `1` | `not ok`, one line per failed check: fix each (a second folder, a missing or empty section, a risk outside the four levels, a reproduction the branch does not change, an empty red line, an unsigned commit), commit, and rerun. A line naming `law-proof`, `law-text`, `test-removed` or `law-demoted` follows **A change to a law**. |
    | `2` | The kit is not installed here, its config does not read, or `--base` does not resolve: say so and stop. |
 
 3. **Push** the fix branch: `git push -u <remote> <fix branch>`.
@@ -310,6 +413,8 @@ future Bugs view reads:
    - **Guard:** <what it is and what it catches | none — <reason>>
    - **Mutation:** <the last line | not set here | not run — <why>>
    - **Record:** `<paths.delivery>/bugs/<nnnn>-<slug>/bug.md`
+   - **Laws:** <none | each item of **A change to a law**, its id and the law it bears on, for a
+     person to answer on this PR>
 
    ## Verified
 
@@ -330,7 +435,8 @@ future Bugs view reads:
 ## 13. Hand off
 
 Print, in a few lines: the issue, the PR, the fix's page beside it, what was proven and what was
-not (the red line, the preflight, the `omni bug` line, the guard, the mutation line), then:
+not (the red line, the preflight, the `omni bug` line, the guard, the mutation line), each item a
+change to a law raised and the law it bears on, then:
 
 > Review the PR and merge it if it is right.
 
@@ -365,5 +471,6 @@ comment on the issue with the PR's link.
 - **Never cross the boundary** to finish a fix: stop, and hand over the `/omni:brainstorm` line.
 - Never commit on `repo.defaultBranch`.
 - Never report anything as proven that was not run.
-- Never open a PRD, an inbox folder, a plan or an outbox item for a bug fix, and never batch
-  several bugs into one PR.
+- Never open a PRD, an inbox folder, a plan or an outbox item for a bug fix, save the items
+  **A change to a law** asks for, and never batch several bugs into one PR.
+- Never answer an item of the fix's outbox: a person does.

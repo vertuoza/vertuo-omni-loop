@@ -12,7 +12,9 @@
 // Jev can never block anything (decision 6): every decision outcome exits 0, and why it is unset goes
 // to stderr in one line. Exit 2 is only for a usage error, an unreadable state file, the kit not
 // installed here or a config that does not read. Any decision name is sent: the app refuses one it
-// does not know, which prints `unset` like any refusal.
+// does not know, which prints `unset` like any refusal. A terminal asks `outbox-risk` (/omni:do-work),
+// `bug-risk` (/omni:bug-fix) and `law-worth` (PRD 1342: `omni harvest` and the sweep, with the law's
+// statement, Why, principle, domain and PRD title as the state and the classifier's `worthALaw` as --old).
 //
 // It runs before a context exists, like `business`, so that a test can hand it `tokens` (the token
 // store), `home` (where the real one lives), `fetch` and `callMs`; it loads the context itself.

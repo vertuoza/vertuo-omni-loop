@@ -13,11 +13,13 @@
  *    check `omni check inbox` applies to a PRD's page ({@link beforeAfterViolation}).
  * 4. None of them holds a raster image inlined as a `data:image/` URL; an SVG one is allowed.
  * 5. A file named like a round but not `variations-r<k>.html` fails, and so does any other file or
- *    folder: the page, then the rounds in round order, then the rest, by name.
+ *    folder but `outbox/` (PRD 1342): the page, then the rounds in round order, then the rest, by name.
+ * 5b. A range that changes a law has an item ranked high for it in `outbox/`, and an account naming
+ *    it: the lines `laws` gives for the folder.
  * 6. Every commit of the branch carries the trailer `omni sign trailer` prints, unless the config
  *    says `signature: null`.
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, type Dirent } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAfterViolation } from '../inbox/check-inbox.ts';
 import { fixVerdict, issuePrefix, numberedFolders, rasterFaults } from '../fix-verdict.ts';
@@ -32,6 +34,9 @@ type VisualContext = {
 };
 
 const PAGE = 'before-after.html';
+
+/** The folder a change to a law is answered in (PRD 1342), as a bug fix's is. */
+const OUTBOX = 'outbox';
 
 /** A round of variations: `variations-r<k>.html`, k from 1 with no leading zero — as the dossier reads it. */
 const ROUND = /^variations-r([1-9]\d*)\.html$/;
@@ -52,6 +57,11 @@ function pageViolations(ctx: VisualContext, page: string): string[] {
   return violations;
 }
 
+/** The page itself, or the outbox folder a change to a law is answered in. */
+function belongs(entry: Dirent): boolean {
+  return entry.isFile() ? entry.name === PAGE : entry.isDirectory() && entry.name === OUTBOX;
+}
+
 /** The rounds, misnamed rounds and other entries of a fix's folder, beside its page. */
 function folderViolations(ctx: VisualContext, folder: string): string[] {
   const rounds: { name: string; k: number }[] = [];
@@ -61,7 +71,7 @@ function folderViolations(ctx: VisualContext, folder: string): string[] {
     const { name } = entry;
     const round = entry.isFile() ? ROUND.exec(name) : null;
     if (round) rounds.push({ name, k: Number(round[1]) });
-    else if (name === PAGE && entry.isFile()) continue;
+    else if (belongs(entry)) continue;
     else if (entry.isFile() && ROUND_LIKE.test(name)) misnamed.push(name);
     else others.push(name);
   }
@@ -76,13 +86,15 @@ function folderViolations(ctx: VisualContext, folder: string): string[] {
 /**
  * Grades one issue's visual fix on the working tree, and the branch's commits when given.
  */
-export function visualVerdict({ ctx, issue, commits }: {
+export function visualVerdict({ ctx, issue, commits, laws }: {
   ctx: VisualContext;
   issue: IssueNumber;
   commits?: readonly Commit[] | undefined;
+  /** The changes to a law the range has not answered in the folder (PRD 1342), one line each. */
+  laws?: ((folder: string) => string[]) | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   return fixVerdict({
     ctx, number: issue, commits, root: visualRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, visualRoot(ctx), issuePrefix(issue)),
-    grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder)],
+    grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder), ...(laws?.(folder) ?? [])],
   });
 }

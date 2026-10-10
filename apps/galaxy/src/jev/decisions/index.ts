@@ -2,13 +2,14 @@ import { bugRisk } from './bug-risk';
 import { constituentBreak } from './constituent-break';
 import type { JevDecisionEntry, JevDecisionRow } from './entry';
 import { hitlCategory } from './hitl-category';
+import { lawWorth } from './law-worth';
 import { outboxRisk } from './outbox-risk';
 import { questionCategory } from './question-category';
 import { unknownWorthAsking } from './unknown-worth-asking';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
-// The registry of Jev decisions (PRD 812, decision 9): one file per decision, listed here. The six
-// rows (PRD 855 s4 added Unknown worth asking, PRD 871 s4 `constituent-break`, PRD 1217 s3 `hitl-category`) are the ones public.jev_decision_names() allows, in the page's order; a decision whose entry is
+// The registry of Jev decisions (PRD 812, decision 9): one file per decision, listed here. The seven
+// rows (PRD 855 s4 added Unknown worth asking, PRD 871 s4 `constituent-break`, PRD 1217 s3 `hitl-category`, PRD 1342 s3 `law-worth`) are the ones public.jev_decision_names() allows, in the page's order; a decision whose entry is
 // not registered yet is shown on Settings › Jev as coming, and cannot be switched on. An entry with `terminal` can also be asked from a Claude session, through
 // `POST /api/decide/<name>` (./decide-route.ts).
 
@@ -51,6 +52,12 @@ export const JEV_DECISIONS: readonly JevDecisionRow[] = Object.freeze([
     about: 'Sorts each new piece of human work a roadmap waits on into Business, Development, Dev ops or Delivery ops; Off, the kit’s rules sort it.',
     sends: 'The entry’s source, text, act and repository, and its PRD’s title.',
   },
+  {
+    name: 'law-worth',
+    title: 'Worth a law',
+    about: 'Says whether a rule or an invariant the harvest found is worth a law, a test that fails when it is broken; when not, it stays in its PRD’s settled decisions.',
+    sends: 'The decision’s statement, its why, the principle it serves, its domain and its PRD’s title.',
+  },
 ]);
 
 // Each entry has its own input and value types; the registry, and jevEntry, hand them out as unknown.
@@ -61,6 +68,7 @@ const REGISTRY: Readonly<Record<string, JevDecisionEntry<unknown, unknown>>> = O
   [unknownWorthAsking.name]: unknownWorthAsking,
   [constituentBreak.name]: constituentBreak,
   [hitlCategory.name]: hitlCategory,
+  [lawWorth.name]: lawWorth,
 });
 
 /** The decision's registry entry, or null when it has none (yet). */
