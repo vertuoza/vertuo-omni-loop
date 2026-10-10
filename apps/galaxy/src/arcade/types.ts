@@ -94,7 +94,7 @@ export interface Account {
   save(patch: PlayerPatch, current: Player | null): Promise<Player>;
   /**
    * Sends the signed-in player's score at a finished game; resolves with their best at that game as
-   * stored, the higher of the two. Supabase refuses a visitor, a game not unlocked and a score
+   * stored, the better of the two for that game (the higher score, the lower kart time). Supabase refuses a visitor, a game not unlocked and a score
    * outside 0 to 9,999,999.
    */
   submitScore(game: string, score: number): Promise<number>;

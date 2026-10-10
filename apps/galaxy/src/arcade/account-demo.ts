@@ -4,6 +4,7 @@
 // the only line of the demo's crew table.
 import { validHero, type Hero } from '@omni/design';
 import { z } from 'zod';
+import { bestOf, measureOf } from './measure';
 import type { Account, Player, PlayerPatch, ScoreBoard, Session } from './types';
 
 const KEY = 'omni-loop:guest';
@@ -87,7 +88,7 @@ export function demoAccount(): Account {
       if (!Number.isInteger(score) || score < 0 || score > SCORE_CAP) return Promise.reject(new Error('A score is a whole number from 0 to 9,999,999.'));
       const s = read();
       if (!s.me) return Promise.reject(new Error('Only a player may post a score: join a fleet first.'));
-      const best = Math.max(s.best?.[game] ?? score, score);
+      const best = bestOf(measureOf(game), s.best?.[game] ?? score, score);
       write({ ...s, best: { ...s.best, [game]: best } });
       return Promise.resolve(best);
     },

@@ -60,7 +60,7 @@ export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM
   }
   if (hud?.results) {
     const { results } = hud;
-    const line = sendLine(send);
+    const line = sendLine(send, 'time');
     return (
       <div className="kt">
         <div className="j-panel kt-panel kt-mid kt-results">

@@ -265,11 +265,11 @@ describe('the results and the score (slice 4)', () => {
   });
 
   it('shows every state of the send: saving, NEW BEST, your best, not saved with a retry', () => {
-    expect(sendOf(sending(1500))).toContain('SAVING SCORE…');
+    expect(sendOf(sending(1500))).toContain('SAVING TIME…');
     expect(sendOf({ state: 'saved', score: 1500, best: 1500, newBest: true })).toContain('NEW BEST');
-    expect(sendOf({ state: 'saved', score: 1500, best: 1800, newBest: false })).toContain('YOUR BEST 1 800');
+    expect(sendOf({ state: 'saved', score: 1500, best: 1023, newBest: false })).toContain('YOUR BEST 1:42.3');
     const lost = sendOf({ state: 'failed', score: 1500, tries: 1 });
-    expect(lost).toContain('SCORE NOT SAVED');
+    expect(lost).toContain('TIME NOT SAVED');
     expect(lost).toContain('RETRY');
     expect(sendOf({ state: 'failed', score: 1500, tries: 2 })).toContain('RACE AGAIN');
   });

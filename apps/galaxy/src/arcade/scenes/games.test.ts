@@ -121,6 +121,18 @@ describe('the crew\'s top five on the lit cabinet', () => {
     expect(text).toContain('A · PLAY');
   });
 
+  it('shows each best in its game\'s text: a race time on OMNI KART\'s cabinet, digits on the others', () => {
+    const times: ScoresRead = { top: [line('u-a', 'ACE', 1023), line(player.id, 'INKY', 1850)], mine: 1850 };
+    const kart = cabinets(xpStatus(true, { xp: 600, level: 6, unlocked: ['invaders', 'kart'] }));
+    const at = kart.findIndex((c) => c.kind === 'game' && c.game.id === 'kart');
+    expect(at).toBeGreaterThanOrEqual(0);
+    const text = room(xpStatus(true, { xp: 600, level: 6, unlocked: ['invaders', 'kart'] }), TALL, at, player, { invaders: CREW, kart: times });
+    expect(text).toContain('1:42.3');
+    expect(text).toContain('3:05.0');
+    expect(text).not.toContain('1 023');
+    expect(room(LEVEL_3, WIDE, 0, player, { invaders: CREW })).toContain('9 210');
+  });
+
   it('highlights the player\'s own line, and no other', () => {
     const html = markup(WIDE, { invaders: CREW });
     expect(html.match(/class="mine"/g)).toHaveLength(1);
