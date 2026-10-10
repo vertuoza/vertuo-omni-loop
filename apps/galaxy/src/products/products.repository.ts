@@ -60,6 +60,9 @@ export const productDossiersOf = (db: Pick<SupabaseClient, 'from'>, workspace?: 
 
 const why = (error: { message: string }) => error.message;
 
+/** What a function call answers: its body, unparsed, or its error. */
+type RpcAnswer = { data: unknown; error: { message: string } | null };
+
 export function productsRepository(db: ProductsDb) {
   return {
     /** The workspace's products, first first. */
@@ -92,7 +95,8 @@ export function productsRepository(db: ProductsDb) {
 
     /** The dossiers whose latest approval request asks the caller, with no approval since. */
     async waitingDossiers(): Promise<string[]> {
-      const { data, error } = await db.rpc('approval_requests_waiting');
+      const answer: RpcAnswer = await db.rpc('approval_requests_waiting');
+      const { data, error } = answer;
       if (error) throw new Error(`Supabase: could not read what waits on you (${why(error)})`);
       return orThrow(parseRows(WaitingRequest, data, 'products/products.repository: approval_requests_waiting')).map((r) => r.dossier);
     },
