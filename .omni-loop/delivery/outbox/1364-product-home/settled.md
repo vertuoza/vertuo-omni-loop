@@ -857,3 +857,626 @@ One optional parameter per call in the app's routes and the kit's requests, in a
 ```
 
 <!-- /omni-outbox-settled: s3-04-nobody-sends-the-prd-yet -->
+
+<!-- omni-outbox-settled: s4-01-other-readers-see-no-targets -->
+
+## s4-01-other-readers-see-no-targets — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s4
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-other-readers-see-no-targets
+prd: 1364
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 1
+---
+
+## The question, in plain words
+
+When a plan repository names a product instead of listing its targets, should every command that reads the targets ask the server, or only the targets command for now?
+
+## The decision, in plain words
+
+Only the targets command asks the server for now. The other commands that read the targets see an empty list when a product is named, until they are taught to ask the server too.
+
+## The intro, for fun
+
+A plan repository that points at a product has a new phone book, but only one person has the number.
+
+## The punchline, for fun
+
+Everyone else is still flipping through an empty page.
+
+## The options, in plain words
+
+A. Only omni targets reads the server; the other readers see no targets with plan.product until a later slice or PRD teaches them.
+B. Add a slice to this PRD that makes every reader take the product's targets through the same read and its last copy.
+C. Have the other readers refuse plan.product with one line naming omni targets, until they read the server.
+
+## What I had to decide
+
+Whether the board, the next step, PR care, the flow, roadmaps, bug fixes and knowledge copies read a product's targets from the server in this PRD, or later.
+
+## What I did meanwhile
+
+With plan.product, omni targets prints the product's links; the config parses plan.targets as an empty list, so the other readers (kit/bin/commands/board.ts, next.ts, care.ts, flow.ts, kit/lib/roadmap, kit/lib/bug/fixes.ts, kit/lib/knowledge/copies.ts, kit/lib/plan-repo/copy-flow.ts, apps/omni-app/src/retro/targets.ts) behave as with no targets. A config that keeps plan.targets is untouched.
+
+## What it costs to change later
+
+Teaching each reader is one async read through kit/lib/product/targets.ts per command; none of those files is in s4's territory, and most are synchronous today.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan names no slice for the other readers; the spec says 'every reader of the targets (lib/plan-repo/targets.ts and its callers)', whose only caller is omni targets. (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-other-readers-see-no-targets -->
+
+<!-- omni-outbox-settled: s4-02-last-read-on-server-errors -->
+
+## s4-02-last-read-on-server-errors — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s4
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-last-read-on-server-errors
+prd: 1364
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 1
+---
+
+## The question, in plain words
+
+When should the targets command fall back on the last copy it read: only when the Omni page does not answer at all, or also when it answers with an error of its own?
+
+## The decision, in plain words
+
+The last copy is used when the Omni page does not answer in time or fails on its side. When it refuses (no sign-in, not a member, no such product), the command stops with its reason instead of hiding it behind an old copy.
+
+## The intro, for fun
+
+The page is down, the page is grumpy, or the page says no: only two of those deserve yesterday's list.
+
+## The punchline, for fun
+
+A firm no is still an answer.
+
+## The options, in plain words
+
+A. The copy on a timeout, a network failure or a 5xx; a refusal and a missing sign-in stop with their reason.
+B. The copy only on a timeout or a network failure, as the spec words it; a 5xx stops too.
+C. The copy on any failure, a refusal and a missing sign-in included, always saying why.
+
+## What I had to decide
+
+Whether a 5xx from the Omni page reads the last copy like a timeout does, and whether a missing sign-in should read it too.
+
+## What I did meanwhile
+
+kit/lib/product/targets.ts reads the copy on a timeout, a network failure or a 5xx; a 4xx stops with the server's reason; no ask.url or no sign-in stops with one line naming what to set.
+
+## What it costs to change later
+
+One condition in kit/lib/product/targets.ts (unanswered) and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec names only the 5-second case. (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-02-last-read-on-server-errors -->
+
+<!-- omni-outbox-settled: s4-03-product-targets-call-in-ask-client -->
+
+## s4-03-product-targets-call-in-ask-client — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s4
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-product-targets-call-in-ask-client
+prd: 1364
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 1
+---
+
+## The question, in plain words
+
+Where should the kit's call that reads a product's targets from the Omni page live?
+
+## The decision, in plain words
+
+It is one more call on the kit's existing Omni page client, beside the other calls, so it shares the sign-in and its renewal. That file is outside this slice's agreed area.
+
+## The intro, for fun
+
+The new call needed a phone, and the only phone in the house sits in the hallway.
+
+## The punchline, for fun
+
+So it borrowed the hallway, one line long.
+
+## The options, in plain words
+
+A. Keep the call on the shared Omni page client, as every other Omni page call is.
+B. Move it into the kit's new product module with its own signed-in request, leaving the shared client untouched.
+C. Give the shared client one general signed-in read, and build the product calls on it in the product module.
+
+## What I had to decide
+
+Whether readProductTargets stays on the shared ask client (kit/lib/ask/client.ts) or moves into kit/lib/product/ with its own authorized request.
+
+## What I did meanwhile
+
+kit/lib/ask/client.ts gains readProductTargets({ repo, product }), a GET of /api/products/targets; kit/lib/product/targets.ts takes it as a plain function, so moving it later changes one import.
+
+## What it costs to change later
+
+Moving it is a few lines; a copy in kit/lib/product/ would duplicate the token refresh the client already does.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- s5 (omni product import) will need a write call too, and its territory does not name the client either. (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-03-product-targets-call-in-ask-client -->
+
+<!-- omni-outbox-settled: s7-01-picker-reads-after-load -->
+
+## s7-01-picker-reads-after-load — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s7
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-picker-reads-after-load
+prd: 1364
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 1
+---
+
+## The question, in plain words
+
+Should the Product choice on a PRD's page be there the moment the page opens, or may it appear a moment later?
+
+## The decision, in plain words
+
+The Product choice appears a moment after the page opens, once it has asked who may change it. Everything else on the page shows as before.
+
+## The intro, for fun
+
+Some guests arrive with the party already started.
+
+## The punchline, for fun
+
+The Product choice walks in half a second late, but it brings the right list.
+
+## The options, in plain words
+
+A. Appear once read: the browser draws the cell after it asks the server, and the first paint is unchanged.
+B. Part of the first paint: the server reads the product with the rest of the page, so the cell is there from the start.
+
+## What I had to decide
+
+Whether the Product choice may appear just after the page opens, or must be part of the first paint.
+
+## What I did meanwhile
+
+The page opens as it did before; the Product cell joins the facts row as soon as it has read the PRD's product and the workspace's products. A person who may not change it never sees the cell.
+
+## What it costs to change later
+
+Option B moves the read into the page's server render: it changes the page's route and its view, outside this slice, and the cell's own code stays as is.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The select uses the browser's default look: the page's stylesheet was outside this slice, so it has no style of its own yet (author).
+
+```
+
+<!-- /omni-outbox-settled: s7-01-picker-reads-after-load -->
+
+<!-- omni-outbox-settled: s8-01-waiting-on-you-counts-approvals -->
+
+## s8-01-waiting-on-you-counts-approvals — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s8
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-01-waiting-on-you-counts-approvals
+prd: 1364
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 1
+---
+
+## The question, in plain words
+
+On the Products page, what counts as an item waiting on the person reading it?
+
+## The decision, in plain words
+
+Each card counts the product's PRDs that wait on the reader's approval. Open outbox questions are not counted, because the page does not know yet whom each one waits on.
+
+## The intro, for fun
+
+Every card wears a little number, and someone has to decide what it counts.
+
+## The punchline, for fun
+
+For now it counts only the doors that need your key.
+
+## The options, in plain words
+
+A. Count the approval requests waiting on the reader, the option built.
+B. Also count the open outbox questions of the PRDs the reader authored.
+C. Count everything the Ledger's 'on you' lane shows, once s9 defines it.
+
+## What I had to decide
+
+Which items the per-product 'waiting on you' count adds up.
+
+## What I did meanwhile
+
+Approval requests whose latest request asks the reader with no approval since, of the product's dossiers, read through approval_requests_waiting(); outbox questions and GitHub reviews are left out.
+
+## What it costs to change later
+
+One line in products.service.ts and one more read in products.repository.ts to add another source.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether open outbox questions of the product's PRDs should count as waiting on their author
+- (author) whether the Ledger's 'on you' lane (s9) and this count must stay identical
+
+```
+
+<!-- /omni-outbox-settled: s8-01-waiting-on-you-counts-approvals -->
+
+<!-- omni-outbox-settled: s8-02-add-to-a-product-opens-repositories-settings -->
+
+## s8-02-add-to-a-product-opens-repositories-settings — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s8
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-02-add-to-a-product-opens-repositories-settings
+prd: 1364
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 1
+---
+
+## The question, in plain words
+
+Where does 'Add to a product' take a person, beside a repository that is in no product?
+
+## The decision, in plain words
+
+It opens the repositories settings page, where a repository is given a product today. Once the product page can add repositories, it can point there instead.
+
+## The intro, for fun
+
+A lonely repository raises its hand, and the button has to know where to send it.
+
+## The punchline, for fun
+
+So it goes to the one door already open, until a nicer one is built.
+
+## The options, in plain words
+
+A. Open Settings › Repositories, the option built.
+B. Open a picker of the workspace's products right on the card list.
+C. Open the first product's Repositories & approvers tab with the repository filled in.
+
+## What I had to decide
+
+The target of the 'Add to a product' link on /app/products.
+
+## What I did meanwhile
+
+A plain link to /app/settings/repositories (ADD_TO_PRODUCT_HREF in ProductsHome.tsx), the same for every repository.
+
+## What it costs to change later
+
+One constant; s11 owns src/products/ and can repoint it to the product home's Repositories tab.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether s11 should turn it into a picker of the workspace's products in place
+
+```
+
+<!-- /omni-outbox-settled: s8-02-add-to-a-product-opens-repositories-settings -->
+
+<!-- omni-outbox-settled: s8-03-products-first-under-work -->
+
+## s8-03-products-first-under-work — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s8
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-03-products-first-under-work
+prd: 1364
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 1
+---
+
+## The question, in plain words
+
+Where does Products sit in the sidebar, and which picture does it carry?
+
+## The decision, in plain words
+
+Products comes first under Work, above Roadmaps, since a product holds the rest of the work. It reuses the existing coin picture until one is drawn for it.
+
+## The intro, for fun
+
+A new tenant moves into the sidebar and asks for the top floor.
+
+## The punchline, for fun
+
+It got the top floor, and a borrowed doorplate for now.
+
+## The options, in plain words
+
+A. First under Work with the coin sprite, the option built.
+B. Under Dashboard, beside Workspace.
+C. Last under Work, after Knowledge.
+
+## What I had to decide
+
+The Products entry's group, position and sprite.
+
+## What I did meanwhile
+
+First entry of the Work group, path /app/products, sprite 'coin' from @omni/design (a 16 px sprite that already exists).
+
+## What it costs to change later
+
+One line in src/nav/sidebar.ts and its tests; a new sprite is a change in packages/design.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether a dedicated 'menu-products' sprite is wanted
+
+```
+
+<!-- /omni-outbox-settled: s8-03-products-first-under-work -->
+
+<!-- omni-outbox-settled: s8-04-two-files-outside-the-territory -->
+
+## s8-04-two-files-outside-the-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s8
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-04-two-files-outside-the-territory
+prd: 1364
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 1
+---
+
+## The question, in plain words
+
+The slice had to touch three files its plan row does not list. Is that all right?
+
+## The decision, in plain words
+
+Yes: the list of known layering breaches lives at the repository's root, not under the app, and two tests of the app switcher list every sidebar entry, so they had to change for the checks to stay green.
+
+## The intro, for fun
+
+The map said the treasure was under the app, but it was buried at the root.
+
+## The punchline, for fun
+
+So the shovel went where the treasure actually was.
+
+## The options, in plain words
+
+A. Edit them in this slice, the option built.
+B. Leave the settings page's product read as it was so the list of breaches does not change, and leave the two switcher tests to another slice.
+
+## What I had to decide
+
+Whether to change layering/baseline.json, apps/galaxy/src/switch/headers.test.ts and apps/galaxy/src/switch/switch.test.ts, outside the row's territory.
+
+## What I did meanwhile
+
+Removed the load.ts database-call line from layering/baseline.json (the plan names apps/galaxy/layering/baseline.json, which does not exist) and added Products to the sidebar lists in apps/galaxy/src/switch/headers.test.ts and apps/galaxy/src/switch/switch.test.ts.
+
+## What it costs to change later
+
+Nothing to undo: these edits only follow the code this slice changed.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether the plan's territory path for the baseline should be corrected for s11
+
+```
+
+<!-- /omni-outbox-settled: s8-04-two-files-outside-the-territory -->
