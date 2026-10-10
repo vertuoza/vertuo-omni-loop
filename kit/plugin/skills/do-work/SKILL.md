@@ -48,6 +48,10 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one l
 kit is not installed in this repository. Keep the JSON; later steps read `repo.remote`,
 `branches.*`, `paths.*`, `commands.*`, `acceptance.*` and `laws.source` from it.
 
+Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`. Keep what it
+prints. Anything but `true` (or a failure) means design craft is off here: step 4's design review
+does not run, and the sub-PR has no **Design review** section. Nothing else in this skill changes.
+
 Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
 playbook, section by section: a section the repository left blank prints the kit default, and a
@@ -189,7 +193,8 @@ Anything else is not a stop. "This might break something" is a risk: record it w
 `hardToRevert` and carry on. Contradicting an ADR is proposing to supersede it: record it with
 `bearsOn` set to the ADR, and carry on. Going against a **proposed** knowledge entry is never a stop
 either: it is no law yet, so record it with `bearsOn` set to its id, leave `breaksNamedLaw` false,
-and carry on.
+and carry on. A design review finding is never a stop either (step 4): what the review leaves is
+recorded and the slice carries on.
 
 ## 4. Account for the ground you touched
 
@@ -197,6 +202,37 @@ and carry on.
 `node .omni-loop/bin/omni.mjs flow show do-work.review --prd <n> --slice <id>` and follow it
 (**Flow points**) around what follows. A `fail` from a hook is fixed on the slice branch, then the
 point runs again.
+
+**Design review.** Only when step 0 read the design flag as `true`; off, skip to the coverage below.
+It starts on its own: no one asks for it. Run
+`node .omni-loop/bin/omni.mjs design touched <repo.remote>/<feature branch>`; it always exits 0.
+
+| the slice | it does |
+|---|---|
+| marked `ui: yes` in the plan's done-when, or the check prints `ui: yes` | follows the review below |
+| the check prints `ui: unknown` (`design.paths` is empty, or the base cannot be read) | judges from the diff whether a screen changed: yes, it follows the review; no, it skips it. Either way the section's first line says that it judged, and from what |
+| the check prints `ui: no`, and the plan does not mark it | skips the review; the section is the one line `— Design review: no screen changed (ui: no)` |
+
+The review is `/omni:pixel-perfect review`: follow that skill's step 0, then its
+`reference/review.md`, as written there, never restated here. Give it the PRD and the slice id,
+the slice's territory (every fix stays inside it), the base `<repo.remote>/<feature branch>`, and,
+as its reference picture, the "after" screen of the PRD's before/after page (`omni prd` lists it
+among the files; no page, and the step says so). Its fixes are this slice's code: commit them as
+reviewable commits (step 2) and run the tests again at **Point `do-work.test`** before going on.
+
+**It never fails the slice, the wave or the gate.** No finding turns a check red, holds the
+preflight or leaves the sub-PR draft, and a finding is never the **stop** or the **blocked**
+outcome. What it did not fix (a finding left after the confirming look, a fix that would leave the
+territory) becomes an outbox item through step 3, one per finding or one per screen, naming the
+screen, what was found, the fix it would make and why it was left; its `gaps` carry the small ones.
+When the app cannot run or be seen here, the review says so and nothing is reported as seen.
+
+Keep its report for the sub-PR: a **Design review** section, one ✓, ✗ or — line per step, in the
+shape `reference/review.md` shows, then what was fixed, one line each. The screenshots stay in a
+scratch folder outside the repository, never in the territory or a commit: attach them to the
+sub-PR when the session can, otherwise the screenshot line names each screen and width it saw.
+Under `--target <name>` the review does not run (no target app runs here, **Under `--target
+<name>`**): the section is the one line `— Design review: not run on a target slice`.
 
 After the last code commit, grade your own diff:
 
@@ -253,7 +289,8 @@ carries here, and what done means. What they ask of a push or a hand-off is part
    (**Flow points**) around item 6, the kit's step. A `not ok` leaves the sub-PR draft: name the
    hook and its reason in the hand-off, as a red preflight would be.
 6. **Hand off to `/omni:pr`** for the sub-PR into the feature branch: it turns the claim into the
-   sub-PR (title; a body that ends with the `omni sign footer` line; the co-author trailer and the
+   sub-PR (title; a body that carries step 4's **Design review** section when the design flag is
+   on, and ends with the `omni sign footer` line; the co-author trailer and the
    `omni sign trailer` line on every commit), keeps its status comment, marks it ready once the
    preflight is green, and runs its lifecycle. A sub-PR has no CI: its lifecycle
    ends at a green preflight and no conflict with the feature branch. Never merge it, never touch

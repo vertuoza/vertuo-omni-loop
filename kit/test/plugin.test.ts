@@ -2344,3 +2344,71 @@ describe('the pixel-perfect skill in this repository', () => {
     expect(run.stdout).toMatch(/never blocks/);
   });
 });
+
+// PRD 1369, s4: the skills that drive screen work start the design review on their own, behind the
+// flag, and it never blocks. do-work follows /omni:pixel-perfect review on a UI slice and writes a
+// Design review section; visual-fix follows it at its real check against the pick; plan marks the
+// slices whose territory meets design.paths.
+describe('the design review in the skills that drive screen work (PRD 1369)', () => {
+  const read = (name: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', name, 'SKILL.md'), 'utf8');
+  const FLAG = 'omni.mjs config design.enabled';
+  const gaps = (text: string, mentions: string[]) => {
+    const out: string[] = [];
+    let at = -1;
+    mentions.forEach((mention: string, index: number) => {
+      const next = text.indexOf(mention, at + 1);
+      if (next < 0) out.push(`${mention}, after ${mentions[index - 1] ?? 'the start'}`);
+      else at = next;
+    });
+    return out;
+  };
+
+  it('each skill reads omni config design.enabled in its step 0, and off, runs no review', () => {
+    for (const name of ['do-work', 'visual-fix', 'plan']) expect(skillSection(read(name), 'Step 0'), name).toContain(FLAG);
+    expect(skillSection(read('do-work'), 'Step 0')).toMatch(/no \*\*Design review\*\* section/);
+    expect(skillSection(read('visual-fix'), 'Step 0')).toMatch(/no \*\*Design review\*\* section/);
+  });
+
+  it("do-work's review step runs omni design touched, and follows /omni:pixel-perfect review on ui: yes from the plan or the check", () => {
+    const review = skillSection(read('do-work'), '4.');
+    expect(gaps(review, ['**Design review.**', 'omni.mjs design touched', '`ui: yes`', '/omni:pixel-perfect review', 'omni.mjs check coverage'])).toEqual([]);
+    expect(review).toMatch(/marked `ui: yes` in the plan's done-when, or the check prints\s+`ui: yes`/);
+    expect(review).toContain('reference/review.md');
+  });
+
+  it('on ui: unknown, do-work judges from the diff whether a screen changed, and says that it judged', () => {
+    const review = skillSection(read('do-work'), '4.');
+    expect(review).toMatch(/`ui: unknown`[^|]*\|\s*judges from the diff/);
+    expect(review).toMatch(/says that it judged/);
+  });
+
+  it('the review never fails the slice, the wave or the gate: what it did not fix becomes an outbox item', () => {
+    const text = read('do-work');
+    const review = skillSection(text, '4.');
+    expect(review).toMatch(/never fails the slice, the wave or the\s+gate/);
+    expect(review).toMatch(/what it did not fix[^.]*outbox\s+item/i);
+    expect(review).toMatch(/never\s+the\s+\*\*stop\*\*\s+or\s+the\s+\*\*blocked\*\*\s+outcome/);
+    expect(skillSection(text, '3.')).toMatch(/A design review finding is never a\s+stop/);
+  });
+
+  it('the sub-PR body carries a Design review section, one ✓, ✗ or — line per step', () => {
+    const text = read('do-work');
+    expect(skillSection(text, '4.')).toMatch(/one ✓, ✗ or — line per step/);
+    expect(skillSection(text, '5.')).toContain('**Design review** section');
+  });
+
+  it('visual-fix follows the same review at its real check, against the picked variation, never blocking', () => {
+    const text = read('visual-fix');
+    const check = skillSection(text, '7.');
+    expect(gaps(check, ['/omni:pixel-perfect review', 'the variation the person picked'])).toEqual([]);
+    expect(check).toMatch(/never blocks/);
+    expect(check).toContain('**The boundary**');
+    expect(skillSection(text, '9.')).toContain('## Design review');
+  });
+
+  it('plan writes ui: yes in the done-when of a slice whose territory meets design.paths', () => {
+    const text = read('plan');
+    expect(skillSection(text, '4.')).toMatch(/territory\s+meets\s+`design\.paths`/);
+    expect(skillSection(text, '4.')).toContain('**s3** (`ui: yes`)');
+  });
+});
