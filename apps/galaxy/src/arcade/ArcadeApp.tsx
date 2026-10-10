@@ -34,7 +34,7 @@ import { InvadersOverlay } from './scenes/invaders.tsx';
 import { LevelUpOverlay } from './scenes/levelup.tsx';
 import { PlatformerOverlay } from './scenes/platformer.tsx';
 import { KartOverlay } from './scenes/kart.tsx';
-import { kartCast, kartPress, loadKart, sameKartHud, type ArcadeKart, type KartGame } from './scenes/kart.ts';
+import { kartCast, kartPress, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
 import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
@@ -81,11 +81,20 @@ const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', '
 /** The loaded game OMNI KART draws with, while its scene shows. */
 const kartDrawOf = (scene: SceneName, kart: ArcadeKart | null): KartGame | null => (scene === 'kart' ? kart?.game ?? null : null);
 
+/** The race's cues since the last call, played: each through `soundOf` and `sfx`, which the mute (M) silences. */
+function hearKart(game: KartGame) {
+  for (const cue of game.cues()) {
+    const heard = soundOf(cue);
+    if (heard) sfx(heard.sfx, heard.far);
+  }
+}
+
 /** The race plays the time since the last frame, with the buttons held now, and the text layer follows it. */
 function stepKart(scene: SceneName, kart: ArcadeKart | null, buttons: ReadonlySet<Action>, dt: number, show: (game: KartGame) => void, finished: (score: number) => void) {
   const game = kartDrawOf(scene, kart);
   if (!game) return;
   const score = game.step(buttons, dt);
+  hearKart(game);
   show(game);
   if (score !== null) finished(score); // the step that crossed the line says so once: the score is sent once
 }
@@ -814,6 +823,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           const pressed = k.game.press(action);
           if (pressed.quit) { setKart(null); go({ scene: 'games' }, 'back'); return; }
           if (pressed.again) { held.clear(); runRef.current += 1; showSend(null); setKart({ ...k, status: 'loading', retry: k.retry + 1, game: null, hud: null }); return; }
+          hearKart(k.game);
           showKartHud(k.game);
         }
         return;

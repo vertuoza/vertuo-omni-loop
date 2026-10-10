@@ -8,10 +8,12 @@ import type { Action } from '../keys';
 import { heroOf } from '../fleets';
 import { stripesOf } from '../theme';
 import { H, nebulaFor, sprite, stars, W, type FrameState } from '../scenes/common.ts';
-import type { KartGame, KartQuit } from '../scenes/kart.ts';
+import { TILE } from './track';
+import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
 import type { Kart } from './kart';
 import { chaseCamera, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
-import { hudOf, newRace, pause, press, step, type Race } from './race';
+import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
+import { RULES } from './rules';
 import type { Driver, Rival } from './rivals';
 import { BEYOND, paintTrack } from './texture';
 import { parseTrack, type Track } from './track';
@@ -166,19 +168,34 @@ export function createKart({ seed, cast = [] }: KartOptions = { seed: 1359 }): K
     return floor;
   };
 
+  // What happened since the arcade last asked: the race's events, as cues, in order.
+  let told: KartCue[] = [];
+  /** How far racer `i` stands from the player, in tiles. */
+  const tilesTo = (i: number): number => {
+    const rival = race.rivals[i - 1];
+    return i === 0 || !rival ? 0 : Math.hypot(rival.kart.x - race.player.x, rival.kart.y - race.player.y) / TILE;
+  };
+  const tell = (events: readonly RaceEvent[]) => {
+    for (const e of events) told.push(...cuesOf(e, 'racer' in e ? tilesTo(e.racer) : 0));
+  };
+
   return {
     step(held: ReadonlySet<Action>, dt: number): number | null {
       const r = step(race, held, dt);
       race = r.race;
+      tell(r.events);
       const done = r.events.find((e) => e.kind === 'finish');
       return done?.kind === 'finish' ? done.score : null;
     },
     press(action: Action): KartQuit {
       const r = press(race, action);
       race = r.race;
+      tell(r.events);
       return { quit: r.events.some((e) => e.kind === 'quit'), again: r.events.some((e) => e.kind === 'again') };
     },
     pause() { race = pause(race); },
+    cues() { const out = told; told = []; return out; },
+    speed: () => Math.min(1, Math.max(0, race.player.speed / RULES.topSpeed)),
     hud: () => hudOf(race),
     draw(ctx, s) {
       texture ??= paintTrack(track);

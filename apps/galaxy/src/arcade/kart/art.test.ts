@@ -331,3 +331,48 @@ describe('the items on the floor (slice 5)', () => {
     expect(() => { kart.draw(ctx, frame(TALL)); }).not.toThrow();
   });
 });
+
+// The race tells the arcade what happened as cues (PRD 1427, slice 2), and how fast the player goes.
+describe('the cues the game gives', () => {
+  const NO_KEYS: ReadonlySet<Action> = new Set();
+  const frames = (game: ReturnType<typeof createKart>, seconds: number, held: ReadonlySet<Action> = NO_KEYS) => {
+    for (let t = 0; t < seconds - 1e-9; t += 0.05) game.step(held, 0.05);
+  };
+
+  it('gives beep 3 on START, then beep 2, beep 1 and go, each once, in order, and forgets them once handed over', () => {
+    const game = createKart({ seed: 7 });
+    expect(game.cues()).toEqual([]);
+    game.press('start');
+    expect(game.cues()).toEqual([{ kind: 'beep', beat: '3' }]);
+    expect(game.cues()).toEqual([]);
+    frames(game, 3.5);
+    expect(game.cues()).toEqual([{ kind: 'beep', beat: '2' }, { kind: 'beep', beat: '1' }, { kind: 'go' }]);
+  });
+
+  it('gives one item cue with its item and you when the player uses one', () => {
+    const game = createKart({ seed: 7 });
+    game.press('start');
+    frames(game, 3.5);
+    game.cues();
+    // Drive until the player takes a box (it holds an item), then use it.
+    for (let i = 0; i < 400 && !game.hud().run?.item; i++) game.step(new Set<Action>(['a']), 0.05);
+    const held = game.hud().run?.item;
+    const taken = game.cues();
+    expect(held).toBeTruthy();
+    expect(taken.filter((c) => c.kind === 'box')).toHaveLength(1);
+    game.press('b');
+    expect(game.cues()).toEqual([{ kind: 'item', item: held, you: true, tiles: 0 }]);
+    game.press('b');
+    expect(game.cues()).toEqual([]);
+  });
+
+  it('gives the player\'s speed as a share of its top speed, 0 at rest and never past 1', () => {
+    const game = createKart({ seed: 7 });
+    expect(game.speed()).toBe(0);
+    game.press('start');
+    frames(game, 3.5);
+    frames(game, 2, new Set<Action>(['a']));
+    expect(game.speed()).toBeGreaterThan(0.3);
+    expect(game.speed()).toBeLessThanOrEqual(1);
+  });
+});
