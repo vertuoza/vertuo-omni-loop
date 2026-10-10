@@ -241,6 +241,19 @@ describe('toCheckRequests', () => {
     expect(toCheckRequests('pull_request', pullRequestPayload('closed'))).toEqual([]);
   });
 
+  it('turns no event of a sub-PR, a pull request into another branch than the default, into an outbox check (#1413)', () => {
+    const subPr = { number: 28, head: { sha: 'abc123', ref: 'feat/x--s1' }, base: { ref: 'feat/x' } };
+    for (const action of CHECK_ACTIONS.pull_request) {
+      expect(toCheckRequests('pull_request', pullRequestPayload(action, { pull_request: subPr })), action).toEqual([]);
+    }
+    expect(toCheckRequests('check_run', rerequestedPayload([subPr]))).toEqual([]);
+  });
+
+  it('still turns a pull request into the default branch, and its check re-run, into the outbox check (#1413)', () => {
+    expect(toCheckRequests('pull_request', pullRequestPayload('synchronize'))).toHaveLength(1);
+    expect(toCheckRequests('check_run', rerequestedPayload())).toHaveLength(1);
+  });
+
   it('never turns a closed pull request into the outbox check, merged or not', () => {
     expect(toCheckRequests('pull_request', mergedPayload())).toEqual([]);
   });
