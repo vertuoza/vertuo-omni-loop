@@ -312,3 +312,236 @@ One step in one workflow file.
 ```
 
 <!-- /omni-outbox-settled: s1-04-new-check-not-yet-in-ci -->
+
+<!-- omni-outbox-settled: s2-01-existing-prds-take-their-product -->
+
+## s2-01-existing-prds-take-their-product — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-existing-prds-take-their-product
+prd: 1364
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 2
+---
+
+## The question, in plain words
+
+The PRDs, fixes and ideas that exist before this change have no product yet. Should they get one?
+
+## The decision, in plain words
+
+Each existing PRD, fix and idea takes its repository's product when the repository is in exactly one, the same rule a new one follows, so a product's home lists its past work from day one.
+
+## The intro, for fun
+
+The new house is ready, but all the old furniture is still in the moving van.
+
+## The punchline, for fun
+
+So every chair goes to the only room it ever fitted.
+
+## The options, in plain words
+
+A. A. Existing PRDs, fixes and ideas take their repository's only product, the option built.
+B. B. Leave them with no product; a person files each one on its page.
+C. C. Fill in only the PRDs, and leave fixes and ideas with none.
+
+## What I had to decide
+
+Whether the work already on the server takes a product when the change lands, or stays with none until a person sets one.
+
+## What I did meanwhile
+
+The change gives every existing PRD, fix and idea its repository's product when the repository is in exactly one product; today every repository is in one product or none, so each one lands in the product its repository had.
+
+## What it costs to change later
+
+One statement in the change; a later change can set them back to none.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether existing work should be filed under a product automatically, or only by a person (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-01-existing-prds-take-their-product -->
+
+<!-- omni-outbox-settled: s2-02-fixes-and-concepts-take-a-product-too -->
+
+## s2-02-fixes-and-concepts-take-a-product-too — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-fixes-and-concepts-take-a-product-too
+prd: 1364
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 2
+---
+
+## The question, in plain words
+
+The rule that gives a new PRD its product: does it also apply to bug fixes, visual fixes and concepts?
+
+## The decision, in plain words
+
+Yes: a new bug fix, visual fix or concept takes its repository's product by the same rule, without the question, so the product's Bug fixes and Visual fixes tabs can list them.
+
+## The intro, for fun
+
+The guest list was written for the wedding, then the whole family showed up.
+
+## The punchline, for fun
+
+So everyone gets a seat by the same rule, cousins included.
+
+## The options, in plain words
+
+A. A. Every kind takes its repository's only product, the option built.
+B. B. PRDs and fixes only; concepts never have a product.
+C. C. PRDs only; fixes are filed by a person.
+
+## What I had to decide
+
+Which kinds of work the birth rule gives a product to.
+
+## What I did meanwhile
+
+Every kind takes its repository's only product on its first push; only a PRD can name one among several. Any member can change it on the page, and only an approved PRD is ever locked.
+
+## What it costs to change later
+
+One condition in the change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether a concept belongs to a product at all (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-02-fixes-and-concepts-take-a-product-too -->
+
+<!-- omni-outbox-settled: s2-03-prd-product-check-not-yet-in-ci -->
+
+## s2-03-prd-product-check-not-yet-in-ci — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-03-prd-product-check-not-yet-in-ci
+prd: 1364
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 2
+---
+
+## The question, in plain words
+
+The new check that proves a PRD's and an idea's product is not yet run by the automated checks on pull requests. Who adds it?
+
+## The decision, in plain words
+
+This slice did not touch the workflow file that lists the checks, because it is outside its territory; the check is written and passes locally, and one step in that workflow makes it run on every pull request.
+
+## The intro, for fun
+
+The second smoke alarm is unboxed, tested and sitting next to the first one.
+
+## The punchline, for fun
+
+It also works best once somebody screws it to the ceiling.
+
+## The options, in plain words
+
+A. A. Leave the workflow to the wave or a follow-up change, the option built.
+B. B. Widen this slice's territory to the workflow file and add the step here.
+
+## What I had to decide
+
+Where the workflow step that runs the new PRD product check gets added.
+
+## What I did meanwhile
+
+Not added: the wave, or a follow-up change, adds one named step to the database workflow for the new check, as it did for the product links check.
+
+## What it costs to change later
+
+One step in one workflow file.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- which slice or step of the wave owns workflow changes for new database checks (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-03-prd-product-check-not-yet-in-ci -->
