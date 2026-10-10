@@ -3,7 +3,7 @@
 // arcade/kart/ that draws: everything it draws from is pure (track.ts, mode7.ts, texture.ts, race.ts).
 // The circuit's texture is painted once, the first time a race is drawn, and the floor goes through
 // one pixel buffer per grid, allocated once and reused. It also holds the race the arcade steps.
-import { drawPlanet, drawStarfield, fleetSprite, spriteImage } from '@omni/design';
+import { drawPlanet, drawStarfield, fleetSprite, spriteImage, woundTint } from '@omni/design';
 import type { Action } from '../keys';
 import { heroOf } from '../fleets';
 import { stripesOf } from '../theme';
@@ -59,6 +59,9 @@ const DRIVER_W = 32;
 /** The kart's sprite for the way it is steered: leaning into the turn. */
 const viewOfKart = (k: Kart): string => (k.steer < 0 ? 'kart-left' : k.steer > 0 ? 'kart-right' : 'kart');
 
+/** The views a spinning kart turns through: it shows its sides and its back as it goes round. */
+const SPIN_VIEWS = ['kart', 'kart-right', 'kart', 'kart-left'] as const;
+
 /**
  * The player's kart, seen from behind at the bottom of the screen, tinted with the hero's suit, and
  * the hero in its seat (head and shoulders, half the kart's scale). The wheels' tread turns with the
@@ -75,7 +78,8 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
   const lean = kart.steer * half;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2 + lean), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
-  sprite(ctx, s, viewOfKart(kart), x, y, { scale, tint: look.tint, frame });
+  const spin = race.fx.spin > 0 ? SPIN_VIEWS[Math.floor(s.t * 12) % SPIN_VIEWS.length] : undefined;
+  sprite(ctx, s, spin ?? viewOfKart(kart), x, y, { scale, tint: look.tint, frame });
 }
 
 /** How wide a kart stands in the world, in game pixels: a rival is drawn this wide, scaled by its distance. */
@@ -101,6 +105,42 @@ function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Riv
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
   ctx.drawImage(body, Math.round(x), Math.round(y), KART_W * scale, 18 * scale);
+}
+
+/** What stands on the floor besides the karts: an item box, a BLOB, an ORB in flight. */
+type Thing = { x: number; y: number } & ({ kind: 'rival'; rival: Rival } | { kind: 'box' } | { kind: 'blob' } | { kind: 'orb' });
+
+/** How wide an item stands in the world, in game pixels. */
+const BOX_WORLD = 12;
+const BLOB_WORLD = 12;
+const ORB_WORLD = 9;
+
+/** An item box on the floor: a lit cube with its question mark, as big as its distance makes it. */
+function itemBox(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected) {
+  const size = BOX_WORLD * at.scale;
+  if (size < 2) return;
+  const x = Math.round(at.sx - size / 2), y = Math.round(at.sy - size);
+  const bob = s.reduced ? 0 : Math.sin(s.t * 4 + at.z * 0.05) * size * 0.06;
+  ctx.fillStyle = s.theme['plasma-dark'];
+  ctx.fillRect(x - 1, Math.round(y + bob) - 1, Math.round(size) + 2, Math.round(size) + 2);
+  ctx.fillStyle = s.theme.yellow;
+  ctx.fillRect(x, Math.round(y + bob), Math.round(size), Math.round(size));
+  ctx.fillStyle = s.theme.void;
+  ctx.font = `${Math.max(6, Math.round(size * 0.8))}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText('?', Math.round(at.sx), Math.round(y + bob + size * 0.82));
+}
+
+/** A BLOB lying on the road, or an ORB in flight (a little above it): a sprite as wide as its distance makes it. */
+function thrownItem(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected, name: 'entropy' | 'orb') {
+  const world = name === 'orb' ? ORB_WORLD : BLOB_WORLD;
+  const size = world * at.scale;
+  if (size < 2) return;
+  const frame = s.reduced ? 0 : Math.floor(s.t * 6) % 2;
+  const image = spriteImage(name, { ...(name === 'entropy' ? { tint: woundTint('fault-line') } : {}), flat: stripesOf(s.theme), frame });
+  const lift = name === 'orb' ? size * 0.6 : 0;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(image, Math.round(at.sx - size / 2), Math.round(at.sy - size - lift), Math.round(size), Math.round(size));
 }
 
 /** What `createKart` needs: the race's seed, and the rivals' drivers (the workspace's fleets). */
@@ -148,7 +188,18 @@ export function createKart({ seed, cast = [] }: KartOptions = { seed: 1359 }): K
       renderFloor(v, texture, floor.pixels, BEYOND);
       floor.canvas.getContext('2d')?.putImageData(floor.image, 0, 0);
       ctx.drawImage(floor.canvas, 0, 0);
-      for (const { sprite: r, at } of spritesInView(v, race.rivals.map((rival) => ({ ...rival, x: rival.kart.x, y: rival.kart.y })))) rivalKart(ctx, s, v, r, at);
+      const things: Thing[] = [
+        ...race.items.boxes.filter((b) => b.back <= 0).map((b): Thing => ({ kind: 'box', x: b.x, y: b.y })),
+        ...race.items.blobs.map((b): Thing => ({ kind: 'blob', x: b.x, y: b.y })),
+        ...race.items.orbs.map((o): Thing => ({ kind: 'orb', x: o.x, y: o.y })),
+        ...race.rivals.map((rival): Thing => ({ kind: 'rival', rival, x: rival.kart.x, y: rival.kart.y })),
+      ];
+      // The farthest first, so a near kart covers a far item.
+      for (const { sprite: thing, at } of spritesInView(v, things)) {
+        if (thing.kind === 'rival') rivalKart(ctx, s, v, thing.rival, at);
+        else if (thing.kind === 'box') itemBox(ctx, s, at);
+        else thrownItem(ctx, s, at, thing.kind === 'blob' ? 'entropy' : 'orb');
+      }
       playerKart(ctx, s, race);
     },
   };

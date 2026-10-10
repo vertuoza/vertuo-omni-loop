@@ -9,9 +9,10 @@
 import { fleetSprite, MASCOTS } from '@omni/design';
 import type { Action } from '../keys';
 import type { KartHud, KartResults, KartRow } from '../scenes/kart.ts';
-import { driveKart, kartAt, padOf, type Kart } from './kart';
+import { kartAt, NO_FX, padOf, stepFx, type Fx, type Kart } from './kart';
+import { newWorld, stepItems, useItem, wantsToUse, type World } from './items';
 import { RULES } from './rules';
-import { advance, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
+import { advance, aimOf, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
 import { LAPS, PAR_SECONDS, parseTrack, PLACES, type Track } from './track';
 
 /** Frames add up to a countdown's end only to within what a float keeps. */
@@ -31,6 +32,10 @@ export interface Race {
   /** Seconds into the countdown, and then seconds of race. */
   readonly clock: number;
   readonly player: Kart;
+  /** What the player holds and what is on the player's kart. */
+  readonly fx: Fx;
+  /** The item boxes, BLOBs and ORBs on the circuit. */
+  readonly items: World;
   /** The player's laps and waypoints, and the five rivals on the grid. */
   readonly pace: Pace;
   readonly rivals: readonly Rival[];
@@ -70,28 +75,50 @@ export function newRace({ seed, track = parseTrack(), cast = [] }: { seed: numbe
   const rivals = drivers.map((driver, i): Rival => {
     const place = track.places[i] ?? start;
     const trait = traits[i] ?? { skill: 1, offset: 0 };
-    return { driver, kart: kartAt(place.x, place.y, track.heading), pace: START_PACE, ...trait };
+    return { driver, kart: kartAt(place.x, place.y, track.heading), pace: START_PACE, fx: NO_FX, ...trait };
   });
-  return { seed, track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), pace: START_PACE, rivals, finalAt: null, finish: null };
+  return { seed, track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, finalAt: null, finish: null };
 }
 
-/** `dt` seconds of the race with the buttons held, played in the same short steps whatever the frame took: the player, the rivals, the karts pushed apart and the laps counted. */
-function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'player' | 'pace' | 'rivals'> {
+/** How a rival that holds an item sees the road: it is facing where it goes when it needs hardly any turn to aim at its waypoint. */
+const STRAIGHT = 0.1;
+
+/** `dt` seconds of the race with the buttons held, played in the same short steps whatever the frame took: the player, the rivals, the karts pushed apart, the items and the laps counted. */
+function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'player' | 'fx' | 'items' | 'pace' | 'rivals'> {
   const { track } = race;
   const pad = padOf(held);
   const steps = Math.max(1, Math.ceil(dt / RULES.subStep));
-  let { player, pace, rivals } = race;
+  let { player, fx, items, pace, rivals } = race;
   for (let i = 0; i < steps; i++) {
     const was = player;
-    player = driveKart(track.map, player, pad, dt / steps);
+    const moved = stepFx(track.map, player, pad, dt / steps, 1, fx);
+    player = moved.kart;
+    fx = moved.fx;
     pace = advance(track, pace, was, player);
     const ahead = progressOf(track, pace, player);
     rivals = rivals.map((r) => driveRival(track, r, dt / steps, ahead));
     const [p, ...others] = pushApart([player, ...rivals.map((r) => r.kart)]);
     if (p) player = p;
     rivals = rivals.map((r, j) => { const kart = others[j]; return kart ? { ...r, kart } : r; });
+    // The items: the rivals use what they hold by their rules, then the boxes, BLOBs and ORBs act.
+    let racers = [{ kart: player, fx }, ...rivals.map((r) => ({ kart: r.kart, fx: r.fx ?? NO_FX }))];
+    rivals.forEach((r, j) => {
+      const holder = racers[j + 1];
+      if (!holder || !wantsToUse(racers, j + 1, Math.abs(aimOf(track, r)) < STRAIGHT && holder.kart.speed > 0)) return;
+      const used = useItem(items, holder);
+      items = used.world;
+      racers = racers.map((x, k) => (k === j + 1 ? used.racer : x));
+    });
+    const paces = [pace, ...rivals.map((r) => r.pace)];
+    const progress = racers.map((r, k) => progressOf(track, paces[k] ?? pace, r.kart));
+    const places = progress.map((mine) => 1 + progress.filter((o) => o > mine).length);
+    const acted = stepItems(track.map, items, racers, places, dt / steps);
+    items = acted.world;
+    const [mine, ...theirs] = acted.racers;
+    if (mine) { player = mine.kart; fx = mine.fx; }
+    rivals = rivals.map((r, j) => { const x = theirs[j]; return x ? { ...r, kart: x.kart, fx: x.fx } : r; });
   }
-  return { player, pace, rivals };
+  return { player, fx, items, pace, rivals };
 }
 
 /** The player's place, 1 to 6: one more than the karts as far along the racing line or further (side by side on the grid, the player is behind: it stands on the last place). */
@@ -146,13 +173,17 @@ export function step(race: Race, held: ReadonlySet<Action>, dt: number): Stepped
   return { race, events: [] };
 }
 
-/** A press: START starts the countdown, pauses it or the race, and resumes a pause; SELECT on the pause leaves. */
+/** A press: B uses the item held, START starts the countdown, pauses it or the race, and resumes a pause; SELECT on the pause leaves. */
 export function press(race: Race, action: Action): Stepped {
   if (action === 'start') {
     if (race.phase === 'finish') return { race, events: [] };
     if (race.phase === 'ready') return { race: { ...race, phase: 'countdown', clock: 0 }, events: [] };
     if (race.phase === 'paused') return { race: { ...race, phase: race.resume }, events: [] };
     return { race: { ...race, phase: 'paused', resume: race.phase }, events: [] };
+  }
+  if (action === 'b' && race.phase === 'race') {
+    const used = useItem(race.items, { kart: race.player, fx: race.fx });
+    return { race: { ...race, items: used.world, fx: used.racer.fx }, events: [] };
   }
   if (action === 'select' && race.phase === 'paused') return { race, events: [{ kind: 'quit' }] };
   if (action === 'a' && race.phase === 'finish') return { race, events: [{ kind: 'again' }] };
@@ -172,5 +203,5 @@ export function hudOf(race: Race): KartHud {
   const beat = race.phase === 'race' && race.clock < RULES.goBanner ? 'GO' : null;
   if (race.phase !== 'race' && race.phase !== 'paused') return { phase, beat };
   const final = race.finalAt !== null && race.clock - race.finalAt < RULES.finalBanner;
-  return { phase, beat, run: { place: placeOf(race), lap: lapOf(race.pace), laps: LAPS, tenths: Math.floor(race.clock * 10 + EPSILON), final } };
+  return { phase, beat, run: { place: placeOf(race), lap: lapOf(race.pace), laps: LAPS, tenths: Math.floor(race.clock * 10 + EPSILON), final, item: race.fx.item } };
 }

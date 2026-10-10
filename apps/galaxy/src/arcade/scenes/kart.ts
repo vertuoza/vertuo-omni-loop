@@ -31,7 +31,10 @@ export interface KartRow { place: number; name: string; tenths: number | null; y
 /** The finish: the six places, the player's place and time, and the score that is sent. */
 export interface KartResults { rows: readonly KartRow[]; place: number; tenths: number; score: number }
 
-export interface KartRun { place: number; lap: number; laps: number; tenths: number; final: boolean }
+/** The items a kart holds. */
+export type KartItem = 'boost' | 'blob' | 'orb';
+
+export interface KartRun { place: number; lap: number; laps: number; tenths: number; final: boolean; /** The item the player holds; none when the hands are empty. */ item: KartItem | null }
 
 /** A rival's driver: its sprite and tint, as the fleet's look gives them. */
 export interface KartDriver { sprite: string; tint: Tint | null; color: string | null; name?: string }
@@ -119,7 +122,7 @@ export const sameKartHud = (a: KartHud | null, b: KartHud | null): boolean =>
   a === b || (!!a && !!b && a.phase === b.phase && a.beat === b.beat && a.results === b.results && sameRun(a.run, b.run));
 
 const sameRun = (a: KartRun | undefined, b: KartRun | undefined): boolean =>
-  a === b || (!!a && !!b && a.place === b.place && a.lap === b.lap && a.laps === b.laps && a.tenths === b.tenths && a.final === b.final);
+  a === b || (!!a && !!b && a.place === b.place && a.lap === b.lap && a.laps === b.laps && a.tenths === b.tenths && a.final === b.final && a.item === b.item);
 
 export function drawKart(ctx: CanvasRenderingContext2D, s: FrameState) {
   if (s.kart) { s.kart.draw(ctx, s); return; }

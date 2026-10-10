@@ -7,8 +7,8 @@ GitHub makes you a member of the workspace of every GitHub org of yours that has
 fleet, enter a name and build a hero, and your pull requests score for that fleet. Every point also
 counts as XP, which never resets (it restarted at 0 once, at PRD 728's fresh start, keeping every
 game already unlocked: [`game/README.md` › The fresh start](../../game/README.md#the-fresh-start)),
-and levels open arcade games in the game room: Entropy Invaders from LV 1, then SUPER OMNI WORLD
-from LV 2 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
+and levels open arcade games in the game room: Entropy Invaders from LV 1, SUPER OMNI WORLD
+from LV 2, then OMNI KART from LV 3 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
 Game Boy's buttons on a phone (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
 
@@ -120,9 +120,10 @@ HOME.
 | System | One domain as an orrery: its entries as worlds on still orbits, laws terraformed and proposed entries barren; the selected world's links, its panel, and the reading card |
 | Fleets | A hero-select wall of the fleets with season points, streak, planets, crew (players by name) |
 | Hall of Heroes | Season high-score table from `game/economy.ts`, with each player's hero and name |
-| Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) and a SOON cabinet ([The game room](#the-game-room)) |
+| Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) ([The game room](#the-game-room)) |
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
 | SUPER OMNI WORLD | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
+| OMNI KART | The third game, from LV 3: a Mode 7 kart race of three laps on COMET RING against five rivals, item boxes (BOOST, BLOB, ORB), the score sent at the finish |
 | How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.ts` so they never drift |
 
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#menu`, `#planet-2332`
@@ -739,7 +740,7 @@ off, no row exists, and every player sees NO XP YET.
   level (`LV 3 · 180 / 300 XP`, `120 XP to LV 4`), then a cabinet per game in the registry
   (`src/arcade/games/index.ts`). A lit cabinet shows the crew's top five, the player's own line
   highlighted, and A · PLAY; a locked one is dark and shows the level it opens at (SUPER OMNI WORLD:
-  `REACH LV 2 TO PLAY`); a dark SOON cabinet stands for the game to come, with no level. A visitor sees every cabinet locked and
+  `REACH LV 2 TO PLAY`; OMNI KART: `REACH LV 3 TO PLAY`). A visitor sees every cabinet locked and
   "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE YOUR FIRST POINT", and XP that
   could not be read "XP OUT OF REACH". The wide grid stands the three cabinets side by side, ◀ ▶
   choosing; the tall grid shows one a page.
@@ -781,6 +782,31 @@ off, no row exists, and every player sees NO XP YET.
   Phaser does the physics and the drawing and reports what happened. It is silent. At the game over
   or WORLD CLEAR the score is sent once under `platformer`, with the same SAVING SCORE…, NEW BEST,
   YOUR BEST n or SCORE NOT SAVED (A retries once) as Invaders.
+- **`kart`**, OMNI KART (PRD 1359), opened at LV 3 (`xp.unlocks.kart` in the rulebook): an original
+  Mode 7 kart race, three laps of one circuit, COMET RING, against five rivals. Its code is
+  `src/arcade/kart/`, imported only when the cabinet opens (a failed import says
+  `GAME DID NOT LOAD · A TO RETRY`); nothing outside that folder imports it at run time. The floor is
+  the circuit's text map (`track.ts`) painted once from `@omni/design` ramps and projected line by
+  line (`mode7.ts`); the karts, item boxes, BLOBs and ORBs are sprites scaled by distance, drawn from the
+  farthest to the nearest. The player drives their own hero in a kart tinted with the hero's suit
+  (◀ ▶ steer, A accelerates, ▼ brakes and reverses, START pauses); the rivals are the workspace's
+  other fleets, each driven by its mascot, who follow the racing line at 92% to 100% of the player's
+  pace under a light rubber band (`rivals.ts`). A lap counts when the line is crossed forwards after
+  every waypoint, in order; the HUD shows the place (1ST to 6TH), `LAP n/3`, the race time and the item
+  held, and `FINAL LAP` on the third lap. The race is a seeded, pure phase machine (`race.ts`).
+  **Items** (`items.ts`): two rows of four boxes across the road give one item to a kart holding
+  none (the box is back after 3 seconds), drawn from the race's seed and weighted by place, the
+  leaders drawing more BLOBs and the karts behind more BOOSTs and ORBs. B uses the player's item.
+  **BOOST** is 1.5 seconds at 1.4 times the top speed, grass included. **BLOB** is an Entropy blob
+  dropped behind: the first kart over it spins out and it is gone, and a seventh removes the oldest
+  of six. **ORB** (a 16×16 `@omni/design` sprite) is thrown straight ahead at twice the top speed,
+  bounces off walls, and is gone at its third bounce, after 4 seconds, or on a kart, which spins out.
+  A spin-out lasts 1 second at 30% of the speed with no input, and never stops the race. The rivals
+  use theirs by rule: a BOOST at once on a straight, a BLOB with a kart close behind, an ORB with a
+  kart ahead, in range and in line. Its numbers are one block, `rules.ts`. At the finish the score
+  (1000, 700, 500, 350, 200 or 100 for the place, plus a point per tenth of a second under 150
+  seconds) is sent once under `kart`, with the same SAVING SCORE…, NEW BEST, YOUR BEST n or SCORE NOT
+  SAVED (A retries once) as Invaders. It is silent.
 - **The play dock**, the corner Game Boy that plays while Claude works (PRD 757,
   `src/play-dock/`): below LV 2 it goes straight into Entropy Invaders; from LV 2 it opens on a
   picker, `ENTROPY INVADERS` and `SUPER OMNI WORLD`, ▲ ▼ to choose, A to play, B to fold. B on a

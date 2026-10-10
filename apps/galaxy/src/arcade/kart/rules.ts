@@ -35,6 +35,27 @@ export const RULES = Object.freeze({
   /** The rubber band: the most a rival's pace moves, and the gap in game pixels at which it moves that much. */
   rubber: 0.05,
   rubberRange: 400,
+  /** The items: a box's pickup reach and how long it stays away, then BOOST (its length and its share of the top speed), BLOB (how far behind it lands, its reach, and how many lie at most), ORB (its speed as a share of the top speed, its reach, bounces and life) and the spin-out (its length, the share of the speed left, and the turn rate). */
+  boxReach: 11,
+  boxBack: 3,
+  boostTime: 1.5,
+  boostFactor: 1.4,
+  blobBehind: 14,
+  blobReach: 9,
+  blobMax: 6,
+  orbSpeed: 2,
+  orbAhead: 12,
+  orbReach: 8,
+  orbBounces: 3,
+  orbLife: 4,
+  spinTime: 1,
+  spinSpeed: 0.3,
+  spinRate: Math.PI * 2,
+  /** How a rival uses what it holds: a BLOB when a kart is this close behind (and this far to the side at most), an ORB when one is ahead within this range and this many radians in line. */
+  blobBehindRange: 45,
+  blobLateral: 12,
+  orbRange: 130,
+  orbLine: 0.18,
   /** How long FINAL LAP shows once the third lap starts. */
   finalBanner: 2.5,
   countdown: 3,

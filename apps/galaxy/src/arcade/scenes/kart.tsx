@@ -68,6 +68,7 @@ export function KartOverlay({ status, hud = null, send = null, back = 'GAME ROOM
             <span className="kt-place">{ordinal(hud.run.place)}</span>
             <span>LAP {hud.run.lap}/{hud.run.laps}</span>
             <span>{raceTime(hud.run.tenths)}</span>
+            {hud.run.item && <span className="kt-item">ITEM {hud.run.item.toUpperCase()}</span>}
           </p>
         )}
         {hud.run?.final && hud.phase === 'race' && <p className="kt-final" role="status">FINAL LAP</p>}

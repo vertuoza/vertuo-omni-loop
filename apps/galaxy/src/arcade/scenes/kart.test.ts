@@ -179,12 +179,20 @@ describe('the kart canvas', () => {
 });
 
 describe('the race line of the text layer (slice 3)', () => {
-  const run = (o: Partial<NonNullable<KartHud['run']>> = {}): KartHud => ({ phase: 'race', beat: null, run: { place: 3, lap: 2, laps: 3, tenths: 652, final: false, ...o } });
+  const run = (o: Partial<NonNullable<KartHud['run']>> = {}): KartHud => ({ phase: 'race', beat: null, run: { place: 3, lap: 2, laps: 3, tenths: 652, final: false, item: null, ...o } });
 
   it('shows the place, the lap and the race time over the road, on both grids, with the way to pause', () => {
     expect(text('ready', WIDE, 'full', run())).toBe('3RD LAP 2/3 1:05.2 ENTER PAUSE');
     expect(text('ready', TALL, 'handheld', run({ place: 1, lap: 1, tenths: 0 }))).toBe('1ST LAP 1/3 0:00.0 START PAUSE');
     expect(['1ST', '2ND', '3RD', '4TH', '5TH', '6TH'].map((o, i) => text('ready', WIDE, 'full', run({ place: i + 1 })).split(' ')[0])).toEqual(['1ST', '2ND', '3RD', '4TH', '5TH', '6TH']);
+  });
+
+  it('shows the item the player holds, and nothing while the hands are empty', () => {
+    expect(text('ready', WIDE, 'full', run({ item: 'boost' }))).toBe('3RD LAP 2/3 1:05.2 ITEM BOOST ENTER PAUSE');
+    expect(text('ready', WIDE, 'full', run({ item: 'orb' }))).toContain('ITEM ORB');
+    expect(text('ready', WIDE, 'full', run())).not.toContain('ITEM');
+    expect(sameKartHud(run({ item: 'blob' }), run({ item: null }))).toBe(false);
+    expect(sameKartHud(run({ item: 'blob' }), run({ item: 'blob' }))).toBe(true);
   });
 
   it('shows FINAL LAP as the third lap starts, and only while racing', () => {
