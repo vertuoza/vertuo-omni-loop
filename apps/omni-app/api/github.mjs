@@ -1025,6 +1025,7 @@ var FORMS = Object.freeze([
   form("releasing", "extended", [req("publishes"), opt("how"), opt("rollback"), opt("notes")]),
   form("bug-fixing", "extended", [req("steps"), opt("guard")]),
   form("review", "extended", [req("fix"), req("push-back"), req("ask")]),
+  form("design", "extended", [req("product"), req("system"), opt("deliberate"), opt("review")]),
   form("glossary", "extended", [req("where")], { pointerOnly: true })
 ]);
 var FORM_IDS = Object.freeze(FORMS.map((entry) => entry.id));
