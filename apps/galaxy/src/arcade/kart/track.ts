@@ -265,7 +265,7 @@ function lineProblems(src: TrackSource): string[] {
 
 /** The line's tiles in order along it, the coordinate `k` it runs along (1 for a column), and its two ends. */
 function lineEnds(line: StartLine) {
-  const k = line.axis === 'column' ? 1 : 0;
+  const k: 0 | 1 = line.axis === 'column' ? 1 : 0;
   const ordered = [...line.tiles].sort((a, b) => a[k] - b[k]);
   return { k, ordered, first: at(ordered, 0, 'the first tile of the line'), last: at(ordered, ordered.length - 1, 'the last tile of the line') };
 }
