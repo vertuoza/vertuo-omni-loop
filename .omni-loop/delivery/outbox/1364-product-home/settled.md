@@ -1480,3 +1480,630 @@ Nothing to undo: these edits only follow the code this slice changed.
 ```
 
 <!-- /omni-outbox-settled: s8-04-two-files-outside-the-territory -->
+
+<!-- omni-outbox-settled: s12-01-fix-lists-take-a-scope -->
+
+## s12-01-fix-lists-take-a-scope — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s12
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-01-fix-lists-take-a-scope
+prd: 1364
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 2
+---
+
+## The question, in plain words
+
+The bug fix and visual fix lists read their own fixes, outside the files this slice may change. How do they get a product filter?
+
+## The decision, in plain words
+
+The shared code behind both lists now accepts an optional narrowing step from the page; the two pages hand it the product filter. Nothing else about those lists changes.
+
+## The intro, for fun
+
+Two lists shared one kitchen, and the new recipe needed one extra door into it.
+
+## The punchline, for fun
+
+So the door was added, small and optional, and only the product filter walks through it.
+
+## The options, in plain words
+
+A. A. An optional narrowing step in the shared list code, handed by each page (built).
+B. B. Copy the list's reads into each page so the change stays inside the pages.
+C. C. Move the product filter into the fixes module itself, owned by a later slice.
+
+## What I had to decide
+
+Whether the bug fix and visual fix lists may be narrowed through a small optional step added to their shared list code, outside this slice's territory.
+
+## What I did meanwhile
+
+Added an optional third parameter, a FixListScope, to fixListRoute in apps/galaxy/src/fixes/FixListRoute.tsx: it narrows the fixes read and draws what it returns above the list. /bugs and /visual pass productListScope; with no scope the lists behave exactly as before.
+
+## What it costs to change later
+
+A few lines: drop the parameter and the two pages' third argument, or move the filter into the fixes module itself.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory names only the two page files, which only delegate to the shared list code; it does not say whether that code may change.
+
+```
+
+<!-- /omni-outbox-settled: s12-01-fix-lists-take-a-scope -->
+
+<!-- omni-outbox-settled: s12-02-other-filters-drop-the-product -->
+
+## s12-02-other-filters-drop-the-product — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s12
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-02-other-filters-drop-the-product
+prd: 1364
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 2
+---
+
+## The question, in plain words
+
+When a person picks a product and then changes another filter on a list (search, mine or all, repository, state), should the product choice stay?
+
+## The decision, in plain words
+
+The product links keep every other filter, but the existing filters, whose forms live outside this slice, do not yet carry the product: changing one of them shows all products again.
+
+## The intro, for fun
+
+The new filter remembers its friends, but its friends have not learned its name yet.
+
+## The punchline, for fun
+
+So picking a repository forgets the product, until the old forms are taught one hidden field.
+
+## The options, in plain words
+
+A. A. The product links keep the other filters; the other filters reset the product (built).
+B. B. Teach the history and fix list forms to keep the product too, a follow-up change outside this slice.
+C. C. Remember the product choice in a cookie for every list.
+
+## What I had to decide
+
+Whether the existing list filters must carry the product choice, which means changing the history and fix list forms outside this slice.
+
+## What I did meanwhile
+
+The product filter is a row of links above each list, each one the list's address with its other filters kept. The search, Mine or All, repository and state forms in DossierHistory.tsx and FixList.tsx are untouched, so they drop the product parameter.
+
+## What it costs to change later
+
+One hidden product field in each of the two forms and the product kept in their Mine, All and Clear links.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec asks only for a product filter on each list; it does not say how it combines with the others.
+
+```
+
+<!-- /omni-outbox-settled: s12-02-other-filters-drop-the-product -->
+
+<!-- omni-outbox-settled: s12-03-ideas-filter-lives-on-each-board -->
+
+## s12-03-ideas-filter-lives-on-each-board — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s12
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-03-ideas-filter-lives-on-each-board
+prd: 1364
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 2
+---
+
+## The question, in plain words
+
+There is no single list of all ideas, only one board per repository. Where does the ideas product filter go, and who sees it?
+
+## The decision, in plain words
+
+Each repository's ideas board gets the product filter, shown only to members of its workspace; a visitor of a public board sees the whole board and no product names.
+
+## The intro, for fun
+
+The ideas had no lobby, only a room per repository.
+
+## The punchline, for fun
+
+So every room got its own product switch, hidden from passers-by.
+
+## The options, in plain words
+
+A. A. The filter on each repository's board, for members only (built).
+B. B. A new /ideas page listing every idea of the workspace, with the filter.
+C. C. Both: the board's filter and a new workspace-wide page.
+
+## What I had to decide
+
+Whether the ideas product filter belongs on each repository's board, members only, or on a new page listing every idea of the workspace.
+
+## What I did meanwhile
+
+On /ideas/<owner>/<repo>, a member reads the products of the board's workspace and which ideas carry one, and the board's lanes are narrowed to all, one product or no product. No /ideas index page was created; the public board reads nothing more for a visitor.
+
+## What it costs to change later
+
+A new page later (app/ideas/page.tsx) can reuse the same filter rules; the board's filter stays or goes with one line in its page.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says /ideas stays and gains a product filter, but no /ideas page exists today, only the per-repository boards.
+
+```
+
+<!-- /omni-outbox-settled: s12-03-ideas-filter-lives-on-each-board -->
+
+<!-- omni-outbox-settled: s5-01-two-files-outside-the-territory -->
+
+## s5-01-two-files-outside-the-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-two-files-outside-the-territory
+prd: 1364
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 2
+---
+
+## The question, in plain words
+
+The two new product commands needed two small changes in files outside the area agreed for this piece of work. Is that all right?
+
+## The decision, in plain words
+
+The two new calls to the Omni page sit beside the other calls in the kit's shared page client, as the targets call already does, and the help table's own test now counts one more command.
+
+## The intro, for fun
+
+Two new commands moved in, and both needed a key to the shared front door.
+
+## The punchline, for fun
+
+One key cut, one name added to the doorbell list.
+
+## The options, in plain words
+
+A. A. Keep both calls on the shared Omni page client and count the new command in the help test.
+B. B. Move the product calls into the kit's product module with their own signed-in request.
+C. C. Give the shared client one general signed-in call and build the product calls on it.
+
+## What I had to decide
+
+Whether importProductTargets and readProductsOf stay on the shared ask client (kit/lib/ask/client.ts), and whether the command count in kit/lib/help/entries.test.ts moves from 51 to 52 in this slice.
+Decided by: Jev (hardToRevert 0.46) · agent said false
+
+## What I did meanwhile
+
+kit/lib/ask/client.ts gains importProductTargets (POST /api/products/import) and readProductsOf (GET /api/products/which), beside readProductTargets from s4 (item s4-03, adopted). kit/lib/help/entries.test.ts counts 52 commands: the help guard fails on any new command without it.
+
+## What it costs to change later
+
+A few lines: the calls move with one import change in kit/bin/commands/product.ts; the count is a constant.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan names neither file in s5's territory; s4-03 settled the client for the read, and its gap already foresaw the write.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-two-files-outside-the-territory -->
+
+<!-- omni-outbox-settled: s5-02-import-stops-where-it-is-refused -->
+
+## s5-02-import-stops-where-it-is-refused — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-import-stops-where-it-is-refused
+prd: 1364
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 2
+---
+
+## The question, in plain words
+
+When the import is refused halfway, for example because one repository is not known to the workspace, should the links already written stay?
+
+## The decision, in plain words
+
+They stay. The import writes one link at a time and stops at the first refusal, naming it; running it again once the cause is fixed finishes the job and changes nothing it already did.
+
+## The intro, for fun
+
+Halfway through moving house, a box would not fit through the door.
+
+## The punchline, for fun
+
+The boxes already inside stay inside, and the move resumes once the door is wider.
+
+## The options, in plain words
+
+A. A. Write link by link and keep what was written before a refusal; a rerun finishes.
+B. B. Write every link in one transaction through a new database function, all or nothing.
+
+## What I had to decide
+
+Whether POST /api/products/import writes all links in one database transaction (a new SQL function) or link by link through product_repository_link(), keeping what was written before a refusal.
+
+## What I did meanwhile
+
+productRepositoriesService.importTargets writes the new links first with nothing consumed, then every link that still differs, through product_repository_link(); the first refusal ends the call with the database's words (403 not an owner, 422 a field or a repository). The kit says 'the import into product <name> stopped' with that reason. A rerun is idempotent.
+
+## What it costs to change later
+
+An all-or-nothing import is one new SQL function and a migration in a later slice; nothing the person sees changes but the half-done state.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the import runs once and a second run changes nothing; it does not say what a refusal halfway leaves.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-import-stops-where-it-is-refused -->
+
+<!-- omni-outbox-settled: s5-03-unknown-repository-is-in-no-product -->
+
+## s5-03-unknown-repository-is-in-no-product — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-unknown-repository-is-in-no-product
+prd: 1364
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 2
+---
+
+## The question, in plain words
+
+When a repository is not known to any workspace on the Omni page, should the command that lists its products say none, or say it is unknown?
+
+## The decision, in plain words
+
+It says none, as for a known repository in no product: a repository the page does not know is in no product, and the brainstorm then asks no product question.
+
+## The intro, for fun
+
+A stranger knocks and asks which clubs they belong to.
+
+## The punchline, for fun
+
+None yet, says the doorman, which is true and polite.
+
+## The options, in plain words
+
+A. A. Answer none for a repository no workspace lists, as for one in no product.
+B. B. Refuse it with 404 'No workspace of yours lists <repo>', and print that line.
+
+## What I had to decide
+
+Whether GET /api/products/which answers {products: []} or a 404 for a repository no workspace of the caller lists, and so whether omni product which prints none or an error.
+Decided by: Jev (hardToRevert 0.50) · agent said false
+
+## What I did meanwhile
+
+productRepositoriesService.productsOf answers {products: []} when no workspace lists the repository; omni product which prints none and exits 0. The import, by contrast, refuses an unlisted plan repository with 404.
+
+## What it costs to change later
+
+A constant: the service returns the unlisted case as a 404 and the kit prints its reason instead.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says which prints the products 'or none'; it does not name a repository the page does not know.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-unknown-repository-is-in-no-product -->
+
+<!-- omni-outbox-settled: s9-01-ledger-pr-chips-from-feature-branches -->
+
+## s9-01-ledger-pr-chips-from-feature-branches — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s9
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-01-ledger-pr-chips-from-feature-branches
+prd: 1364
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 2
+---
+
+## The question, in plain words
+
+On a product's Ledger, which pull requests show as the little chips beside each PRD?
+
+## The decision, in plain words
+
+Each PRD shows the open pull requests of its feature branch and of its landings, in any of the workspace's repositories, found by the branch name the loop uses by default.
+
+## The intro, for fun
+
+Every PRD row on the Ledger wants a few badges, and somebody has to pick which ones.
+
+## The punchline, for fun
+
+For now the badges follow the branch name, like ducklings follow the first thing they see.
+
+## The options, in plain words
+
+A. A. Match open pull requests by the default feature branch name and its landings, the option built.
+B. B. Read each repository's committed config and match its own feature branch shape.
+C. C. Show no PR chips until the stages sync stores each PRD's feature pull request.
+
+## What I had to decide
+
+Where the Ledger's PR chips come from, since the tables the spec names for the Ledger hold no pull request numbers.
+
+## What I did meanwhile
+
+The chips read the stored pull requests (pull_requests) that are open and whose head is feat/<topic> or a landing feat/<topic>-<k>of<n>-<name>, the topic being the one the stages sync learnt for the PRD (prd_topics). Slice pull requests are left out. A repository whose config changes the feature branch shape shows no chips.
+
+## What it costs to change later
+
+One pattern and one read in the product home's service and repository; no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec's Ledger row asks for PR chips but names only approval_requests, approvals, prd_stages and prd_outbox.waiting, none of which holds a pull request number
+- (author) The server does not read each repository's branch shapes for this page, so a repository with a custom feature branch shape shows no chips
+
+```
+
+<!-- /omni-outbox-settled: s9-01-ledger-pr-chips-from-feature-branches -->
+
+<!-- omni-outbox-settled: s9-02-ledger-lanes-and-who-a-prd-waits-on -->
+
+## s9-02-ledger-lanes-and-who-a-prd-waits-on — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s9
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-02-ledger-lanes-and-who-a-prd-waits-on
+prd: 1364
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 2
+---
+
+## The question, in plain words
+
+On a product's Ledger, which lane does each PRD go in, and where does a PRD go that waits on someone other than the reader?
+
+## The decision, in plain words
+
+A PRD waiting for approval or with a question for a person goes in 'on you' only when it waits on the reader; otherwise it sits in no lane and is only counted as waiting on a person. A PRD under review goes in 'on GitHub review', and one being built or ready to build goes in 'on the agent'.
+
+## The intro, for fun
+
+Three lanes, a pile of PRDs, and each one needs to know where to stand.
+
+## The punchline, for fun
+
+If it is waiting on somebody else, it waits quietly in the summary.
+
+## The options, in plain words
+
+A. A. Show only what waits on the reader in 'on you', and count the rest in the summary, the option built.
+B. B. Put every PRD waiting on any person in 'on you', naming who it waits on.
+C. C. Add a fourth lane, 'on someone else', for PRDs waiting on another person.
+
+## What I had to decide
+
+The rule that places each PRD on the Ledger's three lanes and fills the summary, which the spec names but does not define.
+
+## What I did meanwhile
+
+A server-born PRD with no approval in force waits on its approvers (on you when its request asks you; 'drifted' when a push voided the approval). A PRD whose outbox holds questions for a person waits on its author (on you when you opened it). Else a PRD whose feature PR is ready, or a repository-born PRD whose phase-0 PR is open, is on GitHub review; the rest are on the agent. Shipped PRDs are on no lane. The Ledger tab's count is the 'on you' lane, so it can be higher than the Products card's count, which counts approvals only.
+
+## What it costs to change later
+
+A few lines in the product home's service and its tests; no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say where a PRD that waits on another person goes; the three lanes leave no room for it
+- (author) Whom an outbox question waits on is not stored; the author is taken, as the waiting list already reads it
+- (author) Whether the Products card's waiting count (s8, approvals only) and the Ledger's 'on you' lane must stay identical
+
+```
+
+<!-- /omni-outbox-settled: s9-02-ledger-lanes-and-who-a-prd-waits-on -->
