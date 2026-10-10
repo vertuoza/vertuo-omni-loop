@@ -49,9 +49,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm game:project
         env: { GH_TOKEN: '${{ secrets.OMNI_GAME_TOKEN }}' }   # contents, pull requests and issues: read on the engineering repos
-      # Every login's XP, level and unlocked games, recomputed from the whole ledger with the rulebook
-      # of the day and written to player_xp. Reads the ledger, never writes it.
-      - run: pnpm game:xp
       # Who authored each pull request merged into a sector repository's default branch, and who
       # opened each omni:prd issue, over the last 40 days, upserted into public.contributions for the
       # app's dashboard (PRD 328). Never writes the ledger. It skips and logs a repository it cannot
@@ -65,6 +62,32 @@ jobs:
       - run: pnpm game:dossiers
         continue-on-error: true
         env: { GH_TOKEN: '${{ secrets.OMNI_GAME_TOKEN }}' }   # contents: read on the engineering repos
+
+  xp:
+    # Every login's XP, level and unlocked games, recomputed from the whole ledger with the rulebook
+    # of the day and written to player_xp. Reads the ledger, never writes it. Its own job, after the
+    # ledger job whatever that job ended on: as its step, a game:project that outlasted the job's 30
+    # minutes left XP and every new unlock waiting for the next poll that finished.
+    needs: ledger
+    if: always() && vars.GAME_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: game-xp
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      SUPABASE_URL: https://${{ vars.SUPABASE_PROJECT_ID }}.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm game:xp
 
   rankings:
     # The Monday schedule, or a dispatch that asks for it. Reads the ledger; writes nothing to the
