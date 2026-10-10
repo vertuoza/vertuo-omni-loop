@@ -181,6 +181,12 @@ running step's, and **the plan allows it** (the steps it comes after are done). 
 held, with the rule and the step it waits on. Set `limits.parallelSteps: 1` in
 `.omni-loop/config.yml` to run one step per tick, as before ([Drive the loop](/docs/drive)).
 
+In a repository that turned [design craft](/docs/design) on, a slice that changes a screen is also
+looked at before its sub-pull request is marked ready: `/omni:do-work` runs `/omni:pixel-perfect
+review` on its own, fixes what it can in one batch, and writes a **Design review** section on the
+sub-pull request, one ✓, ✗ or — line per step. It never blocks: what it leaves becomes an outbox
+question like any other.
+
 A slice that stays red after its tries gets `omni:needs-fix`; it holds only the slices that wait for
 it, and the rest go on. To see a PRD's slices, which are merged, in flight, stuck, ready or waiting,
 and what can run next:
@@ -204,6 +210,7 @@ omni board 7
 | `/omni:plan <n>` | a PRD has no plan yet; `/omni:yolo` runs it for you | `plan.md`, and the draft feature pull request |
 | `/omni:wave <n>` | you want one wave at a time; `/omni:yolo` runs it for you | the wave's slices merged into the feature branch |
 | `/omni:do-work <n> <slice>` | you want one slice alone; `/omni:wave` runs it for you | one sub-pull request into the feature branch |
+| `/omni:pixel-perfect <command> <screen>` | you want a screen critiqued, audited or polished; with [design craft](/docs/design) on, `/omni:do-work` and `/omni:visual-fix` run its `review` for you | the screen fixed in one bounded pass, and a report |
 | `/omni:pr` | a pull request of the loop is red or conflicts; the skills run it for you | the pull request green, or stuck, with the reason |
 | `/omni:invade` | once, after the install; with `--refresh` when the repository has changed a lot | one docs pull request: the knowledge base |
 | `/omni:status` | you want to see where the PRDs are | one screen |
