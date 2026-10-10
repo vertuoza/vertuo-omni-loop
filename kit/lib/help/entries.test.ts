@@ -107,11 +107,24 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 50 commands and the 31 skills', () => {
+  it('holds the 50 commands and the 32 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(50);
-    expect(skillFolders()).toHaveLength(31);
+    expect(skillFolders()).toHaveLength(32);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(50);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(31);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(32);
+  });
+
+  it('lists /omni:enforce for you under Every day, after /omni:prove, with when and an example (PRD 1342)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const enforce = skills.find((e) => e.name === 'enforce');
+    assertDefined(enforce, 'enforce');
+    expect(enforce).toMatchObject({ who: 'you', usage: ['/omni:enforce <n>'], label: '/omni:enforce <n>', group: 'everyday' });
+    expect(skills.indexOf(enforce)).toBe(skills.findIndex((e) => e.name === 'prove') + 1);
+    expect(enforce.when).toMatch(/^Use it when\b/);
+    expect(enforce.example).toEqual({ type: '/omni:enforce 1400', result: anyText });
+    for (const words of [/\blaw issue\b/, /pending #<n>/, /\bred\b/, /\bgreen\b/, /\{defaultBranch\}/, /never merges/]) {
+      expect(enforce.detail, String(words)).toMatch(words);
+    }
   });
 
   it('names omni roadmap prereqs and omni roadmap tick, with what each does (PRD 1218)', () => {
@@ -362,7 +375,7 @@ describe('the help table in this repository', () => {
       build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'help', 'pitch', 'prove', 'status', 'validate-e2e'],
+      everyday: ['ask', 'enforce', 'help', 'pitch', 'prove', 'status', 'validate-e2e'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
   });
