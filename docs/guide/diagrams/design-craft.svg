@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 332" width="760" height="332">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 490" width="760" height="490">
   <title>Where design craft gets your product's look</title>
-  <desc>Your repository holds your design tokens and theme config, your component library, your fonts and global styles, your screens and their copy, and a DESIGN.md when you have one. /omni:invade reads them and fills the design form: Product, System, Deliberate and Review. Your product wins over every general design rule. The form is read by /omni:pixel-perfect, which you type on any screen, and by /omni:do-work and /omni:visual-fix, which run the review on their own. With design.enabled false, the default, nothing runs and the loop is what it was.</desc>
+  <desc>Your repository holds your design tokens and theme config, your component library, your fonts and global styles, your screens and their copy, and a DESIGN.md when you have one. /omni:invade reads them and fills the design form, in five sections: Product, System, Deliberate, Review and Language, the product's laws, each locked by a person. Your product wins over every general design rule. Beside the form, /omni:invade drafts the screen library: one file per screen with its mockup, each screen a draft, locked or superseded. Only you lock a screen or a law, in your own words, with /omni:pixel-perfect lock. The form is read by /omni:pixel-perfect, which you type on any screen, and the form and the library are read first by /omni:do-work and /omni:visual-fix, which run the review on their own. With design.enabled false, the default, nothing runs and the loop is what it was.</desc>
   <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
        tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
   <style>
@@ -53,8 +53,8 @@
   <text x="273" y="102" class="dg-code dg-you" text-anchor="middle">/omni:invade</text>
   <text x="273" y="134" class="dg-small dg-muted" text-anchor="middle">fills it</text>
   <text x="326" y="22" class="dg-tag">THE DESIGN FORM</text>
-  <rect x="329" y="37" width="200" height="160" class="dg-shadow"/>
-  <rect x="326" y="34" width="200" height="160" class="dg-box dg-key"/>
+  <rect x="329" y="37" width="200" height="194" class="dg-shadow"/>
+  <rect x="326" y="34" width="200" height="194" class="dg-box dg-key"/>
   <text x="342" y="60" class="dg-code dg-you">Product</text>
   <text x="342" y="77" class="dg-small dg-muted">who, where, its voice</text>
   <text x="342" y="94" class="dg-code dg-you">System</text>
@@ -63,8 +63,29 @@
   <text x="342" y="145" class="dg-small dg-muted">what it does on purpose</text>
   <text x="342" y="162" class="dg-code dg-you">Review</text>
   <text x="342" y="179" class="dg-small dg-muted">routes, widths, sign-in</text>
-  <text x="426" y="216" class="dg-small" text-anchor="middle">your product wins over</text>
-  <text x="426" y="232" class="dg-small" text-anchor="middle">every general design rule</text>
+  <text x="342" y="196" class="dg-code dg-you">Language</text>
+  <text x="342" y="213" class="dg-small dg-muted">its laws, each one locked</text>
+  <text x="426" y="250" class="dg-small" text-anchor="middle">your product wins over</text>
+  <text x="426" y="266" class="dg-small" text-anchor="middle">every general design rule</text>
+  <path d="M228 180 L313.7 338.1" class="dg-line"/>
+  <polygon points="318,346 308.87,340.71 318.55,335.47" class="dg-head"/>
+  <text x="262" y="270" class="dg-small dg-muted" text-anchor="end">drafts it</text>
+  <text x="326" y="296" class="dg-tag">THE SCREEN LIBRARY</text>
+  <rect x="329" y="311" width="200" height="84" class="dg-shadow"/>
+  <rect x="326" y="308" width="200" height="84" class="dg-box"/>
+  <text x="342" y="332" class="dg-small">one file per screen,</text>
+  <text x="342" y="350" class="dg-small">and its mockup</text>
+  <text x="342" y="374" class="dg-small dg-muted">draft, locked or superseded</text>
+  <path d="M568 350 L541.0 350.0" class="dg-line dg-edge-you"/>
+  <polygon points="532,350 541.0,355.5 541.0,344.5" class="dg-head dg-you"/>
+  <rect x="577" y="321" width="166" height="58" class="dg-shadow"/>
+  <rect x="574" y="318" width="166" height="58" class="dg-box dg-key"/>
+  <text x="657" y="342" class="dg-code dg-you" text-anchor="middle">/omni:pixel-perfect</text>
+  <text x="657" y="362" class="dg-code dg-you" text-anchor="middle">lock &lt;screen&gt;</text>
+  <text x="657" y="394" class="dg-small dg-you" text-anchor="middle">only you lock, in your words</text>
+  <path d="M532 318 L569.1 206.5" class="dg-line dg-edge-agents dg-dash"/>
+  <polygon points="572,198 574.32,208.29 563.90,204.75" class="dg-head dg-agents"/>
+  <text x="560" y="276" class="dg-small dg-agents">read first</text>
   <path d="M532 84 L560.0 70.0" class="dg-line dg-edge-you"/>
   <polygon points="568,66 562.4,74.9 557.5,65.1" class="dg-head dg-you"/>
   <path d="M532 150 L559.5 159.2" class="dg-line dg-edge-agents"/>
@@ -79,9 +100,9 @@
   <text x="657" y="158" class="dg-code" text-anchor="middle">/omni:do-work</text>
   <text x="657" y="178" class="dg-code" text-anchor="middle">/omni:visual-fix</text>
   <text x="657" y="210" class="dg-small dg-agents" text-anchor="middle">the loop, on its own</text>
-  <rect x="23" y="265" width="720" height="50" class="dg-shadow"/>
-  <rect x="20" y="262" width="720" height="50" class="dg-box"/>
-  <text x="40" y="284" class="dg-code">design.enabled: false</text>
-  <text x="205" y="284" class="dg-small">is the default: nothing above runs, and the loop is what it was.</text>
-  <text x="40" y="302" class="dg-small dg-muted">Set it to true to turn design craft on, false to turn it back off.</text>
+  <rect x="23" y="423" width="720" height="50" class="dg-shadow"/>
+  <rect x="20" y="420" width="720" height="50" class="dg-box"/>
+  <text x="40" y="442" class="dg-code">design.enabled: false</text>
+  <text x="205" y="442" class="dg-small">is the default: nothing above runs, and the loop is what it was.</text>
+  <text x="40" y="460" class="dg-small dg-muted">Set it to true to turn design craft on, false to turn it back off.</text>
 </svg>
