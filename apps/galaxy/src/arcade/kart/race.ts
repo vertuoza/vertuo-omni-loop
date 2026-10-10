@@ -253,6 +253,10 @@ const CUES: { [K in RaceEvent['kind']]: CueOf<K> } = {
 
 /** The cues an event makes, in order: a hit on the player is also a spin-out, a rival's box or wall contact is no one's business. */
 export function cuesOf(event: RaceEvent, tiles: number): KartCue[] {
-  const make = CUES[event.kind] as CueOf<typeof event.kind>;
-  return make(event, tiles);
+  return cuesBy(event.kind, event, tiles);
+}
+
+/** The table's row for one kind, typed by that kind, so the event and its maker agree without a cast. */
+function cuesBy<K extends RaceEvent['kind']>(kind: K, event: Extract<RaceEvent, { kind: K }>, tiles: number): KartCue[] {
+  return CUES[kind](event, tiles);
 }
