@@ -18,9 +18,23 @@ import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/
 import { createContext, type Context } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { parsePrd, type CommentId, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { foldersLayout, parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { bugRoot } from 'vertuo-omni-plan/kit/lib/bug/verdict.ts';
+import { issuePrefix, numberedFolders } from 'vertuo-omni-plan/kit/lib/fix-verdict.ts';
+import { diskSource, type KnowledgeSource } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
+import type { Change } from 'vertuo-omni-plan/kit/lib/outbox/account.ts';
 import { upsertOutboxPrComment } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
-import { formatReport, gateResult, type GateResult } from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
+import {
+  fixGateResult,
+  fixLawFailures,
+  fixOutboxContext,
+  formatReport,
+  gateResult,
+  lawsTouched,
+  type GateResult,
+  type TouchedLaw,
+} from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import { visualRoot } from 'vertuo-omni-plan/kit/lib/visual/verdict.ts';
 
 export const NOT_ACTIVE_ON_REPO = 'omni-loop is not active on this repo';
 export const NOT_ACTIVE_ON_PR = 'omni-loop is not active on this PR';
@@ -61,11 +75,18 @@ export function evaluate({
   }
 
   const ctx = createContext(head, config);
-  const prd = featurePrd(pr, config, (dir) => folderNames(join(ctx.root, dir)));
-  if ('skip' in prd) return skipped(NOT_ACTIVE_ON_PR, prd.skip);
+  const kind = pullKind(pr, config);
+  if ('skip' in kind) return skipped(NOT_ACTIVE_ON_PR, kind.skip);
 
   const labels = pr.labels ?? [];
-  const result = gateResult(prd.number, { ctx, labels, changes });
+  // The knowledge folder as the base holds it, beside its config (PRD 1342): `law-demoted` reads it.
+  const knowledge = config.laws.source === 'knowledge' ? diskSource(base) : null;
+  if (kind.kind === 'fix') return fixVerdict(kind.topic, { ctx, labels, changes: changes ?? [], base: knowledge, comments, now });
+  if (kind.kind !== 'feature') return lawsVerdict(kind.kind, { ctx, changes: changes ?? [], base: knowledge });
+
+  const prd = prdOfTopic(kind.topic, prdDirs(config).flatMap((dir) => folderNames(join(ctx.root, dir))), config);
+  if ('skip' in prd) return skipped(NOT_ACTIVE_ON_PR, prd.skip);
+  const result = gateResult(prd.number, { ctx, labels, changes, base: knowledge });
   return {
     ...conclusionOf(result),
     summary: formatReport(prd.number, result),
@@ -73,34 +94,108 @@ export function evaluate({
   };
 }
 
+/** The laws a range touches, one line each, or none. */
+function lawLines(laws: readonly TouchedLaw[]): string[] {
+  return laws.map((law) => `  - ${law.id}: ${law.statement}`);
+}
+
+/** A fix's folder for the issue its branch topic starts with (`<n>-<slug>`): a bug's or a visual fix's. */
+function fixOf(topic: string, ctx: Context): { folder: string; number: PrdNumber } | null {
+  const digits = /^(\d+)-/.exec(topic)?.[1];
+  if (digits === undefined || Number(digits) === 0) return null;
+  const number = parsePrd(digits);
+  const prefix = issuePrefix(number);
+  const [folder] = [bugRoot(ctx), visualRoot(ctx)].flatMap((root) => numberedFolders(ctx, root, prefix));
+  return folder === undefined ? null : { folder, number };
+}
+
+/**
+ * The check of a fix PR (PRD 1342): green unless its range changes a law; then its folder's outbox
+ * holds the item a person answers, as a feature PR's does, and its comment is posted the same way.
+ */
+function fixVerdict(
+  topic: string,
+  { ctx, labels, changes, base, comments, now }: {
+    ctx: Context;
+    labels: readonly string[];
+    changes: readonly Change[];
+    base: KnowledgeSource | null;
+    comments: { id: CommentId; body?: string | null }[];
+    now: () => string;
+  },
+): Verdict {
+  const fix = fixOf(topic, ctx);
+  const result = fixGateResult({ ctx, fix, labels, changes, base });
+  const laws = lawsTouched(changes, { ctx, base });
+  const subject = fix === null ? `fix PR \`${topic}\` (no fix folder)` : `fix ${fix.folder}`;
+  const failures = fixLawFailures(result).map((line) => `  - ${line}`);
+  const summary = [
+    formatReport(fix?.number ?? parsePrd(1), result, { subject }),
+    ...(failures.length > 0 ? ["A change to a law on a fix PR is answered by a person, in the fix's outbox:", ...failures] : []),
+    ...(laws.length > 0 ? ['Laws this range touches:', ...lawLines(laws)] : []),
+  ].join('\n');
+  const { conclusion, title } = conclusionOf(result, { unaccounted: 'unaccounted change', suffix: ' to a law' });
+  const named = conclusion === 'success' || laws.length === 0 ? title : `${title} — ${laws.map((law) => law.id).join(', ')}`;
+  const comment = fix === null ? null : planComment(fix.number, { ctx: fixOutboxContext(ctx, fix.folder, fix.number), comments, now });
+  return { conclusion, title: named, summary, comment };
+}
+
+/** What a knowledge PR's and an enforce PR's check calls it. */
+const LAWS_PR: Readonly<Record<'knowledge' | 'law', string>> = Object.freeze({ knowledge: 'Knowledge PR', law: 'Enforce PR' });
+
+/**
+ * The check of a knowledge PR or an enforce PR (PRD 1342): never blocked, since a person merging one
+ * is the answer to every change to a law it holds; it lists the laws its range touches.
+ */
+function lawsVerdict(kind: 'knowledge' | 'law', { ctx, changes, base }: { ctx: Context; changes: readonly Change[]; base: KnowledgeSource | null }): Verdict {
+  const laws = lawsTouched(changes, { ctx, base });
+  const what = LAWS_PR[kind];
+  const title = laws.length === 0 ? `${what}: no law touched` : `${what}: ${plural(laws.length, 'law')} touched`;
+  const summary = [
+    `${what}: never blocked. A person merging it answers every change to a law it holds.`,
+    ...(laws.length > 0 ? ['Laws this range touches:', ...lawLines(laws)] : ['It touches no law.']),
+  ].join('\n');
+  return { conclusion: 'success', title, summary, comment: null };
+}
+
 function skipped(title: string, summary: string): Verdict {
   return { conclusion: 'skipped', title, summary, comment: null };
 }
 
-/** The `{topic}` the head branch was cut for, read back through `branches.feature`, or `null`. */
-function topicOf(headRef: string, featureTemplate: string): string | null {
-  if (!featureTemplate.includes('{topic}')) return null;
-  const [prefix = '', suffix = ''] = featureTemplate.split('{topic}');
+/** The placeholder a branch template is filled at: `{topic}`, or a law's `{id}`. */
+const PLACEHOLDER = /\{(?:topic|id)\}/;
+
+/** What a head branch was cut for, read back through a branch template, or `null`. */
+function topicOf(headRef: string, template: string): string | null {
+  if (!PLACEHOLDER.test(template)) return null;
+  const [prefix = '', suffix = ''] = template.split(PLACEHOLDER);
   if (!headRef.startsWith(prefix) || !headRef.endsWith(suffix)) return null;
   const topic = headRef.slice(prefix.length, headRef.length - suffix.length);
   return topic || null;
 }
 
+/** The kinds of pull request into the default branch the check grades, by their branch shape. */
+export type PullKind = { kind: 'feature' | 'fix' | 'knowledge' | 'law'; topic: string };
+
 /**
- * The topic a pull request is the feature pull request of — or why it is not one: its base is the
- * default branch and its head matches `branches.feature`. Only such a pull request may be gated
- * (issue 876); whether it is, `prdOfTopic` says from the head's delivery folders.
+ * What a pull request is to the check, or why the check does not run on it. Its base must be the
+ * default branch. Its head matching `branches.feature` makes it a feature pull request (issue 876),
+ * gated once `prdOfTopic` finds its PRD in the head's delivery folders. With `laws.source:
+ * knowledge` (PRD 1342), a head matching `branches.law` is an enforce PR, `branches.knowledge` a
+ * knowledge PR, and `branches.fix` a fix PR: each graded on the laws it touches.
  */
-export function featureTopic(pr: Pick<PrFacts, 'baseRef' | 'headRef'>, config: Config): { topic: string } | { skip: string } {
+export function pullKind(pr: Pick<PrFacts, 'baseRef' | 'headRef'>, config: Config): PullKind | { skip: string } {
   const { repo, branches } = config;
   if (pr.baseRef !== repo.defaultBranch) {
     return { skip: `The base \`${pr.baseRef}\` is not the default branch \`${repo.defaultBranch}\`.` };
   }
-  const topic = topicOf(pr.headRef, branches.feature);
-  if (topic === null) {
-    return { skip: `The head \`${pr.headRef}\` does not match \`${branches.feature}\`.` };
+  const shapes: [PullKind['kind'], string][] = [['feature', branches.feature]];
+  if (config.laws.source === 'knowledge') shapes.push(['law', branches.law], ['knowledge', branches.knowledge], ['fix', branches.fix]);
+  for (const [kind, template] of shapes) {
+    const topic = topicOf(pr.headRef, template);
+    if (topic !== null) return { kind, topic };
   }
-  return { topic };
+  return { skip: `The head \`${pr.headRef}\` does not match \`${branches.feature}\`.` };
 }
 
 /** The inbox and shipped folders a feature pull request's PRD folder lives in, under `paths.delivery`. */
@@ -114,13 +209,6 @@ export function prdOfTopic(topic: string, folderNames: string[], config: Config)
   const parsed = folderNames.map(parseFolderName).find((folder) => folder?.topic === topic);
   if (parsed) return { number: parsed.prd };
   return { skip: `No PRD folder for the topic \`${topic}\` under \`${config.paths.delivery}\`.` };
-}
-
-/** The PRD a pull request is the feature pull request of, read from the head snapshot — or why not. */
-function featurePrd(pr: PrFacts, config: Config, foldersIn: (dir: string) => string[]): { number: PrdNumber } | { skip: string } {
-  const feature = featureTopic(pr, config);
-  if ('skip' in feature) return feature;
-  return prdOfTopic(feature.topic, prdDirs(config).flatMap(foldersIn), config);
 }
 
 /** A plan repository's PRD, as `owner/repo` and its number. */
@@ -175,14 +263,20 @@ function folderNames(absolute: string): string[] {
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-/** The check's conclusion and title for a feature pull request, from the kit gate's result. */
-function conclusionOf(result: GateResult): { conclusion: Conclusion; title: string } {
+/**
+ * The check's conclusion and title for a feature pull request, or a fix PR, from the kit gate's
+ * result. `noun` words its unaccounted changes: risky ones on a feature PR, changes to a law on a fix.
+ */
+function conclusionOf(
+  result: GateResult,
+  noun: { unaccounted: string; suffix: string } = { unaccounted: 'unaccounted risky change', suffix: '' },
+): { conclusion: Conclusion; title: string } {
   const reasons: string[] = [];
   if (result.items.length > 0) reasons.push(plural(result.items.length, 'open outbox item'));
   if (result.unreworked.length > 0) reasons.push('unreworked drift');
   const unaccounted = result.unaccounted ?? [];
   if (unaccounted.length > 0) {
-    reasons.push(plural(unaccounted.length, 'unaccounted risky change'));
+    reasons.push(`${plural(unaccounted.length, noun.unaccounted)}${noun.suffix}`);
   }
   if (reasons.length === 0) return { conclusion: 'success', title: 'Outbox clear' };
   if (result.overridden) {

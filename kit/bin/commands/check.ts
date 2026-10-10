@@ -9,7 +9,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { formatFailure, formatPass, trackedFiles } from '../../lib/check-report.ts';
-import { rangeChanges } from '../../lib/git.ts';
+import { baseKnowledge, rangeChanges } from '../../lib/git.ts';
 import { findInboxViolations } from '../../lib/inbox/check-inbox.ts';
 import { gradeKnowledge } from '../../lib/knowledge/check-knowledge.ts';
 import { COPIES_DIR, gradeCopies } from '../../lib/knowledge/copies.ts';
@@ -150,7 +150,7 @@ function checkCoverage({ ctx, stdout, exec }: CommandIo, { base, prd }: { base: 
   );
   if (prd === null) return ok;
 
-  const risky = riskyChanges(rangeChanges({ ctx, base, exec }), { ctx });
+  const risky = riskyChanges(rangeChanges({ ctx, base, exec }), { ctx, base: baseKnowledge({ ctx, base, exec }) });
   const result = gradePrd(prd, risky, { ctx });
   for (const entry of result.stale) {
     println(

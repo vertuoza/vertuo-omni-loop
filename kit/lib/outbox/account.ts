@@ -272,7 +272,7 @@ export function readAccounts(prd: PrdNumber, { ctx }: { ctx: OutboxContext }): P
  * The four rules a change to a law fires (PRD 1342): its proof, its text, a test removed, and the
  * law demoted. A person answers each: only an `item <id>` ranked {@link LAW_RANKS} accounts for one.
  */
-const LAW_RULES: readonly string[] = ['law-proof', 'law-text', 'test-removed', 'law-demoted'];
+export const LAW_RULES: readonly string[] = ['law-proof', 'law-text', 'test-removed', 'law-demoted'];
 
 /** The ranks of an item a person must answer, the only ones that account for a law change. */
 const LAW_RANKS: readonly (string | null | undefined)[] = ['high', 'human-action'];

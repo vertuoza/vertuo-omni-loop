@@ -43,9 +43,11 @@
 import { existsSync } from 'node:fs';
 import { readRepoFile } from '../check-report.ts';
 import { COMMANDS } from '../commands.ts';
-import { compare, readAccounts } from './account.ts';
+import { ACCOUNTS_DIR, LAW_RULES, compare, readAccounts } from './account.ts';
 import type { Change } from './account.ts';
 import { riskyChanges } from './decision-coverage.ts';
+import { readKnowledge, readRegisters } from '../knowledge/registers.ts';
+import type { KnowledgeEntry } from '../knowledge/registers.ts';
 import { SETTLED_FILE, outboxItemFiles, parseOutboxItem } from './outbox.ts';
 import type { OutboxContext } from './outbox.ts';
 import type { CoverageContext, RiskyChange } from './decision-coverage.ts';
@@ -186,6 +188,140 @@ export function gateResult(
   return { ok, items, overridden, unreworked, unaccounted, overrideLabel };
 }
 
+/** Where a fix's outbox lives (PRD 1342): an `outbox/` folder inside the fix's own folder. */
+function fixOutboxDir(folder: string): string {
+  return `${folder}/outbox`;
+}
+
+/**
+ * `ctx` with its outbox read from a fix's folder (PRD 1342) rather than from a PRD's: every PRD
+ * number names `<folder>/outbox`, and it is the only outbox there is. The gate, the accounts, the
+ * settle step and the pull request comment read a fix's outbox through it unchanged.
+ */
+export function fixOutboxContext<C extends { root: string; layout: object }>(ctx: C, folder: string, number: PrdNumber): C {
+  const dir = fixOutboxDir(folder);
+  const layout = {
+    ...ctx.layout,
+    outboxDir: () => dir,
+    outboxDirs: () => (existsSync(`${ctx.root}/${dir}`) ? [{ prd: number, dir, shipped: false }] : []),
+  };
+  return { ...ctx, layout };
+}
+
+/** What {@link fixGateResult} returns: the gate's result, always graded, and the outbox it read. */
+export type FixGateResult = GateResult & { unaccounted: UnaccountedChange[]; outbox: string | null };
+
+/**
+ * The gate of a fix PR (PRD 1342): green unless its range fires one of the four law rules. A change
+ * to a law is answered in the fix's own folder, `<folder>/outbox/`, exactly as a feature PR answers
+ * it in its PRD's outbox: by an item ranked high that an account names, and that a person answered.
+ * The other risk rules (`stored-shape`, `shared-contract`) ask a fix nothing. `fix` null: the
+ * range holds no fix folder, so every change to a law is unaccounted. Nothing is asked unless
+ * `laws.source` is `knowledge`. The override label waves it
+ * through as it does a feature PR.
+ */
+export function fixGateResult({
+  ctx,
+  fix,
+  labels = [],
+  changes,
+  base = null,
+}: {
+  ctx: GateContext;
+  fix: { folder: string; number: PrdNumber } | null;
+  labels?: readonly string[];
+  changes: readonly Change[];
+  base?: KnowledgeSource | null;
+}): FixGateResult {
+  const overrideLabel = ctx.config.labels.outboxGo;
+  const overridden = labels.includes(overrideLabel);
+  const outbox = fix === null ? null : fixOutboxDir(fix.folder);
+  const laws = riskyChanges(changes, { ctx, base }).filter((change) => LAW_RULES.includes(change.rule));
+  const clear = { items: [], unreworked: [], unaccounted: [], overridden, overrideLabel, outbox };
+  if (laws.length === 0 || ctx.config.laws.source !== 'knowledge') return { ok: true, ...clear };
+  if (fix === null) return { ...clear, ok: overridden, unaccounted: laws };
+
+  const { folder, number } = fix;
+  const fixCtx = fixOutboxContext(ctx, folder, number);
+  const items = openItems(number, { ctx: fixCtx });
+  const unreworked = unreworkedDrift(number, { ctx: fixCtx });
+  const accounts = readAccounts(number, { ctx: fixCtx }).flatMap((result) => (result.ok ? [result.account] : []));
+  const { unaccounted } = compare(laws, accounts);
+  const ok = overridden || (items.length === 0 && unreworked.length === 0 && unaccounted.length === 0);
+  return { ok, items, overridden, unreworked, unaccounted, overrideLabel, outbox };
+}
+
+/**
+ * One line per change to a law a fix has not yet accounted for, naming the outbox it needs (what
+ * `omni bug` and `omni visual` print). An open item is not a failure here: a person answers it on
+ * the pull request.
+ */
+export function fixLawFailures(result: Pick<FixGateResult, 'unaccounted' | 'outbox'>): string[] {
+  const { outbox } = result;
+  return result.unaccounted.map((change) => {
+    const head = `${change.path} (${change.rule}): `;
+    if (outbox === null) return `${head}a change to a law needs an outbox in the fix's folder, and this range has no fix folder.`;
+    if (change.refused !== undefined) return `${head}${change.refused}.`;
+    return `${head}a change to a law needs an item ranked high in ${outbox}/ and an account naming it in ${outbox}/${ACCOUNTS_DIR}/.`;
+  });
+}
+
+/**
+ * What `omni bug` and `omni visual` ask of a fix's folder (PRD 1342): given the range and the base's
+ * knowledge folder, the lines {@link fixLawFailures} names for the folder graded.
+ */
+export function fixLawCheck({ ctx, number, changes, base }: { ctx: GateContext; number: PrdNumber; changes: readonly Change[]; base: KnowledgeSource | null }): (folder: string) => string[] {
+  return (folder) => fixLawFailures(fixGateResult({ ctx, fix: { folder, number }, changes, base }));
+}
+
+/** A law a range touches: its id, its statement and the register file it sits in. */
+export type TouchedLaw = { id: string; statement: string; file: string };
+
+/** The paths an entry's `Enforced by:` line names, none for `unenforced` or `pending #<n>`. */
+function proofPaths(entry: KnowledgeEntry): string[] {
+  if (!entry.enforced) return [];
+  return String(entry.enforcedBy).split(',').map((path) => path.replace(/`/g, '').trim()).filter(Boolean);
+}
+
+/** A rule or an invariant, confirmed or proposed. */
+function isRuleOrInvariant(entry: KnowledgeEntry): boolean {
+  return entry.kind === 'rule' || entry.kind === 'invariant';
+}
+
+/** Whether the range touched `law`, given its other side `other` (`undefined`: on one side only). */
+function touched(law: KnowledgeEntry, other: KnowledgeEntry | undefined, paths: ReadonlySet<string>, compared: boolean): boolean {
+  if (proofPaths(law).some((path) => paths.has(path))) return true;
+  if (!compared) return paths.has(law.file);
+  return other === undefined || other.statement !== law.statement || other.enforcedBy !== law.enforcedBy;
+}
+
+/**
+ * The laws (rules and invariants) a range touches (PRD 1342), sorted by id: a law whose proof the
+ * range changes, and, given the base's knowledge folder, a law added, removed, reworded or given
+ * another `Enforced by:`; without it, every law of a register file the range changes. What a
+ * knowledge PR's or an enforce PR's check lists. None when `laws.source` is not `knowledge`.
+ */
+export function lawsTouched(changes: readonly Change[], { ctx, base = null }: { ctx: CoverageContext; base?: KnowledgeSource | null }): TouchedLaw[] {
+  if (ctx.config.laws.source !== 'knowledge') return [];
+  const paths = new Set(changes.map((change) => change.path));
+  const head = readRegisters({ ctx }).entries.filter(isRuleOrInvariant);
+  const was = base === null ? [] : readKnowledge({ ctx, source: base }).entries.filter(isRuleOrInvariant);
+  const byId = (entries: KnowledgeEntry[]) => new Map(entries.map((entry) => [entry.id, entry]));
+  const headById = byId(head);
+  const wasById = byId(was);
+  const compared = base !== null;
+  const laws = new Map<string, TouchedLaw>();
+  for (const entry of head) {
+    if (touched(entry, wasById.get(entry.id), paths, compared)) laws.set(entry.id, entry);
+  }
+  for (const entry of was) {
+    if (!laws.has(entry.id) && touched(entry, headById.get(entry.id), paths, compared)) laws.set(entry.id, entry);
+  }
+  return [...laws.values()]
+    .map(({ id, statement, file }) => ({ id, statement, file }))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
 function formatItem(item: OpenItem): string {
   return item.rank ? `  - ${item.file} (${item.rank})` : `  - ${item.file}`;
 }
@@ -203,7 +339,8 @@ function formatUnreworked(entry: UnreworkedEntry): string {
  * Renders `gateResult`'s report to a string — what the workflow's log shows either way. Names each
  * reason the gate can be red distinctly: the open-item count, the unreworked-drift count (when
  * there is any), and, when `result` carries an `unaccounted` field at all (i.e. the caller graded
- * the range), the unaccounted-change count too.
+ * the range), the unaccounted-change count too. `subject` names what was graded: the PRD by
+ * default, a fix's folder for a fix PR (PRD 1342).
  */
 export function formatReport(
   prd: PrdNumber,
@@ -215,13 +352,14 @@ export function formatReport(
     unreworked?: readonly UnreworkedEntry[];
     unaccounted?: readonly UnaccountedChange[];
   },
+  { subject = `PRD #${prd}` }: { subject?: string } = {},
 ): string {
   const lines: string[] = [];
 
   if (result.items.length === 0) {
-    lines.push(`outbox-status — PRD #${prd}: no open item.`);
+    lines.push(`outbox-status — ${subject}: no open item.`);
   } else {
-    lines.push(`outbox-status — PRD #${prd}: ${result.items.length} open item(s):`);
+    lines.push(`outbox-status — ${subject}: ${result.items.length} open item(s):`);
     lines.push(...result.items.map(formatItem));
   }
 

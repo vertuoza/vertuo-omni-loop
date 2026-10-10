@@ -8,8 +8,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fillBranch } from '../board.ts';
+import { knowledgeAt } from '../git.ts';
 import { readKnowledge } from '../knowledge/registers.ts';
-import type { KnowledgeSource } from '../knowledge/registers.ts';
 import { parseFolderName } from '../layout.ts';
 import { plainText } from '../outbox/plain-text.ts';
 import type { Context, ExecText } from '../context.ts';
@@ -392,25 +392,12 @@ function phase0Of(ctx: Context, exec: ExecText, base: string, remote: Map<string
   return out;
 }
 
-/** The knowledge folder at `ref`, each file read through git only when the parser asks for it, or
- * `null` when no file sits under `paths.knowledge` there. */
-function knowledgeAt(ctx: Context, exec: ExecText, ref: string): KnowledgeSource | null {
-  const paths = entries(git(ctx, exec, ['ls-tree', '-r', '-z', '--name-only', ref, '--', `${ctx.layout.knowledgeRoot}/`]));
-  if (paths.length === 0) return null;
-  const under = (dir: string): string[] => paths.filter((path) => path.startsWith(`${dir}/`)).map((path) => path.slice(dir.length + 1));
-  return {
-    files: (dir) => under(dir).filter((rest) => !rest.includes('/')).sort(),
-    dirs: (dir) => [...new Set(under(dir).filter((rest) => rest.includes('/')).map((rest) => rest.split('/')[0] ?? ''))].sort(),
-    read: (file) => git(ctx, exec, ['show', `${ref}:${file}`]),
-  };
-}
-
 /** The rules and invariants of the knowledge folder at `ref`, proposed ones included, and how many of
  * them name a proof; a principle is judged, not proven, so it is left out. `null` when `ref` holds no
  * knowledge folder, or it cannot be read. */
 function rulesAt(ctx: Context, exec: ExecText, ref: string): RulesCount | null {
   return unlessUnreadable(() => {
-    const source = knowledgeAt(ctx, exec, ref);
+    const source = knowledgeAt({ ctx, ref, exec });
     if (source === null) return null;
     const proven = readKnowledge({ ctx, source }).entries.filter((entry) => entry.kind === 'rule' || entry.kind === 'invariant');
     return { enforced: proven.filter((entry) => entry.enforced).length, total: proven.length };
