@@ -73,6 +73,16 @@ never overrides this skill's rules.
 5. `omni kb show architecture`, `omni kb show conventions` and `omni kb show setup`: where code
    may go and what may depend on what; naming, formatting and the shape of a commit; how to
    install and run the repository. They bind this slice as if written here.
+6. **The design memory,** only when step 0 read the design flag as `true` and the slice builds or
+   changes a screen (the plan marks it `ui: yes`, or its territory holds screens). Read
+   `omni kb show design`, its `language` laws included: they bind the screens as the rest of the
+   form does. Then run `node .omni-loop/bin/omni.mjs design screens` and read each library screen
+   the slice builds or touches (its `implements` meets the territory, or the spec names it or one
+   of its routes): its file, in the folder `node .omni-loop/bin/omni.mjs config design.screens`
+   prints, and its mockup. A locked screen is built as
+   written: its **Regions**, **States**, **Words** and **Refusals** and its mockup are that screen's
+   spec, and it is never redesigned. A draft is a starting point. A change the spec asks of a
+   locked screen or law is step 3's **A change to a locked screen or law**.
 
 The slice branch is `branches.slice` filled with the feature branch's topic and the slice id.
 Never work on the default branch or on the feature branch.
@@ -182,6 +192,26 @@ When the PRD, the spec, the context files and the knowledge folder do not settle
        reword and rerun.
 4. Commit the item file (or the ledger change) on the slice branch.
 
+**A change to a locked screen or law.** A screen of the library someone locked, and a law of the
+design form's `language` section with a lock line, are that person's decisions. Never edit a
+locked screen's body or a locked law, and never lock anything: only a person locks, through
+`/omni:pixel-perfect lock`. When the spec, or the slice's own work, changes a locked screen (the
+built screen departs from its mockup or its file on purpose) or builds against a locked law:
+
+1. Build what the spec asks, inside the territory, and leave the locked file as it is.
+2. Record it as above, with `hardToRevert: true` by rule, not judgement: skip the Jev step for it,
+   since this item is high whatever anyone says. `questionPlain` names the screen (or the law), the
+   change and who locked it (its `locked-by` and `locked-on`, or the law's lock line), so the gate
+   holds until that person answers. Its options are A, the change as built, and B, the screen as
+   locked, with the change undone. `decide` carries the amendment line the owner would add
+   (`> Amended <date> · @<login> · "<their words>": <what changed>` for a screen,
+   `#### Amended <date> · @<login> · "<their words>"` for a law), with their words left for them:
+   no agent writes an amendment line, which needs its owner's words.
+3. Carry on. It is no stop: the slice ends as it would have.
+
+A change to a locked screen or law is never a stop either, and it is the one design finding that
+is high: every other one is recorded at the rank it gets.
+
 **Exactly two ways a slice ends early.**
 
 | the slice meets | it does |
@@ -194,7 +224,8 @@ Anything else is not a stop. "This might break something" is a risk: record it w
 `bearsOn` set to the ADR, and carry on. Going against a **proposed** knowledge entry is never a stop
 either: it is no law yet, so record it with `bearsOn` set to its id, leave `breaksNamedLaw` false,
 and carry on. A design review finding is never a stop either (step 4): what the review leaves is
-recorded and the slice carries on.
+recorded and the slice carries on, a change to a locked screen or law included (its high item,
+above).
 
 ## 4. Account for the ground you touched
 
@@ -220,12 +251,18 @@ as its reference picture, the "after" screen of the PRD's before/after page (`om
 among the files; no page, and the step says so). Its fixes are this slice's code: commit them as
 reviewable commits (step 2) and run the tests again at **Point `do-work.test`** before going on.
 
+The review reads the same check's `screens:` line (the library screens the diff touches, their
+status and routes): it screenshots those routes and compares a locked screen with its mockup.
+
 **It never fails the slice, the wave or the gate.** No finding turns a check red, holds the
 preflight or leaves the sub-PR draft, and a finding is never the **stop** or the **blocked**
 outcome. What it did not fix (a finding left after the confirming look, a fix that would leave the
 territory) becomes an outbox item through step 3, one per finding or one per screen, naming the
 screen, what was found, the fix it would make and why it was left; its `gaps` carry the small ones.
-When the app cannot run or be seen here, the review says so and nothing is reported as seen.
+When the app cannot run or be seen here, the review says so and nothing is reported as seen. A
+change the review finds to a locked screen, or a fix it would make that changes one, is the high
+item of step 3's **A change to a locked screen or law**, never a lock and never an edit of the
+locked file.
 
 Keep its report for the sub-PR: a **Design review** section, one ✓, ✗ or — line per step, in the
 shape `reference/review.md` shows, then what was fixed, one line each. The screenshots stay in a

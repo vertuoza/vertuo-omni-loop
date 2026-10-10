@@ -2,7 +2,7 @@
 
 # Harden
 
-Read the design form first (`omni kb show design`): its `product`, `system` and `deliberate` sections win over anything here, and a choice its `deliberate` section explains is not a finding. Followed by `review`, fixes stay inside the slice's territory; anything else is an outbox item.
+Read the design form first (`omni kb show design`): its `product`, `system`, `deliberate` and `language` sections (the last, its laws) win over anything here, and a choice its `deliberate` section explains is not a finding. Followed by `review`, fixes stay inside the slice's territory; anything else is an outbox item.
 
 Designs that only work with perfect data aren't production-ready. Harden the interface against the inputs, errors, languages, and network conditions that real users will throw at it.
 

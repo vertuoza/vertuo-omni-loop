@@ -2,7 +2,7 @@
 
 # Layout
 
-Read the design form first (`omni kb show design`): its `product`, `system` and `deliberate` sections win over anything here, and a choice its `deliberate` section explains is not a finding. Followed by `review`, fixes stay inside the slice's territory; anything else is an outbox item.
+Read the design form first (`omni kb show design`): its `product`, `system`, `deliberate` and `language` sections (the last, its laws) win over anything here, and a choice its `deliberate` section explains is not a finding. Followed by `review`, fixes stay inside the slice's territory; anything else is an outbox item.
 
 Layout turns product priority into reading order, grouping, rhythm, and usable space. Diagnose the structural problem before moving boxes.
 

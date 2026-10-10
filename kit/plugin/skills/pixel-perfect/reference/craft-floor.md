@@ -6,8 +6,8 @@ Read this once the direction is settled, before any edit to a screen, and build 
 the checklist.
 
 **The design form wins.** What `omni kb show design` says the product is (`product`), how its
-design system is laid out (`system`) and what it does on purpose (`deliberate`) overrides anything
-here. A rule below that the form sets aside is set aside: do not apply it, do not report it. Your
+design system is laid out (`system`), what it does on purpose (`deliberate`) and its screen
+grammar, the laws a person locked (`language`), overrides anything here. A rule below that the form sets aside is set aside: do not apply it, do not report it. Your
 own habit overrides nothing. Where the repository sets `commands.design`, its lint already checks
 some of the mechanics below: act on its findings rather than re-auditing each rule by hand.
 
