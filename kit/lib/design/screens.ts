@@ -64,9 +64,9 @@ function readBody(body: string): Pick<Screen, 'amendments' | 'sections'> {
   const sections: Record<string, string[]> = {};
   let current: string[] | null = null;
   for (const line of body.split(/\r?\n/)) {
-    const heading = SECTION.exec(line);
-    if (heading) {
-      current = sections[heading[1] as string] = [];
+    const heading = SECTION.exec(line)?.[1];
+    if (heading !== undefined) {
+      current = sections[heading] = [];
     } else if (current) {
       current.push(line);
     } else if (AMENDMENT.test(line)) {
@@ -80,19 +80,20 @@ function readBody(body: string): Pick<Screen, 'amendments' | 'sections'> {
 export function parseScreen(text: string, file: string): { ok: true; screen: Screen } | { ok: false; problem: string } {
   const fail = (why: string) => ({ ok: false as const, problem: `${file}: ${why}` });
   const fence = FRONT_MATTER.exec(text);
-  if (!fence) return fail('no front matter — a screen starts with a --- block');
+  const block = fence?.[1];
+  if (!fence || block === undefined) return fail('no front matter — a screen starts with a --- block');
   let raw: unknown;
   try {
-    raw = parse(fence[1] as string);
+    raw = parse(block);
   } catch (error) {
     return fail(`front matter is not YAML — ${messageOf(error).split('\n')[0]}`);
   }
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return fail('front matter is not YAML key: value lines');
   const read = ScreenFrontMatter.safeParse(raw);
   if (!read.success) {
-    const issue = read.error.issues[0] as z.core.$ZodIssue;
-    const keys = issue.code === 'unrecognized_keys' ? `: ${issue.keys.join(', ')}` : '';
-    return fail(`${issue.message}${keys}`);
+    const [issue] = read.error.issues;
+    const keys = issue?.code === 'unrecognized_keys' ? `: ${issue.keys.join(', ')}` : '';
+    return fail(`${issue?.message ?? 'front matter does not read'}${keys}`);
   }
   const { screen, status, quote, mock, implements: paths, routes, supersedes } = read.data;
   const lockedBy = read.data['locked-by'];
@@ -131,12 +132,13 @@ export function readScreens(dir: string): Library {
 export function formatScreens({ screens, problems }: Library, dir: string): string[] {
   const unread = problems.map((problem) => `does not read: ${dir.replace(/\/*$/, '/')}${problem}`);
   if (screens.length === 0) return [`screens: none in ${dir}`, ...unread];
-  const rows = screens.map((s) => [
-    s.screen,
-    s.status,
-    s.lockedBy === null && s.lockedOn === null ? '—' : [s.lockedBy, s.lockedOn].filter((part) => part !== null).join(' '),
-    s.routes.length ? s.routes.join(', ') : '—',
-  ]);
-  const widths = [0, 1, 2].map((column) => Math.max(...rows.map((row) => (row[column] as string).length)));
-  return [...rows.map((row) => row.map((cell, column) => (column < 3 ? cell.padEnd(widths[column] as number) : cell)).join('  ')), ...unread];
+  const rows = screens.map((s) => ({
+    name: s.screen,
+    status: s.status,
+    locker: s.lockedBy === null && s.lockedOn === null ? '—' : [s.lockedBy, s.lockedOn].filter((part) => part !== null).join(' '),
+    routes: s.routes.length ? s.routes.join(', ') : '—',
+  }));
+  const width = (column: 'name' | 'status' | 'locker') => Math.max(...rows.map((row) => row[column].length));
+  const [name, status, locker] = [width('name'), width('status'), width('locker')];
+  return [...rows.map((row) => `${row.name.padEnd(name)}  ${row.status.padEnd(status)}  ${row.locker.padEnd(locker)}  ${row.routes}`), ...unread];
 }
