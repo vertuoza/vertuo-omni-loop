@@ -305,10 +305,13 @@ export const ConfigSchema = z
     // PRD 1369: design craft — the `design` form's readers and `/omni:pixel-perfect review` on UI work.
     // Off by default: a repository opts in, and off restores the loop as it was. `paths` are globs over
     // repository paths where the screens, styles, tokens and components live; `omni design touched`
-    // matches a diff against them (`kit/lib/design/`).
+    // matches a diff against them (`kit/lib/design/`). PRD 1407: `screens` is the screen library's
+    // folder, one Markdown file per screen (`kit/lib/design/screens.ts`); null reads as
+    // `<paths.knowledge>/design/screens/`, the value `parseConfig` fills in.
     design: section({
       enabled: z.boolean().default(false),
       paths: z.array(text).default([]),
+      screens: nullableText.default(null),
     }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
@@ -359,6 +362,11 @@ export function dossierSwitch(config: Pick<Config, 'dossier' | 'ask'>): { on: tr
 
 /** `.omni-loop/config.yml`, parsed: `Config` in `kit/lib/types.ts`. */
 type Config = z.infer<typeof ConfigSchema>;
+
+/** The screen library's folder (PRD 1407): `design.screens`, else `design/screens/` under `paths.knowledge`. */
+export function designScreensDir({ paths, design }: { paths: Pick<Config['paths'], 'knowledge'>; design: Pick<Config['design'], 'screens'> }): string {
+  return design.screens ?? `${paths.knowledge.replace(/\/+$/, '')}/design/screens/`;
+}
 
 /** One step from a `kit:` format to the next: a raw file in, the same file one `kit:` higher out. */
 type Migration = { from: number; migrate: (raw: Record<string, unknown>) => unknown };
@@ -456,7 +464,8 @@ export function parseConfig(
     const more = others.length ? `\n${others.map((line) => `  - ${line}`).join('\n')}` : '';
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
   }
-  return result.data;
+  const config = result.data;
+  return { ...config, design: { ...config.design, screens: designScreensDir(config) } };
 }
 
 /** Reads `<root>/.omni-loop/config.yml`. */
