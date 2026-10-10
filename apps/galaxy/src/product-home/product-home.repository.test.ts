@@ -87,6 +87,48 @@ describe('the product home\'s storage', () => {
     ]);
   });
 
+  it('reads the product\'s ideas still on the board, newest first (PRD 1364 s10)', async () => {
+    const row = { id: 'i-1', repo: 'vertuo/api', title: 'Calmer gate', pitch: 'Fewer pings.', lane: 'now', prd: null, created_at: '2026-10-01T00:00:00Z' };
+    const { calls, repo } = stub({ ideas: { data: [row] } });
+    expect(await repo.ideas('ws-1', 'p-1')).toEqual([row]);
+    expect(calls).toEqual([
+      ['ideas', 'select', 'id, repo, title, pitch, lane, prd, created_at'], ['ideas', 'eq', 'archived', false],
+      ['ideas', 'not', 'product_id', 'is', null], ['ideas', 'eq', 'workspace_id', 'ws-1'], ['ideas', 'eq', 'product_id', 'p-1'],
+      ['ideas', 'order', 'created_at', { ascending: false }],
+    ]);
+  });
+
+  it('reads the product\'s roadmaps, newest first (PRD 1364 s10)', async () => {
+    const row = { id: 'r-1', number: 3, repo: 'vertuo/api', title: 'Spring', milestone: 'Beta', target_date: '2026-12-01', created_at: '2026-10-01T00:00:00Z' };
+    const { calls, repo } = stub({ roadmaps: { data: [row] } });
+    expect(await repo.roadmaps('ws-1', 'p-1')).toEqual([row]);
+    expect(calls).toEqual([
+      ['roadmaps', 'select', 'id, number, repo, title, milestone, target_date, created_at'], ['roadmaps', 'not', 'product_id', 'is', null],
+      ['roadmaps', 'eq', 'workspace_id', 'ws-1'], ['roadmaps', 'eq', 'product_id', 'p-1'], ['roadmaps', 'order', 'created_at', { ascending: false }],
+    ]);
+  });
+
+  it('reads the product\'s bug and visual fixes, newest first (PRD 1364 s10)', async () => {
+    const rows = [
+      { id: 'd-b', kind: 'bug', home_repo: 'vertuo/api', title: 'Crash on save', created_at: '2026-10-02T00:00:00Z' },
+      { id: 'd-v', kind: 'visual', home_repo: 'vertuo/web', title: 'Darker sidebar', created_at: '2026-10-01T00:00:00Z' },
+    ];
+    const { calls, repo } = stub({ dossiers: { data: rows } });
+    expect(await repo.fixes('ws-1', 'p-1')).toEqual(rows);
+    expect(calls).toEqual([
+      ['dossiers', 'select', 'id, kind, home_repo, title, created_at'], ['dossiers', 'in', 'kind', ['bug', 'visual']],
+      ['dossiers', 'not', 'product_id', 'is', null], ['dossiers', 'eq', 'workspace_id', 'ws-1'], ['dossiers', 'eq', 'product_id', 'p-1'],
+      ['dossiers', 'order', 'created_at', { ascending: false }],
+    ]);
+  });
+
+  it('throws on a refused or out-of-shape read of the ideas, roadmaps or fixes', async () => {
+    await expect(stub({ ideas: { error: { message: 'down' } } }).repo.ideas('ws-1', 'p-1')).rejects.toThrow('could not read the product\'s ideas (down)');
+    await expect(stub({ roadmaps: { error: { message: 'down' } } }).repo.roadmaps('ws-1', 'p-1')).rejects.toThrow('could not read the product\'s roadmaps (down)');
+    await expect(stub({ dossiers: { error: { message: 'down' } } }).repo.fixes('ws-1', 'p-1')).rejects.toThrow('could not read the product\'s fixes (down)');
+    await expect(stub({ dossiers: { data: [{ id: 'd-1', kind: 'prd', home_repo: 'a/b', title: 'T', created_at: 'x' }] } }).repo.fixes('ws-1', 'p-1')).rejects.toThrow();
+  });
+
   it('reads nothing for no repository and no dossier', async () => {
     const { calls, repo } = stub({});
     expect(await repo.stages('ws-1', [])).toEqual([]);
