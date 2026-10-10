@@ -91,18 +91,17 @@ Tokens  packages/ui/tokens.css@3f2a1c
 Components  packages/ui/src/  (Button, Field, Table…)
 <span class="g">## Deliberate</span>  [repo]
 Dense tables on desktop; Inter is our brand face.
-<span class="g">## Floor</span>  [kit default]
-Contrast ≥ 4.5:1 · states: empty, loading, error…
-<span class="g">## Refuse</span>  [kit default]
-Cards in cards · gradient text · grey on colour…
-<span class="dim">(Inter not flagged: the product chose it)</span></pre>
+<span class="g">## Review</span>  [repo]
+Widths 390, 1440 · sign in with proof session
+<span class="dim">(the craft floor sets Inter aside: the product chose it)</span></pre>
       </div>
 
       <div class="card">
         <h3>2 · Building a UI slice in /omni:do-work</h3>
         <pre><span class="dim">$</span> omni design touched
 ui: yes  <span class="dim">apps/web/src/pages/Quote.tsx</span>
-<span class="dim">review</span>  auto-review: critique · floor · lint · screenshots
+<span class="dim">review</span>  follows /omni:pixel-perfect review
+<span class="dim">        </span>critique · audit · lint · screenshots · polish
 <span class="dim">        </span>1 batch of fixes · 1 confirming look · never blocks</pre>
       </div>
 
@@ -153,7 +152,7 @@ ui: yes  <span class="dim">apps/web/src/pages/Quote.tsx</span>
     </section>
   </div>
 
-  <p class="note">All of this is behind one config flag, <code>design.enabled</code>, off by default: a repository turns it on to opt in, and off to get today's loop back. Same for <code>/omni:visual-fix</code>: its real check runs the review against the variation the person picked. A repository with no screen keeps the form blank and never runs it. The floor and refuse defaults are adapted from pbakaus/impeccable (Apache-2.0); a repository's own sections always replace them.</p>
+  <p class="note"><code>/omni:pixel-perfect</code> is impeccable's critique, audit, polish, harden, typeset, layout, adapt and clarify, imported into the kit and tailored: no dependency to install. Anyone can type <code>/omni:pixel-perfect polish the quote page</code>. All of this is behind one config flag, <code>design.enabled</code>, off by default: a repository turns it on to opt in, and off to get today's loop back. Same for <code>/omni:visual-fix</code>: its real check runs the review against the variation the person picked. A repository with no screen keeps the form blank and never runs it. Imported from pbakaus/impeccable (Apache-2.0); the product's own design always wins over its craft floor.</p>
 </div>
 </body>
 </html>
