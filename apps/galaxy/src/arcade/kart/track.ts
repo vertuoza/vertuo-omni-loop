@@ -4,10 +4,9 @@
 // waypoints' x and y do.
 //
 // The legend:
-//   #  road          ~  the void (PRD 1447: nothing under the road)   .  grass (halves the top speed)
-//   r  kerb (road)   =  the start line (road)                          X  wall (bounces a kart off)
-//   ?  an item box (road)                                              S  a starting place (road)
-// COMET RING holds road and void only; `.` and `X` stay in the legend until the slice that removes them.
+//   #  road          ~  the void (PRD 1447: nothing under the road; a kart over it falls)
+//   r  kerb (road)   =  the start line (road)
+//   ?  an item box (road)   S  a starting place (road)
 // Props (PRD 1427) are not in the map: they are listed beside it, each a kind and a void tile.
 import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
@@ -19,7 +18,7 @@ export const LAPS = 3;
 export const PLACES = 6;
 
 const LEGEND = Object.freeze({
-  '#': 'road', '~': 'void', '.': 'grass', X: 'wall', r: 'kerb', '=': 'line', '?': 'box', S: 'start',
+  '#': 'road', '~': 'void', r: 'kerb', '=': 'line', '?': 'box', S: 'start',
 } as const);
 type TileChar = keyof typeof LEGEND;
 
@@ -151,12 +150,6 @@ export const isRoad = (c: string): boolean => c === '#' || c === 'r' || c === '=
 /** The tile at column x, row y; the void past the map's edge. */
 export function tileAt(rows: readonly string[], x: number, y: number): string {
   return rows[y]?.[x] ?? '~';
-}
-
-/** A tile a kart bounces off: a wall, or anything past the map's edge (the void reads as the way out of the map there; the kart's walls keep the edge until the fall takes it over). */
-export function isSolid(rows: readonly string[], x: number, y: number): boolean {
-  const c = rows[y]?.[x];
-  return c === undefined || c === 'X';
 }
 
 const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
@@ -306,13 +299,13 @@ function boxProblems(rows: readonly string[]): string[] {
   return tilesOf(rows, '?').filter(([x, y]) => !onRoad(rows, x, y)).map(([x, y]) => `${where(x, y)}: item box off the road`);
 }
 
-/** A prop that is not on a void tile: on a road, kerb, line, box, start, verge or wall tile (or off the map), or of a kind that does not exist. */
+/** A prop that is not on a void tile: on a road, kerb, line, box, start tile (or off the map), or of a kind that does not exist. */
 function propProblems({ rows, props = [] }: TrackSource): string[] {
   return props.flatMap(({ kind, x, y }) => {
     if (!PROP_KINDS.includes(kind)) return [`${where(x, y)}: unknown prop kind '${kind}'`];
     const tile = rows[y]?.[x];
     if (tile === '~') return [];
-    const what = tile === undefined ? 'off the map' : `on a ${tile === '.' ? 'verge' : isTileChar(tile) ? LEGEND[tile] : 'unknown'} tile`;
+    const what = tile === undefined ? 'off the map' : `on a ${isTileChar(tile) ? LEGEND[tile] : 'unknown'} tile`;
     return [`${where(x, y)}: a ${kind} stands ${what}, props stand on void tiles only`];
   });
 }
@@ -382,12 +375,12 @@ export function cornersOf(track: Pick<Track, 'waypoints'>): Corner[] {
   return out;
 }
 
-/** The tile of the first void (or wall) beyond each end of the start line, walking out along it. */
+/** The tile of the first void beyond each end of the start line, walking out along it. */
 function archLegs(rows: readonly string[], line: StartLine): [[number, number], [number, number]] {
   const { k, first, last } = lineEnds(line);
   const out = (from: [number, number], step: 1 | -1): [number, number] => {
     let [x, y] = from;
-    while (tileAt(rows, x, y) !== '~' && tileAt(rows, x, y) !== 'X') { if (k === 1) y += step; else x += step; }
+    while (tileAt(rows, x, y) !== '~') { if (k === 1) y += step; else x += step; }
     return [x, y];
   };
   return [out(first, -1), out(last, 1)];

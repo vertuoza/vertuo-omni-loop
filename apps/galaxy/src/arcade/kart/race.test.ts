@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
-import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
+import { LAPS, parseTrack, TILE, tileAt } from './track';
 
 // The race's phases and what each one lets the player do (PRD 1359, slice 2).
 
@@ -110,11 +110,12 @@ describe('a step', () => {
     expect(step(r, GAS, -1).race).toEqual(r);
   });
 
-  it('never carries a kart through a wall, a slow frame included', () => {
+  it('never leaves a kart standing over the void, a slow frame included: it is falling, or back on the road', () => {
     let r = racing();
     for (let i = 0; i < 400; i++) {
       r = step(r, new Set<Action>(['a', i % 90 < 45 ? 'left' : 'right']), i % 7 === 0 ? 1 : 0.05).race;
-      expect(tileAt(track.map, Math.floor(r.player.x / TILE), Math.floor(r.player.y / TILE)), `frame ${i}`).not.toBe('X');
+      const over = tileAt(track.map, Math.floor(r.player.x / TILE), Math.floor(r.player.y / TILE)) === '~';
+      expect(!over || r.fx.fall > 0, `frame ${i}`).toBe(true);
     }
   });
 
@@ -300,34 +301,6 @@ describe('the events of a step', () => {
     expect(told.filter((k) => k === 'finalLap')).toHaveLength(1);
     expect(next.finalAt).not.toBeNull();
   });
-
-  /** COMET RING with a wall where the void is (the circuit has none since PRD 1447): a map drawn in the test that still has a wall. */
-  const walled = parseTrack({ rows: COMET_RING.rows.map((row) => row.replaceAll('~', 'X')), waypoints: COMET_RING.waypoints });
-
-  /** A race with the player against the east wall of a road tile, facing it. */
-  function atWall(): Race {
-    const east = /[#r=S.]X/;
-    const row = walled.map.findIndex((line) => east.test(line));
-    const col = (walled.map[row] ?? '').search(east);
-    expect(row).toBeGreaterThanOrEqual(0);
-    return { ...play(started(newRace({ seed: 7, track: walled })), NONE, RULES.countdown + 0.05), player: { x: (col + 1) * TILE - 2, y: row * TILE + 8, angle: 0, speed: 60, steer: 0 }, touching: false };
-  }
-
-  it('tells a wall contact once while the kart is held against it, and again only after a step without contact', () => {
-    const first = step(atWall(), GAS, 0.05);
-    expect(kinds(first.events)).toEqual(['wall']);
-    expect(first.race.touching).toBe(true);
-    // Still against the wall on the next step: told already, so not again.
-    const held = step({ ...atWall(), touching: true }, GAS, 0.05);
-    expect(kinds(held.events)).toEqual([]);
-    expect(held.race.touching).toBe(true);
-    const r = first.race;
-    const away = step({ ...r, player: { ...r.player, x: r.player.x - 12, speed: 0 } }, NONE, 0.05);
-    expect(away.race.touching).toBe(false);
-    expect(kinds(away.events)).not.toContain('wall');
-    const again = step({ ...away.race, player: { ...atWall().player } }, GAS, 0.05);
-    expect(kinds(again.events)).toContain('wall');
-  });
 });
 
 describe('the cues an event makes', () => {
@@ -353,9 +326,7 @@ describe('the cues an event makes', () => {
     expect(cuesOf({ kind: 'hit', racer: 4, item: 'orb', spun: true }, 12)).toEqual([{ kind: 'hit', item: 'orb', you: false, tiles: 12 }]);
   });
 
-  it('makes a scrape of the player\'s wall contact, and nothing of a rival\'s, the finish or the player leaving', () => {
-    expect(cuesOf({ kind: 'wall', racer: 0 }, 0)).toEqual([{ kind: 'scrape' }]);
-    expect(cuesOf({ kind: 'wall', racer: 1 }, 3)).toEqual([]);
+  it('makes nothing of the finish or the player leaving', () => {
     expect(cuesOf({ kind: 'finish', tenths: 1000 }, 0)).toEqual([]);
     expect(cuesOf({ kind: 'quit' }, 0)).toEqual([]);
     expect(cuesOf({ kind: 'again' }, 0)).toEqual([]);

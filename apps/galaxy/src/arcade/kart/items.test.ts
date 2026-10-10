@@ -84,8 +84,8 @@ describe('BOOST', () => {
     expect(k.fx.boost).toBeLessThan(0.02);
   });
 
-  it('works on grass too: faster than the road\'s top speed where the grass would halve it', () => {
-    const open = ['................', '................', '................', '................'];
+  it('is faster than the road\'s top speed', () => {
+    const open = ['################', '################', '################', '################'];
     const run = (fx: Fx) => {
       let k: Racer = { kart: { ...kartAt(32, 32, 0), speed: RULES.topSpeed }, fx };
       for (let i = 0; i < 90; i++) {
@@ -94,7 +94,7 @@ describe('BOOST', () => {
       }
       return k.kart.speed;
     };
-    expect(run(NO_FX)).toBeLessThanOrEqual(RULES.topSpeed * RULES.grassFactor + 1e-9);
+    expect(run(NO_FX)).toBeLessThanOrEqual(RULES.topSpeed + 1e-9);
     expect(run({ ...NO_FX, boost: 99 })).toBeGreaterThan(RULES.topSpeed);
   });
 });
@@ -145,7 +145,7 @@ describe('ORB', () => {
     expect(flown?.angle).toBeCloseTo(heading, 5);
   });
 
-  it('bounces off walls, and is gone at its third bounce', () => {
+  it('turns back at the road\'s edge, and is gone at its third bounce', () => {
     let w: World = { ...empty(world()), orbs: [{ x: line.x, y: line.y, angle: heading + Math.PI / 2, bounces: 0, age: 0 }] };
     const seen = new Set<number>();
     let steps = 0;

@@ -13,7 +13,7 @@ export type { Item };
 export interface Box { x: number; y: number; back: number }
 /** A BLOB lying on the road. */
 export interface Blob { x: number; y: number }
-/** An ORB in flight: where, the way it flies, how many walls it bounced off and how long it has flown. */
+/** An ORB in flight: where, the way it flies, how many times it turned back at the road's edge and how long it has flown. */
 export interface Orb { x: number; y: number; angle: number; bounces: number; age: number }
 
 /** The items on the circuit, and the seeded generator the draws come from. */
@@ -72,10 +72,10 @@ function flyOrb(map: readonly string[], o: Orb, dt: number): Orb | null {
   const speed = RULES.topSpeed * RULES.orbSpeed * dt;
   let dx = Math.cos(o.angle) * speed, dy = Math.sin(o.angle) * speed;
   let bounces = o.bounces;
-  const wall = (x: number, y: number) => !isRoad(tileAt(map, Math.floor(x / TILE), Math.floor(y / TILE)));
-  if (wall(o.x + dx, o.y)) { dx = -dx; bounces++; }
-  if (wall(o.x, o.y + dy)) { dy = -dy; bounces++; }
-  if (wall(o.x + dx, o.y + dy)) { dx = -dx; dy = -dy; bounces++; }
+  const off = (x: number, y: number) => !isRoad(tileAt(map, Math.floor(x / TILE), Math.floor(y / TILE)));
+  if (off(o.x + dx, o.y)) { dx = -dx; bounces++; }
+  if (off(o.x, o.y + dy)) { dy = -dy; bounces++; }
+  if (off(o.x + dx, o.y + dy)) { dx = -dx; dy = -dy; bounces++; }
   const age = o.age + dt;
   if (bounces >= RULES.orbBounces || age >= RULES.orbLife) return null;
   return { x: o.x + dx, y: o.y + dy, angle: Math.atan2(dy, dx), bounces, age };
@@ -84,7 +84,7 @@ function flyOrb(map: readonly string[], o: Orb, dt: number): Orb | null {
 /**
  * `dt` seconds of the items: boxes come back, a kart driving through a box that holds nothing takes the
  * item its place draws, the first kart over a BLOB spins out and the BLOB is gone, and ORBs fly, bouncing
- * off walls, until one hits a kart (which spins out). `places[i]` is racer i's place, 1 to 6.
+ * off the road's edge, until one hits a kart (which spins out). `places[i]` is racer i's place, 1 to 6.
  */
 export function stepItems(map: readonly string[], world: World, racers: readonly Racer[], places: readonly number[], dt: number): { world: World; racers: Racer[]; events: ItemEvent[] } {
   let rng = world.rng;

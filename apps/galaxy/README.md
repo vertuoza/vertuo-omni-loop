@@ -39,7 +39,7 @@ Game Boy's buttons on a phone (design:
   noise drums and one echo (`src/arcade/sound.ts`), playing songs written as note strings
   (`src/arcade/score.ts`). No audio files.
 - OMNI KART sounds like a race. The effects: the countdown's beeps and GO, one sound per item (BOOST,
-  BLOB, ORB), a box, a hit, a spin-out, a wall scrape and the FINAL LAP jingle; a rival's are quieter
+  BLOB, ORB), a box, a hit, a spin-out, a fall into the void and the FINAL LAP jingle; a rival's are quieter
   and lower the farther it is, and silent beyond 20 tiles. The music: nothing on the ready screen or
   the countdown, the `race` tune from GO, the `lastLap` tune (the same, faster) after the FINAL LAP
   jingle, nothing while paused, and the arcade's fanfare on the results. The engine: one quiet hum
@@ -890,10 +890,10 @@ off, no row exists, and every player sees NO XP YET.
   **Items** (`items.ts`): two rows of four boxes across the road give one item to a kart holding
   none (the box is back after 3 seconds), drawn from the race's seed and weighted by place, the
   leaders drawing more BLOBs and the karts behind more BOOSTs and ORBs. B uses the player's item.
-  **BOOST** is 1.5 seconds at 1.4 times the top speed, grass included. **BLOB** is an Entropy blob
+  **BOOST** is 1.5 seconds at 1.4 times the top speed. **BLOB** is an Entropy blob
   dropped behind: the first kart over it spins out and it is gone, and a seventh removes the oldest
   of six. **ORB** (a 16×16 `@omni/design` sprite) is thrown straight ahead at twice the top speed,
-  bounces off walls, and is gone at its third bounce, after 4 seconds, or on a kart, which spins out.
+  turns back at the road's edge, and is gone at its third bounce, after 4 seconds, or on a kart, which spins out.
   A spin-out lasts 1 second at 30% of the speed with no input, and never stops the race. The rivals
   use theirs by rule: a BOOST at once on a straight, a BLOB with a kart close behind, an ORB with a
   kart ahead, in range and in line. Its numbers are one block, `rules.ts`. At the finish the player's
@@ -901,12 +901,19 @@ off, no row exists, and every player sees NO XP YET.
   kart keeps the best time, the lowest, and has its own send lines, SAVING TIME…, NEW BEST, YOUR BEST 1:42.3
   or TIME NOT SAVED (A retries once). The cabinet's CREW TOP 5 shows times, fastest first. What it sounds like is in the sound section above.
   **The space circuit** (PRD 1427): COMET RING keeps its layout and its rules and is drawn as a circuit
-  in space, all in code, no image file. The walls are dark metal with a neon edge (cyan outside the
-  circuit, magenta inside), the kerbs alternate the two neons, the road has panel seams and three
-  chevrons before each corner, and the verge is pale lunar ground that still halves the top speed.
-  Pylons, beacons, asteroids, satellites and wrecks stand on wall tiles, and an arch spans the start
-  line. The sky has two planets, a distant station and comets. Every kart casts a shadow. Sparks fly
-  where a kart scrapes a wall, a BOOST leaves a trail, a hit bursts and a taken box flashes
+  in space, all in code, no image file. **The void** (PRD 1447): everything off the road is the void,
+  written `~` in the map, a starfield under the road with a neon edge on its side of the road's edge
+  (cyan outside the circuit, magenta inside); the map holds road and void only, and past its edge is
+  void too. The kerbs alternate the two neons, the road has panel seams and three chevrons before
+  each corner. Nothing off the road slows or bounces a kart: **the fall** is the only cost. A kart
+  whose centre goes over the void falls for 1 second, takes no input, stays where it went over,
+  shrinks as it sinks and keeps its item, and a BOOST or a spin-out ends. **The way back:** it
+  returns at rest on the racing line, at the point nearest where it fell on the segment it was on
+  (never past the next waypoint, never across the start line), facing the race, and blinks for half
+  a second while it drives; its laps and waypoints are kept, the race clock never stops, and rivals
+  fall and return by the same rule. The player's fall plays the `fall` sound; a rival's is silent.
+  Pylons, beacons, asteroids, satellites and wrecks float on void tiles, and an arch spans the start
+  line. The sky has two planets, a distant station and comets. Every kart casts a shadow. A BOOST leaves a trail, a hit bursts and a taken box flashes
   (`kart/fx.ts`: seeded, pure, never more than 64 particles alive). The item boxes are glowing cubes
   that turn and bob. With reduced motion on, the sky, comets, satellites, boxes and beacons stand
   still and no particle is drawn; the shadows stay.
