@@ -1,7 +1,7 @@
-// `omni check [config|inbox|outbox|knowledge|kb|releases|coverage|all]` — the repository's guards. Each
-// prints its violations (or its one pass line); exit 1 on any violation. `all` (the default) runs
+// `omni check [config|inbox|outbox|knowledge|kb|releases|design|coverage|all]` — the repository's guards.
+// Each prints its violations (or its one pass line); exit 1 on any violation. `all` (the default) runs
 // every guard, and skips `coverage` — never fails on it — when the default branch's remote ref is
-// absent.
+// absent; `design` then grades the library without comparing its locks.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-inbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-outbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-registers.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
@@ -25,7 +25,8 @@ import { riskyChanges } from '../../lib/outbox/decision-coverage.ts';
 import { outboxItemFiles } from '../../lib/outbox/outbox.ts';
 import { gradePlaybook } from '../../lib/playbook/check-playbook.ts';
 import { findReleaseViolations, releaseNoteFiles } from '../../lib/releases/check-releases.ts';
-import { CONFIG_FILE, ConfigError } from '../../lib/config.ts';
+import { CONFIG_FILE, ConfigError, designScreensDir } from '../../lib/config.ts';
+import { gradeDesign, headSnapshot, snapshotAt } from '../../lib/design/check-design.ts';
 import { DEFAULT_HOOK_MAX_BYTES, hookFileViolations } from '../../lib/flow/schema.ts';
 import { generatedViolations, readGround } from '../../lib/generated/check.ts';
 import { parseArgs, prdArg, println, usageError, type Flags } from '../args.ts';
@@ -34,7 +35,7 @@ import { loadContext, type Context } from '../../lib/context.ts';
 import { synchronous } from '../synchronous.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 
-const USAGE = 'usage: omni check [config|inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]';
+const USAGE = 'usage: omni check [config|inbox|outbox|knowledge|kb|releases|design|coverage|all] [--base <ref>] [--prd <n>]';
 
 /** Prints a guard's result; `true` when it is green. */
 function report(stdout: Out, title: string, violations: readonly string[], passLine: string): boolean {
@@ -193,6 +194,40 @@ function checkConfig({ ctx, stdout }: CommandIo): boolean {
 
 const CONFIG_TITLE = 'check config — the config does not hold what it claims:';
 
+// PRD 1407: the screen library and the design form's laws — a locked decision changes only with a
+// dated amendment, graded against the base at its merge base with HEAD; off while `design.enabled` is.
+function checkDesign({ ctx, stdout, exec }: CommandIo, { base, baseKnown }: Pick<Range, 'base' | 'baseKnown'>): boolean {
+  if (!ctx.config.design.enabled) {
+    println(stdout, formatPass('check design — design is off; nothing to check.'));
+    return true;
+  }
+  const dir = designScreensDir(ctx.config);
+  const formFile = ctx.layout.formPath('design') ?? '';
+  const ref = baseKnown ? mergeBase(ctx, base, exec) : null;
+  const grade = gradeDesign({
+    dir,
+    formFile,
+    head: headSnapshot({ root: ctx.root, dir, formFile }),
+    base: ref === null ? null : snapshotAt({ root: ctx.root, ref, dir, formFile, exec }),
+  });
+  const compared = ref === null ? `locks not compared — no ${base}` : `compared with ${base}`;
+  return report(
+    stdout,
+    'check design — a design decision does not hold what it claims:',
+    grade.violations,
+    `check design — ${grade.screens} screen(s), ${grade.lockedScreens} locked; ${grade.lockedLaws} locked law(s); ${compared}.`,
+  );
+}
+
+/** Where HEAD left `base`: what this branch changed is graded from there, never what `base` moved on to since. */
+function mergeBase(ctx: Context, base: string, exec: Exec): string | null {
+  try {
+    return exec('git', ['merge-base', base, 'HEAD'], { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 /** The repository's context; for `check config`, an invalid config is a red guard, never a stop. */
 function contextFor(guard: string, cwd: string, exec: Exec, stdout: Out): Context | null {
   try {
@@ -205,7 +240,7 @@ function contextFor(guard: string, cwd: string, exec: Exec, stdout: Out): Contex
   }
 }
 
-const GUARDS: readonly string[] = ['config', 'inbox', 'outbox', 'knowledge', 'kb', 'releases', 'coverage', 'all'];
+const GUARDS: readonly string[] = ['config', 'inbox', 'outbox', 'knowledge', 'kb', 'releases', 'design', 'coverage', 'all'];
 
 /** The guards that run alone and take nothing but the command's io. */
 const SINGLE_GUARDS: Readonly<Record<string, (io: CommandIo) => boolean>> = {
@@ -252,7 +287,7 @@ function coverageOnly(io: CommandIo, { base, baseKnown, prd }: Range): boolean {
 
 /** `omni check all`: every guard, coverage skipped when the base is absent. */
 function allGuards(io: CommandIo, { base, baseKnown, prd }: Range): boolean {
-  const results = [checkConfig(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io)];
+  const results = [checkConfig(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io), checkDesign(io, { base, baseKnown })];
   if (baseKnown) results.push(checkCoverage(io, { base, prd }));
   else println(io.stdout, `coverage: skipped — no ${base}`);
   return results.every(Boolean);
@@ -262,6 +297,7 @@ function allGuards(io: CommandIo, { base, baseKnown, prd }: Range): boolean {
 function runGuard(guard: string, io: CommandIo, range: Range): boolean {
   const single = SINGLE_GUARDS[guard];
   if (single) return single(io);
+  if (guard === 'design') return checkDesign(io, range);
   return guard === 'coverage' ? coverageOnly(io, range) : allGuards(io, range);
 }
 
