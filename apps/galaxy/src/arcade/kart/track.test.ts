@@ -83,13 +83,19 @@ describe('trackProblems', () => {
   });
 
   it('refuses two consecutive waypoints not joined by road, naming the first tile that is not road', () => {
-    const problems = trackProblems(altered((r) => { set(r, 54, 48, '.'); }));
+    const problems = trackProblems(altered((r) => { set(r, 54, 48, '~'); }));
     expect(problems).toEqual(['row 48, col 54: waypoints 0 and 1 are not joined by road']);
   });
 
   it('refuses the last waypoint not joined to the first', () => {
-    const problems = trackProblems(altered((r) => { set(r, 40, 56, 'X'); }));
+    const problems = trackProblems(altered((r) => { set(r, 40, 56, '~'); }));
     expect(problems.some((p) => p.includes('waypoints 13 and 0 are not joined by road'))).toBe(true);
+  });
+
+  it('refuses a map that holds a verge `.` or a wall `X`: the legend has neither', () => {
+    for (const c of ['.', 'X']) {
+      expect(trackProblems(altered((r) => { set(r, 0, 0, c); })), c).toEqual([`row 0, col 0: unknown character '${c}'`]);
+    }
   });
 
   it('refuses a seventh starting place, and a missing one', () => {
@@ -212,11 +218,9 @@ describe('the props (PRD 1427)', () => {
     }
   });
 
-  it('are refused on a verge or a wall tile, which COMET RING no longer holds', () => {
-    for (const [what, c] of [['verge', '.'], ['wall', 'X']] as const) {
-      const src = { ...altered((r) => { set(r, 0, 0, c); }), props: [{ kind: 'pylon' as const, x: 0, y: 0 }] };
-      expect(trackProblems(src), what).toEqual([`row 0, col 0: a pylon stands on a ${what} tile, props stand on void tiles only`]);
-    }
+  it('are refused on a road tile, a tile that is not void', () => {
+    const src = { ...altered((r) => { set(r, 0, 0, '#'); }), props: [{ kind: 'pylon' as const, x: 0, y: 0 }] };
+    expect(trackProblems(src)).toEqual(['row 0, col 0: a pylon stands on a road tile, props stand on void tiles only']);
   });
 
   it('are refused off the map and of a kind that does not exist', () => {

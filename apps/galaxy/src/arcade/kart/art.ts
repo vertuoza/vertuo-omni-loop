@@ -214,7 +214,7 @@ export const ARCH_WORLD = 10;
 export const propFrame = (kind: PropKind, s: FrameState): number =>
   s.reduced ? 0 : kind === 'beacon' ? Math.floor(s.t * 2) % 2 : kind === 'satellite' ? Math.floor(s.t * 1.2) % 2 : 0;
 
-/** A prop standing on its wall tile, as big as its distance makes it. */
+/** A prop standing on its void tile, as big as its distance makes it. */
 function propSprite(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected, kind: PropKind) {
   const art = PROP_ART[kind];
   const { w, h } = spriteSize(art.sprite);
@@ -280,10 +280,10 @@ function thrownItem(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected,
 
 /** How a particle looks: its colour (a theme token, so it follows the theme) and its size in world pixels. */
 const PARTICLE: Readonly<Record<Particle['kind'], { token: 'yellow' | 'white' | 'cyan' | 'gold'; size: number }>> = {
-  spark: { token: 'yellow', size: 1.6 }, trail: { token: 'cyan', size: 2.4 }, burst: { token: 'gold', size: 2.4 }, flash: { token: 'white', size: 3 },
+  trail: { token: 'cyan', size: 2.4 }, burst: { token: 'gold', size: 2.4 }, flash: { token: 'white', size: 3 },
 };
 
-/** The particles on the floor, near ones over far ones, each fading as it ages. None is drawn when motion is reduced: a frozen spark is noise. */
+/** The particles on the floor, near ones over far ones, each fading as it ages. None is drawn when motion is reduced: a frozen trail is noise. */
 function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, particles: Particles) {
   if (s.reduced) return;
   const seen = spritesInView(v, particles.list);

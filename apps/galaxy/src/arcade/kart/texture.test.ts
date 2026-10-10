@@ -3,7 +3,7 @@ import { rampFrom } from '@omni/design';
 import { TOKENS } from '../theme';
 import { sure } from '../test/sure';
 import { BEYOND, pack, paintTrack, SURFACE } from './texture';
-import { COMET_RING, cornersOf, isRoad, parseTrack, TILE, tileAt } from './track';
+import { cornersOf, isRoad, parseTrack, TILE, tileAt } from './track';
 
 describe('pack', () => {
   it('packs #rrggbb as an opaque little-endian pixel: 0xAABBGGRR', () => {
@@ -30,11 +30,6 @@ describe('paintTrack', () => {
     return out;
   };
   const cyan = pack(SURFACE.neonCyan), magenta = pack(SURFACE.neonMagenta);
-  /** COMET RING with its void drawn as `c`: the verge and the wall are still in the legend, though no circuit holds one. */
-  const asTexture = (c: string) => {
-    const map = COMET_RING.rows.map((row) => row.replaceAll('~', c));
-    return paintTrack({ cols: track.cols, rows: track.rows, map, waypoints: track.waypoints });
-  };
   const tilesOf = (c: string) => track.map.flatMap((row, y) => Array.from(row).flatMap((t, x) => (t === c ? [[x, y] as const] : [])));
 
   it('is one 16×16 tile per map tile, every pixel opaque', () => {
@@ -42,27 +37,6 @@ describe('paintTrack', () => {
     expect(texture.h).toBe(64 * TILE);
     expect(texture.px).toHaveLength(1024 * 1024);
     for (let i = 0; i < texture.px.length; i += 997) expect(sure(texture.px[i], 'a pixel') >>> 24).toBe(0xff);
-  });
-
-  it('paints the verge in the lunar ramp, and no colour of the road in it', () => {
-    const road = new Set(rampFrom(SURFACE.road).map(pack));
-    const verge = new Set(rampFrom(SURFACE.verge).map(pack));
-    const grass = asTexture('.');
-    for (const [tx, ty] of tilesOf('~').filter((_, i) => i % 37 === 0)) {
-      for (let y = 0; y < TILE; y++) {
-        for (let x = 0; x < TILE; x++) {
-          const c = sure(grass.px[(ty * TILE + y) * grass.w + tx * TILE + x], 'a pixel');
-          expect(verge.has(c)).toBe(true);
-          expect(road.has(c)).toBe(false);
-        }
-      }
-    }
-  });
-
-  it('puts craters in the verge: some tile has a darker ring than the plain ground', () => {
-    const darkest = pack(sure(rampFrom(SURFACE.verge)[3], 'the dark tone'));
-    const grass = asTexture('.');
-    expect(grass.px.includes(darkest)).toBe(true);
   });
 
   it('paints a void tile as space: its own near-black ramp and a few stars, none of the road\'s colours', () => {

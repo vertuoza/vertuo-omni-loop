@@ -69,14 +69,14 @@ export interface KartQuit { quit: boolean; /** A on the results: another race, w
 /**
  * What happened in the race, as the arcade hears it (PRD 1427): the countdown's beeps and GO, an item used
  * by a racer (`you`: the player; `tiles`: how far the racer is from the player), the player's box, a hit on a
- * racer, the player's spin-out, wall scrape and fall, and the final lap starting.
+ * racer, the player's spin-out, and fall, and the final lap starting.
  */
 export type KartCue =
   | { kind: 'beep'; beat: '3' | '2' | '1' } | { kind: 'go' }
   | { kind: 'item'; item: KartItem; you: boolean; tiles: number }
   | { kind: 'box' }
   | { kind: 'hit'; item: 'blob' | 'orb'; you: boolean; tiles: number }
-  | { kind: 'spin' } | { kind: 'scrape' } | { kind: 'fall' } | { kind: 'finalLap' };
+  | { kind: 'spin' } | { kind: 'fall' } | { kind: 'finalLap' };
 
 /** How far a rival's sound carries, in tiles: beyond it nothing is heard. */
 export const HEARD_TILES = 20;
@@ -91,7 +91,6 @@ export function soundOf(cue: KartCue): { sfx: Sfx; far: number } | null {
     case 'go': return { sfx: 'go', far: 0 };
     case 'box': return { sfx: 'box', far: 0 };
     case 'spin': return { sfx: 'spin', far: 0 };
-    case 'scrape': return { sfx: 'scrape', far: 0 };
     case 'fall': return { sfx: 'fall', far: 0 };
     case 'finalLap': return { sfx: 'finalLap', far: 0 };
     case 'item':

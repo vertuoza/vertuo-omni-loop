@@ -141,9 +141,8 @@ describe('laps', () => {
     expect(advance(track, START_PACE, here(0, 0), { x: w0.x + RULES.waypointReach + 1, y: w0.y })).toEqual(START_PACE);
   });
 
-  // A person cuts a corner wherever the road lets them: tight on the inside, or over the grass inside.
-  // Each way is a path through every corner, from the pole over the line, walked a pixel at a time; no
-  // step of it is in a wall.
+  // A person cuts a corner wherever the road lets them: tight on the inside, or across the void inside.
+  // Each way is a path through every corner, from the pole over the line, walked a pixel at a time.
   type Point = { x: number; y: number };
   const unit = (a: Point, b: Point): Point => { const l = Math.hypot(b.x - a.x, b.y - a.y); return { x: (b.x - a.x) / l, y: (b.y - a.y) / l }; };
   const corners = track.waypoints.map((w, i) => ({
@@ -157,7 +156,6 @@ describe('laps', () => {
   function lapOn(way: (c: Corner) => Point[]) {
     const path = [nth(track.places, 0), ...corners.flatMap(way), { x: track.line.x + 2 * TILE, y: track.line.y }];
     let pace = START_PACE;
-    const walls: Point[] = [];
     path.slice(1).forEach((b, i) => {
       const a = nth(path, i);
       const steps = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y));
@@ -165,17 +163,16 @@ describe('laps', () => {
         const from = { x: a.x + ((b.x - a.x) * s) / steps, y: a.y + ((b.y - a.y) * s) / steps };
         const to = { x: a.x + ((b.x - a.x) * (s + 1)) / steps, y: a.y + ((b.y - a.y) * (s + 1)) / steps };
         pace = advance(track, pace, from, to);
-        if (tileAt(track.map, Math.floor(to.x / TILE), Math.floor(to.y / TILE)) === 'X') walls.push(to);
       }
     });
-    return { pace, walls };
+    return pace;
   }
 
   it.each([
     ['tight on the inside', (c: Corner) => [off(c, -32, 32)]],
-    ['cut over the grass inside', (c: Corner) => [off(c, -55, 35), off(c, -35, 55)]],
+    ['cut across the void inside', (c: Corner) => [off(c, -55, 35), off(c, -35, 55)]],
   ])('counts a lap when every corner is taken %s', (_, way) => {
-    expect(lapOn(way)).toEqual({ pace: { laps: 1, passed: 0 }, walls: [] });
+    expect(lapOn(way)).toEqual({ laps: 1, passed: 0 });
   });
 
   it('passes a waypoint whose corner\'s diagonal is crossed forwards near it, not backwards nor far from it', () => {

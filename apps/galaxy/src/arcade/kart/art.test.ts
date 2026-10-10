@@ -7,7 +7,6 @@ import { boxFrame, cometsOf, createKart, fallenOf, hiddenBlink, propFrame, SHADO
 import { RULES } from './rules';
 import type { Action } from '../keys';
 import { horizonOf } from './mode7';
-import { COMET_RING, parseTrack } from './track';
 
 // The ready screen's drawing, under a canvas that only counts (PRD 1359): the sky above the horizon in
 // the theme's colours, then the floor from one reused pixel buffer, on both grids. The planets and
@@ -108,7 +107,7 @@ describe('the race\'s drawing', () => {
     for (let row = horizon + 1; row < WIDE.h; row++) expect(pixels.slice(row * WIDE.w, (row + 1) * WIDE.w).every((p) => (p >>> 24) === 0xff), `row ${row}`).toBe(true);
   });
 
-  it('draws the floor from the circuit: the road under the player\'s starting place, grass and wall beside it', () => {
+  it('draws the floor from the circuit: the road under the player\'s starting place, void beside it', () => {
     createKart().draw(recorder().ctx, frame(WIDE));
     const { pixels } = sure(puts[0], 'the floor');
     const bottom = pixels.slice((WIDE.h - 1) * WIDE.w, WIDE.h * WIDE.w);
@@ -389,31 +388,6 @@ describe('the shadows and the effects', () => {
 
   it('keeps the shadows when motion is reduced', () => {
     expect(shadows(drawnOrder({ ...frame(WIDE), reduced: true })).length).toBe(shadows(drawnOrder()).length);
-  });
-
-  /** COMET RING with a wall where the void is (the circuit has none since PRD 1447): a map drawn in the test that still has a wall. */
-  const walled = () => parseTrack({ rows: COMET_RING.rows.map((row) => row.replaceAll('~', 'X')), waypoints: COMET_RING.waypoints });
-
-  /** A race driven into the wall until the player scrapes it, and the frame drawn then. */
-  function scraping(reduced: boolean) {
-    const kart = createKart({ seed: 3, track: walled() });
-    kart.press('start');
-    for (let t = 0; t < 3.1; t += 0.05) kart.step(new Set<Action>(), 0.05);
-    for (let t = 0; t < 30; t += 0.05) {
-      kart.step(new Set<Action>(['a', 'left']), 0.05);
-      if (kart.cues().some((c) => c.kind === 'scrape')) {
-        const r = recorder();
-        kart.draw(r.ctx, { ...frame(WIDE), reduced });
-        return r.fills.filter((f) => f.style === DEFAULT_THEME.yellow && f.rect[2] === f.rect[3]);
-      }
-    }
-    throw new Error('the kart never met a wall');
-  }
-
-  it('throws sparks at a wall, and draws no particle when motion is reduced', () => {
-    // Sparks are the only yellow squares in the frame: the boxes are sprites.
-    expect(scraping(false).length).toBeGreaterThan(0);
-    expect(scraping(true)).toHaveLength(0);
   });
 });
 

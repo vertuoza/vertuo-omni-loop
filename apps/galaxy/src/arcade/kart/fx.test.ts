@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
 import { LOOK, MAX_PARTICLES, newParticles, spawnsOf, stepParticles, type Spawn } from './fx';
-import { newRace, press, step, type Race, type RaceEvent } from './race';
+import { newRace, press, step, type Race } from './race';
 import { RULES } from './rules';
 
 // The race's particles (PRD 1427, slice 7): pure, seeded, capped.
@@ -12,15 +12,15 @@ describe('the particles', () => {
   it('give the same particles for the same seed and the same steps, and other ones for another seed', () => {
     const run = (seed: number) => {
       let p = newParticles(seed);
-      for (const s of [[{ kind: 'spark', ...at }], [], [{ kind: 'burst', ...at }], []] as Spawn[][]) p = stepParticles(p, s, 0.05);
+      for (const s of [[{ kind: 'burst', ...at }], [], [{ kind: 'burst', ...at }], []] as Spawn[][]) p = stepParticles(p, s, 0.05);
       return p;
     };
     expect(run(7)).toEqual(run(7));
     expect(run(7)).not.toEqual(run(8));
   });
 
-  it('spawn sparks at a wall contact, a trail on a boost, a burst on a hit and a flash on a box', () => {
-    for (const kind of ['spark', 'trail', 'burst', 'flash'] as const) {
+  it('spawn a trail on a boost, a burst on a hit and a flash on a box', () => {
+    for (const kind of ['trail', 'burst', 'flash'] as const) {
       const p = stepParticles(newParticles(1), [{ kind, ...at }], 0.05);
       expect(p.list).toHaveLength(LOOK[kind].count);
       expect(p.list.every((q) => q.kind === kind && q.x === at.x && q.y === at.y && q.age === 0)).toBe(true);
@@ -47,7 +47,7 @@ describe('the particles', () => {
   });
 
   it('never rise through the floor', () => {
-    let p = stepParticles(newParticles(5), [{ kind: 'spark', ...at }], 0.01);
+    let p = stepParticles(newParticles(5), [{ kind: 'burst', ...at }], 0.01);
     for (let i = 0; i < 20; i++) { p = stepParticles(p, [], 0.02); expect(p.list.every((q) => q.z >= 0)).toBe(true); }
   });
 });
@@ -55,12 +55,6 @@ describe('the particles', () => {
 describe('what a step spawns', () => {
   const race = (): Race => step(press(newRace({ seed: 7 }), 'start').race, NONE, RULES.countdown + 0.05).race;
   const kinds = (spawns: readonly Spawn[]) => spawns.map((s) => s.kind);
-
-  it('sparks where the player met a wall, and where it stands', () => {
-    const r = race();
-    const events: RaceEvent[] = [{ kind: 'wall', racer: 0 }];
-    expect(spawnsOf(r, r, events)).toEqual([{ kind: 'spark', x: r.player.x, y: r.player.y }]);
-  });
 
   it('a burst where a racer was hit, the rival\'s place for a rival', () => {
     const r = race();
