@@ -151,6 +151,7 @@ const FORM_FILES = [
   `${KNOWLEDGE}/playbook/releasing.md`,
   `${KNOWLEDGE}/playbook/bug-fixing.md`,
   `${KNOWLEDGE}/playbook/review.md`,
+  `${KNOWLEDGE}/playbook/design.md`,
   `${KNOWLEDGE}/playbook/glossary.md`,
   `${KNOWLEDGE}/adr/README.md`,
   `${KNOWLEDGE}/product/principles.md`,

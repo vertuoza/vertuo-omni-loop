@@ -63,7 +63,7 @@ const opt = (id: string): SlotSpec => Object.freeze({ id, required: false });
 const form = (id: string, kind: FormSpec['kind'], slots: SlotSpec[], { pointerOnly = false } = {}): FormSpec =>
   Object.freeze({ id, kind, pointerOnly, slots: Object.freeze(slots) });
 
-/** The fourteen forms, in the spec's order: eight core, then six extended. */
+/** The fifteen forms, in the spec's order: eight core, then seven extended. */
 export const FORMS: readonly FormSpec[] = Object.freeze([
   form('briefing', 'core', [req('never'), opt('hooks'), opt('links'), opt('next')]),
   form('setup', 'core', [req('prerequisites'), req('install'), opt('run'), opt('env')]),
@@ -78,6 +78,7 @@ export const FORMS: readonly FormSpec[] = Object.freeze([
   form('releasing', 'extended', [req('publishes'), opt('how'), opt('rollback'), opt('notes')]),
   form('bug-fixing', 'extended', [req('steps'), opt('guard')]),
   form('review', 'extended', [req('fix'), req('push-back'), req('ask')]),
+  form('design', 'extended', [req('product'), req('system'), opt('deliberate'), opt('review')]),
   form('glossary', 'extended', [req('where')], { pointerOnly: true }),
 ]);
 
