@@ -15,7 +15,7 @@ import { Handheld, Lens } from './Handheld';
 import { Advance } from './Advance';
 import { HeldPad } from './Controls';
 import { createHeld } from './held';
-import { march, motif, music, setMuted as setAudioMuted, sfx, unlock, type Sfx } from './sound';
+import { engine, march, motif, music, setMuted as setAudioMuted, sfx, unlock, type Sfx } from './sound';
 import { Press } from './hint';
 import { keyAction, type Action } from './keys';
 import type { SongName } from './score';
@@ -34,7 +34,7 @@ import { InvadersOverlay } from './scenes/invaders.tsx';
 import { LevelUpOverlay } from './scenes/levelup.tsx';
 import { PlatformerOverlay } from './scenes/platformer.tsx';
 import { KartOverlay } from './scenes/kart.tsx';
-import { kartCast, kartPress, loadKart, sameKartHud, type ArcadeKart, type KartGame } from './scenes/kart.ts';
+import { kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartHud } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
 import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
@@ -78,14 +78,46 @@ const KART = GAMES.find((g) => g.scene === 'kart')?.id ?? 'kart';
 // The games: they read the pad's buttons held, so a key held down is never a repeat of its press.
 const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', 'kart']);
 
+// How long the FINAL LAP jingle rings before the faster tune starts.
+const FINAL_LAP_JINGLE_MS = 800;
+
 /** The loaded game OMNI KART draws with, while its scene shows. */
 const kartDrawOf = (scene: SceneName, kart: ArcadeKart | null): KartGame | null => (scene === 'kart' ? kart?.game ?? null : null);
+
+/** The race's cues since the last call, played: each through `soundOf` and `sfx`, which the mute (M) silences. */
+function hearKart(game: KartGame) {
+  for (const cue of game.cues()) {
+    const heard = soundOf(cue);
+    if (heard) sfx(heard.sfx, heard.far);
+  }
+}
+
+/**
+ * OMNI KART's music and engine (PRD 1427): the song its phase asks for, the faster tune after the FINAL LAP jingle;
+ * the cabinet left, the scene's own music stops the song, and the engine stops here.
+ */
+function useKartSound(scene: SceneName, hud: KartHud | null) {
+  const tune = scene === 'kart' ? kartSong(hud) : null;
+  useEffect(() => {
+    if (scene !== 'kart') return undefined;
+    if (tune !== 'lastLap') { music(tune); return undefined; }
+    const after = setTimeout(() => { music('lastLap'); }, FINAL_LAP_JINGLE_MS);
+    return () => { clearTimeout(after); };
+  }, [scene, tune]);
+  useEffect(() => {
+    if (scene !== 'kart') engine(null);
+    return undefined;
+  }, [scene]);
+  useEffect(() => () => { engine(null); }, []);
+}
 
 /** The race plays the time since the last frame, with the buttons held now, and the text layer follows it. */
 function stepKart(scene: SceneName, kart: ArcadeKart | null, buttons: ReadonlySet<Action>, dt: number, show: (game: KartGame) => void, finished: (score: number) => void) {
   const game = kartDrawOf(scene, kart);
   if (!game) return;
   const score = game.step(buttons, dt);
+  hearKart(game);
+  engine(kartEngineOn(game.hud()) ? game.speed() : null);
   show(game);
   if (score !== null) finished(score); // the step that crossed the line says so once: the score is sent once
 }
@@ -466,6 +498,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (ui.lockedAt !== null) return;
     music(ui.scene === 'levelup' && ui.levelUp ? fanfareOf(ui.levelUp) : TRACK[ui.scene] ?? null);
   }, [ui.scene, ui.lockedAt, ui.levelUp]);
+  useKartSound(ui.scene, kart?.hud ?? null);
   // A game is only ever on its own scene: one left by another route is over, and the scene with no
   // game goes back to the room.
   useEffect(() => {
@@ -814,6 +847,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           const pressed = k.game.press(action);
           if (pressed.quit) { setKart(null); go({ scene: 'games' }, 'back'); return; }
           if (pressed.again) { held.clear(); runRef.current += 1; showSend(null); setKart({ ...k, status: 'loading', retry: k.retry + 1, game: null, hud: null }); return; }
+          hearKart(k.game);
           showKartHud(k.game);
         }
         return;

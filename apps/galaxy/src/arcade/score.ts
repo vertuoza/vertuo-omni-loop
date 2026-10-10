@@ -53,6 +53,36 @@ export function parseSong(song: Song): { notes: Note[]; steps: number } {
 /** Seconds per sixteenth at a tempo. */
 export const stepSeconds = (bpm: number) => 60 / bpm / 4;
 
+// OMNI KART's race tune (PRD 1427): A minor over Am F C G, sixteen bars (about 30 s at 128 bpm), the
+// last four a turn that comes back to the start when it loops. `lastLap` is the same tune faster.
+const RACE_LEAD_A = [
+  'A4 . C5 . E5 . A5 . G5 . E5 . C5 . E5 .', 'F4 . A4 . C5 . F5 . E5 . C5 . A4 . C5 .',
+  'E5 . G5 . C6 . G5 . E5 . G5 . C5 . E5 .', 'D5 . G5 . B5 . G5 . D5 . B4 . G4 . B4 .',
+];
+const RACE_LEAD_B = [
+  'A5 - - - G5 - E5 - C5 - - - E5 - G5 -', 'A5 - - - F5 - C5 - A4 - - - C5 - F5 -',
+  'G5 - - - E5 - C5 - E5 - G5 - C6 - - -', 'B5 - - - G5 - D5 - G5 - B5 - D6 - - -',
+];
+const RACE_LEAD_C = [...RACE_LEAD_B.slice(0, 3), 'B5 - G5 - D5 - B4 - G4 - B4 - D5 - G5 -'];
+const RACE_HARM = [
+  'E4 - - - - - - - C4 - - - - - - -', 'C4 - - - - - - - A3 - - - - - - -',
+  'G4 - - - - - - - E4 - - - - - - -', 'D4 - - - - - - - B3 - - - - - - -',
+];
+const RACE_BASS = [
+  'A1 . A2 . A1 . A2 . A1 . A2 . A1 . A2 .', 'F1 . F2 . F1 . F2 . F1 . F2 . F1 . F2 .',
+  'C2 . C3 . C2 . C3 . C2 . C3 . C2 . C3 .', 'G1 . G2 . G1 . G2 . G1 . G2 . G1 . G2 .',
+];
+const RACE_BEAT = 'k . h . s . h . k . h . s . h h';
+const RACE_FILL = 'k . h . s . h . k . s . s s s s';
+const RACE_DRUMS = [RACE_BEAT, RACE_BEAT, RACE_BEAT, RACE_FILL];
+const raceTune = (bpm: number): Song => ({
+  bpm, loop: true,
+  lead: [...RACE_LEAD_A, ...RACE_LEAD_B, ...RACE_LEAD_A, ...RACE_LEAD_C],
+  harm: [...RACE_HARM, ...RACE_HARM, ...RACE_HARM, ...RACE_HARM],
+  bass: [...RACE_BASS, ...RACE_BASS, ...RACE_BASS, ...RACE_BASS],
+  drums: [...RACE_DRUMS, ...RACE_DRUMS, ...RACE_DRUMS, ...RACE_DRUMS],
+});
+
 export const SONGS = {
   // First visit: about 20 s (10 bars at 120), a build, the theme twice, a last chord. Scenes are
   // timed to its bars: stripes 0–4 s, OMNI-MAN rises 4–8 s, three lines 8/10/12 s, fleets 14–18 s.
@@ -154,6 +184,9 @@ export const SONGS = {
     bass: ['C2 . . . G2 . . . C3 - - - G2 . C3 .', 'F2 - - - F2 - - - G2 - - - G2 - - -', 'C2 . . . C3 - - - - - - - . . . .'],
     drums: ['k . s . k . s . c . . . s s s s', 'k . h . s . h . k . h . s s s s', 'c . . . k . . . c . . . . . . .'],
   },
+  // OMNI KART (PRD 1427): the race tune from GO, and the same tune faster once FINAL LAP shows.
+  race: raceTune(128),
+  lastLap: raceTune(160),
 } satisfies Record<string, Song>;
 
 export type SongName = keyof typeof SONGS;

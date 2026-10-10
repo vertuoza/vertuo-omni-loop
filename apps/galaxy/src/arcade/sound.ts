@@ -9,13 +9,22 @@ export type Sfx =
   | 'move' | 'select' | 'back' | 'start' | 'tab'
   | 'coin' | 'type' | 'erase' | 'buzz' | 'tick' | 'random' | 'linked' | 'away'
   // Entropy Invaders: a bolt fired, an alien hit, the hero hit, a wave cleared, the game over.
-  | 'fire' | 'hit' | 'hurt' | 'wave' | 'over';
+  | 'fire' | 'hit' | 'hurt' | 'wave' | 'over'
+  // OMNI KART (PRD 1427): the countdown's beep and GO, one sound per item, a box, a hit, a spin-out, a wall scrape, the final lap.
+  | KartSfx;
+
+type KartSfx = 'beep' | 'go' | 'boost' | 'blob' | 'orb' | 'box' | 'impact' | 'spin' | 'scrape' | 'finalLap';
 
 type Wave = 'p25' | 'p12' | OscillatorType;
 
 const VOICE_WAVE: Record<Voice, Wave> = { lead: 'p25', harm: 'p12', bass: 'triangle', drums: 'sine' };
 const VOICE_GAIN: Record<Voice, number> = { lead: 0.045, harm: 0.028, bass: 0.11, drums: 1 };
 const MASTER = 0.8;
+
+// How a rival's effect differs from the player's, by ear and in one place: at far 1 (20 tiles) it is
+// RIVAL_LOUD times quieter than at far 0 and RIVAL_LOW times lower, and a rival is never louder than half the player's.
+const RIVAL_LOUD = 0.5;
+const RIVAL_LOW = 0.6;
 
 let ac: AudioContext | null = null;
 let master: GainNode;
@@ -229,8 +238,9 @@ export function motifNotes(fleet: string): string[] {
   return [0, 1, 2].map((i) => at(PENTATONIC, (h >>> (i * 5)) % PENTATONIC.length, 'a pentatonic note'));
 }
 
-function out() {
+function out(level = 1) {
   const g = context().createGain();
+  g.gain.value = level;
   g.connect(master); g.connect(echo);
   setTimeout(() => { g.disconnect(); }, 3000);
   return g;
@@ -250,10 +260,79 @@ export function motif(f: { name: string; mascot: string | null }) {
   motifNotes(f.name).forEach((n, i) => { note(o, hz(n), t + i * 0.1, i === 2 ? 0.24 : 0.09, 'p25', 0.045); });
 }
 
-/** A sound effect. */
-export function sfx(name: Sfx) {
+/** How loud (1 is the player's own) and how low (a factor on every pitch) an effect `far` away sounds, `far` from 0 (beside the player) to 1. */
+export function farOf(far: number): { level: number; pitch: number } {
+  const f = Math.min(1, Math.max(0, far));
+  return f === 0 ? { level: 1, pitch: 1 } : { level: RIVAL_LOUD * (1 - f), pitch: 1 - (1 - RIVAL_LOW) * f };
+}
+
+// The engine's hum (PRD 1427), by ear and in one place: ENGINE_HZ at rest, an octave above at level 1, quiet under the music.
+const ENGINE_HZ = 55;
+const ENGINE_GAIN = 0.03;
+let hum: { osc: OscillatorNode; gain: GainNode } | null = null;
+
+/** The pitch of the engine at a level, 0 (at rest) to 1 (top speed): a low hum, rising to an octave above. */
+export const engineHz = (level: number): number => ENGINE_HZ * 2 ** Math.min(1, Math.max(0, level));
+
+/** The engine's hum under the music, its pitch following `level` (0 to 1); `null` stops it. Muted, the master is silent, so it does not sound. */
+export function engine(level: number | null) {
   if (!ac) return;
-  const o = out(), t = ac.currentTime + 0.01;
+  const now = ac.currentTime;
+  if (level === null) {
+    if (!hum) return;
+    const old = hum;
+    hum = null;
+    old.gain.gain.setTargetAtTime(0, now, 0.05);
+    old.osc.stop(now + 0.4);
+    setTimeout(() => { old.osc.disconnect(); old.gain.disconnect(); }, 500);
+    return;
+  }
+  if (!hum) {
+    const osc = ac.createOscillator(), gain = ac.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = engineHz(level);
+    gain.gain.value = ENGINE_GAIN;
+    osc.connect(gain); gain.connect(master);
+    osc.start(now);
+    hum = { osc, gain };
+    return;
+  }
+  hum.osc.frequency.setTargetAtTime(engineHz(level), now, 0.08);
+}
+
+/** One of OMNI KART's effects: written for the player, `p` times lower when it is a rival's. */
+type KartVoice = (o: AudioNode, t: number, p: number) => void;
+
+const KART_SFX: Record<KartSfx, KartVoice> = {
+  beep: (o, t, p) => { note(o, 660 * p, t, 0.14, 'square', 0.05); },
+  go: (o, t, p) => { note(o, 880 * p, t, 0.1, 'square', 0.05); note(o, 1320 * p, t + 0.1, 0.4, 'square', 0.05); },
+  boost: (o, t, p) => { // a rising whoosh
+    hiss(o, t, 0.5, { type: 'bandpass', freq: 1500 * p, q: 0.8, gain: 0.35 });
+    note(o, 220 * p, t, 0.45, 'p25', 0.04, { slideTo: 880 * p });
+  },
+  blob: (o, t, p) => { // a wet splat
+    note(o, 300 * p, t, 0.14, 'sine', 0.12, { slideTo: 80 * p });
+    hiss(o, t, 0.1, { type: 'lowpass', freq: 900 * p, gain: 0.4 });
+  },
+  orb: (o, t, p) => { note(o, 1200 * p, t, 0.22, 'p12', 0.04, { slideTo: 400 * p }); note(o, 600 * p, t + 0.04, 0.2, 'sine', 0.05, { slideTo: 200 * p }); },
+  box: (o, t, p) => { [784, 1047, 1568].forEach((f, i) => { note(o, f * p, t + i * 0.05, 0.1, 'p25', 0.045); }); },
+  impact: (o, t, p) => {
+    hiss(o, t, 0.22, { freq: 900 * p, q: 0.7, gain: 0.5 });
+    note(o, 180 * p, t, 0.18, 'square', 0.05, { slideTo: 50 * p });
+  },
+  spin: (o, t, p) => { note(o, 900 * p, t, 0.8, 'triangle', 0.06, { vib: 0.08, slideTo: 200 * p }); },
+  scrape: (o, t, p) => { hiss(o, t, 0.18, { type: 'highpass', freq: 3000 * p, gain: 0.3 }); },
+  finalLap: (o, t, p) => { ['E5', 'G5', 'B5', 'E6', 'B5', 'E6'].forEach((n, i) => { note(o, hz(n) * p, t + i * 0.09, i > 4 ? 0.3 : 0.08, 'p25', 0.05); }); },
+};
+
+const isKartSfx = (name: Sfx): name is KartSfx => Object.hasOwn(KART_SFX, name);
+
+/** A sound effect. `far` (0, beside the player, to 1, 20 tiles away) makes it quieter and lower: a rival's. */
+export function sfx(name: Sfx, far = 0) {
+  if (!ac) return;
+  const { level, pitch } = farOf(far);
+  const o = out(level), t = ac.currentTime + 0.01;
+  if (isKartSfx(name)) { KART_SFX[name](o, t, pitch); return; }
   switch (name) {
     case 'move': note(o, 660, t, 0.04, 'square', 0.035); break;
     case 'tick': note(o, 880, t, 0.025, 'p12', 0.04); break;

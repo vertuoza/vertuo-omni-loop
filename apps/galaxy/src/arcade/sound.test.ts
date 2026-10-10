@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MASCOTS } from '@omni/design';
-import { motif, unlock, writtenMotif } from './sound';
+import { engine, engineHz, farOf, motif, setMuted, sfx, unlock, writtenMotif, type Sfx } from './sound';
 import { sure } from './test/sure';
 
 // A fleet's motif is keyed by its mascot, never by its name (PRD 400): a workspace names its own
@@ -50,7 +50,8 @@ class Param {
   wobbles = false;
   setValueAtTime(v: number) { if (this.set === null) this.set = v; return this; }
   exponentialRampToValueAtTime() { this.slides = true; return this; }
-  setTargetAtTime() { return this; }
+  target: number | null = null;
+  setTargetAtTime(v: number) { this.target = v; return this; }
 }
 class Node {
   connect(to: unknown) { if (to instanceof Param) to.wobbles = true; }
@@ -73,14 +74,16 @@ class FakeAudio {
   state = 'running';
   destination = new Node();
   oscs: Osc[] = [];
+  gains: { gain: Param }[] = [];
+  hisses = 0;
   constructor() { made(this); }
   resume() {}
-  createGain() { return Object.assign(new Node(), { gain: new Param() }); }
+  createGain() { const g = Object.assign(new Node(), { gain: new Param() }); this.gains.push(g); return g; }
   createDelay() { return Object.assign(new Node(), { delayTime: new Param() }); }
   createBiquadFilter() { return Object.assign(new Node(), { type: 'lowpass', frequency: new Param(), Q: new Param() }); }
   createPeriodicWave() { return {}; }
   createBuffer(_channels: number, length: number) { return { getChannelData: () => new Float32Array(length) }; }
-  createBufferSource() { return Object.assign(new Node(), { buffer: null, loop: false, start() {}, stop() {} }); }
+  createBufferSource() { this.hisses++; return Object.assign(new Node(), { buffer: null, loop: false, start() {}, stop() {} }); }
   createOscillator() { const o = new Osc(); this.oscs.push(o); return o; }
 }
 
@@ -151,5 +154,107 @@ describe('the five new mascots\' motifs (PRD 517)', () => {
     const steps = played.slice(1).map((t, i) => Math.sign(t.f - sure(played[i], 'played[i]').f));
     expect(steps.every((s) => s !== 0)).toBe(true);
     steps.slice(1).forEach((s, i) => { expect(s).toBe(-sure(steps[i], 'steps[i]')); });
+  });
+});
+
+// OMNI KART's effects (PRD 1427, slice 2): each new name plays, a rival's is quieter and lower the farther it is, and mute silences them.
+describe('the race\'s effects', () => {
+  const NEW: readonly Sfx[] = ['beep', 'go', 'boost', 'blob', 'orb', 'box', 'impact', 'spin', 'scrape', 'finalLap'];
+
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal('window', { AudioContext: FakeAudio });
+    unlock();
+  });
+  afterAll(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+  beforeEach(() => { vi.clearAllTimers(); });
+
+  /** What one effect made: the pitches it started, how many hisses, and the loudness of its output. */
+  function heard(name: Sfx, far = 0) {
+    audio.oscs = [];
+    audio.hisses = 0;
+    const before = audio.gains.length;
+    sfx(name, far);
+    const pitches = audio.oscs.filter((o) => o.frequency.set !== null).map((o) => sure(o.frequency.set, 'o.frequency.set'));
+    return { pitches, hisses: audio.hisses, level: sure(audio.gains[before], 'the effect\'s output').gain.value };
+  }
+
+  it('plays every new effect: a tone or a hiss', () => {
+    for (const name of NEW) {
+      const h = heard(name);
+      expect(h.pitches.length + h.hisses, name).toBeGreaterThan(0);
+      expect(h.level, name).toBe(1);
+    }
+  });
+
+  it('plays a rival\'s effect quieter and lower than the player\'s, and more so the farther it is', () => {
+    for (const name of NEW) {
+      const own = heard(name), near = heard(name, 0.1), far = heard(name, 0.9);
+      expect(near.level, name).toBeLessThan(own.level);
+      expect(far.level, name).toBeLessThan(near.level);
+      expect(near.level, name).toBeLessThanOrEqual(0.5);
+      if (own.pitches.length) {
+        expect(sure(near.pitches[0], 'near'), name).toBeLessThan(sure(own.pitches[0], 'own'));
+        expect(sure(far.pitches[0], 'far'), name).toBeLessThan(sure(near.pitches[0], 'near'));
+      }
+    }
+  });
+
+  it('gives the loudness and pitch of a distance: the player\'s own at 0, at most half as loud for anything farther', () => {
+    expect(farOf(0)).toEqual({ level: 1, pitch: 1 });
+    expect(farOf(0.01).level).toBeLessThanOrEqual(0.5);
+    expect(farOf(1).level).toBe(0);
+    expect(farOf(2)).toEqual(farOf(1));
+  });
+
+  it('sounds nothing when muted: the master fades to silence, and back', () => {
+    const master = sure(audio.gains[0], 'the master gain').gain;
+    setMuted(true);
+    expect(master.target).toBe(0);
+    setMuted(false);
+    expect(master.target).toBeGreaterThan(0);
+  });
+});
+
+describe('the engine hum (PRD 1427)', () => {
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal('window', { AudioContext: FakeAudio });
+    unlock();
+  });
+  afterAll(() => { engine(null); vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  it('hums low at rest and an octave above at top speed, rising in between', () => {
+    expect(engineHz(1)).toBeCloseTo(2 * engineHz(0), 6);
+    expect(engineHz(0.5)).toBeGreaterThan(engineHz(0));
+    expect(engineHz(0.5)).toBeLessThan(engineHz(1));
+    expect(engineHz(5)).toBe(engineHz(1));
+    expect(engineHz(-1)).toBe(engineHz(0));
+  });
+
+  it('starts one oscillator, follows the level with it, and stops on null', () => {
+    audio.oscs = [];
+    engine(0);
+    engine(0.6);
+    expect(audio.oscs).toHaveLength(1);
+    const osc = sure(audio.oscs[0], 'the engine oscillator');
+    expect(osc.frequency.value).toBeCloseTo(engineHz(0), 6);
+    expect(osc.frequency.target).toBeCloseTo(engineHz(0.6), 6);
+    const hum = sure(audio.gains.at(-1), 'the engine gain').gain;
+    engine(null);
+    expect(hum.target).toBe(0);
+    engine(null);
+    engine(0.2);
+    expect(audio.oscs).toHaveLength(2);
+    engine(null);
+  });
+
+  it('sounds nothing when muted: the hum goes through the master', () => {
+    const master = sure(audio.gains[0], 'the master gain').gain;
+    setMuted(true);
+    engine(0.5);
+    expect(master.target).toBe(0);
+    engine(null);
+    setMuted(false);
   });
 });

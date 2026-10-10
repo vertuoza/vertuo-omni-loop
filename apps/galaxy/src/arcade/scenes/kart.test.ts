@@ -9,7 +9,7 @@ import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
-import { kartCast, kartPress, loadKart, NOT_LOADED, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, TALL_SCENES, type KartGame, type KartHud, type KartStatus } from './kart.ts';
+import { kartCast, kartPress, loadKart, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
 import { sending, type ScoreSend } from './invaders-score';
@@ -22,7 +22,7 @@ const text = (status: KartStatus, grid: Grid = WIDE, form: 'full' | 'handheld' =
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** A game that does nothing, as the loader hands it over. */
-const stubGame = (): KartGame => ({ draw: () => {}, step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, hud: () => ({ phase: 'ready', beat: null }) });
+const stubGame = (): KartGame => ({ draw: () => {}, step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, hud: () => ({ phase: 'ready', beat: null }), cues: () => [], speed: () => 0 });
 
 describe('the kart scene on its grids', () => {
   it('is laid out on the tall grid on the Game Boy held upright, and on the wide grid elsewhere', () => {
@@ -280,5 +280,68 @@ describe('the results and the score (slice 4)', () => {
     expect(sameKartHud(results(), results())).toBe(false);
     const r = results();
     expect(sameKartHud(r, r)).toBe(true);
+  });
+});
+
+// What the race says becomes sound (PRD 1427, slice 2): every cue has an effect, a rival's is farther, and none is heard beyond 20 tiles.
+describe('the sound of a cue', () => {
+  const cues: KartCue[] = [
+    { kind: 'beep', beat: '3' }, { kind: 'go' }, { kind: 'item', item: 'boost', you: true, tiles: 0 }, { kind: 'item', item: 'blob', you: true, tiles: 0 },
+    { kind: 'item', item: 'orb', you: true, tiles: 0 }, { kind: 'box' }, { kind: 'hit', item: 'orb', you: true, tiles: 0 }, { kind: 'spin' }, { kind: 'scrape' }, { kind: 'finalLap' },
+  ];
+
+  it('maps every cue to an effect beside the player', () => {
+    expect(cues.map((c) => soundOf(c))).toEqual([
+      { sfx: 'beep', far: 0 }, { sfx: 'go', far: 0 }, { sfx: 'boost', far: 0 }, { sfx: 'blob', far: 0 },
+      { sfx: 'orb', far: 0 }, { sfx: 'box', far: 0 }, { sfx: 'impact', far: 0 }, { sfx: 'spin', far: 0 }, { sfx: 'scrape', far: 0 }, { sfx: 'finalLap', far: 0 },
+    ]);
+  });
+
+  it('gives each item its own sound', () => {
+    const own = (item: KartItem) => soundOf({ kind: 'item', item, you: true, tiles: 0 })?.sfx;
+    expect(new Set([own('boost'), own('blob'), own('orb')]).size).toBe(3);
+  });
+
+  it('plays a rival\'s item and a hit on a rival as the same effect, farther the farther it is', () => {
+    const item = (tiles: number) => soundOf({ kind: 'item', item: 'orb', you: false, tiles });
+    const hit = (tiles: number) => soundOf({ kind: 'hit', item: 'blob', you: false, tiles });
+    expect(item(10)).toMatchObject({ sfx: 'orb' });
+    expect(hit(10)).toMatchObject({ sfx: 'impact' });
+    expect(item(10)?.far).toBeGreaterThan(item(3)?.far ?? 1);
+    expect(item(3)?.far).toBeGreaterThan(0);
+    expect(item(20)?.far).toBe(1);
+    expect(item(0)?.far).toBeGreaterThan(0);
+  });
+
+  it('plays nothing for a rival beyond 20 tiles, and still plays the player\'s own, however far', () => {
+    expect(soundOf({ kind: 'item', item: 'orb', you: false, tiles: 20.1 })).toBeNull();
+    expect(soundOf({ kind: 'hit', item: 'orb', you: false, tiles: 40 })).toBeNull();
+    expect(soundOf({ kind: 'hit', item: 'orb', you: true, tiles: 40 })).toEqual({ sfx: 'impact', far: 0 });
+  });
+});
+
+describe('the race\'s music and engine (PRD 1427)', () => {
+  const run = (final: boolean) => ({ place: 1, lap: final ? 3 : 1, laps: 3, tenths: 10, final, item: null });
+  const hud = (phase: KartHud['phase'], extra: Partial<KartHud> = {}): KartHud => ({ phase, beat: null, ...extra });
+
+  it('plays no song on the ready screen and during the countdown', () => {
+    expect(kartSong(hud('ready'))).toBeNull();
+    expect(kartSong(hud('countdown', { beat: '2' }))).toBeNull();
+    expect(kartSong(null)).toBeNull();
+  });
+
+  it('plays race from GO and lastLap once FINAL LAP shows', () => {
+    expect(kartSong(hud('race', { run: run(false) }))).toBe('race');
+    expect(kartSong(hud('race', { run: run(true) }))).toBe('lastLap');
+  });
+
+  it('plays none while paused, and the fanfare on the results', () => {
+    expect(kartSong(hud('paused', { run: run(true) }))).toBeNull();
+    expect(kartSong(hud('finish'))).toBe('fanfare');
+  });
+
+  it('hums during the countdown and the race only', () => {
+    expect(['ready', 'countdown', 'race', 'paused', 'finish'].map((p) => kartEngineOn(hud(p as KartHud['phase'])))).toEqual([false, true, true, false, false]);
+    expect(kartEngineOn(null)).toBe(false);
   });
 });

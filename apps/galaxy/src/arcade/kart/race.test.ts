@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { hudOf, newRace, pause, press, scoreOf, step, type Race } from './race';
+import { cuesOf, hudOf, newRace, pause, press, scoreOf, step, type Race } from './race';
 import { RULES } from './rules';
 import { LAPS, PAR_SECONDS, parseTrack, TILE, tileAt } from './track';
 
@@ -257,5 +257,107 @@ describe('the finish and the score (slice 4)', () => {
     const p = press(pause(racing()), 'select');
     expect(p.events).toEqual([{ kind: 'quit' }]);
     expect(p.race.finish).toBeNull();
+  });
+});
+
+// What a step tells (PRD 1427, slice 2): the countdown's beats, items, boxes, hits, walls, the final lap.
+describe('the events of a step', () => {
+  const kinds = (events: readonly { kind: string }[]) => events.map((e) => e.kind);
+
+  it('tells beat 3 on START, then beat 2, beat 1 and GO, each once', () => {
+    let r = fresh();
+    const told: unknown[] = [];
+    const pressed = press(r, 'start');
+    r = pressed.race;
+    told.push(...pressed.events);
+    for (let t = 0; t < RULES.countdown + 0.5; t += 0.05) {
+      const s = step(r, NONE, 0.05);
+      r = s.race;
+      told.push(...s.events);
+    }
+    expect(told).toEqual([{ kind: 'beat', beat: '3' }, { kind: 'beat', beat: '2' }, { kind: 'beat', beat: '1' }, { kind: 'go' }]);
+  });
+
+  it('does not tell beat 3 again when a pause resumes the countdown', () => {
+    expect(press(pause(started()), 'start').events).toEqual([]);
+  });
+
+  it('tells the item the player uses with B, once, and nothing when it holds none', () => {
+    const r = racing();
+    expect(press(r, 'b').events).toEqual([]);
+    const held: Race = { ...r, fx: { ...r.fx, item: 'orb' } };
+    expect(press(held, 'b').events).toEqual([{ kind: 'item', racer: 0, item: 'orb' }]);
+  });
+
+  it('tells the final lap once, on the step the last lap begins', () => {
+    const r = racing();
+    const [fx, fy] = track.forward;
+    const player: Race['player'] = { ...r.player, x: track.line.x - fx * 3, y: track.line.y - fy * 3, angle: track.heading, speed: 100, steer: 0 };
+    let next: Race = { ...r, clock: 100, player, pace: { laps: LAPS - 2, passed: track.waypoints.length } };
+    const told: string[] = [];
+    for (let i = 0; i < 20; i++) {
+      const s = step(next, NONE, 0.05);
+      next = s.race;
+      told.push(...kinds(s.events));
+    }
+    expect(told.filter((k) => k === 'finalLap')).toHaveLength(1);
+    expect(next.finalAt).not.toBeNull();
+  });
+
+  /** A race with the player against the east wall of a road tile, facing it. */
+  function atWall(): Race {
+    const east = /[#r=S.]X/;
+    const row = track.map.findIndex((line) => east.test(line));
+    const col = (track.map[row] ?? '').search(east);
+    expect(row).toBeGreaterThanOrEqual(0);
+    return { ...racing(), player: { x: (col + 1) * TILE - 2, y: row * TILE + 8, angle: 0, speed: 60, steer: 0 }, touching: false };
+  }
+
+  it('tells a wall contact once while the kart is held against it, and again only after a step without contact', () => {
+    const first = step(atWall(), GAS, 0.05);
+    expect(kinds(first.events)).toEqual(['wall']);
+    expect(first.race.touching).toBe(true);
+    // Still against the wall on the next step: told already, so not again.
+    const held = step({ ...atWall(), touching: true }, GAS, 0.05);
+    expect(kinds(held.events)).toEqual([]);
+    expect(held.race.touching).toBe(true);
+    const r = first.race;
+    const away = step({ ...r, player: { ...r.player, x: r.player.x - 12, speed: 0 } }, NONE, 0.05);
+    expect(away.race.touching).toBe(false);
+    expect(kinds(away.events)).not.toContain('wall');
+    const again = step({ ...away.race, player: { ...atWall().player } }, GAS, 0.05);
+    expect(kinds(again.events)).toContain('wall');
+  });
+});
+
+describe('the cues an event makes', () => {
+  it('makes a beep of a beat, a go of GO and a final lap of the final lap', () => {
+    expect(cuesOf({ kind: 'beat', beat: '2' }, 0)).toEqual([{ kind: 'beep', beat: '2' }]);
+    expect(cuesOf({ kind: 'go' }, 0)).toEqual([{ kind: 'go' }]);
+    expect(cuesOf({ kind: 'finalLap' }, 0)).toEqual([{ kind: 'finalLap' }]);
+  });
+
+  it('makes an item cue for any racer, with whether it is the player and how far it stands, in tiles', () => {
+    expect(cuesOf({ kind: 'item', racer: 0, item: 'boost' }, 0)).toEqual([{ kind: 'item', item: 'boost', you: true, tiles: 0 }]);
+    expect(cuesOf({ kind: 'item', racer: 3, item: 'orb' }, 7.5)).toEqual([{ kind: 'item', item: 'orb', you: false, tiles: 7.5 }]);
+  });
+
+  it('makes a box cue for the player only', () => {
+    expect(cuesOf({ kind: 'box', racer: 0 }, 0)).toEqual([{ kind: 'box' }]);
+    expect(cuesOf({ kind: 'box', racer: 2 }, 4)).toEqual([]);
+  });
+
+  it('makes a hit cue for any racer, and a spin for the player that spun out', () => {
+    expect(cuesOf({ kind: 'hit', racer: 0, item: 'blob', spun: true }, 0)).toEqual([{ kind: 'hit', item: 'blob', you: true, tiles: 0 }, { kind: 'spin' }]);
+    expect(cuesOf({ kind: 'hit', racer: 0, item: 'orb', spun: false }, 0)).toEqual([{ kind: 'hit', item: 'orb', you: true, tiles: 0 }]);
+    expect(cuesOf({ kind: 'hit', racer: 4, item: 'orb', spun: true }, 12)).toEqual([{ kind: 'hit', item: 'orb', you: false, tiles: 12 }]);
+  });
+
+  it('makes a scrape of the player\'s wall contact, and nothing of a rival\'s, the finish or the player leaving', () => {
+    expect(cuesOf({ kind: 'wall', racer: 0 }, 0)).toEqual([{ kind: 'scrape' }]);
+    expect(cuesOf({ kind: 'wall', racer: 1 }, 3)).toEqual([]);
+    expect(cuesOf({ kind: 'finish', score: 10 }, 0)).toEqual([]);
+    expect(cuesOf({ kind: 'quit' }, 0)).toEqual([]);
+    expect(cuesOf({ kind: 'again' }, 0)).toEqual([]);
   });
 });
