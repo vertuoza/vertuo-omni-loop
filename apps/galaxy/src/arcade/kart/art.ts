@@ -29,7 +29,48 @@ const HAZE = 5;
 
 const wrap = (x: number, span: number) => ((x % span) + span) % span;
 
-function skyOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View) {
+/** A comet in the sky: where its head is, and the way and length of its tail, in screen pixels. */
+export interface Comet { x: number; y: number; dir: 1 | -1; tail: number }
+
+/** How many comets the sky holds, how long one takes to cross it, and the share of its period it is in the sky. */
+const COMETS = 3;
+const CROSSING = 2.4;
+
+/** A small seeded stream of numbers in [0, 1): the same seed, the same numbers. */
+function stream(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * The comets crossing the sky at time `t`, seeded from the race: each has its own period, its own
+ * moment in it, its own height and way, and is in the sky for a short part of its period ("now and
+ * then"). With motion reduced they stand still, each caught half way across.
+ */
+export function cometsOf(seed: number, t: number, w: number, sky: number, reduced: boolean): Comet[] {
+  const next = stream(seed ^ 0x636f6d);
+  const out: Comet[] = [];
+  for (let i = 0; i < COMETS; i++) {
+    const period = 7 + next() * 8, offset = next() * period, y = Math.floor(6 + next() * Math.max(1, sky * 0.6)), dir = next() < 0.5 ? -1 : 1;
+    const tail = Math.round(10 + next() * 14);
+    const into = reduced ? CROSSING / 2 : wrap(t + offset, period);
+    if (into >= CROSSING) continue;
+    const along = into / CROSSING;
+    out.push({ x: Math.round((dir === 1 ? along : 1 - along) * (w + tail * 2) - tail), y: Math.min(y, sky - 1), dir: dir === 1 ? 1 : -1, tail });
+  }
+  return out;
+}
+
+/** The planet's seed, and the second planet's. */
+const PLANET_SEED = 1359;
+const MOON_SEED = 1427;
+
+function skyOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View, seed: number) {
   const sky = v.horizon;
   const shift = s.reduced ? 0 : skyShift(v.angle, v.w * PANORAMA);
   const bands = [s.theme.void, '#0a0824', '#0d0a2c', '#110c34'];
@@ -42,9 +83,23 @@ function skyOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View) {
   drawStarfield(ctx, stars, shift / 6, { w: W, h: H, speed: 1 });
   ctx.drawImage(nebulaFor('kart-sky', 1, 360, 150), Math.round(wrap(shift * 0.5 + 40, v.w * 3) - v.w * 0.5 - 20), Math.round(sky - 130));
   drawPlanet(ctx, {
-    cx: Math.round(wrap(shift + v.w * 0.7, v.w * PANORAMA) - v.w * 0.2), cy: sky - 20, r: Math.round(sky * 0.28), seed: 1359,
+    cx: Math.round(wrap(shift + v.w * 0.7, v.w * PANORAMA) - v.w * 0.2), cy: sky - 20, r: Math.round(sky * 0.28), seed: PLANET_SEED,
     rot: s.reduced ? 0 : s.t * 0.05, progress: 0.6, mood: 'alive', atmosphere: s.theme.cyan,
   });
+  // A second, smaller planet far from the first, and the station farther still: both stand in the panorama too.
+  drawPlanet(ctx, {
+    cx: Math.round(wrap(shift * 0.8 + v.w * 0.15, v.w * PANORAMA) - v.w * 0.1), cy: Math.round(sky * 0.45), r: Math.round(sky * 0.12), seed: MOON_SEED,
+    rot: s.reduced ? 0 : s.t * 0.03, progress: 0.3, mood: 'alive', atmosphere: s.theme.gold,
+  });
+  sprite(ctx, s, 'sky-station', Math.round(wrap(shift * 0.6 + v.w * 0.45, v.w * PANORAMA) - v.w * 0.1), Math.round(sky * 0.3), { frame: s.reduced ? 0 : Math.floor(s.t * 1.5) % 2 });
+  for (const c of cometsOf(seed, s.t, v.w, sky, s.reduced)) {
+    for (let i = 0; i < c.tail; i += 2) {
+      ctx.globalAlpha = 1 - i / c.tail;
+      ctx.fillStyle = i === 0 ? s.theme.white : s.theme.cyan;
+      ctx.fillRect(c.x - c.dir * i, c.y, 2, 1);
+    }
+    ctx.globalAlpha = 1;
+  }
   ctx.restore();
   ctx.globalAlpha = 0.45;
   ctx.fillStyle = s.theme['plasma-dark'];
@@ -256,7 +311,7 @@ export function createKart({ seed, cast = [] }: KartOptions = { seed: 1359 }): K
     draw(ctx, s) {
       texture ??= paintTrack(track);
       const v = viewOf(s.grid, chaseCamera(race.player));
-      skyOf(ctx, s, v);
+      skyOf(ctx, s, v, seed);
       const floor = floorFor(v);
       renderFloor(v, texture, floor.pixels, BEYOND);
       floor.canvas.getContext('2d')?.putImageData(floor.image, 0, 0);

@@ -759,6 +759,14 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
     d.rect(9, 10, 7, 3, 'R', 2).pxs([[12, 11], [13, 11]], 'O', 0);
     d.pxs([[5, 14], [6, 14], [20, 14], [21, 13]], 'A', 3);
   } },
+  // The distant station in OMNI KART's sky (PRD 1427, slice 6): a hub with two wings of panels; its lamp and windows blink (frame 1).
+  'sky-station': { w: 28, h: 14, draw(d, f) {
+    d.rect(11, 3, 6, 8, 'L', 1).rect(12, 4, 4, 2, 'C', 0).rect(13, 11, 2, 2, 'A', 2);
+    d.rect(1, 6, 10, 2, 'A', 1).rect(17, 6, 10, 2, 'A', 1);
+    d.rect(0, 4, 3, 6, 'E', 1).rect(25, 4, 3, 6, 'E', 1);
+    d.px(14, 1, f ? 'Y' : 'R', 0).rect(13, 2, 2, 1, 'A', 2);
+    d.pxs([[12, 8], [15, 8]], f ? 'Y' : 'C', 0);
+  } },
   // The arch over the start line: a leg on each side, and the beam between, stretched across the road.
   'arch-leg': { w: 10, h: 48, draw(d) {
     d.rect(2, 4, 6, 44, 'A', 1).rect(2, 4, 2, 44, 'L', 1).rect(0, 44, 10, 4, 'A', 2);
