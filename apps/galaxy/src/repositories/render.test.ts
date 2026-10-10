@@ -16,7 +16,7 @@ import { sure } from '../arcade/test/sure';
 const NOW = Date.parse('2026-10-08T12:00:00Z');
 const SETTINGS = 'https://github.com/organizations/vertuoza/settings/installations/5001';
 const row = (fullName: string, over: Partial<RepositoryRow> = {}): RepositoryRow => ({
-  fullName, tracked: true, collectedAt: null, collectError: null, product: null, publicIdeas: false, ...over,
+  fullName, tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, ...over,
 });
 const APPS = row('vertuoza/vertuo-apps', { collectedAt: '2026-10-08T11:57:00Z' });
 const PDF = row('vertuoza/pdf-builder', { tracked: false, collectError: 'rate limited' });
@@ -139,7 +139,7 @@ describe('the ideas board switch (PRD 1246 s4)', () => {
 
   it('turns the board public and private again through its handler', () => {
     const calls: [string, boolean][] = [];
-    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {}, setPhase0() {}, setPublicIdeas: (name: string, on: boolean) => { calls.push([name, on]); } };
+    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPhase0() {}, setPublicIdeas: (name: string, on: boolean) => { calls.push([name, on]); } };
     const tree = RepositoriesView({ state: state([row('a/b', { publicIdeas: true })]), owner: false, access: INSTALLED, now: NOW, on });
     const press = (node: unknown): void => {
       if (!node || typeof node !== 'object') return;
@@ -187,7 +187,7 @@ describe('the phase 0 switch (PRD 1299 s1)', () => {
 
   it('switches it both ways through its handler', () => {
     const calls: [string, string][] = [];
-    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {}, setPublicIdeas() {}, setPhase0: (name: string, to: string) => { calls.push([name, to]); } };
+    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0: (name: string, to: string) => { calls.push([name, to]); } };
     const view = (r: RepositoryRow) => RepositoriesView({ state: state([r]), owner: true, access: INSTALLED, now: NOW, on });
     press(view(row('a/b')), 'Phase 0 on the server for a/b');
     press(view(row('a/b', { phase0: 'server' })), 'Phase 0 on the server for a/b');
@@ -205,51 +205,35 @@ describe('a workspace with no App installation', () => {
   });
 });
 
-describe('products (PRD 748 s4)', () => {
+describe('each repository\'s products, as chips (PRD 1364 s11)', () => {
   const ERP = { id: 'p-1', name: 'Vertuoza' };
   const LOOP = { id: 'p-2', name: 'Omni Loop' };
-  const withProducts = (rows: RepositoryRow[], products: { id: string; name: string }[], { owner = true, actions = [] as RepositoriesAction[] } = {}) =>
-    renderToStaticMarkup(createElement(RepositoriesView, { state: state(rows, ...actions), owner, access: INSTALLED, now: NOW, products }));
-  const selects = (html: string) => [...html.matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/g)].map((m) => ({
-    attrs: m[1],
-    options: [...sure(m[2], 'm[2]').matchAll(/<option\b([^>]*)>([^<]*)<\/option>/g)].map((o) => ({ value: /value="([^"]*)"/.exec(sure(o[1], 'o[1]'))?.[1], text: o[2], selected: sure(o[1], 'o[1]').includes('selected') })),
-  }));
+  const chips = (html: string) => [...html.matchAll(/<a [^>]*class="repositories-product-chip"[^>]*>([^<]*)<\/a>/g)].map((m) => ({ text: m[1], href: /href="([^"]*)"/.exec(m[0])?.[1] }));
 
-  it('shows no product select, and never says "Product", while the business has one or none', () => {
-    for (const products of [[], [ERP]]) {
-      const html = withProducts([APPS, PDF], products);
-      expect(selects(html)).toHaveLength(0);
-      expect(text(html)).not.toMatch(/product/i);
+  it('shows each product a repository is in as a chip linking to that product\'s home', () => {
+    const html = render([row('vertuoza/vertuo-apps', { products: [ERP, LOOP] }), row('vertuoza/pdf-builder', { products: [LOOP] })]);
+    expect(chips(rowOf(html, 'vertuoza/vertuo-apps'))).toEqual([{ text: 'Vertuoza', href: '/app/products/p-1' }, { text: 'Omni Loop', href: '/app/products/p-2' }]);
+    expect(chips(rowOf(html, 'vertuoza/pdf-builder'))).toEqual([{ text: 'Omni Loop', href: '/app/products/p-2' }]);
+  });
+
+  it('shows no chip, and never says "Product", for a repository in no product', () => {
+    const html = render([APPS, PDF]);
+    expect(chips(html)).toEqual([]);
+    expect(text(html)).not.toMatch(/product/i);
+  });
+
+  it('no longer offers a product select, to an owner or a member', () => {
+    for (const owner of [true, false]) {
+      const html = render([row('vertuoza/vertuo-apps', { products: [ERP] })], { owner });
+      expect(html).not.toContain('<select');
     }
   });
 
-  it('gives each row a product select once there are two, on the repository\'s product', () => {
-    const html = withProducts([row('vertuoza/vertuo-apps', { product: 'p-1' }), row('vertuoza/vertuo-omni-loop', { product: 'p-2' })], [ERP, LOOP]);
-    const all = selects(html);
-    expect(all).toHaveLength(2);
-    expect(sure(all[0], 'all[0]').attrs).toContain('aria-label="Product of vertuoza/vertuo-apps"');
-    expect(sure(all[0], 'all[0]').options.map((o) => o.text)).toEqual(['Vertuoza', 'Omni Loop']);
-    expect(sure(all[0], 'all[0]').options.find((o) => o.selected)?.text).toBe('Vertuoza');
-    expect(sure(selects(rowOf(html, 'vertuoza/vertuo-omni-loop'))[0], 'selects(rowOf(html, \'vertuoza/vertuo-omni-loop\'))[0]').options.find((o) => o.selected)?.text).toBe('Omni Loop');
-    expect(text(html)).toContain('Each repository’s agents read its product’s business.');
-  });
-
-  it('offers a repository with no product a disabled placeholder first', () => {
-    const [only] = selects(withProducts([APPS], [ERP, LOOP]));
-    expect(sure(only, 'only').options[0]).toEqual({ value: '', text: 'Choose…', selected: true });
-    expect(sure(only, 'only').options.slice(1).map((o) => o.text)).toEqual(['Vertuoza', 'Omni Loop']);
-  });
-
-  it('lets a member change it too, but not while a call is on its way', () => {
-    expect(sure(selects(withProducts([APPS], [ERP, LOOP], { owner: false }))[0], 'a member\'s first product select').attrs).not.toContain('disabled');
-    expect(sure(selects(withProducts([APPS], [ERP, LOOP], { actions: [{ type: 'busy' }] }))[0], 'the busy first product select').attrs).toContain('disabled');
-  });
-
-  it('wraps the select under the name at 393 px', () => {
+  it('wraps the chips under the name at 393 px', () => {
     const css = readFileSync(fileURLToPath(new URL('./repositories.css', import.meta.url)), 'utf8');
-    const at = css.lastIndexOf('.repositories-product {');
+    const at = css.lastIndexOf('.repositories-products {');
     expect(at).toBeGreaterThanOrEqual(0);
-    expect(css.slice(at, css.indexOf('}', at))).toContain('max-width: 100%');
+    expect(css.slice(at, css.indexOf('}', at))).toContain('flex-wrap: wrap');
   });
 });
 

@@ -121,7 +121,6 @@
     "apps/galaxy/src/push/store.ts database-call",
     "apps/galaxy/src/releases/sync-table.ts database-call",
     "apps/galaxy/src/repositories/RepositoriesPage.tsx client-import",
-    "apps/galaxy/src/repositories/load.ts database-call",
     "apps/galaxy/src/repositories/phase0-api.ts database-call",
     "apps/galaxy/src/repositories/store.boundary.ts database-call",
     "apps/galaxy/src/repositories/store.ts database-call",
