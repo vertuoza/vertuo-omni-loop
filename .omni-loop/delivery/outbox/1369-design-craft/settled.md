@@ -237,3 +237,159 @@ Adding the copy later is one file in the skill folder and one test line; nothing
 ```
 
 <!-- /omni-outbox-settled: s3-01-notice-in-the-plugin -->
+
+<!-- omni-outbox-settled: s4-01-review-screenshots-stay-out-of-the-repo -->
+
+## s4-01-review-screenshots-stay-out-of-the-repo — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-review-screenshots-stay-out-of-the-repo
+prd: 1369
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 4
+---
+
+## The question, in plain words
+
+Where should the pictures the design review takes of a screen be kept, so the people reviewing the change can see them?
+
+## The decision, in plain words
+
+They stay outside the code and are attached to the change's review page when the agent can; otherwise the review names each screen and width it looked at.
+
+## The intro, for fun
+
+The review took lovely photos of the new screen and then looked around for a frame.
+
+## The punchline, for fun
+
+It chose the gallery wall over the kitchen drawer.
+
+## The options, in plain words
+
+A. Keep them out of the repository and attach them when the session can (built)
+B. Commit them beside the slice's account in the PRD's outbox folder
+C. Keep no screenshots, only the written lines
+
+## What I had to decide
+
+Whether the review's screenshots should be committed with the work, kept only as attachments, or not kept at all.
+
+## What I did meanwhile
+
+Screenshots stay in a scratch folder, attached to the sub-PR when the session can upload them; the Design review section names each screen and width seen.
+
+## What it costs to change later
+
+A constant in the skill's wording: committing them later is one sentence and a folder the outbox check accepts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Agents usually cannot attach an image to a pull request from the terminal, so most reviews will carry the named widths only (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-01-review-screenshots-stay-out-of-the-repo -->
+
+<!-- omni-outbox-settled: s4-02-no-design-review-on-a-target-slice -->
+
+## s4-02-no-design-review-on-a-target-slice — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-10
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-no-design-review-on-a-target-slice
+prd: 1369
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-10
+wave: 4
+---
+
+## The question, in plain words
+
+When a slice is built in another repository from a planning repository, should the design review still look at its screens?
+
+## The decision, in plain words
+
+It does not run there for now: the planning repository never starts the other repository's app, so the review section says it was not run.
+
+## The intro, for fun
+
+The review packed its camera for a trip to the neighbour's house.
+
+## The punchline, for fun
+
+The neighbour only lets in the plumber, so it waved from the fence.
+
+## The options, in plain words
+
+A. Skip the review on a target slice, with one line saying so (built)
+B. Run the critique and audit from the source only, with no app and no lint
+C. Read the target's committed design flag and paths, and review as here
+
+## What I had to decide
+
+Whether a slice built in a target repository gets a design review from the source alone, from the target's own settings, or none.
+
+## What I did meanwhile
+
+Under --target the review does not run, and the sub-PR's Design review section is one line saying it was not run on a target slice.
+
+## What it costs to change later
+
+One sentence of the do-work skill; turning it on later reads the target's committed design flag, as its preflight is read.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec does not mention multi-repository slices at all (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-02-no-design-review-on-a-target-slice -->
