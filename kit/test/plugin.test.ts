@@ -2256,3 +2256,89 @@ describe('generated files in the skills that build, plan and finish', () => {
     expect(missingInOrder('b a', ['a', 'b'])).toEqual(['b, after a']);
   });
 });
+
+// PRD 1369, s3: /omni:pixel-perfect is impeccable's craft, imported at a pinned commit and tailored.
+// It reads the flag, then the design form; the product wins over the craft floor and the refuse
+// list; its review is bounded and never blocks; and none of its files names impeccable's engine,
+// its context files or a path only one agent has.
+describe('the pixel-perfect skill in this repository', () => {
+  const DIR = join(repoRoot, PLUGIN_DIR, 'skills', 'pixel-perfect');
+  const SOURCE = 'pbakaus/impeccable@d631a8827f99414d2b6daba4ef08b7f8701751d7';
+  const IMPORTED = ['critique', 'audit', 'polish', 'harden', 'typeset', 'layout', 'adapt', 'clarify', 'craft-floor'];
+  const COMMANDS = [...IMPORTED, 'review'];
+  const read = (path = 'SKILL.md') => readFileSync(join(DIR, path), 'utf8');
+  const ref = (name: string) => read(join('reference', `${name}.md`));
+  const allFiles = () => ['SKILL.md', ...readdirSync(join(DIR, 'reference')).map((name: string) => join('reference', name))];
+
+  it('is named pixel-perfect, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('pixel-perfect');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:pixel-perfect/);
+  });
+
+  it('holds critique, audit, polish, harden, typeset, layout, adapt, clarify, craft-floor and review, each imported one naming the commit', () => {
+    expect(readdirSync(join(DIR, 'reference')).sort()).toEqual(COMMANDS.map((name: string) => `${name}.md`).sort());
+    for (const name of IMPORTED) expect(ref(name), name).toContain(`Imported from ${SOURCE}`);
+    expect(read()).toContain(`Imported from ${SOURCE}`);
+    for (const name of COMMANDS) expect(read(), name).toContain(`[reference/${name}.md](reference/${name}.md)`);
+  });
+
+  it('reads omni config design.enabled first, says how to turn it on and stops when it is off, then reads omni kb show design', () => {
+    const text = read();
+    const flag = text.indexOf('omni.mjs config design.enabled');
+    const form = text.indexOf('omni.mjs kb show design');
+    expect(flag).toBeGreaterThan(0);
+    expect(form).toBeGreaterThan(flag);
+    expect(skillSection(text, 'Step 0')).toContain('design: off — set design.enabled: true in .omni-loop/config.yml to turn design craft on');
+    expect(skillSection(text, 'Step 0')).toMatch(/and stop\b/);
+  });
+
+  it('states the precedence itself: the product wins over the craft floor and the refuse list', () => {
+    expect(read()).toMatch(/\*\*The product wins\.\*\*/);
+    expect(read()).toMatch(/`product`, `system` and `deliberate`[^.]*override the craft floor and the\s+refuse list/);
+    expect(ref('craft-floor')).toMatch(/The design form wins/);
+  });
+
+  it('keeps fixes inside the territory, and sends what it leaves to the outbox', () => {
+    expect(read()).toMatch(/inside the slice's territory/);
+    expect(read()).toMatch(/outbox item/);
+  });
+
+  it("review is bounded, runs commands.design when set, screenshots at the form's widths, and never blocks", () => {
+    const review = ref('review');
+    expect(review).toMatch(/one look, one batch of fixes, at most one confirming look/);
+    expect(review).toContain('omni.mjs config commands.design');
+    expect(review).toContain('Design lint: not set here');
+    expect(review).toMatch(/390 and 1440/);
+    expect(review).toMatch(/\*\*Never blocking\.\*\*/);
+    expect(review).toMatch(/never stops the slice, the wave or the gate, and never turns a check\s+red/);
+    expect(review).toContain('**Design review**');
+    expect(review).toMatch(/nothing is reported as seen/);
+  });
+
+  it('names no impeccable engine, no context file of its own, and no path only one agent has', () => {
+    const banned = [/scripts\/impeccable/, /PRODUCT\.md/, /\.impeccable\//, /\.claude\//, /CLAUDE\.md/, /AskUserQuestion/, /\/impeccable\b/, /critique-storage/, /impeccable detect/];
+    for (const file of allFiles()) {
+      const text = read(file);
+      for (const pattern of banned) expect(text, `${file} names ${pattern.source}`).not.toMatch(pattern);
+    }
+  });
+
+  it('the porting note names the source commit, what was left out and every change; the NOTICE credits both under Apache-2.0', () => {
+    const note = readFileSync(join(repoRoot, 'kit/porting/plugin--pixel-perfect.md'), 'utf8');
+    expect(note).toContain(SOURCE);
+    for (const heading of ['## Left out', '## Changed']) expect(note, heading).toContain(heading);
+    for (const name of COMMANDS) expect(note, name).toContain(`\`${name}\``);
+    const notice = readFileSync(join(repoRoot, 'kit/NOTICE.md'), 'utf8');
+    for (const phrase of ['impeccable', 'Paul Bakaus', 'frontend-design', 'Anthropic', 'Apache License, Version 2.0', SOURCE, 'modified']) {
+      expect(notice, phrase).toContain(phrase);
+    }
+    expect(read()).toMatch(/kit\/NOTICE\.md/);
+  });
+
+  it('omni help pixel-perfect lists its commands', () => {
+    const run = spawnSync(process.execPath, [join(repoRoot, '.omni-loop/bin/omni.mjs'), 'help', 'pixel-perfect'], { cwd: repoRoot, encoding: 'utf8' });
+    expect(run.status).toBe(0);
+    for (const name of COMMANDS) expect(run.stdout, name).toContain(`/omni:pixel-perfect ${name}`);
+  });
+});
