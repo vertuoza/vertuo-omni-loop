@@ -154,6 +154,11 @@ jobs:
         # knowledge, read-at, read-only and consumes. Only an owner links and unlinks; a self-consume,
         # a consumes outside the product and an imported link without read-at are refused.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_repositories.sql
+      - name: A PRD's product
+        # PRD 1364: a PRD and an idea carry an optional product, taken at birth from a repository in one
+        # product, none in no product, the named one in several; changing it is locked while an approval
+        # is in force, and a PRD's product links its repositories.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_product.sql
       - name: Who may read and write the business
         # Any member of a workspace opens its business, picks, suggests, confirms and rejects claims,
         # adds and renames products, points repositories at them and cites claims, through the business
