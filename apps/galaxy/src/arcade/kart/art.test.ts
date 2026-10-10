@@ -3,7 +3,7 @@ import { DEFAULT_THEME, resolveTheme, TOKENS, type Theme, type Token } from '../
 import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
-import { createKart, propFrame, viewFacing } from './art';
+import { cometsOf, createKart, propFrame, viewFacing } from './art';
 import type { Action } from '../keys';
 import { horizonOf } from './mode7';
 
@@ -91,8 +91,8 @@ describe('the race\'s drawing', () => {
     expect(puts).toHaveLength(1);
     expect(puts[0]).toMatchObject({ w: grid.w, h: grid.h });
     expect(images.filter((i) => i.length === 2).at(-1)).toEqual([0, 0]);
-    // One planet in the sky, standing on the horizon.
-    expect(planets).toHaveLength(1);
+    // The big planet in the sky, standing on the horizon (and a second, smaller one: see 'the sky').
+    expect(planets).toHaveLength(2);
     expect(sure(planets[0], 'the planet').cy).toBeLessThan(horizon);
   });
 
@@ -423,5 +423,63 @@ describe('the props and the arch', () => {
 
   it('is the same drawing for the same race: the props are fixed in the circuit', () => {
     expect(drawn()).toEqual(drawn());
+  });
+});
+
+// The livelier sky: a second planet, a distant station and comets crossing (PRD 1427, slice 6).
+describe('the sky', () => {
+  const at = (t: number, reduced = false): FrameState => ({ ...frame(WIDE), t, sceneT: t, reduced });
+  const horizon = horizonOf(WIDE.h);
+  const skyOf = (seed: number, state: FrameState) => {
+    planets.length = 0; sprites.length = 0;
+    const r = recorder();
+    createKart({ seed }).draw(r.ctx, state);
+    return { planets: [...planets], station: sprites.filter((x) => x.name === 'sky-station'), fills: r.fills, images: r.images };
+  };
+
+  it('draws a second, smaller planet in the sky, beside the first', () => {
+    const { planets: list } = skyOf(3, at(3));
+    expect(list).toHaveLength(2);
+    const [big, small] = [sure(list[0], 'the first planet'), sure(list[1], 'the second planet')];
+    expect(small.r).toBeLessThan(big.r);
+    expect(small.r).toBeGreaterThan(0);
+    expect(small.cy).toBeLessThan(horizon);
+  });
+
+  it('draws a distant station above the horizon, one sprite, its lamp blinking', () => {
+    const { station } = skyOf(3, at(3));
+    expect(station).toHaveLength(1);
+    expect(sure(station[0], 'the station').y).toBeLessThan(horizon);
+    expect(new Set([0, 0.3, 0.6, 0.9, 1.2].map((t) => sure(skyOf(3, at(t)).station[0], 'the station').frame)).size).toBe(2);
+  });
+
+  it('sends comets across now and then, seeded from the race', () => {
+    const w = WIDE.w;
+    const same = cometsOf(7, 2, w, horizon, false);
+    expect(cometsOf(7, 2, w, horizon, false)).toEqual(same);
+    const seen = (seed: number) => Array.from({ length: 60 }, (_, i) => cometsOf(seed, i * 0.5, w, horizon, false));
+    // Now and then: some moments have a comet crossing, and some have none.
+    expect(seen(7).some((c) => c.length > 0)).toBe(true);
+    expect(seen(7).some((c) => c.length === 0)).toBe(true);
+    expect(seen(7)).not.toEqual(seen(8));
+    // A comet stays in the sky and moves as time passes.
+    for (const frames of seen(7)) for (const c of frames) { expect(c.y).toBeGreaterThanOrEqual(0); expect(c.y).toBeLessThan(horizon); }
+    const times = Array.from({ length: 120 }, (_, i) => i * 0.1);
+    const xs = times.map((t) => cometsOf(7, t, w, horizon, false)[0]?.x).filter((x) => x !== undefined);
+    expect(new Set(xs).size).toBeGreaterThan(1);
+  });
+
+  it('draws the comets in the frame, and they cross as time passes', () => {
+    const times = Array.from({ length: 60 }, (_, i) => i * 0.5);
+    const drawn = times.map((t) => skyOf(7, at(t)).fills.filter((f) => (f.rect[1] ?? horizon) < horizon && f.rect[2] !== undefined && f.rect[2] < 16));
+    expect(drawn.some((f) => f.length > 0)).toBe(true);
+    expect(drawn.some((f) => f.length === 0)).toBe(true);
+  });
+
+  it('stands still when motion is reduced: two frames draw the same sky, comets and station included', () => {
+    const a = skyOf(7, at(1, true)), b = skyOf(7, at(9.3, true));
+    expect(a).toEqual(b);
+    expect(cometsOf(7, 1, WIDE.w, horizon, true)).toEqual(cometsOf(7, 9.3, WIDE.w, horizon, true));
+    expect(cometsOf(7, 1, WIDE.w, horizon, true).length).toBeGreaterThan(0);
   });
 });
