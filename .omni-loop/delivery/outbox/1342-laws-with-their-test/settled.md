@@ -1266,7 +1266,7 @@ A constant: a later slice teaches omni item new a --fix <folder> form and the tw
 - Channel: feature pull request #1343
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1343#issuecomment-6095767377
 - Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #1393, the sub-pull request that brought the build back in line
 - Rank: high
 - Bears on: N-PRODUCT-4
 - Raised: 2026-10-10
