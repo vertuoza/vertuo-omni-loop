@@ -1255,3 +1255,165 @@ A constant: a later slice teaches omni item new a --fix <folder> form and the tw
 ```
 
 <!-- /omni-outbox-settled: s8-02-fix-law-items-written-by-hand -->
+
+<!-- omni-outbox-settled: s7-01-check-reads-knowledge-from-head -->
+
+## s7-01-check-reads-knowledge-from-head — drifted
+
+- Verdict: drifted
+- Approved by: pierrederval
+- Approved at: 2026-10-10T08:40:27Z
+- Channel: feature pull request #1343
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1343#issuecomment-6095767377
+- Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
+- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Rank: high
+- Bears on: N-PRODUCT-4
+- Raised: 2026-10-10
+- Slice: s7
+- Wave: 3
+- Became: N-PRODUCT-4
+
+### The answer, as it was given
+
+```text
+C. C. Keep A and reword the standing rule to say the rules folder is read from the pull request as data.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-check-reads-knowledge-from-head
+prd: 1342
+slice: s7
+rank: high
+bears-on: N-PRODUCT-4
+raised: 2026-10-10
+wave: 3
+---
+
+## The question, in plain words
+
+To notice a rule losing its test, the pull request check must now read the rules folder from the pull request too, while a standing rule says it reads only the delivery folder from there. Is that acceptable?
+
+## The decision, in plain words
+
+Yes: the check still takes its settings from the main branch, so a pull request cannot change how it is judged, and it reads the pull request's rules only as the thing being judged.
+
+## The intro, for fun
+
+The referee has to read the new rulebook to notice a page was torn out of it.
+
+## The punchline, for fun
+
+He still blows the whistle by the old rulebook, though.
+
+## The options, in plain words
+
+A. A. Read the rules folder from both sides, settings from the main branch only (built).
+B. B. Read the rules folder from the main branch only, and stop spotting a rule that loses its test on the server.
+C. C. Keep A and reword the standing rule to say the rules folder is read from the pull request as data.
+
+## What I had to decide
+
+Whether the outbox check may snapshot the knowledge folder at the head as well as at the base, which grading law-proof and law-demoted needs, against N-PRODUCT-4's wording that only the delivery folder is read from the head.
+
+## What I did meanwhile
+
+With laws.source knowledge, the check snapshots paths.knowledge at the base and at the head beside the delivery folder. The config, its labels and its branch shapes still come from the base only. A head that removes or demotes a law fires law-text and law-demoted, so it cannot hide a law by editing the registers.
+
+## What it costs to change later
+
+A constant: drop the head knowledge snapshot in apps/omni-app/src/outbox-check/outbox-check.ts, or reword N-PRODUCT-4 to name the knowledge folder as data read from the head.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) N-PRODUCT-4 is unenforced and was adopted as medium; whether its author meant 'only the delivery folder' as a hard boundary or as 'never the config' is not written down.
+- (author) Reading law-proof paths from the base registers instead would miss a law the pull request adds with its test; this slice did not explore that further.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-check-reads-knowledge-from-head -->
+
+<!-- omni-outbox-settled: s8-03-plugin-test-gains-law-skill-tests -->
+
+## s8-03-plugin-test-gains-law-skill-tests — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-10T08:40:27Z
+- Channel: feature pull request #1343
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1343#issuecomment-6095767377
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-89
+- Raised: 2026-10-10
+- Slice: s8
+- Wave: 4
+- Stays here: one answer about one test file: adding tests to a law's proof file is fine when the tests that prove the law stay as they were, and the high item the rule raises is the person's answer each time.
+
+### The answer, as it was given
+
+```text
+A. A. Add the tests to the file the plan names, leaving the agent-limit tests untouched (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-03-plugin-test-gains-law-skill-tests
+prd: 1342
+slice: s8
+rank: high
+bears-on: BR-PRODUCT-89
+raised: 2026-10-10
+wave: 4
+---
+
+## The question, in plain words
+
+The test file that proves the loop never starts too many agents at once also holds the checks on how every skill is written, and this work added new checks to it. Is it all right to add to that file?
+
+## The decision, in plain words
+
+Yes: the new checks only cover the new rule-testing skill and the two fix skills, and the checks proving the agent limit were left exactly as they were.
+
+## The intro, for fun
+
+Someone added a new chapter to a rulebook that a judge keeps on the bench.
+
+## The punchline, for fun
+
+The judge's own page was not touched, but the bench still wants a signature.
+
+## The options, in plain words
+
+A. A. Add the tests to the file the plan names, leaving the agent-limit tests untouched (built).
+B. B. Move this slice's tests to a file of their own, so the law's proof file does not change.
+
+## What I had to decide
+
+Whether the shape tests of /omni:enforce and the fix skills' law step go in kit/test/plugin.test.ts, the file BR-PRODUCT-89 names as its proof, or in a test file of their own.
+
+## What I did meanwhile
+
+A new describe block at the end of kit/test/plugin.test.ts holds nine tests for this slice; no line of the tests proving BR-PRODUCT-89 changed, and the whole file passes.
+
+## What it costs to change later
+
+A constant: move the new describe block to its own file under kit/test, which then no law names.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan names kit/test/plugin.test.ts as this slice's territory and the spec puts the skill tests there; nothing says whether adding to a law's proof file without touching its tests needs an answer, so it is raised.
+
+```
+
+<!-- /omni-outbox-settled: s8-03-plugin-test-gains-law-skill-tests -->
