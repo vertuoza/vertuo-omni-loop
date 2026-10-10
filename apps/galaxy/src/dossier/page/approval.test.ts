@@ -305,18 +305,18 @@ describe('readVoids and readAskedApprovers', () => {
     await expect(readVoids(client([{ data: [{ kind: 'plan' }], error: null }]).db, ID)).rejects.toThrow('out of shape');
   });
 
-  const DOSSIER = { workspace_id: 'w1', home_repo: 'acme/widgets' };
+  const DOSSIER = { id: ID };
 
-  it('reads the members the repository\'s product asks to approve', async () => {
+  it('reads the members the PRD\'s own product asks to approve', async () => {
     const stub = client([{ data: { product_id: 'p1' }, error: null }, { data: [{ user_id: 'u-ada' }], error: null }]);
     expect(await readAskedApprovers(stub.db, DOSSIER)).toEqual(['u-ada']);
     expect(stub.calls).toEqual([
-      ['from', 'repositories'], ['select', 'product_id'], ['eq', 'workspace_id', 'w1'], ['eq', 'full_name', 'acme/widgets'],
+      ['from', 'dossiers'], ['select', 'product_id'], ['eq', 'id', ID],
       ['from', 'product_approvers'], ['select', 'user_id'], ['eq', 'product_id', 'p1'], ['eq', 'state', 'asked'],
     ]);
   });
 
-  it('reads nobody for a repository not tracked, or with no product', async () => {
+  it('reads nobody for a dossier it cannot read, or a PRD of no product', async () => {
     expect(await readAskedApprovers(client([{ data: null, error: null }]).db, DOSSIER)).toEqual([]);
     expect(await readAskedApprovers(client([{ data: { product_id: null }, error: null }]).db, DOSSIER)).toEqual([]);
   });

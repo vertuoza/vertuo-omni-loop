@@ -16,8 +16,8 @@ import { SUGGEST_CLAIM_COLUMNS } from './suggest-store';
 import { ConfirmedClaim } from './recheck/recheck';
 import { DraftRow } from './draft/run';
 import {
-  AddedSource, DRAFT_CLAIM_COLUMNS, RUN_DRAFT_COLUMNS, PastedPage, ProductId, REPOSITORY_COLUMNS,
-  TrackedRepository, WORKSPACE_COLUMNS, WorkspaceRow,
+  AddedSource, DRAFT_CLAIM_COLUMNS, LINK_COLUMNS, RUN_DRAFT_COLUMNS, PastedPage, ProductId, REPOSITORY_COLUMNS,
+  RepositoryLink, TrackedRepository, WORKSPACE_COLUMNS, WorkspaceRow,
 } from './draft/store';
 
 /** No workspace: is_owner() answers false for it, which is all its answer's shape needs. */
@@ -42,6 +42,7 @@ export const boundaries: Boundary[] = [
   // The draft's run (./draft/store.ts, ./draft/live.ts).
   { name: 'business/draft/store: business_drafts', read: (db) => db.from('business_drafts').select(RUN_DRAFT_COLUMNS), schema: DraftRow, shape: 'rows' },
   { name: 'business/draft/store: repositories', read: (db) => db.from('repositories').select(REPOSITORY_COLUMNS), schema: TrackedRepository, shape: 'rows' },
+  { name: 'business/draft/store: product_repositories', read: (db) => db.from('product_repositories').select(LINK_COLUMNS), schema: RepositoryLink, shape: 'rows' },
   { name: 'business/draft/store: business_sources', read: (db) => db.from('business_sources').select('url'), schema: PastedPage, shape: 'rows' },
   { name: 'business/draft/store: products', read: (db) => db.from('products').select('id'), schema: ProductId, shape: 'rows' },
   { name: 'business/draft/store: claims', read: (db) => db.from('claims').select(DRAFT_CLAIM_COLUMNS), schema: StoredClaim, shape: 'rows' },

@@ -28,8 +28,10 @@ insert into public.businesses (id, workspace_id, name) values
   ('00000000-0000-4000-8000-0000000d0b00', '00000000-0000-4000-8000-0000000d0000', 'AV');
 insert into public.products (id, workspace_id, business_id, name) values
   ('00000000-0000-4000-8000-0000000d0d01', '00000000-0000-4000-8000-0000000d0000', '00000000-0000-4000-8000-0000000d0b00', 'Mobile');
-insert into public.repositories (workspace_id, full_name, product_id) values
-  ('00000000-0000-4000-8000-0000000d0000', 'av-org/mobile', '00000000-0000-4000-8000-0000000d0d01');
+insert into public.repositories (workspace_id, full_name) values
+  ('00000000-0000-4000-8000-0000000d0000', 'av-org/mobile');
+insert into public.product_repositories (product_id, workspace_id, repository, added_by) values
+  ('00000000-0000-4000-8000-0000000d0d01', '00000000-0000-4000-8000-0000000d0000', 'av-org/mobile', 'person');
 insert into public.product_approvers (workspace_id, product_id, user_id, state) values
   ('00000000-0000-4000-8000-0000000d0000', '00000000-0000-4000-8000-0000000d0d01', '00000000-0000-4000-8000-0000000d00a4', 'asked');
 insert into public.players (workspace_id, user_id, display_name, github_login, hero) values

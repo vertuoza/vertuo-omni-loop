@@ -129,18 +129,17 @@ export async function readVoids(db: Pick<SupabaseClient, 'from'>, id: string): P
   return parsed.data;
 }
 
-const ProductOfRepo = z.object({ product_id: z.string().nullable() });
+const ProductOfDossier = z.object({ product_id: z.string().nullable() });
 const AskedApprover = z.object({ user_id: z.string().min(1) });
 
-/** The members asked to approve the PRDs of the dossier's product (its repository's product): none when
- * the repository has no product or the product asks nobody; throws when the database fails. */
-export async function readAskedApprovers(db: Pick<SupabaseClient, 'from'>, dossier: Pick<DossierRow, 'workspace_id' | 'home_repo'>): Promise<string[]> {
-  const repo = await db.from('repositories').select('product_id').eq('workspace_id', dossier.workspace_id)
-    .eq('full_name', dossier.home_repo).maybeSingle();
-  if (repo.error) throw new Error(`read the product's approvers: ${repo.error.message}`);
-  if (repo.data === null) return [];
-  const product = ProductOfRepo.safeParse(repo.data);
-  if (!product.success) throw new Error('read the product\'s approvers: the repository answered out of shape');
+/** The members asked to approve the PRDs of the dossier's own product, as dossier_approve() reads it
+ * (PRD 1364): none when the PRD has no product or the product asks nobody; throws when the database fails. */
+export async function readAskedApprovers(db: Pick<SupabaseClient, 'from'>, dossier: Pick<DossierRow, 'id'>): Promise<string[]> {
+  const row = await db.from('dossiers').select('product_id').eq('id', dossier.id).maybeSingle();
+  if (row.error) throw new Error(`read the product's approvers: ${row.error.message}`);
+  if (row.data === null) return [];
+  const product = ProductOfDossier.safeParse(row.data);
+  if (!product.success) throw new Error('read the product\'s approvers: the dossier answered out of shape');
   if (product.data.product_id === null) return [];
   const rows = await db.from('product_approvers').select('user_id').eq('product_id', product.data.product_id).eq('state', 'asked');
   if (rows.error) throw new Error(`read the product's approvers: ${rows.error.message}`);
