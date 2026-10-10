@@ -845,6 +845,24 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'section it prints no generated files. It runs no build, and exits 0 whatever it finds.',
   },
   {
+    name: 'design',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni design touched [<base>]'],
+    summary: 'whether a branch touches a screen, so its design review starts',
+    detail:
+      'Design craft is off until the config sets design.enabled to true: then the skills read the ' +
+      "design form, omni kb show design (the product, where its design system lives, what it does on " +
+      'purpose and how to look at a screen), and the product wins over the craft floor and the refuse ' +
+      'list. touched reads what the branch changed since its merge base with <base> (by default the ' +
+      "slice's feature branch, else the default branch) and prints design: off while the flag is off, " +
+      'ui: yes and each changed path the design.paths globs match, ui: no when none does, or ui: ' +
+      'unknown when design.paths is empty or the base cannot be read, for the agent to judge from the ' +
+      "diff. On ui: yes a slice follows its design review, which runs commands.design, the repository's " +
+      'design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave ' +
+      'or a gate, it only reports, and touched exits 0 whatever it finds.',
+  },
+  {
     name: 'e2e',
     kind: 'command',
     who: 'skills',
