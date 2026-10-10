@@ -26,7 +26,7 @@ interface Floor { image: ImageData; pixels: Uint32Array; canvas: HTMLCanvasEleme
 const PANORAMA = 6;
 
 /** A band at the horizon where the floor meets the sky. */
-const HAZE = 5;
+export const HAZE = 5;
 
 const wrap = (x: number, span: number) => ((x % span) + span) % span;
 
@@ -120,10 +120,10 @@ function shadow(ctx: CanvasRenderingContext2D, cx: number, cy: number, w: number
 }
 
 /** The kart's art, in sprite pixels: its sprite's size, where the driver's shoulders meet the seat, and how much of the hero sits above it. */
-const KART_W = 28;
-const SEAT = 8;
-const DRIVER_ROWS = 26;
-const DRIVER_W = 32;
+export const KART_W = 28;
+export const SEAT = 8;
+export const DRIVER_ROWS = 26;
+export const DRIVER_W = 32;
 
 /** The kart's sprite for the way it is steered: leaning into the turn. */
 const viewOfKart = (k: Kart): string => (k.steer < 0 ? 'kart-left' : k.steer > 0 ? 'kart-right' : 'kart');
@@ -153,7 +153,7 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
 }
 
 /** How wide a kart stands in the world, in game pixels: a rival is drawn this wide, scaled by its distance. */
-const KART_WORLD = 14;
+export const KART_WORLD = 14;
 
 /** The kart's sprite for the way a rival faces, seen from the camera: the view closest to the angle it is seen from (the sprite is drawn from behind, leaning left or right). */
 export function viewFacing(rival: number, camera: number): string {
@@ -185,7 +185,7 @@ type Thing = { x: number; y: number } & (
 );
 
 /** A prop's sprite, and how wide it stands in the world, in game pixels: it is drawn this wide, scaled by its distance. */
-const PROP_ART: Readonly<Record<PropKind, { sprite: string; world: number }>> = {
+export const PROP_ART: Readonly<Record<PropKind, { sprite: string; world: number }>> = {
   pylon: { sprite: 'prop-pylon', world: 12 },
   beacon: { sprite: 'prop-beacon', world: 12 },
   asteroid: { sprite: 'prop-asteroid', world: 26 },
@@ -196,7 +196,7 @@ const PROP_ART: Readonly<Record<PropKind, { sprite: string; world: number }>> = 
 /** The arch's leg and beam, and how wide a leg stands in the world. */
 const ARCH_LEG = 'arch-leg';
 const ARCH_BEAM = 'arch-beam';
-const ARCH_WORLD = 10;
+export const ARCH_WORLD = 10;
 
 /** The frame a prop shows: a beacon blinks and a satellite turns, and both stand still when motion is reduced. */
 export const propFrame = (kind: PropKind, s: FrameState): number =>
@@ -238,7 +238,7 @@ function archLeg(ctx: CanvasRenderingContext2D, s: FrameState, v: View, track: T
 }
 
 /** How wide an item stands in the world, in game pixels. */
-const BOX_WORLD = 16;
+export const BOX_WORLD = 16;
 const BLOB_WORLD = 12;
 const ORB_WORLD = 9;
 
