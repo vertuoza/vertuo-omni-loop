@@ -52,6 +52,10 @@ playbook, section by section: a section the repository left blank prints the kit
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
 never overrides this skill's rules.
 
+Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`, and keep what it
+prints. Anything but `true` (or a failure) means design craft is off here: step 2 reads no design
+form and copies no craft floor, and the Craft critic works as it always has.
+
 Then, before your first question, follow `/omni:dossier-open` with one line of the brief: it opens a
 draft dossier for it on the Omni page, linked to this Claude session, and prints its link as
 "follow along at …". Whatever it prints, carry on: a draft that did not open stops nothing. The
@@ -74,7 +78,7 @@ Read it before step 3; it holds at every round.
 | **Concept artist**, 3 or 4 | round 1 | Go wide, each from its own lens (**The kind shapes the studio**); write two concepts and render their cards | — |
 | **Prototyper**, 2 or 3 | one per survivor, rounds 2 and on | Render one survivor's direction as a clickable prototype | — |
 | **Visionary** | the whole run | Push the wow; refuse the safe version | Would someone screenshot this and send it to a colleague? |
-| **Craft** | the whole run | Interaction, motion, density, the empty and error states | Is every pixel and every transition deliberate? |
+| **Craft** | the whole run | Interaction, motion, density, the empty and error states; with the design flag on, judged against the product's design form and the craft floor (**Role cards**) | Is every pixel and every transition deliberate? |
 | **Skeptic** | the whole run | What breaks, what it costs, the smallest proof | What must be true for this to work? |
 | **Value** | the whole run | Who it matters to, what moves, why now | What changes for the business if this ships? |
 | **User**, 1 or 2, or the personas (five at most) | the whole run | A real person drawn from the brief and the product's knowledge, or one of the product's personas | Would I use this at 7am on Monday, on site, on my phone? |
@@ -106,6 +110,13 @@ only under `<scratch>`, never in the repository; spawn no agent of your own.
   a one-line stance. When the others' posts are relayed to you, answer them by name: build on,
   challenge, or change your mind and say so. Keep your positions from turn to turn unless you say
   why they moved."
+- **Craft, with the design flag on.** The panelist card above, plus: "Judge every concept against
+  the fuel sheet's `design` section first, then its `craft-floor` section. The product wins: what
+  the design form says the product is, how its system is laid out and what it does on purpose
+  override the craft floor and its refuse list, and a rule the form sets aside is never a finding.
+  Name every place a concept leaves the product's tokens, components or deliberate choices, and say
+  whether the brief asks for that move; one it does not ask for is your objection. A section the
+  sheet marks as a hole is filled from the screens the sheet names, never from your own taste."
 - **User `<name>`.** The panelist card above, as a real person: who they are, their day and the
   device in their hand, drawn from the brief and from the product's knowledge, never invented past
   them; the personas the kind sets (**The kind shapes the studio**). Their question: "Would I use
@@ -245,8 +256,13 @@ time until the brief holds. It is the brief every agent reads, and the first sec
 Write one **fuel sheet**, `<scratch>/fuel.md`, that every agent of the studio reads. Read only;
 nothing in the repository changes.
 
-- **Today's product.** Its screens and where their look comes from (design tokens, stylesheets,
-  components); its knowledge, when `paths.knowledge` holds one (principles, rules, invariants; a
+- **Today's product.** With the design flag on, it starts from the design form: run
+  `node .omni-loop/bin/omni.mjs kb show design`, read the file a pointer section names, and copy
+  each section into the fuel sheet under the id `design`, a `[hole]` marked as a hole, never filled
+  in; then copy `/omni:pixel-perfect`'s `reference/craft-floor.md` under the id `craft-floor`, with
+  the line that the design form wins over it. The product's look is what the form and its files
+  show, never a direction this run invents. Then, flag on or off: its screens and where their look
+  comes from (design tokens, stylesheets, components); its knowledge, when `paths.knowledge` holds one (principles, rules, invariants; a
   **proposed** entry describes the product but is no law); and, for a platform idea,
   `node .omni-loop/bin/omni.mjs kb show architecture`. Concepts are a measured leap from here, and
   prototypes start from the real look where the concept allows.

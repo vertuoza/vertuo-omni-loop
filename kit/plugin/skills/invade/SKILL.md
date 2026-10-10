@@ -180,7 +180,12 @@ The same holds for the registers: an entry is this skill's only while it carries
    It prints one `wrote <path>` line per file,
    then `kb init — wrote <n> file(s); <m> already there, left as they were.` It never changes a file
    that exists.
-4. Run `node .omni-loop/bin/omni.mjs kb status --json` and keep it: the map, derived every time.
+4. **The design flag.** Run `node .omni-loop/bin/omni.mjs config design.enabled` and keep what it
+   prints. Anything but `true` (or a failure) means design craft is off here: the `design` form is
+   left as it is, blank unless a person filled it (step 5), step 7 proposes no `design.paths` and no
+   `commands.design`, and it may propose turning the flag on, only when facet 4's `design` row found
+   screens (**The design form**).
+5. Run `node .omni-loop/bin/omni.mjs kb status --json` and keep it: the map, derived every time.
 
    ```text
    { frontDoor, forms: [{ form, kind, file, state, source, sections: [{ slot, source }],
@@ -249,6 +254,7 @@ The facets:
 | releasing | What does a merge publish? | release and deploy workflows, changesets, tags |
 | bug-fixing | How does a bug become a pull request? | issue templates, bug labels |
 | glossary | Which words mean what? | a glossary page (pointer only) |
+| design | What does the product look like, and what does it do on purpose? | theme and token files, CSS custom properties, Tailwind or theme config, the component library and its stories, fonts, global styles, an existing `DESIGN.md`, the screens and their copy |
 
 A template, `CODEOWNERS` or a hooks folder is found by its name, in any of the places the tool
 that reads it looks, and in any letter case. Facet 4 also reads:
@@ -390,6 +396,32 @@ A page that already answers a question is pointed at, never copied, so it keeps 
 - **After each form,** run `node .omni-loop/bin/omni.mjs kb show <form>`: every section carries the
   label you meant, and no `warning:` line reaches stderr.
 
+### The design form
+
+Filled only when step 0 read the design flag as `true`; off, the form stays as it is (blank, or as
+a person left it), whatever facet 4's `design` row found. A repository with no screen keeps it
+blank, flag on or off. What each slot holds, and what the opener says about which wins, is the form's own
+(`omni kb show design`): fill its slots, never restate them.
+
+- **The product's own evidence only.** Every line says what a file shows, with that file under
+  `evidence:` as `<path>@<hex>`: `system` names where the tokens, the type scale, the spacing, the
+  colours and the components live, by path; `review` the routes the router declares, the
+  breakpoints the theme or the styles set, and the sign-in the tests or `proof.setup` already use.
+  An existing `DESIGN.md`, or any page that already writes the design system down, is pointed at
+  (`See: <path>`, step 4), never copied.
+- **Never invent a visual direction.** Describe the look the product has, never the look it should
+  have: no adjective, palette, mood or rule the files do not show, and no craft-floor rule or taste
+  of your own written in as the product's. `product` (who uses it, where, under what light, its
+  voice) is written only from what a page or the screens' copy says; the rest is a question.
+- **Deliberate is stated, never guessed.** A line of `deliberate` cites a file that says the product
+  does it on purpose (a design page, a comment, a lint rule turned off with its reason). A pattern
+  that merely looks deliberate, or that breaks a rule of the craft floor, is a question for a person
+  (`TODO(human): the screens use … everywhere. Is that on purpose?`), never a line. What the product
+  deliberately does wins over every rule of the craft floor and the refuse list, so it is a
+  person's to say.
+- **Holes over guesses.** A required slot the evidence cannot fill holds a `TODO(human)` question
+  (step 6); an optional one stays empty, and `review` then reads its kit default widths.
+
 ## 6. Leave holes
 
 What the evidence cannot show becomes a question, never a guess.
@@ -420,6 +452,9 @@ counts as unset. Then the keys the exploration and the map settle:
 | `ci.aggregateCheck` | one check gates a merge for the others: a required check, or the job every other job feeds |
 | `proof.url` | Playwright is among the dependencies and the repository has a preview deploy: `github-deployment` when its pull requests carry GitHub deployments (a Vercel project does), a fixed URL only when the evidence names one |
 | `proof.setup` | `proof.url` is proposed: `omni proof session` when the app signs in through the same server as `ask.url`, else the tests' own sign-in helper when they have one, as the command that writes a Playwright storageState to `PROOF_STORAGE_STATE` |
+| `design.enabled` | the flag is not `true` and facet 4's `design` row found screens (a router, pages or views, a component library, stylesheets): `true`, named in the body as the one switch a person merges or drops. While it is off, nothing else of design is proposed: once a person turns it on, `/omni:invade --refresh` fills the form and proposes the two keys below |
+| `design.paths` | the flag is `true` and the list is empty: one glob per tracked folder or file kind facet 4's `design` row found holding screens, styles, tokens or components, each named in the body with the file that shows it |
+| `commands.design` | the flag is `true`, the key is `null`, and a design linter is already among the dependencies (never one this run installs): its command over the screens' folders, run once from the worktree's root. It is proposed when it runs to its report, whatever it finds, since the design review only reports; one that cannot start is a question, never proposed |
 | `flow.areas.migrations` | the enforced-truth facet found a tracked folder of database migrations, and no area of `flow` nor pattern of `landings.alone` already matches it: an area named `migrations` whose `paths` is one anchored pattern per such folder, with `rules.plan` `[{ slice: { alone: true } }, { landing: alone }]` (see **A proposed flow**) |
 
 `proof.bypassEnv` is proposed by its name only, the environment variable a person fills, never its value.
@@ -535,7 +570,8 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
   package or a manifest was added, removed or renamed; **written truth** when a Markdown page
   changed; **enforced truth** when a test, a schema, a migration or a file an `Enforced by:` line
   names changed; **decisions and words** when a record, a glossary, a context file or a form's
-  evidence changed. No facet re-runs: no map is asked, and no register is touched.
+  evidence changed (a token, theme or style file the `design` form names included), and, with the
+  design flag on, when the `design` form is still blank. No facet re-runs: no map is asked, and no register is touched.
 - **The map** (step 2) holds only what the re-run facets found that the registers and the config do
   not already say: a new domain, a new page, a new truth. Nothing new: no question is asked.
 - **Registers** (step 3): only new entries, numbered on from each file's highest, and the proposed
@@ -567,6 +603,8 @@ at, at Settings › Business › Draft from my repos, and every drafted claim wa
 
 - Evidence or nothing: no claim without its file, no command that did not run green, no guess where
   a question belongs.
+- Never invents a visual direction: the `design` form describes the product's own look from its
+  files, and what it does on purpose is a person's to confirm.
 - Asks once, at the map; writes nothing before the answer.
 - Every register entry it writes is proposed: `Proposed: invade <today>`. It never removes a
   `Proposed:` line, and never touches a confirmed entry.

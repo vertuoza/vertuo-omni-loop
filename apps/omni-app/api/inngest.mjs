@@ -1296,7 +1296,9 @@ var ConfigSchema = z8.object({
     checks: z8.array(text3).default([]),
     test: nullableText.default(null),
     // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
-    mutation: nullableText.default(null)
+    mutation: nullableText.default(null),
+    // PRD 1369: a design linter `/omni:pixel-perfect review` runs when it is set; it only reports.
+    design: nullableText.default(null)
   }),
   acceptance: z8.object({
     enabled: z8.boolean().default(false),
@@ -1372,6 +1374,14 @@ var ConfigSchema = z8.object({
     bypassEnv: envName.nullable().default(null),
     dir: text3.default("e2e"),
     model: text3.default("anthropic/claude-sonnet-5.5")
+  }),
+  // PRD 1369: design craft — the `design` form's readers and `/omni:pixel-perfect review` on UI work.
+  // Off by default: a repository opts in, and off restores the loop as it was. `paths` are globs over
+  // repository paths where the screens, styles, tokens and components live; `omni design touched`
+  // matches a diff against them (`kit/lib/design/`).
+  design: section({
+    enabled: z8.boolean().default(false),
+    paths: z8.array(text3).default([])
   }),
   markers: section({ prefix: z8.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
@@ -1761,6 +1771,7 @@ var FORMS = Object.freeze([
   form("releasing", "extended", [req("publishes"), opt("how"), opt("rollback"), opt("notes")]),
   form("bug-fixing", "extended", [req("steps"), opt("guard")]),
   form("review", "extended", [req("fix"), req("push-back"), req("ask")]),
+  form("design", "extended", [req("product"), req("system"), opt("deliberate"), opt("review")]),
   form("glossary", "extended", [req("where")], { pointerOnly: true })
 ]);
 var FORM_IDS = Object.freeze(FORMS.map((entry) => entry.id));

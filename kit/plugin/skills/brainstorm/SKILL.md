@@ -65,6 +65,11 @@ The birthplace is for life: a flag flipped later changes no PRD that already exi
 step 4 writes it in the spec, step 7's first dossier push records it on the dossier, step 9 opens no
 phase-0 PR and step 10 hands off to the PRD's page. Everything else runs as written.
 
+**The design flag.** Read it once: `node .omni-loop/bin/omni.mjs config design.enabled`, and keep
+what it prints for step 5 (and **Rework**, which writes the page the same way). Anything but `true`
+(or a failure) means design craft is off here: step 5 reads no design form, and the page is drawn
+as it always has been.
+
 With `--concept`, read the concept next, as **From a concept** says. Each of its three stops ends
 the skill there, before the dossier opens and before any question.
 
@@ -363,6 +368,13 @@ and go on only once they approve it.
 `before-after.html` in the folder, always, because `omni phase0` requires one:
 
 - A change with a **screen:** two mockups side by side, the screen today and the screen after.
+  With the design flag on, read `node .omni-loop/bin/omni.mjs kb show design` first (and the file a
+  pointer section names), and build the "after" from the product's own tokens and components as
+  its `system` section names them: their colours, type scale, spacing and component shapes, read
+  from those files, never a palette or a style of your own. What its `deliberate` section says the
+  product does on purpose holds on the "after" too, over any rule of craft. A `[hole]` is filled
+  from what the "today" screen and its neighbours already use, never invented; say under the
+  mockup which section was a hole. The "after" changes only what the approved design changes.
 - An **API or agent behaviour:** the exchange today and after (request and response, or user turn
   and agent turn), or a flow diagram.
 - **Nothing visible** (docs, config, a guard): a short page stating what changes and what stays the

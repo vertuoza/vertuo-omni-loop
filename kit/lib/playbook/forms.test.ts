@@ -34,10 +34,10 @@ function bodyOf(body: string | undefined) {
 }
 
 describe('FORMS — the spec’s forms table, the contract with the templates and the commands', () => {
-  it('holds the fourteen forms in the table’s order, eight core then six extended', () => {
+  it('holds the fifteen forms in the table’s order, eight core then seven extended', () => {
     expect(FORM_IDS).toEqual([
       'briefing', 'setup', 'architecture', 'testing', 'verification', 'ci', 'pull-requests', 'decisions',
-      'definition-of-done', 'conventions', 'releasing', 'bug-fixing', 'review', 'glossary',
+      'definition-of-done', 'conventions', 'releasing', 'bug-fixing', 'review', 'design', 'glossary',
     ]);
     expect(FORMS.filter((form) => form.kind === 'core').map((form) => form.id)).toEqual(FORM_IDS.slice(0, 8));
     expect(FORMS.filter((form) => form.kind === 'extended').map((form) => form.id)).toEqual(FORM_IDS.slice(8));
@@ -61,6 +61,7 @@ describe('FORMS — the spec’s forms table, the contract with the templates an
       releasing: '*publishes how rollback notes',
       'bug-fixing': '*steps guard',
       review: '*fix *push-back *ask',
+      design: '*product *system deliberate review',
       glossary: '*where',
     });
   });

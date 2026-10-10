@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 436" width="760" height="436">
+  <title>The design review on a slice</title>
+  <desc>/omni:do-work builds a slice, then asks omni design touched whether it changes a screen. ui: no writes one line, no screen changed. ui: yes runs /omni:pixel-perfect review in five steps: a critique against the design form, an audit with the craft floor, the design lint when commands.design is set, screenshots at 390 and 1440 compared with the mockup, and one batch of polish with one more look. The sub-PR gets a Design review section with a check, a cross or a dash per step; what it left goes to the PRD's outbox, which you answer at the end. It never blocks: no slice stops and no check turns red.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <rect x="23" y="33" width="170" height="48" class="dg-shadow"/>
+  <rect x="20" y="30" width="170" height="48" class="dg-box"/>
+  <text x="105" y="52" class="dg-code" text-anchor="middle">/omni:do-work</text>
+  <text x="105" y="70" class="dg-small dg-muted" text-anchor="middle">builds a slice</text>
+  <path d="M193 54 L244.0 54.0" class="dg-line"/>
+  <polygon points="253,54 244.0,59.5 244.0,48.5" class="dg-head"/>
+  <rect x="265" y="33" width="200" height="48" class="dg-shadow"/>
+  <rect x="262" y="30" width="200" height="48" class="dg-box"/>
+  <text x="362" y="52" class="dg-code" text-anchor="middle">omni design touched</text>
+  <text x="362" y="70" class="dg-small dg-muted" text-anchor="middle">does it change a screen?</text>
+  <path d="M465 54 L516.0 54.0" class="dg-line"/>
+  <polygon points="525,54 516.0,59.5 516.0,48.5" class="dg-head"/>
+  <text x="495" y="44" class="dg-code dg-muted" text-anchor="middle">ui: no</text>
+  <rect x="537" y="33" width="206" height="48" class="dg-shadow"/>
+  <rect x="534" y="30" width="206" height="48" class="dg-box"/>
+  <text x="637" y="52" class="dg-small" text-anchor="middle">— Design review:</text>
+  <text x="637" y="70" class="dg-small dg-muted" text-anchor="middle">no screen changed</text>
+  <path d="M362 81 L362 104 L84 104" class="dg-line dg-edge-agents"/>
+  <path d="M84 104 L84.0 124.0" class="dg-line dg-edge-agents"/>
+  <polygon points="84,133 78.5,124.0 89.5,124.0" class="dg-head dg-agents"/>
+  <text x="372" y="98" class="dg-code dg-agents">ui: yes</text>
+  <text x="96" y="124" class="dg-tag dg-agents">/OMNI:PIXEL-PERFECT REVIEW</text>
+  <rect x="23" y="139" width="128" height="56" class="dg-shadow"/>
+  <rect x="20" y="136" width="128" height="56" class="dg-box"/>
+  <text x="84" y="159" class="dg-code" text-anchor="middle">1 critique</text>
+  <text x="84" y="178" class="dg-small dg-muted" text-anchor="middle">against the form</text>
+  <path d="M151 164 L156.0 164.0" class="dg-line"/>
+  <polygon points="165,164 156.0,169.5 156.0,158.5" class="dg-head"/>
+  <rect x="171" y="139" width="128" height="56" class="dg-shadow"/>
+  <rect x="168" y="136" width="128" height="56" class="dg-box"/>
+  <text x="232" y="159" class="dg-code" text-anchor="middle">2 audit</text>
+  <text x="232" y="178" class="dg-small dg-muted" text-anchor="middle">and the craft floor</text>
+  <path d="M299 164 L304.0 164.0" class="dg-line"/>
+  <polygon points="313,164 304.0,169.5 304.0,158.5" class="dg-head"/>
+  <rect x="319" y="139" width="128" height="56" class="dg-shadow"/>
+  <rect x="316" y="136" width="128" height="56" class="dg-box"/>
+  <text x="380" y="159" class="dg-code" text-anchor="middle">3 lint</text>
+  <text x="380" y="178" class="dg-small dg-muted" text-anchor="middle">commands.design</text>
+  <path d="M447 164 L452.0 164.0" class="dg-line"/>
+  <polygon points="461,164 452.0,169.5 452.0,158.5" class="dg-head"/>
+  <rect x="467" y="139" width="128" height="56" class="dg-shadow"/>
+  <rect x="464" y="136" width="128" height="56" class="dg-box"/>
+  <text x="528" y="159" class="dg-code" text-anchor="middle">4 screenshots</text>
+  <text x="528" y="178" class="dg-small dg-muted" text-anchor="middle">at 390 and 1440</text>
+  <path d="M595 164 L600.0 164.0" class="dg-line"/>
+  <polygon points="609,164 600.0,169.5 600.0,158.5" class="dg-head"/>
+  <rect x="615" y="139" width="128" height="56" class="dg-shadow"/>
+  <rect x="612" y="136" width="128" height="56" class="dg-box"/>
+  <text x="676" y="159" class="dg-code" text-anchor="middle">5 polish</text>
+  <text x="676" y="178" class="dg-small dg-muted" text-anchor="middle">one batch, one look</text>
+  <path d="M676 195 L454.6 259.5" class="dg-line dg-edge-agents"/>
+  <polygon points="446,262 453.1,254.2 456.2,264.8" class="dg-head dg-agents"/>
+  <text x="20" y="248" class="dg-tag">THE SUB-PR</text>
+  <rect x="23" y="261" width="420" height="128" class="dg-shadow"/>
+  <rect x="20" y="258" width="420" height="128" class="dg-box"/>
+  <text x="36" y="282" class="dg-code">## Design review</text>
+  <text x="36" y="306" class="dg-small">✓ Critique — reads as the product, 2 fixed</text>
+  <text x="36" y="323" class="dg-small">✗ Audit — 1 left, sent to the outbox</text>
+  <text x="36" y="340" class="dg-small">— Design lint: not set here</text>
+  <text x="36" y="357" class="dg-small">✓ Screenshots — 390 and 1440</text>
+  <text x="36" y="374" class="dg-small">✓ Polish — one batch, confirmed</text>
+  <path d="M443 322 L514.0 322.0" class="dg-line dg-dash"/>
+  <polygon points="523,322 514.0,327.5 514.0,316.5" class="dg-head"/>
+  <text x="483" y="312" class="dg-small dg-muted" text-anchor="middle">what it left</text>
+  <rect x="535" y="297" width="208" height="56" class="dg-shadow"/>
+  <rect x="532" y="294" width="208" height="56" class="dg-box dg-key"/>
+  <text x="636" y="317" class="dg-small dg-you" text-anchor="middle">the PRD's outbox</text>
+  <text x="636" y="336" class="dg-small dg-muted" text-anchor="middle">you answer it at the end</text>
+  <text x="20" y="420" class="dg-small dg-muted">Never blocking: no slice stops, no check turns red, nothing waits on a design finding.</text>
+</svg>
