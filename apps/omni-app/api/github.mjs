@@ -1225,7 +1225,6 @@ var PayloadSchema = z13.looseObject({
     default_branch: z13.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    base: z13.looseObject({ ref: z13.string().nullish() }).nullish(),
     merged: z13.boolean().nullish(),
     merge_commit_sha: z13.string().nullish(),
     merged_at: z13.string().nullish()

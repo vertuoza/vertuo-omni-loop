@@ -98,7 +98,6 @@ const PayloadSchema = z.looseObject({
     })
     .nullish(),
   pull_request: PullRefSchema.extend({
-    base: z.looseObject({ ref: z.string().nullish() }).nullish(),
     merged: z.boolean().nullish(),
     merge_commit_sha: z.string().nullish(),
     merged_at: z.string().nullish(),
