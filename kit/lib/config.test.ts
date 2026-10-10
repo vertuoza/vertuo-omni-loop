@@ -62,16 +62,24 @@ describe('parseConfig', () => {
   });
 
   it('keeps design craft off with no screen paths unless the file switches it on, and refuses a bad switch or path (PRD 1369)', () => {
-    expect(parseConfig('kit: 1\n').design).toEqual({ enabled: false, paths: [] });
+    expect(parseConfig('kit: 1\n').design).toEqual({ enabled: false, paths: [], screens: '.omni-loop/knowledge/design/screens/' });
     expect(parseConfig('kit: 1\ndesign:\n  enabled: true\n  paths: [src/ui/**, "**/*.css"]\n').design).toEqual({
       enabled: true,
       paths: ['src/ui/**', '**/*.css'],
+      screens: '.omni-loop/knowledge/design/screens/',
     });
     expect(() => parseConfig('kit: 1\ndesign:\n  enabled: yes please\n', 'c.yml')).toThrow(/c\.yml.*design\.enabled/);
     expect(() => parseConfig('kit: 1\ndesign:\n  enabled: "true"\n')).toThrow(/design\.enabled/);
     expect(() => parseConfig('kit: 1\ndesign:\n  paths: src/ui\n')).toThrow(/design\.paths/);
     expect(() => parseConfig('kit: 1\ndesign:\n  paths: [""]\n')).toThrow(/design\.paths/);
     expect(() => parseConfig('kit: 1\ndesign:\n  on: true\n')).toThrow(/design.*on/s);
+  });
+
+  it('puts the screen library under the knowledge folder unless the file names its own, and refuses an empty one (PRD 1407)', () => {
+    expect(parseConfig('kit: 1\npaths:\n  knowledge: docs/kb/\n').design.screens).toBe('docs/kb/design/screens/');
+    expect(parseConfig('kit: 1\npaths:\n  knowledge: docs/kb\ndesign:\n  screens: design/screens\n').design.screens).toBe('design/screens');
+    expect(() => parseConfig('kit: 1\ndesign:\n  screens: ""\n')).toThrow(/design\.screens/);
+    expect(() => parseConfig('kit: 1\ndesign:\n  screens: [a]\n')).toThrow(/design\.screens/);
   });
 
   it('has no design lint command unless the config sets one (PRD 1369)', () => {

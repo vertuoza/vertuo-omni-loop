@@ -854,8 +854,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'design',
     kind: 'command',
     who: 'skills',
-    usage: ['omni design touched [<base>]'],
-    summary: 'whether a branch touches a screen, so its design review starts',
+    usage: ['omni design touched [<base>]', 'omni design screens'],
+    summary: 'whether a branch touches a screen, and the screen library',
     detail:
       'Design craft is off until the config sets design.enabled to true: then the skills read the ' +
       "design form, omni kb show design (the product, where its design system lives, what it does on " +
@@ -866,7 +866,14 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'unknown when design.paths is empty or the base cannot be read, for the agent to judge from the ' +
       "diff. On ui: yes a slice follows its design review, which runs commands.design, the repository's " +
       'design linter, when it is set. None of it ever blocks: the review never blocks a slice, a wave ' +
-      'or a gate, it only reports, and touched exits 0 whatever it finds.',
+      'or a gate, it only reports, and touched exits 0 whatever it finds. screens lists the screen ' +
+      'library, the folder design.screens names (by default design/screens/ under the knowledge ' +
+      'folder): one Markdown file per screen, its front matter saying its status (draft, locked or ' +
+      'superseded), who locked it, when and in which words, its mockup, the paths it implements and ' +
+      'its routes. It prints one line per screen, sorted by name, with its status, who locked it and ' +
+      'when, and its routes, then each file that does not read, says so when the library is empty, ' +
+      'and prints design: off while the flag is off. There is no hand-kept index, and screens exits 0 ' +
+      'whatever it finds.',
   },
   {
     name: 'e2e',
