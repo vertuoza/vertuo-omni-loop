@@ -34174,8 +34174,8 @@ function finishHarvest({
       const kept = [];
       for (const entry3 of result.placed) {
         const trial = attempt12([...kept, entry3.id]);
-        const failed3 = failures(trial);
-        if (failed3.length > 0) dropped.set(entry3.id, `the checks refused it: ${failed3.join("; ")}`);
+        const failed4 = failures(trial);
+        if (failed4.length > 0) dropped.set(entry3.id, `the checks refused it: ${failed4.join("; ")}`);
         else kept.push(entry3.id);
       }
       result = attempt12(null);
@@ -34663,13 +34663,14 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     openDossier: ({ title, repo, claudeSessionId = null }) => call("POST", "/api/dossiers", { body: { title, repo, ...claudeSessionId ? { claudeSessionId } : {} } }),
     /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one. Since
      * PRD 627 a fix's push names its kind (visual or bug), and since PRD 1272 a concept's (concept); a
-     * PRD's names none, as before.
-     * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[] }>} */
-    pushDossier: ({ repo, prd: prd2, kind = "prd", title, draftId = null, artifacts }) => call("POST", "/api/dossiers/push", {
-      body: { repo, prd: prd2, ...kind && kind !== "prd" ? { kind } : {}, title, ...draftId ? { draftId } : {}, artifacts }
+     * PRD's names none, as before. Since PRD 1364 a PRD's push names its product when one was chosen.
+     * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[], product?: string | null }>} */
+    pushDossier: ({ repo, prd: prd2, kind = "prd", title, draftId = null, product: product2 = null, artifacts }) => call("POST", "/api/dossiers/push", {
+      body: { repo, prd: prd2, ...kind && kind !== "prd" ? { kind } : {}, title, ...draftId ? { draftId } : {}, ...product2 ? { product: product2 } : {}, artifacts }
     }),
     /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none. Since
-     * PRD 627, a fix's by its kind (visual or bug), and since PRD 1272 a concept's. @returns {Promise<{ id: string, url: string }>} */
+     * PRD 627, a fix's by its kind (visual or bug), and since PRD 1272 a concept's. Since PRD 1364 it answers
+     * the dossier's product by its name, or null. @returns {Promise<{ id: string, url: string, product?: string | null }>} */
     /** PRD 757: this Claude session is working on `work` (null: the session alone); `ended` only
      * from the session's end. Answered 204. */
     heartbeat: ({ claudeSessionId, repo, work, ended = false }) => call("POST", "/api/ask/heartbeat", { body: { claudeSessionId, repo, work, ...ended ? { ended: true } : {} } }),
@@ -37771,27 +37772,27 @@ function failedRun(node3) {
   return FAILED_RUN.has(node3.conclusion ?? "") ? { name: node3.name, url: node3.detailsUrl ?? null } : null;
 }
 function failedContexts(contexts) {
-  const failed3 = [];
+  const failed4 = [];
   for (const node3 of contexts) {
     const check4 = node3 ? node3.__typename === "StatusContext" ? failedStatus(node3) : failedRun(node3) : null;
-    if (check4) failed3.push(check4);
+    if (check4) failed4.push(check4);
   }
-  return failed3;
+  return failed4;
 }
 function rollupOf(pr) {
   return pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup ?? null;
 }
-function isFixable(state, failed3, gateContexts) {
+function isFixable(state, failed4, gateContexts) {
   if (state !== "red") return false;
   const gates = new Set(gateContexts);
-  return failed3.length === 0 || failed3.some((run) => !gates.has(run.name));
+  return failed4.length === 0 || failed4.some((run) => !gates.has(run.name));
 }
 function readChecks(pr, labels2, { needsFixLabel, gateContexts }) {
   const rollup = rollupOf(pr);
   const state = rollup ? ROLLUP[rollup.state ?? ""] ?? "running" : "none";
-  const failed3 = rollup && state === "red" ? failedContexts(rollup.contexts?.nodes ?? []) : [];
-  const fixable = isFixable(state, failed3, gateContexts);
-  return { state, failed: failed3, stuck: needsFixLabel ? labels2.includes(needsFixLabel) : false, fixable };
+  const failed4 = rollup && state === "red" ? failedContexts(rollup.contexts?.nodes ?? []) : [];
+  const fixable = isFixable(state, failed4, gateContexts);
+  return { state, failed: failed4, stuck: needsFixLabel ? labels2.includes(needsFixLabel) : false, fixable };
 }
 function authorField(node3, key2) {
   const value = propertyOf(node3.author, key2);
@@ -40495,7 +40496,7 @@ function chooseDraft(entries4, { prd: prd2, claudeSessionId }) {
 }
 
 // kit/bin/commands/dossier.ts
-var USAGE13 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status';
+var USAGE13 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] [--product <name>] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status';
 var KINDS4 = ["prd", "visual", "bug", "concept"];
 var ISSUE_TITLE_MS = 5e3;
 var NO_SIGN_IN = "no sign-in (omni signin)";
@@ -40576,12 +40577,12 @@ async function pushFix(issue2, kind, { ctx, repo, client, exec, stdout, stderr }
   }
   return reportPush(result, folder.tooLarge, { stdout, stderr });
 }
-async function push(prd2, { ctx, repo, client, home, claudeSessionId, stdout, stderr }) {
+async function push(prd2, product2, { ctx, repo, client, home, claudeSessionId, stdout, stderr }) {
   const folder = readDossierFolder(ctx, prd2);
   if (!folder) throw usageError(`omni dossier push: PRD ${prd2} has no inbox or shipped folder.`);
   const where = home ?? ctx.root;
   const draft = chooseDraft(readDossiers(where), { prd: prd2, claudeSessionId });
-  const body = { repo, prd: prd2, title: folder.title, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) };
+  const body = { repo, prd: prd2, title: folder.title, product: product2, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) };
   let result;
   try {
     result = await client.pushDossier({ ...body, draftId: draft?.id ?? null });
@@ -40656,6 +40657,12 @@ function namedBy(verb2, kind, value) {
   const command2 = `dossier ${verb2}`;
   return kind === "prd" ? { kind, prd: prdArg(command2, "<n>", value) } : { kind, issue: issueArg(command2, "<n>", value) };
 }
+function productOf(flag, verb2, kind) {
+  if (flag === void 0) return null;
+  const product2 = flag.trim();
+  if (verb2 !== "push" || kind !== "prd" || product2 === "") throw usageError(USAGE13);
+  return product2;
+}
 function kindOf2(flag, numbered) {
   if (flag === void 0) return "prd";
   if (!numbered || !isOneOf(KINDS4, flag)) throw usageError(USAGE13);
@@ -40664,7 +40671,7 @@ function kindOf2(flag, numbered) {
 var dossier = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, vars, tokens, home, fetch = globalThis.fetch, callMs, now: now2 = Date.now }) {
-    const { positional, flags } = parseArgs("dossier", args, { values: ["kind"] });
+    const { positional, flags } = parseArgs("dossier", args, { values: ["kind", "product"] });
     const [verb2 = "", ...rest] = positional;
     const [first = ""] = rest;
     const title = verb2 === "open" && rest.length === 1 ? first.trim().slice(0, TITLE_MAX2) : "";
@@ -40672,6 +40679,7 @@ var dossier = {
     const runnable = verb2 === "status" && rest.length === 0 || numbered && rest.length === 1 || title.length > 0;
     if (!runnable) throw usageError(USAGE13);
     const kind = kindOf2(flags.kind, numbered);
+    const product2 = productOf(flags.product, verb2, kind);
     if (verb2 === "link" && !/^[1-9]\d*$/.test(String(rest[0]))) throw usageError(USAGE13);
     const named4 = numbered ? namedBy(verb2, kind, rest[0]) : null;
     const ctx = loadContext(cwd, { exec });
@@ -40696,7 +40704,7 @@ var dossier = {
     if (verb2 === "link") return link(named4.kind === "prd" ? named4.prd : named4.issue, named4.kind, options);
     if (named4.kind === "concept") return pushConcept(named4.issue, options);
     if (named4.kind !== "prd") return pushFix(named4.issue, named4.kind, options);
-    return push(named4.prd, options);
+    return push(named4.prd, product2, options);
   }
 };
 
@@ -41867,7 +41875,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni prd <n>"],
     label: "omni prd <n>",
     summary: "where PRD n lives and its files",
-    detail: "Where PRD n lives today: its state, inbox or shipped, its folder, the files in it, its outbox folder and the open items waiting there. The folder is the status, so this is the one lookup the skills run before following any delivery path. Exit 1 when the PRD is in neither {inbox} nor {shipped}."
+    detail: "Where PRD n lives today: its state, inbox or shipped, its folder, the files in it, its outbox folder and the open items waiting there. The folder is the status, so this is the one lookup the skills run before following any delivery path. Where dossiers are on, its last line is the product its dossier on the Omni page names, product: <name> or product: none, or product: unknown with why when the page cannot tell. Exit 1 when the PRD is in neither {inbox} nor {shipped}."
   },
   {
     name: "board",
@@ -41971,7 +41979,7 @@ var ENTRIES = deepFreeze([
     usage: ['omni dossier open "<title>"', "omni dossier push <n> [--kind visual|bug|concept]", "omni dossier link <n> [--kind visual|bug|concept]", "omni dossier status"],
     label: "omni dossier \u2026",
     summary: "a PRD's dossier on the Omni page",
-    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea and prints its link; push sends PRD n's files and adds a version only where a file changed; link prints PRD n's page, on any computer, or none when it has no dossier, and writes nothing; status says whether dossiers are on here. With --kind visual or --kind bug, push and link work on issue n's fix instead: its visual update or bug fix page, filled from its folder. With --kind concept, they work on concept n, its issue's number: its page under Work \u203A Concepts, filled from its concept.md, vision tour, boards and debate. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
+    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea and prints its link; push sends PRD n's files and adds a version only where a file changed; link prints PRD n's page, on any computer, or none when it has no dossier, and writes nothing; status says whether dossiers are on here. With --kind visual or --kind bug, push and link work on issue n's fix instead: its visual update or bug fix page, filled from its folder. With --kind concept, they work on concept n, its issue's number: its page under Work \u203A Concepts, filled from its concept.md, vision tour, boards and debate. With --product <name>, a PRD's push names the product the brainstorm asked for, for a repository in several products: the first push makes it the PRD's product, and a repository in one product or none decides alone. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
   },
   {
     name: "idea",
@@ -47077,7 +47085,7 @@ function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
   const adopted = adoptedEntriesForPrd(prd2, { ctx });
   const plan2 = planFor({ comments: replyComments(comments), items, adopted, markers: ctx.markers });
   const settled = [];
-  const failed3 = [];
+  const failed4 = [];
   for (const { number: number4, item: item2, answer, judgement, adoptedEntry } of plan2.settle) {
     const given = {
       text: answer.recorded,
@@ -47102,7 +47110,7 @@ function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
         objection: Boolean(adoptedEntry)
       });
     } else {
-      failed3.push({ number: number4, id: item2.id, errors: result.errors });
+      failed4.push({ number: number4, id: item2.id, errors: result.errors });
     }
   }
   let round2 = null;
@@ -47117,7 +47125,7 @@ function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
   }
   return {
     settled,
-    failed: failed3,
+    failed: failed4,
     held: plan2.held.map(({ number: number4, item: item2, answer, due }) => ({
       number: number4,
       id: item2.id,
@@ -48999,6 +49007,34 @@ var plan = {
 
 // kit/bin/commands/prd.ts
 init_define_OMNI_BUNDLE();
+
+// kit/lib/dossier/product.ts
+init_define_OMNI_BUNDLE();
+var unknownLine = (why2) => `product: unknown (${why2})`;
+function failed3(error62) {
+  if (!(error62 instanceof AskCallError)) throw error62;
+  if (error62.status === 404) return null;
+  return error62.status === null ? "unreachable" : `refused (${error62.status})`;
+}
+async function productLine(ctx, prd2, { tokens, home, fetch = globalThis.fetch, callMs } = {}) {
+  const toggle = dossierSwitch(ctx.config);
+  if (!toggle.on) return null;
+  const repo = ctx.config.repo.slug;
+  if (!repo) return unknownLine("no repository slug: repo.slug");
+  const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
+  if (!client) return unknownLine("no sign-in: omni signin");
+  let found2;
+  try {
+    found2 = await client.findDossier({ repo, prd: prd2 });
+  } catch (error62) {
+    const why2 = failed3(error62);
+    return why2 === null ? "product: none" : unknownLine(why2);
+  }
+  const name2 = propertyOf(found2, "product");
+  return `product: ${typeof name2 === "string" && name2.trim() !== "" ? name2 : "none"}`;
+}
+
+// kit/bin/commands/prd.ts
 var prd = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
@@ -49014,7 +49050,8 @@ var prd = {
     const state = await prdState(ctx, number4, { approval: gateApproval(ctx, { tokens, home, fetch, callMs }) });
     const why2 = heldWhy(state);
     if (why2 !== null) println(stderr, `omni prd: ${why2}`);
-    println(stdout, prdLines(where, state).join("\n"));
+    const product2 = await productLine(ctx, number4, { tokens, home, fetch, callMs });
+    println(stdout, [...prdLines(where, state), ...product2 === null ? [] : [product2]].join("\n"));
     return 0;
   }
 };
@@ -51507,8 +51544,8 @@ var envFiles = async (env) => {
 var copyEnvFiles = async (env) => {
   const missing = await missingEnvFiles(env);
   if (!Array.isArray(missing)) return missing;
-  const failed3 = missing.filter(([example, file2]) => !env.files.copyNew(example, file2)).map(([, file2]) => file2);
-  return failed3.length === 0 ? OK : notOk(`could not write: ${failed3.join(", ")}`);
+  const failed4 = missing.filter(([example, file2]) => !env.files.copyNew(example, file2)).map(([, file2]) => file2);
+  return failed4.length === 0 ? OK : notOk(`could not write: ${failed4.join(", ")}`);
 };
 var signedIn = (env) => Promise.resolve(env.signedIn() ? OK : notOk("not signed in to the Omni app"));
 var entry2 = (name2, check4, fix) => ({ ...BASE_CARDS[name2], check: check4, ...fix ? { fix } : {} });
