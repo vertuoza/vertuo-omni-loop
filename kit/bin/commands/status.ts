@@ -13,7 +13,7 @@ import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { gateApproval } from '../../lib/delivery/prd.ts';
 import type { GateOptions } from '../../lib/delivery/prd.ts';
-import { rangeChanges } from '../../lib/git.ts';
+import { baseKnowledge, rangeChanges } from '../../lib/git.ts';
 import { formatReport, gateResult } from '../../lib/outbox/status.ts';
 import { baseNames, fetchRemote, readFacts } from '../../lib/status/facts.ts';
 import { formatOverview } from '../../lib/status/format.ts';
@@ -47,14 +47,17 @@ function outboxGate({ number, labels: named, base }: { number: string | undefine
   const labels = list(named);
 
   let changes = null;
+  let knowledge = null;
   if (base !== null) {
     try {
       changes = rangeChanges({ ctx, base, exec });
     } catch (error) {
       throw usageError(errorMessage(error).split('\n')[0] ?? '');
     }
+    // The knowledge folder at the range's base grades law-demoted (PRD 1342).
+    knowledge = baseKnowledge({ ctx, base, exec });
   }
-  const result = gateResult(prd, { ctx, labels, changes });
+  const result = gateResult(prd, { ctx, labels, changes, base: knowledge });
   const report = formatReport(prd, result);
   println(stdout, report);
 

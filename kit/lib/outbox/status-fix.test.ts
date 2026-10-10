@@ -61,12 +61,12 @@ describe('fixGateResult — a fix PR answers a change to a law in its own folder
   it('is green, with nothing to answer, when the range fires no law rule', () => {
     const root = fixtureRoot();
     const changes = [{ path: 'src/a.ts', status: 'M' }, { path: 'libs/contract/x.ts', status: 'M' }, { path: 'db/m.sql', status: 'A' }];
-    const result = fixGateResult(ISSUE, { ctx: flatCtx(root, { risk: RISK }), folder: FIX, changes });
+    const result = fixGateResult({ ctx: flatCtx(root, { risk: RISK }), fix: { folder: FIX, number: ISSUE }, changes });
     expect(result).toMatchObject({ ok: true, items: [], unreworked: [], unaccounted: [], outbox: `${FIX}/outbox` });
   });
 
   it('is red on a removed test with no outbox in the fix folder, naming where it goes', () => {
-    const result = fixGateResult(ISSUE, { ctx: flatCtx(fixtureRoot()), folder: FIX, changes: [REMOVED_TEST] });
+    const result = fixGateResult({ ctx: flatCtx(fixtureRoot()), fix: { folder: FIX, number: ISSUE }, changes: [REMOVED_TEST] });
     expect(result.ok).toBe(false);
     expect(result.unaccounted).toEqual([{ ...REMOVED_TEST, rule: 'test-removed' }]);
     expect(fixLawFailures(result)).toEqual([
@@ -75,7 +75,7 @@ describe('fixGateResult — a fix PR answers a change to a law in its own folder
   });
 
   it('is red with no fix folder at all, saying the change has nowhere to be answered', () => {
-    const result = fixGateResult(ISSUE, { ctx: flatCtx(fixtureRoot()), folder: null, changes: [REMOVED_TEST] });
+    const result = fixGateResult({ ctx: flatCtx(fixtureRoot()), fix: null, changes: [REMOVED_TEST] });
     expect(result).toMatchObject({ ok: false, outbox: null, items: [] });
     expect(fixLawFailures(result)).toEqual([
       "kit/lib/proof.test.ts (test-removed): a change to a law needs an outbox in the fix's folder, and this range has no fix folder.",
@@ -87,7 +87,7 @@ describe('fixGateResult — a fix PR answers a change to a law in its own folder
     const file = fixItem(root);
     fixAccount(root, 'item s1-01-proof');
     const ctx = flatCtx(root);
-    const open = fixGateResult(ISSUE, { ctx, folder: FIX, changes: [REMOVED_TEST] });
+    const open = fixGateResult({ ctx, fix: { folder: FIX, number: ISSUE }, changes: [REMOVED_TEST] });
     expect(open).toMatchObject({ ok: false, unaccounted: [], items: [{ file, id: 's1-01-proof', rank: 'high' }] });
     expect(fixLawFailures(open)).toEqual([]);
 
@@ -97,20 +97,20 @@ describe('fixGateResult — a fix PR answers a change to a law in its own folder
       answer: { text: 'Yes, remove it.', approvedBy: 'pierrederval', approvedAt: '2026-10-10', channel: { kind: 'feature-pull-request', number: 40 }, statedVerdict: 'agreed' },
     });
     expect(settled).toMatchObject({ ok: true, settledFile: `${FIX}/outbox/settled.md` });
-    expect(fixGateResult(ISSUE, { ctx, folder: FIX, changes: [REMOVED_TEST] })).toMatchObject({ ok: true, items: [], unaccounted: [] });
+    expect(fixGateResult({ ctx, fix: { folder: FIX, number: ISSUE }, changes: [REMOVED_TEST] })).toMatchObject({ ok: true, items: [], unaccounted: [] });
   });
 
   it('refuses a medium item, as a feature PR does', () => {
     const root = fixtureRoot();
     fixItem(root, 'medium');
     fixAccount(root, 'item s1-01-proof');
-    const result = fixGateResult(ISSUE, { ctx: flatCtx(root), folder: FIX, changes: [REMOVED_TEST] });
+    const result = fixGateResult({ ctx: flatCtx(root), fix: { folder: FIX, number: ISSUE }, changes: [REMOVED_TEST] });
     expect(result.unaccounted).toEqual([{ ...REMOVED_TEST, rule: 'test-removed', refused: expect.stringContaining('ranked medium') }]);
     expect(fixLawFailures(result)).toEqual([expect.stringMatching(/^kit\/lib\/proof\.test\.ts \(test-removed\): .*ranked medium/)]);
   });
 
   it('is waved through by the override label', () => {
-    const result = fixGateResult(ISSUE, { ctx: flatCtx(fixtureRoot()), folder: FIX, changes: [REMOVED_TEST], labels: ['omni:outbox-go'] });
+    const result = fixGateResult({ ctx: flatCtx(fixtureRoot()), fix: { folder: FIX, number: ISSUE }, changes: [REMOVED_TEST], labels: ['omni:outbox-go'] });
     expect(result).toMatchObject({ ok: true, overridden: true });
   });
 
@@ -118,8 +118,8 @@ describe('fixGateResult — a fix PR answers a change to a law in its own folder
     const ctx = flatCtx(fixtureRoot());
     const base = memorySource({ [INVARIANTS]: law('N1', 'An invariant.', 'kit/lib/proof.test.ts') });
     const changes = [{ path: INVARIANTS, status: 'M' }];
-    expect(fixGateResult(ISSUE, { ctx, folder: FIX, changes, base }).unaccounted.map((change) => change.rule)).toEqual(['law-text', 'law-demoted']);
-    expect(fixGateResult(ISSUE, { ctx, folder: FIX, changes }).unaccounted.map((change) => change.rule)).toEqual(['law-text']);
+    expect(fixGateResult({ ctx, fix: { folder: FIX, number: ISSUE }, changes, base }).unaccounted.map((change) => change.rule)).toEqual(['law-text', 'law-demoted']);
+    expect(fixGateResult({ ctx, fix: { folder: FIX, number: ISSUE }, changes }).unaccounted.map((change) => change.rule)).toEqual(['law-text']);
   });
 
   it('reads only the fix folder\'s outbox, never a PRD\'s', () => {
@@ -133,7 +133,7 @@ describe('fixGateResult — a fix PR answers a change to a law in its own folder
   });
 
   it('reports the fix by its subject, not as a PRD', () => {
-    const result = fixGateResult(ISSUE, { ctx: flatCtx(fixtureRoot()), folder: FIX, changes: [REMOVED_TEST] });
+    const result = fixGateResult({ ctx: flatCtx(fixtureRoot()), fix: { folder: FIX, number: ISSUE }, changes: [REMOVED_TEST] });
     const report = formatReport(ISSUE, result, { subject: `fix ${FIX}` });
     expect(report).toContain(`outbox-status — fix ${FIX}: no open item.`);
     expect(report).not.toContain('PRD #123');

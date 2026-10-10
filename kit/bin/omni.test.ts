@@ -205,6 +205,30 @@ describe('omni — flags, lookups and guards', () => {
     expect(await main(['check', 'coverage', '--base', 'HEAD'], { cwd: root, ...s })).toBe(0);
   });
 
+  it('check coverage and the status gate grade law-demoted against the knowledge folder at the base (PRD 1342)', async () => {
+    const INVARIANTS = '.omni-loop/knowledge/product/invariants.md';
+    const law = (enforcedBy: string) => `# Product invariants\n\n## N-PRODUCT-1\n\nA save writes one row.\n\nEnforced by: ${enforcedBy}\n`;
+    const { root, write } = makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\nlaws:\n  source: knowledge\n',
+        '.omni-loop/delivery/inbox/0007-widget/spec.md': '# Widget\n',
+        [INVARIANTS]: law('app/save.test.mjs'),
+        'app/save.test.mjs': "it('saves', () => {});\n",
+      },
+    });
+    const base = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    write(INVARIANTS, law('unenforced'));
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qam', 'demote'], { cwd: root });
+
+    const coverage = io();
+    expect(await main(['check', 'coverage', '--base', base, '--prd', '7'], { cwd: root, ...coverage })).toBe(1);
+    expect(coverage.out.join('')).toContain('law-demoted');
+    const gate = io();
+    expect(await main(['status', '7', '--base', base], { cwd: root, ...gate })).toBe(1);
+    expect(gate.out.join('')).toContain(`${INVARIANTS} (law-demoted)`);
+  });
+
   it('check all skips coverage when the base ref is missing and runs the rest', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const s = io();

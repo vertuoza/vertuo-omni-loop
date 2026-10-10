@@ -215,22 +215,33 @@ export type FixGateResult = GateResult & { unaccounted: UnaccountedChange[]; out
  * The gate of a fix PR (PRD 1342): green unless its range fires one of the four law rules. A change
  * to a law is answered in the fix's own folder, `<folder>/outbox/`, exactly as a feature PR answers
  * it in its PRD's outbox: by an item ranked high that an account names, and that a person answered.
- * The other risk rules (`stored-shape`, `shared-contract`) ask a fix nothing. `folder` null: the
- * range holds no fix folder, so every change to a law is unaccounted. The override label waves it
+ * The other risk rules (`stored-shape`, `shared-contract`) ask a fix nothing. `fix` null: the
+ * range holds no fix folder, so every change to a law is unaccounted. Nothing is asked unless
+ * `laws.source` is `knowledge`. The override label waves it
  * through as it does a feature PR.
  */
-export function fixGateResult(
-  number: PrdNumber,
-  { ctx, folder, labels = [], changes, base = null }: { ctx: GateContext; folder: string | null; labels?: readonly string[]; changes: readonly Change[]; base?: KnowledgeSource | null },
-): FixGateResult {
+export function fixGateResult({
+  ctx,
+  fix,
+  labels = [],
+  changes,
+  base = null,
+}: {
+  ctx: GateContext;
+  fix: { folder: string; number: PrdNumber } | null;
+  labels?: readonly string[];
+  changes: readonly Change[];
+  base?: KnowledgeSource | null;
+}): FixGateResult {
   const overrideLabel = ctx.config.labels.outboxGo;
   const overridden = labels.includes(overrideLabel);
-  const outbox = folder === null ? null : fixOutboxDir(folder);
+  const outbox = fix === null ? null : fixOutboxDir(fix.folder);
   const laws = riskyChanges(changes, { ctx, base }).filter((change) => LAW_RULES.includes(change.rule));
   const clear = { items: [], unreworked: [], unaccounted: [], overridden, overrideLabel, outbox };
-  if (laws.length === 0) return { ok: true, ...clear };
-  if (folder === null) return { ...clear, ok: overridden, unaccounted: laws };
+  if (laws.length === 0 || ctx.config.laws.source !== 'knowledge') return { ok: true, ...clear };
+  if (fix === null) return { ...clear, ok: overridden, unaccounted: laws };
 
+  const { folder, number } = fix;
   const fixCtx = fixOutboxContext(ctx, folder, number);
   const items = openItems(number, { ctx: fixCtx });
   const unreworked = unreworkedDrift(number, { ctx: fixCtx });
@@ -253,6 +264,14 @@ export function fixLawFailures(result: Pick<FixGateResult, 'unaccounted' | 'outb
     if (change.refused !== undefined) return `${head}${change.refused}.`;
     return `${head}a change to a law needs an item ranked high in ${outbox}/ and an account naming it in ${outbox}/${ACCOUNTS_DIR}/.`;
   });
+}
+
+/**
+ * What `omni bug` and `omni visual` ask of a fix's folder (PRD 1342): given the range and the base's
+ * knowledge folder, the lines {@link fixLawFailures} names for the folder graded.
+ */
+export function fixLawCheck({ ctx, number, changes, base }: { ctx: GateContext; number: PrdNumber; changes: readonly Change[]; base: KnowledgeSource | null }): (folder: string) => string[] {
+  return (folder) => fixLawFailures(fixGateResult({ ctx, fix: { folder, number }, changes, base }));
 }
 
 /** A law a range touches: its id, its statement and the register file it sits in. */
