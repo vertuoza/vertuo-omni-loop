@@ -16,6 +16,7 @@
 import { firstPart, group, isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { workspacesToJoin, type JoinableWorkspace } from './github-orgs';
 import { listOf, textOf } from './unparsed';
+import { betterThan, measureOf } from '../arcade/measure';
 
 type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
@@ -320,7 +321,7 @@ function galaxyDb(seed: Partial<FakeTables>) {
   };
 
   /** submit_score(): a player of the workspace, with the game in their player_xp row's unlocked, a
-   * score from 0 to the cap; the higher of the stored best and the score is kept, and returned. */
+   * score from 0 to the cap; the better of the stored best and the score (the lowest for `kart`) is kept, and returned. */
   function submitScore(me: FakeUser | null, args: Record<string, unknown> | undefined): Result {
     const { workspace, game, score } = args ?? {};
     const player = me && tables.players.find((p) => p.workspace_id === workspace && p.user_id === me.id);
@@ -331,7 +332,7 @@ function galaxyDb(seed: Partial<FakeTables>) {
     }
     const row = tables.arcade_scores.find((s) => s.workspace_id === workspace && s.user_id === me.id && s.game === game);
     if (!row) tables.arcade_scores.push({ workspace_id: workspace, user_id: me.id, game, best: score, at: stamp() });
-    else if (typeof row.best !== 'number' || score > row.best) Object.assign(row, { best: score, at: stamp() });
+    else if (typeof row.best !== 'number' || betterThan(measureOf(textOf(game)), score, row.best)) Object.assign(row, { best: score, at: stamp() });
     return { data: row ? row.best : score, error: null };
   }
 

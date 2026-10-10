@@ -43,6 +43,7 @@ import { GAMES } from './games';
 import {
   hudOf, newGame, OVER_SECONDS, pause as pauseGame, press as pressGame, sameHud, step as stepGame, type Game, type GameEvent, type GameHud,
 } from './games/invaders';
+import { measureOf } from './measure';
 import { hiOf, overPress, sending, submitSend, withBest, type ScoreSend } from './scenes/invaders-score';
 import { setFleets } from './fleets';
 import { brandLook, HOUSE_BRAND, type Brand } from './brand';
@@ -298,7 +299,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     void submitSend(account, game, attempt, before).then(({ send: done, best }) => {
       if (best !== null) {
         const m = meRef.current;
-        if (m) setScores((all) => ({ ...all, [game]: withBest(all[game], { id: m.id, name: m.display_name, hero: m.hero, team: m.team, best }) }));
+        if (m) setScores((all) => ({ ...all, [game]: withBest(all[game], { id: m.id, name: m.display_name, hero: m.hero, team: m.team, best }, measureOf(game)) }));
         // Then the table as stored, with whatever the crew scored meanwhile.
         account.scores(game).then((b) => { setScores((all) => ({ ...all, [game]: b })); }).catch(() => { /* the line above stands */ });
       }

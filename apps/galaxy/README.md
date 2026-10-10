@@ -130,7 +130,7 @@ HOME.
 | Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) ([The game room](#the-game-room)) |
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
 | SUPER OMNI WORLD | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
-| OMNI KART | The third game, from LV 3: a Mode 7 kart race of three laps on COMET RING against five rivals, item boxes (BOOST, BLOB, ORB), the score sent at the finish |
+| OMNI KART | The third game, from LV 3: a Mode 7 kart race of three laps on COMET RING against five rivals, item boxes (BOOST, BLOB, ORB), the race time sent at the finish (the lowest is kept) |
 | How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.ts` so they never drift |
 
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#menu`, `#planet-2332`
@@ -316,7 +316,7 @@ the database's policies decide what they see:
   (`src/data/players.ts`).
 - **With GitHub linked**, it also reads their `player_xp` row in that workspace, by lower-cased
   login (`src/data/xp.ts`), and each game's crew table from `arcade_scores`: its top five with the
-  players' names and heroes, and their own best (`src/data/scores.ts`). Each is read on its own,
+  players' names and heroes, and their own best (`src/data/scores.ts`), sorted in the game's direction: highest first for a score, fastest first for OMNI KART's time (PRD 1440). Each is read on its own,
   after the galaxy: when one fails, the galaxy stays, and the arcade says XP OUT OF REACH (and shows
   no level) or SCORES OUT OF REACH (and the game still plays). Without GitHub, it reads neither.
 - **The planets' dossiers**, for every member, visitor or player (`src/data/dossiers.ts`): the
@@ -896,10 +896,10 @@ off, no row exists, and every player sees NO XP YET.
   bounces off walls, and is gone at its third bounce, after 4 seconds, or on a kart, which spins out.
   A spin-out lasts 1 second at 30% of the speed with no input, and never stops the race. The rivals
   use theirs by rule: a BOOST at once on a straight, a BLOB with a kart close behind, an ORB with a
-  kart ahead, in range and in line. Its numbers are one block, `rules.ts`. At the finish the score
-  (1000, 700, 500, 350, 200 or 100 for the place, plus a point per tenth of a second under 150
-  seconds) is sent once under `kart`, with the same SAVING SCORE…, NEW BEST, YOUR BEST n or SCORE NOT
-  SAVED (A retries once) as Invaders. What it sounds like is in the sound section above.
+  kart ahead, in range and in line. Its numbers are one block, `rules.ts`. At the finish the player's
+  race time (PRD 1440), the whole race of three laps in tenths of a second, is sent once under `kart`: the
+  kart keeps the best time, the lowest, and has its own send lines, SAVING TIME…, NEW BEST, YOUR BEST 1:42.3
+  or TIME NOT SAVED (A retries once). The cabinet's CREW TOP 5 shows times, fastest first. What it sounds like is in the sound section above.
   **The space circuit** (PRD 1427): COMET RING keeps its layout and its rules and is drawn as a circuit
   in space, all in code, no image file. The walls are dark metal with a neon edge (cyan outside the
   circuit, magenta inside), the kerbs alternate the two neons, the road has panel seams and three
@@ -1493,7 +1493,8 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
 - `submit_score(workspace, game, score)`, security definer, is the only way a score goes in. It
   refuses a caller with no player row in the workspace (a visitor, a member of another workspace,
   anyone signed out), a game their `player_xp.unlocked` does not hold, and a score outside
-  0..9,999,999. It keeps the higher of the stored best and the score, and returns the best as
+  0..9,999,999. It keeps the better of the stored best and the score in the game's direction (the lowest for
+  `kart`, whose value is a race time in tenths; the highest for every other game), and returns the best as
   stored.
 - `contributions` (PRD 328): who authored each pull request merged into a sector repository's
   default branch (`kind` `pr-merged`, `at` when it merged) and who opened each `omni:prd` issue

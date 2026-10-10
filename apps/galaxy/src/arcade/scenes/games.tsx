@@ -12,7 +12,8 @@ import { Hint } from '../hint';
 import type { Player, ScoresRead } from '../types';
 import { barFill, cabinets, type Cabinet, type XpStatus, XP_LINE } from '../games/room';
 import { badgeOf } from './menu.tsx';
-import { scoreDigits } from './invaders.tsx';
+import { textOf } from '../measure';
+import type { Measure } from '../games/index';
 import './common.css';
 import './games.css';
 import { cssVars } from '../css-vars';
@@ -36,14 +37,14 @@ function XpHeader({ xp }: { xp: XpStatus }) {
 // The attract on a lit cabinet's screen: three rows of Entropy over the player's hero.
 const ROWS: WoundKind[] = ['fault-line', 'unconfirmed-ground', 'under-fire'];
 
-/** The crew's top five at a game, best first, the player's own line highlighted; or why there is none. */
-function TopFive({ board, me }: { board: ScoresRead | undefined; me: Player | null }) {
+/** The crew's top five at a game, best first, each in its game's text (`1:42.3` for a time), the player's own line highlighted; or why there is none. */
+function TopFive({ board, me, measure }: { board: ScoresRead | undefined; me: Player | null; measure: Measure }) {
   if (board === 'unreadable') return <span className="cab-none cab-unreadable">SCORES OUT OF REACH</span>;
   if (!board?.top.length) return <span className="cab-none">NO SCORES YET</span>;
   return (
     <ol className="cab-top">
       {board.top.map((l, i) => (
-        <li key={l.id} className={l.id === me?.id ? 'mine' : undefined}><span>{i + 1} {l.name}</span><span>{scoreDigits(l.best)}</span></li>
+        <li key={l.id} className={l.id === me?.id ? 'mine' : undefined}><span>{i + 1} {l.name}</span><span>{textOf(measure, l.best)}</span></li>
       ))}
     </ol>
   );
@@ -86,7 +87,7 @@ function CabinetView({ cabinet, me, board, active, onPick }: {
       </span>
       <span className="cab-scores">
         <b>CREW TOP 5</b>
-        <TopFive board={board} me={me} />
+        <TopFive board={board} me={me} measure={game.measure} />
       </span>
       <span className="cab-play">A · PLAY</span>
     </button>
