@@ -2412,3 +2412,67 @@ describe('the design review in the skills that drive screen work (PRD 1369)', ()
     expect(skillSection(text, '4.')).toContain('**s3** (`ui: yes`)');
   });
 });
+
+// PRD 1369, s5: the skills that read the product's look read the design form, behind the flag.
+// invade fills it from the product's own evidence and proposes the flag, design.paths and
+// commands.design; think-big's Craft critic judges against it and the craft floor; brainstorm's
+// before/after draws its "after" from the form's tokens and components. None invents a direction.
+describe('the design form in invade, think-big and brainstorm (PRD 1369)', () => {
+  const read = (name: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', name, 'SKILL.md'), 'utf8');
+  const FLAG = 'omni.mjs config design.enabled';
+  const tableRow = (text: string, start: string) => text.split('\n').find((line: string) => line.startsWith(start)) ?? '';
+
+  it('each skill reads omni config design.enabled in its step 0, and off, does not read or fill the form', () => {
+    for (const name of ['invade', 'think-big', 'brainstorm']) expect(skillSection(read(name), 'Step 0'), name).toContain(FLAG);
+    expect(skillSection(read('invade'), 'Step 0')).toMatch(/step 7 proposes no `design\.paths`/);
+    expect(skillSection(read('think-big'), 'Step 0')).toMatch(/step 2 reads no design\s+form/);
+    expect(skillSection(read('brainstorm'), 'Step 0')).toMatch(/step 5 reads no design form/);
+  });
+
+  it("invade's per-form table has a design row naming what answers it", () => {
+    const row = tableRow(read('invade'), '| design |');
+    for (const source of ['token', 'CSS custom properties', 'Tailwind', 'theme config', 'component library', 'stories', 'fonts', 'global styles', '`DESIGN.md`', 'screens', 'copy']) {
+      expect(row, source).toContain(source);
+    }
+  });
+
+  it('invade fills the form with path@hash from the product, leaves TODO(human) where evidence is missing, and never invents a direction', () => {
+    const fill = skillSection(read('invade'), '5.');
+    expect(fill).toContain('### The design form');
+    expect(fill).toContain('`<path>@<hex>`');
+    expect(fill).toContain('TODO(human)');
+    expect(fill).toContain('**Never invent a visual direction.**');
+    expect(fill).toMatch(/A pattern\s+that merely looks deliberate[^.]*is a question for a person/);
+    expect(fill).toContain('`See: <path>`');
+    expect(skillSection(read('invade'), 'Guardrails')).toMatch(/Never invents a visual direction/);
+  });
+
+  it('invade proposes the flag when there are screens, and design.paths and commands.design only with the flag on', () => {
+    const config = skillSection(read('invade'), '7.');
+    expect(tableRow(config, '| `design.enabled` |')).toMatch(/found screens/);
+    expect(tableRow(config, '| `design.enabled` |')).toMatch(/nothing else of design is proposed/);
+    expect(tableRow(config, '| `design.paths` |')).toMatch(/the flag is `true` and the list is empty/);
+    expect(tableRow(config, '| `commands.design` |')).toMatch(/the flag is `true`.*a design linter is already among the dependencies/);
+    expect(skillSection(read('invade'), '--refresh')).toContain('the `design` form');
+  });
+
+  it("think-big's Today's product reads omni kb show design, and the Craft critic judges against it and the craft floor", () => {
+    const text = read('think-big');
+    const fuel = skillSection(text, '2.');
+    expect(fuel.indexOf('omni.mjs kb show design')).toBeGreaterThan(fuel.indexOf("**Today's product.**"));
+    expect(fuel).toContain('`reference/craft-floor.md`');
+    expect(fuel).toMatch(/never a direction this run invents/);
+    const studio = skillSection(text, 'The studio');
+    expect(studio).toContain('**Craft, with the design flag on.**');
+    expect(studio).toMatch(/fuel sheet's `design` section first, then its `craft-floor` section/);
+    expect(studio).toMatch(/The product wins/);
+  });
+
+  it("brainstorm's before/after builds the after from the form's tokens and components, never invented", () => {
+    const page = skillSection(read('brainstorm'), '5.');
+    expect(page).toContain('omni.mjs kb show design');
+    expect(page).toMatch(/build the "after" from the product's own tokens and components/);
+    expect(page).toMatch(/never\s+invented/);
+    expect(page).toMatch(/`deliberate` section says the\s+product does on purpose holds/);
+  });
+});
