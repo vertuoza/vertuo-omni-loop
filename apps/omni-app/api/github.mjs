@@ -640,7 +640,9 @@ var ConfigSchema = z7.object({
     checks: z7.array(text2).default([]),
     test: nullableText.default(null),
     // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
-    mutation: nullableText.default(null)
+    mutation: nullableText.default(null),
+    // PRD 1369: a design linter `/omni:pixel-perfect review` runs when it is set; it only reports.
+    design: nullableText.default(null)
   }),
   acceptance: z7.object({
     enabled: z7.boolean().default(false),
@@ -712,6 +714,14 @@ var ConfigSchema = z7.object({
     bypassEnv: envName.nullable().default(null),
     dir: text2.default("e2e"),
     model: text2.default("anthropic/claude-sonnet-5.5")
+  }),
+  // PRD 1369: design craft — the `design` form's readers and `/omni:pixel-perfect review` on UI work.
+  // Off by default: a repository opts in, and off restores the loop as it was. `paths` are globs over
+  // repository paths where the screens, styles, tokens and components live; `omni design touched`
+  // matches a diff against them (`kit/lib/design/`).
+  design: section({
+    enabled: z7.boolean().default(false),
+    paths: z7.array(text2).default([])
   }),
   markers: section({ prefix: z7.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
