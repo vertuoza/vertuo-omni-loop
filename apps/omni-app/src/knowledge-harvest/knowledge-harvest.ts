@@ -45,7 +45,7 @@ import { firstLine } from '../outbox-check/github-schema.ts';
 import { commentOnFailure, FailureCommentSchema, upsertComment } from '../verdict-comment/verdict-comment.ts';
 import type { Classification, LawQuestion } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import type { ChangedFile, LawIssue, LawWorth } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
-import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { filesIn, openLawIssue, pullFiles, readMerge, type RequestOctokit, takenElsewhere, tipOf, withTreeAt } from './github.ts';
 import type { LawJudge, LawJudgement } from './law-judge.ts';
 import { commitMarker, commitMessage, knowledgeBody, knowledgeTitle, toCommit } from './render.ts';
@@ -134,7 +134,7 @@ async function judged(judge: LawJudge, question: LawQuestion, asked: { repo: str
 async function lawAnswers(
   step: StepRun,
   judge: LawJudge,
-  { questions, repo, prd }: { questions: () => Promise<LawQuestion[]>; repo: string; prd: number },
+  { questions, repo, prd }: { questions: () => Promise<LawQuestion[]>; repo: string; prd: PrdNumber },
 ): Promise<Record<string, LawWorth | null>> {
   const worth: Record<string, LawWorth | null> = {};
   for (const question of await savedStep(step, 'law-questions', LawQuestionsSchema, questions)) {
@@ -157,7 +157,7 @@ async function worthAnswered(
     classified: readonly Classification[];
     questions: (replies: readonly Classification[]) => Promise<LawQuestion[]>;
     repo: string;
-    prd: number;
+    prd: PrdNumber;
   },
 ): Promise<(Classification & { worth: LawWorth | null })[]> {
   const replies = laws ? classified : withoutWorth(classified);
