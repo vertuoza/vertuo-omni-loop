@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
-import { COMET_RING, isRoad, LAPS, PAR_SECONDS, parseTrack, TILE, tileAt, trackProblems, type TrackSource } from './track';
+import { COMET_RING, cornersOf, isRoad, LAPS, PAR_SECONDS, parseTrack, TILE, tileAt, trackProblems, type TrackSource } from './track';
 
 /** COMET RING with one row changed: `edit` gets the rows as arrays of characters. */
 function altered(edit: (rows: string[][]) => void, waypoints: TrackSource['waypoints'] = COMET_RING.waypoints): TrackSource {
@@ -125,5 +125,30 @@ describe('parseTrack', () => {
 
   it('throws, naming what is wrong, on a circuit that is not drivable', () => {
     expect(() => parseTrack(altered((r) => { set(r, 10, 5, 'q'); }))).toThrow(/row 5, col 10: unknown character 'q'/);
+  });
+});
+
+describe('cornersOf', () => {
+  const corners = cornersOf(parseTrack());
+  const L = 'left', R = 'right';
+
+  it("lists COMET RING's corners: every waypoint, the line turning 90° at each, and the way it turns", () => {
+    expect(corners.map((c) => [c.x, c.y, c.turn])).toEqual([
+      [54, 56, L], [54, 40, L], [44, 40, R], [44, 28, R], [56, 28, L], [56, 8, L], [36, 8, L],
+      [36, 20, R], [20, 20, R], [20, 8, L], [8, 8, L], [8, 40, L], [18, 40, R], [18, 56, L],
+    ]);
+  });
+
+  it('gives the step of the leg into each corner, the last waypoint joining the first', () => {
+    expect(sure(corners[0], 'the first corner').into).toEqual([1, 0]);
+    expect(sure(corners[1], 'the second corner').into).toEqual([0, -1]);
+  });
+
+  it('leaves out a waypoint where the line turns under 30°, and keeps one past it', () => {
+    const pt = (x: number, y: number) => ({ x, y });
+    const a = Math.tan(Math.PI / 6);
+    const ring = (y: number) => [pt(0, 0), pt(100, 0), pt(200, y), pt(100, 300), pt(0, 300)];
+    expect(cornersOf({ waypoints: ring(100 * a - 5) }).map((c) => c.index)).not.toContain(1);
+    expect(cornersOf({ waypoints: ring(100 * a + 5) }).map((c) => c.index)).toContain(1);
   });
 });

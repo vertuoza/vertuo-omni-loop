@@ -287,6 +287,37 @@ function lineCentre(tiles: readonly (readonly [number, number])[], forward: read
   return { x, y, at: x * forward[0] + y * forward[1] };
 }
 
+/** A corner of the racing line: the waypoint's tile, the way the line turns there, and the unit step of the leg into it. */
+export interface Corner {
+  /** The waypoint's index in the racing line. */
+  readonly index: number;
+  readonly x: number;
+  readonly y: number;
+  /** As seen from above, y down: a right turn is clockwise. */
+  readonly turn: 'left' | 'right';
+  readonly into: readonly [number, number];
+}
+
+/** The turn, in degrees, past which a waypoint is a corner. */
+const CORNER_DEGREES = 30;
+
+/** The waypoints where the racing line (closed: the last joins the first) turns by more than 30°, each with the way it turns. */
+export function cornersOf(track: Pick<Track, 'waypoints'>): Corner[] {
+  const w = track.waypoints;
+  const out: Corner[] = [];
+  w.forEach((p, index) => {
+    const a = at(w, (index + w.length - 1) % w.length, 'the previous waypoint'), b = at(w, (index + 1) % w.length, 'the next waypoint');
+    const inx = p.x - a.x, iny = p.y - a.y, outx = b.x - p.x, outy = b.y - p.y;
+    const turned = Math.abs(Math.atan2(inx * outy - iny * outx, inx * outx + iny * outy)) * 180 / Math.PI;
+    if (turned <= CORNER_DEGREES) return;
+    out.push({
+      index, x: Math.floor(p.x / TILE), y: Math.floor(p.y / TILE),
+      turn: inx * outy - iny * outx > 0 ? 'right' : 'left', into: [Math.sign(inx), Math.sign(iny)],
+    });
+  });
+  return out;
+}
+
 /** The circuit as the game uses it; throws, naming the problems, when `trackProblems` finds any. */
 export function parseTrack(src: TrackSource = COMET_RING): Track {
   const problems = trackProblems(src);
