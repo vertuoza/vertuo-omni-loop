@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { driveKart, kartAt, NO_FX, padOf, stepFx, turnRate, type Fx, type Kart, type Pad } from './kart';
+import { driveKart, kartAt, NO_FX, padOf, stepFx, tippedOver, turnRate, type Fx, type Kart, type Pad } from './kart';
 import { RULES } from './rules';
 import { isRoad, TILE, tileAt } from './track';
 
@@ -160,29 +160,42 @@ describe('the fall', () => {
   const north = (speed = 80): Kart => ({ ...kartAt(20 * TILE, 2 * TILE + 8, -Math.PI / 2), speed });
   const held: Fx = { ...NO_FX, item: 'orb', boost: 1, spin: 0 };
 
-  it('starts on the sub-step the centre goes over the void, not while only the body hangs over the edge', () => {
+  it('starts on the sub-step all of it has tipped over the edge, not while any of it is still over the road', () => {
     let k = north();
     let fx: Fx = held;
     let hung = false;
     for (let steps = 0; fx.fall <= 0 && steps < 500; steps++) {
       ({ kart: k, fx } = stepFx(VOID_MAP, k, pad({ accel: true }), RULES.subStep, 1, fx));
-      if (fx.fall <= 0 && k.y < TILE + RULES.radius) hung = true;
+      if (fx.fall <= 0 && k.y < TILE) hung = true; // its centre over the void, the rest of it still on the road
     }
     expect(hung).toBe(true);
     expect(fx.fall).toBe(RULES.fallTime);
-    expect(k.y).toBeLessThan(TILE);
+    expect(k.y).toBeLessThanOrEqual(TILE - RULES.overhang);
+    expect(k.y).toBeGreaterThan(TILE - RULES.overhang - 2);
     expect(k.speed).toBe(0);
     expect(fx.boost).toBe(0);
     expect(fx.item).toBe('orb');
   });
 
-  it('does not fall with the body over the edge and the centre on the road', () => {
-    const k = { ...north(0), y: TILE + 1 };
-    expect(stepFx(VOID_MAP, k, NONE, RULES.subStep, 1, NO_FX).fx.fall).toBe(0);
+  it('does not fall with its centre over the void while any of its width is still over the road', () => {
+    for (const y of [TILE + 1, TILE - 1, TILE - RULES.overhang + 0.5]) {
+      expect(stepFx(VOID_MAP, { ...north(0), y }, NONE, RULES.subStep, 1, NO_FX).fx.fall, `y ${y}`).toBe(0);
+    }
+  });
+
+  it('measures the overhang to the nearest road, a corner of the road included', () => {
+    // Road on the tiles of columns 0 to 2 of rows 1 and 2: its corner is at 48, 16, void all round it.
+    const CORNER = ['~'.repeat(8), '###' + '~'.repeat(5), '###' + '~'.repeat(5), '~'.repeat(8)];
+    const off = (d: number) => ({ x: 3 * TILE + d, y: TILE - d });
+    expect(tippedOver(CORNER, off(4))).toBe(false); // 5.7 from the corner: still touching it
+    expect(tippedOver(CORNER, off(5.5))).toBe(true); // 7.8 from it: gone
+    expect(tippedOver(CORNER, { x: 3 * TILE + RULES.overhang - 0.5, y: 2 * TILE })).toBe(false);
+    expect(tippedOver(CORNER, { x: 3 * TILE + RULES.overhang, y: 2 * TILE })).toBe(true);
+    expect(tippedOver(CORNER, { x: TILE, y: 2 * TILE })).toBe(false);
   });
 
   it('ends a spin-out when it falls', () => {
-    const k = { ...north(), y: TILE + 0.1 };
+    const k = { ...north(), y: TILE - RULES.overhang - 0.1 };
     const { fx } = stepFx(VOID_MAP, k, NONE, RULES.subStep, 1, { ...NO_FX, spin: 0.8 });
     expect(fx.fall).toBeGreaterThan(0);
     expect(fx.spin).toBe(0);

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { rampFrom } from '@omni/design';
 import { TOKENS } from '../theme';
 import { sure } from '../test/sure';
-import { BEYOND, pack, paintTrack, SURFACE } from './texture';
+import { BEYOND, pack, paintTrack, SURFACE, VOID } from './texture';
 import { cornersOf, isRoad, parseTrack, TILE, tileAt } from './track';
 
 describe('pack', () => {
@@ -32,30 +32,22 @@ describe('paintTrack', () => {
   const cyan = pack(SURFACE.neonCyan), magenta = pack(SURFACE.neonMagenta);
   const tilesOf = (c: string) => track.map.flatMap((row, y) => Array.from(row).flatMap((t, x) => (t === c ? [[x, y] as const] : [])));
 
-  it('is one 16×16 tile per map tile, every pixel opaque', () => {
+  it('is one 16×16 tile per map tile, every pixel opaque or see-through', () => {
     expect(texture.w).toBe(64 * TILE);
     expect(texture.h).toBe(64 * TILE);
     expect(texture.px).toHaveLength(1024 * 1024);
-    for (let i = 0; i < texture.px.length; i += 997) expect(sure(texture.px[i], 'a pixel') >>> 24).toBe(0xff);
+    for (let i = 0; i < texture.px.length; i += 997) expect([0, 0xff]).toContain(sure(texture.px[i], 'a pixel') >>> 24);
+    for (const [tx, ty] of tilesOf('#').filter((_, i) => i % 7 === 0)) for (const c of tile(tx, ty)) expect(c >>> 24, `road ${tx},${ty}`).toBe(0xff);
   });
 
-  it('paints a void tile as space: its own near-black ramp and a few stars, none of the road\'s colours', () => {
-    const road = new Set(rampFrom(SURFACE.road).map(pack));
-    const space = new Set([...rampFrom(SURFACE.void).map(pack), pack(SURFACE.starBright), pack(SURFACE.starDim)]);
-    const stars = new Set([pack(SURFACE.starBright), pack(SURFACE.starDim)]);
+  it('leaves a void tile see-through, the floor having none there: nothing on it but its neon edge', () => {
+    expect(VOID >>> 24).toBe(0);
     const edge = new Set([cyan, magenta]);
-    let starred = 0;
     for (const [tx, ty] of tilesOf('~').filter((_, i) => i % 11 === 0)) {
-      for (const c of tile(tx, ty)) {
-        if (edge.has(c)) continue;
-        expect(space.has(c), `void ${tx},${ty}`).toBe(true);
-        expect(road.has(c)).toBe(false);
-        if (stars.has(c)) starred++;
-      }
+      for (const c of tile(tx, ty)) expect(c === VOID || edge.has(c), `void ${tx},${ty}`).toBe(true);
     }
-    expect(starred).toBeGreaterThan(0);
-    // Deep in the void, a tile is the darkest tone with stars on it, and nothing else.
-    expect(tile(1, 1).has(pack(sure(rampFrom(SURFACE.void)[3], 'the dark tone')))).toBe(true);
+    // Deep in the void, a tile is see-through and nothing else.
+    expect(tile(1, 1)).toEqual(new Set([VOID]));
   });
 
   it('paints the road in the road ramp, with a darker seam across the way forward every four tiles', () => {
@@ -77,7 +69,7 @@ describe('paintTrack', () => {
 
   it('paints neon on a void tile only where a side meets the road: cyan outside the circuit, magenta inside', () => {
     const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
-    const space = new Set([...rampFrom(SURFACE.void).map(pack), pack(SURFACE.starBright), pack(SURFACE.starDim)]);
+    const space = new Set([VOID]);
     const seen = { cyan: 0, magenta: 0 };
     for (const [tx, ty] of tilesOf('~')) {
       const facing = sides.some(([dx, dy]) => isRoad(tileAt(track.map, tx + dx, ty + dy)));
@@ -114,11 +106,9 @@ describe('paintTrack', () => {
     expect(tile(30, 56).size).toBeLessThanOrEqual(2); // the start line's chequer: light and dark
   });
 
-  it('paints the same texture every time, and reads the void\'s darkest tone past the map', () => {
+  it('paints the same texture every time, and reads the void past the map: see-through too', () => {
     expect(paintTrack(track).px).toEqual(texture.px);
-    expect(BEYOND).toBe(pack(sure(rampFrom(SURFACE.void)[3], 'the dark tone')));
-    const bright = (c: number) => (c & 0xff) + ((c >> 8) & 0xff) + ((c >> 16) & 0xff);
-    for (const tone of rampFrom(SURFACE.void).map(pack)) expect(bright(BEYOND)).toBeLessThanOrEqual(bright(tone));
+    expect(BEYOND).toBe(VOID);
   });
 
   describe('the chevrons', () => {

@@ -12,7 +12,7 @@ import { TILE } from './track';
 import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
 import { NO_FX, type Kart } from './kart';
 import { newParticles, spawnsOf, stepParticles, type Particle, type Particles } from './fx';
-import { chaseCamera, project, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
+import { chaseCamera, depthAt, project, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
 import type { Driver, Rival } from './rivals';
@@ -25,8 +25,8 @@ interface Floor { image: ImageData; pixels: Uint32Array; canvas: HTMLCanvasEleme
 /** The sky's panorama, in screens: a full turn of the camera, for a field of view of 60° across one screen. */
 const PANORAMA = 6;
 
-/** A band at the horizon where the floor meets the sky. */
-export const HAZE = 5;
+/** The galaxy's disc along the horizon: a glow this many rows deep on each side of it, fading away from it. */
+export const HAZE = 6;
 
 const wrap = (x: number, span: number) => ((x % span) + span) % span;
 
@@ -71,18 +71,21 @@ export function cometsOf(seed: number, t: number, w: number, sky: number, reduce
 const PLANET_SEED = 1359;
 const MOON_SEED = 1427;
 
+/**
+ * The space the circuit floats in (PRD 1447), all round it: above the horizon, and under it, where the floor
+ * is see-through over the void. Its bands brighten towards the horizon from both sides, the stars and the
+ * nebulae fill both halves, and the planets stand across the horizon, not cut by it.
+ */
 function skyOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View, seed: number) {
-  const sky = v.horizon;
+  const sky = v.horizon, under = v.h - sky;
   const shift = s.reduced ? 0 : skyShift(v.angle, v.w * PANORAMA);
   const bands = [s.theme.void, '#0a0824', '#0d0a2c', '#110c34'];
   bands.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, Math.floor((sky / bands.length) * i), v.w, Math.ceil(sky / bands.length)); });
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(0, 0, v.w, sky);
-  ctx.clip();
-  // The stars scroll with the camera, the nearer layers faster; the nebula and the planet stand in the panorama.
+  [...bands].reverse().forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, sky + Math.floor((under / bands.length) * i), v.w, Math.ceil(under / bands.length)); });
+  // The stars scroll with the camera, the nearer layers faster; the nebulae and the planets stand in the panorama.
   drawStarfield(ctx, stars, shift / 6, { w: W, h: H, speed: 1 });
   ctx.drawImage(nebulaFor('kart-sky', 1, 360, 150), Math.round(wrap(shift * 0.5 + 40, v.w * 3) - v.w * 0.5 - 20), Math.round(sky - 130));
+  ctx.drawImage(nebulaFor('kart-deep', 2, 420, 160), Math.round(wrap(shift * 0.5 + v.w * 1.6, v.w * 3) - v.w * 0.5 - 20), Math.round(sky + under * 0.15));
   drawPlanet(ctx, {
     cx: Math.round(wrap(shift + v.w * 0.7, v.w * PANORAMA) - v.w * 0.2), cy: sky - 20, r: Math.round(sky * 0.28), seed: PLANET_SEED,
     rot: s.reduced ? 0 : s.t * 0.05, progress: 0.6, mood: 'alive', atmosphere: s.theme.cyan,
@@ -101,10 +104,13 @@ function skyOf(ctx: CanvasRenderingContext2D, s: FrameState, v: View, seed: numb
     }
     ctx.globalAlpha = 1;
   }
-  ctx.restore();
-  ctx.globalAlpha = 0.45;
+  // The galaxy's disc seen edge on: a glow along the horizon, brightest on it and fading above and below.
   ctx.fillStyle = s.theme['plasma-dark'];
-  ctx.fillRect(0, sky - HAZE, v.w, HAZE);
+  for (let i = 0; i < HAZE; i++) {
+    ctx.globalAlpha = 0.5 * (1 - i / HAZE);
+    ctx.fillRect(0, sky - 1 - i, v.w, 1);
+    ctx.fillRect(0, sky + i, v.w, 1);
+  }
   ctx.globalAlpha = 1;
 }
 
@@ -124,6 +130,11 @@ export const KART_W = 28;
 export const SEAT = 8;
 export const DRIVER_ROWS = 26;
 export const DRIVER_W = 32;
+/** How far above the screen's bottom the player's kart stands: the camera sits so the floor under its centre is on that row, where its wheels touch, as a rival's do. */
+const KART_FOOT = 6;
+
+/** The camera behind the player's kart on `grid`: as far back as puts the floor under the kart's centre where its sprite's wheels touch, so it is drawn where it stands. */
+export const cameraFor = (grid: { w: number; h: number }, kart: Kart): { x: number; y: number; angle: number } => chaseCamera(kart, depthAt(grid, grid.h - KART_FOOT));
 
 /** The kart's sprite for the way it is steered: leaning into the turn. */
 const viewOfKart = (k: Kart): string => (k.steer < 0 ? 'kart-left' : k.steer > 0 ? 'kart-right' : 'kart');
@@ -151,7 +162,7 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
   const look = heroOf(s.join.hero, s.join.team);
   const kart = race.player;
   const frame = s.reduced ? 0 : Math.floor(race.clock * Math.abs(kart.speed) * 0.12) % 2;
-  const x = Math.round((s.grid.w - KART_W * scale) / 2), y = s.grid.h - 18 * scale - 6 + fallen * 18 * scale;
+  const x = Math.round((s.grid.w - KART_W * scale) / 2), y = s.grid.h - 18 * scale - KART_FOOT + fallen * 18 * scale;
   const half = scale / 2;
   shadow(ctx, x + (KART_W * scale) / 2, y + 16 * scale, KART_W * scale * 1.05);
   const driver = spriteImage(look.sprite, { tint: look.tint, flat: stripesOf(s.theme), frame });
@@ -162,7 +173,7 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
   sprite(ctx, s, spin ?? viewOfKart(kart), x, y, { scale, tint: look.tint, frame });
 }
 
-/** How wide a kart stands in the world, in game pixels: a rival is drawn this wide, scaled by its distance. */
+/** How wide a kart stands in the world, in game pixels: a rival is drawn this wide, scaled by its distance. A kart falls once all of it is past the road's edge (`RULES.overhang`, half of it). */
 export const KART_WORLD = 14;
 
 /** The kart's sprite for the way a rival faces, seen from the camera: the view closest to the angle it is seen from (the sprite is drawn from behind, leaning left or right). */
@@ -353,7 +364,7 @@ export function createKart({ seed, cast = [], track = parseTrack() }: KartOption
     hud: () => hudOf(race),
     draw(ctx, s) {
       texture ??= paintTrack(track);
-      const v = viewOf(s.grid, chaseCamera(race.player));
+      const v = viewOf(s.grid, cameraFor(s.grid, race.player));
       skyOf(ctx, s, v, seed);
       const floor = floorFor(v);
       renderFloor(v, texture, floor.pixels, BEYOND);

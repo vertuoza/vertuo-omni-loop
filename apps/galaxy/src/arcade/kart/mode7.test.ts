@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
 import {
-  chaseCamera, floorAt, horizonOf, NEAR, project, renderFloor, skyShift, spritesInView, viewOf, type Texture, type View,
+  chaseCamera, depthAt, floorAt, horizonOf, NEAR, project, renderFloor, skyShift, spritesInView, viewOf, type Texture, type View,
 } from './mode7';
 
 const WIDE = { w: 640, h: 360 }, TALL = { w: 320, h: 288 };
@@ -136,6 +136,14 @@ describe('chaseCamera', () => {
     expect(cam.x).toBeCloseTo(100, 9);
     expect(cam.y).toBeLessThan(200);
     expect(cam.angle).toBe(Math.PI / 2);
+  });
+
+  it.each([['wide', WIDE], ['tall', TALL]] as const)('stands as far behind as it is told, so the kart lands on the row asked for, on the %s grid', (_name, screen) => {
+    const kart = { x: 300, y: 200, angle: 0.7 };
+    for (const row of [screen.h - 6, screen.h - 40]) {
+      const v = viewOf(screen, chaseCamera(kart, depthAt(screen, row)));
+      expect(sure(project(v, kart.x, kart.y), 'the kart').sy).toBeCloseTo(row, 6);
+    }
   });
 });
 

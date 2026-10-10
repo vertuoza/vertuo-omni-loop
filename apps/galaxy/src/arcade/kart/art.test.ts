@@ -3,13 +3,15 @@ import { DEFAULT_THEME, resolveTheme, TOKENS, type Theme, type Token } from '../
 import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
-import { boxFrame, cometsOf, createKart, fallenOf, hiddenBlink, propFrame, SHADOW, viewFacing } from './art';
+import { boxFrame, cameraFor, cometsOf, createKart, fallenOf, hiddenBlink, KART_WORLD, propFrame, SHADOW, viewFacing } from './art';
 import { RULES } from './rules';
 import type { Action } from '../keys';
-import { horizonOf } from './mode7';
+import { horizonOf, project, viewOf } from './mode7';
+import { newRace } from './race';
+import { parseTrack } from './track';
 
-// The ready screen's drawing, under a canvas that only counts (PRD 1359): the sky above the horizon in
-// the theme's colours, then the floor from one reused pixel buffer, on both grids. The planets and
+// The ready screen's drawing, under a canvas that only counts (PRD 1359): the space the circuit floats in,
+// above the horizon and under it, in the theme's colours, then the floor from one reused pixel buffer, on both grids. The planets and
 // nebulae of @omni/design are its own, and stubbed out here.
 const planets = vi.hoisted(() => [] as { cy: number; r: number }[]);
 const sprites = vi.hoisted(() => [] as { name: string; x: number; y: number; scale: number | undefined; tint: unknown; frame: number | undefined }[]);
@@ -78,33 +80,53 @@ const frame = (grid: Grid, theme: Theme = DEFAULT_THEME): FrameState => ({
 });
 
 describe('the race\'s drawing', () => {
-  it.each([['wide', WIDE], ['tall', TALL]] as const)('draws the sky above the horizon and the floor under it on the %s grid', (_name, grid) => {
+  it.each([['wide', WIDE], ['tall', TALL]] as const)('draws space all round, above the horizon and under it, then the floor over it on the %s grid', (_name, grid) => {
     const { ctx, fills, images } = recorder();
     createKart().draw(ctx, frame(grid));
     const horizon = horizonOf(grid.h);
     expect(fills.length).toBeGreaterThan(0);
-    // The sky's bands cover the screen's width down to the horizon, and no further.
-    const bands = fills.filter((f) => f.rect[2] === grid.w && f.rect[3] !== 0 && (f.rect[1] ?? 0) < horizon - 6);
-    expect(bands.length).toBe(4);
-    expect(sure(bands[0], 'the first band').rect[1]).toBe(0);
-    expect(Math.max(...bands.map((b) => (b.rect[1] ?? 0) + (b.rect[3] ?? 0)))).toBeGreaterThanOrEqual(horizon - 1);
-    // (the item boxes standing on the floor are narrower than the screen: they are not the sky)
-    expect(Math.max(...fills.filter((f) => f.rect[2] === grid.w).map((f) => (f.rect[1] ?? 0) + (f.rect[3] ?? 0)))).toBeLessThanOrEqual(horizon);
-    // The floor is one buffer the size of the grid, put on a canvas once and drawn at the corner.
+    // Four bands cover the screen's width from the top down to the horizon, and four more from it to the bottom.
+    // (the glow on the horizon is rows one pixel high; the item boxes on the floor are narrower than the screen)
+    const bands = fills.filter((f) => f.rect[2] === grid.w && (f.rect[3] ?? 0) > 1);
+    const above = bands.filter((b) => (b.rect[1] ?? 0) < horizon), under = bands.filter((b) => (b.rect[1] ?? 0) >= horizon);
+    const bottom = (b: { rect: number[] }) => (b.rect[1] ?? 0) + (b.rect[3] ?? 0);
+    expect([above.length, under.length]).toEqual([4, 4]);
+    expect(sure(above[0], 'the first band').rect[1]).toBe(0);
+    expect(Math.max(...above.map(bottom))).toBe(horizon);
+    expect(sure(under[0], 'the band under the horizon').rect[1]).toBe(horizon);
+    expect(Math.max(...under.map(bottom))).toBeGreaterThanOrEqual(grid.h);
+    // The floor is one buffer the size of the grid, put on a canvas once and drawn at the corner, over the space.
     expect(puts).toHaveLength(1);
     expect(puts[0]).toMatchObject({ w: grid.w, h: grid.h });
     expect(images.filter((i) => i.length === 2).at(-1)).toEqual([0, 0]);
-    // The big planet in the sky, standing on the horizon (and a second, smaller one: see 'the sky').
+    // The big planet stands across the horizon, not cut by it (and a second, smaller one: see 'the sky').
     expect(planets).toHaveLength(2);
-    expect(sure(planets[0], 'the planet').cy).toBeLessThan(horizon);
+    const big = sure(planets[0], 'the planet');
+    expect(big.cy).toBeLessThan(horizon);
+    expect(big.cy + big.r).toBeGreaterThan(horizon);
   });
 
-  it('puts nothing in the buffer above the horizon, and a floor under it', () => {
+  it('puts nothing in the buffer above the horizon, and under it a floor that is see-through over the void', () => {
     createKart().draw(recorder().ctx, frame(WIDE));
     const { pixels } = sure(puts[0], 'the floor');
     const horizon = horizonOf(WIDE.h);
     for (let row = 0; row <= horizon; row++) expect(pixels.slice(row * WIDE.w, (row + 1) * WIDE.w).every((p) => p === 0), `row ${row}`).toBe(true);
-    for (let row = horizon + 1; row < WIDE.h; row++) expect(pixels.slice(row * WIDE.w, (row + 1) * WIDE.w).every((p) => (p >>> 24) === 0xff), `row ${row}`).toBe(true);
+    const under = pixels.slice((horizon + 1) * WIDE.w);
+    expect(under.every((p) => p >>> 24 === 0 || p >>> 24 === 0xff)).toBe(true);
+    expect(under.some((p) => p >>> 24 === 0xff)).toBe(true); // the road
+    expect(under.some((p) => p >>> 24 === 0)).toBe(true); // the void, where the space shows
+  });
+
+  it.each([['wide', WIDE], ['tall', TALL]] as const)('draws the player\'s kart where it stands, its wheels on the floor under its centre, as a rival is, on the %s grid', (_name, grid) => {
+    const game = createKart({ seed: 5 });
+    game.draw(recorder().ctx, frame(grid));
+    const kart = sure(sprites.find((x) => x.name.startsWith('kart')), 'the kart');
+    const start = newRace({ seed: 5, track: parseTrack() }).player;
+    const at = sure(project(viewOf(grid, cameraFor(grid, start)), start.x, start.y), 'the kart on the screen');
+    expect(kart.y + 18 * (kart.scale ?? 0)).toBeCloseTo(at.sy, 6);
+    expect(kart.x + (28 * (kart.scale ?? 0)) / 2).toBeCloseTo(at.sx, 0);
+    // On the wide grid it is about as wide as a rival standing there, KART_WORLD, within a twentieth.
+    if (grid === WIDE) expect(Math.abs(28 * (kart.scale ?? 0) - KART_WORLD * at.scale)).toBeLessThan((KART_WORLD * at.scale) / 20);
   });
 
   it('draws the floor from the circuit: the road under the player\'s starting place, void beside it', () => {
@@ -558,6 +580,10 @@ describe('the sky', () => {
 
 // The fall into the void (PRD 1447, slice 2): the kart falling smaller and lower, and blinking.
 describe('the kart falling and blinking', () => {
+  it('lets a kart fall only once all of it is past the edge: the overhang is half its width as drawn', () => {
+    expect(RULES.overhang).toBe(KART_WORLD / 2);
+  });
+
   it('measures a fall from 0 (just over the edge) to 1 (gone), and blinks every other frame of the blink', () => {
     expect(fallenOf({ fall: 0 })).toBe(0);
     expect(fallenOf({ fall: RULES.fallTime })).toBe(0);
