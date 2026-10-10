@@ -2,15 +2,18 @@
 // The game room's text layer: the heading and the badge, the player's level and XP bar (or why they
 // have none), and a cabinet per game, laid out for the grid the screen is drawn on: the three
 // cabinets side by side on the wide grid, one a page on the tall one (games.css).
+import { useEffect, useRef } from 'react';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { WoundKind } from '@omni/galaxy';
-import { woundTint } from '@omni/design';
+import { heroPose, woundTint } from '@omni/design';
 import { useScreen } from '../Screen';
 import { HeroSprite, Sprite } from '../Sprite';
-import { crewLook } from '../fleets';
+import { crewLook, heroOf } from '../fleets';
 import { Hint } from '../hint';
 import type { Player, ScoresRead } from '../types';
 import { barFill, cabinets, type Cabinet, type XpStatus, XP_LINE } from '../games/room';
+import { stillPixels, type Still } from '../games/still';
+import { STILLS } from '../games/stills';
 import { badgeOf } from './menu.tsx';
 import { scoreDigits } from './invaders.tsx';
 import './common.css';
@@ -33,8 +36,61 @@ function XpHeader({ xp }: { xp: XpStatus }) {
   );
 }
 
-// The attract on a lit cabinet's screen: three rows of Entropy over the player's hero.
+// The Invaders' attract on its cabinet's screen: three rows of Entropy over the player's hero.
 const ROWS: WoundKind[] = ['fault-line', 'unconfirmed-ground', 'under-fire'];
+
+/** A game's still on its cabinet's screen (games/stills.ts), drawn at its own size and stretched to the screen's inside. */
+function StillCanvas({ still }: { still: Still }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const ctx = ref.current?.getContext('2d');
+    if (!ctx) return;
+    ctx.putImageData(new ImageData(stillPixels(still), still.w, still.h), 0, 0);
+  }, [still]);
+  return <canvas ref={ref} className="cab-still" width={still.w} height={still.h} />;
+}
+
+/** The player in their own game, over its still: their kart with their hero in the seat on the circuit, or their hero running through stage 1-1. */
+function PlayerIn({ game, me }: { game: string; me: Player }) {
+  if (game === 'kart') {
+    const look = heroOf(me.hero, me.team);
+    return (
+      <span className="cab-kart">
+        <span className="cab-driver"><Sprite name={look.sprite} tint={look.tint} scale={0.5} /></span>
+        <Sprite name="kart" tint={look.tint} />
+      </span>
+    );
+  }
+  if (game === 'platformer') {
+    const run = heroPose(me.hero, 'omni-run', crewLook(me.team).color);
+    return <span className="cab-runner"><Sprite name={run.sprite} tint={run.tint} scale={0.5} /></span>;
+  }
+  return null;
+}
+
+/** A lit cabinet's screen: its own game, the player in it; the Invaders formation for a game with no still. */
+function CabScreen({ game, me }: { game: string; me: Player | null }) {
+  const { grid } = useScreen();
+  const still = STILLS[game]?.[grid.name];
+  if (!still) {
+    return (
+      <span className="cab-screen" aria-hidden="true">
+        {ROWS.map((kind) => (
+          <span key={kind} className="cab-row">
+            {Array.from({ length: 7 }, (_, i) => <Sprite key={i} name="entropy" scale={0.5} tint={woundTint(kind)} />)}
+          </span>
+        ))}
+        {me && <span className="cab-hero"><HeroSprite hero={me.hero} team={me.team} scale={0.5} /></span>}
+      </span>
+    );
+  }
+  return (
+    <span className="cab-screen" aria-hidden="true">
+      <StillCanvas still={still} />
+      {me && <PlayerIn game={game} me={me} />}
+    </span>
+  );
+}
 
 /** The crew's top five at a game, best first, the player's own line highlighted; or why there is none. */
 function TopFive({ board, me }: { board: ScoresRead | undefined; me: Player | null }) {
@@ -76,14 +132,7 @@ function CabinetView({ cabinet, me, board, active, onPick }: {
   return (
     <button type="button" className={`${cls} lit`} onClick={onPick}>
       <span className="marquee">{game.title}</span>
-      <span className="cab-screen" aria-hidden="true">
-        {ROWS.map((kind) => (
-          <span key={kind} className="cab-row">
-            {Array.from({ length: 7 }, (_, i) => <Sprite key={i} name="entropy" scale={0.5} tint={woundTint(kind)} />)}
-          </span>
-        ))}
-        {me && <span className="cab-hero"><HeroSprite hero={me.hero} team={me.team} scale={0.5} /></span>}
-      </span>
+      <CabScreen game={game.id} me={me} />
       <span className="cab-scores">
         <b>CREW TOP 5</b>
         <TopFive board={board} me={me} />
