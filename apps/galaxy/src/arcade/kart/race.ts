@@ -9,10 +9,10 @@
 import { fleetSprite, MASCOTS } from '@omni/design';
 import type { Action } from '../keys';
 import type { KartCue, KartHud, KartResults, KartRow } from '../scenes/kart.ts';
-import { kartAt, NO_FX, padOf, stepFx, type Fx, type Kart } from './kart';
+import { fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart } from './kart';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
 import { RULES } from './rules';
-import { advance, aimOf, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
+import { advance, aimOf, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
 import { LAPS, parseTrack, PLACES, type Track } from './track';
 
 /** Frames add up to a countdown's end only to within what a float keeps. */
@@ -49,7 +49,7 @@ export interface Race {
 
 /**
  * What happened in a step: a beat of the countdown, GO, an item used, a box taken, a kart hit by a BLOB or an ORB
- * (`spun`: it started a spin-out), the player's kart meeting a wall, the final lap starting, the finish with the
+ * (`spun`: it started a spin-out), the player's kart meeting a wall, a kart falling into the void (`fell`), the final lap starting, the finish with the
  * player's time in tenths (given once), the player leaving from the pause, or asking for another race from the results. A `racer` is 0
  * for the player and 1 to 5 for the rivals, in their order.
  */
@@ -57,7 +57,7 @@ export type RaceEvent =
   | { kind: 'beat'; beat: '3' | '2' | '1' } | { kind: 'go' }
   | { kind: 'item'; racer: number; item: Item } | { kind: 'box'; racer: number }
   | { kind: 'hit'; racer: number; item: 'blob' | 'orb'; spun: boolean }
-  | { kind: 'wall'; racer: number } | { kind: 'finalLap' }
+  | { kind: 'wall'; racer: number } | { kind: 'fell'; racer: number } | { kind: 'finalLap' }
   | { kind: 'finish'; tenths: number } | { kind: 'quit' } | { kind: 'again' };
 
 export interface Stepped { race: Race; events: RaceEvent[] }
@@ -105,16 +105,23 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
   const events: RaceEvent[] = [];
   for (let i = 0; i < steps; i++) {
     const was = player;
+    const falling = [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)];
     const moved = stepFx(track.map, player, pad, dt / steps, 1, fx);
     player = moved.kart;
     fx = moved.fx;
     touched ||= moved.touched;
     pace = advance(track, pace, was, player);
+    if (moved.landed) ({ kart: player, fx } = comeBack(track, pace, player, fx)); // the jump is never passed to advance()
     const ahead = progressOf(track, pace, player);
     rivals = rivals.map((r) => driveRival(track, r, dt / steps, ahead));
-    const [p, ...others] = pushApart([player, ...rivals.map((r) => r.kart)]);
+    const [p, ...others] = pushApart([player, ...rivals.map((r) => r.kart)], [fx.fall > 0, ...rivals.map((r) => (r.fx ?? NO_FX).fall > 0)]);
     if (p) player = p;
     rivals = rivals.map((r, j) => { const kart = others[j]; return kart ? { ...r, kart } : r; });
+    // A kart pushed over the edge by another falls too.
+    const dropped = fallIfOver(track.map, player, fx);
+    player = dropped.kart;
+    fx = dropped.fx;
+    rivals = rivals.map((r) => { const d = fallIfOver(track.map, r.kart, r.fx ?? NO_FX); return d.kart === r.kart && d.fx === (r.fx ?? NO_FX) ? r : { ...r, kart: d.kart, fx: d.fx }; });
     // The items: the rivals use what they hold by their rules, then the boxes, BLOBs and ORBs act.
     let racers = [{ kart: player, fx }, ...rivals.map((r) => ({ kart: r.kart, fx: r.fx ?? NO_FX }))];
     rivals.forEach((r, j) => {
@@ -134,6 +141,7 @@ function drive(race: Race, held: ReadonlySet<Action>, dt: number): Pick<Race, 'p
     const [mine, ...theirs] = acted.racers;
     if (mine) { player = mine.kart; fx = mine.fx; }
     rivals = rivals.map((r, j) => { const x = theirs[j]; return x ? { ...r, kart: x.kart, fx: x.fx } : r; });
+    [fx, ...rivals.map((r) => r.fx ?? NO_FX)].forEach((f, k) => { if (f.fall > 0 && !falling[k]) events.push({ kind: 'fell', racer: k }); });
   }
   if (touched && !race.touching) events.push({ kind: 'wall', racer: 0 });
   return { player, fx, items, pace, rivals, touching: touched, events };
@@ -202,7 +210,7 @@ function pressStart(race: Race): Stepped {
 function pressItem(race: Race): Stepped {
   const used = spendItem(race.items, { kart: race.player, fx: race.fx });
   const { item } = race.fx;
-  return { race: { ...race, items: used.world, fx: used.racer.fx }, events: item && race.fx.spin <= 0 ? [{ kind: 'item', racer: 0, item }] : [] };
+  return { race: { ...race, items: used.world, fx: used.racer.fx }, events: item && race.fx.spin <= 0 && race.fx.fall <= 0 ? [{ kind: 'item', racer: 0, item }] : [] };
 }
 
 /** A press: B uses the item held, START starts the countdown, pauses it or the race, and resumes a pause; SELECT on the pause leaves. */
@@ -239,13 +247,14 @@ const CUES: { [K in RaceEvent['kind']]: CueOf<K> } = {
   box: (e) => (e.racer === 0 ? [{ kind: 'box' }] : []),
   hit: (e, tiles) => [{ kind: 'hit', item: e.item, you: e.racer === 0, tiles }, ...(e.racer === 0 && e.spun ? [{ kind: 'spin' } as const] : [])],
   wall: (e) => (e.racer === 0 ? [{ kind: 'scrape' }] : []),
+  fell: (e) => (e.racer === 0 ? [{ kind: 'fall' }] : []),
   finalLap: () => [{ kind: 'finalLap' }],
   finish: () => [],
   quit: () => [],
   again: () => [],
 };
 
-/** The cues an event makes, in order: a hit on the player is also a spin-out, a rival's box or wall contact is no one's business. */
+/** The cues an event makes, in order: a hit on the player is also a spin-out, a rival's box, wall contact or fall is no one's business. */
 export function cuesOf(event: RaceEvent, tiles: number): KartCue[] {
   return cuesBy(event.kind, event, tiles);
 }

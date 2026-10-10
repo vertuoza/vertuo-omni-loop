@@ -3,7 +3,8 @@ import { DEFAULT_THEME, resolveTheme, TOKENS, type Theme, type Token } from '../
 import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import { sure } from '../test/sure';
-import { boxFrame, cometsOf, createKart, propFrame, SHADOW, viewFacing } from './art';
+import { boxFrame, cometsOf, createKart, fallenOf, hiddenBlink, propFrame, SHADOW, viewFacing } from './art';
+import { RULES } from './rules';
 import type { Action } from '../keys';
 import { horizonOf } from './mode7';
 import { COMET_RING, parseTrack } from './track';
@@ -563,5 +564,49 @@ describe('the sky', () => {
     expect(a).toEqual(b);
     expect(cometsOf(7, 1, WIDE.w, horizon, true)).toEqual(cometsOf(7, 9.3, WIDE.w, horizon, true));
     expect(cometsOf(7, 1, WIDE.w, horizon, true).length).toBeGreaterThan(0);
+  });
+});
+
+// The fall into the void (PRD 1447, slice 2): the kart falling smaller and lower, and blinking.
+describe('the kart falling and blinking', () => {
+  it('measures a fall from 0 (just over the edge) to 1 (gone), and blinks every other frame of the blink', () => {
+    expect(fallenOf({ fall: 0 })).toBe(0);
+    expect(fallenOf({ fall: RULES.fallTime })).toBe(0);
+    expect(fallenOf({ fall: RULES.fallTime / 2 })).toBeCloseTo(0.5, 9);
+    expect(fallenOf({ fall: 0.0001 })).toBeGreaterThan(0.99);
+    expect(hiddenBlink({ blink: 0 })).toBe(false);
+    const frames = Array.from({ length: 12 }, (_, i) => hiddenBlink({ blink: RULES.blinkTime - i * 0.02 }));
+    expect(frames.some(Boolean)).toBe(true);
+    expect(frames.some((h) => !h)).toBe(true);
+  });
+
+  /** The player's kart sprite frame by frame as the player drives off the road's edge until it is back: its scale and y, or null when it is not drawn. */
+  function series() {
+    const game = createKart({ seed: 3 });
+    game.press('start');
+    for (let t = 0; t < 3.1; t += 0.05) game.step(new Set<Action>(), 0.05);
+    const out: ({ scale: number; y: number } | null)[] = [];
+    for (let t = 0; t < 20; t += 0.05) {
+      game.step(new Set<Action>(['a', 'right']), 0.05);
+      sprites.length = 0;
+      game.draw(recorder().ctx, frame(WIDE));
+      const k = sprites.find((x) => x.name.startsWith('kart'));
+      out.push(k ? { scale: k.scale ?? 0, y: k.y } : null);
+    }
+    return out;
+  }
+
+  it('draws a falling kart smaller and lower as its fall goes on, down to nothing, and a blinking one every other frame', () => {
+    const s = series();
+    const first = s.findIndex((k) => k !== null && k.scale < 4);
+    expect(first).toBeGreaterThan(-1);
+    const end = s.findIndex((k, i) => i > first && (k === null || k.scale >= 4));
+    const run = s.slice(first, end).flatMap((k) => (k ? [k] : []));
+    expect(run.length).toBeGreaterThan(3);
+    expect(run.every((k) => k.scale < 4)).toBe(true);
+    expect(run.map((k) => k.y)).toEqual([...run.map((k) => k.y)].sort((a, b) => a - b));
+    expect(run.map((k) => k.scale)).toEqual([...run.map((k) => k.scale)].sort((a, b) => b - a));
+    expect(s.slice(end).some((k) => k === null)).toBe(true); // hidden on the blink's off frames
+    expect(s.slice(first).some((k) => k !== null && k.scale === 4)).toBe(true); // back at full size on the road
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { cuesOf, hudOf, newRace, pause, press, step, type Race } from './race';
+import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
 import { COMET_RING, LAPS, parseTrack, TILE, tileAt } from './track';
 
@@ -17,6 +17,11 @@ function play(race: Race, held: ReadonlySet<Action>, seconds: number, dt = 0.05)
   for (let t = 0; t < seconds - 1e-9; t += dt) r = step(r, held, dt).race;
   return r;
 }
+const first = <T>(xs: readonly T[]): T => {
+  const x = xs[0];
+  if (x === undefined) throw new Error('no item');
+  return x;
+};
 const racing = () => play(started(), NONE, RULES.countdown + 0.05);
 
 describe('a new race', () => {
@@ -354,5 +359,118 @@ describe('the cues an event makes', () => {
     expect(cuesOf({ kind: 'finish', tenths: 1000 }, 0)).toEqual([]);
     expect(cuesOf({ kind: 'quit' }, 0)).toEqual([]);
     expect(cuesOf({ kind: 'again' }, 0)).toEqual([]);
+  });
+});
+
+// The fall into the void (PRD 1447, slice 2), on COMET RING.
+
+describe('the whole race over the void', () => {
+  it('lets every rival finish its three laps with at most one fall, the player standing still', () => {
+    for (const seed of [7, 1, 42]) {
+      const falls = [0, 0, 0, 0, 0, 0];
+      let r = press(newRace({ seed }), 'start').race;
+      for (let t = 0; t < RULES.countdown + 0.05; t += 0.05) r = step(r, NONE, 0.05).race;
+      const dt = 1 / 60;
+      for (let t = 0; t < 600 && r.rivals.some((x) => x.doneAt == null); t += dt) {
+        const s = step(r, NONE, dt);
+        r = s.race;
+        for (const e of s.events) if (e.kind === 'fell') falls[e.racer] = (falls[e.racer] ?? 0) + 1;
+      }
+      expect(r.rivals.every((x) => x.doneAt != null)).toBe(true);
+      expect(falls.slice(1).every((n) => n <= 1)).toBe(true);
+    }
+  });
+
+  it('gives the same race for the same seed and keys', () => {
+    const run = () => { let r = racing(); for (let i = 0; i < 400; i++) r = step(r, GAS, 1 / 60).race; return r; };
+    expect(run()).toEqual(run());
+  });
+});
+
+describe('a fall into the void', () => {
+  const FRAME = 1 / 60;
+  /** The racing player driving north off the circuit's top edge: the road's top row is row 6, the void above it. */
+  const edge = (): Race => {
+    const r = racing();
+    return { ...r, items: { ...r.items, boxes: [] }, player: { ...r.player, x: 20 * TILE + 8, y: 6 * TILE + 8, angle: -Math.PI / 2, speed: 80, steer: 0 }, fx: { ...r.fx, item: 'blob', boost: 1 } };
+  };
+  const overVoid = (r: Race) => tileAt(r.track.map, Math.floor(r.player.x / TILE), Math.floor(r.player.y / TILE)) === '~';
+  const falling = (r: Race, held: ReadonlySet<Action> = NONE): Race => { let x = r; while (x.fx.fall <= 0) x = step(x, held, FRAME).race; return x; };
+  const landed = (r: Race, held: ReadonlySet<Action> = NONE): Race => { let x = r; while (x.fx.fall > 0) x = step(x, held, FRAME).race; return x; };
+
+  it('starts when the centre is over the void, tells fell once and plays the fall cue; the clock runs through it', () => {
+    let r = edge();
+    const events: RaceEvent[] = [];
+    const clock = r.clock;
+    for (let i = 0; i < 90; i++) {
+      const s = step(r, GAS, FRAME);
+      r = s.race;
+      events.push(...s.events.filter((e) => e.kind === 'fell'));
+    }
+    expect(events).toEqual([{ kind: 'fell', racer: 0 }]);
+    expect(cuesOf({ kind: 'fell', racer: 0 }, 0)).toEqual([{ kind: 'fall' }]);
+    expect(cuesOf({ kind: 'fell', racer: 3 }, 4)).toEqual([]);
+    expect(r.clock).toBeCloseTo(clock + 1.5, 5);
+    expect(r.fx.item).toBe('blob');
+    expect(r.fx.boost).toBe(0);
+  });
+
+  it('does not fall while only the body hangs over the edge', () => {
+    let r = edge();
+    r = { ...r, player: { ...r.player, y: 6 * TILE + 1, speed: 0 } };
+    r = step(r, NONE, FRAME).race;
+    expect(r.fx.fall).toBe(0);
+  });
+
+  it('holds the kart still for a second, then stands it at rest on the road, blinking, its laps kept', () => {
+    const e = edge(); // the top edge of the straight between the sixth and seventh waypoints
+    const start = { ...e, player: { ...e.player, x: 45 * TILE }, pace: { laps: 1, passed: 6 } };
+    let r = falling(start, GAS);
+    const where = { x: r.player.x, y: r.player.y };
+    expect(overVoid(r)).toBe(true);
+    for (let i = 0; i < 50; i++) { r = step(r, GAS, FRAME).race; expect(r.player).toMatchObject(where); }
+    r = landed(r);
+    expect(overVoid(r)).toBe(false);
+    expect(r.player.speed).toBe(0);
+    expect(r.fx.blink).toBeGreaterThan(0);
+    expect(r.pace).toEqual({ laps: 1, passed: 6 });
+  });
+
+  it('drives while it blinks', () => {
+    let r = landed(falling(edge()));
+    expect(r.fx.blink).toBeGreaterThan(0);
+    for (let i = 0; i < 10; i++) r = step(r, GAS, FRAME).race;
+    expect(r.player.speed).toBeGreaterThan(0);
+  });
+
+  it('is out of the contacts while it falls: not pushed, not hit, no box, no item', () => {
+    const r = falling(edge());
+    const rival = { ...first(r.rivals), kart: { ...r.player, speed: 0 } };
+    const items = { ...r.items, blobs: [{ x: r.player.x, y: r.player.y }], boxes: [{ x: r.player.x, y: r.player.y, back: 0 }] };
+    const s = step({ ...r, rivals: [rival, ...r.rivals.slice(1)], items, fx: { ...r.fx, item: null } }, NONE, FRAME);
+    expect(s.race.player.x).toBe(r.player.x);
+    expect(s.race.player.y).toBe(r.player.y);
+    expect(s.race.fx.spin).toBe(0);
+    expect(s.race.fx.item).toBeNull();
+    expect(s.race.items.blobs).toHaveLength(1);
+    const used = press({ ...r, fx: { ...r.fx, item: 'boost' } }, 'b');
+    expect(used.events).toEqual([]);
+    expect(used.race.fx.item).toBe('boost');
+  });
+
+  it('can be hit as soon as it is back, though it blinks', () => {
+    const r = landed(falling(edge()));
+    const s = step({ ...r, items: { ...r.items, blobs: [{ x: r.player.x, y: r.player.y }] } }, NONE, FRAME);
+    expect(r.fx.blink).toBeGreaterThan(0);
+    expect(s.race.fx.spin).toBeGreaterThan(0);
+  });
+
+  it('falls when another kart pushes it over the edge', () => {
+    const r = racing();
+    const rival = { ...first(r.rivals), kart: { ...first(r.rivals).kart, x: 20 * TILE + 8, y: 6 * TILE + 7, speed: 0 } };
+    const player = { ...r.player, x: 20 * TILE + 8, y: 6 * TILE + 1, speed: 0 };
+    const s = step({ ...r, player, rivals: [rival, ...r.rivals.slice(1)] }, NONE, 1 / 120);
+    expect(s.race.fx.fall).toBeGreaterThan(0);
+    expect(s.events).toContainEqual({ kind: 'fell', racer: 0 });
   });
 });

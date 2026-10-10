@@ -10,10 +10,10 @@ export type Sfx =
   | 'coin' | 'type' | 'erase' | 'buzz' | 'tick' | 'random' | 'linked' | 'away'
   // Entropy Invaders: a bolt fired, an alien hit, the hero hit, a wave cleared, the game over.
   | 'fire' | 'hit' | 'hurt' | 'wave' | 'over'
-  // OMNI KART (PRD 1427): the countdown's beep and GO, one sound per item, a box, a hit, a spin-out, a wall scrape, the final lap.
+  // OMNI KART (PRD 1427): the countdown's beep and GO, one sound per item, a box, a hit, a spin-out, a wall scrape, a fall into the void, the final lap.
   | KartSfx;
 
-type KartSfx = 'beep' | 'go' | 'boost' | 'blob' | 'orb' | 'box' | 'impact' | 'spin' | 'scrape' | 'finalLap';
+type KartSfx = 'beep' | 'go' | 'boost' | 'blob' | 'orb' | 'box' | 'impact' | 'spin' | 'scrape' | 'fall' | 'finalLap';
 
 type Wave = 'p25' | 'p12' | OscillatorType;
 
@@ -322,6 +322,7 @@ const KART_SFX: Record<KartSfx, KartVoice> = {
   },
   spin: (o, t, p) => { note(o, 900 * p, t, 0.8, 'triangle', 0.06, { vib: 0.08, slideTo: 200 * p }); },
   scrape: (o, t, p) => { hiss(o, t, 0.18, { type: 'highpass', freq: 3000 * p, gain: 0.3 }); },
+  fall: (o, t, p) => { note(o, 700 * p, t, 1, 'triangle', 0.06, { slideTo: 60 * p }); },
   finalLap: (o, t, p) => { ['E5', 'G5', 'B5', 'E6', 'B5', 'E6'].forEach((n, i) => { note(o, hz(n) * p, t + i * 0.09, i > 4 ? 0.3 : 0.08, 'p25', 0.05); }); },
 };
 

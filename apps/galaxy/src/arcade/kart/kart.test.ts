@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { driveKart, kartAt, padOf, topSpeedAt, turnRate, type Kart, type Pad } from './kart';
+import { driveKart, kartAt, NO_FX, padOf, stepFx, topSpeedAt, turnRate, type Fx, type Kart, type Pad } from './kart';
 import { RULES } from './rules';
 import { isRoad, TILE, tileAt } from './track';
 
@@ -192,5 +192,60 @@ describe('the pad', () => {
   it('puts a kart on a starting place at rest', () => {
     expect(kartAt(1, 2, 3)).toEqual({ x: 1, y: 2, angle: 3, speed: 0, steer: 0 });
     expect(isRoad(tileAt(MAP, 3, 2))).toBe(true);
+  });
+});
+
+// The fall into the void (PRD 1447, slice 2), on a small map drawn here: two tiles of road, void on both sides.
+describe('the fall', () => {
+  const VOID_MAP = ['~'.repeat(40), '#'.repeat(40), '#'.repeat(40), '~'.repeat(40)];
+  const north = (speed = 80): Kart => ({ ...kartAt(20 * TILE, 2 * TILE + 8, -Math.PI / 2), speed });
+  const held: Fx = { ...NO_FX, item: 'orb', boost: 1, spin: 0 };
+
+  it('starts on the sub-step the centre goes over the void, not while only the body hangs over the edge', () => {
+    let k = north();
+    let fx: Fx = held;
+    let hung = false;
+    for (let steps = 0; fx.fall <= 0 && steps < 500; steps++) {
+      ({ kart: k, fx } = stepFx(VOID_MAP, k, pad({ accel: true }), RULES.subStep, 1, fx));
+      if (fx.fall <= 0 && k.y < TILE + RULES.radius) hung = true;
+    }
+    expect(hung).toBe(true);
+    expect(fx.fall).toBe(RULES.fallTime);
+    expect(k.y).toBeLessThan(TILE);
+    expect(k.speed).toBe(0);
+    expect(fx.boost).toBe(0);
+    expect(fx.item).toBe('orb');
+  });
+
+  it('does not fall with the body over the edge and the centre on the road', () => {
+    const k = { ...north(0), y: TILE + 1 };
+    expect(stepFx(VOID_MAP, k, NONE, RULES.subStep, 1, NO_FX).fx.fall).toBe(0);
+  });
+
+  it('ends a spin-out when it falls', () => {
+    const k = { ...north(), y: TILE + 0.1 };
+    const { fx } = stepFx(VOID_MAP, k, NONE, RULES.subStep, 1, { ...NO_FX, spin: 0.8 });
+    expect(fx.fall).toBeGreaterThan(0);
+    expect(fx.spin).toBe(0);
+  });
+
+  it('takes the pad and does not move the kart for a second, then says it landed', () => {
+    let k = { ...north(), y: TILE - 2 };
+    let fx: Fx = { ...held, fall: RULES.fallTime };
+    const where = { x: k.x, y: k.y, angle: k.angle };
+    let landed = false;
+    let t = 0;
+    for (; !landed && t < 2; t += RULES.subStep) {
+      ({ kart: k, fx, landed } = stepFx(VOID_MAP, k, pad({ accel: true, left: true }), RULES.subStep, 1, fx));
+      expect(k).toMatchObject(where);
+    }
+    expect(t).toBeCloseTo(RULES.fallTime, 1);
+    expect(fx.fall).toBe(0);
+    expect(fx.item).toBe('orb');
+  });
+
+  it('runs the blink down once the kart is back', () => {
+    const { fx } = stepFx(VOID_MAP, north(0), NONE, 0.1, 1, { ...NO_FX, blink: RULES.blinkTime });
+    expect(fx.blink).toBeCloseTo(RULES.blinkTime - 0.1, 9);
   });
 });
