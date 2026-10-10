@@ -5,7 +5,7 @@ import type { KartItem as Item } from '../scenes/kart.ts';
 import type { Fx, Kart } from './kart';
 import { RULES } from './rules';
 import { draw } from './rivals';
-import { TILE, tileAt, type Track } from './track';
+import { isRoad, TILE, tileAt, type Track } from './track';
 
 export type { Item };
 
@@ -67,12 +67,12 @@ export function spendItem(world: World, r: Racer): { world: World; racer: Racer 
   return { world: { ...world, orbs: [...world.orbs, orb] }, racer };
 }
 
-/** One ORB after `dt` seconds: straight on at twice the top speed, turned back at a wall; null once it is gone (a third bounce, or its life). */
+/** One ORB after `dt` seconds: straight on at twice the top speed, turned back at the road's edge; null once it is gone (a third bounce, or its life). */
 function flyOrb(map: readonly string[], o: Orb, dt: number): Orb | null {
   const speed = RULES.topSpeed * RULES.orbSpeed * dt;
   let dx = Math.cos(o.angle) * speed, dy = Math.sin(o.angle) * speed;
   let bounces = o.bounces;
-  const wall = (x: number, y: number) => tileAt(map, Math.floor(x / TILE), Math.floor(y / TILE)) === 'X';
+  const wall = (x: number, y: number) => !isRoad(tileAt(map, Math.floor(x / TILE), Math.floor(y / TILE)));
   if (wall(o.x + dx, o.y)) { dx = -dx; bounces++; }
   if (wall(o.x, o.y + dy)) { dy = -dy; bounces++; }
   if (wall(o.x + dx, o.y + dy)) { dx = -dx; dy = -dy; bounces++; }

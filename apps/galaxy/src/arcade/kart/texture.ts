@@ -1,7 +1,8 @@
 // COMET RING's floor texture (PRD 1359, dressed as a space circuit by PRD 1427): the circuit's map painted
 // once, one tile = 16×16 pixels, from `@omni/design` ramps (`rampFrom`), as packed pixels. Dark metal
 // walls with a neon edge, neon kerbs, panel seams across the road, a lunar verge, and three chevrons
-// before each corner. Pure: no canvas, so it is tested and reused as it is. The Mode 7 floor samples
+// before each corner. Everything off the road is the void (PRD 1447): space with stars, a neon edge on
+// its side of the road's edge. Pure: no canvas, so it is tested and reused as it is. The Mode 7 floor samples
 // it (mode7.ts). Only the map's characters decide what a tile is, never a colour.
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { rampFrom, rng } from '@omni/design';
@@ -10,7 +11,7 @@ import { cornersOf, isRoad, TILE, tileAt, type Corner, type Track } from './trac
 
 /** The colours the circuit is painted from: the road, the lunar verge and the metal wall are each the middle of a four-tone ramp. The floor's own, none equal to a theme token (ADR-0046). */
 export const SURFACE = Object.freeze({
-  road: '#6d7194', verge: '#b9bdc9', wall: '#2c3040', neonCyan: '#19e6ff', neonMagenta: '#ff2bd6',
+  road: '#6d7194', verge: '#b9bdc9', wall: '#2c3040', void: '#0b0d1f', starBright: '#d8defc', starDim: '#6a72b8', neonCyan: '#19e6ff', neonMagenta: '#ff2bd6',
   lineLight: '#f1f1f8', lineDark: '#14122e', chevron: '#ffe94d',
 });
 
@@ -33,7 +34,7 @@ function tones(hex: string): [number, number, number, number] {
 }
 
 type Tones = ReturnType<typeof tones>;
-type Ramps = { road: Tones; verge: Tones; wall: Tones };
+type Ramps = { road: Tones; verge: Tones; wall: Tones; void: Tones };
 type FloorMap = Pick<Track, 'cols' | 'rows' | 'map'>;
 
 /** 0 outside a crater, 1 on its floor, 2 on its rim: at most one small crater in a tile, placed by the tile's own place. */
@@ -57,14 +58,17 @@ const startAt = (px: number, py: number, grain: number, t: Tones): number => {
   if (px === 0 || py === 0 || px === TILE - 1 || py === TILE - 1) return t[0];
   return grain < 0.1 ? t[2] : t[1];
 };
+/** Space: the void's darkest tone, a star here and there, bright or dim, placed by the tile's seeded grain. */
+const spaceAt = (grain: number, t: Tones): number =>
+  grain < 0.006 ? pack(SURFACE.starBright) : grain < 0.02 ? pack(SURFACE.starDim) : t[3];
 const roadAt = (grain: number, t: Tones): number => (grain < 0.08 ? t[2] : grain > 0.96 ? t[0] : t[1]);
 
-/** The wall tiles joined to the map's border through walls: the outside of the circuit. One byte per tile, 1 when outside. */
-function outsideWalls({ cols, rows, map }: FloorMap): Uint8Array {
+/** The void (or wall) tiles joined to the map's border through void: the outside of the circuit. One byte per tile, 1 when outside. */
+function outsideVoid({ cols, rows, map }: FloorMap): Uint8Array {
   const out = new Uint8Array(cols * rows);
   const todo: [number, number][] = [];
   const take = (x: number, y: number) => {
-    if (x < 0 || y < 0 || x >= cols || y >= rows || out[y * cols + x] || tileAt(map, x, y) !== 'X') return;
+    if (x < 0 || y < 0 || x >= cols || y >= rows || out[y * cols + x] || !offRoad(tileAt(map, x, y))) return;
     out[y * cols + x] = 1;
     todo.push([x, y]);
   };
@@ -76,10 +80,13 @@ function outsideWalls({ cols, rows, map }: FloorMap): Uint8Array {
   return out;
 }
 
+/** A tile that is not road: the void, and the verge and wall the legend still holds. */
+const offRoad = (c: string): boolean => c === '~' || c === 'X';
+
 /** Whether a kart can drive on the tile: road or verge. */
 const drivable = (c: string): boolean => c === '.' || isRoad(c);
 
-/** Whether a pixel of a wall tile is on a side that meets road or verge, within the neon edge. */
+/** Whether a pixel of a void (or wall) tile is on a side that meets road or verge, within the neon edge. */
 function onEdge(map: readonly string[], tx: number, ty: number, px: number, py: number): boolean {
   return (px < EDGE && drivable(tileAt(map, tx - 1, ty))) || (px >= TILE - EDGE && drivable(tileAt(map, tx + 1, ty)))
     || (py < EDGE && drivable(tileAt(map, tx, ty - 1))) || (py >= TILE - EDGE && drivable(tileAt(map, tx, ty + 1)));
@@ -105,12 +112,18 @@ interface Ctx { map: readonly string[]; ramps: Ramps; neon: number; seam: boolea
 const kerbAt = (px: number): number => pack((px >> 2) % 2 === 0 ? SURFACE.neonCyan : SURFACE.neonMagenta);
 const lineAt = (px: number, py: number): number => pack(((px >> 2) + (py >> 2)) % 2 === 0 ? SURFACE.lineLight : SURFACE.lineDark);
 
+/** A void (or wall) tile's pixel: neon where a side meets the road, else space (or metal). */
+function edged(c: string, { tx, ty, px, py }: Where, grain: number, ctx: Ctx): number {
+  if (onEdge(ctx.map, tx, ty, px, py)) return ctx.neon;
+  return c === '~' ? spaceAt(grain, ctx.ramps.void) : metalAt(px, py, ctx.ramps.wall);
+}
+
 /** The colour of the pixel at px, py inside the tile tx, ty of kind `c`, seeded by the tile's place so the grain is the same every time. */
 function paint(c: string, w: Where, grain: number, ctx: Ctx): number {
   const { tx, ty, px, py } = w;
   switch (c) {
     case '.': return vergeAt(tx, ty, px, py, grain, ctx.ramps.verge);
-    case 'X': return onEdge(ctx.map, tx, ty, px, py) ? ctx.neon : metalAt(px, py, ctx.ramps.wall);
+    case '~': case 'X': return edged(c, w, grain, ctx);
     case 'r': return kerbAt(px);
     case '=': return lineAt(px, py);
     case 'S': return startAt(px, py, grain, ctx.ramps.road);
@@ -118,8 +131,8 @@ function paint(c: string, w: Where, grain: number, ctx: Ctx): number {
   }
 }
 
-/** The texture's colour past the map's edge: the wall's. */
-export const BEYOND = pack(SURFACE.wall);
+/** The texture's colour past the map's edge: the void's darkest tone. */
+export const BEYOND = tones(SURFACE.void)[3];
 
 /** Whether the pixel x, y of a tile is on a chevron `►` pointing along `to` (a unit step), its arms trailing back. */
 function onChevron(x: number, y: number, to: readonly [number, number]): boolean {
@@ -183,8 +196,8 @@ function paintTile(px: Uint32Array, w: number, track: Pick<Track, 'map' | 'waypo
 export function paintTrack(track: Pick<Track, 'cols' | 'rows' | 'map' | 'waypoints'>): Texture {
   const w = track.cols * TILE, h = track.rows * TILE;
   const px = new Uint32Array(w * h);
-  const ramps = { road: tones(SURFACE.road), verge: tones(SURFACE.verge), wall: tones(SURFACE.wall) };
-  const outside = outsideWalls(track);
+  const ramps = { road: tones(SURFACE.road), verge: tones(SURFACE.verge), wall: tones(SURFACE.wall), void: tones(SURFACE.void) };
+  const outside = outsideVoid(track);
   const rand = rng(1359);
   for (let ty = 0; ty < track.rows; ty++) {
     for (let tx = 0; tx < track.cols; tx++) {

@@ -4,7 +4,7 @@
 import type { Action } from '../keys';
 import type { KartItem as Item } from '../scenes/kart.ts';
 import { RULES } from './rules';
-import { TILE, tileAt } from './track';
+import { isSolid, TILE, tileAt } from './track';
 
 /** A kart: where it stands, the way it faces (radians from east, y down) and its speed along that way (negative: reversing). */
 export interface Kart {
@@ -59,7 +59,7 @@ function out(map: readonly string[], x: number, y: number, tx: number, ty: numbe
   const edges: [number, number, number][] = [
     [x - tx * TILE, -1, 0], [(tx + 1) * TILE - x, 1, 0], [y - ty * TILE, 0, -1], [(ty + 1) * TILE - y, 0, 1],
   ];
-  const open = edges.filter(([, nx, ny]) => tileAt(map, tx + nx, ty + ny) !== 'X');
+  const open = edges.filter(([, nx, ny]) => !isSolid(map, tx + nx, ty + ny));
   const [dist, nx, ny] = (open.length ? open : edges).reduce((best, e) => (e[0] < best[0] ? e : best));
   return [nx, ny, dist + RULES.radius];
 }
@@ -69,7 +69,7 @@ function wallsAround(map: readonly string[], x: number, y: number): [number, num
   const tx0 = Math.floor(x / TILE), ty0 = Math.floor(y / TILE);
   const walls: [number, number][] = [];
   for (let ty = ty0 - 1; ty <= ty0 + 1; ty++) {
-    for (let tx = tx0 - 1; tx <= tx0 + 1; tx++) if (tileAt(map, tx, ty) === 'X') walls.push([tx, ty]);
+    for (let tx = tx0 - 1; tx <= tx0 + 1; tx++) if (isSolid(map, tx, ty)) walls.push([tx, ty]);
   }
   return walls;
 }

@@ -6,6 +6,7 @@ import { sure } from '../test/sure';
 import { boxFrame, cometsOf, createKart, propFrame, SHADOW, viewFacing } from './art';
 import type { Action } from '../keys';
 import { horizonOf } from './mode7';
+import { COMET_RING, parseTrack } from './track';
 
 // The ready screen's drawing, under a canvas that only counts (PRD 1359): the sky above the horizon in
 // the theme's colours, then the floor from one reused pixel buffer, on both grids. The planets and
@@ -389,9 +390,12 @@ describe('the shadows and the effects', () => {
     expect(shadows(drawnOrder({ ...frame(WIDE), reduced: true })).length).toBe(shadows(drawnOrder()).length);
   });
 
+  /** COMET RING with a wall where the void is (the circuit has none since PRD 1447): a map drawn in the test that still has a wall. */
+  const walled = () => parseTrack({ rows: COMET_RING.rows.map((row) => row.replaceAll('~', 'X')), waypoints: COMET_RING.waypoints });
+
   /** A race driven into the wall until the player scrapes it, and the frame drawn then. */
   function scraping(reduced: boolean) {
-    const kart = createKart({ seed: 3 });
+    const kart = createKart({ seed: 3, track: walled() });
     kart.press('start');
     for (let t = 0; t < 3.1; t += 0.05) kart.step(new Set<Action>(), 0.05);
     for (let t = 0; t < 30; t += 0.05) {

@@ -285,12 +285,11 @@ function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, part
   ctx.globalAlpha = 1;
 }
 
-/** What `createKart` needs: the race's seed, and the rivals' drivers (the workspace's fleets). */
-export interface KartOptions { seed: number; cast?: readonly Driver[] }
+/** What `createKart` needs: the race's seed, and the rivals' drivers (the workspace's fleets); the circuit is COMET RING unless a test hands it another. */
+export interface KartOptions { seed: number; cast?: readonly Driver[]; track?: Track }
 
 /** The race as the arcade drives and draws it: the circuit loaded, the camera behind the player's kart. */
-export function createKart({ seed, cast = [] }: KartOptions = { seed: 1359 }): KartGame {
-  const track: Track = parseTrack();
+export function createKart({ seed, cast = [], track = parseTrack() }: KartOptions = { seed: 1359 }): KartGame {
   let race = newRace({ seed, track, cast });
   let texture: Texture | null = null;
   let particles = newParticles(seed);

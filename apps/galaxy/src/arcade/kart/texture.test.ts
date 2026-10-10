@@ -3,7 +3,7 @@ import { rampFrom } from '@omni/design';
 import { TOKENS } from '../theme';
 import { sure } from '../test/sure';
 import { BEYOND, pack, paintTrack, SURFACE } from './texture';
-import { cornersOf, isRoad, parseTrack, TILE, tileAt } from './track';
+import { COMET_RING, cornersOf, isRoad, parseTrack, TILE, tileAt } from './track';
 
 describe('pack', () => {
   it('packs #rrggbb as an opaque little-endian pixel: 0xAABBGGRR', () => {
@@ -30,6 +30,11 @@ describe('paintTrack', () => {
     return out;
   };
   const cyan = pack(SURFACE.neonCyan), magenta = pack(SURFACE.neonMagenta);
+  /** COMET RING with its void drawn as `c`: the verge and the wall are still in the legend, though no circuit holds one. */
+  const asTexture = (c: string) => {
+    const map = COMET_RING.rows.map((row) => row.replaceAll('~', c));
+    return paintTrack({ cols: track.cols, rows: track.rows, map, waypoints: track.waypoints });
+  };
   const tilesOf = (c: string) => track.map.flatMap((row, y) => Array.from(row).flatMap((t, x) => (t === c ? [[x, y] as const] : [])));
 
   it('is one 16×16 tile per map tile, every pixel opaque', () => {
@@ -42,14 +47,41 @@ describe('paintTrack', () => {
   it('paints the verge in the lunar ramp, and no colour of the road in it', () => {
     const road = new Set(rampFrom(SURFACE.road).map(pack));
     const verge = new Set(rampFrom(SURFACE.verge).map(pack));
-    for (const [tx, ty] of tilesOf('.').filter((_, i) => i % 37 === 0)) {
-      for (const c of tile(tx, ty)) { expect(verge.has(c)).toBe(true); expect(road.has(c)).toBe(false); }
+    const grass = asTexture('.');
+    for (const [tx, ty] of tilesOf('~').filter((_, i) => i % 37 === 0)) {
+      for (let y = 0; y < TILE; y++) {
+        for (let x = 0; x < TILE; x++) {
+          const c = sure(grass.px[(ty * TILE + y) * grass.w + tx * TILE + x], 'a pixel');
+          expect(verge.has(c)).toBe(true);
+          expect(road.has(c)).toBe(false);
+        }
+      }
     }
   });
 
   it('puts craters in the verge: some tile has a darker ring than the plain ground', () => {
     const darkest = pack(sure(rampFrom(SURFACE.verge)[3], 'the dark tone'));
-    expect(tilesOf('.').some(([tx, ty]) => tile(tx, ty).has(darkest))).toBe(true);
+    const grass = asTexture('.');
+    expect(grass.px.includes(darkest)).toBe(true);
+  });
+
+  it('paints a void tile as space: its own near-black ramp and a few stars, none of the road\'s colours', () => {
+    const road = new Set(rampFrom(SURFACE.road).map(pack));
+    const space = new Set([...rampFrom(SURFACE.void).map(pack), pack(SURFACE.starBright), pack(SURFACE.starDim)]);
+    const stars = new Set([pack(SURFACE.starBright), pack(SURFACE.starDim)]);
+    const edge = new Set([cyan, magenta]);
+    let starred = 0;
+    for (const [tx, ty] of tilesOf('~').filter((_, i) => i % 11 === 0)) {
+      for (const c of tile(tx, ty)) {
+        if (edge.has(c)) continue;
+        expect(space.has(c), `void ${tx},${ty}`).toBe(true);
+        expect(road.has(c)).toBe(false);
+        if (stars.has(c)) starred++;
+      }
+    }
+    expect(starred).toBeGreaterThan(0);
+    // Deep in the void, a tile is the darkest tone with stars on it, and nothing else.
+    expect(tile(1, 1).has(pack(sure(rampFrom(SURFACE.void)[3], 'the dark tone')))).toBe(true);
   });
 
   it('paints the road in the road ramp, with a darker seam across the way forward every four tiles', () => {
@@ -69,32 +101,31 @@ describe('paintTrack', () => {
     }
   });
 
-  it('paints a wall tile dark metal, neon only where a side meets road or verge: cyan outside the circuit, magenta inside', () => {
-    const metal = new Set(rampFrom(SURFACE.wall).map(pack));
+  it('paints neon on a void tile only where a side meets the road: cyan outside the circuit, magenta inside', () => {
     const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+    const space = new Set([...rampFrom(SURFACE.void).map(pack), pack(SURFACE.starBright), pack(SURFACE.starDim)]);
     const seen = { cyan: 0, magenta: 0 };
-    for (const [tx, ty] of tilesOf('X')) {
-      const facing = sides.some(([dx, dy]) => { const c = tileAt(track.map, tx + dx, ty + dy); return c === '.' || isRoad(c); });
-      const colours = tile(tx, ty);
-      const neon = [...colours].filter((c) => !metal.has(c));
-      if (!facing) { expect(neon, `wall ${tx},${ty}`).toEqual([]); continue; }
+    for (const [tx, ty] of tilesOf('~')) {
+      const facing = sides.some(([dx, dy]) => isRoad(tileAt(track.map, tx + dx, ty + dy)));
+      const neon = [...tile(tx, ty)].filter((c) => !space.has(c));
+      if (!facing) { expect(neon, `void ${tx},${ty}`).toEqual([]); continue; }
       expect(neon).toHaveLength(1);
       expect([cyan, magenta]).toContain(neon[0]);
       if (neon[0] === cyan) seen.cyan++; else seen.magenta++;
-      // The tile's middle is metal.
-      expect(metal.has(pixel(tx * TILE + 7, ty * TILE + 7))).toBe(true);
     }
     expect(seen.cyan).toBeGreaterThan(0);
     expect(seen.magenta).toBeGreaterThan(0);
-    // The outer border's wall beside the road is cyan; the infield's, in the loop's heart, magenta.
-    expect(pixel(13 * TILE + 15, 56 * TILE + 5)).toBe(cyan);   // the left of the start straight, its wall on the outside
-    expect(pixel(23 * TILE, 40 * TILE + 5)).toBe(magenta);     // the infield block, its west side on the verge
+    // The void beside the start straight, outside the circuit, is cyan; the infield's, in the loop's heart, magenta.
+    expect(pixel(15 * TILE + 15, 56 * TILE + 5)).toBe(cyan);
+    expect(pixel(21 * TILE, 40 * TILE + 5)).toBe(magenta);
   });
 
-  it('puts the neon on the side that meets the road: the whole edge, two pixels deep', () => {
-    // Tile 13,56 is an outer wall with road to its east.
-    for (let y = 0; y < TILE; y++) for (const x of [14, 15]) expect(pixel(13 * TILE + x, 56 * TILE + y)).toBe(cyan);
-    expect(pixel(13 * TILE + 13, 56 * TILE + 8)).not.toBe(cyan);
+  it('puts the neon on the void\'s side of the road\'s edge: the whole edge, two pixels deep', () => {
+    // Tile 15,56 is void outside the circuit with road to its east.
+    for (let y = 0; y < TILE; y++) for (const x of [14, 15]) expect(pixel(15 * TILE + x, 56 * TILE + y)).toBe(cyan);
+    expect(pixel(15 * TILE + 13, 56 * TILE + 8)).not.toBe(cyan);
+    // And the road's own tile stays road: no neon on it.
+    expect(pixel(16 * TILE + 1, 57 * TILE + 8)).not.toBe(cyan);
   });
 
   it('alternates the two neon colours along a kerb', () => {
@@ -103,15 +134,17 @@ describe('paintTrack', () => {
     expect(pixel(tx * TILE, ty * TILE)).not.toBe(pixel(tx * TILE + 4, ty * TILE));
   });
 
-  it('tells the surfaces apart: road, verge, wall, kerb and the start line differ', () => {
-    const kinds = [tile(35, 56), tile(4, 4), tile(0, 0), tile(6, 6), tile(30, 56)];
+  it('tells the surfaces apart: road, void, kerb and the start line differ', () => {
+    const kinds = [tile(35, 56), tile(1, 1), tile(6, 40), tile(30, 56)];
     for (const [i, a] of kinds.entries()) for (const b of kinds.slice(i + 1)) expect([...a].some((c) => !b.has(c))).toBe(true);
     expect(tile(30, 56).size).toBeLessThanOrEqual(2); // the start line's chequer: light and dark
   });
 
-  it('paints the same texture every time, and reads a wall past the map', () => {
+  it('paints the same texture every time, and reads the void\'s darkest tone past the map', () => {
     expect(paintTrack(track).px).toEqual(texture.px);
-    expect(BEYOND).toBe(pack(SURFACE.wall));
+    expect(BEYOND).toBe(pack(sure(rampFrom(SURFACE.void)[3], 'the dark tone')));
+    const bright = (c: number) => (c & 0xff) + ((c >> 8) & 0xff) + ((c >> 16) & 0xff);
+    for (const tone of rampFrom(SURFACE.void).map(pack)) expect(bright(BEYOND)).toBeLessThanOrEqual(bright(tone));
   });
 
   describe('the chevrons', () => {
