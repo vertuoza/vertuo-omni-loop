@@ -282,6 +282,9 @@ None of these is taken by the code; a person does each once.
    - `CONSTITUENT_JUDGE_SECRET` — the secret the canon gate signs its call to galaxy's constituent
      judge with (PRD 871), the same value as in galaxy's project. Unset, a product with constituents
      gets a neutral canon gate, "judge not configured".
+   - `LAW_JUDGE_SECRET` — the secret the knowledge harvest signs its call to galaxy's law judge with
+     (PRD 1342), the same value as in galaxy's project. Unset, the classifier's own answer says
+     whether a rule or an invariant with no test is worth a law.
    - `OPENROUTER_MODEL`, optional — another model than the default for the retro and the harvest
      (below).
    - `STAGE_EVENT_SECRET` — the secret stage events are signed with on their way to galaxy
