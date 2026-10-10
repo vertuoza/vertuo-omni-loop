@@ -2,7 +2,9 @@
 // `<base>` touches a screen — `design: off` while `design.enabled` is false, else `ui: yes` and the
 // matching paths, `ui: no`, or `ui: unknown` (`design.paths` empty, or a base git cannot read). The
 // base defaults to the branch's own (`kit/lib/design/base.ts`). It only reports: every answer exits 0;
-// only a usage mistake exits 2.
+// only a usage mistake exits 2. Below its answer, PRD 1407 adds one `screens:` line naming each
+// library screen whose `implements` a changed path matches (the `design.paths` semantics), with its
+// status and routes; no line when none does, while the flag is off, or when the base cannot be read.
 //
 // `omni design screens` (PRD 1407): the screen library at `design.screens` — one line per screen,
 // its name, status, who locked it and when, and its routes, then each file that does not read; it says
@@ -23,7 +25,7 @@ import { formatPage, wordPass, type WordRules } from '../../lib/design/words/pas
 import { parseSelector, type Selector } from '../../lib/design/words/selector.ts';
 import { messageOf } from '../../lib/narrow.ts';
 import { readForm } from '../../lib/playbook/forms.ts';
-import { designTouched, formatTouched, type Touched } from '../../lib/design/touched.ts';
+import { designTouched, formatScreensTouched, formatTouched, screensTouched } from '../../lib/design/touched.ts';
 import { branchPaths } from '../branch-range.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
@@ -41,17 +43,19 @@ function currentBranch({ ctx, exec }: CommandIo): string | null {
   }
 }
 
-function touched(io: CommandIo, given: string | undefined): Touched {
+/** The answer, then the `screens:` line when a library screen's `implements` matches a changed path. */
+function touched(io: CommandIo, given: string | undefined): string[] {
   const { design } = io.ctx.config;
-  if (!design.enabled) return designTouched(design, []);
+  if (!design.enabled) return formatTouched(designTouched(design, []));
   const base = given ?? defaultDesignBase(currentBranch(io), io.ctx.config);
   let changed: string[];
   try {
     changed = branchPaths(io.ctx.root, base, io.exec);
   } catch {
-    return { ui: 'unknown', reason: `cannot read ${base} — fetch it or pass another base` };
+    return formatTouched({ ui: 'unknown', reason: `cannot read ${base} — fetch it or pass another base` });
   }
-  return designTouched(design, changed);
+  const { screens: library } = readScreens(join(io.ctx.root, designScreensDir(io.ctx.config)));
+  return [...formatTouched(designTouched(design, changed)), ...formatScreensTouched(screensTouched(library, changed))];
 }
 
 function screens({ ctx }: CommandIo): string[] {
@@ -99,7 +103,7 @@ function words(io: CommandIo, pages: readonly string[]): string[] {
 
 /** Each verb's lines from its operands, or null when the operands are a usage mistake. */
 const VERBS: Readonly<Record<string, (io: CommandIo, operands: readonly string[]) => string[] | null>> = {
-  touched: (io, operands) => (operands.length > 1 ? null : formatTouched(touched(io, operands[0]))),
+  touched: (io, operands) => (operands.length > 1 ? null : touched(io, operands[0])),
   screens: (io, operands) => (operands.length > 0 ? null : screens(io)),
   words: (io, operands) => (operands.length === 0 ? null : words(io, operands)),
 };
