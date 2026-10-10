@@ -25,6 +25,7 @@ describe('readEnv — the GitHub App', () => {
       openrouter: null,
       stageEvents: null,
       constituentJudge: null,
+      lawJudge: null,
       galaxyUrl: DEFAULT_GALAXY_URL,
     });
   });
@@ -41,6 +42,7 @@ describe('readEnv — the GitHub App', () => {
       OPENROUTER_MODEL: 'anthropic/claude-sonnet-5',
       STAGE_EVENT_SECRET: 'stage',
       CONSTITUENT_JUDGE_SECRET: 'judge',
+      LAW_JUDGE_SECRET: 'laws',
       GALAXY_URL: 'https://galaxy.example/',
     });
     expect(env).toEqual({
@@ -51,6 +53,7 @@ describe('readEnv — the GitHub App', () => {
       openrouter: { key: SECRET, model: 'anthropic/claude-sonnet-5' },
       stageEvents: { secret: 'stage' },
       constituentJudge: { secret: 'judge' },
+      lawJudge: { secret: 'laws' },
       galaxyUrl: 'https://galaxy.example',
     });
   });

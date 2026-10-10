@@ -385,3 +385,47 @@ describe('enforcedBy — the proof a rule or an invariant proposes (PRD 1171)', 
     });
   });
 });
+
+describe('worthALaw — whether a rule or an invariant is worth a law (PRD 1342)', () => {
+  const schema = classificationSchema(SUMMARY);
+  const RULE = { kind: 'rule', place: 'product', statement: 'A merge adopts what is open.', serves: 'P-PRODUCT-1', reason: 'provable' };
+  const INVARIANT = { kind: 'invariant', place: 'billing', statement: 'An invoice number is unique.', reason: 'must always hold' };
+  const messages = (reply: unknown) => {
+    const result = schema.safeParse(reply);
+    expect(result.success).toBe(false);
+    assertDefined(result.error, 'result.error');
+    return result.error.issues.map((issue) => issue.message).join(' | ');
+  };
+
+  it('is accepted on a rule and an invariant, true or false', () => {
+    expect(schema.parse({ ...RULE, worthALaw: true })).toMatchObject({ worthALaw: true });
+    expect(schema.parse({ ...INVARIANT, worthALaw: false })).toMatchObject({ worthALaw: false });
+  });
+
+  it('is refused on adr, covered and stays-here', () => {
+    const others = [
+      { kind: 'adr', title: 'The check reads two snapshots', statement: 'Settings come from the base.', reason: 'how it is built' },
+      { kind: 'covered', covers: 'ADR-0001', reason: 'already recorded' },
+      { kind: 'stays-here', statement: 'A local naming choice.', reason: 'nothing lasting' },
+    ];
+    for (const reply of others) {
+      expect(messages({ ...reply, worthALaw: true })).toMatch(/Unrecognized key/);
+      expect(messages({ ...reply, worthALaw: false })).toMatch(/Unrecognized key/);
+    }
+  });
+
+  it('is refused when it is not a boolean', () => {
+    expect(messages({ ...RULE, worthALaw: 'yes' })).toMatch(/worthALaw must be true or false/);
+    expect(messages({ ...INVARIANT, worthALaw: null })).toMatch(/worthALaw must be true or false/);
+  });
+
+  it('the prompt asks for it on every rule and invariant', () => {
+    const prompt = classificationPrompt({ candidate: candidate(), summary: SUMMARY });
+    expect(prompt).toContain('`worthALaw`, on every `rule` and `invariant`');
+    expect(prompt).toContain('`worthALaw` (true or false)');
+  });
+
+  it('the JSON schema offers it as a boolean', () => {
+    expect(classificationJsonSchema(SUMMARY).properties.worthALaw).toEqual({ type: 'boolean' });
+  });
+});

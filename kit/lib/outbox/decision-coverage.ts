@@ -25,6 +25,11 @@
  * `test-removed` is structural and needs no context at all: a `*.test.*` or `*.feature` file,
  * deleted — the cheapest way to turn a red check green.
  *
+ * `law-demoted` (PRD 1342) reads the range, not a change: given the knowledge folder as the base
+ * holds it, it names each register file where a law left the registers, or where a law's
+ * `Enforced by:` path turned to `pending #<n>` or `unenforced`. Its proof gone, the law's own test
+ * no longer fires `law-proof`, so this is the rule that still sees the change.
+ *
  * This module is pure: it takes the changes the caller already computed and, for `law-proof`, the
  * `ctx` to read the registers from. It shells out to nothing, reads no account, and touches no
  * gate — those are later slices (s2, s3, s4).
@@ -37,7 +42,8 @@ export type CoverageContext = Pick<Context, 'root' | 'config'> & {
   layout: Pick<Context['layout'], 'knowledgeRoot' | 'adrDir'>;
 };
 import type { NameStatus } from '../git.ts';
-import { readRegisters } from '../knowledge/registers.ts';
+import { readKnowledge, readRegisters } from '../knowledge/registers.ts';
+import type { KnowledgeEntry, KnowledgeSource } from '../knowledge/registers.ts';
 
 /** One change a rule fired on, and which rule. */
 export type RiskyChange = { path: string; status: string; rule: string };
@@ -68,8 +74,9 @@ export function enforcedByPaths({ ctx }: { ctx: CoverageContext }): Set<string> 
   const { entries } = readRegisters({ ctx });
   const paths = new Set<string>();
   for (const entry of entries) {
-    if (!entry.enforcedBy || entry.enforcedBy === 'unenforced') continue;
-    for (const rawPath of entry.enforcedBy.split(',')) {
+    // `unenforced` and `pending #<n>` (PRD 1342) name no path: only an enforced entry has a proof.
+    if (!entry.enforced) continue;
+    for (const rawPath of String(entry.enforcedBy).split(',')) {
       const path = rawPath.replace(/`/g, '').trim();
       if (path) paths.add(path);
     }
@@ -123,19 +130,52 @@ const RULES: { id: string; matches: (change: NameStatus, options: { ctx: Coverag
   { id: 'shared-contract', matches: isSharedContract },
 ];
 
-/** The five rule ids, in `RULES`' own order. */
-export const RULE_IDS = RULES.map((rule) => rule.id);
+/** The rule a range fires when it takes a law's proof away or removes the law (PRD 1342). */
+const LAW_DEMOTED = 'law-demoted';
+
+/** The five per-change rule ids, in `RULES`' own order, then `law-demoted`, read over the range. */
+export const RULE_IDS = [...RULES.map((rule) => rule.id), LAW_DEMOTED];
+
+/** A rule or an invariant no person still has to confirm: a law (a proposed entry is none yet). */
+function isLaw(entry: KnowledgeEntry): boolean {
+  return (entry.kind === 'rule' || entry.kind === 'invariant') && entry.proposed === null;
+}
+
+/**
+ * The register files where a law was demoted between `base` and the head (`ctx.root`), each once:
+ * the base's file of a law the head no longer holds, and the head's file of a law whose base named
+ * a proof path and whose head is `pending #<n>` or `unenforced`. A law moved to another path, or
+ * promoted, is not demoted. Never fires when `ctx.config.laws.source` is not `'knowledge'`.
+ */
+function demotedFiles({ ctx, base }: { ctx: CoverageContext; base: KnowledgeSource }): string[] {
+  if (ctx.config.laws.source !== 'knowledge') return [];
+  const head = new Map(readRegisters({ ctx }).entries.map((entry) => [entry.id, entry]));
+  const files = new Set<string>();
+  for (const was of readKnowledge({ ctx, source: base }).entries.filter(isLaw)) {
+    const now = head.get(was.id);
+    if (now === undefined) files.add(was.file);
+    else if (was.enforced && !now.enforced) files.add(now.file);
+  }
+  return [...files];
+}
 
 /**
  * Grades a range's changes against all five rules. Returns every `{ path, status, rule }` a rule
  * fired on — a change matching two rules produces two entries, in `RULES` order, and neither
  * shadows the other.
  *
+ * `base` is the knowledge folder as the range's base holds it (PRD 1342): given, `law-demoted`
+ * fires once per register file holding a demoted law, after the per-change rules, with that file's
+ * status in `changes` (`M` when the range does not list it). Omitted, it never fires.
+ *
  * @param {{ path: string, status: string }[]} changes
- * @param {{ ctx: object }} options
+ * @param {{ ctx: object, base?: object | null }} options
  * @returns {{ path: string, status: string, rule: string }[]}
  */
-export function riskyChanges(changes: readonly NameStatus[], { ctx }: { ctx: CoverageContext }): RiskyChange[] {
+export function riskyChanges(
+  changes: readonly NameStatus[],
+  { ctx, base = null }: { ctx: CoverageContext; base?: KnowledgeSource | null },
+): RiskyChange[] {
   const risky: RiskyChange[] = [];
   for (const change of changes) {
     for (const rule of RULES) {
@@ -143,6 +183,11 @@ export function riskyChanges(changes: readonly NameStatus[], { ctx }: { ctx: Cov
         risky.push({ path: change.path, status: change.status, rule: rule.id });
       }
     }
+  }
+  if (base === null) return risky;
+  const statuses = new Map(changes.map((change) => [change.path, change.status]));
+  for (const path of demotedFiles({ ctx, base })) {
+    risky.push({ path, status: statuses.get(path) ?? 'M', rule: LAW_DEMOTED });
   }
   return risky;
 }

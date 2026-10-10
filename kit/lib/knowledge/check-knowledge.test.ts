@@ -612,3 +612,77 @@ describe('Feature: a proposed entry (PRD #68)', () => {
     ]);
   });
 });
+
+describe('laws.requireProof — a law names its proof (PRD 1342)', () => {
+  function gradeWith(root: string, requireProof: boolean, extra: { copyOf?: string } = {}) {
+    const ctx = { ...flatCtx(root, { laws: { source: 'knowledge', requireProof } }), ...extra } as Parameters<typeof gradeKnowledge>[0]['ctx'];
+    return gradeKnowledge({ ctx, files: [], glossaryText: GLOSSARY_TEXT });
+  }
+  const ADVISOR_INVARIANTS = 'docs/knowledge/domains/advisor/invariants.md';
+  const invariant = (id: string, enforcedBy: string) =>
+    `## ${id}\n\nHolds.\n\nSource: PRD #1342\nEnforced by: ${enforcedBy}\nStated: 2026-10-09\n`;
+
+  it('accepts "pending #<n>" either way: no path to look up', () => {
+    const root = tree({
+      [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'),
+      [ADVISOR_RULES]: rule('BR-ADVISOR-1').replace('Enforced by: unenforced', 'Enforced by: pending #12'),
+      [ADVISOR_INVARIANTS]: invariant('N-ADVISOR-1', 'pending #13'),
+    });
+    expect(gradeWith(root, false).violations).toEqual([]);
+    expect(gradeWith(root, true).violations).toEqual([]);
+  });
+
+  it('refuses an unenforced rule, invariant and cross-domain entry when it is true, naming each', () => {
+    const root = tree(
+      {
+        [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'),
+        [ADVISOR_RULES]: rule('BR-ADVISOR-1'),
+        [ADVISOR_INVARIANTS]: invariant('N-ADVISOR-1', 'unenforced'),
+        'docs/knowledge/cross-domain/advisor--credits.md': crossDomain('X-ADVISOR-CREDITS-1', { serves: 'P-ADVISOR-1' }),
+      },
+      { domains: ['credits'] },
+    );
+    expect(gradeWith(root, true).violations.map(parseLine)).toEqual([
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: matching(/^is "Enforced by: unenforced", and laws\.requireProof is true — name the test's path, or "pending #<n>", its law issue\.$/) },
+      { file: ADVISOR_INVARIANTS, id: 'N-ADVISOR-1', detail: matching(/"Enforced by: unenforced".*laws\.requireProof/) },
+      { file: 'docs/knowledge/cross-domain/advisor--credits.md', id: 'X-ADVISOR-CREDITS-1', detail: matching(/"Enforced by: unenforced".*laws\.requireProof/) },
+    ]);
+  });
+
+  it('accepts the same tree as today when it is false', () => {
+    const root = tree({
+      [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'),
+      [ADVISOR_RULES]: rule('BR-ADVISOR-1'),
+      [ADVISOR_INVARIANTS]: invariant('N-ADVISOR-1', 'unenforced'),
+    });
+    expect(gradeWith(root, false).violations).toEqual([]);
+  });
+
+  it('still refuses a missing path, and a malformed pending, naming the entry', () => {
+    const root = tree({
+      [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'),
+      [ADVISOR_RULES]: rule('BR-ADVISOR-1').replace('Enforced by: unenforced', 'Enforced by: pending 12'),
+      [ADVISOR_INVARIANTS]: invariant('N-ADVISOR-1', 'kit/lib/gone.test.ts'),
+    });
+    expect(gradeWith(root, true).violations.map(parseLine)).toEqual([
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: matching(/is not "Enforced by: pending #<n>"/) },
+      { file: ADVISOR_INVARIANTS, id: 'N-ADVISOR-1', detail: matching(/does not exist/) },
+    ]);
+  });
+
+  it('never asks a proposed entry for its proof: it is no law yet', () => {
+    const root = tree({
+      [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'),
+      [ADVISOR_RULES]: rule('BR-ADVISOR-1', { extra: ['Proposed: invade 2026-10-09'] }),
+    });
+    expect(gradeWith(root, true).violations).toEqual([]);
+  });
+
+  it("never asks it of an imported copy: the target's own config decides", () => {
+    const root = tree({
+      [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'),
+      [ADVISOR_RULES]: rule('BR-ADVISOR-1'),
+    });
+    expect(gradeWith(root, true, { copyOf: 'acme/back-end' }).violations).toEqual([]);
+  });
+});

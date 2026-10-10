@@ -29,6 +29,9 @@
     "apps/galaxy/scripts/*.ts",
     // The arcade's artifact build, run by path from the galaxy app's `artifact` script.
     "apps/galaxy/artifact/build.ts",
+    // OMNI KART (PRD 1359): the arcade imports it with a dynamic `import()` when the cabinet opens, so
+    // that a page that never opens it downloads nothing of it (apps/galaxy/src/arcade/kart/guard.test.ts).
+    "apps/galaxy/src/arcade/kart/index.ts",
     // The GitHub App's Vercel functions: Vercel routes `api/*.mjs` by file name, and those are bundles
     // of these entries that `apps/omni-app/build.ts` writes (#1084), ignored above as generated.
     "apps/omni-app/entries/*.ts",
@@ -49,6 +52,8 @@
   // export in many files by design, not an ambiguous re-export.
   "ignoreExports": [
     { "file": "**/*.boundary.ts", "exports": ["boundaries"] },
+    // Each scene group names the scenes it lays out on the tall grid and its pages: one name per group by design.
+    { "file": "apps/galaxy/src/arcade/scenes/*.ts", "exports": ["TALL_SCENES", "PAGES"] },
     { "file": "scripts/schemas-verify.fixtures/*.ts", "exports": ["boundaries", "reads"] },
   ],
   // The generated database types repeat one shape per table and function by design: not copy-paste

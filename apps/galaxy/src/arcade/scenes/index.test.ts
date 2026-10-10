@@ -12,7 +12,7 @@ import { sure } from '../test/sure';
 const SCENES: Record<SceneName, true> = {
   boot: true, title: true, menu: true, map: true, planet: true, fleets: true, heroes: true, briefing: true,
   coin: true, away: true, gate: true, intro: true, select: true, name: true, hero: true, ready: true,
-  welcome: true, outsider: true, chart: true, system: true, games: true, invaders: true, platformer: true, levelup: true,
+  welcome: true, outsider: true, chart: true, system: true, games: true, invaders: true, platformer: true, kart: true, levelup: true,
 };
 
 // A 2D context that counts what is drawn on it, and the offscreen canvases the sprites render into.

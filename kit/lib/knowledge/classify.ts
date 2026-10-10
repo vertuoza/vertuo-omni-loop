@@ -108,6 +108,14 @@ const enforcedBy = z
   .optional();
 
 /**
+ * `worthALaw` (PRD 1342): whether a rule or an invariant is worth a law, an executable test that fails
+ * when it is broken. The classifier's own answer to `law-worth`, the one that counts while Jev does not
+ * decide. Only on a rule or an invariant. Optional in the shape, so a reply saved before it existed
+ * still reads: the writer reads one without it as today's, an entry written `unenforced`.
+ */
+const worthALaw = z.boolean({ error: 'worthALaw must be true or false' }).optional();
+
+/**
  * The reply's shape, one strict object per kind, with the field table of the spec and nothing
  * more: a field the kind does not carry is refused, like one it is missing. Context-free: whether a
  * place, a principle or a covered entry exists is {@link classificationSchema}'s call.
@@ -124,7 +132,7 @@ export const ClassificationSchema = z
           reason,
         })
         .strict(),
-      z.object({ kind: z.literal('invariant'), place: text('place'), statement, enforcedBy, reason }).strict(),
+      z.object({ kind: z.literal('invariant'), place: text('place'), statement, enforcedBy, worthALaw, reason }).strict(),
       z
         .object({
           kind: z.literal('rule'),
@@ -136,6 +144,7 @@ export const ClassificationSchema = z
             .strict()
             .optional(),
           enforcedBy,
+          worthALaw,
           reason,
         })
         .strict(),
@@ -279,6 +288,7 @@ export function classificationJsonSchema(summary: KnowledgeSummary) {
       },
       covers: string(),
       enforcedBy: { type: 'array', items: string(), minItems: 1, maxItems: MAX_ENFORCED_BY },
+      worthALaw: { type: 'boolean' },
       reason: string(CAPS.reason),
     },
   };
@@ -314,8 +324,8 @@ function kindLines(kinds: readonly ClassificationKind[]): string[] {
   const meaning: Record<ClassificationKind, string> = {
     adr: '- `adr`: a decision record — how something is built, and why. Fields: `title`, `statement`, `reason`.',
     invariant:
-      '- `invariant`: something that must always hold in the code. Fields: `place`, `statement`, `enforcedBy` (optional), `reason`.',
-    rule: `- \`rule\`: a precise, provable business rule. Fields: \`place\`, \`statement\`, \`serves\` (an existing principle's id, of \`${PRODUCT_PLACE}\` or of the rule's own place, or \`${NEW_PRINCIPLE}\`), \`principle\` (\`{ statement, why }\`, only when \`serves\` is \`${NEW_PRINCIPLE}\`), \`enforcedBy\` (optional), \`reason\`.`,
+      '- `invariant`: something that must always hold in the code. Fields: `place`, `statement`, `enforcedBy` (optional), `worthALaw` (true or false), `reason`.',
+    rule: `- \`rule\`: a precise, provable business rule. Fields: \`place\`, \`statement\`, \`serves\` (an existing principle's id, of \`${PRODUCT_PLACE}\` or of the rule's own place, or \`${NEW_PRINCIPLE}\`), \`principle\` (\`{ statement, why }\`, only when \`serves\` is \`${NEW_PRINCIPLE}\`), \`enforcedBy\` (optional), \`worthALaw\` (true or false), \`reason\`.`,
     covered:
       '- `covered`: an existing entry or decision record already says this. Fields: `covers` (its id, or `ADR-NNNN`), `reason`.',
     'stays-here':
@@ -352,6 +362,7 @@ export function classificationPrompt({
     `\`reason\` says why this kind and this place, at most ${CAPS.reason} characters.`,
     'Prefer `covered` when the knowledge base below already says it, and `stays-here` for a local choice.',
     `\`enforcedBy\`, on a \`rule\` or an \`invariant\` only, names one to ${MAX_ENFORCED_BY} of the files listed under "The files the feature pull request changed": the ones whose tests or constraints prove the statement. Omit \`enforcedBy\` when none of them proves the statement.`,
+    '`worthALaw`, on every `rule` and `invariant`, says whether it is worth a law: an executable test that fails when it is broken. `true` when breaking it would hurt the product or the people who rely on it, it holds for a long time and code can check it; `false` for a one-off choice, a taste, or a fact no test can see.',
     LOOK_RULE,
     '',
     `## The decision: ${candidate.id}`,

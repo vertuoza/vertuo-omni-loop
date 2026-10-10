@@ -189,6 +189,46 @@ describe('omni check config', () => {
     });
   });
 
+  describe('laws.requireProof, labels.law and branches.law (PRD 1342)', () => {
+    const LAWS = 'laws:\n  source: knowledge\n  requireProof: true\nlabels:\n  law: law\nbranches:\n  law: laws/{id}\n';
+    const KB = '.omni-loop/knowledge';
+    const knowledge = (enforcedBy: string): Record<string, string> => ({
+      [`${KB}/product/principles.md`]: '# Principles\n\n## P-PRODUCT-1\n\nA person saves.\n\nWhy: trust.\nDecided: a person, 2026-10-09\nSource: PRD #1342\n',
+      [`${KB}/product/rules.md`]: `# Rules\n\n## BR-PRODUCT-1\n\nNothing is sent without a click.\n\nServes: P-PRODUCT-1\nSource: PRD #1342\nEnforced by: ${enforcedBy}\nStated: 2026-10-09\n`,
+      [`${KB}/product/invariants.md`]: '# Invariants\n',
+    });
+    async function checkKnowledge(config: string, files: Record<string, string>) {
+      const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, ...files } });
+      const s = io();
+      const code = await main(['check', 'knowledge'], { cwd: root, ...s });
+      return { code, out: s.out.join('') };
+    }
+
+    it('is green on a config setting the three keys, and red on a requireProof that is no boolean', async () => {
+      expect((await checkConfig(HEAD + LAWS)).code).toBe(0);
+      const { code, out } = await checkConfig(`${HEAD}laws:\n  requireProof: sometimes\n`);
+      expect(code).toBe(1);
+      expect(out).toContain('laws.requireProof');
+    });
+
+    it('omni check knowledge refuses an unenforced rule once requireProof is true, naming it', async () => {
+      const { code, out } = await checkKnowledge(HEAD + LAWS, knowledge('unenforced'));
+      expect(code).toBe(1);
+      expect(out).toContain(`${KB}/product/rules.md: BR-PRODUCT-1 — is "Enforced by: unenforced", and laws.requireProof is true`);
+    });
+
+    it('omni check knowledge accepts the same rule while requireProof is false, and a pending one either way', async () => {
+      expect((await checkKnowledge(`${HEAD}laws:\n  source: knowledge\n`, knowledge('unenforced'))).code).toBe(0);
+      expect((await checkKnowledge(HEAD + LAWS, knowledge('pending #12'))).code).toBe(0);
+    });
+
+    it('omni check knowledge refuses a malformed pending, naming the entry', async () => {
+      const { code, out } = await checkKnowledge(HEAD + LAWS, knowledge('pending 12'));
+      expect(code).toBe(1);
+      expect(out).toContain(`${KB}/product/rules.md: BR-PRODUCT-1 — "Enforced by: pending 12" is not "Enforced by: pending #<n>"`);
+    });
+  });
+
   it('leaves the other guards stopping with exit 2 on an invalid config', async () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': `${HEAD}flow:\n  on: {}\n` } });
     const s = io();
