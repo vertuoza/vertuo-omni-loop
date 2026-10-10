@@ -542,7 +542,6 @@ declare
   ada constant uuid := '00000000-0000-4000-8000-00000000000a';
   dan constant uuid := '00000000-0000-4000-8000-00000000000d';
   v uuid;
-  kart_at timestamptz;
 begin
   perform pg_temp.sign_in(ada::text, 'ada@vertuoza.com');
   v := (select id from public.workspaces where slug = 'vertuoza');  -- read as a member
@@ -558,23 +557,16 @@ begin
   if (select array_agg(best) from public.arcade_scores where workspace_id = v and user_id = ada and game = 'invaders') is distinct from array[900] then
     raise exception 'FAIL: a player holds more than one best per game, or not the higher one';
   end if;
-  -- OMNI KART keeps the lowest time (PRD #1440): 1200 stored, then 1500 and 900 sent; at moves only on 900.
+  -- OMNI KART keeps the lowest time (PRD #1440): 1200 stored, then 1500 and 900 sent. Whether at
+  -- moves is proved after this block: the whole check is one transaction, where now() never moves.
   if public.submit_score(v, 'kart', 1200) is distinct from 1200 then
     raise exception 'FAIL: submit_score() did not store a first kart time as the best';
   end if;
-  kart_at := (select s.at from public.arcade_scores s where s.workspace_id = v and s.user_id = ada and s.game = 'kart');
   if public.submit_score(v, 'kart', 1500) is distinct from 1200 then
     raise exception 'FAIL: submit_score() let a slower kart time replace the best';
   end if;
-  if (select s.at from public.arcade_scores s where s.workspace_id = v and s.user_id = ada and s.game = 'kart') is distinct from kart_at then
-    raise exception 'FAIL: a slower kart time moved at';
-  end if;
-  perform pg_sleep(0.01);
   if public.submit_score(v, 'kart', 900) is distinct from 900 then
     raise exception 'FAIL: submit_score() did not keep the lower kart time';
-  end if;
-  if (select s.at from public.arcade_scores s where s.workspace_id = v and s.user_id = ada and s.game = 'kart') is not distinct from kart_at then
-    raise exception 'FAIL: a faster kart time did not move at';
   end if;
   if (select array_agg(best order by game) from public.arcade_scores where workspace_id = v and user_id = ada) is distinct from array[900, 900] then
     raise exception 'FAIL: kart did not keep its own lowest time next to the invaders best';
@@ -649,6 +641,30 @@ begin
   end if;
 end $$;
 reset role;
+select pg_temp.sign_out();
+
+-- A kart time moves at only when it is faster (PRD #1440). now() is the same for the whole check, so
+-- Ada's kart row is first dated an hour back, as no player can do: then a slower time leaves at there,
+-- and a faster one brings it to now().
+do $$
+declare
+  ada constant uuid := '00000000-0000-4000-8000-00000000000a';
+  v constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  back constant timestamptz := now() - interval '1 hour';
+begin
+  update public.arcade_scores set at = back where workspace_id = v and user_id = ada and game = 'kart';
+  perform pg_temp.sign_in(ada::text, 'ada@vertuoza.com');
+  perform public.submit_score(v, 'kart', 1500);
+  if (select s.at from public.arcade_scores s where s.workspace_id = v and s.user_id = ada and s.game = 'kart') is distinct from back then
+    raise exception 'FAIL: a slower kart time moved at';
+  end if;
+  if public.submit_score(v, 'kart', 800) is distinct from 800 then
+    raise exception 'FAIL: submit_score() did not keep the lower kart time';
+  end if;
+  if (select s.at from public.arcade_scores s where s.workspace_id = v and s.user_id = ada and s.game = 'kart') is distinct from now() then
+    raise exception 'FAIL: a faster kart time did not move at';
+  end if;
+end $$;
 select pg_temp.sign_out();
 
 set local role anon;
