@@ -4,6 +4,10 @@
 // `deliberate` and `review`, optional and empty. Its opener says the product wins over the craft
 // floor and the refuse list; a repository that already writes its design system down points the
 // form at it.
+//
+// PRD 1407, slice s1: a fifth slot, `language`, optional and empty — the product's screen grammar,
+// its laws. The kit ships the shape of a law (a `###` heading, a lock line, the law, then dated
+// `#### Amended` lines below it) and no law of its own.
 import { describe, expect, it } from 'vitest';
 import { main } from '../../bin/omni.ts';
 import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
@@ -38,7 +42,7 @@ const template = () => {
 };
 
 describe('the design form', () => {
-  it('is an extended form with its four slots: product and system required, deliberate and review optional', () => {
+  it('is an extended form with its five slots: product and system required, deliberate, review and language optional', () => {
     const design = FORMS.find((form) => form.id === 'design');
     assertDefined(design, 'design');
     expect(design).toMatchObject({ kind: 'extended', pointerOnly: false });
@@ -47,6 +51,7 @@ describe('the design form', () => {
       { id: 'system', required: true },
       { id: 'deliberate', required: false },
       { id: 'review', required: false },
+      { id: 'language', required: false },
     ]);
   });
 
@@ -55,9 +60,21 @@ describe('the design form', () => {
     expect(template().opener).toContain('The product wins over the craft floor and the refuse list.');
   });
 
-  it('leaves product and system as questions for a person, and deliberate and review empty', () => {
+  it('leaves product and system as questions for a person, and deliberate, review and language empty', () => {
     const kinds = Object.fromEntries(template().slots.map((slot) => [slot.id, slot.body.kind]));
-    expect(kinds).toEqual({ product: 'holes', system: 'holes', deliberate: 'empty', review: 'empty' });
+    expect(kinds).toEqual({ product: 'holes', system: 'holes', deliberate: 'empty', review: 'empty', language: 'empty' });
+  });
+
+  it('describes the shape of a law in its language slot, and ships no law of its own', () => {
+    const text = formTemplate('design');
+    const language = text.slice(text.indexOf('## Language'));
+    expect(language).toMatch(/^<!-- slot: language · optional -->$/m);
+    expect(language).toContain('### <the law>');
+    expect(language).toContain('🔒 <YYYY-MM-DD> · @<login> · "<their words>"');
+    expect(language).toContain('#### Amended <YYYY-MM-DD> · @<login> · "<their words>"');
+    expect(language).toMatch(/never by rewriting/);
+    expect(language).toMatch(/Only a person locks a law/);
+    expect(language.match(/^#{3,4} /gm)).toBeNull();
   });
 
   it('its template, laid down as the repository’s design form, passes the playbook check, its questions as warnings', async () => {
@@ -71,14 +88,14 @@ describe('the design form', () => {
 });
 
 describe('omni kb show design', () => {
-  it('prints four sections in a repository that never filled it: product and system as holes, deliberate and review empty', async () => {
+  it('prints five sections in a repository that never filled it: product and system as holes, deliberate, review and language empty', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out } = await omni(root, ['kb', 'show', 'design']);
     expect(code).toBe(0);
-    expect(out.match(/^## .*$/gm)).toEqual(['## Product  [hole]', '## System  [hole]', '## Deliberate  [kit default]', '## Review  [kit default]']);
+    expect(out.match(/^## .*$/gm)).toEqual(['## Product  [hole]', '## System  [hole]', '## Deliberate  [kit default]', '## Review  [kit default]', '## Language  [kit default]']);
     expect(out).toMatch(/^## Product {2}\[hole\]\nTODO\(human\): Who uses this product/m);
     expect(out).toMatch(/^## System {2}\[hole\]\nTODO\(human\): Where do the design tokens/m);
-    expect(out).toMatch(/## Deliberate {2}\[kit default\]\n\n## Review {2}\[kit default\]\n?$/);
+    expect(out).toMatch(/## Deliberate {2}\[kit default\]\n\n## Review {2}\[kit default\]\n\n## Language {2}\[kit default\]\n?$/);
     expect(out.match(/TODO\(human\)/g)).toHaveLength(2);
   });
 
@@ -99,6 +116,59 @@ describe('omni kb show design', () => {
     expect(out).toContain('## System  [hole]\nTODO(human): Where do the design tokens');
     expect(out).toContain('## Deliberate  [repo]\nDense tables on purpose: no card grid.\n');
     expect(out).toContain('## Review  [kit default]');
+    expect(out).toMatch(/## Language {2}\[kit default\]\n?$/);
+  });
+
+  it('prints a repository’s laws under Language: each heading, its lock line, the law and its amendments, as written', async () => {
+    const laws = [
+      '### One primary action per place',
+      '🔒 2026-10-10 · @login · "only one blue button, ever"',
+      '',
+      'A place holds one primary action and at most one quiet one.',
+      '',
+      '#### Amended 2026-11-02 · @login · "dialogs may have two"',
+      '',
+      '### Words before icons',
+      '🔒 2026-10-12 · @other · "say it, do not draw it"',
+      '',
+      'A control says what it does in words; an icon alone is for the toolbar.',
+    ].join('\n');
+    const mine = formText({
+      frontMatter: { form: 'design', state: 'filled' },
+      title: 'Design',
+      opener: 'Use this page when you build or review a screen.',
+      slots: [
+        { id: 'product', heading: 'Product', required: true, body: 'Site managers on a phone, outdoors.' },
+        { id: 'system', heading: 'System', required: true, body: 'Tokens in the theme folder.' },
+        { id: 'language', heading: 'Language', required: false, body: laws },
+      ],
+    });
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, [DESIGN]: mine } });
+    const { code, out } = await omni(root, ['kb', 'show', 'design']);
+    expect(code).toBe(0);
+    expect(out).toContain(`## Language  [repo]\n${laws}\n`);
+    expect(out.match(/^## .*$/gm)).toEqual(['## Product  [repo]', '## System  [repo]', '## Deliberate  [kit default]', '## Review  [kit default]', '## Language  [repo]']);
+    const check = await omni(root, ['check', 'kb']);
+    expect(check.err.split('\n').filter((line) => line.includes(DESIGN))).toEqual([]);
+    expect(check.code).toBe(0);
+  });
+
+  it('reads a design form written before the language slot, with no Language section, and prints it empty', async () => {
+    const before = formText({
+      frontMatter: { form: 'design', state: 'filled' },
+      title: 'Design',
+      opener: 'Use this page when you build or review a screen.',
+      slots: [
+        { id: 'product', heading: 'Product', required: true, body: 'Site managers on a phone, outdoors.' },
+        { id: 'system', heading: 'System', required: true, body: 'Tokens in the theme folder.' },
+        { id: 'review', heading: 'Review', required: false, body: 'Routes: /quotes.' },
+      ],
+    });
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, [DESIGN]: before } });
+    const { code, out } = await omni(root, ['kb', 'show', 'design']);
+    expect(code).toBe(0);
+    expect(out).toMatch(/## Review {2}\[repo\]\nRoutes: \/quotes\.\n\n## Language {2}\[kit default\]\n?$/);
+    expect((await omni(root, ['check', 'kb'])).code).toBe(0);
   });
 
   it('keeps a repository’s own open question in place of the kit’s', async () => {
