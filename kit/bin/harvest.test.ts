@@ -356,7 +356,7 @@ describe('omni harvest — worth a law? (PRD 1342)', () => {
     const calls: { args: readonly string[]; input: unknown }[] = [];
     const exec = (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
       if (cmd !== 'gh') return realExec(cmd, args, options);
-      calls.push({ args, input: options?.input ? JSON.parse(String(options.input)) : null });
+      calls.push({ args, input: typeof options?.input === 'string' ? JSON.parse(options.input) : null });
       if (args.includes('POST')) return JSON.stringify({ number: 91, html_url: 'https://github.com/acme/widgets/issues/91' });
       return JSON.stringify(String(args[1]).endsWith('/files') ? PR_FILES : MERGED_PR);
     };

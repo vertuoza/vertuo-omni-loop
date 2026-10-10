@@ -607,7 +607,7 @@ describe('writeKnowledge — worth a law? The three paths of a rule or an invari
         statement: 'One billing run at a time per account.',
         source: `${LEDGER}, entry s1-03-one-run, PRD #28`,
         title: 'Law: One billing run at a time per account.',
-        body: expect.stringContaining('`N-BILLING-1`') as unknown as string,
+        body: expect.stringContaining('`N-BILLING-1`') as unknown,
       },
     ]);
     const body = result.lawIssues[0]?.body ?? '';

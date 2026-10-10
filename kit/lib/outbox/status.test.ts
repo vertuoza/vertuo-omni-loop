@@ -492,7 +492,7 @@ describe('gateResult — a change to a law (PRD 1342)', () => {
     const result = gateResult(parsePrd('985'), { ctx, changes: [REMOVED_TEST] });
     expect(result.ok).toBe(false);
     expect(result.unaccounted).toEqual([
-      { ...REMOVED_TEST, rule: 'test-removed', refused: expect.stringContaining('ranked medium') },
+      { ...REMOVED_TEST, rule: 'test-removed', refused: expect.stringContaining('ranked medium') as unknown },
     ]);
   });
 
