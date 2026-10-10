@@ -23,6 +23,7 @@ import {
   lawQuestions,
   noEdits,
   prepareHarvest,
+  withoutWorth,
   type LawQuestion,
 } from '../../lib/knowledge/pipeline.ts';
 import { footerLine } from '../../lib/signature.ts';
@@ -143,12 +144,14 @@ export const harvest: Command = {
       return 1;
     }
 
-    const classified = [];
+    const replies = [];
     for (const candidate of prepared.candidates) {
-      classified.push(
+      replies.push(
         await classifyCandidate({ candidate, summary: prepared.summary, changed: prepared.changed, openrouter: vars.openrouter, fetch: globalThis.fetch }),
       );
     }
+    // Worth a law? only where the laws are the knowledge (PRD 1342, acceptance 10).
+    const classified = ctx.config.laws.source === 'knowledge' ? replies : withoutWorth(replies);
     const worth: Record<string, LawWorth | null> = {};
     for (const question of lawQuestions({ ctx, prepared, classified, prdTitle: prdTitle(ctx, prd) })) {
       worth[question.id] = await askLawWorth(question, { ctx, exec, env, vars, ref: `PRD ${prd} ${question.id}` });

@@ -321,6 +321,9 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
 describe('omni harvest — worth a law? (PRD 1342)', () => {
   const LAW = { kind: 'invariant', place: 'product', statement: 'A widget always has a name.', reason: 'must always hold' };
   const ASK_URL = 'https://omni.test';
+  /** A repository whose laws are its knowledge: only there is a rule or an invariant asked "worth a law?". */
+  const KNOWLEDGE_LAWS = 'laws:\n  source: knowledge\n';
+  const lawsRepo = (config = `kit: 1\nrepo:\n  slug: acme/widgets\n`) => repo({ ...FILES, '.omni-loop/config.yml': config + KNOWLEDGE_LAWS });
   let home: string;
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), 'omni-home-'));
@@ -366,7 +369,7 @@ describe('omni harvest — worth a law? (PRD 1342)', () => {
   const ledgerOf = (r: Repo) => Object.fromEntries(parseSettledEntries(r.read(LEDGER), markers).map((e) => [e.id, e]));
 
   it('a "yes" the classifier gave, with Jev unset, opens the law issue first, then writes the law pending it', async () => {
-    const r = repo();
+    const r = lawsRepo();
     stubs(true);
     const { code, out, calls } = await run(r);
     expect(code).toBe(0);
@@ -389,7 +392,7 @@ describe('omni harvest — worth a law? (PRD 1342)', () => {
   });
 
   it('a "no" the classifier gave opens no issue and stays in the ledger, not worth a law', async () => {
-    const r = repo();
+    const r = lawsRepo();
     stubs(false);
     const { code, out, calls } = await run(r);
     expect(code).toBe(0);
@@ -400,7 +403,7 @@ describe('omni harvest — worth a law? (PRD 1342)', () => {
   });
 
   it('asks omni decide law-worth with the five fields and the classifier\'s answer, and Jev\'s "no" counts', async () => {
-    const r = repo({ ...FILES, '.omni-loop/config.yml': `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${ASK_URL}\n` });
+    const r = lawsRepo(`kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${ASK_URL}\n`);
     signIn();
     const { decides } = stubs(true, { answer: 'false', confidence: 0.77, decidedBy: 'jev' });
     const { code, calls } = await run(r);
@@ -421,13 +424,24 @@ describe('omni harvest — worth a law? (PRD 1342)', () => {
   });
 
   it('keeps the classifier\'s answer when omni decide prints unset (Jev off, refused or failing)', async () => {
-    const r = repo({ ...FILES, '.omni-loop/config.yml': `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${ASK_URL}\n` });
+    const r = lawsRepo(`kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${ASK_URL}\n`);
     signIn();
     const { decides } = stubs(false, { error: 'boom' });
     const { code } = await run(r);
     expect(code).toBe(0);
     expect(decides).toHaveLength(1);
     expect(ledgerOf(r)['s0-02-cited']?.fields['Stays here']).toBe('not worth a law (classifier)');
+  });
+  it('with laws.source other than knowledge, asks nothing and opens no law issue: the law is written as before', async () => {
+    const r = repo();
+    const { decides } = stubs(true);
+    const { code, calls } = await run(r);
+    expect(code).toBe(0);
+    expect(decides).toEqual([]);
+    expect(calls.filter((call) => call.args.includes('POST'))).toEqual([]);
+    const invariants = r.read(`${K}/product/invariants.md`);
+    expect(invariants).toContain('## N-PRODUCT-1');
+    expect(invariants).not.toContain('pending #');
   });
 });
 

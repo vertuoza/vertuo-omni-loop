@@ -349,6 +349,17 @@ function servedPrinciple(reply: Extract<ClassificationReply, { kind: 'rule' }>, 
 }
 
 /**
+ * The replies as a repository whose laws are not its knowledge reads them (PRD 1342): no `worthALaw`, so
+ * no rule or invariant is asked "worth a law?" and none opens a law issue; each is written as before.
+ */
+export function withoutWorth(classified: readonly Classification[]): Classification[] {
+  return classified.map((entry) => {
+    if (!entry.reply || !('worthALaw' in entry.reply)) return entry;
+    return { ...entry, reply: { ...entry.reply, worthALaw: undefined } };
+  });
+}
+
+/**
  * The `law-worth` questions of a harvest (PRD 1342): one per rule or invariant whose reply carries
  * `worthALaw` and that no path the pull request changed and the tree holds proves. `why` is the
  * classifier's reason, `domain` the reply's place. Pure but for whether a proposed proof exists.

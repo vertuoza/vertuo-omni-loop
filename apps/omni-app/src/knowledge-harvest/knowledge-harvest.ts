@@ -36,7 +36,7 @@
 // the model.
 import { type Inngest, NonRetriableError } from 'inngest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { classifyCandidate, finishHarvest, keptPaths, lawQuestions, noEdits, prepareHarvest } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
+import { classifyCandidate, finishHarvest, keptPaths, lawQuestions, noEdits, prepareHarvest, withoutWorth } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import { addCommit, branchHead, refuseDefault, upsertPull } from '../git-write/git-write.ts';
 import { HARVEST_EVENT } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
@@ -101,17 +101,6 @@ function proposedProofs(classified: readonly Pick<Classification, 'reply'>[], ch
   const kept = new Set(keptPaths(changed));
   const proposed = classified.flatMap(({ reply }) => (reply && 'enforcedBy' in reply ? (reply.enforcedBy ?? []) : []));
   return [...new Set(proposed)].filter((path) => kept.has(path)).sort();
-}
-
-/**
- * The replies as a repository whose laws are not its knowledge reads them (PRD 1342): no `worthALaw`, so
- * no rule or invariant is asked "worth a law?" and none opens a law issue; each is written as before.
- */
-function withoutWorth(classified: readonly Classification[]): Classification[] {
-  return classified.map((entry) => {
-    if (!entry.reply || !('worthALaw' in entry.reply)) return entry;
-    return { ...entry, reply: { ...entry.reply, worthALaw: undefined } };
-  });
 }
 
 /** Whether any reply says whether it is worth a law: only then is there a question for the judge. */
