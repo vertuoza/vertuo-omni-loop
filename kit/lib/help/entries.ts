@@ -102,7 +102,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       'Where PRD n lives today: its state, inbox or shipped, its folder, the files in it, its ' +
       'outbox folder and the open items waiting there. The folder is the status, so this is the ' +
-      'one lookup the skills run before following any delivery path. Exit 1 when the PRD is in ' +
+      'one lookup the skills run before following any delivery path. Where dossiers are on, its last ' +
+      'line is the product its dossier on the Omni page names, product: <name> or product: none, or ' +
+      'product: unknown with why when the page cannot tell. Exit 1 when the PRD is in ' +
       'neither {inbox} nor {shipped}.',
   },
   {
@@ -286,7 +288,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'dossiers are on here. With --kind visual or --kind bug, push and link work on issue n\'s fix ' +
       'instead: its visual update or bug fix page, filled from its folder. With --kind concept, they ' +
       'work on concept n, its issue\'s number: its page under Work › Concepts, filled from its ' +
-      'concept.md, vision tour, boards and debate. It never holds up the ' +
+      'concept.md, vision tour, boards and debate. With --product <name>, a PRD\'s push names the product ' +
+      'the brainstorm asked for, for a repository in several products: the first push makes it the ' +
+      'PRD\'s product, and a repository in one product or none decides alone. It never holds up the ' +
       'skill that runs it: anything that stops it exits 1 with one line.',
   },
   {
