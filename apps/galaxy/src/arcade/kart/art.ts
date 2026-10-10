@@ -328,7 +328,7 @@ export function createKart({ seed, cast = [] }: KartOptions = { seed: 1359 }): K
       if (before.phase === 'race') particles = stepParticles(particles, spawnsOf(before, race, r.events), dt);
       tell(r.events);
       const done = r.events.find((e) => e.kind === 'finish');
-      return done?.kind === 'finish' ? done.score : null;
+      return done?.kind === 'finish' ? done.tenths : null;
     },
     press(action: Action): KartQuit {
       const r = press(race, action);

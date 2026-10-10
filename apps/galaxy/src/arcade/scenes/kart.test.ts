@@ -248,7 +248,7 @@ describe('the cast of the race', () => {
 
 describe('the results and the score (slice 4)', () => {
   const rows = ['YOU', 'ALPHA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO'].map((name, i) => ({ place: i + 1, name, tenths: i < 3 ? 1000 + i * 25 : null, you: i === 0 }));
-  const results = (): KartHud => ({ phase: 'finish', beat: null, results: { rows, place: 1, tenths: 1000, score: 1500 } });
+  const results = (): KartHud => ({ phase: 'finish', beat: null, results: { rows, place: 1, tenths: 1000 } });
   const sendOf = (s: ScoreSend | null) => renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } }, createElement(KartOverlay, { status: 'ready', hud: results(), send: s })))
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -256,7 +256,7 @@ describe('the results and the score (slice 4)', () => {
     const t = text('ready', WIDE, 'full', results());
     expect(t).toContain('RESULTS 1ST YOU 1:40.0 2ND ALPHA 1:42.5 3RD BRAVO 1:45.0 4TH CHARLIE -- 5TH DELTA -- 6TH ECHO --');
     expect(text('ready', TALL, 'handheld', results())).toContain('6TH ECHO --');
-    expect(t).toContain('SCORE 1500');
+    expect(t).toContain('TIME 1:40.0');
   });
 
   it('shows A to race again and B to the room when nothing is being retried', () => {
@@ -265,11 +265,11 @@ describe('the results and the score (slice 4)', () => {
   });
 
   it('shows every state of the send: saving, NEW BEST, your best, not saved with a retry', () => {
-    expect(sendOf(sending(1500))).toContain('SAVING SCORE…');
+    expect(sendOf(sending(1500))).toContain('SAVING TIME…');
     expect(sendOf({ state: 'saved', score: 1500, best: 1500, newBest: true })).toContain('NEW BEST');
-    expect(sendOf({ state: 'saved', score: 1500, best: 1800, newBest: false })).toContain('YOUR BEST 1 800');
+    expect(sendOf({ state: 'saved', score: 1500, best: 1023, newBest: false })).toContain('YOUR BEST 1:42.3');
     const lost = sendOf({ state: 'failed', score: 1500, tries: 1 });
-    expect(lost).toContain('SCORE NOT SAVED');
+    expect(lost).toContain('TIME NOT SAVED');
     expect(lost).toContain('RETRY');
     expect(sendOf({ state: 'failed', score: 1500, tries: 2 })).toContain('RACE AGAIN');
   });

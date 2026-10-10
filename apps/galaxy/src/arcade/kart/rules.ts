@@ -62,6 +62,4 @@ export const RULES = Object.freeze({
   finalBanner: 2.5,
   countdown: 3,
   goBanner: 0.75,
-  /** The score: points for the place (1ST to 6TH), and one point per tenth of a second under the par time. */
-  placePoints: [1000, 700, 500, 350, 200, 100],
 } as const);

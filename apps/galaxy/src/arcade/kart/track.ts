@@ -14,8 +14,6 @@ import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 export const TILE = 16;
 /** The laps a race runs. */
 export const LAPS = 3;
-/** The par time for the three laps, in seconds: the score's time bonus counts under it. */
-export const PAR_SECONDS = 150;
 /** The karts on the grid: the player and five rivals. */
 export const PLACES = 6;
 

@@ -30,8 +30,8 @@ export interface KartHud {
 /** One line of the results table: a place, the driver and the time in tenths of a second (none for a kart still racing). */
 export interface KartRow { place: number; name: string; tenths: number | null; you: boolean }
 
-/** The finish: the six places, the player's place and time, and the score that is sent. */
-export interface KartResults { rows: readonly KartRow[]; place: number; tenths: number; score: number }
+/** The finish: the six places, the player's place and time, and the race time that is sent. */
+export interface KartResults { rows: readonly KartRow[]; place: number; tenths: number }
 
 /** The items a kart holds. */
 export type KartItem = 'boost' | 'blob' | 'orb';
@@ -123,7 +123,7 @@ export const kartEngineOn = (hud: KartHud | null): boolean => hud?.phase === 'co
  * buttons held, answering presses, paused from outside, and read by the text layer through `hud()`.
  */
 export interface KartGame extends KartDraw {
-  /** Plays `dt` seconds with the buttons held; answers the score on the step that finishes the race (once), else null. */
+  /** Plays `dt` seconds with the buttons held; answers the race time (tenths) on the step that finishes the race (once), else null. */
   step(held: ReadonlySet<Action>, dt: number): number | null;
   press(action: Action): KartQuit;
   pause(): void;

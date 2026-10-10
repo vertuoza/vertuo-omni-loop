@@ -52,7 +52,7 @@ describe('NEW GAME UNLOCKED', () => {
 
   it('reads the unlock levels from the rules, and the games from the registry', () => {
     const rules: XpRules = { ...XP_RULES, unlocks: { invaders: 3, maze: 4 } };
-    const maze: Game = { id: 'maze', title: 'ENTROPY MAZE', scene: null };
+    const maze: Game = { id: 'maze', title: 'ENTROPY MAZE', scene: null, measure: 'points' };
     const games = [...GAMES, maze];
     expect(levelUpFor(xpStatus(true, row(60, 2, []), rules), 1, rules, games)?.game).toBeNull();
     expect(levelUpFor(xpStatus(true, row(180, 3), rules), 2, rules, games)?.game?.id).toBe('invaders');
