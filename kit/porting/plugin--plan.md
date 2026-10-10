@@ -166,3 +166,16 @@ and `pnpm test`, green.
 
 `pnpm vitest run kit/test/` and `pnpm test`, green but `kit/test/dist.test.ts`, which reads only the
 kit's sources.
+
+## PRD #1369, slice s4 — the plan marks UI slices
+
+- **Step 0** reads `omni config design.enabled` and, when it is `true`, `design.paths`.
+- **Step 4, UI slices:** a slice whose territory meets `design.paths` is marked `ui: yes` on its
+  done-when heading (`**s3** (\`ui: yes\`)`), so `/omni:do-work` starts its design review without
+  asking. Flag off or no globs: nothing is marked and do-work judges from `omni design touched`.
+  The mark changes no territory, blocker or wave, and `omni plan check` does not read it.
+
+### Tests
+
+`kit/test/plugin.test.ts`, the block "the design review in the skills that drive screen work (PRD
+1369)": the flag in step 0 and the `ui: yes` mark in step 4.

@@ -165,3 +165,31 @@ SKILL.md names exists now covers `sign`.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## PRD #1369, slice s4 — the design review on UI work
+
+Not a re-port: upstream's skill never looks at a screen. A kit-local change to the prose, behind
+the `design.enabled` flag (default off), wired to `/omni:pixel-perfect review` and
+`omni design touched` rather than restating them.
+
+- **Step 0** reads `omni config design.enabled` after the config. Anything but `true` means no
+  design review runs and the sub-PR has no **Design review** section: the skill is as it was.
+- **Step 4, Design review,** inside point `do-work.review` and before the coverage grade (its fixes
+  are code the account must cover). It runs `omni design touched <remote>/<feature branch>` and
+  follows `/omni:pixel-perfect review` (that skill's step 0, then `reference/review.md`) when the
+  plan marks the slice `ui: yes` or the check prints `ui: yes`; on `ui: unknown` it judges from the
+  diff and says that it judged; on `ui: no` it skips, with one `—` line. It is given the PRD and
+  slice, the territory, the base and the before/after page's "after" screen.
+- **Never blocking.** A finding is never the stop or the blocked outcome, never turns a check red
+  and never holds the sub-PR draft; what it did not fix becomes an outbox item through step 3.
+  Step 3's "two ways a slice ends early" says so too.
+- **Step 5's hand-off** carries the **Design review** section in the sub-PR body when the flag is
+  on. Screenshots stay in a scratch folder, attached when the session can, never committed.
+- **Under `--target`** the review does not run (no target app runs from a plan repository): one
+  `—` line says so.
+
+### Tests
+
+`kit/test/plugin.test.ts`, the block "the design review in the skills that drive screen work (PRD
+1369)": the flag in step 0, `omni design touched` then `/omni:pixel-perfect review` before the
+coverage grade, the `ui: unknown` judgement, the never-blocking lines, and the section in step 5.
