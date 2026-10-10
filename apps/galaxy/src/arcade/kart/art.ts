@@ -3,7 +3,7 @@
 // arcade/kart/ that draws: everything it draws from is pure (track.ts, mode7.ts, texture.ts, race.ts).
 // The circuit's texture is painted once, the first time a race is drawn, and the floor goes through
 // one pixel buffer per grid, allocated once and reused. It also holds the race the arcade steps.
-import { drawPlanet, drawStarfield, fleetSprite, spriteImage, woundTint } from '@omni/design';
+import { drawPlanet, drawStarfield, fleetSprite, spriteImage, spriteSize, woundTint } from '@omni/design';
 import type { Action } from '../keys';
 import { heroOf } from '../fleets';
 import { stripesOf } from '../theme';
@@ -11,12 +11,12 @@ import { H, nebulaFor, sprite, stars, W, type FrameState } from '../scenes/commo
 import { TILE } from './track';
 import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
 import type { Kart } from './kart';
-import { chaseCamera, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
+import { chaseCamera, project, renderFloor, skyShift, spritesInView, viewOf, type Projected, type Texture, type View } from './mode7';
 import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
 import { RULES } from './rules';
 import type { Driver, Rival } from './rivals';
 import { BEYOND, paintTrack } from './texture';
-import { parseTrack, type Track } from './track';
+import { parseTrack, type PropKind, type Track } from './track';
 
 /** A buffer the floor is rendered into, and the canvas it is drawn from. */
 interface Floor { image: ImageData; pixels: Uint32Array; canvas: HTMLCanvasElement }
@@ -110,7 +110,63 @@ function rivalKart(ctx: CanvasRenderingContext2D, s: FrameState, v: View, r: Riv
 }
 
 /** What stands on the floor besides the karts: an item box, a BLOB, an ORB in flight. */
-type Thing = { x: number; y: number } & ({ kind: 'rival'; rival: Rival } | { kind: 'box' } | { kind: 'blob' } | { kind: 'orb' });
+type Thing = { x: number; y: number } & (
+  { kind: 'rival'; rival: Rival } | { kind: 'box' } | { kind: 'blob' } | { kind: 'orb' }
+  | { kind: 'prop'; prop: PropKind } | { kind: 'arch'; leg: 0 | 1 }
+);
+
+/** A prop's sprite, and how wide it stands in the world, in game pixels: it is drawn this wide, scaled by its distance. */
+const PROP_ART: Readonly<Record<PropKind, { sprite: string; world: number }>> = {
+  pylon: { sprite: 'prop-pylon', world: 12 },
+  beacon: { sprite: 'prop-beacon', world: 12 },
+  asteroid: { sprite: 'prop-asteroid', world: 26 },
+  satellite: { sprite: 'prop-satellite', world: 26 },
+  wreck: { sprite: 'prop-wreck', world: 30 },
+};
+
+/** The arch's leg and beam, and how wide a leg stands in the world. */
+const ARCH_LEG = 'arch-leg';
+const ARCH_BEAM = 'arch-beam';
+const ARCH_WORLD = 10;
+
+/** The frame a prop shows: a beacon blinks and a satellite turns, and both stand still when motion is reduced. */
+export const propFrame = (kind: PropKind, s: FrameState): number =>
+  s.reduced ? 0 : kind === 'beacon' ? Math.floor(s.t * 2) % 2 : kind === 'satellite' ? Math.floor(s.t * 1.2) % 2 : 0;
+
+/** A prop standing on its wall tile, as big as its distance makes it. */
+function propSprite(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected, kind: PropKind) {
+  const art = PROP_ART[kind];
+  const { w, h } = spriteSize(art.sprite);
+  const scale = (art.world * at.scale) / w;
+  if (w * scale < 2) return;
+  ctx.imageSmoothingEnabled = false;
+  sprite(ctx, s, art.sprite, at.sx - (w * scale) / 2, at.sy - h * scale, { scale, frame: propFrame(kind, s) });
+}
+
+/**
+ * One leg of the arch over the start line, and, with the first, the beam between the two legs when
+ * both are in front of the camera. The beam is the leg's sprite stretched across the road.
+ */
+function archLeg(ctx: CanvasRenderingContext2D, s: FrameState, v: View, track: Track, leg: 0 | 1, at: Projected) {
+  const { w, h } = spriteSize(ARCH_LEG);
+  const scale = (ARCH_WORLD * at.scale) / w;
+  if (w * scale < 1) return;
+  ctx.imageSmoothingEnabled = false;
+  const top = at.sy - h * scale;
+  const other = track.arch[leg === 0 ? 1 : 0];
+  const beyond = project(v, other.x, other.y);
+  if (leg === 0 && beyond) {
+    const beam = spriteSize(ARCH_BEAM);
+    const left = Math.min(at.sx, beyond.sx), right = Math.max(at.sx, beyond.sx);
+    const bh = Math.max(1, beam.h * scale), y = Math.min(top, beyond.sy - h * ((ARCH_WORLD * beyond.scale) / w));
+    ctx.save();
+    ctx.translate(left, y);
+    ctx.scale(Math.max(0, right - left) / beam.w, bh / beam.h);
+    sprite(ctx, s, ARCH_BEAM, 0, 0, { frame: s.reduced ? 0 : Math.floor(s.t * 3) % 2 });
+    ctx.restore();
+  }
+  sprite(ctx, s, ARCH_LEG, at.sx - (w * scale) / 2, top, { scale });
+}
 
 /** How wide an item stands in the world, in game pixels. */
 const BOX_WORLD = 12;
@@ -210,11 +266,15 @@ export function createKart({ seed, cast = [] }: KartOptions = { seed: 1359 }): K
         ...race.items.blobs.map((b): Thing => ({ kind: 'blob', x: b.x, y: b.y })),
         ...race.items.orbs.map((o): Thing => ({ kind: 'orb', x: o.x, y: o.y })),
         ...race.rivals.map((rival): Thing => ({ kind: 'rival', rival, x: rival.kart.x, y: rival.kart.y })),
+        ...track.props.map(({ kind, x, y }): Thing => ({ kind: 'prop', prop: kind, x, y })),
+        ...track.arch.map(({ x, y }, leg): Thing => ({ kind: 'arch', leg: leg === 0 ? 0 : 1, x, y })),
       ];
       // The farthest first, so a near kart covers a far item.
       for (const { sprite: thing, at } of spritesInView(v, things)) {
         if (thing.kind === 'rival') rivalKart(ctx, s, v, thing.rival, at);
         else if (thing.kind === 'box') itemBox(ctx, s, at);
+        else if (thing.kind === 'prop') propSprite(ctx, s, at, thing.prop);
+        else if (thing.kind === 'arch') archLeg(ctx, s, v, track, thing.leg, at);
         else thrownItem(ctx, s, at, thing.kind === 'blob' ? 'entropy' : 'orb');
       }
       playerKart(ctx, s, race);

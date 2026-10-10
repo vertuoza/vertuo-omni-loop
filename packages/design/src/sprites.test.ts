@@ -63,6 +63,8 @@ const FORGED: Record<string, string> = {
   kart: '35afa0f7192d15fa', 'kart-left': '6be5ee4133dc3f94', 'kart-right': 'e8f72f74d8a0c11f',
   // OMNI KART's ORB (PRD 1359, slice 5): the thrown item, pinned as first drawn.
   orb: 'fbe45272efb3d549',
+  // OMNI KART's props and the start arch (PRD 1427, slice 3), pinned as first drawn.
+  'prop-pylon': 'f36ff4afa0d6df51', 'prop-beacon': '4dc832db473f6805', 'prop-asteroid': '73d8bbc2c6137771', 'prop-satellite': 'a30ee8dab4deb24d', 'prop-wreck': '8d5fdfa090e4d08a', 'arch-leg': 'dfab7f7b9ad1ed5e', 'arch-beam': '14468439850ca3ab',
 };
 const FORGED_WOUNDED: Record<string, string> = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',

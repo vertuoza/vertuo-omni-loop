@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
-import { COMET_RING, cornersOf, isRoad, LAPS, PAR_SECONDS, parseTrack, TILE, tileAt, trackProblems, type TrackSource } from './track';
+import { COMET_RING, PROP_KINDS, cornersOf, isRoad, LAPS, PAR_SECONDS, parseTrack, TILE, tileAt, trackProblems, type TrackSource } from './track';
 
 /** COMET RING with one row changed: `edit` gets the rows as arrays of characters. */
 function altered(edit: (rows: string[][]) => void, waypoints: TrackSource['waypoints'] = COMET_RING.waypoints): TrackSource {
@@ -150,5 +150,68 @@ describe('cornersOf', () => {
     const ring = (y: number) => [pt(0, 0), pt(100, 0), pt(200, y), pt(100, 300), pt(0, 300)];
     expect(cornersOf({ waypoints: ring(100 * a - 5) }).map((c) => c.index)).not.toContain(1);
     expect(cornersOf({ waypoints: ring(100 * a + 5) }).map((c) => c.index)).toContain(1);
+  });
+});
+
+describe('the props (PRD 1427)', () => {
+  const { props = [], rows } = COMET_RING;
+  const nearVerge = (x: number, y: number) => ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).some(([dx, dy]) => tileAt(rows, x + dx, y + dy) === '.');
+  const withProp = (kind: (typeof PROP_KINDS)[number], x: number, y: number): TrackSource => ({ ...COMET_RING, props: [{ kind, x, y }] });
+
+  it('stand on COMET RING and pass every check: all five kinds, each on a wall tile', () => {
+    expect(trackProblems(COMET_RING)).toEqual([]);
+    for (const kind of PROP_KINDS) expect(props.some((p) => p.kind === kind), kind).toBe(true);
+    for (const { x, y } of props) expect(tileAt(rows, x, y)).toBe('X');
+  });
+
+  it('put pylons and beacons along the circuit\'s edge, and the rest deeper in', () => {
+    for (const { kind, x, y } of props) expect(nearVerge(x, y), `${kind} at ${x},${y}`).toBe(kind === 'pylon' || kind === 'beacon');
+  });
+
+  it('are refused on a road, kerb, line, box, start or verge tile, naming the tile with its row and column', () => {
+    const first = (c: string): [number, number] => {
+      const y = rows.findIndex((r) => r.includes(c));
+      return [sure(rows[y], 'a row').indexOf(c), y];
+    };
+    const cases = [['road', '#'], ['kerb', 'r'], ['line', '='], ['box', '?'], ['start', 'S'], ['verge', '.']] as const;
+    for (const [what, c] of cases) {
+      const [x, y] = first(c);
+      expect(trackProblems(withProp('pylon', x, y)), what).toEqual([`row ${y}, col ${x}: a pylon stands on a ${what} tile, props stand on wall tiles only`]);
+    }
+  });
+
+  it('are refused off the map and of a kind that does not exist', () => {
+    expect(trackProblems(withProp('wreck', 70, 3))).toEqual(['row 3, col 70: a wreck stands off the map, props stand on wall tiles only']);
+    expect(trackProblems({ ...COMET_RING, props: [JSON.parse('{"kind":"tree","x":0,"y":0}')] })).toEqual(["row 0, col 0: unknown prop kind 'tree'"]);
+  });
+
+  it('are left out of a circuit that has none', () => {
+    expect(trackProblems({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints })).toEqual([]);
+    expect(parseTrack({ rows: COMET_RING.rows, waypoints: COMET_RING.waypoints }).props).toEqual([]);
+  });
+
+  it('reach the parsed circuit at their tile centres, in game pixels', () => {
+    const track = parseTrack();
+    expect(track.props).toHaveLength(props.length);
+    const [first] = props, [placed] = track.props;
+    expect(placed).toEqual({ kind: sure(first, 'a prop').kind, x: (sure(first, 'a prop').x + 0.5) * TILE, y: (sure(first, 'a prop').y + 0.5) * TILE });
+  });
+});
+
+describe('the arch (PRD 1427)', () => {
+  it('stands its legs on the first wall tile beyond each end of the start line', () => {
+    const tiles = (p: { x: number; y: number }): [number, number] => [Math.floor(p.x / TILE), Math.floor(p.y / TILE)];
+    const [top, bottom] = parseTrack().arch.map(tiles);
+    const [col, topY] = sure(top, 'the first leg'), [botCol, botY] = sure(bottom, 'the second leg');
+    const ys = COMET_RING.rows.flatMap((row, y) => (row[col] === '=' ? [y] : []));
+    expect(botCol).toBe(col);
+    expect(ys.length).toBeGreaterThan(0);
+    expect(tileAt(COMET_RING.rows, col, topY)).toBe('X');
+    expect(tileAt(COMET_RING.rows, col, botY)).toBe('X');
+    // The first wall: nothing between a leg and the line's end is a wall.
+    for (let y = topY + 1; y < Math.min(...ys); y++) expect(tileAt(COMET_RING.rows, col, y)).not.toBe('X');
+    for (let y = Math.max(...ys) + 1; y < botY; y++) expect(tileAt(COMET_RING.rows, col, y)).not.toBe('X');
+    expect(topY).toBeLessThan(Math.min(...ys));
+    expect(botY).toBeGreaterThan(Math.max(...ys));
   });
 });
