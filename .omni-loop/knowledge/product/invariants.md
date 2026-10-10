@@ -119,4 +119,3 @@ Enforced by: kit/bin/law-demoted.test.ts
 Stated: 2026-10-10
 Decided: nobody — adopted when raised (medium), 2026-10-10
 Merged: @pierrederval, 2026-10-10, PR #1343
-Proposed: harvest 2026-10-10

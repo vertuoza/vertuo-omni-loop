@@ -717,5 +717,5 @@ Only a confirmed entry of a repository's own knowledge is held to that repositor
 
 Why: An entry nobody has confirmed is not a law yet, and a copied knowledge base answers to the choices of the repository it came from.
 Source: .omni-loop/delivery/shipped/1342-laws-with-their-test/outbox/settled.md, entry s1-01-require-proof-skips-proposed-and-copies, PRD #1342
+Decided: @pierrederval, 2026-10-10
 Merged: @pierrederval, 2026-10-10, PR #1343
-Proposed: harvest 2026-10-10

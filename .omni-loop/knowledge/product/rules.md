@@ -1043,4 +1043,3 @@ Enforced by: kit/lib/knowledge/check-knowledge.test.ts
 Stated: 2026-10-10
 Decided: nobody — adopted when raised (medium), 2026-10-09
 Merged: @pierrederval, 2026-10-10, PR #1343
-Proposed: harvest 2026-10-10
