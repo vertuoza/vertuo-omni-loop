@@ -2,12 +2,13 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { ADD_TO_PRODUCT_HREF, ALL_IN_A_PRODUCT, DEMO_PRODUCTS_LIST, NO_PRODUCTS_YET, ProductsHome } from './ProductsHome';
+import { ALL_IN_A_PRODUCT, DEMO_PRODUCTS_LIST, NO_PRODUCTS_YET, ProductsHome } from './ProductsHome';
 import type { ProductsList } from './products.service';
 
 // /app/products as the server renders it (PRD 1364 s8): each product's card, a link to its product home,
 // with its repositories (a shared one marked), its PRD count and what waits on the reader; the
-// repositories in no product below, each with Add to a product; the empty states; and the situations.
+// repositories in no product below, each with Add to a product, which opens a product home's Repositories
+// & approvers tab on that repository (PRD 1364 s11); the empty states; and the situations.
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const links = (html: string) => [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => ({ href: m[1], text: text(group(m, 2)) }));
@@ -29,7 +30,8 @@ describe('the products list, filled', () => {
     expect(links(html)).toEqual([
       { href: '/app/products/p-mobile', text: 'Mobile vertuo/api · shared vertuo/app 3 PRDs 2 waiting on you' },
       { href: '/app/products/p-estimates', text: 'Estimates No repository yet 1 PRD 0 waiting on you' },
-      { href: ADD_TO_PRODUCT_HREF, text: 'Add to a product' },
+      { href: '/app/products/p-mobile/repositories?add=vertuo%2Fscripts', text: 'Mobile' },
+      { href: '/app/products/p-estimates/repositories?add=vertuo%2Fscripts', text: 'Estimates' },
     ]);
   });
 
@@ -41,10 +43,19 @@ describe('the products list, filled', () => {
     ]);
   });
 
-  it('lists the repositories in no product below the cards, each with Add to a product', () => {
+  it('lists the repositories in no product below the cards, each with Add to a product, opening on each product\'s Repositories & approvers tab', () => {
     const html = render(LIST);
     expect(html.indexOf('Repositories in no product')).toBeGreaterThan(html.indexOf('data-product="p-estimates"'));
-    expect(html).toMatch(/<li class="products-repo" data-repo="vertuo\/scripts"><span class="products-repo-name">vertuo\/scripts<\/span><a class="products-add" href="\/app\/settings\/repositories">Add to a product<\/a><\/li>/);
+    const row = /<li class="products-repo" data-repo="vertuo\/scripts">([\s\S]*?)<\/details>/.exec(html)?.[1] ?? '';
+    expect(row).toMatch(/<details class="products-add"><summary>Add to a product<\/summary>/);
+    expect(links(row).map((l) => l.text)).toEqual(['Mobile', 'Estimates']);
+  });
+
+  it('links straight to the only product\'s tab when there is one', () => {
+    const html = render({ ...LIST, products: LIST.products.slice(0, 1) });
+    const row = /<li class="products-repo" data-repo="vertuo\/scripts">([\s\S]*?)<\/li>/.exec(html)?.[1] ?? '';
+    expect(row).not.toContain('<details');
+    expect(links(row)).toEqual([{ href: '/app/products/p-mobile/repositories?add=vertuo%2Fscripts', text: 'Add to Mobile' }]);
   });
 });
 
@@ -54,7 +65,7 @@ describe('the products list, empty', () => {
     expect(text(html)).toContain(NO_PRODUCTS_YET);
     expect(links(html)).toEqual([
       { href: '/app/settings/products', text: 'Open Settings › Products →' },
-      { href: ADD_TO_PRODUCT_HREF, text: 'Add to a product' },
+      { href: '/app/settings/products', text: 'Add to a product' },
     ]);
   });
 

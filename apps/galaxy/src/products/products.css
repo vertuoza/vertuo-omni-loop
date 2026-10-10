@@ -172,3 +172,6 @@ textarea.pitch-input { width: 100%; resize: vertical; }
 }
 .products-repo-name { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
 .products-add { font-size: 14px; }
+/* Add to a product, with several products (PRD 1364 s11): a list of them, each opening its tab. */
+details.products-add summary { cursor: pointer; color: var(--ask-ink); }
+.products-add-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
