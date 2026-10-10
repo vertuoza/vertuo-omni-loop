@@ -108,7 +108,7 @@ begin
   -- The push numbers the draft, takes the spec's title, and adds v1 of each kind.
   pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', draft,
     '[{"kind": "spec", "content": "spec one"}, {"kind": "plan", "content": "plan one"}]');
-  if pushed <> jsonb_build_object('id', draft, 'added', '[{"kind": "spec", "version": 1}, {"kind": "plan", "version": 1}]'::jsonb, 'unchanged', '[]'::jsonb) then
+  if pushed <> jsonb_build_object('id', draft, 'added', '[{"kind": "spec", "version": 1}, {"kind": "plan", "version": 1}]'::jsonb, 'unchanged', '[]'::jsonb, 'product', null) then
     raise exception 'FAIL: the first push answered %', pushed;
   end if;
   if not exists (select 1 from public.dossiers where id = draft and prd = 7 and numbered_at is not null and title = 'Team inbox') then
@@ -376,7 +376,7 @@ begin
   draft := public.dossier_open('A team roster', 'vertuoza/vertuo-omni-loop', 'sess-m');
   pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 8, 'Team roster', draft,
     '[{"kind": "spec", "content": "spec from github"}, {"kind": "plan", "content": "roster plan"}]');
-  if pushed <> jsonb_build_object('id', found_id, 'added', '[{"kind": "plan", "version": 1}]'::jsonb, 'unchanged', '["spec"]'::jsonb) then
+  if pushed <> jsonb_build_object('id', found_id, 'added', '[{"kind": "plan", "version": 1}]'::jsonb, 'unchanged', '["spec"]'::jsonb, 'product', null) then
     raise exception 'FAIL: a draft numbered to the fallback''s dossier did not land on it: %', pushed;
   end if;
   if exists (select 1 from public.dossiers where id = draft) then raise exception 'FAIL: a merged draft was not removed'; end if;
@@ -409,7 +409,7 @@ begin
     raise exception 'FAIL: the service role may add versions other than through the version rule, or delete a dossier';
   end if;
   if has_function_privilege('anon', 'public.dossier_open(text, text, text)', 'execute')
-     or has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text)', 'execute')
+     or has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text, text)', 'execute')
      or has_function_privilege('anon', 'public.dossier_add_version(uuid, text, text, text, uuid, text, text)', 'execute')
      or has_function_privilege('authenticated', 'public.dossier_add_version(uuid, text, text, text, uuid, text, text)', 'execute') then
     raise exception 'FAIL: an API role may call a dossier function it should not';
@@ -990,8 +990,8 @@ begin
   if not has_column_privilege('authenticated', 'public.dossiers', 'kind', 'select') then
     raise exception 'FAIL: a member may not read a dossier''s kind';
   end if;
-  if has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text)', 'execute')
-     or not has_function_privilege('authenticated', 'public.dossier_push(text, integer, text, uuid, jsonb, text)', 'execute') then
+  if has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text, text)', 'execute')
+     or not has_function_privilege('authenticated', 'public.dossier_push(text, integer, text, uuid, jsonb, text, text)', 'execute') then
     raise exception 'FAIL: dossier_push() is callable by anon, or not by the signed-in';
   end if;
 end $$;

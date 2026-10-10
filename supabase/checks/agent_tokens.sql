@@ -6,8 +6,8 @@
 -- revokes one; another workspace's member and anyone signed out are refused (42501). Only the token's
 -- hash and last four characters are stored, and the list never carries the hash. A made link reads its
 -- workspace's business for anyone holding it, exactly as business_for_repo() answers a member for the
--- same repository; without a repository, the only product, or 22023 naming the tracked repositories
--- when there are several. A link never reads another workspace's repository (42501). A revoked link, an
+-- same repository; without a repository, the only product, or no product when there are several
+-- (PRD 1364; it refused with 22023 before). A link never reads another workspace's repository (42501). A revoked link, an
 -- unknown one and one whose maker left the workspace are refused (28000). A person's 21st live link is
 -- refused (54000). `last used` moves at most once a minute.
 --
@@ -199,16 +199,13 @@ select pg_temp.sign_out();
 do $$
 declare
   h text := pg_temp.hash((pg_temp.kept('mo')).token);
-  said text;
+  got jsonb;
 begin
-  begin
-    perform public.business_for_token(h);
-    raise exception 'FAIL: several products and no repository answered a business';
-  exception when invalid_parameter_value then
-    get stacked diagnostics said = message_text;
-  end;
-  if said not like '%vertuoza/vertuo-apps%' then
-    raise exception 'FAIL: the several-products refusal names no tracked repository: %', said;
+  -- Several products and no repository: the business with no product (PRD 1364), never a refusal.
+  got := public.business_for_token(h);
+  if got->'product' <> 'null'::jsonb or got->'personas' <> '[]'::jsonb or got->'business' = 'null'::jsonb
+     or exists (select 1 from jsonb_array_elements(got->'claims') c where c->>'kind' <> 'region') then
+    raise exception 'FAIL: several products and no repository did not answer the business with no product: %', got;
   end if;
   if (pg_temp.kept('mo')).body->'product' = 'null'::jsonb
      or public.business_for_token(h, 'vertuoza/vertuo-apps') <> (pg_temp.kept('mo')).body then

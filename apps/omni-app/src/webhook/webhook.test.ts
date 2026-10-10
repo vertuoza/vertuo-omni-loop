@@ -323,9 +323,21 @@ describe('webhook — the retro route (PRD 72)', () => {
     expect(toRetroRequests('pull_request', mergedPayload({ merge_commit_sha: null }))).toEqual([]);
   });
 
-  it('leaves the qualifying to the functions: a merged sub-PR still becomes the retro and harvest events', () => {
-    const events = toEvents('pull_request', mergedPayload({ base: { ref: 'feat/retro' } }));
+  it('turns a pull request merged into another branch than the default, a sub-PR, into no retro and no harvest event (#1409)', () => {
+    const subPr = mergedPayload({ head: { sha: 'abc123', ref: 'feat/retro--s1' }, base: { ref: 'feat/retro' } });
+    expect(toRetroRequests('pull_request', subPr)).toEqual([]);
+    expect(toHarvestRequests('pull_request', subPr)).toEqual([]);
+    expect(toEvents('pull_request', subPr)).toEqual([]);
+  });
+
+  it('leaves the rest of the qualifying to the functions: any pull request merged into the default branch becomes both events', () => {
+    const events = toEvents('pull_request', mergedPayload({ head: { sha: 'abc123', ref: 'docs/phase-0-retro' } }));
     expect(events.map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
+  });
+
+  it('sends both events when the delivery names no default branch, as before (#1409)', () => {
+    const payload = { ...mergedPayload({ base: { ref: 'feat/retro' } }), repository: { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' } } };
+    expect(toEvents('pull_request', payload).map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
   });
 
   it('turns a closed, unmerged pull request into no harvest event', () => {

@@ -1225,6 +1225,7 @@ var PayloadSchema = z13.looseObject({
     default_branch: z13.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
+    base: z13.looseObject({ ref: z13.string().nullish() }).nullish(),
     merged: z13.boolean().nullish(),
     merge_commit_sha: z13.string().nullish(),
     merged_at: z13.string().nullish()
@@ -1313,6 +1314,8 @@ function toRetroRequests(event, delivery) {
   const source = sourceOf(payload);
   const pull = payload.pull_request;
   if (!source || pull?.merged !== true) return [];
+  const defaultBranch = payload.repository?.default_branch;
+  if (defaultBranch && pull.base?.ref !== defaultBranch) return [];
   const prNumber = pull.number ?? payload.number ?? void 0;
   if (prNumber === void 0 || !pull.merge_commit_sha || !pull.merged_at) return [];
   return [
