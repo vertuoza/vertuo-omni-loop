@@ -11,7 +11,9 @@ export type Sfx =
   // Entropy Invaders: a bolt fired, an alien hit, the hero hit, a wave cleared, the game over.
   | 'fire' | 'hit' | 'hurt' | 'wave' | 'over'
   // OMNI KART (PRD 1427): the countdown's beep and GO, one sound per item, a box, a hit, a spin-out, a wall scrape, the final lap.
-  | 'beep' | 'go' | 'boost' | 'blob' | 'orb' | 'box' | 'impact' | 'spin' | 'scrape' | 'finalLap';
+  | KartSfx;
+
+type KartSfx = 'beep' | 'go' | 'boost' | 'blob' | 'orb' | 'box' | 'impact' | 'spin' | 'scrape' | 'finalLap';
 
 type Wave = 'p25' | 'p12' | OscillatorType;
 
@@ -301,7 +303,7 @@ export function engine(level: number | null) {
 /** One of OMNI KART's effects: written for the player, `p` times lower when it is a rival's. */
 type KartVoice = (o: AudioNode, t: number, p: number) => void;
 
-const KART_SFX: Partial<Record<Sfx, KartVoice>> = {
+const KART_SFX: Record<KartSfx, KartVoice> = {
   beep: (o, t, p) => { note(o, 660 * p, t, 0.14, 'square', 0.05); },
   go: (o, t, p) => { note(o, 880 * p, t, 0.1, 'square', 0.05); note(o, 1320 * p, t + 0.1, 0.4, 'square', 0.05); },
   boost: (o, t, p) => { // a rising whoosh
@@ -323,13 +325,14 @@ const KART_SFX: Partial<Record<Sfx, KartVoice>> = {
   finalLap: (o, t, p) => { ['E5', 'G5', 'B5', 'E6', 'B5', 'E6'].forEach((n, i) => { note(o, hz(n) * p, t + i * 0.09, i > 4 ? 0.3 : 0.08, 'p25', 0.05); }); },
 };
 
+const isKartSfx = (name: Sfx): name is KartSfx => Object.hasOwn(KART_SFX, name);
+
 /** A sound effect. `far` (0, beside the player, to 1, 20 tiles away) makes it quieter and lower: a rival's. */
 export function sfx(name: Sfx, far = 0) {
   if (!ac) return;
   const { level, pitch } = farOf(far);
   const o = out(level), t = ac.currentTime + 0.01;
-  const voice = KART_SFX[name];
-  if (voice) { voice(o, t, pitch); return; }
+  if (isKartSfx(name)) { KART_SFX[name](o, t, pitch); return; }
   switch (name) {
     case 'move': note(o, 660, t, 0.04, 'square', 0.035); break;
     case 'tick': note(o, 880, t, 0.025, 'p12', 0.04); break;

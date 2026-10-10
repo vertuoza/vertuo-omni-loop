@@ -31,7 +31,7 @@ describe('the particles', () => {
     const born = stepParticles(newParticles(1), [{ kind: 'burst', ...at }], 0.05);
     const later = stepParticles(born, [], 0.1);
     expect(later.list).toHaveLength(born.list.length);
-    expect(later.list.some((q, i) => q.x !== born.list[i]?.x || q.y !== born.list[i]?.y)).toBe(true);
+    expect(later.list.some((q, i) => { const b = born.list[i]; return !b || q.x !== b.x || q.y !== b.y; })).toBe(true);
     expect(later.list.every((q) => q.age === 0.1)).toBe(true);
     expect(stepParticles(born, [], LOOK.burst.life - 0.01).list).toHaveLength(born.list.length);
     expect(stepParticles(born, [], LOOK.burst.life).list).toHaveLength(0);

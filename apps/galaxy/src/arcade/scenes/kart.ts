@@ -111,7 +111,7 @@ export function kartSong(hud: KartHud | null): SongName | null {
   switch (hud?.phase) {
     case 'race': return hud.run?.final ? 'lastLap' : 'race';
     case 'finish': return 'fanfare';
-    default: return null;
+    case 'ready': case 'countdown': case 'paused': case undefined: return null;
   }
 }
 

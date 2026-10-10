@@ -304,7 +304,7 @@ function boxProblems(rows: readonly string[]): string[] {
 /** A prop that is not on a wall tile: on a road, kerb, line, box, start or verge tile (or off the map), or of a kind that does not exist. */
 function propProblems({ rows, props = [] }: TrackSource): string[] {
   return props.flatMap(({ kind, x, y }) => {
-    if (!PROP_KINDS.includes(kind)) return [`${where(x, y)}: unknown prop kind '${String(kind)}'`];
+    if (!PROP_KINDS.includes(kind)) return [`${where(x, y)}: unknown prop kind '${kind}'`];
     const tile = rows[y]?.[x];
     if (tile === 'X') return [];
     const what = tile === undefined ? 'off the map' : `on a ${tile === '.' ? 'verge' : isTileChar(tile) ? LEGEND[tile] : 'unknown'} tile`;
