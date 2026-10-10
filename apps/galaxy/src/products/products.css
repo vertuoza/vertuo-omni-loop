@@ -96,3 +96,42 @@ textarea.pitch-input { width: 100%; resize: vertical; }
 }
 .approvers-row strong { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
 .approvers-add { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+/* Products in the sidebar (PRD 1364 s8): /app/products, one card per product, linking to its product
+   home: its name, its repositories as chips (a shared one marked), its PRD count and what waits on the
+   reader; then the repositories in no product, each with Add to a product. At 393 px a card's chips and
+   counts wrap under its name. */
+.products-cards { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.products-card {
+  display: grid;
+  gap: 10px;
+  height: 100%;
+  padding: 14px 16px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+  color: var(--ask-ink);
+  text-decoration: none;
+  min-width: 0;
+}
+.products-card:hover { border-color: var(--ask-plasma); }
+.products-card:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.products-card-name { font-size: 18px; overflow-wrap: anywhere; }
+.products-card-repos { display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px; }
+.products-chip { padding: 2px 8px; border: 1px solid var(--ask-line-strong); border-radius: 999px; overflow-wrap: anywhere; }
+.products-shared { font-style: normal; color: var(--ask-muted); }
+.products-card-counts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--ask-muted); }
+.products-waiting[data-waiting] { color: var(--ask-ink); font-weight: 700; }
+
+.products-unlinked h2 { margin: 0; font-size: 16px; }
+.products-repo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 10px 16px;
+  border: 1px dashed var(--ask-line-strong);
+  border-radius: 12px;
+}
+.products-repo-name { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.products-add { font-size: 14px; }
